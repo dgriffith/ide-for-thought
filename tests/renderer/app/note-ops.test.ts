@@ -24,6 +24,7 @@ const h = vi.hoisted(() => {
     activeFilePath: 'Note.md' as string | null, activeTab: { type: 'note' } as { type: string } | null,
     content: '', setContent: vi.fn(),
     applyRenameTransitions: vi.fn(),
+    viewMode: 'source' as string, setViewMode: vi.fn(),
   };
   const dialog = {
     showPrompt: vi.fn(), showConfirm: vi.fn(), showNewNoteDialog: vi.fn(), showSnippetPicker: vi.fn(),
@@ -50,7 +51,7 @@ function file(relativePath: string): NoteFile {
 }
 
 const sidebar = { getSelectionPaths: vi.fn(() => [] as string[]), refreshTags: vi.fn(), clearSelection: vi.fn() };
-const editorComp = { restorePosition: vi.fn(), gotoLineColumn: vi.fn(), getOffset: vi.fn(() => 0) };
+const editorComp = { restorePosition: vi.fn(), gotoLineColumn: vi.fn(), getOffset: vi.fn(() => 0), focus: vi.fn() };
 let editorCompRef: typeof editorComp | undefined;
 let ctx: NoteOpsCtx;
 let ops: ReturnType<typeof createNoteOps>;
@@ -69,6 +70,7 @@ beforeEach(() => {
   h.editor.tabs = [];
   h.editor.activeFilePath = 'Note.md';
   h.editor.activeTab = { type: 'note' };
+  h.editor.viewMode = 'source';
   sidebar.getSelectionPaths.mockReturnValue([]);
   editorCompRef = undefined;
   getClipboardStore().clear();
@@ -128,6 +130,55 @@ describe('handleNewNote', () => {
     h.dialog.showNewNoteDialog.mockResolvedValue(null);
     await ops.handleNewNote();
     expect(h.api.notebase.createFile).not.toHaveBeenCalled();
+  });
+});
+
+describe('handleNewNote — the caret lands in the editor (#1561)', () => {
+  beforeEach(() => {
+    editorCompRef = editorComp;
+    h.dialog.showNewNoteDialog.mockResolvedValue({ name: 'fresh', ext: '.md' });
+  });
+
+  it('focuses the editor so a plain new note is typeable without clicking', async () => {
+    await ops.handleNewNote('folder');
+    expect(editorComp.focus).toHaveBeenCalled();
+    // Nothing to restore on an empty note — no caret dispatch.
+    expect(editorComp.restorePosition).not.toHaveBeenCalled();
+  });
+
+  it('gives a preview-only pane an editor to focus, keeping the reading pane', async () => {
+    h.editor.viewMode = 'preview';
+    await ops.handleNewNote('folder');
+    expect(h.editor.setViewMode).toHaveBeenCalledWith('editor-preview');
+    expect(editorComp.focus).toHaveBeenCalled();
+  });
+
+  it('leaves the view mode alone when the pane already has an editor', async () => {
+    for (const mode of ['source', 'editor-preview']) {
+      h.editor.viewMode = mode;
+      await ops.handleNewNote('folder');
+      expect(h.editor.setViewMode).not.toHaveBeenCalled();
+    }
+  });
+
+  it('lets a template caret win over a bare focus', async () => {
+    h.dialog.showNewNoteDialog.mockResolvedValue({ name: 'fresh', ext: '.md', templateFilename: 'daily.md' });
+    h.api.templates.get.mockResolvedValue('Hello {{title}}{{cursor}} world');
+    await ops.handleNewNote('folder');
+    // restorePosition focuses as part of placing the caret.
+    expect(editorComp.restorePosition).toHaveBeenCalledWith(11, 0);
+    expect(editorComp.focus).not.toHaveBeenCalled();
+  });
+
+  it('survives a pane with no editor mounted', async () => {
+    editorCompRef = undefined;
+    await expect(ops.handleNewNote('folder')).resolves.toBeUndefined();
+  });
+
+  it('focuses the editor for the broken-link quick-fix too (#1446 create-from-reference)', async () => {
+    await ops.createNoteFromReference('folder/Missing.md');
+    expect(h.api.notebase.createFile).toHaveBeenCalledWith('folder/Missing.md');
+    expect(editorComp.focus).toHaveBeenCalled();
   });
 });
 

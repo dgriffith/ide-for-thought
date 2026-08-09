@@ -24,9 +24,10 @@ import { substituteTemplate } from '../../../shared/templates';
 import { buildTypedNoteScaffold } from '../../../shared/objects/scaffold';
 import { CONFIRM_KEYS } from '../confirm-keys';
 import type { SafeDeleteBlocker } from '../../../shared/types';
+import { tick } from 'svelte';
 
 /** Minimal structural views of the bind:this component refs the note-ops touch. */
-interface EditorRef { restorePosition(offset: number, scrollTop: number): void; gotoLineColumn(line: number, col: number): void; getOffset(): number; }
+interface EditorRef { restorePosition(offset: number, scrollTop: number): void; gotoLineColumn(line: number, col: number): void; getOffset(): number; focus(): void; }
 interface SidebarRef { getSelectionPaths(): string[]; refreshTags(): void; refreshObjects?(): void; clearSelection(): void; }
 interface SafeDeleteState { selectionCount: number; targets: string[]; blockers: SafeDeleteBlocker[]; proceed: () => void | Promise<void>; }
 
@@ -52,6 +53,29 @@ export function createNoteOps(ctx: NoteOpsCtx) {
 
   /** The active editor caret, for recording a note from-position in nav history. */
   const getOffset = () => ctx.getEditorComponent()?.getOffset();
+
+  /**
+   * Land the caret in the editor after creating a note (#1561). Creating a note
+   * is an authoring action — the user's next move is to type, and having to
+   * click into the pane first is pure friction.
+   *
+   * A group in pure `preview` mode has no editor to focus at all, so a new note
+   * opens as a blank rendered page with nowhere to type. Give it one, keeping
+   * the reading pane the user chose (`editor-preview` rather than `source`).
+   *
+   * `tick()` lets the note (and, if we just switched, the editor) mount; the
+   * extra frame lets CodeMirror finish its own setup before we take focus.
+   */
+  async function focusNewNote(caretOffset: number | null): Promise<void> {
+    if (editor.viewMode === 'preview') editor.setViewMode('editor-preview');
+    await tick();
+    requestAnimationFrame(() => {
+      const component = ctx.getEditorComponent();
+      if (!component) return;
+      if (caretOffset !== null) component.restorePosition(caretOffset, 0);
+      else component.focus();
+    });
+  }
 
   async function handleNewNote(directory: string = '') {
     if (!notebase.meta) return;
@@ -103,14 +127,9 @@ export function createNoteOps(ctx: NoteOpsCtx) {
     // Record nav history so Back returns to the note you were on before
     // creating this one (#1446 — creation paths were dead for Back).
     await openNoteRecordingHistory(relativePath, getOffset);
-    if (caretOffset !== null) {
-      // Wait one frame so the editor has mounted the file before we
-      // restore the position — restorePosition is a no-op against an
-      // empty doc otherwise. Capture in a const so TS keeps the
-      // narrowing past the closure boundary.
-      const offset = caretOffset;
-      requestAnimationFrame(() => ctx.getEditorComponent()?.restorePosition(offset, 0));
-    }
+    // A template / type scaffold carries its own caret offset; a plain note
+    // just needs the focus.
+    await focusNewNote(caretOffset);
     ctx.getSidebar()?.refreshTags();
     ctx.getSidebar()?.refreshObjects?.();
   }
@@ -129,6 +148,7 @@ export function createNoteOps(ctx: NoteOpsCtx) {
       await notebase.refresh();
     }
     await openNoteRecordingHistory(relativePath, getOffset);
+    await focusNewNote(null);
     ctx.getSidebar()?.refreshTags();
     ctx.getSidebar()?.refreshObjects?.();
   }
