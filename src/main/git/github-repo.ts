@@ -27,6 +27,12 @@ export interface GitHubRepoRef {
 /** Pages can only serve from the repo root or `/docs` — no other path. */
 export type PagesPath = '/' | '/docs';
 
+/**
+ * Injectable so tests don't actually wait. Real callers never pass this.
+ */
+export type Sleep = (ms: number) => Promise<void>;
+const realSleep: Sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
 function headers(token: string): Record<string, string> {
   return {
     Authorization: `Bearer ${token}`,
@@ -81,6 +87,32 @@ export async function checkRepoExists(
   if (res.status === 404) return 'missing';
   if (res.status === 401) throw new Error('GitHub rejected the token (invalid or expired).');
   throw new Error(`GitHub returned ${res.status} ${res.statusText} looking up ${repoSlug(ref)}.`);
+}
+
+/**
+ * Block until a just-created repo answers, or give up.
+ *
+ * `POST /user/repos` returns 201 before the repository is necessarily ready for
+ * git traffic, so pushing immediately can hit "404 Not Found" on a repo GitHub
+ * has just told us it created. Observed in the field on the very first publish
+ * (#254 follow-on). Bounded: six tries over ~7s, then a message that says to
+ * simply publish again rather than pretending something is broken.
+ */
+export async function waitForRepo(
+  token: string,
+  ref: GitHubRepoRef,
+  opts: { attempts?: number; sleep?: Sleep } = {},
+): Promise<void> {
+  const attempts = opts.attempts ?? 6;
+  const sleep = opts.sleep ?? realSleep;
+  for (let i = 0; i < attempts; i++) {
+    if ((await checkRepoExists(token, ref)) === 'exists') return;
+    await sleep(Math.min(250 * 2 ** i, 2000));
+  }
+  throw new Error(
+    `GitHub created ${repoSlug(ref)} but it isn't answering yet. Publish again in a moment — ` +
+      'the repository is there, it just needs a few seconds to come up.',
+  );
 }
 
 /** The authenticated user's login, for deciding user-repo vs org-repo creation. */
@@ -152,25 +184,45 @@ export async function createRepo(
 export async function enablePages(
   token: string,
   ref: GitHubRepoRef,
-  opts: { branch: string; path: PagesPath },
+  opts: { branch: string; path: PagesPath; attempts?: number; sleep?: Sleep },
 ): Promise<string | null> {
-  const res = await fetch(`${API}/repos/${ref.owner}/${ref.repo}/pages`, {
-    method: 'POST',
-    headers: { ...headers(token), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ source: { branch: opts.branch, path: opts.path } }),
-  });
-  if (res.ok) {
-    const body = (await res.json()) as { html_url?: string };
-    return body.html_url ?? null;
+  const attempts = opts.attempts ?? 4;
+  const sleep = opts.sleep ?? realSleep;
+  let lastStatus = 0;
+
+  for (let i = 0; i < attempts; i++) {
+    const res = await fetch(`${API}/repos/${ref.owner}/${ref.repo}/pages`, {
+      method: 'POST',
+      headers: { ...headers(token), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source: { branch: opts.branch, path: opts.path } }),
+    });
+    if (res.ok) {
+      const body = (await res.json()) as { html_url?: string };
+      return body.html_url ?? null;
+    }
+    if (res.status === 409) return getPagesUrl(token, ref);
+    if (res.status === 403) {
+      throw new Error(
+        'GitHub refused to enable Pages. A fine-grained token needs Pages: write, and Pages on a ' +
+          'private repository requires a paid GitHub plan.',
+      );
+    }
+    lastStatus = res.status;
+    // 5xx isn't in the documented set (201/409/422). Observed in the field on a
+    // first publish, and a plain retry cleared it — Pages hadn't caught up with
+    // a branch pushed seconds earlier. Worth waiting out; a 4xx is a real
+    // answer and retrying it would just be noise.
+    if (res.status < 500) {
+      throw new Error(`Enabling GitHub Pages failed: ${res.status} ${res.statusText}.`);
+    }
+    if (i < attempts - 1) await sleep(Math.min(1000 * 2 ** i, 4000));
   }
-  if (res.status === 409) return getPagesUrl(token, ref);
-  if (res.status === 403) {
-    throw new Error(
-      'GitHub refused to enable Pages. A fine-grained token needs Pages: write, and Pages on a ' +
-        'private repository requires a paid GitHub plan.',
-    );
-  }
-  throw new Error(`Enabling GitHub Pages failed: ${res.status} ${res.statusText}.`);
+
+  throw new Error(
+    `GitHub couldn't enable Pages yet (${lastStatus}). Your site content is pushed to ` +
+      `${opts.branch} — finish in the repository's Settings → Pages, or just publish again once ` +
+      'the branch has settled.',
+  );
 }
 
 /** The live Pages URL, or null when Pages isn't configured. Never throws. */

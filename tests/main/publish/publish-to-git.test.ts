@@ -38,6 +38,7 @@ const h = vi.hoisted(() => {
     gh: {
       checkRepoExists: vi.fn<() => Promise<'exists' | 'missing'>>(async () => 'exists'),
       createRepo: vi.fn(async () => {}),
+      waitForRepo: vi.fn(async () => {}),
       enablePages: vi.fn<() => Promise<string | null>>(async () => 'https://o.github.io/r/'),
     },
   };
@@ -150,6 +151,20 @@ describe('publishToGit — GitHub repo provisioning', () => {
     expect(h.gh.createRepo).toHaveBeenCalledWith('tok', { owner: 'o', repo: 'r' }, expect.objectContaining({ private: false }));
     expect(res.repoCreated).toBe(true);
     expect(res.pushed).toBe(true);
+  });
+
+  it('waits for the new repo to come up BEFORE pushing to it', async () => {
+    // The first real run failed exactly here: 201 from the create, then a 404
+    // from the push, because the repo wasn't taking git traffic yet.
+    h.gh.checkRepoExists.mockResolvedValue('missing');
+    h.pg.pendingChanges.mockResolvedValue([{ path: 'index.html', status: 'added' }]);
+    await publishToGit(root, 't', { ...opts, createRepo: { private: false } });
+
+    expect(h.gh.waitForRepo).toHaveBeenCalledWith('tok', { owner: 'o', repo: 'r' });
+    expect(h.gh.waitForRepo.mock.invocationCallOrder[0]!)
+      .toBeGreaterThan(h.gh.createRepo.mock.invocationCallOrder[0]!);
+    expect(h.gh.waitForRepo.mock.invocationCallOrder[0]!)
+      .toBeLessThan(h.pg.push.mock.invocationCallOrder[0]!);
   });
 
   it('carries the private choice through', async () => {

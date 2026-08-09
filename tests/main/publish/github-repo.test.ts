@@ -19,6 +19,7 @@ import {
   createRepo,
   enablePages,
   getPagesUrl,
+  waitForRepo,
   pagesPathForSubdir,
 } from '../../../src/main/git/github-repo';
 
@@ -157,9 +158,69 @@ describe('enablePages', () => {
       .rejects.toThrow(/Pages: write.*paid GitHub plan/s);
   });
 
+  it('waits out a 500 and succeeds on a later try', async () => {
+    // Seen in the field on a first publish: Pages 500s while it catches up with
+    // a branch pushed seconds ago, and the identical request then works.
+    const slept: number[] = [];
+    queue = [
+      { status: 500 },
+      { status: 500 },
+      { status: 201, body: { html_url: 'https://dave.github.io/notes/' } },
+    ];
+    const url = await enablePages('tok', ref, {
+      branch: 'gh-pages', path: '/', sleep: async (ms) => { slept.push(ms); },
+    });
+
+    expect(url).toBe('https://dave.github.io/notes/');
+    expect(calls).toHaveLength(3);
+    expect(slept).toEqual([1000, 2000]); // backs off rather than hammering
+  });
+
+  it('gives up on a persistent 500 by telling you where to finish the job', async () => {
+    queue = [{ status: 500 }, { status: 500 }, { status: 500 }, { status: 500 }];
+    await expect(enablePages('tok', ref, {
+      branch: 'gh-pages', path: '/', sleep: async () => {},
+    })).rejects.toThrow(/content is pushed to gh-pages.*Settings → Pages/s);
+  });
+
+  it('does not retry a 4xx — that is a real answer', async () => {
+    queue = [{ status: 422 }, { status: 201, body: { html_url: 'nope' } }];
+    await expect(enablePages('tok', ref, {
+      branch: 'gh-pages', path: '/', sleep: async () => {},
+    })).rejects.toThrow(/422/);
+    expect(calls).toHaveLength(1);
+  });
+
   it('getPagesUrl stays quiet when Pages is off', async () => {
     queue = [{ status: 404 }];
     expect(await getPagesUrl('tok', ref)).toBeNull();
+  });
+});
+
+describe('waitForRepo', () => {
+  const ref = { owner: 'dave', repo: 'notes' };
+
+  it('polls until the just-created repo answers', async () => {
+    // `POST /user/repos` returns 201 before the repo takes git traffic, so the
+    // first push 404'd on a repo GitHub had just said it created.
+    const slept: number[] = [];
+    queue = [{ status: 404 }, { status: 404 }, { status: 200 }];
+    await waitForRepo('tok', ref, { sleep: async (ms) => { slept.push(ms); } });
+
+    expect(calls).toHaveLength(3);
+    expect(slept).toEqual([250, 500]);
+  });
+
+  it('returns immediately when the repo is already live', async () => {
+    queue = [{ status: 200 }];
+    await waitForRepo('tok', ref, { sleep: async () => {} });
+    expect(calls).toHaveLength(1);
+  });
+
+  it('gives up with "publish again" rather than claiming something is broken', async () => {
+    queue = Array.from({ length: 6 }, () => ({ status: 404 }));
+    await expect(waitForRepo('tok', ref, { attempts: 6, sleep: async () => {} }))
+      .rejects.toThrow(/Publish again in a moment/);
   });
 });
 

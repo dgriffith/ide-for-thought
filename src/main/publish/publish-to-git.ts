@@ -94,6 +94,9 @@ export async function publishToGit(
           private: opts.createRepo.private,
           description: `Published from Minerva — ${target.label}`,
         });
+        // 201 doesn't mean the repo is ready for git traffic — pushing straight
+        // away can 404 on the repo GitHub just said it made.
+        await gh.waitForRepo(token, ref);
         repoCreated = true;
       }
     }
