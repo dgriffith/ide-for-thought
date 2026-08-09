@@ -1,0 +1,7 @@
+# A blank issue stays one click away: the forms are there to help someone who
+# wants the help, not to make a one-line report cost more than one line (#1558).
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://github.com/dgriffith/ide-for-thought/tree/main/docs
+    about: How a feature is meant to work — worth a look before filing.

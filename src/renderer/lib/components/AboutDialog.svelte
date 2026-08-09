@@ -17,7 +17,8 @@
   let { onClose }: Props = $props();
 
   const REPO_URL = 'https://github.com/dgriffith/ide-for-thought';
-  const ISSUES_URL = 'https://github.com/dgriffith/ide-for-thought/issues';
+  // The template chooser, matching Help → Report an Issue (see main/menu.ts).
+  const ISSUES_URL = 'https://github.com/dgriffith/ide-for-thought/issues/new/choose';
   const FUTURE_TOKENS_URL = 'https://github.com/jordanrubin/FUTURE_TOKENS';
 
   let info = $state<AppInfo | null>(null);

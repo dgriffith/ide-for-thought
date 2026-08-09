@@ -1,0 +1,33 @@
+name: Feature request
+description: Suggest something Minerva should do.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Only the first box is required. If you already know exactly what you
+        want built, say so there and skip the rest.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: |
+        The problem you're running into, or the thing you want to be able to
+        do. Describing the need rather than the solution often surfaces a
+        better fix than either of us had in mind.
+      placeholder: I keep losing my place when I switch between notes while reading.
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like Minerva to do?
+      description: Your idea for the fix, if you have one.
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: How do you work around it today?
+      description: Useful for judging how much the gap costs you.
