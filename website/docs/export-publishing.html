@@ -111,8 +111,69 @@
     </figure>
 
     <h2 id="publish-to-web">Put it online</h2>
-    <p>Making a website leaves the files on your computer. When you want it live for others to visit, Publish to Web sends it to the web for you. Set up a destination once, then republish with a single action whenever you've made changes and want the live version to catch up.</p>
-    <p>You can also do a <b>trial run</b> first: Minerva shows you exactly what would change before anything actually goes live, so you can double-check you're publishing what you intended.</p>
+    <p>Making a website leaves the files on your computer. When you want it live for others to visit, <b>Publish to Web</b> sends it to a destination you set up once. After that, republishing is a single action whenever you've made changes and want the live version to catch up.</p>
+    <p>There are two kinds of destination. Pick whichever you already have, or whichever sounds less like work:</p>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">A GitHub repository</div>
+        <div class="v">Free hosting through GitHub Pages, with a real web address. Minerva can set the whole thing up for you, including creating the repository. Best if you don't already have somewhere to host a site.</div>
+      </div>
+      <div class="row">
+        <div class="k">An S3 bucket</div>
+        <div class="v">Amazon S3, or anything that speaks the same language — Cloudflare R2, Backblaze B2, DigitalOcean Spaces, MinIO on your own server. Best if you already have storage, or want the site behind your own domain and CDN.</div>
+      </div>
+    </div>
+    <p>Add one from the Publish window: give it a name, choose which kind, and fill in the handful of details below. You can keep several destinations — a public site and a private draft copy, say — and publish to whichever you mean today.</p>
+
+    <h3 id="github-pages">Publishing to GitHub Pages</h3>
+    <p>Give Minerva the repository's address and the branch to publish to (<code>gh-pages</code> is the usual choice, and the default). Then either sign in with the GitHub command-line tool, or paste a personal access token into the destination — the token is stored encrypted on your machine and never leaves it except to talk to GitHub. <b>Test connection</b> checks it before you rely on it.</p>
+    <p>Two things Minerva handles so you don't have to visit GitHub's settings:</p>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Creating the repository</div>
+        <div class="v">If the repository doesn't exist yet, publishing stops and offers to create it — <b>public</b> or <b>private</b>, your choice. Nothing is created until you pick one, and nothing is published in the meantime.</div>
+      </div>
+      <div class="row">
+        <div class="k">Turning Pages on</div>
+        <div class="v">After the first successful publish, Minerva points GitHub Pages at your branch and shows you the address of the finished site. GitHub takes a minute or so to build it the first time.</div>
+      </div>
+    </div>
+    <p>A few things GitHub decides, not Minerva:</p>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Where the site can live</div>
+        <div class="v">Pages serves from the top of the repository or from a <code>docs</code> folder — nowhere else. If you've set your destination to publish into some other subdirectory, the files still get pushed; you'd just point Pages at them yourself.</div>
+      </div>
+      <div class="row">
+        <div class="k">Private repositories</div>
+        <div class="v">GitHub only serves Pages from a private repository on a paid plan. On a free account, choose public.</div>
+      </div>
+      <div class="row">
+        <div class="k">What your token may do</div>
+        <div class="v">Publishing needs permission to push. Creating the repository for you needs a little more than that, and switching Pages on more again. If a token can push but not create, Minerva says exactly which permission is missing rather than leaving you with a number.</div>
+      </div>
+    </div>
+
+    <h3 id="s3-bucket">Publishing to S3 or compatible storage</h3>
+    <p>Give Minerva the bucket name and the credentials to write to it. The secret key is stored encrypted, the same as the GitHub token, and <b>Test connection</b> confirms the bucket is reachable before you publish into it.</p>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Endpoint</div>
+        <div class="v">Leave blank for Amazon S3. For R2, B2, Spaces, or a MinIO server, paste that provider's endpoint address — that one field is what makes the others work.</div>
+      </div>
+      <div class="row">
+        <div class="k">Region</div>
+        <div class="v">Your bucket's region, where the provider uses one.</div>
+      </div>
+      <div class="row">
+        <div class="k">Key prefix</div>
+        <div class="v">A folder inside the bucket to publish into, if you don't want the site at the very top.</div>
+      </div>
+    </div>
+    <p>Minerva uploads the site; serving it is the bucket's job. Whichever provider you're using, its own docs will tell you how to switch on website hosting — or you can put a CDN in front of it and use your own domain.</p>
+
+    <h3 id="trial-run">Try it before it's live</h3>
+    <p>Every destination supports a <b>trial run</b>: Minerva does everything except the last step and shows you exactly which pages would be added, changed, or removed. It's the quickest way to confirm you're publishing what you think you are — particularly the first time, or after a big reorganization.</p>
 
     <div class="box">
       <span class="label">This one goes public</span>

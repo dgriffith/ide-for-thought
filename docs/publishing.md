@@ -67,3 +67,52 @@ publish:
   absolute / URL references are ignored.
 
 Notes without any of these keys publish exactly as before.
+
+## Where the output goes — publish destinations
+
+Rendering (this exporter) and shipping are separate concerns: the exporter
+produces a file tree, and a **transport** puts it somewhere
+(`src/main/publish/transport/`, seam added in #1444). Two exist.
+
+### Git remote (`kind: 'git'`, the default)
+
+`publish-to-git.ts` runs the exporter into a per-target checkout under
+`.minerva/publish-cache/<target-id>/`, commits, and pushes. The git stack is
+**isomorphic-git** — HTTPS only, no SSH and no credential helper — so auth is a
+token: the target's own (encrypted via safeStorage), else `gh auth token`, else
+`GH_TOKEN`/`GITHUB_TOKEN`. SSH remote URLs are rewritten to HTTPS.
+
+The branch is created when absent: a clone of a missing ref falls back to
+`git init` on that branch, and the push creates it remotely.
+
+For **github.com** remotes specifically, `git/github-repo.ts` adds REST-only
+provisioning the git protocol can't do (#254 follow-on):
+
+- **Repo creation** is offered when the repo 404s, never automatic — the flow
+  returns `repoMissing` with nothing exported and waits for an explicit
+  `createRepo: { private }` from the UI. Routes to `POST /user/repos` or
+  `POST /orgs/{owner}/repos` depending on whether the owner is the token's own
+  account.
+- **Pages** is switched on after the first push (it rejects a branch that
+  doesn't exist yet) and never fails the publish — a Pages problem is reported
+  as `pagesNote` beside a successful push. Pages serves only `/` or `/docs`;
+  any other `subdir` is reported rather than silently mis-wired.
+- **Everything above is gated on `parseGitHubRepo` returning non-null**, so
+  GitLab / Codeberg / self-hosted remotes push with no provisioning attempted.
+
+> **GitHub reports success before the state it implies is true.** Repo creation
+> returns 201 before the repo takes git traffic; Pages 500s while it catches up
+> with a just-pushed branch; and isomorphic-git's `clone` of a *zero-ref* remote
+> returns early **without throwing and without checking out**, leaving the
+> workspace on the default branch name. All three produced real first-publish
+> failures. The code waits for the repo, retries Pages on 5xx, and verifies the
+> workspace is actually on the target branch rather than trusting that the clone
+> didn't throw. Treat "the API said OK" as a hypothesis on this path.
+
+### S3 / S3-compatible (`kind: 's3'`)
+
+One shape covers Amazon S3 and R2 / B2 / Spaces / MinIO via a custom `endpoint`
+(blank ⇒ AWS). `subdir` is the key prefix. The secret access key is write-only
+across IPC and stored encrypted; only `hasSecret` reaches the renderer. Minerva
+uploads objects — enabling website hosting or fronting the bucket with a CDN is
+the provider's business, not the app's.
