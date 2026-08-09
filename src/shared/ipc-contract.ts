@@ -323,7 +323,10 @@ export interface ChannelMap {
   'publish:listTargets': () => PublishTarget[];
   'publish:upsertTarget': (target: PublishTarget) => PublishTarget[];
   'publish:removeTarget': (id: string) => PublishTarget[];
-  'publish:toGit': (targetId: string, opts?: { dryRun?: boolean }) =>
+  'publish:toGit': (
+    targetId: string,
+    opts?: { dryRun?: boolean; createRepo?: { private: boolean } },
+  ) =>
     | { ok: true; result: {
         targetId: string;
         dryRun: boolean;
@@ -334,6 +337,10 @@ export interface ChannelMap {
         pushed: boolean;
         sha?: string;
         commitMessage?: string;
+        repoMissing?: { owner: string; repo: string };
+        repoCreated?: boolean;
+        pagesUrl?: string;
+        pagesNote?: string;
       } }
     | { ok: false; error: string };
   /** Validate S3 credentials + endpoint against the bucket, before saving (#1444). */

@@ -13,7 +13,8 @@ export function getPublishStore() {
   return {
     runExport: (args: Parameters<typeof api.publish.runExport>[0]) =>
       api.publish.runExport(args),
-    toGit: (targetId: string, opts?: { dryRun?: boolean }) => api.publish.toGit(targetId, opts),
+    toGit: (targetId: string, opts?: { dryRun?: boolean; createRepo?: { private: boolean } }) =>
+      api.publish.toGit(targetId, opts),
     upsertTarget: (target: Parameters<typeof api.publish.upsertTarget>[0]) =>
       api.publish.upsertTarget(target),
     removeTarget: (id: string) => api.publish.removeTarget(id),

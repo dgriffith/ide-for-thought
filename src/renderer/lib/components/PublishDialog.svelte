@@ -169,6 +169,22 @@
     }
   }
 
+  /**
+   * Answer the "repository doesn't exist" prompt: create it, then publish for
+   * real. Reached only from the inline prompt, so the user has just chosen the
+   * visibility — nothing here happens on its own.
+   */
+  async function createRepoAndPublish(target: PublishTarget, isPrivate: boolean): Promise<void> {
+    busyId = target.id;
+    outcome = null;
+    try {
+      const res = await publish.toGit(target.id, { createRepo: { private: isPrivate } });
+      outcome = { targetId: target.id, dryRun: false, res };
+    } finally {
+      busyId = null;
+    }
+  }
+
   function counts(res: PublishGitResponse): string {
     if (!res.ok) return '';
     const c = res.result.changes;
@@ -238,6 +254,24 @@
                   <div class="outcome-head">Publish failed</div>
                   <pre class="raw">{res.error}</pre>
                   <button class="ghost small" onclick={() => copyError(res.error)}>Copy error</button>
+                {:else if res.result.repoMissing}
+                  <div class="outcome-head">Repository not found</div>
+                  <div class="muted">
+                    GitHub has no <code>{res.result.repoMissing.owner}/{res.result.repoMissing.repo}</code>
+                    — or your token can't see it. Nothing was published.
+                  </div>
+                  <div class="repo-create">
+                    <button onclick={() => void createRepoAndPublish(t, false)} disabled={busyId === t.id}>
+                      Create public repository &amp; publish
+                    </button>
+                    <button class="ghost" onclick={() => void createRepoAndPublish(t, true)} disabled={busyId === t.id}>
+                      Create private &amp; publish
+                    </button>
+                  </div>
+                  <div class="muted">
+                    GitHub Pages serves a private repository only on a paid plan. The branch
+                    <code>{res.result.branch}</code> is created by the first push either way.
+                  </div>
                 {:else if outcome.dryRun}
                   <div class="outcome-head">Preview — {counts(res)}</div>
                   {#if res.result.changes.length === 0}
@@ -259,6 +293,18 @@
                     <div class="muted">Uploaded to <code>s3://{t.bucket}{t.subdir && t.subdir !== '.' ? `/${t.subdir}` : ''}</code>.</div>
                   {:else}
                     <div class="muted">Pushed to <code>{res.result.branch}</code>{res.result.branchCreated ? ' (created)' : ''} · {res.result.sha?.slice(0, 7)} · {res.result.commitMessage}</div>
+                    {#if res.result.repoCreated}
+                      <div class="muted">Repository created.</div>
+                    {/if}
+                    {#if res.result.pagesUrl}
+                      {@const pagesUrl = res.result.pagesUrl}
+                      <div class="muted">
+                        Pages: <button class="link" onclick={() => void api.shell.openExternal(pagesUrl)}>{pagesUrl}</button>
+                        <span class="muted"> — the first build can take a minute.</span>
+                      </div>
+                    {:else if res.result.pagesNote}
+                      <div class="muted">{res.result.pagesNote}</div>
+                    {/if}
                   {/if}
                 {:else}
                   <div class="outcome-head">Up to date</div>
@@ -377,6 +423,12 @@
   button.primary { background: var(--accent); color: var(--accent-ink, #1a1a1a); border-color: transparent; }
   button.ghost { background: none; }
   button.small { padding: 2px 8px; font-size: 0.78rem; }
+
+  .repo-create { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
+  button.link {
+    background: none; border: none; padding: 0; color: var(--accent);
+    text-decoration: underline; font-size: inherit;
+  }
 
   .outcome { margin-top: 10px; padding: 10px 12px; border-radius: 6px; background: var(--bg-inset, var(--bg)); font-size: 0.84rem; }
   .outcome.error { border: 1px solid var(--accent, #c66); }
