@@ -67,10 +67,12 @@ test('export-scopes-privacy', async () => {
   await h.win.waitForTimeout(300);
 });
 
-// Publish to Web with one saved target, showing the Preview / Publish actions.
-// Seed the target first (the copied vault is throwaway) so the dialog shows a
-// real card instead of its empty state. We do NOT click Preview/Publish — that
-// would hit the network.
+// Publish to Web with a saved target of EACH kind, showing the Preview /
+// Publish actions. Two targets because the docs page now opens on the choice
+// between a GitHub repository and an S3 bucket — a shot with only a git card
+// illustrates half of what the text describes. Seeded first (the copied vault
+// is throwaway) so the dialog shows real cards instead of its empty state. We
+// do NOT click Preview/Publish — that would hit the network.
 test('export-publishing', async () => {
   await h.win.evaluate(async () => {
     // window.api is the app's preload bridge; not in the DOM lib types.
@@ -83,6 +85,16 @@ test('export-publishing', async () => {
       gitBranch: 'gh-pages',
       subdir: '.',
       commitMessageTemplate: 'Publish {{date}} from Minerva',
+    });
+    await api.publish.upsertTarget({
+      id: 'garden-mirror',
+      label: 'Garden Mirror',
+      kind: 's3',
+      exporter: 'static-site',
+      bucket: 'mandolin-garden',
+      endpoint: 'https://a1b2c3.r2.cloudflarestorage.com',
+      region: 'auto',
+      subdir: '.',
     });
   });
   await sendMenu('menu:publish');

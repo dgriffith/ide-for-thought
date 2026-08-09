@@ -105,10 +105,6 @@
       </div>
     </div>
 
-    <figure class="shot-img">
-      <img src="img/export-publishing.png" alt="A browser showing the finished site: a sidebar listing your notes, a search box, and a note open in the main pane." loading="lazy" />
-      <figcaption>Screenshot — Your notes as a website</figcaption>
-    </figure>
 
     <h2 id="publish-to-web">Put it online</h2>
     <p>Making a website leaves the files on your computer. When you want it live for others to visit, <b>Publish to Web</b> sends it to a destination you set up once. After that, republishing is a single action whenever you've made changes and want the live version to catch up.</p>
@@ -124,6 +120,11 @@
       </div>
     </div>
     <p>Add one from the Publish window: give it a name, choose which kind, and fill in the handful of details below. You can keep several destinations — a public site and a private draft copy, say — and publish to whichever you mean today.</p>
+
+    <figure class="shot-img">
+      <img src="img/export-publishing.png" alt="The Publish to Web window listing two saved destinations: a GitHub repository publishing to the gh-pages branch, with Preview and Publish buttons, and an S3 bucket with a Publish button." loading="lazy" />
+      <figcaption>Screenshot — Publish to Web, with a destination of each kind</figcaption>
+    </figure>
 
     <h3 id="github-pages">Publishing to GitHub Pages</h3>
     <p>Give Minerva the repository's address and the branch to publish to (<code>gh-pages</code> is the usual choice, and the default). Then either sign in with the GitHub command-line tool, or paste a personal access token into the destination — the token is stored encrypted on your machine and never leaves it except to talk to GitHub. <b>Test connection</b> checks it before you rely on it.</p>
@@ -173,7 +174,7 @@
     <p>Minerva uploads the site; serving it is the bucket's job. Whichever provider you're using, its own docs will tell you how to switch on website hosting — or you can put a CDN in front of it and use your own domain.</p>
 
     <h3 id="trial-run">Try it before it's live</h3>
-    <p>Every destination supports a <b>trial run</b>: Minerva does everything except the last step and shows you exactly which pages would be added, changed, or removed. It's the quickest way to confirm you're publishing what you think you are — particularly the first time, or after a big reorganization.</p>
+    <p>A GitHub destination offers <b>Preview</b>: Minerva does everything except the final push and shows you exactly which pages would be added, changed, or removed. It's the quickest way to confirm you're publishing what you think you are — particularly the first time, or after a big reorganization. An S3 destination publishes straight away, so give the site itself a look before you send it.</p>
 
     <div class="box">
       <span class="label">This one goes public</span>
