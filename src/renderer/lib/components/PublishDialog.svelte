@@ -18,6 +18,10 @@
   let loaded = $state(false);
   let showForm = $state(false);
   let busyId = $state<string | null>(null);
+  /** Whether the in-flight run is a preview. The button labels describe the
+   *  OPERATION, not the target kind, now that both kinds can be previewed —
+   *  otherwise previewing an S3 target reads "Uploading…", which is a lie. */
+  let busyDryRun = $state(false);
   // Last publish/preview outcome, shown under its target.
   let outcome = $state<{ targetId: string; dryRun: boolean; res: PublishGitResponse } | null>(null);
 
@@ -160,6 +164,7 @@
 
   async function run(target: PublishTarget, dryRun: boolean): Promise<void> {
     busyId = target.id;
+    busyDryRun = dryRun;
     outcome = null;
     try {
       const res = await publish.toGit(target.id, { dryRun });
@@ -219,13 +224,14 @@
                 {/if}
               </div>
               <div class="target-actions">
-                {#if t.kind !== 's3'}
-                  <button onclick={() => run(t, true)} disabled={busyId === t.id}>
-                    {busyId === t.id ? 'Working…' : 'Preview'}
-                  </button>
-                {/if}
+                <!-- Both kinds preview: publishToS3 lists every add / change /
+                     delete and returns before uploading, exactly as the git
+                     path does before pushing. -->
+                <button onclick={() => run(t, true)} disabled={busyId === t.id}>
+                  {busyId === t.id && busyDryRun ? 'Working…' : 'Preview'}
+                </button>
                 <button class="primary" onclick={() => run(t, false)} disabled={busyId === t.id}>
-                  {busyId === t.id && t.kind === 's3' ? 'Uploading…' : 'Publish'}
+                  {busyId === t.id && !busyDryRun && t.kind === 's3' ? 'Uploading…' : 'Publish'}
                 </button>
                 <button class="ghost" onclick={() => removeTarget(t.id)} disabled={busyId === t.id} title="Remove target">✕</button>
               </div>

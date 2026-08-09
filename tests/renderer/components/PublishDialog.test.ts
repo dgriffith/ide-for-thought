@@ -109,3 +109,54 @@ describe('PublishDialog — git target token (#1508)', () => {
     await view.findByText(/accepted the token/);
   });
 });
+
+describe('PublishDialog — previewing an S3 target', () => {
+  const s3Target = {
+    id: 'mirror', label: 'Garden Mirror', kind: 's3' as const,
+    exporter: 'static-site', bucket: 'garden', subdir: '.',
+  };
+
+  it('offers Preview for an S3 destination, not just a git one', async () => {
+    // The engine always supported it — publishToS3 computes the full change
+    // list and returns before uploading — but the button was git-only.
+    api.publish.listTargets.mockResolvedValue([s3Target]);
+    api.publish.toGit.mockResolvedValue({
+      ok: true,
+      result: { targetId: 'mirror', dryRun: true, branch: '', branchCreated: false, changes: [], committed: false, pushed: false },
+    });
+
+    const view = render(PublishDialog, { onClose: vi.fn() });
+    const preview = await view.findByRole('button', { name: 'Preview' });
+    await fireEvent.click(preview);
+
+    expect(api.publish.toGit).toHaveBeenCalledWith('mirror', { dryRun: true });
+  });
+
+  it('says "Working…", not "Uploading…", while a preview is in flight', async () => {
+    // The old label keyed off the target KIND, so previewing an S3 target
+    // would have claimed to be uploading — the exact thing a preview isn't.
+    api.publish.listTargets.mockResolvedValue([s3Target]);
+    let release: (v: unknown) => void = () => {};
+    api.publish.toGit.mockReturnValue(new Promise((r) => { release = r; }));
+
+    const view = render(PublishDialog, { onClose: vi.fn() });
+    await fireEvent.click(await view.findByRole('button', { name: 'Preview' }));
+
+    expect(view.getByRole('button', { name: 'Working…' })).toBeTruthy();
+    expect(view.queryByRole('button', { name: 'Uploading…' })).toBeNull();
+
+    release({ ok: true, result: { targetId: 'mirror', dryRun: true, branch: '', branchCreated: false, changes: [], committed: false, pushed: false } });
+  });
+
+  it('still says "Uploading…" for a real S3 publish', async () => {
+    api.publish.listTargets.mockResolvedValue([s3Target]);
+    let release: (v: unknown) => void = () => {};
+    api.publish.toGit.mockReturnValue(new Promise((r) => { release = r; }));
+
+    const view = render(PublishDialog, { onClose: vi.fn() });
+    await fireEvent.click(await view.findByRole('button', { name: 'Publish' }));
+
+    expect(view.getByRole('button', { name: 'Uploading…' })).toBeTruthy();
+    release({ ok: true, result: { targetId: 'mirror', dryRun: false, branch: '', branchCreated: false, changes: [], committed: true, pushed: true } });
+  });
+});
