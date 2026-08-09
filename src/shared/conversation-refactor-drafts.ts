@@ -55,7 +55,7 @@ export interface ConversationReorgDraft extends ConversationToolDraft {
   /** Plan-level problems surfaced before apply (collisions, cycles, skips). */
   warnings: string[];
   /** True when every item is a whole FOLDER move (batched propose_folder_move,
-   *  #1778) rather than a note move. The card says "folders" and the file
+   *  PR #1777) rather than a note move. The card says "folders" and the file
    *  handler emits `folder-refactor` payloads instead of `note-refactor`.
    *  `affectedNotes` still lists notes either way — for a folder that's the
    *  notes inside it plus the referrers whose links get rewritten. */
@@ -72,6 +72,10 @@ export interface DeleteDraftItem {
   /** Notes OUTSIDE the deletion set that link into this note — i.e. links
    *  that will dangle once it's gone. Empty when nothing points here. */
   inbound: { source: string; sourceTitle: string; linkCount: number }[];
+  /** Which of `folderPaths` this note sits inside, on a folder delete. Carried
+   *  explicitly rather than derived from the path so the card can group by
+   *  folder without re-deriving prefixes. Absent on a per-note delete. */
+  folder?: string;
 }
 
 /**
@@ -87,13 +91,20 @@ export interface ConversationDeleteDraft extends ConversationToolDraft {
   items: DeleteDraftItem[];
   /** Per-note problems surfaced before apply (missing file, not a note). */
   warnings: string[];
-  /** Set by propose_folder_delete: the folder being deleted whole. `items`
-   *  then lists the notes inside it (for the review card + inbound audit), but
-   *  the delete is all-or-nothing — the file handler files ONE `folder-delete`
-   *  proposal for `folderPath` rather than per-note `note-delete`s. */
-  folderPath?: string;
-  /** Count of non-note assets (images/pdfs/…) inside `folderPath` that will be
-   *  removed with it — surfaced on the card so the user knows. */
+  /**
+   * Set by propose_folder_delete: the folders being deleted whole (#1778).
+   * `items` then lists the notes inside them (for the review card + inbound
+   * audit), each tagged with its `folder`. Each folder is all-or-nothing — the
+   * file handler emits one `folder-delete` payload per folder rather than
+   * per-note `note-delete`s — so selection on the card is per FOLDER, and the
+   * `selected` array sent back on approve carries folder paths, not note paths.
+   *
+   * An array even for a single folder, so the card and handler have one shape
+   * to reason about; a lone folder simply renders without checkboxes.
+   */
+  folderPaths?: string[];
+  /** Count of non-note assets (images/pdfs/…) inside `folderPaths` that will be
+   *  removed with them — surfaced on the card so the user knows. */
   assetCount?: number;
 }
 

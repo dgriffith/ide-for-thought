@@ -58,7 +58,7 @@ export interface RefactorPair {
 }
 
 /**
- * Batch entry point for `propose_note_move` / `propose_note_rename` (#1777).
+ * Batch entry point for `propose_note_move` / `propose_note_rename` (PR #1776).
  *
  * A request that moves twenty notes used to be twenty tool calls, twenty review
  * cards, and twenty proposals. Rather than grow a second batch shape, a batch

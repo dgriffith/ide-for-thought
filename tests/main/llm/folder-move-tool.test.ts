@@ -1,5 +1,5 @@
 /**
- * `propose_folder_move` — single and batched (#1778).
+ * `propose_folder_move` — single and batched (PR #1777).
  *
  * The tool had no coverage of its own: `folder-move-delete-proposal.test.ts`
  * tests the `folder-refactor` payload, not the tool that produces the draft.
