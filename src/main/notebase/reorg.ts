@@ -15,7 +15,7 @@
  *    so it's reported rather than silently mis-applied.
  */
 
-import { planRename, RefactorError, type RenamePlan } from './rename';
+import { planRename, planFolderRename, RefactorError, type RenamePlan } from './rename';
 
 export interface ReorgOperation {
   path: string;
@@ -103,4 +103,71 @@ export function orderRefactors<T extends { fromPath: string; toPath: string }>(
   }
   if (ordered.length < n) return { ordered: [...pairs], cycle: true };
   return { ordered, cycle: false };
+}
+
+/**
+ * Folder counterpart to {@link planReorg} (#1778) — dry-run a batch of whole-folder
+ * moves/renames so many folders are one review card and one bundled proposal.
+ *
+ * Same drop-with-a-warning contract as `planReorg`: a folder that can't be
+ * planned (missing, collision, into-itself) is skipped with a message rather
+ * than failing the batch.
+ *
+ * One hazard is specific to folders and worth naming. Each folder is planned
+ * against the CURRENT tree, so when one requested move's source or destination
+ * sits inside another's, the previews can't both be right — moving `a/` into
+ * `b/` while also moving `b/` is the simple case. Apply is still safe: the
+ * `folder-refactor` payload re-runs `planFolderRename` at apply time and throws
+ * on a guardrail violation, which rolls the whole bundle back. So this warns
+ * rather than rejects — the preview may understate what happens, the commit
+ * cannot silently do the wrong thing.
+ */
+export async function planFolderReorg(
+  rootPath: string,
+  operations: ReorgOperation[],
+): Promise<ReorgPlan> {
+  const items: ReorgItem[] = [];
+  const warnings: string[] = [];
+  const seenDest = new Map<string, string>();
+
+  const trim = (p: string): string => p.trim().replace(/^\/+|\/+$/g, '');
+
+  for (const op of operations) {
+    const from = trim(op.path);
+    const to = trim(op.newPath);
+
+    const clash = seenDest.get(to);
+    if (clash !== undefined) {
+      warnings.push(`Skipped ${from}: ${clash} is already being moved to ${to}.`);
+      continue;
+    }
+
+    try {
+      const plan = await planFolderRename(rootPath, from, to);
+      seenDest.set(to, from);
+      items.push({ fromPath: from, toPath: to, affectedNotes: plan.affectedNotes });
+    } catch (e) {
+      if (e instanceof RefactorError) {
+        warnings.push(`Skipped ${from}: ${e.message}`);
+        continue;
+      }
+      throw e;
+    }
+  }
+
+  // Nesting check across the planned set (see the hazard note above).
+  const inside = (child: string, parent: string): boolean => child.startsWith(`${parent}/`);
+  for (const a of items) {
+    for (const b of items) {
+      if (a === b) continue;
+      if (inside(a.fromPath, b.fromPath) || inside(a.toPath, b.fromPath)) {
+        warnings.push(
+          `${a.fromPath} → ${a.toPath} overlaps the move of ${b.fromPath}; `
+          + 'the preview for it may not reflect the other move.',
+        );
+      }
+    }
+  }
+
+  return { items, warnings };
 }

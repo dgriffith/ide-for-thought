@@ -53,8 +53,14 @@
 
 <div class="draft-card">
   <div class="draft-summary">
-    <strong>Reorganize</strong>
-    <span class="draft-note">{selectedItems.length} of {draft.items.length} notes · {linkRewrites} note{linkRewrites === 1 ? '' : 's'}' links rewritten</span>
+    <!-- A folder batch moves whole trees, so the item count is folders; the
+         link-rewrite count stays notes either way (that's what gets rewritten). -->
+    <strong>{draft.isFolder ? 'Move folders' : 'Reorganize'}</strong>
+    <span class="draft-note">
+      {selectedItems.length} of {draft.items.length}
+      {draft.isFolder ? 'folder' : 'note'}{draft.items.length === 1 ? '' : 's'}
+      · {linkRewrites} note{linkRewrites === 1 ? '' : 's'}' links rewritten
+    </span>
   </div>
 
   {#if draft.warnings.length > 0}

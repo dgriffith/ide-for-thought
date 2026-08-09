@@ -174,9 +174,12 @@ export function registerConversationDrafts(): void {
       }
       const { ordered } = orderRefactors(selected);
       const ctx = projectContext(rootPath);
+      // A folder batch files `folder-refactor` payloads — same bundle, same
+      // ordered apply and reverse-order rollback, different payload kind.
+      const kind = draft.isFolder ? ('folder-refactor' as const) : ('note-refactor' as const);
       const proposal = await approval.proposeWrite(ctx, {
         operationType: 'note_refactor',
-        payloads: ordered.map((i) => ({ kind: 'note-refactor' as const, fromPath: i.fromPath, toPath: i.toPath })),
+        payloads: ordered.map((i) => ({ kind, fromPath: i.fromPath, toPath: i.toPath })),
         note: draft.note,
         ...conversationProvenance(draft.conversationId),
       });
