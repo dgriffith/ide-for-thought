@@ -94,8 +94,22 @@
     <p class="lede">Inspections are standing checks Minerva can run over your whole thoughtbase — links that point at nothing, notes quietly drifting out of date, sources missing the details a citation needs. The panel lists what they found, in the order worth caring about, and for many of them it can do the fixing for you. Nothing here changes a note on its own.</p>
 
     <h2 id="running">When the checks run</h2>
-    <p>Mostly, without you asking. Minerva runs them once when you open a thoughtbase and every few minutes after that, so the panel already has something to show when you open it from the right sidebar's <b>Activity</b> group.</p>
-    <p><b>Run</b> forces an immediate re-check — worth pressing after a big reorganization, or when you've just fixed a batch of things and want the list to catch up rather than waiting for the next pass.</p>
+    <p>Mostly, without you asking:</p>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">When you save</div>
+        <div class="v">A couple of seconds after any change to a note, the checks run again — so if you've just broken a link, the panel says so while you're still looking at the note that did it. A burst of changes (a folder move, a batch of AI edits) settles into one pass rather than one per file.</div>
+      </div>
+      <div class="row">
+        <div class="k">When you open a thoughtbase</div>
+        <div class="v">Once at the start, so the panel has something to show the moment you open it from the right sidebar's <b>Activity</b> group.</div>
+      </div>
+      <div class="row">
+        <div class="k">Every few minutes</div>
+        <div class="v">A quiet backstop for the checks that go off with the calendar rather than with an edit — a note becoming stale, or a stub ageing past its threshold. Nothing changes in your notes when that happens, so there'd otherwise be nothing to trigger a re-check.</div>
+      </div>
+    </div>
+    <p>There's also a <b>Run</b> button, if you'd rather not wait the couple of seconds — or you've changed which checks are switched on and want the list to catch up straight away.</p>
 
     <div class="box">
       <span class="label">Broken links get flagged twice, on purpose</span>
