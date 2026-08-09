@@ -14,6 +14,8 @@ import { patchProjectConfig, readProjectConfig } from '../project-config';
 import { checkRebase } from '../graph/rebase-guard';
 import { proposeExcerptEvidence, type AttachEvidenceResult } from '../llm/attach-evidence';
 import { withRootPath, withRootPathOr, withRootPathWin } from './helpers';
+import { getInspectionSettings, saveInspectionSettings } from '../config/inspection-settings';
+import type { InspectionSettings } from '../../shared/inspections';
 
 export function registerGraph(): void {
   // Graph
@@ -78,8 +80,19 @@ export function registerGraph(): void {
   // Inspections
   handle(Channels.INSPECTIONS_LIST, withRootPathOr([], (rootPath) =>
     healthChecks.getInspections(projectContext(rootPath))));
-  handle(Channels.INSPECTIONS_RUN, withRootPathOr<[], Inspection[] | Promise<Inspection[]>>([], (rootPath) =>
-    healthChecks.runAllChecks(projectContext(rootPath))));
+  handle(Channels.INSPECTIONS_RUN, withRootPathOr<[], Inspection[] | Promise<Inspection[]>>([], async (rootPath) =>
+    healthChecks.runAllChecks(projectContext(rootPath), await getInspectionSettings())));
+
+  // Which checks run + the day thresholds (#1792). No rootPath: these are
+  // per-machine preferences, readable with no thoughtbase open (the Settings
+  // dialog is reachable from an empty window).
+  handle(Channels.INSPECTIONS_GET_SETTINGS, () => getInspectionSettings());
+  handle(Channels.INSPECTIONS_SET_SETTINGS, async (_e, settings: InspectionSettings) => {
+    await saveInspectionSettings(settings);
+    // Hand back what actually landed — saving clamps the day values and drops
+    // ids the panel can't offer, so the caller shouldn't assume its own input.
+    return getInspectionSettings();
+  });
 
   // Grounding check — fuzzy match a claim against graph labels
   handle(Channels.GRAPH_GROUND_CHECK, withRootPathOr<[string], { node: string; label: string; type: string }[] | Promise<{ node: string; label: string; type: string }[]>>([], async (rootPath, claimText: string) => {

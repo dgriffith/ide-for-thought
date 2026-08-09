@@ -41,6 +41,7 @@ const DATAFLOW_MUTATION_METHODS =
   'interruptPythonKernel|saveCellOutput|grantConsent|revokeConsent|' +
   // publish / proposals / graph / refactor actions
   'runExport|toGit|upsertTarget|removeTarget|approve|reject|expire|runInspections|' +
+  'setInspectionSettings|' +
   'applySuggestedLink|attachExcerptEvidence|' +
   // local per-note history (#1158): restore is a mutation (list/getRevision are reads)
   'restore|' +

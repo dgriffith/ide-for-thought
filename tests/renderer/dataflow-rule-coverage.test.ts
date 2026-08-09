@@ -42,6 +42,9 @@ const READ_ALLOWLIST = new Set<string>([
   // app / shell / view / export — OS + window reads and stateless side-effects
   'getInfo', 'getShortcuts', 'openExternal', 'openInDefault', 'openInTerminal',
   'revealFile', 'revealFolder', 'revealAuditLog', 'csv', 'getZoomFactor',
+  // inspection settings: reading which checks run changes nothing (#1792);
+  // the write is denylisted and goes through the settings store.
+  'inspectionSettings',
   // Raises the OS emoji picker over the focused field; the emoji arrives as
   // ordinary typed input, so no in-app state changes behind the component.
   'showEmojiPanel',

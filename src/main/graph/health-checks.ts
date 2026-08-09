@@ -5,6 +5,12 @@ import { DAY_MS } from './queries';
 import type { InspectionFix } from '../../shared/types';
 import { stripNoteExt, noteExtRank } from '../../shared/note-extensions';
 import { noteTargetPathBeside } from '../../shared/wiki-link-resolver';
+import {
+  catalogTypeFor,
+  isInspectionEnabled,
+  DEFAULT_INSPECTION_SETTINGS,
+  type InspectionSettings,
+} from '../../shared/inspections';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -50,24 +56,47 @@ function asRows(result: Awaited<ReturnType<typeof queryGraph>>): Record<string, 
 
 // ── Run All Checks ─────────────────────────────────────────────────────────
 
-export async function runAllChecks(ctx: ProjectContext): Promise<Inspection[]> {
+/**
+ * Run every ENABLED check. `settings` comes from the per-machine inspection
+ * config (#1792); omitting it runs everything at the built-in thresholds, which
+ * is what tests and any non-Electron caller want.
+ *
+ * A disabled check is skipped rather than filtered afterwards — the point of
+ * switching one off is not to pay for it, and several of these are whole-graph
+ * SPARQL queries.
+ *
+ * The two checks that emit more than one type (evidence gaps → missing_warrant
+ * + missing_backing; duplicate sources → doi + uri) are gated on the type the
+ * settings panel actually offers.
+ */
+export async function runAllChecks(
+  ctx: ProjectContext,
+  settings: InspectionSettings = DEFAULT_INSPECTION_SETTINGS,
+): Promise<Inspection[]> {
   if (running) return lastResultsByProject.get(ctx.rootPath) ?? [];
   running = true;
 
+  const on = (type: string) => isInspectionEnabled(type, settings);
+  const none = (): Promise<Inspection[]> => Promise.resolve([]);
+
   try {
     const results = await Promise.all([
-      checkUnsupportedClaims(ctx),
-      checkStaleness(ctx, 30), // 30 days
-      checkEvidenceGaps(ctx),
-      checkContradictions(ctx),
-      checkInvalidDois(ctx),
-      checkSourcesMissingMetadata(ctx),
-      checkLongUnresolvedStubs(ctx, 30), // 30 days
-      checkCitedUnreadSources(ctx),
-      checkDuplicateSources(ctx),
-      checkBrokenLinks(ctx),
+      on('unsupported_claim') ? checkUnsupportedClaims(ctx) : none(),
+      on('stale_note') ? checkStaleness(ctx, settings.staleDays) : none(),
+      on('missing_warrant') || on('missing_backing') ? checkEvidenceGaps(ctx) : none(),
+      on('contradiction') ? checkContradictions(ctx) : none(),
+      on('invalid_doi') ? checkInvalidDois(ctx) : none(),
+      on('source_missing_metadata') ? checkSourcesMissingMetadata(ctx) : none(),
+      on('stub_aged') ? checkLongUnresolvedStubs(ctx, settings.stubDays) : none(),
+      on('source_cited_unread') ? checkCitedUnreadSources(ctx) : none(),
+      on('source_duplicate_doi') ? checkDuplicateSources(ctx) : none(),
+      on('broken_note_link') || on('broken_anchor_link') || on('broken_cite_quote')
+        ? checkBrokenLinks(ctx)
+        : none(),
     ]);
-    const flat = results.flat();
+    // The multi-type checks above run as a unit, so drop the individual types
+    // the user switched off.
+    const flat = results.flat().filter((i) => isInspectionEnabled(catalogTypeFor(i.type), settings));
     lastResultsByProject.set(ctx.rootPath, flat);
     return flat;
   } finally {

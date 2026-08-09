@@ -57,6 +57,7 @@ import type {
   CsvTableCollision,
   InspectionFix,
 } from './types';
+import type { InspectionSettings } from './inspections';
 import type { ClipperState } from './clipper-pairing';
 import type { Proposal } from './proposals';
 import type { RevisionMeta } from './history';
@@ -251,6 +252,10 @@ export interface ChannelMap {
   // Inspections (graph health checks)
   'inspections:list': () => { id: string; type: string; severity: string; nodeUri: string; nodeLabel: string; message: string; suggestedAction?: string; fix?: InspectionFix; notePath?: string }[];
   'inspections:run': () => { id: string; type: string; severity: string; nodeUri: string; nodeLabel: string; message: string; suggestedAction?: string; fix?: InspectionFix; notePath?: string }[];
+  'inspections:getSettings': () => InspectionSettings;
+  /** Persist + return the saved (sanitized) settings, so the caller renders what
+   *  actually landed rather than what it asked for. */
+  'inspections:setSettings': (settings: InspectionSettings) => InspectionSettings;
 
   // Tables (DuckDB)
   'tables:query': (sql: string) =>

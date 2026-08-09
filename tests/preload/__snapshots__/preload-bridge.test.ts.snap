@@ -133,11 +133,13 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
     "export",
     "frontmatterKeys",
     "groundCheck",
+    "inspectionSettings",
     "inspections",
     "query",
     "runInspections",
     "schemaForCompletion",
     "setBaseUri",
+    "setInspectionSettings",
     "sourceDetail",
   ],
   "history": [
