@@ -112,6 +112,7 @@ const evt = { sender: {} };
 const send = h.handlers.get(Channels.CONVERSATION_SEND)!;
 const cancel = h.handlers.get(Channels.CONVERSATION_CANCEL)!;
 const fileDraft = h.handlers.get(Channels.CONVERSATION_FILE_DRAFT)!;
+const fileDeleteDraft = h.handlers.get(Channels.CONVERSATION_FILE_DELETE_DRAFT)!;
 
 function seedConversation(): void {
   h.appendMessage.mockResolvedValue({
@@ -234,5 +235,69 @@ describe('CONVERSATION_FILE_DRAFT — propose + auto-approve (#1612)', () => {
 
     expect(h.approveProposal).not.toHaveBeenCalled();
     expect(res).toEqual({ proposalUri: null, applied: true, filedPaths: [] });
+  });
+});
+
+describe('CONVERSATION_FILE_DELETE_DRAFT — the selection UNIT differs by kind (#1778)', () => {
+  const folderDraft = {
+    draftId: 'd3',
+    conversationId: 'conv-1',
+    note: 'Delete 2 folders',
+    items: [
+      { path: 'a/one.md', title: 'One', inbound: [], folder: 'a' },
+      { path: 'b/two.md', title: 'Two', inbound: [], folder: 'b' },
+    ],
+    warnings: [],
+    folderPaths: ['a', 'b'],
+  };
+
+  beforeEach(() => {
+    h.proposeWrite.mockResolvedValue({ uri: 'proposal:del' });
+    h.approveProposal.mockResolvedValue({ filedPaths: [], rewrittenPaths: [] });
+  });
+
+  it('files one folder-delete payload per SELECTED folder, in one proposal', async () => {
+    await fileDeleteDraft(evt, folderDraft, ['a', 'b']);
+
+    expect(h.proposeWrite).toHaveBeenCalledTimes(1);
+    expect(h.proposeWrite.mock.calls[0]![1]).toMatchObject({
+      operationType: 'note_delete',
+      payloads: [
+        { kind: 'folder-delete', path: 'a' },
+        { kind: 'folder-delete', path: 'b' },
+      ],
+    });
+    expect(h.approveProposal).toHaveBeenCalledWith(expect.anything(), 'proposal:del');
+  });
+
+  it('honours a partial folder selection', async () => {
+    await fileDeleteDraft(evt, folderDraft, ['b']);
+    expect(h.proposeWrite.mock.calls[0]![1]).toMatchObject({
+      payloads: [{ kind: 'folder-delete', path: 'b' }],
+    });
+  });
+
+  it('deletes NOTHING when the selection names no folder from the draft', async () => {
+    // e.g. note paths sent for a folder draft — never widen to "all folders".
+    const res = await fileDeleteDraft(evt, folderDraft, ['a/one.md']);
+    expect(h.proposeWrite).not.toHaveBeenCalled();
+    expect(res).toEqual({ proposalUri: null, applied: false });
+  });
+
+  it('still files per-note deletes for a plain note draft', async () => {
+    const noteDraft = {
+      draftId: 'd4',
+      conversationId: 'conv-1',
+      note: 'Delete 2 notes',
+      items: [
+        { path: 'x.md', title: 'X', inbound: [] },
+        { path: 'y.md', title: 'Y', inbound: [] },
+      ],
+      warnings: [],
+    };
+    await fileDeleteDraft(evt, noteDraft, ['x.md']);
+    expect(h.proposeWrite.mock.calls[0]![1]).toMatchObject({
+      payloads: [{ kind: 'note-delete', path: 'x.md' }],
+    });
   });
 });

@@ -177,6 +177,50 @@ describe('folder-delete proposal (#911 follow-up)', () => {
     expect(exists('outside.md')).toBe(true);
   });
 
+  it('deletes many folders in ONE bundle (#1778)', async () => {
+    await seed('other/c.md', '# C\n\nAnother folder.');
+    await seedBinary('other/pic2.png', PNG_BYTES);
+    const p = await proposeWrite(ctx(), {
+      operationType: 'note_delete',
+      payloads: [
+        { kind: 'folder-delete', path: 'topic' },
+        { kind: 'folder-delete', path: 'other' },
+      ],
+      note: 'Delete 2 folders',
+      proposedBy: 'unit-test',
+    });
+    expect(p.status).toBe('pending');
+    expect(exists('topic/a.md')).toBe(true);
+    expect(exists('other/c.md')).toBe(true);
+
+    expect((await approveProposal(ctx(), p.uri)).ok).toBe(true);
+    expect(exists('topic')).toBe(false);
+    expect(exists('other')).toBe(false);
+    expect(exists('outside.md')).toBe(true);
+  });
+
+  it('rolls back BOTH folders when a later payload fails', async () => {
+    await seed('other/c.md', '# C\n\nAnother folder.');
+    const aBefore = await read('topic/a.md');
+    const cBefore = await read('other/c.md');
+    const p = await proposeWrite(ctx(), {
+      operationType: 'note_delete',
+      payloads: [
+        { kind: 'folder-delete', path: 'topic' },
+        { kind: 'folder-delete', path: 'other' },
+        { kind: 'graph-triples', turtle: 'not valid @@@', affectsNodeUris: [] },
+      ],
+      note: 'two folder deletes + bad triples',
+      proposedBy: 'unit-test',
+    });
+    await expect(approveProposal(ctx(), p.uri)).rejects.toThrow();
+
+    // All-or-nothing: neither folder is half-deleted.
+    expect(await read('topic/a.md')).toBe(aBefore);
+    expect(await read('other/c.md')).toBe(cBefore);
+    expect(await readBytes('topic/pic.png')).toEqual(Buffer.from(PNG_BYTES));
+  });
+
   it('rolls back exactly — recreates every note and the binary asset', async () => {
     const aBefore = await read('topic/a.md');
     const p = await proposeWrite(ctx(), {

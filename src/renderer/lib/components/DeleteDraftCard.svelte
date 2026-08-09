@@ -1,10 +1,17 @@
 <script lang="ts">
   /**
-   * Review card for a batch note-deletion from `propose_note_delete`. Lists each
-   * note with per-item checkboxes (approve a subset) and surfaces the dangling-
-   * link blast radius — how many notes outside the deletion set link into each
-   * one — so the user deletes with eyes open. Approve removes only the selected
-   * notes. No danger styling: deletion is a normal, git-backed operation here.
+   * Review card for a batch deletion from `propose_note_delete` or
+   * `propose_folder_delete`. Lists each note with the dangling-link blast radius
+   * — how many notes outside the deletion set link into it — so the user deletes
+   * with eyes open. No danger styling: deletion is a normal, git-backed
+   * operation here.
+   *
+   * The selection UNIT differs by draft kind (#1778). A note delete selects
+   * notes. A folder delete is all-or-nothing per folder (the handler files one
+   * `folder-delete` payload per folder, which takes the assets too), so the
+   * checkboxes sit on the folder headings and `onApprove` hands back FOLDER
+   * paths. A lone folder has nothing to choose between and renders bare, as it
+   * did before batching.
    */
   import type { ConversationDeleteDraft, DeleteDraftItem } from '../../../shared/conversation-refactor-drafts';
   import Icon from './Icon.svelte';
@@ -17,25 +24,44 @@
 
   let { draft, onApprove, onDiscard }: Props = $props();
 
-  // Everything selected by default; the user opts items out. Keyed to the draft.
+  const folders = $derived(draft.folderPaths ?? []);
+  const isFolderDelete = $derived(folders.length > 0);
+  /** Checkboxes only earn their place when there's an actual choice to make. */
+  const selectable = $derived(isFolderDelete ? folders.length > 1 : true);
+
+  /** Whatever the user is choosing between: folder paths, or note paths. */
+  function unitsOf(d: ConversationDeleteDraft): string[] {
+    return d.folderPaths?.length ? d.folderPaths : d.items.map((i) => i.path);
+  }
+
+  // Everything selected by default; the user opts units out. Keyed to the draft.
   // svelte-ignore state_referenced_locally
-  let selected = $state<Set<string>>(new Set(draft.items.map((i) => i.path)));
+  let selected = $state<Set<string>>(new Set(unitsOf(draft)));
   let expanded = $state<Set<string>>(new Set());
 
-  const selectedItems = $derived(draft.items.filter((i) => selected.has(i.path)));
-  const allSelected = $derived(selected.size === draft.items.length);
+  /** A note is in the deletion set when its own path (note delete) or its
+   *  enclosing folder (folder delete) is selected. */
+  const selectedItems = $derived(
+    draft.items.filter((i) => selected.has(isFolderDelete ? (i.folder ?? '') : i.path)),
+  );
+  const allSelected = $derived(selected.size === unitsOf(draft).length);
   // Distinct other-notes left with dangling links across the SELECTED items.
   const danglingSources = $derived(
     new Set(selectedItems.flatMap((i) => i.inbound.map((b) => b.source))).size,
   );
 
-  function toggle(path: string) {
+  /** Notes grouped under each folder, in `folderPaths` order. */
+  const groups = $derived(
+    folders.map((folder) => ({ folder, items: draft.items.filter((i) => i.folder === folder) })),
+  );
+
+  function toggle(unit: string) {
     const next = new Set(selected);
-    if (next.has(path)) next.delete(path); else next.add(path);
+    if (next.has(unit)) next.delete(unit); else next.add(unit);
     selected = next;
   }
   function toggleAll() {
-    selected = allSelected ? new Set() : new Set(draft.items.map((i) => i.path));
+    selected = allSelected ? new Set() : new Set(unitsOf(draft));
   }
   function toggleExpand(path: string) {
     const next = new Set(expanded);
@@ -46,16 +72,24 @@
     return item.inbound.reduce((n, b) => n + b.linkCount, 0);
   }
   function approve() {
-    onApprove(selectedItems.map((i) => i.path));
+    // Folder deletes hand back folder paths — the handler's payload unit.
+    onApprove(isFolderDelete ? folders.filter((f) => selected.has(f)) : selectedItems.map((i) => i.path));
   }
 </script>
 
 <div class="draft-card">
   <div class="draft-summary">
-    <strong>{draft.folderPath ? 'Delete folder' : 'Delete'}</strong>
+    <strong>
+      {#if isFolderDelete}Delete folder{folders.length === 1 ? '' : 's'}{:else}Delete{/if}
+    </strong>
     <span class="draft-note">
-      {#if draft.folderPath}
-        <span class="path">{draft.folderPath}</span> · {draft.items.length} note{draft.items.length === 1 ? '' : 's'}{#if draft.assetCount}, {draft.assetCount} asset{draft.assetCount === 1 ? '' : 's'}{/if}
+      {#if isFolderDelete}
+        {#if folders.length === 1}
+          <span class="path">{folders[0]}</span> ·
+        {:else}
+          {selected.size} of {folders.length} folders ·
+        {/if}
+        {selectedItems.length} note{selectedItems.length === 1 ? '' : 's'}{#if draft.assetCount}, {draft.assetCount} asset{draft.assetCount === 1 ? '' : 's'}{/if}
       {:else}
         {selectedItems.length} of {draft.items.length} note{draft.items.length === 1 ? '' : 's'}
       {/if}
@@ -73,7 +107,7 @@
     </div>
   {/if}
 
-  {#if !draft.folderPath}
+  {#if selectable}
     <button class="select-all" type="button" onclick={toggleAll}>
       <Icon name={allSelected ? 'check' : 'dot'} size={11} />
       {allSelected ? 'Deselect all' : 'Select all'}
@@ -81,50 +115,78 @@
   {/if}
 
   <div class="items">
-    {#each draft.items as item (item.path)}
-      {@const isSel = draft.folderPath ? true : selected.has(item.path)}
-      {@const isExp = expanded.has(item.path)}
-      {@const links = inboundCount(item)}
-      <div class="item" class:deselected={!isSel}>
-        <div class="item-row">
-          {#if !draft.folderPath}
-          <label class="check">
-            <input type="checkbox" checked={isSel} onchange={() => toggle(item.path)} />
-          </label>
-          {/if}
-          <span class="paths" title={item.path}>
-            <span class="title">{item.title}</span>
-            <span class="path">{item.path}</span>
-          </span>
-          {#if links > 0}
-            <button class="links-badge" type="button" onclick={() => toggleExpand(item.path)} title="Show linking notes">
-              <Icon name={isExp ? 'chevronDown' : 'chevronRight'} size={9} />
-              {links} inbound link{links === 1 ? '' : 's'}
-            </button>
-          {/if}
-        </div>
-        {#if isExp && item.inbound.length > 0}
-          <div class="inbound">
-            {#each item.inbound as b (b.source)}
-              <div class="inbound-row" title={b.source}>
-                <Icon name="link" size={10} color="var(--text-faint)" />
-                <span class="src">{b.sourceTitle}</span>
-                {#if b.linkCount > 1}<span class="count">×{b.linkCount}</span>{/if}
-              </div>
-            {/each}
+    {#if isFolderDelete}
+      {#each groups as group (group.folder)}
+        {@const isSel = selected.has(group.folder)}
+        <div class="group" class:deselected={!isSel}>
+          <div class="group-head">
+            {#if selectable}
+              <label class="check">
+                <input type="checkbox" checked={isSel} onchange={() => toggle(group.folder)} />
+              </label>
+            {/if}
+            <Icon name="folder" size={11} color="var(--text-muted)" />
+            <span class="path">{group.folder}</span>
+            <span class="count">{group.items.length} note{group.items.length === 1 ? '' : 's'}</span>
           </div>
-        {/if}
-      </div>
-    {/each}
+          {#each group.items as item (item.path)}
+            {@render noteRow(item, isSel, false)}
+          {/each}
+        </div>
+      {/each}
+    {:else}
+      {#each draft.items as item (item.path)}
+        {@render noteRow(item, selected.has(item.path), true)}
+      {/each}
+    {/if}
   </div>
 
   <div class="draft-actions">
-    <button type="button" class="draft-btn primary" disabled={!draft.folderPath && selectedItems.length === 0} onclick={approve}>
-      {draft.folderPath ? 'Delete folder' : `Delete ${selectedItems.length}`}
+    <button type="button" class="draft-btn primary" disabled={selectedItems.length === 0 && selected.size === 0} onclick={approve}>
+      {#if isFolderDelete}
+        Delete {folders.length === 1 ? 'folder' : `${selected.size} folders`}
+      {:else}
+        Delete {selectedItems.length}
+      {/if}
     </button>
     <button type="button" class="draft-btn" onclick={onDiscard}>Discard</button>
   </div>
 </div>
+
+{#snippet noteRow(item: DeleteDraftItem, isSel: boolean, checkable: boolean)}
+  {@const isExp = expanded.has(item.path)}
+  {@const links = inboundCount(item)}
+  <div class="item" class:deselected={!isSel}>
+    <div class="item-row">
+      {#if checkable}
+        <label class="check">
+          <input type="checkbox" checked={isSel} onchange={() => toggle(item.path)} />
+        </label>
+      {/if}
+      <span class="paths" title={item.path}>
+        <span class="title">{item.title}</span>
+        <span class="path">{item.path}</span>
+      </span>
+      {#if links > 0}
+        <button class="links-badge" type="button" onclick={() => toggleExpand(item.path)} title="Show linking notes">
+          <Icon name={isExp ? 'chevronDown' : 'chevronRight'} size={9} />
+          {links} inbound link{links === 1 ? '' : 's'}
+        </button>
+      {/if}
+    </div>
+    {#if isExp && item.inbound.length > 0}
+      <div class="inbound">
+        {#each item.inbound as b (b.source)}
+          <div class="inbound-row" title={b.source}>
+            <Icon name="link" size={10} color="var(--text-faint)" />
+            <span class="src">{b.sourceTitle}</span>
+            {#if b.linkCount > 1}<span class="count">×{b.linkCount}</span>{/if}
+          </div>
+        {/each}
+      </div>
+    {/if}
+  </div>
+{/snippet}
 
 <style>
   .draft-card {
@@ -137,6 +199,13 @@
     gap: 8px;
   }
   .draft-summary { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .group { display: flex; flex-direction: column; gap: 2px; }
+  .group + .group { margin-top: 6px; }
+  .group.deselected { opacity: 0.45; }
+  .group-head { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+  .group-head .path { color: var(--text); }
+  .group-head .count { color: var(--text-faint); font-size: 11px; }
+  .group .item { padding-left: 14px; }
   .draft-note { color: var(--text-muted); font-size: 12px; }
   .warnings { display: flex; flex-direction: column; gap: 3px; }
   .warning {

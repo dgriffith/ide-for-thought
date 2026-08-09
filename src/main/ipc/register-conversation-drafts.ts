@@ -199,18 +199,27 @@ export function registerConversationDrafts(): void {
       draft: import('../../shared/conversation-refactor-drafts').ConversationDeleteDraft,
       selected: string[],
     ) => {
-      // A folder delete (propose_folder_delete sets folderPath) is all-or-nothing:
-      // file ONE folder-delete for the whole tree, ignoring per-note selection.
-      // A per-note delete files one note-delete per selected path.
+      // Two shapes share this handler, and `selected` means a different thing in
+      // each. A FOLDER delete (propose_folder_delete sets folderPaths) is
+      // all-or-nothing per folder, so `selected` carries folder paths and each
+      // becomes one folder-delete payload. A per-note delete files one
+      // note-delete per selected note path.
       const ctx = projectContext(rootPath);
-      if (!draft?.folderPath && (!Array.isArray(selected) || selected.length === 0)) {
+      const folders = draft?.folderPaths ?? [];
+      const isFolderDelete = folders.length > 0;
+      const picked = Array.isArray(selected) ? selected : [];
+      // Intersect rather than trusting the incoming list: a folder delete only
+      // ever removes folders the draft itself proposed.
+      const chosenFolders = folders.filter((f) => picked.includes(f));
+      if ((isFolderDelete ? chosenFolders.length : picked.length) === 0) {
         return { proposalUri: null, applied: false };
       }
+
       const proposal = await approval.proposeWrite(ctx, {
         operationType: 'note_delete',
-        payloads: draft.folderPath
-          ? [{ kind: 'folder-delete' as const, path: draft.folderPath }]
-          : selected.map((path) => ({ kind: 'note-delete' as const, path })),
+        payloads: isFolderDelete
+          ? chosenFolders.map((path) => ({ kind: 'folder-delete' as const, path }))
+          : picked.map((path) => ({ kind: 'note-delete' as const, path })),
         note: draft.note,
         ...conversationProvenance(draft.conversationId),
       });
