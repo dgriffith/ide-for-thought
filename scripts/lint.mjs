@@ -16,13 +16,23 @@ const bin = (name) => join('node_modules', '.bin', process.platform === 'win32' 
 const CHECKS = [
   { name: 'tsc', args: [bin('tsc'), '--noEmit'] },
   { name: 'svelte-check', args: [bin('svelte-check'), '--threshold', 'error'] },
-  { name: 'eslint', args: [bin('eslint'), '.'] },
+  // Type-aware linting holds a TS program for the whole repo, and it grew past
+  // Node's default old-space on CI (#1789): eslint died with "Ineffective
+  // mark-compacts near heap limit" at ~2GB after 154s — on its own, well after
+  // the other two checks had finished, so this is eslint's own appetite rather
+  // than the three of them competing. `--max-old-space-size` is a CEILING, not
+  // a reservation: nothing uses more memory than it needs, it just stops the
+  // hard crash when the repo is a little bigger than it was yesterday.
+  { name: 'eslint', args: [bin('eslint'), '.'], heapMb: 4096 },
 ];
 
-function run({ name, args }) {
+function run({ name, args, heapMb }) {
   return new Promise((resolve) => {
     const [cmd, ...rest] = args;
-    const child = spawn(cmd, rest, { shell: process.platform === 'win32' });
+    const env = heapMb
+      ? { ...process.env, NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ''} --max-old-space-size=${heapMb}`.trim() }
+      : process.env;
+    const child = spawn(cmd, rest, { shell: process.platform === 'win32', env });
     let out = '';
     child.stdout.on('data', (d) => { out += d; });
     child.stderr.on('data', (d) => { out += d; });
