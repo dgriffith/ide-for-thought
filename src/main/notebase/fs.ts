@@ -4,6 +4,7 @@ import fsSync from 'node:fs';
 import path from 'node:path';
 import type { NoteFile, NotebaseMeta } from '../../shared/types';
 import { resolveDisplayName } from '../project-config';
+import { defaultThoughtbaseDir } from '../recent-projects';
 import { onNoteWritten, moveHistory } from '../history';
 
 const IGNORED_DIRS = new Set(['.git', 'node_modules', '.minerva', '.obsidian']);
@@ -14,6 +15,7 @@ export async function openNotebase(): Promise<NotebaseMeta | null> {
     // fresh directory to open as a thoughtbase without leaving the app (#1036).
     properties: ['openDirectory', 'createDirectory'],
     title: 'Open Thoughtbase',
+    defaultPath: defaultThoughtbaseDir(),
   });
 
   if (result.canceled || result.filePaths.length === 0) {
