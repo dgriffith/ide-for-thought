@@ -592,6 +592,8 @@ export interface EventMap {
   'tables:changed': () => void;
   'tables:nameCollision': (collision: CsvTableCollision) => void;
   'proposals:changed': () => void;
+  /** A health-check run finished; the cached inspection list moved (#1795). */
+  'inspections:changed': () => void;
   'proposals:show': () => void;
   // Conversation-draft cards — all carry ConversationDraftBase on the wire
   // (draftEmit); the renderer refines to the specific draft type.

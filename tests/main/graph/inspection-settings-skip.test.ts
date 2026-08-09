@@ -24,7 +24,11 @@ vi.mock('../../../src/main/graph/index', () => ({
   headingsFor: h.headingsFor,
 }));
 
-import { runAllChecks, startPeriodicChecks, stopPeriodicChecks } from '../../../src/main/graph/health-checks';
+import {
+  runAllChecks, startPeriodicChecks, stopPeriodicChecks, armAutoChecks, disarmAutoChecks,
+} from '../../../src/main/graph/health-checks';
+import { emitGraphChanged } from '../../../src/main/graph/graph-events';
+import { onInspectionsChanged } from '../../../src/main/graph/inspection-events';
 import { DEFAULT_INSPECTION_SETTINGS } from '../../../src/shared/inspections';
 import { projectContext } from '../../../src/main/project-context-types';
 
@@ -129,6 +133,132 @@ describe('startPeriodicChecks', () => {
 
       expect(loadSettings).not.toHaveBeenCalled();
     } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+/**
+ * Re-checking after a save (#1795).
+ *
+ * The five-minute timer meant you could break a link, save, and be told about
+ * it several minutes later — long enough that the panel read as broken. Every
+ * graph write now emits a change signal, and the checks re-run once the burst
+ * settles.
+ *
+ * These drive the real subscription via `emitGraphChanged`, so a regression
+ * that stops `indexNote` emitting, or stops `armAutoChecks` listening, fails
+ * here.
+ */
+describe('armAutoChecks', () => {
+  const ROOT = '/fake-project';
+
+  it('re-runs a beat after a graph write', async () => {
+    vi.useFakeTimers();
+    try {
+      const loadSettings = vi.fn(async () => ({ ...DEFAULT_INSPECTION_SETTINGS }));
+      armAutoChecks(ctx, { loadSettings, debounceMs: 100 });
+      h.queryGraph.mockClear();
+
+      emitGraphChanged(ROOT);
+      expect(h.queryGraph).not.toHaveBeenCalled(); // not instantly — debounced
+
+      await vi.advanceTimersByTimeAsync(100);
+      expect(h.queryGraph.mock.calls.length).toBeGreaterThan(0);
+    } finally {
+      disarmAutoChecks(ctx);
+      vi.useRealTimers();
+    }
+  });
+
+  it('collapses a burst into ONE run', async () => {
+    // A bulk index emits once per note; a save emits a couple of times. Neither
+    // should mean N whole-graph passes.
+    vi.useFakeTimers();
+    try {
+      const loadSettings = vi.fn(async () => ({ ...DEFAULT_INSPECTION_SETTINGS }));
+      armAutoChecks(ctx, { loadSettings, debounceMs: 100 });
+
+      for (let i = 0; i < 20; i++) {
+        emitGraphChanged(ROOT);
+        await vi.advanceTimersByTimeAsync(10); // still inside the window
+      }
+      await vi.advanceTimersByTimeAsync(100);
+
+      expect(loadSettings.mock.calls.length).toBe(1);
+    } finally {
+      disarmAutoChecks(ctx);
+      vi.useRealTimers();
+    }
+  });
+
+  it('ignores writes to a different thoughtbase', async () => {
+    vi.useFakeTimers();
+    try {
+      const loadSettings = vi.fn(async () => ({ ...DEFAULT_INSPECTION_SETTINGS }));
+      armAutoChecks(ctx, { loadSettings, debounceMs: 100 });
+
+      emitGraphChanged('/some-other-project');
+      await vi.advanceTimersByTimeAsync(500);
+
+      expect(loadSettings).not.toHaveBeenCalled();
+    } finally {
+      disarmAutoChecks(ctx);
+      vi.useRealTimers();
+    }
+  });
+
+  it('honours the settings, so a disabled check stays disabled after a save', async () => {
+    vi.useFakeTimers();
+    try {
+      const loadSettings = vi.fn(async () => ({
+        ...DEFAULT_INSPECTION_SETTINGS,
+        disabled: ALL_VISIBLE,
+      }));
+      armAutoChecks(ctx, { loadSettings, debounceMs: 100 });
+      h.queryGraph.mockClear();
+
+      emitGraphChanged(ROOT);
+      await vi.advanceTimersByTimeAsync(100);
+
+      expect(h.queryGraph.mock.calls.length).toBe(4); // the always-on ones only
+    } finally {
+      disarmAutoChecks(ctx);
+      vi.useRealTimers();
+    }
+  });
+
+  it('stops listening once disarmed', async () => {
+    vi.useFakeTimers();
+    try {
+      const loadSettings = vi.fn(async () => ({ ...DEFAULT_INSPECTION_SETTINGS }));
+      armAutoChecks(ctx, { loadSettings, debounceMs: 100 });
+      disarmAutoChecks(ctx);
+
+      emitGraphChanged(ROOT);
+      await vi.advanceTimersByTimeAsync(500);
+
+      expect(loadSettings).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('announces the new results so a panel can refresh itself', async () => {
+    vi.useFakeTimers();
+    const seen: string[] = [];
+    const off = onInspectionsChanged((root) => seen.push(root));
+    try {
+      const loadSettings = vi.fn(async () => ({ ...DEFAULT_INSPECTION_SETTINGS }));
+      armAutoChecks(ctx, { loadSettings, debounceMs: 100 });
+
+      emitGraphChanged(ROOT);
+      await vi.advanceTimersByTimeAsync(100);
+
+      expect(seen).toContain(ROOT);
+    } finally {
+      off();
+      disarmAutoChecks(ctx);
       vi.useRealTimers();
     }
   });

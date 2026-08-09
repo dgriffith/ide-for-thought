@@ -103,6 +103,13 @@ export async function acquireProject(rootPath: string, winId: number): Promise<P
         const inspectionSettings = await getInspectionSettings();
         await healthChecks.runAllChecks(ctx, inspectionSettings);
       })();
+      // Re-check a couple of seconds after any graph write (#1795) — saving a
+      // note is when you want to hear that you just broke a link.
+      healthChecks.armAutoChecks(ctx, { loadSettings: getInspectionSettings });
+      // The timer stays, but only as a backstop for the checks that fire with
+      // the CLOCK rather than with an edit: a note going stale, a stub ageing
+      // past its threshold. Nothing writes to the graph when that happens, so
+      // there's no change for the line above to react to.
       healthChecks.startPeriodicChecks(ctx, { loadSettings: getInspectionSettings });
       // Advertise this project to out-of-process CLI/MCP clients (#1524) so they
       // route proposals + semantic search through us instead of racing our
@@ -133,6 +140,7 @@ export async function releaseProject(rootPath: string, winId: number): Promise<v
   // Last window closed for this project — dispose.
   abortBackfill(rootPath); // stop any in-flight embedding backfill (#836)
   healthChecks.stopPeriodicChecks(rec.ctx);
+  healthChecks.disarmAutoChecks(rec.ctx);
   // Stop advertising to out-of-process clients before we tear the ctx down, so
   // no routed request can land on a half-disposed project (#1524).
   await unregisterProject(rootPath);
