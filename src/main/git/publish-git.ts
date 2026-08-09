@@ -126,8 +126,8 @@ function authFor(token: string) {
  * Bring the publish-cache workspace to the target branch's current remote
  * state. Re-clones from scratch each publish (cheap for a static site, and it
  * guarantees we're building on the remote's real history rather than an
- * orphan commit or a stale local tree). When the branch doesn't exist yet
- * (first publish to `gh-pages`), fall back to a fresh repo on that branch.
+ * orphan commit or a stale local tree). When the branch isn't there yet
+ * (first publish to `gh-pages`), start a fresh repo on that branch instead.
  *
  * Returns whether the branch already existed on the remote.
  */
@@ -140,6 +140,8 @@ export async function prepareWorkspace(opts: {
   const url = normalizeRemoteToHttps(opts.url);
   await fsp.rm(opts.dir, { recursive: true, force: true });
   await fsp.mkdir(opts.dir, { recursive: true });
+
+  let onBranch = false;
   try {
     await git.clone({
       fs,
@@ -150,17 +152,29 @@ export async function prepareWorkspace(opts: {
       singleBranch: true,
       onAuth: authFor(opts.token),
     });
-    return { branchExisted: true };
+    // A clone that doesn't throw is NOT proof we're on the branch. Against a
+    // remote with zero refs — a repository created moments ago, which is
+    // exactly the first-publish case — isomorphic-git's clone returns early
+    // (`if (fetchHead === null) return`) without throwing and without checking
+    // anything out. The workspace is then a bare init on the DEFAULT branch
+    // name, so the commit would land on `master` and the push of `gh-pages`
+    // would fail locally with "Could not find gh-pages." Ask the workspace
+    // where it actually is instead.
+    const current = await git.currentBranch({ fs, dir: opts.dir }).catch(() => null);
+    const head = await git.resolveRef({ fs, dir: opts.dir, ref: 'HEAD' }).catch(() => null);
+    onBranch = current === opts.branch && head !== null;
   } catch {
-    // Branch (or repo content) not there yet → start a fresh repo on the
-    // branch. A genuine auth/404 problem resurfaces — with a clear message —
-    // when we push below, which is the real gate.
-    await fsp.rm(opts.dir, { recursive: true, force: true });
-    await fsp.mkdir(opts.dir, { recursive: true });
-    await git.init({ fs, dir: opts.dir, defaultBranch: opts.branch });
-    await git.addRemote({ fs, dir: opts.dir, remote: 'origin', url });
-    return { branchExisted: false };
+    // Branch (or repo content) not there yet — fall through to the fresh repo.
+    // A genuine auth/404 problem resurfaces, with a clear message, when we push
+    // below; that's the real gate.
   }
+  if (onBranch) return { branchExisted: true };
+
+  await fsp.rm(opts.dir, { recursive: true, force: true });
+  await fsp.mkdir(opts.dir, { recursive: true });
+  await git.init({ fs, dir: opts.dir, defaultBranch: opts.branch });
+  await git.addRemote({ fs, dir: opts.dir, remote: 'origin', url });
+  return { branchExisted: false };
 }
 
 /** Remove everything in `destDir` except a top-level `.git`, so the exporter

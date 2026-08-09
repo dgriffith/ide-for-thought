@@ -23,6 +23,7 @@ import {
   renderCommitMessage,
   resolveGitHubToken,
   pendingChanges,
+  prepareWorkspace,
   stageAll,
   commit,
 } from '../../../src/main/git/publish-git';
@@ -78,6 +79,76 @@ describe('resolveGitHubToken', () => {
   it('throws a configuration message when nothing is available', () => {
     hoisted.execFileSync.mockImplementation(() => { throw new Error('gh: not found'); });
     expect(() => resolveGitHubToken()).toThrow(/credentials aren't configured/i);
+  });
+});
+
+describe('prepareWorkspace — the clone is not to be taken at its word', () => {
+  // These drive the REAL prepareWorkspace with only `git.clone` stubbed, so the
+  // post-clone verification, the init fallback, and the resulting branch are
+  // all the genuine article.
+  let dir: string;
+
+  beforeEach(() => { dir = mkdtempSync(path.join(os.tmpdir(), 'minerva-prep-')); });
+  afterEach(() => { rmSync(dir, { recursive: true, force: true }); vi.restoreAllMocks(); });
+
+  it('starts a fresh repo ON the branch when the remote has no refs at all', async () => {
+    // The first-publish case. isomorphic-git's clone returns early without
+    // throwing and without checking out when the remote advertises no refs
+    // (`if (fetchHead === null) return`), leaving HEAD on the default branch
+    // name — so trusting "it didn't throw" put the commit on `master` and the
+    // push of `gh-pages` died with "Could not find gh-pages."
+    vi.spyOn(git, 'clone').mockImplementation(async ({ dir: d }) => {
+      // Reproduce what an empty-remote clone leaves behind.
+      await git.init({ fs: fsMod, dir: d, defaultBranch: 'master' });
+    });
+
+    const res = await prepareWorkspace({ dir, url: 'https://github.com/o/r.git', branch: 'gh-pages', token: 't' });
+
+    expect(res.branchExisted).toBe(false);
+    expect(await git.currentBranch({ fs: fsMod, dir })).toBe('gh-pages');
+  });
+
+  it('keeps the clone when it really did land on the branch', async () => {
+    vi.spyOn(git, 'clone').mockImplementation(async ({ dir: d }) => {
+      const at = d;
+      await git.init({ fs: fsMod, dir: at, defaultBranch: 'gh-pages' });
+      writeFileSync(path.join(at, 'index.html'), '<h1>old</h1>');
+      await git.add({ fs: fsMod, dir: at, filepath: 'index.html' });
+      await git.commit({ fs: fsMod, dir: at, message: 'prior publish', author: { name: 'M', email: 'm@m' } });
+    });
+
+    const res = await prepareWorkspace({ dir, url: 'https://github.com/o/r.git', branch: 'gh-pages', token: 't' });
+
+    expect(res.branchExisted).toBe(true);
+    // The cloned history survives — this is the incremental-publish path.
+    expect(await git.log({ fs: fsMod, dir, depth: 1 })).toHaveLength(1);
+  });
+
+  it('falls back to a fresh repo when the clone throws (branch absent)', async () => {
+    vi.spyOn(git, 'clone').mockRejectedValue(new Error('Could not find gh-pages.'));
+
+    const res = await prepareWorkspace({ dir, url: 'https://github.com/o/r.git', branch: 'gh-pages', token: 't' });
+
+    expect(res.branchExisted).toBe(false);
+    expect(await git.currentBranch({ fs: fsMod, dir })).toBe('gh-pages');
+    expect(await git.listRemotes({ fs: fsMod, dir })).toEqual([
+      { remote: 'origin', url: 'https://github.com/o/r.git' },
+    ]);
+  });
+
+  it('leaves a workspace a commit can actually be pushed from', async () => {
+    // The end-to-end shape of the bug: init on the wrong branch is only fatal
+    // later, at push time, so assert the branch a commit lands on.
+    vi.spyOn(git, 'clone').mockImplementation(async ({ dir: d }) => {
+      await git.init({ fs: fsMod, dir: d, defaultBranch: 'master' });
+    });
+    await prepareWorkspace({ dir, url: 'https://github.com/o/r.git', branch: 'gh-pages', token: 't' });
+
+    writeFileSync(path.join(dir, 'index.html'), '<h1>hi</h1>');
+    await stageAll(dir);
+    await commit(dir, 'Publish');
+
+    expect(await git.listBranches({ fs: fsMod, dir })).toEqual(['gh-pages']);
   });
 });
 
