@@ -78,7 +78,7 @@ const h = vi.hoisted(() => {
     closeTabsForDeletedPath: vi.fn(), applyRenameTransitions: vi.fn(),
     isPathDirty: vi.fn(() => false), reloadTabFromDisk: vi.fn().mockResolvedValue(undefined),
     restoreTabs: vi.fn().mockResolvedValue(undefined), noteTabForGroup: vi.fn(() => undefined),
-    saveEditorState: vi.fn(), flushAutoSave: vi.fn(), persistTabs: vi.fn(),
+    saveEditorState: vi.fn(), savePreviewScroll: vi.fn(), flushAutoSave: vi.fn(), persistTabs: vi.fn(),
   };
   const busy = { label: '', setLabel: vi.fn() };
   const toolPanel = { appendChunk: vi.fn() };
@@ -111,6 +111,7 @@ const editorComponent = {
   changeFontSize: vi.fn(), currentFontSize: vi.fn(() => 18), resetFontSize: vi.fn(),
   runSortLines: vi.fn(), openFind: vi.fn(), openFindReplace: vi.fn(),
 };
+let previewComponent: { currentScrollTop(): number } | undefined;
 const sidebar = { refreshTags: vi.fn(), refreshSources: vi.fn(), refreshTables: vi.fn() };
 const rightSidebar = { refresh: vi.fn() };
 
@@ -132,6 +133,7 @@ function makeCtx(): { ctx: IpcWiringCtx; spies: Record<string, ReturnType<typeof
   const ctx = {
     getEditorComponent: () => editorComponent,
     getEditorComponents: () => ({ g1: { restorePosition: vi.fn() } }),
+    getPreviewComponent: () => previewComponent,
     getSidebar: () => sidebar,
     getRightSidebar: () => rightSidebar,
     getEditorFontSize: () => 14,
@@ -156,6 +158,7 @@ beforeEach(() => {
   h.editor.groups = [];
   h.busy.label = '';
   window.print = vi.fn();
+  previewComponent = undefined;
   ({ ctx, spies } = makeCtx());
   registerAppIpc(ctx);
 });
@@ -399,5 +402,27 @@ describe('lifecycle hooks', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe('beforeunload — capture pane state the window close would lose', () => {
+  it('saves the preview scroll alongside the editor caret + scroll', () => {
+    h.editor.activeFilePath = 'a.md';
+    previewComponent = { currentScrollTop: () => 640 };
+
+    window.dispatchEvent(new Event('beforeunload'));
+
+    expect(h.editor.saveEditorState).toHaveBeenCalledWith('a.md', 0, 0);
+    expect(h.editor.savePreviewScroll).toHaveBeenCalledWith('a.md', 640);
+    expect(h.editor.persistTabs).toHaveBeenCalled();
+  });
+
+  it('saves no preview scroll when the pane is showing no preview', () => {
+    h.editor.activeFilePath = 'a.md';
+    previewComponent = undefined; // source-only view mode
+
+    window.dispatchEvent(new Event('beforeunload'));
+
+    expect(h.editor.savePreviewScroll).not.toHaveBeenCalled();
   });
 });

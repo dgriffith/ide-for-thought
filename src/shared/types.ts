@@ -260,6 +260,10 @@ export interface SavedNoteTab {
   relativePath: string;
   cursorOffset?: number;
   scrollTop?: number;
+  /** Where the PREVIEW pane was scrolled to, kept separately from the editor's
+   *  `scrollTop` — the two panes render the same note at different heights, so
+   *  one offset can't serve both (#1718 follow-up). */
+  previewScrollTop?: number;
   /** True for a file opened in plain-text mode (#1130); omitted for markdown. */
   plainText?: boolean;
 }

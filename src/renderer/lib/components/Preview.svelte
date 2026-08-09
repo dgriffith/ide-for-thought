@@ -1,5 +1,5 @@
 <script lang="ts">
-    import {onDestroy} from 'svelte';
+    import {onDestroy, untrack} from 'svelte';
     import Icon from './Icon.svelte';
     import {installDismissOnClickOutside} from '../dismiss-menu';
     import '../../styles/hljs-minerva.css';
@@ -60,6 +60,13 @@
          * the editor's path isn't surfaced (preview-only contexts).
          */
         notePath?: string | null;
+        /** Where this note's preview was last left, restored once the new
+         *  content has rendered (#1718 follow-up). Omit / 0 for the top. */
+        previewScrollTop?: number | undefined;
+        /** Hand the outgoing note's preview offset back to the host so it can
+         *  be remembered on the tab. Fired when the note changes and on
+         *  teardown (view-mode switch, tab close, window close). */
+        onScrollPositionSave?: (notePath: string, scrollTop: number) => void;
         onNavigate: (target: string) => void;
         /** Broken-link hover quick-fix (#1446): create the missing note the
          *  hovered `[[link]]` points at. Mirrors the editor's hover lightbulb. */
@@ -142,6 +149,8 @@
     let {
         content,
         notePath = null,
+        previewScrollTop,
+        onScrollPositionSave,
         onNavigate,
         onCreateNoteFromReference,
         onTagSelect,
@@ -336,6 +345,16 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         if (c === lastRendered && np === lastRenderedNotePath) return;
 
         if (renderTimer) clearTimeout(renderTimer);
+        // Switching notes renders straight away: the debounce exists to absorb
+        // keystrokes within one note, and waiting on a note change just shows
+        // the previous note's body for a beat — and delays the scroll restore
+        // below, which can't run until the new HTML is in the DOM.
+        if (np !== lastRenderedNotePath) {
+            rendered = renderContent(c);
+            lastRendered = c;
+            lastRenderedNotePath = np;
+            return;
+        }
         renderTimer = setTimeout(() => {
             rendered = renderContent(c);
             lastRendered = c;
@@ -491,21 +510,62 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         }
     }
 
-    // Open every note at its top (#1718). Unlike the editor — which App.svelte
-    // keys on the note path, so it remounts scrolled to zero — one Preview
-    // element serves every note in the group, and a scroll container keeps its
-    // offset when its contents are replaced. The reader would land partway down
-    // a note they'd never opened, at whatever offset the PREVIOUS note was left
-    // at. Keyed on the path alone, so editing the note you're reading (the
-    // split editor-preview view re-renders on every keystroke) doesn't yank you
-    // back to the top. Runs before the pending-anchor jump below, which scrolls
-    // in a rAF and so still wins for a `[[note#section]]` navigation.
+    // Preview scroll memory (#1718 + follow-up). One Preview element serves
+    // every note in the group — unlike the editor, which App.svelte keys on the
+    // note path — and a scroll container keeps its offset when its contents are
+    // replaced. Left alone, a note opened at random landed at whatever offset
+    // the PREVIOUS note was left at.
+    //
+    // So on a note change: hand the outgoing note's offset to the host (which
+    // remembers it on the tab, alongside the editor's own cursor + scroll), and
+    // queue this note's remembered offset. A note never read before has none
+    // and opens at the top, which is what #1718 asked for.
+    //
+    // The restore can't happen here: the new note's HTML isn't in the DOM yet,
+    // so the container has the wrong height and the browser would clamp the
+    // offset to 0. It runs off `rendered` below instead.
     let lastScrolledNotePath: string | null | undefined = undefined;
+    let pendingScrollRestore: number | null = null;
+
     $effect(() => {
         const path = notePath;
         if (!previewEl || path === lastScrolledNotePath) return;
+        if (lastScrolledNotePath) onScrollPositionSave?.(lastScrolledNotePath, previewEl.scrollTop);
         lastScrolledNotePath = path;
+        // Untracked: this effect fires on a note CHANGE. Remembering the
+        // outgoing offset writes back through the host and would otherwise
+        // re-enter here on our own save.
+        const saved = untrack(() => previewScrollTop) ?? 0;
         previewEl.scrollTop = 0;
+        pendingScrollRestore = saved > 0 ? saved : null;
+    });
+
+    // The other half: once the new note's HTML has rendered, put the reader
+    // back where they were. A frame later, so layout has settled. Images and
+    // diagrams hydrate after this and can still shift things — the same
+    // approximation the editor's own scroll restore lives with.
+    $effect(() => {
+        rendered;
+        if (pendingScrollRestore === null || !previewEl) return;
+        const top = pendingScrollRestore;
+        pendingScrollRestore = null;
+        requestAnimationFrame(() => {
+            if (previewEl) previewEl.scrollTop = top;
+        });
+    });
+
+    /** Where the pane is scrolled right now. The window closing doesn't run
+     *  Svelte teardown, so the app-level beforeunload hook reads this. */
+    export function currentScrollTop(): number {
+        return previewEl?.scrollTop ?? 0;
+    }
+
+    // Teardown — a view-mode switch, a closed tab, or the window going away.
+    // The note-change path above never sees these, so save here too.
+    $effect(() => () => {
+        if (previewEl && lastScrolledNotePath) {
+            onScrollPositionSave?.(lastScrolledNotePath, previewEl.scrollTop);
+        }
     });
 
     // After render, if the caller asked us to jump to a heading or block, do it.

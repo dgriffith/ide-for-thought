@@ -64,6 +64,9 @@ export interface IpcWiringCtx {
   // Component refs (App-owned; resolve at callback time).
   getEditorComponent: () => EditorRef | undefined;
   getEditorComponents: () => Record<string, { restorePosition(offset: number, scrollTop?: number): void } | undefined>;
+  /** Focused pane's preview, for the beforeunload scroll capture. Undefined
+   *  when that pane isn't showing a preview. */
+  getPreviewComponent: () => { currentScrollTop(): number } | undefined;
   getSidebar: () => SidebarRef | undefined;
   getRightSidebar: () => { refresh(): void } | undefined;
 
@@ -174,6 +177,11 @@ export function registerAppIpc(ctx: IpcWiringCtx): void {
         editorComponent.getOffset(),
         editorComponent.getView()?.scrollDOM.scrollTop ?? 0,
       );
+    }
+    // Same for the preview pane, which saves on teardown that never comes here.
+    const previewComponent = ctx.getPreviewComponent();
+    if (editor.activeFilePath && previewComponent) {
+      editor.savePreviewScroll(editor.activeFilePath, previewComponent.currentScrollTop());
     }
     editor.flushAutoSave();
     editor.persistTabs();
