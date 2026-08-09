@@ -93,8 +93,14 @@
     <h1>Inspections</h1>
     <p class="lede">Inspections are standing checks Minerva can run over your whole thoughtbase — links that point at nothing, notes quietly drifting out of date, sources missing the details a citation needs. The panel lists what they found, in the order worth caring about, and for many of them it can do the fixing for you. Nothing here changes a note on its own.</p>
 
-    <h2 id="running">Running the checks</h2>
-    <p>Open the panel from the right sidebar's <b>Activity</b> group and press <b>Run</b>. The checks read your whole knowledge graph, so they don't run continuously in the background — you ask for them, and the results stay put until you ask again. Running after a big reorganization, or before sharing a thoughtbase with someone, is when it earns its keep.</p>
+    <h2 id="running">When the checks run</h2>
+    <p>Mostly, without you asking. Minerva runs them once when you open a thoughtbase and every few minutes after that, so the panel already has something to show when you open it from the right sidebar's <b>Activity</b> group.</p>
+    <p><b>Run</b> forces an immediate re-check — worth pressing after a big reorganization, or when you've just fixed a batch of things and want the list to catch up rather than waiting for the next pass.</p>
+
+    <div class="box">
+      <span class="label">Broken links get flagged twice, on purpose</span>
+      <p>A broken <code>[[wiki-link]]</code> is underlined in the editor and the preview <i>as you type</i>, with a quick-fix on the spot — that's live, and separate from this panel. The panel is the standing, whole-thoughtbase view: every broken link at once, including the ones in notes you haven't opened lately.</p>
+    </div>
 
     <h2 id="what">What it looks for</h2>
     <p>Every check can be switched off in <a href="settings-inspections.html">Settings → Inspections</a> if it isn't telling you anything useful.</p>
