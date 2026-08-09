@@ -6,11 +6,11 @@
  * (BYOM #1495) — so the caller passes its resolved model in.
  */
 import { getSettings } from '../settings';
-import { MISSING_API_KEY_MARKER } from '../../../shared/llm-errors';
+import { missingApiKeyMessage, missingBaseUrlMessage } from '../../../shared/llm-errors';
 import { DEFAULT_WEB_SETTINGS, type LLMSettings } from '../../../shared/tools/types';
 import type { Effort } from '../../../shared/tools/effort';
 import { providerForModel } from '../../../shared/tools/models';
-import { PROVIDERS, type ProviderId } from '../../../shared/tools/providers';
+import { type ProviderId } from '../../../shared/tools/providers';
 import { AnthropicProvider } from './anthropic';
 import { OpenAIProvider } from './openai';
 import { GoogleProvider } from './google';
@@ -28,11 +28,10 @@ export interface ResolvedProvider {
 }
 
 /** The marker error the renderer detects to show the "Open Settings"
- *  affordance, named per provider so the message is honest. */
+ *  affordance. Built in `shared/llm-errors.ts` beside the parser that reads
+ *  the provider back out, so the two can't drift. */
 function missingKeyError(id: ProviderId): Error {
-  const meta = PROVIDERS[id];
-  const env = meta.envVar ? ` or the ${meta.envVar} environment variable` : '';
-  return new Error(`${MISSING_API_KEY_MARKER}. Set the ${meta.label} API key in the LLM settings${env}.`);
+  return new Error(missingApiKeyMessage(id));
 }
 
 /**
@@ -72,9 +71,10 @@ function buildProvider(id: ProviderId, settings: LLMSettings): LLMProvider {
       // local servers). Reports id 'local' for provenance.
       const c = settings.providers.local;
       if (!c?.baseURL) {
-        throw new Error(
-          `${MISSING_API_KEY_MARKER}. Set a base URL for the ${PROVIDERS.local.label} endpoint in the LLM settings.`,
-        );
+        // Same channel as a missing key — the renderer's "open Settings"
+        // affordance fires for either — but the local provider needs an
+        // ADDRESS, not a key, so it says so.
+        throw new Error(missingBaseUrlMessage('local'));
       }
       return new OpenAIProvider(c.apiKey ?? '', c.baseURL, undefined, 'local');
     }

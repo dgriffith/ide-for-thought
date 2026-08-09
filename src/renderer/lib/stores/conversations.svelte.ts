@@ -36,7 +36,7 @@ import type {
   AskUserRequest,
   ConversationToolKey,
 } from '../../../shared/conversation-tools';
-import { isMissingApiKeyError } from '../../../shared/llm-errors';
+import { isProviderUnconfiguredError } from '../../../shared/llm-errors';
 
 /**
  * Plain deep clone for the IPC boundary. Every draft payload sent renderer→main
@@ -498,7 +498,7 @@ async function send(content: string, currentNotePath?: string): Promise<void> {
     const reloaded = await api.conversations.load(tab.id);
     if (reloaded) tab.conversation = reloaded;
   } catch (e) {
-    if (isMissingApiKeyError(e)) {
+    if (isProviderUnconfiguredError(e)) {
       // Surface as an actionable modal at the App level rather than a
       // silent console.error — the user's optimistic message would
       // otherwise just sit in the transcript with no explanation. Also

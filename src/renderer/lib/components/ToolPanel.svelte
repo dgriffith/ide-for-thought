@@ -5,7 +5,7 @@
   import Icon from './Icon.svelte';
   import ToolParamsDialog from './ToolParamsDialog.svelte';
   import type { ToolContext } from '../../../shared/tools/types';
-  import { isMissingApiKeyError } from '../../../shared/llm-errors';
+  import { isProviderUnconfiguredError } from '../../../shared/llm-errors';
   import { resolveNoteParams } from '../tools/resolve-note-params';
 
   interface Props {
@@ -38,7 +38,7 @@
       panel.complete(result);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      if (isMissingApiKeyError(err)) {
+      if (isProviderUnconfiguredError(err)) {
         // Close the tool panel and let the App-level handler surface
         // the Open-Settings dialog. The panel's inline error string
         // still mentioned the missing key, but with no actionable
