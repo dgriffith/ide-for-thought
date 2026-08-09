@@ -124,7 +124,11 @@ export function registerPublish(): void {
   // rejection (#254 acceptance).
   handle(
     Channels.PUBLISH_TO_GIT,
-    withRootPath(async (rootPath, targetId: string, opts?: { dryRun?: boolean }) => {
+    withRootPath(async (
+      rootPath,
+      targetId: string,
+      opts?: { dryRun?: boolean; createRepo?: { private: boolean } },
+    ) => {
       try {
         // Dispatch by target kind (#1444). Git is the only transport today; S3
         // slots in behind the same seam. The channel stays PUBLISH_TO_GIT until
@@ -132,6 +136,7 @@ export function registerPublish(): void {
         const result = await publish.publishTarget(rootPath, targetId, {
           dryRun: opts?.dryRun ?? false,
           version: app.getVersion(),
+          ...(opts?.createRepo ? { createRepo: opts.createRepo } : {}),
         });
         return { ok: true as const, result };
       } catch (err) {

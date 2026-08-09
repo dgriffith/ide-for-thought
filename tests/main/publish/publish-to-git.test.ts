@@ -35,6 +35,11 @@ const h = vi.hoisted(() => {
       commit: vi.fn(async () => 'sha_abc'),
       push: vi.fn(async () => {}),
     },
+    gh: {
+      checkRepoExists: vi.fn<() => Promise<'exists' | 'missing'>>(async () => 'exists'),
+      createRepo: vi.fn(async () => {}),
+      enablePages: vi.fn<() => Promise<string | null>>(async () => 'https://o.github.io/r/'),
+    },
   };
 });
 
@@ -43,6 +48,12 @@ vi.mock('../../../src/main/publish/run-export', () => ({ runExport: h.runExport 
 vi.mock('../../../src/main/git/publish-git', async (orig) => {
   const actual = await orig<typeof import('../../../src/main/git/publish-git')>();
   return { ...actual, ...h.pg }; // keep pure helpers (renderCommitMessage) real
+});
+// Only the three network calls are stubbed; parseGitHubRepo / pagesPathForSubdir
+// stay real, so "is this even a GitHub remote" is decided by the actual rule.
+vi.mock('../../../src/main/git/github-repo', async (orig) => {
+  const actual = await orig<typeof import('../../../src/main/git/github-repo')>();
+  return { ...actual, ...h.gh };
 });
 
 import { publishToGit } from '../../../src/main/publish/publish-to-git';
@@ -56,7 +67,10 @@ beforeEach(() => {
     subdir: '', commitMessageTemplate: 'Publish {{date}} v{{version}}',
   };
   Object.values(h.pg).forEach((fn) => fn.mockClear());
+  Object.values(h.gh).forEach((fn) => fn.mockClear());
   h.pg.pendingChanges.mockResolvedValue([]);
+  h.gh.checkRepoExists.mockResolvedValue('exists');
+  h.gh.enablePages.mockResolvedValue('https://o.github.io/r/');
   h.runExport.mockClear();
 });
 
@@ -111,5 +125,94 @@ describe('publishToGit', () => {
     await publishToGit(root, 't', { ...opts, dryRun: true });
     const ignore = readFileSync(path.join(root, '.minerva', '.gitignore'), 'utf-8');
     expect(ignore).toContain('publish-cache/');
+  });
+});
+
+describe('publishToGit — GitHub repo provisioning', () => {
+  it('stops before doing ANY work when the repo is missing and nobody has said to create it', async () => {
+    h.gh.checkRepoExists.mockResolvedValue('missing');
+    const res = await publishToGit(root, 't', opts);
+
+    expect(res.repoMissing).toEqual({ owner: 'o', repo: 'r' });
+    expect(res.committed).toBe(false);
+    expect(res.pushed).toBe(false);
+    // Nothing was created, and no export ran — the user hasn't answered yet.
+    expect(h.gh.createRepo).not.toHaveBeenCalled();
+    expect(h.runExport).not.toHaveBeenCalled();
+    expect(h.pg.prepareWorkspace).not.toHaveBeenCalled();
+  });
+
+  it('creates the repo and publishes once permission is given', async () => {
+    h.gh.checkRepoExists.mockResolvedValue('missing');
+    h.pg.pendingChanges.mockResolvedValue([{ path: 'index.html', status: 'added' }]);
+    const res = await publishToGit(root, 't', { ...opts, createRepo: { private: false } });
+
+    expect(h.gh.createRepo).toHaveBeenCalledWith('tok', { owner: 'o', repo: 'r' }, expect.objectContaining({ private: false }));
+    expect(res.repoCreated).toBe(true);
+    expect(res.pushed).toBe(true);
+  });
+
+  it('carries the private choice through', async () => {
+    h.gh.checkRepoExists.mockResolvedValue('missing');
+    await publishToGit(root, 't', { ...opts, createRepo: { private: true } });
+    expect(h.gh.createRepo).toHaveBeenCalledWith('tok', expect.anything(), expect.objectContaining({ private: true }));
+  });
+
+  it('never creates anything on a dry run', async () => {
+    h.gh.checkRepoExists.mockResolvedValue('missing');
+    const res = await publishToGit(root, 't', { ...opts, dryRun: true, createRepo: { private: false } });
+    expect(h.gh.createRepo).not.toHaveBeenCalled();
+    expect(res.repoCreated).toBeUndefined();
+  });
+
+  it('leaves a non-GitHub remote entirely alone', async () => {
+    h.target.gitRemote = 'https://gitlab.com/o/r.git';
+    h.pg.pendingChanges.mockResolvedValue([{ path: 'index.html', status: 'added' }]);
+    const res = await publishToGit(root, 't', opts);
+
+    expect(h.gh.checkRepoExists).not.toHaveBeenCalled();
+    expect(h.gh.enablePages).not.toHaveBeenCalled();
+    expect(res.pushed).toBe(true);
+    expect(res.pagesUrl).toBeUndefined();
+  });
+});
+
+describe('publishToGit — GitHub Pages', () => {
+  beforeEach(() => {
+    h.pg.pendingChanges.mockResolvedValue([{ path: 'index.html', status: 'added' }]);
+  });
+
+  it('configures Pages AFTER the push and reports the site URL', async () => {
+    const res = await publishToGit(root, 't', opts);
+
+    expect(h.gh.enablePages).toHaveBeenCalledWith('tok', { owner: 'o', repo: 'r' }, { branch: 'gh-pages', path: '/' });
+    expect(res.pagesUrl).toBe('https://o.github.io/r/');
+    // Pages rejects a branch that doesn't exist yet, so the order matters.
+    expect(h.gh.enablePages.mock.invocationCallOrder[0]!)
+      .toBeGreaterThan(h.pg.push.mock.invocationCallOrder[0]!);
+  });
+
+  it('maps a docs/ subdir to the /docs Pages path', async () => {
+    h.target.subdir = 'docs';
+    await publishToGit(root, 't', opts);
+    expect(h.gh.enablePages).toHaveBeenCalledWith('tok', expect.anything(), { branch: 'gh-pages', path: '/docs' });
+  });
+
+  it('explains rather than guesses when the subdir is one Pages cannot serve', async () => {
+    h.target.subdir = 'site';
+    const res = await publishToGit(root, 't', opts);
+
+    expect(h.gh.enablePages).not.toHaveBeenCalled();
+    expect(res.pagesNote).toMatch(/root or \/docs/);
+    expect(res.pushed).toBe(true); // the push still happened
+  });
+
+  it('reports a Pages failure beside the successful publish, not instead of it', async () => {
+    h.gh.enablePages.mockRejectedValue(new Error('Pages needs a paid plan for private repos.'));
+    const res = await publishToGit(root, 't', opts);
+
+    expect(res.pushed).toBe(true);
+    expect(res.sha).toBe('sha_abc');
+    expect(res.pagesNote).toMatch(/paid plan/);
   });
 });

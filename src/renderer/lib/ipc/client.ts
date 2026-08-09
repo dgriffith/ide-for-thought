@@ -346,8 +346,17 @@ export interface PublishApi {
   upsertTarget(target: PublishTarget): Promise<PublishTarget[]>;
   /** Remove a target by id; resolves to the updated list. */
   removeTarget(id: string): Promise<PublishTarget[]>;
-  /** Export + commit + push (or, with `dryRun`, preview the diff only). */
-  toGit(targetId: string, opts?: { dryRun?: boolean }): Promise<PublishGitResponse>;
+  /**
+   * Export + commit + push (or, with `dryRun`, preview the diff only).
+   *
+   * A GitHub target whose repo doesn't exist comes back `ok: true` with
+   * `result.repoMissing` and nothing published — creating a repo needs an
+   * explicit answer, so the caller asks and calls again with `createRepo`.
+   */
+  toGit(
+    targetId: string,
+    opts?: { dryRun?: boolean; createRepo?: { private: boolean } },
+  ): Promise<PublishGitResponse>;
   /** Validate S3 credentials + endpoint against the bucket, before saving (#1444). */
   checkS3(config: {
     bucket: string;
@@ -401,6 +410,14 @@ export interface PublishGitResult {
   pushed: boolean;
   sha?: string;
   commitMessage?: string;
+  /** GitHub repo absent — NOTHING was published; ask, then retry with `createRepo`. */
+  repoMissing?: { owner: string; repo: string };
+  /** This run created the GitHub repo. */
+  repoCreated?: boolean;
+  /** GitHub Pages site URL, once Pages serves this branch. */
+  pagesUrl?: string;
+  /** Why Pages wasn't configured, when it couldn't be. */
+  pagesNote?: string;
 }
 
 /** Publish returns a result-or-error union so the dialog can show the raw
