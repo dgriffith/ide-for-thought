@@ -676,6 +676,8 @@ export interface ConversationsApi {
   /** Approve a body rewrite — file + apply a note_rewrite proposal, then reload the open editor. */
   fileNoteBodyDraft(
     draft: import('../../../shared/conversation-note-body-drafts').ConversationNoteBodyDraft,
+    /** Paths the user kept ticked on the review card. */
+    selected: string[],
   ): Promise<import('../../../shared/conversation-note-body-drafts').FileNoteBodyDraftResult>;
 }
 

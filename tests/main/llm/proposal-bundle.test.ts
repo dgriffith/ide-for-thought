@@ -170,6 +170,54 @@ describe('ProposalBundle apply + rollback (#418)', () => {
     expect(await fsp.readFile(path.join(root, 'notes/rev.md'), 'utf-8')).toBe('V1\n');
   });
 
+  it('rewrites MANY distinct notes from one bundle, and rolls all of them back on failure', async () => {
+    // The batched `propose_note_body` path (#1776): a request touching N notes
+    // is one proposal carrying N note-rewrite payloads, not N proposals. The
+    // engine was always bundle-native; this pins the property the batched tool
+    // now depends on — including that a mid-bundle failure leaves NO note
+    // half-rewritten, which is the real reason to bundle rather than loop.
+    await fsp.mkdir(path.join(root, 'notes'), { recursive: true });
+    const paths = ['notes/a.md', 'notes/b.md', 'notes/c.md'];
+    for (const rel of paths) {
+      await fsp.writeFile(path.join(root, rel), `original ${rel}\n`, 'utf-8');
+    }
+
+    const rewrites = paths.map((rel) => ({
+      kind: 'note-rewrite' as const,
+      path: rel,
+      content: `rewritten ${rel}\n`,
+    }));
+
+    // Happy path — one proposal, every note updated.
+    const ok = await proposeWrite(ctx, {
+      operationType: 'note_rewrite',
+      payloads: rewrites,
+      note: 'Rewrite 3 notes',
+      proposedBy: 'unit-test',
+    });
+    await approveProposal(ctx, ok.uri);
+    for (const rel of paths) {
+      expect(await fsp.readFile(path.join(root, rel), 'utf-8')).toBe(`rewritten ${rel}\n`);
+    }
+
+    // Failure path — a broken triples payload after the rewrites fails the
+    // bundle, and every note goes back to what it was.
+    const bad = await proposeWrite(ctx, {
+      operationType: 'note_rewrite',
+      payloads: [
+        ...paths.map((rel) => ({ kind: 'note-rewrite' as const, path: rel, content: `v3 ${rel}\n` })),
+        { kind: 'graph-triples' as const, turtle: '<https://ex/y> ;;;; .', affectsNodeUris: ['https://ex/y'] },
+      ],
+      note: 'Rewrite 3 notes (fails)',
+      proposedBy: 'unit-test',
+    });
+    await expect(approveProposal(ctx, bad.uri)).rejects.toThrow();
+    for (const rel of paths) {
+      // Back to the post-first-bundle state, not half-applied.
+      expect(await fsp.readFile(path.join(root, rel), 'utf-8')).toBe(`rewritten ${rel}\n`);
+    }
+  });
+
   it('apply-time path collision suffixes -2/-3 instead of overwriting', async () => {
     // Plant a file that occupies the proposed path.
     await fsp.mkdir(path.join(root, 'notes'), { recursive: true });

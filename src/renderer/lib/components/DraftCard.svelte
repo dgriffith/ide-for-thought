@@ -22,11 +22,14 @@
     approveLabel: string;
     onApprove: () => void;
     onDiscard: () => void;
+    /** Grey out Approve — for cards where the user can deselect every item and
+     *  there is then nothing to approve. Discard stays live. */
+    approveDisabled?: boolean;
     /** Card-specific body (the payload list / diff / claims, etc.). */
     children: Snippet;
   }
 
-  let { headline, note, approveLabel, onApprove, onDiscard, children }: Props = $props();
+  let { headline, note, approveLabel, onApprove, onDiscard, approveDisabled = false, children }: Props = $props();
 </script>
 
 <div class="draft-card">
@@ -36,12 +39,13 @@
   </div>
   {@render children()}
   <div class="draft-actions">
-    <button type="button" class="draft-btn primary" onclick={onApprove}>{approveLabel}</button>
+    <button type="button" class="draft-btn primary" disabled={approveDisabled} onclick={onApprove}>{approveLabel}</button>
     <button type="button" class="draft-btn" onclick={onDiscard}>Discard</button>
   </div>
 </div>
 
 <style>
+  .draft-btn.primary:disabled { opacity: 0.5; cursor: not-allowed; }
   .draft-card {
     border: 1px solid color-mix(in oklch, var(--accent) 28%, transparent);
     border-radius: 8px;

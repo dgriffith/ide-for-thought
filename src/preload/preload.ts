@@ -307,8 +307,8 @@ contextBridge.exposeInMainWorld('api', {
       invoke(Channels.CONVERSATION_FILE_DELETE_DRAFT, draft, selected),
     onNoteBodyDraft: (cb: (draft: ConversationDraftBase) => void) =>
       subscribe(Channels.CONVERSATION_NOTE_BODY_DRAFT, cb),
-    fileNoteBodyDraft: (draft: Parameters<ChannelMap['conversation:fileNoteBodyDraft']>[0]) =>
-      invoke(Channels.CONVERSATION_FILE_NOTE_BODY_DRAFT, draft),
+    fileNoteBodyDraft: (draft: Parameters<ChannelMap['conversation:fileNoteBodyDraft']>[0], selected: Parameters<ChannelMap['conversation:fileNoteBodyDraft']>[1]) =>
+      invoke(Channels.CONVERSATION_FILE_NOTE_BODY_DRAFT, draft, selected),
     insertComputeDraft: (input: Parameters<ChannelMap['conversation:insertComputeDraft']>[0]) =>
       invoke(Channels.CONVERSATION_INSERT_COMPUTE_DRAFT, input),
     setModel: (conversationId: string, model: string | undefined) =>

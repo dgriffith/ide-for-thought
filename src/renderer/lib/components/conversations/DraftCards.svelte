@@ -135,9 +135,13 @@
     store.discardDeleteDraft(tabId, draftId);
   }
 
-  async function handleApproveNoteBody(tabId: string, draft: ConversationNoteBodyDraft) {
+  async function handleApproveNoteBody(
+    tabId: string,
+    draft: ConversationNoteBodyDraft,
+    selected: string[],
+  ) {
     try {
-      await store.approveNoteBodyDraft(tabId, draft);
+      await store.approveNoteBodyDraft(tabId, draft, selected);
     } catch (e) {
       console.error('[conv-panel] approve note-body rewrite failed:', e);
     }
@@ -520,7 +524,7 @@
 {#each pick(tab.noteBodyDrafts) as draft (draft.draftId)}
   <NoteBodyDraftCard
     {draft}
-    onApprove={() => handleApproveNoteBody(tab.id, draft)}
+    onApprove={(selected) => handleApproveNoteBody(tab.id, draft, selected)}
     onDiscard={() => handleDiscardNoteBody(tab.id, draft.draftId)}
   />
 {/each}

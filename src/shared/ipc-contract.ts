@@ -546,7 +546,7 @@ export interface ChannelMap {
   'conversation:fileRefactorDraft': (draft: ConversationRefactorDraft) => { proposalUri: string | null; applied: boolean };
   'conversation:fileReorgDraft': (draft: ConversationReorgDraft, selected: Array<{ fromPath: string; toPath: string }>) => { proposalUri: string | null; applied: boolean };
   'conversation:fileDeleteDraft': (draft: ConversationDeleteDraft, selected: string[]) => { proposalUri: string | null; applied: boolean };
-  'conversation:fileNoteBodyDraft': (draft: ConversationNoteBodyDraft) => FileNoteBodyDraftResult;
+  'conversation:fileNoteBodyDraft': (draft: ConversationNoteBodyDraft, selected: string[]) => FileNoteBodyDraftResult;
 }
 
 /**
