@@ -26,6 +26,10 @@ export interface NoteTab {
   plainText?: boolean | undefined;
   cursorOffset?: number | undefined;
   scrollTop?: number | undefined;
+  /** Preview-pane scroll offset. Separate from `scrollTop`: the editor and the
+   *  preview lay the same note out at different heights, so sharing one number
+   *  would land the reader in the wrong place. */
+  previewScrollTop?: number | undefined;
   /**
    * Serialised CodeMirror `EditorState` (doc + selection + history
    * stacks) captured on Editor unmount. Used to restore undo/redo across
@@ -630,6 +634,18 @@ export function getEditorStore() {
     }
   }
 
+  /**
+   * Remember where the preview pane was left for a note (#1718 follow-up).
+   * Keyed by path like `saveEditorState`, so a note open in two panes shares
+   * one remembered offset — the same tradeoff the editor already makes.
+   */
+  function savePreviewScroll(relativePath: string, scrollTop: number) {
+    const tab = allTabs().find((t) => isNote(t) && t.relativePath === relativePath) as NoteTab | undefined;
+    if (!tab || tab.previewScrollTop === scrollTop) return;
+    tab.previewScrollTop = scrollTop;
+    schedulePersistTabs();
+  }
+
   // ── View mode (per group) ─────────────────────────────────────────────────
 
   function setViewMode(mode: ViewMode, groupId?: string) {
@@ -661,6 +677,7 @@ export function getEditorStore() {
         ...(t.plainText ? { plainText: true } : {}),
         ...(t.cursorOffset !== undefined ? { cursorOffset: t.cursorOffset } : {}),
         ...(t.scrollTop !== undefined ? { scrollTop: t.scrollTop } : {}),
+        ...(t.previewScrollTop !== undefined ? { previewScrollTop: t.previewScrollTop } : {}),
       };
     } else if (isUnsupported(t)) {
       return { type: 'unsupported', relativePath: t.relativePath };
@@ -726,6 +743,7 @@ export function getEditorStore() {
           ...(saved.plainText ? { plainText: true } : {}),
           cursorOffset: saved.cursorOffset,
           scrollTop: saved.scrollTop,
+          previewScrollTop: saved.previewScrollTop,
         };
       } catch {
         return null; // file deleted since last session
@@ -1151,6 +1169,7 @@ export function getEditorStore() {
     switchTab,
     clear,
     saveEditorState,
+    savePreviewScroll,
     setViewMode,
     cycleViewMode,
     openQuery,

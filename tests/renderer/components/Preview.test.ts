@@ -135,7 +135,7 @@ describe('Preview (render/smoke)', () => {
     expect(container.textContent).not.toContain('Hello World');
   });
 
-  it('scrolls back to the top when the note changes (#1718)', async () => {
+  it('opens a never-read note at the top (#1718)', async () => {
     // The preview pane is NOT keyed on the note path the way the editor is —
     // one element serves every note — so without an explicit reset the next
     // note opens at the previous note's scroll offset.
@@ -148,6 +148,42 @@ describe('Preview (render/smoke)', () => {
 
     await rerender(props({ notePath: 'notes/other.md', content: '# Other\n\nA different note.\n' }));
     expect(preview.scrollTop).toBe(0);
+  });
+
+  it('restores the remembered offset for a note that was read before', async () => {
+    const onScrollPositionSave = vi.fn();
+    const long = `# Long\n\n${'Filler paragraph.\n\n'.repeat(80)}`;
+    const { container, rerender } = render(Preview, props({ content: long, onScrollPositionSave }));
+    const preview = container.querySelector<HTMLElement>('.preview')!;
+    preview.scrollTop = 640;
+
+    // Away to another note: the outgoing offset goes back to the host…
+    await rerender(props({
+      notePath: 'notes/other.md', content: '# Other\n\nA different note.\n', onScrollPositionSave,
+    }));
+    expect(onScrollPositionSave).toHaveBeenCalledWith('notes/hello.md', 640);
+    expect(preview.scrollTop).toBe(0);
+
+    // …and back again, with the host handing that offset in as a prop.
+    await rerender(props({ content: long, previewScrollTop: 640, onScrollPositionSave }));
+    await waitFor(() => expect(preview.scrollTop).toBe(640));
+  });
+
+  it('saves the offset on teardown too — a view switch or a closed tab', async () => {
+    const onScrollPositionSave = vi.fn();
+    const { container, unmount } = render(Preview, props({
+      content: `# Long\n\n${'Filler.\n\n'.repeat(60)}`,
+      onScrollPositionSave,
+    }));
+    container.querySelector<HTMLElement>('.preview')!.scrollTop = 275;
+    unmount();
+    expect(onScrollPositionSave).toHaveBeenCalledWith('notes/hello.md', 275);
+  });
+
+  it('reports its live offset for the window-close capture', async () => {
+    const { container, component } = render(Preview, props());
+    container.querySelector<HTMLElement>('.preview')!.scrollTop = 128;
+    expect((component as unknown as { currentScrollTop(): number }).currentScrollTop()).toBe(128);
   });
 
   it('leaves the scroll alone while the SAME note is edited', async () => {

@@ -945,6 +945,7 @@
     registerAppIpc({
       getEditorComponent: () => editorComponent,
       getEditorComponents: () => editorComponents,
+      getPreviewComponent: () => previewComponent,
       getSidebar: () => sidebar,
       getRightSidebar: () => rightSidebar,
       bumpGraphRevision: () => { graphRevision++; },
@@ -1280,6 +1281,8 @@
                         bind:this={previewComponents[groupId]}
                         content={note.content}
                         notePath={note.relativePath}
+                        previewScrollTop={note.previewScrollTop}
+                        onScrollPositionSave={editor.savePreviewScroll}
                         {numberedHeadings}
                         getNotePaths={() => flattenNotePaths(notebase.files)}
                         getAliases={() => aliasEntries}

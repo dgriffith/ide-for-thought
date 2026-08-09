@@ -627,6 +627,37 @@ describe('persist + restore across every tab kind', () => {
     expect(tabs[4].type === 'unsupported' && tabs[4].ext).toBe('.bin');
   });
 
+  it('round-trips the preview scroll offset, kept separate from the editor scroll', async () => {
+    await editor.openFile('a.md');
+    editor.saveEditorState('a.md', 12, 120);   // editor caret + scroll
+    editor.savePreviewScroll('a.md', 640);     // preview scroll — a different pane, a different height
+
+    editor.persistTabs();
+    const saved = h.tabsSave.mock.calls.at(-1)?.[0] as LayoutSession;
+    expect(saved.groups[0].tabs[0]).toMatchObject({
+      type: 'note', relativePath: 'a.md', scrollTop: 120, previewScrollTop: 640,
+    });
+
+    h.tabsLoad.mockResolvedValueOnce(saved);
+    await editor.restoreTabs();
+    const tab = editor.groups[0].tabs[0];
+    expect(tab.type === 'note' && tab.scrollTop).toBe(120);
+    expect(tab.type === 'note' && tab.previewScrollTop).toBe(640);
+  });
+
+  it('savePreviewScroll ignores an unknown path and skips a no-op write', async () => {
+    await editor.openFile('a.md');
+    editor.savePreviewScroll('ghost.md', 90);  // no such tab
+    editor.persistTabs();
+    const first = h.tabsSave.mock.calls.at(-1)?.[0] as LayoutSession;
+    expect(first.groups[0].tabs[0]).not.toHaveProperty('previewScrollTop');
+
+    editor.savePreviewScroll('a.md', 0);       // top of the note is a real position
+    editor.persistTabs();
+    const second = h.tabsSave.mock.calls.at(-1)?.[0] as LayoutSession;
+    expect(second.groups[0].tabs[0]).toMatchObject({ previewScrollTop: 0 });
+  });
+
   it('reconstructTab defaults a legacy query language to sparql, pdf page to 1, graph depth to 1', async () => {
     h.tabsLoad.mockResolvedValueOnce({
       version: 2,
