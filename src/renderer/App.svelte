@@ -98,7 +98,8 @@
   import { describeProposer } from '../shared/provenance';
   import { CONFIRM_KEYS } from './lib/confirm-keys';
   import { sectionAnchorAt } from './lib/markdown/headings';
-  import { isMissingApiKeyError } from '../shared/llm-errors';
+  import { isProviderUnconfiguredError, unconfiguredProvider } from '../shared/llm-errors';
+  import { PROVIDERS } from '../shared/tools/providers';
   import { runCellWithTrust } from './lib/compute/run-cell-with-trust';
   import { findRunnableFences, RUNNABLE_LANGUAGE_SET } from '../shared/compute/fences';
   import { toggleTaskOnLine } from './lib/editor/task-toggle';
@@ -233,7 +234,7 @@
 
   // Surface the missing-API-key dialog whenever the conversations
   // store flags it. The store flips the flag from its send() catch
-  // block on `isMissingApiKeyError`; we read the flag here (which makes
+  // block on `isProviderUnconfiguredError`; we read the flag here (which makes
   // it a reactive dep), show the modal, then call dismiss so a follow-up
   // failure can re-fire the dialog.
   $effect(() => {
@@ -525,18 +526,31 @@
    *  confirm. Returns false for any other error so the caller's
    *  existing error path runs untouched. */
   async function maybeHandleMissingApiKey(err: unknown): Promise<boolean> {
-    if (!isMissingApiKeyError(err)) return false;
-    await handleMissingApiKey();
+    if (!isProviderUnconfiguredError(err)) return false;
+    await handleMissingApiKey(err);
     return true;
   }
-  async function handleMissingApiKey(): Promise<void> {
+  /**
+   * `err` is optional because one caller (the conversations store) signals
+   * through a flag rather than handing the error over. Without it we say
+   * something true-but-general — better than naming a provider we'd only be
+   * guessing at, which is the bug this replaced (#1796 follow-up).
+   */
+  async function handleMissingApiKey(err?: unknown): Promise<void> {
     if (missingApiKeyPromptShown) return;
     missingApiKeyPromptShown = true;
     try {
+      const provider = err === undefined ? null : unconfiguredProvider(err);
+      const meta = provider ? PROVIDERS[provider] : null;
+      const what = meta && !meta.requiresKey ? 'a base URL' : 'an API key';
+      const envHint = meta?.envVar ? ` You can also set the ${meta.envVar} environment variable.` : '';
+      const message = meta
+        ? `This conversation is set to use ${meta.label}, which isn’t set up yet. ` +
+          `Open Settings → AI to add ${what}.${envHint}`
+        : 'The model this action uses isn’t set up yet. Open Settings → AI to add an API key ' +
+          'for the service you want to use.';
       const ok = await showConfirm(
-        'This action needs an Anthropic API key, which isn’t configured yet. ' +
-          'Open Settings → AI to paste your key, or set the ANTHROPIC_API_KEY ' +
-          'environment variable before launching the app.',
+        message,
         CONFIRM_KEYS.missingApiKey,
         'Open Settings',
         { hideDontAskAgain: true },

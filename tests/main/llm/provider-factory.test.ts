@@ -13,7 +13,7 @@ const h = vi.hoisted(() => ({ getSettings: vi.fn() }));
 vi.mock('../../../src/main/llm/settings', () => ({ getSettings: h.getSettings }));
 
 import { getProvider } from '../../../src/main/llm/provider';
-import { MISSING_API_KEY_MARKER } from '../../../src/shared/llm-errors';
+import { PROVIDER_UNCONFIGURED_MARKER } from '../../../src/shared/llm-errors';
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -67,7 +67,7 @@ describe('getProvider — local / custom models (#1497)', () => {
 
   it('throws asking for a base URL when a custom model is selected but local has none', async () => {
     h.getSettings.mockResolvedValue({ providers: {}, customModels: [{ id: 'llama3.1' }], model: 'claude-opus-5' });
-    await expect(getProvider('llama3.1')).rejects.toThrow(MISSING_API_KEY_MARKER);
+    await expect(getProvider('llama3.1')).rejects.toThrow(PROVIDER_UNCONFIGURED_MARKER);
     await expect(getProvider('llama3.1')).rejects.toThrow(/base URL/i);
   });
 
@@ -81,19 +81,19 @@ describe('getProvider — local / custom models (#1497)', () => {
 describe('getProvider — missing credentials', () => {
   it('throws the marker error naming OpenAI when its key is absent', async () => {
     h.getSettings.mockResolvedValue({ providers: { anthropic: { apiKey: 'sk-ant' } }, model: 'claude-opus-5' });
-    await expect(getProvider('gpt-5')).rejects.toThrow(MISSING_API_KEY_MARKER);
+    await expect(getProvider('gpt-5')).rejects.toThrow(PROVIDER_UNCONFIGURED_MARKER);
     await expect(getProvider('gpt-5')).rejects.toThrow(/OpenAI/);
   });
 
   it('throws the marker error naming Gemini when its key is absent', async () => {
     h.getSettings.mockResolvedValue({ providers: { anthropic: { apiKey: 'sk-ant' } }, model: 'claude-opus-5' });
-    await expect(getProvider('gemini-2.5-pro')).rejects.toThrow(MISSING_API_KEY_MARKER);
+    await expect(getProvider('gemini-2.5-pro')).rejects.toThrow(PROVIDER_UNCONFIGURED_MARKER);
     await expect(getProvider('gemini-2.5-pro')).rejects.toThrow(/Gemini/);
   });
 
   it('throws the marker error naming Anthropic when its key is absent', async () => {
     h.getSettings.mockResolvedValue({ providers: {}, model: 'claude-opus-5' });
-    await expect(getProvider()).rejects.toThrow(MISSING_API_KEY_MARKER);
+    await expect(getProvider()).rejects.toThrow(PROVIDER_UNCONFIGURED_MARKER);
     await expect(getProvider()).rejects.toThrow(/Anthropic/);
   });
 });

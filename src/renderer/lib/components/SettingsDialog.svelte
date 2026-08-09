@@ -98,7 +98,7 @@
     {
       label: 'AI',
       items: [
-        { id: 'ai', label: 'AI', sub: 'Model · API key · tool prefs' },
+        { id: 'ai', label: 'AI', sub: 'Models · provider keys · voice' },
         { id: 'skills', label: 'Skills', sub: 'Conversation skills · import' },
       ],
     },

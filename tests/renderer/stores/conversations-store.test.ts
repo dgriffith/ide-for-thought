@@ -102,6 +102,7 @@ vi.mock('../../../src/renderer/lib/compute/run-cell-with-trust', () => ({ ensure
 const ensureComputeConsent = h.ensureComputeConsent;
 
 import { getConversationsStore } from '../../../src/renderer/lib/stores/conversations.svelte';
+import { missingApiKeyMessage } from '../../../src/shared/llm-errors';
 
 const store = getConversationsStore();
 const conv = () => h.api.conversations;
@@ -249,9 +250,11 @@ describe('send()', () => {
     expect(tab.composer).toBe('');
   });
 
-  it('surfaces a missing-API-key error: restores the composer, drops the optimistic turn, flips needsApiKey', async () => {
+  it('surfaces an unconfigured-provider error: restores the composer, drops the optimistic turn, flips needsApiKey', async () => {
     const tab = await freshTab();
-    conv().send.mockRejectedValueOnce(new Error('Anthropic API key not configured'));
+    // Built through the shared helper rather than a hardcoded string, so this
+    // can't drift from the message main actually throws (#1796 follow-up).
+    conv().send.mockRejectedValueOnce(new Error(missingApiKeyMessage('openai')));
 
     await store.send('needs a key');
 
