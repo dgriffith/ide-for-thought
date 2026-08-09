@@ -814,6 +814,14 @@
     view.focus();
   }
 
+  /** Put the keyboard caret in the editor without moving it — the new-note
+   *  flow uses this so a freshly created note is typeable straight away
+   *  (#1561). `restorePosition(0, 0)` would focus too, but only as a side
+   *  effect of a caret restore that has nothing to restore. */
+  export function focus() {
+    view?.focus();
+  }
+
   export function restorePosition(offset: number, scrollTop?: number) {
     if (!view) return;
     const clamped = Math.max(0, Math.min(offset, view.state.doc.length));
