@@ -226,20 +226,31 @@ export function registerConversationDrafts(): void {
     withRootPath(async (
       rootPath,
       draft: import('../../shared/conversation-note-body-drafts').ConversationNoteBodyDraft,
+      selected: string[],
     ): Promise<import('../../shared/conversation-note-body-drafts').FileNoteBodyDraftResult> => {
-      if (!draft?.relativePath || typeof draft.afterContent !== 'string') {
-        throw new Error(
-          `FILE_NOTE_BODY_DRAFT: draft missing relativePath/afterContent (received ${JSON.stringify(draft).slice(0, 200)}). ` +
-          `If this came from a Svelte 5 $state value, snapshot it before sending across IPC.`,
-        );
-      }
+      ensureDraftItems(draft, 'items', 'FILE_NOTE_BODY_DRAFT');
+      // The card sends back the paths the user kept ticked. An absent list means
+      // "all of them" so a caller that doesn't do selection still works.
+      const keep = Array.isArray(selected) && selected.length > 0
+        ? new Set(selected)
+        : new Set(draft.items.map((i) => i.relativePath));
+      const chosen = draft.items.filter((i) => keep.has(i.relativePath));
+      if (chosen.length === 0) return { proposalUri: null, applied: false };
+
       const ctx = projectContext(rootPath);
       // Arm the trust guard (#944): LLM-originated, so a direct write here that
       // skips the approval engine trips checkLLMWriteGuard.
       return graph.withLLMContext(async () => {
+        // ONE proposal carrying one `note-rewrite` payload per note. applyBundle
+        // applies them in order and rolls the whole bundle back on any failure,
+        // so a twenty-note rewrite can't land half-applied.
         const proposal = await approval.proposeWrite(ctx, {
           operationType: 'note_rewrite',
-          payloads: [{ kind: 'note-rewrite', path: draft.relativePath, content: draft.afterContent }],
+          payloads: chosen.map((i) => ({
+            kind: 'note-rewrite' as const,
+            path: i.relativePath,
+            content: i.afterContent,
+          })),
           note: draft.note,
           ...conversationProvenance(draft.conversationId),
         });

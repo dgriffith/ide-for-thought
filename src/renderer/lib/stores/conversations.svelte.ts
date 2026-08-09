@@ -767,13 +767,17 @@ async function approveDeleteDraft(
 
 function discardDeleteDraft(tabId: string, draftId: string): void { discardFrom(tabId, 'deleteDrafts', draftId); }
 
-async function approveNoteBodyDraft(tabId: string, draft: ConversationNoteBodyDraft): Promise<void> {
+async function approveNoteBodyDraft(
+  tabId: string,
+  draft: ConversationNoteBodyDraft,
+  selected: string[],
+): Promise<void> {
   const tab = findTab(tabId);
   if (!tab) return;
   const snapshot = plainSnapshot(draft);
-  await api.conversations.fileNoteBodyDraft(snapshot);
-  // Drop the card. The rewrite lands via the approval engine, and the
-  // NOTEBASE_REWRITTEN broadcast reloads the note in any open editor.
+  await api.conversations.fileNoteBodyDraft(snapshot, selected);
+  // Drop the card. The rewrites land via the approval engine as ONE bundled
+  // proposal, and the NOTEBASE_REWRITTEN broadcast reloads any open editors.
   tab.noteBodyDrafts = tab.noteBodyDrafts.filter((d) => d.draftId !== draft.draftId);
 }
 
