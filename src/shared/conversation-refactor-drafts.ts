@@ -54,6 +54,12 @@ export interface ConversationReorgDraft extends ConversationToolDraft {
   items: ReorgDraftItem[];
   /** Plan-level problems surfaced before apply (collisions, cycles, skips). */
   warnings: string[];
+  /** True when every item is a whole FOLDER move (batched propose_folder_move,
+   *  #1778) rather than a note move. The card says "folders" and the file
+   *  handler emits `folder-refactor` payloads instead of `note-refactor`.
+   *  `affectedNotes` still lists notes either way — for a folder that's the
+   *  notes inside it plus the referrers whose links get rewritten. */
+  isFolder?: boolean;
 }
 
 /** One note proposed for deletion within a `propose_note_delete` batch

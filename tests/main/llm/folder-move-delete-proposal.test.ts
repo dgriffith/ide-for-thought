@@ -102,6 +102,47 @@ describe('folder-refactor proposal (#911 follow-up)', () => {
     expect(await readBytes('topic/pic.png')).toEqual(Buffer.from(PNG_BYTES));
   });
 
+  it('moves MANY folders from one bundle, and rolls them all back on failure', async () => {
+    // The batched `propose_folder_move` path (#1778) files one proposal with a
+    // folder-refactor payload per folder. Each payload re-plans at apply time,
+    // so the bundle is safe; what this pins is that a mid-bundle failure leaves
+    // NO folder half-moved.
+    await seed('other/b.md', '# B\n\nbody');
+
+    const ok = await proposeWrite(ctx(), {
+      operationType: 'note_refactor',
+      payloads: [
+        { kind: 'folder-refactor', fromPath: 'topic', toPath: 'archive/topic' },
+        { kind: 'folder-refactor', fromPath: 'other', toPath: 'archive/other' },
+      ],
+      note: 'Move 2 folders',
+      proposedBy: 'unit-test',
+    });
+    await approveProposal(ctx(), ok.uri);
+    expect(exists('archive/topic/a.md')).toBe(true);
+    expect(exists('archive/other/b.md')).toBe(true);
+    expect(exists('topic/a.md')).toBe(false);
+    expect(exists('other/b.md')).toBe(false);
+
+    // A broken triples payload after the moves fails the bundle; both folders
+    // must go back.
+    const bad = await proposeWrite(ctx(), {
+      operationType: 'note_refactor',
+      payloads: [
+        { kind: 'folder-refactor', fromPath: 'archive/topic', toPath: 'topic' },
+        { kind: 'folder-refactor', fromPath: 'archive/other', toPath: 'other' },
+        { kind: 'graph-triples', turtle: '<https://ex/z> ;;;; .', affectsNodeUris: ['https://ex/z'] },
+      ],
+      note: 'Move 2 folders back (fails)',
+      proposedBy: 'unit-test',
+    });
+    await expect(approveProposal(ctx(), bad.uri)).rejects.toThrow();
+    expect(exists('archive/topic/a.md')).toBe(true);
+    expect(exists('archive/other/b.md')).toBe(true);
+    expect(exists('topic/a.md')).toBe(false);
+    expect(exists('other/b.md')).toBe(false);
+  });
+
   it('rejects a colliding destination at approval time', async () => {
     await fsp.mkdir(path.join(root, 'archive/topic'), { recursive: true });
     const p = await moveFolder('topic', 'archive/topic');
