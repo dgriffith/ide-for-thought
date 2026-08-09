@@ -24,7 +24,7 @@ vi.mock('../../../src/main/graph/index', () => ({
   headingsFor: h.headingsFor,
 }));
 
-import { runAllChecks } from '../../../src/main/graph/health-checks';
+import { runAllChecks, startPeriodicChecks, stopPeriodicChecks } from '../../../src/main/graph/health-checks';
 import { DEFAULT_INSPECTION_SETTINGS } from '../../../src/shared/inspections';
 import { projectContext } from '../../../src/main/project-context-types';
 
@@ -70,5 +70,66 @@ describe('runAllChecks — work avoided', () => {
     // contradictions (1). Counted from the source rather than guessed — my
     // first attempt at this assertion said 3 and the code was right.
     expect(remaining).toBe(4);
+  });
+});
+
+/**
+ * The automatic runs honour the settings too (#1792 follow-up).
+ *
+ * The panel's Run button was wired to the settings, but the checks also run on
+ * project open and every five minutes — and those callers passed nothing, so
+ * they used the DEFAULTS and overwrote the cached results. Switching a check
+ * off appeared to work, then the next automatic run quietly put it back. The
+ * bug lived in the gap between "the toggle is wired" and "everything that runs
+ * the checks is wired", which is exactly where nobody looks.
+ */
+describe('startPeriodicChecks', () => {
+  it('runs on its timer with the settings it was given, not the defaults', async () => {
+    vi.useFakeTimers();
+    try {
+      const loadSettings = vi.fn(async () => ({
+        ...DEFAULT_INSPECTION_SETTINGS,
+        disabled: ALL_VISIBLE,
+      }));
+      h.queryGraph.mockClear();
+
+      startPeriodicChecks(ctx, { loadSettings, intervalMs: 1000 });
+      await vi.advanceTimersByTimeAsync(1000);
+      stopPeriodicChecks(ctx);
+
+      expect(loadSettings).toHaveBeenCalled();
+      // Only the always-on argument-map checks — the disabled ones were skipped.
+      expect(h.queryGraph.mock.calls.length).toBe(4);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('re-reads the settings on EVERY tick, so a change takes effect without a restart', async () => {
+    vi.useFakeTimers();
+    try {
+      const loadSettings = vi.fn(async () => ({ ...DEFAULT_INSPECTION_SETTINGS }));
+      startPeriodicChecks(ctx, { loadSettings, intervalMs: 1000 });
+      await vi.advanceTimersByTimeAsync(3000);
+      stopPeriodicChecks(ctx);
+
+      expect(loadSettings.mock.calls.length).toBe(3);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('stops when told to', async () => {
+    vi.useFakeTimers();
+    try {
+      const loadSettings = vi.fn(async () => ({ ...DEFAULT_INSPECTION_SETTINGS }));
+      startPeriodicChecks(ctx, { loadSettings, intervalMs: 1000 });
+      stopPeriodicChecks(ctx);
+      await vi.advanceTimersByTimeAsync(5000);
+
+      expect(loadSettings).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

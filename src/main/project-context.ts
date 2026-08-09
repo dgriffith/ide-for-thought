@@ -23,6 +23,7 @@ import * as conversation from './llm/conversation';
 import { projectContext, type ProjectContext } from './project-context-types';
 import { disposeAllProjectStores } from './project-store';
 import { registerProject, unregisterProject } from './substrate/app-server';
+import { getInspectionSettings } from './config/inspection-settings';
 
 interface ProjectRecord {
   ctx: ProjectContext;
@@ -94,9 +95,15 @@ export async function acquireProject(rootPath: string, winId: number): Promise<P
       // before #350.
       await conversation.reindexAllConversations();
       // Health checks run once at open, then a periodic timer takes over.
-      // Fire-and-forget — no need to block project init on the result.
-      void healthChecks.runAllChecks(ctx);
-      healthChecks.startPeriodicChecks(ctx);
+      // Fire-and-forget — no need to block project init on the result. Both
+      // paths read the user's inspection settings (#1792 follow-up): without
+      // that, disabling a check appeared to work until the next automatic run
+      // silently reinstated it.
+      void (async () => {
+        const inspectionSettings = await getInspectionSettings();
+        await healthChecks.runAllChecks(ctx, inspectionSettings);
+      })();
+      healthChecks.startPeriodicChecks(ctx, { loadSettings: getInspectionSettings });
       // Advertise this project to out-of-process CLI/MCP clients (#1524) so they
       // route proposals + semantic search through us instead of racing our
       // files. Best-effort; awaited so the advert exists the moment open resolves.

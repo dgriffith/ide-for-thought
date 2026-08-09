@@ -681,9 +681,27 @@ function inspectionForBrokenLink(
 
 const timersByProject = new Map<string, ReturnType<typeof setInterval>>();
 
-export function startPeriodicChecks(ctx: ProjectContext, intervalMs: number = 5 * 60 * 1000): void {
+/**
+ * Re-run the checks every `intervalMs`.
+ *
+ * `loadSettings` is injected rather than imported because the settings loader
+ * reaches `electron`, and this module is imported all over the test suite —
+ * see the module header of `shared/inspections.ts`. Omitting it runs at the
+ * built-in defaults, which is only right for a caller that has no user
+ * settings to honour.
+ */
+export function startPeriodicChecks(
+  ctx: ProjectContext,
+  opts: { loadSettings?: () => Promise<InspectionSettings>; intervalMs?: number } = {},
+): void {
   stopPeriodicChecks(ctx);
-  const timer = setInterval(() => { void runAllChecks(ctx); }, intervalMs);
+  const intervalMs = opts.intervalMs ?? 5 * 60 * 1000;
+  const timer = setInterval(() => {
+    void (async () => {
+      const settings = opts.loadSettings ? await opts.loadSettings() : DEFAULT_INSPECTION_SETTINGS;
+      await runAllChecks(ctx, settings);
+    })();
+  }, intervalMs);
   timersByProject.set(ctx.rootPath, timer);
 }
 
