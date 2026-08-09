@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Minerva — Docs — Outline</title>
-<meta name="description" content="The Outline panel shows a collapsible map of every heading in the current note, so you can scan its structure at a glance and click any heading to jump there." />
+<title>Minerva — Docs — Inspections</title>
+<meta name="description" content="Standing checks over your thoughtbase — broken links, stale notes, sources missing citation details — with one-click fixes." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -63,7 +63,7 @@
     <a href="right-sidebar.html">Right sidebar</a>
     <a href="right-sidebar-backlinks.html" class="sub">Backlinks</a>
     <a href="right-sidebar-outgoing-links.html" class="sub">Outgoing links</a>
-    <a href="right-sidebar-outline.html" class="sub active">Outline</a>
+    <a href="right-sidebar-outline.html" class="sub">Outline</a>
     <a href="right-sidebar-properties.html" class="sub">Properties</a>
     <a href="right-sidebar-citations.html" class="sub">Citations</a>
     <a href="right-sidebar-tags.html" class="sub">Tags</a>
@@ -72,7 +72,7 @@
     <a href="right-sidebar-tables.html" class="sub">Tables</a>
     <a href="right-sidebar-heading-graph.html" class="sub">Heading graph</a>
     <a href="right-sidebar-bookmarks.html" class="sub">Bookmarks</a>
-    <a href="right-sidebar-inspections.html" class="sub">Inspections</a>
+    <a href="right-sidebar-inspections.html" class="sub active">Inspections</a>
     <a href="conversations.html">Conversations</a>
     <a href="settings.html">Settings</a>
 
@@ -88,41 +88,92 @@
 
   <!-- ===== Content ===== -->
   <main class="docs-content">
-    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="right-sidebar.html">Right sidebar</a><span class="sep">/</span>Outline</p>
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="right-sidebar.html">Right sidebar</a><span class="sep">/</span>Inspections</p>
 
-    <h1>Outline</h1>
-    <p class="lede">The Outline panel is a map of the note you're reading. It lists every heading as an indented tree, so you can take in the shape of a long note at a glance, and click any heading to jump straight to that section.</p>
+    <h1>Inspections</h1>
+    <p class="lede">Inspections are standing checks Minerva can run over your whole thoughtbase — links that point at nothing, notes quietly drifting out of date, sources missing the details a citation needs. The panel lists what they found, in the order worth caring about, and for many of them it can do the fixing for you. Nothing here changes a note on its own.</p>
 
-    <p>The outline updates itself as you write — add, rename, or remove a heading and the tree keeps up automatically. Deeper headings are tucked under the higher-level ones above them, mirroring the way you've organized the note.</p>
+    <h2 id="running">Running the checks</h2>
+    <p>Open the panel from the right sidebar's <b>Activity</b> group and press <b>Run</b>. The checks read your whole knowledge graph, so they don't run continuously in the background — you ask for them, and the results stay put until you ask again. Running after a big reorganization, or before sharing a thoughtbase with someone, is when it earns its keep.</p>
 
+    <h2 id="what">What it looks for</h2>
+    <p>Every check can be switched off in <a href="settings-inspections.html">Settings → Inspections</a> if it isn't telling you anything useful.</p>
+
+    <h3>Notes</h3>
     <div class="deflist">
       <div class="row">
-        <div class="k">Collapse and expand</div>
-        <div class="v">Any heading that has subheadings shows a small triangle. Click it to fold that section away, or use the buttons above the tree to collapse or expand everything at once — handy for zooming out on a big note.</div>
-      </div>
-      <div class="row">
-        <div class="k">Filter</div>
-        <div class="v">Start typing in the search field above the tree to narrow the outline to headings that match. Matches stay visible even if they sit inside a folded section.</div>
-      </div>
-      <div class="row">
-        <div class="k">Jump to a section</div>
-        <div class="v">Click a heading and the note scrolls to it, dropping your cursor at the start of that line so you can begin editing right away.</div>
+        <div class="k">Stale notes</div>
+        <div class="v">Notes you haven't touched in a while, in case they've quietly gone out of date. How long "a while" is, is yours to set.</div>
       </div>
     </div>
 
-    <figure class="shot-img panel">
-      <img src="img/right-sidebar-outline.png" alt="The Outline panel open beside a long note. Top-level sections are listed in order, one expanded to reveal its subheadings indented beneath it and another folded to a single row. A search field and collapse/expand buttons sit above the tree." loading="lazy" />
-      <figcaption>The Outline panel for a note with several sections</figcaption>
-    </figure>
+    <h3>Links</h3>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Broken note links</div>
+        <div class="v">A <code>[[wiki-link]]</code> pointing at a note that doesn't exist — usually a rename that left a link behind, or a typo.</div>
+      </div>
+      <div class="row">
+        <div class="k">Broken heading links</div>
+        <div class="v">A link to a particular heading or block that has since been renamed or removed. The note is still there; the spot inside it isn't.</div>
+      </div>
+      <div class="row">
+        <div class="k">Broken citations and quotes</div>
+        <div class="v">A cite or quote link whose source or excerpt is no longer in the thoughtbase.</div>
+      </div>
+    </div>
+
+    <h3>Sources</h3>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Sources missing details</div>
+        <div class="v">Sources with no author, title, or date — the fields a citation needs to come out right.</div>
+      </div>
+      <div class="row">
+        <div class="k">Malformed DOIs</div>
+        <div class="v">A DOI that isn't shaped like one, so it won't resolve or look up.</div>
+      </div>
+      <div class="row">
+        <div class="k">Duplicate sources</div>
+        <div class="v">Two sources with the same DOI or address — usually the same thing ingested twice from different directions.</div>
+      </div>
+      <div class="row">
+        <div class="k">Cited but unread</div>
+        <div class="v">Sources you've cited without marking them read. Worth a look before you lean on them.</div>
+      </div>
+      <div class="row">
+        <div class="k">Long-unresolved stubs</div>
+        <div class="v">Source stubs that have sat unfilled for a while — a reference you meant to come back to.</div>
+      </div>
+    </div>
+
+    <h2 id="reading">Reading the list</h2>
+    <p>Findings are grouped by how much they matter — <b>Concerns</b>, then <b>Warnings</b>, then <b>Info</b> — so the top of the list is the part worth reading first. Switch the sort to <b>By type</b> when you'd rather work through one kind at a time (every broken link in one pass, say), and use the search box to narrow to a particular note or source.</p>
+
+    <h2 id="scope">This note, or the whole thoughtbase</h2>
+    <p>The panel opens on <b>This note</b>, showing only findings anchored to the note you're reading — the usual case, and quiet enough to leave open while you work.</p>
+    <p>Switch to <b>Project</b> for everything at once. Some findings only appear there: duplicate sources, unread citations, and unfilled stubs are about your library rather than any one note, so they have no note to be anchored to.</p>
+
+    <h2 id="fixing">Fixing what it finds</h2>
+    <p>Many findings carry a fix, shown as a label at the end of the row — <i>Create the note</i>, <i>Remove the heading</i>, and so on. Click the row and Minerva applies it, then re-runs the checks so the row disappears if it's genuinely resolved.</p>
+    <p>Findings with no mechanical fix — a note going stale is a judgement call, not a repair — open a conversation about that finding instead, with the assistant already told what was flagged and what it suggests.</p>
+
+    <div class="box">
+      <span class="label">Nothing happens without you</span>
+      <p>Inspections never edit your notes on their own. A fix applies when you click its row; anything the assistant proposes in the conversation still goes through the usual review-and-approve step.</p>
+    </div>
+
+    <h2 id="settings">Turning checks off</h2>
+    <p>A check that isn't earning its place is noise. <a href="settings-inspections.html">Settings → Inspections</a> has a switch for each one, plus the two thresholds that decide what counts as "stale" and "long-unresolved".</p>
 
     <div class="pager">
-      <a class="prev" href="right-sidebar-outgoing-links.html">
+      <a class="prev" href="right-sidebar-bookmarks.html">
         <span class="dir">Previous</span>
-        <span class="ttl">← Outgoing links</span>
+        <span class="ttl">&larr; Bookmarks</span>
       </a>
-      <a class="next" href="right-sidebar-properties.html">
+      <a class="next" href="conversations.html">
         <span class="dir">Next</span>
-        <span class="ttl">Properties →</span>
+        <span class="ttl">Conversations &rarr;</span>
       </a>
     </div>
   </main>

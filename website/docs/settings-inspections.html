@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Minerva — Docs — Outline</title>
-<meta name="description" content="The Outline panel shows a collapsible map of every heading in the current note, so you can scan its structure at a glance and click any heading to jump there." />
+<title>Minerva — Docs — Inspections settings</title>
+<meta name="description" content="Choose which health checks run over your thoughtbase, and how long "stale" and "unresolved" mean for you." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -61,20 +61,22 @@
     <h4>The workspace</h4>
     <a href="left-sidebar.html">Left sidebar</a>
     <a href="right-sidebar.html">Right sidebar</a>
-    <a href="right-sidebar-backlinks.html" class="sub">Backlinks</a>
-    <a href="right-sidebar-outgoing-links.html" class="sub">Outgoing links</a>
-    <a href="right-sidebar-outline.html" class="sub active">Outline</a>
-    <a href="right-sidebar-properties.html" class="sub">Properties</a>
-    <a href="right-sidebar-citations.html" class="sub">Citations</a>
-    <a href="right-sidebar-tags.html" class="sub">Tags</a>
-    <a href="right-sidebar-related.html" class="sub">Related</a>
-    <a href="right-sidebar-footnotes.html" class="sub">Footnotes</a>
-    <a href="right-sidebar-tables.html" class="sub">Tables</a>
-    <a href="right-sidebar-heading-graph.html" class="sub">Heading graph</a>
-    <a href="right-sidebar-bookmarks.html" class="sub">Bookmarks</a>
-    <a href="right-sidebar-inspections.html" class="sub">Inspections</a>
     <a href="conversations.html">Conversations</a>
     <a href="settings.html">Settings</a>
+    <a href="settings-editor.html" class="sub">Editor</a>
+    <a href="settings-appearance.html" class="sub">Appearance</a>
+    <a href="settings-behaviors.html" class="sub">Behaviors</a>
+    <a href="settings-notes.html" class="sub">Notes</a>
+    <a href="settings-formatter.html" class="sub">Formatter</a>
+    <a href="settings-object-types.html" class="sub">Object Types</a>
+    <a href="settings-inspections.html" class="sub active">Inspections</a>
+    <a href="settings-bibliography.html" class="sub">Bibliography</a>
+    <a href="settings-web.html" class="sub">Web</a>
+    <a href="settings-sources.html" class="sub">Sources</a>
+    <a href="settings-clipper.html" class="sub">Clipper</a>
+    <a href="settings-compute.html" class="sub">Compute</a>
+    <a href="settings-ai.html" class="sub">AI</a>
+    <a href="settings-skills.html" class="sub">Skills</a>
 
     <h4>Data &amp; workflows</h4>
     <a href="refactoring.html">Refactoring</a>
@@ -88,41 +90,41 @@
 
   <!-- ===== Content ===== -->
   <main class="docs-content">
-    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="right-sidebar.html">Right sidebar</a><span class="sep">/</span>Outline</p>
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="settings.html">Settings</a><span class="sep">/</span>Inspections</p>
 
-    <h1>Outline</h1>
-    <p class="lede">The Outline panel is a map of the note you're reading. It lists every heading as an indented tree, so you can take in the shape of a long note at a glance, and click any heading to jump straight to that section.</p>
+    <h1>Inspections</h1>
+    <p class="lede">Which standing checks Minerva runs over your thoughtbase, and what "stale" means for the way you work. Findings show up in the <a href="right-sidebar-inspections.html">Inspections panel</a> in the right sidebar; this page is about deciding what gets pointed out in the first place.</p>
 
-    <p>The outline updates itself as you write — add, rename, or remove a heading and the tree keeps up automatically. Deeper headings are tucked under the higher-level ones above them, mirroring the way you've organized the note.</p>
+    <h2 id="choosing">Choosing which checks run</h2>
+    <p>Each check has a switch and a line saying what it looks for, grouped by what it's about: <b>Notes</b>, <b>Links</b>, and <b>Sources</b>. Everything is on to begin with. Switch off anything that isn't telling you something you'd act on — a thoughtbase of daily journal entries doesn't need to hear that its notes are old, and a set of working drafts doesn't need every unfinished link flagged.</p>
+    <p><b>Enable all</b> and <b>Disable all</b> are there for the two moments you want them: setting up, and starting over.</p>
+    <p>A check you switch off isn't quietly filtered out of the results — it doesn't run at all. Several read your whole knowledge graph, so switching off the ones you don't want makes a run over a large thoughtbase noticeably quicker.</p>
 
+    <h2 id="thresholds">How long is "a while"?</h2>
+    <p>Two checks measure time, and neither has a right answer that suits everybody:</p>
     <div class="deflist">
       <div class="row">
-        <div class="k">Collapse and expand</div>
-        <div class="v">Any heading that has subheadings shows a small triangle. Click it to fold that section away, or use the buttons above the tree to collapse or expand everything at once — handy for zooming out on a big note.</div>
+        <div class="k">Call a note stale after</div>
+        <div class="v">Days without an edit before a note is flagged. A reference thoughtbase you revise twice a year wants a much longer window than a set of live project notes.</div>
       </div>
       <div class="row">
-        <div class="k">Filter</div>
-        <div class="v">Start typing in the search field above the tree to narrow the outline to headings that match. Matches stay visible even if they sit inside a folded section.</div>
-      </div>
-      <div class="row">
-        <div class="k">Jump to a section</div>
-        <div class="v">Click a heading and the note scrolls to it, dropping your cursor at the start of that line so you can begin editing right away.</div>
+        <div class="k">Flag an unresolved stub after</div>
+        <div class="v">Days a source stub can sit unfilled before it's worth a nudge.</div>
       </div>
     </div>
+    <p>Each field appears only when its check is on — a dial for something that never runs is just clutter. Values are kept between 1 day and about ten years.</p>
 
-    <figure class="shot-img panel">
-      <img src="img/right-sidebar-outline.png" alt="The Outline panel open beside a long note. Top-level sections are listed in order, one expanded to reveal its subheadings indented beneath it and another folded to a single row. A search field and collapse/expand buttons sit above the tree." loading="lazy" />
-      <figcaption>The Outline panel for a note with several sections</figcaption>
-    </figure>
+    <h2 id="scope">These settings follow you, not the thoughtbase</h2>
+    <p>Inspection preferences are stored per machine, alongside your other app settings, rather than inside a thoughtbase. They're a statement about how much you want to be nagged, not a property of the notes — so they apply to every thoughtbase you open here, and opening the same thoughtbase on another computer uses that computer's settings.</p>
 
     <div class="pager">
-      <a class="prev" href="right-sidebar-outgoing-links.html">
+      <a class="prev" href="settings-object-types.html">
         <span class="dir">Previous</span>
-        <span class="ttl">← Outgoing links</span>
+        <span class="ttl">&larr; Object Types</span>
       </a>
-      <a class="next" href="right-sidebar-properties.html">
+      <a class="next" href="settings-bibliography.html">
         <span class="dir">Next</span>
-        <span class="ttl">Properties →</span>
+        <span class="ttl">Bibliography &rarr;</span>
       </a>
     </div>
   </main>
