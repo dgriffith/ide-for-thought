@@ -1,12 +1,18 @@
-# Contributing to Minerva
+# Developing Minerva
 
-Thanks for your interest in Minerva! Bug reports, feature ideas, and pull
-requests are all welcome. This guide covers how to get set up, the conventions
-the codebase follows, and what a good pull request looks like.
+**Filing a bug or a feature idea? None of this applies to you** — open an
+[issue](https://github.com/dgriffith/ide-for-thought/issues) and describe what
+happened in your own words. That's the whole process.
+
+This guide is for people who want to work on the code: how to get set up, the
+conventions the codebase follows, and what a good pull request looks like. It
+lived at `CONTRIBUTING.md` until #1558 — GitHub turns a file by that name into a
+"please read the contributing guidelines" banner on the new-issue page, which is
+the wrong thing to put in front of someone reporting a bug.
 
 > Minerva is an Electron · Svelte 5 · TypeScript desktop app. The repository is
 > named `ide-for-thought`; the product is **Minerva**. If you only want to
-> understand the architecture, [`CLAUDE.md`](CLAUDE.md) is the fullest map of how
+> understand the architecture, [`CLAUDE.md`](../CLAUDE.md) is the fullest map of how
 > the pieces fit together.
 
 ## Ways to contribute
@@ -24,14 +30,14 @@ the codebase follows, and what a good pull request looks like.
   regardless of implementation quality.
 - **Author a skill** — the Learning / Research / Analysis menus are populated by
   markdown *skill* files, not code. You can add one without touching TypeScript;
-  see [`docs/authoring-skills.md`](docs/authoring-skills.md).
+  see [`authoring-skills.md`](authoring-skills.md).
 - **Send a pull request** — fixes, tests, docs, and features are all fair game.
   For anything large, please open an issue first so we can agree on the approach
   before you invest the time.
 
 ## Getting set up
 
-You need **Node 24+** (see [`.nvmrc`](.nvmrc)) and **pnpm 10**. Minerva uses
+You need **Node 24+** (see [`.nvmrc`](../.nvmrc)) and **pnpm 10**. Minerva uses
 `corepack`/pnpm — do not use `npm` or `yarn`.
 
 ```bash
@@ -85,11 +91,11 @@ IPC channels are declared in `src/shared/channels.ts` and typed in
 files in a fixed order — channel constant → main handler → `register-*.ts`
 handler registration → `preload.ts` → the `api` interface in
 `src/renderer/lib/ipc/client.ts`. The recipe is spelled out in
-[`CLAUDE.md`](CLAUDE.md) under *IPC Pattern*.
+[`CLAUDE.md`](../CLAUDE.md) under *IPC Pattern*.
 
 ## Conventions
 
-These are the ones most likely to trip up a first PR. [`CLAUDE.md`](CLAUDE.md)
+These are the ones most likely to trip up a first PR. [`CLAUDE.md`](../CLAUDE.md)
 has the complete list.
 
 - **Svelte 5 runes, not Svelte 4.** Use `$state`, `$derived`, `$effect`, and
@@ -123,7 +129,7 @@ approves it. If your change adds an AI write path, it **must** route through the
 approval engine, and you should wrap the apply path in `withLLMContext` so the
 write guard can catch a regression. Under the test runner the guard *throws*, so
 an accidental bypass fails CI. See the *LLM Integration Principles* and *Code
-Review Checklist for LLM/Graph PRs* sections of [`CLAUDE.md`](CLAUDE.md) before
+Review Checklist for LLM/Graph PRs* sections of [`CLAUDE.md`](../CLAUDE.md) before
 touching this area.
 
 ## Scope and non-negotiables
@@ -215,4 +221,4 @@ A maintainer will review and, once it's ready, squash-merge it.
 ## License
 
 By contributing, you agree that your contributions are licensed under the
-project's [MIT License](LICENSE).
+project's [MIT License](../LICENSE).

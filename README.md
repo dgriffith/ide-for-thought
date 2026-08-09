@@ -203,9 +203,11 @@ src/
 
 ## Contributing
 
-Bug reports, feature ideas, skills, and pull requests are all welcome. See
-[CONTRIBUTING.md](CONTRIBUTING.md) for setup, conventions, and how to open a
-good PR.
+Bug reports and feature ideas are welcome as
+[issues](https://github.com/dgriffith/ide-for-thought/issues) — just describe
+what happened, there's no form to fill in. For working on the code, see
+[docs/development.md](docs/development.md) for setup, conventions, and how to
+open a good PR.
 
 ## License
 
