@@ -1,4 +1,4 @@
-import { app, dialog } from 'electron';
+import { dialog } from 'electron';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { Channels } from '../../shared/channels';
@@ -16,7 +16,7 @@ import { projectContext } from '../project-context-types';
 import { writeAndReindex } from '../notebase/write-pipeline';
 import * as search from '../search/index';
 import * as vectors from '../embeddings/vector-store';
-import { clearRecentProjects } from '../recent-projects';
+import { clearRecentProjects, defaultThoughtbaseDir } from '../recent-projects';
 import { rebuildMenu } from '../menu';
 import { createWindow, openProjectInWindow, closeProjectInWindow, markPathHandled, windowsForProject } from '../window-manager';
 import { getOnboardingDismissed, setOnboardingDismissed } from '../project-config';
@@ -46,7 +46,8 @@ import {
 async function promptTutorialDestination(win: Electron.BrowserWindow): Promise<string | null> {
   const result = await dialog.showSaveDialog(win, {
     title: 'Install Tutorial Thoughtbase',
-    defaultPath: path.join(app.getPath('home'), TUTORIAL_DEFAULT_NAME),
+    // Beside the user's other thoughtbases, not dumped in home (#1560).
+    defaultPath: path.join(defaultThoughtbaseDir(), TUTORIAL_DEFAULT_NAME),
     buttonLabel: 'Install Tutorial',
     properties: ['createDirectory'],
   });
@@ -74,6 +75,7 @@ export function registerNotebase(): void {
       properties: ['openDirectory', 'createDirectory'],
       title: 'Choose location for new thoughtbase',
       buttonLabel: 'Create Thoughtbase',
+      defaultPath: defaultThoughtbaseDir(),
     });
     if (result.canceled || result.filePaths.length === 0) return null;
 
@@ -129,6 +131,7 @@ export function registerNotebase(): void {
     const result = await dialog.showOpenDialog(parentWin, {
       properties: ['openDirectory'],
       title: 'Open thoughtbase',
+      defaultPath: defaultThoughtbaseDir(),
     });
     if (result.canceled || result.filePaths.length === 0) return null;
     const rootPath = result.filePaths[0]!;
@@ -146,6 +149,7 @@ export function registerNotebase(): void {
       properties: ['openDirectory', 'createDirectory'],
       title: 'Choose location for new thoughtbase',
       buttonLabel: 'Create Thoughtbase',
+      defaultPath: defaultThoughtbaseDir(),
     });
     if (result.canceled || result.filePaths.length === 0) return null;
     const rootPath = result.filePaths[0]!;
