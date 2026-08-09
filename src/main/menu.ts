@@ -925,7 +925,10 @@ function buildHelpMenu(isMac: boolean): Electron.MenuItemConstructorOptions {
 }
 
 const DOCS_URL = 'https://github.com/dgriffith/ide-for-thought/tree/main/docs';
-const ISSUES_URL = 'https://github.com/dgriffith/ide-for-thought/issues';
+// The template chooser, not the issue list: Help → Report an Issue is someone
+// wanting to report, and the chooser is where the bug / feature forms live
+// (.github/ISSUE_TEMPLATE). A blank issue is still one click from there.
+const ISSUES_URL = 'https://github.com/dgriffith/ide-for-thought/issues/new/choose';
 
 /** The most recently built menu template — the source for the shortcuts
  *  reference, so it reflects whatever menu state the user is actually in. */

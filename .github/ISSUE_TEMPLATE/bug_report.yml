@@ -1,0 +1,61 @@
+name: Bug report
+description: Something in Minerva doesn't work the way it should.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. Fill in what you know — only the first box
+        is required, and "it did the wrong thing when I clicked X" is a
+        perfectly good bug report.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Describe the problem in your own words.
+      placeholder: When I open a note from the sidebar, the preview starts halfway down the page.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect instead?
+      placeholder: It should start at the top of the note.
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: |
+        If you can make it happen again, the steps help enormously. Skip this
+        if it only happened once — an unreproducible report is still worth
+        filing.
+      placeholder: |
+        1. Open a long note and scroll to the bottom
+        2. Click a different note in the sidebar
+        3. The new note opens scrolled down
+
+  - type: input
+    id: version
+    attributes:
+      label: Minerva version
+      description: Help → About Minerva (on macOS, Minerva → About Minerva).
+      placeholder: "1.0.0"
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS
+        - Windows
+        - Linux
+        - Other / not sure
+
+  - type: markdown
+    attributes:
+      value: |
+        Screenshots and short screen recordings are welcome — drag them into
+        any box above.
