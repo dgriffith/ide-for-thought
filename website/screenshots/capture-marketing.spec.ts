@@ -75,6 +75,66 @@ async function seedConversationsAndOpen(activeId: string) {
 
 // ── Hero — the app in its best light: a rich note in split view. ────────────
 // Used for both index.html and features.html heroes.
+/**
+ * Typed notes / object types (#1770). The demo vault has only two typed notes,
+ * which would make the Objects panel read as an empty feature — so seed a
+ * shelf of Books (in the vault's own subject, lutherie and music history) into
+ * the THROWAWAY copy before shooting. The `horse` type already in the vault
+ * stays visible on purpose: a user-made type beside the stock ones is the
+ * point, not a blemish.
+ */
+const SEED_BOOKS: Array<{ title: string; author: string; published: string; rating: number; status: string }> = [
+  { title: 'The Art of Violin Making', author: 'Chris Johnson', published: '1999-01-01', rating: 5, status: 'read' },
+  { title: 'Lute Construction', author: 'Robert Lundberg', published: '2002-01-01', rating: 5, status: 'read' },
+  { title: 'The Early Mandolin', author: 'James Tyler', published: '1989-01-01', rating: 4, status: 'read' },
+  { title: 'Musical Instrument Design', author: 'Bart Hopkin', published: '1996-01-01', rating: 4, status: 'reading' },
+  { title: 'Wood for Sound', author: 'Ulrike Wegst', published: '2006-01-01', rating: 3, status: 'to-read' },
+  { title: 'A History of the Oud', author: 'Nasir Shamma', published: '2014-01-01', rating: 4, status: 'to-read' },
+];
+
+test('typed-objects', async () => {
+  await setRightSidebar(false);
+  await h.win.evaluate(async (books) => {
+    const api = (window as unknown as {
+      api: { notebase: { writeFile: (p: string, c: string) => Promise<unknown> } };
+    }).api;
+    for (const b of books) {
+      const body = [
+        '---',
+        'type: book',
+        `author: ${b.author}`,
+        `published: ${b.published}`,
+        `rating: ${b.rating}`,
+        `status: ${b.status}`,
+        '---',
+        '',
+        `# ${b.title}`,
+        '',
+        '## Summary',
+        '',
+        '## Notes',
+        '',
+      ].join('\n');
+      await api.notebase.writeFile(`library/${b.title}.md`, body);
+    }
+  }, SEED_BOOKS);
+  // Indexing is watcher-driven; give it a beat before asking for the view.
+  await h.win.waitForTimeout(1500);
+
+  await h.win.locator('aside.sidebar .panel-tab[title="Objects"]').click();
+  await h.win.waitForTimeout(600);
+  // Expand Book in the panel, then open its full view and switch to Table —
+  // the columns ARE the type's declared fields, which is the whole idea.
+  await h.win.locator('aside.sidebar .type-row', { hasText: 'Book' }).first().click();
+  await h.win.waitForTimeout(400);
+  await h.win.locator('aside.sidebar [aria-label="Open Book view"]').first().click();
+  await h.win.waitForTimeout(800);
+  await h.win.getByRole('tab', { name: 'Table' }).click();
+  await h.win.waitForTimeout(600);
+
+  await shootWindow('typed-objects');
+});
+
 test('index-hero', async () => {
   await openNote(h.win, 'Ancient Roots - The Oud and the Lute Family');
   await setView(h.win, 'Side by side');
