@@ -40,8 +40,9 @@ A few ways in:
   note — Minerva weaves the links into a knowledge graph you can query.
 - **Label with tags and frontmatter.** Titles, tags, and links are all indexed;
   the \`entrypoint\` tag above is what marks this as your starting note.
-- **Ask questions of your notes.** Open a conversation to explore or challenge what
-  you've written — nothing lands in your graph without your approval.
+- **Ask questions of your notes.** The **New Conversation** button above the editor
+  starts one; right-click a note's tab and choose *Ask About This…* to start from
+  that note — nothing lands in your graph without your approval.
 
 When you're ready, press ${newNote} and start writing.
 `;
