@@ -17,6 +17,7 @@ import { resolveSelectionTargets, expandSelectionToNoteFiles, pathExistsInTree }
 import { describeDeleteNoun, describeDeleteMessage, offsetToLineCol, flattenNotePaths, formatCappedList, type OperationFailure } from './text-helpers';
 import { resolveWikiLinkTarget } from '../../../shared/wiki-link-resolver';
 import { removeBrokenAnchorLinks } from '../../../shared/refactor/remove-broken-anchor';
+import { NOTE_EXTENSIONS } from '../../../shared/note-extensions';
 import { setFrontmatterProperty, getFrontmatterValues } from '../../../shared/frontmatter-edit';
 import { deriveTypeProperties } from '../../../shared/objects/derive-type';
 import type { TypeInfo, PropertyDef } from '../../../shared/objects/type-def';
@@ -577,17 +578,36 @@ export function createNoteOps(ctx: NoteOpsCtx) {
   async function handleRename(relativePath: string) {
     if (!notebase.meta) return;
     const oldName = relativePath.split('/').pop()!;
-    // Seed the field with the current name so the user can tweak it instead
-    // of retyping from scratch; pre-select just the stem so typing replaces
-    // the name while the extension stays visible (#1143).
-    const rawNewName = await showPrompt('New name:', { initial: oldName, selectStem: true });
-    if (!rawNewName || rawNewName === oldName) return;
-    // Preserve the old extension when the user didn't include one. A file
-    // that drops its .md / .ttl suffix falls out of the indexed set and
-    // effectively disappears from the sidebar; almost always a mistake.
+    // The extension is Minerva's business, not the user's (#1564): the field
+    // shows the NAME, seeded with the current one so it can be tweaked rather
+    // than retyped. Editing `.md` by hand only ever ended one way — a file that
+    // loses its .md / .ttl suffix falls out of the indexed set and effectively
+    // disappears from the sidebar.
+    //
+    // Keeping it out of the field also fixes a name with a dot in it: "Notes
+    // v1.2" used to read as "already has an extension" and rename to a file
+    // with no suffix at all.
     const oldDotIdx = oldName.lastIndexOf('.');
     const oldExt = oldDotIdx > 0 ? oldName.slice(oldDotIdx) : '';
-    const newName = !rawNewName.includes('.') && oldExt ? `${rawNewName}${oldExt}` : rawNewName;
+    const oldStem = oldExt ? oldName.slice(0, -oldExt.length) : oldName;
+
+    const rawNewName = await showPrompt('New name:', { initial: oldStem });
+    const typed = rawNewName?.trim();
+    if (!typed) return;
+
+    // What the user typed is a NAME. Three cases for a trailing `.thing`:
+    // the same extension back (habit — don't double it), a different note
+    // extension (a deliberate format change, still supported), or anything
+    // else, which is simply part of the name.
+    const typedDotIdx = typed.lastIndexOf('.');
+    const typedExt = typedDotIdx > 0 ? typed.slice(typedDotIdx) : '';
+    const typedLower = typedExt.toLowerCase();
+    const keepsExt = typedLower === oldExt.toLowerCase();
+    const switchesExt = !keepsExt && NOTE_EXTENSIONS.some((e) => e === typedLower);
+    // A leading dot is taken literally — appending to it would produce
+    // `.md.md`, and it's the user's business if they want a hidden file.
+    const newName = keepsExt || switchesExt || typed.startsWith('.') ? typed : `${typed}${oldExt}`;
+    if (newName === oldName) return;
     const dir = relativePath.includes('/') ? relativePath.substring(0, relativePath.lastIndexOf('/')) : '';
     const newPath = dir ? `${dir}/${newName}` : newName;
     // Tab path + content refresh is handled by the NOTEBASE_RENAMED /

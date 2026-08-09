@@ -85,34 +85,52 @@ beforeEach(() => {
 });
 
 describe('handleRename', () => {
-  it('preserves the original extension when the user omits one', async () => {
+  it('preserves the original extension', async () => {
     h.dialog.showPrompt.mockResolvedValue('renamed');
     await ops.handleRename('notes/foo.md');
     expect(h.api.notebase.rename).toHaveBeenCalledWith('notes/foo.md', 'notes/renamed.md');
     expect(h.notebase.refresh).toHaveBeenCalled();
   });
 
-  it('respects an explicit extension the user types', async () => {
+  it('shows the NAME, not the filename — no extension in the field (#1564)', async () => {
+    h.dialog.showPrompt.mockResolvedValue('renamed');
+    await ops.handleRename('notes/foo.md');
+    expect(h.dialog.showPrompt).toHaveBeenCalledWith('New name:', { initial: 'foo' });
+  });
+
+  it('keeps a dot that belongs to the NAME (#1564)', async () => {
+    // "Notes v1.2" used to read as "already has an extension", renaming the
+    // note to a suffixless file that drops out of the indexed set entirely.
+    h.dialog.showPrompt.mockResolvedValue('Notes v1.2');
+    await ops.handleRename('notes/foo.md');
+    expect(h.api.notebase.rename).toHaveBeenCalledWith('notes/foo.md', 'notes/Notes v1.2.md');
+  });
+
+  it('does not double an extension typed out of habit', async () => {
+    h.dialog.showPrompt.mockResolvedValue('renamed.MD');
+    await ops.handleRename('foo.md');
+    expect(h.api.notebase.rename).toHaveBeenCalledWith('foo.md', 'renamed.MD');
+  });
+
+  it('still lets a deliberate note-format change through', async () => {
     h.dialog.showPrompt.mockResolvedValue('renamed.ttl');
     await ops.handleRename('foo.md');
     expect(h.api.notebase.rename).toHaveBeenCalledWith('foo.md', 'renamed.ttl');
   });
 
-  it('does nothing on cancel or an unchanged name', async () => {
-    h.dialog.showPrompt.mockResolvedValue(null);
-    await ops.handleRename('foo.md');
-    h.dialog.showPrompt.mockResolvedValue('foo.md');
-    await ops.handleRename('foo.md');
-    expect(h.api.notebase.rename).not.toHaveBeenCalled();
+  it('renames a folder (no extension) with what was typed', async () => {
+    h.dialog.showPrompt.mockResolvedValue('archive');
+    await ops.handleRename('topics');
+    expect(h.dialog.showPrompt).toHaveBeenCalledWith('New name:', { initial: 'topics' });
+    expect(h.api.notebase.rename).toHaveBeenCalledWith('topics', 'archive');
   });
 
-  it('seeds the prompt with the current name and selects the stem (#1143)', async () => {
-    h.dialog.showPrompt.mockResolvedValue('renamed');
-    await ops.handleRename('notes/foo.md');
-    expect(h.dialog.showPrompt).toHaveBeenCalledWith('New name:', {
-      initial: 'foo.md',
-      selectStem: true,
-    });
+  it('does nothing on cancel, whitespace, or an unchanged name', async () => {
+    for (const answer of [null, '', '   ', 'foo']) {
+      h.dialog.showPrompt.mockResolvedValue(answer);
+      await ops.handleRename('foo.md');
+    }
+    expect(h.api.notebase.rename).not.toHaveBeenCalled();
   });
 });
 

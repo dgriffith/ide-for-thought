@@ -18,10 +18,9 @@
      *  dot) rather than the whole value, so typing replaces the name but
      *  visibly keeps the extension. Used by Rename. Falls back to a full
      *  select when `initial` has no extension. */
-    selectStem?: boolean;
   }
 
-  let { message, onConfirm, onCancel, suggestions = [], initial = '', selectStem = false }: Props = $props();
+  let { message, onConfirm, onCancel, suggestions = [], initial = '' }: Props = $props();
   // Intentional one-time seed from `initial`; dialog is short-lived and keyed.
   // svelte-ignore state_referenced_locally
   let value = $state(initial);
@@ -42,11 +41,8 @@
     inputEl?.focus();
     if (!initial || !inputEl) return;
     // Pre-select the seeded value so the user can type to replace it but
-    // Tab/Enter to accept as-is. For Rename, select only the stem (before
-    // the last dot) so the extension stays visible and untouched.
-    const dot = initial.lastIndexOf('.');
-    if (selectStem && dot > 0) inputEl.setSelectionRange(0, dot);
-    else inputEl.select();
+    // Tab/Enter to accept as-is.
+    inputEl.select();
   });
 </script>
 
