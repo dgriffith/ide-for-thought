@@ -135,6 +135,35 @@ describe('Preview (render/smoke)', () => {
     expect(container.textContent).not.toContain('Hello World');
   });
 
+  it('scrolls back to the top when the note changes (#1718)', async () => {
+    // The preview pane is NOT keyed on the note path the way the editor is —
+    // one element serves every note — so without an explicit reset the next
+    // note opens at the previous note's scroll offset.
+    const { container, rerender } = render(Preview, props({
+      content: `# Long\n\n${'Filler paragraph.\n\n'.repeat(80)}`,
+    }));
+    const preview = container.querySelector<HTMLElement>('.preview')!;
+    preview.scrollTop = 900;
+    expect(preview.scrollTop).toBe(900);
+
+    await rerender(props({ notePath: 'notes/other.md', content: '# Other\n\nA different note.\n' }));
+    expect(preview.scrollTop).toBe(0);
+  });
+
+  it('leaves the scroll alone while the SAME note is edited', async () => {
+    // Typing in the split editor-preview view re-renders the pane on every
+    // keystroke; yanking the reader back to the top each time would be worse
+    // than the bug being fixed.
+    const { container, rerender } = render(Preview, props({
+      content: `# Long\n\n${'Filler paragraph.\n\n'.repeat(80)}`,
+    }));
+    const preview = container.querySelector<HTMLElement>('.preview')!;
+    preview.scrollTop = 900;
+
+    await rerender(props({ content: `# Long\n\n${'Filler paragraph.\n\n'.repeat(80)}More.\n` }));
+    expect(preview.scrollTop).toBe(900);
+  });
+
   it('opens the read-only note context menu and wires tool entries through onToolInvoke', async () => {
     h.getToolInfosByCategory.mockImplementation((category: string) =>
       category === 'learning' ? [tool('learn.summarize', 'Summarize', 'learning')] : [],
