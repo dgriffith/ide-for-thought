@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Minerva — Docs — Tags</title>
-<meta name="description" content="The right sidebar's Tags panel shows the tags on the note you're reading, arranged as a tidy hierarchy, and lets you jump to other notes that share a tag." />
+<title>Minerva — Docs — Inspections</title>
+<meta name="description" content="Standing checks over your thoughtbase — broken links, stale notes, sources missing citation details — with one-click fixes." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -66,13 +66,13 @@
     <a href="right-sidebar-outline.html" class="sub">Outline</a>
     <a href="right-sidebar-properties.html" class="sub">Properties</a>
     <a href="right-sidebar-citations.html" class="sub">Citations</a>
-    <a href="right-sidebar-tags.html" class="sub active">Tags</a>
+    <a href="right-sidebar-tags.html" class="sub">Tags</a>
     <a href="right-sidebar-related.html" class="sub">Related</a>
     <a href="right-sidebar-footnotes.html" class="sub">Footnotes</a>
     <a href="right-sidebar-tables.html" class="sub">Tables</a>
     <a href="right-sidebar-heading-graph.html" class="sub">Heading graph</a>
     <a href="right-sidebar-bookmarks.html" class="sub">Bookmarks</a>
-    <a href="right-sidebar-inspections.html" class="sub">Inspections</a>
+    <a href="right-sidebar-inspections.html" class="sub active">Inspections</a>
     <a href="conversations.html">Conversations</a>
     <a href="settings.html">Settings</a>
 
@@ -88,75 +88,98 @@
 
   <!-- ===== Content ===== -->
   <main class="docs-content">
-    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="right-sidebar.html">Right sidebar</a><span class="sep">/</span>Tags</p>
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="right-sidebar.html">Right sidebar</a><span class="sep">/</span>Inspections</p>
 
-    <h1>Tags</h1>
-    <p class="lede">Tags are short labels you add to a note to group it with others on the same theme. This panel in the right sidebar shows the tags on the note you're currently reading, arranged as a tidy tree so a tag like <code>#project/minerva/docs</code> reads as nested rows instead of one long string. It's a read-only view — to change a note's tags, you edit the note.</p>
+    <h1>Inspections</h1>
+    <p class="lede">Inspections are standing checks Minerva can run over your whole thoughtbase — links that point at nothing, notes quietly drifting out of date, sources missing the details a citation needs. The panel lists what they found, in the order worth caring about, and for many of them it can do the fixing for you. Nothing here changes a note on its own.</p>
+
+    <h2 id="running">When the checks run</h2>
+    <p>Mostly, without you asking. Minerva runs them once when you open a thoughtbase and every few minutes after that, so the panel already has something to show when you open it from the right sidebar's <b>Activity</b> group.</p>
+    <p><b>Run</b> forces an immediate re-check — worth pressing after a big reorganization, or when you've just fixed a batch of things and want the list to catch up rather than waiting for the next pass.</p>
 
     <div class="box">
-      <span class="label">Two Tags panels, two jobs</span>
-      <p>Minerva has a Tags panel on each side, and they answer different questions. The one in the <b>left</b> sidebar is a project-wide list of every tag you've used anywhere, alphabetical and with counts — good for browsing your whole vocabulary and jumping to any tagged note. This one, in the <b>right</b> sidebar, is about the note in front of you: it lists only the tags that note carries. Switch to another note and its contents change to match.</p>
+      <span class="label">Broken links get flagged twice, on purpose</span>
+      <p>A broken <code>[[wiki-link]]</code> is underlined in the editor and the preview <i>as you type</i>, with a quick-fix on the spot — that's live, and separate from this panel. The panel is the standing, whole-thoughtbase view: every broken link at once, including the ones in notes you haven't opened lately.</p>
     </div>
 
-    <h2 id="hierarchy">Reading the tree</h2>
-    <p>Tags with slashes in them — <code>#area/health</code>, <code>#project/minerva/docs</code> — read as paths, and the panel nests them accordingly. If a note carries only <code>#foo/bar/baz</code>, you'll still see <code>foo</code> and <code>foo/bar</code> as parent rows above it, standing in as the branches that hold the tree together.</p>
+    <h2 id="what">What it looks for</h2>
+    <p>Every check can be switched off in <a href="settings-inspections.html">Settings → Inspections</a> if it isn't telling you anything useful.</p>
 
+    <h3>Notes</h3>
     <div class="deflist">
       <div class="row">
-        <div class="k">Expand / collapse</div>
-        <div class="v">Click the arrow on any row that has children to fold or unfold that branch. The panel remembers which branches you've opened.</div>
-      </div>
-      <div class="row">
-        <div class="k">Click a tag</div>
-        <div class="v">Lists every note and source that carries that exact tag, shown beneath the tree — a quick way to jump from the note you're reading to everything else that shares one of its tags.</div>
-      </div>
-      <div class="row">
-        <div class="k">Click a parent tag</div>
-        <div class="v">Lists everything tagged at or below that branch — for example, every note under <code>#area/health</code> no matter how specific the tag goes. Handy for a broad sweep across a whole theme.</div>
-      </div>
-      <div class="row">
-        <div class="k">Highlighted rows</div>
-        <div class="v">Rows for tags the note actually carries are tinted so they stand out from the parent rows that only exist to organize the tree.</div>
-      </div>
-      <div class="row">
-        <div class="k">Filter box</div>
-        <div class="v">Type in the search box to narrow the tree to matching tags. A match stays visible along with the branches above it, so you can see where it sits.</div>
+        <div class="k">Stale notes</div>
+        <div class="v">Notes you haven't touched in a while, in case they've quietly gone out of date. How long "a while" is, is yours to set.</div>
       </div>
     </div>
 
-    <figure class="shot-img panel">
-      <img src="img/right-sidebar-tags.png" alt="The right sidebar's Tags panel open on a note with a nested tag, showing the branch expanded, the note's own tag highlighted, and a list beneath the tree of other notes and sources that share that tag." loading="lazy" />
-      <figcaption>Screenshot — Tags panel for a note with nested tags</figcaption>
-    </figure>
-
-    <h2 id="add-remove">Adding and removing tags</h2>
-    <p>This panel only reads — there's no box to type into. You tag a note by editing the note itself, and Minerva recognizes tags written two ways; the panel shows both together.</p>
-
+    <h3>Links</h3>
     <div class="deflist">
       <div class="row">
-        <div class="k">Inline hashtags</div>
-        <div class="v">Type <code>#tagname</code> anywhere in the note's text. It's picked up as a tag as soon as you save.</div>
+        <div class="k">Broken note links</div>
+        <div class="v">A <code>[[wiki-link]]</code> pointing at a note that doesn't exist — usually a rename that left a link behind, or a typo.</div>
       </div>
       <div class="row">
-        <div class="k">A tags list in properties</div>
-        <div class="v">Add tags to the <code>tags:</code> list in the note's properties at the top. Many notes are tagged only this way, with nothing typed inline.</div>
+        <div class="k">Broken heading links</div>
+        <div class="v">A link to a particular heading or block that has since been renamed or removed. The note is still there; the spot inside it isn't.</div>
       </div>
       <div class="row">
-        <div class="k">Removing a tag</div>
-        <div class="v">Delete the hashtag text or the properties entry and save. The panel simply stops showing a tag once the note no longer contains it.</div>
+        <div class="k">Broken citations and quotes</div>
+        <div class="v">A cite or quote link whose source or excerpt is no longer in the thoughtbase.</div>
       </div>
     </div>
 
-    <p>The tree updates the moment you save — no manual refresh needed. For browsing tags across your whole project, see <a href="left-sidebar-tags.html">Left sidebar → Tags</a>.</p>
+    <h3>Sources</h3>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Sources missing details</div>
+        <div class="v">Sources with no author, title, or date — the fields a citation needs to come out right.</div>
+      </div>
+      <div class="row">
+        <div class="k">Malformed DOIs</div>
+        <div class="v">A DOI that isn't shaped like one, so it won't resolve or look up.</div>
+      </div>
+      <div class="row">
+        <div class="k">Duplicate sources</div>
+        <div class="v">Two sources with the same DOI or address — usually the same thing ingested twice from different directions.</div>
+      </div>
+      <div class="row">
+        <div class="k">Cited but unread</div>
+        <div class="v">Sources you've cited without marking them read. Worth a look before you lean on them.</div>
+      </div>
+      <div class="row">
+        <div class="k">Long-unresolved stubs</div>
+        <div class="v">Source stubs that have sat unfilled for a while — a reference you meant to come back to.</div>
+      </div>
+    </div>
+
+    <h2 id="reading">Reading the list</h2>
+    <p>Findings are grouped by how much they matter — <b>Concerns</b>, then <b>Warnings</b>, then <b>Info</b> — so the top of the list is the part worth reading first. Switch the sort to <b>By type</b> when you'd rather work through one kind at a time (every broken link in one pass, say), and use the search box to narrow to a particular note or source.</p>
+
+    <h2 id="scope">This note, or the whole thoughtbase</h2>
+    <p>The panel opens on <b>This note</b>, showing only findings anchored to the note you're reading — the usual case, and quiet enough to leave open while you work.</p>
+    <p>Switch to <b>Project</b> for everything at once. Some findings only appear there: duplicate sources, unread citations, and unfilled stubs are about your library rather than any one note, so they have no note to be anchored to.</p>
+
+    <h2 id="fixing">Fixing what it finds</h2>
+    <p>Many findings carry a fix, shown as a label at the end of the row — <i>Create the note</i>, <i>Remove the heading</i>, and so on. Click the row and Minerva applies it, then re-runs the checks so the row disappears if it's genuinely resolved.</p>
+    <p>Findings with no mechanical fix — a note going stale is a judgement call, not a repair — open a conversation about that finding instead, with the assistant already told what was flagged and what it suggests.</p>
+
+    <div class="box">
+      <span class="label">Nothing happens without you</span>
+      <p>Inspections never edit your notes on their own. A fix applies when you click its row; anything the assistant proposes in the conversation still goes through the usual review-and-approve step.</p>
+    </div>
+
+    <h2 id="settings">Turning checks off</h2>
+    <p>A check that isn't earning its place is noise. <a href="settings-inspections.html">Settings → Inspections</a> has a switch for each one, plus the two thresholds that decide what counts as "stale" and "long-unresolved".</p>
 
     <div class="pager">
-      <a class="prev" href="right-sidebar-citations.html">
+      <a class="prev" href="right-sidebar-bookmarks.html">
         <span class="dir">Previous</span>
-        <span class="ttl">← Citations</span>
+        <span class="ttl">&larr; Bookmarks</span>
       </a>
-      <a class="next" href="right-sidebar-related.html">
+      <a class="next" href="conversations.html">
         <span class="dir">Next</span>
-        <span class="ttl">Related →</span>
+        <span class="ttl">Conversations &rarr;</span>
       </a>
     </div>
   </main>
