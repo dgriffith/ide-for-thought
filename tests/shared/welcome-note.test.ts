@@ -33,6 +33,30 @@ describe('welcomeNoteContent', () => {
     expect(body).not.toMatch(/open a conversation/i);
   });
 
+  it('says "properties", never "frontmatter" (#welcome-copy)', () => {
+    const body = welcomeNoteContent(true);
+    expect(body).toContain('properties');
+    expect(body.toLowerCase()).not.toContain('frontmatter');
+  });
+
+  it('never points at the properties block "above"', () => {
+    // The editor collapses it by default, so on most screens there is nothing
+    // there to look at — the old copy sent readers to a blank line.
+    const body = welcomeNoteContent(true);
+    expect(body).not.toMatch(/tag above|block above|above marks/i);
+  });
+
+  it('leads with why a thoughtbase, not with the machinery', () => {
+    const body = welcomeNoteContent(true);
+    const intro = body.slice(0, body.indexOf('## '));
+    // The pitch, in the website's framing.
+    expect(intro).toMatch(/thoughtbase/i);
+    expect(intro).toMatch(/chat history|conversation started from nothing|compounds/i);
+    // Not the internals. "Knowledge graph" is a thing you come to want, not a
+    // reason to start.
+    expect(body).not.toMatch(/knowledge graph|wiki-link|indexed|SPARQL/i);
+  });
+
   it('greets the reader', () => {
     expect(welcomeNoteContent(true)).toContain('Welcome to your thoughtbase');
   });
