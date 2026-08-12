@@ -125,8 +125,11 @@ you.
 
 ### 1. Bump to a prerelease version
 
+Bump `package.json` wherever the line you're shipping lives — that may well be
+`main` itself, if `main` *is* the 2.0 line. The bump lands via PR like any other
+change.
+
 ```bash
-git checkout -b release/v2.0.0-alpha.1     # off your 2.0 branch, not main
 # package.json "version" -> 2.0.0-alpha.1
 ```
 
@@ -136,25 +139,58 @@ tester will silently auto-update *off* your alpha the next time you publish a
 `1.0.x` — they'd lose the build without ever being told. `2.0.0-alpha.1` sorts
 above every stable release, so the feed offers it nothing.
 
-### 2. Tag it by hand
+### 2. Tag it
 
-`pnpm release:tag` refuses to run off `main` with a dirty tree — deliberately,
-since real releases come off merged `main`. A pre-alpha doesn't, so tag
-directly:
+If the bump landed on `main`, use the helper as normal — it accepts a
+prerelease version, and it still enforces the check that matters (tag ==
+`package.json` version, or the updater never offers the build):
 
 ```bash
-git tag -a v2.0.0-alpha.1 -m "2.0 pre-alpha"
+git checkout main && git pull
+pnpm release:tag
 git push origin v2.0.0-alpha.1     # matches release.yml's 'v*' trigger
 ```
 
-CI builds it signed + notarized + stapled, exactly like a real release, and
-cuts a **draft** — auto-marked as a pre-release, because the tag has a hyphen
-in it (see the `prerelease:` line in `release.yml`).
+Only if you're shipping off a **non-`main`** branch do you tag by hand —
+`release:tag` refuses to run anywhere else, deliberately, since real releases
+come off merged `main`:
 
-### 3. Get the DMG
+```bash
+git tag -a v2.0.0-alpha.1 -m "2.0 pre-alpha"
+git push origin v2.0.0-alpha.1
+```
 
-Under **Releases** the draft appears at the top, labelled `Draft`
-`Pre-release`. The assets hang off it:
+### 3. Wait for the build
+
+The tag push runs `release.yml` — signed + notarized + stapled, exactly like a
+real release. Budget **10–15 minutes**; notarization is the slow part and it
+varies with Apple's queue.
+
+The release object doesn't exist until the run's final step, so **Releases will
+look empty while the build is going**. Watch the run, not the Releases page:
+
+```bash
+gh run watch "$(gh run list --workflow release.yml --limit 1 --json databaseId -q '.[0].databaseId')"
+```
+
+The draft it cuts is auto-marked a pre-release, because the tag has a hyphen in
+it (see the `prerelease:` line in `release.yml`).
+
+### 4. Get the DMG
+
+Under **Releases** the draft appears at the top, above every published release,
+labelled `Draft` `Pre-release`. The assets hang off it.
+
+Confirm both flags before you send anything — they're the entire safety story
+for this section, and they're cheap to check:
+
+```bash
+gh release view v2.0.0-alpha.1 --json isDraft,isPrerelease,assets \
+  --jq '{isDraft, isPrerelease, assets: [.assets[].name]}'
+# expect isDraft: true, isPrerelease: true, and a .dmg + .zip
+```
+
+Then pull it down:
 
 ```bash
 gh release download v2.0.0-alpha.1 --pattern '*.dmg' --dir ~/Downloads
@@ -172,7 +208,7 @@ artifacts *without* cutting any release, and the DMG is inside the
 (90 days) and only collaborators can download them, so this suits "build it and
 hand over the file" better than anything durable.
 
-### 4. Leave the draft unpublished
+### 5. Leave the draft unpublished
 
 Nothing else is required. Do **not** run the `gh release edit --draft=false`
 step from the release loop above.
