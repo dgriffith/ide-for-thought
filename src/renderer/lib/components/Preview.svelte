@@ -499,7 +499,9 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
      * Re-render mermaid diagrams against the new theme tokens. Called
      * from App.svelte when the user cycles the theme — the existing
      * SVG was generated with the old palette and would otherwise look
-     * out of place.
+     * out of place — and on a content-font change, where the stale SVG
+     * is worse than out of place: mermaid *sizes* each label against
+     * that font, so the old boxes clip the new text (#1802).
      */
     export function updateTheme(): void {
         invalidateMermaidTheme();

@@ -24,7 +24,8 @@ type MermaidApi = {
 };
 
 let mermaidPromise: Promise<MermaidApi> | null = null;
-let initializedFor: 'dark' | 'light' | 'contrast' | null = null;
+/** `<theme>|<label font>` — both feed themeVariables, so both must key the cache. */
+let initializedFor: string | null = null;
 let counter = 0;
 
 async function loadMermaid(): Promise<MermaidApi> {
@@ -36,9 +37,9 @@ async function loadMermaid(): Promise<MermaidApi> {
   return mermaidPromise;
 }
 
-function ensureInitialized(api: MermaidApi): void {
-  const effective = getEffectiveTheme(getThemeMode());
-  if (initializedFor === effective) return;
+function ensureInitialized(api: MermaidApi, fontFamily: string): void {
+  const key = `${getEffectiveTheme(getThemeMode())}|${fontFamily}`;
+  if (initializedFor === key) return;
   // Mermaid's `base` theme accepts variable overrides; using it instead
   // of `dark` / `default` lets us pin every color to a catppuccin token.
   const tokens = readThemeTokens();
@@ -61,10 +62,30 @@ function ensureInitialized(api: MermaidApi): void {
       clusterBorder: tokens.border,
       titleColor: tokens.text,
       edgeLabelBackground: tokens.bg,
-      fontFamily: 'inherit',
+      fontFamily,
     },
   });
-  initializedFor = effective;
+  initializedFor = key;
+}
+
+/**
+ * The font mermaid's labels will actually be drawn in (#1802).
+ *
+ * Mermaid sizes each label by rendering it into a temp div it appends to
+ * `document.body`, then bakes that measurement into a fixed-width
+ * `<foreignObject>`. The finished SVG is injected into `.preview`, which uses
+ * the *content* font (`--content-font-family`) while `body` uses the *UI* font
+ * (`--font-sans`). Passing `fontFamily: 'inherit'` let those two disagree:
+ * every label was measured in one font and drawn in another, so under any
+ * non-default Appearance → Content font preset the text overran the box it was
+ * sized for and the foreignObject clipped it ("Write a n", "Knowledge grap").
+ *
+ * Resolving the preview's own computed family and handing mermaid that concrete
+ * stack makes measurement and render agree, so a long label wraps at mermaid's
+ * `wrappingWidth` instead of being cut.
+ */
+function labelFontFamily(root: HTMLElement): string {
+  return getComputedStyle(root).fontFamily || 'inherit';
 }
 
 function readThemeTokens(): {
@@ -104,7 +125,7 @@ export async function hydrateMermaidBlocks(root: HTMLElement): Promise<void> {
   let api: MermaidApi;
   try {
     api = await loadMermaid();
-    ensureInitialized(api);
+    ensureInitialized(api, labelFontFamily(root));
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     for (const el of blocks) {
@@ -143,7 +164,8 @@ export async function hydrateMermaidBlocks(root: HTMLElement): Promise<void> {
 
 /**
  * Reset cached theme so the next render re-initializes mermaid with
- * the current theme variables. Call after a theme change.
+ * the current theme variables. Call after a theme *or* content-font change —
+ * both feed themeVariables, and a font change also resizes every label (#1802).
  */
 export function invalidateMermaidTheme(): void {
   initializedFor = null;

@@ -57,6 +57,11 @@
   });
   $effect(() => {
     setFontFamily(fontFamily);
+    // Same fan-out as a theme change: the canvas surfaces can't pick a CSS
+    // custom-property change up on their own, and mermaid in particular *sizes*
+    // its labels against this font — leave it stale and every diagram keeps
+    // boxes measured for the previous font (#1802).
+    onThemeChanged();
   });
 </script>
 
