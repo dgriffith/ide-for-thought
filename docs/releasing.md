@@ -113,6 +113,90 @@ and hit **Publish release**.
 
 ---
 
+## Handing someone a pre-alpha build
+
+For getting an unfinished build (a 2.0 alpha, an RC) to one tester without it
+reaching anyone else. The short version: **tag it with a prerelease version and
+never publish the draft.**
+
+A draft release is invisible to the public *and* to `update.electronjs.org`, so
+this is strictly safer than publishing and hoping the "latest" flag protects
+you.
+
+### 1. Bump to a prerelease version
+
+```bash
+git checkout -b release/v2.0.0-alpha.1     # off your 2.0 branch, not main
+# package.json "version" -> 2.0.0-alpha.1
+```
+
+**Use a prerelease version, not the current one.** The installed app compares
+its own `version` against the feed hourly. A build stamped `1.0.0` handed to a
+tester will silently auto-update *off* your alpha the next time you publish a
+`1.0.x` — they'd lose the build without ever being told. `2.0.0-alpha.1` sorts
+above every stable release, so the feed offers it nothing.
+
+### 2. Tag it by hand
+
+`pnpm release:tag` refuses to run off `main` with a dirty tree — deliberately,
+since real releases come off merged `main`. A pre-alpha doesn't, so tag
+directly:
+
+```bash
+git tag -a v2.0.0-alpha.1 -m "2.0 pre-alpha"
+git push origin v2.0.0-alpha.1     # matches release.yml's 'v*' trigger
+```
+
+CI builds it signed + notarized + stapled, exactly like a real release, and
+cuts a **draft** — auto-marked as a pre-release, because the tag has a hyphen
+in it (see the `prerelease:` line in `release.yml`).
+
+### 3. Get the DMG
+
+Under **Releases** the draft appears at the top, labelled `Draft`
+`Pre-release`. The assets hang off it:
+
+```bash
+gh release download v2.0.0-alpha.1 --pattern '*.dmg' --dir ~/Downloads
+```
+
+That yields two identical DMGs — `Minerva-2.0.0-alpha.1-arm64.dmg` (the
+version-stamped original) and `Minerva-mac-arm64.dmg` (the fixed-name copy the
+website links to). Send the version-stamped one; the name tells the tester what
+they're running.
+
+If you'd rather not create a release object at all: run **Actions → Release →
+Run workflow** against the branch. That path builds and uploads the same
+artifacts *without* cutting any release, and the DMG is inside the
+`minerva-macos-ARM64` artifact zip on the run's summary page. Artifacts expire
+(90 days) and only collaborators can download them, so this suits "build it and
+hand over the file" better than anything durable.
+
+### 4. Leave the draft unpublished
+
+Nothing else is required. Do **not** run the `gh release edit --draft=false`
+step from the release loop above.
+
+Publish it only if the tester needs to fetch it themselves — and then without
+`--latest`:
+
+```bash
+gh release edit v2.0.0-alpha.1 --draft=false --prerelease
+```
+
+The pre-release flag is what keeps it out of `/releases/latest` (so the
+website's download button stays on stable) and off the update feed (so
+installed apps aren't offered it).
+
+### Caveats
+
+- **Apple Silicon only.** The CI runner is arm64 and the DuckDB native binding
+  is per-arch (#962). An Intel Mac can't run this DMG.
+- The auto-generated notes diff against the previous tag, so a 2.0 alpha's
+  changelog will be enormous. Harmless on a draft; trim it if you publish.
+
+---
+
 ## Rollout timing & verification
 
 - Installed apps poll hourly (`updateInterval` in `auto-update.ts`) and on

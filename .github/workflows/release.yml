@@ -149,12 +149,23 @@ jobs:
       # Tag pushes additionally publish a DRAFT release — review the assets,
       # then hit "Publish" by hand. Flip `draft: false` once the pipeline is
       # trusted (and signing has landed).
+      # `prerelease` is derived from the tag rather than set by hand: a semver
+      # prerelease tag (v2.0.0-alpha.1, v1.4.0-rc.2 — anything with a hyphen in
+      # the version) marks the release a pre-release, a plain vX.Y.Z doesn't.
+      #
+      # This matters because BOTH consumers of the Releases list skip
+      # pre-releases: GitHub's /releases/latest — which the website's download
+      # button resolves through — and the update.electronjs.org feed. So an
+      # alpha handed to a tester can't displace the stable download link or get
+      # offered to installed apps. Forgetting to tick the box by hand is exactly
+      # the mistake that would do both at once, so the tag decides.
       - name: Publish draft GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v3
         with:
           files: dist-artifacts/*
           draft: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
           generate_release_notes: true
 
       # Always remove the throwaway keychain + staged API key, even if the build
