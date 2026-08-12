@@ -539,6 +539,7 @@ export interface ChannelMap {
   'conversation:list': () => Conversation[];
   'conversation:listActive': () => Conversation[];
   'conversation:send': (convId: string, userMessage: string, systemPrompt?: string, currentNotePath?: string, extraTools?: ConversationToolKey[]) => Conversation;
+  'conversation:retry': (convId: string, systemPrompt?: string, currentNotePath?: string, extraTools?: ConversationToolKey[]) => Conversation;
   'conversation:cancel': () => void;
   'conversation:uiStateLoad': () => ConversationsUIState;
   'conversation:uiStateSave': (state: ConversationsUIState) => void;

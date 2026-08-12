@@ -516,6 +516,9 @@ export const Channels = {
   CONVERSATION_LIST: 'conversation:list',
   CONVERSATION_LIST_ACTIVE: 'conversation:listActive',
   CONVERSATION_SEND: 'conversation:send',
+  /** renderer → main: re-run the last turn after a failure. The user's message
+   *  is already persisted, so this appends only the assistant reply (#1804). */
+  CONVERSATION_RETRY: 'conversation:retry',
   CONVERSATION_STREAM: 'conversation:stream',
   CONVERSATION_CANCEL: 'conversation:cancel',
   /** main → renderer: a propose_notes tool call produced a draft for review. Payload is ConversationDraft. */

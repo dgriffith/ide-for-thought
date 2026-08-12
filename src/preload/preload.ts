@@ -268,6 +268,8 @@ contextBridge.exposeInMainWorld('api', {
     listActive: () => invoke(Channels.CONVERSATION_LIST_ACTIVE),
     send: (convId: string, userMessage: string, systemPrompt?: string, currentNotePath?: string, extraTools?: Parameters<ChannelMap['conversation:send']>[4]) =>
       invoke(Channels.CONVERSATION_SEND, convId, userMessage, systemPrompt, currentNotePath, extraTools),
+    retry: (convId: string, systemPrompt?: string, currentNotePath?: string, extraTools?: Parameters<ChannelMap['conversation:retry']>[3]) =>
+      invoke(Channels.CONVERSATION_RETRY, convId, systemPrompt, currentNotePath, extraTools),
     loadUIState: () => invoke(Channels.CONVERSATION_UI_STATE_LOAD),
     saveUIState: (state: Parameters<ChannelMap['conversation:uiStateSave']>[0]) => invoke(Channels.CONVERSATION_UI_STATE_SAVE, state),
     onAskUser: (cb: (req: AskUserRequest) => void) => subscribe(Channels.CONVERSATION_ASK_USER, cb),

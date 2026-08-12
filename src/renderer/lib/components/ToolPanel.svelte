@@ -5,7 +5,7 @@
   import Icon from './Icon.svelte';
   import ToolParamsDialog from './ToolParamsDialog.svelte';
   import type { ToolContext } from '../../../shared/tools/types';
-  import { isProviderUnconfiguredError } from '../../../shared/llm-errors';
+  import { isProviderUnconfiguredError, describeLlmFailure } from '../../../shared/llm-errors';
   import { resolveNoteParams } from '../tools/resolve-note-params';
 
   interface Props {
@@ -37,7 +37,9 @@
       });
       panel.complete(result);
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      // Classified in main, so this now reads "Anthropic is overloaded right
+      // now" instead of Electron's raw "Error invoking remote method …" (#1804).
+      const message = describeLlmFailure(err);
       if (isProviderUnconfiguredError(err)) {
         // Close the tool panel and let the App-level handler surface
         // the Open-Settings dialog. The panel's inline error string

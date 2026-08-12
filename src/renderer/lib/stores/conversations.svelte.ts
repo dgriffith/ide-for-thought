@@ -36,7 +36,13 @@ import type {
   AskUserRequest,
   ConversationToolKey,
 } from '../../../shared/conversation-tools';
-import { isProviderUnconfiguredError } from '../../../shared/llm-errors';
+import {
+  isProviderUnconfiguredError,
+  classifyLlmFailure,
+  describeLlmFailure,
+  isCancellation,
+  type LlmFailureKind,
+} from '../../../shared/llm-errors';
 
 /**
  * Plain deep clone for the IPC boundary. Every draft payload sent renderer→main
@@ -129,6 +135,25 @@ interface ComputeDraftStateEntry {
   afterMessageIndex: number;
 }
 
+/**
+ * A failed turn, rendered in the transcript where the reply would have been
+ * (#1804). Before this, everything except "no API key" was `console.error`d:
+ * the spinner stopped, the streamed text was thrown away, and the user's turn
+ * sat there un-replied with no explanation anywhere in the UI.
+ */
+export interface TabFailure {
+  kind: LlmFailureKind;
+  /** Already human-readable and provider-specific; classified in main. */
+  message: string;
+  /** Whether re-running the identical request is worth offering. */
+  retryable: boolean;
+  /** Text streamed before the failure. Kept, not discarded — a turn that died
+   *  three paragraphs in still wrote three useful paragraphs. */
+  partial: string;
+  /** Anchors the error block to the turn it belongs to. */
+  afterMessageIndex: number;
+}
+
 export interface TabRuntime {
   id: string;
   /** Auto-generated tab title. Set when a tool seeds the tab via
@@ -183,6 +208,8 @@ export interface TabRuntime {
   composer: string;
   streaming: boolean;
   streamedChunks: string;
+  /** The last turn's failure, or null. Cleared when a new turn starts. */
+  failure: TabFailure | null;
   /** Template-scoped tools enabled for this conversation (e.g. `ask_user`).
    *  Resolved at tab-creation time and re-sent with each turn. In-memory
    *  only — if the user reloads the project, the tab still works but the
@@ -492,28 +519,84 @@ async function send(content: string, currentNotePath?: string): Promise<void> {
   ];
   tab.streaming = true;
   tab.streamedChunks = '';
+  tab.failure = null;
   const tools = tab.extraTools.length > 0 ? [...tab.extraTools] : undefined;
   try {
     await api.conversations.send(tab.id, text, undefined, currentNotePath, tools);
     const reloaded = await api.conversations.load(tab.id);
     if (reloaded) tab.conversation = reloaded;
   } catch (e) {
-    if (isProviderUnconfiguredError(e)) {
-      // Surface as an actionable modal at the App level rather than a
-      // silent console.error — the user's optimistic message would
-      // otherwise just sit in the transcript with no explanation. Also
-      // drop that optimistic insert so the transcript isn't littered
-      // with un-replied turns after the user wires up a key.
-      tab.conversation.messages = tab.conversation.messages.slice(0, -1);
-      tab.composer = text;
-      needsApiKey = true;
-    } else if (!String(e).includes('abort')) {
-      console.error('[conv] send failed:', e);
-    }
+    handleTurnFailure(tab, e, text);
   } finally {
     tab.streaming = false;
     tab.streamedChunks = '';
   }
+}
+
+/**
+ * Re-run the turn that just failed (#1804).
+ *
+ * Goes through CONVERSATION_RETRY, not send(): main appends the user's message
+ * *before* calling the model, so a failed turn already persisted it. Re-sending
+ * the text would file the same user turn twice.
+ */
+async function retryLastTurn(tabId: string, currentNotePath?: string): Promise<void> {
+  const tab = findTab(tabId);
+  if (!tab || tab.streaming) return;
+  tab.streaming = true;
+  tab.streamedChunks = '';
+  tab.failure = null;
+  const tools = tab.extraTools.length > 0 ? [...tab.extraTools] : undefined;
+  try {
+    await api.conversations.retry(tab.id, undefined, currentNotePath, tools);
+    const reloaded = await api.conversations.load(tab.id);
+    if (reloaded) tab.conversation = reloaded;
+  } catch (e) {
+    handleTurnFailure(tab, e, null);
+  } finally {
+    tab.streaming = false;
+    tab.streamedChunks = '';
+  }
+}
+
+/**
+ * One place that decides what a failed turn looks like, shared by send() and
+ * retry(). Three outcomes:
+ *
+ * - **Cancelled** — the user's own doing; stay quiet, leave the transcript be.
+ * - **Unconfigured provider** — keep the existing App-level modal, which is a
+ *   better affordance than an inline message because the fix is elsewhere
+ *   (Settings). Roll back the optimistic turn so the transcript isn't littered
+ *   with un-replied messages once a key is wired up.
+ * - **Everything else** — an inline failure block, keeping the partial reply.
+ *
+ * `sentText` is the user's message when we can put it back in the composer
+ * (send), and null when it's already committed to the transcript (retry).
+ */
+function handleTurnFailure(tab: TabRuntime, e: unknown, sentText: string | null): void {
+  if (isCancellation(e)) return;
+
+  if (isProviderUnconfiguredError(e)) {
+    if (sentText !== null) {
+      tab.conversation.messages = tab.conversation.messages.slice(0, -1);
+      tab.composer = sentText;
+    }
+    needsApiKey = true;
+    return;
+  }
+
+  const classified = classifyLlmFailure(e);
+  tab.failure = {
+    kind: classified?.kind ?? 'unknown',
+    message: describeLlmFailure(e),
+    retryable: classified?.retryable ?? true,
+    // Whatever streamed before the failure is real output — keep it. `finally`
+    // clears streamedChunks, so capture it here.
+    partial: tab.streamedChunks,
+    afterMessageIndex: tab.conversation.messages.length,
+  };
+  // Still log for anyone with devtools open; the UI no longer depends on it.
+  console.error('[conv] turn failed:', e);
 }
 
 /**
@@ -544,7 +627,10 @@ async function compactConversation(): Promise<void> {
     activeTabId = newTab.id;
     scheduleSave();
   } catch (e) {
-    console.error('[conv] /compact failed:', e);
+    // /compact is a model call like any other — it can hit a 429, an exhausted
+    // balance, or a dead network, and used to fail by silently dropping the
+    // "Compacting earlier turns…" indicator (#1804).
+    handleTurnFailure(tab, e, null);
   } finally {
     // If the tab was swapped out, this just touches the now-detached old tab
     // object; the new tab starts with streaming=false.
@@ -627,6 +713,7 @@ function blankTabRuntime(conv: Conversation, extraTools: ConversationToolKey[]):
     composer: '',
     streaming: false,
     streamedChunks: '',
+    failure: null,
     extraTools,
   };
 }
@@ -683,6 +770,38 @@ async function cancel(): Promise<void> {
   }
 }
 
+/**
+ * Run one draft-approval write, reporting a failure instead of dropping it
+ * (#1804).
+ *
+ * All ten `approve*Draft` functions used to `await api.conversations.file*(…)`
+ * bare. A rejection there became an unhandled promise rejection: the card
+ * stayed on screen, no result line appeared, and nothing told the user their
+ * Approve hadn't landed — the worst version of this bug, because the transcript
+ * looked like the change was still pending when it had actually failed.
+ *
+ * Not retryable: these are writes, and re-firing one blind is how you get a
+ * half-applied bundle. The user re-approves from the card, which is still there.
+ */
+async function applyDraft<T>(
+  tab: TabRuntime,
+  run: () => Promise<T>,
+): Promise<{ ok: true; value: T } | { ok: false }> {
+  try {
+    return { ok: true, value: await run() };
+  } catch (e) {
+    tab.failure = {
+      kind: classifyLlmFailure(e)?.kind ?? 'unknown',
+      message: `Couldn't apply that change. ${describeLlmFailure(e)}`,
+      retryable: false,
+      partial: '',
+      afterMessageIndex: tab.conversation.messages.length,
+    };
+    console.error('[conv] apply draft failed:', e);
+    return { ok: false };
+  }
+}
+
 async function approveDraft(tabId: string, draft: ConversationDraft): Promise<{ filedPaths: string[] }> {
   const tab = findTab(tabId);
   if (!tab) return { filedPaths: [] };
@@ -693,7 +812,9 @@ async function approveDraft(tabId: string, draft: ConversationDraft): Promise<{ 
   // Snapshot before crossing IPC — Svelte 5 `$state` Proxies fail
   // structured-clone otherwise (see project memory).
   const snapshot = plainSnapshot(draft);
-  const result = await api.conversations.fileDraft(snapshot);
+  const applied = await applyDraft(tab, () => api.conversations.fileDraft(snapshot));
+  if (!applied.ok) return { filedPaths: [] };
+  const result = applied.value;
   // Drop the in-flight card and replace it with a persistent "Filed:"
   // summary keyed by the same draftId. `filedPaths` reflects the actual
   // post-collision-dedup paths the approval engine wrote.
@@ -729,7 +850,7 @@ async function approveRefactorDraft(tabId: string, draft: ConversationRefactorDr
   if (!tab) return;
   // Snapshot before crossing IPC ($state Proxies fail structured-clone).
   const snapshot = plainSnapshot(draft);
-  await api.conversations.fileRefactorDraft(snapshot);
+  if (!(await applyDraft(tab, () => api.conversations.fileRefactorDraft(snapshot))).ok) return;
   // Drop the card. The move + link rewrites land via the approval engine, and
   // the NOTEBASE_RENAMED / NOTEBASE_REWRITTEN broadcasts update any open editors.
   tab.refactorDrafts = tab.refactorDrafts.filter((d) => d.draftId !== draft.draftId);
@@ -745,7 +866,7 @@ async function approveReorgDraft(
   const tab = findTab(tabId);
   if (!tab) return;
   const snapshot = plainSnapshot(draft);
-  await api.conversations.fileReorgDraft(snapshot, selected);
+  if (!(await applyDraft(tab, () => api.conversations.fileReorgDraft(snapshot, selected))).ok) return;
   tab.reorgDrafts = tab.reorgDrafts.filter((d) => d.draftId !== draft.draftId);
 }
 
@@ -759,7 +880,7 @@ async function approveDeleteDraft(
   const tab = findTab(tabId);
   if (!tab) return;
   const snapshot = plainSnapshot(draft);
-  await api.conversations.fileDeleteDraft(snapshot, selected);
+  if (!(await applyDraft(tab, () => api.conversations.fileDeleteDraft(snapshot, selected))).ok) return;
   // Drop the card. The deletions land via the approval engine, and the
   // NOTEBASE_FILE_DELETED broadcasts close any open editors + refresh the tree.
   tab.deleteDrafts = tab.deleteDrafts.filter((d) => d.draftId !== draft.draftId);
@@ -775,7 +896,7 @@ async function approveNoteBodyDraft(
   const tab = findTab(tabId);
   if (!tab) return;
   const snapshot = plainSnapshot(draft);
-  await api.conversations.fileNoteBodyDraft(snapshot, selected);
+  if (!(await applyDraft(tab, () => api.conversations.fileNoteBodyDraft(snapshot, selected))).ok) return;
   // Drop the card. The rewrites land via the approval engine as ONE bundled
   // proposal, and the NOTEBASE_REWRITTEN broadcast reloads any open editors.
   tab.noteBodyDrafts = tab.noteBodyDrafts.filter((d) => d.draftId !== draft.draftId);
@@ -797,7 +918,9 @@ async function approveSourceDraft(
   // Snapshot before crossing IPC — same Svelte 5 $state Proxy issue
   // that bit propose_notes.
   const snapshot = plainSnapshot(draft);
-  const result = await api.conversations.fileSourceDraft(snapshot);
+  const applied = await applyDraft(tab, () => api.conversations.fileSourceDraft(snapshot));
+  if (!applied.ok) return;
+  const result = applied.value;
   // Drop the in-flight card and stash the per-source outcomes so the
   // panel can replace the card with a brief status summary.
   tab.sourceDrafts = tab.sourceDrafts.filter((d) => d.draftId !== draft.draftId);
@@ -829,7 +952,9 @@ async function approvePropertyDraft(
   // payload that first forced the JSON round-trip now in plainSnapshot — see its
   // doc for the "set_properties approved but no frontmatter landed" history.
   const plain = plainSnapshot(draft);
-  const result = await api.conversations.filePropertyDraft(plain);
+  const applied = await applyDraft(tab, () => api.conversations.filePropertyDraft(plain));
+  if (!applied.ok) return;
+  const result = applied.value;
   tab.propertyDrafts = tab.propertyDrafts.filter((d) => d.draftId !== draft.draftId);
   tab.propertyDraftResults = {
     ...tab.propertyDraftResults,
@@ -850,7 +975,9 @@ async function approveSourcePropertyDraft(
   // JSON round-trip to shed any $state Proxy before IPC structured-clone —
   // same defensive snapshot the property-draft path uses (#103).
   const plain = plainSnapshot(draft);
-  const result = await api.conversations.fileSourcePropertyDraft(plain);
+  const applied = await applyDraft(tab, () => api.conversations.fileSourcePropertyDraft(plain));
+  if (!applied.ok) return;
+  const result = applied.value;
   tab.sourcePropertyDrafts = tab.sourcePropertyDrafts.filter((d) => d.draftId !== draft.draftId);
   tab.sourcePropertyDraftResults = {
     ...tab.sourcePropertyDraftResults,
@@ -871,7 +998,9 @@ async function approveClaimsDraft(
   // JSON round-trip to shed any $state Proxy before IPC structured-clone —
   // the claims array is nested, so this is the safe snapshot (#104).
   const plain = plainSnapshot(draft);
-  const result = await api.conversations.fileClaimsDraft(plain);
+  const applied = await applyDraft(tab, () => api.conversations.fileClaimsDraft(plain));
+  if (!applied.ok) return;
+  const result = applied.value;
   tab.claimsDrafts = tab.claimsDrafts.filter((d) => d.draftId !== draft.draftId);
   tab.claimsDraftResults = {
     ...tab.claimsDraftResults,
@@ -926,7 +1055,11 @@ async function runComputeDraft(
     tab.computeDraftState = {
       ...tab.computeDraftState,
       [draft.draftId]: {
-        result: { ok: false, error: e instanceof Error ? e.message : String(e) },
+        // describeLlmFailure over `e.message`: a compute draft can be run by a
+        // model call, so this arm sees classified provider failures too — and
+        // the raw message still carries Electron's "Error invoking remote
+        // method" prefix, which is noise on a card (#1804).
+        result: { ok: false, error: describeLlmFailure(e) },
         running: false,
         insertedAt: tab.computeDraftState[draft.draftId]?.insertedAt ?? null,
         afterMessageIndex: tab.computeDraftState[draft.draftId]?.afterMessageIndex
@@ -963,6 +1096,14 @@ async function insertComputeDraft(
     return where;
   } catch (e) {
     console.error('[conv] insert compute draft failed:', e);
+    // Returning null alone left the user with a button that did nothing (#1804).
+    tab.failure = {
+      kind: classifyLlmFailure(e)?.kind ?? 'unknown',
+      message: `Couldn't insert that cell into a note. ${describeLlmFailure(e)}`,
+      retryable: false,
+      partial: '',
+      afterMessageIndex: tab.conversation.messages.length,
+    };
     return null;
   }
 }
@@ -979,6 +1120,12 @@ function discardComputeDraft(tabId: string, draftId: string): void {
 function setComposer(value: string): void {
   const tab = activeTab();
   if (tab) tab.composer = value;
+}
+
+/** Clear the inline failure block — the user has read it. */
+function dismissFailure(tabId: string): void {
+  const tab = findTab(tabId);
+  if (tab) tab.failure = null;
 }
 
 function dismissApiKeyDialog(): void {
@@ -1006,6 +1153,8 @@ export function getConversationsStore() {
     openConversationTab,
     closeTab,
     send,
+    retryLastTurn,
+    dismissFailure,
     answerQuestion,
     cancel,
     setModel,

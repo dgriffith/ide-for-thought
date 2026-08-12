@@ -29,6 +29,7 @@ import type {
 import type { TurnUsage } from '../../../shared/types';
 import type { ConnectionCheckResult } from '../../../shared/tools/types';
 import { toConnectionResult } from '../connection-error';
+import { PROVIDERS } from '../../../shared/tools/providers';
 import type { Effort } from '../../../shared/tools/effort';
 import type {
   ChatMessage,
@@ -221,6 +222,6 @@ export class GoogleProvider implements LLMProvider {
 
   async checkConnection(): Promise<ConnectionCheckResult> {
     // A minimal authenticated listing: no generation, so token-free.
-    return toConnectionResult(() => this.ai.models.list());
+    return toConnectionResult(() => this.ai.models.list(), PROVIDERS.google.label);
   }
 }

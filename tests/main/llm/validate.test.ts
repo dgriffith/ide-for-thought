@@ -77,20 +77,36 @@ describe('describeConnectionFailure — reason mapping', () => {
   const withStatus = (status: number) => Object.assign(new Error('x'), { status });
 
   it('401 → invalid / expired / revoked', () => {
-    expect(describeConnectionFailure(withStatus(401))).toMatch(/invalid, expired, or revoked/i);
+    expect(describeConnectionFailure(withStatus(401), 'Anthropic')).toMatch(/invalid, expired, or revoked/i);
   });
   it('403 → not permitted', () => {
-    expect(describeConnectionFailure(withStatus(403))).toMatch(/not permitted/i);
+    expect(describeConnectionFailure(withStatus(403), 'Anthropic')).toMatch(/not permitted/i);
   });
   it('429 → rate limited (key still works)', () => {
-    expect(describeConnectionFailure(withStatus(429))).toMatch(/rate limited/i);
+    expect(describeConnectionFailure(withStatus(429), 'Anthropic')).toMatch(/rate limited/i);
   });
   it('5xx → server error', () => {
-    expect(describeConnectionFailure(withStatus(503))).toMatch(/server error/i);
+    expect(describeConnectionFailure(withStatus(503), 'Anthropic')).toMatch(/server error/i);
   });
   it('status-less error → connection failure with the detail', () => {
-    const msg = describeConnectionFailure(new Error('ECONNREFUSED'));
+    const msg = describeConnectionFailure(new Error('ECONNREFUSED'), 'Anthropic');
     expect(msg).toMatch(/couldn't reach anthropic/i);
     expect(msg).toContain('ECONNREFUSED');
+  });
+
+  // The bug (#1804): every string here hardcoded "Anthropic", while the OpenAI
+  // provider, the Google provider and the S3 publish target all call through
+  // this same helper. A bad OpenAI key reported "Anthropic rejected this key";
+  // a failed bucket check reported "Couldn't reach Anthropic". Same shape as
+  // #1796, one layer down.
+  it('names the service the caller passed, never a borrowed one', () => {
+    for (const [status, service] of [[401, 'OpenAI'], [403, 'Google Gemini'], [503, 'S3']] as const) {
+      const msg = describeConnectionFailure(withStatus(status), service);
+      expect(msg, service).toContain(service);
+      expect(msg, service).not.toContain('Anthropic');
+    }
+    const s3 = describeConnectionFailure(new Error('ENOTFOUND'), 'S3');
+    expect(s3).toMatch(/couldn't reach s3/i);
+    expect(s3).not.toContain('Anthropic');
   });
 });

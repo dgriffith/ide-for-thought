@@ -58,6 +58,7 @@ exports[`IPC registration contract (#997) > matches the known set of registered 
   "conversation:list",
   "conversation:listActive",
   "conversation:load",
+  "conversation:retry",
   "conversation:runComputeDraft",
   "conversation:send",
   "conversation:setEffort",

@@ -20,6 +20,9 @@ export type { LLMProvider } from './types';
 
 export interface ResolvedProvider {
   provider: LLMProvider;
+  /** Which provider this is — so a failure can be attributed to the provider
+   *  the user actually chose rather than a hardcoded one (#1804). */
+  id: ProviderId;
   /** The effective model this provider will run (override ?? default). */
   model: string;
   web: WebToolSettings;
@@ -90,9 +93,11 @@ function buildProvider(id: ProviderId, settings: LLMSettings): LLMProvider {
 export async function getProvider(modelOverride?: string): Promise<ResolvedProvider> {
   const settings = await getSettings();
   const model = modelOverride ?? settings.model;
-  const provider = buildProvider(resolveProviderId(model, settings), settings);
+  const id = resolveProviderId(model, settings);
+  const provider = buildProvider(id, settings);
   return {
     provider,
+    id,
     model,
     web: settings.web ?? { ...DEFAULT_WEB_SETTINGS },
     effort: settings.effort,

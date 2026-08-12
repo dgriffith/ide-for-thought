@@ -21,6 +21,7 @@ import OpenAI from 'openai';
 import type { TurnUsage } from '../../../shared/types';
 import type { ConnectionCheckResult } from '../../../shared/tools/types';
 import { toConnectionResult } from '../connection-error';
+import { PROVIDERS, type ProviderId } from '../../../shared/tools/providers';
 import type { Effort } from '../../../shared/tools/effort';
 import type {
   ChatMessage,
@@ -252,6 +253,11 @@ export class OpenAIProvider implements LLMProvider {
   async checkConnection(): Promise<ConnectionCheckResult> {
     // A minimal authenticated GET: no tokens spent. Any success means the key +
     // endpoint are accepted.
-    return toConnectionResult(() => this.client.models.list());
+    // `this.id` distinguishes OpenAI proper from a `local` OpenAI-compatible
+    // endpoint, so the failure names whichever one the user configured.
+    return toConnectionResult(
+      () => this.client.models.list(),
+      PROVIDERS[this.id as ProviderId]?.label ?? this.id,
+    );
   }
 }

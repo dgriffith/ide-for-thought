@@ -23,6 +23,30 @@ import type { ConversationSourcePropertyDraft } from '../../shared/conversation-
 import type { ConversationClaimsDraft } from '../../shared/conversation-claims-drafts';
 import type { ConversationToolKey } from '../../shared/conversation-tools';
 import { formatToolCall } from './format-tool-call';
+import { toLlmFailureError } from './classify-error';
+import type { ProviderId } from '../../shared/tools/providers';
+
+/**
+ * Run one provider round-trip, classifying any throw into the shared failure
+ * taxonomy before it leaves main (#1804).
+ *
+ * This is the single choke point: IPC strips an SDK error's `status`/`code`, so
+ * a failure that isn't classified here can never be told apart from any other
+ * downstream — which is how "the model is overloaded" and "your key is revoked"
+ * both used to arrive in the renderer as an anonymous `console.error`.
+ *
+ * Wrap ONLY the provider call, never the surrounding tool execution.
+ */
+async function withProviderErrors<T>(
+  providerId: ProviderId,
+  run: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await run();
+  } catch (err) {
+    throw toLlmFailureError(err, providerId);
+  }
+}
 
 export interface StreamCallbacks {
   onChunk: (text: string) => void;
@@ -237,12 +261,12 @@ export async function complete(
     messages = [{ role: 'user', content: prompt }];
   }
 
-  const { provider, model, effort: defaultEffort } = await getProvider(modelOverride);
+  const { provider, id: providerId, model, effort: defaultEffort } = await getProvider(modelOverride);
   const effort = resolveEffort(model, effortOverride, defaultEffort);
 
   // `const` (not the outer `let`) so TS keeps the narrowing inside the closure.
   const cb = callbacks;
-  const result = await provider.complete(
+  const result = await withProviderErrors(providerId, () => provider.complete(
     {
       model,
       system,
@@ -253,7 +277,7 @@ export async function complete(
       signal: cb?.signal,
     },
     cb ? (delta) => cb.onChunk(delta) : undefined,
-  );
+  ));
   if (onUsage) onUsage(result.usage, model);
   return result.text;
 }
@@ -270,7 +294,7 @@ export async function complete(
 export async function completeWithTools(
   options: CompleteWithToolsOptions,
 ): Promise<CompleteWithToolsResult> {
-  const { provider, model, web: providerWeb, effort: defaultEffort } = await getProvider(options.model);
+  const { provider, id: providerId, model, web: providerWeb, effort: defaultEffort } = await getProvider(options.model);
   // A per-call `web` override (a `web: false` skill in the eval harness; a
   // per-conversation web setting, #1533) merges over the global web — so a caller
   // that overrides just `enabled` keeps the user's global allow/block domain lists.
@@ -323,7 +347,10 @@ export async function completeWithTools(
       );
     }
 
-    const turn = await provider.runTurn(
+    // Only the provider round-trip is wrapped — NOT the tool execution below.
+    // A tool that throws is a tool bug, and dressing it up as "the provider
+    // returned an unexpected error" would be a confident lie (#1804).
+    const turn = await withProviderErrors(providerId, () => provider.runTurn(
       {
         model,
         system: options.system,
@@ -339,7 +366,7 @@ export async function completeWithTools(
         onTextDelta: callbacks ? (delta) => callbacks.onChunk(delta) : undefined,
         onToolCallStart,
       },
-    );
+    ));
 
     sumUsage(usage, turn.usage);
     history.push(turn.assistantMessage);

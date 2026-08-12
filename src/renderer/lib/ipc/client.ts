@@ -603,6 +603,14 @@ export interface ConversationsApi {
     currentNotePath?: string,
     extraTools?: import('../../../shared/conversation-tools').ConversationToolKey[],
   ): Promise<Conversation>;
+  /** Re-run the last turn after a failure. The user's message is already
+   *  persisted, so this appends only the assistant reply (#1804). */
+  retry(
+    convId: string,
+    systemPrompt?: string,
+    currentNotePath?: string,
+    extraTools?: import('../../../shared/conversation-tools').ConversationToolKey[],
+  ): Promise<Conversation>;
   loadUIState(): Promise<import('../../../shared/types').ConversationsUIState>;
   saveUIState(state: import('../../../shared/types').ConversationsUIState): Promise<void>;
   onAskUser(cb: (req: import('../../../shared/conversation-tools').AskUserRequest) => void): void;

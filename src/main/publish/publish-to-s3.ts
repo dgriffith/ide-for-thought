@@ -193,5 +193,8 @@ export async function checkS3Connection(
 ): Promise<ConnectionCheckResult> {
   const { HeadBucketCommand } = await import('@aws-sdk/client-s3');
   const client = deps.client ?? (await buildS3Client(target, creds));
-  return toConnectionResult(() => client.send(new HeadBucketCommand({ Bucket: target.bucket })));
+  return toConnectionResult(
+    () => client.send(new HeadBucketCommand({ Bucket: target.bucket })),
+    'S3',
+  );
 }
