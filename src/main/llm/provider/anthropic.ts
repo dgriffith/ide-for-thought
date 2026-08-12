@@ -13,6 +13,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import type { Citation, TurnUsage } from '../../../shared/types';
 import type { ConnectionCheckResult } from '../../../shared/tools/types';
 import { toConnectionResult } from '../connection-error';
+import { PROVIDERS } from '../../../shared/tools/providers';
 import { withHistoryCacheBreakpoints } from './anthropic-cache';
 import type { Effort } from '../../../shared/tools/effort';
 import type {
@@ -251,6 +252,6 @@ export class AnthropicProvider implements LLMProvider {
   async checkConnection(): Promise<ConnectionCheckResult> {
     // A minimal authenticated GET: no tokens spent, model-agnostic. Any success
     // means the key is accepted.
-    return toConnectionResult(() => this.client.models.list({ limit: 1 }));
+    return toConnectionResult(() => this.client.models.list({ limit: 1 }), PROVIDERS.anthropic.label);
   }
 }

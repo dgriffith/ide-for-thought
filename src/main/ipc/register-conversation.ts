@@ -238,7 +238,14 @@ export function registerConversation(): void {
     pending.resolve(answer);
   });
 
-  handle(Channels.CONVERSATION_SEND, async (e, convId: string, userMessage: string, systemPrompt?: string, currentNotePath?: string, extraTools?: import('../../shared/conversation-tools').ConversationToolKey[]) => {
+  /**
+   * One assistant turn. `userMessage === null` means RETRY (#1804): the user's
+   * turn is already persisted — main appends it *before* calling the model, so
+   * a failed turn leaves it on disk — and re-sending the text would file it a
+   * second time. Retry therefore re-runs the completion over the existing
+   * history and appends only the assistant reply.
+   */
+  const runConversationTurn = async (e: Electron.IpcMainInvokeEvent, convId: string, userMessage: string | null, systemPrompt?: string, currentNotePath?: string, extraTools?: import('../../shared/conversation-tools').ConversationToolKey[]) => {
     const win = winFromEvent(e);
     const rootPath = rootPathFromEvent(e);
     const controller = new AbortController();
@@ -256,11 +263,14 @@ export function registerConversation(): void {
 
     // Unconditional log so we can prove the current build is loaded —
     // if the user reports "no log messages" again, this is missing too.
-    console.log(`[conv] SEND start: conv=${convId} userMsgLen=${userMessage.length}`);
+    console.log(`[conv] ${userMessage === null ? 'RETRY' : 'SEND'} start: conv=${convId} userMsgLen=${userMessage?.length ?? 0}`);
 
     graph.enterLLMContext();
     try {
-      const conv = await conversation.appendMessage(convId, 'user', userMessage);
+      const conv = userMessage === null
+        ? await conversation.load(convId)
+        : await conversation.appendMessage(convId, 'user', userMessage);
+      if (!conv) throw new Error(`Conversation not found: ${convId}`);
 
       const { completeWithTools } = await import('../llm/index');
       const messages = conv.messages
@@ -327,7 +337,14 @@ export function registerConversation(): void {
       convAbortControllers.delete(win.id);
       graph.exitLLMContext();
     }
-  });
+  };
+
+  handle(Channels.CONVERSATION_SEND, (e, convId: string, userMessage: string, systemPrompt?: string, currentNotePath?: string, extraTools?: import('../../shared/conversation-tools').ConversationToolKey[]) =>
+    runConversationTurn(e, convId, userMessage, systemPrompt, currentNotePath, extraTools));
+
+  // Re-run the last turn after a failure, without re-filing the user's message.
+  handle(Channels.CONVERSATION_RETRY, (e, convId: string, systemPrompt?: string, currentNotePath?: string, extraTools?: import('../../shared/conversation-tools').ConversationToolKey[]) =>
+    runConversationTurn(e, convId, null, systemPrompt, currentNotePath, extraTools));
 
   handle(Channels.CONVERSATION_CANCEL, (e) => {
     const win = winFromEvent(e);

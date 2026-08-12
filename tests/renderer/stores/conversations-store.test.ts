@@ -71,6 +71,7 @@ const h = vi.hoisted(() => {
       archive: vi.fn().mockResolvedValue(undefined),
       // turn
       send: vi.fn().mockResolvedValue(undefined),
+      retry: vi.fn().mockResolvedValue(undefined),
       cancel: vi.fn().mockResolvedValue(undefined),
       setModel: vi.fn(),
       setEffort: vi.fn(),
@@ -102,7 +103,7 @@ vi.mock('../../../src/renderer/lib/compute/run-cell-with-trust', () => ({ ensure
 const ensureComputeConsent = h.ensureComputeConsent;
 
 import { getConversationsStore } from '../../../src/renderer/lib/stores/conversations.svelte';
-import { missingApiKeyMessage } from '../../../src/shared/llm-errors';
+import { missingApiKeyMessage, llmFailureMessage } from '../../../src/shared/llm-errors';
 
 const store = getConversationsStore();
 const conv = () => h.api.conversations;
@@ -267,6 +268,141 @@ describe('send()', () => {
     expect(store.needsApiKey).toBe(false);
   });
 
+  // ── Failure reporting (#1804) ──────────────────────────────────────────
+  // Everything except the unconfigured case used to end at `console.error`: the
+  // spinner stopped, the streamed text was discarded, and the user's turn sat
+  // un-replied with nothing to explain it.
+
+  /** What Electron hands the renderer when a main handler throws. */
+  function overIpc(mainMessage: string): Error {
+    return new Error(`Error invoking remote method 'conversation:send': Error: ${mainMessage}`);
+  }
+
+  it('records a classified failure inline, keeping the user turn and the partial reply', async () => {
+    const tab = await freshTab();
+    conv().send.mockImplementationOnce(async () => {
+      // Text streamed before the provider died — this must survive.
+      tab.streamedChunks = 'The note argues that';
+      throw overIpc(llmFailureMessage('overloaded', 'Anthropic is overloaded right now.', 'anthropic'));
+    });
+
+    await store.send('summarise this');
+
+    expect(tab.failure?.kind).toBe('overloaded');
+    expect(tab.failure?.message).toBe('Anthropic is overloaded right now.');
+    expect(tab.failure?.retryable).toBe(true);
+    expect(tab.failure?.partial).toBe('The note argues that');
+    // The user's turn stays put — it's what Retry will re-run against.
+    expect(tab.conversation.messages.map((m) => m.content)).toEqual(['summarise this']);
+    expect(tab.composer).toBe('');
+    expect(tab.streaming).toBe(false);
+  });
+
+  it('never shows the machine token to the user', async () => {
+    const tab = await freshTab();
+    conv().send.mockRejectedValueOnce(
+      overIpc(llmFailureMessage('quota', 'Your OpenAI account is out of credit.', 'openai')),
+    );
+
+    await store.send('hello');
+
+    expect(tab.failure?.message).toBe('Your OpenAI account is out of credit.');
+    expect(tab.failure?.message).not.toContain('MINERVA_LLM_FAILURE');
+    expect(tab.failure?.message).not.toContain('Error invoking remote method');
+  });
+
+  it('marks a quota failure non-retryable — retrying an empty balance helps nobody', async () => {
+    const tab = await freshTab();
+    conv().send.mockRejectedValueOnce(
+      overIpc(llmFailureMessage('quota', 'Out of credit.', 'anthropic')),
+    );
+    await store.send('hello');
+    expect(tab.failure?.retryable).toBe(false);
+  });
+
+  it('stays silent on a user cancellation instead of reporting it as a failure', async () => {
+    const tab = await freshTab();
+    const abort = Object.assign(new Error('The operation was aborted'), { name: 'AbortError' });
+    conv().send.mockRejectedValueOnce(abort);
+
+    await store.send('never mind');
+
+    expect(tab.failure).toBeNull();
+    expect(tab.streaming).toBe(false);
+  });
+
+  it('does not mistake a provider error that merely mentions "abort" for a cancel', async () => {
+    // The old check was String(e).includes('abort'), which swallowed this.
+    const tab = await freshTab();
+    conv().send.mockRejectedValueOnce(
+      overIpc(llmFailureMessage('server', 'The request was aborted upstream (502).', 'anthropic')),
+    );
+
+    await store.send('hello');
+
+    expect(tab.failure?.kind).toBe('server');
+  });
+
+  it('still routes an unconfigured provider to the modal, not the inline block', async () => {
+    const tab = await freshTab();
+    conv().send.mockRejectedValueOnce(new Error(missingApiKeyMessage('openai')));
+
+    await store.send('needs a key');
+
+    expect(store.needsApiKey).toBe(true);
+    expect(tab.failure).toBeNull();
+  });
+
+  it('retries through CONVERSATION_RETRY so the user turn is not filed twice', async () => {
+    const tab = await freshTab();
+    conv().send.mockRejectedValueOnce(
+      overIpc(llmFailureMessage('overloaded', 'Overloaded.', 'anthropic')),
+    );
+    await store.send('summarise this', 'notes/origin.md');
+    expect(tab.failure?.retryable).toBe(true);
+
+    const reloaded: Conversation = {
+      id: tab.id, contextBundle: { notePath: 'notes/origin.md' },
+      messages: [
+        { role: 'user', content: 'summarise this', timestamp: 't' },
+        { role: 'assistant', content: 'it argues X', timestamp: 't' },
+      ],
+      status: 'active', startedAt: 't',
+    };
+    conv().load.mockResolvedValueOnce(reloaded);
+
+    await store.retryLastTurn(tab.id, 'notes/origin.md');
+
+    // Main already persisted the user's message before the failed call, so a
+    // retry must NOT go back through send() — that would file it a second time.
+    expect(conv().retry).toHaveBeenCalledWith(tab.id, undefined, 'notes/origin.md', undefined);
+    expect(conv().send).toHaveBeenCalledTimes(1);
+    expect(tab.failure).toBeNull();
+    expect(tab.conversation.messages.map((m) => m.content)).toEqual(['summarise this', 'it argues X']);
+  });
+
+  it('reports a failed retry rather than clearing the error and going quiet', async () => {
+    const tab = await freshTab();
+    conv().send.mockRejectedValueOnce(overIpc(llmFailureMessage('overloaded', 'Overloaded.', 'anthropic')));
+    await store.send('hello');
+    conv().retry.mockRejectedValueOnce(overIpc(llmFailureMessage('rate_limited', 'Rate limited.', 'anthropic')));
+
+    await store.retryLastTurn(tab.id);
+
+    expect(tab.failure?.kind).toBe('rate_limited');
+    expect(tab.streaming).toBe(false);
+  });
+
+  it('dismissFailure clears the block', async () => {
+    const tab = await freshTab();
+    conv().send.mockRejectedValueOnce(overIpc(llmFailureMessage('server', 'Boom.', 'anthropic')));
+    await store.send('hello');
+    expect(tab.failure).not.toBeNull();
+
+    store.dismissFailure(tab.id);
+    expect(tab.failure).toBeNull();
+  });
+
   it('no-ops on empty content and while already streaming', async () => {
     const tab = await freshTab();
     await store.send('   ');
@@ -390,6 +526,26 @@ describe('propose_notes draft (fileDraft)', () => {
     expect(result.filedPaths).toEqual(['notes/a.md']);
     expect(tab.drafts).toHaveLength(0);
     expect(tab.noteDraftResults['d1']!.filedPaths).toEqual(['notes/a.md']);
+  });
+
+  it('reports a failed Approve instead of dropping it, and leaves the card in place', async () => {
+    // Every approve*Draft used to `await api.conversations.file*(…)` bare, so a
+    // rejection became an unhandled promise rejection: the card stayed, no
+    // result line appeared, and nothing said the write had failed (#1804).
+    const tab = await freshTab();
+    (h.cbs.onDraft as Cb)({ draftId: 'd3', conversationId: tab.id });
+    conv().fileDraft.mockRejectedValueOnce(new Error('EACCES: permission denied'));
+
+    const result = await store.approveDraft(tab.id, tab.drafts[0]!);
+
+    expect(result.filedPaths).toEqual([]);
+    expect(tab.failure?.message).toContain("Couldn't apply that change");
+    expect(tab.failure?.message).toContain('EACCES');
+    // Not retryable: re-firing a write blind is how you half-apply a bundle.
+    expect(tab.failure?.retryable).toBe(false);
+    // The card survives so the user can approve again deliberately.
+    expect(tab.drafts.map((d) => d.draftId)).toEqual(['d3']);
+    expect(tab.noteDraftResults['d3']).toBeUndefined();
   });
 
   it('Discard removes the card without writing anything', async () => {

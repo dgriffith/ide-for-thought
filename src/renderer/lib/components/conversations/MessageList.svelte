@@ -204,6 +204,49 @@
     </div>
   {/if}
 
+  <!-- A failed turn (#1804). Sits where the assistant's reply would have been,
+       so the failure is attached to the turn it belongs to rather than floating
+       free as a toast the user can scroll away from. Any text that streamed
+       before the failure renders above it — a turn that died three paragraphs
+       in still wrote three useful paragraphs, and throwing those away was part
+       of what made a failure feel like nothing had happened at all.
+
+       No danger styling per the project's UX philosophy: a rate limit is a
+       normal event, not an alarm. -->
+  {#if tab.failure && !tab.streaming}
+    {@const failure = tab.failure}
+    <div class="msg assistant failed">
+      <div class="msg-role">{roleLabel('assistant')}</div>
+      {#if failure.partial}
+        <div class="msg-content">{@html md.render(failure.partial)}</div>
+      {/if}
+      <div class="turn-error" role="status">
+        <span class="turn-error-icon" aria-hidden="true">⚠</span>
+        <div class="turn-error-body">
+          <p class="turn-error-message">{failure.message}</p>
+          <div class="turn-error-actions">
+            {#if failure.retryable}
+              <button
+                class="turn-error-action"
+                onclick={() => void store.retryLastTurn(tab.id, currentNotePath ?? undefined)}
+              >Retry</button>
+            {/if}
+            {#if failure.kind === 'context_length'}
+              <button
+                class="turn-error-action"
+                onclick={() => void store.runBuiltinCommand('compact')}
+              >Run /compact</button>
+            {/if}
+            <button
+              class="turn-error-action subtle"
+              onclick={() => store.dismissFailure(tab.id)}
+            >Dismiss</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  {/if}
+
   {#if tab.pendingQuestion}
     <div class="ask-user-card">
       <div class="ask-user-q">{tab.pendingQuestion.question}</div>
@@ -310,6 +353,56 @@
      the rules above handle its layout. */
   .msg.user .msg-content { white-space: pre-wrap; }
   .streaming .msg-content { opacity: 0.85; }
+
+  /* Failed turn (#1804). Deliberately NOT danger-styled — per the project's UX
+     philosophy a rate limit or an overloaded provider is a normal event, not an
+     alarm. It reads as an inset note attached to the turn, using the same
+     --bg-inset / --border treatment as other set-apart blocks, with the accent
+     reserved for the leading glyph so it's findable when scrolling. */
+  .turn-error {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    margin-top: 6px;
+    padding: 10px 12px;
+    background: var(--bg-inset);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+  .turn-error-icon {
+    color: var(--accent);
+    font-size: 13px;
+    line-height: 1.4;
+  }
+  .turn-error-body { flex: 1; min-width: 0; }
+  .turn-error-message {
+    margin: 0;
+    color: var(--text);
+    font-size: 12.5px;
+    line-height: 1.5;
+  }
+  .turn-error-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .turn-error-action {
+    padding: 3px 10px;
+    background: var(--bg-button);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 11.5px;
+    cursor: pointer;
+  }
+  .turn-error-action:hover { background: var(--bg-button-hover); }
+  .turn-error-action.subtle {
+    background: transparent;
+    color: var(--text-muted);
+  }
+  .turn-error-action.subtle:hover { color: var(--text); }
+  /* The partial text above a failure is real output, just incomplete. */
+  .failed .msg-content { opacity: 0.85; }
 
   /* "Thinking…" interstitial — three dots that pulse out of phase so the user
      can see the agent is in flight before the first chunk or tool indicator

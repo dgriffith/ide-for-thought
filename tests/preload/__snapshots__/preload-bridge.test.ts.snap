@@ -87,6 +87,7 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
     "onSourceDraft",
     "onSourcePropertyDraft",
     "onStream",
+    "retry",
     "runComputeDraft",
     "saveUIState",
     "send",
