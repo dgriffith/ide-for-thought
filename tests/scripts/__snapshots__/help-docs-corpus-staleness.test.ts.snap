@@ -173,6 +173,7 @@ exports[`help-docs corpus staleness (#1288) > chunk ids freshly extracted from w
   "maintenance.html",
   "maintenance.html#actions",
   "maintenance.html#actions",
+  "maintenance.html#progress",
   "navigation-back-forward.html",
   "navigation-back-forward.html#controls",
   "navigation-back-forward.html#what-counts",

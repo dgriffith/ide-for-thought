@@ -186,6 +186,17 @@ export function windowsForProject(rootPath: string): BrowserWindow[] {
 }
 
 /** Stream embedding-backfill progress to every window on a project (#836). */
+/** Progress + completion for a File ▸ maintenance operation (#1814). Goes to
+ *  every window holding the project, since a rebuild affects all of them. */
+export function broadcastMaintenanceProgress(
+  rootPath: string,
+  progress: import('../shared/maintenance').MaintenanceProgress,
+): void {
+  for (const win of windowsForProject(rootPath)) {
+    if (!win.isDestroyed()) broadcast(win, Channels.MAINTENANCE_PROGRESS, progress);
+  }
+}
+
 export function broadcastBackfillProgress(
   rootPath: string,
   progress: { done: number; total: number; running: boolean },

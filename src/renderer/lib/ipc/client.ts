@@ -3,6 +3,7 @@ import type { ToolExecutionRequest, ToolExecutionResult, ConversationToolPayload
 import type { InspectionSettings } from '../../../shared/inspections';
 import type { ClipperState } from '../../../shared/clipper-pairing';
 import type { Proposal } from '../../../shared/proposals';
+import type { MaintenanceProgress } from '../../../shared/maintenance';
 import type { ThemeMode } from '../../../shared/theme';
 import type { RevisionMeta } from '../../../shared/history';
 
@@ -199,6 +200,13 @@ export interface TablesApi {
    *  second was skipped (#354). Renderer surfaces a suppressible
    *  toast pointing at `table_name:` as the fix. */
   onNameCollision(cb: (collision: import('../../../shared/types').CsvTableCollision) => void): void;
+}
+
+/** File ▸ maintenance operations report progress + completion here (#1814);
+ *  they run in main, kicked off from the native menu, so this event is the
+ *  renderer's only view of them. */
+interface MaintenanceApi {
+  onProgress(cb: (p: MaintenanceProgress) => void): void;
 }
 
 export interface EmbeddingsApi {
@@ -954,6 +962,7 @@ export interface IdeApi {
   graph: GraphApi;
   tables: TablesApi;
   embeddings: EmbeddingsApi;
+  maintenance: MaintenanceApi;
   tags: TagsApi;
   templates: TemplatesApi;
   export: ExportApi;

@@ -142,6 +142,9 @@ export const Channels = {
   GRAPH_SET_BASE_URI: 'graph:setBaseUri',
   /** Main→renderer: embedding backfill progress `{ done, total, running }` (#836). */
   EMBEDDINGS_BACKFILL_PROGRESS: 'embeddings:backfillProgress',
+  /** Main→renderer: progress + completion for the File ▸ maintenance
+   *  operations, which run in main from the native menu (#1814). */
+  MAINTENANCE_PROGRESS: 'maintenance:progress',
   /** Notes semantically related to a note, for the Related sidebar panel (#838). */
   EMBEDDINGS_RELATED: 'embeddings:related',
   /** Notes that semantically mention an object (by title/aliases) but don't link

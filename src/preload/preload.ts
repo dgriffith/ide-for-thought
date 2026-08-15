@@ -149,6 +149,11 @@ contextBridge.exposeInMainWorld('api', {
     aliasEntries: () => invoke(Channels.GRAPH_ALIAS_ENTRIES),
     frontmatterKeys: () => invoke(Channels.GRAPH_FRONTMATTER_KEYS),
   },
+  maintenance: {
+    /** Progress + completion for the File ▸ maintenance operations (#1814). */
+    onProgress: (cb: (p: import('../shared/maintenance').MaintenanceProgress) => void) =>
+      subscribe(Channels.MAINTENANCE_PROGRESS, cb),
+  },
   embeddings: {
     onBackfillProgress: (cb: (p: { done: number; total: number; running: boolean }) => void) =>
       subscribe(Channels.EMBEDDINGS_BACKFILL_PROGRESS, cb),

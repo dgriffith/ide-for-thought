@@ -32,6 +32,8 @@ import { getToolPanelStore } from '../stores/tool-panel.svelte';
 import { getConversationsStore } from '../stores/conversations.svelte';
 import { getBookmarksStore } from '../stores/bookmarks.svelte';
 import { getDialogStore } from '../stores/dialogs.svelte';
+import { getToastStore } from '../stores/toasts.svelte';
+import { maintenanceLabel, maintenanceOutcomeMessage } from '../../../shared/maintenance';
 import { CONFIRM_KEYS } from '../confirm-keys';
 import { loadFormatSettings } from '../formatter/settings';
 import { registerSkillInfos } from '../tools/tool-registry';
@@ -219,6 +221,25 @@ export function registerAppIpc(ctx: IpcWiringCtx): void {
   // the corpus embeds in the background. Cleared on completion (running:false).
   api.embeddings.onBackfillProgress((p) => {
     ctx.setEmbeddingProgress(p.running && p.total > 0 ? { done: p.done, total: p.total } : null);
+  });
+
+  // File ▸ maintenance progress + completion (#1814). These run in main off the
+  // native menu, so without this the user clicked "Rebuild All Indexes" and the
+  // app looked identical before, during, and after — including when it failed.
+  //
+  // Nothing new on screen: a `blocking` task drives the same modal overlay the
+  // bulk importers use (the graph really is half-built while it runs), a
+  // `background` one stays out of the way, and every task ends with a toast —
+  // the one moment a user needs telling, since the alternative is guessing
+  // whether a silent app is working or finished.
+  const toasts = getToastStore();
+  api.maintenance.onProgress((p) => {
+    if (p.running) {
+      if (p.style === 'blocking') busy.setLabel(maintenanceLabel(p));
+      return;
+    }
+    if (p.style === 'blocking') busy.setLabel(null);
+    toasts.push({ message: maintenanceOutcomeMessage(p) });
   });
 
   // CSV table-name collision (#354): two CSVs would land on the
