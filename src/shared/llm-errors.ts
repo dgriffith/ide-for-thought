@@ -67,8 +67,12 @@ export type LlmFailureKind =
   | 'overloaded'
   /** Provider-side 5xx. Temporary. */
   | 'server'
-  /** Never reached the provider — offline, DNS, TLS, timeout. */
+  /** Never reached the provider — offline, DNS, TLS. */
   | 'network'
+  /** Reached the provider, but no answer came back in time. Temporary, and
+   *  distinct from `network`: telling someone to check their connection when
+   *  the request was simply too big to finish is a wrong diagnosis (#1811). */
+  | 'timeout'
   /** The request exceeded the model's context window. */
   | 'context_length'
   /** The provider refused the request as malformed / not permitted (4xx). */
@@ -91,7 +95,7 @@ export interface LlmFailure {
 
 /** Kinds where the same request may well succeed on a second attempt. */
 const RETRYABLE: ReadonlySet<LlmFailureKind> = new Set<LlmFailureKind>([
-  'rate_limited', 'overloaded', 'server', 'network',
+  'rate_limited', 'overloaded', 'server', 'network', 'timeout',
 ]);
 
 export function isRetryableKind(kind: LlmFailureKind): boolean {

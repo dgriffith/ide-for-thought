@@ -57,15 +57,22 @@ export async function executeTool(
   const settings = await getSettings();
   const { prompt, model } = buildOneShotPayload(tool, settings, request);
 
+  // A skill's output usually becomes a note, so a reply cut off at the token
+  // cap would be filed as if it were the finished piece. Mark it instead (#1811)
+  // — the user can delete the line; they can't recover the fact it was lost.
+  let truncated = false;
   const output = await complete(prompt, {
     ...(onChunk ? { callbacks: { onChunk, signal } } : {}),
     ...(model ? { model } : {}),
+    onTruncated: () => { truncated = true; },
   });
 
   const noteTitle = request.context.fullNoteTitle ?? 'Untitled';
   return {
     toolId: request.toolId,
-    output,
+    output: truncated
+      ? `${output}\n\n_(Output stopped at the length limit — this is incomplete.)_`
+      : output,
     suggestedTitle: `${tool.name}: ${noteTitle}`,
     suggestedFilename: `${tool.outputNotePrefix ?? tool.id.replace('.', '-')}-${noteTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/, '')}.md`,
   };

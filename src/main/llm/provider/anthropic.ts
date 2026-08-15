@@ -107,6 +107,7 @@ function collectCitations(content: Anthropic.ContentBlock[]): Citation[] {
 function mapStopReason(reason: Anthropic.Message['stop_reason']): StopReason {
   if (reason === 'pause_turn') return 'pause';
   if (reason === 'tool_use') return 'tool_use';
+  if (reason === 'max_tokens') return 'max_tokens';
   return 'end';
 }
 
@@ -232,21 +233,23 @@ export class AnthropicProvider implements LLMProvider {
       messages,
     };
 
-    if (!onDelta) {
-      const response = await this.client.messages.create(
-        { ...base, max_tokens: req.maxTokens },
-        req.signal ? { signal: req.signal } : undefined,
-      );
-      return { text: extractText(response.content), usage: foldUsage(emptyUsage(), response.usage) };
-    }
-
+    // Always stream, even when nobody wants the deltas (#1811). A non-streaming
+    // request sends no bytes until the whole response is generated, so Node's
+    // 300s `headersTimeout` covers the entire generation — which is why the
+    // one-shot proposal paths (auto-tag, auto-link, /compact) timed out on large
+    // outputs while conversations, which stream, never did. Streaming also lifts
+    // the SDK's refusal to accept a big `max_tokens` off the non-streaming path.
     const stream = this.client.messages.stream(
       { ...base, max_tokens: req.maxTokens },
       { signal: req.signal },
     );
-    stream.on('text', (delta) => onDelta(delta));
+    if (onDelta) stream.on('text', (delta) => onDelta(delta));
     const finalMessage = await stream.finalMessage();
-    return { text: extractText(finalMessage.content), usage: foldUsage(emptyUsage(), finalMessage.usage) };
+    return {
+      text: extractText(finalMessage.content),
+      usage: foldUsage(emptyUsage(), finalMessage.usage),
+      stopReason: mapStopReason(finalMessage.stop_reason),
+    };
   }
 
   async checkConnection(): Promise<ConnectionCheckResult> {

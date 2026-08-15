@@ -97,8 +97,16 @@ export interface TurnRequest {
   signal?: AbortSignal | undefined;
 }
 
-/** Why the model stopped: neutral over provider-specific stop-reason strings. */
-export type StopReason = 'end' | 'tool_use' | 'pause';
+/**
+ * Why the model stopped: neutral over provider-specific stop-reason strings.
+ *
+ * `max_tokens` (OpenAI calls it `length`) used to fall through to `'end'`, which
+ * made a response cut off at the cap indistinguishable from one that finished
+ * its sentence — nothing downstream *could* react to a truncation, however much
+ * it wanted to (#1811). It is its own reason now, and callers are expected to
+ * say so rather than passing half an answer off as a whole one.
+ */
+export type StopReason = 'end' | 'tool_use' | 'pause' | 'max_tokens';
 
 export interface TurnResult {
   /** Append to `history` before the next turn. */
@@ -127,6 +135,8 @@ export interface CompletionRequest {
 export interface CompletionResult {
   text: string;
   usage: TurnUsage;
+  /** Why this one-shot stopped. `'max_tokens'` means the text is cut off. */
+  stopReason: StopReason;
 }
 
 /**

@@ -122,6 +122,27 @@ describe('completeWithTools() dispatch loop (#342)', () => {
     await fsp.rm(root, { recursive: true, force: true });
   });
 
+  it('says so in the transcript when a reply is cut off at the token cap', async () => {
+    // `max_tokens` used to map to the same 'end' as a finished sentence, so a
+    // truncated turn just stopped talking mid-thought and looked complete
+    // (#1811). The marker is the only thing that tells the user to ask for more.
+    const truncated = { ...textMessage('The first half of the argu'), stop_reason: 'max_tokens' } as never;
+    setupStreamWith([truncated]);
+    const chunks: string[] = [];
+
+    const result = await completeWithTools({
+      system: 'sys',
+      messages: [{ role: 'user', content: 'explain at length' }],
+      toolContext: { rootPath: root },
+      callbacks: { onChunk: (c) => chunks.push(c) },
+    });
+
+    expect(result.text).toContain('The first half of the argu');
+    expect(result.text).toContain('length limit');
+    // Streamed too, so it appears live rather than only after the reload.
+    expect(chunks.join('')).toContain('length limit');
+  });
+
   it('runs a real notebase tool and feeds the result into the next iteration', async () => {
     // Plant a note for read_note to actually read.
     const notePath = 'notes/hello.md';

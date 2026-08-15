@@ -180,6 +180,16 @@ export interface CompleteOptions {
    * summarization call's own tokens.
    */
   onUsage?: (usage: TurnUsage, model: string) => void;
+  /**
+   * Fired when the model stopped because it hit the token cap, i.e. the string
+   * this returns is cut off mid-thought (#1811). Out-of-band for the same
+   * reason as `onUsage`. Callers decide what that means for them: a skill
+   * marks its output as incomplete, `/compact` refuses to install a
+   * half-written summary as a conversation's memory, and a tag list doesn't
+   * care. Silence here was the bug — a truncated answer looked exactly like a
+   * finished one.
+   */
+  onTruncated?: () => void;
 }
 
 export interface CompleteWithToolsOptions {
@@ -249,6 +259,7 @@ export async function complete(
   let modelOverride: string | undefined;
   let effortOverride: Effort | undefined;
   let onUsage: ((usage: TurnUsage, model: string) => void) | undefined;
+  let onTruncated: (() => void) | undefined;
 
   if (callbacksOrOptions && 'onChunk' in callbacksOrOptions) {
     callbacks = callbacksOrOptions;
@@ -260,6 +271,7 @@ export async function complete(
     modelOverride = opts.model;
     effortOverride = opts.effort;
     onUsage = opts.onUsage;
+    onTruncated = opts.onTruncated;
     messages = opts.messages ?? [{ role: 'user', content: prompt }];
   } else {
     messages = [{ role: 'user', content: prompt }];
@@ -276,13 +288,17 @@ export async function complete(
       system,
       messages,
       effort,
-      // Streaming callers historically got a larger budget than one-shots.
-      maxTokens: cb ? 64000 : 16000,
+      // One budget for every caller. The old `cb ? 64000 : 16000` split existed
+      // because the SDK refuses a non-streaming request whose `max_tokens`
+      // implies over ten minutes of work — and every call streams now (#1811),
+      // so the paths most likely to truncate no longer get the smaller ceiling.
+      maxTokens: 64000,
       signal: cb?.signal,
     },
     cb ? (delta) => cb.onChunk(delta) : undefined,
   ), cb?.signal);
   if (onUsage) onUsage(result.usage, model);
+  if (result.stopReason === 'max_tokens' && onTruncated) onTruncated();
   return result.text;
 }
 
@@ -390,6 +406,16 @@ export async function completeWithTools(
     // cap and pause; re-send the same conversation so it resumes — no extra
     // user message.
     if (turn.stopReason === 'pause') continue;
+    // Cut off at the token cap. Say so in the transcript rather than letting a
+    // reply that stops mid-sentence read as a complete answer (#1811) — same
+    // treatment as the wedged-tool bail-out below.
+    if (turn.stopReason === 'max_tokens') {
+      const msg = '\n\n_(I hit the length limit for one reply and stopped here. '
+        + 'Ask me to continue if you want the rest.)_';
+      textPieces.push(msg);
+      if (callbacks) callbacks.onChunk(msg);
+      break;
+    }
     if (turn.stopReason !== 'tool_use') break;
     // Stopped for tool_use but only server-side blocks (which we don't execute)
     // — nothing to run, so stop rather than loop forever.

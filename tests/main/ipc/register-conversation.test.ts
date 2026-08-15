@@ -32,9 +32,13 @@ const h = vi.hoisted(() => {
     enterLLMContext: vi.fn(),
     exitLLMContext: vi.fn(),
     completeWithTools: vi.fn(),
+    complete: vi.fn(),
     appendMessage: vi.fn(),
     load: vi.fn(),
     setContainerId: vi.fn(),
+    archive: vi.fn(),
+    create: vi.fn(),
+    replaceMessages: vi.fn(),
     proposeWrite: vi.fn(),
     approveProposal: vi.fn(),
   };
@@ -83,13 +87,19 @@ vi.mock('../../../src/main/graph/index', () => ({
 }));
 
 // The LLM client (dynamically imported inside the handler).
-vi.mock('../../../src/main/llm/index', () => ({ completeWithTools: h.completeWithTools }));
+vi.mock('../../../src/main/llm/index', () => ({
+  completeWithTools: h.completeWithTools,
+  complete: h.complete,
+}));
 
 // Conversation persistence.
 vi.mock('../../../src/main/llm/conversation', () => ({
   appendMessage: h.appendMessage,
   setContainerId: h.setContainerId,
   load: h.load,
+  archive: h.archive,
+  create: h.create,
+  replaceMessages: h.replaceMessages,
 }));
 
 // Approval engine — the trust gate.
@@ -116,6 +126,7 @@ const cancel = h.handlers.get(Channels.CONVERSATION_CANCEL)!;
 const retry = h.handlers.get(Channels.CONVERSATION_RETRY)!;
 const fileDraft = h.handlers.get(Channels.CONVERSATION_FILE_DRAFT)!;
 const fileDeleteDraft = h.handlers.get(Channels.CONVERSATION_FILE_DELETE_DRAFT)!;
+const compact = h.handlers.get(Channels.CONVERSATION_COMPACT)!;
 
 const CONV = {
   id: 'conv-1',
@@ -355,5 +366,55 @@ describe('CONVERSATION_RETRY (#1804)', () => {
     h.load.mockResolvedValue(null);
     await expect(retry(evt, 'conv-1')).rejects.toThrow(/not found/i);
     expect(h.completeWithTools).not.toHaveBeenCalled();
+  });
+});
+
+// ── /compact refuses a truncated summary (#1811) ───────────────────────────
+// Compaction archives the original and makes the summary the model's entire
+// memory of it. Every other truncation in the app is worth keeping and
+// labelling; this one is worth refusing, because a half-written summary
+// silently becomes the conversation's past.
+
+describe('CONVERSATION_COMPACT with a truncated summary (#1811)', () => {
+  /** A conversation long enough for planCompaction to have something to do. */
+  function longConversation() {
+    return {
+      ...CONV,
+      status: 'active',
+      messages: Array.from({ length: 10 }, (_, i) => ({
+        role: i % 2 === 0 ? 'user' : 'assistant',
+        content: `turn ${i}`,
+        timestamp: 't',
+      })),
+    };
+  }
+
+  it('reports instead of compacting, and leaves the conversation alone', async () => {
+    h.load.mockResolvedValue(longConversation());
+    h.complete.mockImplementation(async (_prompt: string, opts: { onTruncated?: () => void }) => {
+      opts.onTruncated?.();
+      return 'A summary that stops mid-';
+    });
+
+    const result = await compact(evt, 'conv-1') as { compacted: boolean; reason?: string };
+
+    expect(result.compacted).toBe(false);
+    expect(result.reason).toMatch(/length limit/i);
+    // The original must survive: no archive, no replacement conversation.
+    expect(h.archive).not.toHaveBeenCalled();
+    expect(h.create).not.toHaveBeenCalled();
+    expect(h.replaceMessages).not.toHaveBeenCalled();
+  });
+
+  it('compacts normally when the summary came back whole', async () => {
+    h.load.mockResolvedValue(longConversation());
+    h.complete.mockResolvedValue('A complete summary.');
+    h.create.mockResolvedValue({ ...CONV, id: 'conv-2' });
+    h.replaceMessages.mockResolvedValue({ ...CONV, id: 'conv-2' });
+
+    const result = await compact(evt, 'conv-1') as { compacted: boolean };
+
+    expect(result.compacted).toBe(true);
+    expect(h.archive).toHaveBeenCalledWith('conv-1');
   });
 });
