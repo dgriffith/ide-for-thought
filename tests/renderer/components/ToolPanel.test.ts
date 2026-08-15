@@ -15,7 +15,7 @@
  * these assert the actual streamed-buffer → rendered-output path.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/svelte';
+import { render, screen, cleanup, fireEvent } from '@testing-library/svelte';
 import type { ThinkingToolInfo } from '../../../src/shared/tools/types';
 
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({
@@ -28,6 +28,7 @@ vi.mock('../../../src/renderer/lib/tools/output', () => ({ handleToolOutput: vi.
 
 import ToolPanel from '../../../src/renderer/lib/components/ToolPanel.svelte';
 import { getToolPanelStore } from '../../../src/renderer/lib/stores/tool-panel.svelte';
+import { handleToolOutput } from '../../../src/renderer/lib/tools/output';
 
 const panel = getToolPanelStore();
 
@@ -39,6 +40,7 @@ const TOOL = {
 } as unknown as ThinkingToolInfo;
 
 beforeEach(() => {
+  vi.clearAllMocks();
   cleanup();
   panel.close();
 });
@@ -61,24 +63,42 @@ describe('ToolPanel review state', () => {
     expect(screen.getByText(/Anthropic is overloaded right now/)).toBeTruthy();
   });
 
-  it('offers Copy for a partial, but not Save as Note — there is no result to file', () => {
+  it('lets a partial be filed, labelled as the partial it is', () => {
     streamSomeOutput();
     panel.fail('Couldn\'t reach Anthropic. Check your internet connection.');
     render(ToolPanel);
 
+    // Keeping the text on screen but refusing to let the user keep it would be
+    // half a fix — an incomplete answer is still theirs.
+    expect(screen.getByText('Save Partial as Note')).toBeTruthy();
+    expect(screen.getByText('Append Partial')).toBeTruthy();
     expect(screen.getByText('Copy')).toBeTruthy();
-    expect(screen.queryByText('Save as Note')).toBeNull();
     expect(screen.getByText('Close')).toBeTruthy();
+  });
+
+  it('files the streamed text when there is no result object to file', async () => {
+    streamSomeOutput('Only the first paragraph');
+    panel.fail('Anthropic is overloaded right now.');
+    render(ToolPanel);
+
+    await fireEvent.click(screen.getByText('Save Partial as Note'));
+
+    expect(handleToolOutput).toHaveBeenCalledWith(
+      { toolId: TOOL.id, output: 'Only the first paragraph' },
+      'newNote',
+      {},
+    );
   });
 
   it('keeps what a cancelled run had already written', () => {
     // Same principle as a stopped conversation turn: pressing Cancel stops the
     // work, it doesn't retract the words.
     streamSomeOutput('Half an essay');
-    panel.fail('Cancelled');
+    panel.fail('Stopped. This output is partial.');
     render(ToolPanel);
 
     expect(screen.getByText(/Half an essay/)).toBeTruthy();
+    expect(screen.getByText(/Stopped\./)).toBeTruthy();
   });
 
   it('shows only the error when a run failed before producing anything', () => {
