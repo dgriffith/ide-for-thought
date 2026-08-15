@@ -8,8 +8,13 @@
  * unhelpfulness this classifier exists to remove.
  */
 import { describe, it, expect } from 'vitest';
+import {
+  APIUserAbortError,
+  APIConnectionError,
+  APIConnectionTimeoutError,
+} from '@anthropic-ai/sdk';
 import { classifyProviderError, toLlmFailureError } from '../../../src/main/llm/classify-error';
-import { classifyLlmFailure, describeLlmFailure, missingApiKeyMessage } from '../../../src/shared/llm-errors';
+import { classifyLlmFailure, describeLlmFailure, missingApiKeyMessage, isCancellation } from '../../../src/shared/llm-errors';
 
 /** An SDK-ish error: a real Error carrying the properties the SDKs attach. */
 function apiError(props: Record<string, unknown>): Error {
@@ -74,6 +79,62 @@ describe('classifyProviderError', () => {
 
   it('treats an abort as a cancellation rather than a failure', () => {
     expect(classifyProviderError(apiError({ name: 'AbortError' }))).toBe('cancelled');
+  });
+
+  /**
+   * Real instances, not hand-built lookalikes (#1809). The lookalikes above set
+   * `name`, which is exactly what these classes DON'T do: Stainless generates
+   * them without assigning `.name`, so every one reports the inherited
+   * `'Error'` and every `name`-based check silently never fired. A user's
+   * Cancel came back as an anonymous failure block, and a dropped connection
+   * came back as `unknown` — which is not retryable, so the one failure most
+   * worth retrying was the one with no Retry button.
+   */
+  describe('the errors the Anthropic SDK actually throws', () => {
+    it('has no usable .name — the premise of these cases', () => {
+      expect(new APIUserAbortError().name).toBe('Error');
+      expect(new APIConnectionError({ message: undefined }).name).toBe('Error');
+    });
+
+    it('reads a user abort as cancelled', () => {
+      expect(classifyProviderError(new APIUserAbortError())).toBe('cancelled');
+      // …and the renderer, which only sees text, agrees.
+      expect(isCancellation(toLlmFailureError(new APIUserAbortError(), 'anthropic'))).toBe(true);
+    });
+
+    it('reads a torn connection as network, and offers a retry', () => {
+      const err = new APIConnectionError({ message: undefined, cause: new Error('ECONNRESET') });
+      expect(classifyProviderError(err)).toBe('network');
+      const failure = classifyLlmFailure(toLlmFailureError(err, 'anthropic'));
+      expect(failure?.kind).toBe('network');
+      expect(failure?.retryable).toBe(true);
+    });
+
+    it('reads a timeout as network', () => {
+      expect(classifyProviderError(new APIConnectionTimeoutError({}))).toBe('network');
+    });
+  });
+
+  it('mines the cause chain, where the real diagnosis hides', () => {
+    // undici: `TypeError: fetch failed` with the actual code one level down.
+    const err = Object.assign(new TypeError('fetch failed'), {
+      cause: Object.assign(new Error('connect ECONNREFUSED 127.0.0.1:11434'), { code: 'ECONNREFUSED' }),
+    });
+    expect(classifyProviderError(err)).toBe('network');
+    // A wrapper whose own message says nothing at all still classifies.
+    const opaque = Object.assign(new Error('Something went wrong'), {
+      cause: { code: 'ENOTFOUND' },
+    });
+    expect(classifyProviderError(opaque)).toBe('network');
+  });
+
+  it('lets our own abort signal outrank whatever the SDK called it', () => {
+    // An abort can tear the socket down and surface as a connection error;
+    // "check your internet connection" would be a lie when the user hit Stop.
+    const err = new APIConnectionError({ message: undefined, cause: new Error('aborted') });
+    const wrapped = toLlmFailureError(err, 'anthropic', { aborted: true });
+    expect(classifyLlmFailure(wrapped)?.kind).toBe('cancelled');
+    expect(isCancellation(wrapped)).toBe(true);
   });
 
   it("falls back to 'unknown' rather than inventing a diagnosis", () => {

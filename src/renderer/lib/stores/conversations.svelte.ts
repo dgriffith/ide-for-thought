@@ -574,7 +574,22 @@ async function retryLastTurn(tabId: string, currentNotePath?: string): Promise<v
  * (send), and null when it's already committed to the transcript (retry).
  */
 function handleTurnFailure(tab: TabRuntime, e: unknown, sentText: string | null): void {
-  if (isCancellation(e)) return;
+  if (isCancellation(e)) {
+    // Quiet, but not destructive: a stopped turn keeps whatever it had already
+    // written, in the slot the reply would have occupied. Main only appends the
+    // assistant message on success, so this block is the *only* copy — hence
+    // saying so rather than letting the user assume it was filed.
+    if (tab.streamedChunks) {
+      tab.failure = {
+        kind: 'cancelled',
+        message: 'Stopped. This partial reply wasn\'t saved to the conversation.',
+        retryable: false,
+        partial: tab.streamedChunks,
+        afterMessageIndex: tab.conversation.messages.length,
+      };
+    }
+    return;
+  }
 
   if (isProviderUnconfiguredError(e)) {
     if (sentText !== null) {
@@ -761,13 +776,16 @@ async function clearConversation(): Promise<void> {
   scheduleSave();
 }
 
+/**
+ * Stop the in-flight turn. Deliberately does NOT touch the tab's streaming
+ * state: aborting makes the in-flight `send()` / `retryLastTurn()` reject, and
+ * that rejection is what turns the streamed text into a stopped-turn block
+ * (`handleTurnFailure`) before `finally` clears the buffer. Clearing
+ * `streamedChunks` here — which is what this used to do — erased the partial
+ * reply a few milliseconds before the code that wanted to keep it ran (#1809).
+ */
 async function cancel(): Promise<void> {
   await api.conversations.cancel();
-  const tab = activeTab();
-  if (tab) {
-    tab.streaming = false;
-    tab.streamedChunks = '';
-  }
 }
 
 /**

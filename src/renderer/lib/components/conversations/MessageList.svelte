@@ -221,7 +221,12 @@
         <div class="msg-content">{@html md.render(failure.partial)}</div>
       {/if}
       <div class="turn-error" role="status">
-        <span class="turn-error-icon" aria-hidden="true">⚠</span>
+        <!-- No warning glyph on a turn the user stopped themselves — pressing
+             Stop worked, and flagging it as a problem would be exactly the
+             alarm this project's UX philosophy rules out. -->
+        {#if failure.kind !== 'cancelled'}
+          <span class="turn-error-icon" aria-hidden="true">⚠</span>
+        {/if}
         <div class="turn-error-body">
           <p class="turn-error-message">{failure.message}</p>
           <div class="turn-error-actions">

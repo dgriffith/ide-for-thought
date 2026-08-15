@@ -331,6 +331,25 @@ describe('send()', () => {
     expect(tab.streaming).toBe(false);
   });
 
+  it('keeps what a stopped turn had already written, and says it was not saved', async () => {
+    // Quiet is not the same as destructive (#1809): main only appends the
+    // assistant message on success, so the block in the transcript is the only
+    // copy of a cancelled turn's output.
+    const tab = await freshTab();
+    conv().send.mockImplementationOnce(async () => {
+      h.cbs.onStream?.('three useful paragraphs');
+      throw Object.assign(new Error('aborted'), { name: 'AbortError' });
+    });
+
+    await store.send('write me something');
+
+    expect(tab.failure?.kind).toBe('cancelled');
+    expect(tab.failure?.partial).toBe('three useful paragraphs');
+    expect(tab.failure?.retryable).toBe(false);
+    expect(tab.failure?.message).toContain('wasn\'t saved');
+    expect(tab.streaming).toBe(false);
+  });
+
   it('does not mistake a provider error that merely mentions "abort" for a cancel', async () => {
     // The old check was String(e).includes('abort'), which swallowed this.
     const tab = await freshTab();
@@ -418,14 +437,17 @@ describe('send()', () => {
 // ───────────────────── cancel / model / effort / composer ─────────────────────
 
 describe('cancel / setModel / setEffort / setComposer', () => {
-  it('cancel routes through api and clears the streaming flags', async () => {
+  it('cancel routes through api and leaves the partial for the rejection to keep', async () => {
+    // It used to clear `streamedChunks` here, milliseconds before the code
+    // that wants to preserve them ran — so stopping a turn erased what the
+    // model had already written (#1809). The abort makes the in-flight send()
+    // reject; that path owns the teardown.
     const tab = await freshTab();
     tab.streaming = true;
-    tab.streamedChunks = 'partial';
+    tab.streamedChunks = 'three useful paragraphs';
     await store.cancel();
     expect(conv().cancel).toHaveBeenCalledTimes(1);
-    expect(tab.streaming).toBe(false);
-    expect(tab.streamedChunks).toBe('');
+    expect(tab.streamedChunks).toBe('three useful paragraphs');
   });
 
   it('setModel routes through api and swaps in the updated conversation', async () => {

@@ -4,7 +4,7 @@
   import { api } from '../ipc/client';
   import Icon from './Icon.svelte';
   import ToolParamsDialog from './ToolParamsDialog.svelte';
-  import type { ToolContext } from '../../../shared/tools/types';
+  import type { ToolContext, ToolExecutionResult } from '../../../shared/tools/types';
   import { isProviderUnconfiguredError, describeLlmFailure } from '../../../shared/llm-errors';
   import { resolveNoteParams } from '../tools/resolve-note-params';
 
@@ -92,20 +92,34 @@
 
   async function handleCancel() {
     await panel.cancelTool();
-    panel.fail('Cancelled');
+    panel.fail('Stopped. This output is partial.');
     running = false;
   }
 
+  /**
+   * What the review actions operate on: the finished result, or — when the run
+   * failed or the user stopped it — the text that made it out before it died.
+   * Keeping a partial on screen but refusing to let the user file it would be
+   * half a fix (#1809); an incomplete answer is still theirs to keep.
+   */
+  function reviewResult(): ToolExecutionResult | null {
+    if (panel.result) return panel.result;
+    if (!panel.activeTool || !panel.streamedOutput) return null;
+    return { toolId: panel.activeTool.id, output: panel.streamedOutput };
+  }
+
   async function handleSaveAsNote() {
-    if (!panel.result) return;
-    await handleToolOutput(panel.result, 'newNote', $state.snapshot(panel.context));
+    const result = reviewResult();
+    if (!result) return;
+    await handleToolOutput(result, 'newNote', $state.snapshot(panel.context));
     onNoteCreated?.();
     panel.close();
   }
 
   async function handleAppend() {
-    if (!panel.result) return;
-    await handleToolOutput(panel.result, 'appendToNote', $state.snapshot(panel.context));
+    const result = reviewResult();
+    if (!result) return;
+    await handleToolOutput(result, 'appendToNote', $state.snapshot(panel.context));
     panel.close();
   }
 
@@ -167,18 +181,31 @@
       </div>
 
     {:else if panel.panelState === 'review'}
+      {@const output = panel.result?.output ?? panel.streamedOutput}
       <div class="tool-body output-body">
-        {#if panel.error}
-          <div class="error-msg">{panel.error}</div>
-        {:else}
+        <!-- A failure used to replace the output with the error line, so text
+             the user had just watched stream in vanished as it landed (#1809).
+             Whatever streamed before a run died is real output — the same call
+             the transcript makes for a failed conversation turn — so it stays
+             on screen, with the error underneath it. -->
+        {#if output}
           <div class="output-scroll">
-            <pre class="output">{panel.result?.output ?? panel.streamedOutput}</pre>
+            <pre class="output">{output}</pre>
           </div>
         {/if}
+        {#if panel.error}
+          <div class="error-msg">{panel.error}</div>
+        {/if}
         <div class="actions">
-          {#if !panel.error}
-            <button class="btn primary" onclick={handleSaveAsNote}>Save as Note</button>
-            <button class="btn" onclick={handleAppend}>Append to Current</button>
+          <!-- Same actions whether the run finished or died partway; the labels
+               say which one the user is filing, and then get out of the way. -->
+          {#if output}
+            <button class="btn primary" onclick={handleSaveAsNote}>
+              {panel.error ? 'Save Partial as Note' : 'Save as Note'}
+            </button>
+            <button class="btn" onclick={handleAppend}>
+              {panel.error ? 'Append Partial' : 'Append to Current'}
+            </button>
             <button class="btn" onclick={handleCopyToClipboard}>Copy</button>
           {/if}
           <button class="btn" onclick={() => panel.close()}>

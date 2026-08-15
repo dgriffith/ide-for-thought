@@ -138,6 +138,25 @@ describe('failed turn, rendered inline (#1804)', () => {
     expect(h.dismissFailure).toHaveBeenCalledWith('tab-1');
   });
 
+  it('renders a stopped turn without the warning glyph (#1809)', () => {
+    // A cancelled turn reuses this block to keep its partial text, but the user
+    // pressing Stop is not a problem being reported back at them — no alarm.
+    const stopped = failure({
+      kind: 'cancelled',
+      retryable: false,
+      message: 'Stopped. This partial reply wasn\'t saved to the conversation.',
+      partial: 'The note argues that large republics',
+    });
+    const { container } = render(MessageList, {
+      props: { tab: tabWith(stopped), currentNotePath: null },
+    });
+
+    expect(screen.getByText(/The note argues that large republics/)).toBeTruthy();
+    expect(screen.getByText(/Stopped\./)).toBeTruthy();
+    expect(container.querySelector('.turn-error-icon')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
+  });
+
   it('yields to the streaming indicator while a new turn is in flight', () => {
     // Retrying shouldn't leave the old error sitting under a live spinner.
     render(MessageList, { props: { tab: tabWith(failure(), true), currentNotePath: null } });
