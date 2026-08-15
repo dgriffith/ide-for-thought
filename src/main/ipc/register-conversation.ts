@@ -392,12 +392,25 @@ async function compactConversation(
 
   let usage: import('../../shared/types').TurnUsage | undefined;
   let usageModel: string | undefined;
+  let truncated = false;
   const { complete } = await import('../llm/index');
   const summary = await complete(buildSummaryPrompt(plan.transcript), {
     system: COMPACT_SYSTEM_PROMPT,
     model: conv.model,
     onUsage: (u, m) => { usage = u; usageModel = m; },
+    onTruncated: () => { truncated = true; },
   });
+  // A summary cut off at the token cap is the one truncation we refuse to live
+  // with (#1811): compaction archives the original and makes this summary the
+  // model's entire memory of it. Better to leave the conversation as it is and
+  // say why than to install a half-written account of it.
+  if (truncated) {
+    return {
+      compacted: false,
+      reason: 'The summary of your earlier turns was cut off at the length limit, '
+        + 'so nothing was compacted. Try again, or start a fresh conversation.',
+    };
+  }
   const summaryMsg = buildSummaryMessage(
     plan.prefix.length,
     summary,

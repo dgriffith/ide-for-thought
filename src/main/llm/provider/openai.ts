@@ -76,6 +76,9 @@ export function toChatTools(specs: ToolSpec[]): OpenAI.Chat.Completions.ChatComp
 
 export function mapFinishReason(reason: string | null | undefined): StopReason {
   if (reason === 'tool_calls') return 'tool_use';
+  // OpenAI's name for hitting the cap. Distinct from 'end' so a truncated
+  // answer can say it is one (#1811).
+  if (reason === 'length') return 'max_tokens';
   return 'end';
 }
 
@@ -228,26 +231,26 @@ export class OpenAIProvider implements LLMProvider {
       ...(reasoning ? { reasoning_effort: reasoning } : {}),
     };
 
-    if (!onDelta) {
-      const res = await this.client.chat.completions.create(base, { signal: req.signal });
-      return { text: res.choices[0]?.message?.content ?? '', usage: foldOpenAIUsage(res.usage) };
-    }
-
+    // Always stream — see the note in `anthropic.ts`: a non-streaming request
+    // sends nothing until the whole response exists, so Node's 300s
+    // `headersTimeout` becomes a ceiling on generation length (#1811).
     const stream = await this.client.chat.completions.create(
       { ...base, stream: true, stream_options: { include_usage: true } },
       { signal: req.signal },
     );
     let text = '';
     let usage: OpenAI.Completions.CompletionUsage | undefined;
+    let finishReason: string | null | undefined;
     for await (const chunk of stream) {
       const d = chunk.choices[0]?.delta?.content;
       if (d) {
         text += d;
-        onDelta(d);
+        if (onDelta) onDelta(d);
       }
+      if (chunk.choices[0]?.finish_reason) finishReason = chunk.choices[0].finish_reason;
       if (chunk.usage) usage = chunk.usage;
     }
-    return { text, usage: foldOpenAIUsage(usage) };
+    return { text, usage: foldOpenAIUsage(usage), stopReason: mapFinishReason(finishReason) };
   }
 
   async checkConnection(): Promise<ConnectionCheckResult> {

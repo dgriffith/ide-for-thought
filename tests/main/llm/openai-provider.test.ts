@@ -20,12 +20,17 @@ import {
 import type { ToolSpec } from '../../../src/main/llm/provider/types';
 
 /** A fake OpenAI client: streaming `create` yields `streamChunks`, non-streaming
- *  returns `response`. */
-function fakeClient(opts: { streamChunks?: unknown[]; response?: unknown }): OpenAI {
+ *  returns `response`. `onCreate` observes the params the provider sent. */
+function fakeClient(opts: {
+  streamChunks?: unknown[];
+  response?: unknown;
+  onCreate?: (params: { stream?: boolean }) => void;
+}): OpenAI {
   return {
     chat: {
       completions: {
         create: async (params: { stream?: boolean }) => {
+          opts.onCreate?.(params);
           if (params.stream) {
             return (async function* () {
               for (const c of opts.streamChunks ?? []) yield c;
@@ -67,10 +72,12 @@ describe('OpenAIProvider — pure mappers', () => {
     ]);
   });
 
-  it('mapFinishReason: tool_calls → tool_use, everything else → end', () => {
+  it('mapFinishReason: tool_calls → tool_use, length → max_tokens, else end', () => {
     expect(mapFinishReason('tool_calls')).toBe('tool_use');
     expect(mapFinishReason('stop')).toBe('end');
-    expect(mapFinishReason('length')).toBe('end');
+    // 'length' is OpenAI's truncation signal — folding it into 'end' is what
+    // made a cut-off answer indistinguishable from a finished one (#1811).
+    expect(mapFinishReason('length')).toBe('max_tokens');
     expect(mapFinishReason(null)).toBe('end');
   });
 
@@ -160,14 +167,36 @@ describe('OpenAIProvider — runTurn (injected stream)', () => {
   });
 });
 
-describe('OpenAIProvider — complete (non-streaming)', () => {
-  it('returns the message content + usage', async () => {
+describe('OpenAIProvider — complete', () => {
+  it('streams even when the caller wants no deltas, returning text + usage', async () => {
+    // A caller with no `onDelta` used to get a non-streaming request, whose
+    // response arrives only when generation finishes — putting the whole
+    // generation under Node's 300s headers timeout (#1811). Every completion
+    // streams now; the deltas are simply accumulated when nobody is listening.
+    let sawStream = false;
     const provider = new OpenAIProvider('sk-test', undefined, fakeClient({
-      response: { choices: [{ message: { content: 'the answer' } }], usage: { prompt_tokens: 4, completion_tokens: 2 } },
+      streamChunks: [
+        { choices: [{ delta: { content: 'the ' } }] },
+        { choices: [{ delta: { content: 'answer' }, finish_reason: 'stop' }] },
+        { choices: [{}], usage: { prompt_tokens: 4, completion_tokens: 2 } },
+      ],
+      onCreate: (params) => { sawStream = params.stream === true; },
     }));
     const res = await provider.complete({ model: 'gpt-5', messages: [{ role: 'user', content: 'q' }], maxTokens: 100 });
+    expect(sawStream).toBe(true);
     expect(res.text).toBe('the answer');
     expect(res.usage.inputTokens).toBe(4);
     expect(res.usage.outputTokens).toBe(2);
+    expect(res.stopReason).toBe('end');
+  });
+
+  it('reports a reply cut off at the cap as truncated, not as a normal end', async () => {
+    const provider = new OpenAIProvider('sk-test', undefined, fakeClient({
+      streamChunks: [
+        { choices: [{ delta: { content: 'half an ans' }, finish_reason: 'length' }] },
+      ],
+    }));
+    const res = await provider.complete({ model: 'gpt-5', messages: [{ role: 'user', content: 'q' }], maxTokens: 100 });
+    expect(res.stopReason).toBe('max_tokens');
   });
 });

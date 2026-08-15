@@ -110,8 +110,32 @@ describe('classifyProviderError', () => {
       expect(failure?.retryable).toBe(true);
     });
 
-    it('reads a timeout as network', () => {
-      expect(classifyProviderError(new APIConnectionTimeoutError({}))).toBe('network');
+    it('reads a timeout as its own kind, not as "check your connection"', () => {
+      // The request reached the provider; it just didn't answer in time. Usually
+      // because it was large — telling the user to check their wifi sends them
+      // looking in the wrong place (#1811).
+      expect(classifyProviderError(new APIConnectionTimeoutError({}))).toBe('timeout');
+      const failure = classifyLlmFailure(toLlmFailureError(new APIConnectionTimeoutError({}), 'anthropic'));
+      expect(failure?.retryable).toBe(true);
+      expect(failure?.message).toContain('didn\'t answer in time');
+    });
+
+    it('still calls a connect-phase failure a network problem', () => {
+      // "Connect Timeout Error" says timeout but means unreachable.
+      const err = Object.assign(new TypeError('fetch failed'), {
+        cause: Object.assign(new Error('Connect Timeout Error (attempted address: api.anthropic.com:443)'), {
+          code: 'UND_ERR_CONNECT_TIMEOUT',
+        }),
+      });
+      expect(classifyProviderError(err)).toBe('network');
+    });
+
+    it('reads Node\'s own headers/body timeouts as a timeout', () => {
+      // undici enforces 300s on both, and reports them through `cause`.
+      const headers = Object.assign(new TypeError('fetch failed'), {
+        cause: Object.assign(new Error('Headers Timeout Error'), { code: 'UND_ERR_HEADERS_TIMEOUT' }),
+      });
+      expect(classifyProviderError(headers)).toBe('timeout');
     });
   });
 

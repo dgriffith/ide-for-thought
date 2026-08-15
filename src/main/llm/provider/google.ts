@@ -39,6 +39,7 @@ import type {
   ProviderMessage,
   ProviderToolCall,
   ProviderToolResult,
+  StopReason,
   ToolSpec,
   TurnHooks,
   TurnRequest,
@@ -61,6 +62,12 @@ export function thinkingBudgetFor(effort: Effort | undefined): number | undefine
   if (effort === 'low') return 2048;
   if (effort === 'medium') return 8192;
   return 16384; // high / xhigh / max
+}
+
+/** Gemini's `finishReason` → the neutral stop reason. Only the truncation case
+ *  needs distinguishing; everything else is a normal end (#1811). */
+export function mapFinishReason(reason: string | undefined): StopReason {
+  return reason === 'MAX_TOKENS' ? 'max_tokens' : 'end';
 }
 
 export function foldGeminiUsage(u: GenerateContentResponseUsageMetadata | undefined): TurnUsage {
@@ -154,6 +161,7 @@ export class GoogleProvider implements LLMProvider {
     let text = '';
     const calls: { id?: string; name: string; args: Record<string, unknown> }[] = [];
     let usage: GenerateContentResponseUsageMetadata | undefined;
+    let finishReason: string | undefined;
 
     for await (const chunk of stream) {
       const t = chunk.text;
@@ -170,6 +178,8 @@ export class GoogleProvider implements LLMProvider {
         calls.push({ ...(fc.id ? { id: fc.id } : {}), name, args });
       }
       if (chunk.usageMetadata) usage = chunk.usageMetadata;
+      const reason = chunk.candidates?.[0]?.finishReason;
+      if (reason) finishReason = reason;
     }
 
     const toolCalls: ProviderToolCall[] = calls.map((c) => ({
@@ -190,7 +200,7 @@ export class GoogleProvider implements LLMProvider {
       toolCalls,
       citations: [],
       usage: foldGeminiUsage(usage),
-      stopReason: calls.length > 0 ? 'tool_use' : 'end',
+      stopReason: calls.length > 0 ? 'tool_use' : mapFinishReason(finishReason),
     };
   }
 
@@ -201,23 +211,24 @@ export class GoogleProvider implements LLMProvider {
     }));
     const config = this.buildConfig(req.system, [], req.effort, req.signal);
 
-    if (!onDelta) {
-      const res = await this.ai.models.generateContent({ model: req.model, contents, config });
-      return { text: res.text ?? '', usage: foldGeminiUsage(res.usageMetadata) };
-    }
-
+    // Always stream — see the note in `anthropic.ts`: a non-streaming request
+    // sends nothing until the whole response exists, so Node's 300s
+    // `headersTimeout` becomes a ceiling on generation length (#1811).
     const stream = await this.ai.models.generateContentStream({ model: req.model, contents, config });
     let text = '';
     let usage: GenerateContentResponseUsageMetadata | undefined;
+    let finishReason: string | undefined;
     for await (const chunk of stream) {
       const t = chunk.text;
       if (t) {
         text += t;
-        onDelta(t);
+        if (onDelta) onDelta(t);
       }
       if (chunk.usageMetadata) usage = chunk.usageMetadata;
+      const reason = chunk.candidates?.[0]?.finishReason;
+      if (reason) finishReason = reason;
     }
-    return { text, usage: foldGeminiUsage(usage) };
+    return { text, usage: foldGeminiUsage(usage), stopReason: mapFinishReason(finishReason) };
   }
 
   async checkConnection(): Promise<ConnectionCheckResult> {

@@ -131,14 +131,28 @@ describe('GoogleProvider — runTurn (injected stream)', () => {
   });
 });
 
-describe('GoogleProvider — complete (non-streaming)', () => {
-  it('returns text + usage', async () => {
+describe('GoogleProvider — complete', () => {
+  it('streams even when the caller wants no deltas, returning text + usage', async () => {
+    // See the OpenAI/Anthropic equivalents: a non-streaming request puts the
+    // entire generation under Node's 300s headers timeout (#1811).
     const provider = new GoogleProvider('key', fakeAi({
-      response: { text: 'the answer', usageMetadata: { promptTokenCount: 4, candidatesTokenCount: 2 } },
+      streamChunks: [
+        { text: 'the ' },
+        { text: 'answer', usageMetadata: { promptTokenCount: 4, candidatesTokenCount: 2 } },
+      ],
     }));
     const res = await provider.complete({ model: 'gemini-2.5-pro', messages: [{ role: 'user', content: 'q' }], maxTokens: 100 });
     expect(res.text).toBe('the answer');
     expect(res.usage.inputTokens).toBe(4);
     expect(res.usage.outputTokens).toBe(2);
+    expect(res.stopReason).toBe('end');
+  });
+
+  it('reports a reply cut off at the cap as truncated', async () => {
+    const provider = new GoogleProvider('key', fakeAi({
+      streamChunks: [{ text: 'half an ans', candidates: [{ finishReason: 'MAX_TOKENS' }] }],
+    }));
+    const res = await provider.complete({ model: 'gemini-2.5-pro', messages: [{ role: 'user', content: 'q' }], maxTokens: 100 });
+    expect(res.stopReason).toBe('max_tokens');
   });
 });

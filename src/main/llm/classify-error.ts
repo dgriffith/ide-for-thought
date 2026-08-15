@@ -52,7 +52,8 @@ interface ErrorShape {
  * a genuine `DOMException` named `AbortError`).
  */
 const SDK_ABORT_MESSAGE = 'request was aborted.';
-const SDK_CONNECTION_MESSAGES = ['connection error.', 'request timed out.'];
+const SDK_CONNECTION_MESSAGE = 'connection error.';
+const SDK_TIMEOUT_MESSAGE = 'request timed out.';
 
 /** A status-less SDK error whose message is one of `messages`. */
 function isBareSdkError(e: ErrorShape, messages: readonly string[]): boolean {
@@ -133,15 +134,36 @@ function looksLikeContextLength(text: string): boolean {
   );
 }
 
+/**
+ * We waited, and nothing came back. Separate from `network` because the cure is
+ * different: a timeout usually means the request was too big to finish inside
+ * the window, not that the machine is offline. Node's `fetch` enforces its own
+ * 300s `headersTimeout` / `bodyTimeout`, and reports them through `cause`.
+ */
+function looksLikeTimeout(e: ErrorShape, text: string): boolean {
+  if (typeof e.status === 'number') return false;
+  // A connect-phase failure says "timeout" but means unreachable; that reading
+  // wins. Checked here rather than by ordering the two probes, because Node
+  // reports BOTH as a bare `TypeError: fetch failed` and only the cause chain
+  // tells them apart.
+  if (/\b(connecttimeouterror|und_err_connect_timeout|enotfound|econnrefused|eai_again)\b/.test(text)) {
+    return false;
+  }
+  return (
+    isBareSdkError(e, [SDK_TIMEOUT_MESSAGE])
+    || e.name === 'APIConnectionTimeoutError'
+    || /\b(und_err_headers_timeout|und_err_body_timeout|headerstimeouterror|bodytimeouterror|timed out|timeout)\b/.test(text)
+  );
+}
+
 /** No HTTP status at all ⇒ we never got an answer from the provider. */
 function looksLikeNetwork(e: ErrorShape, text: string): boolean {
   if (typeof e.status === 'number') return false;
   return (
-    isBareSdkError(e, SDK_CONNECTION_MESSAGES)
+    isBareSdkError(e, [SDK_CONNECTION_MESSAGE])
     || e.name === 'APIConnectionError'
-    || e.name === 'APIConnectionTimeoutError'
     || e.name === 'FetchError'
-    || /\b(enotfound|econnrefused|econnreset|etimedout|eai_again|epipe|certificate|self[- ]signed|socket hang up|network|fetch failed|timed out|timeout)\b/.test(text)
+    || /\b(enotfound|econnrefused|econnreset|etimedout|eai_again|epipe|certificate|self[- ]signed|socket hang up|connecttimeouterror|und_err_connect_timeout|network|fetch failed)\b/.test(text)
   );
 }
 
@@ -162,6 +184,11 @@ export function classifyProviderError(err: unknown): LlmFailureKind {
   const text = haystack(e);
   const status = e.status;
 
+  // Timeout first: Node reports its own 300s header/body timeouts as a generic
+  // `fetch failed`, which the network probe would otherwise claim. The timeout
+  // probe stands aside for connect-phase failures, so unreachable still reads as
+  // a network problem.
+  if (looksLikeTimeout(e, text)) return 'timeout';
   if (looksLikeNetwork(e, text)) return 'network';
 
   if (status === 401) return 'auth';
@@ -204,6 +231,8 @@ function describe(kind: LlmFailureKind, label: string, e: ErrorShape): string {
       return `${label} had a server error${typeof e.status === 'number' ? ` (${e.status})` : ''}. Nothing wrong on your side — try again shortly.`;
     case 'network':
       return `Couldn't reach ${label}. Check your internet connection${detail ? ` (${detail})` : ''}.`;
+    case 'timeout':
+      return `${label} didn't answer in time. Large requests are the usual cause — try again, or ask for less in one go.`;
     case 'context_length':
       return `This conversation is too long for the model's context window. Run /compact to summarise earlier turns, or start a fresh conversation.`;
     case 'invalid_request':
