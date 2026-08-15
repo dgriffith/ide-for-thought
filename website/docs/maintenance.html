@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Maintenance</title>
-<meta name="description" content="A small set of housekeeping actions for the rare moment when something looks stale or stuck: refreshing search, restarting calculations, and a few others." />
+<meta name="description" content="A small set of housekeeping actions for the rare moment when something looks stale or stuck: refreshing search, restarting the Python kernel, and a few others." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -93,20 +93,20 @@
       </div>
       <div class="row">
         <div class="k">Interrupt Cell<br><span class="v" style="opacity:.7">File menu</span></div>
-        <div class="v">Stops a calculation that's taking too long, while keeping the results you've already built up. Handy when a cell is caught in a loop or is slower than you expected.</div>
+        <div class="v">Stops a code cell that's taking too long, while keeping the results you've already built up. Handy when a cell is caught in a loop or is slower than you expected. If nothing is running, Minerva says so rather than looking like it did something.</div>
       </div>
       <div class="row">
-        <div class="k">Restart Calculations<br><span class="v" style="opacity:.7">File menu</span></div>
-        <div class="v">Clears everything your calculation cells have worked out and starts them fresh. Reach for this when results look confused or you want a clean slate. See <a href="editor.html">Editor</a> for how calculation cells work.</div>
+        <div class="k">Restart Python Kernel<br><span class="v" style="opacity:.7">File menu</span></div>
+        <div class="v">Clears everything your code cells have worked out and starts them fresh. Reach for this when results look confused or you want a clean slate. See <a href="notes-code.html">Code &amp; compute cells</a> for how they work.</div>
       </div>
     </div>
 
     <h2 id="progress">Knowing where it's up to</h2>
-    <p>None of these leave you guessing. Rebuilding all indexes and restarting calculations both put a message on screen while they work — the rebuild counts the notes as it goes — and the app waits until they're done, because a half-rebuilt thoughtbase isn't much use to search or query against. Rebuilding the semantic index is different: it stays out of the way in the status bar and you can keep writing while it runs.</p>
+    <p>None of these leave you guessing. Rebuilding all indexes and restarting the Python kernel both put a message on screen while they work — the rebuild counts the notes as it goes — and the app waits until they're done, because a half-rebuilt thoughtbase isn't much use to search or query against. Rebuilding the semantic index is different: it stays out of the way in the status bar and you can keep writing while it runs.</p>
     <p>Each one tells you when it's finished, with a brief note of what it did. If something goes wrong — a file it can't read, a disk that's full — you'll be told that too, rather than being left to wonder whether it worked.</p>
 
     <figure class="shot-img">
-      <img src="img/maintenance.png" alt="The File menu open, showing Rebuild All Indexes, Rebuild Semantic Index, Interrupt Cell, and Restart Calculations grouped together." loading="lazy" />
+      <img src="img/maintenance.png" alt="The File menu open, showing Rebuild All Indexes, Rebuild Semantic Index, Interrupt Cell, and Restart Python Kernel grouped together." loading="lazy" />
       <figcaption>The File menu's maintenance actions</figcaption>
     </figure>
 
