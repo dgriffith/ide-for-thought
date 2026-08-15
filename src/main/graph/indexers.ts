@@ -868,7 +868,15 @@ function restoreProposalStatements(
  * payload turtle are rewritten to the (already-updated) `state.baseUri` so they
  * neither dangle on apply nor break the trust-integrity join for approved ones.
  */
-export interface IndexAllNotesOptions { rebaseFrom?: string }
+export interface IndexAllNotesOptions {
+  rebaseFrom?: string;
+  /**
+   * Determinate progress for a user-visible rebuild (#1814). Called once per
+   * note during the main pass; `total` comes from the alias pre-pass, which
+   * has already walked the whole tree, so it costs nothing extra to know.
+   */
+  onProgress?: (done: number, total: number) => void;
+}
 
 export async function indexAllNotes(ctx: ProjectContext, opts?: IndexAllNotesOptions): Promise<number> {
   const state = getState(ctx);
@@ -907,6 +915,7 @@ export async function indexAllNotes(ctx: ProjectContext, opts?: IndexAllNotesOpt
   // aliases so the alias map is fully populated before any link gets
   // resolved. Otherwise notes indexed early would resolve `[[alias]]`
   // against an empty map and write the wrong target URI.
+  let total = 0;
   await walkAndCollectAliases(rootPath, rootPath);
   rebuildAliasMap(state);
 
@@ -941,6 +950,7 @@ export async function indexAllNotes(ctx: ProjectContext, opts?: IndexAllNotesOpt
         const content = await fs.readFile(fullPath, 'utf-8');
         await indexNote(ctx, relativePath, content, { skipAliasRebuild: true, linkCtx: passLinkCtx });
         count++;
+        opts?.onProgress?.(count, total);
       }
     }
   }
@@ -960,6 +970,9 @@ export async function indexAllNotes(ctx: ProjectContext, opts?: IndexAllNotesOpt
         // Mirrors the alias pre-pass rationale (#469). All note extensions, so
         // `[[budget]]` resolves to a `budget.csv`/`.ttl`/`.py` too (#1446).
         state!.indexedNotePaths.add(relativePath);
+        // The pre-pass visits exactly what the main pass will index, so it
+        // doubles as the count a progress bar needs (#1814).
+        total++;
         try {
           const content = await fs.readFile(fullPath, 'utf-8');
           const parsed = parseMarkdown(content);

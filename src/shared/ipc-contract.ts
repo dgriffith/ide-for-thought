@@ -585,6 +585,7 @@ export interface EventMap {
   'notebase:rewritten': (paths: string[]) => void;
   'notebase:headingRenameSuggested': (candidate: HeadingRenameCandidate) => void;
   'embeddings:backfillProgress': (p: { done: number; total: number; running: boolean }) => void;
+  'maintenance:progress': (p: import('./maintenance').MaintenanceProgress) => void;
   'sources:changed': () => void;
   'sources:importBibtexProgress': (progress: { done: number; total: number; currentTitle: string }) => void;
   'sources:importZoteroRdfProgress': (progress: { done: number; total: number; currentTitle: string }) => void;

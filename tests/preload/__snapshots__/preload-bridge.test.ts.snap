@@ -161,6 +161,9 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
     "neighborhood",
     "outgoing",
   ],
+  "maintenance": [
+    "onProgress",
+  ],
   "menu": [
     "onAbout",
     "onBibliography",

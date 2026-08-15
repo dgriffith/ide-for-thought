@@ -6,7 +6,8 @@ import type { EventMap } from '../shared/ipc-contract';
 import { THEME_MODES, type ThemeMode } from '../shared/theme';
 import { getRecentProjects } from './recent-projects';
 import { resolveDisplayName } from './project-config';
-import { createWindow, openProjectInWindow, getRootPath, broadcastBackfillProgress } from './window-manager';
+import { createWindow, openProjectInWindow, getRootPath, broadcastBackfillProgress, broadcastMaintenanceProgress } from './window-manager';
+import { runMaintenance, pluralizeNotes } from './maintenance';
 import { runBackfill } from './embeddings/backfill';
 import * as graph from './graph/index';
 import { projectContext } from './project-context-types';
@@ -15,7 +16,11 @@ import * as tables from './sources/tables';
 import { STOCK_QUERIES } from '../shared/stock-queries';
 import { installMinervaCommand } from './cli-install';
 import { listSavedQueries } from './saved-queries';
-import { restartKernel as restartPythonKernel, interruptKernel as interruptPythonKernel } from './compute/python-kernel';
+import {
+  restartKernel as restartPythonKernel,
+  interruptKernel as interruptPythonKernel,
+  type InterruptResult,
+} from './compute/python-kernel';
 import * as publish from './publish';
 import { getToolsByCategory, CATEGORIES } from '../shared/tools/registry';
 import { groupToolsByGroup, flattenGroupedMenu } from '../shared/tools/grouping';
@@ -346,42 +351,66 @@ function buildFileMenu(gate: Gate, isMac: boolean): Electron.MenuItemConstructor
       { type: 'separator' },
       gate({
         label: 'Rebuild All Indexes',
-        click: async () => {
-          const win = BrowserWindow.getFocusedWindow();
-          if (!win) return;
-          const rootPath = getRootPath(win.id);
-          if (!rootPath) return;
+        click: () => withFocusedProject(async (win, rootPath) => {
           const ctx = projectContext(rootPath);
-          // registerAllCsvs writes to the rdflib store that indexAllNotes
-          // resets+rebuilds; sequence it after so its CSV-schema triples can't
-          // land in the discarded store. search is independent (MiniSearch).
-          // Mirrors acquireProject (see project-context.ts).
-          await Promise.all([
-            graph.indexAllNotes(ctx),
-            search.indexAllNotes(ctx),
-          ]);
-          await tables.registerAllCsvs(ctx);
-          // Note tables after CSVs — CSV wins on a shared name (#1358).
-          await tables.registerAllNoteTables(ctx);
-          if (!win.isDestroyed()) broadcast(win, Channels.TABLES_CHANGED);
-        },
+          const result = await runMaintenance({
+            task: 'rebuildIndexes',
+            label: 'Rebuilding indexes',
+            // Blocking: indexAllNotes resets the rdflib store and refills it,
+            // so anything the user does mid-rebuild reads a half-built graph.
+            style: 'blocking',
+            emit: (p) => broadcastMaintenanceProgress(rootPath, p),
+            run: async (report) => {
+              // registerAllCsvs writes to the rdflib store that indexAllNotes
+              // resets+rebuilds; sequence it after so its CSV-schema triples
+              // can't land in the discarded store. search is independent
+              // (MiniSearch). Mirrors acquireProject (see project-context.ts).
+              const [notes] = await Promise.all([
+                graph.indexAllNotes(ctx, { onProgress: report }),
+                search.indexAllNotes(ctx),
+              ]);
+              await tables.registerAllCsvs(ctx);
+              // Note tables after CSVs — CSV wins on a shared name (#1358).
+              await tables.registerAllNoteTables(ctx);
+              return notes;
+            },
+            summary: (notes) => `Rebuilt indexes — ${pluralizeNotes(notes)}`,
+          });
+          // Only tell the panels to re-read when the rebuild actually finished;
+          // refreshing off a failed run would show a half-built table list.
+          if (result !== undefined && !win.isDestroyed()) {
+            broadcast(win, Channels.TABLES_CHANGED);
+          }
+        }),
       }),
       gate({
         label: 'Rebuild Semantic Index',
         // Force a full re-embed of the corpus (#836) — useful after suspected
-        // corruption or to repopulate from scratch. Non-blocking; progress
-        // shows in the status bar. Normal model-change / new-note backfill is
-        // automatic on project open, so this is the explicit escape hatch.
-        click: async () => {
-          const win = BrowserWindow.getFocusedWindow();
-          if (!win) return;
-          const rootPath = getRootPath(win.id);
-          if (!rootPath) return;
-          await runBackfill(projectContext(rootPath), {
-            force: true,
-            onProgress: (p) => broadcastBackfillProgress(rootPath, p),
+        // corruption or to repopulate from scratch. Normal model-change /
+        // new-note backfill is automatic on project open, so this is the
+        // explicit escape hatch.
+        click: () => withFocusedProject(async (_win, rootPath) => {
+          await runMaintenance({
+            task: 'rebuildSemanticIndex',
+            label: 'Rebuilding semantic index',
+            // Background: embedding disturbs nothing the user can see, so it
+            // keeps its quiet status-bar progress rather than an overlay.
+            style: 'background',
+            emit: (p) => broadcastMaintenanceProgress(rootPath, p),
+            run: async () => {
+              let embedded = 0;
+              await runBackfill(projectContext(rootPath), {
+                force: true,
+                onProgress: (p) => {
+                  embedded = p.done;
+                  broadcastBackfillProgress(rootPath, p);
+                },
+              });
+              return embedded;
+            },
+            summary: (embedded) => `Rebuilt semantic index — ${pluralizeNotes(embedded)} embedded`,
           });
-        },
+        }),
       }),
       gate({
         label: 'Interrupt Cell',
@@ -390,28 +419,61 @@ function buildFileMenu(gate: Gate, isMac: boolean): Electron.MenuItemConstructor
         // menu; the safest defaults for "Interrupt" are taken
         // elsewhere too. Users can wire their own via the
         // keybindings settings.
-        click: () => {
-          const win = BrowserWindow.getFocusedWindow();
-          if (!win) return;
-          const rootPath = getRootPath(win.id);
-          if (!rootPath) return;
-          interruptPythonKernel(rootPath);
-        },
+        click: () => withFocusedProject(async (_win, rootPath) => {
+          await runMaintenance({
+            task: 'interruptCell',
+            label: 'Interrupting cell',
+            style: 'background',
+            emit: (p) => broadcastMaintenanceProgress(rootPath, p),
+            // The result was dropped on the floor before (#1814), so asking to
+            // interrupt with no kernel running — or on Windows, where SIGINT
+            // isn't available — looked exactly like a successful interrupt.
+            run: () => Promise.resolve(interruptPythonKernel(rootPath)),
+            summary: (result) => (result.ok ? 'Interrupted the running cell' : interruptReason(result.reason)),
+          });
+        }),
       }),
       gate({
         label: 'Restart Python Kernel',
-        click: async () => {
-          const win = BrowserWindow.getFocusedWindow();
-          if (!win) return;
-          const rootPath = getRootPath(win.id);
-          if (!rootPath) return;
-          await restartPythonKernel(rootPath);
-        },
+        click: () => withFocusedProject(async (_win, rootPath) => {
+          await runMaintenance({
+            task: 'restartKernel',
+            label: 'Restarting Python kernel',
+            style: 'blocking',
+            emit: (p) => broadcastMaintenanceProgress(rootPath, p),
+            run: async () => { await restartPythonKernel(rootPath); },
+            summary: () => 'Python kernel restarted',
+          });
+        }),
       }),
       { type: 'separator' },
       isMac ? { role: 'close' } : { role: 'quit' },
     ],
   };
+}
+
+/**
+ * Run `fn` against the focused window's project, or do nothing when there is no
+ * focused window / no project open. Every maintenance item repeated this
+ * four-line preamble; hoisting it keeps the handlers about the operation.
+ */
+async function withFocusedProject(
+  fn: (win: BrowserWindow, rootPath: string) => Promise<void>,
+): Promise<void> {
+  const win = BrowserWindow.getFocusedWindow();
+  if (!win) return;
+  const rootPath = getRootPath(win.id);
+  if (!rootPath) return;
+  await fn(win, rootPath);
+}
+
+/** Why an interrupt didn't happen, in the user's terms rather than the kernel's. */
+function interruptReason(reason: Extract<InterruptResult, { ok: false }>['reason']): string {
+  switch (reason) {
+    case 'no-kernel': return 'No Python kernel is running — nothing to interrupt';
+    case 'unsupported-platform': return 'Interrupting a cell isn\'t supported on Windows';
+    default: return 'Couldn\'t interrupt the running cell';
+  }
 }
 
 /** Edit menu — standard edit roles plus find/replace, templates, sort. */

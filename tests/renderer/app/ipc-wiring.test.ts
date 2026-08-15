@@ -46,6 +46,7 @@ const h = vi.hoisted(() => {
     },
     tables: { onChanged: cap('tables.onChanged'), onNameCollision: cap('tables.collision') },
     embeddings: { onBackfillProgress: cap('embeddings.backfill') },
+    maintenance: { onProgress: cap('maintenance.progress') },
     notebase: {
       onFileCreated: cap('nb.created'),
       onFileDeleted: cap('nb.deleted'),
@@ -81,6 +82,7 @@ const h = vi.hoisted(() => {
     saveEditorState: vi.fn(), savePreviewScroll: vi.fn(), flushAutoSave: vi.fn(), persistTabs: vi.fn(),
   };
   const busy = { label: '', setLabel: vi.fn() };
+  const toasts = { push: vi.fn(), dismiss: vi.fn(), items: [] };
   const toolPanel = { appendChunk: vi.fn() };
   const conversations = { toggle: vi.fn() };
   const bookmarks = {
@@ -89,13 +91,14 @@ const h = vi.hoisted(() => {
   };
   const dialog = { showConfirm: vi.fn().mockResolvedValue(false) };
 
-  return { MENU_CHANNELS, captured, api, notebase, editor, busy, toolPanel, conversations, bookmarks, dialog };
+  return { MENU_CHANNELS, captured, api, notebase, editor, busy, toasts, toolPanel, conversations, bookmarks, dialog };
 });
 
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({ api: h.api }));
 vi.mock('../../../src/renderer/lib/stores/notebase.svelte', () => ({ getNotebaseStore: () => h.notebase }));
 vi.mock('../../../src/renderer/lib/stores/editor.svelte', () => ({ getEditorStore: () => h.editor }));
 vi.mock('../../../src/renderer/lib/stores/busy.svelte', () => ({ getBusyStore: () => h.busy }));
+vi.mock('../../../src/renderer/lib/stores/toasts.svelte', () => ({ getToastStore: () => h.toasts }));
 vi.mock('../../../src/renderer/lib/stores/tool-panel.svelte', () => ({ getToolPanelStore: () => h.toolPanel }));
 vi.mock('../../../src/renderer/lib/stores/conversations.svelte', () => ({ getConversationsStore: () => h.conversations }));
 vi.mock('../../../src/renderer/lib/stores/bookmarks.svelte', () => ({ getBookmarksStore: () => h.bookmarks }));
@@ -173,6 +176,7 @@ describe('every registration is wired', () => {
   it('registers the non-menu event subscriptions', () => {
     for (const key of [
       'sources.onChanged', 'tables.onChanged', 'tables.collision', 'embeddings.backfill',
+      'maintenance.progress',
       'nb.created', 'nb.deleted', 'nb.renamed', 'nb.rewritten', 'nb.heading',
       'tools.stream', 'tools.invoke', 'sources.bibtex', 'sources.zotero',
       'proposals.onShowRequested',
@@ -369,6 +373,60 @@ describe('non-menu event handlers', () => {
     h.busy.label = 'Importing…';
     fire('sources.bibtex', { done: 2, total: 5, currentTitle: 'A Paper' });
     expect(h.busy.setLabel).toHaveBeenCalledWith('Importing 2/5: A Paper');
+  });
+
+  // ── File ▸ maintenance progress + completion (#1814) ────────────────────
+  // These run in main off the native menu, so this subscription is the only
+  // thing standing between the user and an app that looks identical before,
+  // during, and after a long rebuild.
+
+  it('a blocking task raises the busy overlay with a running count', () => {
+    fire('maintenance.progress', {
+      task: 'rebuildIndexes', running: true, style: 'blocking',
+      label: 'Rebuilding indexes', done: 7, total: 10,
+    });
+    expect(h.busy.setLabel).toHaveBeenCalledWith('Rebuilding indexes 7/10…');
+  });
+
+  it('a blocking task clears the overlay AND reports completion', () => {
+    fire('maintenance.progress', {
+      task: 'rebuildIndexes', running: false, style: 'blocking',
+      label: 'Rebuilding indexes',
+      outcome: { ok: true, summary: 'Rebuilt indexes — 210 notes' },
+    });
+    expect(h.busy.setLabel).toHaveBeenCalledWith(null);
+    expect(h.toasts.push).toHaveBeenCalledWith({ message: 'Rebuilt indexes — 210 notes' });
+  });
+
+  it('clears the overlay on failure too, so a failed rebuild cannot wedge the app', () => {
+    fire('maintenance.progress', {
+      task: 'rebuildIndexes', running: false, style: 'blocking',
+      label: 'Rebuilding indexes',
+      outcome: { ok: false, error: 'disk full' },
+    });
+    expect(h.busy.setLabel).toHaveBeenCalledWith(null);
+    expect(h.toasts.push).toHaveBeenCalledWith({
+      message: 'Rebuilding indexes failed: disk full',
+    });
+  });
+
+  it('a background task never touches the overlay, but still reports completion', () => {
+    fire('maintenance.progress', {
+      task: 'rebuildSemanticIndex', running: true, style: 'background',
+      label: 'Rebuilding semantic index', done: 3, total: 9,
+    });
+    expect(h.busy.setLabel).not.toHaveBeenCalled();
+
+    fire('maintenance.progress', {
+      task: 'rebuildSemanticIndex', running: false, style: 'background',
+      label: 'Rebuilding semantic index',
+      outcome: { ok: true, summary: 'Rebuilt semantic index — 9 notes embedded' },
+    });
+    // Still no overlay call — not even the clearing one.
+    expect(h.busy.setLabel).not.toHaveBeenCalled();
+    expect(h.toasts.push).toHaveBeenCalledWith({
+      message: 'Rebuilt semantic index — 9 notes embedded',
+    });
   });
 
   it('onProjectOpened restores the project then runs onboarding + entrypoints', async () => {
