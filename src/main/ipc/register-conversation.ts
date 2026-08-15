@@ -7,7 +7,7 @@ import { currentDateContext } from '../llm/date-context';
 import { readThoughtbaseDoc, thoughtbaseDocPromptBlock } from '../llm/thoughtbase-doc';
 import type { ContextBundle, ConversationMessage } from '../../shared/types';
 import type { ConversationDraftBase } from '../../shared/conversation-draft-base';
-import { rootPathFromEvent, winFromEvent } from './helpers';
+import { rootPathFromEvent, winFromEvent, withRootPath, withRootPathOr } from './helpers';
 import { broadcast } from './broadcast';
 import { handle } from './typed-ipc';
 import type { EventMap } from '../../shared/ipc-contract';
@@ -173,6 +173,7 @@ function buildStreamCallbacks(
  *  second failure — propagates. */
 async function runCompletionWithContainerRecovery(
   completeWithTools: CompleteWithTools,
+  rootPath: string,
   convId: string,
   base: Omit<CompletionParams, 'messages' | 'callbacks' | 'initialContainerId'>,
   messages: LlmMessage[],
@@ -197,7 +198,7 @@ async function runCompletionWithContainerRecovery(
       `[conv] container_id 400 — recovering. conv=${convId} ` +
       `cachedContainer=${initialContainerId ?? 'none'} stripping code_execution turns`,
     );
-    await conversation.setContainerId(convId, undefined, undefined);
+    await conversation.setContainerId(rootPath, convId, undefined, undefined);
     return await completeWithTools({
       ...base,
       messages: stripCodeExecutionTurns(messages),
@@ -208,18 +209,25 @@ async function runCompletionWithContainerRecovery(
 
 export function registerConversation(): void {
   // Conversations
-  handle(Channels.CONVERSATION_CREATE, (_e, contextBundle: ContextBundle, triggerNodeUri?: string, options?: { systemPrompt?: string; model?: string }) =>
-    conversation.create(contextBundle, triggerNodeUri, options));
-  handle(Channels.CONVERSATION_APPEND, (_e, id: string, role: ConversationMessage['role'], content: string) =>
-    conversation.appendMessage(id, role, content));
-  handle(Channels.CONVERSATION_ARCHIVE, (_e, id: string) => conversation.archive(id));
-  handle(Channels.CONVERSATION_LOAD, (_e, id: string) => conversation.load(id));
-  handle(Channels.CONVERSATION_LIST, () => conversation.listAll());
-  handle(Channels.CONVERSATION_LIST_ACTIVE, () => conversation.listActive());
-  handle(Channels.CONVERSATION_UI_STATE_LOAD, () => conversation.loadUIState());
+  // Every handler resolves the project from the CALLING WINDOW (#1743). These
+  // used to reach module state that the last-opened project owned, so with two
+  // thoughtbases open both windows read and wrote the same one's conversations.
+  handle(Channels.CONVERSATION_CREATE, withRootPath((rootPath, contextBundle: ContextBundle, triggerNodeUri?: string, options?: { systemPrompt?: string; model?: string }) =>
+    conversation.create(rootPath, contextBundle, triggerNodeUri, options)));
+  handle(Channels.CONVERSATION_APPEND, withRootPath((rootPath, id: string, role: ConversationMessage['role'], content: string) =>
+    conversation.appendMessage(rootPath, id, role, content)));
+  handle(Channels.CONVERSATION_ARCHIVE, withRootPath((rootPath, id: string) => conversation.archive(rootPath, id)));
+  handle(Channels.CONVERSATION_LOAD, withRootPath((rootPath, id: string) => conversation.load(rootPath, id)));
+  // The list + UI-state reads answer "nothing yet" for a window with no project
+  // open — the conversations panel calls them on mount, before any open. That's
+  // a legitimate empty value, not a swallowed failure (CLAUDE.md, IPC rule 2).
+  handle(Channels.CONVERSATION_LIST, withRootPathOr(Promise.resolve([]), (rootPath) => conversation.listAll(rootPath)));
+  handle(Channels.CONVERSATION_LIST_ACTIVE, withRootPathOr(Promise.resolve([]), (rootPath) => conversation.listActive(rootPath)));
+  handle(Channels.CONVERSATION_UI_STATE_LOAD, withRootPathOr(Promise.resolve({ ...conversation.DEFAULT_UI_STATE }), (rootPath) => conversation.loadUIState(rootPath)));
   handle(
     Channels.CONVERSATION_UI_STATE_SAVE,
-    (_e, state: import('../../shared/types').ConversationsUIState) => conversation.saveUIState(state),
+    withRootPath((rootPath, state: import('../../shared/types').ConversationsUIState) =>
+      conversation.saveUIState(rootPath, state)),
   );
 
   // Conversation send + LLM streaming
@@ -267,9 +275,12 @@ export function registerConversation(): void {
 
     graph.enterLLMContext();
     try {
+      if (!rootPath) {
+        throw new Error('No thoughtbase is open — cannot send conversation message.');
+      }
       const conv = userMessage === null
-        ? await conversation.load(convId)
-        : await conversation.appendMessage(convId, 'user', userMessage);
+        ? await conversation.load(rootPath, convId)
+        : await conversation.appendMessage(rootPath, convId, 'user', userMessage);
       if (!conv) throw new Error(`Conversation not found: ${convId}`);
 
       const { completeWithTools } = await import('../llm/index');
@@ -284,10 +295,6 @@ export function registerConversation(): void {
         rootPath,
       );
 
-      if (!rootPath) {
-        throw new Error('No thoughtbase is open — cannot send conversation message.');
-      }
-
       // Every draft kind shares one streaming callback set; the divergent
       // per-kind work is in the CONVERSATION_FILE_*_DRAFT handlers, not here (#980).
       const streamCallbacks = buildStreamCallbacks(win, convId, controller.signal, pendingAskUser);
@@ -300,6 +307,7 @@ export function registerConversation(): void {
 
       const result = await runCompletionWithContainerRecovery(
         completeWithTools,
+        rootPath,
         convId,
         {
           system: effectiveSystem,
@@ -315,6 +323,7 @@ export function registerConversation(): void {
       );
 
       const updated = await conversation.appendMessage(
+        rootPath,
         convId,
         'assistant',
         result.text,
@@ -327,6 +336,7 @@ export function registerConversation(): void {
       // can update mid-turn.
       if (result.containerId) {
         await conversation.setContainerId(
+          rootPath,
           convId,
           result.containerId,
           result.containerExpiresAt,
@@ -355,18 +365,19 @@ export function registerConversation(): void {
     }
   });
 
-  handle(Channels.CONVERSATION_SET_MODEL, async (_e, convId: string, model: string | undefined) => {
-    return conversation.setModel(convId, model);
-  });
+  handle(Channels.CONVERSATION_SET_MODEL, withRootPath(async (rootPath, convId: string, model: string | undefined) => {
+    return conversation.setModel(rootPath, convId, model);
+  }));
 
   handle(
     Channels.CONVERSATION_SET_EFFORT,
-    async (_e, convId: string, effort: import('../../shared/tools/effort').Effort | undefined) => {
-      return conversation.setEffort(convId, effort);
-    },
+    withRootPath(async (rootPath, convId: string, effort: import('../../shared/tools/effort').Effort | undefined) => {
+      return conversation.setEffort(rootPath, convId, effort);
+    }),
   );
 
-  handle(Channels.CONVERSATION_COMPACT, (_e, convId: string) => compactConversation(convId));
+  handle(Channels.CONVERSATION_COMPACT, withRootPath((rootPath, convId: string) =>
+    compactConversation(rootPath, convId)));
 }
 
 /**
@@ -378,9 +389,10 @@ export function registerConversation(): void {
  * summary message (#820). Decision/assembly logic is in `llm/compact.ts`.
  */
 async function compactConversation(
+  rootPath: string,
   convId: string,
 ): Promise<import('../../shared/types').CompactResult> {
-  const conv = await conversation.load(convId);
+  const conv = await conversation.load(rootPath, convId);
   if (!conv) throw new Error(`Conversation not found: ${convId}`);
   if (conv.status !== 'active') {
     return { compacted: false, reason: 'This conversation is archived and can\'t be compacted.' };
@@ -421,16 +433,17 @@ async function compactConversation(
 
   // Archive the original (files the full transcript as a thought:Source —
   // recoverable) before opening the compacted continuation.
-  await conversation.archive(convId);
+  await conversation.archive(rootPath, convId);
   const createOpts: { systemPrompt?: string; model?: string; webEnabled?: boolean } = {};
   if (conv.systemPrompt) createOpts.systemPrompt = conv.systemPrompt;
   if (conv.model) createOpts.model = conv.model;
   if (conv.webEnabled !== undefined) createOpts.webEnabled = conv.webEnabled;
   const fresh = await conversation.create(
+    rootPath,
     conv.contextBundle,
     conv.triggerNodeUri,
     Object.keys(createOpts).length > 0 ? createOpts : undefined,
   );
-  const updated = await conversation.replaceMessages(fresh.id, [summaryMsg, ...plan.recent]);
+  const updated = await conversation.replaceMessages(rootPath, fresh.id, [summaryMsg, ...plan.recent]);
   return { compacted: true, conversation: updated };
 }

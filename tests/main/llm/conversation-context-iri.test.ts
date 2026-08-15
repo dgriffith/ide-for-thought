@@ -19,7 +19,6 @@ import {
   noteUriFor,
 } from '../../../src/main/graph/index';
 import {
-  initConversations,
   reindexAllConversations,
   create as createConversation,
 } from '../../../src/main/llm/conversation';
@@ -37,7 +36,6 @@ describe('Conversation thought:contextNote is a real IRI (#350)', () => {
     root = mkTempProject();
     ctx = projectContext(root);
     await initGraph(ctx);
-    initConversations(root);
   });
 
   afterEach(async () => {
@@ -49,7 +47,7 @@ describe('Conversation thought:contextNote is a real IRI (#350)', () => {
     await indexNote(ctx, 'notes/foo.md', '# Foo\nContent.\n');
 
     // Create a conversation whose contextBundle references that note.
-    await createConversation({ notePath: 'notes/foo.md' });
+    await createConversation(root, { notePath: 'notes/foo.md' });
 
     // The bug ticket's exact query: "what conversation was triggered
     // from this note?". The join only succeeds if contextNote is the
@@ -65,7 +63,7 @@ describe('Conversation thought:contextNote is a real IRI (#350)', () => {
   });
 
   it('omits contextNote entirely when there is no notePath', async () => {
-    const conv = await createConversation({});
+    const conv = await createConversation(root, {});
     const expectedIri = `https://minerva.dev/ontology/thought#conversation/${conv.id}`;
 
     const r = await queryGraph(ctx, `
@@ -104,7 +102,7 @@ describe('Conversation thought:contextNote is a real IRI (#350)', () => {
     }), 'utf-8');
 
     // Re-project. This is what acquireProject does on each open.
-    await reindexAllConversations();
+    await reindexAllConversations(root);
 
     // The corrected IRI is now present.
     const good = await queryGraph(ctx, `

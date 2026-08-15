@@ -548,7 +548,7 @@ export function registerConversationDrafts(): void {
       // user input.
       const contextMessage = formatComputeResultAsContext(draft, codeToRun, result);
       try {
-        await conversation.appendMessage(draft.conversationId, 'user', contextMessage);
+        await conversation.appendMessage(rootPath, draft.conversationId, 'user', contextMessage);
       } catch (err) {
         console.warn('[conv] failed to append compute output to conversation:', err);
       }

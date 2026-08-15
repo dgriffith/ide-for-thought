@@ -5,7 +5,6 @@ import os from 'node:os';
 import { initGraph } from '../../../src/main/graph/index';
 import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
 import {
-  initConversations,
   create,
   setModel,
   load,
@@ -23,7 +22,6 @@ describe('conversation.setModel (issue #168)', () => {
     root = mkTempProject();
     ctx = projectContext(root);
     await initGraph(ctx);
-    initConversations(root);
   });
 
   afterEach(() => {
@@ -31,41 +29,41 @@ describe('conversation.setModel (issue #168)', () => {
   });
 
   it('new conversations have no model override (undefined = track global default)', async () => {
-    const conv = await create({ notePath: 'x.md' });
+    const conv = await create(root, { notePath: 'x.md' });
     expect(conv.model).toBeUndefined();
-    const reloaded = await load(conv.id);
+    const reloaded = await load(root, conv.id);
     expect(reloaded?.model).toBeUndefined();
   });
 
   it('pins a model and persists it', async () => {
-    const conv = await create({ notePath: 'x.md' });
-    await setModel(conv.id, 'claude-opus-4-7');
-    const reloaded = await load(conv.id);
+    const conv = await create(root, { notePath: 'x.md' });
+    await setModel(root, conv.id, 'claude-opus-4-7');
+    const reloaded = await load(root, conv.id);
     expect(reloaded?.model).toBe('claude-opus-4-7');
   });
 
   it('clears the override when passed undefined', async () => {
-    const conv = await create({ notePath: 'x.md' });
-    await setModel(conv.id, 'claude-opus-4-7');
-    await setModel(conv.id, undefined);
-    const reloaded = await load(conv.id);
+    const conv = await create(root, { notePath: 'x.md' });
+    await setModel(root, conv.id, 'claude-opus-4-7');
+    await setModel(root, conv.id, undefined);
+    const reloaded = await load(root, conv.id);
     expect(reloaded?.model).toBeUndefined();
   });
 
   it('each conversation carries its own model independently', async () => {
-    const a = await create({ notePath: 'a.md' });
-    const b = await create({ notePath: 'b.md' });
-    await setModel(a.id, 'claude-opus-4-7');
-    await setModel(b.id, 'claude-haiku-4-5');
+    const a = await create(root, { notePath: 'a.md' });
+    const b = await create(root, { notePath: 'b.md' });
+    await setModel(root, a.id, 'claude-opus-4-7');
+    await setModel(root, b.id, 'claude-haiku-4-5');
 
-    const reloadedA = await load(a.id);
-    const reloadedB = await load(b.id);
+    const reloadedA = await load(root, a.id);
+    const reloadedB = await load(root, b.id);
     expect(reloadedA?.model).toBe('claude-opus-4-7');
     expect(reloadedB?.model).toBe('claude-haiku-4-5');
   });
 
   it('throws on an unknown conversation id', async () => {
-    await expect(setModel('nope', 'claude-opus-4-7')).rejects.toThrow(/not found/i);
+    await expect(setModel(root, 'nope', 'claude-opus-4-7')).rejects.toThrow(/not found/i);
   });
 });
 
@@ -77,7 +75,6 @@ describe('conversation.create webEnabled (#1533 — per-conversation web)', () =
     root = mkTempProject();
     ctx = projectContext(root);
     await initGraph(ctx);
-    initConversations(root);
   });
 
   afterEach(() => {
@@ -85,19 +82,19 @@ describe('conversation.create webEnabled (#1533 — per-conversation web)', () =
   });
 
   it('defaults to undefined (inherit the global web setting)', async () => {
-    const conv = await create({ notePath: 'x.md' });
+    const conv = await create(root, { notePath: 'x.md' });
     expect(conv.webEnabled).toBeUndefined();
-    expect((await load(conv.id))?.webEnabled).toBeUndefined();
+    expect((await load(root, conv.id))?.webEnabled).toBeUndefined();
   });
 
   it('persists an explicit web:false from a launching skill', async () => {
-    const conv = await create({ notePath: 'x.md' }, undefined, { webEnabled: false });
+    const conv = await create(root, { notePath: 'x.md' }, undefined, { webEnabled: false });
     expect(conv.webEnabled).toBe(false);
-    expect((await load(conv.id))?.webEnabled).toBe(false);
+    expect((await load(root, conv.id))?.webEnabled).toBe(false);
   });
 
   it('persists an explicit web:true', async () => {
-    const conv = await create({ notePath: 'x.md' }, undefined, { webEnabled: true });
-    expect((await load(conv.id))?.webEnabled).toBe(true);
+    const conv = await create(root, { notePath: 'x.md' }, undefined, { webEnabled: true });
+    expect((await load(root, conv.id))?.webEnabled).toBe(true);
   });
 });
