@@ -167,18 +167,27 @@
       </div>
 
     {:else if panel.panelState === 'review'}
+      {@const output = panel.result?.output ?? panel.streamedOutput}
       <div class="tool-body output-body">
+        <!-- A failure used to replace the output with the error line, so text
+             the user had just watched stream in vanished as it landed (#1809).
+             Whatever streamed before a run died is real output — the same call
+             the transcript makes for a failed conversation turn — so it stays
+             on screen, with the error underneath it. -->
+        {#if output}
+          <div class="output-scroll">
+            <pre class="output">{output}</pre>
+          </div>
+        {/if}
         {#if panel.error}
           <div class="error-msg">{panel.error}</div>
-        {:else}
-          <div class="output-scroll">
-            <pre class="output">{panel.result?.output ?? panel.streamedOutput}</pre>
-          </div>
         {/if}
         <div class="actions">
           {#if !panel.error}
             <button class="btn primary" onclick={handleSaveAsNote}>Save as Note</button>
             <button class="btn" onclick={handleAppend}>Append to Current</button>
+          {/if}
+          {#if output}
             <button class="btn" onclick={handleCopyToClipboard}>Copy</button>
           {/if}
           <button class="btn" onclick={() => panel.close()}>

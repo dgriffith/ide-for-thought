@@ -32,7 +32,33 @@ interface ErrorShape {
   type?: string;
   message?: string;
   name?: string;
+  /** Where `fetch`/undici keeps the real failure (`ECONNRESET`, `fetch
+   *  failed`) under an SDK error whose own message says only "Connection
+   *  error." */
+  cause?: unknown;
   error?: { type?: string; message?: string; error?: { type?: string; message?: string } };
+}
+
+/**
+ * Stainless-generated SDK errors — Anthropic's and OpenAI's whole error
+ * hierarchy — never assign `.name`, so every one of them reports the inherited
+ * `'Error'`. Matching `err.name === 'APIConnectionError'` therefore silently
+ * never fires, which is how a user's Cancel came back as an anonymous failure
+ * block and a dropped connection came back with no Retry button (#1809).
+ *
+ * Their constructor messages ARE stable, and these classes only exist for
+ * failures that never got an HTTP response, so we match the message when there
+ * is no status. The `.name` checks stay for SDKs that do set one (Google raises
+ * a genuine `DOMException` named `AbortError`).
+ */
+const SDK_ABORT_MESSAGE = 'request was aborted.';
+const SDK_CONNECTION_MESSAGES = ['connection error.', 'request timed out.'];
+
+/** A status-less SDK error whose message is one of `messages`. */
+function isBareSdkError(e: ErrorShape, messages: readonly string[]): boolean {
+  if (typeof e.status === 'number') return false;
+  if (typeof e.message !== 'string') return false;
+  return messages.includes(e.message.trim().toLowerCase());
 }
 
 function shapeOf(err: unknown): ErrorShape {
@@ -53,10 +79,30 @@ function haystack(e: ErrorShape): string {
     e.error?.message,
     e.error?.error?.type,
     e.error?.error?.message,
+    causeChainText(e),
   ]
     .filter((s): s is string => typeof s === 'string')
     .join(' ')
     .toLowerCase();
+}
+
+/**
+ * The `cause` chain, which is where the actual diagnosis lives when an SDK
+ * wraps a transport failure: `APIConnectionError: Connection error.` says
+ * nothing, while its cause says `ECONNRESET` or `fetch failed`. Undici nests
+ * one level deeper again, hence the walk rather than a single lookup.
+ */
+function causeChainText(e: ErrorShape, depth = 3): string {
+  const parts: string[] = [];
+  let cur: unknown = e.cause;
+  for (let i = 0; i < depth && cur; i++) {
+    const c = cur as { message?: unknown; code?: unknown; name?: unknown; cause?: unknown };
+    for (const v of [c.message, c.code, c.name]) {
+      if (typeof v === 'string') parts.push(v);
+    }
+    cur = c.cause;
+  }
+  return parts.join(' ');
 }
 
 /**
@@ -91,17 +137,27 @@ function looksLikeContextLength(text: string): boolean {
 function looksLikeNetwork(e: ErrorShape, text: string): boolean {
   if (typeof e.status === 'number') return false;
   return (
-    e.name === 'APIConnectionError'
+    isBareSdkError(e, SDK_CONNECTION_MESSAGES)
+    || e.name === 'APIConnectionError'
     || e.name === 'APIConnectionTimeoutError'
     || e.name === 'FetchError'
-    || /\b(enotfound|econnrefused|econnreset|etimedout|eai_again|epipe|certificate|self[- ]signed|socket hang up|network|fetch failed|timeout)\b/.test(text)
+    || /\b(enotfound|econnrefused|econnreset|etimedout|eai_again|epipe|certificate|self[- ]signed|socket hang up|network|fetch failed|timed out|timeout)\b/.test(text)
+  );
+}
+
+/** Did the user stop this themselves? */
+function looksLikeAbort(e: ErrorShape): boolean {
+  return (
+    e.name === 'AbortError'
+    || e.name === 'TimeoutError'
+    || isBareSdkError(e, [SDK_ABORT_MESSAGE])
   );
 }
 
 /** Classify without formatting — exported for tests and for reuse. */
 export function classifyProviderError(err: unknown): LlmFailureKind {
   const e = shapeOf(err);
-  if (e.name === 'AbortError' || e.name === 'TimeoutError') return 'cancelled';
+  if (looksLikeAbort(e)) return 'cancelled';
 
   const text = haystack(e);
   const status = e.status;
@@ -163,13 +219,22 @@ function describe(kind: LlmFailureKind, label: string, e: ErrorShape): string {
  * Wrap a provider error as the marker-carrying Error main throws. A failure we
  * already classified (a nested rethrow, or the unconfigured error the factory
  * raises) passes through untouched so the original verdict wins.
+ *
+ * `aborted` is our own signal's state, and it outranks the SDK's account of
+ * what happened: an abort that tore the socket down can surface as a connection
+ * error, and telling the user their network failed when they pressed Stop is
+ * the same class of confident lie this module exists to avoid.
  */
-export function toLlmFailureError(err: unknown, providerId: ProviderId | null): Error {
+export function toLlmFailureError(
+  err: unknown,
+  providerId: ProviderId | null,
+  opts?: { aborted?: boolean },
+): Error {
   const msg = err instanceof Error ? err.message : typeof err === 'string' ? err : '';
   if (msg.includes('MINERVA_LLM_FAILURE:') || msg.includes('is not set up yet')) {
     return err instanceof Error ? err : new Error(msg);
   }
-  const kind = classifyProviderError(err);
+  const kind = opts?.aborted ? 'cancelled' : classifyProviderError(err);
   const label = providerId ? PROVIDERS[providerId].label : 'The model provider';
   const wrapped = new Error(
     llmFailureMessage(kind, describe(kind, label, shapeOf(err)), providerId),

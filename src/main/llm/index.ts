@@ -36,15 +36,19 @@ import type { ProviderId } from '../../shared/tools/providers';
  * both used to arrive in the renderer as an anonymous `console.error`.
  *
  * Wrap ONLY the provider call, never the surrounding tool execution.
+ *
+ * `signal` is the caller's abort signal, passed so a cancelled turn is reported
+ * as cancelled whatever shape the SDK's error took (#1809).
  */
 async function withProviderErrors<T>(
   providerId: ProviderId,
   run: () => Promise<T>,
+  signal?: AbortSignal,
 ): Promise<T> {
   try {
     return await run();
   } catch (err) {
-    throw toLlmFailureError(err, providerId);
+    throw toLlmFailureError(err, providerId, { aborted: signal?.aborted ?? false });
   }
 }
 
@@ -277,7 +281,7 @@ export async function complete(
       signal: cb?.signal,
     },
     cb ? (delta) => cb.onChunk(delta) : undefined,
-  ));
+  ), cb?.signal);
   if (onUsage) onUsage(result.usage, model);
   return result.text;
 }
@@ -366,7 +370,7 @@ export async function completeWithTools(
         onTextDelta: callbacks ? (delta) => callbacks.onChunk(delta) : undefined,
         onToolCallStart,
       },
-    ));
+    ), callbacks?.signal);
 
     sumUsage(usage, turn.usage);
     history.push(turn.assistantMessage);
