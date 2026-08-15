@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import * as graph from '../graph/index';
-import { projectContext, type ProjectContext } from '../project-context-types';
+import { projectContext } from '../project-context-types';
 import { escapeTurtleLiteral } from './turtle';
 import { costForUsage } from '../../shared/tools/models';
 import type {
@@ -12,19 +12,29 @@ import type {
   ConversationsUIState,
 } from '../../shared/types';
 
-const DEFAULT_UI_STATE: ConversationsUIState = {
+/** The panel's state for a window with no project open — also what the IPC
+ *  layer hands back in that case (#1743). */
+export const DEFAULT_UI_STATE: ConversationsUIState = {
   visible: false,
   height: 320,
   activeTabId: null,
 };
 
 const THOUGHT = 'https://minerva.dev/ontology/thought#';
-let conversationsDir: string | null = null;
-let activeRootPath: string | null = null;
 
-export function initConversations(rootPath: string): void {
-  conversationsDir = path.join(rootPath, '.minerva', 'conversations');
-  activeRootPath = rootPath;
+/**
+ * Every entry point takes the project it operates on (#1743). This module used
+ * to keep the open project in two module-level variables, set by an
+ * `initConversations(rootPath)` that `project-context` called once per project
+ * — so with two thoughtbases open, whichever was opened *second* silently owned
+ * conversation storage for BOTH windows: window A's transcripts were written
+ * into project B's `.minerva/conversations/`, its tab list came back as B's,
+ * and its conversation triples landed in B's graph. Every other per-project
+ * subsystem (graph, tables, search, vectors) is keyed by project; this one was
+ * the straggler. Passing the root path in leaves nowhere for that state to hide.
+ */
+function convDir(rootPath: string): string {
+  return path.join(rootPath, '.minerva', 'conversations');
 }
 
 /**
@@ -34,11 +44,11 @@ export function initConversations(rootPath: string): void {
  * (the #350 relative-path-as-IRI bug) get scrubbed and replaced with
  * the corrected IRI form. Cheap: small JSON files, in-memory rdflib.
  */
-export async function reindexAllConversations(): Promise<void> {
-  if (!conversationsDir) return;
+export async function reindexAllConversations(rootPath: string): Promise<void> {
+  const dir = convDir(rootPath);
   let files: string[];
   try {
-    files = await fs.readdir(conversationsDir);
+    files = await fs.readdir(dir);
   } catch { return; /* no conversations yet */ }
   for (const file of files) {
     // Skip the `_ui.json` UI-state file (and any other underscore-prefixed
@@ -47,12 +57,12 @@ export async function reindexAllConversations(): Promise<void> {
     // writeConversationToGraph dereferences it.
     if (!file.endsWith('.json') || file.startsWith('_')) continue;
     try {
-      const data = await fs.readFile(path.join(conversationsDir, file), 'utf-8');
+      const data = await fs.readFile(path.join(dir, file), 'utf-8');
       const conv = migrateOnLoad(JSON.parse(data) as Conversation);
-      writeConversationToGraph(conv);
+      writeConversationToGraph(rootPath, conv);
       if (conv.status !== 'active') {
         // Mirror the live status so archive doesn't get dropped on reload.
-        updateConversationInGraph(conv);
+        updateConversationInGraph(rootPath, conv);
       }
     } catch (err) {
       console.warn(`[conversation] reindex skipped ${file}:`, err);
@@ -60,18 +70,8 @@ export async function reindexAllConversations(): Promise<void> {
   }
 }
 
-function activeCtx(): ProjectContext {
-  if (!activeRootPath) throw new Error('Conversations not initialized — no project open');
-  return projectContext(activeRootPath);
-}
-
-function ensureDir(): string {
-  if (!conversationsDir) throw new Error('Conversations not initialized — no project open');
-  return conversationsDir;
-}
-
-function convPath(id: string): string {
-  return path.join(ensureDir(), `${id}.json`);
+function convPath(rootPath: string, id: string): string {
+  return path.join(convDir(rootPath), `${id}.json`);
 }
 
 function generateId(): string {
@@ -81,11 +81,12 @@ function generateId(): string {
 // ── CRUD ───────────────────────────────────────────────────────────────────
 
 export async function create(
+  rootPath: string,
   contextBundle: ContextBundle,
   triggerNodeUri?: string,
   options?: { systemPrompt?: string; model?: string; webEnabled?: boolean },
 ): Promise<Conversation> {
-  const dir = ensureDir();
+  const dir = convDir(rootPath);
   await fs.mkdir(dir, { recursive: true });
 
   const now = new Date().toISOString();
@@ -101,18 +102,19 @@ export async function create(
   if (options?.model) conv.model = options.model;
   if (options?.webEnabled !== undefined) conv.webEnabled = options.webEnabled;
 
-  await persist(conv);
-  writeConversationToGraph(conv);
+  await persist(rootPath, conv);
+  writeConversationToGraph(rootPath, conv);
   return conv;
 }
 
 export async function appendMessage(
+  rootPath: string,
   id: string,
   role: ConversationMessage['role'],
   content: string,
   extra?: Partial<Pick<ConversationMessage, 'citations' | 'usage' | 'usageModel'>>,
 ): Promise<Conversation> {
-  const conv = await load(id);
+  const conv = await load(rootPath, id);
   if (!conv) throw new Error(`Conversation not found: ${id}`);
   if (conv.status !== 'active') throw new Error(`Conversation ${id} is ${conv.status}, cannot append`);
 
@@ -137,7 +139,7 @@ export async function appendMessage(
     }
   }
   conv.messages.push(message);
-  await persist(conv);
+  await persist(rootPath, conv);
   return conv;
 }
 
@@ -147,17 +149,17 @@ export async function appendMessage(
  * with one archive state). Idempotent — archiving an already-archived
  * conversation no-ops past the load.
  */
-export async function archive(id: string): Promise<Conversation> {
-  const conv = await load(id);
+export async function archive(rootPath: string, id: string): Promise<Conversation> {
+  const conv = await load(rootPath, id);
   if (!conv) throw new Error(`Conversation not found: ${id}`);
   if (conv.status === 'archived') return conv;
 
   conv.status = 'archived';
   conv.archivedAt = new Date().toISOString();
 
-  await persist(conv);
-  updateConversationInGraph(conv);
-  await fileAsSource(conv);
+  await persist(rootPath, conv);
+  updateConversationInGraph(rootPath, conv);
+  await fileAsSource(rootPath, conv);
   return conv;
 }
 
@@ -169,11 +171,12 @@ export async function archive(id: string): Promise<Conversation> {
  * graph projection — this is purely API-protocol state.
  */
 export async function setContainerId(
+  rootPath: string,
   id: string,
   containerId: string | undefined,
   expiresAt: string | undefined,
 ): Promise<void> {
-  const conv = await load(id);
+  const conv = await load(rootPath, id);
   if (!conv) return;
   if (containerId) {
     conv.containerId = containerId;
@@ -183,19 +186,19 @@ export async function setContainerId(
     delete conv.containerId;
     delete conv.containerExpiresAt;
   }
-  await persist(conv);
+  await persist(rootPath, conv);
 }
 
 /**
  * Pin a specific model to this conversation. Pass `undefined` to clear the
  * override so the conversation again tracks the global default.
  */
-export async function setModel(id: string, model: string | undefined): Promise<Conversation> {
-  const conv = await load(id);
+export async function setModel(rootPath: string, id: string, model: string | undefined): Promise<Conversation> {
+  const conv = await load(rootPath, id);
   if (!conv) throw new Error(`Conversation not found: ${id}`);
   if (model) conv.model = model;
   else delete conv.model;
-  await persist(conv);
+  await persist(rootPath, conv);
   return conv;
 }
 
@@ -205,14 +208,15 @@ export async function setModel(id: string, model: string | undefined): Promise<C
  * `setModel`.
  */
 export async function setEffort(
+  rootPath: string,
   id: string,
   effort: import('../../shared/tools/effort').Effort | undefined,
 ): Promise<Conversation> {
-  const conv = await load(id);
+  const conv = await load(rootPath, id);
   if (!conv) throw new Error(`Conversation not found: ${id}`);
   if (effort) conv.effort = effort;
   else delete conv.effort;
-  await persist(conv);
+  await persist(rootPath, conv);
   return conv;
 }
 
@@ -223,19 +227,20 @@ export async function setEffort(
  * since the conversation subject's triples don't depend on message content.
  */
 export async function replaceMessages(
+  rootPath: string,
   id: string,
   messages: ConversationMessage[],
 ): Promise<Conversation> {
-  const conv = await load(id);
+  const conv = await load(rootPath, id);
   if (!conv) throw new Error(`Conversation not found: ${id}`);
   conv.messages = messages;
-  await persist(conv);
+  await persist(rootPath, conv);
   return conv;
 }
 
-export async function load(id: string): Promise<Conversation | null> {
+export async function load(rootPath: string, id: string): Promise<Conversation | null> {
   try {
-    const data = await fs.readFile(convPath(id), 'utf-8');
+    const data = await fs.readFile(convPath(rootPath, id), 'utf-8');
     return migrateOnLoad(JSON.parse(data) as Conversation);
   } catch {
     return null;
@@ -260,20 +265,17 @@ function migrateOnLoad(raw: Conversation & { resolvedAt?: string }): Conversatio
   return raw;
 }
 
-export async function listAll(): Promise<Conversation[]> {
-  // Tolerate "no project open" — the renderer's conversations panel
-  // calls this on app mount before any project has been acquired, and
-  // the natural answer is "no conversations" rather than an error.
-  if (!conversationsDir) return [];
+export async function listAll(rootPath: string): Promise<Conversation[]> {
+  const dir = convDir(rootPath);
   try {
-    const files = await fs.readdir(conversationsDir);
+    const files = await fs.readdir(dir);
     const convs: Conversation[] = [];
     for (const file of files) {
       // Skip the `_ui.json` UI-state file (and any other underscore-prefixed
       // sibling files we add later) so they don't get parsed as conversations.
       if (!file.endsWith('.json') || file.startsWith('_')) continue;
       try {
-        const data = await fs.readFile(path.join(conversationsDir, file), 'utf-8');
+        const data = await fs.readFile(path.join(dir, file), 'utf-8');
         convs.push(migrateOnLoad(JSON.parse(data) as Conversation));
       } catch { /* skip malformed */ }
     }
@@ -284,21 +286,20 @@ export async function listAll(): Promise<Conversation[]> {
   }
 }
 
-export async function listActive(): Promise<Conversation[]> {
-  const all = await listAll();
+export async function listActive(rootPath: string): Promise<Conversation[]> {
+  const all = await listAll(rootPath);
   return all.filter(c => c.status === 'active');
 }
 
 // ── Tool-window UI state ───────────────────────────────────────────────────
 
-function uiStatePath(): string {
-  return path.join(ensureDir(), '_ui.json');
+function uiStatePath(rootPath: string): string {
+  return path.join(convDir(rootPath), '_ui.json');
 }
 
-export async function loadUIState(): Promise<ConversationsUIState> {
-  if (!conversationsDir) return { ...DEFAULT_UI_STATE };
+export async function loadUIState(rootPath: string): Promise<ConversationsUIState> {
   try {
-    const raw = await fs.readFile(uiStatePath(), 'utf-8');
+    const raw = await fs.readFile(uiStatePath(rootPath), 'utf-8');
     const parsed = JSON.parse(raw) as Partial<ConversationsUIState>;
     return {
       visible: typeof parsed.visible === 'boolean' ? parsed.visible : DEFAULT_UI_STATE.visible,
@@ -310,18 +311,18 @@ export async function loadUIState(): Promise<ConversationsUIState> {
   }
 }
 
-export async function saveUIState(state: ConversationsUIState): Promise<void> {
-  const dir = ensureDir();
+export async function saveUIState(rootPath: string, state: ConversationsUIState): Promise<void> {
+  const dir = convDir(rootPath);
   await fs.mkdir(dir, { recursive: true });
-  await fs.writeFile(uiStatePath(), JSON.stringify(state, null, 2), 'utf-8');
+  await fs.writeFile(uiStatePath(rootPath), JSON.stringify(state, null, 2), 'utf-8');
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-async function persist(conv: Conversation): Promise<void> {
-  const dir = ensureDir();
+async function persist(rootPath: string, conv: Conversation): Promise<void> {
+  const dir = convDir(rootPath);
   await fs.mkdir(dir, { recursive: true });
-  await fs.writeFile(convPath(conv.id), JSON.stringify(conv, null, 2), 'utf-8');
+  await fs.writeFile(convPath(rootPath, conv.id), JSON.stringify(conv, null, 2), 'utf-8');
 }
 
 // ── Graph Integration ──────────────────────────────────────────────────────
@@ -345,8 +346,8 @@ const CONVERSATION_PREDICATES = [
   'conversationContent',
 ];
 
-function clearConversationTriples(uri: string): void {
-  const ctx = activeCtx();
+function clearConversationTriples(rootPath: string, uri: string): void {
+  const ctx = projectContext(rootPath);
   graph.removeMatchingTriples(ctx, uri, 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type');
   for (const p of CONVERSATION_PREDICATES) {
     graph.removeMatchingTriples(ctx, uri, `${THOUGHT}${p}`);
@@ -357,16 +358,16 @@ function clearConversationTriples(uri: string): void {
   graph.removeMatchingTriples(ctx, uri, 'http://purl.org/dc/terms/created');
 }
 
-function writeConversationToGraph(conv: Conversation): void {
+function writeConversationToGraph(rootPath: string, conv: Conversation): void {
   const uri = convUri(conv.id);
-  const ctx = activeCtx();
+  const ctx = projectContext(rootPath);
   // contextNote needs a real IRI, not the raw `notes/foo.md` string —
   // the prior shape (#350) made downstream joins against
   // minerva:relativePath silently mismatch.
   const contextNoteIri = conv.contextBundle.notePath
     ? graph.noteUriFor(ctx, conv.contextBundle.notePath)
     : null;
-  clearConversationTriples(uri);
+  clearConversationTriples(rootPath, uri);
   const turtle = `
     @prefix thought: <${THOUGHT}> .
     @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
@@ -380,7 +381,7 @@ function writeConversationToGraph(conv: Conversation): void {
   graph.parseIntoStore(ctx, turtle);
 }
 
-function updateConversationInGraph(conv: Conversation): void {
+function updateConversationInGraph(rootPath: string, conv: Conversation): void {
   const uri = convUri(conv.id);
   const turtle = `
     @prefix thought: <${THOUGHT}> .
@@ -389,10 +390,10 @@ function updateConversationInGraph(conv: Conversation): void {
     <${uri}> thought:conversationStatus thought:${conv.status}
       ${conv.archivedAt ? `; thought:archivedAt "${conv.archivedAt}"^^xsd:dateTime` : ''} .
   `;
-  graph.parseIntoStore(activeCtx(), turtle);
+  graph.parseIntoStore(projectContext(rootPath), turtle);
 }
 
-async function fileAsSource(conv: Conversation): Promise<void> {
+async function fileAsSource(rootPath: string, conv: Conversation): Promise<void> {
   const uri = convUri(conv.id);
   const transcript = conv.messages
     .map(m => `[${m.role}] ${m.content}`)
@@ -407,7 +408,7 @@ async function fileAsSource(conv: Conversation): Promise<void> {
       thought:conversationContent "${escapeTurtleLiteral(transcript)}" ;
       dc:created "${conv.startedAt}"^^xsd:dateTime .
   `;
-  const ctx = activeCtx();
+  const ctx = projectContext(rootPath);
   graph.parseIntoStore(ctx, turtle);
   await graph.persistGraph(ctx);
 }

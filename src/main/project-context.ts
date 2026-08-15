@@ -70,7 +70,6 @@ export async function acquireProject(rootPath: string, winId: number): Promise<P
       } catch (err) {
         console.warn(`[project-context] vector store init failed for ${rootPath}:`, err);
       }
-      conversation.initConversations(rootPath);
       // graph.indexAllNotes resets the rdflib store (`state.store = $rdf.graph()`)
       // then rebuilds it; registerAllCsvs writes the CSV table-schema overlay to
       // that same store via indexCsvTable. Running them concurrently is a latent
@@ -93,7 +92,7 @@ export async function acquireProject(rootPath: string, winId: number): Promise<P
       // indexed (so contextNote IRIs resolve against a populated note
       // namespace). Also self-heals stale relative-path triples from
       // before #350.
-      await conversation.reindexAllConversations();
+      await conversation.reindexAllConversations(rootPath);
       // Health checks run once at open, then a periodic timer takes over.
       // Fire-and-forget — no need to block project init on the result. Both
       // paths read the user's inspection settings (#1792 follow-up): without

@@ -100,6 +100,7 @@ vi.mock('../../../src/main/llm/conversation', () => ({
   archive: h.archive,
   create: h.create,
   replaceMessages: h.replaceMessages,
+  DEFAULT_UI_STATE: { visible: false, height: 320, activeTabId: null },
 }));
 
 // Approval engine — the trust gate.
@@ -179,7 +180,10 @@ describe('CONVERSATION_SEND (#1612)', () => {
     });
     // The assistant turn is persisted with the LLM result.
     expect(h.appendMessage).toHaveBeenCalledWith(
-      'conv-1', 'assistant', 'assistant reply',
+      // Every conversation call now names the project the CALLING WINDOW has
+       // open (#1743), instead of reaching module state the last-opened project
+       // owned — the bug that made two thoughtbases share one conversation store.
+       '/root', 'conv-1', 'assistant', 'assistant reply',
       expect.objectContaining({ usageModel: 'claude-x' }),
     );
     // Context released in the finally.
@@ -195,7 +199,7 @@ describe('CONVERSATION_SEND (#1612)', () => {
 
     expect(h.completeWithTools).toHaveBeenCalledTimes(2);
     // The stale/absent container id is cleared before the retry.
-    expect(h.setContainerId).toHaveBeenCalledWith('conv-1', undefined, undefined);
+    expect(h.setContainerId).toHaveBeenCalledWith('/root', 'conv-1', undefined, undefined);
     expect(h.exitLLMContext).toHaveBeenCalledTimes(1);
   });
 
@@ -345,11 +349,11 @@ describe('CONVERSATION_RETRY (#1804)', () => {
     await retry(evt, 'conv-1');
 
     // Loaded, not appended-to: exactly one appendMessage call, the assistant's.
-    expect(h.load).toHaveBeenCalledWith('conv-1');
+    expect(h.load).toHaveBeenCalledWith('/root', 'conv-1');
     expect(h.completeWithTools).toHaveBeenCalledTimes(1);
     expect(h.appendMessage).toHaveBeenCalledTimes(1);
     expect(h.appendMessage).toHaveBeenCalledWith(
-      'conv-1', 'assistant', 'second attempt', expect.anything(),
+      '/root', 'conv-1', 'assistant', 'second attempt', expect.anything(),
     );
   });
 
@@ -415,6 +419,6 @@ describe('CONVERSATION_COMPACT with a truncated summary (#1811)', () => {
     const result = await compact(evt, 'conv-1') as { compacted: boolean };
 
     expect(result.compacted).toBe(true);
-    expect(h.archive).toHaveBeenCalledWith('conv-1');
+    expect(h.archive).toHaveBeenCalledWith('/root', 'conv-1');
   });
 });
