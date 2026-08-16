@@ -161,6 +161,46 @@ beforeEach(() => {
   seedConversation();
 });
 
+// ── What the system prompt promises the user (#1817) ───────────────────────
+// A user was told, in detail, that their notes had been silently corrupted and
+// that they should go hand-repair the files. The model had run grep in the web
+// tools' code sandbox — which cannot see the thoughtbase — and reasoned from
+// the garbage it got back. These pin the two sentences that exist to stop that,
+// asserted on the prompt that actually reaches the model rather than on the
+// constant, so a change to how the prompt is assembled fails here too.
+
+describe('conversation system prompt guardrails (#1817)', () => {
+  async function systemPrompt(): Promise<string> {
+    h.completeWithTools.mockResolvedValue(completion('reply'));
+    await send(evt, 'conv-1', 'hello');
+    return (h.completeWithTools.mock.calls[0]![0] as { system: string }).system;
+  }
+
+  it('says the code sandbox cannot see the thoughtbase', async () => {
+    const system = await systemPrompt();
+    expect(system).toMatch(/sandbox/i);
+    expect(system).toMatch(/cannot see the thoughtbase/i);
+    // And that it isn't the user's machine either — the sandbox's filesystem
+    // is what the model mistook for the user's notes.
+    expect(system).toMatch(/NOT on the user's machine/i);
+  });
+
+  it('names the tools that can actually read the notes', async () => {
+    const system = await systemPrompt();
+    for (const tool of ['read_note', 'grep_notes', 'search_notes', 'query_graph']) {
+      expect(system, `${tool} should be named as a real way to read the thoughtbase`).toContain(tool);
+    }
+  });
+
+  it('forbids claiming the notes are damaged without having seen it', async () => {
+    const system = await systemPrompt();
+    expect(system).toMatch(/never tell the user their notes are damaged/i);
+    // The reason matters as much as the rule: acting on a false alarm is what
+    // destroys work, and nothing here can undo a user's hand-edits.
+    expect(system).toMatch(/hand-repair/i);
+  });
+});
+
 describe('CONVERSATION_SEND (#1612)', () => {
   it('registers the handler', () => {
     expect(send).toBeDefined();
