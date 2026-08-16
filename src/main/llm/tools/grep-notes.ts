@@ -71,7 +71,10 @@ export const grepNotes: NotebaseTool = {
       '"[[wiki-links]]", a "status:" property, TODO/FIXME), or to verify whether ' +
       'something literally appears at all. The pattern is a literal substring by ' +
       'default; set regex:true to use a JavaScript regular expression. Matches are ' +
-      'per line.',
+      'per line. This is the ONLY literal search over the user\'s files that exists: ' +
+      'a code-execution sandbox cannot see the thoughtbase, so never shell out to ' +
+      'grep. Output is capped and the header states the true total, so a truncated ' +
+      'result means "narrow the pattern", not "something is wrong with the notes".',
     input_schema: {
       type: 'object',
       properties: {

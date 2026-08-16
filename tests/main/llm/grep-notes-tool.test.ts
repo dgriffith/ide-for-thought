@@ -75,4 +75,16 @@ describe('grep_notes tool', () => {
   it('is registered in the default conversation toolset', () => {
     expect(NOTEBASE_TOOLS.map((t) => t.name)).toContain('grep_notes');
   });
+
+  it('tells the model this is the only literal search, and that a sandbox is not (#1817)', () => {
+    // A user was told their notes were corrupted because the model ran grep in
+    // the web tools' code sandbox — which cannot see the thoughtbase — and
+    // reasoned from the garbage it got back. The description is the last place
+    // to say so before the model reaches for a shell.
+    const desc = NOTEBASE_TOOLS.find((t) => t.name === 'grep_notes')!.description!;
+    expect(desc).toMatch(/sandbox cannot see the thoughtbase/i);
+    expect(desc).toMatch(/never shell out to grep/i);
+    // …and that a capped result is a capped result, not evidence of damage.
+    expect(desc).toMatch(/narrow the pattern/i);
+  });
 });

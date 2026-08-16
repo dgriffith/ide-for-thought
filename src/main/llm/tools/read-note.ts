@@ -19,7 +19,9 @@ export const readNote: NotebaseTool = {
       'a wiki-link in another note, or from a graph query, and need the full ' +
       'text. This reads plain notes only — for an ingested source (a `[source]` ' +
       'hit from search_related, identified by a source id rather than a path) ' +
-      'use read_source instead.',
+      'use read_source instead. This is the only way to see a note\'s real ' +
+      'contents: a code-execution sandbox has no access to the thoughtbase, so ' +
+      'never try to read the user\'s files through one.',
     input_schema: {
       type: 'object',
       properties: {
