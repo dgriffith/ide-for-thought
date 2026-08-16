@@ -5,8 +5,6 @@
   interface Props {
     /** Card width in px. Spec defaults: confirm 440, prompt 460, palette 640. */
     width?: number;
-    /** Backdrop scrim opacity (0–1). Spec defaults around .45–.55. */
-    scrim?: number;
     /** Click on the backdrop / Escape key. Both are routed here. */
     onClose?: () => void;
     /** Optional aria-labelledby — typically the eyebrow + title elements id'd
@@ -26,7 +24,6 @@
 
   let {
     width = 440,
-    scrim = 0.5,
     onClose,
     'aria-labelledby': ariaLabelledBy,
     eyebrow,
@@ -57,7 +54,6 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
   class="backdrop"
-  style:--scrim={scrim}
   onclick={onBackdropClick}
 >
   <div
@@ -100,8 +96,8 @@
     align-items: center;
     justify-content: center;
     padding: 32px;
-    background: rgba(20, 14, 6, var(--scrim, 0.5));
-    backdrop-filter: blur(2px);
+    background: var(--scrim-bg);
+    backdrop-filter: var(--scrim-blur);
   }
   .card {
     background: var(--bg-elev);

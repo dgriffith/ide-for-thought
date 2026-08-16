@@ -81,8 +81,8 @@
     position: fixed;
     inset: 0;
     z-index: var(--z-modal);
-    background: rgba(20, 14, 6, 0.5);
-    backdrop-filter: blur(2px);
+    background: var(--scrim-bg);
+    backdrop-filter: var(--scrim-blur);
     display: flex;
     align-items: center;
     justify-content: center;
