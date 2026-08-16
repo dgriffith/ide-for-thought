@@ -65,6 +65,20 @@
   --z-toast:    2800;  /* transient feedback — must clear every dialog */
   --z-drag:     2900;  /* pointer-following drag ghost/caret — it IS the cursor */
   --z-blocking: 3000;  /* busy overlay — blocks the whole app */
+
+  /* ── Modal scrim (#1753) ──────────────────────────────────────────
+     One backdrop for every modal, and a deliberately light one. A user
+     filling in a dialog is often reading the thing that prompted it —
+     the filename Minerva just suggested, the note the confirm is about —
+     so a backdrop that makes the app behind unreadable takes away the
+     information the dialog exists to collect.
+
+     Hence no blur: dimming separates the layers on its own, while blur
+     is what actually destroys small text. `--scrim-blur` stays a token
+     rather than being deleted at each call site, so reintroducing one is
+     a single edit here rather than thirty. */
+  --scrim-bg:   rgba(20, 14, 6, 0.32);
+  --scrim-blur: none;
 }
 
 [data-theme="light"] {
