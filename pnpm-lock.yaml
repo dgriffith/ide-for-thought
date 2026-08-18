@@ -59,8 +59,8 @@ importers:
         specifier: ^0.6.0
         version: 0.6.0
       '@retorquere/bibtex-parser':
-        specifier: ^9.0.29
-        version: 9.0.29
+        specifier: ^10.0.1
+        version: 10.0.1
       '@types/markdown-it-footnote':
         specifier: ^3.0.4
         version: 3.0.4
@@ -2246,8 +2246,8 @@ packages:
     engines: {node: '>=20'}
     hasBin: true
 
-  '@pomgui/deep@3.0.3':
-    resolution: {integrity: sha512-xTLqLKASCb3OkM/tySjESKAhXGQt5pp/MPGDmMh21wuGHFnMU2VriIs1tIT9KPoJsS70PxOCGogrvD8OKojdmg==}
+  '@pomgui/deep@3.0.4':
+    resolution: {integrity: sha512-XCAbJPSP+Y6SZiuhRAxjX29mlMMB9j1BQ9lCuXUMsJpgjj8odN7VIiWqOcQdmDu6iYFgcylHv6F9ZbACmyIFyQ==}
 
   '@protobufjs/aspromise@1.1.2':
     resolution: {integrity: sha512-j+gKExEuLmKwvz3OgROXtrJ2UG2x8Ch2YZUxahh+s1F2HZ+wAceUNLkvy6zKCPVRkU++ZWQrdxsUeQXmcg4uoQ==}
@@ -2285,8 +2285,8 @@ packages:
   '@rdfjs/types@2.0.1':
     resolution: {integrity: sha512-uyAzpugX7KekAXAHq26m3JlUIZJOC0uSBhpnefGV5i15bevDyyejoB7I+9MKeUrzXD8OOUI3+4FeV1wwQr5ihA==}
 
-  '@retorquere/bibtex-parser@9.0.29':
-    resolution: {integrity: sha512-lXB+5WrbcL3Q1yX7/D5MhQa8RzJPWSwpBti2iVn2yDLZ7iPfrxiKPEI8UTLRY682+zWckHIyrt+xKG0s8Zh6/Q==}
+  '@retorquere/bibtex-parser@10.0.1':
+    resolution: {integrity: sha512-o18pUbuH1P5aw2Y/AggWe+7ocPQj6ZreimSK9viY/GKIHE2jX4qbmx9Z54+EQ1Q8zZSKiXmY5MHHpbdCtlD0Ig==}
 
   '@rolldown/binding-android-arm64@1.2.3':
     resolution: {integrity: sha512-zrJtHDcaZJ1Fp7xf4hNl+7seH9Cn/N5TwLYkhgXREtBwAd/jaqW3uqeHxpDugJLVICWg4eW44kOQEGJ1r6jCGw==}
@@ -6081,8 +6081,8 @@ packages:
     resolution: {integrity: sha512-3RB4qgvPkxF/FGPnrzaWLhW1rxNK2sdH0mFjbhxkfTR6QXvcM3EtYm9L44UrhODZrZ+yhDXeMncLqi8QXn2MJg==}
     engines: {node: '>=0.10.0'}
 
-  tiny-merge-patch@0.1.2:
-    resolution: {integrity: sha512-NLoA//tTMBPTr0oGdq+fxnvVR0tDa8tOcG9ZGbuovGzROadZ404qOV4g01jeWa5S8MC9nAOvu5bQgCW7s8tlWQ==}
+  tiny-merge-patch@1.0.0:
+    resolution: {integrity: sha512-NR7dpqibfxA1uHaFJn5YXViH7REa0wPcZh8MLFrEn9OvDWyIY9YyyKHHmFBE66ER18CQwJ+VGknsQbgiBtL8Uw==}
 
   tiny-set-immediate@1.0.2:
     resolution: {integrity: sha512-EVbaM4zXFWS4CIqVoPzY7XIioQ5LU1p49AHizwPO1KyFyp/gxy5SA8mDmfDVl/2WLQiHgUL+esO6Ig+KhpUxUw==}
@@ -6254,8 +6254,8 @@ packages:
     resolution: {integrity: sha512-HvltHd7avK13QIw/oLe4qoOLyoVSoafqJ2jYOrtMRBkbYT31eiBQ8O0ehRKZiEZCMEyLFQNIADpgCWC5fALvYQ==}
     engines: {node: '>=22.19.0'}
 
-  unicode2latex@7.0.30:
-    resolution: {integrity: sha512-TZNZs76DFS+dZx05990QppraGX7DwISUIZFBprWfZ10eWnfQKbCPISk1hRMPnfV1xjWDnl2HHJCrsD4DhTDWGA==}
+  unicode2latex@7.0.33:
+    resolution: {integrity: sha512-Yk9tXwI/EVoLJzqAJfJpoUsY9ti5NV1aI2YpH4cg/n0q6Hj3Hnt/uT1nU27AqQFIgVpiT9SsNnAe56eTWuM/3g==}
 
   unified@10.1.2:
     resolution: {integrity: sha512-pUSWAi/RAnVy1Pif2kAoeWNBa3JVrx0MId2LASj8G+7AiHWoKZNTomq6LG326T68U7/e263X6fTdcXIy7XnF7Q==}
@@ -10347,7 +10347,7 @@ snapshots:
       make-fetch-happen: 10.2.1
       nopt: 6.0.0
       proc-log: 2.0.1
-      semver: 7.8.4
+      semver: 7.8.5
       tar: 6.2.1
       which: 2.0.2
     transitivePeerDependencies:
@@ -11044,7 +11044,7 @@ snapshots:
   '@npmcli/fs@2.1.2':
     dependencies:
       '@gar/promisify': 1.1.3
-      semver: 7.8.4
+      semver: 7.8.5
 
   '@npmcli/move-file@2.0.1':
     dependencies:
@@ -11057,7 +11057,7 @@ snapshots:
     dependencies:
       playwright: 1.62.1
 
-  '@pomgui/deep@3.0.3': {}
+  '@pomgui/deep@3.0.4': {}
 
   '@protobufjs/aspromise@1.1.2': {}
 
@@ -11089,7 +11089,7 @@ snapshots:
     dependencies:
       '@types/node': 25.9.3
 
-  '@retorquere/bibtex-parser@9.0.29':
+  '@retorquere/bibtex-parser@10.0.1':
     dependencies:
       '@unified-latex/unified-latex-util-pegjs': 1.8.4
       '@unified-latex/unified-latex-util-print-raw': 1.8.4
@@ -11099,7 +11099,7 @@ snapshots:
       lodash.merge: 4.6.2
       moo: 0.5.3
       nearley: 2.20.1
-      unicode2latex: 7.0.30
+      unicode2latex: 7.0.33
       wink-eng-lite-web-model: 1.8.1
       wink-nlp: 2.4.0
 
@@ -15326,7 +15326,7 @@ snapshots:
 
   timed-out@3.1.3: {}
 
-  tiny-merge-patch@0.1.2: {}
+  tiny-merge-patch@1.0.0: {}
 
   tiny-set-immediate@1.0.2: {}
 
@@ -15466,11 +15466,11 @@ snapshots:
 
   undici@8.10.0: {}
 
-  unicode2latex@7.0.30:
+  unicode2latex@7.0.33:
     dependencies:
-      '@pomgui/deep': 3.0.3
+      '@pomgui/deep': 3.0.4
       just-permutations: 2.2.1
-      tiny-merge-patch: 0.1.2
+      tiny-merge-patch: 1.0.0
 
   unified@10.1.2:
     dependencies:
@@ -15770,14 +15770,14 @@ snapshots:
       d3-array: 3.2.4
       vega-dataflow: 6.1.3
       vega-statistics: 2.0.0
-      vega-time: 3.1.0
+      vega-time: 3.3.0
       vega-util: 2.1.3
 
   vega-typings@2.1.0:
     dependencies:
       '@types/geojson': 7946.0.16
       vega-event-selector: 4.0.0
-      vega-expression: 6.1.0
+      vega-expression: 6.2.2
       vega-util: 2.1.3
 
   vega-util@2.1.1: {}
@@ -15787,7 +15787,7 @@ snapshots:
   vega-view-transforms@5.1.0:
     dependencies:
       vega-dataflow: 6.1.3
-      vega-scenegraph: 5.1.0
+      vega-scenegraph: 5.3.0
       vega-util: 2.1.3
 
   vega-view@6.1.2:
@@ -15796,7 +15796,7 @@ snapshots:
       d3-timer: 3.0.1
       vega-dataflow: 6.1.3
       vega-format: 2.1.3
-      vega-functions: 6.1.3
+      vega-functions: 6.2.0
       vega-runtime: 7.1.3
       vega-scenegraph: 5.3.0
       vega-util: 2.1.3
