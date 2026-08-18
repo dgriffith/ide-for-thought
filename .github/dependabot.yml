@@ -31,14 +31,26 @@ updates:
       prefix: "chore(deps)"
       prefix-development: "chore(deps-dev)"
     ignore:
-      # @retorquere/bibtex-parser@10.0.0 is an upstream packaging bug: its
+      # @retorquere/bibtex-parser 10.x is an upstream packaging bug: its
       # package.json advertises `types: ./dist/types/index.d.ts` but the
-      # published tarball ships zero .d.ts files, so `tsc --noEmit` fails
-      # (TS7016) at src/main/sources/import-bibtex.ts. Pin out this exact
-      # broken release only — a fixed 10.0.1+/10.1.0 will still be proposed.
-      # Remove this entry once upstream republishes with declarations. (#1464)
+      # published tarball ships zero .d.ts files. The import degrades to
+      # `any`, so the lint gate fails three ways — tsc (TS7016) and
+      # svelte-check on the missing declaration file, plus 21
+      # @typescript-eslint/no-unsafe-* errors in
+      # src/main/sources/import-bibtex.ts.
+      #
+      # This is packaging, not API. parse() still takes `sentenceCase: false`,
+      # still returns { entries, errors }, and entries still carry
+      # type/key/fields/input; all 18 import-bibtex tests pass on 10.0.1.
+      # Nothing here is worth a hand-written .d.ts shim that would silently
+      # outrank the real types once they come back.
+      #
+      # Originally pinned at the exact broken 10.0.0 (#1464) on the assumption
+      # a fix would follow; 10.0.1 shipped the same way (#1821), so widen to
+      # the whole 10 line. Remove this entry — and re-check dist/types is
+      # actually in the tarball — once upstream republishes declarations.
       - dependency-name: "@retorquere/bibtex-parser"
-        versions: ["10.0.0"]
+        versions: ["10.x"]
 
   # ── GitHub Actions themselves ────────────────────────────────────────────
   # The workflows pin actions by major tag (actions/checkout@v4, …); those
