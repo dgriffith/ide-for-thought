@@ -143,12 +143,21 @@ hosted one.
 
 ---
 
-## Manual assets to produce (not in the zip)
+## Manual assets (not in the zip)
 
-- **Screenshots** — at least one, 1280×800 or 640×400. Best shot: the popup open
-  over an article showing the tag/note fields and the live Source id.
+Live in `clipper/store-assets/` — version-controlled so a resubmission doesn't
+start from a blank Desktop. `package.mjs` zips only from `dist/`, so nothing
+here can leak into the upload artifact.
+
+- **Screenshot** — `store-assets/popup-over-article-1280x800.png`. The popup
+  open over an Astral Codex Ten post, showing the tag/note fields and the live
+  Source id. Chrome accepts *only* 1280×800 or 640×400; this is exactly 1280×800.
+- **Raw capture** — `store-assets/popup-over-article-raw.png` (2012×836), kept
+  so the shot can be re-cropped without re-shooting. The derived screenshot is
+  the browser window (the capture's right third was a Minerva editor window,
+  cropped out) trimmed to 1.6:1 and downscaled.
 - **Store icon** — 128×128. Upload `clipper/icons/icon-128.png`.
-- **Small promo tile** (optional) — 440×280.
+- **Small promo tile** (optional) — 440×280. Not produced.
 
 ## One-time account setup (not per-item)
 
