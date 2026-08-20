@@ -150,8 +150,20 @@ hosted one.
 - **Store icon** — 128×128. Upload `clipper/icons/icon-128.png`.
 - **Small promo tile** (optional) — 440×280.
 
+## One-time account setup (not per-item)
+
+Publishing is blocked until the developer **account** carries a verified contact
+email. The dashboard's error calls this the "Settings page", but the page is
+labelled **Account** in the left menu of the dashboard root — it is not a tab
+inside the item editor, which is why it's hard to find from the error.
+
+Account → *Add email* → request verification → click the link Chrome emails you.
+Use `dave.l.griffith@gmail.com`, matching the privacy policy contact. Every
+review notification, rejection, and policy warning goes to this address.
+
 ## Submission checklist
 
+- [ ] Account contact email added **and verified** (one-time, see above)
 - [ ] `pnpm package:clipper` → upload `clipper/minerva-clipper-<version>.zip`
 - [ ] Bump `version` in `clipper/manifest.json` for every resubmission
 - [ ] Visibility → Unlisted
