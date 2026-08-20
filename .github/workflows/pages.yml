@@ -1,0 +1,65 @@
+# Publish the marketing/docs site (`website/`) to GitHub Pages (#795).
+#
+# The site is plain static HTML with a shared stylesheet — there is no build
+# step and every link in it is relative, so `website/` is uploaded verbatim and
+# serves correctly from the project subpath (dgriffith.github.io/ide-for-thought/).
+#
+# Why this exists beyond the site itself: the Chrome Web Store requires a
+# *hosted* privacy policy URL for the Minerva Clipper extension. That policy is
+# `website/privacy.html#clipper`, which means it has to be reachable at a
+# stable public URL before the extension can be submitted.
+#
+# Only `website/**` changes trigger it, so ordinary app PRs don't redeploy.
+
+name: Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'website/**'
+      - '.github/workflows/pages.yml'
+  # Manual redeploy, e.g. after enabling Pages for the first time.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never run two deploys at once; let an in-flight one finish rather than
+# cancelling it, so a half-uploaded artifact can't become the live site.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Stage the site
+        # Copy rather than upload `website/` directly so the authoring-only
+        # bits stay unpublished: `screenshots/` holds the Playwright capture
+        # specs that generate the product shots, and README.txt is a note to
+        # self about the page drafts.
+        run: |
+          mkdir -p _site
+          cp -R website/. _site/
+          rm -rf _site/screenshots _site/README.txt
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

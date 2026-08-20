@@ -20,6 +20,10 @@
   .prose p { color: var(--text-muted); max-width: 68ch; }
   .prose h2 { margin-top: 34px; }
   .prose b { color: var(--text); }
+  .prose code { background: var(--bg-inset); border:1px solid var(--border); border-radius: 5px; padding: 1px 6px; font-size: 0.9em; color: var(--text); }
+  /* The nav is sticky (60px), so an #anchor jump would land the heading under
+     it. The Chrome Web Store listing links straight to #clipper. */
+  .prose h2[id] { scroll-margin-top: 76px; }
 </style>
 </head>
 <body>
@@ -83,8 +87,12 @@
     <p>Minerva's AI features work by sending the relevant part of your request to an AI provider (such as Anthropic) to generate a response — the same way any AI assistant does. That means <b>when you use an AI feature, the text needed for that request is sent to that provider</b>, under their terms and privacy policy. This only happens when you invoke an AI action; simply writing, linking, searching, and reading your notes involves no network calls of that kind.</p>
     <p>You stay in control of what gets sent: AI actions are things you invoke deliberately, not background processes running over your whole library. And because the AI's output arrives as a <b>proposal you review</b>, nothing it returns is silently written into your notes.</p>
 
-    <h2>Web capture and sources</h2>
-    <p>The Minerva Clipper saves pages you choose to clip into your local thoughtbase. Imported sources — PDFs, web pages, references — are stored locally alongside your notes, as your files.</p>
+    <h2 id="clipper">Web capture and sources — the Minerva Clipper extension</h2>
+    <p>The Minerva Clipper is a browser extension that saves the page you're reading into your local thoughtbase as a Source, optionally with your text selection as a linked excerpt. Imported sources — PDFs, web pages, references — are stored locally alongside your notes, as your files.</p>
+    <p><b>The extension sends your data to exactly one place: the Minerva app on your own computer.</b> It has no server side. When you click the toolbar button or press the save shortcut, it reads the current tab's URL, rendered HTML, title, and current text selection, and posts them over a local loopback connection (<code>127.0.0.1</code>) to the copy of Minerva running on your machine, which does the article extraction locally. Nothing is transmitted to us or to any third party, and no remote server is contacted at any point.</p>
+    <p>It reads a page <b>only</b> when you ask it to. There is no background content script watching your browsing, no history collection, and no analytics or tracking of any kind. The only thing the extension stores is the pairing credential — a local port number and a shared secret — kept in your browser's storage so it can reconnect to your app.</p>
+    <p>Stated plainly, in the terms browser extension stores ask for: page content read this way is never sold or transferred to third parties, never used for any purpose beyond handing the page to your local Minerva app, and never used to determine creditworthiness or for lending. All of the extension's code ships inside the package; none is fetched at runtime.</p>
+    <p>Questions about the extension: <a href="mailto:dave.l.griffith@gmail.com">dave.l.griffith@gmail.com</a>.</p>
 
     <h2>Because it's local, some things are up to you</h2>
     <p>Local-first cuts both ways, honestly: there's no cloud backup you get for free. Your notes are as safe as the folder they live in, so back it up the way you back up anything else you care about — Time Machine, a synced folder, a git repository. The upside is total: no one can lose, mine, or lock up your thinking but you.</p>
