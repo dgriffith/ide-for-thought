@@ -13,12 +13,6 @@ public later is a single toggle in *Distribution → Visibility* — no re-uploa
 
 ---
 
-## Single-purpose description
-
-> Minerva Clipper saves the web page you're currently reading into your local
-> Minerva desktop app as a Source, optionally including your text selection as a
-> linked excerpt.
-
 ## Detailed description
 
 > **Save what you're reading straight into Minerva.**
@@ -55,15 +49,59 @@ public later is a single toggle in *Distribution → Visibility* — no re-uploa
 
 ---
 
-## Permission justifications
+## Privacy practices tab — copy-paste fields
 
-| Permission | Justification |
-|---|---|
-| `activeTab` | When the user clicks the toolbar button or presses the keyboard shortcut, the extension reads the current tab's rendered HTML and text selection so it can be saved. Access is granted only for that one user-initiated action. |
-| `scripting` | Used with `activeTab` to inject a one-shot function that returns the page's `outerHTML`, title, and current selection. No persistent or broad content-script injection. |
-| `storage` | Stores only the local pairing data (a loopback port number and a shared secret) so the extension can reconnect to the user's running Minerva app. No browsing data is stored. |
-| Host `http://127.0.0.1/*` | The extension talks **only** to the Minerva desktop app running on the user's own machine over loopback (127.0.0.1). It posts the captured page to a local `/ingest` endpoint. No external/remote server is ever contacted. |
-| Remote code | **No** — all code is bundled in the package; nothing is fetched at runtime. |
+The dashboard blocks submission until **every** field below is filled, and it
+puts them all on the *Privacy practices* tab (including the single-purpose
+description, even though it reads like a listing field). Each block is the
+literal text to paste.
+
+### Single purpose
+
+> Minerva Clipper saves the web page you're currently reading into your local
+> Minerva desktop app as a Source, optionally including your text selection as a
+> linked excerpt.
+
+### `activeTab` justification
+
+> When the user clicks the toolbar button or presses the keyboard shortcut, the
+> extension reads the current tab's URL, rendered HTML, title, and text
+> selection so the page can be saved. activeTab scopes that access to the one
+> tab the user acted on, for that single user-initiated action, instead of
+> requesting broad host access to every site.
+
+### `scripting` justification
+
+> Used together with activeTab to inject a one-shot function into the active tab
+> that returns the page's URL, outerHTML, title, and current selection. It runs
+> only in response to the user's explicit save action. There is no persistent
+> content script and no registered content script in the manifest.
+
+### `storage` justification
+
+> Stores only the pairing data for the user's own desktop app: a loopback port
+> number and a shared secret, written once when the user pastes a pairing code
+> from Minerva's settings. This is what lets the extension reconnect to the app
+> across browser restarts. No browsing data, page content, or history is stored.
+
+### Host permission (`http://127.0.0.1/*`) justification
+
+> The extension delivers the captured page to the Minerva desktop application
+> running on the user's own machine, by POSTing it to a local endpoint on
+> loopback (http://127.0.0.1:PORT/ingest). The host permission is restricted to
+> 127.0.0.1 — no external or remote server is contacted by this extension at any
+> point, and there is no backend service associated with it.
+
+### Remote code
+
+Select **"No, I am not using remote code."** Justification:
+
+> All JavaScript executed by this extension ships inside the uploaded package;
+> it is bundled at build time with esbuild. The extension loads no external
+> scripts, uses no eval() or new Function(), and fetches no code at runtime. Its
+> only network request is a POST to the user's own machine on loopback, and that
+> response is parsed as JSON data (a source id, title, and status flags) which is
+> displayed in the popup — never executed.
 
 ## Notes for reviewer
 
@@ -105,15 +143,36 @@ hosted one.
 
 ---
 
-## Manual assets to produce (not in the zip)
+## Manual assets (not in the zip)
 
-- **Screenshots** — at least one, 1280×800 or 640×400. Best shot: the popup open
-  over an article showing the tag/note fields and the live Source id.
+Live in `clipper/store-assets/` — version-controlled so a resubmission doesn't
+start from a blank Desktop. `package.mjs` zips only from `dist/`, so nothing
+here can leak into the upload artifact.
+
+- **Screenshot** — `store-assets/popup-over-article-1280x800.png`. The popup
+  open over an Astral Codex Ten post, showing the tag/note fields and the live
+  Source id. Chrome accepts *only* 1280×800 or 640×400; this is exactly 1280×800.
+- **Raw capture** — `store-assets/popup-over-article-raw.png` (2012×836), kept
+  so the shot can be re-cropped without re-shooting. The derived screenshot is
+  the browser window (the capture's right third was a Minerva editor window,
+  cropped out) trimmed to 1.6:1 and downscaled.
 - **Store icon** — 128×128. Upload `clipper/icons/icon-128.png`.
-- **Small promo tile** (optional) — 440×280.
+- **Small promo tile** (optional) — 440×280. Not produced.
+
+## One-time account setup (not per-item)
+
+Publishing is blocked until the developer **account** carries a verified contact
+email. The dashboard's error calls this the "Settings page", but the page is
+labelled **Account** in the left menu of the dashboard root — it is not a tab
+inside the item editor, which is why it's hard to find from the error.
+
+Account → *Add email* → request verification → click the link Chrome emails you.
+Use `dave.l.griffith@gmail.com`, matching the privacy policy contact. Every
+review notification, rejection, and policy warning goes to this address.
 
 ## Submission checklist
 
+- [ ] Account contact email added **and verified** (one-time, see above)
 - [ ] `pnpm package:clipper` → upload `clipper/minerva-clipper-<version>.zip`
 - [ ] Bump `version` in `clipper/manifest.json` for every resubmission
 - [ ] Visibility → Unlisted
