@@ -88,16 +88,20 @@ public later is a single toggle in *Distribution → Visibility* — no re-uploa
 
 ## Privacy policy URL (required)
 
-**https://dgriffith.github.io/ide-for-thought/privacy.html#clipper**
+**https://dgriffith.github.io/minerva/privacy.html#clipper**
 
-The policy is the *Web capture and sources* section of the site's privacy page
-(`website/privacy.html`), published to GitHub Pages by
-`.github/workflows/pages.yml` on every push to `main` that touches `website/**`.
-It covers what the extension reads, when, where it goes (loopback only), what it
-stores (the pairing credential), and the three store certifications.
+The policy is the *Web capture and sources* section of the Minerva website's
+privacy page. It covers what the extension reads, when, where it goes (loopback
+only), what it stores (the pairing credential), and the three store
+certifications.
 
-Editing that section is what changes the policy — don't keep a second copy here
-that can drift out of sync with the hosted one.
+The page's source is `website/privacy.html` in this repo; the live site is the
+`gh-pages` branch of `dgriffith/minerva`, published by
+`./scripts/deploy-to-gh-pages.sh`. **Editing the section is not enough — run
+that script, or the store will still be pointing at the old text.**
+
+Don't keep a second copy of the policy prose here that can drift from the
+hosted one.
 
 ---
 
@@ -113,7 +117,10 @@ that can drift out of sync with the hosted one.
 - [ ] `pnpm package:clipper` → upload `clipper/minerva-clipper-<version>.zip`
 - [ ] Bump `version` in `clipper/manifest.json` for every resubmission
 - [ ] Visibility → Unlisted
-- [ ] Privacy policy URL set to the Pages link above (confirm it resolves first)
+- [ ] `./scripts/deploy-to-gh-pages.sh` run, so the live privacy page carries
+      the current clipper section
+- [ ] Privacy policy URL set to the link above (confirm the `#clipper`
+      anchor resolves on the live site first)
 - [ ] Permission justifications + reviewer notes filled in
 - [ ] Privacy practices certified
 - [ ] Screenshot + 128×128 icon uploaded
