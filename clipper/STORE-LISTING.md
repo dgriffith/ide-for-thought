@@ -86,25 +86,22 @@ public later is a single toggle in *Distribution → Visibility* — no re-uploa
 - **Where data goes:** page content is transmitted only to the user's own
   machine (localhost). State this explicitly in the data-use text.
 
-## Privacy policy (host at a stable URL — required)
+## Privacy policy URL (required)
 
-> **Minerva Clipper — Privacy Policy**
->
-> Minerva Clipper does not collect, store, or transmit your data to us or to any
-> third party.
->
-> When you explicitly save a page, the extension reads the current tab's content
-> and text selection and sends it over a local loopback connection (127.0.0.1)
-> to the Minerva desktop application running on your own computer. This data
-> never leaves your machine and is never sent to any remote server.
->
-> The extension stores a single pairing credential (a local port and shared
-> secret) in your browser's local storage so it can reconnect to your Minerva
-> app. This is not transmitted anywhere except to your local app.
->
-> There is no analytics, tracking, advertising, or third-party data sharing.
->
-> Contact: dave.l.griffith@gmail.com
+**https://dgriffith.github.io/minerva/privacy.html#clipper**
+
+The policy is the *Web capture and sources* section of the Minerva website's
+privacy page. It covers what the extension reads, when, where it goes (loopback
+only), what it stores (the pairing credential), and the three store
+certifications.
+
+The page's source is `website/privacy.html` in this repo; the live site is the
+`gh-pages` branch of `dgriffith/minerva`, published by
+`./scripts/deploy-to-gh-pages.sh`. **Editing the section is not enough — run
+that script, or the store will still be pointing at the old text.**
+
+Don't keep a second copy of the policy prose here that can drift from the
+hosted one.
 
 ---
 
@@ -120,7 +117,10 @@ public later is a single toggle in *Distribution → Visibility* — no re-uploa
 - [ ] `pnpm package:clipper` → upload `clipper/minerva-clipper-<version>.zip`
 - [ ] Bump `version` in `clipper/manifest.json` for every resubmission
 - [ ] Visibility → Unlisted
-- [ ] Privacy policy URL set (hosted copy of the text above)
+- [ ] `./scripts/deploy-to-gh-pages.sh` run, so the live privacy page carries
+      the current clipper section
+- [ ] Privacy policy URL set to the link above (confirm the `#clipper`
+      anchor resolves on the live site first)
 - [ ] Permission justifications + reviewer notes filled in
 - [ ] Privacy practices certified
 - [ ] Screenshot + 128×128 icon uploaded
