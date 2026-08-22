@@ -4,6 +4,8 @@ import { ensureComputeConsent } from '../compute/run-cell-with-trust';
 import { getDialogStore } from './dialogs.svelte';
 import type {
   Conversation,
+  ConversationCreateOptions,
+  ConversationSkill,
   ContextBundle,
   ConversationsUIState,
 } from '../../../shared/types';
@@ -458,13 +460,18 @@ async function openConversationTab(opts: {
    *  scope for this conversation. Mirrors ConversationTemplate's
    *  `requiresTools` and ThinkingTool's `requiresTools` (#514). */
   extraTools?: ConversationToolKey[];
+  /** The skill this conversation was launched from (#1158). Persisted on the
+   *  conversation so a note revision it eventually produces can be labeled with
+   *  the skill's name in the History panel. */
+  skill?: ConversationSkill;
 }): Promise<TabRuntime> {
   ensureSubscriptions();
   const bundle: ContextBundle = opts.notePath ? { notePath: opts.notePath } : {};
-  const createOpts: { systemPrompt?: string; model?: string; webEnabled?: boolean } = {};
+  const createOpts: ConversationCreateOptions = {};
   if (opts.systemPrompt) createOpts.systemPrompt = opts.systemPrompt;
   if (opts.model) createOpts.model = opts.model;
   if (opts.webEnabled !== undefined) createOpts.webEnabled = opts.webEnabled;
+  if (opts.skill) createOpts.skill = opts.skill;
   const conv = await api.conversations.create(
     bundle,
     undefined,

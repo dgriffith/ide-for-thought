@@ -656,6 +656,22 @@ export interface ConversationsUIState {
   activeTabId: string | null;
 }
 
+/** The skill (thinking tool) a conversation was launched from, when it was —
+ *  e.g. `{ id: 'antithesize', name: 'Antithesize' }`. Kept as the user-facing
+ *  name alongside the id so provenance downstream (note-history causes, #1158)
+ *  can say "Antithesize" without re-resolving a possibly-uninstalled skill. */
+export interface ConversationSkill {
+  id: string;
+  name: string;
+}
+
+export interface ConversationCreateOptions {
+  systemPrompt?: string;
+  model?: string;
+  webEnabled?: boolean;
+  skill?: ConversationSkill;
+}
+
 export interface Conversation {
   id: string;
   triggerNodeUri?: string;
@@ -692,6 +708,13 @@ export interface Conversation {
    * still apply. Mirrors the `model` / `effort` override pattern.
    */
   webEnabled?: boolean;
+  /**
+   * The skill this conversation was launched from (#1158). Set when the
+   * conversation came from a `outputMode: 'openConversation'` skill; absent for
+   * a freeform chat. Read back when an approved proposal lands a note revision,
+   * so the History panel can name the command the user actually ran.
+   */
+  skill?: ConversationSkill;
   /**
    * Code-execution sandbox id returned by Anthropic when the model used a
    * `code_execution` server-side tool (which is how `web_search_20260209`

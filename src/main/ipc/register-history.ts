@@ -7,6 +7,7 @@ import { Channels } from '../../shared/channels';
 import { handle } from './typed-ipc';
 import { withRootPath, hooks } from './helpers';
 import { writeAndReindex } from '../notebase/write-pipeline';
+import { formatDateTime } from '../../shared/format-datetime';
 import * as history from '../history';
 
 export function registerHistory(): void {
@@ -24,7 +25,11 @@ export function registerHistory(): void {
     // Restore = write the old content back as a NEW save (non-destructive; the
     // restore itself becomes a fresh `restore`-tagged revision). Not
     // broadcast-suppressed, so the open editor reloads via NOTEBASE_REWRITTEN.
-    await history.runWithHistoryOrigin('restore', () =>
-      writeAndReindex(rootPath, relativePath, content, hooks));
+    // The cause names WHICH version came back, so a timeline with several
+    // restores in it stays readable.
+    await history.runWithHistorySource(
+      { origin: 'restore', cause: `Restored from ${formatDateTime(ts)}` },
+      () => writeAndReindex(rootPath, relativePath, content, hooks),
+    );
   }));
 }

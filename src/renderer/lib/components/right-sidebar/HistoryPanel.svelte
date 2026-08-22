@@ -7,9 +7,9 @@
   // rule; restore is a mutation, so it routes out through `onRestore` (App owns
   // the confirm + the `api.history.restore` call).
   import { api } from '../../ipc/client';
-  import { formatRelativeTime } from '../../utils/format-relative-time';
+  import { formatDateTime } from '../../../../shared/format-datetime';
   import { diffLines, diffStats } from '../../history/line-diff';
-  import type { RevisionMeta } from '../../../../shared/history';
+  import { describeRevisionCause, type RevisionMeta } from '../../../../shared/history';
 
   interface Props {
     activeFilePath: string | null;
@@ -70,12 +70,6 @@
   const stats = $derived(diffStats(diff));
   const isCurrent = $derived(selectedContent !== null && selectedContent === content);
 
-  function originLabel(origin: RevisionMeta['origin']): string | null {
-    if (origin === 'restore') return 'restored';
-    if (origin === 'proposal') return 'AI';
-    return null;
-  }
-
   async function restore(): Promise<void> {
     if (!activeFilePath || selectedTs === null || !onRestore) return;
     await onRestore(activeFilePath, selectedTs);
@@ -93,16 +87,15 @@
   {:else}
     <ul class="timeline">
       {#each revisions as rev (rev.ts)}
-        {@const label = originLabel(rev.origin)}
         <!-- svelte-ignore a11y_click_events_have_key_events -->
         <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
         <li
           class:selected={rev.ts === selectedTs}
           onclick={() => activeFilePath && select(activeFilePath, rev.ts)}
         >
-          <span class="when">{formatRelativeTime(rev.ts, now)}</span>
+          <span class="when">{formatDateTime(rev.ts, now)}</span>
+          <span class="cause" class:ai={rev.origin === 'proposal'}>{describeRevisionCause(rev)}</span>
           {#if rev.label}<span class="tag">{rev.label}</span>{/if}
-          {#if label}<span class="origin">{label}</span>{/if}
         </li>
       {/each}
     </ul>
@@ -133,19 +126,26 @@
 
   .timeline { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 0 0 auto; max-height: 45%; }
   .timeline li {
-    display: flex; align-items: baseline; gap: 8px;
+    display: grid; grid-template-columns: 1fr auto; align-items: baseline;
+    column-gap: 8px;
     padding: 6px 12px; cursor: pointer; border-bottom: 1px solid var(--border);
     font-size: 13px;
   }
   .timeline li:hover { background: var(--bg-button); }
   .timeline li.selected { background: color-mix(in oklch, var(--accent) 14%, transparent); }
   .when { color: var(--text); }
+  /* What produced this version — the IntelliJ Local History "action" column. */
+  .cause {
+    grid-column: 1 / -1;
+    font-size: 11px; color: var(--text-muted);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .cause.ai { color: color-mix(in oklch, var(--accent) 70%, var(--text-muted)); }
   .tag {
     font-size: 10px; text-transform: uppercase; letter-spacing: 0.3px;
     color: var(--accent); border: 1px solid color-mix(in oklch, var(--accent) 40%, var(--border));
     border-radius: 3px; padding: 0 4px;
   }
-  .origin { font-size: 10px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.3px; }
 
   .diff-head {
     display: flex; align-items: center; justify-content: space-between; gap: 8px;

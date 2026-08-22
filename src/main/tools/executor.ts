@@ -106,6 +106,7 @@ export function buildConversationPayload(
 
   return {
     toolId: tool.id,
+    toolName: tool.name,
     systemPrompt: tool.buildSystemPrompt(request.context),
     firstMessage: tool.buildFirstMessage ? tool.buildFirstMessage(request.context) : '',
     ...(model ? { model } : {}),

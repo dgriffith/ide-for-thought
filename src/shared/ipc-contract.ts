@@ -89,7 +89,7 @@ import type {
 } from './types';
 import type { ParsedReference } from './mine-references';
 import type { ResolveCandidate } from './resolve-stub';
-import type { Conversation, ConversationMessage, ContextBundle, ConversationsUIState, CompactResult } from './types';
+import type { Conversation, ConversationCreateOptions, ConversationMessage, ContextBundle, ConversationsUIState, CompactResult } from './types';
 import type { ConversationToolKey, AskUserRequest } from './conversation-tools';
 import type { ConversationDraftBase } from './conversation-draft-base';
 import type { ThemeMode } from './theme';
@@ -532,7 +532,7 @@ export interface ChannelMap {
   'proposals:notifyArrival': (arg: { count: number; proposer: string }) => void;
 
   // Conversations
-  'conversation:create': (contextBundle: ContextBundle, triggerNodeUri?: string, options?: { systemPrompt?: string; model?: string; webEnabled?: boolean }) => Conversation;
+  'conversation:create': (contextBundle: ContextBundle, triggerNodeUri?: string, options?: ConversationCreateOptions) => Conversation;
   'conversation:append': (id: string, role: ConversationMessage['role'], content: string) => Conversation;
   'conversation:archive': (id: string) => Conversation;
   'conversation:load': (id: string) => Conversation | null;

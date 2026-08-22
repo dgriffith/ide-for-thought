@@ -12,7 +12,7 @@
  */
 
 import type { RevisionMeta } from '../../shared/history';
-export type { RevisionMeta, RevisionOrigin } from '../../shared/history';
+export type { RevisionMeta, RevisionOrigin, RevisionSource } from '../../shared/history';
 
 /** Keep a note's history at most this many days (unlabeled). */
 export const RETENTION_DAYS = 30;

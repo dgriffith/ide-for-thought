@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { Channels } from '../../shared/channels';
 import { writeAndReindex } from '../notebase/write-pipeline';
+import { runWithHistorySource } from '../history';
 import { markPathHandled } from '../window-manager';
 import { runAutoTag, applyAutoTag } from '../llm/auto-tag';
 import {
@@ -55,7 +56,10 @@ export function registerRefactor(): void {
   handle(Channels.REFACTOR_APPLY_SUGGESTED_LINK, withRootPath(async (rootPath, activeRelPath: string, targetRelPath: string) => {
     const content = await notebaseFs.readFile(rootPath, activeRelPath);
     const { content: next, changed } = appendSeeAlsoLink(content, targetRelPath);
-    if (changed) await writeAndReindex(rootPath, activeRelPath, next, hooks);
+    if (changed) {
+      await runWithHistorySource({ origin: 'edit', cause: 'Suggested link' }, () =>
+        writeAndReindex(rootPath, activeRelPath, next, hooks));
+    }
     return { changed };
   }));
 

@@ -17,6 +17,7 @@ import * as notebaseFs from '../notebase/fs';
 import * as graph from '../graph/index';
 import { projectContext } from '../project-context-types';
 import { writeAndReindex } from '../notebase/write-pipeline';
+import { runWithHistorySource } from '../history';
 import { ingestUrl } from '../sources/ingest';
 import { ingestIdentifier } from '../sources/ingest-identifier';
 import { privilegedFetch } from '../privileged-sites';
@@ -592,7 +593,8 @@ export function registerConversationDrafts(): void {
       const next = existing
         ? `${existing.replace(/\s*$/, '')}\n\n${block}\n`
         : `# Conversation: ${draft.conversationId}\n\n${block}\n`;
-      await writeAndReindex(rootPath, dest, next, hooks);
+      await runWithHistorySource({ origin: 'edit', cause: 'Compute cell' }, () =>
+        writeAndReindex(rootPath, dest, next, hooks));
       return { destinationPath: dest };
     }),
   );

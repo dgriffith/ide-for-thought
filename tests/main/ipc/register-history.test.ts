@@ -2,8 +2,8 @@
  * History IPC handlers (#1158). Drives the real `registerHistory()` with the
  * store + write-pipeline mocked, pinning: list/getRevision delegate to the
  * store, and restore reads the revision then writes it back through
- * `writeAndReindex` under the `restore` origin — throwing (not silently) when
- * the revision is gone.
+ * `writeAndReindex` under the `restore` origin (with a cause naming the version
+ * restored) — throwing (not silently) when the revision is gone.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
@@ -15,7 +15,7 @@ const { handlers, h } = vi.hoisted(() => ({
   h: {
     listRevisions: vi.fn(),
     getRevisionContent: vi.fn(),
-    runWithHistoryOrigin: vi.fn(<T>(_o: string, fn: () => Promise<T>) => fn()),
+    runWithHistorySource: vi.fn(<T>(_s: unknown, fn: () => Promise<T>) => fn()),
     writeAndReindex: vi.fn(),
   },
 }));
@@ -32,7 +32,7 @@ vi.mock('../../../src/main/notebase/write-pipeline', () => ({ writeAndReindex: h
 vi.mock('../../../src/main/history', () => ({
   listRevisions: h.listRevisions,
   getRevisionContent: h.getRevisionContent,
-  runWithHistoryOrigin: h.runWithHistoryOrigin,
+  runWithHistorySource: h.runWithHistorySource,
 }));
 
 import { registerHistory } from '../../../src/main/ipc/register-history';
@@ -59,7 +59,12 @@ describe('register-history (#1158)', () => {
   it('HISTORY_RESTORE writes the revision back through the pipeline under the restore origin', async () => {
     h.getRevisionContent.mockResolvedValue('restored body');
     await call(Channels.HISTORY_RESTORE, 'notes/a.md', 7);
-    expect(h.runWithHistoryOrigin).toHaveBeenCalledWith('restore', expect.any(Function));
+    expect(h.runWithHistorySource).toHaveBeenCalledWith(
+      // The cause names the version that came back, so a timeline with several
+      // restores in it stays readable.
+      { origin: 'restore', cause: expect.stringMatching(/^Restored from .+\d/) },
+      expect.any(Function),
+    );
     expect(h.writeAndReindex).toHaveBeenCalledWith(ROOT, 'notes/a.md', 'restored body', { HOOKS: true });
   });
 

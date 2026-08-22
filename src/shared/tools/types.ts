@@ -217,6 +217,10 @@ export interface ToolExecutionResult {
 /** Payload returned by the `prepareConversationTool` path for `outputMode: 'openConversation'`. */
 export interface ConversationToolPayload {
   toolId: string;
+  /** The skill's display name ("Antithesize"), pinned on the conversation it
+   *  launches so downstream provenance — note-history causes (#1158) — can name
+   *  the command the user ran. */
+  toolName: string;
   systemPrompt: string;
   firstMessage: string;
   /** Model to pin on the created conversation. Undefined means track the global default. */

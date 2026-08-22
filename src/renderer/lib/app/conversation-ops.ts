@@ -161,6 +161,9 @@ export function createConversationOps(ctx: ConversationOpsCtx) {
     await conversationsStore.openConversationTab({
       notePath,
       systemPrompt: prep.systemPrompt,
+      // Name the skill on the conversation, so a note revision it later
+      // produces reads as "Antithesize" in the History panel (#1158).
+      skill: { id: prep.toolId, name: prep.toolName },
       ...(prep.model ? { model: prep.model } : {}),
       ...(prep.firstMessage ? { initialMessage: prep.firstMessage } : {}),
       // Honor the skill's declared web preference on the conversation (#1533).
