@@ -429,6 +429,7 @@ exports[`help-docs corpus staleness (#1288) > chunk ids freshly extracted from w
   "settings-skills.html",
   "settings-skills.html#import",
   "settings-skills.html#model-overrides",
+  "settings-skills.html#reset-models",
   "settings-sources.html",
   "settings-sources.html#ingest",
   "settings-sources.html#privileged-sites",

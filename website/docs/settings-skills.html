@@ -101,12 +101,17 @@
     <p>Once a skill is added, it appears right away in its menu, ready to use. Two more buttons sit alongside: <b>Open skills folder</b> opens the place your skills are kept, and <b>Reload</b> refreshes the list after you've edited or dropped in a skill by hand.</p>
 
     <figure class="shot-img">
-      <img src="img/settings-skills.png" alt="The Skills tab: the Add skill / Open skills folder / Reload buttons across the top, and below them the list of skills, each with a switch to turn it on, a menu it belongs to, and a picker to choose its AI model." loading="lazy" />
+      <img src="img/settings-skills.png" alt="The Skills tab: the Import skill / Reveal skills folder / Reload buttons across the top, a Skill models section with a provider picker and a Reset to Default button, and below them the list of skills, each with a switch to turn it on, a menu it belongs to, and a picker to choose its AI model." loading="lazy" />
       <figcaption>Screenshot — the Skills settings panel</figcaption>
     </figure>
 
     <h2 id="model-overrides">Choosing a skill's AI model</h2>
     <p>Each skill has a model picker. Leave it on the default and the skill uses the model it's meant to run on. Pick a specific model instead to pin that one skill to your choice — handy when you want a heavier model for careful analysis, or a faster one for quick tasks. The default option always names the model it would actually use, so there's no guesswork. Your choices apply everywhere you use Minerva on this computer.</p>
+
+    <h2 id="reset-models">Resetting every skill to its default</h2>
+    <p>Each skill's author picked a model for it — the heavier thinking skills get a frontier model, the lighter ones a cheaper sibling — and those choices are written in Anthropic's models. If you work through OpenAI or Google, that's the wrong vocabulary, and re-picking a model on fifty-odd rows by hand is nobody's idea of an evening.</p>
+    <p>Choose a provider next to <b>Reset to Default…</b> and every skill goes back to its author's choice, expressed in that provider's models: the heavy skills land on the frontier model, the light ones on the cheap one. Resetting onto the provider the skills were written for simply clears your pins, so every row reads "Default" again.</p>
+    <p>Only the model pins change. Which skills are switched on, which menu each one sits in, and their order are left exactly as you have them.</p>
 
     <p>To turn a skill on or off, move it to a different menu, or change its order, see <a href="thinking-tools-managing-authoring.html">Thinking tools → Managing &amp; authoring</a>.</p>
 

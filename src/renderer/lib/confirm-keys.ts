@@ -15,6 +15,9 @@ export const CONFIRM_KEYS = {
   historyRestore: 'history-restore',
   /** Summary after labeling the current version of a sidebar selection. */
   historyLabelComplete: 'history-label-complete',
+  /** Resetting every skill's model to its default on a chosen provider —
+   *  overwrites per-skill pins, so it asks first. */
+  resetSkillModels: 'reset-skill-models',
   deletePartialFailure: 'delete-partial-failure',
   deleteSource: 'delete-source',
   /** Closing a conversation archives it, and there's no reopen UI — so it's
@@ -120,6 +123,12 @@ export const CONFIRM_REGISTRY: ConfirmRegistryEntry[] = [
     title: 'Restore note from history',
     description:
       'Prompt before restoring a note to an earlier version from its local history. Non-destructive — the current text is kept as a new revision — so this is easy to turn off.',
+  },
+  {
+    key: CONFIRM_KEYS.resetSkillModels,
+    title: 'Reset skill models to defaults',
+    description:
+      'Confirm before replacing every per-skill model pin with the default for that skill on the chosen provider. Menus, ordering, and which skills are enabled are unaffected.',
   },
   {
     key: CONFIRM_KEYS.historyLabelComplete,
