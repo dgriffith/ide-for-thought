@@ -24,9 +24,19 @@
   import { registerSkillInfos } from '../tools/tool-registry';
   import { getSettingsStore } from '../stores/settings.svelte';
   import { groupedModelOptions, modelLabel } from '../../../shared/tools/models';
+  import {
+    defaultOverridesForProvider,
+    isResettableProvider,
+    RESETTABLE_PROVIDERS,
+    type ResettableProvider,
+  } from '../../../shared/tools/model-tiers';
+  import { providerLabel } from '../../../shared/tools/providers';
+  import { getDialogStore } from '../stores/dialogs.svelte';
+  import { CONFIRM_KEYS } from '../confirm-keys';
   import type { CustomModel } from '../../../shared/tools/types';
 
   const settings = getSettingsStore();
+  const { showConfirm } = getDialogStore();
 
   interface Props {
     /** Per-skill model override map (skill id → model id). Owned + persisted
@@ -49,6 +59,36 @@
   function defaultOptionLabel(skillModel: string | undefined): string {
     const resolved = skillModel || defaultModel;
     return resolved ? `Default · ${modelLabel(resolved)}` : 'Default model';
+  }
+
+  /**
+   * "Reset to Default…" — put every skill back on the model its author chose,
+   * translated into the selected provider's range (see `model-tiers.ts`). Each
+   * skill's declared preference is a statement about how much thinking it
+   * needs; this keeps that judgement and swaps the vendor, rather than
+   * flattening fifty skills onto one flagship.
+   *
+   * Only the model overrides move. Which skills are enabled, which menu each
+   * sits in, and their order are a different kind of choice, and quietly
+   * undoing that from a button about models would be a nasty surprise.
+   */
+  let resetProvider = $state<ResettableProvider>('anthropic');
+
+  async function resetModelsToDefault(): Promise<void> {
+    const label = providerLabel(resetProvider);
+    const ok = await showConfirm(
+      `Put every skill back on its default model, using ${label} models? ` +
+      `Skills that ask for a frontier model get one; the lighter skills get the cheaper model. ` +
+      `Your enabled skills, menus, and ordering are untouched.`,
+      CONFIRM_KEYS.resetSkillModels,
+      'Reset',
+    );
+    if (!ok) return;
+    toolModelOverrides = defaultOverridesForProvider(
+      skillCatalog.skills.map((s) => ({ id: s.id, model: s.model })),
+      resetProvider,
+      defaultModel,
+    );
   }
 
   function setToolOverride(skillId: string, value: string): void {
@@ -203,6 +243,32 @@
     </button>
     <button class="action-btn" onclick={() => { void reloadSkills(); }} disabled={skillsBusy}>
       Reload
+    </button>
+  </div>
+</div>
+
+<div class="field">
+  <span class="field-label">Skill models</span>
+  <p class="hint">
+    Each skill runs on the model its author chose — the heavier thinking skills
+    on a frontier model, the lighter ones on a cheaper sibling — unless you pin
+    a different one on its row below. Resetting restores those choices in the
+    models of whichever provider you work with, so switching provider doesn't
+    mean re-picking a model fifty-odd times.
+  </p>
+  <div class="skill-actions">
+    <select
+      class="reset-provider"
+      aria-label="Provider to reset skill models to"
+      value={resetProvider}
+      onchange={(e) => { if (isResettableProvider(e.currentTarget.value)) resetProvider = e.currentTarget.value; }}
+    >
+      {#each RESETTABLE_PROVIDERS as p (p)}
+        <option value={p}>{providerLabel(p)}</option>
+      {/each}
+    </select>
+    <button class="action-btn" onclick={() => { void resetModelsToDefault(); }}>
+      Reset to Default&hellip;
     </button>
   </div>
 </div>
@@ -430,6 +496,15 @@
   }
   .reorder-btn:hover:not(:disabled) { border-color: var(--accent); }
   .reorder-btn:disabled { opacity: 0.35; cursor: default; }
+  .reset-provider {
+    padding: 4px 8px;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    font-size: 12px;
+    font-family: inherit;
+  }
   .skill-menu-select,
   .skill-model-select {
     font-size: 12px;
