@@ -5,7 +5,7 @@ import type { ClipperState } from '../../../shared/clipper-pairing';
 import type { Proposal } from '../../../shared/proposals';
 import type { MaintenanceProgress } from '../../../shared/maintenance';
 import type { ThemeMode } from '../../../shared/theme';
-import type { LabelNotesResult, RevisionMeta } from '../../../shared/history';
+import type { HistorySettings, LabelNotesResult, RevisionMeta } from '../../../shared/history';
 
 export interface NotebaseApi {
   open(): Promise<NotebaseMeta | null>;
@@ -761,6 +761,11 @@ export interface HistoryApi {
    *  point across a set of notes. Per-note failures come back in `errors`;
    *  the call itself only rejects if nothing could be attempted. */
   labelNotes(relativePaths: string[], label: string): Promise<LabelNotesResult>;
+  /** Per-machine history limits (retention window, per-note cap, size cutoff). */
+  getSettings(): Promise<HistorySettings>;
+  /** Save the limits; resolves to what was actually stored (values are clamped
+   *  to usable ones), and re-prunes the open thoughtbase's history. */
+  setSettings(settings: HistorySettings): Promise<HistorySettings>;
 }
 
 export interface RefactorApi {

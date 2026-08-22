@@ -60,7 +60,7 @@ import type {
 import type { InspectionSettings } from './inspections';
 import type { ClipperState } from './clipper-pairing';
 import type { Proposal } from './proposals';
-import type { LabelNotesResult, RevisionMeta } from './history';
+import type { HistorySettings, LabelNotesResult, RevisionMeta } from './history';
 import type { CellResult, CellOutput, ComputeConsentSummary } from './compute/types';
 import type { AutoLinkSuggestion } from './refactor/auto-link';
 import type { AutoLinkInboundSuggestion } from './refactor/auto-link-inbound';
@@ -200,6 +200,8 @@ export interface ChannelMap {
   'history:restore': (relativePath: string, ts: number) => void;
   'history:setLabel': (relativePath: string, ts: number, label: string | null) => void;
   'history:labelNotes': (relativePaths: string[], label: string) => LabelNotesResult;
+  'history:getSettings': () => HistorySettings;
+  'history:setSettings': (settings: HistorySettings) => HistorySettings;
 
   // Saved queries
   'queries:list': () => SavedQuery[];

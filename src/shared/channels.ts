@@ -602,6 +602,8 @@ export const Channels = {
   HISTORY_RESTORE: 'history:restore',
   HISTORY_SET_LABEL: 'history:setLabel',
   HISTORY_LABEL_NOTES: 'history:labelNotes',
+  HISTORY_GET_SETTINGS: 'history:getSettings',
+  HISTORY_SET_SETTINGS: 'history:setSettings',
 
   /** External file drag-drop ingestion (#259). Renderer hands over OS file paths. */
   FILES_DROP_IMPORT: 'files:dropImport',

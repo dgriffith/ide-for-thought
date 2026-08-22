@@ -11,6 +11,7 @@ import {
   captureSnapshot,
   ensureInitialRevision,
   labelCurrentVersion,
+  pruneAllHistory,
   listRevisions,
   getRevisionContent,
   moveHistory,
@@ -216,5 +217,72 @@ describe('labelCurrentVersion (#1158)', () => {
 
   it('throws for a note that is not there — the caller reports it per-note', async () => {
     await expect(labelCurrentVersion(root, 'notes/ghost.md', 'v1')).rejects.toThrow();
+  });
+});
+
+describe('history limits (#1158)', () => {
+  let root: string;
+  beforeEach(async () => { root = await fs.mkdtemp(path.join(os.tmpdir(), 'minerva-hist-limits-')); });
+  afterEach(async () => { await fs.rm(root, { recursive: true, force: true }); });
+
+  const NOTE = 'notes/a.md';
+  const LIMITS = { retentionDays: 30, maxRevisionsPerNote: 500, maxFileSizeKb: 1 };
+
+  it('skips a note over the size limit entirely — no revision, no snapshot file', async () => {
+    const big = 'x'.repeat(2 * 1024);
+    expect(await captureSnapshot(root, NOTE, big, { origin: 'edit' }, 1000, LIMITS)).toBeNull();
+    expect(await listRevisions(root, NOTE)).toEqual([]);
+  });
+
+  it('measures the limit in bytes, not characters', async () => {
+    // 700 multi-byte chars = 2100 bytes: under a 1024-char reading, over the
+    // 1 KB limit that actually applies.
+    const wide = 'é'.repeat(700);
+    expect(await captureSnapshot(root, NOTE, wide, { origin: 'edit' }, 1000, LIMITS)).toBeNull();
+  });
+
+  it('captures a note under the limit', async () => {
+    expect(await captureSnapshot(root, NOTE, 'small', { origin: 'edit' }, 1000, LIMITS)).not.toBeNull();
+  });
+
+  it('honors a lowered per-note cap and retention window', async () => {
+    const tight = { retentionDays: 30, maxRevisionsPerNote: 2, maxFileSizeKb: 0 };
+    for (let i = 1; i <= 4; i++) {
+      await captureSnapshot(root, NOTE, `v${i}`, { origin: 'edit' }, 1000 * i, tight);
+    }
+    const revs = await listRevisions(root, NOTE);
+    // Newest 2 unlabeled + the exempt baseline.
+    expect(revs.map((r) => r.ts)).toEqual([4000, 3000, 1000]);
+    expect(revs.at(-1)!.initial).toBe(true);
+  });
+});
+
+describe('pruneAllHistory (#1158)', () => {
+  let root: string;
+  beforeEach(async () => { root = await fs.mkdtemp(path.join(os.tmpdir(), 'minerva-hist-prune-')); });
+  afterEach(async () => { await fs.rm(root, { recursive: true, force: true }); });
+
+  const LOOSE = { retentionDays: 3650, maxRevisionsPerNote: 500, maxFileSizeKb: 0 };
+
+  it('re-applies tightened limits across every note, so lowering one frees disk now', async () => {
+    for (const note of ['notes/a.md', 'notes/deep/b.md']) {
+      for (let i = 1; i <= 4; i++) {
+        await captureSnapshot(root, note, `v${i}`, { origin: 'edit' }, 1000 * i, LOOSE);
+      }
+    }
+
+    const result = await pruneAllHistory(root, 5000, { ...LOOSE, maxRevisionsPerNote: 1 });
+
+    expect(result).toEqual({ notes: 2, removed: 4 }); // 2 dropped per note
+    for (const note of ['notes/a.md', 'notes/deep/b.md']) {
+      const revs = await listRevisions(root, note);
+      expect(revs.map((r) => r.ts)).toEqual([4000, 1000]); // newest + baseline
+      // The pruned snapshot files are gone, not just their index entries.
+      expect(await getRevisionContent(root, note, 3000)).toBeNull();
+    }
+  });
+
+  it('is a no-op for a project with no history at all', async () => {
+    expect(await pruneAllHistory(root, 5000, LOOSE)).toEqual({ notes: 0, removed: 0 });
   });
 });

@@ -20,6 +20,7 @@
     type RefactorSettings,
   } from '../refactor/settings';
   import ComputeSettings from './ComputeSettings.svelte';
+  import VersioningSettings from './VersioningSettings.svelte';
   import SkillsSettings from './SkillsSettings.svelte';
   import ObjectTypesSettings from './ObjectTypesSettings.svelte';
   import BibliographySettings from './BibliographySettings.svelte';
@@ -53,7 +54,7 @@
 
   let { onApplyEditor, onApplyFontSize, onThemeChanged, onClose, initialTab }: Props = $props();
 
-  type TabId = 'editor' | 'appearance' | 'behaviors' | 'notes' | 'formatter' | 'objectTypes' | 'inspections' | 'web' | 'sources' | 'clipper' | 'bibliography' | 'compute' | 'ai' | 'skills';
+  type TabId = 'editor' | 'appearance' | 'behaviors' | 'notes' | 'versioning' | 'formatter' | 'objectTypes' | 'inspections' | 'web' | 'sources' | 'clipper' | 'bibliography' | 'compute' | 'ai' | 'skills';
 
   /** Restructure per IMPLEMENTATION.md §10.4 — 10 flat tabs become 4
    *  semantic groups. Group labels render in mono-uppercase above each
@@ -80,6 +81,7 @@
       label: 'Authoring',
       items: [
         { id: 'notes',        label: 'Notes',        sub: 'Refactoring · excerpt destinations' },
+        { id: 'versioning',   label: 'Versioning',   sub: 'History retention · size limits' },
         { id: 'formatter',    label: 'Formatter',    sub: 'House style · format rules' },
         { id: 'objectTypes',  label: 'Object Types', sub: 'Create · delete · duplicate types' },
         { id: 'inspections',  label: 'Inspections',  sub: 'Which health checks run · thresholds' },
@@ -322,6 +324,9 @@
 
         {:else if activeTab === 'inspections'}
           <InspectionsSettings />
+
+        {:else if activeTab === 'versioning'}
+          <VersioningSettings />
 
         {:else if activeTab === 'notes'}
           <h3 class="settings-subsection">Refactoring</h3>

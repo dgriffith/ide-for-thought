@@ -28,6 +28,10 @@ export function getSettingsStore() {
     setInspectionSettings: (settings: Parameters<typeof api.graph.setInspectionSettings>[0]) =>
       api.graph.setInspectionSettings(settings),
 
+    // ── Versioning / note history (#1158) ─────────────────────────────────
+    setHistorySettings: (settings: Parameters<typeof api.history.setSettings>[0]) =>
+      api.history.setSettings(settings),
+
     // ── LLM / tools ───────────────────────────────────────────────────────
     setToolSettings: (update: Parameters<typeof api.tools.setSettings>[0]) =>
       api.tools.setSettings(update),
