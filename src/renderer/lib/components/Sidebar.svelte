@@ -61,6 +61,8 @@
     onNewFolder: (directory: string) => void;
     onDelete: (relativePath: string, isDirectory: boolean) => void;
     onAddTag?: (relativePath: string, isDirectory: boolean) => void;
+    /** Name the current version of the selected notes (#1158). */
+    onLabelVersion?: (relativePath: string, isDirectory: boolean) => void;
     onRemoveTag?: (relativePath: string, isDirectory: boolean) => void;
     onAddProperty?: (relativePath: string, isDirectory: boolean) => void;
     onRemoveProperty?: (relativePath: string, isDirectory: boolean) => void;
@@ -95,7 +97,7 @@
     canPaste?: boolean;
   }
 
-  let { files, rootName, activeFilePath, onFileSelect, onNavigate, onOpenAtOffset, onNewNote, onNewFolder, onDelete, onAddTag, onRemoveTag, onAddProperty, onRemoveProperty, onFormat, onRename, onMerge, onCut, onCopy, onPaste, onMove, onBookmark, onToggleEntrypoint, onSourceSelect, onOpenExcerpt, onOpenType, onOpenView, onManageViews, onSourceDeleted, onShowConfirm, onShowPrompt, onMineReferences, onTableClick, onOpenCsv, onOpenNote, onExternalDrop, canPaste = false }: Props = $props();
+  let { files, rootName, activeFilePath, onFileSelect, onNavigate, onOpenAtOffset, onNewNote, onNewFolder, onDelete, onAddTag, onLabelVersion, onRemoveTag, onAddProperty, onRemoveProperty, onFormat, onRename, onMerge, onCut, onCopy, onPaste, onMove, onBookmark, onToggleEntrypoint, onSourceSelect, onOpenExcerpt, onOpenType, onOpenView, onManageViews, onSourceDeleted, onShowConfirm, onShowPrompt, onMineReferences, onTableClick, onOpenCsv, onOpenNote, onExternalDrop, canPaste = false }: Props = $props();
   let activePanel = $state<PanelType>('notes');
   let rootDropHover = $state(false);
   let rootExpanded = $state(true);
@@ -645,6 +647,7 @@
               {onNewFolder}
               {onDelete}
               {onAddTag}
+              {onLabelVersion}
               {onRemoveTag}
               {onAddProperty}
               {onRemoveProperty}

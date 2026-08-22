@@ -20,6 +20,7 @@ export {
   getRevisionContent,
   moveHistory,
   setRevisionLabel,
+  labelCurrentVersion,
 } from './store';
 export type { RevisionMeta, RevisionOrigin, RevisionSource } from './policy';
 

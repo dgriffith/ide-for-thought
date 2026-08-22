@@ -45,6 +45,18 @@ export interface RevisionSource {
   cause?: string;
 }
 
+/**
+ * Outcome of labeling the current version of several notes at once. The call
+ * succeeds even when individual notes fail (a per-item outcome catalog, not a
+ * failure channel): `labeled` is what got a named restore point, `errors`
+ * explains each note that didn't.
+ */
+export interface LabelNotesResult {
+  label: string;
+  labeled: string[];
+  errors: { path: string; error: string }[];
+}
+
 /** Display text for a revision's cause, with an origin-derived fallback for
  *  revisions captured before causes were recorded. */
 export function describeRevisionCause(rev: Pick<RevisionMeta, 'origin' | 'cause' | 'initial'>): string {

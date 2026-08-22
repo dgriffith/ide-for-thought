@@ -21,6 +21,7 @@ const h = vi.hoisted(() => {
     tags: { list: vi.fn() },
     graph: { frontmatterKeys: vi.fn() },
     formatter: { formatFile: vi.fn(), formatContent: vi.fn() },
+    history: { labelNotes: vi.fn() },
     bibliography: { generate: vi.fn() },
   };
   const notebase = {
@@ -204,6 +205,50 @@ describe('handleAddTag', () => {
     await ops.handleAddTag('note.md', false);
     expect(h.dialog.showConfirm).toHaveBeenCalled();
     expect(h.editor.reloadTabFromDisk).not.toHaveBeenCalled();
+  });
+});
+
+describe('handleLabelVersion (#1158)', () => {
+  it('confirms "no .md files" and labels nothing with an empty selection and no fallback', async () => {
+    await ops.handleLabelVersion();
+    expect(h.dialog.showConfirm).toHaveBeenCalled();
+    expect(h.api.history.labelNotes).not.toHaveBeenCalled();
+  });
+
+  it('labels the whole sidebar selection under one name', async () => {
+    sidebar.getSelectionPaths.mockReturnValue(['a.md', 'b.md']);
+    h.notebase.files = [
+      { name: 'a.md', relativePath: 'a.md', isDirectory: false },
+      { name: 'b.md', relativePath: 'b.md', isDirectory: false },
+    ];
+    h.dialog.showPrompt.mockResolvedValue('before refactor');
+    h.api.history.labelNotes.mockResolvedValue({ label: 'before refactor', labeled: ['a.md', 'b.md'], errors: [] });
+
+    await ops.handleLabelVersion();
+
+    expect(h.api.history.labelNotes).toHaveBeenCalledWith(['a.md', 'b.md'], 'before refactor');
+    // A version label is a restore point, not a note edit — nothing is written
+    // to the notes themselves.
+    expect(h.api.notebase.writeFile).not.toHaveBeenCalled();
+  });
+
+  it('does nothing when the prompt is cancelled or left empty', async () => {
+    h.dialog.showPrompt.mockResolvedValue(null);
+    await ops.handleLabelVersion('note.md', false);
+    h.dialog.showPrompt.mockResolvedValue('   ');
+    await ops.handleLabelVersion('note.md', false);
+    expect(h.api.history.labelNotes).not.toHaveBeenCalled();
+  });
+
+  it('reports per-note failures in the summary instead of failing the batch', async () => {
+    h.dialog.showPrompt.mockResolvedValue('v1');
+    h.api.history.labelNotes.mockResolvedValue({
+      label: 'v1', labeled: [], errors: [{ path: 'note.md', error: 'ENOENT' }],
+    });
+    await ops.handleLabelVersion('note.md', false);
+    const [msg] = h.dialog.showConfirm.mock.calls.at(-1)!;
+    expect(msg).toContain('Labeled 0 of 1 note as "v1"');
+    expect(msg).toContain('ENOENT');
   });
 });
 

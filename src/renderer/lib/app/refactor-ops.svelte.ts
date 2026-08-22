@@ -436,6 +436,40 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
   }
 
   /**
+   * Label the CURRENT version of every .md in the selection — a named restore
+   * point across a set of notes ("before the big refactor"). Nothing is
+   * written to the notes themselves: the label lands on each note's newest
+   * history revision, which also exempts it from pruning, so the restore point
+   * survives past the retention window.
+   */
+  async function handleLabelVersion(targetPath?: string, targetIsDir?: boolean, opts?: { targetOnly?: boolean }) {
+    if (!notebase.meta) return;
+    const targets = bulkTagTargets(targetPath, targetIsDir, opts?.targetOnly);
+    if (targets === null || targets.length === 0) {
+      await showConfirm(
+        'The selection contains no .md files to label.',
+        CONFIRM_KEYS.bulkTagNoSelection,
+        'OK',
+      );
+      return;
+    }
+
+    const raw = await showPrompt(
+      `Name the current version of ${targets.length} note${targets.length === 1 ? '' : 's'}:`,
+    );
+    if (raw === null) return;
+    const label = raw.trim();
+    if (!label) return;
+
+    const result = await api.history.labelNotes(targets, label);
+    await reportBulkSummary(
+      `Labeled ${result.labeled.length} of ${targets.length} note${targets.length === 1 ? '' : 's'} as "${label}".`,
+      result.errors.map((e) => ({ path: e.path, error: e.error })),
+      CONFIRM_KEYS.historyLabelComplete,
+    );
+  }
+
+  /**
    * Toggle the `entrypoint` tag on a single note. Adds it when absent,
    * removes it when present — the menu prefetches the current state to
    * label itself, but the actual decision happens here against the
@@ -772,6 +806,7 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
     handleExtractSelection, handleSplitByHeading, handleSplitHere,
     handleAutoLink, handleAutoLinkInbound, handleAutoLinkInboundApply, handleAutoLinkApply,
     handleAddTag, handleRemoveTag, handleAddProperty, handleRemoveProperty, handleToggleEntrypoint,
+    handleLabelVersion,
     handleFormat, handleBibliography, handleAutoTag, handleAutoTagApply,
   };
 }

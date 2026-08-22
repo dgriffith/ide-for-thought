@@ -87,9 +87,12 @@
      *  (Mark vs Unmark) on the menu item. */
     onToggleEntrypoint?: ((relativePath: string, currentlyEntrypoint: boolean) => void) | undefined;
     onExternalDrop?: ((destDirectory: string, files: FileList) => void) | undefined;
+    /** Name the current version of every note in the selection (#1158) — a
+     *  restore point, not a note edit. */
+    onLabelVersion?: ((relativePath: string, isDirectory: boolean) => void) | undefined;
   }
 
-  let { files, activeFilePath, depth = 0, canPaste = false, expanded, selection, focusedPath, onToggleDir, onItemClick, onNewNote, onNewFolder, onDelete, onAddTag, onRemoveTag, onAddProperty, onRemoveProperty, onFormat, onContextMenuTarget, onRename, onMerge, onCut, onCopy, onPaste, onMove, onBookmark, onToggleEntrypoint, onExternalDrop }: Props = $props();
+  let { files, activeFilePath, depth = 0, canPaste = false, expanded, selection, focusedPath, onToggleDir, onItemClick, onNewNote, onNewFolder, onDelete, onAddTag, onRemoveTag, onAddProperty, onRemoveProperty, onFormat, onContextMenuTarget, onRename, onMerge, onCut, onCopy, onPaste, onMove, onBookmark, onToggleEntrypoint, onExternalDrop, onLabelVersion }: Props = $props();
 
   let contextMenu = $state<{ x: number; y: number; dir: string; target?: string | undefined; targetIsDir?: boolean | undefined; targetIsEntrypoint?: boolean | null } | null>(null);
   let contextMenuEl = $state<HTMLDivElement | undefined>();
@@ -264,6 +267,7 @@
             {onBookmark}
             {onToggleEntrypoint}
             {onExternalDrop}
+            {onLabelVersion}
           />
         {/if}
       {:else}
@@ -387,6 +391,12 @@
             Format
           </button>
         {/if}
+      {/if}
+      {#if onLabelVersion}
+        <div class="separator"></div>
+        <button onclick={() => { onLabelVersion?.(contextMenu!.target!, contextMenu!.targetIsDir!); contextMenu = null; }}>
+          Label Version&hellip;
+        </button>
       {/if}
       <div class="separator"></div>
       <button onclick={() => { onDelete(contextMenu!.target!, contextMenu!.targetIsDir!); contextMenu = null; }}>

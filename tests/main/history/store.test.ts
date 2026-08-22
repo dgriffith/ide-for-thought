@@ -10,6 +10,7 @@ import os from 'node:os';
 import {
   captureSnapshot,
   ensureInitialRevision,
+  labelCurrentVersion,
   listRevisions,
   getRevisionContent,
   moveHistory,
@@ -163,5 +164,57 @@ describe('ensureInitialRevision (#1158)', () => {
     await writeNote('the original', now + 60_000); // clock skew / copied file
     const meta = await ensureInitialRevision(root, NOTE, now);
     expect(meta!.ts).toBe(now - 1);
+  });
+});
+
+describe('labelCurrentVersion (#1158)', () => {
+  let root: string;
+  beforeEach(async () => { root = await fs.mkdtemp(path.join(os.tmpdir(), 'minerva-hist-label-')); });
+  afterEach(async () => { await fs.rm(root, { recursive: true, force: true }); });
+
+  const NOTE = 'notes/a.md';
+
+  async function writeNote(content: string): Promise<void> {
+    await fs.mkdir(path.join(root, 'notes'), { recursive: true });
+    await fs.writeFile(path.join(root, NOTE), content, 'utf-8');
+  }
+
+  it('labels the newest revision when it already matches what is on disk', async () => {
+    await writeNote('current text');
+    await captureSnapshot(root, NOTE, 'current text', { origin: 'edit' }, 1000);
+
+    const labeled = await labelCurrentVersion(root, NOTE, 'before refactor', 2000);
+
+    expect(labeled).toMatchObject({ ts: 1000, label: 'before refactor' });
+    const revs = await listRevisions(root, NOTE);
+    expect(revs).toHaveLength(1); // no spurious extra revision
+    expect(revs[0]!.label).toBe('before refactor');
+  });
+
+  it('captures the current text first when history has drifted from disk', async () => {
+    // The note was changed outside the app since its last capture — labeling
+    // the stale newest revision would point the restore point at text the user
+    // never saw.
+    await captureSnapshot(root, NOTE, 'stale', { origin: 'edit' }, 1000);
+    await writeNote('changed outside the app');
+
+    const labeled = await labelCurrentVersion(root, NOTE, 'v1', 2000);
+
+    expect(labeled.ts).toBe(2000);
+    expect(await getRevisionContent(root, NOTE, labeled.ts)).toBe('changed outside the app');
+    expect(labeled.cause).toBe('External change');
+    expect((await listRevisions(root, NOTE)).map((r) => r.label)).toEqual(['v1', undefined]);
+  });
+
+  it('gives a note with no history a baseline, then labels it', async () => {
+    await writeNote('the original');
+    const labeled = await labelCurrentVersion(root, NOTE, 'v1', 5_000_000);
+    const revs = await listRevisions(root, NOTE);
+    expect(revs).toHaveLength(1);
+    expect(revs[0]).toMatchObject({ ts: labeled.ts, initial: true, label: 'v1' });
+  });
+
+  it('throws for a note that is not there — the caller reports it per-note', async () => {
+    await expect(labelCurrentVersion(root, 'notes/ghost.md', 'v1')).rejects.toThrow();
   });
 });
