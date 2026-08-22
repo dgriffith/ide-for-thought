@@ -63,12 +63,15 @@
   });
 
   // Diff the selected revision → current text (so restore visibly undoes what's
-  // shown). null selection or an identical revision shows nothing.
+  // shown). null selection or an identical revision shows nothing. Note
+  // `isIdentical` is about CONTENT, not recency — an older revision the note was
+  // later restored (or edited back) to matches too, which is why the panel says
+  // "Contents are identical" rather than "this is the current version".
   const diff = $derived(
     selectedContent === null ? [] : diffLines(selectedContent, content),
   );
   const stats = $derived(diffStats(diff));
-  const isCurrent = $derived(selectedContent !== null && selectedContent === content);
+  const isIdentical = $derived(selectedContent !== null && selectedContent === content);
 
   async function restore(): Promise<void> {
     if (!activeFilePath || selectedTs === null || !onRestore) return;
@@ -102,14 +105,14 @@
 
     {#if selectedTs !== null}
       <div class="diff-head">
-        {#if isCurrent}
-          <span class="same">This is the current version.</span>
+        {#if isIdentical}
+          <span class="same">Contents are identical.</span>
         {:else}
           <span class="counts"><span class="add">+{stats.added}</span> <span class="rem">−{stats.removed}</span></span>
           <button class="restore" type="button" onclick={restore} disabled={!onRestore}>Restore</button>
         {/if}
       </div>
-      {#if !isCurrent}
+      {#if !isIdentical}
         <div class="diff">
           {#each diff as line, i (i)}
             <div class="line {line.type}"><span class="gutter">{line.type === 'add' ? '+' : line.type === 'remove' ? '−' : ' '}</span>{line.text || ' '}</div>

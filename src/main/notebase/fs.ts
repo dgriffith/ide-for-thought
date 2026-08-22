@@ -5,7 +5,7 @@ import path from 'node:path';
 import type { NoteFile, NotebaseMeta } from '../../shared/types';
 import { resolveDisplayName } from '../project-config';
 import { defaultThoughtbaseDir } from '../recent-projects';
-import { onNoteWritten, moveHistory } from '../history';
+import { onNoteWriting, onNoteWritten, moveHistory, runWithHistorySource } from '../history';
 
 const IGNORED_DIRS = new Set(['.git', 'node_modules', '.minerva', '.obsidian']);
 
@@ -168,6 +168,10 @@ export async function fileExists(rootPath: string, relativePath: string): Promis
 export async function writeFile(rootPath: string, relativePath: string, content: string): Promise<void> {
   const fullPath = assertSafePath(rootPath, relativePath);
   await fs.mkdir(path.dirname(fullPath), { recursive: true });
+  // Before clobbering: give a note that has no history yet a baseline revision
+  // from what's on disk, so the pre-edit state of a note that pre-dates its
+  // history is still recoverable (#1158).
+  await onNoteWriting(rootPath, relativePath);
   await fs.writeFile(fullPath, content, 'utf-8');
   // Record the saved state in local per-note history (#1158). Best-effort — the
   // hook swallows its own errors so a history failure can't fail the save.
@@ -178,6 +182,10 @@ export async function createFile(rootPath: string, relativePath: string): Promis
   const fullPath = assertSafePath(rootPath, relativePath);
   await fs.mkdir(path.dirname(fullPath), { recursive: true });
   await fs.writeFile(fullPath, '', 'utf-8');
+  // A new note starts with an empty baseline in its history, so "back to the
+  // beginning" is a real destination from the very first edit.
+  await runWithHistorySource({ origin: 'edit', cause: 'Initial version' }, () =>
+    onNoteWritten(rootPath, relativePath, ''));
 }
 
 export async function deleteFile(rootPath: string, relativePath: string): Promise<void> {
