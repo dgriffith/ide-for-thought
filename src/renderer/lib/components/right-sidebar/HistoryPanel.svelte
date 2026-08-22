@@ -139,8 +139,10 @@
           oncontextmenu={(e) => openMenu(e, rev)}
         >
           <span class="when">{formatDateTime(rev.ts, now)}</span>
-          <span class="cause" class:ai={rev.origin === 'proposal'}>{describeRevisionCause(rev)}</span>
+          <!-- The name chip sits beside the timestamp (row 1, column 2); the
+               cause spans the row below it. -->
           {#if rev.label}<span class="tag">{rev.label}</span>{/if}
+          <span class="cause" class:ai={rev.origin === 'proposal'}>{describeRevisionCause(rev)}</span>
         </li>
       {/each}
     </ul>
@@ -198,6 +200,8 @@
   }
   .cause.ai { color: color-mix(in oklch, var(--accent) 70%, var(--text-muted)); }
   .tag {
+    justify-self: end; max-width: 100%;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     font-size: 10px; text-transform: uppercase; letter-spacing: 0.3px;
     color: var(--accent); border: 1px solid color-mix(in oklch, var(--accent) 40%, var(--border));
     border-radius: 3px; padding: 0 4px;
