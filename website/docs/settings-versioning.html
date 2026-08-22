@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Minerva — Docs — Footnotes Panel</title>
-<meta name="description" content="The Footnotes panel lists every footnote in the note you're reading, lets you jump to where each one is used, and flags footnotes that have drifted out of sync." />
+<title>Minerva — Docs — Versioning</title>
+<meta name="description" content="Settings for how long Minerva keeps each note's saved versions, how many it keeps per note, and how big a file can get before it stops being recorded." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -61,21 +61,23 @@
     <h4>The workspace</h4>
     <a href="left-sidebar.html">Left sidebar</a>
     <a href="right-sidebar.html">Right sidebar</a>
-    <a href="right-sidebar-backlinks.html" class="sub">Backlinks</a>
-    <a href="right-sidebar-outgoing-links.html" class="sub">Outgoing links</a>
-    <a href="right-sidebar-outline.html" class="sub">Outline</a>
-    <a href="right-sidebar-properties.html" class="sub">Properties</a>
-    <a href="right-sidebar-citations.html" class="sub">Citations</a>
-    <a href="right-sidebar-tags.html" class="sub">Tags</a>
-    <a href="right-sidebar-related.html" class="sub">Related</a>
-    <a href="right-sidebar-footnotes.html" class="sub active">Footnotes</a>
-    <a href="right-sidebar-history.html" class="sub">History</a>
-    <a href="right-sidebar-tables.html" class="sub">Tables</a>
-    <a href="right-sidebar-heading-graph.html" class="sub">Heading graph</a>
-    <a href="right-sidebar-bookmarks.html" class="sub">Bookmarks</a>
-    <a href="right-sidebar-inspections.html" class="sub">Inspections</a>
     <a href="conversations.html">Conversations</a>
     <a href="settings.html">Settings</a>
+    <a href="settings-editor.html" class="sub">Editor</a>
+    <a href="settings-appearance.html" class="sub">Appearance</a>
+    <a href="settings-behaviors.html" class="sub">Behaviors</a>
+    <a href="settings-notes.html" class="sub">Notes</a>
+    <a href="settings-versioning.html" class="sub active">Versioning</a>
+    <a href="settings-formatter.html" class="sub">Formatter</a>
+    <a href="settings-object-types.html" class="sub">Object Types</a>
+    <a href="settings-inspections.html" class="sub">Inspections</a>
+    <a href="settings-bibliography.html" class="sub">Bibliography</a>
+    <a href="settings-web.html" class="sub">Web</a>
+    <a href="settings-sources.html" class="sub">Sources</a>
+    <a href="settings-clipper.html" class="sub">Clipper</a>
+    <a href="settings-compute.html" class="sub">Compute</a>
+    <a href="settings-ai.html" class="sub">AI</a>
+    <a href="settings-skills.html" class="sub">Skills</a>
 
     <h4>Data &amp; workflows</h4>
     <a href="refactoring.html">Refactoring</a>
@@ -89,47 +91,55 @@
 
   <!-- ===== Content ===== -->
   <main class="docs-content">
-    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="right-sidebar.html">Right sidebar</a><span class="sep">/</span>Footnotes</p>
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="settings.html">Settings</a><span class="sep">/</span>Versioning</p>
 
-    <h1>Footnotes</h1>
-    <p class="lede">The <b>Footnotes</b> panel gathers every footnote in the note you're reading into one tidy list, so you can see them at a glance and jump straight to where each one is used. It also quietly flags footnotes that have drifted out of sync.</p>
+    <h1>Versioning</h1>
+    <p class="lede">Minerva keeps a copy of every version of every note you save, so you can read them and put one back from the <a href="right-sidebar-history.html">History panel</a>. That costs disk, and these three settings decide how much: how long a version lives, how many pile up for one note, and how big a file has to get before it stops being recorded.</p>
 
-    <p>Want to know how to write footnotes in the first place — the markup, how they look, and clicking to jump between a note and its footnote? See <a href="notes-footnotes.html">Notes → Footnotes</a>. This page is about the panel itself.</p>
+    <figure class="shot-img">
+      <img src="img/settings-versioning.png" alt="The Versioning panel in Settings, showing the three limits: keep versions for 30 days, 500 versions per note, and a 1024 KB maximum file size." loading="lazy" />
+      <figcaption>Screenshot — Settings → Versioning</figcaption>
+    </figure>
 
-    <h2 id="layout">Reading the panel</h2>
-    <p>Each row shows a footnote's label and a one-line preview of its text, listed in the order they appear in your note. Start typing in the search box at the top to narrow the list to footnotes whose label or text matches — the results update as you type, and only this note is searched.</p>
-    <p><b>Click a row</b> to jump to where that footnote is used in your note, so you can pick up right where it belongs.</p>
-
-    <h2 id="stale">Footnotes that have drifted</h2>
-    <p>The panel also catches the two ways a footnote can fall out of sync, each shown as its own row with a small note underneath:</p>
-
+    <h2 id="limits">The three limits</h2>
     <div class="deflist">
       <div class="row">
-        <div class="k">Written but never used</div>
-        <div class="v">A footnote you've written that nothing in the note points to. It isn't broken — just unused — so it's shown in a muted style. Click it to jump to the footnote.</div>
+        <div class="k">Keep versions for</div>
+        <div class="v">How many days an unnamed version lives before it's dropped. Default: <b>30</b>. Raise it if you want a longer memory; lower it if history is using more disk than it's worth to you.</div>
       </div>
       <div class="row">
-        <div class="k">Used but never written</div>
-        <div class="v">A spot in your text that refers to a footnote you haven't written yet. Click it to jump to that spot so you can fill in the missing footnote.</div>
+        <div class="k">Versions per note</div>
+        <div class="v">How many unnamed versions to keep for a single note, newest first. Default: <b>500</b>. This is the backstop for a long editing session, which can otherwise produce hundreds of versions of one note in an afternoon.</div>
+      </div>
+      <div class="row">
+        <div class="k">Maximum file size</div>
+        <div class="v">Files bigger than this get no history at all. Default: <b>1024 KB</b> — far above any note you'd write by hand, and low enough that a large generated <code>.csv</code> isn't copied on every save. Set it to <code>0</code> if you'd rather have history on everything and have the disk for it.</div>
       </div>
     </div>
 
-    <figure class="shot-img panel">
-      <img src="img/right-sidebar-footnotes.png" alt="The Footnotes panel with text typed into its search box, narrowing the list to a few matching rows below — one flagged as written but never used, one flagged as used but never written, and ordinary rows each showing a label and a preview of the footnote text." loading="lazy" />
-      <figcaption>Screenshot — Footnotes panel with search and drift flags</figcaption>
-    </figure>
+    <div class="box">
+      <span class="label">Two versions are never dropped</span>
+      <p>Neither limit touches a version you've <a href="right-sidebar-history.html#naming">named</a>, or a note's <b>initial version</b>. A name is a deliberate "keep this", and the initial version is what "undo everything" gets you back to — losing either to a retention rule would defeat the point of keeping history at all. Neither is what fills a disk.</p>
+    </div>
 
-    <h2 id="empty">When there's nothing to show</h2>
-    <p>If a note has no footnotes, the panel simply says <i>"No footnotes."</i> If it has footnotes but none match what you've typed, it says <i>"No matches"</i> instead — so you can always tell whether the note is empty or your search is just too narrow.</p>
+    <h2 id="lowering">What happens when you lower a limit</h2>
+    <p>The open thoughtbase is re-pruned as soon as you change a setting, so tightening a limit frees the disk immediately rather than gradually as you happen to edit each note. Other thoughtbases on this machine catch up the next time each of their notes is saved.</p>
+    <p>Pruning removes stored versions permanently. If there's a state of a note you want to survive a shorter retention window, name it first.</p>
+
+    <h2 id="per-machine">Per-machine, not per-thoughtbase</h2>
+    <p>These limits are stored for this computer and apply to every thoughtbase you open on it — what they're budgeting is this machine's disk, and the same thoughtbase on a roomier machine can reasonably keep more. The history itself is per-thoughtbase: it lives in the <code>.minerva</code> folder beside the notes, so a thoughtbase carries its own past with it if you move it.</p>
+
+    <h2 id="what-is-recorded">What gets recorded</h2>
+    <p>Every save of every note — markdown and the <code>.csv</code>, <code>.ttl</code> and <code>.py</code> notes alike — whether the save came from you, from a <a href="thinking-tools.html">thinking tool</a>, or from restoring an earlier version. Attachments and images aren't notes and aren't recorded. Neither is anything inside <code>.minerva</code> itself.</p>
 
     <div class="pager">
-      <a class="prev" href="right-sidebar-related.html">
+      <a class="prev" href="settings-notes.html">
         <span class="dir">Previous</span>
-        <span class="ttl">← Related</span>
+        <span class="ttl">← Notes</span>
       </a>
-      <a class="next" href="right-sidebar-history.html">
+      <a class="next" href="settings-formatter.html">
         <span class="dir">Next</span>
-        <span class="ttl">History →</span>
+        <span class="ttl">Formatter →</span>
       </a>
     </div>
   </main>

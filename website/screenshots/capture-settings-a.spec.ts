@@ -19,6 +19,7 @@ const SETTINGS_SHOTS: Shot[] = [
   { id: 'settings-appearance',   tab: 'Appearance' },
   { id: 'settings-behaviors',    tab: 'Behaviors' },
   { id: 'settings-notes',        tab: 'Notes' },
+  { id: 'settings-versioning',   tab: 'Versioning' },
   { id: 'settings-formatter',    tab: 'Formatter' },
   { id: 'settings-bibliography', tab: 'Bibliography', settle: 800 },
 ];

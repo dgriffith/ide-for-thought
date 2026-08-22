@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — History</title>
+<meta name="description" content="The right sidebar's History panel keeps every saved version of a note, says what caused each one, and puts an old version back with one click." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../privacy.html" class="hide-sm">Privacy</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="thoughtbase.html">What is a thoughtbase?</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="editor.html">Editor</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="right-sidebar-backlinks.html" class="sub">Backlinks</a>
+    <a href="right-sidebar-outgoing-links.html" class="sub">Outgoing links</a>
+    <a href="right-sidebar-outline.html" class="sub">Outline</a>
+    <a href="right-sidebar-properties.html" class="sub">Properties</a>
+    <a href="right-sidebar-citations.html" class="sub">Citations</a>
+    <a href="right-sidebar-tags.html" class="sub">Tags</a>
+    <a href="right-sidebar-related.html" class="sub">Related</a>
+    <a href="right-sidebar-footnotes.html" class="sub">Footnotes</a>
+    <a href="right-sidebar-history.html" class="sub active">History</a>
+    <a href="right-sidebar-tables.html" class="sub">Tables</a>
+    <a href="right-sidebar-heading-graph.html" class="sub">Heading graph</a>
+    <a href="right-sidebar-bookmarks.html" class="sub">Bookmarks</a>
+    <a href="right-sidebar-inspections.html" class="sub">Inspections</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="settings.html">Settings</a>
+
+    <h4>Data &amp; workflows</h4>
+    <a href="refactoring.html">Refactoring</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="data.html">Data</a>
+    <a href="ingest.html">Ingest</a>
+    <a href="export.html">Export</a>
+    <a href="connecting.html">Connecting to Minerva</a>
+    <a href="maintenance.html">Maintenance</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="right-sidebar.html">Right sidebar</a><span class="sep">/</span>History</p>
+
+    <h1>History</h1>
+    <p class="lede">Every time a note is saved, Minerva keeps a copy of what it looked like before. This panel is where you read that record: a list of versions with the date, the time, and a line saying what produced each one — your own edit, a thinking tool, a restore. Pick a version to see what changed since, and put it back with one click if you'd rather have it.</p>
+
+    <div class="box">
+      <span class="label">This is not git</span>
+      <p>Nothing here needs setting up, and none of it is a commit. History is kept automatically, on this machine, for every note — including the <code>.csv</code>, <code>.ttl</code> and <code>.py</code> notes, not just the markdown ones. It lives in the <code>.minerva</code> folder beside your notes and never leaves your computer, so it isn't part of <a href="export-publishing.html">publishing</a> and doesn't travel with a note you export.</p>
+    </div>
+
+    <h2 id="timeline">Reading the timeline</h2>
+    <p>Versions are listed newest first. Each row carries two lines: when the version was saved, and what caused it.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">The date and time</div>
+        <div class="v">To the minute, because two versions saved a minute apart are exactly the ones you need to tell apart. The year is shown only when it isn't this one.</div>
+      </div>
+      <div class="row">
+        <div class="k">What caused it</div>
+        <div class="v">The line underneath names the action, not the machinery. A save you made reads <b>Edit</b>. A version a thinking tool produced carries that skill's name — <b>Antithesize</b>, <b>Auto-tag</b> — so you can see at a glance which changes were yours and which weren't.</div>
+      </div>
+      <div class="row">
+        <div class="k">Initial version</div>
+        <div class="v">The oldest version of every note, and the one "undo everything" gets you back to. It's created the first time a note is written through Minerva — including for notes that already existed before there was any history, whose text is captured before your first edit lands on top of it. It is never dropped, however old it gets.</div>
+      </div>
+      <div class="row">
+        <div class="k">Restored from…</div>
+        <div class="v">Restoring is itself a save, so it appears as a new version naming the one you brought back. A timeline with several restores in it still reads in order.</div>
+      </div>
+      <div class="row">
+        <div class="k">A name</div>
+        <div class="v">Versions you've named show the name as a chip on the right. See <a href="#naming">naming a version</a> below.</div>
+      </div>
+    </div>
+
+    <figure class="shot-img panel-wide">
+      <img src="img/right-sidebar-history.png" alt="The History panel showing five versions of a note — an AI rewrite, a version named 'before rewrite', an Auto-tag change, an edit, and the initial version — with the selected version's differences shown below as added and removed lines." loading="lazy" />
+      <figcaption>Screenshot — the History panel, with a version selected and its differences below</figcaption>
+    </figure>
+
+    <h2 id="comparing">Comparing and restoring</h2>
+    <p>Click any version to compare it with the note as it stands now. The count at the top says how many lines would be added and removed, and the lines themselves are listed below — added in green, removed in red.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Restore</div>
+        <div class="v">Puts the selected version's text back into the note. Nothing is lost: the text you're replacing is saved as a version of its own first, so restoring the wrong one costs you a second click, not your work. The open editor reloads to match.</div>
+      </div>
+      <div class="row">
+        <div class="k">"Contents are identical"</div>
+        <div class="v">Shown instead of a comparison when the version you picked matches the note's current text word for word — which happens for the newest version, and for any older one you've since edited your way back to. There's nothing to restore, so no button is offered.</div>
+      </div>
+    </div>
+
+    <h2 id="naming">Naming a version</h2>
+    <p>A date and time tells you when something happened, not why it mattered. Right-click any version and choose <b>Label Version…</b> to give it a name — <i>before rewrite</i>, <i>submitted draft</i>, <i>last good copy</i> — and it becomes easy to find weeks later. Right-clicking a version that already has one offers <b>Rename Label…</b> and <b>Remove Label</b> instead.</p>
+
+    <div class="box">
+      <span class="label">Named versions don't expire</span>
+      <p>Unnamed versions are dropped once they age out of the retention window or fall off the per-note limit (see <a href="settings-versioning.html">Settings → Versioning</a>). A named version is exempt from both — naming one is how you keep a particular state of a note indefinitely.</p>
+    </div>
+
+    <figure class="shot-img panel-wide">
+      <img src="img/right-sidebar-history-label.png" alt="Right-clicking a version in the History panel opens a small menu offering 'Label Version…'." loading="lazy" />
+      <figcaption>Screenshot — naming a version from the timeline</figcaption>
+    </figure>
+
+    <h2 id="many-notes">Naming several notes at once</h2>
+    <p>A restore point is often bigger than one note. In the <a href="left-sidebar-notes-tree.html">Notes panel</a>, select the notes (or a folder) you're about to change, right-click and choose <b>Label Version…</b>: the current version of every note in the selection gets the same name. One name, one moment, however many notes — the thing to reach for before a refactor or a big AI-assisted pass.</p>
+    <p>Nothing is written into the notes themselves; the name is attached to their history, exactly as it would be from this panel. Notes that can't be labelled are reported afterwards, and the rest still get their restore point.</p>
+
+    <h2 id="limits">How much is kept</h2>
+    <p>By default a note keeps its unnamed versions for 30 days, up to 500 of them, and files over 1 MB aren't recorded at all. All three are adjustable — see <a href="settings-versioning.html">Settings → Versioning</a>.</p>
+
+    <div class="pager">
+      <a class="prev" href="right-sidebar-footnotes.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← Footnotes</span>
+      </a>
+      <a class="next" href="right-sidebar-tables.html">
+        <span class="dir">Next</span>
+        <span class="ttl">Tables →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a><a href="https://davegriffith.substack.com/">Dancing with Robots</a></div>
+      <div class="col"><h4>Source</h4><a href="https://github.com/dgriffith/ide-for-thought">GitHub</a><a href="https://github.com/dgriffith/ide-for-thought/releases">Releases</a><a href="https://github.com/dgriffith/ide-for-thought/blob/main/LICENSE">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

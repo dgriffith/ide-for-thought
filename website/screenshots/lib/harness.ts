@@ -38,6 +38,10 @@ export function packagedBinary(): string | null {
 export interface Harness {
   app: ElectronApplication;
   win: Page;
+  /** The throwaway copy of the demo vault this run is pointed at. Exposed so a
+   *  spec can seed per-feature state that lives BESIDE the notes rather than in
+   *  them — e.g. `.minerva/history/` for the History panel. */
+  projectDir: string;
   cleanup: () => void;
 }
 
@@ -101,7 +105,7 @@ export async function launchDemo(): Promise<Harness> {
   // Let fonts, the graph index, and first paint settle.
   await win.waitForTimeout(1500);
 
-  return { app, win, cleanup };
+  return { app, win, projectDir, cleanup };
 }
 
 /** Open a note by its file-tree label (the filename without extension). */

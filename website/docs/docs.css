@@ -185,6 +185,10 @@ figure.shot-img img {
    tall-and-thin — never stretch them to the column width. Show near natural size,
    centered. */
 figure.shot-img.panel img { width: 260px; }
+/* Same idea for a panel captured at a wider drag (the History panel needs the
+   room for its diff): scaled to land at the same effective text size as the
+   260px crops above, not blown up. */
+figure.shot-img.panel-wide img { width: 450px; }
 figure.shot-img figcaption {
   margin-top: 8px; font-size: 0.86rem; color: var(--text-muted); text-align: center;
 }
