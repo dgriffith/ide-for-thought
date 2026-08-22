@@ -65,8 +65,27 @@ describe('initial revision (#1158)', () => {
     expect(revs[0]!.initial).toBe(true);
   });
 
+  it('covers the other first-class note formats, not just markdown', async () => {
+    // .csv/.ttl/.py are notes in Minerva (shared/note-extensions), so they get
+    // history — and a labelable version — like any other note.
+    await writeFile(root, 'data/table.csv', 'a,b\n');
+    await writeFile(root, 'data/table.csv', 'a,b\n1,2\n');
+    const revs = await listRevisions(root, 'data/table.csv');
+    expect(revs).toHaveLength(2);
+    expect(revs[1]!.initial).toBe(true);
+
+    await writeFile(root, 'graph/facts.ttl', '# ttl\n');
+    await writeFile(root, 'scripts/run.py', 'print(1)\n');
+    expect(await listRevisions(root, 'graph/facts.ttl')).toHaveLength(1);
+    expect(await listRevisions(root, 'scripts/run.py')).toHaveLength(1);
+  });
+
   it('leaves non-note writes alone', async () => {
-    await writeFile(root, 'assets/data.csv', 'a,b\n');
-    expect(await listRevisions(root, 'assets/data.csv')).toEqual([]);
+    // An asset is not a note; neither is history's own storage (capturing
+    // .minerva would recurse).
+    await writeFile(root, 'assets/notes.txt', 'not a note\n');
+    await writeFile(root, '.minerva/scratch.md', 'internal\n');
+    expect(await listRevisions(root, 'assets/notes.txt')).toEqual([]);
+    expect(await listRevisions(root, '.minerva/scratch.md')).toEqual([]);
   });
 });

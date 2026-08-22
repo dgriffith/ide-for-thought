@@ -364,6 +364,10 @@ contextBridge.exposeInMainWorld('api', {
     list: (relativePath: string) => invoke(Channels.HISTORY_LIST, relativePath),
     getRevision: (relativePath: string, ts: number) => invoke(Channels.HISTORY_GET_REVISION, relativePath, ts),
     restore: (relativePath: string, ts: number) => invoke(Channels.HISTORY_RESTORE, relativePath, ts),
+    setLabel: (relativePath: string, ts: number, label: string | null) =>
+      invoke(Channels.HISTORY_SET_LABEL, relativePath, ts, label),
+    labelNotes: (relativePaths: string[], label: string) =>
+      invoke(Channels.HISTORY_LABEL_NOTES, relativePaths, label),
   },
   refactor: {
     autoTagSuggest: (relativePath: string) => invoke(Channels.REFACTOR_AUTO_TAG_SUGGEST, relativePath),

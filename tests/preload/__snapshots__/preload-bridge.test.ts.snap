@@ -146,8 +146,10 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
   ],
   "history": [
     "getRevision",
+    "labelNotes",
     "list",
     "restore",
+    "setLabel",
   ],
   "images": [
     "cacheExternal",

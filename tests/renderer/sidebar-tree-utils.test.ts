@@ -1,12 +1,12 @@
 /**
  * Pure helpers for sidebar multi-selection — `flattenVisible` (used by
- * shift-click range and ⌘A) and `expandSelectionToNoteFiles` (used by
- * the Format command to resolve a sidebar selection to the set of
- * .md files to act on).
+ * shift-click range and ⌘A), `expandSelectionToNoteFiles` (used by the Format
+ * command to resolve a sidebar selection to the set of .md files to act on),
+ * and `expandSelectionToNotes` (the same over every first-class note format).
  */
 
 import { describe, it, expect } from 'vitest';
-import { flattenVisible, expandSelectionToNoteFiles, resolveSelectionTargets, pathExistsInTree } from '../../src/renderer/lib/sidebar-tree-utils';
+import { flattenVisible, expandSelectionToNoteFiles, expandSelectionToNotes, resolveSelectionTargets, pathExistsInTree } from '../../src/renderer/lib/sidebar-tree-utils';
 import type { NoteFile } from '../../src/shared/types';
 
 const tree: NoteFile[] = [
@@ -28,30 +28,63 @@ const tree: NoteFile[] = [
       { name: 'd.md', relativePath: 'notes/d.md', isDirectory: false },
     ],
   },
+  {
+    name: 'data',
+    relativePath: 'data',
+    isDirectory: true,
+    children: [
+      { name: 'table.csv', relativePath: 'data/table.csv', isDirectory: false },
+      { name: 'facts.ttl', relativePath: 'data/facts.ttl', isDirectory: false },
+      { name: 'chart.png', relativePath: 'data/chart.png', isDirectory: false },
+    ],
+  },
   { name: 'top.md', relativePath: 'top.md', isDirectory: false },
 ];
 
 describe('flattenVisible', () => {
   it('returns only top-level rows when nothing is expanded', () => {
-    expect(flattenVisible(tree, {})).toEqual(['notes', 'top.md']);
+    expect(flattenVisible(tree, {})).toEqual(['notes', 'data', 'top.md']);
   });
 
   it('returns immediate children when one directory is expanded', () => {
     expect(flattenVisible(tree, { notes: true })).toEqual([
-      'notes', 'notes/a.md', 'notes/sub', 'notes/d.md', 'top.md',
+      'notes', 'notes/a.md', 'notes/sub', 'notes/d.md', 'data', 'top.md',
     ]);
   });
 
   it('descends through nested expanded directories', () => {
     expect(flattenVisible(tree, { notes: true, 'notes/sub': true })).toEqual([
-      'notes', 'notes/a.md', 'notes/sub', 'notes/sub/b.md', 'notes/sub/c.md', 'notes/d.md', 'top.md',
+      'notes', 'notes/a.md', 'notes/sub', 'notes/sub/b.md', 'notes/sub/c.md', 'notes/d.md',
+      'data', 'top.md',
     ]);
   });
 
   it('does not descend when an outer directory is collapsed even if its child is marked expanded', () => {
     // Collapsing the parent hides everything below it; leaf-expanded state
     // is harmless and persists for when the parent is reopened.
-    expect(flattenVisible(tree, { 'notes/sub': true })).toEqual(['notes', 'top.md']);
+    expect(flattenVisible(tree, { 'notes/sub': true })).toEqual(['notes', 'data', 'top.md']);
+  });
+});
+
+describe('expandSelectionToNotes', () => {
+  it('expands a folder of non-markdown notes — .csv/.ttl are notes too', () => {
+    // The markdown-only expansion sees this folder as empty, which is what made
+    // "Label Version" on a folder of CSVs complain there was nothing to label.
+    expect(expandSelectionToNoteFiles(new Set(['data']), tree)).toEqual([]);
+    expect(expandSelectionToNotes(new Set(['data']), tree).sort())
+      .toEqual(['data/facts.ttl', 'data/table.csv']);
+  });
+
+  it('still leaves assets out — a .png is not a note', () => {
+    expect(expandSelectionToNotes(new Set(['data/chart.png']), tree)).toEqual([]);
+  });
+
+  it('mixes markdown and non-markdown notes across a whole-tree selection', () => {
+    expect(expandSelectionToNotes(new Set(['notes', 'data', 'top.md']), tree).sort()).toEqual([
+      'data/facts.ttl', 'data/table.csv',
+      'notes/a.md', 'notes/d.md', 'notes/sub/b.md', 'notes/sub/c.md',
+      'top.md',
+    ]);
   });
 });
 

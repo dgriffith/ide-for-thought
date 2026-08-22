@@ -178,9 +178,8 @@ export async function moveHistory(rootPath: string, oldRel: string, newRel: stri
   await fs.rename(from, to);
 }
 
-/** Set (or clear, with undefined) a revision's label — version tagging. Stored
- *  now; no UI yet (#1158 keeps tagging non-foreclosed). Labeled revisions are
- *  exempt from pruning. */
+/** Set (or clear, with undefined) a revision's label — version tagging.
+ *  Labeled revisions are exempt from pruning. */
 export async function setRevisionLabel(
   rootPath: string,
   relPath: string,
@@ -194,4 +193,44 @@ export async function setRevisionLabel(
   if (label) entry.label = label;
   else delete entry.label;
   await writeIndex(dir, entries);
+}
+
+/**
+ * Label the version of `relPath` the user is looking at right now — the
+ * "Label version…" action from the History panel's note list.
+ *
+ * The label has to name the CURRENT content, so if the note's newest revision
+ * doesn't match what's on disk (a note edited outside the app since its last
+ * capture), the current state is captured first and the label goes on that.
+ * Otherwise the label would quietly point at stale text — the one thing a
+ * restore point must never do.
+ *
+ * Returns the labeled revision.
+ */
+export async function labelCurrentVersion(
+  rootPath: string,
+  relPath: string,
+  label: string,
+  now: number = Date.now(),
+): Promise<RevisionMeta> {
+  await ensureInitialRevision(rootPath, relPath, now);
+
+  const dir = noteDir(rootPath, relPath);
+  const content = await fs.readFile(path.resolve(rootPath, relPath), 'utf-8');
+  // `captureSnapshot` dedupes against the newest revision, so this is a no-op
+  // when the note is already captured as-is, and a real capture when it isn't.
+  const captured = await captureSnapshot(
+    rootPath,
+    relPath,
+    content,
+    { origin: 'edit', cause: 'External change' },
+    now,
+  );
+
+  const entries = await readIndex(dir);
+  const newest = captured ?? entries.reduce<RevisionMeta | null>((a, b) => (!a || b.ts > a.ts ? b : a), null);
+  if (!newest) throw new Error(`history: no revision to label for "${relPath}"`);
+
+  await setRevisionLabel(rootPath, relPath, newest.ts, label);
+  return { ...newest, label };
 }

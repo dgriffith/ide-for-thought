@@ -16,6 +16,8 @@ const { handlers, h } = vi.hoisted(() => ({
     listRevisions: vi.fn(),
     getRevisionContent: vi.fn(),
     runWithHistorySource: vi.fn(<T>(_s: unknown, fn: () => Promise<T>) => fn()),
+    setRevisionLabel: vi.fn(),
+    labelCurrentVersion: vi.fn(),
     writeAndReindex: vi.fn(),
   },
 }));
@@ -33,6 +35,8 @@ vi.mock('../../../src/main/history', () => ({
   listRevisions: h.listRevisions,
   getRevisionContent: h.getRevisionContent,
   runWithHistorySource: h.runWithHistorySource,
+  setRevisionLabel: h.setRevisionLabel,
+  labelCurrentVersion: h.labelCurrentVersion,
 }));
 
 import { registerHistory } from '../../../src/main/ipc/register-history';
@@ -72,5 +76,29 @@ describe('register-history (#1158)', () => {
     h.getRevisionContent.mockResolvedValue(null);
     await expect(call(Channels.HISTORY_RESTORE, 'notes/a.md', 99)).rejects.toThrow(/not found/);
     expect(h.writeAndReindex).not.toHaveBeenCalled();
+  });
+
+  it('HISTORY_SET_LABEL names a revision, and clears it with null', async () => {
+    await call(Channels.HISTORY_SET_LABEL, 'notes/a.md', 7, 'before refactor');
+    expect(h.setRevisionLabel).toHaveBeenCalledWith(ROOT, 'notes/a.md', 7, 'before refactor');
+    await call(Channels.HISTORY_SET_LABEL, 'notes/a.md', 7, null);
+    expect(h.setRevisionLabel).toHaveBeenLastCalledWith(ROOT, 'notes/a.md', 7, undefined);
+  });
+
+  it('HISTORY_LABEL_NOTES labels every note and reports per-note failures without aborting', async () => {
+    h.labelCurrentVersion
+      .mockResolvedValueOnce({ ts: 1, origin: 'edit', label: 'v1' })
+      .mockRejectedValueOnce(new Error('ENOENT'))
+      .mockResolvedValueOnce({ ts: 2, origin: 'edit', label: 'v1' });
+
+    const result = await call(Channels.HISTORY_LABEL_NOTES, ['a.md', 'gone.md', 'c.md'], 'v1');
+
+    // The third note is still labeled — one bad note doesn't cost the user the
+    // restore point on the rest.
+    expect(result).toEqual({
+      label: 'v1',
+      labeled: ['a.md', 'c.md'],
+      errors: [{ path: 'gone.md', error: 'ENOENT' }],
+    });
   });
 });

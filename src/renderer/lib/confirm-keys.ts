@@ -13,6 +13,8 @@ export const CONFIRM_KEYS = {
   /** Restoring a note to a history revision — non-destructive (the restore is
    *  itself a new revision), so the confirm is dismissable. (#1158) */
   historyRestore: 'history-restore',
+  /** Summary after labeling the current version of a sidebar selection. */
+  historyLabelComplete: 'history-label-complete',
   deletePartialFailure: 'delete-partial-failure',
   deleteSource: 'delete-source',
   /** Closing a conversation archives it, and there's no reopen UI — so it's
@@ -118,6 +120,12 @@ export const CONFIRM_REGISTRY: ConfirmRegistryEntry[] = [
     title: 'Restore note from history',
     description:
       'Prompt before restoring a note to an earlier version from its local history. Non-destructive — the current text is kept as a new revision — so this is easy to turn off.',
+  },
+  {
+    key: CONFIRM_KEYS.historyLabelComplete,
+    title: 'Label Version complete',
+    description:
+      'Summary dialog after labeling the current version of a sidebar selection (how many notes got the named restore point, and any per-note failures).',
   },
   {
     key: CONFIRM_KEYS.deletePartialFailure,

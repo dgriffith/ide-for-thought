@@ -17,7 +17,15 @@ vi.mock('../../../src/renderer/lib/ipc/client', () => ({ api: h.api }));
 import HistoryPanel from '../../../src/renderer/lib/components/right-sidebar/HistoryPanel.svelte';
 
 function props(over: Record<string, unknown> = {}) {
-  return { activeFilePath: 'notes/a.md', content: 'line1\nline2\n', revision: 0, onRestore: vi.fn(), ...over };
+  return {
+    activeFilePath: 'notes/a.md',
+    content: 'line1\nline2\n',
+    revision: 0,
+    onRestore: vi.fn(),
+    onLabel: vi.fn(),
+    onRemoveLabel: vi.fn(),
+    ...over,
+  };
 }
 
 beforeEach(() => {
@@ -65,6 +73,34 @@ describe('HistoryPanel (#1158)', () => {
     expect(screen.getByText('Restored from Aug 21, 9:30 AM')).toBeTruthy();
     // Pre-cause revisions still read sensibly.
     expect(screen.getByText('Edit')).toBeTruthy();
+  });
+
+  it('offers Label Version on right-click and routes it out through onLabel', async () => {
+    h.api.history.list.mockResolvedValue([{ ts: 1000, origin: 'edit' }]);
+    const p = props();
+    render(HistoryPanel, p);
+    await waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(1));
+
+    await fireEvent.contextMenu(screen.getAllByRole('listitem')[0]!);
+    await fireEvent.click(screen.getByRole('button', { name: 'Label Version…' }));
+    // `null` existing label = "not named yet"; App seeds its prompt with it.
+    expect(p.onLabel).toHaveBeenCalledWith('notes/a.md', 1000, null);
+    expect(p.onRemoveLabel).not.toHaveBeenCalled();
+  });
+
+  it('offers Rename/Remove Label on a revision that already has one', async () => {
+    h.api.history.list.mockResolvedValue([{ ts: 1000, origin: 'edit', label: 'before refactor' }]);
+    const p = props();
+    render(HistoryPanel, p);
+    await waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(1));
+    expect(screen.getByText('before refactor')).toBeTruthy();
+
+    await fireEvent.contextMenu(screen.getAllByRole('listitem')[0]!);
+    expect(screen.getByRole('button', { name: 'Rename Label…' })).toBeTruthy();
+    await fireEvent.click(screen.getByRole('button', { name: 'Remove Label' }));
+    // Clearing is its own callback — never a label call with a null name.
+    expect(p.onRemoveLabel).toHaveBeenCalledWith('notes/a.md', 1000);
+    expect(p.onLabel).not.toHaveBeenCalled();
   });
 
   it('selecting a revision loads it and diffs it against the current text', async () => {

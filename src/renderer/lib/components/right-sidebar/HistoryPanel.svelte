@@ -4,9 +4,12 @@
   // against the current text, and one-click restore.
   //
   // Reads (`list` / `getRevision`) are direct `api.*` per the renderer data-flow
-  // rule; restore is a mutation, so it routes out through `onRestore` (App owns
-  // the confirm + the `api.history.restore` call).
+  // rule; restore and labeling are mutations, so they route out through
+  // `onRestore` / `onLabel` (App owns the prompt/confirm + the `api.history.*`
+  // call).
   import { api } from '../../ipc/client';
+  import { clampMenuToViewport } from '../../utils/menuClamp';
+  import { installDismissOnClickOutside } from '../../dismiss-menu';
   import { formatDateTime } from '../../../../shared/format-datetime';
   import { diffLines, diffStats } from '../../history/line-diff';
   import { describeRevisionCause, type RevisionMeta } from '../../../../shared/history';
@@ -19,14 +22,52 @@
     revision: number;
     /** Restore is a mutation — App shows the confirm and calls the IPC. */
     onRestore?: (relativePath: string, ts: number) => void | Promise<void>;
+    /** Name a version — App prompts (seeded with `existing`, null when the
+     *  version has no name yet) and calls the IPC. Resolves once the label has
+     *  landed, so the panel can refresh. */
+    onLabel?: (relativePath: string, ts: number, existing: string | null) => void | Promise<void>;
+    /** Drop a version's name. Separate from `onLabel` so "clear" can never be
+     *  confused with "name a version that has no name yet". */
+    onRemoveLabel?: (relativePath: string, ts: number) => void | Promise<void>;
   }
 
-  let { activeFilePath, content, revision, onRestore }: Props = $props();
+  let { activeFilePath, content, revision, onRestore, onLabel, onRemoveLabel }: Props = $props();
 
   let revisions = $state<RevisionMeta[]>([]);
   let selectedTs = $state<number | null>(null);
   let selectedContent = $state<string | null>(null);
   let now = $state(Date.now());
+  let menu = $state<{ x: number; y: number; rev: RevisionMeta } | null>(null);
+  let menuEl = $state<HTMLDivElement | undefined>();
+
+  $effect(() => {
+    if (!menu || !menuEl) return;
+    const next = clampMenuToViewport(menu.x, menu.y, menuEl);
+    if (next.x !== menu.x || next.y !== menu.y) menu = { ...menu, ...next };
+  });
+
+  function openMenu(e: MouseEvent, rev: RevisionMeta): void {
+    // Nothing to offer if the host doesn't handle labeling — leave the native
+    // menu alone rather than swallowing the right-click for an empty popup.
+    if (!onLabel) return;
+    e.preventDefault();
+    menu = { x: e.clientX, y: e.clientY, rev };
+    installDismissOnClickOutside(() => { menu = null; });
+  }
+
+  async function label(rev: RevisionMeta): Promise<void> {
+    menu = null;
+    if (!activeFilePath || !onLabel) return;
+    await onLabel(activeFilePath, rev.ts, rev.label ?? null);
+    await loadList(activeFilePath);
+  }
+
+  async function removeLabel(rev: RevisionMeta): Promise<void> {
+    menu = null;
+    if (!activeFilePath || !onRemoveLabel) return;
+    await onRemoveLabel(activeFilePath, rev.ts);
+    await loadList(activeFilePath);
+  }
 
   async function loadList(relativePath: string): Promise<void> {
     const list = await api.history.list(relativePath);
@@ -95,6 +136,7 @@
         <li
           class:selected={rev.ts === selectedTs}
           onclick={() => activeFilePath && select(activeFilePath, rev.ts)}
+          oncontextmenu={(e) => openMenu(e, rev)}
         >
           <span class="when">{formatDateTime(rev.ts, now)}</span>
           <span class="cause" class:ai={rev.origin === 'proposal'}>{describeRevisionCause(rev)}</span>
@@ -123,6 +165,17 @@
   {/if}
 </div>
 
+{#if menu}
+  <div class="context-menu" bind:this={menuEl} style:left="{menu.x}px" style:top="{menu.y}px">
+    <button onclick={() => label(menu!.rev)}>
+      {menu.rev.label ? 'Rename Label…' : 'Label Version…'}
+    </button>
+    {#if menu.rev.label && onRemoveLabel}
+      <button onclick={() => removeLabel(menu!.rev)}>Remove Label</button>
+    {/if}
+  </div>
+{/if}
+
 <style>
   .history-panel { display: flex; flex-direction: column; min-height: 0; height: 100%; }
   .empty { color: var(--text-muted); font-size: 13px; padding: 12px; }
@@ -149,6 +202,23 @@
     color: var(--accent); border: 1px solid color-mix(in oklch, var(--accent) 40%, var(--border));
     border-radius: 3px; padding: 0 4px;
   }
+
+  .context-menu {
+    position: fixed;
+    z-index: var(--z-popover);
+    background: var(--bg-sidebar);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    min-width: 140px;
+  }
+  .context-menu button {
+    display: block; width: 100%; padding: 6px 12px;
+    border: none; background: none; color: var(--text);
+    font-size: 12px; cursor: pointer; text-align: left;
+  }
+  .context-menu button:hover { background: var(--bg-button); }
 
   .diff-head {
     display: flex; align-items: center; justify-content: space-between; gap: 8px;

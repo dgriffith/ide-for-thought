@@ -37,7 +37,8 @@ import {
   removePropertyFromContent,
   extractPropertyKeysFromContent,
 } from '../../../shared/refactor/frontmatter-properties';
-import { expandSelectionToNoteFiles } from '../sidebar-tree-utils';
+import { expandSelectionToNoteFiles, expandSelectionToNotes } from '../sidebar-tree-utils';
+import { isNotePath } from '../../../shared/note-extensions';
 import { ENTRYPOINT_TAG } from '../../../shared/entrypoint';
 import { CONFIRM_KEYS } from '../confirm-keys';
 import type { AutoLinkSuggestion } from '../../../shared/refactor/auto-link';
@@ -286,22 +287,34 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
   }
 
   /**
-   * Resolve the sidebar selection to the list of .md files a bulk-tag
-   * operation should touch. Returns null when nothing applies — the
-   * caller surfaces the "no .md files" dialog.
+   * Resolve the sidebar selection to the list of files a bulk operation should
+   * touch. Returns null when nothing applies — the caller surfaces the "nothing
+   * here to act on" dialog.
+   *
+   * `scope` decides what counts: `'markdown'` for the frontmatter operations
+   * (tags, properties, format — only markdown has frontmatter), `'notes'` for
+   * operations that act on a note as a file (version labeling), which must see
+   * a folder of .csv/.ttl/.py notes as a real selection.
    */
-  function bulkTagTargets(fallbackPath?: string, fallbackIsDir?: boolean, ignoreSelection = false): string[] | null {
+  function bulkTagTargets(
+    fallbackPath?: string,
+    fallbackIsDir?: boolean,
+    ignoreSelection = false,
+    scope: 'markdown' | 'notes' = 'markdown',
+  ): string[] | null {
+    const expand = scope === 'notes' ? expandSelectionToNotes : expandSelectionToNoteFiles;
+    const matches = (p: string) => (scope === 'notes' ? isNotePath(p) : p.endsWith('.md'));
     // The editor right-click acts on the note being edited, so it passes
     // `ignoreSelection` to bypass any sidebar multi-selection.
     const sel = ignoreSelection ? [] : (ctx.getSidebar()?.getSelectionPaths() ?? []);
     if (sel.length > 0) {
-      return expandSelectionToNoteFiles(new Set(sel), notebase.files);
+      return expand(new Set(sel), notebase.files);
     }
-    if (fallbackPath && !fallbackIsDir && fallbackPath.endsWith('.md')) {
+    if (fallbackPath && !fallbackIsDir && matches(fallbackPath)) {
       return [fallbackPath];
     }
     if (fallbackPath && fallbackIsDir) {
-      return expandSelectionToNoteFiles(new Set([fallbackPath]), notebase.files);
+      return expand(new Set([fallbackPath]), notebase.files);
     }
     return null;
   }
@@ -433,6 +446,42 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
     ctx.getSidebar()?.refreshTags();
     await syncOpenTabsToDisk(changedPaths);
     await reportBulkTagSummary('Remove', tag, targets.length, changedPaths.length, failures);
+  }
+
+  /**
+   * Label the CURRENT version of every .md in the selection — a named restore
+   * point across a set of notes ("before the big refactor"). Nothing is
+   * written to the notes themselves: the label lands on each note's newest
+   * history revision, which also exempts it from pruning, so the restore point
+   * survives past the retention window.
+   */
+  async function handleLabelVersion(targetPath?: string, targetIsDir?: boolean, opts?: { targetOnly?: boolean }) {
+    if (!notebase.meta) return;
+    // 'notes', not 'markdown': .csv/.ttl/.py are first-class notes with their
+    // own history, so a folder of them is a perfectly good thing to label.
+    const targets = bulkTagTargets(targetPath, targetIsDir, opts?.targetOnly, 'notes');
+    if (targets === null || targets.length === 0) {
+      await showConfirm(
+        'The selection contains no notes to label.',
+        CONFIRM_KEYS.bulkTagNoSelection,
+        'OK',
+      );
+      return;
+    }
+
+    const raw = await showPrompt(
+      `Name the current version of ${targets.length} note${targets.length === 1 ? '' : 's'}:`,
+    );
+    if (raw === null) return;
+    const label = raw.trim();
+    if (!label) return;
+
+    const result = await api.history.labelNotes(targets, label);
+    await reportBulkSummary(
+      `Labeled ${result.labeled.length} of ${targets.length} note${targets.length === 1 ? '' : 's'} as "${label}".`,
+      result.errors.map((e) => ({ path: e.path, error: e.error })),
+      CONFIRM_KEYS.historyLabelComplete,
+    );
   }
 
   /**
@@ -772,6 +821,7 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
     handleExtractSelection, handleSplitByHeading, handleSplitHere,
     handleAutoLink, handleAutoLinkInbound, handleAutoLinkInboundApply, handleAutoLinkApply,
     handleAddTag, handleRemoveTag, handleAddProperty, handleRemoveProperty, handleToggleEntrypoint,
+    handleLabelVersion,
     handleFormat, handleBibliography, handleAutoTag, handleAutoTagApply,
   };
 }

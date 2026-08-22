@@ -289,6 +289,23 @@ describe('FileTree (#1002)', () => {
     expect(getByText('Copy Path')).toBeTruthy();
   });
 
+  it('offers Label Version on the context menu and passes the right-clicked node', async () => {
+    const onLabelVersion = vi.fn();
+    const { container, getByText } = render(
+      FileTree,
+      props({ expanded: { notes: true }, onLabelVersion }),
+    );
+    await fireEvent.contextMenu(row(container, 'notes/alpha.md')!);
+    await fireEvent.click(getByText('Label Version…'));
+    expect(onLabelVersion).toHaveBeenCalledWith('notes/alpha.md', false);
+  });
+
+  it('hides Label Version when the host does not handle it', async () => {
+    const { container, queryByText } = render(FileTree, props({ expanded: { notes: true } }));
+    await fireEvent.contextMenu(row(container, 'notes/alpha.md')!);
+    expect(queryByText('Label Version…')).toBeNull();
+  });
+
   it('context-menu actions read the currently right-clicked node across reopens', async () => {
     const onRename = vi.fn();
     const onDelete = vi.fn();

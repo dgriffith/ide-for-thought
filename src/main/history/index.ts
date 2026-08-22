@@ -13,6 +13,7 @@
  * reverse.
  */
 import { captureSnapshot, ensureInitialRevision } from './store';
+import { isNotePath } from '../../shared/note-extensions';
 import type { RevisionSource } from './policy';
 
 export {
@@ -20,6 +21,7 @@ export {
   getRevisionContent,
   moveHistory,
   setRevisionLabel,
+  labelCurrentVersion,
 } from './store';
 export type { RevisionMeta, RevisionOrigin, RevisionSource } from './policy';
 
@@ -47,10 +49,15 @@ export async function runWithHistorySource<T>(source: RevisionSource, fn: () => 
   }
 }
 
-/** v1 captures markdown notes only; other writes (assets, `.minerva` internals,
- *  ttl/csv/py) are out of scope for note time-travel. */
+/**
+ * History covers every first-class note format (.md/.ttl/.csv/.py — see
+ * `shared/note-extensions`), because they're all notes the user edits and
+ * expects to be able to walk back. Assets and `.minerva` internals are out of
+ * scope: the former aren't notes, the latter includes history's own storage
+ * (capturing it would recurse).
+ */
 function isCapturable(relPath: string): boolean {
-  return relPath.endsWith('.md') && !relPath.startsWith('.minerva/') && !relPath.startsWith('.minerva\\');
+  return isNotePath(relPath) && !relPath.startsWith('.minerva/') && !relPath.startsWith('.minerva\\');
 }
 
 /**

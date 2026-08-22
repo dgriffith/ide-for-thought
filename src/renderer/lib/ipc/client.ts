@@ -5,7 +5,7 @@ import type { ClipperState } from '../../../shared/clipper-pairing';
 import type { Proposal } from '../../../shared/proposals';
 import type { MaintenanceProgress } from '../../../shared/maintenance';
 import type { ThemeMode } from '../../../shared/theme';
-import type { RevisionMeta } from '../../../shared/history';
+import type { LabelNotesResult, RevisionMeta } from '../../../shared/history';
 
 export interface NotebaseApi {
   open(): Promise<NotebaseMeta | null>;
@@ -754,6 +754,13 @@ export interface HistoryApi {
   getRevision(relativePath: string, ts: number): Promise<string | null>;
   /** Restore a revision — writes it back as a new save (non-destructive). */
   restore(relativePath: string, ts: number): Promise<void>;
+  /** Name one revision, or clear its name with `null`. Labeled revisions are
+   *  exempt from pruning, so a named restore point outlives the window. */
+  setLabel(relativePath: string, ts: number, label: string | null): Promise<void>;
+  /** Label the CURRENT version of several notes at once — one named restore
+   *  point across a set of notes. Per-note failures come back in `errors`;
+   *  the call itself only rejects if nothing could be attempted. */
+  labelNotes(relativePaths: string[], label: string): Promise<LabelNotesResult>;
 }
 
 export interface RefactorApi {
