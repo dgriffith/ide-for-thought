@@ -6,13 +6,15 @@
  * children only when `expanded[dir.relativePath]` is true). Used by
  * shift-click range-selection and ⌘A.
  *
- * `expandSelectionToFiles` takes a selection (which can include
- * directories) and produces the set of leaf .md files that fall under
- * any selected entry. The action layer (Format, Delete-many, …) uses
- * this to resolve "what does the user actually want to act on?".
+ * `expandSelectionToNoteFiles` / `expandSelectionToNotes` take a selection
+ * (which can include directories) and produce the leaf files under any
+ * selected entry — markdown only, or every first-class note format
+ * respectively. The action layer (Format, Delete-many, Label Version, …) uses
+ * these to resolve "what does the user actually want to act on?".
  */
 
 import type { NoteFile } from '../../shared/types';
+import { isNotePath } from '../../shared/note-extensions';
 
 export function flattenVisible(
   tree: NoteFile[],
@@ -33,12 +35,38 @@ export function flattenVisible(
 
 /**
  * Resolve a selection set (paths of files OR directories) to the set
- * of note files (.md) underneath it. Directories contribute every .md
+ * of markdown files underneath it. Directories contribute every .md
  * descendant; explicit file selections pass through if they end in .md.
+ *
+ * Markdown-only on purpose: its callers edit frontmatter (tags, properties,
+ * format), which only markdown has. Operations that act on a note as a *file*
+ * — version labeling — want `expandSelectionToNotes` instead, which covers
+ * every first-class note format.
  */
 export function expandSelectionToNoteFiles(
   selection: ReadonlySet<string>,
   tree: NoteFile[],
+): string[] {
+  return expandSelection(selection, tree, (p) => p.endsWith('.md'));
+}
+
+/**
+ * Same walk, but over every first-class note format (.md/.ttl/.csv/.py — see
+ * `shared/note-extensions`). Use this for operations that treat a note as a
+ * file rather than as markdown; a folder of .csv notes is a real selection,
+ * not an empty one.
+ */
+export function expandSelectionToNotes(
+  selection: ReadonlySet<string>,
+  tree: NoteFile[],
+): string[] {
+  return expandSelection(selection, tree, isNotePath);
+}
+
+function expandSelection(
+  selection: ReadonlySet<string>,
+  tree: NoteFile[],
+  matches: (relativePath: string) => boolean,
 ): string[] {
   const found = new Set<string>();
   // Build a path → node lookup by walking the tree once. Cheaper than
@@ -52,19 +80,19 @@ export function expandSelectionToNoteFiles(
   };
   walk(tree);
 
-  const collectMd = (node: NoteFile) => {
+  const collect = (node: NoteFile) => {
     if (!node.isDirectory) {
-      if (node.relativePath.endsWith('.md')) found.add(node.relativePath);
+      if (matches(node.relativePath)) found.add(node.relativePath);
       return;
     }
     if (node.children) {
-      for (const c of node.children) collectMd(c);
+      for (const c of node.children) collect(c);
     }
   };
 
   for (const path of selection) {
     const node = byPath.get(path);
-    if (node) collectMd(node);
+    if (node) collect(node);
   }
   return [...found];
 }

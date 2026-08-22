@@ -232,6 +232,35 @@ describe('handleLabelVersion (#1158)', () => {
     expect(h.api.notebase.writeFile).not.toHaveBeenCalled();
   });
 
+  it('labels a folder of .csv/.ttl notes — they are notes, not "no .md files"', async () => {
+    h.notebase.files = [
+      {
+        name: 'data', relativePath: 'data', isDirectory: true,
+        children: [
+          { name: 'table.csv', relativePath: 'data/table.csv', isDirectory: false },
+          { name: 'facts.ttl', relativePath: 'data/facts.ttl', isDirectory: false },
+          { name: 'chart.png', relativePath: 'data/chart.png', isDirectory: false },
+        ],
+      },
+    ];
+    h.dialog.showPrompt.mockResolvedValue('v1');
+    h.api.history.labelNotes.mockResolvedValue({
+      label: 'v1', labeled: ['data/table.csv', 'data/facts.ttl'], errors: [],
+    });
+
+    await ops.handleLabelVersion('data', true);
+
+    // The asset is left out; the notes are labeled.
+    expect(h.api.history.labelNotes).toHaveBeenCalledWith(['data/table.csv', 'data/facts.ttl'], 'v1');
+  });
+
+  it('labels a single .csv target from the fallback path', async () => {
+    h.dialog.showPrompt.mockResolvedValue('v1');
+    h.api.history.labelNotes.mockResolvedValue({ label: 'v1', labeled: ['table.csv'], errors: [] });
+    await ops.handleLabelVersion('table.csv', false);
+    expect(h.api.history.labelNotes).toHaveBeenCalledWith(['table.csv'], 'v1');
+  });
+
   it('does nothing when the prompt is cancelled or left empty', async () => {
     h.dialog.showPrompt.mockResolvedValue(null);
     await ops.handleLabelVersion('note.md', false);
