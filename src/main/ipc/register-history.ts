@@ -2,14 +2,15 @@
  * IPC for local per-note history (#1158): list a note's revisions, read one
  * revision's content, restore a revision, and name versions. Capture is
  * automatic (hooked in `notebase/fs.ts:writeFile`), so there's no "save a
- * revision" channel — labeling names a version that already exists.
+ * revision" channel — labeling names a version that already exists. The
+ * per-machine limits (retention, per-note cap, size cutoff) live here too.
  */
 import { Channels } from '../../shared/channels';
 import { handle } from './typed-ipc';
-import { withRootPath, hooks } from './helpers';
+import { withRootPath, rootPathFromEvent, hooks } from './helpers';
 import { writeAndReindex } from '../notebase/write-pipeline';
 import { formatDateTime } from '../../shared/format-datetime';
-import type { LabelNotesResult } from '../../shared/history';
+import type { HistorySettings, LabelNotesResult } from '../../shared/history';
 import * as history from '../history';
 
 export function registerHistory(): void {
@@ -58,4 +59,26 @@ export function registerHistory(): void {
     }
     return { label, labeled, errors };
   }));
+
+  // The limits are per-machine, so reading them doesn't need a project — the
+  // Settings dialog can be open with no thoughtbase.
+  handle(Channels.HISTORY_GET_SETTINGS, () => history.getHistorySettings());
+
+  handle(Channels.HISTORY_SET_SETTINGS, async (e, settings: HistorySettings) => {
+    const saved = await history.setHistorySettings(settings);
+    // Re-prune the open thoughtbase right away: lowering a limit should free
+    // disk now, not note-by-note as each one next happens to be edited. Only
+    // the open project is reachable from here — the rest catch up on their own
+    // next capture. Best-effort; a prune failure must not fail the save.
+    const rootPath = rootPathFromEvent(e);
+    if (rootPath) {
+      try {
+        const { notes, removed } = await history.pruneAllHistory(rootPath, Date.now(), saved);
+        if (removed > 0) console.log(`[history] pruned ${removed} revision(s) across ${notes} note(s)`);
+      } catch (err) {
+        console.warn('[history] prune after settings change failed:', err);
+      }
+    }
+    return saved;
+  });
 }

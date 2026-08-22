@@ -22,7 +22,9 @@ export {
   moveHistory,
   setRevisionLabel,
   labelCurrentVersion,
+  pruneAllHistory,
 } from './store';
+export { getHistorySettings, setHistorySettings } from './settings';
 export type { RevisionMeta, RevisionOrigin, RevisionSource } from './policy';
 
 // Ambient source for the next capture. Note writes are serialized per note, so

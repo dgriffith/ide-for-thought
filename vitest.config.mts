@@ -95,6 +95,15 @@ export default defineConfig({
           statements: 78,
           branches: 65,
         },
+        // Local note history (#1158) — capture, retention, labels, the limits.
+        // Measured at floor-time: 92% L / 100% F / 91% S / 88% B; floors ~10
+        // points below so a refactor won't flap but new untested code fails.
+        'src/main/history/**': {
+          lines: 82,
+          functions: 88,
+          statements: 80,
+          branches: 75,
+        },
         // graph ~90% L / 90% F / 86% S / 73% B.
         'src/main/graph/**': {
           lines: 80,

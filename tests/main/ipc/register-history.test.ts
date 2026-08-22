@@ -8,6 +8,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 const ROOT = '/vault';
+/** What `rootPathFromEvent` reports — null models "Settings open, no project". */
+let openProject: string | null = ROOT;
 type Handler = (event: unknown, ...args: unknown[]) => unknown;
 
 const { handlers, h } = vi.hoisted(() => ({
@@ -18,6 +20,9 @@ const { handlers, h } = vi.hoisted(() => ({
     runWithHistorySource: vi.fn(<T>(_s: unknown, fn: () => Promise<T>) => fn()),
     setRevisionLabel: vi.fn(),
     labelCurrentVersion: vi.fn(),
+    getHistorySettings: vi.fn(),
+    setHistorySettings: vi.fn(),
+    pruneAllHistory: vi.fn(),
     writeAndReindex: vi.fn(),
   },
 }));
@@ -28,6 +33,7 @@ vi.mock('electron', () => ({
 vi.mock('../../../src/main/ipc/helpers', () => ({
   withRootPath: <A extends unknown[], R>(fn: (rootPath: string, ...a: A) => R) =>
     (_e: unknown, ...args: A) => fn(ROOT, ...args),
+  rootPathFromEvent: () => openProject,
   hooks: { HOOKS: true },
 }));
 vi.mock('../../../src/main/notebase/write-pipeline', () => ({ writeAndReindex: h.writeAndReindex }));
@@ -37,6 +43,9 @@ vi.mock('../../../src/main/history', () => ({
   runWithHistorySource: h.runWithHistorySource,
   setRevisionLabel: h.setRevisionLabel,
   labelCurrentVersion: h.labelCurrentVersion,
+  getHistorySettings: h.getHistorySettings,
+  setHistorySettings: h.setHistorySettings,
+  pruneAllHistory: h.pruneAllHistory,
 }));
 
 import { registerHistory } from '../../../src/main/ipc/register-history';
@@ -76,6 +85,45 @@ describe('register-history (#1158)', () => {
     h.getRevisionContent.mockResolvedValue(null);
     await expect(call(Channels.HISTORY_RESTORE, 'notes/a.md', 99)).rejects.toThrow(/not found/);
     expect(h.writeAndReindex).not.toHaveBeenCalled();
+  });
+
+  it('HISTORY_GET_SETTINGS reads the per-machine limits', async () => {
+    const limits = { retentionDays: 7, maxRevisionsPerNote: 20, maxFileSizeKb: 512 };
+    h.getHistorySettings.mockResolvedValue(limits);
+    await expect(call(Channels.HISTORY_GET_SETTINGS)).resolves.toEqual(limits);
+  });
+
+  it('HISTORY_SET_SETTINGS saves, re-prunes the open project, and returns what was stored', async () => {
+    const asked = { retentionDays: 0, maxRevisionsPerNote: 20, maxFileSizeKb: 512 };
+    const stored = { retentionDays: 1, maxRevisionsPerNote: 20, maxFileSizeKb: 512 };
+    h.setHistorySettings.mockResolvedValue(stored);
+    h.pruneAllHistory.mockResolvedValue({ notes: 3, removed: 9 });
+
+    // The CLAMPED values come back, so a settings box can't keep showing a
+    // number that isn't what's in force.
+    await expect(call(Channels.HISTORY_SET_SETTINGS, asked)).resolves.toEqual(stored);
+    expect(h.setHistorySettings).toHaveBeenCalledWith(asked);
+    // Lowering a limit frees disk now, not note-by-note on the next edit.
+    expect(h.pruneAllHistory).toHaveBeenCalledWith(ROOT, expect.any(Number), stored);
+  });
+
+  it('HISTORY_SET_SETTINGS still saves with no project open (the limits are per-machine)', async () => {
+    openProject = null;
+    const stored = { retentionDays: 5, maxRevisionsPerNote: 20, maxFileSizeKb: 0 };
+    h.setHistorySettings.mockResolvedValue(stored);
+    try {
+      await expect(call(Channels.HISTORY_SET_SETTINGS, stored)).resolves.toEqual(stored);
+      expect(h.pruneAllHistory).not.toHaveBeenCalled();
+    } finally {
+      openProject = ROOT;
+    }
+  });
+
+  it('HISTORY_SET_SETTINGS survives a failed prune — the save is what matters', async () => {
+    const stored = { retentionDays: 5, maxRevisionsPerNote: 20, maxFileSizeKb: 0 };
+    h.setHistorySettings.mockResolvedValue(stored);
+    h.pruneAllHistory.mockRejectedValue(new Error('disk on fire'));
+    await expect(call(Channels.HISTORY_SET_SETTINGS, stored)).resolves.toEqual(stored);
   });
 
   it('HISTORY_SET_LABEL names a revision, and clears it with null', async () => {

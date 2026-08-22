@@ -46,6 +46,19 @@ export interface RevisionSource {
 }
 
 /**
+ * Per-machine limits on local note history (#1158) — see
+ * `main/history/settings.ts` for storage and defaults.
+ */
+export interface HistorySettings {
+  /** Days an unlabeled revision is kept. */
+  retentionDays: number;
+  /** Unlabeled revisions kept per note, newest first. */
+  maxRevisionsPerNote: number;
+  /** Files bigger than this aren't snapshotted at all. `0` = no limit. */
+  maxFileSizeKb: number;
+}
+
+/**
  * Outcome of labeling the current version of several notes at once. The call
  * succeeds even when individual notes fail (a per-item outcome catalog, not a
  * failure channel): `labeled` is what got a named restore point, `errors`

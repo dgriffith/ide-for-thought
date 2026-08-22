@@ -12,11 +12,15 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import {
+  exceedsSizeLimit,
+  retentionOptions,
   selectForRetention,
   shouldCapture,
   type RevisionMeta,
   type RevisionSource,
 } from './policy';
+import { getHistorySettings } from './settings';
+import type { HistorySettings } from '../../shared/history';
 
 const HISTORY_DIR = '.minerva/history';
 const INDEX_FILE = 'index.json';
@@ -66,10 +70,11 @@ async function latestContent(dir: string, entries: RevisionMeta[]): Promise<stri
 
 /**
  * Record `content` as a new revision of `relPath`, unless it's byte-identical to
- * the latest one. `source` says how the write came about (origin + the
- * user-facing cause shown in the timeline). Then prune the note's history to the retention window. `now`
- * is injectable for tests. No-op (returns null) when nothing was captured;
- * otherwise returns the new revision's metadata.
+ * the latest one or the note is over the configured size limit. `source` says
+ * how the write came about (origin + the user-facing cause shown in the
+ * timeline). Then prune the note's history to the retention window. `now` and
+ * `limits` are injectable for tests. No-op (returns null) when nothing was
+ * captured; otherwise returns the new revision's metadata.
  */
 export async function captureSnapshot(
   rootPath: string,
@@ -77,7 +82,11 @@ export async function captureSnapshot(
   content: string,
   source: RevisionSource,
   now: number = Date.now(),
+  limits?: HistorySettings,
 ): Promise<RevisionMeta | null> {
+  const settings = limits ?? await getHistorySettings();
+  if (exceedsSizeLimit(Buffer.byteLength(content, 'utf-8'), settings)) return null;
+
   const dir = noteDir(rootPath, relPath);
   await fs.mkdir(dir, { recursive: true });
   const entries = await readIndex(dir);
@@ -100,12 +109,24 @@ export async function captureSnapshot(
   await fs.writeFile(snapPath(dir, ts), content, 'utf-8');
   entries.push(meta);
 
-  const { kept, removed } = selectForRetention(entries, now);
+  await pruneDir(dir, entries, now, settings);
+  return meta;
+}
+
+/** Apply the retention rules to one note's index: delete what ages out (or
+ *  falls off the per-note cap) and rewrite the index. */
+async function pruneDir(
+  dir: string,
+  entries: RevisionMeta[],
+  now: number,
+  settings: HistorySettings,
+): Promise<{ removed: number }> {
+  const { kept, removed } = selectForRetention(entries, now, retentionOptions(settings));
   await Promise.all(
     removed.map((r) => fs.rm(snapPath(dir, r.ts), { force: true })),
   );
   await writeIndex(dir, kept);
-  return meta;
+  return { removed: removed.length };
 }
 
 /**
@@ -132,20 +153,23 @@ export async function ensureInitialRevision(
   if ((await readIndex(dir)).length > 0) return null;
 
   const filePath = path.resolve(rootPath, relPath);
+  const settings = await getHistorySettings();
   let content: string;
   let mtimeMs: number;
   try {
-    [content, { mtimeMs }] = await Promise.all([
-      fs.readFile(filePath, 'utf-8'),
-      fs.stat(filePath),
-    ]);
+    // stat first: an over-limit file is skipped WITHOUT reading it, so the size
+    // limit also caps the memory a huge note can cost us.
+    const stat = await fs.stat(filePath);
+    if (exceedsSizeLimit(stat.size, settings)) return null;
+    mtimeMs = stat.mtimeMs;
+    content = await fs.readFile(filePath, 'utf-8');
   } catch {
     return null; // nothing on disk to preserve
   }
   // Strictly before the write that's about to land, even if the mtime is in
   // the future (clock skew, a copied file), so the timeline stays ordered.
   const ts = Math.min(Math.floor(mtimeMs), now - 1);
-  return captureSnapshot(rootPath, relPath, content, { origin: 'edit', cause: 'Initial version' }, ts);
+  return captureSnapshot(rootPath, relPath, content, { origin: 'edit', cause: 'Initial version' }, ts, settings);
 }
 
 /** A note's revisions, newest first (metadata only — no content). */
@@ -233,4 +257,48 @@ export async function labelCurrentVersion(
 
   await setRevisionLabel(rootPath, relPath, newest.ts, label);
   return { ...newest, label };
+}
+
+/**
+ * Re-apply the retention rules across a whole project's history — run after the
+ * limits change, so lowering them frees disk NOW rather than note-by-note as
+ * each one happens to be edited again. Best-effort per note: a corrupt index
+ * for one note doesn't stop the sweep. Returns what it dropped.
+ */
+export async function pruneAllHistory(
+  rootPath: string,
+  now: number = Date.now(),
+  limits?: HistorySettings,
+): Promise<{ notes: number; removed: number }> {
+  const settings = limits ?? await getHistorySettings();
+  const base = path.resolve(rootPath, HISTORY_DIR);
+  let notes = 0;
+  let removed = 0;
+
+  const walk = async (dir: string): Promise<void> => {
+    let entries: import('node:fs').Dirent[];
+    try {
+      entries = await fs.readdir(dir, { withFileTypes: true });
+    } catch {
+      return; // no history yet, or unreadable — nothing to prune
+    }
+    // A note's history dir is the one holding an index.json. Dirs nest to
+    // mirror note paths, and a note path can itself be a prefix of another
+    // (`a.md/` next to `a.md.bak/`), so recurse regardless.
+    if (entries.some((e) => e.isFile() && e.name === INDEX_FILE)) {
+      notes++;
+      try {
+        const index = await readIndex(dir);
+        removed += (await pruneDir(dir, index, now, settings)).removed;
+      } catch (err) {
+        console.warn(`[history] prune skipped "${dir}":`, err);
+      }
+    }
+    for (const e of entries) {
+      if (e.isDirectory()) await walk(path.join(dir, e.name));
+    }
+  };
+
+  await walk(base);
+  return { notes, removed };
 }

@@ -11,15 +11,32 @@
  * within the retention window and treat timeline density as a display concern.
  */
 
-import type { RevisionMeta } from '../../shared/history';
+import type { HistorySettings, RevisionMeta } from '../../shared/history';
 export type { RevisionMeta, RevisionOrigin, RevisionSource } from '../../shared/history';
 
-/** Keep a note's history at most this many days (unlabeled). */
+/** Fallback window/cap when no settings are supplied. The user-facing defaults
+ *  live in `settings.ts` (`DEFAULT_HISTORY_SETTINGS`) and match these; these
+ *  exist so the pure policy stays usable without loading config. */
 export const RETENTION_DAYS = 30;
 /** Hard cap on unlabeled revisions per note, so a marathon editing session
  *  can't grow one note's history without bound. Generous — notes are small. */
 export const MAX_REVISIONS_PER_NOTE = 500;
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Retention knobs in the shape `selectForRetention` takes them. */
+export function retentionOptions(settings: HistorySettings): { retentionDays: number; maxPerNote: number } {
+  return { retentionDays: settings.retentionDays, maxPerNote: settings.maxRevisionsPerNote };
+}
+
+/**
+ * Is this file too big to snapshot? `maxFileSizeKb: 0` means no limit — the
+ * escape hatch for someone who wants history on a large file and has the disk
+ * for it. A skipped file simply gets no history: better an honest gap than a
+ * gigabyte of near-identical snapshots.
+ */
+export function exceedsSizeLimit(bytes: number, settings: HistorySettings): boolean {
+  return settings.maxFileSizeKb > 0 && bytes > settings.maxFileSizeKb * 1024;
+}
 
 /**
  * Decide whether a save becomes a new revision. Append unless the content is
