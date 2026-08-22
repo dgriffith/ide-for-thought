@@ -92,6 +92,10 @@ export async function captureSnapshot(
     ts,
     origin: source.origin,
     ...(source.cause ? { cause: source.cause } : {}),
+    // The first revision of a note is its baseline: it's what "restore
+    // everything back to the start" restores to, so it's marked (and exempt
+    // from pruning) rather than being the first thing retention drops.
+    ...(entries.length === 0 ? { initial: true } : {}),
   };
   await fs.writeFile(snapPath(dir, ts), content, 'utf-8');
   entries.push(meta);
@@ -102,6 +106,46 @@ export async function captureSnapshot(
   );
   await writeIndex(dir, kept);
   return meta;
+}
+
+/**
+ * Back-fill the baseline for a note that has no history yet, from whatever is
+ * on disk right now — call it BEFORE overwriting the file. Without this, the
+ * first save of a note that pre-dates its history (opened from an existing
+ * thoughtbase, imported, written by another tool) captures only the *edited*
+ * state, and the version the user actually wants back — the one before they
+ * touched it — is gone.
+ *
+ * No-ops when the note already has revisions, or when there's nothing on disk
+ * yet (a brand-new file: the write that follows becomes the baseline itself).
+ * The revision is stamped with the file's mtime, not `now`, so the timeline
+ * says when the note actually last changed.
+ */
+export async function ensureInitialRevision(
+  rootPath: string,
+  relPath: string,
+  now: number = Date.now(),
+): Promise<RevisionMeta | null> {
+  // noteDir() re-validates `relPath` (it throws on anything that escapes the
+  // history root), so it runs before we resolve the note path to read it.
+  const dir = noteDir(rootPath, relPath);
+  if ((await readIndex(dir)).length > 0) return null;
+
+  const filePath = path.resolve(rootPath, relPath);
+  let content: string;
+  let mtimeMs: number;
+  try {
+    [content, { mtimeMs }] = await Promise.all([
+      fs.readFile(filePath, 'utf-8'),
+      fs.stat(filePath),
+    ]);
+  } catch {
+    return null; // nothing on disk to preserve
+  }
+  // Strictly before the write that's about to land, even if the mtime is in
+  // the future (clock skew, a copied file), so the timeline stays ordered.
+  const ts = Math.min(Math.floor(mtimeMs), now - 1);
+  return captureSnapshot(rootPath, relPath, content, { origin: 'edit', cause: 'Initial version' }, ts);
 }
 
 /** A note's revisions, newest first (metadata only — no content). */

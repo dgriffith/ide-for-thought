@@ -35,8 +35,10 @@ export function shouldCapture(newContent: string, latestContent: string | undefi
  * Split a note's revisions (any order) into the ones to keep and the ones to
  * prune. Pruned when OLDER than the retention window, or beyond the newest
  * `MAX_REVISIONS_PER_NOTE` — but a LABELED revision is never pruned (an
- * explicitly-marked version is a deliberate keepsake). Returns newest-first
- * `kept` and the `removed` set.
+ * explicitly-marked version is a deliberate keepsake), and neither is the
+ * INITIAL one (the note's baseline; without it there's no "undo everything",
+ * and it's the oldest revision so ordinary retention would take it first).
+ * Returns newest-first `kept` and the `removed` set.
  */
 export function selectForRetention(
   revisions: RevisionMeta[],
@@ -53,7 +55,8 @@ export function selectForRetention(
   let unlabeledKept = 0;
 
   for (const rev of byNewest) {
-    if (rev.label) { kept.push(rev); continue; } // labeled: always survives
+    // Labeled (a deliberate keepsake) and initial (the baseline): always survive.
+    if (rev.label || rev.initial) { kept.push(rev); continue; }
     const tooOld = rev.ts < cutoff;
     const overCap = unlabeledKept >= maxPerNote;
     if (tooOld || overCap) { removed.push(rev); continue; }

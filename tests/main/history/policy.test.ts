@@ -1,7 +1,7 @@
 /**
  * Local per-note history — capture + retention policy (#1158). Pure logic:
  * append-only capture (dedupe identical), and pruning that respects the 30-day
- * window + per-note cap while never dropping a labeled revision.
+ * window + per-note cap while never dropping a labeled or initial revision.
  */
 import { describe, it, expect } from 'vitest';
 import {
@@ -50,6 +50,16 @@ describe('selectForRetention (#1158)', () => {
     const { kept, removed } = selectForRetention([labeledOld, ...filler], NOW, { maxPerNote: 2 });
     expect(kept.map((r) => r.ts)).toContain(labeledOld.ts); // survived age + cap
     expect(removed.map((r) => r.ts)).not.toContain(labeledOld.ts);
+  });
+
+  it('NEVER prunes the initial revision — the baseline is the point of the feature', () => {
+    // The baseline is always the OLDEST revision, so ordinary retention would
+    // take it first and quietly remove "undo everything back to the start".
+    const baseline = rev(NOW - (RETENTION_DAYS + 100) * DAY, { initial: true });
+    const filler = Array.from({ length: 5 }, (_, i) => rev(NOW - i * 1000));
+    const { kept, removed } = selectForRetention([baseline, ...filler], NOW, { maxPerNote: 2 });
+    expect(kept.map((r) => r.ts)).toContain(baseline.ts); // survived age + cap
+    expect(removed.map((r) => r.ts)).not.toContain(baseline.ts);
   });
 
   it('returns kept newest-first', () => {

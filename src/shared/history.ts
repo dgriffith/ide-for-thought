@@ -22,6 +22,13 @@ export interface RevisionMeta {
    * so revisions captured before this field existed still read sensibly.
    */
   cause?: string;
+  /**
+   * The note's baseline — the oldest state history knows about, captured
+   * before the note's first recorded change. Exempt from pruning: if the
+   * baseline ages out, "undo everything back to the start" stops being
+   * possible, which is most of the point of keeping history at all.
+   */
+  initial?: boolean;
   /** Optional version tag; labeled revisions are exempt from pruning. Stored
    *  from day one so tagging is a UI-only add later, never a migration. */
   label?: string;
@@ -40,8 +47,9 @@ export interface RevisionSource {
 
 /** Display text for a revision's cause, with an origin-derived fallback for
  *  revisions captured before causes were recorded. */
-export function describeRevisionCause(rev: Pick<RevisionMeta, 'origin' | 'cause'>): string {
+export function describeRevisionCause(rev: Pick<RevisionMeta, 'origin' | 'cause' | 'initial'>): string {
   if (rev.cause) return rev.cause;
+  if (rev.initial) return 'Initial version';
   if (rev.origin === 'restore') return 'Restored';
   if (rev.origin === 'proposal') return 'Minerva AI';
   return 'Edit';

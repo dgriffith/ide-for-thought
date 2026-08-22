@@ -12,7 +12,7 @@
  * which composes this facade with `notebase`'s `writeAndReindex` — never the
  * reverse.
  */
-import { captureSnapshot } from './store';
+import { captureSnapshot, ensureInitialRevision } from './store';
 import type { RevisionSource } from './policy';
 
 export {
@@ -51,6 +51,21 @@ export async function runWithHistorySource<T>(source: RevisionSource, fn: () => 
  *  ttl/csv/py) are out of scope for note time-travel. */
 function isCapturable(relPath: string): boolean {
   return relPath.endsWith('.md') && !relPath.startsWith('.minerva/') && !relPath.startsWith('.minerva\\');
+}
+
+/**
+ * Pre-write hook, called from `notebase/fs.ts:writeFile` BEFORE the file is
+ * overwritten. Gives a note that has no history yet a baseline revision from
+ * its current on-disk content, so the state before the user's first edit stays
+ * recoverable. No-op once a note has any history. Best-effort, like capture.
+ */
+export async function onNoteWriting(rootPath: string, relPath: string): Promise<void> {
+  if (!isCapturable(relPath)) return;
+  try {
+    await ensureInitialRevision(rootPath, relPath);
+  } catch (err) {
+    console.error(`[history] initial-revision capture failed for "${relPath}":`, err);
+  }
 }
 
 /**

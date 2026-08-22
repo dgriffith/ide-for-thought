@@ -93,13 +93,25 @@ describe('HistoryPanel (#1158)', () => {
     expect(p.onRestore).toHaveBeenCalledWith('notes/a.md', 1000);
   });
 
-  it('shows "current version" (no Restore) when the selected revision equals the current text', async () => {
-    h.api.history.list.mockResolvedValue([{ ts: 1000, origin: 'edit' }]);
+  it('says the contents are identical (no Restore) when the selected revision matches the text', async () => {
+    // Deliberately an OLD revision that happens to match: the message is about
+    // content, not recency, so "this is the current version" would be a lie.
+    h.api.history.list.mockResolvedValue([
+      { ts: 2000, origin: 'edit' },
+      { ts: 1000, origin: 'edit', initial: true },
+    ]);
     h.api.history.getRevision.mockResolvedValue('line1\nline2\n'); // == current
     render(HistoryPanel, props({ content: 'line1\nline2\n' }));
-    await waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(1));
-    await fireEvent.click(screen.getAllByRole('listitem')[0]!);
-    await waitFor(() => expect(screen.getByText(/current version/)).toBeTruthy());
+    await waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(2));
+    await fireEvent.click(screen.getAllByRole('listitem')[1]!);
+    await waitFor(() => expect(screen.getByText('Contents are identical.')).toBeTruthy());
     expect(screen.queryByRole('button', { name: 'Restore' })).toBeNull();
+  });
+
+  it('names the baseline revision "Initial version" when nothing else caused it', async () => {
+    h.api.history.list.mockResolvedValue([{ ts: 1000, origin: 'edit', initial: true }]);
+    render(HistoryPanel, props());
+    await waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(1));
+    expect(screen.getByText('Initial version')).toBeTruthy();
   });
 });

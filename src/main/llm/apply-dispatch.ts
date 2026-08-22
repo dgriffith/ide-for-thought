@@ -148,7 +148,11 @@ register({
   kind: 'note',
   apply: async (ctx, p): Promise<{ resolvedPath: string }> => {
     const finalPath = await resolveCollidingPath(ctx.rootPath, p.relativePath);
-    await notebaseFs.createFile(ctx.rootPath, finalPath);
+    // `writeFile` creates the file (and its parents) itself. A `createFile`
+    // first would only touch an empty file into place — which the note's
+    // history then has to record as its baseline, leaving every AI-filed note
+    // with a junk empty first revision (#1158). Payloads apply sequentially, so
+    // the write still claims the path before the next payload resolves its own.
     await notebaseFs.writeFile(ctx.rootPath, finalPath, p.content);
     await graph.indexNote(ctx, finalPath, p.content);
     if (p.backlink) {
