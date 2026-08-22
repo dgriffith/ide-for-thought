@@ -15,7 +15,7 @@ import {
   selectForRetention,
   shouldCapture,
   type RevisionMeta,
-  type RevisionOrigin,
+  type RevisionSource,
 } from './policy';
 
 const HISTORY_DIR = '.minerva/history';
@@ -66,7 +66,8 @@ async function latestContent(dir: string, entries: RevisionMeta[]): Promise<stri
 
 /**
  * Record `content` as a new revision of `relPath`, unless it's byte-identical to
- * the latest one. Then prune the note's history to the retention window. `now`
+ * the latest one. `source` says how the write came about (origin + the
+ * user-facing cause shown in the timeline). Then prune the note's history to the retention window. `now`
  * is injectable for tests. No-op (returns null) when nothing was captured;
  * otherwise returns the new revision's metadata.
  */
@@ -74,7 +75,7 @@ export async function captureSnapshot(
   rootPath: string,
   relPath: string,
   content: string,
-  origin: RevisionOrigin,
+  source: RevisionSource,
   now: number = Date.now(),
 ): Promise<RevisionMeta | null> {
   const dir = noteDir(rootPath, relPath);
@@ -87,7 +88,11 @@ export async function captureSnapshot(
   let ts = now;
   while (entries.some((e) => e.ts === ts)) ts++;
 
-  const meta: RevisionMeta = { ts, origin };
+  const meta: RevisionMeta = {
+    ts,
+    origin: source.origin,
+    ...(source.cause ? { cause: source.cause } : {}),
+  };
   await fs.writeFile(snapPath(dir, ts), content, 'utf-8');
   entries.push(meta);
 

@@ -4,6 +4,7 @@ import path from 'node:path';
 import { Channels } from '../../shared/channels';
 import * as notebaseFs from '../notebase/fs';
 import { writeAndReindex } from '../notebase/write-pipeline';
+import { runWithHistorySource } from '../history';
 import { generateBibliography } from '../bibliography/generate';
 import {
   getBibliographyStyleId,
@@ -130,7 +131,8 @@ export function registerBibliography(): void {
     if (result.changed) {
       // 6-step pipeline keeps graph + search + open editors in sync
       // with on-disk content, just like a manual save.
-      await writeAndReindex(rootPath, relativePath, result.content, hooks);
+      await runWithHistorySource({ origin: 'edit', cause: 'Bibliography' }, () =>
+        writeAndReindex(rootPath, relativePath, result.content, hooks));
     }
     return {
       entriesCount: result.entriesCount,

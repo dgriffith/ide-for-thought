@@ -1,4 +1,4 @@
-import type { NoteFile, NotebaseMeta, TagInfo, TaggedNote, TaggedSource, SavedQuery, SavedView, SavedViewInput, SearchResult, OutgoingLink, Backlink, TabSession, LayoutSession, Conversation, ContextBundle, ConversationMessage, BookmarkNode, SourceDetail, SearchInNotesOptions, SearchInNotesFileResult, ReplaceInNotesOptions, ReplaceInNotesResult, HeadingRenameCandidate, MenuEditorState, InspectionFix } from '../../../shared/types';
+import type { NoteFile, NotebaseMeta, TagInfo, TaggedNote, TaggedSource, SavedQuery, SavedView, SavedViewInput, SearchResult, OutgoingLink, Backlink, TabSession, LayoutSession, Conversation, ConversationCreateOptions, ContextBundle, ConversationMessage, BookmarkNode, SourceDetail, SearchInNotesOptions, SearchInNotesFileResult, ReplaceInNotesOptions, ReplaceInNotesResult, HeadingRenameCandidate, MenuEditorState, InspectionFix } from '../../../shared/types';
 import type { ToolExecutionRequest, ToolExecutionResult, ConversationToolPayload } from '../../../shared/tools/types';
 import type { InspectionSettings } from '../../../shared/inspections';
 import type { ClipperState } from '../../../shared/clipper-pairing';
@@ -598,7 +598,7 @@ export interface ClipperApi {
 }
 
 export interface ConversationsApi {
-  create(contextBundle: ContextBundle, triggerNodeUri?: string, options?: { systemPrompt?: string; model?: string; webEnabled?: boolean }): Promise<Conversation>;
+  create(contextBundle: ContextBundle, triggerNodeUri?: string, options?: ConversationCreateOptions): Promise<Conversation>;
   append(id: string, role: ConversationMessage['role'], content: string): Promise<Conversation>;
   archive(id: string): Promise<Conversation>;
   load(id: string): Promise<Conversation | null>;

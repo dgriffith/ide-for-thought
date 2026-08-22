@@ -38,15 +38,33 @@ describe('HistoryPanel (#1158)', () => {
     expect(screen.getByText(/No history yet/)).toBeTruthy();
   });
 
-  it('renders the revision timeline newest-first', async () => {
+  it('renders the revision timeline newest-first, stamped with date and time', async () => {
+    const ts = new Date(2026, 7, 22, 14, 7).getTime();
     h.api.history.list.mockResolvedValue([
-      { ts: 2000, origin: 'restore' },
-      { ts: 1000, origin: 'edit' },
+      { ts, origin: 'restore', cause: 'Restored from Aug 21, 9:30 AM' },
+      { ts: ts - 60_000, origin: 'edit' },
     ]);
     render(HistoryPanel, props());
     await waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(2));
-    // The restore-origin revision shows its badge.
-    expect(screen.getByText('restored')).toBeTruthy();
+    // Absolute stamps, not "now" / "1m" — a minute apart has to be legible.
+    const [newest, older] = screen.getAllByRole('listitem');
+    expect(newest!.textContent).toMatch(/22.*\d{1,2}:07/);
+    expect(older!.textContent).toMatch(/22.*\d{1,2}:06/);
+    expect(newest!.textContent).not.toMatch(/\bnow\b/);
+  });
+
+  it('names what caused each revision, falling back to the origin', async () => {
+    h.api.history.list.mockResolvedValue([
+      { ts: 3000, origin: 'proposal', cause: 'Antithesize' },
+      { ts: 2000, origin: 'restore', cause: 'Restored from Aug 21, 9:30 AM' },
+      { ts: 1000, origin: 'edit' },
+    ]);
+    render(HistoryPanel, props());
+    await waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(3));
+    expect(screen.getByText('Antithesize')).toBeTruthy();
+    expect(screen.getByText('Restored from Aug 21, 9:30 AM')).toBeTruthy();
+    // Pre-cause revisions still read sensibly.
+    expect(screen.getByText('Edit')).toBeTruthy();
   });
 
   it('selecting a revision loads it and diffs it against the current text', async () => {

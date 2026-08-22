@@ -21,6 +21,9 @@ import type {
   ProposedWrite,
 } from './proposal-types';
 import { applyBundle, collectAffectsNodes, wiredPayloadKinds } from './apply-dispatch';
+import * as conversation from './conversation';
+import { runWithHistorySource } from '../history';
+import { describeProposalCause } from '../../shared/history';
 import { emitProposalsChanged } from './proposal-events';
 import {
   getProposal,
@@ -92,6 +95,32 @@ export async function proposeWrite(ctx: ProjectContext, write: ProposedWrite): P
   return proposal;
 }
 
+const CONVERSATION_PROPOSER = 'llm:conversation:';
+
+/**
+ * The name a proposal's note revisions should carry in the History panel.
+ * Skill-launched conversations are the interesting case: their proposals are
+ * only stamped `llm:conversation:<id>`, so the skill's name has to come off the
+ * conversation itself. Best-effort — a failed lookup degrades to "Conversation"
+ * rather than failing the approval.
+ */
+async function proposalCause(ctx: ProjectContext, proposal: Proposal): Promise<string> {
+  let skillName: string | undefined;
+  if (proposal.proposedBy.startsWith(CONVERSATION_PROPOSER)) {
+    const convId = proposal.proposedBy.slice(CONVERSATION_PROPOSER.length);
+    try {
+      skillName = (await conversation.load(ctx.rootPath, convId))?.skill?.name;
+    } catch (err) {
+      console.warn(`[approval] could not resolve the skill behind ${proposal.uri}:`, err);
+    }
+  }
+  return describeProposalCause({
+    proposedBy: proposal.proposedBy,
+    operationType: proposal.operationType,
+    skillName,
+  });
+}
+
 /**
  * Approve a pending proposal: apply its bundle and update status.
  */
@@ -113,7 +142,13 @@ export async function approveProposal(ctx: ProjectContext, uri: string): Promise
     proposal.payloads.map((p) => p.kind).join(', '),
   );
 
-  const applied = await applyBundle(ctx, proposal.payloads);
+  // Record the note revisions this apply produces under the user-facing name of
+  // whatever caused them ("Auto-tag", "Antithesize"), so the History panel can
+  // say what happened rather than just "AI".
+  const applied = await runWithHistorySource(
+    { origin: 'proposal', cause: await proposalCause(ctx, proposal) },
+    () => applyBundle(ctx, proposal.payloads),
+  );
   await updateProposalStatus(ctx, uri, 'approved');
   emitProposalsChanged(ctx.rootPath);
   const filedPaths = applied

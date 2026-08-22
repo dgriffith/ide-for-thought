@@ -5,7 +5,7 @@ import * as graph from '../graph/index';
 import * as conversation from '../llm/conversation';
 import { currentDateContext } from '../llm/date-context';
 import { readThoughtbaseDoc, thoughtbaseDocPromptBlock } from '../llm/thoughtbase-doc';
-import type { ContextBundle, ConversationMessage } from '../../shared/types';
+import type { ContextBundle, ConversationCreateOptions, ConversationMessage } from '../../shared/types';
 import type { ConversationDraftBase } from '../../shared/conversation-draft-base';
 import { rootPathFromEvent, winFromEvent, withRootPath, withRootPathOr } from './helpers';
 import { broadcast } from './broadcast';
@@ -215,7 +215,7 @@ export function registerConversation(): void {
   // Every handler resolves the project from the CALLING WINDOW (#1743). These
   // used to reach module state that the last-opened project owned, so with two
   // thoughtbases open both windows read and wrote the same one's conversations.
-  handle(Channels.CONVERSATION_CREATE, withRootPath((rootPath, contextBundle: ContextBundle, triggerNodeUri?: string, options?: { systemPrompt?: string; model?: string }) =>
+  handle(Channels.CONVERSATION_CREATE, withRootPath((rootPath, contextBundle: ContextBundle, triggerNodeUri?: string, options?: ConversationCreateOptions) =>
     conversation.create(rootPath, contextBundle, triggerNodeUri, options)));
   handle(Channels.CONVERSATION_APPEND, withRootPath((rootPath, id: string, role: ConversationMessage['role'], content: string) =>
     conversation.appendMessage(rootPath, id, role, content)));

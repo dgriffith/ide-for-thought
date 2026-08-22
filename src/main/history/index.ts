@@ -13,7 +13,7 @@
  * reverse.
  */
 import { captureSnapshot } from './store';
-import type { RevisionOrigin } from './policy';
+import type { RevisionSource } from './policy';
 
 export {
   listRevisions,
@@ -21,23 +21,29 @@ export {
   moveHistory,
   setRevisionLabel,
 } from './store';
-export type { RevisionMeta, RevisionOrigin } from './policy';
+export type { RevisionMeta, RevisionOrigin, RevisionSource } from './policy';
 
-// Ambient origin for the next capture. Note writes are serialized per note, so a
-// simple module var is sufficient to tag a restore / AI-applied write without
-// threading `origin` through the whole write pipeline. Defaults to a manual edit.
-let ambientOrigin: RevisionOrigin = 'edit';
+// Ambient source for the next capture. Note writes are serialized per note, so
+// a simple module var is sufficient to tag a restore / AI-applied write without
+// threading it through the whole write pipeline. Defaults to a manual edit.
+const MANUAL_EDIT: RevisionSource = { origin: 'edit' };
+let ambientSource: RevisionSource = MANUAL_EDIT;
 
-/** Run `fn` (a note write) tagging any revisions it produces with `origin` —
- *  e.g. `runWithHistoryOrigin('restore', () => writeAndReindex(...))`. Restores
- *  to the ambient default afterward even if `fn` throws. */
-export async function runWithHistoryOrigin<T>(origin: RevisionOrigin, fn: () => Promise<T>): Promise<T> {
-  const prev = ambientOrigin;
-  ambientOrigin = origin;
+/**
+ * Run `fn` (a note write) recording any revisions it produces as `source` —
+ * e.g. `runWithHistorySource({ origin: 'restore', cause: 'Restored from …' },
+ * () => writeAndReindex(...))`. The `cause` is what the History panel shows in
+ * its "what did this?" column, so name the user's action ("Auto-tag",
+ * "Antithesize"), not the module doing the write. Restores the previous source
+ * afterward even if `fn` throws.
+ */
+export async function runWithHistorySource<T>(source: RevisionSource, fn: () => Promise<T>): Promise<T> {
+  const prev = ambientSource;
+  ambientSource = source;
   try {
     return await fn();
   } finally {
-    ambientOrigin = prev;
+    ambientSource = prev;
   }
 }
 
@@ -55,7 +61,7 @@ function isCapturable(relPath: string): boolean {
 export async function onNoteWritten(rootPath: string, relPath: string, content: string): Promise<void> {
   if (!isCapturable(relPath)) return;
   try {
-    await captureSnapshot(rootPath, relPath, content, ambientOrigin);
+    await captureSnapshot(rootPath, relPath, content, ambientSource);
   } catch (err) {
     console.error(`[history] capture failed for "${relPath}":`, err);
   }

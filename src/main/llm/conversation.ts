@@ -6,6 +6,7 @@ import { escapeTurtleLiteral } from './turtle';
 import { costForUsage } from '../../shared/tools/models';
 import type {
   Conversation,
+  ConversationCreateOptions,
   ConversationMessage,
   ContextBundle,
   ConversationStatus,
@@ -84,7 +85,7 @@ export async function create(
   rootPath: string,
   contextBundle: ContextBundle,
   triggerNodeUri?: string,
-  options?: { systemPrompt?: string; model?: string; webEnabled?: boolean },
+  options?: ConversationCreateOptions,
 ): Promise<Conversation> {
   const dir = convDir(rootPath);
   await fs.mkdir(dir, { recursive: true });
@@ -101,6 +102,7 @@ export async function create(
   if (options?.systemPrompt) conv.systemPrompt = options.systemPrompt;
   if (options?.model) conv.model = options.model;
   if (options?.webEnabled !== undefined) conv.webEnabled = options.webEnabled;
+  if (options?.skill) conv.skill = options.skill;
 
   await persist(rootPath, conv);
   writeConversationToGraph(rootPath, conv);

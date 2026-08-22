@@ -83,6 +83,9 @@ describe('compiled skill through the conversation payload builder', () => {
     );
     expect(payload).toEqual({
       toolId: 'learning.sample',
+      // Carried so a conversation the skill launches can be labeled with its
+      // name downstream (note-history causes, #1158).
+      toolName: 'Sample',
       systemPrompt: 'SYS C',
       firstMessage: 'FIRST T',
       model: 'claude-opus-4-8', // differs from default → pinned
