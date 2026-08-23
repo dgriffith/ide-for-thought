@@ -275,6 +275,42 @@ export default tseslint.config(
       }],
     },
   },
+  // ── CLI boundary (#1839, epic #1145 — Substrate) ───────────────────────
+  // `src/cli` is the fifth layer and the only one that runs OUTSIDE Electron:
+  // `node .vite/build/cli.js …` (and the same bundle under
+  // ELECTRON_RUN_AS_NODE inside the packaged app). It deliberately DOES import
+  // `src/main` — the read engine reuses the app's graph / search / tables /
+  // proposal modules rather than forking them — so there is no cli→main rule to
+  // add here. What it must never reach for is a window: `src/renderer` is
+  // Svelte + DOM (there is no DOM in this process) and `src/preload` is a
+  // contextBridge shim that only means anything inside a BrowserWindow;
+  // importing either would evaluate Electron-only code at module load and turn
+  // a headless run into a crash. `electron` itself is out too — the CLI build
+  // aliases it to the all-undefined `src/cli/electron-stub.ts` precisely so no
+  // `require('electron')` survives into a bundle the packaged app can't
+  // resolve, and CLI code written against that stub would be reading
+  // `undefined`. Runtime counterpart: tests/cli/electron-free.test.ts.
+  {
+    files: ['src/cli/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-restricted-imports': ['error', {
+        patterns: [
+          {
+            group: ['**/renderer/**', '**/preload/**'],
+            message:
+              'src/cli runs under plain Node — it must not import renderer (DOM/Svelte) or preload ' +
+              '(contextBridge) code, which only exist inside an Electron window (#1839).',
+          },
+          {
+            group: ['electron'],
+            message:
+              'src/cli must not import electron — the CLI build aliases it to an all-undefined stub, ' +
+              'so anything read from it is undefined at runtime (#1839).',
+          },
+        ],
+      }],
+    },
+  },
   // ── Renderer data-flow rule (#1086 / #1674) ────────────────────────────
   // Components may call `api.*` only for reads + stateless OS side-effects.
   // A mutation `api.<domain>.<method>(…)` (or an `api.*.on*` event
