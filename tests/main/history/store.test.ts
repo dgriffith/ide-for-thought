@@ -3,7 +3,7 @@
  * append + dedupe, list newest-first, read a revision, prune to retention,
  * history-follows-rename, and labeled-survives-prune.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
@@ -17,6 +17,7 @@ import {
   moveHistory,
   setRevisionLabel,
 } from '../../../src/main/history/store';
+import { onNoteWritten } from '../../../src/main/history';
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -284,5 +285,62 @@ describe('pruneAllHistory (#1158)', () => {
 
   it('is a no-op for a project with no history at all', async () => {
     expect(await pruneAllHistory(root, 5000, LOOSE)).toEqual({ notes: 0, removed: 0 });
+  });
+});
+
+describe('history store error conventions (#1835)', () => {
+  let root: string;
+  beforeEach(async () => { root = await fs.mkdtemp(path.join(os.tmpdir(), 'minerva-hist-errs-')); });
+  afterEach(async () => { await fs.rm(root, { recursive: true, force: true }); });
+
+  const NOTE = 'notes/a.md';
+  const indexPath = () => path.join(root, '.minerva', 'history', NOTE, 'index.json');
+
+  it('reads a missing index as "no history yet" — the expected absence', async () => {
+    expect(await listRevisions(root, NOTE)).toEqual([]);
+  });
+
+  it('surfaces a corrupt index instead of reporting it as empty', async () => {
+    await captureSnapshot(root, NOTE, 'v1', { origin: 'edit' }, 1000);
+    await fs.writeFile(indexPath(), '{ not json at all', 'utf-8');
+
+    // The old behaviour returned [] here, so a note with a damaged past looked
+    // like a note with no past — and capture kept appending underneath.
+    await expect(listRevisions(root, NOTE)).rejects.toThrow();
+  });
+
+  it('rejects an index that parses but is not a list', async () => {
+    await captureSnapshot(root, NOTE, 'v1', { origin: 'edit' }, 1000);
+    await fs.writeFile(indexPath(), '{"revisions": []}', 'utf-8');
+    await expect(listRevisions(root, NOTE)).rejects.toThrow(/not a list of revisions/);
+  });
+
+  it('keeps a corrupt index from breaking the save it interrupts', async () => {
+    // History is best-effort at its hook boundary: the capture fails loudly in
+    // the log, the user's write still lands.
+    await captureSnapshot(root, NOTE, 'v1', { origin: 'edit' }, 1000);
+    await fs.writeFile(indexPath(), 'broken', 'utf-8');
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      await expect(onNoteWritten(root, NOTE, 'v2')).resolves.toBeUndefined();
+      expect(err).toHaveBeenCalled();
+    } finally {
+      err.mockRestore();
+    }
+  });
+
+  it('returns null from getRevisionContent only when the revision is not there', async () => {
+    await captureSnapshot(root, NOTE, 'v1', { origin: 'edit' }, 1000);
+    expect(await getRevisionContent(root, NOTE, 1000)).toBe('v1');
+    expect(await getRevisionContent(root, NOTE, 999)).toBeNull();
+  });
+
+  it('throws rather than returning null when a revision cannot be read', async () => {
+    await captureSnapshot(root, NOTE, 'v1', { origin: 'edit' }, 1000);
+    // A directory where the snapshot file should be: present, but unreadable as
+    // a file. Not "no such revision" — and it must not claim to be.
+    await fs.rm(path.join(root, '.minerva', 'history', NOTE, '1000.snap'));
+    await fs.mkdir(path.join(root, '.minerva', 'history', NOTE, '1000.snap'));
+    await expect(getRevisionContent(root, NOTE, 1000)).rejects.toThrow();
   });
 });

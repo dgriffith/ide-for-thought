@@ -750,7 +750,8 @@ export interface TabsApi {
 export interface HistoryApi {
   /** A note's revisions, newest first (metadata only). */
   list(relativePath: string): Promise<RevisionMeta[]>;
-  /** One revision's full content, or null if it's gone. */
+  /** One revision's full content. `null` means exactly one thing — there is no
+   *  such revision (#1835). A read that fails for any other reason rejects. */
   getRevision(relativePath: string, ts: number): Promise<string | null>;
   /** Restore a revision — writes it back as a new save (non-destructive). */
   restore(relativePath: string, ts: number): Promise<void>;

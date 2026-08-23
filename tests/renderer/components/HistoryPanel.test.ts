@@ -68,6 +68,17 @@ describe('HistoryPanel (#1158)', () => {
     expect(screen.getByText(/No history yet/)).toBeTruthy();
   });
 
+  it('says the history could not be read rather than claiming there is none (#1835)', async () => {
+    h.api.history.list.mockRejectedValue(new Error('index.json is not a list of revisions'));
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+    await rendered();
+
+    await waitFor(() => expect(screen.getByText(/couldn't be read/)).toBeTruthy());
+    // The old empty-state message would have been a lie about a damaged file.
+    expect(screen.queryByText(/No history yet/)).toBeNull();
+    err.mockRestore();
+  });
+
   it('renders the revision timeline newest-first, stamped with date and time', async () => {
     const ts = new Date(2026, 7, 22, 14, 7).getTime();
     h.api.history.list.mockResolvedValue([

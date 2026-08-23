@@ -24,6 +24,15 @@ import type { RevisionMeta } from '../../../shared/history';
 
 let watched = $state<string | null>(null);
 let revisions = $state<RevisionMeta[]>([]);
+/**
+ * Why the watched note's history couldn't be read, or null.
+ *
+ * Main now throws on a corrupt revision index instead of reporting it as "no
+ * history yet" (#1835). That's only an improvement if the renderer says so —
+ * swallowing the rejection here would put the panel right back to showing an
+ * empty timeline for a note whose past is sitting damaged on disk.
+ */
+let error = $state<string | null>(null);
 /** Bumped whenever `revisions` is replaced, so a panel can re-stamp "now" for
  *  its date formatting without diffing the list. */
 let revision = $state(0);
@@ -33,6 +42,7 @@ async function load(): Promise<void> {
   const path = watched;
   if (!path) {
     revisions = [];
+    error = null;
     revision += 1;
     return;
   }
@@ -42,9 +52,14 @@ async function load(): Promise<void> {
     // response must not overwrite the newer note's list.
     if (watched !== path) return;
     revisions = list;
+    error = null;
     revision += 1;
   } catch (err) {
+    if (watched !== path) return;
     console.error('[history] failed to list revisions:', err);
+    revisions = [];
+    error = err instanceof Error ? err.message : String(err);
+    revision += 1;
   }
 }
 
@@ -65,6 +80,25 @@ export function getHistoryStore() {
     get revisions(): RevisionMeta[] { return revisions; },
     /** Bumped on every list replacement. */
     get revision(): number { return revision; },
+    /** Why the watched note's history couldn't be read, or null. */
+    get error(): string | null { return error; },
+
+    /**
+     * One revision's content, for the diff. Returns null when the revision is
+     * gone; a real read failure surfaces through `error` rather than reading to
+     * the user as an empty version.
+     */
+    async readRevision(relativePath: string, ts: number): Promise<string | null> {
+      try {
+        const content = await api.history.getRevision(relativePath, ts);
+        error = null;
+        return content;
+      } catch (err) {
+        console.error('[history] failed to read a revision:', err);
+        error = err instanceof Error ? err.message : String(err);
+        return null;
+      }
+    },
 
     /**
      * Point the store at a note (or `null` for "no note open"). Idempotent, so

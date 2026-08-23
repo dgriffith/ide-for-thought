@@ -14,6 +14,7 @@ const h = vi.hoisted(() => ({
   api: {
     history: {
       list: vi.fn(),
+      getRevision: vi.fn(),
       restore: vi.fn(),
       setLabel: vi.fn(),
       onChanged: vi.fn(),
@@ -34,6 +35,7 @@ let fireChanged: (relPath: string | null) => void;
 
 beforeEach(() => {
   h.api.history.list.mockResolvedValue([]);
+  h.api.history.getRevision.mockResolvedValue(null);
   h.api.history.restore.mockResolvedValue(undefined);
   h.api.history.setLabel.mockResolvedValue(undefined);
   h.api.history.onChanged.mockImplementation((cb: (p: string | null) => void) => {
@@ -134,6 +136,47 @@ describe('history store (#1834)', () => {
     releaseSlow([{ ts: 1, origin: 'edit' }]);
     await flush();
     expect(store.revisions.map((r) => r.ts)).toEqual([9]);
+  });
+
+  it('exposes a read failure instead of showing an empty timeline (#1835)', async () => {
+    h.api.history.list.mockRejectedValue(new Error('index.json is not a list of revisions'));
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const store = getHistoryStore();
+    store.watch('notes/a.md');
+    await flush();
+
+    // Main throws on a corrupt index now; swallowing it here would put the
+    // panel back to claiming the note has no history.
+    expect(store.error).toMatch(/not a list of revisions/);
+    expect(store.revisions).toEqual([]);
+    err.mockRestore();
+  });
+
+  it('clears the error once the note reads cleanly again', async () => {
+    h.api.history.list.mockRejectedValue(new Error('broken'));
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const store = getHistoryStore();
+    store.watch('notes/a.md');
+    await flush();
+    expect(store.error).toBe('broken');
+
+    h.api.history.list.mockResolvedValue([{ ts: 1, origin: 'edit' }]);
+    fireChanged('notes/a.md');
+    await flush();
+
+    expect(store.error).toBeNull();
+    expect(store.revisions).toHaveLength(1);
+    err.mockRestore();
+  });
+
+  it('surfaces a failed revision read rather than showing it as empty', async () => {
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+    h.api.history.getRevision.mockRejectedValue(new Error('EACCES'));
+    const store = getHistoryStore();
+
+    expect(await store.readRevision('notes/a.md', 1)).toBeNull();
+    expect(store.error).toBe('EACCES');
+    err.mockRestore();
   });
 
   it('confirms before restoring, and reports a decline', async () => {

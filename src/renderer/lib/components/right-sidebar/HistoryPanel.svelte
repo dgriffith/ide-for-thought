@@ -3,11 +3,10 @@
   // the active note: a timeline of saved revisions, a diff of the selected one
   // against the current text, and one-click restore.
   //
-  // The revision list, the `history:changed` subscription and the three
-  // mutations live in the history store (#1834); this owns only view state —
-  // which revision is selected, its content, the diff, and the context menu.
-  // `getRevision` stays a direct `api.*` read, which the data-flow rule allows.
-  import { api } from '../../ipc/client';
+  // The revision list, the `history:changed` subscription, the reads and the
+  // three mutations live in the history store (#1834); this owns only view
+  // state — which revision is selected, its content, the diff, and the context
+  // menu.
   import { getHistoryStore } from '../../stores/history.svelte';
   import { clampMenuToViewport } from '../../utils/menuClamp';
   import { installDismissOnClickOutside } from '../../dismiss-menu';
@@ -58,7 +57,7 @@
 
   async function select(relativePath: string, ts: number): Promise<void> {
     selectedTs = ts;
-    selectedContent = await api.history.getRevision(relativePath, ts);
+    selectedContent = await history.readRevision(relativePath, ts);
   }
 
   // Point the store at the open note; it refetches on change and on every
@@ -101,6 +100,14 @@
 <div class="history-panel">
   {#if !activeFilePath}
     <p class="empty">No active note.</p>
+  {:else if history.error}
+    <!-- A damaged index reads as "no history yet" if we stay quiet about it,
+         which is how a note's whole past can look like it was never there. -->
+    <p class="empty">
+      This note's history couldn't be read. Its record in
+      <code>.minerva/history</code> may be damaged.
+      <span class="detail">{history.error}</span>
+    </p>
   {:else if revisions.length === 0}
     <p class="empty">No history yet — your edits are saved here as you go.</p>
   {:else}
@@ -155,7 +162,9 @@
 
 <style>
   .history-panel { display: flex; flex-direction: column; min-height: 0; height: 100%; }
-  .empty { color: var(--text-muted); font-size: 13px; padding: 12px; }
+  .empty { color: var(--text-muted); font-size: 13px; padding: 12px; line-height: 1.5; }
+  .empty code { font-family: var(--font-mono); font-size: 11px; }
+  .empty .detail { display: block; margin-top: 6px; color: var(--text-faint); font-size: 11px; }
 
   .timeline { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 0 0 auto; max-height: 45%; }
   .timeline li {
