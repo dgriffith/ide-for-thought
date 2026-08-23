@@ -50,9 +50,6 @@ const IPC_DIR = path.join(ROOT, 'src', 'main', 'ipc');
  * the intended way to change this file; adding one is not.
  */
 const KNOWN_UNTESTED: readonly string[] = [
-  'register-sources',      // 343 lines
-  'register-publish',      // 171 lines
-  'register-bibliography', // 144 lines
   'register-compute',      // 119 lines
   'register-tools',        // 108 lines
   'register-types',        //  78 lines
