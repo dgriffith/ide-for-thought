@@ -38,7 +38,7 @@ const DATAFLOW_MUTATION_METHODS =
   // settings: clipper / tools / bibliography / csl / sites / skills / compute
   'setEnabled|regenerateSecret|setSettings|setStyle|generate|importStyle|importLocale|' +
   'removeStyle|removeLocale|login|logout|setMenuConfig|setPythonSettings|restartPythonKernel|' +
-  'interruptPythonKernel|saveCellOutput|grantConsent|revokeConsent|' +
+  'interruptPythonKernel|saveCellOutput|grantConsent|revokeConsent|runCell|' +
   // publish / proposals / graph / refactor actions
   'runExport|toGit|upsertTarget|removeTarget|approve|reject|expire|runInspections|' +
   'setInspectionSettings|' +

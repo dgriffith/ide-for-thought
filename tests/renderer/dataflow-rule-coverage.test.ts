@@ -58,10 +58,12 @@ const READ_ALLOWLIST = new Set<string>([
   'instances', 'noteProperties', 'smartMembers',
   // sources reads
   'getExcerptNoteFolder', 'getIngestSettings', 'hasPdf', 'listAll', 'queueMembers', 'readPdf',
-  // settings-ish reads + compute probes/execution (persist step saveCellOutput is denylisted)
+  // settings-ish reads + compute probes. `runCell` was here until #1837: it
+  // writes an audit record to the project and leaves state in a shared kernel,
+  // so it is a mutation, not a probe — it's on the denylist now.
   'getState', 'getKeyStorage', 'getSettings', 'getStyle', 'listStyles',
   'listUserLocales', 'listUserStyles', 'getPythonSettings', 'listConsent',
-  'browsePython', 'probePython', 'runCell',
+  'browsePython', 'probePython',
   // publish reads
   'checkGitHub', 'checkS3', 'listExporters', 'listTargets', 'resolvePlan',
   // embeddings + tools reads
