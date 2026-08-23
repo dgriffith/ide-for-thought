@@ -138,7 +138,10 @@ thrown error already propagates cleanly. Build on that:
 - **In-band `error?` on an otherwise-normal payload** — prefer the discriminated
   union of rule 3 over baking an optional `error` onto the success shape.
 
-**Migration backlog** (audited outliers, fix incrementally per the rules above):
+**Migration backlog** (audited outliers, fix incrementally per the rules above).
+The counts are also ratcheted by `tests/architecture/pattern-ratchets.test.ts`
+(#1848) — a new instance of a listed anti-pattern fails a test, so this list
+can't quietly grow while nobody re-reads it:
 
 - `null` no-project↔not-found: *(cleared — `GRAPH_SOURCE_DETAIL`,
   `GRAPH_EXCERPT_SOURCE`, `PROPOSAL_DETAIL`, `TEMPLATES_GET` and
