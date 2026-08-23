@@ -9,12 +9,20 @@ all three.
 `app.getPath('userData')` (macOS: `~/Library/Application Support/Minerva/`).
 Machine-/OS-user-scoped settings that don't belong to any one thoughtbase.
 
+This table is checked against the code by
+`tests/architecture/config-roots-doc.test.ts` (#1853): every
+`app.getPath('userData')` call site in `src/main/**` must name a file or folder
+listed here. Adding a config without documenting it fails a test.
+
 | File | Holds |
 |---|---|
 | `llm-settings.json` | LLM providers, model, effort, web settings. **API keys are encrypted** at rest via `safeStorage` (`enc:v1:` prefix). |
 | `clipper-config.json` | Browser-clipper enable flag + the loopback **shared secret (encrypted)**. |
 | `ingest-settings.json` | Source-ingest defaults. |
 | `python-settings.json` | Python interpreter path + run consent. |
+| `compute-consent.json` | Content-addressed code-cell consent, keyed on each cell's code hash (#1412). Machine-scoped so it never rides along with a shared thoughtbase. |
+| `inspection-settings.json` | Which graph-health inspections run, plus their staleness thresholds (#1792). |
+| `history-settings.json` | Local note-history retention limits — days, revisions per note, max file size (#1158). |
 | `privileged-sites.json` | Clipper privileged-site list. |
 | `recent-projects.json` | Recently opened thoughtbases. |
 | `session.json` | Window / layout / tab session. |
@@ -47,6 +55,7 @@ Lives inside each thoughtbase root and travels **with** it. `.minerva/` carries 
 | `queries/` | Saved queries at **project** scope. |
 | `formatter.json` | Per-thoughtbase formatter settings. |
 | `csl/` | User citation styles. |
+| `history/` | Local per-note history: snapshots as `<mirrored-note-path>/<ts>.snap` plus an `index.json` (#1158). Gitignored; plain files so a note's past stays recoverable without the app. |
 | `cache/`, `assets/` | Derived caches (external images, YouTube thumbnails) + publish assets. |
 
 ## Secrets, at a glance
