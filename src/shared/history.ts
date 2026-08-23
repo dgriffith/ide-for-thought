@@ -35,10 +35,14 @@ export interface RevisionMeta {
 }
 
 /**
- * What the write currently in flight should be recorded as. Set ambiently
- * around a write (`runWithHistorySource` in `main/history`) rather than
- * threaded through the whole write pipeline, since note writes are serialized
- * per note.
+ * What the write currently in flight should be recorded as. Carried as async
+ * context around a write (`runWithHistorySource` in `main/history`) rather than
+ * threaded through the whole write pipeline — the pipeline has too many layers
+ * between the caller who knows the cause and the hook that records it.
+ *
+ * Async context, not a module variable (#1833): writes from different callers
+ * overlap, so a saved-and-restored global can end up recording one caller's
+ * work under another's name.
  */
 export interface RevisionSource {
   origin: RevisionOrigin;
