@@ -20,11 +20,19 @@ import {
   type RevisionSource,
 } from './policy';
 import { getHistorySettings } from './settings';
+// A leaf (only `node:fs/promises`), imported directly rather than through the
+// `ipc/helpers` barrel so this stays clear of electron.
+import { readJsonFileOr } from '../ipc/read-json';
 import { emitHistoryChanged } from './history-events';
 import type { HistorySettings } from '../../shared/history';
 
 const HISTORY_DIR = '.minerva/history';
 const INDEX_FILE = 'index.json';
+
+/** "The file isn't there" — the one absence these reads treat as expected. */
+function isENOENT(err: unknown): boolean {
+  return (err as NodeJS.ErrnoException | null)?.code === 'ENOENT';
+}
 
 /** Absolute dir holding one note's revisions. `relPath` is a project-relative
  *  note path already validated by the caller (capture runs after the write's
@@ -42,15 +50,25 @@ function snapPath(dir: string, ts: number): string {
   return path.join(dir, `${ts}.snap`);
 }
 
+/**
+ * A note's revision index. Missing → no history yet, which is the overwhelmingly
+ * common case (every note before its first save). Corrupt or unreadable →
+ * throws (#1835).
+ *
+ * It used to catch everything and return `[]`, on the reasoning that a corrupt
+ * index shouldn't crash a save. It doesn't have to: the capture hook is
+ * best-effort and swallows at its own boundary. What returning `[]` did instead
+ * was make a note's entire past *disappear from the panel* while capture
+ * cheerfully appended to the file underneath — the note looked new, and the
+ * user was never told otherwise. Missing and corrupt are different facts and
+ * only one of them is expected.
+ */
 async function readIndex(dir: string): Promise<RevisionMeta[]> {
-  try {
-    const raw = await fs.readFile(path.join(dir, INDEX_FILE), 'utf-8');
-    const parsed = JSON.parse(raw) as unknown;
-    // A corrupt index shouldn't crash a save; treat it as "no history yet".
-    return Array.isArray(parsed) ? (parsed as RevisionMeta[]) : [];
-  } catch {
-    return [];
+  const parsed = await readJsonFileOr<unknown>(path.join(dir, INDEX_FILE), []);
+  if (!Array.isArray(parsed)) {
+    throw new Error(`history: ${path.join(dir, INDEX_FILE)} is not a list of revisions`);
   }
+  return parsed as RevisionMeta[];
 }
 
 async function writeIndex(dir: string, entries: RevisionMeta[]): Promise<void> {
@@ -58,14 +76,17 @@ async function writeIndex(dir: string, entries: RevisionMeta[]): Promise<void> {
   await fs.writeFile(path.join(dir, INDEX_FILE), JSON.stringify(sorted, null, 2), 'utf-8');
 }
 
-/** The most-recent revision's content, or undefined if none — for dedupe. */
+/** The most-recent revision's content, or undefined if none — for dedupe.
+ *  A snapshot file that has gone missing means "treat the save as changed and
+ *  re-capture"; any other read failure is a real problem and throws. */
 async function latestContent(dir: string, entries: RevisionMeta[]): Promise<string | undefined> {
   const newest = entries.reduce<RevisionMeta | null>((a, b) => (!a || b.ts > a.ts ? b : a), null);
   if (!newest) return undefined;
   try {
     return await fs.readFile(snapPath(dir, newest.ts), 'utf-8');
-  } catch {
-    return undefined; // snapshot file vanished — treat as changed, re-capture
+  } catch (err) {
+    if (isENOENT(err)) return undefined;
+    throw err;
   }
 }
 
@@ -183,12 +204,19 @@ export async function listRevisions(rootPath: string, relPath: string): Promise<
   return entries.sort((a, b) => b.ts - a.ts);
 }
 
-/** The content of one revision, or null if it's gone. */
+/**
+ * The content of one revision, or `null` when there is no such revision — and
+ * ONLY that (#1835). A read that fails for any other reason (permissions, a
+ * truncated volume) throws, rather than telling the caller the revision was
+ * never there; `HISTORY_RESTORE` turns that `null` into "revision not found",
+ * and it should mean it.
+ */
 export async function getRevisionContent(rootPath: string, relPath: string, ts: number): Promise<string | null> {
   try {
     return await fs.readFile(snapPath(noteDir(rootPath, relPath), ts), 'utf-8');
-  } catch {
-    return null;
+  } catch (err) {
+    if (isENOENT(err)) return null;
+    throw err;
   }
 }
 
