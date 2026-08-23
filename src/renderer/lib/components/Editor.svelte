@@ -145,10 +145,12 @@
      * Run-cell handler (#373). When supplied, replaces the direct
      * `api.compute.runCell` call. App.svelte injects a trust-gated
      * variant that prompts on first Python execution per thoughtbase.
-     * Keeping it pluggable lets headless / test contexts run cells
-     * without going through the dialog flow.
+     * Required, and pluggable on purpose: a headless or test context supplies
+     * its own runner rather than the component reaching for the IPC. The
+     * default it used to fall back to skipped the renderer's consent gate
+     * (main re-checks, so it was never unsafe — just wrong about who decides).
      */
-    onRunCell?: (
+    onRunCell: (
       language: string,
       code: string,
       notePath: string,
@@ -500,11 +502,11 @@
       }),
       bookmarkGutterExtension(),
       computeCellsExtension({
-        runCell: (language, code) => (
-          onRunCell
-            ? onRunCell(language, code, filePath)
-            : api.compute.runCell(language, code, filePath)
-        ),
+        // Always the injected runner — never `api.compute.runCell` directly
+        // (#1837). Running a cell writes an audit record to the project and
+        // leaves state in a shared kernel, so it's a mutation, and the caller
+        // that owns the consent gate should be the one to make it.
+        runCell: (language, code) => onRunCell(language, code, filePath),
         runAllRef,
       }),
       footnotePreview(),

@@ -60,7 +60,7 @@ const BUDGETS: Record<string, number> = {
   'src/renderer/lib/components/SourcesPanel.svelte': 1297,
   'src/renderer/lib/ipc/client.ts': 1241,
   'src/renderer/lib/stores/conversations.svelte.ts': 1212,
-  'src/renderer/lib/components/Editor.svelte': 1206,
+  'src/renderer/lib/components/Editor.svelte': 1208,
   'src/renderer/lib/stores/editor.svelte.ts': 1183,
   'src/main/graph/queries.ts': 1178,
   'src/renderer/lib/components/right-sidebar/PropertiesPanel.svelte': 1156,
