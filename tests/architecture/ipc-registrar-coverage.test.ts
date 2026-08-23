@@ -57,12 +57,6 @@ const KNOWN_UNTESTED: readonly string[] = [
   'register-tools',        // 108 lines
   'register-types',        //  78 lines
   'register-queries',      //  63 lines
-  'register-app',          //  48 lines
-  'register-clipper',      //  40 lines
-  'register-views',        //  25 lines
-  'register-tags',         //  23 lines
-  'register-sites',        //  22 lines
-  'register-git',          //  17 lines
 ];
 
 /** Module names (no extension) of every `src/main/ipc/register-*.ts`. */
