@@ -49,12 +49,15 @@ const IPC_DIR = path.join(ROOT, 'src', 'main', 'ipc');
  * This list may only SHRINK. Deleting an entry because you wrote its test is
  * the intended way to change this file; adding one is not.
  */
-const KNOWN_UNTESTED: readonly string[] = [
-  'register-compute',      // 119 lines
-  'register-tools',        // 108 lines
-  'register-types',        //  78 lines
-  'register-queries',      //  63 lines
-];
+/**
+ * Registrars with no direct test. **Empty** — every `register-*.ts` is now
+ * exercised by a file under `tests/main/ipc/` (#1840, batches a/b/c).
+ *
+ * Keep it that way: this list is the pre-existing backlog and may only shrink,
+ * so a new registrar without a test fails the check above rather than landing
+ * here. There is nothing left for it to hold.
+ */
+const KNOWN_UNTESTED: readonly string[] = [];
 
 /** Module names (no extension) of every `src/main/ipc/register-*.ts`. */
 function registrars(): string[] {
