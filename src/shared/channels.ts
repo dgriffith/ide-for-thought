@@ -602,6 +602,9 @@ export const Channels = {
   HISTORY_RESTORE: 'history:restore',
   HISTORY_SET_LABEL: 'history:setLabel',
   HISTORY_LABEL_NOTES: 'history:labelNotes',
+  /** Event: a note's revisions changed (captured / labeled / pruned). Payload
+   *  is the note path, or null when a sweep touched many. */
+  HISTORY_CHANGED: 'history:changed',
   HISTORY_GET_SETTINGS: 'history:getSettings',
   HISTORY_SET_SETTINGS: 'history:setSettings',
 

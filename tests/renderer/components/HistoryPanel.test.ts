@@ -1,38 +1,60 @@
 /**
  * @vitest-environment happy-dom
  *
- * History panel (#1158, PR 2). Mounts the real panel against a mocked
- * `api.history` and asserts: empty / no-note states, the revision timeline, that
- * selecting a revision loads its content and diffs it, and that Restore routes
- * out through `onRestore` (App owns the confirm + mutation).
+ * History panel (#1158, store-backed since #1834). Mounts the real panel over
+ * the REAL history store with only the `api.history` boundary and the dialogs
+ * mocked, so the test exercises the store's watch/refresh path rather than a
+ * stand-in. Asserts: empty / no-note states, the timeline, the cause column,
+ * selecting a revision and diffing it, naming a version, and Restore.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent, cleanup, waitFor, screen } from '@testing-library/svelte';
 
 const h = vi.hoisted(() => ({
-  api: { history: { list: vi.fn(), getRevision: vi.fn(), restore: vi.fn() } },
+  api: {
+    history: {
+      list: vi.fn(),
+      getRevision: vi.fn(),
+      restore: vi.fn(),
+      setLabel: vi.fn(),
+      onChanged: vi.fn(() => () => {}),
+    },
+  },
+  showConfirm: vi.fn(),
+  showPrompt: vi.fn(),
 }));
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({ api: h.api }));
+vi.mock('../../../src/renderer/lib/stores/dialogs.svelte', () => ({
+  getDialogStore: () => ({ showConfirm: h.showConfirm, showPrompt: h.showPrompt }),
+}));
 
 import HistoryPanel from '../../../src/renderer/lib/components/right-sidebar/HistoryPanel.svelte';
+import { getHistoryStore } from '../../../src/renderer/lib/stores/history.svelte';
 
 function props(over: Record<string, unknown> = {}) {
-  return {
-    activeFilePath: 'notes/a.md',
-    content: 'line1\nline2\n',
-    revision: 0,
-    onRestore: vi.fn(),
-    onLabel: vi.fn(),
-    onRemoveLabel: vi.fn(),
-    ...over,
-  };
+  return { activeFilePath: 'notes/a.md', content: 'line1\nline2\n', ...over };
+}
+
+/** Wait for the store's async load to land in the panel. */
+async function rendered(over: Record<string, unknown> = {}) {
+  const r = render(HistoryPanel, props(over));
+  await waitFor(() => expect(h.api.history.list).toHaveBeenCalled());
+  return r;
 }
 
 beforeEach(() => {
   h.api.history.list.mockResolvedValue([]);
   h.api.history.getRevision.mockResolvedValue(null);
+  h.api.history.restore.mockResolvedValue(undefined);
+  h.api.history.setLabel.mockResolvedValue(undefined);
 });
-afterEach(() => { cleanup(); vi.clearAllMocks(); });
+afterEach(() => {
+  cleanup();
+  // The store is a module singleton: park it on "no note" so the next test's
+  // render is a real change and reloads.
+  getHistoryStore().watch(null);
+  vi.clearAllMocks();
+});
 
 describe('HistoryPanel (#1158)', () => {
   it('shows the no-note state when nothing is open', () => {
@@ -41,8 +63,8 @@ describe('HistoryPanel (#1158)', () => {
   });
 
   it('shows the empty state when the note has no history yet', async () => {
-    render(HistoryPanel, props());
-    await waitFor(() => expect(h.api.history.list).toHaveBeenCalledWith('notes/a.md'));
+    await rendered();
+    expect(h.api.history.list).toHaveBeenCalledWith('notes/a.md');
     expect(screen.getByText(/No history yet/)).toBeTruthy();
   });
 
@@ -52,7 +74,7 @@ describe('HistoryPanel (#1158)', () => {
       { ts, origin: 'restore', cause: 'Restored from Aug 21, 9:30 AM' },
       { ts: ts - 60_000, origin: 'edit' },
     ]);
-    render(HistoryPanel, props());
+    await rendered();
     await waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(2));
     // Absolute stamps, not "now" / "1m" — a minute apart has to be legible.
     const [newest, older] = screen.getAllByRole('listitem');
@@ -67,7 +89,7 @@ describe('HistoryPanel (#1158)', () => {
       { ts: 2000, origin: 'restore', cause: 'Restored from Aug 21, 9:30 AM' },
       { ts: 1000, origin: 'edit' },
     ]);
-    render(HistoryPanel, props());
+    await rendered();
     await waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(3));
     expect(screen.getByText('Antithesize')).toBeTruthy();
     expect(screen.getByText('Restored from Aug 21, 9:30 AM')).toBeTruthy();
@@ -75,38 +97,52 @@ describe('HistoryPanel (#1158)', () => {
     expect(screen.getByText('Edit')).toBeTruthy();
   });
 
-  it('offers Label Version on right-click and routes it out through onLabel', async () => {
+  it('offers Label Version on right-click, prompting with an empty name', async () => {
     h.api.history.list.mockResolvedValue([{ ts: 1000, origin: 'edit' }]);
-    const p = props();
-    render(HistoryPanel, p);
+    h.showPrompt.mockResolvedValue('before refactor');
+    await rendered();
     await waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(1));
 
     await fireEvent.contextMenu(screen.getAllByRole('listitem')[0]!);
     await fireEvent.click(screen.getByRole('button', { name: 'Label Version…' }));
-    // `null` existing label = "not named yet"; App seeds its prompt with it.
-    expect(p.onLabel).toHaveBeenCalledWith('notes/a.md', 1000, null);
-    expect(p.onRemoveLabel).not.toHaveBeenCalled();
+
+    // Unnamed version → the prompt is seeded empty, not with a stale name.
+    await waitFor(() => expect(h.showPrompt).toHaveBeenCalledWith('Name this version:', ''));
+    expect(h.api.history.setLabel).toHaveBeenCalledWith('notes/a.md', 1000, 'before refactor');
+  });
+
+  it('does not write a label when the prompt is cancelled', async () => {
+    h.api.history.list.mockResolvedValue([{ ts: 1000, origin: 'edit' }]);
+    h.showPrompt.mockResolvedValue(null);
+    await rendered();
+    await waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(1));
+
+    await fireEvent.contextMenu(screen.getAllByRole('listitem')[0]!);
+    await fireEvent.click(screen.getByRole('button', { name: 'Label Version…' }));
+
+    await waitFor(() => expect(h.showPrompt).toHaveBeenCalled());
+    expect(h.api.history.setLabel).not.toHaveBeenCalled();
   });
 
   it('offers Rename/Remove Label on a revision that already has one', async () => {
     h.api.history.list.mockResolvedValue([{ ts: 1000, origin: 'edit', label: 'before refactor' }]);
-    const p = props();
-    render(HistoryPanel, p);
+    await rendered();
     await waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(1));
     expect(screen.getByText('before refactor')).toBeTruthy();
 
     await fireEvent.contextMenu(screen.getAllByRole('listitem')[0]!);
     expect(screen.getByRole('button', { name: 'Rename Label…' })).toBeTruthy();
     await fireEvent.click(screen.getByRole('button', { name: 'Remove Label' }));
-    // Clearing is its own callback — never a label call with a null name.
-    expect(p.onRemoveLabel).toHaveBeenCalledWith('notes/a.md', 1000);
-    expect(p.onLabel).not.toHaveBeenCalled();
+
+    // Clearing never prompts — it just clears.
+    await waitFor(() => expect(h.api.history.setLabel).toHaveBeenCalledWith('notes/a.md', 1000, null));
+    expect(h.showPrompt).not.toHaveBeenCalled();
   });
 
   it('selecting a revision loads it and diffs it against the current text', async () => {
     h.api.history.list.mockResolvedValue([{ ts: 1000, origin: 'edit' }]);
     h.api.history.getRevision.mockResolvedValue('line1\n'); // older: one fewer line
-    render(HistoryPanel, props({ content: 'line1\nline2\n' }));
+    await rendered({ content: 'line1\nline2\n' });
     await waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(1));
 
     await fireEvent.click(screen.getAllByRole('listitem')[0]!);
@@ -116,17 +152,31 @@ describe('HistoryPanel (#1158)', () => {
     expect(screen.getByText('+1')).toBeTruthy();
   });
 
-  it('routes Restore through onRestore with the selected revision', async () => {
+  it('confirms before restoring, then restores the selected revision', async () => {
     h.api.history.list.mockResolvedValue([{ ts: 1000, origin: 'edit' }]);
     h.api.history.getRevision.mockResolvedValue('older text');
-    const p = props();
-    render(HistoryPanel, p);
+    h.showConfirm.mockResolvedValue(true);
+    await rendered();
     await waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(1));
     await fireEvent.click(screen.getAllByRole('listitem')[0]!);
     await waitFor(() => expect(screen.getByRole('button', { name: 'Restore' })).toBeTruthy());
 
     await fireEvent.click(screen.getByRole('button', { name: 'Restore' }));
-    expect(p.onRestore).toHaveBeenCalledWith('notes/a.md', 1000);
+    await waitFor(() => expect(h.api.history.restore).toHaveBeenCalledWith('notes/a.md', 1000));
+  });
+
+  it('does not restore when the confirmation is declined', async () => {
+    h.api.history.list.mockResolvedValue([{ ts: 1000, origin: 'edit' }]);
+    h.api.history.getRevision.mockResolvedValue('older text');
+    h.showConfirm.mockResolvedValue(false);
+    await rendered();
+    await waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(1));
+    await fireEvent.click(screen.getAllByRole('listitem')[0]!);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Restore' })).toBeTruthy());
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Restore' }));
+    await waitFor(() => expect(h.showConfirm).toHaveBeenCalled());
+    expect(h.api.history.restore).not.toHaveBeenCalled();
   });
 
   it('says the contents are identical (no Restore) when the selected revision matches the text', async () => {
@@ -137,7 +187,7 @@ describe('HistoryPanel (#1158)', () => {
       { ts: 1000, origin: 'edit', initial: true },
     ]);
     h.api.history.getRevision.mockResolvedValue('line1\nline2\n'); // == current
-    render(HistoryPanel, props({ content: 'line1\nline2\n' }));
+    await rendered({ content: 'line1\nline2\n' });
     await waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(2));
     await fireEvent.click(screen.getAllByRole('listitem')[1]!);
     await waitFor(() => expect(screen.getByText('Contents are identical.')).toBeTruthy());
@@ -146,7 +196,7 @@ describe('HistoryPanel (#1158)', () => {
 
   it('names the baseline revision "Initial version" when nothing else caused it', async () => {
     h.api.history.list.mockResolvedValue([{ ts: 1000, origin: 'edit', initial: true }]);
-    render(HistoryPanel, props());
+    await rendered();
     await waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(1));
     expect(screen.getByText('Initial version')).toBeTruthy();
   });

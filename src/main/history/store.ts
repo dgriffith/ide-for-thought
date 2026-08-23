@@ -20,6 +20,7 @@ import {
   type RevisionSource,
 } from './policy';
 import { getHistorySettings } from './settings';
+import { emitHistoryChanged } from './history-events';
 import type { HistorySettings } from '../../shared/history';
 
 const HISTORY_DIR = '.minerva/history';
@@ -110,6 +111,10 @@ export async function captureSnapshot(
   entries.push(meta);
 
   await pruneDir(dir, entries, now, settings);
+  // One announcement point for "this note gained a revision", so the renderer
+  // never has to poll to notice a save it didn't cause (#1834). Only a real
+  // capture emits — an unchanged re-save returns null above.
+  emitHistoryChanged(rootPath, relPath);
   return meta;
 }
 
@@ -217,6 +222,7 @@ export async function setRevisionLabel(
   if (label) entry.label = label;
   else delete entry.label;
   await writeIndex(dir, entries);
+  emitHistoryChanged(rootPath, relPath);
 }
 
 /**
@@ -300,5 +306,8 @@ export async function pruneAllHistory(
   };
 
   await walk(base);
+  // A sweep touches many notes at once; `null` says "refresh whatever you're
+  // showing" rather than making the renderer diff a list of paths.
+  if (removed > 0) emitHistoryChanged(rootPath, null);
   return { notes, removed };
 }

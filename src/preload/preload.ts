@@ -368,6 +368,7 @@ contextBridge.exposeInMainWorld('api', {
       invoke(Channels.HISTORY_SET_LABEL, relativePath, ts, label),
     labelNotes: (relativePaths: string[], label: string) =>
       invoke(Channels.HISTORY_LABEL_NOTES, relativePaths, label),
+    onChanged: (cb: (relPath: string | null) => void) => subscribe(Channels.HISTORY_CHANGED, cb),
     getSettings: () => invoke(Channels.HISTORY_GET_SETTINGS),
     setSettings: (settings: Parameters<ChannelMap['history:setSettings']>[0]) =>
       invoke(Channels.HISTORY_SET_SETTINGS, settings),

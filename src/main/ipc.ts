@@ -24,7 +24,8 @@ import { registerClipper } from './ipc/register-clipper';
 import { registerApp } from './ipc/register-app';
 import { onProposalsChanged } from './llm/proposal-events';
 import { onInspectionsChanged } from './graph/inspection-events';
-import { broadcastProposalsChanged, broadcastInspectionsChanged } from './ipc/helpers';
+import { onHistoryChanged } from './history';
+import { broadcastProposalsChanged, broadcastInspectionsChanged, broadcastHistoryChanged } from './ipc/helpers';
 import { updateDockBadge } from './project-context';
 
 export function registerIpcHandlers(): void {
@@ -40,6 +41,13 @@ export function registerIpcHandlers(): void {
   // graph write, so the panel is told rather than left on a stale list.
   onInspectionsChanged((rootPath) => {
     broadcastInspectionsChanged(rootPath);
+  });
+
+  // And for note history (#1834): a revision can be captured by any write path,
+  // including ones the renderer never asked for (an applied proposal, a
+  // bibliography rebuild), so the panel is told instead of polling for it.
+  onHistoryChanged((rootPath, relPath) => {
+    broadcastHistoryChanged(rootPath, relPath);
   });
 
   registerNotebase();

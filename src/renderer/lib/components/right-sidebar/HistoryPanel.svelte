@@ -3,11 +3,12 @@
   // the active note: a timeline of saved revisions, a diff of the selected one
   // against the current text, and one-click restore.
   //
-  // Reads (`list` / `getRevision`) are direct `api.*` per the renderer data-flow
-  // rule; restore and labeling are mutations, so they route out through
-  // `onRestore` / `onLabel` (App owns the prompt/confirm + the `api.history.*`
-  // call).
+  // The revision list, the `history:changed` subscription and the three
+  // mutations live in the history store (#1834); this owns only view state —
+  // which revision is selected, its content, the diff, and the context menu.
+  // `getRevision` stays a direct `api.*` read, which the data-flow rule allows.
   import { api } from '../../ipc/client';
+  import { getHistoryStore } from '../../stores/history.svelte';
   import { clampMenuToViewport } from '../../utils/menuClamp';
   import { installDismissOnClickOutside } from '../../dismiss-menu';
   import { formatDateTime } from '../../../../shared/format-datetime';
@@ -16,24 +17,15 @@
 
   interface Props {
     activeFilePath: string | null;
-    /** Current editor content — the diff's "after" and the change signal. */
+    /** Current editor content — the diff's "after". */
     content: string;
-    /** Bumps on reindex/save; a fresh revision appears after a save lands. */
-    revision: number;
-    /** Restore is a mutation — App shows the confirm and calls the IPC. */
-    onRestore?: (relativePath: string, ts: number) => void | Promise<void>;
-    /** Name a version — App prompts (seeded with `existing`, null when the
-     *  version has no name yet) and calls the IPC. Resolves once the label has
-     *  landed, so the panel can refresh. */
-    onLabel?: (relativePath: string, ts: number, existing: string | null) => void | Promise<void>;
-    /** Drop a version's name. Separate from `onLabel` so "clear" can never be
-     *  confused with "name a version that has no name yet". */
-    onRemoveLabel?: (relativePath: string, ts: number) => void | Promise<void>;
   }
 
-  let { activeFilePath, content, revision, onRestore, onLabel, onRemoveLabel }: Props = $props();
+  let { activeFilePath, content }: Props = $props();
 
-  let revisions = $state<RevisionMeta[]>([]);
+  const history = getHistoryStore();
+  const revisions = $derived(history.revisions);
+
   let selectedTs = $state<number | null>(null);
   let selectedContent = $state<string | null>(null);
   let now = $state(Date.now());
@@ -47,9 +39,6 @@
   });
 
   function openMenu(e: MouseEvent, rev: RevisionMeta): void {
-    // Nothing to offer if the host doesn't handle labeling — leave the native
-    // menu alone rather than swallowing the right-click for an empty popup.
-    if (!onLabel) return;
     e.preventDefault();
     menu = { x: e.clientX, y: e.clientY, rev };
     installDismissOnClickOutside(() => { menu = null; });
@@ -57,27 +46,14 @@
 
   async function label(rev: RevisionMeta): Promise<void> {
     menu = null;
-    if (!activeFilePath || !onLabel) return;
-    await onLabel(activeFilePath, rev.ts, rev.label ?? null);
-    await loadList(activeFilePath);
+    if (!activeFilePath) return;
+    await history.label(activeFilePath, rev.ts, rev.label ?? null);
   }
 
   async function removeLabel(rev: RevisionMeta): Promise<void> {
     menu = null;
-    if (!activeFilePath || !onRemoveLabel) return;
-    await onRemoveLabel(activeFilePath, rev.ts);
-    await loadList(activeFilePath);
-  }
-
-  async function loadList(relativePath: string): Promise<void> {
-    const list = await api.history.list(relativePath);
-    revisions = list;
-    now = Date.now();
-    // Keep the selection if it still exists; else drop the (stale) diff.
-    if (selectedTs !== null && !list.some((r) => r.ts === selectedTs)) {
-      selectedTs = null;
-      selectedContent = null;
-    }
+    if (!activeFilePath) return;
+    await history.removeLabel(activeFilePath, rev.ts);
   }
 
   async function select(relativePath: string, ts: number): Promise<void> {
@@ -85,22 +61,22 @@
     selectedContent = await api.history.getRevision(relativePath, ts);
   }
 
-  // Reload when the note changes or a save/reindex bumps `revision`.
+  // Point the store at the open note; it refetches on change and on every
+  // `history:changed` event for this note, so there is nothing to poll.
   $effect(() => {
-    const p = activeFilePath;
-    void revision; // dependency: refetch after a save lands a new revision
-    if (!p) { revisions = []; selectedTs = null; selectedContent = null; return; }
-    void loadList(p);
+    history.watch(activeFilePath);
   });
 
-  // Debounced refresh while editing, so a new revision surfaces shortly after a
-  // pause even if `revision` didn't move.
+  // Drop a selection the list no longer contains (the note changed, or the
+  // revision was pruned) so the diff can't show text that isn't there.
   $effect(() => {
-    const p = activeFilePath;
-    void content;
-    if (!p) return;
-    const t = setTimeout(() => void loadList(p), 700);
-    return () => clearTimeout(t);
+    const list = history.revisions;
+    void history.revision;
+    if (selectedTs !== null && !list.some((r) => r.ts === selectedTs)) {
+      selectedTs = null;
+      selectedContent = null;
+    }
+    now = Date.now();
   });
 
   // Diff the selected revision → current text (so restore visibly undoes what's
@@ -115,11 +91,10 @@
   const isIdentical = $derived(selectedContent !== null && selectedContent === content);
 
   async function restore(): Promise<void> {
-    if (!activeFilePath || selectedTs === null || !onRestore) return;
-    await onRestore(activeFilePath, selectedTs);
-    // App's write reloads the editor; refresh the list so the restore's own new
-    // revision shows up.
-    await loadList(activeFilePath);
+    if (!activeFilePath || selectedTs === null) return;
+    // The write reloads the editor and fires `history:changed`, which refreshes
+    // the list — including the restore's own new revision.
+    await history.restore(activeFilePath, selectedTs);
   }
 </script>
 
@@ -153,7 +128,7 @@
           <span class="same">Contents are identical.</span>
         {:else}
           <span class="counts"><span class="add">+{stats.added}</span> <span class="rem">−{stats.removed}</span></span>
-          <button class="restore" type="button" onclick={restore} disabled={!onRestore}>Restore</button>
+          <button class="restore" type="button" onclick={restore}>Restore</button>
         {/if}
       </div>
       {#if !isIdentical}
@@ -172,7 +147,7 @@
     <button onclick={() => label(menu!.rev)}>
       {menu.rev.label ? 'Rename Label…' : 'Label Version…'}
     </button>
-    {#if menu.rev.label && onRemoveLabel}
+    {#if menu.rev.label}
       <button onclick={() => removeLabel(menu!.rev)}>Remove Label</button>
     {/if}
   </div>
