@@ -28,9 +28,9 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { dataflowMutationMethods } from '../helpers/renderer-api-surface';
 
 const COMPONENTS_DIR = 'src/renderer/lib/components';
-const ESLINT_CONFIG = 'eslint.config.mjs';
 
 /**
  * Read / stateless-OS-side-effect `api.*` methods a component may call directly
@@ -88,27 +88,6 @@ function stripComments(src: string): string {
     .replace(/<!--[\s\S]*?-->/g, '');
 }
 
-/** Mutation/subscription method names the eslint denylist forbids in components. */
-function denylistNames(): Set<string> {
-  const cfg = readFileSync(ESLINT_CONFIG, 'utf8');
-  // The mutation method names live in the DATAFLOW_MUTATION_METHODS const — a
-  // `'a|b|' + 'c|d'` series of single-quoted fragments shared by both selectors.
-  // Slice the assignment (from `=` to the terminating `;`), pull the quoted
-  // contents, and split on `|`; the interleaved `//` section comments carry no
-  // quotes, so they drop out.
-  const decl = cfg.indexOf('const DATAFLOW_MUTATION_METHODS');
-  expect(decl, 'DATAFLOW_MUTATION_METHODS not found in eslint.config.mjs').toBeGreaterThan(-1);
-  const eq = cfg.indexOf('=', decl);
-  const semi = cfg.indexOf(';', eq);
-  expect(semi).toBeGreaterThan(eq);
-  const region = cfg.slice(eq, semi);
-  const names = new Set<string>();
-  for (const m of region.matchAll(/'([^']*)'/g)) {
-    for (const n of m[1]!.split('|')) if (/^\w+$/.test(n)) names.add(n);
-  }
-  return names;
-}
-
 /** Every `(window.)?api.<domain>.<method>(` call site across components. */
 function componentApiCalls(): { file: string; method: string }[] {
   const calls: { file: string; method: string }[] = [];
@@ -122,7 +101,7 @@ function componentApiCalls(): { file: string; method: string }[] {
 }
 
 describe('renderer data-flow rule — fail-closed method coverage (#1626)', () => {
-  const deny = denylistNames();
+  const deny = dataflowMutationMethods();
   const calls = componentApiCalls();
 
   it('parses a non-trivial mutation denylist from eslint.config.mjs', () => {

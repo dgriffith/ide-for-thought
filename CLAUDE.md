@@ -67,6 +67,17 @@ The `no-restricted-syntax` block in `eslint.config.js` (scoped to
 to a component fails `pnpm lint`. When you add a new mutation channel, add its
 method name there too.
 
+Two tests hold the other halves. `tests/renderer/dataflow-rule-coverage.test.ts`
+makes the denylist fail CLOSED (an unclassified new method in a component
+fails). `tests/architecture/store-ownership.test.ts` (#1852) enforces the
+POSITIVE half: every `api.<domain>` with a mutating method must have an owner
+under `stores/` or `lib/app/`, and a mutation may not land only in `App.svelte`.
+That's the gap #1834 fell through — history shipped four mutating channels with
+no store, and the panel polled a timer instead of listening for a change event.
+Note what it can't tell you: it doesn't distinguish a real store from a
+passthrough, and it says nothing about whether a mutating channel ships a change
+event (a main-side question).
+
 ### UI & UX Philosophy
 This is a **professional tool**. Design accordingly:
 
@@ -164,9 +175,15 @@ can't quietly grow while nobody re-reads it:
   via `reportConfigError` (loud, not swallowed) then defaults; per-field coercion
   through the shared `as*` decoders (`asString`/`asBool`/`asFiniteNumber`/`asEnum`/
   `asRecord`/`asStringArray`), so each config's `decode(raw)` reads as its schema.
-- Migrated so far: `ingest-settings`, `python-settings`, `project-config`. Still
+- Migrated so far: `sources/ingest-settings`, `compute/python-settings`,
+  `project-config`, `config/inspection-settings`, `history/settings`. Still
   hand-rolled (migrate when you touch them): `clipper-config` (decrypt + lazy
   secret upgrade), `llm/settings` (nested providers/models), `menu-config-store`.
+- **Where each config lives** is inventoried in `docs/config-roots.md` — the
+  three roots (`userData/`, `~/.minerva/`, `<thoughtbase>/.minerva/`) and which
+  ones hold secrets. The `userData/` table is checked against the code by
+  `tests/architecture/config-roots-doc.test.ts` (#1853), so a new
+  `app.getPath('userData')` path that isn't documented fails a test.
 
 ### File-size budgets (#1854)
 
