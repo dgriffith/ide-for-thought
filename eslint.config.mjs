@@ -62,6 +62,12 @@ export default tseslint.config(
   {
     ignores: [
       '.vite/**',
+      // Agent worktrees (`git worktree add .claude/worktrees/…`) are full
+      // checkouts of this repo. Without this, `eslint .` type-checks the whole
+      // source tree once per worktree and runs the process out of heap — which
+      // presents as an unexplained OOM in the pre-push hook, not as anything
+      // to do with worktrees.
+      '.claude/**',
       'dist/**',
       'out/**',
       'coverage/**',
