@@ -75,16 +75,20 @@ const DOMAIN_EXCEPTIONS: Record<string, string> = {};
  * data-flow-rule debt, small enough to leave for a targeted PR and named here
  * so a third one has to be argued for in a diff.
  */
-const APP_ONLY_MUTATIONS: Record<string, string> = {
-  // #1073 evidence dialog. Files a proposal, then refreshes the proposals store
-  // and raises a toast — so the observable state IS store-owned; only the
-  // invoke sits in App. Belongs behind a proposals-store method.
-  'graph.attachExcerptEvidence': 'Excerpt-evidence proposal filed inline from the App-hosted dialog; refresh already goes through proposalsStore.',
-  // Save-query dialog: App owns the prompt, and the saved-queries store owns
-  // the list. The write should move to `savedQueriesStore.save`, which already
-  // owns delete/rename/move/setGroup/setOrder.
-  'queries.save': 'Save-query dialog is App-hosted; the sibling mutations already live in the saved-queries store.',
-};
+/**
+ * Mutating calls that legitimately live in `App.svelte` alone.
+ *
+ * Empty, and worth keeping that way. It was seeded with two entries and both
+ * turned out to be debt rather than orchestration — `queries.save` skipped the
+ * store its five siblings already used (#1870), and `attachExcerptEvidence`
+ * left the proposals refresh to whichever caller remembered it (#1871). Both
+ * moved behind their stores.
+ *
+ * If you add one, it has to be a real App-level concern — something the
+ * composition root does because no single store owns it — and the value is the
+ * reason, which someone will read when deciding whether it still holds.
+ */
+const APP_ONLY_MUTATIONS: Record<string, string> = {};
 
 function filesUnder(dir: string, ext: string): string[] {
   const out: string[] = [];

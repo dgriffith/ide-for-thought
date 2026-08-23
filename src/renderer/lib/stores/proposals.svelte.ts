@@ -105,6 +105,23 @@ export function getProposalsStore() {
     },
     /** Force a re-list (first paint / manual). Subscriptions handle the rest. */
     refresh,
+    /**
+     * File an excerpt as evidence for a claim (#1073) and re-list on success.
+     *
+     * The refresh belongs here rather than at the call site (#1871): the state
+     * this changes is the pending-proposal set, which this store owns, so a
+     * caller that forgets to refresh gets a stale badge and no hint why. The
+     * `{ ok, error? }` result comes back so the caller can say what happened.
+     */
+    async attachExcerptEvidence(
+      excerptId: string,
+      claimPath: string,
+      role: 'grounds' | 'supports' | 'rebuts',
+    ): Promise<{ ok: boolean; error?: string }> {
+      const result = await api.graph.attachExcerptEvidence(excerptId, claimPath, role);
+      if (result.ok) await refresh();
+      return result;
+    },
     /** Subscribe to coalesced proposal arrivals (newly-pending proposals, #1541).
      *  The callback gets the batch; returns an unsubscribe. */
     onArrival(cb: (arrived: Proposal[]) => void): () => void {

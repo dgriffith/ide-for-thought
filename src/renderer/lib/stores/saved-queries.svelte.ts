@@ -1,7 +1,8 @@
 /**
  * Saved-queries store (#314 / #315, #1674). Owns the `api.queries.*` mutations
  * so the Edit Saved Queries dialog never calls them directly (renderer data-flow
- * rule #1086).
+ * rule #1086). Every write on this domain goes through here — `save` joined
+ * its siblings in #1870, closing the last gap.
  *
  * The dialog formerly reached these through raw `window.api.queries.*`, which
  * slipped the data-flow eslint rule entirely — its selector matched only the
@@ -13,6 +14,16 @@ import { api } from '../ipc/client';
 import type { SavedQuery } from '../../../shared/types';
 
 export const savedQueriesStore = {
+  /** Save a new query under `name`, in the project or global scope. */
+  save(
+    scope: SavedQuery['scope'],
+    name: string,
+    description: string,
+    query: string,
+    language: SavedQuery['language'],
+  ): Promise<SavedQuery> {
+    return api.queries.save(scope, name, description, query, language);
+  },
   /** Rename a saved query; resolves to its (possibly new) file path. */
   rename(filePath: string, newName: string): Promise<string> {
     return api.queries.rename(filePath, newName);
