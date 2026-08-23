@@ -21,9 +21,8 @@ import type {
   ProposedWrite,
 } from './proposal-types';
 import { applyBundle, collectAffectsNodes, wiredPayloadKinds } from './apply-dispatch';
-import * as conversation from './conversation';
 import { runWithHistorySource } from '../history';
-import { describeProposalCause } from '../../shared/history';
+import { proposalCause } from './proposal-cause';
 import { emitProposalsChanged } from './proposal-events';
 import {
   getProposal,
@@ -93,32 +92,6 @@ export async function proposeWrite(ctx: ProjectContext, write: ProposedWrite): P
   await writeProposalToGraph(ctx, proposal);
   emitProposalsChanged(ctx.rootPath);
   return proposal;
-}
-
-const CONVERSATION_PROPOSER = 'llm:conversation:';
-
-/**
- * The name a proposal's note revisions should carry in the History panel.
- * Skill-launched conversations are the interesting case: their proposals are
- * only stamped `llm:conversation:<id>`, so the skill's name has to come off the
- * conversation itself. Best-effort — a failed lookup degrades to "Conversation"
- * rather than failing the approval.
- */
-async function proposalCause(ctx: ProjectContext, proposal: Proposal): Promise<string> {
-  let skillName: string | undefined;
-  if (proposal.proposedBy.startsWith(CONVERSATION_PROPOSER)) {
-    const convId = proposal.proposedBy.slice(CONVERSATION_PROPOSER.length);
-    try {
-      skillName = (await conversation.load(ctx.rootPath, convId))?.skill?.name;
-    } catch (err) {
-      console.warn(`[approval] could not resolve the skill behind ${proposal.uri}:`, err);
-    }
-  }
-  return describeProposalCause({
-    proposedBy: proposal.proposedBy,
-    operationType: proposal.operationType,
-    skillName,
-  });
 }
 
 /**
