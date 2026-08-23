@@ -175,6 +175,16 @@ export async function writeFile(rootPath: string, relativePath: string, content:
   await fs.writeFile(fullPath, content, 'utf-8');
   // Record the saved state in local per-note history (#1158). Best-effort — the
   // hook swallows its own errors so a history failure can't fail the save.
+  //
+  // Awaited on purpose, and it was worth re-deciding (#1836). Since the hook
+  // can't fail the save, the await buys no error handling — but it does buy
+  // ORDERING. Capture is read-modify-write on a shared `index.json`; drop the
+  // await and two rapid saves of the same note can interleave their
+  // read-index / write-index, losing one revision's metadata and orphaning its
+  // snapshot. There is no per-note write queue in main to lean on (that
+  // absence is what made #1833 a bug), so the await IS the serialization.
+  // Making this fire-and-forget needs that queue first; the cost was taken out
+  // of the work instead — see the settings cache and the hash-based dedupe.
   await onNoteWritten(rootPath, relativePath, content);
 }
 

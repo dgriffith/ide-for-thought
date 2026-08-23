@@ -29,6 +29,14 @@ export interface RevisionMeta {
    * possible, which is most of the point of keeping history at all.
    */
   initial?: boolean;
+  /**
+   * SHA-256 of the revision's content (#1836). Lets the next save decide
+   * "unchanged, don't capture" by hashing what it already has in memory,
+   * instead of reading the previous snapshot off disk on every keystroke pause.
+   * Optional: revisions written before this existed have none, and the capture
+   * path falls back to comparing content for those.
+   */
+  hash?: string;
   /** Optional version tag; labeled revisions are exempt from pruning. Stored
    *  from day one so tagging is a UI-only add later, never a migration. */
   label?: string;
