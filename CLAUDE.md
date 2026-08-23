@@ -168,6 +168,33 @@ can't quietly grow while nobody re-reads it:
   hand-rolled (migrate when you touch them): `clipper-config` (decrypt + lazy
   secret upgrade), `llm/settings` (nested providers/models), `menu-config-store`.
 
+### File-size budgets (#1854)
+
+`tests/architecture/file-size-budgets.test.ts` carries a committed
+`path → line count` map for every `src/` file over 600 lines, and fails when a
+listed file **grows**. It is deliberately not a "no file over N lines" rule —
+the point is the derivative, not the absolute. A 1,178-line file that stays
+1,178 lines is not today's problem; one that reaches 1,300 is.
+
+When it fires you have exactly two moves, and picking between them is the whole
+value of the check:
+
+1. **Extract a seam.** If what you added doesn't belong in the same file as the
+   rest, this is the cheapest moment to notice.
+2. **Raise the number in the same PR.** Sometimes the file really is the right
+   home and the seam doesn't exist yet — say so in the diff and move on.
+
+Shrinking a budgeted file also fails, asking you to lower the number (or drop
+the entry once the file is under 600 lines) so reclaimed space doesn't quietly
+become headroom for the next addition. Same shape as the pattern ratchets in
+`tests/architecture/pattern-ratchets.test.ts` and the coverage floors in
+`vitest.config.mts`.
+
+Its sibling `tests/architecture/ipc-registrar-coverage.test.ts` makes the
+"every `register-*` handler ships with a main-process test" checklist item
+above executable: a **new** registrar with no test fails, and the pre-existing
+untested ones sit in a `KNOWN_UNTESTED` list that may only shrink.
+
 ### File System
 - All paths are relative to the project root
 - `assertSafePath()` in `fs.ts` prevents path traversal — always use it//
