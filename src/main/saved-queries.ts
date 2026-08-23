@@ -166,7 +166,17 @@ export function saveQuery(
   language: QueryLanguage,
   group: string | null = null,
 ): SavedQuery {
-  const dir = scope === 'project' && rootPath
+  // Refuse rather than quietly demote (#1877). Falling back to the global
+  // directory here wrote the file somewhere the user didn't ask for AND
+  // returned `scope: 'project'` below, so the list showed it under Thoughtbase
+  // scope while the file followed them into every other thoughtbase.
+  // `moveQueryScope` already refuses the identical condition; these two should
+  // not disagree about what's possible.
+  if (scope === 'project' && !rootPath) {
+    throw new Error('Cannot save to Thoughtbase scope: no project open.');
+  }
+
+  const dir = rootPath && scope === 'project'
     ? projectQueriesDir(rootPath)
     : globalQueriesDir();
 
