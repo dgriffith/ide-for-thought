@@ -37,6 +37,7 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { createRequire } from 'node:module';
+import { cruise, type IModule } from 'dependency-cruiser';
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const CLI_ENTRY = path.join(REPO_ROOT, 'src', 'cli', 'main.ts');
@@ -86,71 +87,78 @@ const ELECTRON_IMPORTERS_ON_CLI_GRAPH = [
 ].sort();
 
 /** Import specifiers in a TS source: `from '…'`, bare `import '…'`, `import('…')`. */
-function importSpecifiers(source: string): string[] {
-  const re =
-    /(?:import|export)\s[^;]*?from\s*['"]([^'"]+)['"]|import\s*\(\s*['"]([^'"]+)['"]\s*\)|import\s*['"]([^'"]+)['"]/g;
-  const out: string[] = [];
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(source))) out.push(m[1] ?? m[2] ?? m[3] ?? '');
-  return out.filter(Boolean);
+/**
+ * Every in-repo module transitively reachable from `entry`.
+ *
+ * Resolved by `dependency-cruiser` (#1850), not by a regex over import lines.
+ * The hand-rolled walker this replaces understood relative `.ts` and
+ * `/index.ts` specifiers and nothing else — accurate for this repo today, but
+ * by luck rather than construction, and it saw three fewer modules than the
+ * real resolver does. A graph walker that silently misses edges is the worst
+ * shape for a ratchet: it reads as a guarantee while quietly narrowing what it
+ * guards.
+ */
+async function reachableModules(entry: string): Promise<Set<string>> {
+  const result = await cruise([path.relative(REPO_ROOT, entry)], {
+    doNotFollow: { path: 'node_modules' },
+    exclude: { path: '\\.d\\.ts$' },
+    // Type-only imports count: `import type { X } from './y'` is erased at
+    // runtime, but if `y` imports electron then `y` is on the graph.
+    tsPreCompilationDeps: true,
+    enhancedResolveOptions: { extensions: ['.ts', '.mts', '.js', '.mjs'] },
+  });
+  const modules = (result.output as { modules: IModule[] }).modules ?? [];
+  return new Set(
+    modules
+      .filter((module) => module.source.startsWith('src/'))
+      .map((module) => path.join(REPO_ROOT, module.source)),
+  );
 }
 
-/** Resolve a relative specifier the way the bundler does (`.ts`, then `/index.ts`). */
-function resolveRelative(fromFile: string, spec: string): string | null {
-  if (!spec.startsWith('.')) return null;
-  const base = path.resolve(path.dirname(fromFile), spec);
-  for (const candidate of [`${base}.ts`, path.join(base, 'index.ts')]) {
-    if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) return candidate;
-  }
-  return null;
-}
-
-/** Every in-repo module transitively reachable from `entry`. */
-function reachableModules(entry: string): Set<string> {
-  const seen = new Set<string>();
-  const stack = [entry];
-  while (stack.length > 0) {
-    const file = stack.pop() as string;
-    if (seen.has(file)) continue;
-    seen.add(file);
-    for (const spec of importSpecifiers(fs.readFileSync(file, 'utf-8'))) {
-      const resolved = resolveRelative(file, spec);
-      if (resolved) stack.push(resolved);
-    }
-  }
-  return seen;
+/** Modules on `graph` that import `electron` at all. */
+async function electronImporters(entry: string): Promise<string[]> {
+  const result = await cruise([path.relative(REPO_ROOT, entry)], {
+    doNotFollow: { path: 'node_modules' },
+    exclude: { path: '\\.d\\.ts$' },
+    tsPreCompilationDeps: true,
+    enhancedResolveOptions: { extensions: ['.ts', '.mts', '.js', '.mjs'] },
+  });
+  const modules = (result.output as { modules: IModule[] }).modules ?? [];
+  return modules
+    .filter((module) => module.source.startsWith('src/'))
+    .filter((module) => (module.dependencies ?? []).some(
+      (dependency) => dependency.module === 'electron' || dependency.resolved === 'electron',
+    ))
+    .map((module) => module.source)
+    .sort();
 }
 
 describe('CLI import graph — electron reach-through ratchet (#1839)', () => {
-  const graph = reachableModules(CLI_ENTRY);
-
-  it('reaches the read core it is supposed to reuse', () => {
-    // Sanity check on the walker itself: if a regex or resolution change made it
-    // silently traverse nothing, the assertion below would pass vacuously.
+  it('reaches the read core it is supposed to reuse', async () => {
+    const graph = await reachableModules(CLI_ENTRY);
+    // Sanity check on the resolver: if it silently traversed nothing, the
+    // assertions below would pass vacuously.
     expect(graph.size).toBeGreaterThan(100);
     expect(graph).toContain(path.join(REPO_ROOT, 'src', 'main', 'notebase', 'fs.ts'));
-  });
+  }, 60_000);
 
-  it('pins the set of modules that import electron', () => {
-    const found = [...graph]
-      .filter((f) => importSpecifiers(fs.readFileSync(f, 'utf-8')).includes('electron'))
-      .map((f) => path.relative(REPO_ROOT, f))
-      .sort();
+  it('pins the set of modules that import electron', async () => {
+    const found = await electronImporters(CLI_ENTRY);
     // A diff here means the CLI's graph gained (or dropped) an electron
     // importer. Adding one is allowed — but only after checking that no CLI
     // command can reach the Electron call, and saying so in the list above.
     expect(found).toEqual(ELECTRON_IMPORTERS_ON_CLI_GRAPH);
-  });
+  }, 60_000);
 
-  it('has no electron import in src/cli itself', () => {
+  it('has no electron import in src/cli itself', async () => {
     // Belt to the eslint block's braces: the layer's own code is stub-free too,
     // so `electron-stub.ts` stays the single place that shape is described.
-    const own = [...graph].filter((f) => f.startsWith(path.join(REPO_ROOT, 'src', 'cli')));
-    expect(own.length).toBeGreaterThan(0);
-    for (const file of own) {
-      expect(importSpecifiers(fs.readFileSync(file, 'utf-8'))).not.toContain('electron');
-    }
-  });
+    const importers = await electronImporters(CLI_ENTRY);
+    expect(importers.filter((source) => source.startsWith('src/cli/'))).toEqual([]);
+    // …and the layer is actually on the graph, so that isn't vacuous.
+    const graph = await reachableModules(CLI_ENTRY);
+    expect([...graph].some((file) => file.startsWith(path.join(REPO_ROOT, 'src', 'cli')))).toBe(true);
+  }, 60_000);
 });
 
 describe('built CLI runs under plain Node (#1839)', () => {
