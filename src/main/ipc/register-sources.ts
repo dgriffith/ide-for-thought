@@ -153,12 +153,20 @@ export function registerSources(): void {
     return await readOriginalPdf(rootPath, sourceId);
   }));
 
-  handle(Channels.SOURCES_HAS_PDF, withRootPathOr<[string], boolean | Promise<boolean>>(false, async (rootPath, sourceId: string) => {
+  // `false` means exactly one thing: this source was ingested without keeping
+  // its original PDF (#1881). It used to mean that OR "no project open" OR "the
+  // file is there but unreadable", so a PDF the user can see on disk showed no
+  // "Open original" button and gave no clue why. There is no meaningful
+  // project-less answer to "does this source have a PDF" — nothing can be
+  // asking about a source outside an open thoughtbase — so this is
+  // `withRootPath`, and only ENOENT is caught.
+  handle(Channels.SOURCES_HAS_PDF, withRootPath(async (rootPath, sourceId: string) => {
     try {
       await fs.stat(path.join(rootPath, '.minerva', 'sources', sourceId, 'original.pdf'));
       return true;
-    } catch {
-      return false;
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return false;
+      throw err;
     }
   }));
 

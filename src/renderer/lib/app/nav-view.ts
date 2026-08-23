@@ -130,7 +130,12 @@ export function createNavView(ctx: NavViewCtx) {
     // jumping to an excerpt is a markdown-view affordance until the
     // PDF viewer's highlight click-to-navigate is wired up. (#100)
     if (!highlightExcerptId && getPreferredSourceView(sourceId) === 'pdf') {
-      void api.sources.hasPdf(sourceId).then((ok) => {
+      // A failed check is not "no PDF" — but the honest fallback for routing is
+      // still the text view, so log and take it (#1881).
+      void api.sources.hasPdf(sourceId).catch((err: unknown) => {
+        console.error('[sources] could not check for an original PDF:', err);
+        return false;
+      }).then((ok) => {
         if (ok) {
           editor.openPdf(sourceId);
           nav.record({ type: 'source', sourceId });

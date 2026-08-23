@@ -315,13 +315,13 @@ describe('register-sources — the #1631 project guard', () => {
     expect((projectless as { smartCollections?: unknown[] }).smartCollections).toBeUndefined();
   });
 
-  it('SOURCES_HAS_PDF answers false with no project — the same false as "no PDF kept"', () => {
-    // Honest note: this `false` is overloaded (no project / no original.pdf /
-    // an unreadable one), the same shape as the NOTEBASE_FILE_EXISTS boolean
-    // on the #1631 backlog. Pinned as-is; it is not this test's job to change
-    // the contract.
+  it('SOURCES_HAS_PDF throws with no project rather than answering "no PDF" (#1881)', () => {
+    // Its `false` used to cover three facts — no project, no original.pdf, an
+    // unreadable one — the same overload #1862 cleared from
+    // NOTEBASE_FILE_EXISTS. Nothing can be asking about a source outside an
+    // open thoughtbase, so there is no honest project-less answer here.
     openProject = null;
-    expect(call(Channels.SOURCES_HAS_PDF, 's1')).toBe(false);
+    expect(() => call(Channels.SOURCES_HAS_PDF, 's1')).toThrow('No project open');
     expect(h.stat).not.toHaveBeenCalled();
   });
 
@@ -532,6 +532,13 @@ describe('register-sources — ingest', () => {
     h.stat.mockResolvedValue({});
     await expect(callAsync(Channels.SOURCES_HAS_PDF, 's1')).resolves.toBe(true);
     expect(h.stat).toHaveBeenCalledWith('/vault/.minerva/sources/s1/original.pdf');
+  });
+
+  it('SOURCES_HAS_PDF surfaces an unreadable file instead of calling it absent (#1881)', async () => {
+    // The distinction the old blanket catch erased: a PDF that is there but
+    // can't be stat'd is a problem to report, not a source without a PDF.
+    h.stat.mockRejectedValue(Object.assign(new Error('EACCES'), { code: 'EACCES' }));
+    await expect(callAsync(Channels.SOURCES_HAS_PDF, 's1')).rejects.toThrow('EACCES');
   });
 
   it('SOURCES_HAS_PDF reports false for a source ingested without one', async () => {

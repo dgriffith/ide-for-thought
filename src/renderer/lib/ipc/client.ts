@@ -1104,6 +1104,9 @@ export interface SourcesApi {
   readPdf(sourceId: string): Promise<Uint8Array>;
   /** True iff `.minerva/sources/<id>/original.pdf` exists. Used by the
    *  source detail UI to decide whether to show the PDF affordance. */
+  /** Whether this source kept its original PDF. `false` means exactly that —
+   *  ingested without one (#1881); a failed check rejects rather than reading
+   *  as "no PDF". */
   hasPdf(sourceId: string): Promise<boolean>;
   /** Per-project default folder for excerpt-derived notes (#101).
    *  Returns '' = project root. */
