@@ -74,6 +74,33 @@ describe('history settings storage', () => {
     expect(saved).toEqual({ retentionDays: 4, maxRevisionsPerNote: 9, maxFileSizeKb: 101 });
   });
 
+  it('reads the file once and caches it — this is on the hot path of every save', async () => {
+    const { getHistorySettings, DEFAULT_HISTORY_SETTINGS } = await load();
+    expect(await getHistorySettings()).toEqual(DEFAULT_HISTORY_SETTINGS);
+
+    // Change the file underneath. A second call that still answers with the
+    // first value is the cache doing its job: autosave fires a second after
+    // every typing pause, and capture consults the limits before deciding
+    // whether to snapshot (#1836).
+    await fs.writeFile(
+      path.join(dir, 'history-settings.json'),
+      JSON.stringify({ retentionDays: 7, maxRevisionsPerNote: 20, maxFileSizeKb: 0 }),
+      'utf-8',
+    );
+    expect(await getHistorySettings()).toEqual(DEFAULT_HISTORY_SETTINGS);
+  });
+
+  it('refreshes the cache from what it wrote, without going back to disk', async () => {
+    const { getHistorySettings, setHistorySettings } = await load();
+    await getHistorySettings(); // prime the cache
+
+    const saved = await setHistorySettings({ retentionDays: 7, maxRevisionsPerNote: 20, maxFileSizeKb: 0 });
+    // Corrupt the file after the write: a value that came back from the cache
+    // proves the read wasn't repeated.
+    await fs.writeFile(path.join(dir, 'history-settings.json'), 'not json', 'utf-8');
+    await expect(getHistorySettings()).resolves.toEqual(saved);
+  });
+
   it('falls back per-field when the stored file is partial or wrong-typed', async () => {
     await fs.writeFile(
       path.join(dir, 'history-settings.json'),

@@ -10,6 +10,7 @@
  * and its files must stay out of the graph/search index (`.minerva` is ignored).
  */
 import { promises as fs } from 'node:fs';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 import {
   exceedsSizeLimit,
@@ -28,6 +29,12 @@ import type { HistorySettings } from '../../shared/history';
 
 const HISTORY_DIR = '.minerva/history';
 const INDEX_FILE = 'index.json';
+
+/** Content fingerprint stored on each revision, so an unchanged save can be
+ *  recognised without reading the previous snapshot back off disk (#1836). */
+function contentHash(content: string): string {
+  return createHash('sha256').update(content, 'utf-8').digest('hex');
+}
 
 /** "The file isn't there" — the one absence these reads treat as expected. */
 function isENOENT(err: unknown): boolean {
@@ -76,18 +83,44 @@ async function writeIndex(dir: string, entries: RevisionMeta[]): Promise<void> {
   await fs.writeFile(path.join(dir, INDEX_FILE), JSON.stringify(sorted, null, 2), 'utf-8');
 }
 
-/** The most-recent revision's content, or undefined if none — for dedupe.
- *  A snapshot file that has gone missing means "treat the save as changed and
- *  re-capture"; any other read failure is a real problem and throws. */
-async function latestContent(dir: string, entries: RevisionMeta[]): Promise<string | undefined> {
-  const newest = entries.reduce<RevisionMeta | null>((a, b) => (!a || b.ts > a.ts ? b : a), null);
-  if (!newest) return undefined;
+/** Does this note have any history? A stat, not a parse — see the call site. */
+async function hasIndex(dir: string): Promise<boolean> {
   try {
-    return await fs.readFile(snapPath(dir, newest.ts), 'utf-8');
+    await fs.stat(path.join(dir, INDEX_FILE));
+    return true;
   } catch (err) {
-    if (isENOENT(err)) return undefined;
+    if (isENOENT(err)) return false;
     throw err;
   }
+}
+
+function newestOf(entries: RevisionMeta[]): RevisionMeta | null {
+  return entries.reduce<RevisionMeta | null>((a, b) => (!a || b.ts > a.ts ? b : a), null);
+}
+
+/**
+ * Is this save a change worth capturing?
+ *
+ * The fast path never touches the disk: compare the incoming content's hash
+ * with the one stored on the newest revision. Only a revision written before
+ * hashes existed makes us read the snapshot back to compare content — so an
+ * older thoughtbase pays the old cost exactly once per note, then never again.
+ *
+ * A snapshot file that has gone missing means "treat the save as changed and
+ * re-capture"; any other read failure is a real problem and throws.
+ */
+async function isNewContent(dir: string, entries: RevisionMeta[], hash: string, content: string): Promise<boolean> {
+  const newest = newestOf(entries);
+  if (!newest) return true;
+  if (newest.hash) return newest.hash !== hash;
+
+  let previous: string | undefined;
+  try {
+    previous = await fs.readFile(snapPath(dir, newest.ts), 'utf-8');
+  } catch (err) {
+    if (!isENOENT(err)) throw err;
+  }
+  return shouldCapture(content, previous);
 }
 
 /**
@@ -113,7 +146,8 @@ export async function captureSnapshot(
   await fs.mkdir(dir, { recursive: true });
   const entries = await readIndex(dir);
 
-  if (!shouldCapture(content, await latestContent(dir, entries))) return null;
+  const hash = contentHash(content);
+  if (!await isNewContent(dir, entries, hash, content)) return null;
 
   // Avoid a filename collision if two captures land in the same millisecond.
   let ts = now;
@@ -122,6 +156,7 @@ export async function captureSnapshot(
   const meta: RevisionMeta = {
     ts,
     origin: source.origin,
+    hash,
     ...(source.cause ? { cause: source.cause } : {}),
     // The first revision of a note is its baseline: it's what "restore
     // everything back to the start" restores to, so it's marked (and exempt
@@ -176,7 +211,12 @@ export async function ensureInitialRevision(
   // noteDir() re-validates `relPath` (it throws on anything that escapes the
   // history root), so it runs before we resolve the note path to read it.
   const dir = noteDir(rootPath, relPath);
-  if ((await readIndex(dir)).length > 0) return null;
+  // This runs BEFORE every save, and its answer is "already done" for all but
+  // the first one per note — so ask the cheapest question that settles it. An
+  // index file existing means the note has history; parsing it to count the
+  // entries would read and parse a growing JSON file on every keystroke pause
+  // to learn something a stat already told us (#1836).
+  if (await hasIndex(dir)) return null;
 
   const filePath = path.resolve(rootPath, relPath);
   const settings = await getHistorySettings();
@@ -285,8 +325,7 @@ export async function labelCurrentVersion(
     now,
   );
 
-  const entries = await readIndex(dir);
-  const newest = captured ?? entries.reduce<RevisionMeta | null>((a, b) => (!a || b.ts > a.ts ? b : a), null);
+  const newest = captured ?? newestOf(await readIndex(dir));
   if (!newest) throw new Error(`history: no revision to label for "${relPath}"`);
 
   await setRevisionLabel(rootPath, relPath, newest.ts, label);
