@@ -158,7 +158,9 @@ can't quietly grow while nobody re-reads it:
   `GRAPH_EXCERPT_SOURCE`, `PROPOSAL_DETAIL`, `TEMPLATES_GET` and
   `CONVERSATION_LOAD` are all `withRootPath` now, #1841.)*
 - boolean overloads: proposals `APPROVE` / `REJECT` (`false` = no-project ↔
-  failed). *(`NOTEBASE_FILE_EXISTS` cleared in #1862.)*
+  failed). *(`NOTEBASE_FILE_EXISTS` cleared in #1862, `SOURCES_HAS_PDF` in
+  #1881 — both were never listed here; the shape is worth grepping for rather
+  than trusting this list to be complete.)*
 - in-band `error?` → union: `GRAPH_QUERY` (`{ results, columns, error? }` should
   match the `TABLES_QUERY` `{ ok:false; error }` shape).
 - swallows: `LINKS_CITATIONS_FOR_NOTE` (`.catch(()=>'')`), `CSL_REMOVE_STYLE` /

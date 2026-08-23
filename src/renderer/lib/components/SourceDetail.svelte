@@ -128,7 +128,15 @@
   let hasPdf = $state(false);
 
   $effect(() => {
-    void api.sources.hasPdf(sourceId).then((r) => { hasPdf = r; });
+    // `false` now means only "ingested without a PDF" (#1881); a genuine read
+    // failure rejects. Offering "Open original PDF" for a file we couldn't
+    // stat would just fail later, so treat it as absent — but say so.
+    void api.sources.hasPdf(sourceId)
+      .catch((err: unknown) => {
+        console.error('[sources] could not check for an original PDF:', err);
+        return false;
+      })
+      .then((r) => { hasPdf = r; });
   });
 
   async function handleRename() {
