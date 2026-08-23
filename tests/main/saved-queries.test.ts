@@ -181,9 +181,30 @@ describe('saved-queries integration (#313/#314/#315)', () => {
     expect(fs.existsSync(q.filePath)).toBe(true);
   });
 
-  it('saveQuery falls back to global dir when project is null', () => {
-    const q = saveQuery(null, 'project', 'P', '', 'SELECT 1', 'sparql');
+  it('saveQuery refuses Thoughtbase scope when no project is open (#1877)', () => {
+    // This used to fall back to the global directory AND return
+    // `scope: 'project'`, so the caller was told the file was somewhere it
+    // wasn't — and it then followed the user into every other thoughtbase.
+    // `moveQueryScope` refuses the identical condition; these two should not
+    // disagree about what's possible.
+    expect(() => saveQuery(null, 'project', 'P', '', 'SELECT 1', 'sparql'))
+      .toThrow(/no project open/i);
+  });
+
+  it('saveQuery still writes global-scope queries with no project open', () => {
+    // The refusal is about the SCOPE, not about having a project: a global
+    // query is a legitimate thing to save from a project-less window.
+    const q = saveQuery(null, 'global', 'G', '', 'SELECT 1', 'sparql');
     expect(q.filePath.startsWith(userDataDir.value)).toBe(true);
+    expect(q.scope).toBe('global');
+  });
+
+  it('saveQuery reports the scope the file actually landed in', () => {
+    // The half of the bug the old test missed: it asserted the directory but
+    // never that the returned `scope` agreed with it.
+    const q = saveQuery(projectRoot, 'project', 'P2', '', 'SELECT 1', 'sparql');
+    expect(q.scope).toBe('project');
+    expect(q.filePath.startsWith(projectRoot)).toBe(true);
   });
 
   it('saveQuery preserves @group on disk', () => {
