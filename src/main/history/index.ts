@@ -12,6 +12,7 @@
  * which composes this facade with `notebase`'s `writeAndReindex` — never the
  * reverse.
  */
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { captureSnapshot, ensureInitialRevision } from './store';
 import { isNotePath } from '../../shared/note-extensions';
 import type { RevisionSource } from './policy';
@@ -27,28 +28,36 @@ export {
 export { getHistorySettings, setHistorySettings } from './settings';
 export type { RevisionMeta, RevisionOrigin, RevisionSource } from './policy';
 
-// Ambient source for the next capture. Note writes are serialized per note, so
-// a simple module var is sufficient to tag a restore / AI-applied write without
-// threading it through the whole write pipeline. Defaults to a manual edit.
+// How a write in flight should be recorded, carried as ASYNC CONTEXT rather
+// than as a module variable (#1833).
+//
+// This was a `let ambientSource` saved and restored around `await fn()`, which
+// is only correct when scopes nest strictly. They don't: six call sites wrap
+// await-heavy writes (`notebase/fs`, `llm/approval`'s whole `applyBundle`, four
+// IPC handlers), nothing in main serializes them, and every window carries its
+// own project — so two writes are genuinely concurrent. Interleave
+// A(set X) → B(set Y, saving X) → A(restore its default) → B(restore X) and the
+// module var is left at X with no scope active, after which ordinary editor
+// saves are filed as someone else's AI proposal. That is silent corruption of
+// the provenance the `origin`/`cause` fields exist to record.
+//
+// `AsyncLocalStorage` gives each async call tree its own value, so overlapping
+// writes can't see each other's and nothing has to be restored.
 const MANUAL_EDIT: RevisionSource = { origin: 'edit' };
-let ambientSource: RevisionSource = MANUAL_EDIT;
+const historySource = new AsyncLocalStorage<RevisionSource>();
 
 /**
  * Run `fn` (a note write) recording any revisions it produces as `source` —
  * e.g. `runWithHistorySource({ origin: 'restore', cause: 'Restored from …' },
  * () => writeAndReindex(...))`. The `cause` is what the History panel shows in
  * its "what did this?" column, so name the user's action ("Auto-tag",
- * "Antithesize"), not the module doing the write. Restores the previous source
- * afterward even if `fn` throws.
+ * "Antithesize"), not the module doing the write.
+ *
+ * The source applies to everything `fn` awaits, and to nothing outside it —
+ * including a concurrent write that started while `fn` was in flight.
  */
-export async function runWithHistorySource<T>(source: RevisionSource, fn: () => Promise<T>): Promise<T> {
-  const prev = ambientSource;
-  ambientSource = source;
-  try {
-    return await fn();
-  } finally {
-    ambientSource = prev;
-  }
+export function runWithHistorySource<T>(source: RevisionSource, fn: () => Promise<T>): Promise<T> {
+  return historySource.run(source, fn);
 }
 
 /**
@@ -85,7 +94,7 @@ export async function onNoteWriting(rootPath: string, relPath: string): Promise<
 export async function onNoteWritten(rootPath: string, relPath: string, content: string): Promise<void> {
   if (!isCapturable(relPath)) return;
   try {
-    await captureSnapshot(rootPath, relPath, content, ambientSource);
+    await captureSnapshot(rootPath, relPath, content, historySource.getStore() ?? MANUAL_EDIT);
   } catch (err) {
     console.error(`[history] capture failed for "${relPath}":`, err);
   }
