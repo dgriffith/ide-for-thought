@@ -61,7 +61,7 @@ import type { InspectionSettings } from './inspections';
 import type { ClipperState } from './clipper-pairing';
 import type { Proposal } from './proposals';
 import type { HistorySettings, LabelNotesResult, RevisionMeta } from './history';
-import type { CellResult, CellOutput, ComputeConsentSummary } from './compute/types';
+import type { CellResult, CellOutput, ComputeConsentSummary, PythonProbeResult } from './compute/types';
 import type { AutoLinkSuggestion } from './refactor/auto-link';
 import type { AutoLinkInboundSuggestion } from './refactor/auto-link-inbound';
 import type { FormatSettings } from './formatter/engine';
@@ -372,7 +372,7 @@ export interface ChannelMap {
     | { ok: false; reason: 'no-kernel' | 'unsupported-platform' | 'signal-failed' };
   'compute:getPythonSettings': () => { pythonPath: string; allowNetwork: boolean };
   'compute:setPythonSettings': (settings: { pythonPath: string; allowNetwork: boolean }) => void;
-  'compute:probePython': (candidate?: string) => { ok: boolean; path: string; version?: string; error?: string };
+  'compute:probePython': (candidate?: string) => PythonProbeResult;
   'compute:browsePython': () => string | null;
   'compute:consentStatus': (language: string, code: string) => 'cell' | 'blanket' | 'none';
   'compute:grantConsent': (language: string, code: string, scope: 'cell' | 'project') => void;

@@ -269,8 +269,8 @@ export interface FilesApi {
   dropImport(targetFolder: string, localPaths: string[]): Promise<DropImportResult>;
 }
 
-export type { CellOutput, CellResult } from '../../../shared/compute/types';
-import type { CellResult, ComputeConsentSummary } from '../../../shared/compute/types';
+export type { CellOutput, CellResult, PythonProbeResult } from '../../../shared/compute/types';
+import type { CellResult, ComputeConsentSummary, PythonProbeResult } from '../../../shared/compute/types';
 
 export interface CitationAuditPayload {
   /** Resolved style id after fallback (e.g. 'apa'). */
@@ -503,12 +503,7 @@ export interface ComputeApi {
    * Probe a candidate interpreter — verify it runs + capture the
    * version string. Empty / omitted `candidate` probes the active
    * resolver pick (the Settings UI's "what's running" display). */
-  probePython(candidate?: string): Promise<{
-    ok: boolean;
-    path: string;
-    version?: string;
-    error?: string;
-  }>;
+  probePython(candidate?: string): Promise<PythonProbeResult>;
   /** Native file picker for selecting a Python interpreter; null on cancel. */
   browsePython(): Promise<string | null>;
   /**

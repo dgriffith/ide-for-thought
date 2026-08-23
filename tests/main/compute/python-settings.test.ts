@@ -154,13 +154,16 @@ describe('probePythonInterpreter (#374)', () => {
 
   skipIfNoPython('returns ok + version for a real python on PATH', async () => {
     const r = await probePythonInterpreter('python3');
-    expect(r.ok).toBe(true);
+    // Narrowing, not optional-chaining: since #1878 the result is a
+    // discriminated union, so `version` is guaranteed on this arm rather than
+    // being a `string | undefined` every caller has to re-check.
+    if (!r.ok) throw new Error(`expected a successful probe, got: ${r.error}`);
     expect(r.version).toMatch(/^Python \d+\.\d+/);
   });
 
   it('returns an error result for an obviously-bogus path', async () => {
     const r = await probePythonInterpreter('/not/a/real/python');
-    expect(r.ok).toBe(false);
+    if (r.ok) throw new Error(`expected a failed probe, got: ${r.version}`);
     expect(r.error).toBeTruthy();
     expect(r.path).toBe('/not/a/real/python');
   });
