@@ -8,7 +8,7 @@
    */
   import { onMount } from 'svelte';
   import { api } from '../ipc/client';
-  import type { ComputeConsentSummary } from '../../../shared/compute/types';
+  import type { ComputeConsentSummary, PythonProbeResult } from '../../../shared/compute/types';
   import { getSettingsStore } from '../stores/settings.svelte';
 
   const settings = getSettingsStore();
@@ -38,7 +38,10 @@
   let pythonPathInput = $state('');
   /** What's saved to disk; used to detect dirty state. */
   let pythonPathSaved = $state('');
-  let pythonProbe = $state<{ ok: boolean; path: string; version?: string; error?: string } | null>(null);
+  // The shared union (#1878), not a restated shape: `{#if pythonProbe.ok}` now
+  // narrows, so the template reaches `version` and `error` on the arm that has
+  // them rather than on an optional the compiler couldn't vouch for.
+  let pythonProbe = $state<PythonProbeResult | null>(null);
   let pythonProbing = $state(false);
   /** Network egress toggle (#1413). Off by default; the kernel blocks non-local
    *  sockets unless this is on. Applied when the kernel next starts. */

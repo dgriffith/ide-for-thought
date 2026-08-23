@@ -19,6 +19,7 @@ import { spawn } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { loadConfigFile, asString, asRecord } from '../config/config-store';
+import type { PythonProbeResult } from '../../shared/compute/types';
 
 export interface PythonSettings {
   /**
@@ -37,15 +38,10 @@ export interface PythonSettings {
   allowNetwork: boolean;
 }
 
-export interface PythonProbeResult {
-  ok: boolean;
-  /** Resolved interpreter path (the input, normalised). */
-  path: string;
-  /** Version string from `python --version` (e.g. "Python 3.11.10"). */
-  version?: string;
-  /** Error message when `ok: false` — surfaced inline in the Settings UI. */
-  error?: string;
-}
+// The probe's result shape moved to `shared/compute/types` in #1878, where the
+// IPC contract and the settings panel can share one definition instead of
+// restating it. Re-exported so existing importers of this module still resolve.
+export type { PythonProbeResult } from '../../shared/compute/types';
 
 const DEFAULT_SETTINGS: PythonSettings = { pythonPath: '', allowNetwork: false };
 
