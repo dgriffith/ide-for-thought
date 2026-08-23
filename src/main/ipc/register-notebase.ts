@@ -26,7 +26,6 @@ import { searchInNotes, replaceInNotes, type SearchOptions, type ReplaceSelectio
 import { handle } from './typed-ipc';
 import {
   winFromEvent,
-  rootPathFromEvent,
   withRootPath,
   withRootPathOr,
   reindexFile,
@@ -175,11 +174,15 @@ export function registerNotebase(): void {
     rebuildMenu();
   });
 
-  handle(Channels.NOTEBASE_LIST_FILES, async (e) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) return [];
-    return notebaseFs.listFiles(rootPath);
-  });
+  // No project → an empty tree, which is what the sidebar renders as "no notes
+  // yet" anyway. That is a legitimate project-less ANSWER, not a failure
+  // signal, which is exactly the distinction `withRootPathOr` exists to make
+  // explicit (#1862) — the hand-rolled guard this replaces didn't force anyone
+  // to say which it was.
+  handle(Channels.NOTEBASE_LIST_FILES, withRootPathOr(
+    Promise.resolve([] as Awaited<ReturnType<typeof notebaseFs.listFiles>>),
+    (rootPath) => notebaseFs.listFiles(rootPath),
+  ));
 
   handle(Channels.NOTEBASE_READ_FILE, withRootPath(async (rootPath, relativePath: string) => {
     return notebaseFs.readFile(rootPath, relativePath);
@@ -211,11 +214,11 @@ export function registerNotebase(): void {
     getOrFetchRemoteImage(rootPath, url),
   ));
 
-  handle(Channels.NOTEBASE_FILE_EXISTS, async (e, relativePath: string) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) return false;
-    return notebaseFs.fileExists(rootPath, relativePath);
-  });
+  // `false` means exactly one thing now: no such file (#1862). It used to mean
+  // that OR "no project open", so a caller checking before a write couldn't
+  // tell "safe to create" from "there is nowhere to create it".
+  handle(Channels.NOTEBASE_FILE_EXISTS, withRootPath((rootPath, relativePath: string) =>
+    notebaseFs.fileExists(rootPath, relativePath)));
 
   handle(Channels.NOTEBASE_WRITE_FILE, withRootPath(async (rootPath, relativePath: string, content: string) => {
     // Renderer-initiated save — it already has the content, so suppress
@@ -383,15 +386,18 @@ export function registerNotebase(): void {
     await persistIndexes(rootPath);
   }));
 
-  handle(Channels.NOTEBASE_SEARCH_IN_NOTES, async (e, opts: SearchOptions) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) return [];
-    return searchInNotes(rootPath, opts);
-  });
+  // Same shape: no project → no results, which reads the same as "nothing
+  // matched" and is a fair answer to a search over nothing.
+  handle(Channels.NOTEBASE_SEARCH_IN_NOTES, withRootPathOr(
+    Promise.resolve([] as Awaited<ReturnType<typeof searchInNotes>>),
+    (rootPath, opts: SearchOptions) => searchInNotes(rootPath, opts),
+  ));
 
-  handle(Channels.NOTEBASE_REPLACE_IN_NOTES, async (e, opts: SearchOptions & { replacement: string; selections: ReplaceSelection[] }) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) return { changedPaths: [], replacedCount: 0 };
+  // NOT `withRootPathOr` (#1862). This is a write, and the old fallback said
+  // "I replaced 0 occurrences" for a call that never ran — so the dialog
+  // reported a successful no-op. "Nothing matched" and "there was nothing to
+  // search" are different facts and only one of them is a success.
+  handle(Channels.NOTEBASE_REPLACE_IN_NOTES, withRootPath(async (rootPath, opts: SearchOptions & { replacement: string; selections: ReplaceSelection[] }) => {
     const result = await replaceInNotes(rootPath, opts);
     if (result.changedPaths.length > 0) {
       // Re-index each rewritten file so the graph + search index stay in
@@ -401,7 +407,7 @@ export function registerNotebase(): void {
       broadcastRewritten(rootPath, result.changedPaths);
     }
     return result;
-  });
+  }));
 
   handle(Channels.NOTEBASE_GET_ONBOARDING_DISMISSED, withRootPathOr(false, (rootPath) =>
     getOnboardingDismissed(rootPath)));

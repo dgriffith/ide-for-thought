@@ -149,6 +149,11 @@
       // Re-run the search so the UI reflects the post-replace state —
       // any still-matching hits stay, replaced ones disappear.
       runSearch();
+    } catch (err) {
+      // The replace now rejects rather than answering "0 replaced" for a call
+      // that never ran (#1862). Without this the dialog would just stop
+      // spinning with no message, which is a quieter version of the same lie.
+      statusMsg = `Replace failed: ${err instanceof Error ? err.message : String(err)}`;
     } finally {
       replacing = false;
     }
