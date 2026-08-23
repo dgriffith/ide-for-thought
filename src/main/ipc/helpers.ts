@@ -147,6 +147,18 @@ export function broadcastProposalsChanged(rootPath: string): void {
   }
 }
 
+/**
+ * Broadcast that a note's revisions changed (#1834). Fired via the
+ * Electron-free `onHistoryChanged` subscription (wired once in `ipc.ts`), so it
+ * covers captures from any write path — editor save, restore, an applied
+ * proposal — not just the ones the renderer initiated.
+ */
+export function broadcastHistoryChanged(rootPath: string, relPath: string | null): void {
+  for (const targetWin of windowsForProject(rootPath)) {
+    broadcast(targetWin, Channels.HISTORY_CHANGED, relPath);
+  }
+}
+
 /** Broadcast that `rootPath`'s inspection results changed (#1795) — checks now
  *  re-run on their own, so the panel can't assume it caused every change. */
 export function broadcastInspectionsChanged(rootPath: string): void {

@@ -600,6 +600,9 @@ export interface EventMap {
   'proposals:changed': () => void;
   /** A health-check run finished; the cached inspection list moved (#1795). */
   'inspections:changed': () => void;
+  /** A note's revisions changed — the note path, or null when a prune sweep
+   *  touched many (#1834). */
+  'history:changed': (relPath: string | null) => void;
   'proposals:show': () => void;
   // Conversation-draft cards — all carry ConversationDraftBase on the wire
   // (draftEmit); the renderer refines to the specific draft type.

@@ -115,18 +115,12 @@
     onOpenGraph?: (relativePath: string) => void;
     /** True while the semantic-index backfill is running (#836/#838). */
     indexing?: boolean;
-    /** Restore a note to a history revision (#1158). App owns the confirm +
-     *  the `api.history.restore` mutation. */
-    onRestore?: (relativePath: string, ts: number) => void | Promise<void>;
-    /** Name a version / drop its name — also mutations, also App's. */
-    onLabel?: (relativePath: string, ts: number, existing: string | null) => void | Promise<void>;
-    onRemoveLabel?: (relativePath: string, ts: number) => void | Promise<void>;
   }
 
   let {
     activeFilePath, content, onFileSelect, onNavigate, onOpenAtOffset, onScrollToLine,
     onOpenConversation, onApplyInspectionFix, onOpenQuery, onOpenSource, onOpenExcerpt,
-    onContentChange, onOpenGraph, indexing = false, onRestore, onLabel, onRemoveLabel,
+    onContentChange, onOpenGraph, indexing = false,
   }: Props = $props();
 
   let activePanel = $state<PanelType>('outline');
@@ -261,14 +255,9 @@
         <div class="panel-disabled">No active note.</div>
       {/if}
     {:else if activePanel === 'history'}
-      <HistoryPanel
-        {activeFilePath}
-        {content}
-        {revision}
-        {...(onRestore !== undefined ? { onRestore } : {})}
-        {...(onLabel !== undefined ? { onLabel } : {})}
-        {...(onRemoveLabel !== undefined ? { onRemoveLabel } : {})}
-      />
+      <!-- No `revision` prop and no mutation callbacks: the panel reads the
+           history store, which owns the `history:changed` subscription. -->
+      <HistoryPanel {activeFilePath} {content} />
     {:else if activePanel === 'outgoing'}
       <OutgoingLinksPanel {activeFilePath} {revision} {onFileSelect} {...(onOpenGraph !== undefined ? { onOpenGraph } : {})} />
     {:else if activePanel === 'backlinks'}

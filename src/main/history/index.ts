@@ -26,6 +26,7 @@ export {
   pruneAllHistory,
 } from './store';
 export { getHistorySettings, setHistorySettings } from './settings';
+export { onHistoryChanged, emitHistoryChanged } from './history-events';
 export type { RevisionMeta, RevisionOrigin, RevisionSource } from './policy';
 
 // How a write in flight should be recorded, carried as ASYNC CONTEXT rather

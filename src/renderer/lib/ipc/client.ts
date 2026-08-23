@@ -761,6 +761,10 @@ export interface HistoryApi {
    *  point across a set of notes. Per-note failures come back in `errors`;
    *  the call itself only rejects if nothing could be attempted. */
   labelNotes(relativePaths: string[], label: string): Promise<LabelNotesResult>;
+  /** A note's revisions changed — captured, labeled, or pruned. The payload is
+   *  the note path, or null when a sweep touched many. Subscribe in the history
+   *  store, not in a component (renderer data-flow rule). */
+  onChanged(cb: (relPath: string | null) => void): () => void;
   /** Per-machine history limits (retention window, per-note cap, size cutoff). */
   getSettings(): Promise<HistorySettings>;
   /** Save the limits; resolves to what was actually stored (values are clamped

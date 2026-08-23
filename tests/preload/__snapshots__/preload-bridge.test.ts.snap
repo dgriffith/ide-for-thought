@@ -149,6 +149,7 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
     "getSettings",
     "labelNotes",
     "list",
+    "onChanged",
     "restore",
     "setLabel",
     "setSettings",

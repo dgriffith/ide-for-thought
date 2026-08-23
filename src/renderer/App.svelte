@@ -398,37 +398,6 @@
   const linkDrag = getLinkDrag();
   const { showPrompt, showConfirm, showComputeConsent } = dialogs;
 
-  /** Restore a note to a history revision (#1158). Non-destructive (the restore
-   *  is itself a new revision), so the confirm is dismissable. The IPC write
-   *  reloads the open editor via NOTEBASE_REWRITTEN. App owns this mutation per
-   *  the renderer data-flow rule (leaf panels route restore out here). */
-  async function handleHistoryRestore(relativePath: string, ts: number): Promise<void> {
-    const ok = await showConfirm(
-      'Restore this note to the selected version? Your current text is kept in history.',
-      CONFIRM_KEYS.historyRestore,
-      'Restore',
-    );
-    if (!ok) return;
-    await api.history.restore(relativePath, ts);
-  }
-
-  /** Name a version in the History panel (#1158). A labeled version is exempt
-   *  from pruning, so this is how a restore point outlives the retention
-   *  window. App owns the mutation per the renderer data-flow rule. */
-  async function handleHistoryLabel(relativePath: string, ts: number, existing: string | null): Promise<void> {
-    const raw = await showPrompt('Name this version:', existing ?? '');
-    if (raw === null) return;
-    const label = raw.trim();
-    // An emptied prompt reads as "drop the name" rather than storing ''.
-    await api.history.setLabel(relativePath, ts, label || null);
-  }
-
-  /** Drop a version's name (#1158). No confirm: the version itself is
-   *  untouched, and re-labeling is one right-click away. */
-  async function handleHistoryRemoveLabel(relativePath: string, ts: number): Promise<void> {
-    await api.history.setLabel(relativePath, ts, null);
-  }
-
   let showEditSavedViews = $state(false);
 
   // Type editor (#1585) opened from "Save Note as Object Type" — pre-filled from
@@ -1503,9 +1472,6 @@
           onContentChange={editor.setContent}
           onOpenGraph={(p) => editor.openNeighborhood(p)}
           indexing={embeddingProgress !== null}
-          onRestore={handleHistoryRestore}
-          onLabel={handleHistoryLabel}
-          onRemoveLabel={handleHistoryRemoveLabel}
         />
       {/if}
     {:else}
