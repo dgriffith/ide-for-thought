@@ -11,13 +11,15 @@ import { broadcast } from './broadcast';
 import * as approval from '../llm/approval';
 import type { Proposal } from '../llm/approval';
 import { projectContext } from '../project-context-types';
-import { withRootPathOr, winFromEvent } from './helpers';
+import { withRootPath, withRootPathOr, winFromEvent } from './helpers';
 import { handle } from './typed-ipc';
 
 export function registerProposals(): void {
   handle(Channels.PROPOSAL_LIST, withRootPathOr<[string?], Proposal[] | Promise<Proposal[]>>([], (rootPath, status?: string) =>
     approval.listProposals(projectContext(rootPath), status)));
-  handle(Channels.PROPOSAL_DETAIL, withRootPathOr(null, (rootPath, uri: string) =>
+  // `null` = no proposal at that URI (expired, rejected-and-swept, bad URI).
+  // "No project open" throws instead of folding into the same `null` (#1841).
+  handle(Channels.PROPOSAL_DETAIL, withRootPath((rootPath, uri: string) =>
     approval.getProposal(projectContext(rootPath), uri)));
   handle(Channels.PROPOSAL_APPROVE, withRootPathOr<[string], boolean | Promise<boolean>>(false, async (rootPath, uri: string) => {
     const result = await approval.approveProposal(projectContext(rootPath), uri);

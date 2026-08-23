@@ -26,7 +26,11 @@ export async function loadFormatSettings(): Promise<FormatSettings> {
       enabled: loaded.enabled ?? {},
       configs: loaded.configs ?? {},
     };
-  } catch {
+  } catch (err) {
+    // The handler now rejects for a corrupt/unreadable formatter.json instead of
+    // quietly handing back defaults (#1841). We still fall back so the app works,
+    // but the reason is logged rather than lost.
+    console.error('[formatter] failed to load settings — using defaults', err);
     settings = { ...DEFAULT_FORMAT_SETTINGS };
   }
   return settings;

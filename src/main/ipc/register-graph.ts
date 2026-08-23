@@ -57,10 +57,13 @@ export function registerGraph(): void {
   handle(Channels.GRAPH_SCHEMA_FOR_COMPLETION, withRootPathOr(null, (rootPath) =>
     graph.schemaForCompletion(projectContext(rootPath))));
 
-  handle(Channels.GRAPH_SOURCE_DETAIL, withRootPathOr(null, (rootPath, sourceId: string) =>
+  // `null` means exactly one thing here: no such source in the graph (#1841).
+  // "No project open" is a failure, not an absence, so it throws (withRootPath).
+  handle(Channels.GRAPH_SOURCE_DETAIL, withRootPath((rootPath, sourceId: string) =>
     graph.getSourceDetail(projectContext(rootPath), sourceId)));
 
-  handle(Channels.GRAPH_EXCERPT_SOURCE, withRootPathOr(null, (rootPath, excerptId: string) =>
+  // Same contract: `null` = no source anchors this excerpt, never "no project".
+  handle(Channels.GRAPH_EXCERPT_SOURCE, withRootPath((rootPath, excerptId: string) =>
     graph.getExcerptSource(projectContext(rootPath), excerptId)));
 
   handle(Channels.GRAPH_ATTACH_EXCERPT_EVIDENCE, withRootPathOr<[string, string, 'grounds' | 'supports' | 'rebuts'], AttachEvidenceResult | Promise<AttachEvidenceResult>>(

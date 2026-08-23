@@ -10,11 +10,16 @@ export function registerTemplates(): void {
     return templates.listTemplates(rootPath);
   }));
 
-  handle(Channels.TEMPLATES_GET, withRootPathOr(null, async (rootPath, filename: string) => {
+  // `null` marks exactly one expected absence: the template file is gone (the
+  // user deleted it out from under the picker). "No project open" throws, and a
+  // genuine read failure — a bad filename, a permissions error — propagates
+  // rather than masquerading as a missing template (#1841).
+  handle(Channels.TEMPLATES_GET, withRootPath(async (rootPath, filename: string): Promise<string | null> => {
     try {
       return await templates.readTemplate(rootPath, filename);
-    } catch {
-      return null;
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
+      throw err;
     }
   }));
 
