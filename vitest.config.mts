@@ -131,21 +131,22 @@ export default defineConfig({
           branches: 66,
         },
         // IPC registrars — channel→module glue that was entirely unfenced
-        // (QA C1 / #1612), then covered registrar by registrar. #1840 added
-        // direct handler tests for the three biggest untested ones —
-        // register-notebase (the write path), register-graph, register-links —
-        // taking the layer from ~33 L / 18.7 F / 30.7 S / 14.3 B to ~50.5 L /
-        // 38.1 F / 48.2 S / 31.6 B. The branch floor especially matters: this
-        // is the layer that owns `withRootPath` vs `withRootPathOr` semantics,
-        // so the #1631 no-project/not-found conflations can now regress into a
-        // test failure instead of passing silently. Floors sit ~10 points below
-        // measured so a refactor won't flap. Still a BACKSTOP, not a target —
-        // 16 registrars remain without a direct test; ratchet up as they land.
+        // (QA C1 / #1612), then covered registrar by registrar until #1840
+        // finished the job: all 24 now have a direct handler test, and
+        // `tests/architecture/ipc-registrar-coverage.test.ts` keeps it that way
+        // (a new registrar without one fails). That took the layer from ~33 L /
+        // 18.7 F / 30.7 S / 14.3 B to ~75.8 L / 76.5 F / 74.7 S / 61.7 B.
+        //
+        // The branch floor is the one that earns its keep: this layer owns the
+        // `withRootPath` vs `withRootPathOr` decision, so a #1631 no-project
+        // conflation now regresses into a test failure instead of passing in
+        // silence. Floors sit ~10 points below measured so a refactor won't
+        // flap. No longer a backstop — a real gate.
         'src/main/ipc/**': {
-          lines: 40,
-          functions: 28,
-          statements: 38,
-          branches: 21,
+          lines: 65,
+          functions: 66,
+          statements: 64,
+          branches: 51,
         },
         // Neglected top-level main modules — previously unfenced (#1100 / QA
         // H1). These sit at `src/main/*.ts` (no directory of their own), so
