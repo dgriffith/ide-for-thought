@@ -15,7 +15,6 @@ import type { ProjectContext } from '../project-context-types';
 import { LINK_TYPES, type LinkType } from '../../shared/link-types';
 import { stripNoteExt } from '../../shared/note-extensions';
 import type {
-  TagInfo, TaggedNote, TaggedSource,
   OutgoingLink, Backlink, SafeDeleteBlocker,
   SourceDetail, SourceMetadata, SourceExcerpt, SourceBacklink, SourceAboutNote,
   SourceReference, ReadStatus,
@@ -25,9 +24,20 @@ import {
   getState, getEngine, ensureN3Cache,
   MINERVA, DC, RDF, BIBO, PROV, THOUGHT,
   STANDARD_PREFIXES,
-  noteUri, tagUri, sourceUri, excerptUri,
+  noteUri, sourceUri, excerptUri,
   linkPredicate, stripFragment,
 } from './state';
+
+// Tag queries live in `./queries/tags` (#1838). Re-exported here so
+// `graph/index` and every `import … from './queries'` caller is unchanged —
+// the same facade shape `indexers.ts` uses for `./indexers/*`.
+export {
+  listTags,
+  notesByTagPrefix,
+  notesByTag,
+  sourcesByTag,
+  allTags,
+} from './queries/tags';
 
 // ── Alias / frontmatter lookups ─────────────────────────────────────────────
 
@@ -345,117 +355,6 @@ export async function queryGraph(
   }
 }
 
-// ── Tag queries ─────────────────────────────────────────────────────────────
-
-export function listTags(ctx: ProjectContext): TagInfo[] {
-  const state = getState(ctx);
-  if (!state) return [];
-  const { store } = state;
-
-  // Bucket per tag-name into note vs source counts. A subject is a
-  // source when it carries minerva:sourceId; otherwise we treat the
-  // hasTag edge as belonging to a note (this matches what notesByTag
-  // returns once the rdf:type filter has been applied).
-  const buckets = new Map<string, { noteCount: number; sourceCount: number }>();
-  const stmts = store.statementsMatching(undefined, MINERVA('hasTag'), undefined);
-  for (const st of stmts) {
-    const tagNode = st.object;
-    const nameStmts = store.statementsMatching(tagNode as $rdf.NamedNode, MINERVA('tagName'), undefined);
-    const name = nameStmts[0]?.object.value ?? tagNode.value;
-    let bucket = buckets.get(name);
-    if (!bucket) {
-      bucket = { noteCount: 0, sourceCount: 0 };
-      buckets.set(name, bucket);
-    }
-    const isSource = store.statementsMatching(st.subject, MINERVA('sourceId'), undefined).length > 0;
-    if (isSource) bucket.sourceCount++;
-    else bucket.noteCount++;
-  }
-
-  return [...buckets.entries()]
-    .map(([tag, b]) => ({ tag, noteCount: b.noteCount, sourceCount: b.sourceCount }))
-    .sort((a, b) => a.tag.localeCompare(b.tag));
-}
-
-/**
- * Notes with any tag at-or-under `prefix` (#466). Matches the literal
- * `prefix` and any tag that starts with `prefix/…` so clicking a
- * parent row in the tree returns the same set the cumulative count
- * promised. Deduped by relativePath since one note can carry multiple
- * matching tags.
- */
-export function notesByTagPrefix(ctx: ProjectContext, prefix: string): TaggedNote[] {
-  const state = getState(ctx);
-  if (!state) return [];
-  const { store } = state;
-
-  const seen = new Map<string, TaggedNote>();
-  const tagStmts = store.statementsMatching(undefined, MINERVA('hasTag'), undefined);
-  for (const tagStmt of tagStmts) {
-    const tagNode = tagStmt.object as $rdf.NamedNode;
-    const nameStmts = store.statementsMatching(tagNode, MINERVA('tagName'), undefined);
-    const name = nameStmts[0]?.object.value;
-    if (!name) continue;
-    if (name !== prefix && !name.startsWith(`${prefix}/`)) continue;
-    const subject = tagStmt.subject;
-    const isNote = store.statementsMatching(subject, RDF('type'), MINERVA('Note')).length > 0;
-    if (!isNote) continue;
-    const pathStmts = store.statementsMatching(subject, MINERVA('relativePath'), undefined);
-    const relativePath = pathStmts[0]?.object.value ?? '';
-    if (!relativePath || seen.has(relativePath)) continue;
-    const titleStmts = store.statementsMatching(subject, DC('title'), undefined);
-    seen.set(relativePath, {
-      title: titleStmts[0]?.object.value ?? subject.value,
-      relativePath,
-    });
-  }
-  return [...seen.values()].sort((a, b) => a.title.localeCompare(b.title));
-}
-
-export function notesByTag(ctx: ProjectContext, tag: string): TaggedNote[] {
-  const state = getState(ctx);
-  if (!state) return [];
-  const { store } = state;
-
-  const tagNode = tagUri(state, tag);
-  const stmts = store.statementsMatching(undefined, MINERVA('hasTag'), tagNode);
-  return stmts.flatMap((st) => {
-    const subject = st.subject;
-    // Sources also carry hasTag edges (body.md tags); filter them out —
-    // sourcesByTag handles those.
-    const isNote = store.statementsMatching(subject, RDF('type'), MINERVA('Note')).length > 0;
-    if (!isNote) return [];
-    const titleStmts = store.statementsMatching(subject, DC('title'), undefined);
-    const pathStmts = store.statementsMatching(subject, MINERVA('relativePath'), undefined);
-    const relativePath = pathStmts[0]?.object.value ?? '';
-    if (!relativePath) return [];
-    return [{
-      title: titleStmts[0]?.object.value ?? subject.value,
-      relativePath,
-    }];
-  });
-}
-
-export function sourcesByTag(ctx: ProjectContext, tag: string): TaggedSource[] {
-  const state = getState(ctx);
-  if (!state) return [];
-  const { store } = state;
-
-  const tagNode = tagUri(state, tag);
-  const stmts = store.statementsMatching(undefined, MINERVA('hasTag'), tagNode);
-  return stmts.flatMap((st) => {
-    const subject = st.subject;
-    const idStmts = store.statementsMatching(subject, MINERVA('sourceId'), undefined);
-    const sourceId = idStmts[0]?.object.value;
-    if (!sourceId) return [];
-    const titleStmts = store.statementsMatching(subject, DC('title'), undefined);
-    return [{
-      sourceId,
-      title: titleStmts[0]?.object.value ?? sourceId,
-    }];
-  });
-}
-
 /**
  * List every indexed source with its display metadata, sorted by title.
  * Used by the sidebar's Sources panel for navigation.
@@ -479,21 +378,6 @@ export function listAllSources(ctx: ProjectContext): SourceMetadata[] {
     return ta.localeCompare(tb);
   });
   return entries;
-}
-
-export function allTags(ctx: ProjectContext): string[] {
-  const state = getState(ctx);
-  if (!state) return [];
-  const { store } = state;
-  const tags = new Set<string>();
-  const stmts = store.statementsMatching(undefined, RDF('type'), MINERVA('Tag'));
-  for (const st of stmts) {
-    const nameStmts = store.statementsMatching(st.subject, MINERVA('tagName'), undefined);
-    if (nameStmts[0]) {
-      tags.add(nameStmts[0].object.value);
-    }
-  }
-  return [...tags].sort();
 }
 
 // ── Link queries ────────────────────────────────────────────────────────────
