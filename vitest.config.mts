@@ -130,18 +130,22 @@ export default defineConfig({
           statements: 62,
           branches: 66,
         },
-        // IPC registrars — mostly thin channel→module glue that was entirely
-        // unfenced (QA C1 / #1612). The layer is deliberately low-covered (the
-        // underlying modules carry the real tests), so this is a BACKSTOP, not a
-        // target: it locks in the conversation-handler coverage (#1612) and
-        // stops a new registrar shipping at 0%. Measured ~27.6 L / 12.5 F /
-        // 25.3 S / 7.3 B; floors sit a few points below so a small change
-        // won't flap. Ratchet up as more handlers get direct tests.
+        // IPC registrars — channel→module glue that was entirely unfenced
+        // (QA C1 / #1612), then covered registrar by registrar. #1840 added
+        // direct handler tests for the three biggest untested ones —
+        // register-notebase (the write path), register-graph, register-links —
+        // taking the layer from ~33 L / 18.7 F / 30.7 S / 14.3 B to ~50.5 L /
+        // 38.1 F / 48.2 S / 31.6 B. The branch floor especially matters: this
+        // is the layer that owns `withRootPath` vs `withRootPathOr` semantics,
+        // so the #1631 no-project/not-found conflations can now regress into a
+        // test failure instead of passing silently. Floors sit ~10 points below
+        // measured so a refactor won't flap. Still a BACKSTOP, not a target —
+        // 16 registrars remain without a direct test; ratchet up as they land.
         'src/main/ipc/**': {
-          lines: 24,
-          functions: 10,
-          statements: 22,
-          branches: 5,
+          lines: 40,
+          functions: 28,
+          statements: 38,
+          branches: 21,
         },
         // Neglected top-level main modules — previously unfenced (#1100 / QA
         // H1). These sit at `src/main/*.ts` (no directory of their own), so
