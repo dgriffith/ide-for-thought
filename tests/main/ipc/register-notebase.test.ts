@@ -283,10 +283,25 @@ describe('register-notebase — the #1631 project guard', () => {
     expect(h.getOnboardingDismissed).not.toHaveBeenCalled();
   });
 
-  // NOT pinned here, deliberately: NOTEBASE_FILE_EXISTS returns `false` with no
-  // project, conflating "no project" with "no such file" — the boolean overload
-  // CLAUDE.md's #1631 migration backlog already lists. Asserting it would bless
-  // it; its with-project delegation is covered below instead.
+  it('NOTEBASE_REPLACE_IN_NOTES throws rather than reporting a successful no-op', () => {
+    // It used to answer `{ changedPaths: [], replacedCount: 0 }`, so the
+    // find/replace dialog said "Replaced 0 matches" for a call that never ran
+    // (#1862). This is a WRITE: "nothing matched" and "there was nothing to
+    // search" are different facts, and only one of them is a success.
+    openProject = null;
+    expect(() => call(Channels.NOTEBASE_REPLACE_IN_NOTES, { query: 'x', replacement: 'y', selections: [] }))
+      .toThrow('No project open');
+    expect(h.replaceInNotes).not.toHaveBeenCalled();
+  });
+
+  it('NOTEBASE_FILE_EXISTS throws instead of answering "no such file"', () => {
+    // `false` now means exactly one thing (#1862). It used to mean that OR "no
+    // project", so a caller checking before a write couldn't tell "safe to
+    // create" from "there is nowhere to create it".
+    openProject = null;
+    expect(() => call(Channels.NOTEBASE_FILE_EXISTS, 'a.md')).toThrow('No project open');
+    expect(h.fileExists).not.toHaveBeenCalled();
+  });
 });
 
 describe('register-notebase — reads', () => {

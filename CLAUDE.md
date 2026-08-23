@@ -157,8 +157,8 @@ can't quietly grow while nobody re-reads it:
 - `null` no-project↔not-found: *(cleared — `GRAPH_SOURCE_DETAIL`,
   `GRAPH_EXCERPT_SOURCE`, `PROPOSAL_DETAIL`, `TEMPLATES_GET` and
   `CONVERSATION_LOAD` are all `withRootPath` now, #1841.)*
-- boolean overloads: `NOTEBASE_FILE_EXISTS`, proposals `APPROVE` / `REJECT`
-  (`false` = no-project ↔ failed).
+- boolean overloads: proposals `APPROVE` / `REJECT` (`false` = no-project ↔
+  failed). *(`NOTEBASE_FILE_EXISTS` cleared in #1862.)*
 - in-band `error?` → union: `GRAPH_QUERY` (`{ results, columns, error? }` should
   match the `TABLES_QUERY` `{ ok:false; error }` shape).
 - swallows: `LINKS_CITATIONS_FOR_NOTE` (`.catch(()=>'')`), `CSL_REMOVE_STYLE` /
