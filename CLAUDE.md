@@ -140,16 +140,17 @@ thrown error already propagates cleanly. Build on that:
 
 **Migration backlog** (audited outliers, fix incrementally per the rules above):
 
-- `null` no-project↔not-found: `GRAPH_SOURCE_DETAIL`, `GRAPH_EXCERPT_SOURCE`,
-  `PROPOSAL_DETAIL` (→ `withRootPath` so `null` means only "not found");
-  `TEMPLATES_GET`, `CONVERSATION_LOAD` (corrupt → throw).
+- `null` no-project↔not-found: *(cleared — `GRAPH_SOURCE_DETAIL`,
+  `GRAPH_EXCERPT_SOURCE`, `PROPOSAL_DETAIL`, `TEMPLATES_GET` and
+  `CONVERSATION_LOAD` are all `withRootPath` now, #1841.)*
 - boolean overloads: `NOTEBASE_FILE_EXISTS`, proposals `APPROVE` / `REJECT`
   (`false` = no-project ↔ failed).
 - in-band `error?` → union: `GRAPH_QUERY` (`{ results, columns, error? }` should
   match the `TABLES_QUERY` `{ ok:false; error }` shape).
 - swallows: `LINKS_CITATIONS_FOR_NOTE` (`.catch(()=>'')`), `CSL_REMOVE_STYLE` /
-  `CSL_REMOVE_LOCALE` (unlink swallows non-ENOENT), `FORMATTER_LOAD_SETTINGS`
-  (→ `readJsonFileOr`), `RUN_COMPUTE_DRAFT` (log-only append / audit-record).
+  `CSL_REMOVE_LOCALE` (unlink swallows non-ENOENT), `RUN_COMPUTE_DRAFT`
+  (log-only append / audit-record). `FORMATTER_LOAD_SETTINGS` uses
+  `readJsonFileOr` as of #1841.
 - vestigial: `GIT_COMMIT.success` (hardcoded `true` — any failure throws).
 
 ### Config files (#1640)

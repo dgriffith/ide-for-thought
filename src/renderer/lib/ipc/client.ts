@@ -153,7 +153,11 @@ export interface GraphApi {
    *  a panel showing results can refresh instead of going stale (#1795). */
   onInspectionsChanged(cb: () => void): () => void;
   export(): Promise<void>;
+  /** `null` means exactly one thing: the graph has no such source. Rejects if
+   *  no project is open (#1841). */
   sourceDetail(sourceId: string): Promise<SourceDetail | null>;
+  /** `null` means exactly one thing: no source anchors that excerpt. Rejects if
+   *  no project is open (#1841). */
   excerptSource(excerptId: string): Promise<{ sourceId: string } | null>;
   /** Attach an excerpt as grounds/supports/rebuts evidence for a claim (#1073) —
    *  files a pending proposal reviewed in the Proposals panel. */
@@ -242,7 +246,8 @@ export interface TemplateInfo {
 
 export interface TemplatesApi {
   list(): Promise<TemplateInfo[]>;
-  /** Returns the template body, or `null` if not found. */
+  /** Returns the template body, or `null` for exactly one reason: the file is
+   *  gone. Rejects if no project is open, or on a genuine read failure (#1841). */
   get(filename: string): Promise<string | null>;
   saveAs(name: string, content: string): Promise<TemplateInfo>;
 }
@@ -725,6 +730,8 @@ export interface ConversationsApi {
 
 export interface ProposalsApi {
   list(status?: string): Promise<Proposal[]>;
+  /** `null` means exactly one thing: no proposal at that URI. Rejects if no
+   *  project is open (#1841). */
   detail(uri: string): Promise<Proposal | null>;
   approve(uri: string): Promise<boolean>;
   reject(uri: string): Promise<boolean>;
@@ -819,6 +826,9 @@ export interface FormatterApi {
     relDir: string,
     settings: import('../../../shared/formatter/engine').FormatSettings,
   ): Promise<{ changedPaths: string[]; cascadedPaths: string[]; totalScanned: number }>;
+  /** House-style defaults when nothing has been saved yet. Rejects if no project
+   *  is open, or if `.minerva/formatter.json` is corrupt/unreadable — a broken
+   *  file must not present itself as "defaults" (#1841). */
   loadSettings(): Promise<import('../../../shared/formatter/engine').FormatSettings>;
   saveSettings(settings: import('../../../shared/formatter/engine').FormatSettings): Promise<void>;
 }

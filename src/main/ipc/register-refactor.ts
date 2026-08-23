@@ -21,7 +21,7 @@ import type { AutoLinkSuggestion } from '../../shared/refactor/auto-link';
 import type { AutoLinkInboundSuggestion } from '../../shared/refactor/auto-link-inbound';
 import { appendSeeAlsoLink } from '../../shared/refactor/see-also';
 import * as notebaseFs from '../notebase/fs';
-import { rootPathFromEvent, withRootPath, withRootPathOr, persistIndexes, broadcastRewritten, hooks } from './helpers';
+import { rootPathFromEvent, withRootPath, withRootPathOr, readJsonFileOr, persistIndexes, broadcastRewritten, hooks } from './helpers';
 import { handle } from './typed-ipc';
 
 export function registerRefactor(): void {
@@ -93,16 +93,20 @@ export function registerRefactor(): void {
   // Project-scoped formatter settings (#154). Stored in .minerva/formatter.json
   // so rule choices travel with the thoughtbase in git.
   type FormatterSettings = { enabled: Record<string, boolean>; configs: Record<string, unknown> };
-  handle(Channels.FORMATTER_LOAD_SETTINGS, withRootPathOr<[], FormatterSettings | Promise<FormatterSettings>>({ enabled: {}, configs: {} }, async (rootPath) => {
-    try {
-      const p = path.join(rootPath, '.minerva', 'formatter.json');
-      const data = await fs.readFile(p, 'utf-8');
-      const parsed = JSON.parse(data) as { enabled?: Record<string, boolean>; configs?: Record<string, unknown> };
-      return {
-        enabled: (parsed?.enabled && typeof parsed.enabled === 'object') ? parsed.enabled : {},
-        configs: (parsed?.configs && typeof parsed.configs === 'object') ? parsed.configs : {},
-      };
-    } catch { return { enabled: {}, configs: {} }; }
+  // Never written yet (ENOENT) → the house-style defaults, which is what an
+  // empty settings file genuinely means. Anything else — corrupt JSON, an
+  // unreadable file — throws rather than silently presenting itself as
+  // "defaults", which is how a user's rule choices would vanish without a word
+  // (#1841). `readJsonFileOr` draws exactly that line; `loadConfigFile` is the
+  // wrong helper here because it reports-then-falls-back to defaults, which is
+  // the masquerade we're removing. "No project open" throws too.
+  handle(Channels.FORMATTER_LOAD_SETTINGS, withRootPath(async (rootPath): Promise<FormatterSettings> => {
+    const p = path.join(rootPath, '.minerva', 'formatter.json');
+    const parsed = await readJsonFileOr<{ enabled?: Record<string, boolean>; configs?: Record<string, unknown> }>(p, {});
+    return {
+      enabled: (parsed?.enabled && typeof parsed.enabled === 'object') ? parsed.enabled : {},
+      configs: (parsed?.configs && typeof parsed.configs === 'object') ? parsed.configs : {},
+    };
   }));
 
   handle(Channels.FORMATTER_SAVE_SETTINGS, withRootPathOr(undefined, async (rootPath, settings: FormatSettings) => {
