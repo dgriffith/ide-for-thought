@@ -62,6 +62,12 @@ export default tseslint.config(
   {
     ignores: [
       '.vite/**',
+      // Agent worktrees (`git worktree add .claude/worktrees/…`) are full
+      // checkouts of this repo. Without this, `eslint .` type-checks the whole
+      // source tree once per worktree and runs the process out of heap — which
+      // presents as an unexplained OOM in the pre-push hook, not as anything
+      // to do with worktrees.
+      '.claude/**',
       'dist/**',
       'out/**',
       'coverage/**',
@@ -308,6 +314,60 @@ export default tseslint.config(
               'so anything read from it is undefined at runtime (#1839).',
           },
         ],
+      }],
+    },
+  },
+  // ── Module-level import rules within a layer (#1849) ───────────────────
+  // The blocks above fix the DIRECTION between layers. These fix a handful of
+  // edges *inside* a layer, where the layering rules have nothing to say and a
+  // wrong import is invisible until someone reads the file. Each one is a
+  // decision the codebase already documents in prose; freezing it here means
+  // the prose can't quietly stop being true.
+  //
+  // This list is deliberately short. It is not an attempt to describe the
+  // whole design — only the edges whose absence something else depends on.
+  {
+    files: ['src/main/llm/approval.ts'],
+    rules: {
+      '@typescript-eslint/no-restricted-imports': ['error', {
+        patterns: [{
+          // Matched against the specifier as WRITTEN, not the resolved path —
+          // approval.ts imports it as './conversation', so a `**/llm/…` glob
+          // alone would never fire. (Found by probing the rule rather than
+          // trusting it.)
+          group: ['./conversation', '**/llm/conversation'],
+          message:
+            'approval.ts owns approval-tier policy and the proposal lifecycle — it should not read ' +
+            'conversation storage. Ask `llm/proposal-cause.ts` for a label instead (#1843).',
+        }],
+      }],
+    },
+  },
+  {
+    files: ['src/main/history/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-restricted-imports': ['error', {
+        patterns: [{
+          group: ['**/notebase/**'],
+          message:
+            'history/ sits BELOW notebase/: `notebase/fs` calls the capture hooks, and restore ' +
+            'orchestration composes the two in the IPC layer. Importing back the other way is the ' +
+            'cycle that arrangement exists to avoid (#1849).',
+        }],
+      }],
+    },
+  },
+  {
+    files: ['src/main/graph/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-restricted-imports': ['error', {
+        patterns: [{
+          group: ['**/llm/**'],
+          message:
+            'The graph is the substrate; the LLM is one of its clients. A graph module that reaches ' +
+            'into llm/ has the dependency backwards — and the approval engine, which is what would ' +
+            'want it, already depends on graph/ (#1849).',
+        }],
       }],
     },
   },
