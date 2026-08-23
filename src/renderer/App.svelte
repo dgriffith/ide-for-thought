@@ -93,6 +93,7 @@
   import { getConversationsStore } from './lib/stores/conversations.svelte';
   import { getBookmarksStore, collectBookmarksForPath } from './lib/stores/bookmarks.svelte';
   import { getProposalsStore } from './lib/stores/proposals.svelte';
+  import { savedQueriesStore } from './lib/stores/saved-queries.svelte';
   import { getToastStore } from './lib/stores/toasts.svelte';
   import Toasts from './lib/components/Toasts.svelte';
   import { describeProposer } from '../shared/provenance';
@@ -418,9 +419,9 @@
     const excerptId = attachEvidenceExcerptId;
     attachEvidenceExcerptId = null;
     if (!excerptId) return;
-    const res = await api.graph.attachExcerptEvidence(excerptId, claimPath, role);
+    // The store files it and re-lists itself; App keeps the dialog and the toast.
+    const res = await proposalsStore.attachExcerptEvidence(excerptId, claimPath, role);
     if (res.ok) {
-      void proposalsStore.refresh();
       toasts.push({ message: `Evidence proposal filed — review it in Proposals`, onClick: openProposals });
     } else {
       toasts.push({ message: `Could not attach evidence: ${res.error ?? 'unknown error'}` });
@@ -684,7 +685,7 @@
       };
     });
     if (!result) return;
-    await api.queries.save(result.scope, result.name, '', tab.query, tab.language);
+    await savedQueriesStore.save(result.scope, result.name, '', tab.query, tab.language);
     tab.title = result.name;
   }
 
