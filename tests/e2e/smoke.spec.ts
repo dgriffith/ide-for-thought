@@ -27,15 +27,15 @@
  *     regression of that shape actually slips through.
  */
 
-import { test, expect, _electron as electron, type ConsoleMessage, type Page } from '@playwright/test';
+import { test, expect, type ConsoleMessage, type Page } from '@playwright/test';
 import path from 'node:path';
 import fs from 'node:fs';
-import os from 'node:os';
-
-// Playwright transpiles tests as CJS (no `"type": "module"` in
-// package.json), so __dirname is available — using import.meta.url
-// would force ESM and trip Playwright's loader.
-const projectRoot = path.resolve(__dirname, '..', '..');
+import {
+  launchMinerva,
+  makeTempDir,
+  seedSession,
+  projectRoot,
+} from './helpers/launch';
 
 /** Path to the packaged app binary, or null if it hasn't been built. */
 function packagedBinary(): string | null {
@@ -67,22 +67,13 @@ test('app launches, renderer mounts, no thrown errors', async () => {
   const mainStderr: string[] = [];
   const mainStdout: string[] = [];
 
-  const app = await electron.launch({
-    // `args: ['.']` boots Electron against the package.json `main`
-    // entry — same as `electron .` in development.
-    args: [projectRoot],
-    cwd: projectRoot,
-    // 60s — local boot is ~3s. The 30s default was tight enough on CI
-    // that a slow runner cold-start could legitimately exceed it (#518).
-    timeout: 60_000,
-    env: {
-      ...process.env,
-      // Tell Electron to log boot/IPC/render activity to stderr — only
-      // matters when something goes wrong (we read the buffer below);
-      // otherwise it just adds noise to a passing run.
-      ELECTRON_ENABLE_LOGGING: '1',
-    },
-  });
+  // A fresh, empty profile. This test asserts the *welcome* screen, which
+  // only appears when no project is restored — so booting the developer's
+  // real profile made it assert the opposite of what it says (#1928). It was
+  // green in CI, where the profile is always empty, and red on any machine
+  // that had actually used the app.
+  const userDataDir = makeTempDir('minerva-e2e-smoke-userdata-');
+  const app = await launchMinerva({ userDataDir });
 
   // Tap streams immediately after launch so we capture everything from
   // the moment Electron starts producing output.
@@ -121,6 +112,7 @@ test('app launches, renderer mounts, no thrown errors', async () => {
     throw err;
   } finally {
     await app.close().catch(() => { /* already exited */ });
+    fs.rmSync(userDataDir, { recursive: true, force: true });
   }
 
   // CSP / preload warnings the project intentionally suppresses don't
@@ -151,23 +143,15 @@ test('packaged app opens a DuckDB-backed project (native binding shipped)', asyn
   const appBinary = packagedBinary();
   test.skip(appBinary === null, 'packaged app not built — run `pnpm build:e2e` first');
 
-  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-e2e-userdata-'));
-  const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-e2e-project-'));
+  const userDataDir = makeTempDir('minerva-e2e-userdata-');
+  const projectDir = makeTempDir('minerva-e2e-project-');
   // Copy the fixture (it has newData.csv → registerAllCsvs → DuckDB) so the
   // launch can't mutate the tracked fixture (search-index persist, etc.).
   fs.cpSync(path.join(projectRoot, 'tests', 'fixtures', 'sample-project'), projectDir, { recursive: true });
-  fs.writeFileSync(
-    path.join(userDataDir, 'session.json'),
-    JSON.stringify([{ x: 80, y: 80, width: 1000, height: 700, rootPath: projectDir }]),
-  );
+  seedSession(userDataDir, projectDir);
 
   const mainOut: string[] = [];
-  const app = await electron.launch({
-    executablePath: appBinary as string,
-    args: [`--user-data-dir=${userDataDir}`],
-    timeout: 60_000,
-    env: { ...process.env, ELECTRON_ENABLE_LOGGING: '1' },
-  });
+  const app = await launchMinerva({ userDataDir, executablePath: appBinary as string });
   app.process().stderr?.on('data', (chunk: Buffer) => mainOut.push(chunk.toString()));
   app.process().stdout?.on('data', (chunk: Buffer) => mainOut.push(chunk.toString()));
 
