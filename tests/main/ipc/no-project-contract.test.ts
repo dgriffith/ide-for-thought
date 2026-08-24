@@ -12,10 +12,16 @@
  *   - the thing isn't there  → `null` (its ONE remaining meaning)
  *   - a real IO/parse error  → rejects (never a sentinel, never defaults)
  *
- * Style follows register-bookmarks.test.ts: only electron + the project-scoping
- * helpers are mocked, and the mocked `withRootPath` / `withRootPathOr` reproduce
- * the real wrappers' semantics — so a handler that regressed back to
- * `withRootPathOr(null, …)` would resolve `null` here and fail the assertion.
+ * The project-scoping wrappers run for real. They used to be `vi.mock`ed with a
+ * hand-written copy of their semantics, which meant this file asserted against
+ * the copy: a bug in the real `rootPathFromEvent` → `winFromEvent` →
+ * `getRootPath(win.id)` chain was invisible here and in the fifteen other
+ * registrar tests that mock the module the same way (#1926). Steering now
+ * happens one layer lower — `window-manager.getRootPath` reports `state.root` —
+ * so `src/main/ipc/helpers.ts` itself is on the path under test.
+ *
+ * `tests/main/ipc/helpers.test.ts` covers those wrappers directly; this file
+ * covers what the *handlers* do with them.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'node:fs/promises';
@@ -38,40 +44,12 @@ vi.mock('electron', () => ({
   ipcMain: { handle: (channel: string, fn: Handler) => { handlers.set(channel, fn); } },
   dialog: { showOpenDialog: vi.fn(), showSaveDialog: vi.fn() },
   Notification: Object.assign(vi.fn(), { isSupported: () => false }),
-  BrowserWindow: { fromWebContents: () => null },
+  // The real `winFromEvent` → `getRootPath(win.id)` chain runs now, so this has
+  // to be a window-shaped object rather than null.
+  BrowserWindow: { fromWebContents: () => ({ id: 1, webContents: { send: vi.fn() } }) },
   app: { getPath: () => os.tmpdir() },
   shell: {},
 }));
-
-// Keep the REAL readJsonFileOr (it's what FORMATTER_LOAD_SETTINGS now leans on);
-// only the project-scoping wrappers are stubbed, with the real semantics, so we
-// can steer/clear the open project.
-vi.mock('../../../src/main/ipc/helpers', async () => {
-  const { readJsonFileOr } = await import('../../../src/main/ipc/read-json');
-  return {
-    readJsonFileOr,
-    rootPathFromEvent: () => state.root,
-    withRootPath:
-      <A extends unknown[], R>(fn: (rootPath: string, ...a: A) => R) =>
-      (_e: unknown, ...args: A) => {
-        if (!state.root) throw new Error('No project open');
-        return fn(state.root, ...args);
-      },
-    withRootPathOr:
-      <A extends unknown[], R>(fallback: R, fn: (rootPath: string, ...a: A) => R) =>
-      (_e: unknown, ...args: A) => (state.root ? fn(state.root, ...args) : fallback),
-    withRootPathWin:
-      <A extends unknown[], R>(fn: (rootPath: string, win: unknown, ...a: A) => R) =>
-      (_e: unknown, ...args: A) => {
-        if (!state.root) throw new Error('No project open');
-        return fn(state.root, null, ...args);
-      },
-    winFromEvent: () => null,
-    persistIndexes: vi.fn(),
-    broadcastRewritten: vi.fn(),
-    hooks: {},
-  };
-});
 
 // Domain modules the handlers delegate to — stubbed so the test exercises the
 // project-scoping contract, not the graph/approval engines.
@@ -86,7 +64,12 @@ vi.mock('../../../src/main/graph/index', () => ({
   getAliasEntries: vi.fn(),
   getAllFrontmatterKeys: vi.fn(),
 }));
-vi.mock('../../../src/main/search/index', () => ({ indexAllNotes: vi.fn() }));
+vi.mock('../../../src/main/search/index', () => ({
+  indexAllNotes: vi.fn(), indexNote: vi.fn(), removeNote: vi.fn(), persist: vi.fn(),
+}));
+vi.mock('../../../src/main/embeddings/vector-store', () => ({
+  indexNote: vi.fn(), removeNote: vi.fn(),
+}));
 vi.mock('../../../src/main/sources/tables', () => ({
   runQuery: vi.fn(), listTables: vi.fn(), registerAllCsvs: vi.fn(), registerAllNoteTables: vi.fn(),
 }));
@@ -116,7 +99,14 @@ vi.mock('../../../src/main/notebase/templates', () => ({
 // register-refactor's LLM / formatter / write-pipeline neighbours.
 vi.mock('../../../src/main/notebase/write-pipeline', () => ({ writeAndReindex: vi.fn() }));
 vi.mock('../../../src/main/history', () => ({ runWithHistorySource: vi.fn() }));
-vi.mock('../../../src/main/window-manager', () => ({ markPathHandled: vi.fn() }));
+// The single steering point for "is a project open?" now that the real helpers
+// are on the path. `windowsForProject` returns nothing, so the real broadcast
+// helpers are silent no-ops here.
+vi.mock('../../../src/main/window-manager', () => ({
+  getRootPath: () => state.root,
+  markPathHandled: vi.fn(),
+  windowsForProject: () => [],
+}));
 vi.mock('../../../src/main/llm/auto-tag', () => ({ runAutoTag: vi.fn(), applyAutoTag: vi.fn() }));
 vi.mock('../../../src/main/llm/auto-link', () => ({
   suggestLinksTo: vi.fn(), fileAutoLinkOutbound: vi.fn(),

@@ -148,18 +148,34 @@ export default defineConfig({
           statements: 64,
           branches: 51,
         },
+        // Two per-file floors below, for the same reason twice: the glob above
+        // is an aggregate, and an aggregate cannot fail on account of one file.
+        // Both of these were comfortably carried by their neighbours while
+        // sitting at 0% branches themselves.
+        //
         // `PROPOSAL_APPROVE` is the single channel through which a human
-        // confirms an LLM write — the Trust Principle's enforcement point — so
-        // it gets its own floor rather than hiding inside the aggregate above.
-        // It has to: the glob floor was comfortably met by the other 23
-        // registrars while this file sat at 25% statements / 0% branches, its
-        // only test reference being the shared no-project contract (#1924).
-        // An aggregate cannot fail for one file, which is the whole reason the
-        // gap survived. Now 100% across the board via
+        // confirms an LLM write — the Trust Principle's enforcement point. The
+        // glob was met by the other 23 registrars while this file sat at 25%
+        // statements / 0% branches, its only test reference being the shared
+        // no-project contract (#1924). Now 100% across the board via
         // `tests/main/ipc/register-proposals.test.ts`; floors sit just under so
         // a new defensive branch won't flap, but the approve/reject arms cannot
         // quietly go untested again.
         'src/main/ipc/register-proposals.ts': {
+          lines: 95,
+          functions: 95,
+          statements: 95,
+          branches: 90,
+        },
+        // `helpers.ts` is the sharper case: sixteen registrar tests `vi.mock`
+        // this module, so the aggregate was satisfied by the very tests that
+        // mocked it out, while the module that *implements* the `withRootPath`
+        // vs `withRootPathOr` policy sat at 6.55% statements / 0% branches —
+        // the exact conflation the glob's own comment says the branch floor
+        // exists to catch (#1926). It also owns `reindexFile`, whose
+        // graph/search/vectors fan-out is the one that drifted in #1892. Now
+        // 100% across the board via `tests/main/ipc/helpers.test.ts`.
+        'src/main/ipc/helpers.ts': {
           lines: 95,
           functions: 95,
           statements: 95,
