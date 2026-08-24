@@ -19,13 +19,13 @@
  * `pnpm build:e2e` first (the `pnpm test:e2e` script does that). Gates on
  * serious + critical impact; minor/moderate are reported, non-fatal.
  */
-import { test, expect, _electron as electron, type Page } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
+import { launchMinerva, projectRoot } from './helpers/launch';
 import { runAxe, formatViolations, seriousOrWorse, type AxeViolation } from '../helpers/axe-playwright';
 
-const projectRoot = path.resolve(__dirname, '..', '..');
 
 // Pre-existing serious/critical violations tolerated so the net can land
 // without a product-a11y sweep. NEW rule ids fail the test. Tracked for a
@@ -87,11 +87,9 @@ async function launchApp(seedProjectDir?: string, extraEnv?: Record<string, stri
       JSON.stringify([{ x: 80, y: 80, width: 1200, height: 800, rootPath: seedProjectDir }]),
     );
   }
-  const app = await electron.launch({
-    args: [projectRoot, `--user-data-dir=${userDataDir}`],
-    cwd: projectRoot,
-    timeout: 60_000,
-    env: { ...process.env, ELECTRON_ENABLE_LOGGING: '1', ...extraEnv },
+  const app = await launchMinerva({
+    userDataDir,
+    env: extraEnv,
   });
   return { app, userDataDir };
 }

@@ -16,12 +16,12 @@
  * Boots the in-tree `.vite/build` app (like smoke.spec.ts), so it needs
  * `pnpm build:e2e` first (the `pnpm test:e2e` script does that).
  */
-import { test, expect, _electron as electron, type Page } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
+import { launchMinerva, projectRoot } from './helpers/launch';
 
-const projectRoot = path.resolve(__dirname, '..', '..');
 
 // These flows call `window.api` (the preload bridge) inside `win.evaluate` —
 // the renderer's global typing isn't in this spec's scope, so `window` reads as
@@ -36,11 +36,9 @@ async function launchWithProject() {
     path.join(userDataDir, 'session.json'),
     JSON.stringify([{ x: 80, y: 80, width: 1200, height: 800, rootPath: projectDir }]),
   );
-  const app = await electron.launch({
-    args: [projectRoot, `--user-data-dir=${userDataDir}`],
-    cwd: projectRoot,
-    timeout: 60_000,
-    env: { ...process.env, ELECTRON_ENABLE_LOGGING: '1', MINERVA_E2E: '1' },
+  const app = await launchMinerva({
+    userDataDir,
+    env: { MINERVA_E2E: '1' },
   });
   return { app, userDataDir, projectDir };
 }
