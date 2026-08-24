@@ -148,6 +148,23 @@ export default defineConfig({
           statements: 64,
           branches: 51,
         },
+        // `PROPOSAL_APPROVE` is the single channel through which a human
+        // confirms an LLM write — the Trust Principle's enforcement point — so
+        // it gets its own floor rather than hiding inside the aggregate above.
+        // It has to: the glob floor was comfortably met by the other 23
+        // registrars while this file sat at 25% statements / 0% branches, its
+        // only test reference being the shared no-project contract (#1924).
+        // An aggregate cannot fail for one file, which is the whole reason the
+        // gap survived. Now 100% across the board via
+        // `tests/main/ipc/register-proposals.test.ts`; floors sit just under so
+        // a new defensive branch won't flap, but the approve/reject arms cannot
+        // quietly go untested again.
+        'src/main/ipc/register-proposals.ts': {
+          lines: 95,
+          functions: 95,
+          statements: 95,
+          branches: 90,
+        },
         // Neglected top-level main modules — previously unfenced (#1100 / QA
         // H1). These sit at `src/main/*.ts` (no directory of their own), so
         // each gets its own per-file floor set ~10pts below the measured-at-
