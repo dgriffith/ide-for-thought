@@ -31,11 +31,12 @@ import path from 'node:path';
 import os from 'node:os';
 import { initGraph, indexAllNotes, queryGraph, indexNote } from '../../../src/main/graph/index';
 import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { trackTempDir } from '../../helpers/bench-temp-dirs';
 
 const SCALES = [500, 2000, 5000];
 
 for (const scale of SCALES) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-n3cold-'));
+  const root = trackTempDir(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-n3cold-')));
   const ctx: ProjectContext = projectContext(root);
   await initGraph(ctx);
   // Write files to disk, then one indexAllNotes pass — the bulk (O(n),

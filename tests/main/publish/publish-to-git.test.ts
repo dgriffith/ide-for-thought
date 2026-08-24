@@ -7,9 +7,9 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { mkdtempSync, readFileSync } from 'node:fs';
-import os from 'node:os';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
+import { useTempDir } from '../../helpers/temp-project';
 
 type Target = {
   id: string; label: string; exporter: string; gitRemote: string;
@@ -59,9 +59,13 @@ vi.mock('../../../src/main/git/github-repo', async (orig) => {
 
 import { publishToGit } from '../../../src/main/publish/publish-to-git';
 
+// `useTempDir` registers its own beforeEach/afterEach, so the dir is always
+// removed even when a test throws — the prior mkdtempSync-with-no-cleanup
+// left ~3,300 stale dirs behind on one dev machine (#1933).
+const tmp = useTempDir('minerva-pubroot-');
 let root: string;
 beforeEach(() => {
-  root = mkdtempSync(path.join(os.tmpdir(), 'minerva-pubroot-'));
+  root = tmp.root;
   h.target = {
     id: 't', label: 'T', exporter: 'static-site',
     gitRemote: 'https://github.com/o/r.git', gitBranch: 'gh-pages',

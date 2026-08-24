@@ -14,6 +14,7 @@ import { registerBuiltinExporters } from './publish';
 import { installCsp, installMediaPermissions } from './security';
 import { flushAllProjects } from './project-context';
 import { shutdownAllKernels } from './compute/python-kernel';
+import { sweepStaleRpcSockets } from './compute/rpc-server';
 import { stopClipperServer } from './clipper/lifecycle';
 import { registerSkillsAtStartup } from './skills/register';
 import { initAutoUpdate, setUpdateStateListener } from './auto-update';
@@ -38,6 +39,10 @@ boot('main module loaded');
 
 void app.whenReady().then(async () => {
   boot('app ready');
+  // Sweep RPC sockets an earlier process left behind without cleaning up
+  // (#1933) — a hard kill or crash bypasses every in-process close() path.
+  // Synchronous and cheap (one tmpdir listing); fine to do inline at startup.
+  sweepStaleRpcSockets();
   // Break the menu.ts <-> window-manager.ts import cycle (#986): window-manager
   // triggers menu rebuilds through this injected callback rather than importing
   // `rebuildMenu` directly. Registered before any window is created so the
