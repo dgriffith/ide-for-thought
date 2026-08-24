@@ -1,0 +1,63 @@
+---
+title: Minerva — Docs — Back / Forward
+description: Step back and forward through the notes, sources, and queries you've been viewing, using the ⌘[ and ⌘] shortcuts or the arrows in the title bar.
+---
+
+    <h1>Back / forward</h1>
+    <p class="lede">As you move between notes, sources, and queries, Minerva remembers where you've been — so you can retrace your steps. Press <kbd>⌘</kbd><kbd>[</kbd> to go back and <kbd>⌘</kbd><kbd>]</kbd> to go forward (use <kbd>Ctrl</kbd> on Windows and Linux), or click the two arrows in the title bar. It works just like the back and forward buttons in a web browser.</p>
+
+    <h2 id="controls">The controls</h2>
+    <div class="deflist">
+      <div class="row">
+        <div class="k"><kbd>⌘</kbd><kbd>[</kbd></div>
+        <div class="v"><b>Back.</b> Returns you to the previous place you were. Dimmed when there's nothing behind you.</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>⌘</kbd><kbd>]</kbd></div>
+        <div class="v"><b>Forward.</b> Returns you to a place you just came back from. Dimmed once you've caught back up to where you started.</div>
+      </div>
+      <div class="row">
+        <div class="k">Title-bar arrows</div>
+        <div class="v">Two arrow buttons at the left edge of the title bar do the same thing as the shortcuts. Each dims when there's nowhere to go in that direction.</div>
+      </div>
+    </div>
+
+    <figure class="shot-img">
+      <img src="img/navigation-back-forward.png" alt="The two arrow buttons at the left edge of the title bar, just before the breadcrumb trail for the note you're viewing. The back arrow is active and the forward arrow is dimmed." loading="lazy" />
+      <figcaption>Screenshot — the back and forward arrows</figcaption>
+    </figure>
+
+    <p>Going back doesn't just reopen a note — it returns you to the exact spot you were reading, not the top of the note. Sources and queries are remembered the same way, so you can step back out of a query or a source you were looking at just as easily.</p>
+
+    <h2 id="what-counts">What counts as a step</h2>
+    <p>Most ways of moving around leave a trail you can walk back along, but a couple don't:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Clicking in the sidebar</div>
+        <div class="v"><b>Remembered.</b> Opening a note from the sidebar records where you came from and where you landed.</div>
+      </div>
+      <div class="row">
+        <div class="k">Following a <a href="navigation-wiki-links.html">wiki-link</a></div>
+        <div class="v"><b>Remembered.</b> Clicking a <code>[[link]]</code> to hop from one note to another builds a trail, so you can walk right back out of a chain of linked notes.</div>
+      </div>
+      <div class="row">
+        <div class="k"><a href="navigation-quick-switch.html">Quick switch</a> (<kbd>⌘</kbd><kbd>P</kbd>)</div>
+        <div class="v"><b>Remembered.</b> Jumping to a note, source, or saved query from Quick Switch records a step, just like clicking it in the sidebar.</div>
+      </div>
+      <div class="row">
+        <div class="k">A <a href="navigation-search.html">search</a> result</div>
+        <div class="v"><b>Remembered.</b> Jumping to a search match records a step, so Back returns you to where you were before the search.</div>
+      </div>
+      <div class="row">
+        <div class="k">Back and forward themselves</div>
+        <div class="v">Retracing your steps doesn't add new ones, so you can step back and forth freely without cluttering the trail.</div>
+      </div>
+    </div>
+
+    <div class="box">
+      <span class="label">Going somewhere new clears the way forward</span>
+      <p>If you step back a few notes and then head off in a new direction — clicking a link or opening something from the sidebar — the forward trail is cleared, just like in a web browser. To revisit those notes you'd navigate to them again.</p>
+    </div>
+
+    <p>Your trail is per-project: opening a different thoughtbase starts fresh with an empty history.</p>

@@ -1,0 +1,113 @@
+---
+title: Minerva — Docs — Links
+description: Connect notes with wiki-links: the double-bracket syntax, links to a heading or spot in a note, typed links that describe the relationship, and backlinks.
+---
+
+    <h1>Links</h1>
+    <p class="lede">Wiki-links are how you connect one note to another. Type a note's title inside double brackets and Minerva turns it into a live link you can click. A link can also carry a <b>type</b> — <em>supports</em>, <em>rebuts</em>, <em>depends on</em>, and more — so it says what kind of relationship it is, not just that one exists.</p>
+
+    <h2 id="syntax">Writing a link</h2>
+    <p>The simplest link is a note title wrapped in double brackets. From there you can add a few optional pieces:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k"><code>[[target]]</code></div>
+        <div class="v"><b>Basic link.</b> The target is the note you want to point at. Start typing after <code>[[</code> and Minerva suggests matching notes.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>[[target|display]]</code></div>
+        <div class="v"><b>Custom wording.</b> Whatever you put after the <code>|</code> is shown in the note — handy when the title is long or reads awkwardly in a sentence.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>[[target#Heading]]</code></div>
+        <div class="v"><b>Jump to a heading.</b> Points at a specific heading inside the note rather than the top.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>[[type::target]]</code></div>
+        <div class="v"><b>Typed link.</b> Put a relationship type before the target, separated by <code>::</code> — for example <code>[[supports::climate-study]]</code>. See the list below.</div>
+      </div>
+    </div>
+
+    <p>You can combine these however you like — a type, a heading, and custom wording all in one link:</p>
+
+<pre><code>This claim is well established.[[supports::experiment-log#Trial 4]]
+
+See [[depends-on::auth-redesign|the redesign proposal]] before touching this.</code></pre>
+
+    <h2 id="types">Typed links</h2>
+    <p>A typed link is shown in its own color, so you can see the shape of a note's connections at a glance. These types are built in:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k"><code>references</code></div>
+        <div class="v"><b>References.</b> General-purpose "points at" link. The default when no type is given.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>supports</code></div>
+        <div class="v"><b>Supports.</b> This note backs up the claim in the target.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>rebuts</code></div>
+        <div class="v"><b>Rebuts.</b> This note argues against the target.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>load-bearing-for</code></div>
+        <div class="v"><b>Load-bearing for.</b> Flags the target as critically dependent on the analysis in this note — a high-leverage link worth double-checking if this note turns out to be wrong.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>expands</code></div>
+        <div class="v"><b>Expands.</b> This note elaborates on or goes deeper into the target.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>depends-on</code></div>
+        <div class="v"><b>Depends On.</b> This note requires the target to hold.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>implements</code></div>
+        <div class="v"><b>Implements.</b> This note is a concrete realization of an idea or spec described in the target.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>alternative-to</code></div>
+        <div class="v"><b>Alternative To.</b> This note proposes a different approach to the same problem as the target.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>supersedes</code></div>
+        <div class="v"><b>Supersedes.</b> This note replaces the target — a signal the target may be stale.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>related-to</code></div>
+        <div class="v"><b>Related To.</b> A loose, non-directional relation — useful when a link matters but none of the sharper types fit.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>cite</code></div>
+        <div class="v"><b>Cites.</b> Points at a <em>source</em> rather than a note — the target is a bibliography-style reference, not another knowledge-base file.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>quote</code></div>
+        <div class="v"><b>Quotes.</b> Points at a specific excerpt anchored in a source, for a direct quotation rather than a general citation.</div>
+      </div>
+    </div>
+
+    <figure class="shot-img">
+      <img src="img/notes-links.png" alt="A note with several links in a sentence, each shown in a different color — a green &quot;supports&quot; link, a red &quot;rebuts&quot; link, and a plain blue untyped link." loading="lazy" />
+      <figcaption>Typed links, colored by relationship</figcaption>
+    </figure>
+
+    <h2 id="resolving">Finding the right note</h2>
+    <p>You don't have to type a note's title exactly. Minerva matches on the title, on any alternate names you've given the note in its properties, and even on a short unique piece of the name — so <code>[[raft]]</code> can find a note called "raft" tucked inside a folder. Wherever a link appears, clicking it takes you to the same place.</p>
+
+    <div class="box">
+      <span class="label">Tip</span>
+      <p>If two notes could match the same link, Minerva picks the first one it finds. Give notes distinct names, or add an alternate name in a note's properties, to make sure a link lands where you intend.</p>
+    </div>
+
+    <p>While editing, clicking a link jumps to the note it points at. Hold <kbd>⌘</kbd> (or <kbd>Ctrl</kbd>) and click to place your cursor inside the link and edit it instead.</p>
+
+    <h2 id="backlinks">Backlinks</h2>
+    <p>Links work in both directions. When you're reading a note, the <b>Backlinks</b> panel in the right sidebar lists every other note that links to it, each labeled and colored by its link type — so you can see at a glance which notes support, rebut, or merely reference the one you're looking at.</p>
+
+    <div class="shot">
+      <div class="icon">↩️</div>
+      <div class="k">The Backlinks panel</div>
+      <div class="d">The right sidebar lists the notes that link to the current one, each row showing the note's title and a colored badge for its link type, such as "SUPPORTS" or "RELATED TO".</div>
+    </div>

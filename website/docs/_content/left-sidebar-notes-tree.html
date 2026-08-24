@@ -1,0 +1,96 @@
+---
+title: Minerva — Docs — Notes Tree
+description: The Notes panel: browse your project's folders and notes, and create, rename, move, and organize them right from the tree.
+---
+
+    <h1>Notes tree</h1>
+    <p class="lede">The <b>Notes</b> tab is the left sidebar's home base — a tidy tree of the folders and notes in your project. It's where you browse what you've written and where you create, rename, move, and organize notes. For what a note actually is and everything you can put in one, see <a href="notes.html">Notes</a>.</p>
+
+    <h2 id="header">The panel header</h2>
+    <p>At the top of the panel is the "Notes" title with a running count of how many notes your project holds, kept up to date as you add and remove them. Once you have at least one note, three small buttons appear just below:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Expand all / Collapse all</div>
+        <div class="v">Open every folder in the project at once, or fold them all shut, in a single click.</div>
+      </div>
+      <div class="row">
+        <div class="k">Auto-reveal active note</div>
+        <div class="v">A toggle that keeps the tree in step with whatever note you're editing: open a note and the tree opens its folders and scrolls it into view. Browsing the tree by hand never fights back — it only reveals when you switch notes.</div>
+      </div>
+    </div>
+
+    <h2 id="tree">Reading the tree</h2>
+    <p>Folders and notes appear together in a single indented list. A few handy things to know:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Empty folders</div>
+        <div class="v">Shown, not hidden. An empty folder stays visible so you can open it or drop a note into it.</div>
+      </div>
+      <div class="row">
+        <div class="k">Every kind of file</div>
+        <div class="v">The tree lists everything in your project — notes, tables, and other files — each with its own icon so you can tell them apart at a glance.</div>
+      </div>
+      <div class="row">
+        <div class="k">Last edited</div>
+        <div class="v">Each note shows a relative time on the right, like "3h ago," so you can spot what you touched recently.</div>
+      </div>
+      <div class="row">
+        <div class="k">Open vs. select</div>
+        <div class="v">Click the little arrow to open or close a folder; click the rest of the row to select it without opening it. That way you can select a folder — to rename, tag, or delete it — without it springing open under your cursor.</div>
+      </div>
+      <div class="row">
+        <div class="k">Keyboard navigation</div>
+        <div class="v">Click into the tree, then use <kbd>↑</kbd>/<kbd>↓</kbd> to move through the visible rows. <kbd>Enter</kbd> opens the note or toggles the folder you're on. <kbd>Space</kbd> adds or removes a row from your selection, <kbd>⌘</kbd><kbd>A</kbd> selects everything visible, and <kbd>Esc</kbd> clears the selection.</div>
+      </div>
+      <div class="row">
+        <div class="k">Selecting several at once</div>
+        <div class="v"><kbd>⌘</kbd>-click picks individual rows; <kbd>Shift</kbd>-click grabs a whole run between two rows. A small count ("3 of 42 selected") appears above the tree, with a link to clear it. Any action you then choose — delete, tag, and so on — applies to the whole selection.</div>
+      </div>
+    </div>
+
+    <h2 id="create">Creating notes and folders</h2>
+    <p>Right-click empty space in the tree to get <b>New Note</b> and <b>New Folder</b>. Right-click an existing folder for the same two options, creating the new item inside that folder instead. This is the place to make a new folder.</p>
+
+    <h2 id="rename-move">Renaming and moving</h2>
+    <p>Right-clicking a note or folder opens a fuller menu — Cut, Copy, Paste, New Note, New Folder, Rename, and more, down to Delete. The most common ways to reorganize:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Rename</div>
+        <div class="v">Right-click and choose Rename. Links to that note from elsewhere in your project are updated automatically so nothing breaks.</div>
+      </div>
+      <div class="row">
+        <div class="k">Move by dragging</div>
+        <div class="v">Drag a note or folder onto another folder to move it there, or drop it in the empty space below the tree to move it to the top level.</div>
+      </div>
+      <div class="row">
+        <div class="k">Move by Cut and Paste</div>
+        <div class="v">Cut a note, then Paste onto the destination folder. Same result as dragging — handy when the two spots aren't both on screen at once.</div>
+      </div>
+      <div class="row">
+        <div class="k">Copy</div>
+        <div class="v">Copy a note, then Paste elsewhere to make a duplicate rather than moving the original.</div>
+      </div>
+      <div class="row">
+        <div class="k">Bring files in</div>
+        <div class="v">Drag files from your computer onto the tree to add them to your project at the spot where you drop them.</div>
+      </div>
+    </div>
+
+    <figure class="shot-img panel">
+      <img src="img/left-sidebar-notes-tree.png" alt="The Notes panel showing its title and note count, the expand, collapse, and auto-reveal buttons, and the tree below with a folder opened to reveal a mix of notes and an empty subfolder. A right-click menu is open on a note, offering Cut, Copy, New Note, New Folder, Rename, tag options, and Delete." loading="lazy" />
+      <figcaption>The Notes panel with a right-click menu open</figcaption>
+    </figure>
+
+    <h2 id="label-version">Naming a restore point across several notes</h2>
+    <p>Select the notes you're about to change — several at once, or a whole folder — then right-click and choose <b>Label Version…</b>. The current version of every note in the selection is given the name you type, so a whole set of notes gets one restore point before a refactor or a big AI-assisted pass. Nothing is written into the notes themselves; the name attaches to each note's <a href="right-sidebar-history.html">history</a>, and a named version is never dropped by the usual <a href="settings-versioning.html">retention limits</a>.</p>
+
+    <div class="box">
+      <span class="label">Deleting is calm, not scary</span>
+      <p>Deleting a note is a normal, everyday action — you get a plain confirmation with a "don't ask again" option, no alarming warnings.</p>
+    </div>
+
+    <h2 id="empty-project">No notes yet</h2>
+    <p>A brand-new project shows a simple "No notes yet" message where the tree would be. Right-click that empty space and you can still make your first note or folder, so you're never stuck.</p>

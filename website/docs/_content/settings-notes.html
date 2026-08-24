@@ -1,0 +1,67 @@
+---
+title: Minerva — Docs — Settings: Notes
+description: The Notes tab in Settings — where notes you split off and excerpt notes land, how they're named, and the templates that shape them.
+---
+
+    <h1>Notes</h1>
+    <p class="lede">Minerva has commands that turn one note into several — pulling a selection into its own note, or splitting a long note apart. The <b>Notes</b> settings tab decides where those new notes go and how they're named, plus what gets left behind in the note you split from.</p>
+
+    <h2 id="refactoring">Splitting notes</h2>
+    <p>These settings apply whenever you extract a selection into a new note or split a note into pieces. They're personal preferences for this computer, so they apply to every knowledge base you open here.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Where new notes go</div>
+        <div class="v">Choose to file each new note in the <b>same folder as the note you split from</b> (the default), at the <b>top of your knowledge base</b>, or in a <b>folder you name</b>.</div>
+      </div>
+      <div class="row">
+        <div class="k">Custom folder</div>
+        <div class="v">Shown when you choose to name your own folder. Type the folder path, optionally using the placeholders below to sort notes by date — for example, into a folder for the current year and month. Left blank, new notes land at the top of your knowledge base.</div>
+      </div>
+      <div class="row">
+        <div class="k">Filename start</div>
+        <div class="v">Text you'd like added to the front of every new note's name. You can use the date placeholders below — for instance, to start each filename with a timestamp.</div>
+      </div>
+      <div class="row">
+        <div class="k">Tidy up heading levels</div>
+        <div class="v">When on, if the extracted text starts at a lower heading level, its headings are lifted so the note begins with a top-level heading. Only the new note is adjusted; the note you split from is untouched.</div>
+      </div>
+      <div class="row">
+        <div class="k">Embed instead of link</div>
+        <div class="v">When on, the note you split from shows the extracted content inline rather than just a link to it. If you set a link template below, that takes over and this option turns off.</div>
+      </div>
+      <div class="row">
+        <div class="k">Link template</div>
+        <div class="v">What to leave in the original note in place of the extracted text. Leave it blank for a plain link (or an inline embed if the option above is on). If you fill it in, it always wins.</div>
+      </div>
+      <div class="row">
+        <div class="k">New note template</div>
+        <div class="v">A wrapper for the body of every new note these commands create — handy for adding standard properties or a heading. Leave it blank to use the extracted text as-is.</div>
+      </div>
+    </div>
+
+    <figure class="shot-img">
+      <img src="img/settings-notes.png" alt="The settings for splitting notes: where new notes go, the filename start, the tidy-headings and embed options, and the two template boxes for the link left behind and the new note's wrapper." loading="lazy" />
+      <figcaption>Screenshot — the Notes settings tab</figcaption>
+    </figure>
+
+    <h3 id="tokens">Placeholders</h3>
+    <p>In any of these template fields you can drop in placeholders that Minerva fills in automatically. Write each one inside double braces:</p>
+
+    <pre><code>{{date}}               Today's date
+{{date:FORMAT}}        A date in a format you choose (using YYYY, MM, DD, HH, mm, ss)
+{{title}}              The title of the note you split from
+{{new_note_title}}     The title of the new note
+{{new_note_content}}   The extracted text — for the new note template</code></pre>
+
+    <p>Use whichever placeholders fit the field. The extracted-text placeholder only belongs in the <b>New note template</b>, and it's the important one: if you set that template but leave the placeholder out, the new note is built from your template alone and the text you just extracted has nowhere to go. A placeholder Minerva doesn't recognize simply fills in as nothing.</p>
+
+    <h2 id="excerpt-notes">Excerpt notes</h2>
+    <p>When you turn a highlighted passage into its own note, this setting picks where it lands. Unlike the settings above, it belongs to the knowledge base itself, so everyone working in that knowledge base shares it.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Destination folder</div>
+        <div class="v">The folder where new excerpt notes go. Leave it blank and they land at the top of your knowledge base. The folder is created for you the first time it's needed.</div>
+      </div>
+    </div>

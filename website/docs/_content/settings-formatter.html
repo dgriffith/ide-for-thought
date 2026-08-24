@@ -1,0 +1,57 @@
+---
+title: Minerva — Docs — Settings: Formatter
+description: The Formatter tab in Settings — tidy your notes to a consistent style, with a safe house style on by default and more opinionated rules you can opt into.
+---
+
+    <h1>Formatter</h1>
+    <p class="lede">The Formatter tidies your notes to a consistent style — cleaning up stray spaces, straightening list markers, tidying footnotes, and more. You choose which touch-ups you want here on the <b>Formatter</b> tab, then run them whenever you like from <b>Refactor ▸ Format</b>. Nothing changes your notes until you run it.</p>
+
+    <h2 id="model">A safe default, plus opt-in polish</h2>
+    <p>Each touch-up is a checkbox with a plain-language description. They come in two flavors. The <b>house style</b> is a set of gentle, uncontroversial clean-ups that are <b>on by default</b> — they tidy spacing, list markers, and links without ever changing your wording, your headings, or the meaning of what you wrote. Everything else is more opinionated — things like rewording heading capitalization or auto-correcting spelling — so it's <b>off by default</b> and stays off until you turn it on.</p>
+
+    <p>Your choices are remembered for the notebook you're working in, so they stay with it wherever you open it.</p>
+
+    <div class="box">
+      <span class="label">Restore house style</span>
+      <p>The <b>Restore house style</b> button puts every setting back to its starting point in one click — the safe clean-ups on, everything else off. If you'd adjusted how a particular rule behaves, that returns to its default too. It's greyed out when you're already at the house style, and it won't ask you to confirm, because your notes aren't touched until you next run Format.</p>
+    </div>
+
+    <h2 id="categories">What it can tidy</h2>
+    <p>The touch-ups are grouped by what they affect. A few examples from each group:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Properties</div>
+        <div class="v">Tidies the properties block at the top of a note — trimming stray blank lines and removing duplicate values from a list. You can also opt in to sorting the property names into a consistent order.</div>
+      </div>
+      <div class="row">
+        <div class="k">Headings</div>
+        <div class="v">Optional clean-ups for heading structure: gently fix a heading level that jumps out of order, or apply a consistent capitalization style (title case, sentence case, or lowercase) while preserving names you list.</div>
+      </div>
+      <div class="row">
+        <div class="k">Content</div>
+        <div class="v">Optional polish for prose: turn three dots into a proper ellipsis (…), tidy up bare web links, and auto-correct a small, careful list of common misspellings.</div>
+      </div>
+      <div class="row">
+        <div class="k">Footnotes</div>
+        <div class="v">Optional footnote conventions: move a footnote marker to sit after sentence-ending punctuation, and gather all your footnote definitions into a single block at the end of the note.</div>
+      </div>
+      <div class="row">
+        <div class="k">Spacing</div>
+        <div class="v">Safe, on-by-default clean-ups: remove stray spaces at the ends of lines, and cap long runs of blank lines. Code, math, and the properties block are left untouched.</div>
+      </div>
+      <div class="row">
+        <div class="k">Links and headings in Minerva</div>
+        <div class="v">Keeps a consistent style for your <code>[[wiki links]]</code>, and if two headings in a note share the same name, gives them distinct anchors so links can point to the right one — updating any links that referred to them.</div>
+      </div>
+    </div>
+
+    <figure class="shot-img">
+      <img src="img/settings-formatter.png" alt="The Formatter tab, with a short intro about the house style, a Restore house style button, and each group of touch-ups shown as a checklist — every item a checkbox with a title and description, with the safe defaults already checked." loading="lazy" />
+      <figcaption>The Formatter tab</figcaption>
+    </figure>
+
+    <h2 id="exempt">Leaving one note alone</h2>
+    <p>These touch-ups apply to whatever you run Format over. When one note should be left exactly as you wrote it — a verbatim quote, something you hand-format, or a rough scratch pad — you can mark it to be skipped. Add a property named <b>format</b> set to <b>false</b>, and Format will pass that note by while tidying the rest.</p>
+
+    <p>You can set this a few ways: type <code>format: false</code> into the note's properties block, use <b>Add Property…</b> from the editor or the file list, or add it in the <b>Properties</b> panel in the right sidebar. In each case, set the value type to a true/false toggle and switch it off.</p>

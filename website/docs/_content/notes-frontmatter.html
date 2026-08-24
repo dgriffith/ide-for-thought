@@ -1,0 +1,68 @@
+---
+title: Minerva — Docs — Properties
+description: Properties are the structured details at the top of a note — its title, tags, author, and dates — that you can edit in the note or through the Properties panel.
+---
+
+    <h1>Properties</h1>
+    <p class="lede">Properties are a small block of structured details at the top of a note — its title, tags, author, dates, and anything else you want to record about it. You can edit them right in the note text or through the Properties panel in the right sidebar, and the two always stay in step.</p>
+
+    <h2 id="syntax">The properties block</h2>
+    <p>Properties live at the very top of a note, between a pair of <code>---</code> lines. Each line inside is a simple <code>name: value</code> pair. Everything after the closing <code>---</code> is the note itself.</p>
+
+<pre><code>---
+title: The Attention Schema
+tags: [neuroscience, consciousness]
+created: 2024-03-01
+---
+
+The body of the note starts here.</code></pre>
+
+    <p>The opening <code>---</code> has to be the first thing in the note, with nothing above it. If a property is mistyped — a stray quote, a crooked indent — the Properties panel points out what needs fixing, and the note still opens and works normally in the meantime.</p>
+
+    <h2 id="keys">Properties Minerva knows</h2>
+    <p>You can name a property anything you like, but Minerva gives special meaning to a handful of common ones. If you spell one a natural way — <code>author</code> instead of <code>creator</code>, say — Minerva understands it and tidies it to its standard name for you.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k"><code>title</code></div>
+        <div class="v">The note's title, shown everywhere in the app. Without it, Minerva falls back to the note's first heading.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>tags</code></div>
+        <div class="v">A list of tags. These join up with any <code>#tags</code> you write in the body, so it's one combined set either way.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>aliases</code></div>
+        <div class="v">Other names this note can be found under when you write <code>[[wiki links]]</code>. See <a href="notes-links.html#resolving">Links</a>.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>creator</code>, <code>description</code>, <code>publisher</code>, <code>language</code></div>
+        <div class="v">Who wrote it, a short summary, who published it, and what language it's in.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>about</code></div>
+        <div class="v">Which note or source this note is about — usually written as a <code>[[wiki link]]</code>.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>created</code>, <code>modified</code>, <code>issued</code></div>
+        <div class="v">Dates, written as <code>YYYY-MM-DD</code>. Handy for when a note was made or when its source was published.</div>
+      </div>
+      <div class="row">
+        <div class="k">Source details</div>
+        <div class="v">When a note stands in for something you read, you can record the usual bibliographic details — its web address, publication, page range, and identifiers like a DOI or ISBN. The research tools fill many of these in for you.</div>
+      </div>
+    </div>
+
+    <p>That's the common set; you're free to add your own properties alongside them, and Minerva will also add properties on its own when its research and thinking tools file claims, summaries, and where things came from.</p>
+
+    <h2 id="custom">Your own properties</h2>
+    <p>Any property Minerva doesn't already know is kept exactly as you wrote it — nothing is dropped. A field of your own like <code>status: draft</code> is saved with the note and can be searched and used just like the built-in ones, so you can organize notes around whatever matters to your work.</p>
+    <p>One property changes how a note behaves: setting <code>format: false</code> tells Minerva to leave that note's layout alone when you tidy up formatting elsewhere — an escape hatch for notes you prefer to arrange by hand. The <a href="settings-formatter.html#exempt">formatting settings</a> explain the options.</p>
+
+    <h2 id="values">Editing in the panel</h2>
+    <p>The Properties panel gives each value the right kind of editor for its shape: a checkbox for yes/no values, removable chips for a list of tags, a date picker for dates, and a clickable chip for a linked note. More complex values stay editable in the note text.</p>
+
+    <figure class="shot-img panel">
+      <img src="img/notes-frontmatter.png" alt="The Properties panel in the right sidebar, open on a note. It shows a title, a row of tags as removable chips, a created date with a date picker, a linked &quot;about&quot; note as a clickable chip, and a custom &quot;status&quot; field — with an &quot;Add property&quot; row at the bottom for adding more." loading="lazy" />
+      <figcaption>The Properties panel</figcaption>
+    </figure>

@@ -1,0 +1,89 @@
+---
+title: Minerva — Docs — Query Cells
+description: Embed a live answer from your knowledge base or tables right inside a note — as a list, a table, or a chart that keeps itself up to date.
+---
+
+    <h1>Query cells</h1>
+    <p class="lede">A query cell puts a live answer from your knowledge base right inside a note — a list of matching notes, a table, or a chart — and keeps it current on its own. Unlike a runnable code cell that you press a button to compute, a query cell simply shows its results whenever you read the note, and refreshes by itself as your notes change. It only ever reads; it never alters your note.</p>
+
+    <h2 id="writing">Writing a query cell</h2>
+    <p>Open a cell with a line that reads <code>:::query-list</code> and close it with a line that reads <code>:::</code>. In between, write your question about the knowledge base. Where the cell sits, Minerva shows the answer as a list of links you can click.</p>
+
+<pre><code>:::query-list
+SELECT ?title ?path WHERE {
+  ?path a minerva:Note ;
+        minerva:hasTag "open-question" ;
+        minerva:title ?title .
+}
+:::</code></pre>
+
+    <h2 id="shapes">List, table, or chart</h2>
+    <p>The word after <code>:::query-</code> chooses how the answer is shown. Pick whichever fits what you're asking.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k"><code>:::query-list</code></div>
+        <div class="v"><b>A list.</b> Each result becomes a clickable link — the simplest way to gather related notes in one place.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>:::query-table</code></div>
+        <div class="v"><b>A table.</b> One row per result, with a column for each detail you asked for.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>:::query-timeseries</code></div>
+        <div class="v"><b>A chart.</b> Plots your results over time as a line, bar, or area chart.</div>
+      </div>
+    </div>
+
+    <h2 id="options">Adding options</h2>
+    <p>To adjust how the results look, put a few settings at the top of the cell, one per line, then a line with three dashes — <code>---</code> — to separate them from the question below.</p>
+
+<pre><code>:::query-table
+title: Open questions
+columns: title, path
+limit: 20
+---
+SELECT ?title ?path WHERE {
+  ?path a minerva:Note ;
+        minerva:hasTag "open-question" ;
+        minerva:title ?title .
+}
+:::</code></pre>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">title</div>
+        <div class="v">A heading shown above the results.</div>
+      </div>
+      <div class="row">
+        <div class="k">limit</div>
+        <div class="v">The most results to show.</div>
+      </div>
+      <div class="row">
+        <div class="k">columns</div>
+        <div class="v">For a table: which details to show, in the order you list them.</div>
+      </div>
+      <div class="row">
+        <div class="k">language: sql</div>
+        <div class="v">Ask about the data in your imported tables and spreadsheets instead of your knowledge base. Without it, the cell asks about your notes.</div>
+      </div>
+    </div>
+
+    <p>A chart takes a couple more settings — <code>x</code> and <code>y</code> to pick which columns become the two axes, <code>type</code> for <code>line</code>, <code>bar</code>, or <code>area</code>, and <code>height</code> for how tall it is.</p>
+
+    <figure class="shot-img">
+      <img src="img/notes-query.png" alt="A note with a query cell titled &quot;Open questions&quot;: below it, a tidy list of note links that Minerva gathered from the knowledge base, each one clickable." loading="lazy" />
+      <figcaption>A query cell in a note</figcaption>
+    </figure>
+
+    <h2 id="backlinks">A cell for backlinks</h2>
+    <p>One query cell needs no question at all. Write <code>:::query-backlinks</code> (then a closing <code>:::</code>) and it lists every note that links to the one you're in — a ready-made "mentioned in" section you can drop anywhere. Add a <code>title</code> for a heading, a <code>limit</code> to cap the count, or <code>linkType</code> to show only certain kinds of links, such as citations.</p>
+
+<pre><code>:::query-backlinks
+title: Mentioned in
+:::</code></pre>
+
+    <div class="box">
+      <span class="label">These cells only read</span>
+      <p>A query cell never changes your note or your knowledge base — it just shows what it finds. It refreshes on its own as your notes change, so an embedded list or table always reflects where things stand right now. To run a query once and keep its answer as fixed text, or to explore in a dedicated space, see <a href="notes-code.html">Code &amp; compute cells</a> and <a href="data.html">Working with data</a>.</p>
+    </div>

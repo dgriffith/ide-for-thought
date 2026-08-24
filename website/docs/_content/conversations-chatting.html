@@ -1,0 +1,98 @@
+---
+title: Minerva — Docs — Chatting with the AI
+description: How to start a conversation with the assistant, how it searches your notes and the web when it needs to, and what a reply with a citation looks like.
+---
+
+    <h1>Chatting with the AI</h1>
+    <p class="lede">Conversations let you think out loud with an assistant that knows your notes. The panel has your open conversations on the left and the active chat on the right. Instead of quietly reading everything you've ever written, the assistant searches your notes, follows links, or looks something up on the web only when it actually needs to — and tells you what it found.</p>
+
+    <h2 id="opening">Opening a conversation</h2>
+    <p>The conversations panel sits below the editor and stays out of sight until you call for it. There are a few ways to start:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Show or hide the panel</div>
+        <div class="v"><b>View → Toggle Conversations</b> (<kbd>⌘</kbd><kbd>⇧</kbd><kbd>K</kbd>) opens or tucks away the panel. Hiding it leaves everything in place — your conversations are waiting when you bring it back.</div>
+      </div>
+      <div class="row">
+        <div class="k">Start fresh</div>
+        <div class="v">The <b>New Conversation</b> button above the editor, the <b>+</b> button in the conversation list, or <b>Learning → Ask a Question</b>. This opens a blank conversation with no particular note attached.</div>
+      </div>
+      <div class="row">
+        <div class="k">Ask about a note</div>
+        <div class="v">Right-click a note's tab above the editor and choose <b>Ask About This…</b>. This starts a conversation focused on that note, which the assistant knows is your starting point.</div>
+      </div>
+      <div class="row">
+        <div class="k">Close a conversation</div>
+        <div class="v">The × on a conversation puts it away for good, so you'll be asked to confirm first — a closed conversation can't be reopened.</div>
+      </div>
+    </div>
+
+    <div class="box">
+      <span class="label">"This note" follows you</span>
+      <p>A conversation started from a note isn't locked to it. If you switch to a different note while chatting, the assistant keeps track of both — the note you started from and the one you're looking at now — so when you say "this note," it knows which one you mean.</p>
+    </div>
+
+    <h2 id="scoping">How the assistant knows your notes</h2>
+    <p>The assistant doesn't read your whole knowledge base every time you send a message. Instead it reaches for what it needs, when it needs it, and can:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Search your notes</div>
+        <div class="v">Look across everything you've written to answer "what have I said about this?"</div>
+      </div>
+      <div class="row">
+        <div class="k">Read a note</div>
+        <div class="v">Open a specific note in full when it needs the details.</div>
+      </div>
+      <div class="row">
+        <div class="k">Explore connections</div>
+        <div class="v">Answer questions about how your notes relate — what links to what, which notes share a tag, which claims cite a given source.</div>
+      </div>
+      <div class="row">
+        <div class="k">Search the web</div>
+        <div class="v">Look up facts, current events, or documentation that isn't in your notes, and read a specific page in full.</div>
+      </div>
+    </div>
+
+    <p>The only thing the assistant always knows up front is today's date and which note you're working with. Everything else it goes and finds on purpose.</p>
+
+    <div class="box">
+      <span class="label">Reading is free; changing is not</span>
+      <p>The assistant can read and reason across your notes freely, since reading changes nothing. But it can never edit your knowledge base on its own. When it wants to add or change something, it offers a draft you can accept or discard — see <a href="conversations-propose-review-approve.html">The propose → review → approve loop</a>.</p>
+    </div>
+
+    <h2 id="sending">Sending a message</h2>
+    <p>Type in the composer and press <kbd>⏎</kbd> to send, or <kbd>⇧</kbd><kbd>⏎</kbd> for a new line. Starting a line with <code>/</code> brings up a menu of quick commands and thinking tools you can run in the chat — for example, a command to tidy up a long conversation into a shorter summary. If voice input is turned on, a mic button next to Send lets you dictate your message out loud. Your message appears in the transcript right away, so you can see it while the assistant works on a reply.</p>
+
+    <h2 id="streaming">Watching a reply come in</h2>
+    <p>Replies appear a little at a time as the assistant writes, with a small "thinking" indicator that stays put during any pause — including while it's off searching your notes or the web. Formatting shows up as it goes, so nothing jumps around when the reply finishes. While a reply is in progress, the Send button turns into <b>Cancel</b> so you can stop it at any time.</p>
+
+    <h2 id="model">Choosing a model for one conversation</h2>
+    <p>Above each conversation is a model picker. It starts on <b>Default</b> — which names the model your <a href="settings-ai.html#model">AI settings</a> currently point at, so you can see what "default" actually means without going to look — and switching it affects only that conversation. Two conversations open side by side can be running on different models from different companies.</p>
+    <p>The list is grouped by who makes each model: Claude, GPT and the o-series, Gemini, and any local models you've added. You'll only get an answer from a service you've <a href="settings-ai.html#keys">set a key for</a>; pick one you haven't and Minerva says so and offers to open Settings rather than failing quietly.</p>
+    <p>Beside it sits an effort picker, when the chosen model has something to offer there:</p>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">It only appears when it means something</div>
+        <div class="v">Models with no thinking control of their own — the quick, cheap ones — simply don't show the picker rather than showing one that does nothing.</div>
+      </div>
+      <div class="row">
+        <div class="k">The levels follow the model</div>
+        <div class="v">Each model offers what it actually supports. Switch a conversation from a model with five levels to one with three and a setting the new model can't honour drops to the nearest one it can, rather than being silently ignored or erroring at send time.</div>
+      </div>
+      <div class="row">
+        <div class="k">Default names its inheritance</div>
+        <div class="v">Leaving effort on Default shows the level it's inheriting from your settings, so an unset conversation is still a known quantity.</div>
+      </div>
+    </div>
+    <p>Switching mid-conversation is fine and often useful: think something through with a fast model, then hand the hard part to a more capable one with the whole conversation already in front of it.</p>
+
+    <h2 id="citations">Citations and references</h2>
+    <p>When the assistant uses the web, each source it relied on shows up as a numbered note beneath the reply, with the title, the site, and the exact passage it quoted. Click one to open the page in your browser. A <b>cite</b> action next to it saves the source to your library and drops a citation into whichever note the conversation is tied to — the same way you'd cite a source anywhere else in Minerva.</p>
+    <p>When the assistant refers to your own notes, it simply names them in its reply, so you can jump straight to what it was reading.</p>
+
+    <figure class="shot-img">
+      <img src="img/conversations-chatting.png" alt="The conversations panel: your list of conversations on the left; a banner showing which note the chat started from and which assistant is answering; a reply arriving a bit at a time with the &quot;thinking&quot; indicator still showing; and above it, a finished reply with a numbered web citation and a &quot;cite&quot; action." loading="lazy" />
+      <figcaption>Screenshot — A conversation mid-reply</figcaption>
+    </figure>

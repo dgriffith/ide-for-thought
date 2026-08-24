@@ -1,0 +1,75 @@
+---
+title: Minerva — Docs — Tables
+description: The Tables panel lists every spreadsheet and captioned table in your project so you can query it with SQL in a click.
+---
+
+    <h1>Tables</h1>
+    <p class="lede">The Tables panel gathers all the tabular data in your project into one place so you can ask questions of it with SQL. It lists two kinds of table: spreadsheet files you've dropped into the project, and named tables you've written inside notes. A small tag on each row tells you which kind it is.</p>
+
+    <h2 id="registration">What shows up here</h2>
+    <p>Any spreadsheet file you add to your project appears here automatically — there's no import step. Just drop it into the project and it's ready to query. Edit it, and the panel keeps up; remove it, and its row disappears.</p>
+
+    <h3 id="markdown-tables">Naming a table inside a note</h3>
+    <p>You can also query a table you've written directly in a note. To make one queryable, give it a name by putting a caption line just above it:</p>
+    <pre><code>Table: Q3 Sales
+| item  | amount |
+| ----- | ------ |
+| pens  | 3      |
+| ink   | 7      |</code></pre>
+    <p>Once captioned, the table joins this panel and you can query it by name — <code>SELECT sum(amount) FROM Q3_Sales</code>, for example. Save the note to update it; remove the caption to take it back out. Tables without a caption stay private to the note and don't appear here. See <a href="notes-tables.html">Tables &amp; CSV</a> for more.</p>
+
+    <div class="box">
+      <span class="label">Give each table a distinct name</span>
+      <p>Every table shares one pool of names, so no two can be called the same thing. If two would clash, only the first stays queryable — rename one of them to give them both a home in the panel.</p>
+    </div>
+
+    <h2 id="panel">What each row shows</h2>
+    <p>Rows are listed alphabetically, with a filter box at the top that narrows the list by name as you type.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Table name</div>
+        <div class="v">The name you use to query the table.</div>
+      </div>
+      <div class="row">
+        <div class="k">Kind</div>
+        <div class="v">A small tag says whether the table comes from a spreadsheet file or from a note. Note tables also show which note they live in.</div>
+      </div>
+      <div class="row">
+        <div class="k">Size</div>
+        <div class="v">A live count of the table's rows and columns.</div>
+      </div>
+      <div class="row">
+        <div class="k">Location</div>
+        <div class="v">Hover a row to see where the table comes from.</div>
+      </div>
+    </div>
+
+    <figure class="shot-img panel">
+      <img src="img/left-sidebar-tables.png" alt="The Tables panel with a filter box above a list of tables. Each row shows a table name, a small tag marking it as a spreadsheet or a note table, and a line giving its row and column count. One row's right-click menu is open, showing Query, Copy Name, Open, and Reveal in file browser." loading="lazy" />
+      <figcaption>Screenshot — the Tables panel</figcaption>
+    </figure>
+
+    <h2 id="clicking">Querying a table</h2>
+    <p>Click any row to open a fresh query already filled in to show you that table's data. From there you can edit the query, run it again, and explore the data however you like.</p>
+
+    <p>Right-click a row for a few more options:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Query</div>
+        <div class="v">The same as clicking the row — opens the table in a new query.</div>
+      </div>
+      <div class="row">
+        <div class="k">Copy Name</div>
+        <div class="v">Copies the table's name so you can drop it into a query you're writing elsewhere.</div>
+      </div>
+      <div class="row">
+        <div class="k">Open</div>
+        <div class="v">Opens the spreadsheet file, or the note the table lives in.</div>
+      </div>
+      <div class="row">
+        <div class="k">Reveal in file browser</div>
+        <div class="v">Shows the underlying file on your computer.</div>
+      </div>
+    </div>

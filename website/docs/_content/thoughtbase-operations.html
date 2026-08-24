@@ -1,0 +1,94 @@
+---
+title: Minerva — Docs — Thoughtbase operations
+description: The File-menu commands for handling thoughtbases in Minerva: create a new thoughtbase, open one, switch between recents, close, and edit the thoughtbase guide.
+---
+
+    <h1>Thoughtbase operations</h1>
+    <p class="lede">A <a href="thoughtbase.html">thoughtbase</a> is a folder on your disk, and the commands for handling one live at the top of the <b>File</b> menu — grouped there first because the natural first move is "open my thoughtbase" before doing anything in it. Each window holds one open thoughtbase at a time.</p>
+
+    <h2 id="creating">Creating and opening</h2>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">New Thoughtbase…</div>
+        <div class="v"><b>File → New Thoughtbase…</b> Choose a location and name; Minerva creates the folder and sets up an empty thoughtbase, ready for your first note.</div>
+      </div>
+      <div class="row">
+        <div class="k">Open Thoughtbase…</div>
+        <div class="v"><b>File → Open Thoughtbase…</b> (<kbd>⌘</kbd><kbd>O</kbd>). Pick an existing thoughtbase folder to open it in the current window. Opening any folder of markdown notes works — Minerva builds the graph for it the first time.</div>
+      </div>
+    </div>
+
+    <h2 id="switching">Switching between thoughtbases</h2>
+    <p>Keep a thoughtbase per subject and move between them however suits you:</p>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Recent Thoughtbases</div>
+        <div class="v"><b>File → Recent Thoughtbases</b> lists the ones you've opened lately — pick one to jump straight back in.</div>
+      </div>
+      <div class="row">
+        <div class="k">Clear Recent Thoughtbases</div>
+        <div class="v"><b>File → Recent Thoughtbases → Clear Recent Thoughtbases</b> empties that list. It only tidies the list of recently opened thoughtbases — none of your notes are touched.</div>
+      </div>
+      <div class="row">
+        <div class="k">New Window</div>
+        <div class="v"><b>File → New Window</b> (<kbd>⌘</kbd><kbd>⇧</kbd><kbd>N</kbd>) opens a second window. Because each window holds one thoughtbase, this is how you keep two open side by side — open one thoughtbase in each.</div>
+      </div>
+    </div>
+
+    <h2 id="closing">Closing</h2>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Close Thoughtbase</div>
+        <div class="v"><b>File → Close Thoughtbase</b> (<kbd>⌘</kbd><kbd>⇧</kbd><kbd>W</kbd>) closes the current thoughtbase and returns the window to an empty state, ready to open another. Your files are saved as you go, so nothing is lost.</div>
+      </div>
+    </div>
+
+    <h2 id="guide">The thoughtbase guide</h2>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Edit Thoughtbase Guide…</div>
+        <div class="v"><b>File → Edit Thoughtbase Guide…</b> opens <code>thoughtbase.md</code>, a plain-English guide to this thoughtbase — its structure, intent, and conventions — that Minerva shows the assistant at the start of every conversation. It's created from a template the first time you open it. Keeping it up to date is the simplest way to make the AI's help fit how <em>this</em> thoughtbase is organized.</div>
+      </div>
+    </div>
+
+    <h2 id="properties">Thoughtbase properties</h2>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Thoughtbase Properties…</div>
+        <div class="v"><b>File → Thoughtbase Properties…</b> opens a small dialog for the two things a thoughtbase itself carries: what it's called, and — tucked under <b>Advanced</b> — the base address its knowledge graph uses.</div>
+      </div>
+    </div>
+
+    <p>The <b>Name</b> is a display label, kept separately from the folder on disk. Set it to whatever reads best and the folder keeps its own name; leave it blank and Minerva falls back to the folder's name. This is the friendly way to fix a thoughtbase called <code>notes-final-v2</code> without renaming anything on your file system.</p>
+
+    <div class="box">
+      <span class="label">Advanced: the graph base IRI</span>
+      <p>Every fact in your <a href="notes-rdf.html">knowledge graph</a> is identified by an address built on a common prefix — the base IRI. You'd change it if you're publishing your graph and want its identifiers to live under a domain you control.</p>
+      <p>Saving a new base rebuilds every index so all those identifiers regenerate. It has to be an absolute <code>http://</code> or <code>https://</code> address ending in a slash; anything else is refused with the reason shown in the dialog. Your <a href="left-sidebar-proposals.html">proposals</a> are carried over automatically, and <a href="navigation-wiki-links.html">wiki-links</a> between notes aren't affected — they don't use the base at all. What does break is anything outside Minerva that referred to the old addresses: exports you've already published, and any identifiers you'd copied elsewhere by hand.</p>
+      <p>Most thoughtbases never need this. If you're not publishing the graph, the default is fine.</p>
+    </div>
+
+    <h2 id="rename-delete">Renaming, moving, or deleting a thoughtbase</h2>
+    <p>There are two different things you might mean by renaming a thoughtbase. To change what it's <em>called</em> in Minerva, set its Name in <a href="#properties">Thoughtbase Properties</a> — that's instant and touches nothing on disk. To change the <em>folder</em>, do it in Finder or your file manager like any other folder, then open it again from its new location.</p>
+
+    <p>Deleting works the same way: a thoughtbase is an ordinary folder, so removing the folder removes the thoughtbase. There's no command inside Minerva for it. (Renaming, moving, and deleting individual <a href="notes.html#lifecycle">notes</a> <em>is</em> handled inside Minerva, from the sidebar.)</p>
+
+    <h2 id="related">Related</h2>
+    <p>Once a thoughtbase is open, these cover what you do next:</p>
+    <div class="doc-cards">
+      <a class="doc-card" href="ingest.html">
+        <span class="em">📥</span>
+        <h3>Ingest</h3>
+        <p>Bring web pages, PDFs, and references in as sources.</p>
+      </a>
+      <a class="doc-card" href="export.html">
+        <span class="em">📤</span>
+        <h3>Export &amp; publish</h3>
+        <p>Publish a thoughtbase to the web, or export notes as documents and citations.</p>
+      </a>
+      <a class="doc-card" href="maintenance.html">
+        <span class="em">🛠️</span>
+        <h3>Maintenance</h3>
+        <p>Rebuild indexes and keep the graph and search in sync.</p>
+      </a>
+    </div>

@@ -1,0 +1,33 @@
+---
+title: Minerva — Docs — Tables (Note)
+description: The right sidebar's Tables panel lists the data tables the current note's queries reference and shows which of them are available to query.
+---
+
+    <h1>Tables</h1>
+    <p class="lede">When a note contains a query against your data, this panel lists the tables that query relies on and tells you, at a glance, which of them are available. Click a table to open it in a fresh query tab and see all of its rows.</p>
+
+    <h2 id="contents">What's in the list</h2>
+    <p>The panel looks through the current note for data queries and gathers the names of every table those queries read from. Each distinct name gets its own row, listed alphabetically, along with whether it's available to query.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Available table</div>
+        <div class="v">Shows the table's name and its size — the number of rows and columns. Click the row to open it in a new query tab and browse everything in it. A shortcut button appears when you hover, doing the same thing.</div>
+      </div>
+      <div class="row">
+        <div class="k">Missing table</div>
+        <div class="v">A name your query mentions that doesn't match any table currently in the project — usually a typo, or a data file you haven't added yet. It's marked "not registered" and can't be clicked, since there's nothing to open.</div>
+      </div>
+    </div>
+
+    <p>Use the search box at the top to filter the list by name. If the note doesn't query any data, the panel simply reads "No tables referenced."</p>
+
+    <figure class="shot-img panel">
+      <img src="img/right-sidebar-tables.png" alt="The Tables tab for a note with two data queries: an available table, &quot;sessions,&quot; showing its size of 1,204 rows by 6 columns with a shortcut button on hover; and a missing table, &quot;sesssions&quot; (a typo), marked &quot;not registered&quot; and shown in a warning tint." loading="lazy" />
+      <figcaption>Screenshot — Tables panel for a note that queries data</figcaption>
+    </figure>
+
+    <h2 id="relationship">This panel and the left sidebar</h2>
+    <p>The <a href="left-sidebar-tables.html">left sidebar's Tables panel</a> lists every data table in your whole project, so you can browse and query all of them. This panel is narrower and note-focused: it shows only the tables the current note's queries depend on, and flags any that are missing. In short, the left sidebar answers "what data do I have?" while this one answers "does this note's queries have what they need?"</p>
+
+    <p>You add a table by dropping a data file into your project — Minerva picks it up automatically, and it then becomes available everywhere you can query.</p>

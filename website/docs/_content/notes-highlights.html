@@ -1,0 +1,39 @@
+---
+title: Minerva — Docs — Highlights
+description: Highlighting text in Minerva notes: wrap a passage in double equals signs to mark it, and pick from a small palette of colors.
+---
+
+    <h1>Highlights</h1>
+    <p class="lede">Wrap a passage in double equals signs and Minerva highlights it — a tinted mark behind the text, just like running a highlighter pen across the page. It's a quick way to flag something as important while you're reading or drafting.</p>
+
+    <h2 id="syntax">How to highlight</h2>
+    <p>Put <code>==</code> on both sides of the text you want to mark. To give it a color, start with a color name and a colon; leave that off and you get the default tint.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k"><code>==text==</code></div>
+        <div class="v"><b>Highlight.</b> Marks the enclosed text with the default tint.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>==color:text==</code></div>
+        <div class="v"><b>Colored highlight.</b> Choose from <code>yellow</code>, <code>green</code>, <code>blue</code>, <code>pink</code>, or <code>orange</code>. Anything else is simply treated as part of the highlighted text, so <code>==Pythagorean: a²+b²==</code> highlights the whole phrase rather than guessing at a color.</div>
+      </div>
+    </div>
+
+    <p>A short example:</p>
+<pre><code>The migration is safe as long as ==the backfill runs before the
+constraint is added==. Everything else is cosmetic.
+
+Flagged for review: ==orange:re-check this once the rebuild finishes==.</code></pre>
+
+    <p>Leave a space just inside the equals signs and nothing is highlighted, so ordinary prose like <code>x == y</code> stays untouched.</p>
+
+    <h2 id="rendering">How highlights look</h2>
+    <p>A highlight appears as a soft color wash behind the text, right in line with the surrounding words. You'll see the same tint whether you're writing or reading the finished page.</p>
+
+    <figure class="shot-img">
+      <img src="img/notes-highlights.png" alt="A paragraph with two highlighted phrases — one in the default tint, one in yellow — each shown as a soft color wash behind the words, in line with the surrounding text." loading="lazy" />
+      <figcaption>Highlighted text in a note</figcaption>
+    </figure>
+
+    <p>The five colors are tuned to each of Minerva's themes, so a highlight stays easy to read and on-palette whichever theme you're using.</p>

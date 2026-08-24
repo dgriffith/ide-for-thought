@@ -1,0 +1,58 @@
+---
+title: Minerva — Docs — Adding Sources
+description: The different ways to bring a source into Minerva: from a web page, a DOI or paper identifier, a file on your computer, or a whole reference library at once.
+---
+
+    <h1>Adding sources</h1>
+    <p class="lede">A source is any reference you want to keep alongside your notes — a web article, a research paper, a PDF on your computer. Minerva pulls in the text and citation details so you can read, cite, and think with it. There are a few ways to add one, depending on what you're starting from.</p>
+
+    <h2 id="menu">From the File menu</h2>
+    <p>The File menu has a handful of dedicated actions for adding sources, each for a different starting point:</p>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Add a web page<br><kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd></div>
+        <div class="v">Paste in the address of an article or page. Minerva pulls in the readable text, leaving the ads and clutter behind.</div>
+      </div>
+      <div class="row">
+        <div class="k">Add by identifier<br><kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>D</kbd></div>
+        <div class="v">Paste a paper's DOI, arXiv id, or PubMed id and Minerva looks up its citation details for you. If a freely available PDF exists, it's fetched too; if not, the source still comes in with its details and a link to the original record so you can grab the PDF yourself.</div>
+      </div>
+      <div class="row">
+        <div class="k">Add a file</div>
+        <div class="v">Pick a PDF, web page, or text file from your computer.</div>
+      </div>
+      <div class="row">
+        <div class="k">Import a reference library</div>
+        <div class="v">Bring in a whole exported reference collection at once, along with any PDFs attached to its entries. When it finishes, Minerva tells you how many came in and how many were skipped as duplicates.</div>
+      </div>
+    </div>
+
+    <h2 id="panel">From the Sources panel</h2>
+    <p>The quickest way to add a single source: click <b>+</b> in the <a href="left-sidebar-sources.html">Sources panel</a> and paste in a web address or a paper identifier. It figures out on its own which kind of thing you pasted and handles it accordingly. It's forgiving, too — paste a sentence with an identifier buried in it ("see 10.1145/xxxx for details") and it plucks out just the identifier.</p>
+
+    <figure class="shot-img">
+      <img src="img/ingest-adding-sources.png" alt="The Sources panel with the + button highlighted and the box where you paste a web address or paper identifier." loading="lazy" />
+      <figcaption>Screenshot — Adding a source from the Sources panel</figcaption>
+    </figure>
+
+    <h2 id="drop">By dragging a file in</h2>
+    <p>You can also drag a file straight into Minerva. What happens depends on the kind of file:</p>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">A PDF</div>
+        <div class="v">Added as a source, just like picking one from the File menu.</div>
+      </div>
+      <div class="row">
+        <div class="k">A note or data file</div>
+        <div class="v">Added to your knowledge base as an ordinary file wherever you dropped it — not as a source. If the name is already taken, it's kept under a slightly different name rather than replacing what's there.</div>
+      </div>
+      <div class="row">
+        <div class="k">Anything else</div>
+        <div class="v">Skipped, with a short note about why. One unsupported file won't stop the rest of a batch from coming in.</div>
+      </div>
+    </div>
+
+    <div class="box">
+      <span class="label">Adding the same paper twice is safe</span>
+      <p>Minerva recognizes when a source is one you already have, so re-adding the same paper simply does nothing rather than creating a duplicate. See <a href="ingest-citing-duplicates.html">Citing &amp; duplicates</a> for what happens when the same paper turns up under two different identifiers.</p>
+    </div>

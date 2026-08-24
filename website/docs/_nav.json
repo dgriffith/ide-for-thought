@@ -1,0 +1,532 @@
+{
+  "sections": [
+    {
+      "label": "Introduction",
+      "items": [
+        {
+          "href": "index.html",
+          "label": "Overview"
+        },
+        {
+          "href": "thoughtbase.html",
+          "label": "What is a thoughtbase?",
+          "children": [
+            {
+              "href": "thoughtbase-operations.html",
+              "label": "Thoughtbase operations"
+            }
+          ]
+        },
+        {
+          "href": "../getting-started.html",
+          "label": "Getting started"
+        }
+      ]
+    },
+    {
+      "label": "Using Minerva",
+      "items": [
+        {
+          "href": "notes.html",
+          "label": "Notes",
+          "children": [
+            {
+              "href": "notes-links.html",
+              "label": "Links"
+            },
+            {
+              "href": "notes-frontmatter.html",
+              "label": "Properties"
+            },
+            {
+              "href": "notes-typed-notes.html",
+              "label": "Typed notes"
+            },
+            {
+              "href": "notes-highlights.html",
+              "label": "Highlights"
+            },
+            {
+              "href": "notes-tasks.html",
+              "label": "Task lists"
+            },
+            {
+              "href": "notes-callouts.html",
+              "label": "Callouts"
+            },
+            {
+              "href": "notes-images.html",
+              "label": "Images"
+            },
+            {
+              "href": "notes-tables.html",
+              "label": "Tables &amp; CSV"
+            },
+            {
+              "href": "notes-footnotes.html",
+              "label": "Footnotes"
+            },
+            {
+              "href": "notes-flashcards.html",
+              "label": "Flashcards"
+            },
+            {
+              "href": "notes-media.html",
+              "label": "Media"
+            },
+            {
+              "href": "notes-math.html",
+              "label": "Math"
+            },
+            {
+              "href": "notes-diagrams.html",
+              "label": "Diagrams"
+            },
+            {
+              "href": "notes-charts.html",
+              "label": "Charts"
+            },
+            {
+              "href": "notes-code.html",
+              "label": "Code &amp; compute cells"
+            },
+            {
+              "href": "notes-query.html",
+              "label": "Query cells"
+            },
+            {
+              "href": "notes-search.html",
+              "label": "Search cells"
+            },
+            {
+              "href": "notes-rdf.html",
+              "label": "Turtle / RDF"
+            }
+          ]
+        },
+        {
+          "href": "navigation.html",
+          "label": "Navigation",
+          "children": [
+            {
+              "href": "navigation-command-palette.html",
+              "label": "Command palette"
+            },
+            {
+              "href": "navigation-quick-switch.html",
+              "label": "Quick switch"
+            },
+            {
+              "href": "navigation-wiki-links.html",
+              "label": "Wiki-links"
+            },
+            {
+              "href": "navigation-search.html",
+              "label": "Search"
+            },
+            {
+              "href": "navigation-breadcrumbs.html",
+              "label": "Breadcrumbs"
+            },
+            {
+              "href": "navigation-back-forward.html",
+              "label": "Back / forward"
+            }
+          ]
+        },
+        {
+          "href": "viewing-options.html",
+          "label": "Viewing options",
+          "children": [
+            {
+              "href": "viewing-options-operations.html",
+              "label": "View operations"
+            },
+            {
+              "href": "viewing-options-view-modes.html",
+              "label": "View modes"
+            },
+            {
+              "href": "viewing-options-themes.html",
+              "label": "Themes"
+            },
+            {
+              "href": "viewing-options-font-size-zoom.html",
+              "label": "Font size &amp; zoom"
+            },
+            {
+              "href": "viewing-options-split-panes-windows.html",
+              "label": "Split panes &amp; windows"
+            }
+          ]
+        },
+        {
+          "href": "editor.html",
+          "label": "Editor",
+          "children": [
+            {
+              "href": "editor-operations.html",
+              "label": "Editor operations"
+            },
+            {
+              "href": "editor-writing-surface.html",
+              "label": "The writing surface"
+            },
+            {
+              "href": "editor-markdown-formatting.html",
+              "label": "Markdown formatting"
+            },
+            {
+              "href": "editor-keyboard-shortcuts.html",
+              "label": "Keyboard shortcuts"
+            },
+            {
+              "href": "editor-link-autocomplete.html",
+              "label": "Link autocomplete"
+            },
+            {
+              "href": "editor-voice-dictation.html",
+              "label": "Voice dictation"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "The workspace",
+      "items": [
+        {
+          "href": "left-sidebar.html",
+          "label": "Left sidebar",
+          "children": [
+            {
+              "href": "left-sidebar-notes-tree.html",
+              "label": "Notes tree"
+            },
+            {
+              "href": "left-sidebar-sources.html",
+              "label": "Sources"
+            },
+            {
+              "href": "left-sidebar-tags.html",
+              "label": "Tags"
+            },
+            {
+              "href": "left-sidebar-tables.html",
+              "label": "Tables"
+            },
+            {
+              "href": "left-sidebar-objects.html",
+              "label": "Objects"
+            },
+            {
+              "href": "left-sidebar-bookmarks.html",
+              "label": "Bookmarks"
+            },
+            {
+              "href": "left-sidebar-proposals.html",
+              "label": "Proposals"
+            }
+          ]
+        },
+        {
+          "href": "right-sidebar.html",
+          "label": "Right sidebar",
+          "children": [
+            {
+              "href": "right-sidebar-backlinks.html",
+              "label": "Backlinks"
+            },
+            {
+              "href": "right-sidebar-outgoing-links.html",
+              "label": "Outgoing links"
+            },
+            {
+              "href": "right-sidebar-outline.html",
+              "label": "Outline"
+            },
+            {
+              "href": "right-sidebar-properties.html",
+              "label": "Properties"
+            },
+            {
+              "href": "right-sidebar-citations.html",
+              "label": "Citations"
+            },
+            {
+              "href": "right-sidebar-tags.html",
+              "label": "Tags"
+            },
+            {
+              "href": "right-sidebar-related.html",
+              "label": "Related"
+            },
+            {
+              "href": "right-sidebar-footnotes.html",
+              "label": "Footnotes"
+            },
+            {
+              "href": "right-sidebar-history.html",
+              "label": "History"
+            },
+            {
+              "href": "right-sidebar-tables.html",
+              "label": "Tables"
+            },
+            {
+              "href": "right-sidebar-heading-graph.html",
+              "label": "Heading graph"
+            },
+            {
+              "href": "right-sidebar-bookmarks.html",
+              "label": "Bookmarks"
+            },
+            {
+              "href": "right-sidebar-inspections.html",
+              "label": "Inspections"
+            }
+          ]
+        },
+        {
+          "href": "conversations.html",
+          "label": "Conversations",
+          "children": [
+            {
+              "href": "conversations-chatting.html",
+              "label": "Chatting with the AI"
+            },
+            {
+              "href": "conversations-slash-commands.html",
+              "label": "Slash commands"
+            },
+            {
+              "href": "conversations-drafts.html",
+              "label": "Drafts"
+            },
+            {
+              "href": "conversations-propose-review-approve.html",
+              "label": "The propose → review → approve loop",
+              "crumb": "Propose, review, approve"
+            }
+          ]
+        },
+        {
+          "href": "settings.html",
+          "label": "Settings",
+          "children": [
+            {
+              "href": "settings-editor.html",
+              "label": "Editor"
+            },
+            {
+              "href": "settings-appearance.html",
+              "label": "Appearance"
+            },
+            {
+              "href": "settings-behaviors.html",
+              "label": "Behaviors"
+            },
+            {
+              "href": "settings-notes.html",
+              "label": "Notes"
+            },
+            {
+              "href": "settings-versioning.html",
+              "label": "Versioning"
+            },
+            {
+              "href": "settings-formatter.html",
+              "label": "Formatter"
+            },
+            {
+              "href": "settings-object-types.html",
+              "label": "Object Types"
+            },
+            {
+              "href": "settings-inspections.html",
+              "label": "Inspections"
+            },
+            {
+              "href": "settings-bibliography.html",
+              "label": "Bibliography"
+            },
+            {
+              "href": "settings-web.html",
+              "label": "Web"
+            },
+            {
+              "href": "settings-sources.html",
+              "label": "Sources"
+            },
+            {
+              "href": "settings-clipper.html",
+              "label": "Clipper"
+            },
+            {
+              "href": "settings-compute.html",
+              "label": "Compute"
+            },
+            {
+              "href": "settings-ai.html",
+              "label": "AI"
+            },
+            {
+              "href": "settings-skills.html",
+              "label": "Skills"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Data &amp; workflows",
+      "items": [
+        {
+          "href": "refactoring.html",
+          "label": "Refactoring",
+          "children": [
+            {
+              "href": "refactoring-operations.html",
+              "label": "Refactoring operations"
+            },
+            {
+              "href": "refactoring-manual.html",
+              "label": "Manual rename, move &amp; delete"
+            },
+            {
+              "href": "refactoring-safe-delete.html",
+              "label": "Safe delete &amp; dangling links"
+            },
+            {
+              "href": "refactoring-ai-assisted.html",
+              "label": "AI-assisted refactors"
+            }
+          ]
+        },
+        {
+          "href": "thinking-tools.html",
+          "label": "Thinking tools",
+          "children": [
+            {
+              "href": "thinking-tools-what-they-are.html",
+              "label": "What thinking tools are"
+            },
+            {
+              "href": "thinking-tools-running-a-skill.html",
+              "label": "Running a skill"
+            },
+            {
+              "href": "thinking-tools-three-menus.html",
+              "label": "The three menus"
+            },
+            {
+              "href": "thinking-tools-learning.html",
+              "label": "Learning Operations"
+            },
+            {
+              "href": "thinking-tools-research.html",
+              "label": "Research Operations"
+            },
+            {
+              "href": "thinking-tools-analysis.html",
+              "label": "Analysis Operations"
+            },
+            {
+              "href": "thinking-tools-managing-authoring.html",
+              "label": "Managing &amp; authoring"
+            }
+          ]
+        },
+        {
+          "href": "data.html",
+          "label": "Data",
+          "title": "Working with data",
+          "children": [
+            {
+              "href": "data-operations.html",
+              "label": "Data operations"
+            },
+            {
+              "href": "query-menu-panel.html",
+              "label": "Query menu &amp; panel"
+            },
+            {
+              "href": "query-runnable-cells.html",
+              "label": "Runnable cells"
+            },
+            {
+              "href": "query-result-blocks.html",
+              "label": "Result blocks"
+            }
+          ]
+        },
+        {
+          "href": "ingest.html",
+          "label": "Ingest",
+          "children": [
+            {
+              "href": "ingest-adding-sources.html",
+              "label": "Adding sources"
+            },
+            {
+              "href": "ingest-pdf.html",
+              "label": "PDF ingest"
+            },
+            {
+              "href": "ingest-clipper.html",
+              "label": "Browser clipper"
+            },
+            {
+              "href": "ingest-citing-duplicates.html",
+              "label": "Citing &amp; duplicates"
+            }
+          ]
+        },
+        {
+          "href": "export.html",
+          "label": "Export",
+          "children": [
+            {
+              "href": "export-documents.html",
+              "label": "Document exports"
+            },
+            {
+              "href": "export-publishing.html",
+              "label": "Publishing"
+            },
+            {
+              "href": "export-bibliography.html",
+              "label": "Bibliography &amp; citations"
+            },
+            {
+              "href": "export-flashcards.html",
+              "label": "Flashcards"
+            },
+            {
+              "href": "export-scopes-privacy.html",
+              "label": "Scopes &amp; privacy"
+            }
+          ]
+        },
+        {
+          "href": "connecting.html",
+          "label": "Connecting to Minerva",
+          "children": [
+            {
+              "href": "connecting-cli.html",
+              "label": "CLI use"
+            },
+            {
+              "href": "connecting-mcp.html",
+              "label": "MCP use"
+            }
+          ]
+        },
+        {
+          "href": "maintenance.html",
+          "label": "Maintenance"
+        }
+      ]
+    }
+  ]
+}

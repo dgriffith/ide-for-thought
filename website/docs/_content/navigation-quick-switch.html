@@ -1,0 +1,94 @@
+---
+title: Minerva — Docs — Quick Switch
+description: Quick switch (⌘P) lets you jump straight to a note, source, or saved query by typing its name.
+---
+
+    <h1>Quick switch</h1>
+    <p class="lede">Press <kbd>⌘</kbd><kbd>P</kbd> (or <kbd>Ctrl</kbd><kbd>P</kbd>) and start typing to jump straight to a note, a source, or a saved query by name. The list narrows as you type, and the arrow keys plus <kbd>Enter</kbd> take you the rest of the way — no mouse, no hunting through the sidebar.</p>
+
+    <h2 id="scope">Search notes, sources, and queries</h2>
+    <p>Quick switch isn't limited to notes. When your project also has sources or saved queries, a row of filter chips appears and the picker searches across all three at once:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">All</div>
+        <div class="v">The default. Matches notes, sources, and saved queries together, each labeled with a small icon showing what it is.</div>
+      </div>
+      <div class="row">
+        <div class="k">Notes</div>
+        <div class="v">Matches on a note's title and its location in your folders.</div>
+      </div>
+      <div class="row">
+        <div class="k">Sources</div>
+        <div class="v">Matches on a source's title and author. Shown only when you have at least one source.</div>
+      </div>
+      <div class="row">
+        <div class="k">Queries</div>
+        <div class="v">Matches on a saved query's name and description. Shown only when you have at least one saved query.</div>
+      </div>
+    </div>
+
+    <p>Each chip shows how many results it holds. If you don't have any sources or saved queries yet, the chips simply don't appear and quick switch acts as a plain notes picker.</p>
+
+    <figure class="shot-img">
+      <img src="img/navigation-quick-switch.png" alt="The picker open with the All filter active, showing a mixed list: a note with its folder location, a source with its author, and a saved query with its description, each marked with a small icon for its kind." loading="lazy" />
+      <figcaption>Screenshot — Quick switch with mixed results</figcaption>
+    </figure>
+
+    <h2 id="matching">Typing to find things</h2>
+    <p>You don't have to type a title exactly. Quick switch is forgiving, so a few well-chosen letters usually surface what you want:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Part of the name</div>
+        <div class="v">Type any run of letters that appears in the title. This gives the strongest match.</div>
+      </div>
+      <div class="row">
+        <div class="k">Initials</div>
+        <div class="v">Type the first letter of each word — "rf" finds "Raft Foundations."</div>
+      </div>
+      <div class="row">
+        <div class="k">Scattered letters</div>
+        <div class="v">Type letters that appear in order but not together — a handy fallback when you only half-remember a title.</div>
+      </div>
+    </div>
+
+    <p>Quick switch also looks at a note's folder location, a source's author, and a query's description, so those can help pin down a match too. Before you type anything, the list simply shows your items in their normal order.</p>
+
+    <h2 id="keys">Keyboard control</h2>
+    <p>Once the picker is open, you can do everything from the keyboard:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k"><kbd>↑</kbd> / <kbd>↓</kbd></div>
+        <div class="v">Move the highlight up and down the list.</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>Enter</kbd></div>
+        <div class="v">Open the highlighted result — a note opens for editing, a source opens in the source viewer, a saved query runs.</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>Esc</kbd></div>
+        <div class="v">Close without going anywhere.</div>
+      </div>
+    </div>
+
+    <h2 id="contrast">Quick switch, command palette, and search</h2>
+    <p>Minerva gives you three ways to get around, each suited to a different question:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Quick switch — <kbd>⌘</kbd><kbd>P</kbd></div>
+        <div class="v">Jump to a <i>thing</i> — a note, source, or saved query — by name.</div>
+      </div>
+      <div class="row">
+        <div class="k">Command palette — <kbd>⌘</kbd><kbd>K</kbd></div>
+        <div class="v">Run an <i>action</i> — a command or setting — by name. See <a href="navigation-command-palette.html">Command palette</a>.</div>
+      </div>
+      <div class="row">
+        <div class="k">Search</div>
+        <div class="v">Find a <i>passage</i> — search the text inside your notes, not just their titles. See <a href="navigation-search.html">Search</a>.</div>
+      </div>
+    </div>
+
+    <p>If you roughly know what a note is called, quick switch is the fastest way to it. If you remember something you wrote but not its title, reach for Search instead — quick switch matches names, not the words inside a note.</p>

@@ -1,0 +1,63 @@
+---
+title: Minerva — Docs — Connecting to Minerva
+description: Reach into a thoughtbase from outside the app: a command-line interface and an MCP server let scripts and AI agents query your notes and propose new ones — grounded reads, gated writes.
+---
+
+    <h1>Connecting to Minerva</h1>
+    <p class="lede">A <a href="thoughtbase.html">thoughtbase</a> is plain files and a <a href="data.html">knowledge graph</a>, so you don't have to be sitting in the app to use it. Minerva ships a command-line interface and a <b>Model Context Protocol (MCP)</b> server that let scripts and AI agents query your notes and propose new ones from outside — even while the app is closed. They reuse the same core the app does, so what they see is exactly what Minerva sees.</p>
+
+    <h2 id="two-ways">Two ways in</h2>
+    <div class="deflist">
+      <div class="row">
+        <div class="k"><a href="connecting-cli.html">CLI use</a></div>
+        <div class="v">Headless, scriptable access from your shell — query the graph, search notes, and file proposals, with grounded JSON output you can pipe straight into other tools.</div>
+      </div>
+      <div class="row">
+        <div class="k"><a href="connecting-mcp.html">MCP use</a></div>
+        <div class="v">The same reads and proposals exposed as tools to any MCP client — Claude Desktop, a coding agent, an editor — so an AI agent can ground itself in your thoughtbase and hand work back.</div>
+      </div>
+    </div>
+
+    <h2 id="what">What you can do</h2>
+    <p>Both surfaces expose the same core operations over an open thoughtbase:</p>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Query</div>
+        <div class="v">Run <b>SPARQL</b> over the knowledge graph or <b>SQL</b> over your CSV tables — the same queries you'd write in the app's <a href="data.html">Query</a> panel.</div>
+      </div>
+      <div class="row">
+        <div class="k">Search</div>
+        <div class="v">Full-text or meaning-based (semantic) search across your notes.</div>
+      </div>
+      <div class="row">
+        <div class="k">Read</div>
+        <div class="v">Fetch a note's raw markdown by path.</div>
+      </div>
+      <div class="row">
+        <div class="k">Gather context</div>
+        <div class="v">Pull a task-relevant slice for a topic — the matching notes <em>plus</em> their link neighborhood — so an agent can seed itself before it starts work.</div>
+      </div>
+      <div class="row">
+        <div class="k">Propose a note</div>
+        <div class="v">File a new note as a <b>pending proposal</b> — never a direct write.</div>
+      </div>
+    </div>
+
+    <div class="box">
+      <span class="label">Grounded reads, gated writes</span>
+      <p>Reads come back <b>grounded</b>: query results carry node identifiers, search hits carry the note's path — so an agent can cite exactly what it drew on. Writes are never direct. A proposal goes through the <em>same</em> approval gate as the built-in AI, stamped with who proposed it, and nothing touches your notes until you approve it in the Proposals panel. See <a href="conversations.html">Conversations</a> for that review flow.</p>
+    </div>
+
+    <h2 id="learn-more">In depth</h2>
+    <div class="doc-cards">
+      <a class="doc-card" href="connecting-cli.html">
+        <span class="em">⌥</span>
+        <h3>CLI use</h3>
+        <p>Query, search, and propose from your shell, with JSON output.</p>
+      </a>
+      <a class="doc-card" href="connecting-mcp.html">
+        <span class="em">🔌</span>
+        <h3>MCP use</h3>
+        <p>Expose the thoughtbase to an AI agent as MCP tools.</p>
+      </a>
+    </div>

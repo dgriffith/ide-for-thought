@@ -43,9 +43,11 @@
     "typecheck:clipper": "tsc -p clipper/tsconfig.json --noEmit",
     "fetch:model": "node scripts/fetch-embedding-model.mjs",
     "fetch:help-corpus": "vite-node scripts/build-help-corpus.mjs",
-    "predev": "node scripts/fetch-embedding-model.mjs && vite-node scripts/build-help-corpus.mjs",
-    "prebuild": "node scripts/fetch-embedding-model.mjs && vite-node scripts/build-help-corpus.mjs",
-    "prebuild:e2e": "node scripts/fetch-embedding-model.mjs && vite-node scripts/build-help-corpus.mjs"
+    "build:docs": "node scripts/build-docs.mjs",
+    "check:docs": "node scripts/build-docs.mjs --check",
+    "predev": "node scripts/build-docs.mjs && node scripts/fetch-embedding-model.mjs && vite-node scripts/build-help-corpus.mjs",
+    "prebuild": "node scripts/build-docs.mjs && node scripts/fetch-embedding-model.mjs && vite-node scripts/build-help-corpus.mjs",
+    "prebuild:e2e": "node scripts/build-docs.mjs && node scripts/fetch-embedding-model.mjs && vite-node scripts/build-help-corpus.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",

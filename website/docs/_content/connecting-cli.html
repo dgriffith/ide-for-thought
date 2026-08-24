@@ -1,0 +1,86 @@
+---
+title: Minerva — Docs — CLI use
+description: Use the Minerva command-line interface: build and run it, query the knowledge graph with SPARQL and SQL, search and read notes, gather context, and file gated proposals — all as JSON.
+---
+
+    <h1>CLI use</h1>
+    <p class="lede">The Minerva CLI gives headless, scriptable access to a thoughtbase from your shell — the same core the app runs on, so it works with the app closed. Every result is printed as <b>JSON</b> on standard output, so it pipes straight into <code>jq</code> or feeds an agent directly.</p>
+
+    <h2 id="build">Getting the command</h2>
+    <p>If you installed Minerva from the download, choose <b>Help → Install ‘minerva’ Command in PATH…</b> in the app. That writes a <code>minerva</code> launcher to <code>~/.local/bin</code> — the app runs its own bundled Node, so there's nothing else to install. If <code>~/.local/bin</code> isn't on your <code>PATH</code>, the dialog shows how to add it, and gives the full path to use for MCP clients.</p>
+    <p>Working from the source tree instead? Build and link it:</p>
+    <pre><code>pnpm cli:build        # builds .vite/build/cli.js
+pnpm link --global    # exposes it globally as `minerva`</code></pre>
+    <p>Either way, <code>minerva</code> then works anywhere. Point any command at a thoughtbase with <code>--project &lt;path&gt;</code> — it defaults to the current directory.</p>
+    <pre><code>minerva &lt;command&gt; [args] [--project &lt;path&gt;]</code></pre>
+
+    <h2 id="commands">Commands</h2>
+    <div class="deflist">
+      <div class="row">
+        <div class="k"><code>query &lt;sparql&gt;</code></div>
+        <div class="v">Run a <b>SPARQL</b> query over the knowledge graph. The standard prefixes are injected for you, so you can write <code>minerva:</code>, <code>dc:</code>, and the rest without declaring them.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>sql &lt;sql&gt;</code></div>
+        <div class="v">Run <b>DuckDB SQL</b> over your CSV <a href="data.html">tables</a>.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>search &lt;text&gt;</code></div>
+        <div class="v">Full-text search over notes (<code>--limit &lt;n&gt;</code>, default 20).</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>semantic &lt;text&gt;</code></div>
+        <div class="v">Meaning-based search over notes. It covers only what the app has already embedded — against a thoughtbase never opened in the app, it returns no hits.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>read &lt;path&gt;</code></div>
+        <div class="v">A note's raw markdown, by its path within the thoughtbase.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>context &lt;topic&gt;</code></div>
+        <div class="v">A task-relevant slice: the notes matching a topic plus each one's link neighborhood (backlinks and outgoing links) and content, returned as one bundle for an agent to seed itself with.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>propose-note &lt;path&gt;</code></div>
+        <div class="v">File a new note as a pending proposal, with the body read from <b>stdin</b>. Gated — see below.</div>
+      </div>
+    </div>
+
+    <h2 id="grounded">Grounded JSON output</h2>
+    <p>Every result is grounded and printed as JSON, so it composes with the rest of your tools — query bindings carry node identifiers, search hits carry the note path, and <code>read</code> echoes the path back.</p>
+    <pre><code># What do I already know about photosynthesis?
+minerva search photosynthesis --project ~/vault | jq '.hits[].relativePath'
+
+# Every note with a title, alphabetized.
+minerva query \
+  'SELECT ?title WHERE { ?n a minerva:Note ; dc:title ?title } ORDER BY ?title' \
+  --project ~/vault</code></pre>
+
+    <h2 id="proposing">Proposing a note</h2>
+    <p>External tools never write your thoughtbase directly. <code>propose-note</code> files a note as a <b>pending proposal</b> through Minerva's approval engine — the same gate the built-in AI uses — stamped with who proposed it. Nothing lands until you review and approve it in Minerva's Proposals panel (see <a href="conversations.html">Conversations</a>).</p>
+    <pre><code>cat draft.md | minerva propose-note notes/idea.md --by cli --project ~/vault</code></pre>
+    <p>The body comes from stdin, so it composes with anything upstream. <code>--by &lt;id&gt;</code> records who proposed it (default <code>cli</code>), and that attribution survives a reindex — a note proposed while the app was closed still shows up, and stays attributed, once you reopen it.</p>
+
+    <div class="box">
+      <span class="label">One writer at a time</span>
+      <p>A proposal is written into the thoughtbase's graph file. If Minerva has the same thoughtbase open, both processes write it, so file proposals when the app isn't actively editing — and expect the app to surface them after its next refresh.</p>
+    </div>
+
+    <h2 id="related">Related</h2>
+    <div class="doc-cards">
+      <a class="doc-card" href="connecting-mcp.html">
+        <span class="em">🔌</span>
+        <h3>MCP use</h3>
+        <p>The same commands as tools for an AI agent.</p>
+      </a>
+      <a class="doc-card" href="data.html">
+        <span class="em">🔎</span>
+        <h3>Working with data</h3>
+        <p>The SPARQL and SQL you'll run, from the app's side.</p>
+      </a>
+      <a class="doc-card" href="conversations.html">
+        <span class="em">💬</span>
+        <h3>Conversations</h3>
+        <p>Where proposals surface for you to approve.</p>
+      </a>
+    </div>

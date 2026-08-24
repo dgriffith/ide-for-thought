@@ -1,0 +1,63 @@
+---
+title: Minerva — Docs — Tags
+description: The right sidebar's Tags panel shows the tags on the note you're reading, arranged as a tidy hierarchy, and lets you jump to other notes that share a tag.
+---
+
+    <h1>Tags</h1>
+    <p class="lede">Tags are short labels you add to a note to group it with others on the same theme. This panel in the right sidebar shows the tags on the note you're currently reading, arranged as a tidy tree so a tag like <code>#project/minerva/docs</code> reads as nested rows instead of one long string. It's a read-only view — to change a note's tags, you edit the note.</p>
+
+    <div class="box">
+      <span class="label">Two Tags panels, two jobs</span>
+      <p>Minerva has a Tags panel on each side, and they answer different questions. The one in the <b>left</b> sidebar is a project-wide list of every tag you've used anywhere, alphabetical and with counts — good for browsing your whole vocabulary and jumping to any tagged note. This one, in the <b>right</b> sidebar, is about the note in front of you: it lists only the tags that note carries. Switch to another note and its contents change to match.</p>
+    </div>
+
+    <h2 id="hierarchy">Reading the tree</h2>
+    <p>Tags with slashes in them — <code>#area/health</code>, <code>#project/minerva/docs</code> — read as paths, and the panel nests them accordingly. If a note carries only <code>#foo/bar/baz</code>, you'll still see <code>foo</code> and <code>foo/bar</code> as parent rows above it, standing in as the branches that hold the tree together.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Expand / collapse</div>
+        <div class="v">Click the arrow on any row that has children to fold or unfold that branch. The panel remembers which branches you've opened.</div>
+      </div>
+      <div class="row">
+        <div class="k">Click a tag</div>
+        <div class="v">Lists every note and source that carries that exact tag, shown beneath the tree — a quick way to jump from the note you're reading to everything else that shares one of its tags.</div>
+      </div>
+      <div class="row">
+        <div class="k">Click a parent tag</div>
+        <div class="v">Lists everything tagged at or below that branch — for example, every note under <code>#area/health</code> no matter how specific the tag goes. Handy for a broad sweep across a whole theme.</div>
+      </div>
+      <div class="row">
+        <div class="k">Highlighted rows</div>
+        <div class="v">Rows for tags the note actually carries are tinted so they stand out from the parent rows that only exist to organize the tree.</div>
+      </div>
+      <div class="row">
+        <div class="k">Filter box</div>
+        <div class="v">Type in the search box to narrow the tree to matching tags. A match stays visible along with the branches above it, so you can see where it sits.</div>
+      </div>
+    </div>
+
+    <figure class="shot-img panel">
+      <img src="img/right-sidebar-tags.png" alt="The right sidebar's Tags panel open on a note with a nested tag, showing the branch expanded, the note's own tag highlighted, and a list beneath the tree of other notes and sources that share that tag." loading="lazy" />
+      <figcaption>Screenshot — Tags panel for a note with nested tags</figcaption>
+    </figure>
+
+    <h2 id="add-remove">Adding and removing tags</h2>
+    <p>This panel only reads — there's no box to type into. You tag a note by editing the note itself, and Minerva recognizes tags written two ways; the panel shows both together.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Inline hashtags</div>
+        <div class="v">Type <code>#tagname</code> anywhere in the note's text. It's picked up as a tag as soon as you save.</div>
+      </div>
+      <div class="row">
+        <div class="k">A tags list in properties</div>
+        <div class="v">Add tags to the <code>tags:</code> list in the note's properties at the top. Many notes are tagged only this way, with nothing typed inline.</div>
+      </div>
+      <div class="row">
+        <div class="k">Removing a tag</div>
+        <div class="v">Delete the hashtag text or the properties entry and save. The panel simply stops showing a tag once the note no longer contains it.</div>
+      </div>
+    </div>
+
+    <p>The tree updates the moment you save — no manual refresh needed. For browsing tags across your whole project, see <a href="left-sidebar-tags.html">Left sidebar → Tags</a>.</p>

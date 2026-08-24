@@ -1,0 +1,35 @@
+---
+title: Minerva — Docs — Footnotes Panel
+description: The Footnotes panel lists every footnote in the note you're reading, lets you jump to where each one is used, and flags footnotes that have drifted out of sync.
+---
+
+    <h1>Footnotes</h1>
+    <p class="lede">The <b>Footnotes</b> panel gathers every footnote in the note you're reading into one tidy list, so you can see them at a glance and jump straight to where each one is used. It also quietly flags footnotes that have drifted out of sync.</p>
+
+    <p>Want to know how to write footnotes in the first place — the markup, how they look, and clicking to jump between a note and its footnote? See <a href="notes-footnotes.html">Notes → Footnotes</a>. This page is about the panel itself.</p>
+
+    <h2 id="layout">Reading the panel</h2>
+    <p>Each row shows a footnote's label and a one-line preview of its text, listed in the order they appear in your note. Start typing in the search box at the top to narrow the list to footnotes whose label or text matches — the results update as you type, and only this note is searched.</p>
+    <p><b>Click a row</b> to jump to where that footnote is used in your note, so you can pick up right where it belongs.</p>
+
+    <h2 id="stale">Footnotes that have drifted</h2>
+    <p>The panel also catches the two ways a footnote can fall out of sync, each shown as its own row with a small note underneath:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Written but never used</div>
+        <div class="v">A footnote you've written that nothing in the note points to. It isn't broken — just unused — so it's shown in a muted style. Click it to jump to the footnote.</div>
+      </div>
+      <div class="row">
+        <div class="k">Used but never written</div>
+        <div class="v">A spot in your text that refers to a footnote you haven't written yet. Click it to jump to that spot so you can fill in the missing footnote.</div>
+      </div>
+    </div>
+
+    <figure class="shot-img panel">
+      <img src="img/right-sidebar-footnotes.png" alt="The Footnotes panel with text typed into its search box, narrowing the list to a few matching rows below — one flagged as written but never used, one flagged as used but never written, and ordinary rows each showing a label and a preview of the footnote text." loading="lazy" />
+      <figcaption>Screenshot — Footnotes panel with search and drift flags</figcaption>
+    </figure>
+
+    <h2 id="empty">When there's nothing to show</h2>
+    <p>If a note has no footnotes, the panel simply says <i>"No footnotes."</i> If it has footnotes but none match what you've typed, it says <i>"No matches"</i> instead — so you can always tell whether the note is empty or your search is just too narrow.</p>

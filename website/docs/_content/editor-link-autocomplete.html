@@ -1,0 +1,36 @@
+---
+title: Minerva — Docs — Link Autocomplete
+description: Typing [[ suggests matching notes as you type, so you can link to another note without remembering its exact name.
+---
+
+    <h1>Link autocomplete</h1>
+    <p class="lede">To link one note to another, type <code>[[</code> and a suggestion list appears. Keep typing to narrow it down, then pick the note you want. You never have to remember a note's exact name, and you won't accidentally create a link that points nowhere.</p>
+
+    <h2 id="trigger">How it works</h2>
+    <p>Type <code>[[</code> anywhere in a note and the suggestion list opens. As you keep typing, it filters live to the notes that match. Choose one and Minerva drops its name into your link.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Open</div>
+        <div class="v">Type <code>[[</code> to open the list. It stays open and keeps filtering as you type, and closes when you finish the link with <code>]]</code> or move away.</div>
+      </div>
+      <div class="row">
+        <div class="k">Filter</div>
+        <div class="v">Whatever you type after <code>[[</code> narrows the list. Matching is forgiving — the letters just have to appear in order, so <code>mtg</code> still finds <code>Meeting Notes</code>.</div>
+      </div>
+      <div class="row">
+        <div class="k">Move and pick</div>
+        <div class="v">Use the arrow keys or click to move through the list. <kbd>Tab</kbd> or <kbd>Enter</kbd> accepts the highlighted note; <kbd>Esc</kbd> closes the list and leaves your text as-is.</div>
+      </div>
+      <div class="row">
+        <div class="k">No match</div>
+        <div class="v">If nothing matches, the list is empty. Minerva won't invent a note for you.</div>
+      </div>
+    </div>
+
+    <p>The list includes every note by name, plus any alternate names you've given a note in its properties — so a nickname is just as easy to link to as the real title. You can also link by relationship: start with a relationship word (for example <code>supports::</code>) to choose one of the built-in <a href="notes-links.html#types">link types</a>, or begin with <code>cite::</code> to point the list at your sources instead of your notes.</p>
+
+    <figure class="shot-img">
+      <img src="img/editor-link-autocomplete.png" alt="Partway through typing a link, a list appears just below the cursor showing the notes that match — such as &quot;Meeting Notes&quot; and &quot;Meeting Prep&quot; — with one highlighted, ready to pick." loading="lazy" />
+      <figcaption>The suggestion list open</figcaption>
+    </figure>

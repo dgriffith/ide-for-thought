@@ -1,0 +1,34 @@
+---
+title: Minerva — Docs — Flashcards
+description: Turn any note into two-sided flashcards for study — write a front and a back, and reveal the answer with a click.
+---
+
+    <h1>Flashcards</h1>
+    <p class="lede">A flashcard is a two-sided prompt for study, written right inside a note: a question on the front, the answer on the back. In the note the front shows on its own with a <b>Show answer</b> button, so you can test yourself before revealing the rest. You can scatter cards through your notes wherever a fact is worth remembering.</p>
+
+    <h2 id="writing">Writing a flashcard</h2>
+    <p>Start a quote block and make its first line <code>[!card]</code>. Put a line with three dashes — <code>---</code> — in the body: everything above it becomes the front of the card, and everything below it the back. When you're done writing, the note shows just the front with a <b>Show answer</b> button; click it to flip the card over.</p>
+
+    <p>Any text you add after <code>[!card]</code> becomes the card's title — a handy place to name the deck a card belongs to.</p>
+
+<pre><code>&gt; [!card] Biology deck
+&gt; What organelle produces most of a cell's energy?
+&gt; ---
+&gt; The mitochondrion.</code></pre>
+
+    <p>The front and back can hold anything a note can — bold text, links, images, math, even a picture to identify. A card without a <code>---</code> divider simply shows its front with nothing to reveal, which is fine for a plain prompt or reminder.</p>
+
+    <figure class="shot-img">
+      <img src="img/notes-flashcards.png" alt="A note with a flashcard box titled &quot;Biology deck&quot;: the front shows the question &quot;What organelle produces most of a cell's energy?&quot; above a &quot;Show answer&quot; button, with the answer hidden until you click." loading="lazy" />
+      <figcaption>A flashcard in a note</figcaption>
+    </figure>
+
+    <h2 id="study">Turning cards into a study session</h2>
+    <p>Flashcards you write this way aren't just for reading in place — you can gather them up and review them as a deck, or send them out to study elsewhere. See <a href="export-flashcards.html">Flashcards export</a> for collecting and sharing them.</p>
+
+    <h2 id="good-to-know">Good to know</h2>
+    <ul>
+      <li><b>A card is a kind of callout.</b> It's written like the titled boxes on the <a href="notes-callouts.html">Callouts</a> page, just with the special <code>card</code> label and a front/back divider.</li>
+      <li><b>One divider per card.</b> The first <code>---</code> splits front from back; keep the rest of the card to those two sides.</li>
+      <li><b>Name your decks.</b> Give related cards the same title after <code>[!card]</code> so they read as one set.</li>
+    </ul>

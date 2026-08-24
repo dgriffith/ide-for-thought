@@ -1,0 +1,57 @@
+---
+title: Minerva — Docs — Code &amp; Compute Cells
+description: Add code to a note with syntax highlighting, or make a cell runnable and see its result land right in the note.
+---
+
+    <h1>Code &amp; compute cells</h1>
+    <p class="lede">Drop a block of code into any note and it comes out neatly color-highlighted. Three kinds go further — queries over your knowledge base, queries over your tables, and Python — and become <b>runnable</b>: a small ▶ appears, and running the cell drops its result right into the note, just below the code.</p>
+
+    <h2 id="syntax">Plain code vs. runnable cells</h2>
+    <p>What decides whether a cell just looks nice or actually runs is the language you label it with.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Any language</div>
+        <div class="v"><b>Plain.</b> Label a cell with a language — JavaScript, Rust, shell, and so on — and it's shown with color highlighting to make it easy to read. Nothing runs; it's there for reference.</div>
+      </div>
+      <div class="row">
+        <div class="k">Knowledge base</div>
+        <div class="v"><b>Runnable.</b> Ask a question of your project's knowledge base and get back a table of answers — the same kind of question you'd ask from the Query panel.</div>
+      </div>
+      <div class="row">
+        <div class="k">Tables</div>
+        <div class="v"><b>Runnable.</b> Query the data in your imported tables and spreadsheets, and get back a table of matching rows.</div>
+      </div>
+      <div class="row">
+        <div class="k">Python</div>
+        <div class="v"><b>Runnable.</b> Run a bit of Python. The result can be text, a table, an inline image or chart — whatever the code produces.</div>
+      </div>
+    </div>
+
+    <h2 id="running">Running a cell</h2>
+    <p>A runnable cell shows a small ▶ button, whether you're writing the note or reading it in preview. You can run one a few ways:</p>
+    <ul>
+      <li><b>Click ▶</b> next to the cell. It shows a brief pause while the cell runs.</li>
+      <li><b><kbd>⌘</kbd><kbd>⇧</kbd><kbd>Enter</kbd></b> (or <kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>Enter</kbd>) runs the cell your cursor is in.</li>
+      <li><b>Recompute all</b>, above the note, re-runs every runnable cell from top to bottom. It appears whenever a note has at least one.</li>
+    </ul>
+
+    <h2 id="output">Where output goes</h2>
+    <p>A cell's result is written into the note itself, right below the cell — not a panel that vanishes when you close the note. Run the cell again and its result is refreshed in place. Depending on what the cell produces, the result might be a table, a block of text, an image, or a chart. If something goes wrong, you get a clearly-marked error with the message instead, so you can fix the cell and try again.</p>
+
+    <figure class="shot-img">
+      <img src="img/notes-code.png" alt="A note showing a Python cell with its ▶ button, and just beneath it the result it produced — a small table of data." loading="lazy" />
+      <figcaption>Screenshot — Runnable cell with output</figcaption>
+    </figure>
+
+    <div class="box">
+      <span class="label">Big results are trimmed, not hidden</span>
+      <p>Very large tables are shown up to a generous limit. When there's more, the result notes how many rows you're seeing out of the total, so you always know there's more — just narrow your query to see the rest.</p>
+    </div>
+
+    <h2 id="python">A note on Python</h2>
+    <p>Python cells run on your own machine and can do real work — read and write files, reach the network, and use whatever you have installed. Because of that, Minerva asks you to confirm once per project before it runs Python; after that it remembers your choice. You can point Minerva at the Python you want to use in Settings → Compute.</p>
+    <p>Within a single note, Python cells build on each other: a value or import from an earlier cell is available to later ones. Cells in different notes stay separate, and each knowledge-base or table query stands on its own.</p>
+
+    <h2 id="trust">Running is always your call</h2>
+    <p>A cell only ever runs when you run it — by clicking ▶, pressing the shortcut, or choosing Recompute all. Since you're the one asking, it just runs, the same way typing in a note doesn't need approval. Cells run the query you wrote exactly as written, so treat them with the same care you'd give any query you run yourself.</p>

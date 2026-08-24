@@ -1,0 +1,65 @@
+---
+title: Minerva — Docs — Footnotes
+description: Add footnotes to your notes: mark a spot in your text, write the note at the bottom, and jump between the two in every view.
+---
+
+    <h1>Footnotes</h1>
+    <p class="lede">Footnotes let you move an aside, a caveat, or a citation out of the sentence and down to the bottom of the note. You mark the spot in your text and write the note itself elsewhere in the file, and Minerva keeps the two linked wherever you're reading.</p>
+
+    <h2 id="syntax">Writing a footnote</h2>
+    <p>A footnote has two parts: a <b>marker</b> that sits inline where the thought occurs, and the <b>note text</b> that supplies its content.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k"><code>[^label]</code></div>
+        <div class="v"><b>The marker.</b> Drop it inline in your text. The label can be a number (<code>[^1]</code>) or a word (<code>[^caveat]</code>) — anything without spaces.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>[^label]: text…</code></div>
+        <div class="v"><b>The note text.</b> Start a fresh line with the same label, a colon, and the footnote's content. These usually collect at the bottom of the note, but you can put them anywhere.</div>
+      </div>
+    </div>
+
+    <p>Need more than a sentence? Continue a footnote across several paragraphs by indenting the lines that follow. Here's a complete example:</p>
+<pre><code>The results replicate the 2019 study,[^rep] though with a smaller
+effect size.[^size]
+
+[^rep]: Only the primary outcome was replicated; the secondary
+    measures did not reach significance.
+
+[^size]: d = 0.31 vs. the original d = 0.62.</code></pre>
+
+    <h2 id="rendering">How footnotes look</h2>
+    <p>When your note is rendered, each marker turns into a small numbered superscript, and all the footnote text gathers into a tidy section at the bottom. Click a number to glide down to the matching footnote; each one ends with a small arrow that takes you back to where you were reading. Prefer not to leave your place? Hover a number and the footnote appears in a tooltip right there.</p>
+
+    <figure class="shot-img">
+      <img src="img/notes-footnotes.png" alt="A rendered note showing a superscript number in a paragraph with its hover tooltip open, and the collected footnotes gathered at the bottom of the note." loading="lazy" />
+      <figcaption>Screenshot — Footnote in a rendered note</figcaption>
+    </figure>
+
+    <div class="box">
+      <span class="label">Labels vs. numbers</span>
+      <p>Your label is just a name for you — it isn't what readers see. Footnotes are numbered automatically in the order their markers appear, so <code>[^caveat]</code> shows up as ¹ if it's the first one. Use whatever labels help you keep track; the finished note stays neat.</p>
+    </div>
+
+    <h2 id="editor">Jumping between marker and note</h2>
+    <p>While you're writing, markers and their notes act as two-way links:</p>
+    <ul>
+      <li><b>Click a marker</b> — jump to its footnote text.</li>
+      <li><b>Click a footnote's text</b> — jump to the first place it's used.</li>
+      <li><b>Hover a marker</b> — preview the footnote without leaving the sentence. If you haven't written it yet, the preview tells you so.</li>
+    </ul>
+    <p>To add one quickly, use the <b>Insert Footnote</b> command: it drops the next free numbered marker where your cursor is, adds a matching line at the end of the note, and puts your cursor there so you can start typing.</p>
+
+    <h2 id="panel">The Footnotes panel</h2>
+    <p>The right sidebar's <b>Footnotes</b> panel lists every footnote in the note, with a preview of each and a search box for long documents. Click an entry to jump to where it's used. The panel also catches loose ends:</p>
+    <ul>
+      <li><b>Defined, never used</b> — a footnote you wrote but never pointed to.</li>
+      <li><b>Referenced, not defined</b> — a marker in your text with no footnote written yet. Click it to go straight to the spot and fill it in.</li>
+    </ul>
+
+    <div class="shot">
+      <div class="icon">🗂️</div>
+      <div class="k">Screenshot — Footnotes panel</div>
+      <div class="d">The right-sidebar Footnotes panel showing several footnotes with their labels and previews, including one flagged as never used and one flagged as not yet written.</div>
+    </div>
