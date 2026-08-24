@@ -1,0 +1,77 @@
+---
+title: Minerva — Docs — History
+description: The right sidebar's History panel keeps every saved version of a note, says what caused each one, and puts an old version back with one click.
+---
+
+    <h1>History</h1>
+    <p class="lede">Every time a note is saved, Minerva keeps a copy of what it looked like before. This panel is where you read that record: a list of versions with the date, the time, and a line saying what produced each one — your own edit, a thinking tool, a restore. Pick a version to see what changed since, and put it back with one click if you'd rather have it.</p>
+
+    <div class="box">
+      <span class="label">This is not git</span>
+      <p>Nothing here needs setting up, and none of it is a commit. History is kept automatically, on this machine, for every note — including the <code>.csv</code>, <code>.ttl</code> and <code>.py</code> notes, not just the markdown ones. It lives in the <code>.minerva</code> folder beside your notes and never leaves your computer, so it isn't part of <a href="export-publishing.html">publishing</a> and doesn't travel with a note you export.</p>
+    </div>
+
+    <h2 id="timeline">Reading the timeline</h2>
+    <p>Versions are listed newest first. Each row carries two lines: when the version was saved, and what caused it.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">The date and time</div>
+        <div class="v">To the minute, because two versions saved a minute apart are exactly the ones you need to tell apart. The year is shown only when it isn't this one.</div>
+      </div>
+      <div class="row">
+        <div class="k">What caused it</div>
+        <div class="v">The line underneath names the action, not the machinery. A save you made reads <b>Edit</b>. A version a thinking tool produced carries that skill's name — <b>Antithesize</b>, <b>Auto-tag</b> — so you can see at a glance which changes were yours and which weren't.</div>
+      </div>
+      <div class="row">
+        <div class="k">Initial version</div>
+        <div class="v">The oldest version of every note, and the one "undo everything" gets you back to. It's created the first time a note is written through Minerva — including for notes that already existed before there was any history, whose text is captured before your first edit lands on top of it. It is never dropped, however old it gets.</div>
+      </div>
+      <div class="row">
+        <div class="k">Restored from…</div>
+        <div class="v">Restoring is itself a save, so it appears as a new version naming the one you brought back. A timeline with several restores in it still reads in order.</div>
+      </div>
+      <div class="row">
+        <div class="k">A name</div>
+        <div class="v">Versions you've named show the name as a chip on the right. See <a href="#naming">naming a version</a> below.</div>
+      </div>
+    </div>
+
+    <figure class="shot-img panel-wide">
+      <img src="img/right-sidebar-history.png" alt="The History panel showing five versions of a note — an AI rewrite, a version named 'before rewrite', an Auto-tag change, an edit, and the initial version — with the selected version's differences shown below as added and removed lines." loading="lazy" />
+      <figcaption>Screenshot — the History panel, with a version selected and its differences below</figcaption>
+    </figure>
+
+    <h2 id="comparing">Comparing and restoring</h2>
+    <p>Click any version to compare it with the note as it stands now. The count at the top says how many lines would be added and removed, and the lines themselves are listed below — added in green, removed in red.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Restore</div>
+        <div class="v">Puts the selected version's text back into the note. Nothing is lost: the text you're replacing is saved as a version of its own first, so restoring the wrong one costs you a second click, not your work. The open editor reloads to match.</div>
+      </div>
+      <div class="row">
+        <div class="k">"Contents are identical"</div>
+        <div class="v">Shown instead of a comparison when the version you picked matches the note's current text word for word — which happens for the newest version, and for any older one you've since edited your way back to. There's nothing to restore, so no button is offered.</div>
+      </div>
+    </div>
+
+    <h2 id="naming">Naming a version</h2>
+    <p>A date and time tells you when something happened, not why it mattered. Right-click any version and choose <b>Label Version…</b> to give it a name — <i>before rewrite</i>, <i>submitted draft</i>, <i>last good copy</i> — and it becomes easy to find weeks later. Right-clicking a version that already has one offers <b>Rename Label…</b> and <b>Remove Label</b> instead.</p>
+
+    <div class="box">
+      <span class="label">Named versions don't expire</span>
+      <p>Unnamed versions are dropped once they age out of the retention window or fall off the per-note limit (see <a href="settings-versioning.html">Settings → Versioning</a>). A named version is exempt from both — naming one is how you keep a particular state of a note indefinitely.</p>
+    </div>
+
+    <figure class="shot-img panel-wide">
+      <img src="img/right-sidebar-history-label.png" alt="Right-clicking a version in the History panel opens a small menu offering 'Label Version…'." loading="lazy" />
+      <figcaption>Screenshot — naming a version from the timeline</figcaption>
+    </figure>
+
+    <h2 id="many-notes">Naming several notes at once</h2>
+    <p>A restore point is often bigger than one note. In the <a href="left-sidebar-notes-tree.html">Notes panel</a>, select the notes (or a folder) you're about to change, right-click and choose <b>Label Version…</b>: the current version of every note in the selection gets the same name. One name, one moment, however many notes — the thing to reach for before a refactor or a big AI-assisted pass.</p>
+    <p>Nothing is written into the notes themselves; the name is attached to their history, exactly as it would be from this panel. Notes that can't be labelled are reported afterwards, and the rest still get their restore point.</p>
+
+    <h2 id="limits">How much is kept</h2>
+    <p>By default a note keeps its unnamed versions for 30 days, up to 500 of them, and files over 1 MB aren't recorded at all. All three are adjustable — see <a href="settings-versioning.html">Settings → Versioning</a>.</p>

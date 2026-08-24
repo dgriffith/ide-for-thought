@@ -1,0 +1,28 @@
+---
+title: Minerva — Docs — Turtle / RDF
+description: Add hand-authored facts to a note with a turtle cell, so you can state relationships in your knowledge base more precisely than Minerva could infer on its own.
+---
+
+    <h1>Turtle / RDF</h1>
+    <p class="lede">As you write, Minerva quietly builds a knowledge base from your notes — pulling in titles, tags, links, properties, and table data on its own. Sometimes, though, you want to state a fact about a note more precisely than Minerva could guess. A <b>turtle</b> cell lets you write those facts by hand, right inside the note, and they join everything else Minerva already knows.</p>
+
+    <h2 id="syntax">Writing a turtle cell</h2>
+    <p>Start a cell and label it <code>turtle</code>. Whatever you put inside is read as facts about your note rather than shown as a plain code sample. Each fact is a short statement: a subject, a relationship, and a value. Use <code>this:</code> as the subject when the statement is about the current note — the most common case.</p>
+
+    <p>Here's a realistic example: marking a note as a glossary term and connecting it to a broader idea.</p>
+
+<pre><code>```turtle
+this: a thought:Term ;
+    thought:hasStatus thought:established ;
+    minerva:relatesTo &lt;https://minerva.dev/ontology#Provenance&gt; .
+```</code></pre>
+
+    <p>When you save, these three statements about the note join the titles, tags, and links Minerva gathered from the rest of it. Edit the cell and save again, and your facts update to match — just like any other change to the note.</p>
+
+    <figure class="shot-img">
+      <img src="img/notes-rdf.png" alt="A note being written, with ordinary paragraphs above and below a turtle cell that holds a few hand-written facts about the note, set apart from the surrounding text." loading="lazy" />
+      <figcaption>A turtle cell in a note</figcaption>
+    </figure>
+
+    <h2 id="prefixes">Shorthands you can use</h2>
+    <p>You don't have to set anything up first. A handful of common shorthands — including <code>thought:</code>, <code>dc:</code>, and <code>rdf:</code> — are always ready, along with <code>this:</code> for the note itself. Just write <code>thought:Term</code> or <code>dc:title</code> and it works. If you'd rather define your own shorthand to point somewhere else, declare it in the cell and yours takes precedence.</p>

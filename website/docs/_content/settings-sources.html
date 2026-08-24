@@ -1,0 +1,48 @@
+---
+title: Minerva — Docs — Settings: Sources
+description: The Sources settings tab: bringing in subject tags when you add a source by identifier, and logging in to sites so Minerva can reach articles behind a paywall.
+---
+
+    <h1>Sources</h1>
+    <p class="lede">A source is a paper, article, or document you've brought into your project to read and cite. The <b>Sources</b> tab in Settings holds two conveniences for getting sources in: automatically picking up subject tags when you add one by its identifier, and logging in to sites so Minerva can reach articles you have access to. To learn what sources are and the different ways to add one, see <a href="left-sidebar-sources.html">Left sidebar → Sources</a>.</p>
+
+    <h2 id="ingest">Subject tags on new sources</h2>
+    <p>When you add a source by its identifier — a DOI, arXiv id, or PubMed id — the catalog you're pulling it from often already knows what subject areas the work belongs to. Minerva can bring those subjects along as ready-made tags on the new source, so it's filed under the right topics automatically.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Import subject tags on new sources</div>
+        <div class="v">On by default. When it's on, adding a source by identifier tags it with the subject areas the catalog lists for that work — grouped by where they came from, so a paper might arrive tagged something like <code>crossref/sociology</code>, <code>arxiv/cs-lg</code>, or <code>mesh/genetics</code>. Turning it off only affects sources you add from then on; tags already on existing sources stay put. To remove these tags from a source later, right-click it and choose "Strip upstream tags."</div>
+      </div>
+    </div>
+
+    <p>These tags only come from sources you add by identifier — adding one by web address or from a file won't produce them, since only a catalog lookup knows the work's subject areas.</p>
+
+    <h2 id="privileged-sites">Sites you're logged in to</h2>
+    <p>Some articles are only fully available once you've signed in — through an institution or a paid subscription. If you list a site here and log in to it, Minerva will use that login whenever it fetches from that site, so a paywalled article comes in complete instead of blocked.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Add site</div>
+        <div class="v">Enter the site's address (for example <code>arxiv.org</code>) and an optional name, then <b>Add</b>. Each site you add keeps its own separate, private login — signing in to one never affects another.</div>
+      </div>
+      <div class="row">
+        <div class="k">Login</div>
+        <div class="v">Opens a browser window on the site so you can sign in the way you normally would. Close the window when you're done, and Minerva remembers the login for future fetches.</div>
+      </div>
+      <div class="row">
+        <div class="k">Logout</div>
+        <div class="v">Signs you out of that site and forgets the login. The site stays in your list — you'd just log in again next time you need it.</div>
+      </div>
+      <div class="row">
+        <div class="k">Remove</div>
+        <div class="v">Signs you out and takes the site off the list entirely.</div>
+      </div>
+    </div>
+
+    <p>Being listed here only means Minerva uses your login when it fetches from that site. It doesn't change anything else, and nothing gets brought in without your say-so.</p>
+
+    <figure class="shot-img">
+      <img src="img/settings-sources.png" alt="The subject-tags option with its on/off switch at the top, and below it the list of sites you're logged in to — each showing its name, address, when you last signed in, and buttons to log in, log out, or remove it, with a form to add a new site." loading="lazy" />
+      <figcaption>The Sources settings tab</figcaption>
+    </figure>

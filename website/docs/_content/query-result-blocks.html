@@ -1,0 +1,32 @@
+---
+title: Minerva — Docs — Result blocks
+description: Drop a query's results into a note as a live list, table, or chart that refreshes on its own.
+---
+
+    <h1>Result blocks</h1>
+    <p class="lede">A result block puts a query's answer right inside a note and keeps it up to date — as a list, a table, or a chart that refreshes on its own whenever you open the note. You don't have to paste in fresh numbers by hand. The easiest way to create one is the Query panel's "Copy as…" menu (see <a href="query-menu-panel.html">Query menu &amp; panel</a>), which builds the block for you, but you can also write one yourself.</p>
+
+    <h2 id="list-table">Lists &amp; tables</h2>
+    <p>A result block can show your query's answer as a simple list or as a full table. A few settings let you shape what appears:</p>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Columns</div>
+        <div class="v">Choose which columns to show and in what order. Leave it out to show everything the query returns.</div>
+      </div>
+      <div class="row">
+        <div class="k">Link</div>
+        <div class="v">Pick a column whose entries become clickable links that jump straight to the matching note.</div>
+      </div>
+    </div>
+    <p>Tables sort just like results in the Query panel — click a column heading to switch between ascending and descending order.</p>
+
+    <h2 id="timeseries">Charts</h2>
+    <p>When your results are numbers over time, a result block can draw them as a chart instead of a table. You choose which column runs along the bottom, which values to plot, and the look — a line, bars, or a filled area — along with an optional title and height.</p>
+
+    <figure class="shot-img">
+      <img src="img/query-result-blocks.png" alt="An area chart with two lines — for example revenue and cost — appears in the note directly below the query that produced it, and redraws itself whenever the note is opened." loading="lazy" />
+      <figcaption>A chart drawn from a query, right inside a note</figcaption>
+    </figure>
+
+    <h2 id="schema">Know a table's columns before you query</h2>
+    <p>When you're about to query a table you brought in, it helps to see its real column names first. Two ready-made queries do exactly that: <b>Describe schema</b> lists the columns, and <b>Summarize</b> adds a quick statistical snapshot of each one. As you type a query, Minerva also suggests the actual column names for you.</p>

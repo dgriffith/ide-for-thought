@@ -1,0 +1,130 @@
+---
+title: Minerva — Docs — Notes
+description: What a note is in Minerva, how to create, rename, move, and delete notes, and a map of everything you can put inside one.
+---
+
+    <h1>Notes</h1>
+    <p class="lede">A note is where you write. Notes are plain text, so anything you type stays readable and portable, and you can organize them into folders however you like. Beyond ordinary prose, a note can hold links to other notes, formatting, images, tables, math, charts, and more — plus an optional block of <a href="notes-frontmatter.html">properties</a> at the top that records structured details like tags or a status.</p>
+
+    <h2 id="lifecycle">Creating and managing notes</h2>
+    <p>You can work with notes from the left sidebar, the command palette, or the File menu:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Create</div>
+        <div class="v"><b>File → New Note</b> (<kbd>⌘</kbd><kbd>N</kbd>), or "New Note" from the command palette. You'll be asked for a name and can optionally start from a template. Pick a name that isn't already in use.</div>
+      </div>
+      <div class="row">
+        <div class="k">Rename</div>
+        <div class="v">Right-click the note in the sidebar and choose Rename. Minerva also updates every <a href="notes-links.html">link</a> elsewhere that pointed at the old name, so nothing breaks.</div>
+      </div>
+      <div class="row">
+        <div class="k">Move</div>
+        <div class="v">Drag the note to a different folder in the sidebar.</div>
+      </div>
+      <div class="row">
+        <div class="k">Delete</div>
+        <div class="v">Right-click the note in the sidebar and choose Delete. You'll get a simple confirmation, with a "don't ask again" option. Deleting a note is a normal, everyday action.</div>
+      </div>
+    </div>
+
+    <figure class="shot-img">
+      <img src="img/notes.png" alt="The left sidebar with a right-click menu open on a note showing Rename, Move, and Delete, next to the New Note dialog asking for a name and template." loading="lazy" />
+      <figcaption>Managing notes from the sidebar</figcaption>
+    </figure>
+
+    <h2 id="contents">What you can put in a note</h2>
+    <p>Beyond prose, a note can hold any of the following. Each has its own page showing how to add it and how it looks:</p>
+
+    <div class="doc-cards">
+      <a class="doc-card" href="notes-links.html">
+        <span class="em">🔗</span>
+        <h3>Links</h3>
+        <p>Connect notes to each other and see what links back.</p>
+      </a>
+      <a class="doc-card" href="notes-frontmatter.html">
+        <span class="em">🏷️</span>
+        <h3>Properties</h3>
+        <p>Structured details like tags and status at the top of a note.</p>
+      </a>
+      <a class="doc-card" href="notes-typed-notes.html">
+        <span class="em">📖</span>
+        <h3>Typed notes</h3>
+        <p>Notes that are a <em>kind</em> of thing, with fields to match.</p>
+      </a>
+      <a class="doc-card" href="notes-highlights.html">
+        <span class="em">🖍️</span>
+        <h3>Highlights</h3>
+        <p>Mark a passage as important.</p>
+      </a>
+      <a class="doc-card" href="notes-tasks.html">
+        <span class="em">☑️</span>
+        <h3>Task lists</h3>
+        <p>Checkboxes you can tick off as you go.</p>
+      </a>
+      <a class="doc-card" href="notes-callouts.html">
+        <span class="em">💡</span>
+        <h3>Callouts</h3>
+        <p>Titled note, tip, and warning boxes that stand out.</p>
+      </a>
+      <a class="doc-card" href="notes-images.html">
+        <span class="em">🖼️</span>
+        <h3>Images</h3>
+        <p>Drag, paste, or link images into a note.</p>
+      </a>
+      <a class="doc-card" href="notes-tables.html">
+        <span class="em">📋</span>
+        <h3>Tables &amp; CSV</h3>
+        <p>Tables that also work as structured data.</p>
+      </a>
+      <a class="doc-card" href="notes-footnotes.html">
+        <span class="em">🦶</span>
+        <h3>Footnotes</h3>
+        <p>Asides and citations gathered at the bottom.</p>
+      </a>
+      <a class="doc-card" href="notes-flashcards.html">
+        <span class="em">🃏</span>
+        <h3>Flashcards</h3>
+        <p>Two-sided study cards you write inside a note.</p>
+      </a>
+      <a class="doc-card" href="notes-media.html">
+        <span class="em">🎬</span>
+        <h3>Media</h3>
+        <p>Videos as click-to-open cards.</p>
+      </a>
+      <a class="doc-card" href="notes-math.html">
+        <span class="em">∫</span>
+        <h3>Math</h3>
+        <p>Inline and full-width equations.</p>
+      </a>
+      <a class="doc-card" href="notes-diagrams.html">
+        <span class="em">🔀</span>
+        <h3>Diagrams</h3>
+        <p>Flowcharts, sequence diagrams, and more.</p>
+      </a>
+      <a class="doc-card" href="notes-charts.html">
+        <span class="em">📊</span>
+        <h3>Charts</h3>
+        <p>Interactive charts, live in the note.</p>
+      </a>
+      <a class="doc-card" href="notes-code.html">
+        <span class="em">🧮</span>
+        <h3>Code &amp; compute cells</h3>
+        <p>Highlighted code, plus cells you can run.</p>
+      </a>
+      <a class="doc-card" href="notes-query.html">
+        <span class="em">📊</span>
+        <h3>Query cells</h3>
+        <p>Embed a live answer from your knowledge base or tables.</p>
+      </a>
+      <a class="doc-card" href="notes-search.html">
+        <span class="em">🔎</span>
+        <h3>Search cells</h3>
+        <p>A live list of related notes, by meaning or keyword.</p>
+      </a>
+      <a class="doc-card" href="notes-rdf.html">
+        <span class="em">🐢</span>
+        <h3>Turtle / RDF</h3>
+        <p>Add structured facts directly inside a note.</p>
+      </a>
+    </div>

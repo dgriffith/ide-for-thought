@@ -1,0 +1,43 @@
+---
+title: Minerva — Docs — Versioning
+description: Settings for how long Minerva keeps each note's saved versions, how many it keeps per note, and how big a file can get before it stops being recorded.
+---
+
+    <h1>Versioning</h1>
+    <p class="lede">Minerva keeps a copy of every version of every note you save, so you can read them and put one back from the <a href="right-sidebar-history.html">History panel</a>. That costs disk, and these three settings decide how much: how long a version lives, how many pile up for one note, and how big a file has to get before it stops being recorded.</p>
+
+    <figure class="shot-img">
+      <img src="img/settings-versioning.png" alt="The Versioning panel in Settings, showing the three limits: keep versions for 30 days, 500 versions per note, and a 1024 KB maximum file size." loading="lazy" />
+      <figcaption>Screenshot — Settings → Versioning</figcaption>
+    </figure>
+
+    <h2 id="limits">The three limits</h2>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Keep versions for</div>
+        <div class="v">How many days an unnamed version lives before it's dropped. Default: <b>30</b>. Raise it if you want a longer memory; lower it if history is using more disk than it's worth to you.</div>
+      </div>
+      <div class="row">
+        <div class="k">Versions per note</div>
+        <div class="v">How many unnamed versions to keep for a single note, newest first. Default: <b>500</b>. This is the backstop for a long editing session, which can otherwise produce hundreds of versions of one note in an afternoon.</div>
+      </div>
+      <div class="row">
+        <div class="k">Maximum file size</div>
+        <div class="v">Files bigger than this get no history at all. Default: <b>1024 KB</b> — far above any note you'd write by hand, and low enough that a large generated <code>.csv</code> isn't copied on every save. Set it to <code>0</code> if you'd rather have history on everything and have the disk for it.</div>
+      </div>
+    </div>
+
+    <div class="box">
+      <span class="label">Two versions are never dropped</span>
+      <p>Neither limit touches a version you've <a href="right-sidebar-history.html#naming">named</a>, or a note's <b>initial version</b>. A name is a deliberate "keep this", and the initial version is what "undo everything" gets you back to — losing either to a retention rule would defeat the point of keeping history at all. Neither is what fills a disk.</p>
+    </div>
+
+    <h2 id="lowering">What happens when you lower a limit</h2>
+    <p>The open thoughtbase is re-pruned as soon as you change a setting, so tightening a limit frees the disk immediately rather than gradually as you happen to edit each note. Other thoughtbases on this machine catch up the next time each of their notes is saved.</p>
+    <p>Pruning removes stored versions permanently. If there's a state of a note you want to survive a shorter retention window, name it first.</p>
+
+    <h2 id="per-machine">Per-machine, not per-thoughtbase</h2>
+    <p>These limits are stored for this computer and apply to every thoughtbase you open on it — what they're budgeting is this machine's disk, and the same thoughtbase on a roomier machine can reasonably keep more. The history itself is per-thoughtbase: it lives in the <code>.minerva</code> folder beside the notes, so a thoughtbase carries its own past with it if you move it.</p>
+
+    <h2 id="what-is-recorded">What gets recorded</h2>
+    <p>Every save of every note — markdown and the <code>.csv</code>, <code>.ttl</code> and <code>.py</code> notes alike — whether the save came from you, from a <a href="thinking-tools.html">thinking tool</a>, or from restoring an earlier version. Attachments and images aren't notes and aren't recorded. Neither is anything inside <code>.minerva</code> itself.</p>

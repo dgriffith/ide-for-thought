@@ -3,7 +3,11 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 // @ts-expect-error -- plain JS build-time module, no .d.ts
-import { extractPageChunks as extractPageChunksImpl, extractDocsCorpus as extractDocsCorpusImpl } from '../../scripts/lib/extract-docs-corpus.mjs';
+import {
+  extractPageChunks as extractPageChunksImpl,
+  extractFragmentChunks as extractFragmentChunksImpl,
+  extractDocsCorpus as extractDocsCorpusImpl,
+} from '../../scripts/lib/extract-docs-corpus.mjs';
 
 interface DocChunk {
   id: string;
@@ -15,6 +19,11 @@ interface DocChunk {
 
 const extractPageChunks = extractPageChunksImpl as (
   html: string,
+  sourcePage: string,
+  opts?: { maxChars?: number },
+) => DocChunk[];
+const extractFragmentChunks = extractFragmentChunksImpl as (
+  body: string,
   sourcePage: string,
   opts?: { maxChars?: number },
 ) => DocChunk[];
@@ -191,32 +200,57 @@ describe('extractPageChunks', () => {
   });
 });
 
+describe('extractFragmentChunks', () => {
+  it('reads a bare content fragment — no chrome to scope past (#1842)', () => {
+    const chunks = extractFragmentChunks(
+      '<h1>Widgets</h1>\n<p class="lede">All about widgets.</p>\n<h2 id="making">Making one</h2>\n<p>Press the button.</p>',
+      'widgets.html',
+    );
+    expect(chunks.map((c: DocChunk) => [c.id, c.text])).toEqual([
+      ['widgets.html', 'All about widgets.'],
+      ['widgets.html#making', 'Press the button.'],
+    ]);
+    expect(chunks[0].pageTitle).toBe('Widgets');
+  });
+
+  it('produces the same chunks as the generated page it renders to', () => {
+    const body = '<h1>Widgets</h1>\n<p class="lede">All about widgets.</p>\n<h2 id="making">Making one</h2>\n<p>Press the button.</p>';
+    const page = PAGE_SHELL(
+      `    <p class="crumbs"><a href="index.html">Docs</a>/Widgets</p>\n${body}\n    <div class="pager"><a class="next" href="x.html">Next</a></div>`,
+    );
+    expect(extractFragmentChunks(body, 'widgets.html')).toEqual(extractPageChunks(page, 'widgets.html'));
+  });
+});
+
 describe('extractDocsCorpus', () => {
   let dir: string;
 
   beforeAll(() => {
+    // The real shape: fragments in `<docsDir>/_content`, one per page.
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'docs-corpus-test-'));
-    fs.writeFileSync(
-      path.join(dir, 'a.html'),
-      PAGE_SHELL('<h1>A</h1><p class="lede">Lede A.</p><h2 id="x">X</h2><p>Body A.</p>'),
-    );
-    fs.writeFileSync(
-      path.join(dir, 'b.html'),
-      PAGE_SHELL('<h1>B</h1><p class="lede">Lede B.</p><h2 id="y">Y</h2><p>Body B.</p>'),
-    );
-    // A non-html file must be ignored.
+    const content = path.join(dir, '_content');
+    fs.mkdirSync(content);
+    const fragment = (letter: string, id: string) =>
+      `---\ntitle: ${letter}\ndescription: Page ${letter}.\n---\n\n<h1>${letter}</h1><p class="lede">Lede ${letter}.</p><h2 id="${id}">${id.toUpperCase()}</h2><p>Body ${letter}.</p>\n`;
+    fs.writeFileSync(path.join(content, 'a.html'), fragment('A', 'x'));
+    fs.writeFileSync(path.join(content, 'b.html'), fragment('B', 'y'));
+    // A non-html file must be ignored, and so must the generated pages
+    // sitting alongside `_content` in the docs dir.
+    fs.writeFileSync(path.join(content, 'notes.txt'), 'not a fragment');
     fs.writeFileSync(path.join(dir, 'docs.css'), 'body { color: red; }');
+    fs.writeFileSync(path.join(dir, 'a.html'), PAGE_SHELL('<h1>Stale</h1><p class="lede">Should never be read.</p>'));
   });
 
   afterAll(() => {
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
-  it('aggregates chunks across every html page, ignoring non-html files', () => {
+  it('aggregates chunks across every content fragment, ignoring everything else', () => {
     const chunks = extractDocsCorpus(dir);
     const sourcePages = [...new Set(chunks.map((c: DocChunk) => c.sourcePage))].sort();
     expect(sourcePages).toEqual(['a.html', 'b.html']);
     expect(chunks.some((c: DocChunk) => c.text === 'Lede A.')).toBe(true);
     expect(chunks.some((c: DocChunk) => c.text === 'Lede B.')).toBe(true);
+    expect(chunks.some((c: DocChunk) => c.text === 'Should never be read.')).toBe(false);
   });
 });

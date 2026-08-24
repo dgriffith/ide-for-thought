@@ -1,0 +1,54 @@
+---
+title: Minerva — Docs — Tables
+description: Write tables in your notes with simple markdown, control column alignment, and have every table also become data you can search and query.
+---
+
+    <h1>Tables</h1>
+    <p class="lede">You can add a table to any note with a few keystrokes: a row of column headings, a line beneath it, and as many rows of data as you like. Tables render cleanly in your notes — and, quietly, every table also becomes data you can search and pull together across your knowledge base.</p>
+
+    <h2 id="syntax">Writing a table</h2>
+    <p>A table is a header row, a divider line just below it, and one or more rows of data. Separate the cells in each row with a vertical bar. The divider line is what turns those rows into a table rather than ordinary text.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k"><code>| A | B |</code></div>
+        <div class="v"><b>Header row.</b> The column names, separated by vertical bars.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>|---|---|</code></div>
+        <div class="v"><b>Divider line.</b> Goes right under the header and marks where the column names end and the data begins.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>:---</code></div>
+        <div class="v"><b>Left-align</b> a column (this is also the default).</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>---:</code></div>
+        <div class="v"><b>Right-align</b> a column — handy for numbers.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>:---:</code></div>
+        <div class="v"><b>Center-align</b> a column.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>| a \| b |</code></div>
+        <div class="v"><b>A literal bar.</b> Put a backslash before a vertical bar to show it inside a cell instead of starting a new column.</div>
+      </div>
+    </div>
+
+    <p>A short example:</p>
+<pre><code>| Trial | Condition | Effect size |
+|:------|:---------:|------------:|
+| 1     | control   |        0.12 |
+| 2     | treatment |        0.61 |
+| 3     | treatment |        0.58 |</code></pre>
+
+    <figure class="shot-img">
+      <img src="img/notes-tables.png" alt="The table above as it appears in a note: a bold header row over neatly bordered rows, with the first column left-aligned, the middle column centered, and the numbers on the right lined up along their right edge." loading="lazy" />
+      <figcaption>A finished table in a note</figcaption>
+    </figure>
+
+    <p>Each cell is a single box — one row tall and one column wide. Cells can't be merged or made to span across neighbours.</p>
+
+    <h2 id="data">Tables are also data</h2>
+    <p>Beyond looking tidy, every table you write becomes part of your knowledge base as structured data, with its columns and values ready to be searched and combined. That means you can ask questions across the tables scattered through your notes — pulling figures together, comparing rows, or gathering everything under a given column — from the Query view. You don't have to mark a table as special or turn anything on; any well-formed table is picked up automatically as soon as you have a header, a divider line, and at least one row of data.</p>

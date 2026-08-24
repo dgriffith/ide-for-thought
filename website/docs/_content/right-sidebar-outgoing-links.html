@@ -1,0 +1,36 @@
+---
+title: Minerva — Docs — Outgoing Links
+description: The Outgoing links panel lists every note the current note points to, grouped by link type, with broken targets flagged and one click to jump to a note.
+---
+
+    <h1>Outgoing links</h1>
+    <p class="lede">The Outgoing links panel lists every <a href="notes-links.html">link</a> the current note points to — the notes it references, not the notes that reference it. It's the mirror image of <a href="right-sidebar-backlinks.html">Backlinks</a>, read in the opposite direction. Click any row to open that note.</p>
+
+    <h2 id="contents">What's in the list</h2>
+    <p>Each link in the note becomes a row showing the title of the note it points to.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Working link</div>
+        <div class="v">Shows a document icon and the title of the note it points to. Click the row to open that note.</div>
+      </div>
+      <div class="row">
+        <div class="k">Broken link</div>
+        <div class="v">Shows a warning icon and a tinted title when the link doesn't point to any note that exists. The row still appears so you can spot it and fix it, but there's nowhere to go, so clicking it does nothing.</div>
+      </div>
+    </div>
+
+    <p>By default, links are grouped by <a href="notes-links.html#types">type</a> — each group has a colored marker, a label, and a count, matching the color that type shows in the note itself. Collapse a group to tidy it away, or use the toolbar buttons to expand or collapse them all at once. Switch the sort control to <b>Alphabetical</b> to see one title-sorted list instead, with a small type badge on each row.</p>
+
+    <p>The toolbar also has a filter field to narrow the list to targets whose title contains what you type, and a button to view the note's links as a graph instead of a list.</p>
+
+    <figure class="shot-img panel">
+      <img src="img/right-sidebar-outgoing-links.png" alt="The Outgoing links tab for a note with several links, showing collapsible groups by type with counts, one row flagged as a broken link, and the toolbar's filter field, sort control, and graph button." loading="lazy" />
+      <figcaption>Screenshot — Outgoing links panel</figcaption>
+    </figure>
+
+    <h2 id="cite-quote">Links to sources</h2>
+    <p>Some links point to a source in your bibliography rather than to a note. This panel treats every link as if it points to a note, so a link to a source appears here as a broken row. To browse links to your sources, use the <a href="right-sidebar-citations.html">Citations</a> panel instead.</p>
+
+    <h2 id="empty">When there's nothing to show</h2>
+    <p>A note with no links shows "No outgoing links." If you've typed a filter and nothing matches it, you'll see "No matches" instead.</p>

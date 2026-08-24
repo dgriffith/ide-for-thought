@@ -1,0 +1,63 @@
+---
+title: Minerva — Docs — Tags
+description: The left sidebar's Tags panel: an alphabetical list of every tag in your project, with counts, that you click to see what carries each tag.
+---
+
+    <h1>Tags</h1>
+    <p class="lede">Tags are simple labels you attach to notes to group related material. The Tags panel gathers every tag in your project into one alphabetical list, and clicking a tag shows you everything that carries it. It's a way to browse and filter — you add and remove tags in a note itself, not here.</p>
+
+    <h2 id="sources">Where tags come from</h2>
+    <p>There are two ways to tag a note, and both feed the same list.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">In a note's properties</div>
+        <div class="v">List tags in the properties at the top of a note, for example <code>tags: [neuroscience, consciousness]</code>. See <a href="notes-frontmatter.html#keys">Properties</a> for details.</div>
+      </div>
+      <div class="row">
+        <div class="k">Inline while writing</div>
+        <div class="v">Type a <code>#</code> directly followed by a word anywhere in a note — <code>#draft</code>, <code>#project/ui</code>. The tag runs until the next space or punctuation.</div>
+      </div>
+    </div>
+
+    <div class="box">
+      <span class="label">Headings aren't tags</span>
+      <p>A heading like <code># Heading</code> has a space after the <code>#</code>, so it's never mistaken for a tag. To tag something, write <code>#tag</code> with no space. A <code>#</code> inside a code sample is ignored too, so it won't clutter your tag list.</p>
+    </div>
+
+    <h2 id="panel">What the panel shows</h2>
+    <p>Tags appear as chips sorted alphabetically, each labelled with the tag name and a count.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Count</div>
+        <div class="v">The number tells you how many notes carry the tag — and how many sources too, when the sources toggle is on. Hover a chip for the exact breakdown, such as "3 notes, 1 source."</div>
+      </div>
+      <div class="row">
+        <div class="k">Chip size</div>
+        <div class="v">Your most-used tags appear slightly larger, a quick visual cue for which topics dominate your project.</div>
+      </div>
+      <div class="row">
+        <div class="k">Highlighted tags</div>
+        <div class="v">A couple of special tags — <code>entrypoint</code> and <code>open-question</code> — always stand out in the accent color, because they mark places worth returning to.</div>
+      </div>
+      <div class="row">
+        <div class="k">Sources toggle</div>
+        <div class="v">A checkbox above the list, on by default, includes tagged sources alongside tagged notes. Turn it off to see notes only.</div>
+      </div>
+    </div>
+
+    <figure class="shot-img panel">
+      <img src="img/left-sidebar-tags.png" alt="A wrapped row of tag chips sorted alphabetically, with one chip highlighted as selected. Beneath it, a &quot;Tagged #neuroscience&quot; section lists the matching notes and sources." loading="lazy" />
+      <figcaption>The Tags panel with a tag selected</figcaption>
+    </figure>
+
+    <h2 id="selecting">Selecting a tag</h2>
+    <p>Click a chip to see everything that carries that tag. Matching notes and sources are listed right below the chips. Click a note to open it in the editor, or a source to open it in the source viewer.</p>
+
+    <p>One tag is active at a time — clicking another chip switches to it. Click the active chip again to deselect it and clear the results.</p>
+
+    <div class="box">
+      <span class="label">This is a separate list</span>
+      <p>Selecting a tag doesn't change what's shown in the <a href="left-sidebar-notes-tree.html">Notes tree</a>. It builds its own list of matches inside the Tags panel; your full notes list stays exactly as you left it.</p>
+    </div>

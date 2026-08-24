@@ -1,8 +1,10 @@
 /**
  * Build the precomputed help-docs corpus (#1284, epic:docs-grounding, #1154).
  *
- * Embeds `website/docs/*.html` (extracted into chunks by
- * `scripts/lib/extract-docs-corpus.mjs`) with the same bundled all-MiniLM-L6-v2
+ * Embeds the docs content fragments `website/docs/_content/*.html` (extracted
+ * into chunks by `scripts/lib/extract-docs-corpus.mjs` — the same fragments
+ * `scripts/build-docs.mjs` renders the site from, #1842) with the same
+ * bundled all-MiniLM-L6-v2
  * model the thoughtbase's own semantic search uses, and writes the result to
  * `resources/help-docs/corpus.json` — a static asset shipped alongside the app
  * (via forge's `extraResource: ['resources']`), not rebuilt at runtime. The
@@ -32,6 +34,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { extractDocsCorpus } from './lib/extract-docs-corpus.mjs';
+import { CONTENT_DIR } from './lib/docs-model.mjs';
 import { createWasmEmbedder } from '../src/main/embeddings/wasm-embedder.ts';
 import { MODEL } from '../src/main/embeddings/embedder.ts';
 
@@ -40,7 +43,9 @@ const DOCS_DIR = path.join(ROOT, 'website', 'docs');
 const OUT_DIR = path.join(ROOT, 'resources', 'help-docs');
 const OUT_FILE = path.join(OUT_DIR, 'corpus.json');
 const THIS_FILE = fileURLToPath(import.meta.url);
+const CONTENT_PATH = path.join(DOCS_DIR, CONTENT_DIR);
 const EXTRACT_FILE = path.join(ROOT, 'scripts', 'lib', 'extract-docs-corpus.mjs');
+const MODEL_FILE = path.join(ROOT, 'scripts', 'lib', 'docs-model.mjs');
 
 function latestMtimeMs(dir) {
   let latest = 0;
@@ -63,8 +68,9 @@ function isUpToDate() {
 
   const outMtime = fs.statSync(OUT_FILE).mtimeMs;
   const inputsMtime = Math.max(
-    latestMtimeMs(DOCS_DIR),
+    latestMtimeMs(CONTENT_PATH),
     fs.statSync(EXTRACT_FILE).mtimeMs,
+    fs.statSync(MODEL_FILE).mtimeMs,
     fs.statSync(THIS_FILE).mtimeMs,
   );
   return outMtime >= inputsMtime;
@@ -77,7 +83,7 @@ if (isUpToDate()) {
 
 const chunks = extractDocsCorpus(DOCS_DIR);
 if (chunks.length === 0) {
-  throw new Error(`no chunks extracted from ${DOCS_DIR} — is website/docs/ present?`);
+  throw new Error(`no chunks extracted from ${CONTENT_PATH} — is website/docs/_content/ present?`);
 }
 
 // Embedding all ~500 chunks in one batch pads every row to the single
@@ -107,7 +113,7 @@ try {
   fs.writeFileSync(OUT_FILE, JSON.stringify(corpus));
 
   const sizeKb = Math.round(fs.statSync(OUT_FILE).size / 1024);
-  console.log(`help-docs corpus built: ${chunks.length} chunks from website/docs/ → resources/help-docs/corpus.json (${sizeKb} KB)`);
+  console.log(`help-docs corpus built: ${chunks.length} chunks from website/docs/_content/ → resources/help-docs/corpus.json (${sizeKb} KB)`);
 } finally {
   await embedder.dispose();
 }

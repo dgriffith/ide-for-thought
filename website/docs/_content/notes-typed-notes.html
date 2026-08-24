@@ -1,0 +1,92 @@
+---
+title: Minerva — Docs — Notes: Typed notes
+description: Give a note a type and Minerva knows what fields to expect, what icon to show it with, and how to gather it with its own kind.
+---
+
+    <h1>Typed notes</h1>
+    <p class="lede">Most notes are just notes. But some are clearly a <em>kind</em> of thing — a book you're reading, a person you keep meeting, a project with a deadline. Give a note a type and Minerva knows what to expect from it: the fields it should have, the icon it wears in every list, and how it looks when you gather all of its kind together. It's still an ordinary markdown note underneath, and you can take the type off again at any time.</p>
+
+    <h2 id="making">Making a note typed</h2>
+    <p>A note is typed when its <a href="notes-frontmatter.html">properties</a> include a <code>type:</code> line naming one of your object types — <code>type: book</code>. You rarely write that by hand. There are three ways to get there:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">When you create it</div>
+        <div class="v">The New Note dialog offers your types alongside the blank note. Pick one and the note starts out with its <code>type:</code> already set, plus any starter text the type provides.</div>
+      </div>
+      <div class="row">
+        <div class="k">While you're writing</div>
+        <div class="v">Type <code>/</code> at the start of a line in an empty note and your types appear in the autocomplete — <code>/Book</code>, <code>/Person</code>. Choosing one sets the type without leaving the keyboard.</div>
+      </div>
+      <div class="row">
+        <div class="k">To a note you already have</div>
+        <div class="v">Use <strong>Treat this as…</strong> to give an existing note a type. Its text and existing properties are left exactly as they are — only <code>type:</code> is added — and the Properties panel opens so you can fill in the gaps.</div>
+      </div>
+    </div>
+
+    <div class="box">
+      <span class="label">Nothing is invented for you</span>
+      <p>Typing an existing note never writes values you didn't provide. If the note already has an <code>author</code> property and the type declares one, they simply line up. Everything else starts empty and stays that way until you fill it in.</p>
+    </div>
+
+    <h2 id="what-you-get">What the type gives the note</h2>
+    <p>The type is a small description of what notes of its kind look like. Each part of it shows up somewhere:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Fields</div>
+        <div class="v">The properties this kind of note is expected to have — a Book's author and rating, a Meeting's date and attendees. They appear as a form at the top of the <a href="right-sidebar-properties.html">Properties panel</a>, including the ones you haven't filled in yet.</div>
+      </div>
+      <div class="row">
+        <div class="k">Icon and colour</div>
+        <div class="v">A single character — 📖, 👤 — that marks every note of this type wherever notes are listed, tinted with the type's colour.</div>
+      </div>
+      <div class="row">
+        <div class="k">Card fields</div>
+        <div class="v">The handful of fields worth showing when the note appears as a card rather than a row, such as in a link preview.</div>
+      </div>
+      <div class="row">
+        <div class="k">Cover</div>
+        <div class="v">Which field holds a picture, so a gallery of these notes can show it.</div>
+      </div>
+      <div class="row">
+        <div class="k">Parent type</div>
+        <div class="v">A more general type this one is a kind of. A Novel with Book as its parent inherits Book's fields, and shows up whenever you ask for Books.</div>
+      </div>
+    </div>
+
+    <p>All of that is defined once, per type, in <a href="settings-object-types.html">Settings → Object Types</a> — not per note.</p>
+
+    <h2 id="filling-in">Filling in the fields</h2>
+    <p>Open the <a href="right-sidebar-properties.html">Properties panel</a> on a typed note and its fields are laid out as a form above its other properties. Each field gets the control that suits it: a list of choices for a field with fixed options, a date picker for a date, a number box for a number. Fields the note hasn't filled in yet are still shown, so the form answers "what does a Book need?" rather than only "what has this note got?"</p>
+
+    <p>Nothing is required. Leaving a field empty is perfectly fine — it just means you don't know that yet, or it doesn't apply.</p>
+
+    <h2 id="where">Where typed notes show up</h2>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">In every list of notes</div>
+        <div class="v">The type's icon replaces the usual page icon in the <a href="left-sidebar-notes-tree.html">Notes tree</a>, on tabs, in <a href="navigation-quick-switch.html">Quick switch</a>, in backlinks, and in bookmarks — so a folder of mixed notes is readable at a glance.</div>
+      </div>
+      <div class="row">
+        <div class="k">In the Objects panel</div>
+        <div class="v">The <a href="left-sidebar-objects.html">Objects panel</a> groups your notes by type, so you can see every Book you have without having put them in a folder together.</div>
+      </div>
+      <div class="row">
+        <div class="k">As a collection</div>
+        <div class="v">Opening a type gives you every note of that kind as a list, a table of their fields, or a gallery of cover images.</div>
+      </div>
+      <div class="row">
+        <div class="k">In queries</div>
+        <div class="v">Types become part of your project's <a href="notes-rdf.html">graph</a>, so you can ask for them directly — every Book published before 1970, say.</div>
+      </div>
+    </div>
+
+    <h2 id="still-a-note">It's still an ordinary note</h2>
+    <p>Typing a note doesn't move it, lock it, or change how you write in it. The file stays plain markdown in the same folder, with one extra line in its properties. Delete that <code>type:</code> line and it's an untyped note again — the fields you filled in stay behind as ordinary properties, because that's all they ever were.</p>
+
+    <div class="box">
+      <span class="label">Renaming a type keeps your notes</span>
+      <p>If you rename a type in Settings, the notes using it are updated to match. Their values aren't touched — only the name of the kind of thing they are.</p>
+    </div>

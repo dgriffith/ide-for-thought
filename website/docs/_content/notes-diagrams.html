@@ -1,0 +1,54 @@
+---
+title: Minerva — Docs — Diagrams
+description: Draw live diagrams inside a note — flowcharts, sequence diagrams, and more — by writing them in a simple text syntax.
+---
+
+    <h1>Diagrams</h1>
+    <p class="lede">You can draw diagrams right inside a note — flowcharts, sequence diagrams, and more — by describing them in a simple text syntax. When you preview the note, your description turns into a clean, finished diagram, so you never have to fiddle with boxes and arrows by hand.</p>
+
+    <h2 id="syntax">Writing a diagram</h2>
+    <p>Add a cell labelled <code>mermaid</code> and describe the diagram inside it. Each line names a step and how it connects to the next. To drop one in quickly, right-click in the editor and choose <b>Elements → Mermaid Diagram</b>; you'll get an empty cell with your cursor ready inside.</p>
+
+<pre><code>```mermaid
+flowchart LR
+  A[Draft] --> B{Reviewed?}
+  B -- yes --> C[Published]
+  B -- no --> A
+```</code></pre>
+
+    <h2 id="types">Kinds of diagrams</h2>
+    <p>Many diagram styles are supported — flowcharts, sequence diagrams, class and state diagrams, entity relationships, timelines, and more. Two of the most useful:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Flowchart</div>
+        <div class="v"><b>Boxes and arrows.</b> Show steps and how they branch. You can lay it out left-to-right (<code>LR</code>) or top-down (<code>TD</code>).
+<pre><code>```mermaid
+flowchart TD
+  Start --> Decision{OK?}
+  Decision -->|yes| End
+  Decision -->|no| Start
+```</code></pre>
+        </div>
+      </div>
+      <div class="row">
+        <div class="k">Sequence diagram</div>
+        <div class="v"><b>Who talks to whom.</b> Show the participants and the messages passing between them, in order.
+<pre><code>```mermaid
+sequenceDiagram
+  Alice->>Bob: Question
+  Bob-->>Alice: Answer
+```</code></pre>
+        </div>
+      </div>
+    </div>
+
+    <figure class="shot-img">
+      <img src="img/notes-diagrams.png" alt="A finished note showing a small decision-branch flowchart, drawn neatly in its own block with colors that match the rest of the note." loading="lazy" />
+      <figcaption>A flowchart in a note</figcaption>
+    </figure>
+
+    <div class="box">
+      <span class="label">Diagrams match your theme</span>
+      <p>Diagrams use the same colors as the note around them. Switch between light, dark, or high-contrast, and your diagrams redraw to match — there's nothing extra to set up.</p>
+    </div>

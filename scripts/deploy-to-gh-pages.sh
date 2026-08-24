@@ -40,9 +40,12 @@ rm -rf "$WORKTREE_DIR"/*
 cp -r website/* "$WORKTREE_DIR/"
 
 # Strip dev-only files that live under website/ but aren't part of the
-# published site: the Playwright screenshot harness (specs, fixtures, helpers)
-# and the internal README. The captured images live in docs/img/ and DO ship.
-rm -rf "$WORKTREE_DIR/screenshots" "$WORKTREE_DIR/README.txt"
+# published site: the Playwright screenshot harness (specs, fixtures, helpers),
+# the internal README, and the docs generator's inputs — layout, nav tree and
+# content fragments, from which docs/*.html is already built (#1842). The
+# captured images live in docs/img/ and DO ship.
+rm -rf "$WORKTREE_DIR/screenshots" "$WORKTREE_DIR/README.txt" \
+  "$WORKTREE_DIR/docs/_content" "$WORKTREE_DIR/docs/_nav.json" "$WORKTREE_DIR/docs/_layout.html"
 
 # Commit and push
 cd "$WORKTREE_DIR"

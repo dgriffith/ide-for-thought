@@ -1,0 +1,96 @@
+---
+title: Minerva — Docs — What is a thoughtbase?
+description: What a thoughtbase is in Minerva, the kinds of work people build one for, and a map of everything a thoughtbase holds — notes, links, sources, data, the knowledge graph, and AI conversations.
+---
+
+    <h1>What is a thoughtbase?</h1>
+    <p class="lede">A <b>thoughtbase</b> is where your thinking on a subject lives and grows. Instead of scattered documents and lost chat threads, you gather what you're working through as <a href="notes.html">notes</a> — and notes link to each other, so ideas connect the way they do in your head. Some you write yourself; some you draft side by side with the AI. Over time a thoughtbase becomes a living map of what you know, not a folder of dead files.</p>
+
+    <p>Each thoughtbase is self-contained: one folder of plain files, with its own <a href="data.html">knowledge graph</a> built automatically from what's inside. You can keep several — one per subject — and open whichever you're working in. Everything is stored locally, in plain text, and stays yours.</p>
+
+    <h2 id="what-for">What you might build one of</h2>
+    <p>A thoughtbase suits any subject you return to and want to build up over time rather than finish and forget. A few shapes it commonly takes:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">A research project</div>
+        <div class="v">A literature review, a thesis, or an ongoing investigation — papers and web pages brought in as <a href="ingest.html">sources</a>, key claims extracted, and your own synthesis linking them together.</div>
+      </div>
+      <div class="row">
+        <div class="k">A writing project</div>
+        <div class="v">A book, a report, or a long essay — the manuscript alongside the background notes, characters, arguments, and references that feed it.</div>
+      </div>
+      <div class="row">
+        <div class="k">A subject you're learning</div>
+        <div class="v">A course or a field you're getting to grips with — explanations in your own words, <a href="notes-flashcards.html">flashcards</a>, and worked examples that build on each other.</div>
+      </div>
+      <div class="row">
+        <div class="k">A decision or investigation</div>
+        <div class="v">Options, evidence, and arguments laid out and connected — support, rebut, and depends-on <a href="notes-links.html">links</a> making the structure of the reasoning visible.</div>
+      </div>
+      <div class="row">
+        <div class="k">A domain you're mapping</div>
+        <div class="v">A product area, a system's architecture, a body of law, a company's history — a reference map of what's true and how the parts relate.</div>
+      </div>
+      <div class="row">
+        <div class="k">A data analysis</div>
+        <div class="v">A question you're answering with data — <a href="notes-tables.html">CSV tables</a> you query with SQL, notes that <a href="notes-code.html">compute</a>, and <a href="notes-charts.html">charts</a> that render live against the numbers.</div>
+      </div>
+      <div class="row">
+        <div class="k">A personal knowledge base</div>
+        <div class="v">A durable place for what you know and keep coming back to — a "second brain" you can actually query, not just search.</div>
+      </div>
+    </div>
+
+    <h2 id="contents">What's inside a thoughtbase</h2>
+    <p>A thoughtbase collects several kinds of thing. Most of it is notes; the rest is the connective tissue and structure that turns a pile of notes into something you can query and build on.</p>
+
+    <div class="doc-cards">
+      <a class="doc-card" href="notes.html">
+        <span class="em">🧵</span>
+        <h3>Notes</h3>
+        <p>The main content — prose, tables, images, math, diagrams, and more. One note per idea, page, or piece.</p>
+      </a>
+      <a class="doc-card" href="notes-links.html">
+        <span class="em">🔗</span>
+        <h3>Links</h3>
+        <p>Connections between notes — plain wiki-links plus typed links like supports, rebuts, and depends-on.</p>
+      </a>
+      <a class="doc-card" href="ingest.html">
+        <span class="em">📥</span>
+        <h3>Sources</h3>
+        <p>Outside material brought in — web pages, PDFs, and references you cite and mine for claims.</p>
+      </a>
+      <a class="doc-card" href="notes-frontmatter.html">
+        <span class="em">🏷️</span>
+        <h3>Properties &amp; tags</h3>
+        <p>Structured details on a note — tags, status, and other metadata that the graph reads.</p>
+      </a>
+      <a class="doc-card" href="notes-tables.html">
+        <span class="em">📋</span>
+        <h3>Data &amp; tables</h3>
+        <p>CSV files as typed tables, and tables inside notes — queryable data that charts and cells read.</p>
+      </a>
+      <a class="doc-card" href="data.html">
+        <span class="em">🕸️</span>
+        <h3>The knowledge graph</h3>
+        <p>A precise map of titles, tags, links, and facts, built automatically on every save — queryable with SPARQL and SQL.</p>
+      </a>
+      <a class="doc-card" href="conversations.html">
+        <span class="em">💬</span>
+        <h3>Conversations &amp; proposals</h3>
+        <p>Your threads with the AI, and the changes it proposes — filed as notes and claims only after you approve them.</p>
+      </a>
+      <a class="doc-card" href="thinking-tools.html">
+        <span class="em">🧠</span>
+        <h3>Thinking-tool output</h3>
+        <p>Results of the Learning, Research, and Analysis skills — each returned as a note you review and keep or discard.</p>
+      </a>
+    </div>
+
+    <h2 id="where">Where a thoughtbase lives</h2>
+    <p>A thoughtbase is just a folder on your disk. Your notes are ordinary markdown files inside it, organized into subfolders however you like — readable and portable, with or without Minerva. Alongside them, a hidden <code>.minerva</code> folder holds the knowledge graph and other generated data, rebuilt from your files as you work.</p>
+    <p>Because it's local-first and plain-text, a thoughtbase is yours: back it up, sync it, or put it under version control like any other folder. Nothing lives in a proprietary database you can't get out of. When you're ready to share, you can <a href="export.html">publish or export</a> a thoughtbase without giving up the original.</p>
+
+    <h2 id="managing">Creating and managing thoughtbases</h2>
+    <p>You create, open, switch between, and close thoughtbases from the <b>File</b> menu. See <a href="thoughtbase-operations.html">Thoughtbase operations</a> for each command and its keyboard shortcut.</p>

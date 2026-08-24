@@ -1,27 +1,33 @@
 /**
  * Extraction for the help-docs corpus (#1283, part of #1154's epic:docs-grounding).
  *
- * Turns the user-facing docs site (`website/docs/*.html`) into indexable text
- * chunks — one per `<h2>` section, plus a preamble chunk (h1 + lede) per page —
- * so the in-app assistant can ground "how do I…" answers in Minerva's real
- * documentation instead of guessing from training-data priors about a product
- * it's never seen.
+ * Turns the user-facing docs site into indexable text chunks — one per `<h2>`
+ * section, plus a preamble chunk (h1 + lede) per page — so the in-app
+ * assistant can ground "how do I…" answers in Minerva's real documentation
+ * instead of guessing from training-data priors about a product it's never
+ * seen.
  *
- * Every docs page shares one template (verified across all 76 pages): content
- * lives entirely inside `<main class="docs-content">`, is headed by an `<h1>`
- * + `<p class="lede">`, and is split into `<h2 id="...">` sections — chrome
- * (`<nav>`, `<aside class="docs-nav">`, `<footer>`) lives outside `<main>` and
- * is never touched by scoping extraction there. `.crumbs`/`.pager` are the two
- * bits of navigation noise that live *inside* `<main>`, so those are removed
- * explicitly. `.shot` screenshot-placeholder captions are also dropped: they
- * mostly restate the surrounding prose ("Screenshot — X: a rendered note
- * showing Y") in service of a not-yet-taken screenshot, so keeping them would
- * dilute a chunk's embedding without adding real instructional content.
+ * **The input is `website/docs/_content/*.html`, not the generated pages**
+ * (#1842). Those fragments — one per page, body only — are exactly the
+ * per-page content the docs generator wraps in shared chrome, so reading them
+ * means never re-parsing chrome back out of the output it was just injected
+ * into. Chunk ids are unchanged by the switch: a fragment is named for the
+ * page it produces, and the crumbs/pager the old scoping had to strip aren't
+ * in a fragment to begin with.
+ *
+ * Every page shares one template: content is headed by an `<h1>` +
+ * `<p class="lede">` and split into `<h2 id="...">` sections.
+ * {@link extractPageChunks} still takes a whole page and scopes itself to
+ * `<main class="docs-content">`, so it works on either shape; `.crumbs` and
+ * `.pager` stay in `NOISE_SELECTORS` for that path. `.shot`
+ * screenshot-placeholder captions are dropped from both: they mostly restate
+ * the surrounding prose ("Screenshot — X: a rendered note showing Y") in
+ * service of a not-yet-taken screenshot, so keeping them would dilute a
+ * chunk's embedding without adding real instructional content.
  */
 
-import fs from 'node:fs';
-import path from 'node:path';
 import { parseHTML } from 'linkedom';
+import { loadFragments } from './docs-model.mjs';
 
 const DEFAULT_MAX_CHARS = 1000;
 const NOISE_SELECTORS = ['.crumbs', '.pager', '.shot'];
@@ -110,19 +116,31 @@ function joinChildren(el) {
 }
 
 /**
- * Extract chunks from every `*.html` page in a docs directory (i.e.
- * `website/docs`). Touches the filesystem — the I/O counterpart to
- * {@link extractPageChunks}, used by the build-time embedding script.
+ * Extract chunks from one content fragment's body. Pure, like
+ * {@link extractPageChunks} — the body is wrapped in the `<main>` the rest of
+ * this module scopes to, rather than duplicating the walk.
+ *
+ * @param {string} body a `_content/*.html` body (no chrome, no crumbs, no pager)
+ * @param {string} sourcePage e.g. "notes-links.html"
+ * @param {{ maxChars?: number }} [opts]
+ */
+export function extractFragmentChunks(body, sourcePage, opts = {}) {
+  return extractPageChunks(`<main class="docs-content">${body}</main>`, sourcePage, opts);
+}
+
+/**
+ * Extract chunks from every content fragment under a docs directory (i.e.
+ * `website/docs`, whose fragments live in `website/docs/_content`). Touches the
+ * filesystem — the I/O counterpart to {@link extractFragmentChunks}, used by
+ * the build-time embedding script.
  *
  * @param {string} docsDir
  * @param {{ maxChars?: number }} [opts]
  */
 export function extractDocsCorpus(docsDir, opts = {}) {
-  const files = fs.readdirSync(docsDir).filter((f) => f.endsWith('.html')).sort();
   const chunks = [];
-  for (const file of files) {
-    const html = fs.readFileSync(path.join(docsDir, file), 'utf-8');
-    chunks.push(...extractPageChunks(html, file, opts));
+  for (const [page, fragment] of loadFragments(docsDir)) {
+    chunks.push(...extractFragmentChunks(fragment.body, page, opts));
   }
   return chunks;
 }

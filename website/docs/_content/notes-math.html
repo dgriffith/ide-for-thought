@@ -1,0 +1,40 @@
+---
+title: Minerva — Docs — Math
+description: Write mathematical notation in your notes with $…$ for inline math and $$…$$ for centered display equations.
+---
+
+    <h1>Math</h1>
+    <p class="lede">Minerva turns mathematical notation into beautifully typeset equations — right inside your notes. Write an equation once and it shows up crisply, whether it sits mid-sentence or stands on its own line. It all works offline.</p>
+
+    <h2 id="syntax">Writing an equation</h2>
+    <p>Wrap your notation in dollar signs. Use a single pair for math that flows inside a sentence, and a double pair for an equation that stands on its own, centered line.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k"><code>$…$</code></div>
+        <div class="v"><b>Inline.</b> Appears right in the middle of your sentence. Example: <code>the update rule is $\theta_{t+1} = \theta_t - \eta \nabla L(\theta_t)$.</code></div>
+      </div>
+      <div class="row">
+        <div class="k"><code>$$…$$</code></div>
+        <div class="v"><b>Display.</b> Stands alone as a centered equation. Example: <code>$$\int_0^\infty e^{-x^2}\,dx = \frac{\sqrt{\pi}}{2}$$</code></div>
+      </div>
+    </div>
+
+    <p>A display equation can fit on one line, or spread across several — the closing <code>$$</code> just needs a line of its own:</p>
+
+<pre><code>$$
+P(A \mid B) = \frac{P(B \mid A)\,P(A)}{P(B)}
+$$</code></pre>
+
+    <figure class="shot-img">
+      <img src="img/notes-math.png" alt="A sentence with an inline equation set naturally in the running text, followed by a centered display equation standing on its own below the paragraph." loading="lazy" />
+      <figcaption>A note with typeset math</figcaption>
+    </figure>
+
+    <h2 id="rendering">How it looks</h2>
+    <p>Inline math sits at normal text size, right in the flow of your sentence. A display equation is centered on its own line, and if it's wider than the page it can scroll sideways so nothing gets cut off.</p>
+
+    <div class="box">
+      <span class="label">A typo won't break your note</span>
+      <p>If an equation can't be read, Minerva simply shows what you typed in place — the rest of your note keeps rendering normally. Hover over it and you'll see a short note explaining what went wrong, so you can fix it without leaving the page.</p>
+    </div>

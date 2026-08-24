@@ -1,0 +1,46 @@
+---
+title: Minerva — Docs — Left sidebar: Objects
+description: The Objects panel — your project browsed by kind rather than by folder, with list, table, and gallery views.
+---
+
+    <h1>Objects</h1>
+    <p class="lede">The Objects panel is your project seen by kind rather than by folder. Every <a href="notes-typed-notes.html">object type</a> you have — Book, Person, Meeting — appears with a count of how many notes are of that kind, and expanding one lists them. It's a way to find things by what they <em>are</em>, without having filed them together in the first place.</p>
+
+    <h2 id="list">The list of types</h2>
+    <p>Each row is one type: its icon, its name, and how many notes carry it. Types with no notes yet are still listed, so creating your first Book is something you can find rather than something you have to remember exists.</p>
+
+    <p>Click a type to expand it and see its notes; click again to collapse. Clicking a note opens it in the editor. Each note carries its own icon, which matters when a type has more specific kinds beneath it — a Book that's really a Novel shows the Novel icon while still being counted as a Book.</p>
+
+    <h2 id="views">Opening a type as a collection</h2>
+    <p>The ⤢ button on a type row opens all of its notes in the main area, where they're more than a list. Three ways to look at the same set:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">List</div>
+        <div class="v">A readable stack of titles, each with a line of detail drawn from its first filled-in field.</div>
+      </div>
+      <div class="row">
+        <div class="k">Table</div>
+        <div class="v">One row per note and one column per field, sortable by any column. Use the Columns button to hide the ones you don't need.</div>
+      </div>
+      <div class="row">
+        <div class="k">Gallery</div>
+        <div class="v">Cards with cover images, for types whose notes have a picture worth seeing — book jackets, people, places.</div>
+      </div>
+    </div>
+
+    <p>Switching between the three doesn't re-fetch anything; it's the same set of notes shown three ways. Clicking any row or card opens that note.</p>
+
+    <div class="box">
+      <span class="label">A more general type includes the specific ones</span>
+      <p>If a type has a parent — Novel's parent being Book — then asking for Books gives you the Novels too. The count on the Book row includes them, and so does its table.</p>
+    </div>
+
+    <h2 id="saved-views">Saved views</h2>
+    <p>Once you've arranged a type's table the way you like it — sorted by rating, with three columns showing — you can save that arrangement with a name. Saved views appear as their own rows under the type they belong to, and opening one restores the whole arrangement exactly. Use the manage action to rename, reorder, or remove them.</p>
+
+    <h2 id="excerpts">Excerpts</h2>
+    <p>Below your types sits Excerpts — the passages you've saved from <a href="left-sidebar-sources.html">sources</a>. It isn't an object type you defined, but it belongs here for the same reason: it's a kind of thing you accumulate, and you often want to browse all of it at once.</p>
+
+    <h2 id="related">Where types come from</h2>
+    <p>The types listed here are defined in <a href="settings-object-types.html">Settings → Object Types</a>, where you can add fields, change an icon, or create your own. A note becomes one of them by carrying a <code>type:</code> property — see <a href="notes-typed-notes.html">Typed notes</a>.</p>

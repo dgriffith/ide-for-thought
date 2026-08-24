@@ -1,0 +1,34 @@
+---
+title: Minerva — Docs — Settings: Web
+description: The Web tab in Settings: turn web access on or off for conversations, and choose which sites the assistant may draw from.
+---
+
+    <h1>Web</h1>
+    <p class="lede">When you chat with the assistant, it can reach out to the web to answer questions that go beyond your own notes. This tab decides whether it may do that, and which sites it's allowed to draw from. To see how web results appear in a conversation, visit <a href="conversations-chatting.html">Chatting with the AI</a>.</p>
+
+    <h2 id="controls">The settings</h2>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Enable web access for conversations</div>
+        <div class="v">The main switch. When it's on, the assistant can look things up on the web whenever a question needs information beyond your notes. When it's off, it works only from what's already in your thoughtbase. On by default.</div>
+      </div>
+      <div class="row">
+        <div class="k">Allowed sites</div>
+        <div class="v">List trusted sites here, one per line (for example, <code>arxiv.org</code>), and the assistant will search and read only those. Leave it blank to let it search the whole web.</div>
+      </div>
+      <div class="row">
+        <div class="k">Blocked sites</div>
+        <div class="v">List sites here, one per line, to keep them out of web results. This applies only when the allowed-sites list is empty.</div>
+      </div>
+    </div>
+
+    <div class="box">
+      <span class="label">Good to know</span>
+      <p>If you fill in the allowed-sites list, it takes over completely and your blocked-sites list is ignored — the assistant sticks to your trusted sites and nothing else. So if web results seem to be leaving out sources you expected, check whether you've added anything to the allowed-sites list.</p>
+    </div>
+
+    <figure class="shot-img">
+      <img src="img/settings-web.png" alt="A switch to turn web access on or off for conversations, followed by two boxes: one for sites the assistant may draw from, and one for sites to keep out." loading="lazy" />
+      <figcaption>The Web tab in Settings</figcaption>
+    </figure>

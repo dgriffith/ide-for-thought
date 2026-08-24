@@ -1,0 +1,84 @@
+---
+title: Minerva — Docs — Search
+description: Search (⌘⇧F) finds and replaces text across every note in your project. Results update as you type and click to jump straight to a match.
+---
+
+    <h1>Search</h1>
+    <p class="lede">Press <kbd>⌘</kbd><kbd>⇧</kbd><kbd>F</kbd> (or <kbd>Ctrl</kbd><kbd>⇧</kbd><kbd>F</kbd>) to open <b>Find in Notes</b> — a search across the text of every note in your project, not just their titles. Results update as you type, and clicking any match opens the note with your cursor already on that line, ready to edit.</p>
+
+    <h2 id="opening">Opening it</h2>
+    <p>The search window has two modes: <b>Find</b> and <b>Find and Replace</b>. You can switch between them at any time with the toggle at the top. There are three ways in:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>F</kbd></div>
+        <div class="v">Opens in <b>Find</b> mode. Works from anywhere in the app, whether or not you're typing in a note.</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>H</kbd></div>
+        <div class="v">Opens straight into <b>Find and Replace</b> mode.</div>
+      </div>
+      <div class="row">
+        <div class="k">Command palette</div>
+        <div class="v">Type "Find in Notes" in the <a href="navigation-command-palette.html">command palette</a> (<kbd>⌘</kbd><kbd>K</kbd>), for when your hands are already there.</div>
+      </div>
+    </div>
+
+    <div class="box">
+      <span class="label">Not the same as ⌘F</span>
+      <p><kbd>⌘</kbd><kbd>F</kbd> (without Shift) searches only within the note you're currently reading. The full <kbd>⌘</kbd><kbd>⇧</kbd><kbd>F</kbd> search covers your whole project. If you're only finding matches in the note you already have open, you pressed the wrong one.</p>
+    </div>
+
+    <h2 id="scope">What gets searched</h2>
+    <p>Search looks through the actual text of your notes, line by line. If you can read it in a note, search can find it — including things like tags or links, which match simply because their text is there.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Note content</div>
+        <div class="v">Yes. Every line of every note is searched.</div>
+      </div>
+      <div class="row">
+        <div class="k">Note titles and names</div>
+        <div class="v">No — only what's written inside a note. To jump to a note by its name, use <a href="navigation-quick-switch.html">Quick switch</a> instead.</div>
+      </div>
+      <div class="row">
+        <div class="k">Match case</div>
+        <div class="v">Off by default, so uppercase and lowercase are treated the same. Turn on the <kbd>Aa</kbd> button to match capitalization exactly.</div>
+      </div>
+      <div class="row">
+        <div class="k">Pattern matching</div>
+        <div class="v">By default your search is treated as plain text. Turn on the <kbd>.*</kbd> button if you want to search with a pattern for more advanced matches.</div>
+      </div>
+    </div>
+
+    <figure class="shot-img">
+      <img src="img/navigation-search.png" alt="The search window with a word typed into the search field and results below, grouped by note. Each result shows a snippet of the line with the matching text highlighted." loading="lazy" />
+      <figcaption>Screenshot — Search results for a query</figcaption>
+    </figure>
+
+    <h2 id="results">Reading results and jumping in</h2>
+    <p>Results are grouped by note. Each group can be collapsed to tidy away a note with many matches. Click any result to open that note with your cursor placed right on the match — you can start typing immediately.</p>
+
+    <h2 id="live">Search as you type</h2>
+    <p>Results update automatically as you type — there's no button to press or Enter key to hit. Turning match case or pattern matching on or off refreshes the results the same way. A running count of matches sits at the top.</p>
+
+    <h2 id="replace">Find and Replace</h2>
+    <p>In Replace mode you add the replacement text, and each result gets a checkbox so you can pick which matches to change. <b>Replace Selected</b> changes only the checked ones; <b>Replace All</b> changes every match. Each result previews how the line will read afterward.</p>
+
+    <h2 id="contrast">Search vs. Quick switch vs. the command palette</h2>
+    <p>Three tools that each answer a different question:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Search — <kbd>⌘</kbd><kbd>⇧</kbd><kbd>F</kbd></div>
+        <div class="v">Find a <i>passage</i>. Use it when you remember something you wrote but not which note it's in.</div>
+      </div>
+      <div class="row">
+        <div class="k">Quick switch — <kbd>⌘</kbd><kbd>P</kbd></div>
+        <div class="v">Jump to a <i>note</i> by its title. See <a href="navigation-quick-switch.html">Quick switch</a>.</div>
+      </div>
+      <div class="row">
+        <div class="k">Command palette — <kbd>⌘</kbd><kbd>K</kbd></div>
+        <div class="v">Run an <i>action</i> — a menu command, a tool, a setting — by name. See <a href="navigation-command-palette.html">Command palette</a>.</div>
+      </div>
+    </div>

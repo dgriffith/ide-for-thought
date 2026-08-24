@@ -1,0 +1,42 @@
+---
+title: Minerva — Docs — Task Lists
+description: Task lists in Minerva notes: write checkboxes into a note and click to check them off.
+---
+
+    <h1>Task lists</h1>
+    <p class="lede">Turn any list item into a to-do by starting it with a checkbox. In your note it shows up as a real checkbox you can tick off with a click — a simple way to keep a running list of things to do right inside your writing.</p>
+
+    <h2 id="syntax">Writing a task</h2>
+    <p>A task is just a list item whose text begins with a checkbox marker and a space:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k"><code>- [ ] text</code></div>
+        <div class="v"><b>Not done.</b> Shows an empty checkbox. Your list can be bulleted or numbered — either works.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>- [x] text</code></div>
+        <div class="v"><b>Done.</b> Shows a ticked checkbox.</div>
+      </div>
+      <div class="row">
+        <div class="k">indented item</div>
+        <div class="v"><b>Sub-task.</b> Indent a task under another to make it a sub-item. Sub-tasks are independent — checking a parent doesn't check its children.</div>
+      </div>
+    </div>
+
+    <p>Remember the space after the closing bracket. An empty task with no text after it is fine too.</p>
+
+<pre><code>- [ ] Draft the outline
+- [x] Circulate for feedback
+- [ ] Incorporate comments
+  - [x] Section 2 rewrite
+  - [ ] Section 4 rewrite
+- [ ] Final pass</code></pre>
+
+    <figure class="shot-img">
+      <img src="img/notes-tasks.png" alt="A note showing a checklist with a mix of ticked and empty boxes, including a top-level item with two indented sub-items beneath it." loading="lazy" />
+      <figcaption>A task list in a note</figcaption>
+    </figure>
+
+    <h2 id="toggling">Ticking things off</h2>
+    <p>Every checkbox in your note is clickable. Click one to check it or uncheck it — the rest of the item stays exactly as you wrote it, and nothing else in the note changes. Your click is saved just like any other edit you make.</p>

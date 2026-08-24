@@ -1,0 +1,27 @@
+---
+title: Minerva — Docs — AI-Assisted Refactors
+description: Asking the assistant to rename, move, reorganize, or delete notes for you: the review cards for single renames/moves, batch reorganization, and batch deletion.
+---
+
+    <h1>AI-assisted refactors</h1>
+    <p class="lede">You can ask the assistant to rename, move, reorganize, or delete notes for you. As everywhere else in Minerva, it only proposes a plan — you review it, and nothing changes until you approve.</p>
+
+    <h2 id="single">Single rename or move</h2>
+    <p>Ask to rename or move one note, and you get a review card that shows exactly what will change: a before-and-after view of every note whose links point to it, plus an <b>Approve</b> button. Nothing is touched until you click it.</p>
+
+    <h2 id="batch">Reorganizing several notes at once</h2>
+    <p>Ask for a set of moves and renames together, and the review card lists each one with its own checkbox, so you can approve just the parts you like rather than the whole plan. Open any item to see how that note's links will be rewritten. If two notes would trade places in a way that can't be untangled, the card tells you so and suggests splitting them up.</p>
+
+    <div class="shot wide">
+      <div class="icon">📋</div>
+      <div class="k">Reviewing a reorganization plan</div>
+      <div class="d">The review card lists each proposed rename and move with a checkbox. One item is opened to show how the links pointing at that note will be updated.</div>
+    </div>
+
+    <h2 id="delete">Deleting in bulk</h2>
+    <p>Deletion works the same way, with a checkbox for each note. For every note you're about to remove, the card tells you how many other notes still link to it, so you can see the impact before approving. See <a href="refactoring-safe-delete.html">Safe delete &amp; dangling links</a> for more.</p>
+
+    <div class="box">
+      <span class="label">Whole folders, too</span>
+      <p>The assistant can also propose moving, renaming, or deleting an <em>entire folder</em> at once — the review card shows every note that moves (or every note inside, for a delete), any links that would be rewritten or left dangling, and the count of images and other assets that come along. As always, nothing changes until you approve. Prefer to do it yourself? You still can — just drag it, see <a href="refactoring-manual.html">Manual rename, move &amp; delete</a>.</p>
+    </div>

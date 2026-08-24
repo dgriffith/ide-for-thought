@@ -1,0 +1,53 @@
+---
+title: Minerva — Docs — Search Cells
+description: Drop a live list of related notes into a note — found by meaning or by keyword — that keeps itself up to date as you write.
+---
+
+    <h1>Search cells</h1>
+    <p class="lede">A search cell drops a live list of related notes right into your writing — a ready-made "See also", or a running roundup of everything you've touched on a topic. You can find notes two ways: by <b>meaning</b>, which catches notes that are about the same thing even when they use different words, or by <b>keyword</b>, which finds the exact words you name. Like query cells, a search cell only reads, and refreshes on its own as your notes grow.</p>
+
+    <h2 id="by-meaning">Search by meaning</h2>
+    <p>Open a cell with <code>:::query-semantic</code>, write a sentence or a few words describing what you're after, and close it with <code>:::</code>. Minerva lists the notes closest in meaning, each with a short snippet and a link. Leave the cell empty and it instead lists notes related to the one you're currently in.</p>
+
+<pre><code>:::query-semantic
+how attention shapes what we remember
+:::</code></pre>
+
+    <h2 id="by-keyword">Search by keyword</h2>
+    <p>Open a cell with <code>:::query-search</code> and put your words inside. Minerva lists the notes that contain them, best matches first — the same kind of search as the app's find box, embedded in your note and always current.</p>
+
+<pre><code>:::query-search
+working memory
+:::</code></pre>
+
+    <h2 id="options">Adding options</h2>
+    <p>As with query cells, put a few settings at the top, one per line, then a line of three dashes — <code>---</code> — before the text you're searching for.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">title</div>
+        <div class="v">A heading shown above the results.</div>
+      </div>
+      <div class="row">
+        <div class="k">limit</div>
+        <div class="v">The most results to show.</div>
+      </div>
+      <div class="row">
+        <div class="k">snippet: false</div>
+        <div class="v">Hide the little preview under each result. Or use <code>compact: true</code> for a bare list of links.</div>
+      </div>
+      <div class="row">
+        <div class="k">kind</div>
+        <div class="v">For search by meaning: what to look through — <code>note</code>, <code>source</code>, <code>excerpt</code> (your saved quotations), or <code>all</code>. Notes alone is the default.</div>
+      </div>
+    </div>
+
+    <figure class="shot-img">
+      <img src="img/notes-search.png" alt="A note with a search cell titled &quot;See also&quot;: below it, a short list of related notes, each showing its title as a link above a muted one-line snippet of the matching text." loading="lazy" />
+      <figcaption>A search cell in a note</figcaption>
+    </figure>
+
+    <div class="box">
+      <span class="label">Meaning vs. keyword</span>
+      <p>Reach for <b>meaning</b> when you want notes on the same idea however they're worded, and <b>keyword</b> when you know the exact term you're hunting for. Search by meaning draws on the same understanding of your notes that powers <a href="right-sidebar-related.html">Related notes</a> in the sidebar; if that isn't ready yet, a meaning cell simply comes up empty.</p>
+    </div>

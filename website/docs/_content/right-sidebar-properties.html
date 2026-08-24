@@ -1,0 +1,87 @@
+---
+title: Minerva — Docs — Properties
+description: The Properties panel in Minerva's right sidebar: a simple editor for a note's properties, so you can add, change, and remove them without editing anything by hand.
+---
+
+    <h1>Properties</h1>
+    <p class="lede">Every note can carry a few pieces of structured information — a title, some tags, a date, and anything else you find useful. The Properties panel is a friendly way to view and edit those <a href="notes-frontmatter.html">properties</a> as a tidy list, so you can add, change, and remove them without typing anything special. It's just another way to work with the same information you can also edit at the top of the note itself, and the two always stay in step. When the note has a <a href="notes-typed-notes.html">type</a>, the panel also knows which fields that kind of note is expected to have, and puts them first.</p>
+
+    <h2 id="where">Where it lives</h2>
+    <p>Properties is one of the panels in the right sidebar that describe the note you're looking at, alongside Outline, Footnotes, Tags, and Tables. Open it and you'll see the current note's properties laid out as a list of rows. Switch to another note and the panel simply shows that note's properties instead.</p>
+
+    <h2 id="editing">Editing, adding, and removing properties</h2>
+    <p>Each property is a row: its name on the left, its value on the right, with a small icon showing what kind of value it is. The value's control fits its type — a text box for text, a checkbox for yes/no, a date picker for dates, chips for tags, and so on.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Renaming a property</div>
+        <div class="v">The name is editable, not just a label. Type a new name and click away to rename it, keeping its value and its place in the list. (Fields that come from the note's <a href="notes-typed-notes.html">type</a> are the exception — see below.)</div>
+      </div>
+      <div class="row">
+        <div class="k">Removing a property</div>
+        <div class="v">Hover over a row and a × appears at its edge; click it to delete that property. If you remove the last one, the note simply goes back to having no properties at all.</div>
+      </div>
+      <div class="row">
+        <div class="k">Adding a property</div>
+        <div class="v">An "Add property…" row sits at the bottom of the list. Type a name and press Enter, or click the + button, and the new property appears with its value box ready for you to fill in right away.</div>
+      </div>
+      <div class="row">
+        <div class="k">Helpful suggestions</div>
+        <div class="v">As you type a name, Minerva suggests properties you already use elsewhere in your notes, plus common ones this note doesn't have yet. A few of the most common are offered as one-click chips just below the add row, so you often don't need to type a name at all.</div>
+      </div>
+      <div class="row">
+        <div class="k">Starting from scratch</div>
+        <div class="v">A note with no properties yet shows a short prompt instead of a list. Adding your first property from here sets everything up in one step — there's no separate action to find first.</div>
+      </div>
+    </div>
+
+    <div class="box">
+      <span class="label">Your own property names are welcome</span>
+      <p>You're not limited to Minerva's suggested names. Add any property name you like and it works exactly the same way — it's just shown in a slightly quieter color so you can tell your custom ones apart from the familiar ones.</p>
+    </div>
+
+    <h2 id="typed">When the note has a type</h2>
+    <p>Give a note a <a href="notes-typed-notes.html">type</a> — Book, Person, Meeting — and the panel gains a section above the ordinary list, headed with the type's icon and name. It holds the fields that kind of note is expected to have.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Every field, filled in or not</div>
+        <div class="v">Fields the note hasn't filled in yet are shown too, with a dashed outline. The form answers "what does a Book need?", not just "what has this note got?" Nothing is required — an empty field is a perfectly good answer.</div>
+      </div>
+      <div class="row">
+        <div class="k">The right control for each</div>
+        <div class="v">The type says what kind of value a field holds, so a field with a fixed set of choices becomes a dropdown of exactly those, a date becomes a date picker, a number becomes a number box.</div>
+      </div>
+      <div class="row">
+        <div class="k">Field names are fixed</div>
+        <div class="v">A field's name comes from the type, so it's shown as a label rather than an editable box. Renaming it here would only detach this one note from its type. Rename it in <a href="settings-object-types.html">Settings → Object Types</a> instead, and every note of that type follows.</div>
+      </div>
+      <div class="row">
+        <div class="k">Everything else, below</div>
+        <div class="v">Properties the type doesn't mention — your own additions, tags, the <code>type</code> line itself — sit under an "Other" divider and behave exactly as they always have.</div>
+      </div>
+    </div>
+
+    <div class="box">
+      <span class="label">Clearing a field is safe</span>
+      <p>Emptying one of the type's fields removes the property from the note rather than leaving it blank. The field itself stays on the form, because the type still declares it — so you can fill it in again whenever you like.</p>
+    </div>
+
+    <h2 id="invalid">When a value doesn't fit</h2>
+    <p>The panel quietly protects you from entering something that doesn't make sense, without popups or warnings:</p>
+
+    <ul>
+      <li>A number field ignores anything that isn't a number, leaving the property as it was until you type a real one.</li>
+      <li>The link picker leaves a property unchanged if you clear it out, rather than saving an empty link.</li>
+      <li>For richer values that don't fit a simple control — a nested list or grouping — the panel shows them as read-only and invites you to edit them at the top of the note instead.</li>
+    </ul>
+
+    <figure class="shot-img panel">
+      <img src="img/right-sidebar-properties.png" alt="The right sidebar showing a note's properties as a list of rows: a title, tags as chips, a date shown with a date picker, and one custom property in a quieter color. The cursor sits in a freshly added, empty value box, with the &quot;Add property…&quot; row and its quick-add suggestion chips below." loading="lazy" />
+      <figcaption>The Properties panel while editing</figcaption>
+    </figure>
+
+    <h2 id="related">Two ways to edit, one set of properties</h2>
+    <p>Everything the panel does, you can also do by editing the properties at the top of the note directly — and the two always match, whichever way you make a change. Reach for the panel when you want quick, mistake-free edits: flip a checkbox, pick a date, add a tag. Edit the note directly when you want to rearrange properties or write a value the panel doesn't have a control for yet.</p>
+
+    <p>If you find yourself adding the same handful of properties to note after note, that's a sign they want to be a <a href="notes-typed-notes.html">type</a> — declare the fields once in <a href="settings-object-types.html">Settings → Object Types</a> and every note of that kind gets the form for free.</p>

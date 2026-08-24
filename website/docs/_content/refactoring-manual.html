@@ -1,0 +1,52 @@
+---
+title: Minerva — Docs — Manual Rename, Move &amp; Delete
+description: Rename, move, and delete notes right in the Notes tree, and how Minerva keeps your links pointing to the right place.
+---
+
+    <h1>Manual rename, move &amp; delete</h1>
+    <p class="lede">Reorganize your notes right in the Notes list — and let Minerva keep your links pointing to the right place as you go.</p>
+
+    <h2 id="actions">Rename, move, delete</h2>
+    <p>Everything you need is in the right-click menu on a note, or a simple drag.</p>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Rename</div>
+        <div class="v">Right-click a note and choose Rename. You can also start it from the command palette by searching <b>Rename Note</b>.</div>
+      </div>
+      <div class="row">
+        <div class="k">Move</div>
+        <div class="v">Drag a note onto the folder you want it in. Prefer to type a destination? Use <b>Move Note</b> from the command palette.</div>
+      </div>
+      <div class="row">
+        <div class="k">Delete</div>
+        <div class="v">Right-click and choose Delete. See <a href="refactoring-safe-delete.html">Safe delete &amp; dangling links</a> for how Minerva warns you if other notes still point to it.</div>
+      </div>
+      <div class="row">
+        <div class="k">Cut / Copy / Paste</div>
+        <div class="v">The right-click menu also offers cut, copy, and paste — another way to move or duplicate notes between folders.</div>
+      </div>
+    </div>
+
+    <figure class="shot-img panel">
+      <img src="img/refactoring-manual.png" alt="Right-clicking a note in the Notes list opens its menu, with Rename, Delete, cut, copy, paste, and the rest of the per-note actions." loading="lazy" />
+      <figcaption>The right-click menu on a note</figcaption>
+    </figure>
+
+    <h2 id="auto-update">Your links stay correct</h2>
+    <p>When you rename or move a note, Minerva finds every other note that links to it and updates those links for you, so nothing breaks:</p>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Wiki links</div>
+        <div class="v">A link like <code>[[old title]]</code> becomes <code>[[new title]]</code> everywhere it appears. Any custom display text or heading you added to the link is kept intact.</div>
+      </div>
+      <div class="row">
+        <div class="k">Links and images to files</div>
+        <div class="v">Links to other notes and to images are adjusted so they still point to the right file, both from the note you moved and from the notes that link to it.</div>
+      </div>
+    </div>
+    <p>Citations that point to a source or a saved quote keep working on their own — they refer to the source itself, not to where a note happens to live, so moving a note never disturbs them.</p>
+
+    <div class="box">
+      <span class="label">Renaming folders</span>
+      <p>You can rename or move a whole folder by dragging it, just as you would a single note.</p>
+    </div>

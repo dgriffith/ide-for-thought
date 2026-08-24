@@ -1,0 +1,45 @@
+---
+title: Minerva — Docs — Heading Graph
+description: The Heading graph panel draws the current note's headings as an interactive tree, so you can see the shape of a long note at a glance.
+---
+
+    <h1>Heading graph</h1>
+    <p class="lede">The Heading graph panel draws your note's headings as a tree you can pan and click around — a starting node for the note itself, with each heading branching off the section that contains it. It shows the same headings as the <a href="right-sidebar-outline.html">Outline</a> panel, just in a different shape: reach for it when you want to see how a long note branches at a glance instead of reading down a list.</p>
+
+    <h2 id="how-it-works">How it works</h2>
+    <p>The tree updates itself as you write. Each heading becomes a node, connected back to the section it sits inside, so your top-level sections fan out from the note and their subsections branch out one step further. Deeper headings are styled differently from top-level ones, so the tiers are easy to tell apart.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Click a heading</div>
+        <div class="v">Jumps the editor to that heading, just like clicking it in the Outline. A small toggle above the tree lets you choose whether a single click jumps straight there, or first selects the heading and needs a double-click (or Enter) to jump.</div>
+      </div>
+      <div class="row">
+        <div class="k">Pan and zoom</div>
+        <div class="v">Drag to move the tree around, and scroll or pinch to zoom in and out. The view re-fits on its own when you resize the sidebar.</div>
+      </div>
+    </div>
+
+    <figure class="shot-img panel">
+      <img src="img/right-sidebar-heading-graph.png" alt="A starting node named after the note branches into its main sections, two of which have subsections of their own one step further out, all laid out top-down with connecting lines. A small toggle above the tree sets how clicks behave." loading="lazy" />
+      <figcaption>The Heading graph for a multi-section note</figcaption>
+    </figure>
+
+    <div class="box">
+      <span class="label">It's about structure, not links</span>
+      <p>The lines here show which section contains which — nothing more. A link you type inside a heading doesn't connect it to anything; the tree only cares about how your headings nest.</p>
+    </div>
+
+    <h2 id="contrast">Heading graph or Outline?</h2>
+    <p>Both panels show the same headings for a note — they'll never disagree. The difference is just how they look:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k"><a href="right-sidebar-outline.html">Outline</a></div>
+        <div class="v">A compact, indented list you can collapse and filter by typing. Quick to scan and the better everyday choice for most notes.</div>
+      </div>
+      <div class="row">
+        <div class="k">Heading graph</div>
+        <div class="v">An interactive tree you can pan around. Best for taking in the overall shape of a note at a glance — how many sections it has and how deep each one goes.</div>
+      </div>
+    </div>

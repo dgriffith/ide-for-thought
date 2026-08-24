@@ -1,0 +1,50 @@
+---
+title: Minerva — Docs — Data operations
+description: The Query menu commands for working with your data in Minerva: New Query, Stock Queries, Saved Queries, and Export Knowledge Graph.
+---
+
+    <h1>Data operations</h1>
+    <p class="lede">The commands for working with your <a href="data.html">data</a> live in the <b>Query</b> menu — running a query, reaching for a ready-made or saved one, and taking the whole knowledge graph out as a file.</p>
+
+    <h2 id="asking">Asking questions</h2>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">New Query</div>
+        <div class="v"><b>Query → New Query</b> (<kbd>⌘</kbd><kbd>⇧</kbd><kbd>Q</kbd>) opens a fresh query in the Query panel, where you write <b>SPARQL</b> (for the knowledge graph) or <b>SQL</b> (for tables) and run it to see the results. See <a href="query-menu-panel.html">Query menu &amp; panel</a> for how the panel and cells work.</div>
+      </div>
+      <div class="row">
+        <div class="k">Stock Queries</div>
+        <div class="v"><b>Query → Stock Queries</b> is a library of ready-made queries, grouped into <b>SPARQL</b> and <b>SQL</b> submenus. Pick one to open it in the panel — run it as-is, or use it as a starting point you adapt.</div>
+      </div>
+      <div class="row">
+        <div class="k">Saved Queries</div>
+        <div class="v"><b>Query → Saved Queries</b> lists queries you've kept, so a query you'll want again is one click away. Saved queries can be scoped to this thoughtbase or shared across all of them, and <b>Edit Saved Queries…</b> at the bottom opens them for managing.</div>
+      </div>
+    </div>
+
+    <h2 id="export-graph">Exporting the graph</h2>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Export Knowledge Graph…</div>
+        <div class="v"><b>Query → Export Knowledge Graph…</b> saves the entire knowledge graph — everything Minerva knows about your notes and how they connect — to a <b>Turtle</b> (<code>.ttl</code>) file you can keep, share, or load into other tools. It lives in the Query menu because it's the graph you query, written out in full; it isn't a note export. (To get your <em>notes</em> out as documents, a website, or citations, see <a href="export.html">Export</a> instead.)</div>
+      </div>
+    </div>
+
+    <h2 id="related">Related</h2>
+    <div class="doc-cards">
+      <a class="doc-card" href="query-menu-panel.html">
+        <span class="em">🔎</span>
+        <h3>Query panel &amp; cells</h3>
+        <p>The Query panel, runnable cells, and how result blocks work.</p>
+      </a>
+      <a class="doc-card" href="notes-tables.html">
+        <span class="em">📋</span>
+        <h3>Tables &amp; CSV</h3>
+        <p>Bring in CSV files as tables you can query with SQL.</p>
+      </a>
+      <a class="doc-card" href="maintenance.html">
+        <span class="em">🛠️</span>
+        <h3>Maintenance</h3>
+        <p>Rebuild the graph and search indexes if anything looks stale.</p>
+      </a>
+    </div>

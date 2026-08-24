@@ -1,0 +1,91 @@
+---
+title: Minerva — Docs — Refactoring operations
+description: The Refactor menu commands in Minerva: rename, move, and copy a note; split and extract; AI-assisted auto-tag, auto-link, and decompose; format and insert a bibliography.
+---
+
+    <h1>Refactoring operations</h1>
+    <p class="lede">The <b>Refactor</b> menu gathers every structural change you can make to the current note in one place — renaming and moving, splitting a note apart, AI-assisted reorganization, and formatting. Through all of them, Minerva keeps the links between your notes coherent, so a change never leaves a broken reference behind. Each command works on the note you're editing.</p>
+
+    <h2 id="rename-move">Renaming and moving</h2>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Rename…</div>
+        <div class="v"><b>Refactor → Rename…</b> gives the note a new name and updates every <a href="notes-links.html">link</a> that pointed at the old one, so nothing breaks. See <a href="refactoring-manual.html">Manual rename, move &amp; delete</a>.</div>
+      </div>
+      <div class="row">
+        <div class="k">Move…</div>
+        <div class="v"><b>Refactor → Move…</b> moves the note to a different folder; its links follow it. (You can also drag it in the sidebar.)</div>
+      </div>
+      <div class="row">
+        <div class="k">Copy…</div>
+        <div class="v"><b>Refactor → Copy…</b> makes a duplicate of the note at a location you choose.</div>
+      </div>
+    </div>
+
+    <h2 id="splitting">Splitting a note</h2>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Extract Selection to New Note</div>
+        <div class="v"><b>Refactor → Extract Selection to New Note</b> pulls the selected text out into a brand-new note and leaves a link to it in its place. Select some text first.</div>
+      </div>
+      <div class="row">
+        <div class="k">Split Note Here</div>
+        <div class="v"><b>Refactor → Split Note Here</b> divides the note in two at the cursor, keeping the text above and moving the text below into a new, linked note.</div>
+      </div>
+      <div class="row">
+        <div class="k">Split by Heading…</div>
+        <div class="v"><b>Refactor → Split by Heading…</b> breaks one long note into several — one per heading — linked together.</div>
+      </div>
+    </div>
+
+    <h2 id="ai-assisted">AI-assisted</h2>
+    <p>These ask the assistant to do the work and hand you the result as a <a href="conversations.html">proposal</a> to review — nothing changes until you approve it. See <a href="refactoring-ai-assisted.html">AI-assisted refactors</a>.</p>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Auto-tag</div>
+        <div class="v"><b>Refactor → Auto-tag</b> suggests <a href="notes-frontmatter.html">tags</a> for the note based on what it's about.</div>
+      </div>
+      <div class="row">
+        <div class="k">Auto-link outbound…</div>
+        <div class="v"><b>Refactor → Auto-link outbound…</b> proposes links <em>from</em> this note to other relevant notes.</div>
+      </div>
+      <div class="row">
+        <div class="k">Auto-link inbound…</div>
+        <div class="v"><b>Refactor → Auto-link inbound…</b> proposes links <em>to</em> this note from other relevant notes.</div>
+      </div>
+      <div class="row">
+        <div class="k">Decompose Note…</div>
+        <div class="v"><b>Refactor → Decompose Note…</b> proposes breaking a long note into smaller, linked notes.</div>
+      </div>
+    </div>
+
+    <h2 id="format-biblio">Formatting and bibliography</h2>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Format</div>
+        <div class="v"><b>Refactor → Format</b> tidies the note's Markdown into a consistent style (or every note selected in the sidebar). See <a href="settings-formatter.html">Formatter settings</a> for what it does.</div>
+      </div>
+      <div class="row">
+        <div class="k">Insert/Update Bibliography</div>
+        <div class="v"><b>Refactor → Insert/Update Bibliography</b> renders a References section listing every <a href="ingest.html">source</a> the note cites, in your configured citation style. See <a href="export-bibliography.html">Bibliography &amp; citations</a>.</div>
+      </div>
+    </div>
+
+    <h2 id="related">Related</h2>
+    <div class="doc-cards">
+      <a class="doc-card" href="refactoring-manual.html">
+        <span class="em">✏️</span>
+        <h3>Manual rename, move &amp; delete</h3>
+        <p>Right-click and drag in the sidebar, and what updates for you.</p>
+      </a>
+      <a class="doc-card" href="refactoring-ai-assisted.html">
+        <span class="em">🤖</span>
+        <h3>AI-assisted refactors</h3>
+        <p>Ask the assistant — review the plan before anything changes.</p>
+      </a>
+      <a class="doc-card" href="refactoring-safe-delete.html">
+        <span class="em">🔗</span>
+        <h3>Safe delete &amp; dangling links</h3>
+        <p>What Minerva checks before you delete a note others link to.</p>
+      </a>
+    </div>

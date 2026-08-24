@@ -1,0 +1,27 @@
+---
+title: Minerva — Docs — Safe Delete &amp; Dangling Links
+description: Before you delete a note, Minerva warns you if other notes still link to it — so you can fix those links first.
+---
+
+    <h1>Safe delete &amp; dangling links</h1>
+    <p class="lede">When your notes link to each other, deleting one can leave others pointing at something that no longer exists. Before a delete goes through, Minerva checks for exactly this and warns you first.</p>
+
+    <h2 id="check">The warning before you delete</h2>
+    <p>Whether you're deleting one note, several at once, or a whole folder, Minerva looks for any other notes — outside what you're removing — that still link to it. If it finds none, the delete proceeds as normal. If it finds some, a warning appears listing the notes that would be left with a link going nowhere.</p>
+
+    <p>From that warning you can:</p>
+    <div class="deflist">
+      <div class="row"><div class="k">Cancel</div><div class="v">Keep everything. Nothing is deleted.</div></div>
+      <div class="row"><div class="k">Open the first reference</div><div class="v">Jump to a note that links in, so you can fix or remove the link before deleting.</div></div>
+      <div class="row"><div class="k">Delete anyway</div><div class="v">Go ahead with the delete, accepting that those links will be left pointing at nothing.</div></div>
+    </div>
+
+    <figure class="shot-img">
+      <img src="img/refactoring-safe-delete.png" alt="The warning listing a few notes that still link to what you're about to delete, with Cancel, Open first reference, and Delete anyway options." loading="lazy" />
+      <figcaption>Screenshot — The delete warning</figcaption>
+    </figure>
+
+    <div class="box">
+      <span class="label">Deleting doesn't fix the links for you</span>
+      <p>If you choose Delete anyway, the notes that linked in are left exactly as they were — their links now lead nowhere. Minerva won't rewrite or remove them automatically, so it's worth cleaning them up when you get a chance. Using Open the first reference before you delete is the easiest way to handle them ahead of time.</p>
+    </div>
