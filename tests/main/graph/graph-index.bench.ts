@@ -21,10 +21,11 @@ import path from 'node:path';
 import os from 'node:os';
 import { initGraph, indexNote } from '../../../src/main/graph/index';
 import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { trackTempDir } from '../../helpers/bench-temp-dirs';
 
 const SEED_NOTES = 500;
 
-const root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-idxbench-'));
+const root = trackTempDir(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-idxbench-')));
 const ctx: ProjectContext = projectContext(root);
 await initGraph(ctx);
 // Populate the store so indexNote runs against a non-trivial graph, not an

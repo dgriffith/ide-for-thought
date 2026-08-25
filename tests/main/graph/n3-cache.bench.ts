@@ -22,8 +22,9 @@ import path from 'node:path';
 import os from 'node:os';
 import { initGraph, indexNote, queryGraph } from '../../../src/main/graph/index';
 import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { trackTempDir } from '../../helpers/bench-temp-dirs';
 
-const root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-n3bench-'));
+const root = trackTempDir(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-n3bench-')));
 const ctx: ProjectContext = projectContext(root);
 await initGraph(ctx);
 // Plant 500 synthetic notes — roughly the inflection point where the

@@ -13,9 +13,12 @@
  * to leave pending — the process exits once the bench run ends.)
  *
  * Seeding runs as a top-level `await` per scale (see the header comment in
- * `n3-cold-rebuild.bench.ts` for why: `beforeAll`/`afterAll` don't reliably
- * run around a `bench`'s iterations in this vitest version's benchmark
- * runner — confirmed empirically).
+ * `n3-cold-rebuild.bench.ts` for why: `beforeAll` doesn't reliably complete
+ * before a `bench`'s iterations start in this vitest version's benchmark
+ * runner — confirmed empirically). `afterAll` doesn't share that problem —
+ * it's a teardown-ordering guarantee, not a setup one — so temp-dir cleanup
+ * below goes through it via `trackTempDir` (#1933), also confirmed
+ * empirically.
  */
 
 import { describe, bench } from 'vitest';
@@ -26,6 +29,7 @@ import { initGraph, indexAllNotes } from '../../../src/main/graph/index';
 import { initSearch, indexAllNotes as searchIndexAllNotes } from '../../../src/main/search/index';
 import { writeAndReindex, type WritePipelineHooks } from '../../../src/main/notebase/write-pipeline';
 import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { trackTempDir } from '../../helpers/bench-temp-dirs';
 
 const SCALES = [500, 2000, 5000];
 
@@ -36,7 +40,7 @@ const noopHooks: WritePipelineHooks = {
 };
 
 for (const scale of SCALES) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-savepipeline-'));
+  const root = trackTempDir(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-savepipeline-')));
   const ctx: ProjectContext = projectContext(root);
   await initGraph(ctx);
   await initSearch(ctx);

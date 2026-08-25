@@ -21,6 +21,7 @@
  * every call.
  */
 
+import fs from 'node:fs';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
@@ -260,9 +261,57 @@ export async function startRpcServer(rootPath: string): Promise<RpcServer> {
         // (Errors ignored: the socket may have already been removed.)
       }).then(async () => {
         try {
-          const fs = await import('node:fs/promises');
-          await fs.unlink(socketPath);
+          await fs.promises.unlink(socketPath);
         } catch { /* nothing to do */ }
       }),
   };
+}
+
+const SOCKET_NAME_RE = /^minerva-rpc-(\d+)-[0-9a-f]+\.sock$/;
+
+/** True if `pid` names a process we could still signal (i.e. it's alive). */
+function isProcessAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (err) {
+    // ESRCH: no such process — genuinely gone. EPERM: it exists but we lack
+    // permission to signal it — still alive, so leave its socket alone.
+    return (err as NodeJS.ErrnoException).code === 'EPERM';
+  }
+}
+
+/**
+ * Remove `.sock` files a past Minerva process left behind without cleaning up
+ * after itself (#1933). `close()` above unlinks on every path this process
+ * controls — graceful stop, kernel crash, `before-quit` — but none of that
+ * runs if the *whole app* is killed harder than that (SIGKILL, an OS crash, a
+ * `pnpm dev` restart that doesn't wait for shutdown). A socket's PID is
+ * embedded in its own filename, so on the next boot "no process has that PID
+ * anymore" is an unambiguous, no-false-positive test for staleness — this
+ * process's own still-launching sockets can't yet exist to be swept.
+ *
+ * Best-effort throughout: a sweep is a startup nicety, not a correctness
+ * requirement, so any failure (unreadable tmpdir, a permissions error, a
+ * socket removed by a concurrent sweep) is swallowed rather than surfaced.
+ */
+export function sweepStaleRpcSockets(): void {
+  let entries: string[];
+  try {
+    entries = fs.readdirSync(os.tmpdir());
+  } catch {
+    return;
+  }
+  for (const name of entries) {
+    const match = SOCKET_NAME_RE.exec(name);
+    if (!match) continue;
+    const pid = Number(match[1]);
+    if (isProcessAlive(pid)) continue;
+    try {
+      fs.unlinkSync(path.join(os.tmpdir(), name));
+    } catch {
+      // Already gone, or a permissions error — either way, not this
+      // process's problem to solve right now.
+    }
+  }
 }

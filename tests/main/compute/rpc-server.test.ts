@@ -9,12 +9,13 @@
  * and a real `minerva` import).
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import { dispatchMethod } from '../../../src/main/compute/rpc-server';
+import { spawnSync } from 'node:child_process';
+import { dispatchMethod, sweepStaleRpcSockets } from '../../../src/main/compute/rpc-server';
 import { initGraph, indexNote } from '../../../src/main/graph/index';
 import { initSearch, indexNote as searchIndex } from '../../../src/main/search/index';
 import { initTablesDb } from '../../../src/main/sources/tables';
@@ -132,5 +133,73 @@ describe('rpc server method dispatch (#242)', () => {
     if ('error' in r) {
       expect(r.error.code).toBe('TypeError');
     }
+  });
+});
+
+/**
+ * `sweepStaleRpcSockets` (#1933) — a startup-only complement to `close()`'s
+ * own unlink. `close()` covers every path this process controls; this covers
+ * the one it can't (a prior process killed harder than that). A dead process's
+ * PID is unambiguous, so the sweep is tested against a real dead PID rather
+ * than a mock — `spawnSync` returns only once the child has already exited,
+ * which is exactly the guarantee the sweep relies on.
+ */
+describe('sweepStaleRpcSockets (#1933)', () => {
+  const created: string[] = [];
+
+  function sockPath(name: string): string {
+    const p = path.join(os.tmpdir(), name);
+    created.push(p);
+    return p;
+  }
+
+  afterEach(() => {
+    for (const p of created.splice(0)) {
+      try { fs.unlinkSync(p); } catch { /* already removed, or never created */ }
+    }
+    vi.restoreAllMocks();
+  });
+
+  it('removes a socket file whose PID no longer belongs to any process', () => {
+    const deadPid = spawnSync(process.execPath, ['-e', 'process.exit(0)']).pid;
+    const stale = sockPath(`minerva-rpc-${deadPid}-deadbeef.sock`);
+    fs.writeFileSync(stale, '');
+
+    sweepStaleRpcSockets();
+
+    expect(fs.existsSync(stale)).toBe(false);
+  });
+
+  it('leaves a socket file whose PID is this (live) process alone', () => {
+    // The suffix has to be valid hex to match SOCKET_NAME_RE at all — a
+    // near-miss here would make this test pass for the wrong reason (the
+    // sweep ignoring the file because the *name* didn't match, not because
+    // the *PID* was live).
+    const live = sockPath(`minerva-rpc-${process.pid}-a11ce000.sock`);
+    fs.writeFileSync(live, '');
+
+    sweepStaleRpcSockets();
+
+    expect(fs.existsSync(live)).toBe(true);
+  });
+
+  it('ignores files that are not shaped like a minerva-rpc socket', () => {
+    const unrelated = sockPath('minerva-rpc-not-a-pid-x.sock');
+    fs.writeFileSync(unrelated, '');
+    const otherApp = sockPath('some-other-app-123-abc.sock');
+    fs.writeFileSync(otherApp, '');
+
+    sweepStaleRpcSockets();
+
+    expect(fs.existsSync(unrelated)).toBe(true);
+    expect(fs.existsSync(otherApp)).toBe(true);
+  });
+
+  it('is a startup nicety, not a correctness requirement — an unreadable tmpdir does not throw', () => {
+    vi.spyOn(fs, 'readdirSync').mockImplementation(() => {
+      throw new Error('EACCES: permission denied');
+    });
+
+    expect(() => sweepStaleRpcSockets()).not.toThrow();
   });
 });

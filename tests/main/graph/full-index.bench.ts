@@ -24,11 +24,12 @@ import path from 'node:path';
 import os from 'node:os';
 import { initGraph, indexAllNotes } from '../../../src/main/graph/index';
 import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { trackTempDir } from '../../helpers/bench-temp-dirs';
 
 const SCALES = [500, 2000, 5000];
 
 for (const scale of SCALES) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-fullidx-'));
+  const root = trackTempDir(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-fullidx-')));
   const ctx: ProjectContext = projectContext(root);
   await initGraph(ctx);
   for (let i = 0; i < scale; i++) {
