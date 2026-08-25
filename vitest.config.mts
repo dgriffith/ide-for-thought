@@ -118,6 +118,23 @@ export default defineConfig({
           statements: 74,
           branches: 60,
         },
+        // Embeddings — the local semantic-search subsystem, previously
+        // unfenced (#1925: `haveModel`-gated real-embedder tests skipped
+        // silently in CI because nothing fetched the model before `pnpm
+        // test`/`coverage`; this layer's own lack of a floor was part of why
+        // that regression went unnoticed — it fell under the 45% global
+        // backstop instead of a gate tuned to it). Measured with the model
+        // staged (`pnpm fetch:model`, now wired as pretest/precoverage): 90%
+        // L / 87% F / 86% S / 73% B; floors ~10pts below. `embed-worker.ts`
+        // (0%, the worker-thread entry point) drags the aggregate down —
+        // deliberately not excluded, since covering it is real future work,
+        // not noise to filter out.
+        'src/main/embeddings/**': {
+          lines: 80,
+          functions: 77,
+          statements: 76,
+          branches: 63,
+        },
         // git publish — the isomorphic-git push engine + gh/HTTPS-token auth
         // (#254). Was 0% at the stale baseline; live is well-covered by the
         // publish-git / auth / push suites. Measured ~74% L / 74% F / 73% S /
