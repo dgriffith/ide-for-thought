@@ -13,9 +13,15 @@
   import { getSidebarSelectionStore } from '../stores/sidebar-selection.svelte';
   import { objectTypesStore } from '../stores/object-types.svelte';
   import { getProposalsStore } from '../stores/proposals.svelte';
+  import { getNotebaseStore } from '../stores/notebase.svelte';
+  import { getEditorStore } from '../stores/editor.svelte';
+  import { getClipboardStore } from '../stores/clipboard.svelte';
+  import { getDialogStore } from '../stores/dialogs.svelte';
+  import { getBookmarksStore } from '../stores/bookmarks.svelte';
   import { flattenVisible } from '../sidebar-tree-utils';
   import { getSidebarSettings, setSidebarSettings } from '../sidebar/settings';
   import { tick, untrack } from 'svelte';
+  import type { SavedView, SourceMetadata } from '../../../shared/types';
 
   type PanelType = 'notes' | 'sites' | 'tags' | 'tables' | 'objects' | 'bookmarks' | 'proposals';
 
@@ -44,24 +50,11 @@
     return n;
   }
 
-  interface Props {
-    files: NoteFile[];
-    /** Project name shown as the synthetic root row above the file
-     *  tree. Not a real tree node — sits outside the multi-selection
-     *  model so Delete/Cut/⌘A can't accidentally target it. */
-    rootName?: string;
-    activeFilePath: string | null;
-    onFileSelect: (relativePath: string, searchQuery?: string) => void;
-    /** Open a note and scroll to an anchor, for `path#slug` targets (e.g.
-     *  section bookmarks). Whole-file opens still go through onFileSelect. */
-    onNavigate?: (target: string) => void | Promise<void>;
-    /** Open a note and jump to a character offset (line bookmarks). */
-    onOpenAtOffset?: (relativePath: string, offset: number) => void | Promise<void>;
+  interface SidebarFileOps {
     onNewNote: (directory: string) => void;
     onNewFolder: (directory: string) => void;
     onDelete: (relativePath: string, isDirectory: boolean) => void;
     onAddTag?: (relativePath: string, isDirectory: boolean) => void;
-    /** Name the current version of the selected notes (#1158). */
     onLabelVersion?: (relativePath: string, isDirectory: boolean) => void;
     onRemoveTag?: (relativePath: string, isDirectory: boolean) => void;
     onAddProperty?: (relativePath: string, isDirectory: boolean) => void;
@@ -73,31 +66,43 @@
     onCopy: (relativePath: string, isDirectory: boolean) => void;
     onPaste: (destDirectory: string) => void;
     onMove: (srcPath: string, destDirectory: string) => void;
-    onBookmark?: (relativePath: string) => void;
-    /** Toggle the `entrypoint` tag on a note. Wired by App.svelte;
-     *  passed through to FileTree for the context-menu item. */
     onToggleEntrypoint?: (relativePath: string, currentlyEntrypoint: boolean) => void;
+    onExternalDrop?: (destDirectory: string, files: FileList) => void;
+  }
+
+  interface SidebarPanelOps {
+    onNavigate?: (target: string) => void | Promise<void>;
+    onOpenAtOffset?: (relativePath: string, offset: number) => void | Promise<void>;
     onSourceSelect?: (sourceId: string) => void;
-    /** Open an excerpt (source at its anchor) — for the Objects panel's built-in
-     *  Excerpts type (#1069). */
     onOpenExcerpt?: (excerptId: string) => void;
-    /** Open a type's instances in the main-pane multi-view (#1070). */
     onOpenType?: (typeId: string) => void;
-    /** Open a saved view preset / manage saved views (#1072). */
-    onOpenView?: (view: import('../../../shared/types').SavedView) => void;
+    onOpenView?: (view: SavedView) => void;
     onManageViews?: () => void;
     onSourceDeleted?: (sourceId: string) => void;
-    onShowConfirm?: (message: string, key: string, label?: string) => Promise<boolean>;
-    onShowPrompt?: (message: string, initialOrOptions?: string | { suggestions?: string[]; initial?: string }) => Promise<string | null>;
-    onMineReferences?: (source: import('../../../shared/types').SourceMetadata) => Promise<void>;
+    onMineReferences?: (source: SourceMetadata) => Promise<void>;
     onTableClick?: (tableName: string) => void;
     onOpenCsv?: (relativePath: string) => void;
     onOpenNote?: (relativePath: string) => void;
-    onExternalDrop?: (destDirectory: string, files: FileList) => void;
-    canPaste?: boolean;
   }
 
-  let { files, rootName, activeFilePath, onFileSelect, onNavigate, onOpenAtOffset, onNewNote, onNewFolder, onDelete, onAddTag, onLabelVersion, onRemoveTag, onAddProperty, onRemoveProperty, onFormat, onRename, onMerge, onCut, onCopy, onPaste, onMove, onBookmark, onToggleEntrypoint, onSourceSelect, onOpenExcerpt, onOpenType, onOpenView, onManageViews, onSourceDeleted, onShowConfirm, onShowPrompt, onMineReferences, onTableClick, onOpenCsv, onOpenNote, onExternalDrop, canPaste = false }: Props = $props();
+  interface Props {
+    onFileSelect: (relativePath: string, searchQuery?: string) => void;
+    fileOps: SidebarFileOps;
+    panelOps?: SidebarPanelOps;
+  }
+
+  let { onFileSelect, fileOps, panelOps }: Props = $props();
+
+  const notebase = getNotebaseStore();
+  const editorStore = getEditorStore();
+  const clipboard = getClipboardStore();
+  const dialogs = getDialogStore();
+  const bookmarksStore = getBookmarksStore();
+
+  const files = $derived(notebase.files);
+  const rootName = $derived(notebase.meta?.name);
+  const activeFilePath = $derived(editorStore.activeFilePath);
+  const canPaste = $derived(clipboard.current !== null);
   let activePanel = $state<PanelType>('notes');
   let rootDropHover = $state(false);
   let rootExpanded = $state(true);
@@ -420,6 +425,11 @@
     selectionStore.clear();
   }
 
+  function handleBookmark(path: string): void {
+    const name = path.split('/').pop()?.replace(/\.(md|ttl|csv)$/, '') ?? path;
+    bookmarksStore.add(name, path);
+  }
+
   /**
    * Right-click on a tree row opens the context menu. If the row was
    * already part of the multi-selection, leave selection alone (so a
@@ -611,11 +621,11 @@
             rootDropHover = false;
             const dropped = e.dataTransfer?.files;
             if (dropped && dropped.length > 0) {
-              onExternalDrop?.('', dropped);
+              fileOps.onExternalDrop?.('', dropped);
               return;
             }
             const src = e.dataTransfer!.getData('text/plain');
-            if (src) onMove(src, '');
+            if (src) fileOps.onMove(src, '');
           }}
         >
           {#if rootName}
@@ -643,25 +653,25 @@
               focusedPath={selectionStore.focused}
               onToggleDir={toggleDir}
               onItemClick={handleItemClick}
-              {onNewNote}
-              {onNewFolder}
-              {onDelete}
-              {onAddTag}
-              {onLabelVersion}
-              {onRemoveTag}
-              {onAddProperty}
-              {onRemoveProperty}
-              {onFormat}
+              onNewNote={fileOps.onNewNote}
+              onNewFolder={fileOps.onNewFolder}
+              onDelete={fileOps.onDelete}
+              onAddTag={fileOps.onAddTag}
+              onLabelVersion={fileOps.onLabelVersion}
+              onRemoveTag={fileOps.onRemoveTag}
+              onAddProperty={fileOps.onAddProperty}
+              onRemoveProperty={fileOps.onRemoveProperty}
+              onFormat={fileOps.onFormat}
               onContextMenuTarget={handleContextMenuTarget}
-              {onRename}
-              {onMerge}
-              {onCut}
-              {onCopy}
-              {onPaste}
-              {onMove}
-              {onBookmark}
-              {onToggleEntrypoint}
-              {onExternalDrop}
+              onRename={fileOps.onRename}
+              onMerge={fileOps.onMerge}
+              onCut={fileOps.onCut}
+              onCopy={fileOps.onCopy}
+              onPaste={fileOps.onPaste}
+              onMove={fileOps.onMove}
+              onBookmark={handleBookmark}
+              onToggleEntrypoint={fileOps.onToggleEntrypoint}
+              onExternalDrop={fileOps.onExternalDrop}
             />
           {/if}
         </div>
@@ -672,21 +682,19 @@
         </div>
       {/if}
     {:else if activePanel === 'sites'}
-      {#if onSourceSelect && onShowConfirm && onShowPrompt}
-        <SourcesPanel bind:this={sourcesPanel} {onSourceSelect} {...(onSourceDeleted !== undefined ? { onSourceDeleted } : {})} {onShowConfirm} {onShowPrompt} {...(onMineReferences !== undefined ? { onMineReferences } : {})} onSourceOpened={onSourceSelect} />
+      {#if panelOps?.onSourceSelect}
+        <SourcesPanel bind:this={sourcesPanel} onSourceSelect={panelOps.onSourceSelect} {...(panelOps.onSourceDeleted !== undefined ? { onSourceDeleted: panelOps.onSourceDeleted } : {})} onShowConfirm={dialogs.showConfirm} onShowPrompt={dialogs.showPrompt} {...(panelOps.onMineReferences !== undefined ? { onMineReferences: panelOps.onMineReferences } : {})} onSourceOpened={panelOps.onSourceSelect} />
       {/if}
     {:else if activePanel === 'tags'}
-      <TagPanel bind:this={tagPanel} {onFileSelect} {...(onSourceSelect !== undefined ? { onSourceSelect } : {})} />
+      <TagPanel bind:this={tagPanel} {onFileSelect} {...(panelOps?.onSourceSelect !== undefined ? { onSourceSelect: panelOps.onSourceSelect } : {})} />
     {:else if activePanel === 'objects'}
-      <ObjectsPanel bind:this={objectsPanel} {onFileSelect} {...(onOpenExcerpt !== undefined ? { onOpenExcerpt } : {})} {...(onOpenType !== undefined ? { onOpenType } : {})} {...(onOpenView !== undefined ? { onOpenView } : {})} {...(onManageViews !== undefined ? { onManageViews } : {})} />
+      <ObjectsPanel bind:this={objectsPanel} {onFileSelect} {...(panelOps?.onOpenExcerpt !== undefined ? { onOpenExcerpt: panelOps.onOpenExcerpt } : {})} {...(panelOps?.onOpenType !== undefined ? { onOpenType: panelOps.onOpenType } : {})} {...(panelOps?.onOpenView !== undefined ? { onOpenView: panelOps.onOpenView } : {})} {...(panelOps?.onManageViews !== undefined ? { onManageViews: panelOps.onManageViews } : {})} />
     {:else if activePanel === 'tables'}
-      {#if onTableClick && onOpenCsv && onOpenNote}
-        <TablesPanel bind:this={tablesPanel} {onTableClick} {onOpenCsv} {onOpenNote} />
+      {#if panelOps?.onTableClick && panelOps.onOpenCsv && panelOps.onOpenNote}
+        <TablesPanel bind:this={tablesPanel} onTableClick={panelOps.onTableClick} onOpenCsv={panelOps.onOpenCsv} onOpenNote={panelOps.onOpenNote} />
       {/if}
     {:else if activePanel === 'bookmarks'}
-      {#if onShowPrompt}
-        <BookmarksPanel {onFileSelect} {...(onNavigate !== undefined ? { onNavigate } : {})} {...(onOpenAtOffset !== undefined ? { onOpenAtOffset } : {})} {onShowPrompt} />
-      {/if}
+      <BookmarksPanel {onFileSelect} {...(panelOps?.onNavigate !== undefined ? { onNavigate: panelOps.onNavigate } : {})} {...(panelOps?.onOpenAtOffset !== undefined ? { onOpenAtOffset: panelOps.onOpenAtOffset } : {})} onShowPrompt={dialogs.showPrompt} />
     {:else if activePanel === 'proposals'}
       <ProposalsPanel />
     {/if}
@@ -699,10 +707,10 @@
       style:left="{contextMenu.x}px"
       style:top="{contextMenu.y}px"
     >
-      <button onclick={() => { onNewNote(''); contextMenu = null; }}>
+      <button onclick={() => { fileOps.onNewNote(''); contextMenu = null; }}>
         New Note
       </button>
-      <button onclick={() => { onNewFolder(''); contextMenu = null; }}>
+      <button onclick={() => { fileOps.onNewFolder(''); contextMenu = null; }}>
         New Folder
       </button>
     </div>
