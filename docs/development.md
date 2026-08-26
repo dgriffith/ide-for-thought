@@ -180,9 +180,11 @@ doubt:
 ## Tests
 
 - New behavior should come with a test. Bug fixes should come with a test that
-  fails before the fix and passes after, **when that's practical** — some
-  surfaces (notably `App.svelte`, the composition root) are covered by the
-  Playwright e2e journeys rather than unit tests. If a unit test would be
+  fails before the fix and passes after, **when that's practical**. Note: the
+  Playwright e2e journeys test the preload bridge and main-process pipeline, but
+  do not drive the UI itself — 66 of 125 Svelte components are at 0% code
+  coverage. Composition-root UI coverage (App.svelte, panels, page-layout
+  components) is a known gap that unit tests must fill. If a unit test would be
   disproportionate, say so in the PR rather than skipping the question.
 - Tests live under `tests/`, mirroring `src/` (`tests/main/`, `tests/renderer/`,
   `tests/preload/`, `tests/e2e/`).
