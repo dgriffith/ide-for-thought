@@ -19,6 +19,10 @@ export default defineConfig({
   ],
   test: {
     include: ['tests/**/*.test.ts'],
+    // Unified timeout for both `pnpm test` and `pnpm coverage`. Some tests
+    // (e.g., watcher, chokidar waits, network probes) need >5s to avoid flakes;
+    // 30s provides enough headroom without being overly lenient (#1942).
+    testTimeout: 30000,
     coverage: {
       // v8 is the only provider we need; istanbul is slower and adds a
       // dep we don't have. text-summary lands in stdout for the baseline

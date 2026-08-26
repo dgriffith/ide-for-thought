@@ -37,7 +37,7 @@
     "bench:check": "pnpm bench:json && node scripts/bench-check.mjs --current bench-results.json",
     "bench:baseline": "pnpm bench:json && node scripts/bench-check.mjs --current bench-results.json --update",
     "precoverage": "node scripts/fetch-embedding-model.mjs",
-    "coverage": "vitest run --coverage --test-timeout=30000",
+    "coverage": "vitest run --coverage",
     "build:e2e": "NODE_OPTIONS=--max-old-space-size=4096 electron-forge package",
     "test:e2e": "pnpm build:e2e && playwright test",
     "build:clipper": "node clipper/build.mjs",
