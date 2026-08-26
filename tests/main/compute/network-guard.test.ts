@@ -37,6 +37,15 @@ function runPy(snippet: string, env: Record<string, string> = {}): string {
 
 const skipIfNoPython = pythonAvailable() ? describe : describe.skip;
 
+describe('network-guard environment gate (#1931)', () => {
+  it('python3 is available so the network guard tests can run', () => {
+    // If pythonAvailable() returns false, the gated suite below becomes describe.skip,
+    // which looks like a pass in CI — so this assertion ensures Python is present
+    // or fails loudly. The network guard is a security boundary.
+    expect(pythonAvailable()).toBe(true);
+  });
+});
+
 skipIfNoPython('kernel network guard (#1413)', () => {
   it('installs the guard by default (connect is wrapped)', () => {
     const out = runPy('import minerva_kernel, socket; print(socket.socket.connect.__name__)');
