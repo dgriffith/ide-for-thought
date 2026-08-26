@@ -414,60 +414,57 @@ async function checkCitedUnreadSources(ctx: ProjectContext): Promise<Inspection[
 async function checkDuplicateSources(ctx: ProjectContext): Promise<Inspection[]> {
   const inspections: Inspection[] = [];
 
-  // Check both DOI and URI duplicates using a shared parameterized helper.
-  const doiResults = await checkDuplicatesByKey(
-    ctx,
-    'doi',
-    'keyDoi',
-    '?source bibo:doi ?doi . BIND(LCASE(?doi) AS ?keyDoi)',
-    'source_duplicate_doi',
-  );
-  const uriResults = await checkDuplicatesByKey(
-    ctx,
-    'uri',
-    'keyUri',
-    '?source bibo:uri ?uri . BIND(LCASE(REPLACE(STR(?uri), "/$", "")) AS ?keyUri)',
-    'source_duplicate_uri',
-  );
-
-  return inspections.concat(doiResults, uriResults);
-}
-
-/**
- * Parameterized helper for both DOI and URI duplicate detection.
- * Extracts the shared pattern: group by key, flag when count > 1.
- */
-async function checkDuplicatesByKey(
-  ctx: ProjectContext,
-  displayName: 'doi' | 'uri',
-  keyField: 'keyDoi' | 'keyUri',
-  binding: string,
-  inspectionType: 'source_duplicate_doi' | 'source_duplicate_uri',
-): Promise<Inspection[]> {
-  const results = await queryGraph(ctx, `
-    SELECT ?${keyField} (GROUP_CONCAT(DISTINCT ?source; SEPARATOR=" || ") AS ?sources)
+  // Check DOI duplicates.
+  const doiResults = await queryGraph(ctx, `
+    SELECT ?keyDoi (GROUP_CONCAT(DISTINCT ?source; SEPARATOR=" || ") AS ?sources)
            (GROUP_CONCAT(DISTINCT ?sourceId; SEPARATOR=" || ") AS ?ids) WHERE {
       ?source minerva:sourceId ?sourceId .
-      ${binding}
+      ?source bibo:doi ?doi . BIND(LCASE(?doi) AS ?keyDoi)
     }
-    GROUP BY ?${keyField}
+    GROUP BY ?keyDoi
     HAVING (COUNT(DISTINCT ?source) > 1)
     LIMIT ${DUPLICATE_SOURCES_LIMIT}
   `);
 
-  const inspections: Inspection[] = [];
-  for (const [i, r] of asRows(results).entries()) {
+  for (const [i, r] of asRows(doiResults).entries()) {
     const ids = (r.ids ?? '').split(' || ').filter(Boolean);
     const firstSource = (r.sources ?? '').split(' || ')[0] ?? '';
-    const keyValue = r[keyField as keyof typeof r]!;
-    const displayNameCap = displayName === 'doi' ? 'DOI' : 'URL';
+    const keyValue = r.keyDoi!;
     inspections.push({
-      id: `dup-${displayName}-${i}`,
-      type: inspectionType,
+      id: `dup-doi-${i}`,
+      type: 'source_duplicate_doi',
       severity: 'warning',
       nodeUri: firstSource,
       nodeLabel: ids[0] ?? keyValue,
-      message: `Duplicate ${displayNameCap} ${keyValue}: ${ids.length} sources (${ids.join(', ')}).`,
+      message: `Duplicate DOI ${keyValue}: ${ids.length} sources (${ids.join(', ')}).`,
+      suggestedAction: 'Right-click one and choose "Merge into…" to consolidate.',
+      fix: { kind: 'merge-sources', label: 'Merge…', sourceIds: ids },
+    });
+  }
+
+  // Check URI duplicates.
+  const uriResults = await queryGraph(ctx, `
+    SELECT ?keyUri (GROUP_CONCAT(DISTINCT ?source; SEPARATOR=" || ") AS ?sources)
+           (GROUP_CONCAT(DISTINCT ?sourceId; SEPARATOR=" || ") AS ?ids) WHERE {
+      ?source minerva:sourceId ?sourceId .
+      ?source bibo:uri ?uri . BIND(LCASE(REPLACE(STR(?uri), "/$", "")) AS ?keyUri)
+    }
+    GROUP BY ?keyUri
+    HAVING (COUNT(DISTINCT ?source) > 1)
+    LIMIT ${DUPLICATE_SOURCES_LIMIT}
+  `);
+
+  for (const [i, r] of asRows(uriResults).entries()) {
+    const ids = (r.ids ?? '').split(' || ').filter(Boolean);
+    const firstSource = (r.sources ?? '').split(' || ')[0] ?? '';
+    const keyValue = r.keyUri!;
+    inspections.push({
+      id: `dup-uri-${i}`,
+      type: 'source_duplicate_uri',
+      severity: 'warning',
+      nodeUri: firstSource,
+      nodeLabel: ids[0] ?? keyValue,
+      message: `Duplicate URL ${keyValue}: ${ids.length} sources (${ids.join(', ')}).`,
       suggestedAction: 'Right-click one and choose "Merge into…" to consolidate.',
       fix: { kind: 'merge-sources', label: 'Merge…', sourceIds: ids },
     });
