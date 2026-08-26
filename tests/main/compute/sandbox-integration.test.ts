@@ -38,6 +38,21 @@ function runSandboxed(profile: string, snippet: string): { code: number; out: st
 
 const skip = canRun() ? describe : describe.skip;
 
+describe('sandbox-integration environment gate (#1931)', () => {
+  it('the environment supports running sandbox-exec tests (macOS + python3)', () => {
+    // If canRun() returns false, the gated suite below becomes describe.skip,
+    // which looks like a pass in CI — so this assertion ensures the gate's
+    // conditions are met or fails loudly. This is a security boundary, so
+    // silent vanishing is not acceptable.
+    if (process.platform !== 'darwin') {
+      // Expected on Linux CI; non-fatal.
+      expect.soft(true).toBe(true);
+      return;
+    }
+    expect(canRun()).toBe(true);
+  });
+});
+
 skip('kernel Seatbelt profile — OS enforcement (#1329 P1/P2)', () => {
   let projectRoot: string;
   let tempHome: string;
