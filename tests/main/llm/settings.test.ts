@@ -15,6 +15,14 @@ import os from 'node:os';
 
 let tempDir: string;
 
+// process.env is worker-global, so snapshot + restore to avoid leaking the
+// deletions into other test files that share the worker.
+const envSnapshot = {
+  ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+  OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+  GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+};
+
 vi.mock('electron', () => ({
   app: {
     getPath: (name: string) => {
@@ -58,6 +66,10 @@ beforeEach(() => {
 });
 afterEach(() => {
   fs.rmSync(tempDir, { recursive: true, force: true });
+  for (const [k, v] of Object.entries(envSnapshot)) {
+    if (v === undefined) delete process.env[k];
+    else process.env[k] = v;
+  }
 });
 
 describe('llm settings — API key at-rest encryption (#1326)', () => {

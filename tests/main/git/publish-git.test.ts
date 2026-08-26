@@ -59,13 +59,20 @@ describe('renderCommitMessage', () => {
 });
 
 describe('resolveGitHubToken', () => {
-  const OLD = { ...process.env };
+  // process.env is worker-global, so snapshot + restore to avoid leaking the
+  // deletions into other test files that share the worker.
+  const envSnapshot = { GH_TOKEN: process.env.GH_TOKEN, GITHUB_TOKEN: process.env.GITHUB_TOKEN };
   beforeEach(() => {
     hoisted.execFileSync.mockReset();
     delete process.env.GH_TOKEN;
     delete process.env.GITHUB_TOKEN;
   });
-  afterEach(() => { process.env = { ...OLD }; });
+  afterEach(() => {
+    for (const [k, v] of Object.entries(envSnapshot)) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+  });
 
   it('prefers the gh CLI token', () => {
     hoisted.execFileSync.mockReturnValue('gho_fromcli\n');
