@@ -108,10 +108,16 @@ describe('setPythonSettings (#374)', () => {
 });
 
 describe('resolvePythonInterpreter (#374) — discovery order', () => {
-  const ORIGINAL_ENV = process.env.MINERVA_PYTHON;
+  // process.env is worker-global, so snapshot + restore at test time (not module
+  // load time) to avoid cross-file order dependencies if a previous test file
+  // didn't restore MINERVA_PYTHON.
+  let originalEnv: string | undefined;
+  beforeEach(() => {
+    originalEnv = process.env.MINERVA_PYTHON;
+  });
   afterEach(() => {
-    if (ORIGINAL_ENV === undefined) delete process.env.MINERVA_PYTHON;
-    else process.env.MINERVA_PYTHON = ORIGINAL_ENV;
+    if (originalEnv === undefined) delete process.env.MINERVA_PYTHON;
+    else process.env.MINERVA_PYTHON = originalEnv;
   });
 
   it('Settings override wins over env var and PATH default', async () => {
