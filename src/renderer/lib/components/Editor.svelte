@@ -2,7 +2,6 @@
   import { onMount, untrack } from 'svelte';
   import EditorContextMenu from './EditorContextMenu.svelte';
   import QuickFixMenu, { type QuickFix } from './QuickFixMenu.svelte';
-  import { installDismissOnClickOutside } from '../dismiss-menu';
   import { EditorView } from '@codemirror/view';
   import { EditorState, Compartment } from '@codemirror/state';
   import { cmTheme, fontSizeTheme, hiddenLineNumbersTheme } from '../editor/editor-theme';
@@ -21,7 +20,7 @@
   } from '../editor/image-upload';
   import { sortLines } from '../editor/commands';
   import { toggleEditorDictation } from '../editor/dictation';
-  import { findLinkAt, type LinkRange } from '../editor/link-decorations';
+  import type { LinkRange } from '../editor/link-decorations';
   import { brokenNoteLinkAt } from '../editor/broken-link-decorations';
   import { type RunAllRef } from '../editor/compute-cells';
   import {
@@ -30,7 +29,6 @@
     type BookmarkRef,
   } from '../editor/bookmark-gutter';
   import type { TypeInfo } from '../../../shared/objects/type-def';
-  import { planBlockLink } from '../editor/block-link';
   import { toHistorySnapshot, canRestoreHistory } from '../editor/history-snapshot';
   import { DEFAULT_FONT, clampFontSize, parseStoredFontSize } from '../editor/font-size';
   import { findFrontmatterFoldRange } from '../editor/frontmatter';
@@ -39,6 +37,19 @@
   import type { EditorContextMenuState, EditorMenuOps } from '../editor/context-menu-ops';
   import { buildExtensions } from '../editor/build-extensions';
   import { buildKeymapAndCompletion } from '../editor/build-keymap-and-completion';
+  import {
+    showContextMenu as showContextMenuOp,
+    closeContextMenu as closeContextMenuOp,
+    handleGutterContextMenu as handleGutterContextMenuOp,
+    toggleLineNumbers as toggleLineNumbersOp,
+    openLink as openLinkOp,
+    editLink as editLinkOp,
+    handleMenuAction as handleMenuActionOp,
+    execCommand as execCommandOp,
+    runCommand as runCommandOp,
+    copyBlockLink as copyBlockLinkOp,
+    type ContextMenuOps,
+  } from '../editor/context-menu';
 
   import { getToolInfosByCategory } from '../tools/tool-registry';
   import { isSourceScoped } from '../../../shared/tools/types';
@@ -288,129 +299,60 @@
     view.dispatch({ effects: unfoldEffect.of(range) });
   }
 
+  const contextMenuOps: ContextMenuOps = {
+    getView: () => view,
+    getFilePath: () => filePath,
+    onOpenSource,
+    onOpenExcerpt,
+    onNavigate,
+    onContextMenuOpen: (menu) => { contextMenu = menu; },
+    onContextMenuClose: () => { contextMenu = null; },
+    onGutterMenuOpen: (menu) => { gutterMenu = menu; },
+    onGutterMenuClose: () => { gutterMenu = null; },
+    getEditorSettings,
+    applySettings,
+    getSavedSelection: () => savedSelection,
+    setSavedSelection: (sel) => { savedSelection = sel; },
+  };
+
   function showContextMenu(e: MouseEvent) {
-    e.preventDefault();
-    let link: LinkRange | null = null;
-    let hasSelection = false;
-    let docPos: number | null = null;
-    let claimUri: string | null = null;
-    if (view) {
-      const pos = view.posAtCoords({ x: e.clientX, y: e.clientY });
-      docPos = pos ?? null;
-      if (pos != null) link = findLinkAt(view.state, pos);
-      const sel = view.state.selection.main;
-      hasSelection = sel.from !== sel.to;
-      // Resolve a thought:Claim URI from (1) the active selection, then
-      // (2) the line under the right-click. Powers Find Supporting /
-      // Opposing Arguments — those need a Claim node to link Grounds to.
-      const selText = hasSelection ? view.state.sliceDoc(sel.from, sel.to) : '';
-      claimUri = extractClaimUri(selText);
-      if (!claimUri && pos != null) {
-        const line = view.state.doc.lineAt(pos);
-        claimUri = extractClaimUri(line.text);
-      }
-    }
-    contextMenu = { x: e.clientX, y: e.clientY, link, hasSelection, docPos, claimUri };
-    installDismissOnClickOutside(closeMenu);
+    showContextMenuOp(contextMenuOps, e);
   }
 
   function closeMenu() {
-    contextMenu = null;
-    savedSelection = null;
+    closeContextMenuOp(contextMenuOps);
   }
 
   function handleWrapperContextMenu(e: MouseEvent) {
-    // Intercept only gutter right-clicks; the content area routes
-    // through CM's domEventHandlers.contextmenu to showContextMenu().
-    const target = e.target as HTMLElement | null;
-    if (!target?.closest('.cm-gutters')) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const current = getEditorSettings();
-    gutterMenu = { x: e.clientX, y: e.clientY, lineNumbers: current.lineNumbers };
-    installDismissOnClickOutside(() => { gutterMenu = null; });
+    handleGutterContextMenuOp(contextMenuOps, e);
   }
 
   function toggleLineNumbers() {
-    const current = getEditorSettings();
-    applySettings({ ...current, lineNumbers: !current.lineNumbers });
-    gutterMenu = null;
-  }
-
-  /** Restore the selection we snapshotted on right-click and refocus the
-   * editor, so menu-triggered commands operate on the original selection
-   * regardless of what happened to focus/selection in between. */
-  function restoreSelection(): void {
-    if (!view) return;
-    if (savedSelection) {
-      view.dispatch({ selection: savedSelection });
-    }
-    view.focus();
+    toggleLineNumbersOp(contextMenuOps);
   }
 
   function openLink(link: LinkRange) {
-    if (link.kind === 'wiki') {
-      if (link.linkType === 'cite') {
-        onOpenSource?.(link.href);
-      } else if (link.linkType === 'quote') {
-        onOpenExcerpt?.(link.href);
-      } else {
-        onNavigate?.(link.href);
-      }
-    } else {
-      void api.shell.openExternal(link.href);
-    }
-    closeMenu();
+    openLinkOp(contextMenuOps, link);
   }
 
   function editLink(link: LinkRange) {
-    if (!view) return;
-    view.dispatch({
-      selection: { anchor: link.editFrom, head: link.editTo },
-    });
-    view.focus();
-    closeMenu();
+    editLinkOp(contextMenuOps, link);
   }
 
-  /** Run an inline menu action with selection restored and focus in the
-   * editor. Use this for the onclick handlers on template menu buttons. */
   function handleMenuAction(action: () => void) {
-    restoreSelection();
-    closeMenu();
-    action();
+    handleMenuActionOp(contextMenuOps, action);
   }
 
   function execCommand(cmd: string) {
-    restoreSelection();
-    document.execCommand(cmd);
-    closeMenu();
+    execCommandOp(contextMenuOps, cmd);
   }
 
   function runCmd(cmd: (v: EditorView) => boolean) {
-    restoreSelection();
-    if (view) cmd(view);
-    closeMenu();
+    runCommandOp(contextMenuOps, cmd);
   }
 
-  /**
-   * Right-click action: anchor the paragraph under the cursor with a
-   * `^block-id` marker (reusing any existing one) and copy the canonical
-   * `[[note#^block-id]]` link to the clipboard. Blank lines and notes
-   * with no path yet (unsaved buffers) are silently skipped.
-   */
   async function copyBlockLink(): Promise<void> {
-    if (!view || !contextMenu || contextMenu.docPos == null || !filePath) {
-      closeMenu();
-      return;
-    }
-    const plan = planBlockLink(view.state.doc.toString(), contextMenu.docPos);
-    if (!plan) { closeMenu(); return; }
-    if (plan.edit) {
-      view.dispatch({ changes: { from: plan.edit.at, insert: plan.edit.text } });
-    }
-    const relPath = filePath.replace(/\.md$/, '');
-    await navigator.clipboard.writeText(`[[${relPath}#^${plan.blockId}]]`);
-    closeMenu();
+    await copyBlockLinkOp(contextMenuOps, contextMenu);
   }
 
   function adjustSubmenu(event: MouseEvent) {
