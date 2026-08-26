@@ -22,7 +22,6 @@
   import { getEditorStore, type TypeViewTab } from './lib/stores/editor.svelte';
   import { savedViewsStore } from './lib/stores/saved-views.svelte';
   import { getBusyStore } from './lib/stores/busy.svelte';
-  import { getClipboardStore } from './lib/stores/clipboard.svelte';
   import { getSourceDataStore } from './lib/stores/source-data.svelte';
   import { getSourceFlowStore } from './lib/stores/source-flow.svelte';
   import { getRefactorFlowStore } from './lib/stores/refactor-flow.svelte';
@@ -110,7 +109,6 @@
   const busy = getBusyStore();
   const sourceFlow = getSourceFlowStore();
   const refactorFlow = getRefactorFlowStore();
-  const clipboard = getClipboardStore();
   /** Last note tab the user was on. Used by the SourceDetail "Append
    *  to current note" action (#101) — when the user is viewing a
    *  source-detail tab the active tab IS the source, so "current"
@@ -1043,43 +1041,40 @@
       {#if sidebarVisible}
         <Sidebar
           bind:this={sidebar}
-          files={notebase.files}
-          rootName={notebase.meta?.name}
-          activeFilePath={editor.activeFilePath}
           onFileSelect={handleFileSelect}
-          onNavigate={handleNavigate}
-          onOpenAtOffset={handleOpenAtOffset}
-          onNewNote={handleNewNote}
-          onNewFolder={handleNewFolder}
-          onDelete={handleDelete}
-          onAddTag={handleAddTag}
-          onLabelVersion={handleLabelVersion}
-          onRemoveTag={handleRemoveTag}
-          onAddProperty={handleAddProperty}
-          onRemoveProperty={handleRemoveProperty}
-          onFormat={() => handleFormat()}
-          onRename={handleRename}
-          onMerge={handleMerge}
-          onCut={handleCut}
-          onCopy={handleCopy}
-          onPaste={handlePaste}
-          onMove={handleMove}
-          onBookmark={(path) => bookmarkStore.add(path.split('/').pop()?.replace(/\.(md|ttl|csv)$/, '') ?? path, path)}
-          onToggleEntrypoint={handleToggleEntrypoint}
-          onSourceSelect={(id) => handleOpenSource(id)}
-          onOpenExcerpt={handleOpenExcerpt}
-          onOpenType={handleOpenTypeView}
-          onOpenView={handleOpenSavedView}
-          onManageViews={() => { showEditSavedViews = true; }}
-          onSourceDeleted={handleSourceDeleted}
-          onShowConfirm={showConfirm}
-          onShowPrompt={showPrompt}
-          onMineReferences={handleMineReferences}
-          onTableClick={(name) => editor.openQuery(`SELECT * FROM ${name}`, 'sql')}
-          onOpenCsv={(rel) => handleFileSelect(rel)}
-          onOpenNote={(rel) => handleFileSelect(rel)}
-          onExternalDrop={handleExternalDrop}
-          canPaste={clipboard.current !== null}
+          fileOps={{
+            onNewNote: handleNewNote,
+            onNewFolder: handleNewFolder,
+            onDelete: handleDelete,
+            onAddTag: handleAddTag,
+            onLabelVersion: handleLabelVersion,
+            onRemoveTag: handleRemoveTag,
+            onAddProperty: handleAddProperty,
+            onRemoveProperty: handleRemoveProperty,
+            onFormat: () => handleFormat(),
+            onRename: handleRename,
+            onMerge: handleMerge,
+            onCut: handleCut,
+            onCopy: handleCopy,
+            onPaste: handlePaste,
+            onMove: handleMove,
+            onToggleEntrypoint: handleToggleEntrypoint,
+            onExternalDrop: handleExternalDrop,
+          }}
+          panelOps={{
+            onNavigate: handleNavigate,
+            onOpenAtOffset: handleOpenAtOffset,
+            onSourceSelect: (id) => handleOpenSource(id),
+            onOpenExcerpt: handleOpenExcerpt,
+            onOpenType: handleOpenTypeView,
+            onOpenView: handleOpenSavedView,
+            onManageViews: () => { showEditSavedViews = true; },
+            onSourceDeleted: handleSourceDeleted,
+            onMineReferences: handleMineReferences,
+            onTableClick: (name) => editor.openQuery(`SELECT * FROM ${name}`, 'sql'),
+            onOpenCsv: (rel) => handleFileSelect(rel),
+            onOpenNote: (rel) => handleFileSelect(rel),
+          }}
         />
       {/if}
       <!-- svelte-ignore a11y_no_static_element_interactions -->
