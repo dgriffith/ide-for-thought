@@ -181,11 +181,34 @@ const NO_PROJECT_NULL_BASELINE: Record<string, number> = {
   'src/main/ipc/register-graph.ts': 1,
 };
 
+// ── Ratchet 3: boolean overloads ────────────────────────────────────────────
+
+/**
+ * `withRootPathOr(false, …)` or `withRootPathOr(0, …)` or `withRootPathOr(true, …)` —
+ * the handler answers a primitive (boolean/number) when no project is open, and its
+ * domain call answers the same type for a different reason (operation failed, no
+ * results, etc.), so the caller cannot tell them apart. CLAUDE.md rule 5: a sentinel
+ * marks exactly ONE expected absence.
+ *
+ * The pattern to catch: `withRootPathOr(false|true|0|1, ...)` — a primitive fallback
+ * that lacks semantic context (unlike { ok: false; error } which is a discriminated
+ * union). This regex skips over the optional generic type (which may have nested
+ * angle brackets) and finds the fallback value directly. It finds the common case
+ * but may miss variants written across multiple lines or using variables.
+ */
+const BOOLEAN_OVERLOAD = /withRootPathOr[^(]*\(\s*(?:false|true|0|1)\s*[,)]/g;
+
+const BOOLEAN_OVERLOAD_BASELINE: Record<string, number> = {
+  'src/main/ipc/register-notebase.ts': 1,
+  'src/main/ipc/register-proposals.ts': 3,
+};
+
 describe('known-bad pattern ratchets (#1848)', () => {
   it('the scanners still find things — a broken regex would pass vacuously', () => {
-    // The failure mode that would quietly turn both ratchets into decoration.
+    // The failure mode that would quietly turn all ratchets into decoration.
     expect(Object.keys(countPerFile('src/main', SWALLOW)).length).toBeGreaterThan(20);
     expect(Object.keys(countPerFile('src/main', NO_PROJECT_NULL)).length).toBeGreaterThan(0);
+    expect(Object.keys(countPerFile('src/main', BOOLEAN_OVERLOAD)).length).toBeGreaterThan(0);
   });
 
   it('swallowed errors: no new ones', () => {
@@ -208,6 +231,18 @@ describe('known-bad pattern ratchets (#1848)', () => {
       'Use `withRootPath` so "no project open" throws, leaving `null` to mean only "not found" ' +
       '(CLAUDE.md rules 2 and 5). `withRootPathOr` is for handlers whose project-less answer is a ' +
       'legitimate value — an empty list a UI renders as "nothing yet" — not a way to signal failure.',
+    );
+  });
+
+  it('boolean overloads: no new ones', () => {
+    assertRatchet(
+      'Boolean/numeric overloads (withRootPathOr(false|true|0|1, …))',
+      BOOLEAN_OVERLOAD_BASELINE,
+      countPerFile('src/main', BOOLEAN_OVERLOAD),
+      'A primitive fallback (false, true, 0, 1) when no project is open conflates "no project" ' +
+      'with operation failure/no results. Use a discriminated union ({ ok: false; error: "..." }) ' +
+      'instead, or a unique sentinel. See CLAUDE.md IPC error handling rule 3: discriminated `{ ok, … }` ' +
+      'unions for expected multi-outcome paths. Rule 5: a sentinel marks exactly one expected absence.',
     );
   });
 });
