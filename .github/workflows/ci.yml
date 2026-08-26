@@ -60,6 +60,9 @@ jobs:
       - name: Lint (tsc + svelte-check + eslint)
         run: pnpm lint
 
+      - name: Lint fonts
+        run: pnpm lint:fonts
+
       # `pnpm coverage` runs the full suite with v8 instrumentation and enforces
       # the per-area thresholds in vitest.config (src/shared, src/main/llm,
       # src/main/notebase) — so the trust + security paths can't silently
