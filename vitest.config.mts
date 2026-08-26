@@ -57,19 +57,24 @@ export default defineConfig({
         branches: 40,
         functions: 40,
         lines: 45,
+        // Ratcheted 2026-08-26 (#1932): measured 95.9% L / 86.1% B, set to 91% / 82%.
+        // Added missing branch floor; lines tightened from 70 (3-5 pt margin).
         'src/shared/**': {
-          lines: 70,
+          lines: 91,
           functions: 70,
           statements: 70,
+          branches: 82,
         },
         // Trust path — proposals, approval gate, tool dispatch, turtle. Branch
         // floor tightened 38 → 45 once the expiry/auto-reject + malformed-bundle
         // branches got tests (#1000); measured ~51% branch now.
+        // Ratcheted 2026-08-26 (#1932): measured 85.1% L / 70.5% B, set to 81% / 66%
+        // (3-5 points below to avoid flap on small refactors but fail on real regressions).
         'src/main/llm/**': {
-          lines: 55,
+          lines: 81,
           functions: 58,
           statements: 55,
-          branches: 45,
+          branches: 66,
         },
         // Security path — fs sandbox, write pipeline, rename/merge link rewrites.
         'src/main/notebase/**': {
@@ -141,8 +146,9 @@ export default defineConfig({
         // 78% B; floors ~10pts below so a refactor won't flap but new untested
         // code fails. Remaining gaps in publish-git.ts are the real-remote push
         // paths, best left to integration rather than unit tests (#1614).
+        // Ratcheted 2026-08-26 (#1932): measured 90.8% L, set to 86% (3-5 pt margin).
         'src/main/git/**': {
-          lines: 64,
+          lines: 86,
           functions: 62,
           statements: 62,
           branches: 66,
@@ -250,8 +256,9 @@ export default defineConfig({
         // full-surface snapshot contract test (tests/preload/preload-bridge.test.ts,
         // #676), not line execution. Calling every passthrough to hit a line
         // floor would verify nothing the snapshot doesn't already pin.
+        // Ratcheted 2026-08-26 (#1932): measured 57.8% L, set to 53% (3-5 pt margin).
         'src/renderer/**': {
-          lines: 42,
+          lines: 53,
           functions: 40,
           statements: 42,
           branches: 34,

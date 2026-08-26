@@ -14,7 +14,6 @@ import path from 'node:path';
 import { buildKernelSandboxProfile, SANDBOX_EXEC, resolveRealPath } from '../../../src/main/compute/sandbox';
 
 const PY = process.env.MINERVA_PYTHON ?? 'python3';
-const HOME = resolveRealPath(os.homedir());
 
 function canRun(): boolean {
   if (process.platform !== 'darwin') return false;
@@ -41,14 +40,23 @@ const skip = canRun() ? describe : describe.skip;
 
 skip('kernel Seatbelt profile — OS enforcement (#1329 P1/P2)', () => {
   let projectRoot: string;
+  let tempHome: string;
+  let outsideDir: string;
   let netOff: string;
 
   beforeAll(() => {
-    projectRoot = resolveRealPath(fs.mkdtempSync(path.join(os.tmpdir(), 'mv-sandbox-')));
-    netOff = buildKernelSandboxProfile({ allowNetwork: false, projectRoot, homeDir: HOME });
+    projectRoot = resolveRealPath(fs.mkdtempSync(path.join(os.tmpdir(), 'mv-sandbox-proj-')));
+    tempHome = resolveRealPath(fs.mkdtempSync(path.join(os.tmpdir(), 'mv-sandbox-home-')));
+    // Create an "outside" dir completely outside TMP_WRITE_SUBPATHS for testing denied writes.
+    // Use /var/tmp which is different from os.tmpdir() (which resolves to /var/folders on macOS).
+    outsideDir = path.resolve('/var/tmp/mv-sandbox-outside-' + Math.random().toString(36).slice(2));
+    fs.mkdirSync(outsideDir, { recursive: true });
+    netOff = buildKernelSandboxProfile({ allowNetwork: false, projectRoot, homeDir: tempHome });
   });
   afterAll(() => {
     fs.rmSync(projectRoot, { recursive: true, force: true });
+    fs.rmSync(tempHome, { recursive: true, force: true });
+    fs.rmSync(outsideDir, { recursive: true, force: true });
   });
 
   it('a benign cell still runs (profile does not break Python startup)', () => {
@@ -81,7 +89,7 @@ skip('kernel Seatbelt profile — OS enforcement (#1329 P1/P2)', () => {
   it('imposes no network restriction when allowNetwork is on', () => {
     // Can't hit the real network in a test, but a loopback connect must not be
     // sandbox-denied under the permissive profile.
-    const netOn = buildKernelSandboxProfile({ allowNetwork: true, projectRoot, homeDir: HOME });
+    const netOn = buildKernelSandboxProfile({ allowNetwork: true, projectRoot, homeDir: tempHome });
     const r = runSandboxed(netOn, "import socket; socket.create_connection(('127.0.0.1', 1), 2)");
     expect(r.out).not.toMatch(/not permitted|PermissionError/);
   });
@@ -94,7 +102,7 @@ skip('kernel Seatbelt profile — OS enforcement (#1329 P1/P2)', () => {
   });
 
   it('denies writes outside the project (e.g. into $HOME)', () => {
-    const target = path.join(HOME, 'mv_sandbox_evil.txt');
+    const target = path.join(outsideDir, 'mv_sandbox_evil.txt');
     const r = runSandboxed(netOff, `open(${JSON.stringify(target)}, 'w').write('x')`);
     expect(r.code).not.toBe(0);
     expect(r.out).toMatch(/not permitted|PermissionError/);
@@ -103,7 +111,7 @@ skip('kernel Seatbelt profile — OS enforcement (#1329 P1/P2)', () => {
 
   it('denies reads of a sensitive location (~/.ssh)', () => {
     // Plant a file under ~/.ssh, confirm the sandbox blocks reading it, clean up.
-    const sshDir = path.join(os.homedir(), '.ssh');
+    const sshDir = path.join(tempHome, '.ssh');
     const planted = path.join(sshDir, 'mv_sandbox_probe');
     fs.mkdirSync(sshDir, { recursive: true });
     fs.writeFileSync(planted, 'SECRET');
@@ -118,7 +126,7 @@ skip('kernel Seatbelt profile — OS enforcement (#1329 P1/P2)', () => {
   });
 
   it('the write boundary is inherited by child processes', () => {
-    const target = path.join(HOME, 'mv_sandbox_child_evil.txt');
+    const target = path.join(outsideDir, 'mv_sandbox_child_evil.txt');
     // The parent builds the child's -c code with %r so the path is safely quoted
     // as a Python literal, avoiding nested-quote fragility.
     const snippet = [
