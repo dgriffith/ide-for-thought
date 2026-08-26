@@ -18,6 +18,24 @@ import {
 
 export type InspectionSeverity = 'info' | 'warning' | 'concern';
 
+// ── Named Constants ────────────────────────────────────────────────────────
+// (replacing magic numbers throughout the file for maintainability)
+
+/** Stale note check: max results to report */
+const STALE_NOTES_LIMIT = 20;
+
+/** Duplicate sources check: max results to report for each type (DOI, URI) */
+const DUPLICATE_SOURCES_LIMIT = 25;
+
+/** Broken links check: max links to scan before hitting soft cap */
+const BROKEN_LINKS_QUERY_LIMIT = 1000;
+
+/** Broken links check: soft cap on reported inspections (prevents panel drowning) */
+const BROKEN_LINKS_REPORT_CAP = 50;
+
+/** Periodic checks interval: 5 minutes */
+const PERIODIC_CHECKS_DEFAULT_INTERVAL_MS = 5 * 60 * 1000;
+
 export interface Inspection {
   id: string;
   type: string;
@@ -145,7 +163,7 @@ async function checkStaleness(ctx: ProjectContext, thresholdDays: number): Promi
       FILTER(?modified < "${cutoff}"^^<http://www.w3.org/2001/XMLSchema#dateTime>)
     }
     ORDER BY ?modified
-    LIMIT 20
+    LIMIT ${STALE_NOTES_LIMIT}
   `);
 
   return asRows(results).map((r, i) => ({
@@ -396,58 +414,61 @@ async function checkCitedUnreadSources(ctx: ProjectContext): Promise<Inspection[
 async function checkDuplicateSources(ctx: ProjectContext): Promise<Inspection[]> {
   const inspections: Inspection[] = [];
 
-  // Duplicate DOIs (lowercased).
-  const dupDois = await queryGraph(ctx, `
-    SELECT ?keyDoi (GROUP_CONCAT(DISTINCT ?source; SEPARATOR=" || ") AS ?sources)
-           (GROUP_CONCAT(DISTINCT ?sourceId; SEPARATOR=" || ") AS ?ids) WHERE {
-      ?source minerva:sourceId ?sourceId .
-      ?source bibo:doi ?doi .
-      BIND(LCASE(?doi) AS ?keyDoi)
-    }
-    GROUP BY ?keyDoi
-    HAVING (COUNT(DISTINCT ?source) > 1)
-    LIMIT 25
-  `);
-  for (const [i, r] of asRows(dupDois).entries()) {
-    const ids = (r.ids ?? '').split(' || ').filter(Boolean);
-    const firstSource = (r.sources ?? '').split(' || ')[0] ?? '';
-    inspections.push({
-      id: `dup-doi-${i}`,
-      type: 'source_duplicate_doi',
-      severity: 'warning',
-      nodeUri: firstSource,
-      nodeLabel: ids[0] ?? r.keyDoi!,
-      message: `Duplicate DOI ${r.keyDoi}: ${ids.length} sources (${ids.join(', ')}).`,
-      suggestedAction: 'Right-click one and choose "Merge into…" to consolidate.',
-      // Quick-fix (#1446): pick which duplicate to keep, merge the rest into it.
-      fix: { kind: 'merge-sources', label: 'Merge…', sourceIds: ids },
-    });
-  }
+  // Check both DOI and URI duplicates using a shared parameterized helper.
+  const doiResults = await checkDuplicatesByKey(
+    ctx,
+    'doi',
+    'keyDoi',
+    '?source bibo:doi ?doi . BIND(LCASE(?doi) AS ?keyDoi)',
+    'source_duplicate_doi',
+  );
+  const uriResults = await checkDuplicatesByKey(
+    ctx,
+    'uri',
+    'keyUri',
+    '?source bibo:uri ?uri . BIND(LCASE(REPLACE(STR(?uri), "/$", "")) AS ?keyUri)',
+    'source_duplicate_uri',
+  );
 
-  // Duplicate URIs (lowercased, trailing slash normalised).
-  const dupUris = await queryGraph(ctx, `
-    SELECT ?keyUri (GROUP_CONCAT(DISTINCT ?source; SEPARATOR=" || ") AS ?sources)
+  return inspections.concat(doiResults, uriResults);
+}
+
+/**
+ * Parameterized helper for both DOI and URI duplicate detection.
+ * Extracts the shared pattern: group by key, flag when count > 1.
+ */
+async function checkDuplicatesByKey(
+  ctx: ProjectContext,
+  displayName: 'doi' | 'uri',
+  keyField: 'keyDoi' | 'keyUri',
+  binding: string,
+  inspectionType: 'source_duplicate_doi' | 'source_duplicate_uri',
+): Promise<Inspection[]> {
+  const results = await queryGraph(ctx, `
+    SELECT ?${keyField} (GROUP_CONCAT(DISTINCT ?source; SEPARATOR=" || ") AS ?sources)
            (GROUP_CONCAT(DISTINCT ?sourceId; SEPARATOR=" || ") AS ?ids) WHERE {
       ?source minerva:sourceId ?sourceId .
-      ?source bibo:uri ?uri .
-      BIND(LCASE(REPLACE(STR(?uri), "/$", "")) AS ?keyUri)
+      ${binding}
     }
-    GROUP BY ?keyUri
+    GROUP BY ?${keyField}
     HAVING (COUNT(DISTINCT ?source) > 1)
-    LIMIT 25
+    LIMIT ${DUPLICATE_SOURCES_LIMIT}
   `);
-  for (const [i, r] of asRows(dupUris).entries()) {
+
+  const inspections: Inspection[] = [];
+  for (const [i, r] of asRows(results).entries()) {
     const ids = (r.ids ?? '').split(' || ').filter(Boolean);
     const firstSource = (r.sources ?? '').split(' || ')[0] ?? '';
+    const keyValue = r[keyField as keyof typeof r]!;
+    const displayNameCap = displayName === 'doi' ? 'DOI' : 'URL';
     inspections.push({
-      id: `dup-uri-${i}`,
-      type: 'source_duplicate_uri',
+      id: `dup-${displayName}-${i}`,
+      type: inspectionType,
       severity: 'warning',
       nodeUri: firstSource,
-      nodeLabel: ids[0] ?? r.keyUri!,
-      message: `Duplicate URL ${r.keyUri}: ${ids.length} sources (${ids.join(', ')}).`,
+      nodeLabel: ids[0] ?? keyValue,
+      message: `Duplicate ${displayNameCap} ${keyValue}: ${ids.length} sources (${ids.join(', ')}).`,
       suggestedAction: 'Right-click one and choose "Merge into…" to consolidate.',
-      // Quick-fix (#1446): pick which duplicate to keep, merge the rest into it.
       fix: { kind: 'merge-sources', label: 'Merge…', sourceIds: ids },
     });
   }
@@ -518,7 +539,7 @@ async function checkBrokenLinks(ctx: ProjectContext): Promise<Inspection[]> {
       ?source ?predicate ?target .
       VALUES ?predicate { ${valuesClause} }
     }
-    LIMIT 1000
+    LIMIT ${BROKEN_LINKS_QUERY_LIMIT}
   `);
 
   const inspections: Inspection[] = [];
@@ -531,7 +552,7 @@ async function checkBrokenLinks(ctx: ProjectContext): Promise<Inspection[]> {
       inspections.push(ins);
       counter++;
     }
-    if (inspections.length >= 50) break; // soft cap so we don't drown the panel
+    if (inspections.length >= BROKEN_LINKS_REPORT_CAP) break;
   }
   return inspections;
 }
@@ -758,7 +779,7 @@ export function startPeriodicChecks(
   opts: { loadSettings?: () => Promise<InspectionSettings>; intervalMs?: number } = {},
 ): void {
   stopPeriodicChecks(ctx);
-  const intervalMs = opts.intervalMs ?? 5 * 60 * 1000;
+  const intervalMs = opts.intervalMs ?? PERIODIC_CHECKS_DEFAULT_INTERVAL_MS;
   const timer = setInterval(() => {
     void (async () => {
       const settings = opts.loadSettings ? await opts.loadSettings() : DEFAULT_INSPECTION_SETTINGS;
