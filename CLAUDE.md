@@ -78,6 +78,31 @@ Note what it can't tell you: it doesn't distinguish a real store from a
 passthrough, and it says nothing about whether a mutating channel ships a change
 event (a main-side question).
 
+#### Testing a store: mock the module, don't add a reset API (#1944)
+
+Store singletons under `stores/*.svelte.ts` deliberately do **not** get a
+generic `reset()`/`clear()` export. Decision, not an oversight:
+
+- **Default: `vi.mock` the whole store module.** Most components/ops tests
+  don't need the store's real logic — they need it to hand back
+  controllable state. Mocking the module (see
+  `right-sidebar/BookmarksPanel.test.ts`) is fully isolated between tests
+  with zero store-specific cleanup code, and is the pattern to reach for
+  first.
+- **Testing the store's own logic is the exception.** A test that imports
+  the real module (`stores/bookmarks.test.ts` exercises
+  `retargetSectionAnchor`) owns its own scoped reset for exactly the state
+  it touches, rather than the store exporting a generic one nothing else
+  needs. A blanket `reset()` API would mostly serve this one call site while
+  adding a public surface every other consumer has to know is test-only.
+- **Cancel any real timers a mutation arms.** A debounced-persist store
+  (`bookmarks.svelte.ts`'s 500ms `schedulePersist`, mirroring
+  `search/index.ts`'s pattern) can leave a live `setTimeout` armed past the
+  end of whatever test triggered it, firing mid-run of a later one. Export a
+  narrow `_clearPendingPersistForTests()`-style escape hatch (test-only,
+  underscore-prefixed, same convention as `_setPersistDebounceMsForTests` in
+  `search/index.ts`) and call it in `afterEach` — not a general reset.
+
 ### UI & UX Philosophy
 This is a **professional tool**. Design accordingly:
 

@@ -17,6 +17,13 @@ function schedulePersist() {
   }, 500);
 }
 
+/** Test-only: cancel a pending debounced persist without saving, so a real
+ *  500ms timer armed by one test can't fire mid-run of a later one (#1944). */
+export function _clearPendingPersistForTests(): void {
+  if (persistTimer) clearTimeout(persistTimer);
+  persistTimer = null;
+}
+
 export function getBookmarksStore() {
   async function load() {
     tree = await api.bookmarks.load();

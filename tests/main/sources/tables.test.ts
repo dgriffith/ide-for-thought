@@ -99,6 +99,10 @@ describe('tables module — DuckDB lifecycle + runQuery (#232)', () => {
       expect(inSecond.ok).toBe(false);
     } finally {
       disposeProject(otherCtx);
+      // `ctx`'s DuckDB connection is shared with every other test in this
+      // file (#1944) — drop the ad-hoc table rather than leaving it behind
+      // for whatever test runs next to collide with.
+      await runQuery(ctx, `DROP TABLE IF EXISTS scratch`);
     }
   });
 });

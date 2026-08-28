@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -7,10 +7,12 @@ import {
   disposeProject,
   runQuery,
   registerCsv,
+  unregisterCsv,
   registerMarkdownTable,
   unregisterNoteTables,
   reregisterNoteTables,
   onCsvTableCollision,
+  listTables,
 } from '../../../src/main/sources/tables';
 import { projectContext } from '../../../src/main/project-context-types';
 import type { ParsedTable } from '../../../src/main/graph/parser';
@@ -27,6 +29,20 @@ beforeAll(async () => {
 afterAll(async () => {
   disposeProject(ctx);
   await fs.rm(rootPath, { recursive: true, force: true });
+});
+
+// The DuckDB instance is shared across every test in this file (a fresh one
+// per test would re-pay initTablesDb's startup cost for no benefit here), so
+// nothing stops one test's tables from colliding with the next's. Drop
+// everything through the real unregister paths after each test — that
+// exercises the same cleanup production code relies on, rather than
+// depending on every test picking a disjoint name forever (#1944).
+afterEach(async () => {
+  const tables = await listTables(ctx);
+  const notePaths = new Set(tables.filter((t) => t.source === 'note').map((t) => t.relativePath));
+  const csvPaths = new Set(tables.filter((t) => t.source === 'csv').map((t) => t.relativePath));
+  for (const notePath of notePaths) await unregisterNoteTables(ctx, notePath);
+  for (const csvPath of csvPaths) await unregisterCsv(ctx, csvPath);
 });
 
 function table(caption: string, headers: string[], rows: string[][]): ParsedTable {
