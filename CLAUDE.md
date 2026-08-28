@@ -103,6 +103,44 @@ generic `reset()`/`clear()` export. Decision, not an oversight:
   underscore-prefixed, same convention as `_setPersistDebounceMsForTests` in
   `search/index.ts`) and call it in `afterEach` — not a general reset.
 
+#### `waitFor(...)` must be awaited — enforced by lint, not `expect.assertions` (#1947)
+
+~200 sites across the component test suite assert inside a
+`@testing-library/svelte` `waitFor(() => expect(...))` callback. `waitFor`
+polls that callback on an interval; if the call itself isn't `await`ed (or
+explicitly `void`ed for deliberate fire-and-forget), the test function can
+return — and be marked passed — before the assertion ever gets to observe
+the state it's waiting for. The audit behind this note found zero existing
+offenders, but nothing was stopping a future one.
+
+`expect.assertions(n)` — the usual defense for "did this callback actually
+run" — was tried and rejected here, for a reason worth recording so it
+isn't tried again: **`waitFor` invokes its callback once per retry tick**,
+so the assertion inside fires a timing-dependent number of times, not once.
+Measured directly: a condition that resolved after 30ms on a 5ms poll
+interval ticked `expect()` 7 times. An exact `expect.assertions(n)` would be
+flaky by construction — pass or fail depending on how many retries a given
+run happened to need. `expect.hasAssertions()` fares no better in the other
+direction: `waitFor` checks its callback once synchronously on the very
+first call, before any interval fires, so even a `waitFor(...)` call with
+the `await` accidentally dropped still ticks the counter at least once —
+the exact bug this is meant to catch slips through it silently.
+
+The actual fix is `no-restricted-syntax` in `eslint.config.mjs`, scoped to
+`tests/**/*.ts`: it flags any `waitFor(...)` sitting as a bare
+`ExpressionStatement` (i.e. not `await`ed, not `void`ed, not assigned or
+returned). That's a static, deterministic check — no timing dependency, and
+it catches the bug before any test runs at all, which a runtime assertion
+count never could.
+
+**Where `expect.assertions`/`expect.hasAssertions` DO earn their keep:** a
+genuinely fire-and-forget async branch with no retry loop — e.g. an
+assertion inside a raw `.then()` callback, or an event handler invoked by a
+mocked callback the test never otherwise awaits. There, the callback runs
+(at most) once, so an exact count is meaningful and won't flap. Reach for
+one of those there; reach for the lint rule (already on, nothing to add)
+for `waitFor`.
+
 ### UI & UX Philosophy
 This is a **professional tool**. Design accordingly:
 
