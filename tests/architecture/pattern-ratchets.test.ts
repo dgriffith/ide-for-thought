@@ -213,16 +213,21 @@ const BOOLEAN_OVERLOAD_BASELINE: Record<string, number> = {
  * success — a save that never happened, an export that never ran — instead
  * of surfacing "no project open" as the failure it is.
  *
- * The two survivors below are genuinely fine, not overlooked: `shell.*`
- * handlers are the CLAUDE.md-documented "stateless OS side-effect" category —
+ * The survivors below are genuinely fine, not overlooked: `shell.*` handlers
+ * are the CLAUDE.md-documented "stateless OS side-effect" category —
  * `SHELL_REVEAL_FILE`/`SHELL_OPEN_IN_DEFAULT`/`SHELL_OPEN_IN_TERMINAL` return
  * `undefined` on success too (there's nothing to report either way), so "no
  * project ⇒ nothing to reveal/open" isn't a disguised failure the way a
- * silently-skipped persist is.
+ * silently-skipped persist is. `TABS_SAVE` was actually converted to
+ * `withRootPath` and then reverted — CI's smoke test caught it: the editor
+ * store persists its tab layout reactively, including the very first empty
+ * layout a project-less window mounts with, so "no project" there means
+ * "nothing to persist," not a failed write.
  */
 const NO_PROJECT_UNDEFINED = /withRootPathOr\s*(?:<[^>]*>)?\s*\(\s*undefined\b/g;
 
 const NO_PROJECT_UNDEFINED_BASELINE: Record<string, number> = {
+  'src/main/ipc/register-bookmarks.ts': 1,
   'src/main/ipc/register-shell.ts': 3,
 };
 

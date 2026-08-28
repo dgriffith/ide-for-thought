@@ -22,7 +22,17 @@ export function registerBookmarks(): void {
   // it round-trips the renderer's session shape (now the multi-group
   // LayoutSession, #816) without inspecting it; the renderer validates and
   // migrates legacy shapes on load.
-  handle(Channels.TABS_SAVE, withRootPath(async (rootPath, session: LayoutSession | TabSession) => {
+  //
+  // Deliberately `withRootPathOr`, not `withRootPath` (#1894 follow-up): unlike
+  // BOOKMARKS_SAVE (only reachable via an explicit bookmark action inside an
+  // open project), the editor store schedules a tab-session persist
+  // reactively off its own state — including the very first, empty layout a
+  // brand-new project-less window mounts with. There is no rootPath to write
+  // `tabs.json` under in that state, so "no project" and "nothing to persist"
+  // are the same answer, not a disguised failure — confirmed the hard way
+  // when switching this to `withRootPath` broke the smoke test's "no thrown
+  // errors" assertion on a fresh launch.
+  handle(Channels.TABS_SAVE, withRootPathOr(undefined, async (rootPath, session: LayoutSession | TabSession) => {
     const tabsPath = path.join(rootPath, '.minerva', 'tabs.json');
     await fs.mkdir(path.dirname(tabsPath), { recursive: true });
     await fs.writeFile(tabsPath, JSON.stringify(session, null, 2), 'utf-8');

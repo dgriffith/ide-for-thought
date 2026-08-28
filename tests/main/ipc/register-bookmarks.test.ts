@@ -87,15 +87,21 @@ describe('register-bookmarks store loads (#1631)', () => {
     await expect(call(Channels.TABS_LOAD)).rejects.toThrow();
   });
 
-  // #1894 — these two used to be `withRootPathOr(undefined, …)`, so saving with
-  // no project open silently resolved as if the write had happened.
+  // #1894 — used to be `withRootPathOr(undefined, …)`, so saving with no
+  // project open silently resolved as if the write had happened. Only
+  // reachable via an explicit bookmark action inside an open project, unlike
+  // TABS_SAVE below — so "no project" here really is the caller's mistake.
   it('BOOKMARKS_SAVE throws with no project rather than silently doing nothing', () => {
     state.root = null;
     expect(() => call(Channels.BOOKMARKS_SAVE, [])).toThrow('No project open');
   });
 
-  it('TABS_SAVE throws with no project rather than silently doing nothing', () => {
+  // TABS_SAVE stays `withRootPathOr(undefined, …)` deliberately (#1894
+  // follow-up): the editor store persists its tab layout reactively,
+  // including the very first empty layout a project-less window mounts with,
+  // so "no project" here means "nothing to persist," not a failed write.
+  it('TABS_SAVE is a silent no-op with no project (nothing to persist)', () => {
     state.root = null;
-    expect(() => call(Channels.TABS_SAVE, {})).toThrow('No project open');
+    expect(call(Channels.TABS_SAVE, {})).toBeUndefined();
   });
 });
