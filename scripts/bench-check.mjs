@@ -15,7 +15,11 @@
  *     positive machine. Nightly baseline-diff catches real regressions without
  *     the flap.
  *   - Gates on the RATIO to a committed baseline (default 2×), not raw ms, so a
- *     slow cold runner shifts every number together and cancels out.
+ *     slow cold runner shifts every number together and cancels out. A
+ *     benchmark can override the default with its own `tolerance` — tighter
+ *     for a bench with demonstrated low run-to-run variance, so a real
+ *     regression can't hide inside slack sized for the noisiest bench in the
+ *     file (#1945).
  *   - An optional per-benchmark `budgetMs` adds a hard absolute ceiling for the
  *     few latencies we want a scale envelope on (e.g. graph query at 5k notes).
  *
@@ -27,9 +31,12 @@
  *                --update where it's the source to snapshot).
  *   --baseline   Committed baseline (default tests/main/bench-baseline.json).
  *   --tolerance  Regression factor (default: baseline.tolerance, else 2.0). Also
- *                overridable via BENCH_TOLERANCE. current/baseline > tolerance ⇒ fail.
+ *                overridable via BENCH_TOLERANCE. Overrides EVERY benchmark's own
+ *                `tolerance`, if set — it's a one-off operator request, not a
+ *                per-bench characteristic. current/baseline > tolerance ⇒ fail.
  *   --update     Refresh the baseline from --current (preserving tolerance +
- *                per-benchmark budgetMs) and exit 0. Run this to re-bless numbers.
+ *                per-benchmark budgetMs/tolerance) and exit 0. Run this to
+ *                re-bless numbers.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 
@@ -50,12 +57,18 @@ function parseArgs(argv) {
 }
 
 /** Flatten a vitest `--outputJson` report (files→groups→benchmarks) OR an
- *  already-flat baseline ({ benchmarks: [...] }) into name → {mean, hz, budgetMs}. */
+ *  already-flat baseline ({ benchmarks: [...] }) into name → {mean, hz, budgetMs, tolerance}. */
 function flatten(json) {
   const map = new Map();
   if (Array.isArray(json.benchmarks)) {
     for (const b of json.benchmarks) {
-      map.set(b.name, { mean: b.mean, hz: b.hz, budgetMs: b.budgetMs ?? null, gate: b.gate !== false });
+      map.set(b.name, {
+        mean: b.mean,
+        hz: b.hz,
+        budgetMs: b.budgetMs ?? null,
+        tolerance: b.tolerance ?? null,
+        gate: b.gate !== false,
+      });
     }
     return map;
   }
@@ -97,14 +110,17 @@ if (args.update) {
   } catch {
     /* first run — no baseline yet */
   }
-  // Preserve hand-set budgetMs / gate flags across a re-bless — only the
-  // measured mean/hz should move.
-  const prevMeta = new Map((prev.benchmarks ?? []).map((b) => [b.name, { budgetMs: b.budgetMs ?? null, gate: b.gate }]));
+  // Preserve hand-set budgetMs / tolerance / gate flags across a re-bless —
+  // only the measured mean/hz should move.
+  const prevMeta = new Map(
+    (prev.benchmarks ?? []).map((b) => [b.name, { budgetMs: b.budgetMs ?? null, tolerance: b.tolerance ?? null, gate: b.gate }]),
+  );
   const benchmarks = [...current.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([name, { mean, hz }]) => {
       const meta = prevMeta.get(name) ?? {};
       const entry = { name, mean: Number(mean.toFixed(6)), hz: Number(hz.toFixed(2)), budgetMs: meta.budgetMs ?? null };
+      if (meta.tolerance != null) entry.tolerance = meta.tolerance;
       if (meta.gate === false) entry.gate = false;
       return entry;
     });
@@ -112,7 +128,10 @@ if (args.update) {
     _comment:
       'Committed benchmark baseline (#1099). Regenerate on the macos-latest ' +
       'Bench runner with `pnpm bench:baseline` and commit the diff. `budgetMs` ' +
-      'is an optional hard ceiling (ms) — set it by hand for scale-envelope gates.',
+      'is an optional hard ceiling (ms) — set it by hand for scale-envelope gates. ' +
+      '`tolerance` optionally overrides the file-level ratio gate per benchmark — ' +
+      'tighten it for a demonstrated low-variance bench so its slack matches its ' +
+      'actual noise instead of the noisiest bench in the file (#1945).',
     tolerance: prev.tolerance ?? DEFAULT_TOLERANCE,
     benchmarks,
   };
@@ -124,11 +143,14 @@ if (args.update) {
 // ── compare current vs committed baseline ──
 const baselineJson = readJson(args.baseline);
 const baseline = flatten(baselineJson);
-const tolerance =
-  args.tolerance ??
-  (process.env.BENCH_TOLERANCE ? Number(process.env.BENCH_TOLERANCE) : undefined) ??
-  baselineJson.tolerance ??
-  DEFAULT_TOLERANCE;
+// An explicit CLI/env override applies to every benchmark, overriding even a
+// per-benchmark `tolerance` — it's a deliberate one-off operator request, not
+// a per-bench characteristic. Absent that, each benchmark falls back to its
+// own `tolerance` (if set) and only then to the file-level default.
+const explicitTolerance =
+  args.tolerance ?? (process.env.BENCH_TOLERANCE ? Number(process.env.BENCH_TOLERANCE) : undefined);
+const fileTolerance = baselineJson.tolerance ?? DEFAULT_TOLERANCE;
+const tolerance = explicitTolerance ?? fileTolerance;
 
 const regressions = [];
 const budgetBreaches = [];
@@ -143,20 +165,22 @@ for (const [name, base] of baseline) {
     continue;
   }
   const ratio = cur.mean / base.mean;
+  const benchTolerance = explicitTolerance ?? base.tolerance ?? fileTolerance;
   // Some benchmarks are inherently high-variance (e.g. building a 5k-note
   // rdflib graph from scratch is GC-dominated, ±200% run to run). Record them
   // for week-over-week diffing, but don't let their noise fail the gate.
   const gated = base.gate !== false;
-  const regressed = gated && ratio > tolerance;
+  const regressed = gated && ratio > benchTolerance;
   const overBudget = gated && base.budgetMs != null && cur.mean > base.budgetMs;
-  if (regressed) regressions.push({ name, ratio });
+  if (regressed) regressions.push({ name, ratio, tolerance: benchTolerance });
   if (overBudget) budgetBreaches.push({ name, mean: cur.mean, budgetMs: base.budgetMs });
   rows.push({
     name,
     base: base.mean,
     cur: cur.mean,
     ratio,
-    flag: !gated ? 'tracked' : regressed ? 'REGRESSED' : overBudget ? 'OVER BUDGET' : ratio < 1 / tolerance ? 'faster' : 'ok',
+    tolerance: benchTolerance,
+    flag: !gated ? 'tracked' : regressed ? 'REGRESSED' : overBudget ? 'OVER BUDGET' : ratio < 1 / benchTolerance ? 'faster' : 'ok',
   });
 }
 for (const name of current.keys()) {
@@ -164,12 +188,12 @@ for (const name of current.keys()) {
 }
 
 // ── report ──
-console.log(`\nBenchmark regression check — tolerance ${tolerance}× vs ${args.baseline}\n`);
+console.log(`\nBenchmark regression check — default tolerance ${tolerance}× vs ${args.baseline} (a benchmark's own \`tolerance\` overrides this)\n`);
 const namePad = Math.max(4, ...rows.map((r) => r.name.length));
-console.log(`${'name'.padEnd(namePad)}  ${'baseline'.padStart(10)}  ${'current'.padStart(10)}  ${'ratio'.padStart(7)}  status`);
+console.log(`${'name'.padEnd(namePad)}  ${'baseline'.padStart(10)}  ${'current'.padStart(10)}  ${'ratio'.padStart(7)}  ${'tol'.padStart(5)}  status`);
 for (const r of rows.sort((a, b) => b.ratio - a.ratio)) {
   console.log(
-    `${r.name.padEnd(namePad)}  ${fmt(r.base).padStart(10)}  ${fmt(r.cur).padStart(10)}  ${(r.ratio.toFixed(2) + '×').padStart(7)}  ${r.flag}`,
+    `${r.name.padEnd(namePad)}  ${fmt(r.base).padStart(10)}  ${fmt(r.cur).padStart(10)}  ${(r.ratio.toFixed(2) + '×').padStart(7)}  ${(r.tolerance + '×').padStart(5)}  ${r.flag}`,
   );
 }
 
@@ -178,7 +202,7 @@ if (missing.length) console.log(`\n⚠ ${missing.length} baseline benchmark(s) m
 
 if (regressions.length || budgetBreaches.length) {
   console.error('\n✗ Benchmark regression gate FAILED:');
-  for (const r of regressions) console.error(`  - ${r.name}: ${r.ratio.toFixed(2)}× slower than baseline (> ${tolerance}×)`);
+  for (const r of regressions) console.error(`  - ${r.name}: ${r.ratio.toFixed(2)}× slower than baseline (> ${r.tolerance}×)`);
   for (const b of budgetBreaches) console.error(`  - ${b.name}: ${fmt(b.mean)} exceeds budget ${fmt(b.budgetMs)}`);
   process.exit(1);
 }
