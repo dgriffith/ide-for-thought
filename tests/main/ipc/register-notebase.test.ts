@@ -393,6 +393,9 @@ describe('register-notebase — the write path', () => {
     expect(h.order).toEqual(['mark', 'create']);
     expect(h.indexNote).toHaveBeenCalledWith(CTX, 'notes/new.md', '');
     expect(h.searchIndexNote).toHaveBeenCalledWith(CTX, 'notes/new.md', '');
+    // #1892 — this handler used to hand-roll graph+search only, missing the
+    // vector store (now routed through the shared indexAllFor fan-out).
+    expect(h.vectorsIndexNote).toHaveBeenCalledWith(CTX, 'notes/new.md', '');
   });
 
   it('NOTEBASE_DELETE_FILE claims the path, deletes, de-indexes, then persists', async () => {

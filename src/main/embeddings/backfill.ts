@@ -18,6 +18,24 @@
  *
  * A per-project registry guarantees one run at a time and lets project-close
  * abort an in-flight backfill.
+ *
+ * ── #1892 stale-embeddings decision ─────────────────────────────────────────
+ * Before #1892, watcher-driven note edits skipped the vector store entirely
+ * (a hand-copied fan-out omitted it), and this backfill's own skip set
+ * (`embeddedNotePaths`) only tracks "has a row," not "row matches current
+ * content" — so an affected note's embedding is stale, not merely missing,
+ * and a plain run here would keep skipping it forever.
+ *
+ * Decided: no automatic one-time re-embed ships with the fix. The `force`
+ * path above already exists precisely for "embeddings might be stale" (it's
+ * wired to the menu's manual "Rebuild Embeddings" action) and unconditionally
+ * re-embeds every note/source/excerpt — running it once clears any staleness
+ * this bug left behind, same as it would for a model change. Forcing that
+ * automatically on next project open would re-embed the *entire* corpus for
+ * every user to fix content that, for most projects, only external
+ * (non-Minerva) edits during the affected window could have gone stale —
+ * disproportionate for a corpus-wide default. A user who suspects stale
+ * related-notes results can run the existing manual rebuild.
  */
 
 import fs from 'node:fs/promises';

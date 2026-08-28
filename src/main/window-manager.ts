@@ -11,6 +11,7 @@ import * as search from './search/index';
 import * as notebaseFs from './notebase/fs';
 import * as templates from './notebase/templates';
 import * as tables from './sources/tables';
+import { indexAllFor, removeAllFor } from './notebase/index-fanout';
 import { invalidate as invalidatePythonModules } from './compute/python-kernel';
 import { addRecentProject } from './recent-projects';
 import { saveSession, type WindowState } from './session';
@@ -396,8 +397,7 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
       if (relativePath.endsWith('.csv.schema.yaml')) return;
       try {
         const content = await notebaseFs.readFile(rootPath, relativePath);
-        await graph.indexNote(projectCtx, relativePath, content);
-        search.indexNote(projectCtx, relativePath, content);
+        await indexAllFor(projectCtx, relativePath, content);
         // Captioned markdown tables in the note re-register in DuckDB (#1358).
         if (relativePath.toLowerCase().endsWith('.md')) {
           const r = await tables.reregisterNoteTables(projectCtx, relativePath, content);
@@ -429,8 +429,7 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
       if (relativePath.endsWith('.csv.schema.yaml')) return;
       try {
         const content = await notebaseFs.readFile(rootPath, relativePath);
-        await graph.indexNote(projectCtx, relativePath, content);
-        search.indexNote(projectCtx, relativePath, content);
+        await indexAllFor(projectCtx, relativePath, content);
         if (relativePath.toLowerCase().endsWith('.md')) {
           const r = await tables.reregisterNoteTables(projectCtx, relativePath, content);
           if (r.changed && !win.isDestroyed()) broadcast(win, Channels.TABLES_CHANGED);
@@ -455,8 +454,7 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
       }
       if (relativePath.endsWith('.csv.schema.yaml')) return;
       try {
-        search.removeNote(projectCtx, relativePath);
-        graph.removeNote(projectCtx, relativePath);
+        removeAllFor(projectCtx, relativePath);
         // Drop any DuckDB tables the deleted note owned (#1358). A rename
         // surfaces as delete+create, so the create half re-registers them.
         if (relativePath.toLowerCase().endsWith('.md')) {
