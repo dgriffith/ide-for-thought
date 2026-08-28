@@ -4,9 +4,9 @@ import path from 'node:path';
 import { Channels } from '../../shared/channels';
 import * as notebaseFs from '../notebase/fs';
 import { isIndexable } from '../notebase/indexable-files';
-import * as graph from '../graph/index';
+import type * as graph from '../graph/index';
 import * as search from '../search/index';
-import * as vectors from '../embeddings/vector-store';
+import { indexAllFor, removeAllFor } from '../notebase/index-fanout';
 import { projectContext } from '../project-context-types';
 import { getRootPath, markPathHandled, windowsForProject } from '../window-manager';
 import type { WritePipelineHooks } from '../notebase/write-pipeline';
@@ -80,20 +80,12 @@ export function withRootPathWin<A extends unknown[], R>(
 export async function reindexFile(rootPath: string, relativePath: string): Promise<void> {
   if (!isIndexable(relativePath)) return;
   const content = await notebaseFs.readFile(rootPath, relativePath);
-  const ctx = projectContext(rootPath);
-  await graph.indexNote(ctx, relativePath, content);
-  if (relativePath.endsWith('.md')) {
-    search.indexNote(ctx, relativePath, content);
-    void vectors.indexNote(ctx, relativePath, content); // #835; no-op when disabled
-  }
+  await indexAllFor(projectContext(rootPath), relativePath, content);
 }
 
 export function removeFromIndexes(rootPath: string, relativePath: string): void {
   if (!isIndexable(relativePath)) return;
-  const ctx = projectContext(rootPath);
-  search.removeNote(ctx, relativePath);
-  graph.removeNote(ctx, relativePath);
-  void vectors.removeNote(ctx, relativePath); // #835; no-op when disabled
+  removeAllFor(projectContext(rootPath), relativePath);
 }
 
 export async function listIndexableFiles(rootPath: string, relDir: string): Promise<string[]> {

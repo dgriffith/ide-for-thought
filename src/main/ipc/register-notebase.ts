@@ -11,9 +11,9 @@ import { renameSource, renameExcerpt } from '../notebase/rename-source-excerpt';
 import { getOrFetchRemoteImage } from '../images/remote-image-cache';
 import { resolveDisplayName, setDisplayName, getDisplayName, readProjectConfig } from '../project-config';
 import { getOrFetchThumbnail } from '../youtube/thumbnail-cache';
-import * as graph from '../graph/index';
 import { projectContext } from '../project-context-types';
 import { writeAndReindex } from '../notebase/write-pipeline';
+import { indexAllFor } from '../notebase/index-fanout';
 import * as search from '../search/index';
 import * as vectors from '../embeddings/vector-store';
 import { clearRecentProjects, defaultThoughtbaseDir } from '../recent-projects';
@@ -231,9 +231,7 @@ export function registerNotebase(): void {
   handle(Channels.NOTEBASE_CREATE_FILE, withRootPath(async (rootPath, relativePath: string) => {
     markPathHandled(relativePath);
     await notebaseFs.createFile(rootPath, relativePath);
-    const ctx = projectContext(rootPath);
-    await graph.indexNote(ctx, relativePath, '');
-    search.indexNote(ctx, relativePath, '');
+    await indexAllFor(projectContext(rootPath), relativePath, '');
   }));
 
   handle(Channels.NOTEBASE_DELETE_FILE, withRootPath(async (rootPath, relativePath: string) => {
