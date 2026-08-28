@@ -200,6 +200,27 @@ export default tseslint.config(
       // necessarily reference mock functions unbound; there's no real
       // `this`-binding hazard with vi.fn() mocks, so the rule is noise here.
       '@typescript-eslint/unbound-method': 'off',
+      // `no-floating-promises` is off in this block (above) because
+      // vitest's mocking patterns trip it broadly, but an unawaited
+      // `waitFor(...)` is a narrower, real bug worth catching on its own
+      // (#1947): testing-library's `waitFor` retries its callback on an
+      // interval, so its assertion runs on borrowed time — if the call
+      // isn't awaited (or explicitly `void`ed), the test function can
+      // return and be marked "passed" before the assertion ever gets a
+      // chance to actually observe the awaited state, silently discarding
+      // whatever it would have caught. `expect.assertions(n)` was
+      // considered and rejected for this: `waitFor` invokes its callback
+      // once per retry tick, so `expect()` inside it fires a
+      // timing-dependent number of times — an exact assertion count would
+      // be flaky by construction (confirmed empirically: a 30ms condition
+      // on a 5ms interval assertion-counted 7, not 1). This rule instead
+      // enforces the actual invariant at lint time, deterministically: the
+      // call must be `await`ed, assigned, returned, or `void`ed — never a
+      // bare expression statement.
+      'no-restricted-syntax': ['error', {
+        selector: "ExpressionStatement > CallExpression[callee.name='waitFor']",
+        message: 'waitFor(...) must be awaited (or explicitly void\'d for deliberate fire-and-forget) — otherwise its assertion may never run before the test is marked passed (#1947).',
+      }],
     },
   },
   {
