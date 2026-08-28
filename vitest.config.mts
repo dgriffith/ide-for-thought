@@ -220,6 +220,25 @@ export default defineConfig({
           statements: 95,
           branches: 90,
         },
+        // A third case of the same shape: six of this file's eleven
+        // approve-and-apply draft handlers had ZERO test references anywhere
+        // (#1900) — exactly the "does it go through the approval engine, and
+        // can the gate be skipped" path CLAUDE.md's LLM/Graph checklist asks
+        // about. Aggregate coverage from `register-conversation.test.ts`
+        // mocking this module out (to test its OWN two handlers) hid that the
+        // module implementing those six handlers was itself barely exercised.
+        // Now 100% L / 100% F / 100% S / 87.75% B via
+        // `register-conversation-drafts.test.ts` (channel-level coverage for
+        // all 11 handlers) and `register-conversation-drafts-write-guard.test.ts`
+        // (the one handler that arms `withLLMContext`, against the real graph
+        // module). Floors sit just under so a regression can't quietly widen
+        // the gap again.
+        'src/main/ipc/register-conversation-drafts.ts': {
+          lines: 90,
+          functions: 90,
+          statements: 90,
+          branches: 78,
+        },
         // Neglected top-level main modules — previously unfenced (#1100 / QA
         // H1). These sit at `src/main/*.ts` (no directory of their own), so
         // each gets its own per-file floor set ~10pts below the measured-at-
