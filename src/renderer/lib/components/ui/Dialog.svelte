@@ -22,6 +22,12 @@
     eyebrow?: Snippet;
     /** Header title (display-serif H1). */
     title?: Snippet;
+    /** Optional one-line explainer directly under the title — for a dialog
+     *  whose title alone doesn't carry enough context (e.g. "which source
+     *  should be kept?" needs a line on what happens to the others). Stays
+     *  in the header rather than the body so it reads as part of the
+     *  question, not the answer. */
+    subtitle?: Snippet;
     /** Main body content. */
     body?: Snippet;
     /** Footer left slot — kbd hints. */
@@ -37,6 +43,7 @@
     zIndex = 'var(--z-modal)',
     eyebrow,
     title,
+    subtitle,
     body,
     footerLeft,
     footerRight,
@@ -77,6 +84,7 @@
       <header class="card-header">
         {#if eyebrow}<div class="eyebrow">{@render eyebrow()}</div>{/if}
         {#if title}<h2 class="title" id={titleId}>{@render title()}</h2>{/if}
+        {#if subtitle}<p class="subtitle">{@render subtitle()}</p>{/if}
       </header>
     {/if}
 
@@ -142,6 +150,12 @@
     font-weight: 500;
     letter-spacing: -0.005em;
     margin: 0;
+  }
+  .subtitle {
+    margin: 6px 0 0;
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.4;
   }
   .card-body {
     padding: 14px 24px 18px;

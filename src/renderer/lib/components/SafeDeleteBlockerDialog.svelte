@@ -14,8 +14,15 @@
    * surface; that's the whole point of safe-by-default. The earlier
    * "Delete N notes?" confirm still has its own suppression for the
    * no-blocker case.
+   *
+   * Renders via ui/Dialog.svelte (#1888) — Escape-to-cancel and
+   * backdrop-click are Dialog's job. The accessible name moves from a
+   * static `aria-label` to the actual h2 title text via `titleId` — more
+   * accurate (it now includes the note count), and nothing asserts the
+   * old static string.
    */
   import type { SafeDeleteBlocker } from '../../../shared/types';
+  import Dialog from './ui/Dialog.svelte';
 
   interface Props {
     /** Number of items the user originally selected (folders count once). */
@@ -46,129 +53,61 @@
   const blockedTargetCount = $derived(grouped.length);
   const totalLinks = $derived(blockers.reduce((n, b) => n + b.linkCount, 0));
   const firstBlocker = $derived(blockers[0] ?? null);
-
-  function handleKeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape') onCancel();
-  }
 </script>
 
-<!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="overlay" onkeydown={handleKeydown} onmousedown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
-  <div class="dialog" role="dialog" aria-modal="true" aria-label="Safe Delete — external references found">
-    <header class="card-header">
-      <div class="eyebrow">SAFE DELETE · {blockedTargetCount} of {targets.length} blocked</div>
-      <h2 class="title">
-        {#if blockedTargetCount === 1}
-          1 note has external references
-        {:else}
-          {blockedTargetCount} notes have external references
-        {/if}
-      </h2>
-      <p class="sub">
-        {totalLinks} inbound link{totalLinks === 1 ? '' : 's'} from
-        {selectionCount === 1 ? 'this selection' : 'outside the selection'}
-        would become broken. Fix or remove the reference{totalLinks === 1 ? '' : 's'}, then retry —
-        or override with <em>Delete anyway</em>.
-      </p>
-    </header>
-
-    <div class="body">
-      <div class="list">
-        {#each grouped as [target, rows] (target)}
-          <div class="group">
-            <div class="group-head">{target}</div>
-            <div class="group-sub">referenced by:</div>
-            <ul class="refs">
-              {#each rows as r (r.source)}
-                <li>
-                  <span class="src">{r.source}</span>
-                  <span class="meta">
-                    {#if r.linkLabel}
-                      <span class="label">{r.linkLabel}</span> ·
-                    {/if}
-                    {r.linkCount} link{r.linkCount === 1 ? '' : 's'}
-                  </span>
-                </li>
-              {/each}
-            </ul>
-          </div>
-        {/each}
-      </div>
+<Dialog width={640} onClose={onCancel} titleId="safe-delete-blocker-title">
+  {#snippet eyebrow()}SAFE DELETE · {blockedTargetCount} of {targets.length} blocked{/snippet}
+  {#snippet title()}
+    {#if blockedTargetCount === 1}
+      1 note has external references
+    {:else}
+      {blockedTargetCount} notes have external references
+    {/if}
+  {/snippet}
+  {#snippet subtitle()}
+    {totalLinks} inbound link{totalLinks === 1 ? '' : 's'} from
+    {selectionCount === 1 ? 'this selection' : 'outside the selection'}
+    would become broken. Fix or remove the reference{totalLinks === 1 ? '' : 's'}, then retry —
+    or override with <em>Delete anyway</em>.
+  {/snippet}
+  {#snippet body()}
+    <div class="list">
+      {#each grouped as [target, rows] (target)}
+        <div class="group">
+          <div class="group-head">{target}</div>
+          <div class="group-sub">referenced by:</div>
+          <ul class="refs">
+            {#each rows as r (r.source)}
+              <li>
+                <span class="src">{r.source}</span>
+                <span class="meta">
+                  {#if r.linkLabel}
+                    <span class="label">{r.linkLabel}</span> ·
+                  {/if}
+                  {r.linkCount} link{r.linkCount === 1 ? '' : 's'}
+                </span>
+              </li>
+            {/each}
+          </ul>
+        </div>
+      {/each}
     </div>
-
-    <footer class="card-footer">
-      <span class="kbd-hint">esc · cancel</span>
-      <span class="footer-actions">
-        <button class="btn ghost" onclick={onCancel}>Cancel</button>
-        <button
-          class="btn ghost"
-          disabled={!firstBlocker}
-          onclick={() => firstBlocker && onOpenFirstReference(firstBlocker.source, firstBlocker.target)}
-        >
-          Open first reference
-        </button>
-        <button class="btn primary" onclick={onDeleteAnyway}>Delete anyway</button>
-      </span>
-    </footer>
-  </div>
-</div>
+  {/snippet}
+  {#snippet footerLeft()}<span class="kbd-hint">esc · cancel</span>{/snippet}
+  {#snippet footerRight()}
+    <button class="btn ghost" onclick={onCancel}>Cancel</button>
+    <button
+      class="btn ghost"
+      disabled={!firstBlocker}
+      onclick={() => firstBlocker && onOpenFirstReference(firstBlocker.source, firstBlocker.target)}
+    >
+      Open first reference
+    </button>
+    <button class="btn primary" onclick={onDeleteAnyway}>Delete anyway</button>
+  {/snippet}
+</Dialog>
 
 <style>
-  .overlay {
-    position: fixed;
-    inset: 0;
-    z-index: var(--z-modal);
-    background: var(--scrim-bg);
-    backdrop-filter: var(--scrim-blur);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 32px;
-  }
-  .dialog {
-    background: var(--bg-elev);
-    border: 1px solid var(--border-strong);
-    border-radius: 12px;
-    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
-    width: 640px;
-    max-width: 100%;
-    max-height: calc(100vh - 64px);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    font-family: var(--font-sans);
-    color: var(--text);
-  }
-  .card-header {
-    padding: 20px 24px 8px;
-  }
-  .eyebrow {
-    font-family: var(--font-mono);
-    font-size: 10.5px;
-    color: var(--text-faint);
-    letter-spacing: 0.08em;
-    margin-bottom: 6px;
-    text-transform: uppercase;
-  }
-  .title {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: 19px;
-    font-weight: 500;
-    letter-spacing: -0.005em;
-    line-height: 1.3;
-  }
-  .sub {
-    margin: 6px 0 0;
-    font-size: 12.5px;
-    color: var(--text-muted);
-    line-height: 1.45;
-  }
-  .body {
-    padding: 12px 24px 18px;
-    overflow: auto;
-    flex: 1;
-  }
   .list {
     display: flex;
     flex-direction: column;
@@ -220,24 +159,10 @@
     color: var(--text-muted);
   }
 
-  .card-footer {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 18px;
-    border-top: 1px solid var(--border);
-    background: var(--bg);
-    border-radius: 0 0 12px 12px;
-  }
   .kbd-hint {
-    margin-right: auto;
     font-size: 10.5px;
     color: var(--text-faint);
     font-family: var(--font-mono);
-  }
-  .footer-actions {
-    display: inline-flex;
-    gap: 8px;
   }
   .btn {
     padding: 7px 14px;

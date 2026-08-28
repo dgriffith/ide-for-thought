@@ -4,8 +4,15 @@
    * fieldset becomes two side-by-side choice cards explaining "In this
    * thoughtbase" vs "Globally". When no project is open, scope is
    * forced to global and the picker is hidden.
+   *
+   * Renders via ui/Dialog.svelte (#1888) — Escape-to-cancel and
+   * backdrop-click are Dialog's job. Enter-to-save keeps a dialog-wide
+   * handler (wrapping <Dialog>) rather than moving to the name input
+   * alone: Enter must still save while focus is on one of the scope
+   * cards, which don't natively respond to Enter.
    */
   import Icon from './Icon.svelte';
+  import Dialog from './ui/Dialog.svelte';
 
   interface Props {
     /** True when a project is open; controls whether Thoughtbase is offered. */
@@ -32,8 +39,6 @@
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === 'Enter' && name.trim()) {
       onConfirm({ name: name.trim(), scope });
-    } else if (e.key === 'Escape') {
-      onCancel();
     }
   }
 
@@ -44,119 +49,71 @@
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="overlay" onkeydown={handleKeydown} onmousedown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
-  <div class="dialog" role="dialog" aria-modal="true">
-    <header class="card-header">
-      <div class="eyebrow">Save query</div>
-      <h2 class="title">Where should this query live?</h2>
-    </header>
+<div onkeydown={handleKeydown}>
+  <Dialog width={520} onClose={onCancel} titleId="save-query-title">
+    {#snippet eyebrow()}Save query{/snippet}
+    {#snippet title()}Where should this query live?{/snippet}
+    {#snippet body()}
+      <div class="body-inner">
+        <label class="field-label" for="save-query-name">Name</label>
+        <input
+          id="save-query-name"
+          bind:this={inputEl}
+          bind:value={name}
+          type="text"
+          class="input"
+          placeholder="e.g. Unreviewed LLM writes"
+        />
 
-    <div class="body">
-      <label class="field-label" for="save-query-name">Name</label>
-      <input
-        id="save-query-name"
-        bind:this={inputEl}
-        bind:value={name}
-        type="text"
-        class="input"
-        placeholder="e.g. Unreviewed LLM writes"
-      />
-
-      {#if projectOpen}
-        <div class="scope-label">Scope</div>
-        <div class="scope-cards" role="radiogroup" aria-label="Save scope">
-          <button
-            class="scope-card"
-            class:selected={scope === 'project'}
-            type="button"
-            role="radio"
-            aria-checked={scope === 'project'}
-            onclick={() => { scope = 'project'; }}
-          >
-            <Icon name="folder" size={14} color={scope === 'project' ? 'var(--accent)' : 'var(--text-faint)'} />
-            <span class="scope-title">In this thoughtbase</span>
-            <span class="scope-sub">Saved next to the project's notes — others who open it will see this query.</span>
-          </button>
-          <button
-            class="scope-card"
-            class:selected={scope === 'global'}
-            type="button"
-            role="radio"
-            aria-checked={scope === 'global'}
-            onclick={() => { scope = 'global'; }}
-          >
-            <Icon name="settings" size={14} color={scope === 'global' ? 'var(--accent)' : 'var(--text-faint)'} />
-            <span class="scope-title">Globally</span>
-            <span class="scope-sub">Available in every thoughtbase you open on this machine.</span>
-          </button>
-        </div>
-      {:else}
-        <p class="solo-hint">
-          <Icon name="settings" size={12} color="var(--text-faint)" />
-          Saved as a Global query — no thoughtbase is open.
-        </p>
-      {/if}
-    </div>
-
-    <footer class="card-footer">
-      <span class="kbd-hint">esc · cancel · ↵ save</span>
-      <span class="footer-actions">
-        <button class="btn ghost" onclick={onCancel}>Cancel</button>
-        <button class="btn primary" disabled={!name.trim()} onclick={() => onConfirm({ name: name.trim(), scope })}>
-          Save
-          <span class="btn-kbd">↵</span>
-        </button>
-      </span>
-    </footer>
-  </div>
+        {#if projectOpen}
+          <div class="scope-label">Scope</div>
+          <div class="scope-cards" role="radiogroup" aria-label="Save scope">
+            <button
+              class="scope-card"
+              class:selected={scope === 'project'}
+              type="button"
+              role="radio"
+              aria-checked={scope === 'project'}
+              onclick={() => { scope = 'project'; }}
+            >
+              <Icon name="folder" size={14} color={scope === 'project' ? 'var(--accent)' : 'var(--text-faint)'} />
+              <span class="scope-title">In this thoughtbase</span>
+              <span class="scope-sub">Saved next to the project's notes — others who open it will see this query.</span>
+            </button>
+            <button
+              class="scope-card"
+              class:selected={scope === 'global'}
+              type="button"
+              role="radio"
+              aria-checked={scope === 'global'}
+              onclick={() => { scope = 'global'; }}
+            >
+              <Icon name="settings" size={14} color={scope === 'global' ? 'var(--accent)' : 'var(--text-faint)'} />
+              <span class="scope-title">Globally</span>
+              <span class="scope-sub">Available in every thoughtbase you open on this machine.</span>
+            </button>
+          </div>
+        {:else}
+          <p class="solo-hint">
+            <Icon name="settings" size={12} color="var(--text-faint)" />
+            Saved as a Global query — no thoughtbase is open.
+          </p>
+        {/if}
+      </div>
+    {/snippet}
+    {#snippet footerLeft()}<span class="kbd-hint">esc · cancel · ↵ save</span>{/snippet}
+    {#snippet footerRight()}
+      <button class="btn ghost" onclick={onCancel}>Cancel</button>
+      <button class="btn primary" disabled={!name.trim()} onclick={() => onConfirm({ name: name.trim(), scope })}>
+        Save
+        <span class="btn-kbd">↵</span>
+      </button>
+    {/snippet}
+  </Dialog>
 </div>
 
 <style>
-  .overlay {
-    position: fixed;
-    inset: 0;
-    z-index: var(--z-modal);
-    background: var(--scrim-bg);
-    backdrop-filter: var(--scrim-blur);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 32px;
-  }
-  .dialog {
-    background: var(--bg-elev);
-    border: 1px solid var(--border-strong);
-    border-radius: 12px;
-    box-shadow:
-      0 16px 48px rgba(0, 0, 0, 0.35),
-      0 0 0 1px rgba(255, 255, 255, 0.04) inset;
-    width: 520px;
-    max-width: 100%;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    font-family: var(--font-sans);
-    color: var(--text);
-  }
-  .card-header { padding: 20px 24px 0; }
-  .eyebrow {
-    font-family: var(--font-mono);
-    font-size: 10.5px;
-    color: var(--text-faint);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    margin-bottom: 6px;
-  }
-  .title {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: 19px;
-    font-weight: 500;
-    letter-spacing: -0.005em;
-    line-height: 1.3;
-  }
-
-  .body { padding: 14px 24px 18px; display: flex; flex-direction: column; gap: 14px; }
+  .body-inner { display: flex; flex-direction: column; gap: 14px; }
   .field-label {
     font-family: var(--font-sans);
     font-size: 12px;
@@ -233,22 +190,11 @@
     font-size: 12px;
   }
 
-  .card-footer {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 18px;
-    border-top: 1px solid var(--border);
-    background: var(--bg);
-    border-radius: 0 0 12px 12px;
-  }
   .kbd-hint {
-    margin-right: auto;
     font-family: var(--font-mono);
     font-size: 10.5px;
     color: var(--text-faint);
   }
-  .footer-actions { display: inline-flex; gap: 8px; }
   .btn {
     padding: 7px 14px;
     border: 1px solid var(--border);

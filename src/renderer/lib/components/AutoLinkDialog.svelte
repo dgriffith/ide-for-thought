@@ -1,5 +1,10 @@
 <script lang="ts">
+  /**
+   * Renders via ui/Dialog.svelte (#1888) — Escape-to-cancel and backdrop-click
+   * are Dialog's job; this component has nothing else to handle.
+   */
   import type { AutoLinkSuggestion } from '../../../shared/refactor/auto-link';
+  import Dialog from './ui/Dialog.svelte';
 
   interface Props {
     suggestions: AutoLinkSuggestion[];
@@ -27,22 +32,18 @@
     onApply(accepted);
   }
 
-  function handleKeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape') onCancel();
-  }
-
   function contextSnippet(anchor: string): string {
     const idx = activeNoteBody.indexOf(anchor);
     if (idx < 0) return '';
     const radius = 50;
     const start = Math.max(0, idx - radius);
     const end = Math.min(activeNoteBody.length, idx + anchor.length + radius);
-    const prefix = start > 0 ? '\u2026' : '';
-    const suffix = end < activeNoteBody.length ? '\u2026' : '';
+    const prefix = start > 0 ? '…' : '';
+    const suffix = end < activeNoteBody.length ? '…' : '';
     return (
       prefix +
       activeNoteBody.slice(start, idx) +
-      '\u00BB' + anchor + '\u00AB' +
+      '»' + anchor + '«' +
       activeNoteBody.slice(idx + anchor.length, end) +
       suffix
     ).replace(/\s+/g, ' ');
@@ -53,27 +54,17 @@
   }
 </script>
 
-<!-- svelte-ignore a11y_no_static_element_interactions -->
-<div
-  class="overlay"
-  onkeydown={handleKeydown}
-  onmousedown={(e) => { if (e.target === e.currentTarget) onCancel(); }}
->
-  <div class="dialog" role="dialog" aria-modal="true">
-    <header class="card-header">
-      <div class="eyebrow">Auto-link \u00b7 {suggestions.length} {suggestions.length === 1 ? 'candidate' : 'candidates'}</div>
-      <h2 class="title">Review link suggestions</h2>
-    </header>
-
+<Dialog width={640} onClose={onCancel} titleId="auto-link-title">
+  {#snippet eyebrow()}Auto-link · {suggestions.length} {suggestions.length === 1 ? 'candidate' : 'candidates'}{/snippet}
+  {#snippet title()}Review link suggestions{/snippet}
+  {#snippet body()}
     {#if suggestions.length === 0}
-      <div class="body">
-        <div class="empty">
-          The LLM didn't find any link candidates in this note. If the note is short or
-          doesn't mention concepts covered by other notes, that's the expected outcome.
-        </div>
+      <div class="empty">
+        The LLM didn't find any link candidates in this note. If the note is short or
+        doesn't mention concepts covered by other notes, that's the expected outcome.
       </div>
     {:else}
-      <div class="body">
+      <div class="body-inner">
         <div class="bulk-row">
           <span class="bulk-count">{selectedCount} of {suggestions.length} selected</span>
           <span class="bulk-spacer"></span>
@@ -87,7 +78,7 @@
               <div class="details">
                 <div class="headline">
                   <span class="anchor">{s.anchorText}</span>
-                  <span class="arrow">\u2192</span>
+                  <span class="arrow">→</span>
                   <code class="target">[[{targetLabel(s.target)}]]</code>
                 </div>
                 {#if s.rationale}
@@ -100,73 +91,20 @@
         </div>
       </div>
     {/if}
-
-    <footer class="card-footer">
-      <span class="kbd-hint">esc \u00b7 cancel</span>
-      <span class="footer-actions">
-        <button class="btn ghost" onclick={onCancel}>Cancel</button>
-        <button
-          class="btn primary"
-          disabled={selectedCount === 0}
-          onclick={apply}
-        >Apply {selectedCount}</button>
-      </span>
-    </footer>
-  </div>
-</div>
+  {/snippet}
+  {#snippet footerLeft()}<span class="kbd-hint">esc · cancel</span>{/snippet}
+  {#snippet footerRight()}
+    <button class="btn ghost" onclick={onCancel}>Cancel</button>
+    <button
+      class="btn primary"
+      disabled={selectedCount === 0}
+      onclick={apply}
+    >Apply {selectedCount}</button>
+  {/snippet}
+</Dialog>
 
 <style>
-  .overlay {
-    position: fixed;
-    inset: 0;
-    z-index: var(--z-modal);
-    background: var(--scrim-bg);
-    backdrop-filter: var(--scrim-blur);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 32px;
-  }
-
-  .dialog {
-    background: var(--bg-elev);
-    border: 1px solid var(--border-strong);
-    border-radius: 12px;
-    box-shadow:
-      0 16px 48px rgba(0, 0, 0, 0.35),
-      0 0 0 1px rgba(255, 255, 255, 0.04) inset;
-    width: 640px;
-    max-width: 100%;
-    max-height: calc(100vh - 64px);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    font-family: var(--font-sans);
-    color: var(--text);
-  }
-
-  .card-header { padding: 20px 24px 0; }
-  .eyebrow {
-    font-family: var(--font-mono);
-    font-size: 10.5px;
-    color: var(--text-faint);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    margin-bottom: 6px;
-  }
-  .title {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: 19px;
-    font-weight: 500;
-    letter-spacing: -0.005em;
-    line-height: 1.3;
-  }
-
-  .body {
-    padding: 14px 24px 18px;
-    overflow: auto;
-    flex: 1;
+  .body-inner {
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -289,22 +227,11 @@
     word-break: break-word;
   }
 
-  .card-footer {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 18px;
-    border-top: 1px solid var(--border);
-    background: var(--bg);
-    border-radius: 0 0 12px 12px;
-  }
   .kbd-hint {
-    margin-right: auto;
     font-family: var(--font-mono);
     font-size: 10.5px;
     color: var(--text-faint);
   }
-  .footer-actions { display: inline-flex; gap: 8px; }
 
   .btn {
     padding: 7px 14px;
