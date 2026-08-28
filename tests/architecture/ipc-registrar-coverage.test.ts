@@ -20,11 +20,21 @@
  * ── What "has a test" means here ────────────────────────────────────────────
  * A registrar counts as covered when some file under `tests/` imports it. That
  * is a low bar on purpose, and it is worth being honest about what it does and
- * doesn't claim:
+ * doesn't claim — MORE honest now that all 24 registrars pass this check, not
+ * less: "covered" reading as "tested" is exactly the gap #1924 found, where
+ * `register-proposals.ts` — the approval gate's own IPC surface, the Trust
+ * Principle's enforcement point — showed up covered here while sitting at 25%
+ * statement / 0% branch coverage everywhere else, reached only by a shared
+ * fixture that asserted one narrow thing about it.
  *
- *   - it does NOT claim the registrar is thoroughly tested — four of the
- *     eleven currently-covered ones are reached only by the shared no-project
- *     contract test, which asserts one thing about each;
+ *   - it does NOT claim the registrar is thoroughly tested — two of the 24,
+ *     `register-templates` and `register-refactor`, are STILL reached only by
+ *     the shared no-project contract test (`tests/main/ipc/no-project-
+ *     contract.test.ts`), which asserts one thing about each (that they throw
+ *     with no project open) and exercises none of their actual handler logic.
+ *     Those two are today's version of what `register-proposals` was before
+ *     #1924 gave it a real test — this check cannot tell them apart from a
+ *     thoroughly-tested registrar, and won't until each gets one;
  *   - it DOES catch the case this test exists for: a brand-new registrar
  *     landing with nothing exercising it at all.
  *
