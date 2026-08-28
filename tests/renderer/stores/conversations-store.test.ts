@@ -601,6 +601,22 @@ describe('propose_sources draft (fileSourceDraft)', () => {
     expect(tab.sourceDrafts).toHaveLength(0);
     expect(conv().fileSourceDraft).not.toHaveBeenCalled();
   });
+
+  // #1896 — approveFrom looks up the card's anchored afterMessageIndex BEFORE
+  // it filters the card out of the array; a later turn arriving in between
+  // must not shift the result card to the new turn's slot.
+  it("the result card keeps the draft's own anchor even if a later turn arrives before Approve", async () => {
+    const tab = await freshTab();
+    (h.cbs.onSourceDraft as Cb)({ draftId: 's-d3', conversationId: tab.id });
+    const anchoredAt = tab.sourceDrafts[0]!.afterMessageIndex;
+
+    tab.conversation.messages.push({ role: 'user', content: 'later turn' });
+    expect(tab.conversation.messages.length).not.toBe(anchoredAt);
+
+    await store.approveSourceDraft(tab.id, tab.sourceDrafts[0]!);
+
+    expect(tab.sourceDraftResults['s-d3']!.afterMessageIndex).toBe(anchoredAt);
+  });
 });
 
 describe('set_properties draft (filePropertyDraft)', () => {
