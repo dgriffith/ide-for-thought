@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   formatCreators,
   formatDueStamp,
@@ -8,15 +8,39 @@ import {
 } from '../../src/renderer/lib/sources/source-display';
 
 // Pure display helpers behind the SourceListItem split (#672). The date
-// helpers depend on "today", so those cases use offsets from the current date
-// rather than hard-coded strings.
+// helpers depend on "today" (#1943): the old version of this file read the
+// real clock via `isoDaysFromNow()` at setup and again inside
+// `isOverdue`/`formatDueStamp` at assert time, so a run straddling local
+// midnight or a year boundary could disagree with itself between those two
+// reads. Every case below instead pins the system clock (`vi.setSystemTime`)
+// and `TZ`, following the pattern in `refactor/extract.test.ts`, so "now" is
+// one fixed instant throughout a test regardless of when or where the suite
+// actually runs — the suite-wide `TZ` pin in `vitest.config.mts` covers tests
+// that don't touch the clock at all, but these do, so they pin their own.
+const atInstant = (tz: string, instant: string, assert: () => void): void => {
+  const prev = process.env.TZ;
+  process.env.TZ = tz;
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date(instant));
+  try {
+    assert();
+  } finally {
+    vi.useRealTimers();
+    if (prev === undefined) delete process.env.TZ;
+    else process.env.TZ = prev;
+  }
+};
+
+// Arizona never observes DST, so this is a fixed, year-round UTC-7 offset —
+// exercising a non-UTC zone (so a `toISOString()` regression would surface)
+// without the offset itself varying by the calendar date under test.
+const TZ = 'America/Phoenix';
 
 // Formats the *local* calendar date, deliberately not `toISOString()`: that
 // serializes in UTC, so a local-midnight Date in any zone east of UTC renders
-// as the previous day (in UTC+2, `isoDaysFromNow(0)` yielded yesterday and the
-// "due today" case below asserted the opposite of what it meant to). The
-// helpers under test parse `${iso}T00:00:00` — local midnight — so the offsets
-// have to be local too.
+// as the previous day. The helpers under test parse `${iso}T00:00:00` — local
+// midnight — so the offsets have to be local too. Only valid while a fake
+// clock from `atInstant` is active.
 const isoDaysFromNow = (days: number): string => {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
@@ -57,9 +81,21 @@ describe('isOverdue', () => {
   });
 
   it('is true strictly before today, false for today and the future', () => {
-    expect(isOverdue(isoDaysFromNow(-1))).toBe(true);
-    expect(isOverdue(isoDaysFromNow(0))).toBe(false); // due today is not overdue
-    expect(isOverdue(isoDaysFromNow(3))).toBe(false);
+    atInstant(TZ, '2026-06-15T18:00:00Z', () => {
+      expect(isOverdue(isoDaysFromNow(-1))).toBe(true);
+      expect(isOverdue(isoDaysFromNow(0))).toBe(false); // due today is not overdue
+      expect(isOverdue(isoDaysFromNow(3))).toBe(false);
+    });
+  });
+
+  it('a due-today date one second before local midnight is still not overdue', () => {
+    // The exact instant a real, unpinned clock read between computing
+    // "today" and calling isOverdue() could roll over to the next calendar
+    // day and flip this from false to true.
+    atInstant(TZ, '2026-06-15T06:59:59Z', () => { // 23:59:59 the previous day in UTC-7
+      expect(isOverdue(isoDaysFromNow(0))).toBe(false);
+      expect(isOverdue(isoDaysFromNow(-1))).toBe(true);
+    });
   });
 });
 
@@ -69,10 +105,25 @@ describe('formatDueStamp', () => {
   });
 
   it('omits the year for an in-current-year date, includes it otherwise', () => {
-    const thisYear = new Date().getFullYear();
-    const inYear = formatDueStamp(`${thisYear}-06-15`);
-    expect(inYear).not.toMatch(String(thisYear)); // "Jun 15", no year
-    const otherYear = formatDueStamp(`${thisYear + 2}-06-15`);
-    expect(otherYear).toMatch(String(thisYear + 2)); // "Jun 15 2027"
+    atInstant(TZ, '2026-06-15T18:00:00Z', () => {
+      const thisYear = new Date().getFullYear();
+      const inYear = formatDueStamp(`${thisYear}-06-15`);
+      expect(inYear).not.toMatch(String(thisYear)); // "Jun 15", no year
+      const otherYear = formatDueStamp(`${thisYear + 2}-06-15`);
+      expect(otherYear).toMatch(String(thisYear + 2)); // "Jun 15 2028"
+    });
+  });
+
+  it('holds across a New Year straddle', () => {
+    // One second before midnight on New Year's Eve: "now" is still the old
+    // year, so a date in the old year omits it and one in the new year
+    // (already elapsed in UTC, not yet locally) still counts as "not this
+    // year" and includes it.
+    atInstant(TZ, '2027-01-01T06:59:59Z', () => { // 23:59:59 Dec 31 2026 in UTC-7
+      const thisYear = new Date().getFullYear();
+      expect(thisYear).toBe(2026);
+      expect(formatDueStamp('2026-12-31')).not.toMatch('2026');
+      expect(formatDueStamp('2027-01-01')).toMatch('2027');
+    });
   });
 });

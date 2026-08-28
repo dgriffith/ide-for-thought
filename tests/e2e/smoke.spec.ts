@@ -52,6 +52,35 @@ function packagedBinary(): string | null {
   return fs.existsSync(p) ? p : null;
 }
 
+/**
+ * Polls `count()` until it stops changing across `stableChecks` consecutive
+ * polls, or `timeoutMs` elapses. Used in place of a fixed
+ * `waitForTimeout` for "give async work a beat to surface a late error" —
+ * that has no positive UI condition to wait on, but "the error tally hasn't
+ * grown in a while" is a real quiescence signal, and a loaded runner
+ * naturally gets more real time to surface a late error instead of racing a
+ * guessed duration (#1943).
+ */
+async function waitForErrorCountToSettle(
+  count: () => number,
+  { timeoutMs = 2000, pollMs = 50, stableChecks = 4 }: { timeoutMs?: number; pollMs?: number; stableChecks?: number } = {},
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  let last = count();
+  let stableStreak = 0;
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => { setTimeout(resolve, pollMs); });
+    const current = count();
+    if (current === last) {
+      stableStreak++;
+      if (stableStreak >= stableChecks) return;
+    } else {
+      stableStreak = 0;
+      last = current;
+    }
+  }
+}
+
 test('app launches, renderer mounts, no thrown errors', async () => {
   // page.on('pageerror') captures synchronous renderer-side throws
   // (the most common runtime regression). app.process().on('exit', ...)
@@ -101,8 +130,11 @@ test('app launches, renderer mounts, no thrown errors', async () => {
     await expect(win.getByRole('heading', { name: 'Minerva' })).toBeVisible({ timeout: 10_000 });
     await expect(win.getByRole('button', { name: 'Open Thoughtbase' })).toBeVisible({ timeout: 10_000 });
 
-    // Give async effects another beat to surface late errors.
-    await win.waitForTimeout(500);
+    // Give async effects a beat to surface late errors — but wait on the
+    // actual condition (no new error in the last few polls) rather than a
+    // fixed sleep, so a loaded runner gets more real time instead of a
+    // spuriously clean scan, and a fast one doesn't wait longer than needed.
+    await waitForErrorCountToSettle(() => rendererErrors.length + consoleErrors.length);
   } catch (err) {
     // On hang/timeout, dump everything the main process said. The
     // Playwright failure message alone ("electron.launch: Timeout") is
