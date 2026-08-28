@@ -137,7 +137,10 @@ test('workspace (sidebar + editor): no NEW serious a11y violations (real-browser
     await bootDarkTheme(win);
     // Session restore replaces the welcome screen with the workspace.
     await expect(win.getByRole('button', { name: 'Open Thoughtbase' })).toHaveCount(0, { timeout: 25_000 });
-    await win.waitForTimeout(500); // let the sidebar tree + panels settle
+    // Wait for the sidebar tree to actually render, not a fixed guess at how
+    // long that takes — a loaded runner needs more real time, and a fixed
+    // sleep either scans too early (spurious violation) or wastes time.
+    await expect(win.locator('[data-relative-path]').first()).toBeVisible({ timeout: 10_000 });
 
     // Sidebar + shell.
     const shell = await runAxe(win);
@@ -149,7 +152,7 @@ test('workspace (sidebar + editor): no NEW serious a11y violations (real-browser
     const firstFile = win.locator('[data-relative-path$=".md"]').first();
     if (await firstFile.count()) {
       await firstFile.click();
-      await win.waitForTimeout(500);
+      await expect(win.locator('.cm-content')).toBeVisible({ timeout: 10_000 });
       const withEditor = await runAxe(win);
       reportKnown('workspace+editor', withEditor, KNOWN_WORKSPACE);
       const editorRegressions = unexpected(withEditor, KNOWN_WORKSPACE);
@@ -196,11 +199,13 @@ test('source viewer: no NEW serious a11y violations (real-browser, incl. color-c
     // Switch the left sidebar to Sources and open the first source into the
     // SourceDetail viewer (`.source-item` click → editor.openSource → tab).
     await win.getByTitle('Sources', { exact: true }).click();
-    await win.waitForTimeout(400);
     const firstSource = win.locator('.source-item').first();
+    await expect(firstSource).toBeVisible({ timeout: 10_000 });
     await firstSource.click();
     await expect(win.locator('.source-detail')).toBeVisible({ timeout: 10_000 });
-    await win.waitForTimeout(500); // let the excerpt list + preview settle
+    // Wait for the markdown body to actually render, not a fixed guess at
+    // how long the fetch + Preview render takes.
+    await expect(win.locator('.body-view')).toBeVisible({ timeout: 10_000 });
 
     const violations = await runAxe(win);
     reportKnown('source viewer', violations, KNOWN_SOURCE);
@@ -244,12 +249,12 @@ test('proposals panel: no NEW serious a11y violations (real-browser, incl. color
     // The left sidebar is already visible (we clicked a note in it above), so
     // no toggle is needed.
     await win.locator('.panel-tab[title="Proposals"]').first().click();
-    await win.waitForTimeout(400);
     // Expand the seeded proposal's review detail (payloads + Approve/Reject).
     const firstProposal = win.locator('.proposal-item').first();
+    await expect(firstProposal).toBeVisible({ timeout: 10_000 });
     if (await firstProposal.count()) {
       await firstProposal.click();
-      await win.waitForTimeout(400);
+      await expect(win.locator('.proposal-detail')).toBeVisible({ timeout: 10_000 });
     }
 
     const violations = await runAxe(win);

@@ -23,6 +23,18 @@ export default defineConfig({
     // (e.g., watcher, chokidar waits, network probes) need >5s to avoid flakes;
     // 30s provides enough headroom without being overly lenient (#1942).
     testTimeout: 30000,
+    // Pin the ambient zone for the whole suite (#1943) — without this, any
+    // local-time assertion that doesn't explicitly pin its own clock/TZ
+    // inherits whatever zone the runner happens to be in, so the same test
+    // passes on a US laptop and fails in UTC CI (or vice versa). Phoenix
+    // never observes DST, so this is a fixed, year-round offset rather than
+    // a zone whose UTC delta shifts depending on which day the suite runs.
+    // Individual tests that specifically need to probe a *different* zone
+    // (e.g. a UTC-vs-local-date bug) still set and restore `process.env.TZ`
+    // themselves — see `refactor/extract.test.ts`.
+    env: {
+      TZ: 'America/Phoenix',
+    },
     coverage: {
       // v8 is the only provider we need; istanbul is slower and adds a
       // dep we don't have. text-summary lands in stdout for the baseline
