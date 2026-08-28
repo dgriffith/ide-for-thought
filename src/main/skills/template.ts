@@ -80,8 +80,6 @@ const FILTERS: Record<string, Filter> = {
   stem: (s) => s.replace(/\.md$/i, ''),
 };
 
-export const KNOWN_FILTERS: readonly string[] = Object.keys(FILTERS);
-
 // ---- Tokenizer --------------------------------------------------------------
 
 type Token =
