@@ -268,7 +268,7 @@ describe('CONVERSATION_SEND (#1612)', () => {
 describe('CONVERSATION_FILE_DRAFT — propose + auto-approve (#1612)', () => {
   it('files the draft through the approval engine and auto-approves it', async () => {
     h.proposeWrite.mockResolvedValue({ uri: 'proposal:abc' });
-    h.approveProposal.mockResolvedValue({ filedPaths: ['Filed.md'], rewrittenPaths: [] });
+    h.approveProposal.mockResolvedValue({ ok: true, filedPaths: ['Filed.md'], rewrittenPaths: [] });
 
     const draft = {
       draftId: 'd1',
@@ -292,7 +292,10 @@ describe('CONVERSATION_FILE_DRAFT — propose + auto-approve (#1612)', () => {
     expect(res).toEqual({ proposalUri: 'proposal:abc', applied: true, filedPaths: ['Filed.md'] });
   });
 
-  it('does not approve when proposeWrite files nothing (empty bundle)', async () => {
+  // #1895 — this used to assert `applied: true` here, pinning the bug the
+  // issue reports: fileAndApprove used to hardcode `applied: true` even when
+  // proposeWrite returned nothing to approve. It must read false.
+  it('does not approve when proposeWrite files nothing (empty bundle), and reports applied: false', async () => {
     h.proposeWrite.mockResolvedValue(null);
 
     const draft = {
@@ -304,7 +307,7 @@ describe('CONVERSATION_FILE_DRAFT — propose + auto-approve (#1612)', () => {
     const res = await fileDraft(evt, draft);
 
     expect(h.approveProposal).not.toHaveBeenCalled();
-    expect(res).toEqual({ proposalUri: null, applied: true, filedPaths: [] });
+    expect(res).toEqual({ proposalUri: null, applied: false, filedPaths: [] });
   });
 });
 
@@ -323,11 +326,11 @@ describe('CONVERSATION_FILE_DELETE_DRAFT — the selection UNIT differs by kind 
 
   beforeEach(() => {
     h.proposeWrite.mockResolvedValue({ uri: 'proposal:del' });
-    h.approveProposal.mockResolvedValue({ filedPaths: [], rewrittenPaths: [] });
+    h.approveProposal.mockResolvedValue({ ok: true, filedPaths: [], rewrittenPaths: [] });
   });
 
   it('files one folder-delete payload per SELECTED folder, in one proposal', async () => {
-    await fileDeleteDraft(evt, folderDraft, ['a', 'b']);
+    const res = await fileDeleteDraft(evt, folderDraft, ['a', 'b']);
 
     expect(h.proposeWrite).toHaveBeenCalledTimes(1);
     expect(h.proposeWrite.mock.calls[0]![1]).toMatchObject({
@@ -338,6 +341,9 @@ describe('CONVERSATION_FILE_DELETE_DRAFT — the selection UNIT differs by kind 
       ],
     });
     expect(h.approveProposal).toHaveBeenCalledWith(expect.anything(), 'proposal:del');
+    // #1895 — applied now reflects the real approveProposal result via
+    // fileAndApprove, not a hardcoded true.
+    expect(res).toEqual({ proposalUri: 'proposal:del', applied: true });
   });
 
   it('honours a partial folder selection', async () => {

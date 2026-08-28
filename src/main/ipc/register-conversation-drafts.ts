@@ -15,7 +15,7 @@ import { Channels } from '../../shared/channels';
 import { broadcast } from './broadcast';
 import * as notebaseFs from '../notebase/fs';
 import * as graph from '../graph/index';
-import { projectContext } from '../project-context-types';
+import { projectContext, type ProjectContext } from '../project-context-types';
 import { writeAndReindex } from '../notebase/write-pipeline';
 import { runWithHistorySource } from '../history';
 import { ingestUrl } from '../sources/ingest';
@@ -102,6 +102,31 @@ function conversationProvenance(conversationId: string): { conversationUri: stri
   };
 }
 
+/**
+ * File a write proposal and immediately approve it — the shared shape behind
+ * every "Approve" click on a draft card (#1895). The user already reviewed
+ * the card, so auto-approving here doesn't weaken the Trust Principle; the
+ * approval engine still records a pending-then-approved Proposal either way.
+ *
+ * `applied` reflects `approveProposal`'s real `ok` result rather than being
+ * hardcoded `true` — the six call sites this replaces all hardcoded it even
+ * when `proposal` came back falsy and nothing was filed, the same shape as
+ * the vestigial `GIT_COMMIT.success` CLAUDE.md already flags. `proposeWrite`
+ * doesn't currently return a falsy value (it throws instead, via
+ * `assertWiredPayloads`), so the `if (!proposal)` branch below is defensive
+ * rather than reachable today — but it means a future change to that
+ * contract can't silently start lying about `applied` again.
+ */
+export async function fileAndApprove(
+  ctx: ProjectContext,
+  write: approval.ProposedWrite,
+): Promise<{ proposalUri: string | null; applied: boolean; filedPaths: string[]; rewrittenPaths: string[] }> {
+  const proposal = await approval.proposeWrite(ctx, write);
+  if (!proposal) return { proposalUri: null, applied: false, filedPaths: [], rewrittenPaths: [] };
+  const result = await approval.approveProposal(ctx, proposal.uri);
+  return { proposalUri: proposal.uri, applied: result.ok, filedPaths: result.filedPaths, rewrittenPaths: result.rewrittenPaths };
+}
+
 export function registerConversationDrafts(): void {
   // The user clicked Approve on a propose_notes draft card. We file the
   // bundle through the standard approval engine AND auto-approve it —
@@ -117,22 +142,13 @@ export function registerConversationDrafts(): void {
       });
       ensureDraftItems(draft, 'payloads', 'FILE_DRAFT');
       const ctx = projectContext(rootPath);
-      const proposal = await approval.proposeWrite(ctx, {
+      const { proposalUri, applied, filedPaths } = await fileAndApprove(ctx, {
         operationType: 'component_creation',
         payloads: draft.payloads,
         note: draft.note,
         ...conversationProvenance(draft.conversationId),
       });
-      let filedPaths: string[] = [];
-      if (proposal) {
-        const result = await approval.approveProposal(ctx, proposal.uri);
-        filedPaths = result.filedPaths;
-      }
-      return {
-        proposalUri: proposal?.uri ?? null,
-        applied: true,
-        filedPaths,
-      };
+      return { proposalUri, applied, filedPaths };
     }),
   );
 
@@ -146,7 +162,7 @@ export function registerConversationDrafts(): void {
       const ctx = projectContext(rootPath);
       // A folder move (propose_folder_move sets isFolder) files a folder-refactor
       // payload; a single-note move files note-refactor. Both re-plan at apply.
-      const proposal = await approval.proposeWrite(ctx, {
+      const { proposalUri, applied } = await fileAndApprove(ctx, {
         operationType: 'note_refactor',
         payloads: [draft.isFolder
           ? { kind: 'folder-refactor', fromPath: draft.fromPath, toPath: draft.toPath }
@@ -154,8 +170,7 @@ export function registerConversationDrafts(): void {
         note: draft.note,
         ...conversationProvenance(draft.conversationId),
       });
-      if (proposal) await approval.approveProposal(ctx, proposal.uri);
-      return { proposalUri: proposal?.uri ?? null, applied: true };
+      return { proposalUri, applied };
     }),
   );
 
@@ -178,14 +193,13 @@ export function registerConversationDrafts(): void {
       // A folder batch files `folder-refactor` payloads — same bundle, same
       // ordered apply and reverse-order rollback, different payload kind.
       const kind = draft.isFolder ? ('folder-refactor' as const) : ('note-refactor' as const);
-      const proposal = await approval.proposeWrite(ctx, {
+      const { proposalUri, applied } = await fileAndApprove(ctx, {
         operationType: 'note_refactor',
         payloads: ordered.map((i) => ({ kind, fromPath: i.fromPath, toPath: i.toPath })),
         note: draft.note,
         ...conversationProvenance(draft.conversationId),
       });
-      if (proposal) await approval.approveProposal(ctx, proposal.uri);
-      return { proposalUri: proposal?.uri ?? null, applied: true };
+      return { proposalUri, applied };
     }),
   );
 
@@ -216,7 +230,7 @@ export function registerConversationDrafts(): void {
         return { proposalUri: null, applied: false };
       }
 
-      const proposal = await approval.proposeWrite(ctx, {
+      const { proposalUri, applied } = await fileAndApprove(ctx, {
         operationType: 'note_delete',
         payloads: isFolderDelete
           ? chosenFolders.map((path) => ({ kind: 'folder-delete' as const, path }))
@@ -224,8 +238,7 @@ export function registerConversationDrafts(): void {
         note: draft.note,
         ...conversationProvenance(draft.conversationId),
       });
-      if (proposal) await approval.approveProposal(ctx, proposal.uri);
-      return { proposalUri: proposal?.uri ?? null, applied: true };
+      return { proposalUri, applied };
     }),
   );
 
@@ -257,7 +270,7 @@ export function registerConversationDrafts(): void {
         // ONE proposal carrying one `note-rewrite` payload per note. applyBundle
         // applies them in order and rolls the whole bundle back on any failure,
         // so a twenty-note rewrite can't land half-applied.
-        const proposal = await approval.proposeWrite(ctx, {
+        const { proposalUri, applied, rewrittenPaths } = await fileAndApprove(ctx, {
           operationType: 'note_rewrite',
           payloads: chosen.map((i) => ({
             kind: 'note-rewrite' as const,
@@ -267,13 +280,8 @@ export function registerConversationDrafts(): void {
           note: draft.note,
           ...conversationProvenance(draft.conversationId),
         });
-        let applied = false;
-        if (proposal) {
-          const result = await approval.approveProposal(ctx, proposal.uri);
-          applied = result.ok;
-          hooks.broadcastRewritten(rootPath, result.rewrittenPaths);
-        }
-        return { proposalUri: proposal?.uri ?? null, applied };
+        hooks.broadcastRewritten(rootPath, rewrittenPaths);
+        return { proposalUri, applied };
       });
     }),
   );
@@ -331,13 +339,12 @@ export function registerConversationDrafts(): void {
           });
         });
 
-        const proposal = await approval.proposeWrite(ctx, {
+        await fileAndApprove(ctx, {
           operationType: 'component_creation',
           payloads,
           note: draft.note,
           ...conversationProvenance(draft.conversationId),
         });
-        if (proposal) await approval.approveProposal(ctx, proposal.uri);
 
         return { outcome: { sourceId, claimPaths, excerptIds } };
       } catch (err) {
