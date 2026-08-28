@@ -78,12 +78,17 @@ describe('overlay components use the scale', () => {
 
   it('gives every DialogHost dialog the spawned tier', () => {
     // These are exactly the components DialogHost renders; each must outrank a
-    // modal because a modal is what typically raises it.
+    // modal because a modal is what typically raises it. Two forms count: a
+    // hand-rolled backdrop setting the tier directly in CSS, or (PromptDialog /
+    // ConfirmDialog, since #1888) composing ui/Dialog.svelte and passing it the
+    // tier via the `zIndex` prop instead.
     const host = fs.readFileSync(path.join(RENDERER, 'lib/components/DialogHost.svelte'), 'utf-8');
     for (const name of SPAWNED) {
       expect(host, `DialogHost no longer renders ${name} — update this list`).toContain(`${name}.svelte`);
       const src = fs.readFileSync(path.join(RENDERER, `lib/components/${name}.svelte`), 'utf-8');
-      expect(src, `${name} must use var(--z-spawned)`).toContain('z-index: var(--z-spawned)');
+      const handRolled = src.includes('z-index: var(--z-spawned)');
+      const viaDialogProp = src.includes('zIndex="var(--z-spawned)"');
+      expect(handRolled || viaDialogProp, `${name} must use var(--z-spawned)`).toBe(true);
     }
   });
 

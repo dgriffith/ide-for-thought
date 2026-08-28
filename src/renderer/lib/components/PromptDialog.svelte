@@ -2,7 +2,14 @@
   /**
    * Prompt dialog refreshed per IMPLEMENTATION.md §10.1. Signature
    * (`showPrompt(message, opts)`) is unchanged — only the rendering.
+   *
+   * Renders via ui/Dialog.svelte (#1888) rather than hand-rolling the
+   * overlay/card scaffolding — Escape-to-cancel and backdrop-click are
+   * Dialog's job now; this component only owns the input and the
+   * Enter-to-confirm behavior specific to it.
    */
+  import Dialog from './ui/Dialog.svelte';
+
   interface Props {
     message: string;
     onConfirm: (value: string) => void;
@@ -32,8 +39,6 @@
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === 'Enter' && value.trim()) {
       onConfirm(value.trim());
-    } else if (e.key === 'Escape') {
-      onCancel();
     }
   }
 
@@ -46,99 +51,39 @@
   });
 </script>
 
-<!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="overlay" onkeydown={handleKeydown} onmousedown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
-  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="prompt-dialog-title">
-    <header class="card-header">
-      <div class="eyebrow">Input</div>
-      <h2 class="title" id="prompt-dialog-title">{message}</h2>
-    </header>
-
-    <div class="body">
-      <input
-        bind:this={inputEl}
-        bind:value
-        type="text"
-        class="input"
-        aria-labelledby="prompt-dialog-title"
-        list={suggestions.length > 0 ? listId : undefined}
-        autocomplete="off"
-      />
-      {#if suggestions.length > 0}
-        <datalist id={listId}>
-          {#each suggestions as s}
-            <option value={s}></option>
-          {/each}
-        </datalist>
-      {/if}
-    </div>
-
-    <footer class="card-footer">
-      <span class="kbd-hint">esc · cancel · ↵ confirm</span>
-      <span class="footer-actions">
-        <button class="btn secondary" onclick={onCancel}>Cancel</button>
-        <button class="btn primary" disabled={!value.trim()} onclick={() => onConfirm(value.trim())}>
-          OK
-          <span class="btn-kbd">↵</span>
-        </button>
-      </span>
-    </footer>
-  </div>
-</div>
+<Dialog width={460} zIndex="var(--z-spawned)" onClose={onCancel} titleId="prompt-dialog-title">
+  {#snippet eyebrow()}Input{/snippet}
+  {#snippet title()}{message}{/snippet}
+  {#snippet body()}
+    <input
+      bind:this={inputEl}
+      bind:value
+      onkeydown={handleKeydown}
+      type="text"
+      class="input"
+      aria-labelledby="prompt-dialog-title"
+      list={suggestions.length > 0 ? listId : undefined}
+      autocomplete="off"
+    />
+    {#if suggestions.length > 0}
+      <datalist id={listId}>
+        {#each suggestions as s}
+          <option value={s}></option>
+        {/each}
+      </datalist>
+    {/if}
+  {/snippet}
+  {#snippet footerLeft()}<span class="kbd-hint">esc · cancel · ↵ confirm</span>{/snippet}
+  {#snippet footerRight()}
+    <button class="btn secondary" onclick={onCancel}>Cancel</button>
+    <button class="btn primary" disabled={!value.trim()} onclick={() => onConfirm(value.trim())}>
+      OK
+      <span class="btn-kbd">↵</span>
+    </button>
+  {/snippet}
+</Dialog>
 
 <style>
-  .overlay {
-    position: fixed;
-    inset: 0;
-    z-index: var(--z-spawned);
-    background: var(--scrim-bg);
-    backdrop-filter: var(--scrim-blur);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 32px;
-  }
-
-  .dialog {
-    background: var(--bg-elev);
-    border: 1px solid var(--border-strong);
-    border-radius: 12px;
-    box-shadow:
-      0 16px 48px rgba(0, 0, 0, 0.35),
-      0 0 0 1px rgba(255, 255, 255, 0.04) inset;
-    width: 460px;
-    max-width: 100%;
-    display: flex;
-    flex-direction: column;
-    font-family: var(--font-sans);
-    color: var(--text);
-    overflow: hidden;
-  }
-
-  .card-header {
-    padding: 20px 24px 0;
-  }
-  .eyebrow {
-    font-family: var(--font-mono);
-    font-size: 10.5px;
-    color: var(--text-faint);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    margin-bottom: 6px;
-  }
-  .title {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: 19px;
-    font-weight: 500;
-    letter-spacing: -0.005em;
-    line-height: 1.3;
-    color: var(--text);
-  }
-
-  .body {
-    padding: 14px 24px 18px;
-  }
   .input {
     width: 100%;
     padding: 8px 10px;
@@ -152,24 +97,10 @@
     box-shadow: 0 0 0 3px color-mix(in oklch, var(--accent) 18%, transparent);
   }
 
-  .card-footer {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 18px;
-    border-top: 1px solid var(--border);
-    background: var(--bg);
-    border-radius: 0 0 12px 12px;
-  }
   .kbd-hint {
-    margin-right: auto;
     font-size: 10.5px;
     color: var(--text-faint);
     font-family: var(--font-mono);
-  }
-  .footer-actions {
-    display: inline-flex;
-    gap: 8px;
   }
 
   .btn {
