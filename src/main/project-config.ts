@@ -11,6 +11,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { encryptSecret, decryptSecret } from './secret-storage';
 import { loadConfigFileSync, asRecord } from './config/config-store';
+import { patchRawProjectConfig } from './config/project-config-store';
 
 export interface ProjectConfigShape {
   baseUri?: string;
@@ -137,12 +138,15 @@ export function readProjectConfig(rootPath: string): ProjectConfigShape {
  * Merge `patch` into the on-disk config. Top-level keys are replaced
  * wholesale; this is intentional — none of the current consumers want
  * a deep merge, and a shallow one is easy to reason about.
+ *
+ * Delegates to the shared `patchRawProjectConfig` leaf (#1891) rather than
+ * reading via the lenient `readProjectConfig` — that reader soft-fails a
+ * corrupt file to `{}` (fine for a plain read), but merging a patch onto that
+ * `{}` and writing it back would silently destroy the corrupt-but-otherwise-
+ * intact file, the same bug `graph/index.ts`'s writer had.
  */
 export function patchProjectConfig(rootPath: string, patch: ProjectConfigShape): void {
-  const existing = readProjectConfig(rootPath);
-  const next: ProjectConfigShape = { ...existing, ...patch };
-  fs.mkdirSync(path.dirname(configPath(rootPath)), { recursive: true });
-  fs.writeFileSync(configPath(rootPath), JSON.stringify(next, null, 2), 'utf-8');
+  patchRawProjectConfig(rootPath, patch as Record<string, unknown>);
 }
 
 /** The user-chosen display name, or null when unset (#1443). */
