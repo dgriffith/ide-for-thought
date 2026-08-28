@@ -23,6 +23,7 @@ import { parseWikiInner } from '../../shared/wiki-link';
 import { slugify } from '../../shared/slug';
 import { stripNoteExt } from '../../shared/note-extensions';
 import { isIndexable } from '../notebase/indexable-files';
+import { isIgnoredEntry } from '../notebase/ignored-dirs';
 
 import type { ProjectContext } from '../project-context-types';
 
@@ -939,7 +940,7 @@ export async function indexAllNotes(ctx: ProjectContext, opts?: IndexAllNotesOpt
   async function walkAndIndex(dirPath: string, root: string) {
     const entries = await fs.readdir(dirPath, { withFileTypes: true });
     for (const entry of entries) {
-      if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+      if (isIgnoredEntry(entry.name)) continue;
       const fullPath = path.join(dirPath, entry.name);
       if (entry.isDirectory()) {
         const rel = path.relative(root, fullPath);
@@ -958,7 +959,7 @@ export async function indexAllNotes(ctx: ProjectContext, opts?: IndexAllNotesOpt
   async function walkAndCollectAliases(dirPath: string, root: string) {
     const entries = await fs.readdir(dirPath, { withFileTypes: true });
     for (const entry of entries) {
-      if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+      if (isIgnoredEntry(entry.name)) continue;
       const fullPath = path.join(dirPath, entry.name);
       if (entry.isDirectory()) {
         await walkAndCollectAliases(fullPath, root);

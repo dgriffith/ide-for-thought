@@ -6,8 +6,7 @@ import type { NoteFile, NotebaseMeta } from '../../shared/types';
 import { resolveDisplayName } from '../project-config';
 import { defaultThoughtbaseDir } from '../recent-projects';
 import { onNoteWriting, onNoteWritten, moveHistory, runWithHistorySource } from '../history';
-
-const IGNORED_DIRS = new Set(['.git', 'node_modules', '.minerva', '.obsidian']);
+import { isIgnoredEntry } from './ignored-dirs';
 
 export async function openNotebase(): Promise<NotebaseMeta | null> {
   const result = await dialog.showOpenDialog({
@@ -38,8 +37,7 @@ async function readDirectory(dirPath: string, rootPath: string): Promise<NoteFil
   const files: NoteFile[] = [];
 
   for (const entry of entries) {
-    if (entry.name.startsWith('.')) continue;
-    if (IGNORED_DIRS.has(entry.name)) continue;
+    if (isIgnoredEntry(entry.name)) continue;
 
     const fullPath = path.join(dirPath, entry.name);
     const relativePath = path.relative(rootPath, fullPath);

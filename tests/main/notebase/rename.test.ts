@@ -4,7 +4,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { initGraph, indexNote, findNotesLinkingTo } from '../../../src/main/graph/index';
 import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
-import { renameWithLinkRewrites } from '../../../src/main/notebase/rename';
+import { renameWithLinkRewrites, listAllFiles } from '../../../src/main/notebase/rename';
 
 function mkTempProject(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-rename-test-'));
@@ -313,5 +313,26 @@ describe('renameWithLinkRewrites — markdown relative links (#NEW)', () => {
     await renameWithLinkRewrites(root, 'notes/a.md', 'archive/a.md');
 
     expect(readNote(root, 'archive/a.md')).toBe(original);
+  });
+});
+
+describe('listAllFiles — the rewrites-map walker (#1897)', () => {
+  let root: string;
+
+  beforeEach(() => { root = mkTempProject(); });
+  afterEach(() => { fs.rmSync(root, { recursive: true, force: true }); });
+
+  // This walker used to check only `startsWith('.')`, missing the
+  // node_modules exclusion every sibling project-tree walker has — a
+  // thoughtbase with a stray node_modules would get every file inside it
+  // dragged into the markdown-rewrites map on any folder move.
+  it('skips node_modules like every other project-tree walker', async () => {
+    writeNote(root, 'notes/a.md', '# A');
+    writeNote(root, 'node_modules/pkg/index.js', 'module.exports = {};');
+
+    const files = await listAllFiles(root, '');
+
+    expect(files).toContain('notes/a.md');
+    expect(files).not.toContain('node_modules/pkg/index.js');
   });
 });

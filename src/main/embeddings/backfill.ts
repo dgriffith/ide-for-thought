@@ -42,6 +42,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import type { ProjectContext } from '../project-context-types';
 import { isIndexable } from '../notebase/indexable-files';
+import { isIgnoredEntry } from '../notebase/ignored-dirs';
 import { citedTextFromTtl } from '../sources/create-excerpt';
 import * as store from './vector-store';
 import type { RefKind } from './vector-store';
@@ -211,7 +212,7 @@ async function listMarkdownNotes(rootPath: string): Promise<string[]> {
       return;
     }
     for (const entry of entries) {
-      if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+      if (isIgnoredEntry(entry.name)) continue;
       const full = path.join(dir, entry.name);
       if (entry.isDirectory()) {
         await walk(full);

@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import * as notebaseFs from '../notebase/fs';
+import { isIgnoredEntry } from '../notebase/ignored-dirs';
 import * as graph from '../graph/index';
 import { projectContext } from '../project-context-types';
 import * as search from '../search/index';
@@ -12,8 +13,6 @@ import { renameAnchor } from '../notebase/rename-anchor';
 // Side-effect import: populates the rule registry on the main-process side.
 // The renderer has its own import in SettingsDialog for the UI listing.
 import '../../shared/formatter/rules/index';
-
-const IGNORED_DIRS = new Set(['.git', 'node_modules', '.minerva', '.obsidian']);
 
 export interface FormatRunSummary {
   changedPaths: string[];
@@ -106,8 +105,7 @@ async function walk(rootPath: string, relDir: string, out: string[]): Promise<vo
     entries = await fs.readdir(absDir, { withFileTypes: true });
   } catch { return; }
   for (const entry of entries) {
-    if (entry.name.startsWith('.')) continue;
-    if (IGNORED_DIRS.has(entry.name)) continue;
+    if (isIgnoredEntry(entry.name)) continue;
     const rel = relDir ? `${relDir}/${entry.name}` : entry.name;
     if (entry.isDirectory()) {
       await walk(rootPath, rel, out);

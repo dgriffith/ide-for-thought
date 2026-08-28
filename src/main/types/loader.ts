@@ -69,6 +69,9 @@ async function loadUser(dir: string): Promise<{ types: TypeDef[]; errors: TypeLo
     throw e;
   }
   for (const ent of entries) {
+    // A flat listing of `.minerva/types/`, not a recursive walk of the
+    // thoughtbase root — there's no directory to recurse into here, so the
+    // project-tree ignore policy (`notebase/ignored-dirs.ts`) doesn't apply.
     if (ent.name.startsWith('.')) continue;
     if (!ent.isFile() || !ent.name.toLowerCase().endsWith('.md')) continue;
     const fp = path.join(dir, ent.name);

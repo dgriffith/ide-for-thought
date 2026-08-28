@@ -4,6 +4,7 @@ import type { SearchProvider, SearchResult } from './types';
 import { MiniSearchProvider } from './minisearch-provider';
 import type { ProjectContext } from '../project-context-types';
 import { createProjectStore } from '../project-store';
+import { isIgnoredEntry } from '../notebase/ignored-dirs';
 
 interface SearchState {
   rootPath: string;
@@ -78,7 +79,7 @@ export async function indexAllNotes(ctx: ProjectContext): Promise<number> {
   async function walk(dirPath: string, root: string) {
     const entries = await fs.readdir(dirPath, { withFileTypes: true });
     for (const entry of entries) {
-      if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+      if (isIgnoredEntry(entry.name)) continue;
       const fullPath = path.join(dirPath, entry.name);
       if (entry.isDirectory()) {
         await walk(fullPath, root);

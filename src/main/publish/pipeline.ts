@@ -17,6 +17,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import YAML from 'yaml';
 import { checkExclusion } from './exclusion';
+import { isIgnoredEntry } from '../notebase/ignored-dirs';
 import { resolveTree, extractWikiLinkTargets } from './tree-resolver';
 import { loadCitationAssets } from './csl';
 import type {
@@ -272,8 +273,7 @@ async function walkMarkdown(dir: string, rootPath: string, out: string[]): Promi
     return;
   }
   for (const entry of entries) {
-    if (entry.name.startsWith('.')) continue;
-    if (entry.name === 'node_modules') continue;
+    if (isIgnoredEntry(entry.name)) continue;
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       await walkMarkdown(full, rootPath, out);

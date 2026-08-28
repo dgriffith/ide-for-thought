@@ -3,6 +3,7 @@ import nodePath from 'node:path';
 import * as graph from '../../graph/index';
 import { projectContext } from '../../project-context-types';
 import type { NotebaseTool, ToolContext } from './types';
+import { isIgnoredEntry } from '../../notebase/ignored-dirs';
 
 async function runListNotes(ctx: ToolContext): Promise<string> {
   const pctx = projectContext(ctx.rootPath);
@@ -19,7 +20,7 @@ async function listProjectNotes(rootPath: string): Promise<string[]> {
     let entries: import('node:fs').Dirent[];
     try { entries = await readdir(dir, { withFileTypes: true }); } catch { return; }
     for (const entry of entries) {
-      if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+      if (isIgnoredEntry(entry.name)) continue;
       const full = nodePath.join(dir, entry.name);
       if (entry.isDirectory()) await walk(full);
       else if (entry.isFile() && entry.name.toLowerCase().endsWith('.md')) out.push(nodePath.relative(rootPath, full));
