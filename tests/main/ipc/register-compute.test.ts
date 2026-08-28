@@ -305,7 +305,12 @@ describe('COMPUTE_CONSENT_STATUS / GRANT / LIST / REVOKE', () => {
   });
 
   it('revoking a thoughtbase that was never trusted is a no-op, not an error', () => {
-    expect(() => call(Channels.COMPUTE_REVOKE_CONSENT, '/never-seen')).not.toThrow();
+    call(Channels.COMPUTE_GRANT_CONSENT, 'python', 'print(1)', 'project');
+    call(Channels.COMPUTE_REVOKE_CONSENT, '/never-seen');
+    // The unrelated root's consent record must survive untouched.
+    expect(call(Channels.COMPUTE_LIST_CONSENT)).toEqual([
+      { rootPath: ROOT, blanket: true, cellCount: 0 },
+    ]);
   });
 
   it('hashes are stored, not the code itself', () => {

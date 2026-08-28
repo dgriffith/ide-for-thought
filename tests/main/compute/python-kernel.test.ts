@@ -207,11 +207,23 @@ skipIfNoPython('python kernel (#241)', () => {
     }
   });
 
-  it('invalidate(): no-op when no kernel is running', () => {
-    // Should not throw. The function silently returns when the project
-    // has no live kernel — the watcher fires invalidate eagerly on
-    // every .py write regardless of whether a kernel has spawned yet.
-    expect(() => invalidate('/tmp/no-kernel-for-this-root-' + Date.now(), ['x.py'])).not.toThrow();
+  it('invalidate(): no-op when no kernel is running', async () => {
+    // The function silently returns when the project has no live kernel —
+    // the watcher fires invalidate eagerly on every .py write regardless of
+    // whether a kernel has spawned yet. A real kernel for another project
+    // must survive untouched.
+    const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'minerva-py-invalidate-'));
+    try {
+      await runPython(projectRoot, 'noop.md', '1');
+      invalidate('/tmp/no-kernel-for-this-root-' + Date.now(), ['x.py']);
+      const after = await runPython(projectRoot, 'noop.md', '2 + 2');
+      expect(after.ok).toBe(true);
+      if (!after.ok || after.output.type !== 'json') return;
+      expect(after.output.value).toBe(4);
+    } finally {
+      await stopKernel(projectRoot);
+      await fs.rm(projectRoot, { recursive: true, force: true });
+    }
   });
 
   it('invalidate(): walks submodules under a package prefix', async () => {
