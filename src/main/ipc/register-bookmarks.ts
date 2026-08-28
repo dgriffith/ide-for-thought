@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { Channels } from '../../shared/channels';
 import type { TabSession, LayoutSession, BookmarkNode } from '../../shared/types';
-import { rootPathFromEvent, withRootPathOr, readJsonFileOr } from './helpers';
+import { rootPathFromEvent, withRootPath, withRootPathOr, readJsonFileOr } from './helpers';
 import { handle } from './typed-ipc';
 
 export function registerBookmarks(): void {
@@ -12,7 +12,7 @@ export function registerBookmarks(): void {
   handle(Channels.BOOKMARKS_LOAD, withRootPathOr<[], BookmarkNode[] | Promise<BookmarkNode[]>>([], (rootPath) =>
     readJsonFileOr<BookmarkNode[]>(path.join(rootPath, '.minerva', 'bookmarks.json'), [])));
 
-  handle(Channels.BOOKMARKS_SAVE, withRootPathOr(undefined, async (rootPath, tree: BookmarkNode[]) => {
+  handle(Channels.BOOKMARKS_SAVE, withRootPath(async (rootPath, tree: BookmarkNode[]) => {
     const bmPath = path.join(rootPath, '.minerva', 'bookmarks.json');
     await fs.mkdir(path.dirname(bmPath), { recursive: true });
     await fs.writeFile(bmPath, JSON.stringify(tree, null, 2), 'utf-8');
@@ -22,7 +22,7 @@ export function registerBookmarks(): void {
   // it round-trips the renderer's session shape (now the multi-group
   // LayoutSession, #816) without inspecting it; the renderer validates and
   // migrates legacy shapes on load.
-  handle(Channels.TABS_SAVE, withRootPathOr(undefined, async (rootPath, session: LayoutSession | TabSession) => {
+  handle(Channels.TABS_SAVE, withRootPath(async (rootPath, session: LayoutSession | TabSession) => {
     const tabsPath = path.join(rootPath, '.minerva', 'tabs.json');
     await fs.mkdir(path.dirname(tabsPath), { recursive: true });
     await fs.writeFile(tabsPath, JSON.stringify(session, null, 2), 'utf-8');

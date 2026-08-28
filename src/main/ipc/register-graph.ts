@@ -122,7 +122,7 @@ export function registerGraph(): void {
   }));
 
   // Graph management
-  handle(Channels.GRAPH_EXPORT, withRootPathOr(undefined, async (rootPath) => {
+  handle(Channels.GRAPH_EXPORT, withRootPath(async (rootPath) => {
     const result = await dialog.showSaveDialog({
       title: 'Export Graph',
       defaultPath: 'graph.ttl',

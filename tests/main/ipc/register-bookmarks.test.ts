@@ -28,6 +28,12 @@ vi.mock('../../../src/main/ipc/helpers', async () => {
   return {
     readJsonFileOr,
     rootPathFromEvent: () => state.root,
+    withRootPath:
+      <A extends unknown[], R>(fn: (rootPath: string, ...a: A) => R) =>
+      (_e: unknown, ...args: A) => {
+        if (!state.root) throw new Error('No project open');
+        return fn(state.root, ...args);
+      },
     withRootPathOr:
       <A extends unknown[], R>(fallback: R, fn: (rootPath: string, ...a: A) => R) =>
       (_e: unknown, ...args: A) => (state.root ? fn(state.root, ...args) : fallback),
@@ -79,5 +85,17 @@ describe('register-bookmarks store loads (#1631)', () => {
   it('TABS_LOAD REJECTS on a corrupt tabs.json instead of collapsing to null', async () => {
     await fs.writeFile(path.join(dir, '.minerva', 'tabs.json'), 'not json at all', 'utf-8');
     await expect(call(Channels.TABS_LOAD)).rejects.toThrow();
+  });
+
+  // #1894 — these two used to be `withRootPathOr(undefined, …)`, so saving with
+  // no project open silently resolved as if the write had happened.
+  it('BOOKMARKS_SAVE throws with no project rather than silently doing nothing', () => {
+    state.root = null;
+    expect(() => call(Channels.BOOKMARKS_SAVE, [])).toThrow('No project open');
+  });
+
+  it('TABS_SAVE throws with no project rather than silently doing nothing', () => {
+    state.root = null;
+    expect(() => call(Channels.TABS_SAVE, {})).toThrow('No project open');
   });
 });

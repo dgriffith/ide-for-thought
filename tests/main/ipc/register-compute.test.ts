@@ -329,9 +329,12 @@ describe('python kernel handlers', () => {
     expect(h.restartKernel).toHaveBeenCalledWith(ROOT);
   });
 
-  it('COMPUTE_RESTART_PYTHON_KERNEL is a no-op with no project (there is no kernel)', async () => {
+  // #1894 — this used to be `withRootPathOr(undefined, …)`, indistinguishable
+  // from its own success return (also `undefined`), so a restart request with
+  // no project open silently resolved as if the kernel had restarted.
+  it('COMPUTE_RESTART_PYTHON_KERNEL throws with no project rather than silently doing nothing', async () => {
     openProject = null;
-    await expect(callAsync(Channels.COMPUTE_RESTART_PYTHON_KERNEL)).resolves.toBeUndefined();
+    await expect(callAsync(Channels.COMPUTE_RESTART_PYTHON_KERNEL)).rejects.toThrow(/No project open/);
     expect(h.restartKernel).not.toHaveBeenCalled();
   });
 

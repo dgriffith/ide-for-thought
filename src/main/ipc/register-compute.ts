@@ -39,7 +39,7 @@ export function registerCompute(): void {
 
   handle(Channels.COMPUTE_LANGUAGES, () => computeLanguages());
 
-  handle(Channels.COMPUTE_RESTART_PYTHON_KERNEL, withRootPathOr(undefined, async (rootPath) => {
+  handle(Channels.COMPUTE_RESTART_PYTHON_KERNEL, withRootPath(async (rootPath) => {
     await restartPythonKernel(rootPath);
   }));
 
