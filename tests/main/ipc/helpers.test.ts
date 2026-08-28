@@ -258,12 +258,14 @@ describe('listIndexableFiles — walks a real tree', () => {
     root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-ipc-helpers-'));
     fs.mkdirSync(path.join(root, 'notes', 'deep'), { recursive: true });
     fs.mkdirSync(path.join(root, '.hidden'), { recursive: true });
+    fs.mkdirSync(path.join(root, 'node_modules', 'pkg'), { recursive: true });
     fs.writeFileSync(path.join(root, 'notes', 'a.md'), '');
     fs.writeFileSync(path.join(root, 'notes', 'data.csv'), '');
     fs.writeFileSync(path.join(root, 'notes', 'img.png'), '');
     fs.writeFileSync(path.join(root, 'notes', '.secret.md'), '');
     fs.writeFileSync(path.join(root, 'notes', 'deep', 'b.md'), '');
     fs.writeFileSync(path.join(root, '.hidden', 'c.md'), '');
+    fs.writeFileSync(path.join(root, 'node_modules', 'pkg', 'readme.md'), '');
   });
 
   afterEach(async () => {
@@ -282,6 +284,15 @@ describe('listIndexableFiles — walks a real tree', () => {
     const all = await listIndexableFiles(root, '');
     expect(all).not.toContain('.hidden/c.md');
     expect(all).toContain('notes/a.md');
+  });
+
+  // #1897 — this walker used to check only `startsWith('.')`, missing the
+  // node_modules exclusion every sibling project-tree walker has. A
+  // thoughtbase with a stray node_modules (e.g. a compute scratch dir) would
+  // recurse into it.
+  it('skips node_modules like every other project-tree walker', async () => {
+    const all = await listIndexableFiles(root, '');
+    expect(all).not.toContain('node_modules/pkg/readme.md');
   });
 
   it('joins paths without a leading slash when relDir is empty', async () => {

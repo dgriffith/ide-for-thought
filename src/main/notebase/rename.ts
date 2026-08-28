@@ -9,6 +9,7 @@ import {
 import * as graph from '../graph/index';
 import { projectContext } from '../project-context-types';
 import { isIndexable } from './indexable-files';
+import { isIgnoredEntry } from './ignored-dirs';
 
 async function listIndexableFiles(rootPath: string, relDir: string): Promise<string[]> {
   const results: string[] = [];
@@ -16,7 +17,7 @@ async function listIndexableFiles(rootPath: string, relDir: string): Promise<str
   try {
     const entries = await fs.readdir(absDir, { withFileTypes: true });
     for (const entry of entries) {
-      if (entry.name.startsWith('.')) continue;
+      if (isIgnoredEntry(entry.name)) continue;
       const rel = relDir ? `${relDir}/${entry.name}` : entry.name;
       if (entry.isDirectory()) {
         results.push(...await listIndexableFiles(rootPath, rel));
@@ -41,7 +42,7 @@ export async function listAllFiles(rootPath: string, relDir: string): Promise<st
   try {
     const entries = await fs.readdir(absDir, { withFileTypes: true });
     for (const entry of entries) {
-      if (entry.name.startsWith('.')) continue;
+      if (isIgnoredEntry(entry.name)) continue;
       const rel = relDir ? `${relDir}/${entry.name}` : entry.name;
       if (entry.isDirectory()) {
         results.push(...await listAllFiles(rootPath, rel));

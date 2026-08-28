@@ -10,6 +10,7 @@ import {
   type CsvTableColumn,
 } from '../graph/index';
 import { parseMarkdown, type ParsedTable } from '../graph/parser';
+import { isIgnoredEntry } from '../notebase/ignored-dirs';
 import { slugifyTableName } from '../../shared/table-name';
 import { serializeCsv } from '../../shared/csv-parse';
 import type { ProjectContext } from '../project-context-types';
@@ -550,7 +551,7 @@ export async function registerAllCsvs(ctx: ProjectContext): Promise<{ count: num
       return;
     }
     for (const entry of entries) {
-      if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+      if (isIgnoredEntry(entry.name)) continue;
       const fullPath = path.join(dirPath, entry.name);
       if (entry.isDirectory()) {
         await walk(fullPath);
@@ -598,7 +599,7 @@ export async function registerAllNoteTables(ctx: ProjectContext): Promise<{ coun
       return;
     }
     for (const entry of entries) {
-      if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+      if (isIgnoredEntry(entry.name)) continue;
       const fullPath = path.join(dirPath, entry.name);
       if (entry.isDirectory()) {
         await walk(fullPath);

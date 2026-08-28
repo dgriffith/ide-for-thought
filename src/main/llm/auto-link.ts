@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import * as notebaseFs from '../notebase/fs';
+import { isIgnoredEntry } from '../notebase/ignored-dirs';
 import { parseMarkdown } from '../graph/parser';
 import * as graph from '../graph/index';
 import { projectContext } from '../project-context-types';
@@ -23,7 +24,6 @@ import {
   type InboundCandidate,
 } from '../../shared/refactor/auto-link-inbound';
 
-const IGNORED_DIRS = new Set(['.git', 'node_modules', '.minerva', '.obsidian']);
 const MD_EXT = '.md';
 
 /** Hard cap so a huge thoughtbase doesn\u2019t blow the prompt budget. */
@@ -74,8 +74,7 @@ async function walk(rootPath: string, relDir: string, out: string[]): Promise<vo
     return;
   }
   for (const entry of entries) {
-    if (entry.name.startsWith('.')) continue;
-    if (IGNORED_DIRS.has(entry.name)) continue;
+    if (isIgnoredEntry(entry.name)) continue;
     const rel = relDir ? `${relDir}/${entry.name}` : entry.name;
     if (entry.isDirectory()) {
       await walk(rootPath, rel, out);

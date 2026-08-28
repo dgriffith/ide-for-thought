@@ -16,6 +16,7 @@ import path from 'node:path';
 import { resolveAnnotatedReading } from './resolve';
 import { renderAnnotatedReading } from './render';
 import type { Exporter, ExportPlanFile } from '../../types';
+import { isIgnoredEntry } from '../../../notebase/ignored-dirs';
 
 export const annotatedReadingExporter: Exporter = {
   id: 'annotated-reading-html',
@@ -95,7 +96,7 @@ async function walk(rootPath: string, sub: string, out: ExportPlanFile[]): Promi
     return;
   }
   for (const entry of entries) {
-    if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+    if (isIgnoredEntry(entry.name)) continue;
     const rel = sub ? `${sub}/${entry.name}` : entry.name;
     if (entry.isDirectory()) {
       await walk(rootPath, rel, out);

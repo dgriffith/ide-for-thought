@@ -4,6 +4,7 @@ import path from 'node:path';
 import { Channels } from '../../shared/channels';
 import * as notebaseFs from '../notebase/fs';
 import { isIndexable } from '../notebase/indexable-files';
+import { isIgnoredEntry } from '../notebase/ignored-dirs';
 import type * as graph from '../graph/index';
 import * as search from '../search/index';
 import { indexAllFor, removeAllFor } from '../notebase/index-fanout';
@@ -94,7 +95,7 @@ export async function listIndexableFiles(rootPath: string, relDir: string): Prom
   try {
     const entries = await fs.readdir(absDir, { withFileTypes: true });
     for (const entry of entries) {
-      if (entry.name.startsWith('.')) continue;
+      if (isIgnoredEntry(entry.name)) continue;
       const rel = relDir ? `${relDir}/${entry.name}` : entry.name;
       if (entry.isDirectory()) {
         results.push(...await listIndexableFiles(rootPath, rel));

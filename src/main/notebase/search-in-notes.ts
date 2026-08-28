@@ -11,8 +11,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { isIndexable } from './indexable-files';
-
-const IGNORED_DIRS = new Set(['.git', 'node_modules', '.minerva', '.obsidian']);
+import { isIgnoredEntry } from './ignored-dirs';
 
 export interface SearchMatch {
   /** 1-based line number (CodeMirror's convention). */
@@ -73,8 +72,7 @@ async function* walk(rootPath: string, currentRel = ''): AsyncGenerator<string> 
     return;
   }
   for (const entry of entries) {
-    if (entry.name.startsWith('.')) continue;
-    if (IGNORED_DIRS.has(entry.name)) continue;
+    if (isIgnoredEntry(entry.name)) continue;
     const rel = currentRel ? `${currentRel}/${entry.name}` : entry.name;
     if (entry.isDirectory()) {
       yield* walk(rootPath, rel);
