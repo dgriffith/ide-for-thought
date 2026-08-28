@@ -6,9 +6,13 @@
    * frontmatter-key vocabulary, and the value uses the same type-aware editor
    * the Properties panel does, so a real boolean / number / date is written
    * rather than a stringified one.
+   *
+   * Renders via ui/Dialog.svelte (#1888) — Escape-to-cancel and backdrop-click
+   * are Dialog's job; Enter-on-the-name-field submission stays local.
    */
   import type { AddPropertyResult } from '../stores/dialogs.svelte';
   import PropertyValueEditor from './PropertyValueEditor.svelte';
+  import Dialog from './ui/Dialog.svelte';
   import {
     SCALAR_TYPES,
     coerceScalar,
@@ -42,9 +46,6 @@
     onConfirm({ name: name.trim(), value });
   }
 
-  function onOverlayKeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape') onCancel();
-  }
   function onNameKeydown(e: KeyboardEvent) {
     // Enter on the name field submits directly — the value has a sensible
     // default per type (empty string / 0 / false / today-less date), so a
@@ -55,15 +56,11 @@
   $effect(() => { nameEl?.focus(); });
 </script>
 
-<!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="overlay" onkeydown={onOverlayKeydown} onmousedown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
-  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="add-property-title">
-    <header class="card-header">
-      <div class="eyebrow">Property</div>
-      <h2 class="title" id="add-property-title">{message}</h2>
-    </header>
-
-    <div class="body">
+<Dialog width={460} zIndex="var(--z-spawned)" onClose={onCancel} titleId="add-property-title">
+  {#snippet eyebrow()}Property{/snippet}
+  {#snippet title()}{message}{/snippet}
+  {#snippet body()}
+    <div class="body-inner">
       <label class="field">
         <span class="field-label">Name</span>
         <input
@@ -108,72 +105,19 @@
         </div>
       </div>
     </div>
-
-    <footer class="card-footer">
-      <span class="kbd-hint">esc · cancel · ↵ next / confirm</span>
-      <span class="footer-actions">
-        <button class="btn secondary" onclick={onCancel}>Cancel</button>
-        <button class="btn primary" disabled={!canConfirm} onclick={submit}>
-          Add
-          <span class="btn-kbd">↵</span>
-        </button>
-      </span>
-    </footer>
-  </div>
-</div>
+  {/snippet}
+  {#snippet footerLeft()}<span class="kbd-hint">esc · cancel · ↵ next / confirm</span>{/snippet}
+  {#snippet footerRight()}
+    <button class="btn secondary" onclick={onCancel}>Cancel</button>
+    <button class="btn primary" disabled={!canConfirm} onclick={submit}>
+      Add
+      <span class="btn-kbd">↵</span>
+    </button>
+  {/snippet}
+</Dialog>
 
 <style>
-  .overlay {
-    position: fixed;
-    inset: 0;
-    z-index: var(--z-spawned);
-    background: var(--scrim-bg);
-    backdrop-filter: var(--scrim-blur);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 32px;
-  }
-
-  .dialog {
-    background: var(--bg-elev);
-    border: 1px solid var(--border-strong);
-    border-radius: 12px;
-    box-shadow:
-      0 16px 48px rgba(0, 0, 0, 0.35),
-      0 0 0 1px rgba(255, 255, 255, 0.04) inset;
-    width: 460px;
-    max-width: 100%;
-    display: flex;
-    flex-direction: column;
-    font-family: var(--font-sans);
-    color: var(--text);
-    overflow: hidden;
-  }
-
-  .card-header {
-    padding: 20px 24px 0;
-  }
-  .eyebrow {
-    font-family: var(--font-mono);
-    font-size: 10.5px;
-    color: var(--text-faint);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    margin-bottom: 6px;
-  }
-  .title {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: 19px;
-    font-weight: 500;
-    letter-spacing: -0.005em;
-    line-height: 1.3;
-    color: var(--text);
-  }
-
-  .body {
-    padding: 14px 24px 18px;
+  .body-inner {
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -234,26 +178,11 @@
     min-height: 37px;
   }
 
-  .card-footer {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 18px;
-    border-top: 1px solid var(--border);
-    background: var(--bg);
-    border-radius: 0 0 12px 12px;
-  }
   .kbd-hint {
-    margin-right: auto;
     font-size: 10.5px;
     color: var(--text-faint);
     font-family: var(--font-mono);
   }
-  .footer-actions {
-    display: inline-flex;
-    gap: 8px;
-  }
-
   .btn {
     padding: 7px 14px;
     border: 1px solid var(--border);

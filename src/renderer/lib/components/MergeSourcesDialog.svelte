@@ -4,9 +4,15 @@
    * user chooses which one to KEEP and the rest are merged into it. Modeled on
    * TypePickerDialog. Merging isn't a silent deterministic fix — which source is
    * canonical is a judgment call, so we ask.
+   *
+   * Renders via ui/Dialog.svelte (#1888) — Escape-to-cancel and backdrop-click
+   * are Dialog's job. Arrow-key nav and Enter-to-merge stay on the list
+   * container directly (via bind:this + a local keydown), since — unlike
+   * TypePickerDialog's text input — there's nothing else to focus here.
    */
   import type { SourceMetadata } from '../../../shared/types';
   import { displaySourceTitle } from '../../../shared/source-display';
+  import Dialog from './ui/Dialog.svelte';
 
   interface Props {
     sources: SourceMetadata[];
@@ -18,9 +24,9 @@
   let { sources, onPick, onCancel }: Props = $props();
 
   let selectedIndex = $state(0);
-  let dialogEl = $state<HTMLDivElement>();
+  let listEl = $state<HTMLDivElement>();
 
-  $effect(() => { dialogEl?.focus(); });
+  $effect(() => { listEl?.focus(); });
 
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === 'ArrowDown') {
@@ -33,103 +39,49 @@
       e.preventDefault();
       const pick = sources[selectedIndex];
       if (pick) onPick(pick.sourceId);
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      onCancel();
     }
   }
 </script>
 
-<!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="overlay" onmousedown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
-  <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-  <div class="dialog" role="dialog" aria-modal="true" tabindex="-1" bind:this={dialogEl} onkeydown={handleKeydown}>
-    <header class="card-header">
-      <div class="eyebrow">Merge duplicates</div>
-      <h2 class="title">Which source should be kept?</h2>
-      <p class="subtitle">The other {sources.length - 1} will be merged into it — their excerpts and citations move over, then they're removed.</p>
-    </header>
-
-    <div class="body">
-      <div class="ms-results" role="listbox" aria-label="Duplicate sources">
-        {#each sources as s, i (s.sourceId)}
-          {@const selected = i === selectedIndex}
-          <button
-            type="button"
-            class="ms-row"
-            class:selected
-            role="option"
-            aria-selected={selected}
-            onmousemove={() => { selectedIndex = i; }}
-            onclick={() => onPick(s.sourceId)}
-          >
-            <span class="ms-dot" aria-hidden="true">{selected ? '●' : '○'}</span>
-            <span class="ms-body">
-              <span class="ms-name">{displaySourceTitle(s)}</span>
-              <span class="ms-id">{s.sourceId}</span>
-            </span>
-            {#if selected}<span class="ms-keep">keep</span>{/if}
-          </button>
-        {/each}
-      </div>
+<Dialog width={460} zIndex="var(--z-spawned)" onClose={onCancel} titleId="merge-sources-title">
+  {#snippet eyebrow()}Merge duplicates{/snippet}
+  {#snippet title()}Which source should be kept?{/snippet}
+  {#snippet subtitle()}The other {sources.length - 1} will be merged into it — their excerpts and citations move over, then they're removed.{/snippet}
+  {#snippet body()}
+    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+    <div class="ms-results" role="listbox" aria-label="Duplicate sources" tabindex="-1" bind:this={listEl} onkeydown={handleKeydown}>
+      {#each sources as s, i (s.sourceId)}
+        {@const selected = i === selectedIndex}
+        <button
+          type="button"
+          class="ms-row"
+          class:selected
+          role="option"
+          aria-selected={selected}
+          onmousemove={() => { selectedIndex = i; }}
+          onclick={() => onPick(s.sourceId)}
+        >
+          <span class="ms-dot" aria-hidden="true">{selected ? '●' : '○'}</span>
+          <span class="ms-body">
+            <span class="ms-name">{displaySourceTitle(s)}</span>
+            <span class="ms-id">{s.sourceId}</span>
+          </span>
+          {#if selected}<span class="ms-keep">keep</span>{/if}
+        </button>
+      {/each}
     </div>
-
-    <footer class="card-footer">
-      <span class="kbd-hint">esc · cancel · ↑↓ · ↵ merge others in</span>
-    </footer>
-  </div>
-</div>
+  {/snippet}
+  {#snippet footerLeft()}<span class="kbd-hint">esc · cancel · ↑↓ · ↵ merge others in</span>{/snippet}
+</Dialog>
 
 <style>
-  .overlay {
-    position: fixed;
-    inset: 0;
-    z-index: var(--z-spawned);
-    background: var(--scrim-bg);
-    backdrop-filter: var(--scrim-blur);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 32px;
-  }
-  .dialog {
-    background: var(--bg-elev);
-    border: 1px solid var(--border-strong);
-    border-radius: 12px;
-    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35);
-    width: 460px;
-    max-width: 100%;
-    display: flex;
-    flex-direction: column;
-    font-family: var(--font-sans);
-    color: var(--text);
-    overflow: hidden;
-    outline: none;
-  }
-  .card-header { padding: 18px 22px 0; }
-  .eyebrow {
-    font-family: var(--font-mono);
-    font-size: 10.5px;
-    color: var(--text-faint);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    margin-bottom: 5px;
-  }
-  .title {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: 18px;
-    font-weight: 500;
-    color: var(--text);
-  }
-  .subtitle { margin: 6px 0 0; font-size: 12px; color: var(--text-muted); line-height: 1.4; }
-  .body { padding: 14px 22px 16px; }
   .ms-results {
     display: flex;
     flex-direction: column;
     gap: 2px;
     max-height: 320px;
     overflow-y: auto;
+    outline: none;
   }
   .ms-row {
     display: flex;
@@ -156,13 +108,6 @@
     flex-shrink: 0;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-  }
-  .card-footer {
-    display: flex;
-    align-items: center;
-    padding: 10px 18px;
-    border-top: 1px solid var(--border);
-    background: var(--bg);
   }
   .kbd-hint { font-size: 10.5px; color: var(--text-faint); font-family: var(--font-mono); }
 </style>

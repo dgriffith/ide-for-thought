@@ -10,9 +10,16 @@
    * list below, Enter to choose, Esc to cancel. Modeled on the
    * command palette but without the recency / scoring layer; the
    * template list is short enough that substring filter is enough.
+   *
+   * Renders via ui/Dialog.svelte (#1888) — Escape-to-cancel and
+   * backdrop-click are Dialog's job. Arrow-key nav and Enter-to-insert
+   * stay on the filter input directly: focus never leaves it in normal
+   * use (result rows are chosen by mouse-hover or the arrow keys, never
+   * Tab), so this is behaviorally identical to the old dialog-wide handler.
    */
   import type { TemplateInfo } from '../ipc/client';
   import Icon from './Icon.svelte';
+  import Dialog from './ui/Dialog.svelte';
 
   interface Props {
     templates: TemplateInfo[];
@@ -56,118 +63,52 @@
       e.preventDefault();
       const pick = results[selectedIndex];
       if (pick) onPick(pick);
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      onCancel();
     }
   }
 </script>
 
-<!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="overlay" onkeydown={handleKeydown} onmousedown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
-  <div class="dialog" role="dialog" aria-modal="true">
-    <header class="card-header">
-      <div class="eyebrow">Insert</div>
-      <h2 class="title">Insert Template</h2>
-    </header>
+<Dialog width={460} zIndex="var(--z-spawned)" onClose={onCancel} titleId="snippet-picker-title">
+  {#snippet eyebrow()}Insert{/snippet}
+  {#snippet title()}Insert Template{/snippet}
+  {#snippet body()}
+    <input
+      bind:this={inputEl}
+      bind:value={query}
+      onkeydown={handleKeydown}
+      type="text"
+      class="input"
+      placeholder="Filter templates…"
+      autocomplete="off"
+    />
 
-    <div class="body">
-      <input
-        bind:this={inputEl}
-        bind:value={query}
-        type="text"
-        class="input"
-        placeholder="Filter templates…"
-        autocomplete="off"
-      />
-
-      {#if templates.length === 0}
-        <div class="empty">No templates in this project yet.</div>
-      {:else if results.length === 0}
-        <div class="empty">No matches.</div>
-      {:else}
-        <div class="sp-results" role="listbox">
-          {#each results as t, i (t.filename)}
-            {@const selected = i === selectedIndex}
-            <button
-              type="button"
-              class="sp-row"
-              class:selected
-              role="option"
-              aria-selected={selected}
-              onmousemove={() => { selectedIndex = i; }}
-              onclick={() => onPick(t)}
-            >
-              <Icon name="notes" size={13} color={selected ? 'var(--accent)' : 'var(--text-faint)'} />
-              <span class="sp-name">{t.name}</span>
-            </button>
-          {/each}
-        </div>
-      {/if}
-    </div>
-
-    <footer class="card-footer">
-      <span class="kbd-hint">esc · cancel · ↑↓ · ↵ insert</span>
-    </footer>
-  </div>
-</div>
+    {#if templates.length === 0}
+      <div class="empty">No templates in this project yet.</div>
+    {:else if results.length === 0}
+      <div class="empty">No matches.</div>
+    {:else}
+      <div class="sp-results" role="listbox">
+        {#each results as t, i (t.filename)}
+          {@const selected = i === selectedIndex}
+          <button
+            type="button"
+            class="sp-row"
+            class:selected
+            role="option"
+            aria-selected={selected}
+            onmousemove={() => { selectedIndex = i; }}
+            onclick={() => onPick(t)}
+          >
+            <Icon name="notes" size={13} color={selected ? 'var(--accent)' : 'var(--text-faint)'} />
+            <span class="sp-name">{t.name}</span>
+          </button>
+        {/each}
+      </div>
+    {/if}
+  {/snippet}
+  {#snippet footerLeft()}<span class="kbd-hint">esc · cancel · ↑↓ · ↵ insert</span>{/snippet}
+</Dialog>
 
 <style>
-  .overlay {
-    position: fixed;
-    inset: 0;
-    z-index: var(--z-spawned);
-    background: var(--scrim-bg);
-    backdrop-filter: var(--scrim-blur);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 32px;
-  }
-
-  .dialog {
-    background: var(--bg-elev);
-    border: 1px solid var(--border-strong);
-    border-radius: 12px;
-    box-shadow:
-      0 16px 48px rgba(0, 0, 0, 0.35),
-      0 0 0 1px rgba(255, 255, 255, 0.04) inset;
-    width: 460px;
-    max-width: 100%;
-    display: flex;
-    flex-direction: column;
-    font-family: var(--font-sans);
-    color: var(--text);
-    overflow: hidden;
-  }
-
-  .card-header {
-    padding: 20px 24px 0;
-  }
-  .eyebrow {
-    font-family: var(--font-mono);
-    font-size: 10.5px;
-    color: var(--text-faint);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    margin-bottom: 6px;
-  }
-  .title {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: 19px;
-    font-weight: 500;
-    letter-spacing: -0.005em;
-    line-height: 1.3;
-    color: var(--text);
-  }
-
-  .body {
-    padding: 14px 24px 18px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
   .input {
     width: 100%;
     padding: 8px 10px;
@@ -180,6 +121,7 @@
     outline: none;
     box-shadow: 0 0 0 3px color-mix(in oklch, var(--accent) 18%, transparent);
     box-sizing: border-box;
+    margin-bottom: 10px;
   }
 
   .empty {
@@ -226,15 +168,6 @@
     white-space: nowrap;
   }
 
-  .card-footer {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 18px;
-    border-top: 1px solid var(--border);
-    background: var(--bg);
-    border-radius: 0 0 12px 12px;
-  }
   .kbd-hint {
     font-size: 10.5px;
     color: var(--text-faint);
