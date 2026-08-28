@@ -827,33 +827,9 @@ async function applyDraft<T>(
   }
 }
 
-async function approveDraft(tabId: string, draft: ConversationDraft): Promise<{ filedPaths: string[] }> {
-  const tab = findTab(tabId);
-  if (!tab) return { filedPaths: [] };
-  // Inherit the draft's anchor so the result line lands on the same
-  // assistant turn the card was attached to.
-  const anchored = tab.drafts.find((d) => d.draftId === draft.draftId);
-  const afterMessageIndex = anchored?.afterMessageIndex ?? tab.conversation.messages.length;
-  // Snapshot before crossing IPC — Svelte 5 `$state` Proxies fail
-  // structured-clone otherwise (see project memory).
-  const snapshot = plainSnapshot(draft);
-  const applied = await applyDraft(tab, () => api.conversations.fileDraft(snapshot));
-  if (!applied.ok) return { filedPaths: [] };
-  const result = applied.value;
-  // Drop the in-flight card and replace it with a persistent "Filed:"
-  // summary keyed by the same draftId. `filedPaths` reflects the actual
-  // post-collision-dedup paths the approval engine wrote.
-  tab.drafts = tab.drafts.filter((d) => d.draftId !== draft.draftId);
-  tab.noteDraftResults = {
-    ...tab.noteDraftResults,
-    [draft.draftId]: { filedPaths: result.filedPaths, afterMessageIndex },
-  };
-  return { filedPaths: result.filedPaths };
-}
-
-/** The TabRuntime draft-array fields a discard removes a card from — every one
- *  holds items keyed by `draftId`. (`computeDrafts` is handled separately by
- *  `discardComputeDraft`, which also clears `computeDraftState`.) */
+/** The TabRuntime draft-array fields Approve/Discard remove a card from —
+ *  every one holds items keyed by `draftId` (`computeDrafts` is handled
+ *  separately by `discardComputeDraft`, which also clears `computeDraftState`). */
 type DraftArrayKey =
   | 'drafts' | 'refactorDrafts' | 'reorgDrafts' | 'deleteDrafts' | 'noteBodyDrafts'
   | 'sourceDrafts' | 'propertyDrafts' | 'sourcePropertyDrafts' | 'claimsDrafts';
@@ -868,17 +844,66 @@ function discardFrom(tabId: string, key: DraftArrayKey, draftId: string): void {
   (tab as Record<DraftArrayKey, Array<{ draftId: string }>>)[key] = remaining;
 }
 
+/**
+ * File a draft's change through main and, on success, drop its card from
+ * `key` — the shared shape behind every "Approve" click, mirroring
+ * `discardFrom`'s shared shape for every "Discard" click (#1896). `call` is
+ * the caller's already-snapshotted `api.conversations.fileXDraft(…)`
+ * invocation.
+ *
+ * Every draft-array element carries `afterMessageIndex` (looked up here,
+ * before the filter removes it, so the caller doesn't need its own `findTab`
+ * just for that) even though only 5 of the 9 approve functions use it — the
+ * ones that stash a persistent result card keyed by `afterMessageIndex`. The
+ * other 4 (refactor/reorg/delete/note-body) just drop the card; the approval
+ * engine's own broadcasts (NOTEBASE_RENAMED/REWRITTEN/FILE_DELETED) update
+ * any open editors, so there's nothing else for them to do with the result.
+ *
+ * Returns `undefined` on failure (no tab, or `applyDraft` caught an error —
+ * already recorded on `tab.failure`); otherwise the found `tab` (so a result-
+ * stashing caller doesn't need a second `findTab`), the computed
+ * `afterMessageIndex`, and the api call's raw return value.
+ */
+async function approveFrom<T>(
+  tabId: string,
+  key: DraftArrayKey,
+  draftId: string,
+  call: () => Promise<T>,
+): Promise<{ tab: TabRuntime; afterMessageIndex: number; value: T } | undefined> {
+  const tab = findTab(tabId);
+  if (!tab) return undefined;
+  const anchored = (tab[key] as Array<{ draftId: string; afterMessageIndex: number }>)
+    .find((d) => d.draftId === draftId);
+  const afterMessageIndex = anchored?.afterMessageIndex ?? tab.conversation.messages.length;
+  const applied = await applyDraft(tab, call);
+  if (!applied.ok) return undefined;
+  (tab as Record<DraftArrayKey, Array<{ draftId: string }>>)[key] =
+    (tab[key] as Array<{ draftId: string }>).filter((d) => d.draftId !== draftId);
+  return { tab, afterMessageIndex, value: applied.value };
+}
+
+async function approveDraft(tabId: string, draft: ConversationDraft): Promise<{ filedPaths: string[] }> {
+  // Snapshot before crossing IPC — Svelte 5 `$state` Proxies fail
+  // structured-clone otherwise (see project memory).
+  const result = await approveFrom(tabId, 'drafts', draft.draftId, () => api.conversations.fileDraft(plainSnapshot(draft)));
+  if (!result) return { filedPaths: [] };
+  // Replace the in-flight card with a persistent "Filed:" summary keyed by
+  // the same draftId. `filedPaths` reflects the actual post-collision-dedup
+  // paths the approval engine wrote.
+  result.tab.noteDraftResults = {
+    ...result.tab.noteDraftResults,
+    [draft.draftId]: { filedPaths: result.value.filedPaths, afterMessageIndex: result.afterMessageIndex },
+  };
+  return { filedPaths: result.value.filedPaths };
+}
+
 function discardDraft(tabId: string, draftId: string): void { discardFrom(tabId, 'drafts', draftId); }
 
 async function approveRefactorDraft(tabId: string, draft: ConversationRefactorDraft): Promise<void> {
-  const tab = findTab(tabId);
-  if (!tab) return;
-  // Snapshot before crossing IPC ($state Proxies fail structured-clone).
-  const snapshot = plainSnapshot(draft);
-  if (!(await applyDraft(tab, () => api.conversations.fileRefactorDraft(snapshot))).ok) return;
-  // Drop the card. The move + link rewrites land via the approval engine, and
-  // the NOTEBASE_RENAMED / NOTEBASE_REWRITTEN broadcasts update any open editors.
-  tab.refactorDrafts = tab.refactorDrafts.filter((d) => d.draftId !== draft.draftId);
+  // The move + link rewrites land via the approval engine, and the
+  // NOTEBASE_RENAMED / NOTEBASE_REWRITTEN broadcasts update any open editors —
+  // nothing else to do here once the card is dropped.
+  await approveFrom(tabId, 'refactorDrafts', draft.draftId, () => api.conversations.fileRefactorDraft(plainSnapshot(draft)));
 }
 
 function discardRefactorDraft(tabId: string, draftId: string): void { discardFrom(tabId, 'refactorDrafts', draftId); }
@@ -888,11 +913,7 @@ async function approveReorgDraft(
   draft: ConversationReorgDraft,
   selected: Array<{ fromPath: string; toPath: string }>,
 ): Promise<void> {
-  const tab = findTab(tabId);
-  if (!tab) return;
-  const snapshot = plainSnapshot(draft);
-  if (!(await applyDraft(tab, () => api.conversations.fileReorgDraft(snapshot, selected))).ok) return;
-  tab.reorgDrafts = tab.reorgDrafts.filter((d) => d.draftId !== draft.draftId);
+  await approveFrom(tabId, 'reorgDrafts', draft.draftId, () => api.conversations.fileReorgDraft(plainSnapshot(draft), selected));
 }
 
 function discardReorgDraft(tabId: string, draftId: string): void { discardFrom(tabId, 'reorgDrafts', draftId); }
@@ -902,13 +923,9 @@ async function approveDeleteDraft(
   draft: ConversationDeleteDraft,
   selected: string[],
 ): Promise<void> {
-  const tab = findTab(tabId);
-  if (!tab) return;
-  const snapshot = plainSnapshot(draft);
-  if (!(await applyDraft(tab, () => api.conversations.fileDeleteDraft(snapshot, selected))).ok) return;
-  // Drop the card. The deletions land via the approval engine, and the
-  // NOTEBASE_FILE_DELETED broadcasts close any open editors + refresh the tree.
-  tab.deleteDrafts = tab.deleteDrafts.filter((d) => d.draftId !== draft.draftId);
+  // The deletions land via the approval engine, and the NOTEBASE_FILE_DELETED
+  // broadcasts close any open editors + refresh the tree.
+  await approveFrom(tabId, 'deleteDrafts', draft.draftId, () => api.conversations.fileDeleteDraft(plainSnapshot(draft), selected));
 }
 
 function discardDeleteDraft(tabId: string, draftId: string): void { discardFrom(tabId, 'deleteDrafts', draftId); }
@@ -918,40 +935,21 @@ async function approveNoteBodyDraft(
   draft: ConversationNoteBodyDraft,
   selected: string[],
 ): Promise<void> {
-  const tab = findTab(tabId);
-  if (!tab) return;
-  const snapshot = plainSnapshot(draft);
-  if (!(await applyDraft(tab, () => api.conversations.fileNoteBodyDraft(snapshot, selected))).ok) return;
-  // Drop the card. The rewrites land via the approval engine as ONE bundled
-  // proposal, and the NOTEBASE_REWRITTEN broadcast reloads any open editors.
-  tab.noteBodyDrafts = tab.noteBodyDrafts.filter((d) => d.draftId !== draft.draftId);
+  // The rewrites land via the approval engine as ONE bundled proposal, and
+  // the NOTEBASE_REWRITTEN broadcast reloads any open editors.
+  await approveFrom(tabId, 'noteBodyDrafts', draft.draftId, () => api.conversations.fileNoteBodyDraft(plainSnapshot(draft), selected));
 }
 
 function discardNoteBodyDraft(tabId: string, draftId: string): void { discardFrom(tabId, 'noteBodyDrafts', draftId); }
 
-async function approveSourceDraft(
-  tabId: string,
-  draft: ConversationSourceDraft,
-): Promise<void> {
-  const tab = findTab(tabId);
-  if (!tab) return;
-  // Find the anchored entry so the result card inherits the same
-  // afterMessageIndex — the visual "this happened on that turn"
-  // grouping should survive Approve → result replacement.
-  const anchored = tab.sourceDrafts.find((d) => d.draftId === draft.draftId);
-  const afterMessageIndex = anchored?.afterMessageIndex ?? tab.conversation.messages.length;
-  // Snapshot before crossing IPC — same Svelte 5 $state Proxy issue
-  // that bit propose_notes.
-  const snapshot = plainSnapshot(draft);
-  const applied = await applyDraft(tab, () => api.conversations.fileSourceDraft(snapshot));
-  if (!applied.ok) return;
-  const result = applied.value;
-  // Drop the in-flight card and stash the per-source outcomes so the
-  // panel can replace the card with a brief status summary.
-  tab.sourceDrafts = tab.sourceDrafts.filter((d) => d.draftId !== draft.draftId);
-  tab.sourceDraftResults = {
-    ...tab.sourceDraftResults,
-    [draft.draftId]: { outcomes: result.outcomes, afterMessageIndex },
+async function approveSourceDraft(tabId: string, draft: ConversationSourceDraft): Promise<void> {
+  const result = await approveFrom(tabId, 'sourceDrafts', draft.draftId, () => api.conversations.fileSourceDraft(plainSnapshot(draft)));
+  if (!result) return;
+  // Stash the per-source outcomes so the panel can replace the card with a
+  // brief status summary.
+  result.tab.sourceDraftResults = {
+    ...result.tab.sourceDraftResults,
+    [draft.draftId]: { outcomes: result.value.outcomes, afterMessageIndex: result.afterMessageIndex },
   };
 }
 
@@ -965,71 +963,39 @@ function dismissSourceDraftResult(tabId: string, draftId: string): void {
 
 function discardSourceDraft(tabId: string, draftId: string): void { discardFrom(tabId, 'sourceDrafts', draftId); }
 
-async function approvePropertyDraft(
-  tabId: string,
-  draft: ConversationPropertyDraft,
-): Promise<void> {
-  const tab = findTab(tabId);
-  if (!tab) return;
-  const anchored = tab.propertyDrafts.find((d) => d.draftId === draft.draftId);
-  const afterMessageIndex = anchored?.afterMessageIndex ?? tab.conversation.messages.length;
+async function approvePropertyDraft(tabId: string, draft: ConversationPropertyDraft): Promise<void> {
   // PropertyUpdate's nested `Record<string, unknown>` (arbitrary keys) is the
   // payload that first forced the JSON round-trip now in plainSnapshot — see its
   // doc for the "set_properties approved but no frontmatter landed" history.
-  const plain = plainSnapshot(draft);
-  const applied = await applyDraft(tab, () => api.conversations.filePropertyDraft(plain));
-  if (!applied.ok) return;
-  const result = applied.value;
-  tab.propertyDrafts = tab.propertyDrafts.filter((d) => d.draftId !== draft.draftId);
-  tab.propertyDraftResults = {
-    ...tab.propertyDraftResults,
-    [draft.draftId]: { outcomes: result.outcomes, afterMessageIndex },
+  const result = await approveFrom(tabId, 'propertyDrafts', draft.draftId, () => api.conversations.filePropertyDraft(plainSnapshot(draft)));
+  if (!result) return;
+  result.tab.propertyDraftResults = {
+    ...result.tab.propertyDraftResults,
+    [draft.draftId]: { outcomes: result.value.outcomes, afterMessageIndex: result.afterMessageIndex },
   };
 }
 
 function discardPropertyDraft(tabId: string, draftId: string): void { discardFrom(tabId, 'propertyDrafts', draftId); }
 
-async function approveSourcePropertyDraft(
-  tabId: string,
-  draft: ConversationSourcePropertyDraft,
-): Promise<void> {
-  const tab = findTab(tabId);
-  if (!tab) return;
-  const anchored = tab.sourcePropertyDrafts.find((d) => d.draftId === draft.draftId);
-  const afterMessageIndex = anchored?.afterMessageIndex ?? tab.conversation.messages.length;
-  // JSON round-trip to shed any $state Proxy before IPC structured-clone —
-  // same defensive snapshot the property-draft path uses (#103).
-  const plain = plainSnapshot(draft);
-  const applied = await applyDraft(tab, () => api.conversations.fileSourcePropertyDraft(plain));
-  if (!applied.ok) return;
-  const result = applied.value;
-  tab.sourcePropertyDrafts = tab.sourcePropertyDrafts.filter((d) => d.draftId !== draft.draftId);
-  tab.sourcePropertyDraftResults = {
-    ...tab.sourcePropertyDraftResults,
-    [draft.draftId]: { outcome: result.outcome, afterMessageIndex },
+async function approveSourcePropertyDraft(tabId: string, draft: ConversationSourcePropertyDraft): Promise<void> {
+  const result = await approveFrom(tabId, 'sourcePropertyDrafts', draft.draftId, () => api.conversations.fileSourcePropertyDraft(plainSnapshot(draft)));
+  if (!result) return;
+  result.tab.sourcePropertyDraftResults = {
+    ...result.tab.sourcePropertyDraftResults,
+    [draft.draftId]: { outcome: result.value.outcome, afterMessageIndex: result.afterMessageIndex },
   };
 }
 
 function discardSourcePropertyDraft(tabId: string, draftId: string): void { discardFrom(tabId, 'sourcePropertyDrafts', draftId); }
 
-async function approveClaimsDraft(
-  tabId: string,
-  draft: ConversationClaimsDraft,
-): Promise<void> {
-  const tab = findTab(tabId);
-  if (!tab) return;
-  const anchored = tab.claimsDrafts.find((d) => d.draftId === draft.draftId);
-  const afterMessageIndex = anchored?.afterMessageIndex ?? tab.conversation.messages.length;
+async function approveClaimsDraft(tabId: string, draft: ConversationClaimsDraft): Promise<void> {
   // JSON round-trip to shed any $state Proxy before IPC structured-clone —
   // the claims array is nested, so this is the safe snapshot (#104).
-  const plain = plainSnapshot(draft);
-  const applied = await applyDraft(tab, () => api.conversations.fileClaimsDraft(plain));
-  if (!applied.ok) return;
-  const result = applied.value;
-  tab.claimsDrafts = tab.claimsDrafts.filter((d) => d.draftId !== draft.draftId);
-  tab.claimsDraftResults = {
-    ...tab.claimsDraftResults,
-    [draft.draftId]: { outcome: result.outcome, afterMessageIndex },
+  const result = await approveFrom(tabId, 'claimsDrafts', draft.draftId, () => api.conversations.fileClaimsDraft(plainSnapshot(draft)));
+  if (!result) return;
+  result.tab.claimsDraftResults = {
+    ...result.tab.claimsDraftResults,
+    [draft.draftId]: { outcome: result.value.outcome, afterMessageIndex: result.afterMessageIndex },
   };
 }
 
