@@ -173,3 +173,27 @@ jobs:
         # entry. Single test today (#394 smoke); add cases per
         # "the app stopped working entirely" incident.
         run: pnpm test:e2e
+
+      # Flake visibility (#1946): Playwright retries a test twice in CI so a
+      # transient Electron-boot hiccup doesn't fail the job, but nothing
+      # previously aggregated how often that retry actually fired — a test
+      # that needed one on every run was indistinguishable from one that
+      # always passed first try. `if: always()` so this runs (and the rate
+      # gets recorded) even when the job ultimately failed.
+      #
+      # Decision recorded here: a retry does NOT fail the job today (no
+      # --max-flaky passed). Failing on any retry would defeat the reason
+      # retries exist (#1097), and the actual flake rate isn't known yet —
+      # this step's job right now is accumulating that history in the
+      # Actions run summaries so a real numeric budget can be set later.
+      - name: E2E flake report
+        if: always()
+        run: node scripts/e2e-flake-report.mjs playwright-report.json
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: playwright-report.json
+          retention-days: 30

@@ -4,6 +4,7 @@ out/
 clipper/*.zip
 test-results/
 playwright-report/
+playwright-report.json
 .vite/
 .minerva/
 coverage/
