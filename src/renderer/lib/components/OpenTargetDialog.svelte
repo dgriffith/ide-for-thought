@@ -15,6 +15,7 @@
    */
   import Icon from './Icon.svelte';
   import Dialog from './ui/Dialog.svelte';
+  import Kbd from './ui/Kbd.svelte';
 
   interface Props {
     message: string;
@@ -49,7 +50,7 @@
             <span class="choice-title">In this window</span>
             <span class="choice-sub">Closes the current view and opens the project here. The current view is preserved in tab history.</span>
           </span>
-          <span class="choice-kbd">↵</span>
+          <Kbd>↵</Kbd>
         </button>
         <button class="choice" onclick={onNewWindow}>
           <Icon name="plus" size={16} color="var(--text-muted)" />
@@ -57,7 +58,7 @@
             <span class="choice-title">In a new window</span>
             <span class="choice-sub">Keeps the current thoughtbase up and opens this one side by side.</span>
           </span>
-          <span class="choice-kbd">⌘ ↵</span>
+          <Kbd>⌘ ↵</Kbd>
         </button>
       </div>
     {/snippet}
@@ -111,16 +112,6 @@
     font-size: 11.5px;
     color: var(--text-muted);
     line-height: 1.4;
-  }
-  .choice-kbd {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    padding: 2px 6px;
-    background: var(--bg-inset);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    color: var(--text-faint);
-    flex-shrink: 0;
   }
 
   .kbd-hint {

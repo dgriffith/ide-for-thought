@@ -10,6 +10,7 @@
   import { api } from '../ipc/client';
   import type { ComputeConsentSummary, PythonProbeResult } from '../../../shared/compute/types';
   import { getSettingsStore } from '../stores/settings.svelte';
+  import Toggle from './ui/Toggle.svelte';
 
   const settings = getSettingsStore();
 
@@ -206,11 +207,7 @@
 
 <div class="field toggle-field">
   <label class="toggle-row">
-    <input
-      type="checkbox"
-      bind:checked={allowNetwork}
-      onchange={() => { void saveNetworkSetting(); }}
-    />
+    <Toggle bind:checked={allowNetwork} onchange={() => { void saveNetworkSetting(); }} />
     <span>Allow network access for Python cells</span>
   </label>
   <p class="hint">
@@ -395,10 +392,6 @@
     align-items: center;
     gap: 8px;
     cursor: pointer;
-  }
-  .toggle-row input[type="checkbox"] {
-    margin: 0;
-    accent-color: var(--accent);
   }
 
   /* Trusted-thoughtbases list + audit section (#1413). */

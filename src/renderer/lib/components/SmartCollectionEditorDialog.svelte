@@ -13,6 +13,7 @@
   import { api } from '../ipc/client';
   import type { SmartCollection, SmartCollectionPredicate, TagInfo, ReadStatus } from '../../../shared/types';
   import Icon from './Icon.svelte';
+  import Eyebrow from './ui/Eyebrow.svelte';
 
   const READ_STATUS_OPTIONS: { value: ReadStatus; label: string }[] = [
     { value: 'unread', label: 'Unread' },
@@ -132,7 +133,7 @@
 <div class="overlay" onkeydown={handleKeydown} onmousedown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
   <div class="dialog" role="dialog" aria-modal="true" aria-label={mode === 'create' ? 'New smart collection' : 'Edit smart collection'}>
     <header class="card-header">
-      <div class="eyebrow">{mode === 'create' ? 'NEW SMART COLLECTION' : 'EDIT SMART COLLECTION'}</div>
+      <div class="eyebrow-row"><Eyebrow>{mode === 'create' ? 'New smart collection' : 'Edit smart collection'}</Eyebrow></div>
       <input
         bind:this={nameInputEl}
         type="text"
@@ -243,11 +244,7 @@
     overflow: hidden;
   }
   .card-header { padding: 18px 22px 12px; }
-  .eyebrow {
-    font-family: var(--font-mono);
-    font-size: 10.5px;
-    color: var(--text-faint);
-    letter-spacing: 0.08em;
+  .eyebrow-row {
     margin-bottom: 8px;
   }
   .name-input {

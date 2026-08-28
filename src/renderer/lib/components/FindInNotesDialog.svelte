@@ -14,6 +14,7 @@
   import { api } from '../ipc/client';
   import { getNotebaseStore } from '../stores/notebase.svelte';
   import Icon from './Icon.svelte';
+  import SegmentedControl from './ui/SegmentedControl.svelte';
   import type {
     SearchInNotesFileResult,
     SearchInNotesMatch,
@@ -185,22 +186,11 @@
   <div class="dialog" role="dialog" aria-modal="true">
     <!-- Header: segmented mode toggle + close (§10.3) -->
     <div class="header">
-      <div class="segmented" role="tablist" aria-label="Find mode">
-        <button
-          role="tab"
-          class="segment"
-          class:active={mode === 'find'}
-          aria-selected={mode === 'find'}
-          onclick={() => mode = 'find'}
-        >Find</button>
-        <button
-          role="tab"
-          class="segment"
-          class:active={mode === 'replace'}
-          aria-selected={mode === 'replace'}
-          onclick={() => mode = 'replace'}
-        >Find &amp; Replace</button>
-      </div>
+      <SegmentedControl
+        bind:value={mode as unknown as string}
+        options={[{ value: 'find', label: 'Find' }, { value: 'replace', label: 'Find & Replace' }]}
+        aria-label="Find mode"
+      />
       <span class="header-spacer"></span>
       {#if results.length > 0 && !searching}
         {@const totalMatches = results.reduce((n, r) => n + r.matches.length, 0)}
@@ -369,34 +359,6 @@
     gap: 12px;
     padding: 12px 18px;
     border-bottom: 1px solid var(--border);
-  }
-  .segmented {
-    display: inline-flex;
-    padding: 3px;
-    gap: 2px;
-    background: var(--bg-inset);
-    border: 1px solid var(--border);
-    border-radius: 7px;
-  }
-  .segment {
-    padding: 4px 12px;
-    border: none;
-    border-radius: 5px;
-    background: transparent;
-    color: var(--text-muted);
-    font-family: inherit;
-    font-size: 12px;
-    font-weight: 450;
-    cursor: pointer;
-  }
-  .segment:hover:not(.active) {
-    color: var(--text);
-  }
-  .segment.active {
-    background: var(--bg-elev);
-    color: var(--text);
-    font-weight: 500;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
   }
   .header-spacer { flex: 1; }
   .header-stat {

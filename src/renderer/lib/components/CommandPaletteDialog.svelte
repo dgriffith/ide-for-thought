@@ -12,6 +12,7 @@
   import { loadRecent, recordRecent } from '../command-palette/recent';
   import { trapFocus } from '../trap-focus';
   import Icon from './Icon.svelte';
+  import Kbd from './ui/Kbd.svelte';
 
   interface Props {
     commands: Command[];
@@ -126,7 +127,7 @@
         class="input"
         placeholder="Type a command…"
       />
-      <span class="input-kbd">⌘ ⇧ P</span>
+      <Kbd>⌘ ⇧ P</Kbd>
     </div>
 
     {#if results.length > 0}
@@ -147,7 +148,7 @@
                 <span class="result-category">{cmd.category}</span>
               </span>
               {#if cmd.keybinding}
-                <span class="result-kbd">{cmd.keybinding}</span>
+                <Kbd>{cmd.keybinding}</Kbd>
               {/if}
             </button>
           </li>
@@ -216,16 +217,6 @@
     padding: 0;
   }
   .input::placeholder { color: var(--text-muted); }
-  .input-kbd {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    padding: 2px 6px;
-    background: var(--bg-inset);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    color: var(--text-faint);
-    flex-shrink: 0;
-  }
   .cp-results {
     list-style: none;
     overflow-y: auto;
@@ -282,16 +273,6 @@
     color: var(--text-faint);
     text-transform: uppercase;
     letter-spacing: 0.04em;
-  }
-  .result-kbd {
-    font-family: var(--font-mono);
-    font-size: 10.5px;
-    color: var(--text-muted);
-    padding: 2px 6px;
-    background: var(--bg-inset);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    flex-shrink: 0;
   }
   .no-results {
     padding: 24px;

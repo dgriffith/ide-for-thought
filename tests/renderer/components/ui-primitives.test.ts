@@ -1,17 +1,20 @@
 /**
  * @vitest-environment happy-dom
  *
- * Smoke coverage for the UI primitives introduced for the 2026-05
- * design review (#545). The components have no app callers yet —
- * they'll be consumed by the dialogs sweep (#552) — so these tests
- * just lock in the contract: render, fire callbacks, reflect bindings.
+ * Smoke coverage for the UI primitives introduced for the 2026-05 design
+ * review (#545) and adopted at real call sites in #1889 (Toggle in
+ * ComputeSettings, SegmentedControl in OnboardingDialog + FindInNotesDialog).
+ * These tests lock in the contract: render, fire callbacks, reflect bindings.
+ *
+ * Stepper.svelte was deleted in #1889 — it never found a real call site (its
+ * fixed linear step model didn't fit PdfViewer's zoom, the one plausible
+ * candidate, which uses a curated non-linear scale table).
  */
 
 import { describe, it, expect, afterEach } from 'vitest';
 import { render, fireEvent, cleanup } from '@testing-library/svelte';
 
 import Toggle from '../../../src/renderer/lib/components/ui/Toggle.svelte';
-import Stepper from '../../../src/renderer/lib/components/ui/Stepper.svelte';
 import SegmentedControl from '../../../src/renderer/lib/components/ui/SegmentedControl.svelte';
 
 afterEach(cleanup);
@@ -48,30 +51,6 @@ describe('Toggle', () => {
     });
     await fireEvent.click(container.querySelector('button[role="switch"]')!);
     expect(value).toBe(false);
-  });
-});
-
-describe('Stepper', () => {
-  it('bumps the value by step, clamped to min/max', async () => {
-    let value = 5;
-    const { container } = render(Stepper, {
-      props: { value, step: 2, min: 0, max: 10, onchange: (n) => { value = n; } },
-    });
-    const [minus, plus] = Array.from(container.querySelectorAll('button.step-btn'));
-    await fireEvent.click(plus); // 5 → 7
-    expect(value).toBe(7);
-    await fireEvent.click(plus); // 7 → 9
-    await fireEvent.click(plus); // 9 → 10 (clamped)
-    expect(value).toBe(10);
-    await fireEvent.click(minus); // 10 → 8
-    expect(value).toBe(8);
-  });
-
-  it('honours unit and precision in display', () => {
-    const { container } = render(Stepper, {
-      props: { value: 1.55, step: 0.05, unit: '×' },
-    });
-    expect(container.querySelector('.value')!.textContent).toBe('1.55×');
   });
 });
 
