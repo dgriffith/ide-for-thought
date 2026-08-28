@@ -131,7 +131,6 @@ const SWALLOW_BASELINE: Record<string, number> = {
   'src/main/git/github-repo.ts': 2,
   'src/main/git/index.ts': 1,
   'src/main/git/publish-git.ts': 1,
-  'src/main/graph/index.ts': 1,
   'src/main/graph/indexers/excerpt.ts': 1,
   'src/main/graph/indexers/source.ts': 1,
   'src/main/graph/parser.ts': 1,

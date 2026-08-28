@@ -1,8 +1,8 @@
 import * as $rdf from 'rdflib';
 import fs from 'node:fs/promises';
-import fsSync from 'node:fs';
 import path from 'node:path';
 import * as uriHelpers from './uri-helpers';
+import { readRawProjectConfig, patchRawProjectConfig } from '../config/project-config-store';
 
 import type { ProjectContext } from '../project-context-types';
 import { EMPTY_TYPE_CATALOG } from '../../shared/objects/type-def';
@@ -82,30 +82,15 @@ export {
 import { checkLLMWriteGuard } from './write-guard';
 
 // ── Project config (persisted in .minerva/config.json) ─────────────────────
-
-interface ProjectConfig {
-  baseUri: string;
-}
-
-function configPath(rootPath: string): string {
-  return path.join(rootPath, '.minerva', 'config.json');
-}
-
-function readConfig(rootPath: string): ProjectConfig | null {
-  try {
-    return JSON.parse(fsSync.readFileSync(configPath(rootPath), 'utf-8')) as ProjectConfig;
-  } catch { return null; }
-}
-
-function writeConfig(rootPath: string, config: ProjectConfig): void {
-  fsSync.writeFileSync(configPath(rootPath), JSON.stringify(config, null, 2), 'utf-8');
-}
+// Read/write goes through the shared leaf in ../config/project-config-store
+// (#1891) — this module used to have its own reader/writer that replaced the
+// whole file with just `{baseUri}`, destroying displayName/publishTargets/etc.
 
 function resolveBaseUri(rootPath: string): string {
-  const existing = readConfig(rootPath);
-  if (existing?.baseUri) return existing.baseUri;
+  const existing = readRawProjectConfig(rootPath);
+  if (typeof existing.baseUri === 'string' && existing.baseUri) return existing.baseUri;
   const coined = uriHelpers.coinBaseUri(rootPath);
-  writeConfig(rootPath, { baseUri: coined });
+  patchRawProjectConfig(rootPath, { baseUri: coined });
   return coined;
 }
 
