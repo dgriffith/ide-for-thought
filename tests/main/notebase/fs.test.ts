@@ -109,9 +109,9 @@ describe('listFiles', () => {
     const files = await listFiles(root);
     const firstFile = files.findIndex((f) => !f.isDirectory);
     const lastDir = files.findLastIndex((f) => f.isDirectory);
-    if (firstFile >= 0 && lastDir >= 0) {
-      expect(lastDir).toBeLessThan(firstFile);
-    }
+    expect(firstFile).toBeGreaterThanOrEqual(0);
+    expect(lastDir).toBeGreaterThanOrEqual(0);
+    expect(lastDir).toBeLessThan(firstFile);
   });
 
   it('ignores .minerva directory', async () => {
