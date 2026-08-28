@@ -25,7 +25,10 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   // `list` prints a "retry #N" line for every retried spec, so genuine
   // flake stays visible in the CI log rather than being silently masked.
-  reporter: 'list',
+  // `json` feeds scripts/e2e-flake-report.mjs (#1946) — nothing previously
+  // aggregated those "retry #N" lines, so a test that needed a retry on
+  // every single run was indistinguishable from one that always passed.
+  reporter: [['list'], ['json', { outputFile: 'playwright-report.json' }]],
   use: {
     actionTimeout: 10_000,
   },
