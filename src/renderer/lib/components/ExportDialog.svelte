@@ -1,7 +1,16 @@
 <script lang="ts">
+  /**
+   * Renders via ui/Dialog.svelte (#1888) — Escape-to-cancel and backdrop-click
+   * are Dialog's job. Previously this dialog had NO keydown handler at all
+   * (Escape did nothing); Dialog's window-capture listener is a genuine new
+   * capability here, not a behavior change to preserve. The title also grows
+   * from 16px to Dialog's standard 19px — a deliberate consistency change
+   * (the whole point of #1888), not an accident.
+   */
   import { api } from '../ipc/client';
   import { getPublishStore } from '../stores/publish.svelte';
   import type { ExportPreviewPlan, ExporterInfo } from '../ipc/client';
+  import Dialog from './ui/Dialog.svelte';
 
   const publish = getPublishStore();
 
@@ -187,20 +196,12 @@
       exporting = false;
     }
   }
-
-  function handleBackdropClick(e: MouseEvent): void {
-    if ((e.target as HTMLElement).classList.contains('export-dialog-backdrop')) {
-      onCancel();
-    }
-  }
 </script>
 
-<!-- svelte-ignore a11y_click_events_have_key_events -->
-<!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="export-dialog-backdrop" onclick={handleBackdropClick}>
-  <div class="export-dialog" role="dialog" aria-labelledby="export-dialog-title">
-    <h2 id="export-dialog-title">Export as {groupLabel}</h2>
-
+<Dialog width={720} onClose={onCancel} titleId="export-dialog-title">
+  {#snippet eyebrow()}Export{/snippet}
+  {#snippet title()}Export as {groupLabel}{/snippet}
+  {#snippet body()}
     {#if loaded && availableScopes.length === 0}
       <div class="empty-scope">
         {#if groupExporters.some((e) => e.acceptedKinds.includes('source'))}
@@ -340,7 +341,7 @@
                     onchange={() => toggleDeselection(f.relativePath)}
                     title="Uncheck to drop this note from the export"
                   />
-                  <span class="title">
+                  <span class="row-title">
                     {f.title}
                     {#if f.overridden}
                       <button
@@ -379,7 +380,7 @@
                   )}
                   title="Click to re-include in the export"
                 >
-                  <span class="title">{ex.relativePath}</span>
+                  <span class="row-title">{ex.relativePath}</span>
                   <span class="reason">{ex.reason}</span>
                 </li>
               {/each}
@@ -403,7 +404,7 @@
             <ul class="missing-list">
               {#each plan.citations.missing as m (m.kind + ':' + m.id)}
                 <li>
-                  <span class="title">[missing {m.kind}: {m.id}]</span>
+                  <span class="row-title">[missing {m.kind}: {m.id}]</span>
                   <span class="reason">{m.refCount} reference{m.refCount === 1 ? '' : 's'}</span>
                 </li>
               {/each}
@@ -413,7 +414,7 @@
             <ul>
               {#each plan.citations.bySource.slice(0, 60) as s (s.sourceId)}
                 <li>
-                  <span class="title">{s.title}</span>
+                  <span class="row-title">{s.title}</span>
                   <span class="reason">{s.sourceId} · {s.refCount} ref{s.refCount === 1 ? '' : 's'}</span>
                 </li>
               {/each}
@@ -429,59 +430,20 @@
     {#if error}
       <div class="error">{error}</div>
     {/if}
-
-    <div class="actions">
-      <button class="secondary" onclick={onCancel} disabled={exporting}>Cancel</button>
-      <button
-        class="primary"
-        onclick={handleExport}
-        disabled={exporting || loading || !plan || !selectedExporterId || plan.inputs.length === 0}
-      >
-        {exporting ? 'Exporting…' : 'Export…'}
-      </button>
-    </div>
-  </div>
-</div>
+  {/snippet}
+  {#snippet footerRight()}
+    <button class="secondary" onclick={onCancel} disabled={exporting}>Cancel</button>
+    <button
+      class="primary"
+      onclick={handleExport}
+      disabled={exporting || loading || !plan || !selectedExporterId || plan.inputs.length === 0}
+    >
+      {exporting ? 'Exporting…' : 'Export…'}
+    </button>
+  {/snippet}
+</Dialog>
 
 <style>
-  .export-dialog-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: var(--z-modal);
-    background: var(--scrim-bg);
-    backdrop-filter: var(--scrim-blur);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 32px;
-  }
-
-  .export-dialog {
-    background: var(--bg-elev);
-    color: var(--text);
-    border: 1px solid var(--border-strong);
-    border-radius: 12px;
-    padding: 20px 24px;
-    width: 720px;
-    max-width: 100%;
-    max-height: calc(100vh - 64px);
-    display: flex;
-    flex-direction: column;
-    box-shadow:
-      0 16px 48px rgba(0, 0, 0, 0.35),
-      0 0 0 1px rgba(255, 255, 255, 0.04) inset;
-    font-family: var(--font-sans);
-  }
-
-  h2 {
-    font-family: var(--font-display);
-    font-weight: 500;
-    letter-spacing: -0.005em;
-    margin: 0 0 16px;
-    font-size: 16px;
-    font-weight: 600;
-  }
-
   .option-row {
     display: flex;
     gap: 16px;
@@ -543,8 +505,6 @@
     grid-template-columns: 1fr 1fr;
     gap: 12px;
     margin: 12px 0;
-    flex: 1;
-    min-height: 0;
   }
   .audit-section {
     border: 1px solid var(--border);
@@ -588,7 +548,7 @@
   .audit-section li:last-child {
     border-bottom: none;
   }
-  .audit-section .title {
+  .row-title {
     font-weight: 500;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -622,12 +582,12 @@
     align-items: flex-start;
     flex-wrap: wrap;
   }
-  .audit-section li > .title,
+  .audit-section li > .row-title,
   .audit-section li > .path,
   .audit-section li > .reason {
     flex-basis: 100%;
   }
-  .audit-section li > .row-check ~ .title,
+  .audit-section li > .row-check ~ .row-title,
   .audit-section li > .row-check ~ .path {
     flex-basis: calc(100% - 22px);
   }
@@ -645,7 +605,7 @@
     color: var(--text-muted);
     font-style: italic;
   }
-  .audit-section li.overridden .title {
+  .audit-section li.overridden .row-title {
     display: flex;
     align-items: center;
     gap: 6px;
@@ -685,7 +645,7 @@
     padding: 1px 7px;
     border-radius: 999px;
   }
-  .citations-section .missing-list li .title {
+  .citations-section .missing-list .row-title {
     color: var(--rust);
   }
   .citations-section .missing-list {
@@ -720,36 +680,32 @@
     white-space: pre-wrap;
   }
 
-  .actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    margin-top: 8px;
-  }
-  .actions button {
+  .secondary {
     padding: 6px 14px;
     border-radius: 4px;
     font-size: 12px;
     cursor: pointer;
     border: 1px solid var(--border);
-  }
-  .actions .secondary {
     background: var(--bg-button);
     color: var(--text);
   }
-  .actions .secondary:hover {
+  .secondary:hover:not(:disabled) {
     background: var(--bg-button-hover);
   }
-  .actions .primary {
+  .primary {
+    padding: 6px 14px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    border: 1px solid var(--accent);
     background: var(--accent);
-    color: var(--bg);
-    border-color: var(--accent);
+    color: var(--accent-ink);
     font-weight: 500;
   }
-  .actions .primary:hover:not(:disabled) {
+  .primary:hover:not(:disabled) {
     filter: brightness(1.1);
   }
-  .actions button:disabled {
+  button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
   }
