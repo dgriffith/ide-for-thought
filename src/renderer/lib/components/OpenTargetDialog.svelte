@@ -5,8 +5,16 @@
    * Per IMPLEMENTATION.md §10.5: three buttons → two choice cards
    * with kbd hints (↵ for the primary "this window", ⌘ ↵ for new
    * window). Cancel becomes a footer ghost button.
+   *
+   * Renders via ui/Dialog.svelte (#1888) — Escape-to-cancel and
+   * backdrop-click are Dialog's job. Plain Enter and ⌘Enter still need a
+   * dialog-wide handler: both must fire regardless of which choice card
+   * (or the Cancel button) currently has focus, which native
+   * Enter-clicks-the-focused-button behavior alone can't provide for the
+   * modified (⌘Enter) case.
    */
   import Icon from './Icon.svelte';
+  import Dialog from './ui/Dialog.svelte';
 
   interface Props {
     message: string;
@@ -22,21 +30,18 @@
     if (e.key === 'Enter') {
       if (e.metaKey || e.ctrlKey) onNewWindow();
       else onThisWindow();
-    } else if (e.key === 'Escape') onCancel();
+    }
   }
 
   $effect(() => { thisBtn?.focus(); });
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="overlay" onkeydown={handleKeydown} onmousedown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
-  <div class="dialog" role="dialog" aria-modal="true">
-    <header class="card-header">
-      <div class="eyebrow">Open thoughtbase</div>
-      <h2 class="title">{message}</h2>
-    </header>
-
-    <div class="body">
+<div onkeydown={handleKeydown}>
+  <Dialog width={480} zIndex="var(--z-spawned)" onClose={onCancel} titleId="open-target-title">
+    {#snippet eyebrow()}Open thoughtbase{/snippet}
+    {#snippet title()}{message}{/snippet}
+    {#snippet body()}
       <div class="choices">
         <button class="choice" bind:this={thisBtn} onclick={onThisWindow}>
           <Icon name="forward" size={16} color="var(--accent)" />
@@ -55,61 +60,13 @@
           <span class="choice-kbd">⌘ ↵</span>
         </button>
       </div>
-    </div>
-
-    <footer class="card-footer">
-      <span class="kbd-hint">esc · cancel</span>
-      <button class="btn ghost" onclick={onCancel}>Cancel</button>
-    </footer>
-  </div>
+    {/snippet}
+    {#snippet footerLeft()}<span class="kbd-hint">esc · cancel</span>{/snippet}
+    {#snippet footerRight()}<button class="btn ghost" onclick={onCancel}>Cancel</button>{/snippet}
+  </Dialog>
 </div>
 
 <style>
-  .overlay {
-    position: fixed;
-    inset: 0;
-    z-index: var(--z-spawned);
-    background: var(--scrim-bg);
-    backdrop-filter: var(--scrim-blur);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 32px;
-  }
-  .dialog {
-    background: var(--bg-elev);
-    border: 1px solid var(--border-strong);
-    border-radius: 12px;
-    box-shadow:
-      0 16px 48px rgba(0, 0, 0, 0.35),
-      0 0 0 1px rgba(255, 255, 255, 0.04) inset;
-    width: 480px;
-    max-width: 100%;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    font-family: var(--font-sans);
-    color: var(--text);
-  }
-  .card-header { padding: 20px 24px 0; }
-  .eyebrow {
-    font-family: var(--font-mono);
-    font-size: 10.5px;
-    color: var(--text-faint);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    margin-bottom: 6px;
-  }
-  .title {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: 19px;
-    font-weight: 500;
-    letter-spacing: -0.005em;
-    line-height: 1.3;
-  }
-  .body { padding: 14px 24px 18px; }
-
   /* Two choice cards stacked (§10.5). Default-focused card gets the
      accent ring; secondary card is ghost. */
   .choices {
@@ -166,16 +123,7 @@
     flex-shrink: 0;
   }
 
-  .card-footer {
-    display: flex;
-    align-items: center;
-    padding: 12px 18px;
-    border-top: 1px solid var(--border);
-    background: var(--bg);
-    border-radius: 0 0 12px 12px;
-  }
   .kbd-hint {
-    flex: 1;
     font-family: var(--font-mono);
     font-size: 10.5px;
     color: var(--text-faint);
