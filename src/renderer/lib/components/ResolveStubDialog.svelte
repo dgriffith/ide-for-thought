@@ -4,8 +4,17 @@
    * search returned >1 plausible candidate (or the top one's
    * confidence didn't clear the auto-apply threshold). User picks
    * which DOI to apply.
+   *
+   * Renders via ui/Dialog.svelte (#1888) — Escape-to-cancel and
+   * backdrop-click are Dialog's job. ⌘/Ctrl+Enter-to-apply keeps a
+   * dialog-wide handler (wrapping <Dialog>) since it must fire
+   * regardless of which candidate radio has focus. The accessible name
+   * moves from a static `aria-label="Resolve stub"` to the actual h2
+   * title text via `titleId` — more specific (names the stub), and
+   * nothing in tests/ asserts the old static string.
    */
   import type { ResolveCandidate } from '../../../shared/resolve-stub';
+  import Dialog from './ui/Dialog.svelte';
 
   interface Props {
     stubTitle: string;
@@ -32,8 +41,7 @@
   }
 
   function handleKeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape') onCancel();
-    else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void apply();
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void apply();
   }
 
   function bylineOf(c: ResolveCandidate): string {
@@ -51,28 +59,23 @@
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="overlay" onkeydown={handleKeydown} onmousedown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
-  <div class="dialog" role="dialog" aria-modal="true" aria-label="Resolve stub">
-    <header class="card-header">
-      <div class="eyebrow">RESOLVE STUB · {candidates.length} {candidates.length === 1 ? 'candidate' : 'candidates'}</div>
-      <h2 class="title">Match "{stubTitle}" to a DOI</h2>
-      <p class="sub">
-        Pick the candidate that best matches your stub. The chosen
-        DOI's full metadata replaces the stub's; the source id
-        stays the same.
-      </p>
-    </header>
-
-    {#if candidates.length === 0}
-      <div class="body">
+<div onkeydown={handleKeydown}>
+  <Dialog width={640} onClose={onCancel} titleId="resolve-stub-title">
+    {#snippet eyebrow()}Resolve stub · {candidates.length} {candidates.length === 1 ? 'candidate' : 'candidates'}{/snippet}
+    {#snippet title()}Match "{stubTitle}" to a DOI{/snippet}
+    {#snippet subtitle()}
+      Pick the candidate that best matches your stub. The chosen
+      DOI's full metadata replaces the stub's; the source id
+      stays the same.
+    {/snippet}
+    {#snippet body()}
+      {#if candidates.length === 0}
         <div class="empty">
           CrossRef returned no matches. Try refining the stub's
           title or authors and rerun Resolve, or paste the DOI
           directly via Ingest identifier.
         </div>
-      </div>
-    {:else}
-      <div class="body">
+      {:else}
         <div class="list">
           {#each candidates as c (c.doi)}
             <label class="row" class:selected={selectedDoi === c.doi}>
@@ -102,77 +105,19 @@
             </label>
           {/each}
         </div>
-      </div>
-    {/if}
-
-    <footer class="card-footer">
-      <span class="kbd-hint">esc · cancel · ⌘↵ apply</span>
-      <span class="footer-actions">
-        <button class="btn ghost" onclick={onCancel}>Cancel</button>
-        <button class="btn primary" disabled={!selectedDoi || applying} onclick={apply}>
-          {applying ? 'Applying…' : 'Apply'}
-        </button>
-      </span>
-    </footer>
-  </div>
+      {/if}
+    {/snippet}
+    {#snippet footerLeft()}<span class="kbd-hint">esc · cancel · ⌘↵ apply</span>{/snippet}
+    {#snippet footerRight()}
+      <button class="btn ghost" onclick={onCancel}>Cancel</button>
+      <button class="btn primary" disabled={!selectedDoi || applying} onclick={apply}>
+        {applying ? 'Applying…' : 'Apply'}
+      </button>
+    {/snippet}
+  </Dialog>
 </div>
 
 <style>
-  .overlay {
-    position: fixed;
-    inset: 0;
-    z-index: var(--z-modal);
-    background: var(--scrim-bg);
-    backdrop-filter: var(--scrim-blur);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 32px;
-  }
-  .dialog {
-    background: var(--bg-elev);
-    border: 1px solid var(--border-strong);
-    border-radius: 12px;
-    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
-    width: 640px;
-    max-width: 100%;
-    max-height: calc(100vh - 64px);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    font-family: var(--font-sans);
-    color: var(--text);
-  }
-  .card-header { padding: 20px 24px 8px; }
-  .eyebrow {
-    font-family: var(--font-mono);
-    font-size: 10.5px;
-    color: var(--text-faint);
-    letter-spacing: 0.08em;
-    margin-bottom: 6px;
-  }
-  .title {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: 19px;
-    font-weight: 500;
-    letter-spacing: -0.005em;
-    line-height: 1.3;
-  }
-  .sub {
-    margin: 6px 0 0;
-    font-size: 12.5px;
-    color: var(--text-muted);
-    line-height: 1.45;
-  }
-  .body {
-    padding: 12px 24px 18px;
-    overflow: auto;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
   .empty {
     font-size: 13px;
     color: var(--text-muted);
@@ -256,21 +201,11 @@
     color: var(--text-faint);
     margin-top: 2px;
   }
-  .card-footer {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 18px;
-    border-top: 1px solid var(--border);
-    background: var(--bg);
-  }
   .kbd-hint {
-    margin-right: auto;
     font-family: var(--font-mono);
     font-size: 10.5px;
     color: var(--text-faint);
   }
-  .footer-actions { display: inline-flex; gap: 8px; }
   .btn {
     padding: 7px 14px;
     border: 1px solid var(--border);

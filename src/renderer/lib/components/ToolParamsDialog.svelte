@@ -8,10 +8,16 @@
    * Owns the local form state (param values + the lazily-loaded note-picker
    * options); hands the raw values back via `onRun`. The caller resolves
    * note-picker params and drives execution, so this stays a dumb form.
+   *
+   * Renders via ui/Dialog.svelte (#1888) — Escape-to-cancel and backdrop-click
+   * are Dialog's job. ⌘/Ctrl+Enter-to-run keeps a dialog-wide handler (wrapping
+   * <Dialog>) since parameter fields are arbitrary and any of them may have
+   * focus when the user runs.
    */
   import { api } from '../ipc/client';
   import { flattenNoteFiles } from '../tools/resolve-note-params';
   import type { ThinkingToolInfo, ToolContext } from '../../../shared/tools/types';
+  import Dialog from './ui/Dialog.svelte';
 
   interface Props {
     tool: ThinkingToolInfo;
@@ -32,7 +38,7 @@
   // Note-picker (#516) options — flat list of project .md files, loaded lazily
   // when a tool has a `note` parameter.
   let noteOptions = $state<{ name: string; relativePath: string }[]>([]);
-  let dialogEl = $state<HTMLElement>();
+  let wrapperEl = $state<HTMLElement>();
 
   $effect(() => {
     if (params.some((p) => p.type === 'note') && noteOptions.length === 0) {
@@ -41,30 +47,25 @@
   });
 
   // Focus the first field so the user can start typing immediately.
-  $effect(() => { dialogEl?.querySelector<HTMLElement>('input, textarea, select')?.focus(); });
+  $effect(() => { wrapperEl?.querySelector<HTMLElement>('input, textarea, select')?.focus(); });
 
   function run() {
     onRun($state.snapshot(paramValues));
   }
 
   function handleKeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape') {
-      onCancel();
-    } else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
       run();
     }
   }
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="overlay" onkeydown={handleKeydown} onmousedown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
-  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="tool-params-title" bind:this={dialogEl}>
-    <header class="card-header">
-      <div class="eyebrow">{tool.description || 'Tool'}</div>
-      <h2 class="title" id="tool-params-title">{tool.name}</h2>
-    </header>
-
-    <div class="body">
+<div onkeydown={handleKeydown} bind:this={wrapperEl}>
+  <Dialog width={460} onClose={onCancel} titleId="tool-params-title">
+    {#snippet eyebrow()}{tool.description || 'Tool'}{/snippet}
+    {#snippet title()}{tool.name}{/snippet}
+    {#snippet body()}
       {#if tool.longDescription}
         <p class="tool-info">{tool.longDescription}</p>
       {/if}
@@ -114,76 +115,19 @@
       {:else if context.fullNoteContent}
         <div class="context-preview">Full note: {context.fullNoteTitle ?? 'Untitled'}</div>
       {/if}
-    </div>
-
-    <footer class="card-footer">
-      <span class="kbd-hint">esc · cancel · ⌘↵ run</span>
-      <span class="footer-actions">
-        <button class="btn secondary" onclick={onCancel}>Cancel</button>
-        <button class="btn primary" onclick={run}>
-          Run
-          <span class="btn-kbd">⌘↵</span>
-        </button>
-      </span>
-    </footer>
-  </div>
+    {/snippet}
+    {#snippet footerLeft()}<span class="kbd-hint">esc · cancel · ⌘↵ run</span>{/snippet}
+    {#snippet footerRight()}
+      <button class="btn secondary" onclick={onCancel}>Cancel</button>
+      <button class="btn primary" onclick={run}>
+        Run
+        <span class="btn-kbd">⌘↵</span>
+      </button>
+    {/snippet}
+  </Dialog>
 </div>
 
 <style>
-  .overlay {
-    position: fixed;
-    inset: 0;
-    z-index: var(--z-modal);
-    background: var(--scrim-bg);
-    backdrop-filter: var(--scrim-blur);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 32px;
-  }
-
-  .dialog {
-    background: var(--bg-elev);
-    border: 1px solid var(--border-strong);
-    border-radius: 12px;
-    box-shadow:
-      0 16px 48px rgba(0, 0, 0, 0.35),
-      0 0 0 1px rgba(255, 255, 255, 0.04) inset;
-    width: 460px;
-    max-width: 100%;
-    max-height: calc(100vh - 64px);
-    display: flex;
-    flex-direction: column;
-    font-family: var(--font-sans);
-    color: var(--text);
-    overflow: hidden;
-  }
-
-  .card-header {
-    padding: 20px 24px 0;
-  }
-  .eyebrow {
-    font-family: var(--font-mono);
-    font-size: 10.5px;
-    color: var(--text-faint);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    margin-bottom: 6px;
-  }
-  .title {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: 19px;
-    font-weight: 500;
-    letter-spacing: -0.005em;
-    line-height: 1.3;
-    color: var(--text);
-  }
-
-  .body {
-    padding: 14px 24px 18px;
-    overflow-y: auto;
-  }
   .tool-info {
     margin: 0 0 14px;
     font-size: 12px;
@@ -228,24 +172,10 @@
     color: var(--text-muted);
   }
 
-  .card-footer {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 18px;
-    border-top: 1px solid var(--border);
-    background: var(--bg);
-    border-radius: 0 0 12px 12px;
-  }
   .kbd-hint {
-    margin-right: auto;
     font-size: 10.5px;
     color: var(--text-faint);
     font-family: var(--font-mono);
-  }
-  .footer-actions {
-    display: inline-flex;
-    gap: 8px;
   }
 
   .btn {

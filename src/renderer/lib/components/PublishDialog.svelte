@@ -1,8 +1,15 @@
 <script lang="ts">
+  /**
+   * Renders via ui/Dialog.svelte (#1888) — Escape-to-cancel and backdrop-click
+   * are Dialog's job. Adding a real header/footer border (previously this
+   * dialog had none — one flat padded column) brings its chrome in line with
+   * every other migrated dialog; not a regression, the point of #1888.
+   */
   import { onMount } from 'svelte';
   import { api } from '../ipc/client';
   import { getPublishStore } from '../stores/publish.svelte';
   import type { PublishTarget, PublishGitResponse } from '../ipc/client';
+  import Dialog from './ui/Dialog.svelte';
 
   interface Props {
     onClose: () => void;
@@ -202,24 +209,14 @@
   function copyError(msg: string): void {
     void navigator.clipboard.writeText(msg);
   }
-
-  function onBackdrop(e: MouseEvent): void {
-    if (e.target === e.currentTarget) onClose();
-  }
-
-  // Keyboard parity for the backdrop dismiss (matches ConfirmDialog/PromptDialog).
-  function onKeydown(e: KeyboardEvent): void {
-    if (e.key === 'Escape') onClose();
-  }
 </script>
 
-<!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="publish-backdrop" onmousedown={onBackdrop} onkeydown={onKeydown}>
-  <div class="publish-dialog" role="dialog" aria-labelledby="publish-title">
-    <h2 id="publish-title">Publish to Web</h2>
-    <p class="sub">Push an export to a git remote (e.g. a static site to GitHub Pages) or upload it
-      to an S3 / S3-compatible bucket (Amazon S3, Cloudflare R2, Backblaze B2, MinIO, …).</p>
-
+<Dialog width={640} onClose={onClose} titleId="publish-title">
+  {#snippet eyebrow()}Publish{/snippet}
+  {#snippet title()}Publish to Web{/snippet}
+  {#snippet subtitle()}Push an export to a git remote (e.g. a static site to GitHub Pages) or upload it
+    to an S3 / S3-compatible bucket (Amazon S3, Cloudflare R2, Backblaze B2, MinIO, …).{/snippet}
+  {#snippet body()}
     {#if !loaded}
       <p class="muted">Loading…</p>
     {:else}
@@ -384,31 +381,16 @@
         </div>
       {/if}
     {/if}
-
-    <div class="footer">
-      {#if loaded && !showForm}
-        <button onclick={() => { showForm = true; }}>Add target…</button>
-      {/if}
-      <button class="ghost" onclick={onClose}>Close</button>
-    </div>
-  </div>
-</div>
+  {/snippet}
+  {#snippet footerRight()}
+    {#if loaded && !showForm}
+      <button onclick={() => { showForm = true; }}>Add target…</button>
+    {/if}
+    <button class="ghost" onclick={onClose}>Close</button>
+  {/snippet}
+</Dialog>
 
 <style>
-  .publish-backdrop {
-    position: fixed; inset: 0; z-index: var(--z-modal);
-    background: var(--scrim-bg); backdrop-filter: var(--scrim-blur);
-    display: flex; align-items: center; justify-content: center; padding: 32px;
-  }
-  .publish-dialog {
-    background: var(--bg-elev); color: var(--text);
-    border: 1px solid var(--border-strong); border-radius: 12px;
-    padding: 20px 24px; width: 640px; max-width: 100%; max-height: calc(100vh - 64px);
-    display: flex; flex-direction: column; overflow-y: auto;
-    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35);
-  }
-  h2 { margin: 0 0 4px; font-weight: 500; }
-  .sub { color: var(--text-muted); font-size: 0.85rem; margin: 0 0 16px; }
   .muted { color: var(--text-muted); font-size: 0.85rem; }
   code { background: var(--bg-inset, var(--bg)); padding: 0 4px; border-radius: 4px; }
 
@@ -423,6 +405,7 @@
   button {
     background: var(--bg-button); color: var(--text); border: 1px solid var(--border);
     border-radius: 6px; padding: 4px 12px; font-size: 0.85rem; cursor: pointer;
+    font-family: var(--font-sans);
   }
   button:hover:not(:disabled) { background: var(--bg-button-hover); }
   button:disabled { opacity: 0.5; cursor: default; }
@@ -460,6 +443,4 @@
   .check-result { font-size: 0.82rem; }
   .check-result.ok { color: var(--sage, #6a9); }
   .check-result.bad { color: var(--rust, #c66); }
-
-  .footer { display: flex; justify-content: space-between; gap: 8px; margin-top: 18px; }
 </style>

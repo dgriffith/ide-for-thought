@@ -7,9 +7,18 @@
    * Each row is selected by default; user can uncheck individual
    * entries before Approve. The mining call already happened so
    * we render the results immediately; the dialog never re-fetches.
+   *
+   * Renders via ui/Dialog.svelte (#1888) — Escape-to-cancel and
+   * backdrop-click are Dialog's job. ⌘/Ctrl+Enter-to-approve keeps a
+   * dialog-wide handler (wrapping <Dialog>) since it must fire
+   * regardless of which reference checkbox has focus. The accessible
+   * name moves from a static `aria-label` to the actual h2 title text
+   * via `titleId` — more specific (names the source), and nothing in
+   * tests/ asserts the old static string.
    */
   import type { ParsedReference } from '../../../shared/mine-references';
   import Icon from './Icon.svelte';
+  import Dialog from './ui/Dialog.svelte';
 
   interface Props {
     /** Parent source the references will be linked from. Used only
@@ -46,8 +55,7 @@
   }
 
   function handleKeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape') onCancel();
-    else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void apply();
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void apply();
   }
 
   function bylineOf(ref: ParsedReference): string {
@@ -74,127 +82,69 @@
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="overlay" onkeydown={handleKeydown} onmousedown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
-  <div class="dialog" role="dialog" aria-modal="true" aria-label="Review references">
-    <header class="card-header">
-      <div class="eyebrow">REVIEW REFERENCES · {refs.length} {refs.length === 1 ? 'candidate' : 'candidates'}</div>
-      <h2 class="title">Mine references from "{parentTitle}"</h2>
-      <p class="sub">
-        Each accepted reference becomes a stub source linked from
-        this paper. Stubs can be promoted to full sources later with
-        Resolve.
-      </p>
-    </header>
-
-    {#if refs.length === 0}
-      <div class="body">
+<div onkeydown={handleKeydown}>
+  <Dialog width={720} onClose={onCancel} titleId="mine-references-title">
+    {#snippet eyebrow()}Review references · {refs.length} {refs.length === 1 ? 'candidate' : 'candidates'}{/snippet}
+    {#snippet title()}Mine references from "{parentTitle}"{/snippet}
+    {#snippet subtitle()}
+      Each accepted reference becomes a stub source linked from
+      this paper. Stubs can be promoted to full sources later with
+      Resolve.
+    {/snippet}
+    {#snippet body()}
+      {#if refs.length === 0}
         <div class="empty">
           The LLM didn't find any references it could parse. If the
           paper has a References section, the formatting may be too
           irregular for first-pass extraction.
         </div>
-      </div>
-    {:else}
-      <div class="body">
-        <div class="bulk-row">
-          <span class="bulk-count">{selectedCount} of {refs.length} selected</span>
-          <span class="bulk-spacer"></span>
-          <button class="bulk-btn" onclick={() => toggleAll(true)}>Select all</button>
-          <button class="bulk-btn" onclick={() => toggleAll(false)}>Select none</button>
-        </div>
-        <div class="list">
-          {#each refs as ref, i (i)}
-            <label class="row" class:selected={selected[i]}>
-              <input type="checkbox" bind:checked={selected[i]} />
-              <div class="details">
-                <div class="title-line">
-                  <span class="rtitle">{ref.title}</span>
-                  <span class="subtype">{ref.subtype}</span>
+      {:else}
+        <div class="body-inner">
+          <div class="bulk-row">
+            <span class="bulk-count">{selectedCount} of {refs.length} selected</span>
+            <span class="bulk-spacer"></span>
+            <button class="bulk-btn" onclick={() => toggleAll(true)}>Select all</button>
+            <button class="bulk-btn" onclick={() => toggleAll(false)}>Select none</button>
+          </div>
+          <div class="list">
+            {#each refs as ref, i (i)}
+              <label class="row" class:selected={selected[i]}>
+                <input type="checkbox" bind:checked={selected[i]} />
+                <div class="details">
+                  <div class="title-line">
+                    <span class="rtitle">{ref.title}</span>
+                    <span class="subtype">{ref.subtype}</span>
+                  </div>
+                  {#if ref.authors.length || ref.year}
+                    <div class="byline">{bylineOf(ref)}</div>
+                  {/if}
+                  {#if ref.containerTitle}
+                    <div class="container">{ref.containerTitle}</div>
+                  {/if}
+                  {#each idChips(ref) as chip}
+                    <span class="id-chip">{chip.kind} · <span class="mono">{chip.value}</span></span>
+                  {/each}
+                  <div class="raw" title="Verbatim citation text">{ref.raw}</div>
                 </div>
-                {#if ref.authors.length || ref.year}
-                  <div class="byline">{bylineOf(ref)}</div>
-                {/if}
-                {#if ref.containerTitle}
-                  <div class="container">{ref.containerTitle}</div>
-                {/if}
-                {#each idChips(ref) as chip}
-                  <span class="id-chip">{chip.kind} · <span class="mono">{chip.value}</span></span>
-                {/each}
-                <div class="raw" title="Verbatim citation text">{ref.raw}</div>
-              </div>
-            </label>
-          {/each}
+              </label>
+            {/each}
+          </div>
         </div>
-      </div>
-    {/if}
-
-    <footer class="card-footer">
-      <span class="kbd-hint">esc · cancel · ⌘↵ approve</span>
-      <span class="footer-actions">
-        <button class="btn ghost" onclick={onCancel}>Cancel</button>
-        <button class="btn primary" disabled={selectedCount === 0 || saving} onclick={apply}>
-          <Icon name="plus" size={11} />
-          {saving ? 'Creating…' : `Create ${selectedCount} stub${selectedCount === 1 ? '' : 's'}`}
-        </button>
-      </span>
-    </footer>
-  </div>
+      {/if}
+    {/snippet}
+    {#snippet footerLeft()}<span class="kbd-hint">esc · cancel · ⌘↵ approve</span>{/snippet}
+    {#snippet footerRight()}
+      <button class="btn ghost" onclick={onCancel}>Cancel</button>
+      <button class="btn primary" disabled={selectedCount === 0 || saving} onclick={apply}>
+        <Icon name="plus" size={11} />
+        {saving ? 'Creating…' : `Create ${selectedCount} stub${selectedCount === 1 ? '' : 's'}`}
+      </button>
+    {/snippet}
+  </Dialog>
 </div>
 
 <style>
-  .overlay {
-    position: fixed;
-    inset: 0;
-    z-index: var(--z-modal);
-    background: var(--scrim-bg);
-    backdrop-filter: var(--scrim-blur);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 32px;
-  }
-  .dialog {
-    background: var(--bg-elev);
-    border: 1px solid var(--border-strong);
-    border-radius: 12px;
-    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
-    width: 720px;
-    max-width: 100%;
-    max-height: calc(100vh - 64px);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    font-family: var(--font-sans);
-    color: var(--text);
-  }
-  .card-header {
-    padding: 20px 24px 8px;
-  }
-  .eyebrow {
-    font-family: var(--font-mono);
-    font-size: 10.5px;
-    color: var(--text-faint);
-    letter-spacing: 0.08em;
-    margin-bottom: 6px;
-  }
-  .title {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: 19px;
-    font-weight: 500;
-    letter-spacing: -0.005em;
-    line-height: 1.3;
-  }
-  .sub {
-    margin: 6px 0 0;
-    font-size: 12.5px;
-    color: var(--text-muted);
-    line-height: 1.45;
-  }
-  .body {
-    padding: 12px 24px 18px;
-    overflow: auto;
-    flex: 1;
+  .body-inner {
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -222,8 +172,6 @@
   }
   .bulk-btn:hover { color: var(--text); border-color: var(--border-strong); }
   .list {
-    flex: 1;
-    overflow-y: auto;
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -309,21 +257,11 @@
     border-radius: 4px;
     word-break: break-word;
   }
-  .card-footer {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 18px;
-    border-top: 1px solid var(--border);
-    background: var(--bg);
-  }
   .kbd-hint {
-    margin-right: auto;
     font-family: var(--font-mono);
     font-size: 10.5px;
     color: var(--text-faint);
   }
-  .footer-actions { display: inline-flex; gap: 8px; }
   .btn {
     padding: 7px 14px;
     border: 1px solid var(--border);

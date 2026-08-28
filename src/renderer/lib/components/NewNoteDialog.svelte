@@ -9,12 +9,19 @@
    *
    * Returns `{ name, ext }` via the host's resolver. The host appends
    * the extension if the user didn't type one already.
+   *
+   * Renders via ui/Dialog.svelte (#1888) — Escape-to-cancel and
+   * backdrop-click are Dialog's job. Enter-to-create keeps a dialog-wide
+   * handler (wrapping <Dialog>): the type/template pickers are grids of
+   * focusable `role="radio"` buttons, and Enter must create the note
+   * regardless of which one currently has focus.
    */
   import Icon from './Icon.svelte';
   import type { IconName } from './icons/registry';
   import { api, type TemplateInfo } from '../ipc/client';
   import type { TypeInfo } from '../../../shared/objects/type-def';
   import type { NoteExt, NewNoteResult } from './new-note-dialog-types';
+  import Dialog from './ui/Dialog.svelte';
 
   interface TypeOption {
     ext: NoteExt;
@@ -101,187 +108,131 @@
     if (e.key === 'Enter') {
       const norm = normalize();
       if (norm) onConfirm(norm);
-    } else if (e.key === 'Escape') {
-      onCancel();
     }
   }
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="overlay" onkeydown={handleKeydown} onmousedown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
-  <div class="dialog" role="dialog" aria-modal="true">
-    <header class="card-header">
-      <div class="eyebrow">New</div>
-      <h2 class="title">{selectedType ? `New ${selectedType.label}` : 'New Note'}</h2>
-    </header>
-
-    <div class="body">
-      <!-- Left: type picker. Vertical list so future additions don't
-           pinch the horizontal layout. -->
-      <div class="type-list" role="radiogroup" aria-label="Note type">
-        {#each TYPES as t (t.ext)}
-          {@const active = ext === t.ext && !selectedType}
-          <button
-            type="button"
-            class="type-row"
-            class:active
-            role="radio"
-            aria-checked={active}
-            onclick={() => pickExt(t.ext)}
-          >
-            <Icon name={t.icon} size={14} color={active ? 'var(--accent)' : 'currentColor'} />
-            <span class="type-text">
-              <span class="type-label">{t.label}</span>
-              <span class="type-desc">{t.description}</span>
-            </span>
-            <span class="type-ext">{t.ext}</span>
-          </button>
-        {/each}
-
-        <!-- Domain types (#1064): "New Book" is a menu choice, not a syntax. -->
-        {#if types.length > 0}
-          <div class="type-divider">Types</div>
-          {#each types as t (t.id)}
-            {@const active = selectedType?.id === t.id}
+<div onkeydown={handleKeydown}>
+  <Dialog width={560} zIndex="var(--z-spawned)" onClose={onCancel} titleId="new-note-title">
+    {#snippet eyebrow()}New{/snippet}
+    {#snippet title()}{selectedType ? `New ${selectedType.label}` : 'New Note'}{/snippet}
+    {#snippet body()}
+      <div class="body-inner">
+        <!-- Left: type picker. Vertical list so future additions don't
+             pinch the horizontal layout. -->
+        <div class="type-list" role="radiogroup" aria-label="Note type">
+          {#each TYPES as t (t.ext)}
+            {@const active = ext === t.ext && !selectedType}
             <button
               type="button"
               class="type-row"
               class:active
               role="radio"
               aria-checked={active}
-              onclick={() => pickType(t)}
-              title={t.source === 'user' ? 'Your type' : 'Built-in type'}
+              onclick={() => pickExt(t.ext)}
             >
-              <span class="type-emoji" style={t.color ? `color:${t.color}` : undefined}>{t.icon ?? '◆'}</span>
+              <Icon name={t.icon} size={14} color={active ? 'var(--accent)' : 'currentColor'} />
               <span class="type-text">
                 <span class="type-label">{t.label}</span>
-                <span class="type-desc">{t.properties.length} field{t.properties.length === 1 ? '' : 's'}</span>
+                <span class="type-desc">{t.description}</span>
               </span>
+              <span class="type-ext">{t.ext}</span>
             </button>
           {/each}
-        {/if}
-      </div>
 
-      <!-- Right: name + reserved Template slot. -->
-      <div class="form">
-        <label class="field">
-          <span class="field-label">Name</span>
-          <input
-            bind:this={inputEl}
-            bind:value={name}
-            type="text"
-            class="input"
-            autocomplete="off"
-            placeholder="My note"
-          />
-        </label>
-
-        {#if templatesApply}
-          <div class="template-slot">
-            <span class="field-label">Template</span>
-            <div class="template-list" role="radiogroup" aria-label="Template">
+          <!-- Domain types (#1064): "New Book" is a menu choice, not a syntax. -->
+          {#if types.length > 0}
+            <div class="type-divider">Types</div>
+            {#each types as t (t.id)}
+              {@const active = selectedType?.id === t.id}
               <button
                 type="button"
-                class="template-row"
-                class:active={templateFilename === null}
+                class="type-row"
+                class:active
                 role="radio"
-                aria-checked={templateFilename === null}
-                onclick={() => { templateFilename = null; inputEl?.focus(); }}
+                aria-checked={active}
+                onclick={() => pickType(t)}
+                title={t.source === 'user' ? 'Your type' : 'Built-in type'}
               >
-                <span class="template-name">(none)</span>
-                <span class="template-hint">blank file</span>
+                <span class="type-emoji" style={t.color ? `color:${t.color}` : undefined}>{t.icon ?? '◆'}</span>
+                <span class="type-text">
+                  <span class="type-label">{t.label}</span>
+                  <span class="type-desc">{t.properties.length} field{t.properties.length === 1 ? '' : 's'}</span>
+                </span>
               </button>
-              {#each templates as t (t.filename)}
-                {@const active = templateFilename === t.filename}
+            {/each}
+          {/if}
+        </div>
+
+        <!-- Right: name + reserved Template slot. -->
+        <div class="form">
+          <label class="field">
+            <span class="field-label">Name</span>
+            <input
+              bind:this={inputEl}
+              bind:value={name}
+              type="text"
+              class="input"
+              autocomplete="off"
+              placeholder="My note"
+            />
+          </label>
+
+          {#if templatesApply}
+            <div class="template-slot">
+              <span class="field-label">Template</span>
+              <div class="template-list" role="radiogroup" aria-label="Template">
                 <button
                   type="button"
                   class="template-row"
-                  class:active
+                  class:active={templateFilename === null}
                   role="radio"
-                  aria-checked={active}
-                  onclick={() => { templateFilename = t.filename; inputEl?.focus(); }}
+                  aria-checked={templateFilename === null}
+                  onclick={() => { templateFilename = null; inputEl?.focus(); }}
                 >
-                  <span class="template-name">{t.name}</span>
+                  <span class="template-name">(none)</span>
+                  <span class="template-hint">blank file</span>
                 </button>
-              {/each}
+                {#each templates as t (t.filename)}
+                  {@const active = templateFilename === t.filename}
+                  <button
+                    type="button"
+                    class="template-row"
+                    class:active
+                    role="radio"
+                    aria-checked={active}
+                    onclick={() => { templateFilename = t.filename; inputEl?.focus(); }}
+                  >
+                    <span class="template-name">{t.name}</span>
+                  </button>
+                {/each}
+              </div>
             </div>
-          </div>
-        {/if}
+          {/if}
+        </div>
       </div>
-    </div>
-
-    <footer class="card-footer">
-      <span class="kbd-hint">esc · cancel · ↵ create</span>
-      <span class="footer-actions">
-        <button class="btn secondary" onclick={onCancel}>Cancel</button>
-        <button
-          class="btn primary"
-          disabled={!name.trim()}
-          onclick={() => { const n = normalize(); if (n) onConfirm(n); }}
-        >
-          Create
-          <span class="btn-kbd">↵</span>
-        </button>
-      </span>
-    </footer>
-  </div>
+    {/snippet}
+    {#snippet footerLeft()}<span class="kbd-hint">esc · cancel · ↵ create</span>{/snippet}
+    {#snippet footerRight()}
+      <button class="btn secondary" onclick={onCancel}>Cancel</button>
+      <button
+        class="btn primary"
+        disabled={!name.trim()}
+        onclick={() => { const n = normalize(); if (n) onConfirm(n); }}
+      >
+        Create
+        <span class="btn-kbd">↵</span>
+      </button>
+    {/snippet}
+  </Dialog>
 </div>
 
 <style>
-  .overlay {
-    position: fixed;
-    inset: 0;
-    z-index: var(--z-spawned);
-    background: var(--scrim-bg);
-    backdrop-filter: var(--scrim-blur);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 32px;
-  }
-
-  .dialog {
-    background: var(--bg-elev);
-    border: 1px solid var(--border-strong);
-    border-radius: 12px;
-    box-shadow:
-      0 16px 48px rgba(0, 0, 0, 0.35),
-      0 0 0 1px rgba(255, 255, 255, 0.04) inset;
-    width: 560px;
-    max-width: 100%;
-    display: flex;
-    flex-direction: column;
-    font-family: var(--font-sans);
-    color: var(--text);
-    overflow: hidden;
-  }
-
-  .card-header {
-    padding: 20px 24px 0;
-  }
-  .eyebrow {
-    font-family: var(--font-mono);
-    font-size: 10.5px;
-    color: var(--text-faint);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    margin-bottom: 6px;
-  }
-  .title {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: 19px;
-    font-weight: 500;
-    letter-spacing: -0.005em;
-    line-height: 1.3;
-    color: var(--text);
-  }
-
-  .body {
+  .body-inner {
     display: grid;
     grid-template-columns: 200px 1fr;
     gap: 16px;
-    padding: 16px 24px 18px;
   }
 
   /* ── Type list (left column) ───────────────────────────────────── */
@@ -443,25 +394,10 @@
   }
   .template-row.active .template-hint { color: var(--accent); opacity: 0.7; }
 
-  /* ── Footer ────────────────────────────────────────────────────── */
-  .card-footer {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 18px;
-    border-top: 1px solid var(--border);
-    background: var(--bg);
-    border-radius: 0 0 12px 12px;
-  }
   .kbd-hint {
-    margin-right: auto;
     font-size: 10.5px;
     color: var(--text-faint);
     font-family: var(--font-mono);
-  }
-  .footer-actions {
-    display: inline-flex;
-    gap: 8px;
   }
 
   .btn {

@@ -12,9 +12,15 @@
    *
    * Reads its values directly (reads are allowed in components); mutations
    * route through the notebase store via the `onSave` callback.
+   *
+   * Renders via ui/Dialog.svelte (#1888) — Escape-to-cancel and backdrop-click
+   * are Dialog's job. Enter-to-save moves onto the name field directly (it was
+   * already narrowed there via an `e.target.id` check) — the base-IRI field is
+   * multiline-ish intent (paste a long URL), so it must NOT take Enter.
    */
   import { onMount } from 'svelte';
   import { api } from '../ipc/client';
+  import Dialog from './ui/Dialog.svelte';
 
   interface Props {
     /** Persist name + (when changed) base IRI. Resolves to the outcome so a
@@ -63,118 +69,65 @@
     }
   }
 
-  function handleKeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape') onCancel();
-    // Enter saves only from the name field — the base-IRI field is multiline-ish
-    // intent (paste a long URL), so don't hijack Enter there.
-    else if (e.key === 'Enter' && (e.target as HTMLElement)?.id === 'tb-props-name') void save();
+  function handleNameKeydown(e: KeyboardEvent) {
+    if (e.key === 'Enter') void save();
   }
 </script>
 
-<!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="overlay" onkeydown={handleKeydown} onmousedown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
-  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="tb-props-title">
-    <header class="card-header">
-      <div class="eyebrow">Thoughtbase</div>
-      <h2 class="title" id="tb-props-title">Properties</h2>
-    </header>
+<Dialog width={460} onClose={onCancel} titleId="tb-props-title">
+  {#snippet eyebrow()}Thoughtbase{/snippet}
+  {#snippet title()}Properties{/snippet}
+  {#snippet body()}
+    <label class="field-label" for="tb-props-name">Name</label>
+    <input
+      id="tb-props-name"
+      bind:this={nameInput}
+      bind:value={name}
+      onkeydown={handleNameKeydown}
+      type="text"
+      class="input"
+      placeholder={folderName}
+      autocomplete="off"
+      spellcheck="false"
+    />
+    <p class="hint">
+      A display label, independent of the folder on disk. Leave blank to use
+      the folder name{folderName ? ` (${folderName})` : ''}.
+    </p>
 
-    <div class="body">
-      <label class="field-label" for="tb-props-name">Name</label>
-      <input
-        id="tb-props-name"
-        bind:this={nameInput}
-        bind:value={name}
-        type="text"
-        class="input"
-        placeholder={folderName}
-        autocomplete="off"
-        spellcheck="false"
-      />
-      <p class="hint">
-        A display label, independent of the folder on disk. Leave blank to use
-        the folder name{folderName ? ` (${folderName})` : ''}.
-      </p>
+    <details class="advanced">
+      <summary>Advanced</summary>
+      <div class="advanced-body">
+        <label class="field-label" for="tb-props-base">Graph base IRI</label>
+        <input
+          id="tb-props-base"
+          bind:value={baseUri}
+          type="text"
+          class="input"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <p class="hint warn">
+          Rewrites every knowledge-graph identifier (a full re-index runs on save).
+          Pending and reviewed proposals are migrated to the new base automatically;
+          wiki-links are unaffected. Existing exports and any hand-pasted IRIs that
+          used the old base will no longer resolve.
+        </p>
+      </div>
+    </details>
 
-      <details class="advanced">
-        <summary>Advanced</summary>
-        <div class="advanced-body">
-          <label class="field-label" for="tb-props-base">Graph base IRI</label>
-          <input
-            id="tb-props-base"
-            bind:value={baseUri}
-            type="text"
-            class="input"
-            autocomplete="off"
-            spellcheck="false"
-          />
-          <p class="hint warn">
-            Rewrites every knowledge-graph identifier (a full re-index runs on save).
-            Pending and reviewed proposals are migrated to the new base automatically;
-            wiki-links are unaffected. Existing exports and any hand-pasted IRIs that
-            used the old base will no longer resolve.
-          </p>
-        </div>
-      </details>
-
-      {#if error}
-        <p class="error-msg">✗ {error}</p>
-      {/if}
-    </div>
-
-    <footer class="card-footer">
-      <span class="kbd-hint">esc · cancel · ↵ save</span>
-      <span class="footer-actions">
-        <button class="btn secondary" onclick={onCancel}>Cancel</button>
-        <button class="btn primary" disabled={saving} onclick={save}>{saving ? 'Saving…' : 'Save'}<span class="btn-kbd">↵</span></button>
-      </span>
-    </footer>
-  </div>
-</div>
+    {#if error}
+      <p class="error-msg">✗ {error}</p>
+    {/if}
+  {/snippet}
+  {#snippet footerLeft()}<span class="kbd-hint">esc · cancel · ↵ save</span>{/snippet}
+  {#snippet footerRight()}
+    <button class="btn secondary" onclick={onCancel}>Cancel</button>
+    <button class="btn primary" disabled={saving} onclick={save}>{saving ? 'Saving…' : 'Save'}<span class="btn-kbd">↵</span></button>
+  {/snippet}
+</Dialog>
 
 <style>
-  .overlay {
-    position: fixed;
-    inset: 0;
-    z-index: var(--z-modal);
-    background: var(--scrim-bg);
-    backdrop-filter: var(--scrim-blur);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 32px;
-  }
-  .dialog {
-    background: var(--bg-elev);
-    border: 1px solid var(--border-strong);
-    border-radius: 12px;
-    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
-    width: 460px;
-    max-width: 100%;
-    display: flex;
-    flex-direction: column;
-    font-family: var(--font-sans);
-    color: var(--text);
-    overflow: hidden;
-  }
-  .card-header { padding: 20px 24px 0; }
-  .eyebrow {
-    font-family: var(--font-mono);
-    font-size: 10.5px;
-    color: var(--text-faint);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    margin-bottom: 6px;
-  }
-  .title {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: 19px;
-    font-weight: 500;
-    letter-spacing: -0.005em;
-    line-height: 1.3;
-  }
-  .body { padding: 14px 24px 18px; }
   .field-label {
     display: block;
     font-size: 11px;
@@ -219,22 +172,11 @@
     font-size: 12px;
     color: var(--rust, #c66);
   }
-  .card-footer {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 18px;
-    border-top: 1px solid var(--border);
-    background: var(--bg);
-    border-radius: 0 0 12px 12px;
-  }
   .kbd-hint {
-    margin-right: auto;
     font-size: 10.5px;
     color: var(--text-faint);
     font-family: var(--font-mono);
   }
-  .footer-actions { display: inline-flex; gap: 8px; }
   .btn {
     padding: 7px 14px;
     border: 1px solid var(--border);
