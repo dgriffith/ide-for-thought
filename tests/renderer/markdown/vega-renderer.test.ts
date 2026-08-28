@@ -89,9 +89,9 @@ describe('findUrlRefs (vega remote-data guardrail)', () => {
   it('does not blow the stack / loop forever on deep nesting', () => {
     let deep: Record<string, unknown> = { url: 'https://leaf.test/x.json' };
     for (let i = 0; i < 200; i++) deep = { nested: deep };
-    // Depth guard caps recursion at 64; a url below that is simply not reached.
-    // The point is it returns without throwing.
-    expect(() => urls(deep)).not.toThrow();
+    // Depth guard caps recursion at 64; the leaf url sits well below that,
+    // so it must not be reached.
+    expect(urls(deep)).toEqual([]);
   });
 });
 
