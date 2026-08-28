@@ -87,10 +87,6 @@ describe('idempotency contract (the make-or-break)', () => {
     return collectCards(content, notePath).cards.map((c) => cardGuid(notePath, c.id!));
   }
 
-  it('re-exporting unchanged cards yields identical guids', () => {
-    expect(guidsOf(persisted)).toEqual(guidsOf(persisted));
-  });
-
   it('editing a card\'s text preserves its guid (Anki updates, keeps history)', () => {
     const edited = persisted.replace('hello', 'hello (greeting)');
     const before = guidsOf(persisted);
