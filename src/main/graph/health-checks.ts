@@ -56,14 +56,19 @@ export interface Inspection {
 }
 
 const lastResultsByProject = new Map<string, Inspection[]>();
-let running = false;
+// Keyed by rootPath (#1893) — a module-global flag made a check in flight for
+// one project return [] for every OTHER project's concurrent check, which is
+// indistinguishable from "clean". Concurrent runs across windows/projects are
+// the normal case here: armAutoChecks debounces off every graph write and
+// there's a 5-minute periodic timer per project.
+const runningProjects = new Set<string>();
 
 export function getInspections(ctx: ProjectContext): Inspection[] {
   return lastResultsByProject.get(ctx.rootPath) ?? [];
 }
 
-export function isRunning(): boolean {
-  return running;
+export function isRunning(ctx: ProjectContext): boolean {
+  return runningProjects.has(ctx.rootPath);
 }
 
 /** The SPARQL rows every check reads, cast to the string-record shape once
@@ -93,8 +98,8 @@ export async function runAllChecks(
   ctx: ProjectContext,
   settings: InspectionSettings = DEFAULT_INSPECTION_SETTINGS,
 ): Promise<Inspection[]> {
-  if (running) return lastResultsByProject.get(ctx.rootPath) ?? [];
-  running = true;
+  if (runningProjects.has(ctx.rootPath)) return lastResultsByProject.get(ctx.rootPath) ?? [];
+  runningProjects.add(ctx.rootPath);
 
   const on = (type: string) => isInspectionEnabled(type, settings);
   const none = (): Promise<Inspection[]> => Promise.resolve([]);
@@ -123,7 +128,7 @@ export async function runAllChecks(
     emitInspectionsChanged(ctx.rootPath);
     return flat;
   } finally {
-    running = false;
+    runningProjects.delete(ctx.rootPath);
   }
 }
 
