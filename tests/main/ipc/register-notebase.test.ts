@@ -570,10 +570,59 @@ describe('register-notebase — rename / merge broadcasts', () => {
     expect(h.broadcastRewritten).toHaveBeenCalledWith(ROOT, ['a.md']);
   });
 
+  // #1985 — this reindexHook used to call search.indexNote only, leaving a
+  // rewritten note's embedding stale after a source rename.
+  it("NOTEBASE_RENAME_SOURCE's reindex hook routes a rewritten markdown note to search + vectors too", async () => {
+    h.renameSource.mockImplementation(async (
+      _root: string, _old: string, _new: string,
+      opts: { reindexHook: (p: string, c: string) => void },
+    ) => {
+      opts.reindexHook('a.md', 'body');
+      return { rewrittenPaths: ['a.md'] };
+    });
+
+    await call(Channels.NOTEBASE_RENAME_SOURCE, 'old', 'new');
+
+    expect(h.searchIndexNote).toHaveBeenCalledWith(CTX, 'a.md', 'body');
+    expect(h.vectorsIndexNote).toHaveBeenCalledWith(CTX, 'a.md', 'body');
+  });
+
   it('NOTEBASE_RENAME_EXCERPT reports the rewritten notes and refreshes them', async () => {
     h.renameExcerpt.mockResolvedValue({ rewrittenPaths: ['a.md'] });
     await expect(call(Channels.NOTEBASE_RENAME_EXCERPT, 'old', 'new')).resolves.toEqual({ rewrittenPaths: ['a.md'] });
     expect(h.broadcastRewritten).toHaveBeenCalledWith(ROOT, ['a.md']);
+  });
+
+  // #1985 — same gap as NOTEBASE_RENAME_SOURCE, for excerpt renames.
+  it("NOTEBASE_RENAME_EXCERPT's reindex hook routes a rewritten markdown note to search + vectors too", async () => {
+    h.renameExcerpt.mockImplementation(async (
+      _root: string, _old: string, _new: string,
+      opts: { reindexHook: (p: string, c: string) => void },
+    ) => {
+      opts.reindexHook('a.md', 'body');
+      return { rewrittenPaths: ['a.md'] };
+    });
+
+    await call(Channels.NOTEBASE_RENAME_EXCERPT, 'old', 'new');
+
+    expect(h.searchIndexNote).toHaveBeenCalledWith(CTX, 'a.md', 'body');
+    expect(h.vectorsIndexNote).toHaveBeenCalledWith(CTX, 'a.md', 'body');
+  });
+
+  // #1985 — same gap as NOTEBASE_RENAME_SOURCE, for anchor-slug renames.
+  it("NOTEBASE_RENAME_ANCHOR's reindex hook routes a rewritten markdown note to search + vectors too", async () => {
+    h.renameAnchor.mockImplementation(async (
+      _root: string, _target: string, _old: string, _new: string,
+      opts: { reindexHook: (p: string, c: string) => void },
+    ) => {
+      opts.reindexHook('c.md', 'body');
+      return { rewrittenPaths: ['c.md'] };
+    });
+
+    await call(Channels.NOTEBASE_RENAME_ANCHOR, 'a.md', 'old', 'new');
+
+    expect(h.searchIndexNote).toHaveBeenCalledWith(CTX, 'c.md', 'body');
+    expect(h.vectorsIndexNote).toHaveBeenCalledWith(CTX, 'c.md', 'body');
   });
 });
 

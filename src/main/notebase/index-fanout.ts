@@ -26,10 +26,7 @@ import type { ProjectContext } from '../project-context-types';
 /** Index (or re-index) a note's content into every backend that should have it. */
 export async function indexAllFor(ctx: ProjectContext, relativePath: string, content: string): Promise<void> {
   await graph.indexNote(ctx, relativePath, content);
-  if (relativePath.endsWith('.md')) {
-    search.indexNote(ctx, relativePath, content);
-    void vectors.indexNote(ctx, relativePath, content); // #835; no-op when disabled
-  }
+  indexSearchAndVectorsFor(ctx, relativePath, content);
 }
 
 /**
@@ -38,7 +35,27 @@ export async function indexAllFor(ctx: ProjectContext, relativePath: string, con
  * there's no need to gate by extension the way the index direction does.
  */
 export function removeAllFor(ctx: ProjectContext, relativePath: string): void {
-  search.removeNote(ctx, relativePath);
   graph.removeNote(ctx, relativePath);
+  removeSearchAndVectorsFor(ctx, relativePath);
+}
+
+/**
+ * The search+vectors half of {@link indexAllFor}, for callers that already
+ * indexed the note into the graph themselves (#1985). The rename/merge
+ * helpers (`rename.ts`, `merge.ts`, `rename-source-excerpt.ts`,
+ * `rename-anchor.ts`) call `graph.indexNote` directly on each rewritten note
+ * — they're re-parsing a note whose *links* changed, not any content
+ * `indexAllFor`'s caller already has fresh — and pass this as their
+ * `reindexHook` for the rest of the fan-out.
+ */
+export function indexSearchAndVectorsFor(ctx: ProjectContext, relativePath: string, content: string): void {
+  if (!relativePath.endsWith('.md')) return;
+  search.indexNote(ctx, relativePath, content);
+  void vectors.indexNote(ctx, relativePath, content); // #835; no-op when disabled
+}
+
+/** The search+vectors half of {@link removeAllFor}, mirroring {@link indexSearchAndVectorsFor}. */
+export function removeSearchAndVectorsFor(ctx: ProjectContext, relativePath: string): void {
+  search.removeNote(ctx, relativePath);
   void vectors.removeNote(ctx, relativePath); // #835; no-op when disabled
 }
