@@ -13,9 +13,7 @@ import { resolveDisplayName, setDisplayName, getDisplayName, readProjectConfig }
 import { getOrFetchThumbnail } from '../youtube/thumbnail-cache';
 import { projectContext } from '../project-context-types';
 import { writeAndReindex } from '../notebase/write-pipeline';
-import { indexAllFor } from '../notebase/index-fanout';
-import * as search from '../search/index';
-import * as vectors from '../embeddings/vector-store';
+import { indexAllFor, indexSearchAndVectorsFor, removeSearchAndVectorsFor } from '../notebase/index-fanout';
 import { clearRecentProjects, defaultThoughtbaseDir } from '../recent-projects';
 import { rebuildMenu } from '../menu';
 import { createWindow, openProjectInWindow, closeProjectInWindow, markPathHandled, windowsForProject } from '../window-manager';
@@ -256,16 +254,8 @@ export function registerNotebase(): void {
     const ctx = projectContext(rootPath);
     const { transitions, rewrittenPaths } = await renameWithLinkRewrites(rootPath, oldRelPath, newRelPath, {
       markPathHandled,
-      reindexHook: (relPath, content) => {
-        if (relPath.endsWith(".md")) {
-          search.indexNote(ctx, relPath, content);
-          void vectors.indexNote(ctx, relPath, content); // #835
-        }
-      },
-      removeHook: (relPath) => {
-        search.removeNote(ctx, relPath);
-        void vectors.removeNote(ctx, relPath); // #835
-      },
+      reindexHook: (relPath, content) => indexSearchAndVectorsFor(ctx, relPath, content),
+      removeHook: (relPath) => removeSearchAndVectorsFor(ctx, relPath),
     });
 
     // Broadcast to every window showing this project so their editor tabs
@@ -291,16 +281,8 @@ export function registerNotebase(): void {
     const result = await mergeNotes(rootPath, sourceRelPath, targetRelPath, {
       ...(separator !== undefined ? { separator } : {}),
       markPathHandled,
-      reindexHook: (relPath, content) => {
-        if (relPath.endsWith(".md")) {
-          search.indexNote(ctx, relPath, content);
-          void vectors.indexNote(ctx, relPath, content); // #835
-        }
-      },
-      removeHook: (relPath) => {
-        search.removeNote(ctx, relPath);
-        void vectors.removeNote(ctx, relPath); // #835
-      },
+      reindexHook: (relPath, content) => indexSearchAndVectorsFor(ctx, relPath, content),
+      removeHook: (relPath) => removeSearchAndVectorsFor(ctx, relPath),
     });
     // Broadcast: source disappeared (RENAMED with one transition signals
     // editor tabs to drop / reroute) plus the rewritten set so other
@@ -326,9 +308,7 @@ export function registerNotebase(): void {
     const ctx = projectContext(rootPath);
     const { rewrittenPaths } = await renameSource(rootPath, oldId, newId, {
       markPathHandled,
-      reindexHook: (relPath, content) => {
-        if (relPath.endsWith('.md')) search.indexNote(ctx, relPath, content);
-      },
+      reindexHook: (relPath, content) => indexSearchAndVectorsFor(ctx, relPath, content),
     });
     broadcastRewritten(rootPath, rewrittenPaths);
     await persistIndexes(rootPath);
@@ -339,9 +319,7 @@ export function registerNotebase(): void {
     const ctx = projectContext(rootPath);
     const { rewrittenPaths } = await renameExcerpt(rootPath, oldId, newId, {
       markPathHandled,
-      reindexHook: (relPath, content) => {
-        if (relPath.endsWith('.md')) search.indexNote(ctx, relPath, content);
-      },
+      reindexHook: (relPath, content) => indexSearchAndVectorsFor(ctx, relPath, content),
     });
     broadcastRewritten(rootPath, rewrittenPaths);
     await persistIndexes(rootPath);
@@ -354,9 +332,7 @@ export function registerNotebase(): void {
       const ctx = projectContext(rootPath);
       const { rewrittenPaths } = await renameAnchor(rootPath, targetRelativePath, oldSlug, newSlug, {
         markPathHandled,
-        reindexHook: (relPath, content) => {
-          if (relPath.endsWith('.md')) search.indexNote(ctx, relPath, content);
-        },
+        reindexHook: (relPath, content) => indexSearchAndVectorsFor(ctx, relPath, content),
       });
 
       // Same tab-refresh pipeline as #145 — open editors for rewritten notes
