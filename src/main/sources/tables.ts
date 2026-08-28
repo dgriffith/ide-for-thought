@@ -659,8 +659,3 @@ export async function listTables(ctx: ProjectContext): Promise<TableInfo[]> {
   out.sort((a, b) => a.relativePath.localeCompare(b.relativePath) || a.name.localeCompare(b.name));
   return out;
 }
-
-/** Exposed for tests. */
-export function _isOpen(ctx: ProjectContext): boolean {
-  return store.has(ctx);
-}

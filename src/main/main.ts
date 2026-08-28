@@ -16,6 +16,7 @@ import { flushAllProjects } from './project-context';
 import { shutdownAllKernels } from './compute/python-kernel';
 import { sweepStaleRpcSockets } from './compute/rpc-server';
 import { stopClipperServer } from './clipper/lifecycle';
+import { disposeSharedEmbedder } from './embeddings/shared-embedder';
 import { registerSkillsAtStartup } from './skills/register';
 import { initAutoUpdate, setUpdateStateListener } from './auto-update';
 import { installE2EHooks } from './e2e-hooks';
@@ -132,6 +133,7 @@ app.on('before-quit', (event) => {
     flushAllProjects(),
     shutdownAllKernels(),
     stopClipperServer(),
+    disposeSharedEmbedder(),
   ])
     .catch((err) => console.warn('[quit] shutdown failed:', err))
     .finally(() => app.quit());

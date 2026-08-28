@@ -531,10 +531,6 @@ export function closeProjectInWindow(winId: number): void {
   void syncClipperLifecycle();
 }
 
-export function getWindowById(id: number): BrowserWindow | null {
-  return BrowserWindow.fromId(id) ?? null;
-}
-
 export function getFocusedWindow(): BrowserWindow | null {
   return BrowserWindow.getFocusedWindow();
 }
