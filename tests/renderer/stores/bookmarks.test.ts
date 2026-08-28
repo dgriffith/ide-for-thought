@@ -4,13 +4,13 @@
  * bookmarks and other notes' bookmarks alone. IPC persistence is mocked.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({
   api: { bookmarks: { save: vi.fn(), load: vi.fn() } },
 }));
 
-import { getBookmarksStore } from '../../../src/renderer/lib/stores/bookmarks.svelte';
+import { getBookmarksStore, _clearPendingPersistForTests } from '../../../src/renderer/lib/stores/bookmarks.svelte';
 
 const store = getBookmarksStore();
 
@@ -21,6 +21,11 @@ function reset() {
 }
 
 beforeEach(reset);
+// Every mutation above arms a real 500ms debounced-persist timer with no
+// per-test reset (#1944) — left alone, it fires mid-run of whatever test
+// happens to be executing 500ms later. Cancel it once this test's mutations
+// are done instead of letting it survive past the test that armed it.
+afterEach(_clearPendingPersistForTests);
 
 function bm(name: string) {
   return store.tree.find((n) => n.type === 'bookmark' && n.name === name);
