@@ -37,11 +37,9 @@ DESCRIBE YOUR_TABLE;`,
   });
 
   it('falls back to the original text on a parser error', () => {
-    // sql-formatter is forgiving, but if it ever throws the helper
+    // sql-formatter throws on this deeply malformed string; the helper
     // must surface the original so a half-typed query isn't destroyed.
-    // Probe with a deeply malformed string that sql-formatter either
-    // handles or throws on — either way the contract holds.
     const input = 'SELECT (((';
-    expect(() => formatSql(input)).not.toThrow();
+    expect(formatSql(input)).toBe(input);
   });
 });

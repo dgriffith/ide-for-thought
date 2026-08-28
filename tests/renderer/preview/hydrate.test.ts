@@ -104,7 +104,9 @@ describe('highlightCodeBlocks', () => {
 
   it('returns early when there are no un-highlighted code blocks', () => {
     const root = div('<p>no code here</p>');
-    expect(() => highlightCodeBlocks(makeCtx(root))).not.toThrow();
+    const before = root.innerHTML;
+    highlightCodeBlocks(makeCtx(root));
+    expect(root.innerHTML).toBe(before);
   });
 
   it('highlights a known-language block synchronously and marks it data-hl', () => {
