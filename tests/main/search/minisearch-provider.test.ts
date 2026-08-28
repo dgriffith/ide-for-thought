@@ -97,9 +97,12 @@ describe('MiniSearchProvider', () => {
       expect(await p.search('Test')).toEqual([]);
     });
 
-    it('is a no-op for non-existent document', () => {
+    it('is a no-op for non-existent document', async () => {
       const p = createProvider();
-      expect(() => p.remove('nonexistent.md')).not.toThrow();
+      write(p, 'note.md', 'Test', 'Content');
+      p.remove('nonexistent.md');
+      // The real document must survive untouched.
+      expect(await p.search('Test')).toHaveLength(1);
     });
   });
 

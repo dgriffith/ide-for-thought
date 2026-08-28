@@ -452,8 +452,20 @@ describe('startWatching() (#345)', () => {
       expect(created).toEqual([]);
     });
 
-    it('stopWatching on an unknown id is a no-op (no throw)', () => {
-      expect(() => stopWatching(98765)).not.toThrow();
+    it('stopWatching on an unknown id is a no-op — other watchers keep running', async () => {
+      const created: string[] = [];
+      await startWatching(root, win as unknown as BrowserWindow, winId, {
+        onFileCreated: (p) => created.push(p),
+        onFileChanged: () => undefined,
+        onFileDeleted: () => undefined,
+      });
+
+      stopWatching(98765);
+
+      // The real watcher on `winId` must still be attached and firing.
+      await fsp.writeFile(path.join(root, 'still-watching.md'), 'x\n', 'utf-8');
+      await waitFor(() => created.length > 0);
+      expect(created).toEqual(['still-watching.md']);
     });
 
     it('startWatching twice on the same id replaces the previous watcher', async () => {
