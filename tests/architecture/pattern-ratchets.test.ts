@@ -202,12 +202,42 @@ const BOOLEAN_OVERLOAD_BASELINE: Record<string, number> = {
   'src/main/ipc/register-proposals.ts': 3,
 };
 
+// ── Ratchet 4: no-project answered with undefined ───────────────────────────
+
+/**
+ * `withRootPathOr(undefined, …)` — the handler answers `undefined` when no
+ * project is open, indistinguishable from a `void`-returning handler's own
+ * SUCCESS return (also `undefined`). Not caught by `NO_PROJECT_NULL` above
+ * (that regex matches only the literal `null` fallback). #1894 found this
+ * exact shape used on four write handlers, each of which silently reported
+ * success — a save that never happened, an export that never ran — instead
+ * of surfacing "no project open" as the failure it is.
+ *
+ * The survivors below are genuinely fine, not overlooked: `shell.*` handlers
+ * are the CLAUDE.md-documented "stateless OS side-effect" category —
+ * `SHELL_REVEAL_FILE`/`SHELL_OPEN_IN_DEFAULT`/`SHELL_OPEN_IN_TERMINAL` return
+ * `undefined` on success too (there's nothing to report either way), so "no
+ * project ⇒ nothing to reveal/open" isn't a disguised failure the way a
+ * silently-skipped persist is. `TABS_SAVE` was actually converted to
+ * `withRootPath` and then reverted — CI's smoke test caught it: the editor
+ * store persists its tab layout reactively, including the very first empty
+ * layout a project-less window mounts with, so "no project" there means
+ * "nothing to persist," not a failed write.
+ */
+const NO_PROJECT_UNDEFINED = /withRootPathOr\s*(?:<[^>]*>)?\s*\(\s*undefined\b/g;
+
+const NO_PROJECT_UNDEFINED_BASELINE: Record<string, number> = {
+  'src/main/ipc/register-bookmarks.ts': 1,
+  'src/main/ipc/register-shell.ts': 3,
+};
+
 describe('known-bad pattern ratchets (#1848)', () => {
   it('the scanners still find things — a broken regex would pass vacuously', () => {
     // The failure mode that would quietly turn all ratchets into decoration.
     expect(Object.keys(countPerFile('src/main', SWALLOW)).length).toBeGreaterThan(20);
     expect(Object.keys(countPerFile('src/main', NO_PROJECT_NULL)).length).toBeGreaterThan(0);
     expect(Object.keys(countPerFile('src/main', BOOLEAN_OVERLOAD)).length).toBeGreaterThan(0);
+    expect(Object.keys(countPerFile('src/main', NO_PROJECT_UNDEFINED)).length).toBeGreaterThan(0);
   });
 
   it('swallowed errors: no new ones', () => {
@@ -242,6 +272,17 @@ describe('known-bad pattern ratchets (#1848)', () => {
       'with operation failure/no results. Use a discriminated union ({ ok: false; error: "..." }) ' +
       'instead, or a unique sentinel. See CLAUDE.md IPC error handling rule 3: discriminated `{ ok, … }` ' +
       'unions for expected multi-outcome paths. Rule 5: a sentinel marks exactly one expected absence.',
+    );
+  });
+
+  it('no-project answered with undefined: no new ones', () => {
+    assertRatchet(
+      'no-project → undefined (withRootPathOr(undefined, …))',
+      NO_PROJECT_UNDEFINED_BASELINE,
+      countPerFile('src/main', NO_PROJECT_UNDEFINED),
+      'Use `withRootPath` so "no project open" throws instead of resolving as `undefined` — ' +
+      'indistinguishable from a void-returning handler\'s own success (#1894). `withRootPathOr` ' +
+      'is for handlers whose project-less answer is a legitimate value, not a way to signal failure.',
     );
   });
 });

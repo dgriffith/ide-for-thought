@@ -191,9 +191,11 @@ describe('register-graph — the #1631 project guard', () => {
     await expect(callAsync(channel, ...args)).resolves.toEqual(expected);
   });
 
-  it('GRAPH_EXPORT does not even raise a Save panel with nothing to export', async () => {
+  // #1894 — this used to be `withRootPathOr(undefined, …)`, so calling it with
+  // no project silently resolved as if the export had happened.
+  it('GRAPH_EXPORT throws with no project rather than silently doing nothing', () => {
     openProject = null;
-    await call(Channels.GRAPH_EXPORT);
+    expect(() => call(Channels.GRAPH_EXPORT)).toThrow('No project open');
     expect(h.showSaveDialog).not.toHaveBeenCalled();
   });
 
