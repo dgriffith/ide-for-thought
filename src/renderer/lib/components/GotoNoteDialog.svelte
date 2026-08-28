@@ -3,6 +3,7 @@
   import { displaySourceTitle } from '../../../shared/source-display';
   import Icon from './Icon.svelte';
   import TypeIcon from './TypeIcon.svelte';
+  import Kbd from './ui/Kbd.svelte';
   import { objectTypesStore } from '../stores/object-types.svelte';
   import type { IconName } from './icons/registry';
   import { formatRelativeTime } from '../utils/format-relative-time';
@@ -245,7 +246,7 @@
         class="input"
         {placeholder}
       />
-      <span class="input-kbd">⌘ P</span>
+      <Kbd>⌘ P</Kbd>
     </div>
 
     {#if multiScope}
@@ -379,17 +380,6 @@
   .input::placeholder {
     color: var(--text-muted);
   }
-  .input-kbd {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    padding: 2px 6px;
-    background: var(--bg-inset);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    color: var(--text-faint);
-    flex-shrink: 0;
-  }
-
   .scope-row {
     display: flex;
     gap: 6px;

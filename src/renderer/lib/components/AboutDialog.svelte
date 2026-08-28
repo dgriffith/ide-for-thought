@@ -10,6 +10,7 @@
   // Vite resolves the bundled icon to a URL (same `?url` pattern as the OCR
   // trained-data asset). SVG keeps it crisp at any DPI.
   import iconUrl from '../../assets/minerva-icon.svg?url';
+  import Eyebrow from './ui/Eyebrow.svelte';
 
   interface Props {
     onClose: () => void;
@@ -39,7 +40,7 @@
     <header class="card-header">
       <img class="app-icon" src={iconUrl} alt="" />
       <div class="brand">
-        <div class="eyebrow">About</div>
+        <div class="eyebrow-row"><Eyebrow>About</Eyebrow></div>
         <h2 class="title" id="about-title">Minerva</h2>
         <p class="tagline">Thoughts worth keeping.</p>
       </div>
@@ -120,12 +121,7 @@
   .brand {
     min-width: 0;
   }
-  .eyebrow {
-    font-family: var(--font-mono);
-    font-size: 10.5px;
-    color: var(--text-faint);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+  .eyebrow-row {
     margin-bottom: 6px;
   }
   .title {

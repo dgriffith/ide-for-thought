@@ -78,7 +78,7 @@ const BUDGETS: Record<string, number> = {
   'src/renderer/lib/app/note-ops.ts': 687,
   'src/renderer/lib/editor/formatting.ts': 671,
   'src/main/sources/tables.ts': 665,
-  'src/renderer/lib/components/FindInNotesDialog.svelte': 639,
+  'src/renderer/lib/components/FindInNotesDialog.svelte': 601,
   'src/preload/preload.ts': 614,
   'src/main/ipc/register-conversation-drafts.ts': 601,
 };

@@ -120,8 +120,8 @@ describe('ComputeSettings (#672)', () => {
     const { findByText, getByLabelText } = render(ComputeSettings, {});
     await findByText('Python 3.12');
 
-    const toggle = getByLabelText('Allow network access for Python cells') as HTMLInputElement;
-    expect(toggle.checked).toBe(false);
+    const toggle = getByLabelText('Allow network access for Python cells');
+    expect(toggle.getAttribute('aria-checked')).toBe('false');
 
     await fireEvent.click(toggle);
     // Persists with the saved interpreter path + the new network choice.
@@ -136,7 +136,7 @@ describe('ComputeSettings (#672)', () => {
     const { findByText, getByLabelText } = render(ComputeSettings, {});
     await findByText('Python 3.12');
 
-    expect((getByLabelText('Allow network access for Python cells') as HTMLInputElement).checked).toBe(true);
+    expect(getByLabelText('Allow network access for Python cells').getAttribute('aria-checked')).toBe('true');
   });
 
   it('Reveal audit log calls api.compute.revealAuditLog (#1413)', async () => {

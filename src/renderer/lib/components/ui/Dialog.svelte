@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
   import { onMount } from 'svelte';
+  import Eyebrow from './Eyebrow.svelte';
 
   interface Props {
     /** Card width in px. Spec defaults: confirm 440, prompt 460, palette 640. */
@@ -82,7 +83,7 @@
   >
     {#if eyebrow || title}
       <header class="card-header">
-        {#if eyebrow}<div class="eyebrow">{@render eyebrow()}</div>{/if}
+        {#if eyebrow}<div class="eyebrow-row"><Eyebrow>{@render eyebrow()}</Eyebrow></div>{/if}
         {#if title}<h2 class="title" id={titleId}>{@render title()}</h2>{/if}
         {#if subtitle}<p class="subtitle">{@render subtitle()}</p>{/if}
       </header>
@@ -136,12 +137,7 @@
   .card-header {
     padding: 20px 24px 0;
   }
-  .eyebrow {
-    font-family: var(--font-mono);
-    font-size: 10.5px;
-    color: var(--text-faint);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+  .eyebrow-row {
     margin-bottom: 6px;
   }
   .title {

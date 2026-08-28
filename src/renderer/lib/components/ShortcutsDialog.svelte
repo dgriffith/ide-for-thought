@@ -10,6 +10,7 @@
   import { api } from '../ipc/client';
   import type { ShortcutGroup } from '../ipc/client';
   import Dialog from './ui/Dialog.svelte';
+  import Kbd from './ui/Kbd.svelte';
 
   interface Props {
     onClose: () => void;
@@ -35,7 +36,7 @@
               {#each group.items as item (item.label + item.keys)}
                 <li>
                   <span class="label">{item.label}</span>
-                  <kbd>{item.keys}</kbd>
+                  <Kbd>{item.keys}</Kbd>
                 </li>
               {/each}
             </ul>
@@ -83,16 +84,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-  kbd {
-    flex-shrink: 0;
-    font-family: var(--font-mono);
-    font-size: 11px;
-    color: var(--text-muted);
-    background: var(--bg-inset);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    padding: 1px 6px;
   }
   .empty {
     color: var(--text-muted);
