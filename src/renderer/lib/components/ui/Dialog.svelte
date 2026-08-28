@@ -7,9 +7,17 @@
     width?: number;
     /** Click on the backdrop / Escape key. Both are routed here. */
     onClose?: () => void;
-    /** Optional aria-labelledby — typically the eyebrow + title elements id'd
-     *  by the caller. When omitted we set role="dialog" with no label. */
-    'aria-labelledby'?: string;
+    /** DOM id for the title heading. Sets `aria-labelledby` on the dialog to
+     *  match automatically — the id lives on the `<h2>` this component
+     *  already renders, so the caller never has to nest a second id'd
+     *  element inside the `title` snippet just to have something to point
+     *  at. Omit for role="dialog" with no accessible name (rare). */
+    titleId?: string;
+    /** Stacking tier, as a `var(--z-*)` token from global.css. Defaults to
+     *  the modal tier; a dialog that can itself be raised from inside an
+     *  already-open modal (prompt/confirm/…) must outrank it — pass
+     *  `var(--z-spawned)` (see tests/renderer/z-index-layering.test.ts). */
+    zIndex?: string;
     /** Header eyebrow (mono-uppercase). */
     eyebrow?: Snippet;
     /** Header title (display-serif H1). */
@@ -25,7 +33,8 @@
   let {
     width = 440,
     onClose,
-    'aria-labelledby': ariaLabelledBy,
+    titleId,
+    zIndex = 'var(--z-modal)',
     eyebrow,
     title,
     body,
@@ -55,18 +64,19 @@
 <div
   class="backdrop"
   onclick={onBackdropClick}
+  style:z-index={zIndex}
 >
   <div
     class="card"
     role="dialog"
     aria-modal="true"
-    aria-labelledby={ariaLabelledBy}
+    aria-labelledby={titleId}
     style:width="{width}px"
   >
     {#if eyebrow || title}
       <header class="card-header">
         {#if eyebrow}<div class="eyebrow">{@render eyebrow()}</div>{/if}
-        {#if title}<h2 class="title">{@render title()}</h2>{/if}
+        {#if title}<h2 class="title" id={titleId}>{@render title()}</h2>{/if}
       </header>
     {/if}
 
@@ -91,7 +101,8 @@
   .backdrop {
     position: fixed;
     inset: 0;
-    z-index: var(--z-modal);
+    /* z-index set via the `zIndex` prop (style:z-index above) — the tier
+       varies per caller (modal vs spawned), so it isn't a static rule. */
     display: flex;
     align-items: center;
     justify-content: center;

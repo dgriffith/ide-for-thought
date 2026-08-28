@@ -84,10 +84,14 @@ describe('modal scrim', () => {
 
   it('still paints a backdrop on the dialogs that had one', () => {
     // The opposite failure: a search-and-replace that dropped the scrim
-    // entirely would leave dialogs floating with no separation at all.
+    // entirely would leave dialogs floating with no separation at all. Two
+    // forms count: the component paints its own backdrop, or (PromptDialog /
+    // ConfirmDialog, since #1888) composes ui/Dialog.svelte, which does.
     for (const name of ['NewNoteDialog', 'PromptDialog', 'ConfirmDialog', 'SettingsDialog', 'ui/Dialog']) {
       const src = fs.readFileSync(path.join(RENDERER, `lib/components/${name}.svelte`), 'utf-8');
-      expect(src, `${name} lost its backdrop`).toContain('var(--scrim-bg)');
+      const ownBackdrop = src.includes('var(--scrim-bg)');
+      const viaDialog = /<Dialog\b/.test(src) && src.includes("from './ui/Dialog.svelte'");
+      expect(ownBackdrop || viaDialog, `${name} lost its backdrop`).toBe(true);
     }
   });
 });

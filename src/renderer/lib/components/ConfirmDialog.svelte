@@ -5,7 +5,14 @@
    * the rendering. Keeps the "Don't ask again" checkbox per CLAUDE.md
    * unless `hideDontAskAgain` is set, and the primary CTA stays on
    * the accent color even for destructive verbs (no danger styling).
+   *
+   * Renders via ui/Dialog.svelte (#1888) rather than hand-rolling the
+   * overlay/card scaffolding — Escape-to-cancel and backdrop-click are
+   * Dialog's job now; this component only owns Enter-to-confirm and its
+   * own body content (code preview / checkbox).
    */
+  import Dialog from './ui/Dialog.svelte';
+
   interface Props {
     message: string;
     confirmLabel?: string;
@@ -35,8 +42,6 @@
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === 'Enter') {
       onConfirm(dontAskAgain);
-    } else if (e.key === 'Escape') {
-      onCancel();
     }
   }
 
@@ -46,15 +51,12 @@
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="overlay" onkeydown={handleKeydown} onmousedown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
-  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-title">
-    <header class="card-header">
-      <div class="eyebrow">Confirm action</div>
-      <h2 class="title" id="confirm-dialog-title">{message}</h2>
-    </header>
-
-    {#if code !== undefined || !hideDontAskAgain}
-      <div class="body">
+<div onkeydown={handleKeydown}>
+  <Dialog width={440} zIndex="var(--z-spawned)" onClose={onCancel} titleId="confirm-dialog-title">
+    {#snippet eyebrow()}Confirm action{/snippet}
+    {#snippet title()}{message}{/snippet}
+    {#snippet body()}
+      {#if code !== undefined || !hideDontAskAgain}
         {#if code !== undefined}
           <pre class="code-preview"><code>{code}</code></pre>
         {/if}
@@ -64,76 +66,20 @@
             {dontAskLabel}
           </label>
         {/if}
-      </div>
-    {/if}
-
-    <footer class="card-footer">
-      <span class="kbd-hint">esc · cancel · ↵ confirm</span>
-      <span class="footer-actions">
-        <button class="btn secondary" onclick={onCancel}>Cancel</button>
-        <button class="btn primary" bind:this={confirmBtn} onclick={() => onConfirm(dontAskAgain)}>
-          {confirmLabel}
-          <span class="btn-kbd">↵</span>
-        </button>
-      </span>
-    </footer>
-  </div>
+      {/if}
+    {/snippet}
+    {#snippet footerLeft()}<span class="kbd-hint">esc · cancel · ↵ confirm</span>{/snippet}
+    {#snippet footerRight()}
+      <button class="btn secondary" onclick={onCancel}>Cancel</button>
+      <button class="btn primary" bind:this={confirmBtn} onclick={() => onConfirm(dontAskAgain)}>
+        {confirmLabel}
+        <span class="btn-kbd">↵</span>
+      </button>
+    {/snippet}
+  </Dialog>
 </div>
 
 <style>
-  .overlay {
-    position: fixed;
-    inset: 0;
-    z-index: var(--z-spawned);
-    background: var(--scrim-bg);
-    backdrop-filter: var(--scrim-blur);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 32px;
-  }
-
-  .dialog {
-    background: var(--bg-elev);
-    border: 1px solid var(--border-strong);
-    border-radius: 12px;
-    box-shadow:
-      0 16px 48px rgba(0, 0, 0, 0.35),
-      0 0 0 1px rgba(255, 255, 255, 0.04) inset;
-    width: 440px;
-    max-width: 100%;
-    display: flex;
-    flex-direction: column;
-    font-family: var(--font-sans);
-    color: var(--text);
-    overflow: hidden;
-  }
-
-  .card-header {
-    padding: 20px 24px 0;
-  }
-  .eyebrow {
-    font-family: var(--font-mono);
-    font-size: 10.5px;
-    color: var(--text-faint);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    margin-bottom: 6px;
-  }
-  .title {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: 19px;
-    font-weight: 500;
-    letter-spacing: -0.005em;
-    line-height: 1.3;
-    color: var(--text);
-  }
-
-  .body {
-    padding: 14px 24px 18px;
-    font-size: 13px;
-  }
   .code-preview {
     margin: 0 0 12px;
     padding: 12px 14px;
@@ -162,24 +108,10 @@
     cursor: pointer;
   }
 
-  .card-footer {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 18px;
-    border-top: 1px solid var(--border);
-    background: var(--bg);
-    border-radius: 0 0 12px 12px;
-  }
   .kbd-hint {
-    margin-right: auto;
     font-size: 10.5px;
     color: var(--text-faint);
     font-family: var(--font-mono);
-  }
-  .footer-actions {
-    display: inline-flex;
-    gap: 8px;
   }
 
   .btn {
