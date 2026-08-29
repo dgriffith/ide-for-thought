@@ -64,7 +64,7 @@ const BUDGETS: Record<string, number> = {
   'src/renderer/lib/stores/editor.svelte.ts': 1183,
     'src/renderer/lib/components/right-sidebar/PropertiesPanel.svelte': 1156,
   'src/main/menu.ts': 1072,
-  'src/main/graph/indexers.ts': 992,
+  'src/main/graph/indexers.ts': 723,
   'src/renderer/lib/components/Sidebar.svelte': 998,
   'src/renderer/lib/app/refactor-ops.svelte.ts': 827,
   'src/renderer/lib/components/SettingsDialog.svelte': 779,
