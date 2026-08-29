@@ -1,9 +1,15 @@
 /**
- * Editor store — coverage for the paths the group-model suite
- * (`tests/renderer/editor-store.test.ts`) doesn't exercise: query tabs,
- * neighborhood/pdf/source tabs, autosave/persist timers, dirty tracking +
- * reload-from-disk, non-markdown (plain-text / unsupported) opens, source-tab
- * teardown, and the query/pdf/graph/source round-trips through save + restore.
+ * Editor store — per-tab-kind behavior. Renamed from
+ * `tests/renderer/stores/editor-store.test.ts` (#1919) — its near-identical
+ * name next to `tests/renderer/editor-store.test.ts` (the group/pane-layout
+ * suite, itself renamed + moved here as `editor-store-panes.test.ts`) was a
+ * navigation hazard.
+ *
+ * Covers the paths the pane/layout suite (`editor-store-panes.test.ts`)
+ * doesn't exercise: query tabs, neighborhood/pdf/source tabs, autosave/persist
+ * timers, dirty tracking + reload-from-disk, non-markdown (plain-text /
+ * unsupported) opens, source-tab teardown, and the query/pdf/graph/source
+ * round-trips through save + restore.
  *
  * Same mock pattern as the sibling suite: `window.api` (`../ipc/client`) is
  * replaced with configurable slices, the singleton store is driven directly,
@@ -41,6 +47,13 @@ beforeEach(() => {
   h.readFile.mockImplementation(async (p: string) => `# ${p}\nbody`);
   editor.onAutoSaved = null;
   editor.clear(); // collapse to a single empty group
+});
+
+describe('getEditorStore memoization (#1919)', () => {
+  it('returns the same instance on every call, not a fresh closure set', () => {
+    expect(getEditorStore()).toBe(editor);
+    expect(getEditorStore()).toBe(getEditorStore());
+  });
 });
 
 // ── Query tabs ──────────────────────────────────────────────────────────────

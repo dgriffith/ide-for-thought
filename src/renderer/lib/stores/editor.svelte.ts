@@ -1,5 +1,4 @@
 import { api } from '../ipc/client';
-import type { TabSession, SavedTab, SavedGroup, LayoutSession } from '../../../shared/types';
 import { fileCapability, extensionOf } from '../../../shared/file-capability';
 import { normalizeSqlRows, unionColumns } from '../editor/sql-result';
 import {
@@ -9,134 +8,24 @@ import {
   splitLeaf,
   removeLeaf,
   collectGroupIds,
-  isLayoutNode,
 } from '../editor/layout-tree';
+import {
+  type EditorGroup, type Tab, type ViewMode, type TypeViewState, type TypeViewTab,
+  type NoteTab, type QueryTab, type QueryLanguage, type SourceTab, type PdfTab, type GraphTab, type UnsupportedTab,
+  isNote, isQuery, isSource, isPdf, isGraph, isTypeView, isUnsupported,
+} from '../editor/tab-types';
+import { buildSession, normalizeSession, resolveRestoredSession } from '../editor/tab-session';
 import { logger } from '../../../shared/logger';
 
 // ── Tab types ───────────────────────────────────────────────────────────────
-
-export interface NoteTab {
-  type: 'note';
-  relativePath: string;
-  fileName: string;
-  content: string;
-  savedContent: string;
-  /** True when opened in plain-text mode — a non-markdown text file (#1130).
-   *  Drives the Editor's plain-text mode (markdown behaviors off). Omitted for
-   *  markdown files. */
-  plainText?: boolean | undefined;
-  cursorOffset?: number | undefined;
-  scrollTop?: number | undefined;
-  /** Preview-pane scroll offset. Separate from `scrollTop`: the editor and the
-   *  preview lay the same note out at different heights, so sharing one number
-   *  would land the reader in the wrong place. */
-  previewScrollTop?: number | undefined;
-  /**
-   * Serialised CodeMirror `EditorState` (doc + selection + history
-   * stacks) captured on Editor unmount. Used to restore undo/redo across
-   * tab switches — without this, switching tabs and back would give you
-   * a fresh editor with empty history (#167). Memory-only; not persisted
-   * to disk since session-restore is a separate concern.
-   */
-  historyJson?: unknown;
-}
-
-export type QueryLanguage = 'sparql' | 'sql';
-
-export interface QueryTab {
-  type: 'query';
-  id: string;
-  title: string;
-  query: string;
-  language: QueryLanguage;
-  results: Record<string, string>[] | null;
-  columns: string[];
-  error: string | null;
-  executing: boolean;
-  executionTime: number | null;
-}
-
-export interface SourceTab {
-  type: 'source';
-  sourceId: string;
-  /** If the user arrived via a [[quote::id]] click, highlight this excerpt in the detail view. */
-  highlightExcerptId?: string | undefined;
-}
-
-export interface PdfTab {
-  type: 'pdf';
-  sourceId: string;
-  /** 1-based current page; viewer updates this on navigation so
-   *  reopening the tab restores the user's place. */
-  page: number;
-}
-
-export interface GraphTab {
-  type: 'graph';
-  /** The note whose link neighborhood is shown (#847). */
-  relativePath: string;
-  /** Traversal depth (1–N). */
-  depth: number;
-}
-
-export interface UnsupportedTab {
-  type: 'unsupported';
-  relativePath: string;
-  fileName: string;
-  /** Lowercased extension (with dot) or '' — drives the "no preview for `.xyz`" copy. */
-  ext: string;
-}
-
-/** Multi-view over all instances of a typed-object type (#1070). */
-export type TypeViewLayout = 'list' | 'table' | 'gallery';
-/** The view's mutable projection state — layout + sort + visible columns.
- *  Carried on the tab (persisted across sessions) and captured into a saved
- *  view (#1072). */
-export interface TypeViewState {
-  layout: TypeViewLayout;
-  /** Sort key: a property name, `__title`, or null for the intrinsic order. */
-  sortColumn: string | null;
-  sortDir: 'asc' | 'desc';
-  /** Visible property names (table); null = every declared column. */
-  columns: string[] | null;
-}
-export interface TypeViewTab extends TypeViewState {
-  type: 'type-view';
-  /** The type whose instances are shown (e.g. `book`). */
-  typeId: string;
-}
-
-export type Tab = NoteTab | QueryTab | SourceTab | PdfTab | GraphTab | TypeViewTab | UnsupportedTab;
-
-/**
- * Source / preview view mode. `'editor-preview'` = source editor + rendered
- * preview side by side (#818). Lives per editor group (#811) — moved off the
- * App.svelte global so each split pane can carry its own mode.
- */
-export type ViewMode = 'source' | 'preview' | 'editor-preview';
-
-/**
- * One editor group — an independent pane owning its own tab strip, active tab,
- * and view mode (#811). Until pane-splitting lands (#813+) there is exactly one
- * group, so every "active group" delegate below reproduces the old singleton
- * behavior bit-for-bit.
- */
-export interface EditorGroup {
-  id: string;
-  tabs: Tab[];
-  activeIndex: number;
-  viewMode: ViewMode;
-}
-
-// ── Helpers ─────────────────────────────────────────────────────────────────
-
-function isNote(tab: Tab): tab is NoteTab { return tab.type === 'note'; }
-function isQuery(tab: Tab): tab is QueryTab { return tab.type === 'query'; }
-function isSource(tab: Tab): tab is SourceTab { return tab.type === 'source'; }
-function isPdf(tab: Tab): tab is PdfTab { return tab.type === 'pdf'; }
-function isGraph(tab: Tab): tab is GraphTab { return tab.type === 'graph'; }
-function isTypeView(tab: Tab): tab is TypeViewTab { return tab.type === 'type-view'; }
-function isUnsupported(tab: Tab): tab is UnsupportedTab { return tab.type === 'unsupported'; }
+// Moved to ../editor/tab-types.ts (#1919) so the session-serialization module
+// below can share them without importing this store (which would cycle back
+// into it). Re-exported here so existing `from '../stores/editor.svelte'`
+// imports across the renderer are unaffected.
+export type {
+  NoteTab, QueryLanguage, QueryTab, SourceTab, PdfTab, GraphTab, UnsupportedTab,
+  TypeViewLayout, TypeViewState, TypeViewTab, Tab, ViewMode, EditorGroup,
+} from '../editor/tab-types';
 
 let queryCounter = 0;
 let groupCounter = 0;
@@ -165,7 +54,19 @@ let onAutoSaved: (() => void) | null = null;
 const AUTO_SAVE_DELAY = 1000;
 const TAB_PERSIST_DELAY = 500;
 
+/**
+ * Memoized (#1919): `groups`/`activeGroupId`/`layout` above are already
+ * module-level `$state`, so every call used to rebuild an identical closure
+ * set over the same shared state — wasted work, and a shape that invites the
+ * (false) assumption that a fresh call gets fresh state. One instance, built
+ * on first call.
+ */
+let editorStore: ReturnType<typeof buildEditorStore> | undefined;
 export function getEditorStore() {
+  return editorStore ??= buildEditorStore();
+}
+
+function buildEditorStore() {
   function activeGroup(): EditorGroup {
     return groups.find((g) => g.id === activeGroupId) ?? groups[0]!;
   }
@@ -670,33 +571,11 @@ export function getEditorStore() {
     }, TAB_PERSIST_DELAY);
   }
 
-  function toSavedTab(t: Tab): SavedTab {
-    if (isNote(t)) {
-      return {
-        type: 'note',
-        relativePath: t.relativePath,
-        ...(t.plainText ? { plainText: true } : {}),
-        ...(t.cursorOffset !== undefined ? { cursorOffset: t.cursorOffset } : {}),
-        ...(t.scrollTop !== undefined ? { scrollTop: t.scrollTop } : {}),
-        ...(t.previewScrollTop !== undefined ? { previewScrollTop: t.previewScrollTop } : {}),
-      };
-    } else if (isUnsupported(t)) {
-      return { type: 'unsupported', relativePath: t.relativePath };
-    } else if (isQuery(t)) {
-      return { type: 'query', title: t.title, query: t.query, language: t.language };
-    } else if (isPdf(t)) {
-      return { type: 'pdf', sourceId: t.sourceId, page: t.page };
-    } else if (isGraph(t)) {
-      return { type: 'graph', relativePath: t.relativePath, depth: t.depth };
-    } else if (isTypeView(t)) {
-      return { type: 'type-view', typeId: t.typeId, layout: t.layout, sortColumn: t.sortColumn, sortDir: t.sortDir, columns: t.columns };
-    } else {
-      return {
-        type: 'source',
-        sourceId: t.sourceId,
-        ...(t.highlightExcerptId !== undefined ? { highlightExcerptId: t.highlightExcerptId } : {}),
-      };
-    }
+  /** `nextQueryId` shared with `openQuery` below so a restored query tab's id
+   *  can never collide with one opened fresh in the same session. */
+  function nextQueryId(): string {
+    queryCounter++;
+    return `query-${queryCounter}-${Date.now()}`;
   }
 
   function persistTabs() {
@@ -705,183 +584,33 @@ export function getEditorStore() {
     //
     // Snapshot the whole session rather than just `layout` (which was already
     // snapshotted for the reason below). Defence in depth, not a known break:
-    // `toSavedTab` copies some fields off `$state` tabs by reference — a
+    // `buildSession` copies some fields off `$state` tabs by reference — a
     // type-view tab's `columns`, for one — and whether such a value comes back
     // as a Svelte Proxy is subtle enough that it isn't worth betting session
     // restore on. The structured-clone IPC boundary rejects a Proxy outright,
     // and one slipping through would silently lose the whole save.
-    const session: LayoutSession = {
-      version: 2,
-      activeGroupId,
-      groups: groups.map((g): SavedGroup => ({
-        id: g.id,
-        activeIndex: g.activeIndex,
-        viewMode: g.viewMode,
-        tabs: g.tabs.map(toSavedTab),
-      })),
-      layout,
-    };
+    const session = buildSession(groups, activeGroupId, layout);
     // Surfacing beats a silent `void`: a rejected save means the session won't
     // come back next launch, and losing that quietly is how this went unseen.
     void api.tabs.save($state.snapshot(session))
       .catch((e: unknown) => { logger('tabs').error('failed to persist session:', e); });
   }
 
-  /** Reconstruct a live tab from its persisted form. Notes read their file
-   *  back (returning null if it was deleted since last session, so the tab is
-   *  dropped); the other kinds rehydrate from saved fields. */
-  async function reconstructTab(saved: SavedTab): Promise<Tab | null> {
-    if (saved.type === 'note') {
-      try {
-        const text = await api.notebase.readFile(saved.relativePath);
-        const fileName = saved.relativePath.split('/').pop() ?? '';
-        return {
-          type: 'note',
-          relativePath: saved.relativePath,
-          fileName,
-          content: text,
-          savedContent: text,
-          ...(saved.plainText ? { plainText: true } : {}),
-          cursorOffset: saved.cursorOffset,
-          scrollTop: saved.scrollTop,
-          previewScrollTop: saved.previewScrollTop,
-        };
-      } catch {
-        return null; // file deleted since last session
-      }
-    } else if (saved.type === 'unsupported') {
-      const fileName = saved.relativePath.split('/').pop() ?? '';
-      return { type: 'unsupported', relativePath: saved.relativePath, fileName, ext: extensionOf(saved.relativePath) };
-    } else if (saved.type === 'query') {
-      queryCounter++;
-      return {
-        type: 'query',
-        id: `query-${queryCounter}-${Date.now()}`,
-        title: saved.title,
-        query: saved.query,
-        language: saved.language ?? 'sparql',
-        results: null,
-        columns: [],
-        error: null,
-        executing: false,
-        executionTime: null,
-      };
-    } else if (saved.type === 'pdf') {
-      return { type: 'pdf', sourceId: saved.sourceId, page: saved.page ?? 1 };
-    } else if (saved.type === 'graph') {
-      return { type: 'graph', relativePath: saved.relativePath, depth: saved.depth ?? 1 };
-    } else if (saved.type === 'type-view') {
-      return {
-        type: 'type-view',
-        typeId: saved.typeId,
-        layout: saved.layout ?? 'table',
-        sortColumn: saved.sortColumn ?? null,
-        sortDir: saved.sortDir ?? 'asc',
-        columns: saved.columns ?? null,
-      };
-    } else {
-      return { type: 'source', sourceId: saved.sourceId, highlightExcerptId: saved.highlightExcerptId };
-    }
-  }
-
-  function asViewMode(v: unknown): ViewMode {
-    return v === 'preview' || v === 'editor-preview' || v === 'source' ? v : 'source';
-  }
-
-  /** Cross-pane identity of a persisted tab, for the forbid-duplicate dedup on
-   *  restore (#815). Queries have no shared-buffer identity (each is its own
-   *  scratch buffer), so they return null and are never deduped. */
-  function savedTabIdentity(t: SavedTab): string | null {
-    if (t.type === 'note') return `note:${t.relativePath}`;
-    if (t.type === 'source') return `source:${t.sourceId}`;
-    if (t.type === 'pdf') return `pdf:${t.sourceId}`;
-    if (t.type === 'type-view') return `type-view:${t.typeId}`;
-    return null;
-  }
-
-  /** Coerce whatever is on disk into the current multi-group shape. New
-   *  sessions pass through; a legacy flat `TabSession` migrates to a single
-   *  group (#816); anything else (null / empty / unrecognised) → null, so the
-   *  caller keeps the start-of-session empty group. */
-  function normalizeSession(raw: LayoutSession | TabSession | null): LayoutSession | null {
-    if (!raw || typeof raw !== 'object') return null;
-    if ('groups' in raw && Array.isArray(raw.groups)) {
-      return raw.groups.length > 0 ? raw : null;
-    }
-    if ('tabs' in raw && Array.isArray(raw.tabs)) {
-      if (raw.tabs.length === 0) return null;
-      const id = newGroupId();
-      return {
-        version: 2,
-        activeGroupId: id,
-        groups: [{ id, activeIndex: raw.activeIndex ?? 0, viewMode: 'source', tabs: raw.tabs }],
-        layout: { kind: 'leaf', groupId: id },
-      };
-    }
-    return null;
-  }
-
   async function restoreTabs() {
-    const session = normalizeSession(await api.tabs.load());
+    const session = normalizeSession(await api.tabs.load(), newGroupId);
     if (!session) return; // nothing saved or corrupt → keep the default empty group
 
-    // Rebuild each group, dropping note tabs whose files have since vanished
-    // and any duplicate of a tab already restored in an earlier pane — the
-    // forbid-duplicate-open invariant (#815) must hold even if the on-disk
-    // session was hand-edited or written by an older build.
-    const seen = new Set<string>();
-    const restored: EditorGroup[] = [];
-    for (const sg of session.groups) {
-      const tabs: Tab[] = [];
-      for (const saved of sg.tabs) {
-        const identity = savedTabIdentity(saved);
-        if (identity && seen.has(identity)) continue;
-        const tab = await reconstructTab(saved);
-        if (tab) {
-          tabs.push(tab);
-          if (identity) seen.add(identity);
-        }
-      }
-      const activeIndex =
-        sg.activeIndex >= 0 && sg.activeIndex < tabs.length
-          ? sg.activeIndex
-          : tabs.length > 0 ? 0 : -1;
-      restored.push({ id: sg.id, tabs, activeIndex, viewMode: asViewMode(sg.viewMode) });
-    }
-    if (restored.length === 0) return;
-
-    // The saved layout must structurally match the restored groups exactly
-    // (every leaf ↔ a live group, no orphans). If it doesn't, we can't trust
-    // the tree — recover by merging every restored tab into one pane rather
-    // than rendering a broken split or crashing.
-    const ids = new Set(restored.map((g) => g.id));
-    // SavedLayoutNode is structurally a LayoutNode; isLayoutNode still guards
-    // against a corrupt on-disk tree that doesn't match the declared shape.
-    const savedLayout = session.layout;
-    const layoutOk =
-      isLayoutNode(savedLayout) &&
-      (() => {
-        const leaves = collectGroupIds(savedLayout);
-        return leaves.length === ids.size && leaves.every((id) => ids.has(id));
-      })();
+    // Rebuild each group (dropping vanished files + forbid-duplicate-open
+    // dedup, #815) and validate the saved layout against it, falling back to
+    // one merged pane if the tree doesn't structurally match — see
+    // `resolveRestoredSession` in editor/tab-session.ts.
+    const resolved = await resolveRestoredSession(session, nextQueryId);
+    if (!resolved) return;
 
     groups.length = 0;
-    if (layoutOk) {
-      groups.push(...restored);
-      layout = savedLayout;
-      activeGroupId = ids.has(session.activeGroupId) ? session.activeGroupId : restored[0]!.id;
-    } else {
-      const merged: EditorGroup = {
-        id: restored[0]!.id,
-        tabs: restored.flatMap((g) => g.tabs),
-        activeIndex: -1,
-        viewMode: restored[0]!.viewMode,
-      };
-      merged.activeIndex = merged.tabs.length > 0 ? 0 : -1;
-      groups.push(merged);
-      layout = leaf(merged.id);
-      activeGroupId = merged.id;
-    }
+    groups.push(...resolved.groups);
+    layout = resolved.layout;
+    activeGroupId = resolved.activeGroupId;
 
     // `groupCounter` reset to 0 at launch; restored ids came from disk. Advance
     // it past the highest restored `group-N` so a later split can't re-mint an
