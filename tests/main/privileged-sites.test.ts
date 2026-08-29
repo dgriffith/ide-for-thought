@@ -91,6 +91,28 @@ describe('partitionFor', () => {
   });
 });
 
+describe('readFile config-loader migration (#1913)', () => {
+  it('reports and returns an empty list for a corrupt config, instead of silently defaulting', () => {
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    fs.writeFileSync(path.join(h.userData.value, 'privileged-sites.json'), '{ not valid json', 'utf-8');
+
+    expect(listSites()).toEqual([]);
+    expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
+    expect(consoleErrorSpy.mock.calls[0]![0]).toContain('[config] failed to');
+    consoleErrorSpy.mockRestore();
+  });
+
+  it('drops a malformed site entry but keeps the valid ones alongside it', () => {
+    const malformed = { id: 'bad', domain: 'bad.example', label: 'Bad', addedAt: '2026-01-01T00:00:00.000Z' }; // missing lastLoginAt
+    const good = addSite('arxiv.org');
+    const data = JSON.parse(fs.readFileSync(path.join(h.userData.value, 'privileged-sites.json'), 'utf-8'));
+    data.sites.push(malformed);
+    fs.writeFileSync(path.join(h.userData.value, 'privileged-sites.json'), JSON.stringify(data));
+
+    expect(listSites()).toEqual([good]);
+  });
+});
+
 describe('addSite / listSites', () => {
   it('starts empty and persists an added site', () => {
     expect(listSites()).toEqual([]);

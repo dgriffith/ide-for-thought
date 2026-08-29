@@ -241,9 +241,22 @@ can't quietly grow while nobody re-reads it:
   through the shared `as*` decoders (`asString`/`asBool`/`asFiniteNumber`/`asEnum`/
   `asRecord`/`asStringArray`), so each config's `decode(raw)` reads as its schema.
 - Migrated so far: `sources/ingest-settings`, `compute/python-settings`,
-  `project-config`, `config/inspection-settings`, `history/settings`. Still
-  hand-rolled (migrate when you touch them): `clipper-config` (decrypt + lazy
-  secret upgrade), `llm/settings` (nested providers/models), `menu-config-store`.
+  `project-config`, `config/inspection-settings`, `history/settings`,
+  `recent-projects`, `session`, `privileged-sites`, `compute/consent`,
+  `publish/exporters/static-site/site-config`, `llm/conversation` (`loadUIState`
+  only — its other `JSON.parse`/`readFile` calls load conversation transcripts,
+  a different file shape). `config/project-config-store.ts`'s
+  `readRawProjectConfig` is a deliberate exception (#1913): it must THROW on a
+  corrupt file rather than default, so a patch is never merged onto a silently-
+  emptied file (#1891) — incompatible with `loadConfigFile`'s never-throw
+  contract, so it stays hand-rolled but reports via `reportConfigError` before
+  rethrowing. Still hand-rolled (migrate when you touch them): `clipper-config`
+  (decrypt + lazy secret upgrade), `llm/settings` (nested providers/models),
+  `menu-config-store`. `tests/architecture/config-loader-usage.test.ts` (#1913)
+  ratchets this list itself — a new hand-rolled disk-read+`JSON.parse` config
+  reader fails a test instead of staying invisible the way the six above did
+  (`config-roots-doc.test.ts` only checks *where* a config lives, not *how* it's
+  read).
 - **Where each config lives** is inventoried in `docs/config-roots.md` — the
   three roots (`userData/`, `~/.minerva/`, `<thoughtbase>/.minerva/`) and which
   ones hold secrets. The `userData/` table is checked against the code by

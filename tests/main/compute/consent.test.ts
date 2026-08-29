@@ -91,6 +91,19 @@ describe('compute consent (#1412)', () => {
   });
 });
 
+describe('config-loader migration (#1913)', () => {
+  it('reports and falls back to no consent for a corrupt file, instead of silently defaulting', () => {
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    fs.mkdirSync(userDataDir, { recursive: true });
+    fs.writeFileSync(path.join(userDataDir, 'compute-consent.json'), '{ not valid json', 'utf-8');
+
+    expect(consentStatus(PROJECT, 'python', 'print(1)')).toBe('none');
+    expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
+    expect(consoleErrorSpy.mock.calls[0]![0]).toContain('[config] failed to');
+    consoleErrorSpy.mockRestore();
+  });
+});
+
 describe('compute trust management (#1413)', () => {
   it('listConsent is empty before anything is trusted', () => {
     expect(listConsent()).toEqual([]);
