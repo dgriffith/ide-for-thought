@@ -15,6 +15,7 @@
 
 import CSL, { Engine as CslEngine } from 'citeproc';
 import type { CslItem } from './source-to-csl';
+import { escapeHtmlFull as escapeHtml } from '../../../shared/text-escape';
 
 export interface RenderedBibliography {
   entries: string[];
@@ -215,11 +216,3 @@ export class CitationRenderer {
   }
 }
 
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}

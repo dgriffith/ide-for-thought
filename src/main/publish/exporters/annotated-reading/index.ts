@@ -17,6 +17,7 @@ import { resolveAnnotatedReading } from './resolve';
 import { renderAnnotatedReading } from './render';
 import type { Exporter, ExportPlanFile } from '../../types';
 import { isIgnoredEntry } from '../../../notebase/ignored-dirs';
+import { slugifyId } from '../../../../shared/slug';
 
 export const annotatedReadingExporter: Exporter = {
   id: 'annotated-reading-html',
@@ -127,5 +128,5 @@ function titleFromContent(content: string, fallbackName: string): string {
 }
 
 function slugify(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'source';
+  return slugifyId(s) || 'source';
 }

@@ -47,6 +47,7 @@ import {
   type VegaRows,
 } from '../../../shared/vega/data-binding';
 import { findCellOutput } from '../../../shared/compute/cell-output';
+import { escapeHtml } from '../../../shared/text-escape';
 
 type VegaView = { finalize: () => void };
 type VegaEmbed = (
@@ -377,13 +378,6 @@ function renderErrorHtml(msg: string): string {
 function renderNoticeHtml(title: string, body: string): string {
   // `body` already contains escaped interpolations; the literal copy is safe.
   return `<div class="vega-notice" role="note"><strong>${escapeHtml(title)}</strong><p>${body}</p></div>`;
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
 }
 
 // Exported for unit tests — the spec-scan and JSON guardrail are the security

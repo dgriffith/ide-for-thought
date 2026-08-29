@@ -1,5 +1,6 @@
 import { EditorView } from '@codemirror/view';
 import { LINK_TYPES, type LinkType } from '../../../shared/link-types';
+import { escapeRegex } from '../../../shared/text-escape';
 import {
   HIGHLIGHT_PALETTE,
   scanHighlights,
@@ -228,10 +229,6 @@ function makeLinePrefixToggle(prefix: string, numbered = false): Command {
     view.dispatch({ changes });
     return true;
   };
-}
-
-function escapeRegex(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 export const toggleH1: Command = makeLinePrefixToggle('# ');

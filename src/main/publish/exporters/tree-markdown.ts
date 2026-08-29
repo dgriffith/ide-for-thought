@@ -20,6 +20,7 @@ import {
   rewriteWikiLinksInContent,
 } from '../link-resolver';
 import type { Exporter, ExportPlan, ExportPlanFile } from '../types';
+import { slugifyId } from '../../../shared/slug';
 
 export const treeMarkdownExporter: Exporter = {
   id: 'tree-markdown',
@@ -84,11 +85,7 @@ export const treeMarkdownExporter: Exporter = {
 };
 
 function slugify(s: string): string {
-  return s
-    .toLowerCase()
-    .replace(/\.md$/i, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '') || 'tree';
+  return slugifyId(s.replace(/\.md$/i, '')) || 'tree';
 }
 
 // Re-export the type so the exporter's `run` signature hangs together

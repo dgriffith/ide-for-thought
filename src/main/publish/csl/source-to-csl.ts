@@ -9,6 +9,7 @@
  * `family` / `given` because APA-style inline marks need the family
  * name alone: "(Brooks, 1987)" rather than "(Frederick P. Brooks, 1987)").
  */
+import { escapeRegex } from '../../../shared/text-escape';
 
 export interface CslName {
   family?: string | undefined;
@@ -124,10 +125,6 @@ function extractIri(ttl: string, predicate: string): string | null {
   const re = new RegExp(`${escapeRegex(predicate)}\\s+<([^>]+)>`);
   const m = ttl.match(re);
   return m ? m[1]! : null;
-}
-
-function escapeRegex(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 // ── Author-name heuristics ─────────────────────────────────────────────────

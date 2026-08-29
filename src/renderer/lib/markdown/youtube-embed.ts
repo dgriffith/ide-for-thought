@@ -16,6 +16,7 @@
  */
 
 import { parseYouTubeUrl, thumbnailUrl } from '../../../shared/youtube/youtube';
+import { escapeHtml, escapeAttr } from '../../../shared/text-escape';
 
 /** Build the poster-card HTML for a `youtube` fence body, or an inline error
  *  if the URL doesn't parse as a YouTube video. */
@@ -52,13 +53,3 @@ export function renderYouTubeFence(body: string): string {
     + `</a>`;
 }
 
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
-
-function escapeAttr(s: string): string {
-  return escapeHtml(s).replace(/"/g, '&quot;');
-}

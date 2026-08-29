@@ -6,6 +6,7 @@ import * as graph from '../graph/index';
 import { projectContext } from '../project-context-types';
 import { isIndexable } from './indexable-files';
 import { logger } from '../../shared/logger';
+import { stripFrontmatter } from '../../shared/frontmatter-strip';
 
 /**
  * Merge note (#464). Append the source note's body to a target note,
@@ -21,8 +22,6 @@ import { logger } from '../../shared/logger';
  * the project in whatever state the partial writes produced — recovery
  * is `git reset --hard HEAD` per Minerva's git-as-undo model.
  */
-
-const FRONTMATTER_RE = /^---\r?\n[\s\S]*?\r?\n---\r?\n?/;
 
 export interface MergePreview {
   /** Number of wiki-link occurrences across the project that will be
@@ -222,10 +221,6 @@ export async function mergeNotes(
     rewrittenPaths,
     deletedSource: sourceRelPath,
   };
-}
-
-function stripFrontmatter(content: string): string {
-  return content.replace(FRONTMATTER_RE, '');
 }
 
 function countLines(s: string): number {
