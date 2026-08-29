@@ -27,14 +27,16 @@
  * statement / 0% branch coverage everywhere else, reached only by a shared
  * fixture that asserted one narrow thing about it.
  *
- *   - it does NOT claim the registrar is thoroughly tested — two of the 24,
- *     `register-templates` and `register-refactor`, are STILL reached only by
- *     the shared no-project contract test (`tests/main/ipc/no-project-
- *     contract.test.ts`), which asserts one thing about each (that they throw
- *     with no project open) and exercises none of their actual handler logic.
- *     Those two are today's version of what `register-proposals` was before
- *     #1924 gave it a real test — this check cannot tell them apart from a
- *     thoroughly-tested registrar, and won't until each gets one;
+ *   - it does NOT claim the registrar is thoroughly tested — it can only tell
+ *     you SOME test imports the module, not that its handlers' actual logic
+ *     is exercised. `register-proposals` (#1924), `register-refactor`, and
+ *     `register-templates` (both #1901) were all once "covered" by this check
+ *     while sitting on the shared no-project contract test
+ *     (`tests/main/ipc/no-project-contract.test.ts`) alone — which asserts
+ *     one narrow thing (a no-project throw, or one channel's null/found/error
+ *     branches) and left the rest of each module's handlers untouched. All
+ *     three now have a dedicated test file; the pattern can recur for any
+ *     registrar this check can't distinguish from a thoroughly-tested one;
  *   - it DOES catch the case this test exists for: a brand-new registrar
  *     landing with nothing exercising it at all.
  *

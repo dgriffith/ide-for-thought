@@ -239,6 +239,34 @@ export default defineConfig({
           statements: 90,
           branches: 78,
         },
+        // A fourth case of the same shape (#1901): 10 of this file's 12
+        // channels had ZERO test references anywhere, including
+        // REFACTOR_AUTO_TAG_APPLY / REFACTOR_AUTO_LINK_INBOUND_APPLY — the two
+        // that delegate to the LLM apply paths CLAUDE.md's Write Guard section
+        // names as arming `withLLMContext`. That guard now has its own
+        // dedicated test against a real graph
+        // (`tests/main/llm/auto-tag-auto-link-write-guard.test.ts`); this file
+        // is the shallow delegation coverage for all 12 IPC channels
+        // (`register-refactor.test.ts`). 100% across the board; floors sit
+        // just under.
+        'src/main/ipc/register-refactor.ts': {
+          lines: 90,
+          functions: 90,
+          statements: 90,
+          branches: 74,
+        },
+        // The other #1901 gap `ipc-registrar-coverage.test.ts` named:
+        // TEMPLATES_LIST / TEMPLATES_SAVE_AS had no test anywhere (only
+        // TEMPLATES_GET was covered, by the shared no-project contract test).
+        // Now 100% across the board via `register-templates.test.ts`
+        // (TEMPLATES_LIST / TEMPLATES_SAVE_AS) plus `no-project-contract.test.ts`
+        // (TEMPLATES_GET's null/found/error branches); floors sit just under.
+        'src/main/ipc/register-templates.ts': {
+          lines: 90,
+          functions: 90,
+          statements: 90,
+          branches: 90,
+        },
         // Neglected top-level main modules — previously unfenced (#1100 / QA
         // H1). These sit at `src/main/*.ts` (no directory of their own), so
         // each gets its own per-file floor set ~10pts below the measured-at-
