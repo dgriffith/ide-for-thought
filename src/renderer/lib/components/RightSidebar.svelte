@@ -4,8 +4,7 @@
   import FootnotesPanel from './right-sidebar/FootnotesPanel.svelte';
   import PropertiesPanel from './right-sidebar/PropertiesPanel.svelte';
   import HistoryPanel from './right-sidebar/HistoryPanel.svelte';
-  import OutgoingLinksPanel from './right-sidebar/OutgoingLinksPanel.svelte';
-  import BacklinksPanel from './right-sidebar/BacklinksPanel.svelte';
+  import LinkListPanel from './right-sidebar/LinkListPanel.svelte';
   import RelatedPanel from './right-sidebar/RelatedPanel.svelte';
   import TagsPanel from './right-sidebar/TagsPanel.svelte';
   import BookmarksPanel from './right-sidebar/BookmarksPanel.svelte';
@@ -259,9 +258,9 @@
            history store, which owns the `history:changed` subscription. -->
       <HistoryPanel {activeFilePath} {content} />
     {:else if activePanel === 'outgoing'}
-      <OutgoingLinksPanel {activeFilePath} {revision} {onFileSelect} {...(onOpenGraph !== undefined ? { onOpenGraph } : {})} />
+      <LinkListPanel direction="outgoing" {activeFilePath} {revision} {onFileSelect} {...(onOpenGraph !== undefined ? { onOpenGraph } : {})} />
     {:else if activePanel === 'backlinks'}
-      <BacklinksPanel {activeFilePath} {revision} {onFileSelect} {...(onOpenGraph !== undefined ? { onOpenGraph } : {})} />
+      <LinkListPanel direction="backlinks" {activeFilePath} {revision} {onFileSelect} {...(onOpenGraph !== undefined ? { onOpenGraph } : {})} />
     {:else if activePanel === 'related'}
       <RelatedPanel {activeFilePath} {revision} {indexing} {onFileSelect} {...(onNavigate !== undefined ? { onNavigate } : {})} onOpenSource={onOpenSource} onOpenExcerpt={onOpenExcerpt} />
     {:else if activePanel === 'tags'}
