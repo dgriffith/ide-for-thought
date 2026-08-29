@@ -101,6 +101,22 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
+describe('SourcesPanel — collections-changed subscription teardown (#1890)', () => {
+  it('unsubscribes from onCollectionsChanged when unmounted', async () => {
+    // The panel lives behind a sidebar {#if} — switching tabs destroys and
+    // recreates it. Before #1890 fixed onCollectionsChanged's return type to
+    // () => void, the component couldn't capture (or call) the unsubscriber,
+    // so every tab switch leaked another listener.
+    const unsubscribe = vi.fn();
+    h.sourceData.onCollectionsChanged.mockReturnValue(unsubscribe);
+    const { unmount } = render(SourcesPanel, props());
+    await waitFor(() => expect(h.sourceData.onCollectionsChanged).toHaveBeenCalledTimes(1));
+    expect(unsubscribe).not.toHaveBeenCalled();
+    unmount();
+    expect(unsubscribe).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('SourcesPanel (baseline)', () => {
   it('renders the source list and the "All sources" count from listAll', async () => {
     render(SourcesPanel, props());

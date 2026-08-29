@@ -58,9 +58,9 @@ export interface NotebaseApi {
   onFileChanged(cb: (path: string) => void): () => void;
   onFileCreated(cb: (path: string) => void): () => void;
   onFileDeleted(cb: (path: string) => void): () => void;
-  onRenamed(cb: (transitions: Array<{ old: string; new: string }>) => void): void;
+  onRenamed(cb: (transitions: Array<{ old: string; new: string }>) => void): () => void;
   onRewritten(cb: (paths: string[]) => void): () => void;
-  onHeadingRenameSuggested(cb: (candidate: HeadingRenameCandidate) => void): void;
+  onHeadingRenameSuggested(cb: (candidate: HeadingRenameCandidate) => void): () => void;
   renameAnchor(targetRelativePath: string, oldSlug: string, newSlug: string): Promise<{ rewrittenPaths: string[] }>;
   renameSource(oldId: string, newId: string): Promise<{ rewrittenPaths: string[] }>;
   renameExcerpt(oldId: string, newId: string): Promise<{ rewrittenPaths: string[] }>;
@@ -200,23 +200,23 @@ export interface TablesApi {
   query(sql: string): Promise<TablesQueryResult>;
   list(): Promise<TableInfo[]>;
   /** Fires when a CSV is registered/unregistered or the initial scan completes. */
-  onChanged(cb: () => void): void;
+  onChanged(cb: () => void): () => void;
   /** Fires when two CSVs derive the same DuckDB table name and the
    *  second was skipped (#354). Renderer surfaces a suppressible
    *  toast pointing at `table_name:` as the fix. */
-  onNameCollision(cb: (collision: import('../../../shared/types').CsvTableCollision) => void): void;
+  onNameCollision(cb: (collision: import('../../../shared/types').CsvTableCollision) => void): () => void;
 }
 
 /** File ▸ maintenance operations report progress + completion here (#1814);
  *  they run in main, kicked off from the native menu, so this event is the
  *  renderer's only view of them. */
 interface MaintenanceApi {
-  onProgress(cb: (p: MaintenanceProgress) => void): void;
+  onProgress(cb: (p: MaintenanceProgress) => void): () => void;
 }
 
 export interface EmbeddingsApi {
   /** Fires as the semantic-index backfill progresses; `running: false` on completion (#836). */
-  onBackfillProgress(cb: (p: { done: number; total: number; running: boolean }) => void): void;
+  onBackfillProgress(cb: (p: { done: number; total: number; running: boolean }) => void): () => void;
   /** Notes semantically related to `relativePath`, for the Related panel (#838). */
   related(relativePath: string, limit?: number): Promise<import('../../../shared/types').RelatedNotesResult>;
   /** Notes that semantically mention an object (by title/aliases) but don't link
@@ -622,9 +622,9 @@ export interface ConversationsApi {
   ): Promise<Conversation>;
   loadUIState(): Promise<import('../../../shared/conversation').ConversationsUIState>;
   saveUIState(state: import('../../../shared/conversation').ConversationsUIState): Promise<void>;
-  onAskUser(cb: (req: import('../../../shared/conversation-tools').AskUserRequest) => void): void;
+  onAskUser(cb: (req: import('../../../shared/conversation-tools').AskUserRequest) => void): () => void;
   askUserReply(questionId: string, answer: string): Promise<void>;
-  onStream(cb: (chunk: string) => void): void;
+  onStream(cb: (chunk: string) => void): () => void;
   cancel(): Promise<void>;
   setModel(conversationId: string, model: string | undefined): Promise<Conversation>;
   /** Per-conversation reasoning-effort override (#825). Pass undefined to
@@ -637,7 +637,7 @@ export interface ConversationsApi {
    *  conversation, archiving the original. */
   compact(conversationId: string): Promise<import('../../../shared/conversation').CompactResult>;
   /** Subscribe to drafts produced by the propose_notes tool. Drafts are scoped per conversation. */
-  onDraft(cb: (draft: import('../../../shared/conversation-drafts').ConversationDraft) => void): void;
+  onDraft(cb: (draft: import('../../../shared/conversation-drafts').ConversationDraft) => void): () => void;
   /** File a draft as a Proposal AND auto-approve it (the user already reviewed the inline card). */
   fileDraft(
     draft: import('../../../shared/conversation-drafts').ConversationDraft,
@@ -734,11 +734,11 @@ export interface ProposalsApi {
   expire(): Promise<number>;
   /** Fires when the pending-proposal set changes (in-app or routed from a
    *  CLI/MCP client) — the proposals store re-fetches on it (#1524). */
-  onChanged(cb: () => void): void;
+  onChanged(cb: () => void): () => void;
   /** Raise a native OS notification for an arrival while unfocused (#1541). */
   notifyArrival(arg: { count: number; proposer: string }): Promise<void>;
   /** Main → renderer: surface the Proposals panel (native notification clicked). */
-  onShowRequested(cb: () => void): void;
+  onShowRequested(cb: () => void): () => void;
 }
 
 export interface TabsApi {
@@ -833,7 +833,7 @@ export interface ToolsApi {
   execute(request: ToolExecutionRequest): Promise<ToolExecutionResult>;
   prepareConversation(request: ToolExecutionRequest): Promise<ConversationToolPayload>;
   cancel(): Promise<void>;
-  onStream(cb: (chunk: string) => void): void;
+  onStream(cb: (chunk: string) => void): () => void;
   getSettings(): Promise<import('../../../shared/tools/types').LLMSettingsView>;
   setSettings(update: import('../../../shared/tools/types').LLMSettingsUpdate): Promise<void>;
   getKeyStorage(): Promise<import('../../../shared/tools/types').ApiKeyStorage>;
@@ -845,7 +845,7 @@ export interface ToolsApi {
     candidateKey?: string,
     baseURL?: string,
   ): Promise<import('../../../shared/tools/types').ConnectionCheckResult>;
-  onInvoke(cb: (toolId: string) => void): void;
+  onInvoke(cb: (toolId: string) => void): () => void;
 }
 
 export interface TypesApi {
@@ -885,74 +885,74 @@ export interface SkillsApi {
 }
 
 export interface MenuApi {
-  onNewNote(cb: () => void): void;
-  onEditThoughtbaseDoc(cb: () => void): void;
-  onThoughtbaseProperties(cb: () => void): void;
-  onSave(cb: () => void): void;
-  onSaveAsTemplate(cb: () => void): void;
-  onSaveAsObjectType(cb: () => void): void;
-  onInsertTemplate(cb: () => void): void;
-  onToggleSidebar(cb: () => void): void;
-  onTogglePreview(cb: () => void): void;
-  onQuickOpen(cb: () => void): void;
-  onCycleTheme(cb: () => void): void;
-  onSetTheme(cb: (mode: ThemeMode) => void): void;
+  onNewNote(cb: () => void): () => void;
+  onEditThoughtbaseDoc(cb: () => void): () => void;
+  onThoughtbaseProperties(cb: () => void): () => void;
+  onSave(cb: () => void): () => void;
+  onSaveAsTemplate(cb: () => void): () => void;
+  onSaveAsObjectType(cb: () => void): () => void;
+  onInsertTemplate(cb: () => void): () => void;
+  onToggleSidebar(cb: () => void): () => void;
+  onTogglePreview(cb: () => void): () => void;
+  onQuickOpen(cb: () => void): () => void;
+  onCycleTheme(cb: () => void): () => void;
+  onSetTheme(cb: (mode: ThemeMode) => void): () => void;
   reportTheme(mode: ThemeMode): void;
   reportEditorState(state: MenuEditorState): void;
-  onSplitRight(cb: () => void): void;
-  onSplitDown(cb: () => void): void;
-  onFocusNextGroup(cb: () => void): void;
-  onFocusPrevGroup(cb: () => void): void;
-  onCloseGroup(cb: () => void): void;
-  onFontIncrease(cb: () => void): void;
-  onFontDecrease(cb: () => void): void;
-  onFontReset(cb: () => void): void;
-  onToggleRightSidebar(cb: () => void): void;
-  onToggleConversations(cb: () => void): void;
-  onNewConversation(cb: () => void): void;
-  onNavBack(cb: () => void): void;
-  onNavForward(cb: () => void): void;
-  onGotoLine(cb: () => void): void;
-  onFind(cb: () => void): void;
-  onFindReplace(cb: () => void): void;
-  onFindInNotes(cb: () => void): void;
-  onReplaceInNotes(cb: () => void): void;
-  onNewQuery(cb: () => void): void;
-  onOpenStockQuery(cb: (payload: { query: string; language: 'sparql' | 'sql' }) => void): void;
-  onEditSavedQueries(cb: () => void): void;
-  onSortLines(cb: () => void): void;
-  onOpenSettings(cb: () => void): void;
-  onPrint(cb: () => void): void;
-  onAbout(cb: () => void): void;
-  onShortcuts(cb: () => void): void;
-  onOpenInDefault(cb: () => void): void;
-  onOpenInTerminal(cb: () => void): void;
-  onOpenProject(cb: () => void): void;
-  onNewProject(cb: () => void): void;
-  onInstallTutorial(cb: () => void): void;
-  onOpenRecentProject(cb: (path: string) => void): void;
-  onCloseProject(cb: () => void): void;
-  onClearRecent(cb: () => void): void;
-  onProjectOpened(cb: (meta: { rootPath: string; name: string }) => void): void;
-  onRefactorRename(cb: () => void): void;
-  onRefactorMove(cb: () => void): void;
-  onRefactorCopy(cb: () => void): void;
-  onRefactorExtract(cb: () => void): void;
-  onRefactorSplitHere(cb: () => void): void;
-  onRefactorSplitByHeading(cb: () => void): void;
-  onRefactorAutoTag(cb: () => void): void;
-  onRefactorAutoLink(cb: () => void): void;
-  onRefactorAutoLinkInbound(cb: () => void): void;
-  onRefactorDecompose(cb: () => void): void;
-  onFormat(cb: () => void): void;
-  onBibliography(cb: () => void): void;
-  onIngestUrl(cb: () => void): void;
-  onIngestIdentifier(cb: () => void): void;
-  onIngestFile(cb: () => void): void;
-  onExport(cb: (exporterId: string) => void): void;
-  onPublish(cb: () => void): void;
-  onImportBibtex(cb: () => void): void;
-  onImportZoteroRdf(cb: () => void): void;
+  onSplitRight(cb: () => void): () => void;
+  onSplitDown(cb: () => void): () => void;
+  onFocusNextGroup(cb: () => void): () => void;
+  onFocusPrevGroup(cb: () => void): () => void;
+  onCloseGroup(cb: () => void): () => void;
+  onFontIncrease(cb: () => void): () => void;
+  onFontDecrease(cb: () => void): () => void;
+  onFontReset(cb: () => void): () => void;
+  onToggleRightSidebar(cb: () => void): () => void;
+  onToggleConversations(cb: () => void): () => void;
+  onNewConversation(cb: () => void): () => void;
+  onNavBack(cb: () => void): () => void;
+  onNavForward(cb: () => void): () => void;
+  onGotoLine(cb: () => void): () => void;
+  onFind(cb: () => void): () => void;
+  onFindReplace(cb: () => void): () => void;
+  onFindInNotes(cb: () => void): () => void;
+  onReplaceInNotes(cb: () => void): () => void;
+  onNewQuery(cb: () => void): () => void;
+  onOpenStockQuery(cb: (payload: { query: string; language: 'sparql' | 'sql' }) => void): () => void;
+  onEditSavedQueries(cb: () => void): () => void;
+  onSortLines(cb: () => void): () => void;
+  onOpenSettings(cb: () => void): () => void;
+  onPrint(cb: () => void): () => void;
+  onAbout(cb: () => void): () => void;
+  onShortcuts(cb: () => void): () => void;
+  onOpenInDefault(cb: () => void): () => void;
+  onOpenInTerminal(cb: () => void): () => void;
+  onOpenProject(cb: () => void): () => void;
+  onNewProject(cb: () => void): () => void;
+  onInstallTutorial(cb: () => void): () => void;
+  onOpenRecentProject(cb: (path: string) => void): () => void;
+  onCloseProject(cb: () => void): () => void;
+  onClearRecent(cb: () => void): () => void;
+  onProjectOpened(cb: (meta: { rootPath: string; name: string }) => void): () => void;
+  onRefactorRename(cb: () => void): () => void;
+  onRefactorMove(cb: () => void): () => void;
+  onRefactorCopy(cb: () => void): () => void;
+  onRefactorExtract(cb: () => void): () => void;
+  onRefactorSplitHere(cb: () => void): () => void;
+  onRefactorSplitByHeading(cb: () => void): () => void;
+  onRefactorAutoTag(cb: () => void): () => void;
+  onRefactorAutoLink(cb: () => void): () => void;
+  onRefactorAutoLinkInbound(cb: () => void): () => void;
+  onRefactorDecompose(cb: () => void): () => void;
+  onFormat(cb: () => void): () => void;
+  onBibliography(cb: () => void): () => void;
+  onIngestUrl(cb: () => void): () => void;
+  onIngestIdentifier(cb: () => void): () => void;
+  onIngestFile(cb: () => void): () => void;
+  onExport(cb: (exporterId: string) => void): () => void;
+  onPublish(cb: () => void): () => void;
+  onImportBibtex(cb: () => void): () => void;
+  onImportZoteroRdf(cb: () => void): () => void;
 }
 
 /**
@@ -1124,7 +1124,7 @@ export interface SourcesApi {
     totalEntries: number;
   } | null>;
   /** Stream progress while a BibTeX import runs. */
-  onImportBibtexProgress(cb: (progress: { done: number; total: number; currentTitle: string }) => void): void;
+  onImportBibtexProgress(cb: (progress: { done: number; total: number; currentTitle: string }) => void): () => void;
   /** Open a .rdf picker and import a Zotero RDF export (#270). Returns null if cancelled. */
   importZoteroRdf(): Promise<{
     imported: Array<{ sourceId: string; title: string; pdfAttached: boolean }>;
@@ -1133,7 +1133,7 @@ export interface SourcesApi {
     totalItems: number;
   } | null>;
   /** Stream progress while a Zotero RDF import runs. */
-  onImportZoteroRdfProgress(cb: (progress: { done: number; total: number; currentTitle: string }) => void): void;
+  onImportZoteroRdfProgress(cb: (progress: { done: number; total: number; currentTitle: string }) => void): () => void;
   /** All indexed sources, sorted by title. */
   listAll(): Promise<import('../../../shared/types').SourceMetadata[]>;
   /** Delete a source + cascade-delete its excerpts. */
@@ -1196,7 +1196,7 @@ export interface SourcesApi {
    *  "resolved". (#107) */
   applyStubResolution(sourceId: string, doi: string): Promise<{ ok: boolean }>;
   /** Fires when a source is added, updated, or removed. */
-  onChanged(cb: () => void): void;
+  onChanged(cb: () => void): () => void;
   /** Create a `thought:Excerpt` from a highlighted passage. Idempotent by (sourceId, citedText). */
   createExcerpt(params: {
     sourceId: string;
@@ -1228,7 +1228,7 @@ export interface CollectionsApi {
   smartMembers(id: string): Promise<import('../../../shared/types').SourceMetadata[]>;
   /** Fires when a collection (manual or smart) is added, renamed,
    *  deleted, or its membership changes. */
-  onChanged(cb: () => void): void;
+  onChanged(cb: () => void): () => void;
 }
 
 declare global {
