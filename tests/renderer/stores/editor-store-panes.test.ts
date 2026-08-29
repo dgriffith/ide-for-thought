@@ -1,5 +1,12 @@
 /**
- * Editor store — editor-group model (#811).
+ * Editor store — pane/split-layout model (#811, #813, #814, #815, #817).
+ *
+ * Renamed from `tests/renderer/editor-store.test.ts` (#1919) — its
+ * near-identical name and different directory next to
+ * `editor-store-tabs.test.ts` (per-tab-kind behavior) was a navigation
+ * hazard. This file owns the group/pane/split-layout half of the store:
+ * one-group parity, group-scoped mutations, split/collapse/drag-to-split,
+ * forbid-duplicate-open, and multi-group session persistence.
  *
  * Phase 1 of #810 promotes the `tabs[]` / `activeIndex` / `viewMode` singleton
  * into a collection of editor groups. These tests pin (a) one-group parity —
@@ -7,7 +14,7 @@
  * new group-scoped mutation surface.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { LayoutSession } from '../../src/shared/types';
+import type { LayoutSession } from '../../../src/shared/types';
 
 const h = vi.hoisted(() => ({
   readFile: vi.fn(async (p: string) => `# ${p}\nbody`),
@@ -16,7 +23,7 @@ const h = vi.hoisted(() => ({
   tabsLoad: vi.fn(async (): Promise<unknown> => null),
 }));
 
-vi.mock('../../src/renderer/lib/ipc/client', () => ({
+vi.mock('../../../src/renderer/lib/ipc/client', () => ({
   api: {
     notebase: { readFile: h.readFile, writeFile: h.writeFile },
     tabs: { save: h.tabsSave, load: h.tabsLoad },
@@ -25,8 +32,8 @@ vi.mock('../../src/renderer/lib/ipc/client', () => ({
   },
 }));
 
-import { getEditorStore } from '../../src/renderer/lib/stores/editor.svelte';
-import { collectGroupIds } from '../../src/renderer/lib/editor/layout-tree';
+import { getEditorStore } from '../../../src/renderer/lib/stores/editor.svelte';
+import { collectGroupIds } from '../../../src/renderer/lib/editor/layout-tree';
 
 const editor = getEditorStore();
 
