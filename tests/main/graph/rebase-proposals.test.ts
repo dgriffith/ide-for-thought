@@ -5,14 +5,12 @@
  * rebuild — so a pending proposal doesn't dangle on apply, and an approved one's
  * `affectsNode` still joins to its (rebased) component for the trust gate.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import fs from 'node:fs';
-import path from 'node:path';
-import os from 'node:os';
-import { initGraph, indexAllNotes, setBaseUri } from '../../../src/main/graph/index';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { indexAllNotes, setBaseUri } from '../../../src/main/graph/index';
 import { writeProposalToGraph, listProposals } from '../../../src/main/llm/proposal-persistence';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { type ProjectContext } from '../../../src/main/project-context-types';
 import type { Proposal } from '../../../src/main/llm/proposal-types';
+import { useGraphProject } from '../../helpers/temp-project';
 
 const OLD = 'https://project.minerva.dev/old-u/old-p/';
 const NEW = 'https://project.minerva.dev/new-u/new-p/';
@@ -36,15 +34,12 @@ function makeProposal(id: string, status: Proposal['status']): Proposal {
   };
 }
 
-let root: string;
 let ctx: ProjectContext;
 
-beforeEach(async () => {
-  root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-rebase-'));
-  ctx = projectContext(root);
-  await initGraph(ctx);
+const project = useGraphProject('minerva-rebase-');
+beforeEach(() => {
+  ctx = project.ctx;
 });
-afterEach(() => { fs.rmSync(root, { recursive: true, force: true }); });
 
 describe('indexAllNotes rebaseFrom — proposal migration', () => {
   it('rewrites pending + approved proposals from the old base to the new base', async () => {

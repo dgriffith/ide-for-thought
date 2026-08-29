@@ -3,13 +3,14 @@
  * instances with their declared-property values as columns, plus the designated
  * cover property for the gallery. A pure read over the #1062/#1063 index.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
-import { initGraph, indexAllNotes, getTypeInstances } from '../../../src/main/graph/index';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { indexAllNotes, getTypeInstances } from '../../../src/main/graph/index';
+import { type ProjectContext } from '../../../src/main/project-context-types';
+import { useGraphProject } from '../../helpers/temp-project';
 
+const project = useGraphProject('minerva-type-instances-');
 let root: string;
 let ctx: ProjectContext;
 
@@ -24,12 +25,10 @@ function writeType(id: string, frontmatter: string): void {
   fs.writeFileSync(path.join(dir, `${id}.md`), `---\n${frontmatter}\n---\n`, 'utf-8');
 }
 
-beforeEach(async () => {
-  root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-type-instances-'));
-  ctx = projectContext(root);
-  await initGraph(ctx);
+beforeEach(() => {
+  root = project.root;
+  ctx = project.ctx;
 });
-afterEach(() => fs.rmSync(root, { recursive: true, force: true }));
 
 describe('type-instances projection (#1070)', () => {
   it('lists every instance of a type with its declared-property values', async () => {

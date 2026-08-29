@@ -4,14 +4,13 @@
  * match the Crossref `10.NNNN/...` form.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import fs from 'node:fs';
-import fsp from 'node:fs/promises';
 import path from 'node:path';
-import os from 'node:os';
-import { initGraph, indexSource } from '../../../src/main/graph/index';
+import { indexSource } from '../../../src/main/graph/index';
 import { runAllChecks } from '../../../src/main/graph/health-checks';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { type ProjectContext } from '../../../src/main/project-context-types';
+import { useGraphProject } from '../../helpers/temp-project';
 
 const META = (doi: string | null) => `this: a thought:Article ;
     dc:title "Test" ;
@@ -19,16 +18,13 @@ ${doi ? `    bibo:doi "${doi}" ;\n` : ''}    thought:accessedAt "2026-05-01T00:0
 `;
 
 describe('checkInvalidDois (#473)', () => {
+  const project = useGraphProject('minerva-invalid-doi-');
   let root: string;
   let ctx: ProjectContext;
 
-  beforeEach(async () => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-invalid-doi-'));
-    ctx = projectContext(root);
-    await initGraph(ctx);
-  });
-  afterEach(async () => {
-    await fsp.rm(root, { recursive: true, force: true });
+  beforeEach(() => {
+    root = project.root;
+    ctx = project.ctx;
   });
 
   function addSource(id: string, doi: string | null): void {

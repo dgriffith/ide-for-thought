@@ -9,15 +9,15 @@
  * hold exactly the same flattened quads as a fresh rebuild, and queries against
  * it must match queries against a rebuild.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
 import * as $rdf from 'rdflib';
 import type * as N3 from 'n3';
-import { initGraph, indexNote, removeNote, queryGraph, indexAllNotes } from '../../../src/main/graph/index';
+import { indexNote, removeNote, queryGraph, indexAllNotes } from '../../../src/main/graph/index';
 import { buildN3Store, getState, resetN3Mirror, MINERVA, RDF } from '../../../src/main/graph/state';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { type ProjectContext } from '../../../src/main/project-context-types';
+import { useGraphProject } from '../../helpers/temp-project';
 
 function termKey(t: N3.Term): string {
   if (t.termType === 'Literal') {
@@ -46,15 +46,14 @@ function expectMirrorMatchesRebuild(ctx: ProjectContext): void {
 }
 
 describe('incremental N3 mirror (#1110)', () => {
+  const project = useGraphProject('minerva-n3mirror-');
   let root: string;
   let ctx: ProjectContext;
 
-  beforeEach(async () => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-n3mirror-'));
-    ctx = projectContext(root);
-    await initGraph(ctx);
+  beforeEach(() => {
+    root = project.root;
+    ctx = project.ctx;
   });
-  afterEach(() => { fs.rmSync(root, { recursive: true, force: true }); });
 
   it('matches a fresh rebuild after a mixed index / remove / reindex sequence', async () => {
     await indexNote(ctx, 'a.md', '---\ntitle: A\ntags: [x, y]\n---\n# A\n\n[[b]] and [[c]]\n');

@@ -4,14 +4,13 @@
  * pass.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import fs from 'node:fs';
-import fsp from 'node:fs/promises';
 import path from 'node:path';
-import os from 'node:os';
-import { initGraph, indexSource, indexNote } from '../../../src/main/graph/index';
+import { indexSource, indexNote } from '../../../src/main/graph/index';
 import { runAllChecks } from '../../../src/main/graph/health-checks';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { type ProjectContext } from '../../../src/main/project-context-types';
+import { useGraphProject } from '../../helpers/temp-project';
 
 function buildMeta(extra = '', subtype = 'Article'): string {
   return `this: a thought:${subtype} ;
@@ -26,16 +25,13 @@ function makeSourceOnDisk(root: string, id: string, ttl: string): void {
 }
 
 describe('source health checks (#119)', () => {
+  const project = useGraphProject('minerva-src-health-');
   let root: string;
   let ctx: ProjectContext;
 
-  beforeEach(async () => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-src-health-'));
-    ctx = projectContext(root);
-    await initGraph(ctx);
-  });
-  afterEach(async () => {
-    await fsp.rm(root, { recursive: true, force: true });
+  beforeEach(() => {
+    root = project.root;
+    ctx = project.ctx;
   });
 
   // ─── missing metadata ───────────────────────────────────────────────────

@@ -3,12 +3,12 @@
  * rows (sidebar tree, tabs, quick-open, backlinks). One read for the whole
  * thoughtbase, so a list doesn't fan out to `getNoteTypedProperties` per row.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
-import { initGraph, indexAllNotes, getNoteTypeMap, reloadTypeCatalog } from '../../../src/main/graph/index';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { indexAllNotes, getNoteTypeMap, reloadTypeCatalog } from '../../../src/main/graph/index';
+import { type ProjectContext } from '../../../src/main/project-context-types';
+import { useGraphProject } from '../../helpers/temp-project';
 
 let root: string;
 let ctx: ProjectContext;
@@ -19,12 +19,11 @@ function writeNote(rel: string, content: string): void {
   fs.writeFileSync(fp, content, 'utf-8');
 }
 
-beforeEach(async () => {
-  root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-notetypemap-'));
-  ctx = projectContext(root);
-  await initGraph(ctx);
+const project = useGraphProject('minerva-notetypemap-');
+beforeEach(() => {
+  root = project.root;
+  ctx = project.ctx;
 });
-afterEach(() => fs.rmSync(root, { recursive: true, force: true }));
 
 describe('note→type map', () => {
   it('maps each typed note to its type id, and omits untyped notes', async () => {

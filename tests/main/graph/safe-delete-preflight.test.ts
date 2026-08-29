@@ -5,25 +5,17 @@
  * namespaces, or anchor handling continues to be exercised here.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import fs from 'node:fs';
-import fsp from 'node:fs/promises';
-import path from 'node:path';
-import os from 'node:os';
-import { initGraph, indexNote, findExternalInboundLinks } from '../../../src/main/graph/index';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { indexNote, findExternalInboundLinks } from '../../../src/main/graph/index';
+import { type ProjectContext } from '../../../src/main/project-context-types';
+import { useGraphProject } from '../../helpers/temp-project';
 
 describe('safe-delete pre-flight (#429)', () => {
-  let root: string;
+  const project = useGraphProject('minerva-safe-delete-');
   let ctx: ProjectContext;
 
-  beforeEach(async () => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-safe-delete-'));
-    ctx = projectContext(root);
-    await initGraph(ctx);
-  });
-  afterEach(async () => {
-    await fsp.rm(root, { recursive: true, force: true });
+  beforeEach(() => {
+    ctx = project.ctx;
   });
 
   // ─── acceptance: standalone note with no inbound links ─────────────────

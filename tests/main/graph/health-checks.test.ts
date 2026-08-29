@@ -17,32 +17,19 @@
  * shape (type/severity/message/notePath) each check actually promises.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import fs from 'node:fs';
-import fsp from 'node:fs/promises';
-import path from 'node:path';
-import os from 'node:os';
-import { initGraph, indexNote } from '../../../src/main/graph/index';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { indexNote } from '../../../src/main/graph/index';
 import { runAllChecks } from '../../../src/main/graph/health-checks';
 import { applyTurtle } from '../../../src/main/llm/proposal-persistence';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
-
-function mkTempProject(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-health-checks-test-'));
-}
+import { type ProjectContext } from '../../../src/main/project-context-types';
+import { useGraphProject } from '../../helpers/temp-project';
 
 describe('checkUnsupportedClaims', () => {
-  let root: string;
+  const project = useGraphProject('minerva-health-checks-test-');
   let ctx: ProjectContext;
 
-  beforeEach(async () => {
-    root = mkTempProject();
-    ctx = projectContext(root);
-    await initGraph(ctx);
-  });
-
-  afterEach(async () => {
-    await fsp.rm(root, { recursive: true, force: true });
+  beforeEach(() => {
+    ctx = project.ctx;
   });
 
   it('flags a claim no grounds support', async () => {
@@ -89,17 +76,11 @@ describe('checkUnsupportedClaims', () => {
 });
 
 describe('checkEvidenceGaps — missing_warrant / missing_backing', () => {
-  let root: string;
+  const project = useGraphProject('minerva-health-checks-test-');
   let ctx: ProjectContext;
 
-  beforeEach(async () => {
-    root = mkTempProject();
-    ctx = projectContext(root);
-    await initGraph(ctx);
-  });
-
-  afterEach(async () => {
-    await fsp.rm(root, { recursive: true, force: true });
+  beforeEach(() => {
+    ctx = project.ctx;
   });
 
   it('flags a claim with grounds but no warrant connecting them', async () => {
@@ -184,17 +165,11 @@ describe('checkEvidenceGaps — missing_warrant / missing_backing', () => {
 });
 
 describe('checkContradictions', () => {
-  let root: string;
+  const project = useGraphProject('minerva-health-checks-test-');
   let ctx: ProjectContext;
 
-  beforeEach(async () => {
-    root = mkTempProject();
-    ctx = projectContext(root);
-    await initGraph(ctx);
-  });
-
-  afterEach(async () => {
-    await fsp.rm(root, { recursive: true, force: true });
+  beforeEach(() => {
+    ctx = project.ctx;
   });
 
   it('flags two established claims that contradict each other', async () => {

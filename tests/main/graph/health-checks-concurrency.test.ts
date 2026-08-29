@@ -17,42 +17,23 @@
  * second call's guard runs, the first has already marked itself running but
  * has not yet reached its `finally`.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import fs from 'node:fs';
-import fsp from 'node:fs/promises';
-import path from 'node:path';
-import os from 'node:os';
-import { initGraph } from '../../../src/main/graph/index';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { runAllChecks } from '../../../src/main/graph/health-checks';
 import { applyTurtle } from '../../../src/main/llm/proposal-persistence';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
-
-function mkTempProject(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-health-checks-concurrency-test-'));
-}
+import { type ProjectContext } from '../../../src/main/project-context-types';
+import { useGraphProject } from '../../helpers/temp-project';
 
 describe('runAllChecks concurrency guard (#1893)', () => {
-  let rootA: string;
-  let rootB: string;
+  const projectA = useGraphProject('minerva-health-checks-concurrency-test-');
+  const projectB = useGraphProject('minerva-health-checks-concurrency-test-');
   let ctxA: ProjectContext;
   let ctxB: ProjectContext;
 
   beforeEach(async () => {
-    rootA = mkTempProject();
-    rootB = mkTempProject();
-    ctxA = projectContext(rootA);
-    ctxB = projectContext(rootB);
-    await initGraph(ctxA);
-    await initGraph(ctxB);
+    ctxA = projectA.ctx;
+    ctxB = projectB.ctx;
     await applyTurtle(ctxA, `<urn:claim:a> a thought:Claim ; thought:label "Claim A" .`);
     await applyTurtle(ctxB, `<urn:claim:b> a thought:Claim ; thought:label "Claim B" .`);
-  });
-
-  afterEach(async () => {
-    await Promise.all([
-      fsp.rm(rootA, { recursive: true, force: true }),
-      fsp.rm(rootB, { recursive: true, force: true }),
-    ]);
   });
 
   it("project B's check returns its real results while project A's is in flight, not []", async () => {

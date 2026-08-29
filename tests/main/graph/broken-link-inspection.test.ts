@@ -3,14 +3,13 @@
  * missing anchor, unknown cite/quote id.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import fs from 'node:fs';
-import fsp from 'node:fs/promises';
 import path from 'node:path';
-import os from 'node:os';
-import { initGraph, indexNote, indexSource, indexExcerpt, findNotesLinkingTo } from '../../../src/main/graph/index';
+import { indexNote, indexSource, indexExcerpt, findNotesLinkingTo } from '../../../src/main/graph/index';
 import { runAllChecks } from '../../../src/main/graph/health-checks';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { type ProjectContext } from '../../../src/main/project-context-types';
+import { useGraphProject } from '../../helpers/temp-project';
 
 const SOURCE_META = `this: a thought:Article ;
     dc:title "A paper" ;
@@ -29,16 +28,13 @@ function writeSource(root: string, id: string, ttl: string): void {
 }
 
 describe('broken-link inspection (#140)', () => {
+  const project = useGraphProject('minerva-broken-links-');
   let root: string;
   let ctx: ProjectContext;
 
-  beforeEach(async () => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-broken-links-'));
-    ctx = projectContext(root);
-    await initGraph(ctx);
-  });
-  afterEach(async () => {
-    await fsp.rm(root, { recursive: true, force: true });
+  beforeEach(() => {
+    root = project.root;
+    ctx = project.ctx;
   });
 
   // ─── broken note link ───────────────────────────────────────────────────
@@ -164,16 +160,11 @@ describe('broken-link inspection (#140)', () => {
 
 // ─── links to non-markdown notes (#1446) ────────────────────────────────────
 describe('broken-link inspection — non-markdown note targets (#1446)', () => {
-  let root: string;
+  const project = useGraphProject('minerva-nonmd-links-');
   let ctx: ProjectContext;
 
-  beforeEach(async () => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-nonmd-links-'));
-    ctx = projectContext(root);
-    await initGraph(ctx);
-  });
-  afterEach(async () => {
-    await fsp.rm(root, { recursive: true, force: true });
+  beforeEach(() => {
+    ctx = project.ctx;
   });
 
   it('does not flag [[budget]] when a budget.csv note exists', async () => {

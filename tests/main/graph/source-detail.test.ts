@@ -1,19 +1,14 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
 import {
-  initGraph,
   indexNote,
   indexAllNotes,
   getSourceDetail,
   getExcerptSource,
 } from '../../../src/main/graph/index';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
-
-function mkTempProject(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-source-detail-test-'));
-}
+import { type ProjectContext } from '../../../src/main/project-context-types';
+import { useGraphProject } from '../../helpers/temp-project';
 
 function writeSourceMeta(root: string, id: string, ttl: string): void {
   const dir = path.join(root, '.minerva', 'sources', id);
@@ -46,17 +41,13 @@ this: a thought:Excerpt ;
 `;
 
 describe('getSourceDetail', () => {
+  const project = useGraphProject('minerva-source-detail-test-');
   let root: string;
   let ctx: ProjectContext;
 
-  beforeEach(async () => {
-    root = mkTempProject();
-    ctx = projectContext(root);
-    await initGraph(ctx);
-  });
-
-  afterEach(() => {
-    fs.rmSync(root, { recursive: true, force: true });
+  beforeEach(() => {
+    root = project.root;
+    ctx = project.ctx;
   });
 
   it('returns null for an unknown source id', async () => {
@@ -175,17 +166,13 @@ describe('getSourceDetail', () => {
 });
 
 describe('getExcerptSource', () => {
+  const project = useGraphProject('minerva-source-detail-test-');
   let root: string;
   let ctx: ProjectContext;
 
-  beforeEach(async () => {
-    root = mkTempProject();
-    ctx = projectContext(root);
-    await initGraph(ctx);
-  });
-
-  afterEach(() => {
-    fs.rmSync(root, { recursive: true, force: true });
+  beforeEach(() => {
+    root = project.root;
+    ctx = project.ctx;
   });
 
   it('resolves an excerpt to its source id via thought:fromSource', async () => {

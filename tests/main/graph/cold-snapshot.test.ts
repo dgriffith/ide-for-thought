@@ -11,11 +11,10 @@
  *    live store to graph.ttl.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
-import os from 'node:os';
 import {
   initGraph,
   indexNote,
@@ -24,23 +23,16 @@ import {
   indexAllNotes,
 } from '../../../src/main/graph/index';
 import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
-
-function mkTempProject(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-cold-snapshot-test-'));
-}
+import { useGraphProject } from '../../helpers/temp-project';
 
 describe('graph.ttl cold-snapshot semantics (#348)', () => {
+  const project = useGraphProject('minerva-cold-snapshot-test-');
   let root: string;
   let ctx: ProjectContext;
 
-  beforeEach(async () => {
-    root = mkTempProject();
-    ctx = projectContext(root);
-    await initGraph(ctx);
-  });
-
-  afterEach(async () => {
-    await fsp.rm(root, { recursive: true, force: true });
+  beforeEach(() => {
+    root = project.root;
+    ctx = project.ctx;
   });
 
   it('indexNote does not write graph.ttl', async () => {

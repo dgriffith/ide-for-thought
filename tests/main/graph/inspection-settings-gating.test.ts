@@ -11,17 +11,17 @@
  * pass a test that only looked for absence).
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
-import os from 'node:os';
-import { initGraph, indexNote, disposeProject } from '../../../src/main/graph/index';
+import { indexNote, disposeProject } from '../../../src/main/graph/index';
 import { runAllChecks } from '../../../src/main/graph/health-checks';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { type ProjectContext } from '../../../src/main/project-context-types';
 import { DEFAULT_INSPECTION_SETTINGS } from '../../../src/shared/inspections';
+import { makeGraphProject, type GraphProject } from '../../helpers/temp-project';
 
 let root: string;
 let ctx: ProjectContext;
+let project: GraphProject;
 
 /** A note last touched `days` ago, so the staleness check has something to find. */
 async function seedOldNote(rel: string, body: string, days: number): Promise<void> {
@@ -34,16 +34,16 @@ async function seedOldNote(rel: string, body: string, days: number): Promise<voi
 }
 
 beforeEach(async () => {
-  root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-insp-gate-'));
-  ctx = projectContext(root);
-  await initGraph(ctx);
+  project = await makeGraphProject('minerva-insp-gate-');
+  root = project.root;
+  ctx = project.ctx;
   // 60 days old, and pointing at a note that doesn't exist — one note that
   // trips both the staleness and the broken-link checks.
   await seedOldNote('old.md', '# Old\n\nSee [[nowhere-at-all]].\n', 60);
 });
 afterEach(async () => {
   disposeProject(ctx);
-  await fsp.rm(root, { recursive: true, force: true });
+  await project.cleanup();
 });
 
 const types = (list: { type: string }[]) => new Set(list.map((i) => i.type));

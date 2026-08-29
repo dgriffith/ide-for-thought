@@ -6,31 +6,22 @@
  * stamped dc:modified to "now", so checkStaleness was always-empty theatre.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import fs from 'node:fs';
+import { describe, it, expect, beforeEach } from 'vitest';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
-import os from 'node:os';
-import { initGraph, indexNote, queryGraph } from '../../../src/main/graph/index';
+import { indexNote, queryGraph } from '../../../src/main/graph/index';
 import { runAllChecks } from '../../../src/main/graph/health-checks';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
-
-function mkTempProject(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-staleness-test-'));
-}
+import { type ProjectContext } from '../../../src/main/project-context-types';
+import { useGraphProject } from '../../helpers/temp-project';
 
 describe('dc:modified is sourced from disk mtime (#336)', () => {
+  const project = useGraphProject('minerva-staleness-test-');
   let root: string;
   let ctx: ProjectContext;
 
-  beforeEach(async () => {
-    root = mkTempProject();
-    ctx = projectContext(root);
-    await initGraph(ctx);
-  });
-
-  afterEach(async () => {
-    await fsp.rm(root, { recursive: true, force: true });
+  beforeEach(() => {
+    root = project.root;
+    ctx = project.ctx;
   });
 
   it('records the file system mtime as dc:modified, not the indexer time', async () => {

@@ -5,38 +5,28 @@
  * `#projects`, `#projects/minerva`, `#projects/minerva/ui`, etc.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import fs from 'node:fs';
-import fsp from 'node:fs/promises';
-import path from 'node:path';
-import os from 'node:os';
+import { describe, it, expect, beforeEach } from 'vitest';
 
 import {
-  initGraph,
   indexNote,
   notesByTag,
   notesByTagPrefix,
 } from '../../../src/main/graph/index';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { type ProjectContext } from '../../../src/main/project-context-types';
+import { useGraphProject } from '../../helpers/temp-project';
 
 describe('notesByTagPrefix (#466)', () => {
-  let root: string;
+  const project = useGraphProject('minerva-tag-prefix-');
   let ctx: ProjectContext;
 
   beforeEach(async () => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-tag-prefix-'));
-    ctx = projectContext(root);
-    await initGraph(ctx);
+    ctx = project.ctx;
 
     await indexNote(ctx, 'a.md', '# A\n\n#projects/minerva/ui\n');
     await indexNote(ctx, 'b.md', '# B\n\n#projects/minerva/api\n');
     await indexNote(ctx, 'c.md', '# C\n\n#projects/lemur\n');
     await indexNote(ctx, 'd.md', '# D\n\n#unrelated\n');
     await indexNote(ctx, 'e.md', '# E\n\n#projects\n');
-  });
-
-  afterEach(async () => {
-    await fsp.rm(root, { recursive: true, force: true });
   });
 
   it('returns notes tagged exactly at the prefix and under it', () => {

@@ -6,15 +6,12 @@
  * predicates the graph can query. If the mapping or the ontology drifts, a
  * glossary silently stops being graph-legible.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import fs from 'node:fs';
-import fsp from 'node:fs/promises';
-import path from 'node:path';
-import os from 'node:os';
+import { describe, it, expect, beforeEach } from 'vitest';
 
-import { initGraph, indexNote, queryGraph } from '../../../src/main/graph/index';
+import { indexNote, queryGraph } from '../../../src/main/graph/index';
 import { getAliasMap } from '../../../src/main/graph/queries';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { type ProjectContext } from '../../../src/main/project-context-types';
+import { useGraphProject } from '../../helpers/temp-project';
 
 const monoid = ['---', 'title: Monoid', 'term: Monoid', '---', '', '# Monoid', '', 'A semigroup with an identity element.', '', '```turtle', 'this: a thought:Term .', '```', ''].join('\n');
 
@@ -38,19 +35,13 @@ const semigroup = [
 ].join('\n');
 
 describe('glossary term notes materialise thought:Term + predicates (#1142)', () => {
-  let root: string;
+  const project = useGraphProject('minerva-glossary-');
   let ctx: ProjectContext;
 
   beforeEach(async () => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-glossary-'));
-    ctx = projectContext(root);
-    await initGraph(ctx);
+    ctx = project.ctx;
     await indexNote(ctx, 'glossary/Monoid.md', monoid);
     await indexNote(ctx, 'glossary/Semigroup.md', semigroup);
-  });
-
-  afterEach(async () => {
-    await fsp.rm(root, { recursive: true, force: true });
   });
 
   it('types both notes as thought:Term', async () => {

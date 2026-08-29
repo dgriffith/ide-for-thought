@@ -2,12 +2,12 @@
  * The graph projection behind the Objects-by-type sidebar (#1068): the exact
  * SPARQL ObjectsPanel runs to count instances per type and list them.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
-import { initGraph, indexAllNotes, queryGraph } from '../../../src/main/graph/index';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { indexAllNotes, queryGraph } from '../../../src/main/graph/index';
+import { type ProjectContext } from '../../../src/main/project-context-types';
+import { useGraphProject } from '../../helpers/temp-project';
 
 let root: string;
 let ctx: ProjectContext;
@@ -18,12 +18,11 @@ function writeNote(rel: string, content: string): void {
   fs.writeFileSync(fp, content, 'utf-8');
 }
 
-beforeEach(async () => {
-  root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-objproj-'));
-  ctx = projectContext(root);
-  await initGraph(ctx);
+const project = useGraphProject('minerva-objproj-');
+beforeEach(() => {
+  root = project.root;
+  ctx = project.ctx;
 });
-afterEach(() => fs.rmSync(root, { recursive: true, force: true }));
 
 describe('objects-by-type projection (#1068)', () => {
   it('counts instances per type', async () => {

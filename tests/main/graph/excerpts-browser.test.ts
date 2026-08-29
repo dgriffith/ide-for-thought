@@ -3,13 +3,14 @@
  * the list, and the three filters (by source, by source tag, by citing note).
  * Rides existing indexExcerpt — no data-model change.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
-import { initGraph, indexAllNotes, queryGraph } from '../../../src/main/graph/index';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { indexAllNotes, queryGraph } from '../../../src/main/graph/index';
+import { type ProjectContext } from '../../../src/main/project-context-types';
+import { useGraphProject } from '../../helpers/temp-project';
 
+const project = useGraphProject('minerva-excerpts-');
 let root: string;
 let ctx: ProjectContext;
 
@@ -30,9 +31,8 @@ function writeNote(rel: string, content: string): void {
 }
 
 beforeEach(async () => {
-  root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-excerpts-'));
-  ctx = projectContext(root);
-  await initGraph(ctx);
+  root = project.root;
+  ctx = project.ctx;
 
   writeSource('smith-2023', `this: a thought:Article ; dc:title "Smith 2023" ; minerva:tag "philosophy" .`);
   writeSource('jones-2024', `this: a thought:Article ; dc:title "Jones 2024" .`);
@@ -42,7 +42,6 @@ beforeEach(async () => {
   writeNote('Argument.md', `---\ntitle: Argument\n---\nSee [[quote::smith-2023-a]].\n`);
   await indexAllNotes(ctx);
 });
-afterEach(() => fs.rmSync(root, { recursive: true, force: true }));
 
 const listQuery = (extra = '') =>
   `SELECT ?id ?text ?srcTitle WHERE {

@@ -1,18 +1,13 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
 import {
-  initGraph,
   indexNote,
   indexAllNotes,
   citationsForNote,
 } from '../../../src/main/graph/index';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
-
-function mkTempProject(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-citations-for-note-'));
-}
+import { type ProjectContext } from '../../../src/main/project-context-types';
+import { useGraphProject } from '../../helpers/temp-project';
 
 function writeSource(root: string, id: string, ttl: string): void {
   const dir = path.join(root, '.minerva', 'sources', id);
@@ -55,22 +50,18 @@ this: a thought:Excerpt ;
 `;
 
 describe('citationsForNote (#111)', () => {
+  const project = useGraphProject('minerva-citations-for-note-');
   let root: string;
   let ctx: ProjectContext;
 
   beforeEach(async () => {
-    root = mkTempProject();
-    ctx = projectContext(root);
-    await initGraph(ctx);
+    root = project.root;
+    ctx = project.ctx;
     writeSource(root, 'smith-2023', SMITH_TTL);
     writeSource(root, 'jones-2018', JONES_TTL);
     writeExcerpt(root, 'smith-2023-p42', EX_42_TTL);
     writeExcerpt(root, 'smith-2023-p99', EX_99_TTL);
     await indexAllNotes(ctx);
-  });
-
-  afterEach(() => {
-    fs.rmSync(root, { recursive: true, force: true });
   });
 
   it('returns nothing when the note has no cite/quote refs', async () => {
