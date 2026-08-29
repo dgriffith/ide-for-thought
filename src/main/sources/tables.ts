@@ -16,6 +16,7 @@ import { serializeCsv } from '../../shared/csv-parse';
 import type { ProjectContext } from '../project-context-types';
 import { createProjectStore } from '../project-store';
 import { loadCsvSchema, buildReadCsvSql } from './csv-schema';
+import { logger } from '../../shared/logger';
 
 interface TablesState {
   rootPath: string;
@@ -235,7 +236,7 @@ function emitCollision(rootPath: string, c: CsvTableCollision): void {
   const set = collisionListeners.get(rootPath);
   if (!set) return;
   for (const fn of set) {
-    try { fn(c); } catch (err) { console.error('[tables] collision listener threw:', err); }
+    try { fn(c); } catch (err) { logger('tables').error('collision listener threw:', err); }
   }
 }
 
@@ -260,8 +261,8 @@ export async function registerCsv(ctx: ProjectContext, relativePath: string): Pr
   // than silently clobbering whichever one loaded first.
   const existingPath = tableToPath.get(tableName);
   if (existingPath && existingPath !== relativePath) {
-    console.warn(
-      `[tables] Table name collision: '${tableName}' would be used by both ` +
+    logger('tables').warn(
+      `Table name collision: '${tableName}' would be used by both ` +
       `'${existingPath}' and '${relativePath}'. Skipping the second. Use ` +
       `'table_name:' in a companion .md to disambiguate.`,
     );
@@ -304,8 +305,8 @@ export async function registerCsv(ctx: ProjectContext, relativePath: string): Pr
     await indexCsvTableShape(ctx, relativePath, tableName);
     return { ok: true };
   } catch (err) {
-    console.warn(
-      `[tables] Failed to register '${relativePath}' as '${tableName}': ` +
+    logger('tables').warn(
+      `Failed to register '${relativePath}' as '${tableName}': ` +
       (err instanceof Error ? err.message : String(err)),
     );
     return { ok: false, reason: 'error', error: err };
@@ -338,8 +339,8 @@ async function indexCsvTableShape(ctx: ProjectContext, relativePath: string, tab
     }));
     indexCsvTable(ctx, { tableName, relativePath, columns });
   } catch (err) {
-    console.warn(
-      `[tables] Failed to index '${tableName}' into graph: ` +
+    logger('tables').warn(
+      `Failed to index '${tableName}' into graph: ` +
       (err instanceof Error ? err.message : String(err)),
     );
   }
@@ -395,8 +396,8 @@ export async function registerMarkdownTable(
 
   const existingPath = tableToPath.get(tableName) ?? tableToNote.get(tableName);
   if (existingPath) {
-    console.warn(
-      `[tables] Table name collision: '${tableName}' from note '${notePath}' ` +
+    logger('tables').warn(
+      `Table name collision: '${tableName}' from note '${notePath}' ` +
       `is already used by '${existingPath}'. Skipping the markdown table. ` +
       `Rename the 'Table:' caption to disambiguate.`,
     );
@@ -429,8 +430,8 @@ export async function registerMarkdownTable(
     await indexMarkdownTableShape(ctx, notePath, tableName, tableIndex, table.caption ?? tableName);
     return { ok: true, name: tableName };
   } catch (err) {
-    console.warn(
-      `[tables] Failed to register markdown table '${tableName}' from ` +
+    logger('tables').warn(
+      `Failed to register markdown table '${tableName}' from ` +
       `'${notePath}': ` + (err instanceof Error ? err.message : String(err)),
     );
     return { ok: false, reason: 'error', error: err };
@@ -487,8 +488,8 @@ async function indexMarkdownTableShape(
     }));
     indexMarkdownTable(ctx, { tableName, notePath, tableIndex, caption, columns });
   } catch (err) {
-    console.warn(
-      `[tables] Failed to index markdown table '${tableName}' into graph: ` +
+    logger('tables').warn(
+      `Failed to index markdown table '${tableName}' into graph: ` +
       (err instanceof Error ? err.message : String(err)),
     );
   }

@@ -30,6 +30,7 @@ import {
   updateProposalStatus,
   writeProposalToGraph,
 } from './proposal-persistence';
+import { logger } from '../../shared/logger';
 
 // Re-export the public surface so importers of './llm/approval' are unaffected
 // by the split.
@@ -110,8 +111,8 @@ export async function approveProposal(ctx: ProjectContext, uri: string): Promise
     );
   }
 
-  console.log(
-    `[approval] applying ${proposal.payloads.length} payload(s) for ${uri}: ` +
+  logger('approval').info(
+    `applying ${proposal.payloads.length} payload(s) for ${uri}: ` +
     proposal.payloads.map((p) => p.kind).join(', '),
   );
 

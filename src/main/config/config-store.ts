@@ -28,6 +28,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
+import { logger } from '../../shared/logger';
 
 export type ConfigDecoder<T> = (raw: unknown) => T;
 
@@ -38,7 +39,7 @@ type Phase = 'read' | 'parse' | 'validate';
  *  route it to a user-facing toast; today it logs with a recognizable prefix. */
 export function reportConfigError(file: string, phase: Phase, err: unknown): void {
   const detail = err instanceof Error ? err.message : String(err);
-  console.error(`[config] failed to ${phase} "${file}": ${detail} — using defaults`);
+  logger('config').error(`failed to ${phase} "${file}": ${detail} — using defaults`);
 }
 
 function isENOENT(err: unknown): boolean {

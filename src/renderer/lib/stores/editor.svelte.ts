@@ -11,6 +11,7 @@ import {
   collectGroupIds,
   isLayoutNode,
 } from '../editor/layout-tree';
+import { logger } from '../../../shared/logger';
 
 // ── Tab types ───────────────────────────────────────────────────────────────
 
@@ -723,7 +724,7 @@ export function getEditorStore() {
     // Surfacing beats a silent `void`: a rejected save means the session won't
     // come back next launch, and losing that quietly is how this went unseen.
     void api.tabs.save($state.snapshot(session))
-      .catch((e: unknown) => { console.error('[tabs] failed to persist session:', e); });
+      .catch((e: unknown) => { logger('tabs').error('failed to persist session:', e); });
   }
 
   /** Reconstruct a live tab from its persisted form. Notes read their file

@@ -25,6 +25,7 @@ import type { ConversationToolKey } from '../../shared/conversation-tools';
 import { formatToolCall } from './format-tool-call';
 import { toLlmFailureError } from './classify-error';
 import type { ProviderId } from '../../shared/tools/providers';
+import { logger } from '../../shared/logger';
 
 /**
  * Run one provider round-trip, classifying any throw into the shared failure
@@ -361,11 +362,9 @@ export async function completeWithTools(
   };
 
   for (let iteration = 0; iteration < maxIterations; iteration++) {
-    if (process.env.MINERVA_LLM_DEBUG) {
-      console.log(
-        `[llm] iter=${iteration} container=${containerId ?? 'null'} historyLength=${history.length}`,
-      );
-    }
+    logger('llm').debug(
+      `iter=${iteration} container=${containerId ?? 'null'} historyLength=${history.length}`,
+    );
 
     // Only the provider round-trip is wrapped — NOT the tool execution below.
     // A tool that throws is a tool bug, and dressing it up as "the provider
@@ -423,7 +422,7 @@ export async function completeWithTools(
 
     const toolResults: ProviderToolResult[] = [];
     for (const use of turn.toolCalls) {
-      console.log(`[conv] tool call: ${use.name}`, JSON.stringify(use.input).slice(0, 200));
+      logger('conversation').info(`tool call: ${use.name}`, JSON.stringify(use.input).slice(0, 200));
       const { content, isError } = await executeNotebaseTool(
         toolContext,
         use.name,
@@ -431,7 +430,7 @@ export async function completeWithTools(
         toToolCallbacks(callbacks),
       );
       if (isError) {
-        console.warn(`[conv] tool ${use.name} returned error:`, content.slice(0, 300));
+        logger('conversation').warn(`tool ${use.name} returned error:`, content.slice(0, 300));
       }
       toolResults.push({ toolUseId: use.id, content, isError });
     }
@@ -442,7 +441,7 @@ export async function completeWithTools(
     const allErrored = toolResults.length > 0 && toolResults.every((r) => r.isError);
     consecutiveAllErrorIters = allErrored ? consecutiveAllErrorIters + 1 : 0;
     if (consecutiveAllErrorIters >= MAX_CONSECUTIVE_ERROR_ITERS) {
-      console.warn(`[conv] aborting after ${consecutiveAllErrorIters} consecutive all-error tool iterations`);
+      logger('conversation').warn(`aborting after ${consecutiveAllErrorIters} consecutive all-error tool iterations`);
       const msg = '\n\n_(I hit repeated tool errors and stopped before finishing. '
         + 'Could you rephrase what you\'d like me to do?)_';
       textPieces.push(msg);

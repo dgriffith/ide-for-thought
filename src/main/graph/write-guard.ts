@@ -15,6 +15,8 @@
  * existing `graph.enterLLMContext()` call sites are unchanged.
  */
 
+import { logger } from '../../shared/logger';
+
 let llmContextDepth = 0;
 let trustedContextDepth = 0;
 
@@ -92,7 +94,7 @@ export function checkLLMWriteGuard(operation: string): void {
     `[trust-guard] ${operation} called from LLM context outside the approval engine. ` +
     `LLM-originated writes must go through proposeWrite()/approveProposal().`;
   if (guardIsFatal()) throw new Error(message);
-  console.warn(message);
+  logger('write-guard').warn(message);
 }
 
 /** Test-only: reset both counters between cases. */

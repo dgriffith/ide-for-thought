@@ -9,6 +9,7 @@
   import { onMount } from 'svelte';
   import { api } from '../ipc/client';
   import type { ComputeConsentSummary, PythonProbeResult } from '../../../shared/compute/types';
+  import { logger } from '../../../shared/logger';
   import { getSettingsStore } from '../stores/settings.svelte';
   import Toggle from './ui/Toggle.svelte';
 
@@ -21,7 +22,7 @@
     try {
       consent = await api.compute.listConsent();
     } catch (e) {
-      console.error('[settings] failed to load compute consent:', e);
+      logger('settings').error('failed to load compute consent:', e);
     }
   }
 
@@ -58,7 +59,7 @@
       // reflects the live state, not just the override.
       await refreshPythonProbe();
     } catch (e) {
-      console.error('[settings] failed to load python settings:', e);
+      logger('settings').error('failed to load python settings:', e);
     }
   }
 
@@ -101,7 +102,7 @@
     try {
       await settings.setPythonSettings({ pythonPath: pythonPathSaved, allowNetwork });
     } catch (e) {
-      console.error('[settings] failed to save network setting:', e);
+      logger('settings').error('failed to save network setting:', e);
       // Revert the optimistic toggle so the UI reflects what's on disk.
       allowNetwork = !allowNetwork;
     }
@@ -111,7 +112,7 @@
     try {
       await settings.restartPythonKernel();
     } catch (e) {
-      console.error('[settings] failed to restart python kernel:', e);
+      logger('settings').error('failed to restart python kernel:', e);
     }
   }
 

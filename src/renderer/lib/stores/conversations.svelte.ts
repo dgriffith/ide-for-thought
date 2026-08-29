@@ -2,6 +2,7 @@ import { api } from '../ipc/client';
 import { getConversationsSettings } from '../conversations/settings';
 import { ensureComputeConsent } from '../compute/run-cell-with-trust';
 import { getDialogStore } from './dialogs.svelte';
+import { logger } from '../../../shared/logger';
 import type {
   Conversation,
   ConversationCreateOptions,
@@ -618,7 +619,7 @@ function handleTurnFailure(tab: TabRuntime, e: unknown, sentText: string | null)
     afterMessageIndex: tab.conversation.messages.length,
   };
   // Still log for anyone with devtools open; the UI no longer depends on it.
-  console.error('[conv] turn failed:', e);
+  logger('conversation').error('turn failed:', e);
 }
 
 /**
@@ -636,7 +637,7 @@ async function compactConversation(): Promise<void> {
     const result = await api.conversations.compact(tab.id);
     if (!result.compacted || !result.conversation) {
       // Nothing to compact (or skipped) — leave the conversation as-is.
-      if (result.reason) console.info(`[conv] /compact: ${result.reason}`);
+      if (result.reason) logger('conversation').info(`/compact: ${result.reason}`);
       return;
     }
     const newTab = blankTabRuntime(result.conversation, [...tab.extraTools]);
@@ -704,7 +705,7 @@ function runBuiltinCommand(name: string): void {
     default:
       // Reserved but not yet wired. No-op loudly rather than throwing into
       // the composer's keydown path.
-      console.warn(`[conv] no handler for built-in command: /${name}`);
+      logger('conversation').warn(`no handler for built-in command: /${name}`);
   }
 }
 
@@ -760,7 +761,7 @@ async function clearConversation(): Promise<void> {
   } catch (e) {
     // Already-archived or transient failure — proceed to open a fresh tab
     // regardless so the user still gets their clean slate.
-    console.warn('[conv] /clear: archive failed', e);
+    logger('conversation').warn('/clear: archive failed', e);
   }
   const createOpts: { systemPrompt?: string; model?: string; webEnabled?: boolean } = {};
   if (prev.systemPrompt) createOpts.systemPrompt = prev.systemPrompt;
@@ -822,7 +823,7 @@ async function applyDraft<T>(
       partial: '',
       afterMessageIndex: tab.conversation.messages.length,
     };
-    console.error('[conv] apply draft failed:', e);
+    logger('conversation').error('apply draft failed:', e);
     return { ok: false };
   }
 }
@@ -1042,7 +1043,7 @@ async function runComputeDraft(
     const reloaded = await api.conversations.load(tab.id);
     if (reloaded) tab.conversation = reloaded;
   } catch (e) {
-    console.error('[conv] run compute draft failed:', e);
+    logger('conversation').error('run compute draft failed:', e);
     tab.computeDraftState = {
       ...tab.computeDraftState,
       [draft.draftId]: {
@@ -1086,7 +1087,7 @@ async function insertComputeDraft(
     };
     return where;
   } catch (e) {
-    console.error('[conv] insert compute draft failed:', e);
+    logger('conversation').error('insert compute draft failed:', e);
     // Returning null alone left the user with a button that did nothing (#1804).
     tab.failure = {
       kind: classifyLlmFailure(e)?.kind ?? 'unknown',

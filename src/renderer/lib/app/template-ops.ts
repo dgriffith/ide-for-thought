@@ -23,6 +23,7 @@ import { CONFIRM_KEYS } from '../confirm-keys';
 import { openNoteRecordingHistory } from './nav-record';
 import type { SourceExcerpt } from '../../../shared/types';
 import type { Conversation } from '../../../shared/conversation';
+import { logger } from '../../../shared/logger';
 
 interface EditorRef {
   getSelectedText: () => string;
@@ -144,7 +145,7 @@ export function createTemplateOps(ctx: TemplateOpsCtx) {
     try {
       await api.templates.saveAs(name, tab.content);
     } catch (err) {
-      console.error('[templates] saveAs failed', err);
+      logger('templates').error('saveAs failed', err);
     }
   }
 

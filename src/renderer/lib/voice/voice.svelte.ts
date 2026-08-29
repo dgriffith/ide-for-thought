@@ -10,6 +10,7 @@
 import { startRecording, durationSeconds, type RecordingSession } from './recorder';
 import { createTranscriber, type Transcriber } from './transcriber';
 import { voiceSettings } from './voice-settings.svelte';
+import { logger } from '../../../shared/logger';
 
 export type VoiceStatus = 'idle' | 'recording' | 'transcribing';
 /** Which UI initiated the current capture. The engine is a singleton (one
@@ -55,7 +56,7 @@ async function start(initiator: VoiceSurface = 'composer'): Promise<void> {
     session = await startRecording();
     status = 'recording';
   } catch (e) {
-    console.error('[voice] start failed:', e);
+    logger('voice').error('start failed:', e);
     error = micErrorMessage(e);
     status = 'idle';
   }
@@ -84,7 +85,7 @@ async function stopAndTranscribe(): Promise<string> {
     modelProgress = null;
     return text;
   } catch (e) {
-    console.error('[voice] transcribe failed:', e);
+    logger('voice').error('transcribe failed:', e);
     error = e instanceof Error ? e.message : String(e);
     status = 'idle';
     modelProgress = null;

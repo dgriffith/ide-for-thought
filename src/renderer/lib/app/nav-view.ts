@@ -14,6 +14,7 @@ import { getNavigationStore, type NavPosition } from '../stores/navigation.svelt
 import { flattenNoteFiles, resolveWikiLinkTarget } from '../wiki-link-resolver';
 import { findAnchorOffset, lineColToOffset } from './text-helpers';
 import { getPreferredSourceView, setPreferredSourceView } from '../source-view-preference';
+import { logger } from '../../../shared/logger';
 import { tick } from 'svelte';
 
 interface EditorRef {
@@ -133,7 +134,7 @@ export function createNavView(ctx: NavViewCtx) {
       // A failed check is not "no PDF" — but the honest fallback for routing is
       // still the text view, so log and take it (#1881).
       void api.sources.hasPdf(sourceId).catch((err: unknown) => {
-        console.error('[sources] could not check for an original PDF:', err);
+        logger('sources').error('could not check for an original PDF:', err);
         return false;
       }).then((ok) => {
         if (ok) {

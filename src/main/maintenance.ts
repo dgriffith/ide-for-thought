@@ -16,6 +16,7 @@ import type {
   MaintenanceStyle,
   MaintenanceTask,
 } from '../shared/maintenance';
+import { logger } from '../shared/logger';
 
 export interface MaintenanceRun<T> {
   task: MaintenanceTask;
@@ -55,7 +56,7 @@ export async function runMaintenance<T>(opts: MaintenanceRun<T>): Promise<T | un
     const error = err instanceof Error ? err.message : String(err);
     // Still log for a developer with the console open; the UI no longer
     // depends on anyone having it open.
-    console.error(`[maintenance] ${task} failed:`, err);
+    logger('maintenance').error(`${task} failed:`, err);
     emit({ task, running: false, style, label, outcome: { ok: false, error } });
     return undefined;
   }

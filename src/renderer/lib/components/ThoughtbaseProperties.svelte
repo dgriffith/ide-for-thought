@@ -21,6 +21,7 @@
   import { onMount } from 'svelte';
   import { api } from '../ipc/client';
   import Dialog from './ui/Dialog.svelte';
+  import { logger } from '../../../shared/logger';
 
   interface Props {
     /** Persist name + (when changed) base IRI. Resolves to the outcome so a
@@ -48,7 +49,7 @@
       baseUri = p.baseUri;
       initialBaseUri = p.baseUri;
     } catch (e) {
-      console.warn('[thoughtbase] failed to load properties:', e);
+      logger('thoughtbase').warn('failed to load properties:', e);
     }
     nameInput?.select();
   });

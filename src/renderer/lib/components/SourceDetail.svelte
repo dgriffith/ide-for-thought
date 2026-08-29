@@ -19,6 +19,7 @@
   import { installDismissOnClickOutside } from '../dismiss-menu';
   import { getSourceDataStore } from '../stores/source-data.svelte';
   import { getNotebaseStore } from '../stores/notebase.svelte';
+  import { logger } from '../../../shared/logger';
 
   const sourceData = getSourceDataStore();
   const notebase = getNotebaseStore();
@@ -133,7 +134,7 @@
     // stat would just fail later, so treat it as absent — but say so.
     void api.sources.hasPdf(sourceId)
       .catch((err: unknown) => {
-        console.error('[sources] could not check for an original PDF:', err);
+        logger('sources').error('could not check for an original PDF:', err);
         return false;
       })
       .then((r) => { hasPdf = r; });
@@ -188,7 +189,7 @@
       await sourceData.removeTag(sourceId, tag);
       await load(sourceId);
     } catch (err) {
-      console.error('[minerva] remove source tag failed:', err);
+      logger('sources').error('remove source tag failed:', err);
     }
   }
 
@@ -377,7 +378,7 @@
       // case.
       await load(sourceId);
     } catch (err) {
-      console.error('[minerva] setReadStatus failed:', err);
+      logger('sources').error('setReadStatus failed:', err);
     }
   }
 
@@ -391,7 +392,7 @@
       await sourceData.setReadDueBy(sourceId, value);
       await load(sourceId);
     } catch (err) {
-      console.error('[minerva] setReadDueBy failed:', err);
+      logger('sources').error('setReadDueBy failed:', err);
     }
   }
 

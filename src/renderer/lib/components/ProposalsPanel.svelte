@@ -3,6 +3,7 @@
   import { getProposalsStore } from '../stores/proposals.svelte';
   import Ribbon from './right-sidebar/Ribbon.svelte';
   import { describeProposer } from '../../../shared/provenance';
+  import { logger } from '../../../shared/logger';
 
   const review = getReviewStore();
   const store = getProposalsStore();
@@ -75,7 +76,7 @@
       }
     } catch (e) {
       lastError = `Approve failed: ${e instanceof Error ? e.message : String(e)}`;
-      console.error('[proposal] approve failed:', e);
+      logger('proposal').error('approve failed:', e);
     } finally {
       // The approve path emits PROPOSALS_CHANGED (#1524) so the store re-lists
       // on its own; refresh directly too so the panel updates deterministically
@@ -110,7 +111,7 @@
       }
     } catch (e) {
       lastError = `Reject failed: ${e instanceof Error ? e.message : String(e)}`;
-      console.error('[proposal] reject failed:', e);
+      logger('proposal').error('reject failed:', e);
     } finally {
       await store.refresh();
       processing = false;

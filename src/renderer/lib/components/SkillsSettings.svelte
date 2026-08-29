@@ -34,6 +34,7 @@
   import { getDialogStore } from '../stores/dialogs.svelte';
   import { CONFIRM_KEYS } from '../confirm-keys';
   import type { CustomModel } from '../../../shared/tools/types';
+  import { logger } from '../../../shared/logger';
 
   const settings = getSettingsStore();
   const { showConfirm } = getDialogStore();
@@ -170,7 +171,7 @@
       skillCatalog = cat;
       registerSkillInfos(applyMenuConfig(cat.skills, cat.config));
     } catch (e) {
-      console.error('[settings] failed to load skills:', e);
+      logger('settings').error('failed to load skills:', e);
     }
   }
 

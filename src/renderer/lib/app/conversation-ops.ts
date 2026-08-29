@@ -17,6 +17,7 @@ import { gatherContext } from '../tools/context';
 import { getAllToolInfos } from '../tools/tool-registry';
 import { CONFIRM_KEYS } from '../confirm-keys';
 import type { ToolContext } from '../../../shared/tools/types';
+import { logger } from '../../../shared/logger';
 
 export interface ConversationOpsCtx {
   getEditorView: () => Parameters<typeof gatherContext>[1];
@@ -152,7 +153,7 @@ export function createConversationOps(ctx: ConversationOpsCtx) {
       // Surface that message as a dialog rather than logging it
       // silently to console.
       const msg = err instanceof Error ? err.message : String(err);
-      console.error('[tool] prepareConversation failed:', err);
+      logger('conversation').error('prepareConversation failed:', err);
       await showConfirm(msg, CONFIRM_KEYS.toolPrepareFailed, 'OK');
       return;
     }

@@ -28,6 +28,7 @@ import {
   type RuntimeAdvert,
   type SubstrateResponse,
 } from './protocol';
+import { logger } from '../../shared/logger';
 
 interface ProjectEntry {
   token: string;
@@ -93,8 +94,8 @@ export async function registerProject(ctx: ProjectContext): Promise<void> {
     };
     await fs.writeFile(advertPath(ctx.rootPath), JSON.stringify(advert, null, 2), 'utf-8');
   } catch (err) {
-    console.warn(
-      `[substrate] failed to advertise ${ctx.rootPath}:`,
+    logger('substrate').warn(
+      `failed to advertise ${ctx.rootPath}:`,
       err instanceof Error ? err.message : err,
     );
   }

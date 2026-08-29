@@ -10,6 +10,7 @@ import type { FormatContext, FormatFileResult } from '../../shared/formatter/typ
 import { slugify } from '../../shared/slug';
 import { canonicalizeWikiLinkTarget } from '../../shared/wiki-link-resolver';
 import { renameAnchor } from '../notebase/rename-anchor';
+import { logger } from '../../shared/logger';
 // Side-effect import: populates the rule registry on the main-process side.
 // The renderer has its own import in SettingsDialog for the UI listing.
 import '../../shared/formatter/rules/index';
@@ -158,8 +159,8 @@ async function cascadeHeadingRenames(
       const result = await renameAnchor(rootPath, relativePath, oldSlug, newSlug);
       for (const p of result.rewrittenPaths) rewritten.add(p);
     } catch (err) {
-      console.error(
-        `[formatter] heading-rename cascade failed (${relativePath} ${oldSlug} → ${newSlug}):`,
+      logger('formatter').error(
+        `heading-rename cascade failed (${relativePath} ${oldSlug} → ${newSlug}):`,
         err instanceof Error ? err.message : err,
       );
     }

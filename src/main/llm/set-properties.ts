@@ -21,6 +21,7 @@ import type {
   PropertyUpdate,
   PropertyUpdateOutcome,
 } from '../../shared/conversation-property-drafts';
+import { logger } from '../../shared/logger';
 
 export interface ApplyPropertyUpdatesResult {
   outcomes: PropertyUpdateOutcome[];
@@ -81,7 +82,7 @@ export async function applyPropertyUpdates(
         deletedKeys: result.deletedKeys,
       });
     } catch (err) {
-      console.warn(`[set_properties] patch failed for`, u.relativePath, err);
+      logger('set-properties').warn(`patch failed for`, u.relativePath, err);
       outcomes.push({
         relativePath: u.relativePath,
         changedKeys: [],

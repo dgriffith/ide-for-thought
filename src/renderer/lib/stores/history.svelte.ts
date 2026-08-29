@@ -20,6 +20,7 @@
 import { api } from '../ipc/client';
 import { getDialogStore } from './dialogs.svelte';
 import { CONFIRM_KEYS } from '../confirm-keys';
+import { logger } from '../../../shared/logger';
 import type { RevisionMeta } from '../../../shared/history';
 
 let watched = $state<string | null>(null);
@@ -56,7 +57,7 @@ async function load(): Promise<void> {
     revision += 1;
   } catch (err) {
     if (watched !== path) return;
-    console.error('[history] failed to list revisions:', err);
+    logger('history').error('failed to list revisions:', err);
     revisions = [];
     error = err instanceof Error ? err.message : String(err);
     revision += 1;
@@ -94,7 +95,7 @@ export function getHistoryStore() {
         error = null;
         return content;
       } catch (err) {
-        console.error('[history] failed to read a revision:', err);
+        logger('history').error('failed to read a revision:', err);
         error = err instanceof Error ? err.message : String(err);
         return null;
       }

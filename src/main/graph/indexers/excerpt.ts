@@ -22,6 +22,7 @@ import {
 } from '../state';
 import { checkLLMWriteGuard } from '../write-guard';
 import { fileMtimeIso, injectPrefixes } from '../index-helpers';
+import { logger } from '../../../shared/logger';
 
 export function indexExcerpt(ctx: ProjectContext, excerptId: string, metaTtl: string): void {
   checkLLMWriteGuard('indexExcerpt');
@@ -46,7 +47,7 @@ export function indexExcerpt(ctx: ProjectContext, excerptId: string, metaTtl: st
     const prefixed = injectPrefixes(state, metaTtl, subject.value);
     $rdf.parse(prefixed, store, graph.value, 'text/turtle');
   } catch (e) {
-    console.error(`[minerva] Failed to parse excerpt ttl for ${excerptId}:`, e instanceof Error ? e.message : e);
+    logger('graph').error(`Failed to parse excerpt ttl for ${excerptId}:`, e instanceof Error ? e.message : e);
   }
 }
 

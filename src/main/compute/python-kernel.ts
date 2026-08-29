@@ -25,6 +25,7 @@ import { startRpcServer, type RpcServer } from './rpc-server';
 import os from 'node:os';
 import { resolvePythonInterpreter, getPythonSettings } from './python-settings';
 import { planKernelLaunch, resolveRealPath } from './sandbox';
+import { logger } from '../../shared/logger';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
 
@@ -172,7 +173,7 @@ async function spawnKernel(rootPath: string): Promise<KernelState> {
     try {
       event = JSON.parse(line) as KernelEvent;
     } catch {
-      console.warn('[python-kernel] non-JSON event line:', line);
+      logger('python-kernel').warn('non-JSON event line:', line);
       return;
     }
     if (event.type === 'ready') {
@@ -180,7 +181,7 @@ async function spawnKernel(rootPath: string): Promise<KernelState> {
       return;
     }
     if (event.type === 'protocol-error') {
-      console.warn('[python-kernel] protocol error:', event.message);
+      logger('python-kernel').warn('protocol error:', event.message);
       return;
     }
     if (!event.cellId) return;
@@ -211,7 +212,7 @@ async function spawnKernel(rootPath: string): Promise<KernelState> {
   // events) to the main-process console so they're not silently lost.
   const errRl = readline.createInterface({ input: proc.stderr });
   errRl.on('line', (line) => {
-    if (line.trim()) console.warn('[python-kernel:stderr]', line);
+    if (line.trim()) logger('python-kernel').warn('stderr:', line);
   });
 
   proc.on('exit', (code, signal) => {

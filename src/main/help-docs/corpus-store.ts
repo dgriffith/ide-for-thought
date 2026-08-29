@@ -11,6 +11,7 @@ import { app } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import { MODEL } from '../embeddings/embedder';
+import { logger } from '../../shared/logger';
 
 export interface HelpDocChunk {
   id: string;
@@ -49,7 +50,7 @@ export function getHelpDocsCorpus(resourcesBaseOverride?: string): HelpDocChunk[
 
   const file = corpusPath(resourcesBaseOverride);
   if (!fs.existsSync(file)) {
-    console.warn(`[help-docs] corpus not found at ${file} — run "pnpm fetch:help-corpus"`);
+    logger('help-docs').warn(`corpus not found at ${file} — run "pnpm fetch:help-corpus"`);
     cached = [];
     return cached;
   }
@@ -58,14 +59,14 @@ export function getHelpDocsCorpus(resourcesBaseOverride?: string): HelpDocChunk[
   try {
     parsed = JSON.parse(fs.readFileSync(file, 'utf-8')) as CorpusFile;
   } catch (err) {
-    console.warn(`[help-docs] corpus at ${file} is not valid JSON — ignoring: ${(err as Error).message}`);
+    logger('help-docs').warn(`corpus at ${file} is not valid JSON — ignoring: ${(err as Error).message}`);
     cached = [];
     return cached;
   }
 
   if (parsed.model !== MODEL.name || parsed.dim !== MODEL.dim) {
-    console.warn(
-      `[help-docs] corpus was built with model "${parsed.model}" (dim ${parsed.dim}), ` +
+    logger('help-docs').warn(
+      `corpus was built with model "${parsed.model}" (dim ${parsed.dim}), ` +
       `but this app ships "${MODEL.name}" (dim ${MODEL.dim}) — ignoring stale corpus`,
     );
     cached = [];

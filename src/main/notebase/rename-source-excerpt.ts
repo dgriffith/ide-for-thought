@@ -4,6 +4,7 @@ import * as notebaseFs from './fs';
 import { rewriteTypedIdLinks } from './link-rewriting';
 import * as graph from '../graph/index';
 import { projectContext } from '../project-context-types';
+import { logger } from '../../shared/logger';
 
 export interface RenameIdOptions {
   markPathHandled?: (relativePath: string) => void;
@@ -123,7 +124,7 @@ async function rewriteReferringNotes(
       reindexHook?.(notePath, rewritten);
       rewrittenPaths.push(notePath);
     } catch (err) {
-      console.error(`[minerva] ${linkTypeName} rewrite failed for ${notePath}:`, err instanceof Error ? err.message : err);
+      logger('rename').error(`${linkTypeName} rewrite failed for ${notePath}:`, err instanceof Error ? err.message : err);
     }
   }
   return { rewrittenPaths };

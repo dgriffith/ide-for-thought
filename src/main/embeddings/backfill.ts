@@ -46,6 +46,7 @@ import { isIgnoredEntry } from '../notebase/ignored-dirs';
 import { citedTextFromTtl } from '../sources/create-excerpt';
 import * as store from './vector-store';
 import type { RefKind } from './vector-store';
+import { logger } from '../../shared/logger';
 
 export interface BackfillProgress {
   done: number;
@@ -110,7 +111,7 @@ export async function runBackfill(ctx: ProjectContext, opts: BackfillOptions = {
         embedded++;
       } catch (err) {
         // A single unreadable / oversized item must not abort the whole pass.
-        console.warn(`[backfill] skipped ${item.kind}:${item.ref}:`, err);
+        logger('backfill').warn(`skipped ${item.kind}:${item.ref}:`, err);
       }
       done++;
       emit(opts, { done, total, running: true });

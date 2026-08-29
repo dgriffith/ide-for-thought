@@ -25,6 +25,7 @@ import {
   ensureTag, flattenFrontmatterStrings,
   buildLinkResolveCtx, resolveLinkTarget,
 } from '../index-helpers';
+import { logger } from '../../../shared/logger';
 
 export function indexSource(ctx: ProjectContext, sourceId: string, metaTtl: string, bodyMd?: string): void {
   checkLLMWriteGuard('indexSource');
@@ -49,7 +50,7 @@ export function indexSource(ctx: ProjectContext, sourceId: string, metaTtl: stri
     const prefixed = injectPrefixes(state, metaTtl, subject.value);
     $rdf.parse(prefixed, store, graph.value, 'text/turtle');
   } catch (e) {
-    console.error(`[minerva] Failed to parse source meta.ttl for ${sourceId}:`, e instanceof Error ? e.message : e);
+    logger('graph').error(`Failed to parse source meta.ttl for ${sourceId}:`, e instanceof Error ? e.message : e);
   }
 
   // Upstream subject tags (#473). Each `minerva:upstreamTag "..."` literal

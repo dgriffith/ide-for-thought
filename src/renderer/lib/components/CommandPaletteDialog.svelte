@@ -11,6 +11,7 @@
   import { scoreCommand } from '../command-palette/scoring';
   import { loadRecent, recordRecent } from '../command-palette/recent';
   import { trapFocus } from '../trap-focus';
+  import { logger } from '../../../shared/logger';
   import Icon from './Icon.svelte';
   import Kbd from './ui/Kbd.svelte';
 
@@ -81,7 +82,7 @@
     // Run after closing so the underlying editor focus returns
     // immediately — matches Obsidian / VS Code feel.
     try { await cmd.run(); }
-    catch (err) { console.error(`[command-palette] command "${cmd.id}" failed:`, err); }
+    catch (err) { logger('command-palette').error(`command "${cmd.id}" failed:`, err); }
   }
 
   function handleKeydown(e: KeyboardEvent) {

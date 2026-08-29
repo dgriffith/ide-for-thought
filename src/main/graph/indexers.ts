@@ -22,6 +22,7 @@ import { slugify } from '../../shared/slug';
 import { stripNoteExt } from '../../shared/note-extensions';
 import { isIndexable } from '../notebase/indexable-files';
 import { isIgnoredEntry } from '../notebase/ignored-dirs';
+import { logger } from '../../shared/logger';
 
 import type { ProjectContext } from '../project-context-types';
 
@@ -446,7 +447,7 @@ async function indexNoteImpl(
       const prefixed = injectPrefixes(state, block, subject.value);
       $rdf.parse(prefixed, store, graph.value, 'text/turtle');
     } catch (e) {
-      console.error(`[minerva] Failed to parse turtle block in ${relativePath}:`, e instanceof Error ? e.message : e);
+      logger('graph').error(`Failed to parse turtle block in ${relativePath}:`, e instanceof Error ? e.message : e);
     }
   }
 

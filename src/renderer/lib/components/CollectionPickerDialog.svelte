@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Collection } from '../../../shared/types';
+  import { logger } from '../../../shared/logger';
   import Icon from './Icon.svelte';
 
   interface Props {
@@ -77,7 +78,7 @@
       const newId = await onCreate(query.trim());
       onSelect(newId);
     } catch (err) {
-      console.error('[minerva] CollectionPickerDialog: create failed:', err);
+      logger('sources').error('CollectionPickerDialog: create failed:', err);
     } finally {
       creating = false;
     }

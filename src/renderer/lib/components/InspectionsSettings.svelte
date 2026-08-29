@@ -17,6 +17,7 @@
   import { onMount } from 'svelte';
   import { api } from '../ipc/client';
   import { getSettingsStore } from '../stores/settings.svelte';
+  import { logger } from '../../../shared/logger';
   import {
     visibleInspections,
     INSPECTION_GROUP_LABELS,
@@ -49,7 +50,7 @@
     try {
       settings = await api.graph.inspectionSettings();
     } catch (e) {
-      console.error('[settings] failed to load inspection settings:', e);
+      logger('settings').error('failed to load inspection settings:', e);
     } finally {
       loaded = true;
     }

@@ -22,6 +22,7 @@
 
 import { app, autoUpdater, dialog, Notification } from 'electron';
 import { updateElectronApp } from 'update-electron-app';
+import { logger } from '../shared/logger';
 
 export type UpdateState =
   | 'idle'
@@ -77,7 +78,7 @@ export function initAutoUpdate(): void {
       logger: console,
     });
   } catch (err) {
-    console.warn('[auto-update] setup failed; continuing without updates:', err);
+    logger('auto-update').warn('setup failed; continuing without updates:', err);
   }
 }
 
@@ -120,7 +121,7 @@ function wireEvents(): void {
   });
 
   autoUpdater.on('error', (err) => {
-    console.warn('[auto-update] error:', err);
+    logger('auto-update').warn('error:', err);
     setState('error');
     if (manualCheck) {
       manualCheck = false;
@@ -155,7 +156,7 @@ export function checkForUpdatesNow(): void {
     autoUpdater.checkForUpdates();
   } catch (err) {
     manualCheck = false;
-    console.warn('[auto-update] manual check failed:', err);
+    logger('auto-update').warn('manual check failed:', err);
     void infoDialog('Update check failed', 'Could not check for updates right now.');
   }
 }

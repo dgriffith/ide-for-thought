@@ -12,6 +12,7 @@ import { writeAndReindex } from '../notebase/write-pipeline';
 import { formatDateTime } from '../../shared/format-datetime';
 import type { HistorySettings, LabelNotesResult } from '../../shared/history';
 import * as history from '../history';
+import { logger } from '../../shared/logger';
 
 export function registerHistory(): void {
   handle(Channels.HISTORY_LIST, withRootPath((rootPath, relativePath: string) =>
@@ -74,9 +75,9 @@ export function registerHistory(): void {
     if (rootPath) {
       try {
         const { notes, removed } = await history.pruneAllHistory(rootPath, Date.now(), saved);
-        if (removed > 0) console.log(`[history] pruned ${removed} revision(s) across ${notes} note(s)`);
+        if (removed > 0) logger('history').info(`pruned ${removed} revision(s) across ${notes} note(s)`);
       } catch (err) {
-        console.warn('[history] prune after settings change failed:', err);
+        logger('history').warn('prune after settings change failed:', err);
       }
     }
     return saved;

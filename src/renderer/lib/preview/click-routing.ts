@@ -18,6 +18,7 @@ import { api } from '../ipc/client';
 import type { CellResult } from '../ipc/client';
 import { findRunnableFences, codeOf, RUNNABLE_LANGUAGE_SET } from '../../../shared/compute/fences';
 import { runAllCellsInContent } from '../compute/run-all-cells';
+import { logger } from '../../../shared/logger';
 import { planOutputEdit } from '../editor/output-block';
 import { hydrateVegaBlocks } from '../markdown/vega-renderer';
 
@@ -269,7 +270,7 @@ export async function runFenceAt(ops: ClickRoutingOps, openingLine: number): Pro
   const fences = findRunnableFences(content, RUNNABLE_LANGUAGE_SET);
   const fence = fences.find((f) => f.openingLine === openingLine);
   if (!fence) {
-    console.warn(`[preview] runFenceAt: no fence at line ${openingLine}`);
+    logger('preview').warn(`runFenceAt: no fence at line ${openingLine}`);
     return;
   }
   const code = codeOf(content, fence);
@@ -280,7 +281,7 @@ export async function runFenceAt(ops: ClickRoutingOps, openingLine: number): Pro
     const newContent = content.slice(0, edit.from) + edit.insert + content.slice(edit.to);
     ops.onApplyCellOutputEdit(newContent);
   } catch (e) {
-    console.warn('[preview] runFenceAt failed:', e);
+    logger('preview').warn('runFenceAt failed:', e);
   } finally {
     runningFences.delete(openingLine);
   }

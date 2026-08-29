@@ -20,6 +20,7 @@ import type { NeighborhoodResult } from '../../shared/types';
 import type { TypeCatalog } from '../../shared/objects/type-def';
 import type { ProjectContext } from '../project-context-types';
 import { createProjectStore } from '../project-store';
+import { logger } from '../../shared/logger';
 
 // ── Comunica engine (process-wide; stateless across projects) ────────────────
 
@@ -74,8 +75,8 @@ export function buildN3Store(s: $rdf.IndexedFormula): N3.Store {
     // invalidates the cache and pays this rebuild repeatedly — watch for it if
     // this fires. Fixes to consider when it does: incremental on-write N3
     // maintenance, or moving the rebuild off the main thread (#1088).
-    console.warn(
-      `[graph] N3 store rebuild took ${elapsedMs.toFixed(0)}ms for ${s.statements.length} triples ` +
+    logger('graph').warn(
+      `N3 store rebuild took ${elapsedMs.toFixed(0)}ms for ${s.statements.length} triples ` +
       `(O(n), synchronous on the main thread) — see #1088.`,
     );
   }

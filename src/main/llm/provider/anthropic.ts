@@ -30,6 +30,7 @@ import type {
   TurnResult,
   WebToolSettings,
 } from './types';
+import { logger } from '../../../shared/logger';
 
 /** `output_config` for a resolved effort, or `undefined` to omit it. Effort has
  *  already been clamped to the model by the caller; a falsy value means the
@@ -179,8 +180,8 @@ export class AnthropicProvider implements LLMProvider {
       // means `read` stays 0 forever, with no error. Surface the split so a
       // regression is visible rather than merely expensive.
       const u = message.usage;
-      console.log(
-        `[llm] cache read=${u?.cache_read_input_tokens ?? 0} `
+      logger('llm').info(
+        `cache read=${u?.cache_read_input_tokens ?? 0} `
         + `write=${u?.cache_creation_input_tokens ?? 0} uncached=${u?.input_tokens ?? 0}`,
       );
     }

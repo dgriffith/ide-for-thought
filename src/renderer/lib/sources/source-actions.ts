@@ -9,6 +9,7 @@
 import { api } from '../ipc/client';
 import { displaySourceTitle } from '../../../shared/source-display';
 import type { SourceMetadata } from '../../../shared/types';
+import { logger } from '../../../shared/logger';
 
 /** Dialog seams, matching the components' `onShowPrompt` / `onShowConfirm`
  *  props. Typed to exactly what these helpers invoke (a string initial value),
@@ -36,7 +37,7 @@ export async function renameSource(
     await api.sources.setTitle(source.sourceId, name.trim());
     await onDone?.();
   } catch (err) {
-    console.error('[minerva] Rename source failed:', err);
+    logger('sources').error('Rename source failed:', err);
   }
 }
 
@@ -94,6 +95,6 @@ export async function addSourceTag(
     await api.sources.addTag(sourceId, t);
     await onDone?.();
   } catch (err) {
-    console.error('[minerva] add source tag failed:', err);
+    logger('sources').error('add source tag failed:', err);
   }
 }

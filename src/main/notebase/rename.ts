@@ -10,6 +10,7 @@ import * as graph from '../graph/index';
 import { projectContext } from '../project-context-types';
 import { isIndexable } from './indexable-files';
 import { isIgnoredEntry } from './ignored-dirs';
+import { logger } from '../../shared/logger';
 
 async function listIndexableFiles(rootPath: string, relDir: string): Promise<string[]> {
   const results: string[] = [];
@@ -344,7 +345,7 @@ export async function renameWithLinkRewrites(
     try {
       content = await notebaseFs.readFile(rootPath, currentPath);
     } catch (err) {
-      console.error(`[minerva] Read for rewrite failed for ${currentPath}:`, err instanceof Error ? err.message : err);
+      logger('rename').error(`Read for rewrite failed for ${currentPath}:`, err instanceof Error ? err.message : err);
       continue;
     }
 
@@ -376,7 +377,7 @@ export async function renameWithLinkRewrites(
         reindexHook?.(currentPath, rewritten);
         rewrittenPaths.push(currentPath);
       } catch (err) {
-        console.error(`[minerva] Link rewrite failed for ${currentPath}:`, err instanceof Error ? err.message : err);
+        logger('rename').error(`Link rewrite failed for ${currentPath}:`, err instanceof Error ? err.message : err);
       }
     } else if (referringNotes.has(oldEquivalent)) {
       // Text didn't change but this note refers to the moved target —
@@ -390,7 +391,7 @@ export async function renameWithLinkRewrites(
         await graph.indexNote(ctx, currentPath, content);
         reindexHook?.(currentPath, content);
       } catch (err) {
-        console.error(`[minerva] Alias-sweep reindex failed for ${currentPath}:`, err instanceof Error ? err.message : err);
+        logger('rename').error(`Alias-sweep reindex failed for ${currentPath}:`, err instanceof Error ? err.message : err);
       }
     }
   }

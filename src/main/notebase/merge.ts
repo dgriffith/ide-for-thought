@@ -5,6 +5,7 @@ import { rewriteWikiLinks, normalizePath as normalizeLinkPath } from './link-rew
 import * as graph from '../graph/index';
 import { projectContext } from '../project-context-types';
 import { isIndexable } from './indexable-files';
+import { logger } from '../../shared/logger';
 
 /**
  * Merge note (#464). Append the source note's body to a target note,
@@ -185,7 +186,7 @@ export async function mergeNotes(
     try {
       content = await notebaseFs.readFile(rootPath, ref);
     } catch (err) {
-      console.error(`[merge] read failed for ${ref}:`, err instanceof Error ? err.message : err);
+      logger('merge').error(`read failed for ${ref}:`, err instanceof Error ? err.message : err);
       continue;
     }
     const rewritten = rewriteWikiLinks(content, rewrites);
@@ -201,7 +202,7 @@ export async function mergeNotes(
       opts.reindexHook?.(ref, rewritten);
       rewrittenPaths.push(ref);
     } catch (err) {
-      console.error(`[merge] write failed for ${ref}:`, err instanceof Error ? err.message : err);
+      logger('merge').error(`write failed for ${ref}:`, err instanceof Error ? err.message : err);
     }
   }
 
