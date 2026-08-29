@@ -18,6 +18,7 @@ import { noteUrl, type SiteIndex } from './site-data';
 import { renderFootnotesSection } from '../note-html';
 import { extractPublish, type PublishMeta } from './publish-meta';
 import { type SidebarNode, subtreeContains } from './sidebar';
+import { escapeHtmlFull as escapeHtml, escapeHtmlFull as escapeAttr } from '../../../../shared/text-escape';
 
 export interface RenderPageInput {
   note: ExportPlanFile;
@@ -380,16 +381,6 @@ function extractTagList(note: ExportPlanFile): string[] {
   }
   return [];
 }
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-function escapeAttr(s: string): string { return escapeHtml(s); }
 
 // Suppress unused-helper warnings for `path` import — used by future
 // asset-copy code; left so the module's expected import shape stays

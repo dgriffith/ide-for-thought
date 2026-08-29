@@ -23,6 +23,7 @@ import type { MarkdownIt } from 'markdown-it';
 import type { StateInline } from 'markdown-it';
 import type { StateBlock } from 'markdown-it';
 import katex from 'katex';
+import { escapeHtml, escapeAttr } from '../text-escape';
 
 export function installMath(md: MarkdownIt): void {
   md.inline.ruler.before('escape', 'math_inline', mathInline);
@@ -47,13 +48,6 @@ function renderTex(tex: string, displayMode: boolean): string {
     const msg = err instanceof Error ? err.message : String(err);
     return `<span class="katex-error" title="${escapeAttr(msg)}">${escapeHtml(tex)}</span>`;
   }
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-function escapeAttr(s: string): string {
-  return escapeHtml(s).replace(/"/g, '&quot;');
 }
 
 /**

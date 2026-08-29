@@ -5,6 +5,7 @@
  * malformed type can't break the rest of the catalog (mirrors skills/parse.ts).
  */
 import YAML from 'yaml';
+import { slugifyId as slugify } from '../../shared/slug';
 import {
   PROPERTY_TYPES,
   pascalCase,
@@ -22,10 +23,6 @@ export interface ParseTypeResult {
   errors: string[];
   /** Best-effort label for error reporting even when the type is rejected. */
   label: string;
-}
-
-function slugify(s: string): string {
-  return s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 }
 
 function asString(v: unknown): string | undefined {

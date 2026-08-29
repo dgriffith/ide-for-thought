@@ -10,6 +10,7 @@
  */
 import { resolveWikiLinkTarget } from '../../../shared/wiki-link-resolver';
 import { parseTransclusionTarget, sliceTransclusion } from '../../../shared/transclusion';
+import { stripFrontmatter } from '../../../shared/frontmatter-strip';
 
 export interface NotePreview {
   /** Resolved relativePath of the target note. */
@@ -106,6 +107,3 @@ function truncate(text: string): string {
   return clipped ? `${out}…` : out;
 }
 
-function stripFrontmatter(content: string): string {
-  return content.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '');
-}

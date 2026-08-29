@@ -26,6 +26,7 @@ import { renderFootnotesSection } from '../note-html';
 import { NOTE_HTML_STYLE } from '../note-html/style';
 import { bodyHasKatex, getKatexStyle } from '../note-html/katex-css';
 import type { Exporter, ExportOutput, ExportPlan, ExportPlanFile } from '../../types';
+import { escapeHtmlFull as escapeHtml, escapeHtmlFull as escapeAttr } from '../../../../shared/text-escape';
 
 export const treeHtmlExporter: Exporter = {
   id: 'tree-html',
@@ -170,16 +171,6 @@ function renderSidebar(
   });
   return `<nav class="bundle-tree"><h2 class="bundle-tree-heading">Pages</h2><ol>${items.join('')}</ol></nav>`;
 }
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-function escapeAttr(s: string): string { return escapeHtml(s); }
 
 const BUNDLE_NAV_STYLE = `
 /* Tree-html bundle: shared stylesheet + sidebar nav (#292). */

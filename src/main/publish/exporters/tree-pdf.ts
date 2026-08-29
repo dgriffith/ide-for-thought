@@ -22,6 +22,8 @@ import { resolveRenderOptions, toPrintToPdfArgs } from './note-pdf/options';
 import { renderPdfFromHtml } from './note-pdf/electron-render';
 import { NOTE_HTML_STYLE } from './note-html/style';
 import type { Exporter, ExportOutput, ExportPlan, ExportPlanFile } from '../types';
+import { escapeHtml, escapeRegex } from '../../../shared/text-escape';
+import { slugifyId } from '../../../shared/slug';
 
 export interface BuildTreePdfHtmlResult {
   html: string;
@@ -173,19 +175,8 @@ function rewriteInterChapterLinks(
   return out;
 }
 
-function escapeRegex(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 function slugify(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'document';
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+  return slugifyId(s) || 'document';
 }
 
 const TREE_PDF_EXTRA_STYLE = `

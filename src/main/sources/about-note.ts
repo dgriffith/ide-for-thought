@@ -9,6 +9,7 @@
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { slugifyId } from '../../shared/slug';
 
 export interface AboutNoteParams {
   sourceId: string;
@@ -45,12 +46,7 @@ export async function createAboutNote(
 
 /** Filename-safe, lowercase, hyphenated stem from a free-text title. */
 export function slugifyTitle(title: string): string {
-  return title
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 60);
+  return slugifyId(title).slice(0, 60);
 }
 
 /** `<stem>.md`, or `<stem>-2.md`, `<stem>-3.md`, … if earlier ones exist. */

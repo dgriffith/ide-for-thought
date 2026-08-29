@@ -18,6 +18,7 @@
 import MarkdownIt from 'markdown-it';
 import type { CitationRenderer } from '../../csl';
 import type { AnnotatedReadingData, AnnotatedExcerpt } from './resolve';
+import { escapeHtmlFull as escapeHtml, escapeHtmlFull as escapeAttr } from '../../../../shared/text-escape';
 
 export interface RenderedReading {
   /** Self-contained HTML document. */
@@ -184,16 +185,6 @@ function wrapHighlights(
 function noteHrefFor(relativePath: string): string {
   return relativePath;
 }
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-function escapeAttr(s: string): string { return escapeHtml(s); }
 
 const ANNOTATED_READING_STYLE = `
 :root {
