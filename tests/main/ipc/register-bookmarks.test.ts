@@ -21,12 +21,13 @@ vi.mock('electron', () => ({
   ipcMain: { handle: (channel: string, fn: Handler) => { handlers.set(channel, fn); } },
 }));
 
-// Keep the REAL readJsonFileOr (the code under test); only stub the
-// project-scoping wrappers so we can steer/clear the root.
+// Keep the REAL readJsonFileOr/writeJsonFileAtomic (the code under test); only
+// stub the project-scoping wrappers so we can steer/clear the root.
 vi.mock('../../../src/main/ipc/helpers', async () => {
-  const { readJsonFileOr } = await import('../../../src/main/ipc/read-json');
+  const { readJsonFileOr, writeJsonFileAtomic } = await import('../../../src/main/ipc/read-json');
   return {
     readJsonFileOr,
+    writeJsonFileAtomic,
     rootPathFromEvent: () => state.root,
     withRootPath:
       <A extends unknown[], R>(fn: (rootPath: string, ...a: A) => R) =>
@@ -103,5 +104,21 @@ describe('register-bookmarks store loads (#1631)', () => {
   it('TABS_SAVE is a silent no-op with no project (nothing to persist)', () => {
     state.root = null;
     expect(call(Channels.TABS_SAVE, {})).toBeUndefined();
+  });
+
+  // #1915 — BOOKMARKS_SAVE/TABS_SAVE route through writeJsonFileAtomic. This
+  // exercises the real write, round-tripped through BOOKMARKS_LOAD/TABS_LOAD,
+  // rather than just asserting the fallback-path short-circuits above (which
+  // never actually call the mocked write helper).
+  it('BOOKMARKS_SAVE writes bookmarks.json, readable back via BOOKMARKS_LOAD', async () => {
+    const tree = [{ id: 'a', label: 'A', kind: 'note', path: 'a.md' }];
+    await call(Channels.BOOKMARKS_SAVE, tree);
+    await expect(call(Channels.BOOKMARKS_LOAD)).resolves.toEqual(tree);
+  });
+
+  it('TABS_SAVE writes tabs.json, readable back via TABS_LOAD', async () => {
+    const session = { groups: [] };
+    await call(Channels.TABS_SAVE, session);
+    await expect(call(Channels.TABS_LOAD)).resolves.toEqual(session);
   });
 });

@@ -1,4 +1,3 @@
-import fs from 'node:fs/promises';
 import path from 'node:path';
 import { Channels } from '../../shared/channels';
 import { writeAndReindex } from '../notebase/write-pipeline';
@@ -21,7 +20,7 @@ import type { AutoLinkSuggestion } from '../../shared/refactor/auto-link';
 import type { AutoLinkInboundSuggestion } from '../../shared/refactor/auto-link-inbound';
 import { appendSeeAlsoLink } from '../../shared/refactor/see-also';
 import * as notebaseFs from '../notebase/fs';
-import { rootPathFromEvent, withRootPath, readJsonFileOr, persistIndexes, broadcastRewritten, hooks } from './helpers';
+import { rootPathFromEvent, withRootPath, readJsonFileOr, writeJsonFileAtomic, persistIndexes, broadcastRewritten, hooks } from './helpers';
 import { handle } from './typed-ipc';
 
 export function registerRefactor(): void {
@@ -110,9 +109,7 @@ export function registerRefactor(): void {
   }));
 
   handle(Channels.FORMATTER_SAVE_SETTINGS, withRootPath(async (rootPath, settings: FormatSettings) => {
-    const p = path.join(rootPath, '.minerva', 'formatter.json');
-    await fs.mkdir(path.dirname(p), { recursive: true });
-    await fs.writeFile(p, JSON.stringify(settings, null, 2), 'utf-8');
+    await writeJsonFileAtomic(path.join(rootPath, '.minerva', 'formatter.json'), settings);
   }));
 
   handle(
