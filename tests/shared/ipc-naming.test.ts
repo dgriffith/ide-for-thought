@@ -47,7 +47,10 @@ function channelValues(): Record<string, string> {
 /** channel value → the api.* namespace(s) it's exposed under, from preload.ts. */
 function channelNamespaces(values: Record<string, string>): Record<string, Set<string>> {
   const src = readFileSync('src/preload/preload.ts', 'utf8');
-  const body = src.slice(src.indexOf("exposeInMainWorld('api', {"));
+  // The `api` object literal is named (#1920 — so its type can be exported and
+  // checked against client.ts) rather than passed inline to
+  // `exposeInMainWorld`; anchor on its declaration instead.
+  const body = src.slice(src.indexOf('const api = {'));
   const out: Record<string, Set<string>> = {};
   let depth = 0;
   let ns: string | null = null;

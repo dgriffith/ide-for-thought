@@ -7,6 +7,7 @@ import type { Proposal } from '../../../shared/proposals';
 import type { MaintenanceProgress } from '../../../shared/maintenance';
 import type { ThemeMode } from '../../../shared/theme';
 import type { HistorySettings, LabelNotesResult, RevisionMeta } from '../../../shared/history';
+import type { PreloadApi } from '../../../preload/preload';
 
 export interface NotebaseApi {
   open(): Promise<NotebaseMeta | null>;
@@ -163,11 +164,13 @@ export interface GraphApi {
   /** Attach an excerpt as grounds/supports/rebuts evidence for a claim (#1073) —
    *  files a pending proposal reviewed in the Proposals panel. */
   attachExcerptEvidence(excerptId: string, claimPath: string, role: 'grounds' | 'supports' | 'rebuts'): Promise<{ ok: boolean; error?: string; proposalUri?: string }>;
+  /** `null` with no project open — a legitimate `withRootPathOr(null, …)`
+   *  answer, not an error (#1920: this file previously omitted it). */
   schemaForCompletion(): Promise<{
     prefixes: Array<{ prefix: string; iri: string }>;
     predicates: Array<{ iri: string; prefixed?: string }>;
     classes: Array<{ iri: string; prefixed?: string }>;
-  }>;
+  } | null>;
   /** Frontmatter alias → relativePath snapshot (#469). Lower-cased keys. */
   aliasMap(): Promise<Record<string, string>>;
   /** Entries form of the alias map preserving original casing — used
@@ -313,7 +316,7 @@ export interface ExporterInfo {
   acceptedKinds: ExportInputKind[];
   group: ExportGroupMeta;
   /** Set when the exporter shares a group + scope with another (Markdown). */
-  variantLabel?: string;
+  variantLabel?: string | undefined;
   variantOrder: number;
 }
 
@@ -1238,3 +1241,48 @@ declare global {
 }
 
 export const api: IdeApi = window.api;
+
+// ── Compile-time link to the IPC contract (#1920) ────────────────────────────
+// Every interface above hand-restates a signature that `shared/ipc-contract.ts`
+// (`ChannelMap`/`EventMap`) already declares and `preload.ts` already
+// implements — three declarations of one contract, with only the
+// preload↔contract pair structurally enforced (via the typed `invoke`/
+// `subscribe` wrappers, whose generics are inferred from the two maps).
+// `IdeApi` here was the missing third link: a plain interface `window.api` is
+// merely ASSERTED to satisfy, never checked against what preload.ts actually
+// builds.
+//
+// `PreloadApi` (exported from preload.ts as `typeof api`, the real object
+// literal `contextBridge.exposeInMainWorld` sends across) is that real,
+// ChannelMap/EventMap-derived shape. Checking `PreloadApi extends IdeApi`
+// makes this file a verified view of the contract rather than a parallel
+// transcript: a method IdeApi claims exists (or a signature it claims) that
+// preload.ts doesn't actually provide fails `tsc --noEmit` right here,
+// instead of surfacing as a runtime `undefined is not a function` the first
+// time a caller reaches it.
+//
+// Deliberately checked against the real preload object rather than a type
+// mechanically derived from ChannelMap's flat `'domain:method'` keys: the two
+// don't always correspond string-for-string (e.g. the `recent:clear` channel
+// is exposed as `notebase.clearRecent`, not `recent.clear`) — preload.ts is
+// the one place that already resolves that renaming correctly, so deriving
+// from it avoids re-encoding a second, driftable naming map here.
+//
+// Scoped to ChannelMap-backed (invoke) methods only, matching this issue's
+// stated scope and ipc-contract.ts's own documented split ("Scope: invoke
+// channels only. One-way send/event channels... are typed separately
+// (#1633)"). `on*` event-subscription methods are excluded via `OmitEvents`
+// because several are DELIBERATELY typed narrower on the send side than on
+// the receive side: every `on*Draft` callback in register-conversation.ts's
+// shared `draftEmit` helper is typed `(draft: ConversationDraftBase) => void`
+// (one signature reused across ~10 differently-shaped draft kinds, "the
+// payload is checked on the receiving side" per its own comment), while each
+// `client.ts` subscription re-narrows to that kind's specific richer
+// subtype — a real, intentional asymmetry #1633's EventMap owns, not a
+// ChannelMap drift for this check to flag.
+type OmitEvents<T> = { [K in keyof T as K extends `on${string}` ? never : K]: T[K] };
+type InvokeOnly<T> = { [D in keyof T]: OmitEvents<T[D]> };
+type Assert<T extends true> = T;
+// `export` (rather than a bare local) so `noUnusedLocals` doesn't flag it —
+// its only job is to fail `tsc --noEmit` on drift; nothing needs to import it.
+export type _ClientMatchesPreload = Assert<InvokeOnly<PreloadApi> extends InvokeOnly<IdeApi> ? true : false>;

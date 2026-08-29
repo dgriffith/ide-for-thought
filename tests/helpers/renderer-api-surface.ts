@@ -66,8 +66,11 @@ export function dataflowMutationMethods(): Set<string> {
  */
 export function apiNamespaceMethods(): Record<string, Set<string>> {
   const src = readFileSync(PRELOAD, 'utf8');
-  const start = src.indexOf("exposeInMainWorld('api', {");
-  if (start < 0) throw new Error(`exposeInMainWorld('api', …) not found in ${PRELOAD}.`);
+  // The `api` object literal is named (#1920 — so its type can be exported and
+  // checked against client.ts) rather than passed inline to
+  // `exposeInMainWorld`; anchor on its declaration instead.
+  const start = src.indexOf('const api = {');
+  if (start < 0) throw new Error(`const api = { … } not found in ${PRELOAD}.`);
   const body = src.slice(start);
 
   const out: Record<string, Set<string>> = {};
