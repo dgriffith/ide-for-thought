@@ -2,6 +2,7 @@ import * as notebaseFs from './fs';
 import { rewriteAnchorInLinks } from './link-rewriting';
 import * as graph from '../graph/index';
 import { projectContext } from '../project-context-types';
+import { logger } from '../../shared/logger';
 
 export interface RenameAnchorOptions {
   markPathHandled?: (relativePath: string) => void;
@@ -42,7 +43,7 @@ export async function renameAnchor(
       reindexHook?.(notePath, rewritten);
       rewrittenPaths.push(notePath);
     } catch (err) {
-      console.error(`[minerva] Anchor rewrite failed for ${notePath}:`, err instanceof Error ? err.message : err);
+      logger('rename').error(`Anchor rewrite failed for ${notePath}:`, err instanceof Error ? err.message : err);
     }
   }
 

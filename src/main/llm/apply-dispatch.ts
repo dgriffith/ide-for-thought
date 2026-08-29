@@ -19,6 +19,7 @@ import { setSourceProperties, readMeta, sourceMetaPath, restoreSourceMeta } from
 import type { ProjectContext } from '../project-context-types';
 import type { AppliedRecord, PayloadOf, ProposalPayload } from './proposal-types';
 import { applyTurtle } from './proposal-persistence';
+import { logger } from '../../shared/logger';
 
 /**
  * Everything the approval engine needs to know about one payload kind: how to
@@ -114,7 +115,7 @@ export async function applyBundle(ctx: ProjectContext, payloads: ProposalPayload
     for (const a of [...applied].reverse()) {
       const handler = HANDLERS.get(a.kind);
       try { await handler?.rollback(ctx, a.rollbackData); }
-      catch (rollbackErr) { console.warn(`[approval] rollback of ${a.kind} failed:`, rollbackErr); }
+      catch (rollbackErr) { logger('approval').warn(`rollback of ${a.kind} failed:`, rollbackErr); }
     }
     throw err;
   } finally {
@@ -270,7 +271,7 @@ register({
         search.indexNote(ctx, relPath, content);
         void vectors.indexNote(ctx, relPath, content);
       } catch (err) {
-        console.warn(`[approval] note-refactor rollback restore failed for ${relPath}:`, err);
+        logger('approval').warn(`note-refactor rollback restore failed for ${relPath}:`, err);
       }
     }
   },
@@ -302,7 +303,7 @@ register({
       search.indexNote(ctx, data.path, data.content);
       void vectors.indexNote(ctx, data.path, data.content);
     } catch (err) {
-      console.warn(`[approval] note-delete rollback restore failed for ${data.path}:`, err);
+      logger('approval').warn(`note-delete rollback restore failed for ${data.path}:`, err);
     }
   },
 });
@@ -340,7 +341,7 @@ register({
     try {
       await notebaseFs.rename(ctx.rootPath, data.toPath, data.fromPath);
     } catch (err) {
-      console.warn(`[approval] folder-refactor rollback move-back failed for ${data.toPath} → ${data.fromPath}:`, err);
+      logger('approval').warn(`folder-refactor rollback move-back failed for ${data.toPath} → ${data.fromPath}:`, err);
     }
     for (const [relPath, content] of Object.entries(data.preImages)) {
       try {
@@ -350,7 +351,7 @@ register({
         search.indexNote(ctx, relPath, content);
         void vectors.indexNote(ctx, relPath, content);
       } catch (err) {
-        console.warn(`[approval] folder-refactor rollback restore failed for ${relPath}:`, err);
+        logger('approval').warn(`folder-refactor rollback restore failed for ${relPath}:`, err);
       }
     }
   },
@@ -387,7 +388,7 @@ register({
           void vectors.indexNote(ctx, f.path, content);
         }
       } catch (err) {
-        console.warn(`[approval] folder-delete rollback restore failed for ${f.path}:`, err);
+        logger('approval').warn(`folder-delete rollback restore failed for ${f.path}:`, err);
       }
     }
   },
@@ -427,7 +428,7 @@ register({
       search.indexNote(ctx, data.path, data.before);
       void vectors.indexNote(ctx, data.path, data.before);
     } catch (err) {
-      console.warn(`[approval] note-rewrite rollback restore failed for ${data.path}:`, err);
+      logger('approval').warn(`note-rewrite rollback restore failed for ${data.path}:`, err);
     }
   },
   affectsNodes: (ctx, p) => {
@@ -456,7 +457,7 @@ register({
     try {
       await restoreSourceMeta(ctx.rootPath, data.sourceId, data.before);
     } catch (err) {
-      console.warn(`[approval] source-meta rollback restore failed for ${data.sourceId}:`, err);
+      logger('approval').warn(`source-meta rollback restore failed for ${data.sourceId}:`, err);
     }
   },
 });

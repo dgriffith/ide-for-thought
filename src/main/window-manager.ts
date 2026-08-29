@@ -17,6 +17,7 @@ import { runBackfill } from './embeddings/backfill';
 import { installNavigationGuards, HARDENED_WEB_PREFERENCES } from './security';
 import { ensureClipperRunning, stopClipperServer, isClipperEnabled } from './clipper/lifecycle';
 import type { ProjectContext } from './project-context-types';
+import { logger } from '../shared/logger';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
 declare const MAIN_WINDOW_VITE_NAME: string;
@@ -275,7 +276,7 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
   try {
     await templates.ensureSeeded(rootPath);
   } catch (err) {
-    console.warn('[window-manager] template seed failed', err);
+    logger('window-manager').warn('template seed failed', err);
   }
   addRecentProject(rootPath);
   menuRebuilder?.();

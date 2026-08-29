@@ -15,6 +15,7 @@
 import { api } from '../ipc/client';
 import type { FormatSettings } from '../../../shared/formatter/engine';
 import { DEFAULT_FORMAT_SETTINGS } from '../../../shared/formatter/engine';
+import { logger } from '../../../shared/logger';
 
 let settings: FormatSettings = { ...DEFAULT_FORMAT_SETTINGS };
 
@@ -30,7 +31,7 @@ export async function loadFormatSettings(): Promise<FormatSettings> {
     // The handler now rejects for a corrupt/unreadable formatter.json instead of
     // quietly handing back defaults (#1841). We still fall back so the app works,
     // but the reason is logged rather than lost.
-    console.error('[formatter] failed to load settings — using defaults', err);
+    logger('formatter').error('failed to load settings — using defaults', err);
     settings = { ...DEFAULT_FORMAT_SETTINGS };
   }
   return settings;

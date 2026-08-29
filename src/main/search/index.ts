@@ -5,6 +5,7 @@ import { MiniSearchProvider } from './minisearch-provider';
 import type { ProjectContext } from '../project-context-types';
 import { createProjectStore } from '../project-store';
 import { isIgnoredEntry } from '../notebase/ignored-dirs';
+import { logger } from '../../shared/logger';
 
 interface SearchState {
   rootPath: string;
@@ -141,7 +142,7 @@ export function schedulePersist(ctx: ProjectContext): void {
     try {
       await state.provider.save(indexPath(state));
     } catch (err) {
-      console.warn(`[search] debounced persist failed for ${state.rootPath}:`, err);
+      logger('search').warn(`debounced persist failed for ${state.rootPath}:`, err);
     }
   }, persistDebounceMs);
 }

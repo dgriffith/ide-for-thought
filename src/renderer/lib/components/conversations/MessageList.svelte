@@ -11,6 +11,7 @@
   import { type CiteStatus } from '../../conversations/citations';
   import { formatTurnCost } from '../../conversations/conversation-cost';
   import type { ConversationMessage, Citation } from '../../../../shared/conversation';
+  import { logger } from '../../../../shared/logger';
 
   interface Props {
     /** The active conversation tab whose transcript we render. */
@@ -131,7 +132,7 @@
       citeState = { ...citeState, [key]: { phase: 'done' } };
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
-      console.error('[conv-panel] cite from conversation failed:', e);
+      logger('conversation-panel').error('cite from conversation failed:', e);
       citeState = { ...citeState, [key]: { phase: 'error', message } };
     }
   }

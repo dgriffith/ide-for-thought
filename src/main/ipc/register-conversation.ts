@@ -11,6 +11,7 @@ import { rootPathFromEvent, winFromEvent, withRootPath, withRootPathOr } from '.
 import { broadcast } from './broadcast';
 import { handle } from './typed-ipc';
 import type { EventMap } from '../../shared/ipc-contract';
+import { logger } from '../../shared/logger';
 
 const DEFAULT_CONVERSATION_SYSTEM_PROMPT = [
   'You are an assistant embedded in Minerva, a markdown-based thinking tool.',
@@ -197,8 +198,8 @@ async function runCompletionWithContainerRecovery(
     if (!msg.includes(CONTAINER_REQUIRED_MARKER)) throw err;
     // The persisted container id is missing/stale while history still
     // references code_execution. Clear it, strip the offending turns, retry once.
-    console.warn(
-      `[conv] container_id 400 — recovering. conv=${convId} ` +
+    logger('conversation').warn(
+      `container_id 400 — recovering. conv=${convId} ` +
       `cachedContainer=${initialContainerId ?? 'none'} stripping code_execution turns`,
     );
     await conversation.setContainerId(rootPath, convId, undefined, undefined);
@@ -274,7 +275,7 @@ export function registerConversation(): void {
 
     // Unconditional log so we can prove the current build is loaded —
     // if the user reports "no log messages" again, this is missing too.
-    console.log(`[conv] ${userMessage === null ? 'RETRY' : 'SEND'} start: conv=${convId} userMsgLen=${userMessage?.length ?? 0}`);
+    logger('conversation').info(`${userMessage === null ? 'RETRY' : 'SEND'} start: conv=${convId} userMsgLen=${userMessage?.length ?? 0}`);
 
     graph.enterLLMContext();
     try {

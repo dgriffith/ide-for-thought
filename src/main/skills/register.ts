@@ -11,6 +11,7 @@ import { getSkillCatalog, reloadSkillCatalog } from './loader';
 import type { SkillCatalog } from '../../shared/skills/types';
 import { applyMenuConfig } from '../../shared/skills/menu-config';
 import { getMenuConfig, loadMenuConfig } from './menu-config-store';
+import { logger } from '../../shared/logger';
 
 const registeredSkillIds = new Set<string>();
 
@@ -29,7 +30,7 @@ function applyCatalog(catalog: SkillCatalog): void {
   }
   if (catalog.errors.length > 0) {
     for (const err of catalog.errors) {
-      console.warn(`[skills] ${err.source}:${err.label} — ${err.message} (${err.filePath})`);
+      logger('skills').warn(`${err.source}:${err.label} — ${err.message} (${err.filePath})`);
     }
   }
 }

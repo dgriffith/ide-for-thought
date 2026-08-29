@@ -38,6 +38,7 @@ import { CONFIRM_KEYS } from '../confirm-keys';
 import { loadFormatSettings } from '../formatter/settings';
 import { registerSkillInfos } from '../tools/tool-registry';
 import { applyMenuConfig } from '../../../shared/skills/menu-config';
+import { logger } from '../../../shared/logger';
 import type { EditorView } from '@codemirror/view';
 import type { ThemeMode } from '../theme';
 
@@ -156,7 +157,7 @@ export function registerAppIpc(ctx: IpcWiringCtx): void {
       // their effective menu and configured order, reach the palette / slash.
       registerSkillInfos(applyMenuConfig(cat.skills, cat.config));
     } catch (err) {
-      console.warn('[skills] failed to load skill list:', err);
+      logger('skills').warn('failed to load skill list:', err);
     }
   })();
 

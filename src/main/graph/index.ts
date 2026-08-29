@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import * as uriHelpers from './uri-helpers';
 import { readRawProjectConfig, patchRawProjectConfig } from '../config/project-config-store';
+import { logger } from '../../shared/logger';
 
 import type { ProjectContext } from '../project-context-types';
 import { EMPTY_TYPE_CATALOG } from '../../shared/objects/type-def';
@@ -170,7 +171,7 @@ export function parseIntoStore(ctx: ProjectContext, turtle: string): void {
   try {
     $rdf.parse(turtle, state.store, 'urn:x-minerva:void', 'text/turtle');
   } catch (e) {
-    console.error('[minerva] Failed to parse turtle into store:', e instanceof Error ? e.message : e);
+    logger('graph').error('Failed to parse turtle into store:', e instanceof Error ? e.message : e);
   }
 }
 

@@ -12,6 +12,8 @@
  * the app's subscriber.
  */
 
+import { logger } from '../../shared/logger';
+
 type ProposalsChangedListener = (rootPath: string) => void;
 
 const listeners = new Set<ProposalsChangedListener>();
@@ -30,7 +32,7 @@ export function emitProposalsChanged(rootPath: string): void {
     try {
       fn(rootPath);
     } catch (err) {
-      console.warn('[proposal-events] listener threw:', err instanceof Error ? err.message : err);
+      logger('proposal').warn('listener threw:', err instanceof Error ? err.message : err);
     }
   }
 }

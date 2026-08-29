@@ -16,6 +16,7 @@ import * as conversation from './conversation';
 import { describeProposalCause } from '../../shared/history';
 import type { ProjectContext } from '../project-context-types';
 import type { Proposal } from './proposal-types';
+import { logger } from '../../shared/logger';
 
 const CONVERSATION_PROPOSER = 'llm:conversation:';
 
@@ -26,7 +27,7 @@ export async function proposalCause(ctx: ProjectContext, proposal: Proposal): Pr
     try {
       skillName = (await conversation.load(ctx.rootPath, convId))?.skill?.name;
     } catch (err) {
-      console.warn(`[proposal-cause] could not resolve the skill behind ${proposal.uri}:`, err);
+      logger('proposal').warn(`could not resolve the skill behind ${proposal.uri}:`, err);
     }
   }
   return describeProposalCause({

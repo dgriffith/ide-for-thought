@@ -24,6 +24,7 @@ import { projectContext, type ProjectContext } from './project-context-types';
 import { disposeAllProjectStores } from './project-store';
 import { registerProject, unregisterProject } from './substrate/app-server';
 import { getInspectionSettings } from './config/inspection-settings';
+import { logger } from '../shared/logger';
 
 interface ProjectRecord {
   ctx: ProjectContext;
@@ -68,7 +69,7 @@ export async function acquireProject(rootPath: string, winId: number): Promise<P
       try {
         await vectors.init(ctx, { embedder: getSharedEmbedder() });
       } catch (err) {
-        console.warn(`[project-context] vector store init failed for ${rootPath}:`, err);
+        logger('project-context').warn(`vector store init failed for ${rootPath}:`, err);
       }
       // graph.indexAllNotes resets the rdflib store (`state.store = $rdf.graph()`)
       // then rebuilds it; registerAllCsvs writes the CSV table-schema overlay to
@@ -149,7 +150,7 @@ export async function releaseProject(rootPath: string, winId: number): Promise<v
   try {
     await Promise.all([search.persist(rec.ctx), graph.persistGraph(rec.ctx)]);
   } catch (err) {
-    console.warn(`[project-context] final persist failed for ${rootPath}:`, err);
+    logger('project-context').warn(`final persist failed for ${rootPath}:`, err);
   }
   // Tear down every per-project store — graph, search, tables, and the vector
   // store's embeddings DB (#835) — by iterating the registry instead of naming
@@ -181,7 +182,7 @@ export async function updateDockBadge(): Promise<void> {
     }
     app.setBadgeCount(total);
   } catch (err) {
-    console.warn('[project-context] dock badge update failed:', err);
+    logger('project-context').warn('dock badge update failed:', err);
   }
 }
 
@@ -197,7 +198,7 @@ export async function flushAllProjects(): Promise<void> {
       try {
         await Promise.all([search.persist(rec.ctx), graph.persistGraph(rec.ctx)]);
       } catch (err) {
-        console.warn(`[project-context] flush failed for ${rec.rootPath}:`, err);
+        logger('project-context').warn(`flush failed for ${rec.rootPath}:`, err);
       }
     }),
   );

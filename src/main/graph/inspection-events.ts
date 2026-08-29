@@ -11,6 +11,8 @@
  * doesn't subscribe and pays nothing.
  */
 
+import { logger } from '../../shared/logger';
+
 type InspectionsChangedListener = (rootPath: string) => void;
 
 const listeners = new Set<InspectionsChangedListener>();
@@ -27,7 +29,7 @@ export function emitInspectionsChanged(rootPath: string): void {
     try {
       fn(rootPath);
     } catch (err) {
-      console.warn('[inspection-events] listener threw:', err instanceof Error ? err.message : err);
+      logger('graph').warn('listener threw:', err instanceof Error ? err.message : err);
     }
   }
 }

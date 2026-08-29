@@ -7,6 +7,7 @@
 
 import { api } from '../ipc/client';
 import { collapseCiteRows, type CiteMeta, type QuoteMeta } from './cite-meta';
+import { logger } from '../../../shared/logger';
 
 export interface CitationRenderDeps {
   /** The rendered-preview root to query links within. */
@@ -55,7 +56,7 @@ export async function applyCslMarkers(deps: CitationRenderDeps): Promise<void> {
   try {
     response = await api.citations.renderInline(refs);
   } catch (err) {
-    console.warn('[preview] citation render failed:', err);
+    logger('preview').warn('citation render failed:', err);
     deps.setBibliographyEntries(null);
     return;
   }

@@ -14,6 +14,8 @@
 
 /** `relPath` is the note whose history changed, or null when many did (a prune
  *  sweep) — a listener that can't tell which should just refresh what it shows. */
+import { logger } from '../../shared/logger';
+
 type HistoryChangedListener = (rootPath: string, relPath: string | null) => void;
 
 const listeners = new Set<HistoryChangedListener>();
@@ -33,7 +35,7 @@ export function emitHistoryChanged(rootPath: string, relPath: string | null): vo
     try {
       fn(rootPath, relPath);
     } catch (err) {
-      console.warn('[history-events] listener threw:', err instanceof Error ? err.message : err);
+      logger('history').warn('listener threw:', err instanceof Error ? err.message : err);
     }
   }
 }

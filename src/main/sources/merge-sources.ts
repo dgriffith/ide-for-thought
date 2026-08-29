@@ -33,6 +33,7 @@ import { rewriteTypedIdLinks } from '../notebase/link-rewriting';
 import { projectContext } from '../project-context-types';
 import { mergeMetaTtl, type SourceMetaUpdate } from './source-merge';
 import { rewriteCollectionMemberships } from './collections';
+import { logger } from '../../shared/logger';
 
 export interface MergeSourcesResult {
   destId: string;
@@ -168,7 +169,7 @@ export async function mergeSources(
       await graph.indexNote(ctx, notePath, next);
       notesRewritten++;
     } catch (err) {
-      console.error(`[minerva] cite rewrite failed for ${notePath}:`, err instanceof Error ? err.message : err);
+      logger('sources').error(`cite rewrite failed for ${notePath}:`, err instanceof Error ? err.message : err);
     }
   }
 

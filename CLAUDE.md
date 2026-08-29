@@ -263,6 +263,38 @@ can't quietly grow while nobody re-reads it:
   `tests/architecture/config-roots-doc.test.ts` (#1853), so a new
   `app.getPath('userData')` path that isn't documented fails a test.
 
+### Logging (#1918)
+
+Use `logger(tag)` from `src/shared/logger.ts`, never a bare `console.*` call:
+
+```ts
+import { logger } from '../../shared/logger'; // path depth varies by caller
+
+logger('watcher').warn('indexing failed for', relativePath, err);
+```
+
+- `LOG_TAGS` in that file is the closed, documented set every call site picks
+  from — add a tag there deliberately, in the PR that needs it, rather than
+  typing a new bracket string inline. This replaces what used to be ~45
+  ad-hoc bracket prefixes (some call sites had none at all) with one
+  enforced list.
+- `logger(tag)` auto-prefixes the message with `[tag]` — don't also bake the
+  tag into the message string.
+- `setLogLevel(level)` sets the global floor (`'debug' | 'info' | 'warn' |
+  'error'`); `setTagLevel(tag, level | 'silent')` overrides one tag —
+  including muting it entirely — without touching every other subsystem's
+  output. Deliberately just a `console` wrapper with level control, not an
+  observability platform: no transports, no batching, no remote shipping.
+- `no-restricted-syntax` in `eslint.config.mjs` bans bare `console.*` in
+  `src/` (the logger module itself is exempt, since it's the one file
+  allowed to touch `console`). The rule is duplicated into the renderer
+  data-flow block's own `no-restricted-syntax` array for
+  `src/renderer/lib/components/**/*.svelte` rather than relying on it merging
+  across config blocks — flat-config rule VALUES replace, not merge, when two
+  blocks match the same file and set the same rule key, so a rule added only
+  to the earlier, broader block silently disappears for any file a later,
+  more specific block also matches.
+
 ### File-size budgets (#1854)
 
 `tests/architecture/file-size-budgets.test.ts` carries a committed

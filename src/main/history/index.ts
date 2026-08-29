@@ -16,6 +16,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { captureSnapshot, ensureInitialRevision } from './store';
 import { isNotePath } from '../../shared/note-extensions';
 import type { RevisionSource } from './policy';
+import { logger } from '../../shared/logger';
 
 export {
   listRevisions,
@@ -83,7 +84,7 @@ export async function onNoteWriting(rootPath: string, relPath: string): Promise<
   try {
     await ensureInitialRevision(rootPath, relPath);
   } catch (err) {
-    console.error(`[history] initial-revision capture failed for "${relPath}":`, err);
+    logger('history').error(`initial-revision capture failed for "${relPath}":`, err);
   }
 }
 
@@ -97,6 +98,6 @@ export async function onNoteWritten(rootPath: string, relPath: string, content: 
   try {
     await captureSnapshot(rootPath, relPath, content, historySource.getStore() ?? MANUAL_EDIT);
   } catch (err) {
-    console.error(`[history] capture failed for "${relPath}":`, err);
+    logger('history').error(`capture failed for "${relPath}":`, err);
   }
 }

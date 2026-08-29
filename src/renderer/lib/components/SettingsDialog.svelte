@@ -28,6 +28,7 @@
   import { DEFAULT_MODEL } from '../../../shared/tools/models';
   import { PROVIDERS, PROVIDER_IDS, type ProviderId } from '../../../shared/tools/providers';
   import type { ProviderConfigView, ProviderCredentialsUpdate, CustomModel } from '../../../shared/tools/types';
+  import { logger } from '../../../shared/logger';
 
   /** Per-provider input state; matches AiSettings's structural shape. */
   interface ProviderInput { key: string; baseURL: string; clear: boolean }
@@ -146,7 +147,7 @@
     try {
       excerptNoteFolder = await api.sources.getExcerptNoteFolder();
     } catch (e) {
-      console.error('[settings] failed to load excerpt settings:', e);
+      logger('settings').error('failed to load excerpt settings:', e);
     }
   }
 
@@ -155,7 +156,7 @@
     try {
       await settings.setExcerptNoteFolder(next);
     } catch (e) {
-      console.error('[settings] failed to save excerpt folder:', e);
+      logger('settings').error('failed to save excerpt folder:', e);
     }
   }
 
@@ -195,7 +196,7 @@
       try {
         secureStorageAvailable = (await api.tools.getKeyStorage()).available;
       } catch (e) {
-        console.error('[settings] failed to load key storage status:', e);
+        logger('settings').error('failed to load key storage status:', e);
       }
       const web = s.web ?? { enabled: true, allowedDomains: [], blockedDomains: [] };
       webEnabled = web.enabled;
@@ -203,14 +204,14 @@
       blockedDomainsText = web.blockedDomains.join('\n');
       toolModelOverrides = { ...(s.toolModelOverrides ?? {}) };
     } catch (e) {
-      console.error('[settings] failed to load LLM settings:', e);
+      logger('settings').error('failed to load LLM settings:', e);
     }
     await loadExcerptSettings();
     try {
       const ingest = await api.sources.getIngestSettings();
       importUpstreamTags = ingest.importUpstreamTags;
     } catch (e) {
-      console.error('[settings] failed to load ingest settings:', e);
+      logger('settings').error('failed to load ingest settings:', e);
     }
   });
 
@@ -262,13 +263,13 @@
     try {
       await settings.setToolSettings(next);
     } catch (e) {
-      console.error('[settings] failed to save LLM settings:', e);
+      logger('settings').error('failed to save LLM settings:', e);
     }
 
     try {
       await settings.setIngestSettings({ importUpstreamTags });
     } catch (e) {
-      console.error('[settings] failed to save ingest settings:', e);
+      logger('settings').error('failed to save ingest settings:', e);
     }
 
     onClose();

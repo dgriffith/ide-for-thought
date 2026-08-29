@@ -23,6 +23,7 @@ import { ENTRYPOINT_TAG } from '../../../shared/entrypoint';
 import { WELCOME_NOTE_PATH, welcomeNoteContent } from '../../../shared/welcome-note';
 import { THOUGHTBASE_DOC_FILENAME, THOUGHTBASE_DOC_TEMPLATE } from '../../../shared/thoughtbase';
 import type { OnboardingAnswers } from '../../../shared/onboarding';
+import { logger } from '../../../shared/logger';
 
 export interface ProjectOpsCtx {
   /** Toggle the onboarding modal — the one bit of App-local `$state` this
@@ -74,7 +75,7 @@ export function createProjectOps(ctx: ProjectOpsCtx) {
     ctx.setShowOnboarding(false);
     if (dontAskAgain) {
       try { await api.notebase.setOnboardingDismissed(true); }
-      catch (e) { console.warn('[onboarding] persist dismiss failed:', e); }
+      catch (e) { logger('onboarding').warn('persist dismiss failed:', e); }
     }
     const { systemPrompt, firstMessage } = buildOnboardingPrompts(answers);
     await conversationsStore.openConversationTab({
@@ -88,7 +89,7 @@ export function createProjectOps(ctx: ProjectOpsCtx) {
     ctx.setShowOnboarding(false);
     if (dontAskAgain) {
       try { await api.notebase.setOnboardingDismissed(true); }
-      catch (e) { console.warn('[onboarding] persist dismiss failed:', e); }
+      catch (e) { logger('onboarding').warn('persist dismiss failed:', e); }
     }
     // Dismissing onboarding (button, Escape, or click-away) leaves an empty
     // thoughtbase with nothing to open. Seed a welcoming default note so the
@@ -113,7 +114,7 @@ export function createProjectOps(ctx: ProjectOpsCtx) {
       await notebase.refresh();
       await editor.openFile(WELCOME_NOTE_PATH);
     } catch (e) {
-      console.warn('[onboarding] welcome note seed failed:', e);
+      logger('onboarding').warn('welcome note seed failed:', e);
     }
   }
 
@@ -132,7 +133,7 @@ export function createProjectOps(ctx: ProjectOpsCtx) {
       }
       await editor.openFile(THOUGHTBASE_DOC_FILENAME);
     } catch (e) {
-      console.warn('[thoughtbase] open/create guide failed:', e);
+      logger('thoughtbase').warn('open/create guide failed:', e);
     }
   }
 
@@ -153,7 +154,7 @@ export function createProjectOps(ctx: ProjectOpsCtx) {
       const dismissed = await api.notebase.getOnboardingDismissed();
       if (!dismissed) ctx.setShowOnboarding(true);
     } catch (e) {
-      console.warn('[onboarding] read dismiss flag failed:', e);
+      logger('onboarding').warn('read dismiss flag failed:', e);
     }
   }
 
@@ -188,7 +189,7 @@ export function createProjectOps(ctx: ProjectOpsCtx) {
       // succeeds, so index 0 is whichever opened first.
       if (editor.tabs.length > 0) editor.switchTab(0);
     } catch (e) {
-      console.warn('[entrypoint] auto-open failed:', e);
+      logger('entrypoint').warn('auto-open failed:', e);
     }
   }
 

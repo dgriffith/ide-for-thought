@@ -17,6 +17,7 @@ import path from 'node:path';
 import { app } from 'electron';
 import { cellHash } from './consent';
 import type { CellResult } from '../../shared/compute/types';
+import { logger } from '../../shared/logger';
 
 /** Where a cell run originated — an editor ▶ (human-authored/reviewed) vs a
  *  conversation propose_compute Run (LLM-authored). The latter is the
@@ -84,7 +85,7 @@ export function recordExecution(input: {
     fs.appendFileSync(p, JSON.stringify(entry) + '\n', 'utf-8');
     trimIfOversized(p);
   } catch (err) {
-    console.warn('[compute-audit] failed to record execution:', err);
+    logger('compute').warn('failed to record execution:', err);
   }
 }
 

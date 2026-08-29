@@ -9,6 +9,7 @@
  */
 
 import type { WhisperRequest, WhisperResponse } from './messages';
+import { logger } from '../../../shared/logger';
 
 export interface LoadProgress {
   status: string;
@@ -72,7 +73,7 @@ export function createTranscriber(model: string): Transcriber {
       }
     };
     w.onerror = (e) => {
-      console.error('[voice] worker error:', e.message, e);
+      logger('voice').error('worker error:', e.message, e);
       const err = new Error(e.message || 'voice worker crashed');
       rejectReady?.(err);
       for (const p of pending.values()) p.reject(err);

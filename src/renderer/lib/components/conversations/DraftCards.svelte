@@ -37,6 +37,7 @@
     ConversationDeleteDraft,
   } from '../../../../shared/conversation-refactor-drafts';
   import type { ConversationNoteBodyDraft } from '../../../../shared/conversation-note-body-drafts';
+  import { logger } from '../../../../shared/logger';
 
   interface Props {
     /** The active conversation tab whose drafts we render. */
@@ -82,7 +83,7 @@
       // Open the first filed note so the user lands on what they just approved.
       if (filedPaths.length > 0) void editor.openFile(filedPaths[0]!);
     } catch (e) {
-      console.error('[conv-panel] approve failed:', e);
+      logger('conversation-panel').error('approve failed:', e);
     }
   }
 
@@ -97,7 +98,7 @@
       // file to open — the file tree refreshes from the watcher instead.
       if (!draft.isFolder) void editor.openFile(draft.toPath);
     } catch (e) {
-      console.error('[conv-panel] approve refactor failed:', e);
+      logger('conversation-panel').error('approve refactor failed:', e);
     }
   }
 
@@ -113,7 +114,7 @@
       // Land on the first moved note at its new path.
       if (selected.length > 0) void editor.openFile(selected[0]!.toPath);
     } catch (e) {
-      console.error('[conv-panel] approve reorg failed:', e);
+      logger('conversation-panel').error('approve reorg failed:', e);
     }
   }
 
@@ -127,7 +128,7 @@
     try {
       await store.approveDeleteDraft(tabId, draft, selected);
     } catch (e) {
-      console.error('[conv-panel] approve delete failed:', e);
+      logger('conversation-panel').error('approve delete failed:', e);
     }
   }
 
@@ -143,7 +144,7 @@
     try {
       await store.approveNoteBodyDraft(tabId, draft, selected);
     } catch (e) {
-      console.error('[conv-panel] approve note-body rewrite failed:', e);
+      logger('conversation-panel').error('approve note-body rewrite failed:', e);
     }
   }
 
@@ -155,7 +156,7 @@
     try {
       await store.approveSourceDraft(tabId, draft);
     } catch (e) {
-      console.error('[conv-panel] approve source failed:', e);
+      logger('conversation-panel').error('approve source failed:', e);
     }
   }
 
@@ -167,7 +168,7 @@
     try {
       await store.approvePropertyDraft(tabId, draft);
     } catch (e) {
-      console.error('[conv-panel] approve property failed:', e);
+      logger('conversation-panel').error('approve property failed:', e);
     }
   }
 
@@ -179,7 +180,7 @@
     try {
       await store.approveSourcePropertyDraft(tabId, draft);
     } catch (e) {
-      console.error('[conv-panel] approve source property failed:', e);
+      logger('conversation-panel').error('approve source property failed:', e);
     }
   }
 
@@ -191,7 +192,7 @@
     try {
       await store.approveClaimsDraft(tabId, draft);
     } catch (e) {
-      console.error('[conv-panel] approve claims failed:', e);
+      logger('conversation-panel').error('approve claims failed:', e);
     }
   }
 

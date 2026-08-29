@@ -15,6 +15,7 @@ import {
 } from '../state';
 import { parseCsv } from '../../../shared/csv-parse';
 import { fileMtimeIso, injectPrefixes, ensureFolder } from '../index-helpers';
+import { logger } from '../../../shared/logger';
 
 /** Common note metadata (type / title / filename / path / mtime / folder /
  *  project) for a non-markdown file whose title derives from `basename(ext)`. */
@@ -69,7 +70,7 @@ export function indexTurtleFile(
     const prefixed = injectPrefixes(state, content, subject.value);
     $rdf.parse(prefixed, state.store, graph.value, 'text/turtle');
   } catch (e) {
-    console.error(`[minerva] Failed to parse turtle file ${relativePath}:`, e instanceof Error ? e.message : e);
+    logger('graph').error(`Failed to parse turtle file ${relativePath}:`, e instanceof Error ? e.message : e);
   }
 }
 

@@ -20,6 +20,7 @@ import { disposeSharedEmbedder } from './embeddings/shared-embedder';
 import { registerSkillsAtStartup } from './skills/register';
 import { initAutoUpdate, setUpdateStateListener } from './auto-update';
 import { installE2EHooks } from './e2e-hooks';
+import { logger } from '../shared/logger';
 
 app.setName('Minerva');
 
@@ -33,7 +34,7 @@ installE2EHooks();
 // startup profile (which phase owns the time).
 const BOOT_T0 = Date.now();
 function boot(label: string): void {
-  console.error(`[boot +${Date.now() - BOOT_T0}ms] ${label}`);
+  logger('entrypoint').error(`boot +${Date.now() - BOOT_T0}ms: ${label}`);
 }
 
 boot('main module loaded');
@@ -78,7 +79,7 @@ void app.whenReady().then(async () => {
   // dynamic Learning/Analysis menus include them on first paint. Failure to
   // load a skill is isolated per-file inside the loader; a total failure here
   // shouldn't block startup.
-  await registerSkillsAtStartup().catch((err) => console.warn('[skills] startup load failed:', err));
+  await registerSkillsAtStartup().catch((err) => logger('skills').warn('startup load failed:', err));
   boot('skills registered');
 
   const session = loadSession().filter((s) => {
@@ -135,6 +136,6 @@ app.on('before-quit', (event) => {
     stopClipperServer(),
     disposeSharedEmbedder(),
   ])
-    .catch((err) => console.warn('[quit] shutdown failed:', err))
+    .catch((err) => logger('quit').warn('shutdown failed:', err))
     .finally(() => app.quit());
 });

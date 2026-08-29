@@ -6,6 +6,7 @@ import { escapeTurtleLiteral } from './turtle';
 import { costForUsage } from '../../shared/tools/models';
 import { loadConfigFile, asRecord, asBool, asFiniteNumber } from '../config/config-store';
 import { writeJsonFileAtomic } from '../ipc/read-json';
+import { logger } from '../../shared/logger';
 import type {
   Conversation,
   ConversationCreateOptions,
@@ -68,7 +69,7 @@ export async function reindexAllConversations(rootPath: string): Promise<void> {
         updateConversationInGraph(rootPath, conv);
       }
     } catch (err) {
-      console.warn(`[conversation] reindex skipped ${file}:`, err);
+      logger('conversation').warn(`reindex skipped ${file}:`, err);
     }
   }
 }

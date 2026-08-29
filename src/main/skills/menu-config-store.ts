@@ -15,6 +15,7 @@ import {
   emptyMenuConfig,
   normalizeMenuConfig,
 } from '../../shared/skills/menu-config';
+import { logger } from '../../shared/logger';
 
 export function menuConfigPath(): string {
   return path.join(os.homedir(), '.minerva', 'menu-config.json');
@@ -38,7 +39,7 @@ export async function loadMenuConfig(file: string = menuConfigPath()): Promise<M
     } else {
       // Corrupt JSON or unreadable file: fall back to defaults rather than
       // crashing startup. The user can re-save from Settings to repair it.
-      console.warn('[skills] failed to read menu-config.json; using defaults:', e);
+      logger('skills').warn('failed to read menu-config.json; using defaults:', e);
       cached = emptyMenuConfig();
     }
   }

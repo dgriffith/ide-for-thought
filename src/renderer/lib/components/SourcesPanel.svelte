@@ -19,6 +19,7 @@
   } from '../sources/collection-tree';
   import Icon from './Icon.svelte';
   import { getSourceDataStore } from '../stores/source-data.svelte';
+  import { logger } from '../../../shared/logger';
 
   const sourceData = getSourceDataStore();
 
@@ -249,7 +250,7 @@
       onSourceDeleted?.(src.sourceId);
       await refresh();
     } catch (err) {
-      console.error('[minerva] Merge sources failed:', err);
+      logger('sources').error('Merge sources failed:', err);
       // No dedicated error toast yet — surface the message via the
       // confirm dialog as an informational pop, dismissable via OK.
       await onShowConfirm(
@@ -344,7 +345,7 @@
       await sourceData.setReadStatus(source.sourceId, status);
       // Host listener refreshes the panel; nothing more to do.
     } catch (err) {
-      console.error('[minerva] Mark status failed:', err);
+      logger('sources').error('Mark status failed:', err);
     }
   }
 
@@ -360,7 +361,7 @@
       source.readDueBy = value;
       dueDateModal = null;
     } catch (err) {
-      console.error('[minerva] Set due date failed:', err);
+      logger('sources').error('Set due date failed:', err);
     }
   }
 
@@ -383,7 +384,7 @@
     if (!source.doi) return;
     const text = kind === 'url' ? `https://doi.org/${source.doi}` : source.doi;
     try { await navigator.clipboard.writeText(text); }
-    catch (err) { console.error('[minerva] Copy DOI failed:', err); }
+    catch (err) { logger('sources').error('Copy DOI failed:', err); }
   }
 
   async function handleStripUpstreamTags(source: SourceMetadata): Promise<void> {
@@ -391,7 +392,7 @@
     try {
       await sourceData.stripUpstreamTags(source.sourceId);
     } catch (err) {
-      console.error('[minerva] Strip upstream tags failed:', err);
+      logger('sources').error('Strip upstream tags failed:', err);
     }
   }
 
@@ -480,7 +481,7 @@
     try {
       await sourceData.createCollection({ name, parent });
     } catch (err) {
-      console.error('[minerva] Create collection failed:', err);
+      logger('sources').error('Create collection failed:', err);
     }
   }
 
@@ -491,7 +492,7 @@
     try {
       await sourceData.renameCollection(c.id, name);
     } catch (err) {
-      console.error('[minerva] Rename collection failed:', err);
+      logger('sources').error('Rename collection failed:', err);
     }
   }
 
@@ -507,7 +508,7 @@
     try {
       await sourceData.removeCollection(c.id);
     } catch (err) {
-      console.error('[minerva] Delete collection failed:', err);
+      logger('sources').error('Delete collection failed:', err);
     }
   }
 
@@ -528,7 +529,7 @@
     try {
       await sourceData.renameSmartCollection(smart.id, name);
     } catch (err) {
-      console.error('[minerva] Rename smart collection failed:', err);
+      logger('sources').error('Rename smart collection failed:', err);
     }
   }
 
@@ -547,7 +548,7 @@
     try {
       await sourceData.removeSmartCollection(smart.id);
     } catch (err) {
-      console.error('[minerva] Delete smart collection failed:', err);
+      logger('sources').error('Delete smart collection failed:', err);
     }
   }
 
@@ -571,7 +572,7 @@
         }
       }
     } catch (err) {
-      console.error('[minerva] Save smart collection failed:', err);
+      logger('sources').error('Save smart collection failed:', err);
     }
   }
 
@@ -587,7 +588,7 @@
     try {
       await sourceData.addSourceToCollection(collectionId, src.sourceId);
     } catch (err) {
-      console.error('[minerva] Add to collection failed:', err);
+      logger('sources').error('Add to collection failed:', err);
     }
   }
 
@@ -613,7 +614,7 @@
     try {
       await sourceData.removeSourceFromCollection(activeCollectionId, source.sourceId);
     } catch (err) {
-      console.error('[minerva] Remove from collection failed:', err);
+      logger('sources').error('Remove from collection failed:', err);
     }
   }
 

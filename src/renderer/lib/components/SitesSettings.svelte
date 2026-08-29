@@ -12,6 +12,7 @@
   import { api } from '../ipc/client';
   import { getSettingsStore } from '../stores/settings.svelte';
   import type { PrivilegedSite } from '../../../shared/privileged-sites';
+  import { logger } from '../../../shared/logger';
 
   const settings = getSettingsStore();
 
@@ -24,7 +25,7 @@
     try {
       sites = await api.sites.list();
     } catch (e) {
-      console.error('[settings] failed to load sites:', e);
+      logger('settings').error('failed to load sites:', e);
     }
   }
 
@@ -37,7 +38,7 @@
       newSiteLabel = '';
       await reloadSites();
     } catch (e) {
-      console.error('[settings] addSite failed:', e);
+      logger('settings').error('addSite failed:', e);
     }
   }
 

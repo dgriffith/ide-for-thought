@@ -10,6 +10,7 @@
   import { onMount } from 'svelte';
   import { api } from '../ipc/client';
   import { getSettingsStore } from '../stores/settings.svelte';
+  import { logger } from '../../../shared/logger';
 
   const settings = getSettingsStore();
 
@@ -33,7 +34,7 @@
       userStyles = uStyles;
       userLocales = uLocales;
     } catch (e) {
-      console.error('[settings] failed to load bibliography settings:', e);
+      logger('settings').error('failed to load bibliography settings:', e);
     }
   }
 
@@ -42,7 +43,7 @@
     try {
       await settings.setBibliographyStyle(next);
     } catch (e) {
-      console.error('[settings] failed to save bibliography style:', e);
+      logger('settings').error('failed to save bibliography style:', e);
     }
   }
 

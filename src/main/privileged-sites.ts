@@ -13,6 +13,7 @@ import path from 'node:path';
 import { app, BrowserWindow, session, type Session } from 'electron';
 import type { PrivilegedSite } from '../shared/privileged-sites';
 import { loadConfigFileSync, asRecord } from './config/config-store';
+import { logger } from '../shared/logger';
 
 interface FileShape {
   sites: PrivilegedSite[];
@@ -106,7 +107,7 @@ export async function removeSite(id: string): Promise<void> {
   try {
     await session.fromPartition(partitionFor(id)).clearStorageData();
   } catch (e) {
-    console.warn(`[privileged-sites] failed to clear partition for ${id}:`, e);
+    logger('privileged-sites').warn(`failed to clear partition for ${id}:`, e);
   }
 }
 

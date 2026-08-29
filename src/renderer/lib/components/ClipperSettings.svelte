@@ -8,6 +8,7 @@
   import { api } from '../ipc/client';
   import { getSettingsStore } from '../stores/settings.svelte';
   import type { ClipperState } from '../../../shared/clipper-pairing';
+  import { logger } from '../../../shared/logger';
 
   const settings = getSettingsStore();
 
@@ -19,7 +20,7 @@
     try {
       clipper = await api.clipper.getState();
     } catch (e) {
-      console.error('[settings] failed to load clipper state:', e);
+      logger('settings').error('failed to load clipper state:', e);
     }
   });
 
@@ -29,7 +30,7 @@
       clipperRevealed = false;
       clipperCopied = false;
     } catch (e) {
-      console.error('[settings] failed to toggle clipper:', e);
+      logger('settings').error('failed to toggle clipper:', e);
     }
   }
 
@@ -38,7 +39,7 @@
       clipper = await settings.regenerateClipperSecret();
       clipperCopied = false;
     } catch (e) {
-      console.error('[settings] failed to regenerate clipper secret:', e);
+      logger('settings').error('failed to regenerate clipper secret:', e);
     }
   }
 
@@ -49,7 +50,7 @@
       clipperCopied = true;
       setTimeout(() => { clipperCopied = false; }, 1500);
     } catch (e) {
-      console.error('[settings] failed to copy pairing code:', e);
+      logger('settings').error('failed to copy pairing code:', e);
     }
   }
 </script>

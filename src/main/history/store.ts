@@ -26,6 +26,7 @@ import { getHistorySettings } from './settings';
 import { readJsonFileOr } from '../ipc/read-json';
 import { emitHistoryChanged } from './history-events';
 import type { HistorySettings } from '../../shared/history';
+import { logger } from '../../shared/logger';
 
 const HISTORY_DIR = '.minerva/history';
 const INDEX_FILE = 'index.json';
@@ -364,7 +365,7 @@ export async function pruneAllHistory(
         const index = await readIndex(dir);
         removed += (await pruneDir(dir, index, now, settings)).removed;
       } catch (err) {
-        console.warn(`[history] prune skipped "${dir}":`, err);
+        logger('history').warn(`prune skipped "${dir}":`, err);
       }
     }
     for (const e of entries) {

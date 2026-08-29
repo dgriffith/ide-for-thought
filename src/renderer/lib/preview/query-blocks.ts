@@ -19,6 +19,7 @@ import {
   selectSearchResults,
   buildSearchHtml,
 } from './live-blocks';
+import { logger } from '../../../shared/logger';
 
 export interface QueryBlockDeps {
   /** Project-relative path of the note being previewed; used by the read-only
@@ -54,7 +55,7 @@ export async function executeQueryBlock(deps: QueryBlockDeps, el: HTMLElement): 
       const bundle = await getLinkBundle(deps.notePath, deps.revision);
       el.innerHTML = buildBacklinksHtml(selectBacklinks(bundle.backlinks, config), config);
     } catch (e) {
-      console.warn('[query-backlinks] failed:', e);
+      logger('query').warn('failed:', e);
       el.innerHTML = buildBacklinksHtml([], config);
     }
     return;
@@ -71,7 +72,7 @@ export async function executeQueryBlock(deps: QueryBlockDeps, el: HTMLElement): 
       const results = await api.search.query(q);
       el.innerHTML = buildSearchHtml(selectSearchResults(results, config, deps.notePath), config);
     } catch (e) {
-      console.warn('[query-search] failed:', e);
+      logger('query').warn('failed:', e);
       el.innerHTML = buildSearchHtml([], config);
     }
     return;
@@ -99,7 +100,7 @@ export async function executeQueryBlock(deps: QueryBlockDeps, el: HTMLElement): 
       // A silent empty state hid the common cause here — a preload addition
       // (api.embeddings.searchText) needs a full app restart, not just Cmd-R.
       // Surface it so it's diagnosable.
-      console.warn('[query-semantic] failed:', e);
+      logger('query').warn('failed:', e);
       el.innerHTML = buildSemanticHtml([], config);
     }
     return;

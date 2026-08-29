@@ -6,6 +6,7 @@ import type {
   ProposeNotesInput,
 } from '../../../shared/conversation-drafts';
 import type { NotebaseTool, ToolContext, ToolCallbacks } from './types';
+import { logger } from '../../../shared/logger';
 
 /**
  * The propose_notes tool deliberately does NOT call proposeWrite. Doing
@@ -45,7 +46,7 @@ function runProposeNotes(
     parsed.payloads.map((p) => ({ relativePath: p.relativePath, content: p.content })),
   );
   if (fixup.rewritten.length > 0) {
-    console.log(
+    logger('llm-tools').info(
       `[propose_notes] rewrote ${fixup.rewritten.reduce((n, r) => n + r.rewrites.length, 0)} ` +
       `inter-bundle wiki-link(s) across ${fixup.rewritten.length} note(s)`,
     );

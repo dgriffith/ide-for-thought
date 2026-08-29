@@ -23,6 +23,7 @@ import { citedTextFromTtl } from '../sources/create-excerpt';
 import { wasHandled } from './path-dedup';
 import type { ProjectContext } from '../project-context-types';
 import type { WatcherCallbacks } from './watcher';
+import { logger } from '../../shared/logger';
 
 /** Channels these handlers broadcast — all fire-and-forget "something
  *  changed" pings with no payload. */
@@ -115,7 +116,7 @@ export function createWatchHandlers(deps: WatchHandlerDeps): WatcherCallbacks {
       // Collisions broadcast via the per-project listener attached
       // before acquireProject — no extra wiring here.
     } catch (err) {
-      console.warn(`[tables] sibling re-register failed for ${csvPath} (via ${relativePath}):`, err);
+      logger('tables').warn(`sibling re-register failed for ${csvPath} (via ${relativePath}):`, err);
     }
   }
 
@@ -137,7 +138,7 @@ export function createWatchHandlers(deps: WatchHandlerDeps): WatcherCallbacks {
       try {
         await tables.registerCsv(projectCtx, relativePath);
         broadcastIfAlive(Channels.TABLES_CHANGED);
-      } catch (err) { console.warn(`[tables] registerCsv failed for ${relativePath}:`, err); }
+      } catch (err) { logger('tables').warn(`registerCsv failed for ${relativePath}:`, err); }
     } else {
       await reregisterSibling(relativePath);
     }
@@ -160,7 +161,7 @@ export function createWatchHandlers(deps: WatchHandlerDeps): WatcherCallbacks {
     } catch (err) {
       // Usually a race (file deleted between events), but log so real bugs
       // don't hide in silence.
-      console.warn(`[watcher] indexing failed for ${relativePath}:`, err);
+      logger('watcher').warn(`indexing failed for ${relativePath}:`, err);
     }
   }
 
@@ -179,7 +180,7 @@ export function createWatchHandlers(deps: WatchHandlerDeps): WatcherCallbacks {
         try {
           await tables.unregisterCsv(projectCtx, relativePath);
           broadcastIfAlive(Channels.TABLES_CHANGED);
-        } catch (err) { console.warn(`[tables] unregisterCsv failed for ${relativePath}:`, err); }
+        } catch (err) { logger('tables').warn(`unregisterCsv failed for ${relativePath}:`, err); }
       } else {
         // Schema sidecar deleted → CSV reverts to read_csv_auto. Same
         // helper because the sibling lookup logic is identical; the CSV
@@ -196,7 +197,7 @@ export function createWatchHandlers(deps: WatchHandlerDeps): WatcherCallbacks {
           broadcastIfAlive(Channels.TABLES_CHANGED);
         }
       } catch (err) {
-        console.warn(`[watcher] removeNote failed for ${relativePath}:`, err);
+        logger('watcher').warn(`removeNote failed for ${relativePath}:`, err);
       }
       debouncedPersist();
     },

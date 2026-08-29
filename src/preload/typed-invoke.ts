@@ -1,6 +1,7 @@
 import { ipcRenderer } from 'electron';
 import type { ChannelMap } from '../shared/ipc-contract';
 import { CHANNEL_VALIDATORS } from '../shared/ipc-validators';
+import { logger } from '../shared/logger';
 
 // A main-process response that fails its ChannelMap shape (#983) is a bug. Like
 // the graph write guard (#944), it is FATAL under the test runner — so a shape
@@ -24,7 +25,7 @@ export function invoke<K extends keyof ChannelMap>(
     if (validate && !validate(value)) {
       const message = `IPC channel "${channel}" returned a payload that failed runtime validation`;
       if (VALIDATION_FATAL) throw new Error(message);
-      console.error(message, value);
+      logger('ipc').error(message, value);
     }
     return value;
   });

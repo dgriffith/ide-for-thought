@@ -392,6 +392,24 @@ export default tseslint.config(
       }],
     },
   },
+  // ── Logging seam (#1918) ────────────────────────────────────────────────
+  // `console.*` used to be called directly at ~196 sites with no level
+  // control and no way to silence a subsystem. `logger(tag)` in
+  // `shared/logger.ts` is now the one seam; this rule holds the line so a new
+  // bare `console.log` can't reintroduce the thing #1918 just cleaned up.
+  // The logger module itself is exempt — it's the one file allowed to touch
+  // `console` at all.
+  {
+    files: ['src/**/*.ts', 'src/**/*.svelte'],
+    ignores: ['src/shared/logger.ts'],
+    rules: {
+      'no-restricted-syntax': ['error', {
+        selector: "CallExpression[callee.object.name='console']",
+        message: 'Use logger(tag) from src/shared/logger.ts instead of console.* directly (#1918) — ' +
+          'it gives level control and per-tag silencing that a bare console call can\'t.',
+      }],
+    },
+  },
   // ── Renderer data-flow rule (#1086 / #1674) ────────────────────────────
   // Components may call `api.*` only for reads + stateless OS side-effects.
   // A mutation `api.<domain>.<method>(…)` (or an `api.*.on*` event
@@ -421,6 +439,16 @@ export default tseslint.config(
             "[callee.object.object.property.name='api']" +
             '[callee.property.name=/^(' + DATAFLOW_MUTATION_METHODS + ')$/]',
           message: DATAFLOW_MESSAGE,
+        },
+        // #1918: `no-restricted-syntax` rule VALUES replace rather than merge
+        // across matching config blocks, so the logging-seam selector above
+        // would otherwise be silently wiped out for every file this
+        // components-scoped block also matches. Repeated here rather than
+        // relying on config-merge order.
+        {
+          selector: "CallExpression[callee.object.name='console']",
+          message: 'Use logger(tag) from src/shared/logger.ts instead of console.* directly (#1918) — ' +
+            'it gives level control and per-tag silencing that a bare console call can\'t.',
         },
       ],
     },

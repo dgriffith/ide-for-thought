@@ -32,6 +32,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import YAML from 'yaml';
+import { logger } from '../../shared/logger';
 
 export interface CsvSchema {
   /** Column name → DuckDB type literal (e.g. "VARCHAR", "DATE",
@@ -113,8 +114,8 @@ async function readSidecarSchema(
   try {
     parsed = YAML.parse(content);
   } catch (err) {
-    console.warn(
-      `[tables] Sidecar schema ${sidecarSchemaPath(csvRelPath)} is not valid YAML: ` +
+    logger('tables').warn(
+      `Sidecar schema ${sidecarSchemaPath(csvRelPath)} is not valid YAML: ` +
       (err instanceof Error ? err.message : String(err)),
     );
     return null;
@@ -133,26 +134,26 @@ async function readSidecarSchema(
  */
 function validateSchema(raw: unknown, sourceLabel: string): CsvSchema | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-    console.warn(`[tables] ${sourceLabel}: schema block must be a mapping.`);
+    logger('tables').warn(`${sourceLabel}: schema block must be a mapping.`);
     return null;
   }
   const rec = raw as Record<string, unknown>;
   const cols = rec.columns;
   if (!cols || typeof cols !== 'object' || Array.isArray(cols)) {
-    console.warn(`[tables] ${sourceLabel}: \`columns\` must be a mapping of name → type.`);
+    logger('tables').warn(`${sourceLabel}: \`columns\` must be a mapping of name → type.`);
     return null;
   }
   const columns: Record<string, string> = {};
   for (const [name, type] of Object.entries(cols as Record<string, unknown>)) {
     if (typeof name !== 'string' || !name.trim()) continue;
     if (typeof type !== 'string' || !type.trim()) {
-      console.warn(`[tables] ${sourceLabel}: column "${name}" has a non-string type; skipped.`);
+      logger('tables').warn(`${sourceLabel}: column "${name}" has a non-string type; skipped.`);
       continue;
     }
     columns[name] = type.trim();
   }
   if (Object.keys(columns).length === 0) {
-    console.warn(`[tables] ${sourceLabel}: \`columns\` is empty after validation.`);
+    logger('tables').warn(`${sourceLabel}: \`columns\` is empty after validation.`);
     return null;
   }
   const out: CsvSchema = { columns };

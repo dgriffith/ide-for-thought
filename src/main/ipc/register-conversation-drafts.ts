@@ -38,6 +38,7 @@ import {
   buildComputeProposalNoteBlock,
 } from './register-compute';
 import { withRootPath, withRootPathWin, reindexFile, persistIndexes, hooks } from './helpers';
+import { logger } from '../../shared/logger';
 import { handle } from './typed-ipc';
 
 /** Build a thought:Claim note from an extracted claim (#104). Mirrors the
@@ -135,7 +136,7 @@ export function registerConversationDrafts(): void {
   handle(
     Channels.CONVERSATION_FILE_DRAFT,
     withRootPath(async (rootPath, draft: import('../../shared/conversation-drafts').ConversationDraft) => {
-      console.log('[conv] FILE_DRAFT received', {
+      logger('conversation').info('FILE_DRAFT received', {
         draftId: draft?.draftId,
         conversationId: draft?.conversationId,
         payloads: Array.isArray(draft?.payloads) ? draft.payloads.length : 'not-array',
@@ -348,7 +349,7 @@ export function registerConversationDrafts(): void {
 
         return { outcome: { sourceId, claimPaths, excerptIds } };
       } catch (err) {
-        console.warn('[conv] FILE_CLAIMS_DRAFT failed for', sourceId, err);
+        logger('conversation').warn('FILE_CLAIMS_DRAFT failed for', sourceId, err);
         return {
           outcome: {
             sourceId,
@@ -376,7 +377,7 @@ export function registerConversationDrafts(): void {
       win,
       draft: import('../../shared/conversation-source-drafts').ConversationSourceDraft,
     ): Promise<import('../../shared/conversation-source-drafts').FileSourceDraftResult> => {
-      console.log('[conv] FILE_SOURCE_DRAFT received', {
+      logger('conversation').info('FILE_SOURCE_DRAFT received', {
         draftId: draft?.draftId,
         conversationId: draft?.conversationId,
         sourceCount: Array.isArray(draft?.sources) ? draft.sources.length : 'not-array',
@@ -416,7 +417,7 @@ export function registerConversationDrafts(): void {
             });
           }
         } catch (err) {
-          console.warn(`[conv] FILE_SOURCE_DRAFT ingest failed for`, src, err);
+          logger('conversation').warn(`FILE_SOURCE_DRAFT ingest failed for`, src, err);
           outcomes.push({
             input: src,
             error: err instanceof Error ? err.message : String(err),
@@ -443,7 +444,7 @@ export function registerConversationDrafts(): void {
       rootPath,
       draft: import('../../shared/conversation-property-drafts').ConversationPropertyDraft,
     ): Promise<import('../../shared/conversation-property-drafts').FilePropertyDraftResult> => {
-      console.log('[conv] FILE_PROPERTY_DRAFT received', {
+      logger('conversation').info('FILE_PROPERTY_DRAFT received', {
         draftId: draft?.draftId,
         conversationId: draft?.conversationId,
         updateCount: Array.isArray(draft?.updates) ? draft.updates.length : 'not-array',
@@ -511,7 +512,7 @@ export function registerConversationDrafts(): void {
         const { changedPredicates } = await fileSourceProperties(rootPath, sourceId, updates);
         return { outcome: { sourceId, changedPredicates } };
       } catch (err) {
-        console.warn('[conv] FILE_SOURCE_PROPERTY_DRAFT failed for', sourceId, err);
+        logger('conversation').warn('FILE_SOURCE_PROPERTY_DRAFT failed for', sourceId, err);
         return {
           outcome: {
             sourceId,
@@ -539,7 +540,7 @@ export function registerConversationDrafts(): void {
         throw new Error('RUN_COMPUTE_DRAFT: draft is missing language or code.');
       }
       const codeToRun = editedCode ?? draft.code;
-      console.log(`[conv] RUN_COMPUTE_DRAFT lang=${draft.language} draftId=${draft.draftId}`);
+      logger('conversation').info(`RUN_COMPUTE_DRAFT lang=${draft.language} draftId=${draft.draftId}`);
       const ctx = projectContext(rootPath);
       // Enforcement boundary (#1411/#1412): an AI-drafted cell must not run
       // unless the user consented to this exact code — the renderer forces an
@@ -558,14 +559,14 @@ export function registerConversationDrafts(): void {
       try {
         await conversation.appendMessage(rootPath, draft.conversationId, 'user', contextMessage);
       } catch (err) {
-        console.warn('[conv] failed to append compute output to conversation:', err);
+        logger('conversation').warn('failed to append compute output to conversation:', err);
       }
       // Record the ComputeProposal in the graph (#245 acceptance
       // criterion: every executed cell has a matching record).
       try {
         recordComputeProposalRun(ctx, draft, codeToRun);
       } catch (err) {
-        console.warn('[conv] failed to record ComputeProposal in graph:', err);
+        logger('conversation').warn('failed to record ComputeProposal in graph:', err);
       }
       return { result };
     }),

@@ -16,6 +16,7 @@ import {
 } from '../compute/python-settings';
 import { saveCellOutput, type SaveCellOutputInput } from '../compute/save-cell-output';
 import { winFromEvent, withRootPath, withRootPathOr } from './helpers';
+import { logger } from '../../shared/logger';
 
 // propose_compute helpers (#245) now live in ../compute/proposal-helpers (#676,
 // extracted so they're unit-testable without electron). Re-exported here for
@@ -93,7 +94,7 @@ export function registerCompute(): void {
       fs.mkdirSync(path.dirname(p), { recursive: true });
       if (!fs.existsSync(p)) fs.writeFileSync(p, '', 'utf-8');
     } catch (err) {
-      console.warn('[compute-audit] could not ensure audit log before reveal:', err);
+      logger('compute').warn('could not ensure audit log before reveal:', err);
     }
     shell.showItemInFolder(p);
   });

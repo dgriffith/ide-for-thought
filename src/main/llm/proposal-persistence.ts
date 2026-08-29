@@ -8,6 +8,7 @@ import * as graph from '../graph/index';
 import type { ProjectContext } from '../project-context-types';
 import { escapeTurtleLiteral } from './turtle';
 import type { Proposal, ProposalPayload } from './proposal-types';
+import { logger } from '../../shared/logger';
 
 export const THOUGHT = 'https://minerva.dev/ontology/thought#';
 
@@ -35,7 +36,7 @@ export function parsePayloads(json: string | undefined): ProposalPayload[] {
     // written before #418. Returning [] silently was masking the bug Dave
     // hit ("approve succeeded but no notes appeared") — log loudly so the
     // dev console shows it next time.
-    console.warn('[approval] proposal has no payloadJson — returning empty payload list');
+    logger('proposal').warn('proposal has no payloadJson — returning empty payload list');
     return [];
   }
   let parsed: unknown;

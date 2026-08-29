@@ -15,6 +15,8 @@
  * need. Which note changed is irrelevant to a check that reads the whole graph.
  */
 
+import { logger } from '../../shared/logger';
+
 type GraphChangedListener = (rootPath: string) => void;
 
 const listeners = new Set<GraphChangedListener>();
@@ -37,7 +39,7 @@ export function emitGraphChanged(rootPath: string): void {
     try {
       fn(rootPath);
     } catch (err) {
-      console.warn('[graph-events] listener threw:', err instanceof Error ? err.message : err);
+      logger('graph').warn('listener threw:', err instanceof Error ? err.message : err);
     }
   }
 }

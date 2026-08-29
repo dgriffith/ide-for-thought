@@ -23,6 +23,7 @@ import type { ProjectContext } from '../project-context-types';
 import { createProjectStore } from '../project-store';
 import { MODEL } from './embedder';
 import { chunkMarkdown } from './chunk';
+import { logger } from '../../shared/logger';
 
 export type RefKind = 'note' | 'source' | 'excerpt';
 export const ALL_KINDS: readonly RefKind[] = ['note', 'source', 'excerpt'];
@@ -160,7 +161,7 @@ export async function indexChunks(ctx: ProjectContext, kind: RefKind, ref: strin
         throw err;
       }
     } catch (err) {
-      console.warn(`[vectors] indexChunks failed for ${kind}:${ref}:`, err);
+      logger('vectors').warn(`indexChunks failed for ${kind}:${ref}:`, err);
     }
   });
 }
@@ -177,7 +178,7 @@ export async function removeRef(ctx: ProjectContext, kind: RefKind, ref: string)
   if (!state) return;
   return runLocked(state, async () => {
     try { await deleteRef(state, kind, ref); }
-    catch (err) { console.warn(`[vectors] removeRef failed for ${kind}:${ref}:`, err); }
+    catch (err) { logger('vectors').warn(`removeRef failed for ${kind}:${ref}:`, err); }
   });
 }
 
