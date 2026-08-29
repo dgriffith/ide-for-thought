@@ -10,7 +10,7 @@
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, fireEvent, cleanup } from '@testing-library/svelte';
-import type { Citation } from '../../../src/shared/types';
+import type { Citation } from '../../../src/shared/conversation';
 import type { CiteStatus } from '../../../src/renderer/lib/conversations/citations';
 import MessageCitations from '../../../src/renderer/lib/components/MessageCitations.svelte';
 

@@ -8,7 +8,7 @@
  * testable without a DOM.
  */
 
-import type { ConversationMessage } from '../../../shared/types';
+import type { ConversationMessage } from '../../../shared/conversation';
 import { costForUsage } from '../../../shared/tools/models';
 
 export interface ConversationCost {

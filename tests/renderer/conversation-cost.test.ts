@@ -16,7 +16,7 @@ import {
   formatCostBadge,
   formatTurnCost,
 } from '../../src/renderer/lib/conversations/conversation-cost';
-import type { ConversationMessage, TurnUsage } from '../../src/shared/types';
+import type { ConversationMessage, TurnUsage } from '../../src/shared/conversation';
 
 const usage = (u: Partial<TurnUsage>): TurnUsage => ({
   inputTokens: 0,

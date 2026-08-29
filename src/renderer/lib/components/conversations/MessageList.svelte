@@ -10,7 +10,7 @@
   import { insertCitationMarker } from '../../conversations/cite-from-conversation';
   import { type CiteStatus } from '../../conversations/citations';
   import { formatTurnCost } from '../../conversations/conversation-cost';
-  import type { ConversationMessage, Citation } from '../../../../shared/types';
+  import type { ConversationMessage, Citation } from '../../../../shared/conversation';
 
   interface Props {
     /** The active conversation tab whose transcript we render. */

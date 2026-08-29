@@ -6,7 +6,7 @@
    * progress the panel hands in. The panel owns the cite state and the ingest
    * orchestration; this child only reports clicks back.
    */
-  import type { Citation } from '../../../shared/types';
+  import type { Citation } from '../../../shared/conversation';
   import { hostOf, type CiteStatus } from '../conversations/citations';
   import { noteBasename } from '../conversations/cite-from-conversation';
 

@@ -18,7 +18,7 @@
  * ignored here; `citations` comes back empty.
  */
 import OpenAI from 'openai';
-import type { TurnUsage } from '../../../shared/types';
+import type { TurnUsage } from '../../../shared/conversation';
 import type { ConnectionCheckResult } from '../../../shared/tools/types';
 import { toConnectionResult } from '../connection-error';
 import { PROVIDERS, type ProviderId } from '../../../shared/tools/providers';

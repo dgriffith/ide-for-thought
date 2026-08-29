@@ -23,7 +23,7 @@
  * mutation call.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Conversation } from '../../../src/shared/types';
+import type { Conversation } from '../../../src/shared/conversation';
 import type { AskUserRequest } from '../../../src/shared/conversation-tools';
 
 type Cb = (payload: { draftId: string; conversationId: string }) => void;

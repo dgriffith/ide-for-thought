@@ -11,7 +11,7 @@ import {
   type ToolContext,
   type ToolCallbacks,
 } from './tools';
-import type { Citation, TurnUsage } from '../../shared/types';
+import type { Citation, TurnUsage } from '../../shared/conversation';
 import { resolveEffort, type Effort } from '../../shared/tools/effort';
 import type { ConversationDraft } from '../../shared/conversation-drafts';
 import type { ConversationSourceDraft } from '../../shared/conversation-source-drafts';

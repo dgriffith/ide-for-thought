@@ -10,7 +10,7 @@
  * `../index.ts` sees none of it.
  */
 import Anthropic from '@anthropic-ai/sdk';
-import type { Citation, TurnUsage } from '../../../shared/types';
+import type { Citation, TurnUsage } from '../../../shared/conversation';
 import type { ConnectionCheckResult } from '../../../shared/tools/types';
 import { toConnectionResult } from '../connection-error';
 import { PROVIDERS } from '../../../shared/tools/providers';

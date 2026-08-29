@@ -9,7 +9,7 @@
  * handler does the model call + archive/create orchestration.
  */
 
-import type { ConversationMessage, TurnUsage } from '../../shared/types';
+import type { ConversationMessage, TurnUsage } from '../../shared/conversation';
 
 /** Earlier turns kept verbatim after a compaction, for continuity. Four
  *  messages ≈ the last two exchanges. */

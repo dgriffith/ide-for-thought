@@ -10,7 +10,7 @@
  * that captures every subscription callback.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import type { Conversation } from '../../../src/shared/types';
+import type { Conversation } from '../../../src/shared/conversation';
 
 type Cb = (draft: { draftId: string; conversationId: string }) => void;
 

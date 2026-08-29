@@ -37,7 +37,6 @@ import type {
   TagInfo,
   TaggedNote,
   TaggedSource,
-  PrivilegedSite,
   BookmarkNode,
   LayoutSession,
   TabSession,
@@ -89,7 +88,8 @@ import type {
 } from './types';
 import type { ParsedReference } from './mine-references';
 import type { ResolveCandidate } from './resolve-stub';
-import type { Conversation, ConversationCreateOptions, ConversationMessage, ContextBundle, ConversationsUIState, CompactResult } from './types';
+import type { Conversation, ConversationCreateOptions, ConversationMessage, ContextBundle, ConversationsUIState, CompactResult } from './conversation';
+import type { PrivilegedSite } from './privileged-sites';
 import type { ConversationToolKey, AskUserRequest } from './conversation-tools';
 import type { ConversationDraftBase } from './conversation-draft-base';
 import type { ThemeMode } from './theme';

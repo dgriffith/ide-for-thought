@@ -11,7 +11,7 @@ import type {
   ContextBundle,
   ConversationStatus,
   ConversationsUIState,
-} from '../../shared/types';
+} from '../../shared/conversation';
 
 /** The panel's state for a window with no project open — also what the IPC
  *  layer hands back in that case (#1743). */

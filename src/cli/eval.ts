@@ -38,7 +38,7 @@ import {
 } from '../main/llm/index';
 import type { ThinkingToolDef } from '../shared/tools/types';
 import type { ConversationToolKey } from '../shared/conversation-tools';
-import type { TurnUsage } from '../shared/types';
+import type { TurnUsage } from '../shared/conversation';
 import { jsonStringify } from './json';
 import {
   buildEvalContext,
