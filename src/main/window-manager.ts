@@ -5,20 +5,15 @@ import { broadcast } from './ipc/broadcast';
 import { appIconPath } from './app-icon';
 import { resolveDisplayName } from './project-config';
 import { startWatching, stopWatching } from './notebase/watcher';
-import { markPathHandled as markPathHandledImpl, wasHandled } from './notebase/path-dedup';
-import * as graph from './graph/index';
-import * as search from './search/index';
-import * as notebaseFs from './notebase/fs';
+import { createWatchHandlers } from './notebase/watch-handlers';
+import { markPathHandled as markPathHandledImpl } from './notebase/path-dedup';
+import type * as graph from './graph/index';
 import * as templates from './notebase/templates';
 import * as tables from './sources/tables';
-import { indexAllFor, removeAllFor } from './notebase/index-fanout';
-import { invalidate as invalidatePythonModules } from './compute/python-kernel';
 import { addRecentProject } from './recent-projects';
 import { saveSession, type WindowState } from './session';
 import { acquireProject, releaseProject } from './project-context';
 import { runBackfill } from './embeddings/backfill';
-import * as vectors from './embeddings/vector-store';
-import { citedTextFromTtl } from './sources/create-excerpt';
 import { installNavigationGuards, HARDENED_WEB_PREFERENCES } from './security';
 import { ensureClipperRunning, stopClipperServer, isClipperEnabled } from './clipper/lifecycle';
 import type { ProjectContext } from './project-context-types';
@@ -292,216 +287,13 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
   // running:false tick clears the indicator. project-close aborts it.
   void runBackfill(projectCtx, { onProgress: (p) => broadcastBackfillProgress(rootPath, p) });
 
-  // Deduplication: IPC handlers mark paths they've already indexed
-  // (see `notebase/path-dedup.ts`).
-  let indexPersistTimer: ReturnType<typeof setTimeout> | null = null;
-  const debouncedPersist = () => {
-    if (indexPersistTimer) clearTimeout(indexPersistTimer);
-    indexPersistTimer = setTimeout(async () => {
-      // graph.ttl is a cold snapshot now (#348) — fully reconstructible
-      // from notes/sources/excerpts/CSVs/conversations/proposals, so we
-      // skip per-write serialization. Search index isn't reconstructed
-      // automatically, so it still gets the live persist.
-      await search.persist(projectCtx);
-    }, 1000);
-  };
-
-  // Coalesce `.py` edits into a single kernel-invalidate call (#529).
-  // A flurry of editor saves (autosave, formatter pass, find-replace) on
-  // the same module shouldn't fan out into a separate invalidate per
-  // write — the kernel just needs to know "these modules are stale" once
-  // the writes settle. 300ms matches the responsiveness window for
-  // re-running an importing cell while still grouping a multi-file
-  // formatter pass.
-  let pyInvalidatePaths = new Set<string>();
-  let pyInvalidateTimer: ReturnType<typeof setTimeout> | null = null;
-  const queuePyInvalidate = (relativePath: string) => {
-    pyInvalidatePaths.add(relativePath);
-    if (pyInvalidateTimer) clearTimeout(pyInvalidateTimer);
-    pyInvalidateTimer = setTimeout(() => {
-      const paths = [...pyInvalidatePaths];
-      pyInvalidatePaths = new Set();
-      pyInvalidateTimer = null;
-      invalidatePythonModules(rootPath, paths);
-    }, 300);
-  };
-
   // startWatching returns a ready-promise (#345); we don't await here
   // because the watcher works fine before its initial scan completes.
-  /**
-   * Given a watched path that might affect a CSV's registration,
-   * return the project-relative path of the CSV to re-register, or
-   * null when no sibling table needs updating (#237).
-   *
-   * Two trigger shapes:
-   *   - `<stem>.csv.schema.yaml` → re-register `<stem>.csv`.
-   *   - `<stem>.md` (companion note) → re-register `<stem>.csv` if it
-   *     exists on disk. The companion may declare `table_name:` or
-   *     a `csv:` schema block, either of which changes registration.
-   *
-   * The .csv itself is handled by the existing branch in the caller —
-   * this helper specifically covers the sibling-edit case.
-   */
-  async function siblingCsvForReregister(relativePath: string): Promise<string | null> {
-    if (relativePath.endsWith('.csv.schema.yaml')) {
-      return relativePath.slice(0, -'.schema.yaml'.length);
-    }
-    if (relativePath.toLowerCase().endsWith('.md')) {
-      const csvCandidate = relativePath.replace(/\.md$/i, '.csv');
-      try {
-        await notebaseFs.readFile(rootPath, csvCandidate);
-        return csvCandidate;
-      } catch { /* no sibling CSV — common case */ }
-    }
-    return null;
-  }
-
-  async function reregisterSibling(relativePath: string): Promise<void> {
-    const csvPath = await siblingCsvForReregister(relativePath);
-    if (!csvPath) return;
-    try {
-      await tables.registerCsv(projectCtx, csvPath);
-      if (!win.isDestroyed()) broadcast(win, Channels.TABLES_CHANGED);
-      // Collisions broadcast via the per-project listener attached
-      // before acquireProject — no extra wiring here.
-    } catch (err) {
-      console.warn(`[tables] sibling re-register failed for ${csvPath} (via ${relativePath}):`, err);
-    }
-  }
-
-  void startWatching(rootPath, win, win.id, {
-    onFileChanged: async (relativePath) => {
-      if (wasHandled(relativePath)) return;
-      // CSVs route to DuckDB first in an independent try. registerCsv doesn't
-      // read the file content into memory (DuckDB reads lazily on query), so
-      // it's cheap and hard to fail — keeping it outside the graph+search
-      // pipeline means a graph indexing hiccup can't skip table registration.
-      if (relativePath.toLowerCase().endsWith('.csv')) {
-        try {
-          await tables.registerCsv(projectCtx, relativePath);
-          if (!win.isDestroyed()) broadcast(win, Channels.TABLES_CHANGED);
-        } catch (err) { console.warn(`[tables] registerCsv failed for ${relativePath}:`, err); }
-      } else {
-        await reregisterSibling(relativePath);
-      }
-      // #529 — editing a .py file invalidates its module in the running
-      // Python kernel so a re-run of an importing cell picks up the new
-      // definition without a manual Restart. Debounced + a no-op when
-      // no kernel is running.
-      if (relativePath.toLowerCase().endsWith('.py')) {
-        queuePyInvalidate(relativePath);
-      }
-      // Sidecar yaml schemas aren't notes — skip the graph/search pass for
-      // them. The watcher fires for them only so the registerCsv branch
-      // above can update DuckDB.
-      if (relativePath.endsWith('.csv.schema.yaml')) return;
-      try {
-        const content = await notebaseFs.readFile(rootPath, relativePath);
-        await indexAllFor(projectCtx, relativePath, content);
-        // Captioned markdown tables in the note re-register in DuckDB (#1358).
-        if (relativePath.toLowerCase().endsWith('.md')) {
-          const r = await tables.reregisterNoteTables(projectCtx, relativePath, content);
-          if (r.changed && !win.isDestroyed()) broadcast(win, Channels.TABLES_CHANGED);
-        }
-        debouncedPersist();
-      } catch (err) {
-        // Usually a race (file deleted between events), but log so real bugs
-        // don't hide in silence.
-        console.warn(`[watcher] indexing failed for ${relativePath}:`, err);
-      }
-    },
-    onFileCreated: async (relativePath) => {
-      if (wasHandled(relativePath)) return;
-      if (relativePath.toLowerCase().endsWith('.csv')) {
-        try {
-          await tables.registerCsv(projectCtx, relativePath);
-          if (!win.isDestroyed()) broadcast(win, Channels.TABLES_CHANGED);
-        } catch (err) { console.warn(`[tables] registerCsv failed for ${relativePath}:`, err); }
-      } else {
-        await reregisterSibling(relativePath);
-      }
-      // A newly-added .py file with the same name as a previously-deleted
-      // one (e.g. via git checkout / restore) can land while a stale entry
-      // is still in sys.modules. Treat add the same as change for safety.
-      if (relativePath.toLowerCase().endsWith('.py')) {
-        queuePyInvalidate(relativePath);
-      }
-      if (relativePath.endsWith('.csv.schema.yaml')) return;
-      try {
-        const content = await notebaseFs.readFile(rootPath, relativePath);
-        await indexAllFor(projectCtx, relativePath, content);
-        if (relativePath.toLowerCase().endsWith('.md')) {
-          const r = await tables.reregisterNoteTables(projectCtx, relativePath, content);
-          if (r.changed && !win.isDestroyed()) broadcast(win, Channels.TABLES_CHANGED);
-        }
-        debouncedPersist();
-      } catch (err) {
-        console.warn(`[watcher] indexing failed for ${relativePath}:`, err);
-      }
-    },
-    onFileDeleted: async (relativePath) => {
-      if (wasHandled(relativePath)) return;
-      if (relativePath.toLowerCase().endsWith('.csv')) {
-        try {
-          await tables.unregisterCsv(projectCtx, relativePath);
-          if (!win.isDestroyed()) broadcast(win, Channels.TABLES_CHANGED);
-        } catch (err) { console.warn(`[tables] unregisterCsv failed for ${relativePath}:`, err); }
-      } else {
-        // Schema sidecar deleted → CSV reverts to read_csv_auto. Same
-        // helper because the sibling lookup logic is identical; the CSV
-        // re-registers without the schema.
-        await reregisterSibling(relativePath);
-      }
-      if (relativePath.endsWith('.csv.schema.yaml')) return;
-      try {
-        removeAllFor(projectCtx, relativePath);
-        // Drop any DuckDB tables the deleted note owned (#1358). A rename
-        // surfaces as delete+create, so the create half re-registers them.
-        if (relativePath.toLowerCase().endsWith('.md')) {
-          await tables.unregisterNoteTables(projectCtx, relativePath);
-          if (!win.isDestroyed()) broadcast(win, Channels.TABLES_CHANGED);
-        }
-      } catch (err) {
-        console.warn(`[watcher] removeNote failed for ${relativePath}:`, err);
-      }
-      debouncedPersist();
-    },
-    onSourceMetaChanged: async (sourceId) => {
-      try {
-        const metaContent = await notebaseFs.readFile(rootPath, `.minerva/sources/${sourceId}/meta.ttl`);
-        let bodyContent: string | undefined;
-        try {
-          bodyContent = await notebaseFs.readFile(rootPath, `.minerva/sources/${sourceId}/body.md`);
-        } catch { /* body optional */ }
-        graph.indexSource(projectCtx, sourceId, metaContent, bodyContent);
-        void vectors.indexSource(projectCtx, sourceId, bodyContent ?? ''); // #839
-        debouncedPersist();
-        if (!win.isDestroyed()) broadcast(win, Channels.SOURCES_CHANGED);
-      } catch { /* meta.ttl may have been deleted between events */ }
-    },
-    onSourceMetaDeleted: (sourceId) => {
-      graph.removeSource(projectCtx, sourceId);
-      void vectors.removeSource(projectCtx, sourceId); // #839
-      debouncedPersist();
-      if (!win.isDestroyed()) broadcast(win, Channels.SOURCES_CHANGED);
-    },
-    onExcerptChanged: async (excerptId) => {
-      try {
-        const relPath = `.minerva/excerpts/${excerptId}.ttl`;
-        const content = await notebaseFs.readFile(rootPath, relPath);
-        graph.indexExcerpt(projectCtx, excerptId, content);
-        void vectors.indexExcerpt(projectCtx, excerptId, citedTextFromTtl(content) ?? ''); // #839
-        debouncedPersist();
-        if (!win.isDestroyed()) broadcast(win, Channels.EXCERPTS_CHANGED);
-      } catch { /* file may have been deleted between events */ }
-    },
-    onExcerptDeleted: (excerptId) => {
-      graph.removeExcerpt(projectCtx, excerptId);
-      void vectors.removeExcerpt(projectCtx, excerptId); // #839
-      debouncedPersist();
-      if (!win.isDestroyed()) broadcast(win, Channels.EXCERPTS_CHANGED);
-    },
-  });
+  void startWatching(rootPath, win, win.id, createWatchHandlers({
+    rootPath,
+    projectCtx,
+    broadcastIfAlive: (channel) => { if (!win.isDestroyed()) broadcast(win, channel); },
+  }));
   watchers.set(win.id, rootPath);
 
   // Tables panel subscribes to this; fires once after the project's initial
