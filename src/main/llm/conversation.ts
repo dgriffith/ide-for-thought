@@ -5,6 +5,7 @@ import { projectContext } from '../project-context-types';
 import { escapeTurtleLiteral } from './turtle';
 import { costForUsage } from '../../shared/tools/models';
 import { loadConfigFile, asRecord, asBool, asFiniteNumber } from '../config/config-store';
+import { writeJsonFileAtomic } from '../ipc/read-json';
 import type {
   Conversation,
   ConversationCreateOptions,
@@ -317,9 +318,7 @@ export async function loadUIState(rootPath: string): Promise<ConversationsUIStat
 }
 
 export async function saveUIState(rootPath: string, state: ConversationsUIState): Promise<void> {
-  const dir = convDir(rootPath);
-  await fs.mkdir(dir, { recursive: true });
-  await fs.writeFile(uiStatePath(rootPath), JSON.stringify(state, null, 2), 'utf-8');
+  await writeJsonFileAtomic(uiStatePath(rootPath), state);
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────

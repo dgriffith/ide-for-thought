@@ -43,12 +43,14 @@ vi.mock('electron', () => ({
   ipcMain: { handle: (channel: string, fn: Handler) => { handlers.set(channel, fn); } },
 }));
 
-// Keep the REAL readJsonFileOr (FORMATTER_LOAD_SETTINGS's own #1841 contract);
-// only stub the project-scoping wrapper so the root can be steered/cleared.
+// Keep the REAL readJsonFileOr/writeJsonFileAtomic (FORMATTER_LOAD_SETTINGS's
+// own #1841 contract, and FORMATTER_SAVE_SETTINGS's #1915 atomic write); only
+// stub the project-scoping wrapper so the root can be steered/cleared.
 vi.mock('../../../src/main/ipc/helpers', async () => {
-  const { readJsonFileOr } = await import('../../../src/main/ipc/read-json');
+  const { readJsonFileOr, writeJsonFileAtomic } = await import('../../../src/main/ipc/read-json');
   return {
     readJsonFileOr,
+    writeJsonFileAtomic,
     rootPathFromEvent: (e: { rootPath?: string | null }) => e?.rootPath ?? null,
     withRootPath:
       <A extends unknown[], R>(fn: (rootPath: string, ...a: A) => R) =>
