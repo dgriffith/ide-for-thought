@@ -169,7 +169,12 @@
   // The main process broadcasts COLLECTIONS_CHANGED after any mutation
   // (including from other windows / direct file edits). Keep our tree
   // in sync without forcing the host to call refresh() explicitly.
-  sourceData.onCollectionsChanged(() => { void refreshCollections(); });
+  //
+  // This panel lives behind a {#if activePanel === 'sites'} in Sidebar.svelte
+  // — switching sidebar tabs destroys and recreates it — so the subscription
+  // MUST be torn down on unmount (#1890) or every tab switch leaks another
+  // listener, each firing refreshCollections() on the next change.
+  $effect(() => sourceData.onCollectionsChanged(() => { void refreshCollections(); }));
 
   async function refreshCollections(): Promise<void> {
     const data = await api.collections.list();

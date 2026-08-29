@@ -57,7 +57,7 @@ const BUDGETS: Record<string, number> = {
   'src/renderer/App.svelte': 2075,
   'src/renderer/lib/components/Preview.svelte': 1299,
   'src/renderer/lib/components/SourceDetail.svelte': 1338,
-  'src/renderer/lib/components/SourcesPanel.svelte': 1293,
+  'src/renderer/lib/components/SourcesPanel.svelte': 1298,
   'src/renderer/lib/ipc/client.ts': 1240,
   'src/renderer/lib/stores/conversations.svelte.ts': 1179,
   'src/renderer/lib/components/Editor.svelte': 824,
