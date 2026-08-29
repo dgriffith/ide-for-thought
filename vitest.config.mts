@@ -340,16 +340,20 @@ export default defineConfig({
         // measured-at-floor-time v8 numbers (in parens) so a small refactor won't
         // flap but a real regression fails. Ratchet upward as these gain tests.
         //
-        // Editor.svelte ~31.2 L / 28.6 S / 27.7 F / 20.8 B. Retuned down from
-        // the original #1613 floor (38.6 L): #1625 extracted the ~225-line
-        // right-click menu into EditorContextMenu.svelte, moving Editor's most
-        // testable interactive surface (now floored separately below) out, so
-        // its own ratio dropped — floors sit ~6pts under the new measured.
+        // Editor.svelte ~40.4 L / 37.9 S / 33.0 F / 25.5 B. Retuned UP from the
+        // #1625 floor (25 L): #1903 extracted the ~150-line imperative
+        // view-command API (openFind, gotoLineColumn, insertText, etc.) into
+        // `editor/view-commands.ts`, which — unlike the extraction above —
+        // wasn't itself exercised by Editor.test.ts (0% there too, both
+        // before and after: the coverage gap moved file, it didn't close).
+        // Removing that untested block raised Editor.svelte's own ratio, so
+        // per this block's own "ratchet upward as these gain tests" rule the
+        // floor moves up too — floors sit ~7-8pts under the new measured.
         'src/renderer/lib/components/Editor.svelte': {
-          lines: 25,
-          statements: 22,
-          functions: 18,
-          branches: 12,
+          lines: 33,
+          statements: 30,
+          functions: 25,
+          branches: 18,
         },
         // EditorContextMenu.svelte — the extracted right-click menu (#1625),
         // exercised end-to-end by the Editor render test. ~56.3 L / 45.2 S /

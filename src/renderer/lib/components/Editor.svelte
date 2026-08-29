@@ -18,7 +18,6 @@
     rejectionMessage,
     type UploadResult,
   } from '../editor/image-upload';
-  import { sortLines } from '../editor/commands';
   import { toggleEditorDictation } from '../editor/dictation';
   import type { LinkRange } from '../editor/link-decorations';
   import { brokenNoteLinkAt } from '../editor/broken-link-decorations';
@@ -33,10 +32,25 @@
   import { DEFAULT_FONT, clampFontSize, parseStoredFontSize } from '../editor/font-size';
   import { findFrontmatterFoldRange } from '../editor/frontmatter';
   import { clampMenuToViewport, clampSubmenu } from '../utils/menuClamp';
-  import { extractClaimUri } from '../../../shared/refactor/find-arguments';
   import type { EditorContextMenuState, EditorMenuOps } from '../editor/context-menu-ops';
   import { buildExtensions } from '../editor/build-extensions';
   import { buildKeymapAndCompletion } from '../editor/build-keymap-and-completion';
+  import {
+    runSortLines as runSortLinesOp,
+    openFind as openFindOp,
+    openFindReplace as openFindReplaceOp,
+    gotoLineColumn as gotoLineColumnOp,
+    getCursorPosition as getCursorPositionOp,
+    getOffset as getOffsetOp,
+    runAllCells as runAllCellsOp,
+    getSelectionRange as getSelectionRangeOp,
+    getSelectedText as getSelectedTextOp,
+    insertText as insertTextOp,
+    getClaimUriAtCursor as getClaimUriAtCursorOp,
+    gotoOffset as gotoOffsetOp,
+    restorePosition as restorePositionOp,
+    type ViewCommandOps,
+  } from '../editor/view-commands';
   import {
     showContextMenu as showContextMenuOp,
     closeContextMenu as closeContextMenuOp,
@@ -438,85 +452,36 @@
     };
   }
 
-  export function runSortLines() {
-    if (view) sortLines(view);
-  }
+  const viewCommandOps: ViewCommandOps = {
+    getView: () => view,
+    getRunAllRef: () => runAllRef,
+    getContextMenu: () => contextMenu,
+  };
 
-  export function openFind() {
-    if (!view) return;
-    openSearchPanel(view);
-  }
+  export function runSortLines() { runSortLinesOp(viewCommandOps); }
 
-  export function openFindReplace() {
-    if (!view) return;
-    openSearchPanel(view);
-    // The panel renders synchronously but focus lands on the search input —
-    // hop to the replace field so Cmd+H lands where the user expects.
-    requestAnimationFrame(() => {
-      const replaceInput = view?.dom.querySelector<HTMLInputElement>('.cm-search input[name="replace"]');
-      replaceInput?.focus();
-      replaceInput?.select();
-    });
-  }
+  export function openFind() { openFindOp(viewCommandOps); }
 
-  export function gotoLineColumn(line: number, col: number) {
-    if (!view) return;
-    const maxLine = view.state.doc.lines;
-    const clampedLine = Math.max(1, Math.min(line, maxLine));
-    const lineObj = view.state.doc.line(clampedLine);
-    const maxCol = lineObj.length + 1;
-    const clampedCol = Math.max(1, Math.min(col, maxCol));
-    const pos = lineObj.from + clampedCol - 1;
-    view.dispatch({
-      selection: { anchor: pos },
-      effects: EditorView.scrollIntoView(pos, { y: 'center' }),
-    });
-    // Defer focus so the Enter keyup from the dialog doesn't fire in CM
-    requestAnimationFrame(() => view.focus());
-  }
+  export function openFindReplace() { openFindReplaceOp(viewCommandOps); }
 
-  export function getCursorPosition(): { line: number; column: number } {
-    if (!view) return { line: 1, column: 1 };
-    const pos = view.state.selection.main.head;
-    const line = view.state.doc.lineAt(pos);
-    return { line: line.number, column: pos - line.from + 1 };
-  }
+  export function gotoLineColumn(line: number, col: number) { gotoLineColumnOp(viewCommandOps, line, col); }
 
-  export function getOffset(): number {
-    if (!view) return 0;
-    return view.state.selection.main.head;
-  }
+  export function getCursorPosition(): { line: number; column: number } { return getCursorPositionOp(viewCommandOps); }
+
+  export function getOffset(): number { return getOffsetOp(viewCommandOps); }
 
   export function getView(): EditorView | undefined {
     return view;
   }
 
-  /**
-   * Re-run every runnable code fence in the note, top to bottom
-   * (the "Recompute all" toolbar action). Sequential, halts on the
-   * first error — see `runAll` in compute-cells.ts.
-   */
-  export async function runAllCells(): Promise<void> {
-    if (!view || !runAllRef.run) return;
-    await runAllRef.run(view);
-  }
+  export async function runAllCells(): Promise<void> { await runAllCellsOp(viewCommandOps); }
 
-  export function getSelectionRange(): { from: number; to: number } | null {
-    if (!view) return null;
-    const main = view.state.selection.main;
-    if (main.from === main.to) return null;
-    return { from: main.from, to: main.to };
-  }
+  export function getSelectionRange(): { from: number; to: number } | null { return getSelectionRangeOp(viewCommandOps); }
 
   /** Selected text (empty string if no selection). Used by the
    *  snippet flow (#475) so a `{{selection}}` placeholder picks up
    *  whatever the user had highlighted at the trigger moment. */
-  export function getSelectedText(): string {
-    if (!view) return '';
-    const main = view.state.selection.main;
-    if (main.from === main.to) return '';
-    return view.state.doc.sliceString(main.from, main.to);
-  }
+  export function getSelectedText(): string { return getSelectedTextOp(viewCommandOps); }
 
   /**
    * Replace the current selection (or insert at the caret if there
@@ -526,18 +491,7 @@
    * if an edit was applied.
    */
   export function insertText(text: string, caretWithin: number | null = null): boolean {
-    if (!view) return false;
-    const main = view.state.selection.main;
-    const insertPos = main.from;
-    const finalCaret = caretWithin !== null
-      ? insertPos + caretWithin
-      : insertPos + text.length;
-    view.dispatch({
-      changes: { from: main.from, to: main.to, insert: text },
-      selection: { anchor: finalCaret },
-    });
-    view.focus();
-    return true;
+    return insertTextOp(viewCommandOps, text, caretWithin);
   }
 
   /**
@@ -549,27 +503,9 @@
    * one is open, since the menu may have moved focus off the editor by
    * the time the App handler runs.
    */
-  export function getClaimUriAtCursor(): string | null {
-    if (!view) return null;
-    if (contextMenu?.claimUri) return contextMenu.claimUri;
-    const sel = view.state.selection.main;
-    if (sel.from !== sel.to) {
-      const hit = extractClaimUri(view.state.sliceDoc(sel.from, sel.to));
-      if (hit) return hit;
-    }
-    const line = view.state.doc.lineAt(sel.head);
-    return extractClaimUri(line.text);
-  }
+  export function getClaimUriAtCursor(): string | null { return getClaimUriAtCursorOp(viewCommandOps); }
 
-  export function gotoOffset(offset: number) {
-    if (!view) return;
-    const clamped = Math.max(0, Math.min(offset, view.state.doc.length));
-    view.dispatch({
-      selection: { anchor: clamped },
-      effects: EditorView.scrollIntoView(clamped, { y: 'center' }),
-    });
-    view.focus();
-  }
+  export function gotoOffset(offset: number) { gotoOffsetOp(viewCommandOps, offset); }
 
   /** Put the keyboard caret in the editor without moving it — the new-note
    *  flow uses this so a freshly created note is typeable straight away
@@ -580,18 +516,7 @@
   }
 
   export function restorePosition(offset: number, scrollTop?: number) {
-    if (!view) return;
-    const clamped = Math.max(0, Math.min(offset, view.state.doc.length));
-    if (scrollTop && scrollTop > 0) {
-      view.dispatch({ selection: { anchor: clamped } });
-      view.scrollDOM.scrollTop = scrollTop;
-    } else if (clamped > 0) {
-      view.dispatch({
-        selection: { anchor: clamped },
-        effects: EditorView.scrollIntoView(clamped, { y: 'center' }),
-      });
-    }
-    view.focus();
+    restorePositionOp(viewCommandOps, offset, scrollTop);
   }
 
   /** Alt-Enter quick-fix (#1446 Phase 2). When the cursor sits on a broken note
