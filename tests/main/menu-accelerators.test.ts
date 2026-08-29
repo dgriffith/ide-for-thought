@@ -1,69 +1,14 @@
 /**
- * Menu accelerator-collision check (#398).
+ * Menu accelerator utilities (#398, #804; extracted from menu.ts in #1906).
  *
- * The cheapest valuable menu test: build the application menu
- * template, walk it, assert that no two items inside the same
- * top-level menu share an accelerator. CodeMirror's keymap is
- * separately tested; this catches the menu-side half of the cross-
- * keymap collision risk by at least flagging within-menu duplicates,
- * which would render the second item's accelerator dead.
- *
- * Mocks the entire Electron + project-state surface that menu.ts
- * pulls in — the production code queries focused-window state, recent
- * projects, saved queries, etc. at template-build time, and we don't
- * care about any of that for the accelerator walk.
+ * `formatAccelerator` / `collectAcceleratorsByMenu` are pure and
+ * Electron-free — no mocks needed to reach them, unlike when they lived in
+ * menu.ts (see the sibling `tests/main/menu-shortcuts.test.ts`, which still
+ * mocks Electron + project state to exercise the real `rebuildMenu()`
+ * template these functions read).
  */
-
-import { describe, it, expect, vi } from 'vitest';
-import os from 'node:os';
-
-// ── Electron + project-state mocks ───────────────────────────────────────
-//
-// menu.ts imports BrowserWindow / Menu / shell / dialog / app from
-// 'electron' plus a half-dozen project modules at top level. The
-// template-build then queries them at call time. Stub each with the
-// thinnest shape the build path actually touches.
-
-vi.mock('electron', () => ({
-  Menu: {
-    buildFromTemplate: (t: unknown) => t,
-    setApplicationMenu: () => undefined,
-  },
-  BrowserWindow: {
-    getFocusedWindow: () => null,
-    getAllWindows: () => [],
-    fromId: () => null,
-  },
-  shell: { openExternal: () => Promise.resolve() },
-  dialog: {},
-  app: { getPath: () => os.tmpdir() },
-}));
-
-vi.mock('../../src/main/recent-projects', () => ({
-  getRecentProjects: () => [],
-  clearRecentProjects: () => undefined,
-}));
-
-vi.mock('../../src/main/window-manager', () => ({
-  createWindow: () => ({ webContents: { once: () => undefined, send: () => undefined } }),
-  openProjectInWindow: async () => undefined,
-  getRootPath: () => null,
-}));
-
-vi.mock('../../src/main/graph/index', () => ({ exportGraph: async () => undefined }));
-vi.mock('../../src/main/project-context-types', () => ({ projectContext: () => ({}) }));
-vi.mock('../../src/main/search/index', () => ({}));
-vi.mock('../../src/main/sources/tables', () => ({}));
-vi.mock('../../src/main/saved-queries', () => ({ listSavedQueries: () => [] }));
-vi.mock('../../src/main/compute/python-kernel', () => ({ restartKernel: () => undefined }));
-vi.mock('../../src/main/publish', () => ({
-  listExporters: () => [],
-  listExportGroups: () => [],
-}));
-
-// ── The actual test ──────────────────────────────────────────────────────
-
-import { rebuildMenu, collectAcceleratorsByMenu, formatAccelerator, getMenuShortcuts } from '../../src/main/menu';
+import { describe, it, expect } from 'vitest';
+import { collectAcceleratorsByMenu, formatAccelerator } from '../../src/main/menu/accelerators';
 
 describe('collectAcceleratorsByMenu (#398)', () => {
   it('returns empty for an empty template', () => {
@@ -119,30 +64,6 @@ describe('collectAcceleratorsByMenu (#398)', () => {
   });
 });
 
-describe('production menu has no within-menu accelerator collisions (#398)', () => {
-  it('every top-level menu uses each accelerator at most once', () => {
-    const template = rebuildMenu();
-    const byMenu = collectAcceleratorsByMenu(template);
-    const collisions: string[] = [];
-    for (const [menuLabel, entries] of byMenu) {
-      const seen = new Map<string, string[][]>();
-      for (const { accelerator, path } of entries) {
-        const list = seen.get(accelerator) ?? [];
-        list.push(path);
-        seen.set(accelerator, list);
-      }
-      for (const [acc, paths] of seen) {
-        if (paths.length > 1) {
-          collisions.push(
-            `${menuLabel} ▸ ${acc} fires for ${paths.length} items: ${paths.map((p) => p.join(' › ')).join(' | ')}`,
-          );
-        }
-      }
-    }
-    expect(collisions, collisions.join('\n')).toEqual([]);
-  });
-});
-
 describe('formatAccelerator (#804)', () => {
   it('renders macOS symbol form, joined without separators', () => {
     expect(formatAccelerator('CmdOrCtrl+Shift+S', 'darwin')).toBe('⌘⇧S');
@@ -153,23 +74,5 @@ describe('formatAccelerator (#804)', () => {
   it('renders Ctrl-word form on other platforms, plus-joined', () => {
     expect(formatAccelerator('CmdOrCtrl+Shift+S', 'win32')).toBe('Ctrl+Shift+S');
     expect(formatAccelerator('CmdOrCtrl+/', 'linux')).toBe('Ctrl+/');
-  });
-});
-
-describe('getMenuShortcuts (#804)', () => {
-  it('groups the live accelerators by top-level menu, top label dropped', () => {
-    rebuildMenu(); // populate the cached template
-    const groups = getMenuShortcuts();
-    expect(groups.length).toBeGreaterThan(0);
-    for (const g of groups) {
-      expect(typeof g.menu).toBe('string');
-      expect(g.items.length).toBeGreaterThan(0);
-      for (const item of g.items) {
-        expect(item.label).not.toBe('');
-        expect(item.keys).not.toBe('');
-        // The top-level menu label is dropped from the item label.
-        expect(item.label.startsWith(`${g.menu} › `)).toBe(false);
-      }
-    }
   });
 });
