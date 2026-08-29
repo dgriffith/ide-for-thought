@@ -273,14 +273,9 @@
 
 <style>
   /* Shared form vocabulary, scoped to this panel (the app's per-dialog
-     convention — each component carries its own .field / .hint / button CSS). */
-  .field {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    color: var(--text);
-    font-size: 12px;
-  }
+     convention — each component carries its own .hint / button CSS). The
+     base .field shape moved to global.css (#1910) — 13 of 19 occurrences
+     were byte-identical to it. */
   .field label,
   .field .field-heading { color: var(--text); }
   .field input[type="text"] {

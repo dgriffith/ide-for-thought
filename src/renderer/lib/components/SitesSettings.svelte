@@ -132,14 +132,8 @@
 
 <style>
   /* Form vocabulary, scoped to this panel — same convention every dialog in
-     the app follows (each carries its own .field / .hint rules). */
-  .field {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    color: var(--text);
-    font-size: 12px;
-  }
+     the app follows (each carries its own .hint rules). The base .field
+     shape moved to global.css (#1910). */
   .field label { color: var(--text); }
   .field input[type="text"] {
     padding: 5px 8px;

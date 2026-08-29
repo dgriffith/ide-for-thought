@@ -660,4 +660,42 @@ mark.hl-orange { background: color-mix(in oklch, var(--hl-orange) 30%, transpare
   cursor: pointer;
 }
 .cm-link-fix:hover { border-color: var(--rust); color: var(--text); }
+
+/* ── Shared component chrome (#1910) ─────────────────────────────────────
+   Design decision: yes, a shared class layer is wanted for the two
+   recurring shapes measured at scale — `.callout` above already proved the
+   pattern (tokens solve *values*; a handful of components share whole
+   *shapes*, not just colors). Scoped narrowly to what was actually
+   identical, not swept across every occurrence of the selector name:
+
+   - `.context-menu` — all 10 occurrences shared this exact base (position/
+     background/border/border-radius/padding/box-shadow/z-index-default);
+     every one keeps a local one-line override for `min-width` (each
+     component's menu genuinely needs its own), and PdfViewer overrides
+     `z-index` too (it sits above `--z-viewer`, not `--z-popover`).
+   - `.field` — 13 of the 19 occurrences were byte-identical to this;
+     VersioningSettings matched plus one extra `margin-bottom`, kept as a
+     one-line local override. The remaining 5 are all `*Dialog.svelte` (not
+     `*Settings.svelte`) with a genuinely different shape — smaller gap
+     variants, no color/font-size, one with `min-width: 0` — consolidating
+     those would mean either a visible gap change or CSS tricks to cancel
+     properties the shared class adds. Left local, deliberately: dialogs are
+     a different pattern from settings panels, not an oversight. */
+.context-menu {
+  position: fixed;
+  z-index: var(--z-popover);
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--text);
+  font-size: 12px;
+}
 .cm-link-fix svg { color: var(--rust); flex-shrink: 0; }

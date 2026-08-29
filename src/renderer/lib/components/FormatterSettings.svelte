@@ -150,13 +150,7 @@
   .fm-actions .hint {
     margin: 0;
   }
-  .field {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    color: var(--text);
-    font-size: 12px;
-  }
+  /* Base .field shape shared via global.css (#1910). */
   .field.checkbox label {
     display: flex;
     align-items: center;
