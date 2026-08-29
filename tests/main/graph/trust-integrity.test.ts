@@ -12,28 +12,18 @@
  * bypass fixture writes a component straight into the store with `applyTurtle`,
  * standing in for a hypothetical write that skipped the gate.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import fs from 'node:fs';
-import fsp from 'node:fs/promises';
-import path from 'node:path';
-import os from 'node:os';
-import { initGraph } from '../../../src/main/graph/index';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { findUnreviewedLLMWrites } from '../../../src/main/graph/integrity';
 import { proposeWrite, approveProposal } from '../../../src/main/llm/approval';
 import { applyTurtle } from '../../../src/main/llm/proposal-persistence';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { type ProjectContext } from '../../../src/main/project-context-types';
+import { useGraphProject } from '../../helpers/temp-project';
 
-let root: string;
+const project = useGraphProject('minerva-trust-integrity-');
 let ctx: ProjectContext;
 
-beforeEach(async () => {
-  root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-trust-integrity-'));
-  ctx = projectContext(root);
-  await initGraph(ctx);
-});
-
-afterEach(async () => {
-  await fsp.rm(root, { recursive: true, force: true });
+beforeEach(() => {
+  ctx = project.ctx;
 });
 
 /** Turtle for a `thought:Claim` (a `thought:Component` subclass) with LLM

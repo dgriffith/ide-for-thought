@@ -1,31 +1,18 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import fs from 'node:fs';
-import fsp from 'node:fs/promises';
-import path from 'node:path';
-import os from 'node:os';
+import { describe, it, expect, beforeEach } from 'vitest';
 import {
-  initGraph, indexNote, removeNote, indexSource, removeSource,
+  indexNote, removeNote, indexSource, removeSource,
   indexExcerpt, removeExcerpt, indexCsvTable, unindexCsvTable,
   unindexAllCsvTables, parseIntoStore, queryGraph,
 } from '../../../src/main/graph/index';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
-
-function mkTemp(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-n3cache-'));
-}
+import { type ProjectContext } from '../../../src/main/project-context-types';
+import { useGraphProject } from '../../helpers/temp-project';
 
 describe('queryGraph N3 store cache (#334)', () => {
-  let root: string;
+  const project = useGraphProject('minerva-n3cache-');
   let ctx: ProjectContext;
 
-  beforeEach(async () => {
-    root = mkTemp();
-    ctx = projectContext(root);
-    await initGraph(ctx);
-  });
-
-  afterEach(async () => {
-    await fsp.rm(root, { recursive: true, force: true });
+  beforeEach(() => {
+    ctx = project.ctx;
   });
 
   // The cache itself is internal and not directly exposed. We test it

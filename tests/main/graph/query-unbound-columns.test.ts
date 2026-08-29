@@ -4,26 +4,20 @@
  * the columns were derived from the bindings alone, so an always-unbound
  * variable was dropped entirely.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import fs from 'node:fs';
-import path from 'node:path';
-import os from 'node:os';
-import { initGraph, indexNote, queryGraph } from '../../../src/main/graph/index';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { indexNote, queryGraph } from '../../../src/main/graph/index';
+import { type ProjectContext } from '../../../src/main/project-context-types';
+import { useGraphProject } from '../../helpers/temp-project';
 
 describe('queryGraph projected columns', () => {
-  let root: string;
+  const project = useGraphProject('minerva-query-cols-');
   let ctx: ProjectContext;
 
   beforeEach(async () => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-query-cols-'));
-    ctx = projectContext(root);
-    await initGraph(ctx);
+    ctx = project.ctx;
     await indexNote(ctx, 'a.md', '---\ntitle: Note A\n---\n# Note A\n');
     await indexNote(ctx, 'b.md', '---\ntitle: Note B\n---\n# Note B\n');
   });
-
-  afterEach(() => { fs.rmSync(root, { recursive: true, force: true }); });
 
   it('keeps a column that is unbound in every row', async () => {
     // ?missing is projected but never bound — no note has dc:description here.

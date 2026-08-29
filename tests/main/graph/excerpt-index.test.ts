@@ -1,9 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
 import {
-  initGraph,
   indexNote,
   indexAllNotes,
   indexExcerpt,
@@ -12,11 +10,8 @@ import {
   outgoingLinks,
   parseExcerptIdFromPath,
 } from '../../../src/main/graph/index';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
-
-function mkTempProject(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-excerpt-test-'));
-}
+import { type ProjectContext } from '../../../src/main/project-context-types';
+import { useGraphProject } from '../../helpers/temp-project';
 
 function writeSourceMeta(root: string, id: string, ttl: string): void {
   const dir = path.join(root, '.minerva', 'sources', id);
@@ -47,17 +42,13 @@ this: a thought:Excerpt ;
 `;
 
 describe('excerpt indexing (issue #92)', () => {
+  const project = useGraphProject('minerva-excerpt-test-');
   let root: string;
   let ctx: ProjectContext;
 
-  beforeEach(async () => {
-    root = mkTempProject();
-    ctx = projectContext(root);
-    await initGraph(ctx);
-  });
-
-  afterEach(() => {
-    fs.rmSync(root, { recursive: true, force: true });
+  beforeEach(() => {
+    root = project.root;
+    ctx = project.ctx;
   });
 
   it('indexAllNotes picks up hand-placed excerpts under .minerva/excerpts/', async () => {
@@ -143,17 +134,13 @@ describe('excerpt indexing (issue #92)', () => {
 });
 
 describe('[[quote::excerpt-id]] link and graph walk', () => {
+  const project = useGraphProject('minerva-excerpt-test-');
   let root: string;
   let ctx: ProjectContext;
 
-  beforeEach(async () => {
-    root = mkTempProject();
-    ctx = projectContext(root);
-    await initGraph(ctx);
-  });
-
-  afterEach(() => {
-    fs.rmSync(root, { recursive: true, force: true });
+  beforeEach(() => {
+    root = project.root;
+    ctx = project.ctx;
   });
 
   it('writes a thought:quotes edge from the note to the excerpt URI', async () => {

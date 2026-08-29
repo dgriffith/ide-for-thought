@@ -3,21 +3,15 @@
  * easiest to validate via a deterministic `now`.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import fs from 'node:fs';
-import fsp from 'node:fs/promises';
 import path from 'node:path';
-import os from 'node:os';
 import {
-  initGraph,
   indexSource,
   getReadingQueueSourceIds,
 } from '../../../src/main/graph/index';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
-
-function mkTemp(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-reading-queue-'));
-}
+import { type ProjectContext } from '../../../src/main/project-context-types';
+import { useGraphProject } from '../../helpers/temp-project';
 
 function buildMeta(extra = ''): string {
   return `this: a thought:Article ;
@@ -27,18 +21,15 @@ ${extra}    thought:accessedAt "2026-05-01T00:00:00Z"^^xsd:dateTime .
 }
 
 describe('getReadingQueueSourceIds (#116)', () => {
+  const project = useGraphProject('minerva-reading-queue-');
   let root: string;
   let ctx: ProjectContext;
   // Pin time so date-relative views are deterministic.
   const NOW = new Date('2026-05-27T00:00:00Z');
 
-  beforeEach(async () => {
-    root = mkTemp();
-    ctx = projectContext(root);
-    await initGraph(ctx);
-  });
-  afterEach(async () => {
-    await fsp.rm(root, { recursive: true, force: true });
+  beforeEach(() => {
+    root = project.root;
+    ctx = project.ctx;
   });
 
   function makeSource(id: string, ttlExtra = ''): void {

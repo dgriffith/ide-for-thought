@@ -4,13 +4,14 @@
  * for the parent class via a property path — the read side the Objects browser
  * and multi-view build on (#1587).
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
-import { initGraph, indexAllNotes, queryGraph, getNoteTypedProperties, getTypeInstances } from '../../../src/main/graph/index';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { indexAllNotes, queryGraph, getNoteTypedProperties, getTypeInstances } from '../../../src/main/graph/index';
+import { type ProjectContext } from '../../../src/main/project-context-types';
+import { useGraphProject } from '../../helpers/temp-project';
 
+const project = useGraphProject('minerva-subclassof-');
 let root: string;
 let ctx: ProjectContext;
 
@@ -30,16 +31,14 @@ async function paths(sparql: string): Promise<string[]> {
 }
 
 beforeEach(async () => {
-  root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-subclassof-'));
-  ctx = projectContext(root);
-  await initGraph(ctx);
+  root = project.root;
+  ctx = project.ctx;
   writeType('reference', `label: Reference\nproperties:\n  - name: citation\n    type: text`);
   writeType('monograph', `label: Monograph\nparent: reference\nproperties:\n  - name: isbn\n    type: text`);
   writeNote('Dune.md', `---\ntitle: Dune\ntype: monograph\ncitation: Herbert 1965\nisbn: "9780441172719"\n---\n`); // a Monograph (⊂ Reference)
   writeNote('Cite.md', `---\ntitle: Cite\ntype: reference\ncitation: Smith 2020\n---\n`); // a direct Reference
   await indexAllNotes(ctx);
 });
-afterEach(() => fs.rmSync(root, { recursive: true, force: true }));
 
 describe('subclassing (#1586)', () => {
   it('materializes types:Monograph rdfs:subClassOf types:Reference', async () => {

@@ -1,20 +1,15 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
 import {
-  initGraph,
   indexNote,
   findNotesLinkingToAnchor,
   headingsFor,
 } from '../../../src/main/graph/index';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { type ProjectContext } from '../../../src/main/project-context-types';
 import { renameAnchor } from '../../../src/main/notebase/rename-anchor';
 import { rewriteAnchorInLinks } from '../../../src/main/notebase/link-rewriting';
-
-function mkTempProject(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-heading-rename-test-'));
-}
+import { useGraphProject } from '../../helpers/temp-project';
 
 function writeNote(root: string, relPath: string, content: string): void {
   const abs = path.join(root, relPath);
@@ -27,17 +22,11 @@ function readNote(root: string, relPath: string): string {
 }
 
 describe('heading snapshots (issue #139)', () => {
-  let root: string;
+  const project = useGraphProject('minerva-heading-rename-test-');
   let ctx: ProjectContext;
 
-  beforeEach(async () => {
-    root = mkTempProject();
-    ctx = projectContext(root);
-    await initGraph(ctx);
-  });
-
-  afterEach(() => {
-    fs.rmSync(root, { recursive: true, force: true });
+  beforeEach(() => {
+    ctx = project.ctx;
   });
 
   it('records headings after indexNote', async () => {
@@ -99,17 +88,11 @@ describe('heading snapshots (issue #139)', () => {
 });
 
 describe('findNotesLinkingToAnchor (issue #139)', () => {
-  let root: string;
+  const project = useGraphProject('minerva-heading-rename-test-');
   let ctx: ProjectContext;
 
-  beforeEach(async () => {
-    root = mkTempProject();
-    ctx = projectContext(root);
-    await initGraph(ctx);
-  });
-
-  afterEach(() => {
-    fs.rmSync(root, { recursive: true, force: true });
+  beforeEach(() => {
+    ctx = project.ctx;
   });
 
   it('returns only notes with the exact anchor', async () => {
@@ -124,17 +107,13 @@ describe('findNotesLinkingToAnchor (issue #139)', () => {
 });
 
 describe('renameAnchor integration (issue #139)', () => {
+  const project = useGraphProject('minerva-heading-rename-test-');
   let root: string;
   let ctx: ProjectContext;
 
-  beforeEach(async () => {
-    root = mkTempProject();
-    ctx = projectContext(root);
-    await initGraph(ctx);
-  });
-
-  afterEach(() => {
-    fs.rmSync(root, { recursive: true, force: true });
+  beforeEach(() => {
+    root = project.root;
+    ctx = project.ctx;
   });
 
   it('rewrites every anchored reference across the thoughtbase', async () => {

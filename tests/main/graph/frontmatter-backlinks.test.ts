@@ -3,24 +3,19 @@
  * inbound frontmatter edge shows up, with a label derived from the predicate
  * and a neutral colour that distinguishes it from typed body links.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import fs from 'node:fs';
-import path from 'node:path';
-import os from 'node:os';
-import { initGraph, indexNote, backlinks } from '../../../src/main/graph/index';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { indexNote, backlinks } from '../../../src/main/graph/index';
+import { type ProjectContext } from '../../../src/main/project-context-types';
+import { useGraphProject } from '../../helpers/temp-project';
 
 describe('backlinks — frontmatter links (broad)', () => {
-  let root: string;
+  const project = useGraphProject('minerva-fm-backlinks-');
   let ctx: ProjectContext;
 
   beforeEach(async () => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-fm-backlinks-'));
-    ctx = projectContext(root);
-    await initGraph(ctx);
+    ctx = project.ctx;
     await indexNote(ctx, 'a.md', '# A');
   });
-  afterEach(() => fs.rmSync(root, { recursive: true, force: true }));
 
   it('surfaces body AND frontmatter inbound links, labelled by their predicate', async () => {
     await indexNote(ctx, 'body.md', '# Body\n\n[[a]]');

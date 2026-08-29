@@ -3,12 +3,10 @@
  * (`[[supports::x]]`) and anchors (`[[x#heading]]`) are honoured and render the
  * SAME RDF a body link would, instead of being flattened to a bare reference.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import fs from 'node:fs';
-import path from 'node:path';
-import os from 'node:os';
-import { initGraph, indexNote, queryGraph } from '../../../src/main/graph/index';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { indexNote, queryGraph } from '../../../src/main/graph/index';
+import { type ProjectContext } from '../../../src/main/project-context-types';
+import { useGraphProject } from '../../helpers/temp-project';
 
 async function targetsUnder(ctx: ProjectContext, src: string, predicateQName: string): Promise<string[]> {
   const { results } = await queryGraph(ctx, `
@@ -18,16 +16,13 @@ async function targetsUnder(ctx: ProjectContext, src: string, predicateQName: st
 }
 
 describe('frontmatter ↔ body wiki-link parity', () => {
-  let root: string;
+  const project = useGraphProject('minerva-fm-parity-');
   let ctx: ProjectContext;
 
   beforeEach(async () => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-fm-parity-'));
-    ctx = projectContext(root);
-    await initGraph(ctx);
+    ctx = project.ctx;
     await indexNote(ctx, 'a.md', '# A\n\n## Intro\n\nbody');
   });
-  afterEach(() => fs.rmSync(root, { recursive: true, force: true }));
 
   it('a typed frontmatter link renders the same triple as a body link', async () => {
     await indexNote(ctx, 'body.md', '# Body\n\nSee [[supports::a]].');

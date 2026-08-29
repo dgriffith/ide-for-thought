@@ -2,13 +2,14 @@
  * Typed-object property model (#1063): schema-driven datatype coercion, the
  * frontmatter⇄graph round-trip, no-enforcement, and the read-back projection.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
-import { initGraph, indexAllNotes, indexNote, queryGraph, getNoteTypedProperties } from '../../../src/main/graph/index';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { indexAllNotes, indexNote, queryGraph, getNoteTypedProperties } from '../../../src/main/graph/index';
+import { type ProjectContext } from '../../../src/main/project-context-types';
+import { useGraphProject } from '../../helpers/temp-project';
 
+const project = useGraphProject('minerva-typed-props-');
 let root: string;
 let ctx: ProjectContext;
 
@@ -26,12 +27,10 @@ async function datatypeOf(title: string, predicate: string): Promise<string | un
   return (results as Array<{ dt?: string }>)[0]?.dt;
 }
 
-beforeEach(async () => {
-  root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-typed-props-'));
-  ctx = projectContext(root);
-  await initGraph(ctx);
+beforeEach(() => {
+  root = project.root;
+  ctx = project.ctx;
 });
-afterEach(() => fs.rmSync(root, { recursive: true, force: true }));
 
 describe('typed properties: datatype coercion (#1063)', () => {
   it('a declared `number` becomes xsd:integer — even from a string', async () => {

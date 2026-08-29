@@ -5,13 +5,14 @@
  * override keeps). If that ever drifted, customizing Book would silently orphan
  * every existing Book note.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
-import { initGraph, indexAllNotes, queryGraph, getNoteTypedProperties, reloadTypeCatalog } from '../../../src/main/graph/index';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { indexAllNotes, queryGraph, getNoteTypedProperties, reloadTypeCatalog } from '../../../src/main/graph/index';
+import { type ProjectContext } from '../../../src/main/project-context-types';
+import { useGraphProject } from '../../helpers/temp-project';
 
+const project = useGraphProject('minerva-custstock-');
 let root: string;
 let ctx: ProjectContext;
 
@@ -21,12 +22,10 @@ function write(rel: string, content: string): void {
   fs.writeFileSync(fp, content, 'utf-8');
 }
 
-beforeEach(async () => {
-  root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-custstock-'));
-  ctx = projectContext(root);
-  await initGraph(ctx);
+beforeEach(() => {
+  root = project.root;
+  ctx = project.ctx;
 });
-afterEach(() => fs.rmSync(root, { recursive: true, force: true }));
 
 describe('customized stock type', () => {
   it('indexes a note under types:Book and reads back the added property', async () => {

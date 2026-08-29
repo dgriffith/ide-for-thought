@@ -20,27 +20,18 @@
  * that.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import fs from 'node:fs';
-import fsp from 'node:fs/promises';
-import path from 'node:path';
-import os from 'node:os';
+import { describe, it, expect, beforeEach } from 'vitest';
 
-import { initGraph, indexNote, queryGraph } from '../../../src/main/graph/index';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { indexNote, queryGraph } from '../../../src/main/graph/index';
+import { type ProjectContext } from '../../../src/main/project-context-types';
+import { useGraphProject } from '../../helpers/temp-project';
 
 describe('decompose-into-claims indexing round-trip (#408 rework)', () => {
-  let root: string;
+  const project = useGraphProject('minerva-decompose-rework-');
   let ctx: ProjectContext;
 
-  beforeEach(async () => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-decompose-rework-'));
-    ctx = projectContext(root);
-    await initGraph(ctx);
-  });
-
-  afterEach(async () => {
-    await fsp.rm(root, { recursive: true, force: true });
+  beforeEach(() => {
+    ctx = project.ctx;
   });
 
   it('child claim note materialises rdf:type, claim-kind, source-text, extracted-from, extracted-by', async () => {

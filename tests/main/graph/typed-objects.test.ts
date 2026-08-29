@@ -6,13 +6,14 @@
  * graph — not just the registry — knows they exist. Unknown types stay plain
  * notes (no enforcement).
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
-import { initGraph, indexAllNotes, queryGraph } from '../../../src/main/graph/index';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { indexAllNotes, queryGraph } from '../../../src/main/graph/index';
+import { type ProjectContext } from '../../../src/main/project-context-types';
+import { useGraphProject } from '../../helpers/temp-project';
 
+const project = useGraphProject('minerva-typed-obj-');
 let root: string;
 let ctx: ProjectContext;
 
@@ -22,12 +23,10 @@ function writeNote(rel: string, content: string): void {
   fs.writeFileSync(fp, content, 'utf-8');
 }
 
-beforeEach(async () => {
-  root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-typed-obj-'));
-  ctx = projectContext(root);
-  await initGraph(ctx);
+beforeEach(() => {
+  root = project.root;
+  ctx = project.ctx;
 });
-afterEach(() => fs.rmSync(root, { recursive: true, force: true }));
 
 describe('typed objects: frontmatter type → graph (#1062)', () => {
   it('a `type: book` note is an instance of types:Book (queryable by class)', async () => {

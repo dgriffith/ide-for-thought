@@ -8,15 +8,13 @@
  * falls back to the atomic synchronous rebuild, so the mirror still equals a
  * from-scratch `buildN3Store` of the final rdflib state.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import fs from 'node:fs';
-import path from 'node:path';
-import os from 'node:os';
+import { describe, it, expect, beforeEach } from 'vitest';
 import type * as N3 from 'n3';
 import * as $rdf from 'rdflib';
-import { initGraph, indexNote } from '../../../src/main/graph/index';
+import { indexNote } from '../../../src/main/graph/index';
 import { buildN3Store, ensureN3Cache, getState, resetN3Mirror, RDF, MINERVA } from '../../../src/main/graph/state';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { type ProjectContext } from '../../../src/main/project-context-types';
+import { useGraphProject } from '../../helpers/temp-project';
 
 function tripleSet(store: N3.Store): Set<string> {
   const keys = new Set<string>();
@@ -31,15 +29,12 @@ function tripleSet(store: N3.Store): Set<string> {
 }
 
 describe('ensureN3Cache — yielding cold rebuild (#1115)', () => {
-  let root: string;
+  const project = useGraphProject('minerva-n3yield-');
   let ctx: ProjectContext;
 
-  beforeEach(async () => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-n3yield-'));
-    ctx = projectContext(root);
-    await initGraph(ctx);
+  beforeEach(() => {
+    ctx = project.ctx;
   });
-  afterEach(() => { fs.rmSync(root, { recursive: true, force: true }); });
 
   it('builds a mirror equal to the synchronous buildN3Store', async () => {
     await indexNote(ctx, 'a.md', '---\ntitle: A\ntags: [x]\n---\n# A\n\n[[b]]\n');

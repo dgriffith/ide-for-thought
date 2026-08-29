@@ -1,33 +1,20 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import fs from 'node:fs';
-import path from 'node:path';
-import os from 'node:os';
+import { describe, it, expect, beforeEach } from 'vitest';
 import {
-  initGraph,
   indexNote,
   queryGraph,
   findNotesLinkingTo,
   outgoingLinks,
   backlinks,
 } from '../../../src/main/graph/index';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
-
-function mkTempProject(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-anchor-test-'));
-}
+import { type ProjectContext } from '../../../src/main/project-context-types';
+import { useGraphProject } from '../../helpers/temp-project';
 
 describe('anchor links (issue #137)', () => {
-  let root: string;
+  const project = useGraphProject('minerva-anchor-test-');
   let ctx: ProjectContext;
 
-  beforeEach(async () => {
-    root = mkTempProject();
-    ctx = projectContext(root);
-    await initGraph(ctx);
-  });
-
-  afterEach(() => {
-    fs.rmSync(root, { recursive: true, force: true });
+  beforeEach(() => {
+    ctx = project.ctx;
   });
 
   it('indexes heading anchors as an IRI fragment (slug)', async () => {

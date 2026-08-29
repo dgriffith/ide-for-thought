@@ -8,15 +8,13 @@
  *    backlinks, a cited source leaf, direction).
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import fs from 'node:fs';
-import path from 'node:path';
-import os from 'node:os';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { walkNeighborhood, noteHop } from '../../../src/main/graph/neighborhood';
 import { neighborhood } from '../../../src/main/graph/index';
-import { initGraph, indexNote } from '../../../src/main/graph/index';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { indexNote } from '../../../src/main/graph/index';
+import { type ProjectContext } from '../../../src/main/project-context-types';
 import type { NeighborhoodNode, NeighborhoodHop } from '../../../src/shared/types';
+import { useGraphProject } from '../../helpers/temp-project';
 
 const note = (id: string): NeighborhoodNode => ({ id, kind: 'note', label: id, exists: true });
 const edge = (s: string, t: string, dir: 'out' | 'in' = 'out') => ({
@@ -82,14 +80,11 @@ describe('walkNeighborhood (pure BFS)', () => {
 });
 
 describe('neighborhood (against a real store)', () => {
-  let root: string;
+  const project = useGraphProject('nbhd-test-');
   let ctx: ProjectContext;
-  beforeEach(async () => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'nbhd-test-'));
-    ctx = projectContext(root);
-    await initGraph(ctx);
+  beforeEach(() => {
+    ctx = project.ctx;
   });
-  afterEach(() => fs.rmSync(root, { recursive: true, force: true }));
 
   it('walks outgoing + backlinks to depth, distinguishing nodes by kind', async () => {
     await indexNote(ctx, 'hub.md', '# Hub\n\nSee [[spoke]] and [[references::other]].');
@@ -163,14 +158,11 @@ describe('neighborhood (against a real store)', () => {
 
 // Per-project memo keyed by (path, depth, cap), cleared on write (perf #1113).
 describe('neighborhood caching (perf #1113)', () => {
-  let root: string;
+  const project = useGraphProject('nbhd-cache-');
   let ctx: ProjectContext;
-  beforeEach(async () => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'nbhd-cache-'));
-    ctx = projectContext(root);
-    await initGraph(ctx);
+  beforeEach(() => {
+    ctx = project.ctx;
   });
-  afterEach(() => fs.rmSync(root, { recursive: true, force: true }));
 
   it('returns the memoized result on re-selection without re-running the BFS', async () => {
     await indexNote(ctx, 'a.md', 'see [[b]]');

@@ -6,21 +6,14 @@
  * actually reaches it, so these check the shape of what's reported rather than
  * merely that something was.
  */
-import { describe, it, expect, afterEach } from 'vitest';
-import fs from 'node:fs';
+import { describe, it, expect } from 'vitest';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
-import os from 'node:os';
 import * as graph from '../../../src/main/graph/index';
 import { projectContext } from '../../../src/main/project-context-types';
+import { useTempDir } from '../../helpers/temp-project';
 
-let root: string;
-
-afterEach(async () => {
-  if (root) await fsp.rm(root, { recursive: true, force: true });
-});
-
-async function seed(files: Record<string, string>): Promise<void> {
+async function seed(root: string, files: Record<string, string>): Promise<void> {
   for (const [rel, content] of Object.entries(files)) {
     const abs = path.join(root, rel);
     await fsp.mkdir(path.dirname(abs), { recursive: true });
@@ -29,9 +22,11 @@ async function seed(files: Record<string, string>): Promise<void> {
 }
 
 describe('indexAllNotes progress', () => {
+  const project = useTempDir('minerva-index-progress-');
+
   it('counts up to a total that matches the notes indexed', async () => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-index-progress-'));
-    await seed({
+    const root = project.root;
+    await seed(root, {
       'a.md': '# A\n',
       'b.md': '# B\n',
       'sub/c.md': '# C\n',
@@ -58,8 +53,8 @@ describe('indexAllNotes progress', () => {
   });
 
   it('counts every indexable extension, not just markdown', async () => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-index-progress-ext-'));
-    await seed({
+    const root = project.root;
+    await seed(root, {
       'note.md': '# Note\n',
       'data.csv': 'a,b\n1,2\n',
       'facts.ttl': '@prefix ex: <http://example.org/> .\n',
@@ -77,8 +72,8 @@ describe('indexAllNotes progress', () => {
   });
 
   it('is optional — a rebuild without a listener behaves exactly as before', async () => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-index-progress-none-'));
-    await seed({ 'a.md': '# A\n' });
+    const root = project.root;
+    await seed(root, { 'a.md': '# A\n' });
     const ctx = projectContext(root);
     await graph.initGraph(ctx);
 

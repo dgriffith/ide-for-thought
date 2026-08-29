@@ -7,25 +7,17 @@
  * CLI/MCP-filed proposal is dropped before the user ever reviews it. This is the
  * last mile that makes external (fleet) proposals actually reach Minerva.
  */
-import { describe, it, expect, afterEach } from 'vitest';
-import fs from 'node:fs';
-import fsp from 'node:fs/promises';
-import path from 'node:path';
-import os from 'node:os';
+import { describe, it, expect } from 'vitest';
 import * as graph from '../../../src/main/graph/index';
 import * as approval from '../../../src/main/llm/approval';
 import { projectContext } from '../../../src/main/project-context-types';
-
-let root: string;
-
-afterEach(async () => {
-  if (root) await fsp.rm(root, { recursive: true, force: true });
-});
+import { useTempDir } from '../../helpers/temp-project';
 
 describe('proposals survive indexAllNotes (#1151)', () => {
+  const project = useTempDir('minerva-reindex-');
+
   it('a persisted proposal is still in the queue after an app-style reopen', async () => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-reindex-'));
-    const ctx = projectContext(root);
+    const ctx = projectContext(project.root);
 
     // File a proposal (as the CLI/MCP propose path does) and persist to graph.ttl.
     await graph.initGraph(ctx);
@@ -51,8 +43,7 @@ describe('proposals survive indexAllNotes (#1151)', () => {
   });
 
   it('a session proposal survives a manual rebuild (indexAllNotes again)', async () => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-reindex2-'));
-    const ctx = projectContext(root);
+    const ctx = projectContext(project.root);
     await graph.initGraph(ctx);
     await graph.indexAllNotes(ctx);
     await graph.withLLMContext(() =>
