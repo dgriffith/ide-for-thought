@@ -1,10 +1,11 @@
 /**
  * Coalesced fetch for the right-sidebar link panels (#351).
  *
- * OutgoingLinksPanel and BacklinksPanel each used to fire their own IPC
- * on every `activeFilePath` change — two IPC round-trips per tab switch.
- * They both render at the same time and share the same active file, so
- * one IPC suffices: the main side returns both directions from the
+ * The two directions of `LinkListPanel` (#1909; formerly separate
+ * `OutgoingLinksPanel` / `BacklinksPanel` components) each used to fire
+ * their own IPC on every `activeFilePath` change — two IPC round-trips per
+ * tab switch. They both render at the same time and share the same active
+ * file, so one IPC suffices: the main side returns both directions from the
  * same graph-state pass.
  *
  * This module memoizes per (path, revision) so a sibling panel that
