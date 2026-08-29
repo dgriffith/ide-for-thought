@@ -342,14 +342,9 @@
     flex-shrink: 0;
   }
 
+  /* Base shape shared via .context-menu in global.css (#1910); only the
+     per-instance min-width stays local. */
   .context-menu {
-    position: fixed;
-    z-index: var(--z-popover);
-    background: var(--bg-sidebar);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 4px 0;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     min-width: 120px;
   }
 

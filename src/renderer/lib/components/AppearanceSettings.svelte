@@ -139,13 +139,7 @@
 
 <style>
   .appearance { display: flex; flex-direction: column; gap: 14px; }
-  .field {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    color: var(--text);
-    font-size: 12px;
-  }
+  /* Base .field shape shared via global.css (#1910). */
   .field label {
     color: var(--text);
   }

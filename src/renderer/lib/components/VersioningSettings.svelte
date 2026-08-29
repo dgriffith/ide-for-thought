@@ -129,13 +129,10 @@
 
 <style>
   /* Shared form vocabulary, scoped to this panel (the app's per-dialog
-     convention — each component carries its own .field / .hint CSS). */
+     convention — each component carries its own .hint CSS). The base
+     .field shape moved to global.css (#1910); this panel's fields also
+     want extra bottom spacing, kept as a local override. */
   .field {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    color: var(--text);
-    font-size: 12px;
     margin-bottom: 18px;
   }
   .field label { color: var(--text); }

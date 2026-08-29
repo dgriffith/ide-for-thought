@@ -368,14 +368,8 @@
 {/each}
 
 <style>
-  /* Shared form vocabulary, scoped to this panel (app's per-dialog convention). */
-  .field {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    color: var(--text);
-    font-size: 12px;
-  }
+  /* Shared form vocabulary, scoped to this panel (app's per-dialog
+     convention). The base .field shape moved to global.css (#1910). */
   .field-label { color: var(--text); }
   .field select {
     padding: 5px 8px;

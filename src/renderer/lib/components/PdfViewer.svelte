@@ -478,14 +478,11 @@
     cursor: pointer;
   }
 
+  /* Base shape shared via .context-menu in global.css (#1910). This
+     instance sits above --z-viewer (a full-pane PDF viewer), not the
+     shared default of --z-popover, and needs its own min-width. */
   .context-menu {
-    position: fixed;
     z-index: var(--z-viewer);
-    background: var(--bg-sidebar);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 4px 0;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     min-width: 180px;
   }
   .context-menu button {
