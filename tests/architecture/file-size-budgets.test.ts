@@ -76,7 +76,7 @@ const BUDGETS: Record<string, number> = {
   'src/shared/ipc-contract.ts': 720,
   'src/shared/channels.ts': 701,
   'src/renderer/lib/app/note-ops.ts': 687,
-  'src/renderer/lib/editor/formatting.ts': 671,
+  'src/renderer/lib/editor/formatting.ts': 668,
   'src/main/sources/tables.ts': 661,
   'src/renderer/lib/components/FindInNotesDialog.svelte': 601,
   'src/preload/preload.ts': 614,

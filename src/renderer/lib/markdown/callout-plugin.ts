@@ -28,6 +28,7 @@ import type { MarkdownIt } from 'markdown-it';
 import type { StateCore } from 'markdown-it';
 import type { Token } from 'markdown-it';
 import { TRAILING_ID_RE } from '../../../shared/flashcards/cards';
+import { escapeHtml, escapeAttr } from '../../../shared/text-escape';
 
 /**
  * First-line marker. Title whitespace is restricted to spaces/tabs so a
@@ -244,13 +245,3 @@ function capitalize(s: string): string {
   return s.length === 0 ? s : s[0]!.toUpperCase() + s.slice(1);
 }
 
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
-
-function escapeAttr(s: string): string {
-  return escapeHtml(s).replace(/"/g, '&quot;');
-}

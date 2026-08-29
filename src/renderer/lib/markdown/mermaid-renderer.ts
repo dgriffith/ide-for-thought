@@ -17,6 +17,7 @@
 import { getEffectiveTheme, getThemeMode } from '../theme';
 import { normalizeColor } from '../utils/oklch';
 import { sanitizeDiagramSvg } from './sanitize-diagram-svg';
+import { escapeHtml } from '../../../shared/text-escape';
 
 type MermaidApi = {
   initialize: (config: Record<string, unknown>) => void;
@@ -179,11 +180,4 @@ export function invalidateMermaidTheme(): void {
 
 function renderErrorHtml(msg: string): string {
   return `<div class="mermaid-error" role="alert"><strong>Mermaid error</strong><pre>${escapeHtml(msg)}</pre></div>`;
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
 }

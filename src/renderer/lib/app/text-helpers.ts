@@ -3,14 +3,14 @@
  * no DOM, no reactivity — just string and NoteFile-tree functions, so they're
  * trivially unit-testable and don't belong inline in the root component.
  */
-import { slugify } from '../../../shared/slug';
+import { slugify, slugifyId } from '../../../shared/slug';
 import { isNotePath } from '../../../shared/note-extensions';
 import type { NoteFile } from '../../../shared/types';
 
 /** Cheap slug for path placeholders (e.g. onboarding system-prompt paths).
  *  Callers may override; this is just a sensible default. */
 export function slugifyForPath(s: string): string {
-  return s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'overview';
+  return slugifyId(s).slice(0, 40) || 'overview';
 }
 
 /** Byte offset of the heading/block-id anchor within `text`, or null.

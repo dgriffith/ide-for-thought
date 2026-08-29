@@ -7,6 +7,7 @@
 import YAML from 'yaml';
 import * as notebaseFs from '../notebase/fs';
 import type { PropertyDef } from '../../shared/objects/type-def';
+import { slugifyId } from '../../shared/slug';
 
 export interface SaveTypeInput {
   label: string;
@@ -27,7 +28,7 @@ export interface SaveTypeInput {
 }
 
 export function slugify(s: string): string {
-  return s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return slugifyId(s);
 }
 
 /** Serialize to a type-definition markdown file (frontmatter only; the body —

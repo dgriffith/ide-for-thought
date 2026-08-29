@@ -13,6 +13,7 @@
  */
 
 import { slugify } from './slug';
+import { stripFrontmatter } from './frontmatter-strip';
 
 export interface TransclusionTarget {
   /** The note name / path (no `#heading` or `^blockid`, no `.md`). */
@@ -110,6 +111,3 @@ function sliceBlock(body: string, blockId: string): SliceResult {
   return { ok: false, text: '', reason: `block "^${blockId}" not found` };
 }
 
-function stripFrontmatter(content: string): string {
-  return content.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '');
-}

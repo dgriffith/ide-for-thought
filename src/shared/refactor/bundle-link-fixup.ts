@@ -14,6 +14,7 @@
  */
 
 import { WIKI_LINK_RE, parseWikiInner, reassembleWikiLink } from '../wiki-link';
+import { slugifyId } from '../slug';
 
 export interface BundleNote {
   relativePath: string;
@@ -43,10 +44,7 @@ function stemOf(relativePath: string): string {
 
 /** Lowercase, replace non-alphanumeric with `-`, collapse runs, trim hyphens. */
 export function slugifyForLink(s: string): string {
-  return s
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
+  return slugifyId(s);
 }
 
 function buildIndex(notes: BundleNote[]): SiblingIndex {

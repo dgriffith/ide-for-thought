@@ -4,6 +4,7 @@
 
 import { NOTE_HTML_STYLE } from './style';
 import { bodyHasKatex, getKatexStyle } from './katex-css';
+import { escapeHtmlFull as escapeHtml } from '../../../../shared/text-escape';
 
 export interface HtmlShellInput {
   title: string;
@@ -69,11 +70,3 @@ ${input.body}
 `;
 }
 
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}

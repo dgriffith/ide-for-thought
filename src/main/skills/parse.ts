@@ -14,6 +14,7 @@ import {
   type SkillSource,
 } from '../../shared/skills/types';
 import { validateTemplate } from './template';
+import { slugifyId as slugify } from '../../shared/slug';
 
 const FRONTMATTER_RE = /^---\n([\s\S]*?)\n---\n?/;
 
@@ -32,10 +33,6 @@ export interface ParseResult {
   errors: string[];
   /** Best-effort label for error reporting even when the skill is rejected. */
   label: string;
-}
-
-function slugify(s: string): string {
-  return s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 }
 
 function asString(v: unknown): string | undefined {

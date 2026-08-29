@@ -26,6 +26,8 @@ import { resolveTransclusions } from '../../transclusion-resolve';
 import { linkifyLocalMedia } from '../../media-export';
 import type { ExportPlanFile, ExportPlan } from '../../types';
 import type { CitationRenderer } from '../../csl';
+import { escapeHtmlFull as escapeHtml, escapeHtmlFull as escapeAttr } from '../../../../shared/text-escape';
+import { stripFrontmatter } from '../../../../shared/frontmatter-strip';
 
 /**
  * Returns the rendered body HTML — just the article content, no `<html>`
@@ -438,10 +440,6 @@ function mimeForExt(ext: string): string {
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-function stripFrontmatter(content: string): string {
-  return content.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '');
-}
-
 function findTitle(target: string, titleByTarget: Map<string, string>): string | null {
   return (
     titleByTarget.get(target) ??
@@ -455,15 +453,3 @@ function stripMd(p: string): string {
   return p.replace(/\.md$/i, '');
 }
 
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-function escapeAttr(s: string): string {
-  return escapeHtml(s);
-}

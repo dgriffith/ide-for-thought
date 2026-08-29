@@ -14,6 +14,7 @@
  */
 
 import { createHash } from 'node:crypto';
+import { stripFrontmatter } from '../../shared/frontmatter-strip';
 
 export interface Chunk {
   /** 0-based position of this chunk within the note (stable ordering). */
@@ -107,10 +108,6 @@ function splitLong(text: string, maxChars: number): string[] {
   }
   if (buf) out.push(buf);
   return out;
-}
-
-function stripFrontmatter(content: string): string {
-  return content.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '');
 }
 
 function sha256(s: string): string {

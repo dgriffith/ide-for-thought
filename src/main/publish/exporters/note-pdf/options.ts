@@ -112,6 +112,14 @@ function clamp(n: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, n));
 }
 
+// Deliberately NOT hoisted to `shared/text-escape.ts` (#1917): this is a
+// third, genuinely distinct escaping behavior (&, <, >, " — no apostrophe),
+// used nowhere else. Neither `escapeHtml` (3-char) nor `escapeHtmlFull`
+// (5-char, WITH apostrophe) in the shared module matches it, and this
+// function has no other call site to reconcile with — it isn't duplication,
+// just a third case. Merging it into either shared variant would silently
+// change this file's escaping behavior for the one thing #1917 explicitly
+// warns against.
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, '&amp;')

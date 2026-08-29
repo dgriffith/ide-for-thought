@@ -1,5 +1,6 @@
 import { registerRule } from '../../registry';
 import { transformUnprotected } from '../helpers';
+import { escapeRegex } from '../../../text-escape';
 
 interface Config {
   /**
@@ -94,7 +95,3 @@ registerRule<Config>({
     );
   },
 });
-
-function escapeRegex(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
