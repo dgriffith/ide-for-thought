@@ -12,7 +12,7 @@
  * "write one more implementation of this interface" rather than "rewrite the
  * gate." See `docs/vision/substrate-mcp.md` → *Internal agnosticism*.
  */
-import type { Citation, TurnUsage } from '../../../shared/types';
+import type { Citation, TurnUsage } from '../../../shared/conversation';
 import type { Effort } from '../../../shared/tools/effort';
 import type { ConnectionCheckResult } from '../../../shared/tools/types';
 

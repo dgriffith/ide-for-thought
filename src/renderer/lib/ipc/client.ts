@@ -1,4 +1,5 @@
-import type { NoteFile, NotebaseMeta, TagInfo, TaggedNote, TaggedSource, SavedQuery, SavedView, SavedViewInput, SearchResult, OutgoingLink, Backlink, TabSession, LayoutSession, Conversation, ConversationCreateOptions, ContextBundle, ConversationMessage, BookmarkNode, SourceDetail, SearchInNotesOptions, SearchInNotesFileResult, ReplaceInNotesOptions, ReplaceInNotesResult, HeadingRenameCandidate, MenuEditorState, InspectionFix } from '../../../shared/types';
+import type { NoteFile, NotebaseMeta, TagInfo, TaggedNote, TaggedSource, SavedQuery, SavedView, SavedViewInput, SearchResult, OutgoingLink, Backlink, TabSession, LayoutSession, BookmarkNode, SourceDetail, SearchInNotesOptions, SearchInNotesFileResult, ReplaceInNotesOptions, ReplaceInNotesResult, HeadingRenameCandidate, MenuEditorState, InspectionFix } from '../../../shared/types';
+import type { Conversation, ConversationCreateOptions, ContextBundle, ConversationMessage } from '../../../shared/conversation';
 import type { ToolExecutionRequest, ToolExecutionResult, ConversationToolPayload } from '../../../shared/tools/types';
 import type { InspectionSettings } from '../../../shared/inspections';
 import type { ClipperState } from '../../../shared/clipper-pairing';
@@ -619,8 +620,8 @@ export interface ConversationsApi {
     currentNotePath?: string,
     extraTools?: import('../../../shared/conversation-tools').ConversationToolKey[],
   ): Promise<Conversation>;
-  loadUIState(): Promise<import('../../../shared/types').ConversationsUIState>;
-  saveUIState(state: import('../../../shared/types').ConversationsUIState): Promise<void>;
+  loadUIState(): Promise<import('../../../shared/conversation').ConversationsUIState>;
+  saveUIState(state: import('../../../shared/conversation').ConversationsUIState): Promise<void>;
   onAskUser(cb: (req: import('../../../shared/conversation-tools').AskUserRequest) => void): void;
   askUserReply(questionId: string, answer: string): Promise<void>;
   onStream(cb: (chunk: string) => void): void;
@@ -634,7 +635,7 @@ export interface ConversationsApi {
   ): Promise<Conversation>;
   /** Client-side compaction (#824): summarize earlier turns into a fresh
    *  conversation, archiving the original. */
-  compact(conversationId: string): Promise<import('../../../shared/types').CompactResult>;
+  compact(conversationId: string): Promise<import('../../../shared/conversation').CompactResult>;
   /** Subscribe to drafts produced by the propose_notes tool. Drafts are scoped per conversation. */
   onDraft(cb: (draft: import('../../../shared/conversation-drafts').ConversationDraft) => void): void;
   /** File a draft as a Proposal AND auto-approve it (the user already reviewed the inline card). */
@@ -1026,8 +1027,8 @@ export interface CitationsApi {
 }
 
 export interface SitesApi {
-  list(): Promise<import('../../../shared/types').PrivilegedSite[]>;
-  add(domain: string, label?: string): Promise<import('../../../shared/types').PrivilegedSite>;
+  list(): Promise<import('../../../shared/privileged-sites').PrivilegedSite[]>;
+  add(domain: string, label?: string): Promise<import('../../../shared/privileged-sites').PrivilegedSite>;
   remove(id: string): Promise<void>;
   login(id: string): Promise<void>;
   logout(id: string): Promise<void>;

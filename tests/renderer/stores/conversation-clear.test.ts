@@ -4,7 +4,7 @@
  * store with a mocked api client.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Conversation } from '../../../src/shared/types';
+import type { Conversation } from '../../../src/shared/conversation';
 
 const h = vi.hoisted(() => {
   const noop = vi.fn();

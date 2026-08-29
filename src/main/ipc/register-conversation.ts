@@ -5,7 +5,7 @@ import * as graph from '../graph/index';
 import * as conversation from '../llm/conversation';
 import { currentDateContext } from '../llm/date-context';
 import { readThoughtbaseDoc, thoughtbaseDocPromptBlock } from '../llm/thoughtbase-doc';
-import type { ContextBundle, ConversationCreateOptions, ConversationMessage } from '../../shared/types';
+import type { ContextBundle, ConversationCreateOptions, ConversationMessage } from '../../shared/conversation';
 import type { ConversationDraftBase } from '../../shared/conversation-draft-base';
 import { rootPathFromEvent, winFromEvent, withRootPath, withRootPathOr } from './helpers';
 import { broadcast } from './broadcast';
@@ -229,7 +229,7 @@ export function registerConversation(): void {
   handle(Channels.CONVERSATION_UI_STATE_LOAD, withRootPathOr(Promise.resolve({ ...conversation.DEFAULT_UI_STATE }), (rootPath) => conversation.loadUIState(rootPath)));
   handle(
     Channels.CONVERSATION_UI_STATE_SAVE,
-    withRootPath((rootPath, state: import('../../shared/types').ConversationsUIState) =>
+    withRootPath((rootPath, state: import('../../shared/conversation').ConversationsUIState) =>
       conversation.saveUIState(rootPath, state)),
   );
 
@@ -394,7 +394,7 @@ export function registerConversation(): void {
 async function compactConversation(
   rootPath: string,
   convId: string,
-): Promise<import('../../shared/types').CompactResult> {
+): Promise<import('../../shared/conversation').CompactResult> {
   const conv = await conversation.load(rootPath, convId);
   if (!conv) throw new Error(`Conversation not found: ${convId}`);
   if (conv.status !== 'active') {
@@ -405,7 +405,7 @@ async function compactConversation(
   const plan = planCompaction(conv.messages);
   if (!plan.ok) return { compacted: false, reason: plan.reason };
 
-  let usage: import('../../shared/types').TurnUsage | undefined;
+  let usage: import('../../shared/conversation').TurnUsage | undefined;
   let usageModel: string | undefined;
   let truncated = false;
   const { complete } = await import('../llm/index');

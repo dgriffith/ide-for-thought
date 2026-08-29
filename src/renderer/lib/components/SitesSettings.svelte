@@ -11,7 +11,7 @@
   import { onMount } from 'svelte';
   import { api } from '../ipc/client';
   import { getSettingsStore } from '../stores/settings.svelte';
-  import type { PrivilegedSite } from '../../../shared/types';
+  import type { PrivilegedSite } from '../../../shared/privileged-sites';
 
   const settings = getSettingsStore();
 

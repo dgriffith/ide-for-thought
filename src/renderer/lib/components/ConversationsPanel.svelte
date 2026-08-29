@@ -31,7 +31,7 @@
      *  empty when no selection lives inside the conversation pane),
      *  and the latest assistant message's content as a fallback. */
     onCreateNoteFromConversation?: (args: {
-      conversation: import('../../../shared/types').Conversation;
+      conversation: import('../../../shared/conversation').Conversation;
       selectionText: string;
       fallbackText: string;
     }) => Promise<void>;

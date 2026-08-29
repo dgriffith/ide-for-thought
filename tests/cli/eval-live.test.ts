@@ -17,7 +17,7 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { runEval, type LlmSeam } from '../../src/cli/eval';
-import type { TurnUsage } from '../../src/shared/types';
+import type { TurnUsage } from '../../src/shared/conversation';
 
 const USAGE: TurnUsage = { inputTokens: 11, outputTokens: 22, cacheCreationTokens: 0, cacheReadTokens: 0 };
 

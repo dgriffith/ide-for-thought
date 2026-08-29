@@ -26,7 +26,7 @@ import type {
   GenerateContentResponseUsageMetadata,
   Part,
 } from '@google/genai';
-import type { TurnUsage } from '../../../shared/types';
+import type { TurnUsage } from '../../../shared/conversation';
 import type { ConnectionCheckResult } from '../../../shared/tools/types';
 import { toConnectionResult } from '../connection-error';
 import { PROVIDERS } from '../../../shared/tools/providers';

@@ -21,7 +21,8 @@ import { getRefactorSettings } from '../refactor/settings';
 import { todayDateString } from '../refactor/extract';
 import { CONFIRM_KEYS } from '../confirm-keys';
 import { openNoteRecordingHistory } from './nav-record';
-import type { Conversation, SourceExcerpt } from '../../../shared/types';
+import type { SourceExcerpt } from '../../../shared/types';
+import type { Conversation } from '../../../shared/conversation';
 
 interface EditorRef {
   getSelectedText: () => string;

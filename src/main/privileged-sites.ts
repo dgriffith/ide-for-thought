@@ -11,7 +11,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { app, BrowserWindow, session, type Session } from 'electron';
-import type { PrivilegedSite } from '../shared/types';
+import type { PrivilegedSite } from '../shared/privileged-sites';
 
 interface FileShape {
   sites: PrivilegedSite[];

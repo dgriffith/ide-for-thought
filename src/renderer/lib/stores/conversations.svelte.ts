@@ -8,7 +8,7 @@ import type {
   ConversationSkill,
   ContextBundle,
   ConversationsUIState,
-} from '../../../shared/types';
+} from '../../../shared/conversation';
 import type { ConversationDraft } from '../../../shared/conversation-drafts';
 import type { ConversationRefactorDraft, ConversationReorgDraft, ConversationDeleteDraft } from '../../../shared/conversation-refactor-drafts';
 import type { ConversationNoteBodyDraft } from '../../../shared/conversation-note-body-drafts';

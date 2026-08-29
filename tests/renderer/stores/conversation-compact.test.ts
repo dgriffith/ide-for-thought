@@ -4,7 +4,7 @@
  * there's nothing to compact.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Conversation, CompactResult } from '../../../src/shared/types';
+import type { Conversation, CompactResult } from '../../../src/shared/conversation';
 
 const h = vi.hoisted(() => {
   const noop = vi.fn();

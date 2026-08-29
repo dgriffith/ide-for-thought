@@ -9,7 +9,7 @@ import {
   COMPACT_KEEP_RECENT,
   COMPACT_MIN_MESSAGES,
 } from '../../../src/main/llm/compact';
-import type { ConversationMessage, TurnUsage } from '../../../src/shared/types';
+import type { ConversationMessage, TurnUsage } from '../../../src/shared/conversation';
 
 function convo(n: number): ConversationMessage[] {
   return Array.from({ length: n }, (_, i) => ({

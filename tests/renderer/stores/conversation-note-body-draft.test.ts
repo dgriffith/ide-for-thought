@@ -5,7 +5,7 @@
  * Drives the conversations store with a mocked api client.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Conversation } from '../../../src/shared/types';
+import type { Conversation } from '../../../src/shared/conversation';
 import type { ConversationNoteBodyDraft } from '../../../src/shared/conversation-note-body-drafts';
 
 const h = vi.hoisted(() => {
