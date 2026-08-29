@@ -1,4 +1,4 @@
-import { dialog, BrowserWindow } from 'electron';
+import { dialog } from 'electron';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { Channels } from '../../shared/channels';
@@ -40,8 +40,29 @@ import { importBibtex } from '../sources/import-bibtex';
 import { importZoteroRdf } from '../sources/import-zotero-rdf';
 import { getExcerptNoteFolder, setExcerptNoteFolder } from '../project-config';
 import { createExcerpt } from '../sources/create-excerpt';
-import { withRootPath, withRootPathOr, withRootPathWin, reindexFile, persistIndexes } from './helpers';
+import {
+  withRootPath, withRootPathOr, withRootPathWin, reindexFile, persistIndexes,
+  broadcastSourcesChanged, broadcastExcerptsChanged, broadcastCollectionsChanged,
+} from './helpers';
 import { handle } from './typed-ipc';
+
+/**
+ * Wraps a source-mutating handler (#1916): runs `fn`, reindexes, then
+ * broadcasts SOURCES_CHANGED to every window on the project — not just the
+ * one that made the change (see {@link broadcastSourcesChanged}). Collapses
+ * what used to be six handlers of identical
+ * mutate → persistIndexes → broadcast shape.
+ */
+function withSourceMutation<A extends unknown[], R>(
+  fn: (rootPath: string, ...args: A) => Promise<R>,
+): (e: Electron.IpcMainInvokeEvent, ...args: A) => Promise<R> {
+  return withRootPath(async (rootPath, ...args: A) => {
+    const result = await fn(rootPath, ...args);
+    await persistIndexes(rootPath);
+    broadcastSourcesChanged(rootPath);
+    return result;
+  });
+}
 
 export function registerSources(): void {
   handle(Channels.SOURCES_INGEST_URL, withRootPath(async (rootPath, url: string) => {
@@ -72,21 +93,15 @@ export function registerSources(): void {
     return await mineSourceReferences(rootPath, sourceId);
   }));
 
-  handle(Channels.SOURCES_CREATE_REFERENCE_STUBS, withRootPathWin(async (rootPath, win, params: { sourceId: string; refs: ParsedReference[] }) => {
-    const result = await createReferenceStubs(rootPath, params.sourceId, params.refs);
-    await persistIndexes(rootPath);
-    if (!win.isDestroyed()) broadcast(win, Channels.SOURCES_CHANGED);
-    return result;
-  }));
+  handle(Channels.SOURCES_CREATE_REFERENCE_STUBS, withSourceMutation((rootPath, params: { sourceId: string; refs: ParsedReference[] }) =>
+    createReferenceStubs(rootPath, params.sourceId, params.refs)));
 
   handle(Channels.SOURCES_RESOLVE_STUB, withRootPath(async (rootPath, sourceId: string) => {
     return await resolveStub(rootPath, sourceId, { fetchImpl: privilegedFetch });
   }));
 
-  handle(Channels.SOURCES_APPLY_STUB_RESOLUTION, withRootPathWin(async (rootPath, win, params: { sourceId: string; doi: string }) => {
+  handle(Channels.SOURCES_APPLY_STUB_RESOLUTION, withSourceMutation(async (rootPath, params: { sourceId: string; doi: string }) => {
     const ok = await applyStubResolution(rootPath, params.sourceId, params.doi, { fetchImpl: privilegedFetch });
-    await persistIndexes(rootPath);
-    if (!win.isDestroyed()) broadcast(win, Channels.SOURCES_CHANGED);
     return { ok };
   }));
 
@@ -180,34 +195,28 @@ export function registerSources(): void {
   // Finalise a scanned-PDF ingest: the renderer has run OCR and hands
   // back the per-page text. We rewrite body.md + stamp meta.ttl with
   // extractionMethod "ocr" (#95).
-  handle(Channels.SOURCES_FINISH_PDF_OCR, withRootPathWin(async (rootPath, win, sourceId: string, pages: string[]) => {
+  handle(Channels.SOURCES_FINISH_PDF_OCR, withSourceMutation(async (rootPath, sourceId: string, pages: string[]) => {
     await finishPdfOcrIngest(rootPath, sourceId, pages);
     await reindexFile(rootPath, `.minerva/sources/${sourceId}/meta.ttl`);
-    await persistIndexes(rootPath);
-    if (!win.isDestroyed()) broadcast(win, Channels.SOURCES_CHANGED);
   }));
 
   handle(Channels.SOURCES_LIST_ALL, withRootPathOr([], (rootPath) =>
     graph.listAllSources(projectContext(rootPath))));
 
-  handle(Channels.SOURCES_DELETE, withRootPathWin(async (rootPath, win, sourceId: string) => {
+  handle(Channels.SOURCES_DELETE, withRootPath(async (rootPath, sourceId: string) => {
     const result = await deleteSource(rootPath, sourceId);
     await persistIndexes(rootPath);
-    if (!win.isDestroyed()) {
-      broadcast(win, Channels.SOURCES_CHANGED);
-      broadcast(win, Channels.EXCERPTS_CHANGED);
-    }
+    broadcastSourcesChanged(rootPath);
+    broadcastExcerptsChanged(rootPath);
     return result;
   }));
 
-  handle(Channels.SOURCES_MERGE, withRootPathWin(async (rootPath, win, params: { srcId: string; destId: string }) => {
+  handle(Channels.SOURCES_MERGE, withRootPath(async (rootPath, params: { srcId: string; destId: string }) => {
     try {
       const result = await mergeSources(rootPath, params.srcId, params.destId);
       await persistIndexes(rootPath);
-      if (!win.isDestroyed()) {
-        broadcast(win, Channels.SOURCES_CHANGED);
-        broadcast(win, Channels.EXCERPTS_CHANGED);
-      }
+      broadcastSourcesChanged(rootPath);
+      broadcastExcerptsChanged(rootPath);
       return result;
     } catch (err) {
       if (err instanceof MergeSourcesError) {
@@ -222,42 +231,25 @@ export function registerSources(): void {
   }));
 
   // ── Reading queue (#116) ──────────────────────────────────────────────────
-  handle(Channels.SOURCES_SET_READ_STATUS, withRootPathWin(async (rootPath, win, params: { sourceId: string; status: ReadStatus | null }) => {
-    await setSourceReadStatus(rootPath, params.sourceId, params.status);
-    await persistIndexes(rootPath);
-    if (!win.isDestroyed()) broadcast(win, Channels.SOURCES_CHANGED);
-  }));
+  handle(Channels.SOURCES_SET_READ_STATUS, withSourceMutation((rootPath, params: { sourceId: string; status: ReadStatus | null }) =>
+    setSourceReadStatus(rootPath, params.sourceId, params.status)));
 
-  handle(Channels.SOURCES_SET_TITLE, withRootPathWin(async (rootPath, win, params: { sourceId: string; title: string }) => {
-    await setSourceTitle(rootPath, params.sourceId, params.title);
-    await persistIndexes(rootPath);
-    if (!win.isDestroyed()) broadcast(win, Channels.SOURCES_CHANGED);
-  }));
+  handle(Channels.SOURCES_SET_TITLE, withSourceMutation((rootPath, params: { sourceId: string; title: string }) =>
+    setSourceTitle(rootPath, params.sourceId, params.title)));
 
-  handle(Channels.SOURCES_ADD_TAG, withRootPathWin(async (rootPath, win, params: { sourceId: string; tag: string }) => {
+  handle(Channels.SOURCES_ADD_TAG, withSourceMutation(async (rootPath, params: { sourceId: string; tag: string }) => {
     await addSourceTag(rootPath, params.sourceId, params.tag);
-    await persistIndexes(rootPath);
-    if (!win.isDestroyed()) broadcast(win, Channels.SOURCES_CHANGED);
   }));
 
-  handle(Channels.SOURCES_REMOVE_TAG, withRootPathWin(async (rootPath, win, params: { sourceId: string; tag: string }) => {
+  handle(Channels.SOURCES_REMOVE_TAG, withSourceMutation(async (rootPath, params: { sourceId: string; tag: string }) => {
     await removeSourceTag(rootPath, params.sourceId, params.tag);
-    await persistIndexes(rootPath);
-    if (!win.isDestroyed()) broadcast(win, Channels.SOURCES_CHANGED);
   }));
 
-  handle(Channels.SOURCES_SET_READ_DUE_BY, withRootPathWin(async (rootPath, win, params: { sourceId: string; dueBy: string | null }) => {
-    await setSourceReadDueBy(rootPath, params.sourceId, params.dueBy);
-    await persistIndexes(rootPath);
-    if (!win.isDestroyed()) broadcast(win, Channels.SOURCES_CHANGED);
-  }));
+  handle(Channels.SOURCES_SET_READ_DUE_BY, withSourceMutation((rootPath, params: { sourceId: string; dueBy: string | null }) =>
+    setSourceReadDueBy(rootPath, params.sourceId, params.dueBy)));
 
-  handle(Channels.SOURCES_STRIP_UPSTREAM_TAGS, withRootPathWin(async (rootPath, win, sourceId: string) => {
-    const result = await stripUpstreamTags(rootPath, sourceId);
-    await persistIndexes(rootPath);
-    if (!win.isDestroyed()) broadcast(win, Channels.SOURCES_CHANGED);
-    return result;
-  }));
+  handle(Channels.SOURCES_STRIP_UPSTREAM_TAGS, withSourceMutation((rootPath, sourceId: string) =>
+    stripUpstreamTags(rootPath, sourceId)));
 
   handle(Channels.SOURCES_QUEUE_MEMBERS, withRootPathOr([], (rootPath, view: ReadingQueueView) => {
     const ctx = projectContext(rootPath);
@@ -267,59 +259,55 @@ export function registerSources(): void {
   }));
 
   // ── Collections (#470) ────────────────────────────────────────────────────
-  const broadcastCollectionsChanged = (win: BrowserWindow) => {
-    if (!win.isDestroyed()) broadcast(win, Channels.COLLECTIONS_CHANGED);
-  };
-
   handle(Channels.COLLECTIONS_LIST, withRootPathOr<[], { collections: never[] } | Promise<CollectionsFile>>({ collections: [] }, async (rootPath) => {
     return await loadCollections(rootPath);
   }));
 
-  handle(Channels.COLLECTIONS_CREATE, withRootPathWin(async (rootPath, win, args: { name: string; parent?: string | null }) => {
+  handle(Channels.COLLECTIONS_CREATE, withRootPath(async (rootPath, args: { name: string; parent?: string | null }) => {
     const result = await createCollection(rootPath, args);
-    broadcastCollectionsChanged(win);
+    broadcastCollectionsChanged(rootPath);
     return result;
   }));
 
-  handle(Channels.COLLECTIONS_RENAME, withRootPathWin(async (rootPath, win, args: { id: string; name: string }) => {
+  handle(Channels.COLLECTIONS_RENAME, withRootPath(async (rootPath, args: { id: string; name: string }) => {
     await renameCollection(rootPath, args.id, args.name);
-    broadcastCollectionsChanged(win);
+    broadcastCollectionsChanged(rootPath);
   }));
 
-  handle(Channels.COLLECTIONS_DELETE, withRootPathWin(async (rootPath, win, id: string) => {
+  handle(Channels.COLLECTIONS_DELETE, withRootPath(async (rootPath, id: string) => {
     await deleteCollection(rootPath, id);
-    broadcastCollectionsChanged(win);
+    broadcastCollectionsChanged(rootPath);
   }));
 
-  handle(Channels.COLLECTIONS_ADD_SOURCE, withRootPathWin(async (rootPath, win, args: { collectionId: string; sourceId: string }) => {
+  handle(Channels.COLLECTIONS_ADD_SOURCE, withRootPath(async (rootPath, args: { collectionId: string; sourceId: string }) => {
     await addSourceToCollection(rootPath, args.collectionId, args.sourceId);
-    broadcastCollectionsChanged(win);
+    broadcastCollectionsChanged(rootPath);
   }));
 
-  handle(Channels.COLLECTIONS_REMOVE_SOURCE, withRootPathWin(async (rootPath, win, args: { collectionId: string; sourceId: string }) => {
+  handle(Channels.COLLECTIONS_REMOVE_SOURCE, withRootPath(async (rootPath, args: { collectionId: string; sourceId: string }) => {
     await removeSourceFromCollection(rootPath, args.collectionId, args.sourceId);
-    broadcastCollectionsChanged(win);
+    broadcastCollectionsChanged(rootPath);
   }));
 
-  handle(Channels.COLLECTIONS_CREATE_SMART, withRootPathWin(async (rootPath, win, args: { name: string; predicate: SmartCollectionPredicate }) => {
+  handle(Channels.COLLECTIONS_CREATE_SMART, withRootPath(async (rootPath, args: { name: string; predicate: SmartCollectionPredicate }) => {
     const result = await createSmartCollection(rootPath, args);
-    broadcastCollectionsChanged(win);
+    broadcastCollectionsChanged(rootPath);
     return result;
   }));
 
-  handle(Channels.COLLECTIONS_RENAME_SMART, withRootPathWin(async (rootPath, win, args: { id: string; name: string }) => {
+  handle(Channels.COLLECTIONS_RENAME_SMART, withRootPath(async (rootPath, args: { id: string; name: string }) => {
     await renameSmartCollection(rootPath, args.id, args.name);
-    broadcastCollectionsChanged(win);
+    broadcastCollectionsChanged(rootPath);
   }));
 
-  handle(Channels.COLLECTIONS_DELETE_SMART, withRootPathWin(async (rootPath, win, id: string) => {
+  handle(Channels.COLLECTIONS_DELETE_SMART, withRootPath(async (rootPath, id: string) => {
     await deleteSmartCollection(rootPath, id);
-    broadcastCollectionsChanged(win);
+    broadcastCollectionsChanged(rootPath);
   }));
 
-  handle(Channels.COLLECTIONS_UPDATE_SMART_PREDICATE, withRootPathWin(async (rootPath, win, args: { id: string; predicate: SmartCollectionPredicate }) => {
+  handle(Channels.COLLECTIONS_UPDATE_SMART_PREDICATE, withRootPath(async (rootPath, args: { id: string; predicate: SmartCollectionPredicate }) => {
     await updateSmartCollectionPredicate(rootPath, args.id, args.predicate);
-    broadcastCollectionsChanged(win);
+    broadcastCollectionsChanged(rootPath);
   }));
 
   handle(Channels.COLLECTIONS_SMART_MEMBERS, withRootPathOr<[string], SourceMetadata[] | Promise<SourceMetadata[]>>([], async (rootPath, id: string) => {

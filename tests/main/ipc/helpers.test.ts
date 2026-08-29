@@ -95,6 +95,9 @@ import {
   broadcastProposalsChanged,
   broadcastHistoryChanged,
   broadcastInspectionsChanged,
+  broadcastSourcesChanged,
+  broadcastExcerptsChanged,
+  broadcastCollectionsChanged,
   hooks,
   readJsonFileOr,
 } from '../../../src/main/ipc/helpers';
@@ -356,12 +359,41 @@ describe('broadcasts — fan out to every window on the project', () => {
     expect(win.webContents.send).toHaveBeenCalledWith(Channels.INSPECTIONS_CHANGED);
   });
 
+  // #1916: register-sources.ts used to broadcast SOURCES_CHANGED / EXCERPTS_CHANGED
+  // / COLLECTIONS_CHANGED to the invoking window only — with two windows open on
+  // one thoughtbase, a mutation in window A never reached window B, which sat
+  // stale until reopened. These three route through the same `windowsForProject`
+  // fan-out as every broadcast above; this is the regression test.
+  it('broadcastSourcesChanged reaches every window on the project, not just the one that mutated', () => {
+    broadcastSourcesChanged('/vault');
+    for (const w of [win, otherWin]) {
+      expect(w.webContents.send).toHaveBeenCalledWith(Channels.SOURCES_CHANGED);
+    }
+  });
+
+  it('broadcastExcerptsChanged reaches every window on the project', () => {
+    broadcastExcerptsChanged('/vault');
+    for (const w of [win, otherWin]) {
+      expect(w.webContents.send).toHaveBeenCalledWith(Channels.EXCERPTS_CHANGED);
+    }
+  });
+
+  it('broadcastCollectionsChanged reaches every window on the project', () => {
+    broadcastCollectionsChanged('/vault');
+    for (const w of [win, otherWin]) {
+      expect(w.webContents.send).toHaveBeenCalledWith(Channels.COLLECTIONS_CHANGED);
+    }
+  });
+
   it('a project with no open windows is a silent no-op, not a crash', () => {
     registry.windows = [];
     expect(() => {
       broadcastRewritten('/vault', ['notes/a.md']);
       broadcastProposalsChanged('/vault');
       broadcastInspectionsChanged('/vault');
+      broadcastSourcesChanged('/vault');
+      broadcastExcerptsChanged('/vault');
+      broadcastCollectionsChanged('/vault');
     }).not.toThrow();
   });
 });

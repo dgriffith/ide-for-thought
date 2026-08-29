@@ -1,21 +1,26 @@
 /**
  * @vitest-environment node
  *
- * Main-process coverage for `register-sources.ts` (#1840).
+ * Main-process coverage for `register-sources.ts` (#1840, fan-out fixed #1916).
  *
  * At 343 lines this was the largest remaining untested registrar, and the one
  * with the most repetition: a dozen source mutations that all have to
- * `persistIndexes` and then broadcast `SOURCES_CHANGED` to a window that may
- * already have closed. Copy-paste is exactly where one of those steps goes
- * missing, so the repeated contract is asserted for every handler via a table
- * rather than trusted to review.
+ * `persistIndexes` and then announce the change. Copy-paste is exactly where
+ * one of those steps goes missing, so the repeated contract is asserted for
+ * every handler via a table rather than trusted to review.
  *
  * Beyond that it pins the parts with real logic:
  *
  *   - the #1631 project guard on every handler — throw vs each fallback's own
  *     legitimate empty value;
- *   - a closed window is never sent to: `isDestroyed()` is checked AFTER the
- *     await, which is the only reason that check exists at all;
+ *   - every mutation announces itself via `broadcastSourcesChanged` /
+ *     `broadcastExcerptsChanged` / `broadcastCollectionsChanged` (#1916) —
+ *     ONE per rootPath, fanned out to every window on the project, not just
+ *     the invoking one. The fan-out mechanism itself (multiple windows, a
+ *     destroyed one excluded) is `helpers.ts`'s job and is pinned in
+ *     `helpers.test.ts`; what matters here is that each handler calls the
+ *     right broadcast function, with the right rootPath, after the mutation
+ *     lands — not before, and not on failure;
  *   - `SOURCES_MERGE` carries a `MergeSourcesError`'s structured `code` across
  *     the IPC boundary (a plain rethrow loses it and the UI can no longer tell
  *     "you picked the same source twice" from a crash) while any other error
@@ -26,6 +31,11 @@
  *   - the reading-queue / smart-collection membership filters short-circuit
  *     instead of listing every source in the thoughtbase to intersect against
  *     an empty set.
+ *
+ * The BibTeX/Zotero import progress channels are unrelated to #1916 — they're
+ * per-operation progress for the window that opened the file picker, not a
+ * "something changed" signal other windows need, so they still target `win`
+ * directly and still check `isDestroyed()` themselves.
  *
  * `withRootPath*` are re-implemented in the helpers mock with the real
  * semantics (helpers.ts drags in electron + graph/search/vectors, so it can't
@@ -107,6 +117,9 @@ const h = vi.hoisted(() => {
     // helpers
     reindexFile: vi.fn(),
     persistIndexes: vi.fn(),
+    broadcastSourcesChanged: vi.fn(),
+    broadcastExcerptsChanged: vi.fn(),
+    broadcastCollectionsChanged: vi.fn(),
     // call-order log — ordering is load-bearing in the ingest/OCR handlers
     order: [] as string[],
   };
@@ -138,6 +151,9 @@ vi.mock('../../../src/main/ipc/helpers', () => ({
       },
   reindexFile: h.reindexFile,
   persistIndexes: h.persistIndexes,
+  broadcastSourcesChanged: h.broadcastSourcesChanged,
+  broadcastExcerptsChanged: h.broadcastExcerptsChanged,
+  broadcastCollectionsChanged: h.broadcastCollectionsChanged,
 }));
 
 vi.mock('../../../src/main/privileged-sites', () => ({ privilegedFetch: h.privilegedFetch }));
@@ -210,8 +226,24 @@ const call = (channel: string, ...args: unknown[]): unknown => h.handlers.get(ch
 /** Await a handler's answer whether it replied synchronously or with a promise. */
 const callAsync = (channel: string, ...args: unknown[]): Promise<unknown> =>
   Promise.resolve(call(channel, ...args));
-/** Every channel the handler broadcast to the project's window, in order. */
-const sent = (): unknown[] => h.win.webContents.send.mock.calls.map((c) => c[0]);
+/**
+ * Every "something changed" channel the handler announced, in call order
+ * (#1916 — these go through `broadcastSourcesChanged`/`broadcastExcerptsChanged`/
+ * `broadcastCollectionsChanged` now, each a separate mock, so ordering across
+ * them is reconstructed from vitest's own invocation-order counters rather
+ * than a single shared `webContents.send` log).
+ */
+const sent = (): unknown[] => {
+  const marks: Array<{ order: number; channel: string }> = [];
+  for (const [channel, fn] of [
+    [Channels.SOURCES_CHANGED, h.broadcastSourcesChanged],
+    [Channels.EXCERPTS_CHANGED, h.broadcastExcerptsChanged],
+    [Channels.COLLECTIONS_CHANGED, h.broadcastCollectionsChanged],
+  ] as const) {
+    for (const order of fn.mock.invocationCallOrder) marks.push({ order, channel });
+  }
+  return marks.sort((a, b) => a.order - b.order).map((m) => m.channel);
+};
 /** The ProjectContext the registrar builds from the root path. */
 const CTX = { rootPath: ROOT, _brand: 'ProjectContext' };
 
@@ -351,20 +383,15 @@ describe('register-sources — mutations persist their indexes and announce them
     [Channels.SOURCES_APPLY_STUB_RESOLUTION, [{ sourceId: 's1', doi: '10.1/x' }], () => { h.applyStubResolution.mockResolvedValue(true); }],
   ];
 
-  it.each(mutations)('%s persists the indexes and tells the window', async (channel, args, arrange) => {
+  it.each(mutations)('%s persists the indexes and announces the change by rootPath', async (channel, args, arrange) => {
     arrange();
     await callAsync(channel, ...args);
     expect(h.persistIndexes).toHaveBeenCalledWith(ROOT);
     expect(sent()).toContain(Channels.SOURCES_CHANGED);
-  });
-
-  it.each(mutations)('%s sends nothing to a window that closed mid-write', async (channel, args, arrange) => {
-    // `isDestroyed()` is checked after the await precisely because the user can
-    // close the window while the write is in flight; sending then throws.
-    arrange();
-    h.win.isDestroyed.mockReturnValue(true);
-    await callAsync(channel, ...args);
-    expect(h.win.webContents.send).not.toHaveBeenCalled();
+    // #1916: announced by rootPath (fans out to every window on the project),
+    // not the invoking window — the bug was targeting `win` directly, which
+    // left every OTHER window on the same thoughtbase stale.
+    expect(h.broadcastSourcesChanged).toHaveBeenCalledWith(ROOT);
   });
 
   it('SOURCES_DELETE also refreshes the excerpt panels — its excerpts went with it', async () => {
@@ -422,7 +449,7 @@ describe('register-sources — mutations persist their indexes and announce them
     h.setSourceTitle.mockRejectedValue(new Error('EACCES'));
     await expect(callAsync(Channels.SOURCES_SET_TITLE, { sourceId: 's1', title: 'T' })).rejects.toThrow('EACCES');
     expect(h.persistIndexes).not.toHaveBeenCalled();
-    expect(h.win.webContents.send).not.toHaveBeenCalled();
+    expect(sent()).toEqual([]);
   });
 });
 
@@ -444,7 +471,7 @@ describe('register-sources — SOURCES_MERGE error translation', () => {
     h.mergeSources.mockRejectedValue(new h.MergeSourcesError('no such source', 'not-found'));
     await expect(callAsync(Channels.SOURCES_MERGE, { srcId: 'a', destId: 'b' })).rejects.toThrow('no such source');
     expect(h.persistIndexes).not.toHaveBeenCalled();
-    expect(h.win.webContents.send).not.toHaveBeenCalled();
+    expect(sent()).toEqual([]);
   });
 
   it('lets a genuine crash through untouched', async () => {
@@ -678,17 +705,12 @@ describe('register-sources — collections', () => {
     [Channels.COLLECTIONS_UPDATE_SMART_PREDICATE, [{ id: 'sc1', predicate: { kind: 'tags', allOf: ['x'] } }], () => {}],
   ];
 
-  it.each(collectionMutations)('%s tells the sidebar the collections changed', async (channel, args, arrange) => {
+  it.each(collectionMutations)('%s announces the change by rootPath, to every window on the project', async (channel, args, arrange) => {
     arrange();
     await callAsync(channel, ...args);
     expect(sent()).toEqual([Channels.COLLECTIONS_CHANGED]);
-  });
-
-  it.each(collectionMutations)('%s sends nothing to a window that closed mid-write', async (channel, args, arrange) => {
-    arrange();
-    h.win.isDestroyed.mockReturnValue(true);
-    await callAsync(channel, ...args);
-    expect(h.win.webContents.send).not.toHaveBeenCalled();
+    // #1916: by rootPath, same as the source mutations above — not `win`.
+    expect(h.broadcastCollectionsChanged).toHaveBeenCalledWith(ROOT);
   });
 
   it('collection edits do not touch the source indexes', async () => {

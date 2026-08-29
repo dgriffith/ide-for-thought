@@ -160,6 +160,36 @@ export function broadcastInspectionsChanged(rootPath: string): void {
   }
 }
 
+/**
+ * Broadcast that `rootPath`'s source list changed (#1916). `register-sources.ts`
+ * used to target only the invoking window (`broadcast(win, …)`), so with two
+ * windows open on one thoughtbase, window B's Sources panel silently went
+ * stale after a mutation made in window A. Every other domain's broadcast
+ * (notes, proposals, history, inspections above) already fans out via
+ * `windowsForProject`; this brings sources/excerpts/collections in line.
+ */
+export function broadcastSourcesChanged(rootPath: string): void {
+  for (const targetWin of windowsForProject(rootPath)) {
+    broadcast(targetWin, Channels.SOURCES_CHANGED);
+  }
+}
+
+/** Broadcast that `rootPath`'s excerpts changed (#1916) — see
+ *  {@link broadcastSourcesChanged}. */
+export function broadcastExcerptsChanged(rootPath: string): void {
+  for (const targetWin of windowsForProject(rootPath)) {
+    broadcast(targetWin, Channels.EXCERPTS_CHANGED);
+  }
+}
+
+/** Broadcast that `rootPath`'s collections changed (#1916) — see
+ *  {@link broadcastSourcesChanged}. */
+export function broadcastCollectionsChanged(rootPath: string): void {
+  for (const targetWin of windowsForProject(rootPath)) {
+    broadcast(targetWin, Channels.COLLECTIONS_CHANGED);
+  }
+}
+
 export const hooks: WritePipelineHooks = {
   markPathHandled,
   broadcastRewritten,
