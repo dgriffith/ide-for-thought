@@ -7,9 +7,9 @@
  * thoughtbases can ship different sites.
  */
 
-import fs from 'node:fs/promises';
 import path from 'node:path';
 import type { SidebarNode } from './sidebar';
+import { loadConfigFile, asRecord, asString, asBool, asStringArray } from '../../../config/config-store';
 
 export interface SiteConfig {
   /** Site title shown in the nav header and `<title>` of every page. */
@@ -49,25 +49,20 @@ function defaultTitle(rootPath: string): string {
 }
 
 export async function loadSiteConfig(rootPath: string): Promise<SiteConfig> {
-  const configPath = path.join(rootPath, '.minerva', 'site-config.json');
-  try {
-    const raw = await fs.readFile(configPath, 'utf-8');
-    const parsed = JSON.parse(raw) as Partial<SiteConfig>;
-    return mergeWithDefaults(parsed, rootPath);
-  } catch {
-    // Missing / malformed config → defaults. Not an error path: most
-    // projects will start without one and the exporter still works.
-    return { ...DEFAULTS, title: defaultTitle(rootPath) };
-  }
-}
-
-function mergeWithDefaults(partial: Partial<SiteConfig>, rootPath: string): SiteConfig {
-  return {
-    title: typeof partial.title === 'string' && partial.title ? partial.title : defaultTitle(rootPath),
-    baseUrl: typeof partial.baseUrl === 'string' ? partial.baseUrl : DEFAULTS.baseUrl,
-    landing: typeof partial.landing === 'string' ? partial.landing : DEFAULTS.landing,
-    excludeTags: Array.isArray(partial.excludeTags) ? partial.excludeTags.filter((t) => typeof t === 'string') : [...DEFAULTS.excludeTags],
-    excludeFolders: Array.isArray(partial.excludeFolders) ? partial.excludeFolders.filter((t) => typeof t === 'string') : [],
-    showBacklinks: typeof partial.showBacklinks === 'boolean' ? partial.showBacklinks : DEFAULTS.showBacklinks,
-  };
+  const defaults: SiteConfig = { ...DEFAULTS, title: defaultTitle(rootPath) };
+  return loadConfigFile<SiteConfig>(
+    () => path.join(rootPath, '.minerva', 'site-config.json'),
+    (raw) => {
+      const o = asRecord(raw);
+      return {
+        title: asString(o.title, '') || defaults.title,
+        baseUrl: asString(o.baseUrl, DEFAULTS.baseUrl),
+        landing: asString(o.landing, DEFAULTS.landing),
+        excludeTags: asStringArray(o.excludeTags, [...DEFAULTS.excludeTags]),
+        excludeFolders: asStringArray(o.excludeFolders, []),
+        showBacklinks: asBool(o.showBacklinks, DEFAULTS.showBacklinks),
+      };
+    },
+    defaults,
+  );
 }

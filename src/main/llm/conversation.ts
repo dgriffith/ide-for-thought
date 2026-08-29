@@ -4,6 +4,7 @@ import * as graph from '../graph/index';
 import { projectContext } from '../project-context-types';
 import { escapeTurtleLiteral } from './turtle';
 import { costForUsage } from '../../shared/tools/models';
+import { loadConfigFile, asRecord, asBool, asFiniteNumber } from '../config/config-store';
 import type {
   Conversation,
   ConversationCreateOptions,
@@ -300,17 +301,19 @@ function uiStatePath(rootPath: string): string {
 }
 
 export async function loadUIState(rootPath: string): Promise<ConversationsUIState> {
-  try {
-    const raw = await fs.readFile(uiStatePath(rootPath), 'utf-8');
-    const parsed = JSON.parse(raw) as Partial<ConversationsUIState>;
-    return {
-      visible: typeof parsed.visible === 'boolean' ? parsed.visible : DEFAULT_UI_STATE.visible,
-      height: typeof parsed.height === 'number' && parsed.height > 0 ? parsed.height : DEFAULT_UI_STATE.height,
-      activeTabId: typeof parsed.activeTabId === 'string' ? parsed.activeTabId : null,
-    };
-  } catch {
-    return { ...DEFAULT_UI_STATE };
-  }
+  return loadConfigFile<ConversationsUIState>(
+    () => uiStatePath(rootPath),
+    (raw) => {
+      const o = asRecord(raw);
+      const height = asFiniteNumber(o.height, DEFAULT_UI_STATE.height);
+      return {
+        visible: asBool(o.visible, DEFAULT_UI_STATE.visible),
+        height: height > 0 ? height : DEFAULT_UI_STATE.height,
+        activeTabId: typeof o.activeTabId === 'string' ? o.activeTabId : null,
+      };
+    },
+    { ...DEFAULT_UI_STATE },
+  );
 }
 
 export async function saveUIState(rootPath: string, state: ConversationsUIState): Promise<void> {

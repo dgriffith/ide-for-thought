@@ -33,6 +33,7 @@ import {
   addRecentProject,
   clearRecentProjects,
   defaultThoughtbaseDir,
+  getRecentProjects,
 } from '../../src/main/recent-projects';
 
 const tmp = h.root;
@@ -55,6 +56,18 @@ function opened(relative: string): string {
   addRecentProject(abs);
   return abs;
 }
+
+describe('getRecentProjects config-loader migration (#1913)', () => {
+  it('reports and returns [] for a corrupt file, instead of silently defaulting', () => {
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    fs.writeFileSync(path.join(h.paths.userData!, 'recent-projects.json'), '{ not valid json', 'utf-8');
+
+    expect(getRecentProjects()).toEqual([]);
+    expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
+    expect(consoleErrorSpy.mock.calls[0]![0]).toContain('[config] failed to');
+    consoleErrorSpy.mockRestore();
+  });
+});
 
 describe('defaultThoughtbaseDir', () => {
   it('offers the folder the last thoughtbase was opened from', () => {

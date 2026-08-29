@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { app } from 'electron';
+import { loadConfigFileSync, asStringArray } from './config/config-store';
 
 const MAX_RECENT = 10;
 
@@ -15,12 +16,7 @@ function recentsFilePath(): string {
 }
 
 export function getRecentProjects(): string[] {
-  try {
-    const data = fs.readFileSync(recentsFilePath(), 'utf-8');
-    return JSON.parse(data) as string[];
-  } catch {
-    return [];
-  }
+  return loadConfigFileSync<string[]>(recentsFilePath, (raw) => asStringArray(raw, []), []);
 }
 
 export function addRecentProject(projectPath: string): void {

@@ -12,6 +12,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { reportConfigError } from './config-store';
 
 function configPath(rootPath: string): string {
   return path.join(rootPath, '.minerva', 'config.json');
@@ -23,16 +24,31 @@ function configPath(rootPath: string): string {
  * otherwise unreadable file THROWS instead of silently returning `{}`: a
  * caller that went on to merge-and-write over that `{}` is exactly how
  * #1891 turned "config is corrupt" into "config is gone."
+ *
+ * Deliberately does NOT go through `loadConfigFileSync` (#1913): that
+ * helper's contract is "never throw, always hand back a valid value" —
+ * exactly the behavior #1891 fixed away from for this file, since a caller
+ * that merge-patches onto a silently-defaulted `{}` clobbers the real
+ * content. The read/parse failure is still reported the same way
+ * `loadConfigFileSync` would (`reportConfigError`), so corruption is loud
+ * either way — this just rethrows afterward instead of falling back.
  */
 export function readRawProjectConfig(rootPath: string): Record<string, unknown> {
+  const file = configPath(rootPath);
   let raw: string;
   try {
-    raw = fs.readFileSync(configPath(rootPath), 'utf-8');
+    raw = fs.readFileSync(file, 'utf-8');
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') return {};
+    reportConfigError(file, 'read', err);
     throw err;
   }
-  return JSON.parse(raw) as Record<string, unknown>;
+  try {
+    return JSON.parse(raw) as Record<string, unknown>;
+  } catch (err) {
+    reportConfigError(file, 'parse', err);
+    throw err;
+  }
 }
 
 /**

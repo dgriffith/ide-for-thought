@@ -12,10 +12,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { app, BrowserWindow, session, type Session } from 'electron';
 import type { PrivilegedSite } from '../shared/privileged-sites';
+import { loadConfigFileSync, asRecord } from './config/config-store';
 
 interface FileShape {
   sites: PrivilegedSite[];
 }
+
+const EMPTY: FileShape = { sites: [] };
 
 // Resolved lazily (not captured at module load) so `app.getPath` is read at
 // call time — keeps the module importable under test with a mocked userData dir.
@@ -23,15 +26,22 @@ function configFile(): string {
   return path.join(app.getPath('userData'), 'privileged-sites.json');
 }
 
+function isPrivilegedSite(v: unknown): v is PrivilegedSite {
+  if (typeof v !== 'object' || v === null) return false;
+  const o = v as Record<string, unknown>;
+  return typeof o.id === 'string' && typeof o.domain === 'string' && typeof o.label === 'string'
+    && typeof o.addedAt === 'string' && (o.lastLoginAt === null || typeof o.lastLoginAt === 'string');
+}
+
 function readFile(): FileShape {
-  try {
-    const data = fs.readFileSync(configFile(), 'utf-8');
-    const parsed = JSON.parse(data) as FileShape;
-    if (!parsed || !Array.isArray(parsed.sites)) return { sites: [] };
-    return parsed;
-  } catch {
-    return { sites: [] };
-  }
+  return loadConfigFileSync<FileShape>(
+    configFile,
+    (raw) => {
+      const sites = asRecord(raw).sites;
+      return { sites: Array.isArray(sites) ? sites.filter(isPrivilegedSite) : [] };
+    },
+    EMPTY,
+  );
 }
 
 function writeFile(data: FileShape): void {
