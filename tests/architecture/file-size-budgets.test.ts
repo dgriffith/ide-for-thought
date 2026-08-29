@@ -55,7 +55,7 @@ const THRESHOLD = 600;
  */
 const BUDGETS: Record<string, number> = {
   'src/renderer/App.svelte': 2075,
-  'src/renderer/lib/components/Preview.svelte': 1531,
+  'src/renderer/lib/components/Preview.svelte': 1299,
   'src/renderer/lib/components/SourceDetail.svelte': 1337,
   'src/renderer/lib/components/SourcesPanel.svelte': 1297,
   'src/renderer/lib/ipc/client.ts': 1239,

@@ -364,12 +364,21 @@ export default defineConfig({
           functions: 12,
           branches: 18,
         },
-        // Preview.svelte ~40.3 L / 38.9 S / 35.0 F / 23.4 B.
+        // Preview.svelte ~54.8 L / 50.3 S / 41.6 F / 37.1 B. Retuned UP from
+        // the #1597-era floor (30 L): #1904 extracted the ~240-line click-
+        // routing table (handleClick + its per-selector handlers, plus the
+        // fence-run pipeline) into `preview/click-routing.ts`, which raised
+        // Preview.svelte's own ratio the same way #1903's Editor.svelte
+        // extraction did — floors sit ~7-8pts under the new measured.
+        // click-routing.ts itself gets no floor entry: Preview.test.ts
+        // exercises it only lightly (~14% L/S/F/B, via simulated clicks),
+        // matching the accepted gap on other extracted-but-thin editor/
+        // preview Ops modules (context-menu.ts, build-extensions.ts).
         'src/renderer/lib/components/Preview.svelte': {
-          lines: 30,
-          statements: 30,
-          functions: 25,
-          branches: 14,
+          lines: 47,
+          statements: 43,
+          functions: 34,
+          branches: 29,
         },
         // SourceDetail.svelte ~40.2 L / 33.7 S / 27.0 F / 25.8 B (#1597).
         'src/renderer/lib/components/SourceDetail.svelte': {
