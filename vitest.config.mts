@@ -92,6 +92,26 @@ export default defineConfig({
           statements: 55,
           branches: 66,
         },
+        // The `tools/` subtree (the LLM tool-call surface itself) sat far
+        // below the `llm/**` aggregate above: 7 of its ~25 modules were
+        // effectively untested (#1935), including `set_properties` — an
+        // LLM-originated graph write whose write-guard fatality only holds
+        // on paths a test actually exercises. (`set_properties` here is the
+        // tool that emits the draft; the apply path it drafts for is
+        // `src/main/llm/set-properties.ts`, covered separately by
+        // `set-properties-apply.test.ts`.) Now covered by
+        // `set-properties-tool.test.ts`, `propose-compute-tool.test.ts`,
+        // `ask-user-tool.test.ts`, `query-graph-tool.test.ts`,
+        // `search-notes-tool.test.ts`, `fetch-properties-tool.test.ts`, and
+        // `describe-graph-schema-tool.test.ts`. Measured: 95.7% L / 100% F /
+        // 92.5% S / 84.2% B; floors ~8-10pts below so a refactor won't flap
+        // but a new untested tool fails.
+        'src/main/llm/tools/**': {
+          lines: 88,
+          functions: 90,
+          statements: 84,
+          branches: 74,
+        },
         // Security path — fs sandbox, write pipeline, rename/merge link rewrites.
         'src/main/notebase/**': {
           lines: 80,
