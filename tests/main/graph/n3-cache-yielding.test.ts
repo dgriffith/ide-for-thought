@@ -52,6 +52,13 @@ describe('ensureN3Cache — yielding cold rebuild (#1115)', () => {
     expect(second).toBe(first);
   });
 
+  // This test deliberately races a write against a yielding async rebuild
+  // (#1115), so its runtime is load-sensitive by construction: under a busy
+  // machine (parallel vitest workers, `pnpm coverage`'s v8 instrumentation,
+  // or another heavy process on the box) the 60k-triple seed can take longer
+  // than the suite's default budget to reach the point the assertion waits
+  // on. Give it a longer, explicit timeout rather than shortening the seed —
+  // do not lower this back to the suite default (#1869).
   it('a write that races the async build is reflected (falls back to the atomic rebuild)', async () => {
     // Seed enough triples that the build spans several yields, so a write
     // injected via setImmediate lands *mid-build*.
@@ -76,5 +83,5 @@ describe('ensureN3Cache — yielding cold rebuild (#1115)', () => {
     const key = `urn:raced-in${RDF('type').value}NamedNode${MINERVA('Raced').value}`;
     expect(tripleSet(mirror).has(key)).toBe(true);
     expect([...tripleSet(mirror)].sort()).toEqual([...tripleSet(buildN3Store(state.store))].sort());
-  });
+  }, 60000);
 });
