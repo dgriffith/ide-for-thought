@@ -19,7 +19,13 @@ function subscribe<K extends keyof EventMap>(channel: K, cb: EventMap[K]): () =>
   return () => { ipcRenderer.off(channel, handler); };
 }
 
-contextBridge.exposeInMainWorld('api', {
+// Named (#1920) rather than passed inline to `exposeInMainWorld` so its type
+// can be exported and checked against `client.ts`'s hand-declared `IdeApi` —
+// see `PreloadApi` below. Every method's argument/return type here is
+// inferred from `invoke<K>`'s generic resolution against `ChannelMap` (or
+// `subscribe<K>`'s against `EventMap`), never hand-typed, so this object is
+// already a correct, ChannelMap-derived transcript by construction.
+const api = {
   notebase: {
     open: () => invoke(Channels.NOTEBASE_OPEN),
     openPath: (rootPath: string) => invoke(Channels.NOTEBASE_OPEN_PATH, rootPath),
@@ -610,5 +616,12 @@ contextBridge.exposeInMainWorld('api', {
     onProjectOpened: (cb: (meta: { rootPath: string; name: string }) => void) =>
       subscribe(Channels.PROJECT_OPENED, cb),
   },
-});
+};
+
+/** The real, ChannelMap/EventMap-derived shape of `window.api` — see
+ *  `client.ts`'s `_clientMatchesPreload` assertion (#1920), which checks
+ *  `IdeApi` against this rather than trusting the hand-declared interface. */
+export type PreloadApi = typeof api;
+
+contextBridge.exposeInMainWorld('api', api);
 

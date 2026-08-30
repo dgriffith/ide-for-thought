@@ -291,7 +291,12 @@ export interface ChannelMap {
     id: string;
     label: string;
     acceptedKinds: Array<'single-note' | 'folder' | 'project' | 'tree' | 'source'>;
-    group: { id: string; label: string; category: 'document' | 'publication' | 'citation'; order: number };
+    group: {
+      id: 'markdown' | 'html' | 'pdf' | 'site' | 'annotated' | 'anki' | 'bibtex' | 'pandoc';
+      label: string;
+      category: 'document' | 'publication' | 'citation';
+      order: number;
+    };
     variantLabel?: string | undefined;
     variantOrder: number;
   }>;
