@@ -1,21 +1,20 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import fs from 'node:fs';
+import { describe, it, expect, beforeEach } from 'vitest';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
-import os from 'node:os';
 import { executeNotebaseTool } from '../../../src/main/llm/tools';
-import { initGraph, indexSource } from '../../../src/main/graph/index';
-import { projectContext } from '../../../src/main/project-context-types';
+import { indexSource } from '../../../src/main/graph/index';
+import type { ProjectContext } from '../../../src/main/project-context-types';
+import { useGraphProject } from '../../helpers/temp-project';
 
 describe('read_source tool (#1371)', () => {
+  const project = useGraphProject('minerva-read-source-');
   let root: string;
-  const ctx = () => projectContext(root);
+  let ctxValue: ProjectContext;
+  const ctx = () => ctxValue;
 
   beforeEach(() => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-read-source-'));
-  });
-  afterEach(async () => {
-    await fsp.rm(root, { recursive: true, force: true });
+    root = project.root;
+    ctxValue = project.ctx;
   });
 
   async function seedSource(id: string, body: string, meta?: string): Promise<void> {
@@ -26,7 +25,6 @@ describe('read_source tool (#1371)', () => {
   }
 
   it('reads a source body by id, with a title provenance header', async () => {
-    await initGraph(ctx());
     const meta = 'this: a thought:Article ;\n  dc:title "The Trust Paper" .\n';
     const body = '# Trust\n\nThe full extracted body of the source.\n';
     await seedSource('trust-2023', body, meta);

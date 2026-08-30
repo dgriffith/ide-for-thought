@@ -5,15 +5,13 @@
  * approved thought:Proposal backs the write (the Trust Principle audit record) —
  * the last of the approval-bypass sites the audit flagged.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import fs from 'node:fs';
-import fsp from 'node:fs/promises';
 import path from 'node:path';
-import os from 'node:os';
 import { fileSourceProperties } from '../../../src/main/llm/source-properties';
 import { ttlString } from '../../../src/main/sources/source-meta-write';
-import { initGraph, indexSource, queryGraph } from '../../../src/main/graph/index';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { indexSource, queryGraph } from '../../../src/main/graph/index';
+import { useGraphProject } from '../../helpers/temp-project';
 
 const META = `this: a thought:Article ;
     dc:title "Test paper" ;
@@ -21,27 +19,22 @@ const META = `this: a thought:Article ;
     thought:accessedAt "2026-05-01T00:00:00Z"^^xsd:dateTime .
 `;
 
-let root: string;
-let ctx: ProjectContext;
+const project = useGraphProject('minerva-source-props-');
 const sourceId = 'smith-2023';
 
-beforeEach(async () => {
-  root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-source-props-'));
-  ctx = projectContext(root);
-  await initGraph(ctx);
-  const dir = path.join(root, '.minerva', 'sources', sourceId);
+beforeEach(() => {
+  const dir = path.join(project.root, '.minerva', 'sources', sourceId);
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, 'meta.ttl'), META);
-  indexSource(ctx, sourceId, META);
+  indexSource(project.ctx, sourceId, META);
 });
-afterEach(async () => { await fsp.rm(root, { recursive: true, force: true }); });
 
 function metaOnDisk(): string {
-  return fs.readFileSync(path.join(root, '.minerva', 'sources', sourceId, 'meta.ttl'), 'utf-8');
+  return fs.readFileSync(path.join(project.root, '.minerva', 'sources', sourceId, 'meta.ttl'), 'utf-8');
 }
 
 async function approvedSourcePropsCount(): Promise<number> {
-  const r = await queryGraph(ctx, `
+  const r = await queryGraph(project.ctx, `
     PREFIX thought: <https://minerva.dev/ontology/thought#>
     SELECT ?p WHERE {
       ?p a thought:Proposal ;
@@ -53,7 +46,7 @@ async function approvedSourcePropsCount(): Promise<number> {
 
 describe('fileSourceProperties (#943)', () => {
   it('upserts the predicates into meta.ttl AND files an approved proposal', async () => {
-    const { changedPredicates } = await fileSourceProperties(root, sourceId, [
+    const { changedPredicates } = await fileSourceProperties(project.root, sourceId, [
       { predicate: 'dc:abstract', value: ttlString('An abstract.') },
       { predicate: 'thought:tldr', value: ttlString('The gist.') },
     ]);
@@ -67,7 +60,7 @@ describe('fileSourceProperties (#943)', () => {
   });
 
   it('files no proposal for a no-op (predicate already at that value)', async () => {
-    await fileSourceProperties(root, sourceId, [
+    await fileSourceProperties(project.root, sourceId, [
       { predicate: 'dc:title', value: ttlString('Test paper') }, // unchanged
     ]);
     expect(await approvedSourcePropsCount()).toBe(0);

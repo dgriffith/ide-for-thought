@@ -2,14 +2,14 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
-import os from 'node:os';
 import { executeNotebaseTool, type ToolCallbacks } from '../../../src/main/llm/tools';
-import { initGraph, indexNote, disposeProject } from '../../../src/main/graph/index';
-import { projectContext } from '../../../src/main/project-context-types';
+import { indexNote, disposeProject } from '../../../src/main/graph/index';
 import type { ConversationDeleteDraft } from '../../../src/shared/conversation-refactor-drafts';
+import { makeGraphProject, type GraphProject } from '../../helpers/temp-project';
 
 let root: string;
-const ctx = () => projectContext(root);
+let project: GraphProject;
+const ctx = () => project.ctx;
 const toolCtx = () => ({ rootPath: root, conversationId: 'conv-1' });
 
 async function seed(rel: string, body: string): Promise<void> {
@@ -25,15 +25,15 @@ function capture(): { calls: ConversationDeleteDraft[]; callbacks: ToolCallbacks
 }
 
 beforeEach(async () => {
-  root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-delete-tool-'));
-  await initGraph(ctx());
+  project = await makeGraphProject('minerva-delete-tool-');
+  root = project.root;
   await seed('keeper.md', '# Keeper\n\nlinks [[stale]]'); // links INTO stale
   await seed('stale.md', '# Stale note\n\nbody');
   await seed('orphan.md', '# Orphan');
 });
 afterEach(async () => {
   disposeProject(ctx());
-  await fsp.rm(root, { recursive: true, force: true });
+  await project.cleanup();
 });
 
 describe('propose_note_delete', () => {

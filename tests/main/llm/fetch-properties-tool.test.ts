@@ -2,22 +2,20 @@
  * fetch_properties tool (#1935) — read-only YAML frontmatter reader,
  * symmetric with read_note. No approval gate: nothing is written.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
 import { executeNotebaseTool, NOTEBASE_TOOLS } from '../../../src/main/llm/tools';
-
-let root: string;
-
-beforeEach(() => {
-  root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-fetch-properties-'));
-});
-afterEach(() => {
-  fs.rmSync(root, { recursive: true, force: true });
-});
+import { useTempDir } from '../../helpers/temp-project';
 
 describe('fetch_properties tool execution', () => {
+  const project = useTempDir('minerva-fetch-properties-');
+  let root: string;
+
+  beforeEach(() => {
+    root = project.root;
+  });
+
   it('returns the frontmatter as JSON', async () => {
     fs.writeFileSync(path.join(root, 'a.md'), '---\nstatus: done\ntags:\n  - x\n  - y\n---\n# A\n', 'utf-8');
     const out = await executeNotebaseTool({ rootPath: root }, 'fetch_properties', { relative_path: 'a.md' });

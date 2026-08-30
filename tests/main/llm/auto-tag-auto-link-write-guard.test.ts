@@ -16,10 +16,8 @@
  * from "rejects" to "resolves."
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
-import os from 'node:os';
 
 const h = vi.hoisted(() => ({
   proposeWrite: vi.fn(),
@@ -33,24 +31,24 @@ vi.mock('../../../src/main/llm/approval', () => ({
 
 import { applyAutoTag } from '../../../src/main/llm/auto-tag';
 import { fileAutoLinkOutbound, fileAutoLinkInbound } from '../../../src/main/llm/auto-link';
-import { initGraph, indexNote } from '../../../src/main/graph/index';
+import { indexNote } from '../../../src/main/graph/index';
 import { __resetWriteGuardForTests } from '../../../src/main/graph/write-guard';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { type ProjectContext } from '../../../src/main/project-context-types';
+import { useGraphProject } from '../../helpers/temp-project';
 
 describe('LLM apply-path write guard (#944, #1901)', () => {
+  const project = useGraphProject('minerva-refactor-guard-');
   let root: string;
   let ctx: ProjectContext;
 
-  beforeEach(async () => {
+  beforeEach(() => {
     vi.clearAllMocks();
     __resetWriteGuardForTests();
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-refactor-guard-'));
-    ctx = projectContext(root);
-    await initGraph(ctx);
+    root = project.root;
+    ctx = project.ctx;
   });
 
-  afterEach(async () => {
-    await fsp.rm(root, { recursive: true, force: true });
+  afterEach(() => {
     __resetWriteGuardForTests();
   });
 

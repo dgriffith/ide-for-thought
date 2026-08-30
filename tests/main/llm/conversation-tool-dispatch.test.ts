@@ -9,12 +9,11 @@
  * payload builder; the dispatch loop itself was previously uncovered.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import fs from 'node:fs';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
-import os from 'node:os';
 import type Anthropic from '@anthropic-ai/sdk';
+import { useTempDir } from '../../helpers/temp-project';
 
 const { streamMock, getSettingsMock } = vi.hoisted(() => ({
   streamMock: vi.fn(),
@@ -105,10 +104,11 @@ function toolUseMessageWithUsage(
 }
 
 describe('completeWithTools() dispatch loop (#342)', () => {
+  const project = useTempDir('minerva-conv-dispatch-');
   let root: string;
 
   beforeEach(async () => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-conv-dispatch-'));
+    root = project.root;
     streamMock.mockReset();
     getSettingsMock.mockReset();
     getSettingsMock.mockResolvedValue({
@@ -116,10 +116,6 @@ describe('completeWithTools() dispatch loop (#342)', () => {
       model: 'claude-sonnet-4-6',
       web: { enabled: false, allowedDomains: [], blockedDomains: [] },
     });
-  });
-
-  afterEach(async () => {
-    await fsp.rm(root, { recursive: true, force: true });
   });
 
   it('says so in the transcript when a reply is cut off at the token cap', async () => {

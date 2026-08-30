@@ -14,19 +14,17 @@
  * AND eagerly in crystallize so the stored payload is clean.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
-import fsp from 'node:fs/promises';
 import path from 'node:path';
-import os from 'node:os';
 
 import {
   proposeWrite,
   approveProposal,
   stripTurtleCodeFence,
 } from '../../../src/main/llm/approval';
-import { initGraph, queryGraph } from '../../../src/main/graph/index';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { queryGraph } from '../../../src/main/graph/index';
+import { useGraphProject } from '../../helpers/temp-project';
 
 describe('stripTurtleCodeFence (pure)', () => {
   it('strips a ```turtle fence with the language tag', () => {
@@ -61,20 +59,10 @@ describe('stripTurtleCodeFence (pure)', () => {
 });
 
 describe('approval engine: tolerates fenced graph-triples payloads (#420 follow-up)', () => {
-  let root: string;
-  let ctx: ProjectContext;
-
-  beforeEach(async () => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-turtle-fence-'));
-    ctx = projectContext(root);
-    await initGraph(ctx);
-  });
-
-  afterEach(async () => {
-    await fsp.rm(root, { recursive: true, force: true });
-  });
+  const project = useGraphProject('minerva-turtle-fence-');
 
   it('approving a proposal whose graph-triples payload is wrapped in ```turtle … ``` succeeds and the triples land', async () => {
+    const ctx = project.ctx;
     const claimUri = 'https://minerva.dev/c/fenced-claim';
     const fenced = '```turtle\n@prefix thought: <https://minerva.dev/ontology/thought#> .\n'
       + `<${claimUri}> a thought:Claim ; thought:label "fenced and survived" .\n`
@@ -106,6 +94,7 @@ describe('approval engine: tolerates fenced graph-triples payloads (#420 follow-
     // real parse errors. A note payload runs first, then a triples payload
     // with malformed Turtle (after fence-strip). Result: rollback, note
     // does not survive on disk.
+    const { root, ctx } = project;
     const proposal = await proposeWrite(ctx, {
       operationType: 'component_creation',
       payloads: [

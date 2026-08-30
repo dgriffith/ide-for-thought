@@ -1,31 +1,17 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import fs from 'node:fs';
-import path from 'node:path';
-import os from 'node:os';
-import { initGraph } from '../../../src/main/graph/index';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { describe, it, expect, beforeEach } from 'vitest';
 import {
   create,
   setModel,
   load,
 } from '../../../src/main/llm/conversation';
-
-function mkTempProject(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-conv-model-test-'));
-}
+import { useGraphProject } from '../../helpers/temp-project';
 
 describe('conversation.setModel (issue #168)', () => {
+  const project = useGraphProject('minerva-conv-model-test-');
   let root: string;
-  let ctx: ProjectContext;
 
-  beforeEach(async () => {
-    root = mkTempProject();
-    ctx = projectContext(root);
-    await initGraph(ctx);
-  });
-
-  afterEach(() => {
-    fs.rmSync(root, { recursive: true, force: true });
+  beforeEach(() => {
+    root = project.root;
   });
 
   it('new conversations have no model override (undefined = track global default)', async () => {
@@ -68,17 +54,11 @@ describe('conversation.setModel (issue #168)', () => {
 });
 
 describe('conversation.create webEnabled (#1533 — per-conversation web)', () => {
+  const project = useGraphProject('minerva-conv-model-test-');
   let root: string;
-  let ctx: ProjectContext;
 
-  beforeEach(async () => {
-    root = mkTempProject();
-    ctx = projectContext(root);
-    await initGraph(ctx);
-  });
-
-  afterEach(() => {
-    fs.rmSync(root, { recursive: true, force: true });
+  beforeEach(() => {
+    root = project.root;
   });
 
   it('defaults to undefined (inherit the global web setting)', async () => {

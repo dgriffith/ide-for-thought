@@ -17,11 +17,10 @@
  * harness, but the body is intentionally minimal so it stays in sync.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
-import os from 'node:os';
 
 import { executeNotebaseTool, type ToolContext } from '../../../src/main/llm/tools';
 import {
@@ -29,9 +28,9 @@ import {
   approveProposal,
   listProposals,
 } from '../../../src/main/llm/approval';
-import { initGraph } from '../../../src/main/graph/index';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { type ProjectContext } from '../../../src/main/project-context-types';
 import type { ConversationDraft } from '../../../src/shared/conversation-drafts';
+import { useGraphProject } from '../../helpers/temp-project';
 
 const CONV_ID = 'conv-flow-test';
 
@@ -52,17 +51,13 @@ async function fileDraft(ctx: ProjectContext, draft: ConversationDraft) {
 }
 
 describe('conversation drafts: propose_notes → user-approve → file', () => {
+  const project = useGraphProject('minerva-drafts-');
   let root: string;
   let ctx: ProjectContext;
 
-  beforeEach(async () => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-drafts-'));
-    ctx = projectContext(root);
-    await initGraph(ctx);
-  });
-
-  afterEach(async () => {
-    await fsp.rm(root, { recursive: true, force: true });
+  beforeEach(() => {
+    root = project.root;
+    ctx = project.ctx;
   });
 
   it('end-to-end: tool emits draft → no proposal yet → user approves → notes land + proposal is approved', async () => {
