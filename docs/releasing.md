@@ -75,12 +75,19 @@ Watch it under **Actions**; a green run leaves a draft under **Releases**.
 ### 4. Review the draft
 
 - Confirm the assets are attached: a `.dmg` and a `.zip`
-  (**the `.zip` is the one auto-update consumes** — don't remove it).
-- Sanity-check the signature on the DMG before shipping:
+  (**the `.zip` is the one auto-update consumes** — don't remove it). A missing
+  one already fails the CI job before it gets this far (#1639).
+- Signature + notarization are asserted automatically now (#1637): `release.yml`
+  runs `codesign --verify`, two `spctl` gatekeeper assessments (the `.app` and
+  the `.dmg`), and `xcrun stapler validate` right after the build, and boots the
+  packaged app once via Playwright — a green run already means these passed. A
+  red run means the draft either doesn't exist or is unsigned; don't hand-check
+  around a failure. To re-run the same checks by hand against a downloaded DMG:
 
   ```bash
   spctl -a -t open --context context:primary-signature Minerva-*.dmg   # → accepted
   codesign -dv --verbose=4 /Volumes/Minerva*/Minerva.app 2>&1 | grep Authority
+  xcrun stapler validate Minerva-*.dmg                                 # → The validate action worked!
   ```
 
 - Edit the auto-generated notes if you want a curated summary at the top

@@ -45,7 +45,10 @@ concurrency:
 jobs:
   build-macos:
     runs-on: macos-latest
-    timeout-minutes: 30
+    # 30 was tight even before the lint/audit pre-flight (#1638) and the
+    # verify + smoke-boot gate (#1637) added a few more minutes on top of an
+    # already notarization-bound budget (10-15 min alone per docs/releasing.md).
+    timeout-minutes: 35
     env:
       # electron-forge package OOMs on the default heap when bundling the
       # renderer + native deps — match build:e2e (#373).
@@ -141,6 +144,51 @@ jobs:
 
       - name: Build distributables (electron-forge make)
         run: pnpm build
+
+      # The signed/notarized artifact was previously never launched or
+      # verified by the workflow before being drafted — signature/notarization
+      # checks were a manual step in docs/releasing.md's review checklist, and
+      # the only Playwright coverage ran against unsigned builds in ci.yml.
+      # These two steps close that gap (#1637): assert the signature and
+      # notarization ticket independently of forge's own (silent-on-success)
+      # signing step, then actually boot the packaged app once before
+      # anything is drafted or uploaded.
+      #
+      # Skipped on an unsigned build (no signing secrets configured, e.g. a
+      # fork or a workflow_dispatch run without creds) — there's no signature
+      # or staple to check in that case, matching how "Prepare macOS signing"
+      # itself is gated. The smoke-boot step below still runs unconditionally.
+      - name: Verify code signature + notarization
+        if: env.HAS_SIGNING == 'true'
+        run: |
+          set -euo pipefail
+          APP_DIR="$(find out -maxdepth 1 -iname 'Minerva-darwin-*' -type d)"
+          APP_PATH="$APP_DIR/Minerva.app"
+          DMG_PATH="$(find out/make -maxdepth 1 -name '*.dmg' | head -n1)"
+          if [ -z "$DMG_PATH" ]; then
+            echo "::error::No .dmg in out/make to verify — did the build step actually produce one?"
+            exit 1
+          fi
+
+          echo "codesign --verify: $APP_PATH"
+          codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+
+          echo "Gatekeeper assessment (app): $APP_PATH"
+          spctl --assess --type execute --verbose=4 "$APP_PATH"
+
+          echo "Gatekeeper assessment (notarized dmg): $DMG_PATH"
+          spctl -a -t open --context context:primary-signature "$DMG_PATH"
+
+          echo "Notarization staple: $DMG_PATH"
+          xcrun stapler validate "$DMG_PATH"
+
+      # Reuses the existing "packaged app opens a DuckDB-backed project"
+      # e2e spec (tests/e2e/smoke.spec.ts) rather than writing a second boot
+      # check — it already launches the real packaged .app (picking up the
+      # signed one built above), opens a real project, and fails on any
+      # main-process error, which is a stronger gate than a bare launch/quit.
+      - name: Smoke-boot the packaged app
+        run: pnpm exec playwright test tests/e2e/smoke.spec.ts -g "packaged app"
 
       - name: Collect artifacts
         run: |
