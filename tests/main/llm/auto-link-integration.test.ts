@@ -9,11 +9,9 @@
  * insertion-point math, applied/skipped accounting) runs for real.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import fs from 'node:fs';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
-import os from 'node:os';
 
 const { completeMock, getSettingsMock } = vi.hoisted(() => ({
   completeMock: vi.fn(),
@@ -31,24 +29,21 @@ import {
   applyInboundSuggestions,
   fileAutoLinkInbound,
 } from '../../../src/main/llm/auto-link';
-import { initGraph, indexNote, queryGraph } from '../../../src/main/graph/index';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { indexNote, queryGraph } from '../../../src/main/graph/index';
+import { type ProjectContext } from '../../../src/main/project-context-types';
+import { useGraphProject } from '../../helpers/temp-project';
 
 describe('Auto-link integration (#342)', () => {
+  const project = useGraphProject('minerva-autolink-int-');
   let root: string;
   let ctx: ProjectContext;
 
-  beforeEach(async () => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-autolink-int-'));
-    ctx = projectContext(root);
-    await initGraph(ctx);
+  beforeEach(() => {
+    root = project.root;
+    ctx = project.ctx;
     completeMock.mockReset();
     getSettingsMock.mockReset();
     getSettingsMock.mockResolvedValue({ model: 'claude-sonnet-4-6', providers: { anthropic: { apiKey: 'fake' } } });
-  });
-
-  afterEach(async () => {
-    await fsp.rm(root, { recursive: true, force: true });
   });
 
   async function plant(rel: string, content: string): Promise<void> {

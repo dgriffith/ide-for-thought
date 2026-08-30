@@ -2,14 +2,14 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
-import os from 'node:os';
 import { proposeWrite, approveProposal } from '../../../src/main/llm/approval';
-import { initGraph, indexNote, disposeProject as disposeGraph } from '../../../src/main/graph/index';
+import { indexNote, disposeProject as disposeGraph } from '../../../src/main/graph/index';
 import { initSearch, indexNote as searchIndex, disposeProject as disposeSearch } from '../../../src/main/search/index';
-import { projectContext } from '../../../src/main/project-context-types';
+import { makeGraphProject, type GraphProject } from '../../helpers/temp-project';
 
 let root: string;
-const ctx = () => projectContext(root);
+let project: GraphProject;
+const ctx = () => project.ctx;
 const read = (rel: string) => fsp.readFile(path.join(root, rel), 'utf-8');
 const readBytes = (rel: string) => fsp.readFile(path.join(root, rel));
 const exists = (rel: string) => fs.existsSync(path.join(root, rel));
@@ -31,8 +31,8 @@ async function seedBinary(rel: string, bytes: Uint8Array): Promise<void> {
 }
 
 beforeEach(async () => {
-  root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-folder-refactor-'));
-  await initGraph(ctx());
+  project = await makeGraphProject('minerva-folder-refactor-');
+  root = project.root;
   await initSearch(ctx());
   // A folder with two linked notes + a binary asset, and an outside note that
   // links into the folder.
@@ -44,7 +44,7 @@ beforeEach(async () => {
 afterEach(async () => {
   disposeGraph(ctx());
   disposeSearch(ctx());
-  await fsp.rm(root, { recursive: true, force: true });
+  await project.cleanup();
 });
 
 describe('folder-refactor proposal (#911 follow-up)', () => {

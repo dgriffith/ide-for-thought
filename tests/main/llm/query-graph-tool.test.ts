@@ -3,27 +3,24 @@
  * three response shapes the tool maps to a ToolResult: bound rows, an empty
  * "No bindings." result, and a SPARQL error pointing at describe_graph_schema.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
 import { executeNotebaseTool, NOTEBASE_TOOLS } from '../../../src/main/llm/tools';
-import { initGraph, indexAllNotes } from '../../../src/main/graph/index';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
-
-let root: string;
-let ctx: ProjectContext;
-
-beforeEach(async () => {
-  root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-query-graph-'));
-  ctx = projectContext(root);
-  await initGraph(ctx);
-});
-afterEach(async () => {
-  fs.rmSync(root, { recursive: true, force: true });
-});
+import { indexAllNotes } from '../../../src/main/graph/index';
+import { type ProjectContext } from '../../../src/main/project-context-types';
+import { useGraphProject } from '../../helpers/temp-project';
 
 describe('query_graph tool execution', () => {
+  const project = useGraphProject('minerva-query-graph-');
+  let root: string;
+  let ctx: ProjectContext;
+
+  beforeEach(() => {
+    root = project.root;
+    ctx = project.ctx;
+  });
+
   it('returns matching bindings as JSON', async () => {
     fs.writeFileSync(path.join(root, 'a.md'), '---\ntitle: A\n---\n# A\n', 'utf-8');
     await indexAllNotes(ctx);

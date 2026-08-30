@@ -2,17 +2,17 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
-import os from 'node:os';
 import { executeNotebaseTool, type ToolCallbacks } from '../../../src/main/llm/tools';
-import { initGraph, indexNote, disposeProject } from '../../../src/main/graph/index';
-import { projectContext } from '../../../src/main/project-context-types';
+import { indexNote, disposeProject } from '../../../src/main/graph/index';
+import { makeGraphProject, type GraphProject } from '../../helpers/temp-project';
 import type {
   ConversationRefactorDraft,
   ConversationReorgDraft,
 } from '../../../src/shared/conversation-refactor-drafts';
 
 let root: string;
-const ctx = () => projectContext(root);
+let project: GraphProject;
+const ctx = () => project.ctx;
 const toolCtx = () => ({ rootPath: root, conversationId: 'conv-1' });
 
 async function seed(rel: string, body: string): Promise<void> {
@@ -47,14 +47,14 @@ function captureBoth(): {
 }
 
 beforeEach(async () => {
-  root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-refactor-tools-'));
-  await initGraph(ctx());
+  project = await makeGraphProject('minerva-refactor-tools-');
+  root = project.root;
   await seed('raft.md', '# Raft\n\nThe Raft algorithm.');
   await seed('consensus.md', '# Consensus\n\nSee [[raft]] here.');
 });
 afterEach(async () => {
   disposeProject(ctx());
-  await fsp.rm(root, { recursive: true, force: true });
+  await project.cleanup();
 });
 
 describe('list_notes (#912)', () => {

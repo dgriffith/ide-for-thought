@@ -3,17 +3,18 @@
  * type proposal per untyped note (never a direct write — the trust guard would
  * trip under test), and approving it promotes the note by setting `type:`.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
-import os from 'node:os';
-import { initGraph, indexNote, queryGraph } from '../../../src/main/graph/index';
+import { indexNote, queryGraph } from '../../../src/main/graph/index';
 import { approveProposal } from '../../../src/main/llm/approval';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { type ProjectContext } from '../../../src/main/project-context-types';
 import { proposeNoteTypings } from '../../../src/main/llm/infer-types';
 import { proposeNoteTypes } from '../../../src/main/llm/tools/propose-note-types';
+import { useGraphProject } from '../../helpers/temp-project';
 
+const project = useGraphProject('minerva-infer-types-');
 let root: string;
 let ctx: ProjectContext;
 
@@ -32,13 +33,11 @@ async function pendingCount(): Promise<number> {
 }
 
 beforeEach(async () => {
-  root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-infer-types-'));
-  ctx = projectContext(root);
-  await initGraph(ctx);
+  root = project.root;
+  ctx = project.ctx;
   // `book` is a stock type (author/isbn/…). Plant an untyped note that looks like one.
   await plant('Dune.md', `---\ntitle: Dune\nauthor: Frank Herbert\nisbn: "9780441172719"\n---\n# Dune\n`);
 });
-afterEach(async () => { await fsp.rm(root, { recursive: true, force: true }); });
 
 describe('proposeNoteTypings (#1075)', () => {
   it('files a pending proposal and does NOT write the note (proposes, never applies)', async () => {

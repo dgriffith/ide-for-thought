@@ -1,33 +1,27 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
-import os from 'node:os';
 import {
   proposeWrite,
   approveProposal,
   rejectProposal,
   type OperationType,
 } from '../../../src/main/llm/approval';
-import { initGraph, queryGraph } from '../../../src/main/graph/index';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { queryGraph } from '../../../src/main/graph/index';
+import { type ProjectContext } from '../../../src/main/project-context-types';
+import { useGraphProject } from '../../helpers/temp-project';
 
 // Every write is filed as a pending proposal and applied only on approval —
 // there are no lower-trust tiers (they were removed as unused). These tests
 // exercise that single lifecycle across payload kinds.
 
 describe('updateProposalStatus replaces, does not append (#332)', () => {
-  let root: string;
+  const project = useGraphProject('minerva-approval-status-');
   let ctx: ProjectContext;
 
-  beforeEach(async () => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-approval-status-'));
-    ctx = projectContext(root);
-    await initGraph(ctx);
-  });
-
-  afterEach(async () => {
-    await fsp.rm(root, { recursive: true, force: true });
+  beforeEach(() => {
+    ctx = project.ctx;
   });
 
   async function statusesFor(uri: string): Promise<string[]> {
@@ -77,15 +71,12 @@ describe('updateProposalStatus replaces, does not append (#332)', () => {
 });
 
 describe('payload-kind validation at proposeWrite time (#665)', () => {
-  let root: string;
+  const project = useGraphProject('minerva-approval-payload-');
   let ctx: ProjectContext;
 
-  beforeEach(async () => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-approval-payload-'));
-    ctx = projectContext(root);
-    await initGraph(ctx);
+  beforeEach(() => {
+    ctx = project.ctx;
   });
-  afterEach(async () => { await fsp.rm(root, { recursive: true, force: true }); });
 
   it('rejects a saved-query payload at creation (would throw at apply otherwise)', async () => {
     await expect(proposeWrite(ctx, {
@@ -136,15 +127,14 @@ describe('payload-kind validation at proposeWrite time (#665)', () => {
 });
 
 describe('note-rewrite payload (#936)', () => {
+  const project = useGraphProject('minerva-approval-rewrite-');
   let root: string;
   let ctx: ProjectContext;
 
-  beforeEach(async () => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-approval-rewrite-'));
-    ctx = projectContext(root);
-    await initGraph(ctx);
+  beforeEach(() => {
+    root = project.root;
+    ctx = project.ctx;
   });
-  afterEach(async () => { await fsp.rm(root, { recursive: true, force: true }); });
 
   const REL = 'notes/stub.md';
 
@@ -215,6 +205,7 @@ describe('note-rewrite payload (#936)', () => {
 });
 
 describe('source-meta payload (#943)', () => {
+  const project = useGraphProject('minerva-approval-sourcemeta-');
   let root: string;
   let ctx: ProjectContext;
   const sourceId = 'smith-2023';
@@ -223,15 +214,13 @@ describe('source-meta payload (#943)', () => {
     thought:accessedAt "2026-05-01T00:00:00Z"^^xsd:dateTime .
 `;
 
-  beforeEach(async () => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-approval-sourcemeta-'));
-    ctx = projectContext(root);
-    await initGraph(ctx);
+  beforeEach(() => {
+    root = project.root;
+    ctx = project.ctx;
     const dir = path.join(root, '.minerva', 'sources', sourceId);
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(path.join(dir, 'meta.ttl'), META);
   });
-  afterEach(async () => { await fsp.rm(root, { recursive: true, force: true }); });
 
   function metaOnDisk(): string {
     return fs.readFileSync(path.join(root, '.minerva', 'sources', sourceId, 'meta.ttl'), 'utf-8');
@@ -266,16 +255,13 @@ describe('source-meta payload (#943)', () => {
 });
 
 describe('proposal store effects (#666)', () => {
-  let root: string;
+  const project = useGraphProject('minerva-approval-store-');
   let ctx: ProjectContext;
   const TAG = 'https://minerva.dev/ontology#tag';
 
-  beforeEach(async () => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-approval-store-'));
-    ctx = projectContext(root);
-    await initGraph(ctx);
+  beforeEach(() => {
+    ctx = project.ctx;
   });
-  afterEach(async () => { await fsp.rm(root, { recursive: true, force: true }); });
 
   /** Number of `<node> <TAG> ?o` triples currently in the store. */
   async function tagCount(node: string): Promise<number> {

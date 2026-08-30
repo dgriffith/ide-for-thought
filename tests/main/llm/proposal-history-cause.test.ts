@@ -7,29 +7,21 @@
  * skill behind the conversation (or the built-in write path), not the module
  * that happened to call `writeFile`.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import fs from 'node:fs';
-import fsp from 'node:fs/promises';
-import path from 'node:path';
-import os from 'node:os';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { proposeWrite, approveProposal } from '../../../src/main/llm/approval';
 import * as conversation from '../../../src/main/llm/conversation';
 import { listRevisions } from '../../../src/main/history';
-import { initGraph } from '../../../src/main/graph/index';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { type ProjectContext } from '../../../src/main/project-context-types';
+import { useGraphProject } from '../../helpers/temp-project';
 
 describe('revision causes for approved proposals (#1158)', () => {
+  const project = useGraphProject('minerva-history-cause-');
   let root: string;
   let ctx: ProjectContext;
 
-  beforeEach(async () => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-history-cause-'));
-    ctx = projectContext(root);
-    await initGraph(ctx);
-  });
-
-  afterEach(async () => {
-    await fsp.rm(root, { recursive: true, force: true });
+  beforeEach(() => {
+    root = project.root;
+    ctx = project.ctx;
   });
 
   async function fileAndApprove(proposedBy: string, relativePath: string): Promise<void> {

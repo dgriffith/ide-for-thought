@@ -4,11 +4,7 @@
  * covered by approval.test.ts; this pins the time-based expiry sweep and the
  * read/lifecycle branches that were previously untested.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import fs from 'node:fs';
-import fsp from 'node:fs/promises';
-import path from 'node:path';
-import os from 'node:os';
+import { describe, it, expect, beforeEach } from 'vitest';
 import {
   proposeWrite,
   approveProposal,
@@ -17,25 +13,19 @@ import {
   listProposals,
   getProposal,
 } from '../../../src/main/llm/approval';
-import { initGraph } from '../../../src/main/graph/index';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { type ProjectContext } from '../../../src/main/project-context-types';
+import { useGraphProject } from '../../helpers/temp-project';
 
 const THOUGHT = 'https://minerva.dev/ontology/thought#';
 
 describe('proposal expiry + lifecycle (#1000)', () => {
-  let root: string;
+  const project = useGraphProject('minerva-proposal-expiry-');
   let ctx: ProjectContext;
   let seq = 0;
 
-  beforeEach(async () => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-proposal-expiry-'));
-    ctx = projectContext(root);
-    await initGraph(ctx);
+  beforeEach(() => {
+    ctx = project.ctx;
     seq = 0;
-  });
-
-  afterEach(async () => {
-    await fsp.rm(root, { recursive: true, force: true });
   });
 
   /** File a pending (requires_approval) proposal; `expiryDays` sets its

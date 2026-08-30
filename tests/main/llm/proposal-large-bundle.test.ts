@@ -12,19 +12,18 @@
  * status flips to approved but nothing lands.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
-import os from 'node:os';
 
 import {
   proposeWrite,
   approveProposal,
   getProposal,
 } from '../../../src/main/llm/approval';
-import { initGraph } from '../../../src/main/graph/index';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { type ProjectContext } from '../../../src/main/project-context-types';
+import { useGraphProject } from '../../helpers/temp-project';
 import type { ProposalPayload } from '../../../src/main/llm/approval';
 
 function realisticChildBody(stop: number): string {
@@ -69,17 +68,13 @@ A ${childCount}-stop journey. Each child is one stop.
 }
 
 describe('large-bundle approval (the 27-note silent-failure regression)', () => {
+  const project = useGraphProject('minerva-large-bundle-');
   let root: string;
   let ctx: ProjectContext;
 
-  beforeEach(async () => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-large-bundle-'));
-    ctx = projectContext(root);
-    await initGraph(ctx);
-  });
-
-  afterEach(async () => {
-    await fsp.rm(root, { recursive: true, force: true });
+  beforeEach(() => {
+    root = project.root;
+    ctx = project.ctx;
   });
 
   it('round-trips a 27-note bundle through proposeWrite → getProposal with payloads intact', async () => {

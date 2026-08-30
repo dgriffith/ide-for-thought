@@ -6,13 +6,10 @@
  * minerva:relativePath" — and confirms it returns one row.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import fs from 'node:fs';
+import { describe, it, expect, beforeEach } from 'vitest';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
-import os from 'node:os';
 import {
-  initGraph,
   indexNote,
   queryGraph,
   parseIntoStore,
@@ -22,24 +19,17 @@ import {
   reindexAllConversations,
   create as createConversation,
 } from '../../../src/main/llm/conversation';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
-
-function mkTempProject(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-conv-iri-test-'));
-}
+import { type ProjectContext } from '../../../src/main/project-context-types';
+import { useGraphProject } from '../../helpers/temp-project';
 
 describe('Conversation thought:contextNote is a real IRI (#350)', () => {
+  const project = useGraphProject('minerva-conv-iri-test-');
   let root: string;
   let ctx: ProjectContext;
 
-  beforeEach(async () => {
-    root = mkTempProject();
-    ctx = projectContext(root);
-    await initGraph(ctx);
-  });
-
-  afterEach(async () => {
-    await fsp.rm(root, { recursive: true, force: true });
+  beforeEach(() => {
+    root = project.root;
+    ctx = project.ctx;
   });
 
   it('contextNote resolves to a node that joins against minerva:relativePath', async () => {

@@ -3,15 +3,16 @@
  * grounds/supports/rebuts for a claim files a PENDING proposal; approving appends
  * the edge to the excerpt's meta.ttl (durable across reindex, reference-not-copy).
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
-import { initGraph, indexAllNotes, queryGraph, indexExcerpt } from '../../../src/main/graph/index';
+import { indexAllNotes, queryGraph, indexExcerpt } from '../../../src/main/graph/index';
 import { approveProposal } from '../../../src/main/llm/approval';
 import { proposeExcerptEvidence } from '../../../src/main/llm/attach-evidence';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { type ProjectContext } from '../../../src/main/project-context-types';
+import { useGraphProject } from '../../helpers/temp-project';
 
+const project = useGraphProject('minerva-attach-evidence-');
 let root: string;
 let ctx: ProjectContext;
 
@@ -33,16 +34,14 @@ async function groundsTargets(): Promise<string[]> {
 }
 
 beforeEach(async () => {
-  root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-attach-evidence-'));
-  ctx = projectContext(root);
-  await initGraph(ctx);
+  root = project.root;
+  ctx = project.ctx;
   writeExcerpt('e1', `this: a thought:Excerpt ; minerva:excerptId "e1" ; thought:citedText "Being precedes essence." .`);
   fs.writeFileSync(path.join(root, 'Claim.md'), `---\ntitle: Essence Claim\ntype: claim\n---\n# A claim\n`, 'utf-8');
   fs.writeFileSync(path.join(root, 'Claim2.md'), `---\ntitle: Second Claim\n---\n# Another\n`, 'utf-8');
   await indexAllNotes(ctx);
   indexExcerpt(ctx, 'e1', excerptTtl('e1'));
 });
-afterEach(() => fs.rmSync(root, { recursive: true, force: true }));
 
 describe('proposeExcerptEvidence (#1073)', () => {
   it('files a PENDING proposal without touching the excerpt (proposes, never applies)', async () => {

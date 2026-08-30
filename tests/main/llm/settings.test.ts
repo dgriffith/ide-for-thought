@@ -11,8 +11,9 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
+import { useTempDir } from '../../helpers/temp-project';
 
+const project = useTempDir('minerva-llm-settings-');
 let tempDir: string;
 
 // process.env is worker-global, so snapshot + restore to avoid leaking the
@@ -58,14 +59,13 @@ const onDiskAnthropic = (): string | undefined =>
   JSON.parse(fs.readFileSync(settingsFile(), 'utf-8')).providers?.anthropic?.apiKey;
 
 beforeEach(() => {
-  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-llm-settings-'));
+  tempDir = project.root;
   delete process.env.ANTHROPIC_API_KEY;
   delete process.env.OPENAI_API_KEY;
   delete process.env.GEMINI_API_KEY;
   vi.clearAllMocks();
 });
 afterEach(() => {
-  fs.rmSync(tempDir, { recursive: true, force: true });
   for (const [k, v] of Object.entries(envSnapshot)) {
     if (v === undefined) delete process.env[k];
     else process.env[k] = v;

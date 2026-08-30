@@ -6,28 +6,26 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
 import { executeNotebaseTool, NOTEBASE_TOOLS } from '../../../src/main/llm/tools';
 import * as search from '../../../src/main/search/index';
 import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { useTempDir } from '../../helpers/temp-project';
 
-let root: string;
+const project = useTempDir('minerva-search-notes-');
 let ctx: ProjectContext;
 
 beforeEach(async () => {
-  root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-search-notes-'));
-  fs.mkdirSync(path.join(root, '.minerva'), { recursive: true });
-  ctx = projectContext(root);
+  fs.mkdirSync(path.join(project.root, '.minerva'), { recursive: true });
+  ctx = projectContext(project.root);
   await search.initSearch(ctx);
 });
 afterEach(() => {
   search.disposeProject(ctx);
-  fs.rmSync(root, { recursive: true, force: true });
 });
 
 describe('search_notes tool execution', () => {
   it('returns ranked results with title, path, and a snippet', async () => {
-    fs.writeFileSync(path.join(root, 'cats.md'), '# Cats\nCats are feline animals that purr and hunt mice.\n', 'utf-8');
+    fs.writeFileSync(path.join(project.root, 'cats.md'), '# Cats\nCats are feline animals that purr and hunt mice.\n', 'utf-8');
     await search.indexAllNotes(ctx);
 
     const out = await executeNotebaseTool(ctx, 'search_notes', { query: 'feline animals' });
@@ -37,8 +35,8 @@ describe('search_notes tool execution', () => {
   });
 
   it('honors the limit option', async () => {
-    fs.writeFileSync(path.join(root, 'a.md'), '# A\ngardening soil plants\n', 'utf-8');
-    fs.writeFileSync(path.join(root, 'b.md'), '# B\ngardening soil plants\n', 'utf-8');
+    fs.writeFileSync(path.join(project.root, 'a.md'), '# A\ngardening soil plants\n', 'utf-8');
+    fs.writeFileSync(path.join(project.root, 'b.md'), '# B\ngardening soil plants\n', 'utf-8');
     await search.indexAllNotes(ctx);
 
     const out = await executeNotebaseTool(ctx, 'search_notes', { query: 'gardening', limit: 1 });

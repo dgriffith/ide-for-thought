@@ -1,17 +1,17 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import fs from 'node:fs';
+import { describe, it, expect, beforeEach } from 'vitest';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
-import os from 'node:os';
 import { executeNotebaseTool, NOTEBASE_TOOLS } from '../../../src/main/llm/tools';
 import { projectContext } from '../../../src/main/project-context-types';
+import { useTempDir } from '../../helpers/temp-project';
 
 describe('grep_notes tool', () => {
+  const project = useTempDir('minerva-grep-notes-');
   let root: string;
   const ctx = () => projectContext(root);
 
   beforeEach(async () => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-grep-notes-'));
+    root = project.root;
     await fsp.writeFile(
       path.join(root, 'alpha.md'),
       'The mitochondrion is the powerhouse.\nTODO: cite this claim.\n',
@@ -23,9 +23,6 @@ describe('grep_notes tool', () => {
       'A MITOCHONDRION reference in Naples.\n- [ ] unfinished task\n',
       'utf-8',
     );
-  });
-  afterEach(async () => {
-    await fsp.rm(root, { recursive: true, force: true });
   });
 
   it('finds a literal substring case-insensitively across notes, as path:line: text', async () => {

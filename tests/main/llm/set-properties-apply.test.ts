@@ -5,34 +5,24 @@
  * approved thought:Proposal (the Trust Principle audit record), while preserving
  * the handler's non-fatal-per-note behavior.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import fs from 'node:fs';
+import { describe, it, expect } from 'vitest';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
-import os from 'node:os';
 import { applyPropertyUpdates } from '../../../src/main/llm/set-properties';
-import { initGraph, indexNote, queryGraph } from '../../../src/main/graph/index';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { indexNote, queryGraph } from '../../../src/main/graph/index';
+import { useGraphProject } from '../../helpers/temp-project';
 
-let root: string;
-let ctx: ProjectContext;
-
-beforeEach(async () => {
-  root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-setprops-'));
-  ctx = projectContext(root);
-  await initGraph(ctx);
-});
-afterEach(async () => { await fsp.rm(root, { recursive: true, force: true }); });
+const project = useGraphProject('minerva-setprops-');
 
 async function plant(rel: string, content: string): Promise<void> {
-  const full = path.join(root, rel);
+  const full = path.join(project.root, rel);
   await fsp.mkdir(path.dirname(full), { recursive: true });
   await fsp.writeFile(full, content, 'utf-8');
-  await indexNote(ctx, rel, content);
+  await indexNote(project.ctx, rel, content);
 }
 
 async function approvedRewriteCount(): Promise<number> {
-  const r = await queryGraph(ctx, `
+  const r = await queryGraph(project.ctx, `
     PREFIX thought: <https://minerva.dev/ontology/thought#>
     SELECT ?p WHERE {
       ?p a thought:Proposal ;
@@ -46,7 +36,7 @@ describe('applyPropertyUpdates (#942)', () => {
   it('applies the patch on disk AND files an approved note_rewrite proposal', async () => {
     await plant('notes/a.md', '# A\n\nBody.\n');
     const { outcomes, rewrittenPaths } = await applyPropertyUpdates(
-      root,
+      project.root,
       [{ relativePath: 'notes/a.md', properties: { status: 'done' } }],
       'conv-1',
     );
@@ -55,7 +45,7 @@ describe('applyPropertyUpdates (#942)', () => {
     expect(outcomes[0].error).toBeUndefined();
     expect(rewrittenPaths).toEqual(['notes/a.md']);
 
-    const onDisk = await fsp.readFile(path.join(root, 'notes/a.md'), 'utf-8');
+    const onDisk = await fsp.readFile(path.join(project.root, 'notes/a.md'), 'utf-8');
     expect(onDisk).toContain('status: done');
     // Trust principle: an approved proposal backs the write.
     expect(await approvedRewriteCount()).toBe(1);
@@ -64,7 +54,7 @@ describe('applyPropertyUpdates (#942)', () => {
   it('is non-fatal per note: a failing entry does not block the others', async () => {
     await plant('notes/ok.md', '# OK\n');
     const { outcomes, rewrittenPaths } = await applyPropertyUpdates(
-      root,
+      project.root,
       [
         { relativePath: 'notes/missing.md', properties: { x: 1 } }, // read throws
         { relativePath: 'notes/ok.md', properties: { x: 1 } },
@@ -83,7 +73,7 @@ describe('applyPropertyUpdates (#942)', () => {
   it('surfaces an empty-properties payload as an error and writes nothing', async () => {
     await plant('notes/a.md', '# A\n');
     const { outcomes, rewrittenPaths } = await applyPropertyUpdates(
-      root,
+      project.root,
       [{ relativePath: 'notes/a.md', properties: {} }],
       'conv-1',
     );
@@ -95,7 +85,7 @@ describe('applyPropertyUpdates (#942)', () => {
   it('files no proposal for a no-op patch (key already at that value)', async () => {
     await plant('notes/a.md', '---\nstatus: done\n---\n# A\n');
     const { outcomes, rewrittenPaths } = await applyPropertyUpdates(
-      root,
+      project.root,
       [{ relativePath: 'notes/a.md', properties: { status: 'done' } }],
       'conv-1',
     );

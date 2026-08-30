@@ -5,31 +5,31 @@
  * quote to an excerpt id + char offsets against the source body, validates the
  * claim shapes, and flags quotes that aren't verbatim substrings.
  */
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import fs from 'node:fs';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
-import os from 'node:os';
 import { executeNotebaseTool, type ToolContext } from '../../../src/main/llm/tools';
 import { excerptIdFor } from '../../../src/main/sources/create-excerpt';
 import type { ConversationClaimsDraft } from '../../../src/shared/conversation-claims-drafts';
+import { useTempDir } from '../../helpers/temp-project';
 
 let root: string;
 const SOURCE_ID = 'smith-2024';
 const BODY = '# Paper\n\nThe sky is blue because of Rayleigh scattering. Adoption will accelerate next year.\n';
-
-beforeEach(async () => {
-  root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-claims-tool-'));
-  await fsp.mkdir(path.join(root, '.minerva', 'sources', SOURCE_ID), { recursive: true });
-  await fsp.writeFile(path.join(root, '.minerva', 'sources', SOURCE_ID, 'body.md'), BODY, 'utf-8');
-});
-afterEach(() => { fs.rmSync(root, { recursive: true, force: true }); });
 
 function ctx(): ToolContext {
   return { rootPath: root, conversationId: 'conv-1' };
 }
 
 describe('propose_claims tool execution', () => {
+  const project = useTempDir('minerva-claims-tool-');
+
+  beforeEach(async () => {
+    root = project.root;
+    await fsp.mkdir(path.join(root, '.minerva', 'sources', SOURCE_ID), { recursive: true });
+    await fsp.writeFile(path.join(root, '.minerva', 'sources', SOURCE_ID, 'body.md'), BODY, 'utf-8');
+  });
+
   it('emits a draft with excerpt ids + char offsets for verbatim quotes', async () => {
     const onClaimsDraft = vi.fn();
     const quote = 'The sky is blue because of Rayleigh scattering.';

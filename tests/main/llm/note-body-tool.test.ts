@@ -1,15 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
-import os from 'node:os';
 import { executeNotebaseTool, type ToolCallbacks } from '../../../src/main/llm/tools';
-import { initGraph, indexNote, disposeProject } from '../../../src/main/graph/index';
-import { projectContext } from '../../../src/main/project-context-types';
+import { indexNote, disposeProject } from '../../../src/main/graph/index';
 import type { ConversationNoteBodyDraft } from '../../../src/shared/conversation-note-body-drafts';
+import { makeGraphProject, type GraphProject } from '../../helpers/temp-project';
 
 let root: string;
-const ctx = () => projectContext(root);
+let project: GraphProject;
+const ctx = () => project.ctx;
 const toolCtx = () => ({ rootPath: root, conversationId: 'conv-1' });
 
 async function seed(rel: string, body: string): Promise<void> {
@@ -28,13 +27,13 @@ const STUB = '---\ntags: [meeting]\n---\n# Standup\n\n- shipped X\n';
 const FLESHED = '---\ntags: [meeting]\n---\n# Standup\n\nWe shipped X today, unblocking Y.\n';
 
 beforeEach(async () => {
-  root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-note-body-tool-'));
-  await initGraph(ctx());
+  project = await makeGraphProject('minerva-note-body-tool-');
+  root = project.root;
   await seed('notes/standup.md', STUB);
 });
 afterEach(async () => {
   disposeProject(ctx());
-  await fsp.rm(root, { recursive: true, force: true });
+  await project.cleanup();
 });
 
 describe('propose_note_body', () => {

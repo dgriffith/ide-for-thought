@@ -15,11 +15,9 @@
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fs from 'node:fs';
-import fsp from 'node:fs/promises';
 import path from 'node:path';
-import os from 'node:os';
-import { initGraph, queryGraph } from '../../../src/main/graph/index';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { queryGraph } from '../../../src/main/graph/index';
+import { type ProjectContext } from '../../../src/main/project-context-types';
 import {
   create,
   load,
@@ -28,10 +26,7 @@ import {
   loadUIState,
   saveUIState,
 } from '../../../src/main/llm/conversation';
-
-function mkTempProject(label: string): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), `minerva-conv-${label}-`));
-}
+import { makeGraphProject, type GraphProject } from '../../helpers/temp-project';
 
 /** Conversation JSON files (not the `_ui.json` sibling) under a project. */
 function conversationFiles(root: string): string[] {
@@ -41,25 +36,27 @@ function conversationFiles(root: string): string[] {
 }
 
 describe('conversations with two thoughtbases open (#1743)', () => {
+  let projectA: GraphProject;
+  let projectB: GraphProject;
   let rootA: string;
   let rootB: string;
   let ctxA: ProjectContext;
   let ctxB: ProjectContext;
 
   beforeEach(async () => {
-    rootA = mkTempProject('projA');
-    rootB = mkTempProject('projB');
-    ctxA = projectContext(rootA);
-    ctxB = projectContext(rootB);
     // Order matters: B is initialised second, which is exactly what used to
     // capture conversation storage for both.
-    await initGraph(ctxA);
-    await initGraph(ctxB);
+    projectA = await makeGraphProject('minerva-conv-projA-');
+    projectB = await makeGraphProject('minerva-conv-projB-');
+    rootA = projectA.root;
+    rootB = projectB.root;
+    ctxA = projectA.ctx;
+    ctxB = projectB.ctx;
   });
 
   afterEach(async () => {
-    await fsp.rm(rootA, { recursive: true, force: true });
-    await fsp.rm(rootB, { recursive: true, force: true });
+    await projectA.cleanup();
+    await projectB.cleanup();
   });
 
   it('files each conversation under its own project', async () => {

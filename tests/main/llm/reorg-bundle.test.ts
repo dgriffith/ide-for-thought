@@ -2,20 +2,19 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
-import os from 'node:os';
 import { proposeWrite, approveProposal } from '../../../src/main/llm/approval';
-import { initGraph, indexNote, disposeProject as disposeGraph } from '../../../src/main/graph/index';
+import { indexNote, disposeProject as disposeGraph } from '../../../src/main/graph/index';
 import { initSearch, indexNote as searchIndex, disposeProject as disposeSearch } from '../../../src/main/search/index';
-import { projectContext } from '../../../src/main/project-context-types';
 import type { ProposalPayload } from '../../../src/main/llm/approval';
+import { makeGraphProject, type GraphProject } from '../../helpers/temp-project';
 
-let root: string;
-const ctx = () => projectContext(root);
-const read = (rel: string) => fsp.readFile(path.join(root, rel), 'utf-8');
-const exists = (rel: string) => fs.existsSync(path.join(root, rel));
+let project: GraphProject;
+const ctx = () => project.ctx;
+const read = (rel: string) => fsp.readFile(path.join(project.root, rel), 'utf-8');
+const exists = (rel: string) => fs.existsSync(path.join(project.root, rel));
 
 async function seed(rel: string, body: string): Promise<void> {
-  const abs = path.join(root, rel);
+  const abs = path.join(project.root, rel);
   await fsp.mkdir(path.dirname(abs), { recursive: true });
   await fsp.writeFile(abs, body, 'utf-8');
   await indexNote(ctx(), rel, body);
@@ -27,8 +26,7 @@ function bundle(payloads: ProposalPayload[]) {
 }
 
 beforeEach(async () => {
-  root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-reorg-bundle-'));
-  await initGraph(ctx());
+  project = await makeGraphProject('minerva-reorg-bundle-');
   await initSearch(ctx());
   await seed('a.md', '# A\n\nSee [[b]] and [[c]].');
   await seed('b.md', '# B');
@@ -37,7 +35,7 @@ beforeEach(async () => {
 afterEach(async () => {
   disposeGraph(ctx());
   disposeSearch(ctx());
-  await fsp.rm(root, { recursive: true, force: true });
+  await project.cleanup();
 });
 
 describe('batch note-refactor bundle (#914)', () => {

@@ -8,33 +8,29 @@
  * surface.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
-import os from 'node:os';
 import {
   proposeWrite,
   approveProposal,
   getProposal,
 } from '../../../src/main/llm/approval';
-import { initGraph, queryGraph } from '../../../src/main/graph/index';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { queryGraph } from '../../../src/main/graph/index';
+import { type ProjectContext } from '../../../src/main/project-context-types';
+import { useGraphProject } from '../../helpers/temp-project';
 
 const NOTE_PREDICATE = 'https://minerva.dev/ontology#mentionsNote';
 
 describe('ProposalBundle apply + rollback (#418)', () => {
+  const project = useGraphProject('minerva-bundle-');
   let root: string;
   let ctx: ProjectContext;
 
-  beforeEach(async () => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-bundle-'));
-    ctx = projectContext(root);
-    await initGraph(ctx);
-  });
-
-  afterEach(async () => {
-    await fsp.rm(root, { recursive: true, force: true });
+  beforeEach(() => {
+    root = project.root;
+    ctx = project.ctx;
   });
 
   it('a graph-triples-only bundle applies through approve and lands in the store', async () => {
