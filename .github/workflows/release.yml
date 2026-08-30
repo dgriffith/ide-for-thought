@@ -68,8 +68,30 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
 
+      # node-linker=hoisted → node_modules is a self-contained flat tree (no
+      # store symlinks), so caching it directly is safe. Same key as ci.yml's
+      # "Cache node_modules" so the two workflows share a warm cache (#1638).
+      - name: Cache node_modules
+        id: node-modules-cache
+        uses: actions/cache@v6
+        with:
+          path: node_modules
+          key: node-modules-v1-${{ runner.os }}-${{ runner.arch }}-node-${{ hashFiles('.nvmrc') }}-${{ hashFiles('pnpm-lock.yaml') }}
+
       - name: Install dependencies
+        if: steps.node-modules-cache.outputs.cache-hit != 'true'
         run: pnpm install --frozen-lockfile
+
+      # The release build otherwise trusts that whatever commit a tag points
+      # at already passed CI — but a tag can point anywhere (a hotfix branch,
+      # an old commit, a manually rebased ref), so assert it independently
+      # rather than trusting an upstream check that may not have run against
+      # this exact ref (#1638). Mirrors ci.yml's lint-and-test + audit jobs.
+      - name: Lint (tsc + svelte-check + eslint)
+        run: pnpm lint
+
+      - name: Audit shipped dependencies (prod, high+critical)
+        run: pnpm audit --prod --audit-level=high
 
       # Import the Developer ID cert into a throwaway keychain and stage the
       # App Store Connect API key, then export the paths/ids forge.config.ts
@@ -138,6 +160,20 @@ jobs:
 
           echo "Collected:"
           ls -la dist-artifacts
+
+          # A DMG-only or ZIP-only release silently breaks something: the DMG
+          # is the human download, the ZIP is the Squirrel.Mac auto-update
+          # payload update.electronjs.org serves. Fail here, before drafting,
+          # rather than have a maker regression ship quietly (#1639).
+          if [ -z "$dmg" ]; then
+            echo "::error::No .dmg found in dist-artifacts — the maker output is missing the human-downloadable installer."
+            exit 1
+          fi
+          zip="$(find dist-artifacts -maxdepth 1 -name '*.zip' | head -n1)"
+          if [ -z "$zip" ]; then
+            echo "::error::No .zip found in dist-artifacts — the maker output is missing the Squirrel.Mac auto-update payload."
+            exit 1
+          fi
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v7
