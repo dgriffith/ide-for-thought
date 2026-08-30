@@ -169,8 +169,14 @@ const config: ForgeConfig = {
       },
     ],
   },
+  // macOS arm64 only — matching the actual release matrix in release.yml
+  // (deliberate single-arch today, #962). This used to declare ZIP makers
+  // for linux/win32 too, which release.yml never builds and which would
+  // need their own maker (win32 needs MakerSquirrel, not MakerZIP) and
+  // update feed to be real; narrowed rather than left implying a
+  // cross-platform release that doesn't exist (#1636).
   makers: [
-    new MakerZIP({}, ['darwin', 'linux', 'win32']),
+    new MakerZIP({}, ['darwin']),
     new MakerDMG({ icon: path.resolve(process.cwd(), 'assets', 'Minerva.icns') }),
   ],
   plugins: [
