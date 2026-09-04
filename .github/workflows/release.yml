@@ -176,9 +176,14 @@ jobs:
           echo "Gatekeeper assessment (app): $APP_PATH"
           spctl --assess --type execute --verbose=4 "$APP_PATH"
 
-          echo "Gatekeeper assessment (notarized dmg): $DMG_PATH"
-          spctl -a -t open --context context:primary-signature "$DMG_PATH"
-
+          # `spctl -a -t open --context context:primary-signature` on the DMG
+          # itself was tried here (#1637) and dropped: it's a documented
+          # false-negative source on Apple's own developer forums
+          # ("Checking DMG notarization. Rejected, but works fine") — notarytool
+          # doesn't require the disk image container to be code-signed, only
+          # stapled, so this specific Gatekeeper assessment can reject a
+          # genuinely valid DMG. `stapler validate` below is Apple's
+          # purpose-built tool for exactly this check and is authoritative.
           echo "Notarization staple: $DMG_PATH"
           xcrun stapler validate "$DMG_PATH"
 
