@@ -54,7 +54,15 @@ export default defineConfig({
     emptyOutDir: false,
     rollupOptions: {
       input: 'src/cli/main.ts',
-      output: { entryFileNames: 'cli.js', format: 'cjs' },
+      // `noExternal` above only stops deps from being externalized — it doesn't
+      // stop Rolldown from giving a dynamically-imported module (e.g. the AWS
+      // SDK pieces pulled in for S3 publish) its own chunk under `assets/`.
+      // `codeSplitting: false` is what actually forces everything into the one
+      // `cli.js` file the rest of this config's docstring promises (#1437's
+      // packaged install only ever staged that single file — see
+      // forge.config.ts's copyCliBundle — so a split build silently produced a
+      // CLI that crashed on its first dynamic import once installed).
+      output: { entryFileNames: 'cli.js', format: 'cjs', codeSplitting: false },
       external: [
         'canvas',
         /^@duckdb\/node-bindings/,
