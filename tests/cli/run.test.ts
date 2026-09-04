@@ -6,7 +6,7 @@
  * and notes without Electron. Asserts the grounded JSON shape (node IRIs / note
  * paths) and the exit-code contract (0 ok / 1 core error / 2 usage).
  */
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
@@ -330,6 +330,16 @@ describe('runCli contract', () => {
     const r = await runCli(['search', 'x', '--project', '/no/such/dir/here'], { cwd: root });
     expect(r.code).toBe(2);
     expect(r.stderr).toContain('Not a directory');
+  });
+
+  it('a leading ~ in --project expands to the home directory (#2022 — MCP client configs invoke this CLI with no shell, so ~ never gets shell-expanded)', async () => {
+    const homedirSpy = vi.spyOn(os, 'homedir').mockReturnValue(path.dirname(root));
+    try {
+      const r = await runCli(['search', 'x', '--project', `~/${path.basename(root)}`], { cwd: '/' });
+      expect(r.code).toBe(0);
+    } finally {
+      homedirSpy.mockRestore();
+    }
   });
 
   it('read of a traversal path is refused, not a crash', async () => {
