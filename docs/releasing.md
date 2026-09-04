@@ -276,3 +276,4 @@ draft's top section by hand when a release deserves a narrative.
 | `.github/workflows/release.yml` | Tag → signed build → draft Release |
 | `forge.config.ts` | Signing/notarization config (reads Apple env) |
 | `src/main/auto-update.ts` | In-app updater against update.electronjs.org |
+| `scripts/deploy-to-gh-pages.sh` | Publishes `website/` to the `gh-pages` branch (the live site) — not run automatically; run by hand whenever `website/` content changes |
