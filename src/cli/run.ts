@@ -18,6 +18,7 @@
  * jq and can be handed straight to an agent.
  */
 import path from 'node:path';
+import os from 'node:os';
 import fs from 'node:fs/promises';
 import type { ChunkEmbedder } from '../main/embeddings/vector-store';
 import { projectContext } from '../main/project-context-types';
@@ -145,11 +146,20 @@ function json(value: unknown): string {
   return `${jsonStringify(value, true)}\n`;
 }
 
+/** Expands a leading `~` or `~/...` to the user's home directory. Callers like
+ *  an MCP client's server config invoke this CLI directly (no shell), so `~`
+ *  never gets shell-expanded before it reaches us — do it ourselves. */
+function expandHome(p: string): string {
+  if (p === '~') return os.homedir();
+  if (p.startsWith('~/')) return path.join(os.homedir(), p.slice(2));
+  return p;
+}
+
 /** A directory is required and must exist; a missing `.minerva` is fine —
  *  indexing just rebuilds from the `.md` files and an empty tree yields empty
  *  results rather than an error. */
 async function resolveProjectRoot(project: string | undefined, cwd: string): Promise<string> {
-  const root = path.resolve(cwd, project ?? '.');
+  const root = path.resolve(cwd, expandHome(project ?? '.'));
   const stat = await fs.stat(root).catch(() => null);
   if (!stat || !stat.isDirectory()) {
     throw new UsageError(`Not a directory: ${root}`);
