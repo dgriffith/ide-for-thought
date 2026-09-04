@@ -78,14 +78,19 @@ Watch it under **Actions**; a green run leaves a draft under **Releases**.
   (**the `.zip` is the one auto-update consumes** — don't remove it). A missing
   one already fails the CI job before it gets this far (#1639).
 - Signature + notarization are asserted automatically now (#1637): `release.yml`
-  runs `codesign --verify`, two `spctl` gatekeeper assessments (the `.app` and
-  the `.dmg`), and `xcrun stapler validate` right after the build, and boots the
+  runs `codesign --verify`, a `spctl` gatekeeper assessment on the `.app`, and
+  `xcrun stapler validate` on the `.dmg` right after the build, and boots the
   packaged app once via Playwright — a green run already means these passed. A
   red run means the draft either doesn't exist or is unsigned; don't hand-check
-  around a failure. To re-run the same checks by hand against a downloaded DMG:
+  around a failure. (`spctl -a -t open --context context:primary-signature` on
+  the `.dmg` itself was tried and dropped from the CI gate: it's a documented
+  false-negative source — a genuinely notarized, stapled DMG can still come
+  back `rejected` since notarization doesn't require the disk-image container
+  to be code-signed, only stapled. `stapler validate` is Apple's purpose-built
+  tool for checking exactly that and is the authoritative check here.) To
+  re-run the checks that do hold by hand against a downloaded DMG:
 
   ```bash
-  spctl -a -t open --context context:primary-signature Minerva-*.dmg   # → accepted
   codesign -dv --verbose=4 /Volumes/Minerva*/Minerva.app 2>&1 | grep Authority
   xcrun stapler validate Minerva-*.dmg                                 # → The validate action worked!
   ```
