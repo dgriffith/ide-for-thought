@@ -23,10 +23,42 @@
  * result when its anchor is missing, and callers assert a non-trivial size —
  * a reformat that defeats the regex must fail loudly, never pass vacuously.
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 
 const ESLINT_CONFIG = 'eslint.config.mjs';
 const PRELOAD = 'src/preload/preload.ts';
+
+/** All files under `dir` (recursively) whose name ends with `ext`. */
+export function filesUnder(dir: string, ext: string): string[] {
+  const out: string[] = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) out.push(...filesUnder(full, ext));
+    else if (full.endsWith(ext)) out.push(full);
+  }
+  return out;
+}
+
+/** Drop block, line, and HTML comments so a commented example call never counts. */
+export function stripComments(src: string): string {
+  return src
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/(^|[^:])\/\/[^\n]*/g, '$1')
+    .replace(/<!--[\s\S]*?-->/g, '');
+}
+
+/** `domain.method` for every `(window.)?api.<domain>.<method>(` call in `files`. */
+export function apiCallsIn(files: string[]): Set<string> {
+  const calls = new Set<string>();
+  for (const file of files) {
+    const src = stripComments(readFileSync(file, 'utf8'));
+    for (const m of src.matchAll(/(?:window\.)?\bapi\.(\w+)\.(\w+)\s*\(/g)) {
+      calls.add(`${m[1]!}.${m[2]!}`);
+    }
+  }
+  return calls;
+}
 
 /**
  * Mutation / event-subscription method names the eslint data-flow denylist
