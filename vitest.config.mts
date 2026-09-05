@@ -407,12 +407,19 @@ export default defineConfig({
           functions: 18,
           branches: 16,
         },
-        // SourcesPanel.svelte ~43.4 L / 41.9 S / 35.3 F / 30.0 B.
+        // SourcesPanel.svelte ~52.4 L / 47.4 S / 40.4 F / 42.2 B. Retuned UP
+        // (issue #2048): split the collections/smart-collections tree and the
+        // reading-queue section out into CollectionsTree.svelte and
+        // ReadingQueueSection.svelte (1298 → 789 lines). Neither extraction was
+        // itself exercised by SourcesPanel.test.ts's black-box render test, so
+        // — same shape as #1903/#1904's Editor.svelte/Preview.svelte
+        // extractions — removing the untested code raised the remaining file's
+        // own ratio; floors sit ~8pts under the new measured.
         'src/renderer/lib/components/SourcesPanel.svelte': {
-          lines: 34,
-          statements: 32,
-          functions: 26,
-          branches: 20,
+          lines: 44,
+          statements: 39,
+          functions: 32,
+          branches: 34,
         },
         // SettingsDialog.svelte ~77.1 L / 80.8 S / 58.1 F / 47.8 B (the shell;
         // extracted panels carry their own tests + the #999/#1094 aggregate).
