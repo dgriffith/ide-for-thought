@@ -63,6 +63,14 @@ jobs:
       - name: Lint fonts
         run: pnpm lint:fonts
 
+      # website/docs/*.html is generated from _layout.html + _nav.json +
+      # _content/*.html fragments (scripts/build-docs.mjs). `--check` diffs the
+      # regenerated pages against what's committed without writing, so a
+      # hand-edit to a generated page that drifts from its source fragment
+      # fails here instead of only in a developer's local predev/prebuild run.
+      - name: Check generated docs are up to date
+        run: pnpm check:docs
+
       # `pnpm coverage` runs the full suite with v8 instrumentation and enforces
       # the per-area thresholds in vitest.config (src/shared, src/main/llm,
       # src/main/notebase) — so the trust + security paths can't silently
