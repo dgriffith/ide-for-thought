@@ -44,9 +44,12 @@
  *      their reasons, and the list may shrink but not grow.
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
-import { apiNamespaceMethods, dataflowMutationMethods } from '../helpers/renderer-api-surface';
+import {
+  apiCallsIn,
+  apiNamespaceMethods,
+  dataflowMutationMethods,
+  filesUnder,
+} from '../helpers/renderer-api-surface';
 
 /** Where a mutation is allowed to live: the stores and the App ops handlers. */
 const OWNER_DIRS = ['src/renderer/lib/stores', 'src/renderer/lib/app'];
@@ -85,36 +88,6 @@ const APP_ONLY_MUTATIONS: Record<string, string> = {
   // owns delete/rename/move/setGroup/setOrder.
   'queries.save': 'Save-query dialog is App-hosted; the sibling mutations already live in the saved-queries store.',
 };
-
-function filesUnder(dir: string, ext: string): string[] {
-  const out: string[] = [];
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const full = join(dir, entry.name);
-    if (entry.isDirectory()) out.push(...filesUnder(full, ext));
-    else if (full.endsWith(ext)) out.push(full);
-  }
-  return out;
-}
-
-/** Drop block, line, and HTML comments so a commented example call never counts. */
-function stripComments(src: string): string {
-  return src
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/(^|[^:])\/\/[^\n]*/g, '$1')
-    .replace(/<!--[\s\S]*?-->/g, '');
-}
-
-/** `domain.method` for every `(window.)?api.<domain>.<method>(` call in `files`. */
-function apiCallsIn(files: string[]): Set<string> {
-  const calls = new Set<string>();
-  for (const file of files) {
-    const src = stripComments(readFileSync(file, 'utf8'));
-    for (const m of src.matchAll(/(?:window\.)?\bapi\.(\w+)\.(\w+)\s*\(/g)) {
-      calls.add(`${m[1]!}.${m[2]!}`);
-    }
-  }
-  return calls;
-}
 
 const ownerFiles = OWNER_DIRS.flatMap((d) => filesUnder(d, '.ts'));
 const ownerCalls = apiCallsIn(ownerFiles);
