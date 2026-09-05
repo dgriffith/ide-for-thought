@@ -51,6 +51,10 @@ const h = vi.hoisted(() => ({
     onExcerptsChanged: vi.fn(() => () => {}), // returns an unsubscribe
   },
   notebase: { readFile: vi.fn(), writeFile: vi.fn() },
+  dialogs: {
+    showConfirm: vi.fn().mockResolvedValue(true),
+    showPrompt: vi.fn().mockResolvedValue(null),
+  },
   renameSource: vi.fn(),
   deleteSource: vi.fn(),
   addSourceTag: vi.fn(),
@@ -61,6 +65,7 @@ const h = vi.hoisted(() => ({
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({ api: h.api }));
 vi.mock('../../../src/renderer/lib/stores/source-data.svelte', () => ({ getSourceDataStore: () => h.sourceData }));
 vi.mock('../../../src/renderer/lib/stores/notebase.svelte', () => ({ getNotebaseStore: () => h.notebase }));
+vi.mock('../../../src/renderer/lib/stores/dialogs.svelte', () => ({ getDialogStore: () => h.dialogs }));
 vi.mock('../../../src/renderer/lib/sources/source-actions', () => ({
   renameSource: h.renameSource,
   deleteSource: h.deleteSource,
@@ -71,14 +76,14 @@ vi.mock('../../../src/renderer/lib/tools/tool-registry', () => ({ getAllToolInfo
 
 import SourceDetail from '../../../src/renderer/lib/components/SourceDetail.svelte';
 
-function props(over: Record<string, unknown> = {}) {
+function props(opsOver: Record<string, unknown> = {}) {
   return {
     sourceId: 'paxos',
-    onNavigate: vi.fn(),
-    onShowConfirm: vi.fn().mockResolvedValue(true),
-    onShowPrompt: vi.fn().mockResolvedValue(null),
-    onDeleted: vi.fn(),
-    ...over,
+    ops: {
+      onNavigate: vi.fn(),
+      onDeleted: vi.fn(),
+      ...opsOver,
+    },
   };
 }
 
@@ -89,6 +94,8 @@ beforeEach(() => {
   h.sourceData.setReadStatus.mockResolvedValue(undefined);
   h.sourceTagSuggestions.mockResolvedValue([]);
   h.getAllToolInfos.mockReturnValue([]);
+  h.dialogs.showConfirm.mockResolvedValue(true);
+  h.dialogs.showPrompt.mockResolvedValue(null);
 });
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
@@ -107,24 +114,24 @@ describe('SourceDetail (#1597)', () => {
     expect(h.sourceData.setReadStatus).toHaveBeenCalledWith('paxos', 'unread');
   });
 
-  it('routes "Rename source" through the source-actions helper with the host prompt', async () => {
+  it('routes "Rename source" through the source-actions helper with the dialogs store prompt', async () => {
     const p = props();
     render(SourceDetail, p);
     await waitFor(() => expect(screen.getByRole('button', { name: 'Rename source' })).toBeTruthy());
     await fireEvent.click(screen.getByRole('button', { name: 'Rename source' }));
     expect(h.renameSource).toHaveBeenCalledTimes(1);
     expect(h.renameSource.mock.calls[0]![0]).toMatchObject({ sourceId: 'paxos' }); // the loaded metadata
-    expect(h.renameSource.mock.calls[0]![1]).toBe(p.onShowPrompt);
+    expect(h.renameSource.mock.calls[0]![1]).toBe(h.dialogs.showPrompt);
   });
 
-  it('routes "Delete source" through the source-actions helper with the host confirm', async () => {
+  it('routes "Delete source" through the source-actions helper with the dialogs store confirm', async () => {
     const p = props();
     render(SourceDetail, p);
     await waitFor(() => expect(screen.getByRole('button', { name: 'Delete source' })).toBeTruthy());
     await fireEvent.click(screen.getByRole('button', { name: 'Delete source' }));
     expect(h.deleteSource).toHaveBeenCalledTimes(1);
     expect(h.deleteSource.mock.calls[0]![0]).toMatchObject({ sourceId: 'paxos' });
-    expect(h.deleteSource.mock.calls[0]![1]).toBe(p.onShowConfirm);
+    expect(h.deleteSource.mock.calls[0]![1]).toBe(h.dialogs.showConfirm);
   });
 
   it('surfaces the source Tools entry point when a source-scoped tool + onInvokeTool exist', async () => {
@@ -146,15 +153,15 @@ describe('SourceDetail (#1597)', () => {
       // An "about" note routes through onNavigate with its path.
       await waitFor(() => expect(screen.getByText('About Paxos')).toBeTruthy());
       await fireEvent.click(screen.getByText('About Paxos'));
-      expect(p.onNavigate).toHaveBeenCalledWith('notes/about-paxos.md');
+      expect(p.ops.onNavigate).toHaveBeenCalledWith('notes/about-paxos.md');
 
       // A reference routes through onOpenReference with its sourceId.
       await fireEvent.click(screen.getByText('Time, Clocks'));
-      expect(p.onOpenReference).toHaveBeenCalledWith('lamport-clocks');
+      expect(p.ops.onOpenReference).toHaveBeenCalledWith('lamport-clocks');
 
       // A backlink routes through onNavigate with its path.
       await fireEvent.click(screen.getByText('Quotes Paxos'));
-      expect(p.onNavigate).toHaveBeenCalledWith('notes/quotes-paxos.md');
+      expect(p.ops.onNavigate).toHaveBeenCalledWith('notes/quotes-paxos.md');
     });
 
     it('marks an unresolved reference with a stub badge', async () => {

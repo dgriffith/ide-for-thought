@@ -1309,9 +1309,6 @@
                 <QueryPanel
                   bind:this={queryPanelComponents[groupId]}
                   tab={active}
-                  onQueryChange={editor.setQueryText}
-                  onLanguageChange={editor.setQueryLanguage}
-                  onExecute={editor.executeQuery}
                   onSave={handleSaveQuery}
                 />
               {:else if active?.type === 'source'}
@@ -1320,19 +1317,19 @@
                     sourceId={active.sourceId}
                     highlightExcerptId={active.highlightExcerptId}
                     {numberedHeadings}
-                    onNavigate={handleNavigate}
-                    onShowConfirm={showConfirm}
-                    onShowPrompt={showPrompt}
-                    onDeleted={handleSourceDeleted}
-                    onCreateAboutNote={handleNewAboutSourceNote}
-                    onOpenReference={handleOpenSource}
-                    onResolveStub={handleResolveStub}
-                    onOpenPdf={handleOpenPdf}
-                    onCreateNoteFromExcerpt={handleCreateNoteFromExcerpt}
-                    onAppendExcerptToCurrent={handleAppendExcerptToCurrent}
                     canAppendToCurrent={lastNotePath !== null}
-                    onAttachEvidence={(id) => { attachEvidenceExcerptId = id; }}
-                    onInvokeTool={handleToolInvoke}
+                    ops={{
+                      onNavigate: handleNavigate,
+                      onDeleted: handleSourceDeleted,
+                      onCreateAboutNote: handleNewAboutSourceNote,
+                      onOpenReference: handleOpenSource,
+                      onResolveStub: handleResolveStub,
+                      onOpenPdf: handleOpenPdf,
+                      onCreateNoteFromExcerpt: handleCreateNoteFromExcerpt,
+                      onAppendExcerptToCurrent: handleAppendExcerptToCurrent,
+                      onAttachEvidence: (id) => { attachEvidenceExcerptId = id; },
+                      onInvokeTool: handleToolInvoke,
+                    }}
                   />
                 {/key}
               {:else if active?.type === 'pdf'}
