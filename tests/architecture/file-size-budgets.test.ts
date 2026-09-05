@@ -71,7 +71,6 @@ const BUDGETS: Record<string, number> = {
   'src/renderer/lib/components/ExportDialog.svelte': 712,
   'src/renderer/lib/components/QueryPanel.svelte': 759,
   'src/renderer/lib/components/conversations/DraftCards.svelte': 741,
-  'src/shared/types.ts': 559,
   'src/shared/ipc-contract.ts': 725,
   'src/shared/channels.ts': 701,
   'src/renderer/lib/app/note-ops.ts': 687,
