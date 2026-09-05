@@ -165,6 +165,11 @@ describe('built CLI runs under plain Node (#1839)', () => {
   let root: string;
 
   beforeAll(() => {
+    // vite.cli.config.mts sets `emptyOutDir: false`, so a stale `assets/`
+    // chunk from a build made before `codeSplitting: false` was added (#1437)
+    // would sit there forever and mask the very regression the test below
+    // checks for. Start from a clean output dir so that check means something.
+    fs.rmSync(path.join(REPO_ROOT, '.vite', 'build'), { recursive: true, force: true });
     // The shipping artifact, built the way `pnpm cli:build` builds it. Vite's
     // JS entry is resolved rather than reached for at `node_modules/.bin` so
     // this works from a git worktree too, where deps resolve upward to the
@@ -200,6 +205,20 @@ describe('built CLI runs under plain Node (#1839)', () => {
     });
     return { code: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
   }
+
+  it('builds a single self-contained cli.js — no split chunks (#1437, #2045)', () => {
+    // `codeSplitting: false` in vite.cli.config.mts exists because Rolldown
+    // otherwise gives a dynamically-imported dependency (the AWS SDK pulled in
+    // for S3 publish was the one that shipped broken) its own chunk under
+    // `.vite/build/assets/` — and `copyCliBundle` in forge.config.ts stages
+    // ONLY `cli.js` into the packaged app, so a split build produces an
+    // installed CLI that crashes on its first dynamic import (#1437), with
+    // nothing catching it until someone runs the packaged shim end-to-end.
+    // Assert the actual build output rather than re-reading the config flag,
+    // since a flag nobody checks the effect of is exactly how #1437 shipped.
+    const entries = fs.readdirSync(path.join(REPO_ROOT, '.vite', 'build')).sort();
+    expect(entries).toEqual(['cli.js']);
+  });
 
   it('emits no require("electron") into the bundle', () => {
     // The packaged app ships no npm `electron` package, so a surviving require
