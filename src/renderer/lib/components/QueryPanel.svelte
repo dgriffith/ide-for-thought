@@ -19,6 +19,9 @@
   import { autocompletion, acceptCompletion } from '@codemirror/autocomplete';
   import { createSparqlCompletionSource, type SparqlSchema } from '../editor/sparql-autocomplete';
   import { acceptCompletionEatTail, completionKeymapNoEnter } from '../editor/accept-completion-eat-tail';
+  import { getEditorStore } from '../stores/editor.svelte';
+
+  const editorStore = getEditorStore();
 
   function toCsv(columns: string[], rows: Record<string, string>[]): string {
     const escape = (s: string) => {
@@ -34,13 +37,14 @@
 
   interface Props {
     tab: QueryTab;
-    onQueryChange: (text: string) => void;
-    onLanguageChange: (language: QueryLanguage) => void;
-    onExecute: () => void;
+    /** Filing a saved-query file is App-level orchestration (names/scopes the
+     *  query via a dialog); everything else this panel needs — updating the
+     *  active query tab's text/language, running it — reads editorStore
+     *  directly instead of taking a callback per action (#2049). */
     onSave: () => void;
   }
 
-  let { tab, onQueryChange, onLanguageChange, onExecute, onSave }: Props = $props();
+  let { tab, onSave }: Props = $props();
 
   const isEmpty = $derived(tab.query.trim().length === 0);
 
@@ -184,7 +188,7 @@
     return minervaSyntaxHighlighting();
   }
 
-  /** Replace the editor contents with `text` without triggering the onQueryChange callback. */
+  /** Replace the editor contents with `text` without re-triggering editorStore.setQueryText. */
   function setDoc(text: string): void {
     if (!view) return;
     if (view.state.doc.toString() === text) return;
@@ -218,7 +222,7 @@
           '.cm-scroller': { overflow: 'auto' },
         }),
         Prec.highest(keymap.of([
-          { key: 'Mod-Enter', run: () => { if (!isEmpty) onExecute(); return true; } },
+          { key: 'Mod-Enter', run: () => { if (!isEmpty) void editorStore.executeQuery(); return true; } },
           { key: 'Mod-s', run: () => { if (!isEmpty) onSave(); return true; } },
           { key: 'Shift-Alt-f', run: () => { if (isEmpty) return true; return reformat(); } },
           { key: 'Tab', run: fillPlaceholderIfEmpty },
@@ -237,7 +241,7 @@
         ]),
         EditorView.updateListener.of((u) => {
           if (u.docChanged) {
-            onQueryChange(u.state.doc.toString());
+            editorStore.setQueryText(u.state.doc.toString());
           }
         }),
       ],
@@ -292,7 +296,7 @@
 
   function handleLanguageSelect(e: Event) {
     const next = (e.currentTarget as HTMLSelectElement).value as QueryLanguage;
-    onLanguageChange(next);
+    editorStore.setQueryLanguage(next);
   }
 
   export function updateTheme(): void {
@@ -365,7 +369,7 @@
     <div class="editor-toolbar">
       <button
         class="run-btn"
-        onclick={onExecute}
+        onclick={() => editorStore.executeQuery()}
         disabled={tab.executing || isEmpty}
         title="Run query (Cmd+Enter)"
       >

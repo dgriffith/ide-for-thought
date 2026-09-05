@@ -54,9 +54,9 @@ const THRESHOLD = 600;
  * drops under THRESHOLD) and may go UP only on purpose.
  */
 const BUDGETS: Record<string, number> = {
-  'src/renderer/App.svelte': 2075,
+  'src/renderer/App.svelte': 2072,
   'src/renderer/lib/components/Preview.svelte': 1299,
-  'src/renderer/lib/components/SourceDetail.svelte': 1338,
+  'src/renderer/lib/components/SourceDetail.svelte': 1346,
   'src/renderer/lib/components/SourcesPanel.svelte': 789,
   'src/renderer/lib/ipc/client.ts': 1288,
   'src/renderer/lib/stores/conversations.svelte.ts': 1179,
@@ -70,7 +70,7 @@ const BUDGETS: Record<string, number> = {
   'src/renderer/lib/components/SettingsDialog.svelte': 774,
   'src/main/graph/health-checks.ts': 800,
   'src/renderer/lib/components/ExportDialog.svelte': 712,
-  'src/renderer/lib/components/QueryPanel.svelte': 755,
+  'src/renderer/lib/components/QueryPanel.svelte': 759,
   'src/renderer/lib/components/conversations/DraftCards.svelte': 741,
   'src/shared/types.ts': 559,
   'src/shared/ipc-contract.ts': 725,

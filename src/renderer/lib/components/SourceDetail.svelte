@@ -19,10 +19,12 @@
   import { installDismissOnClickOutside } from '../dismiss-menu';
   import { getSourceDataStore } from '../stores/source-data.svelte';
   import { getNotebaseStore } from '../stores/notebase.svelte';
+  import { getDialogStore } from '../stores/dialogs.svelte';
   import { logger } from '../../../shared/logger';
 
   const sourceData = getSourceDataStore();
   const notebase = getNotebaseStore();
+  const dialogs = getDialogStore();
 
   const READ_STATUS_OPTIONS: { value: ReadStatus; label: string }[] = [
     { value: 'unread', label: 'Unread' },
@@ -31,13 +33,16 @@
     { value: 'skipped', label: 'Skipped' },
   ];
 
-  interface Props {
-    sourceId: string;
-    highlightExcerptId?: string | undefined;
+  /**
+   * App-level orchestration this detail view can't do itself — opening tabs,
+   * navigating, filing proposals (#2049, mirroring Sidebar.svelte's
+   * SidebarFileOps/SidebarPanelOps). `onShowConfirm`/`onShowPrompt` used to
+   * live here too; they're gone now that this component reads the dialogs
+   * store directly (the same functions App.svelte's `showConfirm`/
+   * `showPrompt` destructure from it) instead of receiving them as props.
+   */
+  interface SourceDetailOps {
     onNavigate: (target: string) => void;
-    onShowConfirm: (message: string, key: string, label?: string) => Promise<boolean>;
-    /** Prompt for text (rename). Host supplies App.svelte's showPrompt. */
-    onShowPrompt: (message: string, initial?: string) => Promise<string | null>;
     onDeleted?: (sourceId: string) => void;
     /** Create a Zotero-style child note pre-populated with
      *  `about: [[sources/<id>]]`, open it for editing, and refresh
@@ -68,9 +73,6 @@
     onAppendExcerptToCurrent?: (
       excerpt: import('../../../shared/types').SourceExcerpt,
     ) => boolean;
-    /** Whether the host currently has an active note tab — used to
-     *  enable / disable the Append button. */
-    canAppendToCurrent?: boolean;
     /** Attach this excerpt as grounds/supports/rebuts evidence for a claim
      *  (#1073) — the host opens a role + claim picker and files a proposal. */
     onAttachEvidence?: (excerptId: string) => void;
@@ -79,16 +81,22 @@
      *  the note menus; since this source is the active tab, gatherContext
      *  picks up its body/metadata. */
     onInvokeTool?: (toolId: string) => void;
+  }
+
+  interface Props {
+    sourceId: string;
+    highlightExcerptId?: string | undefined;
+    ops: SourceDetailOps;
+    /** Whether the host currently has an active note tab — used to
+     *  enable / disable the Append button. */
+    canAppendToCurrent?: boolean;
     /** Mirror of the `numberedHeadings` editor setting (#1120), forwarded to
      *  the source body's Preview so it agrees with note previews. */
     numberedHeadings?: boolean;
   }
 
   let {
-    sourceId, highlightExcerptId, onNavigate, onShowConfirm, onShowPrompt, onDeleted,
-    onCreateAboutNote, onOpenReference, onResolveStub, onOpenPdf,
-    onCreateNoteFromExcerpt, onAppendExcerptToCurrent, canAppendToCurrent = false,
-    onAttachEvidence, onInvokeTool, numberedHeadings = false,
+    sourceId, highlightExcerptId, ops, canAppendToCurrent = false, numberedHeadings = false,
   }: Props = $props();
   let resolving = $state(false);
   let appendFlashId = $state<string | null>(null);
@@ -105,7 +113,7 @@
   const hasSourceTools = sourceToolGroups.some((g) => g.tools.length > 0);
   function invokeTool(tool: ThinkingToolInfo) {
     toolMenuOpen = false;
-    onInvokeTool?.(tool.id);
+    ops.onInvokeTool?.(tool.id);
   }
 
   // Element refs + bump-on-change revision for the density gutter (#102).
@@ -142,12 +150,12 @@
 
   async function handleRename() {
     if (!detail) return;
-    await renameSource(detail.metadata, onShowPrompt, () => load(sourceId));
+    await renameSource(detail.metadata, dialogs.showPrompt, () => load(sourceId));
   }
 
   async function handleDelete() {
     if (!detail) return;
-    await deleteSource(detail.metadata, onShowConfirm, () => onDeleted?.(sourceId));
+    await deleteSource(detail.metadata, dialogs.showConfirm, () => ops.onDeleted?.(sourceId));
   }
 
   // ── Tags (#766) ──────────────────────────────────────────────────────────
@@ -323,13 +331,13 @@
   }));
 
   async function createNoteFromExcerpt(excerpt: SourceExcerpt): Promise<void> {
-    if (!onCreateNoteFromExcerpt) return;
-    await onCreateNoteFromExcerpt(sourceId, excerpt);
+    if (!ops.onCreateNoteFromExcerpt) return;
+    await ops.onCreateNoteFromExcerpt(sourceId, excerpt);
   }
 
   function appendExcerptToCurrent(excerpt: SourceExcerpt): void {
-    if (!onAppendExcerptToCurrent) return;
-    const ok = onAppendExcerptToCurrent(excerpt);
+    if (!ops.onAppendExcerptToCurrent) return;
+    const ok = ops.onAppendExcerptToCurrent(excerpt);
     if (ok) {
       appendFlashId = excerpt.excerptId;
       setTimeout(() => { if (appendFlashId === excerpt.excerptId) appendFlashId = null; }, 1500);
@@ -398,10 +406,10 @@
 
   let creatingAbout = $state(false);
   async function handleNewAboutNote(): Promise<void> {
-    if (!onCreateAboutNote || creatingAbout) return;
+    if (!ops.onCreateAboutNote || creatingAbout) return;
     creatingAbout = true;
     try {
-      const newPath = await onCreateAboutNote(sourceId);
+      const newPath = await ops.onCreateAboutNote(sourceId);
       // The host opens the new note; we just refresh the detail view
       // so the new entry shows under Notes when the user navigates
       // back. (If they leave a tab open we may never come back here
@@ -426,7 +434,7 @@
     </div>
   {:else}
     <header class:stub={detail.metadata.stubStatus === 'unresolved'}>
-      {#if onInvokeTool && hasSourceTools}
+      {#if ops.onInvokeTool && hasSourceTools}
         <div class="tools-menu">
           <button class="tools-btn" onclick={() => (toolMenuOpen = !toolMenuOpen)} aria-haspopup="menu" aria-expanded={toolMenuOpen}>
             Tools <span class="caret"><Icon name="chevronDown" size={11} /></span>
@@ -481,11 +489,11 @@
           <button class="add-tag-btn" onclick={startAddTag}><Icon name="plus" size={11} /> tag</button>
         {/if}
       </div>
-      {#if detail.metadata.stubStatus === 'unresolved' && onResolveStub}
+      {#if detail.metadata.stubStatus === 'unresolved' && ops.onResolveStub}
         <button
           class="resolve-stub-btn"
           disabled={resolving}
-          onclick={() => onResolveStub?.(sourceId)}
+          onclick={() => ops.onResolveStub?.(sourceId)}
         >
           {resolving ? 'Resolving…' : 'Resolve to full source'}
         </button>
@@ -550,8 +558,8 @@
         </span>
       </div>
       <div class="actions">
-        {#if hasPdf && onOpenPdf}
-          <button class="action-btn" onclick={() => onOpenPdf(sourceId)}>Open original PDF</button>
+        {#if hasPdf && ops.onOpenPdf}
+          <button class="action-btn" onclick={() => ops.onOpenPdf?.(sourceId)}>Open original PDF</button>
         {/if}
         <button class="action-btn" onclick={handleRename}>Rename source</button>
         <button class="action-btn" onclick={handleDelete}>Delete source</button>
@@ -596,7 +604,7 @@
             bind:this={bodyViewEl}
             oncontextmenu={handleBodyContextMenu}
           >
-            <Preview content={bodyContent} onNavigate={onNavigate} {numberedHeadings} />
+            <Preview content={bodyContent} onNavigate={ops.onNavigate} {numberedHeadings} />
             {#if detail && detail.excerpts.length > 0}
               <ExcerptDensityGutter
                 host={bodyViewEl ?? null}
@@ -658,14 +666,14 @@
                   <span>{excerptLocation(excerpt)}</span>
                 {/if}
                 <span class="excerpt-actions">
-                  {#if onCreateNoteFromExcerpt}
+                  {#if ops.onCreateNoteFromExcerpt}
                     <button
                       class="excerpt-action"
                       onclick={() => { void createNoteFromExcerpt(excerpt); }}
                       title="Create a new note seeded with this quote"
                     >New note</button>
                   {/if}
-                  {#if onAppendExcerptToCurrent}
+                  {#if ops.onAppendExcerptToCurrent}
                     <button
                       class="excerpt-action"
                       disabled={!canAppendToCurrent}
@@ -675,10 +683,10 @@
                       {appendFlashId === excerpt.excerptId ? 'Appended ✓' : 'Append to current'}
                     </button>
                   {/if}
-                  {#if onAttachEvidence}
+                  {#if ops.onAttachEvidence}
                     <button
                       class="excerpt-action"
-                      onclick={() => onAttachEvidence?.(excerpt.excerptId)}
+                      onclick={() => ops.onAttachEvidence?.(excerpt.excerptId)}
                       title="Attach this excerpt as grounds/supports/rebuts evidence for a claim"
                     >Attach evidence…</button>
                   {/if}
@@ -693,7 +701,7 @@
     <section>
       <div class="section-header">
         <Eyebrow>Notes <span class="ct">{detail.aboutNotes.length}</span></Eyebrow>
-        {#if onCreateAboutNote}
+        {#if ops.onCreateAboutNote}
           <button class="section-action" disabled={creatingAbout} onclick={handleNewAboutNote}>
             {creatingAbout ? 'Creating…' : 'New note about this source'}
           </button>
@@ -704,7 +712,7 @@
       {:else}
         <NavList>
           {#each detail.aboutNotes as note (note.relativePath)}
-            <SourceLinkRow title={note.title} onClick={() => onNavigate(note.relativePath)}>
+            <SourceLinkRow title={note.title} onClick={() => ops.onNavigate(note.relativePath)}>
               {#snippet meta()}
                 <span class="about-path mono">{note.relativePath}</span>
               {/snippet}
@@ -721,7 +729,7 @@
           {#each detail.references as ref (ref.sourceId)}
             <SourceLinkRow
               title={ref.title}
-              onClick={() => onOpenReference?.(ref.sourceId)}
+              onClick={() => ops.onOpenReference?.(ref.sourceId)}
               stub={ref.stubStatus === 'unresolved'}
             >
               {#snippet meta()}
@@ -742,7 +750,7 @@
       {:else}
         <NavList>
           {#each detail.backlinks as b}
-            <SourceLinkRow title={b.title} onClick={() => onNavigate(b.relativePath)}>
+            <SourceLinkRow title={b.title} onClick={() => ops.onNavigate(b.relativePath)}>
               {#snippet meta()}
                 <span class="backlink-meta">
                   <span class="backlink-kind">{backlinkLabel(b)}</span>

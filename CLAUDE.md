@@ -78,6 +78,37 @@ Note what it can't tell you: it doesn't distinguish a real store from a
 passthrough, and it says nothing about whether a mutating channel ships a change
 event (a main-side question).
 
+#### Reducing prop drilling: read stores directly (#1922, #2049)
+
+The data-flow rule above says nothing about *how many* props a component
+takes to stay compliant — and a component whose host wires up a dozen
+individual callback props is compliant but hard to read. `Sidebar.svelte`
+(#1922) cut ~40 props to 3 this way, and it's the worked example:
+
+- **Reads are already allowed in components** — so a component with many
+  callback props can read the stores it needs directly instead
+  (`Sidebar.svelte:96-100` does this for `notebase`, `editorStore`,
+  `clipboard`, `dialogs`, `bookmarksStore`) rather than receiving every value
+  or dialog-opener as a prop from its host.
+- **Group what's left into a typed ops bag.** Callbacks that are genuine
+  App-level orchestration (opening a tab, navigating, filing a proposal) can't
+  be read from a store — the host still has to supply them. Rather than one
+  prop per callback, group them into an interface passed as a single prop
+  (`Sidebar.svelte:53-86`'s `SidebarFileOps`/`SidebarPanelOps`, `SourceDetail.svelte`'s
+  `SourceDetailOps`). The host still assembles the same functions; they just
+  arrive as one object literal instead of N named props (see
+  `App.svelte`'s `fileOps={{ ... }}` / `panelOps={{ ... }}` /
+  `ops={{ ... }}` call sites).
+- **When to reach for this:** a rough guide, not a hard rule — once a
+  component's callback-prop count climbs past ~15, it's worth asking whether
+  each one is a store mutation in disguise (read the store instead) or real
+  orchestration (goes in the ops bag) before adding a 16th.
+
+This is a complement to the mutation-routing rule above, not an exception to
+it: a component reading `dialogs.showConfirm()` directly is still "a store
+owns the mutation," it's just that the *component* is the one holding the
+store reference instead of threading it through a prop.
+
 #### Testing a store: mock the module, don't add a reset API (#1944)
 
 Store singletons under `stores/*.svelte.ts` deliberately do **not** get a
