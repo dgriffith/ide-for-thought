@@ -29,8 +29,7 @@ export async function runAutoTag(
   rootPath: string,
   relativePath: string,
 ): Promise<AutoTagPlan> {
-  graph.enterLLMContext();
-  try {
+  return graph.withLLMContext(async () => {
     const content = await notebaseFs.readFile(rootPath, relativePath);
     const parsed = parseMarkdown(content);
 
@@ -59,9 +58,7 @@ export async function runAutoTag(
     if (addedTags.length === 0) return { added: [], content: null };
 
     return { added: addedTags, content: next };
-  } finally {
-    graph.exitLLMContext();
-  }
+  });
 }
 
 export interface AutoTagApplyResult {

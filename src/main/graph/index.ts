@@ -67,11 +67,12 @@ export function disposeProject(ctx: ProjectContext): void {
   deleteState(ctx);
 }
 
-// ── LLM Write Guard (#671) ────────────────────────────────────────────────
+// ── LLM Write Guard (#671, converged onto AsyncLocalStorage in #2053) ──────
 // Extracted into ./write-guard.ts so it can be unit-tested in isolation. The
-// public enter/exit/is helpers are re-exported here so existing
-// `graph.enterLLMContext()` call sites (approval.ts, auto-link/auto-tag, ipc)
-// are unchanged; the indexers (./indexers) call `checkLLMWriteGuard` directly.
+// public with*Context/enter/exit/is helpers are re-exported here for the
+// approval engine (apply-dispatch.ts, proposal-persistence.ts) and the LLM
+// apply helpers (auto-tag/-link, set/source-properties, conversation IPC);
+// the indexers (./indexers) call `checkLLMWriteGuard` directly.
 export {
   enterLLMContext,
   exitLLMContext,
@@ -79,6 +80,7 @@ export {
   withLLMContext,
   enterTrustedContext,
   exitTrustedContext,
+  withTrustedContext,
 } from './write-guard';
 import { checkLLMWriteGuard } from './write-guard';
 

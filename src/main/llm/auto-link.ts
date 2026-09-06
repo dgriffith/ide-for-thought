@@ -99,8 +99,7 @@ export async function suggestLinksTo(
   rootPath: string,
   activeRelPath: string,
 ): Promise<AutoLinkSuggestResult> {
-  graph.enterLLMContext();
-  try {
+  return graph.withLLMContext(async () => {
     const activeContent = await notebaseFs.readFile(rootPath, activeRelPath);
     const parsed = parseMarkdown(activeContent);
     const activeBody = activeContent.replace(/^---\n[\s\S]*?\n---\n?/, '');
@@ -126,9 +125,7 @@ export async function suggestLinksTo(
     // body — otherwise the apply step would silently drop them anyway.
     const filtered = suggestions.filter((s) => activeBody.includes(s.anchorText));
     return { suggestions: filtered, candidateCount: candidates.length };
-  } finally {
-    graph.exitLLMContext();
-  }
+  });
 }
 
 /** Rewrites the active note with accepted suggestions. Returns the new content + bookkeeping. */
@@ -137,13 +134,10 @@ export async function applyAutoLinkToSuggestions(
   activeRelPath: string,
   accepted: AutoLinkSuggestion[],
 ): Promise<{ content: string; applied: AutoLinkSuggestion[]; skipped: AutoLinkSuggestion[] }> {
-  graph.enterLLMContext();
-  try {
+  return graph.withLLMContext(async () => {
     const current = await notebaseFs.readFile(rootPath, activeRelPath);
     return applyLinkInsertions(current, accepted);
-  } finally {
-    graph.exitLLMContext();
-  }
+  });
 }
 
 export interface FileAutoLinkResult {
@@ -273,12 +267,7 @@ export async function suggestLinksInbound(
   rootPath: string,
   activeRelPath: string,
 ): Promise<AutoLinkInboundResult> {
-  graph.enterLLMContext();
-  try {
-    return await suggestLinksInboundInner(rootPath, activeRelPath);
-  } finally {
-    graph.exitLLMContext();
-  }
+  return graph.withLLMContext(() => suggestLinksInboundInner(rootPath, activeRelPath));
 }
 
 async function suggestLinksInboundInner(
@@ -358,12 +347,7 @@ export async function applyInboundSuggestions(
   activeRelPath: string,
   accepted: AutoLinkInboundSuggestion[],
 ): Promise<ApplyInboundResult> {
-  graph.enterLLMContext();
-  try {
-    return await applyInboundSuggestionsInner(rootPath, activeRelPath, accepted);
-  } finally {
-    graph.exitLLMContext();
-  }
+  return graph.withLLMContext(() => applyInboundSuggestionsInner(rootPath, activeRelPath, accepted));
 }
 
 async function applyInboundSuggestionsInner(
