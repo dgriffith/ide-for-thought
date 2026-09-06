@@ -296,6 +296,29 @@ skipIfNoPython('python kernel (#241)', () => {
     }
   }
 
+  /**
+   * Rich-output environment gate (#2056, same reasoning as #1931): a missing
+   * pandas/matplotlib/PIL turns the corresponding test(s) below into
+   * `it.skip`, which reads as a pass in CI — so a runner-image change (or
+   * someone dropping the pip-install step) that removes one of these three
+   * would silently vanish the coverage with no signal. CI installs all three
+   * (see ci.yml's `lint-and-test` job) specifically so this can hard-assert.
+   * Local dev machines legitimately may not have these installed — Settings
+   * → Python Interpreter documents pointing at a venv that does
+   * (docs/packaging.md) — so this only hard-asserts under CI.
+   */
+  function assertModuleGate(mod: string): void {
+    if (!process.env.CI) {
+      expect.soft(true).toBe(true);
+      return;
+    }
+    expect(pyModuleAvailable(mod)).toBe(true);
+  }
+
+  it('pandas is available under CI so the DataFrame tests can run', () => { assertModuleGate('pandas'); });
+  it('matplotlib is available under CI so the Figure tests can run', () => { assertModuleGate('matplotlib'); });
+  it('PIL is available under CI so the Image test can run', () => { assertModuleGate('PIL'); });
+
   const skipIfNoPandas = pyModuleAvailable('pandas') ? it : it.skip;
   const skipIfNoMatplotlib = pyModuleAvailable('matplotlib') ? it : it.skip;
   const skipIfNoPil = pyModuleAvailable('PIL') ? it : it.skip;

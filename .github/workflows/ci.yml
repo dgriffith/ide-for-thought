@@ -71,6 +71,16 @@ jobs:
       - name: Check generated docs are up to date
         run: pnpm check:docs
 
+      # pandas/matplotlib/pillow back three real compute-notebook rich-output
+      # tests (python-kernel.test.ts: DataFrame → table, matplotlib Figure →
+      # image, PIL Image → image). They're optional for a *user's* Python
+      # interpreter (docs/packaging.md), but installing them here makes CI's
+      # coverage of that path deterministic instead of silently skipping
+      # (#2056) — the same reasoning `fetch-embedding-model.mjs`'s `pretest`
+      # hook applies to the embedding model.
+      - name: Install Python packages for compute rich-output tests
+        run: pip3 install --quiet pandas matplotlib pillow
+
       # `pnpm coverage` runs the full suite with v8 instrumentation and enforces
       # the per-area thresholds in vitest.config (src/shared, src/main/llm,
       # src/main/notebase) — so the trust + security paths can't silently
