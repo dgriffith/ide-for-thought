@@ -287,6 +287,25 @@ export default defineConfig({
           statements: 90,
           branches: 90,
         },
+        // A fifth case of the same shape (QA #2055): SHELL_OPEN_EXTERNAL's
+        // protocol allowlist ("don't let anyone coerce us into opening
+        // file://, javascript:, etc") had ZERO test references — not the
+        // allow path, not the reject path, not a malformed URL. The
+        // path-traversal-guarded handlers (SHELL_REVEAL_FILE et al.) had
+        // decent coverage from `register-shell.test.ts`, which hid that the
+        // file sat at 42.85% statements / 27.27% branches overall — this file
+        // has no directory of its own to share an aggregate with, so nothing
+        // surfaced the gap. Now 100% across the board via the expanded
+        // `register-shell.test.ts` (protocol allowlist, all three
+        // SHELL_OPEN_IN_TERMINAL platform branches including the Linux→xterm
+        // spawn-error fallback, and EXPORT_CSV's save-dialog + write path);
+        // floors sit just under.
+        'src/main/ipc/register-shell.ts': {
+          lines: 95,
+          functions: 95,
+          statements: 95,
+          branches: 90,
+        },
         // Neglected top-level main modules — previously unfenced (#1100 / QA
         // H1). These sit at `src/main/*.ts` (no directory of their own), so
         // each gets its own per-file floor set ~10pts below the measured-at-
