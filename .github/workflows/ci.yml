@@ -78,8 +78,12 @@ jobs:
       # coverage of that path deterministic instead of silently skipping
       # (#2056) — the same reasoning `fetch-embedding-model.mjs`'s `pretest`
       # hook applies to the embedding model.
+      # `--break-system-packages`: macos-latest's system python3 is a
+      # Homebrew install, which marks itself PEP 668 "externally managed" and
+      # refuses a bare `pip install`. Safe here — this VM is discarded after
+      # the job, so there's no "broken Homebrew" to worry about persisting.
       - name: Install Python packages for compute rich-output tests
-        run: pip3 install --quiet pandas matplotlib pillow
+        run: pip3 install --quiet --break-system-packages pandas matplotlib pillow
 
       # `pnpm coverage` runs the full suite with v8 instrumentation and enforces
       # the per-area thresholds in vitest.config (src/shared, src/main/llm,
