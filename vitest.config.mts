@@ -430,8 +430,8 @@ export default defineConfig({
         // (issue #2048): split the collections/smart-collections tree and the
         // reading-queue section out into CollectionsTree.svelte and
         // ReadingQueueSection.svelte (1298 → 789 lines). Neither extraction was
-        // itself exercised by SourcesPanel.test.ts's black-box render test, so
-        // — same shape as #1903/#1904's Editor.svelte/Preview.svelte
+        // itself exercised by SourcesPanel.test.ts's black-box render test at
+        // the time — same shape as #1903/#1904's Editor.svelte/Preview.svelte
         // extractions — removing the untested code raised the remaining file's
         // own ratio; floors sit ~8pts under the new measured.
         'src/renderer/lib/components/SourcesPanel.svelte': {
@@ -439,6 +439,34 @@ export default defineConfig({
           statements: 39,
           functions: 32,
           branches: 34,
+        },
+        // The two extractions above got their own dedicated tests (#2057),
+        // closing the gap #2057 named: a large split-out component with no
+        // per-file floor is exactly the "hides inside the aggregate" shape
+        // this whole block exists to catch.
+        //
+        // CollectionsTree.svelte ~89.5 L / 89.5 S / 92.9 F / 71.2 B (measured
+        // as % Stmts/Branch/Funcs/Lines above: 89.53/71.15/92.85/90.19). Was
+        // 27.19% statements / 13.46% branches before `CollectionsTree.test.ts`
+        // — the create/rename/delete flows for both manual and smart
+        // collections, and the smart-collection editor dialog (mounted for
+        // real, not mocked), had zero coverage of their own.
+        'src/renderer/lib/components/CollectionsTree.svelte': {
+          lines: 80,
+          statements: 78,
+          functions: 82,
+          branches: 60,
+        },
+        // ReadingQueueSection.svelte: 100% across the board via
+        // `ReadingQueueSection.test.ts` (was 93.18/37.5/92.3/92.3 from
+        // SourcesPanel.test.ts's incidental queue-view-click coverage alone;
+        // the collapse/expand toggle had no direct test). Floors sit just
+        // under so a regression can't quietly widen the gap again.
+        'src/renderer/lib/components/ReadingQueueSection.svelte': {
+          lines: 95,
+          statements: 95,
+          functions: 95,
+          branches: 90,
         },
         // SettingsDialog.svelte ~77.1 L / 80.8 S / 58.1 F / 47.8 B (the shell;
         // extracted panels carry their own tests + the #999/#1094 aggregate).
