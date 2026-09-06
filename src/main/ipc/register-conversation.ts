@@ -277,79 +277,79 @@ export function registerConversation(): void {
     // if the user reports "no log messages" again, this is missing too.
     logger('conversation').info(`${userMessage === null ? 'RETRY' : 'SEND'} start: conv=${convId} userMsgLen=${userMessage?.length ?? 0}`);
 
-    graph.enterLLMContext();
     try {
-      if (!rootPath) {
-        throw new Error('No thoughtbase is open — cannot send conversation message.');
-      }
-      const conv = userMessage === null
-        ? await conversation.load(rootPath, convId)
-        : await conversation.appendMessage(rootPath, convId, 'user', userMessage);
-      if (!conv) throw new Error(`Conversation not found: ${convId}`);
+      return await graph.withLLMContext(async () => {
+        if (!rootPath) {
+          throw new Error('No thoughtbase is open — cannot send conversation message.');
+        }
+        const conv = userMessage === null
+          ? await conversation.load(rootPath, convId)
+          : await conversation.appendMessage(rootPath, convId, 'user', userMessage);
+        if (!conv) throw new Error(`Conversation not found: ${convId}`);
 
-      const { completeWithTools } = await import('../llm/index');
-      const messages = conv.messages
-        .filter(m => m.role !== 'system')
-        .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+        const { completeWithTools } = await import('../llm/index');
+        const messages = conv.messages
+          .filter(m => m.role !== 'system')
+          .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
 
-      const effectiveSystem = await buildConversationSystemPrompt(
-        systemPrompt ?? conv.systemPrompt,
-        conv.contextBundle,
-        currentNotePath,
-        rootPath,
-      );
+        const effectiveSystem = await buildConversationSystemPrompt(
+          systemPrompt ?? conv.systemPrompt,
+          conv.contextBundle,
+          currentNotePath,
+          rootPath,
+        );
 
-      // Every draft kind shares one streaming callback set; the divergent
-      // per-kind work is in the CONVERSATION_FILE_*_DRAFT handlers, not here (#980).
-      const streamCallbacks = buildStreamCallbacks(win, convId, controller.signal, pendingAskUser);
+        // Every draft kind shares one streaming callback set; the divergent
+        // per-kind work is in the CONVERSATION_FILE_*_DRAFT handlers, not here (#980).
+        const streamCallbacks = buildStreamCallbacks(win, convId, controller.signal, pendingAskUser);
 
-      // Per-conversation web override (#1533): when the conversation pins web
-      // on/off, send it as a `web` override — completeWithTools merges it over
-      // the global setting, so the user's allow/block domain lists still apply.
-      const webOverride =
-        conv.webEnabled !== undefined ? { web: { enabled: conv.webEnabled } } : {};
+        // Per-conversation web override (#1533): when the conversation pins web
+        // on/off, send it as a `web` override — completeWithTools merges it over
+        // the global setting, so the user's allow/block domain lists still apply.
+        const webOverride =
+          conv.webEnabled !== undefined ? { web: { enabled: conv.webEnabled } } : {};
 
-      const result = await runCompletionWithContainerRecovery(
-        completeWithTools,
-        rootPath,
-        convId,
-        {
-          system: effectiveSystem,
-          toolContext: { rootPath, conversationId: convId },
-          model: conv.model,
-          effort: conv.effort,
-          extraTools,
-          ...webOverride,
-        },
-        messages,
-        conv.containerId,
-        streamCallbacks,
-      );
-
-      const updated = await conversation.appendMessage(
-        rootPath,
-        convId,
-        'assistant',
-        result.text,
-        { citations: result.citations, usage: result.usage, usageModel: result.usageModel },
-      );
-      // Persist the (possibly updated) container id so the next turn
-      // for this conversation can echo it. We write unconditionally
-      // — even if the id is unchanged — because conversation.load /
-      // appendMessage above don't preserve fields completeWithTools
-      // can update mid-turn.
-      if (result.containerId) {
-        await conversation.setContainerId(
+        const result = await runCompletionWithContainerRecovery(
+          completeWithTools,
           rootPath,
           convId,
-          result.containerId,
-          result.containerExpiresAt,
+          {
+            system: effectiveSystem,
+            toolContext: { rootPath, conversationId: convId },
+            model: conv.model,
+            effort: conv.effort,
+            extraTools,
+            ...webOverride,
+          },
+          messages,
+          conv.containerId,
+          streamCallbacks,
         );
-      }
-      return updated;
+
+        const updated = await conversation.appendMessage(
+          rootPath,
+          convId,
+          'assistant',
+          result.text,
+          { citations: result.citations, usage: result.usage, usageModel: result.usageModel },
+        );
+        // Persist the (possibly updated) container id so the next turn
+        // for this conversation can echo it. We write unconditionally
+        // — even if the id is unchanged — because conversation.load /
+        // appendMessage above don't preserve fields completeWithTools
+        // can update mid-turn.
+        if (result.containerId) {
+          await conversation.setContainerId(
+            rootPath,
+            convId,
+            result.containerId,
+            result.containerExpiresAt,
+          );
+        }
+        return updated;
+      });
     } finally {
       convAbortControllers.delete(win.id);
-      graph.exitLLMContext();
     }
   };
 

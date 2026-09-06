@@ -10,12 +10,12 @@
  * conversation store, the approval engine, the graph LLM-context guard) and
  * asserts the trust-critical behavior:
  *
- *   - SEND runs inside the graph LLM context (enter/exit), and exits even on error;
+ *   - SEND runs inside the graph LLM context (withLLMContext), even on error;
  *   - SEND retries once on the API's `container_id is required` 400;
  *   - aborting a send rejects a pending `ask_user` prompt;
  *   - a conversation draft is filed via `proposeWrite` and auto-approved.
  *
- * A regression that dropped the `enterLLMContext` wrap, the retry, or the
+ * A regression that dropped the `withLLMContext` wrap, the retry, or the
  * proposeWrite/approve dispatch now fails here instead of silently at runtime.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -29,8 +29,7 @@ const h = vi.hoisted(() => {
   return {
     handlers,
     fakeWin,
-    enterLLMContext: vi.fn(),
-    exitLLMContext: vi.fn(),
+    withLLMContext: vi.fn((fn: () => unknown) => fn()),
     completeWithTools: vi.fn(),
     complete: vi.fn(),
     appendMessage: vi.fn(),
@@ -81,9 +80,7 @@ vi.mock('../../../src/main/ipc/helpers', () => ({
 
 // graph: only the LLM-context guard is exercised here.
 vi.mock('../../../src/main/graph/index', () => ({
-  enterLLMContext: h.enterLLMContext,
-  exitLLMContext: h.exitLLMContext,
-  withLLMContext: (fn: () => unknown) => fn(),
+  withLLMContext: h.withLLMContext,
 }));
 
 // The LLM client (dynamically imported inside the handler).
@@ -213,7 +210,7 @@ describe('CONVERSATION_SEND (#1612)', () => {
 
     await send(evt, 'conv-1', 'hello');
 
-    expect(h.enterLLMContext).toHaveBeenCalledTimes(1);
+    expect(h.withLLMContext).toHaveBeenCalledTimes(1);
     expect(h.completeWithTools).toHaveBeenCalledTimes(1);
     expect(h.completeWithTools.mock.calls[0]![0]).toMatchObject({
       toolContext: { rootPath: '/root', conversationId: 'conv-1' },
@@ -226,8 +223,8 @@ describe('CONVERSATION_SEND (#1612)', () => {
        '/root', 'conv-1', 'assistant', 'assistant reply',
       expect.objectContaining({ usageModel: 'claude-x' }),
     );
-    // Context released in the finally.
-    expect(h.exitLLMContext).toHaveBeenCalledTimes(1);
+    // withLLMContext wraps the whole handler exactly once.
+    expect(h.withLLMContext).toHaveBeenCalledTimes(1);
   });
 
   it('retries once, stripping the container id, on the API container_id 400', async () => {
@@ -240,7 +237,7 @@ describe('CONVERSATION_SEND (#1612)', () => {
     expect(h.completeWithTools).toHaveBeenCalledTimes(2);
     // The stale/absent container id is cleared before the retry.
     expect(h.setContainerId).toHaveBeenCalledWith('/root', 'conv-1', undefined, undefined);
-    expect(h.exitLLMContext).toHaveBeenCalledTimes(1);
+    expect(h.withLLMContext).toHaveBeenCalledTimes(1);
   });
 
   it('re-throws a non-container error but still exits the LLM context', async () => {
@@ -249,7 +246,7 @@ describe('CONVERSATION_SEND (#1612)', () => {
     await expect(send(evt, 'conv-1', 'hello')).rejects.toThrow('some other API failure');
 
     expect(h.completeWithTools).toHaveBeenCalledTimes(1); // no retry for a non-container error
-    expect(h.exitLLMContext).toHaveBeenCalledTimes(1);    // finally still ran
+    expect(h.withLLMContext).toHaveBeenCalledTimes(1);    // ran (and rejected) exactly once
   });
 
   it('rejects a pending ask_user prompt when the send is aborted', async () => {
@@ -408,8 +405,7 @@ describe('CONVERSATION_RETRY (#1804)', () => {
 
     await expect(retry(evt, 'conv-1')).rejects.toThrow('overloaded');
 
-    expect(h.enterLLMContext).toHaveBeenCalledTimes(1);
-    expect(h.exitLLMContext).toHaveBeenCalledTimes(1);
+    expect(h.withLLMContext).toHaveBeenCalledTimes(1);
   });
 
   it('throws rather than silently no-opping when the conversation is gone', async () => {

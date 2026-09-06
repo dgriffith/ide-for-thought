@@ -13,7 +13,7 @@
  * (NOTEBASE_REWRITTEN), mirroring the approval engine's own seam.
  */
 import * as notebaseFs from '../notebase/fs';
-import { enterLLMContext, exitLLMContext } from '../graph/index';
+import { withLLMContext } from '../graph/index';
 import { projectContext } from '../project-context-types';
 import { proposeWrite, approveProposal } from './approval';
 import { patchFrontmatterProperties } from '../../shared/refactor/frontmatter-patch';
@@ -42,58 +42,55 @@ export async function applyPropertyUpdates(
   // Arm the trust guard (#944): a direct graph write below that skips the
   // approval engine trips checkLLMWriteGuard (surfaced per-note as an error
   // outcome via the existing try/catch, which the tests assert against).
-  enterLLMContext();
-  try {
-  for (const u of updates) {
-    try {
-      if (!u.properties || typeof u.properties !== 'object' || Object.keys(u.properties).length === 0) {
-        // Don't silently produce a no-op outcome — that's what hid the original
-        // cross-IPC serialization bug. Surface it as an explicit error so the
-        // user sees something on the Filed line and the log captures the payload.
+  await withLLMContext(async () => {
+    for (const u of updates) {
+      try {
+        if (!u.properties || typeof u.properties !== 'object' || Object.keys(u.properties).length === 0) {
+          // Don't silently produce a no-op outcome — that's what hid the original
+          // cross-IPC serialization bug. Surface it as an explicit error so the
+          // user sees something on the Filed line and the log captures the payload.
+          outcomes.push({
+            relativePath: u.relativePath,
+            changedKeys: [],
+            deletedKeys: [],
+            error: 'properties payload arrived empty across IPC — frontmatter not written.',
+          });
+          continue;
+        }
+        const before = await notebaseFs.readFile(rootPath, u.relativePath);
+        const result = patchFrontmatterProperties(before, u.properties);
+        if (result.changedKeys.length > 0) {
+          // Route through the approval engine. The user already reviewed the
+          // property draft card, so approve immediately; a thought:Proposal is
+          // still filed as the audit record.
+          const proposal = await proposeWrite(ctx, {
+            operationType: 'note_rewrite',
+            payloads: [{ kind: 'note-rewrite', path: u.relativePath, content: result.content }],
+            note: `Set properties on ${u.relativePath}: ${result.changedKeys.join(', ')}`,
+            conversationUri: `https://minerva.dev/ontology/thought#conversation/${conversationId}`,
+            proposedBy: `llm:conversation:${conversationId}`,
+          });
+          if (proposal) {
+            const applied = await approveProposal(ctx, proposal.uri);
+            rewrittenPaths.push(...applied.rewrittenPaths);
+          }
+        }
+        outcomes.push({
+          relativePath: u.relativePath,
+          changedKeys: result.changedKeys,
+          deletedKeys: result.deletedKeys,
+        });
+      } catch (err) {
+        logger('set-properties').warn(`patch failed for`, u.relativePath, err);
         outcomes.push({
           relativePath: u.relativePath,
           changedKeys: [],
           deletedKeys: [],
-          error: 'properties payload arrived empty across IPC — frontmatter not written.',
+          error: err instanceof Error ? err.message : String(err),
         });
-        continue;
       }
-      const before = await notebaseFs.readFile(rootPath, u.relativePath);
-      const result = patchFrontmatterProperties(before, u.properties);
-      if (result.changedKeys.length > 0) {
-        // Route through the approval engine. The user already reviewed the
-        // property draft card, so approve immediately; a thought:Proposal is
-        // still filed as the audit record.
-        const proposal = await proposeWrite(ctx, {
-          operationType: 'note_rewrite',
-          payloads: [{ kind: 'note-rewrite', path: u.relativePath, content: result.content }],
-          note: `Set properties on ${u.relativePath}: ${result.changedKeys.join(', ')}`,
-          conversationUri: `https://minerva.dev/ontology/thought#conversation/${conversationId}`,
-          proposedBy: `llm:conversation:${conversationId}`,
-        });
-        if (proposal) {
-          const applied = await approveProposal(ctx, proposal.uri);
-          rewrittenPaths.push(...applied.rewrittenPaths);
-        }
-      }
-      outcomes.push({
-        relativePath: u.relativePath,
-        changedKeys: result.changedKeys,
-        deletedKeys: result.deletedKeys,
-      });
-    } catch (err) {
-      logger('set-properties').warn(`patch failed for`, u.relativePath, err);
-      outcomes.push({
-        relativePath: u.relativePath,
-        changedKeys: [],
-        deletedKeys: [],
-        error: err instanceof Error ? err.message : String(err),
-      });
     }
-  }
-  } finally {
-    exitLLMContext();
-  }
+  });
 
   return { outcomes, rewrittenPaths };
 }

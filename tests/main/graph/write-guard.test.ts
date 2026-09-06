@@ -12,8 +12,12 @@ import {
   exitTrustedContext,
   isInTrustedContext,
   checkLLMWriteGuard,
+  withLLMContext,
+  withTrustedContext,
   __resetWriteGuardForTests,
 } from '../../../src/main/graph/write-guard';
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 beforeEach(() => __resetWriteGuardForTests());
 afterEach(() => __resetWriteGuardForTests());
@@ -87,5 +91,63 @@ describe('checkLLMWriteGuard behaviour (fatal under test, #944)', () => {
     expect(() => checkLLMWriteGuard('indexSource')).not.toThrow();
     exitTrustedContext();
     expect(() => checkLLMWriteGuard('indexSource')).toThrow(/\[trust-guard\]/);
+  });
+});
+
+describe('async-context isolation between concurrent operations (#2053)', () => {
+  // The bug #2053 fixes: a plain module-global counter is shared by EVERY
+  // concurrent call path. Two operations in flight at once — an LLM
+  // operation and a concurrent approval-engine apply, say — would share the
+  // same counter, so one path's context window could mask or falsely trip
+  // the guard for a completely unrelated path. These would FAIL against the
+  // pre-#2053 module-global implementation; they pass now because
+  // AsyncLocalStorage gives each root-level async call tree its own depth.
+
+  it('does not leak isInLLMContext across a concurrent unrelated operation', async () => {
+    const seenInsideWrapped = { value: false };
+    const seenInsideBare = { value: true }; // starts wrong; only false proves isolation
+
+    await Promise.all([
+      withLLMContext(async () => {
+        await sleep(20);
+        seenInsideWrapped.value = isInLLMContext();
+      }),
+      (async () => {
+        // A totally unrelated concurrent operation, mid-flight while the LLM
+        // operation above is still awaiting — never entered any context.
+        await sleep(5);
+        seenInsideBare.value = isInLLMContext();
+      })(),
+    ]);
+
+    expect(seenInsideWrapped.value).toBe(true);
+    expect(seenInsideBare.value).toBe(false);
+  });
+
+  it('does not let a concurrent trusted-context operation mask an unrelated LLM-context bypass', async () => {
+    let bypassWasCaught = false;
+
+    await Promise.all([
+      // Simulates a concurrent approval-engine apply holding trusted context
+      // open across an await (exactly applyBundle's shape, which itself uses
+      // withTrustedContext — using it here too, not the imperative pair,
+      // since that's what closes this gap: see write-guard.ts's docstring).
+      withTrustedContext(async () => {
+        await sleep(20);
+      }),
+      // A completely unrelated LLM-context write that bypasses the approval
+      // engine. Under the old shared counter, op A's concurrent trusted
+      // context would have masked this — the guard would have stayed silent.
+      withLLMContext(async () => {
+        await sleep(5);
+        try {
+          checkLLMWriteGuard('indexNote');
+        } catch {
+          bypassWasCaught = true;
+        }
+      }),
+    ]);
+
+    expect(bypassWasCaught).toBe(true);
   });
 });

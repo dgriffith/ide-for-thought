@@ -95,32 +95,31 @@ export async function applyBundle(ctx: ProjectContext, payloads: ProposalPayload
   // indexNote / indexSource / indexExcerpt — are exempt from the trust guard
   // even when the caller is in LLM context (e.g. an approve-handler wrapped in
   // enterLLMContext so the guard is armed on its non-approval writes, #944).
-  graph.enterTrustedContext();
-  const applied: AppliedRecord[] = [];
-  try {
-    for (const p of ordered) {
-      const handler = HANDLERS.get(p.kind);
-      if (!handler) {
-        throw new Error(
-          `Approval payload kind "${p.kind}" not yet wired (#418 ships graph-triples + note; later kinds land as needed).`,
-        );
+  return graph.withTrustedContext(async () => {
+    const applied: AppliedRecord[] = [];
+    try {
+      for (const p of ordered) {
+        const handler = HANDLERS.get(p.kind);
+        if (!handler) {
+          throw new Error(
+            `Approval payload kind "${p.kind}" not yet wired (#418 ships graph-triples + note; later kinds land as needed).`,
+          );
+        }
+        const rollbackData = await handler.apply(ctx, p);
+        applied.push({ kind: p.kind, rollbackData });
       }
-      const rollbackData = await handler.apply(ctx, p);
-      applied.push({ kind: p.kind, rollbackData });
+      return applied;
+    } catch (err) {
+      // Reverse-order rollback. Best-effort — log but don't mask the
+      // original error.
+      for (const a of [...applied].reverse()) {
+        const handler = HANDLERS.get(a.kind);
+        try { await handler?.rollback(ctx, a.rollbackData); }
+        catch (rollbackErr) { logger('approval').warn(`rollback of ${a.kind} failed:`, rollbackErr); }
+      }
+      throw err;
     }
-    return applied;
-  } catch (err) {
-    // Reverse-order rollback. Best-effort — log but don't mask the
-    // original error.
-    for (const a of [...applied].reverse()) {
-      const handler = HANDLERS.get(a.kind);
-      try { await handler?.rollback(ctx, a.rollbackData); }
-      catch (rollbackErr) { logger('approval').warn(`rollback of ${a.kind} failed:`, rollbackErr); }
-    }
-    throw err;
-  } finally {
-    graph.exitTrustedContext();
-  }
+  });
 }
 
 // ── Handlers ─────────────────────────────────────────────────────────────────

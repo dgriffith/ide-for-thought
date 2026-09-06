@@ -190,12 +190,9 @@ export async function updateProposalStatus(ctx: ProjectContext, uri: string, new
   // before adding the new one — otherwise the proposal accumulates
   // {pending, approved, ...} markers and history queries return all
   // historical states (#332).
-  graph.enterTrustedContext();
-  try {
+  graph.withTrustedContext(() => {
     graph.removeMatchingTriples(ctx, uri, `${THOUGHT}proposalStatus`);
-  } finally {
-    graph.exitTrustedContext();
-  }
+  });
   await applyTurtle(ctx, `<${uri}> thought:proposalStatus thought:${newStatus} .`);
 }
 
@@ -222,12 +219,9 @@ export async function applyTurtle(ctx: ProjectContext, turtle: string): Promise<
   // Approval-engine writes are the *only* in-LLM-context writes that
   // shouldn't trip the trust guard. Everything else flowing through
   // parseIntoStore from an LLM call site is a bug we want to know about.
-  graph.enterTrustedContext();
-  try {
+  graph.withTrustedContext(() => {
     graph.parseIntoStore(ctx, prefixed);
-  } finally {
-    graph.exitTrustedContext();
-  }
+  });
   await graph.persistGraph(ctx);
 }
 
