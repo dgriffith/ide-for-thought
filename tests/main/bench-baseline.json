@@ -1,5 +1,5 @@
 {
-  "_comment": "Committed benchmark baseline (#1099). The Bench workflow fails when a benchmark runs >`tolerance`x slower than its `mean` here. Regenerate on the macos-latest Bench runner (dispatch with update_baseline=true, or `pnpm bench:baseline` locally) and commit the diff — mean/hz refresh, the hand-set fields below are preserved. `budgetMs`: optional absolute ceiling in ms (a scale-envelope gate) applied on top of the ratio check. `tolerance`: optional per-benchmark override of the top-level ratio gate below — tighten it (e.g. 1.3) once a bench has demonstrated low run-to-run variance, so its slack matches its actual noise instead of the noisiest bench in the file (#1945). `gate: false`: track for week-over-week diffing but never fail on it — for inherently high-variance benches. (The 5k-note indexAllNotes bench was gate:false while it was GC-dominated & ±215%; #1473 removed the O(N²) link-resolution churn — it's now ~1.2s at ±<1%, so it's gated again, with a 1800ms budgetMs ceiling and 1.3x tolerance to match. The two queryGraph cache-hit benches are similarly low-variance and share the tighter 1.3x.)",
+  "_comment": "Committed benchmark baseline (#1099). The Bench workflow fails when a benchmark runs >`tolerance`x slower than its `mean` here. Regenerate on the macos-latest Bench runner (dispatch with update_baseline=true, or `pnpm bench:baseline` locally) and commit the diff — mean/hz refresh, the hand-set fields below are preserved. `budgetMs`: optional absolute ceiling in ms (a scale-envelope gate) applied on top of the ratio check. `tolerance`: optional per-benchmark override of the top-level ratio gate below — tighten it (e.g. 1.3) once a bench has demonstrated low run-to-run variance, so its slack matches its actual noise instead of the noisiest bench in the file (#1945). `gate: false`: track for week-over-week diffing but never fail on it — for inherently high-variance benches. (The 5k-note indexAllNotes bench was gate:false while it was GC-dominated & ±215%; #1473 removed the O(N²) link-resolution churn — it's now ~1.2s at ±<1%, so it's gated again, with a 1800ms budgetMs ceiling and 1.3x tolerance to match. The two queryGraph cache-hit benches are similarly low-variance and share the tighter 1.3x. The 500/2000-note indexAllNotes benches gained 220ms/750ms budgetMs ceilings too (#2059) — ~1.5x their committed means, i.e. meaningfully tighter than the 2x file-level ratio gate alone would allow, closing the gap where a slowdown to just under 2x would otherwise still pass; kept at the file-level 2x tolerance rather than tightened to 1.3x like the 5k-note bench, since these two haven't independently demonstrated the low run-to-run variance that justified tightening that one.)",
   "tolerance": 2,
   "benchmarks": [
     {
@@ -12,13 +12,13 @@
       "name": "indexAllNotes: 2000 notes from scratch",
       "mean": 492.78,
       "hz": 2.03,
-      "budgetMs": null
+      "budgetMs": 750
     },
     {
       "name": "indexAllNotes: 500 notes from scratch",
       "mean": 144.75,
       "hz": 6.91,
-      "budgetMs": null
+      "budgetMs": 220
     },
     {
       "name": "indexAllNotes: 5000 notes from scratch",
