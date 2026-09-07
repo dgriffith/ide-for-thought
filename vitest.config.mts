@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitest/config';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { svelteTesting } from '@testing-library/svelte/vite';
+import { skipReporter } from './scripts/vitest-skip-reporter.mjs';
 
 export default defineConfig({
   // Svelte + testing-library plugins let vitest transform `.svelte`
@@ -19,6 +20,10 @@ export default defineConfig({
   ],
   test: {
     include: ['tests/**/*.test.ts'],
+    // `default` is the familiar concise summary; `skipReporter` (#2061) adds
+    // the one thing it's missing — naming any skipped test, so "1 skipped"
+    // never requires a `--reporter=verbose` re-run to identify.
+    reporters: ['default', skipReporter],
     // Unified timeout for both `pnpm test` and `pnpm coverage`. Some tests
     // (e.g., watcher, chokidar waits, network probes) need >5s to avoid flakes;
     // 30s provides enough headroom without being overly lenient (#1942).
