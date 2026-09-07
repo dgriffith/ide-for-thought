@@ -228,6 +228,41 @@ const NO_PROJECT_UNDEFINED_BASELINE: Record<string, number> = {
   'src/main/ipc/register-shell.ts': 3,
 };
 
+// ── Ratchet 5: in-band error? on an otherwise-normal payload ────────────────
+
+/**
+ * A `Promise<{ ... error?: ... }>` return type — an optional `error` field
+ * bolted onto what otherwise reads as a plain success payload, instead of the
+ * discriminated `{ ok: false; error }` union CLAUDE.md rule 3 asks for. The
+ * caller has to remember to check `result.error` even though nothing about
+ * the type says a truthy `results`/`columns` might still be garbage.
+ *
+ * Scoped to the `Promise<{...}>` inline-return-type shape specifically,
+ * rather than any `error?:` field anywhere — `error?:` alone also shows up
+ * on legitimate shapes this isn't about: a per-item outcome catalog entry
+ * (CLAUDE.md rule 4 — `compute/audit.ts`'s audit-record `error?`, not a live
+ * call's return value), internal worker/cell bookkeeping
+ * (`compute/python-kernel.ts`'s `PendingCell`), and a modeled *external* SDK
+ * error shape we don't control (`llm/classify-error.ts`). Narrowing to the
+ * inline `Promise<{...}>` shape catches exactly the IPC-return-type instance
+ * this anti-pattern is about and skips all four of those without an
+ * allowlist — measured directly (#2060).
+ */
+const IN_BAND_ERROR_ON_PAYLOAD = /Promise<\s*\{[^{}]*\berror\?:[^{}]*\}\s*>/g;
+
+/**
+ * CLAUDE.md's own migration backlog names exactly one open instance:
+ * `GRAPH_QUERY` (`{ results, columns, error? }` should match `TABLES_QUERY`'s
+ * `{ ok:false; error }` shape). `attach-evidence.ts`'s `AttachEvidenceResult`
+ * is a NAMED interface, not an inline `Promise<{...}>`, so it doesn't match
+ * this ratchet's regex — it's a related but distinct half-migrated shape
+ * (it already carries an `ok` field, just doesn't use it as a real TS
+ * discriminant) worth its own look someday, not conflated with this one.
+ */
+const IN_BAND_ERROR_ON_PAYLOAD_BASELINE: Record<string, number> = {
+  'src/main/graph/queries/sparql.ts': 1,
+};
+
 describe('known-bad pattern ratchets (#1848)', () => {
   it('the scanners still find things — a broken regex would pass vacuously', () => {
     // The failure mode that would quietly turn all ratchets into decoration.
@@ -235,6 +270,7 @@ describe('known-bad pattern ratchets (#1848)', () => {
     expect(Object.keys(countPerFile('src/main', NO_PROJECT_NULL)).length).toBeGreaterThan(0);
     expect(Object.keys(countPerFile('src/main', BOOLEAN_OVERLOAD)).length).toBeGreaterThan(0);
     expect(Object.keys(countPerFile('src/main', NO_PROJECT_UNDEFINED)).length).toBeGreaterThan(0);
+    expect(Object.keys(countPerFile('src/main', IN_BAND_ERROR_ON_PAYLOAD)).length).toBeGreaterThan(0);
   });
 
   it('swallowed errors: no new ones', () => {
@@ -280,6 +316,18 @@ describe('known-bad pattern ratchets (#1848)', () => {
       'Use `withRootPath` so "no project open" throws instead of resolving as `undefined` — ' +
       'indistinguishable from a void-returning handler\'s own success (#1894). `withRootPathOr` ' +
       'is for handlers whose project-less answer is a legitimate value, not a way to signal failure.',
+    );
+  });
+
+  it('in-band error? on an otherwise-normal payload: no new ones', () => {
+    assertRatchet(
+      'in-band error? (Promise<{ ... error?: ... }>)',
+      IN_BAND_ERROR_ON_PAYLOAD_BASELINE,
+      countPerFile('src/main', IN_BAND_ERROR_ON_PAYLOAD),
+      'An optional `error` field on what otherwise reads as a plain success payload means every ' +
+      'caller has to remember to check it even though the type doesn\'t say a truthy payload might ' +
+      'still be garbage. Use the discriminated `{ ok: false; error } | { ok: true; ... }` union from ' +
+      'CLAUDE.md IPC error handling rule 3 instead — see `TABLES_QUERY`\'s `{ ok, ... }` shape.',
     );
   });
 });
