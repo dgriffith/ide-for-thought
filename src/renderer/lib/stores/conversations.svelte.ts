@@ -1,4 +1,5 @@
 import { api } from '../ipc/client';
+import { plainSnapshot } from '../ipc/plain-snapshot';
 import { getConversationsSettings } from '../conversations/settings';
 import { ensureComputeConsent } from '../compute/run-cell-with-trust';
 import { getDialogStore } from './dialogs.svelte';
@@ -46,21 +47,6 @@ import {
   isCancellation,
   type LlmFailureKind,
 } from '../../../shared/llm-errors';
-
-/**
- * Plain deep clone for the IPC boundary. Every draft payload sent renderer→main
- * must be detached from Svelte's reactive `$state` proxies first — Electron's
- * structured clone rejects them. A JSON round-trip is the one safe snapshot for
- * all of them: unlike `$state.snapshot`, it strips any lingering Proxy wrapping
- * unconditionally and survives dynamic-key payloads (the `PropertyUpdate` inner
- * `Record<string, unknown>` once arrived empty on the main side after
- * `$state.snapshot` → structured-clone — the "set_properties approved but no
- * frontmatter landed" bug). Drafts are disk-persisted as JSON, so the round-trip
- * is lossless. (#1629)
- */
-function plainSnapshot<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value)) as T;
-}
 
 /**
  * Multi-tab conversations store backing the bottom-docked tool window.
