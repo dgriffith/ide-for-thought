@@ -27,6 +27,15 @@ export interface ProviderMeta {
   envVar: string | null;
   /** Whether a request needs an API key (local endpoints often don't). */
   requiresKey: boolean;
+  /**
+   * Show an optional API-key field even though `requiresKey` is false (#2095).
+   * Most local servers (Ollama, LM Studio) are keyless, but a hosted
+   * OpenAI-compatible gateway reached through the same `local` provider —
+   * OpenRouter, Together — requires one. `requiresKey` stays false (the call
+   * path must keep working with no key at all), this only controls whether
+   * the settings UI renders somewhere to put one.
+   */
+  keyOptional?: boolean;
   /** Whether the user configures a custom base URL (surfaced in settings). */
   usesBaseURL: boolean;
   /** Suggested base URL when `usesBaseURL` (Ollama's default). */
@@ -60,6 +69,7 @@ export const PROVIDERS: Record<ProviderId, ProviderMeta> = {
     label: 'Local / OpenAI-compatible',
     envVar: null,
     requiresKey: false,
+    keyOptional: true,
     usesBaseURL: true,
     defaultBaseURL: 'http://localhost:11434/v1',
   },

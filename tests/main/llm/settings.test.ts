@@ -204,6 +204,20 @@ describe('llm settings — API key at-rest encryption (#1326)', () => {
       await saveSettings({ model: base.model, providers: { local: { baseURL: 'http://localhost:11434/v1' } } });
       expect((await getSettings()).providers.local?.baseURL).toBe('http://localhost:11434/v1');
       expect((await getSettingsForDisplay()).providers.local?.hasApiKey).toBe(true); // keyless, but has an endpoint
+      // keyStored tracks a literal stored key, independent of hasApiKey — no
+      // key was saved here, only a base URL (#2095).
+      expect((await getSettingsForDisplay()).providers.local?.keyStored).toBe(false);
+    });
+
+    it('persists an optional local key for a hosted OpenAI-compatible gateway (#2095)', async () => {
+      await saveSettings({
+        model: base.model,
+        providers: { local: { baseURL: 'https://openrouter.ai/api/v1', apiKey: 'sk-or-typed' } },
+      });
+      expect((await getSettings()).providers.local?.apiKey).toBe('sk-or-typed');
+      const view = await getSettingsForDisplay();
+      expect(view.providers.local?.hasApiKey).toBe(true);
+      expect(view.providers.local?.keyStored).toBe(true);
     });
 
     it('getApiKeyStorage targets the requested provider', async () => {

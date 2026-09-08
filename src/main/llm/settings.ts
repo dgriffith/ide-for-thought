@@ -167,7 +167,7 @@ function providerViews(stored: Partial<Record<ProviderId, StoredCreds>>): Partia
     const hasEnvKey = s && typeof s.apiKey === 'string' ? false : !!envKeyFor(id);
     const meta = PROVIDERS[id];
     const hasApiKey = meta.requiresKey ? (hasStoredKey || hasEnvKey) : !!s?.baseURL;
-    const view: ProviderConfigView = { hasApiKey };
+    const view: ProviderConfigView = { hasApiKey, keyStored: hasStoredKey || hasEnvKey };
     if (s?.baseURL) view.baseURL = s.baseURL;
     out[id] = view;
   }

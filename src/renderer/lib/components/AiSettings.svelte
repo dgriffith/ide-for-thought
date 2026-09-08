@@ -157,14 +157,14 @@
   <div class="provider-section">
     <div class="provider-head">{meta.label}</div>
 
-    {#if meta.requiresKey}
+    {#if meta.requiresKey || meta.keyOptional}
       <div class="field">
-        <div class="api-key-status" class:saved={view?.hasApiKey && !inp.clear}>
+        <div class="api-key-status" class:saved={view?.keyStored && !inp.clear}>
           {#if inp.clear}
             API key will be cleared on save
-          {:else if view?.hasApiKey && secureStorageAvailable}
+          {:else if view?.keyStored && secureStorageAvailable}
             🔒 API key saved — encrypted at rest
-          {:else if view?.hasApiKey}
+          {:else if view?.keyStored}
             ✓ API key saved
           {:else}
             No API key set
@@ -173,7 +173,7 @@
         <input
           type="password"
           bind:value={inp.key}
-          placeholder={view?.hasApiKey ? 'Type to replace existing key' : `Enter ${meta.label} API key`}
+          placeholder={view?.keyStored ? 'Type to replace existing key' : `Enter ${meta.label} API key`}
           autocomplete="off"
           spellcheck="false"
           autocapitalize="off"
@@ -182,10 +182,16 @@
           oncontextmenu={(e) => e.preventDefault()}
           disabled={inp.clear}
         />
-        {#if view?.hasApiKey && !inp.clear}
+        {#if view?.keyStored && !inp.clear}
           <button class="link-btn" onclick={() => setInput(id, { clear: true, key: '' })}>Clear saved key</button>
         {:else if inp.clear}
           <button class="link-btn" onclick={() => setInput(id, { clear: false })}>Cancel clear</button>
+        {/if}
+        {#if meta.keyOptional}
+          <p class="hint">
+            Optional — most local servers (Ollama, LM Studio) don't need one. A
+            hosted OpenAI-compatible gateway (OpenRouter, Together) does.
+          </p>
         {/if}
       </div>
     {/if}
