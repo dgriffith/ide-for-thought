@@ -186,6 +186,13 @@ describe('SettingsDialog shell (#1600)', () => {
     await fireEvent.input(screen.getByPlaceholderText('Enter Local / OpenAI-compatible API key'), {
       target: { value: 'sk-or-typed' },
     });
+    await fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+
+    await waitFor(() => expect(h.settings.setToolSettings).toHaveBeenCalledTimes(1));
+    const update = h.settings.setToolSettings.mock.calls[0]![0];
+    expect(update.providers.local.apiKey).toBe('sk-or-typed');
+  });
+
   it('Done sends a payload that survives structured clone (#2094)', async () => {
     // customModels/toolModelOverrides are Svelte 5 $state proxies in the
     // component; Electron's IPC structured clone rejects a Proxy outright, so
@@ -198,7 +205,6 @@ describe('SettingsDialog shell (#1600)', () => {
 
     await waitFor(() => expect(h.settings.setToolSettings).toHaveBeenCalledTimes(1));
     const update = h.settings.setToolSettings.mock.calls[0]![0];
-    expect(update.providers.local.apiKey).toBe('sk-or-typed');
     expect(() => structuredClone(update)).not.toThrow();
   });
 });
