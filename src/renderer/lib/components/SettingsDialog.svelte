@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { getEditorSettings, type EditorSettings } from '../editor/settings';
   import { api } from '../ipc/client';
+  import { plainSnapshot } from '../ipc/plain-snapshot';
   import type { LLMSettingsUpdate } from '../../../shared/tools/types';
   import { getSettingsStore } from '../stores/settings.svelte';
   import { makePatch } from '../make-patch';
@@ -261,7 +262,7 @@
       customModels,
     };
     try {
-      await settings.setToolSettings(next);
+      await settings.setToolSettings(plainSnapshot(next));
     } catch (e) {
       logger('settings').error('failed to save LLM settings:', e);
     }
