@@ -177,4 +177,19 @@ describe('SettingsDialog shell (#1600)', () => {
     expect(h.settings.setIngestSettings).toHaveBeenCalledWith({ importUpstreamTags: true });
     expect(p.onClose).toHaveBeenCalledTimes(1);
   });
+
+  it('Done sends a payload that survives structured clone (#2094)', async () => {
+    // customModels/toolModelOverrides are Svelte 5 $state proxies in the
+    // component; Electron's IPC structured clone rejects a Proxy outright, so
+    // this is the boundary check that catches a dropped snapshot before it
+    // ships as a silent no-op save.
+    render(SettingsDialog, props());
+    await waitFor(() => expect(h.api.tools.getSettings).toHaveBeenCalled());
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+
+    await waitFor(() => expect(h.settings.setToolSettings).toHaveBeenCalledTimes(1));
+    const update = h.settings.setToolSettings.mock.calls[0]![0];
+    expect(() => structuredClone(update)).not.toThrow();
+  });
 });
