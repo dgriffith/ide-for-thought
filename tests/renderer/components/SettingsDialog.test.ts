@@ -177,4 +177,19 @@ describe('SettingsDialog shell (#1600)', () => {
     expect(h.settings.setIngestSettings).toHaveBeenCalledWith({ importUpstreamTags: true });
     expect(p.onClose).toHaveBeenCalledTimes(1);
   });
+
+  it('Done saves a typed local-provider key (#2095: OpenRouter via keyOptional)', async () => {
+    const p = props({ initialTab: 'ai' });
+    render(SettingsDialog, p);
+    await waitFor(() => expect(h.api.tools.getSettings).toHaveBeenCalled());
+
+    await fireEvent.input(screen.getByPlaceholderText('Enter Local / OpenAI-compatible API key'), {
+      target: { value: 'sk-or-typed' },
+    });
+    await fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+
+    await waitFor(() => expect(h.settings.setToolSettings).toHaveBeenCalledTimes(1));
+    const update = h.settings.setToolSettings.mock.calls[0]![0];
+    expect(update.providers.local.apiKey).toBe('sk-or-typed');
+  });
 });

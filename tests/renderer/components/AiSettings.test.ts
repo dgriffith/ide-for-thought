@@ -31,7 +31,7 @@ function props(over: Record<string, unknown> = {}) {
     model: 'claude-sonnet-4-6',
     effort: undefined,
     providerInputs: inputs(),
-    providerViews: { anthropic: { hasApiKey: true } } as Partial<Record<ProviderId, ProviderConfigView>>,
+    providerViews: { anthropic: { hasApiKey: true, keyStored: true } } as Partial<Record<ProviderId, ProviderConfigView>>,
     secureStorageAvailable: true,
     customModels: [] as CustomModel[],
     onCheckConnection: vi.fn(async (): Promise<ConnectionCheckResult> => ({ ok: true })),
@@ -45,7 +45,8 @@ describe('AiSettings (BYOM #1498)', () => {
   it('shows per-provider key status: encrypted for the configured one, unset for the rest', () => {
     const { getByText, getAllByText } = render(AiSettings, props());
     expect(getByText('🔒 API key saved — encrypted at rest')).toBeTruthy(); // anthropic (secure store on)
-    expect(getAllByText('No API key set').length).toBe(2); // openai + google unconfigured
+    // openai + google (requiresKey) and local (keyOptional, #2095) are all unconfigured.
+    expect(getAllByText('No API key set').length).toBe(3);
   });
 
   it('drops the "encrypted" claim when secure storage is unavailable', () => {
@@ -80,6 +81,34 @@ describe('AiSettings (BYOM #1498)', () => {
     await fireEvent.click(getAllByText('Check connection')[0]!);
     expect(onCheckConnection).toHaveBeenCalledWith('anthropic', 'sk-typed', '');
     await findByText(/Connected/);
+  });
+
+  it('renders an optional key field for the local provider, with an explanatory hint (#2095)', () => {
+    const { getByPlaceholderText, getByText } = render(AiSettings, props());
+    // Local is keyless-by-default but keyOptional — a hosted gateway like
+    // OpenRouter needs a key the way Ollama/LM Studio don't.
+    expect(getByPlaceholderText('Enter Local / OpenAI-compatible API key')).toBeTruthy();
+    expect(getByText(/most local servers.*don't need one/i)).toBeTruthy();
+  });
+
+  it('persists a typed local key into providerInputs, same as a required-key provider', async () => {
+    const { getByPlaceholderText } = render(AiSettings, props());
+    const input = getByPlaceholderText('Enter Local / OpenAI-compatible API key') as HTMLInputElement;
+    await fireEvent.input(input, { target: { value: 'sk-or-typed' } });
+    expect(input.value).toBe('sk-or-typed');
+  });
+
+  it('shows the local provider as configured and offers Clear once a key is stored', async () => {
+    const { getByText, getAllByText } = render(
+      AiSettings,
+      props({
+        secureStorageAvailable: false,
+        providerViews: { local: { hasApiKey: true, keyStored: true, baseURL: 'https://openrouter.ai/api/v1' } },
+      }),
+    );
+    expect(getByText('✓ API key saved')).toBeTruthy();
+    await fireEvent.click(getAllByText('Clear saved key')[0]!);
+    expect(getByText('API key will be cleared on save')).toBeTruthy();
   });
 
   it('adds and removes a local custom model, and surfaces it in the picker', async () => {

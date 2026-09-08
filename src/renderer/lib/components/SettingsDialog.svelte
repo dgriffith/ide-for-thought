@@ -241,7 +241,7 @@
       const meta = PROVIDERS[id];
       const inp = providerInputs[id];
       const upd: ProviderCredentialsUpdate = {};
-      if (meta.requiresKey) {
+      if (meta.requiresKey || meta.keyOptional) {
         if (inp.clear) upd.apiKey = '';
         else if (inp.key) upd.apiKey = inp.key;
       }

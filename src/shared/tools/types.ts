@@ -288,6 +288,15 @@ export interface ProviderConfigView {
   /** A usable key is configured (stored, or via the provider's env var), or the
    *  provider is keyless (local). */
   hasApiKey: boolean;
+  /**
+   * A literal key value is actually stored (or supplied via env var) for this
+   * provider (#2095). Unlike `hasApiKey` — which for a keyless provider like
+   * `local` reports whether its base URL is configured instead — this always
+   * means "there's a key", so the optional key section on a `keyOptional`
+   * provider (OpenRouter/Together via `local`) can show accurate status
+   * independent of whether a key is required.
+   */
+  keyStored: boolean;
   baseURL?: string;
 }
 
