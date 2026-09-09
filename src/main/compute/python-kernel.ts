@@ -100,6 +100,62 @@ export function kernelScriptPath(): string {
   return path.join(pythonResourcesRoot(), 'minerva_kernel.py');
 }
 
+interface KernelEnvOptions {
+  /** The project's directory — appended to PYTHONPATH and exposed to the
+   *  kernel so it knows which notebase it's running against. */
+  rootPath: string;
+  /** Path of the RPC socket the kernel connects back to on first import. */
+  socketPath: string;
+  /** Whether network egress is allowed for this kernel (#1413). */
+  allowNetwork: boolean;
+}
+
+/**
+ * Build the `env` passed to the kernel subprocess. Extracted from
+ * `spawnKernel` (#2105) as a pure function of its inputs so the
+ * environment-construction logic — a missed var here silently breaks every
+ * compute cell — is testable independent of actually spawning a process.
+ */
+export function buildKernelEnv({ rootPath, socketPath, allowNetwork }: KernelEnvOptions): NodeJS.ProcessEnv {
+  return {
+    ...process.env,
+    // PYTHONUNBUFFERED ensures the kernel's stdout writes flush
+    // immediately — without it, Python's buffering would hold each
+    // event line until 4KB accumulated, breaking the line-protocol.
+    PYTHONUNBUFFERED: '1',
+    // PYTHONPATH = bundled-libs ++ project-root.
+    //   1. `pythonResourcesRoot()` is where the bundled `minerva`
+    //      package lives — listed first so the user can never shadow
+    //      `import minerva` with their own `minerva.py`.
+    //   2. `rootPath` is the project's directory, so any `.py` file
+    //      the user puts in their notebase is importable from a
+    //      ```python cell (`from helpers import foo` for `helpers.py`
+    //      at the root; `from python.utils import foo` for
+    //      `python/utils.py`). Mirrors how `.csv` and `.ttl` files
+    //      are first-class in the notebase.
+    PYTHONPATH: pythonResourcesRoot() + path.delimiter + rootPath,
+    MINERVA_IPC_SOCKET: socketPath,
+    MINERVA_PROJECT_ROOT: rootPath,
+    // Network egress off by default (#1413). The kernel bootstrap installs a
+    // socket guard unless this is exactly '1'; the RPC channel + loopback are
+    // always allowed so the guard never severs the kernel's own connection.
+    ...(allowNetwork ? { MINERVA_ALLOW_NETWORK: '1' } : {}),
+    // Force matplotlib's non-interactive Agg backend (#243). Without
+    // this, importing pyplot on macOS spawns a Cocoa GUI process
+    // that bounces in the dock and leaks across app sessions; we
+    // render figures to PNG bytes inside the kernel, so the GUI
+    // backend is pure overhead. Reading MPLBACKEND on import is
+    // matplotlib's documented config seam — no user code change.
+    MPLBACKEND: 'Agg',
+    // Point matplotlib's font/config cache at a writable temp dir (#1329 P2).
+    // Its default (~/.matplotlib or ~/.cache) is outside the sandbox's
+    // write-allowed regions, so without this the first import fails to build
+    // its font cache. os.tmpdir() resolves under /private/var/folders, which
+    // the profile permits.
+    MPLCONFIGDIR: path.join(os.tmpdir(), 'minerva-matplotlib'),
+  };
+}
+
 async function spawnKernel(rootPath: string): Promise<KernelState> {
   const py = await resolvePythonBin();
   // Network posture is read at spawn time (#1413) — so toggling it in Settings
@@ -120,43 +176,7 @@ async function spawnKernel(rootPath: string): Promise<KernelState> {
   const rpc = await startRpcServer(rootPath);
   const proc = spawn(launch.command, launch.args, {
     stdio: ['pipe', 'pipe', 'pipe'],
-    env: {
-      ...process.env,
-      // PYTHONUNBUFFERED ensures the kernel's stdout writes flush
-      // immediately — without it, Python's buffering would hold each
-      // event line until 4KB accumulated, breaking the line-protocol.
-      PYTHONUNBUFFERED: '1',
-      // PYTHONPATH = bundled-libs ++ project-root.
-      //   1. `pythonResourcesRoot()` is where the bundled `minerva`
-      //      package lives — listed first so the user can never shadow
-      //      `import minerva` with their own `minerva.py`.
-      //   2. `rootPath` is the project's directory, so any `.py` file
-      //      the user puts in their notebase is importable from a
-      //      ```python cell (`from helpers import foo` for `helpers.py`
-      //      at the root; `from python.utils import foo` for
-      //      `python/utils.py`). Mirrors how `.csv` and `.ttl` files
-      //      are first-class in the notebase.
-      PYTHONPATH: pythonResourcesRoot() + path.delimiter + rootPath,
-      MINERVA_IPC_SOCKET: rpc.socketPath,
-      MINERVA_PROJECT_ROOT: rootPath,
-      // Network egress off by default (#1413). The kernel bootstrap installs a
-      // socket guard unless this is exactly '1'; the RPC channel + loopback are
-      // always allowed so the guard never severs the kernel's own connection.
-      ...(allowNetwork ? { MINERVA_ALLOW_NETWORK: '1' } : {}),
-      // Force matplotlib's non-interactive Agg backend (#243). Without
-      // this, importing pyplot on macOS spawns a Cocoa GUI process
-      // that bounces in the dock and leaks across app sessions; we
-      // render figures to PNG bytes inside the kernel, so the GUI
-      // backend is pure overhead. Reading MPLBACKEND on import is
-      // matplotlib's documented config seam — no user code change.
-      MPLBACKEND: 'Agg',
-      // Point matplotlib's font/config cache at a writable temp dir (#1329 P2).
-      // Its default (~/.matplotlib or ~/.cache) is outside the sandbox's
-      // write-allowed regions, so without this the first import fails to build
-      // its font cache. os.tmpdir() resolves under /private/var/folders, which
-      // the profile permits.
-      MPLCONFIGDIR: path.join(os.tmpdir(), 'minerva-matplotlib'),
-    },
+    env: buildKernelEnv({ rootPath, socketPath: rpc.socketPath, allowNetwork }),
   });
 
   const pending = new Map<string, PendingCell>();
