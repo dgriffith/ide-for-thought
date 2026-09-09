@@ -9,7 +9,7 @@ import * as $rdf from 'rdflib';
 import fsSync from 'node:fs';
 import path from 'node:path';
 import {
-  STANDARD_PREFIXES, RDF, MINERVA, DC,
+  STANDARD_PREFIXES, RDF, MINERVA, DC, SKOS,
   noteUri, sourceUri, excerptUri, folderUri, projectUri,
   type GraphState,
 } from './state';
@@ -106,7 +106,13 @@ export function ensureTag(state: GraphState, tagNode: $rdf.NamedNode, tagName: s
   const existing = store.statementsMatching(tagNode, RDF('type'), MINERVA('Tag'));
   if (existing.length === 0) {
     store.add(tagNode, RDF('type'), MINERVA('Tag'));
+    // Additive DCAT/SKOS alignment (#2034): every tag is also a
+    // skos:Concept, with skos:prefLabel carrying the same value as the
+    // existing minerva:tagName literal (kept as-is — existing SPARQL/UI
+    // code reads tagName, this is an addition, not a rename).
+    store.add(tagNode, RDF('type'), SKOS('Concept'));
     store.add(tagNode, MINERVA('tagName'), $rdf.lit(tagName));
+    store.add(tagNode, SKOS('prefLabel'), $rdf.lit(tagName));
   }
 }
 

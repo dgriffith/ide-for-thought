@@ -62,6 +62,12 @@ export function indexSource(ctx: ProjectContext, sourceId: string, metaTtl: stri
     const tagNode = tagUri(state, name);
     ensureTag(state, tagNode, name);
     store.add(subject, MINERVA('hasTag'), tagNode, graph);
+    // Additive DCAT/SKOS alignment (#2034): dct:subject is the standard
+    // predicate for "resource classified under this Concept" — see the
+    // identical comment in indexers/note.ts's indexNoteTags for the
+    // rationale re: sharing DC('subject') with the about:/subject:
+    // frontmatter's note-about-source edges.
+    store.add(subject, DC('subject'), tagNode, graph);
   }
 
   // User-added tags (#766). Each `minerva:tag "..."` literal becomes a hasTag
@@ -73,6 +79,7 @@ export function indexSource(ctx: ProjectContext, sourceId: string, metaTtl: stri
     const tagNode = tagUri(state, name);
     ensureTag(state, tagNode, name);
     store.add(subject, MINERVA('hasTag'), tagNode, graph);
+    store.add(subject, DC('subject'), tagNode, graph);
   }
 
   if (bodyMd) indexSourceBody(state, sourceId, bodyMd, subject, graph);
@@ -99,6 +106,7 @@ function indexSourceBody(
     const tagNode = tagUri(state, tag);
     ensureTag(state, tagNode, tag);
     store.add(subject, MINERVA('hasTag'), tagNode, graph);
+    store.add(subject, DC('subject'), tagNode, graph);
   }
 
   // Body wiki-links → typed edges on the source (same plumbing as notes).
