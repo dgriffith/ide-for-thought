@@ -201,6 +201,13 @@ function indexNoteTags(state: GraphState, subject: $rdf.NamedNode, graph: $rdf.N
     const tagNode = tagUri(state, tag);
     ensureTag(state, tagNode, tag);
     store.add(subject, MINERVA('hasTag'), tagNode, graph);
+    // Additive DCAT/SKOS alignment (#2034): the standard predicate for
+    // "resource classified under this Concept" is dct:subject — reuses the
+    // same DC('subject') this codebase's about:/subject: frontmatter
+    // mapping already writes for note-about-source edges (see
+    // frontmatter-predicates.ts). Different object type (a skos:Concept
+    // tag here, a Source there), same standard predicate — deliberate.
+    store.add(subject, DC('subject'), tagNode, graph);
   }
 }
 

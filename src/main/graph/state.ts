@@ -163,6 +163,7 @@ export const PROV    = $rdf.Namespace('http://www.w3.org/ns/prov#');
 export const THOUGHT = $rdf.Namespace('https://minerva.dev/ontology/thought#');
 export const TYPES   = $rdf.Namespace('https://minerva.dev/ontology/types#');
 export const DCAT    = $rdf.Namespace('http://www.w3.org/ns/dcat#');
+export const SKOS    = $rdf.Namespace('http://www.w3.org/2004/02/skos/core#');
 
 export const STANDARD_PREFIXES: [string, string][] = [
   ['minerva', 'https://minerva.dev/ontology#'],
@@ -178,6 +179,7 @@ export const STANDARD_PREFIXES: [string, string][] = [
   ['schema', 'http://schema.org/'],
   ['types', 'https://minerva.dev/ontology/types#'],
   ['dcat', 'http://www.w3.org/ns/dcat#'],
+  ['skos', 'http://www.w3.org/2004/02/skos/core#'],
 ];
 
 // ── Per-project state (#333) ────────────────────────────────────────────────
