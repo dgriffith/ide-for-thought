@@ -61,6 +61,7 @@ describe('injectSparqlPrefixes', () => {
       'PREFIX types: <https://minerva.dev/ontology/types#>',
       'PREFIX dcat: <http://www.w3.org/ns/dcat#>',
       'PREFIX skos: <http://www.w3.org/2004/02/skos/core#>',
+      'PREFIX foaf: <http://xmlns.com/foaf/0.1/>',
       'SELECT ?s WHERE { ?s ?p ?o }',
     ].join('\n');
     const out = injectSparqlPrefixes(input);

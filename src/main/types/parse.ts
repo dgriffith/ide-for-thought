@@ -66,6 +66,12 @@ function normalizeProperties(raw: unknown, errors: string[]): PropertyDef[] {
       if (!target) errors.push(`link-to-type property "${name}" is missing \`targetType\``);
       else def.targetType = slugify(target);
     }
+    // Optional external predicate CURIE (e.g. `foaf:mbox`, #2036) this
+    // property's value materializes under instead of the default fallback.
+    // Resolved (and gracefully ignored if unrecognized) at index time — not
+    // validated here, matching this file's "no hand-holding" style.
+    const predicate = asString(obj.predicate);
+    if (predicate) def.predicate = predicate;
     out.push(def);
   });
   return out;
@@ -160,6 +166,11 @@ export function parseType(content: string, source: TypeSource, filePath: string)
   // as an id ref. Existence is validated later, in the loader (all types known).
   const parent = asString(fm.parent) ?? asString(fm.extends);
   if (parent) type.parent = slugify(parent);
+  // Optional external class CURIE (e.g. `foaf:Person`, #2036) this type's
+  // class is additionally related to via `rdfs:subClassOf`. Resolved (and
+  // gracefully ignored if unrecognized) at materialization time.
+  const externalClass = asString(fm.externalClass);
+  if (externalClass) type.externalClass = externalClass;
 
   return { type, errors, label: bestLabel };
 }

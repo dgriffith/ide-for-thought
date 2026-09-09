@@ -15,9 +15,9 @@ import { parseWikiInner } from '../../../shared/wiki-link';
 import {
   type GraphState,
   MINERVA, DC, XSD, BIBO, SCHEMA, PROV, THOUGHT, TYPES,
-  sourceUri, linkPredicate,
+  sourceUri, linkPredicate, resolveStandardCurie,
 } from '../state';
-import type { PropertyType } from '../../../shared/objects/type-def';
+import type { PropertyDef, PropertyType } from '../../../shared/objects/type-def';
 import { resolveLinkTarget, type LinkResolveCtx } from '../index-helpers';
 
 // A non-null leaf scalar — excludes lists AND nested maps (maps materialise as
@@ -138,16 +138,26 @@ export function resolveFrontmatterPredicate(key: string) {
 }
 
 /**
- * The predicate a declared property's value is indexed under (#1073). A
+ * The predicate a declared property's value is indexed under (#1073). Priority
+ * order: (1) an explicit `predicate:` CURIE on the property definition (#2036,
+ * e.g. Person's `email` → `foaf:mbox`) — a type author's deliberate opt-in into
+ * a standard external vocabulary, so it wins over everything else; (2) a
  * `link-to-type` property materialises as a labeled **role edge** in the types
  * namespace — `types:author` — so the relation is queryable by its role and
  * shows that role in backlinks, instead of collapsing to a generic
- * `dc:creator`/`minerva:meta-*` predicate. Every other property keeps the
+ * `dc:creator`/`minerva:meta-*` predicate; (3) every other property keeps the
  * frontmatter-key predicate. The indexer (write) and the #1063 read-back +
  * #1070 projection (read) MUST both resolve through here so they stay in sync.
  */
-export function declaredPropertyPredicate(name: string, type?: PropertyType) {
-  return type === 'link-to-type' ? TYPES(name) : resolveFrontmatterPredicate(name);
+export function declaredPropertyPredicate(
+  name: string,
+  pd?: Pick<PropertyDef, 'type' | 'predicate'>,
+) {
+  if (pd?.predicate) {
+    const external = resolveStandardCurie(pd.predicate);
+    if (external) return external;
+  }
+  return pd?.type === 'link-to-type' ? TYPES(name) : resolveFrontmatterPredicate(name);
 }
 
 /** Whole frontmatter value that is a single wiki-link — `[[…]]` and nothing

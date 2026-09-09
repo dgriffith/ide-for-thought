@@ -41,8 +41,8 @@ import { objectTypesStore } from '../../../src/renderer/lib/stores/object-types.
 
 const GADGET = {
   id: 'gadget', label: 'Gadget', classLocalName: 'Gadget', source: 'user', icon: '🔧',
-  card: ['maker'],
-  properties: [{ name: 'maker', type: 'text' }, { name: 'model', type: 'text' }],
+  card: ['maker'], externalClass: 'schema:Product',
+  properties: [{ name: 'maker', type: 'text' }, { name: 'model', type: 'text', predicate: 'schema:model' }],
 };
 
 beforeEach(() => {
@@ -84,9 +84,10 @@ describe('Type Manager — Duplicate', () => {
     expect(payload.id).toBeUndefined(); // a copy derives a NEW id from its label
     expect(payload.icon).toBe('🔧');
     expect(payload.card).toEqual(['maker']);
+    expect(payload.externalClass).toBe('schema:Product');
     expect(payload.properties).toEqual([
       { name: 'maker', type: 'text' },
-      { name: 'model', type: 'text' },
+      { name: 'model', type: 'text', predicate: 'schema:model' },
     ]);
   });
 

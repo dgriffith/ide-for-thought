@@ -61,7 +61,7 @@ export async function getNoteTypedProperties(
     label: pd.label,
     options: pd.options,
     targetType: pd.targetType,
-    value: byPredicate.get(declaredPropertyPredicate(pd.name, pd.type).value) ?? null,
+    value: byPredicate.get(declaredPropertyPredicate(pd.name, pd).value) ?? null,
   }));
 
   return { type: toTypeInfo(def), properties };
@@ -119,7 +119,7 @@ export async function getTypeInstances(
   const cols = effectivePropertyDefs(def.id, typeCatalogById(state)).map((pd, i) => ({
     pd,
     alias: `c${i}`,
-    predicate: declaredPropertyPredicate(pd.name, pd.type).value,
+    predicate: declaredPropertyPredicate(pd.name, pd).value,
   }));
   const optionals = cols
     .map((c) => `OPTIONAL { ?n <${c.predicate}> ?${c.alias} }`)

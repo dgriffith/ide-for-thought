@@ -22,6 +22,9 @@ export interface SaveTypeInput {
   card?: string[] | undefined;
   /** Parent type id — materialized as `rdfs:subClassOf` (#1586). */
   parent?: string | undefined;
+  /** External class CURIE — an additional `rdfs:subClassOf` edge to a
+   *  standard vocabulary class (#2036, e.g. `foaf:Person`). */
+  externalClass?: string | undefined;
   /** Template body (markdown after the frontmatter) — carried for a faithful
    *  duplicate; "Save Note as Object Type" leaves it empty. */
   template?: string | undefined;
@@ -41,11 +44,13 @@ export function serializeTypeFile(id: string, input: SaveTypeInput): string {
   if (input.cover) fm.cover = input.cover;
   if (input.card && input.card.length > 0) fm.card = input.card;
   if (input.parent) fm.parent = input.parent;
+  if (input.externalClass) fm.externalClass = input.externalClass;
   fm.properties = input.properties.map((p) => {
     const o: Record<string, unknown> = { name: p.name, type: p.type };
     if (p.label) o.label = p.label;
     if (p.options && p.options.length > 0) o.options = p.options;
     if (p.targetType) o.targetType = p.targetType;
+    if (p.predicate) o.predicate = p.predicate;
     return o;
   });
   const body = input.template?.trim();

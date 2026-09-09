@@ -44,6 +44,17 @@ describe('serializeTypeFile (#save-as-type)', () => {
     const content = serializeTypeFile('monograph', { label: 'Monograph', properties: [], parent: 'reference' });
     expect(parseType(content, 'user', '/x/m.md').type?.parent).toBe('reference');
   });
+
+  it('carries externalClass and a property predicate through the round-trip (#2036)', () => {
+    const content = serializeTypeFile('contact', {
+      label: 'Contact',
+      externalClass: 'foaf:Person',
+      properties: [{ name: 'mail', type: 'text', predicate: 'foaf:mbox' }],
+    });
+    const r = parseType(content, 'user', '/x/contact.md');
+    expect(r.type?.externalClass).toBe('foaf:Person');
+    expect(r.type?.properties.find((p) => p.name === 'mail')?.predicate).toBe('foaf:mbox');
+  });
 });
 
 describe('saveType (#save-as-type)', () => {
@@ -152,5 +163,28 @@ describe('customizing a stock type', () => {
     const book = (await loadTypeCatalog(root)).types.find((t) => t.id === 'book')!;
     expect(book.label).toBe('Tome');
     expect(book.classLocalName).toBe('Book'); // `types:Book` — unchanged
+  });
+
+  // #2036 introduced externalClass/predicate as the first type-definition
+  // fields that (before this test's underlying fix) the Type Manager's Edit
+  // dialog couldn't represent — meaning an unrelated customization (adding a
+  // property, changing the icon) would silently strip stock Person's
+  // `externalClass: foaf:Person` / `email`'s `predicate: foaf:mbox` on save,
+  // via exactly this customize-and-resave path. This pins the fix.
+  it('customizing stock Person for an unrelated reason preserves externalClass and email\'s predicate', async () => {
+    const stockPerson = (await loadTypeCatalog(root)).types.find((t) => t.id === 'person')!;
+    expect(stockPerson.externalClass).toBe('foaf:Person'); // sanity: the fixture has it
+    await saveType(root, {
+      id: stockPerson.id,
+      label: stockPerson.label,
+      properties: [...stockPerson.properties, { name: 'nickname', type: 'text' }],
+      ...(stockPerson.icon ? { icon: stockPerson.icon } : {}),
+      ...(stockPerson.externalClass ? { externalClass: stockPerson.externalClass } : {}),
+    });
+
+    const person = (await loadTypeCatalog(root)).types.find((t) => t.id === 'person')!;
+    expect(person.externalClass).toBe('foaf:Person');
+    expect(person.properties.find((p) => p.name === 'email')?.predicate).toBe('foaf:mbox');
+    expect(person.properties.map((p) => p.name)).toContain('nickname');
   });
 });
