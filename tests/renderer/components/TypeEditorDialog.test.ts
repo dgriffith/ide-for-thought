@@ -104,6 +104,30 @@ describe('TypeEditorDialog (#1585)', () => {
     expect(saveMock.mock.calls[0]![0].parent).toBe('book');
   });
 
+  it('carries externalClass through save (#2036)', async () => {
+    render(TypeEditorDialog, {
+      initial: { id: 'contact', label: 'Contact', externalClass: 'foaf:Person', properties: [] },
+      onSaved: vi.fn(), onClose: vi.fn(),
+    });
+    await waitFor(() => expect(screen.getByDisplayValue('Contact')).toBeTruthy());
+    await fireEvent.click(screen.getByText('Save'));
+    await waitFor(() => expect(saveMock).toHaveBeenCalled());
+    expect(saveMock.mock.calls[0]![0].externalClass).toBe('foaf:Person');
+  });
+
+  it('carries a property\'s predicate through save (#2036)', async () => {
+    render(TypeEditorDialog, {
+      initial: { id: 'contact', label: 'Contact', properties: [{ name: 'mail', type: 'text', predicate: 'foaf:mbox' }] },
+      onSaved: vi.fn(), onClose: vi.fn(),
+    });
+    await waitFor(() => expect(screen.getByDisplayValue('Contact')).toBeTruthy());
+    await fireEvent.click(screen.getByText('Save'));
+    await waitFor(() => expect(saveMock).toHaveBeenCalled());
+    expect(saveMock.mock.calls[0]![0].properties).toEqual([
+      { name: 'mail', type: 'text', predicate: 'foaf:mbox' },
+    ]);
+  });
+
   it('reorders properties', async () => {
     render(TypeEditorDialog, {
       initial: { label: 'T', properties: [{ name: 'first', type: 'text' }, { name: 'second', type: 'text' }] },
@@ -172,6 +196,33 @@ describe('TypeEditorDialog — stock types keep their name', () => {
 
     await waitFor(() => expect(saveMock).toHaveBeenCalled());
     expect(saveMock.mock.calls[0]![0]).toMatchObject({ id: 'book', label: 'Book', color: '#a6e3a1' });
+  });
+
+  it('preserves externalClass and a property\'s predicate when editing a stock type for an unrelated reason (#2036)', async () => {
+    // The exact bug this pins: opening a stock-derived type (e.g. Person, with
+    // externalClass: foaf:Person and email's predicate: foaf:mbox already set)
+    // and saving an UNRELATED change (here, just the color) must not silently
+    // strip fields the form doesn't have a reason to touch.
+    render(TypeEditorDialog, {
+      initial: {
+        id: 'person', label: 'Person', externalClass: 'foaf:Person', stockOrigin: 'stock',
+        properties: [
+          { name: 'role', type: 'text' },
+          { name: 'email', type: 'text', predicate: 'foaf:mbox' },
+        ],
+      },
+      onSaved: vi.fn(), onClose: vi.fn(),
+    });
+    await fireEvent.click(screen.getByLabelText('Green'));
+    await fireEvent.click(screen.getByText('Save'));
+
+    await waitFor(() => expect(saveMock).toHaveBeenCalled());
+    const input = saveMock.mock.calls[0]![0];
+    expect(input.externalClass).toBe('foaf:Person');
+    expect(input.properties).toEqual([
+      { name: 'role', type: 'text' },
+      { name: 'email', type: 'text', predicate: 'foaf:mbox' },
+    ]);
   });
 });
 

@@ -92,6 +92,8 @@ export interface TypeInfo {
   /** Parent type id — materialized as `rdfs:subClassOf` so instances of this
    *  type also count as the parent (#1586). Single inheritance for v1. */
   parent?: string | undefined;
+  /** See `TypeDef.externalClass` (#2036). */
+  externalClass?: string | undefined;
   source: TypeSource;
   /** See `TypeDef.overridesStock` — a locally customized stock type. */
   overridesStock?: boolean | undefined;
@@ -128,6 +130,7 @@ export function toTypeInfo(t: TypeDef): TypeInfo {
     cover: t.cover,
     card: t.card,
     parent: t.parent,
+    externalClass: t.externalClass,
     source: t.source,
     overridesStock: t.overridesStock,
   };

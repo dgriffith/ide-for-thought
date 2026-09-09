@@ -15,6 +15,8 @@ export interface TypeEditorInitial {
   card?: string[];
   /** Parent type id (#1587) — the type this one specializes. */
   parent?: string;
+  /** External class CURIE (#2036, e.g. `foaf:Person`) — advanced/optional. */
+  externalClass?: string;
   properties: PropertyDef[];
   template?: string;
   /**
@@ -32,13 +34,17 @@ export interface TypeEditorInitial {
 }
 
 /** A type's optional carry-over fields (icon / color / cover / card / parent /
- *  template), spread only when set. Shared by the Type Manager's Edit and
- *  Duplicate paths so a newly-added optional type field can't be threaded into
- *  one and missed by the other — the exact gap `parent` nearly fell into in
- *  #1587 (#1603). */
+ *  template / externalClass), spread only when set. Shared by the Type
+ *  Manager's Edit and Duplicate paths so a newly-added optional type field
+ *  can't be threaded into one and missed by the other — the exact gap
+ *  `parent` nearly fell into in #1587 (#1603), and `externalClass` nearly
+ *  fell into when #2036 added it without updating this list. */
 export function optionalTypeFields(
   t: TypeInfo,
-): { icon?: string; color?: string; cover?: string; card?: string[]; parent?: string; template?: string } {
+): {
+  icon?: string; color?: string; cover?: string; card?: string[]; parent?: string;
+  template?: string; externalClass?: string;
+} {
   return {
     ...(t.icon ? { icon: t.icon } : {}),
     ...(t.color ? { color: t.color } : {}),
@@ -46,5 +52,6 @@ export function optionalTypeFields(
     ...(t.card ? { card: t.card } : {}),
     ...(t.parent ? { parent: t.parent } : {}),
     ...(t.template ? { template: t.template } : {}),
+    ...(t.externalClass ? { externalClass: t.externalClass } : {}),
   };
 }

@@ -44,6 +44,11 @@
      *  expose it, so only a genuine custom label (≠ the title-cased default) is
      *  seeded, and defaults are never written back. */
     label: string;
+    /** External predicate CURIE (#2036, e.g. `foaf:mbox`) — advanced/optional;
+     *  editable only for plain (non-enum, non-link-to-type) properties, which
+     *  is the motivating case, but carried through regardless of type so a
+     *  hand-authored mapping on any property survives a dialog round-trip. */
+    predicate: string;
   }
 
   let label = $state(seed?.label ?? '');
@@ -51,6 +56,7 @@
   let color = $state(seed?.color ?? '');
   let cover = $state(seed?.cover ?? '');
   let parent = $state(seed?.parent ?? '');
+  let externalClass = $state(seed?.externalClass ?? '');
   let rows = $state<Row[]>(
     (seed?.properties ?? []).map((p) => ({
       name: p.name,
@@ -61,6 +67,7 @@
       // Keep only a real custom label; a default (== title-cased name, which the
       // parser materializes) seeds blank so it isn't re-written on save.
       label: p.label && p.label !== titleCase(p.name) ? p.label : '',
+      predicate: p.predicate ?? '',
     })),
   );
   let saving = $state(false);
@@ -76,7 +83,7 @@
   const propNames = $derived(rows.map((r) => r.name.trim()).filter(Boolean));
 
   function addRow(): void {
-    rows = [...rows, { name: '', type: 'text', options: '', targetType: '', onCard: false, label: '' }];
+    rows = [...rows, { name: '', type: 'text', options: '', targetType: '', onCard: false, label: '', predicate: '' }];
   }
   function removeRow(i: number): void { rows = rows.filter((_, j) => j !== i); }
   function move(i: number, dir: -1 | 1): void {
@@ -95,6 +102,7 @@
         if (r.label.trim()) p.label = r.label.trim();
         if (r.type === 'enum') p.options = r.options.split(',').map((s) => s.trim()).filter(Boolean);
         if (r.type === 'link-to-type' && r.targetType.trim()) p.targetType = r.targetType.trim();
+        if (r.predicate.trim()) p.predicate = r.predicate.trim();
         return p;
       });
   }
@@ -115,6 +123,7 @@
         ...(cover && propNames.includes(cover) ? { cover } : {}),
         ...(cardNames.length > 0 ? { card: cardNames } : {}),
         ...(parent && typeIds.includes(parent) ? { parent } : {}),
+        ...(externalClass.trim() ? { externalClass: externalClass.trim() } : {}),
         ...(initial?.template ? { template: initial.template } : {}),
       });
       onSaved?.(result.id);
@@ -249,7 +258,12 @@
               {#each typeIds as tid (tid)}<option value={tid}>{tid}</option>{/each}
             </select>
           {:else}
-            <span class="p-extra"></span>
+            <input
+              class="p-extra"
+              bind:value={row.predicate}
+              placeholder="predicate (e.g. foaf:mbox)"
+              title="Advanced: an external RDF predicate this property's value is stored under, instead of the default"
+            />
           {/if}
           <label class="p-card" title="Show on the type-keyed card"><input type="checkbox" bind:checked={row.onCard} /> card</label>
           <span class="p-actions">
@@ -273,6 +287,9 @@
           <option value="">(none)</option>
           {#each typeIds as tid (tid)}<option value={tid}>{tid}</option>{/each}
         </select>
+      </label>
+      <label class="field cover"><span>External class (advanced)</span>
+        <input bind:value={externalClass} placeholder="foaf:Person" title="Advanced: a standard vocabulary class this type's instances are additionally discoverable as" />
       </label>
     </div>
 
