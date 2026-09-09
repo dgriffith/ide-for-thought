@@ -8,6 +8,7 @@ import {
   extractZipToTempDir,
   _setMaxZipBytesForTests,
 } from '../../../src/main/notebase/zip-extract';
+import { _setMaxBulkIngestEntriesForTests } from '../../../src/main/notebase/folder-walk';
 
 function mkTempDir(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-zip-extract-test-'));
@@ -33,6 +34,7 @@ describe('extractZipToTempDir (#2087)', () => {
   beforeEach(() => { staging = mkTempDir(); });
   afterEach(async () => {
     _setMaxZipBytesForTests(undefined);
+    _setMaxBulkIngestEntriesForTests(undefined);
     await fsp.rm(staging, { recursive: true, force: true });
   });
 
@@ -136,10 +138,8 @@ describe('extractZipToTempDir (#2087)', () => {
     expect(existingScratchDirs()).toEqual(before);
   });
 
-  it('enforces the entry cap during extraction, not after the fact', async () => {
+  it('does not report capped when the entry count is under the (real, large) cap', async () => {
     const zip = new JSZip();
-    // A handful of entries; we don't need thousands to prove the mechanism
-    // works, just to see the cap flag propagate accurately with a real zip.
     for (let i = 0; i < 5; i++) zip.file(`f${i}.md`, 'x');
     const buf = await zip.generateAsync({ type: 'nodebuffer' });
     const zipPath = path.join(staging, 'many.zip');
@@ -147,10 +147,34 @@ describe('extractZipToTempDir (#2087)', () => {
 
     const result = await extractZipToTempDir(zipPath);
     try {
-      // With the real (large) cap this won't be capped — this just confirms
-      // the happy path still reports capped: false accurately.
       expect(result.capped).toBe(false);
       expect(result.entries.length).toBe(5);
+    } finally {
+      await fsp.rm(result.tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it('enforces the entry cap DURING extraction, not after the fact', async () => {
+    // Uses the shared override from folder-walk.ts, which zip-extract.ts's
+    // own extraction loop must read live (via getMaxBulkIngestEntries())
+    // rather than the raw MAX_BULK_INGEST_ENTRIES constant — otherwise this
+    // override would have no effect here and the cap-during-extraction path
+    // could only be tested by generating 5000+ real zip entries.
+    _setMaxBulkIngestEntriesForTests(2);
+    const zip = new JSZip();
+    for (let i = 0; i < 5; i++) zip.file(`f${i}.md`, 'x');
+    const buf = await zip.generateAsync({ type: 'nodebuffer' });
+    const zipPath = path.join(staging, 'many.zip');
+    await fsp.writeFile(zipPath, buf);
+
+    const result = await extractZipToTempDir(zipPath);
+    try {
+      expect(result.capped).toBe(true);
+      // Only the first 2 entries were ever written to disk — the rest were
+      // never extracted, not just excluded from the returned list.
+      expect(result.entries.length).toBe(2);
+      const onDisk = await fsp.readdir(result.tmpDir);
+      expect(onDisk.length).toBe(2);
     } finally {
       await fsp.rm(result.tmpDir, { recursive: true, force: true });
     }

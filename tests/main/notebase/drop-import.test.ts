@@ -190,6 +190,23 @@ describe('dropImport (#259, extended #2087)', () => {
       expect(result.copied[0]?.relativePath).toBe('MyFolder/archive/note.md');
     });
 
+    it('collapses a bare-filename relativePath (no directory component) the same as no relativePath at all', async () => {
+      // path.dirname('archive.zip') === '.', not ''. A zip entry passed with
+      // exactly a bare filename as its own relativePath (no folder prefix)
+      // is a legal DropImportEntry shape even though today's two producers
+      // (the picker's directory branch, and a flat top-level drop) never
+      // happen to construct one this way — this pins the '.' collapse
+      // behaves like the empty-string case rather than producing './archive'.
+      await mockZipExtraction(staging, [{ relativePath: 'note.md', content: '# hi' }]);
+      const zipLocal = path.join(staging, 'archive.zip');
+
+      const result = await dropImport(root, '', [
+        { localPath: zipLocal, relativePath: 'archive.zip' },
+      ]);
+
+      expect(result.copied[0]?.relativePath).toBe('archive/note.md');
+    });
+
     it('rejects a nested zip while the outer zip\'s other entries still succeed', async () => {
       // The outer zip's extracted contents include another zip and a normal
       // .md file. The inner zip must be rejected (zipDepth === 1) WITHOUT

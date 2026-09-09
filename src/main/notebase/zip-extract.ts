@@ -26,7 +26,7 @@ import path from 'node:path';
 import JSZip from 'jszip';
 import { assertSafePath } from './fs';
 import { isIgnoredEntry } from './ignored-dirs';
-import { enumerateFolderTree, MAX_BULK_INGEST_ENTRIES, type DropImportEntry } from './folder-walk';
+import { enumerateFolderTree, getMaxBulkIngestEntries, type DropImportEntry } from './folder-walk';
 
 let maxZipBytesForTests: number | undefined;
 
@@ -91,7 +91,7 @@ export async function extractZipToTempDir(zipAbsPath: string): Promise<ZipExtrac
     let capped = false;
     let extractedCount = 0;
     for (const entry of fileEntries) {
-      if (extractedCount >= MAX_BULK_INGEST_ENTRIES) {
+      if (extractedCount >= getMaxBulkIngestEntries()) {
         capped = true;
         break;
       }

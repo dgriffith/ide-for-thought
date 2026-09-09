@@ -234,6 +234,17 @@ describe('handleIngestBulk (#2087)', () => {
     expect(msg).toContain('…and 2 more');
   });
 
+  it('previews all rejections with no overflow line when the count is at or under 5', async () => {
+    const rejected = Array.from({ length: 3 }, (_, i) => ({ localPath: `/a/bad${i}.exe`, reason: 'nope' }));
+    h.api.sources.ingestBulk.mockResolvedValue({
+      copied: [], ingestedPdfs: [], rejected, capped: false,
+    });
+    await ops.handleIngestBulk();
+    const msg = h.dialog.showConfirm.mock.calls[0][0] as string;
+    expect(msg).toContain('Skipped: 3');
+    expect(msg).not.toContain('more');
+  });
+
   it('mentions the entry cap when the result was capped', async () => {
     h.api.sources.ingestBulk.mockResolvedValue({
       copied: [], ingestedPdfs: [], rejected: [], capped: true,
@@ -249,6 +260,15 @@ describe('handleIngestBulk (#2087)', () => {
     expect(ctx.refreshSourcesCache).not.toHaveBeenCalled();
     expect(h.dialog.showConfirm).toHaveBeenCalledWith(
       expect.stringContaining('boom'), expect.any(String), 'OK',
+    );
+  });
+
+  it('stringifies a non-Error rejection rather than throwing on err.message', async () => {
+    h.api.sources.ingestBulk.mockRejectedValue('disk full');
+    await ops.handleIngestBulk();
+    expect(ctx.refreshSourcesCache).not.toHaveBeenCalled();
+    expect(h.dialog.showConfirm).toHaveBeenCalledWith(
+      expect.stringContaining('disk full'), expect.any(String), 'OK',
     );
   });
 

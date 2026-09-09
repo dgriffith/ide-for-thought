@@ -30,6 +30,15 @@ export function _setMaxBulkIngestEntriesForTests(n: number | undefined): void {
   maxBulkIngestEntries = n ?? MAX_BULK_INGEST_ENTRIES;
 }
 
+/** The currently-effective cap (real default, or a test override). Exists so
+ *  other bulk-ingest producers (zip-extract.ts's own extraction-time cap)
+ *  respect the same overridable value instead of importing the raw
+ *  `MAX_BULK_INGEST_ENTRIES` constant directly, which would silently ignore
+ *  `_setMaxBulkIngestEntriesForTests` in that other module. */
+export function getMaxBulkIngestEntries(): number {
+  return maxBulkIngestEntries;
+}
+
 export interface DropImportEntry {
   /** Absolute path on disk to read source bytes from. */
   localPath: string;
@@ -75,6 +84,13 @@ export async function enumerateFolderTree(rootDir: string): Promise<FolderWalkRe
 
 /** Returns true once the cap has been hit (including mid-recursion). */
 async function walk(dirPath: string, rootDir: string, out: DropImportEntry[]): Promise<boolean> {
+  // Belt-and-suspenders: under the current sequential recursion, every path
+  // that reaches the cap (this check, or the one after a push below) returns
+  // `true` immediately, which unwinds the whole call stack before a sibling
+  // directory is ever visited — so this specific check can't actually fire
+  // today. Kept anyway as a cheap guard against a future change (e.g.
+  // parallelizing sibling walks with Promise.all) reintroducing unbounded
+  // work once the cap is already met.
   if (out.length >= maxBulkIngestEntries) return true;
 
   let dirEntries: import('node:fs').Dirent[];

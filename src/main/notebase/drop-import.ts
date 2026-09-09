@@ -104,6 +104,12 @@ async function dispatchEntry(
         const baseDir = entry.relativePath ? path.dirname(entry.relativePath) : '';
         const prefixDir = baseDir && baseDir !== '.' ? `${baseDir}/${zipStem}` : zipStem;
         for (const inner of extracted.entries) {
+          // extractZipToTempDir's entries always come from enumerateFolderTree,
+          // which always fills relativePath for anything it finds under
+          // rootDir — the fallback to prefixDir alone only guards the type's
+          // optionality (matches the identical pattern in
+          // register-sources.ts's own directory-picker branch), it's never
+          // actually hit.
           const innerRelative = inner.relativePath ? `${prefixDir}/${inner.relativePath}` : prefixDir;
           await dispatchEntry(
             rootPath,
