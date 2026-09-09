@@ -59,6 +59,7 @@ describe('injectSparqlPrefixes', () => {
       'PREFIX bibo: <http://purl.org/ontology/bibo/>',
       'PREFIX schema: <http://schema.org/>',
       'PREFIX types: <https://minerva.dev/ontology/types#>',
+      'PREFIX dcat: <http://www.w3.org/ns/dcat#>',
       'SELECT ?s WHERE { ?s ?p ?o }',
     ].join('\n');
     const out = injectSparqlPrefixes(input);

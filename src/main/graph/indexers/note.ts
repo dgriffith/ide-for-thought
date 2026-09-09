@@ -24,7 +24,7 @@ import type { ProjectContext } from '../../project-context-types';
 import {
   type GraphState, type HeadingSnapshot,
   getState, invalidate,
-  MINERVA, DC, RDF, TYPES,
+  MINERVA, DC, RDF, TYPES, DCAT,
   noteUri, tagUri, folderUri, projectUri,
   linkPredicate, dateLit,
 } from '../state';
@@ -170,6 +170,11 @@ function indexNoteCoreTriples(
 ): void {
   const { store } = state;
   store.add(subject, RDF('type'), MINERVA('Note'), graph);
+  // Additive DCAT alignment (#2033): every note is also a dcat:CatalogRecord
+  // of the thoughtbase's dcat:Catalog (see ensureProject in rebuild.ts),
+  // linked via the paired dcat:record predicate below (not dcat:dataset,
+  // which pairs with dcat:Dataset instead).
+  store.add(subject, RDF('type'), DCAT('CatalogRecord'), graph);
   store.add(subject, DC('title'), $rdf.lit(title), graph);
   store.add(subject, MINERVA('filename'), $rdf.lit(path.basename(relativePath)), graph);
   store.add(subject, MINERVA('relativePath'), $rdf.lit(relativePath), graph);
@@ -181,6 +186,7 @@ function indexNoteCoreTriples(
     ensureFolder(state, dir);
   }
   store.add(projectUri(state), MINERVA('containsNote'), subject, graph);
+  store.add(projectUri(state), DCAT('record'), subject, graph);
 }
 
 /** Body (`#foo`) + frontmatter (`tags: [...]`) tags as `minerva:hasTag` resources. */

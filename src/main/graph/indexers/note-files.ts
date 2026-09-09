@@ -9,7 +9,7 @@
 import * as $rdf from 'rdflib';
 import path from 'node:path';
 import {
-  RDF, MINERVA, DC, CSVW, XSD,
+  RDF, MINERVA, DC, CSVW, XSD, DCAT,
   folderUri, projectUri, dateLit,
   type GraphState,
 } from '../state';
@@ -28,6 +28,11 @@ function addFileNoteMetadata(
 ): void {
   const { store } = state;
   store.add(subject, RDF('type'), MINERVA('Note'), graph);
+  // Additive DCAT alignment (#2033) — see indexers/note.ts's
+  // indexNoteCoreTriples for the CatalogRecord rationale + the paired
+  // dcat:record predicate; this is the same treatment for non-markdown
+  // note files.
+  store.add(subject, RDF('type'), DCAT('CatalogRecord'), graph);
   store.add(subject, DC('title'), $rdf.lit(path.basename(relativePath, ext)), graph);
   store.add(subject, MINERVA('filename'), $rdf.lit(path.basename(relativePath)), graph);
   store.add(subject, MINERVA('relativePath'), $rdf.lit(relativePath), graph);
@@ -38,6 +43,7 @@ function addFileNoteMetadata(
     ensureFolder(state, dir);
   }
   store.add(projectUri(state), MINERVA('containsNote'), subject, graph);
+  store.add(projectUri(state), DCAT('record'), subject, graph);
 }
 
 /**

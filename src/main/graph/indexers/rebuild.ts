@@ -22,7 +22,7 @@ import type { ProjectContext } from '../../project-context-types';
 import {
   type GraphState,
   getState, invalidate, resetN3Mirror, instrumentStoreMirror,
-  MINERVA, DC, RDF, THOUGHT,
+  MINERVA, DC, RDF, THOUGHT, DCAT,
   projectUri,
 } from '../state';
 
@@ -77,6 +77,10 @@ function ensureProject(state: GraphState): void {
   const existing = store.statementsMatching(proj, RDF('type'), MINERVA('Project'));
   if (existing.length === 0) {
     store.add(proj, RDF('type'), MINERVA('Project'));
+    // Additive DCAT alignment (#2033): a thoughtbase is a standard "catalog
+    // of things" to any generic DCAT-aware tooling, on top of its Minerva-
+    // specific typing — see the sibling `dcat:Dataset` triples on each note.
+    store.add(proj, RDF('type'), DCAT('Catalog'));
     store.add(proj, DC('title'), $rdf.lit(path.basename(rootPath)));
   }
 }
