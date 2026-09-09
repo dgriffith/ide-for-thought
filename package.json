@@ -111,8 +111,9 @@
       "parse-url": ">=8.1.0",
       "tmp": ">=0.2.6",
       "gry": ">=6.0.0",
-      "sharp": ">=0.35.0",
-      "adm-zip": ">=0.6.0"
+      "sharp": ">=0.35.4",
+      "adm-zip": ">=0.6.0",
+      "rdflib>@xmldom/xmldom": ">=0.9.12"
     }
   },
   "devDependencies": {
