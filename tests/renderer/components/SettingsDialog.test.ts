@@ -1,15 +1,16 @@
 /**
  * @vitest-environment happy-dom
  *
- * SettingsDialog shell render test (#1600). SettingsDialog was refactored to
- * delegate each tab's body to an extracted panel child (Editor / Appearance /
- * Behaviors / … / AI / Skills), each with its own test. This exercises the
- * *shell*: the on-mount settings load, the grouped tab navigation + section
- * switching, the inline "Notes" (refactoring) panel that still lives in the
- * shell, and the Cancel / Done wiring to the settings store.
+ * SettingsDialog shell render test (#1600, #2107). SettingsDialog was
+ * refactored to delegate each tab's body to an extracted panel child
+ * (Editor / Appearance / Behaviors / Notes / … / AI / Skills), each with its
+ * own test. This exercises the *shell*: the on-mount settings load, the
+ * grouped tab navigation + section switching, and the Cancel / Done wiring
+ * to the settings store. NotesSettings' own form + excerpt-folder behavior
+ * is covered by NotesSettings.test.ts.
  *
- * Only light panels are mounted (Editor = prop-only, Web = bind-only, and the
- * inline Notes body), so no heavy child (AI / Skills / Compute) is pulled in —
+ * Only light panels are mounted (Editor = prop-only, Web = bind-only, Notes =
+ * self-contained), so no heavy child (AI / Skills / Compute) is pulled in —
  * keeps the shell test green and non-flaky.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -48,6 +49,7 @@ vi.mock('../../../src/renderer/lib/ipc/client', () => ({ api: h.api }));
 vi.mock('../../../src/renderer/lib/stores/settings.svelte', () => ({
   getSettingsStore: () => h.settings,
 }));
+// NotesSettings (mounted on the 'notes' tab) reads these directly.
 vi.mock('../../../src/renderer/lib/refactor/settings', () => ({
   getRefactorSettings: () => ({ ...h.refactor }),
   setRefactorSettings: h.setRefactorSettings,
@@ -95,9 +97,10 @@ describe('SettingsDialog shell (#1600)', () => {
     expect(screen.getByText('Word wrap')).toBeTruthy();
     // On-mount load reached the settings/ingest reads (getIngestSettings is the
     // last awaited call in onMount, so waiting on it flushes the whole chain).
+    // getExcerptNoteFolder now loads inside NotesSettings' own onMount, so it
+    // isn't reached until that tab is mounted — see NotesSettings.test.ts.
     await waitFor(() => expect(h.api.sources.getIngestSettings).toHaveBeenCalled());
     expect(h.api.tools.getSettings).toHaveBeenCalled();
-    expect(h.api.sources.getExcerptNoteFolder).toHaveBeenCalled();
   });
 
   it('renders all four settings groups with their tab labels', () => {
@@ -124,22 +127,14 @@ describe('SettingsDialog shell (#1600)', () => {
     expect(screen.queryByText('Word wrap')).toBeNull();
   });
 
-  it('shows the inline Notes (refactoring) panel and reveals the custom template field', async () => {
+  it('switches to Notes and mounts the NotesSettings child panel', async () => {
     render(SettingsDialog, props());
     await fireEvent.click(screen.getByRole('button', { name: /Notes/ }));
 
-    // The refactoring form is rendered directly by the shell.
-    const destination = screen.getByLabelText('Destination for new notes');
-    expect(destination).toBeTruthy();
-    expect(screen.getByLabelText('Filename prefix')).toBeTruthy();
-    // Custom template field is hidden until "custom" is chosen.
-    expect(screen.queryByLabelText('Custom folder template')).toBeNull();
-
-    await fireEvent.change(destination, { target: { value: 'custom' } });
-    // Persisted through the refactor-settings write-through helper…
-    expect(h.setRefactorSettings).toHaveBeenCalledWith({ destination: 'custom' });
-    // …and the conditional custom-template field now appears.
-    expect(screen.getByLabelText('Custom folder template')).toBeTruthy();
+    // The extracted NotesSettings panel is mounted; its own form/behavior is
+    // covered by NotesSettings.test.ts.
+    expect(screen.getByRole('heading', { name: 'Notes', level: 3 })).toBeTruthy();
+    expect(screen.getByLabelText('Destination for new notes')).toBeTruthy();
   });
 
   it('honors initialTab by opening directly on that section', async () => {
