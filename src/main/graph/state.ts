@@ -162,6 +162,7 @@ export const SCHEMA  = $rdf.Namespace('http://schema.org/');
 export const PROV    = $rdf.Namespace('http://www.w3.org/ns/prov#');
 export const THOUGHT = $rdf.Namespace('https://minerva.dev/ontology/thought#');
 export const TYPES   = $rdf.Namespace('https://minerva.dev/ontology/types#');
+export const DCAT    = $rdf.Namespace('http://www.w3.org/ns/dcat#');
 
 export const STANDARD_PREFIXES: [string, string][] = [
   ['minerva', 'https://minerva.dev/ontology#'],
@@ -176,6 +177,7 @@ export const STANDARD_PREFIXES: [string, string][] = [
   ['bibo', 'http://purl.org/ontology/bibo/'],
   ['schema', 'http://schema.org/'],
   ['types', 'https://minerva.dev/ontology/types#'],
+  ['dcat', 'http://www.w3.org/ns/dcat#'],
 ];
 
 // ── Per-project state (#333) ────────────────────────────────────────────────
