@@ -159,7 +159,7 @@ export class GoogleProvider implements LLMProvider {
     });
 
     let text = '';
-    const calls: { id?: string; name: string; args: Record<string, unknown> }[] = [];
+    const calls: { id?: string; name: string; args: Record<string, unknown>; thoughtSignature?: string }[] = [];
     let usage: GenerateContentResponseUsageMetadata | undefined;
     let finishReason: string | undefined;
 
@@ -170,12 +170,27 @@ export class GoogleProvider implements LLMProvider {
         hooks.onTextDelta?.(t);
       }
       // Gemini emits each function call complete in one part (no partial args),
-      // so fire the indicator + record it as it arrives.
-      for (const fc of chunk.functionCalls ?? []) {
+      // so fire the indicator + record it as it arrives. Read the raw parts
+      // (not the `chunk.functionCalls` convenience getter, which strips
+      // everything but the FunctionCall itself) because Gemini 3's thinking
+      // models attach a `thoughtSignature` as a SIBLING field on the same
+      // Part — it must be replayed verbatim on this exact part in the next
+      // turn's history or the API 400s with "missing a thought_signature"
+      // (#2112). Only some parts carry one (Gemini's own placement rule: the
+      // first of a set of parallel calls; every part of a sequential chain) —
+      // we don't need to replicate that rule, just preserve whatever came back.
+      for (const part of chunk.candidates?.[0]?.content?.parts ?? []) {
+        const fc = part.functionCall;
+        if (!fc) continue;
         const name = fc.name ?? '';
         const args = fc.args ?? {};
         hooks.onToolCallStart?.(name, args);
-        calls.push({ ...(fc.id ? { id: fc.id } : {}), name, args });
+        calls.push({
+          ...(fc.id ? { id: fc.id } : {}),
+          name,
+          args,
+          ...(part.thoughtSignature ? { thoughtSignature: part.thoughtSignature } : {}),
+        });
       }
       if (chunk.usageMetadata) usage = chunk.usageMetadata;
       const reason = chunk.candidates?.[0]?.finishReason;
@@ -190,7 +205,10 @@ export class GoogleProvider implements LLMProvider {
 
     const parts: Part[] = [
       ...(text ? [{ text }] : []),
-      ...calls.map((c) => ({ functionCall: { ...(c.id ? { id: c.id } : {}), name: c.name, args: c.args } })),
+      ...calls.map((c) => ({
+        functionCall: { ...(c.id ? { id: c.id } : {}), name: c.name, args: c.args },
+        ...(c.thoughtSignature ? { thoughtSignature: c.thoughtSignature } : {}),
+      })),
     ];
     const assistant: Content = { role: 'model', parts };
 

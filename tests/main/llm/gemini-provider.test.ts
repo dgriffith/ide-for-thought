@@ -89,7 +89,7 @@ describe('GoogleProvider — runTurn (injected stream)', () => {
       streamChunks: [
         { text: 'Hel' },
         { text: 'lo' },
-        { functionCalls: [{ id: 'fc1', name: 'search', args: { q: 'hi' } }] },
+        { candidates: [{ content: { parts: [{ functionCall: { id: 'fc1', name: 'search', args: { q: 'hi' } } }] } }] },
         { usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 5 } },
       ],
     }));
@@ -115,6 +115,58 @@ describe('GoogleProvider — runTurn (injected stream)', () => {
     expect(res.stopReason).toBe('tool_use');
     expect(res.usage).toEqual({ inputTokens: 10, outputTokens: 5, cacheCreationTokens: 0, cacheReadTokens: 0 });
     expect(res.citations).toEqual([]);
+  });
+
+  it('preserves a functionCall part\'s thoughtSignature for replay in the next turn (#2112)', async () => {
+    // Gemini 3's thinking models attach `thoughtSignature` as a sibling field
+    // on the SAME Part as the functionCall — not inside it, and not exposed by
+    // the SDK's `chunk.functionCalls` convenience getter. Omitting it on
+    // replay 400s with "missing a thought_signature in functionCall parts".
+    const provider = new GoogleProvider('key', fakeAi({
+      streamChunks: [
+        {
+          candidates: [{
+            content: {
+              parts: [{
+                functionCall: { id: 'fc1', name: 'search_notes', args: { q: 'hi' } },
+                thoughtSignature: 'sig-abc123',
+              }],
+            },
+          }],
+        },
+      ],
+    }));
+
+    const res = await provider.runTurn(
+      {
+        model: 'gemini-3.1-pro-preview',
+        system: 'sys',
+        history: provider.ingestHistory([{ role: 'user', content: 'hi' }]),
+        tools: [],
+        web: { enabled: false },
+        maxTokens: 1000,
+      },
+      {},
+    );
+
+    const assistant = res.assistantMessage as unknown as { parts: { functionCall?: unknown; thoughtSignature?: string }[] };
+    const fcPart = assistant.parts.find((p) => p.functionCall);
+    expect(fcPart?.thoughtSignature).toBe('sig-abc123');
+  });
+
+  it('omits thoughtSignature when Gemini did not attach one to the part', async () => {
+    const provider = new GoogleProvider('key', fakeAi({
+      streamChunks: [
+        { candidates: [{ content: { parts: [{ functionCall: { name: 'search', args: {} } }] } }] },
+      ],
+    }));
+    const res = await provider.runTurn(
+      { model: 'gemini-2.5-pro', system: 's', history: [], tools: [], web: { enabled: false }, maxTokens: 100 },
+      {},
+    );
+    const assistant = res.assistantMessage as unknown as { parts: { functionCall?: unknown; thoughtSignature?: string }[] };
+    const fcPart = assistant.parts.find((p) => p.functionCall);
+    expect(fcPart?.thoughtSignature).toBeUndefined();
   });
 
   it('a plain text turn stops with "end"', async () => {
