@@ -40,28 +40,40 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
+/** `.svelte` matters once a scan includes `src/renderer` (#2100). */
+const SCANNED_EXTENSIONS = ['.ts', '.svelte'];
+
 function tsFilesUnder(dir: string): string[] {
   const out: string[] = [];
   const walk = (current: string): void => {
     for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
       const full = path.join(current, entry.name);
       if (entry.isDirectory()) walk(full);
-      else if (entry.name.endsWith('.ts')) out.push(full);
+      else if (SCANNED_EXTENSIONS.some((ext) => entry.name.endsWith(ext))) out.push(full);
     }
   };
   walk(path.join(ROOT, dir));
   return out;
 }
 
-/** Occurrences per repo-relative file, omitting files with none. */
-function countPerFile(dir: string, pattern: RegExp): Record<string, number> {
+/** Occurrences per repo-relative file, omitting files with none. `dirs` may be one root or several. */
+function countPerFile(dirs: string | string[], pattern: RegExp): Record<string, number> {
   const counts: Record<string, number> = {};
-  for (const file of tsFilesUnder(dir)) {
-    const matches = fs.readFileSync(file, 'utf-8').match(pattern);
-    if (matches?.length) counts[path.relative(ROOT, file)] = matches.length;
+  for (const dir of Array.isArray(dirs) ? dirs : [dirs]) {
+    for (const file of tsFilesUnder(dir)) {
+      const matches = fs.readFileSync(file, 'utf-8').match(pattern);
+      if (matches?.length) counts[path.relative(ROOT, file)] = matches.length;
+    }
   }
   return counts;
 }
+
+/**
+ * The three source roots the swallow ratchets scan (#2100 widened past
+ * `src/main` — `.catch(() => …)` swallows are just as real in renderer store/
+ * component code and in `src/cli`).
+ */
+const SWALLOW_SCAN_ROOTS = ['src/main', 'src/renderer', 'src/cli'];
 
 /**
  * Compare a measured population against its committed baseline and fail with
@@ -113,8 +125,11 @@ function assertRatchet(
 const SWALLOW = /catch\s*(?:\([^)]*\))?\s*\{\s*return\s+(?:\[\]|null|undefined|''|""|\{\}|false|0)\s*;?\s*\}/g;
 
 /**
- * Baseline as of #1848. Not an approval list — several of these are correct
- * (a JSON.stringify fallback, an ENOENT probe). It is the line we don't cross.
+ * Baseline as of #1848, widened in #2100 from `src/main`-only to also scan
+ * `src/renderer` and `src/cli` (see `SWALLOW_SCAN_ROOTS`) — the try/catch
+ * block-statement shape this regex matches isn't a main-process-only habit.
+ * Not an approval list — several of these are correct (a JSON.stringify
+ * fallback, an ENOENT probe). It is the line we don't cross.
  *
  * When you touch one of these files, it is worth asking whether its catch is
  * hiding something. `history/store.ts` is not on this list any more because
@@ -155,6 +170,63 @@ const SWALLOW_BASELINE: Record<string, number> = {
   'src/main/sources/import-zotero-rdf.ts': 1,
   'src/main/sources/source-id.ts': 1,
   'src/main/sources/tables.ts': 1,
+  'src/renderer/lib/command-palette/recent.ts': 1,
+  'src/renderer/lib/components/ComputeDraftCard.svelte': 1,
+  'src/renderer/lib/components/find-excerpt-range.ts': 1,
+  'src/renderer/lib/editor/note-preview.ts': 1,
+  'src/renderer/lib/preview/typed-link-render.ts': 1,
+  'src/renderer/lib/sources/source-actions.ts': 1,
+  'src/renderer/lib/stores/graph-settings.svelte.ts': 1,
+  'src/renderer/lib/voice/voice-settings.svelte.ts': 1,
+};
+
+// ── Ratchet 1b: swallowed errors, expression form ───────────────────────────
+
+/**
+ * The promise-chaining sibling of Ratchet 1: `.catch(() => …)` with a
+ * zero-arg arrow. Not binding the rejection at all is itself the "swallow"
+ * signal CLAUDE.md's IPC error handling section names — contrast
+ * `.catch((err) => logger('x').warn('...', err))`, which the caller can see
+ * is actually looking at the failure. This deliberately does not try to
+ * classify what the arrow body then does (return an empty literal, assign
+ * some piece of state, do nothing) — same "lexical scan, not semantic"
+ * trade-off documented at the top of this file, and the same reason
+ * `grep -rn '\.catch(() =>' src` is the tool that found these 29 sites.
+ *
+ * `SWALLOW` (Ratchet 1) never covered this shape: it only matches the
+ * try/catch block-statement form, never a `.then/.catch` chain.
+ */
+const SWALLOW_EXPR = /\.catch\(\s*\(\)\s*=>/g;
+
+/**
+ * Baseline as of #2100. Named examples from the source report
+ * (`register-bibliography.ts`, `publish-git.ts`, `CitationsPanel.svelte`,
+ * `Preview.svelte`) sit alongside plenty of legitimate best-effort cleanup
+ * (`fs.rm(tmpPath, { force: true }).catch(() => {})`) — this is a ratchet,
+ * not a verdict. Fix individual sites as separate follow-up work.
+ */
+const SWALLOW_EXPR_BASELINE: Record<string, number> = {
+  'src/main/compute/python-kernel.ts': 2,
+  'src/main/embeddings/vector-store.ts': 1,
+  'src/main/git/publish-git.ts': 3,
+  'src/main/ipc/read-json.ts': 1,
+  'src/main/ipc/register-bibliography.ts': 2,
+  'src/main/ipc/register-links.ts': 1,
+  'src/main/publish/exporters/note-pdf/electron-render.ts': 1,
+  'src/main/publish/exporters/static-site/index.ts': 1,
+  'src/main/sources/api-adapters/pubmed.ts': 1,
+  'src/main/sources/ingest.ts': 1,
+  'src/main/sources/tables.ts': 1,
+  'src/main/types/write.ts': 1,
+  'src/renderer/lib/components/Preview.svelte': 1,
+  'src/renderer/lib/components/right-sidebar/CitationsPanel.svelte': 1,
+  'src/renderer/lib/editor/image-upload.ts': 1,
+  'src/renderer/lib/editor/link-preview.ts': 1,
+  'src/renderer/lib/editor/note-preview.ts': 1,
+  'src/renderer/lib/formatter/settings.ts': 2,
+  'src/cli/eval-context.ts': 2,
+  'src/cli/eval.ts': 1,
+  'src/cli/run.ts': 3,
 };
 
 // ── Ratchet 2: no-project answered with null ────────────────────────────────
@@ -266,7 +338,8 @@ const IN_BAND_ERROR_ON_PAYLOAD_BASELINE: Record<string, number> = {
 describe('known-bad pattern ratchets (#1848)', () => {
   it('the scanners still find things — a broken regex would pass vacuously', () => {
     // The failure mode that would quietly turn all ratchets into decoration.
-    expect(Object.keys(countPerFile('src/main', SWALLOW)).length).toBeGreaterThan(20);
+    expect(Object.keys(countPerFile(SWALLOW_SCAN_ROOTS, SWALLOW)).length).toBeGreaterThan(20);
+    expect(Object.keys(countPerFile(SWALLOW_SCAN_ROOTS, SWALLOW_EXPR)).length).toBeGreaterThan(0);
     expect(Object.keys(countPerFile('src/main', NO_PROJECT_NULL)).length).toBeGreaterThan(0);
     expect(Object.keys(countPerFile('src/main', BOOLEAN_OVERLOAD)).length).toBeGreaterThan(0);
     expect(Object.keys(countPerFile('src/main', NO_PROJECT_UNDEFINED)).length).toBeGreaterThan(0);
@@ -277,11 +350,23 @@ describe('known-bad pattern ratchets (#1848)', () => {
     assertRatchet(
       'Swallowed errors (catch → empty value)',
       SWALLOW_BASELINE,
-      countPerFile('src/main', SWALLOW),
+      countPerFile(SWALLOW_SCAN_ROOTS, SWALLOW),
       'A blanket catch that returns an empty value turns a corrupt file into "not written yet" ' +
       'and a permissions error into "nothing found". Catch the SPECIFIC expected condition ' +
       '(ENOENT → sentinel) and let the rest throw — see `readJsonFileOr` in `ipc/read-json.ts`, ' +
       'and CLAUDE.md → IPC error handling.',
+    );
+  });
+
+  it('swallowed errors, expression form: no new ones', () => {
+    assertRatchet(
+      'Swallowed errors (.catch(() => …), zero-arg)',
+      SWALLOW_EXPR_BASELINE,
+      countPerFile(SWALLOW_SCAN_ROOTS, SWALLOW_EXPR),
+      'A `.catch(() => …)` that never binds the rejection can\'t look at, log, or rethrow it — ' +
+      'the same swallow CLAUDE.md → IPC error handling warns about, just spelled as a promise chain ' +
+      'instead of a try/catch block. If the failure really is fine to ignore silently (best-effort ' +
+      'cleanup, a probe), say so in a comment; otherwise bind the error and handle it.',
     );
   });
 
