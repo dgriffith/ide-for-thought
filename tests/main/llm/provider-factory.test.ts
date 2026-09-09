@@ -31,9 +31,9 @@ describe('getProvider — provider resolution from the effective model', () => {
   });
 
   it('routes an OpenAI model override to the OpenAI provider', async () => {
-    const r = await getProvider('gpt-5');
+    const r = await getProvider('gpt-5.6-sol');
     expect(r.provider.id).toBe('openai');
-    expect(r.model).toBe('gpt-5');
+    expect(r.model).toBe('gpt-5.6-sol');
   });
 
   it('routes a Claude model override to the Anthropic provider', async () => {
@@ -81,8 +81,8 @@ describe('getProvider — local / custom models (#1497)', () => {
 describe('getProvider — missing credentials', () => {
   it('throws the marker error naming OpenAI when its key is absent', async () => {
     h.getSettings.mockResolvedValue({ providers: { anthropic: { apiKey: 'sk-ant' } }, model: 'claude-opus-5' });
-    await expect(getProvider('gpt-5')).rejects.toThrow(PROVIDER_UNCONFIGURED_MARKER);
-    await expect(getProvider('gpt-5')).rejects.toThrow(/OpenAI/);
+    await expect(getProvider('gpt-5.6-sol')).rejects.toThrow(PROVIDER_UNCONFIGURED_MARKER);
+    await expect(getProvider('gpt-5.6-sol')).rejects.toThrow(/OpenAI/);
   });
 
   it('throws the marker error naming Gemini when its key is absent', async () => {

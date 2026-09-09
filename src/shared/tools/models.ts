@@ -38,16 +38,23 @@ export const MODEL_OPTIONS: ModelOption[] = [
   { value: 'claude-sonnet-5', label: 'Claude Sonnet 5', provider: 'anthropic' },
   { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6', provider: 'anthropic' },
   { value: 'claude-haiku-4-5', label: 'Claude Haiku 4.5', provider: 'anthropic' },
-  // OpenAI (BYOM #1495). Reasoning-capable models with large output caps, so
-  // they clear the provider's max_completion_tokens clamp. gpt-4o / non-reasoning
-  // tiers are intentionally omitted for now (lower output caps + no reasoning).
-  { value: 'gpt-5', label: 'GPT-5', provider: 'openai' },
-  { value: 'gpt-5-mini', label: 'GPT-5 mini', provider: 'openai' },
-  { value: 'o3', label: 'OpenAI o3', provider: 'openai' },
-  { value: 'o4-mini', label: 'OpenAI o4-mini', provider: 'openai' },
-  // Google Gemini (BYOM #1496). Thinking-capable 2.5 models.
+  // OpenAI (BYOM #1495). gpt-5/gpt-5-mini/o3/o4-mini were retired by OpenAI
+  // (shutdown Oct/Dec 2026) — reasoning is now unified into the gpt-5.6/gpt-6
+  // line rather than a separate o-series. gpt-6-astra is the top-tier flagship
+  // (the OpenAI analog of Fable 5 — not the default); gpt-5.6-sol is the
+  // regular flagship/default tier (analog of Opus 5); terra and luna are the
+  // cheaper siblings.
+  { value: 'gpt-6-astra', label: 'GPT-6 Astra', provider: 'openai' },
+  { value: 'gpt-5.6-sol', label: 'GPT-5.6 Sol', provider: 'openai' },
+  { value: 'gpt-5.6-terra', label: 'GPT-5.6 Terra', provider: 'openai' },
+  { value: 'gpt-5.6-luna', label: 'GPT-5.6 Luna', provider: 'openai' },
+  // Google Gemini (BYOM #1496). 2.5 Pro/Flash remain GA; 3.8 Flash is the
+  // newer GA flash-tier model added alongside them. No GA Pro-tier successor
+  // exists yet (gemini-3.1-pro-preview is preview-only), so 2.5 Pro stays the
+  // Pro-tier pick until one ships.
   { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', provider: 'google' },
   { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', provider: 'google' },
+  { value: 'gemini-3.8-flash', label: 'Gemini 3.8 Flash', provider: 'google' },
 ];
 
 /**
@@ -130,14 +137,25 @@ export const MODEL_PRICING: Record<string, ModelPrice> = {
   // out-of-date rate over- or under-estimates rather than failing. OpenAI's
   // cached-input discount isn't modelled (usage counts cached tokens as full
   // input — see foldOpenAIUsage), so real cost trends slightly below these.
+  // gpt-5/gpt-5-mini/o3/o4-mini are retired from MODEL_OPTIONS (Oct/Dec 2026
+  // shutdown) but keep their pricing here as orphans so historical
+  // conversation costs still render (see the parity test's orphan note).
   'gpt-5': { input: 1.25, output: 10 },
   'gpt-5-mini': { input: 0.25, output: 2 },
   'o3': { input: 2, output: 8 },
   'o4-mini': { input: 1.1, output: 4.4 },
+  'gpt-6-astra': { input: 10, output: 50 },
+  'gpt-5.6-sol': { input: 4, output: 20 },
+  'gpt-5.6-terra': { input: 2, output: 12 },
+  'gpt-5.6-luna': { input: 0.2, output: 1.2 },
   // Google Gemini — representative published $/MTok at authoring time (Pro's
   // higher >200k-context tier isn't modelled); verify before relying on cost.
   'gemini-2.5-pro': { input: 1.25, output: 10 },
   'gemini-2.5-flash': { input: 0.3, output: 2.5 },
+  // Standard rate post-introductory-window (intro $0.75/$3.75 through
+  // 2026-12-31, then $1.50/$7.50) — same over-estimate-during-intro tradeoff
+  // as the Sonnet 5 note above, since this map has no expiry mechanism.
+  'gemini-3.8-flash': { input: 1.5, output: 7.5 },
 };
 
 /**
