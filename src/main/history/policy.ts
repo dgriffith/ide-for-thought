@@ -12,6 +12,7 @@
  */
 
 import type { HistorySettings, RevisionMeta } from '../../shared/history';
+import { DAY_MS } from '../graph/queries';
 export type { RevisionMeta, RevisionOrigin, RevisionSource } from '../../shared/history';
 
 /** Fallback window/cap when no settings are supplied. The user-facing defaults
@@ -21,7 +22,6 @@ export const RETENTION_DAYS = 30;
 /** Hard cap on unlabeled revisions per note, so a marathon editing session
  *  can't grow one note's history without bound. Generous — notes are small. */
 export const MAX_REVISIONS_PER_NOTE = 500;
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Retention knobs in the shape `selectForRetention` takes them. */
 export function retentionOptions(settings: HistorySettings): { retentionDays: number; maxPerNote: number } {
