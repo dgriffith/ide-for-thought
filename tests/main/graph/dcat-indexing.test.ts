@@ -31,7 +31,7 @@ describe('DCAT alignment (#2033)', () => {
     expect(types).toContain('http://www.w3.org/ns/dcat#Catalog');
   });
 
-  it('types a markdown note as dcat:Dataset alongside minerva:Note', async () => {
+  it('types a markdown note as dcat:CatalogRecord alongside minerva:Note', async () => {
     await indexNote(ctx, 'note.md', '# Hello\n');
     const { results } = await queryGraph(ctx, `
       SELECT ?type WHERE {
@@ -40,10 +40,10 @@ describe('DCAT alignment (#2033)', () => {
     `);
     const types = (results as Array<{ type: string }>).map((r) => r.type);
     expect(types).toContain('https://minerva.dev/ontology#Note');
-    expect(types).toContain('http://www.w3.org/ns/dcat#Dataset');
+    expect(types).toContain('http://www.w3.org/ns/dcat#CatalogRecord');
   });
 
-  it('types a non-markdown note (.py) as dcat:Dataset alongside its extra typing', async () => {
+  it('types a non-markdown note (.py) as dcat:CatalogRecord alongside its extra typing', async () => {
     await indexNote(ctx, 'helpers.py', 'def add(a, b):\n    return a + b\n');
     const { results } = await queryGraph(ctx, `
       SELECT ?type WHERE {
@@ -52,15 +52,15 @@ describe('DCAT alignment (#2033)', () => {
     `);
     const types = (results as Array<{ type: string }>).map((r) => r.type);
     expect(types).toContain('https://minerva.dev/ontology#PythonModule');
-    expect(types).toContain('http://www.w3.org/ns/dcat#Dataset');
+    expect(types).toContain('http://www.w3.org/ns/dcat#CatalogRecord');
   });
 
-  it('links the catalog to each note via the standard dcat:dataset predicate', async () => {
+  it('links the catalog to each note via the standard dcat:record predicate', async () => {
     await fsp.writeFile(path.join(root, 'note.md'), '# Hello\n', 'utf-8');
     await indexAllNotes(ctx);
     const { results } = await queryGraph(ctx, `
       SELECT ?d WHERE {
-        ?catalog a dcat:Catalog ; dcat:dataset ?d .
+        ?catalog a dcat:Catalog ; dcat:record ?d .
         ?d minerva:relativePath "note.md" .
       }
     `);
