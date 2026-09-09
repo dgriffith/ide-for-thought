@@ -577,16 +577,16 @@ const CELL_BOUND_TEMPLATE = `{
 /** A bare ```vega-lite block — cursor on the empty body line (power users). */
 export const insertVegaLiteDiagram: Command = makeInsertFence('vega-lite');
 
-export const insertVegaLiteBar: Command = makeInsertTemplate('vega-lite', BAR_TEMPLATE);
-export const insertVegaLiteLine: Command = makeInsertTemplate('vega-lite', LINE_TEMPLATE);
-export const insertVegaLiteArea: Command = makeInsertTemplate('vega-lite', AREA_TEMPLATE);
-export const insertVegaLiteScatter: Command = makeInsertTemplate('vega-lite', SCATTER_TEMPLATE);
-export const insertVegaLiteTimeSeries: Command = makeInsertTemplate('vega-lite', TIME_SERIES_TEMPLATE);
-export const insertVegaLitePie: Command = makeInsertTemplate('vega-lite', PIE_TEMPLATE);
+const insertVegaLiteBar: Command = makeInsertTemplate('vega-lite', BAR_TEMPLATE);
+const insertVegaLiteLine: Command = makeInsertTemplate('vega-lite', LINE_TEMPLATE);
+const insertVegaLiteArea: Command = makeInsertTemplate('vega-lite', AREA_TEMPLATE);
+const insertVegaLiteScatter: Command = makeInsertTemplate('vega-lite', SCATTER_TEMPLATE);
+const insertVegaLiteTimeSeries: Command = makeInsertTemplate('vega-lite', TIME_SERIES_TEMPLATE);
+const insertVegaLitePie: Command = makeInsertTemplate('vega-lite', PIE_TEMPLATE);
 
-export const insertVegaLiteFromSparql: Command = makeInsertTemplate('vega-lite', SPARQL_BOUND_TEMPLATE);
-export const insertVegaLiteFromTable: Command = makeInsertTemplate('vega-lite', TABLE_BOUND_TEMPLATE);
-export const insertVegaLiteFromCell: Command = makeInsertTemplate('vega-lite', CELL_BOUND_TEMPLATE);
+const insertVegaLiteFromSparql: Command = makeInsertTemplate('vega-lite', SPARQL_BOUND_TEMPLATE);
+const insertVegaLiteFromTable: Command = makeInsertTemplate('vega-lite', TABLE_BOUND_TEMPLATE);
+const insertVegaLiteFromCell: Command = makeInsertTemplate('vega-lite', CELL_BOUND_TEMPLATE);
 
 /** Chart-type chooser for the Insert menu, in a sensible order: inline-data
  *  scaffolds, then the live-data (#832) ones, then the empty block for users
