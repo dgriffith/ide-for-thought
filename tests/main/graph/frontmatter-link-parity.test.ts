@@ -4,7 +4,7 @@
  * SAME RDF a body link would, instead of being flattened to a bare reference.
  */
 import { describe, it, expect, beforeEach } from 'vitest';
-import { indexNote, queryGraph } from '../../../src/main/graph/index';
+import { indexNote, queryGraph, reloadTypeCatalog } from '../../../src/main/graph/index';
 import { type ProjectContext } from '../../../src/main/project-context-types';
 import { useGraphProject } from '../../helpers/temp-project';
 
@@ -68,5 +68,49 @@ describe('frontmatter ↔ body wiki-link parity', () => {
     await indexNote(ctx, 'fm.md', '---\nabout: "[[sources/foo]]"\n---\n# FM\n');
     const [t] = await targetsUnder(ctx, 'fm.md', 'dc:subject');
     expect(t).toMatch(/source\/foo$/);
+  });
+
+  // #2035: creator/author/authors are ordinary DC('creator')-mapped keys with
+  // no special-casing — this generic whole-value-wiki-link mechanism already
+  // reconciles a `creator: [[Person Note]]` frontmatter value with a Person
+  // typed-object note, no dedicated code required. These lock that in.
+  describe('creator/Person reconciliation (#2035)', () => {
+    it('a bracketed creator link resolves to the target note, queryable via its Person typing', async () => {
+      // typeCatalog (stock types incl. Person) only loads via reloadTypeCatalog
+      // / indexAllNotes, not initGraph alone — useGraphProject only does the
+      // latter, so a bare indexNote() here would never materialize `type:
+      // person` frontmatter into a types:Person rdf:type triple.
+      await reloadTypeCatalog(ctx);
+      await indexNote(ctx, 'Jane Smith.md', '---\ntype: person\n---\n# Jane Smith\n');
+      await indexNote(ctx, 'paper.md', '---\ncreator: "[[Jane Smith]]"\n---\n# Paper\n');
+
+      const [creatorTarget] = await targetsUnder(ctx, 'paper.md', 'dc:creator');
+      expect(creatorTarget).toMatch(/Jane%20Smith$/);
+
+      const { results } = await queryGraph(ctx, `
+        SELECT ?p WHERE {
+          ?note minerva:relativePath "paper.md" ; dc:creator ?p .
+          ?p a/rdfs:subClassOf* types:Person .
+        }
+      `);
+      expect((results as Array<{ p: string }>).length).toBe(1);
+    });
+
+    it('a bracketed creator link to a not-yet-created note still creates an edge, not a literal', async () => {
+      await indexNote(ctx, 'paper.md', '---\ncreator: "[[Future Person]]"\n---\n# Paper\n');
+      const [creatorTarget] = await targetsUnder(ctx, 'paper.md', 'dc:creator');
+      // Same "lights up once the file lands" behavior as any other wiki-link —
+      // not a fallback to a literal, since the wiki-link syntax itself is an
+      // unambiguous, deliberate user action.
+      expect(creatorTarget).toMatch(/Future%20Person$/);
+    });
+
+    it('a plain creator string with no wiki-link syntax stays a literal (zero behavior change)', async () => {
+      await indexNote(ctx, 'paper.md', '---\ncreator: "Jane Smith"\n---\n# Paper\n');
+      const { results } = await queryGraph(ctx, `
+        SELECT ?c WHERE { ?note minerva:relativePath "paper.md" ; dc:creator ?c . }
+      `);
+      expect((results as Array<{ c: string }>).map((r) => r.c)).toEqual(['Jane Smith']);
+    });
   });
 });
