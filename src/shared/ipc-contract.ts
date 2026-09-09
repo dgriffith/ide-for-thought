@@ -585,7 +585,88 @@ export interface ChannelMap {
  * conversation-draft, streaming, and `menu:*` command channels still use the
  * legacy `subscribeIpc` forwarder and will move here next.
  */
-export interface EventMap {
+
+/**
+ * Zero-arg native-menu command names (#2106) — every `menu:*` channel whose
+ * payload is `void`. This is the single source of truth: `setTheme`,
+ * `openStockQuery`, `export`, and `openRecentProject` carry an argument and
+ * stay hand-typed directly on `EventMap`, but every zero-arg command lives
+ * here once, and the corresponding `EventMap['menu:*']` entries are derived
+ * from it below (`MenuCommandEventMap`) instead of hand-typed one by one, so
+ * the tuple and the type can no longer drift apart.
+ */
+export const MENU_COMMANDS = [
+  'about',
+  'bibliography',
+  'clearRecent',
+  'closeGroup',
+  'closeProject',
+  'cycleTheme',
+  'editSavedQueries',
+  'editThoughtbaseDoc',
+  'find',
+  'findInNotes',
+  'findReplace',
+  'focusNextGroup',
+  'focusPrevGroup',
+  'fontDecrease',
+  'fontIncrease',
+  'fontReset',
+  'format',
+  'gotoLine',
+  'importBibtex',
+  'importZoteroRdf',
+  'ingestFile',
+  'ingestIdentifier',
+  'ingestUrl',
+  'insertTemplate',
+  'installTutorial',
+  'navBack',
+  'navForward',
+  'newConversation',
+  'newNote',
+  'newProject',
+  'newQuery',
+  'openInDefault',
+  'openInTerminal',
+  'openProject',
+  'openSettings',
+  'print',
+  'publish',
+  'quickOpen',
+  'refactor:autolink',
+  'refactor:autolinkInbound',
+  'refactor:autotag',
+  'refactor:copy',
+  'refactor:decompose',
+  'refactor:extract',
+  'refactor:move',
+  'refactor:rename',
+  'refactor:splitByHeading',
+  'refactor:splitHere',
+  'replaceInNotes',
+  'reportEditorState',
+  'reportTheme',
+  'save',
+  'saveAsObjectType',
+  'saveAsTemplate',
+  'shortcuts',
+  'sortLines',
+  'splitDown',
+  'splitRight',
+  'thoughtbaseProperties',
+  'toggleConversations',
+  'togglePreview',
+  'toggleRightSidebar',
+  'toggleSidebar',
+] as const;
+
+/** `EventMap['menu:*']` entries for every zero-arg command in `MENU_COMMANDS`. */
+type MenuCommandEventMap = {
+  [K in (typeof MENU_COMMANDS)[number] as `menu:${K}`]: () => void;
+};
+
+export interface EventMap extends MenuCommandEventMap {
   'project:opened': (meta: { rootPath: string; name: string }) => void;
   'notebase:fileChanged': (path: string) => void;
   'notebase:fileCreated': (path: string) => void;
@@ -627,74 +708,12 @@ export interface EventMap {
   'tool:stream': (chunk: string) => void;
   'tool:invoke': (toolId: string) => void;
   'shell:revealFile': () => void; // fired by the native menu as a command event
-  // Native-menu command channels (#1633) — payloaded first, then void.
+  // Native-menu command channels (#1633) — payloaded here; the ~63 zero-arg
+  // `menu:*` commands are derived from `MENU_COMMANDS` above (#2106).
   'menu:setTheme': (mode: ThemeMode) => void;
   'menu:openStockQuery': (payload: { query: string; language: 'sparql' | 'sql' }) => void;
   'menu:export': (exporterId: string) => void;
   'menu:openRecentProject': (path: string) => void;
-  'menu:about': () => void;
-  'menu:bibliography': () => void;
-  'menu:clearRecent': () => void;
-  'menu:closeGroup': () => void;
-  'menu:closeProject': () => void;
-  'menu:cycleTheme': () => void;
-  'menu:editSavedQueries': () => void;
-  'menu:editThoughtbaseDoc': () => void;
-  'menu:find': () => void;
-  'menu:findInNotes': () => void;
-  'menu:findReplace': () => void;
-  'menu:focusNextGroup': () => void;
-  'menu:focusPrevGroup': () => void;
-  'menu:fontDecrease': () => void;
-  'menu:fontIncrease': () => void;
-  'menu:fontReset': () => void;
-  'menu:format': () => void;
-  'menu:gotoLine': () => void;
-  'menu:importBibtex': () => void;
-  'menu:importZoteroRdf': () => void;
-  'menu:ingestFile': () => void;
-  'menu:ingestIdentifier': () => void;
-  'menu:ingestUrl': () => void;
-  'menu:insertTemplate': () => void;
-  'menu:installTutorial': () => void;
-  'menu:navBack': () => void;
-  'menu:navForward': () => void;
-  'menu:newConversation': () => void;
-  'menu:newNote': () => void;
-  'menu:newProject': () => void;
-  'menu:newQuery': () => void;
-  'menu:openInDefault': () => void;
-  'menu:openInTerminal': () => void;
-  'menu:openProject': () => void;
-  'menu:openSettings': () => void;
-  'menu:print': () => void;
-  'menu:publish': () => void;
-  'menu:quickOpen': () => void;
-  'menu:refactor:autolink': () => void;
-  'menu:refactor:autolinkInbound': () => void;
-  'menu:refactor:autotag': () => void;
-  'menu:refactor:copy': () => void;
-  'menu:refactor:decompose': () => void;
-  'menu:refactor:extract': () => void;
-  'menu:refactor:move': () => void;
-  'menu:refactor:rename': () => void;
-  'menu:refactor:splitByHeading': () => void;
-  'menu:refactor:splitHere': () => void;
-  'menu:replaceInNotes': () => void;
-  'menu:reportEditorState': () => void;
-  'menu:reportTheme': () => void;
-  'menu:save': () => void;
-  'menu:saveAsObjectType': () => void;
-  'menu:saveAsTemplate': () => void;
-  'menu:shortcuts': () => void;
-  'menu:sortLines': () => void;
-  'menu:splitDown': () => void;
-  'menu:splitRight': () => void;
-  'menu:thoughtbaseProperties': () => void;
-  'menu:toggleConversations': () => void;
-  'menu:togglePreview': () => void;
-  'menu:toggleRightSidebar': () => void;
-  'menu:toggleSidebar': () => void;
 }
 
 /** A configured publish destination (#254; multi-transport #1444). Mirror of the
