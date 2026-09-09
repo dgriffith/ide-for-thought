@@ -20,13 +20,13 @@ import { MODEL_OPTIONS } from '../../src/shared/tools/models';
 describe('tierForModel', () => {
   it('reads the cheap sibling of each provider as the quick tier', () => {
     expect(tierForModel('claude-sonnet-5')).toBe('quick');
-    expect(tierForModel('gpt-5-mini')).toBe('quick');
+    expect(tierForModel('gpt-5.6-terra')).toBe('quick');
     expect(tierForModel('gemini-2.5-flash')).toBe('quick');
   });
 
   it('reads flagships as the deep tier', () => {
     expect(tierForModel('claude-opus-5')).toBe('deep');
-    expect(tierForModel('gpt-5')).toBe('deep');
+    expect(tierForModel('gpt-5.6-sol')).toBe('deep');
     expect(tierForModel('gemini-2.5-pro')).toBe('deep');
   });
 
@@ -75,9 +75,9 @@ describe('defaultOverridesForProvider', () => {
       'no-preference': 'gemini-2.5-pro',
     });
     expect(defaultOverridesForProvider(skills, 'openai', 'claude-opus-5')).toEqual({
-      antithesize: 'gpt-5',
-      'add-term': 'gpt-5-mini',
-      'no-preference': 'gpt-5',
+      antithesize: 'gpt-5.6-sol',
+      'add-term': 'gpt-5.6-terra',
+      'no-preference': 'gpt-5.6-sol',
     });
   });
 

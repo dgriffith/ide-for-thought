@@ -251,8 +251,8 @@ describe('SkillsSettings — Reset to Default (per provider)', () => {
 
   it('clears every pin when resetting onto the provider the skills were authored for', async () => {
     confirmMock.mockResolvedValue(true);
-    const { getByText, container } = await openPanel({ deep: 'gpt-5', quick: 'o4-mini' });
-    expect(rowModels(container)).toEqual(['gpt-5', 'o4-mini']);
+    const { getByText, container } = await openPanel({ deep: 'gpt-5.6-sol', quick: 'gpt-5.6-terra' });
+    expect(rowModels(container)).toEqual(['gpt-5.6-sol', 'gpt-5.6-terra']);
 
     await fireEvent.click(getByText('Reset to Default…'));
 
@@ -263,13 +263,13 @@ describe('SkillsSettings — Reset to Default (per provider)', () => {
 
   it('does nothing when the confirmation is declined', async () => {
     confirmMock.mockResolvedValue(false);
-    const { getByText, getByLabelText, container } = await openPanel({ deep: 'gpt-5' });
+    const { getByText, getByLabelText, container } = await openPanel({ deep: 'gpt-5.6-sol' });
 
     await fireEvent.change(getByLabelText('Provider to reset skill models to'), { target: { value: 'openai' } });
     await fireEvent.click(getByText('Reset to Default…'));
 
     await waitFor(() => expect(confirmMock).toHaveBeenCalled());
-    expect(rowModels(container)).toEqual(['gpt-5', '']);
+    expect(rowModels(container)).toEqual(['gpt-5.6-sol', '']);
   });
 
   it('names the provider in the confirmation, and promises menus are untouched', async () => {

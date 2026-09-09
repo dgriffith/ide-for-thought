@@ -37,7 +37,10 @@ export function isResettableProvider(v: string): v is ResettableProvider {
 /** The two ends of each provider's range. Keep in step with `MODEL_OPTIONS`. */
 export const TIER_MODELS: Record<ResettableProvider, Record<ModelTier, string>> = {
   anthropic: { deep: 'claude-opus-5', quick: 'claude-sonnet-5' },
-  openai: { deep: 'gpt-5', quick: 'gpt-5-mini' },
+  // gpt-5.6-sol is the regular flagship/default tier (the OpenAI analog of
+  // Opus 5); gpt-6-astra sits above it as an ultra-premium option, the same
+  // way Fable 5 sits above Opus 5 without being `deep` here.
+  openai: { deep: 'gpt-5.6-sol', quick: 'gpt-5.6-terra' },
   google: { deep: 'gemini-2.5-pro', quick: 'gemini-2.5-flash' },
 };
 
@@ -46,8 +49,8 @@ export const TIER_MODELS: Record<ResettableProvider, Record<ModelTier, string>> 
  *  a skill is never quietly downgraded by a model we don't recognise. */
 const QUICK_MODELS = new Set<string>([
   'claude-sonnet-5', 'claude-sonnet-4-6', 'claude-haiku-4-5',
-  'gpt-5-mini', 'o4-mini',
-  'gemini-2.5-flash',
+  'gpt-5-mini', 'o4-mini', 'gpt-5.6-terra', 'gpt-5.6-luna',
+  'gemini-2.5-flash', 'gemini-3.8-flash',
 ]);
 
 export function tierForModel(model: string | undefined): ModelTier {

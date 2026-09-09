@@ -49,15 +49,22 @@ const SUPPORT: Record<string, Effort[]> = {
   'claude-haiku-4-5': [],
   // OpenAI reasoning models take `reasoning_effort` (low/medium/high). The
   // provider maps neutral xhigh/max → high, and clampEffort snaps a picked
-  // xhigh/max down to high since it's not listed here.
+  // xhigh/max down to high since it's not listed here. gpt-5/gpt-5-mini/o3/
+  // o4-mini are retired from MODEL_OPTIONS but keep an entry as a harmless
+  // orphan (see model-registry-parity.test.ts).
   'gpt-5': ['low', 'medium', 'high'],
   'gpt-5-mini': ['low', 'medium', 'high'],
   'o3': ['low', 'medium', 'high'],
   'o4-mini': ['low', 'medium', 'high'],
+  'gpt-6-astra': ['low', 'medium', 'high'],
+  'gpt-5.6-sol': ['low', 'medium', 'high'],
+  'gpt-5.6-terra': ['low', 'medium', 'high'],
+  'gpt-5.6-luna': ['low', 'medium', 'high'],
   // Gemini 2.5 maps neutral effort → thinkingBudget (google.ts). xhigh/max snap
   // to high via clampEffort since they're not listed.
   'gemini-2.5-pro': ['low', 'medium', 'high'],
   'gemini-2.5-flash': ['low', 'medium', 'high'],
+  'gemini-3.8-flash': ['low', 'medium', 'high'],
 };
 
 /**
