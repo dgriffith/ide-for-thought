@@ -21,7 +21,7 @@ function makeDeps(overrides: Partial<CommandDeps> = {}): CommandDeps {
     'fontReset', 'quickOpen', 'navBack', 'navForward', 'renameActive', 'moveActive',
     'copyActive', 'extractSelection', 'splitHere', 'splitByHeading', 'autoTagActive', 'promoteToType', 'saveNoteAsObjectType',
     'autoLinkActive', 'autoLinkInboundActive', 'decomposeActive', 'format', 'ingestUrl',
-    'ingestIdentifier', 'ingestFile', 'importBibtex', 'importZoteroRdf', 'bibliography',
+    'ingestIdentifier', 'ingestFile', 'ingestBulk', 'importBibtex', 'importZoteroRdf', 'bibliography',
     'newQuery', 'editSavedQueries', 'openSettings',
   ] as const;
   const deps = {
@@ -52,7 +52,7 @@ describe('buildCommandRegistry', () => {
       'refactor.extract', 'refactor.splitHere', 'refactor.splitByHeading',
       'refactor.autoTag', 'objects.promoteToType', 'objects.saveAsObjectType', 'refactor.autoLink', 'refactor.autoLinkInbound',
       'refactor.decompose', 'refactor.format', 'research.ingestUrl',
-      'research.ingestIdentifier', 'research.ingestFile', 'research.importBibtex',
+      'research.ingestIdentifier', 'research.ingestFile', 'research.ingestBulk', 'research.importBibtex',
       'research.importZoteroRdf', 'research.bibliography', 'query.new',
       'query.editSaved', 'app.settings',
     ]);
@@ -131,7 +131,7 @@ describe('buildCommandRegistry', () => {
       'refactor.autoLink': 'autoLinkActive', 'refactor.autoLinkInbound': 'autoLinkInboundActive',
       'refactor.decompose': 'decomposeActive', 'refactor.format': 'format',
       'research.ingestUrl': 'ingestUrl', 'research.ingestIdentifier': 'ingestIdentifier',
-      'research.ingestFile': 'ingestFile', 'research.importBibtex': 'importBibtex',
+      'research.ingestFile': 'ingestFile', 'research.ingestBulk': 'ingestBulk', 'research.importBibtex': 'importBibtex',
       'research.importZoteroRdf': 'importZoteroRdf', 'research.bibliography': 'bibliography',
       'query.new': 'newQuery', 'query.editSaved': 'editSavedQueries',
       'app.settings': 'openSettings',

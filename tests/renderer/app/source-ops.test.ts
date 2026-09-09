@@ -12,7 +12,7 @@ const h = vi.hoisted(() => {
       ingestUrl: vi.fn(), ingestFile: vi.fn(), ingestIdentifier: vi.fn(),
       readPdf: vi.fn(), finishPdfOcr: vi.fn(), mineReferences: vi.fn(),
       createReferenceStubs: vi.fn(), resolveStub: vi.fn(), applyStubResolution: vi.fn(),
-      importBibtex: vi.fn(), importZoteroRdf: vi.fn(),
+      importBibtex: vi.fn(), importZoteroRdf: vi.fn(), ingestBulk: vi.fn(),
     },
     files: { getPathForFile: vi.fn(), dropImport: vi.fn() },
     graph: { sourceDetail: vi.fn() },
@@ -196,6 +196,66 @@ describe('handleImportBibtex', () => {
     h.notebase.meta = null;
     await ops.handleImportBibtex();
     expect(h.api.sources.importBibtex).not.toHaveBeenCalled();
+  });
+});
+
+describe('handleIngestBulk (#2087)', () => {
+  it('does nothing more when the picker is cancelled', async () => {
+    h.api.sources.ingestBulk.mockResolvedValue(null);
+    await ops.handleIngestBulk();
+    expect(ctx.refreshSourcesCache).not.toHaveBeenCalled();
+    expect(sidebar.refreshSources).not.toHaveBeenCalled();
+    expect(h.dialog.showConfirm).not.toHaveBeenCalled();
+  });
+
+  it('refreshes and reports counts on a successful bulk ingest', async () => {
+    h.api.sources.ingestBulk.mockResolvedValue({
+      copied: [{ localPath: '/a/n.md', relativePath: 'n.md' }],
+      ingestedPdfs: [{ localPath: '/a/p.pdf', sourceId: 's1', duplicate: false, title: 'P' }],
+      rejected: [],
+      capped: false,
+    });
+    await ops.handleIngestBulk();
+    expect(sidebar.refreshSources).toHaveBeenCalled();
+    expect(ctx.refreshSourcesCache).toHaveBeenCalled();
+    const msg = h.dialog.showConfirm.mock.calls[0][0] as string;
+    expect(msg).toContain('Imported: 2');
+    expect(msg).toContain('Skipped: 0');
+  });
+
+  it('previews the first rejections when some files are skipped, with an overflow count', async () => {
+    const rejected = Array.from({ length: 7 }, (_, i) => ({ localPath: `/a/bad${i}.exe`, reason: 'nope' }));
+    h.api.sources.ingestBulk.mockResolvedValue({
+      copied: [], ingestedPdfs: [], rejected, capped: false,
+    });
+    await ops.handleIngestBulk();
+    const msg = h.dialog.showConfirm.mock.calls[0][0] as string;
+    expect(msg).toContain('Skipped: 7');
+    expect(msg).toContain('…and 2 more');
+  });
+
+  it('mentions the entry cap when the result was capped', async () => {
+    h.api.sources.ingestBulk.mockResolvedValue({
+      copied: [], ingestedPdfs: [], rejected: [], capped: true,
+    });
+    await ops.handleIngestBulk();
+    const msg = h.dialog.showConfirm.mock.calls[0][0] as string;
+    expect(msg).toContain('5000 files');
+  });
+
+  it('reports the api error and does not refresh', async () => {
+    h.api.sources.ingestBulk.mockRejectedValue(new Error('boom'));
+    await ops.handleIngestBulk();
+    expect(ctx.refreshSourcesCache).not.toHaveBeenCalled();
+    expect(h.dialog.showConfirm).toHaveBeenCalledWith(
+      expect.stringContaining('boom'), expect.any(String), 'OK',
+    );
+  });
+
+  it('does nothing when there is no open notebase', async () => {
+    h.notebase.meta = null;
+    await ops.handleIngestBulk();
+    expect(h.api.sources.ingestBulk).not.toHaveBeenCalled();
   });
 });
 
@@ -645,7 +705,10 @@ describe('handleExternalDrop', () => {
       rejected: [],
     });
     await ops.handleExternalDrop('/dest', ['x.pdf', 'y.pdf'] as unknown as FileList);
-    expect(h.api.files.dropImport).toHaveBeenCalledWith('/dest', ['/abs/x.pdf', '/abs/y.pdf']);
+    expect(h.api.files.dropImport).toHaveBeenCalledWith('/dest', [
+      { localPath: '/abs/x.pdf' },
+      { localPath: '/abs/y.pdf' },
+    ]);
     vi.advanceTimersByTime(200);
     expect(ctx.openSource).toHaveBeenCalledWith('fresh');
   });

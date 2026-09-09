@@ -26,7 +26,7 @@ const h = vi.hoisted(() => {
     'onOpenInTerminal', 'onOpenSettings', 'onRefactorRename', 'onRefactorMove', 'onRefactorCopy',
     'onRefactorExtract', 'onRefactorSplitHere', 'onRefactorSplitByHeading', 'onRefactorAutoTag',
     'onRefactorAutoLink', 'onRefactorAutoLinkInbound', 'onRefactorDecompose', 'onFormat',
-    'onBibliography', 'onIngestUrl', 'onIngestIdentifier', 'onIngestFile', 'onImportBibtex',
+    'onBibliography', 'onIngestUrl', 'onIngestIdentifier', 'onIngestFile', 'onIngestBulk', 'onImportBibtex',
     'onImportZoteroRdf', 'onExport', 'onPublish', 'onProjectOpened',
   ];
 
@@ -128,7 +128,7 @@ function makeCtx(): { ctx: IpcWiringCtx; spies: Record<string, ReturnType<typeof
     'selectTheme', 'openThoughtbase', 'newThoughtbase', 'installTutorial', 'showProposals', 'openRecentThoughtbase', 'navBack',
     'navForward', 'rename', 'move', 'copy', 'extractSelection', 'splitHere', 'splitByHeading',
     'autoTag', 'autoLink', 'autoLinkInbound', 'decompose', 'format', 'bibliography', 'ingestUrl',
-    'ingestIdentifier', 'ingestFile', 'importBibtex', 'importZoteroRdf', 'toolInvoke',
+    'ingestIdentifier', 'ingestFile', 'ingestBulk', 'importBibtex', 'importZoteroRdf', 'toolInvoke',
     'newConversation', 'cycleViewMode',
   ];
   const spies: Record<string, ReturnType<typeof vi.fn>> = {};
@@ -226,6 +226,7 @@ describe('menu bindings dispatch to the right action (no arg / no guard)', () =>
     ['onIngestUrl', 'ingestUrl'],
     ['onIngestIdentifier', 'ingestIdentifier'],
     ['onIngestFile', 'ingestFile'],
+    ['onIngestBulk', 'ingestBulk'],
     ['onImportBibtex', 'importBibtex'],
     ['onImportZoteroRdf', 'importZoteroRdf'],
     ['onPublish', 'setPublishDialogOpen'],

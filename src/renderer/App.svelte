@@ -595,6 +595,7 @@
     ingestUrl: () => { void handleIngestUrlAsSource(); },
     ingestIdentifier: () => { void handleIngestIdentifier(); },
     ingestFile: () => { void handleIngestFileAsSource(); },
+    ingestBulk: () => { void handleIngestBulk(); },
     importBibtex: () => { void handleImportBibtex(); },
     importZoteroRdf: () => { void handleImportZoteroRdf(); },
     navBack: () => { void handleNavBack(); },
@@ -796,7 +797,7 @@
     findSourceByDoi: (target) => sourcesCache.find((s) => (s.doi ?? '').toLowerCase() === target),
   };
   const {
-    handleIngestUrlAsSource, handleIngestFileAsSource,
+    handleIngestUrlAsSource, handleIngestFileAsSource, handleIngestBulk,
     handleIngestIdentifier, handleOcrDone, handleOcrCancel, handleMineReferences,
     handleMineReferencesApply, handleResolveStub, handleResolveStubApply, handleDoiClick,
     handleImportBibtex, handleImportZoteroRdf, handleExternalDrop,
@@ -996,6 +997,7 @@
       ingestUrl: () => { void handleIngestUrlAsSource(); },
       ingestIdentifier: () => { void handleIngestIdentifier(); },
       ingestFile: () => { void handleIngestFileAsSource(); },
+      ingestBulk: () => { void handleIngestBulk(); },
       importBibtex: () => { void handleImportBibtex(); },
       importZoteroRdf: () => { void handleImportZoteroRdf(); },
       toolInvoke: (id) => { void handleToolInvoke(id); },

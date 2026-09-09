@@ -129,6 +129,7 @@ export interface IpcWiringCtx {
   ingestUrl: () => void;
   ingestIdentifier: () => void;
   ingestFile: () => void;
+  ingestBulk: () => void;
   importBibtex: () => void;
   importZoteroRdf: () => void;
   toolInvoke: (toolId: string) => void;
@@ -340,6 +341,7 @@ export function registerAppIpc(ctx: IpcWiringCtx): void {
   api.menu.onIngestUrl(() => ctx.ingestUrl());
   api.menu.onIngestIdentifier(() => ctx.ingestIdentifier());
   api.menu.onIngestFile(() => ctx.ingestFile());
+  api.menu.onIngestBulk(() => ctx.ingestBulk());
   api.menu.onImportBibtex(() => ctx.importBibtex());
   api.menu.onImportZoteroRdf(() => ctx.importZoteroRdf());
   api.menu.onExport((groupId) => { ctx.setExportDialogGroup(groupId); });

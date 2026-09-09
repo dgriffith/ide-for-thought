@@ -28,7 +28,7 @@ const DATAFLOW_MUTATION_METHODS =
   'replaceInNotes|renameAnchor|renameSource|renameExcerpt|setOnboardingDismissed|' +
   'onRewritten|onFileChanged|onFileCreated|onFileDeleted|onRenamed|onHeadingRenameSuggested|' +
   // sources + collections mutations + change subscriptions
-  'ingestUrl|ingestIdentifier|ingestFile|ingestSmart|createExcerpt|finishPdfOcr|' +
+  'ingestUrl|ingestIdentifier|ingestFile|ingestBulk|ingestSmart|createExcerpt|finishPdfOcr|' +
   'setReadStatus|setReadDueBy|setTitle|addTag|removeTag|stripUpstreamTags|mineReferences|' +
   'createReferenceStubs|resolveStub|applyStubResolution|setIngestSettings|setExcerptNoteFolder|' +
   'onExcerptsChanged|onChanged|createSmart|renameSmart|removeSmart|updateSmartPredicate|' +

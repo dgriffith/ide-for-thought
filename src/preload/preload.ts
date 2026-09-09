@@ -198,8 +198,8 @@ const api = {
     // `File.path` was deprecated and removed in 34; webUtils is the forward-
     // compatible accessor and works in preload where `electron` is in scope.
     getPathForFile: (file: File) => webUtils.getPathForFile(file),
-    dropImport: (targetFolder: string, localPaths: string[]) =>
-      invoke(Channels.FILES_DROP_IMPORT, targetFolder, localPaths),
+    dropImport: (targetFolder: string, entries: Parameters<ChannelMap['files:dropImport']>[1]) =>
+      invoke(Channels.FILES_DROP_IMPORT, targetFolder, entries),
   },
   compute: {
     runCell: (language: string, code: string, notePath?: string) =>
@@ -399,6 +399,7 @@ const api = {
     ingestIdentifier: (identifier: string) =>
       invoke(Channels.SOURCES_INGEST_IDENTIFIER, identifier),
     ingestFile: () => invoke(Channels.SOURCES_INGEST_FILE),
+    ingestBulk: () => invoke(Channels.SOURCES_INGEST_BULK),
     readPdf: (sourceId: string) => invoke(Channels.SOURCES_READ_PDF, sourceId),
     hasPdf: (sourceId: string) => invoke(Channels.SOURCES_HAS_PDF, sourceId),
     getExcerptNoteFolder: () => invoke(Channels.EXCERPT_GET_NOTE_FOLDER),
@@ -609,6 +610,7 @@ const api = {
     onIngestUrl: (cb: () => void) => subscribe(Channels.MENU_INGEST_URL, cb),
     onIngestIdentifier: (cb: () => void) => subscribe(Channels.MENU_INGEST_IDENTIFIER, cb),
     onIngestFile: (cb: () => void) => subscribe(Channels.MENU_INGEST_FILE, cb),
+    onIngestBulk: (cb: () => void) => subscribe(Channels.MENU_INGEST_BULK, cb),
     onExport: (cb: (exporterId: string) => void) => subscribe(Channels.MENU_EXPORT, cb),
     onPublish: (cb: () => void) => subscribe(Channels.MENU_PUBLISH, cb),
     onImportBibtex: (cb: () => void) => subscribe(Channels.MENU_IMPORT_BIBTEX, cb),

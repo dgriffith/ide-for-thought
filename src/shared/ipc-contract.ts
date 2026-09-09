@@ -109,6 +109,30 @@ import type { ConversationNoteBodyDraft, FileNoteBodyDraftResult } from './conve
 // keep the import meaningful for the domain's type surface.
 export type { HeadingRenameCandidate };
 
+/**
+ * One file to import via `dropImport` (#259, extended #2087). Mirrors
+ * `DropImportEntry` in `src/main/notebase/folder-walk.ts` — this file stays
+ * electron/main-free, so the shape is duplicated rather than imported.
+ */
+export interface DropImportEntry {
+  /** Absolute path on disk to read source bytes from. */
+  localPath: string;
+  /** POSIX-separated path relative to the meaningful enclosing folder this
+   *  entry was found under (a picked folder's name, or a zip's own stem),
+   *  including that folder's own name as the first segment. Omitted for a
+   *  flat single-file drop/pick with no enclosing folder. */
+  relativePath?: string;
+}
+
+export interface DropImportResult {
+  copied: Array<{ localPath: string; relativePath: string }>;
+  ingestedPdfs: Array<{ localPath: string; sourceId: string; duplicate: boolean; title: string }>;
+  rejected: Array<{ localPath: string; reason: string }>;
+  /** True if a zip's entry count hit the bulk-ingest cap during extraction —
+   *  the archive (or picked folder) may contain more files than landed. */
+  capped: boolean;
+}
+
 export interface ChannelMap {
   'notebase:open': () => NotebaseMeta | null;
   'notebase:openPath': (rootPath: string) => NotebaseMeta;
@@ -279,12 +303,8 @@ export interface ChannelMap {
   'app:getInfo': () => { name: string; version: string; commit: string; buildDate: string; electron: string; chrome: string; node: string };
   'app:getShortcuts': () => Array<{ menu: string; items: Array<{ label: string; keys: string }> }>;
 
-  // External-file drag-drop import
-  'files:dropImport': (targetFolder: string, localPaths: string[]) => {
-    copied: Array<{ localPath: string; relativePath: string }>;
-    ingestedPdfs: Array<{ localPath: string; sourceId: string; duplicate: boolean; title: string }>;
-    rejected: Array<{ localPath: string; reason: string }>;
-  };
+  // External-file drag-drop import + bulk ingest (#259, #2087)
+  'files:dropImport': (targetFolder: string, entries: DropImportEntry[]) => DropImportResult;
 
   // Publication (export + git publish)
   'publish:listExporters': () => Array<{
@@ -462,6 +482,9 @@ export interface ChannelMap {
   'sources:ingestIdentifier': (identifier: string) => { sourceId: string; relativePath: string; duplicate: boolean; title: string; kind: 'doi' | 'arxiv' | 'pubmed'; pdfSaved: boolean; pdfError: string | null };
   'sources:ingestSmart': (rawInput: string) => { sourceId: string; duplicate: boolean; title: string; route: 'identifier' | 'url' };
   'sources:ingestFile': () => { sourceId: string; relativePath: string; duplicate: boolean; title: string; kind?: 'web' | 'pdf' | 'text'; pageCount?: number; needsOcr?: boolean } | null;
+  /** Bulk ingest of a picked `.zip` archive or folder (#2087). `null` means
+   *  the picker was cancelled. */
+  'sources:ingestBulk': () => DropImportResult | null;
   'sources:importBibtex': () => {
     imported: Array<{ sourceId: string; title: string }>;
     duplicate: Array<{ sourceId: string; title: string }>;
@@ -616,6 +639,7 @@ export const MENU_COMMANDS = [
   'gotoLine',
   'importBibtex',
   'importZoteroRdf',
+  'ingestBulk',
   'ingestFile',
   'ingestIdentifier',
   'ingestUrl',

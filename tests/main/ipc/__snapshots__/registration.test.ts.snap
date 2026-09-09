@@ -207,6 +207,7 @@ exports[`IPC registration contract (#997) > matches the known set of registered 
   "sources:hasPdf",
   "sources:importBibtex",
   "sources:importZoteroRdf",
+  "sources:ingestBulk",
   "sources:ingestFile",
   "sources:ingestIdentifier",
   "sources:ingestSmart",

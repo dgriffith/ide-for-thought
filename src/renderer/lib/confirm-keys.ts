@@ -77,6 +77,7 @@ export const CONFIRM_KEYS = {
   dropImportRejected: 'drop-import-rejected',
   bibtexImportComplete: 'bibtex-import-complete',
   zoteroRdfImportComplete: 'zotero-rdf-import-complete',
+  bulkIngestComplete: 'bulk-ingest-complete',
   saveCellOutputFailed: 'save-cell-output-failed',
   /** Image-upload rejection toast (#455) — too-large, unsupported MIME, etc. */
   imageUploadFailed: 'image-upload-failed',
@@ -381,6 +382,12 @@ export const CONFIRM_REGISTRY: ConfirmRegistryEntry[] = [
     title: 'Zotero RDF import complete',
     description:
       'Summary dialog after Import Zotero RDF finishes (counts of imported / duplicate / failed items, and how many PDFs were lifted).',
+  },
+  {
+    key: CONFIRM_KEYS.bulkIngestComplete,
+    title: 'Bulk ingest complete',
+    description:
+      'Summary dialog after "Ingest Zip or Folder as Sources…" finishes (counts of imported / skipped files, and whether the entry cap was hit).',
   },
   {
     key: CONFIRM_KEYS.saveCellOutputFailed,

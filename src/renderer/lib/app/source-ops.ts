@@ -98,7 +98,7 @@ export function createSourceOps(ctx: SourceOpsCtx) {
     if (localPaths.length === 0) return;
     try {
       const result = await busy.withBusy('Importing…', () =>
-        api.files.dropImport(destFolder, localPaths),
+        api.files.dropImport(destFolder, localPaths.map((localPath) => ({ localPath }))),
       );
       // Open the first newly-ingested PDF source tab, matching the menu-
       // triggered Ingest PDF flow.
@@ -190,6 +190,43 @@ export function createSourceOps(ctx: SourceOpsCtx) {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       await showConfirm(`Ingest failed: ${msg}`, CONFIRM_KEYS.ingestFailed, 'OK');
+    }
+  }
+
+  /**
+   * Menu / Cmd+K → "Ingest Zip or Folder as Sources…" (#2087, PR 1/2). Opens
+   * a file-or-folder picker in main; a `.zip` is extracted and a folder is
+   * flat-walked, then both dispatch through the same `dropImport` pipeline
+   * as drag-drop. Mirrors `handleImportBibtex`'s shape.
+   */
+  async function handleIngestBulk() {
+    if (!notebase.meta) return;
+    try {
+      const result = await busy.withBusy('Ingesting…', () => api.sources.ingestBulk());
+      if (!result) return; // user cancelled the picker
+      ctx.getSidebar()?.refreshSources();
+      await ctx.refreshSourcesCache();
+      const imported = result.copied.length + result.ingestedPdfs.length;
+      const parts: string[] = [
+        `Imported: ${imported}`,
+        `Skipped: ${result.rejected.length}`,
+      ];
+      let message = `Bulk ingest complete.\n\n${parts.join('\n')}`;
+      if (result.rejected.length > 0) {
+        const preview = result.rejected
+          .slice(0, 5)
+          .map((r) => `  • ${r.localPath.split('/').pop()} — ${r.reason}`)
+          .join('\n');
+        const more = result.rejected.length > 5 ? `\n  …and ${result.rejected.length - 5} more` : '';
+        message += `\n\nSkipped:\n${preview}${more}`;
+      }
+      if (result.capped) {
+        message += '\n\nNote: stopped after 5000 files — the folder may contain more.';
+      }
+      await showConfirm(message, CONFIRM_KEYS.bulkIngestComplete, 'OK');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await showConfirm(`Bulk ingest failed: ${msg}`, CONFIRM_KEYS.ingestFailed, 'OK');
     }
   }
 
@@ -392,7 +429,7 @@ export function createSourceOps(ctx: SourceOpsCtx) {
 
   return {
     handleIngestedSourceResult, handleIngestUrlAsSource, handleIngestFileAsSource,
-    handleIngestIdentifier, handleOcrDone, handleOcrCancel, handleMineReferences,
+    handleIngestIdentifier, handleIngestBulk, handleOcrDone, handleOcrCancel, handleMineReferences,
     handleMineReferencesApply, handleResolveStub, handleResolveStubApply, handleDoiClick,
     handleImportBibtex, handleImportZoteroRdf, handleExternalDrop,
   };

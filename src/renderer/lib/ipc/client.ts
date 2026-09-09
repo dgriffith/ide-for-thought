@@ -260,17 +260,35 @@ export interface ExportApi {
   csv(csv: string): Promise<void>;
 }
 
+/**
+ * One file to import via `dropImport` (#259, extended #2087 for zip/folder
+ * bulk ingest). Mirrors `DropImportEntry` in
+ * `src/main/notebase/folder-walk.ts` / `src/shared/ipc-contract.ts`.
+ */
+export interface DropImportEntry {
+  /** Absolute path on disk to read source bytes from. */
+  localPath: string;
+  /** POSIX-separated path relative to the meaningful enclosing folder this
+   *  entry was found under (a picked folder's name, or a zip's own stem),
+   *  including that folder's own name as the first segment. Omitted for a
+   *  flat single-file drop/pick with no enclosing folder. */
+  relativePath?: string;
+}
+
 export interface DropImportResult {
   copied: Array<{ localPath: string; relativePath: string }>;
   ingestedPdfs: Array<{ localPath: string; sourceId: string; duplicate: boolean; title: string }>;
   rejected: Array<{ localPath: string; reason: string }>;
+  /** True if a zip's entry count hit the bulk-ingest cap during extraction —
+   *  the archive (or picked folder) may contain more files than landed. */
+  capped: boolean;
 }
 
 export interface FilesApi {
   /** Get the absolute OS path for a `File` object from a drag-drop `DataTransfer`. */
   getPathForFile(file: File): string;
   /** Import a batch of external files into the thoughtbase (#259). */
-  dropImport(targetFolder: string, localPaths: string[]): Promise<DropImportResult>;
+  dropImport(targetFolder: string, entries: DropImportEntry[]): Promise<DropImportResult>;
 }
 
 export type { CellOutput, CellResult, PythonProbeResult } from '../../../shared/compute/types';
@@ -952,6 +970,7 @@ export interface MenuApi {
   onIngestUrl(cb: () => void): () => void;
   onIngestIdentifier(cb: () => void): () => void;
   onIngestFile(cb: () => void): () => void;
+  onIngestBulk(cb: () => void): () => void;
   onExport(cb: (exporterId: string) => void): () => void;
   onPublish(cb: () => void): () => void;
   onImportBibtex(cb: () => void): () => void;
@@ -1104,6 +1123,9 @@ export interface SourcesApi {
     /** True if a PDF has no text layer; caller should run OCR via readPdf + finishPdfOcr. */
     needsOcr?: boolean;
   } | null>;
+  /** Open an OS file-or-folder picker and bulk-ingest a `.zip` archive or a
+   *  folder tree as sources/notes (#2087). Returns null if cancelled. */
+  ingestBulk(): Promise<DropImportResult | null>;
   /** Read raw bytes of a persisted source's original.pdf (#95). */
   readPdf(sourceId: string): Promise<Uint8Array>;
   /** True iff `.minerva/sources/<id>/original.pdf` exists. Used by the
