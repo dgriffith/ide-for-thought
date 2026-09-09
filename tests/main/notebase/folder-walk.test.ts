@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
@@ -89,5 +89,59 @@ describe('enumerateFolderTree (#2087)', () => {
   it('returns an empty, uncapped result for an empty directory', async () => {
     const result = await enumerateFolderTree(root);
     expect(result).toEqual({ entries: [], capped: false });
+  });
+
+  it('treats a readdir failure as an empty subtree rather than aborting the whole walk', async () => {
+    await fsp.mkdir(path.join(root, 'ok'), { recursive: true });
+    await fsp.mkdir(path.join(root, 'broken'), { recursive: true });
+    await fsp.writeFile(path.join(root, 'ok', 'fine.md'), 'x');
+    await fsp.writeFile(path.join(root, 'broken', 'unreadable.md'), 'x');
+
+    const brokenDir = path.join(root, 'broken');
+    const realReaddir = fsp.readdir.bind(fsp);
+    const spy = vi.spyOn(fsp, 'readdir').mockImplementation(async (dir: unknown, opts?: unknown) => {
+      if (dir === brokenDir) throw new Error('EACCES: permission denied');
+      return realReaddir(dir as string, opts as Parameters<typeof fsp.readdir>[1]);
+    });
+
+    try {
+      const result = await enumerateFolderTree(root);
+      expect(result.capped).toBe(false);
+      expect(result.entries.map((e) => e.relativePath)).toEqual(['ok/fine.md']);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('propagates a cap hit from within a nested subdirectory, stopping later root-level siblings', async () => {
+    _setMaxBulkIngestEntriesForTests(2);
+    await fsp.mkdir(path.join(root, 'sub'), { recursive: true });
+    await fsp.writeFile(path.join(root, 'sub', 'a.md'), 'x');
+    await fsp.writeFile(path.join(root, 'sub', 'b.md'), 'x');
+    await fsp.writeFile(path.join(root, 'sub', 'c.md'), 'x'); // never reached — cap hits at 2
+    await fsp.writeFile(path.join(root, 'trailing.md'), 'x'); // root-level sibling AFTER 'sub'
+
+    // Force 'sub' to be visited before 'trailing.md' regardless of the real
+    // filesystem's own listing order, so the cap is guaranteed to hit inside
+    // the nested recursion rather than at the root level.
+    const realReaddir = fsp.readdir.bind(fsp);
+    const spy = vi.spyOn(fsp, 'readdir').mockImplementation(async (dir: unknown, opts?: unknown) => {
+      const result = await realReaddir(dir as string, opts as Parameters<typeof fsp.readdir>[1]);
+      if (dir === root) {
+        return [...(result as { name: string }[])].sort((a, b) =>
+          a.name === 'sub' ? -1 : b.name === 'sub' ? 1 : 0,
+        ) as typeof result;
+      }
+      return result;
+    });
+
+    try {
+      const result = await enumerateFolderTree(root);
+      expect(result.capped).toBe(true);
+      expect(result.entries.length).toBe(2);
+      expect(result.entries.some((e) => e.relativePath === 'trailing.md')).toBe(false);
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
