@@ -48,14 +48,37 @@ type-aware feature (Map view's own property lookup, card/cover selection,
 CSV/table export type hints) gets the same compile-time reminder to consider
 it, the same way it will for any of the existing five.
 
-## Decision 2: Leaflet, raster tiles, MapTiler with a user-supplied API key
+## Decision 2: MapLibre GL, OpenFreeMap vector tiles, no API key required
 
-**Leaflet**, not MapLibre GL, not Vega-Lite. Lazy-loaded via dynamic
-`import()`, mirroring `vega-renderer.ts`/`mermaid-renderer.ts`'s exact
-established pattern (module-cached promise; an idempotent `hydrate*Blocks(root)`
-walk keyed by a `data-*-rendered` attribute, invoked from the preview's
-post-render effect) — not a new embedding mechanism, the same one #2067 will
-reuse for the note-embeddable view.
+**Revised from an earlier draft of this doc, which recommended Leaflet +
+raster tiles + a user-supplied MapTiler key.** That was the right call against
+the alternatives considered at the time, but missed a better one: OpenFreeMap
+(verified directly against its own docs, not from memory) is a free,
+open-source vector-tile service with **no API key, no signup, no stated rate
+limits, and commercial/bulk use explicitly permitted** — a materially
+different posture from `tile.openstreetmap.org`'s raw tile server, which
+exists specifically to *not* be used this way. It's backed by a single
+maintainer (ex-MapHub) funded via GitHub Sponsors, with a documented
+self-hosting option as a fallback if the public instance ever becomes
+unreliable — a real risk to note, not a reason to dismiss it (see below).
+It's also directly precedented for this exact product shape: Obsidian's own
+Bases map view (`obsidianmd/obsidian-maps`) — a very close analog to
+Minerva's own Place/Event ask, rendering notes-with-coordinates as map
+markers — uses OpenFreeMap as its default tile source, with MapLibre GL JS
+as the renderer. Missed in the first pass of this doc; caught on review.
+
+**MapLibre GL, not Leaflet, follows from that.** OpenFreeMap serves *vector*
+tiles (a style.json plus protobuf tile data), not raster images — Leaflet's
+native strength is raster `<img>`-tag tiles, and consuming vector tiles
+through it means a plugin bridging Mapbox-vector-tile rendering, not the
+library's natural mode. MapLibre GL JS is the vector-tile-native renderer
+OpenFreeMap itself recommends, and is what Obsidian's implementation actually
+uses. Still lazy-loaded via dynamic `import()`, mirroring
+`vega-renderer.ts`/`mermaid-renderer.ts`'s established pattern (module-cached
+promise; an idempotent `hydrate*Blocks(root)` walk keyed by a
+`data-*-rendered` attribute, invoked from the preview's post-render effect) —
+not a new embedding mechanism, the same one #2067 will reuse for the
+note-embeddable view.
 
 **Why not Vega-Lite** (already a dependency, zero new package): checked what
 it would actually render. `vega-renderer.ts` **actively blocks any `url` field
@@ -67,36 +90,26 @@ highlighted map of the note's places" than an actual interactive street-level
 map — it's the right tool for a choropleth over bundled political boundaries,
 not for "where is this place, zoomed in enough to be useful."
 
-**Why Leaflet over MapLibre GL:** both are net-new dependencies with no CSP
-conflict in principle, but they hit the CSP differently in practice. Leaflet's
-raster tile layer requests tiles as plain `<img>` elements, and the current
-CSP's `img-src: 'self' data: blob: https:` **already allows any HTTPS host** —
-zero CSP change needed. MapLibre GL's vector tiles are fetched via
-`fetch`/XHR as protobuf, which hits `connect-src`'s narrow allowlist and would
-require naming the tile host there explicitly. MapLibre's actual strength
-(smooth vector rendering, custom styling at scale) solves a problem Minerva's
-Place objects don't have — a personal thoughtbase will have tens or hundreds
-of Place notes, not the large, high-frequency-pan datasets vector tiles exist
-for. Leaflet is the simpler, more mature, better-fit choice for "put a
-modest number of pins on a map."
+**CSP cost, honestly stated:** MapLibre GL fetches vector tiles via
+`fetch`/XHR, which hits the renderer CSP's `connect-src` allowlist (currently
+scoped to jsdelivr/unpkg/huggingface for WASM/model downloads) — this needs
+one new entry, `tiles.openfreemap.org` (verified against OpenFreeMap's own
+quick-start docs), the same shape of change as any of the existing allowlisted
+hosts. This is the one real cost the Leaflet-raster-tiles approach would have
+avoided (`img-src` is already wide open to any HTTPS host) — worth it for
+landing on a genuinely free, policy-compliant, zero-setup-friction default
+instead of trading that friction onto every user via a required API key.
 
-**Tile source: no hardcoded direct OpenStreetMap tile server.**
-`tile.openstreetmap.org`'s own usage policy explicitly prohibits exactly this
-use case — bulk/production use from a distributed application — so using it
-directly isn't a mere technical shortcut, it's a policy violation with real
-long-tail risk (rate-limiting or blocking that shows up unpredictably as
-adoption grows, entirely outside Minerva's control to fix after the fact).
-Instead: **the Map view requires a user-supplied API key for a commercial
-tile provider, defaulting to MapTiler** (generous free tier — 100k tile loads/
-month at time of writing — explicitly aimed at exactly this kind of
-low-to-moderate-volume app). Store the key in Settings (mirrors how other
-optional external-service credentials already live in this app's settings
-surface, e.g. LLM provider keys). Map view degrades gracefully with no key
-set: a friendly "add a map tile provider key in Settings to enable this view"
-prompt, not a blank or broken map — matching the CLAUDE.md UI philosophy of no
-hand-holding but also no silent dead ends. This is additive, optional, and
-per-user — a thoughtbase with no Place notes, or a user who never sets a key,
-sees zero behavior change anywhere else in the app.
+**Sustainability / fallback plan, since a single-maintainer free service is a
+real dependency risk, not a hypothetical one:** OpenFreeMap's documented
+self-hosting option means Minerva isn't locked in if the public instance
+degrades — the Map view's tile/style source should be a Settings-configurable
+URL from day one (mirrors how Obsidian itself exposes "Settings → Maps → add a
+background with a tile URL or style URL"), with `tiles.openfreemap.org`'s
+"liberty" or "bright" style as the shipped default, not a hardcoded
+assumption. A user (or Minerva itself, later, if warranted) can point at a
+self-hosted OpenFreeMap instance, MapTiler, or any other MapLibre-style-spec
+provider without a code change.
 
 ## Depends on / enables
 
