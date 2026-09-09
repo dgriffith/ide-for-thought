@@ -11,8 +11,11 @@
  * `.minerva/types/*.md`; stock types are bundled.
  */
 
-/** The MVP five property types (decision 4). Deferred: computed, multi-value, units. */
-export const PROPERTY_TYPES = ['text', 'date', 'number', 'enum', 'link-to-type'] as const;
+/** The MVP five property types (decision 4), plus `geo` (#2064/#2065 design
+ *  spike): a location stored as a plain `"<lat>,<lng>"` string — no
+ *  geocoding, no structured sub-fields, deferred per that decision doc.
+ *  Deferred still: computed, multi-value, units. */
+export const PROPERTY_TYPES = ['text', 'date', 'number', 'enum', 'link-to-type', 'geo'] as const;
 export type PropertyType = (typeof PROPERTY_TYPES)[number];
 
 export interface PropertyDef {
