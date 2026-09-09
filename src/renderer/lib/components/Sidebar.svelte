@@ -67,7 +67,7 @@
     onPaste: (destDirectory: string) => void;
     onMove: (srcPath: string, destDirectory: string) => void;
     onToggleEntrypoint?: (relativePath: string, currentlyEntrypoint: boolean) => void;
-    onExternalDrop?: (destDirectory: string, files: FileList) => void;
+    onExternalDrop?: (destDirectory: string, dataTransfer: DataTransfer) => void;
   }
 
   interface SidebarPanelOps {
@@ -619,9 +619,8 @@
           ondrop={(e) => {
             e.preventDefault();
             rootDropHover = false;
-            const dropped = e.dataTransfer?.files;
-            if (dropped && dropped.length > 0) {
-              fileOps.onExternalDrop?.('', dropped);
+            if (e.dataTransfer && e.dataTransfer.files.length > 0) {
+              fileOps.onExternalDrop?.('', e.dataTransfer);
               return;
             }
             const src = e.dataTransfer!.getData('text/plain');

@@ -19,12 +19,16 @@ const h = vi.hoisted(() => {
   };
   const notebase = { meta: { rootPath: '/p', name: 'p' } as unknown };
   const dialog = { showPrompt: vi.fn(), showConfirm: vi.fn() };
-  return { api, notebase, dialog };
+  const toasts = { push: vi.fn(), dismiss: vi.fn(), items: [] as unknown[] };
+  const resolveDroppedEntries = vi.fn();
+  return { api, notebase, dialog, toasts, resolveDroppedEntries };
 });
 
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({ api: h.api }));
 vi.mock('../../../src/renderer/lib/stores/notebase.svelte', () => ({ getNotebaseStore: () => h.notebase }));
 vi.mock('../../../src/renderer/lib/stores/dialogs.svelte', () => ({ getDialogStore: () => h.dialog }));
+vi.mock('../../../src/renderer/lib/stores/toasts.svelte', () => ({ getToastStore: () => h.toasts }));
+vi.mock('../../../src/renderer/lib/app/dropped-entries', () => ({ resolveDroppedEntries: h.resolveDroppedEntries }));
 
 import { createSourceOps, type SourceOpsCtx } from '../../../src/renderer/lib/app/source-ops';
 import { getSourceFlowStore } from '../../../src/renderer/lib/stores/source-flow.svelte';
@@ -705,64 +709,162 @@ describe('handleDoiClick', () => {
 });
 
 describe('handleExternalDrop', () => {
+  // resolveDroppedEntries is mocked wholesale (see the top of this file) so
+  // these tests exercise handleExternalDrop's own logic (toast/showConfirm/
+  // PDF-opening) against a controllable DropImportEntry[], without needing
+  // real FileSystemEntry-tree fakes — those are covered by
+  // tests/renderer/app/dropped-entries.test.ts instead. The `DataTransfer`
+  // argument itself is never inspected by handleExternalDrop (only forwarded
+  // to the mocked resolveDroppedEntries), so a bare placeholder stands in.
+  const fakeDataTransfer = {} as DataTransfer;
+
   it('does nothing when there is no open notebase', async () => {
     h.notebase.meta = null;
-    await ops.handleExternalDrop('/dest', [] as unknown as FileList);
+    await ops.handleExternalDrop('/dest', fakeDataTransfer);
+    expect(h.resolveDroppedEntries).not.toHaveBeenCalled();
     expect(h.api.files.dropImport).not.toHaveBeenCalled();
   });
 
-  it('does nothing when no local paths resolve', async () => {
-    h.api.files.getPathForFile.mockReturnValue(undefined);
-    await ops.handleExternalDrop('/dest', ['a'] as unknown as FileList);
+  it('does nothing when no entries resolve', async () => {
+    h.resolveDroppedEntries.mockResolvedValue([]);
+    await ops.handleExternalDrop('/dest', fakeDataTransfer);
     expect(h.api.files.dropImport).not.toHaveBeenCalled();
   });
 
-  it('imports resolved paths and opens the first non-duplicate PDF', async () => {
+  it('imports resolved entries and opens the first non-duplicate PDF', async () => {
     vi.useFakeTimers();
-    h.api.files.getPathForFile.mockImplementation((f: string) => `/abs/${f}`);
+    const entries = [{ localPath: '/abs/x.pdf' }, { localPath: '/abs/y.pdf' }];
+    h.resolveDroppedEntries.mockResolvedValue(entries);
     h.api.files.dropImport.mockResolvedValue({
+      copied: [],
       ingestedPdfs: [{ sourceId: 'dup', duplicate: true }, { sourceId: 'fresh', duplicate: false }],
       rejected: [],
+      capped: false,
     });
-    await ops.handleExternalDrop('/dest', ['x.pdf', 'y.pdf'] as unknown as FileList);
-    expect(h.api.files.dropImport).toHaveBeenCalledWith('/dest', [
-      { localPath: '/abs/x.pdf' },
-      { localPath: '/abs/y.pdf' },
-    ]);
+    await ops.handleExternalDrop('/dest', fakeDataTransfer);
+    expect(h.resolveDroppedEntries).toHaveBeenCalledWith(fakeDataTransfer);
+    expect(h.api.files.dropImport).toHaveBeenCalledWith('/dest', entries);
     vi.advanceTimersByTime(200);
     expect(ctx.openSource).toHaveBeenCalledWith('fresh');
   });
 
   it('falls back to the first PDF when all are duplicates', async () => {
     vi.useFakeTimers();
-    h.api.files.getPathForFile.mockReturnValue('/abs/z.pdf');
+    h.resolveDroppedEntries.mockResolvedValue([{ localPath: '/abs/z.pdf' }]);
     h.api.files.dropImport.mockResolvedValue({
+      copied: [],
       ingestedPdfs: [{ sourceId: 'only-dup', duplicate: true }],
       rejected: [],
+      capped: false,
     });
-    await ops.handleExternalDrop('/dest', ['z.pdf'] as unknown as FileList);
+    await ops.handleExternalDrop('/dest', fakeDataTransfer);
     vi.advanceTimersByTime(200);
     expect(ctx.openSource).toHaveBeenCalledWith('only-dup');
   });
 
-  it('reports rejected files via confirm', async () => {
-    h.api.files.getPathForFile.mockReturnValue('/abs/bad.txt');
+  it('reports rejected files via confirm, and does not toast (nothing imported)', async () => {
+    h.resolveDroppedEntries.mockResolvedValue([{ localPath: '/some/bad.txt' }]);
     h.api.files.dropImport.mockResolvedValue({
+      copied: [],
       ingestedPdfs: [],
       rejected: [{ localPath: '/some/bad.txt', reason: 'unsupported' }],
+      capped: false,
     });
-    await ops.handleExternalDrop('/dest', ['bad.txt'] as unknown as FileList);
+    await ops.handleExternalDrop('/dest', fakeDataTransfer);
     const msg = h.dialog.showConfirm.mock.calls[0][0] as string;
     expect(msg).toContain('bad.txt');
     expect(msg).toContain('unsupported');
+    expect(h.toasts.push).not.toHaveBeenCalled();
   });
 
   it('reports an import failure via confirm', async () => {
-    h.api.files.getPathForFile.mockReturnValue('/abs/x.pdf');
+    h.resolveDroppedEntries.mockResolvedValue([{ localPath: '/abs/x.pdf' }]);
     h.api.files.dropImport.mockRejectedValue(new Error('drop boom'));
-    await ops.handleExternalDrop('/dest', ['x.pdf'] as unknown as FileList);
+    await ops.handleExternalDrop('/dest', fakeDataTransfer);
     expect(h.dialog.showConfirm).toHaveBeenCalledWith(
       expect.stringContaining('drop boom'), expect.any(String), 'OK',
     );
+  });
+
+  it('does not toast for a single successfully-imported item (preserves today\'s silent UX)', async () => {
+    h.resolveDroppedEntries.mockResolvedValue([{ localPath: '/abs/note.md' }]);
+    h.api.files.dropImport.mockResolvedValue({
+      copied: [{ localPath: '/abs/note.md', relativePath: 'note.md' }],
+      ingestedPdfs: [],
+      rejected: [],
+      capped: false,
+    });
+    await ops.handleExternalDrop('/dest', fakeDataTransfer);
+    expect(h.toasts.push).not.toHaveBeenCalled();
+    expect(h.dialog.showConfirm).not.toHaveBeenCalled();
+  });
+
+  it('toasts a count when more than one item is imported', async () => {
+    h.resolveDroppedEntries.mockResolvedValue([
+      { localPath: '/abs/a.md' }, { localPath: '/abs/b.md' },
+    ]);
+    h.api.files.dropImport.mockResolvedValue({
+      copied: [
+        { localPath: '/abs/a.md', relativePath: 'a.md' },
+        { localPath: '/abs/b.md', relativePath: 'b.md' },
+      ],
+      ingestedPdfs: [],
+      rejected: [],
+      capped: false,
+    });
+    await ops.handleExternalDrop('/dest', fakeDataTransfer);
+    expect(h.toasts.push).toHaveBeenCalledWith({ message: '2 files imported.' });
+  });
+
+  it('mentions the skip count in the toast when some entries were also rejected', async () => {
+    h.resolveDroppedEntries.mockResolvedValue([
+      { localPath: '/abs/a.md' }, { localPath: '/abs/b.md' }, { localPath: '/abs/bad.exe' },
+    ]);
+    h.api.files.dropImport.mockResolvedValue({
+      copied: [
+        { localPath: '/abs/a.md', relativePath: 'a.md' },
+        { localPath: '/abs/b.md', relativePath: 'b.md' },
+      ],
+      ingestedPdfs: [],
+      rejected: [{ localPath: '/abs/bad.exe', reason: 'nope' }],
+      capped: false,
+    });
+    await ops.handleExternalDrop('/dest', fakeDataTransfer);
+    expect(h.toasts.push).toHaveBeenCalledWith({ message: '2 files imported, 1 skipped.' });
+    // The rejection dialog still fires too — the toast is a summary, not a
+    // replacement for the per-file skip reasons.
+    expect(h.dialog.showConfirm).toHaveBeenCalled();
+  });
+
+  it('appends the capped note to the rejection dialog when something was also rejected', async () => {
+    h.resolveDroppedEntries.mockResolvedValue([{ localPath: '/abs/bad.exe' }]);
+    h.api.files.dropImport.mockResolvedValue({
+      copied: [],
+      ingestedPdfs: [],
+      rejected: [{ localPath: '/abs/bad.exe', reason: 'nope' }],
+      capped: true,
+    });
+    await ops.handleExternalDrop('/dest', fakeDataTransfer);
+    const msg = h.dialog.showConfirm.mock.calls[0][0] as string;
+    expect(msg).toContain('5000 files');
+  });
+
+  it('surfaces the capped note in the toast when nothing was rejected (no dialog fires)', async () => {
+    h.resolveDroppedEntries.mockResolvedValue([
+      { localPath: '/abs/a.md' }, { localPath: '/abs/b.md' },
+    ]);
+    h.api.files.dropImport.mockResolvedValue({
+      copied: [
+        { localPath: '/abs/a.md', relativePath: 'a.md' },
+        { localPath: '/abs/b.md', relativePath: 'b.md' },
+      ],
+      ingestedPdfs: [],
+      rejected: [],
+      capped: true,
+    });
+    await ops.handleExternalDrop('/dest', fakeDataTransfer);
+    expect(h.dialog.showConfirm).not.toHaveBeenCalled();
+    const call = h.toasts.push.mock.calls[0][0] as { message: string };
+    expect(call.message).toContain('5000 files');
   });
 });

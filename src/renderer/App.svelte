@@ -1091,15 +1091,14 @@
           }
         }}
         ondrop={(e) => {
-          const files = e.dataTransfer?.files;
-          if (!files || files.length === 0) return;
+          if (!e.dataTransfer || e.dataTransfer.files.length === 0) return;
           e.preventDefault();
           // Land the drop in the folder of the active note; fall back to
           // project root when no note is open (or the note is at root).
           const activePath = editor.activeFilePath ?? '';
           const slash = activePath.lastIndexOf('/');
           const destDir = slash >= 0 ? activePath.slice(0, slash) : '';
-          void handleExternalDrop(destDir, files);
+          void handleExternalDrop(destDir, e.dataTransfer);
         }}
       >
         <!-- Per-group pane (#813): one editor group's tab bar + active-tab
