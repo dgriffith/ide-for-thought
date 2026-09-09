@@ -72,6 +72,8 @@ const h = vi.hoisted(() => {
     ingestIdentifier: vi.fn(),
     ingestSmart: vi.fn(),
     ingestFile: vi.fn(),
+    dropImport: vi.fn(),
+    enumerateFolderTree: vi.fn(),
     finishPdfOcrIngest: vi.fn(),
     readOriginalPdf: vi.fn(),
     getIngestSettings: vi.fn(),
@@ -161,6 +163,8 @@ vi.mock('../../../src/main/sources/ingest', () => ({ ingestUrl: h.ingestUrl }));
 vi.mock('../../../src/main/sources/ingest-identifier', () => ({ ingestIdentifier: h.ingestIdentifier }));
 vi.mock('../../../src/main/sources/ingest-smart', () => ({ ingestSmart: h.ingestSmart }));
 vi.mock('../../../src/main/sources/ingest-file', () => ({ ingestFile: h.ingestFile }));
+vi.mock('../../../src/main/notebase/drop-import', () => ({ dropImport: h.dropImport }));
+vi.mock('../../../src/main/notebase/folder-walk', () => ({ enumerateFolderTree: h.enumerateFolderTree }));
 vi.mock('../../../src/main/sources/ingest-pdf', () => ({
   finishPdfOcrIngest: h.finishPdfOcrIngest,
   readOriginalPdf: h.readOriginalPdf,
@@ -267,6 +271,7 @@ describe('register-sources — the #1631 project guard', () => {
     [Channels.SOURCES_INGEST_IDENTIFIER, ['10.1234/x']],
     [Channels.SOURCES_INGEST_SMART, ['some input']],
     [Channels.SOURCES_INGEST_FILE, []],
+    [Channels.SOURCES_INGEST_BULK, []],
     [Channels.SOURCES_MINE_REFERENCES, ['s1']],
     [Channels.SOURCES_CREATE_REFERENCE_STUBS, [{ sourceId: 's1', refs: [] }]],
     [Channels.SOURCES_RESOLVE_STUB, ['s1']],
@@ -520,6 +525,97 @@ describe('register-sources — ingest', () => {
     await expect(callAsync(Channels.SOURCES_INGEST_FILE)).resolves.toBeNull();
     expect(h.ingestFile).not.toHaveBeenCalled();
     expect(h.persistIndexes).not.toHaveBeenCalled();
+  });
+
+  describe('SOURCES_INGEST_BULK (#2087)', () => {
+    it.each([
+      ['cancelled', { canceled: true, filePaths: [] }],
+      ['dismissed with no path', { canceled: false, filePaths: [] }],
+    ])('imports nothing when the picker is %s', async (_label, dialogResult) => {
+      h.showOpenDialog.mockResolvedValue(dialogResult);
+      await expect(callAsync(Channels.SOURCES_INGEST_BULK)).resolves.toBeNull();
+      expect(h.dropImport).not.toHaveBeenCalled();
+      expect(h.enumerateFolderTree).not.toHaveBeenCalled();
+    });
+
+    it('a picked .zip file dispatches straight through dropImport, without walking a folder', async () => {
+      h.showOpenDialog.mockResolvedValue({ canceled: false, filePaths: ['/tmp/archive.zip'] });
+      h.stat.mockResolvedValue({ isDirectory: () => false });
+      h.dropImport.mockResolvedValue({ copied: [], ingestedPdfs: [], rejected: [], capped: false });
+
+      const result = await callAsync(Channels.SOURCES_INGEST_BULK);
+
+      expect(h.enumerateFolderTree).not.toHaveBeenCalled();
+      expect(h.dropImport).toHaveBeenCalledWith(ROOT, '', [{ localPath: '/tmp/archive.zip' }]);
+      expect(result).toEqual({ copied: [], ingestedPdfs: [], rejected: [], capped: false });
+    });
+
+    it('a picked non-.zip file throws, naming the actual extension, before calling dropImport', async () => {
+      h.showOpenDialog.mockResolvedValue({ canceled: false, filePaths: ['/tmp/notes.txt'] });
+      h.stat.mockResolvedValue({ isDirectory: () => false });
+
+      await expect(callAsync(Channels.SOURCES_INGEST_BULK)).rejects.toThrow(/\.txt/);
+      expect(h.dropImport).not.toHaveBeenCalled();
+      expect(h.enumerateFolderTree).not.toHaveBeenCalled();
+    });
+
+    it('a picked directory is flat-walked and each entry is prefixed with the folder\'s own basename', async () => {
+      h.showOpenDialog.mockResolvedValue({ canceled: false, filePaths: ['/tmp/MyPapers'] });
+      h.stat.mockResolvedValue({ isDirectory: () => true });
+      h.enumerateFolderTree.mockResolvedValue({
+        entries: [
+          { localPath: '/tmp/MyPapers/note.md', relativePath: 'note.md' },
+          { localPath: '/tmp/MyPapers/sub/deep.md', relativePath: 'sub/deep.md' },
+        ],
+        capped: false,
+      });
+      h.dropImport.mockResolvedValue({ copied: [], ingestedPdfs: [], rejected: [], capped: false });
+
+      await callAsync(Channels.SOURCES_INGEST_BULK);
+
+      expect(h.enumerateFolderTree).toHaveBeenCalledWith('/tmp/MyPapers');
+      expect(h.dropImport).toHaveBeenCalledWith(ROOT, '', [
+        { localPath: '/tmp/MyPapers/note.md', relativePath: 'MyPapers/note.md' },
+        { localPath: '/tmp/MyPapers/sub/deep.md', relativePath: 'MyPapers/sub/deep.md' },
+      ]);
+    });
+
+    it('reindexes every newly-ingested PDF source and persists once, mirroring SOURCES_INGEST_FILE', async () => {
+      h.showOpenDialog.mockResolvedValue({ canceled: false, filePaths: ['/tmp/archive.zip'] });
+      h.stat.mockResolvedValue({ isDirectory: () => false });
+      h.dropImport.mockResolvedValue({
+        copied: [{ localPath: '/tmp/x/n.md', relativePath: 'archive/n.md' }],
+        ingestedPdfs: [
+          { localPath: '/tmp/x/a.pdf', sourceId: 'src-1', duplicate: false, title: 'A' },
+          { localPath: '/tmp/x/b.pdf', sourceId: 'src-2', duplicate: false, title: 'B' },
+        ],
+        rejected: [],
+        capped: false,
+      });
+
+      await callAsync(Channels.SOURCES_INGEST_BULK);
+
+      expect(h.reindexFile).toHaveBeenCalledWith(ROOT, '.minerva/sources/src-1/meta.ttl');
+      expect(h.reindexFile).toHaveBeenCalledWith(ROOT, '.minerva/sources/src-2/meta.ttl');
+      expect(h.reindexFile).toHaveBeenCalledTimes(2);
+      expect(h.persistIndexes).toHaveBeenCalledWith(ROOT);
+    });
+
+    it('still persists (with nothing to reindex) when the batch had no PDFs', async () => {
+      h.showOpenDialog.mockResolvedValue({ canceled: false, filePaths: ['/tmp/archive.zip'] });
+      h.stat.mockResolvedValue({ isDirectory: () => false });
+      h.dropImport.mockResolvedValue({
+        copied: [{ localPath: '/tmp/x/n.md', relativePath: 'archive/n.md' }],
+        ingestedPdfs: [],
+        rejected: [],
+        capped: false,
+      });
+
+      await callAsync(Channels.SOURCES_INGEST_BULK);
+
+      expect(h.reindexFile).not.toHaveBeenCalled();
+      expect(h.persistIndexes).toHaveBeenCalledWith(ROOT);
+    });
   });
 
   it('SOURCES_RESOLVE_STUB looks the reference up through the privileged fetcher', async () => {

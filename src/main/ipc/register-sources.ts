@@ -10,6 +10,8 @@ import { ingestUrl } from '../sources/ingest';
 import { ingestIdentifier } from '../sources/ingest-identifier';
 import { finishPdfOcrIngest, readOriginalPdf } from '../sources/ingest-pdf';
 import { ingestFile } from '../sources/ingest-file';
+import { dropImport, type DropImportEntry } from '../notebase/drop-import';
+import { enumerateFolderTree } from '../notebase/folder-walk';
 import { deleteSource } from '../sources/delete-source';
 import { mergeSources, MergeSourcesError } from '../sources/merge-sources';
 import { setSourceReadStatus, setSourceReadDueBy } from '../sources/read-status';
@@ -160,6 +162,51 @@ export function registerSources(): void {
     await reindexFile(rootPath, `.minerva/sources/${ingested.sourceId}/meta.ttl`);
     await persistIndexes(rootPath);
     return ingested;
+  }));
+
+  // Bulk ingest of a picked `.zip` archive or folder tree (#2087, PR 1/2).
+  // A zip is extracted; a folder is flat-walked. Either way the resulting
+  // entries dispatch through the same `dropImport` pipeline as drag-drop.
+  handle(Channels.SOURCES_INGEST_BULK, withRootPathWin(async (rootPath, win) => {
+    const result = await dialog.showOpenDialog(win, {
+      properties: ['openFile', 'openDirectory'],
+      filters: [{ name: 'Zip Archive', extensions: ['zip'] }],
+      title: 'Ingest Zip or Folder as Sources',
+      buttonLabel: 'Ingest',
+    });
+    if (result.canceled || !result.filePaths[0]) return null;
+    const picked = result.filePaths[0];
+    const stat = await fs.stat(picked);
+
+    let entries: DropImportEntry[];
+    if (stat.isDirectory()) {
+      const walk = await enumerateFolderTree(picked);
+      const prefix = path.basename(picked);
+      // enumerateFolderTree always fills relativePath for entries it finds
+      // under rootDir (see folder-walk.ts's contract) — the fallback to the
+      // bare prefix only guards the type's optionality, it's never hit.
+      entries = walk.entries.map((e) => ({
+        localPath: e.localPath,
+        relativePath: e.relativePath ? `${prefix}/${e.relativePath}` : prefix,
+      }));
+    } else {
+      const ext = path.extname(picked).toLowerCase();
+      if (ext !== '.zip') {
+        throw new Error(`Ingest Zip or Folder only accepts a .zip file or a folder, not *${ext}`);
+      }
+      entries = [{ localPath: picked }];
+    }
+
+    const importResult = await dropImport(rootPath, '', entries);
+    // Re-index every newly-ingested source so it shows up in the sidebar +
+    // graph, same as SOURCES_INGEST_FILE. Copied notes/ttl/csv are picked up
+    // by the file watcher on their own (they land via a plain fs.copyFile
+    // into the note tree); sources under `.minerva/sources/` are not.
+    for (const pdf of importResult.ingestedPdfs) {
+      await reindexFile(rootPath, `.minerva/sources/${pdf.sourceId}/meta.ttl`);
+    }
+    await persistIndexes(rootPath);
+    return importResult;
   }));
 
   // Read the raw PDF bytes of a previously-persisted source, for the

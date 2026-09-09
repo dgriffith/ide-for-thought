@@ -18,7 +18,7 @@ import { clearRecentProjects, defaultThoughtbaseDir } from '../recent-projects';
 import { rebuildMenu } from '../menu';
 import { createWindow, openProjectInWindow, closeProjectInWindow, markPathHandled, windowsForProject } from '../window-manager';
 import { getOnboardingDismissed, setOnboardingDismissed } from '../project-config';
-import { dropImport } from '../notebase/drop-import';
+import { dropImport, type DropImportEntry } from '../notebase/drop-import';
 import { installTutorialThoughtbase, TUTORIAL_DEFAULT_NAME } from '../notebase/install-tutorial';
 import { searchInNotes, replaceInNotes, type SearchOptions, type ReplaceSelection } from '../notebase/search-in-notes';
 import { handle } from './typed-ipc';
@@ -405,7 +405,7 @@ export function registerNotebase(): void {
     return { rootPath, name: resolveDisplayName(rootPath) };
   }));
 
-  handle(Channels.FILES_DROP_IMPORT, withRootPath(async (rootPath, targetFolder: string, localPaths: string[]) => {
-    return await dropImport(rootPath, targetFolder ?? '', localPaths ?? []);
+  handle(Channels.FILES_DROP_IMPORT, withRootPath(async (rootPath, targetFolder: string, entries: DropImportEntry[]) => {
+    return await dropImport(rootPath, targetFolder ?? '', entries ?? []);
   }));
 }

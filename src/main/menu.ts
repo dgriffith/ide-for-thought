@@ -302,6 +302,10 @@ function buildFileMenu(gate: Gate, isMac: boolean): Electron.MenuItemConstructor
         click: () => send(Channels.MENU_INGEST_FILE),
       }),
       gate({
+        label: 'Ingest Zip or Folder as Sources…',
+        click: () => send(Channels.MENU_INGEST_BULK),
+      }),
+      gate({
         label: 'Import BibTeX…',
         click: () => send(Channels.MENU_IMPORT_BIBTEX),
       }),

@@ -49,7 +49,7 @@ function makeCtx() {
     editThoughtbaseGuide: vi.fn(), saveAsTemplate: vi.fn(), insertTemplate: vi.fn(),
     extractSelection: vi.fn(), splitHere: vi.fn(), splitByHeading: vi.fn(),
     format: vi.fn(), bibliography: vi.fn(), newConversation: vi.fn(), openConversation: vi.fn(),
-    ingestUrl: vi.fn(), ingestIdentifier: vi.fn(), ingestFile: vi.fn(),
+    ingestUrl: vi.fn(), ingestIdentifier: vi.fn(), ingestFile: vi.fn(), ingestBulk: vi.fn(),
     importBibtex: vi.fn(), importZoteroRdf: vi.fn(), navBack: vi.fn(), navForward: vi.fn(),
     rename: vi.fn(), move: vi.fn(), copy: vi.fn(), autoTag: vi.fn(), autoLink: vi.fn(),
     autoLinkInbound: vi.fn(), decompose: vi.fn(),
@@ -188,6 +188,13 @@ describe('UI-chrome commands', () => {
     commandDeps.setTheme('light');
     expect(built.spies.selectTheme).toHaveBeenCalledWith('light');
     expect(commandDeps.currentTheme()).toBe('dark');
+  });
+});
+
+describe('research commands', () => {
+  it('ingestBulk dispatches straight through to ctx.ingestBulk (#2087)', () => {
+    commandDeps.ingestBulk();
+    expect(built.spies.ingestBulk).toHaveBeenCalled();
   });
 });
 

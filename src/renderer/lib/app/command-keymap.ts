@@ -62,6 +62,7 @@ export interface CommandKeymapCtx {
   ingestUrl: () => void;
   ingestIdentifier: () => void;
   ingestFile: () => void;
+  ingestBulk: () => void;
   importBibtex: () => void;
   importZoteroRdf: () => void;
   navBack: () => void;
@@ -176,6 +177,7 @@ export function createCommandKeymap(ctx: CommandKeymapCtx): {
     ingestUrl: ctx.ingestUrl,
     ingestIdentifier: ctx.ingestIdentifier,
     ingestFile: ctx.ingestFile,
+    ingestBulk: ctx.ingestBulk,
     importBibtex: ctx.importBibtex,
     importZoteroRdf: ctx.importZoteroRdf,
     bibliography: ctx.bibliography,

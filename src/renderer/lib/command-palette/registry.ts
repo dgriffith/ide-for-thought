@@ -82,6 +82,7 @@ export interface CommandDeps {
   ingestUrl(): void;
   ingestIdentifier(): void;
   ingestFile(): void;
+  ingestBulk(): void;
   importBibtex(): void;
   importZoteroRdf(): void;
   bibliography(): void;
@@ -216,6 +217,8 @@ export function buildCommandRegistry(deps: CommandDeps): Command[] {
       enabled: hasProject, run: () => deps.ingestIdentifier() },
     { id: 'research.ingestFile', title: 'Ingest File as Source…', category: 'Research',
       keybinding: null, enabled: hasProject, run: () => deps.ingestFile() },
+    { id: 'research.ingestBulk', title: 'Ingest Zip or Folder as Sources…', category: 'Research',
+      keybinding: null, enabled: hasProject, run: () => deps.ingestBulk() },
     { id: 'research.importBibtex', title: 'Import BibTeX…', category: 'Research',
       keybinding: null, enabled: hasProject, run: () => deps.importBibtex() },
     { id: 'research.importZoteroRdf', title: 'Import Zotero RDF…', category: 'Research',

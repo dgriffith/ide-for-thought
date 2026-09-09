@@ -311,6 +311,11 @@ export const Channels = {
   /** Ingest a local file as a source. Main opens a file picker; dispatches by
    *  type — PDF (text+OCR), HTML (Readability), text/Markdown (verbatim body). */
   SOURCES_INGEST_FILE: 'sources:ingestFile',
+  /** Ingest a picked `.zip` archive or folder as a bulk source/note import
+   *  (#2087). Main opens a picker (file-or-directory); a zip is extracted,
+   *  a folder is flat-walked, and either way the resulting entries are
+   *  dispatched through the same `dropImport` pipeline as drag-drop. */
+  SOURCES_INGEST_BULK: 'sources:ingestBulk',
   /** Read raw PDF bytes of a persisted source, used by the OCR worker (#95). */
   SOURCES_READ_PDF: 'sources:readPdf',
   /** Cheap check used by the source detail UI to decide whether to
@@ -341,6 +346,9 @@ export const Channels = {
   MENU_INGEST_IDENTIFIER: 'menu:ingestIdentifier',
   /** Menu → "Ingest File as Source…" — opens a file picker in main and ingests it. */
   MENU_INGEST_FILE: 'menu:ingestFile',
+  /** Menu → "Ingest Zip or Folder as Sources…" — opens a file-or-folder
+   *  picker in main and bulk-ingests it (#2087). */
+  MENU_INGEST_BULK: 'menu:ingestBulk',
   /** Menu → "Import BibTeX…" — opens a .bib picker and imports each entry as a Source. */
   MENU_IMPORT_BIBTEX: 'menu:importBibtex',
   /** Menu → "Import Zotero RDF…" — opens a .rdf picker; lifts attached PDFs when present. */
