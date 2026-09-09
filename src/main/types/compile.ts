@@ -9,7 +9,7 @@
  * rebuild, so they never go stale.
  */
 import * as $rdf from 'rdflib';
-import { MINERVA, RDF, RDFS, TYPES } from '../graph/state';
+import { MINERVA, RDF, RDFS, TYPES, resolveStandardCurie } from '../graph/state';
 import type { TypeCatalog } from '../../shared/objects/type-def';
 
 export function materializeTypeClasses(store: $rdf.IndexedFormula, catalog: TypeCatalog): void {
@@ -29,5 +29,17 @@ export function materializeTypeClasses(store: $rdf.IndexedFormula, catalog: Type
     // this type's instances too.
     const parent = t.parent ? byId.get(t.parent) : undefined;
     if (parent) store.add(cls, RDFS('subClassOf'), TYPES(parent.classLocalName));
+    // External vocabulary alignment (#2036): an optional `externalClass`
+    // (e.g. `foaf:Person`) becomes a SIBLING `rdfs:subClassOf` edge — not
+    // `owl:equivalentClass` — specifically so it participates in the exact
+    // same `?x a/rdfs:subClassOf* foaf:Person` property-path idiom this
+    // codebase already uses everywhere for type hierarchy (this store does
+    // no OWL/RDFS entailment, so equivalentClass wouldn't be chased the same
+    // way). A class can carry both a Minerva `parent` and an `externalClass`
+    // at once — multiple `subClassOf` values on one class is standard RDF.
+    if (t.externalClass) {
+      const external = resolveStandardCurie(t.externalClass);
+      if (external) store.add(cls, RDFS('subClassOf'), external);
+    }
   }
 }

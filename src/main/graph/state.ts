@@ -164,6 +164,7 @@ export const THOUGHT = $rdf.Namespace('https://minerva.dev/ontology/thought#');
 export const TYPES   = $rdf.Namespace('https://minerva.dev/ontology/types#');
 export const DCAT    = $rdf.Namespace('http://www.w3.org/ns/dcat#');
 export const SKOS    = $rdf.Namespace('http://www.w3.org/2004/02/skos/core#');
+export const FOAF    = $rdf.Namespace('http://xmlns.com/foaf/0.1/');
 
 export const STANDARD_PREFIXES: [string, string][] = [
   ['minerva', 'https://minerva.dev/ontology#'],
@@ -180,7 +181,29 @@ export const STANDARD_PREFIXES: [string, string][] = [
   ['types', 'https://minerva.dev/ontology/types#'],
   ['dcat', 'http://www.w3.org/ns/dcat#'],
   ['skos', 'http://www.w3.org/2004/02/skos/core#'],
+  ['foaf', 'http://xmlns.com/foaf/0.1/'],
 ];
+
+/**
+ * Resolve a CURIE (`"foaf:mbox"`) against `STANDARD_PREFIXES` into a real
+ * `NamedNode` — the mechanism that lets a type definition (#2036) name an
+ * arbitrary external class/predicate without Minerva hardcoding a namespace
+ * const for every vocabulary a type author might reach for. Splits on the
+ * FIRST `:` only (an IRI's local part may itself contain colons). Returns
+ * `undefined` for an unrecognized prefix or malformed input rather than
+ * throwing — a bad CURIE in a type definition means that one mapping just
+ * doesn't apply, not an indexing failure.
+ */
+export function resolveStandardCurie(curie: string): $rdf.NamedNode | undefined {
+  const i = curie.indexOf(':');
+  if (i <= 0) return undefined;
+  const prefix = curie.slice(0, i);
+  const local = curie.slice(i + 1);
+  if (!local) return undefined;
+  const entry = STANDARD_PREFIXES.find(([p]) => p === prefix);
+  if (!entry) return undefined;
+  return $rdf.sym(entry[1] + local);
+}
 
 // ── Per-project state (#333) ────────────────────────────────────────────────
 //

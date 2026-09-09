@@ -28,7 +28,7 @@ import {
   noteUri, tagUri, folderUri, projectUri,
   linkPredicate, dateLit,
 } from '../state';
-import type { PropertyType } from '../../../shared/objects/type-def';
+import type { PropertyDef } from '../../../shared/objects/type-def';
 
 import { checkLLMWriteGuard } from '../write-guard';
 import {
@@ -220,17 +220,17 @@ function indexNoteDomainType(
   subject: $rdf.NamedNode,
   graph: $rdf.NamedNode,
   parsed: ParsedNote,
-): Map<string, PropertyType> | undefined {
+): Map<string, PropertyDef> | undefined {
   const { store } = state;
   const fmType = parsed.frontmatter.type;
   if (fmType === undefined) return undefined;
-  let declaredProps: Map<string, PropertyType> | undefined;
+  let declaredProps: Map<string, PropertyDef> | undefined;
   for (const typeId of flattenFrontmatterStrings(fmType)) {
     const def = state.typeCatalog.types.find((t) => t.id === typeId.trim().toLowerCase());
     if (!def) continue;
     store.add(subject, RDF('type'), TYPES(def.classLocalName), graph);
     declaredProps ??= new Map();
-    for (const p of def.properties) if (!declaredProps.has(p.name)) declaredProps.set(p.name, p.type);
+    for (const p of def.properties) if (!declaredProps.has(p.name)) declaredProps.set(p.name, p);
   }
   return declaredProps;
 }
@@ -358,8 +358,8 @@ async function indexNoteImpl(
   const title = parsed.title ?? path.basename(relativePath, '.md');
   indexNoteCoreTriples(state, subject, graph, relativePath, title);
   indexNoteTags(state, subject, graph, parsed);
-  // Declared property name → PropertyType, for schema-driven value coercion in
-  // the frontmatter loop below (#1063).
+  // Declared property name → PropertyDef, for schema-driven value coercion
+  // (#1063) and predicate resolution incl. #2036's external mapping.
   const declaredProps = indexNoteDomainType(state, subject, graph, parsed);
   indexNoteAliases(state, subject, graph, relativePath, parsed, opts.skipAliasRebuild ?? false);
 
@@ -379,7 +379,8 @@ async function indexNoteImpl(
     // its own type; a nested mapping materialises as a blank node; everything
     // else stays a scalar edge under the key's predicate. A declared property's
     // type drives datatype coercion (#1063).
-    emitFrontmatterValue(state, store, subject, declaredPropertyPredicate(key, declaredProps?.get(key)), value, graph, linkCtx, 0, declaredProps?.get(key));
+    const declaredProp = declaredProps?.get(key);
+    emitFrontmatterValue(state, store, subject, declaredPropertyPredicate(key, declaredProp), value, graph, linkCtx, 0, declaredProp?.type);
   }
 
   // Embedded turtle blocks — parse into the note's named graph

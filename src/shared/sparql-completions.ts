@@ -59,6 +59,7 @@ export const STANDARD_PREFIXES: ReadonlyArray<{ prefix: string; iri: string }> =
   { prefix: 'types', iri: 'https://minerva.dev/ontology/types#' },
   { prefix: 'dcat', iri: 'http://www.w3.org/ns/dcat#' },
   { prefix: 'skos', iri: 'http://www.w3.org/2004/02/skos/core#' },
+  { prefix: 'foaf', iri: 'http://xmlns.com/foaf/0.1/' },
 ];
 
 // ── Phase detection ──────────────────────────────────────────────────────

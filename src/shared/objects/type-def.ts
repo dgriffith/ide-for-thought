@@ -25,6 +25,12 @@ export interface PropertyDef {
   options?: string[] | undefined;
   /** link-to-type only — the target type id (e.g. `person`). Seed for #1073. */
   targetType?: string | undefined;
+  /** Optional external predicate CURIE (e.g. `foaf:mbox`) this property's value
+   *  materializes under instead of the default `resolveFrontmatterPredicate`
+   *  fallback (#2036). Additive: absent means today's exact behavior. Resolved
+   *  against `STANDARD_PREFIXES` at index time — an unrecognized prefix just
+   *  means this mapping doesn't apply, not an indexing failure. */
+  predicate?: string | undefined;
 }
 
 export type TypeSource = 'stock' | 'user';
@@ -50,6 +56,12 @@ export interface TypeDef {
   /** Parent type id — materialized as `rdfs:subClassOf` so instances of this
    *  type also count as the parent (#1586). Single inheritance for v1. */
   parent?: string | undefined;
+  /** Optional external class CURIE (e.g. `foaf:Person`) this type's class is
+   *  additionally related to via `rdfs:subClassOf`, so instances are
+   *  discoverable through the standard vocabulary too (#2036). Additive:
+   *  absent means today's exact behavior — the class stays purely under
+   *  Minerva's own `types:` namespace. */
+  externalClass?: string | undefined;
   source: TypeSource;
   /** True when this is a stock type the thoughtbase has locally customized —
    *  `source` is `'user'` (the in-tree file is what loaded), but a stock
