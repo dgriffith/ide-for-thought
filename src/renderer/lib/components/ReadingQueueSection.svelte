@@ -78,8 +78,7 @@
 <style>
   /* Reading-queue section sits BELOW Collections, with a collapsible header
      so users who never touch the queue can fold it away. Same row shape as
-     the collection tree (.coll-row, shared visually with CollectionsTree.svelte
-     but not a shared class since Svelte scopes styles per-component); no "+"
+     the collection tree (.coll-row, now shared via global.css, #2099); no "+"
      button because the views are built-in. */
   .queue-section {
     flex-shrink: 0;
@@ -114,51 +113,7 @@
     color: var(--text-faint);
     letter-spacing: 0.06em;
   }
-  .coll-row {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    width: 100%;
-    padding: 4px 12px 4px 8px;
-    background: none;
-    border: none;
-    border-left: 2px solid transparent;
-    color: var(--text);
-    font-family: var(--font-sans);
-    font-size: 12.5px;
-    cursor: pointer;
-    text-align: left;
-  }
-  .coll-row:hover {
-    background: color-mix(in oklch, var(--text) 4%, transparent);
-  }
-  .coll-row.active {
-    background: color-mix(in oklch, var(--accent) 12%, transparent);
-    border-left-color: var(--accent);
-    color: var(--accent);
-  }
-  .chevron-spacer {
-    width: 14px;
-    height: 14px;
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .coll-name {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .coll-count {
-    font-family: var(--font-mono);
-    font-size: 10.5px;
-    color: var(--text-faint);
-    font-variant-numeric: tabular-nums;
-    flex-shrink: 0;
-  }
-  .coll-row.active .coll-count { color: var(--accent); }
-  /* .queue-row re-uses the .coll-row look — no rules of its own. */
+  /* .coll-row / .chevron-spacer / .coll-name / .coll-count base shape shared
+     via global.css (#2099). .queue-row re-uses the .coll-row look — no rules
+     of its own. */
 </style>
