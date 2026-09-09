@@ -11,9 +11,11 @@ import { getNotebaseStore } from '../stores/notebase.svelte';
 import { getDialogStore } from '../stores/dialogs.svelte';
 import { getBusyStore } from '../stores/busy.svelte';
 import { getSourceFlowStore } from '../stores/source-flow.svelte';
+import { getToastStore } from '../stores/toasts.svelte';
 import { displaySourceTitle } from '../../../shared/source-display';
 import { RESOLVE_AUTO_THRESHOLD } from '../../../shared/resolve-stub';
 import { CONFIRM_KEYS } from '../confirm-keys';
+import { resolveDroppedEntries } from './dropped-entries';
 import type { ParsedReference } from '../../../shared/mine-references';
 import type { ResolveCandidate } from '../../../shared/resolve-stub';
 import type { SourceMetadata } from '../../../shared/types';
@@ -30,6 +32,7 @@ export function createSourceOps(ctx: SourceOpsCtx) {
   const dialogs = getDialogStore();
   const busy = getBusyStore();
   const flow = getSourceFlowStore();
+  const toasts = getToastStore();
   const { showPrompt, showConfirm } = dialogs;
 
   /**
@@ -86,19 +89,21 @@ export function createSourceOps(ctx: SourceOpsCtx) {
     }
   }
 
-  async function handleExternalDrop(destFolder: string, files: FileList) {
+  /**
+   * A dropped `.zip` is already a resolvable leaf `File`, handled below like
+   * any other flat file drop — PR 1's `dropImport` dispatch extracts it.
+   * A dropped *folder* has no `File` of its own, so `resolveDroppedEntries`
+   * (#2087 PR 2/2) walks the drop's `FileSystemEntry` tree to recursively
+   * discover the files inside it before handing everything to the same
+   * `dropImport` pipeline the picker-driven `handleIngestBulk` uses.
+   */
+  async function handleExternalDrop(destFolder: string, dataTransfer: DataTransfer) {
     if (!notebase.meta) return;
-    const localPaths: string[] = [];
-    for (const f of files) {
-      // Electron 32+: `webUtils.getPathForFile` is the supported accessor;
-      // `File.path` was deprecated and is removed in Electron 34.
-      const p = api.files.getPathForFile(f);
-      if (p) localPaths.push(p);
-    }
-    if (localPaths.length === 0) return;
+    const entries = await resolveDroppedEntries(dataTransfer);
+    if (entries.length === 0) return;
     try {
       const result = await busy.withBusy('Importing…', () =>
-        api.files.dropImport(destFolder, localPaths.map((localPath) => ({ localPath }))),
+        api.files.dropImport(destFolder, entries),
       );
       // Open the first newly-ingested PDF source tab, matching the menu-
       // triggered Ingest PDF flow.
@@ -106,12 +111,31 @@ export function createSourceOps(ctx: SourceOpsCtx) {
       if (openablePdf) {
         openSourceAfterIndex(openablePdf.sourceId);
       }
-      if (result.rejected.length > 0) {
+      const imported = result.copied.length + result.ingestedPdfs.length;
+      const hasRejected = result.rejected.length > 0;
+      // Don't toast a single successfully-imported item — that preserves
+      // today's silent single-file-drop UX exactly (no toast/dialog at all
+      // unless something was rejected).
+      if (imported > 1) {
+        // If nothing was rejected, the rejection dialog below won't fire —
+        // the toast is the only surface left to mention a capped walk on.
+        const cappedNote = result.capped && !hasRejected
+          ? ' Stopped after 5000 files — the folder may contain more.'
+          : '';
+        toasts.push({
+          message: `${imported} file${imported === 1 ? '' : 's'} imported${hasRejected ? `, ${result.rejected.length} skipped` : ''}.${cappedNote}`,
+        });
+      }
+      if (hasRejected) {
         const lines = result.rejected
           .map((r) => `• ${r.localPath.split('/').pop()} — ${r.reason}`)
           .join('\n');
+        let message = `Some files were skipped:\n${lines}`;
+        if (result.capped) {
+          message += '\n\nNote: stopped after 5000 files — the folder may contain more.';
+        }
         await showConfirm(
-          `Some files were skipped:\n${lines}`,
+          message,
           CONFIRM_KEYS.dropImportRejected,
           'OK',
         );

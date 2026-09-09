@@ -86,7 +86,7 @@
      *  prefetch the current state here purely to render the right label
      *  (Mark vs Unmark) on the menu item. */
     onToggleEntrypoint?: ((relativePath: string, currentlyEntrypoint: boolean) => void) | undefined;
-    onExternalDrop?: ((destDirectory: string, files: FileList) => void) | undefined;
+    onExternalDrop?: ((destDirectory: string, dataTransfer: DataTransfer) => void) | undefined;
     /** Name the current version of every note in the selection (#1158) — a
      *  restore point, not a note edit. */
     onLabelVersion?: ((relativePath: string, isDirectory: boolean) => void) | undefined;
@@ -146,9 +146,8 @@
     // populated `files` list; the internal-move drag sets `text/plain`
     // instead. Check files first so an OS drop never falls through to the
     // internal-move path.
-    const files = e.dataTransfer?.files;
-    if (files && files.length > 0) {
-      onExternalDrop?.(destDir, files);
+    if (e.dataTransfer && e.dataTransfer.files.length > 0) {
+      onExternalDrop?.(destDir, e.dataTransfer);
       return;
     }
     const srcPath = e.dataTransfer!.getData('text/plain');
