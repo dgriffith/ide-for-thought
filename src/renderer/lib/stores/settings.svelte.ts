@@ -11,6 +11,7 @@
  * config. Thin passthroughs — the dialogs still own their view state.
  */
 import type { MenuConfig } from '../../../shared/skills/menu-config';
+import type { McpServerDescriptor } from '../../../shared/mcp-servers';
 import { api } from '../ipc/client';
 
 export function getSettingsStore() {
@@ -18,6 +19,16 @@ export function getSettingsStore() {
     // ── Clipper ───────────────────────────────────────────────────────────
     setClipperEnabled: (enabled: boolean) => api.clipper.setEnabled(enabled),
     regenerateClipperSecret: () => api.clipper.regenerateSecret(),
+
+    // ── MCP servers (#2031) ────────────────────────────────────────────────
+    addMcpServer: (name: string, descriptor: McpServerDescriptor) => api.mcpServers.add(name, descriptor),
+    updateMcpServer: (id: string, patch: { name?: string; descriptor?: McpServerDescriptor }) =>
+      api.mcpServers.update(id, patch),
+    removeMcpServer: (id: string) => api.mcpServers.remove(id),
+    setMcpServerEnabled: (id: string, enabled: boolean) => api.mcpServers.setEnabled(id, enabled),
+    /** May open a browser for OAuth (#2030) — only call in direct response
+     *  to the user clicking Connect. */
+    connectMcpServer: (id: string) => api.mcpServers.connect(id),
 
     // ── Ingest / excerpt (per-machine + per-project) ──────────────────────
     setIngestSettings: (settings: { importUpstreamTags: boolean }) =>

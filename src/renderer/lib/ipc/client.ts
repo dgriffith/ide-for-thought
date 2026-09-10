@@ -3,6 +3,7 @@ import type { Conversation, ConversationCreateOptions, ContextBundle, Conversati
 import type { ToolExecutionRequest, ToolExecutionResult, ConversationToolPayload } from '../../../shared/tools/types';
 import type { InspectionSettings } from '../../../shared/inspections';
 import type { ClipperState } from '../../../shared/clipper-pairing';
+import type { McpServerDescriptor, McpServerStatus } from '../../../shared/mcp-servers';
 import type { Proposal } from '../../../shared/proposals';
 import type { MaintenanceProgress } from '../../../shared/maintenance';
 import type { ThemeMode } from '../../../shared/theme';
@@ -619,6 +620,20 @@ export interface ClipperApi {
   regenerateSecret(): Promise<ClipperState>;
 }
 
+export interface McpServersApi {
+  /** Configured servers merged with live connection state (#2031). */
+  list(): Promise<McpServerStatus[]>;
+  add(name: string, descriptor: McpServerDescriptor): Promise<McpServerStatus[]>;
+  update(id: string, patch: { name?: string; descriptor?: McpServerDescriptor }): Promise<McpServerStatus[]>;
+  remove(id: string): Promise<McpServerStatus[]>;
+  /** Persists the flag, then attempts a best-effort NON-interactive connect
+   *  (enabling) or disconnects (disabling) — never opens a browser. */
+  setEnabled(id: string, enabled: boolean): Promise<McpServerStatus[]>;
+  /** The only call allowed to pop a browser tab for OAuth (#2030) — call only
+   *  in direct response to the user clicking Connect. */
+  connect(id: string): Promise<McpServerStatus[]>;
+}
+
 export interface ConversationsApi {
   create(contextBundle: ContextBundle, triggerNodeUri?: string, options?: ConversationCreateOptions): Promise<Conversation>;
   append(id: string, role: ConversationMessage['role'], content: string): Promise<Conversation>;
@@ -1032,6 +1047,7 @@ export interface IdeApi {
   view: ViewApi;
   bookmarks: BookmarksApi;
   clipper: ClipperApi;
+  mcpServers: McpServersApi;
   conversations: ConversationsApi;
   proposals: ProposalsApi;
   tabs: TabsApi;

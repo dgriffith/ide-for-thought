@@ -171,6 +171,14 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
   "maintenance": [
     "onProgress",
   ],
+  "mcpServers": [
+    "add",
+    "connect",
+    "list",
+    "remove",
+    "setEnabled",
+    "update",
+  ],
   "menu": [
     "onAbout",
     "onBibliography",

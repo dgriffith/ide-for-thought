@@ -6,6 +6,7 @@ import type { ThemeMode } from '../shared/theme';
 import type { ChannelMap, EventMap } from '../shared/ipc-contract';
 import type { ConversationDraftBase } from '../shared/conversation-draft-base';
 import type { AskUserRequest } from '../shared/conversation-tools';
+import type { McpServerDescriptor } from '../shared/mcp-servers';
 
 /**
  * Typed main→renderer event subscription (#1633). The channel + the `cb` payload
@@ -361,6 +362,14 @@ const api = {
     getState: () => invoke(Channels.CLIPPER_GET_STATE),
     setEnabled: (enabled: boolean) => invoke(Channels.CLIPPER_SET_ENABLED, enabled),
     regenerateSecret: () => invoke(Channels.CLIPPER_REGENERATE_SECRET),
+  },
+  mcpServers: {
+    list: () => invoke(Channels.MCP_SERVERS_LIST),
+    add: (name: string, descriptor: McpServerDescriptor) => invoke(Channels.MCP_SERVERS_ADD, name, descriptor),
+    update: (id: string, patch: { name?: string; descriptor?: McpServerDescriptor }) => invoke(Channels.MCP_SERVERS_UPDATE, id, patch),
+    remove: (id: string) => invoke(Channels.MCP_SERVERS_REMOVE, id),
+    setEnabled: (id: string, enabled: boolean) => invoke(Channels.MCP_SERVERS_SET_ENABLED, id, enabled),
+    connect: (id: string) => invoke(Channels.MCP_SERVERS_CONNECT, id),
   },
   tabs: {
     save: (session: LayoutSession) => invoke(Channels.TABS_SAVE, session),

@@ -58,6 +58,7 @@ import type {
 } from './types';
 import type { InspectionSettings } from './inspections';
 import type { ClipperState } from './clipper-pairing';
+import type { McpServerDescriptor, McpServerStatus } from './mcp-servers';
 import type { Proposal } from './proposals';
 import type { BatchRevertResult, HistorySettings, LabelNotesResult, RevisionMeta, SelectionRoot, UnifiedTimelineEntry } from './history';
 import type { CellResult, CellOutput, ComputeConsentSummary, PythonProbeResult } from './compute/types';
@@ -199,6 +200,14 @@ export interface ChannelMap {
   'clipper:getState': () => ClipperState;
   'clipper:setEnabled': (enabled: boolean) => ClipperState;
   'clipper:regenerateSecret': () => ClipperState;
+
+  // MCP servers (#2031)
+  'mcpServers:list': () => McpServerStatus[];
+  'mcpServers:add': (name: string, descriptor: McpServerDescriptor) => McpServerStatus[];
+  'mcpServers:update': (id: string, patch: { name?: string; descriptor?: McpServerDescriptor }) => McpServerStatus[];
+  'mcpServers:remove': (id: string) => McpServerStatus[];
+  'mcpServers:setEnabled': (id: string, enabled: boolean) => McpServerStatus[];
+  'mcpServers:connect': (id: string) => McpServerStatus[];
 
   // Export
   'export:csv': (csv: string) => void;

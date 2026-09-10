@@ -17,6 +17,7 @@
   import ComputeSettings from './ComputeSettings.svelte';
   import VersioningSettings from './VersioningSettings.svelte';
   import SkillsSettings from './SkillsSettings.svelte';
+  import McpServersSettings from './McpServersSettings.svelte';
   import ObjectTypesSettings from './ObjectTypesSettings.svelte';
   import BibliographySettings from './BibliographySettings.svelte';
   import AiSettings from './AiSettings.svelte';
@@ -50,7 +51,7 @@
 
   let { onApplyEditor, onApplyFontSize, onThemeChanged, onClose, initialTab }: Props = $props();
 
-  type TabId = 'editor' | 'appearance' | 'behaviors' | 'notes' | 'versioning' | 'formatter' | 'objectTypes' | 'inspections' | 'web' | 'sources' | 'clipper' | 'bibliography' | 'compute' | 'ai' | 'skills';
+  type TabId = 'editor' | 'appearance' | 'behaviors' | 'notes' | 'versioning' | 'formatter' | 'objectTypes' | 'inspections' | 'web' | 'sources' | 'clipper' | 'bibliography' | 'compute' | 'ai' | 'skills' | 'mcpServers';
 
   /** Restructure per IMPLEMENTATION.md §10.4 — 10 flat tabs become 4
    *  semantic groups. Group labels render in mono-uppercase above each
@@ -98,6 +99,7 @@
       items: [
         { id: 'ai', label: 'AI', sub: 'Models · provider keys · voice' },
         { id: 'skills', label: 'Skills', sub: 'Conversation skills · import' },
+        { id: 'mcpServers', label: 'MCP Servers', sub: 'Connect external tool servers' },
       ],
     },
   ];
@@ -318,6 +320,9 @@
 
         {:else if activeTab === 'skills'}
           <SkillsSettings bind:toolModelOverrides defaultModel={model} {customModels} />
+
+        {:else if activeTab === 'mcpServers'}
+          <McpServersSettings />
 
         {:else if activeTab === 'compute'}
           <ComputeSettings />

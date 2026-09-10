@@ -38,6 +38,7 @@ User-global extensions that travel across machines only if the user copies them.
 |---|---|
 | `skills/` | User-authored skills (`*.md` or a folder with `SKILL.md`). Additive over stock. |
 | `menu-config.json` | Learning/Research/Analysis menu enable · reassign · order (per machine). |
+| `mcp-servers.json` | Configured MCP servers (#2031): stdio command/args/env, or a remote URL, plus name and enable flag. Global, not per-thoughtbase — matches `mcp-oauth-tokens.json`'s own precedent. No secrets here; OAuth tokens stay in `userData/mcp-oauth-tokens.json`. |
 
 ## 3. `<thoughtbase>/.minerva/` — per **thoughtbase** (project)
 
