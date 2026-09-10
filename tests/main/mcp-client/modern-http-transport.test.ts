@@ -151,5 +151,121 @@ describe('ModernHttpTransport (#2029)', () => {
       const transport = new ModernHttpTransport({ kind: 'http', url: URL_ });
       await expect(transport.listenForChanges({}, () => {})).rejects.toThrow(/not an acknowledgment/);
     });
+
+    it('throws McpAuthRequiredError on a 401', async () => {
+      vi.stubGlobal('fetch', vi.fn(async () => new Response(null, { status: 401 })));
+      const transport = new ModernHttpTransport({ kind: 'http', url: URL_ });
+      await expect(transport.listenForChanges({}, () => {})).rejects.toBeInstanceOf(McpAuthRequiredError);
+    });
+
+    it('throws McpProtocolError on a non-ok, non-auth status', async () => {
+      vi.stubGlobal('fetch', vi.fn(async () => new Response(null, { status: 500 })));
+      const transport = new ModernHttpTransport({ kind: 'http', url: URL_ });
+      await expect(transport.listenForChanges({}, () => {})).rejects.toMatchObject({ constructor: McpProtocolError });
+    });
+
+    it('throws when the acknowledgment frame is not valid JSON', async () => {
+      const stream = openSseStream();
+      vi.stubGlobal('fetch', vi.fn(async () => stream.response));
+      stream.push({ data: 'not-json-at-all-{{{' });
+      const transport = new ModernHttpTransport({ kind: 'http', url: URL_ });
+      await expect(transport.listenForChanges({}, () => {})).rejects.toThrow(/not valid JSON/);
+    });
+
+    it('throws when the acknowledgment subscriptionId does not match the request id', async () => {
+      const stream = openSseStream();
+      vi.stubGlobal('fetch', vi.fn(async () => stream.response));
+      stream.push({
+        data: {
+          jsonrpc: '2.0', method: 'notifications/subscriptions/acknowledged',
+          params: { _meta: { 'io.modelcontextprotocol/subscriptionId': 'wrong-id' } },
+        },
+      });
+      const transport = new ModernHttpTransport({ kind: 'http', url: URL_ });
+      await expect(transport.listenForChanges({}, () => {})).rejects.toThrow(/did not match the request id/);
+    });
+
+    it('logs and drops a non-JSON frame after the acknowledgment, without ending the subscription', async () => {
+      const stream = openSseStream();
+      let seenBody: Record<string, unknown> = {};
+      vi.stubGlobal('fetch', vi.fn(async (_url: string, init?: RequestInit) => {
+        seenBody = parseBody(init);
+        return stream.response;
+      }));
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const transport = new ModernHttpTransport({ kind: 'http', url: URL_ });
+      const received: unknown[] = [];
+
+      const ackPromise = transport.listenForChanges({}, (n) => received.push(n));
+      await vi.waitFor(() => expect(seenBody.id).toBeDefined());
+      stream.push({
+        data: {
+          jsonrpc: '2.0', method: 'notifications/subscriptions/acknowledged',
+          params: { _meta: { 'io.modelcontextprotocol/subscriptionId': seenBody.id } },
+        },
+      });
+      const subscription = await ackPromise;
+
+      stream.push({ data: 'not-json-at-all-{{{' });
+      await vi.waitFor(() => expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('dropped a non-JSON frame'), expect.anything()));
+
+      // The malformed frame didn't end the loop — a good one right after still dispatches.
+      stream.push({ data: { jsonrpc: '2.0', method: 'notifications/tools/list_changed', params: {} } });
+      await vi.waitFor(() => expect(received).toHaveLength(1));
+
+      subscription.close();
+      warnSpy.mockRestore();
+    });
+
+    it('logs when the stream ends unexpectedly (not via subscription.close())', async () => {
+      const stream = openSseStream();
+      let seenBody: Record<string, unknown> = {};
+      vi.stubGlobal('fetch', vi.fn(async (_url: string, init?: RequestInit) => {
+        seenBody = parseBody(init);
+        return stream.response;
+      }));
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const transport = new ModernHttpTransport({ kind: 'http', url: URL_ });
+
+      const ackPromise = transport.listenForChanges({}, () => {});
+      await vi.waitFor(() => expect(seenBody.id).toBeDefined());
+      stream.push({
+        data: {
+          jsonrpc: '2.0', method: 'notifications/subscriptions/acknowledged',
+          params: { _meta: { 'io.modelcontextprotocol/subscriptionId': seenBody.id } },
+        },
+      });
+      await ackPromise;
+
+      stream.error(new Error('connection reset'));
+      await vi.waitFor(() => expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('stream ended'), expect.anything()));
+      warnSpy.mockRestore();
+    });
+
+    it('the background loop exits quietly when the stream closes normally', async () => {
+      const stream = openSseStream();
+      let seenBody: Record<string, unknown> = {};
+      vi.stubGlobal('fetch', vi.fn(async (_url: string, init?: RequestInit) => {
+        seenBody = parseBody(init);
+        return stream.response;
+      }));
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const transport = new ModernHttpTransport({ kind: 'http', url: URL_ });
+
+      const ackPromise = transport.listenForChanges({}, () => {});
+      await vi.waitFor(() => expect(seenBody.id).toBeDefined());
+      stream.push({
+        data: {
+          jsonrpc: '2.0', method: 'notifications/subscriptions/acknowledged',
+          params: { _meta: { 'io.modelcontextprotocol/subscriptionId': seenBody.id } },
+        },
+      });
+      await ackPromise;
+
+      stream.close(); // a clean end-of-stream, not an error — no reconnect, no warning
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(warnSpy).not.toHaveBeenCalled();
+      warnSpy.mockRestore();
+    });
   });
 });

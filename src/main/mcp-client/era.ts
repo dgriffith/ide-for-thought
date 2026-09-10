@@ -28,8 +28,21 @@ export const MODERN_PROTOCOL_VERSION = '2026-07-28';
 
 /** 5s probe timeout — generous enough for a cold subprocess spawn or a
  *  slow-starting HTTP server, short enough not to stall connect() for long
- *  against a genuinely dead server. */
-export const ERA_PROBE_TIMEOUT_MS = 5000;
+ *  against a genuinely dead server. A `let` behind a getter/test-only
+ *  setter (matching `search/index.ts`'s `_setPersistDebounceMsForTests`
+ *  convention) rather than a plain exported const, so a test covering the
+ *  "discover never responds" fallback path doesn't have to wait 5 real
+ *  seconds for it. */
+let eraProbeTimeoutMs = 5000;
+
+export function getEraProbeTimeoutMs(): number {
+  return eraProbeTimeoutMs;
+}
+
+/** Test-only escape hatch — pass `null` to reset to the real default. */
+export function _setEraProbeTimeoutMsForTests(ms: number | null): void {
+  eraProbeTimeoutMs = ms ?? 5000;
+}
 
 export interface EraProbeSignal {
   /** `null` = no response — timeout, transport error, or connection refused. */

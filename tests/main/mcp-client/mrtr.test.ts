@@ -67,6 +67,13 @@ describe('resolveMrtr', () => {
     expect(reissue).toHaveBeenCalledTimes(MAX_MRTR_ROUNDS);
   });
 
+  it('passes an empty object to the handler when inputRequests is omitted', async () => {
+    const handler = vi.fn().mockResolvedValue({});
+    const reissue = vi.fn().mockResolvedValue({ resultType: 'complete', content: [] });
+    await resolveMrtr({ resultType: 'input_required' }, reissue, handler);
+    expect(handler).toHaveBeenCalledWith({});
+  });
+
   it('uses a custom handler when given, instead of the default', async () => {
     const handler = vi.fn().mockResolvedValue({ a: { custom: true } });
     const reissue = vi.fn().mockResolvedValue({ resultType: 'complete', content: [] });

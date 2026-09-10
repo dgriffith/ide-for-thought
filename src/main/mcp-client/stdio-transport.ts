@@ -25,7 +25,7 @@ import {
   type JsonRpcResponse,
   type JsonRpcSuccess,
 } from './json-rpc';
-import { decideEra, ERA_PROBE_TIMEOUT_MS, LEGACY_PROTOCOL_VERSION, MCP_ERROR_CODES, MODERN_PROTOCOL_VERSION } from './era';
+import { decideEra, getEraProbeTimeoutMs, LEGACY_PROTOCOL_VERSION, MCP_ERROR_CODES, MODERN_PROTOCOL_VERSION } from './era';
 import { defaultInputRequiredHandler, resolveMrtr, type ModernResult } from './mrtr';
 import {
   CLIENT_INFO,
@@ -152,7 +152,7 @@ export class StdioTransport implements McpTransport {
 
   private async probeEra(signal?: AbortSignal): Promise<void> {
     const discoverId = this.ids.nextId();
-    const discoverPromise = this.pending.register(discoverId, ERA_PROBE_TIMEOUT_MS);
+    const discoverPromise = this.pending.register(discoverId, getEraProbeTimeoutMs());
     this.writeRaw({ jsonrpc: '2.0', id: discoverId, method: 'server/discover', params: { _meta: modernMeta() } });
 
     let response: JsonRpcResponse | null;
@@ -178,7 +178,7 @@ export class StdioTransport implements McpTransport {
     }
 
     const initId = this.ids.nextId();
-    const initPromise = this.pending.register(initId, ERA_PROBE_TIMEOUT_MS);
+    const initPromise = this.pending.register(initId, getEraProbeTimeoutMs());
     this.writeRaw({
       jsonrpc: '2.0',
       id: initId,

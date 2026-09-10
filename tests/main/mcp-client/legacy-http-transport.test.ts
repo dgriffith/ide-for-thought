@@ -49,6 +49,12 @@ describe('LegacyHttpTransport (#2029)', () => {
     await transport.close();
   });
 
+  it('throws when initialize returns no response body at all', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => emptyResponse(200)));
+    const transport = new LegacyHttpTransport({ kind: 'http', url: URL_ });
+    await expect(transport.connect()).rejects.toThrow(/no response body/);
+  });
+
   it('throws when initialize succeeds without a session id', async () => {
     vi.stubGlobal('fetch', vi.fn(async () =>
       jsonResponse(200, { jsonrpc: '2.0', id: 1, result: {} }),
@@ -136,6 +142,99 @@ describe('LegacyHttpTransport (#2029)', () => {
 
     await vi.waitFor(() => expect(getCallCount).toBe(2), { timeout: 2000 });
     expect(secondGetHeaders?.['Last-Event-ID']).toBe('evt-1');
+    await transport.close();
+  });
+
+  it('logs and drops a non-JSON GET-stream frame without crashing', async () => {
+    const getStream = openSseStream();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET';
+      if (method === 'GET') return getStream.response;
+      const body = parseBody(init);
+      if (body.method === 'initialize') return jsonResponse(200, { jsonrpc: '2.0', id: body.id, result: {} }, { 'mcp-session-id': SESSION_ID });
+      return emptyResponse(202);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const transport = new LegacyHttpTransport({ kind: 'http', url: URL_ });
+    await transport.connect();
+    getStream.push({ event: 'message', data: 'not-json-at-all-{{{' });
+    await vi.waitFor(() => expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('not valid JSON'), expect.anything()));
+    await transport.close();
+    warnSpy.mockRestore();
+  });
+
+  it('logs when answering a server-initiated request itself fails', async () => {
+    const getStream = openSseStream();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET';
+      if (method === 'GET') return getStream.response;
+      const body = parseBody(init);
+      if (body.method === 'initialize') return jsonResponse(200, { jsonrpc: '2.0', id: body.id, result: {} }, { 'mcp-session-id': SESSION_ID });
+      if (body.id !== undefined && body.method === undefined) {
+        throw new TypeError('network down'); // the answer POST itself fails
+      }
+      return emptyResponse(202);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const transport = new LegacyHttpTransport({ kind: 'http', url: URL_ });
+    await transport.connect();
+    getStream.push({ event: 'message', data: { jsonrpc: '2.0', id: 'srv-1', method: 'roots/list' } });
+    await vi.waitFor(() => expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('failed to answer'), expect.anything()));
+    await transport.close();
+    warnSpy.mockRestore();
+  });
+
+  it('logs and gives up after exhausting GET-stream reconnect attempts', async () => {
+    vi.useFakeTimers();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+        const method = init?.method ?? 'GET';
+        if (method === 'GET') return new Response(null, { status: 500 });
+        const body = parseBody(init);
+        if (body.method === 'initialize') return jsonResponse(200, { jsonrpc: '2.0', id: body.id, result: {} }, { 'mcp-session-id': SESSION_ID });
+        return emptyResponse(202);
+      });
+      vi.stubGlobal('fetch', fetchMock);
+
+      const transport = new LegacyHttpTransport({ kind: 'http', url: URL_ });
+      await transport.connect();
+      await vi.advanceTimersByTimeAsync(10_000);
+
+      const getCalls = fetchMock.mock.calls.filter(([, init]) => (init as RequestInit)?.method === 'GET');
+      expect(getCalls.length).toBe(5); // initial attempt + 4 retries, per the 500/1000/2000/4000ms backoff
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('reconnect attempts exhausted'), expect.anything());
+      await transport.close();
+    } finally {
+      vi.useRealTimers();
+      warnSpy.mockRestore();
+    }
+  });
+
+  it('reconnects when the GET stream ends cleanly (not an error)', async () => {
+    const getStream1 = openSseStream();
+    let getCallCount = 0;
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET';
+      if (method === 'GET') {
+        getCallCount += 1;
+        if (getCallCount === 1) return getStream1.response;
+        return openSseStream().response;
+      }
+      const body = parseBody(init);
+      if (body.method === 'initialize') return jsonResponse(200, { jsonrpc: '2.0', id: body.id, result: {} }, { 'mcp-session-id': SESSION_ID });
+      return emptyResponse(202);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const transport = new LegacyHttpTransport({ kind: 'http', url: URL_ });
+    await transport.connect();
+    getStream1.close(); // clean end-of-stream, not an error
+    await vi.waitFor(() => expect(getCallCount).toBe(2));
     await transport.close();
   });
 

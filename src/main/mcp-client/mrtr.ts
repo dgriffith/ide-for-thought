@@ -45,6 +45,9 @@ export const defaultInputRequiredHandler: InputRequiredHandler = (requests) => {
     }
     return Promise.resolve(responses);
   } catch (err) {
+    // `prefer-promise-reject-errors` requires this normalization even
+    // though the only throw above is already a real Error — the `unknown`
+    // catch type is enough to trigger the rule regardless.
     return Promise.reject(err instanceof Error ? err : new Error(String(err)));
   }
 };

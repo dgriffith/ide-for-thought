@@ -6,7 +6,7 @@
  */
 import { logger } from '../../shared/logger';
 import { McpAuthRequiredError, McpConnectionError } from './errors';
-import { decideEra, ERA_PROBE_TIMEOUT_MS } from './era';
+import { decideEra, getEraProbeTimeoutMs } from './era';
 import { modernHeaders, modernMeta, postJsonRpc, timeoutSignal } from './http/http-common';
 import { LegacyHttpTransport } from './http/legacy-http-transport';
 import { ModernHttpTransport } from './http/modern-http-transport';
@@ -104,7 +104,7 @@ async function probeHttpEra(
       descriptor.url,
       { jsonrpc: '2.0', id, method: 'server/discover', params: { _meta: modernMeta() } },
       { ...modernHeaders('server/discover', {}), ...(descriptor.headers ?? {}) },
-      { signal: timeoutSignal(ERA_PROBE_TIMEOUT_MS, signal), expectedId: id },
+      { signal: timeoutSignal(getEraProbeTimeoutMs(), signal), expectedId: id },
     );
     return { era: decideEra({ response }) };
   } catch (err) {

@@ -48,7 +48,15 @@ describe('SseFrameParser (#2029)', () => {
     expect(frames).toEqual([{ data: 'one' }, { data: 'two' }]);
   });
 
-  it('flush() emits a trailing frame that never got its terminating blank line', () => {
+  it('flush() emits a trailing frame whose last line has no terminating newline at all', () => {
+    const parser = new SseFrameParser();
+    // No trailing "\n" — the line itself never completes during push(), so it
+    // sits in the internal buffer until flush() consumes it directly.
+    expect(parser.push('data: trailing')).toEqual([]);
+    expect(parser.flush()).toEqual([{ data: 'trailing' }]);
+  });
+
+  it('flush() emits a trailing frame whose last line DID end in a newline but had no blank-line terminator', () => {
     const parser = new SseFrameParser();
     expect(parser.push('data: trailing\n')).toEqual([]);
     expect(parser.flush()).toEqual([{ data: 'trailing' }]);

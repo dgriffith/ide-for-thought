@@ -85,6 +85,15 @@ describe('connectMcpServer (#2029)', () => {
     }));
     await expect(connectMcpServer({ kind: 'http', url: 'http://localhost:9999/mcp' })).rejects.toThrow(McpConnectionError);
   });
+
+  it('propagates McpAuthRequiredError from the LEGACY handshake, not wrapped in the combined error', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (_url: string, init?: RequestInit) => {
+      const body = parseBody(init);
+      if (body.method === 'server/discover') return new Response(null, { status: 500 }); // generic failure, falls back to legacy
+      return new Response(null, { status: 401 }); // legacy initialize requires auth
+    }));
+    await expect(connectMcpServer({ kind: 'http', url: 'http://localhost:9999/mcp' })).rejects.toBeInstanceOf(McpAuthRequiredError);
+  });
 });
 
 describe('shutdownAllMcpClients (#2029)', () => {
