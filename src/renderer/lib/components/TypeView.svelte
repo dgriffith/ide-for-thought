@@ -17,6 +17,8 @@
   import TypeIcon from './TypeIcon.svelte';
   import TypeViewMap from './TypeViewMap.svelte';
   import { objectTypesStore } from '../stores/object-types.svelte';
+  import { outputToMarkdownClipboard } from '../preview/compute-output-render';
+  import { stripNoteExt } from '../../../shared/note-extensions';
   import type { PropertyDef, TypeInfo, TypeInstanceRow } from '../../../shared/objects/type-def';
 
   type Layout = 'list' | 'table' | 'gallery' | 'map';
@@ -120,6 +122,51 @@
     });
   });
 
+  /** Same link-to-type decoding as `display()`, but '' (not '—') for a
+   *  missing value — '—' is a UI placeholder; the compute-cell markdown-copy
+   *  precedent this matches (`outputToMarkdownClipboard`) uses an empty cell
+   *  for a null value. */
+  function copyValue(prop: PropertyDef, value: string | null): string {
+    if (value === null || value === '') return '';
+    if (prop.type === 'link-to-type') {
+      const tail = value.split(/[/#]/).pop() ?? value;
+      try { return decodeURIComponent(tail); } catch { return tail; }
+    }
+    return value;
+  }
+
+  /**
+   * "Copy as markdown" (#2068) — a stateless OS side-effect
+   * (`navigator.clipboard`), so it's called directly rather than routed
+   * through a store per CLAUDE.md's renderer data-flow rule. Table reuses
+   * the exact compute-cell markdown-table serializer (`outputToMarkdownClipboard`)
+   * so a user never sees two different "markdown table" conventions in the
+   * same app; list/gallery/map have no literal tabular/grid markdown
+   * representation, so they all fall back to the same wiki-linked bullet
+   * list — the same title + summary already shown on screen for those
+   * layouts, just as `- [[note]] — summary` lines. Respects the table's
+   * current sort/visible-columns (list/gallery/map have no sort or filter
+   * to respect — sorting is table-only, per this view's own docs above).
+   */
+  function copyAsMarkdown(): void {
+    let md: string;
+    if (layout === 'table') {
+      const cols = ['Title', ...visibleColumns.map((c) => c.label ?? c.name)];
+      const rows = sorted.map((inst) => [
+        inst.title,
+        ...visibleColumns.map((c) => copyValue(c, inst.values[c.name] ?? null)),
+      ]);
+      md = outputToMarkdownClipboard({ type: 'table', columns: cols, rows });
+    } else {
+      md = instances.map((inst) => {
+        const link = `[[${stripNoteExt(inst.path)}]]`;
+        const s = summary(inst);
+        return s ? `- ${link} — ${s}` : `- ${link}`;
+      }).join('\n');
+    }
+    void navigator.clipboard.writeText(md);
+  }
+
   function isImageUrl(v: string | null): v is string {
     return !!v && /^https?:\/\//i.test(v);
   }
@@ -170,6 +217,7 @@
             {/if}
           </div>
         {/if}
+        <button class="tv-btn" onclick={copyAsMarkdown}>Copy as markdown</button>
         {#if onSaveView}
           <button class="tv-btn" onclick={() => onSaveView?.()}>Save view</button>
         {/if}
