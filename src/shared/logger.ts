@@ -34,6 +34,7 @@ export const LOG_TAGS = [
   'llm',
   'llm-tools',
   'maintenance',
+  'mcp-client',
   'merge',
   'onboarding',
   'preview',
