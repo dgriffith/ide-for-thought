@@ -7,6 +7,7 @@
     import 'katex/dist/katex.min.css';
     import {hydrateMermaidBlocks, invalidateMermaidTheme} from '../markdown/mermaid-renderer';
     import {hydrateVegaBlocks, invalidateVegaTheme} from '../markdown/vega-renderer';
+    import {hydrateObjectViewBlocks} from '../markdown/object-view-renderer';
     import {hydrateCardCallouts} from '../markdown/card-callout';
     import {slugify} from '../../../shared/slug';
     import {createPreviewMarkdown} from '../preview/markdown-config';
@@ -373,6 +374,11 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     });
     let previewEl = $state<HTMLDivElement>();
     let activeCharts: ChartHandle[] = [];
+    // Live object-view mounts (#2067) — same array-of-handles shape as
+    // `activeCharts`, not a WeakMap: by the time these get destroyed below,
+    // `{@html rendered}` has already replaced the old placeholder nodes, so
+    // there's nothing left to re-derive keys from a DOM query.
+    let activeObjectViews: ChartHandle[] = [];
 
     /**
      * Numeric-style preview bibliography (#110). Author-date / note styles
@@ -453,6 +459,11 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         // Destroy previous chart instances before re-rendering
         activeCharts.forEach(c => c.destroy());
         activeCharts = [];
+        // Same reason: unmount previous object-view embeds before their
+        // placeholder DOM (already replaced by `{@html rendered}` by the
+        // time this effect runs) is gone for good.
+        activeObjectViews.forEach(v => v.destroy());
+        activeObjectViews = [];
 
         requestAnimationFrame(() => {
             // Syntax-highlight fences off the critical render path (#1114).
@@ -491,6 +502,12 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
             // lazy-loads vega-embed, replaces .vega-block placeholders with SVG
             // charts, surfaces parse / security errors inline.
             if (previewEl) void hydrateVegaBlocks(previewEl, content);
+            // Live Typed-Objects view hydration (#2067) — mounts a chromeless
+            // TypeView into each `.object-view-block` placeholder.
+            // `onNavigate` resolves an exact relative path via
+            // `resolveWikiLinkTarget`'s step-1 exact-match case, so no
+            // separate "open by path" hook is needed.
+            if (previewEl) hydrateObjectViewBlocks(previewEl, { revision, onOpenNote: onNavigate, activeViews: activeObjectViews });
             // Flashcard polish: tuck each [!card]'s answer (the part after `---`)
             // behind a collapsed "Show answer" disclosure.
             if (previewEl) hydrateCardCallouts(previewEl);

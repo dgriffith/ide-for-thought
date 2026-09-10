@@ -96,6 +96,29 @@ export function installFences(md: MarkdownIt, deps: PreviewMarkdownDeps): void {
         return `${block}\n`;
     }
 
+    // A live Typed-Objects view embedded in the note (#2067). Auto-renders on
+    // view like mermaid (no run/refresh button — it's always graph-bound, so
+    // a per-fence refresh toggle would be redundant with just reopening the
+    // note). The lazy hydrator (object-view-renderer.ts) mounts a chromeless
+    // TypeView into the placeholder.
+    function renderObjectViewFence(args: FenceRenderArgs): string {
+        const { tok, openingLine } = args;
+        const escaped = (tok.content ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+        if (openingLine !== null) {
+            const isCollapsed = deps.collapsedFences.has(openingLine);
+            return `<div class="fence-block fence-object-view${isCollapsed ? ' fence-collapsed' : ''}" data-fence-line="${openingLine}">`
+                + `<div class="fence-toolbar"><span class="fence-lang">object-view</span>`
+                + `<button class="fence-collapse-btn" data-fence-action="collapse" type="button" title="Collapse / expand">${isCollapsed ? '▸' : '▾'}</button>`
+                + `</div>`
+                + `<div class="fence-body"><div class="object-view-block" data-object-view-pending="1">${escaped}</div></div>`
+                + `</div>\n`;
+        }
+        return `<div class="object-view-block" data-object-view-pending="1">${escaped}</div>\n`;
+    }
+
     // A `youtube` fence renders a click-to-open poster card (#904) — thumbnail
     // + ▶, opens in the browser on click. No live iframe, so no CSP change; the
     // card is self-explanatory, so it skips the code-fence toolbar wrapper.
@@ -144,6 +167,7 @@ export function installFences(md: MarkdownIt, deps: PreviewMarkdownDeps): void {
         vega: renderVegaFence,
         'vega-lite': renderVegaFence,
         youtube: renderYouTubeFenceCard,
+        'object-view': renderObjectViewFence,
     };
 
     const defaultFence = md.renderer.rules.fence;

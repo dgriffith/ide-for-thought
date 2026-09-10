@@ -194,4 +194,19 @@ describe('TypeView (#1070)', () => {
       await waitFor(() => expect(screen.getByText(/no location property/i)).toBeTruthy());
     });
   });
+
+  describe('chromeless (#2067)', () => {
+    it('suppresses the header/toolbar but renders the body identically', async () => {
+      const { container } = render(TypeView, props({ layout: 'list', chromeless: true }));
+      await waitFor(() => expect(screen.getByText('Dune')).toBeTruthy());
+      expect(container.querySelector('.tv-header')).toBeNull();
+      expect(screen.getByText('Neuromancer')).toBeTruthy();
+    });
+
+    it('shows the header/toolbar by default', async () => {
+      const { container } = render(TypeView, props({ layout: 'list' }));
+      await waitFor(() => expect(screen.getByText('Dune')).toBeTruthy());
+      expect(container.querySelector('.tv-header')).not.toBeNull();
+    });
+  });
 });

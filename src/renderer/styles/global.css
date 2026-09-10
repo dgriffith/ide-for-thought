@@ -472,6 +472,38 @@ mark.hl-orange { background: color-mix(in oklch, var(--hl-orange) 30%, transpare
   font-size: 11px;
 }
 
+/* Live Typed-Objects view embedded in a note (#2067). A mounted TypeView
+   needs a bounded ancestor height (same reason the Map layout did in
+   #2066), so the height/border only apply once a real view is mounted —
+   an error message isn't left stuck inside a tall empty box. */
+.object-view-block {
+  margin: 0 0 12px;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.object-view-block[data-object-view-rendered="ok"] {
+  height: 360px;
+  border: 1px solid var(--border);
+  background: var(--bg-inset);
+}
+.object-view-error {
+  width: 100%;
+  padding: 8px 12px;
+  border-left: 3px solid var(--accent);
+  background: var(--bg-button);
+  color: var(--text);
+  font-size: 12px;
+  border-radius: 4px;
+  text-align: left;
+}
+.object-view-error pre {
+  margin-top: 4px;
+  white-space: pre-wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
 /* YouTube click-to-open poster card (#904). A thumbnail with a ▶ badge that
    opens the video in the real browser on click — no live iframe, no CSP
    change. Sized like a media block, not a code fence. */
