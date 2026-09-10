@@ -259,6 +259,35 @@ describe('fence dispatcher — vega / vega-lite', () => {
   });
 });
 
+describe('fence dispatcher — object-view (#2067)', () => {
+  it('wraps an object-view fence with a collapse toolbar and pending block', () => {
+    const html = render('```object-view\n{"typeId":"book","layout":"list"}\n```');
+    expect(html).toContain('fence-object-view');
+    expect(html).toContain('data-fence-line="1"');
+    expect(html).toContain('object-view-block');
+    expect(html).toContain('data-object-view-pending="1"');
+    expect(html).toContain('▾'); // expanded chevron
+  });
+
+  it('reflects collapsed state from the shared set', () => {
+    const html = render('```object-view\n{"typeId":"book","layout":"list"}\n```', { collapsedFences: new Set([1]) });
+    expect(html).toContain('fence-collapsed');
+    expect(html).toContain('▸'); // collapsed chevron
+  });
+
+  it('escapes HTML-special characters in the spec body', () => {
+    const html = render('```object-view\n{"typeId":"<b>","layout":"list"}\n```');
+    expect(html).toContain('&lt;b&gt;');
+    expect(html).not.toContain('<b>');
+  });
+
+  it('has no run/refresh button — it always auto-renders', () => {
+    const html = render('```object-view\n{"typeId":"book","layout":"list"}\n```');
+    expect(html).not.toContain('fence-run-btn');
+    expect(html).not.toContain('fence-refresh-btn');
+  });
+});
+
 describe('fence dispatcher — youtube', () => {
   it('renders a poster card for a valid YouTube URL', () => {
     const html = render('```youtube\nhttps://www.youtube.com/watch?v=dQw4w9WgXcQ\n```');

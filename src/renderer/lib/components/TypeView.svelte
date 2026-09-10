@@ -36,8 +36,13 @@
     onOpenNote: (relativePath: string) => void;
     /** Save the current projection as a named view (#1072); omitted when unavailable. */
     onSaveView?: () => void;
+    /** Suppress the title/count/toolbar header — for an inline note embed
+     *  (#2067), which has no host to mutate layout/sort/columns state and
+     *  provides its own surrounding context. Defaults to the full-pane tab
+     *  chrome everywhere else. */
+    chromeless?: boolean;
   }
-  let { typeId, layout, sortColumn, sortDir, columns, revision, onStateChange, onOpenNote, onSaveView }: Props = $props();
+  let { typeId, layout, sortColumn, sortDir, columns, revision, onStateChange, onOpenNote, onSaveView, chromeless = false }: Props = $props();
 
   let type = $state<TypeInfo | null>(null);
   let instances = $state<TypeInstanceRow[]>([]);
@@ -143,42 +148,44 @@
 </script>
 
 <div class="type-view">
-  <header class="tv-header">
-    <span class="tv-icon" style={type?.color ? `color:${type.color}` : undefined}>{type?.icon ?? '◆'}</span>
-    <h1 class="tv-title">{type?.label ?? typeId}</h1>
-    <span class="tv-count">{instances.length}</span>
+  {#if !chromeless}
+    <header class="tv-header">
+      <span class="tv-icon" style={type?.color ? `color:${type.color}` : undefined}>{type?.icon ?? '◆'}</span>
+      <h1 class="tv-title">{type?.label ?? typeId}</h1>
+      <span class="tv-count">{instances.length}</span>
 
-    <div class="tv-actions">
-      {#if layout === 'table' && allColumns.length > 0}
-        <div class="tv-columns">
-          <button class="tv-btn" aria-expanded={columnsMenuOpen} onclick={() => (columnsMenuOpen = !columnsMenuOpen)}>Columns ▾</button>
-          {#if columnsMenuOpen}
-            <div class="tv-columns-menu" role="menu">
-              {#each allColumns as col (col.name)}
-                <label>
-                  <input type="checkbox" checked={isVisible(col.name)} onchange={() => toggleColumn(col.name)} />
-                  {col.label ?? col.name}
-                </label>
-              {/each}
-            </div>
-          {/if}
+      <div class="tv-actions">
+        {#if layout === 'table' && allColumns.length > 0}
+          <div class="tv-columns">
+            <button class="tv-btn" aria-expanded={columnsMenuOpen} onclick={() => (columnsMenuOpen = !columnsMenuOpen)}>Columns ▾</button>
+            {#if columnsMenuOpen}
+              <div class="tv-columns-menu" role="menu">
+                {#each allColumns as col (col.name)}
+                  <label>
+                    <input type="checkbox" checked={isVisible(col.name)} onchange={() => toggleColumn(col.name)} />
+                    {col.label ?? col.name}
+                  </label>
+                {/each}
+              </div>
+            {/if}
+          </div>
+        {/if}
+        {#if onSaveView}
+          <button class="tv-btn" onclick={() => onSaveView?.()}>Save view</button>
+        {/if}
+        <div class="tv-switch" role="tablist" aria-label="View">
+          {#each LAYOUTS as l (l.id)}
+            <button
+              role="tab"
+              aria-selected={layout === l.id}
+              class:active={layout === l.id}
+              onclick={() => onStateChange({ layout: l.id })}
+            >{l.label}</button>
+          {/each}
         </div>
-      {/if}
-      {#if onSaveView}
-        <button class="tv-btn" onclick={() => onSaveView?.()}>Save view</button>
-      {/if}
-      <div class="tv-switch" role="tablist" aria-label="View">
-        {#each LAYOUTS as l (l.id)}
-          <button
-            role="tab"
-            aria-selected={layout === l.id}
-            class:active={layout === l.id}
-            onclick={() => onStateChange({ layout: l.id })}
-          >{l.label}</button>
-        {/each}
       </div>
-    </div>
-  </header>
+    </header>
+  {/if}
 
   {#if loading}
     <p class="tv-empty">Loading…</p>
