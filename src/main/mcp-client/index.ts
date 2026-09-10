@@ -12,5 +12,18 @@ export {
   type McpTransport,
   type InputRequiredHandler,
 } from './types';
-export { McpClientError, McpConnectionError, McpAuthRequiredError, McpProtocolError, McpInputRequiredUnhandledError } from './errors';
+export {
+  McpClientError,
+  McpConnectionError,
+  McpAuthRequiredError,
+  McpProtocolError,
+  McpInputRequiredUnhandledError,
+  McpInteractiveAuthRequiredError,
+  McpStepUpRequiredError,
+  McpStepUpRetryLimitExceededError,
+  McpOAuthDiscoveryError,
+  McpClientRegistrationFailedError,
+  McpPkceUnsupportedError,
+} from './errors';
 export { defaultInputRequiredHandler } from './mrtr';
+export * from './oauth';

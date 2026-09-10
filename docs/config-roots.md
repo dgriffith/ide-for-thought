@@ -18,6 +18,7 @@ listed here. Adding a config without documenting it fails a test.
 |---|---|
 | `llm-settings.json` | LLM providers, model, effort, web settings. **API keys are encrypted** at rest via `safeStorage` (`enc:v1:` prefix). |
 | `clipper-config.json` | Browser-clipper enable flag + the loopback **shared secret (encrypted)**. |
+| `mcp-oauth-tokens.json` | Per-server OAuth 2.1 tokens for remote MCP servers (#2030), keyed by the server's canonical URL. **Access/refresh tokens (and client secret, if issued) encrypted** at rest. |
 | `ingest-settings.json` | Source-ingest defaults. |
 | `python-settings.json` | Python interpreter path + run consent. |
 | `compute-consent.json` | Content-addressed code-cell consent, keyed on each cell's code hash (#1412). Machine-scoped so it never rides along with a shared thoughtbase. |
@@ -66,4 +67,5 @@ legacy plaintext value still reads back and is re-encrypted on next read/write
 
 - `userData/llm-settings.json` — provider API keys
 - `userData/clipper-config.json` — the clipper shared secret
+- `userData/mcp-oauth-tokens.json` — MCP server OAuth access/refresh tokens
 - `<thoughtbase>/.minerva/secrets.json` — publish-target credentials

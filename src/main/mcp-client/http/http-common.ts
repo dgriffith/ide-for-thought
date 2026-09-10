@@ -106,7 +106,11 @@ export async function postJsonRpc(
   });
 
   if (httpResponse.status === 401 || httpResponse.status === 403) {
-    throw new McpAuthRequiredError(`server returned ${httpResponse.status} — authorization required`);
+    throw new McpAuthRequiredError(
+      `server returned ${httpResponse.status} — authorization required`,
+      httpResponse.status,
+      httpResponse.headers.get('www-authenticate'),
+    );
   }
   if (httpResponse.status === 202) {
     return { response: null, httpResponse };

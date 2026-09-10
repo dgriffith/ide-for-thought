@@ -122,7 +122,11 @@ export class ModernHttpTransport implements McpTransport {
       signal: controller.signal,
     });
     if (httpResponse.status === 401 || httpResponse.status === 403) {
-      throw new McpAuthRequiredError(`server returned ${httpResponse.status} — authorization required`);
+      throw new McpAuthRequiredError(
+        `server returned ${httpResponse.status} — authorization required`,
+        httpResponse.status,
+        httpResponse.headers.get('www-authenticate'),
+      );
     }
     if (!httpResponse.ok || !httpResponse.body) {
       throw new McpProtocolError(`subscriptions/listen returned HTTP ${httpResponse.status}`);
