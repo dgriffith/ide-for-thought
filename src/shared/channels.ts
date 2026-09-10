@@ -384,6 +384,16 @@ export const Channels = {
   CLIPPER_GET_STATE: 'clipper:getState',
   CLIPPER_SET_ENABLED: 'clipper:setEnabled',
   CLIPPER_REGENERATE_SECRET: 'clipper:regenerateSecret',
+  /** Configured MCP servers (#2031): add/edit/remove, enable toggle (attempts
+   *  a non-interactive connect), and an explicit interactive connect (may
+   *  open a browser for OAuth, #2030). Every mutation returns the refreshed
+   *  full list, matching the clipper convention above. */
+  MCP_SERVERS_LIST: 'mcpServers:list',
+  MCP_SERVERS_ADD: 'mcpServers:add',
+  MCP_SERVERS_UPDATE: 'mcpServers:update',
+  MCP_SERVERS_REMOVE: 'mcpServers:remove',
+  MCP_SERVERS_SET_ENABLED: 'mcpServers:setEnabled',
+  MCP_SERVERS_CONNECT: 'mcpServers:connect',
   /** Smart-route ingest: takes a raw string from a clipboard paste or
    *  the "+" button, detects whether it's a DOI / arXiv id / PMID /
    *  URL, and dispatches to the matching ingest path (#473). */

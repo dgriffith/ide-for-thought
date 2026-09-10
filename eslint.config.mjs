@@ -51,7 +51,11 @@ const DATAFLOW_MUTATION_METHODS =
   'fileDraft|fileSourceDraft|filePropertyDraft|fileSourcePropertyDraft|fileClaimsDraft|' +
   'runComputeDraft|insertComputeDraft|fileRefactorDraft|fileReorgDraft|fileDeleteDraft|fileNoteBodyDraft|' +
   // generic mutation verbs (mutations only — no read shares these names)
-  'merge|rename|remove|create|add|delete|save|move|import|reload|execute|cancel';
+  'merge|rename|remove|create|add|delete|save|move|import|reload|execute|cancel|' +
+  // MCP servers (#2031): add/remove/setEnabled already covered above/below;
+  // `update` (edit a server's name/descriptor) and `connect` (may open a
+  // browser for OAuth, #2030) are this domain's own additions.
+  'update|connect';
 
 const DATAFLOW_MESSAGE =
   'Renderer data-flow rule (#1086): components must not call mutating/subscribing `api.*` methods directly. ' +

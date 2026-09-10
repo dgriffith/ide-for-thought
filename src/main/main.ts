@@ -15,6 +15,7 @@ import { installCsp, installMediaPermissions } from './security';
 import { flushAllProjects } from './project-context';
 import { shutdownAllKernels } from './compute/python-kernel';
 import { shutdownAllMcpClients } from './mcp-client';
+import { connectAllEnabledServers } from './mcp-servers/registry';
 import { sweepStaleRpcSockets } from './compute/rpc-server';
 import { stopClipperServer } from './clipper/lifecycle';
 import { disposeSharedEmbedder } from './embeddings/shared-embedder';
@@ -63,6 +64,13 @@ void app.whenReady().then(async () => {
   boot('csp installed');
   registerIpcHandlers();
   boot('ipc handlers registered');
+
+  // Configured MCP servers (#2031): best-effort, non-interactive connect for
+  // every enabled server. Fire-and-forget like `runBackfill` — a slow
+  // subprocess spawn or unreachable remote server must never delay first
+  // paint. Non-interactive means a server needing OAuth with no valid stored
+  // token just lands on 'needs-auth' rather than popping a browser at startup.
+  void connectAllEnabledServers().catch((err) => logger('mcp-servers').warn('startup connect failed:', err));
   registerBuiltinExecutors();
   boot('executors registered');
   registerBuiltinExporters();

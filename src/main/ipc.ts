@@ -21,6 +21,7 @@ import { registerProposals } from './ipc/register-proposals';
 import { registerBookmarks } from './ipc/register-bookmarks';
 import { registerHistory } from './ipc/register-history';
 import { registerClipper } from './ipc/register-clipper';
+import { registerMcpServers } from './ipc/register-mcp-servers';
 import { registerApp } from './ipc/register-app';
 import { onProposalsChanged } from './llm/proposal-events';
 import { onInspectionsChanged } from './graph/inspection-events';
@@ -73,5 +74,6 @@ export function registerIpcHandlers(): void {
   registerBookmarks();
   registerHistory();
   registerClipper();
+  registerMcpServers();
   registerApp();
 }

@@ -15,19 +15,16 @@
 export type McpEra = 'legacy' | 'modern';
 
 /**
- * How to reach a server. `headers` on the http variant is a static
- * pass-through bag — a later auth issue injects `Authorization: Bearer …`
- * here before `connect()`; this layer performs no auth logic itself.
+ * `McpServerDescriptor` (how to reach a server — `headers` on the http
+ * variant is a static pass-through bag the OAuth flow, #2030, injects
+ * `Authorization: Bearer …` into; this layer performs no auth logic itself)
+ * and `McpToolDescriptor` are defined in `src/shared/mcp-servers.ts`, not
+ * here — #2031 sends both across the IPC boundary, and `src/shared/` is
+ * where cross-process wire types live. Re-exported so every existing
+ * `from './types'` / `from '../types'` import in this package keeps working.
  */
-export type McpServerDescriptor =
-  | { kind: 'stdio'; command: string; args?: string[]; env?: Record<string, string>; cwd?: string }
-  | { kind: 'http'; url: string; headers?: Record<string, string> };
-
-export interface McpToolDescriptor {
-  name: string;
-  description?: string;
-  inputSchema: { type: 'object'; properties?: Record<string, unknown>; required?: string[] };
-}
+import type { McpServerDescriptor, McpToolDescriptor } from '../../shared/mcp-servers';
+export type { McpServerDescriptor, McpToolDescriptor };
 
 /** A single MCP content block (text/image/resource/…). Passed through
  *  verbatim — narrowing into a discriminated union is a later issue's
