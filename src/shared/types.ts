@@ -136,7 +136,7 @@ export interface SavedQuery {
 /** Saved views (#1072) — named presets over a type's multi-view (#1070). The
  *  types live here (renderer-safe, no electron) so the IPC contract + renderer
  *  share them; the store lives in `src/main/saved-views.ts`. */
-export type ViewLayout = 'list' | 'table' | 'gallery';
+export type ViewLayout = 'list' | 'table' | 'gallery' | 'map';
 export type ViewScope = 'project' | 'global';
 
 /** The persisted config of a saved view (id/scope/filePath are derived from
@@ -308,8 +308,8 @@ export interface SavedTypeViewTab {
   type: 'type-view';
   /** The type whose instances the multi-view shows (#1070). */
   typeId: string;
-  /** Chosen projection (list/table/gallery); restored on reload. */
-  layout?: 'list' | 'table' | 'gallery';
+  /** Chosen projection (list/table/gallery/map); restored on reload. */
+  layout?: 'list' | 'table' | 'gallery' | 'map';
   /** Sort + visible columns, restored on reload (#1072). */
   sortColumn?: string | null;
   sortDir?: 'asc' | 'desc';

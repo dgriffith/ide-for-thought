@@ -17,6 +17,12 @@ const { instancesMock, listMock, noteTypeMapMock } = vi.hoisted(() => ({
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({
   api: { types: { instances: instancesMock, list: listMock, noteTypeMap: noteTypeMapMock } },
 }));
+// #2066: TypeViewMap's own mount logic is covered by TypeViewMap.test.ts —
+// here it's a stub, so switching into the "Map" layout in these tests never
+// touches real MapLibre GL / network.
+vi.mock('../../../src/renderer/lib/map/load-maplibre', () => ({
+  loadMapLibre: vi.fn(() => new Promise(() => {})), // never resolves — component stays in its pre-mount state
+}));
 
 import TypeView from '../../../src/renderer/lib/components/TypeView.svelte';
 import { objectTypesStore } from '../../../src/renderer/lib/stores/object-types.svelte';
@@ -154,5 +160,38 @@ describe('TypeView (#1070)', () => {
     await fireEvent.click(screen.getByRole('tab', { name: 'Table' }));
     expect(onStateChange).toHaveBeenCalledWith({ layout: 'table' });
     expect(instancesMock).toHaveBeenCalledTimes(1); // one load, not one per view
+  });
+
+  describe('Map layout (#2066)', () => {
+    const PLACE = {
+      id: 'place', label: 'Place', classLocalName: 'Place', icon: '📍', source: 'stock' as const,
+      properties: [{ name: 'location', type: 'geo' as const, label: 'Location' }],
+    };
+    const PLACE_INSTANCES = [
+      { path: 'SF.md', title: 'San Francisco', values: { location: '37.7749,-122.4194' }, cover: null },
+    ];
+
+    it('shows the Map tab only for a type with a geo property', async () => {
+      render(TypeView, props({ layout: 'list' }));
+      await waitFor(() => expect(screen.getByText('Dune')).toBeTruthy());
+      expect(screen.queryByRole('tab', { name: 'Map' })).toBeNull(); // Book has no geo property
+
+      instancesMock.mockResolvedValue({ type: PLACE, instances: PLACE_INSTANCES });
+      render(TypeView, props({ typeId: 'place', layout: 'list' }));
+      await waitFor(() => expect(screen.getByRole('tab', { name: 'Map' })).toBeTruthy());
+    });
+
+    it('renders the map when the layout is map and the type has a geo property', async () => {
+      instancesMock.mockResolvedValue({ type: PLACE, instances: PLACE_INSTANCES });
+      const { container } = render(TypeView, props({ typeId: 'place', layout: 'map' }));
+      await waitFor(() => expect(container.querySelector('[aria-label="Map"]')).toBeTruthy());
+    });
+
+    it('falls back to a message instead of mounting the map when the type has no geo property', async () => {
+      // A stale saved-view/tab-state claims layout: 'map' for a type that no
+      // longer has (or never had) a geo property.
+      render(TypeView, props({ layout: 'map' })); // Book
+      await waitFor(() => expect(screen.getByText(/no location property/i)).toBeTruthy());
+    });
   });
 });

@@ -32,7 +32,7 @@ function scopeFromPath(filePath: string): ViewScope {
   return filePath.includes(`${path.sep}.minerva${path.sep}views${path.sep}`) ? 'project' : 'global';
 }
 
-const LAYOUTS: ViewLayout[] = ['list', 'table', 'gallery'];
+const LAYOUTS: ViewLayout[] = ['list', 'table', 'gallery', 'map'];
 
 /** Coerce arbitrary JSON into a SavedViewInput, defaulting anything malformed
  *  (house UX: a hand-edited file never crashes the list). */
