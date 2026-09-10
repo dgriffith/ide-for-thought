@@ -113,19 +113,28 @@
   {:else}
     <ul class="timeline">
       {#each revisions as rev (rev.ts)}
-        <!-- svelte-ignore a11y_click_events_have_key_events -->
-        <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-        <li
-          class:selected={rev.ts === selectedTs}
-          onclick={() => activeFilePath && select(activeFilePath, rev.ts)}
-          oncontextmenu={(e) => openMenu(e, rev)}
-        >
-          <span class="when">{formatDateTime(rev.ts, now)}</span>
-          <!-- The name chip sits beside the timestamp (row 1, column 2); the
-               cause spans the row below it. -->
-          {#if rev.label}<span class="tag">{rev.label}</span>{/if}
-          <span class="cause" class:ai={rev.origin === 'proposal'}>{describeRevisionCause(rev)}</span>
-        </li>
+        {#if rev.origin === 'delete'}
+          <!-- A delete marker has no `.snap` to read — informational only, no
+               diff/restore affordance (#2089). -->
+          <li class="delete-marker">
+            <span class="when">{formatDateTime(rev.ts, now)}</span>
+            <span class="cause deleted">{describeRevisionCause(rev)}</span>
+          </li>
+        {:else}
+          <!-- svelte-ignore a11y_click_events_have_key_events -->
+          <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+          <li
+            class:selected={rev.ts === selectedTs}
+            onclick={() => activeFilePath && select(activeFilePath, rev.ts)}
+            oncontextmenu={(e) => openMenu(e, rev)}
+          >
+            <span class="when">{formatDateTime(rev.ts, now)}</span>
+            <!-- The name chip sits beside the timestamp (row 1, column 2); the
+                 cause spans the row below it. -->
+            {#if rev.label}<span class="tag">{rev.label}</span>{/if}
+            <span class="cause" class:ai={rev.origin === 'proposal'}>{describeRevisionCause(rev)}</span>
+          </li>
+        {/if}
       {/each}
     </ul>
 
@@ -175,6 +184,9 @@
   }
   .timeline li:hover { background: var(--bg-button); }
   .timeline li.selected { background: color-mix(in oklch, var(--accent) 14%, transparent); }
+  /* Informational only — no diff/restore, so no hover/pointer affordance (#2089). */
+  .timeline li.delete-marker { cursor: default; }
+  .timeline li.delete-marker:hover { background: transparent; }
   .when { color: var(--text); }
   /* What produced this version — the IntelliJ Local History "action" column. */
   .cause {
@@ -183,6 +195,7 @@
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   .cause.ai { color: color-mix(in oklch, var(--accent) 70%, var(--text-muted)); }
+  .cause.deleted { color: var(--text-faint); font-style: italic; }
   .tag {
     justify-self: end; max-width: 100%;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;

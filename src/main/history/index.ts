@@ -13,7 +13,7 @@
  * reverse.
  */
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { captureSnapshot, ensureInitialRevision } from './store';
+import { captureSnapshot, ensureInitialRevision, captureCurrentStateBeforeDelete, captureDeletion } from './store';
 import { isNotePath } from '../../shared/note-extensions';
 import type { RevisionSource } from './policy';
 import { logger } from '../../shared/logger';
@@ -25,6 +25,7 @@ export {
   setRevisionLabel,
   labelCurrentVersion,
   pruneAllHistory,
+  listOrphanedNoteHistoriesUnder,
 } from './store';
 export { getHistorySettings, setHistorySettings } from './settings';
 export { onHistoryChanged, emitHistoryChanged } from './history-events';
@@ -99,5 +100,36 @@ export async function onNoteWritten(rootPath: string, relPath: string, content: 
     await captureSnapshot(rootPath, relPath, content, historySource.getStore() ?? MANUAL_EDIT);
   } catch (err) {
     logger('history').error(`capture failed for "${relPath}":`, err);
+  }
+}
+
+/**
+ * Pre-delete hook (#2089), called from `notebase/fs.ts:deleteFile`/
+ * `deleteFolder` BEFORE the file is unlinked. Captures the note's final
+ * on-disk state if it drifted since its last recorded revision — mirrors
+ * `onNoteWriting`'s "preserve what's there before it's gone" role, just at
+ * the opposite end of a note's life. Best-effort, like every history hook.
+ */
+export async function onNoteDeleting(rootPath: string, relPath: string): Promise<void> {
+  if (!isCapturable(relPath)) return;
+  try {
+    await captureCurrentStateBeforeDelete(rootPath, relPath);
+  } catch (err) {
+    logger('history').error(`pre-delete capture failed for "${relPath}":`, err);
+  }
+}
+
+/**
+ * Post-delete hook (#2089), called from `notebase/fs.ts:deleteFile`/
+ * `deleteFolder` AFTER the unlink succeeds — appends the delete marker.
+ * Firing only after a successful unlink means a failed delete (permissions,
+ * a race) never leaves a marker for a note that's still there.
+ */
+export async function onNoteDeleted(rootPath: string, relPath: string): Promise<void> {
+  if (!isCapturable(relPath)) return;
+  try {
+    await captureDeletion(rootPath, relPath);
+  } catch (err) {
+    logger('history').error(`deletion capture failed for "${relPath}":`, err);
   }
 }

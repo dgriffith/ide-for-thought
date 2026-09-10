@@ -62,6 +62,25 @@ describe('selectForRetention (#1158)', () => {
     expect(removed.map((r) => r.ts)).not.toContain(baseline.ts);
   });
 
+  it('NEVER prunes a delete marker — not by age, not by cap (#2089)', () => {
+    // A pruned delete marker would make a later "as of T" query silently claim
+    // the note still exists at moments after it was actually removed.
+    const deleteMarker = rev(NOW - (RETENTION_DAYS + 100) * DAY, { origin: 'delete' });
+    const filler = Array.from({ length: 5 }, (_, i) => rev(NOW - i * 1000));
+    const { kept, removed } = selectForRetention([deleteMarker, ...filler], NOW, { maxPerNote: 2 });
+    expect(kept.map((r) => r.ts)).toContain(deleteMarker.ts);
+    expect(removed.map((r) => r.ts)).not.toContain(deleteMarker.ts);
+  });
+
+  it('a delete marker does not consume a slot in the per-note cap', () => {
+    const deleteMarker = rev(NOW, { origin: 'delete' });
+    const filler = Array.from({ length: 3 }, (_, i) => rev(NOW - (i + 1) * 1000));
+    const { kept, removed } = selectForRetention([deleteMarker, ...filler], NOW, { maxPerNote: 3 });
+    // All 3 filler revisions fit under the cap — the marker doesn't crowd one out.
+    expect(kept).toHaveLength(4);
+    expect(removed).toHaveLength(0);
+  });
+
   it('returns kept newest-first', () => {
     const revs = [rev(NOW - 2000), rev(NOW), rev(NOW - 1000)];
     const { kept } = selectForRetention(revs, NOW);

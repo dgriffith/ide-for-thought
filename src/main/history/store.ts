@@ -334,6 +334,97 @@ export async function labelCurrentVersion(
 }
 
 /**
+ * Final drift-capture before a note is deleted (#2089) — mirrors
+ * `labelCurrentVersion`'s "capture current on-disk state before doing
+ * anything to the index" shape, minus the labeling step. Must run BEFORE the
+ * file is unlinked: once it's gone there's nothing left to read. No-ops (like
+ * `ensureInitialRevision`) when there's nothing on disk to preserve, so a
+ * race against an already-vanished file is harmless rather than thrown.
+ */
+export async function captureCurrentStateBeforeDelete(
+  rootPath: string,
+  relPath: string,
+  now: number = Date.now(),
+): Promise<RevisionMeta | null> {
+  await ensureInitialRevision(rootPath, relPath, now);
+  let content: string;
+  try {
+    content = await fs.readFile(path.resolve(rootPath, relPath), 'utf-8');
+  } catch {
+    return null; // already gone — nothing to capture
+  }
+  return captureSnapshot(rootPath, relPath, content, { origin: 'edit', cause: 'Final version before deletion' }, now);
+}
+
+/**
+ * Append a delete marker (#2089) — a pure fact, no `.snap` file, no `hash`.
+ * Call AFTER the file is actually removed, so a failed delete (permissions, a
+ * race) never leaves a marker for a note that's still there. Still subject to
+ * retention pruning of the note's OTHER revisions (a note deleted and
+ * recreated many times shouldn't grow its history without bound), but the
+ * marker itself is exempt (`selectForRetention`).
+ */
+export async function captureDeletion(
+  rootPath: string,
+  relPath: string,
+  now: number = Date.now(),
+): Promise<RevisionMeta> {
+  const dir = noteDir(rootPath, relPath);
+  await fs.mkdir(dir, { recursive: true });
+  const entries = await readIndex(dir);
+
+  // Avoid a filename collision if two captures land in the same millisecond.
+  let ts = now;
+  while (entries.some((e) => e.ts === ts)) ts++;
+
+  const meta: RevisionMeta = { ts, origin: 'delete' };
+  entries.push(meta);
+
+  const settings = await getHistorySettings();
+  await pruneDir(dir, entries, now, settings);
+  emitHistoryChanged(rootPath, relPath);
+  return meta;
+}
+
+/**
+ * Every note-history subtree under `.minerva/history/<relDir>/` whose live
+ * file no longer exists (#2089) — e.g. deleted before this feature could
+ * record a marker (no backfill, per #2088), or removed by an external tool.
+ * Mirrors `pruneAllHistory`'s recursive-walk shape. Read-only; callers (the
+ * unified timeline, #2090) decide what to do with the list.
+ */
+export async function listOrphanedNoteHistoriesUnder(rootPath: string, relDir: string): Promise<string[]> {
+  const historyRoot = path.resolve(rootPath, HISTORY_DIR);
+  const base = path.resolve(historyRoot, relDir);
+  const orphaned: string[] = [];
+
+  const walk = async (dir: string): Promise<void> => {
+    let entries: import('node:fs').Dirent[];
+    try {
+      entries = await fs.readdir(dir, { withFileTypes: true });
+    } catch {
+      return; // no history under this subtree
+    }
+    if (entries.some((e) => e.isFile() && e.name === INDEX_FILE)) {
+      const relNotePath = path.relative(historyRoot, dir);
+      try {
+        await fs.access(path.resolve(rootPath, relNotePath));
+      } catch {
+        orphaned.push(relNotePath);
+      }
+    }
+    // Recurse regardless — a note path can be a prefix of another
+    // (`a.md/` next to `a.md.bak/`), same reasoning as `pruneAllHistory`.
+    for (const e of entries) {
+      if (e.isDirectory()) await walk(path.join(dir, e.name));
+    }
+  };
+
+  await walk(base);
+  return orphaned;
+}
+
+/**
  * Re-apply the retention rules across a whole project's history — run after the
  * limits change, so lowering them frees disk NOW rather than note-by-note as
  * each one happens to be edited again. Best-effort per note: a corrupt index
