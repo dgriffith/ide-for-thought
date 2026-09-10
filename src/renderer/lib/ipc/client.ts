@@ -6,7 +6,7 @@ import type { ClipperState } from '../../../shared/clipper-pairing';
 import type { Proposal } from '../../../shared/proposals';
 import type { MaintenanceProgress } from '../../../shared/maintenance';
 import type { ThemeMode } from '../../../shared/theme';
-import type { HistorySettings, LabelNotesResult, RevisionMeta, SelectionRoot, UnifiedTimelineEntry } from '../../../shared/history';
+import type { BatchRevertResult, HistorySettings, LabelNotesResult, RevisionMeta, SelectionRoot, UnifiedTimelineEntry } from '../../../shared/history';
 import type { PreloadApi } from '../../../preload/preload';
 
 export interface NotebaseApi {
@@ -801,6 +801,11 @@ export interface HistoryApi {
    *  entries, so the backend can additionally find orphaned (deleted) note
    *  histories under any selected directory. Merged, newest-first. */
   listUnified(livePaths: string[], selectionRoots: SelectionRoot[]): Promise<UnifiedTimelineEntry[]>;
+  /** Revert an entire selection to how it looked at `ts` (#2091) — every
+   *  target resolves independently (untouched, undeleted, or deleted to
+   *  match), never partially: a per-path failure lands in `errors` rather
+   *  than aborting the rest of the selection. */
+  batchRevert(livePaths: string[], selectionRoots: SelectionRoot[], ts: number): Promise<BatchRevertResult>;
 }
 
 export interface RefactorApi {

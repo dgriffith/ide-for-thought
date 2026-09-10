@@ -145,6 +145,7 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
     "sourceDetail",
   ],
   "history": [
+    "batchRevert",
     "getRevision",
     "getSettings",
     "labelNotes",

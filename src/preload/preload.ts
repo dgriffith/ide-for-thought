@@ -380,6 +380,8 @@ const api = {
       invoke(Channels.HISTORY_SET_SETTINGS, settings),
     listUnified: (livePaths: string[], selectionRoots: Parameters<ChannelMap['history:listUnified']>[1]) =>
       invoke(Channels.HISTORY_LIST_UNIFIED, livePaths, selectionRoots),
+    batchRevert: (livePaths: string[], selectionRoots: Parameters<ChannelMap['history:batchRevert']>[1], ts: number) =>
+      invoke(Channels.HISTORY_BATCH_REVERT, livePaths, selectionRoots, ts),
   },
   refactor: {
     autoTagSuggest: (relativePath: string) => invoke(Channels.REFACTOR_AUTO_TAG_SUGGEST, relativePath),

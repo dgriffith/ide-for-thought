@@ -8,8 +8,22 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import { writeFile, deleteFile } from '../../../src/main/notebase/fs';
-import { resolveOrphanedTargets, listNoteHistoryTimeline } from '../../../src/main/notebase/multi-file-history';
+import { writeFile, deleteFile, readFile } from '../../../src/main/notebase/fs';
+import { resolveOrphanedTargets, listNoteHistoryTimeline, batchRevertToPointInTime } from '../../../src/main/notebase/multi-file-history';
+import { initGraph } from '../../../src/main/graph/index';
+import { initSearch } from '../../../src/main/search/index';
+import { listRevisions, captureSnapshot } from '../../../src/main/history/store';
+import { projectContext } from '../../../src/main/project-context-types';
+import { formatDateTime } from '../../../src/shared/format-datetime';
+import type { WritePipelineHooks } from '../../../src/main/notebase/write-pipeline';
+
+function makeHooks(): WritePipelineHooks {
+  return {
+    markPathHandled: () => {},
+    broadcastRewritten: () => {},
+    broadcastHeadingRename: () => {},
+  };
+}
 
 describe('multi-file history (#2090)', () => {
   let root: string;
@@ -101,6 +115,125 @@ describe('multi-file history (#2090)', () => {
 
     it('returns an empty timeline for an empty selection', async () => {
       expect(await listNoteHistoryTimeline(root, [], [])).toEqual([]);
+    });
+  });
+
+  describe('batchRevertToPointInTime (#2091)', () => {
+    let ctx: ReturnType<typeof projectContext>;
+    beforeEach(async () => {
+      ctx = projectContext(root);
+      await initGraph(ctx);
+      await initSearch(ctx);
+    });
+
+    it('reverted: existed then and now, content differs — written back', async () => {
+      await writeFile(root, 'a.md', 'v1');
+      const [{ ts: ts1 }] = await listRevisions(root, 'a.md');
+      await writeFile(root, 'a.md', 'v2');
+
+      const result = await batchRevertToPointInTime(root, ['a.md'], [], ts1, makeHooks());
+
+      expect(result.reverted).toEqual(['a.md']);
+      expect(await readFile(root, 'a.md')).toBe('v1');
+    });
+
+    it('recreated: existed then, deleted since — undeleted', async () => {
+      await writeFile(root, 'a.md', 'v1');
+      const [{ ts: ts1 }] = await listRevisions(root, 'a.md');
+      await deleteFile(root, 'a.md');
+
+      const result = await batchRevertToPointInTime(root, [], [{ relativePath: '.', isDirectory: true }], ts1, makeHooks());
+
+      expect(result.recreated).toEqual(['a.md']);
+      expect(await readFile(root, 'a.md')).toBe('v1');
+    });
+
+    it('removed: did not exist yet at the target moment, exists now — deleted to match', async () => {
+      const before = Date.now() - 10_000;
+      await writeFile(root, 'a.md', 'v1'); // created AFTER `before`
+
+      const result = await batchRevertToPointInTime(root, ['a.md'], [], before, makeHooks());
+
+      expect(result.removed).toEqual(['a.md']);
+      await expect(fs.access(path.join(root, 'a.md'))).rejects.toThrow();
+    });
+
+    it('a live note with NO recorded history is removed when reverted to any past moment (documented gap, not a bug)', async () => {
+      // Written directly to disk, never through the app — no history captured.
+      await fs.writeFile(path.join(root, 'external.md'), 'never tracked', 'utf-8');
+      const result = await batchRevertToPointInTime(root, ['external.md'], [], Date.now() - 10_000, makeHooks());
+      expect(result.removed).toEqual(['external.md']);
+    });
+
+    it('unchanged: target content already matches what is on disk', async () => {
+      await writeFile(root, 'a.md', 'v1');
+      const [{ ts: ts1 }] = await listRevisions(root, 'a.md');
+
+      const result = await batchRevertToPointInTime(root, ['a.md'], [], ts1, makeHooks());
+      expect(result.unchanged).toEqual(['a.md']);
+    });
+
+    it('unchanged: already deleted at the target moment, and still gone now', async () => {
+      await writeFile(root, 'a.md', 'v1');
+      await deleteFile(root, 'a.md');
+      const revs = await listRevisions(root, 'a.md');
+      const deleteMarkerTs = revs.find((r) => r.origin === 'delete')!.ts;
+
+      const result = await batchRevertToPointInTime(root, [], [{ relativePath: '.', isDirectory: true }], deleteMarkerTs, makeHooks());
+      expect(result.unchanged).toEqual(['a.md']);
+    });
+
+    it('skipped: no history reaching back to the target moment, and does not exist now either', async () => {
+      await writeFile(root, 'a.md', 'v1');
+      await deleteFile(root, 'a.md'); // orphaned — findable via the directory root
+      const longBefore = Date.now() - 100_000;
+
+      const result = await batchRevertToPointInTime(root, [], [{ relativePath: '.', isDirectory: true }], longBefore, makeHooks());
+      expect(result.skipped).toEqual(['a.md']);
+    });
+
+    it('a bad path is reported per-item without aborting the rest of the selection', async () => {
+      await writeFile(root, 'good.md', 'v1');
+      const [{ ts: ts1 }] = await listRevisions(root, 'good.md');
+      await writeFile(root, 'good.md', 'v2');
+      // Corrupt bad.md's index so listRevisions throws for it.
+      await writeFile(root, 'bad.md', 'v1');
+      await fs.writeFile(path.join(root, '.minerva/history/bad.md/index.json'), 'not json', 'utf-8');
+
+      const result = await batchRevertToPointInTime(root, ['good.md', 'bad.md'], [], ts1, makeHooks());
+
+      expect(result.reverted).toEqual(['good.md']);
+      expect(result.errors).toEqual([{ path: 'bad.md', error: expect.any(String) }]);
+    });
+
+    it('per-path runWithHistorySource scoping: two concurrent batch reverts do not swap causes (#1833)', async () => {
+      // Explicit, widely-separated timestamps (years apart) via captureSnapshot
+      // directly — formatDateTime is minute-precision, so two REAL writes a
+      // few milliseconds apart in a fast test could format identically and
+      // make this assertion pass vacuously regardless of correctness.
+      const tsA = Date.UTC(2020, 0, 1, 12, 0);
+      const tsB = Date.UTC(2024, 6, 15, 9, 30);
+      await captureSnapshot(root, 'a.md', 'a-v1', { origin: 'edit' }, tsA);
+      await captureSnapshot(root, 'a.md', 'a-v2', { origin: 'edit' }, tsA + 60_000);
+      await captureSnapshot(root, 'b.md', 'b-v1', { origin: 'edit' }, tsB);
+      await captureSnapshot(root, 'b.md', 'b-v2', { origin: 'edit' }, tsB + 60_000);
+      await fs.writeFile(path.join(root, 'a.md'), 'a-v2', 'utf-8');
+      await fs.writeFile(path.join(root, 'b.md'), 'b-v2', 'utf-8');
+
+      // Two distinct target moments (distinct cause strings via formatDateTime)
+      // reverting two DIFFERENT notes, concurrently — a shared/hoisted source
+      // instead of per-item AsyncLocalStorage scoping would let one call's
+      // cause bleed into the other's write.
+      await Promise.all([
+        batchRevertToPointInTime(root, ['a.md'], [], tsA, makeHooks()),
+        batchRevertToPointInTime(root, ['b.md'], [], tsB, makeHooks()),
+      ]);
+
+      const aRevs = await listRevisions(root, 'a.md');
+      const bRevsAfter = await listRevisions(root, 'b.md');
+      expect(formatDateTime(tsA)).not.toBe(formatDateTime(tsB)); // sanity: the test can actually distinguish them
+      expect(aRevs[0]!.cause).toBe(`Reverted to ${formatDateTime(tsA)} (batch)`);
+      expect(bRevsAfter[0]!.cause).toBe(`Reverted to ${formatDateTime(tsB)} (batch)`);
     });
   });
 });

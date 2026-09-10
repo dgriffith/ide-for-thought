@@ -135,6 +135,30 @@ export type AsOfState = 'absent' | 'deleted' | { kind: 'present'; ts: number };
  * Pure — no I/O, so both the revert planner and its tests can reason about
  * it without touching disk.
  */
+/**
+ * Outcome of a batch point-in-time revert across a file/directory selection
+ * (#2091) — a per-item outcome catalog, not a failure channel, mirroring
+ * `LabelNotesResult`'s shape: the call succeeds even when individual paths
+ * fail. Every target path lands in exactly one bucket (or `errors`):
+ *   - `reverted` — existed both then and now; content differed, written back.
+ *   - `recreated` — existed then, doesn't now (was deleted); undeleted.
+ *   - `removed` — didn't exist then (or was deleted then), but exists now;
+ *     deleted to match — the symmetric completion of `recreated`.
+ *   - `unchanged` — the target state already matches the current state
+ *     (present-and-identical, or absent-and-already-absent).
+ *   - `skipped` — genuinely nothing to do: the note has no recorded history
+ *     reaching back to `ts` AND doesn't exist now either.
+ */
+export interface BatchRevertResult {
+  ts: number;
+  reverted: string[];
+  recreated: string[];
+  removed: string[];
+  unchanged: string[];
+  skipped: string[];
+  errors: { path: string; error: string }[];
+}
+
 export function resolveAsOf(entries: Pick<RevisionMeta, 'ts' | 'origin'>[], t: number): AsOfState {
   let latest: Pick<RevisionMeta, 'ts' | 'origin'> | null = null;
   for (const entry of entries) {

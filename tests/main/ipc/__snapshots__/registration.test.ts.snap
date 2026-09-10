@@ -96,6 +96,7 @@ exports[`IPC registration contract (#997) > matches the known set of registered 
   "graph:schemaForCompletion",
   "graph:setBaseUri",
   "graph:sourceDetail",
+  "history:batchRevert",
   "history:getRevision",
   "history:getSettings",
   "history:labelNotes",

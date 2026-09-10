@@ -59,7 +59,7 @@ import type {
 import type { InspectionSettings } from './inspections';
 import type { ClipperState } from './clipper-pairing';
 import type { Proposal } from './proposals';
-import type { HistorySettings, LabelNotesResult, RevisionMeta, SelectionRoot, UnifiedTimelineEntry } from './history';
+import type { BatchRevertResult, HistorySettings, LabelNotesResult, RevisionMeta, SelectionRoot, UnifiedTimelineEntry } from './history';
 import type { CellResult, CellOutput, ComputeConsentSummary, PythonProbeResult } from './compute/types';
 import type { AutoLinkSuggestion } from './refactor/auto-link';
 import type { AutoLinkInboundSuggestion } from './refactor/auto-link-inbound';
@@ -227,6 +227,7 @@ export interface ChannelMap {
   'history:getSettings': () => HistorySettings;
   'history:setSettings': (settings: HistorySettings) => HistorySettings;
   'history:listUnified': (livePaths: string[], selectionRoots: SelectionRoot[]) => UnifiedTimelineEntry[];
+  'history:batchRevert': (livePaths: string[], selectionRoots: SelectionRoot[], ts: number) => BatchRevertResult;
 
   // Saved queries
   'queries:list': () => SavedQuery[];
