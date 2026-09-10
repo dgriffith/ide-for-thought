@@ -3,7 +3,8 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import { assertSafePath, listFiles } from '../../../src/main/notebase/fs';
+import { assertSafePath, listFiles, writeFile, deleteFile, deleteFolder } from '../../../src/main/notebase/fs';
+import { listRevisions } from '../../../src/main/history/store';
 
 describe('assertSafePath', () => {
   it('returns resolved path for a valid relative path', () => {
@@ -148,5 +149,64 @@ describe('listFiles', () => {
     const journal = files.find((f) => f.name === 'journal');
     expect(journal?.isDirectory).toBe(true);
     expect(journal?.children).toEqual([]);
+  });
+});
+
+describe('deleteFile / deleteFolder — local history capture (#2089)', () => {
+  let root: string;
+
+  beforeEach(async () => {
+    root = await fsp.mkdtemp(path.join(os.tmpdir(), 'minerva-delete-history-test-'));
+  });
+
+  afterEach(async () => {
+    await fsp.rm(root, { recursive: true, force: true });
+  });
+
+  it('deleteFile appends a delete marker capturing the final content', async () => {
+    await writeFile(root, 'notes/a.md', 'v1');
+    await writeFile(root, 'notes/a.md', 'v2 — the final version');
+
+    await deleteFile(root, 'notes/a.md');
+
+    const revs = await listRevisions(root, 'notes/a.md');
+    expect(revs[0]!.origin).toBe('delete');
+    // The actual file is gone from the project tree.
+    await expect(fsp.access(path.join(root, 'notes/a.md'))).rejects.toThrow();
+  });
+
+  it('deleteFile captures drift before recording the deletion', async () => {
+    await writeFile(root, 'notes/a.md', 'captured');
+    // Changed on disk after the last app-driven write, outside writeFile's
+    // own capture hook — the pre-delete hook must still preserve it.
+    await fsp.writeFile(path.join(root, 'notes/a.md'), 'changed on disk, never saved via the app', 'utf-8');
+
+    await deleteFile(root, 'notes/a.md');
+
+    const revs = await listRevisions(root, 'notes/a.md');
+    // Newest-first: the delete marker, then the drift capture, then the baseline.
+    expect(revs.map((r) => r.origin)).toEqual(['delete', 'edit', 'edit']);
+  });
+
+  it('deleteFolder marks every note file under it as deleted', async () => {
+    await writeFile(root, 'notes/a.md', 'a');
+    await writeFile(root, 'notes/sub/b.md', 'b');
+    await fsp.writeFile(path.join(root, 'notes/asset.png'), 'not a note');
+
+    await deleteFolder(root, 'notes');
+
+    expect((await listRevisions(root, 'notes/a.md'))[0]!.origin).toBe('delete');
+    expect((await listRevisions(root, 'notes/sub/b.md'))[0]!.origin).toBe('delete');
+    // Non-note assets aren't in scope for history at all — no marker to check.
+    await expect(fsp.access(path.join(root, 'notes'))).rejects.toThrow();
+  });
+
+  it('a note recreated at the same path after deletion gets its own fresh history on top', async () => {
+    await writeFile(root, 'notes/a.md', 'v1');
+    await deleteFile(root, 'notes/a.md');
+    await writeFile(root, 'notes/a.md', 'recreated');
+
+    const revs = await listRevisions(root, 'notes/a.md');
+    expect(revs.map((r) => r.origin)).toEqual(['edit', 'delete', 'edit']);
   });
 });

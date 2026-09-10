@@ -7,8 +7,12 @@ import { describeProposer } from './provenance';
 
 /** How a revision came to exist. `proposal` is populated when an AI-applied
  *  write produces a revision — the cheap #1159 guardrail so a future
- *  provenance-over-time view can correlate note history with gate events. */
-export type RevisionOrigin = 'edit' | 'restore' | 'proposal';
+ *  provenance-over-time view can correlate note history with gate events.
+ *  `delete` (#2089) is a pure marker recording that the note stopped existing
+ *  at this moment — no `.snap` file, no `hash`, nothing to diff or restore
+ *  from directly; it exists so a later "as of T" query across a set of notes
+ *  can tell "didn't exist yet" apart from "existed, then was removed". */
+export type RevisionOrigin = 'edit' | 'restore' | 'proposal' | 'delete';
 
 export interface RevisionMeta {
   /** Epoch millis the revision was captured (also its stable id). */
@@ -89,6 +93,7 @@ export function describeRevisionCause(rev: Pick<RevisionMeta, 'origin' | 'cause'
   if (rev.initial) return 'Initial version';
   if (rev.origin === 'restore') return 'Restored';
   if (rev.origin === 'proposal') return 'Minerva AI';
+  if (rev.origin === 'delete') return 'Deleted';
   return 'Edit';
 }
 

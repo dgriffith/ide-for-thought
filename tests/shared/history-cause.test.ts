@@ -56,4 +56,8 @@ describe('describeRevisionCause', () => {
     expect(describeRevisionCause({ origin: 'restore' })).toBe('Restored');
     expect(describeRevisionCause({ origin: 'proposal' })).toBe('Minerva AI');
   });
+
+  it('names a delete marker "Deleted" (#2089)', () => {
+    expect(describeRevisionCause({ origin: 'delete' })).toBe('Deleted');
+  });
 });

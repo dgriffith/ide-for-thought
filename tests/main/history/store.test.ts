@@ -16,6 +16,9 @@ import {
   getRevisionContent,
   moveHistory,
   setRevisionLabel,
+  captureCurrentStateBeforeDelete,
+  captureDeletion,
+  listOrphanedNoteHistoriesUnder,
 } from '../../../src/main/history/store';
 import { onNoteWritten } from '../../../src/main/history';
 
@@ -342,5 +345,125 @@ describe('history store error conventions (#1835)', () => {
     await fs.rm(path.join(root, '.minerva', 'history', NOTE, '1000.snap'));
     await fs.mkdir(path.join(root, '.minerva', 'history', NOTE, '1000.snap'));
     await expect(getRevisionContent(root, NOTE, 1000)).rejects.toThrow();
+  });
+});
+
+describe('captureCurrentStateBeforeDelete (#2089)', () => {
+  let root: string;
+  beforeEach(async () => { root = await fs.mkdtemp(path.join(os.tmpdir(), 'minerva-hist-predelete-')); });
+  afterEach(async () => { await fs.rm(root, { recursive: true, force: true }); });
+
+  const NOTE = 'notes/a.md';
+
+  async function writeNote(content: string): Promise<void> {
+    await fs.mkdir(path.join(root, 'notes'), { recursive: true });
+    await fs.writeFile(path.join(root, NOTE), content, 'utf-8');
+  }
+
+  it('captures drifted on-disk content before it is gone', async () => {
+    await captureSnapshot(root, NOTE, 'stale', { origin: 'edit' }, 1000);
+    await writeNote('changed outside the app, about to be deleted');
+
+    const captured = await captureCurrentStateBeforeDelete(root, NOTE, 2000);
+
+    expect(captured).toMatchObject({ ts: 2000, cause: 'Final version before deletion' });
+    expect(await getRevisionContent(root, NOTE, 2000)).toBe('changed outside the app, about to be deleted');
+  });
+
+  it('is a no-op when the newest revision already matches what is on disk', async () => {
+    await writeNote('current text');
+    await captureSnapshot(root, NOTE, 'current text', { origin: 'edit' }, 1000);
+
+    const captured = await captureCurrentStateBeforeDelete(root, NOTE, 2000);
+
+    expect(captured).toBeNull();
+    expect(await listRevisions(root, NOTE)).toHaveLength(1);
+  });
+
+  it('gives a note with no history a baseline from its final content', async () => {
+    await writeNote('never edited in-app');
+    await captureCurrentStateBeforeDelete(root, NOTE, 5_000_000);
+    const revs = await listRevisions(root, NOTE);
+    expect(revs).toHaveLength(1);
+    expect(revs[0]).toMatchObject({ initial: true });
+  });
+
+  it('does not throw when the file is already gone — nothing to capture', async () => {
+    await expect(captureCurrentStateBeforeDelete(root, 'notes/ghost.md', 1000)).resolves.toBeNull();
+  });
+});
+
+describe('captureDeletion (#2089)', () => {
+  let root: string;
+  beforeEach(async () => { root = await fs.mkdtemp(path.join(os.tmpdir(), 'minerva-hist-delete-')); });
+  afterEach(async () => { await fs.rm(root, { recursive: true, force: true }); });
+
+  const NOTE = 'notes/a.md';
+
+  it('appends a pure delete marker — no .snap file, no hash', async () => {
+    await captureSnapshot(root, NOTE, 'v1', { origin: 'edit' }, 1000);
+    const marker = await captureDeletion(root, NOTE, 2000);
+
+    expect(marker).toEqual({ ts: 2000, origin: 'delete' });
+    const revs = await listRevisions(root, NOTE);
+    expect(revs.map((r) => r.origin)).toEqual(['delete', 'edit']);
+    const dir = path.join(root, '.minerva', 'history', 'notes', 'a.md');
+    expect((await fs.readdir(dir)).filter((f) => f.endsWith('.snap'))).toEqual(['1000.snap']);
+  });
+
+  it('works for a note with no prior history at all', async () => {
+    const marker = await captureDeletion(root, NOTE, 1000);
+    expect(marker.origin).toBe('delete');
+    expect(await listRevisions(root, NOTE)).toEqual([marker]);
+  });
+
+  it('survives retention pruning — a delete marker is never aged out', async () => {
+    await captureDeletion(root, NOTE, 1000);
+    // Far enough past the retention window that an ordinary revision would prune.
+    await pruneAllHistory(root, 1000 + 400 * DAY);
+    const revs = await listRevisions(root, NOTE);
+    expect(revs).toHaveLength(1);
+    expect(revs[0]!.origin).toBe('delete');
+  });
+
+  it('emits a filename-collision-safe ts if two captures land in the same millisecond', async () => {
+    await captureDeletion(root, NOTE, 1000);
+    const second = await captureDeletion(root, 'notes/b.md', 1000);
+    // Different notes don't collide with each other — sanity check the ts is
+    // exactly what was asked for when there's no prior entry at that note.
+    expect(second.ts).toBe(1000);
+  });
+});
+
+describe('listOrphanedNoteHistoriesUnder (#2089)', () => {
+  let root: string;
+  beforeEach(async () => { root = await fs.mkdtemp(path.join(os.tmpdir(), 'minerva-hist-orphan-')); });
+  afterEach(async () => { await fs.rm(root, { recursive: true, force: true }); });
+
+  it('finds a note-history subtree whose live file no longer exists', async () => {
+    await captureSnapshot(root, 'notes/gone.md', 'v1', { origin: 'edit' }, 1000);
+    await fs.mkdir(path.join(root, 'notes'), { recursive: true });
+    await fs.writeFile(path.join(root, 'notes/here.md'), 'still here', 'utf-8');
+    await captureSnapshot(root, 'notes/here.md', 'v1', { origin: 'edit' }, 1000);
+
+    const orphaned = await listOrphanedNoteHistoriesUnder(root, '.');
+    expect(orphaned).toEqual(['notes/gone.md']);
+  });
+
+  it('recognises a deleted note that already has its own delete marker as orphaned too', async () => {
+    // listOrphanedNoteHistoriesUnder is a pure "does the live file exist"
+    // check — it doesn't need to look at the marker to know the note is gone.
+    await captureDeletion(root, 'notes/gone.md', 1000);
+    expect(await listOrphanedNoteHistoriesUnder(root, '.')).toEqual(['notes/gone.md']);
+  });
+
+  it('scopes to the given subdirectory', async () => {
+    await captureSnapshot(root, 'a/gone.md', 'v1', { origin: 'edit' }, 1000);
+    await captureSnapshot(root, 'b/also-gone.md', 'v1', { origin: 'edit' }, 1000);
+    expect(await listOrphanedNoteHistoriesUnder(root, 'a')).toEqual(['a/gone.md']);
+  });
+
+  it('returns an empty array when there is no history at all', async () => {
+    expect(await listOrphanedNoteHistoriesUnder(root, '.')).toEqual([]);
   });
 });

@@ -211,4 +211,46 @@ describe('HistoryPanel (#1158)', () => {
     await waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(1));
     expect(screen.getByText('Initial version')).toBeTruthy();
   });
+
+  describe('delete markers (#2089)', () => {
+    it('renders a delete marker as an informational row, not diffable', async () => {
+      h.api.history.list.mockResolvedValue([{ ts: 1000, origin: 'delete' }]);
+      await rendered();
+      await waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(1));
+      expect(screen.getByText('Deleted')).toBeTruthy();
+    });
+
+    it('clicking a delete-marker row does not call getRevision or offer Restore', async () => {
+      h.api.history.list.mockResolvedValue([{ ts: 1000, origin: 'delete' }]);
+      await rendered();
+      await waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(1));
+
+      await fireEvent.click(screen.getAllByRole('listitem')[0]!);
+      expect(h.api.history.getRevision).not.toHaveBeenCalled();
+      expect(screen.queryByRole('button', { name: 'Restore' })).toBeNull();
+    });
+
+    it('right-clicking a delete-marker row does not open the label menu', async () => {
+      h.api.history.list.mockResolvedValue([{ ts: 1000, origin: 'delete' }]);
+      await rendered();
+      await waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(1));
+
+      await fireEvent.contextMenu(screen.getAllByRole('listitem')[0]!);
+      expect(screen.queryByRole('button', { name: 'Label Version…' })).toBeNull();
+    });
+
+    it('a normal revision alongside a delete marker still selects and diffs normally', async () => {
+      h.api.history.list.mockResolvedValue([
+        { ts: 2000, origin: 'delete' },
+        { ts: 1000, origin: 'edit', initial: true },
+      ]);
+      h.api.history.getRevision.mockResolvedValue('line1\n');
+      await rendered({ content: 'line1\nline2\n' });
+      await waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(2));
+
+      await fireEvent.click(screen.getAllByRole('listitem')[1]!); // the edit row
+      await waitFor(() => expect(h.api.history.getRevision).toHaveBeenCalledWith('notes/a.md', 1000));
+      expect(screen.getByRole('button', { name: 'Restore' })).toBeTruthy();
+    });
+  });
 });

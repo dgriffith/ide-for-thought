@@ -5,8 +5,9 @@ import path from 'node:path';
 import type { NoteFile, NotebaseMeta } from '../../shared/types';
 import { resolveDisplayName } from '../project-config';
 import { defaultThoughtbaseDir } from '../recent-projects';
-import { onNoteWriting, onNoteWritten, moveHistory, runWithHistorySource } from '../history';
+import { onNoteWriting, onNoteWritten, onNoteDeleting, onNoteDeleted, moveHistory, runWithHistorySource } from '../history';
 import { isIgnoredEntry } from './ignored-dirs';
+import { isNotePath } from '../../shared/note-extensions';
 
 export async function openNotebase(): Promise<NotebaseMeta | null> {
   const result = await dialog.showOpenDialog({
@@ -198,7 +199,12 @@ export async function createFile(rootPath: string, relativePath: string): Promis
 
 export async function deleteFile(rootPath: string, relativePath: string): Promise<void> {
   const fullPath = assertSafePath(rootPath, relativePath);
+  // Capture the final state before it's gone, then mark the deletion in
+  // local history (#2089) — best-effort hooks, same shape as writeFile's
+  // onNoteWriting/onNoteWritten pair.
+  await onNoteDeleting(rootPath, relativePath);
   await fs.unlink(fullPath);
+  await onNoteDeleted(rootPath, relativePath);
 }
 
 export async function createFolder(rootPath: string, relativePath: string): Promise<void> {
@@ -206,9 +212,43 @@ export async function createFolder(rootPath: string, relativePath: string): Prom
   await fs.mkdir(fullPath, { recursive: true });
 }
 
+/** Every note file (per `isNotePath`) under `relDir`, recursively — relative
+ *  to `rootPath`. Mirrors `readDirectory`'s walk shape, filtered to notes
+ *  only; used by `deleteFolder` to capture each note's final state before the
+ *  whole subtree disappears in one `fs.rm` (#2089). */
+async function listNoteFilesUnder(rootPath: string, relDir: string): Promise<string[]> {
+  const out: string[] = [];
+  const walk = async (dir: string): Promise<void> => {
+    let entries: import('node:fs').Dirent[];
+    try {
+      entries = await fs.readdir(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (isIgnoredEntry(entry.name)) continue;
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        await walk(full);
+      } else {
+        const rel = path.relative(rootPath, full);
+        if (isNotePath(rel)) out.push(rel);
+      }
+    }
+  };
+  await walk(path.resolve(rootPath, relDir));
+  return out;
+}
+
 export async function deleteFolder(rootPath: string, relativePath: string): Promise<void> {
   const fullPath = assertSafePath(rootPath, relativePath);
+  // Sequential, not Promise.all (matches pruneAllHistory's style) — capture
+  // every note's final state before the recursive rm removes them all at
+  // once, then mark each one deleted (#2089).
+  const noteFiles = await listNoteFilesUnder(rootPath, relativePath);
+  for (const relPath of noteFiles) await onNoteDeleting(rootPath, relPath);
   await fs.rm(fullPath, { recursive: true });
+  for (const relPath of noteFiles) await onNoteDeleted(rootPath, relPath);
 }
 
 export async function rename(rootPath: string, oldRelPath: string, newRelPath: string): Promise<void> {
