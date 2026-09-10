@@ -24,6 +24,7 @@ const { handlers, h } = vi.hoisted(() => ({
     setHistorySettings: vi.fn(),
     pruneAllHistory: vi.fn(),
     writeAndReindex: vi.fn(),
+    listNoteHistoryTimeline: vi.fn(),
   },
 }));
 
@@ -37,6 +38,7 @@ vi.mock('../../../src/main/ipc/helpers', () => ({
   hooks: { HOOKS: true },
 }));
 vi.mock('../../../src/main/notebase/write-pipeline', () => ({ writeAndReindex: h.writeAndReindex }));
+vi.mock('../../../src/main/notebase/multi-file-history', () => ({ listNoteHistoryTimeline: h.listNoteHistoryTimeline }));
 vi.mock('../../../src/main/history', () => ({
   listRevisions: h.listRevisions,
   getRevisionContent: h.getRevisionContent,
@@ -148,5 +150,15 @@ describe('register-history (#1158)', () => {
       labeled: ['a.md', 'c.md'],
       errors: [{ path: 'gone.md', error: 'ENOENT' }],
     });
+  });
+
+  it('HISTORY_LIST_UNIFIED delegates to listNoteHistoryTimeline with the root path, live paths, and selection roots', async () => {
+    const timeline = [{ ts: 2, origin: 'delete', path: 'notes/gone.md', event: 'deleted' }];
+    h.listNoteHistoryTimeline.mockResolvedValue(timeline);
+
+    const livePaths = ['notes/a.md', 'notes/b.md'];
+    const selectionRoots = [{ relativePath: 'notes', isDirectory: true }];
+    await expect(call(Channels.HISTORY_LIST_UNIFIED, livePaths, selectionRoots)).resolves.toEqual(timeline);
+    expect(h.listNoteHistoryTimeline).toHaveBeenCalledWith(ROOT, livePaths, selectionRoots);
   });
 });

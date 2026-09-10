@@ -25,7 +25,7 @@ import { getHistorySettings } from './settings';
 // `ipc/helpers` barrel so this stays clear of electron.
 import { readJsonFileOr } from '../ipc/read-json';
 import { emitHistoryChanged } from './history-events';
-import type { HistorySettings } from '../../shared/history';
+import { classifyHistoryEvent, type HistorySettings, type UnifiedTimelineEntry } from '../../shared/history';
 import { logger } from '../../shared/logger';
 
 const HISTORY_DIR = '.minerva/history';
@@ -243,6 +243,31 @@ export async function ensureInitialRevision(
 export async function listRevisions(rootPath: string, relPath: string): Promise<RevisionMeta[]> {
   const entries = await readIndex(noteDir(rootPath, relPath));
   return entries.sort((a, b) => b.ts - a.ts);
+}
+
+/**
+ * Merge several notes' independent revision logs into one sorted timeline
+ * (#2090) — the read-path primitive the unified multi-file history view
+ * needs. Sequential per-path reads, not `Promise.all`: a corrupt index for
+ * one note (which `listRevisions` throws on, per #1835) is logged and
+ * skipped rather than blanking the whole merged view over one bad note.
+ */
+export async function listUnifiedTimeline(rootPath: string, relPaths: string[]): Promise<UnifiedTimelineEntry[]> {
+  const out: UnifiedTimelineEntry[] = [];
+  for (const relPath of relPaths) {
+    let entries: RevisionMeta[];
+    try {
+      entries = await listRevisions(rootPath, relPath);
+    } catch (err) {
+      logger('history').warn(`unified timeline skipped "${relPath}":`, err);
+      continue;
+    }
+    for (const rev of entries) {
+      out.push({ ...rev, path: relPath, event: classifyHistoryEvent(rev) });
+    }
+  }
+  out.sort((a, b) => b.ts - a.ts);
+  return out;
 }
 
 /**

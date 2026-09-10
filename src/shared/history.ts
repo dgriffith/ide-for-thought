@@ -86,6 +86,65 @@ export interface LabelNotesResult {
   errors: { path: string; error: string }[];
 }
 
+/**
+ * A user's selection in the sidebar tree, before it's been expanded to the
+ * live note files underneath it (#2090) — a single file or a whole
+ * directory. The renderer expands directories to live paths itself
+ * (`expandSelectionToNotes`); the backend only needs the raw roots to know
+ * which directories to search for ORPHANED (deleted) note histories that
+ * don't appear in the live tree at all.
+ */
+export interface SelectionRoot {
+  relativePath: string;
+  isDirectory: boolean;
+}
+
+/** One revision, tagged with which note it belongs to and how it reads in a
+ *  unified, multi-note timeline (#2090) — the merge of several notes'
+ *  independent revision logs into one sorted list. */
+export interface UnifiedTimelineEntry extends RevisionMeta {
+  /** Project-relative path of the note this revision belongs to. */
+  path: string;
+  event: 'added' | 'modified' | 'deleted';
+}
+
+/**
+ * How a single revision reads as a timeline event. `added` is the note's
+ * baseline (its first recorded state — "this note appeared"), `deleted` is
+ * a pure delete marker (#2089), everything else is an ordinary content
+ * change. Per-revision only — it doesn't look at neighboring revisions, so a
+ * note recreated after deletion reads as `modified` for its next save, not
+ * `added` again (the baseline stays whichever revision was first).
+ */
+export function classifyHistoryEvent(rev: Pick<RevisionMeta, 'origin' | 'initial'>): 'added' | 'modified' | 'deleted' {
+  if (rev.origin === 'delete') return 'deleted';
+  if (rev.initial) return 'added';
+  return 'modified';
+}
+
+/** What a note's state was at-or-before a given moment (#2090) — the
+ *  primitive both the unified timeline and batch point-in-time revert need.
+ *  `absent`: no revision exists at or before `t` (the note didn't exist yet).
+ *  `deleted`: the most recent revision at or before `t` is a delete marker.
+ *  `present`: the note existed, `ts` names the revision whose content was
+ *  current at that moment. */
+export type AsOfState = 'absent' | 'deleted' | { kind: 'present'; ts: number };
+
+/**
+ * Resolve a note's state as of `t` from its full revision list (any order).
+ * Pure — no I/O, so both the revert planner and its tests can reason about
+ * it without touching disk.
+ */
+export function resolveAsOf(entries: Pick<RevisionMeta, 'ts' | 'origin'>[], t: number): AsOfState {
+  let latest: Pick<RevisionMeta, 'ts' | 'origin'> | null = null;
+  for (const entry of entries) {
+    if (entry.ts <= t && (!latest || entry.ts > latest.ts)) latest = entry;
+  }
+  if (!latest) return 'absent';
+  if (latest.origin === 'delete') return 'deleted';
+  return { kind: 'present', ts: latest.ts };
+}
+
 /** Display text for a revision's cause, with an origin-derived fallback for
  *  revisions captured before causes were recorded. */
 export function describeRevisionCause(rev: Pick<RevisionMeta, 'origin' | 'cause' | 'initial'>): string {

@@ -9,8 +9,9 @@ import { Channels } from '../../shared/channels';
 import { handle } from './typed-ipc';
 import { withRootPath, rootPathFromEvent, hooks } from './helpers';
 import { writeAndReindex } from '../notebase/write-pipeline';
+import { listNoteHistoryTimeline } from '../notebase/multi-file-history';
 import { formatDateTime } from '../../shared/format-datetime';
-import type { HistorySettings, LabelNotesResult } from '../../shared/history';
+import type { HistorySettings, LabelNotesResult, SelectionRoot } from '../../shared/history';
 import * as history from '../history';
 import { logger } from '../../shared/logger';
 
@@ -60,6 +61,13 @@ export function registerHistory(): void {
     }
     return { label, labeled, errors };
   }));
+
+  // Unified multi-file/directory timeline (#2090): the renderer hands over
+  // both its already-expanded flat list of live note paths (it owns the live
+  // tree walk) and the raw selection roots, so this can also find orphaned
+  // (deleted) note histories under any selected directory.
+  handle(Channels.HISTORY_LIST_UNIFIED, withRootPath((rootPath, livePaths: string[], selectionRoots: SelectionRoot[]) =>
+    listNoteHistoryTimeline(rootPath, livePaths, selectionRoots)));
 
   // The limits are per-machine, so reading them doesn't need a project — the
   // Settings dialog can be open with no thoughtbase.

@@ -378,6 +378,8 @@ const api = {
     getSettings: () => invoke(Channels.HISTORY_GET_SETTINGS),
     setSettings: (settings: Parameters<ChannelMap['history:setSettings']>[0]) =>
       invoke(Channels.HISTORY_SET_SETTINGS, settings),
+    listUnified: (livePaths: string[], selectionRoots: Parameters<ChannelMap['history:listUnified']>[1]) =>
+      invoke(Channels.HISTORY_LIST_UNIFIED, livePaths, selectionRoots),
   },
   refactor: {
     autoTagSuggest: (relativePath: string) => invoke(Channels.REFACTOR_AUTO_TAG_SUGGEST, relativePath),
