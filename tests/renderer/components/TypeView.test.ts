@@ -195,6 +195,50 @@ describe('TypeView (#1070)', () => {
     });
   });
 
+  describe('Copy as markdown (#2068)', () => {
+    let writeText: ReturnType<typeof vi.fn>;
+    beforeEach(() => {
+      writeText = vi.fn();
+      Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    });
+
+    it('copies a table layout as a markdown table matching the compute-cell format, respecting sort/columns', async () => {
+      render(TypeView, props({ layout: 'table', sortColumn: 'rating', sortDir: 'asc', columns: ['author'] }));
+      await waitFor(() => expect(screen.getByRole('columnheader', { name: /Author/ })).toBeTruthy());
+      await fireEvent.click(screen.getByText('Copy as markdown'));
+
+      expect(writeText).toHaveBeenCalledWith(
+        '| Title | Author |\n| --- | --- |\n| Neuromancer | William Gibson |\n| Dune | Frank Herbert |',
+      );
+    });
+
+    it('copies a list layout as a wiki-linked bullet list with the on-screen summary', async () => {
+      render(TypeView, props({ layout: 'list' }));
+      await waitFor(() => expect(screen.getByText('Dune')).toBeTruthy());
+      await fireEvent.click(screen.getByText('Copy as markdown'));
+
+      expect(writeText).toHaveBeenCalledWith(
+        '- [[Dune]] — Author: Frank Herbert\n- [[Neuro]] — Author: William Gibson',
+      );
+    });
+
+    it('falls back to the same bullet-list format for gallery (no literal grid markdown)', async () => {
+      render(TypeView, props({ layout: 'gallery' }));
+      await waitFor(() => expect(screen.getByText('Dune')).toBeTruthy());
+      await fireEvent.click(screen.getByText('Copy as markdown'));
+
+      expect(writeText).toHaveBeenCalledWith(
+        '- [[Dune]] — Author: Frank Herbert\n- [[Neuro]] — Author: William Gibson',
+      );
+    });
+
+    it('is not offered in chromeless (inline-embed) mode', async () => {
+      render(TypeView, props({ layout: 'list', chromeless: true }));
+      await waitFor(() => expect(screen.getByText('Dune')).toBeTruthy());
+      expect(screen.queryByText('Copy as markdown')).toBeNull();
+    });
+  });
+
   describe('chromeless (#2067)', () => {
     it('suppresses the header/toolbar but renders the body identically', async () => {
       const { container } = render(TypeView, props({ layout: 'list', chromeless: true }));
