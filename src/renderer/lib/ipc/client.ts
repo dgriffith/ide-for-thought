@@ -6,7 +6,7 @@ import type { ClipperState } from '../../../shared/clipper-pairing';
 import type { Proposal } from '../../../shared/proposals';
 import type { MaintenanceProgress } from '../../../shared/maintenance';
 import type { ThemeMode } from '../../../shared/theme';
-import type { HistorySettings, LabelNotesResult, RevisionMeta } from '../../../shared/history';
+import type { HistorySettings, LabelNotesResult, RevisionMeta, SelectionRoot, UnifiedTimelineEntry } from '../../../shared/history';
 import type { PreloadApi } from '../../../preload/preload';
 
 export interface NotebaseApi {
@@ -795,6 +795,12 @@ export interface HistoryApi {
   /** Save the limits; resolves to what was actually stored (values are clamped
    *  to usable ones), and re-prunes the open thoughtbase's history. */
   setSettings(settings: HistorySettings): Promise<HistorySettings>;
+  /** Unified timeline across a selection (#2090). `livePaths` is the
+   *  renderer's own expansion of the selection to live note files
+   *  (`expandSelectionToNotes`); `selectionRoots` are the raw selected
+   *  entries, so the backend can additionally find orphaned (deleted) note
+   *  histories under any selected directory. Merged, newest-first. */
+  listUnified(livePaths: string[], selectionRoots: SelectionRoot[]): Promise<UnifiedTimelineEntry[]>;
 }
 
 export interface RefactorApi {

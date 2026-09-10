@@ -26,6 +26,7 @@ export {
   labelCurrentVersion,
   pruneAllHistory,
   listOrphanedNoteHistoriesUnder,
+  listUnifiedTimeline,
 } from './store';
 export { getHistorySettings, setHistorySettings } from './settings';
 export { onHistoryChanged, emitHistoryChanged } from './history-events';

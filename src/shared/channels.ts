@@ -615,6 +615,8 @@ export const Channels = {
   HISTORY_CHANGED: 'history:changed',
   HISTORY_GET_SETTINGS: 'history:getSettings',
   HISTORY_SET_SETTINGS: 'history:setSettings',
+  /** Unified multi-file/directory timeline (#2090, epic #2088). */
+  HISTORY_LIST_UNIFIED: 'history:listUnified',
 
   /** External file drag-drop ingestion (#259). Renderer hands over OS file paths. */
   FILES_DROP_IMPORT: 'files:dropImport',
