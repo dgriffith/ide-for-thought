@@ -115,4 +115,10 @@ describe('saved views: persistence (#1072)', () => {
     expect(views).toHaveLength(1);
     expect(views[0]!.layout).toBe('table'); // default
   });
+
+  it('round-trips a map layout (#2066) without falling back to table', () => {
+    saveView(root, 'project', input({ layout: 'map', typeId: 'place' }));
+    const [got] = listSavedViews(root);
+    expect(got!.layout).toBe('map');
+  });
 });

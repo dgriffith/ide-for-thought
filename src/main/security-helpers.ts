@@ -28,6 +28,15 @@ export const RENDERER_FETCH_HOSTS = [
   'https://huggingface.co',
   'https://*.huggingface.co',
   'https://*.hf.co',
+  // OpenFreeMap vector tile + style JSON fetches for the Objects Map view
+  // (#2066). Free, no API key, commercial/bulk use explicitly permitted —
+  // see docs/vision/objects-expansion.md's design-spike writeup (#2064).
+  // The only CSP entry the map view needs: worker-src's existing 'blob:'
+  // already covers MapLibre's internal workers, img-src's existing
+  // wildcard 'https:' already covers any raster sprite a style references,
+  // and style-src's existing 'unsafe-inline' already covers MapLibre's
+  // inline-styled UI controls.
+  'https://tiles.openfreemap.org',
 ];
 
 export function buildCsp(opts: CspOptions = {}): string {

@@ -15,10 +15,11 @@
    */
   import { api } from '../ipc/client';
   import TypeIcon from './TypeIcon.svelte';
+  import TypeViewMap from './TypeViewMap.svelte';
   import { objectTypesStore } from '../stores/object-types.svelte';
   import type { PropertyDef, TypeInfo, TypeInstanceRow } from '../../../shared/objects/type-def';
 
-  type Layout = 'list' | 'table' | 'gallery';
+  type Layout = 'list' | 'table' | 'gallery' | 'map';
   interface StatePatch { layout?: Layout; sortColumn?: string | null; sortDir?: 'asc' | 'desc'; columns?: string[] | null }
 
   interface Props {
@@ -128,11 +129,17 @@
     return objectTypesStore.typeForNote(inst.path) ?? type;
   }
 
-  const LAYOUTS: { id: Layout; label: string }[] = [
+  // #2066: Map only appears for a type that actually has a location-shaped
+  // (geo) property — not a menu item that's always present but broken for
+  // Book/Person/etc. Mirrors PropertiesPanel.svelte's existing `pd.type === 'x'`
+  // gating precedent, not `cover`'s ungated "any property name" one.
+  const locationProperty = $derived<string | null>(allColumns.find((c) => c.type === 'geo')?.name ?? null);
+  const LAYOUTS = $derived<{ id: Layout; label: string }[]>([
     { id: 'list', label: 'List' },
     { id: 'table', label: 'Table' },
     { id: 'gallery', label: 'Gallery' },
-  ];
+    ...(locationProperty ? [{ id: 'map' as const, label: 'Map' }] : []),
+  ]);
 </script>
 
 <div class="type-view">
@@ -231,7 +238,7 @@
         </tbody>
       </table>
     </div>
-  {:else}
+  {:else if layout === 'gallery'}
     <div class="tv-gallery">
       {#each instances as inst (inst.path)}
         {@const rt = rowType(inst)}
@@ -248,6 +255,13 @@
         </button>
       {/each}
     </div>
+  {:else if locationProperty}
+    <TypeViewMap {instances} {locationProperty} {onOpenNote} />
+  {:else}
+    <!-- A saved/persisted tab claims layout: 'map' but the type no longer has
+         a geo property (e.g. edited after the view was saved) — fall back to
+         a message rather than mounting a map with nothing to plot. -->
+    <p class="tv-empty">This type has no location property.</p>
   {/if}
 </div>
 

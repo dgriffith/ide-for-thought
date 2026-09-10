@@ -30,6 +30,8 @@ describe('buildCsp (#339)', () => {
     expect(connectSrc).toContain('https://huggingface.co');
     expect(connectSrc).toContain('https://*.huggingface.co');
     expect(connectSrc).toContain('https://*.hf.co');
+    // OpenFreeMap vector tile + style JSON fetches for the Objects Map view (#2066).
+    expect(connectSrc).toContain('https://tiles.openfreemap.org');
     // No leakage to the main-process API hosts (those are server-side calls).
     expect(csp).not.toContain('api.crossref.org');
     expect(csp).not.toContain('api.anthropic.com');
