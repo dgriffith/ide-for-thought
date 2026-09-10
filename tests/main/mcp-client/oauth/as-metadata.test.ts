@@ -101,4 +101,38 @@ describe('malformed responses', () => {
     const result = await discoverAuthorizationServerMetadata('https://as.example.com');
     expect(result.issuer).toBe('https://as.example.com');
   });
+
+  it('rejects a well-formed JSON body that is not an object (e.g. a bare string) and continues the ladder', async () => {
+    let calls = 0;
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      calls += 1;
+      if (calls === 1) return new Response(JSON.stringify('just a string'), { status: 200 });
+      return new Response(JSON.stringify(metadata('https://as.example.com')), { status: 200 });
+    }));
+    const result = await discoverAuthorizationServerMetadata('https://as.example.com');
+    expect(result.issuer).toBe('https://as.example.com');
+  });
+
+  it('rejects a literal JSON null body and continues the ladder', async () => {
+    let calls = 0;
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      calls += 1;
+      if (calls === 1) return new Response('null', { status: 200 });
+      return new Response(JSON.stringify(metadata('https://as.example.com')), { status: 200 });
+    }));
+    const result = await discoverAuthorizationServerMetadata('https://as.example.com');
+    expect(result.issuer).toBe('https://as.example.com');
+  });
+
+  it('treats a candidate that throws (network failure) the same as a miss, and continues the ladder', async () => {
+    let calls = 0;
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      calls += 1;
+      if (calls === 1) throw new TypeError('network down');
+      return new Response(JSON.stringify(metadata('https://as.example.com')), { status: 200 });
+    }));
+    const result = await discoverAuthorizationServerMetadata('https://as.example.com');
+    expect(result.issuer).toBe('https://as.example.com');
+    expect(calls).toBe(2);
+  });
 });

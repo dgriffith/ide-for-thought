@@ -36,6 +36,18 @@ export interface CallbackListener {
 /** Start listening. Resolves once bound (not once a callback lands — that's
  *  what the returned `result` promise is for). */
 export function startCallbackListener(signal?: AbortSignal): Promise<CallbackListener> {
+  return bindCallbackListener(0, signal);
+}
+
+/** Test-only escape hatch — binds a caller-chosen port instead of an
+ *  ephemeral one, so a test can deliberately collide two listeners and
+ *  verify a bind failure (e.g. EADDRINUSE) rejects the returned promise
+ *  instead of hanging. */
+export function _startCallbackListenerOnPortForTests(port: number, signal?: AbortSignal): Promise<CallbackListener> {
+  return bindCallbackListener(port, signal);
+}
+
+function bindCallbackListener(port: number, signal?: AbortSignal): Promise<CallbackListener> {
   return new Promise((resolveListener, rejectListener) => {
     const server = http.createServer();
     let settled = false;
@@ -86,7 +98,7 @@ export function startCallbackListener(signal?: AbortSignal): Promise<CallbackLis
 
     signal?.addEventListener('abort', () => closeWithRejection('OAuth callback listener aborted'), { once: true });
 
-    server.listen(0, '127.0.0.1', () => {
+    server.listen(port, '127.0.0.1', () => {
       const addr = server.address();
       const port = typeof addr === 'object' && addr ? addr.port : 0;
       resolveListener({

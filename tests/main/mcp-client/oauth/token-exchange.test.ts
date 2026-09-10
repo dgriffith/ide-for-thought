@@ -90,6 +90,49 @@ describe('exchangeAuthorizationCode', () => {
       exchangeAuthorizationCode({ tokenEndpoint: 't', code: 'c', redirectUri: 'r', clientId: 'id', codeVerifier: 'v', resource: 'res' }),
     ).rejects.toThrow(McpConnectionError);
   });
+
+  it('throws McpConnectionError when the request throws a non-Error value', async () => {
+    // eslint-disable-next-line @typescript-eslint/only-throw-error -- deliberately exercising the non-Error branch of the error-message ternary
+    vi.stubGlobal('fetch', vi.fn(async () => { throw 'boom'; }));
+    await expect(
+      exchangeAuthorizationCode({ tokenEndpoint: 't', code: 'c', redirectUri: 'r', clientId: 'id', codeVerifier: 'v', resource: 'res' }),
+    ).rejects.toThrow(/boom/);
+  });
+
+  it('throws McpConnectionError with a non-object error body (still a failure response)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify('just a string'), { status: 400 })));
+    await expect(
+      exchangeAuthorizationCode({ tokenEndpoint: 't', code: 'c', redirectUri: 'r', clientId: 'id', codeVerifier: 'v', resource: 'res' }),
+    ).rejects.toThrow(McpConnectionError);
+  });
+
+  it('throws McpConnectionError when a 2xx response is missing access_token', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ token_type: 'Bearer' }), { status: 200 })));
+    await expect(
+      exchangeAuthorizationCode({ tokenEndpoint: 't', code: 'c', redirectUri: 'r', clientId: 'id', codeVerifier: 'v', resource: 'res' }),
+    ).rejects.toThrow(McpConnectionError);
+  });
+
+  it('defaults scope to empty when the response omits it entirely', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ access_token: 'at-1' }), { status: 200 })));
+    const result = await exchangeAuthorizationCode({
+      tokenEndpoint: 't', code: 'c', redirectUri: 'r', clientId: 'id', codeVerifier: 'v', resource: 'res',
+    });
+    expect(result).toEqual({ accessToken: 'at-1', scope: '' });
+  });
+
+  it('threads an AbortSignal through to fetch', async () => {
+    const controller = new AbortController();
+    let seenSignal: AbortSignal | undefined;
+    vi.stubGlobal('fetch', vi.fn(async (_url: string, init?: RequestInit) => {
+      seenSignal = init?.signal ?? undefined;
+      return new Response(JSON.stringify({ access_token: 'at-1', scope: '' }), { status: 200 });
+    }));
+    await exchangeAuthorizationCode({
+      tokenEndpoint: 't', code: 'c', redirectUri: 'r', clientId: 'id', codeVerifier: 'v', resource: 'res', signal: controller.signal,
+    });
+    expect(seenSignal).toBe(controller.signal);
+  });
 });
 
 describe('refreshAccessToken', () => {
@@ -109,5 +152,21 @@ describe('refreshAccessToken', () => {
     expect(seenBody.get('refresh_token')).toBe('rt-1');
     expect(seenBody.get('resource')).toBe('https://mcp.example.com/mcp');
     expect(seenBody.has('scope')).toBe(false);
+  });
+
+  it('includes client_secret only when one is given', async () => {
+    let seenBody: URLSearchParams = new URLSearchParams();
+    vi.stubGlobal('fetch', vi.fn(async (_url: string, init?: RequestInit) => {
+      seenBody = parseBody(init);
+      return new Response(JSON.stringify({ access_token: 'at-2', scope: 'files:read' }), { status: 200 });
+    }));
+    await refreshAccessToken({
+      tokenEndpoint: 'https://as.example.com/token',
+      refreshToken: 'rt-1',
+      clientId: 'client-1',
+      clientSecret: 'shh',
+      resource: 'https://mcp.example.com/mcp',
+    });
+    expect(seenBody.get('client_secret')).toBe('shh');
   });
 });

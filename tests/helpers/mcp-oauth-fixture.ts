@@ -24,11 +24,31 @@ export interface OAuthFixtureOptions {
   /** Overrides the `state` value sent on the callback redirect — for testing
    *  state-mismatch rejection. */
   overrideCallbackState?: string;
-  /** Extra fields merged into every `/token` success response. */
+  /** Extra fields merged into every `/token` success response. A key set to
+   *  `undefined` deletes it from the response (JSON.stringify drops
+   *  undefined-valued keys) — use this to test a response that omits an
+   *  optional field entirely. */
   tokenResponseOverrides?: Record<string, unknown>;
+  /** Extra fields merged into the AS metadata document — same
+   *  set-to-`undefined`-deletes convention as `tokenResponseOverrides`. */
+  asMetadataOverrides?: Record<string, unknown>;
+  /** Extra fields merged into the Protected Resource Metadata document —
+   *  same set-to-`undefined`-deletes convention. */
+  prmOverrides?: Record<string, unknown>;
   /** If set, the RS's `tools/list` 403s with `insufficient_scope` unless the
    *  presented access token's granted scope contains this scope. */
   requiredScope?: string;
+  /** If set, the RS's initial 401 challenge carries this `scope=` param
+   *  (in addition to `resource_metadata=`). */
+  challengeScope?: string;
+  /** If set, DCR's `/register` response includes this `client_secret`. */
+  dcrClientSecret?: string;
+  /** If set, `/authorize` redirects with `error`/`error_description`
+   *  instead of a `code` — simulating the user declining consent. */
+  simulateDenial?: { error: string; error_description?: string };
+  /** If set, `/authorize` redirects with neither a `code` nor an `error` —
+   *  a malformed-but-not-explicitly-denied callback. */
+  omitCodeNoError?: boolean;
 }
 
 interface AuthorizeRecord {
@@ -46,6 +66,9 @@ export interface OAuthFixture {
   tokenRequests: Array<Record<string, string>>;
   registrationRequests: unknown[];
   mcpRequests: Array<{ authorization: string | null; method: string | undefined }>;
+  /** Makes a previously issued access token stop working — the RS will 401
+   *  it as if it had expired. Used to exercise a mid-session reconnect. */
+  revokeAccessToken(token: string): void;
   close(): Promise<void>;
 }
 
@@ -101,6 +124,7 @@ export async function startOAuthFixture(opts: OAuthFixtureOptions = {}): Promise
           response_types_supported: ['code'],
           code_challenge_methods_supported: ['S256'],
           authorization_response_iss_parameter_supported: opts.includeIss ?? Boolean(opts.overrideCallbackIss),
+          ...opts.asMetadataOverrides,
         });
         return;
       }
@@ -108,7 +132,10 @@ export async function startOAuthFixture(opts: OAuthFixtureOptions = {}): Promise
       if (url.pathname === '/register' && req.method === 'POST') {
         const body: unknown = JSON.parse(await readBody(req));
         registrationRequests.push(body);
-        sendJson(res, 201, { client_id: 'fixture-dcr-client-id' });
+        sendJson(res, 201, {
+          client_id: 'fixture-dcr-client-id',
+          ...(opts.dcrClientSecret ? { client_secret: opts.dcrClientSecret } : {}),
+        });
         return;
       }
 
@@ -139,7 +166,14 @@ export async function startOAuthFixture(opts: OAuthFixtureOptions = {}): Promise
         });
 
         const target = new URL(redirectUri);
-        target.searchParams.set('code', code);
+        if (opts.simulateDenial) {
+          target.searchParams.set('error', opts.simulateDenial.error);
+          if (opts.simulateDenial.error_description) {
+            target.searchParams.set('error_description', opts.simulateDenial.error_description);
+          }
+        } else if (!opts.omitCodeNoError) {
+          target.searchParams.set('code', code);
+        }
         target.searchParams.set('state', opts.overrideCallbackState ?? (params.get('state') ?? ''));
         const iss = opts.overrideCallbackIss ?? (opts.includeIss ? authorizationServerUrl : undefined);
         if (iss) target.searchParams.set('iss', iss);
@@ -180,19 +214,23 @@ export async function startOAuthFixture(opts: OAuthFixtureOptions = {}): Promise
           pendingCodes.delete(code);
 
           tokenCounter += 1;
-          const accessToken = `fixture-access-token-${tokenCounter}`;
-          const refreshToken = `fixture-refresh-token-${tokenCounter}`;
           const scope = pending.scope ?? '';
-          accessTokenScopes.set(accessToken, scope);
-          refreshTokens.set(refreshToken, scope);
-          sendJson(res, 200, {
-            access_token: accessToken,
+          const responseBody: Record<string, unknown> = {
+            access_token: `fixture-access-token-${tokenCounter}`,
             token_type: 'Bearer',
             expires_in: 3600,
-            refresh_token: refreshToken,
+            refresh_token: `fixture-refresh-token-${tokenCounter}`,
             scope,
             ...opts.tokenResponseOverrides,
-          });
+          };
+          // Register whatever access/refresh token STRINGS actually end up
+          // in the response (fixture-generated or override-supplied) as the
+          // ones this fixture will recognize going forward — keeps a
+          // rotated/overridden token usable on a later request instead of
+          // silently diverging from what the client was told to store.
+          if (typeof responseBody.access_token === 'string') accessTokenScopes.set(responseBody.access_token, scope);
+          if (typeof responseBody.refresh_token === 'string') refreshTokens.set(responseBody.refresh_token, scope);
+          sendJson(res, 200, responseBody);
           return;
         }
 
@@ -204,15 +242,16 @@ export async function startOAuthFixture(opts: OAuthFixtureOptions = {}): Promise
             return;
           }
           tokenCounter += 1;
-          const accessToken = `fixture-access-token-${tokenCounter}`;
-          accessTokenScopes.set(accessToken, scope);
-          sendJson(res, 200, {
-            access_token: accessToken,
+          const responseBody: Record<string, unknown> = {
+            access_token: `fixture-access-token-${tokenCounter}`,
             token_type: 'Bearer',
             expires_in: 3600,
             scope,
             ...opts.tokenResponseOverrides,
-          });
+          };
+          if (typeof responseBody.access_token === 'string') accessTokenScopes.set(responseBody.access_token, scope);
+          if (typeof responseBody.refresh_token === 'string') refreshTokens.set(responseBody.refresh_token, scope);
+          sendJson(res, 200, responseBody);
           return;
         }
 
@@ -237,7 +276,11 @@ export async function startOAuthFixture(opts: OAuthFixtureOptions = {}): Promise
         url.pathname === '/.well-known/oauth-protected-resource/mcp'
         || url.pathname === '/.well-known/oauth-protected-resource'
       ) {
-        sendJson(res, 200, { resource: resourceServerUrl, authorization_servers: [authorizationServerUrl] });
+        sendJson(res, 200, {
+          resource: resourceServerUrl,
+          authorization_servers: [authorizationServerUrl],
+          ...opts.prmOverrides,
+        });
         return;
       }
 
@@ -262,9 +305,10 @@ export async function startOAuthFixture(opts: OAuthFixtureOptions = {}): Promise
       const presentedToken = authorization?.startsWith('Bearer ') ? authorization.slice('Bearer '.length) : null;
       const grantedScope = presentedToken ? accessTokenScopes.get(presentedToken) : undefined;
       if (grantedScope === undefined) {
+        const scopeParam = opts.challengeScope ? `, scope="${opts.challengeScope}"` : '';
         res.writeHead(401, {
           'content-type': 'application/json',
-          'www-authenticate': `Bearer resource_metadata="${resourceServerUrl.replace(/\/mcp$/, '')}/.well-known/oauth-protected-resource/mcp"`,
+          'www-authenticate': `Bearer resource_metadata="${resourceServerUrl.replace(/\/mcp$/, '')}/.well-known/oauth-protected-resource/mcp"${scopeParam}`,
         });
         res.end();
         return;
@@ -301,6 +345,9 @@ export async function startOAuthFixture(opts: OAuthFixtureOptions = {}): Promise
     tokenRequests,
     registrationRequests,
     mcpRequests,
+    revokeAccessToken: (token: string) => {
+      accessTokenScopes.delete(token);
+    },
     close: async () => {
       await Promise.all([
         new Promise<void>((r) => asServer.close(() => r())),

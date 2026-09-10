@@ -79,6 +79,11 @@ describe('getStoredTokens', () => {
     expect((await getStoredTokens('https://b.example.com/mcp'))?.accessToken).toBe('other-token');
   });
 
+  it('decrypts a stored clientSecret back on read, when one was saved', async () => {
+    await saveStoredTokens(record({ clientSecret: 'secret-1' }));
+    expect((await getStoredTokens('https://mcp.example.com/mcp'))?.clientSecret).toBe('secret-1');
+  });
+
   it('drops a structurally incomplete record rather than crashing', async () => {
     fs.writeFileSync(
       path.join(tempDir, 'mcp-oauth-tokens.json'),
@@ -99,6 +104,16 @@ describe('saveStoredTokens', () => {
     await saveStoredTokens(record());
     await saveStoredTokens(record({ accessToken: 'access-token-2' }));
     expect((await getStoredTokens('https://mcp.example.com/mcp'))?.accessToken).toBe('access-token-2');
+  });
+
+  it('recovers the write lock after a failed save, so a later save still succeeds', async () => {
+    const originalDir = tempDir;
+    tempDir = path.join(tempDir, 'missing', 'nested'); // fs.writeFile ENOENTs — no parent dir, and it won't create one
+    await expect(saveStoredTokens(record())).rejects.toThrow();
+
+    tempDir = originalDir;
+    await saveStoredTokens(record({ accessToken: 'access-token-after-recovery' }));
+    expect((await getStoredTokens('https://mcp.example.com/mcp'))?.accessToken).toBe('access-token-after-recovery');
   });
 
   it('does not race under concurrent saves for different servers', async () => {

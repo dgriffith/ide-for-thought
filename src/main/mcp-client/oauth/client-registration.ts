@@ -22,8 +22,21 @@ import type { AuthorizationServerMetadata, ClientRegistration } from './types';
 
 /** Empty by default. Flip on (set to the hosted document's URL) once
  *  Minerva has a stable HTTPS URL to serve one static client-metadata JSON
- *  document at, indefinitely, with correct cache headers. */
-export const CIMD_CLIENT_METADATA_URL = '';
+ *  document at, indefinitely, with correct cache headers. A `let` behind a
+ *  getter/test-only setter (matching `era.ts`'s `_setEraProbeTimeoutMsForTests`
+ *  convention) rather than a plain exported const, so the CIMD branch below
+ *  — real, spec-mandated code, just disabled by default — is genuinely
+ *  testable without waiting on that infrastructure decision. */
+let cimdClientMetadataUrl = '';
+
+export function getCimdClientMetadataUrl(): string {
+  return cimdClientMetadataUrl;
+}
+
+/** Test-only escape hatch — pass `''` to reset to the real (disabled) default. */
+export function _setCimdClientMetadataUrlForTests(url: string): void {
+  cimdClientMetadataUrl = url;
+}
 
 export interface ClientRegistrationOptions {
   /** A caller-supplied client already registered with this AS out of band —
@@ -98,8 +111,9 @@ export async function registerClient(
 ): Promise<ClientRegistration> {
   if (opts.preRegistered) return opts.preRegistered;
 
-  if (CIMD_CLIENT_METADATA_URL && metadata.client_id_metadata_document_supported) {
-    return { clientId: CIMD_CLIENT_METADATA_URL };
+  const cimdUrl = getCimdClientMetadataUrl();
+  if (cimdUrl && metadata.client_id_metadata_document_supported) {
+    return { clientId: cimdUrl };
   }
 
   if (metadata.registration_endpoint) {

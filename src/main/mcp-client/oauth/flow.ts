@@ -202,6 +202,13 @@ async function runAuthorizationFlowInner(
 
     return { tokens, record };
   } finally {
+    // A throw between binding the listener and `await callback.result` above
+    // (PKCE-gate, registration, or `openAuthorizationUrl` failure) means
+    // `result` is never read — attach a catch BEFORE close() so its
+    // synchronous rejection doesn't surface as an unhandled rejection.
+    callback.result.catch((err: unknown) => {
+      logger('mcp-client').debug('OAuth callback listener settled with no effect (flow already ending):', err);
+    });
     callback.close();
   }
 }

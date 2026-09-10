@@ -2,11 +2,14 @@
  * Client registration priority ladder (#2030) — pre-registered → CIMD → DCR.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { registerClient } from '../../../../src/main/mcp-client/oauth/client-registration';
+import { _setCimdClientMetadataUrlForTests, registerClient } from '../../../../src/main/mcp-client/oauth/client-registration';
 import { McpClientRegistrationFailedError } from '../../../../src/main/mcp-client/errors';
 import type { AuthorizationServerMetadata } from '../../../../src/main/mcp-client/oauth/types';
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  _setCimdClientMetadataUrlForTests('');
+});
 
 function metadata(overrides: Partial<AuthorizationServerMetadata> = {}): AuthorizationServerMetadata {
   return {
@@ -85,12 +88,57 @@ describe('registerClient', () => {
     ).rejects.toThrow(McpClientRegistrationFailedError);
   });
 
+  it('throws McpClientRegistrationFailedError when the request throws a non-Error value', async () => {
+    // eslint-disable-next-line @typescript-eslint/only-throw-error -- deliberately exercising the non-Error branch of the error-message ternary
+    vi.stubGlobal('fetch', vi.fn(async () => { throw 'boom'; }));
+    await expect(
+      registerClient(metadata({ registration_endpoint: 'https://as.example.com/register' }), {
+        redirectUris: ['http://127.0.0.1:41417/callback'],
+      }),
+    ).rejects.toThrow(/boom/);
+  });
+
+  it('throws McpClientRegistrationFailedError when DCR returns a 2xx with a non-JSON body', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('not json', { status: 201 })));
+    await expect(
+      registerClient(metadata({ registration_endpoint: 'https://as.example.com/register' }), {
+        redirectUris: ['http://127.0.0.1:41417/callback'],
+      }),
+    ).rejects.toThrow(McpClientRegistrationFailedError);
+  });
+
+  it('threads an AbortSignal through to the DCR request', async () => {
+    const controller = new AbortController();
+    let seenSignal: AbortSignal | undefined;
+    vi.stubGlobal('fetch', vi.fn(async (_url: string, init?: RequestInit) => {
+      seenSignal = init?.signal ?? undefined;
+      return new Response(JSON.stringify({ client_id: 'id' }), { status: 201 });
+    }));
+    await registerClient(metadata({ registration_endpoint: 'https://as.example.com/register' }), {
+      redirectUris: ['http://127.0.0.1:41417/callback'],
+      signal: controller.signal,
+    });
+    expect(seenSignal).toBe(controller.signal);
+  });
+
   it('throws McpClientRegistrationFailedError when no mechanism is available at all', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
     await expect(
       registerClient(metadata(), { redirectUris: ['http://127.0.0.1:41417/callback'] }),
     ).rejects.toThrow(McpClientRegistrationFailedError);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('uses CIMD when configured and the AS advertises support, without any network call', async () => {
+    _setCimdClientMetadataUrlForTests('https://minerva.example.com/oauth/client-metadata.json');
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    const result = await registerClient(
+      metadata({ registration_endpoint: 'https://as.example.com/register', client_id_metadata_document_supported: true }),
+      { redirectUris: ['http://127.0.0.1:41417/callback'] },
+    );
+    expect(result).toEqual({ clientId: 'https://minerva.example.com/oauth/client-metadata.json' });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

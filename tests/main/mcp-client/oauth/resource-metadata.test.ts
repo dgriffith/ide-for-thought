@@ -14,8 +14,11 @@ describe('canonicalServerUri', () => {
   it('strips a redundant default http port', () => {
     expect(canonicalServerUri('http://mcp.example.com:80/mcp')).toBe('http://mcp.example.com/mcp');
   });
-  it('keeps a non-default port', () => {
+  it('keeps a non-default https port', () => {
     expect(canonicalServerUri('https://mcp.example.com:8443/mcp')).toBe('https://mcp.example.com:8443/mcp');
+  });
+  it('keeps a non-default http port', () => {
+    expect(canonicalServerUri('http://mcp.example.com:8080/mcp')).toBe('http://mcp.example.com:8080/mcp');
   });
   it('strips a trailing slash on a non-root path', () => {
     expect(canonicalServerUri('https://mcp.example.com/mcp/')).toBe('https://mcp.example.com/mcp');
@@ -84,6 +87,17 @@ describe('discoverProtectedResourceMetadata', () => {
     await expect(discoverProtectedResourceMetadata('https://mcp.example.com/mcp', null)).rejects.toThrow(McpOAuthDiscoveryError);
   });
 
+  it('rejects a well-formed JSON body that is not an object (e.g. a literal null)', async () => {
+    let calls = 0;
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      calls += 1;
+      if (calls === 1) return new Response('null', { status: 200 });
+      return new Response(JSON.stringify(PRM), { status: 200 });
+    }));
+    const result = await discoverProtectedResourceMetadata('https://mcp.example.com/mcp', null);
+    expect(result).toEqual(PRM);
+  });
+
   it('rejects a malformed (non-JSON) response and continues the ladder', async () => {
     let calls = 0;
     vi.stubGlobal('fetch', vi.fn(async () => {
@@ -93,5 +107,38 @@ describe('discoverProtectedResourceMetadata', () => {
     }));
     const result = await discoverProtectedResourceMetadata('https://mcp.example.com/mcp', null);
     expect(result).toEqual(PRM);
+  });
+
+  it('treats a candidate that throws (network failure) the same as a miss, and continues the ladder', async () => {
+    let calls = 0;
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      calls += 1;
+      if (calls === 1) throw new TypeError('network down');
+      return new Response(JSON.stringify(PRM), { status: 200 });
+    }));
+    const result = await discoverProtectedResourceMetadata('https://mcp.example.com/mcp', null);
+    expect(result).toEqual(PRM);
+    expect(calls).toBe(2);
+  });
+
+  it('tries the (identical) well-known root form for a root-path server', async () => {
+    const tried: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      tried.push(url);
+      return new Response(JSON.stringify(PRM), { status: 200 });
+    }));
+    await discoverProtectedResourceMetadata('https://mcp.example.com/', null);
+    expect(tried).toEqual(['https://mcp.example.com/.well-known/oauth-protected-resource']);
+  });
+
+  it('threads an AbortSignal through to fetch', async () => {
+    const controller = new AbortController();
+    let seenSignal: AbortSignal | undefined;
+    vi.stubGlobal('fetch', vi.fn(async (_url: string, init?: RequestInit) => {
+      seenSignal = init?.signal ?? undefined;
+      return new Response(JSON.stringify(PRM), { status: 200 });
+    }));
+    await discoverProtectedResourceMetadata('https://mcp.example.com/mcp', null, controller.signal);
+    expect(seenSignal).toBe(controller.signal);
   });
 });

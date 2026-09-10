@@ -16,14 +16,13 @@ import { McpOAuthDiscoveryError } from '../errors';
 import type { ProtectedResourceMetadata } from './types';
 
 /** RFC 8707 resource binding needs a stable identifier for "this server" —
- *  normalize away a redundant default port and a trailing slash on a
- *  non-root path so trivially-equivalent URLs bind to the same token. */
+ *  strip a trailing slash on a non-root path so trivially-equivalent URLs
+ *  bind to the same token. (A redundant default port — `:443` on https,
+ *  `:80` on http — needs no handling here: the WHATWG `URL` parser already
+ *  normalizes it away at construction time.) */
 export function canonicalServerUri(url: string): string {
   const u = new URL(url);
   u.hash = '';
-  if ((u.protocol === 'https:' && u.port === '443') || (u.protocol === 'http:' && u.port === '80')) {
-    u.port = '';
-  }
   if (u.pathname.length > 1 && u.pathname.endsWith('/')) {
     u.pathname = u.pathname.slice(0, -1);
   }

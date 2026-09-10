@@ -18,6 +18,11 @@ describe('parseWwwAuthenticate', () => {
     const parsed = parseWwwAuthenticate('Bearer realm="example", scope="files:read"');
     expect(parsed).toEqual({ scheme: 'Bearer', params: { realm: 'example', scope: 'files:read' } });
   });
+
+  it('parses an unquoted (RFC 6750 auth-param token) value', () => {
+    const parsed = parseWwwAuthenticate('Bearer error=invalid_token, scope=files:read');
+    expect(parsed).toEqual({ scheme: 'Bearer', params: { error: 'invalid_token', scope: 'files:read' } });
+  });
 });
 
 describe('parseBearerChallenge', () => {

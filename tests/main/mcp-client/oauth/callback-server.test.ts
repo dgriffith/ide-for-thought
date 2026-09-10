@@ -4,7 +4,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import http from 'node:http';
-import { startCallbackListener } from '../../../../src/main/mcp-client/oauth/callback-server';
+import { startCallbackListener, _startCallbackListenerOnPortForTests } from '../../../../src/main/mcp-client/oauth/callback-server';
 
 function get(url: string): Promise<{ status: number; body: string }> {
   return new Promise((resolve, reject) => {
@@ -79,5 +79,15 @@ describe('startCallbackListener', () => {
     const expectation = expect(listener.result).rejects.toThrow(/aborted/);
     controller.abort();
     await expectation;
+  });
+
+  it('rejects if the port is already in use', async () => {
+    const first = await startCallbackListener();
+    const port = Number(new URL(first.redirectUri).port);
+    first.result.catch(() => undefined); // this test doesn't care about the rejection
+
+    await expect(_startCallbackListenerOnPortForTests(port)).rejects.toThrow();
+
+    first.close();
   });
 });
