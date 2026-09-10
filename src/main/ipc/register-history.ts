@@ -9,7 +9,7 @@ import { Channels } from '../../shared/channels';
 import { handle } from './typed-ipc';
 import { withRootPath, rootPathFromEvent, hooks } from './helpers';
 import { writeAndReindex } from '../notebase/write-pipeline';
-import { listNoteHistoryTimeline } from '../notebase/multi-file-history';
+import { listNoteHistoryTimeline, batchRevertToPointInTime } from '../notebase/multi-file-history';
 import { formatDateTime } from '../../shared/format-datetime';
 import type { HistorySettings, LabelNotesResult, SelectionRoot } from '../../shared/history';
 import * as history from '../history';
@@ -68,6 +68,15 @@ export function registerHistory(): void {
   // (deleted) note histories under any selected directory.
   handle(Channels.HISTORY_LIST_UNIFIED, withRootPath((rootPath, livePaths: string[], selectionRoots: SelectionRoot[]) =>
     listNoteHistoryTimeline(rootPath, livePaths, selectionRoots)));
+
+  // Batch point-in-time revert (#2091): same live-paths/selection-roots
+  // target resolution as HISTORY_LIST_UNIFIED, mirrors HISTORY_RESTORE's
+  // shape per target. Not broadcast-suppressed — an open editor for a
+  // reverted/recreated note reloads via NOTEBASE_REWRITTEN same as a single
+  // restore; a removed (deleted-to-match) note gets no broadcast, matching
+  // NOTEBASE_DELETE_FILE's existing no-broadcast-on-delete precedent.
+  handle(Channels.HISTORY_BATCH_REVERT, withRootPath((rootPath, livePaths: string[], selectionRoots: SelectionRoot[], ts: number) =>
+    batchRevertToPointInTime(rootPath, livePaths, selectionRoots, ts, hooks)));
 
   // The limits are per-machine, so reading them doesn't need a project — the
   // Settings dialog can be open with no thoughtbase.

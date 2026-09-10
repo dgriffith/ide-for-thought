@@ -25,6 +25,7 @@ const { handlers, h } = vi.hoisted(() => ({
     pruneAllHistory: vi.fn(),
     writeAndReindex: vi.fn(),
     listNoteHistoryTimeline: vi.fn(),
+    batchRevertToPointInTime: vi.fn(),
   },
 }));
 
@@ -38,7 +39,10 @@ vi.mock('../../../src/main/ipc/helpers', () => ({
   hooks: { HOOKS: true },
 }));
 vi.mock('../../../src/main/notebase/write-pipeline', () => ({ writeAndReindex: h.writeAndReindex }));
-vi.mock('../../../src/main/notebase/multi-file-history', () => ({ listNoteHistoryTimeline: h.listNoteHistoryTimeline }));
+vi.mock('../../../src/main/notebase/multi-file-history', () => ({
+  listNoteHistoryTimeline: h.listNoteHistoryTimeline,
+  batchRevertToPointInTime: h.batchRevertToPointInTime,
+}));
 vi.mock('../../../src/main/history', () => ({
   listRevisions: h.listRevisions,
   getRevisionContent: h.getRevisionContent,
@@ -160,5 +164,21 @@ describe('register-history (#1158)', () => {
     const selectionRoots = [{ relativePath: 'notes', isDirectory: true }];
     await expect(call(Channels.HISTORY_LIST_UNIFIED, livePaths, selectionRoots)).resolves.toEqual(timeline);
     expect(h.listNoteHistoryTimeline).toHaveBeenCalledWith(ROOT, livePaths, selectionRoots);
+  });
+
+  it('HISTORY_BATCH_REVERT delegates to batchRevertToPointInTime with the root path, targets, and moment', async () => {
+    // Real five-bucket + concurrency behavior is covered where the function
+    // itself lives (multi-file-history.test.ts, against a real temp
+    // thoughtbase) — this pins the dispatch wiring only, matching this
+    // file's established all-mocked convention.
+    const outcome = {
+      ts: 5000, reverted: ['notes/a.md'], recreated: [], removed: [], unchanged: [], skipped: [], errors: [],
+    };
+    h.batchRevertToPointInTime.mockResolvedValue(outcome);
+
+    const livePaths = ['notes/a.md'];
+    const selectionRoots = [{ relativePath: 'notes', isDirectory: true }];
+    await expect(call(Channels.HISTORY_BATCH_REVERT, livePaths, selectionRoots, 5000)).resolves.toEqual(outcome);
+    expect(h.batchRevertToPointInTime).toHaveBeenCalledWith(ROOT, livePaths, selectionRoots, 5000, { HOOKS: true });
   });
 });
