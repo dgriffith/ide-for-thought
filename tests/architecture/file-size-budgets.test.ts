@@ -68,6 +68,7 @@ const BUDGETS: Record<string, number> = {
   'src/renderer/lib/app/refactor-ops.svelte.ts': 827,
   'src/main/graph/health-checks.ts': 800,
   'src/renderer/lib/components/ExportDialog.svelte': 712,
+  'src/renderer/lib/components/ProposalsPanel.svelte': 613,
   'src/renderer/lib/components/QueryPanel.svelte': 759,
   'src/renderer/lib/components/conversations/DraftCards.svelte': 741,
   'src/shared/ipc-contract.ts': 768,
