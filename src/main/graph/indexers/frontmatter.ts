@@ -281,8 +281,11 @@ function coerceDeclared(
   const asString = () => plain($rdf.lit(str));
 
   switch (declaredType) {
+    // A geo value is a plain "<lat>,<lng>" string (#2064/#2065 design spike) —
+    // no coordinate parsing/validation for v1, same treatment as text.
     case 'text':
     case 'enum':
+    case 'geo':
       return asString();
     case 'number': {
       const n = typeof value === 'number' ? value : Number(str.trim());
