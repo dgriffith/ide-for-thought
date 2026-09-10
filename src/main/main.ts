@@ -14,6 +14,7 @@ import { registerBuiltinExporters } from './publish';
 import { installCsp, installMediaPermissions } from './security';
 import { flushAllProjects } from './project-context';
 import { shutdownAllKernels } from './compute/python-kernel';
+import { shutdownAllMcpClients } from './mcp-client';
 import { sweepStaleRpcSockets } from './compute/rpc-server';
 import { stopClipperServer } from './clipper/lifecycle';
 import { disposeSharedEmbedder } from './embeddings/shared-embedder';
@@ -133,6 +134,7 @@ app.on('before-quit', (event) => {
   Promise.allSettled([
     flushAllProjects(),
     shutdownAllKernels(),
+    shutdownAllMcpClients(),
     stopClipperServer(),
     disposeSharedEmbedder(),
   ])
