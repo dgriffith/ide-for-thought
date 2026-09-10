@@ -15,6 +15,18 @@ export const CONFIRM_KEYS = {
   historyRestore: 'history-restore',
   /** Summary after labeling the current version of a sidebar selection. */
   historyLabelComplete: 'history-label-complete',
+  /** "View Local History…" invoked on a sidebar selection that resolves to no
+   *  notes and no orphaned history (#2092). */
+  multiFileHistoryNoSelection: 'multi-file-history-no-selection',
+  /** Reverting a multi-file selection to a point in time — unlike a single-
+   *  note restore, a target with no recorded history at that moment is
+   *  deleted outright rather than restored, so this is a genuine data-loss
+   *  risk. Still dismissable, per CLAUDE.md — this cannot use the missing-
+   *  API-key/compute-trust pattern of hiding Don't-ask-again. (#2092) */
+  multiFileHistoryRevert: 'multi-file-history-revert',
+  /** Summary after a multi-file history revert finishes (per-bucket counts
+   *  and any per-path failures). (#2092) */
+  multiFileHistoryRevertComplete: 'multi-file-history-revert-complete',
   /** Resetting every skill's model to its default on a chosen provider —
    *  overwrites per-skill pins, so it asks first. */
   resetSkillModels: 'reset-skill-models',
@@ -136,6 +148,24 @@ export const CONFIRM_REGISTRY: ConfirmRegistryEntry[] = [
     title: 'Label Version complete',
     description:
       'Summary dialog after labeling the current version of a sidebar selection (how many notes got the named restore point, and any per-note failures).',
+  },
+  {
+    key: CONFIRM_KEYS.multiFileHistoryNoSelection,
+    title: 'View Local History: no notes to show',
+    description:
+      'Shown when "View Local History…" is invoked on a sidebar selection that resolves to no live notes and no orphaned (deleted) note history either.',
+  },
+  {
+    key: CONFIRM_KEYS.multiFileHistoryRevert,
+    title: 'Revert multi-file selection',
+    description:
+      'Prompt before reverting a multi-file/directory selection to an earlier point in time from the local history dialog. A note with no recorded history reaching that far back is deleted rather than restored, so unlike a single-note restore this can lose data — still dismissable, but worth reading once.',
+  },
+  {
+    key: CONFIRM_KEYS.multiFileHistoryRevertComplete,
+    title: 'Multi-file history revert complete',
+    description:
+      'Summary dialog after a multi-file history revert finishes (how many notes were reverted, undeleted, removed, left unchanged, or skipped, and any per-note failures).',
   },
   {
     key: CONFIRM_KEYS.deletePartialFailure,

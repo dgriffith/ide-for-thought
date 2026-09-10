@@ -56,6 +56,7 @@
     onDelete: (relativePath: string, isDirectory: boolean) => void;
     onAddTag?: (relativePath: string, isDirectory: boolean) => void;
     onLabelVersion?: (relativePath: string, isDirectory: boolean) => void;
+    onViewHistory?: (relativePath: string, isDirectory: boolean) => void;
     onRemoveTag?: (relativePath: string, isDirectory: boolean) => void;
     onAddProperty?: (relativePath: string, isDirectory: boolean) => void;
     onRemoveProperty?: (relativePath: string, isDirectory: boolean) => void;
@@ -657,6 +658,7 @@
               onDelete={fileOps.onDelete}
               onAddTag={fileOps.onAddTag}
               onLabelVersion={fileOps.onLabelVersion}
+              onViewHistory={fileOps.onViewHistory}
               onRemoveTag={fileOps.onRemoveTag}
               onAddProperty={fileOps.onAddProperty}
               onRemoveProperty={fileOps.onRemoveProperty}

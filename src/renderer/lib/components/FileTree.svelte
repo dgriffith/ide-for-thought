@@ -90,9 +90,13 @@
     /** Name the current version of every note in the selection (#1158) — a
      *  restore point, not a note edit. */
     onLabelVersion?: ((relativePath: string, isDirectory: boolean) => void) | undefined;
+    /** Open the multi-file/directory local history dialog for the selection
+     *  (#2092) — a merged timeline across every note underneath, live or
+     *  deleted, with point-in-time batch revert. */
+    onViewHistory?: ((relativePath: string, isDirectory: boolean) => void) | undefined;
   }
 
-  let { files, activeFilePath, depth = 0, canPaste = false, expanded, selection, focusedPath, onToggleDir, onItemClick, onNewNote, onNewFolder, onDelete, onAddTag, onRemoveTag, onAddProperty, onRemoveProperty, onFormat, onContextMenuTarget, onRename, onMerge, onCut, onCopy, onPaste, onMove, onBookmark, onToggleEntrypoint, onExternalDrop, onLabelVersion }: Props = $props();
+  let { files, activeFilePath, depth = 0, canPaste = false, expanded, selection, focusedPath, onToggleDir, onItemClick, onNewNote, onNewFolder, onDelete, onAddTag, onRemoveTag, onAddProperty, onRemoveProperty, onFormat, onContextMenuTarget, onRename, onMerge, onCut, onCopy, onPaste, onMove, onBookmark, onToggleEntrypoint, onExternalDrop, onLabelVersion, onViewHistory }: Props = $props();
 
   let contextMenu = $state<{ x: number; y: number; dir: string; target?: string | undefined; targetIsDir?: boolean | undefined; targetIsEntrypoint?: boolean | null } | null>(null);
   let contextMenuEl = $state<HTMLDivElement | undefined>();
@@ -267,6 +271,7 @@
             {onToggleEntrypoint}
             {onExternalDrop}
             {onLabelVersion}
+            {onViewHistory}
           />
         {/if}
       {:else}
@@ -395,6 +400,11 @@
         <div class="separator"></div>
         <button onclick={() => { onLabelVersion?.(contextMenu!.target!, contextMenu!.targetIsDir!); contextMenu = null; }}>
           Label Version&hellip;
+        </button>
+      {/if}
+      {#if onViewHistory}
+        <button onclick={() => { onViewHistory?.(contextMenu!.target!, contextMenu!.targetIsDir!); contextMenu = null; }}>
+          View Local History&hellip;
         </button>
       {/if}
       <div class="separator"></div>
