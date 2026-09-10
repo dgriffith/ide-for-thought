@@ -36,6 +36,24 @@ async function refresh(): Promise<void> {
   loaded = true;
 }
 
+// An LLM-proposed type definition (#2069) is approved through the Proposals
+// panel, not through this store's own `save()` — so without this, a type
+// approved while Settings/pickers are open would show stale data until some
+// unrelated mutation happened to refresh it. Mirrors `stores/proposals.svelte.ts`'s
+// own `api.proposals.onChanged` subscription. Refreshing on every proposal
+// change (not just `type-def` ones) is slightly imprecise but cheap — two
+// read-only IPC calls — and needs no new dedicated broadcast channel.
+//
+// Optional chaining (including on `api` itself): this module is imported
+// transitively by dozens of component tests that have no reason to know or
+// care about proposal-driven refresh, so some mock no `api` at all and others
+// mock only the `api.*` surface their own test actually exercises. This is
+// the only call in the module that runs unconditionally at import time
+// (every other `api.*` call here is inside a function invoked on demand), so
+// it's the one spot that needs to tolerate a minimal/absent test double
+// rather than the real, always-complete preload-bridged `api`.
+api?.proposals?.onChanged?.(() => void refresh());
+
 /** The type of the note at `relativePath`, or null if it isn't typed. */
 function typeForNote(relativePath: string | null | undefined): TypeInfo | null {
   if (!relativePath) return null;

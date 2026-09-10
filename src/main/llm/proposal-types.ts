@@ -2,6 +2,7 @@
 // beyond the ProjectContext type) so policy (`approval.ts`), the apply/rollback
 // registry (`apply-dispatch.ts`), and persistence (`proposal-persistence.ts`)
 // can all depend on it without a cycle.
+import type { PropertyDef } from '../../shared/objects/type-def';
 
 // Every LLM-originated write is filed as a pending `thought:Proposal` and
 // applied only on human approval — there are no lower-trust tiers. (The old
@@ -16,7 +17,8 @@ export type OperationType =
   | 'note_refactor'
   | 'note_delete'
   | 'note_rewrite'
-  | 'source_properties';
+  | 'source_properties'
+  | 'type_definition';
 
 /**
  * One side-effect a proposal applies to the thoughtbase. The approval
@@ -25,7 +27,8 @@ export type OperationType =
  * rejects atomically (#418).
  *
  * Most kinds register an apply/rollback handler (`graph-triples`, `note`,
- * `excerpt`, `note-refactor`, `note-delete`, `note-rewrite`, `source-meta`).
+ * `excerpt`, `note-refactor`, `note-delete`, `note-rewrite`, `source-meta`,
+ * `type-def`).
  * `source` and `saved-query` are defined but not yet wired — reserved for the
  * Research tools that will need them (#415 wants `source`, the metacognitive
  * cluster wants `saved-query` for "watch this" queries). Apply attempts on an
@@ -144,6 +147,30 @@ export type ProposalPayload =
        *  NOTEBASE_REWRITTEN broadcast that reloads an open editor. */
       path: string;
       content: string;
+    }
+  | {
+      kind: 'type-def';
+      /** Object-type definition (#2069) — the LLM-facing counterpart to
+       *  `SaveTypeInput` (`src/main/types/write.ts`), field-for-field
+       *  identical rather than importing it directly, matching every other
+       *  kind's convention of restating its own shape. Apply writes
+       *  `.minerva/types/<id>.md` via `saveType` and reloads the type
+       *  catalog; rollback restores the captured pre-image file (or deletes
+       *  it if the id didn't exist before). `id` present and matching an
+       *  existing type means "edit that type"; omitted (or not matching)
+       *  means "create a new type" — the tool that files this payload is
+       *  responsible for rejecting an id collision that isn't an
+       *  intentional edit before ever proposing. */
+      label: string;
+      id?: string | undefined;
+      properties: PropertyDef[];
+      icon?: string | undefined;
+      color?: string | undefined;
+      cover?: string | undefined;
+      card?: string[] | undefined;
+      parent?: string | undefined;
+      externalClass?: string | undefined;
+      template?: string | undefined;
     };
 
 /** Narrow ProposalPayload to a single discriminant so the applyXxx helpers

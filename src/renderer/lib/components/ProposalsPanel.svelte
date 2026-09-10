@@ -10,7 +10,21 @@
 
   type NotePayload = { kind: 'note'; relativePath: string; content: string };
   type TriplesPayload = { kind: 'graph-triples'; turtle: string; affectsNodeUris: string[] };
-  type Payload = NotePayload | TriplesPayload | { kind: string; [k: string]: unknown };
+  type TypeDefProperty = { name: string; type: string; label?: string; options?: string[]; targetType?: string };
+  type TypeDefPayload = {
+    kind: 'type-def';
+    label: string;
+    id?: string;
+    properties: TypeDefProperty[];
+    icon?: string;
+    color?: string;
+    cover?: string;
+    card?: string[];
+    parent?: string;
+    externalClass?: string;
+    template?: string;
+  };
+  type Payload = NotePayload | TriplesPayload | TypeDefPayload | { kind: string; [k: string]: unknown };
 
   interface Proposal {
     uri: string;
@@ -140,7 +154,13 @@
         .map(([type, n]) => `${n} ${type}${n === 1 ? '' : 's'}`)
         .join(', ');
     }
+    if (p.kind === 'type-def') return typeDefSummary(p as TypeDefPayload);
     return p.kind;
+  }
+
+  function typeDefSummary(p: TypeDefPayload): string {
+    const n = p.properties.length;
+    return `${p.id ? 'Edit' : 'New'} type: ${p.label} (${n} propert${n === 1 ? 'y' : 'ies'})`;
   }
 
   /**
@@ -167,25 +187,51 @@
     let noteCount = 0;
     const types = new Map<string, number>();
     let unknownTriples = 0;
+    const typeDefs: string[] = [];
     for (const pl of p.payloads ?? []) {
       if (pl.kind === 'note') noteCount++;
       else if (pl.kind === 'graph-triples') {
         const c = countTypedSubjects((pl as TriplesPayload).turtle);
         if (c.size === 0) unknownTriples++;
         for (const [t, n] of c) types.set(t, (types.get(t) ?? 0) + n);
+      } else if (pl.kind === 'type-def') {
+        typeDefs.push(typeDefSummary(pl as TypeDefPayload));
       }
     }
     const parts: string[] = [];
     if (noteCount > 0) parts.push(`${noteCount} note${noteCount === 1 ? '' : 's'}`);
     for (const [t, n] of types) parts.push(`${n} ${t}${n === 1 ? '' : 's'}`);
     if (unknownTriples > 0) parts.push(`${unknownTriples} triples block${unknownTriples === 1 ? '' : 's'}`);
+    parts.push(...typeDefs);
     return parts.length === 0 ? 'no recognised payloads' : parts.join(', ');
   }
 
   function payloadPreview(p: Payload): string {
     if (p.kind === 'note') return (p as NotePayload).content;
     if (p.kind === 'graph-triples') return (p as TriplesPayload).turtle;
+    if (p.kind === 'type-def') return typeDefPreview(p as TypeDefPayload);
     return JSON.stringify(p, null, 2);
+  }
+
+  function typeDefPreview(p: TypeDefPayload): string {
+    const lines = [`label: ${p.label}`];
+    if (p.id) lines.push(`id: ${p.id}`);
+    if (p.parent) lines.push(`parent: ${p.parent}`);
+    if (p.externalClass) lines.push(`externalClass: ${p.externalClass}`);
+    if (p.icon) lines.push(`icon: ${p.icon}`);
+    if (p.color) lines.push(`color: ${p.color}`);
+    if (p.cover) lines.push(`cover: ${p.cover}`);
+    if (p.card && p.card.length > 0) lines.push(`card: ${p.card.join(', ')}`);
+    lines.push('properties:');
+    for (const prop of p.properties) {
+      let line = `  - ${prop.name} (${prop.type})`;
+      if (prop.label) line += ` "${prop.label}"`;
+      if (prop.options && prop.options.length > 0) line += ` options: [${prop.options.join(', ')}]`;
+      if (prop.targetType) line += ` targetType: ${prop.targetType}`;
+      lines.push(line);
+    }
+    if (p.template) lines.push('', '(has a template)');
+    return lines.join('\n');
   }
 
   function handleKeydown(e: KeyboardEvent) {

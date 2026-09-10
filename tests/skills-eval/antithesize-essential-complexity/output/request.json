@@ -18,6 +18,7 @@
     "search_help",
     "query_graph",
     "list_notes",
+    "list_object_types",
     "propose_note_rename",
     "propose_note_move",
     "propose_reorganization",
@@ -34,6 +35,7 @@
     "set_properties",
     "propose_source_properties",
     "propose_note_types",
+    "propose_object_type",
     "propose_claims",
     "propose_compute"
   ]

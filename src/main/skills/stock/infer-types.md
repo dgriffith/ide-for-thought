@@ -22,15 +22,7 @@ You are migrating an existing thoughtbase to **typed objects**: find untyped not
 
 ## Procedure
 
-1. **Learn the available types.** Call `query_graph` to list the registry's types and what each expects:
-   ```sparql
-   SELECT ?id ?label ?prop WHERE {
-     ?c minerva:typeId ?id .
-     OPTIONAL { ?c rdfs:label ?label }
-     OPTIONAL { ?c types:expectsProperty ?p . ?p rdfs:label ?prop }
-   } ORDER BY ?id
-   ```
-   These `id`s (e.g. `book`, `person`) are the ONLY types you may assign. If there are none, tell the user there are no types to assign yet and stop.
+1. **Learn the available types.** Call `list_object_types` to see the registry's types and every property each one expects (name, type, enum options, link-to-type target). These `id`s (e.g. `book`, `person`) are the ONLY types you may assign. If there are none, tell the user there are no types to assign yet and stop.
 
 2. **Find the untyped notes.** Call `query_graph` for notes that have no type class:
    ```sparql

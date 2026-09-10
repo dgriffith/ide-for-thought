@@ -74,6 +74,57 @@ async function renderPanel(proposals: ReturnType<typeof pendingProposal>[] = [pe
   return utils;
 }
 
+describe('ProposalsPanel — type-def payload rendering (#2069)', () => {
+  function typeDefProposal(over: Record<string, unknown> = {}) {
+    return pendingProposal({
+      operationType: 'type_definition',
+      note: 'Propose type Recipe',
+      payloads: [
+        {
+          kind: 'type-def',
+          label: 'Recipe',
+          properties: [
+            { name: 'servings', type: 'number' },
+            { name: 'difficulty', type: 'enum', options: ['easy', 'hard'] },
+          ],
+        },
+      ],
+      ...over,
+    });
+  }
+
+  it('gets a readable "New type: ..." summary instead of the generic kind fallback', async () => {
+    const { getByText } = await renderPanel([typeDefProposal()]);
+    await fireEvent.click(getByText('Propose type Recipe'));
+    expect(getByText('New type: Recipe (2 properties)')).toBeTruthy();
+  });
+
+  it('shows "Edit type: ..." when the payload carries an id', async () => {
+    const proposal = typeDefProposal({
+      payloads: [{ kind: 'type-def', label: 'Recipe', id: 'recipe', properties: [{ name: 'servings', type: 'number' }] }],
+    });
+    const { getByText } = await renderPanel([proposal]);
+    await fireEvent.click(getByText('Propose type Recipe'));
+    expect(getByText('Edit type: Recipe (1 property)')).toBeTruthy();
+  });
+
+  it('shows the readable field-by-field preview instead of raw JSON', async () => {
+    const { getByText, container } = await renderPanel([typeDefProposal()]);
+    await fireEvent.click(getByText('Propose type Recipe'));
+    await fireEvent.click(getByText('New type: Recipe (2 properties)'));
+    const preview = container.querySelector('.payload-preview')?.textContent ?? '';
+    expect(preview).toContain('label: Recipe');
+    expect(preview).toContain('servings (number)');
+    expect(preview).toContain('difficulty (enum) options: [easy, hard]');
+    expect(preview).not.toContain('{'); // not a raw JSON dump
+  });
+
+  it('surfaces the type-def payload in the bundle-level "Will create" summary', async () => {
+    const { getByText } = await renderPanel([typeDefProposal()]);
+    expect(getByText(/Will create:.*New type: Recipe/)).toBeTruthy();
+  });
+});
+
 describe('ProposalsPanel — approval diff UI (#680)', () => {
   it('renders proposals from api.proposals.list with a plain-language effects summary', async () => {
     listMock.mockResolvedValue([pendingProposal()]);

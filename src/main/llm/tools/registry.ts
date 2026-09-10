@@ -9,6 +9,7 @@ import { searchRelated } from './search-related';
 import { searchHelp } from './search-help';
 import { queryGraph } from './query-graph';
 import { listNotes } from './list-notes';
+import { listObjectTypes } from './list-object-types';
 import { proposeNoteRename } from './propose-note-rename';
 import { proposeNoteMove } from './propose-note-move';
 import { proposeReorganization } from './propose-reorganization';
@@ -25,6 +26,7 @@ import { fetchProperties } from './fetch-properties';
 import { setProperties } from './set-properties';
 import { proposeSourceProperties } from './propose-source-properties';
 import { proposeNoteTypes } from './propose-note-types';
+import { proposeObjectType } from './propose-object-type';
 import { proposeClaims } from './propose-claims';
 import { proposeCompute } from './propose-compute';
 import { askUser } from './ask-user';
@@ -42,6 +44,7 @@ const DEFAULT_TOOLS: NotebaseTool[] = [
   searchHelp,
   queryGraph,
   listNotes,
+  listObjectTypes,
   proposeNoteRename,
   proposeNoteMove,
   proposeReorganization,
@@ -58,6 +61,7 @@ const DEFAULT_TOOLS: NotebaseTool[] = [
   setProperties,
   proposeSourceProperties,
   proposeNoteTypes,
+  proposeObjectType,
   proposeClaims,
   proposeCompute,
 ];

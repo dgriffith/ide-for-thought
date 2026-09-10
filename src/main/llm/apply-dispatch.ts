@@ -16,6 +16,7 @@ import { planRename, planFolderRename, renameWithLinkRewrites, listAllFiles } fr
 import type { PathTransition } from '../notebase/rename';
 import { isIndexable } from '../notebase/indexable-files';
 import { setSourceProperties, readMeta, sourceMetaPath, restoreSourceMeta } from '../sources/source-meta-write';
+import { saveType, deleteType, slugify } from '../types/write';
 import type { ProjectContext } from '../project-context-types';
 import type { AppliedRecord, PayloadOf, ProposalPayload } from './proposal-types';
 import { applyTurtle } from './proposal-persistence';
@@ -457,6 +458,39 @@ register({
       await restoreSourceMeta(ctx.rootPath, data.sourceId, data.before);
     } catch (err) {
       logger('approval').warn(`source-meta rollback restore failed for ${data.sourceId}:`, err);
+    }
+  },
+});
+
+register({
+  kind: 'type-def',
+  apply: async (ctx, p): Promise<{ id: string; filePath: string; before: string | null }> => {
+    // Pre-image capture (#2069): the id a fresh save resolves to is computed
+    // the same way `saveType` derives it, so the "did this type already
+    // exist" check below reads the SAME file `saveType` is about to write —
+    // read it BEFORE overwriting so rollback can restore it verbatim (edit)
+    // or know there was nothing to restore (new type — rollback deletes).
+    const id = (p.id && slugify(p.id)) || slugify(p.label);
+    const filePath = `.minerva/types/${id}.md`;
+    const existed = await notebaseFs.fileExists(ctx.rootPath, filePath);
+    const before = existed ? await notebaseFs.readFile(ctx.rootPath, filePath) : null;
+    const result = await saveType(ctx.rootPath, p);
+    await graph.reloadTypeCatalog(ctx);
+    return { id: result.id, filePath: result.filePath, before };
+  },
+  rollback: async (ctx, data) => {
+    // Restore the captured pre-image (edit) or delete the file this apply
+    // created (new type), then reload the catalog either way so a rejected/
+    // rolled-back proposal doesn't leave a stale type in graph state (#2069).
+    try {
+      if (data.before !== null) {
+        await notebaseFs.writeFile(ctx.rootPath, data.filePath, data.before);
+      } else {
+        await deleteType(ctx.rootPath, data.id);
+      }
+      await graph.reloadTypeCatalog(ctx);
+    } catch (err) {
+      logger('approval').warn(`type-def rollback failed for ${data.id}:`, err);
     }
   },
 });
