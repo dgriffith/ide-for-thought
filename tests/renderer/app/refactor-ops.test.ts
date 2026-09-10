@@ -21,7 +21,7 @@ const h = vi.hoisted(() => {
     tags: { list: vi.fn() },
     graph: { frontmatterKeys: vi.fn() },
     formatter: { formatFile: vi.fn(), formatContent: vi.fn() },
-    history: { labelNotes: vi.fn() },
+    history: { labelNotes: vi.fn(), listUnified: vi.fn(), batchRevert: vi.fn(), onChanged: vi.fn() },
     bibliography: { generate: vi.fn() },
   };
   const notebase = {
@@ -50,6 +50,7 @@ vi.mock('../../../src/renderer/lib/stores/dialogs.svelte', () => ({ getDialogSto
 
 import { createRefactorOps, type RefactorOpsCtx } from '../../../src/renderer/lib/app/refactor-ops.svelte';
 import { getRefactorFlowStore } from '../../../src/renderer/lib/stores/refactor-flow.svelte';
+import { getMultiFileHistoryStore } from '../../../src/renderer/lib/stores/multi-file-history.svelte';
 
 const flow = getRefactorFlowStore();
 const sidebar = { getSelectionPaths: vi.fn(() => [] as string[]), refreshTags: vi.fn() };
@@ -68,6 +69,8 @@ function resetFlow() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  getMultiFileHistoryStore().close();
+  h.api.history.listUnified.mockResolvedValue([]);
   h.notebase.meta = { rootPath: '/p', name: 'p' };
   h.notebase.files = [];
   h.editor.activeNoteTab = null;
@@ -278,6 +281,64 @@ describe('handleLabelVersion (#1158)', () => {
     const [msg] = h.dialog.showConfirm.mock.calls.at(-1)!;
     expect(msg).toContain('Labeled 0 of 1 note as "v1"');
     expect(msg).toContain('ENOENT');
+  });
+});
+
+describe('handleViewHistory (#2092)', () => {
+  it('confirms "nothing to show" with an empty selection and no fallback', async () => {
+    await ops.handleViewHistory();
+    expect(h.dialog.showConfirm).toHaveBeenCalled();
+    expect(h.api.history.listUnified).not.toHaveBeenCalled();
+    expect(getMultiFileHistoryStore().open).toBe(false);
+  });
+
+  it('opens with the expanded live paths AND the raw selection roots', async () => {
+    sidebar.getSelectionPaths.mockReturnValue(['notes']);
+    h.notebase.files = [
+      {
+        name: 'notes', relativePath: 'notes', isDirectory: true,
+        children: [{ name: 'a.md', relativePath: 'notes/a.md', isDirectory: false }],
+      },
+    ];
+
+    await ops.handleViewHistory();
+
+    expect(h.api.history.listUnified).toHaveBeenCalledWith(
+      ['notes/a.md'],
+      [{ relativePath: 'notes', isDirectory: true }],
+    );
+    expect(getMultiFileHistoryStore().open).toBe(true);
+  });
+
+  it('opens for a directory with no live notes — the roots alone can surface orphaned history', async () => {
+    h.notebase.files = [
+      {
+        name: 'assets', relativePath: 'assets', isDirectory: true,
+        children: [{ name: 'chart.png', relativePath: 'assets/chart.png', isDirectory: false }],
+      },
+    ];
+
+    await ops.handleViewHistory('assets', true);
+
+    expect(h.api.history.listUnified).toHaveBeenCalledWith(
+      [],
+      [{ relativePath: 'assets', isDirectory: true }],
+    );
+  });
+
+  it('opens for a single fallback file, ignoring the sidebar selection', async () => {
+    sidebar.getSelectionPaths.mockReturnValue(['other.md']);
+    h.notebase.files = [
+      { name: 'note.md', relativePath: 'note.md', isDirectory: false },
+      { name: 'other.md', relativePath: 'other.md', isDirectory: false },
+    ];
+
+    await ops.handleViewHistory('note.md', false, { targetOnly: true });
+
+    expect(h.api.history.listUnified).toHaveBeenCalledWith(
+      ['note.md'],
+      [{ relativePath: 'note.md', isDirectory: false }],
+    );
   });
 });
 

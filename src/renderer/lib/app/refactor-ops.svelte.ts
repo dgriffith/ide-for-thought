@@ -37,7 +37,8 @@ import {
   removePropertyFromContent,
   extractPropertyKeysFromContent,
 } from '../../../shared/refactor/frontmatter-properties';
-import { expandSelectionToNoteFiles, expandSelectionToNotes } from '../sidebar-tree-utils';
+import { expandSelectionToNoteFiles, expandSelectionToNotes, resolveSelectionTargets } from '../sidebar-tree-utils';
+import { getMultiFileHistoryStore } from '../stores/multi-file-history.svelte';
 import { isNotePath } from '../../../shared/note-extensions';
 import { ENTRYPOINT_TAG } from '../../../shared/entrypoint';
 import { CONFIRM_KEYS } from '../confirm-keys';
@@ -485,6 +486,34 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
   }
 
   /**
+   * Open the multi-file/directory local history dialog for the current
+   * selection (#2092) — the flat expanded live-note-path list `bulkTagTargets`
+   * already computes for Label Version, PLUS the raw un-expanded selection as
+   * `SelectionRoot[]` so the backend can additionally search for orphaned
+   * (deleted) note histories under a selected directory that no longer
+   * appear in the live tree at all.
+   */
+  async function handleViewHistory(targetPath?: string, targetIsDir?: boolean, opts?: { targetOnly?: boolean }) {
+    if (!notebase.meta) return;
+    const sel = opts?.targetOnly ? [] : (ctx.getSidebar()?.getSelectionPaths() ?? []);
+    const roots = sel.length > 0
+      ? resolveSelectionTargets(new Set(sel), notebase.files)
+      : targetPath !== undefined ? [{ relativePath: targetPath, isDirectory: !!targetIsDir }] : [];
+    const livePaths = bulkTagTargets(targetPath, targetIsDir, opts?.targetOnly, 'notes') ?? [];
+
+    if (roots.length === 0 && livePaths.length === 0) {
+      await showConfirm(
+        'The selection has no notes and no history to show.',
+        CONFIRM_KEYS.multiFileHistoryNoSelection,
+        'OK',
+      );
+      return;
+    }
+
+    await getMultiFileHistoryStore().openFor(livePaths, roots);
+  }
+
+  /**
    * Toggle the `entrypoint` tag on a single note. Adds it when absent,
    * removes it when present — the menu prefetches the current state to
    * label itself, but the actual decision happens here against the
@@ -821,7 +850,7 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
     handleExtractSelection, handleSplitByHeading, handleSplitHere,
     handleAutoLink, handleAutoLinkInbound, handleAutoLinkInboundApply, handleAutoLinkApply,
     handleAddTag, handleRemoveTag, handleAddProperty, handleRemoveProperty, handleToggleEntrypoint,
-    handleLabelVersion,
+    handleLabelVersion, handleViewHistory,
     handleFormat, handleBibliography, handleAutoTag, handleAutoTagApply,
   };
 }

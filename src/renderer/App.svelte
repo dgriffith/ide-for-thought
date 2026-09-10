@@ -65,6 +65,7 @@
   import { setFrontmatterProperty } from '../shared/frontmatter-edit';
   import SaveQueryDialog from './lib/components/SaveQueryDialog.svelte';
   import FindInNotesDialog from './lib/components/FindInNotesDialog.svelte';
+  import MultiFileHistoryDialog from './lib/components/MultiFileHistoryDialog.svelte';
   import GotoNoteDialog from './lib/components/GotoNoteDialog.svelte';
   import ToolPanel from './lib/components/ToolPanel.svelte';
   import ConversationsPanel from './lib/components/ConversationsPanel.svelte';
@@ -818,7 +819,7 @@
     handleExtractSelection, handleSplitByHeading, handleSplitHere,
     handleAutoLink, handleAutoLinkInbound, handleAutoLinkInboundApply, handleAutoLinkApply,
     handleAddTag, handleRemoveTag, handleAddProperty, handleRemoveProperty, handleToggleEntrypoint,
-    handleLabelVersion,
+    handleLabelVersion, handleViewHistory,
     handleFormat, handleBibliography, handleAutoTag, handleAutoTagApply,
   } = createRefactorOps(refactorOpsCtx);
 
@@ -1050,6 +1051,7 @@
             onDelete: handleDelete,
             onAddTag: handleAddTag,
             onLabelVersion: handleLabelVersion,
+            onViewHistory: handleViewHistory,
             onRemoveTag: handleRemoveTag,
             onAddProperty: handleAddProperty,
             onRemoveProperty: handleRemoveProperty,
@@ -1586,6 +1588,7 @@
     />
   {/if}
   <DialogHost />
+  <MultiFileHistoryDialog />
 
   <!-- Drag-to-add-link overlays (#1129): a ghost chip following the pointer and
        a live insertion caret in the editor under it. Pointer-event driven, so
