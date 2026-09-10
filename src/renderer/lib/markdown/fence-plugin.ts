@@ -13,6 +13,7 @@
  */
 import type { MarkdownIt, Token } from 'markdown-it';
 import { detectDataSource } from '../../../shared/vega/data-binding';
+import { parseFenceInfo } from '../../../shared/markdown/fence-info';
 import { RUNNABLE_LANGUAGE_SET } from '../../../shared/compute/fences';
 import { renderYouTubeFence } from './youtube-embed';
 import { findSourceFenceBefore, renderComputeOutput } from '../preview/compute-output-render';
@@ -173,6 +174,11 @@ export function installFences(md: MarkdownIt, deps: PreviewMarkdownDeps): void {
     const defaultFence = md.renderer.rules.fence;
     md.renderer.rules.fence = (tokens, idx, options, env, self) => {
         const tok = tokens[idx]!;
+        // A `-hidden` fence (#2039) is machine-facing content — graph-real,
+        // but not for a human reader — so it renders NOTHING: no placeholder,
+        // no trace, short-circuiting before any renderer (mermaid/vega/
+        // runnable toolbar/default code block) ever sees it.
+        if (parseFenceInfo(tok.info).hidden) return '';
         const info = tok.info.trim().toLowerCase();
         // tok.map is the [startLine, endLine] of the fence in the
         // SOURCE-FED-TO-md.render — 0-indexed, and that source has had

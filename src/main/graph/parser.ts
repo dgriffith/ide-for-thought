@@ -58,7 +58,10 @@ const TAG_RE = /(?:^|\s)#([a-zA-Z][\w-/]*)/g;
 const HEADING_RE = /^#\s+(.+)$/m;
 const FRONTMATTER_RE = /^---\n([\s\S]*?)\n---/;
 const CODE_BLOCK_RE = /```[\s\S]*?```|`[^`\n]+`/g;
-const TURTLE_BLOCK_RE = /```turtle\n([\s\S]*?)```/g;
+// A `-hidden` suffix (#2039, see shared/markdown/fence-info.ts) only changes
+// human-facing rendering — a hidden turtle block is still graph-real content,
+// so extraction must keep recognizing it.
+const TURTLE_BLOCK_RE = /```turtle(?:-hidden)?\n([\s\S]*?)```/g;
 
 export function parseMarkdown(content: string): ParsedNote {
   // Extract turtle blocks before stripping code blocks

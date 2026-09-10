@@ -31,6 +31,7 @@
   import { toHistorySnapshot, canRestoreHistory } from '../editor/history-snapshot';
   import { DEFAULT_FONT, clampFontSize, parseStoredFontSize } from '../editor/font-size';
   import { findFrontmatterFoldRange } from '../editor/frontmatter';
+  import { findHiddenFenceFoldRanges } from '../editor/hidden-fences';
   import { clampMenuToViewport, clampSubmenu } from '../utils/menuClamp';
   import type { EditorContextMenuState, EditorMenuOps } from '../editor/context-menu-ops';
   import { buildExtensions } from '../editor/build-extensions';
@@ -313,6 +314,20 @@
     view.dispatch({ effects: unfoldEffect.of(range) });
   }
 
+  /**
+   * Fold every `-hidden` fence (#2039) once, on open — unlike frontmatter
+   * this isn't gated behind a settings toggle (any hidden fence always
+   * starts folded) and isn't re-applied on every settings change, so a user
+   * who manually unfolds one to check its content doesn't have it snap back
+   * shut on an unrelated edit.
+   */
+  function foldHiddenFences() {
+    if (!view) return;
+    const ranges = findHiddenFenceFoldRanges(view.state.doc);
+    if (ranges.length === 0) return;
+    view.dispatch({ effects: ranges.map((r) => foldEffect.of(r)) });
+  }
+
   const contextMenuOps: ContextMenuOps = {
     getView: () => view,
     getFilePath: () => filePath,
@@ -589,6 +604,8 @@
       // Defer so the folding extension is active before we dispatch
       requestAnimationFrame(() => foldFrontmatter());
     }
+    // Hidden fences (#2039) always start folded — no settings gate.
+    requestAnimationFrame(() => foldHiddenFences());
 
     // Track scrollTop continuously — by cleanup time the DOM may already be detached
     let lastScrollTop = 0;
