@@ -404,6 +404,12 @@ describe('turtle block extraction', () => {
     expect(result.turtleBlocks[0]).toContain('ex:A ex:rel ex:B');
   });
 
+  it('extracts a turtle-hidden block (#2039) — hidden only changes rendering, never extraction', () => {
+    const result = parseMarkdown('# Note\n\n```turtle-hidden\nex:A ex:rel ex:B .\n```\n');
+    expect(result.turtleBlocks).toHaveLength(1);
+    expect(result.turtleBlocks[0]).toContain('ex:A ex:rel ex:B');
+  });
+
   it('extracts multiple turtle blocks', () => {
     const result = parseMarkdown('```turtle\nex:A ex:r ex:B .\n```\n\nProse\n\n```turtle\nex:C ex:r ex:D .\n```');
     expect(result.turtleBlocks).toHaveLength(2);

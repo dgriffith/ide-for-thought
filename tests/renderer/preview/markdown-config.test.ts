@@ -288,6 +288,26 @@ describe('fence dispatcher — object-view (#2067)', () => {
   });
 });
 
+describe('fence dispatcher — hidden fences (#2039)', () => {
+  it('renders nothing for a -hidden fence, regardless of language', () => {
+    expect(render('```turtle-hidden\nex:A ex:r ex:B .\n```')).toBe('');
+    expect(render('```python-hidden\nprint(1)\n```')).toBe('');
+    expect(render('```mermaid-hidden\ngraph TD\n```')).toBe('');
+  });
+
+  it('a hidden fence leaves no placeholder or trace, unlike an ordinary fence', () => {
+    const html = render('Some text\n\n```turtle-hidden\nex:A ex:r ex:B .\n```\n\nMore text');
+    expect(html).not.toContain('ex:A');
+    expect(html).not.toContain('turtle');
+    expect(html).not.toContain('<div');
+    expect(html).not.toContain('<pre');
+  });
+
+  it('a plain (non-hidden) fence of the same language renders normally', () => {
+    expect(render('```turtle\nex:A ex:r ex:B .\n```')).toContain('ex:A');
+  });
+});
+
 describe('fence dispatcher — youtube', () => {
   it('renders a poster card for a valid YouTube URL', () => {
     const html = render('```youtube\nhttps://www.youtube.com/watch?v=dQw4w9WgXcQ\n```');
