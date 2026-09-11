@@ -105,6 +105,19 @@ describe('handleOpenSource', () => {
     expect(h.editor.openSource).not.toHaveBeenCalled();
   });
 
+  it('falls back to the extracted source when the pdf check rejects', async () => {
+    h.pref.getPreferredSourceView.mockReturnValue('pdf');
+    h.api.sources.hasPdf.mockRejectedValue(new Error('boom'));
+    view.handleOpenSource('s4b');
+    // The async IIFE awaits hasPdf then branches — let the microtasks settle.
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(h.editor.openSource).toHaveBeenCalledWith('s4b');
+    expect(h.editor.openPdf).not.toHaveBeenCalled();
+    expect(h.nav.record).toHaveBeenCalledWith({ type: 'source', sourceId: 's4b' });
+  });
+
   it('opens the extracted source with the highlight when an excerpt is requested', () => {
     h.pref.getPreferredSourceView.mockReturnValue('markdown');
     view.handleOpenSource('s5', 'ex1');
