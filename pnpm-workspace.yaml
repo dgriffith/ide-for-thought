@@ -36,6 +36,13 @@ overrides:
   fast-uri: '>=3.1.4' # GHSA set — host-confusion / SSRF / path-traversal via malformed URIs
   browserslist: '>=4.28.7' # unbounded memory growth + prototype-write crash
   baseline-browser-mapping: '>=2.11.0' # GHSA-w5vr-8v7q-w6rv — process termination DoS
+  # #2154's major-version bump: all three direct consumers (@electron/node-gyp,
+  # cacache, @electron/rebuild) declare `^6.x`, so this is a real, deliberate
+  # cross-major override, not a like-for-like patch. Verified with a full
+  # `pnpm build` (electron-forge make, which exercises @electron/rebuild's
+  # actual native-module extraction — the real call site) before landing,
+  # not just `pnpm audit` going quiet. Fixes 12 advisories incl. 1 critical.
+  tar: '>=7.5.21'
 
 # electron/esbuild/fs-xattr/macos-alias ship native postinstall builds we
 # actually need (native module rebuilds, macOS alias-file support). Replaces
