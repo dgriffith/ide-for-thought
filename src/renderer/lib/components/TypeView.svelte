@@ -19,6 +19,7 @@
   import { objectTypesStore } from '../stores/object-types.svelte';
   import { outputToMarkdownClipboard } from '../preview/compute-output-render';
   import { stripNoteExt } from '../../../shared/note-extensions';
+  import { effectivePropertyDefs } from '../../../shared/objects/inheritance';
   import type { PropertyDef, TypeInfo, TypeInstanceRow } from '../../../shared/objects/type-def';
 
   type Layout = 'list' | 'table' | 'gallery' | 'map';
@@ -61,7 +62,22 @@
   // Re-project when the type changes or the graph is rewritten.
   $effect(() => { typeId; revision; void load(); });
 
-  const allColumns = $derived<PropertyDef[]>(type?.properties ?? []);
+  // Effective (inherited + own) properties, not just `type.properties` —
+  // otherwise a subtype relying on an ancestor's property (e.g. a `geo`
+  // location inherited from Place) loses that column entirely, and with it
+  // the Map layout option below, which is gated on a geo property existing
+  // at all. The freshly-loaded `type` is spread in last (after the store's
+  // catalog) so the current type is always present and authoritative for
+  // the chain walk even if the store's own copy is stale or hasn't loaded
+  // yet — the store is only needed here to resolve ANCESTOR ids.
+  const allColumns = $derived<PropertyDef[]>(
+    type
+      ? effectivePropertyDefs(
+          type.id,
+          new Map<string, TypeInfo>([...objectTypesStore.types.map((t) => [t.id, t] as const), [type.id, type]]),
+        )
+      : [],
+  );
   // Visible columns (table): null on the tab means "all". Order follows the
   // type's declared order regardless of the saved set.
   const visibleColumns = $derived<PropertyDef[]>(
