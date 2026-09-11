@@ -133,10 +133,13 @@ export function createNavView(ctx: NavViewCtx) {
     if (!highlightExcerptId && getPreferredSourceView(sourceId) === 'pdf') {
       // A failed check is not "no PDF" — but the honest fallback for routing is
       // still the text view, so log and take it (#1881).
-      void api.sources.hasPdf(sourceId).catch((err: unknown) => {
-        logger('sources').error('could not check for an original PDF:', err);
-        return false;
-      }).then((ok) => {
+      void (async () => {
+        let ok = false;
+        try {
+          ok = await api.sources.hasPdf(sourceId);
+        } catch (err) {
+          logger('sources').error('could not check for an original PDF:', err);
+        }
         if (ok) {
           editor.openPdf(sourceId);
           nav.record({ type: 'source', sourceId });
@@ -144,7 +147,7 @@ export function createNavView(ctx: NavViewCtx) {
           editor.openSource(sourceId);
           nav.record({ type: 'source', sourceId });
         }
-      });
+      })();
       return;
     }
     editor.openSource(sourceId, { highlightExcerptId });
