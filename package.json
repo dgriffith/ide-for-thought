@@ -65,7 +65,7 @@
     "@google/genai": "^2.19.0",
     "@huggingface/transformers": "^4.2.0",
     "@mozilla/readability": "^0.6.0",
-    "@retorquere/bibtex-parser": "^9.0.29",
+    "@retorquere/bibtex-parser": "^11.0.0",
     "@types/markdown-it-footnote": "^3.0.4",
     "chart.js": "^4.5.1",
     "chartjs-adapter-date-fns": "^3.0.0",

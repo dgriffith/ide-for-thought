@@ -43,6 +43,26 @@ const BASIC_BIB = `
 }
 `;
 
+// Edge-case fixture for the @retorquere/bibtex-parser 9 -> 11 bump (#2147):
+// non-ASCII author/title text, three authors on one entry, and an entry with
+// only the required title/year fields (no doi/isbn/url/author) so the
+// hash-of-entry fallback in canonicalSourceId is exercised. Run through the
+// real parser (not hand-constructed entry objects) so an entry-shape change
+// between majors would surface here.
+const EDGE_CASE_BIB = `
+@article{muller2022diacritics,
+  title = {Über Konvergenz nichtlinearer Systeme},
+  author = {Müller, Anaïs and González, Björn and Søren, Kjær},
+  journal = {Zeitschrift für Angewandte Mathematik},
+  year = {2022},
+}
+
+@misc{minimal2021,
+  title = {A Minimal Entry},
+  year = {2021},
+}
+`;
+
 describe('importBibtexContent (#98)', () => {
   let root: string;
 
@@ -115,6 +135,31 @@ describe('importBibtexContent (#98)', () => {
     expect(progress.map((p) => p.done)).toEqual([1, 2, 3]);
     expect(progress.every((p) => p.total === 3)).toBe(true);
     expect(progress[0].currentTitle).toContain('Census');
+  });
+
+  it('round-trips non-ASCII author/title text and imports an entry with only required fields', async () => {
+    const result = await importBibtexContent(root, EDGE_CASE_BIB);
+
+    expect(result.totalEntries).toBe(2);
+    expect(result.failed).toHaveLength(0);
+    expect(result.imported).toHaveLength(2);
+
+    const diacriticsEntry = result.imported.find((e) => e.title.includes('Konvergenz'));
+    expect(diacriticsEntry).toBeDefined();
+    const ttl = await fsp.readFile(
+      path.join(root, '.minerva/sources', diacriticsEntry!.sourceId, 'meta.ttl'),
+      'utf-8',
+    );
+    expect(ttl).toContain('dc:title "Über Konvergenz nichtlinearer Systeme"');
+    expect(ttl).toContain('dc:creator "Anaïs Müller"');
+    expect(ttl).toContain('dc:creator "Björn González"');
+    expect(ttl).toContain('dc:creator "Kjær Søren"');
+    expect(ttl).toContain('schema:inContainer "Zeitschrift für Angewandte Mathematik"');
+
+    // Minimal entry: no doi/isbn/url/author — must still import via the
+    // hash-of-entry fallback in canonicalSourceId rather than failing.
+    const minimalEntry = result.imported.find((e) => e.title === 'A Minimal Entry');
+    expect(minimalEntry).toBeDefined();
   });
 });
 
