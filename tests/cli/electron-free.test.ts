@@ -75,6 +75,17 @@ const ELECTRON_IMPORTERS_ON_CLI_GRAPH = [
   // `app.getPath('userData')` for the model/provider settings file. The CLI
   // runs no LLM calls; `propose-note` takes its content from stdin.
   'src/main/llm/settings.ts',
+  // `shell.openExternal` to pop the browser tab for the interactive OAuth
+  // dance. Reachable because `buildConversationTools` (#2028) now imports
+  // `mcp-servers/registry.ts`'s `listServerStatuses`, which shares a barrel
+  // import with the rest of `mcp-servers/registry.ts` including
+  // `connectMcpServerWithOAuth` — but `cli eval`'s use of
+  // `buildConversationTools` only ever reads cached server/tool state, never
+  // connects one, so this function body is never reached.
+  'src/main/mcp-client/oauth/flow.ts',
+  // `app.getPath('userData')` for the persisted OAuth token store — same
+  // barrel reach-through and same never-connects reasoning as the entry above.
+  'src/main/mcp-client/oauth/token-store.ts',
   // `dialog` for the native project picker. The CLI resolves its root from
   // `--project` / cwd and never opens a picker.
   'src/main/notebase/fs.ts',

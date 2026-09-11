@@ -21,6 +21,7 @@ import {
   connectMcpServerWithOAuth,
   McpInteractiveAuthRequiredError,
   type McpClient,
+  type McpToolCallResult,
 } from '../mcp-client';
 import { logger } from '../../shared/logger';
 import type { McpServerStatus, McpServerConnectionStatus, McpToolDescriptor, StoredMcpServerConfig } from '../../shared/mcp-servers';
@@ -137,4 +138,29 @@ export async function connectServer(id: string): Promise<McpServerStatus[]> {
 export async function connectAllEnabledServers(): Promise<void> {
   const configs = (await getStoredServers()).filter((s) => s.enabled);
   await Promise.allSettled(configs.map((cfg) => connectOne(cfg, { interactive: false })));
+}
+
+/** Invoke a tool on a connected server, addressed by the human-facing `name`
+ *  (what the settings UI and the `mcp_call` dispatcher catalog both show —
+ *  #2028). `live` is keyed by config id, so this resolves name -> id first. */
+export async function callServerTool(
+  serverName: string,
+  toolName: string,
+  args: Record<string, unknown>,
+): Promise<McpToolCallResult> {
+  const configs = await getStoredServers();
+  const matches = configs.filter((c) => c.name === serverName);
+  if (matches.length > 1) {
+    throw new Error(`Multiple MCP servers are named "${serverName}"; rename one to disambiguate.`);
+  }
+  const match = matches[0];
+  if (!match) {
+    const known = configs.map((c) => c.name).join(', ') || '(none configured)';
+    throw new Error(`No MCP server named "${serverName}". Known servers: ${known}`);
+  }
+  const entry = live.get(match.id);
+  if (!entry || entry.status !== 'connected' || !entry.client) {
+    throw new Error(`MCP server "${serverName}" is not connected.`);
+  }
+  return entry.client.callTool(toolName, args);
 }

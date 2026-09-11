@@ -325,7 +325,7 @@ export async function completeWithTools(
 
   // Client-side tools only; server-side web tools are added inside the provider
   // from `web`. History is opaque to this loop — the provider owns its shape.
-  const tools = buildConversationTools({ extraTools: options.extraTools });
+  const tools = await buildConversationTools({ extraTools: options.extraTools });
   const history: ProviderMessage[] = provider.ingestHistory(options.messages);
 
   const textPieces: string[] = [];

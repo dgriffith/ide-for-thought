@@ -14,10 +14,28 @@ export type McpServerDescriptor =
   | { kind: 'stdio'; command: string; args?: string[]; env?: Record<string, string>; cwd?: string }
   | { kind: 'http'; url: string; headers?: Record<string, string> };
 
+/** MCP's own `Tool.annotations` — hints about a tool's behavior, all
+ *  optional. Per the spec's own security warning, clients MUST consider
+ *  these untrusted unless they come from a trusted server: a
+ *  malicious/misconfigured server could mislabel a destructive tool as
+ *  read-only. #2028 trusts `readOnlyHint` as a best-effort heuristic anyway
+ *  (not a security boundary) rather than confirming every call — see that
+ *  issue's plan for the reasoning. */
+export interface McpToolAnnotations {
+  title?: string;
+  /** Default false when absent — an unannotated tool is NOT read-only. */
+  readOnlyHint?: boolean;
+  /** Meaningful only when `readOnlyHint` is false; default true. */
+  destructiveHint?: boolean;
+  idempotentHint?: boolean;
+  openWorldHint?: boolean;
+}
+
 export interface McpToolDescriptor {
   name: string;
   description?: string;
   inputSchema: { type: 'object'; properties?: Record<string, unknown>; required?: string[] };
+  annotations?: McpToolAnnotations;
 }
 
 /** `'connecting'` is a transient state a `mcpServers:list` read can observe

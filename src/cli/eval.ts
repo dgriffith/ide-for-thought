@@ -217,7 +217,7 @@ async function packageCase(
       system: payload.systemPrompt,
       messages: [{ role: 'user', content: payload.firstMessage }],
       webEnabled: payload.webEnabled,
-      tools: buildConversationTools({ extraTools: payload.requiresTools }).map((t) => t.name),
+      tools: (await buildConversationTools({ extraTools: payload.requiresTools })).map((t) => t.name),
       ...(payload.requiresTools ? { requiresTools: payload.requiresTools } : {}),
     };
     return { request, meta: { skill: def.id, ...(model ? { model } : {}), outputMode: def.outputMode } };

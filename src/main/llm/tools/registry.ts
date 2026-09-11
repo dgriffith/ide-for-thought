@@ -1,6 +1,8 @@
 import type { ConversationToolKey } from '../../../shared/conversation-tools';
 import type { ToolSpec } from '../provider/types';
 import type { NotebaseTool, ToolContext, ToolCallbacks, ToolResult } from './types';
+import { listServerStatuses } from '../../mcp-servers/registry';
+import { mcpCall, describeMcpCatalog } from './mcp-call';
 import { searchNotes } from './search-notes';
 import { grepNotes } from './grep-notes';
 import { readNote } from './read-note';
@@ -64,6 +66,7 @@ const DEFAULT_TOOLS: NotebaseTool[] = [
   proposeObjectType,
   proposeClaims,
   proposeCompute,
+  mcpCall,
 ];
 
 export const NOTEBASE_TOOL_REGISTRY: Record<string, NotebaseTool> = Object.fromEntries(
@@ -95,8 +98,12 @@ export interface ConversationToolOptions {
  * tools plus any template-scoped extras. Server-side web tools are NOT here —
  * they're provider-specific (they run on the provider's infrastructure) and are
  * added inside the provider from the request's web settings (#1148).
+ *
+ * Async because `mcp_call` (#2028) needs the live MCP server list to decide
+ * whether to include itself at all, and to render its per-conversation
+ * catalog text — see the block below.
  */
-export function buildConversationTools(opts: ConversationToolOptions): ToolSpec[] {
+export async function buildConversationTools(opts: ConversationToolOptions): Promise<ToolSpec[]> {
   const tools: ToolSpec[] = [...NOTEBASE_TOOLS];
   if (opts.extraTools) {
     const seen = new Set<string>();
@@ -107,6 +114,22 @@ export function buildConversationTools(opts: ConversationToolOptions): ToolSpec[
       if (t) tools.push(t);
     }
   }
+
+  // mcp_call only belongs in the array once there's something for it to call —
+  // an empty catalog is a tool the model can never use, same reasoning as why
+  // a disabled skill doesn't appear. Its catalog text is per-conversation, so
+  // it's cloned rather than mutating the shared NOTEBASE_TOOLS entry.
+  const mcpIndex = tools.findIndex((t) => t.name === mcpCall.definition.name);
+  if (mcpIndex !== -1) {
+    const servers = await listServerStatuses();
+    const catalog = describeMcpCatalog(servers);
+    if (catalog) {
+      tools[mcpIndex] = { ...mcpCall.definition, description: mcpCall.definition.description + catalog };
+    } else {
+      tools.splice(mcpIndex, 1);
+    }
+  }
+
   return tools;
 }
 
