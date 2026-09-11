@@ -10,7 +10,7 @@
  * A regression here scales with corpus size, so it's exactly the kind of thing
  * that silently degrades search as a vault grows.
  */
-import { describe, bench } from 'vitest';
+import { describe, test } from 'vitest';
 import { meanPoolNormalize, cosineSimilarity } from '../../../src/main/embeddings/pooling';
 
 const DIM = 384;   // all-MiniLM-L6-v2 embedding width
@@ -34,17 +34,21 @@ const query = fill(new Float32Array(DIM), 1);
 const corpus = Array.from({ length: CORPUS }, (_, i) => fill(new Float32Array(DIM), i));
 
 describe('embedding pooling', () => {
-  bench(`meanPoolNormalize: seq=${SEQ} dim=${DIM}`, () => {
-    meanPoolNormalize(tokens, mask, SEQ, DIM);
+  test(`meanPoolNormalize: seq=${SEQ} dim=${DIM}`, async ({ bench }) => {
+    await bench(`meanPoolNormalize: seq=${SEQ} dim=${DIM}`, () => {
+      meanPoolNormalize(tokens, mask, SEQ, DIM);
+    }).run();
   });
 });
 
 describe('embedding similarity', () => {
-  bench(`cosineSimilarity: query vs ${CORPUS.toLocaleString()} corpus vectors (dim=${DIM})`, () => {
-    let best = -Infinity;
-    for (let i = 0; i < corpus.length; i++) {
-      const s = cosineSimilarity(query, corpus[i]!);
-      if (s > best) best = s;
-    }
+  test(`cosineSimilarity: query vs ${CORPUS.toLocaleString()} corpus vectors (dim=${DIM})`, async ({ bench }) => {
+    await bench(`cosineSimilarity: query vs ${CORPUS.toLocaleString()} corpus vectors (dim=${DIM})`, () => {
+      let best = -Infinity;
+      for (let i = 0; i < corpus.length; i++) {
+        const s = cosineSimilarity(query, corpus[i]!);
+        if (s > best) best = s;
+      }
+    }).run();
   });
 });

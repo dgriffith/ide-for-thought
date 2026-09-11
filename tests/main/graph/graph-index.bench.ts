@@ -15,7 +15,7 @@
  * Top-level `await` is a plain module-evaluation order guarantee, so it
  * isn't subject to that gap.
  */
-import { describe, bench } from 'vitest';
+import { describe, test } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -42,11 +42,13 @@ describe('graph indexing', () => {
   // Re-index the same path in place (indexNote strips the note's prior triples
   // then re-adds), so each iteration is a stable steady-state cost rather than
   // a monotonically growing store.
-  bench(`indexNote: a note (title + tag + wiki-link) into a ${SEED_NOTES}-note store`, async () => {
-    await indexNote(
-      ctx,
-      'bench-note.md',
-      `# Bench Note\n\nBody with a #tag-3 and a [[seed-1]] link and ${'more words '.repeat(30)}.\n`,
-    );
+  test(`indexNote: a note (title + tag + wiki-link) into a ${SEED_NOTES}-note store`, async ({ bench }) => {
+    await bench(`indexNote: a note (title + tag + wiki-link) into a ${SEED_NOTES}-note store`, async () => {
+      await indexNote(
+        ctx,
+        'bench-note.md',
+        `# Bench Note\n\nBody with a #tag-3 and a [[seed-1]] link and ${'more words '.repeat(30)}.\n`,
+      );
+    }).run();
   });
 });

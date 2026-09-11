@@ -21,7 +21,7 @@
  * empirically.
  */
 
-import { describe, bench } from 'vitest';
+import { describe, test } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -56,13 +56,15 @@ for (const scale of SCALES) {
   await searchIndexAllNotes(ctx);
 
   describe(`writeAndReindex — ${scale}-note vault`, () => {
-    bench(`writeAndReindex: re-save one note in a ${scale}-note vault`, async () => {
-      await writeAndReindex(
-        root,
-        'bench-note.md',
-        `# Bench Note\n\nBody with a #tag-3 and a [[note-1]] link and ${'more words '.repeat(30)}.\n`,
-        noopHooks,
-      );
+    test(`writeAndReindex: re-save one note in a ${scale}-note vault`, async ({ bench }) => {
+      await bench(`writeAndReindex: re-save one note in a ${scale}-note vault`, async () => {
+        await writeAndReindex(
+          root,
+          'bench-note.md',
+          `# Bench Note\n\nBody with a #tag-3 and a [[note-1]] link and ${'more words '.repeat(30)}.\n`,
+          noopHooks,
+        );
+      }).run();
     });
   });
 }

@@ -25,9 +25,23 @@ function run(args: string[]): { status: number; stdout: string } {
   }
 }
 
-/** vitest `--outputJson` shape: files → groups → benchmarks. */
+/** Vitest 5 `--reporter=json` shape (#1009): testResults → assertionResults →
+ *  benchmarks → tasks, with each task's numbers under `latency.mean` (ms/op)
+ *  and `throughput.mean` (ops/sec) — see `bench-check.mjs`'s `flatten()`. */
 function currentJson(benchmarks: Array<{ name: string; mean: number; hz?: number }>) {
-  return { files: [{ groups: [{ benchmarks: benchmarks.map((b) => ({ hz: 1000 / b.mean, ...b })) }] }] };
+  return {
+    testResults: [{
+      assertionResults: [{
+        benchmarks: [{
+          tasks: benchmarks.map((b) => ({
+            name: b.name,
+            latency: { mean: b.mean },
+            throughput: { mean: b.hz ?? 1000 / b.mean },
+          })),
+        }],
+      }],
+    }],
+  };
 }
 
 function writeTemp(dir: string, name: string, data: unknown): string {
