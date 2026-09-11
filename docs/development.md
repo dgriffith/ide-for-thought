@@ -37,7 +37,7 @@ the wrong thing to put in front of someone reporting a bug.
 
 ## Getting set up
 
-You need **Node 24+** (see [`.nvmrc`](../.nvmrc)) and **pnpm 10**. Minerva uses
+You need **Node 24+** (see [`.nvmrc`](../.nvmrc)) and **pnpm 12**. Minerva uses
 `corepack`/pnpm — do not use `npm` or `yarn`.
 
 ```bash
