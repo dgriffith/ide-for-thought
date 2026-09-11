@@ -193,6 +193,20 @@ describe('TypeView (#1070)', () => {
       render(TypeView, props({ layout: 'map' })); // Book
       await waitFor(() => expect(screen.getByText(/no location property/i)).toBeTruthy());
     });
+
+    it('shows the Map tab for a subclass of Place that declares no geo property of its own', async () => {
+      // The subclass inherits `location` from Place rather than redeclaring
+      // it — allColumns must resolve effective (inherited) properties, not
+      // just the type's own, or the Map option silently disappears.
+      const LANDMARK = {
+        id: 'landmark', label: 'Landmark', classLocalName: 'Landmark', icon: '🗽',
+        parent: 'place', source: 'user' as const, properties: [],
+      };
+      await seedTypes({}, [TYPE, PLACE, LANDMARK]);
+      instancesMock.mockResolvedValue({ type: LANDMARK, instances: PLACE_INSTANCES });
+      render(TypeView, props({ typeId: 'landmark', layout: 'list' }));
+      await waitFor(() => expect(screen.getByRole('tab', { name: 'Map' })).toBeTruthy());
+    });
   });
 
   describe('Copy as markdown (#2068)', () => {
