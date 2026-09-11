@@ -56,6 +56,7 @@ vi.mock('../../../src/main/mcp-servers/config-store', () => ({
 
 import {
   addServer,
+  callServerTool,
   connectAllEnabledServers,
   connectServer,
   removeServer,
@@ -66,12 +67,20 @@ import {
 const stdioDescriptor: McpServerDescriptor = { kind: 'stdio', command: 'npx' };
 const httpDescriptor: McpServerDescriptor = { kind: 'http', url: 'https://mcp.example.com/mcp' };
 
-let mockClient: { listTools: ReturnType<typeof vi.fn>; close: ReturnType<typeof vi.fn> };
+let mockClient: {
+  listTools: ReturnType<typeof vi.fn>;
+  close: ReturnType<typeof vi.fn>;
+  callTool: ReturnType<typeof vi.fn>;
+};
 
 beforeEach(() => {
   configStoreState.servers = [];
   vi.clearAllMocks();
-  mockClient = { listTools: vi.fn(async () => []), close: vi.fn(async () => undefined) };
+  mockClient = {
+    listTools: vi.fn(async () => []),
+    close: vi.fn(async () => undefined),
+    callTool: vi.fn(async () => ({ content: [{ type: 'text', text: 'ok' }], isError: false })),
+  };
 });
 
 async function firstId(): Promise<string> {
@@ -209,5 +218,41 @@ describe('connectAllEnabledServers', () => {
     await addServer('S', stdioDescriptor);
     configStoreState.servers = configStoreState.servers.map((s) => ({ ...s, enabled: true }));
     await expect(connectAllEnabledServers()).resolves.toBeUndefined();
+  });
+});
+
+describe('callServerTool', () => {
+  it('delegates to the connected client, addressed by server name', async () => {
+    mcpClientMocks.connectMcpServer.mockResolvedValue(mockClient);
+    await addServer('S', stdioDescriptor);
+    const id = await firstId();
+    await setServerEnabled(id, true);
+
+    const result = await callServerTool('S', 'do_thing', { x: 1 });
+
+    expect(mockClient.callTool).toHaveBeenCalledWith('do_thing', { x: 1 });
+    expect(result).toEqual({ content: [{ type: 'text', text: 'ok' }], isError: false });
+  });
+
+  it('throws for an unknown server name, listing the known ones', async () => {
+    await addServer('S', stdioDescriptor);
+    await expect(callServerTool('nope', 'do_thing', {})).rejects.toThrow(/No MCP server named "nope".*S/);
+  });
+
+  it('throws when the server is configured but not connected', async () => {
+    await addServer('S', stdioDescriptor);
+    const id = await firstId();
+    // `live` is module state, not reset between tests (unlike configStoreState) —
+    // an id recycled from an earlier test's connected server would otherwise
+    // leak a stale 'connected' entry here. Force-disconnect to start clean.
+    await setServerEnabled(id, false);
+    await expect(callServerTool('S', 'do_thing', {})).rejects.toThrow(/not connected/);
+  });
+
+  it('throws on ambiguous duplicate server names', async () => {
+    mcpClientMocks.connectMcpServer.mockResolvedValue(mockClient);
+    await addServer('S', stdioDescriptor);
+    await addServer('S', stdioDescriptor);
+    await expect(callServerTool('S', 'do_thing', {})).rejects.toThrow(/Multiple MCP servers are named "S"/);
   });
 });
