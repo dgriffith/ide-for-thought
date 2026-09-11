@@ -101,6 +101,38 @@ describe('TypeViewMap (#2066)', () => {
     expect(marker2!.remove).toHaveBeenCalledTimes(1);
   });
 
+  it('picks up a new instance added while the map is already mounted (a prop change after mount, not just the initial load)', async () => {
+    // The original #2066 implementation placed markers exactly once, inside
+    // onMount's async IIFE — so a note added/typed after the map tab was
+    // already open never got a pin, no matter how long you waited. Report:
+    // a Place note added while viewing the Place map didn't show up.
+    const { rerender } = render(TypeViewMap, {
+      instances: [INSTANCES[0]!],
+      locationProperty: 'location',
+      onOpenNote: vi.fn(),
+    });
+    await waitFor(() => expect(markerInstances.length).toBe(1));
+    const [firstMarker] = markerInstances;
+
+    const pragueHotel = { path: 'W Prague.md', title: 'W Prague', values: { location: '50.0814,14.4249' }, cover: null };
+    await rerender({
+      instances: [INSTANCES[0]!, pragueHotel],
+      locationProperty: 'location',
+      onOpenNote: vi.fn(),
+    });
+
+    // Full resync: the old marker is torn down and every current instance is
+    // rebuilt from scratch, so the total ever-created count is 1 (initial) + 2
+    // (rebuild) = 3 — not a diff/patch, a wholesale rebuild off the new props.
+    await waitFor(() => expect(markerInstances.length).toBe(3));
+    expect(firstMarker!.remove).toHaveBeenCalledTimes(1);
+    const rebuilt = markerInstances.slice(1);
+    expect(rebuilt.map((m) => m.lngLat)).toEqual([
+      [-122.4194, 37.7749], // San Francisco, still present
+      [14.4249, 50.0814], // W Prague, the newly added instance
+    ]);
+  });
+
   it('does not throw with zero located instances', async () => {
     render(TypeViewMap, {
       instances: [{ path: 'X.md', title: 'X', values: { location: null }, cover: null }],

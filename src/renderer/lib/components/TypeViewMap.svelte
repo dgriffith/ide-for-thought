@@ -35,7 +35,13 @@
   let { instances, locationProperty, onOpenNote }: Props = $props();
 
   let container = $state<HTMLDivElement>();
+  // Flips true once the map is constructed — a plain `map`/`gl` reference
+  // mutating doesn't retrigger the `$effect` below, so readiness needs its
+  // own reactive signal for the effect to pick up "the map exists now" the
+  // same way it picks up "instances changed."
+  let ready = $state(false);
   let map: maplibregl.Map | null = null;
+  let gl: MapLibreModule | null = null;
   let markers: maplibregl.Marker[] = [];
 
   /** Parse a "<lat>,<lng>" geo value; null for missing/malformed — omitted, not
@@ -49,13 +55,21 @@
     return [lat, lng];
   }
 
-  function addMarkers(gl: MapLibreModule, m: maplibregl.Map): void {
+  /** Rebuilds every marker from the current `instances` prop. Re-run whenever
+   *  the prop changes (a note added/edited/removed while this map is already
+   *  open, #2028-adjacent report) — not just once at mount, which is what the
+   *  original #2066 implementation did, and why a note added after the map
+   *  was opened never got a pin. */
+  function syncMarkers(): void {
+    if (!gl || !map) return;
+    for (const marker of markers) marker.remove();
+    markers = [];
     const bounds = new gl.LngLatBounds();
     for (const inst of instances) {
       const parsed = parseLatLng(inst.values[locationProperty] ?? null);
       if (!parsed) continue;
       const [lat, lng] = parsed;
-      const marker = new gl.Marker().setLngLat([lng, lat]).addTo(m);
+      const marker = new gl.Marker().setLngLat([lng, lat]).addTo(map);
       marker.getElement().style.cursor = 'pointer';
       marker.getElement().addEventListener('click', () => onOpenNote(inst.path));
       markers.push(marker);
@@ -67,14 +81,14 @@
     // container may not have had its final layout size at construction time
     // (e.g. mounting while a sibling layout tab is animating out), and a
     // stale internal size skews fitBounds' math.
-    m.resize();
+    map.resize();
     if (!bounds.isEmpty()) {
-      m.fitBounds(bounds, { padding: 48, maxZoom: 14, animate: false });
+      map.fitBounds(bounds, { padding: 48, maxZoom: 14, animate: false });
     } else {
       // No located instances — a reasonable default view rather than an
       // arbitrary/empty-looking one.
-      m.setCenter([0, 20]);
-      m.setZoom(1);
+      map.setCenter([0, 20]);
+      map.setZoom(1);
     }
   }
 
@@ -82,14 +96,15 @@
     let disposed = false;
 
     void (async () => {
-      const gl = await loadMapLibre();
+      const mod = await loadMapLibre();
       if (disposed || !container) return;
-      map = new gl.Map({
+      gl = mod;
+      map = new mod.Map({
         container,
         style: styleUrlForTheme(),
       });
-      map.addControl(new gl.NavigationControl(), 'top-right');
-      addMarkers(gl, map);
+      map.addControl(new mod.NavigationControl(), 'top-right');
+      ready = true;
     })();
 
     return () => {
@@ -98,7 +113,19 @@
       markers = [];
       map?.remove();
       map = null;
+      gl = null;
+      ready = false;
     };
+  });
+
+  // Re-syncs on the map becoming ready (first placement) AND on every later
+  // `instances`/`locationProperty` change (an already-open map picking up a
+  // newly added/edited/removed instance).
+  $effect(() => {
+    instances;
+    locationProperty;
+    ready;
+    syncMarkers();
   });
 </script>
 
