@@ -17,6 +17,16 @@ declare module '*.md?raw' {
   export default content;
 }
 
+// Vite's `?raw` for MapLibre's own worker + shared-chunk source (#2066,
+// load-maplibre.ts) — pulled in as literal build-time strings (not fetched
+// at runtime) so both files' content is identical in dev and prod, then each
+// gets its own `blob:` URL so the worker's nested import is blob->blob
+// rather than blob->http(s), which module workers reject.
+declare module '*.mjs?raw' {
+  const content: string;
+  export default content;
+}
+
 // Vite's `?url` suffix — returns the asset's final URL as a string.
 // Used by the OCR worker to locate the bundled traineddata and the
 // pdfjs worker script (#95).
