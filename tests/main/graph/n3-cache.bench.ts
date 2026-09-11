@@ -16,7 +16,7 @@
  * a plain module-evaluation order guarantee, so it isn't subject to that gap.
  */
 
-import { describe, bench } from 'vitest';
+import { describe, test } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -35,11 +35,15 @@ for (let i = 0; i < 500; i++) {
 }
 
 describe('N3 cache query benchmark', () => {
-  bench('queryGraph: simple SELECT (cache hit after first call)', async () => {
-    await queryGraph(ctx, 'SELECT ?n WHERE { ?n a minerva:Note } LIMIT 50');
+  test('queryGraph: simple SELECT (cache hit after first call)', async ({ bench }) => {
+    await bench('queryGraph: simple SELECT (cache hit after first call)', async () => {
+      await queryGraph(ctx, 'SELECT ?n WHERE { ?n a minerva:Note } LIMIT 50');
+    }).run();
   });
 
-  bench('queryGraph: tag filter (cache hit after first call)', async () => {
-    await queryGraph(ctx, `SELECT ?n WHERE { ?n minerva:hasTag ?t . ?t minerva:tagName "tag-3" }`);
+  test('queryGraph: tag filter (cache hit after first call)', async ({ bench }) => {
+    await bench('queryGraph: tag filter (cache hit after first call)', async () => {
+      await queryGraph(ctx, `SELECT ?n WHERE { ?n minerva:hasTag ?t . ?t minerva:tagName "tag-3" }`);
+    }).run();
   });
 });

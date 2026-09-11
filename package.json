@@ -33,7 +33,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "bench": "vitest bench --run --config vitest.bench.config.ts",
-    "bench:json": "vitest bench --run --config vitest.bench.config.ts --outputJson bench-results.json",
+    "bench:json": "vitest bench --run --config vitest.bench.config.ts --reporter=json --outputFile=bench-results.json",
     "bench:check": "pnpm bench:json && node scripts/bench-check.mjs --current bench-results.json",
     "bench:baseline": "pnpm bench:json && node scripts/bench-check.mjs --current bench-results.json --update",
     "precoverage": "node scripts/fetch-embedding-model.mjs",
@@ -132,7 +132,7 @@
     "@types/markdown-it": "^14.2.0",
     "@types/n3": "^1.26.2",
     "@types/turndown": "^5.0.6",
-    "@vitest/coverage-v8": "^4.1.11",
+    "@vitest/coverage-v8": "^5.0.0",
     "axe-core": "^4.13.0",
     "codemirror": "^6.0.2",
     "dependency-cruiser": "^18.2.0",
@@ -152,6 +152,6 @@
     "typescript-eslint": "^8.69.0",
     "vite": "^8.2.2",
     "vite-node": "6.0.0",
-    "vitest": "^4.1.11"
+    "vitest": "^5.0.0"
   }
 }

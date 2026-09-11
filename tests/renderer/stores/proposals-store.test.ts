@@ -28,7 +28,6 @@ vi.mock('../../../src/renderer/lib/ipc/client', () => ({
   },
 }));
 
-import { api } from '../../../src/renderer/lib/ipc/client';
 import { getProposalsStore } from '../../../src/renderer/lib/stores/proposals.svelte';
 
 function p(uri: string, status: string) {
@@ -65,10 +64,20 @@ describe('proposals store (#1525)', () => {
     expect(store.pendingCount).toBe(1);
   });
 
-  it('wires each subscription exactly once across multiple store accesses', () => {
-    getProposalsStore();
-    getProposalsStore();
-    expect(api.proposals.onChanged).toHaveBeenCalledTimes(1);
-    expect(api.menu.onProjectOpened).toHaveBeenCalledTimes(1);
+  it('wires each subscription exactly once across multiple store accesses', async () => {
+    // The module-level `getProposalsStore()` above (line 38) is the file's
+    // real "first access" — Vitest 5's `clearMocks: true` default wipes that
+    // call's history before this test runs, so asserting against it directly
+    // would read as 0 regardless of whether wiring is actually deduped.
+    // `resetModules()` + a fresh dynamic import gives this one test its own
+    // singleton and its own freshly-`vi.fn()`-backed mock, so "first access
+    // wires, second doesn't" is provable within the test's own window.
+    vi.resetModules();
+    const { api: freshApi } = await import('../../../src/renderer/lib/ipc/client');
+    const { getProposalsStore: freshGetProposalsStore } = await import('../../../src/renderer/lib/stores/proposals.svelte');
+    freshGetProposalsStore();
+    freshGetProposalsStore();
+    expect(freshApi.proposals.onChanged).toHaveBeenCalledTimes(1);
+    expect(freshApi.menu.onProjectOpened).toHaveBeenCalledTimes(1);
   });
 });

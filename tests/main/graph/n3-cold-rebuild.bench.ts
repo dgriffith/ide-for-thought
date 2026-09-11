@@ -25,7 +25,7 @@
  * to that gap.
  */
 
-import { describe, bench } from 'vitest';
+import { describe, test } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -51,13 +51,15 @@ for (const scale of SCALES) {
   await indexAllNotes(ctx);
 
   describe(`cold N3 rebuild — ${scale}-note store`, () => {
-    bench(`re-index (invalidates) + queryGraph (cold rebuild) at ${scale} notes`, async () => {
-      // A no-op re-index of the same note with the same content — the same
-      // write path any real save takes (post-#1110 it applies its delta to the
-      // live mirror rather than nulling it), without changing what the query
-      // below matches. (Bench name kept verbatim for baseline-key stability.)
-      await indexNote(ctx, 'note-0.md', `# Note 0\n\n${'lorem ipsum '.repeat(50)}\n\n#tag-0\n`);
-      await queryGraph(ctx, 'SELECT ?n WHERE { ?n a minerva:Note } LIMIT 50');
+    test(`re-index (invalidates) + queryGraph (cold rebuild) at ${scale} notes`, async ({ bench }) => {
+      await bench(`re-index (invalidates) + queryGraph (cold rebuild) at ${scale} notes`, async () => {
+        // A no-op re-index of the same note with the same content — the same
+        // write path any real save takes (post-#1110 it applies its delta to the
+        // live mirror rather than nulling it), without changing what the query
+        // below matches. (Bench name kept verbatim for baseline-key stability.)
+        await indexNote(ctx, 'note-0.md', `# Note 0\n\n${'lorem ipsum '.repeat(50)}\n\n#tag-0\n`);
+        await queryGraph(ctx, 'SELECT ?n WHERE { ?n a minerva:Note } LIMIT 50');
+      }).run();
     });
   });
 }

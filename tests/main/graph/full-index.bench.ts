@@ -16,9 +16,15 @@
  * `n3-cold-rebuild.bench.ts` for why: `beforeAll` doesn't reliably complete
  * before a `bench`'s iterations start in this vitest version's benchmark
  * runner — confirmed empirically).
+ *
+ * Vitest 5 (#1009): `bench` is a test-context fixture, not a top-level
+ * import — `bench(name, options, fn)` registers and `.run()` executes +
+ * reports it, called from inside a wrapping `test()`. Bench names (passed to
+ * `bench()`, not `test()`) are kept byte-identical to the pre-migration
+ * strings so `bench-baseline.json` still matches by name.
  */
 
-import { describe, bench } from 'vitest';
+import { describe, test } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -41,23 +47,25 @@ for (const scale of SCALES) {
   }
 
   describe(`full indexAllNotes — ${scale}-note vault`, () => {
-    bench(
-      `indexAllNotes: ${scale} notes from scratch`,
-      async () => {
-        // indexAllNotes resets and rebuilds the whole store on every call, so
-        // it's safe (and necessary, to measure the real full-index cost rather
-        // than a warm no-op) to call it fresh on every bench iteration against
-        // the same on-disk files.
-        await indexAllNotes(ctx);
-      },
-      // A single rebuild is O(seconds) at the top scale, and each one allocates
-      // a fresh multi-thousand-node rdflib graph — the default 10-iteration
-      // floor piles ~15 of those onto the heap and turns a ~2.5s op into an
-      // 11-minute, GC-thrashing, ±200%-variance sample. A few iterations give a
-      // representative number without the pile-up (the regression gate treats
-      // this bench as tracked-not-gated for the same variance reason — see
-      // bench-baseline.json).
-      { iterations: 3, warmupIterations: 1, time: 0, warmupTime: 0 },
-    );
+    test(`indexAllNotes: ${scale} notes from scratch`, async ({ bench }) => {
+      await bench(
+        `indexAllNotes: ${scale} notes from scratch`,
+        // A single rebuild is O(seconds) at the top scale, and each one allocates
+        // a fresh multi-thousand-node rdflib graph — the default 10-iteration
+        // floor piles ~15 of those onto the heap and turns a ~2.5s op into an
+        // 11-minute, GC-thrashing, ±200%-variance sample. A few iterations give a
+        // representative number without the pile-up (the regression gate treats
+        // this bench as tracked-not-gated for the same variance reason — see
+        // bench-baseline.json).
+        { iterations: 3, warmupIterations: 1, time: 0, warmupTime: 0 },
+        async () => {
+          // indexAllNotes resets and rebuilds the whole store on every call, so
+          // it's safe (and necessary, to measure the real full-index cost rather
+          // than a warm no-op) to call it fresh on every bench iteration against
+          // the same on-disk files.
+          await indexAllNotes(ctx);
+        },
+      ).run();
+    });
   });
 }
