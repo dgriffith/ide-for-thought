@@ -14,8 +14,28 @@ overrides:
   tmp: '>=0.2.6'
   gry: '>=6.0.0'
   sharp: '>=0.35.4'
-  adm-zip: '>=0.6.0'
+  # Security overrides (#2154, low-risk subset — patch/minor bumps only,
+  # no major-version jump). All five transitive resolutions sat below their
+  # advisory's patched floor; forcing each one up fixes it regardless of
+  # what the intermediate dependency (mostly electron-forge's own tree)
+  # itself declares. Re-verify with `pnpm audit` after bumping.
+  adm-zip: '>=0.6.1' # GHSA-vwc7-r8mq-g2x9 — symlink-following extraction
   'rdflib>@xmldom/xmldom': '>=0.9.12'
+  # NOT the same override as the rdflib one above, and deliberately not
+  # widened to a global key — tried that first and it broke `pnpm build`:
+  # `@electron/packager`'s `plist` dependency calls xmldom's
+  # `parseFromString(data)` with no `mimeType` argument, which 0.8.x
+  # defaulted leniently and 0.9.x rejects outright
+  # (`DOMParser.parseFromString: the provided mimeType "undefined" is not
+  # valid.`, thrown from `plist/lib/parse.js` while packaging Info.plist).
+  # That's a real breaking API change between the 0.8 and 0.9 lines, not
+  # just a patch — so this pins `plist`'s xmldom edge to the *patched floor
+  # within 0.8.x* (GHSA advisories here are fixed at >=0.8.15) instead of
+  # jumping it to 0.9.x alongside rdflib's edge.
+  'plist>@xmldom/xmldom': '>=0.8.15 <0.9.0'
+  fast-uri: '>=3.1.4' # GHSA set — host-confusion / SSRF / path-traversal via malformed URIs
+  browserslist: '>=4.28.7' # unbounded memory growth + prototype-write crash
+  baseline-browser-mapping: '>=2.11.0' # GHSA-w5vr-8v7q-w6rv — process termination DoS
 
 # electron/esbuild/fs-xattr/macos-alias ship native postinstall builds we
 # actually need (native module rebuilds, macOS alias-file support). Replaces
@@ -49,3 +69,10 @@ allowBuilds:
 # default guard has nothing useful to catch here and only blocks a normal
 # install.
 blockExoticSubdeps: false
+
+# pnpm 12's default supply-chain guard against very-recently-published
+# versions blocked the adm-zip 0.6.1 override above; auto-added by
+# `pnpm install` when it hit that guard, kept since 0.6.1 is exactly the
+# version #2154's security override intentionally pins to.
+minimumReleaseAgeExclude:
+  - adm-zip@0.6.1
