@@ -11,7 +11,7 @@ import { appIconPath } from './app-icon';
 import { loadSession } from './session';
 import { registerBuiltinExecutors } from './compute/executors';
 import { registerBuiltinExporters } from './publish';
-import { installCsp, installMediaPermissions } from './security';
+import { installCsp, installPermissions } from './security';
 import { flushAllProjects } from './project-context';
 import { shutdownAllKernels } from './compute/python-kernel';
 import { shutdownAllMcpClients } from './mcp-client';
@@ -60,7 +60,7 @@ void app.whenReady().then(async () => {
     app.dock?.setIcon(appIconPath());
   }
   installCsp();
-  installMediaPermissions();
+  installPermissions();
   boot('csp installed');
   registerIpcHandlers();
   boot('ipc handlers registered');

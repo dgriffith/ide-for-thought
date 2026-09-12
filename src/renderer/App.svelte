@@ -439,9 +439,14 @@
 
   // Save the active type-view's projection as a named view (#1072). Defaults to
   // project scope so the preset travels with the thoughtbase.
-  async function handleSaveView(tab: TypeViewTab): Promise<void> {
+  /** Returns `true` iff a view was actually saved — `false` for a cancelled
+   *  name prompt — so TypeView's toolbar button can flash a "Saved"
+   *  confirmation only on a real save, not on every click regardless of
+   *  outcome (#2028-adjacent report: a cancelled prompt looked identical to
+   *  a successful save, since neither ever gave any visible feedback). */
+  async function handleSaveView(tab: TypeViewTab): Promise<boolean> {
     const name = await showPrompt('Save view as:');
-    if (!name) return;
+    if (!name) return false;
     await savedViewsStore.save('project', {
       name,
       typeId: tab.typeId,
@@ -450,6 +455,7 @@
       sortDir: tab.sortDir,
       columns: tab.columns,
     });
+    return true;
   }
   // The format-family group id the Export menu launched with (#: export-menu-redesign).
   let exportDialogGroup = $state<string | null>(null);

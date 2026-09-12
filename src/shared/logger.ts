@@ -37,6 +37,7 @@ export const LOG_TAGS = [
   'mcp-client',
   'mcp-servers',
   'merge',
+  'objects',
   'onboarding',
   'preview',
   'privileged-sites',

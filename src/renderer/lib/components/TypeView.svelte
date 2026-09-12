@@ -20,6 +20,7 @@
   import { outputToMarkdownClipboard } from '../preview/compute-output-render';
   import { stripNoteExt } from '../../../shared/note-extensions';
   import { effectivePropertyDefs } from '../../../shared/objects/inheritance';
+  import { logger } from '../../../shared/logger';
   import type { PropertyDef, TypeInfo, TypeInstanceRow } from '../../../shared/objects/type-def';
 
   type Layout = 'list' | 'table' | 'gallery' | 'map';
@@ -37,8 +38,11 @@
     revision: number;
     onStateChange: (patch: StatePatch) => void;
     onOpenNote: (relativePath: string) => void;
-    /** Save the current projection as a named view (#1072); omitted when unavailable. */
-    onSaveView?: () => void;
+    /** Save the current projection as a named view (#1072); omitted when
+     *  unavailable. Resolves `true` if a view was actually saved, `false` if
+     *  the user cancelled the name prompt — the toolbar button only flashes
+     *  its "Saved" confirmation on `true`. */
+    onSaveView?: () => Promise<boolean>;
     /** Suppress the title/count/toolbar header — for an inline note embed
      *  (#2067), which has no host to mutate layout/sort/columns state and
      *  provides its own surrounding context. Defaults to the full-pane tab
@@ -151,6 +155,9 @@
     return value;
   }
 
+  let markdownCopied = $state(false);
+  let viewSaved = $state(false);
+
   /**
    * "Copy as markdown" (#2068) — a stateless OS side-effect
    * (`navigator.clipboard`), so it's called directly rather than routed
@@ -163,8 +170,14 @@
    * layouts, just as `- [[note]] — summary` lines. Respects the table's
    * current sort/visible-columns (list/gallery/map have no sort or filter
    * to respect — sorting is table-only, per this view's own docs above).
+   *
+   * Awaits the write and flashes the button label to "Copied" on success
+   * (matching ClipperSettings.svelte's copy-confirmation pattern) — a
+   * clipboard write has no other visible effect, so with no feedback at all
+   * a real success is indistinguishable from a silent failure (report: "does
+   * not appear to do anything").
    */
-  function copyAsMarkdown(): void {
+  async function copyAsMarkdown(): Promise<void> {
     let md: string;
     if (layout === 'table') {
       const cols = ['Title', ...visibleColumns.map((c) => c.label ?? c.name)];
@@ -180,7 +193,28 @@
         return s ? `- ${link} — ${s}` : `- ${link}`;
       }).join('\n');
     }
-    void navigator.clipboard.writeText(md);
+    try {
+      await navigator.clipboard.writeText(md);
+      markdownCopied = true;
+      setTimeout(() => { markdownCopied = false; }, 1500);
+    } catch (e) {
+      logger('objects').error('copy as markdown failed:', e);
+    }
+  }
+
+  /** Save-view confirmation (#1072) — same "flash the button label" pattern
+   *  as copyAsMarkdown above, and for the same reason: `onSaveView` succeeds
+   *  silently (no toast, per CLAUDE.md's UI philosophy), so a real save was
+   *  indistinguishable from the user cancelling the name prompt (report:
+   *  "pops up a note name box, which then does nothing" — it wasn't doing
+   *  nothing, saving one just looked identical to cancelling one). */
+  async function handleSaveViewClick(): Promise<void> {
+    if (!onSaveView) return;
+    const saved = await onSaveView();
+    if (saved) {
+      viewSaved = true;
+      setTimeout(() => { viewSaved = false; }, 1500);
+    }
   }
 
   function isImageUrl(v: string | null): v is string {
@@ -233,9 +267,9 @@
             {/if}
           </div>
         {/if}
-        <button class="tv-btn" onclick={copyAsMarkdown}>Copy as markdown</button>
+        <button class="tv-btn" onclick={copyAsMarkdown}>{markdownCopied ? 'Copied' : 'Copy as markdown'}</button>
         {#if onSaveView}
-          <button class="tv-btn" onclick={() => onSaveView?.()}>Save view</button>
+          <button class="tv-btn" onclick={handleSaveViewClick}>{viewSaved ? 'Saved' : 'Save view'}</button>
         {/if}
         <div class="tv-switch" role="tablist" aria-label="View">
           {#each LAYOUTS as l (l.id)}

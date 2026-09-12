@@ -251,6 +251,51 @@ describe('TypeView (#1070)', () => {
       await waitFor(() => expect(screen.getByText('Dune')).toBeTruthy());
       expect(screen.queryByText('Copy as markdown')).toBeNull();
     });
+
+    it('flashes "Copied" after a successful copy — the only visible sign the button did anything', async () => {
+      // Report: "doesn't appear to do anything" — a clipboard write has no
+      // other observable effect, so with zero feedback a real success reads
+      // identically to a silent failure.
+      render(TypeView, props({ layout: 'list' }));
+      await waitFor(() => expect(screen.getByText('Dune')).toBeTruthy());
+      await fireEvent.click(screen.getByText('Copy as markdown'));
+      await waitFor(() => expect(screen.getByText('Copied')).toBeTruthy());
+    });
+  });
+
+  describe('Save view (#1072)', () => {
+    it('is not offered when onSaveView is omitted', async () => {
+      render(TypeView, props({ layout: 'list' }));
+      await waitFor(() => expect(screen.getByText('Dune')).toBeTruthy());
+      expect(screen.queryByText('Save view')).toBeNull();
+    });
+
+    it('flashes "Saved" after onSaveView resolves true', async () => {
+      // Report: "pops up a note name box, which then does nothing" — the
+      // save itself was working; a cancelled prompt and a real save both
+      // gave zero feedback, so they looked identical.
+      const onSaveView = vi.fn().mockResolvedValue(true);
+      render(TypeView, props({ layout: 'list', onSaveView }));
+      await waitFor(() => expect(screen.getByText('Dune')).toBeTruthy());
+      await fireEvent.click(screen.getByText('Save view'));
+      expect(onSaveView).toHaveBeenCalled();
+      await waitFor(() => expect(screen.getByText('Saved')).toBeTruthy());
+    });
+
+    it('does not flash "Saved" when onSaveView resolves false (the name prompt was cancelled)', async () => {
+      const onSaveView = vi.fn().mockResolvedValue(false);
+      render(TypeView, props({ layout: 'list', onSaveView }));
+      await waitFor(() => expect(screen.getByText('Dune')).toBeTruthy());
+      await fireEvent.click(screen.getByText('Save view'));
+      // Await the exact promise the click handler is also awaiting: since its
+      // `.then` was attached first (at click time), this guarantees the
+      // handler's post-await `if (saved)` branch has already run by the time
+      // we assert, without an arbitrary tick/timeout.
+      await onSaveView.mock.results[0]?.value;
+      expect(onSaveView).toHaveBeenCalled();
+      expect(screen.queryByText('Saved')).toBeNull();
+      expect(screen.getByText('Save view')).toBeTruthy();
+    });
   });
 
   describe('chromeless (#2067)', () => {

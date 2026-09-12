@@ -55,21 +55,36 @@ export function installCsp(): void {
   });
 }
 
+/** Permissions granted to the app's own origin; everything else is denied. */
+const OWN_ORIGIN_PERMISSIONS = new Set(['media', 'clipboard-sanitized-write']);
+
 /**
- * Grant microphone access to the app's own renderer for dictation (#voice),
- * and deny everything else. Chromium gates `getUserMedia` behind both an async
- * request handler and a sync check handler; we approve `media` only when the
- * request originates from our own origin (file:// in prod, the Vite dev server
- * in dev). The OS-level mic prompt still applies on macOS — this only governs
- * the in-app Chromium permission layer. No other permission (geolocation,
- * notifications, …) is ever auto-granted.
+ * Grant the app's own renderer a narrow allowlist of Chromium permissions,
+ * and deny everything else. Chromium gates each of these behind both an
+ * async request handler and a sync check handler; we approve them only when
+ * the request originates from our own origin (file:// in prod, the Vite dev
+ * server in dev). No other permission (geolocation, notifications, …) is
+ * ever auto-granted.
+ *
+ * - `media`: microphone access for dictation (#voice). The OS-level mic
+ *   prompt still applies on macOS — this only governs the in-app Chromium
+ *   permission layer.
+ * - `clipboard-sanitized-write`: `navigator.clipboard.writeText()`, used
+ *   throughout the renderer (copy-as-markdown, copy path, copy citation,
+ *   pairing code, …). Without this grant Chromium denies it outright —
+ *   `writeText()` rejects with `NotAllowedError: Write permission denied`
+ *   on every call, indistinguishable from the button doing nothing at all
+ *   (found via #2068 report investigation: "Copy as Markdown doesn't
+ *   appear to do anything" — verified empirically against a packaged
+ *   build, not caught by any test because vitest/jsdom's clipboard mock
+ *   always "succeeds").
  */
-export function installMediaPermissions(): void {
+export function installPermissions(): void {
   const ownOrigin = (url: string | undefined): boolean =>
     !!url && isOwnOrigin(url, MAIN_WINDOW_VITE_DEV_SERVER_URL);
 
   session.defaultSession.setPermissionRequestHandler((wc, permission, callback) => {
-    if (permission === 'media' && ownOrigin(wc?.getURL())) {
+    if (OWN_ORIGIN_PERMISSIONS.has(permission) && ownOrigin(wc?.getURL())) {
       callback(true);
       return;
     }
@@ -77,7 +92,7 @@ export function installMediaPermissions(): void {
   });
 
   session.defaultSession.setPermissionCheckHandler((_wc, permission, requestingOrigin) => {
-    return permission === 'media' && ownOrigin(requestingOrigin);
+    return OWN_ORIGIN_PERMISSIONS.has(permission) && ownOrigin(requestingOrigin);
   });
 }
 
