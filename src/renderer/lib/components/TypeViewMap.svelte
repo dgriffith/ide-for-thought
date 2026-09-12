@@ -142,4 +142,22 @@
     min-height: 0;
     background: var(--bg-inset);
   }
+
+  /* Enlarges each pin's hover/click target without changing its visual size
+     or position. The default MapLibre marker is a 27x41px teardrop SVG —
+     small, and mostly a narrow tapering point rather than a filled
+     rectangle, so a near-miss falls through to the map underneath (reported:
+     the hover tooltip only seemed to work "on the very tip"). `.maplibregl-marker`
+     is a third-party class (not one this component defines), hence :global.
+     An absolutely-positioned ::before with `inset` extends the hit area on
+     all sides without contributing to the marker div's own layout size —
+     MapLibre's anchor/offset math reads that size to position the icon so
+     its tip lands on the coordinate, and inflating it directly (e.g. via
+     padding) would shift the icon off its true location. Empty `content`
+     and no background keeps it fully invisible. */
+  :global(.maplibregl-marker::before) {
+    content: '';
+    position: absolute;
+    inset: -8px;
+  }
 </style>
