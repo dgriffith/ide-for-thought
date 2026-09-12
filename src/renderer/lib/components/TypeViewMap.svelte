@@ -10,7 +10,9 @@
    * Read-only, like every other layout here (list/table/gallery all just open the
    * note on click) — clicking a marker opens its note, nothing more. No shared
    * selection/highlight state exists anywhere in this multi-view today (verified
-   * before building this), so this doesn't invent one either.
+   * before building this), so this doesn't invent one either. Each marker's
+   * native `title` attribute is set to the instance's title, so hovering shows
+   * the OS/browser's own tooltip — no custom popup UI to build or maintain.
    *
    * Theme-aware via `styleUrlForTheme()` picking OpenFreeMap's light or dark
    * named style — read once at mount, not live-updated: switching the app theme
@@ -71,6 +73,7 @@
       const [lat, lng] = parsed;
       const marker = new gl.Marker().setLngLat([lng, lat]).addTo(map);
       marker.getElement().style.cursor = 'pointer';
+      marker.getElement().title = inst.title;
       marker.getElement().addEventListener('click', () => onOpenNote(inst.path));
       markers.push(marker);
       bounds.extend([lng, lat]);

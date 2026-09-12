@@ -79,6 +79,12 @@ describe('TypeViewMap (#2066)', () => {
     ]);
   });
 
+  it('sets each marker\'s native title attribute to the instance title, for a hover tooltip', async () => {
+    render(TypeViewMap, { instances: INSTANCES, locationProperty: 'location', onOpenNote: vi.fn() });
+    await waitFor(() => expect(markerInstances.length).toBe(2));
+    expect(markerInstances.map((m) => m.getElement().title)).toEqual(['San Francisco', 'New York']);
+  });
+
   it('clicking a marker opens its note', async () => {
     const onOpenNote = vi.fn();
     render(TypeViewMap, { instances: INSTANCES, locationProperty: 'location', onOpenNote });
