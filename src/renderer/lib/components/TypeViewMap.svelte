@@ -19,11 +19,19 @@
    * takes effect the next time this layout is (re)mounted (matches how a fresh
    * tab/reload already reads the current theme), not via a heavier `map.setStyle`
    * mid-session swap.
+   *
+   * Each marker is colored by the instance's own EXACT type (via
+   * `objectTypesStore.typeForNote`), not the tab's type — a "Place" map
+   * includes subclass instances (`rdfs:subClassOf*` in note-properties.ts),
+   * so e.g. a Restaurant and a Hotel sharing a Place tab get their own
+   * colors instead of one uniform pin, mirroring the row icon lookup
+   * TypeView.svelte already does for list/table/gallery.
    */
   import { onMount } from 'svelte';
   import type * as maplibregl from 'maplibre-gl';
   import { loadMapLibre } from '../map/load-maplibre';
   import { styleUrlForTheme } from '../map/maplibre-style';
+  import { objectTypesStore } from '../stores/object-types.svelte';
   import type { TypeInstanceRow } from '../../../shared/objects/type-def';
 
   type MapLibreModule = typeof maplibregl;
@@ -71,7 +79,8 @@
       const parsed = parseLatLng(inst.values[locationProperty] ?? null);
       if (!parsed) continue;
       const [lat, lng] = parsed;
-      const marker = new gl.Marker().setLngLat([lng, lat]).addTo(map);
+      const color = objectTypesStore.typeForNote(inst.path)?.color;
+      const marker = new gl.Marker(color ? { color } : undefined).setLngLat([lng, lat]).addTo(map);
       marker.getElement().style.cursor = 'pointer';
       marker.getElement().title = inst.title;
       marker.getElement().addEventListener('click', () => onOpenNote(inst.path));
