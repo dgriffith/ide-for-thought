@@ -17,8 +17,8 @@ type MapLibreModule = typeof import('maplibre-gl');
 // `/^https?:/` — under Electron's packaged file:// renderer it returns `""`,
 // which resolves `new Worker("")` to the current document (index.html)
 // itself. Pointing `config.WORKER_URL` at a patched blob works around that —
-// but getting there took two rounds (verified empirically both times against
-// a real Electron BrowserWindow, not assumed from reading docs):
+// but getting there took three rounds (verified empirically every time
+// against a real Electron BrowserWindow, not assumed from reading docs):
 //
 // Round 1 (the original fix): maplibre-gl-worker.mjs has its own internal
 // `import ... from "./maplibre-gl-shared.mjs"`, a relative specifier that
@@ -37,32 +37,39 @@ type MapLibreModule = typeof import('maplibre-gl');
 // network request either (the rewritten URL serves fine on its own), just an
 // empty basemap.
 //
-// Round 2 (the actual fix): even with that dev-mode rewrite worked around —
-// e.g. by pulling the worker's source in via `?raw` instead of `fetch()`,
-// which returns the literal on-disk bytes untouched in both dev and prod —
-// substituting an absolute http(s)/root-relative URL as the import target
-// still fails. A module `Worker` constructed from a `blob:` URL cannot
-// statically `import` an http(s)-scheme module — confirmed by isolating it:
-// a classic worker from blob: works, a module worker from blob: with no
-// nested import works, but a module worker from blob: importing an absolute
-// same-origin http(s) URL throws (a bare, unhelpful `ErrorEvent` with no
-// message/filename/lineno — Chromium's worker-script-load failures don't
-// carry detail the way a same-thread import error would). blob: importing
-// *another* blob: URL works fine. So both files are pulled in via `?raw`
-// (build-time literal strings — no runtime fetch, no dev/prod serving
-// difference to trip over) and the shared chunk gets its own blob: URL,
-// which is what gets substituted into the worker's patched import — blob
-// importing blob, never blob importing http(s).
-import maplibreWorkerSource from 'maplibre-gl/dist/maplibre-gl-worker.mjs?raw';
-import maplibreWorkerSharedSource from 'maplibre-gl/dist/maplibre-gl-shared.mjs?raw';
-
+// Round 2: pulling both files in via `?raw` instead of `fetch()` (returns
+// the literal on-disk bytes untouched in both dev and prod) fixes the
+// dev-mode rewrite problem, but substituting an absolute http(s)/root-
+// relative URL as the import target still fails — a module `Worker`
+// constructed from a `blob:` URL cannot statically `import` an http(s)-
+// scheme module (confirmed by isolating it: a classic worker from blob:
+// works, a module worker from blob: with no nested import works, but a
+// module worker from blob: importing an absolute same-origin http(s) URL
+// throws — a bare, unhelpful `ErrorEvent` with no message/filename/lineno.
+// blob: importing *another* blob: URL works fine). So the shared chunk gets
+// its own blob: URL, substituted into the worker's patched import instead —
+// blob importing blob, never blob importing http(s).
+//
+// Round 3 (CI caught this one — bundle-budget.spec.ts): `?raw` imports are
+// static, and a *static* import is resolved into whatever chunk the
+// importing module ends up in, regardless of when the code that uses the
+// value actually runs. maplibre-gl-shared.mjs is ~500KB minified — Round 2's
+// two `import ... from '...?raw'` at the top of this file put that entire
+// string, unconditionally, into the eager renderer entry chunk (this module
+// is statically imported by TypeViewMap.svelte for the `loadMapLibre`
+// function reference), even though nothing here needs it until a user
+// actually opens a Map view. `?raw` still returns the literal untouched
+// bytes when imported dynamically — the fix is just moving both imports
+// into the SAME `Promise.all` as the already-dynamic `import('maplibre-gl')`
+// below, so they land in the same lazily-fetched chunk instead of the eager
+// one.
 const WORKER_SHARED_IMPORT_SPECIFIER = './maplibre-gl-shared.mjs';
 
 let promise: Promise<MapLibreModule> | null = null;
 
-function resolvePatchedWorkerUrl(): string {
-  const sharedBlobUrl = URL.createObjectURL(new Blob([maplibreWorkerSharedSource], { type: 'text/javascript' }));
-  const patched = maplibreWorkerSource.replace(WORKER_SHARED_IMPORT_SPECIFIER, sharedBlobUrl);
+function resolvePatchedWorkerUrl(workerSource: string, sharedSource: string): string {
+  const sharedBlobUrl = URL.createObjectURL(new Blob([sharedSource], { type: 'text/javascript' }));
+  const patched = workerSource.replace(WORKER_SHARED_IMPORT_SPECIFIER, sharedBlobUrl);
   return URL.createObjectURL(new Blob([patched], { type: 'text/javascript' }));
 }
 
@@ -71,8 +78,10 @@ export function loadMapLibre(): Promise<MapLibreModule> {
     promise = Promise.all([
       import('maplibre-gl'),
       import('maplibre-gl/dist/maplibre-gl.css'),
-    ]).then(([m]) => {
-      m.config.WORKER_URL = resolvePatchedWorkerUrl();
+      import('maplibre-gl/dist/maplibre-gl-worker.mjs?raw'),
+      import('maplibre-gl/dist/maplibre-gl-shared.mjs?raw'),
+    ]).then(([m, , workerMod, sharedMod]) => {
+      m.config.WORKER_URL = resolvePatchedWorkerUrl(workerMod.default, sharedMod.default);
       return m;
     });
   }
