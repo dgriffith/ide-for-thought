@@ -32,7 +32,7 @@ vi.mock('electron', () => ({
   shell: { openExternal: (url: string) => { cap.openExternal.push(url); return Promise.resolve(); } },
 }));
 
-import { installCsp, installMediaPermissions, installNavigationGuards, HARDENED_WEB_PREFERENCES } from '../../src/main/security';
+import { installCsp, installPermissions, installNavigationGuards, HARDENED_WEB_PREFERENCES } from '../../src/main/security';
 
 // The vite `define` globals don't exist under vitest; undefined selects the
 // production (strict CSP, file:// own-origin) branch.
@@ -63,9 +63,9 @@ describe('installCsp (#1001)', () => {
   });
 });
 
-describe('installMediaPermissions (#1001)', () => {
-  it('grants media only to the app\'s own origin, denies everything else', () => {
-    installMediaPermissions();
+describe('installPermissions (#1001, clipboard grant #2068)', () => {
+  it('grants media and clipboard-write only to the app\'s own origin, denies everything else', () => {
+    installPermissions();
     const req = cap.permissionRequest!;
 
     const grant = (url: string | undefined, permission: string) => {
@@ -76,15 +76,18 @@ describe('installMediaPermissions (#1001)', () => {
 
     expect(grant('file:///Users/x/app/index.html', 'media')).toBe(true);
     expect(grant('https://evil.example', 'media')).toBe(false);   // foreign origin
-    expect(grant('file:///Users/x/app/index.html', 'geolocation')).toBe(false); // non-media
+    expect(grant('file:///Users/x/app/index.html', 'clipboard-sanitized-write')).toBe(true);
+    expect(grant('https://evil.example', 'clipboard-sanitized-write')).toBe(false); // foreign origin
+    expect(grant('file:///Users/x/app/index.html', 'geolocation')).toBe(false); // neither media nor clipboard
     expect(grant(undefined, 'media')).toBe(false);                // no URL
   });
 
   it('check handler mirrors the request handler', () => {
-    installMediaPermissions();
+    installPermissions();
     const check = cap.permissionCheck!;
     expect(check(null, 'media', 'file:///Users/x/app/index.html')).toBe(true);
     expect(check(null, 'media', 'https://evil.example')).toBe(false);
+    expect(check(null, 'clipboard-sanitized-write', 'file:///Users/x/app/index.html')).toBe(true);
     expect(check(null, 'notifications', 'file:///Users/x/app/index.html')).toBe(false);
   });
 });
