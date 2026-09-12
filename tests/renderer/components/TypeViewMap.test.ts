@@ -6,7 +6,7 @@
  * so these tests exercise TypeViewMap.svelte's own logic: which instances get
  * a marker, click → open-note wiring, and cleanup on unmount.
  */
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, cleanup, waitFor, fireEvent } from '@testing-library/svelte';
 
 const { mapInstances, markerInstances, FakeMap, FakeMarker, FakeNavigationControl, FakeLngLatBounds } = vi.hoisted(() => {
@@ -21,6 +21,8 @@ const { mapInstances, markerInstances, FakeMap, FakeMarker, FakeNavigationContro
   class FakeMarker {
     el = document.createElement('div');
     lngLat: [number, number] | null = null;
+    opts: { color?: string } | undefined;
+    constructor(opts?: { color?: string }) { this.opts = opts; }
     setLngLat(ll: [number, number]): this { this.lngLat = ll; return this; }
     addTo(): this { markerInstances.push(this); return this; }
     getElement(): HTMLElement { return this.el; }
@@ -52,6 +54,11 @@ vi.mock('../../../src/renderer/lib/map/maplibre-style', () => ({
   styleUrlForTheme: () => 'https://tiles.openfreemap.org/styles/liberty',
 }));
 
+const { typeForNote } = vi.hoisted(() => ({ typeForNote: vi.fn() }));
+vi.mock('../../../src/renderer/lib/stores/object-types.svelte', () => ({
+  objectTypesStore: { typeForNote },
+}));
+
 import TypeViewMap from '../../../src/renderer/lib/components/TypeViewMap.svelte';
 
 const INSTANCES = [
@@ -61,6 +68,10 @@ const INSTANCES = [
   { path: 'WrongCount.md', title: 'Wrong Count', values: { location: '1,2,3' }, cover: null },
   { path: 'NYC.md', title: 'New York', values: { location: '40.7128,-74.0060' }, cover: null },
 ];
+
+beforeEach(() => {
+  typeForNote.mockReturnValue(null);
+});
 
 afterEach(() => {
   cleanup();
@@ -137,6 +148,26 @@ describe('TypeViewMap (#2066)', () => {
       [-122.4194, 37.7749], // San Francisco, still present
       [14.4249, 50.0814], // W Prague, the newly added instance
     ]);
+  });
+
+  it('colors each marker by the instance\'s own exact type, not one uniform color', async () => {
+    // A "Place" map includes subclass instances (restaurant, hotel, …) —
+    // each should get its own type's pin color, not the tab's.
+    typeForNote.mockImplementation((path: string) => {
+      if (path === 'SF.md') return { id: 'restaurant', label: 'Restaurant', color: '#f38ba8' };
+      if (path === 'NYC.md') return { id: 'hotel', label: 'Hotel', color: '#89b4fa' };
+      return null;
+    });
+    render(TypeViewMap, { instances: INSTANCES, locationProperty: 'location', onOpenNote: vi.fn() });
+    await waitFor(() => expect(markerInstances.length).toBe(2));
+    expect(markerInstances.map((m) => m.opts?.color)).toEqual(['#f38ba8', '#89b4fa']);
+  });
+
+  it('falls back to the default marker color when the instance\'s type has none', async () => {
+    typeForNote.mockReturnValue({ id: 'place', label: 'Place' }); // no `color` field
+    render(TypeViewMap, { instances: [INSTANCES[0]!], locationProperty: 'location', onOpenNote: vi.fn() });
+    await waitFor(() => expect(markerInstances.length).toBe(1));
+    expect(markerInstances[0]!.opts).toBeUndefined();
   });
 
   it('does not throw with zero located instances', async () => {
