@@ -28,9 +28,13 @@ export interface RevisionMeta {
   cause?: string;
   /**
    * The note's baseline — the oldest state history knows about, captured
-   * before the note's first recorded change. Exempt from pruning: if the
-   * baseline ages out, "undo everything back to the start" stops being
-   * possible, which is most of the point of keeping history at all.
+   * before the note's first recorded change. This ROW is exempt from pruning
+   * — the timeline should always be able to say when the note first appeared
+   * — but its CONTENT ages out under the same retention rule as any other
+   * revision (#2167): once that happens, `getRevisionContent` returns `null`
+   * for it the same way it does for any other missing snapshot, and "undo
+   * everything back to the start" degrades to "revision not found" rather
+   * than being guaranteed forever.
    */
   initial?: boolean;
   /**

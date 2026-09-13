@@ -88,12 +88,18 @@ describe('history store (#1158)', () => {
     expect(await getRevisionContent(root, NOTE, ancientTs)).toBeNull();
   });
 
-  it('keeps the baseline revision however old it gets — "back to the start" must stay reachable', async () => {
+  it('compacts the baseline once it ages out — the row survives, its content does not (#2167)', async () => {
     const now = 500 * DAY;
     const baseTs = now - 400 * DAY;
     await captureSnapshot(root, NOTE, 'the original', { origin: 'edit' }, baseTs);
     await captureSnapshot(root, NOTE, 'fresh', { origin: 'edit' }, now);
-    expect(await getRevisionContent(root, NOTE, baseTs)).toBe('the original');
+    const revs = await listRevisions(root, NOTE);
+    // The row survives — the timeline still shows the note existed since baseTs.
+    expect(revs.find((r) => r.ts === baseTs)).toMatchObject({ initial: true });
+    // But its content is gone, same as any other aged-out revision — "back to
+    // the start" now degrades to "revision not found" instead of being
+    // guaranteed forever.
+    expect(await getRevisionContent(root, NOTE, baseTs)).toBeNull();
   });
 
   it('keeps a labeled revision even when it would otherwise age out', async () => {
@@ -283,6 +289,12 @@ describe('pruneAllHistory (#1158)', () => {
       expect(revs.map((r) => r.ts)).toEqual([4000, 1000]); // newest + baseline
       // The pruned snapshot files are gone, not just their index entries.
       expect(await getRevisionContent(root, note, 3000)).toBeNull();
+      // The baseline's ROW survives the sweep (it's still in `revs` above),
+      // but the cap already being full means its CONTENT is freed too
+      // (#2167) — a settings-change sweep frees this the same as it does any
+      // other aged-out revision, not just the ones fully dropped.
+      expect(revs.find((r) => r.ts === 1000)).toMatchObject({ initial: true });
+      expect(await getRevisionContent(root, note, 1000)).toBeNull();
     }
   });
 

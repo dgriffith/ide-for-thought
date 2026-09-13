@@ -49,39 +49,63 @@ export function shouldCapture(newContent: string, latestContent: string | undefi
 }
 
 /**
- * Split a note's revisions (any order) into the ones to keep and the ones to
- * prune. Pruned when OLDER than the retention window, or beyond the newest
- * `MAX_REVISIONS_PER_NOTE` — but a LABELED revision is never pruned (an
- * explicitly-marked version is a deliberate keepsake), neither is the INITIAL
- * one (the note's baseline; without it there's no "undo everything", and it's
- * the oldest revision so ordinary retention would take it first), and neither
- * is a DELETE marker (#2089): pruning one would make a later "as of T" query
- * silently claim the note still exists at moments after it was actually
- * removed. Returns newest-first `kept` and the `removed` set.
+ * Split a note's revisions (any order) into the ones whose content stays on
+ * disk untouched (`kept`), the ones whose ROW survives but whose content is
+ * freed (`compacted`), and the ones dropped entirely (`removed`). A revision
+ * is a candidate once it's OLDER than the retention window or beyond the
+ * newest `MAX_REVISIONS_PER_NOTE`.
+ *
+ * Three kinds never lose content, for three different reasons:
+ *   - LABEL: an explicitly-marked version is a deliberate keepsake — the one
+ *     true forever-exemption.
+ *   - DELETE marker (#2089): pruning it would make a later "as of T" query
+ *     silently claim the note still exists at moments after it was actually
+ *     removed. It never held content to begin with (`store.ts`'s
+ *     `captureDeletion` writes no `.snap`), so this exemption is free.
+ *   - (Neither applies to INITIAL.) The baseline's ROW survives forever so the
+ *     timeline still shows when the note first appeared, but its content ages
+ *     out under the same rule as any other revision (#2167) — there's no
+ *     correctness invariant forcing the exact original text to live forever,
+ *     only a capability one ("undo all the way back to day one"), and that's
+ *     an acceptable loss for a note nobody's touched in a very long time.
+ *
+ * Returns newest-first `kept`, plus `compacted` and `removed` in no
+ * particular order.
  */
 export function selectForRetention(
   revisions: RevisionMeta[],
   now: number,
   opts: { retentionDays?: number; maxPerNote?: number } = {},
-): { kept: RevisionMeta[]; removed: RevisionMeta[] } {
+): { kept: RevisionMeta[]; compacted: RevisionMeta[]; removed: RevisionMeta[] } {
   const retentionDays = opts.retentionDays ?? RETENTION_DAYS;
   const maxPerNote = opts.maxPerNote ?? MAX_REVISIONS_PER_NOTE;
   const cutoff = now - retentionDays * DAY_MS;
 
   const byNewest = [...revisions].sort((a, b) => b.ts - a.ts);
   const kept: RevisionMeta[] = [];
+  const compacted: RevisionMeta[] = [];
   const removed: RevisionMeta[] = [];
   let unlabeledKept = 0;
 
   for (const rev of byNewest) {
-    // Labeled (a deliberate keepsake), initial (the baseline), and delete
-    // markers (#2089): always survive.
-    if (rev.label || rev.initial || rev.origin === 'delete') { kept.push(rev); continue; }
+    // Labeled and delete markers: row AND content always survive, uncounted
+    // against the cap.
+    if (rev.label || rev.origin === 'delete') { kept.push(rev); continue; }
+
     const tooOld = rev.ts < cutoff;
     const overCap = unlabeledKept >= maxPerNote;
+
+    if (rev.initial) {
+      // Row survives either way, uncounted against the cap (matches how it
+      // was never counted before content-aging existed for it) — only
+      // whether its content also survives is in question.
+      (tooOld || overCap ? compacted : kept).push(rev);
+      continue;
+    }
+
     if (tooOld || overCap) { removed.push(rev); continue; }
     kept.push(rev);
     unlabeledKept++;
   }
-  return { kept, removed };
+  return { kept, compacted, removed };
 }
