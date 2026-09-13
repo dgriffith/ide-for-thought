@@ -3,6 +3,7 @@ import type { ToolSpec } from '../provider/types';
 import type { NotebaseTool, ToolContext, ToolCallbacks, ToolResult } from './types';
 import { listServerStatuses } from '../../mcp-servers/registry';
 import { mcpCall, describeMcpCatalog } from './mcp-call';
+import { runSkill, describeSkillCatalog } from './run-skill';
 import { searchNotes } from './search-notes';
 import { grepNotes } from './grep-notes';
 import { readNote } from './read-note';
@@ -67,6 +68,7 @@ const DEFAULT_TOOLS: NotebaseTool[] = [
   proposeClaims,
   proposeCompute,
   mcpCall,
+  runSkill,
 ];
 
 export const NOTEBASE_TOOL_REGISTRY: Record<string, NotebaseTool> = Object.fromEntries(
@@ -127,6 +129,18 @@ export async function buildConversationTools(opts: ConversationToolOptions): Pro
       tools[mcpIndex] = { ...mcpCall.definition, description: mcpCall.definition.description + catalog };
     } else {
       tools.splice(mcpIndex, 1);
+    }
+  }
+
+  // run_skill (#2165): same reasoning as mcp_call above — a catalog of zero
+  // runnable skills is a tool the model can never use.
+  const runSkillIndex = tools.findIndex((t) => t.name === runSkill.definition.name);
+  if (runSkillIndex !== -1) {
+    const catalog = describeSkillCatalog();
+    if (catalog) {
+      tools[runSkillIndex] = { ...runSkill.definition, description: runSkill.definition.description + catalog };
+    } else {
+      tools.splice(runSkillIndex, 1);
     }
   }
 

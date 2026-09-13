@@ -5,7 +5,7 @@
  * toolset's construction isn't re-tested here; it's exercised indirectly by
  * every other tool test.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { McpServerStatus } from '../../../../src/shared/mcp-servers';
 
 const registryMocks = vi.hoisted(() => ({
@@ -15,9 +15,12 @@ const registryMocks = vi.hoisted(() => ({
 vi.mock('../../../../src/main/mcp-servers/registry', () => registryMocks);
 
 import { buildConversationTools } from '../../../../src/main/llm/tools/registry';
+import { registerTool, unregisterTool } from '../../../../src/shared/tools/registry';
+import type { ThinkingToolDef } from '../../../../src/shared/tools/types';
 
 beforeEach(() => {
   vi.clearAllMocks();
+  registryMocks.listServerStatuses.mockResolvedValue([]);
 });
 
 const connectedWithTools: McpServerStatus = {
@@ -58,5 +61,48 @@ describe('buildConversationTools — mcp_call', () => {
     const withoutServers = await buildConversationTools({});
     expect(withCatalog.find((t) => t.name === 'mcp_call')?.description).toContain('github/list_issues');
     expect(withoutServers.find((t) => t.name === 'mcp_call')).toBeUndefined();
+  });
+});
+
+describe('buildConversationTools — run_skill (#2165)', () => {
+  const runnableSkill: ThinkingToolDef = {
+    id: 'test.registry-fixture-skill',
+    name: 'Registry Fixture Skill',
+    category: 'analysis',
+    description: 'A fixture skill for buildConversationTools tests.',
+    longDescription: 'Fixture.',
+    context: ['fullNote'],
+    outputMode: 'newNote',
+    buildPrompt: (ctx) => ctx.fullNoteContent ?? '',
+  };
+
+  afterEach(() => {
+    unregisterTool(runnableSkill.id);
+  });
+
+  it('is always present — the catalog is never empty while stock skills are registered', async () => {
+    // In the real app, stock skills (skills/register.ts) are registered at
+    // startup, so run_skill's catalog is never empty in practice. This test
+    // registers one fixture directly to exercise that path without depending
+    // on the stock skill catalog.
+    registerTool(runnableSkill);
+    const tools = await buildConversationTools({});
+    const tool = tools.find((t) => t.name === 'run_skill');
+    expect(tool).toBeDefined();
+    expect(tool!.description).toContain('test.registry-fixture-skill');
+  });
+
+  it('omits run_skill when no skill is registered', async () => {
+    const tools = await buildConversationTools({});
+    expect(tools.find((t) => t.name === 'run_skill')).toBeUndefined();
+  });
+
+  it('does not mutate the shared base definition across calls', async () => {
+    registerTool(runnableSkill);
+    const withCatalog = await buildConversationTools({});
+    unregisterTool(runnableSkill.id);
+    const withoutSkills = await buildConversationTools({});
+    expect(withCatalog.find((t) => t.name === 'run_skill')?.description).toContain('test.registry-fixture-skill');
+    expect(withoutSkills.find((t) => t.name === 'run_skill')).toBeUndefined();
   });
 });
