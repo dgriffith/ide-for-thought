@@ -47,6 +47,12 @@ export const INSPECTIONS: readonly InspectionDef[] = [
     description: "Notes you haven't touched in a while, in case they've quietly gone out of date.",
     group: 'notes',
   },
+  {
+    type: 'unreferenced_image',
+    label: 'Unreferenced images',
+    description: 'Pasted or dropped images nothing currently links to, current or in your history.',
+    group: 'notes',
+  },
 
   // ── Links ────────────────────────────────────────────────────────────────
   {

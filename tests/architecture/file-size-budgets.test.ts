@@ -54,7 +54,7 @@ const THRESHOLD = 600;
  * drops under THRESHOLD) and may go UP only on purpose.
  */
 const BUDGETS: Record<string, number> = {
-  'src/renderer/App.svelte': 2082,
+  'src/renderer/App.svelte': 2086,
   'src/renderer/lib/components/Preview.svelte': 1316,
   'src/renderer/lib/components/SourceDetail.svelte': 1346,
   'src/renderer/lib/components/SourcesPanel.svelte': 789,
@@ -66,7 +66,7 @@ const BUDGETS: Record<string, number> = {
   'src/main/menu.ts': 1024,
   'src/renderer/lib/components/Sidebar.svelte': 994,
   'src/renderer/lib/app/refactor-ops.svelte.ts': 856,
-  'src/main/graph/health-checks.ts': 800,
+  'src/main/graph/health-checks.ts': 831,
   'src/renderer/lib/components/ExportDialog.svelte': 712,
   'src/renderer/lib/components/ProposalsPanel.svelte': 613,
   'src/renderer/lib/components/QueryPanel.svelte': 759,

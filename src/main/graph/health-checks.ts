@@ -7,6 +7,7 @@ import { stripNoteExt, noteExtRank } from '../../shared/note-extensions';
 import { noteTargetPathBeside } from '../../shared/wiki-link-resolver';
 import { onGraphChanged } from './graph-events';
 import { emitInspectionsChanged } from './inspection-events';
+import { findOrphanedInlineAssets } from '../notebase/asset-references';
 import {
   catalogTypeFor,
   isInspectionEnabled,
@@ -118,6 +119,7 @@ export async function runAllChecks(
       on('broken_note_link') || on('broken_anchor_link') || on('broken_cite_quote')
         ? checkBrokenLinks(ctx)
         : none(),
+      on('unreferenced_image') ? checkUnreferencedImages(ctx) : none(),
     ]);
     // The multi-type checks above run as a unit, so drop the individual types
     // the user switched off.
@@ -181,6 +183,35 @@ async function checkStaleness(ctx: ProjectContext, thresholdDays: number): Promi
     suggestedAction: 'Review whether this note is still current',
     ...(r.path ? { notePath: r.path } : {}),
   }));
+}
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+/**
+ * `.minerva/assets/inline/` files nothing currently references (#1799) — see
+ * `notebase/asset-references.ts` for how "unreferenced" is decided. Info
+ * severity: an orphaned image is disk hygiene, not a correctness problem.
+ */
+async function checkUnreferencedImages(ctx: ProjectContext): Promise<Inspection[]> {
+  const orphans = await findOrphanedInlineAssets(ctx.rootPath);
+  return orphans.map((o, i) => {
+    const name = o.relativePath.split('/').pop()!;
+    return {
+      id: `unreferenced-image-${i}`,
+      type: 'unreferenced_image',
+      severity: 'info' as const,
+      // No graph node exists for a raw asset file — synthesize a stable id.
+      nodeUri: `urn:minerva:asset:${o.relativePath}`,
+      nodeLabel: name,
+      message: `"${name}" (${formatSize(o.sizeBytes)}) isn't referenced by any note, stylesheet, or retained history.`,
+      suggestedAction: 'Delete it if you don\'t need it — nothing currently links to it.',
+      fix: { kind: 'delete-asset', label: 'Delete image', assetPath: o.relativePath },
+    };
+  });
 }
 
 async function checkEvidenceGaps(ctx: ProjectContext): Promise<Inspection[]> {

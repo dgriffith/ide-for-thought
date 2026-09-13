@@ -23,6 +23,14 @@ vi.mock('../../../src/main/graph/index', () => ({
   queryGraph: h.queryGraph,
   headingsFor: h.headingsFor,
 }));
+// checkUnreferencedImages (#1799) does real filesystem I/O rather than a
+// mocked SPARQL call — fine normally, but this file's fake-timer tests need
+// every check to resolve on the SAME (fake) tick, so it's mocked out like the
+// graph calls above rather than actually touching disk for a nonexistent
+// '/fake-project'.
+vi.mock('../../../src/main/notebase/asset-references', () => ({
+  findOrphanedInlineAssets: vi.fn(async () => []),
+}));
 
 import {
   runAllChecks, startPeriodicChecks, stopPeriodicChecks, armAutoChecks, disarmAutoChecks,

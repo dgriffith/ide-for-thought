@@ -26,6 +26,7 @@
   import { getSourceFlowStore } from './lib/stores/source-flow.svelte';
   import { getRefactorFlowStore } from './lib/stores/refactor-flow.svelte';
   import { createNoteOps, type NoteOpsCtx } from './lib/app/note-ops';
+  import { deleteAsset } from './lib/app/asset-ops';
   import { createSourceOps, type SourceOpsCtx } from './lib/app/source-ops';
   import { createNavView, type NavViewCtx } from './lib/app/nav-view';
   import { createRefactorOps, type RefactorOpsCtx } from './lib/app/refactor-ops.svelte';
@@ -745,6 +746,9 @@
         break;
       case 'remove-anchor':
         await removeBrokenAnchor(fix.notePath, fix.targetPath, fix.anchor);
+        break;
+      case 'delete-asset':
+        await deleteAsset(fix.assetPath);
         break;
       case 'merge-sources': {
         // Pick which duplicate to keep, then merge the rest into it. Not a

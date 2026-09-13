@@ -25,7 +25,8 @@ export type InspectionFix =
   | { kind: 'set-read-status'; label: string; sourceId: string; status: ReadStatus }
   | { kind: 'resolve-source-stub'; label: string; sourceId: string }
   | { kind: 'merge-sources'; label: string; sourceIds: string[] }
-  | { kind: 'remove-anchor'; label: string; notePath: string; targetPath: string; anchor: string };
+  | { kind: 'remove-anchor'; label: string; notePath: string; targetPath: string; anchor: string }
+  | { kind: 'delete-asset'; label: string; assetPath: string };
 
 export interface NoteFile {
   name: string;
