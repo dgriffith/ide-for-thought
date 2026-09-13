@@ -52,14 +52,37 @@ describe('selectForRetention (#1158)', () => {
     expect(removed.map((r) => r.ts)).not.toContain(labeledOld.ts);
   });
 
-  it('NEVER prunes the initial revision — the baseline is the point of the feature', () => {
-    // The baseline is always the OLDEST revision, so ordinary retention would
-    // take it first and quietly remove "undo everything back to the start".
+  it('compacts the initial revision once it ages out — the row survives, the content does not (#2167)', () => {
+    // Unlike label/delete, initial's content is not a forever-exemption: only
+    // its ROW is (so the timeline still shows when the note first appeared).
+    // A large cap isolates this as a pure age-driven case.
     const baseline = rev(NOW - (RETENTION_DAYS + 100) * DAY, { initial: true });
     const filler = Array.from({ length: 5 }, (_, i) => rev(NOW - i * 1000));
-    const { kept, removed } = selectForRetention([baseline, ...filler], NOW, { maxPerNote: 2 });
-    expect(kept.map((r) => r.ts)).toContain(baseline.ts); // survived age + cap
+    const { kept, compacted, removed } = selectForRetention([baseline, ...filler], NOW, { maxPerNote: 10 });
+    expect(kept.map((r) => r.ts)).not.toContain(baseline.ts);
     expect(removed.map((r) => r.ts)).not.toContain(baseline.ts);
+    expect(compacted.map((r) => r.ts)).toEqual([baseline.ts]);
+  });
+
+  it('keeps a fresh initial revision fully intact when neither age nor cap force it out', () => {
+    const baseline = rev(NOW - 1 * DAY, { initial: true });
+    const filler = [rev(NOW)];
+    const { kept, compacted, removed } = selectForRetention([baseline, ...filler], NOW, { maxPerNote: 5 });
+    expect(kept.map((r) => r.ts).sort()).toEqual([baseline.ts, filler[0]!.ts].sort());
+    expect(compacted).toHaveLength(0);
+    expect(removed).toHaveLength(0);
+  });
+
+  it('an initial revision never consumes a slot in the per-note cap, but is not exempt from cap-driven content aging either', () => {
+    const baseline = rev(NOW - 5000, { initial: true });
+    const filler = Array.from({ length: 3 }, (_, i) => rev(NOW - i * 1000)); // exactly fills the cap
+    const { kept, compacted, removed } = selectForRetention([baseline, ...filler], NOW, { maxPerNote: 3 });
+    // All 3 filler survive with content — the baseline didn't crowd one out.
+    expect(kept.map((r) => r.ts).sort()).toEqual(filler.map((r) => r.ts).sort());
+    // But its own content ages out once the cap is already full, the same as
+    // it would for an ordinary revision competing for those slots.
+    expect(compacted.map((r) => r.ts)).toEqual([baseline.ts]);
+    expect(removed).toHaveLength(0);
   });
 
   it('NEVER prunes a delete marker — not by age, not by cap (#2089)', () => {

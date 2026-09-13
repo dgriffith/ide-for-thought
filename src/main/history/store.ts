@@ -175,19 +175,21 @@ export async function captureSnapshot(
   return meta;
 }
 
-/** Apply the retention rules to one note's index: delete what ages out (or
- *  falls off the per-note cap) and rewrite the index. */
+/** Apply the retention rules to one note's index: delete the `.snap` file for
+ *  anything that ages out (whether its row is dropped entirely or compacted
+ *  to a contentless tombstone — see `selectForRetention`) and rewrite the
+ *  index with whatever rows survive. */
 async function pruneDir(
   dir: string,
   entries: RevisionMeta[],
   now: number,
   settings: HistorySettings,
 ): Promise<{ removed: number }> {
-  const { kept, removed } = selectForRetention(entries, now, retentionOptions(settings));
+  const { kept, compacted, removed } = selectForRetention(entries, now, retentionOptions(settings));
   await Promise.all(
-    removed.map((r) => fs.rm(snapPath(dir, r.ts), { force: true })),
+    [...compacted, ...removed].map((r) => fs.rm(snapPath(dir, r.ts), { force: true })),
   );
-  await writeIndex(dir, kept);
+  await writeIndex(dir, [...kept, ...compacted]);
   return { removed: removed.length };
 }
 

@@ -212,6 +212,24 @@ describe('HistoryPanel (#1158)', () => {
     expect(screen.getByText('Initial version')).toBeTruthy();
   });
 
+  describe('compacted initial revision (#2167)', () => {
+    it('says the content is no longer available instead of showing an empty diff with a working-looking Restore', async () => {
+      // An aged-out `initial` row survives in the index (unlike a delete
+      // marker it's a normal, clickable row) but its .snap is gone — the
+      // fetch reveals that only after the click.
+      h.api.history.list.mockResolvedValue([{ ts: 1000, origin: 'edit', initial: true }]);
+      h.api.history.getRevision.mockResolvedValue(null);
+      await rendered();
+      await waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(1));
+
+      await fireEvent.click(screen.getAllByRole('listitem')[0]!);
+      await waitFor(() => expect(h.api.history.getRevision).toHaveBeenCalledWith('notes/a.md', 1000));
+      await waitFor(() => expect(screen.getByText("This revision's content is no longer available.")).toBeTruthy());
+      expect(screen.queryByRole('button', { name: 'Restore' })).toBeNull();
+      expect(screen.queryByText('Contents are identical.')).toBeNull();
+    });
+  });
+
   describe('delete markers (#2089)', () => {
     it('renders a delete marker as an informational row, not diffable', async () => {
       h.api.history.list.mockResolvedValue([{ ts: 1000, origin: 'delete' }]);
