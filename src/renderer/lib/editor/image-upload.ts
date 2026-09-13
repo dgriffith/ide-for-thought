@@ -14,6 +14,7 @@
  */
 
 import { api } from '../ipc/client';
+import { INLINE_ASSET_DIR } from '../../../shared/asset-paths';
 
 /** MIME allowlist. Anything not on this list is rejected with a
  *  toast — keeps the upload path scoped to images and avoids
@@ -36,7 +37,7 @@ export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
  *  output; this dir is editor-attached uploads, kept separate so
  *  `.minerva/assets/inline/` doesn't collide with the
  *  `.minerva/assets/derived/` namespace. */
-export const ASSET_DIR = '.minerva/assets/inline';
+export const ASSET_DIR = INLINE_ASSET_DIR;
 
 export type UploadResult =
   | { ok: true; relativePath: string; alt: string }

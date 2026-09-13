@@ -212,6 +212,7 @@ const SWALLOW_EXPR_BASELINE: Record<string, number> = {
   'src/main/ipc/read-json.ts': 1,
   'src/main/ipc/register-bibliography.ts': 2,
   'src/main/ipc/register-links.ts': 1,
+  'src/main/notebase/asset-references.ts': 2,
   'src/main/publish/exporters/note-pdf/electron-render.ts': 1,
   'src/main/publish/exporters/static-site/index.ts': 1,
   'src/main/sources/api-adapters/pubmed.ts': 1,
