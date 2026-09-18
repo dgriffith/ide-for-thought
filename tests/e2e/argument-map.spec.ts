@@ -24,6 +24,18 @@
  * doesn't depend on guessing the OS username / project dirname the real
  * auto-coining (`coinBaseUri`) would otherwise use.
  *
+ * A second CI-only failure surfaced even after pre-placing: `Host.md` —
+ * the note actually clicked through the sidebar — must live at the PROJECT
+ * ROOT, not under a subfolder. `Sidebar.svelte`'s `expanded` state seeds to
+ * `{}` on a fresh launch (`FileTree.svelte` only renders a folder's children
+ * when `expanded[path]` is true), and there's no persisted session/tabs
+ * state the way `tests/fixtures/sample-project`'s committed
+ * `.minerva/tabs.json` gives every OTHER e2e spec that clicks a file under
+ * `notes/` "for free." A root-level row isn't gated by `expanded` at all, so
+ * it's always in the DOM regardless of prior UI state — the other notes this
+ * spec writes (the claim, the grounds) stay under `notes/` since nothing
+ * ever clicks them through the sidebar.
+ *
  * Boots the in-tree `.vite/build` app, same as the other e2e specs — needs
  * `pnpm build:e2e` first (`pnpm test:e2e` does that).
  */
@@ -59,8 +71,15 @@ function launchWithProject() {
     path.join(projectDir, 'notes', 'Cited Evidence.md'),
     `---\ntitle: Cited Evidence\nsupports: ${noteUri('notes/The Claim.md')}\n---\n\n# Cited Evidence\n\nThe supporting case.\n`,
   );
+  // At the project root, not under notes/ — the sidebar tree starts with
+  // every folder collapsed on a fresh launch (Sidebar.svelte's `expanded`
+  // state seeds to `{}`; there's no persisted session/tabs state the way
+  // tests/fixtures/sample-project's committed .minerva/tabs.json gives every
+  // OTHER e2e spec that clicks a file under notes/ "for free"), so a nested
+  // file's row never mounts in the DOM without first expanding its folder.
+  // Root-level rows aren't gated by `expanded` at all.
   fs.writeFileSync(
-    path.join(projectDir, 'notes', 'Host.md'),
+    path.join(projectDir, 'Host.md'),
     '---\ntitle: Host\n---\n\n# Host\n\n:::argument\n[[The Claim]]\n:::\n',
   );
 
@@ -83,8 +102,8 @@ test('argument map: renders a real supports edge as a clickable outline (#907)',
     const win = await app.firstWindow({ timeout: 20_000 });
     await waitForWorkspace(win);
 
-    await expect(win.locator('[data-relative-path="notes/Host.md"]').first()).toBeVisible({ timeout: 10_000 });
-    await win.locator('[data-relative-path="notes/Host.md"]').first().click();
+    await expect(win.locator('[data-relative-path="Host.md"]').first()).toBeVisible({ timeout: 10_000 });
+    await win.locator('[data-relative-path="Host.md"]').first().click();
     await expect(win.locator('.cm-content')).toBeVisible({ timeout: 10_000 });
 
     await win.getByRole('button', { name: 'Preview', exact: true }).click();
