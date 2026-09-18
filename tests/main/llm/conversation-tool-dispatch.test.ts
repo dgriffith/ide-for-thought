@@ -33,7 +33,7 @@ vi.mock('@anthropic-ai/sdk', () => {
 
 vi.mock('../../../src/main/llm/settings', () => ({ getSettings: getSettingsMock }));
 
-import { completeWithTools } from '../../../src/main/llm/index';
+import { completeWithTools, toolResultSignalsDrafted } from '../../../src/main/llm/index';
 
 /** Mint a stream-shaped object that resolves to `message` on finalMessage(). */
 function streamReturning(message: Anthropic.Message): unknown {
@@ -319,5 +319,167 @@ describe('completeWithTools() dispatch loop (#342)', () => {
     // Check there's no model-authored prose by ensuring the placeholder
     // text the test would have used is absent.
     expect(result.text).not.toContain('Final answer.');
+  });
+
+  it('compacts a drafted proposal tool_use block once it executes (#2024)', async () => {
+    const bigContent = 'x'.repeat(500);
+    const bundleInput = {
+      note: 'Bundle',
+      payloads: [{ kind: 'note', relativePath: 'notes/a.md', content: bigContent }],
+    };
+    const snapshots = setupStreamWith([
+      toolUseMessage('propose_notes', bundleInput, 'tu-draft'),
+      textMessage('Drafted 1 note for review.'),
+    ]);
+
+    const drafts: unknown[] = [];
+    await completeWithTools({
+      system: 'sys',
+      messages: [{ role: 'user', content: 'file a note' }],
+      toolContext: { rootPath: root, conversationId: 'conv-1' },
+      callbacks: { onChunk: () => undefined, onDraft: (d) => drafts.push(d) },
+    });
+
+    // The real payload reached the renderer out-of-band...
+    expect(drafts).toHaveLength(1);
+
+    // ...so iteration 2's request must no longer carry the original bundle
+    // content in the tool_use block — only the stub.
+    const secondMessages = snapshots[1];
+    const assistantTurn = secondMessages[1];
+    expect(assistantTurn.role).toBe('assistant');
+    const block = (assistantTurn.content as Anthropic.ToolUseBlockParam[])[0];
+    expect(block.type).toBe('tool_use');
+    expect(JSON.stringify(block.input)).not.toContain(bigContent);
+    expect(block.input).toMatchObject({ compacted: true });
+  });
+
+  it('leaves a non-proposal tool_use block untouched', async () => {
+    const notePath = 'notes/hello.md';
+    await fsp.mkdir(path.join(root, 'notes'), { recursive: true });
+    await fsp.writeFile(path.join(root, notePath), '# Hello\n', 'utf-8');
+
+    const snapshots = setupStreamWith([
+      toolUseMessage('read_note', { relative_path: notePath }, 'tu-1'),
+      textMessage('Final answer.'),
+    ]);
+
+    await completeWithTools({
+      system: 'sys',
+      messages: [{ role: 'user', content: 'read it' }],
+      toolContext: { rootPath: root },
+    });
+
+    const secondMessages = snapshots[1];
+    const block = (secondMessages[1].content as Anthropic.ToolUseBlockParam[])[0];
+    expect(block.input).toEqual({ relative_path: notePath });
+  });
+
+  it('stops before an oversized iteration, without another provider call (#2025)', async () => {
+    setupStreamWith([
+      toolUseMessageWithUsage('read_note', { relative_path: 'missing.md' }, 'tu-1', {
+        input_tokens: 190_000,
+        output_tokens: 10,
+        cache_creation_input_tokens: 0,
+        cache_read_input_tokens: 0,
+      }),
+      textMessage('should never be reached'),
+    ]);
+
+    const chunks: string[] = [];
+    const result = await completeWithTools({
+      system: 'sys',
+      messages: [{ role: 'user', content: 'go' }],
+      toolContext: { rootPath: root },
+      callbacks: { onChunk: (c) => chunks.push(c) },
+    });
+
+    expect(streamMock).toHaveBeenCalledTimes(1);
+    expect(result.text).toContain('more content than fits in one exchange');
+    expect(result.text).not.toContain('should never be reached');
+    // Streamed live too, same as the token-cap message above.
+    expect(chunks.join('')).toContain('more content than fits in one exchange');
+  });
+
+  it('stops before an oversized iteration even with no callbacks object', async () => {
+    setupStreamWith([
+      toolUseMessageWithUsage('read_note', { relative_path: 'missing.md' }, 'tu-1', {
+        input_tokens: 190_000,
+        output_tokens: 10,
+        cache_creation_input_tokens: 0,
+        cache_read_input_tokens: 0,
+      }),
+      textMessage('should never be reached'),
+    ]);
+
+    const result = await completeWithTools({
+      system: 'sys',
+      messages: [{ role: 'user', content: 'go' }],
+      toolContext: { rootPath: root },
+    });
+
+    expect(streamMock).toHaveBeenCalledTimes(1);
+    expect(result.text).toContain('more content than fits in one exchange');
+  });
+
+  it('does not trip the budget guard under the threshold', async () => {
+    setupStreamWith([
+      toolUseMessageWithUsage('read_note', { relative_path: 'missing.md' }, 'tu-1', {
+        input_tokens: 1000,
+        output_tokens: 10,
+        cache_creation_input_tokens: 0,
+        cache_read_input_tokens: 0,
+      }),
+      textMessage('Final answer.'),
+    ]);
+
+    const result = await completeWithTools({
+      system: 'sys',
+      messages: [{ role: 'user', content: 'go' }],
+      toolContext: { rootPath: root },
+    });
+
+    expect(streamMock).toHaveBeenCalledTimes(2);
+    expect(result.text).toContain('Final answer.');
+    expect(result.text).not.toContain('fits in one exchange');
+  });
+});
+
+describe('toolResultSignalsDrafted (#2024)', () => {
+  it('recognizes a pure-JSON drafted result', () => {
+    expect(toolResultSignalsDrafted(JSON.stringify({
+      status: 'drafted',
+      draftId: 'draft-1',
+      hint: 'STOP. Review it.',
+    }))).toBe(true);
+  });
+
+  it('recognizes a drafted result with a trailing human-readable suffix', () => {
+    // propose_notes/propose_compute/propose_claims/propose_sources/
+    // propose_source_properties/set_properties all append text after the
+    // JSON blob — a strict JSON.parse would reject these outright.
+    const content = JSON.stringify({ status: 'drafted', hint: 'STOP. Review it.' })
+      + '\n\n(filed as draft: notes/a.md)';
+    expect(toolResultSignalsDrafted(content)).toBe(true);
+  });
+
+  it('rejects a result with no hint field', () => {
+    expect(toolResultSignalsDrafted(JSON.stringify({ status: 'ok', count: 3 }))).toBe(false);
+  });
+
+  it('rejects a hint that doesn\'t start with STOP', () => {
+    expect(toolResultSignalsDrafted(JSON.stringify({ hint: 'Keep going.' }))).toBe(false);
+  });
+
+  it('rejects non-JSON content', () => {
+    expect(toolResultSignalsDrafted('# Hello\nFile body.')).toBe(false);
+  });
+
+  it('rejects a hint whose captured text is not valid JSON once unescaped', () => {
+    // An unrecognized escape sequence (`\q`) inside the hint value makes the
+    // extracted group fail `JSON.parse` even though the outer regex matched —
+    // exercises the catch branch. Falls back to "not drafted" rather than
+    // throwing.
+    expect(toolResultSignalsDrafted('{"hint":"STOP \\q bad escape"}')).toBe(false);
   });
 });

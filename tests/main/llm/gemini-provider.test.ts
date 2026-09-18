@@ -81,6 +81,53 @@ describe('GoogleProvider — history shaping', () => {
       ],
     });
   });
+
+  it('compactToolUseInputs stubs a matching call\'s args by encoded id, leaves others + text alone (#2024)', () => {
+    const assistant = {
+      role: 'model',
+      parts: [
+        { text: 'checking...' },
+        { functionCall: { id: 'fc1', name: 'propose_notes', args: { big: 'payload' } } },
+        { functionCall: { name: 'read_note', args: { relative_path: 'a.md' } } },
+      ],
+    };
+    const next = provider.compactToolUseInputs(
+      assistant as unknown as ReturnType<typeof provider.ingestHistory>[number],
+      new Set(['fc1::propose_notes']),
+      { compacted: true },
+    );
+    expect(next).toEqual({
+      role: 'model',
+      parts: [
+        { text: 'checking...' },
+        { functionCall: { id: 'fc1', name: 'propose_notes', args: { compacted: true } } },
+        { functionCall: { name: 'read_note', args: { relative_path: 'a.md' } } },
+      ],
+    });
+  });
+
+  it('compactToolUseInputs is a no-op with an empty id set', () => {
+    const assistant = { role: 'model', parts: [{ text: 'hi' }] };
+    const message = assistant as unknown as ReturnType<typeof provider.ingestHistory>[number];
+    expect(provider.compactToolUseInputs(message, new Set(), {})).toBe(message);
+  });
+
+  it('compactToolUseInputs treats a message with no parts as empty', () => {
+    const assistant = { role: 'model' };
+    const message = assistant as unknown as ReturnType<typeof provider.ingestHistory>[number];
+    expect(provider.compactToolUseInputs(message, new Set(['fc1::search']), {})).toEqual({
+      role: 'model',
+      parts: [],
+    });
+  });
+
+  it('compactToolUseInputs falls back to an empty name for an unnamed functionCall', () => {
+    // Malformed input in practice (Gemini always names its calls), but the
+    // encode step shouldn't throw on it — it just won't match any real id.
+    const assistant = { role: 'model', parts: [{ functionCall: { id: 'fc9' } }] };
+    const message = assistant as unknown as ReturnType<typeof provider.ingestHistory>[number];
+    expect(provider.compactToolUseInputs(message, new Set(['fc1::search']), {})).toEqual(assistant);
+  });
 });
 
 describe('GoogleProvider — runTurn (injected stream)', () => {

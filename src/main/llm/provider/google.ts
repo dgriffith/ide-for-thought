@@ -124,6 +124,22 @@ export class GoogleProvider implements LLMProvider {
     return { role: 'user', parts } as Content as unknown as ProviderMessage;
   }
 
+  compactToolUseInputs(
+    message: ProviderMessage,
+    toolUseIds: ReadonlySet<string>,
+    stub: unknown,
+  ): ProviderMessage {
+    if (toolUseIds.size === 0) return message;
+    const content = message as unknown as Content;
+    const parts = (content.parts ?? []).map((part) => {
+      if (!part.functionCall) return part;
+      const encoded = encodeToolId(part.functionCall.name ?? '', part.functionCall.id);
+      if (!toolUseIds.has(encoded)) return part;
+      return { ...part, functionCall: { ...part.functionCall, args: stub as Record<string, unknown> } };
+    });
+    return { ...content, parts } as unknown as ProviderMessage;
+  }
+
   private buildConfig(system: string | undefined, tools: ToolSpec[], effort: Effort | undefined, signal: AbortSignal | undefined): GenerateContentConfig {
     const budget = thinkingBudgetFor(effort);
     return {

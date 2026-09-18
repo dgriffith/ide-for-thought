@@ -352,6 +352,23 @@ export async function completeWithTools(
   const MAX_CONSECUTIVE_ERROR_ITERS = 3;
   let consecutiveAllErrorIters = 0;
 
+  // Mid-loop token-budget guard (#2025). Neither `maxIterations` nor prompt
+  // caching bounds how big any ONE iteration's request actually is — a chain of
+  // legitimate tool calls (or a proposal hint the model ignores) can build a
+  // `history` that overflows the model's context window mid-turn, which today
+  // would otherwise surface as a raw API error instead of something Minerva
+  // explains. Each iteration's OWN usage (not the cumulative `usage` above,
+  // which sums across iterations for pricing per #820) approximates the
+  // context size that request just sent, since every iteration resends the
+  // whole growing history. 200k is the smallest context window among the
+  // models this app ships (Sonnet 4.6, Haiku 4.5, GPT-5.6, Gemini 2.5); stop
+  // comfortably under it so there's still room for the next response + tool
+  // results before the wall.
+  const MAX_ITERATION_CONTEXT_TOKENS = 180_000;
+  let lastIterationContextTokens = 0;
+
+  const COMPACTED_TOOL_INPUT_STUB = { compacted: true, note: 'Input omitted — already delivered out-of-band this turn.' };
+
   // Surface a tool call as a live "🔍 Searching…" indicator the moment the model
   // emits it — pushed inline into the transcript and streamed to the UI. The
   // provider fires this exactly once per block (client- or server-side).
@@ -365,6 +382,21 @@ export async function completeWithTools(
     logger('llm').debug(
       `iter=${iteration} container=${containerId ?? 'null'} historyLength=${history.length}`,
     );
+
+    // Bail before spending a request on a history that's already too big
+    // (#2025) — checked against the PRIOR iteration's own usage, since that's
+    // the closest available reading of how big the request we're about to send
+    // actually is.
+    if (lastIterationContextTokens >= MAX_ITERATION_CONTEXT_TOKENS) {
+      logger('conversation').warn(
+        `stopping before iter=${iteration}: prior iteration's context reached ${lastIterationContextTokens} tokens`,
+      );
+      const msg = '\n\n_(This turn generated more content than fits in one exchange — '
+        + 'try asking for a smaller batch, or continue in a fresh message.)_';
+      textPieces.push(msg);
+      if (callbacks) callbacks.onChunk(msg);
+      break;
+    }
 
     // Only the provider round-trip is wrapped — NOT the tool execution below.
     // A tool that throws is a tool bug, and dressing it up as "the provider
@@ -388,6 +420,9 @@ export async function completeWithTools(
     ), callbacks?.signal);
 
     sumUsage(usage, turn.usage);
+    lastIterationContextTokens = turn.usage.inputTokens + turn.usage.cacheReadTokens
+      + turn.usage.cacheCreationTokens;
+    const assistantMessageIndex = history.length;
     history.push(turn.assistantMessage);
     // Hold on to the container so the next iteration can reuse it; don't clear
     // it when a later turn reports none.
@@ -421,6 +456,7 @@ export async function completeWithTools(
     if (turn.toolCalls.length === 0) break;
 
     const toolResults: ProviderToolResult[] = [];
+    const compactableToolUseIds = new Set<string>();
     for (const use of turn.toolCalls) {
       logger('conversation').info(`tool call: ${use.name}`, JSON.stringify(use.input).slice(0, 200));
       const { content, isError } = await executeNotebaseTool(
@@ -431,8 +467,23 @@ export async function completeWithTools(
       );
       if (isError) {
         logger('conversation').warn(`tool ${use.name} returned error:`, content.slice(0, 300));
+      } else if (toolResultSignalsDrafted(content)) {
+        compactableToolUseIds.add(use.id);
       }
       toolResults.push({ toolUseId: use.id, content, isError });
+    }
+
+    // Once a proposal tool's real payload is safely out-of-band, the model's
+    // own input for that call is dead weight for the rest of the turn (#2024).
+    // Overwrite the assistant message already sitting in `history` in place —
+    // every remaining iteration re-sends that same array, so this is the one
+    // place a replacement here pays off for the whole rest of the turn.
+    if (compactableToolUseIds.size > 0) {
+      history[assistantMessageIndex] = provider.compactToolUseInputs(
+        turn.assistantMessage,
+        compactableToolUseIds,
+        COMPACTED_TOOL_INPUT_STUB,
+      );
     }
 
     history.push(provider.toolResultMessage(toolResults));
@@ -476,4 +527,36 @@ function sumUsage(acc: TurnUsage, turn: TurnUsage): TurnUsage {
   acc.cacheCreationTokens += turn.cacheCreationTokens;
   acc.cacheReadTokens += turn.cacheReadTokens;
   return acc;
+}
+
+/**
+ * Whether a tool's result signals the real payload was already delivered
+ * out-of-band — a drafted proposal card, or a `thought:Proposal` node filed
+ * directly — so the model's own `tool_use.input` for that call is now
+ * redundant (#2024). Every propose_* (and set_properties) tool's success
+ * payload already carries `hint: 'STOP...'` telling the model not to repeat itself;
+ * reusing that as the compaction signal avoids hardcoding a tool-name list
+ * that would go stale as new proposal tools are added.
+ *
+ * A regex over a leading `"hint"` substring rather than `JSON.parse(content)`
+ * on purpose: several of these tools (propose_notes, propose_compute,
+ * propose_claims, propose_sources, propose_source_properties,
+ * set_properties) append a short human-readable suffix after the JSON blob
+ * ("\n\n(filed as draft: ...)"), which a strict parse would reject wholesale.
+ *
+ * Exported for direct unit testing — it's a pure string→boolean check, no
+ * reason to only exercise it through the full agentic loop.
+ */
+const HINT_PATTERN = /"hint"\s*:\s*"((?:[^"\\]|\\.)*)"/;
+export function toolResultSignalsDrafted(content: string): boolean {
+  const match = content.match(HINT_PATTERN);
+  if (!match) return false;
+  try {
+    const hint = JSON.parse(`"${match[1]}"`) as string;
+    return hint.startsWith('STOP');
+  } catch {
+    // A malformed escape inside the captured hint (not something any current
+    // tool emits) — treat it the same as "no hint": don't compact.
+    return false;
+  }
 }
