@@ -367,30 +367,6 @@ export async function completeWithTools(
   const MAX_ITERATION_CONTEXT_TOKENS = 180_000;
   let lastIterationContextTokens = 0;
 
-  // Tools whose result signals the real payload was already delivered
-  // out-of-band this turn — a drafted proposal card, or a `thought:Proposal`
-  // node filed directly — so the model's own `tool_use.input` for that call is
-  // now redundant (#2024). Every propose_*/set_properties tool's success
-  // payload already carries `hint: 'STOP...'` telling the model not to repeat
-  // itself; reusing that as the compaction signal avoids hardcoding a
-  // tool-name list that would go stale as new proposal tools are added.
-  //
-  // A regex over a leading-`"hint"` substring rather than `JSON.parse(content)`
-  // on purpose: several of these tools (propose_notes, propose_compute,
-  // propose_claims, propose_sources, propose_source_properties,
-  // set_properties) append a short human-readable suffix after the JSON blob
-  // ("\n\n(filed as draft: ...)"), which a strict parse would reject wholesale.
-  const HINT_PATTERN = /"hint"\s*:\s*"((?:[^"\\]|\\.)*)"/;
-  const resultSignalsDrafted = (content: string): boolean => {
-    const match = content.match(HINT_PATTERN);
-    if (!match) return false;
-    try {
-      const hint = JSON.parse(`"${match[1]}"`) as string;
-      return hint.startsWith('STOP');
-    } catch {
-      return false;
-    }
-  };
   const COMPACTED_TOOL_INPUT_STUB = { compacted: true, note: 'Input omitted — already delivered out-of-band this turn.' };
 
   // Surface a tool call as a live "🔍 Searching…" indicator the moment the model
@@ -491,7 +467,7 @@ export async function completeWithTools(
       );
       if (isError) {
         logger('conversation').warn(`tool ${use.name} returned error:`, content.slice(0, 300));
-      } else if (resultSignalsDrafted(content)) {
+      } else if (toolResultSignalsDrafted(content)) {
         compactableToolUseIds.add(use.id);
       }
       toolResults.push({ toolUseId: use.id, content, isError });
@@ -551,4 +527,36 @@ function sumUsage(acc: TurnUsage, turn: TurnUsage): TurnUsage {
   acc.cacheCreationTokens += turn.cacheCreationTokens;
   acc.cacheReadTokens += turn.cacheReadTokens;
   return acc;
+}
+
+/**
+ * Whether a tool's result signals the real payload was already delivered
+ * out-of-band — a drafted proposal card, or a `thought:Proposal` node filed
+ * directly — so the model's own `tool_use.input` for that call is now
+ * redundant (#2024). Every propose_* (and set_properties) tool's success
+ * payload already carries `hint: 'STOP...'` telling the model not to repeat itself;
+ * reusing that as the compaction signal avoids hardcoding a tool-name list
+ * that would go stale as new proposal tools are added.
+ *
+ * A regex over a leading `"hint"` substring rather than `JSON.parse(content)`
+ * on purpose: several of these tools (propose_notes, propose_compute,
+ * propose_claims, propose_sources, propose_source_properties,
+ * set_properties) append a short human-readable suffix after the JSON blob
+ * ("\n\n(filed as draft: ...)"), which a strict parse would reject wholesale.
+ *
+ * Exported for direct unit testing — it's a pure string→boolean check, no
+ * reason to only exercise it through the full agentic loop.
+ */
+const HINT_PATTERN = /"hint"\s*:\s*"((?:[^"\\]|\\.)*)"/;
+export function toolResultSignalsDrafted(content: string): boolean {
+  const match = content.match(HINT_PATTERN);
+  if (!match) return false;
+  try {
+    const hint = JSON.parse(`"${match[1]}"`) as string;
+    return hint.startsWith('STOP');
+  } catch {
+    // A malformed escape inside the captured hint (not something any current
+    // tool emits) — treat it the same as "no hint": don't compact.
+    return false;
+  }
 }

@@ -114,18 +114,32 @@ describe('OpenAIProvider — history shaping', () => {
     ]);
   });
 
-  it('compactToolUseInputs stubs a matching call\'s arguments, leaves others alone (#2024)', () => {
-    const assistant = [{
-      role: 'assistant',
-      content: null,
-      tool_calls: [
-        { id: 'call_1', type: 'function', function: { name: 'propose_notes', arguments: '{"big":"payload"}' } },
-        { id: 'call_2', type: 'function', function: { name: 'read_note', arguments: '{"relative_path":"a.md"}' } },
-      ],
-    }] as unknown as ReturnType<typeof provider.ingestHistory>[number];
+  it('compactToolUseInputs stubs a matching call\'s arguments, leaves a non-matching call, a non-assistant message, and a tool-call-less assistant message alone (#2024)', () => {
+    const historyChunk = [
+      { role: 'user', content: 'irrelevant' },
+      { role: 'assistant', content: 'just text' },
+      {
+        role: 'assistant',
+        content: null,
+        tool_calls: [
+          { id: 'call_1', type: 'function', function: { name: 'propose_notes', arguments: '{"big":"payload"}' } },
+          { id: 'call_2', type: 'function', function: { name: 'read_note', arguments: '{"relative_path":"a.md"}' } },
+        ],
+      },
+    ] as unknown as ReturnType<typeof provider.ingestHistory>[number];
 
-    const next = provider.compactToolUseInputs(assistant, new Set(['call_1']), { compacted: true });
-    const calls = (next as unknown as { tool_calls: { id: string; function: { arguments: string } }[] }[])[0].tool_calls;
+    const next = provider.compactToolUseInputs(historyChunk, new Set(['call_1']), { compacted: true });
+    const messages = next as unknown as {
+      role: string;
+      content: unknown;
+      tool_calls?: { id: string; function: { arguments: string } }[];
+    }[];
+
+    // Messages this method has no business touching pass through untouched.
+    expect(messages[0]).toEqual({ role: 'user', content: 'irrelevant' });
+    expect(messages[1]).toEqual({ role: 'assistant', content: 'just text' });
+
+    const calls = messages[2]!.tool_calls!;
     expect(JSON.parse(calls[0]!.function.arguments)).toEqual({ compacted: true });
     expect(calls[1]!.function.arguments).toBe('{"relative_path":"a.md"}');
   });

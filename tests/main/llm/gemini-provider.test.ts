@@ -111,6 +111,23 @@ describe('GoogleProvider — history shaping', () => {
     const message = assistant as unknown as ReturnType<typeof provider.ingestHistory>[number];
     expect(provider.compactToolUseInputs(message, new Set(), {})).toBe(message);
   });
+
+  it('compactToolUseInputs treats a message with no parts as empty', () => {
+    const assistant = { role: 'model' };
+    const message = assistant as unknown as ReturnType<typeof provider.ingestHistory>[number];
+    expect(provider.compactToolUseInputs(message, new Set(['fc1::search']), {})).toEqual({
+      role: 'model',
+      parts: [],
+    });
+  });
+
+  it('compactToolUseInputs falls back to an empty name for an unnamed functionCall', () => {
+    // Malformed input in practice (Gemini always names its calls), but the
+    // encode step shouldn't throw on it — it just won't match any real id.
+    const assistant = { role: 'model', parts: [{ functionCall: { id: 'fc9' } }] };
+    const message = assistant as unknown as ReturnType<typeof provider.ingestHistory>[number];
+    expect(provider.compactToolUseInputs(message, new Set(['fc1::search']), {})).toEqual(assistant);
+  });
 });
 
 describe('GoogleProvider — runTurn (injected stream)', () => {
