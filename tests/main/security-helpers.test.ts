@@ -63,6 +63,12 @@ describe('buildCsp (#339)', () => {
     expect(csp).toMatch(/form-action 'none'/);
   });
 
+  it("frame-src is 'self' only (#1535) — same-document srcdoc iframes, no external frame targets", () => {
+    const csp = buildCsp();
+    const frameSrc = csp.match(/frame-src ([^;]+)/)![1];
+    expect(frameSrc).toBe("'self'");
+  });
+
   it('dev mode adds the Vite origin to script-src and connect-src + ws to connect-src', () => {
     const csp = buildCsp({ devServerOrigin: 'http://localhost:5173' });
     expect(csp).toMatch(/script-src 'self' 'wasm-unsafe-eval' blob: http:\/\/localhost:5173/);

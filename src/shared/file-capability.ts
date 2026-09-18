@@ -69,3 +69,18 @@ export function fileCapability(pathOrName: string): FileCapability {
 export function isTextEditable(pathOrName: string): boolean {
   return fileCapability(pathOrName) !== 'unsupported';
 }
+
+/**
+ * True for `.html`/`.htm` files specifically — the one `plaintext`-capability
+ * extension that also gets a rendered preview surface (#1535), the same
+ * Source/Side-by-side/Preview toggle `markdown`-capability files get. Every
+ * other `plaintext` file (`.txt`, `.json`, `.css`, …) has no preview at all;
+ * checking the extension here rather than widening `FileCapability` itself
+ * keeps the source/plaintext/unsupported taxonomy about *editability*, and
+ * "can this ALSO render" as an orthogonal, narrower question the editor host
+ * asks on top of it.
+ */
+export function isHtmlFile(pathOrName: string): boolean {
+  const ext = extensionOf(pathOrName);
+  return ext === '.html' || ext === '.htm';
+}

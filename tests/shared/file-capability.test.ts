@@ -4,7 +4,7 @@
  * `unsupported` so it's never read as text.
  */
 import { describe, it, expect } from 'vitest';
-import { fileCapability, isTextEditable, extensionOf } from '../../src/shared/file-capability';
+import { fileCapability, isTextEditable, extensionOf, isHtmlFile } from '../../src/shared/file-capability';
 
 describe('fileCapability (#1130)', () => {
   it('routes the existing editor types to markdown', () => {
@@ -44,5 +44,25 @@ describe('fileCapability (#1130)', () => {
     expect(extensionOf('notes/Foo.MD')).toBe('.md');
     expect(extensionOf('noext')).toBe('');
     expect(extensionOf('.gitignore')).toBe('.gitignore');
+  });
+});
+
+describe('isHtmlFile (#1535)', () => {
+  it('is true for .html and .htm, case-insensitively, at any path depth', () => {
+    for (const p of ['a.html', 'a.htm', 'notes/deep/B.HTML', 'notes/C.Htm']) {
+      expect(isHtmlFile(p), p).toBe(true);
+    }
+  });
+
+  it('is false for every other plaintext extension, markdown types, and unsupported types', () => {
+    for (const p of ['a.txt', 'a.xml', 'a.md', 'a.csv', 'a.png', 'mystery']) {
+      expect(isHtmlFile(p), p).toBe(false);
+    }
+  });
+
+  it('agrees with fileCapability: every isHtmlFile path is plaintext-capable', () => {
+    for (const p of ['a.html', 'a.htm']) {
+      expect(fileCapability(p)).toBe('plaintext');
+    }
   });
 });
