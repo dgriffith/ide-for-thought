@@ -35,6 +35,13 @@ export interface PropertyUpdate {
 
 export interface ConversationPropertyDraft extends ConversationToolDraft {
   updates: PropertyUpdate[];
+  /** Per-update problems found while building the draft (most commonly: no
+   *  such note — an LLM-hallucinated or mis-transliterated path used to sail
+   *  straight through to a review card with no warning at all). Surfaced on
+   *  the card so a batch that came back smaller than requested explains
+   *  itself rather than silently shrinking, mirroring
+   *  `ConversationNoteBodyDraft.warnings`. */
+  warnings: string[];
 }
 
 /** Per-update result returned by `CONVERSATION_FILE_PROPERTY_DRAFT`. */
