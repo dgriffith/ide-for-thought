@@ -26,6 +26,7 @@
    */
   import { api } from '../ipc/client';
   import { hydrateMermaidBlocks } from '../markdown/mermaid-renderer';
+  import { normalizeColor } from '../utils/oklch';
   import { logger } from '../../../shared/logger';
   import {
     MAX_DEPTH,
@@ -126,10 +127,29 @@
 
   $effect(() => { void load(); });
 
+  /** Mermaid's `classDef`/`style` grammar rejects `var(--x)` outright (it's
+   *  not parsed as CSS), and its color lib can't parse `oklch()` either — so
+   *  theme tokens must be resolved to concrete sRGB colors here, same as
+   *  `mermaid-renderer.ts`'s `readThemeTokens` does for the diagram's base
+   *  theme variables. */
+  function resolveMermaidColors() {
+    const cs = getComputedStyle(document.documentElement);
+    const get = (name: string) => normalizeColor(cs.getPropertyValue(name).trim());
+    return {
+      support: get('--sage'),
+      attack: get('--rust'),
+      qualify: get('--hl-yellow'),
+      otherFill: get('--bg-elev-2'),
+      otherBorder: get('--border'),
+      otherText: get('--text'),
+      onColoredText: get('--bg'),
+    };
+  }
+
   let mermaidHost = $state<HTMLDivElement>();
   $effect(() => {
     if (view !== 'diagram' || status !== 'ready' || !mermaidHost || !focusUri) return;
-    const source = buildArgumentMermaid(focusUri, focusLabel, visibleNodes);
+    const source = buildArgumentMermaid(focusUri, focusLabel, visibleNodes, resolveMermaidColors());
     mermaidHost.classList.add('mermaid-block');
     mermaidHost.dataset.mermaidSource = source;
     mermaidHost.removeAttribute('data-mermaid-rendered');

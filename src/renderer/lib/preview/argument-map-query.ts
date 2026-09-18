@@ -234,12 +234,45 @@ function mermaidId(index: number): string {
   return `n${index}`;
 }
 
+/** Concrete (not `var(--x)`) colors for the four `classDef`s below — Mermaid
+ *  parses `classDef`/`style` values with its own tiny grammar, not as CSS, and
+ *  that grammar rejects `var(--sage)` outright ("got '(-'"), so the caller
+ *  must resolve theme tokens to real colors before this is called.
+ *  `ArgumentMap.svelte` does that from `getComputedStyle` (mirroring
+ *  `mermaid-renderer.ts`'s `readThemeTokens`, oklch→hex included since
+ *  mermaid's color lib can't parse `oklch()` either); this fallback only
+ *  covers pure/test callers that don't care what the colors actually are. */
+export interface ArgumentMermaidColors {
+  support: string;
+  attack: string;
+  qualify: string;
+  otherFill: string;
+  otherBorder: string;
+  otherText: string;
+  onColoredText: string;
+}
+
+const FALLBACK_COLORS: ArgumentMermaidColors = {
+  support: '#8ec07c',
+  attack: '#e06c75',
+  qualify: '#e5c07b',
+  otherFill: '#3b3f4c',
+  otherBorder: '#565f76',
+  otherText: '#d3d8e0',
+  onColoredText: '#1e1e2e',
+};
+
 /**
  * Build `graph TD` Mermaid source for the given (already depth-filtered)
  * node set, fed through the SAME hydration pipeline authored ` ```mermaid `
  * fences already use (`hydrateMermaidBlocks`) — no new rendering engine.
  */
-export function buildArgumentMermaid(focusUri: string, focusLabel: string, nodes: readonly ArgumentNode[]): string {
+export function buildArgumentMermaid(
+  focusUri: string,
+  focusLabel: string,
+  nodes: readonly ArgumentNode[],
+  colors: ArgumentMermaidColors = FALLBACK_COLORS,
+): string {
   const lines: string[] = ['graph TD'];
   const idFor = new Map<string, string>([[focusUri, 'focus']]);
   lines.push(`  focus["${mermaidEscape(focusLabel)}"]`);
@@ -261,14 +294,10 @@ export function buildArgumentMermaid(focusUri: string, focusLabel: string, nodes
     lines.push(`  class ${id} ${MERMAID_CLASS_FOR[n.kind]}`);
   }
 
-  // CSS custom-property references, not literal colors — `sanitizeDiagramSvg`
-  // preserves inline styles, and the rendered SVG lives in the app's own DOM,
-  // so it inherits the theme tokens like any other element (dark/light/
-  // contrast all resolve `--sage`/`--rust`/`--hl-yellow` themselves).
-  lines.push('  classDef argSupport fill:var(--sage),stroke:var(--sage),color:var(--bg)');
-  lines.push('  classDef argAttack fill:var(--rust),stroke:var(--rust),color:var(--bg)');
-  lines.push('  classDef argQualify fill:var(--hl-yellow),stroke:var(--hl-yellow),color:var(--bg)');
-  lines.push('  classDef argOther fill:var(--bg-elev-2),stroke:var(--border),color:var(--text)');
+  lines.push(`  classDef argSupport fill:${colors.support},stroke:${colors.support},color:${colors.onColoredText}`);
+  lines.push(`  classDef argAttack fill:${colors.attack},stroke:${colors.attack},color:${colors.onColoredText}`);
+  lines.push(`  classDef argQualify fill:${colors.qualify},stroke:${colors.qualify},color:${colors.onColoredText}`);
+  lines.push(`  classDef argOther fill:${colors.otherFill},stroke:${colors.otherBorder},color:${colors.otherText}`);
 
   return lines.join('\n');
 }
