@@ -71,9 +71,15 @@ export function buildCsp(opts: CspOptions = {}): string {
     // Local audio/video (#908) is hydrated to `blob:` URLs from vault bytes —
     // local-only; no external media origins (no phone-home).
     'media-src': ["'self'", 'blob:'],
-    // No <object>/<embed>; no <iframe> embed targets either.
+    // No <object>/<embed>.
     'object-src': ["'none'"],
-    'frame-src': ["'none'"],
+    // 'self' (not 'none') so the HTML-file preview (#1535) can embed its
+    // sandboxed `srcdoc` iframe — same-document content, not a navigation to
+    // an external origin. The iframe's OWN document is locked down
+    // separately, by its `sandbox` attribute (no allow-same-origin) and a
+    // `csp` attribute the embedder imposes on it (see HtmlPreview.svelte) —
+    // this directive only gates whether the *frame itself* may exist here.
+    'frame-src': ["'self'"],
     // Defense in depth: prevent the renderer from being framed.
     'frame-ancestors': ["'none'"],
     // Anchor `<base href="…">` tag injection can't repoint relative URLs.

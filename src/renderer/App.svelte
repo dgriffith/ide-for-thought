@@ -16,6 +16,7 @@
   import Icon from './lib/components/Icon.svelte';
   import type { CursorInfo } from './lib/components/Editor.svelte';
   import Preview from './lib/components/Preview.svelte';
+  import HtmlPreview from './lib/components/HtmlPreview.svelte';
   import SourceDetail from './lib/components/SourceDetail.svelte';
   import { onMount } from 'svelte';
   import { getNotebaseStore } from './lib/stores/notebase.svelte';
@@ -103,6 +104,7 @@
   import { PROVIDERS } from '../shared/tools/providers';
   import { runCellWithTrust } from './lib/compute/run-cell-with-trust';
   import { findRunnableFences, RUNNABLE_LANGUAGE_SET } from '../shared/compute/fences';
+  import { isHtmlFile } from '../shared/file-capability';
   import { toggleTaskOnLine } from './lib/editor/task-toggle';
 
 
@@ -1163,6 +1165,7 @@
                 {@const note = active}
                 {@const hasRunnableFences =
                   findRunnableFences(note.content, RUNNABLE_LANGUAGE_SET).length > 0}
+                {@const isHtmlPreview = (note.plainText ?? false) && isHtmlFile(note.relativePath)}
                 <div class="toolbar">
                   {#if hasRunnableFences}
                     <button
@@ -1178,9 +1181,11 @@
                       title="Recompute all cells (top to bottom, stops on error)"
                     ><Icon name="run-all" size={12} /></button>
                   {/if}
-                  {#if !note.plainText}
+                  {#if !note.plainText || isHtmlPreview}
                     <!-- A plain-text file has no rendered preview (#1130) — the
-                         source/preview toggle would offer empty views. -->
+                         source/preview toggle would offer empty views. `.html`/
+                         `.htm` are the one exception (#1535): still `plainText`
+                         (editable as raw source), but ALSO get a preview. -->
                     <div class="view-toggle">
                       <button
                         class:active={group.viewMode === 'source'}
@@ -1221,8 +1226,8 @@
                     title="Toggle Right Sidebar (Cmd+Shift+B)"
                   ><Icon name="outline" size={12} /></button>
                 </div>
-                <div class="editor-content" class:editor-preview={group.viewMode === 'editor-preview' && !note.plainText}>
-                  {#if note.plainText || group.viewMode === 'source' || group.viewMode === 'editor-preview'}
+                <div class="editor-content" class:editor-preview={group.viewMode === 'editor-preview' && (!note.plainText || isHtmlPreview)}>
+                  {#if (note.plainText && !isHtmlPreview) || group.viewMode === 'source' || group.viewMode === 'editor-preview'}
                     <div class="editor-panel">
                       {#key groupId + ':' + note.relativePath}
                         <Editor
@@ -1315,6 +1320,11 @@
                         }
                         onApplyCellOutputEdit={(newContent) => { editor.setContent(newContent, groupId); }}
                       />
+                    </div>
+                  {/if}
+                  {#if isHtmlPreview && (group.viewMode === 'preview' || group.viewMode === 'editor-preview')}
+                    <div class="preview-panel">
+                      <HtmlPreview content={note.content} />
                     </div>
                   {/if}
                 </div>
