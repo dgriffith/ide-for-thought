@@ -150,6 +150,11 @@ const SWALLOW_BASELINE: Record<string, number> = {
   'src/main/graph/parser.ts': 1,
   'src/main/images/remote-image-cache.ts': 2,
   'src/main/llm/conversation.ts': 2,
+  // #2024's `resultSignalsDrafted` JSON.parse-of-an-extracted-hint-string catch
+  // is the same shape as `parseToolArgs` below: malformed/absent input is an
+  // ordinary "no match" outcome (a tool result that isn't a drafted-proposal
+  // payload), not a swallowed system error.
+  'src/main/llm/index.ts': 1,
   'src/main/llm/provider/openai.ts': 1,
   'src/main/llm/settings.ts': 1,
   'src/main/llm/thoughtbase-doc.ts': 1,

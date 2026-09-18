@@ -136,6 +136,19 @@ export class AnthropicProvider implements LLMProvider {
     return { role: 'user', content } as unknown as ProviderMessage;
   }
 
+  compactToolUseInputs(
+    message: ProviderMessage,
+    toolUseIds: ReadonlySet<string>,
+    stub: unknown,
+  ): ProviderMessage {
+    if (toolUseIds.size === 0) return message;
+    const native = message as unknown as { role: 'assistant'; content: Anthropic.ContentBlock[] };
+    const content = native.content.map((block) => (
+      block.type === 'tool_use' && toolUseIds.has(block.id) ? { ...block, input: stub } : block
+    ));
+    return { role: 'assistant', content } as unknown as ProviderMessage;
+  }
+
   private buildTools(specs: ToolSpec[], web: WebToolSettings): Anthropic.Messages.ToolUnion[] {
     // ToolSpec is structurally an Anthropic.Tool (name/description/input_schema).
     const tools: Anthropic.Messages.ToolUnion[] = specs.map((s) => s as Anthropic.Tool);

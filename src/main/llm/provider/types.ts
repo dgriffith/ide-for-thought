@@ -151,6 +151,21 @@ export interface LLMProvider {
   ingestHistory(messages: ChatMessage[]): ProviderMessage[];
   /** Wrap executed tool results as a native user-role message. */
   toolResultMessage(results: ProviderToolResult[]): ProviderMessage;
+  /**
+   * Replace the `input` of specific already-executed tool_use blocks within an
+   * assistant message with `stub` (#2024). The agentic loop calls this once a
+   * tool's result signals its real payload was delivered out-of-band (a
+   * drafted proposal card, or a `thought:Proposal` node filed directly) — the
+   * model never needs to see its own input again this turn, so leaving the
+   * full note body/bundle sitting in `history` for every remaining iteration
+   * is pure waste. This is a context-*size* saving, independent of prompt
+   * caching: caching makes re-reading the block cheap, but does nothing about
+   * how much of the window it occupies.
+   *
+   * Returns a new message; never mutates `message`. A no-op (returns `message`
+   * unchanged) when `toolUseIds` is empty or matches nothing.
+   */
+  compactToolUseInputs(message: ProviderMessage, toolUseIds: ReadonlySet<string>, stub: unknown): ProviderMessage;
   /** Run ONE streaming model call, returning a neutral structured result. */
   runTurn(req: TurnRequest, hooks: TurnHooks): Promise<TurnResult>;
   /** Single-shot completion; streams via `onDelta` when provided. */

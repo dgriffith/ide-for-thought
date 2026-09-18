@@ -81,6 +81,36 @@ describe('GoogleProvider — history shaping', () => {
       ],
     });
   });
+
+  it('compactToolUseInputs stubs a matching call\'s args by encoded id, leaves others + text alone (#2024)', () => {
+    const assistant = {
+      role: 'model',
+      parts: [
+        { text: 'checking...' },
+        { functionCall: { id: 'fc1', name: 'propose_notes', args: { big: 'payload' } } },
+        { functionCall: { name: 'read_note', args: { relative_path: 'a.md' } } },
+      ],
+    };
+    const next = provider.compactToolUseInputs(
+      assistant as unknown as ReturnType<typeof provider.ingestHistory>[number],
+      new Set(['fc1::propose_notes']),
+      { compacted: true },
+    );
+    expect(next).toEqual({
+      role: 'model',
+      parts: [
+        { text: 'checking...' },
+        { functionCall: { id: 'fc1', name: 'propose_notes', args: { compacted: true } } },
+        { functionCall: { name: 'read_note', args: { relative_path: 'a.md' } } },
+      ],
+    });
+  });
+
+  it('compactToolUseInputs is a no-op with an empty id set', () => {
+    const assistant = { role: 'model', parts: [{ text: 'hi' }] };
+    const message = assistant as unknown as ReturnType<typeof provider.ingestHistory>[number];
+    expect(provider.compactToolUseInputs(message, new Set(), {})).toBe(message);
+  });
 });
 
 describe('GoogleProvider — runTurn (injected stream)', () => {

@@ -136,6 +136,30 @@ export class OpenAIProvider implements LLMProvider {
     return msgs as unknown as ProviderMessage;
   }
 
+  compactToolUseInputs(
+    message: ProviderMessage,
+    toolUseIds: ReadonlySet<string>,
+    stub: unknown,
+  ): ProviderMessage {
+    if (toolUseIds.size === 0) return message;
+    // `arguments` is a JSON string on the wire, unlike Anthropic/Gemini's
+    // structured input — stringify the stub once up front.
+    const stubArgs = JSON.stringify(stub);
+    const chunk = message as unknown as ChatMsg[];
+    const next = chunk.map((m) => {
+      if (m.role !== 'assistant' || !m.tool_calls) return m;
+      return {
+        ...m,
+        tool_calls: m.tool_calls.map((tc) => (
+          toolUseIds.has(tc.id) && tc.type === 'function'
+            ? { ...tc, function: { ...tc.function, arguments: stubArgs } }
+            : tc
+        )),
+      };
+    });
+    return next as unknown as ProviderMessage;
+  }
+
   async runTurn(req: TurnRequest, hooks: TurnHooks): Promise<TurnResult> {
     const messages: ChatMsg[] = [
       { role: 'system', content: req.system },
