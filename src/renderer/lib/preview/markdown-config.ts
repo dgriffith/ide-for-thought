@@ -194,5 +194,70 @@ export function createPreviewMarkdown(deps: PreviewMarkdownDeps): MarkdownItInst
         return `<div class="query-block" data-type="${escapeAttr(type)}" data-query="${escapeAttr(query)}"${configJson ? ` data-config="${configJson}"` : ''}><span class="query-loading">Loading...</span></div>`;
     };
 
+    // Argument-map directive (#907): :::argument ... :::. Same config/body
+    // split as query_directive (key: value lines above an optional `---`,
+    // the focus wiki-link below) but its own rule/token/renderer — the data
+    // shape (a graph neighborhood) doesn't fit the `query-*` family, and the
+    // hydrator mounts a real component rather than building an HTML string
+    // (see argument-map-renderer.ts).
+    md.block.ruler.before('fence', 'argument_directive', (state: StateBlock, startLine: number, endLine: number, silent: boolean) => {
+        const startPos = state.bMarks[startLine]! + state.tShift[startLine]!;
+        const startMax = state.eMarks[startLine];
+        const lineText = state.src.slice(startPos, startMax);
+
+        if (!/^:::argument\s*$/.test(lineText)) return false;
+        if (silent) return true;
+
+        let nextLine = startLine + 1;
+        let found = false;
+        while (nextLine < endLine) {
+            const pos = state.bMarks[nextLine]! + state.tShift[nextLine]!;
+            const max = state.eMarks[nextLine];
+            const line = state.src.slice(pos, max).trim();
+            if (line === ':::') {
+                found = true;
+                break;
+            }
+            nextLine++;
+        }
+        if (!found) return false;
+
+        const contentStart = state.bMarks[startLine + 1];
+        const contentEnd = state.bMarks[nextLine];
+        const body = state.src.slice(contentStart, contentEnd).trim();
+
+        const sepIdx = body.indexOf('\n---\n');
+        const config: Record<string, string> = {};
+        let focusBody: string;
+        if (sepIdx >= 0) {
+            const configBlock = body.slice(0, sepIdx).trim();
+            focusBody = body.slice(sepIdx + 5).trim();
+            for (const line of configBlock.split('\n')) {
+                const colonIdx = line.indexOf(':');
+                if (colonIdx > 0) {
+                    const key = line.slice(0, colonIdx).trim();
+                    const value = line.slice(colonIdx + 1).trim();
+                    if (key && value) config[key] = value;
+                }
+            }
+        } else {
+            focusBody = body;
+        }
+
+        const token = state.push('argument_directive', 'div', 0);
+        token.content = focusBody;
+        token.meta = {config};
+        token.map = [startLine, nextLine + 1];
+        state.line = nextLine + 1;
+        return true;
+    });
+
+    md.renderer.rules.argument_directive = (tokens: Token[], idx: number) => {
+        const focus = tokens[idx]!.content;
+        const {config} = tokens[idx]!.meta as { config: Record<string, unknown> };
+        const configJson = Object.keys(config).length > 0 ? escapeAttr(JSON.stringify(config)) : '';
+        return `<div class="argument-map-block" data-focus="${escapeAttr(focus)}"${configJson ? ` data-config="${configJson}"` : ''}></div>`;
+    };
+
     return md;
 }
