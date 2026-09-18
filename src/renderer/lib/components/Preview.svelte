@@ -8,6 +8,7 @@
     import {hydrateMermaidBlocks, invalidateMermaidTheme} from '../markdown/mermaid-renderer';
     import {hydrateVegaBlocks, invalidateVegaTheme} from '../markdown/vega-renderer';
     import {hydrateObjectViewBlocks} from '../markdown/object-view-renderer';
+    import {hydrateArgumentMapBlocks, type ArgumentMapDeps} from '../markdown/argument-map-renderer';
     import {hydrateCardCallouts} from '../markdown/card-callout';
     import {slugify} from '../../../shared/slug';
     import {createPreviewMarkdown} from '../preview/markdown-config';
@@ -379,6 +380,8 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     // `{@html rendered}` has already replaced the old placeholder nodes, so
     // there's nothing left to re-derive keys from a DOM query.
     let activeObjectViews: ChartHandle[] = [];
+    // Live argument-map mounts (#907) — same shape/reasoning as activeObjectViews.
+    let activeArgumentMaps: ChartHandle[] = [];
 
     /**
      * Numeric-style preview bibliography (#110). Author-date / note styles
@@ -418,6 +421,18 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
             quoteMetaCache,
             queryPrefixes: QUERY_PREFIXES,
             resolvePath: (t) => resolveWikiLinkTarget(t, files, aliases),
+        };
+    }
+    // Argument-map embed (#907): same wiki-link resolver construction as
+    // typedCardDeps — the focus reference is an ordinary wiki-link.
+    function argumentMapDeps(): ArgumentMapDeps {
+        const files = (getNotePaths?.() ?? []).map((relativePath) => ({ relativePath, isDirectory: false }));
+        const aliases = Object.fromEntries((getAliases?.() ?? []).map((a) => [a.alias.toLowerCase(), a.relativePath]));
+        return {
+            queryPrefixes: QUERY_PREFIXES,
+            resolvePath: (t) => resolveWikiLinkTarget(t, files, aliases),
+            onNavigate,
+            activeMaps: activeArgumentMaps,
         };
     }
 
@@ -464,6 +479,9 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         // time this effect runs) is gone for good.
         activeObjectViews.forEach(v => v.destroy());
         activeObjectViews = [];
+        // Same reason again: unmount previous argument-map embeds (#907).
+        activeArgumentMaps.forEach(v => v.destroy());
+        activeArgumentMaps = [];
 
         requestAnimationFrame(() => {
             // Syntax-highlight fences off the critical render path (#1114).
@@ -508,6 +526,9 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
             // `resolveWikiLinkTarget`'s step-1 exact-match case, so no
             // separate "open by path" hook is needed.
             if (previewEl) hydrateObjectViewBlocks(previewEl, { revision, onOpenNote: onNavigate, activeViews: activeObjectViews });
+            // Argument-map embed hydration (#907) — mounts a live ArgumentMap
+            // into each `.argument-map-block` placeholder.
+            if (previewEl) hydrateArgumentMapBlocks(previewEl, argumentMapDeps());
             // Flashcard polish: tuck each [!card]'s answer (the part after `---`)
             // behind a collapsed "Show answer" disclosure.
             if (previewEl) hydrateCardCallouts(previewEl);
