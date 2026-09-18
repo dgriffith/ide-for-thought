@@ -5,6 +5,25 @@
  * with a `supports: <claim-uri>` frontmatter value) is picked up by the
  * embed's SPARQL traversal and rendered as a real, clickable outline.
  *
+ * Every note is written to disk BEFORE `electron.launch()`, matching every
+ * other e2e spec's fixture pattern — not via `window.api.notebase.writeFile`
+ * after boot. A first attempt did the latter and was reliably flaky in CI:
+ * the sidebar tree only picks up a post-boot IPC write via the filesystem
+ * watcher's own broadcast (`NOTEBASE_WRITE_FILE`'s handler explicitly
+ * suppresses its OWN broadcast — see the "Renderer-initiated save" comment in
+ * register-notebase.ts — on the theory that the caller already knows what it
+ * wrote), and that round-trip isn't proven-reliable within a short timeout on
+ * a CI runner. Pre-placing files sidesteps the question entirely: they're
+ * indexed the same way the initial `sample-project` fixture always has been.
+ *
+ * The one thing that DOES need a real value — the claim's graph URI, for the
+ * grounds note's `supports:` frontmatter — is computed by hand rather than
+ * looked up at runtime. The scheme (`baseUri + 'note/' + encoded relative
+ * path`) is fully deterministic (`src/main/graph/uri-helpers.ts`'s `noteUri`),
+ * and `.minerva/config.json` pins `baseUri` explicitly so the computation
+ * doesn't depend on guessing the OS username / project dirname the real
+ * auto-coining (`coinBaseUri`) would otherwise use.
+ *
  * Boots the in-tree `.vite/build` app, same as the other e2e specs — needs
  * `pnpm build:e2e` first (`pnpm test:e2e` does that).
  */
@@ -12,18 +31,44 @@ import { test, expect, type Page } from '@playwright/test';
 import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
-import { launchMinerva, projectRoot } from './helpers/launch';
+import { launchMinerva } from './helpers/launch';
 
-async function launchWithProject() {
+const BASE_URI = 'https://sample.minerva.dev/argument-map-e2e/';
+
+/** Mirrors `noteUri()` in `src/main/graph/uri-helpers.ts` exactly — segment-
+ *  wise encoding so slashes survive, `.md`/`.ttl` stripped. */
+function noteUri(relativePath: string): string {
+  const clean = relativePath.replace(/\.(md|ttl)$/, '');
+  const encoded = clean.split('/').map(encodeURIComponent).join('/');
+  return `${BASE_URI}note/${encoded}`;
+}
+
+function launchWithProject() {
   const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-e2e-argmap-userdata-'));
   const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-e2e-argmap-project-'));
-  fs.cpSync(path.join(projectRoot, 'tests', 'fixtures', 'sample-project'), projectDir, { recursive: true });
+
+  fs.mkdirSync(path.join(projectDir, '.minerva'), { recursive: true });
+  fs.writeFileSync(path.join(projectDir, '.minerva', 'config.json'), JSON.stringify({ baseUri: BASE_URI }));
+
+  fs.mkdirSync(path.join(projectDir, 'notes'), { recursive: true });
+  fs.writeFileSync(
+    path.join(projectDir, 'notes', 'The Claim.md'),
+    '---\ntitle: The Claim\n---\n\n# The Claim\n\nSome assertion.\n\n```turtle\nthis: a thought:Claim .\n```\n',
+  );
+  fs.writeFileSync(
+    path.join(projectDir, 'notes', 'Cited Evidence.md'),
+    `---\ntitle: Cited Evidence\nsupports: ${noteUri('notes/The Claim.md')}\n---\n\n# Cited Evidence\n\nThe supporting case.\n`,
+  );
+  fs.writeFileSync(
+    path.join(projectDir, 'notes', 'Host.md'),
+    '---\ntitle: Host\n---\n\n# Host\n\n:::argument\n[[The Claim]]\n:::\n',
+  );
+
   fs.writeFileSync(
     path.join(userDataDir, 'session.json'),
     JSON.stringify([{ x: 80, y: 80, width: 1200, height: 800, rootPath: projectDir }]),
   );
-  const app = await launchMinerva({ userDataDir, env: { MINERVA_E2E: '1' } });
-  return { app, userDataDir, projectDir };
+  return { userDataDir, projectDir };
 }
 
 async function waitForWorkspace(win: Page): Promise<void> {
@@ -32,47 +77,11 @@ async function waitForWorkspace(win: Page): Promise<void> {
 }
 
 test('argument map: renders a real supports edge as a clickable outline (#907)', async () => {
-  const { app, userDataDir, projectDir } = await launchWithProject();
+  const { userDataDir, projectDir } = launchWithProject();
+  const app = await launchMinerva({ userDataDir, env: { MINERVA_E2E: '1' } });
   try {
     const win = await app.firstWindow({ timeout: 20_000 });
     await waitForWorkspace(win);
-
-    // The claim — a note is a thought:Claim via an embedded turtle block,
-    // same shape `register-conversation-drafts.ts`'s buildClaimNoteContent
-    // produces for propose_claims.
-    await win.evaluate(async () => {
-      await window.api.notebase.writeFile(
-        'notes/The Claim.md',
-        '---\ntitle: The Claim\n---\n\n# The Claim\n\nSome assertion.\n\n```turtle\nthis: a thought:Claim .\n```\n',
-      );
-    });
-
-    // Resolve the claim's real graph URI — don't guess the minting scheme.
-    const claimUri = await win.evaluate(async () => {
-      const res = await window.api.graph.query(
-        'SELECT ?claim WHERE { ?claim minerva:relativePath "notes/The Claim.md" }',
-      );
-      return (res.results as Array<{ claim?: string }>)[0]?.claim ?? null;
-    });
-    expect(claimUri).toBeTruthy();
-
-    // The grounds — authored exactly the way find-supporting-arguments.md
-    // authors one today: a plain note whose frontmatter URI value
-    // materializes a thought:supports triple, no dedicated component tool.
-    await win.evaluate(async (uri) => {
-      await window.api.notebase.writeFile(
-        'notes/Cited Evidence.md',
-        `---\ntitle: Cited Evidence\nsupports: ${uri}\n---\n\n# Cited Evidence\n\nThe supporting case.\n`,
-      );
-    }, claimUri);
-
-    // The host note embedding the argument map.
-    await win.evaluate(async () => {
-      await window.api.notebase.writeFile(
-        'notes/Host.md',
-        '---\ntitle: Host\n---\n\n# Host\n\n:::argument\n[[The Claim]]\n:::\n',
-      );
-    });
 
     await expect(win.locator('[data-relative-path="notes/Host.md"]').first()).toBeVisible({ timeout: 10_000 });
     await win.locator('[data-relative-path="notes/Host.md"]').first().click();
