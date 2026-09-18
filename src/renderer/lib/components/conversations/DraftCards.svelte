@@ -330,6 +330,14 @@
     onApprove={() => handleApproveProperty(tab.id, draft)}
     onDiscard={() => handleDiscardProperty(tab.id, draft.draftId)}
   >
+    {#if draft.warnings.length > 0}
+      <!-- Notes the tool couldn't include (most commonly: no such note) —
+           stated rather than silently dropped, so a batch that came back
+           smaller than requested explains itself. -->
+      <ul class="warnings">
+        {#each draft.warnings as w}<li>{w}</li>{/each}
+      </ul>
+    {/if}
     <ul class="property-update-list">
       {#each draft.updates as u, ui (ui)}
         <li class="property-update">
@@ -591,6 +599,15 @@
   .source-value {
     color: var(--text);
     overflow-wrap: anywhere;
+  }
+
+  /* Per-note problems dropped from a batch before drafting (set_properties'
+     missing-note skips today) — same treatment as NoteBodyDraftCard's. */
+  .warnings {
+    margin: 0 0 6px;
+    padding-left: 16px;
+    font-size: 11.5px;
+    color: var(--text-muted);
   }
 
   /* set_properties review card interior. Each per-note patch is a

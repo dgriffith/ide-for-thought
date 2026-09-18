@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import * as fs from '../../notebase/fs';
 import type {
   ConversationPropertyDraft,
   PropertyUpdate,
@@ -13,12 +14,25 @@ import type { NotebaseTool, ToolContext, ToolCallbacks } from './types';
  * `ConversationPropertyDraft` for inline user review, and returns
  * "drafted." The IPC handler for `CONVERSATION_FILE_PROPERTY_DRAFT`
  * applies the writes once the user approves.
+ *
+ * Checks that every targeted note actually exists BEFORE drafting (mirrors
+ * `propose_note_body`/`propose_note_delete`/`propose_note_rename`/
+ * `propose_reorganization`, which all skip-with-warning on a missing note —
+ * `set_properties` used to be the one propose_* tool that didn't). An
+ * LLM-hallucinated or mis-transliterated path — e.g. proposing an edit to a
+ * note under a foreign-script name when the real note on disk has an
+ * anglicized one — used to sail straight through to a review card with no
+ * warning at all, indistinguishable from a real update until the user
+ * approved it and the write failed. Catching it here means the model sees a
+ * clear "no such note" and can retry (e.g. with `list_notes`/`search_notes`)
+ * within the same turn, instead of the user approving a card that can't
+ * actually apply.
  */
-function runSetProperties(
+async function runSetProperties(
   ctx: ToolContext,
   input: unknown,
   callbacks: ToolCallbacks,
-): { content: string; isError: boolean } {
+): Promise<{ content: string; isError: boolean }> {
   if (!callbacks.onPropertyDraft) {
     return {
       content: 'set_properties is only available in conversation contexts.',
@@ -36,27 +50,47 @@ function runSetProperties(
     return { content: parsed.error, isError: true };
   }
 
+  const updates: PropertyUpdate[] = [];
+  const warnings: string[] = [];
+  for (const u of parsed.updates) {
+    if (!(await fs.fileExists(ctx.rootPath, u.relativePath))) {
+      warnings.push(`Skipped ${u.relativePath}: no such note. set_properties patches existing notes — use propose_notes to create one.`);
+      continue;
+    }
+    updates.push(u);
+  }
+
+  if (updates.length === 0) {
+    // Nothing survived — report why rather than drafting an empty card.
+    return {
+      content: `No property updates to propose.\n${warnings.join('\n')}`,
+      isError: true,
+    };
+  }
+
   const draft: ConversationPropertyDraft = {
     draftId: `propdraft-${randomUUID()}`,
     conversationId: ctx.conversationId,
     note: parsed.note,
-    updates: parsed.updates,
+    updates,
+    warnings,
     createdAt: new Date().toISOString(),
   };
   callbacks.onPropertyDraft(draft);
 
-  const summary = parsed.updates
+  const summary = updates
     .map((u) => `${u.relativePath} (${Object.keys(u.properties).length} key${Object.keys(u.properties).length === 1 ? '' : 's'})`)
     .join(', ');
   return {
     content: JSON.stringify({
       status: 'drafted',
       draftId: draft.draftId,
-      updateCount: parsed.updates.length,
-      proposed: parsed.updates.map((u) => ({
+      updateCount: updates.length,
+      proposed: updates.map((u) => ({
         relativePath: u.relativePath,
         keys: Object.keys(u.properties),
       })),
+      ...(warnings.length > 0 ? { skipped: warnings } : {}),
       // Same anti-loop hint as propose_notes / propose_sources — the
       // model has historically retried draft-emitting tools when it
       // didn't see a "successful" write effect in the result.
