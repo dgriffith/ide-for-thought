@@ -58,10 +58,15 @@ export async function gatherContext(
       // operate on the URI alone, the user just won't see the source
       // passage in the seeded message.
       try {
+        // Property-path membership check (`a/rdfs:subClassOf*`), not exact
+        // `a thought:Claim` — a note typed via the Claim stock object type
+        // (`type: claim` frontmatter) asserts `a types:Claim`, reaching
+        // `thought:Claim` only through its `externalClass` subClassOf edge
+        // (#2036), same idiom the rest of the codebase already uses for this.
         const r = await api.graph.query(`
           PREFIX thought: <https://minerva.dev/ontology/thought#>
           SELECT ?label ?sourceText WHERE {
-            <${uri}> a thought:Claim .
+            <${uri}> a/rdfs:subClassOf* thought:Claim .
             OPTIONAL { <${uri}> thought:label ?label . }
             OPTIONAL { <${uri}> thought:sourceText ?sourceText . }
           } LIMIT 1

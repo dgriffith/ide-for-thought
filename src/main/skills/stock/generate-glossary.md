@@ -12,7 +12,7 @@ firstMessage: "{{#if note}}Build a glossary for this note.{{/if}}"
 longDescription: >-
   Opens a conversation that extracts jargon, proper nouns, and technical terms and defines each,
   then files them as a structured glossary: one note per term in a project-level `glossary/`
-  directory, typed as `thought:Term` so the graph can reason about them. Works on the active note
+  directory, typed via the Glossary Term object type so the graph can reason about them. Works on the active note
   when one is open; otherwise asks what topic to build a glossary for. Iterate on definitions,
   then ask the assistant to file the glossary. Use "Add Term to Glossary" to extend it later.
 ---
@@ -35,13 +35,14 @@ When the user wants the glossary filed, call `propose_notes` with one note per t
   - `aliases`: a list of other spellings/plurals that should also resolve to this note (e.g. `[semigroups]`). Optional.
   - `disambiguation`: a one-line "not to be confused with …" string. Optional.
   - `see-also`: a list of `[[Other Term]]` wiki-links to related glossary terms. Optional — spell each target as the OTHER term note's exact basename.
-- **Body skeleton** (same shape every time): an H1 of the term, a one-line working definition, an optional expanded paragraph, an optional `## Not to be confused with` note, an optional `## See also` list of `[[…]]` links, and a closing turtle block that types the note as a glossary term.
+- **Body skeleton** (same shape every time): an H1 of the term, a one-line working definition, an optional expanded paragraph, an optional `## Not to be confused with` note, and an optional `## See also` list of `[[…]]` links. No closing turtle block — `type: glossary-term` in the frontmatter does that job now (see below).
 
 Example term note:
 
 ````markdown
 ---
 title: Semigroup
+type: glossary-term
 term: Semigroup
 aliases: [semigroups]
 disambiguation: "Not to be confused with a Monoid, which additionally requires an identity element."
@@ -62,13 +63,9 @@ A **Monoid** adds an identity element; a **Group** adds inverses as well.
 
 - [[Monoid]]
 - [[Group]]
-
-```turtle
-this: a thought:Term .
-```
 ````
 
-The closing `this: a thought:Term .` block is load-bearing: it types the note as `thought:Term` so glossary queries ("list every term", "terms lacking a see-also") and the term's distinct graph rendering work. Keep it as that single statement.
+`type: glossary-term` is load-bearing: it's the Glossary Term stock object type (`externalClass: thought:Term`), so it types this note the way the old embedded `` ```turtle this: a thought:Term . ``` `` block used to — glossary queries ("list every term", "terms lacking a see-also") and the term's distinct graph rendering still work, no fenced turtle block needed. Keep the frontmatter key spelled `type: glossary-term` exactly (not `type: term`) so it matches the registered stock type.
 
 ## Note{{#if note.title}} — {{note.title}}{{/if}}
 
@@ -93,13 +90,14 @@ When the user wants the glossary filed, call `propose_notes` with one note per t
   - `aliases`: a list of other spellings/plurals that should also resolve to this note (e.g. `[semigroups]`). Optional.
   - `disambiguation`: a one-line "not to be confused with …" string. Optional.
   - `see-also`: a list of `[[Other Term]]` wiki-links to related glossary terms. Optional — spell each target as the OTHER term note's exact basename.
-- **Body skeleton** (same shape every time): an H1 of the term, a one-line working definition, an optional expanded paragraph, an optional `## Not to be confused with` note, an optional `## See also` list of `[[…]]` links, and a closing turtle block that types the note as a glossary term.
+- **Body skeleton** (same shape every time): an H1 of the term, a one-line working definition, an optional expanded paragraph, an optional `## Not to be confused with` note, and an optional `## See also` list of `[[…]]` links. No closing turtle block — `type: glossary-term` in the frontmatter does that job now (see below).
 
 Example term note:
 
 ````markdown
 ---
 title: Semigroup
+type: glossary-term
 term: Semigroup
 aliases: [semigroups]
 disambiguation: "Not to be confused with a Monoid, which additionally requires an identity element."
@@ -120,10 +118,6 @@ A **Monoid** adds an identity element; a **Group** adds inverses as well.
 
 - [[Monoid]]
 - [[Group]]
-
-```turtle
-this: a thought:Term .
-```
 ````
 
-The closing `this: a thought:Term .` block is load-bearing: it types the note as `thought:Term` so glossary queries ("list every term", "terms lacking a see-also") and the term's distinct graph rendering work. Keep it as that single statement.{{/if}}
+`type: glossary-term` is load-bearing: it's the Glossary Term stock object type (`externalClass: thought:Term`), so it types this note the way the old embedded `` ```turtle this: a thought:Term . ``` `` block used to — glossary queries ("list every term", "terms lacking a see-also") and the term's distinct graph rendering still work, no fenced turtle block needed. Keep the frontmatter key spelled `type: glossary-term` exactly (not `type: term`) so it matches the registered stock type.{{/if}}

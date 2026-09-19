@@ -52,7 +52,7 @@ describe('research.decompose-into-claims (#408, migrated #627)', () => {
   it('teaches the parent (decomposes:) and per-claim frontmatter contract', () => {
     const sys = tool.buildSystemPrompt!({});
     expect(sys).toMatch(/decomposes:/);
-    expect(sys).toMatch(/claim-kind:/);
+    expect(sys).toMatch(/claimKind:/);
     expect(sys).toMatch(/source-text:/);
     expect(sys).toMatch(/extracted-from:/);
     expect(sys).toMatch(/extracted-by:/);
@@ -60,7 +60,7 @@ describe('research.decompose-into-claims (#408, migrated #627)', () => {
     expect(sys).toMatch(/evaluative/);
     expect(sys).toMatch(/definitional/);
     expect(sys).toMatch(/predictive/);
-    expect(sys).toContain('this: a thought:Claim');
+    expect(sys).toContain('type: claim');
     expect(sys).toMatch(/single propose_notes/i);
     expect(sys.toLowerCase()).toMatch(/anti-flattery/);
   });

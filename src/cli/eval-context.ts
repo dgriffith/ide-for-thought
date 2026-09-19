@@ -260,11 +260,13 @@ async function claimMetadata(
   ctx: ProjectContext,
   uri: string,
 ): Promise<{ label: string; sourceText: string } | undefined> {
+  // Property-path membership check — mirrors gatherContext's fix (#2036-era
+  // Claim stock type asserts `a types:Claim`, not exact `a thought:Claim`).
   const { results, error } = await graph.queryGraph(
     ctx,
     `PREFIX thought: <https://minerva.dev/ontology/thought#>
      SELECT ?label ?sourceText WHERE {
-       <${uri}> a thought:Claim .
+       <${uri}> a/rdfs:subClassOf* thought:Claim .
        OPTIONAL { <${uri}> thought:label ?label . }
        OPTIONAL { <${uri}> thought:sourceText ?sourceText . }
      } LIMIT 1`,
