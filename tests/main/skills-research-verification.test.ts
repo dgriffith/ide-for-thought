@@ -59,8 +59,9 @@ describe('research verification + discovery skills', () => {
     const sys = def.buildSystemPrompt!(ctx);
     expect(sys).toContain('https://ex/claim/1');
     expect(sys).toContain('Coffee cures scurvy');
-    // claim URI present → the filing turtle block is emitted
-    expect(sys).toContain('```turtle');
+    // claim URI present → the filing turtle block is emitted, hidden since it
+    // annotates the ORIGINAL claim rather than this note (#907-era hidden-fence pass)
+    expect(sys).toContain('```turtle-hidden');
     expect(def.buildFirstMessage!(ctx)).toContain('Coffee cures scurvy');
   });
 
@@ -69,7 +70,7 @@ describe('research verification + discovery skills', () => {
     const sys = def.buildSystemPrompt!({ selectedText: 'unique-passage-zzz' });
     expect(sys).toContain('unique-passage-zzz');
     // no claim URI → no turtle block to attach a verdict to
-    expect(sys).not.toContain('```turtle');
+    expect(sys).not.toContain('```turtle-hidden');
     expect(def.buildFirstMessage!({ selectedText: 'unique-passage-zzz' })).toContain('unique-passage-zzz');
   });
 

@@ -296,6 +296,23 @@ before referencing thought-ontology types), the read-only `search_notes` /
 `read_note` / `query_graph`, and `web_search` / `web_fetch` (set `web: true` to
 default them on).
 
+### Prefer `-hidden` fences for machine-facing content
+
+A fence language suffixed `-hidden` (` ```turtle-hidden `, ` ```sql-hidden `,
+` ```sparql-hidden `, …) indexes/extracts identically to its plain form — the
+suffix is purely presentational — but renders nothing in preview and starts
+folded in the editor, instead of dumping raw graph syntax into the note a
+human is reading. Prefer it whenever the fence's job is to *materialize a
+fact*, not to give the reader something to look at: typing a note (`this: a
+thought:Claim .`), annotating a DIFFERENT note's properties from an analysis
+note (`<claim-uri> thought:verificationStatus "…" .`), or any other turtle
+payload where the prose above it already says what matters.
+
+The exception is a fence the skill explicitly wants the user to see and
+re-run — e.g. a `` ```sql `` query embed captioned "so the user can re-run
+it." That's the fence's whole purpose, so it stays a plain (non-hidden)
+fence.
+
 ## Whole-vault skills (reorganization)
 
 Most skills operate on the active note (`context: [fullNote]`). A skill can also

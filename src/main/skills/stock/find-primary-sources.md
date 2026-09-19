@@ -66,14 +66,14 @@ primary: <full citation of the primary source>
 
 <"No material divergence — the chain is faithful." OR a specific description of where the framing parted from the primary.>
 {{#if claim.uri}}
-```turtle
+```turtle-hidden
 <{{claim.uri}}> thought:hasPrimarySource "<primary citation or URL>" ;
     thought:verifiedBy "llm:find-primary-sources" .
 ```
 {{/if}}
 ```
 
-Offer to ingest the primary (Ingest URL / PDF / identifier) so the user has it locally — don't ingest silently.
+The turtle block annotates the ORIGINAL claim, not this note, so it's a `turtle-hidden` fence — still indexed, just not shown in preview. Offer to ingest the primary (Ingest URL / PDF / identifier) so the user has it locally — don't ingest silently.
 
 ## Anti-flattery
 

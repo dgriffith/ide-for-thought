@@ -75,12 +75,14 @@ title: Magnitude — <short paraphrase of the claim>
 
 - [<title>](<URL>) — "<verbatim snippet>"
 {{#if claim.uri}}
-```turtle
+```turtle-hidden
 <{{claim.uri}}> thought:hasGroundedMagnitude "<absolute numbers + base rate + normalisation, terse>" ;
     thought:verifiedBy "llm:translate-magnitude" .
 ```
 {{/if}}
 ```
+
+The turtle block annotates the ORIGINAL claim, not this note, so it's a `turtle-hidden` fence — still indexed, just not shown in preview.
 
 ## Anti-flattery
 

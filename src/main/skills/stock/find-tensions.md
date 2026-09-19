@@ -61,10 +61,12 @@ _kind:_ `direct contradiction | assumption clash | scope mismatch | emphasis`
 
 ## Tension 2: …
 
-```turtle
+```turtle-hidden
 this: a thought:Tension .
 ```
 ```
+
+The closing block just types this note as `thought:Tension` for the graph — machine-facing, so it's a `turtle-hidden` fence (still indexed, not shown in preview).
 
 ## Anti-flattery
 
