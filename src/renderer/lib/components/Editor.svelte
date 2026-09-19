@@ -328,12 +328,21 @@
     view.dispatch({ effects: ranges.map((r) => foldEffect.of(r)) });
   }
 
+  // Editor.svelte is fully remounted per open file (App.svelte wraps it in
+  // `{#key groupId + ':' + note.relativePath}`), so every prop below is
+  // genuinely fixed for this instance's lifetime — same reasoning as
+  // `plainTextOnce` further down. `untrack` documents that intent and
+  // silences `state_referenced_locally` instead of leaving it as unexplained
+  // noise.
+  const { onOpenSource: onOpenSourceOnce, onOpenExcerpt: onOpenExcerptOnce, onNavigate: onNavigateOnce } =
+    untrack(() => ({ onOpenSource, onOpenExcerpt, onNavigate }));
+
   const contextMenuOps: ContextMenuOps = {
     getView: () => view,
     getFilePath: () => filePath,
-    onOpenSource,
-    onOpenExcerpt,
-    onNavigate,
+    onOpenSource: onOpenSourceOnce,
+    onOpenExcerpt: onOpenExcerptOnce,
+    onNavigate: onNavigateOnce,
     onContextMenuOpen: (menu) => { contextMenu = menu; },
     onContextMenuClose: () => { contextMenu = null; },
     onGutterMenuOpen: (menu) => { gutterMenu = menu; },
@@ -393,11 +402,15 @@
   // `plainText` is fixed for an Editor instance (a tab remounts on a md↔plain
   // switch), so the extensions below read it once at build time. `untrack`
   // expresses that intent and silences the `state_referenced_locally` warning.
+  // Same reasoning extends to every other prop captured here — see the
+  // `onOpenSourceOnce`/etc. comment above.
   const plainTextOnce = untrack(() => plainText);
+  const { filePath: filePathOnce, getNotePaths: getNotePathsOnce, getAliases: getAliasesOnce, onRunCell: onRunCellOnce, onCreateNoteFromReference: onCreateNoteFromReferenceOnce } =
+    untrack(() => ({ filePath, getNotePaths, getAliases, onRunCell, onCreateNoteFromReference }));
   const extensions = buildExtensions({
     plainTextOnce,
     getPlainText: () => plainText,
-    filePath,
+    filePath: filePathOnce,
     initSettings,
     fontSize: getFontSize(),
     themeCompartment,
@@ -406,14 +419,14 @@
     wrapCompartment,
     lineNumbersCompartment,
     whitespaceCompartment,
-    onNavigate,
-    onOpenSource,
-    onOpenExcerpt,
-    getNotePaths,
-    getAliases,
-    onRunCell,
+    onNavigate: onNavigateOnce,
+    onOpenSource: onOpenSourceOnce,
+    onOpenExcerpt: onOpenExcerptOnce,
+    getNotePaths: getNotePathsOnce,
+    getAliases: getAliasesOnce,
+    onRunCell: onRunCellOnce,
     runAllRef,
-    onCreateNoteFromReference,
+    onCreateNoteFromReference: onCreateNoteFromReferenceOnce,
     getSavedSelection: () => savedSelection,
     setSavedSelection: (sel) => { savedSelection = sel; },
     showContextMenu,

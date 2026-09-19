@@ -24,6 +24,7 @@
    * embed is the legibility layer for structure other tooling will
    * increasingly produce, not the thing that produces it (see #907).
    */
+  import { untrack } from 'svelte';
   import { api } from '../ipc/client';
   import { hydrateMermaidBlocks } from '../markdown/mermaid-renderer';
   import { normalizeColor } from '../utils/oklch';
@@ -69,9 +70,14 @@
   let allNodes = $state<ArgumentNode[]>([]);
   let defects = $state<ArgumentDefect[]>([]);
 
-  const clampedInitialDepth = Math.min(Math.max(initialDepth ?? 2, 1), MAX_DEPTH);
+  // `initialDepth`/`initialView` are seed values for local state, read once
+  // on mount by design (an "initial" prop, not a controlled one) — `untrack`
+  // documents that and silences `state_referenced_locally`.
+  const { initialDepth: initialDepthOnce, initialView: initialViewOnce } =
+    untrack(() => ({ initialDepth, initialView }));
+  const clampedInitialDepth = Math.min(Math.max(initialDepthOnce ?? 2, 1), MAX_DEPTH);
   let depth = $state(clampedInitialDepth);
-  let view = $state<'outline' | 'diagram'>(initialView === 'diagram' ? 'diagram' : 'outline');
+  let view = $state<'outline' | 'diagram'>(initialViewOnce === 'diagram' ? 'diagram' : 'outline');
 
   const visibleNodes = $derived(filterByDepth(allNodes, depth));
   const grouped = $derived(groupByKind(visibleNodes));
