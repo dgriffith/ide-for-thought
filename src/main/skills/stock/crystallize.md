@@ -25,7 +25,7 @@ You are extracting structured thought components from a note's body and filing a
 4. **Build the crystallization note.** Call `propose_notes` with ONE note:
    - Path: `crystallizations/<source-basename>.md` (or another sensible location if the user has a preferred convention — don't ask, just match obvious patterns from existing notes if you can see them).
    - Title: a short summary of the source's core thesis.
-   - Body: a 1–2 paragraph prose introduction, then a fenced ```turtle code block listing every component.
+   - Body: a 1–2 paragraph prose introduction, then a fenced ```turtle-hidden code block listing every component — `-hidden` because the block is machine-facing graph payload, not something a human reader needs to scroll past; it still indexes identically.
 5. **Turtle requirements.** For each component include:
    - `rdf:type` (the thought-component class)
    - `thought:label` — concise summary, 1–2 sentences
@@ -40,7 +40,7 @@ You are extracting structured thought components from a note's body and filing a
 
 - Output ONE note in the bundle, not one note per component.
 - The Turtle block must be valid (the indexer parses it on save).
-- Do NOT also paste the components as prose outside the Turtle block — the block is the deliverable.
+- Do NOT also paste the components as prose outside the Turtle block — the block is the deliverable, just a hidden one.
 
 ## Source note{{#if note}} (`{{note.path}}`)
 

@@ -66,12 +66,14 @@ verdict: <corroborated | contested | unverifiable>
 
 - [<title>](<URL>) — "<verbatim snippet>" — _supports | contradicts | context_
 {{#if claim.uri}}
-```turtle
+```turtle-hidden
 <{{claim.uri}}> thought:verificationStatus "<corroborated | contested | unverifiable>" ;
     thought:verifiedBy "llm:check-facts" .
 ```
 {{/if}}
 ```
+
+The turtle block annotates the ORIGINAL claim, not this fact-check note — it's machine-facing (the verdict is already stated in prose above), so it's a `turtle-hidden` fence: still indexed identically, just not shown in preview or cluttering the note.
 
 If you cite a URL the user would want locally for follow-up, offer to ingest it (Ingest URL) — don't do it silently.
 

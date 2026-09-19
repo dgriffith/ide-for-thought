@@ -76,7 +76,7 @@ as-of: <YYYY-MM-DD of this check>
 
 - [<title>](<URL>) — "<verbatim snippet>"
 {{#if claim.uri}}
-```turtle
+```turtle-hidden
 <{{claim.uri}}> thought:currencyStatus "<current | scope-shifted | decayed | misstated>" ;
     thought:asOfDate "<YYYY-MM-DD>" ;
     thought:verifiedBy "llm:date-scope-check" .
@@ -84,7 +84,7 @@ as-of: <YYYY-MM-DD of this check>
 {{/if}}
 ```
 
-The `as-of` date is load-bearing: it's what makes a periodic "claims not re-checked in N years" sweep possible later.
+The `as-of` date is load-bearing: it's what makes a periodic "claims not re-checked in N years" sweep possible later. The turtle block annotates the ORIGINAL claim, not this note, so it's a `turtle-hidden` fence — still indexed, just not shown in preview.
 
 ## Anti-flattery
 
