@@ -73,7 +73,8 @@ Path: `notes/claims/<source-stem>/<nn>-<short-claim-slug>.md` — file this sour
 ````markdown
 ---
 title: <claim label>
-claim-kind: factual
+type: claim
+claimKind: factual
 source-text: <verbatim quote, plain string — no wiki-link syntax here>
 extracted-from: "[[<source-note-stem>]]"
 extracted-by: llm:decompose-claims
@@ -84,15 +85,11 @@ extracted-by: llm:decompose-claims
 > <verbatim quote, blockquoted in the body for readability>
 
 — from [[<source-note-stem>]]
-
-```turtle
-this: a thought:Claim .
-```
 ````
 
-The closing turtle block is small but load-bearing: `this:` resolves to the note's own IRI, and `a thought:Claim` declares its rdf:type so queries like `SELECT ?c WHERE { ?c a thought:Claim }` see this note. Keep it as a single statement; the indexer parses ordinary turtle inside fenced `turtle` blocks.
+`type: claim` is what types this note — the Claim stock object type does the job the old embedded `` ```turtle this: a thought:Claim . ``` `` block used to (its `externalClass: thought:Claim` materialises this note as a subclass of `thought:Claim`), so no fenced turtle block is needed any more. Queries like `SELECT ?c WHERE { ?c a/rdfs:subClassOf* thought:Claim }` still see this note.
 
-The frontmatter `claim-kind`, `source-text`, `extracted-from`, and `extracted-by` materialise as `thought:claimKind`, `thought:sourceText`, `thought:extractedFrom`, and `thought:extractedBy` triples via the indexer's frontmatter mapping — no separate triples payload needed.
+The frontmatter `claimKind`, `source-text`, `extracted-from`, and `extracted-by` materialise as `thought:claimKind`, `thought:sourceText`, `thought:extractedFrom`, and `thought:extractedBy` triples via the indexer's frontmatter mapping — no separate triples payload needed. `claimKind` is spelled camelCase (not `claim-kind`) so it also populates the Claim type's own property form, which keys on that exact name.
 
 ## Source note
 

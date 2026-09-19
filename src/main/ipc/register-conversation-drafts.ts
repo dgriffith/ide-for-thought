@@ -44,8 +44,10 @@ import { handle } from './typed-ipc';
 /** Build a thought:Claim note from an extracted claim (#104). Mirrors the
  *  child-note shape of the Decompose-into-Claims skill: claim metadata in
  *  frontmatter (materialised as thought:* by the indexer), a blockquote of the
- *  supporting passage, a `[[quote::id]]` edge to the excerpt, and a turtle
- *  block declaring rdf:type. */
+ *  supporting passage, and a `[[quote::id]]` edge to the excerpt. Typed via
+ *  `type: claim` (the Claim stock object type, #2036's externalClass:
+ *  thought:Claim) rather than an embedded turtle block — same convention
+ *  Decompose-into-Claims and the glossary skills now use. */
 function buildClaimNoteContent(
   claim: import('../../shared/conversation-claims-drafts').DraftClaim,
   sourceId: string,
@@ -54,7 +56,8 @@ function buildClaimNoteContent(
   return [
     '---',
     `title: ${y(claim.text)}`,
-    `claim-kind: ${claim.kind}`,
+    'type: claim',
+    `claimKind: ${claim.kind}`,
     `source-text: ${y(claim.quote)}`,
     `confidence: ${claim.confidence}`,
     `extracted-from: "[[sources/${sourceId}]]"`,
@@ -66,10 +69,6 @@ function buildClaimNoteContent(
     ...claim.quote.split(/\r?\n/).map((l) => `> ${l}`),
     '',
     `[[quote::${claim.excerptId}]]`,
-    '',
-    '```turtle',
-    'this: a thought:Claim .',
-    '```',
     '',
   ].join('\n');
 }
