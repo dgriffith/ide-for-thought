@@ -23,6 +23,7 @@ import { registerHistory } from './ipc/register-history';
 import { registerClipper } from './ipc/register-clipper';
 import { registerMcpServers } from './ipc/register-mcp-servers';
 import { registerApp } from './ipc/register-app';
+import { registerMaintenance } from './ipc/register-maintenance';
 import { onProposalsChanged } from './llm/proposal-events';
 import { onInspectionsChanged } from './graph/inspection-events';
 import { onHistoryChanged } from './history';
@@ -76,4 +77,5 @@ export function registerIpcHandlers(): void {
   registerClipper();
   registerMcpServers();
   registerApp();
+  registerMaintenance();
 }

@@ -32,6 +32,7 @@ const h = vi.hoisted(() => ({
   // electron / fs
   showSaveDialog: vi.fn(),
   copyFile: vi.fn(),
+  exportKnowledgeGraph: vi.fn(),
   // graph
   queryGraph: vi.fn(),
   setBaseUri: vi.fn(),
@@ -68,6 +69,7 @@ vi.mock('electron', () => ({
 }));
 
 vi.mock('node:fs/promises', () => ({ default: { copyFile: h.copyFile }, copyFile: h.copyFile }));
+vi.mock('../../../src/main/maintenance-commands', () => ({ exportKnowledgeGraph: h.exportKnowledgeGraph }));
 
 vi.mock('../../../src/main/ipc/helpers', () => ({
   withRootPath:
@@ -380,30 +382,54 @@ describe('register-graph — inspections', () => {
   });
 });
 
-describe('register-graph — GRAPH_EXPORT', () => {
-  it('flushes the graph to disk before copying the snapshot out', async () => {
-    // graph.ttl is a cold snapshot — copying without persisting first would
-    // export a stale file missing everything since the last flush.
+/**
+ * GRAPH_EXPORT, consolidated with the File ▸ Export Knowledge Graph menu item
+ * (#2233).
+ *
+ * This channel used to persist and then COPY `.minerva/graph.ttl`; the menu
+ * item called `graph.exportGraph`, which persists and then serializes the LIVE
+ * store. Those produce different files — `persistGraph` deliberately strips the
+ * ontology triples before writing to disk, so the copy route dropped them and
+ * the serialize route kept them. One user-facing command, two answers, and
+ * nothing compared them because the menu path had no contract entry to compare
+ * against. Both go through `exportKnowledgeGraph` now.
+ *
+ * So the ordering assertion this file used to make — persist-then-copy — is
+ * gone along with the copy. What's pinned instead is that the destination the
+ * user picked is the destination written, and that a cancelled panel writes
+ * nothing.
+ */
+describe('register-graph — GRAPH_EXPORT (#2233)', () => {
+  it('exports to the path the user picked, through the shared command', async () => {
     h.showSaveDialog.mockResolvedValue({ canceled: false, filePath: '/out/graph.ttl' });
-    h.persistGraph.mockImplementation(async () => { h.order.push('persist'); });
-    h.copyFile.mockImplementation(async () => { h.order.push('copy'); });
 
     await call(Channels.GRAPH_EXPORT);
 
-    expect(h.order).toEqual(['persist', 'copy']);
-    expect(h.copyFile).toHaveBeenCalledWith('/vault/.minerva/graph.ttl', '/out/graph.ttl');
+    expect(h.exportKnowledgeGraph).toHaveBeenCalledWith('/vault', '/out/graph.ttl');
+    // The old persist+copy route is gone — the command owns the flush now.
+    expect(h.copyFile).not.toHaveBeenCalled();
+  });
+
+  it('defaults the filename to the thoughtbase, not a generic graph.ttl', async () => {
+    // The menu item did this and the channel didn't; consolidating kept the
+    // better of the two, so "export two projects' graphs" no longer produces
+    // two files both called graph.ttl.
+    h.showSaveDialog.mockResolvedValue({ canceled: true, filePath: undefined });
+    await call(Channels.GRAPH_EXPORT);
+    expect(h.showSaveDialog).toHaveBeenCalledWith(
+      expect.objectContaining({ defaultPath: 'vault.ttl' }),
+    );
   });
 
   it('writes nothing when the Save panel is cancelled', async () => {
     h.showSaveDialog.mockResolvedValue({ canceled: true, filePath: undefined });
     await call(Channels.GRAPH_EXPORT);
-    expect(h.persistGraph).not.toHaveBeenCalled();
-    expect(h.copyFile).not.toHaveBeenCalled();
+    expect(h.exportKnowledgeGraph).not.toHaveBeenCalled();
   });
 
   it('writes nothing when the panel returns no path', async () => {
     h.showSaveDialog.mockResolvedValue({ canceled: false, filePath: '' });
     await call(Channels.GRAPH_EXPORT);
-    expect(h.copyFile).not.toHaveBeenCalled();
+    expect(h.exportKnowledgeGraph).not.toHaveBeenCalled();
   });
 });

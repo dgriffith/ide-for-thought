@@ -278,6 +278,11 @@ export interface ChannelMap {
   'graph:setBaseUri': (uri: string) => { ok: true } | { ok: false; error: string };
   'graph:groundCheck': (claimText: string) => { node: string; label: string; type: string }[];
   'graph:export': () => void;
+  // Maintenance commands (#2233) — see `main/maintenance-commands.ts`.
+  'maintenance:rebuildIndexes': () => boolean;
+  'maintenance:rebuildSemanticIndex': () => void;
+  'maintenance:interruptCell': () => void;
+  'maintenance:restartKernel': () => void;
   'graph:sourceDetail': (sourceId: string) => SourceDetail | null;
   'graph:excerptSource': (excerptId: string) => { sourceId: string } | null;
   'graph:attachExcerptEvidence': (excerptId: string, claimPath: string, role: 'grounds' | 'supports' | 'rebuts') => { ok: boolean; error?: string; proposalUri?: string };

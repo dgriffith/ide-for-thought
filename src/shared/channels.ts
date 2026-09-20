@@ -145,6 +145,23 @@ export const Channels = {
   /** Main→renderer: progress + completion for the File ▸ maintenance
    *  operations, which run in main from the native menu (#1814). */
   MAINTENANCE_PROGRESS: 'maintenance:progress',
+  // ── Maintenance commands (#2233) ──────────────────────────────────────────
+  // The long-running project operations. They were inline `await`s in menu.ts
+  // click handlers — a second command surface with no channel, no contract and
+  // no registrar test. The implementations live in `maintenance-commands.ts`;
+  // the native menu and these channels are two callers of the same functions.
+  /** Full reindex: graph + search + DuckDB table overlays. Resolves `true` when
+   *  the rebuild finished, so the caller knows whether to refresh table panels. */
+  MAINTENANCE_REBUILD_INDEXES: 'maintenance:rebuildIndexes',
+  /** Force a full re-embed of the corpus (#836). */
+  MAINTENANCE_REBUILD_SEMANTIC_INDEX: 'maintenance:rebuildSemanticIndex',
+  /** Interrupt the running Python cell, with a maintenance frame around it —
+   *  distinct from bare `COMPUTE_INTERRUPT_PYTHON`, which the renderer's own
+   *  cell UI uses and which reports nothing to the status bar. */
+  MAINTENANCE_INTERRUPT_CELL: 'maintenance:interruptCell',
+  /** Restart the Python kernel, with a maintenance frame. Same relationship to
+   *  `COMPUTE_RESTART_PYTHON_KERNEL` as the interrupt pair above. */
+  MAINTENANCE_RESTART_KERNEL: 'maintenance:restartKernel',
   /** Notes semantically related to a note, for the Related sidebar panel (#838). */
   EMBEDDINGS_RELATED: 'embeddings:related',
   /** Notes that semantically mention an object (by title/aliases) but don't link

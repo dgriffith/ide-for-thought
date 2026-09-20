@@ -306,6 +306,41 @@ export default tseslint.config(
       }],
     },
   },
+  // ── The native menu is a command SURFACE, not a command IMPLEMENTATION (#2233)
+  // `menu.ts` was 1,024 lines with 26 imports spanning nearly every subsystem,
+  // and it didn't merely broadcast commands to the renderer — it `await`ed them
+  // inline from click handlers. That made it a second command surface with
+  // none of this layer's discipline: no typed channel, no `ChannelMap` entry,
+  // no preload method, no client signature, no registrar test, and its own
+  // `projectContext(rootPath)` built from a raw string. Every existing check is
+  // about imports or about IPC, and inline menu execution is neither — which is
+  // how "Export Knowledge Graph" came to mean two different output files
+  // depending on whether you used the menu or the (unused) IPC channel.
+  //
+  // So: a menu item either `send()`s a channel to the renderer, calls a
+  // window/app-lifecycle function (`createWindow`, `printToPDF`,
+  // `checkForUpdatesNow`, `shell.openExternal`), or calls a command from
+  // `maintenance-commands.ts` that a registrar also exposes. Reaching into a
+  // subsystem directly is what this forbids.
+  {
+    files: ['src/main/menu.ts', 'src/main/menu/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-restricted-imports': ['error', {
+        patterns: [{
+          group: [
+            '**/graph/**', '**/search/**', '**/sources/**', '**/embeddings/**',
+            '**/compute/**', '**/notebase/**', '**/llm/**', '**/git/**',
+            '../maintenance', './maintenance', '**/project-context-types',
+          ],
+          message:
+            'menu.ts must not execute subsystem work inline (#2233) — it is a command surface, ' +
+            'not an implementation. Add the operation to src/main/maintenance-commands.ts, expose ' +
+            'it as a typed channel in a register-*.ts (so it gets a contract entry and registrar ' +
+            'test coverage), and have the menu item call the command.',
+        }],
+      }],
+    },
+  },
   // ── CLI boundary (#1839, epic #1145 — Substrate) ───────────────────────
   // `src/cli` is the fifth layer and the only one that runs OUTSIDE Electron:
   // `node .vite/build/cli.js …` (and the same bundle under

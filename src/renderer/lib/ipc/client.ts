@@ -211,11 +211,23 @@ export interface TablesApi {
   onNameCollision(cb: (collision: import('../../../shared/types').CsvTableCollision) => void): () => void;
 }
 
-/** File ▸ maintenance operations report progress + completion here (#1814);
- *  they run in main, kicked off from the native menu, so this event is the
- *  renderer's only view of them. */
+/** The long-running project operations (#1814, #2233). They run in main and
+ *  report progress through `onProgress`, whichever surface started them — the
+ *  native menu or one of the commands below. Until #2233 only the menu could
+ *  start one, because the operations were inline in its click handlers. */
 interface MaintenanceApi {
   onProgress(cb: (p: MaintenanceProgress) => void): () => void;
+  /** Full reindex: graph + search + DuckDB table overlays. Resolves `true`
+   *  when the rebuild finished — `false` means it failed and panels should not
+   *  refresh off a half-built index. */
+  rebuildIndexes(): Promise<boolean>;
+  /** Force a full re-embed of the corpus (#836). */
+  rebuildSemanticIndex(): Promise<void>;
+  /** Interrupt the running Python cell, reporting through `onProgress`.
+   *  `compute.interruptPython` is the bare form the cell UI uses. */
+  interruptCell(): Promise<void>;
+  /** Restart the Python kernel, reporting through `onProgress`. */
+  restartKernel(): Promise<void>;
 }
 
 export interface EmbeddingsApi {

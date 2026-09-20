@@ -15,6 +15,7 @@ import { checkRebase } from '../graph/rebase-guard';
 import { proposeExcerptEvidence, type AttachEvidenceResult } from '../llm/attach-evidence';
 import { withRootPath, withRootPathOr, withRootPathWin } from './helpers';
 import { getInspectionSettings, saveInspectionSettings } from '../config/inspection-settings';
+import { exportKnowledgeGraph } from '../maintenance-commands';
 import { isA, labelOf } from '../graph/argument-patterns';
 import type { InspectionSettings } from '../../shared/inspections';
 
@@ -139,17 +140,21 @@ export function registerGraph(): void {
   }));
 
   // Graph management
+  // Consolidated with the File ▸ Export Knowledge Graph menu item (#2233).
+  // This handler used to persist and then COPY `.minerva/graph.ttl`, which
+  // `persistGraph` deliberately writes without the ontology triples; the menu
+  // called `graph.exportGraph`, which serializes the live store WITH them. Same
+  // command, two different files out, and nothing compared the two because the
+  // menu path had no contract entry to compare against. Both go through
+  // `exportKnowledgeGraph` now — see it for why the menu's behaviour won.
   handle(Channels.GRAPH_EXPORT, withRootPath(async (rootPath) => {
     const result = await dialog.showSaveDialog({
-      title: 'Export Graph',
-      defaultPath: 'graph.ttl',
+      title: 'Export Knowledge Graph',
+      defaultPath: `${path.basename(rootPath)}.ttl`,
       filters: [{ name: 'Turtle', extensions: ['ttl'] }],
     });
     if (!result.canceled && result.filePath) {
-      await graph.persistGraph(projectContext(rootPath));
-      const fs = await import('node:fs/promises');
-      const srcPath = path.join(rootPath, '.minerva', 'graph.ttl');
-      await fs.copyFile(srcPath, result.filePath);
+      await exportKnowledgeGraph(rootPath, result.filePath);
     }
   }));
 }
