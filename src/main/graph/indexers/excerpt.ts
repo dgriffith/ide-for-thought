@@ -20,12 +20,11 @@ import {
   MINERVA, DC, THOUGHT,
   projectUri, sourceUri, excerptUri, dateLit,
 } from '../state';
-import { checkLLMWriteGuard } from '../write-guard';
 import { fileMtimeIso, injectPrefixes } from '../index-helpers';
 import { logger } from '../../../shared/logger';
+import { rethrowIfTrustGuard } from '../write-guard';
 
 export function indexExcerpt(ctx: ProjectContext, excerptId: string, metaTtl: string): void {
-  checkLLMWriteGuard('indexExcerpt');
   const state = getState(ctx);
   if (!state) return;
   invalidate(state);
@@ -47,12 +46,13 @@ export function indexExcerpt(ctx: ProjectContext, excerptId: string, metaTtl: st
     const prefixed = injectPrefixes(state, metaTtl, subject.value);
     $rdf.parse(prefixed, store, graph.value, 'text/turtle');
   } catch (e) {
+    // A tripped write guard is not a parse failure — don't log it as one (#2231).
+    rethrowIfTrustGuard(e);
     logger('graph').error(`Failed to parse excerpt ttl for ${excerptId}:`, e instanceof Error ? e.message : e);
   }
 }
 
 export function removeExcerpt(ctx: ProjectContext, excerptId: string): void {
-  checkLLMWriteGuard('removeExcerpt');
   const state = getState(ctx);
   if (!state) return;
   invalidate(state);

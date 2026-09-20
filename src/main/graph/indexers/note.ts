@@ -30,7 +30,6 @@ import {
 } from '../state';
 import type { PropertyDef } from '../../../shared/objects/type-def';
 
-import { checkLLMWriteGuard } from '../write-guard';
 import {
   fileMtimeIso, injectPrefixes,
   ensureTag, ensureFolder, flattenFrontmatterStrings,
@@ -45,6 +44,7 @@ import { findNotesLinkingToAnchorImpl } from '../queries';
 
 import { emitFrontmatterValue, declaredPropertyPredicate } from './frontmatter';
 import { emitGraphChanged } from '../graph-events';
+import { rethrowIfTrustGuard } from '../write-guard';
 
 /**
  * Aliases that contain wiki-link metacharacters can't be expressed as
@@ -298,7 +298,6 @@ async function indexNoteImpl(
   content: string,
   opts: IndexNoteOptions = {},
 ): Promise<{ headingRenameCandidate?: HeadingRenameCandidate }> {
-  checkLLMWriteGuard('indexNote');
   const state = getState(ctx);
   if (!state) return {};
   // Any successful exit through this function has mutated the rdflib
@@ -389,6 +388,8 @@ async function indexNoteImpl(
       const prefixed = injectPrefixes(state, block, subject.value);
       $rdf.parse(prefixed, store, graph.value, 'text/turtle');
     } catch (e) {
+      // A tripped write guard is not a parse failure — don't log it as one (#2231).
+      rethrowIfTrustGuard(e);
       logger('graph').error(`Failed to parse turtle block in ${relativePath}:`, e instanceof Error ? e.message : e);
     }
   }
@@ -448,7 +449,6 @@ export function removeNote(ctx: ProjectContext, relativePath: string): void {
 }
 
 function removeNoteImpl(ctx: ProjectContext, relativePath: string): void {
-  checkLLMWriteGuard('removeNote');
   const state = getState(ctx);
   if (!state) return;
   invalidate(state);

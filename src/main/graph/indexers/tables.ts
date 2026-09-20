@@ -16,7 +16,6 @@ import {
   noteUri, tableUri,
   type GraphState,
 } from '../state';
-import { checkLLMWriteGuard } from '../write-guard';
 
 /** In-note CSVW triples for one markdown table (rows + cells). The overlay with
  *  typed columns lives on a separate node (`indexMarkdownTable`). */
@@ -129,7 +128,6 @@ function xsdForDuckDbType(duckdbType: string) {
  *   so SPARQL queries can reason about columns-as-predicates.
  */
 export function indexCsvTable(ctx: ProjectContext, shape: CsvTableShape): void {
-  checkLLMWriteGuard('indexCsvTable');
   const state = getState(ctx);
   if (!state) return;
   invalidate(state);
@@ -172,7 +170,6 @@ export function indexCsvTable(ctx: ProjectContext, shape: CsvTableShape): void {
 
 /** Remove all triples for a CSV table (entire named graph). */
 export function unindexCsvTable(ctx: ProjectContext, tableName: string): void {
-  checkLLMWriteGuard('unindexCsvTable');
   const state = getState(ctx);
   if (!state) return;
   invalidate(state);
@@ -189,7 +186,6 @@ export function unindexCsvTable(ctx: ProjectContext, tableName: string): void {
  * neither, so both are left untouched.
  */
 export function unindexAllCsvTables(ctx: ProjectContext): void {
-  checkLLMWriteGuard('unindexAllCsvTables');
   removeTableGraphsBy(ctx, MINERVA('fromFile'));
 }
 
@@ -221,7 +217,6 @@ export interface MarkdownTableShape {
  * name with a CSV (collision detection blocks it), their table URIs never clash.
  */
 export function indexMarkdownTable(ctx: ProjectContext, shape: MarkdownTableShape): void {
-  checkLLMWriteGuard('indexMarkdownTable');
   const state = getState(ctx);
   if (!state) return;
   invalidate(state);
@@ -261,7 +256,6 @@ export function indexMarkdownTable(ctx: ProjectContext, shape: MarkdownTableShap
 
 /** Remove a markdown table's overlay triples (entire named graph). */
 export function unindexMarkdownTable(ctx: ProjectContext, tableName: string): void {
-  checkLLMWriteGuard('unindexMarkdownTable');
   const state = getState(ctx);
   if (!state) return;
   invalidate(state);
@@ -275,7 +269,6 @@ export function unindexMarkdownTable(ctx: ProjectContext, tableName: string): vo
  * closed don't persist.
  */
 export function unindexAllNoteTables(ctx: ProjectContext): void {
-  checkLLMWriteGuard('unindexAllNoteTables');
   removeTableGraphsBy(ctx, MINERVA('fromNote'));
 }
 

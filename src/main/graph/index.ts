@@ -67,12 +67,16 @@ export function disposeProject(ctx: ProjectContext): void {
   deleteState(ctx);
 }
 
+import { withTrustedContext, rethrowIfTrustGuard } from './write-guard';
+
 // ── LLM Write Guard (#671, converged onto AsyncLocalStorage in #2053) ──────
 // Extracted into ./write-guard.ts so it can be unit-tested in isolation. The
 // public with*Context/enter/exit/is helpers are re-exported here for the
 // approval engine (apply-dispatch.ts, proposal-persistence.ts) and the LLM
-// apply helpers (auto-tag/-link, set/source-properties, conversation IPC);
-// the indexers (./indexers) call `checkLLMWriteGuard` directly.
+// apply helpers (auto-tag/-link, set/source-properties, conversation IPC).
+// The guard itself is applied at the store chokepoint — `instrumentStoreMirror`
+// in ./state wraps store.add/removeMatches — so no facade here or in ./indexers
+// has to remember to call it (#2231).
 export {
   enterLLMContext,
   exitLLMContext,
@@ -82,7 +86,6 @@ export {
   exitTrustedContext,
   withTrustedContext,
 } from './write-guard';
-import { checkLLMWriteGuard } from './write-guard';
 
 // ── Project config (persisted in .minerva/config.json) ─────────────────────
 // Read/write goes through the shared leaf in ../config/project-config-store
@@ -131,8 +134,14 @@ export async function initGraph(ctx: ProjectContext): Promise<void> {
   try {
     const turtle = await fs.readFile(graphPath, 'utf-8');
     $rdf.parse(turtle, state.store, 'urn:x-minerva:void', 'text/turtle');
-  } catch {
-    // No persisted graph yet, start fresh
+  } catch (e) {
+    // No persisted graph yet, start fresh — but never swallow a tripped guard
+    // (#2231). `initGraph` is deliberately NOT wrapped in withTrustedContext:
+    // it's project lifecycle, nothing calls it from an LLM path today, and
+    // blanket-trusting a bulk load that parses whatever is on disk would be a
+    // permanent hole. If it ever DOES run in LLM context we want to hear about
+    // it rather than have it pre-approved.
+    rethrowIfTrustGuard(e);
   }
 
   // Load ontology last: addOntologyToStore() strips any matching triples
@@ -151,28 +160,43 @@ export async function persistGraph(ctx: ProjectContext): Promise<void> {
   const { store, rootPath, ontologyStatements } = state;
 
   const graphPath = path.join(rootPath, '.minerva', 'graph.ttl');
-  // Strip ontology triples before serializing — they're re-loaded fresh
-  // from the embedded resource on startup, so persisting them would
-  // cause duplication on the next load.
-  for (const st of ontologyStatements) {
-    store.removeMatches(st.subject, st.predicate, st.object);
-  }
+  // Trusted (#2231): this is serialization bookkeeping, not content. It strips
+  // the ontology triples, serializes, and puts them straight back — no user or
+  // LLM data changes, and the store ends byte-identical to how it started.
+  // Saying so explicitly matters because persistGraph IS called from LLM
+  // context: `proposal-persistence.ts` calls it right AFTER its own
+  // withTrustedContext block closes, and two of the LLM apply paths
+  // (`propose-note.ts`, `conversation.ts`) call it directly. Before the guard
+  // moved to the store chokepoint those removeMatches/add pairs were invisible
+  // to it; now they'd be flagged as a bypass, which would be a false positive.
+  withTrustedContext(() => {
+    for (const st of ontologyStatements) {
+      store.removeMatches(st.subject, st.predicate, st.object);
+    }
+  });
   const turtle = serializeGraph(ctx);
-  for (const st of ontologyStatements) {
-    store.add(st.subject, st.predicate, st.object, st.graph);
-  }
+  withTrustedContext(() => {
+    for (const st of ontologyStatements) {
+      store.add(st.subject, st.predicate, st.object, st.graph);
+    }
+  });
   await fs.writeFile(graphPath, turtle, 'utf-8');
 }
 
 /** Parse a Turtle string and add its triples to the store. Used by the approval engine. */
 export function parseIntoStore(ctx: ProjectContext, turtle: string): void {
-  checkLLMWriteGuard('parseIntoStore');
   const state = getState(ctx);
   if (!state) return;
   invalidate(state);
   try {
     $rdf.parse(turtle, state.store, 'urn:x-minerva:void', 'text/turtle');
   } catch (e) {
+    // The write guard now fires from inside `store.add` (#2231), i.e. inside
+    // this try. Swallowing it here would turn "an LLM write bypassed the
+    // approval engine" into a logged parse error and nothing else — which is
+    // precisely the silence this guard exists to prevent. Malformed Turtle
+    // still falls through to the log below.
+    rethrowIfTrustGuard(e);
     logger('graph').error('Failed to parse turtle into store:', e instanceof Error ? e.message : e);
   }
 }
@@ -188,7 +212,6 @@ export function removeMatchingTriples(
   subjectIri: string,
   predicateIri: string,
 ): void {
-  checkLLMWriteGuard('removeMatchingTriples');
   const state = getState(ctx);
   if (!state) return;
   invalidate(state);

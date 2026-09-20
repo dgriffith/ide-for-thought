@@ -136,11 +136,94 @@ function guardIsFatal(): boolean {
 export function checkLLMWriteGuard(operation: string): void {
   if (!isInLLMContext()) return;
   if (isInTrustedContext()) return;
+  fire(operation);
+}
+
+/**
+ * A tripped guard, as a distinct class so the swallowing `catch` blocks around
+ * `$rdf.parse` can tell it apart from the malformed Turtle they exist to
+ * tolerate (#2231) — see `rethrowIfTrustGuard`.
+ *
+ * This mattered less when the guard ran in the indexer facades, *before* those
+ * try blocks. At the store chokepoint the throw now originates INSIDE them, and
+ * a guard whose exception is logged as "failed to parse" is a guard that
+ * silently does nothing.
+ */
+/** Prefix on every guard message. Also how `rethrowIfTrustGuard` recognises a
+ *  guard error that a library re-wrapped, so the two must stay one constant. */
+export const TRUST_GUARD_MARKER = '[trust-guard]';
+
+export class TrustGuardError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'TrustGuardError';
+  }
+}
+
+/**
+ * Re-throw a tripped guard out of a catch that would otherwise swallow it.
+ * Call it first in any `catch` wrapping a write to the live store; everything
+ * else falls through to the existing handling.
+ *
+ * Two shapes, because one of them survives a library in the middle:
+ *
+ *   - the `TrustGuardError` itself, for a direct `store.add`/`removeMatches`;
+ *   - a plain `Error` whose message CONTAINS the marker. `$rdf.parse` catches
+ *     whatever its per-statement `store.add` throws and re-raises it as its own
+ *     `Error` ("… while trying to parse <…> as text/turtle"), which discards
+ *     the class. Sniffing the message is not lovely, but the alternative is a
+ *     guard that goes quiet the moment the write happens to arrive via Turtle —
+ *     which is most of them. The marker is ours, is a single constant, and is
+ *     asserted by `write-guard.test.ts`, so it can't drift from the message.
+ */
+export function rethrowIfTrustGuard(e: unknown): void {
+  if (e instanceof TrustGuardError) throw e;
+  if (e instanceof Error && e.message.includes(TRUST_GUARD_MARKER)) {
+    throw new TrustGuardError(e.message);
+  }
+}
+
+/** Raise the guard for `operation`: throw under test, warn in dev/prod. Callers
+ *  have already established that we're in LLM but not trusted context. */
+function fire(operation: string): void {
   const message =
-    `[trust-guard] ${operation} called from LLM context outside the approval engine. ` +
+    `${TRUST_GUARD_MARKER} ${operation} called from LLM context outside the approval engine. ` +
     `LLM-originated writes must go through proposeWrite()/approveProposal().`;
-  if (guardIsFatal()) throw new Error(message);
+  if (guardIsFatal()) throw new TrustGuardError(message);
   logger('write-guard').warn(message);
+}
+
+/**
+ * The guard at the store chokepoint (#2231).
+ *
+ * `instrumentStoreMirror` wraps `store.add` / `store.removeMatches`, and every
+ * triple mutation in the system goes through one of them — so calling this
+ * there is what makes the guard TOTAL. It replaces fourteen hand-pasted
+ * `checkLLMWriteGuard(...)` calls in the indexer facades, which between them
+ * missed seven store-mutating functions (`indexAllNotes`, `reloadTypeCatalog`,
+ * `addOntologyToStore`, `initGraph`, `persistGraph`, `setBaseUri`, and
+ * `materializeTypeClasses` — the last writing `state.store` from a different
+ * package entirely).
+ *
+ * Kept separate from `checkLLMWriteGuard` for one reason: this runs on the
+ * hottest path in the app (a full reindex is ~100k calls), so the fast path
+ * has to be a single `AsyncLocalStorage` read and no allocation. `subject` is
+ * passed as the raw term and only stringified when the guard actually fires,
+ * which is why it isn't a pre-built message string or a closure.
+ */
+export function checkStoreWriteGuard(method: 'add' | 'removeMatches', subject: unknown): void {
+  if (!isInLLMContext()) return;
+  if (isInTrustedContext()) return;
+  fire(`store.${method}(${termLabel(subject)})`);
+}
+
+/** `<urn:x>` for a term, `*` for a wildcard — only called when firing. Anything
+ *  without a string `.value` is reported as `?`; this runs on a failure path
+ *  and a useless `[object Object]` would be worse than admitting we don't know. */
+function termLabel(term: unknown): string {
+  if (term === undefined || term === null) return '*';
+  const value = (term as { value?: unknown }).value;
+  return typeof value === 'string' ? `<${value}>` : '?';
 }
 
 /** Test-only: reset both counters between cases. */
