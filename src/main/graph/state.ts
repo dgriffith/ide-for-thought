@@ -20,6 +20,7 @@ import type { NeighborhoodResult } from '../../shared/types';
 import type { TypeCatalog } from '../../shared/objects/type-def';
 import type { ProjectContext } from '../project-context-types';
 import { createProjectStore } from '../project-store';
+import { checkStoreWriteGuard } from './write-guard';
 import { logger } from '../../shared/logger';
 
 // ── Comunica engine (process-wide; stateless across projects) ────────────────
@@ -405,6 +406,16 @@ function mirrorRemove(state: GraphState, removed: $rdf.Statement[]): void {
  * during a bulk load before the first query) mirroring is skipped and the next
  * query rebuilds from scratch — so this adds only a cheap null-check per write
  * on the cold path.
+ *
+ * These two wrappers are also where the LLM write guard lives (#2231). Every
+ * triple mutation in the system passes through one of them — `$rdf.parse` calls
+ * `store.add` per statement, so even the bulk Turtle loads are covered — which
+ * makes this the one place the guard can be TOTAL rather than opt-in. It used
+ * to be pasted by hand into fourteen indexer facades that between them missed
+ * seven store-mutating functions, including `materializeTypeClasses`, which
+ * writes this store from outside the `graph/` package entirely. See
+ * `checkStoreWriteGuard` for why the fast path costs one AsyncLocalStorage read
+ * and no allocation.
  */
 export function instrumentStoreMirror(state: GraphState): void {
   const store = state.store;
@@ -428,6 +439,7 @@ export function instrumentStoreMirror(state: GraphState): void {
   }
 
   m.add = function (s: RdflibTermLike, p: RdflibTermLike, o: RdflibTermLike, g?: unknown) {
+    checkStoreWriteGuard('add', s);
     marker.__minervaMutations = (marker.__minervaMutations ?? 0) + 1;
     const ret = origAdd(s, p, o, g);
     mirrorAdd(state, s, p, o);
@@ -436,6 +448,7 @@ export function instrumentStoreMirror(state: GraphState): void {
   };
 
   m.removeMatches = function (s?: unknown, p?: unknown, o?: unknown, g?: unknown) {
+    checkStoreWriteGuard('removeMatches', s);
     marker.__minervaMutations = (marker.__minervaMutations ?? 0) + 1;
     if (!state.n3Cache) return origRemoveMatches(s, p, o, g);
     // Snapshot (.slice) the statements about to be removed BEFORE the rdflib

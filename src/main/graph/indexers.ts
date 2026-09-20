@@ -21,8 +21,11 @@
  *                    ontology bootstrap, type-catalog reload, and the
  *                    proposal-preservation dance a from-scratch reset needs
  *
- * All store-mutating entry points run through the LLM write guard
- * (`checkLLMWriteGuard`), enforced inside each family, not here.
+ * None of these families calls the LLM write guard itself. It is applied at
+ * the store chokepoint (`instrumentStoreMirror` in ../state wraps
+ * store.add/removeMatches), so every mutation is covered whether or not its
+ * facade remembered to opt in — which is what #2231 fixed: fourteen facades
+ * did, seven store-mutating functions didn't.
  */
 
 // Note indexing lives in `./indexers/note` (#2050). Re-exported here so

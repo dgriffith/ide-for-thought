@@ -564,6 +564,41 @@ themselves in `withLLMContext` (or `enterLLMContext`) so a regression that write
 directly instead of via the approval engine is caught. **Wrap any new
 LLM-originated apply path the same way.**
 
+#### The guard lives at the store chokepoint (#2231)
+
+`instrumentStoreMirror` (`graph/state.ts`) wraps `store.add` and
+`store.removeMatches` for the N3 mirror, and **every triple mutation in the
+system goes through one of them** — `$rdf.parse` calls `store.add` per
+statement, so bulk Turtle loads are covered too. That is where
+`checkStoreWriteGuard` runs, which makes coverage total rather than opt-in.
+
+It used to be fourteen hand-pasted `checkLLMWriteGuard(...)` calls in the
+indexer facades, and they missed seven store-mutating functions —
+`indexAllNotes`, `reloadTypeCatalog`, `addOntologyToStore`, `initGraph`,
+`persistGraph`, `setBaseUri`, and `materializeTypeClasses`, that last one
+writing the graph's internal store from a different package. So the promise
+above was conditional on which function the write happened to arrive through.
+**Don't add `checkLLMWriteGuard` to a new indexer — it is already covered.**
+
+Two consequences worth knowing:
+
+- **Never swallow a `TrustGuardError`.** The guard now throws from *inside*
+  the `try` blocks around `$rdf.parse` that exist to tolerate malformed
+  Turtle, so a bare `catch` turns a caught bypass into a logged parse error
+  and nothing else. Every such catch calls `rethrowIfTrustGuard(e)` first; do
+  the same in any new one. (It matches the wrapped form too — rdflib re-raises
+  whatever `store.add` throws as its own `Error`, discarding the class.)
+- **The message names the store op and subject** (`store.add(<https://…>)`),
+  not the facade, which the chokepoint can't know. Under test the guard throws,
+  so the stack names the facade and everything above it; in dev/prod the subject
+  IRI identifies the write.
+
+`persistGraph` wraps its ontology strip/restore in `withTrustedContext` — it is
+serialization bookkeeping that leaves the store byte-identical, and it is
+genuinely called from LLM context. `initGraph` is deliberately **not** wrapped:
+nothing calls it from an LLM path today, and blanket-trusting a bulk load of
+whatever is on disk would be a permanent hole.
+
 ### Integrity Query
 
 The integrity-check SPARQL below detects `thought:Component` nodes attributed to an LLM that lack a corresponding approved proposal. Run it (Graph > Query) after any LLM integration work to verify the trust principle holds. It used to ship as the "Trust: Unreviewed LLM writes" stock query, but the `Trust:` / `Claims:` / `Compute:` stock queries were pulled from the default set as too confusing for end users — keep this one handy for development.

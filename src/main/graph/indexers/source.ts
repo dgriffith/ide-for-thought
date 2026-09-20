@@ -19,16 +19,15 @@ import {
 } from '../state';
 import { getLinkType } from '../../../shared/link-types';
 import { parseMarkdown } from '../parser';
-import { checkLLMWriteGuard } from '../write-guard';
 import {
   fileMtimeIso, injectPrefixes,
   ensureTag, flattenFrontmatterStrings,
   buildLinkResolveCtx, resolveLinkTarget,
 } from '../index-helpers';
 import { logger } from '../../../shared/logger';
+import { rethrowIfTrustGuard } from '../write-guard';
 
 export function indexSource(ctx: ProjectContext, sourceId: string, metaTtl: string, bodyMd?: string): void {
-  checkLLMWriteGuard('indexSource');
   const state = getState(ctx);
   if (!state) return;
   invalidate(state);
@@ -50,6 +49,8 @@ export function indexSource(ctx: ProjectContext, sourceId: string, metaTtl: stri
     const prefixed = injectPrefixes(state, metaTtl, subject.value);
     $rdf.parse(prefixed, store, graph.value, 'text/turtle');
   } catch (e) {
+    // A tripped write guard is not a parse failure — don't log it as one (#2231).
+    rethrowIfTrustGuard(e);
     logger('graph').error(`Failed to parse source meta.ttl for ${sourceId}:`, e instanceof Error ? e.message : e);
   }
 
@@ -120,7 +121,6 @@ function indexSourceBody(
 }
 
 export function removeSource(ctx: ProjectContext, sourceId: string): void {
-  checkLLMWriteGuard('removeSource');
   const state = getState(ctx);
   if (!state) return;
   invalidate(state);
