@@ -89,6 +89,11 @@ export class StdioTransport implements McpTransport {
     proc.on('exit', (code, signalName) => {
       this.dead = true;
       const reason = signalName ? `signal ${signalName}` : `code ${code}`;
+      // The exit itself was previously silent — the only visible trace was
+      // whatever the child happened to print to stdout on its way out (often
+      // logged as a confusing "non-JSON stdio line" with no indication it was
+      // the LAST line the process ever wrote).
+      logger('mcp-client').debug(`stdio server process exited (${reason})`);
       this.pending.rejectAll(new McpConnectionError(`mcp server process exited (${reason})`));
     });
 
@@ -158,7 +163,15 @@ export class StdioTransport implements McpTransport {
     let response: JsonRpcResponse | null;
     try {
       response = await discoverPromise;
-    } catch {
+    } catch (err) {
+      // A genuine timeout (server alive, just doesn't understand
+      // `server/discover`) is the expected legacy-fallback signal. But if
+      // the process actually died while we were waiting — `proc.on('exit')`
+      // set `this.dead` and rejected us via `rejectAll` — swallowing that
+      // and falling through to attempt a legacy `initialize` handshake would
+      // just doom a SECOND request against a dead connection. Rethrow the
+      // real reason instead.
+      if (this.dead) throw err;
       response = null; // timeout — decideEra treats this as legacy
     }
     void signal; // stdio connect() has no separate cancellation path yet — accepted for interface symmetry
@@ -177,6 +190,14 @@ export class StdioTransport implements McpTransport {
       return;
     }
 
+    // Same reasoning as `request()`: check-before-register, with no `await`
+    // in between, so `this.dead` can't flip mid-sequence and leave a
+    // registered (timer-armed) promise that nothing ever awaits — the
+    // orphaned-promise shape that produced an UnhandledPromiseRejectionWarning
+    // ~`getEraProbeTimeoutMs()`ms later once this branch was ever reached
+    // post-death (belt-and-suspenders alongside the rethrow above, which
+    // should already prevent reaching this branch while dead).
+    if (this.dead) throw new McpConnectionError('mcp transport is not connected');
     const initId = this.ids.nextId();
     const initPromise = this.pending.register(initId, getEraProbeTimeoutMs());
     this.writeRaw({

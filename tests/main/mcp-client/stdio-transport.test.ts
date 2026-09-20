@@ -53,6 +53,11 @@ rl.on('line', (line) => {
       send({ jsonrpc: '2.0', id: msg.id, error: { code: -32022, message: 'Unsupported protocol version', data: { supported: ['2099-01-01'] } } });
     } else if (mode === 'silent-discover') {
       // deliberately never respond — the client's probe should time out
+    } else if (mode === 'exits-during-discover') {
+      // Simulate a wrapper (e.g. \`uv run\`) that prints some startup chatter
+      // then exits before ever answering \`server/discover\` — no response,
+      // just a process exit shortly after.
+      setTimeout(() => process.exit(0), 20);
     } else {
       send({ jsonrpc: '2.0', id: msg.id, error: { code: -32601, message: 'Method not found' } });
     }
@@ -207,6 +212,29 @@ describe('StdioTransport (#2029)', () => {
       await transport.close();
     } finally {
       _setEraProbeTimeoutMsForTests(null);
+    }
+  });
+
+  it('a process exit mid-discover rejects connect() with the exit reason, not a later orphaned-timeout unhandled rejection', async () => {
+    // Regression test: a stdio server (e.g. a `uv run` wrapper) that dies
+    // before answering `server/discover` used to have its exit swallowed by
+    // probeEra()'s timeout-catch, which then attempted a doomed legacy
+    // `initialize` against the already-dead connection — registering a
+    // second pending request whose 5s timer fired with nothing ever
+    // awaiting it, producing an UnhandledPromiseRejectionWarning well after
+    // connect() had already rejected.
+    const unhandled: unknown[] = [];
+    const onUnhandledRejection = (reason: unknown): void => { unhandled.push(reason); };
+    process.on('unhandledRejection', onUnhandledRejection);
+    try {
+      const transport = new StdioTransport(fixtureDescriptor('exits-during-discover'));
+      await expect(transport.connect()).rejects.toThrow(/mcp server process exited/);
+      // Give an orphaned promise's timer room to fire if the bug regressed
+      // (the fixed code path never arms one for this scenario at all).
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(unhandled).toEqual([]);
+    } finally {
+      process.off('unhandledRejection', onUnhandledRejection);
     }
   });
 
