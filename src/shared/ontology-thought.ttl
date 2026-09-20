@@ -292,6 +292,35 @@ thought:archivedAt a owl:DatatypeProperty ;
     rdfs:domain thought:Source ;
     rdfs:range xsd:string .
 
+thought:extractionMethod a owl:DatatypeProperty ;
+    rdfs:label "extraction method" ;
+    rdfs:comment "How the source's body text was obtained: 'text-layer' when the PDF carried one, 'ocr' when it had to be recognised. Absent for sources whose body needed no extraction step." ;
+    rdfs:domain thought:Source ;
+    rdfs:range xsd:string .
+
+# ── Reference Stubs ───────────────────────────────────────────────────────
+# A citation scraped out of a bibliography becomes a partial Source up front,
+# so the citing note has something to link to, and is filled in later when the
+# user resolves it against a metadata API.
+
+thought:stubStatus a owl:DatatypeProperty ;
+    rdfs:label "stub status" ;
+    rdfs:comment "Whether a source created from a bare reference has been resolved yet: 'unresolved' or 'resolved'. Its presence is what marks a source as a stub at all, so checks expecting complete bibliographic metadata skip it." ;
+    rdfs:domain thought:Source ;
+    rdfs:range xsd:string .
+
+thought:rawReference a owl:DatatypeProperty ;
+    rdfs:label "raw reference" ;
+    rdfs:comment "The citation text exactly as it appeared in the bibliography this stub was scraped from, kept so resolution has something to match against." ;
+    rdfs:domain thought:Source ;
+    rdfs:range xsd:string .
+
+thought:resolvedFrom a owl:DatatypeProperty ;
+    rdfs:label "resolved from" ;
+    rdfs:comment "Provenance of a resolved source's metadata — 'stub' when it was filled in from a reference stub rather than ingested directly." ;
+    rdfs:domain thought:Source ;
+    rdfs:range xsd:string .
+
 thought:Finding a owl:Class ;
     rdfs:subClassOf thought:Component ;
     rdfs:label "Finding" ;
@@ -814,6 +843,12 @@ thought:proposalDiff a owl:DatatypeProperty ;
     rdfs:domain thought:Proposal ;
     rdfs:range xsd:string .
 
+thought:payloadJson a owl:DatatypeProperty ;
+    rdfs:label "payload JSON" ;
+    rdfs:comment "The proposal's typed payloads, serialized as JSON — what the approval engine replays when the user approves. A proposal may carry several; each is one payloadJson literal. Distinct from thought:proposalDiff, which is the human-facing rendering of the same change." ;
+    rdfs:domain thought:Proposal ;
+    rdfs:range xsd:string .
+
 thought:proposalNote a owl:DatatypeProperty ;
     rdfs:label "proposal note" ;
     rdfs:comment "Human-readable description of what this proposal does and why." ;
@@ -875,6 +910,12 @@ thought:executedAt a owl:DatatypeProperty ;
     rdfs:comment "Timestamp when the user clicked Run." ;
     rdfs:domain thought:ComputeProposal ;
     rdfs:range xsd:dateTime .
+
+thought:derivedFromCell a owl:DatatypeProperty ;
+    rdfs:label "derived from cell" ;
+    rdfs:comment "Id of the compute cell whose output a derived note was saved from (#244). Paired with prov:wasDerivedFrom, which points at the note the cell lives in: together they identify which note a given cell's output was pinned to, so re-running the cell updates that note instead of writing a second one." ;
+    rdfs:domain minerva:Note ;
+    rdfs:range xsd:string .
 
 # ── Approval Policy ───────────────────────────────────────────────────────
 

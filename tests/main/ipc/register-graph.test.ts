@@ -263,6 +263,22 @@ describe('register-graph — GRAPH_GROUND_CHECK (#1631 rule 1 in action)', () =>
     await expect(callAsync(Channels.GRAPH_GROUND_CHECK, 'Some')).resolves.toEqual(rows);
   });
 
+  it('asks for components by subclass path and accepts dc:title as a label (#2230)', async () => {
+    // The shape assertion the mocked `queryGraph` above can't make for itself:
+    // this handler builds its query from `graph/argument-patterns`, whose
+    // behaviour is tested against a real store in
+    // `tests/main/graph/argument-patterns.test.ts`. What's pinned here is that
+    // the grounding query still uses those fragments rather than drifting back
+    // to `?cls rdfs:subClassOf thought:Component` + `thought:label`, which
+    // between them matched hand-authored Turtle and none of the typed claim
+    // notes the app files itself.
+    await call(Channels.GRAPH_GROUND_CHECK, 'anything');
+    const sparql = h.queryGraph.mock.calls[0]![1] as string;
+    expect(sparql).toContain('rdf:type/rdfs:subClassOf* thought:Component');
+    expect(sparql).toContain('dc:title ?labelTitle');
+    expect(sparql).toContain('COALESCE(?labelThought, ?labelTitle)');
+  });
+
   it('escapes quotes and newlines so the claim text cannot break out of the literal', async () => {
     await call(Channels.GRAPH_GROUND_CHECK, 'he said "hi"\nthen left');
     const sparql = h.queryGraph.mock.calls[0]![1] as string;

@@ -374,6 +374,54 @@ untested ones sit in a `KNOWN_UNTESTED` list that may only shrink.
 - Includes epistemic defects: fallacies, biases, rhetorical moves, structural problems
 - Proposals and conversations aligned with W3C PROV-O provenance model
 
+#### Two representations of one claim, and the fragments that know both (#2230)
+
+A thought component reaches the graph two ways, and a query written against
+only one of them is a silent wrong answer, not an obvious bug:
+
+- **Hand-authored Turtle** — an embedded ` ```turtle ` block, the `crystallize`
+  skill, the tutorial thoughtbase — asserts `a thought:Claim` with a
+  `thought:label`.
+- **A typed note** — what every claim the app itself files looks like since
+  #2036. `type: claim` frontmatter asserts `a types:Claim`, which
+  `types/compile.ts` declares `rdfs:subClassOf thought:Claim` (deliberately not
+  `owl:equivalentClass` — the store does no OWL entailment), and the title
+  lands as `dc:title`. Neither `a thought:Claim` nor `thought:label` matches it.
+
+So **query components through `src/main/graph/argument-patterns.ts`**, not by
+hand: `isA(v, cls)` (the `rdf:type/rdfs:subClassOf*` path), `labelOf(v)`
+(`thought:label` preferred, `dc:title` fallback), `supportedBy` / `unsupported`
+(`thought:supports` from frontmatter and the Claim type, `minerva:supports`
+from a `[[supports::note]]` wiki-link — both mean support). `health-checks.ts`
+and `register-graph.ts`'s grounding query both build from it.
+
+`unsupported` emits one `FILTER NOT EXISTS` per predicate rather than one over
+their alternation *on purpose*: Comunica evaluates
+`FILTER NOT EXISTS { ?x (a|b) ?y }` — and the equivalent inner `UNION` — as
+matching nothing when neither predicate appears anywhere in the store, which
+inverts to excluding every row. That reports zero unsupported claims on exactly
+the thoughtbase most likely to have them. A single-predicate `NOT EXISTS` is
+fine, and so is an alternation in positive position.
+
+#### The ontology is executable, not decorative (#2230)
+
+`tests/architecture/ontology-terms.test.ts` parses `ontology.ttl` and
+`ontology-thought.ttl` and asserts every `thought:X` / `minerva:X` named
+anywhere in `src/` — prose, skill bodies and `THOUGHT('x')` call sites included
+— is a term one of them declares. Adding a predicate to the code means adding
+it to the ontology in the same PR.
+
+This matters beyond tidiness: `describe_graph_schema` hands both files to the
+LLM verbatim and tells it the contents are authoritative before it writes
+SPARQL. Nothing checked that claim until this test, and `ontology.ttl` had been
+shipping *unparseable* (a stray `;x`) for an unknown length of time, with ~17
+load-bearing predicates undeclared. The test is deliberately not a
+SHACL/reasoner layer — see #2241's scope notes.
+
+What it does **not** check: the reverse direction (a declared term nothing
+uses — normal for vocabulary users author by hand), or whether a term's
+`rdfs:domain`/`rdfs:range` match how the code uses it. Only the name.
+
 ### Tools for Thought (Skills)
 
 The Learning / Research / Analysis menus are populated by **skills** — markdown

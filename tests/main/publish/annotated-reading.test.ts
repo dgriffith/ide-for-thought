@@ -37,7 +37,7 @@ async function setupBrooksProject(root: string): Promise<void> {
   thought:fromSource sources:brooks-1986 ;
   thought:page 11 ;
   thought:citedText "essence of a software entity is a construct of interlocking concepts" ;
-  thought:hasTag "essential-complexity" .\n`,
+  minerva:tag "essential-complexity" .\n`,
     'utf-8',
   );
   await fsp.writeFile(path.join(root, '.minerva/excerpts/brooks-1986-aristotle.ttl'),
@@ -106,7 +106,13 @@ describe('annotated-reading exporter (#253)', () => {
     expect(cardMatch![0]).not.toContain('excerpt-linked-notes');
   });
 
-  it('excerpt tags from thought:hasTag render as #tags on the card', async () => {
+  // Hand-added `minerva:tag` literals — the same predicate the source indexer
+  // reads for user tags. Nothing Minerva writes puts tags on an excerpt, so a
+  // hand-edited TTL like the fixture above is the only way they get there.
+  // This read a `hasTag` in the thought namespace until #2230, a predicate
+  // that exists in neither ontology — so the fixture was the only thing in
+  // the world that could ever have matched it.
+  it('excerpt tags render as #tags on the card', async () => {
     const plan = await resolvePlan(root, { kind: 'source', relativePath: 'brooks-1986' });
     const output = await runExporter(annotatedReadingExporter, plan);
     const html = String(output.files[0].contents);

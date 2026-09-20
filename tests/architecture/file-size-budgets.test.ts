@@ -66,7 +66,7 @@ const BUDGETS: Record<string, number> = {
   'src/main/menu.ts': 1024,
   'src/renderer/lib/components/Sidebar.svelte': 994,
   'src/renderer/lib/app/refactor-ops.svelte.ts': 856,
-  'src/main/graph/health-checks.ts': 831,
+  'src/main/graph/health-checks.ts': 826,
   'src/renderer/lib/components/ExportDialog.svelte': 712,
   'src/renderer/lib/components/ProposalsPanel.svelte': 613,
   'src/renderer/lib/components/QueryPanel.svelte': 759,
