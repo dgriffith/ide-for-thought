@@ -53,17 +53,25 @@ const THRESHOLD = 600;
  * Numbers here may go DOWN freely (lower the entry, or delete it once the file
  * drops under THRESHOLD) and may go UP only on purpose.
  */
+/**
+ * #2233 raised the four IPC-contract files (`channels.ts`, `ipc-contract.ts`,
+ * `preload.ts`, `client.ts`) by 41 lines between them and lowered `menu.ts` by
+ * 68. That direction is the intended one: the growth is five commands
+ * acquiring the channel/contract/preload/client entries they should always
+ * have had, in the files this header already calls honest catalogs, paid for by
+ * taking the same commands out of a menu file that was executing them inline.
+ */
 const BUDGETS: Record<string, number> = {
   'src/renderer/App.svelte': 2096,
   'src/renderer/lib/components/Preview.svelte': 1341,
   'src/renderer/lib/components/SourceDetail.svelte': 1346,
   'src/renderer/lib/components/SourcesPanel.svelte': 789,
-  'src/renderer/lib/ipc/client.ts': 1337,
+  'src/renderer/lib/ipc/client.ts': 1349,
   'src/renderer/lib/stores/conversations.svelte.ts': 1165,
   'src/renderer/lib/components/Editor.svelte': 854,
   'src/renderer/lib/stores/editor.svelte.ts': 913,
     'src/renderer/lib/components/right-sidebar/PropertiesPanel.svelte': 1156,
-  'src/main/menu.ts': 1024,
+  'src/main/menu.ts': 956,
   'src/renderer/lib/components/Sidebar.svelte': 994,
   'src/renderer/lib/app/refactor-ops.svelte.ts': 856,
   'src/main/graph/health-checks.ts': 826,
@@ -71,13 +79,13 @@ const BUDGETS: Record<string, number> = {
   'src/renderer/lib/components/ProposalsPanel.svelte': 613,
   'src/renderer/lib/components/QueryPanel.svelte': 759,
   'src/renderer/lib/components/conversations/DraftCards.svelte': 758,
-  'src/shared/ipc-contract.ts': 779,
-  'src/shared/channels.ts': 723,
+  'src/shared/ipc-contract.ts': 784,
+  'src/shared/channels.ts': 740,
   'src/renderer/lib/app/note-ops.ts': 687,
   'src/renderer/lib/editor/formatting.ts': 668,
   'src/main/sources/tables.ts': 662,
   'src/renderer/lib/components/FindInNotesDialog.svelte': 601,
-  'src/preload/preload.ts': 642,
+  'src/preload/preload.ts': 649,
   'src/main/ipc/register-conversation-drafts.ts': 608,
 };
 

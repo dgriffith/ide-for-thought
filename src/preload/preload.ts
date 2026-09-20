@@ -160,6 +160,13 @@ const api = {
     /** Progress + completion for the File ▸ maintenance operations (#1814). */
     onProgress: (cb: (p: import('../shared/maintenance').MaintenanceProgress) => void) =>
       subscribe(Channels.MAINTENANCE_PROGRESS, cb),
+    // The commands themselves (#2233) — previously reachable only by clicking
+    // the native menu. Progress still arrives via onProgress above, whichever
+    // surface started the run.
+    rebuildIndexes: () => invoke(Channels.MAINTENANCE_REBUILD_INDEXES),
+    rebuildSemanticIndex: () => invoke(Channels.MAINTENANCE_REBUILD_SEMANTIC_INDEX),
+    interruptCell: () => invoke(Channels.MAINTENANCE_INTERRUPT_CELL),
+    restartKernel: () => invoke(Channels.MAINTENANCE_RESTART_KERNEL),
   },
   embeddings: {
     onBackfillProgress: (cb: (p: { done: number; total: number; running: boolean }) => void) =>

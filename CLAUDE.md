@@ -218,6 +218,38 @@ To add a new main-process operation:
 4. Expose it in `src/preload/preload.ts`
 5. Add the type to the API interface in `src/renderer/lib/ipc/client.ts`
 
+#### The native menu is a command surface, not an implementation (#2233)
+
+`menu.ts` is not exempt from the five steps above. It used to be: five
+long-running operations — rebuild indexes, rebuild the semantic index, interrupt
+a cell, restart the kernel, export the knowledge graph — were `await`ed inline
+from click handlers, so the native menu was a second command surface with no
+channel, no contract entry, no preload method, no client signature, no registrar
+test, and a `projectContext(rootPath)` built by hand from a raw string. Every
+existing check is about imports or about IPC, and inline menu execution is
+neither, so nothing saw it. The visible cost: `Export Knowledge Graph` meant two
+different output files depending on whether you reached it from the menu or the
+(unused) `GRAPH_EXPORT` channel — the menu's included the ontology triples, the
+channel's didn't.
+
+So a menu item does exactly one of:
+
+- **`send()` a channel** to the renderer (most of them);
+- **call a window/app-lifecycle function** — `createWindow`, `printToPDF`,
+  `checkForUpdatesNow`, `shell.openExternal`, `installMinervaCommand`. These are
+  genuinely window-scoped or stateless OS side-effects with no sensible IPC
+  form, and they correctly stay;
+- **call a command from `src/main/maintenance-commands.ts`**, which a registrar
+  also exposes as a typed channel. One implementation, two surfaces.
+
+A `no-restricted-imports` block in `eslint.config.mjs` scoped to
+`src/main/menu.ts` + `src/main/menu/**` enforces this: importing `graph/`,
+`search/`, `sources/`, `embeddings/`, `compute/`, `notebase/`, `llm/`, `git/`,
+`maintenance`, or `project-context-types` there fails lint and points at the
+command-plus-registrar route. That's what makes this durable rather than a
+one-time tidy — the next menu item that wants to do work gets pushed through
+the contract instead of around it.
+
 ### IPC error handling (#1631)
 
 One convention so every caller reasons about failure the same way. Electron's
