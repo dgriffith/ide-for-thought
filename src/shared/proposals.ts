@@ -18,5 +18,8 @@ export interface Proposal {
   note: string;
   proposedBy: string;
   proposedAt: string;
+  /** When the status last transitioned (approved/rejected/expired) — #1159.
+   *  Absent on a still-pending proposal. */
+  statusChangedAt?: string | undefined;
   payloads: unknown[];
 }

@@ -802,6 +802,12 @@ thought:autoExpires a owl:DatatypeProperty ;
     rdfs:domain thought:Proposal ;
     rdfs:range xsd:dateTime .
 
+thought:statusChangedAt a owl:DatatypeProperty ;
+    rdfs:label "status changed at" ;
+    rdfs:comment "Timestamp of the proposal's most recent status transition (approved/rejected/expired) — distinct from proposedAt, which is creation time. Absent on a still-pending proposal. #1159: the pre-launch provenance-over-time guardrail found proposedAt alone couldn't answer \"when was this decided,\" only \"when was it proposed\" — this closes that gap." ;
+    rdfs:domain thought:Proposal ;
+    rdfs:range xsd:dateTime .
+
 thought:proposalDiff a owl:DatatypeProperty ;
     rdfs:label "proposal diff" ;
     rdfs:comment "Serialized representation of the proposed graph mutation (Turtle or JSON)." ;

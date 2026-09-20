@@ -209,6 +209,9 @@ export interface Proposal {
   proposedBy: string;
   proposedAt: string;
   autoExpires: string;
+  /** When the status last transitioned (approved/rejected/expired) — #1159.
+   *  Absent on a still-pending proposal. */
+  statusChangedAt?: string | undefined;
 }
 
 export interface ApproveResult {
