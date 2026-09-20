@@ -6,6 +6,7 @@ import {
   proposeWrite,
   approveProposal,
   rejectProposal,
+  getProposal,
   type OperationType,
 } from '../../../src/main/llm/approval';
 import { queryGraph } from '../../../src/main/graph/index';
@@ -67,6 +68,29 @@ describe('updateProposalStatus replaces, does not append (#332)', () => {
     expect(await statusesFor(proposal.uri)).toEqual([
       'https://minerva.dev/ontology/thought#rejected',
     ]);
+  });
+
+  it('stamps statusChangedAt on approve, leaving proposedAt untouched (#1159)', async () => {
+    const proposal = await proposeWrite(ctx, {
+      operationType: 'new_claim',
+      payloads: [{
+        kind: 'graph-triples',
+        turtle: '<https://ex.example/z> a <https://ex.example/Claim> .',
+        affectsNodeUris: ['https://ex.example/z'],
+      }],
+      note: 'test',
+      proposedBy: 'unit-test',
+    });
+    // A still-pending proposal has no status-change event yet.
+    expect((await getProposal(ctx, proposal.uri))!.statusChangedAt).toBeUndefined();
+
+    await approveProposal(ctx, proposal.uri);
+    const approved = await getProposal(ctx, proposal.uri);
+    expect(approved!.statusChangedAt).toBeTruthy();
+    // Two distinct timestamps: when it was proposed vs. when it was decided —
+    // the gap #1159's audit found (only the former existed before this fix).
+    expect(approved!.proposedAt).toBe(proposal.proposedAt);
+    expect(new Date(approved!.statusChangedAt!).getTime()).toBeGreaterThanOrEqual(new Date(approved!.proposedAt).getTime());
   });
 });
 

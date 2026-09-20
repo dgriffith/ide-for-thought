@@ -79,6 +79,7 @@ function proposalFromRow(row: Record<string, string>): Proposal {
     proposedBy: row.proposedBy!,
     proposedAt: row.proposedAt!,
     autoExpires: row.autoExpires!,
+    statusChangedAt: row.statusChangedAt,
   };
 }
 
@@ -95,7 +96,7 @@ export async function listProposals(ctx: ProjectContext, status?: string): Promi
   const results = await graph.queryGraph(ctx, `
     SELECT ?proposal ?status ?operationType ?note ?proposedBy ?proposedAt ?autoExpires ?payloadJson
            (GROUP_CONCAT(DISTINCT ?affectsNode; separator="\\u001f") AS ?affectsNodes)
-           ?conversation WHERE {
+           ?conversation ?statusChangedAt WHERE {
       ?proposal a thought:Proposal .
       ?proposal thought:proposalStatus ?statusNode .
       BIND(REPLACE(STR(?statusNode), "${THOUGHT}", "") AS ?status)
@@ -108,8 +109,9 @@ export async function listProposals(ctx: ProjectContext, status?: string): Promi
       ${statusFilter}
       OPTIONAL { ?proposal thought:affectsNode ?affectsNode }
       OPTIONAL { ?proposal thought:conversationRef ?conversation }
+      OPTIONAL { ?proposal thought:statusChangedAt ?statusChangedAt }
     }
-    GROUP BY ?proposal ?status ?operationType ?note ?proposedBy ?proposedAt ?autoExpires ?payloadJson ?conversation
+    GROUP BY ?proposal ?status ?operationType ?note ?proposedBy ?proposedAt ?autoExpires ?payloadJson ?conversation ?statusChangedAt
     ORDER BY DESC(?proposedAt)
   `);
 
@@ -121,7 +123,7 @@ export async function listProposals(ctx: ProjectContext, status?: string): Promi
  */
 export async function getProposal(ctx: ProjectContext, uri: string): Promise<Proposal | null> {
   const results = await graph.queryGraph(ctx, `
-    SELECT ?status ?operationType ?note ?proposedBy ?proposedAt ?autoExpires ?payloadJson ?affectsNode ?conversation WHERE {
+    SELECT ?status ?operationType ?note ?proposedBy ?proposedAt ?autoExpires ?payloadJson ?affectsNode ?conversation ?statusChangedAt WHERE {
       <${uri}> a thought:Proposal .
       <${uri}> thought:proposalStatus ?statusNode .
       BIND(REPLACE(STR(?statusNode), "${THOUGHT}", "") AS ?status)
@@ -133,6 +135,7 @@ export async function getProposal(ctx: ProjectContext, uri: string): Promise<Pro
       <${uri}> thought:payloadJson ?payloadJson .
       OPTIONAL { <${uri}> thought:affectsNode ?affectsNode }
       OPTIONAL { <${uri}> thought:conversationRef ?conversation }
+      OPTIONAL { <${uri}> thought:statusChangedAt ?statusChangedAt }
     }
   `);
 
@@ -155,6 +158,7 @@ export async function getProposal(ctx: ProjectContext, uri: string): Promise<Pro
     proposedBy: firstRow.proposedBy!,
     proposedAt: firstRow.proposedAt!,
     autoExpires: firstRow.autoExpires!,
+    statusChangedAt: firstRow.statusChangedAt,
   };
 }
 
@@ -186,14 +190,23 @@ export async function writeProposalToGraph(ctx: ProjectContext, p: Proposal): Pr
 }
 
 export async function updateProposalStatus(ctx: ProjectContext, uri: string, newStatus: string): Promise<void> {
-  // Drop any prior thought:proposalStatus triples on this proposal
-  // before adding the new one — otherwise the proposal accumulates
+  // Drop any prior thought:proposalStatus/statusChangedAt triples on this
+  // proposal before adding the new ones — otherwise the proposal accumulates
   // {pending, approved, ...} markers and history queries return all
   // historical states (#332).
   graph.withTrustedContext(() => {
     graph.removeMatchingTriples(ctx, uri, `${THOUGHT}proposalStatus`);
+    graph.removeMatchingTriples(ctx, uri, `${THOUGHT}statusChangedAt`);
   });
-  await applyTurtle(ctx, `<${uri}> thought:proposalStatus thought:${newStatus} .`);
+  // #1159: proposedAt alone (creation time) can't answer "when was this
+  // decided" — stamped here, not threaded through every caller, so this
+  // stays the one place that needs to know (approve/reject/expire all
+  // funnel through here already).
+  const changedAt = new Date().toISOString();
+  await applyTurtle(
+    ctx,
+    `<${uri}> thought:proposalStatus thought:${newStatus} ; thought:statusChangedAt "${changedAt}"^^xsd:dateTime .`,
+  );
 }
 
 export async function applyTurtle(ctx: ProjectContext, turtle: string): Promise<void> {
