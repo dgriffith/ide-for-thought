@@ -256,6 +256,51 @@ GROUP BY ?proposedBy ?status
 ORDER BY ?proposedBy ?status`,
   },
   {
+    name: 'Provenance history for note',
+    description: 'Every proposal that has touched a note or claim, in order (edit the target path) — belief evolution, #1161',
+    language: 'sparql',
+    // `thought:affectsNode` is populated for every proposal kind (graph-triples,
+    // note-rewrite, source-meta, …), so this works uniformly whether the target
+    // is a plain note or a first-class Claim/Glossary Term note (#2176/#2177) —
+    // anything with its own relativePath. A component minted as a blank node
+    // inside a crystallization note (no relativePath of its own) isn't
+    // resolvable this way; query the crystallization note's path instead.
+    query: `${PREFIXES}
+# Edit the target note path below.
+SELECT ?operationType ?note ?status ?proposedBy ?proposedAt ?statusChangedAt ?conversation WHERE {
+  ?target minerva:relativePath "YOUR_NOTE.md" .
+  ?proposal rdf:type thought:Proposal .
+  ?proposal thought:affectsNode ?target .
+  ?proposal thought:operationType ?operationType .
+  ?proposal thought:proposedBy ?proposedBy .
+  ?proposal thought:proposedAt ?proposedAt .
+  ?proposal thought:proposalStatus ?statusNode .
+  BIND(REPLACE(STR(?statusNode), "https://minerva.dev/ontology/thought#", "") AS ?status)
+  OPTIONAL { ?proposal thought:proposalNote ?note }
+  OPTIONAL { ?proposal thought:statusChangedAt ?statusChangedAt }
+  OPTIONAL { ?proposal thought:conversationRef ?conversation }
+}
+ORDER BY ?proposedAt`,
+  },
+  {
+    name: 'Recently decided proposals',
+    description: 'Every approved/rejected/expired proposal, most recently decided first — what changed, who proposed it, when it was decided',
+    language: 'sparql',
+    query: `${PREFIXES}
+SELECT ?operationType ?note ?affectsPath ?status ?proposedBy ?statusChangedAt WHERE {
+  ?proposal rdf:type thought:Proposal .
+  ?proposal thought:proposalStatus ?statusNode .
+  FILTER(?statusNode != thought:pending)
+  BIND(REPLACE(STR(?statusNode), "https://minerva.dev/ontology/thought#", "") AS ?status)
+  ?proposal thought:operationType ?operationType .
+  ?proposal thought:proposedBy ?proposedBy .
+  ?proposal thought:statusChangedAt ?statusChangedAt .
+  OPTIONAL { ?proposal thought:proposalNote ?note }
+  OPTIONAL { ?proposal thought:affectsNode ?affects . ?affects minerva:relativePath ?affectsPath }
+}
+ORDER BY DESC(?statusChangedAt)`,
+  },
+  {
     name: 'Conversation history',
     description: 'All recorded conversations with their status and trigger',
     language: 'sparql',
