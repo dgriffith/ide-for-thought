@@ -6,6 +6,8 @@
  *
  *   1. **Which method names count as mutations** — the `DATAFLOW_MUTATION_METHODS`
  *      denylist in `eslint.config.mjs` (the renderer data-flow rule, #1086/#1626).
+ *   1b. **Which paths are allowed to own one** — the `ignores` on that same
+ *      eslint block (#2232).
  *   2. **Which namespace exposes which methods** — the `contextBridge` object in
  *      `src/preload/preload.ts`.
  *
@@ -126,4 +128,41 @@ export function apiNamespaceMethods(): Record<string, Set<string>> {
     if (depth <= 0) break;
   }
   return out;
+}
+
+/**
+ * The paths the data-flow eslint block exempts — the modules allowed to OWN a
+ * mutation (#2232). Returned with any trailing `/**` stripped, so each entry is
+ * a plain path prefix comparable against a walked file path.
+ *
+ * `dataflow-rule-coverage.test.ts` scans "all of `src/renderer` minus these",
+ * and the eslint rule lints exactly the complement. The two descriptions of one
+ * set are what this exists to keep in step: widening the eslint exemption
+ * without widening the scan would reopen the blind spot #2232 closed, silently.
+ *
+ * Anchored on `DATAFLOW_MESSAGE`, the one string unique to this block, then
+ * walked BACK to the nearest `files:` glob and forward to its `ignores:`.
+ * Neither half is unique on its own — the flat config has a top-level
+ * `ignores`, and the renderer layer-boundary block carries a byte-identical
+ * `files:` glob — so anchoring on either alone reads a different block's list
+ * and answers confidently wrong.
+ */
+export function dataflowOwnerPaths(): string[] {
+  const cfg = readFileSync(ESLINT_CONFIG, 'utf8');
+  const inBlock = cfg.indexOf('message: DATAFLOW_MESSAGE');
+  const files = inBlock < 0 ? -1 : cfg.lastIndexOf("files: ['src/renderer/", inBlock);
+  if (files < 0) {
+    throw new Error(
+      `The renderer data-flow block was not found in ${ESLINT_CONFIG} — did its scope ` +
+      'or message const change? Update this parser and dataflow-rule-coverage.test.ts together.',
+    );
+  }
+  const open = cfg.indexOf('ignores: [', files);
+  const close = cfg.indexOf(']', open);
+  if (open < 0 || open > inBlock || close <= open) {
+    throw new Error(`Could not read the data-flow block's ignores list in ${ESLINT_CONFIG}.`);
+  }
+  return [...cfg.slice(open, close).matchAll(/'([^']*)'/g)]
+    .map((m) => m[1]!.replace(/\/\*\*$/, ''))
+    .sort();
 }

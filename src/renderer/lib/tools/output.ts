@@ -1,6 +1,5 @@
 import type { ToolExecutionResult, OutputMode, ToolContext } from '../../../shared/tools/types';
 import { getEditorStore } from '../stores/editor.svelte';
-import { api } from '../ipc/client';
 import { getNotebaseStore } from '../stores/notebase.svelte';
 import { todayDateString } from '../refactor/extract';
 
@@ -21,8 +20,8 @@ export async function handleToolOutput(
       // yet — they share the newNote path for now.
       const sourcePath = context.fullNotePath ?? editor.activeFilePath ?? null;
       const { filename, content } = buildNoteFile(result, sourcePath);
-      await api.notebase.createFile(filename);
-      await api.notebase.writeFile(filename, content);
+      await notebase.createFile(filename);
+      await notebase.writeFile(filename, content);
       await notebase.refresh();
       await editor.openFile(filename);
       break;

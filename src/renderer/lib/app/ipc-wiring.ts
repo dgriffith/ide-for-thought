@@ -35,7 +35,7 @@ import { getDialogStore } from '../stores/dialogs.svelte';
 import { getToastStore } from '../stores/toasts.svelte';
 import { maintenanceLabel, maintenanceOutcomeMessage } from '../../../shared/maintenance';
 import { CONFIRM_KEYS } from '../confirm-keys';
-import { loadFormatSettings } from '../formatter/settings';
+import { loadFormatSettings } from '../stores/settings-formatter.svelte';
 import { registerSkillInfos } from '../tools/tool-registry';
 import { applyMenuConfig } from '../../../shared/skills/menu-config';
 import { logger } from '../../../shared/logger';

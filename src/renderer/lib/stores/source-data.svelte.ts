@@ -23,7 +23,16 @@ export function getSourceDataStore() {
       api.sources.setReadStatus(sourceId, status),
     setReadDueBy: (sourceId: string, dueBy: string | null) =>
       api.sources.setReadDueBy(sourceId, dueBy),
+    /** Rename a source (#2232). Paired with `addTag`/`deleteSource` below:
+     *  all three were called straight from `lib/sources/source-actions.ts`,
+     *  which the data-flow rule couldn't see while it was scoped to `.svelte`
+     *  files under `components/`. */
+    setTitle: (sourceId: string, title: string) => api.sources.setTitle(sourceId, title),
+    addTag: (sourceId: string, tag: string) => api.sources.addTag(sourceId, tag),
     removeTag: (sourceId: string, tag: string) => api.sources.removeTag(sourceId, tag),
+    /** Delete a source and its excerpts. Named `deleteSource` rather than
+     *  `delete` — a bare `delete` reads as the reserved word at call sites. */
+    deleteSource: (sourceId: string) => api.sources.delete(sourceId),
     createExcerpt: (params: Parameters<typeof api.sources.createExcerpt>[0]) =>
       api.sources.createExcerpt(params),
     ingestSmart: (rawInput: string) => api.sources.ingestSmart(rawInput),

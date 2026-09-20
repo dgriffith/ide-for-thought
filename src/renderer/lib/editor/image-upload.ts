@@ -11,9 +11,14 @@
  * content-addressed dedup for free: two drops of the same file
  * collapse to one asset on disk; pasting the same screenshot twice
  * doesn't grow the project.
+ *
+ * The existence check is a read and stays on `api`; the write goes through the
+ * notebase store, per the renderer data-flow rule (#2232 — this file sat in the
+ * rule's blind spot until its scope moved from file location to responsibility).
  */
 
 import { api } from '../ipc/client';
+import { getNotebaseStore } from '../stores/notebase.svelte';
 import { INLINE_ASSET_DIR } from '../../../shared/asset-paths';
 
 /** MIME allowlist. Anything not on this list is rejected with a
@@ -88,7 +93,7 @@ export async function uploadImage(
   const exists = await api.notebase.fileExists(relativePath).catch(() => false);
   if (!exists) {
     try {
-      await api.notebase.writeBinary(relativePath, buf);
+      await getNotebaseStore().writeBinary(relativePath, buf);
     } catch (err) {
       return {
         ok: false,

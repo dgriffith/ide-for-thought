@@ -26,7 +26,7 @@ import {
 } from '../refactor/extract';
 import { planSplitByHeading } from '../refactor/split-by-heading';
 import { getRefactorSettings } from '../refactor/settings';
-import { getFormatSettings } from '../formatter/settings';
+import { getFormatSettings } from '../stores/settings-formatter.svelte';
 import {
   mergeTagsIntoContent,
   removeTagsFromContent,

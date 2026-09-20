@@ -104,8 +104,8 @@ export async function initTablesDb(ctx: ProjectContext): Promise<void> {
  * Local file *read* via core built-ins (`read_text`, `read_csv_auto` of an
  * arbitrary path) is a core capability we can't drop without breaking CSV
  * views; that residual is covered by the per-project compute trust gate
- * (`renderer/lib/compute/run-cell-with-trust.ts`). This is the network
- * half of the defense-in-depth pair.
+ * (`renderer/lib/app/compute-ops.ts`). This is the network half of the
+ * defense-in-depth pair.
  */
 async function hardenConnection(connection: DuckDBConnection): Promise<void> {
   await connection.run(

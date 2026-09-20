@@ -13,7 +13,7 @@ import {
   runCellWithTrust,
   ensureComputeConsent,
   type ComputeConsentChoice,
-} from '../../src/renderer/lib/compute/run-cell-with-trust';
+} from '../../../src/renderer/lib/app/compute-ops';
 
 const state = {
   status: 'none' as 'cell' | 'blanket' | 'none',
@@ -21,7 +21,7 @@ const state = {
   runCell: [] as Array<{ language: string; code: string; notePath?: string }>,
 };
 
-vi.mock('../../src/renderer/lib/ipc/client', () => ({
+vi.mock('../../../src/renderer/lib/ipc/client', () => ({
   api: {
     compute: {
       consentStatus: vi.fn((_language: string, _code: string) => Promise.resolve(state.status)),

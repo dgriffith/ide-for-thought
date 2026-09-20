@@ -65,6 +65,19 @@ export function getNotebaseStore() {
     await api.notebase.writeFile(relativePath, content);
   }
 
+  /** Create an empty file at `relativePath` (#2232). The tool-output path
+   *  creates then writes; both halves are mutations, so both live here. */
+  async function createFile(relativePath: string): Promise<void> {
+    await api.notebase.createFile(relativePath);
+  }
+
+  /** Write raw bytes — pasted/dropped images into `.minerva/assets/` (#2232).
+   *  Separate from `writeFile` because the payload is a `Uint8Array`, not text;
+   *  same reason it belongs here rather than in the editor's upload helper. */
+  async function writeBinary(relativePath: string, bytes: Uint8Array): Promise<void> {
+    await api.notebase.writeBinary(relativePath, bytes);
+  }
+
   /** Project-wide find/replace across notes (#1086). Mutation → store-owned. */
   function replaceInNotes(opts: ReplaceInNotesOptions) {
     return api.notebase.replaceInNotes(opts);
@@ -95,6 +108,8 @@ export function getNotebaseStore() {
     close,
     refresh,
     writeFile,
+    createFile,
+    writeBinary,
     replaceInNotes,
     setDisplayName,
     setBaseUri,
