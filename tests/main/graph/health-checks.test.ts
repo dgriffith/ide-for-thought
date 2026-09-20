@@ -15,10 +15,18 @@
  * run), never what they return. This file closes that gap: real graph state
  * via `applyTurtle`, `runAllChecks` over it, assertions on the inspection
  * shape (type/severity/message/notePath) each check actually promises.
+ *
+ * #2230 added the second half: every case above states its graph in
+ * hand-authored Turtle (`a thought:Claim` + `thought:label`), which is the
+ * shape these checks were written against and NOT the shape any claim the app
+ * files has had since #2036. The `typed claim notes` block at the bottom
+ * covers that second representation — the one real users actually produce.
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { indexNote } from '../../../src/main/graph/index';
+import fs from 'node:fs';
+import path from 'node:path';
+import { indexNote, indexAllNotes } from '../../../src/main/graph/index';
 import { runAllChecks } from '../../../src/main/graph/health-checks';
 import { applyTurtle } from '../../../src/main/llm/proposal-persistence';
 import { type ProjectContext } from '../../../src/main/project-context-types';
@@ -239,5 +247,114 @@ describe('checkContradictions', () => {
     const inspections = await runAllChecks(ctx);
     const found = inspections.find((i) => i.type === 'contradiction');
     expect(found?.notePath).toBe('claims/x.md');
+  });
+});
+
+/**
+ * The representation every claim the app itself files actually has (#2230).
+ *
+ * `extract-key-claims` → `buildClaimNoteContent` writes a note with
+ * `type: claim` frontmatter. That asserts `a types:Claim`, which the type
+ * compiler declares `rdfs:subClassOf thought:Claim` (#2036's `externalClass`),
+ * and the note's title lands as `dc:title`. The old queries asked for
+ * `a thought:Claim` + `thought:label` and matched none of it, so the panel
+ * stayed empty no matter how many claims the user mined — "no unsupported
+ * claims" was a silent wrong answer, not a real one.
+ */
+describe('typed claim notes — the shape the app itself files (#2230)', () => {
+  const project = useGraphProject('minerva-health-checks-typed-');
+  let root: string;
+  let ctx: ProjectContext;
+
+  beforeEach(() => {
+    root = project.root;
+    ctx = project.ctx;
+  });
+
+  function writeNote(rel: string, content: string): void {
+    const full = path.join(root, rel);
+    fs.mkdirSync(path.dirname(full), { recursive: true });
+    fs.writeFileSync(full, content, 'utf-8');
+  }
+
+  /** The frontmatter `buildClaimNoteContent` emits, trimmed to what matters here. */
+  function claimNote(title: string, extra = ''): string {
+    return `---\ntitle: ${JSON.stringify(title)}\ntype: claim\n${extra}---\n\n# ${title}\n`;
+  }
+
+  it('flags an unsupported claim filed as a typed note', async () => {
+    writeNote('claims/remote-work.md', claimNote('Remote work raises output'));
+    await indexAllNotes(ctx);
+
+    const inspections = await runAllChecks(ctx);
+    const unsupported = inspections.filter((i) => i.type === 'unsupported_claim');
+
+    expect(unsupported).toHaveLength(1);
+    expect(unsupported[0]).toMatchObject({
+      nodeLabel: 'Remote work raises output',
+      notePath: 'claims/remote-work.md',
+    });
+  });
+
+  it('does not flag a typed claim note that turtle-authored grounds support', async () => {
+    writeNote('claims/grounded.md', claimNote('Grounded claim'));
+    await indexAllNotes(ctx);
+    const { results } = await import('../../../src/main/graph/index').then((g) => g.queryGraph(ctx, `
+      SELECT ?n WHERE { ?n minerva:relativePath "claims/grounded.md" }
+    `));
+    const claimUri = (results as Array<{ n: string }>)[0]!.n;
+    await applyTurtle(ctx, `
+      <urn:grounds:tg> a thought:Grounds ; thought:supports <${claimUri}> .
+    `);
+
+    const inspections = await runAllChecks(ctx);
+    expect(inspections.some((i) => i.type === 'unsupported_claim')).toBe(false);
+  });
+
+  it('counts a [[supports::…]] wiki-link as support, not only thought:supports', async () => {
+    // A wiki-link (and its frontmatter-link equivalent, #1351) materialises
+    // `minerva:supports`, not `thought:supports`. Both mean "this backs that
+    // up", so a claim the user has visibly supported must not be reported as
+    // having no supporting evidence at all.
+    writeNote('claims/linked.md', claimNote('Linked claim'));
+    writeNote('notes/evidence.md', '# Evidence\n\nThis [[supports::claims/linked]].\n');
+    await indexAllNotes(ctx);
+
+    const inspections = await runAllChecks(ctx);
+    expect(inspections.some((i) => i.type === 'unsupported_claim')).toBe(false);
+  });
+
+  it('flags a missing warrant on a typed claim note that has grounds', async () => {
+    writeNote('claims/half.md', claimNote('Half-warranted claim'));
+    await indexAllNotes(ctx);
+    const { results } = await import('../../../src/main/graph/index').then((g) => g.queryGraph(ctx, `
+      SELECT ?n WHERE { ?n minerva:relativePath "claims/half.md" }
+    `));
+    const claimUri = (results as Array<{ n: string }>)[0]!.n;
+    await applyTurtle(ctx, `
+      <urn:grounds:hw> a thought:Grounds ; thought:supports <${claimUri}> .
+    `);
+
+    const inspections = await runAllChecks(ctx);
+    const gaps = inspections.filter((i) => i.type === 'missing_warrant');
+    expect(gaps).toHaveLength(1);
+    expect(gaps[0]).toMatchObject({
+      nodeLabel: 'Half-warranted claim',
+      notePath: 'claims/half.md',
+    });
+  });
+
+  it('still reads thought:label when a node carries both it and dc:title', async () => {
+    // Hand-authored Turtle keeps winning — the fallback is a fallback, not a
+    // replacement, so an existing thoughtbase's labels don't shift under it.
+    await applyTurtle(ctx, `
+      <urn:claim:both> a thought:Claim ;
+        thought:label "Turtle label" ;
+        dc:title "Title fallback" .
+    `);
+
+    const inspections = await runAllChecks(ctx);
+    const found = inspections.find((i) => i.nodeUri === 'urn:claim:both');
+    expect(found?.nodeLabel).toBe('Turtle label');
   });
 });

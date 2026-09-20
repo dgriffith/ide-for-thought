@@ -28,7 +28,7 @@ export interface AnnotatedExcerpt {
   citedText: string;
   /** "11", "97-98", or empty when no page info attached. */
   locator: string;
-  /** Tags pulled from a free-form `thought:hasTag` predicate, if any. */
+  /** Tags attached to the excerpt's own TTL as `minerva:tag` literals, if any. */
   tags: string[];
   /** Notes that wiki-link to this excerpt id specifically. */
   linkedNotes: Array<{ relativePath: string; title: string }>;
@@ -127,13 +127,20 @@ export async function resolveAnnotatedReading(
 }
 
 /**
- * Pull `thought:hasTag "value"` literals out of an excerpt TTL — the
- * same predicate the indexer uses for free-form tag attachment on
- * excerpts. Narrow regex; the full TTL parse would be overkill.
+ * Pull `minerva:tag "value"` literals out of an excerpt TTL — the same
+ * predicate the source indexer reads for hand-attached tags. Narrow regex;
+ * the full TTL parse would be overkill.
+ *
+ * Nothing Minerva writes puts tags on an excerpt today (`buildExcerptTtl`
+ * emits location + provenance only), so this returns empty for every
+ * app-created excerpt and picks up only what a user hand-added to the file.
+ * Until #2230 it read a `hasTag` predicate in the thought namespace, which
+ * has never existed in either ontology — so it could not have matched
+ * anything at all.
  */
 function extractTagsFromTtl(ttl: string): string[] {
   const out: string[] = [];
-  const re = /thought:hasTag\s+"([^"]+)"/g;
+  const re = /minerva:tag\s+"([^"]+)"/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(ttl)) !== null) out.push(m[1]!.trim());
   return out;

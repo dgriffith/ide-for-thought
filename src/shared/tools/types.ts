@@ -100,7 +100,7 @@ export interface ToolContext {
   /** Populated by `sourceMetadata`/`sourceBody` (#103). Id of the source in
    *  the active Source viewer tab. Undefined when no source tab is active. */
   sourceId?: string;
-  /** thought:title of the active source. */
+  /** dc:title of the active source. */
   sourceTitle?: string;
   /** The source's extracted `body.md` text. Populated only by `sourceBody`
    *  (it's a file read); `sourceMetadata` alone leaves it undefined. */

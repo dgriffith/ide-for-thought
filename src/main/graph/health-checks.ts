@@ -8,6 +8,7 @@ import { noteTargetPathBeside } from '../../shared/wiki-link-resolver';
 import { onGraphChanged } from './graph-events';
 import { emitInspectionsChanged } from './inspection-events';
 import { findOrphanedInlineAssets } from '../notebase/asset-references';
+import { isA, labelOf, supportedBy, unsupported } from './argument-patterns';
 import {
   catalogTypeFor,
   isInspectionEnabled,
@@ -139,10 +140,10 @@ export async function runAllChecks(
 async function checkUnsupportedClaims(ctx: ProjectContext): Promise<Inspection[]> {
   const results = await queryGraph(ctx, `
     SELECT ?claim ?label ?notePath WHERE {
-      ?claim a thought:Claim .
-      ?claim thought:label ?label .
+      ${isA('claim', 'Claim')}
+      ${labelOf('claim', 'label')}
       OPTIONAL { ?claim minerva:relativePath ?notePath }
-      FILTER NOT EXISTS { ?other thought:supports ?claim }
+      ${unsupported('claim')}
     }
   `);
 
@@ -220,15 +221,12 @@ async function checkEvidenceGaps(ctx: ProjectContext): Promise<Inspection[]> {
   // Claims with grounds but no warrant
   const noWarrant = await queryGraph(ctx, `
     SELECT ?claim ?label ?notePath WHERE {
-      ?claim a thought:Claim .
-      ?claim thought:label ?label .
-      ?grounds thought:supports ?claim .
-      ?grounds a thought:Grounds .
+      ${isA('claim', 'Claim')}
+      ${labelOf('claim', 'label')}
+      ${supportedBy('grounds', 'claim')}
+      ${isA('grounds', 'Grounds')}
       OPTIONAL { ?claim minerva:relativePath ?notePath }
-      FILTER NOT EXISTS {
-        ?warrant thought:supports ?claim .
-        ?warrant a thought:Warrant .
-      }
+      ${unsupported('claim', 'Warrant')}
     }
   `);
 
@@ -248,13 +246,10 @@ async function checkEvidenceGaps(ctx: ProjectContext): Promise<Inspection[]> {
   // Warrants with no backing
   const noBacking = await queryGraph(ctx, `
     SELECT ?warrant ?label ?notePath WHERE {
-      ?warrant a thought:Warrant .
-      ?warrant thought:label ?label .
+      ${isA('warrant', 'Warrant')}
+      ${labelOf('warrant', 'label')}
       OPTIONAL { ?warrant minerva:relativePath ?notePath }
-      FILTER NOT EXISTS {
-        ?backing thought:supports ?warrant .
-        ?backing a thought:Backing .
-      }
+      ${unsupported('warrant', 'Backing')}
     }
   `);
 
@@ -312,8 +307,8 @@ async function checkContradictions(ctx: ProjectContext): Promise<Inspection[]> {
       ?a thought:contradicts ?b .
       ?a thought:hasStatus thought:established .
       ?b thought:hasStatus thought:established .
-      ?a thought:label ?aLabel .
-      ?b thought:label ?bLabel .
+      ${labelOf('a')}
+      ${labelOf('b')}
       OPTIONAL { ?a minerva:relativePath ?notePath }
     }
   `);

@@ -15,6 +15,7 @@ import { checkRebase } from '../graph/rebase-guard';
 import { proposeExcerptEvidence, type AttachEvidenceResult } from '../llm/attach-evidence';
 import { withRootPath, withRootPathOr, withRootPathWin } from './helpers';
 import { getInspectionSettings, saveInspectionSettings } from '../config/inspection-settings';
+import { isA, labelOf } from '../graph/argument-patterns';
 import type { InspectionSettings } from '../../shared/inspections';
 
 export function registerGraph(): void {
@@ -105,9 +106,25 @@ export function registerGraph(): void {
       PREFIX thought: <https://minerva.dev/ontology/thought#>
       PREFIX minerva: <https://minerva.dev/ontology#>
       SELECT ?node ?label ?type WHERE {
-        { ?node dc:title ?label . ?node a minerva:Note . BIND("note" AS ?type) }
+        {
+          # A thought component, however it reached the graph (#2230) — the
+          # shared fragments know both representations. What they replace here
+          # was a single-hop rdfs:subClassOf plus a label pattern that read
+          # only thought:label, which between them saw hand-authored Turtle
+          # blocks and none of the typed claim notes the app files itself.
+          ${isA('node', 'Component')}
+          ${labelOf('node', 'label')}
+          BIND("component" AS ?type)
+        }
         UNION
-        { ?node thought:label ?label . ?node a ?cls . ?cls rdfs:subClassOf thought:Component . BIND("component" AS ?type) }
+        {
+          # Plain notes — everything the component branch didn't already claim,
+          # so a claim note is reported once, as the component it is.
+          ?node a minerva:Note .
+          ?node dc:title ?label .
+          FILTER NOT EXISTS { ${isA('node', 'Component')} }
+          BIND("note" AS ?type)
+        }
         FILTER(CONTAINS(LCASE(?label), LCASE("${escaped}")))
       } LIMIT 5
     `);

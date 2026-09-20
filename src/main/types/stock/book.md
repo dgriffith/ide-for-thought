@@ -2,6 +2,7 @@
 label: Book
 icon: 📖
 color: "#c8a45c"
+externalClass: thought:Book
 properties:
   - name: author
     type: text

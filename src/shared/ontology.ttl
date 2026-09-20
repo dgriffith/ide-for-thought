@@ -129,7 +129,7 @@ minerva:relatedTo a owl:ObjectProperty ;
     rdfs:range minerva:Note .
 
 minerva:hasTag a owl:ObjectProperty ;
-    rdfs:label "has tag" ;x
+    rdfs:label "has tag" ;
     rdfs:comment "Associates a note with a topic tag." ;
     rdfs:domain minerva:Note ;
     rdfs:range minerva:Tag .
@@ -151,6 +151,110 @@ minerva:tagName a owl:DatatypeProperty ;
     rdfs:label "tag name" ;
     rdfs:comment "The string name of a tag." ;
     rdfs:domain minerva:Tag ;
+    rdfs:range xsd:string .
+
+minerva:hasAlias a owl:DatatypeProperty ;
+    rdfs:label "has alias" ;
+    rdfs:comment "An alternative name a note answers to in [[wiki-links]], from its `aliases:` frontmatter. A note may carry several." ;
+    rdfs:domain minerva:Note ;
+    rdfs:range xsd:string .
+
+# ── Sources ────────────────────────────────────────────────────────────────
+# A source's own class and bibliographic metadata live in the thought
+# ontology (thought:Source and its subtypes); what follows is the Minerva-side
+# plumbing every source carries regardless of what kind of work it is.
+
+minerva:containsSource a owl:ObjectProperty ;
+    rdfs:label "contains source" ;
+    rdfs:comment "Associates a project with a source in its library. The source-side counterpart of minerva:containsNote." ;
+    rdfs:domain minerva:Project .
+
+minerva:sourceId a owl:DatatypeProperty ;
+    rdfs:label "source id" ;
+    rdfs:comment "Stable slug identifying a source — also the name of its folder under `sources/`." ;
+    rdfs:range xsd:string .
+
+minerva:originalFilename a owl:DatatypeProperty ;
+    rdfs:label "original filename" ;
+    rdfs:comment "Filename the source's PDF had when it was ingested, kept so the user can recognise it after the file is renamed to the source id." ;
+    rdfs:range xsd:string .
+
+minerva:readStatus a owl:DatatypeProperty ;
+    rdfs:label "read status" ;
+    rdfs:comment "Where a source sits in the reading queue: 'unread', 'reading', or 'read'." ;
+    rdfs:range xsd:string .
+
+minerva:readDueBy a owl:DatatypeProperty ;
+    rdfs:label "read due by" ;
+    rdfs:comment "Optional date the user intends to finish reading a source by." ;
+    rdfs:range xsd:date .
+
+minerva:tag a owl:DatatypeProperty ;
+    rdfs:label "user tag" ;
+    rdfs:comment "A tag the user attached to a source by hand. The indexer turns each one into a real minerva:hasTag edge; the separate predicate is what lets 'strip upstream tags' leave the user's own tags alone." ;
+    rdfs:range xsd:string .
+
+minerva:upstreamTag a owl:DatatypeProperty ;
+    rdfs:label "upstream tag" ;
+    rdfs:comment "A subject tag that came from the source's own metadata API (CrossRef, OpenAlex, …) rather than from the user. Indexed into minerva:hasTag alongside user tags, and removable as a group." ;
+    rdfs:range xsd:string .
+
+# ── Excerpts ───────────────────────────────────────────────────────────────
+# The excerpt itself is a thought:Excerpt; these are its project-level
+# plumbing, mirroring the note and source shapes above.
+
+minerva:containsExcerpt a owl:ObjectProperty ;
+    rdfs:label "contains excerpt" ;
+    rdfs:comment "Associates a project with an excerpt saved from one of its sources." ;
+    rdfs:domain minerva:Project .
+
+minerva:excerptId a owl:DatatypeProperty ;
+    rdfs:label "excerpt id" ;
+    rdfs:comment "Stable id of an excerpt — the target a [[quote::excerpt-id]] link resolves against, and the basename of its file under `.minerva/excerpts/`." ;
+    rdfs:range xsd:string .
+
+# ── Tables (CSVW overlays) ─────────────────────────────────────────────────
+# Both the CSV-file and in-note markdown-table indexers project a queryable
+# csvw:Table into its own named graph; these predicates join that overlay back
+# to the file or note it came from.
+
+minerva:tableName a owl:DatatypeProperty ;
+    rdfs:label "table name" ;
+    rdfs:comment "SQL-addressable name of a table overlay, as the DuckDB/SQL path registers it." ;
+    rdfs:range xsd:string .
+
+minerva:fromFile a owl:ObjectProperty ;
+    rdfs:label "from file" ;
+    rdfs:comment "The CSV note a table overlay was projected from." ;
+    rdfs:range minerva:Note .
+
+minerva:fromNote a owl:ObjectProperty ;
+    rdfs:label "from note" ;
+    rdfs:comment "The note containing the markdown table a table overlay was projected from — the in-note analogue of minerva:fromFile." ;
+    rdfs:range minerva:Note .
+
+minerva:fromTable a owl:ObjectProperty ;
+    rdfs:label "from table" ;
+    rdfs:comment "The in-note CSVW table node a SQL-addressable overlay was built from. Paired with minerva:fromNote, which points at the note itself." .
+
+# ── Object Types (#1062) ───────────────────────────────────────────────────
+# A registered object type (Book, Person, Claim, …) is materialised as a class
+# in the types: namespace; these annotate that class with what the registry
+# knows about it, so the graph — not just the registry — describes the type.
+
+minerva:typeId a owl:DatatypeProperty ;
+    rdfs:label "type id" ;
+    rdfs:comment "Registry id of the object type this class was compiled from (e.g. 'book')." ;
+    rdfs:range xsd:string .
+
+minerva:typeIcon a owl:DatatypeProperty ;
+    rdfs:label "type icon" ;
+    rdfs:comment "Emoji the UI shows for instances of this object type." ;
+    rdfs:range xsd:string .
+
+minerva:typeColor a owl:DatatypeProperty ;
+    rdfs:label "type colour" ;
+    rdfs:comment "Accent colour the UI uses for instances of this object type." ;
     rdfs:range xsd:string .
 
 # ── Reused Vocabulary ──────────────────────────────────────────────────────

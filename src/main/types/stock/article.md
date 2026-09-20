@@ -2,6 +2,7 @@
 label: Article
 icon: 📄
 color: "#88c0d0"
+externalClass: thought:Article
 properties:
   - name: author
     type: text
