@@ -55,12 +55,34 @@ describe('LegacyHttpTransport (#2029)', () => {
     await expect(transport.connect()).rejects.toThrow(/no response body/);
   });
 
-  it('throws when initialize succeeds without a session id', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () =>
-      jsonResponse(200, { jsonrpc: '2.0', id: 1, result: {} }),
-    ));
+  it('connects and calls tools fine when initialize succeeds without a session id (a stateless server)', async () => {
+    // Mcp-Session-Id is optional server-side per spec — a stateless routing
+    // gateway with no per-connection state to track can legitimately omit
+    // it. Regression coverage for a real-world server (a Pipeworx MCP
+    // gateway) that does exactly this, which used to be hard-rejected as
+    // "non-compliant."
+    const seenSessionHeaders: (string | undefined)[] = [];
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET';
+      if (method === 'GET') throw new Error('no session id — the GET stream should never be attempted');
+      const body = parseBody(init);
+      seenSessionHeaders.push(headerValue(init, 'Mcp-Session-Id'));
+      if (body.method === 'initialize') return jsonResponse(200, { jsonrpc: '2.0', id: body.id, result: {} }); // no mcp-session-id header
+      if (body.method === 'notifications/initialized') return emptyResponse(202);
+      if (body.method === 'tools/list') return jsonResponse(200, { jsonrpc: '2.0', id: body.id, result: { tools: [{ name: 'echo', inputSchema: { type: 'object' } }] } });
+      return jsonResponse(404, { error: 'unexpected' });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
     const transport = new LegacyHttpTransport({ kind: 'http', url: URL_ });
-    await expect(transport.connect()).rejects.toThrow(/without a session id/);
+    await transport.connect();
+    expect(transport.era).toBe('legacy');
+    expect(await transport.listTools()).toEqual([{ name: 'echo', inputSchema: { type: 'object' } }]);
+    // No call ever carried a session header — never had one to send.
+    expect(seenSessionHeaders.every((h) => h === undefined)).toBe(true);
+    // close() shouldn't attempt a session DELETE either, with nothing to delete.
+    await transport.close();
+    expect(fetchMock.mock.calls.some(([, init]) => (init as RequestInit)?.method === 'DELETE')).toBe(false);
   });
 
   it('echoes the session id on listTools/callTool', async () => {
