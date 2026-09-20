@@ -451,6 +451,29 @@ When reviewing PRs that touch LLM integration or graph write paths:
 - [ ] Are there tests that verify the approval gate cannot be skipped?
 - [ ] Does every new `register-*` IPC handler ship with a main-process test, and is its module covered by a `vitest.config.mts` threshold? An untested handler is how the `CONVERSATION_SEND` gap slipped in (#1612) — a new handler needs both a test and threshold enrollment so it can't silently regress.
 
+### Coverage floors (#2239)
+
+Every `src/main/**` subsystem now carries a per-area floor in
+`vitest.config.mts`, so the checklist item above is answerable rather than
+rhetorical — until #2239 fifteen of them sat under the 45%-lines global
+backstop alone, which catches a wholesale collapse and nothing smaller. Each
+floor was measured, not chosen: 3-5 points below the real number for the larger
+trees, 8-10 for single-file ones where one new file swings the aggregate. **A
+new subsystem directory under `src/main/` needs its own entry** — otherwise it
+inherits the backstop and can rot to 46% unnoticed.
+
+Two shapes worth knowing:
+
+- **A glob cannot fail on account of one file.** `src/main/mcp-client/**` sits
+  at 99%, so a new OAuth module landing at 0% would be carried by the 24 around
+  it. That's why `oauth/**` has a floor of its own, and why `ipc/helpers.ts`,
+  `register-proposals.ts` and friends have per-file entries. Add one whenever a
+  single file inside a well-covered tree is its own trust boundary.
+- **A floor can record a weakness.** `src/main/formatter/**` is fenced at 50/34
+  — its real numbers. That fixes nothing, but it stops the gap widening and
+  puts it in the same file as its neighbours in the 80s and 90s, which is where
+  someone will notice it.
+
 ### Write Guard
 
 The graph module exposes `enterLLMContext()` / `exitLLMContext()` (and the

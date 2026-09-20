@@ -212,6 +212,173 @@ export default defineConfig({
           statements: 64,
           branches: 51,
         },
+        // ── Previously un-floored main subsystems (#2239, epic #2241) ─────
+        // CLAUDE.md's LLM/Graph checklist asks "is its module covered by a
+        // vitest.config.mts threshold?", and for fifteen main subsystems the
+        // answer was no: they sat under the 45%-lines global backstop alone,
+        // which is a net against a wholesale collapse, not a per-area gate.
+        // All of them are well tested TODAY — every floor below was measured,
+        // not aspired to. The gap this closes is the RATCHET, not the tests:
+        // nothing stopped those ratios decaying one PR at a time.
+        //
+        // Floors sit 3-5 points below measured for the larger, stable trees
+        // (the #1932 convention) and 8-10 below for the single-file ones,
+        // where one new file moves the whole aggregate.
+
+        // `mcp-client` is the sharpest case and the reason this item was
+        // filed: a hand-rolled MCP protocol implementation — stdio + two HTTP
+        // transports + SSE parsing + a full OAuth 2.1 flow with dynamic client
+        // registration, a token store and a local callback server — with no
+        // `@modelcontextprotocol/sdk` dependency behind it. 2,977 lines of
+        // source against 4,494 of tests, and the one subsystem here where a
+        // coverage regression has security consequences.
+        // Measured: 99.9% L / 98.9% F / 98.3% S / 90.9% B.
+        'src/main/mcp-client/**': {
+          lines: 95,
+          functions: 94,
+          statements: 94,
+          branches: 86,
+        },
+        // The OAuth half gets its own floor for the reason `ipc/helpers.ts`
+        // and `register-proposals.ts` have theirs: an aggregate cannot fail on
+        // account of one file, so a new token-exchange or issuer-validation
+        // module landing at 0% would be carried by the 24 around it — on the
+        // code path that decides who we hand a bearer token to.
+        // Measured: 99.7% L / 98.7% F / 99.7% S / 95.7% B.
+        'src/main/mcp-client/oauth/**': {
+          lines: 95,
+          functions: 94,
+          statements: 95,
+          branches: 90,
+        },
+        // skills ~88.5 L / 80 F / 87 S / 87.2 B. The markdown → ThinkingToolDef
+        // pipeline (parse → loader → compile → register) plus the non-executing
+        // template language; `stock/*.md` are prompt bodies, not code, and
+        // aren't in the `include` set.
+        'src/main/skills/**': {
+          lines: 83,
+          functions: 74,
+          statements: 81,
+          branches: 81,
+        },
+        // types ~92.7 L / 96.8 F / 90.9 S / 84.9 B. The object-type catalog and
+        // its ontology compiler — `externalClass` alignment lives here (#2036).
+        'src/main/types/**': {
+          lines: 87,
+          functions: 90,
+          statements: 85,
+          branches: 79,
+        },
+        // clipper ~92.9 L / 94.6 F / 93 S / 83.7 B. A localhost HTTP server
+        // taking browser-extension POSTs, with a shared secret — a remote-input
+        // trust boundary, so the branch floor is the one that matters.
+        'src/main/clipper/**': {
+          lines: 87,
+          functions: 88,
+          statements: 87,
+          branches: 78,
+        },
+        // search ~94.8 L / 100 F / 90.8 S / 82.8 B (minisearch provider + index).
+        'src/main/search/**': {
+          lines: 89,
+          functions: 92,
+          statements: 85,
+          branches: 77,
+        },
+        // mcp-servers ~98 L / 94.6 F / 96.6 S / 90.2 B (the registry + config
+        // store behind the MCP client above).
+        'src/main/mcp-servers/**': {
+          lines: 92,
+          functions: 88,
+          statements: 91,
+          branches: 84,
+        },
+        // substrate ~82.5 L / 88.9 F / 81.4 S / 60.8 B — the electron-free
+        // CLI/MCP server surface (epic #1145). Lowest branch number of the
+        // group, so the floor sits lower rather than being quietly rounded up.
+        'src/main/substrate/**': {
+          lines: 77,
+          functions: 82,
+          statements: 76,
+          branches: 55,
+        },
+        // config ~90.6 L / 100 F / 91.7 S / 86.1 B — `loadConfigFile` and the
+        // shared `as*` decoders every migrated config reads through (#1640).
+        'src/main/config/**': {
+          lines: 85,
+          functions: 92,
+          statements: 86,
+          branches: 80,
+        },
+        // bibliography ~87.5 L / 90.9 F / 85.9 S / 65.6 B.
+        'src/main/bibliography/**': {
+          lines: 82,
+          functions: 85,
+          statements: 80,
+          branches: 60,
+        },
+        // ── Single-file subsystems ────────────────────────────────────────
+        // Each of these is one module in a directory of its own, so the glob
+        // is a per-file floor in practice and one new file swings the whole
+        // number — hence the wider 8-10 point margins.
+        //
+        // help-docs ~100 L / 100 F / 97 S / 80 B.
+        'src/main/help-docs/**': {
+          lines: 92,
+          functions: 92,
+          statements: 89,
+          branches: 70,
+        },
+        // citations ~93.8 L / 100 F / 93.8 S / 90 B.
+        'src/main/citations/**': {
+          lines: 85,
+          functions: 90,
+          statements: 85,
+          branches: 80,
+        },
+        // images ~100 L / 83.3 F / 95 S / 85 B (the remote-image cache).
+        'src/main/images/**': {
+          lines: 90,
+          functions: 75,
+          statements: 86,
+          branches: 76,
+        },
+        // youtube ~100 L / 66.7 F / 95.5 S / 100 B (the thumbnail cache). The
+        // function floor is low because the file has three of them.
+        'src/main/youtube/**': {
+          lines: 90,
+          functions: 58,
+          statements: 86,
+          branches: 88,
+        },
+        // menu ~100 L / 100 F / 100 S / 89.5 B (accelerator parsing; `menu.ts`
+        // itself sits at `src/main/*.ts` and is not in this directory).
+        'src/main/menu/**': {
+          lines: 90,
+          functions: 90,
+          statements: 90,
+          branches: 80,
+        },
+        // tools ~80.6 L / 83.3 F / 77.1 S / 83.3 B (the thinking-tool executor).
+        'src/main/tools/**': {
+          lines: 72,
+          functions: 75,
+          statements: 69,
+          branches: 74,
+        },
+        // formatter ~57.7 L / 69.2 F / 57.3 S / 41.7 B — the one entry here
+        // that records a WEAKNESS rather than protecting a strength. The
+        // format-folder orchestrator's per-file walk, its anchor-rename
+        // fan-out, and most of its error handling have no test. The floor is
+        // set at the current number on purpose: it cannot fix the gap, but it
+        // stops it widening and makes it visible in this file next to
+        // neighbours in the 80s and 90s. Raise it when the tests land.
+        'src/main/formatter/**': {
+          lines: 50,
+          functions: 61,
+          statements: 50,
+          branches: 34,
+        },
         // Two per-file floors below, for the same reason twice: the glob above
         // is an aggregate, and an aggregate cannot fail on account of one file.
         // Both of these were comfortably carried by their neighbours while
