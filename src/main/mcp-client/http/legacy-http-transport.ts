@@ -64,16 +64,23 @@ export class LegacyHttpTransport implements McpTransport {
     if (!response) throw new McpConnectionError('legacy initialize returned no response body');
     if ('error' in response) throw new McpConnectionError(`legacy initialize failed: ${response.error.message}`);
 
-    const sessionId = httpResponse.headers.get('mcp-session-id');
-    if (!sessionId) {
-      throw new McpConnectionError('legacy initialize succeeded without a session id — non-compliant server');
-    }
-    this.sessionId = sessionId;
+    // `Mcp-Session-Id` is OPTIONAL server-side per spec — "the server MAY
+    // assign a session ID at initialization time." A server with no
+    // per-connection state to track (a stateless routing/multiplexing
+    // gateway, e.g.) can legitimately omit it; only once a server HAS issued
+    // one does the client have to carry it on subsequent requests. Every
+    // other use of `this.sessionId` below already tolerates null
+    // (`legacyHeaders(this.sessionId ?? undefined)` omits the header,
+    // `runGetStream` no-ops without a session since the GET stream's
+    // resumability is inherently session-scoped, and `close()` skips the
+    // session DELETE) — so a sessionless server just runs in that mode
+    // rather than being hard-rejected as "non-compliant."
+    this.sessionId = httpResponse.headers.get('mcp-session-id');
 
     await postJsonRpc(
       this.descriptor.url,
       { jsonrpc: '2.0', method: 'notifications/initialized' },
-      { ...legacyHeaders(sessionId), ...this.extraHeaders },
+      { ...legacyHeaders(this.sessionId ?? undefined), ...this.extraHeaders },
       signal ? { signal } : {},
     );
 
