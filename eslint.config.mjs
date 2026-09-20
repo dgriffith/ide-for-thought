@@ -414,17 +414,35 @@ export default tseslint.config(
       }],
     },
   },
-  // ── Renderer data-flow rule (#1086 / #1674) ────────────────────────────
-  // Components may call `api.*` only for reads + stateless OS side-effects.
+  // ── Renderer data-flow rule (#1086 / #1674 / #2232) ────────────────────
+  // Renderer code may call `api.*` only for reads + stateless OS side-effects.
   // A mutation `api.<domain>.<method>(…)` (or an `api.*.on*` event
-  // subscription) inside a component fails lint — route it through a store
+  // subscription) fails lint — route it through a store
   // (src/renderer/lib/stores/*.svelte.ts) or an App ops handler instead. The
-  // rule is scoped to components/; stores, `lib/app/*-ops`, and App.svelte
-  // (the composition root) are exempt. The mutation method list lives in the
-  // DATAFLOW_MUTATION_METHODS const above. Two selectors below cover both call
-  // forms — the typed `api` client and the raw `window.api` bridge (#1674).
+  // mutation method list lives in the DATAFLOW_MUTATION_METHODS const above.
+  // Two selectors below cover both call forms — the typed `api` client and the
+  // raw `window.api` bridge (#1674).
+  //
+  // SCOPE (#2232): all of `src/renderer`, minus the paths allowed to OWN a
+  // mutation. It used to be `src/renderer/lib/components/**/*.svelte`, which
+  // made the rule a property of file LOCATION while CLAUDE.md states it as a
+  // property of RESPONSIBILITY — so every `.ts` module outside `stores/` and
+  // `lib/app/` was invisible, and so were the six `.ts` files sitting directly
+  // under `components/`. Nine real mutations lived in that gap, including
+  // `lib/sources/source-actions.ts`: extracting three source mutations out of
+  // two components — exactly the refactor this rule exists to survive —
+  // silently switched the enforcement off for all three.
+  //
+  // Keep `ignores` below in step with OWNER_PATHS in
+  // tests/renderer/dataflow-rule-coverage.test.ts, which scans the same set.
   {
-    files: ['src/renderer/lib/components/**/*.svelte'],
+    files: ['src/renderer/**/*.ts', 'src/renderer/**/*.svelte'],
+    ignores: [
+      'src/renderer/lib/stores/**',
+      'src/renderer/lib/app/**',
+      'src/renderer/lib/ipc/client.ts',
+      'src/renderer/App.svelte',
+    ],
     rules: {
       'no-restricted-syntax': ['error',
         // Imported client: api.<domain>.<method>()

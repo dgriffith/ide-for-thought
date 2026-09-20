@@ -9,7 +9,7 @@
     getFormatSettings,
     setFormatSettings,
     resetFormatToHouseStyle,
-  } from '../formatter/settings';
+  } from '../stores/settings-formatter.svelte';
   import {
     listRulesByCategory,
     CATEGORY_ORDER,

@@ -5,8 +5,16 @@
 // delete also refreshes its list). These helpers own the copy + API calls and
 // take an `onDone` callback for that refresh seam, so each surface keeps its
 // own refresh strategy while the duplicated logic lives in one place.
+//
+// The mutations themselves go through the source-data store (#2232). This
+// module is exactly the "extract the shared handler out of the component"
+// refactor the data-flow rule is meant to survive — and extracting it is what
+// silently removed the enforcement, since the rule was scoped to `.svelte`
+// files under `components/`. The tag read below stays on `api` directly;
+// reads are allowed anywhere.
 
 import { api } from '../ipc/client';
+import { getSourceDataStore } from '../stores/source-data.svelte';
 import { displaySourceTitle } from '../../../shared/source-display';
 import type { SourceMetadata } from '../../../shared/types';
 import { logger } from '../../../shared/logger';
@@ -34,7 +42,7 @@ export async function renameSource(
   const name = await showPrompt('Rename source:', current);
   if (!name || name.trim() === current) return;
   try {
-    await api.sources.setTitle(source.sourceId, name.trim());
+    await getSourceDataStore().setTitle(source.sourceId, name.trim());
     await onDone?.();
   } catch (err) {
     logger('sources').error('Rename source failed:', err);
@@ -58,7 +66,7 @@ export async function deleteSource(
     'Delete',
   );
   if (!confirmed) return false;
-  await api.sources.delete(source.sourceId);
+  await getSourceDataStore().deleteSource(source.sourceId);
   await onDone?.();
   return true;
 }
@@ -92,7 +100,7 @@ export async function addSourceTag(
   const t = tag.trim();
   if (!t) return;
   try {
-    await api.sources.addTag(sourceId, t);
+    await getSourceDataStore().addTag(sourceId, t);
     await onDone?.();
   } catch (err) {
     logger('sources').error('add source tag failed:', err);

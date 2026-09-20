@@ -46,6 +46,12 @@ const ZERO_STATE_STORE_BASELINE: Record<string, string> = {
     'Approve/reject/run-inspections; the right-sidebar review panels do their own read-refresh after each call.',
   [`${STORES_DIR}/saved-queries.svelte.ts`]:
     "Rename/delete/move/setGroup/setOrder; the Edit Saved Queries dialog keeps its own list state and re-reads via api.queries.list().",
+  [`${STORES_DIR}/settings-formatter.svelte.ts`]:
+    'Not a passthrough — it DOES own the formatter settings, in a plain module-level ' +
+    "`let` rather than `$state`, because the format engine and the editor's format " +
+    'handler pull it synchronously on every invocation and must not wait for a rune to ' +
+    'settle. Moved here from `lib/formatter/settings.ts` by #2232 so the module that ' +
+    'owns the state also owns its `api.formatter.saveSettings` writes.',
   [`${STORES_DIR}/settings.svelte.ts`]:
     'Config writes across a dozen settings domains; every settings dialog reads its own config directly and this only fronts the write.',
   [`${STORES_DIR}/source-data.svelte.ts`]:

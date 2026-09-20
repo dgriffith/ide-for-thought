@@ -62,14 +62,34 @@ single, testable path instead of three competing ones:
   clusters and may call `api.*` for top-level orchestration. Leaf settings
   dialogs front their config writes through a `settings-*` store.
 
-The `no-restricted-syntax` block in `eslint.config.js` (scoped to
-`src/renderer/lib/components/**`) enforces this — a mutation `api.*` call added
-to a component fails `pnpm lint`. When you add a new mutation channel, add its
-method name there too.
+The `no-restricted-syntax` block in `eslint.config.mjs` enforces this — a
+mutation `api.*` call added outside an owner module fails `pnpm lint`. When you
+add a new mutation channel, add its method name there too.
+
+**Scope is responsibility, not file location (#2232).** The rule covers
+**`src/renderer/**/*.{ts,svelte}`**, minus the paths allowed to *own* a
+mutation: `lib/stores/**`, `lib/app/**`, `lib/ipc/client.ts`, and `App.svelte`.
+It used to be scoped to `lib/components/**/*.svelte`, which enforced a property
+of file path while this section states a property of responsibility — so every
+`.ts` module outside `stores/`/`lib/app/` was invisible, as were the `.ts` files
+sitting directly under `components/`. Nine real mutations lived in that gap.
+The instructive one: `lib/sources/source-actions.ts` held three source
+mutations extracted out of two components — *exactly* the refactor this rule
+exists to survive — and extracting them silently switched the enforcement off.
+
+The practical consequence: **a new module that owns a mutation goes in
+`stores/` or `lib/app/`.** Anywhere else, lint will (correctly) reject the
+`api.*` call. #2232 moved two modules for this reason —
+`compute/run-cell-with-trust.ts` → `app/compute-ops.ts` (App wires it as the
+editor's cell runner) and `formatter/settings.ts` →
+`stores/settings-formatter.svelte.ts` (a settings cache + persistence, i.e. a
+store). Adding each to an exception list instead would have rebuilt the same
+decay one entry at a time.
 
 Two tests hold the other halves. `tests/renderer/dataflow-rule-coverage.test.ts`
-makes the denylist fail CLOSED (an unclassified new method in a component
-fails). `tests/architecture/store-ownership.test.ts` (#1852) enforces the
+makes the denylist fail CLOSED (an unclassified new method fails); its
+`OWNER_PATHS` mirrors the eslint `ignores`, so keep the two in step.
+`tests/architecture/store-ownership.test.ts` (#1852) enforces the
 POSITIVE half: every `api.<domain>` with a mutating method must have an owner
 under `stores/` or `lib/app/`, and a mutation may not land only in `App.svelte`.
 That's the gap #1834 fell through — history shipped four mutating channels with

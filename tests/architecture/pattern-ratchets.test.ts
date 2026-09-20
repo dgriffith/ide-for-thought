@@ -224,7 +224,7 @@ const SWALLOW_EXPR_BASELINE: Record<string, number> = {
   'src/renderer/lib/editor/image-upload.ts': 1,
   'src/renderer/lib/editor/link-preview.ts': 1,
   'src/renderer/lib/editor/note-preview.ts': 1,
-  'src/renderer/lib/formatter/settings.ts': 2,
+  'src/renderer/lib/stores/settings-formatter.svelte.ts': 2,
   'src/cli/eval-context.ts': 2,
   'src/cli/eval.ts': 1,
   'src/cli/run.ts': 3,

@@ -23,7 +23,7 @@ import { footnoteDecorations } from './footnote-decorations';
 import { hasImageFiles, imageFilesFromTransfer, imageFilesFromClipboard } from './image-drop';
 import { dataTransferHasItem, draggedItemFromDataTransfer, wikiLinkForItem, insertWikiLinkAtPos } from './drag-link';
 import { formatPaste } from './paste-format';
-import { getFormatSettings } from '../formatter/settings';
+import { getFormatSettings } from '../stores/settings-formatter.svelte';
 import { buildParseCache } from '../../../shared/formatter/parse-cache';
 import { findFrontmatterFoldRange } from './frontmatter';
 

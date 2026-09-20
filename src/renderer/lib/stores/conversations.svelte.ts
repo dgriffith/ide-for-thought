@@ -1,7 +1,7 @@
 import { api } from '../ipc/client';
 import { plainSnapshot } from '../ipc/plain-snapshot';
 import { getConversationsSettings } from '../conversations/settings';
-import { ensureComputeConsent } from '../compute/run-cell-with-trust';
+import { ensureComputeConsent } from '../app/compute-ops';
 import { getDialogStore } from './dialogs.svelte';
 import { logger } from '../../../shared/logger';
 import type {

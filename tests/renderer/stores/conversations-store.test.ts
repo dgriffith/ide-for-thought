@@ -98,7 +98,7 @@ const h = vi.hoisted(() => {
 });
 
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({ api: h.api }));
-vi.mock('../../../src/renderer/lib/compute/run-cell-with-trust', () => ({ ensureComputeConsent: h.ensureComputeConsent }));
+vi.mock('../../../src/renderer/lib/app/compute-ops', () => ({ ensureComputeConsent: h.ensureComputeConsent }));
 
 const ensureComputeConsent = h.ensureComputeConsent;
 

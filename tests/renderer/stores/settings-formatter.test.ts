@@ -16,7 +16,7 @@ import {
   getFormatSettings,
   resetFormatToHouseStyle,
   __resetFormatSettingsForTests,
-} from '../../../src/renderer/lib/formatter/settings';
+} from '../../../src/renderer/lib/stores/settings-formatter.svelte';
 
 describe('resetFormatToHouseStyle (full reset)', () => {
   beforeEach(() => {

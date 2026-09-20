@@ -102,7 +102,7 @@
   import { sectionAnchorAt } from './lib/markdown/headings';
   import { isProviderUnconfiguredError, unconfiguredProvider } from '../shared/llm-errors';
   import { PROVIDERS } from '../shared/tools/providers';
-  import { runCellWithTrust } from './lib/compute/run-cell-with-trust';
+  import { runCellWithTrust } from './lib/app/compute-ops';
   import { findRunnableFences, RUNNABLE_LANGUAGE_SET } from '../shared/compute/fences';
   import { isHtmlFile } from '../shared/file-capability';
   import { toggleTaskOnLine } from './lib/editor/task-toggle';

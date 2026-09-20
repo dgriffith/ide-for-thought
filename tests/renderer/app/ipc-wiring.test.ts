@@ -103,7 +103,7 @@ vi.mock('../../../src/renderer/lib/stores/tool-panel.svelte', () => ({ getToolPa
 vi.mock('../../../src/renderer/lib/stores/conversations.svelte', () => ({ getConversationsStore: () => h.conversations }));
 vi.mock('../../../src/renderer/lib/stores/bookmarks.svelte', () => ({ getBookmarksStore: () => h.bookmarks }));
 vi.mock('../../../src/renderer/lib/stores/dialogs.svelte', () => ({ getDialogStore: () => h.dialog }));
-vi.mock('../../../src/renderer/lib/formatter/settings', () => ({ loadFormatSettings: vi.fn().mockResolvedValue(undefined) }));
+vi.mock('../../../src/renderer/lib/stores/settings-formatter.svelte', () => ({ loadFormatSettings: vi.fn().mockResolvedValue(undefined) }));
 vi.mock('../../../src/renderer/lib/tools/tool-registry', () => ({ registerSkillInfos: vi.fn() }));
 vi.mock('../../../src/shared/skills/menu-config', () => ({ applyMenuConfig: vi.fn(() => []) }));
 
