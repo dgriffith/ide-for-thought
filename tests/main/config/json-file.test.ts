@@ -20,7 +20,7 @@ import { promises as fsp } from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import { readJsonFileOr, writeJsonFileAtomic } from '../../../src/main/ipc/read-json';
+import { readJsonFileOr, writeJsonFileAtomic } from '../../../src/main/config/json-file';
 
 describe('readJsonFileOr (#1631)', () => {
   let dir: string;

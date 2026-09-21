@@ -410,7 +410,7 @@ describe('readJsonFileOr re-export', () => {
   // Re-exported through the helpers barrel so callers (and CLAUDE.md's IPC
   // section) can reach it here; the implementation is a leaf module.
   it('is the read-json leaf, reachable from the barrel', async () => {
-    const leaf = await import('../../../src/main/ipc/read-json');
+    const leaf = await import('../../../src/main/config/json-file');
     expect(readJsonFileOr).toBe(leaf.readJsonFileOr);
   });
 });

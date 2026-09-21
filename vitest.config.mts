@@ -303,7 +303,9 @@ export default defineConfig({
           branches: 55,
         },
         // config ~90.6 L / 100 F / 91.7 S / 86.1 B — `loadConfigFile` and the
-        // shared `as*` decoders every migrated config reads through (#1640).
+        // shared `as*` decoders every migrated config reads through (#1640),
+        // plus `json-file.ts` (#2283): the other read policy, which defaults on
+        // ENOENT but rethrows corruption. The two sit together deliberately.
         'src/main/config/**': {
           lines: 85,
           functions: 92,

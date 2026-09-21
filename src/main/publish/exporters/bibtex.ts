@@ -21,7 +21,7 @@
 import type { Exporter } from '../types';
 import type { CslItem } from '../csl/source-to-csl';
 import { assignCitekeys } from '../citekey';
-import { scanCitations } from '../../bibliography/scan-citations';
+import { scanCitations } from '../../../shared/scan-citations';
 
 export const bibtexExporter: Exporter = {
   id: 'bibtex',

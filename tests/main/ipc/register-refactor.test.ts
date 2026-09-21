@@ -47,7 +47,7 @@ vi.mock('electron', () => ({
 // own #1841 contract, and FORMATTER_SAVE_SETTINGS's #1915 atomic write); only
 // stub the project-scoping wrapper so the root can be steered/cleared.
 vi.mock('../../../src/main/ipc/helpers', async () => {
-  const { readJsonFileOr, writeJsonFileAtomic } = await import('../../../src/main/ipc/read-json');
+  const { readJsonFileOr, writeJsonFileAtomic } = await import('../../../src/main/config/json-file');
   return {
     readJsonFileOr,
     writeJsonFileAtomic,

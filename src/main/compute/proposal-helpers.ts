@@ -7,7 +7,7 @@
 
 import * as graph from '../graph/index';
 import { type ProjectContext } from '../project-context-types';
-import { escapeTurtleLiteral } from '../llm/turtle';
+import { escapeTurtleLiteral } from '../../shared/turtle';
 import type { ConversationComputeDraft } from '../../shared/conversation-compute-drafts';
 import type { CellResult } from '../../shared/compute/types';
 

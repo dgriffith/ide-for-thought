@@ -119,7 +119,7 @@ function assertRatchet(
  * yet" and a permissions error reads as "nothing found".
  *
  * The convention is to catch a SPECIFIC expected condition (ENOENT → sentinel)
- * and let everything else throw — see `readJsonFileOr` in `ipc/read-json.ts`
+ * and let everything else throw — see `readJsonFileOr` in `config/json-file.ts`
  * for the shape.
  */
 const SWALLOW = /catch\s*(?:\([^)]*\))?\s*\{\s*return\s+(?:\[\]|null|undefined|''|""|\{\}|false|0)\s*;?\s*\}/g;
@@ -209,7 +209,7 @@ const SWALLOW_EXPR_BASELINE: Record<string, number> = {
   'src/main/compute/python-kernel.ts': 2,
   'src/main/embeddings/vector-store.ts': 1,
   'src/main/git/publish-git.ts': 3,
-  'src/main/ipc/read-json.ts': 1,
+  'src/main/config/json-file.ts': 1,  // moved from ipc/ in #2283; same file, same count
   'src/main/ipc/register-bibliography.ts': 2,
   'src/main/ipc/register-links.ts': 1,
   'src/main/notebase/asset-references.ts': 2,
@@ -354,7 +354,7 @@ describe('known-bad pattern ratchets (#1848)', () => {
       countPerFile(SWALLOW_SCAN_ROOTS, SWALLOW),
       'A blanket catch that returns an empty value turns a corrupt file into "not written yet" ' +
       'and a permissions error into "nothing found". Catch the SPECIFIC expected condition ' +
-      '(ENOENT → sentinel) and let the rest throw — see `readJsonFileOr` in `ipc/read-json.ts`, ' +
+      '(ENOENT → sentinel) and let the rest throw — see `readJsonFileOr` in `config/json-file.ts`, ' +
       'and CLAUDE.md → IPC error handling.',
     );
   });

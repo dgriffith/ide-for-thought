@@ -17,7 +17,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { extractWikiLinkTargets } from '../../tree-resolver';
 import { excerptTtlToInfo } from '../../csl/source-to-csl';
-import { scanCitations } from '../../../bibliography/scan-citations';
+import { scanCitations } from '../../../../shared/scan-citations';
 // Path is `src/main/publish/exporters/annotated-reading/resolve.ts` →
 // `src/main/bibliography/scan-citations.ts`: ../../../bibliography/.
 import type { ExportPlanFile } from '../../types';

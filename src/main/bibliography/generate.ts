@@ -12,7 +12,7 @@
  */
 import { loadCitationAssets } from '../publish/csl';
 import { citeprocEntryToMarkdown } from './citeproc-to-markdown';
-import { scanCitations } from './scan-citations';
+import { scanCitations } from '../../shared/scan-citations';
 import { getBibliographyStyleId } from '../project-config';
 
 export const BIBLIOGRAPHY_OPEN_MARKER = '<!-- minerva:bibliography -->';

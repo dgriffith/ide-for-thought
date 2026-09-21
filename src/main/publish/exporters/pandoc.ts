@@ -23,7 +23,7 @@ import path from 'node:path';
 import type { Exporter } from '../types';
 import type { CslItem } from '../csl/source-to-csl';
 import { assignCitekeys } from '../citekey';
-import { scanCitations } from '../../bibliography/scan-citations';
+import { scanCitations } from '../../../shared/scan-citations';
 import { buildLinkResolverContext, rewriteWikiLinksInContent } from '../link-resolver';
 
 export const pandocExporter: Exporter = {

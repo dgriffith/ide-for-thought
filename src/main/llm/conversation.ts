@@ -2,10 +2,10 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import * as graph from '../graph/index';
 import { projectContext } from '../project-context-types';
-import { escapeTurtleLiteral } from './turtle';
+import { escapeTurtleLiteral } from '../../shared/turtle';
 import { costForUsage } from '../../shared/tools/models';
 import { loadConfigFile, asRecord, asBool, asFiniteNumber } from '../config/config-store';
-import { writeJsonFileAtomic } from '../ipc/read-json';
+import { writeJsonFileAtomic } from '../config/json-file';
 import { logger } from '../../shared/logger';
 import type {
   Conversation,
