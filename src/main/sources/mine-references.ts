@@ -21,14 +21,23 @@
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { complete } from '../llm';
 import type { ParsedReference } from '../../shared/mine-references';
 
 export type { ParsedReference } from '../../shared/mine-references';
 
 export interface MineReferencesOptions {
-  /** Dependency-injection seam for tests. Default is the real LLM. */
-  llmComplete?: (prompt: string) => Promise<string>;
+  /**
+   * The completion call used to parse reference entries.
+   *
+   * Required, and supplied by the caller (#2284). It was already a seam —
+   * `opts.llmComplete ?? complete` — with the import there only as a default,
+   * and that default was the whole of the `sources ↔ llm` package cycle: one
+   * import, used on one line, for a value the one production caller
+   * (`ipc/register-sources.ts`) already has to hand. Reference mining is a
+   * sources feature that happens to need a model, not part of the LLM
+   * subsystem, so it takes the model as an argument.
+   */
+  llmComplete: (prompt: string) => Promise<string>;
   /** Maximum entries to send to the LLM per call. Paginated when a
    *  bibliography exceeds this — the prompt+response budget at large
    *  N gets uncomfortable. Default: 30. */
@@ -46,7 +55,7 @@ const DEFAULT_BATCH_SIZE = 30;
 export async function mineSourceReferences(
   rootPath: string,
   sourceId: string,
-  opts: MineReferencesOptions = {},
+  opts: MineReferencesOptions,
 ): Promise<ParsedReference[]> {
   const bodyPath = path.join(rootPath, '.minerva', 'sources', sourceId, 'body.md');
   let body: string;
@@ -68,7 +77,7 @@ export async function mineSourceReferences(
     throw new Error('Reference section found but no individual entries could be split out.');
   }
 
-  const llm = opts.llmComplete ?? complete;
+  const llm = opts.llmComplete;
   const batchSize = opts.batchSize ?? DEFAULT_BATCH_SIZE;
   const results: ParsedReference[] = [];
   for (let i = 0; i < entries.length; i += batchSize) {

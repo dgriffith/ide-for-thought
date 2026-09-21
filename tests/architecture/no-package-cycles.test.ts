@@ -58,10 +58,15 @@
  *     `bibliography ↔ publish`, but all FIVE `publish → bibliography` edges
  *     turned out to be the same `scanCitations` import. One file move, not a
  *     subsystem extraction. Measure the edges before designing the fix.
- *   - **Layer questions (#2284).** Four single imports that each pose a real
- *     "should this package know about that one": the watcher sending to
- *     windows, source mining calling the LLM, the file watcher driving the
- *     Python kernel, source merging rewriting links.
+ *   - **Layer questions — #2284.** Three of the four turned out to be an
+ *     import that shouldn't have existed at all: `sources/mine-references.ts`
+ *     imported `complete` purely as the default for an injection seam it
+ *     already had; `notebase/watcher.ts` took a `BrowserWindow` where a
+ *     notifier would do, and is now Electron-free; `watch-handlers.ts` was
+ *     composition-root code (its own header says it was extracted OUT of
+ *     `window-manager.ts`) that had been filed under `notebase/`, from where
+ *     its fan-out read as `notebase → compute` and `notebase → sources`.
+ *     The fourth was looked at and kept — see its entry below.
  *   - `graph ↔ types`, tracked by #2231/#2234.
  */
 import { describe, it, expect } from 'vitest';
@@ -120,18 +125,34 @@ const KNOWN_PACKAGE_CYCLES = new Set<string>([
   // `shared/scan-citations.ts`. All three were pure leaves in the wrong
   // package — no design decision in any of them.)
 
-  // ── A layering question (#2284) — one import, but a real decision ────────
-  // NOT the same as the group above, and `ipc/broadcast.ts` is the reason to
-  // say so: unlike read-json it IS genuinely IPC (a typed main→renderer
-  // channel send checked against EventMap), so the fix is not to move it. The
-  // question is whether `notebase/watcher.ts` should be sending to a window at
-  // all, rather than emitting an event the IPC layer forwards. The other three
-  // are the same shape: one module reaching across a boundary that may or may
-  // not be the right one.
-  'main/ipc <-> main/notebase',      // notebase/watcher.ts → ipc/broadcast.ts
-  'main/llm <-> main/sources',       // sources/mine-references.ts → llm/index.ts
-  'main/compute <-> main/notebase',  // notebase/watch-handlers.ts → compute/python-kernel.ts
-  'main/notebase <-> main/sources',  // sources/merge-sources.ts → notebase/{fs,link-rewriting}
+  // ── Looked at, and kept (#2284) ──────────────────────────────────────────
+  // The only one of the nine where BOTH directions are a genuine product
+  // fact rather than a misplaced file, so it is here on purpose.
+  //
+  //   notebase → sources   drop-import.ts → sources/ingest-pdf
+  //                        Dropping a PDF into a thoughtbase creates a
+  //                        Source. `dropImport` dispatches a dropped file to
+  //                        whichever subsystem owns its type; PDFs are owned
+  //                        by `sources`.
+  //   sources → notebase   merge-sources.ts → notebase/{fs, link-rewriting}
+  //                        `notebase/fs.ts` is the sandboxed file API that
+  //                        CLAUDE.md says ALL file access goes through — it
+  //                        is imported by eight packages. Not peer coupling.
+  //
+  // #2284's other three were fixed by removing an import that shouldn't have
+  // existed (a default, an Electron dependency, a file in the wrong package).
+  // Here the only way to a green result is to inject `ingestPdf` from the two
+  // `ipc/` call sites — which would make the caller declare "PDFs become
+  // sources" instead of the dispatcher knowing it, buy no testability (the
+  // tests already mock the module), and satisfy this check by moving a fact
+  // around. A cycle someone looked at and accepted is not the same as one
+  // nobody noticed; that distinction is what this list is for.
+  //
+  // What would genuinely resolve it: `notebase/fs.ts` isn't really part of
+  // `notebase` any more than `read-json.ts` was part of `ipc` (#2283). It is
+  // not a leaf though — it reaches `history/`, `project-config` and electron
+  // — so moving it is its own piece of work, not a `git mv`.
+  'main/notebase <-> main/sources',
 ]);
 
 interface Edge { from: string; to: string; via: string }

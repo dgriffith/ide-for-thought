@@ -5,7 +5,7 @@ import { broadcast } from './ipc/broadcast';
 import { appIconPath } from './app-icon';
 import { resolveDisplayName } from './project-config';
 import { startWatching, stopWatching } from './notebase/watcher';
-import { createWatchHandlers } from './notebase/watch-handlers';
+import { createWatchHandlers } from './watch-handlers';
 import { markPathHandled as markPathHandledImpl } from './notebase/path-dedup';
 import type * as graph from './graph/index';
 import * as templates from './notebase/templates';
@@ -290,7 +290,15 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
 
   // startWatching returns a ready-promise (#345); we don't await here
   // because the watcher works fine before its initial scan completes.
-  void startWatching(rootPath, win, win.id, createWatchHandlers({
+  void startWatching(rootPath, {
+    // The watcher reports file events here rather than importing `broadcast`
+    // itself (#2284) — it has no business knowing about windows or channels.
+    isAlive: () => !win.isDestroyed(),
+    fileCreated: (relativePath) => broadcast(win, Channels.NOTEBASE_FILE_CREATED, relativePath),
+    fileChanged: (relativePath) => broadcast(win, Channels.NOTEBASE_FILE_CHANGED, relativePath),
+    fileDeleted: (relativePath) => broadcast(win, Channels.NOTEBASE_FILE_DELETED, relativePath),
+    renamed: (pairs) => broadcast(win, Channels.NOTEBASE_RENAMED, pairs),
+  }, win.id, createWatchHandlers({
     rootPath,
     projectCtx,
     broadcastIfAlive: (channel) => { if (!win.isDestroyed()) broadcast(win, channel); },

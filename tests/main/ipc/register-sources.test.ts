@@ -634,7 +634,11 @@ describe('register-sources — ingest', () => {
   it('SOURCES_MINE_REFERENCES returns the parsed references', async () => {
     h.mineSourceReferences.mockResolvedValue([{ title: 'A paper' }]);
     await expect(callAsync(Channels.SOURCES_MINE_REFERENCES, 's1')).resolves.toEqual([{ title: 'A paper' }]);
-    expect(h.mineSourceReferences).toHaveBeenCalledWith(ROOT, 's1');
+    // The model call is injected by the registrar now (#2284) — `sources/`
+    // no longer imports `llm/`, which closed the `sources ↔ llm` package cycle.
+    expect(h.mineSourceReferences).toHaveBeenCalledWith(
+      ROOT, 's1', { llmComplete: expect.any(Function) },
+    );
   });
 
   it('SOURCES_CREATE_REFERENCE_STUBS passes the parsed refs straight through', async () => {

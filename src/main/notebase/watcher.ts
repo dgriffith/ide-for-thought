@@ -1,9 +1,6 @@
 import { watch, type FSWatcher } from 'chokidar';
 import fs from 'node:fs';
 import path from 'node:path';
-import type { BrowserWindow } from 'electron';
-import { Channels } from '../../shared/channels';
-import { broadcast } from '../ipc/broadcast';
 
 import { INDEXABLE_EXTS } from '../../shared/indexable-files';
 import { wasHandled } from './path-dedup';
@@ -68,9 +65,35 @@ function extractExcerptId(absPath: string): string | null {
   return m ? m[1]! : null;
 }
 
+/**
+ * Where the watcher reports file events, and whether that destination is still
+ * there (#2284).
+ *
+ * This used to be a `BrowserWindow` plus `broadcast` from `../ipc`, which was
+ * the whole of the `notebase ↔ ipc` package cycle — `ipc/` depends on
+ * `notebase/` 29 ways, quite correctly, and this one import closed the loop.
+ * Injecting the destination instead leaves the watcher with no idea that
+ * Electron, windows or IPC channels exist; it watches files and says what
+ * changed. `watch-handlers.ts` already took a callback rather than a window,
+ * for the same testability reason (#1907) — this makes the pair consistent.
+ *
+ * `isAlive` is part of the contract rather than a silently-dropped send: the
+ * guards it replaces stop the watcher doing *work* (inode bookkeeping, index
+ * fan-out), not just sending, so a no-op notifier would change behaviour.
+ */
+export interface WatcherTarget {
+  /** False once the destination is gone; the watcher then does nothing. */
+  isAlive(): boolean;
+  fileCreated(relativePath: string): void;
+  fileChanged(relativePath: string): void;
+  fileDeleted(relativePath: string): void;
+  /** One or more old→new pairs from an external move. */
+  renamed(pairs: { old: string; new: string }[]): void;
+}
+
 export function startWatching(
   rootPath: string,
-  win: BrowserWindow,
+  target: WatcherTarget,
   id: number,
   callbacks?: WatcherCallbacks,
 ): Promise<void> {
@@ -165,27 +188,27 @@ export function startWatching(
     if (!pending) return;
     clearTimeout(pending.timer);
     pendingUnlinks.delete(absPath);
-    if (win.isDestroyed()) return;
-    broadcast(win, Channels.NOTEBASE_FILE_DELETED, pending.relative);
+    if (!target.isAlive()) return;
+    target.fileDeleted(pending.relative);
     indexDeleted(pending.relative);
   };
 
   const emitCreate = (relative: string) => {
-    broadcast(win, Channels.NOTEBASE_FILE_CREATED, relative);
+    target.fileCreated(relative);
     indexCreated(relative);
   };
 
   notes.on('change', (filePath, stats) => {
-    if (win.isDestroyed()) return;
+    if (!target.isAlive()) return;
     const ino = inodeOf(stats);
     if (ino !== undefined) inodeByPath.set(filePath, ino);
     const relative = filePath.slice(rootPath.length + 1);
-    broadcast(win, Channels.NOTEBASE_FILE_CHANGED, relative);
+    target.fileChanged(relative);
     indexChanged(relative);
   });
 
   notes.on('add', (filePath, stats) => {
-    if (win.isDestroyed()) return;
+    if (!target.isAlive()) return;
     const ino = inodeOf(stats);
     if (ino !== undefined) inodeByPath.set(filePath, ino);
     const relative = filePath.slice(rootPath.length + 1);
@@ -202,7 +225,7 @@ export function startWatching(
       // Tab follows the file (renderer); the index drops the old path and
       // picks up the new one. Crucially we do NOT emit FILE_DELETED for the
       // old path — that broadcast is what would close the tab.
-      broadcast(win, Channels.NOTEBASE_RENAMED, [{ old: pending.relative, new: relative }]);
+      target.renamed([{ old: pending.relative, new: relative }]);
       indexDeleted(pending.relative);
       emitCreate(relative);
       return;
@@ -222,7 +245,7 @@ export function startWatching(
   });
 
   notes.on('unlink', (filePath) => {
-    if (win.isDestroyed()) return;
+    if (!target.isAlive()) return;
     const relative = filePath.slice(rootPath.length + 1);
     const basename = path.basename(filePath);
     const inode = inodeByPath.get(filePath);
@@ -231,7 +254,7 @@ export function startWatching(
     // In-app renames already moved the tab via NOTEBASE_RENAMED; emit the
     // delete immediately (unchanged behavior) rather than debouncing it.
     if (wasHandled(relative)) {
-      broadcast(win, Channels.NOTEBASE_FILE_DELETED, relative);
+      target.fileDeleted(relative);
       indexDeleted(relative);
       return;
     }
@@ -245,7 +268,7 @@ export function startWatching(
       const added = recentAdds.get(movedTo)!;
       clearTimeout(added.timer);
       recentAdds.delete(movedTo);
-      broadcast(win, Channels.NOTEBASE_RENAMED, [{ old: relative, new: added.relative }]);
+      target.renamed([{ old: relative, new: added.relative }]);
       indexDeleted(relative);
       return;
     }
@@ -277,7 +300,7 @@ export function startWatching(
   });
 
   const handleMinervaEvent = (filePath: string, kind: 'upsert' | 'delete') => {
-    if (win.isDestroyed()) return;
+    if (!target.isAlive()) return;
     const sourceId = extractSourceId(filePath);
     if (sourceId) {
       if (kind === 'upsert') void callbacks?.onSourceMetaChanged?.(sourceId);

@@ -479,7 +479,8 @@ single misplaced module rather than two subsystems grown together. Loose files
 directly under `src/main/` are deliberately excluded (the composition root
 wires every package by definition; its header says why).
 
-The two ways out when it fires, both used by #2238:
+The three ways out when it fires — #2238 and #2283 used the first two, #2284
+the third:
 
 1. **A leaf utility belongs in `src/shared/`.** `ignored-dirs` and
    `indexable-files` moved there. Note `src/shared` is lint-enforced pure — no
@@ -491,6 +492,25 @@ The two ways out when it fires, both used by #2238:
    **Omitting it makes the unreferenced-image check report nothing** — there is
    no graph query to fall back on — so the two production call sites
    (`project-context.ts`, `ipc/register-graph.ts`) must pass it.
+
+3. **Inject the collaborator, or move the file that shouldn't be in the
+   package.** #2284's three fixes were all an import that shouldn't have
+   existed: `sources/mine-references.ts` imported `complete` only as the
+   default for an injection seam it already had; `notebase/watcher.ts` took a
+   `BrowserWindow` where a notifier would do (it is Electron-free now, and
+   `startWatching` takes a `WatcherTarget`); `watch-handlers.ts` was
+   composition-root code filed under `notebase/`, so its fan-out read as
+   `notebase → compute` and `notebase → sources`.
+
+**A cycle may also be kept deliberately.** `notebase ↔ sources` is, and the
+entry says why: dropping a PDF creates a Source (`drop-import.ts` dispatches a
+dropped file to whichever subsystem owns its type) and `merge-sources.ts` uses
+`notebase/fs.ts`, the sandboxed file API eight packages import. Both directions
+are product facts, not misplaced files, and the only route to a green result
+would move a fact to a call site to satisfy a check. A cycle someone looked at
+and accepted is not the same as one nobody noticed — holding that difference is
+what `KNOWN_PACKAGE_CYCLES` is for, so an entry needs a reason, not just a
+name.
 
 Related: reach `graph/` through `graph/index.ts`, not past it. `DAY_MS` now
 lives in `shared/time.ts` (a millisecond constant is not graph API — `llm` and
