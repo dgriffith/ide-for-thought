@@ -16,9 +16,9 @@ import * as N3 from 'n3';
 import { performance } from 'node:perf_hooks';
 import * as uriHelpers from './uri-helpers';
 import type { LinkType } from '../../shared/link-types';
-import type { NeighborhoodResult } from '../../shared/types';
 import type { TypeCatalog } from '../../shared/objects/type-def';
-import type { ProjectContext } from '../project-context-types';
+import { projectContext, type ProjectContext } from '../project-context-types';
+import { clearNeighborhoodCache } from './note-caches';
 import { createProjectStore } from '../project-store';
 import { checkStoreWriteGuard } from './write-guard';
 import { logger } from '../../shared/logger';
@@ -213,11 +213,9 @@ export function resolveStandardCurie(curie: string): $rdf.NamedNode | undefined 
 // `state` parameter where they need any of the project-scoped fields;
 // public exports take `ctx: ProjectContext` and resolve state from it.
 
-export interface HeadingSnapshot {
-  slug: string;
-  text: string;
-  level: number;
-}
+// `HeadingSnapshot` moved to ./note-caches with the cache that holds it
+// (#2234). Re-exported here so existing importers are unchanged.
+export type { HeadingSnapshot } from './note-caches';
 
 export interface GraphState {
   rootPath: string;
@@ -236,8 +234,6 @@ export interface GraphState {
    *  types, loaded by `indexAllNotes` so `indexNote` can resolve a note's
    *  `type:` frontmatter to a registered class and the api can list it. */
   typeCatalog: TypeCatalog;
-  /** Heading snapshot per note for the rename-detection heuristic. */
-  headingsPerNote: Map<string, HeadingSnapshot[]>;
   /**
    * Frontmatter alias name → relativePath (#469). Lower-cased keys for
    * case-insensitive resolution. Title- and filename-stem matches win
@@ -254,25 +250,6 @@ export interface GraphState {
    *  superset of `aliasesPerNote.keys()` — notes without aliases still
    *  count for canonical-name conflicts. */
   indexedNotePaths: Set<string>;
-  /** Frontmatter keys present on each indexed note. Powers the
-   *  Properties panel's project-wide key autocomplete (#488) — the
-   *  graph already extracts frontmatter on every index, so capturing
-   *  the bare key list is essentially free. Kept as a string[] per
-   *  note (rather than a flat global Set) so removeNote can shrink
-   *  the union without scanning every note. */
-  frontmatterKeysPerNote: Map<string, string[]>;
-  /**
-   * Memoized `neighborhood()` results keyed by `path\0depth\0cap` (perf #1113).
-   * The graph/citations panels re-run a neighborhood BFS on every note switch
-   * via a reactive `$effect`, and a build hops up to `cap` nodes × (outgoing +
-   * backlink) predicate fans — so re-selecting a note used to redo the whole
-   * traversal. A small LRU (bounded in `neighborhood()`) keeps back-and-forth
-   * navigation off the BFS. Cleared wholesale by `invalidate()` on every write,
-   * the same coarse always-correct invalidation `n3Cache` uses: any triple
-   * change can alter some note's link neighborhood, so a targeted eviction would
-   * be both fiddly and easy to get subtly wrong.
-   */
-  neighborhoodCache: Map<string, NeighborhoodResult>;
 }
 
 // One GraphState per open project, keyed by rootPath. The entire graph
@@ -310,7 +287,10 @@ export function invalidate(state: GraphState): void {
   // rebuild from scratch. The only path that must drop the mirror is a
   // wholesale store swap (`indexAllNotes`), which calls `resetN3Mirror`.
   // Any triple change can alter some note's neighborhood; drop the memo (#1113).
-  state.neighborhoodCache.clear();
+  // The memo lives in ./note-caches now (#2234) — `state` carries the rootPath
+  // its project store keys on, so this stays a one-liner without re-coupling
+  // the cache's lifetime to the triple store's.
+  clearNeighborhoodCache(projectContext(state.rootPath));
 }
 
 // ── Incremental N3 mirror maintenance (#1110) ────────────────────────────────

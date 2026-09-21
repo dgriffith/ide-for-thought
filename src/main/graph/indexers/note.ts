@@ -45,6 +45,7 @@ import { findNotesLinkingToAnchorImpl } from '../queries';
 import { emitFrontmatterValue, declaredPropertyPredicate } from './frontmatter';
 import { emitGraphChanged } from '../graph-events';
 import { rethrowIfTrustGuard } from '../write-guard';
+import { getHeadings, setHeadings, setFrontmatterKeys, forgetNote } from '../note-caches';
 
 /**
  * Aliases that contain wiki-link metacharacters can't be expressed as
@@ -304,7 +305,7 @@ async function indexNoteImpl(
   // store; flag the N3 mirror as stale once, at the boundary, instead
   // of after every internal store.add.
   invalidate(state);
-  const { store, headingsPerNote } = state;
+  const { store } = state;
 
   const subject = noteUri(state, relativePath);
   const graph = subject; // named graph = note URI, for clean removal on re-index
@@ -339,12 +340,14 @@ async function indexNoteImpl(
   // Diff headings against the previous snapshot BEFORE overwriting it so we
   // can offer to rewrite `[[note#oldSlug]]` links when a single heading
   // gets renamed. Initial index (no prior snapshot) never flags a rename.
-  const prevHeadings = headingsPerNote.get(relativePath);
+  const prevHeadings = getHeadings(ctx, relativePath);
   const newHeadings = extractHeadingsFromContent(content);
-  const headingRenameCandidate = prevHeadings
+  // `getHeadings` answers [] for a never-indexed note, so distinguish "no prior
+  // snapshot" (initial index — never a rename) from "indexed, had no headings".
+  const headingRenameCandidate = prevHeadings.length > 0
     ? detectHeadingRename(state, relativePath, prevHeadings, newHeadings)
     : undefined;
-  headingsPerNote.set(relativePath, newHeadings);
+  setHeadings(ctx, relativePath, newHeadings);
 
   // Parse markdown
   const parsed = parseMarkdown(content);
@@ -352,7 +355,7 @@ async function indexNoteImpl(
   // Snapshot frontmatter keys for the Properties panel's project-wide
   // autocomplete (#488) — every key the user typed, including `title`/`tags`
   // (which the predicate-mapping loop below skips).
-  state.frontmatterKeysPerNote.set(relativePath, Object.keys(parsed.frontmatter));
+  setFrontmatterKeys(ctx, relativePath, Object.keys(parsed.frontmatter));
 
   const title = parsed.title ?? path.basename(relativePath, '.md');
   indexNoteCoreTriples(state, subject, graph, relativePath, title);
@@ -464,8 +467,7 @@ function removeNoteImpl(ctx: ProjectContext, relativePath: string): void {
   const wasTracked = state.indexedNotePaths.delete(relativePath);
   // Drop the deleted note's frontmatter-key snapshot so its keys stop
   // appearing in the project-wide autocomplete (#488).
-  state.frontmatterKeysPerNote.delete(relativePath);
-  state.headingsPerNote.delete(relativePath);
+  forgetNote(ctx, relativePath);
   if (hadAliases || wasTracked) {
     rebuildAliasMap(state);
   }

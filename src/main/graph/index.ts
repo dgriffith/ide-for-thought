@@ -117,12 +117,9 @@ export async function initGraph(ctx: ProjectContext): Promise<void> {
     n3Cache: null,
     ontologyStatements: [],
     typeCatalog: EMPTY_TYPE_CATALOG,
-    headingsPerNote: new Map(),
     aliasMap: new Map(),
     aliasesPerNote: new Map(),
     indexedNotePaths: new Set(),
-    frontmatterKeysPerNote: new Map(),
-    neighborhoodCache: new Map(),
   };
   // Wrap the store's mutation methods so the N3 mirror is maintained
   // incrementally for this store's whole life (#1110). n3Cache is null now, so

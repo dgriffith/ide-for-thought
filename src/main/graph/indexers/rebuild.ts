@@ -40,6 +40,7 @@ import { indexNote, isAliasNameValid, rebuildAliasMap } from './note';
 // triples, and (2) strip them before writing on persistGraph().
 import ONTOLOGY_TTL from '../../../shared/ontology.ttl?raw';
 import THOUGHT_ONTOLOGY_TTL from '../../../shared/ontology-thought.ttl?raw';
+import { clearNoteCaches } from '../note-caches';
 
 /**
  * Reload the type catalog into graph state + re-materialize the type classes,
@@ -179,6 +180,10 @@ export async function indexAllNotes(ctx: ProjectContext, opts?: IndexAllNotesOpt
   state.aliasesPerNote.clear();
   state.aliasMap.clear();
   state.indexedNotePaths.clear();
+  // The derived per-note caches (#2234) are re-populated by the walk below, so
+  // a from-scratch rebuild has to drop them too — otherwise a note deleted
+  // while the app was closed keeps its heading snapshot and frontmatter keys.
+  clearNoteCaches(ctx);
 
   ensureProject(state);
   restoreProposalStatements(state.store, preservedProposals, rebase);

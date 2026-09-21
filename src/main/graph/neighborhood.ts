@@ -15,8 +15,8 @@
 
 import { LINK_TYPES, type LinkType } from '../../shared/link-types';
 import { outgoingLinks, backlinks, getExcerptSource, termNotePaths } from './queries';
-import { getState } from './state';
 import type { ProjectContext } from '../project-context-types';
+import { neighborhoodCache } from './note-caches';
 import type {
   NeighborhoodNode, NeighborhoodEdge, NeighborhoodResult, NeighborhoodOptions, NeighborhoodHop,
 } from '../../shared/types';
@@ -162,9 +162,8 @@ export function neighborhood(
   const depth = Math.max(1, opts.depth ?? DEFAULT_DEPTH);
   const cap = Math.max(1, opts.cap ?? DEFAULT_CAP);
 
-  const state = getState(ctx);
   const cacheKey = `${relativePath}\u0000${depth}\u0000${cap}`;
-  const cache = state?.neighborhoodCache;
+  const cache = neighborhoodCache(ctx);
   if (cache) {
     const hit = cache.get(cacheKey);
     if (hit) {

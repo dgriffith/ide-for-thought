@@ -11,6 +11,7 @@
 import type { ProjectContext } from '../../project-context-types';
 import { stripNoteExt } from '../../../shared/note-extensions';
 import { type HeadingSnapshot, getState, noteUri } from '../state';
+import { allFrontmatterKeys, getHeadings } from '../note-caches';
 
 /**
  * Snapshot of the live alias map (#469). Returns alias → relativePath
@@ -82,13 +83,7 @@ export function getAliasEntries(ctx: ProjectContext): AliasEntry[] {
  * graph state yet.
  */
 export function getAllFrontmatterKeys(ctx: ProjectContext): string[] {
-  const state = getState(ctx);
-  if (!state) return [];
-  const seen = new Set<string>();
-  for (const keys of state.frontmatterKeysPerNote.values()) {
-    for (const k of keys) seen.add(k);
-  }
-  return [...seen].sort((a, b) => a.localeCompare(b));
+  return allFrontmatterKeys(ctx);
 }
 
 /**
@@ -107,8 +102,7 @@ export function noteUriFor(ctx: ProjectContext, relativePath: string): string | 
 
 /** Return headings present in the last indexNote call for `relativePath`, or []. */
 export function headingsFor(ctx: ProjectContext, relativePath: string): HeadingSnapshot[] {
-  const state = getState(ctx);
-  return state?.headingsPerNote.get(relativePath) ?? [];
+  return getHeadings(ctx, relativePath);
 }
 
 
