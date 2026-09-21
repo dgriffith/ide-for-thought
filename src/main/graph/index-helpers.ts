@@ -17,6 +17,8 @@ import { buildWikiLinkIndex, resolveWikiLinkTargetWithIndex, type WikiLinkIndex 
 import type { LinkType } from '../../shared/link-types';
 import type { FrontmatterValue } from './parser';
 import { slugify } from '../../shared/slug';
+import { indexedNotePaths, aliasMapObject } from './note-index';
+import { projectContext } from '../project-context-types';
 
 /** Disk mtime of a note/source/excerpt file as an ISO string; falls back to
  *  `now()` when the file can't be stat'd (#336). */
@@ -61,9 +63,10 @@ export interface LinkResolveCtx {
 }
 
 export function buildLinkResolveCtx(state: GraphState): LinkResolveCtx {
-  const files = [...state.indexedNotePaths].map((relativePath) => ({ relativePath, isDirectory: false }));
+  const ctx = projectContext(state.rootPath);
+  const files = indexedNotePaths(ctx).map((relativePath) => ({ relativePath, isDirectory: false }));
   // aliasMap keys are already lowercased by rebuildAliasMap.
-  return { index: buildWikiLinkIndex(files, Object.fromEntries(state.aliasMap)) };
+  return { index: buildWikiLinkIndex(files, aliasMapObject(ctx)) };
 }
 
 /** Resolve a wiki-link's target to its graph node — exactly as click-navigation

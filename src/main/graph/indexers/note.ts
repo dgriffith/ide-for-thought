@@ -15,7 +15,6 @@ import * as $rdf from 'rdflib';
 import path from 'node:path';
 import { parseMarkdown } from '../parser';
 import { getLinkType } from '../../../shared/link-types';
-import { stripNoteExt } from '../../../shared/note-extensions';
 import { slugify } from '../../../shared/slug';
 import { logger } from '../../../shared/logger';
 
@@ -46,6 +45,7 @@ import { emitFrontmatterValue, declaredPropertyPredicate } from './frontmatter';
 import { emitGraphChanged } from '../graph-events';
 import { rethrowIfTrustGuard } from '../write-guard';
 import { getHeadings, setHeadings, setFrontmatterKeys, forgetNote } from '../note-caches';
+import { registerNotePath, setNoteAliases, forgetNotePath, rebuildAliasMap } from '../note-index';
 
 /**
  * Aliases that contain wiki-link metacharacters can't be expressed as
@@ -61,40 +61,13 @@ export function isAliasNameValid(name: string): boolean {
   return true;
 }
 
-/**
- * Recompute `state.aliasMap` from `state.aliasesPerNote`. Run after
- * any change to the per-note snapshots — a full reindex (which clears
- * everything first) and the incremental `indexNote` path both call this.
- *
- * Conflict policy: when two notes claim the same alias, the
- * lexicographically-smaller relativePath wins. Title / filename-stem
- * matches always win over aliases — the second loop drops alias keys
- * that collide with a canonical note name.
- */
-export function rebuildAliasMap(state: GraphState): void {
-  const next = new Map<string, string>();
-  // Sort note paths so the conflict tiebreak is deterministic.
-  const paths = [...state.aliasesPerNote.keys()].sort();
-  for (const path of paths) {
-    const aliases = state.aliasesPerNote.get(path) ?? [];
-    for (const alias of aliases) {
-      const key = alias.toLowerCase();
-      if (next.has(key)) continue; // first writer wins (alphabetical by path)
-      next.set(key, path);
-    }
-  }
-  // Drop alias keys that collide with a canonical name (a real note's
-  // path stem or the lowercase of its basename). Iterate every
-  // indexed note, not just those with aliases — a real file at
-  // `JFK.md` should beat any other note's "JFK" alias.
-  for (const path of state.indexedNotePaths) {
-    const stem = stripNoteExt(path).toLowerCase();
-    next.delete(stem);
-    const basename = stem.split('/').pop() ?? '';
-    if (basename) next.delete(basename);
-  }
-  state.aliasMap = next;
-}
+// `rebuildAliasMap` and the whole path/alias index moved to ../note-index
+// (#2234 PR 2) — the conflict policy it implements was duplicated in
+// `getAliasEntries`, and one owner means the two representations can't
+// disagree. Re-exported here so `rebuild.ts` and the indexers barrel are
+// unchanged.
+export { rebuildAliasMap } from '../note-index';
+
 
 // ── Heading snapshots ────────────────────────────────────────────────────
 // HeadingSnapshot moved up into per-project state (#333). Snapshots live
@@ -240,6 +213,7 @@ function indexNoteDomainType(
  *  ones), rebuild the resolver map, and emit `minerva:hasAlias`. Aliases with
  *  wiki-link metacharacters are dropped — they couldn't be written as `[[alias]]`. */
 function indexNoteAliases(
+  ctx: ProjectContext,
   state: GraphState,
   subject: $rdf.NamedNode,
   graph: $rdf.NamedNode,
@@ -251,9 +225,8 @@ function indexNoteAliases(
   // (Path registration hoisted to the top of indexNote so non-md notes register
   // too; #1446.)
   const validAliases = parsed.aliases.filter(isAliasNameValid);
-  if (validAliases.length > 0) state.aliasesPerNote.set(relativePath, validAliases);
-  else state.aliasesPerNote.delete(relativePath);
-  if (!skipAliasRebuild) rebuildAliasMap(state);
+  setNoteAliases(ctx, relativePath, validAliases);
+  if (!skipAliasRebuild) rebuildAliasMap(ctx);
   for (const alias of validAliases) store.add(subject, MINERVA('hasAlias'), $rdf.lit(alias), graph);
 }
 
@@ -315,7 +288,7 @@ async function indexNoteImpl(
   // index (buildLinkResolveCtx) + alias canonical-name set, so a bare `[[budget]]`
   // resolves to a `budget.csv` even on the incremental (single-note) path, not
   // just a full rebuild. Idempotent (`indexedNotePaths` is a Set).
-  state.indexedNotePaths.add(relativePath);
+  registerNotePath(ctx, relativePath);
 
   // Remove ALL triples from this note's graph (handles arbitrary turtle subjects)
   store.removeMatches(undefined, undefined, undefined, graph);
@@ -363,7 +336,7 @@ async function indexNoteImpl(
   // Declared property name → PropertyDef, for schema-driven value coercion
   // (#1063) and predicate resolution incl. #2036's external mapping.
   const declaredProps = indexNoteDomainType(state, subject, graph, parsed);
-  indexNoteAliases(state, subject, graph, relativePath, parsed, opts.skipAliasRebuild ?? false);
+  indexNoteAliases(ctx, state, subject, graph, relativePath, parsed, opts.skipAliasRebuild ?? false);
 
   // Reuse the pass-wide resolver when threaded in (indexAllNotes); otherwise
   // build one for this standalone single-note reindex (#1473).
@@ -463,12 +436,11 @@ function removeNoteImpl(ctx: ProjectContext, relativePath: string): void {
   // Drop the note's alias snapshot so its aliases stop resolving (#469).
   // Also remove from `indexedNotePaths` so the alias map's
   // canonical-conflict pass no longer treats this path as a real file.
-  const hadAliases = state.aliasesPerNote.delete(relativePath);
-  const wasTracked = state.indexedNotePaths.delete(relativePath);
+  const { hadAliases, wasTracked } = forgetNotePath(ctx, relativePath);
   // Drop the deleted note's frontmatter-key snapshot so its keys stop
   // appearing in the project-wide autocomplete (#488).
   forgetNote(ctx, relativePath);
   if (hadAliases || wasTracked) {
-    rebuildAliasMap(state);
+    rebuildAliasMap(ctx);
   }
 }

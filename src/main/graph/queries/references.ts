@@ -15,6 +15,7 @@
 import * as $rdf from 'rdflib';
 import type { ProjectContext } from '../../project-context-types';
 import { LINK_TYPES } from '../../../shared/link-types';
+import { indexedNotePaths } from '../note-index';
 import {
   type GraphState,
   getState,
@@ -76,7 +77,7 @@ export function termNotePaths(ctx: ProjectContext): Set<string> {
 export function allNotePaths(ctx: ProjectContext): string[] {
   const state = getState(ctx);
   if (!state) return [];
-  return [...state.indexedNotePaths].filter((p) => p.endsWith('.md'));
+  return indexedNotePaths(ctx).filter((p) => p.endsWith('.md'));
 }
 
 /** Like findNotesLinkingTo, but scoped to links whose anchor is exactly `slug`. */

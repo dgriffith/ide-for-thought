@@ -9,71 +9,42 @@
  * Read-only, reaches only `../state`, re-exported by `queries.ts`.
  */
 import type { ProjectContext } from '../../project-context-types';
-import { stripNoteExt } from '../../../shared/note-extensions';
 import { type HeadingSnapshot, getState, noteUri } from '../state';
 import { allFrontmatterKeys, getHeadings } from '../note-caches';
+import {
+  aliasMapObject,
+  aliasEntries,
+  aliasesForNote as aliasesForNoteIndex,
+  type AliasEntry,
+} from '../note-index';
 
 /**
- * Snapshot of the live alias map (#469). Returns alias → relativePath
- * pairs as a plain object; the renderer uses it for wiki-link
- * navigation and (eventually) autocomplete. Keys are lower-cased.
+ * The alias readers (#469 / #492 / #1074). All three are now thin projections
+ * of `graph/note-index` (#2234 PR 2), which owns the path + alias index and the
+ * single implementation of its conflict policy. `getAliasEntries` used to
+ * re-implement that policy here, carrying a comment that it "matches
+ * rebuildAliasMap's second pass" — two copies of one rule in two files, with
+ * nothing checking they agreed.
  */
+
+/** Snapshot of the live alias map: lowercased alias → relativePath, as a plain
+ *  object for the IPC boundary. */
 export function getAliasMap(ctx: ProjectContext): Record<string, string> {
-  const state = getState(ctx);
-  if (!state) return {};
-  const out: Record<string, string> = {};
-  for (const [k, v] of state.aliasMap) out[k] = v;
-  return out;
+  return aliasMapObject(ctx);
 }
 
-/**
- * Entries form of the alias map, preserving original casing (#492).
- * `getAliasMap` lowercases everything for case-insensitive resolution;
- * the wiki-link autocomplete needs the original casing so picking a
- * suggested alias inserts `[[JFK]]` rather than `[[jfk]]`.
- *
- * Same conflict policy as `rebuildAliasMap`:
- *   - Alphabetical-first-writer wins on alias collisions.
- *   - Aliases that lowercase-collide with a real note's path stem or
- *     basename are dropped.
- */
-export interface AliasEntry {
-  alias: string;
-  relativePath: string;
-}
+export type { AliasEntry } from '../note-index';
+
 /** The frontmatter aliases declared by a single note (#1074) — for pointing the
  *  unlinked-mentions embeddings query at an object's title + aliases. */
 export function aliasesForNote(ctx: ProjectContext, relativePath: string): string[] {
-  const state = getState(ctx);
-  return state?.aliasesPerNote.get(relativePath) ?? [];
+  return aliasesForNoteIndex(ctx, relativePath);
 }
 
+/** Winning aliases in their ORIGINAL casing (#492), so picking an autocomplete
+ *  suggestion inserts `[[JFK]]` rather than `[[jfk]]`. */
 export function getAliasEntries(ctx: ProjectContext): AliasEntry[] {
-  const state = getState(ctx);
-  if (!state) return [];
-  const claimed = new Set<string>(); // lowercase aliases already taken
-  // Drop any alias whose lowercase form collides with a real note's
-  // canonical name — matches rebuildAliasMap's second pass.
-  const canonicals = new Set<string>();
-  for (const path of state.indexedNotePaths) {
-    const stem = stripNoteExt(path).toLowerCase();
-    canonicals.add(stem);
-    const basename = stem.split('/').pop() ?? '';
-    if (basename) canonicals.add(basename);
-  }
-  const out: AliasEntry[] = [];
-  const paths = [...state.aliasesPerNote.keys()].sort();
-  for (const path of paths) {
-    const aliases = state.aliasesPerNote.get(path) ?? [];
-    for (const alias of aliases) {
-      const key = alias.toLowerCase();
-      if (canonicals.has(key)) continue;
-      if (claimed.has(key)) continue;
-      claimed.add(key);
-      out.push({ alias, relativePath: path });
-    }
-  }
-  return out;
+  return aliasEntries(ctx);
 }
 
 /**

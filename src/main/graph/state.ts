@@ -234,22 +234,6 @@ export interface GraphState {
    *  types, loaded by `indexAllNotes` so `indexNote` can resolve a note's
    *  `type:` frontmatter to a registered class and the api can list it. */
   typeCatalog: TypeCatalog;
-  /**
-   * Frontmatter alias name → relativePath (#469). Lower-cased keys for
-   * case-insensitive resolution. Title- and filename-stem matches win
-   * over aliases, so an alias that collides with an existing canonical
-   * name is dropped from this map by `rebuildAliasMap`.
-   */
-  aliasMap: Map<string, string>;
-  /** Per-note alias snapshot — the strings the indexer last accepted from
-   *  each note's frontmatter. Lets `indexNote` patch `aliasMap` without
-   *  re-walking every note in the project. */
-  aliasesPerNote: Map<string, string[]>;
-  /** Every relativePath the indexer has touched, used to drop alias
-   *  keys that collide with a real file's stem or basename (#469). A
-   *  superset of `aliasesPerNote.keys()` — notes without aliases still
-   *  count for canonical-name conflicts. */
-  indexedNotePaths: Set<string>;
 }
 
 // One GraphState per open project, keyed by rootPath. The entire graph
