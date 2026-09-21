@@ -1,5 +1,6 @@
 import { queryGraph, headingsFor } from './index';
 import type { ProjectContext } from '../project-context-types';
+import { createProjectStore } from '../project-store';
 import { LINK_TYPES } from '../../shared/link-types';
 import { DAY_MS } from '../../shared/time';
 import type { InspectionFix } from '../../shared/types';
@@ -57,20 +58,77 @@ export interface Inspection {
   notePath?: string;
 }
 
-const lastResultsByProject = new Map<string, Inspection[]>();
-// Keyed by rootPath (#1893) — a module-global flag made a check in flight for
-// one project return [] for every OTHER project's concurrent check, which is
-// indistinguishable from "clean". Concurrent runs across windows/projects are
-// the normal case here: armAutoChecks debounces off every graph write and
-// there's a 5-minute periodic timer per project.
-const runningProjects = new Set<string>();
+/**
+ * Everything this module holds per open project (#2240, epic #2241).
+ *
+ * It used to be four module-level maps keyed by `rootPath`, hand-rolled
+ * outside the project-store registry — which is the exact class of bug
+ * `createProjectStore` (#1085) exists to remove. Two of the four were torn
+ * down because `project-context.ts` named them at release; the other two were
+ * not, and `disposeAllProjectStores` couldn't reach them because they had
+ * never registered.
+ *
+ * `lastResults` had no `.delete` call anywhere in the codebase, so **closing a
+ * thoughtbase left its whole inspection list resident, and reopening showed
+ * the stale list** — `getInspections` is the `INSPECTIONS_GET` handler, so the
+ * panel rendered last session's findings (including ones for notes since
+ * deleted) until a fresh run finished. That is a wrong answer, not just a
+ * leak.
+ *
+ * All four now live in one slot, which is also the honest shape: they are one
+ * subsystem's state with one lifetime, not four independent maps that happen
+ * to share a key. Same arrangement `note-caches.ts` uses (#2234).
+ */
+interface HealthCheckState {
+  /** The last completed run's findings — what `getInspections` serves. */
+  lastResults: Inspection[];
+  /**
+   * A run is in flight for THIS project (#1893). Per-project rather than a
+   * module-global flag: a check running for one project used to make every
+   * other project's concurrent check return `[]`, indistinguishable from
+   * "clean". Concurrent runs are the normal case — `armAutoChecks` debounces
+   * off every graph write and there's a periodic timer per project.
+   */
+  running: boolean;
+  /** Graph-write subscription + its debounce timer, when armed. */
+  auto: AutoState | null;
+  /** The periodic backstop, when started. */
+  periodicTimer: ReturnType<typeof setInterval> | null;
+}
+
+const healthStore = createProjectStore<HealthCheckState>({
+  // Reached by `disposeAllProjectStores` on a project's last release. The
+  // timers are also stopped explicitly by `project-context.ts` BEFORE the
+  // final persist (ordering: stop scheduling new work before teardown starts),
+  // and both paths are idempotent — this is the net that catches a caller who
+  // forgets, which is how the other two leaked in the first place.
+  dispose: (state) => {
+    if (state.auto?.timer) clearTimeout(state.auto.timer);
+    state.auto?.unsubscribe();
+    if (state.periodicTimer) clearInterval(state.periodicTimer);
+  },
+});
+
+/** This project's state, created on first write. */
+function stateFor(ctx: ProjectContext): HealthCheckState {
+  const existing = healthStore.get(ctx);
+  if (existing) return existing;
+  const fresh: HealthCheckState = {
+    lastResults: [], running: false, auto: null, periodicTimer: null,
+  };
+  healthStore.set(ctx, fresh);
+  return fresh;
+}
 
 export function getInspections(ctx: ProjectContext): Inspection[] {
-  return lastResultsByProject.get(ctx.rootPath) ?? [];
+  // Deliberately does NOT go through `stateFor`: a read must not allocate a
+  // slot for a project that has none, or the leak comes straight back through
+  // the panel polling a closed project.
+  return healthStore.get(ctx)?.lastResults ?? [];
 }
 
 export function isRunning(ctx: ProjectContext): boolean {
-  return runningProjects.has(ctx.rootPath);
+  return healthStore.get(ctx)?.running ?? false;
 }
 
 /** The SPARQL rows every check reads, cast to the string-record shape once
@@ -122,8 +180,9 @@ export async function runAllChecks(
   settings: InspectionSettings = DEFAULT_INSPECTION_SETTINGS,
   deps: HealthCheckDeps = {},
 ): Promise<Inspection[]> {
-  if (runningProjects.has(ctx.rootPath)) return lastResultsByProject.get(ctx.rootPath) ?? [];
-  runningProjects.add(ctx.rootPath);
+  const state = stateFor(ctx);
+  if (state.running) return state.lastResults;
+  state.running = true;
 
   const on = (type: string) => isInspectionEnabled(type, settings);
   const none = (): Promise<Inspection[]> => Promise.resolve([]);
@@ -151,13 +210,18 @@ export async function runAllChecks(
     // The multi-type checks above run as a unit, so drop the individual types
     // the user switched off.
     const flat = results.flat().filter((i) => isInspectionEnabled(catalogTypeFor(i.type), settings));
-    lastResultsByProject.set(ctx.rootPath, flat);
+    state.lastResults = flat;
     // Tell anyone showing the results that they moved (#1795) — runs are no
     // longer only user-initiated, so the panel can't assume it caused them.
-    emitInspectionsChanged(ctx.rootPath);
+    //
+    // Unless the project closed while this run was in flight. `state` is then
+    // a detached object the store no longer holds (dispose removes it before
+    // running its hook), so these results are unreachable and announcing them
+    // would wake a panel for a thoughtbase that isn't open.
+    if (healthStore.get(ctx) === state) emitInspectionsChanged(ctx.rootPath);
     return flat;
   } finally {
-    runningProjects.delete(ctx.rootPath);
+    state.running = false;
   }
 }
 
@@ -782,8 +846,6 @@ interface AutoState {
   unsubscribe: () => void;
 }
 
-const autoByProject = new Map<string, AutoState>();
-
 export const DEFAULT_CHECK_DEBOUNCE_MS = 2000;
 
 export function armAutoChecks(
@@ -814,20 +876,18 @@ export function armAutoChecks(
       })();
     }, state.debounceMs);
   });
-  autoByProject.set(ctx.rootPath, state);
+  stateFor(ctx).auto = state;
 }
 
 export function disarmAutoChecks(ctx: ProjectContext): void {
-  const state = autoByProject.get(ctx.rootPath);
-  if (!state) return;
-  if (state.timer) clearTimeout(state.timer);
-  state.unsubscribe();
-  autoByProject.delete(ctx.rootPath);
+  const auto = healthStore.get(ctx)?.auto;
+  if (!auto) return;
+  if (auto.timer) clearTimeout(auto.timer);
+  auto.unsubscribe();
+  healthStore.get(ctx)!.auto = null;
 }
 
 // ── Timer ──────────────────────────────────────────────────────────────────
-
-const timersByProject = new Map<string, ReturnType<typeof setInterval>>();
 
 /**
  * Re-run the checks every `intervalMs`.
@@ -853,13 +913,12 @@ export function startPeriodicChecks(
       await runAllChecks(ctx, settings, opts);
     })();
   }, intervalMs);
-  timersByProject.set(ctx.rootPath, timer);
+  stateFor(ctx).periodicTimer = timer;
 }
 
 export function stopPeriodicChecks(ctx: ProjectContext): void {
-  const t = timersByProject.get(ctx.rootPath);
-  if (t) {
-    clearInterval(t);
-    timersByProject.delete(ctx.rootPath);
-  }
+  const state = healthStore.get(ctx);
+  if (!state?.periodicTimer) return;
+  clearInterval(state.periodicTimer);
+  state.periodicTimer = null;
 }
