@@ -26,13 +26,9 @@
  */
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { INLINE_ASSET_DIR } from '../../shared/asset-paths';
+import { INLINE_ASSET_DIR, type OrphanedAsset } from '../../shared/asset-paths';
 
-export interface OrphanedAsset {
-  /** Project-relative path under `.minerva/assets/inline/`. */
-  relativePath: string;
-  sizeBytes: number;
-}
+export type { OrphanedAsset };
 
 // The usual project-hygiene exclusions, plus the asset trees themselves
 // (binary images; nothing meaningfully references a sibling by embedding it)

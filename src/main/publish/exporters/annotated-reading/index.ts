@@ -16,7 +16,7 @@ import path from 'node:path';
 import { resolveAnnotatedReading } from './resolve';
 import { renderAnnotatedReading } from './render';
 import type { Exporter, ExportPlanFile } from '../../types';
-import { isIgnoredEntry } from '../../../notebase/ignored-dirs';
+import { isIgnoredEntry } from '../../../../shared/ignored-dirs';
 import { slugifyId } from '../../../../shared/slug';
 
 export const annotatedReadingExporter: Exporter = {

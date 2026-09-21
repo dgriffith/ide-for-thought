@@ -74,7 +74,11 @@ const BUDGETS: Record<string, number> = {
   'src/main/menu.ts': 956,
   'src/renderer/lib/components/Sidebar.svelte': 994,
   'src/renderer/lib/app/refactor-ops.svelte.ts': 856,
-  'src/main/graph/health-checks.ts': 826,
+  // #2238 raised this by 39: the `HealthCheckDeps` seam and the comment
+  // explaining why `graph/` can no longer import `notebase/asset-references`.
+  // The injection point is four lines; the rest is the reasoning, which is the
+  // part that stops someone importing it straight back.
+  'src/main/graph/health-checks.ts': 865,
   'src/renderer/lib/components/ExportDialog.svelte': 712,
   'src/renderer/lib/components/ProposalsPanel.svelte': 613,
   'src/renderer/lib/components/QueryPanel.svelte': 759,

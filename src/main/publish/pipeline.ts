@@ -17,7 +17,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import YAML from 'yaml';
 import { checkExclusion } from './exclusion';
-import { isIgnoredEntry } from '../notebase/ignored-dirs';
+import { isIgnoredEntry } from '../../shared/ignored-dirs';
 import { resolveTree, extractWikiLinkTargets } from './tree-resolver';
 import { loadCitationAssets } from './csl';
 import type {

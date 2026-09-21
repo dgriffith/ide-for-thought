@@ -11,7 +11,7 @@
 // existing `import … from './llm/approval'` sites keep working unchanged.
 
 import * as graph from '../graph/index';
-import { DAY_MS } from '../graph/queries';
+import { DAY_MS } from '../../shared/time';
 import type { ProjectContext } from '../project-context-types';
 import type {
   ApproveResult,

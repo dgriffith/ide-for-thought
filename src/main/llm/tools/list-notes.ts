@@ -3,7 +3,7 @@ import nodePath from 'node:path';
 import * as graph from '../../graph/index';
 import { projectContext } from '../../project-context-types';
 import type { NotebaseTool, ToolContext } from './types';
-import { isIgnoredEntry } from '../../notebase/ignored-dirs';
+import { isIgnoredEntry } from '../../../shared/ignored-dirs';
 
 async function runListNotes(ctx: ToolContext): Promise<string> {
   const pctx = projectContext(ctx.rootPath);

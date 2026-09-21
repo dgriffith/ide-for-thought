@@ -41,8 +41,8 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import type { ProjectContext } from '../project-context-types';
-import { isIndexable } from '../notebase/indexable-files';
-import { isIgnoredEntry } from '../notebase/ignored-dirs';
+import { isIndexable } from '../../shared/indexable-files';
+import { isIgnoredEntry } from '../../shared/ignored-dirs';
 import { citedTextFromTtl } from '../sources/create-excerpt';
 import * as store from './vector-store';
 import type { RefKind } from './vector-store';

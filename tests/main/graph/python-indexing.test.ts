@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { indexNote, queryGraph } from '../../../src/main/graph/index';
 import { type ProjectContext } from '../../../src/main/project-context-types';
-import { isIndexable, INDEXABLE_EXTS } from '../../../src/main/notebase/indexable-files';
+import { isIndexable, INDEXABLE_EXTS } from '../../../src/shared/indexable-files';
 import { useGraphProject } from '../../helpers/temp-project';
 
 describe('Python file indexing', () => {

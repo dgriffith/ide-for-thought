@@ -14,7 +14,7 @@ import * as vectors from '../embeddings/vector-store';
 import { markPathHandled } from '../notebase/path-dedup';
 import { planRename, planFolderRename, renameWithLinkRewrites, listAllFiles } from '../notebase/rename';
 import type { PathTransition } from '../notebase/rename';
-import { isIndexable } from '../notebase/indexable-files';
+import { isIndexable } from '../../shared/indexable-files';
 import { setSourceProperties, readMeta, sourceMetaPath, restoreSourceMeta } from '../sources/source-meta-write';
 import { saveType, deleteType, slugify } from '../types/write';
 import type { ProjectContext } from '../project-context-types';

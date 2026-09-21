@@ -4,7 +4,7 @@ import * as notebaseFs from './fs';
 import { rewriteWikiLinks, normalizePath as normalizeLinkPath } from './link-rewriting';
 import * as graph from '../graph/index';
 import { projectContext } from '../project-context-types';
-import { isIndexable } from './indexable-files';
+import { isIndexable } from '../../shared/indexable-files';
 import { logger } from '../../shared/logger';
 import { stripFrontmatter } from '../../shared/frontmatter-strip';
 

@@ -11,3 +11,16 @@
  *  `uploadImage`), content-addressed as `<sha-prefix>-<safe-stem>.<ext>`.
  *  Separate from `.minerva/assets/derived/` (compute output). */
 export const INLINE_ASSET_DIR = '.minerva/assets/inline';
+
+/**
+ * One orphaned inline asset. The scan that produces these lives in
+ * `main/notebase/asset-references.ts`; the type is here because
+ * `graph/health-checks.ts` consumes the result and must not import from
+ * `notebase/` — not even a type, which still counts as a package edge (#2238).
+ */
+export interface OrphanedAsset {
+  /** Project-relative path under `.minerva/assets/inline/`. */
+  relativePath: string;
+  sizeBytes: number;
+}
+

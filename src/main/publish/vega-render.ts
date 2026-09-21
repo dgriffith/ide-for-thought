@@ -36,7 +36,7 @@ import {
   type VegaRows,
 } from '../../shared/vega/data-binding';
 import { findCellOutput } from '../../shared/compute/cell-output';
-import { queryGraph } from '../graph/queries';
+import { queryGraph } from '../graph/index';
 import { runQuery } from '../sources/tables';
 import { projectContext } from '../project-context-types';
 

@@ -10,7 +10,6 @@
  * would wrap this in `withLLMContext`, but there is no such path yet.
  */
 import * as graph from '../graph/index';
-import { getState, excerptUri } from '../graph/state';
 import { projectContext } from '../project-context-types';
 import { proposeWrite } from './approval';
 import type { Proposal } from './proposal-types';
@@ -33,12 +32,13 @@ export async function proposeExcerptEvidence(
   if (!ROLES.includes(role)) return { ok: false, error: `role must be one of ${ROLES.join(', ')}` };
 
   const ctx = projectContext(rootPath);
-  const state = getState(ctx);
-  if (!state) return { ok: false, error: 'no graph for this project' };
-
+  // Both IRIs come through the graph facade (#2238). This used to call
+  // `getState` + `excerptUri` out of `graph/state.ts` to build the second one
+  // by hand, which meant holding a `GraphState` it had no other use for.
   const targetUri = graph.noteUriFor(ctx, claimRelativePath);
+  const excerptIri = graph.excerptUriFor(ctx, excerptId);
+  if (!excerptIri) return { ok: false, error: 'no graph for this project' };
   if (!targetUri) return { ok: false, error: `could not resolve claim note: ${claimRelativePath}` };
-  const excerptIri = excerptUri(state, excerptId).value;
 
   const proposal: Proposal = await proposeWrite(ctx, {
     operationType: 'evidence_link',

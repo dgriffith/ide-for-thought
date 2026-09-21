@@ -8,8 +8,8 @@ import {
 } from './link-rewriting';
 import * as graph from '../graph/index';
 import { projectContext } from '../project-context-types';
-import { isIndexable } from './indexable-files';
-import { isIgnoredEntry } from './ignored-dirs';
+import { isIndexable } from '../../shared/indexable-files';
+import { isIgnoredEntry } from '../../shared/ignored-dirs';
 import { logger } from '../../shared/logger';
 
 async function listIndexableFiles(rootPath: string, relDir: string): Promise<string[]> {

@@ -6,7 +6,7 @@ import type { NoteFile, NotebaseMeta } from '../../shared/types';
 import { resolveDisplayName } from '../project-config';
 import { defaultThoughtbaseDir } from '../recent-projects';
 import { onNoteWriting, onNoteWritten, onNoteDeleting, onNoteDeleted, moveHistory, runWithHistorySource } from '../history';
-import { isIgnoredEntry } from './ignored-dirs';
+import { isIgnoredEntry } from '../../shared/ignored-dirs';
 import { isNotePath } from '../../shared/note-extensions';
 
 export async function openNotebase(): Promise<NotebaseMeta | null> {

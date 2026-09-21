@@ -59,7 +59,7 @@ async function readSkillFiles(dir: string): Promise<{ filePath: string; content:
   for (const ent of entries) {
     // A listing of a skills folder (bundled stock/, or the user's
     // ~/.minerva/skills/), not the thoughtbase root — the project-tree
-    // ignore policy (`notebase/ignored-dirs.ts`) doesn't apply here. A
+    // ignore policy (`shared/ignored-dirs.ts`) doesn't apply here. A
     // stray node_modules would just fail the SKILL.md read below and get
     // skipped like any other non-skill folder.
     if (ent.name.startsWith('.')) continue;

@@ -10,8 +10,8 @@
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { isIndexable } from './indexable-files';
-import { isIgnoredEntry } from './ignored-dirs';
+import { isIndexable } from '../../shared/indexable-files';
+import { isIgnoredEntry } from '../../shared/ignored-dirs';
 
 export interface SearchMatch {
   /** 1-based line number (CodeMirror's convention). */
