@@ -33,6 +33,30 @@ import { trackTempDir } from '../../helpers/bench-temp-dirs';
 
 const SCALES = [500, 2000, 5000];
 
+/**
+ * Realistic note paths, not `note-0.md` (#2211).
+ *
+ * `buildWikiLinkIndex` adds one `bySuffixSlug` entry per dash-segment of a
+ * note's slugged stem, minus one. `note-0` slugs to two segments and therefore
+ * contributes a single entry; a real vault's nested, multi-word filenames
+ * contribute five or six. Seeding the save-path benches with the former made
+ * the committed baseline understate the per-save link-index cost by roughly
+ * that factor — which matters because `buildLinkResolveCtx` rebuilds that index
+ * on every save (the perf review's H3).
+ *
+ * This shape slugs to `notes-research-design-note-about-topic-<i>` — seven
+ * segments, six suffix entries — so the bench measures a link index the size a
+ * user would actually have.
+ */
+function notePath(i: number): string {
+  return `notes/research/design-note-about-topic-${i}.md`;
+}
+
+/** The wiki-link target for `notePath(i)` — the stem, as a user would type it. */
+function noteTarget(i: number): string {
+  return `design-note-about-topic-${i}`;
+}
+
 const noopHooks: WritePipelineHooks = {
   markPathHandled: () => {},
   broadcastRewritten: () => {},
@@ -45,9 +69,11 @@ for (const scale of SCALES) {
   await initGraph(ctx);
   await initSearch(ctx);
   for (let i = 0; i < scale; i++) {
+    const abs = path.join(root, notePath(i));
+    fs.mkdirSync(path.dirname(abs), { recursive: true });
     fs.writeFileSync(
-      path.join(root, `note-${i}.md`),
-      `# Note ${i}\n\n${'lorem ipsum '.repeat(20)}\n\n#tag-${i % 20}\n\n[[note-${(i + 1) % scale}]]\n`,
+      abs,
+      `# Note ${i}\n\n${'lorem ipsum '.repeat(20)}\n\n#tag-${i % 20}\n\n[[${noteTarget((i + 1) % scale)}]]\n`,
     );
   }
   // Bulk-seed both indexes (the O(n) path, #1106) rather than looping
@@ -60,8 +86,8 @@ for (const scale of SCALES) {
       await bench(`writeAndReindex: re-save one note in a ${scale}-note vault`, async () => {
         await writeAndReindex(
           root,
-          'bench-note.md',
-          `# Bench Note\n\nBody with a #tag-3 and a [[note-1]] link and ${'more words '.repeat(30)}.\n`,
+          'notes/research/bench-note-under-test.md',
+          `# Bench Note\n\nBody with a #tag-3 and a [[${noteTarget(1)}]] link and ${'more words '.repeat(30)}.\n`,
           noopHooks,
         );
       }).run();

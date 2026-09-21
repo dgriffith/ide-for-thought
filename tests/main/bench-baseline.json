@@ -1,11 +1,11 @@
 {
-  "_comment": "Committed benchmark baseline (#1099). The Bench workflow fails when a benchmark runs >`tolerance`x slower than its `mean` here. Regenerate on the macos-latest Bench runner (dispatch with update_baseline=true, or `pnpm bench:baseline` locally) and commit the diff — mean/hz refresh, the hand-set fields below are preserved. `budgetMs`: optional absolute ceiling in ms (a scale-envelope gate) applied on top of the ratio check. `tolerance`: optional per-benchmark override of the top-level ratio gate below — tighten it (e.g. 1.3) once a bench has demonstrated low run-to-run variance, so its slack matches its actual noise instead of the noisiest bench in the file (#1945). `gate: false`: track for week-over-week diffing but never fail on it — for inherently high-variance benches. (The 5k-note indexAllNotes bench was gate:false while it was GC-dominated & ±215%; #1473 removed the O(N²) link-resolution churn — it's now ~1.2s at ±<1%, so it's gated again, with a 1800ms budgetMs ceiling and 1.3x tolerance to match. The two queryGraph cache-hit benches are similarly low-variance and share the tighter 1.3x. The 500/2000-note indexAllNotes benches gained 220ms/750ms budgetMs ceilings too (#2059) — ~1.5x their committed means, i.e. meaningfully tighter than the 2x file-level ratio gate alone would allow, closing the gap where a slowdown to just under 2x would otherwise still pass; kept at the file-level 2x tolerance rather than tightened to 1.3x like the 5k-note bench, since these two haven't independently demonstrated the low run-to-run variance that justified tightening that one.)",
+  "_comment": "Committed benchmark baseline (#1099). The Bench workflow fails when a benchmark runs >`tolerance`x slower than its `mean` here, or breaches its `budgetMs` ceiling.  BLESS ON CI, NOT LOCALLY (#2211). Regenerate by dispatching the Bench workflow with `update_baseline: true` and committing the uploaded artifact. `pnpm bench:baseline` locally is for diagnosis only: macos-latest measures ~1.2-1.4x slower than the dev machine this file used to be blessed on (2026-09-20, comparing the two machine-independent controls, cosineSimilarity and meanPoolNormalize, across a local run and a CI run of the same commit). A locally-blessed entry therefore lands on CI already 1.2-1.4x 'slower', which eats most of a 1.3x tolerance \u2014 that, not a real regression, is why the tightened benches kept flapping.  THIS BASELINE IS DELIBERATELY PART-STALE. #2211 asked for a re-bless on the premise that the numbers were uniformly too loose. Half of that held: the three cold-rebuild entries carried 6-9x of dead headroom (blessed one day before the #1110 incremental-mirror fix landed and never re-blessed) and are tightened here, with budgetMs ceilings added now that two independent CI runs agree on them to within ~1%. The other half did not: seven save-path benches run SLOWER than their baselines, reproduced across three CI runs (2026-09-07, 09-14, 09-20) while the controls stayed flat. Blessing those would have recorded a real regression as the new normal and permanently blinded the gate to it, so their means are HELD at the pre-regression values and the gate stays red on them BY DESIGN.  The seven held entries are the three writeAndReindex, indexNote, and the three indexAllNotes. Read their ratios with one caveat: #2211 also fixed the writeAndReindex fixture, which used to seed `note-0.md` (one wiki-link suffix-index entry per note) and now seeds realistic nested multi-word paths (six), so those four ratios conflate a genuine regression with a bench that got 2-3x more honest about what a save costs in a real vault. Both are real costs a user pays; neither is a reason to bless. The PR that fixes the regression should re-bless them together and get a clean forward baseline. Owners: the perf epic's C2 (persistGraph), H1 (N3 mirror resets), H3 (buildLinkResolveCtx rebuilt per save).  FIELDS. `budgetMs`: optional absolute ceiling in ms (a scale-envelope gate) on top of the ratio check. `tolerance`: optional per-benchmark override of the top-level ratio gate. `gate: false`: track for week-over-week diffing but never fail on it. Note what is NOT here any more: the 1.3x tolerances the two queryGraph entries used to carry. Two CI runs of the same code put the tag-filter bench at 1.03ms and 1.89ms \u2014 an 1.8x spread between runs \u2014 so a 1.3x gate on it could only ever flap. They sit at the file default now.  THE SIX gate:false ENTRIES (persistGraph + queryGraph, runAllChecks) are new in #2211 and exist to measure the known-slow code the perf epic's C1 and C2 describe. They reproduce both findings immediately: persist-then-query costs 97/315/965ms at 500/2000/5000 notes, against 3.2/7.4/15.8ms for the ordinary save-then-query next to it \u2014 persisting makes the same query roughly 60x more expensive at 5k. runAllChecks, which runs debounced off every graph write, costs 307/1151/2619ms. They are tracked rather than gated on purpose: the Bench job had already been failing unread for a fortnight, and adding six more permanently-red entries buys visibility nobody was reading. Turn gating on in the PR that fixes each.",
   "tolerance": 2,
   "benchmarks": [
     {
       "name": "cosineSimilarity: query vs 10,000 corpus vectors (dim=384)",
-      "mean": 5.97719,
-      "hz": 167.3,
+      "mean": 7.235906,
+      "hz": 141.69,
       "budgetMs": null
     },
     {
@@ -35,41 +35,81 @@
     },
     {
       "name": "meanPoolNormalize: seq=512 dim=384",
-      "mean": 0.20119,
-      "hz": 4970.43,
+      "mean": 0.241816,
+      "hz": 4451.43,
       "budgetMs": null
+    },
+    {
+      "name": "persistGraph + queryGraph at 2000 notes",
+      "mean": 314.762162,
+      "hz": 3.25,
+      "budgetMs": null,
+      "gate": false
+    },
+    {
+      "name": "persistGraph + queryGraph at 500 notes",
+      "mean": 97.034444,
+      "hz": 10.42,
+      "budgetMs": null,
+      "gate": false
+    },
+    {
+      "name": "persistGraph + queryGraph at 5000 notes",
+      "mean": 965.388193,
+      "hz": 1.07,
+      "budgetMs": null,
+      "gate": false
     },
     {
       "name": "queryGraph: simple SELECT (cache hit after first call)",
-      "mean": 0.563548,
-      "hz": 1774.47,
-      "budgetMs": 5,
-      "tolerance": 1.3
+      "mean": 0.789904,
+      "hz": 1548.19,
+      "budgetMs": null
     },
     {
       "name": "queryGraph: tag filter (cache hit after first call)",
-      "mean": 0.887726,
-      "hz": 1126.47,
-      "budgetMs": 5,
-      "tolerance": 1.3
+      "mean": 1.029837,
+      "hz": 1080.97,
+      "budgetMs": null
     },
     {
       "name": "re-index (invalidates) + queryGraph (cold rebuild) at 2000 notes",
-      "mean": 60.817692,
-      "hz": 16.44,
-      "budgetMs": null
+      "mean": 7.407156,
+      "hz": 147.95,
+      "budgetMs": 12
     },
     {
       "name": "re-index (invalidates) + queryGraph (cold rebuild) at 500 notes",
-      "mean": 20.04684,
-      "hz": 49.88,
-      "budgetMs": null
+      "mean": 3.208947,
+      "hz": 352.96,
+      "budgetMs": 6
     },
     {
       "name": "re-index (invalidates) + queryGraph (cold rebuild) at 5000 notes",
-      "mean": 147.694283,
-      "hz": 6.77,
-      "budgetMs": 600
+      "mean": 15.786243,
+      "hz": 68.65,
+      "budgetMs": 24
+    },
+    {
+      "name": "runAllChecks at 2000 notes",
+      "mean": 1150.592305,
+      "hz": 0.88,
+      "budgetMs": null,
+      "gate": false
+    },
+    {
+      "name": "runAllChecks at 500 notes",
+      "mean": 307.254479,
+      "hz": 3.31,
+      "budgetMs": null,
+      "gate": false
+    },
+    {
+      "name": "runAllChecks at 5000 notes",
+      "mean": 2618.562309,
+      "hz": 0.42,
+      "budgetMs": null,
+      "gate": false
     },
     {
       "name": "writeAndReindex: re-save one note in a 2000-note vault",

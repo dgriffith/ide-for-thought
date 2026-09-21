@@ -15,7 +15,8 @@
  * Five files are deliberately exempt — the fixture's per-test `beforeEach`/
  * `afterEach` lifecycle doesn't fit their shape, not because they were missed:
  *   - `full-index.bench.ts`, `graph-index.bench.ts`, `n3-cache.bench.ts`,
- *     `n3-cold-rebuild.bench.ts` — vitest benchmarks seed a temp dir ONCE per
+ *     `n3-cold-rebuild.bench.ts`, `persist-query.bench.ts`,
+ *     `health-checks.bench.ts` — vitest benchmarks seed a temp dir ONCE per
  *     scale as top-level `await` (see `n3-cold-rebuild.bench.ts`'s header: a
  *     `beforeAll` doesn't reliably complete before a `bench`'s iterations
  *     start in this vitest version). They already use the dedicated
@@ -44,6 +45,10 @@ const EXEMPT: readonly string[] = [
   'graph-index.bench.ts',
   'n3-cache.bench.ts',
   'n3-cold-rebuild.bench.ts',
+  // Added by #2211 to reproduce the perf review's C2 and C1 in CI; same
+  // top-level-await seeding lifecycle as the four above.
+  'persist-query.bench.ts',
+  'health-checks.bench.ts',
   'tutorial-thoughtbase-staleness.test.ts',
 ];
 
