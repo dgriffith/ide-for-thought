@@ -42,17 +42,23 @@
  * ── The KNOWN list ──────────────────────────────────────────────────────────
  * Like every other ratchet here, it may only shrink, and the entries are real
  * findings rather than noise — #2238 scoped itself to `graph ↔ notebase` and
- * these are what was underneath once that one was broken. Two patterns stand
- * out and are the cheap next fixes, both the same shape as the edge this test
- * was written for:
+ * these are what was underneath once that one was broken.
  *
- *   - `ipc/read-json.ts` and `ipc/broadcast.ts` are leaf utilities that have
- *     nothing to do with IPC registration, and `history`, `llm` and `notebase`
- *     all reach into the `ipc` package for them. Moving them is the same move
- *     `ignored-dirs` got here.
- *   - `sources ↔ notebase`, `sources ↔ llm`, `compute ↔ llm` and
- *     `compute ↔ notebase` are genuine two-way feature coupling and need real
- *     thought, not a file move.
+ * Worth knowing before opening any of them: **none is a tangle.** Every entry
+ * has a thinner direction of one or two imports. What the cycle reports is
+ * almost always a single module that is in the wrong package, not two
+ * subsystems that grew into each other. They split three ways:
+ *
+ *   - **Mis-homed modules (#2283).** `ipc/read-json.ts` is a JSON file
+ *     read/atomic-write helper whose only imports are `node:fs`; `llm/turtle.ts`
+ *     is Turtle string escaping with no imports at all; `publish/csl/` is a
+ *     citation service with consumers in three other packages. None is about
+ *     the package it lives in. Four cycles, all `git mv` plus import rewrites.
+ *   - **Layer questions (#2284).** Four single imports that each pose a real
+ *     "should this package know about that one": the watcher sending to windows,
+ *     source mining calling the LLM, the file watcher driving the Python kernel,
+ *     source merging rewriting links.
+ *   - `graph ↔ types`, tracked by #2231/#2234.
  */
 import { describe, it, expect } from 'vitest';
 import { cruise, type IModule } from 'dependency-cruiser';
@@ -105,21 +111,28 @@ const KNOWN_PACKAGE_CYCLES = new Set<string>([
   // graph/state.ts.
   'main/graph <-> main/types',
 
-  // ── `ipc/` leaf utilities that aren't about IPC ──────────────────────────
-  // read-json.ts (JSON file read/atomic write) and broadcast.ts (send to a
-  // window) are imported by packages that otherwise have no business knowing
-  // the IPC layer exists. Same shape as `notebase/ignored-dirs` before #2238,
-  // and the same fix: move the leaf. Cheapest remaining wins.
-  'main/history <-> main/ipc',   // history/store.ts → ipc/read-json.ts
-  'main/ipc <-> main/llm',       // llm/conversation.ts → ipc/read-json.ts
-  'main/ipc <-> main/notebase',  // notebase/watcher.ts → ipc/broadcast.ts
+  // ── A module in the wrong package (#2283) — move it, no design needed ────
+  // `ipc/read-json.ts` imports nothing but `node:fs`/`path`/`crypto`; its own
+  // header calls itself a leaf. `llm/turtle.ts` imports nothing at all.
+  // `publish/csl/` is a citation service four modules across three packages
+  // already depend on. Each cycle below is ONE import in the thin direction.
+  'main/history <-> main/ipc',          // history/store.ts → ipc/read-json.ts
+  'main/ipc <-> main/llm',              // llm/conversation.ts → ipc/read-json.ts
+  'main/compute <-> main/llm',          // compute/proposal-helpers.ts → llm/turtle.ts
+  'main/bibliography <-> main/publish', // bibliography/generate.ts → publish/csl/index.ts
 
-  // ── Genuine two-way feature coupling; needs design, not a file move ──────
-  'main/llm <-> main/sources',       // apply-dispatch ↔ mine-references
-  'main/notebase <-> main/sources',  // watch-handlers ↔ merge-sources
-  'main/compute <-> main/llm',       // query-sql ↔ proposal-helpers
-  'main/compute <-> main/notebase',  // rpc-server ↔ watch-handlers
-  'main/bibliography <-> main/publish', // generate ↔ annotated-reading/resolve
+  // ── A layering question (#2284) — one import, but a real decision ────────
+  // NOT the same as the group above, and `ipc/broadcast.ts` is the reason to
+  // say so: unlike read-json it IS genuinely IPC (a typed main→renderer
+  // channel send checked against EventMap), so the fix is not to move it. The
+  // question is whether `notebase/watcher.ts` should be sending to a window at
+  // all, rather than emitting an event the IPC layer forwards. The other three
+  // are the same shape: one module reaching across a boundary that may or may
+  // not be the right one.
+  'main/ipc <-> main/notebase',      // notebase/watcher.ts → ipc/broadcast.ts
+  'main/llm <-> main/sources',       // sources/mine-references.ts → llm/index.ts
+  'main/compute <-> main/notebase',  // notebase/watch-handlers.ts → compute/python-kernel.ts
+  'main/notebase <-> main/sources',  // sources/merge-sources.ts → notebase/{fs,link-rewriting}
 ]);
 
 interface Edge { from: string; to: string; via: string }

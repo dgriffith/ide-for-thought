@@ -436,8 +436,12 @@ collapses the module graph to `src/main/<package>` and fails on a two-way
 dependency between packages. Its `KNOWN_PACKAGE_CYCLES` list may only shrink,
 same as every other ratchet here — and its entries are findings, not noise:
 nine package cycles were underneath `graph ↔ notebase` once that one was
-broken. Loose files directly under `src/main/` are deliberately excluded (the
-composition root wires every package by definition; its header says why).
+broken (#2283 for the four that are one module in the wrong package, #2284 for
+the four that are a layering decision). None is a tangle — **every entry has a
+thinner direction of one or two imports**, so what a cycle reports is usually a
+single misplaced module rather than two subsystems grown together. Loose files
+directly under `src/main/` are deliberately excluded (the composition root
+wires every package by definition; its header says why).
 
 The two ways out when it fires, both used by #2238:
 
