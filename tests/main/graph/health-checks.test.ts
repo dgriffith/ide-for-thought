@@ -31,6 +31,8 @@ import { runAllChecks } from '../../../src/main/graph/health-checks';
 import { applyTurtle } from '../../../src/main/llm/proposal-persistence';
 import { type ProjectContext } from '../../../src/main/project-context-types';
 import { useGraphProject } from '../../helpers/temp-project';
+import { buildClaimNoteContent } from '../../../src/main/llm/claim-note';
+import { slugify } from '../../../src/shared/slug';
 
 describe('checkUnsupportedClaims', () => {
   const project = useGraphProject('minerva-health-checks-test-');
@@ -277,9 +279,31 @@ describe('typed claim notes — the shape the app itself files (#2230)', () => {
     fs.writeFileSync(full, content, 'utf-8');
   }
 
-  /** The frontmatter `buildClaimNoteContent` emits, trimmed to what matters here. */
-  function claimNote(title: string, extra = ''): string {
-    return `---\ntitle: ${JSON.stringify(title)}\ntype: claim\n${extra}---\n\n# ${title}\n`;
+  /**
+   * A claim note authored by the REAL function the app files claims with
+   * (#2237) — not a hand-copy of its frontmatter.
+   *
+   * This used to be a local template "trimmed to what matters here", which
+   * meant these tests asserted that the graph layer understands a shape a test
+   * author typed. The shape the app actually writes could drift away from it
+   * silently, and in #2036 it did: the authoring side moved from an embedded
+   * `a thought:Claim` turtle block to `type: claim` frontmatter while the
+   * queries kept asking for the old one, and every test here went on passing.
+   *
+   * Calling `buildClaimNoteContent` closes that loop. Change the frontmatter it
+   * emits in a way the health checks can't see, and these fail.
+   */
+  function claimNote(title: string): string {
+    return buildClaimNoteContent(
+      {
+        text: title,
+        kind: 'factual',
+        quote: `A passage from the source that states: ${title}`,
+        confidence: 0.9,
+        excerptId: `ex-${slugify(title)}`,
+      },
+      'a-source',
+    );
   }
 
   it('flags an unsupported claim filed as a typed note', async () => {

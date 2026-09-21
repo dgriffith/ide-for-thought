@@ -40,38 +40,7 @@ import {
 import { withRootPath, withRootPathWin, reindexFile, persistIndexes, hooks } from './helpers';
 import { logger } from '../../shared/logger';
 import { handle } from './typed-ipc';
-
-/** Build a thought:Claim note from an extracted claim (#104). Mirrors the
- *  child-note shape of the Decompose-into-Claims skill: claim metadata in
- *  frontmatter (materialised as thought:* by the indexer), a blockquote of the
- *  supporting passage, and a `[[quote::id]]` edge to the excerpt. Typed via
- *  `type: claim` (the Claim stock object type, #2036's externalClass:
- *  thought:Claim) rather than an embedded turtle block — same convention
- *  Decompose-into-Claims and the glossary skills now use. */
-function buildClaimNoteContent(
-  claim: import('../../shared/conversation-claims-drafts').DraftClaim,
-  sourceId: string,
-): string {
-  const y = (s: string): string => JSON.stringify(s); // valid double-quoted YAML scalar
-  return [
-    '---',
-    `title: ${y(claim.text)}`,
-    'type: claim',
-    `claimKind: ${claim.kind}`,
-    `source-text: ${y(claim.quote)}`,
-    `confidence: ${claim.confidence}`,
-    `extracted-from: "[[sources/${sourceId}]]"`,
-    'extracted-by: llm:extract-key-claims',
-    '---',
-    '',
-    `# ${claim.text}`,
-    '',
-    ...claim.quote.split(/\r?\n/).map((l) => `> ${l}`),
-    '',
-    `[[quote::${claim.excerptId}]]`,
-    '',
-  ].join('\n');
-}
+import { buildClaimNoteContent } from '../llm/claim-note';
 
 /**
  * Every draft-filing IPC handler needs a non-empty array of work items

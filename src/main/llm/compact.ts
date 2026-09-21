@@ -5,11 +5,13 @@
  * blocks preserved across turns, but Minerva stores messages as plain strings
  * — so `/compact` summarizes the early history with a model call and seeds a
  * fresh conversation with the summary + the retained recent turns. The pure
- * decision/assembly bits live here so they're testable without IPC; the IPC
- * handler does the model call + archive/create orchestration.
+ * decision/assembly bits and the orchestration that drives them both live
+ * here (#2237) — none of it needs Electron, and splitting them across an IPC
+ * registrar is what hid `compactConversation` from anyone reading this file.
  */
 
 import type { ConversationMessage, TurnUsage } from '../../shared/conversation';
+import * as conversation from './conversation';
 
 /** Earlier turns kept verbatim after a compaction, for continuity. Four
  *  messages ≈ the last two exchanges. */
@@ -76,4 +78,77 @@ export function buildSummaryMessage(
     ...(usage ? { usage } : {}),
     ...(usageModel ? { usageModel } : {}),
   };
+}
+
+/**
+ * `/compact` (#824): client-side compaction — the orchestration, moved out of
+ * the IPC registrar in #2237 (epic #2241). The header above used to say "the
+ * IPC handler does the model call + archive/create orchestration", which was a
+ * description of where it happened to live rather than a reason: none of this
+ * touches Electron. It reads a conversation, calls a model, archives, and
+ * seeds a replacement. Summarizes the early history with
+ * a model call and seeds a fresh conversation with the summary + the retained
+ * recent turns. The pre-compaction original is archived (filed as a
+ * thought:Source, recoverable from the archived list), never silently
+ * destroyed. The summarization call's own token usage is recorded on the
+ * summary message (#820). The decision/assembly helpers it drives are the exports above.
+ */
+export async function compactConversation(
+  rootPath: string,
+  convId: string,
+): Promise<import('../../shared/conversation').CompactResult> {
+  const conv = await conversation.load(rootPath, convId);
+  if (!conv) throw new Error(`Conversation not found: ${convId}`);
+  if (conv.status !== 'active') {
+    return { compacted: false, reason: 'This conversation is archived and can\'t be compacted.' };
+  }
+  const { planCompaction, buildSummaryPrompt, buildSummaryMessage, COMPACT_SYSTEM_PROMPT } =
+    await import('./compact');
+  const plan = planCompaction(conv.messages);
+  if (!plan.ok) return { compacted: false, reason: plan.reason };
+
+  let usage: import('../../shared/conversation').TurnUsage | undefined;
+  let usageModel: string | undefined;
+  let truncated = false;
+  const { complete } = await import('./index');
+  const summary = await complete(buildSummaryPrompt(plan.transcript), {
+    system: COMPACT_SYSTEM_PROMPT,
+    model: conv.model,
+    onUsage: (u, m) => { usage = u; usageModel = m; },
+    onTruncated: () => { truncated = true; },
+  });
+  // A summary cut off at the token cap is the one truncation we refuse to live
+  // with (#1811): compaction archives the original and makes this summary the
+  // model's entire memory of it. Better to leave the conversation as it is and
+  // say why than to install a half-written account of it.
+  if (truncated) {
+    return {
+      compacted: false,
+      reason: 'The summary of your earlier turns was cut off at the length limit, '
+        + 'so nothing was compacted. Try again, or start a fresh conversation.',
+    };
+  }
+  const summaryMsg = buildSummaryMessage(
+    plan.prefix.length,
+    summary,
+    usage,
+    usageModel,
+    new Date().toISOString(),
+  );
+
+  // Archive the original (files the full transcript as a thought:Source —
+  // recoverable) before opening the compacted continuation.
+  await conversation.archive(rootPath, convId);
+  const createOpts: { systemPrompt?: string; model?: string; webEnabled?: boolean } = {};
+  if (conv.systemPrompt) createOpts.systemPrompt = conv.systemPrompt;
+  if (conv.model) createOpts.model = conv.model;
+  if (conv.webEnabled !== undefined) createOpts.webEnabled = conv.webEnabled;
+  const fresh = await conversation.create(
+    rootPath,
+    conv.contextBundle,
+    conv.triggerNodeUri,
+    Object.keys(createOpts).length > 0 ? createOpts : undefined,
+  );
+  const updated = await conversation.replaceMessages(rootPath, fresh.id, [summaryMsg, ...plan.recent]);
+  return { compacted: true, conversation: updated };
 }
