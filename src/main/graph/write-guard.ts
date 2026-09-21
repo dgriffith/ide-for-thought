@@ -202,8 +202,8 @@ function fire(operation: string): void {
  * `checkLLMWriteGuard(...)` calls in the indexer facades, which between them
  * missed seven store-mutating functions (`indexAllNotes`, `reloadTypeCatalog`,
  * `addOntologyToStore`, `initGraph`, `persistGraph`, `setBaseUri`, and
- * `materializeTypeClasses` — the last writing `state.store` from a different
- * package entirely).
+ * `materializeTypeClasses` — which wrote `state.store` from a different
+ * package entirely until #2234 PR 3 moved it inside `graph/`).
  *
  * Kept separate from `checkLLMWriteGuard` for one reason: this runs on the
  * hottest path in the app (a full reindex is ~100k calls), so the fast path

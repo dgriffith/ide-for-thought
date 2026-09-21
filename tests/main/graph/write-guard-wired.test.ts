@@ -43,7 +43,7 @@ import {
 } from '../../../src/main/graph/index';
 import { getState } from '../../../src/main/graph/state';
 import { addOntologyToStore } from '../../../src/main/graph/indexers/rebuild';
-import { materializeTypeClasses } from '../../../src/main/types/compile';
+import { materializeTypeClasses } from '../../../src/main/graph/indexers/type-classes';
 import type { TypeCatalog } from '../../../src/shared/objects/type-def';
 import {
   enterLLMContext,
@@ -143,11 +143,14 @@ describe('LLM write guard wired into the graph write path (#657, fatal #944)', (
  * conditional on the write not arriving through any of them, and nobody
  * reading CLAUDE.md would have known which.
  *
- * `materializeTypeClasses` is the sharpest of the seven and gets its own case:
- * it lives in `src/main/types/`, holds a reference to the graph package's
- * internal `IndexedFormula`, and writes to it directly — no facade, no guard,
- * no package boundary. It is covered now for the same reason everything else
- * is: it goes through `store.add`, and that is where the guard lives.
+ * `materializeTypeClasses` was the sharpest of the seven: it lived in
+ * `src/main/types/`, held a reference to the graph package's internal
+ * `IndexedFormula`, and wrote to it directly — no facade, no guard, no package
+ * boundary. #2231 covered it the same way it covers everything else (it goes
+ * through `store.add`, and that is where the guard lives); #2234 PR 3 then
+ * moved it inside `graph/`, so the boundary violation is gone too. The case
+ * stays because the guard coverage is what it asserts, and that is still worth
+ * pinning wherever the function lives.
  */
 describe('previously unguarded store mutations (#2231)', () => {
   const project = useGraphProject('minerva-guard-total-');
@@ -158,7 +161,7 @@ describe('previously unguarded store mutations (#2231)', () => {
     __resetWriteGuardForTests();
   });
 
-  it('materializeTypeClasses — a write from OUTSIDE the graph package — is guarded', async () => {
+  it('materializeTypeClasses is guarded', async () => {
     const state = getState(ctx)!;
     const catalog: TypeCatalog = {
       types: [{

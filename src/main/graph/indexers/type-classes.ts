@@ -1,5 +1,19 @@
 /**
- * Compile a type catalog into ontology triples (#1062). Each type becomes a
+ * Compile a type catalog into ontology triples (#1062).
+ *
+ * MOVED HERE from `src/main/types/compile.ts` by #2234 PR 3. It was the one
+ * piece of code outside `graph/` holding a reference to the graph's internal
+ * `IndexedFormula` and writing to it directly — no facade, no package
+ * boundary — which is what made `GraphState.store` public in practice however
+ * the type declared it. It was also half of a package-level cycle:
+ * `types/compile` imported `graph/state` for the namespaces while
+ * `graph/indexers/rebuild` imported `types/compile` for this function.
+ * (File-level cycle detection didn't see it — `state.ts` imports nothing back —
+ * which is why it survived `no-cycles.test.ts`.)
+ *
+ * Moving it inverts nothing and fixes both: the types package now only
+ * DESCRIBES types (`loader`, `parse`, `write`), the graph package WRITES them,
+ * and `types/` no longer depends on rdflib or on the graph at all. Each type becomes a
  * class in the `types:` namespace — `rdf:type rdfs:Class`, `rdfs:label`, its
  * expected property names, and optional icon/color — so `?x rdf:type types:Book`
  * is queryable and the graph, not just the registry, knows the type exists.
@@ -9,8 +23,8 @@
  * rebuild, so they never go stale.
  */
 import * as $rdf from 'rdflib';
-import { MINERVA, RDF, RDFS, TYPES, resolveStandardCurie } from '../graph/state';
-import type { TypeCatalog } from '../../shared/objects/type-def';
+import { MINERVA, RDF, RDFS, TYPES, resolveStandardCurie } from '../state';
+import type { TypeCatalog } from '../../../shared/objects/type-def';
 
 export function materializeTypeClasses(store: $rdf.IndexedFormula, catalog: TypeCatalog): void {
   const byId = new Map(catalog.types.map((t) => [t.id, t]));

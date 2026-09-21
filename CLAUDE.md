@@ -419,6 +419,36 @@ untested ones sit in a `KNOWN_UNTESTED` list that may only shrink.
 - Queryable via SPARQL through `api.graph.query()`
 - Standard prefixes (minerva, thought, dc, rdf, rdfs, xsd, csvw, prov) are auto-injected into all queries
 
+#### The rdflib store stays inside `graph/` (#2234)
+
+`GraphState` was an open twelve-field record; it is now six
+(`rootPath`, `baseUri`, `store`, `n3Cache`, `ontologyStatements`,
+`typeCatalog`). The derived caches moved to `graph/note-caches.ts` (headings,
+frontmatter keys, neighborhood memo) and `graph/note-index.ts` (note paths +
+frontmatter aliases), each with its own `createProjectStore` slot.
+
+**`store` — the mutable rdflib `IndexedFormula` — belongs to the graph
+package.** `tests/architecture/graph-store-encapsulation.test.ts` enforces it:
+no module outside `src/main/graph/` may name `GraphState` or reach `.store` on
+it. Need graph work done from elsewhere? Put the operation *in* `graph/` and
+export it, the way #2234 PR 3 did with `materializeTypeClasses` — which had
+been writing the graph's internal store from `src/main/types/`, and was also
+half of a package cycle (`types/compile` → `graph/state`,
+`graph/indexers/rebuild` → `types/compile`) that file-level cycle detection
+never saw because `state.ts` imports nothing back.
+
+Inside `graph/`, the indexers and query layer use `store` directly and that is
+fine — the package working with its own data structure isn't a layering
+violation, and the write guard at the `store.add`/`store.removeMatches`
+chokepoint (#2231) already covers every one of those writes. The boundary is
+the thing worth enforcing, not a wrapper per call site.
+
+The one shape the test honestly cannot catch is a bare `IndexedFormula` passed
+across the boundary — lexically indistinguishable from the private scratch
+`$rdf.graph()` that `sources/import-zotero-rdf.ts` legitimately builds. Its
+header says so. What prevents a repeat there is structural: no module outside
+the package holds the store to pass on.
+
 ### Thought Ontology
 - Defined in `src/shared/ontology-thought.ttl`
 - Separate namespace: `thought:` (`https://minerva.dev/ontology/thought#`)
