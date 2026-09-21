@@ -41,6 +41,7 @@ import { indexNote, isAliasNameValid, rebuildAliasMap } from './note';
 import ONTOLOGY_TTL from '../../../shared/ontology.ttl?raw';
 import THOUGHT_ONTOLOGY_TTL from '../../../shared/ontology-thought.ttl?raw';
 import { clearNoteCaches } from '../note-caches';
+import { clearNoteIndex, registerNotePath, setNoteAliases } from '../note-index';
 
 /**
  * Reload the type catalog into graph state + re-materialize the type classes,
@@ -177,9 +178,7 @@ export async function indexAllNotes(ctx: ProjectContext, opts?: IndexAllNotesOpt
   resetN3Mirror(state);
   invalidate(state);
   addOntologyToStore(state);
-  state.aliasesPerNote.clear();
-  state.aliasMap.clear();
-  state.indexedNotePaths.clear();
+  clearNoteIndex(ctx);
   // The derived per-note caches (#2234) are re-populated by the walk below, so
   // a from-scratch rebuild has to drop them too — otherwise a note deleted
   // while the app was closed keeps its heading snapshot and frontmatter keys.
@@ -201,7 +200,7 @@ export async function indexAllNotes(ctx: ProjectContext, opts?: IndexAllNotesOpt
   // against an empty map and write the wrong target URI.
   let total = 0;
   await walkAndCollectAliases(rootPath, rootPath);
-  rebuildAliasMap(state);
+  rebuildAliasMap(ctx);
 
   // Build the wiki-link resolver index ONCE — indexedNotePaths + the alias map
   // are final after the pre-pass — and thread it into every indexNote below, so
@@ -214,7 +213,7 @@ export async function indexAllNotes(ctx: ProjectContext, opts?: IndexAllNotesOpt
   // pre-pass already left aliasMap correct, but rebuild once more here as a
   // cheap (O(N), not O(N²)) guarantee rather than relying on the pre-pass
   // and the main pass never diverging.
-  rebuildAliasMap(state);
+  rebuildAliasMap(ctx);
   count += await walkAndIndexSources(ctx, rootPath);
   count += await walkAndIndexExcerpts(ctx, rootPath);
   // graph.ttl is a cold snapshot now (#348). The release / quit path
@@ -253,7 +252,7 @@ export async function indexAllNotes(ctx: ProjectContext, opts?: IndexAllNotesOpt
         // indexed early couldn't resolve a link to one indexed later (#1142).
         // Mirrors the alias pre-pass rationale (#469). All note extensions, so
         // `[[budget]]` resolves to a `budget.csv`/`.ttl`/`.py` too (#1446).
-        state!.indexedNotePaths.add(relativePath);
+        registerNotePath(ctx, relativePath);
         // The pre-pass visits exactly what the main pass will index, so it
         // doubles as the count a progress bar needs (#1814).
         total++;
@@ -261,7 +260,7 @@ export async function indexAllNotes(ctx: ProjectContext, opts?: IndexAllNotesOpt
           const content = await fs.readFile(fullPath, 'utf-8');
           const parsed = parseMarkdown(content);
           const valid = parsed.aliases.filter(isAliasNameValid);
-          if (valid.length > 0) state!.aliasesPerNote.set(relativePath, valid);
+          setNoteAliases(ctx, relativePath, valid);
         } catch {
           // Skip unreadable files; the main pass will surface the same error.
         }
