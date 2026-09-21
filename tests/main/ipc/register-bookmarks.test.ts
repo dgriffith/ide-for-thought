@@ -24,7 +24,7 @@ vi.mock('electron', () => ({
 // Keep the REAL readJsonFileOr/writeJsonFileAtomic (the code under test); only
 // stub the project-scoping wrappers so we can steer/clear the root.
 vi.mock('../../../src/main/ipc/helpers', async () => {
-  const { readJsonFileOr, writeJsonFileAtomic } = await import('../../../src/main/ipc/read-json');
+  const { readJsonFileOr, writeJsonFileAtomic } = await import('../../../src/main/config/json-file');
   return {
     readJsonFileOr,
     writeJsonFileAtomic,

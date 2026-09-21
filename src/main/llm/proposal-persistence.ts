@@ -6,7 +6,7 @@
 import * as $rdf from 'rdflib';
 import * as graph from '../graph/index';
 import type { ProjectContext } from '../project-context-types';
-import { escapeTurtleLiteral } from './turtle';
+import { escapeTurtleLiteral } from '../../shared/turtle';
 import type { Proposal, ProposalPayload } from './proposal-types';
 import { logger } from '../../shared/logger';
 

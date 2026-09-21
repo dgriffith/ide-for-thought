@@ -23,7 +23,7 @@ import {
 import { getHistorySettings } from './settings';
 // A leaf (only `node:fs/promises`), imported directly rather than through the
 // `ipc/helpers` barrel so this stays clear of electron.
-import { readJsonFileOr } from '../ipc/read-json';
+import { readJsonFileOr } from '../config/json-file';
 import { emitHistoryChanged } from './history-events';
 import { classifyHistoryEvent, type HistorySettings, type UnifiedTimelineEntry } from '../../shared/history';
 import { logger } from '../../shared/logger';

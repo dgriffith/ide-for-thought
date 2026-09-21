@@ -14,7 +14,7 @@
  */
 
 import type { CitationAssets } from './index';
-import { scanCitations } from '../../bibliography/scan-citations';
+import { scanCitations } from '../../../shared/scan-citations';
 
 export interface CitationAuditEntry {
   sourceId: string;

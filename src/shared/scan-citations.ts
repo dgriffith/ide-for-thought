@@ -3,7 +3,7 @@
  * (#113). Returns the ids in document order; duplicates are preserved
  * because citation order matters for numeric styles like IEEE.
  */
-import { WIKI_LINK_RE, parseWikiInner } from '../../shared/wiki-link';
+import { WIKI_LINK_RE, parseWikiInner } from './wiki-link';
 
 export interface ScannedCitation {
   /** 'cite' → resolves directly to a source id; 'quote' → excerpt id. */

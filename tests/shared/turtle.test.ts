@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { escapeTurtleLiteral } from '../../../src/main/llm/turtle';
+import { escapeTurtleLiteral } from '../../src/shared/turtle';
 
 // Unified turtle string-literal escaper (#676) — was three drifted copies.
 

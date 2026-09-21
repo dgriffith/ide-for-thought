@@ -92,7 +92,11 @@ const BASELINE: Record<string, string> = {
   'src/main/skills/menu-config-store.ts': 'CLAUDE.md-tracked hand-rolled config (menu-config-store)',
   // Not config in the #1640 sense: read-only helper, or a cache/log/per-item
   // data file where "corrupt → report + default" isn't the right model.
-  'src/main/ipc/read-json.ts': 'the OTHER blessed read helper (readJsonFileOr) — CLAUDE.md rule 5, not a defaulting config loader',
+  // Moved from `ipc/` in #2283 — deliberately next to `config-store.ts`, because
+  // the two ARE the choice this test is about: `loadConfigFile` never throws and
+  // defaults; `readJsonFileOr` defaults on ENOENT and rethrows corruption
+  // (CLAUDE.md rule 5). Adjacent is where someone picking between them will look.
+  'src/main/config/json-file.ts': 'the OTHER blessed read helper (readJsonFileOr) — CLAUDE.md rule 5, not a defaulting config loader',
   'src/main/compute/audit.ts': 'NDJSON audit log, one JSON object per line — append-only log, not settings',
   'src/main/embeddings/wasm-embedder.ts': 'bundled tokenizer.json model asset shipped with the app, not user config',
   'src/main/help-docs/corpus-store.ts': 'generated help-docs corpus cache, not user config',

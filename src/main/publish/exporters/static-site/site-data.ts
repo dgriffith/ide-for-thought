@@ -12,7 +12,7 @@
  */
 
 import { extractWikiLinkTargets } from '../../tree-resolver';
-import { scanCitations } from '../../../bibliography/scan-citations';
+import { scanCitations } from '../../../../shared/scan-citations';
 import type { ExportPlanFile } from '../../types';
 import type { CitationAssets } from '../../csl';
 

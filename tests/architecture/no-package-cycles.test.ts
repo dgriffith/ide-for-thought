@@ -49,15 +49,19 @@
  * almost always a single module that is in the wrong package, not two
  * subsystems that grew into each other. They split three ways:
  *
- *   - **Mis-homed modules (#2283).** `ipc/read-json.ts` is a JSON file
- *     read/atomic-write helper whose only imports are `node:fs`; `llm/turtle.ts`
- *     is Turtle string escaping with no imports at all; `publish/csl/` is a
- *     citation service with consumers in three other packages. None is about
- *     the package it lives in. Four cycles, all `git mv` plus import rewrites.
+ *   - **Mis-homed modules — cleared by #2283.** Three pure leaves sitting in
+ *     the wrong package accounted for four of the nine: `ipc/read-json.ts`
+ *     (a JSON file helper importing only `node:fs`), `llm/turtle.ts` (Turtle
+ *     escaping, no imports at all) and `bibliography/scan-citations.ts` (a
+ *     wiki-link scanner). Worth knowing how that one went: the issue proposed
+ *     extracting the whole `publish/csl/` subsystem to break
+ *     `bibliography ↔ publish`, but all FIVE `publish → bibliography` edges
+ *     turned out to be the same `scanCitations` import. One file move, not a
+ *     subsystem extraction. Measure the edges before designing the fix.
  *   - **Layer questions (#2284).** Four single imports that each pose a real
- *     "should this package know about that one": the watcher sending to windows,
- *     source mining calling the LLM, the file watcher driving the Python kernel,
- *     source merging rewriting links.
+ *     "should this package know about that one": the watcher sending to
+ *     windows, source mining calling the LLM, the file watcher driving the
+ *     Python kernel, source merging rewriting links.
  *   - `graph ↔ types`, tracked by #2231/#2234.
  */
 import { describe, it, expect } from 'vitest';
@@ -111,15 +115,10 @@ const KNOWN_PACKAGE_CYCLES = new Set<string>([
   // graph/state.ts.
   'main/graph <-> main/types',
 
-  // ── A module in the wrong package (#2283) — move it, no design needed ────
-  // `ipc/read-json.ts` imports nothing but `node:fs`/`path`/`crypto`; its own
-  // header calls itself a leaf. `llm/turtle.ts` imports nothing at all.
-  // `publish/csl/` is a citation service four modules across three packages
-  // already depend on. Each cycle below is ONE import in the thin direction.
-  'main/history <-> main/ipc',          // history/store.ts → ipc/read-json.ts
-  'main/ipc <-> main/llm',              // llm/conversation.ts → ipc/read-json.ts
-  'main/compute <-> main/llm',          // compute/proposal-helpers.ts → llm/turtle.ts
-  'main/bibliography <-> main/publish', // bibliography/generate.ts → publish/csl/index.ts
+  // (#2283 cleared four more: `ipc/read-json.ts` → `config/json-file.ts`,
+  // `llm/turtle.ts` → `shared/turtle.ts`, `bibliography/scan-citations.ts` →
+  // `shared/scan-citations.ts`. All three were pure leaves in the wrong
+  // package — no design decision in any of them.)
 
   // ── A layering question (#2284) — one import, but a real decision ────────
   // NOT the same as the group above, and `ipc/broadcast.ts` is the reason to
