@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import * as notebaseFs from '../notebase/fs';
-import { isIgnoredEntry } from '../notebase/ignored-dirs';
+import { isIgnoredEntry } from '../../shared/ignored-dirs';
 import * as graph from '../graph/index';
 import { projectContext } from '../project-context-types';
 import * as search from '../search/index';

@@ -23,14 +23,13 @@ vi.mock('../../../src/main/graph/index', () => ({
   queryGraph: h.queryGraph,
   headingsFor: h.headingsFor,
 }));
-// checkUnreferencedImages (#1799) does real filesystem I/O rather than a
-// mocked SPARQL call — fine normally, but this file's fake-timer tests need
-// every check to resolve on the SAME (fake) tick, so it's mocked out like the
-// graph calls above rather than actually touching disk for a nonexistent
-// '/fake-project'.
-vi.mock('../../../src/main/notebase/asset-references', () => ({
-  findOrphanedInlineAssets: vi.fn(async () => []),
-}));
+// checkUnreferencedImages (#1799) used to need mocking out here: it does real
+// filesystem I/O rather than a mocked SPARQL call, and this file's fake-timer
+// tests need every check to resolve on the SAME (fake) tick instead of
+// touching disk for a nonexistent '/fake-project'. Since #2238 the scanner is
+// injected, so simply not injecting one is enough — the module-level mock is
+// gone, and with it the need for this file to know that `health-checks.ts`
+// reaches into `notebase/` at all.
 
 import {
   runAllChecks, startPeriodicChecks, stopPeriodicChecks, armAutoChecks, disarmAutoChecks,

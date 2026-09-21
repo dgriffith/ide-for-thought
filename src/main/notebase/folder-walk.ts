@@ -15,7 +15,7 @@
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { isIgnoredEntry } from './ignored-dirs';
+import { isIgnoredEntry } from '../../shared/ignored-dirs';
 
 /** Upper bound on how many files a single bulk ingest (zip or folder) will
  *  process. Protects against a maliciously crafted archive (or an

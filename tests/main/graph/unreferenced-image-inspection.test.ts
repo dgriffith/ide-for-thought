@@ -3,15 +3,28 @@
  * (asset-references.test.ts) owns the detection logic; this covers the
  * `Inspection` shape this check produces — message, severity, quick-fix —
  * and that it's wired into `runAllChecks`.
+ *
+ * The scanner arrives as a dependency now (#2238): it lives in `notebase/` and
+ * `graph/` importing it was one of the three edges that made `graph ↔
+ * notebase` a package cycle. These tests pass the real one, so they exercise
+ * the same code path production does — and the last case pins the other half
+ * of that contract, which is the part with teeth: the check reports nothing
+ * when nobody injects a scanner, so a caller that forgets loses the check
+ * silently. `no-package-cycles.test.ts` stops the import coming back;
+ * this stops the injection being dropped without anyone noticing.
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { runAllChecks } from '../../../src/main/graph/health-checks';
+import { findOrphanedInlineAssets } from '../../../src/main/notebase/asset-references';
 import { type ProjectContext } from '../../../src/main/project-context-types';
 import { useGraphProject } from '../../helpers/temp-project';
 
 const ASSET_DIR = '.minerva/assets/inline';
+
+/** What `project-context.ts` and `register-graph.ts` wire in production. */
+const DEPS = { findOrphanedAssets: findOrphanedInlineAssets };
 
 describe('checkUnreferencedImages (#1799)', () => {
   const project = useGraphProject('minerva-unref-image-');
@@ -33,7 +46,7 @@ describe('checkUnreferencedImages (#1799)', () => {
     const relativePath = `${ASSET_DIR}/abc123-dead.png`;
     await writeFile(relativePath, 'x'.repeat(2048));
 
-    const inspections = await runAllChecks(ctx);
+    const inspections = await runAllChecks(ctx, undefined, DEPS);
     const found = inspections.filter((i) => i.type === 'unreferenced_image');
 
     expect(found).toHaveLength(1);
@@ -52,7 +65,7 @@ describe('checkUnreferencedImages (#1799)', () => {
     await writeFile(relativePath, 'bytes');
     await writeFile('notes/a.md', `![](${relativePath})`);
 
-    const inspections = await runAllChecks(ctx);
+    const inspections = await runAllChecks(ctx, undefined, DEPS);
     expect(inspections.filter((i) => i.type === 'unreferenced_image')).toEqual([]);
   });
 
@@ -63,7 +76,18 @@ describe('checkUnreferencedImages (#1799)', () => {
       disabled: ['unreferenced_image'],
       staleDays: 30,
       stubDays: 30,
-    });
+    }, DEPS);
+    expect(inspections.filter((i) => i.type === 'unreferenced_image')).toEqual([]);
+  });
+
+  it('reports nothing when no scanner is injected, even with an orphan present', async () => {
+    // The documented consequence of `HealthCheckDeps.findOrphanedAssets` being
+    // optional. Worth a test rather than a comment: it's the difference
+    // between "this caller doesn't care about assets" and "this caller lost a
+    // check and nobody told it", and the two look identical from the outside.
+    await writeFile(`${ASSET_DIR}/abc123-dead.png`, 'x'.repeat(2048));
+
+    const inspections = await runAllChecks(ctx);
     expect(inspections.filter((i) => i.type === 'unreferenced_image')).toEqual([]);
   });
 });

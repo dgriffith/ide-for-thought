@@ -9,7 +9,7 @@
  * Read-only, reaches only `../state`, re-exported by `queries.ts`.
  */
 import type { ProjectContext } from '../../project-context-types';
-import { type HeadingSnapshot, getState, noteUri } from '../state';
+import { type HeadingSnapshot, getState, noteUri, excerptUri } from '../state';
 import { allFrontmatterKeys, getHeadings } from '../note-caches';
 import {
   aliasMapObject,
@@ -69,6 +69,24 @@ export function noteUriFor(ctx: ProjectContext, relativePath: string): string | 
   const state = getState(ctx);
   if (!state) return null;
   return noteUri(state, relativePath).value;
+}
+
+/**
+ * The excerpt IRI for `excerptId` in this project, or null when no graph is
+ * open — the exact counterpart of `noteUriFor` above.
+ *
+ * Exists because `llm/attach-evidence.ts` was calling `getState` and
+ * `excerptUri` out of `graph/state.ts` directly (#2238), reaching past the
+ * `graph/index.ts` facade into the module whose header says external callers
+ * use the public API "not GraphState internals" — and which
+ * `graph-store-encapsulation.test.ts` (#2234) exists to keep private. All it
+ * actually wanted was the IRI; it had no use for the state it had to hold to
+ * get one.
+ */
+export function excerptUriFor(ctx: ProjectContext, excerptId: string): string | null {
+  const state = getState(ctx);
+  if (!state) return null;
+  return excerptUri(state, excerptId).value;
 }
 
 /** Return headings present in the last indexNote call for `relativePath`, or []. */

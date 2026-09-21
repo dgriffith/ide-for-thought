@@ -41,9 +41,6 @@ export {
   getExcerptSource,
 } from './queries/sources';
 
-// `DAY_MS` moved with the reading-queue code that uses it; `llm/approval`
-// imports it from here.
-export { DAY_MS } from './queries/sources';
 export type { ReadingQueueView } from './queries/sources';
 
 // Link queries live in `./queries/links` (#1838), same arrangement.
@@ -64,6 +61,7 @@ export {
   getAliasEntries,
   getAllFrontmatterKeys,
   noteUriFor,
+  excerptUriFor,
   headingsFor,
 } from './queries/notes';
 export type { AliasEntry } from './queries/notes';

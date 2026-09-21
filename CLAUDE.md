@@ -419,6 +419,45 @@ untested ones sit in a `KNOWN_UNTESTED` list that may only shrink.
 - Queryable via SPARQL through `api.graph.query()`
 - Standard prefixes (minerva, thought, dc, rdf, rdfs, xsd, csvw, prov) are auto-injected into all queries
 
+#### `graph/` does not import `notebase/` (#2238)
+
+The dependency runs one way: **`notebase` → `graph`**. Saving a note drives the
+indexer, so `write-pipeline`, `rename`, `merge` and `watch-handlers` all call
+into `graph/`. Nothing goes back the other way.
+
+It used to. Three edges made `graph ↔ notebase` a real two-way package
+dependency — `indexers/rebuild.ts` → `indexable-files`/`ignored-dirs`, and
+`health-checks.ts` → `asset-references`. **`no-cycles.test.ts` passed on all
+three and was right to**: it checks *module* cycles, and each edge points at a
+different file, so no file imports itself back. The coupling was real anyway.
+
+`tests/architecture/no-package-cycles.test.ts` is the missing notch. It
+collapses the module graph to `src/main/<package>` and fails on a two-way
+dependency between packages. Its `KNOWN_PACKAGE_CYCLES` list may only shrink,
+same as every other ratchet here — and its entries are findings, not noise:
+nine package cycles were underneath `graph ↔ notebase` once that one was
+broken. Loose files directly under `src/main/` are deliberately excluded (the
+composition root wires every package by definition; its header says why).
+
+The two ways out when it fires, both used by #2238:
+
+1. **A leaf utility belongs in `src/shared/`.** `ignored-dirs` and
+   `indexable-files` moved there. Note `src/shared` is lint-enforced pure — no
+   Node builtins (#668) — so `isIndexable` had to shed `node:path` first; the
+   string replacements are checked against the real `path.basename`/`extname`
+   by a differential test rather than assumed equivalent.
+2. **Inject the collaborator.** `health-checks.ts` takes `findOrphanedAssets`
+   through `HealthCheckDeps`, the same way it already takes `loadSettings`.
+   **Omitting it makes the unreferenced-image check report nothing** — there is
+   no graph query to fall back on — so the two production call sites
+   (`project-context.ts`, `ipc/register-graph.ts`) must pass it.
+
+Related: reach `graph/` through `graph/index.ts`, not past it. `DAY_MS` now
+lives in `shared/time.ts` (a millisecond constant is not graph API — `llm` and
+`history` were importing it from `graph/queries`), and `excerptUriFor(ctx, id)`
+joins `noteUriFor` on the facade so `llm/attach-evidence.ts` no longer pulls
+`getState` out of `graph/state.ts` to build one IRI.
+
 #### The rdflib store stays inside `graph/` (#2234)
 
 `GraphState` was an open twelve-field record; it is now six

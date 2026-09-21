@@ -4,7 +4,7 @@ import type { SearchProvider, SearchResult } from './types';
 import { MiniSearchProvider } from './minisearch-provider';
 import type { ProjectContext } from '../project-context-types';
 import { createProjectStore } from '../project-store';
-import { isIgnoredEntry } from '../notebase/ignored-dirs';
+import { isIgnoredEntry } from '../../shared/ignored-dirs';
 import { logger } from '../../shared/logger';
 
 interface SearchState {

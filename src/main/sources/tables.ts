@@ -10,7 +10,7 @@ import {
   type CsvTableColumn,
 } from '../graph/index';
 import { parseMarkdown, type ParsedTable } from '../graph/parser';
-import { isIgnoredEntry } from '../notebase/ignored-dirs';
+import { isIgnoredEntry } from '../../shared/ignored-dirs';
 import { slugifyTableName } from '../../shared/table-name';
 import { serializeCsv } from '../../shared/csv-parse';
 import type { ProjectContext } from '../project-context-types';

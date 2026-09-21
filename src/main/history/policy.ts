@@ -12,7 +12,7 @@
  */
 
 import type { HistorySettings, RevisionMeta } from '../../shared/history';
-import { DAY_MS } from '../graph/queries';
+import { DAY_MS } from '../../shared/time';
 export type { RevisionMeta, RevisionOrigin, RevisionSource } from '../../shared/history';
 
 /** Fallback window/cap when no settings are supplied. The user-facing defaults

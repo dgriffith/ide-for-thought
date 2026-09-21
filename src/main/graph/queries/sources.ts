@@ -26,6 +26,7 @@ import {
   MINERVA, DC, RDF, BIBO, THOUGHT,
   noteUri, sourceUri, excerptUri,
 } from '../state';
+import { DAY_MS } from '../../../shared/time';
 
 /**
  * List every indexed source with its display metadata, sorted by title.
@@ -177,7 +178,6 @@ function collectSourceMetadata(state: GraphState, sourceId: string, subject: $rd
  */
 export type ReadingQueueView = 'unread' | 'reading' | 'dueThisWeek' | 'recentlyFinished';
 
-export const DAY_MS = 86_400_000;
 
 /**
  * Source ids matching the given queue view. `now` is injectable for

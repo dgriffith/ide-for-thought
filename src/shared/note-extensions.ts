@@ -9,7 +9,7 @@
  * extension here wins — `.md` first. An explicitly-extended link (`[[budget.csv]]`)
  * bypasses this via an exact-path match in the resolver.
  *
- * `main/notebase/indexable-files.ts` derives `INDEXABLE_EXTS` from this, so
+ * `shared/indexable-files.ts` derives `INDEXABLE_EXTS` from this, so
  * adding a note format is a one-line change here.
  */
 export const NOTE_EXTENSIONS = ['.md', '.ttl', '.csv', '.py'] as const;

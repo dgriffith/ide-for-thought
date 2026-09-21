@@ -4,7 +4,7 @@
  * `startsWith('.') || name === 'node_modules'` checks into one module.
  */
 import { describe, it, expect } from 'vitest';
-import { IGNORED_DIRS, isIgnoredEntry } from '../../../src/main/notebase/ignored-dirs';
+import { IGNORED_DIRS, isIgnoredEntry } from '../../src/shared/ignored-dirs';
 
 describe('IGNORED_DIRS', () => {
   it('matches the four names CLAUDE.md documents', () => {

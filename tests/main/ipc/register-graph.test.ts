@@ -359,7 +359,23 @@ describe('register-graph — inspections', () => {
     h.runAllChecks.mockResolvedValue([{ id: 'orphans', hits: ['a.md'] }]);
 
     await expect(callAsync(Channels.INSPECTIONS_RUN)).resolves.toEqual([{ id: 'orphans', hits: ['a.md'] }]);
-    expect(h.runAllChecks).toHaveBeenCalledWith(CTX, settings);
+    expect(h.runAllChecks).toHaveBeenCalledWith(CTX, settings, expect.anything());
+  });
+
+  it('INSPECTIONS_RUN supplies the asset scanner health-checks can no longer import', async () => {
+    // Since #2238 `graph/health-checks.ts` takes `findOrphanedAssets` as a
+    // dependency, because importing it from `notebase/` was one of the edges
+    // that made `graph ↔ notebase` a package cycle. Omitting it is not an
+    // error — the unreferenced-image check just reports nothing — so a caller
+    // that quietly stopped passing it would lose the check with no failure
+    // anywhere. This is the assertion that makes that loud for this call site.
+    h.getInspectionSettings.mockResolvedValue({ enabled: [], staleDays: 90 });
+    h.runAllChecks.mockResolvedValue([]);
+
+    await callAsync(Channels.INSPECTIONS_RUN);
+
+    const deps = h.runAllChecks.mock.calls[0]?.[2] as { findOrphanedAssets?: unknown };
+    expect(typeof deps?.findOrphanedAssets).toBe('function');
   });
 
   it('INSPECTIONS_GET_SETTINGS works with no project — the prefs are per-machine', async () => {

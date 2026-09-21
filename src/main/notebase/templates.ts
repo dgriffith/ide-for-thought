@@ -119,7 +119,7 @@ export async function listTemplates(rootPath: string): Promise<TemplateInfo[]> {
   for (const entry of entries) {
     // A flat listing of `.minerva/templates/`, not a recursive walk of the
     // thoughtbase root — the project-tree ignore policy
-    // (`notebase/ignored-dirs.ts`) doesn't apply here.
+    // (`shared/ignored-dirs.ts`) doesn't apply here.
     if (!entry.toLowerCase().endsWith('.md')) continue;
     if (entry.startsWith('.')) continue;
     out.push({

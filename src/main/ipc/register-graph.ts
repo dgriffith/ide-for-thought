@@ -5,6 +5,7 @@ import { broadcast } from './broadcast';
 import { handle } from './typed-ipc';
 import * as graph from '../graph/index';
 import * as search from '../search/index';
+import { findOrphanedInlineAssets } from '../notebase/asset-references';
 import { projectContext } from '../project-context-types';
 import * as tables from '../sources/tables';
 import type { QueryResult, TableInfo } from '../sources/tables';
@@ -86,7 +87,7 @@ export function registerGraph(): void {
   handle(Channels.INSPECTIONS_LIST, withRootPathOr([], (rootPath) =>
     healthChecks.getInspections(projectContext(rootPath))));
   handle(Channels.INSPECTIONS_RUN, withRootPathOr<[], Inspection[] | Promise<Inspection[]>>([], async (rootPath) =>
-    healthChecks.runAllChecks(projectContext(rootPath), await getInspectionSettings())));
+    healthChecks.runAllChecks(projectContext(rootPath), await getInspectionSettings(), { findOrphanedAssets: findOrphanedInlineAssets })));
 
   // Which checks run + the day thresholds (#1792). No rootPath: these are
   // per-machine preferences, readable with no thoughtbase open (the Settings

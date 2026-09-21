@@ -5,7 +5,7 @@ import type { BrowserWindow } from 'electron';
 import { Channels } from '../../shared/channels';
 import { broadcast } from '../ipc/broadcast';
 
-import { INDEXABLE_EXTS } from './indexable-files';
+import { INDEXABLE_EXTS } from '../../shared/indexable-files';
 import { wasHandled } from './path-dedup';
 
 /**

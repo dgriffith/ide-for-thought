@@ -14,8 +14,8 @@ import * as $rdf from 'rdflib';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { parseMarkdown } from '../parser';
-import { isIndexable } from '../../notebase/indexable-files';
-import { isIgnoredEntry } from '../../notebase/ignored-dirs';
+import { isIndexable } from '../../../shared/indexable-files';
+import { isIgnoredEntry } from '../../../shared/ignored-dirs';
 
 import type { ProjectContext } from '../../project-context-types';
 

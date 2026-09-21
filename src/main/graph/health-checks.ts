@@ -1,13 +1,13 @@
 import { queryGraph, headingsFor } from './index';
 import type { ProjectContext } from '../project-context-types';
 import { LINK_TYPES } from '../../shared/link-types';
-import { DAY_MS } from './queries';
+import { DAY_MS } from '../../shared/time';
 import type { InspectionFix } from '../../shared/types';
+import type { OrphanedAsset } from '../../shared/asset-paths';
 import { stripNoteExt, noteExtRank } from '../../shared/note-extensions';
 import { noteTargetPathBeside } from '../../shared/wiki-link-resolver';
 import { onGraphChanged } from './graph-events';
 import { emitInspectionsChanged } from './inspection-events';
-import { findOrphanedInlineAssets } from '../notebase/asset-references';
 import { isA, labelOf, supportedBy, unsupported } from './argument-patterns';
 import {
   catalogTypeFor,
@@ -96,9 +96,31 @@ function asRows(result: Awaited<ReturnType<typeof queryGraph>>): Record<string, 
  * + missing_backing; duplicate sources → doi + uri) are gated on the type the
  * settings panel actually offers.
  */
+/**
+ * Collaborators this module cannot import for itself (#2238, epic #2241).
+ *
+ * `checkUnreferencedImages` needs `findOrphanedInlineAssets`, which lives in
+ * `notebase/`. `graph/` importing it was one of the three edges that made
+ * `graph ↔ notebase` a package-level cycle — invisible to
+ * `no-cycles.test.ts`, which checks MODULE cycles and was right to pass.
+ * Injecting it is the same move this module already makes for `loadSettings`
+ * (which reaches electron); the caller wires it, and `tests/architecture/
+ * no-package-cycles.test.ts` is what stops the import coming back.
+ *
+ * **Omitting `findOrphanedAssets` makes the unreferenced-image check yield
+ * nothing** — it has no graph query to fall back on, only a filesystem scan it
+ * no longer owns. That is right for a test that doesn't care about assets, and
+ * wrong for production, so the two real call sites (`project-context.ts` and
+ * `register-graph.ts`) are asserted to pass it by the architecture test above.
+ */
+export interface HealthCheckDeps {
+  findOrphanedAssets?: (rootPath: string) => Promise<OrphanedAsset[]>;
+}
+
 export async function runAllChecks(
   ctx: ProjectContext,
   settings: InspectionSettings = DEFAULT_INSPECTION_SETTINGS,
+  deps: HealthCheckDeps = {},
 ): Promise<Inspection[]> {
   if (runningProjects.has(ctx.rootPath)) return lastResultsByProject.get(ctx.rootPath) ?? [];
   runningProjects.add(ctx.rootPath);
@@ -120,7 +142,11 @@ export async function runAllChecks(
       on('broken_note_link') || on('broken_anchor_link') || on('broken_cite_quote')
         ? checkBrokenLinks(ctx)
         : none(),
-      on('unreferenced_image') ? checkUnreferencedImages(ctx) : none(),
+      // Enabled AND wired: without an injected scanner there is no filesystem
+      // to look at, so the check has nothing to report (see HealthCheckDeps).
+      on('unreferenced_image') && deps.findOrphanedAssets
+        ? checkUnreferencedImages(ctx, deps.findOrphanedAssets)
+        : none(),
     ]);
     // The multi-type checks above run as a unit, so drop the individual types
     // the user switched off.
@@ -197,8 +223,11 @@ function formatSize(bytes: number): string {
  * `notebase/asset-references.ts` for how "unreferenced" is decided. Info
  * severity: an orphaned image is disk hygiene, not a correctness problem.
  */
-async function checkUnreferencedImages(ctx: ProjectContext): Promise<Inspection[]> {
-  const orphans = await findOrphanedInlineAssets(ctx.rootPath);
+async function checkUnreferencedImages(
+  ctx: ProjectContext,
+  findOrphanedAssets: NonNullable<HealthCheckDeps['findOrphanedAssets']>,
+): Promise<Inspection[]> {
+  const orphans = await findOrphanedAssets(ctx.rootPath);
   return orphans.map((o, i) => {
     const name = o.relativePath.split('/').pop()!;
     return {
@@ -748,6 +777,7 @@ function inspectionForBrokenLink(
 interface AutoState {
   timer: ReturnType<typeof setTimeout> | null;
   loadSettings: () => Promise<InspectionSettings>;
+  deps: HealthCheckDeps;
   debounceMs: number;
   unsubscribe: () => void;
 }
@@ -758,12 +788,18 @@ export const DEFAULT_CHECK_DEBOUNCE_MS = 2000;
 
 export function armAutoChecks(
   ctx: ProjectContext,
-  opts: { loadSettings: () => Promise<InspectionSettings>; debounceMs?: number },
+  opts: {
+    loadSettings: () => Promise<InspectionSettings>;
+    debounceMs?: number;
+  } & HealthCheckDeps,
 ): void {
   disarmAutoChecks(ctx);
   const state: AutoState = {
     timer: null,
     loadSettings: opts.loadSettings,
+    // `opts` already widens to HealthCheckDeps; rebuilding the object would
+    // trip `exactOptionalPropertyTypes` on an absent scanner.
+    deps: opts,
     debounceMs: opts.debounceMs ?? DEFAULT_CHECK_DEBOUNCE_MS,
     unsubscribe: () => {},
   };
@@ -774,7 +810,7 @@ export function armAutoChecks(
     state.timer = setTimeout(() => {
       state.timer = null;
       void (async () => {
-        await runAllChecks(ctx, await state.loadSettings());
+        await runAllChecks(ctx, await state.loadSettings(), state.deps);
       })();
     }, state.debounceMs);
   });
@@ -804,14 +840,17 @@ const timersByProject = new Map<string, ReturnType<typeof setInterval>>();
  */
 export function startPeriodicChecks(
   ctx: ProjectContext,
-  opts: { loadSettings?: () => Promise<InspectionSettings>; intervalMs?: number } = {},
+  opts: {
+    loadSettings?: () => Promise<InspectionSettings>;
+    intervalMs?: number;
+  } & HealthCheckDeps = {},
 ): void {
   stopPeriodicChecks(ctx);
   const intervalMs = opts.intervalMs ?? PERIODIC_CHECKS_DEFAULT_INTERVAL_MS;
   const timer = setInterval(() => {
     void (async () => {
       const settings = opts.loadSettings ? await opts.loadSettings() : DEFAULT_INSPECTION_SETTINGS;
-      await runAllChecks(ctx, settings);
+      await runAllChecks(ctx, settings, opts);
     })();
   }, intervalMs);
   timersByProject.set(ctx.rootPath, timer);

@@ -27,18 +27,14 @@
  */
 import { api } from '../ipc/client';
 import type { DropImportEntry } from '../ipc/client';
+// The one copy of the thoughtbase ignore policy. This used to be a
+// hand-maintained duplicate, because the policy lived in `src/main/notebase/`
+// and the renderer never imports from `src/main` (hard process-boundary
+// convention). #2238 moved it to `src/shared/` to break a package cycle on the
+// main side, which incidentally put it somewhere the renderer can just import
+// — so the "keep these two predicates in sync by hand" note is gone with it.
+import { isIgnoredEntry } from '../../../shared/ignored-dirs';
 
-/**
- * Local copy of `isIgnoredEntry` / `IGNORED_DIRS` from
- * `src/main/notebase/ignored-dirs.ts` — the renderer never imports from
- * `src/main` (hard process-boundary convention; see `src/renderer/lib/ipc/
- * client.ts`'s cross-reference to `src/main/notebase/folder-walk.ts` for the
- * same pattern). Keep these two predicates in sync by hand.
- */
-const IGNORED_DIRS: ReadonlySet<string> = new Set(['.git', 'node_modules', '.minerva', '.obsidian']);
-function isIgnoredEntry(name: string): boolean {
-  return name.startsWith('.') || IGNORED_DIRS.has(name);
-}
 
 /**
  * `FileSystemDirectoryReader.readEntries` is documented to NOT necessarily

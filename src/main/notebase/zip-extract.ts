@@ -25,7 +25,7 @@ import os from 'node:os';
 import path from 'node:path';
 import JSZip from 'jszip';
 import { assertSafePath } from './fs';
-import { isIgnoredEntry } from './ignored-dirs';
+import { isIgnoredEntry } from '../../shared/ignored-dirs';
 import { enumerateFolderTree, getMaxBulkIngestEntries, type DropImportEntry } from './folder-walk';
 
 let maxZipBytesForTests: number | undefined;
