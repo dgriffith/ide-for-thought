@@ -5,21 +5,13 @@
   import { onMount } from 'svelte';
   import Ribbon from './Ribbon.svelte';
   import type { InspectionFix } from '../../../../shared/types';
+  // The engine's own result type (#2288). This was a local nine-field copy
+  // that had already drifted — `severity: string` where the engine says
+  // 'info' | 'warning' | 'concern'.
+  import type { Inspection } from '../../../../shared/inspections';
 
   const review = getReviewStore();
   const inspectionsStore = getInspectionsStore();
-
-  interface Inspection {
-    id: string;
-    type: string;
-    severity: string;
-    nodeUri: string;
-    nodeLabel: string;
-    message: string;
-    suggestedAction?: string;
-    fix?: InspectionFix;
-    notePath?: string;
-  }
 
   interface Props {
     revision: number;

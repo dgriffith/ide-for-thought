@@ -74,27 +74,19 @@ const BUDGETS: Record<string, number> = {
   'src/main/menu.ts': 956,
   'src/renderer/lib/components/Sidebar.svelte': 994,
   'src/renderer/lib/app/refactor-ops.svelte.ts': 856,
-  // Raised twice in epic #2241 — 826 → 865 (#2238's `HealthCheckDeps` seam)
-  // → 924 (#2240's `createProjectStore` slot). Both are a few lines of code
-  // and a lot of reasoning, which is the part that stops the next person
-  // undoing them; and both replaced something worse. Worth saying plainly
-  // that this is the second raise, because the derivative is what this check
-  // is for.
-  //
-  // The seam that would pay it back: the per-project state (the slot,
-  // `stateFor`, `getInspections`, `isRunning`) is a separate concern with a
-  // separate lifetime and wants its own module, exactly as `note-caches.ts`
-  // does for the graph. It's blocked on the `Inspection` type, which lives
-  // here and would make the two modules circular — and which is separately
-  // written out FOUR times (here, `ipc-contract.ts` twice inline, and
-  // `InspectionsPanel.svelte`). Move it to `shared/inspections.ts` next to
-  // `InspectionSettings` and both problems go at once.
-  'src/main/graph/health-checks.ts': 924,
+  // Raised twice in epic #2241 (826 → 865 in #2238, → 924 in #2240) and then
+  // paid back in #2288, which moved `Inspection` to `shared/inspections.ts`
+  // and took the seam both raises had pointed at: the per-project state now
+  // lives in `graph/health-check-state.ts`. The type move was what unblocked
+  // it — a state module importing `Inspection` from here while this imported
+  // the state from there is a genuine cycle, and `no-cycles.test.ts` follows
+  // type-only imports. Below 826 now, so the two raises are more than repaid.
+  'src/main/graph/health-checks.ts': 825,
   'src/renderer/lib/components/ExportDialog.svelte': 712,
   'src/renderer/lib/components/ProposalsPanel.svelte': 613,
   'src/renderer/lib/components/QueryPanel.svelte': 759,
   'src/renderer/lib/components/conversations/DraftCards.svelte': 758,
-  'src/shared/ipc-contract.ts': 784,
+  'src/shared/ipc-contract.ts': 783,  // #2288: two inline Inspection shapes → Inspection[]
   'src/shared/channels.ts': 740,
   'src/renderer/lib/app/note-ops.ts': 687,
   'src/renderer/lib/editor/formatting.ts': 668,
