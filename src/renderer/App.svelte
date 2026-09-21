@@ -33,6 +33,7 @@
   import { createProjectOps, type ProjectOpsCtx } from './lib/app/project-ops';
   import { registerAppIpc, type IpcWiringCtx } from './lib/app/ipc-wiring';
   import FeatureDialogHost, { type FeatureDialogOps } from './lib/components/FeatureDialogHost.svelte';
+  import { createTabViews, allEditors, updateThemeAll, type TabViews } from './lib/app/tab-views.svelte';
   import { getDialogStore } from './lib/stores/dialogs.svelte';
   // Feature-dialog visibility (#2236) — the ~19 `show*` flags App used to hold
   // itself. `FeatureDialogHost` renders them; the handlers they need travel
@@ -220,22 +221,20 @@
   let sidebar = $state<Sidebar>();
   let rightSidebar = $state<RightSidebar>();
   let rightSidebarVisible = $state(false);
-  // Per-group component instances, keyed by group id (#813). Each split pane
-  // binds its own Editor / Preview / QueryPanel into these maps; the bare
-  // `editorComponent` / `previewComponent` / `queryPanelComponent` accessors
-  // resolve to the *active* group's instance so all the imperative command
-  // sites (nav, goto-line, insert, theme re-skin) target the focused pane.
-  let editorComponents = $state<Record<string, Editor | undefined>>({});
-  let queryPanelComponents = $state<Record<string, QueryPanel | undefined>>({});
-  let neighborhoodGraphComponents = $state<Record<string, NeighborhoodGraph | undefined>>({});
-  let previewComponents = $state<Record<string, Preview | undefined>>({});
+  // Per-group view instances, keyed by group id (#813), as one structure with
+  // a slot per kind instead of four parallel maps (#2236 PR 2). The bare
+  // `editorComponent` / `previewComponent` / … accessors below resolve to the
+  // *active* group, so imperative command sites (nav, goto-line, insert) hit
+  // the focused pane; anything that must reach EVERY pane uses the helpers in
+  // ./lib/app/tab-views, which also records why this is slots, not the Tab union.
+  const tabViews = $state<TabViews>(createTabViews());
   // Bumped on save / auto-save so an open neighborhood graph re-fetches when
   // links change (#847 live-update).
   let graphRevision = $state(0);
-  const editorComponent = $derived(editorComponents[editor.activeGroupId]);
-  const queryPanelComponent = $derived(queryPanelComponents[editor.activeGroupId]);
-  const neighborhoodGraphComponent = $derived(neighborhoodGraphComponents[editor.activeGroupId]);
-  const previewComponent = $derived(previewComponents[editor.activeGroupId]);
+  const editorComponent = $derived(tabViews.editor[editor.activeGroupId]);
+  const queryPanelComponent = $derived(tabViews.query[editor.activeGroupId]);
+  const neighborhoodGraphComponent = $derived(tabViews.graph[editor.activeGroupId]);
+  const previewComponent = $derived(tabViews.preview[editor.activeGroupId]);
   let toolPanelComponent = $state<ToolPanel>();
   let cursorInfo = $state<CursorInfo>({ line: 1, column: 1, selectionLength: 0, wordCount: 0 });
 
@@ -896,7 +895,7 @@
     // ops handlers, component refs, and UI-chrome $state via ctx.
     registerAppIpc({
       getEditorComponent: () => editorComponent,
-      getEditorComponents: () => editorComponents,
+      getEditorComponents: () => tabViews.editor,
       getPreviewComponent: () => previewComponent,
       getSidebar: () => sidebar,
       getRightSidebar: () => rightSidebar,
@@ -1049,16 +1048,16 @@
       // status-bar value, and persist even when no editor is mounted.
       const next = clampFontSize(px);
       editorFontSize = next;
-      const editors = Object.values(editorComponents).filter((e): e is Editor => e !== undefined);
+      const editors = allEditors(tabViews);
       if (editors.length > 0) for (const ec of editors) ec.setFontSize(next);
       else localStorage.setItem('editorFontSize', String(next));
     },
     onThemeChanged: () => {
       themeLabel = getThemeMode();
-      editorComponent?.updateTheme();
-      queryPanelComponent?.updateTheme();
-      previewComponent?.updateTheme();
-      neighborhoodGraphComponent?.updateTheme();
+      // Every mounted pane, not just the focused group's — the old four named
+      // `?.updateTheme()` calls all resolved to the active group, so a split
+      // pane on another group kept the old theme until it remounted (#2236).
+      updateThemeAll(tabViews);
       rightSidebar?.updateTheme();
     },
     onSettingsClosed: () => {
@@ -1193,7 +1192,7 @@
                   cursorLine={cursorInfo.line}
                   showHeadings={breadcrumbsSettings.showHeadingChain}
                   onRevealFolder={(folder) => { void sidebar?.revealFolder(folder); }}
-                  onScrollToLine={(line) => editorComponents[groupId]?.gotoLineColumn(line, 1)}
+                  onScrollToLine={(line) => tabViews.editor[groupId]?.gotoLineColumn(line, 1)}
                 />
               {/if}
               {#if active?.type === 'note' && active.relativePath.endsWith('.csv')}
@@ -1212,7 +1211,7 @@
                         // edit lands in undo history / cursor state); fall back
                         // to the preview when it's the only surface mounted
                         // (preview-only view mode).
-                        const surface = editorComponents[groupId] ?? previewComponents[groupId];
+                        const surface = tabViews.editor[groupId] ?? tabViews.preview[groupId];
                         void surface?.runAllCells();
                       }}
                       title="Recompute all cells (top to bottom, stops on error)"
@@ -1268,7 +1267,7 @@
                     <div class="editor-panel">
                       {#key groupId + ':' + note.relativePath}
                         <Editor
-                          bind:this={editorComponents[groupId]}
+                          bind:this={tabViews.editor[groupId]}
                           groupId={groupId}
                           filePath={note.relativePath}
                           content={note.content}
@@ -1320,7 +1319,7 @@
                               const tag = await showPrompt('Tag name:');
                               if (!tag) return;
                               const block = `\n:::query-list\nSELECT ?title ?path WHERE {\n  ?note minerva:hasTag ?t .\n  ?t minerva:tagName "${tag}" .\n  ?note dc:title ?title .\n  ?note minerva:relativePath ?path .\n} ORDER BY ?title\n:::\n`;
-                              editorComponents[groupId]?.insertText(block);
+                              tabViews.editor[groupId]?.insertText(block);
                             },
                           }}
                         />
@@ -1330,7 +1329,7 @@
                   {#if !note.plainText && (group.viewMode === 'preview' || group.viewMode === 'editor-preview')}
                     <div class="preview-panel">
                       <Preview
-                        bind:this={previewComponents[groupId]}
+                        bind:this={tabViews.preview[groupId]}
                         content={note.content}
                         notePath={note.relativePath}
                         previewScrollTop={note.previewScrollTop}
@@ -1367,7 +1366,7 @@
                 </div>
               {:else if active?.type === 'query'}
                 <QueryPanel
-                  bind:this={queryPanelComponents[groupId]}
+                  bind:this={tabViews.query[groupId]}
                   tab={active}
                   onSave={handleSaveQuery}
                 />
@@ -1406,7 +1405,7 @@
               {:else if active?.type === 'graph'}
                 {#key active.relativePath}
                   <NeighborhoodGraph
-                    bind:this={neighborhoodGraphComponents[groupId]}
+                    bind:this={tabViews.graph[groupId]}
                     relativePath={active.relativePath}
                     depth={active.depth}
                     revision={graphRevision}
