@@ -377,7 +377,8 @@ function mirrorRemove(state: GraphState, removed: $rdf.Statement[]): void {
  * makes this the one place the guard can be TOTAL rather than opt-in. It used
  * to be pasted by hand into fourteen indexer facades that between them missed
  * seven store-mutating functions, including `materializeTypeClasses`, which
- * writes this store from outside the `graph/` package entirely. See
+ * wrote this store from outside the `graph/` package entirely until #2234
+ * PR 3 moved it in. See
  * `checkStoreWriteGuard` for why the fast path costs one AsyncLocalStorage read
  * and no allocation.
  */

@@ -27,7 +27,7 @@ import {
 } from '../state';
 
 import { loadTypeCatalog } from '../../types/loader';
-import { materializeTypeClasses } from '../../types/compile';
+import { materializeTypeClasses } from './type-classes';
 
 import { buildLinkResolveCtx, ensureFolder } from '../index-helpers';
 import { walkAndIndexExcerpts } from './excerpt';
