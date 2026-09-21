@@ -419,6 +419,42 @@ untested ones sit in a `KNOWN_UNTESTED` list that may only shrink.
 - Queryable via SPARQL through `api.graph.query()`
 - Standard prefixes (minerva, thought, dc, rdf, rdfs, xsd, csvw, prov) are auto-injected into all queries
 
+#### Per-project state goes in a `createProjectStore` slot (#2240)
+
+Anything a subsystem holds per open thoughtbase — caches, results, timers,
+subscriptions — goes in `createProjectStore<T>({ dispose })` (#1085), not a
+module-level `Map`/`Set` keyed by `rootPath`. A store self-registers, so
+`disposeAllProjectStores` tears it down on the last window close without
+`project-context.ts` naming your subsystem.
+
+A hand-rolled map opts out silently: nothing fails and no lint fires, it just
+becomes invisible to disposal. `graph/health-checks.ts` had four. Two were torn
+down because the orchestrator named them; `lastResultsByProject` had no
+`.delete` call anywhere, so **closing a thoughtbase left its whole inspection
+list resident and reopening served last session's findings** — `getInspections`
+is the `INSPECTIONS_GET` handler the panel reads. A wrong answer, not just a
+leak.
+
+`tests/architecture/project-state-registered.test.ts` finds the shape: a
+collection indexed by `rootPath` that `createProjectStore` didn't build. Its
+`KNOWN_UNREGISTERED` list may only shrink; the entries there are torn down by
+an explicit call today, which is precisely the arrangement that let the
+health-check maps go unnoticed.
+
+Two things worth copying from how #2240 did it:
+
+- **A read must not allocate a slot.** `getInspections` uses `store.get(ctx)?.x
+  ?? []` rather than a create-on-demand helper — otherwise a panel polling a
+  closed project re-registers it and the leak returns by another route.
+- **State detaches on dispose, and that's the point.** `dispose` removes the
+  entry before running its hook, so a run still in flight writes to an object
+  nothing can reach. Check `store.get(ctx) === state` before firing a change
+  event, or you wake a panel for a thoughtbase that isn't open.
+
+Keep any explicit teardown the orchestrator already does (`stopPeriodicChecks`
+/ `disarmAutoChecks` run *before* the final persist, so nothing new is
+scheduled mid-teardown). The store is the net underneath it, not a replacement.
+
 #### `graph/` does not import `notebase/` (#2238)
 
 The dependency runs one way: **`notebase` → `graph`**. Saving a note drives the

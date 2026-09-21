@@ -74,11 +74,22 @@ const BUDGETS: Record<string, number> = {
   'src/main/menu.ts': 956,
   'src/renderer/lib/components/Sidebar.svelte': 994,
   'src/renderer/lib/app/refactor-ops.svelte.ts': 856,
-  // #2238 raised this by 39: the `HealthCheckDeps` seam and the comment
-  // explaining why `graph/` can no longer import `notebase/asset-references`.
-  // The injection point is four lines; the rest is the reasoning, which is the
-  // part that stops someone importing it straight back.
-  'src/main/graph/health-checks.ts': 865,
+  // Raised twice in epic #2241 — 826 → 865 (#2238's `HealthCheckDeps` seam)
+  // → 924 (#2240's `createProjectStore` slot). Both are a few lines of code
+  // and a lot of reasoning, which is the part that stops the next person
+  // undoing them; and both replaced something worse. Worth saying plainly
+  // that this is the second raise, because the derivative is what this check
+  // is for.
+  //
+  // The seam that would pay it back: the per-project state (the slot,
+  // `stateFor`, `getInspections`, `isRunning`) is a separate concern with a
+  // separate lifetime and wants its own module, exactly as `note-caches.ts`
+  // does for the graph. It's blocked on the `Inspection` type, which lives
+  // here and would make the two modules circular — and which is separately
+  // written out FOUR times (here, `ipc-contract.ts` twice inline, and
+  // `InspectionsPanel.svelte`). Move it to `shared/inspections.ts` next to
+  // `InspectionSettings` and both problems go at once.
+  'src/main/graph/health-checks.ts': 924,
   'src/renderer/lib/components/ExportDialog.svelte': 712,
   'src/renderer/lib/components/ProposalsPanel.svelte': 613,
   'src/renderer/lib/components/QueryPanel.svelte': 759,
