@@ -14,6 +14,19 @@
 # Re-blessing the baseline: dispatch this workflow with `update_baseline: true`.
 # It runs the benches, writes the new baseline, and uploads it as an artifact —
 # download `bench-baseline` and commit `tests/main/bench-baseline.json`.
+#
+# WHEN THE GATE FIRES, IT FILES AN ISSUE (#2242). It has to: this is the only
+# check in the repo that runs outside the PR loop. Every other detector —
+# coverage floors, file-size budgets, pattern ratchets, the architecture tests —
+# runs inside `pnpm test` and so fails a PR in front of a human. This one exits
+# non-zero into a scheduled run nobody opens, and it did exactly that for seven
+# consecutive Mondays (2026-08-03 → 2026-09-14) while a real 3-3.8x save-path
+# regression shipped. GitHub's only built-in signal for a failing scheduled
+# workflow is an email to the workflow file's last committer, which is trivially
+# filtered.
+#
+# The rule this encodes: **a check that runs out-of-band ships its notification
+# path in the same PR**, or it is not a check, it is a log.
 name: Bench
 
 on:
@@ -26,10 +39,17 @@ on:
   schedule:
     - cron: '0 6 * * 1' # Mondays 06:00 UTC
 
+# Read the repo; open/update the one gate-failure issue. Nothing else.
+permissions:
+  contents: read
+
 jobs:
   bench:
     runs-on: macos-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      issues: write
     steps:
       - uses: actions/checkout@v7
 
@@ -51,7 +71,11 @@ jobs:
       # then diffs against tests/main/bench-baseline.json.
       - name: Run benchmarks + regression gate
         if: ${{ inputs.update_baseline != true }}
-        run: pnpm bench:check
+        # `pipefail` so the step's exit status is the gate's, not `tee`'s — the
+        # whole point is that a non-zero here reaches the notify step below.
+        run: |
+          set -o pipefail
+          pnpm bench:check 2>&1 | tee bench-report.txt
 
       # Re-bless run (dispatch with update_baseline=true): regenerate the baseline
       # and hand it back as an artifact for a human to commit.
@@ -65,3 +89,68 @@ jobs:
         with:
           name: bench-baseline
           path: tests/main/bench-baseline.json
+
+      # Only for the SCHEDULED run (#2242). A failed manual dispatch already has
+      # someone watching it — that is what dispatching means — and filing an
+      # issue at them would train everyone to ignore the label.
+      - name: Report the failure where someone will see it
+        if: ${{ failure() && github.event_name == 'schedule' }}
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const fs = require('fs');
+            const TITLE = 'Bench: the regression gate is failing on main';
+            const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}` +
+              `/actions/runs/${context.runId}`;
+
+            let report = '(no bench-report.txt — the job failed before the gate ran)';
+            try {
+              // Keep the tail: the verdict table and the FAILED summary are the
+              // last thing printed, and an issue body is capped at 65536 chars.
+              report = fs.readFileSync('bench-report.txt', 'utf8').slice(-8000);
+            } catch { /* step failed before the gate produced output */ }
+
+            const body = [
+              `Scheduled run ${new Date().toISOString().slice(0, 10)} — [run log](${run}).`,
+              '',
+              'The bench regression gate exited non-zero. This is the only check that',
+              'runs outside the PR loop, so nothing else will surface it.',
+              '',
+              'Before treating a ratio as new code: the baseline is deliberately',
+              'part-stale (see the `_comment` in `tests/main/bench-baseline.json`),',
+              'seven save-path entries are held red BY DESIGN, and CI runs 1.2-1.4x',
+              'slower than the machine older entries were blessed on. Compare against',
+              'the previous scheduled run before bisecting.',
+              '',
+              '```',
+              report,
+              '```',
+            ].join('\n');
+
+            const { data: open } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100,
+            });
+            // One issue, updated weekly — a new one every Monday is how a
+            // notification path becomes noise and then becomes ignored.
+            const existing = open.find((i) => !i.pull_request && i.title === TITLE);
+
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body,
+              });
+              core.notice(`Bench gate still failing — commented on #${existing.number}`);
+            } else {
+              const { data: created } = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: TITLE,
+                body,
+              });
+              core.notice(`Bench gate failing — filed #${created.number}`);
+            }

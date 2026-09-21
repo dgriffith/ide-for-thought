@@ -378,6 +378,37 @@ logger('watcher').warn('indexing failed for', relativePath, err);
   to the earlier, broader block silently disappears for any file a later,
   more specific block also matches.
 
+### Out-of-band checks ship their notification path (#2242)
+
+Every detector in this repo runs inside `pnpm test` — coverage floors,
+file-size budgets, pattern ratchets, IPC registrar coverage, the architecture
+tests — so it fails a PR in front of someone already looking. `bench.yml` is
+the one that runs outside the PR loop, and it is the one that went unheard: the
+regression gate exited non-zero on **seven consecutive scheduled runs**
+(2026-08-03 → 2026-09-14) while a real 3-3.8× save-path regression shipped.
+GitHub's only built-in signal for a failing scheduled workflow is an email to
+the workflow file's last committer. CI detected the regression seven weeks
+before a human did; the defect was in the notification path, not the gate.
+
+**A check that runs out-of-band ships its notification path in the same PR**,
+or it is not a check — it is a log of something nobody read.
+`tests/architecture/out-of-band-checks-notify.test.ts` enforces it: a workflow
+with an `on.schedule` trigger must have a step that runs on `failure()`. It
+does not cover `on.push` / `on.pull_request`, which fail visibly by
+construction — that asymmetry is the whole point.
+
+Two details in `bench.yml` worth preserving if you edit it:
+
+- **`set -o pipefail` before `pnpm bench:check | tee`.** Without it the step
+  reports `tee`'s exit status, the job goes green, and the notify step never
+  runs — a silent version of the original bug.
+- **One issue, updated weekly**, not a new one per run. A notification path
+  that files 52 issues a year becomes noise and then becomes ignored, which is
+  where this started.
+
+Scheduled runs only. A failed manual dispatch already has someone watching it;
+filing at them trains everyone to skip the label.
+
 ### File-size budgets (#1854)
 
 `tests/architecture/file-size-budgets.test.ts` carries a committed
