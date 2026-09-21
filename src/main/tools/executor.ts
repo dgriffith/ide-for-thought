@@ -1,4 +1,4 @@
-import { getTool } from '../../shared/tools/registry';
+import { getToolDef } from '../../shared/tools/registry';
 import { complete } from '../llm/index';
 import { getSettings } from '../llm/settings';
 import type { ToolExecutionRequest, ToolExecutionResult, ThinkingToolDef, LLMSettings, ConversationToolPayload } from '../../shared/tools/types';
@@ -48,7 +48,7 @@ export async function executeTool(
   onChunk?: (text: string) => void,
   signal?: AbortSignal,
 ): Promise<ToolExecutionResult> {
-  const tool = getTool(request.toolId);
+  const tool = getToolDef(request.toolId);
   if (!tool) throw new Error(`Unknown tool: ${request.toolId}`);
   if (tool.outputMode === 'openConversation') {
     throw new Error(`Tool ${request.toolId} is conversational — use prepareConversationTool instead of executeTool.`);
@@ -126,7 +126,7 @@ export function buildConversationPayload(
 export async function prepareConversationTool(
   request: ToolExecutionRequest & { modelOverride?: string },
 ): Promise<ConversationToolPayload> {
-  const tool = getTool(request.toolId);
+  const tool = getToolDef(request.toolId);
   if (!tool) throw new Error(`Unknown tool: ${request.toolId}`);
   const settings = await getSettings();
   return buildConversationPayload(tool, settings, request);

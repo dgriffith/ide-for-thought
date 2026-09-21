@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  skillInfoToToolDef,
+  skillInfoToToolMeta,
   registerSkillInfos,
   getAllToolInfos,
 } from '../../src/renderer/lib/tools/tool-registry';
@@ -25,15 +25,25 @@ function info(overrides: Partial<SkillInfo> = {}): SkillInfo {
   };
 }
 
-describe('skillInfoToToolDef', () => {
-  it('maps a SkillInfo into a renderer tool def with category from menu', () => {
-    const def = skillInfoToToolDef(info());
-    expect(def.category).toBe('research');
-    expect(def.context).toEqual(['claimUnderCursor']);
-    expect(def.web).toEqual({ defaultEnabled: true });
-    expect(def.preferredModel).toBe('claude-opus-4-8');
-    expect(def.outputMode).toBe('openConversation');
-    expect(def.buildPrompt({})).toBe(''); // stub — never invoked in renderer
+describe('skillInfoToToolMeta', () => {
+  it('maps a SkillInfo into renderer tool metadata with category from menu', () => {
+    const meta = skillInfoToToolMeta(info());
+    expect(meta.category).toBe('research');
+    expect(meta.context).toEqual(['claimUnderCursor']);
+    expect(meta.web).toEqual({ defaultEnabled: true });
+    expect(meta.preferredModel).toBe('claude-opus-4-8');
+    expect(meta.outputMode).toBe('openConversation');
+  });
+
+  it('carries no prompt builders at all (#2235)', () => {
+    // This used to assert `buildPrompt({}) === ''` — pinning a stub that
+    // existed only because the renderer was forced to satisfy a required field
+    // it cannot fill. The absence is the point now: renderer metadata has no
+    // builders, so there is nothing to call and nothing to return '' from.
+    const meta = skillInfoToToolMeta(info()) as Record<string, unknown>;
+    expect(meta.buildPrompt).toBeUndefined();
+    expect(meta.buildSystemPrompt).toBeUndefined();
+    expect(meta.buildFirstMessage).toBeUndefined();
   });
 });
 
