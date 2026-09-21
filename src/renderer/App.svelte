@@ -22,10 +22,7 @@
   import { getNotebaseStore } from './lib/stores/notebase.svelte';
   import { getEditorStore, type TypeViewTab } from './lib/stores/editor.svelte';
   import { savedViewsStore } from './lib/stores/saved-views.svelte';
-  import { getBusyStore } from './lib/stores/busy.svelte';
   import { getSourceDataStore } from './lib/stores/source-data.svelte';
-  import { getSourceFlowStore } from './lib/stores/source-flow.svelte';
-  import { getRefactorFlowStore } from './lib/stores/refactor-flow.svelte';
   import { createNoteOps, type NoteOpsCtx } from './lib/app/note-ops';
   import { deleteAsset } from './lib/app/asset-ops';
   import { createSourceOps, type SourceOpsCtx } from './lib/app/source-ops';
@@ -35,50 +32,27 @@
   import { createConversationOps, type ConversationOpsCtx } from './lib/app/conversation-ops';
   import { createProjectOps, type ProjectOpsCtx } from './lib/app/project-ops';
   import { registerAppIpc, type IpcWiringCtx } from './lib/app/ipc-wiring';
-  import DialogHost from './lib/components/DialogHost.svelte';
+  import FeatureDialogHost, { type FeatureDialogOps } from './lib/components/FeatureDialogHost.svelte';
   import { getDialogStore } from './lib/stores/dialogs.svelte';
-  import { getLinkDrag } from './lib/stores/link-drag.svelte';
+  // Feature-dialog visibility (#2236) — the ~19 `show*` flags App used to hold
+  // itself. `FeatureDialogHost` renders them; the handlers they need travel
+  // separately, via the ops bag below.
+  import { getFeatureDialogStore } from './lib/stores/feature-dialogs.svelte';
   // PdfViewer + OcrProgressDialog are loaded lazily at their render sites
   // (`{#await import()}`) so pdfjs-dist + tesseract.js stay out of the eager
   // startup graph (#691).
-  import MineReferencesDialog from './lib/components/MineReferencesDialog.svelte';
-  import ResolveStubDialog from './lib/components/ResolveStubDialog.svelte';
-  import SafeDeleteBlockerDialog from './lib/components/SafeDeleteBlockerDialog.svelte';
-  import type { SafeDeleteBlocker, MenuEditorState, SavedView, InspectionFix } from '../shared/types';
-  import CommandPaletteDialog from './lib/components/CommandPaletteDialog.svelte';
+  import type { MenuEditorState, SavedView, InspectionFix } from '../shared/types';
   import type { Command } from './lib/command-palette/types';
   import { buildCommandRegistry } from './lib/command-palette/registry';
   import { createCommandKeymap, type CommandKeymapCtx } from './lib/app/command-keymap';
   import { formatAccelerator } from './lib/command-palette/format-accelerator';
-  import DictationIndicator from './lib/components/DictationIndicator.svelte';
   import { toggleEditorDictation } from './lib/editor/dictation';
   import { getVoiceStore } from './lib/voice/voice.svelte';
   import { handleKeydown } from './lib/keymap/handle-keydown';
-  import ExportDialog from './lib/components/ExportDialog.svelte';
-  import PublishDialog from './lib/components/PublishDialog.svelte';
-  import AboutDialog from './lib/components/AboutDialog.svelte';
-  import ShortcutsDialog from './lib/components/ShortcutsDialog.svelte';
-  import GotoLineDialog from './lib/components/GotoLineDialog.svelte';
-  import EditSavedQueriesDialog from './lib/components/EditSavedQueriesDialog.svelte';
-  import EditSavedViewsDialog from './lib/components/EditSavedViewsDialog.svelte';
-  import AttachEvidenceDialog from './lib/components/AttachEvidenceDialog.svelte';
-  import TypeEditorDialog from './lib/components/TypeEditorDialog.svelte';
-  import type { TypeEditorInitial } from './lib/components/type-editor-value';
   import { setFrontmatterProperty } from '../shared/frontmatter-edit';
-  import SaveQueryDialog from './lib/components/SaveQueryDialog.svelte';
-  import FindInNotesDialog from './lib/components/FindInNotesDialog.svelte';
-  import MultiFileHistoryDialog from './lib/components/MultiFileHistoryDialog.svelte';
-  import GotoNoteDialog from './lib/components/GotoNoteDialog.svelte';
   import ToolPanel from './lib/components/ToolPanel.svelte';
   import ConversationsPanel from './lib/components/ConversationsPanel.svelte';
-  import AutoLinkDialog from './lib/components/AutoLinkDialog.svelte';
-  import AutoTagDialog from './lib/components/AutoTagDialog.svelte';
-  import AutoLinkInboundDialog from './lib/components/AutoLinkInboundDialog.svelte';
-  import BusyOverlay from './lib/components/BusyOverlay.svelte';
   import CsvTable from './lib/components/CsvTable.svelte';
-  import SettingsDialog from './lib/components/SettingsDialog.svelte';
-  import OnboardingDialog from './lib/components/OnboardingDialog.svelte';
-  import ThoughtbaseProperties from './lib/components/ThoughtbaseProperties.svelte';
   import { api } from './lib/ipc/client';
   import { getNavigationStore } from './lib/stores/navigation.svelte';
   import { initTheme, cycleTheme, getThemeMode, setThemeMode, type ThemeMode } from './lib/theme';
@@ -96,7 +70,6 @@
   import { getBookmarksStore, collectBookmarksForPath } from './lib/stores/bookmarks.svelte';
   import { getProposalsStore } from './lib/stores/proposals.svelte';
   import { getToastStore } from './lib/stores/toasts.svelte';
-  import Toasts from './lib/components/Toasts.svelte';
   import { describeProposer } from '../shared/provenance';
   import { CONFIRM_KEYS } from './lib/confirm-keys';
   import { sectionAnchorAt } from './lib/markdown/headings';
@@ -110,9 +83,6 @@
 
   const notebase = getNotebaseStore();
   const editor = getEditorStore();
-  const busy = getBusyStore();
-  const sourceFlow = getSourceFlowStore();
-  const refactorFlow = getRefactorFlowStore();
   /** Last note tab the user was on. Used by the SourceDetail "Append
    *  to current note" action (#101) — when the user is viewing a
    *  source-detail tab the active tab IS the source, so "current"
@@ -162,18 +132,14 @@
   // Position-bearing bookmarks are resolved per pane at the Editor mount via
   // `collectBookmarksForPath(bookmarkStore.tree, <that pane's file>)` (#813),
   // so each split pane shows its own file's gutter flags (#756).
-  let showSettings = $state(false);
   /** Tab the SettingsDialog should land on when next opened. Cleared
    *  on close so the next manual open returns to the default Editor
    *  tab. Set by `handleMissingApiKey` to jump straight to the AI tab
    *  where the API key field lives. */
-  let settingsInitialTab = $state<'ai' | undefined>(undefined);
   /** Onboarding modal visibility. Triggered by onProjectOpened when
    *  the thoughtbase has zero notes AND its per-project
    *  `onboarding.dismissed` flag is false. */
-  let showOnboarding = $state(false);
   /** Thoughtbase Properties dialog visibility (#1443), opened from File → Thoughtbase Properties…. */
-  let showThoughtbaseProperties = $state(false);
 
   // The Inspections panel is re-enabled (#1446), but the status-bar count
   // badge is still un-polled — inspectionCount stays 0 so the badge stays
@@ -397,17 +363,15 @@
   // live in the dialog store (#670); destructure the imperative `show*` helpers
   // so the many call sites read unchanged. <DialogHost> renders the state.
   const dialogs = getDialogStore();
-  const linkDrag = getLinkDrag();
+  const featureDialogs = getFeatureDialogStore();
   const { showPrompt, showConfirm, showComputeConsent } = dialogs;
 
-  let showEditSavedViews = $state(false);
 
   // Type editor (#1585) opened from "Save Note as Object Type" — pre-filled from
   // the note; on save the note is promoted to the new type (its first instance).
-  let typeEditorState = $state<{ initial: TypeEditorInitial; promoteNotePath: string } | null>(null);
   function handleTypeEditorSaved(id: string): void {
-    const s = typeEditorState;
-    typeEditorState = null;
+    const s = featureDialogs.typeEditor;
+    featureDialogs.setTypeEditor(null);
     if (s && editor.activeFilePath === s.promoteNotePath) {
       editor.setContent(setFrontmatterProperty(editor.content, 'type', id));
     }
@@ -415,10 +379,9 @@
   }
 
   // Attach-excerpt-as-evidence (#1073): the excerpt whose evidence dialog is open.
-  let attachEvidenceExcerptId = $state<string | null>(null);
   async function handleAttachEvidence(claimPath: string, role: 'grounds' | 'supports' | 'rebuts'): Promise<void> {
-    const excerptId = attachEvidenceExcerptId;
-    attachEvidenceExcerptId = null;
+    const excerptId = featureDialogs.attachEvidenceExcerptId;
+    featureDialogs.setAttachEvidenceExcerptId(null);
     if (!excerptId) return;
     const res = await api.graph.attachExcerptEvidence(excerptId, claimPath, role);
     if (res.ok) {
@@ -461,10 +424,6 @@
     return true;
   }
   // The format-family group id the Export menu launched with (#: export-menu-redesign).
-  let exportDialogGroup = $state<string | null>(null);
-  let publishDialogOpen = $state(false);
-  let showAbout = $state(false);
-  let showShortcuts = $state(false);
 
   /**
    * Bookmark the section the cursor sits in — the nearest heading at/above
@@ -550,8 +509,7 @@
         { hideDontAskAgain: true },
       );
       if (ok) {
-        settingsInitialTab = 'ai';
-        showSettings = true;
+        featureDialogs.openSettings('ai');
       }
     } finally {
       missingApiKeyPromptShown = false;
@@ -559,9 +517,6 @@
   }
 
   let pendingSearchQuery = $state<string | null>(null);
-  let showGotoLine = $state(false);
-  let showGotoNote = $state(false);
-  let showCommandPalette = $state(false);
 
   /** Command-palette registry (#463). Re-derived whenever the host
    *  state the commands depend on (`enabled`) changes, so the
@@ -627,31 +582,21 @@
     refreshSavedQueriesCache: () => { void refreshSavedQueriesCache(); },
     getEditorFontSize: () => editorFontSize,
     setEditorFontSize: (n) => { editorFontSize = n; },
-    setFindInNotesMode: (mode) => { findInNotesMode = mode; },
-    setShowGotoLine: (v) => { showGotoLine = v; },
-    setShowGotoNote: (v) => { showGotoNote = v; },
-    toggleQuickOpen: () => { showGotoNote = !showGotoNote; },
-    setShowEditSavedQueries: (v) => { showEditSavedQueries = v; },
-    setShowSettings: (v) => { showSettings = v; },
+    setFindInNotesMode: (mode) => { featureDialogs.setFindInNotes(mode); },
+    setShowGotoLine: (v) => { featureDialogs.setGotoLine(v); },
+    setShowGotoNote: (v) => { featureDialogs.setGotoNote(v); },
+    toggleQuickOpen: () => { featureDialogs.toggleGotoNote(); },
+    setShowEditSavedQueries: (v) => { featureDialogs.setEditSavedQueries(v); },
+    setShowSettings: (v) => { v ? featureDialogs.openSettings() : featureDialogs.closeSettings(); },
     toggleSidebar: () => { sidebarVisible = !sidebarVisible; },
     toggleRightSidebar: () => { rightSidebarVisible = !rightSidebarVisible; },
-    toggleCommandPalette: () => { showCommandPalette = !showCommandPalette; },
+    toggleCommandPalette: () => { featureDialogs.toggleCommandPalette(); },
   } satisfies CommandKeymapCtx);
   const commands = $derived<Command[]>(
-    showCommandPalette ? buildCommandRegistry(commandDeps) : [],
+    featureDialogs.commandPalette ? buildCommandRegistry(commandDeps) : [],
   );
   /** When non-null, the merge-target picker is shown. Holds the source
    *  note path; the picker filters the source out of its candidates. */
-  let mergePickerSource = $state<string | null>(null);
-  let showEditSavedQueries = $state(false);
-  /** When non-null, the SaveQueryDialog is open with this initial state. */
-  let saveQueryRequest = $state<{
-    initialName: string;
-    initialScope: 'project' | 'global';
-    onConfirm: (args: { name: string; scope: 'project' | 'global' }) => void;
-    onCancel: () => void;
-  } | null>(null);
-  let findInNotesMode = $state<'find' | 'replace' | null>(null);
 
   let pendingPreviewAnchor = $state<string | null>(null);
 
@@ -685,12 +630,12 @@
     const tab = editor.activeQueryTab;
     if (!tab) return;
     const result = await new Promise<{ name: string; scope: 'project' | 'global' } | null>((resolve) => {
-      saveQueryRequest = {
+      featureDialogs.setSaveQuery({
         initialName: tab.title === 'Query' ? '' : tab.title,
         initialScope: notebase.meta ? 'project' : 'global',
-        onConfirm: (args) => { saveQueryRequest = null; resolve(args); },
-        onCancel: () => { saveQueryRequest = null; resolve(null); },
-      };
+        onConfirm: (args) => { featureDialogs.setSaveQuery(null); resolve(args); },
+        onCancel: () => { featureDialogs.setSaveQuery(null); resolve(null); },
+      });
     });
     if (!result) return;
     await api.queries.save(result.scope, result.name, '', tab.query, tab.language);
@@ -704,12 +649,6 @@
    * computed from. Cleared when the user picks any of the three
    * exits or the dialog is dismissed.
    */
-  let safeDeleteDialogState = $state<{
-    selectionCount: number;
-    targets: string[];
-    blockers: SafeDeleteBlocker[];
-    proceed: () => void | Promise<void>;
-  } | null>(null);
 
   // Note-ops handler cluster (#670): new note / folder, delete (+ safe-delete),
   // the multi-path clipboard, merge, rename, prompt-driven copy / move. Lives in
@@ -719,10 +658,10 @@
   const noteOpsCtx: NoteOpsCtx = {
     getSidebar: () => sidebar,
     getEditorComponent: () => editorComponent,
-    setSafeDeleteState: (s) => { safeDeleteDialogState = s; },
-    setMergePickerSource: (s) => { mergePickerSource = s; },
+    setSafeDeleteState: (s) => { featureDialogs.setSafeDelete(s); },
+    setMergePickerSource: (s) => { featureDialogs.setMergePickerSource(s); },
     openTypeFields: () => { rightSidebarVisible = true; rightSidebar?.showPanel('properties'); },
-    openTypeEditor: (initial, promoteNotePath) => { typeEditorState = { initial, promoteNotePath }; },
+    openTypeEditor: (initial, promoteNotePath) => { featureDialogs.setTypeEditor({ initial, promoteNotePath }); },
   };
   const {
     handleNewNote, createNoteFromReference, removeBrokenAnchor, handleInlineTypeCreate, handlePromoteToType, handleSaveNoteAsObjectType, handleNewFolder, handleDelete, openFirstReferenceFromSafeDelete,
@@ -876,7 +815,7 @@
     maybeShowOnboarding, maybeOpenEntrypoints,
     handleOpenThoughtbase, handleNewThoughtbase, handleInstallTutorial, handleOpenRecentThoughtbase,
   } = createProjectOps({
-    setShowOnboarding: (v) => { showOnboarding = v; },
+    setShowOnboarding: (v) => { featureDialogs.setOnboarding(v); },
   } satisfies ProjectOpsCtx);
 
   // Re-tint every canvas/CodeMirror surface that can't pick up the CSS
@@ -966,15 +905,15 @@
       setEditorFontSize: (n) => { editorFontSize = n; },
       toggleSidebar: () => { sidebarVisible = !sidebarVisible; },
       toggleRightSidebar: () => { rightSidebarVisible = !rightSidebarVisible; },
-      setShowGotoLine: (v) => { showGotoLine = v; },
-      setShowGotoNote: (v) => { showGotoNote = v; },
-      setShowEditSavedQueries: (v) => { showEditSavedQueries = v; },
-      setShowAbout: (v) => { showAbout = v; },
-      setShowShortcuts: (v) => { showShortcuts = v; },
-      setShowSettings: (v) => { showSettings = v; },
-      setPublishDialogOpen: (v) => { publishDialogOpen = v; },
-      setFindInNotesMode: (m) => { findInNotesMode = m; },
-      setExportDialogGroup: (g) => { exportDialogGroup = g; },
+      setShowGotoLine: (v) => { featureDialogs.setGotoLine(v); },
+      setShowGotoNote: (v) => { featureDialogs.setGotoNote(v); },
+      setShowEditSavedQueries: (v) => { featureDialogs.setEditSavedQueries(v); },
+      setShowAbout: (v) => { featureDialogs.setAbout(v); },
+      setShowShortcuts: (v) => { featureDialogs.setShortcuts(v); },
+      setShowSettings: (v) => { v ? featureDialogs.openSettings() : featureDialogs.closeSettings(); },
+      setPublishDialogOpen: (v) => { featureDialogs.setPublish(v); },
+      setFindInNotesMode: (m) => { featureDialogs.setFindInNotes(m); },
+      setExportDialogGroup: (g) => { featureDialogs.setExportGroup(g); },
       setEmbeddingProgress: (p) => { embeddingProgress = p; },
       refreshSourcesCache: () => refreshSourcesCache(),
       refreshAliasMap: () => refreshAliasMap(),
@@ -982,7 +921,7 @@
       refreshBacklinkCount: () => { void refreshBacklinkCount(); },
       newNote: () => { void handleNewNote(); },
       editThoughtbaseGuide: () => { void handleEditThoughtbaseDoc(); },
-      openThoughtbaseProperties: () => { showThoughtbaseProperties = true; },
+      openThoughtbaseProperties: () => { featureDialogs.setThoughtbaseProperties(true); },
       save: () => { void handleSave(); },
       saveAsTemplate: () => { void handleSaveAsTemplate(); },
       saveNoteAsObjectType: () => { void handleSaveNoteAsObjectType(); },
@@ -1030,6 +969,104 @@
   /** Count .md notes anywhere in the tree (recursive over folder
    *  children). The onboarding trigger uses this to decide whether
    *  the thoughtbase is "empty" — folders alone don't disqualify. */
+  /**
+   * What `FeatureDialogHost` needs from the composition root (#2236).
+   *
+   * The dialogs' markup moved out; these handlers did not, because each one
+   * reaches for something only App has — the focused editor instance, the four
+   * per-pane component maps, the chrome state the status bar reads. Passing
+   * them as one typed object is the ops-bag pattern CLAUDE.md documents
+   * (`Sidebar.svelte` is the worked example); passing the refs themselves
+   * would have relocated the coupling instead of removing it.
+   */
+  const featureDialogOps: FeatureDialogOps = {
+    onFileSelect: (path) => { void handleFileSelect(path); },
+    onOpenSource: handleOpenSource,
+    onOpenQuery: (query, language) => editor.openQuery(query, language),
+    getCursorPosition: () => editorComponent?.getCursorPosition() ?? { line: 1, column: 1 },
+    onGotoLine: (line, col) => {
+      recordCurrentPosition();
+      editorComponent?.gotoLineColumn(line, col);
+      if (editor.activeFilePath && editorComponent) {
+        // Capture the narrowed values before rAF — TS forgets the narrowing
+        // across the closure boundary.
+        const path = editor.activeFilePath;
+        const ec = editorComponent;
+        requestAnimationFrame(() => {
+          nav.record({ type: 'note', relativePath: path, offset: ec.getOffset() });
+        });
+      }
+    },
+
+    onMerge: (source, target) => { void performMerge(source, target); },
+    onAttachEvidence: handleAttachEvidence,
+    onTypeEditorSaved: handleTypeEditorSaved,
+    onOcrDone: handleOcrDone,
+    onOcrCancel: handleOcrCancel,
+    onJumpToMatch: handleJumpToMatch,
+    onMineReferencesApply: handleMineReferencesApply,
+    onResolveStubApply: handleResolveStubApply,
+    onAutoLinkApply: handleAutoLinkApply,
+    onAutoLinkInboundApply: handleAutoLinkInboundApply,
+    onAutoTagApply: handleAutoTagApply,
+    onOpenFirstReference: (source, target) => { void openFirstReferenceFromSafeDelete(source, target); },
+    onExported: (result) => {
+      const pathPreview = formatCappedList(result.writtenPaths, (p: string) => `  • ${p}`, { moreIndent: '  ' });
+      void showConfirm(
+        `${result.summary}\n\nFiles written:\n${pathPreview}`,
+        CONFIRM_KEYS.exportComplete,
+        'OK',
+      );
+    },
+
+    onOnboardingAccept: (answers, dontAskAgain) => {
+      void handleOnboardingAccept(answers as Parameters<typeof handleOnboardingAccept>[0], dontAskAgain);
+    },
+    onOnboardingDecline: (dontAskAgain) => { void handleOnboardingDecline(dontAskAgain); },
+    onOnboardingStartFromType: () => { void handleNewNote(); },
+
+    onSaveThoughtbaseProperties: async ({ name, baseUri }) => {
+      await notebase.setDisplayName(name);
+      if (baseUri !== undefined) {
+        const r = await notebase.setBaseUri(baseUri);
+        if (!r.ok) return r; // keep the dialog open to show the refusal/error
+      }
+      return { ok: true };
+    },
+
+    onApplyEditorSettings: (s) => {
+      // applySettings both persists and live-reconfigures the editor, but it
+      // no-ops when no editor view is mounted (e.g. Done pressed on a source
+      // tab). Persist here too so preview-only settings like numberedHeadings
+      // survive regardless, and mirror the value so open previews react now.
+      saveEditorSettings(s);
+      editorComponent?.applySettings(s);
+      numberedHeadings = s.numberedHeadings;
+    },
+    onApplyFontSize: (px) => {
+      // The Settings numeric control sets an absolute editor font size.
+      // Apply to every open pane so a split view stays consistent, mirror the
+      // status-bar value, and persist even when no editor is mounted.
+      const next = clampFontSize(px);
+      editorFontSize = next;
+      const editors = Object.values(editorComponents).filter((e): e is Editor => e !== undefined);
+      if (editors.length > 0) for (const ec of editors) ec.setFontSize(next);
+      else localStorage.setItem('editorFontSize', String(next));
+    },
+    onThemeChanged: () => {
+      themeLabel = getThemeMode();
+      editorComponent?.updateTheme();
+      queryPanelComponent?.updateTheme();
+      previewComponent?.updateTheme();
+      neighborhoodGraphComponent?.updateTheme();
+      rightSidebar?.updateTheme();
+    },
+    onSettingsClosed: () => {
+      // Re-read breadcrumb settings — the dialog wrote through to the module
+      // cache on change, but App's reactive state needs a nudge.
+      breadcrumbsSettings = { ...getBreadcrumbsSettings() };
+    },
+  };
 </script>
 
 <svelte:window onkeydown={(e) => handleKeydown(e, keymapDeps)} />
@@ -1046,9 +1083,9 @@
     onOpenGotoNote={() => {
       void refreshSourcesCache();
       void refreshSavedQueriesCache();
-      showGotoNote = true;
+      featureDialogs.setGotoNote(true);
     }}
-    onOpenSettings={() => { showSettings = true; }}
+    onOpenSettings={() => { featureDialogs.openSettings(); }}
   />
 
   <div class="main">
@@ -1084,7 +1121,7 @@
             onOpenExcerpt: handleOpenExcerpt,
             onOpenType: handleOpenTypeView,
             onOpenView: handleOpenSavedView,
-            onManageViews: () => { showEditSavedViews = true; },
+            onManageViews: () => { featureDialogs.setEditSavedViews(true); },
             onSourceDeleted: handleSourceDeleted,
             onMineReferences: handleMineReferences,
             onTableClick: (name) => editor.openQuery(`SELECT * FROM ${name}`, 'sql'),
@@ -1350,7 +1387,7 @@
                       onOpenPdf: handleOpenPdf,
                       onCreateNoteFromExcerpt: handleCreateNoteFromExcerpt,
                       onAppendExcerptToCurrent: handleAppendExcerptToCurrent,
-                      onAttachEvidence: (id) => { attachEvidenceExcerptId = id; },
+                      onAttachEvidence: (id) => { featureDialogs.setAttachEvidenceExcerptId(id); },
                       onInvokeTool: handleToolInvoke,
                     }}
                   />
@@ -1445,7 +1482,7 @@
             backfill={embeddingProgress}
             isDirty={editor.isDirty}
             hasActiveNote={editor.activeTab?.type === 'note'}
-            onGotoLine={() => { showGotoLine = true; }}
+            onGotoLine={() => { featureDialogs.setGotoLine(true); }}
             onSelectTheme={handleSelectTheme}
             onShowInspections={() => { rightSidebarVisible = true; }}
             onShowBacklinks={() => {
@@ -1512,275 +1549,12 @@
     {/key}
   {/if}
 
-  {#if showGotoNote}
-    <GotoNoteDialog
-      files={notebase.files}
-      sources={sourcesCache}
-      savedQueries={savedQueriesCache}
-      onSelect={(path) => { showGotoNote = false; void handleFileSelect(path); }}
-      onSelectSource={(id) => { showGotoNote = false; handleOpenSource(id); }}
-      onSelectQuery={(q) => { showGotoNote = false; editor.openQuery(q.query, q.language ?? 'sparql'); }}
-      onCancel={() => { showGotoNote = false; }}
-    />
-  {/if}
-  {#if mergePickerSource}
-    <GotoNoteDialog
-      files={notebase.files}
-      placeholder="Merge into note..."
-      excludePath={mergePickerSource}
-      onSelect={(path) => {
-        const src = mergePickerSource;
-        mergePickerSource = null;
-        if (src) void performMerge(src, path);
-      }}
-      onCancel={() => { mergePickerSource = null; }}
-    />
-  {/if}
-  {#if showGotoLine}
-    {@const pos = editorComponent?.getCursorPosition() ?? { line: 1, column: 1 }}
-    <GotoLineDialog
-      currentLine={pos.line}
-      currentColumn={pos.column}
-      onGoto={(line, col) => {
-        recordCurrentPosition();
-        editorComponent?.gotoLineColumn(line, col);
-        showGotoLine = false;
-        if (editor.activeFilePath && editorComponent) {
-          // Capture the narrowed values before rAF — TS forgets the
-          // narrowing across the closure boundary.
-          const path = editor.activeFilePath;
-          const ec = editorComponent;
-          requestAnimationFrame(() => {
-            nav.record({ type: 'note', relativePath: path, offset: ec.getOffset() });
-          });
-        }
-      }}
-      onCancel={() => { showGotoLine = false; }}
-    />
-  {/if}
-  {#if showEditSavedQueries}
-    <EditSavedQueriesDialog projectOpen={!!notebase.meta} onClose={() => { showEditSavedQueries = false; }} />
-  {/if}
-  {#if showEditSavedViews}
-    <EditSavedViewsDialog onClose={() => { showEditSavedViews = false; }} />
-  {/if}
-  {#if attachEvidenceExcerptId}
-    <AttachEvidenceDialog
-      excerptId={attachEvidenceExcerptId}
-      onClose={() => { attachEvidenceExcerptId = null; }}
-      onAttach={handleAttachEvidence}
-    />
-  {/if}
-  {#if typeEditorState}
-    <TypeEditorDialog
-      initial={typeEditorState.initial}
-      onClose={() => { typeEditorState = null; }}
-      onSaved={handleTypeEditorSaved}
-    />
-  {/if}
-  {#if saveQueryRequest}
-    <SaveQueryDialog
-      projectOpen={!!notebase.meta}
-      initialName={saveQueryRequest.initialName}
-      initialScope={saveQueryRequest.initialScope}
-      onConfirm={saveQueryRequest.onConfirm}
-      onCancel={saveQueryRequest.onCancel}
-    />
-  {/if}
-  {#if sourceFlow.ocrSession && sourceFlow.ocrPdfBytes}
-    <!-- Lazy: tesseract.js (multi-MB WASM) + pdfjs only load when OCR actually
-         runs, keeping them out of the eager startup graph (#691). -->
-    {#await import('./lib/components/OcrProgressDialog.svelte') then { default: OcrProgressDialog }}
-      <OcrProgressDialog
-        pdfBytes={sourceFlow.ocrPdfBytes}
-        pageCount={sourceFlow.ocrSession.pageCount}
-        title={sourceFlow.ocrSession.title}
-        onDone={handleOcrDone}
-        onCancel={handleOcrCancel}
-      />
-    {/await}
-  {/if}
-  {#if findInNotesMode}
-    <FindInNotesDialog
-      initialMode={findInNotesMode}
-      onJumpTo={handleJumpToMatch}
-      onClose={() => { findInNotesMode = null; }}
-    />
-  {/if}
-  <DialogHost />
-  <MultiFileHistoryDialog />
-
-  <!-- Drag-to-add-link overlays (#1129): a ghost chip following the pointer and
-       a live insertion caret in the editor under it. Pointer-event driven, so
-       reactivity stays live and these actually paint (unlike native HTML5 drag). -->
-  {#if linkDrag.dragging && linkDrag.ghost}
-    <div class="link-drag-ghost" style:left="{linkDrag.ghost.x + 12}px" style:top="{linkDrag.ghost.y + 10}px">
-      {linkDrag.dragging.label}
-    </div>
-  {/if}
-  {#if linkDrag.dragging && linkDrag.caret}
-    <div
-      class="link-drop-caret"
-      style:left="{linkDrag.caret.left}px"
-      style:top="{linkDrag.caret.top}px"
-      style:height="{Math.max(2, linkDrag.caret.bottom - linkDrag.caret.top)}px"
-    ></div>
-  {/if}
-
-  {#if sourceFlow.mineReview}
-    <MineReferencesDialog
-      parentTitle={sourceFlow.mineReview.parentTitle}
-      refs={sourceFlow.mineReview.refs}
-      onApply={handleMineReferencesApply}
-      onCancel={() => sourceFlow.setMineReview(null)}
-    />
-  {/if}
-  {#if sourceFlow.resolveStub}
-    <ResolveStubDialog
-      stubTitle={sourceFlow.resolveStub.stubTitle}
-      candidates={sourceFlow.resolveStub.candidates}
-      onApply={handleResolveStubApply}
-      onCancel={() => sourceFlow.setResolveStub(null)}
-    />
-  {/if}
-  {#if safeDeleteDialogState}
-    {@const st = safeDeleteDialogState}
-    <SafeDeleteBlockerDialog
-      selectionCount={st.selectionCount}
-      targets={st.targets}
-      blockers={st.blockers}
-      onCancel={() => { safeDeleteDialogState = null; }}
-      onDeleteAnyway={async () => {
-        safeDeleteDialogState = null;
-        await st.proceed();
-      }}
-      onOpenFirstReference={(source, target) => {
-        void openFirstReferenceFromSafeDelete(source, target);
-      }}
-    />
-  {/if}
-  {#if showCommandPalette}
-    <CommandPaletteDialog
-      {commands}
-      onClose={() => { showCommandPalette = false; }}
-    />
-  {/if}
-  <DictationIndicator />
-  <Toasts />
-  {#if showAbout}
-    <AboutDialog onClose={() => { showAbout = false; }} />
-  {/if}
-  {#if showShortcuts}
-    <ShortcutsDialog onClose={() => { showShortcuts = false; }} />
-  {/if}
-  {#if exportDialogGroup}
-    <ExportDialog
-      group={exportDialogGroup}
-      activeFilePath={editor.activeFilePath}
-      activeSourceId={editor.activeSourceTab?.sourceId ?? null}
-      onCancel={() => { exportDialogGroup = null; }}
-      onExported={async (result) => {
-        exportDialogGroup = null;
-        const pathPreview = formatCappedList(result.writtenPaths, (p: string) => `  • ${p}`, { moreIndent: '  ' });
-        await showConfirm(
-          `${result.summary}\n\nFiles written:\n${pathPreview}`,
-          CONFIRM_KEYS.exportComplete,
-          'OK',
-        );
-      }}
-    />
-  {/if}
-  {#if publishDialogOpen}
-    <PublishDialog onClose={() => { publishDialogOpen = false; }} />
-  {/if}
-  {#if refactorFlow.autoLinkReview}
-    <AutoLinkDialog
-      suggestions={refactorFlow.autoLinkReview.suggestions}
-      activeNoteBody={refactorFlow.autoLinkReview.activeBody}
-      onApply={handleAutoLinkApply}
-      onCancel={() => refactorFlow.setAutoLinkReview(null)}
-    />
-  {/if}
-  {#if refactorFlow.autoLinkInboundReview}
-    <AutoLinkInboundDialog
-      suggestions={refactorFlow.autoLinkInboundReview.suggestions}
-      activeStem={refactorFlow.autoLinkInboundReview.relativePath.replace(/\.md$/i, '')}
-      onApply={handleAutoLinkInboundApply}
-      onCancel={() => refactorFlow.setAutoLinkInboundReview(null)}
-    />
-  {/if}
-  {#if refactorFlow.autoTagReview}
-    <AutoTagDialog
-      tags={refactorFlow.autoTagReview.tags}
-      relativePath={refactorFlow.autoTagReview.relativePath}
-      onApply={handleAutoTagApply}
-      onCancel={() => refactorFlow.setAutoTagReview(null)}
-    />
-  {/if}
-  {#if busy.label}
-    <BusyOverlay label={busy.label} />
-  {/if}
-  {#if showSettings}
-    <SettingsDialog
-      onApplyEditor={(s) => {
-        // applySettings both persists and live-reconfigures the editor, but it
-        // no-ops when no editor view is mounted (e.g. Done pressed on a source
-        // tab). Persist here too so preview-only settings like numberedHeadings
-        // survive regardless, and mirror the value so open previews react now.
-        saveEditorSettings(s);
-        editorComponent?.applySettings(s);
-        numberedHeadings = s.numberedHeadings;
-      }}
-      onApplyFontSize={(px) => {
-        // The Settings numeric control sets an absolute editor font size.
-        // Apply to every open pane so a split view stays consistent, mirror the
-        // status-bar value, and persist even when no editor is mounted.
-        const next = clampFontSize(px);
-        editorFontSize = next;
-        const editors = Object.values(editorComponents).filter((e): e is Editor => e !== undefined);
-        if (editors.length > 0) for (const ec of editors) ec.setFontSize(next);
-        else localStorage.setItem('editorFontSize', String(next));
-      }}
-      onThemeChanged={() => {
-        themeLabel = getThemeMode();
-        editorComponent?.updateTheme();
-        queryPanelComponent?.updateTheme();
-        previewComponent?.updateTheme();
-        neighborhoodGraphComponent?.updateTheme();
-        rightSidebar?.updateTheme();
-      }}
-      onClose={() => {
-        showSettings = false;
-        settingsInitialTab = undefined;
-        // Re-read breadcrumb settings — the dialog wrote through to the
-        // module cache on change, but App's reactive state needs a nudge.
-        breadcrumbsSettings = { ...getBreadcrumbsSettings() };
-      }}
-      initialTab={settingsInitialTab}
-    />
-  {/if}
-  {#if showOnboarding}
-    <OnboardingDialog
-      onAccept={(answers, dontAskAgain) => { void handleOnboardingAccept(answers, dontAskAgain); }}
-      onDecline={(dontAskAgain) => { void handleOnboardingDecline(dontAskAgain); }}
-      onStartFromType={() => { showOnboarding = false; void handleNewNote(); }}
-    />
-  {/if}
-
-  {#if showThoughtbaseProperties}
-    <ThoughtbaseProperties
-      onSave={async ({ name, baseUri }) => {
-        await notebase.setDisplayName(name);
-        if (baseUri !== undefined) {
-          const r = await notebase.setBaseUri(baseUri);
-          if (!r.ok) return r; // keep the dialog open to show the refusal/error
-        }
-        showThoughtbaseProperties = false;
-        return { ok: true };
-      }}
-      onCancel={() => { showThoughtbaseProperties = false; }}
-    />
-  {/if}
+  <FeatureDialogHost
+    ops={featureDialogOps}
+    sources={sourcesCache}
+    savedQueries={savedQueriesCache}
+    {commands}
+  />
 </div>
 
 <style>
@@ -1852,32 +1626,6 @@
     user-select: none;
   }
   /* The chip that follows the pointer while dragging a note/source in. */
-  .link-drag-ghost {
-    position: fixed;
-    z-index: var(--z-drag);
-    pointer-events: none;
-    max-width: 260px;
-    padding: 3px 8px;
-    background: var(--bg-elev-2);
-    border: 1px solid var(--accent);
-    border-radius: 5px;
-    color: var(--text);
-    font-family: var(--font-sans);
-    font-size: 12px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  }
-  /* The live insertion caret shown in the editor at the drop position. */
-  .link-drop-caret {
-    position: fixed;
-    z-index: var(--z-drag);
-    pointer-events: none;
-    width: 2px;
-    background: var(--accent);
-  }
-
   .toolbar {
     display: flex;
     justify-content: space-between;

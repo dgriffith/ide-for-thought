@@ -62,7 +62,7 @@ const THRESHOLD = 600;
  * taking the same commands out of a menu file that was executing them inline.
  */
 const BUDGETS: Record<string, number> = {
-  'src/renderer/App.svelte': 2096,
+  'src/renderer/App.svelte': 1844,
   'src/renderer/lib/components/Preview.svelte': 1341,
   'src/renderer/lib/components/SourceDetail.svelte': 1346,
   'src/renderer/lib/components/SourcesPanel.svelte': 789,
