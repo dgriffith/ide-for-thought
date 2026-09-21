@@ -86,7 +86,7 @@ const BUDGETS: Record<string, number> = {
   'src/main/sources/tables.ts': 662,
   'src/renderer/lib/components/FindInNotesDialog.svelte': 601,
   'src/preload/preload.ts': 649,
-  'src/main/ipc/register-conversation-drafts.ts': 608,
+  'src/main/ipc/register-conversation-drafts.ts': 577,
 };
 
 /** Source files this applies to: authored `.ts` / `.svelte` under `src/`. */
