@@ -1,10 +1,22 @@
 import { queryGraph, headingsFor } from './index';
 import type { ProjectContext } from '../project-context-types';
-import { createProjectStore } from '../project-store';
+import {
+  healthStore,
+  stateFor,
+  getInspections,
+  isRunning,
+  type AutoState,
+  type HealthCheckDeps,
+} from './health-check-state';
+
+// Per-project state lives next door (#2288) — see that module's header for
+// why it is a separate concern, and why the split waited on `Inspection`
+// moving to `shared/`. Re-exported because callers have always read the
+// results from here.
+export { getInspections, isRunning };
+export type { HealthCheckDeps };
 import { LINK_TYPES } from '../../shared/link-types';
 import { DAY_MS } from '../../shared/time';
-import type { InspectionFix } from '../../shared/types';
-import type { OrphanedAsset } from '../../shared/asset-paths';
 import { stripNoteExt, noteExtRank } from '../../shared/note-extensions';
 import { noteTargetPathBeside } from '../../shared/wiki-link-resolver';
 import { onGraphChanged } from './graph-events';
@@ -15,11 +27,17 @@ import {
   isInspectionEnabled,
   DEFAULT_INSPECTION_SETTINGS,
   type InspectionSettings,
+  type Inspection,
+  type InspectionSeverity,
 } from '../../shared/inspections';
+
+// The result type lives in `shared/inspections.ts` beside the catalog (#2288);
+// this module owns how each check is COMPUTED, not what a finding looks like.
+// Re-exported because callers have always imported it from here.
+export type { Inspection, InspectionSeverity };
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-export type InspectionSeverity = 'info' | 'warning' | 'concern';
 
 // ── Named Constants ────────────────────────────────────────────────────────
 // (replacing magic numbers throughout the file for maintainability)
@@ -39,97 +57,7 @@ const BROKEN_LINKS_REPORT_CAP = 50;
 /** Periodic checks interval: 5 minutes */
 const PERIODIC_CHECKS_DEFAULT_INTERVAL_MS = 5 * 60 * 1000;
 
-export interface Inspection {
-  id: string;
-  type: string;
-  severity: InspectionSeverity;
-  nodeUri: string;
-  nodeLabel: string;
-  message: string;
-  suggestedAction?: string;
-  /** Optional deterministic quick-fix the panel can apply directly instead of
-   *  opening a conversation (#1446). Absent when the only remedy is prose. */
-  fix?: InspectionFix;
-  /** The note this inspection is anchored to, as a project-relative path, when
-   *  it belongs to one — the referencing note for a broken link, the stale note
-   *  itself, a claim's own note. Lets the right-sidebar panel scope to the
-   *  active note (#1446). Absent for source-scoped inspections (dupes, metadata)
-   *  and standalone claim components, which aren't "on" a note. */
-  notePath?: string;
-}
 
-/**
- * Everything this module holds per open project (#2240, epic #2241).
- *
- * It used to be four module-level maps keyed by `rootPath`, hand-rolled
- * outside the project-store registry — which is the exact class of bug
- * `createProjectStore` (#1085) exists to remove. Two of the four were torn
- * down because `project-context.ts` named them at release; the other two were
- * not, and `disposeAllProjectStores` couldn't reach them because they had
- * never registered.
- *
- * `lastResults` had no `.delete` call anywhere in the codebase, so **closing a
- * thoughtbase left its whole inspection list resident, and reopening showed
- * the stale list** — `getInspections` is the `INSPECTIONS_GET` handler, so the
- * panel rendered last session's findings (including ones for notes since
- * deleted) until a fresh run finished. That is a wrong answer, not just a
- * leak.
- *
- * All four now live in one slot, which is also the honest shape: they are one
- * subsystem's state with one lifetime, not four independent maps that happen
- * to share a key. Same arrangement `note-caches.ts` uses (#2234).
- */
-interface HealthCheckState {
-  /** The last completed run's findings — what `getInspections` serves. */
-  lastResults: Inspection[];
-  /**
-   * A run is in flight for THIS project (#1893). Per-project rather than a
-   * module-global flag: a check running for one project used to make every
-   * other project's concurrent check return `[]`, indistinguishable from
-   * "clean". Concurrent runs are the normal case — `armAutoChecks` debounces
-   * off every graph write and there's a periodic timer per project.
-   */
-  running: boolean;
-  /** Graph-write subscription + its debounce timer, when armed. */
-  auto: AutoState | null;
-  /** The periodic backstop, when started. */
-  periodicTimer: ReturnType<typeof setInterval> | null;
-}
-
-const healthStore = createProjectStore<HealthCheckState>({
-  // Reached by `disposeAllProjectStores` on a project's last release. The
-  // timers are also stopped explicitly by `project-context.ts` BEFORE the
-  // final persist (ordering: stop scheduling new work before teardown starts),
-  // and both paths are idempotent — this is the net that catches a caller who
-  // forgets, which is how the other two leaked in the first place.
-  dispose: (state) => {
-    if (state.auto?.timer) clearTimeout(state.auto.timer);
-    state.auto?.unsubscribe();
-    if (state.periodicTimer) clearInterval(state.periodicTimer);
-  },
-});
-
-/** This project's state, created on first write. */
-function stateFor(ctx: ProjectContext): HealthCheckState {
-  const existing = healthStore.get(ctx);
-  if (existing) return existing;
-  const fresh: HealthCheckState = {
-    lastResults: [], running: false, auto: null, periodicTimer: null,
-  };
-  healthStore.set(ctx, fresh);
-  return fresh;
-}
-
-export function getInspections(ctx: ProjectContext): Inspection[] {
-  // Deliberately does NOT go through `stateFor`: a read must not allocate a
-  // slot for a project that has none, or the leak comes straight back through
-  // the panel polling a closed project.
-  return healthStore.get(ctx)?.lastResults ?? [];
-}
-
-export function isRunning(ctx: ProjectContext): boolean {
-  return healthStore.get(ctx)?.running ?? false;
-}
 
 /** The SPARQL rows every check reads, cast to the string-record shape once
  *  instead of at each call site. `queryGraph` auto-injects the standard prefixes
@@ -154,26 +82,6 @@ function asRows(result: Awaited<ReturnType<typeof queryGraph>>): Record<string, 
  * + missing_backing; duplicate sources → doi + uri) are gated on the type the
  * settings panel actually offers.
  */
-/**
- * Collaborators this module cannot import for itself (#2238, epic #2241).
- *
- * `checkUnreferencedImages` needs `findOrphanedInlineAssets`, which lives in
- * `notebase/`. `graph/` importing it was one of the three edges that made
- * `graph ↔ notebase` a package-level cycle — invisible to
- * `no-cycles.test.ts`, which checks MODULE cycles and was right to pass.
- * Injecting it is the same move this module already makes for `loadSettings`
- * (which reaches electron); the caller wires it, and `tests/architecture/
- * no-package-cycles.test.ts` is what stops the import coming back.
- *
- * **Omitting `findOrphanedAssets` makes the unreferenced-image check yield
- * nothing** — it has no graph query to fall back on, only a filesystem scan it
- * no longer owns. That is right for a test that doesn't care about assets, and
- * wrong for production, so the two real call sites (`project-context.ts` and
- * `register-graph.ts`) are asserted to pass it by the architecture test above.
- */
-export interface HealthCheckDeps {
-  findOrphanedAssets?: (rootPath: string) => Promise<OrphanedAsset[]>;
-}
 
 export async function runAllChecks(
   ctx: ProjectContext,
@@ -838,13 +746,6 @@ function inspectionForBrokenLink(
  * The debounce is a floor, not a promise: a run already in flight is left to
  * finish and the next change schedules another.
  */
-interface AutoState {
-  timer: ReturnType<typeof setTimeout> | null;
-  loadSettings: () => Promise<InspectionSettings>;
-  deps: HealthCheckDeps;
-  debounceMs: number;
-  unsubscribe: () => void;
-}
 
 export const DEFAULT_CHECK_DEBOUNCE_MS = 2000;
 

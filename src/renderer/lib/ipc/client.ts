@@ -1,7 +1,7 @@
-import type { NoteFile, NotebaseMeta, TagInfo, TaggedNote, TaggedSource, SavedQuery, SavedView, SavedViewInput, SearchResult, OutgoingLink, Backlink, TabSession, LayoutSession, BookmarkNode, SourceDetail, SearchInNotesOptions, SearchInNotesFileResult, ReplaceInNotesOptions, ReplaceInNotesResult, HeadingRenameCandidate, MenuEditorState, InspectionFix } from '../../../shared/types';
+import type { NoteFile, NotebaseMeta, TagInfo, TaggedNote, TaggedSource, SavedQuery, SavedView, SavedViewInput, SearchResult, OutgoingLink, Backlink, TabSession, LayoutSession, BookmarkNode, SourceDetail, SearchInNotesOptions, SearchInNotesFileResult, ReplaceInNotesOptions, ReplaceInNotesResult, HeadingRenameCandidate, MenuEditorState } from '../../../shared/types';
 import type { Conversation, ConversationCreateOptions, ContextBundle, ConversationMessage } from '../../../shared/conversation';
 import type { ToolExecutionRequest, ToolExecutionResult, ConversationToolPayload } from '../../../shared/tools/types';
-import type { InspectionSettings } from '../../../shared/inspections';
+import type { Inspection, InspectionSettings } from '../../../shared/inspections';
 import type { ClipperState } from '../../../shared/clipper-pairing';
 import type { McpServerDescriptor, McpServerStatus } from '../../../shared/mcp-servers';
 import type { Proposal } from '../../../shared/proposals';
@@ -145,8 +145,8 @@ export interface GraphApi {
   /** Rebase to a new base IRI + rebuild indexes (#1443 Part B). */
   setBaseUri(uri: string): Promise<{ ok: true } | { ok: false; error: string }>;
   groundCheck(claimText: string): Promise<{ node: string; label: string; type: string }[]>;
-  inspections(): Promise<{ id: string; type: string; severity: string; nodeUri: string; nodeLabel: string; message: string; suggestedAction?: string; fix?: InspectionFix; notePath?: string }[]>;
-  runInspections(): Promise<{ id: string; type: string; severity: string; nodeUri: string; nodeLabel: string; message: string; suggestedAction?: string; fix?: InspectionFix; notePath?: string }[]>;
+  inspections(): Promise<Inspection[]>;
+  runInspections(): Promise<Inspection[]>;
   /** Which health checks run, and the day thresholds (#1792). Per machine. */
   inspectionSettings(): Promise<InspectionSettings>;
   /** Resolves to the settings as SAVED — out-of-range days are clamped and

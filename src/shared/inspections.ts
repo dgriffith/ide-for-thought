@@ -17,7 +17,45 @@
  * claims is getting real findings from them today and silently dropping those
  * would be a feature removal wearing a settings change's clothes. When the
  * argument map ships to users, drop the flag and they appear with the rest.
+ *
+ * ## The result type
+ *
+ * `Inspection` — what a check PRODUCES — lives here too (#2288). It used to
+ * sit in `graph/health-checks.ts` and be re-typed by hand wherever it crossed
+ * a boundary: spelled out inline twice in `shared/ipc-contract.ts`, twice more
+ * in `renderer/lib/ipc/client.ts`, and again as a local interface in
+ * `InspectionsPanel.svelte`. Five copies of nine fields, with nothing checking
+ * them against each other — and they had already drifted: every hand-copy
+ * weakened `severity` from the union to `string`, so the renderer had no idea
+ * the set was closed.
+ *
+ * Here for the same reason the catalog is: both processes need the shape, so
+ * exactly one of them should declare it.
  */
+import type { InspectionFix } from './types';
+
+export type InspectionSeverity = 'info' | 'warning' | 'concern';
+
+/** One finding from a health check — the unit the panel renders and the
+ *  `inspections:list` / `inspections:run` channels carry. */
+export interface Inspection {
+  id: string;
+  type: string;
+  severity: InspectionSeverity;
+  nodeUri: string;
+  nodeLabel: string;
+  message: string;
+  suggestedAction?: string;
+  /** Optional deterministic quick-fix the panel can apply directly instead of
+   *  opening a conversation (#1446). Absent when the only remedy is prose. */
+  fix?: InspectionFix;
+  /** The note this inspection is anchored to, as a project-relative path, when
+   *  it belongs to one — the referencing note for a broken link, the stale note
+   *  itself, a claim's own note. Lets the right-sidebar panel scope to the
+   *  active note (#1446). Absent for source-scoped inspections (dupes, metadata)
+   *  and standalone claim components, which aren't "on" a note. */
+  notePath?: string;
+}
 
 export type InspectionGroup = 'notes' | 'links' | 'sources' | 'arguments';
 

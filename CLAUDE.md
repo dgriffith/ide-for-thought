@@ -428,7 +428,8 @@ module-level `Map`/`Set` keyed by `rootPath`. A store self-registers, so
 `project-context.ts` naming your subsystem.
 
 A hand-rolled map opts out silently: nothing fails and no lint fires, it just
-becomes invisible to disposal. `graph/health-checks.ts` had four. Two were torn
+becomes invisible to disposal. `graph/health-checks.ts` had four (they live in
+`graph/health-check-state.ts` now, #2288). Two were torn
 down because the orchestrator named them; `lastResultsByProject` had no
 `.delete` call anywhere, so **closing a thoughtbase left its whole inspection
 list resident and reopening served last session's findings** — `getInspections`
@@ -440,6 +441,13 @@ collection indexed by `rootPath` that `createProjectStore` didn't build. Its
 `KNOWN_UNREGISTERED` list may only shrink; the entries there are torn down by
 an explicit call today, which is precisely the arrangement that let the
 health-check maps go unnoticed.
+
+**The result type is `shared/inspections.ts`'s, not the engine's** (#2288).
+`Inspection` sits beside the catalog because both processes need the shape:
+it had five hand-written copies (the engine, two inline in
+`shared/ipc-contract.ts`, two more in `renderer/lib/ipc/client.ts`, and a local
+interface in `InspectionsPanel.svelte`), and every copy had quietly widened
+`severity` from the union to `string`. Import it; don't re-declare it.
 
 Two things worth copying from how #2240 did it:
 

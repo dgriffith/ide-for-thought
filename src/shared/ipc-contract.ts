@@ -54,9 +54,8 @@ import type {
   RelatedNotesResult,
   SourceDetail,
   CsvTableCollision,
-  InspectionFix,
 } from './types';
-import type { InspectionSettings } from './inspections';
+import type { InspectionSettings, Inspection } from './inspections';
 import type { ClipperState } from './clipper-pairing';
 import type { McpServerDescriptor, McpServerStatus } from './mcp-servers';
 import type { Proposal } from './proposals';
@@ -294,8 +293,8 @@ export interface ChannelMap {
   'graph:frontmatterKeys': () => string[];
 
   // Inspections (graph health checks)
-  'inspections:list': () => { id: string; type: string; severity: string; nodeUri: string; nodeLabel: string; message: string; suggestedAction?: string; fix?: InspectionFix; notePath?: string }[];
-  'inspections:run': () => { id: string; type: string; severity: string; nodeUri: string; nodeLabel: string; message: string; suggestedAction?: string; fix?: InspectionFix; notePath?: string }[];
+  'inspections:list': () => Inspection[];
+  'inspections:run': () => Inspection[];
   'inspections:getSettings': () => InspectionSettings;
   /** Persist + return the saved (sanitized) settings, so the caller renders what
    *  actually landed rather than what it asked for. */
