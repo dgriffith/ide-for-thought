@@ -124,7 +124,21 @@ export interface ToolWebHint {
  */
 export type ToolScope = 'note' | 'source';
 
-export interface ThinkingToolDef {
+/**
+ * A tool's DESCRIPTION: everything about it that is data rather than
+ * behaviour, and therefore everything that can cross the IPC bridge (#2235).
+ *
+ * Split out of `ThinkingToolDef` because the two processes genuinely hold
+ * different things and used to claim otherwise. Main compiles skills into full
+ * `ThinkingToolDef`s with prompt bodies; the renderer builds its registry from
+ * `api.skills.list()` and has metadata ONLY, by design (CLAUDE.md, "Tools for
+ * Thought"). While both were typed `ThinkingToolDef`, the renderer had to
+ * supply a `buildPrompt` stub returning the empty string to satisfy a required
+ * field — so `getTool(id)?.buildPrompt(ctx)` type-checked there and silently
+ * produced an empty prompt. Now it doesn't type-check at all: the renderer's
+ * registry holds `ThinkingToolMeta`, and there is nothing to call.
+ */
+export interface ThinkingToolMeta {
   id: string;
   name: string;
   category: ToolCategory;
@@ -144,12 +158,6 @@ export interface ThinkingToolDef {
   outputMode: OutputMode;
   outputNotePrefix?: string;
   slashCommand?: string;
-  /** Used for one-shot tools. Conversational tools use buildSystemPrompt + buildFirstMessage. */
-  buildPrompt: (ctx: ToolContext) => string;
-  /** Tool-specific system prompt for `outputMode: 'openConversation'`. Stays active across all sends in the conversation. */
-  buildSystemPrompt?: (ctx: ToolContext) => string;
-  /** User message auto-fired when the conversation opens. Optional — omit to let the user type the first thing. */
-  buildFirstMessage?: (ctx: ToolContext) => string;
   /**
    * Tool author's hint at the model that suits this tool best. User-level
    * overrides (LLMSettings.toolModelOverrides) win over this; the global
@@ -168,6 +176,27 @@ export interface ThinkingToolDef {
    * when one is open, but sets `requiresNote: false` so it stays invokable with
    * no note. Consumed via `toolRequiresNote` to gray out menu entries. */
   requiresNote?: boolean;
+}
+
+
+/**
+ * A tool that can actually RUN: its metadata plus the prompt builders. Only the
+ * main process holds one — `skills/compile.ts` attaches the closures and
+ * `tools/executor.ts` / `llm/tools/run-skill.ts` invoke them.
+ *
+ * `requiresTools` sits here rather than on the meta half deliberately: it's
+ * execution orchestration (which conversation tools to enable for this run),
+ * read only by the executor. Keeping it off the meta means `ThinkingToolMeta`
+ * is exactly the payload that already crosses the bridge, so this split changes
+ * no IPC shape.
+ */
+export interface ThinkingToolDef extends ThinkingToolMeta {
+  /** Used for one-shot tools. Conversational tools use buildSystemPrompt + buildFirstMessage. */
+  buildPrompt: (ctx: ToolContext) => string;
+  /** Tool-specific system prompt for `outputMode: 'openConversation'`. Stays active across all sends in the conversation. */
+  buildSystemPrompt?: (ctx: ToolContext) => string;
+  /** User message auto-fired when the conversation opens. Optional — omit to let the user type the first thing. */
+  buildFirstMessage?: (ctx: ToolContext) => string;
   /**
    * Template-scoped tools the agent should have access to in this
    * conversation, on top of the default toolset. Today the only entry
@@ -178,28 +207,20 @@ export interface ThinkingToolDef {
   requiresTools?: import('../conversation-tools').ConversationToolKey[];
 }
 
-/** Serializable subset of ThinkingToolDef sent over IPC (no functions). */
-export interface ThinkingToolInfo {
-  id: string;
-  name: string;
-  category: ToolCategory;
-  /** Invocation surface + subject (#103). Absent = `note`. See ThinkingToolDef.scope. */
-  scope?: ToolScope;
-  /** Thematic sub-group within the category (#525). See ThinkingToolDef.group. */
-  group?: string;
-  description: string;
-  longDescription: string;
-  context: ContextRequirement[];
-  parameters?: ToolParameter[];
-  outputMode: OutputMode;
-  outputNotePrefix?: string;
-  slashCommand?: string;
-  preferredModel?: string;
-  web?: ToolWebHint;
-  requiresSelection?: boolean;
-  /** See ThinkingToolDef.requiresNote. */
-  requiresNote?: boolean;
-}
+/**
+ * The serializable payload sent over IPC — now literally `ThinkingToolMeta`
+ * rather than a hand-maintained copy of its members (#2235).
+ *
+ * It used to be a separate interface listing the same fields, which is how it
+ * became a promise the code didn't keep: the type correctly omitted all three
+ * builders, but `registry.ts`'s projection stripped only `buildPrompt`, so
+ * `getAllToolInfos()` handed back objects still carrying `buildSystemPrompt` /
+ * `buildFirstMessage` on every conversational skill while the signature
+ * insisted they were function-free. An alias means the type can't drift from
+ * what it describes again; `toInfo` doing a real strip means the value can't
+ * either.
+ */
+export type ThinkingToolInfo = ThinkingToolMeta;
 
 export interface ToolExecutionRequest {
   toolId: string;

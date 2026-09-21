@@ -1,11 +1,11 @@
 import * as fs from '../../notebase/fs';
-import { getAllTools, getTool } from '../../../shared/tools/registry';
+import { getAllTools, getToolDef } from '../../../shared/tools/registry';
 import {
   isSourceScoped,
   toolRequiresNote,
   type ContextRequirement,
   type OutputMode,
-  type ThinkingToolDef,
+  type ThinkingToolMeta,
   type ToolContext as SkillToolContext,
 } from '../../../shared/tools/types';
 import type { NotebaseTool, ToolContext, ToolResult } from './types';
@@ -55,7 +55,7 @@ const UNSUPPORTED_CONTEXT = new Set<ContextRequirement>([
   'sourceBody',
 ]);
 
-function isSkillRunnable(tool: ThinkingToolDef): boolean {
+function isSkillRunnable(tool: ThinkingToolMeta): boolean {
   if (!RUNNABLE_OUTPUT_MODES.has(tool.outputMode)) return false;
   if (isSourceScoped(tool)) return false;
   if (tool.requiresSelection) return false;
@@ -118,7 +118,7 @@ function titleFromPath(relativePath: string): string {
  *  default — mirrors what `ToolParamsDialog.svelte` pre-fills into the form
  *  before a menu-driven run, so a skill behaves the same either way. */
 function withParamDefaults(
-  tool: ThinkingToolDef,
+  tool: ThinkingToolMeta,
   values: Record<string, string> | undefined,
 ): Record<string, string> {
   const merged = { ...values };
@@ -132,7 +132,9 @@ async function runRunSkill(ctx: ToolContext, input: unknown): Promise<ToolResult
   const parsed = parseInput(input);
   if ('error' in parsed) return { content: parsed.error, isError: true };
 
-  const tool = getTool(parsed.skillId);
+  // `getToolDef`, not `getTool`: this path renders the prompt body, so it needs
+  // the runnable definition rather than the metadata half (#2235).
+  const tool = getToolDef(parsed.skillId);
   if (!tool || !isSkillRunnable(tool)) {
     return {
       content: `Unknown or unsupported skill "${parsed.skillId}". See the catalog in this tool's description for skills run_skill can run.`,
