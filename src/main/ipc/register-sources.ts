@@ -92,7 +92,11 @@ export function registerSources(): void {
   }));
 
   handle(Channels.SOURCES_MINE_REFERENCES, withRootPath(async (rootPath, sourceId: string) => {
-    return await mineSourceReferences(rootPath, sourceId);
+    // The model call is supplied here rather than imported by `sources/`
+    // (#2284) — the registrar already depends on `llm/`, and reference mining
+    // is a sources feature that needs a model, not part of the LLM subsystem.
+    const { complete } = await import('../llm');
+    return await mineSourceReferences(rootPath, sourceId, { llmComplete: complete });
   }));
 
   handle(Channels.SOURCES_CREATE_REFERENCE_STUBS, withSourceMutation((rootPath, params: { sourceId: string; refs: ParsedReference[] }) =>

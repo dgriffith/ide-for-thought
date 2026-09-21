@@ -35,37 +35,37 @@ const h = vi.hoisted(() => ({
   citedTextFromTtl: vi.fn().mockReturnValue('cited text'),
 }));
 
-vi.mock('../../../src/main/notebase/path-dedup', () => ({ wasHandled: h.wasHandled }));
-vi.mock('../../../src/main/notebase/fs', () => ({ readFile: h.readFile }));
-vi.mock('../../../src/main/notebase/index-fanout', () => ({
+vi.mock('../../src/main/notebase/path-dedup', () => ({ wasHandled: h.wasHandled }));
+vi.mock('../../src/main/notebase/fs', () => ({ readFile: h.readFile }));
+vi.mock('../../src/main/notebase/index-fanout', () => ({
   indexAllFor: h.indexAllFor,
   removeAllFor: h.removeAllFor,
 }));
-vi.mock('../../../src/main/sources/tables', () => ({
+vi.mock('../../src/main/sources/tables', () => ({
   registerCsv: h.registerCsv,
   unregisterCsv: h.unregisterCsv,
   reregisterNoteTables: h.reregisterNoteTables,
   unregisterNoteTables: h.unregisterNoteTables,
 }));
-vi.mock('../../../src/main/compute/python-kernel', () => ({ invalidate: h.invalidatePythonModules }));
-vi.mock('../../../src/main/search/index', () => ({ persist: h.searchPersist }));
-vi.mock('../../../src/main/graph/index', () => ({
+vi.mock('../../src/main/compute/python-kernel', () => ({ invalidate: h.invalidatePythonModules }));
+vi.mock('../../src/main/search/index', () => ({ persist: h.searchPersist }));
+vi.mock('../../src/main/graph/index', () => ({
   indexSource: h.graphIndexSource,
   removeSource: h.graphRemoveSource,
   indexExcerpt: h.graphIndexExcerpt,
   removeExcerpt: h.graphRemoveExcerpt,
 }));
-vi.mock('../../../src/main/embeddings/vector-store', () => ({
+vi.mock('../../src/main/embeddings/vector-store', () => ({
   indexSource: h.vectorsIndexSource,
   removeSource: h.vectorsRemoveSource,
   indexExcerpt: h.vectorsIndexExcerpt,
   removeExcerpt: h.vectorsRemoveExcerpt,
 }));
-vi.mock('../../../src/main/sources/create-excerpt', () => ({ citedTextFromTtl: h.citedTextFromTtl }));
+vi.mock('../../src/main/sources/create-excerpt', () => ({ citedTextFromTtl: h.citedTextFromTtl }));
 
-import { createWatchHandlers, type WatchHandlerDeps } from '../../../src/main/notebase/watch-handlers';
+import { createWatchHandlers, type WatchHandlerDeps } from '../../src/main/watch-handlers';
 import { Channels } from '../../../src/shared/channels';
-import type { ProjectContext } from '../../../src/main/project-context-types';
+import type { ProjectContext } from '../../src/main/project-context-types';
 
 const CTX = { rootPath: '/vault', _brand: 'ProjectContext' as const } as unknown as ProjectContext;
 

@@ -17,19 +17,30 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import type { BrowserWindow } from 'electron';
-import { startWatching, stopWatching } from '../../../src/main/notebase/watcher';
+import { startWatching, stopWatching, type WatcherTarget } from '../../../src/main/notebase/watcher';
 import { Channels } from '../../../src/main/../shared/channels';
 
-interface StubWin {
-  isDestroyed: () => boolean;
-  webContents: { send: ReturnType<typeof vi.fn> };
+/**
+ * The watcher's report destination (#2284). It used to be a stub
+ * `BrowserWindow` with a fake `webContents.send`, because `startWatching` took
+ * a real window and reached for `broadcast` itself. It takes a `WatcherTarget`
+ * now, so this is just a recorder — the assertions below still read
+ * `(channel, payload)` because the recorder keeps that shape, but nothing here
+ * pretends to be Electron any more.
+ */
+interface StubTarget extends WatcherTarget {
+  send: ReturnType<typeof vi.fn>;
 }
 
-function makeWin(): StubWin {
+function makeWin(alive = true): StubTarget {
+  const send = vi.fn();
   return {
-    isDestroyed: () => false,
-    webContents: { send: vi.fn() },
+    send,
+    isAlive: () => alive,
+    fileCreated: (relativePath) => send(Channels.NOTEBASE_FILE_CREATED, relativePath),
+    fileChanged: (relativePath) => send(Channels.NOTEBASE_FILE_CHANGED, relativePath),
+    fileDeleted: (relativePath) => send(Channels.NOTEBASE_FILE_DELETED, relativePath),
+    renamed: (pairs) => send(Channels.NOTEBASE_RENAMED, pairs),
   };
 }
 
@@ -72,7 +83,7 @@ describe('startWatching() (#345)', () => {
   describe('notes-tree events', () => {
     it('emits onFileCreated for a new .md file (with relative path)', async () => {
       const created: string[] = [];
-      await startWatching(root, win as unknown as BrowserWindow, winId, {
+      await startWatching(root, win, winId, {
         onFileCreated: (p) => created.push(p),
         onFileChanged: () => undefined,
         onFileDeleted: () => undefined,
@@ -81,7 +92,7 @@ describe('startWatching() (#345)', () => {
       await fsp.writeFile(path.join(root, 'hello.md'), '# Hello\n', 'utf-8');
       await waitFor(() => created.includes('hello.md'));
       expect(created).toEqual(['hello.md']);
-      expect(win.webContents.send).toHaveBeenCalledWith(Channels.NOTEBASE_FILE_CREATED, 'hello.md');
+      expect(win.send).toHaveBeenCalledWith(Channels.NOTEBASE_FILE_CREATED, 'hello.md');
     });
 
     it('emits onFileChanged when a watched .md file is rewritten', async () => {
@@ -92,7 +103,7 @@ describe('startWatching() (#345)', () => {
       await fsp.writeFile(path.join(root, rel), 'v1\n', 'utf-8');
 
       const changed: string[] = [];
-      await startWatching(root, win as unknown as BrowserWindow, winId, {
+      await startWatching(root, win, winId, {
         onFileCreated: () => undefined,
         onFileChanged: (p) => changed.push(p),
         onFileDeleted: () => undefined,
@@ -105,7 +116,7 @@ describe('startWatching() (#345)', () => {
       // doesn't always happen). The contract is "the path was reported
       // as changed", not "exactly once".
       expect(changed).toContain(rel);
-      expect(win.webContents.send).toHaveBeenCalledWith(Channels.NOTEBASE_FILE_CHANGED, rel);
+      expect(win.send).toHaveBeenCalledWith(Channels.NOTEBASE_FILE_CHANGED, rel);
     });
 
     it('emits onFileDeleted when a watched .md file is removed', async () => {
@@ -113,7 +124,7 @@ describe('startWatching() (#345)', () => {
       await fsp.writeFile(path.join(root, rel), 'doomed\n', 'utf-8');
 
       const deleted: string[] = [];
-      await startWatching(root, win as unknown as BrowserWindow, winId, {
+      await startWatching(root, win, winId, {
         onFileCreated: () => undefined,
         onFileChanged: () => undefined,
         onFileDeleted: (p) => deleted.push(p),
@@ -122,12 +133,12 @@ describe('startWatching() (#345)', () => {
       await fsp.rm(path.join(root, rel));
       await waitFor(() => deleted.includes(rel));
       expect(deleted).toEqual([rel]);
-      expect(win.webContents.send).toHaveBeenCalledWith(Channels.NOTEBASE_FILE_DELETED, rel);
+      expect(win.send).toHaveBeenCalledWith(Channels.NOTEBASE_FILE_DELETED, rel);
     });
 
     it('handles all three indexable extensions (.md, .ttl, .csv)', async () => {
       const created: string[] = [];
-      await startWatching(root, win as unknown as BrowserWindow, winId, {
+      await startWatching(root, win, winId, {
         onFileCreated: (p) => created.push(p),
         onFileChanged: () => undefined,
         onFileDeleted: () => undefined,
@@ -143,7 +154,7 @@ describe('startWatching() (#345)', () => {
 
     it('refreshes the tree for non-indexable files but does NOT index them (#1130)', async () => {
       const created: string[] = [];
-      await startWatching(root, win as unknown as BrowserWindow, winId, {
+      await startWatching(root, win, winId, {
         onFileCreated: (p) => created.push(p),
         onFileChanged: () => undefined,
         onFileDeleted: () => undefined,
@@ -158,18 +169,18 @@ describe('startWatching() (#345)', () => {
       // The tree-refresh IPC fires for EVERY file, so the sidebar updates
       // when a .png / .txt is created (#1130).
       await waitFor(() =>
-        win.webContents.send.mock.calls.some(
+        win.send.mock.calls.some(
           (c) => c[0] === Channels.NOTEBASE_FILE_CREATED && c[1] === 'notes.txt',
         ),
       );
-      expect(win.webContents.send).toHaveBeenCalledWith(Channels.NOTEBASE_FILE_CREATED, 'image.png');
+      expect(win.send).toHaveBeenCalledWith(Channels.NOTEBASE_FILE_CREATED, 'image.png');
       // ...but the INDEX callback only ran for the indexable file — listing ≠ indexing.
       expect(created).toEqual(['real.md']);
     });
 
     it('files in dot-prefixed dirs are ignored (e.g. .git, .obsidian)', async () => {
       const created: string[] = [];
-      await startWatching(root, win as unknown as BrowserWindow, winId, {
+      await startWatching(root, win, winId, {
         onFileCreated: (p) => created.push(p),
         onFileChanged: () => undefined,
         onFileDeleted: () => undefined,
@@ -188,11 +199,8 @@ describe('startWatching() (#345)', () => {
 
     it('does not call back after the window has been destroyed', async () => {
       const created: string[] = [];
-      const destroyableWin: StubWin = {
-        isDestroyed: () => true,
-        webContents: { send: vi.fn() },
-      };
-      await startWatching(root, destroyableWin as unknown as BrowserWindow, winId, {
+      const destroyableWin = makeWin(false);
+      await startWatching(root, destroyableWin, winId, {
         onFileCreated: (p) => created.push(p),
         onFileChanged: () => undefined,
         onFileDeleted: () => undefined,
@@ -202,7 +210,7 @@ describe('startWatching() (#345)', () => {
       // Wait long enough that, if the callback were going to fire, it would have.
       await new Promise((r) => setTimeout(r, 400));
       expect(created).toEqual([]);
-      expect(destroyableWin.webContents.send).not.toHaveBeenCalled();
+      expect(destroyableWin.send).not.toHaveBeenCalled();
     });
   });
 
@@ -217,7 +225,7 @@ describe('startWatching() (#345)', () => {
 
       const deleted: string[] = [];
       const created: string[] = [];
-      await startWatching(root, win as unknown as BrowserWindow, winId, {
+      await startWatching(root, win, winId, {
         onFileCreated: (p) => created.push(p),
         onFileChanged: () => undefined,
         onFileDeleted: (p) => deleted.push(p),
@@ -228,11 +236,11 @@ describe('startWatching() (#345)', () => {
       // The rename transition is broadcast (tab follows) and no delete IPC
       // for the old path is ever sent (that would close the tab).
       await waitFor(() =>
-        win.webContents.send.mock.calls.some(
+        win.send.mock.calls.some(
           (c) => c[0] === Channels.NOTEBASE_RENAMED,
         ),
       );
-      const renameCall = win.webContents.send.mock.calls.find(
+      const renameCall = win.send.mock.calls.find(
         (c) => c[0] === Channels.NOTEBASE_RENAMED,
       );
       expect(renameCall?.[1]).toEqual([{ old: rel, new: 'sub/note.md' }]);
@@ -240,7 +248,7 @@ describe('startWatching() (#345)', () => {
       // Give the (would-be) delete window time to elapse — the renderer-facing
       // delete IPC (which closes the tab) must never fire.
       await new Promise((r) => setTimeout(r, 300));
-      const sentDelete = win.webContents.send.mock.calls.some(
+      const sentDelete = win.send.mock.calls.some(
         (c) => c[0] === Channels.NOTEBASE_FILE_DELETED,
       );
       expect(sentDelete).toBe(false);
@@ -256,7 +264,7 @@ describe('startWatching() (#345)', () => {
       // watcher only knows a file's inode once it has seen an add/change for
       // it this session.
       const created: string[] = [];
-      await startWatching(root, win as unknown as BrowserWindow, winId, {
+      await startWatching(root, win, winId, {
         onFileCreated: (p) => created.push(p),
         onFileChanged: () => undefined,
         onFileDeleted: () => undefined,
@@ -272,11 +280,11 @@ describe('startWatching() (#345)', () => {
       await fsp.rename(path.join(root, rel), path.join(root, 'new-name.md'));
 
       await waitFor(() =>
-        win.webContents.send.mock.calls.some(
+        win.send.mock.calls.some(
           (c) => c[0] === Channels.NOTEBASE_RENAMED,
         ),
       );
-      const renameCall = win.webContents.send.mock.calls.find(
+      const renameCall = win.send.mock.calls.find(
         (c) => c[0] === Channels.NOTEBASE_RENAMED,
       );
       // In-place rename keeps the same inode, so the pair is correlated even
@@ -290,7 +298,7 @@ describe('startWatching() (#345)', () => {
       await fsp.writeFile(path.join(root, rel), 'x\n', 'utf-8');
 
       const deleted: string[] = [];
-      await startWatching(root, win as unknown as BrowserWindow, winId, {
+      await startWatching(root, win, winId, {
         onFileCreated: () => undefined,
         onFileChanged: () => undefined,
         onFileDeleted: (p) => deleted.push(p),
@@ -298,11 +306,11 @@ describe('startWatching() (#345)', () => {
 
       await fsp.rm(path.join(root, rel));
       await waitFor(() => deleted.includes(rel));
-      expect(win.webContents.send).toHaveBeenCalledWith(
+      expect(win.send).toHaveBeenCalledWith(
         Channels.NOTEBASE_FILE_DELETED,
         rel,
       );
-      expect(win.webContents.send.mock.calls.some((c) => c[0] === Channels.NOTEBASE_RENAMED)).toBe(false);
+      expect(win.send.mock.calls.some((c) => c[0] === Channels.NOTEBASE_RENAMED)).toBe(false);
     });
   });
 
@@ -317,7 +325,7 @@ describe('startWatching() (#345)', () => {
       await fsp.mkdir(dir, { recursive: true });
 
       const onSourceMetaChanged = vi.fn();
-      await startWatching(root, win as unknown as BrowserWindow, winId, {
+      await startWatching(root, win, winId, {
         onFileChanged: () => undefined,
         onFileCreated: () => undefined,
         onFileDeleted: () => undefined,
@@ -338,7 +346,7 @@ describe('startWatching() (#345)', () => {
       await fsp.mkdir(dir, { recursive: true });
 
       const onSourceMetaChanged = vi.fn();
-      await startWatching(root, win as unknown as BrowserWindow, winId, {
+      await startWatching(root, win, winId, {
         onFileChanged: () => undefined,
         onFileCreated: () => undefined,
         onFileDeleted: () => undefined,
@@ -358,7 +366,7 @@ describe('startWatching() (#345)', () => {
       await fsp.writeFile(path.join(dir, 'meta.ttl'), '@prefix x: <x> .\n', 'utf-8');
 
       const onSourceMetaDeleted = vi.fn();
-      await startWatching(root, win as unknown as BrowserWindow, winId, {
+      await startWatching(root, win, winId, {
         onFileChanged: () => undefined,
         onFileCreated: () => undefined,
         onFileDeleted: () => undefined,
@@ -373,7 +381,7 @@ describe('startWatching() (#345)', () => {
     it('routes .minerva/excerpts/<id>.ttl writes to onExcerptChanged', async () => {
       const excerptId = 'ex-7';
       const onExcerptChanged = vi.fn();
-      await startWatching(root, win as unknown as BrowserWindow, winId, {
+      await startWatching(root, win, winId, {
         onFileChanged: () => undefined,
         onFileCreated: () => undefined,
         onFileDeleted: () => undefined,
@@ -395,7 +403,7 @@ describe('startWatching() (#345)', () => {
       await fsp.writeFile(path.join(dir, `${excerptId}.ttl`), '@prefix x: <x> .\n', 'utf-8');
 
       const onExcerptDeleted = vi.fn();
-      await startWatching(root, win as unknown as BrowserWindow, winId, {
+      await startWatching(root, win, winId, {
         onFileChanged: () => undefined,
         onFileCreated: () => undefined,
         onFileDeleted: () => undefined,
@@ -416,7 +424,7 @@ describe('startWatching() (#345)', () => {
 
       const onSourceMetaChanged = vi.fn();
       const onExcerptChanged = vi.fn();
-      await startWatching(root, win as unknown as BrowserWindow, winId, {
+      await startWatching(root, win, winId, {
         onFileChanged: () => undefined,
         onFileCreated: () => undefined,
         onFileDeleted: () => undefined,
@@ -438,7 +446,7 @@ describe('startWatching() (#345)', () => {
   describe('stopWatching()', () => {
     it('detaches every watcher so subsequent file ops produce no callbacks', async () => {
       const created: string[] = [];
-      await startWatching(root, win as unknown as BrowserWindow, winId, {
+      await startWatching(root, win, winId, {
         onFileCreated: (p) => created.push(p),
         onFileChanged: () => undefined,
         onFileDeleted: () => undefined,
@@ -454,7 +462,7 @@ describe('startWatching() (#345)', () => {
 
     it('stopWatching on an unknown id is a no-op — other watchers keep running', async () => {
       const created: string[] = [];
-      await startWatching(root, win as unknown as BrowserWindow, winId, {
+      await startWatching(root, win, winId, {
         onFileCreated: (p) => created.push(p),
         onFileChanged: () => undefined,
         onFileDeleted: () => undefined,
@@ -470,14 +478,14 @@ describe('startWatching() (#345)', () => {
 
     it('startWatching twice on the same id replaces the previous watcher', async () => {
       const firstCreated: string[] = [];
-      await startWatching(root, win as unknown as BrowserWindow, winId, {
+      await startWatching(root, win, winId, {
         onFileCreated: (p) => firstCreated.push(p),
         onFileChanged: () => undefined,
         onFileDeleted: () => undefined,
       });
 
       const secondCreated: string[] = [];
-      await startWatching(root, win as unknown as BrowserWindow, winId, {
+      await startWatching(root, win, winId, {
         onFileCreated: (p) => secondCreated.push(p),
         onFileChanged: () => undefined,
         onFileDeleted: () => undefined,

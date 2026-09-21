@@ -1,7 +1,15 @@
 /**
  * File-watcher callback bundle for one open project (#1907 — extracted out
- * of the ~270-line `openProjectInWindow` in `../window-manager.ts`, one of
+ * of the ~270-line `openProjectInWindow` in `./window-manager.ts`, one of
  * only two genuine long-procedure cases in the codebase).
+ *
+ * Sits beside `window-manager.ts` rather than under `notebase/` (#2284). It
+ * came out of the composition root and never stopped being composition: it
+ * fans one file change out to the graph, the search index, DuckDB tables, the
+ * vector store, the Python kernel and the sources library, and the only thing
+ * that imports it is the root that spawned it. Under `notebase/` those imports
+ * read as `notebase → compute` and `notebase → sources`, which made two
+ * package cycles out of one file that was never really part of the package.
  *
  * `createWatchHandlers()` owns its own debounce state (the persist timer, the
  * per-.py-file kernel-invalidate queue) — nothing outside a single project's
@@ -10,20 +18,20 @@
  * `BrowserWindow` so the handlers are testable without constructing one —
  * the thing the stale-vector bug (#1892) needed and didn't have.
  */
-import { Channels } from '../../shared/channels';
-import type { EventMap } from '../../shared/ipc-contract';
-import * as graph from '../graph/index';
-import * as search from '../search/index';
-import * as notebaseFs from './fs';
-import * as tables from '../sources/tables';
-import { indexAllFor, removeAllFor } from './index-fanout';
-import { invalidate as invalidatePythonModules } from '../compute/python-kernel';
-import * as vectors from '../embeddings/vector-store';
-import { citedTextFromTtl } from '../sources/create-excerpt';
-import { wasHandled } from './path-dedup';
-import type { ProjectContext } from '../project-context-types';
-import type { WatcherCallbacks } from './watcher';
-import { logger } from '../../shared/logger';
+import { Channels } from '../shared/channels';
+import type { EventMap } from '../shared/ipc-contract';
+import * as graph from './graph/index';
+import * as search from './search/index';
+import * as notebaseFs from './notebase/fs';
+import * as tables from './sources/tables';
+import { indexAllFor, removeAllFor } from './notebase/index-fanout';
+import { invalidate as invalidatePythonModules } from './compute/python-kernel';
+import * as vectors from './embeddings/vector-store';
+import { citedTextFromTtl } from './sources/create-excerpt';
+import { wasHandled } from './notebase/path-dedup';
+import type { ProjectContext } from './project-context-types';
+import type { WatcherCallbacks } from './notebase/watcher';
+import { logger } from '../shared/logger';
 
 /** Channels these handlers broadcast — all fire-and-forget "something
  *  changed" pings with no payload. */
