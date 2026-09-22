@@ -41,6 +41,22 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
 
+      # The ONLY assertion that pnpm-lock.yaml still matches package.json, and
+      # it has to run unconditionally (#2244). The `--frozen-lockfile` install
+      # below is conditional on a cache MISS, and the cache key hashes the
+      # lockfile but not the manifest — so editing a version range in
+      # package.json without regenerating the lockfile leaves the key
+      # unchanged, skips the install, and reports green against dependencies
+      # that do not match the manifest. (Verified skipped in run 35524773279.)
+      #
+      # `--lockfile-only` resolves and compares without installing or linking
+      # (~0.4s), and `--frozen-lockfile` makes it fail rather than rewrite the
+      # lockfile. Deliberately NOT fixed by adding package.json to the cache
+      # key: that busts node_modules on every version bump and script edit,
+      # and still only checks on the miss path.
+      - name: Verify lockfile matches package.json
+        run: pnpm install --frozen-lockfile --lockfile-only
+
       # node-linker=hoisted → node_modules is a self-contained flat tree (no
       # store symlinks), so caching it directly is safe. Keyed on the lockfile
       # + Node + OS/arch, so a dep or Node bump busts it. The `cache: pnpm`
@@ -175,6 +191,11 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
+
+      # Unconditional lockfile/manifest check (#2244) — see ci.yml's
+      # lint-and-test job for why this cannot rely on the conditional install.
+      - name: Verify lockfile matches package.json
+        run: pnpm install --frozen-lockfile --lockfile-only
 
       # See lint-and-test for the rationale; same key so both jobs share the
       # cached tree across runs (#663).

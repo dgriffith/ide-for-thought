@@ -442,6 +442,34 @@ produces artifacts that must not be published; and the tag arrives through
 `env:` rather than `${{ github.ref_name }}` interpolated into `run:`, which is
 the standard Actions script-injection shape.
 `tests/architecture/release-tag-gate.test.ts` pins both.
+### The lockfile gate runs unconditionally (#2244)
+
+`pnpm install --frozen-lockfile` is the only thing in the pipeline that
+asserts `pnpm-lock.yaml` still matches `package.json`. It sits behind
+`if: cache-hit != 'true'`, and the `node_modules` cache key hashes the
+lockfile but **not** the manifest — so editing a version range in
+`package.json` without regenerating the lockfile left the key unchanged,
+skipped the install, and reported green against dependencies that don't match
+the manifest. The drift then surfaced on the next contributor's cold clone,
+which is the worst place for it precisely *because* CI was green.
+
+Every job whose install is conditional now runs
+`pnpm install --frozen-lockfile --lockfile-only` first — it resolves and
+compares without installing or linking (~0.4s), and `--frozen-lockfile` makes
+it fail rather than rewrite the lockfile.
+
+Not fixed by adding `package.json` to the cache key, which was the obvious
+one-liner: that busts `node_modules` on every version bump and script edit,
+and still only checks on the miss path. A job that installs *unconditionally*
+(`bench.yml`) needs no separate step — its `--frozen-lockfile` already is the
+assertion.
+
+`tests/architecture/lockfile-gate.test.ts` holds both halves: every
+conditionally-installing job verifies first and does it with no `if:`, and the
+`node_modules` cache keys stay byte-identical across `ci.yml` and
+`release.yml` (#1638, #663). That second one fails nothing when it breaks —
+the workflows just quietly stop sharing a warm cache and pay a cold install
+every run, which is invisible until someone reads the timings.
 
 ### Out-of-band checks ship their notification path (#2242)
 
