@@ -18,6 +18,7 @@ import { withRootPath, withRootPathOr, withRootPathWin } from './helpers';
 import { getInspectionSettings, saveInspectionSettings } from '../config/inspection-settings';
 import { exportKnowledgeGraph } from '../maintenance-commands';
 import { isA, labelOf } from '../graph/argument-patterns';
+import { coerceDuckRowsForIpc } from '../compute/duck-values';
 import type { InspectionSettings } from '../../shared/inspections';
 
 export function registerGraph(): void {
@@ -51,8 +52,18 @@ export function registerGraph(): void {
   }));
 
   // Tables (DuckDB)
-  handle(Channels.TABLES_QUERY, withRootPathOr<[string], QueryResult | Promise<QueryResult>>({ ok: false, error: 'No project open' }, (rootPath, sql: string) =>
-    tables.runQuery(projectContext(rootPath), sql)));
+  //
+  // `coerceDuckRowsForIpc` (#2228) is the last stop before the renderer: DuckDB
+  // hands integer columns back as JS `BigInt` — including every integer column
+  // of a registered CSV, since the sniffer types those BIGINT — and a raw
+  // BigInt makes `JSON.stringify` throw in whichever consumer reaches for JSON
+  // first. The cell, Python-RPC and `query_sql` paths each already coerce on
+  // their own way out; this was the one that didn't. See the helper's comment
+  // for why it lives here rather than inside `runQuery`.
+  handle(Channels.TABLES_QUERY, withRootPathOr<[string], QueryResult | Promise<QueryResult>>({ ok: false, error: 'No project open' }, async (rootPath, sql: string) => {
+    const result = await tables.runQuery(projectContext(rootPath), sql);
+    return result.ok ? { ...result, rows: coerceDuckRowsForIpc(result.rows) } : result;
+  }));
 
   handle(Channels.TABLES_LIST, withRootPathOr<[], TableInfo[] | Promise<TableInfo[]>>([], (rootPath) =>
     tables.listTables(projectContext(rootPath))));

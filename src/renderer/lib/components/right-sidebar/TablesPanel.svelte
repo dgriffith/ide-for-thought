@@ -10,8 +10,9 @@
    *    `source === 'note'` and `relativePath` is the active note.
    *
    * A table the note both defines and queries appears in both sections (they
-   * answer different questions). Each row opens `SELECT * FROM <name>` in a new
-   * query tab.
+   * answer different questions). Each row opens a `SELECT *` preview in a new
+   * query tab — row-capped since #2228, see `selectStarSql` for the measured
+   * cost of the uncapped version and for why the cap needs no warning UI.
    *
    * Polished per IMPLEMENTATION.md §13.5: tables icon + mono name + rows × cols
    * stat in mono-faint + right-aligned SELECT * accent button.
@@ -20,7 +21,7 @@
   import Ribbon from './Ribbon.svelte';
   import Icon from '../Icon.svelte';
   import type { TableInfo } from '../../ipc/client';
-  import { partitionTables } from './tables-panel-logic';
+  import { partitionTables, selectStarSql, TABLE_PREVIEW_ROW_LIMIT } from './tables-panel-logic';
 
   interface Props {
     content: string;
@@ -51,7 +52,7 @@
 
   function handleSelectStar(e: MouseEvent, name: string) {
     e.stopPropagation();
-    onOpenQuery(`SELECT * FROM ${name}`);
+    onOpenQuery(selectStarSql(name));
   }
 </script>
 
@@ -65,8 +66,8 @@
     class:dead={info === undefined}
     role="button"
     tabindex="0"
-    onclick={() => onOpenQuery(`SELECT * FROM ${name}`)}
-    onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenQuery(`SELECT * FROM ${name}`); } }}
+    onclick={() => onOpenQuery(selectStarSql(name))}
+    onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenQuery(selectStarSql(name)); } }}
     title={info
       ? `${caption ? `${caption} · ` : ''}${name} · ${info.rowCount} × ${info.columns.length}`
       : `${name} (not registered)`}
@@ -88,7 +89,7 @@
       <button
         class="select-btn"
         onclick={(e) => handleSelectStar(e, name)}
-        title="SELECT * FROM {name}"
+        title={`SELECT * FROM ${name} LIMIT ${TABLE_PREVIEW_ROW_LIMIT}`}
       >SELECT *</button>
     {/if}
   </div>

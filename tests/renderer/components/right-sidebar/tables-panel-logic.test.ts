@@ -9,6 +9,8 @@ import type { TableInfo } from '../../../../src/renderer/lib/ipc/client';
 import {
   extractReferencedTableNames,
   partitionTables,
+  selectStarSql,
+  TABLE_PREVIEW_ROW_LIMIT,
 } from '../../../../src/renderer/lib/components/right-sidebar/tables-panel-logic';
 
 function tbl(over: Partial<TableInfo> & { name: string }): TableInfo {
@@ -108,5 +110,36 @@ describe('partitionTables', () => {
     const { defined, referenced } = partitionTables(content, registered, null, '');
     expect(defined).toEqual([]);
     expect(referenced.map((r) => r.name)).toEqual(['sales']);
+  });
+});
+
+describe('selectStarSql (#2228)', () => {
+  it('carries a LIMIT — the panel never hands out an unbounded SELECT *', () => {
+    // A count-based gate, not a timing one: an uncapped `SELECT *` fully
+    // materializes the table on the main process thread inside
+    // `reader.getRowObjectsJS()` and then clones the whole array to the
+    // renderer. Measured on a 1M-row / 6-column CSV: 1909ms + a 99.8MB clone
+    // payload, against 42ms and ~0MB for the capped form.
+    const sql = selectStarSql('sales');
+    expect(sql).toMatch(/\bLIMIT\s+\d+\s*$/i);
+    expect(sql).toContain(`LIMIT ${TABLE_PREVIEW_ROW_LIMIT}`);
+  });
+
+  it('still selects everything from the named table', () => {
+    expect(selectStarSql('sales')).toMatch(/^SELECT \*\nFROM sales\n/);
+  });
+
+  it('caps at a preview-sized number of rows, not the whole table', () => {
+    // Guards the constant itself: a "cap" of a million rows would satisfy the
+    // regex above while restoring exactly the cost this fixes.
+    expect(TABLE_PREVIEW_ROW_LIMIT).toBeGreaterThan(0);
+    expect(TABLE_PREVIEW_ROW_LIMIT).toBeLessThanOrEqual(1000);
+  });
+
+  it('puts the LIMIT on its own line, where the query editor shows it', () => {
+    // The truncation affordance IS the query text (CLAUDE.md's UI philosophy:
+    // no banner, no interstitial) — so the cap has to be legible in the editor
+    // the click opens, not tacked onto the tail of a long single line.
+    expect(selectStarSql('sales').split('\n')).toEqual(['SELECT *', 'FROM sales', 'LIMIT 500']);
   });
 });

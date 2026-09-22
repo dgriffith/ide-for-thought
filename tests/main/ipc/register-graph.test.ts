@@ -223,6 +223,30 @@ describe('register-graph — queries and lookups', () => {
       .resolves.toEqual({ ok: false, error: 'Parser Error: syntax error' });
   });
 
+  it('TABLES_QUERY coerces DuckDB BigInts before the rows leave the process (#2228)', async () => {
+    // DuckDB types a CSV's integer column BIGINT, so the ordinary
+    // `SELECT * FROM <csv table>` the Tables panel opens returns a `bigint` in
+    // every integer cell. BigInt survives structured clone, so it reaches the
+    // renderer intact and only explodes at whichever consumer reaches for JSON
+    // first — which is why this is asserted on the handler's output, not on
+    // any one consumer.
+    h.runQuery.mockResolvedValue({
+      ok: true,
+      columns: ['id', 'label', 'huge'],
+      rows: [{ id: 7n, label: 'alpha', huge: BigInt(Number.MAX_SAFE_INTEGER) + 1n }],
+    });
+    const result = await callAsync(Channels.TABLES_QUERY, 'SELECT * FROM data') as {
+      ok: true; columns: string[]; rows: Record<string, unknown>[];
+    };
+    expect(() => JSON.stringify(result)).not.toThrow();
+    // In-range integers stay NUMERIC — a chart scales and the results table
+    // sorts on this value, so stringifying every integer would be a quiet
+    // type-loss, not a safe fix. Only the out-of-range one becomes a string.
+    expect(result.rows[0]).toEqual({ id: 7, label: 'alpha', huge: '9007199254740992' });
+    expect(typeof result.rows[0]!.id).toBe('number');
+    expect(result.columns).toEqual(['id', 'label', 'huge']);
+  });
+
   it('TABLES_LIST reports the registered tables', async () => {
     h.listTables.mockResolvedValue([{ name: 'notes' }]);
     await expect(callAsync(Channels.TABLES_LIST)).resolves.toEqual([{ name: 'notes' }]);
