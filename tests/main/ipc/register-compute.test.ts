@@ -115,6 +115,7 @@ vi.mock('../../../src/main/graph/index', () => ({}));
 import { registerCompute } from '../../../src/main/ipc/register-compute';
 import { cellHash } from '../../../src/main/compute/consent';
 import { Channels } from '../../../src/shared/channels';
+import { DEFAULT_CELL_TIMEOUT_SECONDS } from '../../../src/shared/compute/types';
 
 registerCompute();
 h.userData.dir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-compute-'));
@@ -361,26 +362,43 @@ describe('python kernel handlers', () => {
 
 describe('python settings handlers', () => {
   it('COMPUTE_GET_PYTHON_SETTINGS reads the per-machine settings', async () => {
-    h.getPythonSettings.mockResolvedValue({ pythonPath: '/usr/bin/python3', allowNetwork: true });
-    await expect(callAsync(Channels.COMPUTE_GET_PYTHON_SETTINGS))
-      .resolves.toEqual({ pythonPath: '/usr/bin/python3', allowNetwork: true });
+    const stored = { pythonPath: '/usr/bin/python3', allowNetwork: true, cellTimeoutSeconds: 90 };
+    h.getPythonSettings.mockResolvedValue(stored);
+    await expect(callAsync(Channels.COMPUTE_GET_PYTHON_SETTINGS)).resolves.toEqual(stored);
   });
 
   it('COMPUTE_SET_PYTHON_SETTINGS stores what it was given', async () => {
-    await call(Channels.COMPUTE_SET_PYTHON_SETTINGS, { pythonPath: '/opt/py', allowNetwork: true });
-    expect(h.setPythonSettings).toHaveBeenCalledWith({ pythonPath: '/opt/py', allowNetwork: true });
+    await call(Channels.COMPUTE_SET_PYTHON_SETTINGS, {
+      pythonPath: '/opt/py', allowNetwork: true, cellTimeoutSeconds: 45,
+    });
+    expect(h.setPythonSettings).toHaveBeenCalledWith({
+      pythonPath: '/opt/py', allowNetwork: true, cellTimeoutSeconds: 45,
+    });
   });
 
   it('COMPUTE_SET_PYTHON_SETTINGS coerces a malformed payload to the safe defaults', async () => {
     // `allowNetwork` gates outbound network access from user code, so anything
-    // that isn't literally `true` has to land on `false`.
-    await call(Channels.COMPUTE_SET_PYTHON_SETTINGS, { pythonPath: 42, allowNetwork: 'yes' });
-    expect(h.setPythonSettings).toHaveBeenCalledWith({ pythonPath: '', allowNetwork: false });
+    // that isn't literally `true` has to land on `false`. A PRESENT but
+    // nonsense timeout is the other direction from a missing one (below):
+    // the field was sent, so the normalizer's `<= 0 → no limit` reading
+    // applies rather than the default (#2218).
+    await call(Channels.COMPUTE_SET_PYTHON_SETTINGS, {
+      pythonPath: 42, allowNetwork: 'yes', cellTimeoutSeconds: 'soon',
+    });
+    expect(h.setPythonSettings).toHaveBeenCalledWith({
+      pythonPath: '', allowNetwork: false, cellTimeoutSeconds: 0,
+    });
   });
 
   it('COMPUTE_SET_PYTHON_SETTINGS survives a missing payload', async () => {
     await call(Channels.COMPUTE_SET_PYTHON_SETTINGS, undefined);
-    expect(h.setPythonSettings).toHaveBeenCalledWith({ pythonPath: '', allowNetwork: false });
+    // The timeout falls back to the DEFAULT rather than to 0 (#2218):
+    // 0 means "no limit", so a payload missing the field would quietly
+    // disarm the execution deadline on the way through a handler whose
+    // whole job here is to be defensive.
+    expect(h.setPythonSettings).toHaveBeenCalledWith({
+      pythonPath: '', allowNetwork: false, cellTimeoutSeconds: DEFAULT_CELL_TIMEOUT_SECONDS,
+    });
   });
 
   it('COMPUTE_PROBE_PYTHON probes the candidate the caller named', async () => {

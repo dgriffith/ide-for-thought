@@ -60,7 +60,7 @@ import type { ClipperState } from './clipper-pairing';
 import type { McpServerDescriptor, McpServerStatus } from './mcp-servers';
 import type { Proposal } from './proposals';
 import type { BatchRevertResult, HistorySettings, LabelNotesResult, RevisionMeta, SelectionRoot, UnifiedTimelineEntry } from './history';
-import type { CellResult, CellOutput, ComputeConsentSummary, PythonProbeResult } from './compute/types';
+import type { CellResult, CellOutput, ComputeConsentSummary, PythonProbeResult, PythonSettings } from './compute/types';
 import type { AutoLinkSuggestion } from './refactor/auto-link';
 import type { AutoLinkInboundSuggestion } from './refactor/auto-link-inbound';
 import type { FormatSettings } from './formatter/engine';
@@ -410,8 +410,8 @@ export interface ChannelMap {
   'compute:interruptPython': () =>
     | { ok: true }
     | { ok: false; reason: 'no-kernel' | 'unsupported-platform' | 'signal-failed' };
-  'compute:getPythonSettings': () => { pythonPath: string; allowNetwork: boolean };
-  'compute:setPythonSettings': (settings: { pythonPath: string; allowNetwork: boolean }) => void;
+  'compute:getPythonSettings': () => PythonSettings;
+  'compute:setPythonSettings': (settings: PythonSettings) => void;
   'compute:probePython': (candidate?: string) => PythonProbeResult;
   'compute:browsePython': () => string | null;
   'compute:consentStatus': (language: string, code: string) => 'cell' | 'blanket' | 'none';

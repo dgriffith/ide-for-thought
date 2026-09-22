@@ -472,16 +472,50 @@ Tiny()
     expect(r.error).toMatch(/KeyboardInterrupt/);
   });
 
-  // Namespace-preservation test deliberately omitted in v1 (#372).
-  // The single-interrupt acceptance is covered above; the multi-cell
-  // namespace-survives-interrupt path exposes a sensitive timing
-  // window in the kernel's signal-recovery loop that needs its own
-  // ticket — the kernel sometimes loses the per-notebook namespace
-  // between a SIGINT'd cell and the next request, even though my
-  // exec_cell except block doesn't touch the dict. Manual smoke
-  // (interrupt a long sleep, run a follow-up cell that prints a
-  // pre-interrupt variable) works ~95% of the time; the last 5%
-  // wants real investigation.
+  // The namespace-preservation test that #372 left out. Its note said the
+  // kernel "sometimes loses the per-notebook namespace between a SIGINT'd cell
+  // and the next request" and blamed "a sensitive timing window in the
+  // kernel's signal-recovery loop". The loop was innocent — the kernel never
+  // lost anything, because it was never asked. #2218 found the real cause on
+  // the TypeScript side: `runPython`'s liveness check read `proc.killed`,
+  // which Node sets when a signal is SENT, not when the process dies. One
+  // SIGINT poisoned it forever, so the next cell spawned a SECOND kernel
+  // against an empty namespace and abandoned the first one still running.
+  //
+  // Nothing timing-dependent about it, which is why this can be a flat
+  // assertion rather than the flaky test the note feared. It matters more now
+  // that #2218 interrupts automatically on a timeout: an interrupt that
+  // quietly restarts the kernel would trade a wedged project for a project
+  // that silently loses every variable in every notebook.
+  interruptIfPosix('the kernel SURVIVES an interrupt — same process, namespaces intact (#372, fixed #2218)', async () => {
+    const ROOT3 = ROOT + '-survives-interrupt';
+    try {
+      const before = await runPython(ROOT3, 'survive.md', 'import os\nmarker = 99\nos.getpid()');
+      expect(before.ok).toBe(true);
+      if (!before.ok || before.output.type !== 'json') return;
+      const pidBefore = before.output.value;
+
+      const long = runPython(ROOT3, 'other.md', 'import time; time.sleep(30)');
+      await new Promise((r) => setTimeout(r, 200));
+      expect(interruptKernel(ROOT3).ok).toBe(true);
+      expect((await long).ok).toBe(false);
+
+      // Same process: an interrupt is not a restart.
+      const after = await runPython(ROOT3, 'survive.md', 'import os; os.getpid()');
+      expect(after.ok).toBe(true);
+      if (!after.ok || after.output.type !== 'json') return;
+      expect(after.output.value).toBe(pidBefore);
+
+      // And the namespace of the notebook that was never interrupted is
+      // exactly where it was left.
+      const kept = await runPython(ROOT3, 'survive.md', 'marker + 1');
+      expect(kept.ok).toBe(true);
+      if (!kept.ok || kept.output.type !== 'json') return;
+      expect(kept.output.value).toBe(100);
+    } finally {
+      await stopKernel(ROOT3);
+    }
+  });
 
   it('two projects keep independent kernels', async () => {
     const ROOT2 = ROOT + '-other';

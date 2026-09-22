@@ -13,6 +13,7 @@
 import type { MenuConfig } from '../../../shared/skills/menu-config';
 import type { McpServerDescriptor } from '../../../shared/mcp-servers';
 import { api } from '../ipc/client';
+import type { PythonSettings } from '../../../shared/compute/types';
 
 export function getSettingsStore() {
   return {
@@ -67,7 +68,7 @@ export function getSettingsStore() {
     setSkillsMenuConfig: (config: MenuConfig) => api.skills.setMenuConfig(config),
 
     // ── Compute (Python) ──────────────────────────────────────────────────
-    setPythonSettings: (settings: { pythonPath: string; allowNetwork: boolean }) =>
+    setPythonSettings: (settings: PythonSettings) =>
       api.compute.setPythonSettings(settings),
     restartPythonKernel: () => api.compute.restartPythonKernel(),
     /** Revoke a thoughtbase's compute trust (#1413) — its cells prompt

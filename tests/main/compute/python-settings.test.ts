@@ -31,6 +31,11 @@ import {
   resolvePythonInterpreter,
   probePythonInterpreter,
 } from '../../../src/main/compute/python-settings';
+import {
+  DEFAULT_CELL_TIMEOUT_SECONDS,
+  MAX_CELL_TIMEOUT_SECONDS,
+  normalizeCellTimeoutSeconds,
+} from '../../../src/shared/compute/types';
 
 beforeEach(async () => {
   tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'minerva-pysettings-'));
@@ -94,16 +99,103 @@ describe('getPythonSettings (#374)', () => {
 
 describe('setPythonSettings (#374)', () => {
   it('persists round-trip', async () => {
-    await setPythonSettings({ pythonPath: '/usr/local/bin/python3.12', allowNetwork: false });
+    await setPythonSettings({
+      pythonPath: '/usr/local/bin/python3.12', allowNetwork: false,
+      cellTimeoutSeconds: DEFAULT_CELL_TIMEOUT_SECONDS,
+    });
     const reread = await getPythonSettings();
     expect(reread.pythonPath).toBe('/usr/local/bin/python3.12');
   });
 
   it('round-trips allowNetwork (#1413)', async () => {
-    await setPythonSettings({ pythonPath: '', allowNetwork: true });
+    const base = { pythonPath: '', cellTimeoutSeconds: DEFAULT_CELL_TIMEOUT_SECONDS };
+    await setPythonSettings({ ...base, allowNetwork: true });
     expect((await getPythonSettings()).allowNetwork).toBe(true);
-    await setPythonSettings({ pythonPath: '', allowNetwork: false });
+    await setPythonSettings({ ...base, allowNetwork: false });
     expect((await getPythonSettings()).allowNetwork).toBe(false);
+  });
+});
+
+describe('cell execution timeout (#2218)', () => {
+  it('defaults to the standard budget when the key is absent', async () => {
+    // Every settings file written before #2218 lacks the key. Reading that as
+    // "0 — no limit" would leave every existing install with the unbounded
+    // behaviour the ticket exists to remove, and nothing would say so.
+    await fs.writeFile(
+      path.join(tempDir, 'python-settings.json'),
+      JSON.stringify({ pythonPath: '', allowNetwork: false }),
+      'utf-8',
+    );
+    expect((await getPythonSettings()).cellTimeoutSeconds).toBe(DEFAULT_CELL_TIMEOUT_SECONDS);
+  });
+
+  it('an explicitly stored 0 means no limit — and survives a reread', async () => {
+    // The one value a user can set that must NOT be replaced by the default,
+    // which is why "absent" and "0" are decoded differently.
+    await fs.writeFile(
+      path.join(tempDir, 'python-settings.json'),
+      JSON.stringify({ cellTimeoutSeconds: 0 }),
+      'utf-8',
+    );
+    expect((await getPythonSettings()).cellTimeoutSeconds).toBe(0);
+  });
+
+  it('reads a stored budget', async () => {
+    await fs.writeFile(
+      path.join(tempDir, 'python-settings.json'),
+      JSON.stringify({ cellTimeoutSeconds: 45 }),
+      'utf-8',
+    );
+    expect((await getPythonSettings()).cellTimeoutSeconds).toBe(45);
+  });
+
+  it('round-trips through setPythonSettings', async () => {
+    await setPythonSettings({ pythonPath: '', allowNetwork: false, cellTimeoutSeconds: 15 });
+    expect((await getPythonSettings()).cellTimeoutSeconds).toBe(15);
+  });
+
+  it('normalizes a garbage stored value rather than trusting it', async () => {
+    await fs.writeFile(
+      path.join(tempDir, 'python-settings.json'),
+      JSON.stringify({ cellTimeoutSeconds: 'soon' }),
+      'utf-8',
+    );
+    expect((await getPythonSettings()).cellTimeoutSeconds).toBe(DEFAULT_CELL_TIMEOUT_SECONDS);
+  });
+});
+
+describe('normalizeCellTimeoutSeconds (#2218)', () => {
+  it('passes a plain positive value through', () => {
+    expect(normalizeCellTimeoutSeconds(60)).toBe(60);
+  });
+
+  it('treats 0 and negatives as "no limit"', () => {
+    // A negative in the file is nonsense; folding it into the documented 0 is
+    // kinder than re-arming a limit the user was plainly removing.
+    expect(normalizeCellTimeoutSeconds(0)).toBe(0);
+    expect(normalizeCellTimeoutSeconds(-5)).toBe(0);
+  });
+
+  it('rounds a positive fraction UP, never down into "no limit"', () => {
+    // Math.round(0.4) is 0, which would flip the meaning from "very short
+    // limit" to "no limit at all" — the opposite of what was asked for.
+    expect(normalizeCellTimeoutSeconds(0.4)).toBe(1);
+    expect(normalizeCellTimeoutSeconds(1.2)).toBe(2);
+  });
+
+  it('rejects non-numbers and non-finite numbers', () => {
+    expect(normalizeCellTimeoutSeconds(undefined)).toBe(0);
+    expect(normalizeCellTimeoutSeconds('60')).toBe(0);
+    expect(normalizeCellTimeoutSeconds(Number.NaN)).toBe(0);
+    expect(normalizeCellTimeoutSeconds(Number.POSITIVE_INFINITY)).toBe(0);
+  });
+
+  it('clamps an absurd value below setTimeout\'s 32-bit ceiling', () => {
+    // Node fires a timer whose delay exceeds 2^31-1 ms IMMEDIATELY. Without
+    // the clamp, a user typing a huge number to mean "basically never" would
+    // get "instantly" — every cell killed the moment it started.
+    expect(normalizeCellTimeoutSeconds(1e12)).toBe(MAX_CELL_TIMEOUT_SECONDS);
+    expect(MAX_CELL_TIMEOUT_SECONDS * 1000).toBeLessThan(2 ** 31 - 1);
   });
 });
 
