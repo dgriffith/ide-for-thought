@@ -6,9 +6,10 @@
  * the inbound-link check that gates a safe delete, and the title lookups the
  * link rows render with.
  *
- * Self-contained: reaches only `../state`, and nothing outside this family
- * calls into it. Read-only, and re-exported by `queries.ts`, so every existing
- * importer is unchanged.
+ * Self-contained: reaches `../state` and `./inbound-links` (the shared
+ * "what points at this note?" primitive, #2215), and nothing outside this
+ * family calls into it. Read-only, and re-exported by `queries.ts`, so every
+ * existing importer is unchanged.
  */
 import * as $rdf from 'rdflib';
 import type { ProjectContext } from '../../project-context-types';
@@ -20,6 +21,11 @@ import {
   noteUri, sourceUri,
   linkPredicate, stripFragment,
 } from '../state';
+import {
+  inboundStatements,
+  NOTE_TARGETED_LINK_TYPES,
+  NOTE_LINK_TYPES_BY_PREDICATE,
+} from './inbound-links';
 
 function existsPredicateFor(lt: LinkType) {
   if (lt.targetKind === 'source') return MINERVA('sourceId');
@@ -134,39 +140,26 @@ export function findNotesLinkingTo(ctx: ProjectContext, targetRelativePath: stri
   const state = getState(ctx);
   if (!state) return [];
   const { store } = state;
-  const targetBase = noteUri(state, targetRelativePath).value;
   const seen = new Set<string>();
 
-  // Pass 1: every triple whose object IS the target note's URI. This
-  // covers typed wiki-links (minerva:supports, etc.) AND
+  // Every triple whose object is the target note's URI, exact or anchored
+  // (`<uri>#heading`). Covers typed wiki-links (minerva:supports, etc.) AND
   // frontmatter-emitted predicates that point at a note URI —
-  // prov:wasDerivedFrom from `derived_from: [[note]]`, thought:decomposes
-  // from `decomposes: [[note]]`, etc. (#244 acceptance criterion:
-  // renaming a source should sweep the derived note's frontmatter.)
-  // Using object-indexed lookup is cheap and picks up every
-  // user-authored note → note edge regardless of which predicate
-  // materialised it.
+  // prov:wasDerivedFrom from `derived_from: [[note]]`, thought:decomposes from
+  // `decomposes: [[note]]`, etc. (#244 acceptance criterion: renaming a source
+  // should sweep the derived note's frontmatter), regardless of which predicate
+  // materialised the edge.
+  //
+  // This used to be two passes, the second of which walked every note-targeted
+  // link predicate's whole bucket just to find anchored objects — so a lookup
+  // cost O(total links in the project). `inboundStatements` answers both halves
+  // in O(inbound degree) (#2215); the folder-rename path runs this once per
+  // moved descendant, so that scan was multiplied by the size of the folder.
   const targetSym = noteUri(state, targetRelativePath);
-  const exactStmts = store.statementsMatching(undefined, undefined, targetSym);
-  for (const st of exactStmts) {
+  for (const st of inboundStatements(state, targetSym)) {
     const pathStmts = store.statementsMatching(st.subject, MINERVA('relativePath'), undefined);
     const sourcePath = pathStmts[0]?.object.value;
     if (sourcePath && sourcePath.endsWith('.md')) seen.add(sourcePath);
-  }
-
-  // Pass 2: anchored variants `<targetUri>#heading`. These only come
-  // from typed wiki-links (frontmatter wiki-links don't carry anchors),
-  // so iterate LINK_TYPES rather than the full triple store.
-  for (const lt of LINK_TYPES) {
-    if (lt.targetKind && lt.targetKind !== 'note') continue;
-    const stmts = store.statementsMatching(undefined, linkPredicate(lt), undefined);
-    for (const st of stmts) {
-      const objValue = st.object.value;
-      if (!objValue.startsWith(`${targetBase}#`)) continue;
-      const pathStmts = store.statementsMatching(st.subject, MINERVA('relativePath'), undefined);
-      const sourcePath = pathStmts[0]?.object.value;
-      if (sourcePath && sourcePath.endsWith('.md')) seen.add(sourcePath);
-    }
   }
 
   return [...seen];
@@ -193,7 +186,6 @@ export function backlinks(ctx: ProjectContext, relativePath: string): Backlink[]
   const { store } = state;
 
   const targetSym = noteUri(state, relativePath);
-  const targetBase = targetSym.value;
   const results: Backlink[] = [];
 
   const push = (sourceNode: $rdf.NamedNode, linkType: string, linkLabel: string, linkColor: string) => {
@@ -208,28 +200,43 @@ export function backlinks(ctx: ProjectContext, relativePath: string): Backlink[]
     });
   };
 
-  // Pass 1 — typed body links (exact + anchored target IRI). These own the
-  // richest badges (per-type label + colour from the link-type registry).
-  const typedPredIris = new Set<string>();
-  for (const lt of LINK_TYPES) {
-    if (lt.targetKind && lt.targetKind !== 'note') continue;
-    typedPredIris.add(linkPredicate(lt).value);
-    for (const st of store.statementsMatching(undefined, linkPredicate(lt), undefined)) {
-      const objValue = st.object.value;
-      if (objValue !== targetBase && !objValue.startsWith(`${targetBase}#`)) continue;
-      if (st.subject.equals(targetSym)) continue; // a note doesn't backlink itself
-      push(st.subject as $rdf.NamedNode, lt.name, lt.label, lt.color);
+  // One object-indexed read for the note's whole inbound fan — exact hits plus
+  // the anchored (`<uri>#heading`) ones the object index structurally cannot
+  // find on its own (#2215). This replaces a pair of passes whose first half
+  // walked every note-targeted link predicate's entire bucket, making a single
+  // backlink lookup O(total links in the project); `neighborhood()` then ran it
+  // once per BFS node, up to `cap = 200` times.
+  const inbound = inboundStatements(state, targetSym);
+
+  // Partitioned into typed-then-untyped rather than emitted in store order, to
+  // preserve the pre-#2215 row order the panel renders: every typed body link
+  // first, grouped in LINK_TYPES registry order, then the frontmatter edges.
+  const typedByPredicate = new Map<string, $rdf.Statement[]>();
+  const untyped: $rdf.Statement[] = [];
+  for (const st of inbound) {
+    if (st.subject.equals(targetSym)) continue; // a note doesn't backlink itself
+    const bucket = typedByPredicate.get(st.predicate.value);
+    if (bucket) { bucket.push(st); continue; }
+    if (NOTE_LINK_TYPES_BY_PREDICATE.has(st.predicate.value)) {
+      typedByPredicate.set(st.predicate.value, [st]);
+    } else {
+      untyped.push(st);
     }
   }
 
-  // Pass 2 — every OTHER inbound edge at the note: frontmatter key-typed links
+  // Typed body links own the richest badges (per-type label + colour from the
+  // link-type registry).
+  for (const lt of NOTE_TARGETED_LINK_TYPES) {
+    const stmts = typedByPredicate.get(linkPredicate(lt).value);
+    if (!stmts) continue;
+    for (const st of stmts) push(st.subject as $rdf.NamedNode, lt.name, lt.label, lt.color);
+  }
+
+  // Every OTHER inbound edge at the note: frontmatter key-typed links
   // (`about:`→dc:subject, `see-also:`→thought:seeAlso, custom `meta-*` keys, …).
-  // Object-indexed so it's cheap; a derived label + neutral colour keeps
-  // frontmatter links first-class in the panel instead of invisible. Predicates
-  // already surfaced by pass 1 and the note's own self-statements are skipped.
-  for (const st of store.statementsMatching(undefined, undefined, targetSym)) {
-    if (typedPredIris.has(st.predicate.value)) continue;
-    if (st.subject.equals(targetSym)) continue;
+  // A derived label + neutral colour keeps frontmatter links first-class in the
+  // panel instead of invisible.
+  for (const st of untyped) {
     const iri = st.predicate.value;
     const local = iri.slice(Math.max(iri.lastIndexOf('#'), iri.lastIndexOf('/')) + 1);
     push(st.subject as $rdf.NamedNode, iri, humanizePredicateLocal(local), FRONTMATTER_LINK_COLOR);
@@ -263,25 +270,9 @@ export function findExternalInboundLinks(
   const targetSet = new Set(paths.filter((p) => p.endsWith('.md')));
   if (targetSet.size === 0) return [];
 
-  // Build (path → noteUri) once and a reverse map (uriValue → path) so
-  // pass-A (anchored typed links) can identify which target a given
-  // object IRI points at without re-walking the set per statement.
+  // Build (path → noteUri) once.
   const targetUris = new Map<string, $rdf.NamedNode>();
-  const uriToPath = new Map<string, string>();
-  for (const p of targetSet) {
-    const u = noteUri(state, p);
-    targetUris.set(p, u);
-    uriToPath.set(u.value, p);
-  }
-
-  // Predicate IRIs we consider "typed" — used both to label rows and
-  // to skip those predicates in the untyped sweep below (since we'll
-  // have already counted them with a richer label).
-  const typedPredByIri = new Map<string, LinkType>();
-  for (const lt of LINK_TYPES) {
-    if (lt.targetKind && lt.targetKind !== 'note') continue;
-    typedPredByIri.set(linkPredicate(lt).value, lt);
-  }
+  for (const p of targetSet) targetUris.set(p, noteUri(state, p));
 
   type Row = SafeDeleteBlocker;
   const byKey = new Map<string, Row>();
@@ -306,35 +297,26 @@ export function findExternalInboundLinks(
     return row;
   };
 
-  // Pass A — typed link predicates. Match both exact target IRI and
-  // anchored variants (`#heading`). This pass owns the linkLabel.
-  for (const lt of LINK_TYPES) {
-    if (lt.targetKind && lt.targetKind !== 'note') continue;
-    const stmts = store.statementsMatching(undefined, linkPredicate(lt), undefined);
-    for (const st of stmts) {
-      const objValue = st.object.value;
-      const hashIdx = objValue.indexOf('#');
-      const baseValue = hashIdx === -1 ? objValue : objValue.slice(0, hashIdx);
-      const target = uriToPath.get(baseValue);
-      if (!target) continue;
-      const row = ensureRow(target, st.subject as $rdf.NamedNode);
-      if (!row) continue;
-      row.linkCount += 1;
-      if (!row.linkLabel) row.linkLabel = lt.label;
-    }
-  }
-
-  // Pass B — untyped sweep. Catches frontmatter wiki-links that
-  // materialise as `prov:wasDerivedFrom`, `thought:decomposes`, plain
-  // `[[…]]` → `minerva:linksTo`, etc. Skip predicates already covered
-  // by pass A so we don't double-count, and skip self-statements.
+  // One inbound fan per target — exact hits from rdflib's object index plus the
+  // anchored (`#heading`) variants it can't reach (#2215). This used to be two
+  // passes, the first of which walked every note-targeted link predicate's
+  // whole bucket, so a safe-delete pre-flight cost O(total links) regardless of
+  // how few notes were selected.
+  //
+  // Typed link predicates own the linkLabel; everything else (frontmatter
+  // wiki-links materialised as `prov:wasDerivedFrom`, `thought:decomposes`,
+  // plain `[[…]]` → `minerva:linksTo`, …) counts toward the same row without
+  // one. Self-statements about the target node aren't inbound from another
+  // note, so they're skipped — as are the target's own typed self-links, which
+  // `ensureRow` would filter anyway via `targetSet`.
   for (const [target, targetSym] of targetUris) {
-    for (const st of store.statementsMatching(undefined, undefined, targetSym)) {
-      if (typedPredByIri.has(st.predicate.value)) continue;
+    for (const st of inboundStatements(state, targetSym)) {
       if (st.subject.equals(targetSym)) continue;
       const row = ensureRow(target, st.subject as $rdf.NamedNode);
       if (!row) continue;
       row.linkCount += 1;
+      const lt = NOTE_LINK_TYPES_BY_PREDICATE.get(st.predicate.value);
+      if (lt && !row.linkLabel) row.linkLabel = lt.label;
     }
   }
 
