@@ -157,31 +157,102 @@ async function checkUnsupportedClaims(ctx: ProjectContext): Promise<Inspection[]
   }));
 }
 
+/**
+ * "Oldest N" without asking Comunica to sort the whole corpus (#2208).
+ *
+ * SPARQL evaluates ORDER BY before LIMIT, so `ORDER BY ?modified LIMIT n` sorts
+ * EVERY matching row and then throws almost all of it away. In a mature
+ * thoughtbase the staleness FILTER matches nearly every note, so "almost all of
+ * it" is the corpus: measured 546ms at 1,000 stale notes, 1,064ms at 3,000.
+ *
+ * The obvious fix — drop ORDER BY and sort the rows in JS — does not work, and
+ * it is worth writing down why so nobody re-tries it. Without a LIMIT the query
+ * has to materialise every match: measured 605ms at 1,000, i.e. SLOWER than the
+ * ORDER BY it replaces. The cost was never the sort; it is carrying four bound
+ * variables per row through it. Dropping ORDER BY while keeping the LIMIT is
+ * fast (63ms) but silently changes WHICH notes are reported from "the oldest n"
+ * to "an arbitrary n", which is a behaviour change wearing a performance fix's
+ * clothing.
+ *
+ * So: sort a two-variable projection, then fetch the details for the handful of
+ * IRIs that survived. 129ms + 53ms against 527ms at 1,000 notes, with the
+ * selection semantics unchanged. Two queries rather than one, which is the
+ * right trade even against C1b's "fewer round-trips" — both are cheap, and
+ * together they are a third of the single query they replace.
+ */
+async function oldestMatching(
+  ctx: ProjectContext,
+  opts: { subjectVar: string; where: string; limit: number },
+): Promise<Array<{ iri: string; modified: string }>> {
+  const { subjectVar: v, where, limit } = opts;
+  // GROUP BY + MIN rather than DISTINCT: a note carries TWO `dc:modified`
+  // values — the file's mtime and the frontmatter's — so a row-wise DISTINCT
+  // keeps both and the LIMIT then counts rows rather than notes. That is a
+  // pre-existing bug this fix would otherwise inherit: the old single query
+  // reported the same note twice in the panel, truncated by its own LIMIT, so
+  // "20 stale notes" could be ten notes listed twice. MIN also picks the right
+  // date to sort and report on — the older of the two is what makes a note
+  // stale.
+  const results = await queryGraph(ctx, `
+    SELECT ?${v} (MIN(?modified) AS ?oldest) WHERE {
+      ${where}
+    }
+    GROUP BY ?${v}
+    ORDER BY ?oldest
+    LIMIT ${limit}
+  `);
+  return asRows(results)
+    .filter((r) => r[v] && r.oldest)
+    .map((r) => ({ iri: r[v]!, modified: r.oldest! }));
+}
+
+/** `VALUES ?v { <a> <b> }`, or null when there is nothing to look up. */
+function valuesClause(subjectVar: string, iris: string[]): string | null {
+  if (iris.length === 0) return null;
+  return `VALUES ?${subjectVar} { ${iris.map((u) => `<${u}>`).join(' ')} }`;
+}
+
 async function checkStaleness(ctx: ProjectContext, thresholdDays: number): Promise<Inspection[]> {
   const cutoff = new Date(Date.now() - thresholdDays * DAY_MS).toISOString();
 
-  const results = await queryGraph(ctx, `
-    SELECT ?note ?path ?title ?modified WHERE {
+  const oldest = await oldestMatching(ctx, {
+    subjectVar: 'note',
+    where: `
       ?note a minerva:Note .
+      ?note dc:modified ?modified .
+      FILTER(?modified < "${cutoff}"^^<http://www.w3.org/2001/XMLSchema#dateTime>)`,
+    limit: STALE_NOTES_LIMIT,
+  });
+  const values = valuesClause('note', oldest.map((o) => o.iri));
+  if (!values) return [];
+
+  // Details for the handful that survived. `?modified` is deliberately NOT
+  // re-read here — phase one already chose which of the note's two dates
+  // matters, and re-joining it would bring the duplication straight back.
+  const results = await queryGraph(ctx, `
+    SELECT DISTINCT ?note ?path ?title WHERE {
+      ${values}
       ?note minerva:relativePath ?path .
       ?note dc:title ?title .
-      ?note dc:modified ?modified .
-      FILTER(?modified < "${cutoff}"^^<http://www.w3.org/2001/XMLSchema#dateTime>)
     }
-    ORDER BY ?modified
-    LIMIT ${STALE_NOTES_LIMIT}
   `);
+  const detail = new Map(asRows(results).map((r) => [r.note!, r]));
 
-  return asRows(results).map((r, i) => ({
-    id: `stale-${i}`,
-    type: 'stale_note',
-    severity: 'info' as const,
-    nodeUri: r.note!,
-    nodeLabel: r.title!,
-    message: `"${r.title}" hasn't been modified since ${r.modified!.split('T')[0]}`,
-    suggestedAction: 'Review whether this note is still current',
-    ...(r.path ? { notePath: r.path } : {}),
-  }));
+  // Ordered by the phase-one result, so the panel still lists oldest first.
+  return oldest.flatMap(({ iri, modified }, i) => {
+    const r = detail.get(iri);
+    if (!r?.title) return [];
+    return [{
+      id: `stale-${i}`,
+      type: 'stale_note',
+      severity: 'info' as const,
+      nodeUri: iri,
+      nodeLabel: r.title,
+      message: `"${r.title}" hasn't been modified since ${modified.split('T')[0]}`,
+      suggestedAction: 'Review whether this note is still current',
+      ...(r.path ? { notePath: r.path } : {}),
+    }];
+  });
 }
 
 function formatSize(bytes: number): string {
