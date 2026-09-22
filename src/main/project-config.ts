@@ -10,7 +10,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { encryptSecret, decryptSecret } from './secret-storage';
-import { loadConfigFileSync, asRecord } from './config/config-store';
+import { readCachedProjectConfig } from './config/project-config-cache';
 import { patchRawProjectConfig } from './config/project-config-store';
 
 export interface ProjectConfigShape {
@@ -119,19 +119,17 @@ type StoredTarget = StoredGitTarget | StoredS3Target;
 /** Encrypted per-target credentials, stored in `.minerva/secrets.json`. */
 interface TargetSecret { s3Secret?: string; githubToken?: string }
 
-function configPath(rootPath: string): string {
-  return path.join(rootPath, '.minerva', 'config.json');
-}
-
 export function readProjectConfig(rootPath: string): ProjectConfigShape {
   // A corrupt config.json now surfaces (reportConfigError) instead of silently
   // reading back as an empty config (#1640); a missing one is still just {}.
   // Field-level shape stays lenient — consumers read individual keys defensively.
-  return loadConfigFileSync<ProjectConfigShape>(
-    () => configPath(rootPath),
-    (raw) => asRecord(raw),
-    {},
-  );
+  //
+  // Memoized behind a `statSync` since #2226, so the repeating callers (the
+  // preview's per-tick `getBibliographyStyleId`, above all) stop re-reading an
+  // unchanged file. The returned object is FROZEN and SHARED between callers —
+  // build a new object rather than mutating it. See `project-config-cache.ts`
+  // for the invalidation contract.
+  return readCachedProjectConfig(rootPath);
 }
 
 /**

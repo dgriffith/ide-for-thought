@@ -44,6 +44,7 @@
 import { invalidateSavedQueriesCache } from './saved-queries';
 import { invalidateRecentProjectsCache } from './recent-projects';
 import { invalidateDisplayNameCache } from './project-config';
+import { invalidateProjectConfigCache } from './config/project-config-cache';
 
 /**
  * Drop every memoized disk read that feeds the native menu, so the next
@@ -57,4 +58,10 @@ export function invalidateMenuInputCaches(): void {
   invalidateSavedQueriesCache();
   invalidateRecentProjectsCache();
   invalidateDisplayNameCache();
+  // The read UNDER the display-name memo (#2226): `.minerva/config.json`
+  // itself, which also answers the bibliography style, the excerpt folder and
+  // the publish targets. It validates against a `statSync`, so this is the
+  // third backstop rather than the mechanism — it matters only on a filesystem
+  // whose timestamps are too coarse to see an external edit.
+  invalidateProjectConfigCache();
 }

@@ -384,6 +384,49 @@ can't quietly grow while nobody re-reads it:
   `tests/architecture/config-roots-doc.test.ts` (#1853), so a new
   `app.getPath('userData')` path that isn't documented fails a test.
 
+#### `.minerva/config.json` is read through a stat-validated memo (#2226)
+
+`readProjectConfig` no longer touches disk per call. `config/project-config-cache.ts`
+holds ONE slot tagged with its `rootPath` and validates it against a `statSync`
+(`mtimeMs` + `ctimeMs` + `size`) before answering. Measured on the real
+packaged app: 28 reads of that file over project-open + 5 saves + 20 preview
+citation renders, down to 5 — and the 20-render stretch, which is what typing
+in a note that cites something looks like at the preview's 120ms debounce,
+went from 20 blocking reads to 0.
+
+**A new writer of that file owes it an invalidation.** There is exactly one
+today — `patchRawProjectConfig` — and both `patchProjectConfig` and
+`graph/index.ts`'s `baseUri` route through it, so it is where
+`invalidateProjectConfigCache()` lives. Invalidating at the leaf rather than in
+`patchProjectConfig` is also what closes the gap #2221's display-name memo had
+to name and live with (a direct `patchRawProjectConfig` caller left it stale);
+a cache in `project-config.ts` could not be invalidated from the leaf without a
+module cycle.
+
+Three guarantees, because none is sufficient alone: the writer hook (exact, and
+independent of filesystem timestamp resolution — the app really does
+patch-then-read-back in the same millisecond), the stat (catches an edit made
+outside the app with no invalidation call existing anywhere), and
+`invalidateMenuInputCaches()` on window focus (for a filesystem that stamps to
+the second). The `statSync` is taken BEFORE the read on purpose: a write that
+lands between stat and read caches new content under an old stamp, so the next
+call re-reads — stamping after would cache old content under a new stamp and be
+stale forever.
+
+Two things not to undo. `readRawProjectConfig` stays **uncached**: it is the
+read half of the read-modify-write and must THROW on a corrupt file (#1891),
+which is the opposite of the lenient reader's contract — only the lenient one
+is memoized, and `project-config-cache.test.ts` pins that they still differ.
+And the cached record is **deep-frozen**: the pre-memo reader handed every
+caller its own throwaway parse, so a mutation harmed nobody; a memo hands the
+same object to ~40 call sites, where it would silently corrupt every later
+read.
+
+The issue's framing is worth correcting while you're here: "38 call sites" is a
+count of code locations, not of reads. Opening a project costs three reads, and
+17 of those 38 are `resolveDisplayName`, already memoized by #2221. One caller
+was genuinely hot.
+
 ### Logging (#1918)
 
 Use `logger(tag)` from `src/shared/logger.ts`, never a bare `console.*` call:
