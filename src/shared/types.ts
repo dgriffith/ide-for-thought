@@ -61,6 +61,9 @@ export interface SearchInNotesOptions {
   pattern: string;
   caseSensitive: boolean;
   regex: boolean;
+  /** Stop the scan once this many matches are collected (#2220); omit for an
+   *  uncapped scan with an exact total. See `notebase/search-in-notes.ts`. */
+  maxMatches?: number;
 }
 
 export interface SearchInNotesMatch {
@@ -74,6 +77,28 @@ export interface SearchInNotesFileResult {
   relativePath: string;
   matches: SearchInNotesMatch[];
 }
+
+/**
+ * What `notebase:searchInNotes` answers (#2220).
+ *
+ * A discriminated union per the #1631 convention's rule 3: `superseded` is an
+ * EXPECTED, non-exceptional outcome the caller must branch on, not a failure.
+ * The dialog re-queries on a debounce while the user types, and the main
+ * process aborts the previous scan the moment a newer one arrives — so a
+ * superseded call has no result to give and must not be mistaken for "no
+ * matches" (which would blank the list mid-type) or for an error. The call
+ * itself does not reject; a genuine failure still throws.
+ */
+export type SearchInNotesResult =
+  | {
+      ok: true;
+      files: SearchInNotesFileResult[];
+      /** Matches across `files`; exact unless `truncated`. */
+      totalMatches: number;
+      /** True when the scan stopped at `maxMatches` and more exist on disk. */
+      truncated: boolean;
+    }
+  | { ok: false; reason: 'superseded' };
 
 export interface ReplaceInNotesSelection {
   relativePath: string;

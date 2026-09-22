@@ -3,7 +3,18 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import { searchInNotes, replaceInNotes } from '../../src/main/notebase/search-in-notes';
+import { searchInNotes, replaceInNotes, type SearchFileResult, type SearchOptions } from '../../src/main/notebase/search-in-notes';
+
+/**
+ * These tests are about MATCH SEMANTICS — literal escaping, case sensitivity,
+ * regex mode, the ignore rules, which extensions are scanned. `searchInNotes`
+ * answers `{ files, totalMatches, truncated }` since #2220, so they read the
+ * `files` arm; the cap / cache / abort behaviour that motivated the new shape
+ * is covered in `tests/main/notebase/search-in-notes-scan.test.ts`.
+ */
+async function find(root: string, opts: SearchOptions): Promise<SearchFileResult[]> {
+  return (await searchInNotes(root, opts)).files;
+}
 
 function mkTemp(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-search-test-'));
@@ -24,7 +35,7 @@ describe('searchInNotes', () => {
   it('finds substring matches across multiple files with line + column info', async () => {
     write(root, 'a.md', 'hello world\nanother line\n');
     write(root, 'b.md', 'hello again\nno match here\n');
-    const out = await searchInNotes(root, { pattern: 'hello', caseSensitive: false, regex: false });
+    const out = await find(root, { pattern: 'hello', caseSensitive: false, regex: false });
     expect(out.length).toBe(2);
     expect(out[0].relativePath).toBe('a.md');
     expect(out[0].matches[0]).toEqual({ line: 1, startCol: 0, endCol: 5, lineText: 'hello world' });
@@ -34,30 +45,30 @@ describe('searchInNotes', () => {
 
   it('treats plain patterns as literal (special chars are escaped)', async () => {
     write(root, 'a.md', 'cost: $5.00 today\n');
-    const out = await searchInNotes(root, { pattern: '$5.00', caseSensitive: true, regex: false });
+    const out = await find(root, { pattern: '$5.00', caseSensitive: true, regex: false });
     expect(out.length).toBe(1);
     expect(out[0].matches[0].lineText).toBe('cost: $5.00 today');
   });
 
   it('respects case-sensitive flag', async () => {
     write(root, 'a.md', 'Hello world\nhello again\n');
-    const insens = await searchInNotes(root, { pattern: 'hello', caseSensitive: false, regex: false });
+    const insens = await find(root, { pattern: 'hello', caseSensitive: false, regex: false });
     expect(insens[0].matches.length).toBe(2);
-    const sens = await searchInNotes(root, { pattern: 'hello', caseSensitive: true, regex: false });
+    const sens = await find(root, { pattern: 'hello', caseSensitive: true, regex: false });
     expect(sens[0].matches.length).toBe(1);
     expect(sens[0].matches[0].line).toBe(2);
   });
 
   it('supports regex mode', async () => {
     write(root, 'a.md', 'foo-bar\nfoo_baz\n');
-    const out = await searchInNotes(root, { pattern: 'foo.bar', caseSensitive: false, regex: true });
+    const out = await find(root, { pattern: 'foo.bar', caseSensitive: false, regex: true });
     expect(out[0].matches.length).toBe(1);
     expect(out[0].matches[0].line).toBe(1);
   });
 
   it('returns empty for an invalid regex instead of throwing', async () => {
     write(root, 'a.md', 'content\n');
-    const out = await searchInNotes(root, { pattern: '[unclosed', caseSensitive: false, regex: true });
+    const out = await find(root, { pattern: '[unclosed', caseSensitive: false, regex: true });
     expect(out).toEqual([]);
   });
 
@@ -68,7 +79,7 @@ describe('searchInNotes', () => {
     write(root, '.minerva/d.md', 'hello\n');
     write(root, '.obsidian/e.md', 'hello\n');
     write(root, '.hidden.md', 'hello\n');
-    const out = await searchInNotes(root, { pattern: 'hello', caseSensitive: false, regex: false });
+    const out = await find(root, { pattern: 'hello', caseSensitive: false, regex: false });
     expect(out.map((r) => r.relativePath)).toEqual(['notes/a.md']);
   });
 
@@ -77,13 +88,13 @@ describe('searchInNotes', () => {
     write(root, 'b.ttl', 'hit\n');
     write(root, 'c.csv', 'hit\n');
     write(root, 'd.txt', 'hit\n');
-    const out = await searchInNotes(root, { pattern: 'hit', caseSensitive: false, regex: false });
+    const out = await find(root, { pattern: 'hit', caseSensitive: false, regex: false });
     expect(out.map((r) => r.relativePath).sort()).toEqual(['a.md', 'b.ttl', 'c.csv'].sort());
   });
 
   it('reports multiple matches on the same line with distinct columns', async () => {
     write(root, 'a.md', 'foo bar foo baz foo\n');
-    const out = await searchInNotes(root, { pattern: 'foo', caseSensitive: false, regex: false });
+    const out = await find(root, { pattern: 'foo', caseSensitive: false, regex: false });
     const m = out[0].matches;
     expect(m.length).toBe(3);
     expect(m.map((x) => x.startCol)).toEqual([0, 8, 16]);
@@ -91,7 +102,7 @@ describe('searchInNotes', () => {
 
   it('does not infinite-loop on zero-width regex like ^', async () => {
     write(root, 'a.md', 'one\ntwo\nthree\n');
-    const out = await searchInNotes(root, { pattern: '^', caseSensitive: false, regex: true });
+    const out = await find(root, { pattern: '^', caseSensitive: false, regex: true });
     // Line count matches; infinite loop would hang the test.
     expect(out[0].matches.length).toBeGreaterThan(0);
   });

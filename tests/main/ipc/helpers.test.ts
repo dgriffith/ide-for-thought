@@ -86,6 +86,7 @@ import {
   withRootPath,
   withRootPathOr,
   withRootPathWin,
+  withRootPathWinOr,
   reindexFile,
   removeFromIndexes,
   listIndexableFiles,
@@ -188,6 +189,26 @@ describe('withRootPathWin — project + window', () => {
     openProject = null;
     const fn = vi.fn();
     expect(() => withRootPathWin(fn)(evt())).toThrow('No project open');
+    expect(fn).not.toHaveBeenCalled();
+  });
+});
+
+describe('withRootPathWinOr — project + window, with a project-less value', () => {
+  // The fourth corner of the #1631 wrapper matrix, added by #2220 for
+  // find-in-notes: it needs the window (to key that window's in-flight scan on)
+  // AND a project-less answer (a search over no thoughtbase legitimately
+  // reports no matches). The alternative was hand-rolling the guard in one
+  // handler, which is what #990/#1092 removed 86 times over.
+  it('hands the handler both the rootPath and the window', () => {
+    const fn = vi.fn((root: string, w: unknown, a: string) => ({ root, w, a }));
+    expect(withRootPathWinOr({ fallback: true }, fn)(evt(), 'arg')).toEqual({ root: '/vault', w: win, a: 'arg' });
+  });
+
+  it('returns the fallback — not a throw, and not a fresh object — with no project', () => {
+    openProject = null;
+    const sentinel = { ok: true as const, files: [] };
+    const fn = vi.fn();
+    expect(withRootPathWinOr(sentinel, fn)(evt())).toBe(sentinel);
     expect(fn).not.toHaveBeenCalled();
   });
 });

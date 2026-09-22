@@ -70,9 +70,10 @@ const BUDGETS: Record<string, number> = {
   'src/renderer/lib/components/Preview.svelte': 1373,
   'src/renderer/lib/components/SourceDetail.svelte': 1346,
   'src/renderer/lib/components/SourcesPanel.svelte': 789,
-  // #2218 (PythonSettings doc + type) and #2222 (sources.queueCounts signature
-  // + its why-comment) both landed here; 1359 is the two together, measured.
-  'src/renderer/lib/ipc/client.ts': 1359,
+  // Three changes stacked here: #2218 (PythonSettings doc + type), #2222
+  // (sources.queueCounts signature + its why-comment) and #2220 (searchInNotes
+  // returns a union, +1 export). 1360 is the three together, measured.
+  'src/renderer/lib/ipc/client.ts': 1360,
   'src/renderer/lib/stores/conversations.svelte.ts': 1165,
   'src/renderer/lib/components/Editor.svelte': 854,
   'src/renderer/lib/stores/editor.svelte.ts': 913,
@@ -107,7 +108,15 @@ const BUDGETS: Record<string, number> = {
   // helpers read `TablesState`'s private maps, so a seam would mean exporting
   // `getState` and handing the module's internals to another file.
   'src/main/sources/tables.ts': 806,
-  'src/renderer/lib/components/FindInNotesDialog.svelte': 601,
+  // #2220 (601 → 633): the search callback grew a match cap, a generation
+  // guard that drops superseded responses, and a truncation-aware status line.
+  // Raised rather than extracted on purpose — all 32 lines are the one
+  // `runSearch` closure plus the two constants it reads, and pulling a
+  // three-field search controller into its own module to save 30 lines would
+  // put the debounce, the generation counter and the rendering of their result
+  // in two files. The seam worth taking here, if this file grows again, is the
+  // ~250-line `<style>` block, not the logic.
+  'src/renderer/lib/components/FindInNotesDialog.svelte': 633,
   'src/preload/preload.ts': 650,  // #2222: sources.queueCounts passthrough
   'src/main/ipc/register-conversation-drafts.ts': 577,
   // New entry in #2218, which took this file from 538 over the threshold.

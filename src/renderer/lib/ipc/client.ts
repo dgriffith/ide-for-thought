@@ -1,4 +1,4 @@
-import type { NoteFile, NotebaseMeta, TagInfo, TaggedNote, TaggedSource, SavedQuery, SavedView, SavedViewInput, SearchResult, OutgoingLink, Backlink, TabSession, LayoutSession, BookmarkNode, SourceDetail, SearchInNotesOptions, SearchInNotesFileResult, ReplaceInNotesOptions, ReplaceInNotesResult, HeadingRenameCandidate, MenuEditorState } from '../../../shared/types';
+import type { NoteFile, NotebaseMeta, TagInfo, TaggedNote, TaggedSource, SavedQuery, SavedView, SavedViewInput, SearchResult, OutgoingLink, Backlink, TabSession, LayoutSession, BookmarkNode, SourceDetail, SearchInNotesOptions, SearchInNotesResult, ReplaceInNotesOptions, ReplaceInNotesResult, HeadingRenameCandidate, MenuEditorState } from '../../../shared/types';
 import type { Conversation, ConversationCreateOptions, ContextBundle, ConversationMessage } from '../../../shared/conversation';
 import type { ToolExecutionRequest, ToolExecutionResult, ConversationToolPayload } from '../../../shared/tools/types';
 import type { Inspection, InspectionSettings } from '../../../shared/inspections';
@@ -55,7 +55,7 @@ export interface NotebaseApi {
     deletedSource: string;
   }>;
   copy(srcRelPath: string, destRelPath: string): Promise<void>;
-  searchInNotes(opts: SearchInNotesOptions): Promise<SearchInNotesFileResult[]>;
+  searchInNotes(opts: SearchInNotesOptions): Promise<SearchInNotesResult>;
   replaceInNotes(opts: ReplaceInNotesOptions): Promise<ReplaceInNotesResult>;
   onFileChanged(cb: (path: string) => void): () => void;
   onFileCreated(cb: (path: string) => void): () => void;
@@ -80,6 +80,7 @@ export type {
   SearchInNotesOptions,
   SearchInNotesMatch,
   SearchInNotesFileResult,
+  SearchInNotesResult,
   ReplaceInNotesSelection,
   ReplaceInNotesOptions,
   ReplaceInNotesResult,

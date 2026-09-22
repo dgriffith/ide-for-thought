@@ -146,8 +146,9 @@ export function createEngine(ctx: ProjectContext, opts: EngineOptions = {}): Eng
         GREP_MAX_LIMIT,
       );
       // searchInNotes reads the vault directly (no index), so no ensure* step.
-      const files = await searchInNotes(ctx.rootPath, { pattern, caseSensitive, regex });
-      const total = files.reduce((n, f) => n + f.matches.length, 0);
+      // Uncapped on purpose (#2220): `total` is reported to the caller and
+      // `truncated` is derived from it, so a scan cap would make both a guess.
+      const { files, totalMatches: total } = await searchInNotes(ctx.rootPath, { pattern, caseSensitive, regex });
       const matches: { path: string; line: number; text: string }[] = [];
       outer: for (const f of files) {
         for (const m of f.matches) {
