@@ -13,6 +13,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { reportConfigError } from './config-store';
+import { invalidateProjectConfigCache } from './project-config-cache';
 
 function configPath(rootPath: string): string {
   return path.join(rootPath, '.minerva', 'config.json');
@@ -61,4 +62,17 @@ export function patchRawProjectConfig(rootPath: string, patch: Record<string, un
   const next = { ...existing, ...patch };
   fs.mkdirSync(path.dirname(configPath(rootPath)), { recursive: true });
   fs.writeFileSync(configPath(rootPath), JSON.stringify(next, null, 2), 'utf-8');
+  // Every write of this file lands here — `patchProjectConfig` and
+  // `graph/index.ts`'s `baseUri` both delegate to it — so this is the one
+  // place the #2226 memo has to be dropped for an in-app write. Doing it here
+  // rather than in `patchProjectConfig` is what makes the `baseUri` write
+  // visible immediately too; that is the gap #2221 had to name and live with
+  // one layer up, because invalidating from here would have been a module
+  // cycle for a cache that lives in `project-config.ts`.
+  //
+  // Belt and braces with the `statSync` stamp: the stamp alone would usually
+  // catch this, but "usually" depends on the filesystem's timestamp
+  // resolution, and the app genuinely does patch-then-read-back in the same
+  // millisecond (`setExcerptNoteFolder`, `upsertPublishTarget`).
+  invalidateProjectConfigCache();
 }
