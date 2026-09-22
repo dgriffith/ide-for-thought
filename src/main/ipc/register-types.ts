@@ -4,6 +4,29 @@
  * `api.skills.list()`), so pickers/forms never touch raw definitions or the
  * template bodies. Loads fresh per call so a user type dropped into
  * `.minerva/types/` shows up without a full reindex.
+ *
+ * **Not `GraphState.typeCatalog`, deliberately (#2225).** The graph holds a
+ * catalog and this handler doesn't read it, which looks like an oversight and
+ * was filed as one. It is load-bearing, for two reasons:
+ *
+ *  1. **Nothing invalidates it.** `state.typeCatalog` is written by exactly two
+ *     things — `indexAllNotes` (full rebuild) and `reloadTypeCatalog` (the
+ *     TYPES_SAVE / TYPES_DELETE / rename / LLM-apply paths). The `.minerva`
+ *     watcher (`notebase/watcher.ts`) is scoped to `sources` and `excerpts`,
+ *     so a type file edited in an external editor, restored from a backup or
+ *     arriving via `git pull` produces no event at all. Reading the cache would
+ *     serve project-open-time state until something unrelated forced a reload.
+ *     `tests/main/graph/note-type-map.test.ts` has the shape already ("the
+ *     catalog was loaded before this type existed").
+ *  2. **It is empty for part of project open.** `initGraph` seeds
+ *     `EMPTY_TYPE_CATALOG` and only the later `indexAllNotes` fills it, so a
+ *     list that raced project init would return `{ types: [] }` — a plausible-
+ *     looking empty catalog rather than an error, which is the worst failure
+ *     shape for a picker.
+ *
+ * The cost the issue was actually chasing is the *parse*, and that is memoized
+ * inside `types/loader.ts` now (content-keyed, so it cannot go stale). The walk
+ * stays.
  */
 import { Channels } from '../../shared/channels';
 import { loadTypeCatalog } from '../types/loader';
