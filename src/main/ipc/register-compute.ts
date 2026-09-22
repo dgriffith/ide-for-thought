@@ -14,6 +14,7 @@ import {
   resolvePythonInterpreter,
   type PythonSettings,
 } from '../compute/python-settings';
+import { DEFAULT_CELL_TIMEOUT_SECONDS, normalizeCellTimeoutSeconds } from '../../shared/compute/types';
 import { saveCellOutput, type SaveCellOutputInput } from '../compute/save-cell-output';
 import { winFromEvent, withRootPath, withRootPathOr } from './helpers';
 import { logger } from '../../shared/logger';
@@ -55,6 +56,19 @@ export function registerCompute(): void {
     await setPythonSettings({
       pythonPath: typeof settings?.pythonPath === 'string' ? settings.pythonPath : '',
       allowNetwork: settings?.allowNetwork === true,
+      // Re-validated main-side rather than trusted from the renderer, like
+      // the two fields above — the payload crossing IPC is `unknown` in
+      // practice and this handler is the boundary (#2218).
+      //
+      // An ABSENT field falls back to the default, not to 0, matching the
+      // decoder in `python-settings.ts`. The two disagree in the one
+      // direction that matters: `normalizeCellTimeoutSeconds(undefined)` is
+      // 0, i.e. NO LIMIT — so a truncated or older payload would silently
+      // switch off the very protection this channel is writing, and nothing
+      // would report it.
+      cellTimeoutSeconds: settings?.cellTimeoutSeconds === undefined
+        ? DEFAULT_CELL_TIMEOUT_SECONDS
+        : normalizeCellTimeoutSeconds(settings.cellTimeoutSeconds),
     });
   });
 

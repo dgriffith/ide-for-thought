@@ -304,8 +304,8 @@ export interface FilesApi {
   dropImport(targetFolder: string, entries: DropImportEntry[]): Promise<DropImportResult>;
 }
 
-export type { CellOutput, CellResult, PythonProbeResult } from '../../../shared/compute/types';
-import type { CellResult, ComputeConsentSummary, PythonProbeResult } from '../../../shared/compute/types';
+export type { CellOutput, CellResult, PythonProbeResult, PythonSettings } from '../../../shared/compute/types';
+import type { CellResult, ComputeConsentSummary, PythonProbeResult, PythonSettings } from '../../../shared/compute/types';
 
 export interface CitationAuditPayload {
   /** Resolved style id after fallback (e.g. 'apa'). */
@@ -527,13 +527,17 @@ export interface ComputeApi {
     | { ok: false; reason: 'no-kernel' | 'unsupported-platform' | 'signal-failed' }
   >;
   /**
-   * Per-machine Python interpreter override (#374). Empty `pythonPath`
+   * Per-machine Python execution settings (#374). Empty `pythonPath`
    * means "no override; use $MINERVA_PYTHON or python3". Stored under
-   * Electron's userData dir, NOT in the project — the override is
-   * machine-scoped (different projects on the same machine share it).
+   * Electron's userData dir, NOT in the project — these are
+   * machine-scoped (different projects on the same machine share them).
+   *
+   * `setPythonSettings` writes the WHOLE record, so a caller changing one
+   * field must send the other two as it loaded them (#2218) — the panel
+   * keeps each in local state for exactly that reason.
    */
-  getPythonSettings(): Promise<{ pythonPath: string; allowNetwork: boolean }>;
-  setPythonSettings(settings: { pythonPath: string; allowNetwork: boolean }): Promise<void>;
+  getPythonSettings(): Promise<PythonSettings>;
+  setPythonSettings(settings: PythonSettings): Promise<void>;
   /**
    * Probe a candidate interpreter — verify it runs + capture the
    * version string. Empty / omitted `candidate` probes the active

@@ -66,7 +66,7 @@ const BUDGETS: Record<string, number> = {
   'src/renderer/lib/components/Preview.svelte': 1341,
   'src/renderer/lib/components/SourceDetail.svelte': 1346,
   'src/renderer/lib/components/SourcesPanel.svelte': 789,
-  'src/renderer/lib/ipc/client.ts': 1349,
+  'src/renderer/lib/ipc/client.ts': 1353,  // #2218: PythonSettings doc + type
   'src/renderer/lib/stores/conversations.svelte.ts': 1165,
   'src/renderer/lib/components/Editor.svelte': 854,
   'src/renderer/lib/stores/editor.svelte.ts': 913,
@@ -104,6 +104,17 @@ const BUDGETS: Record<string, number> = {
   'src/renderer/lib/components/FindInNotesDialog.svelte': 601,
   'src/preload/preload.ts': 649,
   'src/main/ipc/register-conversation-drafts.ts': 577,
+  // New entry in #2218, which took this file from 538 over the threshold.
+  // The seam this check asks about was taken first: the deadline POLICY —
+  // which cell to arm, when to disarm, when to escalate from interrupt to
+  // kill — is `compute/cell-deadline.ts`, testable with fake timers and no
+  // subprocess. What stayed here is the transport wiring it needs (the
+  // pending-cell fields, the host adapter, the `done`/`exit` bookkeeping),
+  // which has nowhere else to be, plus the `isDead` correction. Roughly
+  // half the growth is comment: the head-of-queue rule and the `proc.killed`
+  // trap are both things the next reader will otherwise rediscover the
+  // expensive way.
+  'src/main/compute/python-kernel.ts': 653,
 };
 
 /** Source files this applies to: authored `.ts` / `.svelte` under `src/`. */

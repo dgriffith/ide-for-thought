@@ -12,38 +12,39 @@
  * with a short timeout, return the version string + path. The
  * Settings UI uses this to validate user input before saving and to
  * display the resolved version in a status line.
+ *
+ * The same file now also carries the network posture (#1413) and the
+ * per-cell execution budget (#2218) — everything about HOW this machine
+ * runs Python, rather than only WHICH Python it runs.
  */
 
 import { app } from 'electron';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs/promises';
-import { loadConfigFile, asString, asRecord } from '../config/config-store';
-import type { PythonProbeResult } from '../../shared/compute/types';
+import { loadConfigFile, asString, asFiniteNumber, asRecord } from '../config/config-store';
+import { DEFAULT_CELL_TIMEOUT_SECONDS, normalizeCellTimeoutSeconds } from '../../shared/compute/types';
+import type { PythonProbeResult, PythonSettings } from '../../shared/compute/types';
 
-export interface PythonSettings {
-  /**
-   * User-supplied path to a Python interpreter. Empty string when
-   * no override is set; the resolver falls through to env-var /
-   * PATH lookup in that case.
-   */
-  pythonPath: string;
-  /**
-   * Allow compute cells to make outbound network connections (#1413).
-   * Off by default: the kernel installs a socket guard that blocks
-   * non-local connections (the common exfiltration path — `requests`,
-   * `urllib`, `pandas.read_csv(url)`) unless this is on. Per-machine,
-   * like `pythonPath`.
-   */
-  allowNetwork: boolean;
-}
+// The settings shape itself moved to `shared/compute/types` in #2218, for the
+// same reason the probe result moved in #1878: the contract, the preload
+// bridge, the client and the settings panel each restated it inline, and the
+// timeout field would have made that four places to remember. The timeout's
+// range rules went with it — the settings PANEL has to clamp the same way
+// this decoder does, and a renderer cannot import from `src/main/`.
+// Re-exported so existing importers of this module still resolve.
+export type { PythonSettings } from '../../shared/compute/types';
 
 // The probe's result shape moved to `shared/compute/types` in #1878, where the
 // IPC contract and the settings panel can share one definition instead of
 // restating it. Re-exported so existing importers of this module still resolve.
 export type { PythonProbeResult } from '../../shared/compute/types';
 
-const DEFAULT_SETTINGS: PythonSettings = { pythonPath: '', allowNetwork: false };
+const DEFAULT_SETTINGS: PythonSettings = {
+  pythonPath: '',
+  allowNetwork: false,
+  cellTimeoutSeconds: DEFAULT_CELL_TIMEOUT_SECONDS,
+};
 
 function settingsPath(): string {
   return path.join(app.getPath('userData'), 'python-settings.json');
@@ -57,6 +58,13 @@ export async function getPythonSettings(): Promise<PythonSettings> {
       // Default off — only a literal `true` enables network, so a corrupt or
       // truthy-non-bool value fails closed (matches the consent gate's posture).
       allowNetwork: o.allowNetwork === true,
+      // A key that isn't there at all — every settings file written before
+      // #2218 — must mean the DEFAULT, not "disabled", so the missing-key
+      // fallback is the default and only an explicitly stored value can
+      // reach the normalizer's `<= 0 → off` branch.
+      cellTimeoutSeconds: o.cellTimeoutSeconds === undefined
+        ? DEFAULT_CELL_TIMEOUT_SECONDS
+        : normalizeCellTimeoutSeconds(asFiniteNumber(o.cellTimeoutSeconds, DEFAULT_CELL_TIMEOUT_SECONDS)),
     };
   }, DEFAULT_SETTINGS);
 }
@@ -64,7 +72,11 @@ export async function getPythonSettings(): Promise<PythonSettings> {
 export async function setPythonSettings(settings: PythonSettings): Promise<void> {
   await fs.writeFile(
     settingsPath(),
-    JSON.stringify({ pythonPath: settings.pythonPath, allowNetwork: settings.allowNetwork === true }, null, 2),
+    JSON.stringify({
+      pythonPath: settings.pythonPath,
+      allowNetwork: settings.allowNetwork === true,
+      cellTimeoutSeconds: normalizeCellTimeoutSeconds(settings.cellTimeoutSeconds),
+    }, null, 2),
     'utf-8',
   );
 }

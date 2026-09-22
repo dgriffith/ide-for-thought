@@ -218,7 +218,7 @@ const api = {
     restartPythonKernel: () => invoke(Channels.COMPUTE_RESTART_PYTHON_KERNEL),
     interruptPythonKernel: () => invoke(Channels.COMPUTE_INTERRUPT_PYTHON),
     getPythonSettings: () => invoke(Channels.COMPUTE_GET_PYTHON_SETTINGS),
-    setPythonSettings: (settings: { pythonPath: string; allowNetwork: boolean }) =>
+    setPythonSettings: (settings: Parameters<ChannelMap['compute:setPythonSettings']>[0]) =>
       invoke(Channels.COMPUTE_SET_PYTHON_SETTINGS, settings),
     probePython: (candidate?: string) =>
       invoke(Channels.COMPUTE_PROBE_PYTHON, candidate),

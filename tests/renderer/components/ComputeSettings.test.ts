@@ -56,7 +56,7 @@ afterEach(() => {
 
 describe('ComputeSettings (#672)', () => {
   it('loads the saved path on mount and probes, showing the version', async () => {
-    getPythonSettingsMock.mockResolvedValue({ pythonPath: '/usr/bin/python3', allowNetwork: false });
+    getPythonSettingsMock.mockResolvedValue({ pythonPath: '/usr/bin/python3', allowNetwork: false, cellTimeoutSeconds: 120 });
     probePythonMock.mockResolvedValue({ ok: true, path: '/usr/bin/python3', version: 'Python 3.12.1' });
     const { findByText, getByDisplayValue } = render(ComputeSettings, {});
 
@@ -67,7 +67,7 @@ describe('ComputeSettings (#672)', () => {
   });
 
   it('shows the error state when the probe fails', async () => {
-    getPythonSettingsMock.mockResolvedValue({ pythonPath: '/bad/python', allowNetwork: false });
+    getPythonSettingsMock.mockResolvedValue({ pythonPath: '/bad/python', allowNetwork: false, cellTimeoutSeconds: 120 });
     probePythonMock.mockResolvedValue({ ok: false, path: '/bad/python', error: 'not executable' });
     const { findByText } = render(ComputeSettings, {});
     expect(await findByText(/Couldn't run interpreter/)).toBeTruthy();
@@ -75,7 +75,7 @@ describe('ComputeSettings (#672)', () => {
   });
 
   it('Browse sets the picked path and re-probes', async () => {
-    getPythonSettingsMock.mockResolvedValue({ pythonPath: '', allowNetwork: false });
+    getPythonSettingsMock.mockResolvedValue({ pythonPath: '', allowNetwork: false, cellTimeoutSeconds: 120 });
     probePythonMock.mockResolvedValue({ ok: true, path: 'x', version: 'Python 3.12' });
     browsePythonMock.mockResolvedValue('/opt/py/bin/python');
     const { findByText, getByText, getByDisplayValue } = render(ComputeSettings, {});
@@ -87,7 +87,7 @@ describe('ComputeSettings (#672)', () => {
   });
 
   it('Save is gated on dirty state and persists via api.compute.setPythonSettings', async () => {
-    getPythonSettingsMock.mockResolvedValue({ pythonPath: '/usr/bin/python3', allowNetwork: false });
+    getPythonSettingsMock.mockResolvedValue({ pythonPath: '/usr/bin/python3', allowNetwork: false, cellTimeoutSeconds: 120 });
     probePythonMock.mockResolvedValue({ ok: true, path: '/usr/bin/python3', version: 'Python 3.12' });
     setPythonSettingsMock.mockResolvedValue(undefined);
     const { findByText, getByText, getByDisplayValue } = render(ComputeSettings, {});
@@ -100,22 +100,26 @@ describe('ComputeSettings (#672)', () => {
     expect(getByText('Save').closest('button')!.disabled).toBe(false);
 
     await fireEvent.click(getByText('Save'));
-    expect(setPythonSettingsMock).toHaveBeenCalledWith({ pythonPath: '/new/python', allowNetwork: false });
+    expect(setPythonSettingsMock).toHaveBeenCalledWith({
+      pythonPath: '/new/python', allowNetwork: false, cellTimeoutSeconds: 120,
+    });
   });
 
   it('Clear override blanks the path and saves', async () => {
-    getPythonSettingsMock.mockResolvedValue({ pythonPath: '/usr/bin/python3', allowNetwork: false });
+    getPythonSettingsMock.mockResolvedValue({ pythonPath: '/usr/bin/python3', allowNetwork: false, cellTimeoutSeconds: 120 });
     probePythonMock.mockResolvedValue({ ok: true, path: '/usr/bin/python3', version: 'Python 3.12' });
     setPythonSettingsMock.mockResolvedValue(undefined);
     const { findByText, getByText } = render(ComputeSettings, {});
     await findByText('Python 3.12');
 
     await fireEvent.click(getByText('Clear override'));
-    await waitFor(() => expect(setPythonSettingsMock).toHaveBeenCalledWith({ pythonPath: '', allowNetwork: false }));
+    await waitFor(() => expect(setPythonSettingsMock).toHaveBeenCalledWith({
+      pythonPath: '', allowNetwork: false, cellTimeoutSeconds: 120,
+    }));
   });
 
   it('network toggle reflects the saved setting and persists on change (#1413)', async () => {
-    getPythonSettingsMock.mockResolvedValue({ pythonPath: '/usr/bin/python3', allowNetwork: false });
+    getPythonSettingsMock.mockResolvedValue({ pythonPath: '/usr/bin/python3', allowNetwork: false, cellTimeoutSeconds: 120 });
     probePythonMock.mockResolvedValue({ ok: true, path: '/usr/bin/python3', version: 'Python 3.12' });
     const { findByText, getByLabelText } = render(ComputeSettings, {});
     await findByText('Python 3.12');
@@ -126,12 +130,14 @@ describe('ComputeSettings (#672)', () => {
     await fireEvent.click(toggle);
     // Persists with the saved interpreter path + the new network choice.
     await waitFor(() =>
-      expect(setPythonSettingsMock).toHaveBeenCalledWith({ pythonPath: '/usr/bin/python3', allowNetwork: true }),
+      expect(setPythonSettingsMock).toHaveBeenCalledWith({
+        pythonPath: '/usr/bin/python3', allowNetwork: true, cellTimeoutSeconds: 120,
+      }),
     );
   });
 
   it('network toggle loads as checked when network is allowed (#1413)', async () => {
-    getPythonSettingsMock.mockResolvedValue({ pythonPath: '', allowNetwork: true });
+    getPythonSettingsMock.mockResolvedValue({ pythonPath: '', allowNetwork: true, cellTimeoutSeconds: 120 });
     probePythonMock.mockResolvedValue({ ok: true, path: 'python3', version: 'Python 3.12' });
     const { findByText, getByLabelText } = render(ComputeSettings, {});
     await findByText('Python 3.12');
@@ -139,8 +145,65 @@ describe('ComputeSettings (#672)', () => {
     expect(getByLabelText('Allow network access for Python cells').getAttribute('aria-checked')).toBe('true');
   });
 
+  it('the cell timeout loads from settings and persists on change (#2218)', async () => {
+    getPythonSettingsMock.mockResolvedValue({
+      pythonPath: '/usr/bin/python3', allowNetwork: false, cellTimeoutSeconds: 120,
+    });
+    probePythonMock.mockResolvedValue({ ok: true, path: '/usr/bin/python3', version: 'Python 3.12' });
+    const { findByText, getByLabelText } = render(ComputeSettings, {});
+    await findByText('Python 3.12');
+
+    const field = getByLabelText('Cell execution limit') as HTMLInputElement;
+    expect(field.value).toBe('120');
+
+    await fireEvent.input(field, { target: { value: '30' } });
+    await fireEvent.change(field);
+    // Sends the WHOLE record — the channel replaces the file, so a partial
+    // write here would blank the interpreter override and the network choice.
+    await waitFor(() => expect(setPythonSettingsMock).toHaveBeenCalledWith({
+      pythonPath: '/usr/bin/python3', allowNetwork: false, cellTimeoutSeconds: 30,
+    }));
+  });
+
+  it('a negative or empty limit is normalized to 0 IN THE FIELD, not just on disk (#2218)', async () => {
+    // 0 means "no limit", and the user has to be able to see that that is what
+    // they ended up with — a field still reading "-5" after a save that stored
+    // 0 is a UI lying about the state of the machine.
+    getPythonSettingsMock.mockResolvedValue({
+      pythonPath: '', allowNetwork: false, cellTimeoutSeconds: 120,
+    });
+    probePythonMock.mockResolvedValue({ ok: true, path: 'python3', version: 'Python 3.12' });
+    const { findByText, getByLabelText } = render(ComputeSettings, {});
+    await findByText('Python 3.12');
+
+    const field = getByLabelText('Cell execution limit') as HTMLInputElement;
+    await fireEvent.input(field, { target: { value: '-5' } });
+    await fireEvent.change(field);
+
+    await waitFor(() => expect(setPythonSettingsMock).toHaveBeenCalledWith({
+      pythonPath: '', allowNetwork: false, cellTimeoutSeconds: 0,
+    }));
+    expect(field.value).toBe('0');
+  });
+
+  it('a failed save puts the limit field back to what is on disk (#2218)', async () => {
+    getPythonSettingsMock.mockResolvedValue({
+      pythonPath: '', allowNetwork: false, cellTimeoutSeconds: 120,
+    });
+    probePythonMock.mockResolvedValue({ ok: true, path: 'python3', version: 'Python 3.12' });
+    setPythonSettingsMock.mockRejectedValue(new Error('disk full'));
+    const { findByText, getByLabelText } = render(ComputeSettings, {});
+    await findByText('Python 3.12');
+
+    const field = getByLabelText('Cell execution limit') as HTMLInputElement;
+    await fireEvent.input(field, { target: { value: '15' } });
+    await fireEvent.change(field);
+
+    await waitFor(() => expect(field.value).toBe('120'));
+  });
+
   it('Reveal audit log calls api.compute.revealAuditLog (#1413)', async () => {
-    getPythonSettingsMock.mockResolvedValue({ pythonPath: '', allowNetwork: false });
+    getPythonSettingsMock.mockResolvedValue({ pythonPath: '', allowNetwork: false, cellTimeoutSeconds: 120 });
     probePythonMock.mockResolvedValue({ ok: true, path: 'python3', version: 'Python 3.12' });
     revealAuditLogMock.mockResolvedValue(undefined);
     const { findByText, getByText } = render(ComputeSettings, {});

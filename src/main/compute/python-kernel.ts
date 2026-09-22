@@ -9,6 +9,10 @@
  * dict on `notebookPath`), so cells in the same notebook share state
  * and cells in different notebooks don't.
  *
+ * Every cell carries an execution deadline (#2218) — see `cell-deadline.ts`
+ * for why it is armed against the head of the queue and why it interrupts
+ * before it kills.
+ *
  * v1 buffers events per-cell and resolves a single CellResult on `done`,
  * so the existing executor signature works unchanged. The kernel
  * already streams events at the protocol level — surfacing them
@@ -25,6 +29,9 @@ import { startRpcServer, type RpcServer } from './rpc-server';
 import os from 'node:os';
 import { resolvePythonInterpreter, getPythonSettings } from './python-settings';
 import { planKernelLaunch, resolveRealPath } from './sandbox';
+import {
+  createCellDeadlines, cellTimeoutMessage, resolveCellBudgetMs, type CellDeadlines,
+} from './cell-deadline';
 import { logger } from '../../shared/logger';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
@@ -35,6 +42,13 @@ interface PendingCell {
   stderr: string[];
   result?: unknown;
   error?: { ename: string; evalue: string; traceback: string[] } | undefined;
+  /** Execution budget in ms, captured at submit (#2218). `0` = no limit.
+   *  Captured rather than re-read so a settings change mid-flight can't move
+   *  a deadline that is already counting. */
+  timeoutMs: number;
+  /** Set once the budget expired, so `finalizeCell` reports the timeout
+   *  instead of the bare `KeyboardInterrupt` the kernel will send back. */
+  timedOut?: boolean;
 }
 
 interface KernelEvent {
@@ -48,10 +62,18 @@ interface KernelEvent {
 }
 
 interface KernelState {
+  /** Carried on the state so a deadline that fires can tear THIS kernel
+   *  down without re-deriving the key — and can check it is still the
+   *  kernel registered for the project before doing so. */
+  rootPath: string;
   proc: ChildProcessWithoutNullStreams;
   ready: Promise<void>;
+  /** Insertion-ordered, and the kernel executes in that order — so the
+   *  first entry is the cell currently running. `cell-deadline.ts` relies
+   *  on exactly that; see its header. */
   pending: Map<string, PendingCell>;
   rpc: RpcServer;
+  deadlines: CellDeadlines;
 }
 
 const kernels = new Map<string, KernelState>();
@@ -187,6 +209,18 @@ async function spawnKernel(rootPath: string): Promise<KernelState> {
     rejectReady = rej;
   });
 
+  // The host's closures name `state`, which is declared just below them:
+  // legal because none of them RUNS before the kernel has produced an
+  // event, by which point `state` is long since bound.
+  const deadlines = createCellDeadlines({
+    pendingCellIds: () => [...pending.keys()],
+    budgetMs: (cellId) => pending.get(cellId)?.timeoutMs ?? 0,
+    interrupt: () => sendInterrupt(state).ok,
+    markTimedOut: (cellId) => { const c = pending.get(cellId); if (c) c.timedOut = true; },
+    hardReset: () => { hardResetKernel(state); },
+  });
+  const state: KernelState = { rootPath, proc, ready, pending, rpc, deadlines };
+
   const rl = readline.createInterface({ input: proc.stdout });
   rl.on('line', (line) => {
     let event: KernelEvent;
@@ -221,8 +255,15 @@ async function spawnKernel(rootPath: string): Promise<KernelState> {
         cell.error = event.payload as PendingCell['error'];
         break;
       case 'done':
+        // Disarm BEFORE resolving: a timer left live here is the nastiest
+        // failure this feature could introduce — it would SIGINT whichever
+        // innocent cell the kernel had moved on to.
+        state.deadlines.clear(event.cellId);
         finalizeCell(cell);
         pending.delete(event.cellId);
+        // The next queued cell is now the one executing; give it its own
+        // budget rather than the remains of this one's.
+        state.deadlines.syncHead();
         break;
     }
   });
@@ -239,8 +280,14 @@ async function spawnKernel(rootPath: string): Promise<KernelState> {
     // Any in-flight cells get a synthetic error and the project's
     // kernel slot clears so the next runPython call respawns.
     const reason = signal ? `signal ${signal}` : `code ${code}`;
+    state.deadlines.clearAll();
     for (const cell of pending.values()) {
-      cell.resolve({ ok: false, error: `Python kernel exited (${reason}) before cell finished` });
+      // A cell we deliberately killed after its interrupt was ignored gets
+      // the timeout message, not "the kernel exited" — the latter reads as
+      // a crash, and hides both the cause and the namespace loss (#2218).
+      cell.resolve(cell.timedOut
+        ? { ok: false, error: cellTimeoutMessage(cell.timeoutMs, true) }
+        : { ok: false, error: `Python kernel exited (${reason}) before cell finished` });
     }
     pending.clear();
     rejectReady(new Error(`Python kernel exited before ready (${reason})`));
@@ -257,10 +304,38 @@ async function spawnKernel(rootPath: string): Promise<KernelState> {
     rejectReady(err);
   });
 
-  return { proc, ready, pending, rpc };
+  return state;
+}
+
+/**
+ * Drop a kernel that ignored its interrupt (#2218). Deliberately not
+ * `stopKernel(rootPath)`: by the time the grace window elapses the project's
+ * registered kernel may already be a DIFFERENT process (the old one crashed
+ * and a later cell respawned it), and killing that one would be a fresh bug
+ * introduced by the fix for this one.
+ */
+function hardResetKernel(state: KernelState): void {
+  if (kernels.get(state.rootPath) === state) kernels.delete(state.rootPath);
+  // The `exit` handler resolves every still-pending cell and closes the RPC
+  // socket, so there is nothing to await here. A failure to terminate is
+  // logged rather than swallowed: it means a spinning kernel is still
+  // holding a CPU with nothing left to read its stdin, which is worth a
+  // line in the log even though there is no further recovery to attempt.
+  void terminate(state).catch((err: unknown) => {
+    logger('python-kernel').warn('failed to terminate an unresponsive kernel:', err);
+  });
 }
 
 function finalizeCell(cell: PendingCell): void {
+  // Ahead of `cell.error`: the kernel DID send an error for this cell — a
+  // `KeyboardInterrupt` traceback, since the deadline interrupted it — and
+  // that traceback is exactly what the manual Interrupt Cell command
+  // produces, so surfacing it here would tell the user nothing about why
+  // their cell stopped (#2218).
+  if (cell.timedOut) {
+    cell.resolve({ ok: false, error: cellTimeoutMessage(cell.timeoutMs, false) });
+    return;
+  }
   if (cell.error) {
     const tb = cell.error.traceback.join('\n');
     cell.resolve({
@@ -404,6 +479,31 @@ export function invalidate(rootPath: string, relativePaths: string[]): void {
 }
 
 /**
+ * Has the kernel process actually terminated?
+ *
+ * NOT `proc.killed`, which is what this check used to read (#2218). Node
+ * sets `killed` to true as soon as `subprocess.kill()` successfully *sends*
+ * a signal — its own docs are explicit that it "does not indicate that the
+ * child process has been terminated". SIGINT is a signal a process is
+ * expected to survive, and the kernel does survive it: `exec_cell` catches
+ * the `KeyboardInterrupt` and `main()` goes back to reading stdin.
+ *
+ * So every interrupt permanently poisoned the liveness check. The NEXT cell
+ * saw `killed === true`, spawned a second kernel, and left the first one
+ * running with nothing holding its stdin — which is why "Compute: Interrupt
+ * Cell" (#372) silently wiped every notebook's variables and leaked a
+ * process, rather than doing the one thing it exists to do: stop the cell
+ * and keep the session. Measured, not inferred: the kernel's `os.getpid()`
+ * changes across an interrupt on `main`, and doesn't with this check.
+ *
+ * `exitCode` and `signalCode` are the two honest answers — one or the other
+ * is non-null exactly when the process is gone.
+ */
+function isDead(proc: ChildProcessWithoutNullStreams): boolean {
+  return proc.exitCode !== null || proc.signalCode !== null;
+}
+
+/**
  * Run a Python cell. Spawns the project's kernel on first call. A
  * crashed kernel is detected on the next call and respawned.
  */
@@ -413,7 +513,7 @@ export async function runPython(
   code: string,
 ): Promise<CellResult> {
   let state = kernels.get(rootPath);
-  if (!state || state.proc.killed || state.proc.exitCode !== null) {
+  if (!state || isDead(state.proc)) {
     try {
       state = await spawnKernel(rootPath);
     } catch (err) {
@@ -433,10 +533,17 @@ export async function runPython(
   }
 
   const cellId = randomUUID();
+  // Resolved BEFORE the promise body so the insert + write stay one
+  // synchronous block: `pending`'s insertion order has to match the order
+  // the kernel receives requests in, or the head-of-queue deadline arms the
+  // wrong cell (#2218).
+  const timeoutMs = await resolveCellBudgetMs();
+  const live = state;
   return new Promise<CellResult>((resolve) => {
-    state.pending.set(cellId, { resolve, stdout: [], stderr: [] });
+    live.pending.set(cellId, { resolve, stdout: [], stderr: [], timeoutMs });
     const req = JSON.stringify({ op: 'exec', cellId, notebookPath, code });
-    state.proc.stdin.write(req + '\n');
+    live.proc.stdin.write(req + '\n');
+    live.deadlines.syncHead();
   });
 }
 
@@ -469,7 +576,15 @@ export type InterruptResult =
  */
 export function interruptKernel(rootPath: string): InterruptResult {
   const state = kernels.get(rootPath);
-  if (!state || state.proc.exitCode !== null) return { ok: false, reason: 'no-kernel' };
+  if (!state) return { ok: false, reason: 'no-kernel' };
+  return sendInterrupt(state);
+}
+
+/** The signal half of `interruptKernel`, against a state we already hold.
+ *  The automatic deadline (#2218) must interrupt the kernel it armed against,
+ *  not whatever `kernels` maps the project to by the time it fires. */
+function sendInterrupt(state: KernelState): InterruptResult {
+  if (isDead(state.proc)) return { ok: false, reason: 'no-kernel' };
   if (process.platform === 'win32') {
     return { ok: false, reason: 'unsupported-platform' };
   }

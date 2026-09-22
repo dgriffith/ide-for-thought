@@ -9,6 +9,7 @@
   import { onMount } from 'svelte';
   import { api } from '../ipc/client';
   import type { ComputeConsentSummary, PythonProbeResult } from '../../../shared/compute/types';
+  import { DEFAULT_CELL_TIMEOUT_SECONDS, normalizeCellTimeoutSeconds } from '../../../shared/compute/types';
   import { logger } from '../../../shared/logger';
   import { getSettingsStore } from '../stores/settings.svelte';
   import Toggle from './ui/Toggle.svelte';
@@ -48,6 +49,12 @@
   /** Network egress toggle (#1413). Off by default; the kernel blocks non-local
    *  sockets unless this is on. Applied when the kernel next starts. */
   let allowNetwork = $state(false);
+  /** Per-cell execution budget in seconds (#2218); 0 = no limit. `null` is the
+   *  transient state of a cleared number input mid-edit, not a stored value —
+   *  `saveCellTimeout` folds it back to a real number before persisting. */
+  let cellTimeoutSeconds = $state<number | null>(DEFAULT_CELL_TIMEOUT_SECONDS);
+  /** What's on disk, so a failed save can put the field back. */
+  let cellTimeoutSaved = $state(DEFAULT_CELL_TIMEOUT_SECONDS);
 
   async function loadComputeSettings(): Promise<void> {
     try {
@@ -55,6 +62,8 @@
       pythonPathInput = s.pythonPath;
       pythonPathSaved = s.pythonPath;
       allowNetwork = s.allowNetwork;
+      cellTimeoutSeconds = s.cellTimeoutSeconds;
+      cellTimeoutSaved = s.cellTimeoutSeconds;
       // Probe whatever the resolver would currently pick so the status line
       // reflects the live state, not just the override.
       await refreshPythonProbe();
@@ -88,7 +97,9 @@
 
   async function savePythonPath(): Promise<void> {
     try {
-      await settings.setPythonSettings({ pythonPath: pythonPathInput.trim(), allowNetwork });
+      await settings.setPythonSettings({
+        pythonPath: pythonPathInput.trim(), allowNetwork, cellTimeoutSeconds: cellTimeoutSaved,
+      });
       pythonPathSaved = pythonPathInput.trim();
       await refreshPythonProbe();
     } catch (e) {
@@ -100,11 +111,38 @@
    *  kernel next starts — the hint tells the user to restart to apply now. */
   async function saveNetworkSetting(): Promise<void> {
     try {
-      await settings.setPythonSettings({ pythonPath: pythonPathSaved, allowNetwork });
+      await settings.setPythonSettings({
+        pythonPath: pythonPathSaved, allowNetwork, cellTimeoutSeconds: cellTimeoutSaved,
+      });
     } catch (e) {
       logger('settings').error('failed to save network setting:', e);
       // Revert the optimistic toggle so the UI reflects what's on disk.
       allowNetwork = !allowNetwork;
+    }
+  }
+
+  /**
+   * Persist the execution budget (#2218). Normalized through the same shared
+   * function the main-side decoder uses, and written BACK into the field, so
+   * the user sees what was actually stored rather than a value the clamp
+   * silently changed underneath them (an empty field, or a negative, both
+   * land on 0 = no limit).
+   *
+   * Takes effect on the next cell run — no kernel restart, unlike the network
+   * toggle above, because nothing about it is baked into the sandbox profile.
+   */
+  async function saveCellTimeout(): Promise<void> {
+    const next = normalizeCellTimeoutSeconds(cellTimeoutSeconds);
+    cellTimeoutSeconds = next;
+    if (next === cellTimeoutSaved) return;
+    try {
+      await settings.setPythonSettings({
+        pythonPath: pythonPathSaved, allowNetwork, cellTimeoutSeconds: next,
+      });
+      cellTimeoutSaved = next;
+    } catch (e) {
+      logger('settings').error('failed to save cell timeout:', e);
+      cellTimeoutSeconds = cellTimeoutSaved;
     }
   }
 
@@ -223,6 +261,29 @@
   </p>
 </div>
 
+<div class="field">
+  <label for="cell-timeout">Cell execution limit</label>
+  <div class="timeout-row">
+    <input
+      id="cell-timeout"
+      type="number"
+      min="0"
+      step="10"
+      bind:value={cellTimeoutSeconds}
+      onchange={() => { void saveCellTimeout(); }}
+    />
+    <span class="unit">seconds</span>
+  </div>
+  <p class="hint">
+    A cell that runs longer than this is interrupted, exactly as
+    <em>Interrupt Cell</em> does. One Python process serves
+    every notebook in a thoughtbase and runs one cell at a time, so a cell
+    that never finishes — <code>while True</code>, a request to a host that
+    never answers — holds up every cell you run afterwards, in any note. Set
+    <code>0</code> for no limit. Applies to your next run; no restart needed.
+  </p>
+</div>
+
 <div class="field trust-field">
   <div class="field-heading" id="trust-heading">Trusted thoughtbases</div>
   <p class="hint">
@@ -273,6 +334,20 @@
 </div>
 
 <style>
+  .timeout-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .timeout-row input {
+    width: 7em;
+    flex: 0 0 auto;
+  }
+  .unit {
+    color: var(--text-muted);
+    font-size: 12px;
+  }
+
   /* Shared form vocabulary, scoped to this panel (the app's per-dialog
      convention — each component carries its own .hint / button CSS). The
      base .field shape moved to global.css (#1910) — 13 of 19 occurrences

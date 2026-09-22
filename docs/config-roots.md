@@ -20,7 +20,7 @@ listed here. Adding a config without documenting it fails a test.
 | `clipper-config.json` | Browser-clipper enable flag + the loopback **shared secret (encrypted)**. |
 | `mcp-oauth-tokens.json` | Per-server OAuth 2.1 tokens for remote MCP servers (#2030), keyed by the server's canonical URL. **Access/refresh tokens (and client secret, if issued) encrypted** at rest. |
 | `ingest-settings.json` | Source-ingest defaults. |
-| `python-settings.json` | Python interpreter path + run consent. |
+| `python-settings.json` | Python interpreter path, network posture, and the per-cell execution limit (#2218). |
 | `compute-consent.json` | Content-addressed code-cell consent, keyed on each cell's code hash (#1412). Machine-scoped so it never rides along with a shared thoughtbase. |
 | `inspection-settings.json` | Which graph-health inspections run, plus their staleness thresholds (#1792). |
 | `history-settings.json` | Local note-history retention limits — days, revisions per note, max file size (#1158). |
