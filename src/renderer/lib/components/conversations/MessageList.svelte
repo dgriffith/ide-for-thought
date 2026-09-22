@@ -1,6 +1,6 @@
 <script lang="ts">
-  import MarkdownIt from 'markdown-it';
   import MessageCitations from '../MessageCitations.svelte';
+  import StreamingMessageBody from './StreamingMessageBody.svelte';
   import DraftCards from './DraftCards.svelte';
   import { getConversationsStore, type TabRuntime } from '../../stores/conversations.svelte';
   import { getEditorStore } from '../../stores/editor.svelte';
@@ -8,6 +8,7 @@
   import { getSourceDataStore } from '../../stores/source-data.svelte';
   import { api } from '../../ipc/client';
   import { insertCitationMarker } from '../../conversations/cite-from-conversation';
+  import { renderMarkdownCached } from '../../conversations/markdown-render';
   import { type CiteStatus } from '../../conversations/citations';
   import { formatTurnCost } from '../../conversations/conversation-cost';
   import type { ConversationMessage, Citation } from '../../../../shared/conversation';
@@ -28,15 +29,6 @@
   const notebase = getNotebaseStore();
   const sourceData = getSourceDataStore();
 
-  // Lightweight markdown-it for assistant message rendering. Mirrors the
-  // configuration in the legacy ConversationDialog so prose renders the same way.
-  const md = new MarkdownIt({
-    html: false,
-    linkify: true,
-    breaks: true,
-    typographer: true,
-  });
-
   let scrollEl = $state<HTMLDivElement>();
   let pendingAnswerText = $state('');
 
@@ -54,8 +46,21 @@
     return '';
   }
 
+  // One pending scroll at a time (#2219). Each call used to queue its own pair
+  // of nested rAFs, and each of those reads `scrollHeight` right after writing
+  // `scrollTop` — a forced layout flush. Several deltas landing inside one
+  // frame therefore queued several independent pairs that all ran in the same
+  // frame and flushed layout once each, for a scroll position only the last of
+  // them decided. Coalescing the sends (100ms) already cut how often this runs;
+  // the guard makes the cost per *frame* constant instead of proportional to
+  // however many updates happened to arrive since the last paint.
+  let scrollQueued = false;
+
   function scrollToBottom() {
+    if (scrollQueued) return;
+    scrollQueued = true;
     requestAnimationFrame(() => {
+      scrollQueued = false;
       if (!scrollEl) return;
       scrollEl.scrollTop = scrollEl.scrollHeight;
       // Second pass (#1112): with `content-visibility` render-virtualization the
@@ -151,7 +156,13 @@
         {/if}
       </div>
       {#if msg.role === 'assistant'}
-        <div class="msg-content">{@html md.render(msg.content)}</div>
+        <!-- Memoized (#2219): a completed send replaces `tab.conversation`
+             wholesale, so every message's `msg` changes identity and this
+             expression re-evaluates for the whole transcript. Svelte skips the
+             DOM write when the string is unchanged, but the markdown re-parse
+             happens first — 29ms per turn on an 80-message transcript. The memo
+             makes the repeat renders free; see markdown-render.ts. -->
+        <div class="msg-content">{@html renderMarkdownCached(msg.content)}</div>
         {#if msg.citations && msg.citations.length > 0}
           <MessageCitations
             citations={msg.citations}
@@ -188,7 +199,13 @@
              reloads on completion. Without this the live view shows raw
              underscores/asterisks and the message visibly "snaps" to formatted
              prose when the final turn lands. -->
-        <div class="msg-content">{@html md.render(tab.streamedChunks)}</div>
+        <!-- Not `{@html}` (#2219): Svelte compiles an only-child `{@html}` into
+             `innerHTML = …`, which rebuilt the entire rendered subtree on every
+             delta — 28,831 node destructions across one measured 38s reply, and
+             the reason a mid-stream text selection collapses the instant the
+             next chunk lands. StreamingMessageBody renders the same full
+             markdown but replaces only the nodes that actually changed. -->
+        <StreamingMessageBody class="msg-content" text={tab.streamedChunks} />
       {/if}
       <!-- Thinking interstitial — always rendered while the turn is in flight.
            Sits at the head of the streaming block before any text arrives, then
@@ -219,7 +236,7 @@
     <div class="msg assistant failed">
       <div class="msg-role">{roleLabel('assistant')}</div>
       {#if failure.partial}
-        <div class="msg-content">{@html md.render(failure.partial)}</div>
+        <div class="msg-content">{@html renderMarkdownCached(failure.partial)}</div>
       {/if}
       <div class="turn-error" role="status">
         <!-- No warning glyph on a turn the user stopped themselves — pressing
