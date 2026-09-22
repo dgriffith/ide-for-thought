@@ -33,6 +33,8 @@ const h = vi.hoisted(() => ({
   vectorsIndexExcerpt: vi.fn().mockResolvedValue(undefined),
   vectorsRemoveExcerpt: vi.fn().mockResolvedValue(undefined),
   citedTextFromTtl: vi.fn().mockReturnValue('cited text'),
+  armCitationAssetsCache: vi.fn(),
+  invalidateCitationAssets: vi.fn(),
 }));
 
 vi.mock('../../src/main/notebase/path-dedup', () => ({ wasHandled: h.wasHandled }));
@@ -62,6 +64,10 @@ vi.mock('../../src/main/embeddings/vector-store', () => ({
   removeExcerpt: h.vectorsRemoveExcerpt,
 }));
 vi.mock('../../src/main/sources/create-excerpt', () => ({ citedTextFromTtl: h.citedTextFromTtl }));
+vi.mock('../../src/main/citations/assets-cache', () => ({
+  armCitationAssetsCache: h.armCitationAssetsCache,
+  invalidateCitationAssets: h.invalidateCitationAssets,
+}));
 
 import { createWatchHandlers, type WatchHandlerDeps } from '../../src/main/watch-handlers';
 import { Channels } from '../../../src/shared/channels';
@@ -229,6 +235,73 @@ describe('source/excerpt watch handlers', () => {
     expect(h.graphRemoveExcerpt).toHaveBeenCalledWith(CTX, 'p42-graphs');
     expect(h.vectorsRemoveExcerpt).toHaveBeenCalledWith(CTX, 'p42-graphs');
     expect(broadcastIfAlive).toHaveBeenCalledWith(Channels.EXCERPTS_CHANGED);
+  });
+});
+
+/**
+ * The preview's citation cache is only as correct as this wiring (#2210).
+ *
+ * `assets-cache.ts` holds the parsed source/excerpt library and a compiled
+ * citeproc engine for as long as nobody says otherwise, and these four
+ * callbacks are the *only* thing that says otherwise for the watched tree. A
+ * missing call here doesn't fail anything loudly — it shows the user a
+ * citation marker for a source they already renamed, until they reopen the
+ * project. So each one is pinned individually rather than as a group.
+ */
+describe('citation cache invalidation (#2210)', () => {
+  it('arms the cache when the watcher for this project is created', () => {
+    // Arming here rather than inside the cache module is what ties "this
+    // project may cache" to "something is watching it": `createWatchHandlers`
+    // is called as the argument to `startWatching`.
+    const { handlers } = makeHandlers();
+    void handlers;
+    expect(h.armCitationAssetsCache).toHaveBeenCalledWith(CTX);
+  });
+
+  it('onSourceMetaChanged invalidates BEFORE it broadcasts', async () => {
+    // Ordering matters: anything the broadcast wakes up may render
+    // immediately, and must not be served the pre-change library.
+    const order: string[] = [];
+    h.invalidateCitationAssets.mockImplementation(() => order.push('invalidate'));
+    h.readFile.mockResolvedValue('meta ttl');
+    const { handlers, broadcastIfAlive } = makeHandlers();
+    broadcastIfAlive.mockImplementation(() => order.push('broadcast'));
+
+    await handlers.onSourceMetaChanged!('smith-2023');
+
+    expect(order).toEqual(['invalidate', 'broadcast']);
+  });
+
+  it('onSourceMetaDeleted invalidates', () => {
+    const { handlers } = makeHandlers();
+    handlers.onSourceMetaDeleted!('smith-2023');
+    expect(h.invalidateCitationAssets).toHaveBeenCalledWith(CTX);
+  });
+
+  it('onExcerptChanged invalidates', async () => {
+    // Excerpts matter as much as sources: a `[[quote::id]]` marker renders
+    // the excerpt's locator, so an edited page number is user-visible.
+    const { handlers } = makeHandlers();
+    await handlers.onExcerptChanged!('p42-graphs');
+    expect(h.invalidateCitationAssets).toHaveBeenCalledWith(CTX);
+  });
+
+  it('onExcerptDeleted invalidates', () => {
+    const { handlers } = makeHandlers();
+    handlers.onExcerptDeleted!('p42-graphs');
+    expect(h.invalidateCitationAssets).toHaveBeenCalledWith(CTX);
+  });
+
+  it('does not invalidate when meta.ttl read fails — nothing changed', () => {
+    // The deletion race: `onSourceMetaChanged` bails before touching the
+    // graph, and should leave the cache alone too. Over-invalidating here is
+    // harmless but would quietly mean a burst of failed reads costs a full
+    // library reload each.
+    h.readFile.mockRejectedValue(new Error('ENOENT'));
+    const { handlers } = makeHandlers();
+    return handlers.onSourceMetaChanged!('gone').then(() => {
+      expect(h.invalidateCitationAssets).not.toHaveBeenCalled();
+    });
   });
 });
 

@@ -28,6 +28,7 @@ import { indexAllFor, removeAllFor } from './notebase/index-fanout';
 import { invalidate as invalidatePythonModules } from './compute/python-kernel';
 import * as vectors from './embeddings/vector-store';
 import { citedTextFromTtl } from './sources/create-excerpt';
+import { armCitationAssetsCache, invalidateCitationAssets } from './citations/assets-cache';
 import { wasHandled } from './notebase/path-dedup';
 import type { ProjectContext } from './project-context-types';
 import type { WatcherCallbacks } from './notebase/watcher';
@@ -52,6 +53,14 @@ export interface WatchHandlerDeps {
  */
 export function createWatchHandlers(deps: WatchHandlerDeps): WatcherCallbacks {
   const { rootPath, projectCtx, broadcastIfAlive } = deps;
+
+  // The preview's citation cache is armed HERE rather than inside the cache
+  // module, because this function is called as the argument to
+  // `startWatching` — so arming it is exactly coincident with the
+  // `.minerva/{sources,excerpts}` watcher that invalidates it coming up. A
+  // project with no watcher (a test, the headless CLI, a publish run) is
+  // never armed and never serves a cached value (#2210).
+  armCitationAssetsCache(projectCtx);
 
   // Deduplication: IPC handlers mark paths they've already indexed
   // (see `notebase/path-dedup.ts`).
@@ -218,6 +227,7 @@ export function createWatchHandlers(deps: WatchHandlerDeps): WatcherCallbacks {
         } catch { /* body optional */ }
         graph.indexSource(projectCtx, sourceId, metaContent, bodyContent);
         void vectors.indexSource(projectCtx, sourceId, bodyContent ?? ''); // #839
+        invalidateCitationAssets(projectCtx); // #2210 — before the broadcast
         debouncedPersist();
         broadcastIfAlive(Channels.SOURCES_CHANGED);
       } catch { /* meta.ttl may have been deleted between events */ }
@@ -225,6 +235,7 @@ export function createWatchHandlers(deps: WatchHandlerDeps): WatcherCallbacks {
     onSourceMetaDeleted: (sourceId) => {
       graph.removeSource(projectCtx, sourceId);
       void vectors.removeSource(projectCtx, sourceId); // #839
+      invalidateCitationAssets(projectCtx); // #2210
       debouncedPersist();
       broadcastIfAlive(Channels.SOURCES_CHANGED);
     },
@@ -234,6 +245,7 @@ export function createWatchHandlers(deps: WatchHandlerDeps): WatcherCallbacks {
         const content = await notebaseFs.readFile(rootPath, relPath);
         graph.indexExcerpt(projectCtx, excerptId, content);
         void vectors.indexExcerpt(projectCtx, excerptId, citedTextFromTtl(content) ?? ''); // #839
+        invalidateCitationAssets(projectCtx); // #2210
         debouncedPersist();
         broadcastIfAlive(Channels.EXCERPTS_CHANGED);
       } catch { /* file may have been deleted between events */ }
@@ -241,6 +253,7 @@ export function createWatchHandlers(deps: WatchHandlerDeps): WatcherCallbacks {
     onExcerptDeleted: (excerptId) => {
       graph.removeExcerpt(projectCtx, excerptId);
       void vectors.removeExcerpt(projectCtx, excerptId); // #839
+      invalidateCitationAssets(projectCtx); // #2210
       debouncedPersist();
       broadcastIfAlive(Channels.EXCERPTS_CHANGED);
     },

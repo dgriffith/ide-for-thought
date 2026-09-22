@@ -24,6 +24,8 @@ import {
   USER_LOCALES_DIR,
 } from '../publish/csl/user-assets';
 import { renderInlineCitations, type InlineCiteRequest, type InlineCiteResponse } from '../citations/render-inline';
+import { invalidateCitationAssets } from '../citations/assets-cache';
+import { projectContext } from '../project-context-types';
 import { rootPathFromEvent, withRootPath, withRootPathOr, withRootPathWin, hooks } from './helpers';
 import { handle } from './typed-ipc';
 
@@ -88,6 +90,10 @@ export function registerBibliography(): void {
     await fs.mkdir(destDir, { recursive: true });
     const destPath = path.join(destDir, `${id}.csl`);
     await fs.writeFile(destPath, xml, 'utf-8');
+    // `.minerva/csl-{styles,locales}` is outside the sources/excerpts watcher,
+    // so these four handlers are the only thing that can tell the preview's
+    // cached engine that the merged style registry moved under it (#2210).
+    invalidateCitationAssets(projectContext(rootPath));
     return { id, label: extractStyleTitle(xml) ?? id, filePath: destPath };
   }));
   handle(Channels.CSL_IMPORT_LOCALE, withRootPathWin(async (rootPath, win) => {
@@ -109,20 +115,23 @@ export function registerBibliography(): void {
     await fs.mkdir(destDir, { recursive: true });
     const destPath = path.join(destDir, `${id}.xml`);
     await fs.writeFile(destPath, xml, 'utf-8');
+    invalidateCitationAssets(projectContext(rootPath)); // #2210, as above
     return { id, filePath: destPath };
   }));
   handle(Channels.CSL_REMOVE_STYLE, withRootPath(async (rootPath, id: string) => {
     if (!/^[a-z0-9_-]+$/i.test(id)) throw new Error('Invalid style id.');
     const target = path.join(rootPath, USER_STYLES_DIR, `${id}.csl`);
     await fs.unlink(target).catch(() => undefined);
+    invalidateCitationAssets(projectContext(rootPath)); // #2210, as above
   }));
   handle(Channels.CSL_REMOVE_LOCALE, withRootPath(async (rootPath, id: string) => {
     if (!/^[A-Za-z0-9_-]+$/.test(id)) throw new Error('Invalid locale id.');
     const target = path.join(rootPath, USER_LOCALES_DIR, `${id}.xml`);
     await fs.unlink(target).catch(() => undefined);
+    invalidateCitationAssets(projectContext(rootPath)); // #2210, as above
   }));
   handle(Channels.CITATION_RENDER_INLINE, withRootPathOr<[InlineCiteRequest[]], InlineCiteResponse | Promise<InlineCiteResponse>>({ markers: [], bibliography: null, missing: [], styleId: DEFAULT_STYLE }, async (rootPath, refs: InlineCiteRequest[]) => {
-    return await renderInlineCitations(rootPath, refs ?? []);
+    return await renderInlineCitations(projectContext(rootPath), refs ?? []);
   }));
 
   handle(Channels.BIBLIOGRAPHY_GENERATE, withRootPath(async (rootPath, relativePath: string) => {

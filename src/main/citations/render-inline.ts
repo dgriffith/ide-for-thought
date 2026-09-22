@@ -9,11 +9,16 @@
  * their own context inline.
  *
  * The render is stateful inside a single call (citeproc tracks
- * citation order, ibid., short-form rules) — but we throw the
- * renderer away after each invocation so the next preview render
- * starts fresh. Cheap enough; citeproc operates on a few dozen items.
+ * citation order, ibid., short-form rules), so each call starts from a clean
+ * session. It used to get that by throwing away the whole renderer — which
+ * the original comment here called "cheap enough". It was not: building the
+ * engine is ~296ms, fixed, regardless of library size, and this handler runs
+ * on the preview's 120ms render debounce. `withPreviewRenderer` now hands
+ * back a cached, freshly-reset engine instead; see `./assets-cache.ts` for
+ * the measurements and the freshness contract.
  */
-import { loadCitationAssets } from '../publish/csl';
+import type { ProjectContext } from '../project-context-types';
+import { withPreviewRenderer } from './assets-cache';
 import { getBibliographyStyleId } from '../project-config';
 import { BUNDLED_STYLES, DEFAULT_STYLE } from '../publish/csl/assets';
 
@@ -48,38 +53,40 @@ function isNumericStyle(rawCsl: string): boolean {
 }
 
 export async function renderInlineCitations(
-  rootPath: string,
+  ctx: ProjectContext,
   refs: InlineCiteRequest[],
 ): Promise<InlineCiteResponse> {
-  const projectStyleId = getBibliographyStyleId(rootPath) ?? DEFAULT_STYLE;
+  const projectStyleId = getBibliographyStyleId(ctx.rootPath) ?? DEFAULT_STYLE;
   const styleId = Object.prototype.hasOwnProperty.call(BUNDLED_STYLES, projectStyleId)
     ? projectStyleId
     : DEFAULT_STYLE;
 
-  const assets = await loadCitationAssets(rootPath, { styleId });
-  const renderer = assets.createRenderer();
-
-  const markers: string[] = [];
-  for (const ref of refs) {
-    if (ref.kind === 'quote') {
-      const ex = assets.excerpts.get(ref.id);
-      if (ex) {
-        markers.push(renderer.renderCitation(ex.sourceId, ex.locator));
+  // The callback body is synchronous on purpose — it is one citeproc session
+  // on a renderer shared with the next tick, and an `await` in here would let
+  // another render interleave into it. See `assets-cache.ts`.
+  return await withPreviewRenderer(ctx, { styleId }, (renderer, assets) => {
+    const markers: string[] = [];
+    for (const ref of refs) {
+      if (ref.kind === 'quote') {
+        const ex = assets.excerpts.get(ref.id);
+        if (ex) {
+          markers.push(renderer.renderCitation(ex.sourceId, ex.locator));
+        } else {
+          markers.push(renderer.renderCitation(ref.id));
+        }
       } else {
         markers.push(renderer.renderCitation(ref.id));
       }
-    } else {
-      markers.push(renderer.renderCitation(ref.id));
     }
-  }
 
-  const numeric = isNumericStyle(BUNDLED_STYLES[styleId]!);
-  const bibliography = numeric ? renderer.renderBibliography().entries : null;
+    const numeric = isNumericStyle(BUNDLED_STYLES[styleId]!);
+    const bibliography = numeric ? renderer.renderBibliography().entries : null;
 
-  return {
-    markers,
-    bibliography,
-    missing: [...renderer.missing()],
-    styleId,
-  };
+    return {
+      markers,
+      bibliography,
+      missing: [...renderer.missing()],
+      styleId,
+    };
+  });
 }
