@@ -11,6 +11,7 @@ import type * as graph from './graph/index';
 import * as templates from './notebase/templates';
 import * as tables from './sources/tables';
 import { addRecentProject } from './recent-projects';
+import { invalidateMenuInputCaches } from './menu-input-caches';
 import { saveSession, type WindowState } from './session';
 import { acquireProject, releaseProject } from './project-context';
 import { runBackfill } from './embeddings/backfill';
@@ -153,6 +154,14 @@ export function createWindow(opts?: { x?: number; y?: number; width?: number; he
   win.on('resize', persistSession);
 
   win.on('focus', () => {
+    // Regaining focus is the one moment something outside the app can have
+    // edited a saved query, the recents list, or a thoughtbase's display name
+    // — making an external edit means having been in another application.
+    // Dropping the menu's memoized disk reads here is therefore enough to keep
+    // the menu as fresh as it was before those caches existed, while a
+    // selection-driven rebuild (`setMenuEditorState`, which fires whenever the
+    // user selects or deselects text) now costs no file I/O at all (#2221).
+    invalidateMenuInputCaches();
     menuRebuilder?.();
   });
 

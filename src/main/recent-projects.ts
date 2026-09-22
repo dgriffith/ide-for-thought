@@ -15,8 +15,36 @@ function recentsFilePath(): string {
   return path.join(app.getPath('userData'), 'recent-projects.json');
 }
 
+/**
+ * Memoized recents (#2221).
+ *
+ * `getRecentProjects` is one `readFileSync` — trivial on its own, which is
+ * why it was fine to call it from `menu.ts`'s File ▸ Open Recent builder.
+ * What made it not fine is where that builder runs: `rebuildMenu()` fires on
+ * window focus and on every `hasSelection` flip in the focused note, i.e. on a
+ * gesture the user performs continuously while editing. A blocking read on the
+ * main process's only thread per text selection is a cost with no matching
+ * benefit — this list changes when a project is opened or the list is cleared,
+ * both of which run through this module.
+ *
+ * Invalidation has the same two cases as the saved-queries cache: writes from
+ * this app (the two functions below update the cache directly, since they
+ * already know the new value) and writes from outside it (only reachable by
+ * leaving the app, so the focus handler in `window-manager.ts` refreshes —
+ * see `menu-input-caches.ts`).
+ */
+let cache: string[] | null = null;
+
+/** Drop the memoized recents list. See `menu-input-caches.ts` for when. */
+export function invalidateRecentProjectsCache(): void {
+  cache = null;
+}
+
 export function getRecentProjects(): string[] {
-  return loadConfigFileSync<string[]>(recentsFilePath, (raw) => asStringArray(raw, []), []);
+  cache ??= loadConfigFileSync<string[]>(recentsFilePath, (raw) => asStringArray(raw, []), []);
+  // A copy per call: `defaultThoughtbaseDir` and the menu builder both iterate
+  // the result, and `addRecentProject` below mutates the array it gets back.
+  return [...cache];
 }
 
 export function addRecentProject(projectPath: string): void {
@@ -24,6 +52,7 @@ export function addRecentProject(projectPath: string): void {
   recent.unshift(projectPath);
   if (recent.length > MAX_RECENT) recent.length = MAX_RECENT;
   fs.writeFileSync(recentsFilePath(), JSON.stringify(recent), 'utf-8');
+  cache = recent;
 }
 
 /**
@@ -58,4 +87,5 @@ export function defaultThoughtbaseDir(): string {
 
 export function clearRecentProjects(): void {
   fs.writeFileSync(recentsFilePath(), '[]', 'utf-8');
+  cache = [];
 }

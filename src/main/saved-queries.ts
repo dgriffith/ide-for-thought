@@ -149,12 +149,64 @@ function compareQueries(a: SavedQuery, b: SavedQuery): number {
   return a.name.localeCompare(b.name);
 }
 
+// ── Listing cache (#2221) ───────────────────────────────────────────────────
+//
+// `listSavedQueries` is not a cheap call: two `readdirSync`s plus one
+// `readFileSync` per `.rq`/`.sql` file, all synchronous, all on the main
+// process's only thread. That was acceptable while the only caller was the
+// `QUERIES_LIST` IPC handler — a user action asking for the list. It stopped
+// being acceptable once `menu.ts`'s Saved Queries submenu started calling it,
+// because `rebuildMenu()` runs on window focus AND on every flip of the
+// focused note's `hasSelection` flag (`setMenuEditorState`). Selecting and
+// deselecting text is a *continuous* editing gesture, so a user with a dozen
+// saved queries was paying ~14 blocking file reads per selection change, and
+// the cost grows with however many queries they have saved.
+//
+// So the listing is memoized. What makes this safe rather than a staleness bug
+// waiting to happen is that there are exactly two ways the on-disk set can
+// change, and both are covered:
+//
+//  1. **This app wrote it.** Every mutator below (`saveQuery`, `deleteQuery`,
+//     `renameQuery`, `moveQueryScope`, `setQueryGroup`, `setQueryOrder`) calls
+//     `invalidateSavedQueriesCache()`. They are the only writers — the
+//     `QUERIES_*` registrar goes through this module, and nothing else touches
+//     the queries directories.
+//  2. **Something outside the app wrote it** — a text editor, a file manager,
+//     a sync client. Doing that requires the user to leave Minerva and come
+//     back, and `window-manager.ts`'s `focus` handler invalidates on the way
+//     back in (see `menu-input-caches.ts`). So an external edit is picked up
+//     at exactly the same moment it is today: the first rebuild after focus.
+//
+// The cache is deliberately ONE entry tagged with its rootPath, not a
+// `Map<rootPath, listing>`. Focus invalidates the whole thing anyway, so a map
+// would buy nothing but entries for projects that have since been closed —
+// which is the shape `tests/architecture/project-state-registered.test.ts`
+// (#2240) exists to keep out of `src/main`, and `createProjectStore` isn't
+// reachable from here (this module is handed a bare path, not a
+// `ProjectContext`). Two windows on two thoughtbases alternate and miss, which
+// leaves that configuration exactly where it is today rather than worse.
+let listingCache: { key: string; value: SavedQuery[] } | null = null;
+
+/** Drop the memoized `listSavedQueries` result. Called by every mutator in
+ *  this module, and on window focus (the only moment an *external* edit can
+ *  have landed — see the block comment above). */
+export function invalidateSavedQueriesCache(): void {
+  listingCache = null;
+}
+
 // ── Public API ──────────────────────────────────────────────────────────────
 
 export function listSavedQueries(rootPath: string | null): SavedQuery[] {
+  const key = rootPath ?? '';
+  // Hand back a copy: callers filter/sort the result (menu.ts does both), and
+  // a caller that sorted the cached array in place would silently reorder
+  // every later reader's list.
+  if (listingCache && listingCache.key === key) return [...listingCache.value];
   const global = listDir(globalQueriesDir(), 'global').sort(compareQueries);
   const project = rootPath ? listDir(projectQueriesDir(rootPath), 'project').sort(compareQueries) : [];
-  return [...project, ...global];
+  const value = [...project, ...global];
+  listingCache = { key, value };
+  return [...value];
 }
 
 export function saveQuery(
@@ -184,6 +236,7 @@ export function saveQuery(
   const filename = sanitizeFilename(name) + extensionFor(language);
   const filePath = path.join(dir, filename);
   fs.writeFileSync(filePath, serializeQuery({ name, description, query, group }), 'utf-8');
+  invalidateSavedQueriesCache();
 
   return {
     id: sanitizeFilename(name),
@@ -202,6 +255,9 @@ export function deleteQuery(filePath: string): void {
   try {
     fs.unlinkSync(filePath);
   } catch { /* already gone */ }
+  // Outside the try: "already gone" still means the cached listing — which may
+  // well still contain it — has to be rebuilt.
+  invalidateSavedQueriesCache();
 }
 
 export function renameQuery(filePath: string, newName: string): string {
@@ -224,6 +280,7 @@ export function renameQuery(filePath: string, newName: string): string {
   if (newPath !== filePath) {
     try { fs.unlinkSync(filePath); } catch { /* ignore */ }
   }
+  invalidateSavedQueriesCache();
   return newPath;
 }
 
@@ -258,6 +315,7 @@ export function moveQueryScope(
   }
   fs.writeFileSync(newPath, content, 'utf-8');
   try { fs.unlinkSync(filePath); } catch { /* already gone */ }
+  invalidateSavedQueriesCache();
   return newPath;
 }
 
@@ -274,6 +332,7 @@ export function setQueryGroup(filePath: string, group: string | null): void {
     group: group && group.trim() ? group.trim() : null,
     order: parsed.order,
   }), 'utf-8');
+  invalidateSavedQueriesCache();
 }
 
 /**
@@ -296,6 +355,7 @@ export function setQueryOrder(entries: Array<{ filePath: string; order: number |
       order,
     }), 'utf-8');
   }
+  invalidateSavedQueriesCache();
 }
 
 /** Heuristic: project queries live under `.minerva/queries/`, global don't. */
