@@ -214,5 +214,51 @@ export class CitationRenderer {
   missing(): ReadonlySet<string> {
     return this.missingIds;
   }
+
+  /**
+   * Return this renderer to its just-constructed state, so one compiled
+   * engine can serve many render sessions (#2210).
+   *
+   * Building a `CSL.Engine` costs ~300ms, and that cost is FIXED, not
+   * proportional to the library: measured at 296ms for a one-source project
+   * and 296ms for a thousand-source one, because what the constructor
+   * compiles is the 86KB CSL style, not the items (`retrieveItem` is a lazy
+   * callback, and `setupXml` — the actual XML parse — is only 5ms of it).
+   * The note preview built a fresh engine on every 120ms render tick, so
+   * every keystroke in a note containing a single `[[cite::…]]` queued
+   * ~300ms of work to reproduce the previous answer.
+   *
+   * Reuse is only sound if the reset is total, because citeproc is
+   * deliberately stateful within a session — citation order, ibid. and
+   * short-form rules, numeric assignment, note indices all accumulate.
+   * `restoreProcessorState([])` is citeproc-js's own entry point for
+   * discarding that registry; the four fields below are this wrapper's half
+   * of the same state. `tests/main/citations/engine-reuse.test.ts` pins the
+   * property that matters: a reset renderer produces byte-identical markers,
+   * bibliography, footnotes and missing-set to a freshly constructed one,
+   * across consecutive sessions, for every bundled style.
+   *
+   * Exporters do NOT use this — `assets.createRenderer()` still hands them a
+   * fresh instance per note, since a shared mutable engine is only safe for a
+   * caller that uses it synchronously and one session at a time.
+   *
+   * One honest caveat, recorded so nobody trims this to the line the tests
+   * can justify: removing `restoreProcessorState([])` and keeping only the
+   * four field resets below still passes that whole test file. citeproc's own
+   * registry does not currently leak between our sessions, because
+   * `renderCitationCluster` passes empty `citationsPre`/`citationsPost` on
+   * every call and `renderBibliography` calls `updateItems` with the current
+   * cited set — so the registry is rebuilt from scratch each time anyway.
+   * That is a property of THIS wrapper's call pattern, not of citeproc, and
+   * it would stop holding the moment we start threading real citationsPre
+   * through for cross-note bibliographies. It costs microseconds; it stays.
+   */
+  reset(): void {
+    this.engine.restoreProcessorState([]);
+    this.citedIds.clear();
+    this.missingIds.clear();
+    this.noteIndex = 1;
+    this.footnotes.length = 0;
+  }
 }
 

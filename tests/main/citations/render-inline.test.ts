@@ -5,6 +5,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { renderInlineCitations } from '../../../src/main/citations/render-inline';
 import { setBibliographyStyleId } from '../../../src/main/project-config';
+import { projectContext } from '../../../src/main/project-context-types';
 
 function mkTempProject(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-citation-render-'));
@@ -39,9 +40,15 @@ async function seed(root: string): Promise<void> {
 
 describe('renderInlineCitations (#110)', () => {
   let root: string;
+  // #2210 made the handler ctx-taking so the preview's per-project engine
+  // cache has a slot key. These tests never arm that cache, so they exercise
+  // the uncached path — which is the point: an unarmed project behaves
+  // exactly as it did before.
+  let ctx: ReturnType<typeof projectContext>;
 
   beforeEach(async () => {
     root = mkTempProject();
+    ctx = projectContext(root);
     await seed(root);
   });
 
@@ -50,7 +57,7 @@ describe('renderInlineCitations (#110)', () => {
   });
 
   it('returns one APA-style marker per ref in the same order', async () => {
-    const result = await renderInlineCitations(root, [
+    const result = await renderInlineCitations(ctx, [
       { kind: 'cite', id: 'smith-2020' },
       { kind: 'cite', id: 'smith-2020' },
     ]);
@@ -62,7 +69,7 @@ describe('renderInlineCitations (#110)', () => {
   });
 
   it('resolves [[quote::id]] through the excerpts map and emits a page locator', async () => {
-    const result = await renderInlineCitations(root, [
+    const result = await renderInlineCitations(ctx, [
       { kind: 'quote', id: 'ex-42' },
     ]);
     expect(result.markers).toHaveLength(1);
@@ -70,7 +77,7 @@ describe('renderInlineCitations (#110)', () => {
   });
 
   it('omits a bibliography for author-date styles (APA default)', async () => {
-    const result = await renderInlineCitations(root, [
+    const result = await renderInlineCitations(ctx, [
       { kind: 'cite', id: 'smith-2020' },
     ]);
     expect(result.bibliography).toBeNull();
@@ -78,7 +85,7 @@ describe('renderInlineCitations (#110)', () => {
 
   it('emits a numeric bibliography when the project style is IEEE', async () => {
     setBibliographyStyleId(root, 'ieee');
-    const result = await renderInlineCitations(root, [
+    const result = await renderInlineCitations(ctx, [
       { kind: 'cite', id: 'smith-2020' },
     ]);
     expect(result.styleId).toBe('ieee');
@@ -91,7 +98,7 @@ describe('renderInlineCitations (#110)', () => {
   });
 
   it('reports unknown ids as missing and emits a [missing: id] marker', async () => {
-    const result = await renderInlineCitations(root, [
+    const result = await renderInlineCitations(ctx, [
       { kind: 'cite', id: 'never-existed' },
     ]);
     expect(result.missing).toContain('never-existed');
@@ -100,7 +107,7 @@ describe('renderInlineCitations (#110)', () => {
 
   it('falls back to APA when the configured style id is unknown', async () => {
     setBibliographyStyleId(root, 'not-a-real-style');
-    const result = await renderInlineCitations(root, [
+    const result = await renderInlineCitations(ctx, [
       { kind: 'cite', id: 'smith-2020' },
     ]);
     expect(result.styleId).toBe('apa');
@@ -111,7 +118,7 @@ describe('renderInlineCitations (#110)', () => {
     setBibliographyStyleId(root, 'ieee');
     // First reference to smith-2020 → [1]; second reference → [1] again
     // (numeric styles dedupe by source id).
-    const result = await renderInlineCitations(root, [
+    const result = await renderInlineCitations(ctx, [
       { kind: 'cite', id: 'smith-2020' },
       { kind: 'quote', id: 'ex-42' },
     ]);

@@ -421,7 +421,7 @@ describe('register-bibliography — CITATION_RENDER_INLINE', () => {
     h.renderInlineCitations.mockResolvedValue({ markers: ['(Smith 2020, 12)'], bibliography: '…', missing: [], styleId: 'apa' });
     await expect(callAsync(Channels.CITATION_RENDER_INLINE, refs))
       .resolves.toEqual({ markers: ['(Smith 2020, 12)'], bibliography: '…', missing: [], styleId: 'apa' });
-    expect(h.renderInlineCitations).toHaveBeenCalledWith(ROOT, refs);
+    expect(h.renderInlineCitations).toHaveBeenCalledWith(expect.objectContaining({ rootPath: ROOT }), refs);
   });
 
   it('treats a missing ref list as an empty one', async () => {
@@ -429,7 +429,7 @@ describe('register-bibliography — CITATION_RENDER_INLINE', () => {
     // normal transient, not something to reject over.
     h.renderInlineCitations.mockResolvedValue({ markers: [], bibliography: null, missing: [], styleId: 'apa' });
     await callAsync(Channels.CITATION_RENDER_INLINE, undefined);
-    expect(h.renderInlineCitations).toHaveBeenCalledWith(ROOT, []);
+    expect(h.renderInlineCitations).toHaveBeenCalledWith(expect.objectContaining({ rootPath: ROOT }), []);
   });
 });
 

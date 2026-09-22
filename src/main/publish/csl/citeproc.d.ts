@@ -23,6 +23,13 @@ declare module 'citeproc' {
     ): [Record<string, unknown>, Array<[number, string, string]>];
     /** Switch the engine's output format ("html" / "text" / "rtf"). */
     setOutputFormat(fmt: 'html' | 'text' | 'rtf'): void;
+    /**
+     * citeproc-js's own "forget every citation" entry point: rebuilds the
+     * registry from the citations passed in, so `[]` returns the engine to
+     * its just-constructed state. `CitationRenderer.reset()` uses it to reuse
+     * one compiled engine across preview renders (#2210).
+     */
+    restoreProcessorState(citations?: unknown[]): void;
     // Engine exposes more — we surface only the bits the wrapper reads.
     cslXml?: { dataObj?: { attrs?: { class?: string } } };
   }
