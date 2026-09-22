@@ -71,6 +71,11 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
 
+      # Unconditional lockfile/manifest check (#2244) — see ci.yml's
+      # lint-and-test job for why this cannot rely on the conditional install.
+      - name: Verify lockfile matches package.json
+        run: pnpm install --frozen-lockfile --lockfile-only
+
       # node-linker=hoisted → node_modules is a self-contained flat tree (no
       # store symlinks), so caching it directly is safe. Same key as ci.yml's
       # "Cache node_modules" so the two workflows share a warm cache (#1638).
