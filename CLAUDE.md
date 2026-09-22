@@ -558,6 +558,43 @@ entries there are the worked examples of why.
 advisory appearing between merge and tag shouldn't block shipping a
 user-facing fix, and CI already gates the full tree on every PR.
 
+### Actions are pinned to commit SHAs (#2250)
+
+`actions/checkout@v7` is a **mutable** reference: the tag can be moved,
+reverted or repointed upstream, and the next run executes different code with
+no diff here to show it. A SHA cannot move. Every `uses:` across all three
+workflows carries one, with the version as a trailing comment:
+
+```yaml
+- uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+```
+
+The comment is load-bearing, not decoration — without it a diff is forty hex
+characters and nobody can tell `v7.0.1` from a reverted `v6` by eye. It is also
+the form `.github/dependabot.yml`'s `github-actions` entry reads and rewrites,
+so the pins stay current at no ongoing cost. The gap #2250 closed was
+mutability, never staleness.
+
+**All three workflows, not just `release.yml`.** The issue scoped it to the one
+holding Apple signing material, which is where the blast radius is, and called
+the rest optional. Uniform is better here: partial pinning means a reader
+hitting an unpinned `uses:` has to work out whether it was an exemption or an
+oversight. It also keeps up with permission changes — `bench.yml` was assessed
+as read-only when the issue was filed and gained `issues: write` in #2242.
+
+`tests/architecture/actions-sha-pinned.test.ts` holds it: every `uses:` is a
+40-char SHA, each carries a version comment, and one action resolves to one SHA
+everywhere (five of the eight appear in all three workflows, so a partial
+upgrade is the realistic drift).
+
+To add or bump one:
+
+```sh
+gh api repos/<owner>/<repo>/git/ref/tags/<tag> --jq .object.sha
+```
+
+Resolve an annotated tag one more hop through `git/tags/<sha>`.
+
 ### Out-of-band checks ship their notification path (#2242)
 
 Every detector in this repo runs inside `pnpm test` — coverage floors,
