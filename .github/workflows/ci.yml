@@ -106,6 +106,14 @@ jobs:
       # src/main/notebase) — so the trust + security paths can't silently
       # regress (#679). The citeproc publish suites carry per-test timeouts
       # (#677) that absorb the instrumentation slowdown.
+      #
+      # This step is ~71% of the PR critical path and the slowest thing in CI
+      # (#2248). Sharding it was considered and deferred — vitest's
+      # `--mergeReports` merges test results but NOT coverage, so it would mean
+      # re-implementing this repo's per-glob threshold map outside vitest. The
+      # measurement, the verification, and the revisit trigger are recorded at
+      # the top of `vitest.config.mts`'s `test:` block; read that before
+      # optimising this step.
       - name: Test + coverage
         run: pnpm coverage
 

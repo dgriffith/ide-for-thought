@@ -28,6 +28,59 @@ export default defineConfig({
     // (e.g., watcher, chokidar waits, network probes) need >5s to avoid flakes;
     // 30s provides enough headroom without being overly lenient (#1942).
     testTimeout: 30000,
+    // ── Execution strategy: the defaults, deliberately (#2248) ─────────────
+    //
+    // Nothing here sets `pool`, `poolOptions`, `maxWorkers`, `isolate` or
+    // `fileParallelism`. Vitest 5 therefore runs `forks` with `isolate: true`
+    // — the safest and slowest combination — and that is the right default for
+    // this suite: it is genuinely filesystem-stateful (chokidar watchers,
+    // DuckDB handles, real temp projects per test). `isolate: false` would be
+    // reckless here, and vitest's own hint puts it at ~14s of a ~9-minute run
+    // anyway.
+    //
+    // `pnpm coverage` is the PR critical path. Measured on CI run 35775982191
+    // (2026-09-22): `lint-and-test` 801s total, of which "Test + coverage" is
+    // 568s — 71%. `ci.yml`'s three jobs have no `needs:` edges and run in
+    // parallel (audit 13s, e2e 239s), so PR latency IS this job. Two days
+    // earlier the same step was 483s of 725s (67%), so the share is growing,
+    // not stable. Re-measure with:
+    //
+    //   gh api repos/:owner/:repo/actions/runs/<id>/jobs \
+    //     --jq '.jobs[] | select(.name=="lint-and-test") | .steps[]
+    //           | "\(.name) \((.completed_at|fromdateiso8601)
+    //                          - (.started_at|fromdateiso8601))s"'
+    //
+    // ── Why sharding is not the answer yet ─────────────────────────────────
+    //
+    // `vitest --shard=i/n` across parallel jobs would roughly halve the
+    // critical path, and the obvious wiring — `--reporter=blob` per shard,
+    // then `--mergeReports` — does exist in vitest 5. It does not do what is
+    // needed here, and this was checked rather than assumed (#2248):
+    //
+    //   - Run per-shard with the config as-is and EVERY shard fails, because
+    //     the per-file/per-glob `coverage.thresholds` map below is evaluated
+    //     independently by each shard against only its own slice. Every file a
+    //     shard didn't touch reports 0%.
+    //   - `--mergeReports` merges test RESULTS but carries NO coverage.
+    //     Measured: merging two shards' blobs reported both files passed and a
+    //     coverage summary of 862 files, 0 covered, 0%.
+    //
+    // So sharding means: run shards with thresholds off, emit raw coverage
+    // JSON from each, merge it outside vitest (nyc/istanbul-lib-coverage), and
+    // re-implement the threshold map below against the combined report. That
+    // map is ~490 lines of per-area floors with written justifications and is
+    // one of this codebase's real strengths; reimplementing its enforcement
+    // outside vitest to save CI minutes is a bad trade today.
+    //
+    // ── When to revisit ────────────────────────────────────────────────────
+    //
+    // When the "Test + coverage" step crosses ~12 min, or PR latency becomes a
+    // throughput constraint (more contributors, a merge queue). At 568s we are
+    // at ~79% of that trigger. The cheaper thing to try first is trimming what
+    // the step does, not how it is scheduled — `pnpm test` without coverage is
+    // a fraction of it, so running coverage only on main (and plain tests on
+    // PRs) would buy most of the latency back without touching the thresholds.
+
     // Pin the ambient zone for the whole suite (#1943) — without this, any
     // local-time assertion that doesn't explicitly pin its own clock/TZ
     // inherits whatever zone the runner happens to be in, so the same test
