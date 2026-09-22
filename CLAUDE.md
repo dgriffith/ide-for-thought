@@ -582,6 +582,35 @@ runtime cannot catch a difference between runtimes. Advisory only: a hook that
 blocks a push over an advisory is a hook people disable, and the lint gate goes
 with it.
 
+### Workflow token scopes are declared in the repo (#2251)
+
+Every workflow declares `permissions:`, the workflow-scope value is
+`contents: read`, and any write is granted on the job that writes:
+
+| workflow | workflow scope | job grant |
+|---|---|---|
+| `ci.yml` | `contents: read` | — |
+| `bench.yml` | `contents: read` | `issues: write` on `bench` (#2242) |
+| `release.yml` | `contents: read` | `contents: write` on `build-macos` |
+
+`ci.yml` and `bench.yml` used to declare nothing, so their token scope came
+from a repository settings page. That page says least-privilege today —
+checked, not assumed (`gh api repos/:owner/:repo/actions/permissions/workflow`
+→ `"default_workflow_permissions":"read"`) — so this was never a live hole. It
+was an unpinned assumption: an org- or repo-level change would silently widen
+the token with nothing in the repo to show it. A settings page is not
+somewhere an invariant can live.
+
+**Writes go on the job, not the workflow.** `release.yml` declared
+`contents: write` at workflow scope, which is equivalent while there is one
+job and silently wrong at two — a notarization reporter, or the Linux/Windows
+builders of #2200/#2197, would have inherited repository write for no reason.
+`ci.yml` keeps its read at workflow scope on purpose: `contents: read` is what
+a future job *should* inherit, so there inheritance is the feature.
+
+`tests/architecture/workflow-permissions.test.ts` holds all of it, including a
+rejection of the `permissions: write-all` shorthand — one innocuous-looking
+word that grants every scope there is.
 ### Actions are pinned to commit SHAs (#2250)
 
 `actions/checkout@v7` is a **mutable** reference: the tag can be moved,
