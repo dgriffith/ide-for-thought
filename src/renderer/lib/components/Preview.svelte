@@ -37,7 +37,7 @@
     import { hydrateTypedCards, type TypedCardDeps } from '../preview/typed-link-render';
     import { markBrokenWikiLinks } from '../preview/broken-links';
     import { buildObjectCardHtml } from '../preview/typed-card';
-    import { resolveWikiLinkTarget } from '../../../shared/wiki-link-resolver';
+    import { buildWikiLinkIndex, resolveWikiLinkTargetWithIndex } from '../../../shared/wiki-link-resolver';
     import type { NoteTypedProperties } from '../../../shared/objects/type-def';
     import { executeQueryBlock, type QueryBlockDeps } from '../preview/query-blocks';
     import {
@@ -175,6 +175,43 @@
         getAliases,
         revision = 0,
     }: Props = $props();
+
+    /**
+     * One wiki-link lookup index for every resolver in this component
+     * (#2210 §3b).
+     *
+     * Three passes resolve `[[targets]]` on each render tick — transclusion
+     * embeds, typed cards, and the argument-map focus reference — and each
+     * built its own inputs and then scanned them linearly. Transclusion was
+     * the expensive one: it fetched its inputs over IPC, per tick, with
+     * `api.notebase.listFiles()` + `api.graph.aliasMap()`. `listFiles`
+     * recurses the whole project and stats every file — 12.9ms at 700 files,
+     * 42.3ms at 2,800 — in the MAIN process, so every other IPC handler
+     * queued behind it, including ones the same tick was waiting on. Then the
+     * tree was structured-cloned across the bridge and flattened, to produce a
+     * list this component already had in `getNotePaths()`.
+     *
+     * Deriving it here rather than in each pass also collapses the three
+     * separately-built file arrays into one, and makes resolution O(1) per
+     * link instead of O(files) (#1473's index, which the editor's broken-link
+     * decorations already use and the preview did not): 20 embeds against
+     * 2,800 files went from 10.3ms to 4.2ms including the index build.
+     *
+     * `$derived` reads the props through their getters, so it tracks
+     * `notebase.files` / the alias list and recomputes when one of those
+     * actually changes — not when a key is pressed.
+     *
+     * Safe to share between the three passes because they were always
+     * resolving against the same set: `getNotePaths()` filters to note
+     * extensions, and `orderedNoteFiles` — inside both resolvers — applies
+     * that same `isNotePath` filter anyway, so the unfiltered tree the
+     * transclusion pass used to fetch never contributed a file the resolver
+     * would have accepted.
+     */
+    const wikiLinkIndex = $derived(buildWikiLinkIndex(
+        (getNotePaths?.() ?? []).map((relativePath) => ({ relativePath, isDirectory: false })),
+        Object.fromEntries((getAliases?.() ?? []).map((a) => [a.alias.toLowerCase(), a.relativePath])),
+    ));
 
     // Wiki-link hover preview (#1132) — reuses the editor's async fetcher +
     // per-path read cache. A monotonic token cancels a stale async result when
@@ -411,26 +448,20 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     // Type-keyed card pass (#1071): promote block-level typed links to cards.
     // resolvePath reuses the same wiki-link resolution as the hover fetcher.
     function typedCardDeps(): TypedCardDeps {
-        // Build the resolver inputs once (mirrors note-preview.ts): paths → files,
-        // the alias list → a lowercased map.
-        const files = (getNotePaths?.() ?? []).map((relativePath) => ({ relativePath, isDirectory: false }));
-        const aliases = Object.fromEntries((getAliases?.() ?? []).map((a) => [a.alias.toLowerCase(), a.relativePath]));
         return {
             previewEl: previewEl ?? null,
             typePropsCache,
             quoteMetaCache,
             queryPrefixes: QUERY_PREFIXES,
-            resolvePath: (t) => resolveWikiLinkTarget(t, files, aliases),
+            resolvePath: (t) => resolveWikiLinkTargetWithIndex(t, wikiLinkIndex),
         };
     }
     // Argument-map embed (#907): same wiki-link resolver construction as
     // typedCardDeps — the focus reference is an ordinary wiki-link.
     function argumentMapDeps(): ArgumentMapDeps {
-        const files = (getNotePaths?.() ?? []).map((relativePath) => ({ relativePath, isDirectory: false }));
-        const aliases = Object.fromEntries((getAliases?.() ?? []).map((a) => [a.alias.toLowerCase(), a.relativePath]));
         return {
             queryPrefixes: QUERY_PREFIXES,
-            resolvePath: (t) => resolveWikiLinkTarget(t, files, aliases),
+            resolvePath: (t) => resolveWikiLinkTargetWithIndex(t, wikiLinkIndex),
             onNavigate,
             activeMaps: activeArgumentMaps,
         };
@@ -452,6 +483,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         mediaBlobCache,
         transclusionRenderCache,
         citeDeps,
+        getTransclusionIndex: () => wikiLinkIndex,
     };
 
     // Drop cached transclusion bodies whenever the graph changes (perf #1114).

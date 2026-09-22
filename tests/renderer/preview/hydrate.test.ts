@@ -50,6 +50,7 @@ vi.mock('../../../src/renderer/lib/preview/citation-render', () => ({
   resolveCiteQuoteLabels: (...a: unknown[]) => citeMock(...a),
 }));
 
+import { buildWikiLinkIndex } from '../../../src/shared/wiki-link-resolver';
 import {
   highlightCodeBlocks,
   hydrateLocalImages,
@@ -76,6 +77,10 @@ function makeCtx(root: HTMLElement | undefined, overrides: Partial<HydrateContex
     mediaBlobCache: new Map(),
     transclusionRenderCache: new Map(),
     citeDeps: () => ({}) as never,
+    // An empty index by default; the transclusion block below supplies a real
+    // one. #2210 §3b moved these inputs out of the pass (they were two IPC
+    // calls made on every render tick) and into a `$derived` in the component.
+    getTransclusionIndex: () => buildWikiLinkIndex([], {}),
     ...overrides,
   };
 }
@@ -413,12 +418,11 @@ describe('hydrateLocalMedia', () => {
 // hydrateTransclusions
 // =========================================================================
 describe('hydrateTransclusions', () => {
-  const tree = [{ relativePath: 'foo.md', isDirectory: false, name: 'foo.md' }];
+  const tree = [{ relativePath: 'foo.md', isDirectory: false }];
 
-  beforeEach(() => {
-    h.api.notebase.listFiles.mockResolvedValue(tree);
-    h.api.graph.aliasMap.mockResolvedValue({});
-  });
+  /** The index the component derives; supplied here instead of two IPC calls. */
+  const withTree = (root: HTMLElement | undefined, aliases: Record<string, string> = {}) =>
+    makeCtx(root, { getTransclusionIndex: () => buildWikiLinkIndex(tree, aliases) });
 
   it('returns early with no preview element', async () => {
     await expect(hydrateTransclusions(makeCtx(undefined))).resolves.toBeUndefined();
@@ -426,15 +430,43 @@ describe('hydrateTransclusions', () => {
 
   it('returns early when there are no unresolved placeholders', async () => {
     const root = div('<div class="transclusion" data-embed="foo" data-resolved="1"></div>');
-    await hydrateTransclusions(makeCtx(root));
-    expect(h.api.notebase.listFiles).not.toHaveBeenCalled();
+    await hydrateTransclusions(withTree(root));
+    expect(h.api.notebase.readFile).not.toHaveBeenCalled();
+  });
+
+  it('never touches IPC to work out what a target resolves to (#2210 §3b)', async () => {
+    // The gate. This pass ran `listFiles()` — a full project walk plus an
+    // `fs.stat` per file, in the main process — and `aliasMap()` on every one
+    // of the preview's 120ms render ticks, for a list the renderer already
+    // held. Five consecutive hydrations must issue zero of either, however
+    // many embeds they resolve.
+    h.api.notebase.readFile.mockResolvedValue('Body.');
+    for (let tick = 0; tick < 5; tick++) {
+      const root = div('<div class="transclusion" data-embed="foo"></div>');
+      document.body.appendChild(root);
+      await hydrateTransclusions(withTree(root));
+      expect(root.querySelector('.transclusion-body')).not.toBeNull();
+    }
+    expect(h.api.notebase.listFiles, 'the render tick walked the project tree').not.toHaveBeenCalled();
+    expect(h.api.graph.aliasMap, 'the render tick re-fetched the alias map').not.toHaveBeenCalled();
+  });
+
+  it('resolves through a frontmatter alias carried on the index', async () => {
+    // Aliases used to arrive from `api.graph.aliasMap()`; they now ride on the
+    // prebuilt index. Without this, an aliased embed would silently start
+    // reporting "not found" and only an alias-using project would notice.
+    h.api.notebase.readFile.mockResolvedValueOnce('Aliased body.');
+    const root = div('<div class="transclusion" data-embed="The Foo"></div>');
+    document.body.appendChild(root);
+    await hydrateTransclusions(withTree(root, { 'the foo': 'foo.md' }));
+    expect(root.querySelector('.transclusion-body')!.innerHTML).toContain('Aliased body.');
   });
 
   it('renders a resolvable embed and fans out the injected battery', async () => {
     h.api.notebase.readFile.mockResolvedValueOnce('# Title\n\nBody text.');
     const root = div('<div class="transclusion" data-embed="foo"></div>');
     document.body.appendChild(root);
-    const ctx = makeCtx(root);
+    const ctx = withTree(root);
     await hydrateTransclusions(ctx);
     const ph = root.querySelector('.transclusion')!;
     expect((ph as HTMLElement).dataset.resolved).toBe('1');
@@ -454,7 +486,7 @@ describe('hydrateTransclusions', () => {
 
   it('reuses a cached embed body (skips readFile)', async () => {
     const root = div('<div class="transclusion" data-embed="foo"></div>');
-    const ctx = makeCtx(root);
+    const ctx = withTree(root);
     ctx.transclusionRenderCache.set('foo.md\u0000foo', '<p>cached body</p>');
     await hydrateTransclusions(ctx);
     expect(root.querySelector('.transclusion-body')!.innerHTML).toBe('<p>cached body</p>');
@@ -463,7 +495,7 @@ describe('hydrateTransclusions', () => {
 
   it('shows a not-found notice for an unresolvable target', async () => {
     const root = div('<div class="transclusion" data-embed="ghost"></div>');
-    await hydrateTransclusions(makeCtx(root));
+    await hydrateTransclusions(withTree(root));
     const notice = root.querySelector('.transclusion-notice')!;
     expect(notice.classList.contains('transclusion-missing')).toBe(true);
     expect(notice.textContent).toContain('not found');
@@ -471,7 +503,10 @@ describe('hydrateTransclusions', () => {
 
   it('detects a transclusion loop against the host note', async () => {
     const root = div('<div class="transclusion" data-embed="foo"></div>');
-    const ctx = makeCtx(root, { getNotePath: () => 'foo.md' });
+    const ctx = makeCtx(root, {
+      getNotePath: () => 'foo.md',
+      getTransclusionIndex: () => buildWikiLinkIndex(tree, {}),
+    });
     await hydrateTransclusions(ctx);
     const notice = root.querySelector('.transclusion-notice')!;
     expect(notice.classList.contains('transclusion-loop')).toBe(true);
@@ -481,7 +516,7 @@ describe('hydrateTransclusions', () => {
   it('shows a read-error notice when readFile rejects', async () => {
     h.api.notebase.readFile.mockRejectedValueOnce(new Error('nope'));
     const root = div('<div class="transclusion" data-embed="foo"></div>');
-    await hydrateTransclusions(makeCtx(root));
+    await hydrateTransclusions(withTree(root));
     const notice = root.querySelector('.transclusion-notice')!;
     expect(notice.classList.contains('transclusion-missing')).toBe(true);
     expect(notice.textContent).toContain('Could not read');
@@ -490,7 +525,7 @@ describe('hydrateTransclusions', () => {
   it('shows a slice-failure notice for a missing heading', async () => {
     h.api.notebase.readFile.mockResolvedValueOnce('# Real Heading\n\nbody');
     const root = div('<div class="transclusion" data-embed="foo#Nonexistent"></div>');
-    await hydrateTransclusions(makeCtx(root));
+    await hydrateTransclusions(withTree(root));
     const notice = root.querySelector('.transclusion-notice')!;
     expect(notice.classList.contains('transclusion-missing')).toBe(true);
     expect(notice.textContent).toContain('not found');
@@ -499,23 +534,23 @@ describe('hydrateTransclusions', () => {
   it('labels a heading embed with the › separator', async () => {
     h.api.notebase.readFile.mockResolvedValueOnce('# Intro\n\nsection body');
     const root = div('<div class="transclusion" data-embed="foo#Intro"></div>');
-    await hydrateTransclusions(makeCtx(root));
+    await hydrateTransclusions(withTree(root));
     expect(root.querySelector('a.transclusion-open')!.textContent).toBe('foo › Intro');
   });
 
   it('labels a block embed with the ^ prefix', async () => {
     h.api.notebase.readFile.mockResolvedValueOnce('a paragraph ^blk\n');
     const root = div('<div class="transclusion" data-embed="foo^blk"></div>');
-    await hydrateTransclusions(makeCtx(root));
+    await hydrateTransclusions(withTree(root));
     expect(root.querySelector('a.transclusion-open')!.textContent).toBe('foo › ^blk');
   });
 
-  it('degrades gracefully when listFiles / aliasMap reject', async () => {
-    h.api.notebase.listFiles.mockRejectedValueOnce(new Error('tree'));
-    h.api.graph.aliasMap.mockRejectedValueOnce(new Error('alias'));
+  it('degrades to a not-found notice when the index is empty', async () => {
+    // Replaces the old "listFiles / aliasMap reject" case. The pass no longer
+    // has an IPC call to fail; the equivalent state is an index built before
+    // the file tree arrived, and it must still degrade rather than throw.
     const root = div('<div class="transclusion" data-embed="foo"></div>');
     await hydrateTransclusions(makeCtx(root));
-    // No file tree → nothing resolves → not-found notice.
     expect(root.querySelector('.transclusion-notice')!.classList.contains('transclusion-missing')).toBe(true);
   });
 });
