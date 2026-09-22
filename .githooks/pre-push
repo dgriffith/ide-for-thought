@@ -13,6 +13,31 @@ if [ "$SKIP_HOOKS" = "1" ]; then
   exit 0
 fi
 
+# Warn (never block) when the local Node major differs from .nvmrc (#2252).
+#
+# All three workflows resolve their runtime from .nvmrc, so a local major that
+# differs means this gate is validating a different runtime than CI will — and
+# the whole point of the hook is that a failure surfaces here rather than in a
+# slow macos-latest run. A behavioural difference between majors is precisely
+# the class it then cannot catch.
+#
+# Advisory rather than fatal: there are good reasons to be on another major
+# briefly (reproducing a report, testing an upgrade), and a hook that blocks a
+# push over an advisory is a hook people disable.
+if [ -f .nvmrc ] && command -v node >/dev/null 2>&1; then
+  want="$(tr -d ' \t\nv' < .nvmrc | cut -d. -f1)"
+  have="$(node -v 2>/dev/null | tr -d 'v' | cut -d. -f1)"
+  if [ -n "$want" ] && [ -n "$have" ] && [ "$want" != "$have" ]; then
+    echo "⚠ pre-push: local Node is v${have}, .nvmrc says ${want} — CI will run ${want}." >&2
+    echo "  This gate is testing a different runtime than CI. \`nvm use\` to match." >&2
+    # Node ships LTS on even majors only; odd ones are Current and reach EOL in
+    # about six months. Worth saying out loud, because "newer" reads as "safer".
+    if [ "$(( have % 2 ))" -eq 1 ]; then
+      echo "  (v${have} is an odd major — Current, never LTS, short support window.)" >&2
+    fi
+  fi
+fi
+
 echo "→ pre-push: pnpm lint:fonts (skip with --no-verify)…"
 if ! pnpm lint:fonts; then
   echo "✗ pre-push: hardcoded mono font literal found — use var(--font-mono). See reports/design-review-2.md §2." >&2
