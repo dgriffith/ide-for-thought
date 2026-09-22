@@ -29,9 +29,10 @@ export {
   injectSparqlPrefixes, schemaForCompletion, queryGraph,
   listTags, notesByTagPrefix, notesByTag, sourcesByTag, listAllSources, allTags,
   outgoingLinks, findDerivedNoteForCell, findNotesLinkingTo, backlinks, findExternalInboundLinks, noteTitle, sourceTitle,
-  getSourceDetail, getReadingQueueSourceIds, sourcesByReadStatus, citationsForNote, getExcerptSource,
+  getSourceDetail, getReadingQueueSourceIds, getReadingQueueCounts, READING_QUEUE_VIEWS,
+  sourcesByReadStatus, citationsForNote, getExcerptSource,
 } from './queries';
-export type { AliasEntry, SchemaEntry, GraphSchema, ReadingQueueView } from './queries';
+export type { AliasEntry, SchemaEntry, GraphSchema, ReadingQueueView, ReadingQueueCounts } from './queries';
 export { getNoteTypedProperties, getTypeInstances, getNoteTypeMap } from './note-properties';
 export { neighborhood, expandNode } from './neighborhood';
 export type {

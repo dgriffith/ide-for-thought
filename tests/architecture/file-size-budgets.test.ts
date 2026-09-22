@@ -66,7 +66,9 @@ const BUDGETS: Record<string, number> = {
   'src/renderer/lib/components/Preview.svelte': 1341,
   'src/renderer/lib/components/SourceDetail.svelte': 1346,
   'src/renderer/lib/components/SourcesPanel.svelte': 789,
-  'src/renderer/lib/ipc/client.ts': 1353,  // #2218: PythonSettings doc + type
+  // #2218 (PythonSettings doc + type) and #2222 (sources.queueCounts signature
+  // + its why-comment) both landed here; 1359 is the two together, measured.
+  'src/renderer/lib/ipc/client.ts': 1359,
   'src/renderer/lib/stores/conversations.svelte.ts': 1165,
   'src/renderer/lib/components/Editor.svelte': 854,
   'src/renderer/lib/stores/editor.svelte.ts': 913,
@@ -92,8 +94,8 @@ const BUDGETS: Record<string, number> = {
   'src/renderer/lib/components/ProposalsPanel.svelte': 613,
   'src/renderer/lib/components/QueryPanel.svelte': 759,
   'src/renderer/lib/components/conversations/DraftCards.svelte': 758,
-  'src/shared/ipc-contract.ts': 783,  // #2288: two inline Inspection shapes → Inspection[]
-  'src/shared/channels.ts': 740,
+  'src/shared/ipc-contract.ts': 784,  // #2288: two inline Inspection shapes → Inspection[]; #2222: sources:queueCounts
+  'src/shared/channels.ts': 745,  // #2222: SOURCES_QUEUE_COUNTS + its why-comment
   'src/renderer/lib/app/note-ops.ts': 687,
   'src/renderer/lib/editor/formatting.ts': 668,
   // #2227: listTables went from a 2N per-table loop to a bounded column sweep
@@ -102,7 +104,7 @@ const BUDGETS: Record<string, number> = {
   // `getState` and handing the module's internals to another file.
   'src/main/sources/tables.ts': 806,
   'src/renderer/lib/components/FindInNotesDialog.svelte': 601,
-  'src/preload/preload.ts': 649,
+  'src/preload/preload.ts': 650,  // #2222: sources.queueCounts passthrough
   'src/main/ipc/register-conversation-drafts.ts': 577,
   // New entry in #2218, which took this file from 538 over the threshold.
   // The seam this check asks about was taken first: the deadline POLICY —

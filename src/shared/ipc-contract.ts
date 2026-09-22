@@ -534,6 +534,7 @@ export interface ChannelMap {
   'sources:addTag': (params: { sourceId: string; tag: string }) => void;
   'sources:removeTag': (params: { sourceId: string; tag: string }) => void;
   'sources:queueMembers': (view: 'unread' | 'reading' | 'dueThisWeek' | 'recentlyFinished') => SourceMetadata[];
+  'sources:queueCounts': () => Record<'unread' | 'reading' | 'dueThisWeek' | 'recentlyFinished', number>;
   'sources:stripUpstreamTags': (sourceId: string) => { removed: number };
 
   // Sources — references (#106/#107)

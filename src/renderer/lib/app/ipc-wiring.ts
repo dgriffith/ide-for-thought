@@ -139,6 +139,41 @@ export interface IpcWiringCtx {
   maybeOpenEntrypoints: () => Promise<void>;
 }
 
+/**
+ * Window main→renderer broadcast bursts down to one refresh (#2222).
+ *
+ * TRAILING edge only, and that is the whole correctness argument. These
+ * broadcasts carry no payload — they say "something changed", and the handler
+ * answers by re-reading current state. So the only call that has to happen is
+ * the one AFTER the last event in the burst; every earlier one would read a
+ * mid-burst snapshot that the next event invalidates anyway. A leading-edge
+ * variant would fire on the first event and leave the panel showing pre-burst
+ * state, which is the exact trap in debouncing a refresh: the list goes
+ * silently stale with no error and no second chance, because the events that
+ * would have corrected it were the ones dropped.
+ *
+ * Each new event during the window RESETS the timer rather than letting the
+ * pending one stand, so the refresh is always strictly after the final event
+ * and never races it. A burst that never ends (a continuous import) therefore
+ * defers the refresh until it quiets — acceptable at 200ms, and the state the
+ * user would see mid-burst is wrong the moment it is drawn.
+ */
+function trailingDebounce(fn: () => void, ms: number): () => void {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  return () => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => {
+      timer = null;
+      fn();
+    }, ms);
+  };
+}
+
+/** Shared window for the watcher-driven refreshes below. Long enough that a
+ *  bulk import's per-file broadcasts land inside one window, short enough that
+ *  a single user-initiated change still feels immediate. */
+const WATCHER_REFRESH_DEBOUNCE_MS = 200;
+
 export function registerAppIpc(ctx: IpcWiringCtx): void {
   const notebase = getNotebaseStore();
   const editor = getEditorStore();
@@ -208,10 +243,28 @@ export function registerAppIpc(ctx: IpcWiringCtx): void {
   // Main broadcasts when the sources watcher reindexes or removes a source.
   // Refresh the sidebar Sources panel AND the editor autocomplete cache so
   // newly-ingested sources become reachable without a manual reload.
-  api.sources.onChanged(() => {
+  //
+  // Debounced (#2222). `watch-handlers.ts` broadcasts SOURCES_CHANGED once per
+  // source file it reindexes, so a bulk BibTeX / Zotero import of N references
+  // fires N broadcasts — and each one used to fan out, undebounced, to six IPC
+  // round-trips: `listAll` for the panel, four `queueMembers` for the
+  // reading-queue counts, and a second `listAll` for the editor's cite-
+  // autocomplete cache (seven with a queue view selected, which adds a
+  // `queueMembers` for the visible members). Every one of those re-walks every
+  // `minerva:sourceId` statement in the graph, main-side and uncached, so a
+  // 50-source import cost ~300 round-trips and ~300 full source-graph scans to
+  // converge on exactly the list one refresh at the end would have produced.
+  //
+  // The tree refresh further down this file had been debounced for the same
+  // reason since well before this; the sources subscriber was simply never
+  // given the same treatment. See `trailingDebounce` above for why the trailing
+  // edge is the safe one — no update is lost, because the broadcast carries no
+  // payload and the handler re-reads live state after the burst settles.
+  const refreshSourcesViews = trailingDebounce(() => {
     ctx.getSidebar()?.refreshSources();
     void ctx.refreshSourcesCache();
-  });
+  }, WATCHER_REFRESH_DEBOUNCE_MS);
+  api.sources.onChanged(refreshSourcesViews);
 
   // Main broadcasts after the initial CSV scan and on every register/unregister
   // from the watcher — keeps the sidebar Tables panel in lockstep.
@@ -365,14 +418,12 @@ export function registerAppIpc(ctx: IpcWiringCtx): void {
   // the watcher also fires for internal ops that already called refresh(),
   // and a burst of watcher events (e.g. ingesting a source tree) shouldn't
   // produce a burst of listFiles round-trips.
-  let treeRefreshTimer: ReturnType<typeof setTimeout> | null = null;
-  const scheduleTreeRefresh = () => {
-    if (treeRefreshTimer) clearTimeout(treeRefreshTimer);
-    treeRefreshTimer = setTimeout(() => {
-      treeRefreshTimer = null;
-      void notebase.refresh();
-    }, 200);
-  };
+  // Uses the shared `trailingDebounce` (#2222) — this was the hand-rolled
+  // original the sources subscriber above now matches. Same timer semantics,
+  // one definition, so "trailing edge, reset on each event" is stated once.
+  const scheduleTreeRefresh = trailingDebounce(() => {
+    void notebase.refresh();
+  }, WATCHER_REFRESH_DEBOUNCE_MS);
   api.notebase.onFileCreated(scheduleTreeRefresh);
   api.notebase.onFileDeleted((deletedPath) => {
     editor.closeTabsForDeletedPath(deletedPath);

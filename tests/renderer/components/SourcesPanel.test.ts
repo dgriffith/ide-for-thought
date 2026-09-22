@@ -37,6 +37,7 @@ const h = vi.hoisted(() => ({
     sources: {
       listAll: vi.fn(),
       queueMembers: vi.fn(),
+      queueCounts: vi.fn(),
     },
     collections: {
       list: vi.fn(),
@@ -95,6 +96,7 @@ const collectionsFile: CollectionsFile = { collections: [consensus], smartCollec
 beforeEach(() => {
   h.api.sources.listAll.mockResolvedValue([paxos, raft]);
   h.api.sources.queueMembers.mockResolvedValue([]);
+  h.api.sources.queueCounts.mockResolvedValue({ unread: 0, reading: 0, dueThisWeek: 0, recentlyFinished: 0 });
   h.api.collections.list.mockResolvedValue(collectionsFile);
   h.api.collections.smartMembers.mockResolvedValue([]);
   h.sourceTagSuggestions.mockResolvedValue([]);

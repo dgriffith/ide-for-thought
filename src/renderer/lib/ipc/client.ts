@@ -1231,6 +1231,12 @@ export interface SourcesApi {
   /** Resolve a built-in Reading Queue view against the live graph. */
   queueMembers(view: 'unread' | 'reading' | 'dueThisWeek' | 'recentlyFinished'):
     Promise<import('../../../shared/types').SourceMetadata[]>;
+  /** Sizes of all four Reading Queue views in one round-trip (#2222).
+   *  What the sidebar's queue rows actually need — four integers, rather
+   *  than four `queueMembers` arrays it reads `.length` off and throws away.
+   *  With no project open every count is 0, which is a real answer, not an
+   *  error sentinel. */
+  queueCounts(): Promise<Record<'unread' | 'reading' | 'dueThisWeek' | 'recentlyFinished', number>>;
   /** Strip API-derived `minerva:upstreamTag` triples from a source.
    *  Returns the count of dropped tags. */
   stripUpstreamTags(sourceId: string): Promise<{ removed: number }>;

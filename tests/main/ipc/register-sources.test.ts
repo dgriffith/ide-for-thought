@@ -99,6 +99,7 @@ const h = vi.hoisted(() => {
     // graph
     listAllSources: vi.fn(),
     getReadingQueueSourceIds: vi.fn(),
+    getReadingQueueCounts: vi.fn(),
     sourcesByTag: vi.fn(),
     sourcesByReadStatus: vi.fn(),
     // collections
@@ -213,6 +214,7 @@ vi.mock('../../../src/main/sources/collections', () => ({
 vi.mock('../../../src/main/graph/index', () => ({
   listAllSources: h.listAllSources,
   getReadingQueueSourceIds: h.getReadingQueueSourceIds,
+  getReadingQueueCounts: h.getReadingQueueCounts,
   sourcesByTag: h.sourcesByTag,
   sourcesByReadStatus: h.sourcesByReadStatus,
 }));
@@ -328,6 +330,7 @@ describe('register-sources — the #1631 project guard', () => {
   const fallbacks: [string, unknown[], unknown][] = [
     [Channels.SOURCES_LIST_ALL, [], []],
     [Channels.SOURCES_QUEUE_MEMBERS, ['unread'], []],
+    [Channels.SOURCES_QUEUE_COUNTS, [], { unread: 0, reading: 0, dueThisWeek: 0, recentlyFinished: 0 }],
     [Channels.EXCERPT_GET_NOTE_FOLDER, [], ''],
     [Channels.COLLECTIONS_LIST, [], { collections: [] }],
     [Channels.COLLECTIONS_SMART_MEMBERS, ['c1'], []],
@@ -339,6 +342,7 @@ describe('register-sources — the #1631 project guard', () => {
     expect(h.listAllSources).not.toHaveBeenCalled();
     expect(h.loadCollections).not.toHaveBeenCalled();
     expect(h.getExcerptNoteFolder).not.toHaveBeenCalled();
+    expect(h.getReadingQueueCounts).not.toHaveBeenCalled();
   });
 
   it('COLLECTIONS_LIST\'s project-less answer is shaped like a real empty file', async () => {
@@ -733,6 +737,27 @@ describe('register-sources — reading queue and smart collections', () => {
     h.getReadingQueueSourceIds.mockReturnValue([]);
     expect(call(Channels.SOURCES_QUEUE_MEMBERS, 'unread')).toEqual([]);
     expect(h.listAllSources).not.toHaveBeenCalled();
+  });
+
+  /**
+   * #2222. The sidebar's four queue rows need four integers; asking
+   * `SOURCES_QUEUE_MEMBERS` once per row instead made four full source-graph
+   * scans WITH per-source metadata collection and shipped four whole
+   * `SourceMetadata[]` arrays across IPC so the renderer could read `.length`
+   * off them and drop the rest. Since the panel refreshes on every
+   * `sources:changed` broadcast, that was most of the per-event storm.
+   */
+  it('SOURCES_QUEUE_COUNTS answers with counts and never lists sources (#2222)', () => {
+    h.getReadingQueueCounts.mockReturnValue({ unread: 7, reading: 2, dueThisWeek: 1, recentlyFinished: 0 });
+
+    expect(call(Channels.SOURCES_QUEUE_COUNTS)).toEqual({
+      unread: 7, reading: 2, dueThisWeek: 1, recentlyFinished: 0,
+    });
+    expect(h.getReadingQueueCounts).toHaveBeenCalledWith(CTX);
+    // The point of the channel: no `SourceMetadata[]` is built, so nothing
+    // large crosses the boundary just to be measured.
+    expect(h.listAllSources).not.toHaveBeenCalled();
+    expect(h.getReadingQueueSourceIds).not.toHaveBeenCalled();
   });
 
   it('SOURCES_LIST_ALL reads the graph for the open project', () => {

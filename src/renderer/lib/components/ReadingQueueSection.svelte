@@ -35,13 +35,15 @@
     try { localStorage.setItem(QUEUE_EXPANDED_KEY, String(queueExpanded)); } catch { /* ok */ }
   }
 
+  /** One round-trip for all four numbers (#2222). This used to fan out to four
+   *  `api.sources.queueMembers(...)` calls — each of which resolves the view's
+   *  ids and then hydrates a full `SourceMetadata[]` from the graph, so drawing
+   *  four integers cost four full source-graph scans and four whole arrays
+   *  marshalled across IPC purely to read `.length`. Since `refreshCounts()` is
+   *  called from `SourcesPanel.refresh()`, which fires on every
+   *  `sources:changed` broadcast, that was the bulk of the per-event storm. */
   export async function refreshCounts(): Promise<void> {
-    const entries = await Promise.all(
-      QUEUE_VIEWS.map(async (v) => [v.id, (await api.sources.queueMembers(v.id)).length] as const),
-    );
-    const next: Record<QueueView, number> = { unread: 0, reading: 0, dueThisWeek: 0, recentlyFinished: 0 };
-    for (const [id, count] of entries) next[id] = count;
-    queueCounts = next;
+    queueCounts = await api.sources.queueCounts();
   }
 
   $effect(() => {
