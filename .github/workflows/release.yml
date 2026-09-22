@@ -34,9 +34,13 @@ on:
     tags: ['v*']
   workflow_dispatch:
 
-# The release job needs to create a Release and upload assets.
+# Read-only floor, so a job added later starts with nothing and has to ask
+# (#2251). `contents: write` now sits on `build-macos` alone — it used to be
+# declared here at workflow scope, equivalent with one job, and silently
+# inherited by the second: a notarization-status reporter, or the Linux and
+# Windows builders epic #2200/#2197 will add. Same shape bench.yml uses.
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: release-${{ github.ref }}
@@ -45,6 +49,10 @@ concurrency:
 jobs:
   build-macos:
     runs-on: macos-latest
+    # Creates the draft Release and uploads the DMG + ZIP to it. The only job
+    # in this repo that writes anything.
+    permissions:
+      contents: write
     # 30 was tight even before the lint/audit pre-flight (#1638) and the
     # verify + smoke-boot gate (#1637) added a few more minutes on top of an
     # already notarization-bound budget (10-15 min alone per docs/releasing.md).

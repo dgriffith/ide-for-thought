@@ -17,6 +17,25 @@ on:
     branches: [main]
   pull_request:
 
+# Nothing here writes anything (#2251). The repository default is already
+# `read` — checked, not assumed:
+#
+#   gh api repos/:owner/:repo/actions/permissions/workflow
+#   {"default_workflow_permissions":"read", …}
+#
+# so this changes no behaviour today. It pins the assumption: an org- or
+# repo-level settings change would otherwise silently widen the token for
+# three jobs that only read, and nothing in the repo would show it.
+#
+# Workflow scope rather than per-job, unlike release.yml: `contents: read` is
+# the value a future job should inherit, so inheritance is the feature here
+# rather than the hazard. Verified sufficient for all three jobs — the only
+# secret in this file is CODECOV_TOKEN (codecov's own, not GITHUB_TOKEN), and
+# cache/upload-artifact talk to their own services rather than the contents
+# API.
+permissions:
+  contents: read
+
 # Cancel in-flight runs when a new commit lands on the same branch — saves
 # minutes on a busy PR.
 concurrency:
