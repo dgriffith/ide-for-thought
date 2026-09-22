@@ -226,6 +226,31 @@ jobs:
         if: steps.node-modules-cache.outputs.cache-hit != 'true'
         run: pnpm install --frozen-lockfile
 
+      # The help-docs corpus is a pure function of committed inputs — the 119
+      # docs fragments, the extraction logic, this script, and the pinned model
+      # — but `resources/help-docs/` is gitignored, so every runner rebuilt it
+      # from scratch: 46s, more than `electron-forge package` (12s) and
+      # Playwright (41s) combined, and 46% of this job's real work (#2246).
+      #
+      # The key hashes exactly what `build-help-corpus.mjs`'s own freshness
+      # check hashes, so a cache miss and a rebuild coincide. `src/main/
+      # embeddings/**` is in the key because the corpus is embedded with the
+      # model the app ships — changing the embedder changes the vectors.
+      #
+      # NOTE: caching this only works because that check is a CONTENT HASH.
+      # It used to compare mtimes, and `actions/checkout` stamps every source
+      # file with the checkout time while a restored cache keeps its older
+      # one — so the corpus would have been restored and then rebuilt anyway,
+      # reporting a cache hit and saving nothing. Measured before changing it.
+      - name: Cache help-docs corpus
+        uses: actions/cache@v6
+        with:
+          path: resources/help-docs
+          key: >-
+            help-corpus-v1-${{ hashFiles('website/docs/_content/**',
+            'scripts/build-help-corpus.mjs', 'scripts/lib/extract-docs-corpus.mjs',
+            'scripts/lib/docs-model.mjs', 'src/main/embeddings/**') }}
+
       - name: E2E (electron-forge package + Playwright)
         # `test:e2e` builds the app via electron-forge package, then
         # runs Playwright against the in-tree .vite/build/main.js

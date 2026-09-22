@@ -23,14 +23,32 @@
  * import, so it doesn't need this).
  *
  * Idempotent, like `fetch-embedding-model.mjs`: re-embedding ~500 chunks
- * through the WASM model takes real time (~20s), and `predev` runs on every
- * `pnpm dev` restart — so skip the rebuild when `corpus.json` is already
- * newer than every input that could change its content (the docs pages
- * themselves, the extraction logic, and this script), and was built against
- * the model this checkout ships (#1284).
+ * through the WASM model takes real time (~46s on a CI runner), and `predev`
+ * runs on every `pnpm dev` restart — so skip the rebuild when the corpus was
+ * already built from exactly these inputs (the docs pages themselves, the
+ * extraction logic, this script) against the model this checkout ships
+ * (#1284).
+ *
+ * That freshness check is a CONTENT HASH, not an mtime comparison (#2246).
+ * mtimes answer the wrong question in the two cases that matter most:
+ *
+ *   - **A restored CI cache.** `actions/checkout` stamps every source file
+ *     with the checkout time, while a restored `resources/help-docs/` keeps
+ *     the mtime it had when the cache was written — which is older. An mtime
+ *     check therefore rebuilds every time, so caching the directory would
+ *     report a hit in the log and save nothing. Measured: touching the inputs
+ *     to simulate a checkout made the old check rebuild all 523 chunks.
+ *   - **Switching branches.** `git checkout` rewrites the mtime of every file
+ *     it touches, so moving between branches cost a full rebuild even when
+ *     the docs content was byte-identical.
+ *
+ * The hash covers the same inputs the old check stat'd, plus the model
+ * identity, and is stored in the corpus itself. `.github/workflows/ci.yml`'s
+ * cache key hashes the same set, so a cache miss and a rebuild coincide.
  */
 
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { extractDocsCorpus } from './lib/extract-docs-corpus.mjs';
@@ -47,13 +65,27 @@ const CONTENT_PATH = path.join(DOCS_DIR, CONTENT_DIR);
 const EXTRACT_FILE = path.join(ROOT, 'scripts', 'lib', 'extract-docs-corpus.mjs');
 const MODEL_FILE = path.join(ROOT, 'scripts', 'lib', 'docs-model.mjs');
 
-function latestMtimeMs(dir) {
-  let latest = 0;
-  for (const name of fs.readdirSync(dir)) {
-    if (!name.endsWith('.html')) continue;
-    latest = Math.max(latest, fs.statSync(path.join(dir, name)).mtimeMs);
+/**
+ * A digest of everything that can change the corpus's contents.
+ *
+ * Filenames go into the hash alongside their bytes, so adding or renaming a
+ * docs page invalidates even when the total byte content happens to match.
+ * Sorted, so the digest doesn't depend on readdir order across filesystems.
+ */
+export function inputsHash() {
+  const h = crypto.createHash('sha256');
+  // Model identity: the vectors are only comparable against the model that
+  // produced them, which is why the old check compared these separately.
+  h.update(`model:${MODEL.name}:${MODEL.dim}\n`);
+  for (const file of [EXTRACT_FILE, MODEL_FILE, THIS_FILE]) {
+    h.update(`file:${path.basename(file)}\n`);
+    h.update(fs.readFileSync(file));
   }
-  return latest;
+  for (const name of fs.readdirSync(CONTENT_PATH).filter((n) => n.endsWith('.html')).sort()) {
+    h.update(`doc:${name}\n`);
+    h.update(fs.readFileSync(path.join(CONTENT_PATH, name)));
+  }
+  return h.digest('hex');
 }
 
 function isUpToDate() {
@@ -64,16 +96,9 @@ function isUpToDate() {
   } catch {
     return false;
   }
-  if (existing.model !== MODEL.name || existing.dim !== MODEL.dim) return false;
-
-  const outMtime = fs.statSync(OUT_FILE).mtimeMs;
-  const inputsMtime = Math.max(
-    latestMtimeMs(CONTENT_PATH),
-    fs.statSync(EXTRACT_FILE).mtimeMs,
-    fs.statSync(MODEL_FILE).mtimeMs,
-    fs.statSync(THIS_FILE).mtimeMs,
-  );
-  return outMtime >= inputsMtime;
+  // A corpus written before #2246 has no `inputsHash`, so it rebuilds once
+  // and is stamped from then on.
+  return existing.inputsHash === inputsHash();
 }
 
 if (isUpToDate()) {
@@ -105,6 +130,8 @@ try {
   const corpus = {
     model: MODEL.name,
     dim: MODEL.dim,
+    // What this was built from (#2246) — see `isUpToDate`.
+    inputsHash: inputsHash(),
     generatedAt: new Date().toISOString(),
     chunks: chunks.map((c, i) => ({ ...c, vector: Array.from(vectors[i]) })),
   };
