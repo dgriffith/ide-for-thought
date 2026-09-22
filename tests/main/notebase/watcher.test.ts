@@ -197,6 +197,57 @@ describe('startWatching() (#345)', () => {
       expect(created).toEqual(['sentinel.md']);
     });
 
+    it('files under node_modules/ are ignored (#2224)', async () => {
+      // `node_modules` is the one entry in the project's ignore policy that
+      // ISN'T dot-prefixed, so the test above doesn't cover it — and for as
+      // long as the watcher passed chokidar the string `'**/node_modules/**'`,
+      // nothing did. chokidar 5 compiles a string matcher to exact equality,
+      // so the whole vendored tree was recursively watched on a thoughtbase
+      // that also holds code: thousands of fsevents subscriptions, and a tree
+      // refresh + index attempt on every `pnpm install`.
+      const created: string[] = [];
+      await startWatching(root, win, winId, {
+        onFileCreated: (p) => created.push(p),
+        onFileChanged: () => undefined,
+        onFileDeleted: () => undefined,
+      });
+
+      await fsp.mkdir(path.join(root, 'node_modules', 'left-pad'), { recursive: true });
+      await fsp.mkdir(path.join(root, 'sub', 'node_modules'), { recursive: true });
+      await fsp.writeFile(path.join(root, 'node_modules', 'left-pad', 'readme.md'), 'x\n', 'utf-8');
+      await fsp.writeFile(path.join(root, 'sub', 'node_modules', 'nested.md'), 'x\n', 'utf-8');
+      // sentinel — proves the watcher was alive for the writes above
+      await fsp.writeFile(path.join(root, 'sub', 'sentinel.md'), '# s\n', 'utf-8');
+
+      await waitFor(() => created.includes('sub/sentinel.md'));
+      expect(created).toEqual(['sub/sentinel.md']);
+      // The tree-refresh IPC fires for every non-ignored file (#1130), so an
+      // ignored one must not appear there either.
+      expect(win.send.mock.calls.filter((c) => String(c[1]).includes('node_modules'))).toEqual([]);
+    });
+
+    it('a thoughtbase under a dot-segment ancestor still gets events (#2224)', async () => {
+      // chokidar matches against the normalized ABSOLUTE path, so the old
+      // `/(^|[/\\])\./` entry fired on a dot-segment *above* the root: a
+      // thoughtbase at `~/Dropbox/.private/notes` went completely silent —
+      // no tree refresh, no reindex, no error to explain it. The ignore
+      // policy is relative to the thoughtbase now, so an ancestor's name is
+      // none of the watcher's business.
+      const dottedRoot = path.join(root, '.private', 'notes');
+      await fsp.mkdir(dottedRoot, { recursive: true });
+
+      const created: string[] = [];
+      await startWatching(dottedRoot, win, winId, {
+        onFileCreated: (p) => created.push(p),
+        onFileChanged: () => undefined,
+        onFileDeleted: () => undefined,
+      });
+
+      await fsp.writeFile(path.join(dottedRoot, 'visible.md'), '# v\n', 'utf-8');
+      await waitFor(() => created.includes('visible.md'));
+      expect(win.send).toHaveBeenCalledWith(Channels.NOTEBASE_FILE_CREATED, 'visible.md');
+    });
+
     it('does not call back after the window has been destroyed', async () => {
       const created: string[] = [];
       const destroyableWin = makeWin(false);

@@ -4,6 +4,7 @@ import path from 'node:path';
 
 import { INDEXABLE_EXTS } from '../../shared/indexable-files';
 import { wasHandled } from './path-dedup';
+import { createWatchIgnoreMatcher } from './watcher-ignore';
 
 /**
  * How long an `unlink` is held before it's surfaced as a deletion, giving a
@@ -100,11 +101,11 @@ export function startWatching(
   stopWatching(id);
 
   const notes = watch(rootPath, {
-    ignored: [
-      /(^|[/\\])\./,
-      '**/node_modules/**',
-      '**/.minerva/**',
-    ],
+    // One predicate, matched on the path *relative to the thoughtbase*, and
+    // sourced from the same `isIgnoredEntry` every listing walk uses. The
+    // three glob/regex entries this replaces were two dead strings and one
+    // over-eager regex — `watcher-ignore.ts` has the measurements (#2224).
+    ignored: createWatchIgnoreMatcher(rootPath),
     persistent: true,
     ignoreInitial: true,
     // Guarantee fs.Stats on add/change so we can read inodes for robust
