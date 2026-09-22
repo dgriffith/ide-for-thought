@@ -1,5 +1,5 @@
 {
-  "zip": 248505700,
-  "dmg": 247860235,
+  "zip": 231248015,
+  "dmg": 230698691,
   "_comment": "Release-artifact size budgets in BYTES (#2243), each ~2% above the size last measured — compression output varies a little between runners, and a gate that fails on that noise is one people re-bless without reading. The .zip is the Squirrel.Mac auto-update payload — Squirrel has no delta mechanism, so every installed user downloads all of it for every point release. The check fails when an artifact grows past its budget, and when one falls more than 12 MB below it (lower the number so the win is held). Re-bless with `node scripts/check-artifact-size.mjs out/make --update`."
 }

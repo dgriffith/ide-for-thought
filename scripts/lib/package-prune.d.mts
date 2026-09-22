@@ -15,7 +15,16 @@ export function isPrunablePath(
 
 export function makeCopyFilter(
   packageRoot: string,
-  options?: { statSync?: (path: string) => Pick<Stats, 'isDirectory'> },
+  options?: {
+    statSync?: (path: string) => Pick<Stats, 'isDirectory'>;
+    /** Enables the package-scoped rules (see `isPrunableForPackage`). */
+    packageName?: string;
+  },
 ): (src: string) => boolean;
+
+export function isPrunableForPackage(
+  packageName: string,
+  relativePath: string,
+): boolean;
 
 export function isTypesOnlyPackage(name: string): boolean;
