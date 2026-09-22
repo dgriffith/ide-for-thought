@@ -125,3 +125,53 @@ describe('out-of-band checks notify someone (#2242)', () => {
     expect(raw).toContain('set -o pipefail');
   });
 });
+
+/**
+ * A gate that can't fail isn't a gate (#2249).
+ *
+ * `audit:all` carried `continue-on-error: true` — green whether the
+ * dependency tree got better or worse — beside a comment describing the plan
+ * to remove it "once the full tree is clean". Nothing could ever report that
+ * the precondition had been met, because the step never reported anything.
+ *
+ * Same family as this file's own subject: a check whose failure reaches
+ * nobody. There the failure went to an unread log; here it went nowhere at
+ * all.
+ */
+describe('audit steps actually gate (#2249)', () => {
+  const auditSteps = (): Step[] =>
+    workflows()
+      .flatMap((w) => Object.values(w.doc.jobs ?? {}))
+      .flatMap((job) => job.steps ?? [])
+      .filter((s) => /audit/i.test(s.name ?? '') || /pnpm audit|check-audit/.test((s as { run?: string }).run ?? ''));
+
+  it('finds them — an empty scan would pass vacuously', () => {
+    const found = auditSteps();
+    expect(found.length).toBeGreaterThanOrEqual(2);
+    expect(found.some((s) => /prod/.test(s.name ?? ''))).toBe(true);
+  });
+
+  it('none is continue-on-error', () => {
+    const soft = auditSteps()
+      .filter((s) => (s as { 'continue-on-error'?: boolean })['continue-on-error'] === true)
+      .map((s) => s.name ?? '(unnamed)');
+
+    if (soft.length > 0) {
+      expect.fail(
+        `Audit step(s) that cannot fail:\n\n${soft.map((n) => `  ${n}`).join('\n')}\n\n` +
+        `\`continue-on-error: true\` makes the step green whether the tree improves or ` +
+        `regresses, so nothing can report a change in either direction (#2249). Gate the ` +
+        `full tree against build/audit-baseline.json via scripts/check-audit.mjs instead.`,
+      );
+    }
+  });
+
+  it('the full-tree step runs the ratchet, not a bare audit', () => {
+    // A bare `pnpm audit --audit-level=high` on the full tree fails today on
+    // four advisories that have no available fix, so it would be reverted to
+    // continue-on-error within a day. The baseline is what makes it keepable.
+    const full = auditSteps().find((s) => !/prod/.test(s.name ?? ''));
+    expect(full, 'expected a full-tree audit step').toBeDefined();
+    expect((full as { run?: string }).run).toContain('check-audit.mjs');
+  });
+});

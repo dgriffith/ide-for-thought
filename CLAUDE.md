@@ -445,6 +445,46 @@ conditionally-installing job verifies first and does it with no `if:`, and the
 the workflows just quietly stop sharing a warm cache and pay a cold install
 every run, which is invisible until someone reads the timings.
 
+### Dependency advisories are ratcheted, not zero (#2249)
+
+Two gates, both blocking:
+
+- **`pnpm audit --prod`** — the shipped surface, blocking since #1455, and
+  clean at high+critical. A new high on a `--prod` dependency fails CI.
+- **`node scripts/check-audit.mjs`** — the full tree including build/dev
+  tooling, blocking since #2249 against `build/audit-baseline.json` rather
+  than against zero.
+
+`audit:all` used to be `continue-on-error: true`, beside a comment planning to
+remove it "once the full tree is clean". Nothing could report that the
+precondition had been met, because the step was green whether the tree
+improved or regressed.
+
+Clean isn't reachable today. All four remaining highs are in the DMG maker's
+tree and reach no user: two in `extract-zip` where **no patched version
+exists**, and two in `image-size` where a patch exists at `>=2.0.3` but the
+installed 0.7.5 comes via `appdmg@0.6.6`, which declares `^0.7.4` and calls
+`require('image-size')(path, callback)` — 2.x is ESM-first, exports
+`{ imageSize }` taking a Buffer, and has no callback form. Forcing the
+override and reproducing appdmg's call gives `sizeOf is not a function`, so
+the fix breaks `pnpm build`'s DMG step. Same shape as the
+`plist>@xmldom/xmldom` entry in `pnpm-workspace.yaml`, but with no safe floor
+— 1.x is vulnerable too.
+
+**The baseline tracks advisory ids, not a count.** A count passes when one
+advisory is fixed and another appears the same week, which is the drift this
+exists to catch. It fails on growth *and* on a fix (re-bless with
+`node scripts/check-audit.mjs --update` so the improvement is held).
+
+When it fires and the advisory has a `patched` version, add a
+`pnpm-workspace.yaml` override — and verify with a real build rather than with
+`pnpm audit` going quiet. The `tar: '>=7.5.21'` and `plist>@xmldom/xmldom`
+entries there are the worked examples of why.
+
+**`release.yml` deliberately runs only `audit:prod`.** A build-tooling
+advisory appearing between merge and tag shouldn't block shipping a
+user-facing fix, and CI already gates the full tree on every PR.
+
 ### Out-of-band checks ship their notification path (#2242)
 
 Every detector in this repo runs inside `pnpm test` — coverage floors,

@@ -136,11 +136,19 @@ jobs:
   # `--ignore` allowlist was needed; the overrides resolved cleanly and graph/
   # SPARQL/voice were verified (pnpm lint + test + e2e).
   #
-  # `audit:all` (full tree incl. build/dev tooling) stays NON-BLOCKING — the
-  # remaining high/critical live in @electron-forge/cli, eslint, vite, etc.,
-  # which never reach users. STEP 2 of the promotion path: once the full tree
-  # is clean, remove `continue-on-error` from `audit:all` too (or drop
-  # `audit:prod` and gate `audit:all`).
+  # `audit:all` (full tree incl. build/dev tooling) is BLOCKING as of #2249,
+  # ratcheted against `build/audit-baseline.json` rather than against zero.
+  # STEP 2 of the promotion path, in the only form it can take: the four
+  # remaining high advisories are two in `extract-zip` (no patched version
+  # exists at all) and two in `image-size` (patched at >=2.0.3, but reached via
+  # `appdmg@0.6.6` which declares `^0.7.4` and calls
+  # `require('image-size')(path, cb)`; 2.x is ESM-first, exports
+  # `{ imageSize }` taking a Buffer, and has no callback form — forcing the
+  # override and reproducing appdmg's call gives `sizeOf is not a function`,
+  # i.e. it breaks the DMG build, the same shape as the plist>@xmldom/xmldom
+  # entry in pnpm-workspace.yaml, and with no safe floor since 1.x is
+  # vulnerable too). None reaches a user. Re-bless with
+  # `node scripts/check-audit.mjs --update` when the set genuinely changes.
   #
   # Remediation levers: bump via the Dependabot PRs; force a patched transitive
   # with a `pnpm.overrides` entry in package.json; allowlist an accepted/unfixable
@@ -166,11 +174,19 @@ jobs:
       - name: audit:prod (shipped deps, high+critical)
         run: pnpm audit --prod --audit-level=high
 
-      # Full tree incl. build/dev tooling — visibility only until the whole
-      # tree is clean.
-      - name: audit:all (full tree, high+critical)
-        continue-on-error: true
-        run: pnpm audit --audit-level=high
+      # Full tree incl. build/dev tooling. BLOCKING as of #2249, but against a
+      # committed baseline rather than zero — step 2 of the promotion path,
+      # taken in the only form available.
+      #
+      # `continue-on-error: true` made this step green whether the tree got
+      # better or worse, so the comment above describing "once the full tree is
+      # clean" had no way to ever tell anyone that moment had arrived. The tree
+      # is not clean and cannot currently be made clean (see
+      # build/audit-baseline.json for the per-advisory reasons) — but "no worse
+      # than today" is enforceable, which is the same shape as the pattern
+      # ratchets, file-size budgets and coverage floors.
+      - name: audit:all (full tree, ratcheted against the baseline)
+        run: node scripts/check-audit.mjs
 
   e2e:
     # Runs in parallel with lint-and-test. Stays out of the unit loop
