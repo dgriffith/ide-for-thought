@@ -38,6 +38,31 @@ interface TablesState {
    * so a markdown table can't collide with a CSV (or another note table).
    */
   tableToNote: Map<string, string>;
+  /**
+   * relativePath → the last `COUNT(*)` computed for that CSV, stamped with the
+   * file's mtime + size at the moment of counting (#2227).
+   *
+   * A CSV is registered as a *lazy view*, so every `COUNT(*)` re-reads and
+   * re-sniffs the whole file. `listTables` runs on `TABLES_LIST`, on the
+   * `describe_tables` LLM tool, and on every `TABLES_CHANGED` broadcast — and
+   * `TABLES_CHANGED` fires for things that have nothing to do with any CSV
+   * (a note save that touches a captioned table, a menu-driven index rebuild,
+   * a new window). Measured on 8 CSVs totalling 40.8MB, the counts were 262ms
+   * of a 278ms `listTables`; the `information_schema` half was 8ms. So the
+   * count is the whole cost, and re-paying it for a file nobody touched is
+   * pure waste.
+   *
+   * mtime+size is the invalidation key rather than a content hash because
+   * hashing would re-read the file — the exact cost being avoided. It has a
+   * known hole: a same-second, same-size rewrite on a coarse-mtime filesystem
+   * reads as unchanged. That hole is closed in practice from the other side —
+   * `registerCsv` drops the entry outright, and the watcher calls it for the
+   * CSV itself *and* for a sibling `.csv.schema.yaml` / companion `.md` edit
+   * (which can change the row count without touching the CSV at all, e.g.
+   * `header: false`). The stat check is the backstop for edits that happen
+   * with no watcher running, not the primary signal.
+   */
+  csvRowCounts: Map<string, { mtimeMs: number; size: number; rowCount: number }>;
 }
 
 // Dispose closes the in-memory DuckDB (connection then instance) before the
@@ -85,6 +110,7 @@ export async function initTablesDb(ctx: ProjectContext): Promise<void> {
     tableToPath: new Map(),
     noteTables: new Map(),
     tableToNote: new Map(),
+    csvRowCounts: new Map(),
   });
 }
 
@@ -254,6 +280,11 @@ export async function registerCsv(ctx: ProjectContext, relativePath: string): Pr
   const state = getState(ctx);
   if (!state) return { ok: false, reason: 'inactive' };
   const { rootPath, connection, pathToTable, tableToPath } = state;
+  // Primary invalidation for the row-count cache (#2227). The watcher calls
+  // this for the CSV itself *and* for a sibling schema/companion edit, so it
+  // is the one signal that sees every way a row count can change — including
+  // the ones mtime+size can't (a `header: false` sidecar re-parse).
+  state.csvRowCounts.delete(relativePath);
   const override = await readCompanionOverride(rootPath, relativePath);
   const tableName = override ?? deriveTableName(relativePath);
 
@@ -358,6 +389,11 @@ export async function unregisterCsv(ctx: ProjectContext, relativePath: string): 
   } catch { /* view may already be gone */ }
   pathToTable.delete(relativePath);
   tableToPath.delete(tableName);
+  // Leak guard, not correctness (#2227): a re-listing can only follow a
+  // re-registration, and `registerCsv` drops the entry itself, so no test can
+  // isolate this line — it exists so a long session that adds and deletes CSVs
+  // doesn't accumulate a count per path it will never look at again.
+  state.csvRowCounts.delete(relativePath);
   unindexCsvTable(ctx, tableName);
 }
 
@@ -622,18 +658,69 @@ export async function registerAllNoteTables(ctx: ProjectContext): Promise<{ coun
   return { count, collisions };
 }
 
-/** Row count + ordered column names for a registered table, via DuckDB. */
-async function tableShape(ctx: ProjectContext, name: string): Promise<{ columns: string[]; rowCount: number }> {
-  const countR = await runQuery(ctx, `SELECT COUNT(*) AS n FROM "${name}"`);
-  const colsR = await runQuery(ctx,
-    `SELECT column_name FROM information_schema.columns ` +
-    `WHERE table_name = '${name.replace(/'/g, "''")}' AND table_schema = 'main' ` +
-    `ORDER BY ordinal_position`,
+/**
+ * Ordered column names for **every** table in the `main` schema, in one query
+ * (#2227). This replaced an `information_schema` query per table.
+ *
+ * Cheap on purpose: DuckDB resolves a view's column list when the view is
+ * created and keeps it in the catalog, so reading `information_schema` does
+ * NOT re-open the backing CSV. Measured across 8 CSVs totalling 40.8MB:
+ * 8 per-table queries 8.2ms, this single sweep 2.0ms. The saving here is
+ * round-trips, not file I/O — that half of the issue's cost model was wrong,
+ * and the `COUNT(*)`s below are where the 262ms actually went.
+ *
+ * A failed query yields an empty map rather than throwing, matching what the
+ * per-table version did: a table whose columns we can't read lists with
+ * `columns: []` instead of blanking the whole panel.
+ */
+async function allTableColumns(ctx: ProjectContext): Promise<Map<string, string[]>> {
+  const out = new Map<string, string[]>();
+  const r = await runQuery(ctx,
+    `SELECT table_name, column_name FROM information_schema.columns ` +
+    `WHERE table_schema = 'main' ORDER BY table_name, ordinal_position`,
   );
-  return {
-    rowCount: countR.ok ? Number(countR.rows[0]?.n ?? 0) : 0,
-    columns: colsR.ok ? colsR.rows.map((r) => String(r.column_name)) : [],
-  };
+  if (!r.ok) return out;
+  for (const row of r.rows) {
+    const table = String(row.table_name);
+    let cols = out.get(table);
+    if (!cols) { cols = []; out.set(table, cols); }
+    cols.push(String(row.column_name));
+  }
+  return out;
+}
+
+/**
+ * `COUNT(*)` for the given tables in a single `UNION ALL` (#2227), so N
+ * uncached tables cost one round-trip and let DuckDB overlap the scans rather
+ * than serializing them. Measured on 8 CSVs / 40.8MB: 262ms sequential →
+ * 165ms batched, before the cache above removes most of them entirely.
+ *
+ * **Falls back to per-table counts if the batch fails.** One unreadable table
+ * (a CSV deleted between the `readdir` and the query, a schema sidecar that
+ * no longer parses) aborts the whole `UNION ALL`, which would report `0 rows`
+ * for every *healthy* table too — a visibly wrong panel, not a slow one. The
+ * per-table version degraded to zero for the one bad table only, and that
+ * behaviour is preserved by paying the slow path in the rare failure case.
+ *
+ * Counts arrive as BigInt from DuckDB, so every read goes through `Number()`
+ * before it reaches a `TableInfo` — `rowCount` crosses the IPC boundary and a
+ * raw BigInt there throws in `JSON.stringify`.
+ */
+async function countRows(ctx: ProjectContext, names: string[]): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  if (names.length === 0) return out;
+  const batched = await runQuery(ctx, names
+    .map((n) => `SELECT '${n.replace(/'/g, "''")}' AS table_name, COUNT(*) AS n FROM "${n}"`)
+    .join(' UNION ALL '));
+  if (batched.ok) {
+    for (const row of batched.rows) out.set(String(row.table_name), Number(row.n ?? 0));
+    return out;
+  }
+  for (const n of names) {
+    const one = await runQuery(ctx, `SELECT COUNT(*) AS n FROM "${n}"`);
+    out.set(n, one.ok ? Number(one.rows[0]?.n ?? 0) : 0);
+  }
+  return out;
 }
 
 /**
@@ -641,19 +728,76 @@ async function tableShape(ctx: ProjectContext, name: string): Promise<{ columns:
  * tables (#1359) — with its name, source, relative path, columns, and row
  * count. Both kinds live in one DuckDB connection, so this is the single
  * source of truth the Tables panel and SQL autocomplete read.
+ *
+ * **Query count is bounded, not proportional to the table count (#2227).**
+ * This used to run two sequential queries per table — one `information_schema`
+ * lookup and one `COUNT(*)` — so a 40-CSV thoughtbase meant 80 serialized
+ * round-trips and 40 full CSV re-parses on *every* `TABLES_CHANGED`. It is now
+ * at most two queries total: one column sweep, plus one batched count covering
+ * whichever tables actually need recounting. A refresh where no CSV changed
+ * and no note tables exist is a single query.
  */
 export async function listTables(ctx: ProjectContext): Promise<TableInfo[]> {
   const state = getState(ctx);
   if (!state) return [];
+  const columnsByTable = await allTableColumns(ctx);
+
+  // Which CSVs still need a count? Stat is microseconds against a CSV parse
+  // that is milliseconds-to-seconds, so checking all of them to skip most is
+  // an easy trade. A stat failure counts as "stale" so the count query (and
+  // its fallback) decides what a vanished file means, rather than silently
+  // serving whatever number we last cached for it.
+  const csvTables = [...state.pathToTable.entries()];
+  const stats = await Promise.all(csvTables.map(([rel]) =>
+    fs.stat(path.join(state.rootPath, rel)).catch((err: unknown) => {
+      // ENOENT is the ordinary race — the file went away between registration
+      // and this refresh, and the watcher's `unregisterCsv` hasn't landed yet.
+      // A permissions or IO error is not ordinary and shouldn't reach the user
+      // as a silent `0 rows`, so it gets a line before falling through to the
+      // same "recount it" path.
+      if ((err as NodeJS.ErrnoException | null)?.code !== 'ENOENT') {
+        logger('tables').warn(`Could not stat '${rel}' for its row-count cache:`, err);
+      }
+      return null;
+    })));
+  const cachedCounts = new Map<string, number>();
+  const needCount: string[] = [];
+  const restamp: { rel: string; name: string; mtimeMs: number; size: number }[] = [];
+  csvTables.forEach(([rel, name], i) => {
+    const stat = stats[i];
+    const cached = state.csvRowCounts.get(rel);
+    if (stat && cached && cached.mtimeMs === stat.mtimeMs && cached.size === stat.size) {
+      cachedCounts.set(name, cached.rowCount);
+      return;
+    }
+    needCount.push(name);
+    if (stat) restamp.push({ rel, name, mtimeMs: stat.mtimeMs, size: stat.size });
+  });
+
+  // Note tables are real in-memory TABLEs, not lazy views, so their COUNT(*)
+  // reads row-group metadata rather than re-parsing anything — they ride along
+  // in the same batched query instead of earning a cache of their own.
+  const noteTableNames = [...state.noteTables.values()].flatMap((e) => e.map((t) => t.name));
+  const counted = await countRows(ctx, [...needCount, ...noteTableNames]);
+  for (const { rel, name, mtimeMs, size } of restamp) {
+    const rowCount = counted.get(name);
+    if (rowCount !== undefined) state.csvRowCounts.set(rel, { mtimeMs, size, rowCount });
+  }
+
+  const rowsFor = (name: string) => cachedCounts.get(name) ?? counted.get(name) ?? 0;
   const out: TableInfo[] = [];
-  for (const [relativePath, name] of state.pathToTable.entries()) {
-    const { columns, rowCount } = await tableShape(ctx, name);
-    out.push({ name, relativePath, columns, rowCount, source: 'csv' });
+  for (const [relativePath, name] of csvTables) {
+    out.push({
+      name, relativePath, columns: columnsByTable.get(name) ?? [],
+      rowCount: rowsFor(name), source: 'csv',
+    });
   }
   for (const [notePath, entries] of state.noteTables.entries()) {
     for (const { name, tableIndex, caption } of entries) {
-      const { columns, rowCount } = await tableShape(ctx, name);
-      out.push({ name, relativePath: notePath, columns, rowCount, source: 'note', caption, tableIndex });
+      out.push({
+        name, relativePath: notePath, columns: columnsByTable.get(name) ?? [],
+        rowCount: rowsFor(name), source: 'note', caption, tableIndex,
+      });
     }
   }
   // Group by file, then by name so multiple tables in one note order stably.

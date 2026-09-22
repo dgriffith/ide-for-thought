@@ -90,7 +90,11 @@ const BUDGETS: Record<string, number> = {
   'src/shared/channels.ts': 740,
   'src/renderer/lib/app/note-ops.ts': 687,
   'src/renderer/lib/editor/formatting.ts': 668,
-  'src/main/sources/tables.ts': 662,
+  // #2227: listTables went from a 2N per-table loop to a bounded column sweep
+  // + batched, mtime-keyed count cache. Raised rather than extracted — the new
+  // helpers read `TablesState`'s private maps, so a seam would mean exporting
+  // `getState` and handing the module's internals to another file.
+  'src/main/sources/tables.ts': 806,
   'src/renderer/lib/components/FindInNotesDialog.svelte': 601,
   'src/preload/preload.ts': 649,
   'src/main/ipc/register-conversation-drafts.ts': 577,
