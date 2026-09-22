@@ -378,6 +378,41 @@ logger('watcher').warn('indexing failed for', relativePath, err);
   to the earlier, broader block silently disappears for any file a later,
   more specific block also matches.
 
+### What ships inside the packaged app (#2243)
+
+`forge.config.ts` copies the transitive closure of `EXTERNAL_DEP_ROOTS` into
+the bundle, and used to copy each dependency **whole** — every file of every
+published tarball. That put 638 `.map` files, 597 `.d.ts` and domino's 7 MB
+test suite inside the `.app`.
+
+It matters more than an unpacked-size number suggests: the ZIP maker's output
+is the **Squirrel.Mac auto-update payload**, and Squirrel has no delta
+mechanism, so every byte is downloaded by every installed user on every point
+release.
+
+- **Adding a root?** Only `EXTERNAL_DEP_ROOTS` needs editing; the prune filter
+  applies to whatever the closure pulls in.
+- **The filter lives in `scripts/lib/package-prune.mjs`**, pure and tested
+  (`tests/scripts/package-prune.test.ts`), because a packaging filter that
+  over-prunes fails only in a packaged build — the slowest feedback loop here.
+  Three rules exist because the obvious version gets them wrong: licences ship
+  regardless of extension (`LICENSE.md` is real, and stripping upstream licence
+  text from a redistributed binary is a compliance problem); paths are matched
+  package-relative (an absolute match prunes everything for a checkout under
+  `~/docs/`); and segment equality beats substring (`testing/` is not `test/`,
+  `latest.js` does not end in a dead suffix).
+- **`build/artifact-size-budget.json` ratchets the DMG and ZIP**, asserted by
+  `release.yml`. Same shape as the file-size budgets: it fails on growth, and
+  on a shrink big enough to be a real win, so reclaimed space gets recorded
+  rather than quietly becoming headroom. Budgets carry ~2% over the measured
+  size, because compression output varies between runners and a gate that
+  fails on noise is one people re-bless without reading.
+- **Measure the compressed artifact, not the `.app`.** Pruning 30 MB of source
+  maps and declarations moved the DMG by 7.6 MB — text compresses about 4:1,
+  so unpacked savings overstate what a user actually downloads. Binary
+  (`.wasm`, `.dylib`, `.node`) is where the compressed weight is: the three
+  unused ORT WASM builds are 66 MB and barely compress (#2243 Phase 2).
+
 ### Out-of-band checks ship their notification path (#2242)
 
 Every detector in this repo runs inside `pnpm test` — coverage floors,

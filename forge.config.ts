@@ -5,6 +5,10 @@ import { MakerDMG } from '@electron-forge/maker-dmg';
 import path from 'node:path';
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
+// What not to ship (#2243). Pure predicates, tested by
+// tests/scripts/package-prune.test.ts — a packaging filter that over-prunes
+// fails only in a packaged build, which is the slowest feedback loop here.
+import { makeCopyFilter, isTypesOnlyPackage } from './scripts/lib/package-prune.mjs';
 
 // @electron-forge/plugin-vite bundles the main process and ships NO node_modules
 // in the package. That's fine for everything Rollup can bundle — but a few deps
@@ -49,6 +53,10 @@ function depClosure(roots: string[]): Set<string> {
   while (queue.length > 0) {
     const name = queue.shift() as string;
     if (seen.has(name)) continue;
+    // `@types/*` is `.d.ts` and nothing else — compile-time only, and 2.7 MB of
+    // it was shipping. It reaches this walk because some upstream packages
+    // declare type packages in `dependencies` rather than `devDependencies`.
+    if (isTypesOnlyPackage(name)) continue;
     const pkgJson = path.join(root, 'node_modules', name, 'package.json');
     if (!fs.existsSync(pkgJson)) continue; // optional/peer not installed
     seen.add(name);
@@ -70,10 +78,20 @@ function copyExternalDeps(buildPath: string): void {
   }
   for (const dep of closure) {
     fs.mkdirSync(path.dirname(path.join(buildPath, 'node_modules', dep)), { recursive: true });
+    const from = path.join(root, 'node_modules', dep);
     fs.cpSync(
-      path.join(root, 'node_modules', dep),
+      from,
       path.join(buildPath, 'node_modules', dep),
-      { recursive: true, dereference: true },
+      {
+        recursive: true,
+        dereference: true,
+        // Source maps, type declarations, upstream test suites and prose (#2243).
+        // The ZIP this ends up in is the Squirrel.Mac auto-update payload, and
+        // Squirrel has no delta mechanism — every byte here is downloaded by
+        // every user on every point release. Licences are kept deliberately;
+        // see scripts/lib/package-prune.mjs.
+        filter: makeCopyFilter(from, { statSync: fs.statSync }),
+      },
     );
   }
 }

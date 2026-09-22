@@ -228,6 +228,18 @@ jobs:
             exit 1
           fi
 
+      # The artifacts exist; are they the size they should be? (#2243) The ZIP is
+      # the auto-update payload and Squirrel has no delta mechanism, so every
+      # byte is downloaded by every user on every point release — and it drifted
+      # to 242 MB with nothing watching. Ratcheted against
+      # build/artifact-size-budget.json, same shape as the file-size budgets.
+      #
+      # Deliberately here rather than in a scheduled job: this runs where a
+      # human is already watching the release they just cut, which is the
+      # cheapest notification path there is (#2242).
+      - name: Check artifact size budgets
+        run: node scripts/check-artifact-size.mjs dist-artifacts
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v7
         with:
