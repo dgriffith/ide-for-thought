@@ -52,8 +52,9 @@ describe('compression noise does not fail the release', () => {
   });
 
   it('asks for the number to be lowered on a real win', () => {
-    // 66 MB of unused ORT WASM is the known next prune (#2243 Phase 2). A win
-    // that size must be recorded, or it silently becomes headroom.
+    // This is not hypothetical: #2293's WASM prune took 20.8 MB off the ZIP and
+    // this check is what caught it, refusing to pass until the number came
+    // down. A win that size must be recorded, or it becomes headroom.
     const { shrunk } = compare(zip(170), { zip: 237 * MB });
     expect(shrunk).toHaveLength(1);
     expect(shrunk[0]!.kind.key).toBe('zip');

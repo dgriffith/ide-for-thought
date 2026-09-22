@@ -90,7 +90,12 @@ function copyExternalDeps(buildPath: string): void {
         // Squirrel has no delta mechanism — every byte here is downloaded by
         // every user on every point release. Licences are kept deliberately;
         // see scripts/lib/package-prune.mjs.
-        filter: makeCopyFilter(from, { statSync: fs.statSync }),
+        // `dep` enables the package-scoped rules too — the three ONNX Runtime
+        // WASM builds that never run (#2293): 66 MB unpacked, 16 MB off the
+        // DMG. Which build IS live is a runtime capability decision, verified
+        // by an instrumented run rather than read off the source, and
+        // `tests/e2e/embeddings.spec.ts` keeps it true in the packaged app.
+        filter: makeCopyFilter(from, { statSync: fs.statSync, packageName: dep }),
       },
     );
   }

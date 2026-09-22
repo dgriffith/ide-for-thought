@@ -44,6 +44,55 @@ const DEAD_DIRS = new Set(['test', 'tests', '__tests__', 'docs', 'doc', 'example
 const DEAD_SUFFIXES = ['.map', '.d.ts', '.d.mts', '.d.cts', '.ts.map'];
 
 /**
+ * ONNX Runtime ships four mutually-exclusive WASM builds; exactly one runs
+ * (#2293, Phase 2 of #2243).
+ *
+ * Which one is a RUNTIME capability decision, not a static reference —
+ * `ort.node.min.mjs` names none of them, it probes the environment and picks.
+ * So this list is the output of an instrumented run rather than a reading of
+ * the source: every `fs` read path hooked, then a real
+ * `InferenceSession.create`, which loaded `ort-wasm-simd-threaded.wasm` and
+ * its `.mjs` glue and nothing else. `embed-worker.ts` runs in a
+ * `node:worker_threads` worker, so that Node-context detection is the one the
+ * shipped app gets: jsep wants WebGPU/WebNN (no adapter in a Node worker),
+ * jspi wants a V8 feature, asyncify wants the async proxy path.
+ *
+ * 66 MB unpacked, which is 16 MB off the DMG — measured, not predicted. #2243
+ * guessed this one would compress badly because it is binary and be worth most
+ * of its 66 MB in the download; it deflates about 4:1, the same as the text
+ * pruned there. Still the single largest prune available here, and still worth
+ * having on a payload every user downloads for every release.
+ *
+ * **What makes this safe to keep:** `tests/e2e/embeddings.spec.ts` runs a real
+ * semantic search in the PACKAGED app. If an Electron upgrade ever changes the
+ * capability detection to want a build that is no longer shipped, that test
+ * fails — which is the only reason this list is allowed to exist. Do not add
+ * to it without extending that test.
+ */
+const DEAD_ORT_VARIANTS = ['jsep', 'asyncify', 'jspi'];
+
+const DEAD_ORT_FILES = new Set(
+  DEAD_ORT_VARIANTS.flatMap((v) => [
+    `ort-wasm-simd-threaded.${v}.wasm`,
+    `ort-wasm-simd-threaded.${v}.mjs`,
+  ]),
+);
+
+/**
+ * Package-scoped prune rules, applied on top of the generic ones.
+ *
+ * Separate from `isPrunablePath` because these are facts about one dependency,
+ * not about file types. A generic "one `.wasm` per package" rule would be
+ * wrong for the next dependency that legitimately ships several.
+ */
+export function isPrunableForPackage(packageName, relativePath) {
+  if (packageName !== 'onnxruntime-web') return false;
+  const segments = relativePath.split('/').filter(Boolean);
+  if (segments[0] !== 'dist' || segments.length !== 2) return false;
+  return DEAD_ORT_FILES.has(segments[1]);
+}
+
+/**
  * True when a path inside a copied dependency should be left out.
  *
  * `relativePath` is POSIX-style and relative to the package root
@@ -79,11 +128,12 @@ export function isPrunablePath(relativePath, { isDirectory = false } = {}) {
  * `true` means copy. Bound to one package root so the predicate above always
  * sees a package-relative path.
  */
-export function makeCopyFilter(packageRoot, { statSync } = {}) {
+export function makeCopyFilter(packageRoot, { statSync, packageName } = {}) {
   const stat = statSync ?? ((p) => require('node:fs').statSync(p));
   return (src) => {
     const relative = path.relative(packageRoot, src).split(path.sep).join('/');
     if (relative === '') return true; // the package root itself
+    if (packageName && isPrunableForPackage(packageName, relative)) return false;
     let isDirectory = false;
     try {
       isDirectory = stat(src).isDirectory();

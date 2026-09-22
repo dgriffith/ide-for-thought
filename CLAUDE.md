@@ -407,11 +407,14 @@ release.
   rather than quietly becoming headroom. Budgets carry ~2% over the measured
   size, because compression output varies between runners and a gate that
   fails on noise is one people re-bless without reading.
-- **Measure the compressed artifact, not the `.app`.** Pruning 30 MB of source
-  maps and declarations moved the DMG by 7.6 MB — text compresses about 4:1,
-  so unpacked savings overstate what a user actually downloads. Binary
-  (`.wasm`, `.dylib`, `.node`) is where the compressed weight is: the three
-  unused ORT WASM builds are 66 MB and barely compress (#2243 Phase 2).
+- **Measure the compressed artifact, not the `.app`, and measure it rather
+  than predicting it.** Two prunes, both measured: 30 MB of source maps and
+  declarations moved the DMG by 7.6 MB (#2243); 68 MB of unused ORT WASM moved
+  it by 16.0 MB (#2293). Roughly **4:1 in both cases** — #2243 predicted the
+  WASM would be different, on the theory that binary barely compresses, and
+  was wrong by about 4x. `.wasm` is mostly a sparse instruction encoding and
+  deflates about as well as minified JS. Expect ~4:1 from anything in this
+  tree, and check the DMG before quoting a number.
 
 ### Out-of-band checks ship their notification path (#2242)
 

@@ -23,6 +23,7 @@ import { describe, it, expect } from 'vitest';
 import path from 'node:path';
 import {
   isPrunablePath,
+  isPrunableForPackage,
   isTypesOnlyPackage,
   makeCopyFilter,
 } from '../../scripts/lib/package-prune.mjs';
@@ -162,5 +163,73 @@ describe('makeCopyFilter — paths are package-relative', () => {
   it('still prunes a real dead directory under that root', () => {
     expect(filter(path.join(ROOT, 'test'))).toBe(false);
     expect(filter(path.join(ROOT, 'lib', 'index.d.ts'))).toBe(false);
+  });
+});
+
+/**
+ * The ONNX Runtime WASM prune (#2293).
+ *
+ * Four mutually-exclusive builds ship; one runs. Which one is a RUNTIME
+ * capability decision — nothing names it statically — so the list came from an
+ * instrumented run rather than reading the source, and
+ * `tests/e2e/embeddings.spec.ts` is what keeps it true in the packaged app.
+ * These cases pin the scoping, which is where a rule like this goes wrong: too
+ * broad and it eats the live build, or another package's WASM.
+ */
+describe('onnxruntime-web: three dead WASM builds (#2293)', () => {
+  it.each([
+    'dist/ort-wasm-simd-threaded.jsep.wasm',
+    'dist/ort-wasm-simd-threaded.asyncify.wasm',
+    'dist/ort-wasm-simd-threaded.jspi.wasm',
+    'dist/ort-wasm-simd-threaded.jsep.mjs',
+    'dist/ort-wasm-simd-threaded.asyncify.mjs',
+    'dist/ort-wasm-simd-threaded.jspi.mjs',
+  ])('prunes %s', (relativePath) => {
+    expect(isPrunableForPackage('onnxruntime-web', relativePath)).toBe(true);
+  });
+
+  it('KEEPS the build that actually runs', () => {
+    // The whole risk of this rule in one case. `ort-wasm-simd-threaded.wasm`
+    // is what the instrumented run loaded; pruning it kills semantic search in
+    // the packaged app and nowhere else.
+    expect(isPrunableForPackage('onnxruntime-web', 'dist/ort-wasm-simd-threaded.wasm')).toBe(false);
+    expect(isPrunableForPackage('onnxruntime-web', 'dist/ort-wasm-simd-threaded.mjs')).toBe(false);
+  });
+
+  it('keeps the JS runtime entry points', () => {
+    for (const f of ['ort.node.min.mjs', 'ort.mjs', 'ort.js', 'ort.all.mjs']) {
+      expect(isPrunableForPackage('onnxruntime-web', `dist/${f}`)).toBe(false);
+    }
+  });
+
+  it('is scoped to this package — another dependency keeps its WASM', () => {
+    // `sql.js` ships `sql-wasm.wasm` and reads it from disk. A rule that
+    // matched on filename shape rather than package name would break the Anki
+    // exporter (#853).
+    expect(isPrunableForPackage('sql.js', 'dist/ort-wasm-simd-threaded.jsep.wasm')).toBe(false);
+    expect(isPrunableForPackage('sql.js', 'dist/sql-wasm.wasm')).toBe(false);
+  });
+
+  it('is scoped to dist/ at the top level, not any nested path', () => {
+    // A vendored copy under another directory is not the one being resolved.
+    expect(isPrunableForPackage('onnxruntime-web', 'vendor/dist/ort-wasm-simd-threaded.jsep.wasm')).toBe(false);
+    expect(isPrunableForPackage('onnxruntime-web', 'dist/sub/ort-wasm-simd-threaded.jsep.wasm')).toBe(false);
+  });
+
+  it('applies through makeCopyFilter only when the package name is given', () => {
+    const root = path.join('/tmp', 'node_modules', 'onnxruntime-web');
+    const statSync = () => ({ isDirectory: () => false });
+    const dead = path.join(root, 'dist', 'ort-wasm-simd-threaded.jsep.wasm');
+    const live = path.join(root, 'dist', 'ort-wasm-simd-threaded.wasm');
+
+    const scoped = makeCopyFilter(root, { statSync, packageName: 'onnxruntime-web' });
+    expect(scoped(dead)).toBe(false);
+    expect(scoped(live)).toBe(true);
+
+    // Without the name the generic rules still apply, but the package-scoped
+    // ones don't — so a caller that forgets it copies everything rather than
+    // silently pruning something it shouldn't.
+    const unscoped = makeCopyFilter(root, { statSync });
+    expect(unscoped(dead)).toBe(true);
   });
 });
