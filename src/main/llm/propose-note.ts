@@ -52,7 +52,9 @@ export async function fileNoteProposal(
       proposedBy: input.proposedBy,
     }),
   );
-  await graph.persistGraph(ctx);
+  // No persist here: `approval.proposeWrite` already ends with one
+  // (`proposal-persistence.ts`), so this was a second full serialization of
+  // the whole store for the same proposal (#2209).
 
   return {
     ok: true,

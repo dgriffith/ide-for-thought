@@ -67,7 +67,7 @@ export function disposeProject(ctx: ProjectContext): void {
   deleteState(ctx);
 }
 
-import { withTrustedContext, rethrowIfTrustGuard } from './write-guard';
+import { rethrowIfTrustGuard } from './write-guard';
 
 // ── LLM Write Guard (#671, converged onto AsyncLocalStorage in #2053) ──────
 // Extracted into ./write-guard.ts so it can be unit-tested in isolation. The
@@ -151,29 +151,39 @@ export async function initGraph(ctx: ProjectContext): Promise<void> {
 export async function persistGraph(ctx: ProjectContext): Promise<void> {
   const state = getState(ctx);
   if (!state) return;
-  const { store, rootPath, ontologyStatements } = state;
+  const { rootPath } = state;
 
   const graphPath = path.join(rootPath, '.minerva', 'graph.ttl');
-  // Trusted (#2231): this is serialization bookkeeping, not content. It strips
-  // the ontology triples, serializes, and puts them straight back — no user or
-  // LLM data changes, and the store ends byte-identical to how it started.
-  // Saying so explicitly matters because persistGraph IS called from LLM
-  // context: `proposal-persistence.ts` calls it right AFTER its own
-  // withTrustedContext block closes, and two of the LLM apply paths
-  // (`propose-note.ts`, `conversation.ts`) call it directly. Before the guard
-  // moved to the store chokepoint those removeMatches/add pairs were invisible
-  // to it; now they'd be flagged as a bypass, which would be a false positive.
-  withTrustedContext(() => {
-    for (const st of ontologyStatements) {
-      store.removeMatches(st.subject, st.predicate, st.object);
-    }
-  });
-  const turtle = serializeGraph(ctx);
-  withTrustedContext(() => {
-    for (const st of ontologyStatements) {
-      store.add(st.subject, st.predicate, st.object, st.graph);
-    }
-  });
+  // `graph.ttl` holds the user's data, never the bundled ontology — and this
+  // serializes a filtered VIEW of the store rather than removing the ontology
+  // from it and putting it back (#2209).
+  //
+  // The old shape was: strip ~1,100 ontology triples, serialize, re-add them.
+  // It cost twice over. `removeMatches` bottoms out in a linear scan of
+  // `store.statements`, so the strip was O(|ontology| x T) — 326ms at 3,000
+  // notes, fully synchronous. Worse, ~2,200 mirror mutations in one call sail
+  // past `N3_PERIODIC_REBUILD_EVERY` (1,000) and null `state.n3Cache`, so the
+  // next query pays a full cold `buildN3Store`. Measured at 2,000 notes: warm
+  // query 2.18ms, post-persist 32.80ms — a 15x regression, caused entirely by
+  // bookkeeping that changed nothing.
+  //
+  // Nothing needs to move. The ontology already lives in its own named graphs
+  // (`addOntologyToStore` re-adds each statement with the `st.graph` it was
+  // parsed into), so the statements to write are simply the ones NOT in those
+  // graphs — and a plain `Formula` holding that filtered array serializes the
+  // same way an `IndexedFormula` does.
+  //
+  // A plain `Formula` rather than a second `$rdf.graph()` on purpose:
+  // `IndexedFormula.add` maintains four indices per statement, which at 3,000
+  // notes cost more than the strip it was replacing (measured 1.1x — i.e. no
+  // win at the scale that matters). `Formula` skips all of it, since this
+  // object is written once and read once.
+  //
+  // Verified byte-identical to the strip-and-restore output at 500/1,000/3,000
+  // notes, and 4.1x faster at 3,000 (492ms -> 121ms). It also mutates nothing,
+  // which is why the `withTrustedContext` wrapper this used to need (#2231) is
+  // gone: there is no store write for the chokepoint guard to see.
+  const turtle = serializeUserGraph(ctx);
   await fs.writeFile(graphPath, turtle, 'utf-8');
 }
 
@@ -229,6 +239,49 @@ export function serializeGraph(ctx: ProjectContext): string {
   // Pass a dummy base that doesn't match any of our URIs,
   // forcing the serializer to emit all IRIs as absolute.
   return $rdf.serialize(null, state.store, 'urn:x-minerva:void', 'text/turtle') ?? '';
+}
+
+/**
+ * The user's data alone — what `graph.ttl` stores (#2209).
+ *
+ * Distinct from `serializeGraph` above, which emits the whole store including
+ * the bundled ontology, and is what `exportGraph` wants: the menu's "Export
+ * Knowledge Graph" deliberately ships a self-contained file a stranger can
+ * read without Minerva's vocabulary to hand (#2233 made that the single
+ * behaviour after the menu and the channel disagreed about it). Persisting is
+ * the opposite case — the ontology is bundled with the app, so writing it into
+ * every project's `graph.ttl` stores a copy that `addOntologyToStore` strips
+ * and replaces at load anyway.
+ *
+ * The split is free because the two already live in different graphs: user
+ * triples in the default graph, ontology triples in the named graphs
+ * `addOntologyToStore` parsed them into. `$rdf.serialize`'s first argument is
+ * the graph to emit.
+ */
+export function serializeUserGraph(ctx: ProjectContext): string {
+  const state = getState(ctx);
+  if (!state) return '';
+
+  // Which graphs the ontology occupies is read off the statements themselves
+  // rather than hardcoded, so changing the parse base in `addOntologyToStore`
+  // can't silently start writing the vocabulary into every project's file.
+  const ontologyGraphs = new Set(
+    state.ontologyStatements.map((st) => st.graph?.value ?? ''),
+  );
+
+  // NOT `$rdf.graph()`: an IndexedFormula maintains four indices per `add`,
+  // which at 3,000 notes costs about as much as the strip this replaces. This
+  // object is written once and read once, so it needs no indices at all.
+  const userOnly = new $rdf.Formula();
+  userOnly.statements = state.store.statements.filter(
+    (st) => !ontologyGraphs.has(st.graph?.value ?? ''),
+  );
+  // No prefix bindings to carry across: `store.namespaces` is empty here (the
+  // parse paths never populate it), and the serializer derives its own from
+  // the statements — which is why the output below is byte-identical to what
+  // serializing the real store produced.
+
+  return $rdf.serialize(null, userOnly, 'urn:x-minerva:void', 'text/turtle') ?? '';
 }
 
 export async function exportGraph(ctx: ProjectContext, destPath: string): Promise<void> {
