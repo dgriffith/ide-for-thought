@@ -416,6 +416,32 @@ release.
   deflates about as well as minified JS. Expect ~4:1 from anything in this
   tree, and check the DMG before quoting a number.
 
+### The release tag is `v` + package.json's version (#2245)
+
+Exactly, including any prerelease suffix. Two different systems read the two
+values: `release.yml` builds from the **tag** and derives the GitHub
+pre-release flag from it, while `update.electronjs.org` compares the **running
+app's `version`** against the published release.
+
+When they disagree nothing looks wrong. The build is signed, notarized,
+stapled, `codesign --verify`'d, smoke-booted, drafted and published — and the
+updater never offers it to anyone. Green at every checkpoint, delivered to
+nobody.
+
+`scripts/lib/release-version.mjs` holds the rule and both callers share it:
+`tag-release.mjs` refuses to create a bad tag locally, and
+`scripts/check-release-tag.mjs` asserts it on the runner for the pushed ref.
+The local one alone was not enough — `git tag -a v2.0.3 && git push` never
+runs it, and the workflow's `tags: ['v*']` trigger doesn't care how a tag was
+made. Every other invariant in that workflow is checked server-side; this one
+was checked on a laptop.
+
+Two details worth keeping if you edit the step: it runs **before** the build,
+because a signed notarized build of the wrong version costs ~15 minutes and
+produces artifacts that must not be published; and the tag arrives through
+`env:` rather than `${{ github.ref_name }}` interpolated into `run:`, which is
+the standard Actions script-injection shape.
+`tests/architecture/release-tag-gate.test.ts` pins both.
 ### The lockfile gate runs unconditionally (#2244)
 
 `pnpm install --frozen-lockfile` is the only thing in the pipeline that

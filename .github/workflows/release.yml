@@ -95,6 +95,24 @@ jobs:
       # an old commit, a manually rebased ref), so assert it independently
       # rather than trusting an upstream check that may not have run against
       # this exact ref (#1638). Mirrors ci.yml's lint-and-test + audit jobs.
+      # The tag is the one release input nothing else validates (#2245).
+      # `release.yml` builds from it and derives the pre-release flag from it,
+      # while update.electronjs.org compares the RUNNING APP'S version to the
+      # published release — so `git tag -a v2.0.3` on a 2.0.2 package.json
+      # produces a release that is signed, notarized, stapled, verified,
+      # smoke-booted, published, and never offered to a single installed app.
+      #
+      # `tag-release.mjs` already refuses to create a mismatched tag, but that
+      # is a local convenience a hand-rolled `git tag && git push` walks past.
+      # Same reasoning as the independent lint + audit above: a tag can point
+      # anywhere, so assert it here rather than trusting the laptop it came
+      # from. The tag is passed as an argv, never interpolated into a shell.
+      - name: Verify tag matches package.json version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: node scripts/check-release-tag.mjs "$TAG"
+        env:
+          TAG: ${{ github.ref_name }}
+
       - name: Lint (tsc + svelte-check + eslint)
         run: pnpm lint
 

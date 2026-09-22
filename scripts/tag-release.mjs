@@ -16,21 +16,23 @@ import { execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+// Shared with scripts/check-release-tag.mjs, which release.yml runs on the
+// pushed ref (#2245) — one definition of the rule, asserted in both places.
+import { checkReleaseTag, tagForVersion } from './lib/release-version.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const git = (args) => execSync(`git ${args}`, { cwd: root }).toString().trim();
 
 const { version } = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
-const tag = `v${version}`;
+const tag = tagForVersion(version);
 
 function fail(msg) {
   console.error(`✗ ${msg}`);
   process.exit(1);
 }
 
-if (!/^\d+\.\d+\.\d+(-[\w.]+)?$/.test(version)) {
-  fail(`package.json version "${version}" isn't semver — bump it first.`);
-}
+const tagCheck = checkReleaseTag(tag, version);
+if (!tagCheck.ok) fail(tagCheck.error);
 
 const branch = git('rev-parse --abbrev-ref HEAD');
 if (branch !== 'main') {
