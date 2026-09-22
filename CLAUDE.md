@@ -299,10 +299,14 @@ thrown error already propagates cleanly. Build on that:
    `try/catch` / `.catch`. Do **not** invent an `{ ok: false }` object or a
    `null` for a *generic* failure — throwing is the failure channel.
 2. **"No project open" throws.** Use `withRootPath` / `withRootPathWin`
-   (`ipc/helpers.ts`). `withRootPathOr(fallback, …)` is only for handlers whose
+   (`ipc/helpers.ts`). `withRootPathOr(fallback, …)` — and its window-carrying
+   twin `withRootPathWinOr(fallback, …)` (#2220) — is only for handlers whose
    project-less answer is a *legitimate value* (an empty list `[]` a UI renders
    as "nothing yet"), **not** a way to signal failure — and that fallback must
-   mean the same thing as a genuinely-empty result, never "error".
+   mean the same thing as a genuinely-empty result, never "error". The matrix is
+   closed at four: {throws, has a project-less value} × {needs the window or
+   not}. A handler needing a combination should reach for the wrapper, not
+   hand-roll the `rootPathFromEvent` guard #990/#1092 removed 86 times over.
 3. **Discriminated `{ ok, … }` union — only when the caller must branch on an
    EXPECTED, non-exceptional outcome.** A user's malformed SQL/SPARQL, a failed
    network/auth check, or user code that errors are normal inputs the UI renders

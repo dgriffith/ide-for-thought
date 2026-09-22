@@ -78,6 +78,28 @@ export function withRootPathWin<A extends unknown[], R>(
   };
 }
 
+/**
+ * {@link withRootPathWin} with {@link withRootPathOr}'s project-less answer
+ * (#2220) — the one combination of the three that didn't exist yet, and the
+ * shape find-in-notes needs: a search over no project is a legitimate empty
+ * result (the same fact "nothing matched" reports), while the handler still
+ * needs the window to key its per-window in-flight scan on.
+ *
+ * The alternative was hand-rolling `winFromEvent(e)` + `if (!rootPath) return`
+ * in the one handler, which is precisely the duplication #990/#1092 removed
+ * 86 times over.
+ */
+export function withRootPathWinOr<A extends unknown[], R>(
+  fallback: R,
+  fn: (rootPath: string, win: BrowserWindow, ...args: A) => R,
+): (e: Electron.IpcMainInvokeEvent, ...args: A) => R {
+  return (e, ...args) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return fallback;
+    return fn(rootPath, winFromEvent(e), ...args);
+  };
+}
+
 export async function reindexFile(rootPath: string, relativePath: string): Promise<void> {
   if (!isIndexable(relativePath)) return;
   const content = await notebaseFs.readFile(rootPath, relativePath);

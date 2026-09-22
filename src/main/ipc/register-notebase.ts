@@ -20,12 +20,14 @@ import { createWindow, openProjectInWindow, closeProjectInWindow, markPathHandle
 import { getOnboardingDismissed, setOnboardingDismissed } from '../project-config';
 import { dropImport, type DropImportEntry } from '../notebase/drop-import';
 import { installTutorialThoughtbase, TUTORIAL_DEFAULT_NAME } from '../notebase/install-tutorial';
-import { searchInNotes, replaceInNotes, type SearchOptions, type ReplaceSelection } from '../notebase/search-in-notes';
+import { searchInNotes, replaceInNotes, isSearchSuperseded, type SearchOptions, type ReplaceSelection } from '../notebase/search-in-notes';
+import type { SearchInNotesResult } from '../../shared/types';
 import { handle } from './typed-ipc';
 import {
   winFromEvent,
   withRootPath,
   withRootPathOr,
+  withRootPathWinOr,
   reindexFile,
   removeFromIndexes,
   listIndexableFiles,
@@ -33,6 +35,15 @@ import {
   broadcastRewritten,
   hooks,
 } from './helpers';
+
+/**
+ * The find-in-notes scan currently running for each window, so the next query
+ * from that window can abort it (#2220). Module scope, not per-`registerNotebase()`
+ * call, because the lifetime that matters is the window's, not the registrar's;
+ * entries are removed in the handler's `finally`, including on abort, so a
+ * closed window leaves nothing behind.
+ */
+const inFlightSearches = new Map<number, AbortController>();
 
 /**
  * Prompt for the tutorial's install destination (#1542/#1544). A Save panel
@@ -362,9 +373,36 @@ export function registerNotebase(): void {
 
   // Same shape: no project → no results, which reads the same as "nothing
   // matched" and is a fair answer to a search over nothing.
-  handle(Channels.NOTEBASE_SEARCH_IN_NOTES, withRootPathOr(
-    Promise.resolve([] as Awaited<ReturnType<typeof searchInNotes>>),
-    (rootPath, opts: SearchOptions) => searchInNotes(rootPath, opts),
+  //
+  // Supersession (#2220): the dialog re-invokes this on a 200ms debounce while
+  // the user types, and a scan of a large thoughtbase outlives the gap between
+  // keystrokes — so without this, typing a word left several full-corpus scans
+  // racing each other, all but the last of them already pointless. Each
+  // window's in-flight scan is aborted the instant that window asks for
+  // another. Keyed by window id rather than by project so two windows open on
+  // the same thoughtbase don't cancel each other's searches.
+  //
+  // The superseded call answers `{ ok: false, reason: 'superseded' }` rather
+  // than `[]`: "a newer query is already running" and "nothing matched" must
+  // not look alike, or the dialog blanks its list on every keystroke.
+  handle(Channels.NOTEBASE_SEARCH_IN_NOTES, withRootPathWinOr<[SearchOptions], Promise<SearchInNotesResult>>(
+    Promise.resolve({ ok: true, files: [], totalMatches: 0, truncated: false }),
+    async (rootPath, win, opts: SearchOptions) => {
+      inFlightSearches.get(win.id)?.abort();
+      const controller = new AbortController();
+      inFlightSearches.set(win.id, controller);
+      try {
+        const scan = await searchInNotes(rootPath, opts, controller.signal);
+        return { ok: true as const, ...scan };
+      } catch (err) {
+        if (isSearchSuperseded(err)) return { ok: false as const, reason: 'superseded' as const };
+        throw err;
+      } finally {
+        // Only clear the slot if it's still ours — a newer scan has already
+        // replaced it otherwise, and deleting would strand that one unabortable.
+        if (inFlightSearches.get(win.id) === controller) inFlightSearches.delete(win.id);
+      }
+    },
   ));
 
   // NOT `withRootPathOr` (#1862). This is a write, and the old fallback said

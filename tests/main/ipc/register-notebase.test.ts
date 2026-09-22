@@ -26,8 +26,9 @@
  * tests/main/ipc/registration.test.ts; what matters here is WHICH wrapper each
  * handler picked — throw vs fallback — which is exactly what #1631 governs.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import path from 'node:path';
+import { SearchSupersededError } from '../../../src/main/notebase/search-in-notes';
 
 const ROOT = '/vault';
 /** What `rootPathFromEvent` reports; null models "no project open". */
@@ -115,8 +116,16 @@ vi.mock('electron', () => ({
 
 vi.mock('node:fs/promises', () => ({ default: { stat: h.stat }, stat: h.stat }));
 
+/**
+ * Which window the next invoke appears to come from. Null means `h.win` — the
+ * single-window default every other test here assumes. The supersession tests
+ * (#2220) flip it to `h.freshWin` to model two windows open on one thoughtbase,
+ * which is the case the registrar's per-window keying exists for.
+ */
+let invokingWin: { id: number } | null = null;
+
 vi.mock('../../../src/main/ipc/helpers', () => ({
-  winFromEvent: () => h.win,
+  winFromEvent: () => invokingWin ?? h.win,
   rootPathFromEvent: () => openProject,
   withRootPath:
     <A extends unknown[], R>(fn: (rootPath: string, ...a: A) => R) =>
@@ -127,6 +136,9 @@ vi.mock('../../../src/main/ipc/helpers', () => ({
   withRootPathOr:
     <A extends unknown[], R>(fallback: R, fn: (rootPath: string, ...a: A) => R) =>
       (_e: unknown, ...args: A): R => (openProject ? fn(openProject, ...args) : fallback),
+  withRootPathWinOr:
+    <A extends unknown[], R>(fallback: R, fn: (rootPath: string, win: unknown, ...a: A) => R) =>
+      (_e: unknown, ...args: A): R => (openProject ? fn(openProject, invokingWin ?? h.win, ...args) : fallback),
   reindexFile: h.reindexFile,
   removeFromIndexes: h.removeFromIndexes,
   listIndexableFiles: h.listIndexableFiles,
@@ -158,7 +170,20 @@ vi.mock('../../../src/main/notebase/install-tutorial', () => ({
   installTutorialThoughtbase: h.installTutorialThoughtbase,
   TUTORIAL_DEFAULT_NAME: 'Minerva Tutorial',
 }));
-vi.mock('../../../src/main/notebase/search-in-notes', () => ({ searchInNotes: h.searchInNotes, replaceInNotes: h.replaceInNotes }));
+vi.mock('../../../src/main/notebase/search-in-notes', async () => {
+  // `isSearchSuperseded` is the registrar's own branch, so it runs for real
+  // against the real error class — mocking it would make the supersession test
+  // assert that a stub returns true.
+  const real = await vi.importActual<typeof import('../../../src/main/notebase/search-in-notes')>(
+    '../../../src/main/notebase/search-in-notes',
+  );
+  return {
+    searchInNotes: h.searchInNotes,
+    replaceInNotes: h.replaceInNotes,
+    isSearchSuperseded: real.isSearchSuperseded,
+    SearchSupersededError: real.SearchSupersededError,
+  };
+});
 vi.mock('../../../src/main/notebase/write-pipeline', () => ({ writeAndReindex: h.writeAndReindex }));
 vi.mock('../../../src/main/images/remote-image-cache', () => ({ getOrFetchRemoteImage: h.getOrFetchRemoteImage }));
 vi.mock('../../../src/main/youtube/thumbnail-cache', () => ({ getOrFetchThumbnail: h.getOrFetchThumbnail }));
@@ -269,8 +294,12 @@ describe('register-notebase — the #1631 project guard', () => {
   });
 
   it('NOTEBASE_SEARCH_IN_NOTES answers with no matches, not a throw', async () => {
+    // Still a legitimate project-less VALUE (#1631 rule 2), just spelled as the
+    // success arm of the union the channel answers since #2220 — `ok: true`
+    // with nothing in it, never `{ ok: false }`, which means something else.
     openProject = null;
-    await expect(call(Channels.NOTEBASE_SEARCH_IN_NOTES, { query: 'x' })).resolves.toEqual([]);
+    await expect(call(Channels.NOTEBASE_SEARCH_IN_NOTES, { query: 'x' }))
+      .resolves.toEqual({ ok: true, files: [], totalMatches: 0, truncated: false });
     expect(h.searchInNotes).not.toHaveBeenCalled();
   });
 
@@ -329,10 +358,69 @@ describe('register-notebase — reads', () => {
   });
 
   it('NOTEBASE_SEARCH_IN_NOTES passes the search options straight through', async () => {
-    h.searchInNotes.mockResolvedValue([{ path: 'a.md', matches: [] }]);
-    const opts = { query: 'todo', regex: false, caseSensitive: true };
-    await expect(call(Channels.NOTEBASE_SEARCH_IN_NOTES, opts)).resolves.toEqual([{ path: 'a.md', matches: [] }]);
-    expect(h.searchInNotes).toHaveBeenCalledWith(ROOT, opts);
+    h.searchInNotes.mockResolvedValue({ files: [{ path: 'a.md', matches: [] }], totalMatches: 0, truncated: false });
+    const opts = { query: 'todo', regex: false, caseSensitive: true, maxMatches: 2000 };
+    await expect(call(Channels.NOTEBASE_SEARCH_IN_NOTES, opts)).resolves.toEqual({
+      ok: true, files: [{ path: 'a.md', matches: [] }], totalMatches: 0, truncated: false,
+    });
+    // Third argument is the abort signal the registrar owns (#2220).
+    expect(h.searchInNotes).toHaveBeenCalledWith(ROOT, opts, expect.any(AbortSignal));
+  });
+
+  /**
+   * Supersession (#2220). The dialog re-invokes this on a 200ms debounce while
+   * the user types, and a scan of a large thoughtbase outlives the gap between
+   * keystrokes — so before this, typing a word left several full-corpus scans
+   * racing, all but the last already pointless. These assert the registrar's
+   * half of the fix: it hands each scan a signal, fires that signal when the
+   * same window asks again, and translates the resulting rejection into the one
+   * outcome the dialog branches on.
+   */
+  describe('NOTEBASE_SEARCH_IN_NOTES supersession', () => {
+    afterEach(() => { invokingWin = null; });
+
+    it('aborts the in-flight scan when the same window queries again', async () => {
+      h.searchInNotes.mockImplementation(
+        (_root: string, _opts: unknown, signal: AbortSignal) =>
+          new Promise((_resolve, reject) => {
+            // Settles only on abort — so "resolved as superseded" can only mean
+            // the registrar fired the signal, never that the scan finished.
+            signal.addEventListener('abort', () => { reject(new SearchSupersededError()); });
+          }),
+      );
+      const first = call(Channels.NOTEBASE_SEARCH_IN_NOTES, { pattern: 'e' }) as Promise<unknown>;
+
+      h.searchInNotes.mockResolvedValueOnce({ files: [], totalMatches: 0, truncated: false });
+      const second = await call(Channels.NOTEBASE_SEARCH_IN_NOTES, { pattern: 'ep' });
+
+      await expect(first).resolves.toEqual({ ok: false, reason: 'superseded' });
+      expect(second).toEqual({ ok: true, files: [], totalMatches: 0, truncated: false });
+    });
+
+    it('does not abort a scan belonging to a DIFFERENT window', async () => {
+      // Keyed by window id, not by project: two windows open on one
+      // thoughtbase must not cancel each other's searches.
+      const signals: AbortSignal[] = [];
+      h.searchInNotes.mockImplementation((_root: string, _opts: unknown, signal: AbortSignal) => {
+        signals.push(signal);
+        return new Promise(() => { /* never settles */ });
+      });
+      void (call(Channels.NOTEBASE_SEARCH_IN_NOTES, { pattern: 'a' }) as Promise<unknown>);
+      invokingWin = h.freshWin;
+      void (call(Channels.NOTEBASE_SEARCH_IN_NOTES, { pattern: 'b' }) as Promise<unknown>);
+
+      expect(signals).toHaveLength(2);
+      expect(signals[0]!.aborted).toBe(false);
+      expect(signals[1]!.aborted).toBe(false);
+    });
+
+    it('lets a real scan failure reject instead of reporting it as superseded', async () => {
+      // #1631 rule 1: only the expected, non-exceptional outcome gets a value.
+      // An EACCES on the thoughtbase is a failure and must still throw.
+      h.searchInNotes.mockRejectedValueOnce(new Error('EACCES'));
+      await expect(call(Channels.NOTEBASE_SEARCH_IN_NOTES, { pattern: 'x' }) as Promise<unknown>)
+        .rejects.toThrow('EACCES');
+    });
   });
 
   it('NOTEBASE_MERGE_PREVIEW returns the preview without touching disk', async () => {

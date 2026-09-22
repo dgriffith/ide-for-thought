@@ -56,26 +56,58 @@
     return `${rel}:${m.line}:${m.startCol}:${m.endCol}`;
   }
 
+  /**
+   * Cap on matches fetched per query (#2220). A partially-typed pattern is an
+   * unbounded pattern: on a 2,000-note corpus the single character `"e"`
+   * matched 1,022,200 times and serialized to a 150 MB IPC payload — for one
+   * keystroke, on the way to a query the user hadn't finished typing. The cap
+   * makes the main process stop scanning once it has this many, so the cost of
+   * a broad pattern is bounded by the cap rather than by the corpus.
+   *
+   * 2,000 is chosen to sit well past any result set a person reads (this list
+   * renders every match as a DOM row) while staying honest about Replace All,
+   * which acts on exactly the matches shown: when the scan truncates, the
+   * status line says so instead of letting a partial replace look complete.
+   */
+  const MATCH_LIMIT = 2000;
+
+  /**
+   * Which search the UI is currently showing (#2220). Main aborts a scan the
+   * moment a newer query for this window arrives, but an abort is a race, not
+   * a guarantee: a scan that finished just before the newer one was issued
+   * still resolves, and without this its results would land on top of the
+   * newer query's. Stale responses are dropped here rather than trusted to
+   * arrive in order.
+   */
+  let searchGeneration = 0;
+
   let searchDebounce: ReturnType<typeof setTimeout> | null = null;
   function runSearch() {
     if (searchDebounce) clearTimeout(searchDebounce);
     searchDebounce = setTimeout(async () => {
+      const generation = ++searchGeneration;
       if (!pattern.trim()) {
         results = [];
         statusMsg = '';
+        searching = false;
         return;
       }
       searching = true;
       try {
-        results = await api.notebase.searchInNotes({ pattern, caseSensitive, regex });
-        const totalMatches = results.reduce((n, r) => n + r.matches.length, 0);
-        statusMsg = results.length === 0
+        const r = await api.notebase.searchInNotes({ pattern, caseSensitive, regex, maxMatches: MATCH_LIMIT });
+        // A superseded scan has no result to show, and a newer one is already
+        // running — leave the list (and the spinner) exactly as they are.
+        if (!r.ok || generation !== searchGeneration) return;
+        results = r.files;
+        statusMsg = r.files.length === 0
           ? 'No matches'
-          : `${totalMatches} match${totalMatches === 1 ? '' : 'es'} in ${results.length} file${results.length === 1 ? '' : 's'}`;
+          : `${r.truncated ? 'First ' : ''}${r.totalMatches} match${r.totalMatches === 1 ? '' : 'es'} in ${r.files.length} file${r.files.length === 1 ? '' : 's'}${r.truncated ? ' — more exist; narrow the pattern to reach them' : ''}`;
         // Every newly-found match starts checked, so reset the exclusion set.
         unchecked = new Set();
       } finally {
-        searching = false;
+        // Only the newest query owns the spinner. An older one clearing it
+        // would report "done" while the search the user is waiting on runs.
+        if (generation === searchGeneration) searching = false;
       }
     }, 200);
   }

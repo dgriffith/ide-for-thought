@@ -6,12 +6,39 @@
  * dotfiles), scans each line for the pattern, returns one match entry
  * per hit. Replace reuses the same walk so selected-match offsets stay
  * consistent with what the UI saw at preview time.
+ *
+ * ── Why this is not backed by the MiniSearch index (#2220) ──────────────────
+ *
+ * The obvious-looking fix for the per-keystroke cost — "reuse the index
+ * `SEARCH_QUERY` already has" — does not work, and it is worth writing down so
+ * it isn't proposed again. MiniSearch holds a *token* index over `.md` files
+ * only, and stores no bodies. Three separate things break:
+ *
+ *   - It can't match a mid-token substring. Measured against the real engine
+ *     config: indexing "the epsilon constant", `search("epsilon")` hits and
+ *     `search("psilo")` / `search("silon")` return nothing. Find-in-Notes is a
+ *     substring/regex tool — every partially-typed query is a mid-token
+ *     substring, which is to say: every keystroke but the last.
+ *   - It can't express a regex, a case-sensitive match, or a pattern that is
+ *     mostly punctuation. `search("- [ ]")` returns nothing; `search("EPSILON")`
+ *     matches a lowercase note.
+ *   - It covers `.md` alone (`search/index.ts`'s walk), while this covers every
+ *     `NOTE_EXTENSIONS` file — `.ttl`, `.csv`, `.py` included.
+ *
+ * And because it stores no bodies, even a successful hit still costs a read to
+ * get line/column offsets. So it could only ever be a candidate *pre-filter*,
+ * and one that silently drops real matches — a wrong answer, not a slow one.
+ * What actually made the per-keystroke cost go away is three cheaper things:
+ * an mtime-validated body cache (`note-content-cache.ts`), an optional match
+ * cap that stops the scan early, and an abort signal so a superseded query
+ * stops doing work.
  */
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { isIndexable } from '../../shared/indexable-files';
 import { isIgnoredEntry } from '../../shared/ignored-dirs';
+import { readNoteCached } from './note-content-cache';
 
 export interface SearchMatch {
   /** 1-based line number (CodeMirror's convention). */
@@ -32,6 +59,49 @@ export interface SearchOptions {
   pattern: string;
   caseSensitive: boolean;
   regex: boolean;
+  /**
+   * Stop scanning once this many matches have been collected (#2220). Omitted
+   * means "no cap", which is what the two non-interactive callers
+   * (`llm/tools/grep-notes.ts`, `cli/engine.ts`) want: they cap their own
+   * OUTPUT at 50-200 lines but report the true total, and a scan cap would
+   * turn that number into a guess. The interactive dialog passes a cap,
+   * because a one-character query is an unbounded query — on a 2,000-note
+   * corpus `"e"` matched 1,022,200 times and serialized to a 150 MB IPC
+   * payload, for one keystroke.
+   */
+  maxMatches?: number;
+}
+
+export interface SearchScanResult {
+  files: SearchFileResult[];
+  /** Matches actually collected across `files`. Exact when `truncated` is
+   *  false; equal to `maxMatches` when it is true. */
+  totalMatches: number;
+  /** True when the scan stopped at `maxMatches` — more matches exist on disk,
+   *  and the caller is holding a prefix of them in path order. */
+  truncated: boolean;
+}
+
+/**
+ * Thrown by {@link searchInNotes} when its `AbortSignal` fires, i.e. a newer
+ * query for the same window has superseded this one (#2220). Deliberately not
+ * a value: a half-finished scan is not a result, and the #1631 convention says
+ * a call that cannot complete throws. The IPC registrar converts it into the
+ * one expected, non-exceptional outcome the UI branches on
+ * (`{ ok: false, reason: 'superseded' }`); nothing else should catch it.
+ */
+export class SearchSupersededError extends Error {
+  constructor() {
+    super('Search superseded by a newer query');
+    this.name = 'SearchSupersededError';
+  }
+}
+
+/** Narrow an unknown rejection to {@link SearchSupersededError}. Uses the
+ *  `name` rather than `instanceof` so it survives the class being reached
+ *  through two module instances (vitest module mocking, the CLI bundle). */
+export function isSearchSuperseded(err: unknown): boolean {
+  return err instanceof Error && err.name === 'SearchSupersededError';
 }
 
 export interface ReplaceSelection {
@@ -71,6 +141,14 @@ async function* walk(rootPath: string, currentRel = ''): AsyncGenerator<string> 
   } catch {
     return;
   }
+  // Sorted so traversal order is deterministic (#2220). `readdir` order is
+  // filesystem-defined, which was invisible while every scan returned every
+  // match and sorted at the end — but a capped scan keeps a *prefix*, and a
+  // prefix of an arbitrary order is an arbitrary set. With this, re-running the
+  // same capped query returns the same matches instead of a different sample,
+  // and the cyclic-scan admission policy in `note-content-cache.ts` keeps a
+  // stable resident set rather than a rotating one.
+  entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
   for (const entry of entries) {
     if (isIgnoredEntry(entry.name)) continue;
     const rel = currentRel ? `${currentRel}/${entry.name}` : entry.name;
@@ -86,29 +164,72 @@ async function* walk(rootPath: string, currentRel = ''): AsyncGenerator<string> 
  * Find every occurrence of the pattern across every indexable file.
  * Matches on a single line only — we don't support multi-line regex
  * spans, so every match has a single `line` number.
+ *
+ * `signal`, when supplied, aborts the scan between files: the promise rejects
+ * with {@link SearchSupersededError} and no partial result escapes. Checking
+ * per file rather than per line is deliberate — one file's scan is sub-
+ * millisecond, and a per-line check would cost more than it saves.
  */
 export async function searchInNotes(
   rootPath: string,
   opts: SearchOptions,
-): Promise<SearchFileResult[]> {
+  signal?: AbortSignal,
+): Promise<SearchScanResult> {
   const re = buildRegex(opts);
-  if (!re) return [];
+  if (!re) return { files: [], totalMatches: 0, truncated: false };
+  const cap = opts.maxMatches != null && opts.maxMatches > 0 ? opts.maxMatches : Infinity;
+  // Collect one match PAST the cap so `truncated` is a fact rather than a
+  // guess. Stopping at exactly `cap` leaves the boundary case ambiguous — a
+  // corpus with precisely `cap` matches would be reported as "there are more",
+  // and the UI would tell the user to narrow a search that is already
+  // complete. The overflow match is discarded below; it costs one extra
+  // match object, never an extra file read.
+  const limit = cap === Infinity ? Infinity : cap + 1;
   const out: SearchFileResult[] = [];
+  let collected = 0;
   for await (const rel of walk(rootPath)) {
-    let content: string;
-    try {
-      content = await fs.readFile(path.join(rootPath, rel), 'utf-8');
-    } catch {
-      continue;
+    if (signal?.aborted) throw new SearchSupersededError();
+    // The body comes from the mtime-validated cache, so a repeat scan over an
+    // unchanged corpus costs a `stat` per file instead of a `readFile`. The
+    // *walk* above is never cached, so a note created since the last keystroke
+    // is found on this one (see `note-content-cache.ts`).
+    const content = await readNoteCached(rootPath, path.join(rootPath, rel));
+    if (content === null) continue;
+    const matches = matchesForContent(content, re, limit - collected);
+    if (matches.length > 0) {
+      out.push({ relativePath: rel, matches });
+      collected += matches.length;
     }
-    const matches = matchesForContent(content, re);
-    if (matches.length > 0) out.push({ relativePath: rel, matches });
+    if (collected >= limit) break;
   }
+
+  const truncated = collected > cap;
+  if (truncated) {
+    // Drop the probe match. `break` fires the instant the limit is reached, so
+    // it is the last match of the last file pushed.
+    const last = out[out.length - 1]!;
+    last.matches.pop();
+    if (last.matches.length === 0) out.pop();
+    collected--;
+  }
+
   out.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
-  return out;
+  return { files: out, totalMatches: collected, truncated };
 }
 
-function matchesForContent(content: string, re: RegExp): SearchMatch[] {
+/**
+ * Collect at most `remaining` matches from one file's text.
+ *
+ * The budget is enforced HERE, not by the caller trimming afterwards, so a
+ * single pathological file (a minified blob, a `.csv` of a million rows) can't
+ * build a million-element array before anyone gets to cap it — which is what
+ * made a one-character query cost 150 MB of IPC payload (#2220). Trimming after
+ * the fact returns the same list and is not the same function: the difference
+ * is the peak, which no assertion about the RESULT can see. That is why this is
+ * exported and unit-tested directly rather than only through `searchInNotes`.
+ */
+export function matchesForContent(content: string, re: RegExp, remaining: number): SearchMatch[] {
+  if (remaining <= 0) return [];
   const lines = content.split('\n');
   const matches: SearchMatch[] = [];
   for (let i = 0; i < lines.length; i++) {
@@ -122,6 +243,7 @@ function matchesForContent(content: string, re: RegExp): SearchMatch[] {
         endCol: m.index + m[0].length,
         lineText,
       });
+      if (matches.length >= remaining) return matches;
       // Zero-width matches (e.g. regex `^`) would loop forever — nudge.
       if (m.index === re.lastIndex) re.lastIndex++;
     }

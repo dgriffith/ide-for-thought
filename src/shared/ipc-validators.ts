@@ -29,6 +29,7 @@ import type {
   NotebaseMeta,
   NoteFile,
   SearchInNotesFileResult,
+  SearchInNotesResult,
   ReplaceInNotesResult,
 } from './types';
 import type { Proposal } from './proposals';
@@ -61,6 +62,22 @@ function isRewrittenPaths(v: unknown): v is { rewrittenPaths: string[] } {
 }
 function isSearchFileResult(v: unknown): v is SearchInNotesFileResult {
   return isObj(v) && isString(v.relativePath) && Array.isArray(v.matches);
+}
+/**
+ * Find-in-Notes answers a discriminated union now (#2220), so the guard has to
+ * discriminate too: the superseded arm carries no `files` at all, and treating
+ * it as a malformed success payload would turn the routine "a newer keystroke
+ * won" outcome into a loud boundary error on every fast typist.
+ */
+function isSearchInNotesResult(v: unknown): v is SearchInNotesResult {
+  if (!isObj(v)) return false;
+  if (v.ok === false) return v.reason === 'superseded';
+  return (
+    v.ok === true &&
+    shallowArrayOf(isSearchFileResult)(v.files) &&
+    isNumber(v.totalMatches) &&
+    isBool(v.truncated)
+  );
 }
 function isReplaceResult(v: unknown): v is ReplaceInNotesResult {
   return isObj(v) && isStringArray(v.changedPaths) && isNumber(v.replacedCount);
@@ -102,7 +119,7 @@ export const CHANNEL_VALIDATORS: {
     isNumber(v.rewrittenLinks) &&
     isStringArray(v.rewrittenPaths) &&
     isString(v.deletedSource),
-  'notebase:searchInNotes': shallowArrayOf(isSearchFileResult),
+  'notebase:searchInNotes': isSearchInNotesResult,
   'notebase:replaceInNotes': isReplaceResult,
   'notebase:renameAnchor': isRewrittenPaths,
   'notebase:renameSource': isRewrittenPaths,

@@ -27,9 +27,12 @@ async function runGrep(ctx: ToolContext, input: unknown): Promise<string> {
     HARD_MAX,
   );
 
-  const files = await searchInNotes(ctx.rootPath, { pattern, caseSensitive, regex: asRegex });
+  // No `maxMatches`: the scan stays uncapped so `total` below is the real
+  // number, which the header promises ("narrow the pattern to see the rest").
+  // Only the interactive dialog caps its scan (#2220) — it has a human waiting
+  // on every keystroke; this has a model waiting on one call.
+  const { files, totalMatches: total } = await searchInNotes(ctx.rootPath, { pattern, caseSensitive, regex: asRegex });
 
-  const total = files.reduce((n, f) => n + f.matches.length, 0);
   if (total === 0) {
     // A regex that fails to compile also yields zero matches (searchInNotes
     // swallows the error) — call that out so the model can fix its pattern.

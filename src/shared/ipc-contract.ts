@@ -30,7 +30,7 @@ import type {
   NotebaseMeta,
   NoteFile,
   SearchInNotesOptions,
-  SearchInNotesFileResult,
+  SearchInNotesResult,
   ReplaceInNotesOptions,
   ReplaceInNotesResult,
   HeadingRenameCandidate,
@@ -160,7 +160,7 @@ export interface ChannelMap {
   'notebase:mergePreview': (sourceRelPath: string, targetRelPath: string) => { linkOccurrences: number; affectedFiles: number };
   'notebase:merge': (sourceRelPath: string, targetRelPath: string, separator?: string) => { targetPath: string; mergeOffset: number; mergeLine: number; rewrittenLinks: number; rewrittenPaths: string[]; deletedSource: string };
   'notebase:copy': (srcRelPath: string, destRelPath: string) => void;
-  'notebase:searchInNotes': (opts: SearchInNotesOptions) => SearchInNotesFileResult[];
+  'notebase:searchInNotes': (opts: SearchInNotesOptions) => SearchInNotesResult;
   'notebase:replaceInNotes': (opts: ReplaceInNotesOptions) => ReplaceInNotesResult;
   'notebase:renameAnchor': (targetRelativePath: string, oldSlug: string, newSlug: string) => { rewrittenPaths: string[] };
   'notebase:renameSource': (oldId: string, newId: string) => { rewrittenPaths: string[] };
