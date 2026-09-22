@@ -34,6 +34,7 @@ import {
   clearRecentProjects,
   defaultThoughtbaseDir,
   getRecentProjects,
+  invalidateRecentProjectsCache,
 } from '../../src/main/recent-projects';
 
 const tmp = h.root;
@@ -61,6 +62,12 @@ describe('getRecentProjects config-loader migration (#1913)', () => {
   it('reports and returns [] for a corrupt file, instead of silently defaulting', () => {
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     fs.writeFileSync(path.join(h.paths.userData!, 'recent-projects.json'), '{ not valid json', 'utf-8');
+    // `getRecentProjects` memoizes (#2221) and `beforeEach`'s
+    // `clearRecentProjects()` leaves `[]` in that memo, so the corrupt file
+    // written behind the module's back has to be announced the same way a
+    // real external edit is: by invalidating. In the app that happens on
+    // window focus — see `menu-input-caches.ts`.
+    invalidateRecentProjectsCache();
 
     expect(getRecentProjects()).toEqual([]);
     expect(consoleErrorSpy).toHaveBeenCalledTimes(1);

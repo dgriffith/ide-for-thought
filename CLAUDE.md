@@ -250,6 +250,44 @@ command-plus-registrar route. That's what makes this durable rather than a
 one-time tidy — the next menu item that wants to do work gets pushed through
 the contract instead of around it.
 
+#### `rebuildMenu()` is on an editing-gesture hot path (#2221)
+
+It reads as a startup-ish function and is not one. `window-manager.ts` rebuilds
+on every window `focus`, and `menu.ts`'s `setMenuEditorState` rebuilds whenever
+the focused note's `hasSelection` flips — so the whole template is reassembled
+**every time the user selects or deselects text**, synchronously, on the main
+process's only thread. The renderer's dedupe (`App.svelte`) stops a report per
+keystroke; it does not stop this, because select/deselect is its own continuous
+gesture.
+
+Three builders were reading disk on each pass: `listSavedQueries` (two
+`readdirSync` + one `readFileSync` per `.rq`/`.sql`), `getRecentProjects`, and
+`resolveDisplayName` per open window for the macOS Window menu. Measured with
+six project + six global queries: 14 `readFileSync` + 2 `readdirSync`, ~0.48ms
+blocking, per selection flip — and the query part grows with however many
+queries the user has saved. Each reader now memoizes (~0.03ms, zero reads).
+
+**Adding a disk read to a menu builder means adding its invalidator to
+`src/main/menu-input-caches.ts`**, whose `invalidateMenuInputCaches()` the
+`focus` handler calls before rebuilding. That split is the design, not
+boilerplate: an in-app write invalidates at its own call site (so it shows up
+immediately, without waiting for a focus change), while an *external* edit —
+a `.rq` opened in a text editor, a synced `recent-projects.json` — is picked up
+on focus, which costs nothing because making an external edit requires leaving
+the app and coming back. Net effect: the menu shows exactly what it showed
+before, at exactly the same moments, having done the reads once per focus
+instead of once per selection.
+
+Two things to copy if you add a fourth: keep the cache to ONE slot tagged with
+its `rootPath` rather than a `Map<rootPath, …>` (#2240's ratchet correctly
+rejects the map, and `createProjectStore` isn't reachable from modules handed a
+bare path), and cache the *absence* as a value — most thoughtbases have no
+`displayName`, so a memo that only stores hits re-reads for the majority case
+and fixes nothing. `tests/main/menu-rebuild-io.test.ts` holds both halves: a
+count-based gate for the reads, and a "…and it does refresh when it should"
+case per cache, because a menu that goes stale is a worse bug than the one this
+fixed.
+
 ### IPC error handling (#1631)
 
 One convention so every caller reasons about failure the same way. Electron's

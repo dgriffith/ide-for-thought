@@ -147,11 +147,62 @@ export function readProjectConfig(rootPath: string): ProjectConfigShape {
  */
 export function patchProjectConfig(rootPath: string, patch: ProjectConfigShape): void {
   patchRawProjectConfig(rootPath, patch as Record<string, unknown>);
+  // Any patch could carry a `displayName`, so drop the memo unconditionally
+  // rather than inspecting the patch and getting "did this key change?"
+  // subtly wrong — it costs one file read to refill.
+  invalidateDisplayNameCache();
+}
+
+/**
+ * Memoized display names (#2221).
+ *
+ * `resolveDisplayName` is a full `readProjectConfig` — a `readFileSync` +
+ * `JSON.parse` of `.minerva/config.json` — and macOS's Window menu calls it
+ * once per open window on every `rebuildMenu()`. Since `rebuildMenu()` runs on
+ * every `hasSelection` flip in the focused note, that is a blocking read per
+ * window per text selection.
+ *
+ * Only the *name* is cached, not `readProjectConfig` itself. That reader has
+ * many consumers with many writers (baseUri, bibliography style, onboarding,
+ * excerpt folder, publish targets) and caching it would mean reasoning about
+ * all of them; the display name has exactly one writer, `setDisplayName`,
+ * which goes through `patchProjectConfig` above.
+ *
+ * ONE slot, not a `Map<rootPath, name>`. A map would serve the two-windows-
+ * on-two-thoughtbases case, which a single slot does not (those two reads
+ * alternate and both miss, leaving that configuration exactly as it is today)
+ * — but it would also be per-project state that `disposeAllProjectStores`
+ * can't reach, the shape #2240 exists to keep out of `src/main`, and
+ * `createProjectStore` isn't available here because `resolveDisplayName` is
+ * handed a bare path rather than a `ProjectContext`. A one-entry memo holds
+ * nothing across a project close, so the question doesn't arise. The common
+ * case — one window, and the Window menu asking for the same name on every
+ * rebuild — is served either way.
+ *
+ * The one gap worth naming: `graph/index.ts` writes `baseUri` through
+ * `patchRawProjectConfig` directly, bypassing this invalidation. That is safe
+ * today because it cannot change `displayName` — but a future direct
+ * `patchRawProjectConfig` caller that *does* touch the name would leave a
+ * stale entry here. The backstop is the same as the other menu-input caches:
+ * window focus drops it (`menu-input-caches.ts`), so any staleness is bounded
+ * by one focus change rather than living until restart.
+ */
+let displayNameMemo: { rootPath: string; name: string | null } | null = null;
+
+/** Drop the memoized display name. See `menu-input-caches.ts` for when. */
+export function invalidateDisplayNameCache(): void {
+  displayNameMemo = null;
 }
 
 /** The user-chosen display name, or null when unset (#1443). */
 export function getDisplayName(rootPath: string): string | null {
-  return readProjectConfig(rootPath).displayName?.trim() || null;
+  // A cached *absence* is a `null` name on a present memo — the "no display
+  // name set" case is the common one, and re-reading config.json for it on
+  // every rebuild would leave most users exactly where they started.
+  if (displayNameMemo?.rootPath === rootPath) return displayNameMemo.name;
+  const name = readProjectConfig(rootPath).displayName?.trim() || null;
+  displayNameMemo = { rootPath, name };
+  return name;
 }
 
 /** Set (or, with '', clear) the display name. Clearing falls back to the
