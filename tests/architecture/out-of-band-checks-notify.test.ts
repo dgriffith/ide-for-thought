@@ -175,3 +175,59 @@ describe('audit steps actually gate (#2249)', () => {
     expect((full as { run?: string }).run).toContain('check-audit.mjs');
   });
 });
+
+/**
+ * The help-corpus cache key covers what the rebuild depends on (#2246).
+ *
+ * Two independent descriptions of the same input set — the workflow's
+ * `hashFiles(...)` and `build-help-corpus.mjs`'s own `inputsHash()` — have to
+ * agree, and nothing makes them. Drift is silent in the direction that
+ * matters: a key that misses an input serves a stale corpus on a cache hit,
+ * and the script's own check (now a content hash of that same input) would
+ * catch it and rebuild — so the symptom is not a wrong corpus but a cache
+ * that silently stops paying, which nobody notices because the job is green.
+ */
+describe('help-docs corpus cache (#2246)', () => {
+  const cacheStep = (): Step | undefined =>
+    workflows()
+      .flatMap((w) => Object.values(w.doc.jobs ?? {}))
+      .flatMap((job) => job.steps ?? [])
+      .find((s) => /help-docs corpus/i.test(s.name ?? ''));
+
+  const scriptSource = (): string =>
+    fs.readFileSync(path.join(ROOT, 'scripts', 'build-help-corpus.mjs'), 'utf-8');
+
+  it('the step exists and caches the corpus directory', () => {
+    const step = cacheStep();
+    expect(step, 'expected a "Cache help-docs corpus" step').toBeDefined();
+    expect((step as { with?: Record<string, string> }).with?.path).toBe('resources/help-docs');
+  });
+
+  it('keys on every input the rebuild reads', () => {
+    // If one of these leaves the key, a change to it serves a stale cache
+    // entry and the 46s rebuild comes back without anyone choosing that.
+    const key = (cacheStep() as { with?: Record<string, string> }).with?.key ?? '';
+    for (const input of [
+      'website/docs/_content/**',
+      'scripts/build-help-corpus.mjs',
+      'scripts/lib/extract-docs-corpus.mjs',
+      'scripts/lib/docs-model.mjs',
+      'src/main/embeddings/**',
+    ]) {
+      expect(key, `cache key is missing ${input}`).toContain(input);
+    }
+  });
+
+  it('the script still decides freshness by content, not mtime', () => {
+    // The property the cache depends on. `actions/checkout` stamps sources
+    // with the checkout time and a restored cache keeps its older mtime, so
+    // an mtime comparison rebuilds every time — cache hit in the log, nothing
+    // saved. Reverting to mtimes would make the step above pure cost.
+    const src = scriptSource();
+    expect(src).toContain('inputsHash');
+    expect(
+      src,
+      'freshness must not depend on mtimes — a restored cache always looks stale to them',
+    ).not.toContain('mtimeMs');
+  });
+});

@@ -471,6 +471,38 @@ conditionally-installing job verifies first and does it with no `if:`, and the
 the workflows just quietly stop sharing a warm cache and pay a cold install
 every run, which is invisible until someone reads the timings.
 
+### Precomputed artefacts key on content, not mtimes (#2246)
+
+`resources/help-docs/corpus.json` is ~523 doc chunks embedded through the WASM
+model — 46s on a CI runner, more than `electron-forge package` (12s) and
+Playwright (41s) combined. It's a pure function of committed inputs but
+gitignored, so every runner built it cold.
+
+`scripts/build-help-corpus.mjs` skips the rebuild when the corpus was already
+built from exactly these inputs, and that check is a **content hash**. It used
+to compare mtimes, which answers the wrong question in the two cases that
+matter:
+
+- **A restored CI cache.** `actions/checkout` stamps every source file with
+  the checkout time; a restored `resources/help-docs/` keeps the older mtime
+  it was written with. An mtime check rebuilds every time — so caching the
+  directory reports a hit in the log and saves nothing. Verified before
+  changing it: touching the inputs to simulate a checkout rebuilt all 523
+  chunks.
+- **Switching branches.** `git checkout` rewrites mtimes of the files it
+  touches, so moving between branches cost a full rebuild even when the docs
+  were byte-identical.
+
+The digest hashes filenames alongside contents (so a rename invalidates),
+sorts before hashing (so it doesn't depend on readdir order), and includes the
+model identity (vectors are only comparable against the model that made them).
+
+`ci.yml`'s cache key hashes the same set, so a cache miss and a rebuild
+coincide. Keep the two in step — `tests/architecture/
+out-of-band-checks-notify.test.ts` asserts both that the key covers every
+input and that the script hasn't gone back to mtimes, because drift there is
+silent: the corpus stays correct, the cache just quietly stops paying.
+
 ### Dependency advisories are ratcheted, not zero (#2249)
 
 Two gates, both blocking:
