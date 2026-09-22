@@ -466,10 +466,25 @@ assertion.
 
 `tests/architecture/lockfile-gate.test.ts` holds both halves: every
 conditionally-installing job verifies first and does it with no `if:`, and the
-`node_modules` cache keys stay byte-identical across `ci.yml` and
-`release.yml` (#1638, #663). That second one fails nothing when it breaks —
-the workflows just quietly stop sharing a warm cache and pay a cold install
-every run, which is invisible until someone reads the timings.
+`node_modules` cache keys stay byte-identical across all four jobs in
+`ci.yml`, `release.yml` and `bench.yml` (#1638, #663, #2247). That second one
+fails nothing when it breaks — the workflows just quietly stop sharing a warm
+cache and pay a cold install every run, which is invisible until someone reads
+the timings.
+
+The two rules interact, and #2247 is the worked example: `bench.yml` installed
+unconditionally, so its `--frozen-lockfile` *was* the gate. Giving it a cache
+put the install behind `if: cache-hit` and removed the assertion — the test
+caught it in the same commit, and the job grew a verify step. Add a cache to
+an installing job and you owe it a verify step.
+
+**Every workflow declares a `concurrency:` group, and decides
+`cancel-in-progress` explicitly** (#2247). The value differs on purpose:
+`ci.yml` cancels (a superseded PR push is waste), `release.yml` and
+`bench.yml` do not — a half-notarized release and a half-finished benchmark
+are both worse than a slow one. `bench.yml` is the sharp case: two overlapping
+runs measure each other's CPU contention, corrupting the output of the one
+workflow whose entire product is a measurement.
 
 ### Precomputed artefacts key on content, not mtimes (#2246)
 

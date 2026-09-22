@@ -60,9 +60,13 @@ const isVerify = (s: Step) => /--frozen-lockfile/.test(s.run ?? '') && /--lockfi
 
 /**
  * An install that always runs IS the assertion — `--frozen-lockfile` fails on
- * a drifted manifest by itself. `bench.yml` is in this shape: it caches no
- * `node_modules`, so its install is unconditional and was never vulnerable.
- * The gap #2244 fixed is specifically an install behind `if: cache-hit`.
+ * a drifted manifest by itself. The gap #2244 fixed is specifically an install
+ * behind `if: cache-hit`.
+ *
+ * No job is in that shape today: `bench.yml` was, until #2247 gave it a
+ * `node_modules` cache and its install became conditional. This test caught
+ * that in the same commit and it grew a verify step. Kept because the rule is
+ * about the shape, not about which jobs happen to have it right now.
  */
 const isUnconditionalFrozenInstall = (s: Step) =>
   isInstall(s) && /--frozen-lockfile/.test(s.run ?? '') && s.if === undefined;
@@ -72,10 +76,10 @@ const isNodeModulesCache = (s: Step) =>
 describe('every installing job verifies the lockfile first (#2244)', () => {
   it('finds the jobs — an empty scan would pass vacuously', () => {
     const installing = allJobs().filter((j) => j.steps.some(isInstall));
-    // Four install dependencies; three do it behind a cache check. The issue
-    // named two — `ci.yml`'s e2e job has the same conditional shape and was
-    // missed, and `bench.yml` installs unconditionally so it was never
-    // vulnerable. Listed so a future reader doesn't re-derive this.
+    // All four install behind a cache check. #2244's issue named two of them;
+    // `ci.yml`'s e2e job had the same conditional shape and was missed, and
+    // `bench.yml` joined them in #2247 when it gained a cache. Listed so a
+    // future reader doesn't re-derive this.
     expect(installing.map((j) => `${j.file}:${j.job}`).sort()).toEqual([
       'bench.yml:bench',
       'ci.yml:e2e',
@@ -152,5 +156,62 @@ describe('the shared node_modules cache key stays identical (#1638, #663)', () =
       .map((s) => s.with?.key ?? '')[0]!;
     expect(key).toContain("hashFiles('pnpm-lock.yaml')");
     expect(key).toContain("hashFiles('.nvmrc')");
+  });
+});
+
+/**
+ * Every workflow serializes its own runs (#2247).
+ *
+ * `bench.yml` was the only one without a `concurrency:` group. That mattered
+ * more there than anywhere else: two overlapping runs — easy during a
+ * re-blessing session, where you dispatch, look at the numbers, and dispatch
+ * again — would benchmark each other's CPU contention, corrupting the output
+ * of the one workflow whose entire product is a measurement.
+ *
+ * The `cancel-in-progress` VALUE is deliberately not asserted to one setting:
+ * `ci.yml` cancels (superseded PR pushes are waste), `release.yml` and
+ * `bench.yml` do not (a half-notarized release and a half-finished benchmark
+ * are both worse than a slow one). What's asserted is that each workflow has
+ * made the choice.
+ */
+describe('every workflow has a concurrency group (#2247)', () => {
+  const docs = () =>
+    fs
+      .readdirSync(WORKFLOW_DIR)
+      .filter((f) => f.endsWith('.yml') || f.endsWith('.yaml'))
+      .map((file) => ({
+        file,
+        doc: parse(fs.readFileSync(path.join(WORKFLOW_DIR, file), 'utf-8')) as {
+          concurrency?: { group?: string; 'cancel-in-progress'?: boolean };
+        },
+      }));
+
+  it('finds the workflows — an empty scan would pass vacuously', () => {
+    expect(docs().length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('each declares one', () => {
+    const missing = docs().filter((w) => !w.doc.concurrency?.group).map((w) => w.file);
+    expect(
+      missing,
+      'a workflow with no concurrency group lets two runs of the same ref overlap',
+    ).toEqual([]);
+  });
+
+  it('each makes an explicit cancel-in-progress choice', () => {
+    // Omitting it defaults to false, which is right for two of the three — but
+    // defaulting is not deciding, and the reasoning differs per workflow.
+    const implicit = docs()
+      .filter((w) => typeof w.doc.concurrency?.['cancel-in-progress'] !== 'boolean')
+      .map((w) => w.file);
+    expect(implicit).toEqual([]);
+  });
+
+  it('bench does NOT cancel in progress', () => {
+    // Named on its own because it is the one where cancelling is actively
+    // wrong: a partial benchmark yields no usable number, so a cancel wastes
+    // the whole run rather than saving anything.
+    const bench = docs().find((w) => w.file === 'bench.yml')!;
+    expect(bench.doc.concurrency?.['cancel-in-progress']).toBe(false);
   });
 });
