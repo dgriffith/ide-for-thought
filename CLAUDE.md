@@ -558,6 +558,30 @@ entries there are the worked examples of why.
 advisory appearing between merge and tag shouldn't block shipping a
 user-facing fix, and CI already gates the full tree on every PR.
 
+### Node comes from `.nvmrc`, and it is an LTS line (#2252)
+
+`.nvmrc` is the single answer to "which Node does this project run on?" — all
+three workflows resolve their runtime from it via `node-version-file`, and
+nothing hardcodes a version beside it.
+
+It says **24**, which is the LTS line (supported to 2028-04-30), and it stays
+an **even** major. Node ships LTS on even majors only; odd ones are *Current*,
+never promoted, and EOL about six months after release. That is not a detail:
+#2252 proposed bumping `.nvmrc` to 25 to close a local/CI skew, and Node 25
+reached end-of-life on 2026-06-01 — the bump would have put every build and
+release on a dead runtime. The skew closes from the other side instead.
+
+`tests/architecture/node-version.test.ts` holds it: even major, at or above
+the `engines` floor, every workflow pointing at `.nvmrc`, and the pre-push
+hook's skew check warning rather than blocking. The next line worth moving to
+is 26 (LTS from 2026-10-28).
+
+The hook warns on a local/CI major mismatch because the gate's whole value is
+catching failures before a slow macos-latest run — and a gate on a different
+runtime cannot catch a difference between runtimes. Advisory only: a hook that
+blocks a push over an advisory is a hook people disable, and the lint gate goes
+with it.
+
 ### Actions are pinned to commit SHAs (#2250)
 
 `actions/checkout@v7` is a **mutable** reference: the tag can be moved,

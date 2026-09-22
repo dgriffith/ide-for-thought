@@ -37,8 +37,21 @@ the wrong thing to put in front of someone reporting a bug.
 
 ## Getting set up
 
-You need **Node 24+** (see [`.nvmrc`](../.nvmrc)) and **pnpm 12**. Minerva uses
+You need **Node 24** (see [`.nvmrc`](../.nvmrc)) and **pnpm 12**. Minerva uses
 `corepack`/pnpm — do not use `npm` or `yarn`.
+
+`nvm use` in the repo picks it up. Node 24 rather than "24 or newer" on
+purpose: it is the current **LTS** line, supported to April 2028, and all three
+CI workflows resolve their runtime from `.nvmrc` — so running a different major
+locally means the pre-push lint gate is validating a different runtime than CI
+will. The hook warns when they differ; it never blocks, since there are good
+reasons to be on another major briefly.
+
+Node ships LTS on **even** majors only. Odd ones (23, 25, …) are *Current*:
+never promoted, and end-of-life roughly six months after release — v25 ended on
+2026-06-01. "Newer" is not "better supported" here, and
+`tests/architecture/node-version.test.ts` fails if `.nvmrc` names an odd major.
+The next line worth moving to is **26**, LTS from 2026-10-28.
 
 ```bash
 git clone https://github.com/dgriffith/ide-for-thought.git
