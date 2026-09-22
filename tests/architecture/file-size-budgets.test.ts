@@ -74,6 +74,12 @@ const BUDGETS: Record<string, number> = {
   'src/main/menu.ts': 956,
   'src/renderer/lib/components/Sidebar.svelte': 994,
   'src/renderer/lib/app/refactor-ops.svelte.ts': 856,
+  // Raised again in #2208: the staleness check became two queries (sort a
+  // two-variable projection, then fetch details for the survivors) plus the
+  // GROUP BY/MIN that stops a note with two dc:modified values being reported
+  // twice. Most of the addition is the comment explaining why the FASTER
+  // shape — drop ORDER BY, keep LIMIT — is the wrong one.
+  //
   // Raised twice in epic #2241 (826 → 865 in #2238, → 924 in #2240) and then
   // paid back in #2288, which moved `Inspection` to `shared/inspections.ts`
   // and took the seam both raises had pointed at: the per-project state now
@@ -81,7 +87,7 @@ const BUDGETS: Record<string, number> = {
   // it — a state module importing `Inspection` from here while this imported
   // the state from there is a genuine cycle, and `no-cycles.test.ts` follows
   // type-only imports. Below 826 now, so the two raises are more than repaid.
-  'src/main/graph/health-checks.ts': 825,
+  'src/main/graph/health-checks.ts': 896,
   'src/renderer/lib/components/ExportDialog.svelte': 712,
   'src/renderer/lib/components/ProposalsPanel.svelte': 613,
   'src/renderer/lib/components/QueryPanel.svelte': 759,
