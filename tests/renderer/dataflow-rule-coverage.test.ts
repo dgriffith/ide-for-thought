@@ -87,6 +87,9 @@ const READ_ALLOWLIST = new Set<string>([
   'instances', 'noteProperties', 'smartMembers',
   // sources reads
   'getExcerptNoteFolder', 'getIngestSettings', 'hasPdf', 'listAll', 'queueMembers', 'readPdf',
+  // `queueCounts` (#2222) is the same question as `queueMembers` asked for a
+  // size instead of a list — a pure read, so it sits beside it here.
+  'queueCounts',
   // settings-ish reads + compute probes. `runCell` was here until #1837: it
   // writes an audit record to the project and leaves state in a shared kernel,
   // so it is a mutation, not a probe — it's on the denylist now.

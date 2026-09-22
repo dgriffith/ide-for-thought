@@ -390,6 +390,11 @@ export const Channels = {
   /** Resolve a built-in Reading Queue view (unread / reading /
    *  dueThisWeek / recentlyFinished) against the live graph (#116). */
   SOURCES_QUEUE_MEMBERS: 'sources:queueMembers',
+  /** Sizes of all four Reading Queue views in one call (#2222). The sidebar's
+   *  queue rows want four integers; asking `SOURCES_QUEUE_MEMBERS` four times
+   *  instead made four full source-graph scans and shipped four whole
+   *  `SourceMetadata[]` arrays over IPC so the renderer could read `.length`. */
+  SOURCES_QUEUE_COUNTS: 'sources:queueCounts',
   /** Drop every API-derived `minerva:upstreamTag` from a source's
    *  meta.ttl and re-index (#473). User-authored body tags survive. */
   SOURCES_STRIP_UPSTREAM_TAGS: 'sources:stripUpstreamTags',

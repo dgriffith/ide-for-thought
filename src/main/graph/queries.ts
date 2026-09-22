@@ -36,12 +36,14 @@ export {
   listAllSources,
   getSourceDetail,
   getReadingQueueSourceIds,
+  getReadingQueueCounts,
+  READING_QUEUE_VIEWS,
   sourcesByReadStatus,
   citationsForNote,
   getExcerptSource,
 } from './queries/sources';
 
-export type { ReadingQueueView } from './queries/sources';
+export type { ReadingQueueView, ReadingQueueCounts } from './queries/sources';
 
 // Link queries live in `./queries/links` (#1838), same arrangement.
 export {

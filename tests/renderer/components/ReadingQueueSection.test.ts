@@ -10,7 +10,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent, cleanup, waitFor, screen } from '@testing-library/svelte';
 
 const h = vi.hoisted(() => ({
-  api: { sources: { queueMembers: vi.fn() } },
+  api: { sources: { queueMembers: vi.fn(), queueCounts: vi.fn() } },
 }));
 
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({ api: h.api }));
@@ -34,11 +34,14 @@ beforeEach(() => {
     clear: () => { for (const k of Object.keys(ls)) delete ls[k]; },
   });
   h.api.sources.queueMembers.mockResolvedValue(new Array(3).fill('s'));
+  h.api.sources.queueCounts.mockResolvedValue({
+    unread: 3, reading: 3, dueThisWeek: 3, recentlyFinished: 3,
+  });
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.clearAllMocks(); });
 
 describe('ReadingQueueSection (#2057)', () => {
-  it('renders the four queue rows with counts from queueMembers, expanded by default', async () => {
+  it('renders the four queue rows with counts from queueCounts, expanded by default', async () => {
     render(ReadingQueueSection, props());
     await waitFor(() => expect(screen.getByText('Unread')).toBeTruthy());
     expect(screen.getByText('Reading')).toBeTruthy();
@@ -48,6 +51,20 @@ describe('ReadingQueueSection (#2057)', () => {
       const unreadRow = screen.getByText('Unread').closest('button')!;
       expect(unreadRow.textContent).toContain('3');
     });
+  });
+
+  it('draws all four counts in ONE IPC round-trip, not one per row (#2222)', async () => {
+    // A count assertion, not a timing one: the defect this replaces was four
+    // `queueMembers` calls, each of which hydrates a full `SourceMetadata[]`
+    // main-side purely so the renderer can read `.length` off it. Since
+    // `refreshCounts()` runs on every `sources:changed` broadcast, four became
+    // 4N on a bulk import.
+    render(ReadingQueueSection, props());
+    await waitFor(() => {
+      expect(screen.getByText('Unread').closest('button')!.textContent).toContain('3');
+    });
+    expect(h.api.sources.queueCounts).toHaveBeenCalledTimes(1);
+    expect(h.api.sources.queueMembers).not.toHaveBeenCalled();
   });
 
   it('clicking a row selects that queue view', async () => {

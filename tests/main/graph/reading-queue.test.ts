@@ -9,6 +9,7 @@ import path from 'node:path';
 import {
   indexSource,
   getReadingQueueSourceIds,
+  getReadingQueueCounts,
 } from '../../../src/main/graph/index';
 import { type ProjectContext } from '../../../src/main/project-context-types';
 import { useGraphProject } from '../../helpers/temp-project';
@@ -101,5 +102,46 @@ describe('getReadingQueueSourceIds (#116)', () => {
     makeSource('good-date', '    minerva:readDueBy "2026-05-30"^^xsd:date ;\n');
 
     expect(getReadingQueueSourceIds(ctx, 'dueThisWeek', NOW)).toEqual(['good-date']);
+  });
+
+  /**
+   * #2222 — the sidebar's four queue rows show sizes, and getting them used to
+   * mean four `SOURCES_QUEUE_MEMBERS` calls, each hydrating a full
+   * `SourceMetadata[]` from the graph so the renderer could read `.length`.
+   *
+   * The property worth pinning is not "the counts are 2/1/1/0" in isolation —
+   * it's that a count NEVER disagrees with the list a user gets when they click
+   * that row. A fused-predicate reimplementation that drifts from
+   * `getReadingQueueSourceIds` is the realistic regression, and it would show
+   * up as a row reading "4" that opens onto three sources.
+   */
+  describe('getReadingQueueCounts (#2222)', () => {
+    it('agrees with getReadingQueueSourceIds for every view', () => {
+      makeSource('no-status');
+      makeSource('explicit-unread', '    minerva:readStatus "unread" ;\n');
+      makeSource('in-progress', '    minerva:readStatus "reading" ;\n');
+      makeSource('finished', '    minerva:readStatus "read" ;\n');
+      makeSource('due-soon', '    minerva:readDueBy "2026-05-30"^^xsd:date ;\n');
+
+      const counts = getReadingQueueCounts(ctx, NOW);
+      for (const view of ['unread', 'reading', 'dueThisWeek', 'recentlyFinished'] as const) {
+        expect(counts[view], `count for ${view}`)
+          .toBe(getReadingQueueSourceIds(ctx, view, NOW).length);
+      }
+      // Spot-check the absolute numbers too, so a mutual-agreement bug where
+      // both sides return 0 can't pass this.
+      expect(counts.unread).toBe(3); // no-status, explicit-unread, due-soon
+      expect(counts.reading).toBe(1);
+      expect(counts.recentlyFinished).toBe(1);
+      expect(counts.dueThisWeek).toBe(1);
+    });
+
+    it('reports all-zero on an empty thoughtbase rather than omitting keys', () => {
+      // The renderer renders `queueCounts[view]` straight into the row, so a
+      // missing key would draw "undefined", not "0".
+      expect(getReadingQueueCounts(ctx, NOW)).toEqual({
+        unread: 0, reading: 0, dueThisWeek: 0, recentlyFinished: 0,
+      });
+    });
   });
 });

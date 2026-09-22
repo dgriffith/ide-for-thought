@@ -178,6 +178,47 @@ function collectSourceMetadata(state: GraphState, sourceId: string, subject: $rd
  */
 export type ReadingQueueView = 'unread' | 'reading' | 'dueThisWeek' | 'recentlyFinished';
 
+/** Every queue view, in the order the sidebar renders them. Exported so the
+ *  counts query below and the `SOURCES_QUEUE_COUNTS` handler agree on the
+ *  key set without either restating the union by hand. */
+export const READING_QUEUE_VIEWS: readonly ReadingQueueView[] =
+  ['unread', 'reading', 'dueThisWeek', 'recentlyFinished'] as const;
+
+/** Row count per queue view — the four integers the sidebar's queue rows show. */
+export type ReadingQueueCounts = Record<ReadingQueueView, number>;
+
+/**
+ * Just the sizes of all four queue views (#2222).
+ *
+ * The sidebar's reading-queue rows render a single integer each, but the only
+ * way to get one used to be `SOURCES_QUEUE_MEMBERS`, which resolves the ids and
+ * then calls `listAllSources` to hydrate a full `SourceMetadata[]` — so drawing
+ * four numbers cost four full source-graph scans *with* per-source metadata
+ * collection, and marshalled four arrays of every matching source across the
+ * IPC boundary for the renderer to read `.length` off and discard.
+ *
+ * This deliberately reuses `getReadingQueueSourceIds` per view rather than
+ * fusing the four predicates into one pass: membership semantics (what counts
+ * as "unread", how "due this week" treats past-due) then keep exactly one
+ * definition, and a count can never disagree with the list the user sees when
+ * they click the row. The saving that matters is skipping `listAllSources` and
+ * the payload, not the walk — `getReadingQueueSourceIds` reads at most three
+ * triples per source and builds no objects.
+ *
+ * `now` is injectable for the same reason it is above: deterministic tests of
+ * the date-relative views.
+ */
+export function getReadingQueueCounts(
+  ctx: ProjectContext,
+  now: Date = new Date(),
+): ReadingQueueCounts {
+  const counts = { unread: 0, reading: 0, dueThisWeek: 0, recentlyFinished: 0 };
+  for (const view of READING_QUEUE_VIEWS) {
+    counts[view] = getReadingQueueSourceIds(ctx, view, now).length;
+  }
+  return counts;
+}
+
 
 /**
  * Source ids matching the given queue view. `now` is injectable for

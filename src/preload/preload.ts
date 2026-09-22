@@ -449,6 +449,7 @@ const api = {
       invoke(Channels.SOURCES_REMOVE_TAG, { sourceId, tag }),
     queueMembers: (view: 'unread' | 'reading' | 'dueThisWeek' | 'recentlyFinished') =>
       invoke(Channels.SOURCES_QUEUE_MEMBERS, view),
+    queueCounts: () => invoke(Channels.SOURCES_QUEUE_COUNTS),
     stripUpstreamTags: (sourceId: string) =>
       invoke(Channels.SOURCES_STRIP_UPSTREAM_TAGS, sourceId),
     getIngestSettings: () => invoke(Channels.INGEST_GET_SETTINGS),

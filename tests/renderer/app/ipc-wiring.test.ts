@@ -11,7 +11,7 @@
  * Mocks the singleton stores the module pulls internally and the api client;
  * every `api.*.on*` records its callback so the test can fire it.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const h = vi.hoisted(() => {
   const MENU_CHANNELS = [
@@ -343,10 +343,73 @@ describe('active-note guards', () => {
 
 describe('non-menu event handlers', () => {
   it('sources.onChanged refreshes the sidebar sources + the cache', () => {
-    fire('sources.onChanged');
-    expect(sidebar.refreshSources).toHaveBeenCalled();
-    expect(ctx.refreshSourcesCache).toHaveBeenCalled();
+    vi.useFakeTimers();
+    try {
+      fire('sources.onChanged');
+      vi.runAllTimers();
+      expect(sidebar.refreshSources).toHaveBeenCalled();
+      expect(ctx.refreshSourcesCache).toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
+});
+
+/**
+ * #2222. `watch-handlers.ts` broadcasts SOURCES_CHANGED once per source file
+ * it reindexes, so a bulk BibTeX / Zotero import of N references fires N
+ * broadcasts. Undebounced, each one fanned out to six IPC round-trips (seven
+ * with a queue view selected), every one of which re-walks every
+ * `minerva:sourceId` statement in the graph main-side.
+ *
+ * These are COUNT assertions, never elapsed-time ones: "one burst causes one
+ * refresh" is the invariant that actually matters and it holds identically on
+ * a loaded CI runner, whereas any millisecond threshold would flap there.
+ * Fake timers make the debounce window deterministic rather than slept-through.
+ */
+describe('sources.onChanged is debounced (#2222)', () => {
+  beforeEach(() => { vi.useFakeTimers(); });
+  afterEach(() => { vi.useRealTimers(); });
+
+  it('collapses a burst of N broadcasts into ONE refresh', () => {
+    for (let i = 0; i < 50; i++) fire('sources.onChanged');
+    vi.runAllTimers();
+    expect(sidebar.refreshSources).toHaveBeenCalledTimes(1);
+    expect(ctx.refreshSourcesCache).toHaveBeenCalledTimes(1);
+  });
+
+  it('refreshes AFTER the last event, never before it — no update is lost', () => {
+    // The correctness trap in debouncing a refresh: if the implementation
+    // fired on the LEADING edge (or dropped the trailing call), the panel
+    // would render state captured before the burst finished and stay silently
+    // stale, because the broadcasts that would have corrected it are exactly
+    // the ones that got swallowed. Nothing may run while events keep arriving,
+    // and something must run once they stop.
+    fire('sources.onChanged');
+    vi.advanceTimersByTime(150);
+    expect(sidebar.refreshSources).not.toHaveBeenCalled();
+
+    fire('sources.onChanged'); // resets the window rather than letting it lapse
+    vi.advanceTimersByTime(150);
+    expect(sidebar.refreshSources).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(60); // 210ms of quiet since the final event
+    expect(sidebar.refreshSources).toHaveBeenCalledTimes(1);
+    expect(ctx.refreshSourcesCache).toHaveBeenCalledTimes(1);
+  });
+
+  it('a later, separate change still refreshes — the debounce is not a latch', () => {
+    fire('sources.onChanged');
+    vi.runAllTimers();
+    expect(sidebar.refreshSources).toHaveBeenCalledTimes(1);
+
+    fire('sources.onChanged');
+    vi.runAllTimers();
+    expect(sidebar.refreshSources).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('non-menu event handlers (continued)', () => {
 
   it('embeddings backfill maps running progress to state, idle to null', () => {
     fire('embeddings.backfill', { running: true, done: 3, total: 10 });

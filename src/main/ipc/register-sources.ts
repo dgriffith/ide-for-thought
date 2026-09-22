@@ -309,6 +309,15 @@ export function registerSources(): void {
     return graph.listAllSources(ctx).filter((s) => ids.has(s.sourceId));
   }));
 
+  // Counts only (#2222). `withRootPathOr` with all-zeros is legitimate here
+  // per the IPC error-handling rules: with no project open there genuinely are
+  // no queued sources, and "0" is what the sidebar should render — it is not a
+  // failure being smuggled through a fallback value.
+  handle(Channels.SOURCES_QUEUE_COUNTS, withRootPathOr(
+    { unread: 0, reading: 0, dueThisWeek: 0, recentlyFinished: 0 },
+    (rootPath) => graph.getReadingQueueCounts(projectContext(rootPath)),
+  ));
+
   // ── Collections (#470) ────────────────────────────────────────────────────
   handle(Channels.COLLECTIONS_LIST, withRootPathOr<[], { collections: never[] } | Promise<CollectionsFile>>({ collections: [] }, async (rootPath) => {
     return await loadCollections(rootPath);
