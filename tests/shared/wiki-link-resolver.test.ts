@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { isNotePath } from '../../src/shared/note-extensions';
 import { canonicalizeWikiLinkTarget, noteTargetPathBeside } from '../../src/shared/wiki-link-resolver';
 
 describe('noteTargetPathBeside (#1446 create-note path)', () => {
@@ -91,6 +92,10 @@ describe('buildWikiLinkIndex / resolveWikiLinkTargetWithIndex equivalence (#1473
     // non-md + explicit-ext + precedence targets (#1446)
     'budget', 'reports/budget', 'budget.csv', 'reports/budget.csv', 'budget.md',
     'records', 'data/records', 'records.ttl', 'run', 'scripts/run', 'run.py',
+    // Non-note files, named explicitly. Without these the equivalence check
+    // below never asks the one question that distinguishes a filtered file
+    // list from a raw one, and passes vacuously (#2210).
+    'pic', 'pic.png', 'assets/pic.png',
   ];
 
   const index = buildWikiLinkIndex(files, aliases);
@@ -105,6 +110,43 @@ describe('buildWikiLinkIndex / resolveWikiLinkTargetWithIndex equivalence (#1473
     const idx = buildWikiLinkIndex(files);
     for (const t of targets) {
       expect(resolveWikiLinkTargetWithIndex(t, idx)).toBe(resolveWikiLinkTarget(t, files));
+    }
+  });
+
+  it('a note-extension-filtered file list resolves identically to the raw one (#2210)', () => {
+    // The claim #2210 §3b rests on. The preview had TWO sources for the same
+    // question: the transclusion pass fetched the raw `listFiles()` tree over
+    // IPC on every render tick, while the typed-card and broken-link passes
+    // used the already-in-memory `flattenNotePaths()` list, which keeps only
+    // note extensions. Sharing one index between them is only safe if those
+    // two inputs are interchangeable.
+    //
+    // They are, and the reason is worth stating rather than trusting: BOTH
+    // resolvers funnel through `orderedNoteFiles`, which applies the same
+    // `isNotePath` filter internally. So a `.png` in the raw tree was never a
+    // candidate — passing it in was work with no effect on the answer. If
+    // that internal filter is ever relaxed, this fails, which is the point.
+    const noteOnly = files.filter((f) => !f.isDirectory && isNotePath(f.relativePath));
+    expect(noteOnly.length, 'the fixture must contain some non-note entries to filter')
+      .toBeLessThan(files.length);
+
+    const filteredIndex = buildWikiLinkIndex(noteOnly, aliases);
+    for (const t of targets) {
+      expect(
+        resolveWikiLinkTargetWithIndex(t, filteredIndex),
+        `filtering non-note files changed the answer for ${JSON.stringify(t)}`,
+      ).toBe(resolveWikiLinkTarget(t, files, aliases));
+    }
+  });
+
+  it('an embed naming a non-note file resolves to nothing either way', () => {
+    // The case a reader will reach for as the counter-example: `![[pic.png]]`
+    // on its own line does become a transclusion placeholder. It resolved to
+    // null before this change and resolves to null after it — the image never
+    // reached the resolver's candidate set.
+    for (const t of ['pic.png', 'assets/pic.png', 'pic']) {
+      expect(resolveWikiLinkTarget(t, files, aliases)).toBeNull();
+      expect(resolveWikiLinkTargetWithIndex(t, index)).toBeNull();
     }
   });
 });
