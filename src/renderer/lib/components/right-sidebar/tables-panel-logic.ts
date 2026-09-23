@@ -18,6 +18,48 @@
  */
 import type { TableInfo } from '../../ipc/client';
 
+/**
+ * Row cap on the query the panel hands to a new query tab (#2228).
+ *
+ * The panel used to emit a bare `SELECT * FROM <name>`, which has no ceiling at
+ * all: `runQuery` (`sources/tables.ts`) calls `reader.getRowObjectsJS()`, a
+ * synchronous full materialization into plain JS objects **on the main process
+ * thread**, and the whole array is then structured-cloned to the renderer,
+ * which holds a second copy and renders one `<tr>` per row (QueryPanel's result
+ * table is not virtualized). Measured here on a 65MB / 1M-row / 6-column CSV:
+ *
+ *   SELECT * FROM data              1909ms in runQuery, 99.8MB clone payload
+ *                                   (+481ms to serialize it), ~180MB retained
+ *                                   per process, 6M DOM cells
+ *   SELECT * FROM data LIMIT 500      42ms in runQuery, ~0MB payload
+ *
+ * — a ~45x main-thread saving for a click whose job is "show me this table".
+ * 500 rows is a preview that fits the panel's purpose while staying well inside
+ * what an unvirtualized table renders comfortably; anyone who wants the whole
+ * thing edits one visible word.
+ *
+ * **On truncation being visible.** Per CLAUDE.md's UI philosophy this ships no
+ * banner, toast or interstitial — and it doesn't need one, because the cap is
+ * not hidden anywhere: it lands as literal text in the query editor the click
+ * opens, one keystroke from being changed or deleted, next to a results header
+ * that reads "500 rows" and a panel row whose stat already reads e.g.
+ * "1000000 × 6". The user is looking at their own query, so nothing has to tell
+ * them it was truncated. This is also the shape QueryPanel's SQL placeholder
+ * already teaches (`SELECT *\nFROM my_table\nLIMIT 10`, QueryPanel.svelte:148)
+ * — the asymmetry the issue names was that the panel taught LIMIT by example
+ * while the button handed out a query without one.
+ */
+export const TABLE_PREVIEW_ROW_LIMIT = 500;
+
+/**
+ * The query a Tables-panel row opens in a new query tab. Multi-line on purpose:
+ * it matches QueryPanel's placeholder layout, and it puts `LIMIT` on its own
+ * line where it reads as an editable knob rather than a tail nobody scans to.
+ */
+export function selectStarSql(name: string): string {
+  return `SELECT *\nFROM ${name}\nLIMIT ${TABLE_PREVIEW_ROW_LIMIT}`;
+}
+
 // Pull SQL fences out first so we don't false-positive on "FROM" in prose.
 // Matches ```sql plus the query-directive fences that carry `language: sql`.
 const SQL_FENCE_RE = /```(?:sql|query(?:-table|-list)?)\b[^\n]*\n([\s\S]*?)```/gi;

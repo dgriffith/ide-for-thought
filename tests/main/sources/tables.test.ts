@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { initTablesDb, disposeProject, runQuery } from '../../../src/main/sources/tables';
 import { projectContext } from '../../../src/main/project-context-types';
+import { coerceDuckRowsForIpc } from '../../../src/main/compute/duck-values';
 
 const ctx = projectContext('/tmp/minerva-tables-test');
 
@@ -104,5 +105,35 @@ describe('tables module — DuckDB lifecycle + runQuery (#232)', () => {
       // for whatever test runs next to collide with.
       await runQuery(ctx, `DROP TABLE IF EXISTS scratch`);
     }
+  });
+
+  /**
+   * The BigInt half of #2228, asserted against a real DuckDB rather than a
+   * mocked row shape — the whole gap existed because the shape was assumed.
+   *
+   * INTEGER (32-bit) comes back as a JS number and BIGINT (64-bit) as a JS
+   * `BigInt`; DuckDB's CSV sniffer types an integer column BIGINT and
+   * `COUNT(*)`/`SUMMARIZE` return BIGINT too, so the bigint case is the
+   * *ordinary* one for the `SELECT *` the Tables panel opens, not an edge.
+   * `runQuery` deliberately still returns it raw; `coerceDuckRowsForIpc` at
+   * the TABLES_QUERY boundary is what makes it JSON-safe.
+   */
+  it('a BIGINT column arrives raw, and the IPC coercion makes it JSON-safe (#2228)', async () => {
+    const result = await runQuery(ctx, `
+      SELECT 1 AS i32, 1::BIGINT AS i64, COUNT(*) AS n, 'x' AS label
+      FROM (VALUES (1)) t(v)
+    `);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(typeof result.rows[0]!.i32).toBe('number');
+    expect(typeof result.rows[0]!.i64).toBe('bigint');
+    expect(typeof result.rows[0]!.n).toBe('bigint');
+    expect(() => JSON.stringify(result.rows)).toThrow(/BigInt/);
+
+    const coerced = coerceDuckRowsForIpc(result.rows);
+    expect(() => JSON.stringify(coerced)).not.toThrow();
+    expect(coerced[0]).toEqual({ i32: 1, i64: 1, n: 1, label: 'x' });
+    expect(typeof coerced[0]!.i64).toBe('number');
   });
 });
