@@ -30,24 +30,75 @@
  * `resolveAliases` below is now the single implementation. Both
  * representations are projections of its output, so they cannot disagree
  * about which alias won.
+ *
+ * ── Derivations are lazy and versioned (#2214) ──────────────────────────────
+ * `aliasMap` and the wiki-link resolver index (`wikiLinkIndex`) are both pure
+ * functions of `paths` + `aliasesPerNote`, and both are O(N) in the project's
+ * note count to compute. They used to be recomputed eagerly on *every*
+ * incremental save — `indexNote` called `rebuildAliasMap`, then
+ * `buildLinkResolveCtx` rebuilt seven maps over every indexed path — so a save
+ * in a 5,000-note thoughtbase paid ~21ms of pure rederivation before touching
+ * a single triple, even for a note with no wiki-links and no aliases.
+ *
+ * Both are now cached against a `version` counter that the three mutators
+ * (`registerNotePath` / `setNoteAliases` / `forgetNotePath`) bump only when
+ * they *actually* change something. A save that re-indexes an already-known
+ * path with unchanged aliases — the overwhelmingly common case — bumps
+ * nothing, so both derivations are an O(1) version check.
+ *
+ * Correctness comes from the reads, not from callers remembering to rebuild:
+ * every read (`aliasMap`, `aliasMapObject`, `aliasEntries`, `wikiLinkIndex`)
+ * materializes on demand if its cache is behind `version`. `rebuildAliasMap`
+ * is kept — `rebuild.ts` and `indexNote` still call it — but it is now a
+ * version-guarded materialize rather than an unconditional O(N) pass, so a
+ * stale cache is not reachable and a redundant call is free.
  */
 import type { ProjectContext } from '../project-context-types';
 import { createProjectStore } from '../project-store';
 import { stripNoteExt } from '../../shared/note-extensions';
+import { buildWikiLinkIndex, type WikiLinkIndex } from '../../shared/wiki-link-resolver';
 
 interface NoteIndex {
   paths: Set<string>;
   aliasesPerNote: Map<string, string[]>;
-  /** Derived from the two above; recomputed by `rebuildAliasMap`. */
+  /**
+   * Bumped by a mutator ONLY when `paths`/`aliasesPerNote` actually changed.
+   * Everything derived below caches the version it was built from.
+   */
+  version: number;
+  /** Derived from `paths` + `aliasesPerNote`; stale when `aliasMapVersion !== version`. */
   aliasMap: Map<string, string>;
+  aliasMapVersion: number;
+  /** Derived from `paths` + `aliasMap`; `null` until first built. */
+  linkIndex: WikiLinkIndex | null;
+  linkIndexVersion: number;
 }
+
+/**
+ * Test-only: how many times each derivation was *actually* recomputed.
+ *
+ * #2214's gate is a count, not a timing (#2229): "a save rebuilds the wiki-link
+ * index zero times when no path or alias changed" is a deterministic assertion;
+ * "a save is faster" is not. Incrementing two module-level integers costs
+ * nothing in production and is the only thing that can distinguish a cache hit
+ * from a cheap rebuild from the outside.
+ */
+export const _derivationCountsForTests = { aliasMap: 0, linkIndex: 0 };
 
 const noteIndexStore = createProjectStore<NoteIndex>();
 
 function index(ctx: ProjectContext): NoteIndex {
   const existing = noteIndexStore.get(ctx);
   if (existing) return existing;
-  const fresh: NoteIndex = { paths: new Set(), aliasesPerNote: new Map(), aliasMap: new Map() };
+  const fresh: NoteIndex = {
+    paths: new Set(),
+    aliasesPerNote: new Map(),
+    version: 0,
+    aliasMap: new Map(),
+    aliasMapVersion: 0,
+    linkIndex: null,
+    linkIndexVersion: -1,
+  };
   noteIndexStore.set(ctx, fresh);
   return fresh;
 }
@@ -93,24 +144,66 @@ function resolveAliases(idx: NoteIndex): AliasEntry[] {
   return out;
 }
 
+// ── Derivations (lazy, version-guarded) ─────────────────────────────────────
+
+/** Materialize `aliasMap` if it is behind `version`. O(1) when it isn't. */
+function ensureAliasMap(idx: NoteIndex): void {
+  if (idx.aliasMapVersion === idx.version) return;
+  const next = new Map<string, string>();
+  for (const { alias, relativePath } of resolveAliases(idx)) {
+    next.set(alias.toLowerCase(), relativePath);
+  }
+  idx.aliasMap = next;
+  idx.aliasMapVersion = idx.version;
+  _derivationCountsForTests.aliasMap++;
+}
+
+/** Materialize the wiki-link resolver index if it is behind `version`. */
+function ensureLinkIndex(idx: NoteIndex): WikiLinkIndex {
+  if (idx.linkIndex && idx.linkIndexVersion === idx.version) return idx.linkIndex;
+  ensureAliasMap(idx);
+  const files = [...idx.paths].map((relativePath) => ({ relativePath, isDirectory: false }));
+  // aliasMap keys are already lowercased by resolveAliases' projection.
+  idx.linkIndex = buildWikiLinkIndex(files, Object.fromEntries(idx.aliasMap));
+  idx.linkIndexVersion = idx.version;
+  _derivationCountsForTests.linkIndex++;
+  return idx.linkIndex;
+}
+
+/** The answer for a project with nothing indexed. Built once — a read must not
+ *  allocate anything per call, let alone a project slot (#2240). */
+const EMPTY_LINK_INDEX: WikiLinkIndex = buildWikiLinkIndex([], {});
+
 // ── Maintenance (the indexer's side) ────────────────────────────────────────
 
 /**
  * Record that the indexer has seen `relativePath`. Called for EVERY note
  * extension (#1446) before the `.ttl`/`.csv`/`.py` early-returns, so a bare
  * `[[budget]]` resolves to `budget.csv` on the incremental path too — not just
- * on a full rebuild. Idempotent.
+ * on a full rebuild. Idempotent — and a repeat call is a genuine no-op, so it
+ * does not invalidate the derived caches (#2214).
  */
 export function registerNotePath(ctx: ProjectContext, relativePath: string): void {
-  index(ctx).paths.add(relativePath);
+  const idx = index(ctx);
+  if (idx.paths.has(relativePath)) return;
+  idx.paths.add(relativePath);
+  idx.version++;
 }
 
 /** Replace a note's accepted aliases. An empty list drops the entry entirely,
- *  so `aliasesPerNote` never holds empty arrays. */
+ *  so `aliasesPerNote` never holds empty arrays. An unchanged list is a no-op
+ *  (#2214) — most saves don't touch frontmatter aliases, and re-storing an
+ *  equal array would invalidate both derived caches for nothing. */
 export function setNoteAliases(ctx: ProjectContext, relativePath: string, aliases: string[]): void {
   const idx = index(ctx);
-  if (aliases.length > 0) idx.aliasesPerNote.set(relativePath, aliases);
-  else idx.aliasesPerNote.delete(relativePath);
+  const prev = idx.aliasesPerNote.get(relativePath);
+  if (aliases.length > 0) {
+    if (prev && prev.length === aliases.length && prev.every((a, i) => a === aliases[i])) return;
+    idx.aliasesPerNote.set(relativePath, aliases);
+  } else {
+    if (!idx.aliasesPerNote.delete(relativePath)) return;
+  }
+  idx.version++;
 }
 
 /**
@@ -124,26 +217,29 @@ export function forgetNotePath(
 ): { hadAliases: boolean; wasTracked: boolean } {
   const idx = noteIndexStore.get(ctx);
   if (!idx) return { hadAliases: false, wasTracked: false };
-  return {
+  const out = {
     hadAliases: idx.aliasesPerNote.delete(relativePath),
     wasTracked: idx.paths.delete(relativePath),
   };
+  if (out.hadAliases || out.wasTracked) idx.version++;
+  return out;
 }
 
 /**
- * Recompute the cached lowercase alias map. Run after any change to the
- * per-note snapshots — the incremental `indexNote` path and the full reindex
- * both call it. The full-rebuild walk deliberately skips the per-note call and
- * does one pass at the end (perf #1106): it's O(notes), so calling it per note
- * made the walk O(n²).
+ * Materialize the cached lowercase alias map if a mutation has invalidated it.
+ *
+ * Callers (the incremental `indexNote` path, `removeNote`, and the full
+ * reindex's two explicit passes) are unchanged, but since #2214 this is a
+ * version check first: a save whose paths and aliases are identical to what's
+ * already indexed does no work at all. The reads below materialize on demand
+ * too, so a caller that forgets this is still correct — the eager calls just
+ * keep the cost off the first reader.
+ *
+ * The full-rebuild walk still skips the per-note call (perf #1106); the
+ * pre-pass + one trailing call are all it needs.
  */
 export function rebuildAliasMap(ctx: ProjectContext): void {
-  const idx = index(ctx);
-  const next = new Map<string, string>();
-  for (const { alias, relativePath } of resolveAliases(idx)) {
-    next.set(alias.toLowerCase(), relativePath);
-  }
-  idx.aliasMap = next;
+  ensureAliasMap(index(ctx));
 }
 
 /** Drop the whole index — the from-scratch rebuild re-derives it from files. */
@@ -153,13 +249,40 @@ export function clearNoteIndex(ctx: ProjectContext): void {
   idx.paths.clear();
   idx.aliasesPerNote.clear();
   idx.aliasMap.clear();
+  // Both derivations are now stale, whatever they held. `aliasMap` was just
+  // emptied in place, which happens to be its correct value for an empty
+  // index — but the version bump is what keeps that a fact rather than a
+  // coincidence, and it is what invalidates `linkIndex`.
+  idx.version++;
+  idx.aliasMapVersion = idx.version;
 }
 
 // ── Reads ───────────────────────────────────────────────────────────────────
 
 /** Lowercased alias → relativePath. The live map; callers must not mutate it. */
 export function aliasMap(ctx: ProjectContext): Map<string, string> {
-  return noteIndexStore.get(ctx)?.aliasMap ?? new Map<string, string>();
+  const idx = noteIndexStore.get(ctx);
+  if (!idx) return new Map<string, string>();
+  ensureAliasMap(idx);
+  return idx.aliasMap;
+}
+
+/**
+ * The prebuilt wiki-link resolver index for this project (#2214).
+ *
+ * `buildLinkResolveCtx` used to rebuild this on every single-note save —
+ * filtering and sorting all N paths, then building seven maps including one
+ * entry per dash-segment of every stem. Measured at 1.4 / 3.1 / 10.5 / 19.2 ms
+ * for 500 / 1,000 / 3,000 / 5,000 notes, paid by every save including one to a
+ * note with no wiki-links at all.
+ *
+ * Cached against `version`, so it is rebuilt exactly when a path or a winning
+ * alias changed. Returns the LIVE index; callers must not mutate it.
+ */
+export function wikiLinkIndex(ctx: ProjectContext): WikiLinkIndex {
+  const idx = noteIndexStore.get(ctx);
+  if (!idx) return EMPTY_LINK_INDEX;
+  return ensureLinkIndex(idx);
 }
 
 /** Lowercased alias → relativePath as a plain object, for the IPC boundary. */
