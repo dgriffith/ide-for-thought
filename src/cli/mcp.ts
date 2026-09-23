@@ -12,8 +12,9 @@
  * as a pure function. `handleMcpMessage` is that pure core; `runMcpServer` is the
  * stdio plumbing around it.
  *
- * Read-only by construction. Writes are a later child (#1147) and go through the
- * approval gate — an external agent proposes, the human confirms.
+ * Reads plus exactly one write, `propose_note` (#1147), which goes through the
+ * approval gate — an external agent proposes, the human confirms. Nothing here
+ * touches the vault directly.
  */
 import * as readline from 'node:readline';
 import { type Engine, type EngineOptions, type ExecResult } from './engine';
@@ -68,8 +69,10 @@ interface McpTool {
 const str = (v: unknown): string => (typeof v === 'string' ? v : '');
 const num = (v: unknown): number | undefined => (typeof v === 'number' ? v : undefined);
 
-/** The read tools, one per Engine method. Names + schemas are what an external
- *  agent sees; results are grounded JSON so the agent can attribute. */
+/** The exposed tools, one per Engine method. Names + schemas are what an
+ *  external agent sees; results are grounded JSON so the agent can attribute.
+ *  `docs/cli.md` lists them, and `tests/architecture/cli-docs-parity.test.ts`
+ *  fails when a tool is added here without being documented there. */
 export const MCP_TOOLS: McpTool[] = [
   {
     name: 'query_graph',

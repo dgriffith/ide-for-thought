@@ -1,11 +1,17 @@
 # ADR: OS sandbox for Python compute
 
-**Status:** Proposed (2026-07). Scopes [#1329] (Security L1 — "Python compute is
-full-privilege RCE by design"). macOS-only, matching the ship target. Builds on
-the defense-in-depth already shipped under [#1413]: eyes-on-code consent
-([#1412]), a real consent boundary in main ([#1411]), network-off-by-default in
-the kernel ([#1418]), an execution audit log ([#1419]), and a static red-flag
-scan ([#1420]).
+**Status:** Accepted, and **Phases 1 and 2 have shipped** — network containment
+in [#1421] and filesystem containment in [#1422], both in
+`src/main/compute/sandbox.ts`. Phase 3 (the hardening list below) is not built
+and has no issue; [#1329], the parent, stays open for it. Read the phasing
+section as a record of what was decided, with the first two thirds of it now
+describing code rather than a plan.
+
+Scopes [#1329] (Security L1 — "Python compute is full-privilege RCE by design").
+macOS-only, matching the ship target. Builds on the defense-in-depth already
+shipped under [#1413]: eyes-on-code consent ([#1412]), a real consent boundary in
+main ([#1411]), network-off-by-default in the kernel ([#1418]), an execution
+audit log ([#1419]), and a static red-flag scan ([#1420]).
 
 This record fixes the mechanism, the policy, the phasing, and the open
 decisions so the implementation PRs read as a deliberate plan rather than an
@@ -192,13 +198,13 @@ macOS-only integration tests (skip on non-darwin CI, mirroring
 
 ## Child issues
 
-- **P1** — `sandbox-exec` wrapper + network containment (deny IP egress, allow
-  loopback + unix sockets; inherited by child processes) + fail-closed on macOS
-  + macOS integration tests.
-- **P2** — filesystem containment (`file-write*` to project/tmp only;
-  `file-read*` sensitive denylist).
-- **P3** (deferred) — allow-list hardening / `mach-lookup` minimization; XPC
-  helper evaluation.
+- **P1** ([#1421], shipped) — `sandbox-exec` wrapper + network containment (deny
+  IP egress, allow loopback + unix sockets; inherited by child processes) +
+  fail-closed on macOS + macOS integration tests.
+- **P2** ([#1422], shipped) — filesystem containment (`file-write*` to
+  project/tmp only; `file-read*` sensitive denylist).
+- **P3** (deferred, no issue filed) — allow-list hardening / `mach-lookup`
+  minimization; XPC helper evaluation.
 
 [#1329]: https://github.com/dgriffith/ide-for-thought/issues/1329
 [#1411]: https://github.com/dgriffith/ide-for-thought/issues/1411
@@ -207,3 +213,5 @@ macOS-only integration tests (skip on non-darwin CI, mirroring
 [#1418]: https://github.com/dgriffith/ide-for-thought/issues/1418
 [#1419]: https://github.com/dgriffith/ide-for-thought/issues/1419
 [#1420]: https://github.com/dgriffith/ide-for-thought/issues/1420
+[#1421]: https://github.com/dgriffith/ide-for-thought/issues/1421
+[#1422]: https://github.com/dgriffith/ide-for-thought/issues/1422

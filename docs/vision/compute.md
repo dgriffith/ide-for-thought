@@ -1,5 +1,15 @@
 # Vision: Compute — Executing Code Over Your Library
 
+> **Status: shipped** (2026-04-21 as written; banner added 2026-09-23). Unlike
+> the post-launch docs in this folder, the core of this one is built:
+> `src/main/compute/` runs `sparql`, `sql` and `python` fences out of ordinary
+> `.md` notes (`executors/`), behind a consent boundary and a macOS Seatbelt
+> sandbox (`sandbox.ts`, `docs/architecture/compute-sandbox.md`), with cell
+> outputs saved back as notes (`save-cell-output.ts`) and an execution audit
+> log. Read the capability surface below as a mix of *what exists* and *what
+> was imagined around it* — the aspirational present tense is original, and no
+> sentence here should be taken as a promise about an unbuilt feature.
+
 ## Position
 
 Once the thoughtbase contains both the graph (via Turtle) and tables (via CSV / SQL), the next question is the obvious one: _can I run code over it?_ Most knowledge tools would answer "export your data, run the code elsewhere, paste the result back as text." Minerva's answer is: **notebooks live inside the library, and the library is their primary data source.**

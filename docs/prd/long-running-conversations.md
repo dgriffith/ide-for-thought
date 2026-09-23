@@ -1,6 +1,24 @@
 # PRD: Long-Running Conversations
 
-**Status:** draft · **Author:** Dave · **Date:** 2026-05-04
+**Status:** Historical — **implemented**, and kept as the record of why the
+conversation surface is shaped the way it is · **Author:** Dave · **Date:**
+2026-05-04
+
+> The tabbed, durable conversation surface this PRD asked for is what ships:
+> `ConversationsPanel.svelte` with `stores/conversations.svelte.ts` holding the
+> tabs, persisted through `src/main/llm/conversation.ts`. The three modal
+> dialogs it proposed replacing — `ConversationDialog`, `DecomposeDialog`,
+> `CrystallizeDialog` — no longer exist anywhere in `src/`, and goal 3's
+> "commands become prompt templates" is the **skills** system: `decompose.md`
+> and `crystallize.md` are two of the markdown skills in
+> `src/main/skills/stock/` (see the *Tools for Thought* section of `CLAUDE.md`
+> and `docs/authoring-skills.md`).
+>
+> Two of the non-goals have since been crossed deliberately: typed slash
+> commands in the composer exist, and LLM note edits are filed as
+> `note_rewrite` proposals. Everything below is the 2026-05-04 argument as
+> written — do not read it as a description of current behaviour, and do not
+> treat its non-goals as still-binding constraints.
 
 ## Summary
 

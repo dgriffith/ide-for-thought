@@ -1,5 +1,14 @@
 # Vision: Publication — Knowledge That Can Leave the App
 
+> **Status: shipped** (2026-04-21 as written; banner added 2026-09-23). The
+> exporters live in `src/main/publish/exporters/` — note and tree HTML,
+> markdown and PDF, a static site, BibTeX, Pandoc, Anki, annotated reading —
+> with CSL citation rendering and an opt-in git publish target
+> (`src/main/git/`, `docs/publishing.md`). Read the capability surface below as
+> a mix of *what exists* and *what was imagined around it* — the aspirational
+> present tense is original, and no sentence here should be taken as a promise
+> about an unbuilt feature.
+
 ## Position
 
 A library that only you can read isn't really yours; it's hostage to the tool. The moment your library becomes useful to someone else — a reader, a collaborator, a future you on a different machine — is the moment the library earns its keep. Minerva treats **export-to-readable-artifact as a core capability**, not a plugin or a third-party hand-off. Publication discipline is what turns a personal knowledge base into shareable work.

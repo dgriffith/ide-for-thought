@@ -117,9 +117,14 @@ export default defineConfig({
       ],
       // Floors per area (#679). Set below the current numbers with headroom
       // so a small refactor won't flap CI, but a real regression on the trust
-      // (llm) and security (notebase) paths fails. Measured at floor-time:
-      // shared ~? , llm ~74% lines / 51% branch, notebase ~89% lines. CI runs
-      // `pnpm coverage`, so these gate on every PR.
+      // (llm) and security (notebase) paths fails. CI runs `pnpm coverage`, so
+      // these gate on every PR.
+      //
+      // This block deliberately carries NO summary numbers (#2267). It used to
+      // ("shared ~? , llm ~74% lines / 51% branch") — a placeholder that
+      // shipped unfilled, beside figures the per-glob entries twenty lines down
+      // had long since contradicted. Every measurement lives on the entry it
+      // describes, where the person changing that floor is already reading.
       thresholds: {
         // Global backstop (#1598): a coarse aggregate net over the whole
         // `include` set, so a wholesale coverage regression fails CI even in
@@ -249,10 +254,11 @@ export default defineConfig({
         },
         // IPC registrars — channel→module glue that was entirely unfenced
         // (QA C1 / #1612), then covered registrar by registrar until #1840
-        // finished the job: all 24 now have a direct handler test, and
+        // finished the job: every registrar now has a direct handler test, and
         // `tests/architecture/ipc-registrar-coverage.test.ts` keeps it that way
-        // (a new registrar without one fails). That took the layer from ~33 L /
-        // 18.7 F / 30.7 S / 14.3 B to ~75.8 L / 76.5 F / 74.7 S / 61.7 B.
+        // (a new registrar without one fails — that test, not a count written
+        // here, is what knows how many there are). That took the layer from
+        // ~33 L / 18.7 F / 30.7 S / 14.3 B to ~75.8 L / 76.5 F / 74.7 S / 61.7 B.
         //
         // The branch floor is the one that earns its keep: this layer owns the
         // `withRootPath` vs `withRootPathOr` decision, so a #1631 no-project
@@ -567,12 +573,12 @@ export default defineConfig({
           statements: 72,
           branches: 58,
         },
-        // Renderer tree — 93 components + both reactive stores, the largest
-        // user-facing defect surface and previously the least-gated (#1094 /
-        // QA C1). Floors sit below the measured-at-floor numbers with extra
-        // headroom because this tree is volatile (a single new component moves
-        // the needle): a mass test deletion or a large untested addition still
-        // fails CI. Ratcheted at #1451 after unit-testing bucket A (pure-lib
+        // Renderer tree — every Svelte component plus the rune stores under
+        // `lib/stores/`, the largest user-facing defect surface and previously
+        // the least-gated (#1094 / QA C1). Floors sit below the measured-at-
+        // floor numbers with extra headroom because this tree is volatile (a
+        // single new component moves the needle): a mass test deletion or a
+        // large untested addition still fails CI. Ratcheted at #1451 after unit-testing bucket A (pure-lib
         // helpers: preview/markdown-config + hydrate, editor/formatting +
         // sparql-autocomplete, tools/context, find-excerpt-range) lifted the
         // measured numbers to ~42% L / ~41% F / ~43% S / ~35% B (from ~36/39/
@@ -580,8 +586,8 @@ export default defineConfig({
         // the approval-proposal UI gain tests.
         //
         // NOTE: src/preload is deliberately NOT given a line-coverage floor.
-        // It's a declarative contextBridge passthrough (~326 lines of
-        // `invoke(Channels.X, …)` arrows); its correct gate is the shape +
+        // It's a declarative contextBridge passthrough — `invoke(Channels.X, …)`
+        // arrows, one per channel; its correct gate is the shape +
         // full-surface snapshot contract test (tests/preload/preload-bridge.test.ts,
         // #676), not line execution. Calling every passthrough to hit a line
         // floor would verify nothing the snapshot doesn't already pin.

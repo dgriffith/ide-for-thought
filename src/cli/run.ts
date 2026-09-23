@@ -7,11 +7,14 @@
  * (`./main.ts`) wrap it. The read work itself lives in the shared `Engine`
  * (`./engine`), which the MCP subcommand (`./mcp`, #1146) drives too.
  *
- * READ surface: `query` (SPARQL), `sql` (DuckDB), `search` (full-text),
- * `semantic` (embeddings), `read` (a note's markdown), and `mcp` (a stdio MCP
- * server exposing those as tools to agent clients). It reuses the exact
- * `ctx`-based core the app uses — the audit for epic #1145 confirmed that core
- * is Electron-free.
+ * The command surface is the `HELP` block below and the dispatch at the bottom
+ * of `runCli` — reads (`query`, `sql`, `search`, `grep`, `semantic`, `read`,
+ * `context`), one gated write (`propose-note`), a stdio MCP server exposing
+ * those as tools to agent clients (`mcp`), and a development harness for skill
+ * prompts (`eval`). It reuses the exact `ctx`-based core the app uses — the
+ * audit for epic #1145 confirmed that core is Electron-free. `docs/cli.md`
+ * documents it, and `tests/architecture/cli-docs-parity.test.ts` fails when a
+ * command reaches the dispatch without reaching `HELP` and the doc.
  *
  * Every result is *grounded*: query bindings carry node IRIs, search hits carry
  * the note path, read echoes the path. Output is JSON on stdout so it pipes to
@@ -70,7 +73,7 @@ Commands:
 
 Options:
   --project <path>      Thoughtbase root (default: current directory).
-  --limit <n>           Max results for search/semantic/grep (default: 20).
+  --limit <n>           Max results (search/semantic default 20; grep 50, max 200).
   --regex               Treat a grep pattern as a regular expression.
   --case-sensitive      Match case exactly (grep; default: case-insensitive).
   --by <client-id>      Provenance for propose-note (default: cli).

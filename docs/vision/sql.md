@@ -1,5 +1,14 @@
 # Vision: SQL — Tabular Data as a Library Citizen
 
+> **Status: shipped** (2026-04-21 as written; banner added 2026-09-23). CSVs in
+> a thoughtbase are registered as DuckDB tables on the watcher pipeline
+> (`src/main/sources/tables.ts`, `graph/indexers/tables.ts`), SQL is a query
+> language in the Query panel and a `sql` compute fence, and the CLI exposes it
+> as `minerva sql` / the `sql_query` MCP tool (`docs/cli.md`). Read the
+> capability surface below as a mix of *what exists* and *what was imagined
+> around it* — the aspirational present tense is original, and no sentence here
+> should be taken as a promise about an unbuilt feature.
+
 ## Position
 
 A thoughtbase should hold more than prose. Research generates tables — experiment runs, survey results, spreadsheet exports, scraped datasets, reading lists with structured metadata — and those tables are part of what the user knows. Minerva treats them as first-class library members: you drop a CSV into the thoughtbase and it becomes a queryable table, indexed alongside notes and the graph, reachable by the same tools.
