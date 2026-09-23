@@ -70,10 +70,14 @@ export function parseMarkdown(content: string): ParsedNote {
   // Strip code blocks so we don't extract links/tags from them
   const stripped = content.replace(CODE_BLOCK_RE, '');
 
-  const title = extractTitle(content);
+  // Parse the frontmatter ONCE and hand it to `extractTitle` (#2216).
+  // `extractTitle` reads `title:` from frontmatter before falling back to the
+  // first H1, so it used to run a second full `YAML.parse` of the same block
+  // on every note, on every index pass — and boot makes three of those.
+  const frontmatter = extractFrontmatter(content);
+  const title = extractTitle(content, frontmatter);
   const tags = extractTags(stripped);
   const links = extractLinks(stripped);
-  const frontmatter = extractFrontmatter(content);
   const tables = extractTables(stripped);
   const aliases = extractAliases(frontmatter);
 
@@ -110,9 +114,9 @@ function extractTurtleBlocks(content: string): string[] {
   return blocks;
 }
 
-function extractTitle(content: string): string | null {
-  // Try frontmatter title first
-  const fm = extractFrontmatter(content);
+function extractTitle(content: string, fm: Record<string, FrontmatterValue>): string | null {
+  // Try frontmatter title first. `fm` is passed in rather than re-parsed:
+  // this is the note's already-extracted frontmatter (#2216).
   const fmTitle = fm.title;
   if (typeof fmTitle === 'string' && fmTitle.trim()) return fmTitle.trim();
 
