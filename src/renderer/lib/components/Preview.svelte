@@ -551,7 +551,9 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
             // Vega-Lite / Vega chart hydration (#827) — same shape as mermaid:
             // lazy-loads vega-embed, replaces .vega-block placeholders with SVG
             // charts, surfaces parse / security errors inline.
-            if (previewEl) void hydrateVegaBlocks(previewEl, content);
+            // `revision` keys the chart-data cache (#2210 §3c) — a save
+            // re-runs each chart's backing query, a keystroke reuses it.
+            if (previewEl) void hydrateVegaBlocks(previewEl, content, revision);
             // Live Typed-Objects view hydration (#2067) — mounts a chromeless
             // TypeView into each `.object-view-block` placeholder.
             // `onNavigate` resolves an exact relative path via

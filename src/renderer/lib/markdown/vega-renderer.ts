@@ -223,6 +223,62 @@ function makeBlockingLoader(): Record<string, unknown> {
   };
 }
 
+
+// ── Chart data cache (#2210 §3c) ────────────────────────────────────────────
+
+/**
+ * Resolved rows for a chart's data binding, keyed by `(revision, binding)`.
+ *
+ * `hydrateVegaBlocks` is called from the preview's post-render effect, which
+ * runs on every 120ms render tick while you type. Its idempotence guard is
+ * `data-vega-rendered` on the placeholder element — and the `{@html rendered}`
+ * swap in `Preview.svelte` replaces the whole subtree, so every tick presents
+ * a brand-new element with no attribute on it. The guard is never false; it is
+ * simply never asked, because the element it was written on no longer exists.
+ *
+ * So `rendererExecutor` re-ran per tick, and for a `data.sparql` chart that is
+ * a full SPARQL query over the graph, over IPC, eight times a second. For
+ * `data.sql` / `data.table` it is a DuckDB query, which #2228 measured at
+ * 1.9s and a 99.8MB payload for a 1M-row table.
+ *
+ * `revision` is in the key rather than being a reason to clear, matching the
+ * live query blocks and `getLinkBundle`: a save refreshes the chart, a
+ * keystroke does not.
+ *
+ * `cell` bindings are deliberately NOT cached — they read a compute cell's
+ * output out of the note's own markdown, which is a local string scan with no
+ * IPC, and whose input (`noteContent`) changes on exactly the keystrokes this
+ * cache exists to absorb.
+ */
+const chartDataCache = new Map<string, VegaRows>();
+
+function chartDataKey(revision: number, ref: DataSourceRef): string | null {
+  switch (ref.kind) {
+    case 'sparql': return `${revision}::sparql::${ref.query}`;
+    case 'sql': return `${revision}::sql::${ref.query}`;
+    case 'table': return `${revision}::table::${ref.name}`;
+    case 'cell': return null; // local, and changes with the keystroke
+  }
+}
+
+/**
+ * Evict entries from other revisions. Without this, one entry per chart per
+ * save accumulates for the life of the window — and a chart's rows are the
+ * whole query result, so this is the one cache here where an unbounded leak
+ * would be measured in megabytes rather than kilobytes.
+ */
+function pruneChartData(revision: number): void {
+  const prefix = `${revision}::`;
+  for (const key of chartDataCache.keys()) {
+    if (!key.startsWith(prefix)) chartDataCache.delete(key);
+  }
+}
+
+/** Test seam: the cache is module-level, so a test needs a way to empty it. */
+export function _clearChartDataCacheForTests(): void {
+  chartDataCache.clear();
+}
+
 /**
  * Walk `root` for unrendered `.vega-block` placeholders and render each one.
  * Idempotent: blocks already marked `data-vega-rendered` are skipped, so the
@@ -231,7 +287,7 @@ function makeBlockingLoader(): Record<string, unknown> {
  * `noteContent` is the note's markdown source — needed to resolve `data.cell`
  * bindings (#884), which read a compute cell's output block out of the source.
  */
-export async function hydrateVegaBlocks(root: HTMLElement, noteContent = ''): Promise<void> {
+export async function hydrateVegaBlocks(root: HTMLElement, noteContent = '', revision = 0): Promise<void> {
   const blocks = Array.from(
     root.querySelectorAll<HTMLElement>('.vega-block:not([data-vega-rendered])'),
   );
@@ -285,7 +341,19 @@ export async function hydrateVegaBlocks(root: HTMLElement, noteContent = ''): Pr
     const ref = detectDataSource(spec);
     if (ref) {
       try {
-        spec = await resolveVegaData(spec as Record<string, unknown>, ref, (r) => rendererExecutor(r, noteContent));
+        const key = chartDataKey(revision, ref);
+        spec = await resolveVegaData(spec as Record<string, unknown>, ref, async (r) => {
+          if (key === null) return rendererExecutor(r, noteContent);
+          const hit = chartDataCache.get(key);
+          if (hit) return hit;
+          pruneChartData(revision);
+          const rows = await rendererExecutor(r, noteContent);
+          // Only a SUCCESSFUL resolution is cached; a throw propagates to the
+          // catch below and leaves nothing behind, so the next tick retries
+          // rather than freezing a transient query failure into the chart.
+          chartDataCache.set(key, rows);
+          return rows;
+        });
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         el.innerHTML = renderNoticeHtml('Chart data unavailable', escapeHtml(msg));
