@@ -388,8 +388,14 @@ proposes, the human confirms* — as graph structure, aligned with W3C PROV-O.
   `rdfs:subPropertyOf prov:generated`; `thought:proposedBy` and
   `thought:extractedBy` subproperty `prov:wasAttributedTo`;
   `thought:conversationRef` subproperties `prov:wasGeneratedBy`;
-  `thought:startedAt` / `thought:archivedAt` subproperty
+  `thought:startedAt` / `thought:conversationArchivedAt` subproperty
   `prov:startedAtTime` / `prov:endedAtTime`.
+
+A conversation's archive timestamp is `thought:conversationArchivedAt`, spelled
+apart from the source-side `thought:archivedAt` on purpose: that one is a
+*path* to a local archival copy (`rdfs:domain thought:Source`,
+`rdfs:range xsd:string`), and for a while both meanings shared one IRI (#2345).
+One IRI cannot be both a filesystem path and an `xsd:dateTime`.
 
 The lifecycle individuals are `thought:pending`, `thought:approved`,
 `thought:rejected`, `thought:expired` (instances of
@@ -517,16 +523,6 @@ and not to this file fails a test.
 
 ### Known warts
 
-- **`thought:archivedAt` is declared twice**, with two incompatible meanings:
-  once with `rdfs:domain thought:Source` / `rdfs:range xsd:string` (a
-  thoughtbase-relative path to a local archival copy), and once with
-  `rdfs:domain thought:Conversation` / `rdfs:range xsd:dateTime` (when the
-  conversation was archived). Both are live — `llm/conversation.ts` writes the
-  timestamp, `graph/frontmatter-predicates.ts` maps the source key to the path.
-  In RDF these merge into one property with two domains and two ranges. Nothing
-  reads `rdfs:domain`, so nothing breaks today; it is a schema the model is told
-  is authoritative saying something self-contradictory. Splitting it means
-  renaming a predicate that is already on disk in shipped thoughtbases.
 - **`thought:ApprovalPolicy` and its two properties are vestigial** — see the
   note above.
 - `thought:page` / `thought:pageRange` (Excerpt location) sit beside
@@ -537,10 +533,14 @@ and not to this file fails a test.
 
 ## Counting, for orientation
 
-As of this writing `ontology-thought.ttl` declares **92 classes** and **104
-distinct properties** (105 declarations — `thought:archivedAt` twice), of which
-90 are in the `thought:` namespace and 14 are Dublin Core / BIBO / schema.org
-terms re-annotated for the schema dump. Every one carries an `rdfs:comment`.
+As of this writing `ontology-thought.ttl` declares **92 classes** and **105
+distinct properties**, one declaration each, of which 91 are in the `thought:`
+namespace and 14 are Dublin Core / BIBO / schema.org terms re-annotated for the
+schema dump. Every one carries an `rdfs:comment`.
+
+`tests/architecture/ontology-terms.test.ts` now also asserts no term carries
+two ranges, domains, labels or comments — the gap that let `thought:archivedAt`
+mean two things at once until #2345.
 
 Don't trust those numbers in prose — they are here for scale, not for citation.
 The Turtle is the source of truth, and the parity test above is what keeps this

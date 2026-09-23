@@ -302,10 +302,23 @@ tidiness: `describe_graph_schema` hands them to the LLM verbatim and tells it
 the contents are authoritative before it writes SPARQL, and nothing checked that
 claim until this test — `ontology.ttl` had been shipping *unparseable* (a stray
 `;x`) for an unknown length of time, with ~17 load-bearing predicates
-undeclared. **When it fires:** add the term to the ontology in the same PR. What
-it does **not** check: the reverse direction (a declared term nothing uses is
-normal for vocabulary authored by hand), or whether a term's
-`rdfs:domain`/`rdfs:range` match how the code uses it. Only the name.
+undeclared. **When it fires:** add the term to the ontology in the same PR.
+
+It also fails when one term is **declared twice with contradictory meanings**
+(#2345) — two different `rdfs:range`s, domains, labels or comments for a single
+IRI. `thought:archivedAt` was a source's archival-copy PATH (`xsd:string`) in
+one declaration and a conversation's archival TIMESTAMP (`xsd:dateTime`) in
+another, both live, both written by real code. That is worse than an undeclared
+term: the schema handed to the LLM as authoritative asserts two incompatible
+things, so a `FILTER(?archivedAt > "…"^^xsd:dateTime)` silently drops or admits
+rows depending on which side wrote them. **When that half fires:** one of the
+two meanings needs its own predicate — renaming the side with fewer writers is
+usually right.
+
+What it does **not** check: the reverse direction (a declared term nothing uses
+is normal for vocabulary authored by hand), or whether a term's
+`rdfs:domain`/`rdfs:range` match how the code *uses* it — only that the ontology
+does not contradict itself.
 
 ---
 

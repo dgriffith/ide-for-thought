@@ -1198,9 +1198,19 @@ shipping *unparseable* (a stray `;x`) for an unknown length of time, with ~17
 load-bearing predicates undeclared. The test is deliberately not a
 SHACL/reasoner layer — see #2241's scope notes.
 
+It also fails when one term is **declared twice with contradictory meanings**
+(#2345) — two ranges, domains, labels or comments for a single IRI.
+`thought:archivedAt` meant a source's archival-copy PATH (`xsd:string`) in one
+declaration and a conversation's archival TIMESTAMP (`xsd:dateTime`) in
+another, both live. A schema handed to the LLM as authoritative that asserts
+two incompatible things is worse than a missing term: the query comes back
+wrong rather than empty. The conversation side is `thought:conversationArchivedAt`
+now.
+
 What it does **not** check: the reverse direction (a declared term nothing
 uses — normal for vocabulary users author by hand), or whether a term's
-`rdfs:domain`/`rdfs:range` match how the code uses it. Only the name.
+`rdfs:domain`/`rdfs:range` match how the code *uses* it — only that the
+ontology does not contradict itself.
 
 ### Tools for Thought (Skills)
 
