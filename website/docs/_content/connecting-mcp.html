@@ -6,6 +6,11 @@ description: Connect an AI agent to a Minerva thoughtbase over the Model Context
     <h1>MCP use</h1>
     <p class="lede">The <b>Model Context Protocol (MCP)</b> is a standard way to give an AI agent tools. Minerva's MCP server exposes the same reads and proposals as the <a href="connecting-cli.html">CLI</a> — as tools any MCP client can call — so an agent like Claude Desktop, a coding agent, or an editor can ground itself in your thoughtbase and hand work back through the approval gate.</p>
 
+    <div class="box">
+      <span class="label">Not the other direction</span>
+      <p>This page is Minerva <em>as</em> an MCP server: your thoughtbase goes out to an outside agent. If you want the reverse — connecting Minerva to somebody else's MCP server, so its tools are available to Minerva's own assistant while you chat — that's <a href="settings-mcp-servers.html">Settings → MCP Servers</a>. The two are independent and can run at the same time.</p>
+    </div>
+
     <h2 id="start">Starting the server</h2>
     <p>The MCP server is the <code>mcp</code> subcommand of the same CLI — <a href="connecting-cli.html#build">install it once</a> (Help → Install ‘minerva’ Command, or build from source) and you have the <code>minerva</code> command. The server runs over standard input/output as a subprocess — you don't start it by hand so much as tell a client how to launch it. On its own:</p>
     <pre><code>minerva mcp --project /path/to/thoughtbase</code></pre>
@@ -83,5 +88,10 @@ description: Connect an AI agent to a Minerva thoughtbase over the Model Context
         <span class="em">💬</span>
         <h3>Conversations</h3>
         <p>Review and approve what an agent proposes.</p>
+      </a>
+      <a class="doc-card" href="settings-mcp-servers.html">
+        <span class="em">🔌</span>
+        <h3>Settings: MCP Servers</h3>
+        <p>The other direction — third-party MCP tools inside Minerva.</p>
       </a>
     </div>

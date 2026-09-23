@@ -1,0 +1,90 @@
+---
+title: Minerva — Docs — Settings: MCP Servers
+description: The MCP Servers tab in Settings — connect Minerva to third-party Model Context Protocol servers, as a local command or a remote URL, so the assistant can call their tools in a conversation.
+---
+
+    <h1>MCP Servers</h1>
+    <p class="lede">The <b>Model Context Protocol (MCP)</b> is a standard way for a tool server to offer tools to an AI. This tab is Minerva on the <em>consuming</em> side: point it at somebody else's MCP server and the tools that server offers become available to the assistant while you're chatting. That's the opposite direction from <a href="connecting-mcp.html">MCP use</a>, which hands <em>your thoughtbase</em> to an outside agent — see <a href="#versus">Two directions</a> below.</p>
+
+    <h2 id="add">Adding a server</h2>
+    <p>Click <b>Add server…</b>, give it a <b>Name</b>, and choose one of two kinds:</p>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Local command (<code>stdio</code>)</div>
+        <div class="v">Minerva launches the server itself as a background program. Fill in the <b>Command</b> (for example <code>npx</code>), any <b>Arguments</b> one per line, and any <b>Environment</b> variables as <code>KEY=VALUE</code>, one per line — that's where an API key the server needs goes.</div>
+      </div>
+      <div class="row">
+        <div class="k">Remote URL (<code>http</code>)</div>
+        <div class="v">Minerva connects over the network to a server somebody else runs. Fill in the <b>URL</b>. If it requires a login, Minerva handles that — see <b>Needs authorization</b> below.</div>
+      </div>
+    </div>
+    <p>The name is how the assistant refers to the server, so keep it short and distinct — two servers sharing a name can't be told apart. A server you've just added starts <b>switched off</b>: nothing is launched or contacted until you turn it on.</p>
+
+    <h2 id="status">What the status says</h2>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">○ Disconnected</div>
+        <div class="v">Configured, but nothing is running. Where every server sits until you switch it on.</div>
+      </div>
+      <div class="row">
+        <div class="k">… Connecting</div>
+        <div class="v">An attempt is in flight — starting the command, or reaching the URL.</div>
+      </div>
+      <div class="row">
+        <div class="k">● Connected</div>
+        <div class="v">Working. A tool count appears underneath; open it to see every tool the server offers, with its description.</div>
+      </div>
+      <div class="row">
+        <div class="k">⚠ Needs authorization</div>
+        <div class="v">A remote server wants you to log in, and Minerva won't open a browser at you unasked. Click <b>Connect</b> on that row to finish signing in; afterwards the sign-in is remembered and later connections are silent.</div>
+      </div>
+      <div class="row">
+        <div class="k">✕ Error</div>
+        <div class="v">The attempt failed — a command that isn't installed, a URL that doesn't answer. The reason is printed under the row, and the server stays configured so you can <b>Edit</b> it and try again.</div>
+      </div>
+    </div>
+
+    <h2 id="switch">Switching on, connecting, editing</h2>
+    <p>The switch at the start of each row is the whole control: on connects straight away, off disconnects. Servers left on are reconnected in the background each time you start Minerva, so a working setup stays working. <b>Connect</b> appears on a row that's on but not connected — use it to retry after a failure or to complete a sign-in. <b>Edit</b> changes the name or the address; changing the address drops the existing connection, since it no longer says where the server is. <b>Remove</b> disconnects and forgets the server.</p>
+
+    <div class="shot">Screenshot — the MCP Servers settings panel: the Add server… button, and a configured server's row showing its switch, kind, status and expandable tool list.</div>
+
+    <h2 id="using">Using the tools in a conversation</h2>
+    <p>Once a server is connected its tools reach the assistant automatically — nothing to enable per tool, nothing to type. Ask for something the server can do and the assistant reaches for it, naming the server and tool in the transcript. Only <em>connected</em> servers count: one that's off, failing, or offering no tools simply isn't mentioned to the assistant, so a broken server costs you nothing but the row.</p>
+
+    <div class="box">
+      <span class="label">These calls aren't gated</span>
+      <p>Minerva's <a href="conversations-propose-review-approve.html">approval gate</a> protects <em>your notes and your graph</em> — nothing the AI proposes there lands until you approve it. A tool on a third-party server isn't your graph: it's someone else's service, and calling it happens directly, with no confirmation step. The tool list shows whether a tool claims to be read-only, but that claim comes from the server and is a hint, not a guarantee. Add servers you'd trust to act on your behalf.</p>
+    </div>
+
+    <h2 id="versus">Two directions, one protocol</h2>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">This tab</div>
+        <div class="v">Minerva is the <b>client</b>. Other people's tools come <em>in</em>, and Minerva's own assistant uses them while you chat.</div>
+      </div>
+      <div class="row">
+        <div class="k"><a href="connecting-mcp.html">MCP use</a></div>
+        <div class="v">Minerva is the <b>server</b>. Your thoughtbase goes <em>out</em> to an outside agent — Claude Desktop, a coding agent — which can search it and file gated proposals back.</div>
+      </div>
+    </div>
+    <p>They share only the protocol, and can run at once. Nothing here changes what an outside agent sees, and starting Minerva's own MCP server adds nothing to this list — which is kept per computer, not per thoughtbase, so it's the same whichever thoughtbase is open.</p>
+
+    <h2 id="related">Related</h2>
+    <div class="doc-cards">
+      <a class="doc-card" href="connecting-mcp.html">
+        <span class="em">🔌</span>
+        <h3>MCP use</h3>
+        <p>The other direction — your thoughtbase as a server for an outside agent.</p>
+      </a>
+      <a class="doc-card" href="conversations-chatting.html">
+        <span class="em">💬</span>
+        <h3>Chatting with the AI</h3>
+        <p>Where the assistant reaches for these tools.</p>
+      </a>
+      <a class="doc-card" href="settings-ai.html">
+        <span class="em">🤖</span>
+        <h3>AI</h3>
+        <p>The model doing the reaching, and its access key.</p>
+      </a>
+    </div>
