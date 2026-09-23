@@ -29,6 +29,12 @@ const SHOTS: Shot[] = [
   { id: 'settings-compute', tab: 'Compute', settle: 1200 }, // python probe
   { id: 'settings-ai',      tab: 'AI',      settle: 600 },
   { id: 'settings-skills',  tab: 'Skills',  settle: 900 },   // skill catalog load
+  // #2259. `McpServersSettings` reads the configured-server list on mount, and
+  // the demo vault has none — this captures the empty state until the fixture
+  // grows a server. `mcp-servers.json` is per-machine (`~/.minerva/`), not part
+  // of the vault copy, so a capture run on a machine with real servers
+  // configured would shoot those instead: check the image before committing it.
+  { id: 'settings-mcp-servers', tab: 'MCP Servers', settle: 600 },
 ];
 
 let h: Harness;
