@@ -480,7 +480,11 @@ describe('hydrateTransclusions', () => {
     // The injected-subtree battery ran.
     expect(mermaidMock).toHaveBeenCalledWith(root);
     expect(vegaMock).toHaveBeenCalled();
-    expect(cardMock).toHaveBeenCalledWith(root);
+    // #2329 threaded `notePath` through so a revealed flashcard answer can be
+    // keyed per note; asserted explicitly rather than loosened to
+    // `toHaveBeenCalled()`, because passing the wrong note here would leak one
+    // note's disclosure state onto another's cards.
+    expect(cardMock).toHaveBeenCalledWith(root, ctx.getNotePath());
     expect(citeMock).toHaveBeenCalled();
   });
 

@@ -565,7 +565,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
             if (previewEl) hydrateArgumentMapBlocks(previewEl, argumentMapDeps());
             // Flashcard polish: tuck each [!card]'s answer (the part after `---`)
             // behind a collapsed "Show answer" disclosure.
-            if (previewEl) hydrateCardCallouts(previewEl);
+            if (previewEl) hydrateCardCallouts(previewEl, notePath);
         });
     });
 
