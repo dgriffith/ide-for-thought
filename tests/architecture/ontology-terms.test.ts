@@ -131,6 +131,61 @@ function declaredTerms(): Set<string> {
   return declared;
 }
 
+
+/**
+ * Terms whose declaration contradicts itself — the same subject given more
+ * than one `rdfs:range`, `rdfs:domain`, `rdfs:label` or `rdfs:comment`
+ * (#2345).
+ *
+ * `declaredTerms()` above collects subjects into a Set, so a term declared
+ * TWICE is indistinguishable there from one declared once — which is how
+ * `thought:archivedAt` came to be declared in two places with contradictory
+ * meanings (a source's archival-copy PATH, `xsd:string`, domain
+ * `thought:Source`; and a conversation's archived TIMESTAMP, `xsd:dateTime`,
+ * domain `thought:Conversation`) and nothing noticed.
+ *
+ * Deliberately NOT "this subject has two rdf:type quads": multi-typing is
+ * legal and used here (an individual can be both a class member and an
+ * `owl:NamedIndividual`). What is never right is one property carrying two
+ * ranges — a consumer cannot honour both — or one term carrying two labels or
+ * two comments, which means two authors described two different things under
+ * one name.
+ *
+ * Why this matters more than tidiness: `describe_graph_schema` hands these
+ * files to the LLM verbatim and tells it the contents are authoritative
+ * before it writes SPARQL. A model reading two contradictory declarations of
+ * one predicate will use whichever it saw last, and the resulting query looks
+ * entirely plausible.
+ */
+const UNIQUE_PER_TERM = ['range', 'domain', 'label', 'comment'] as const;
+
+function contradictoryTerms(): string[] {
+  const problems: string[] = [];
+  for (const relative of ONTOLOGY_FILES) {
+    const text = fs.readFileSync(path.join(ROOT, relative), 'utf-8');
+    const quads = new Parser().parse(text);
+    for (const key of UNIQUE_PER_TERM) {
+      const iri = `http://www.w3.org/2000/01/rdf-schema#${key}`;
+      const values = new Map<string, Set<string>>();
+      for (const quad of quads) {
+        if (quad.predicate.value !== iri) continue;
+        const term = toCurie(quad.subject.value);
+        if (!term) continue;
+        const seen = values.get(term) ?? new Set<string>();
+        seen.add(quad.object.value);
+        values.set(term, seen);
+      }
+      for (const [term, seen] of values) {
+        if (seen.size > 1) {
+          problems.push(`${relative}: ${term} has ${seen.size} distinct rdfs:${key} values `
+            + `(${[...seen].join(' | ')})`);
+        }
+      }
+    }
+  }
+  return problems.sort();
+}
+
 /** `https://minerva.dev/ontology#hasTag` → `minerva:hasTag`; null off-namespace. */
 function toCurie(iri: string): string | null {
   for (const [prefix, base] of Object.entries(NAMESPACES)) {
@@ -187,6 +242,30 @@ function undeclaredTerms(): Array<{ term: string; files: string[] }> {
   }
   return out;
 }
+
+describe('no term is declared twice with contradictory meanings (#2345)', () => {
+  it('every term has at most one range, domain, label and comment', () => {
+    expect(
+      contradictoryTerms(),
+      'A term declared in two places with different meanings is handed to the LLM '
+        + 'as authoritative by `describe_graph_schema`. Rename one of them (#2345).',
+    ).toEqual([]);
+  });
+
+  it('the check can see the properties it is checking — an empty scan would pass vacuously', () => {
+    // If `toCurie` or the rdfs IRIs ever stop matching, `contradictoryTerms()`
+    // returns [] for the same reason a clean file does.
+    // Both files: `ontology.ttl` alone carries 31 ranges, so anchoring on the
+    // first entry made this fail against a perfectly healthy tree. The guard
+    // is about the scan working at all, not about either file's size.
+    const ranges = ONTOLOGY_FILES.flatMap((relative) =>
+      new Parser()
+        .parse(fs.readFileSync(path.join(ROOT, relative), 'utf-8'))
+        .filter((q) => q.predicate.value === 'http://www.w3.org/2000/01/rdf-schema#range'
+          && toCurie(q.subject.value) !== null));
+    expect(ranges.length).toBeGreaterThan(100);
+  });
+});
 
 describe('ontology terms are executable, not decorative (#2230)', () => {
   it('parses both ontology files as valid Turtle', () => {

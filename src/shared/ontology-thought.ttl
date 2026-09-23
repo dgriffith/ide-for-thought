@@ -973,10 +973,10 @@ thought:startedAt a owl:DatatypeProperty ;
     rdfs:domain thought:Conversation ;
     rdfs:range xsd:dateTime .
 
-thought:archivedAt a owl:DatatypeProperty ;
+thought:conversationArchivedAt a owl:DatatypeProperty ;
     rdfs:subPropertyOf prov:endedAtTime ;
-    rdfs:label "archived at" ;
-    rdfs:comment "Timestamp when the conversation was archived." ;
+    rdfs:label "conversation archived at" ;
+    rdfs:comment "Timestamp when the conversation was archived. Named apart from thought:archivedAt, which is a source's archival-copy PATH with domain thought:Source (#2345) — one IRI cannot mean both a filesystem path and an xsd:dateTime." ;
     rdfs:domain thought:Conversation ;
     rdfs:range xsd:dateTime .
 
