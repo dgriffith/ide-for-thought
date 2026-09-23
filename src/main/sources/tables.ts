@@ -3,7 +3,8 @@ import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import YAML from 'yaml';
-import { DuckDBInstance, type DuckDBConnection } from '@duckdb/node-api';
+import type { DuckDBInstance, DuckDBConnection } from '@duckdb/node-api';
+import { duckdb } from '../duckdb-lazy';
 import {
   indexCsvTable, unindexCsvTable, unindexAllCsvTables,
   indexMarkdownTable, unindexMarkdownTable, unindexAllNoteTables,
@@ -99,6 +100,9 @@ export interface TableInfo {
 /** Open an in-memory DuckDB for the given project. Idempotent per project. */
 export async function initTablesDb(ctx: ProjectContext): Promise<void> {
   if (store.has(ctx)) return;
+  // Loaded here rather than at module scope: the binding is 107MB and was
+  // reached from `main.ts`'s import graph, so every launch paid for it (#2335).
+  const { DuckDBInstance } = await duckdb();
   const instance = await DuckDBInstance.create(':memory:');
   const connection = await instance.connect();
   await hardenConnection(connection);

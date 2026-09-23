@@ -37,10 +37,10 @@
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import {
-  ARRAY, FLOAT, arrayValue, DuckDBInstance,
-  type DuckDBConnection, type DuckDBPreparedStatement,
+import type {
+  DuckDBInstance, DuckDBConnection, DuckDBPreparedStatement,
 } from '@duckdb/node-api';
+import { duckdb } from '../duckdb-lazy';
 import type { ProjectContext } from '../project-context-types';
 import { createProjectStore } from '../project-store';
 import { MODEL } from './embedder';
@@ -114,6 +114,8 @@ export async function init(ctx: ProjectContext, opts: VectorStoreInit): Promise<
   const dbPath = opts.dbPath ?? defaultDbPath(ctx.rootPath);
   await fs.mkdir(path.dirname(dbPath), { recursive: true });
 
+  // Lazy for the same reason as `sources/tables.ts` — see `duckdb-lazy.ts`.
+  const { DuckDBInstance } = await duckdb();
   const instance = await DuckDBInstance.create(dbPath);
   const connection = await instance.connect();
 
@@ -456,6 +458,9 @@ async function insertRows(
   rows: { chunk: Chunk; vec: Float32Array }[],
 ): Promise<void> {
   if (rows.length === 0) return;
+  // `insertRows` only ever runs against an already-open store, so the module
+  // is resolved by the time this awaits (#2335).
+  const { ARRAY, FLOAT, arrayValue } = await duckdb();
   if (!state.insertStmt) state.insertStmt = await state.connection.prepare(INSERT_SQL);
   const stmt = state.insertStmt;
   for (const { chunk, vec } of rows) {
