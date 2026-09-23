@@ -96,6 +96,56 @@ function realPathSafe(p: string): string {
   }
 }
 
+/**
+ * Memo for `realPathSafe(rootPath)` (#2216).
+ *
+ * `assertSafePath` runs on every file IPC — 24 call sites, several inside
+ * loops — and boot walks the whole project three to four times. The syscall
+ * dominates: measured at 16.25us against 17.22us for the whole of
+ * `assertSafePath`, i.e. **94% of the guard's cost is canonicalising a path
+ * that cannot change**. At 2,000 notes that is ~34ms per full pass, paid
+ * several times over before the window paints, and again on every save.
+ *
+ * Deliberately a small fixed-size ring rather than a `Map` keyed by rootPath,
+ * for two reasons that pull the same way:
+ *
+ *   - `assertSafePath` is called for roots that are NOT open projects — the
+ *     comment below notes it must work before a project exists — so a
+ *     per-project slot would be allocated by a read. #2240 is explicit that a
+ *     read must not allocate a slot, having been bitten by exactly that.
+ *   - A rootPath-keyed collection is per-project state and owes someone a
+ *     teardown (`tests/architecture/project-state-registered.test.ts`). This
+ *     owes nobody anything: it is bounded, it self-evicts, and dropping an
+ *     entry costs one syscall.
+ *
+ * Four entries covers several windows open on different projects; beyond that
+ * it degrades to today's behaviour rather than to a wrong answer.
+ *
+ * SOUNDNESS: the cached value is the canonical path of the project root. It
+ * goes stale only if the root itself is replaced by a different directory or
+ * symlink while the app holds it open — at which point the user has swapped
+ * the thoughtbase under a running editor, and a stale realpath is the least
+ * of it. The traversal check this feeds is about a RELATIVE path escaping the
+ * root, and that check is unchanged.
+ */
+const REAL_ROOT_CACHE_SIZE = 4;
+const realRootCache: Array<{ root: string; real: string }> = [];
+
+function realRoot(rootPath: string): string {
+  const hit = realRootCache.find((e) => e.root === rootPath);
+  if (hit) return hit.real;
+  const real = realPathSafe(rootPath);
+  realRootCache.unshift({ root: rootPath, real });
+  if (realRootCache.length > REAL_ROOT_CACHE_SIZE) realRootCache.pop();
+  return real;
+}
+
+/** Drop the memo. Exported for tests that move a root between symlink
+ *  endpoints; production never needs it. */
+export function _clearRealRootCacheForTests(): void {
+  realRootCache.length = 0;
+}
+
 export function assertSafePath(rootPath: string, relativePath: string): string {
   // realpath the rootPath so a project rooted on a symlinked path —
   // notably macOS's /var → /private/var, which is where tmpdir() lives
@@ -105,9 +155,9 @@ export function assertSafePath(rootPath: string, relativePath: string): string {
   // any intermediate dir may not exist yet (write-to-create), and
   // resolve doesn't follow symlinks anyway, so this canonical-prefix
   // form is enough to make the startsWith check sound.
-  const realRoot = realPathSafe(rootPath);
-  const resolved = path.resolve(realRoot, relativePath);
-  if (!resolved.startsWith(realRoot + path.sep) && resolved !== realRoot) {
+  const root = realRoot(rootPath);
+  const resolved = path.resolve(root, relativePath);
+  if (!resolved.startsWith(root + path.sep) && resolved !== root) {
     throw new Error('Path traversal detected');
   }
   // Return the realpath-anchored resolution: it's always usable by
