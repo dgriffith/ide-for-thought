@@ -13,11 +13,11 @@ import {
   noteUri, sourceUri, excerptUri, folderUri, projectUri,
   type GraphState,
 } from './state';
-import { buildWikiLinkIndex, resolveWikiLinkTargetWithIndex, type WikiLinkIndex } from '../../shared/wiki-link-resolver';
+import { resolveWikiLinkTargetWithIndex, type WikiLinkIndex } from '../../shared/wiki-link-resolver';
 import type { LinkType } from '../../shared/link-types';
 import type { FrontmatterValue } from './parser';
 import { slugify } from '../../shared/slug';
-import { indexedNotePaths, aliasMapObject } from './note-index';
+import { wikiLinkIndex } from './note-index';
 import { projectContext } from '../project-context-types';
 
 /** Disk mtime of a note/source/excerpt file as an ISO string; falls back to
@@ -62,11 +62,18 @@ export interface LinkResolveCtx {
   index: WikiLinkIndex;
 }
 
+/**
+ * This project's wiki-link resolver context.
+ *
+ * Despite the name this no longer *builds* anything on the common path: the
+ * index is owned and cached by `note-index.ts`, rebuilt only when a note path
+ * or a winning alias actually changed (#2214). #1473 hoisted the build out of
+ * the bulk `indexAllNotes` walk by threading one context through it; the
+ * incremental single-note save still paid the full O(N) build on every
+ * keystroke-triggered autosave, which is what the cache removes.
+ */
 export function buildLinkResolveCtx(state: GraphState): LinkResolveCtx {
-  const ctx = projectContext(state.rootPath);
-  const files = indexedNotePaths(ctx).map((relativePath) => ({ relativePath, isDirectory: false }));
-  // aliasMap keys are already lowercased by rebuildAliasMap.
-  return { index: buildWikiLinkIndex(files, aliasMapObject(ctx)) };
+  return { index: wikiLinkIndex(projectContext(state.rootPath)) };
 }
 
 /** Resolve a wiki-link's target to its graph node — exactly as click-navigation

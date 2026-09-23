@@ -849,6 +849,51 @@ Keep any explicit teardown the orchestrator already does (`stopPeriodicChecks`
 / `disarmAutoChecks` run *before* the final persist, so nothing new is
 scheduled mid-teardown). The store is the net underneath it, not a replacement.
 
+#### The note-path/alias index owns its derivations, and they are versioned (#2214)
+
+`graph/note-index.ts` holds `paths` + `aliasesPerNote`, and **two** things
+derived from them: the lowercase `aliasMap` and the wiki-link resolver index
+(`buildWikiLinkIndex`'s seven Maps). Both used to be recomputed eagerly on
+every incremental save — `indexNote` called `rebuildAliasMap`, then
+`buildLinkResolveCtx` rebuilt the whole resolver index over every indexed
+path. Measured on realistic nested multi-word filenames, that was
+**1.4 / 2.9 / 10.7 / 18.4 ms at 500 / 1,000 / 3,000 / 5,000 notes**, paid by
+every autosave tick *including* a save to a note with no wiki-links at all.
+#1473 had hoisted the build out of the bulk `indexAllNotes` walk by threading
+one context through it; the single-note path it left behind is the one users
+actually hit, once per save, forever.
+
+Both derivations now cache against a `version` counter, and the whole design is
+three rules:
+
+- **A mutator bumps `version` only when it actually changed something.**
+  `registerNotePath` on an already-known path, or `setNoteAliases` with an
+  equal list, is a genuine no-op — which is what makes the common save free.
+  **A new mutator of `paths`/`aliasesPerNote` owes a bump**; forget it and a
+  link to a note created seconds ago silently resolves to nothing, or a renamed
+  note keeps resolving to its old path. Four sites bump today: `registerNotePath`,
+  `setNoteAliases`, `forgetNotePath`, `clearNoteIndex`.
+- **Correctness lives in the reads, not in callers remembering to rebuild.**
+  `aliasMap` / `aliasMapObject` / `wikiLinkIndex` all materialize on demand if
+  they're behind `version`. `rebuildAliasMap` is kept for the call sites that
+  had it, but it is a version-guarded materialize now — a redundant call is
+  free and a forgotten one is not a bug.
+- **A read must not allocate a project slot** (#2240). `wikiLinkIndex` returns
+  one shared `EMPTY_LINK_INDEX` for a project with nothing indexed rather than
+  creating state; the test asserts two never-seen projects get the *same object*,
+  which is what distinguishes "didn't allocate" from "allocated and built empty".
+
+`tests/main/graph/link-resolve-cache.test.ts` gates it on **counts, not timings**
+(#2229) via the test-only `_derivationCountsForTests`. Note the trap it is built
+around: "five saves, zero rebuilds" is satisfied just as well by an index that is
+never built and resolves nothing, so **every count assertion is paired with a
+resolution assertion**, and each invalidation case checks the new answer rather
+than merely that a rebuild happened. All six defect injections (no cache; each of
+the four invalidation points dropped; the read allocating a slot) were verified to
+fail it. One honest gap: the rename case fires only when *both* path invalidations
+are missing — with either one alive, the surviving bump rebuilds from the live
+`paths` set and picks up the other's change too.
+
 #### `graph/` does not import `notebase/` (#2238)
 
 The dependency runs one way: **`notebase` → `graph`**. Saving a note drives the

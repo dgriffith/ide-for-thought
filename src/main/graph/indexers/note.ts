@@ -119,14 +119,23 @@ export interface IndexNoteOptions {
    * pure redundancy in that path. The incremental single-note path (a save,
    * a rename, a merge, …) still needs it — that path never runs the pre-pass
    * or a trailing rebuild, so skipping it there would leave `aliasMap` stale.
+   *
+   * As of #2214 `rebuildAliasMap` is itself a version check — it recomputes
+   * only when a path or an alias really changed — so this flag is about
+   * intent, not cost, and the reads self-heal either way.
    */
   skipAliasRebuild?: boolean;
   /**
-   * Prebuilt wiki-link resolution context (perf #1473). `indexAllNotes` builds
-   * it ONCE — after the alias pre-pass has settled `indexedNotePaths` + the
-   * alias map — and threads it into every `indexNote` so the per-note
-   * `buildLinkResolveCtx` (O(N)) doesn't run N times. Omitted on the standalone
-   * single-note path, which builds its own.
+   * Prebuilt wiki-link resolution context (perf #1473). `indexAllNotes` pins it
+   * ONCE — after the alias pre-pass has settled the note-path + alias index —
+   * and threads it into every `indexNote`, so the whole pass provably resolves
+   * against one snapshot.
+   *
+   * Since #2214 that is no longer what keeps the pass O(N): `note-index.ts`
+   * caches the index and rebuilds it only when a path or alias actually
+   * changes, which the main walk never does (the pre-pass already registered
+   * everything). Threading it stays as the explicit statement of intent —
+   * omit it and the standalone single-note path picks up the same cached index.
    */
   linkCtx?: LinkResolveCtx;
 }
