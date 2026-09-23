@@ -6,8 +6,9 @@
  *
  *   - `removeMatches` is a linear scan of `store.statements`, so the strip was
  *     O(|ontology| × T) — 326ms at 3,000 notes, fully synchronous.
- *   - ~2,200 mirror mutations in one call sailed past
- *     `N3_PERIODIC_REBUILD_EVERY` (1,000) and nulled `state.n3Cache`, so the
+ *   - ~2,200 mirror mutations in one call sailed past the mirror's rebuild
+ *     budget (a flat 1,000 then; `N3_REBUILD_FLOOR` and store-proportional
+ *     since #2212) and nulled `state.n3Cache`, so the
  *     next query paid a full cold `buildN3Store`. Measured at 2,000 notes:
  *     warm query 2.18ms, post-persist 32.80ms — a 15× regression caused
  *     entirely by bookkeeping that changed nothing.
