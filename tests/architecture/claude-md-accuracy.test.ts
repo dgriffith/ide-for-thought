@@ -35,6 +35,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { execFileSync } from 'node:child_process';
 
 const CLAUDE_MD = 'CLAUDE.md';
 const DEV_MD = 'docs/development.md';
@@ -209,8 +210,30 @@ describe('every concrete repo path named in the docs exists (#2257)', () => {
   it('keeps GENERATED live — no entry for a file that is now committed', () => {
     // If a build output becomes a tracked file, the exemption should go rather
     // than sit here hiding a future real deletion.
-    const stale = Object.keys(GENERATED).filter((p) => existsSync(p) && !p.endsWith('/'));
-    expect(stale, `GENERATED entries that exist on disk now — drop them: ${stale.join(', ')}`).toEqual([]);
+    //
+    // "Committed" is `git ls-files`, not `existsSync`. Every entry here is a
+    // build output that IS expected on disk — `resources/help-docs/corpus.json`
+    // is built by the `pretest` script, so by the time this assertion runs the
+    // file it is asking about has just been written by the same command. The
+    // existence form passed only on a tree that had never been built: red on
+    // every developer machine, and red on CI exactly when #2246's cache
+    // restores it (green on a cold cache, so it read as flaky rather than
+    // wrong). Tracked-ness is what the comment above always meant.
+    // A directory key lists its children rather than itself, so it counts as
+    // committed when anything under it is tracked — otherwise the two-entry
+    // map would have one entry nothing could ever report.
+    const tracked = execFileSync('git', ['ls-files', '-z', ...Object.keys(GENERATED)], {
+      encoding: 'utf8',
+    })
+      .split('\0')
+      .filter(Boolean);
+    const stale = Object.keys(GENERATED).filter((p) =>
+      p.endsWith('/') ? tracked.some((t) => t.startsWith(p)) : tracked.includes(p),
+    );
+    expect(
+      stale,
+      `GENERATED entries that are committed files now — drop them: ${stale.join(', ')}`,
+    ).toEqual([]);
   });
 });
 

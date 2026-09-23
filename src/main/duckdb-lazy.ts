@@ -27,7 +27,7 @@
  * starting a second load, which matters because project open touches both.
  *
  * It also gives the ratchet something to point at:
- * `tests/architecture/duckdb-lazy-boot.test.ts` asserts this is the only
+ * `tests/architecture/lazy-boot-modules.test.ts` asserts this is the only
  * module in `src/` with a value import of `@duckdb/node-api`, so the next
  * subsystem that wants a table cannot quietly put the binding back on the boot
  * path. Type-only imports stay free everywhere — they erase.
