@@ -21,7 +21,7 @@ what to do about it. `architecture-ratchets-doc.test.ts` keeps the two sides in
 step — a new test in `tests/architecture/` with no entry here fails, and an
 entry here naming a test that no longer exists fails too (#2262).
 
-Written up as of 2026-09-23, 32 tests.
+Written up as of 2026-09-23, 37 tests.
 
 ---
 
@@ -211,6 +211,88 @@ or renamed test doesn't leave instructions pointing at nothing. **When it
 fires:** add the section, keeping the `` ### `name.test.ts` `` heading shape the
 test parses.
 
+### `docs-parity.test.ts`
+
+**Hand-maintained counts in the docs match the code that owns them** (#2255,
+#2261) — typed link types, stock skills, user-manual pages, the Analysis menu's
+size, the Settings dialog's tabs. Nine findings of the 2026-09-20 doc review
+were this one shape: a document restates a number some file already owns
+authoritatively, then drifts. `src/shared/link-types.ts` opens with *"To add a
+new link type, add an entry here. Everything else derives from this list"* —
+everything except the README, which said 11 against 12. "Nearly 50 skills"
+against 56; `authoring-skills.md`'s "the Analysis menu has 20" against 29; and
+`website/docs/_content/settings.html` carried **four different counts of the
+same thing** against a real 16. Every assertion computes the expected value from
+`src/` and scrapes the actual one out of literal prose, and each scrape is
+asserted to have matched *before* its value is compared — a parity test that
+derives both sides from one place passes vacuously and forever. **When it
+fires:** update the number in the document; if the sentence was reworded so the
+scrape stopped matching, fix the pattern in the same PR rather than deleting the
+assertion, or the count silently stops being checked.
+
+### `cli-docs-parity.test.ts`
+
+**`docs/cli.md` and the CLI's own `--help` name every command the dispatch
+table runs** (#2263), plus every tool the MCP server exposes. Three places have
+to agree — the `switch (args.command)` in `src/cli/run.ts` (what runs), the
+`HELP` string above it (what `--help` prints), and the doc (what a reader is
+told) — and two of the three are hand-maintained prose about the first. Both had
+drifted: `grep` and `eval` were implemented and missing from the doc's command
+table, the MCP tool list named 7 of 8, and the doc still called MCP "the
+forthcoming MCP subcommand" forty lines after documenting it as shipped (a
+separate assertion now fails on that phrasing). It checks that each command is
+*named*, not that what is said about it is true. **When it fires:** add the row
+to `docs/cli.md` and the line to `HELP`. An anchor test fails loudly if the
+shapes it parses stop being found, so a refactor of the dispatch can't quietly
+switch the check off.
+
+### `docs-url.test.ts`
+
+**Help → Documentation points at the user manual, and the Command Palette is a
+real menu item** (#2254, #2256). `DOCS_URL` pointed at the repository's
+*developer* docs folder — a GitHub file listing of `releasing.md`,
+`packaging.md` and friends — while the actual 118-page manual built from
+`website/docs/` had no route from the app at all. It was wrong because it was
+written down **nowhere**: no second copy existed for anyone to keep the first in
+step with. So the URL is recorded in `docs/releasing.md` beside the deploy-script
+row and the two copies check each other, and further assertions pin it under the
+host that serves the built site and confirm the manual it names is the one this
+repo builds. The Command Palette half checks the item is in the template, on the
+accelerator the renderer actually binds, and dispatches a channel rather than
+doing work inline (#2233). **When it fires:** change both copies of the URL, or
+add the menu item back. What it cannot do is confirm the site is *up* — that
+needs a network call, which doesn't belong in a unit suite.
+
+### `authoring-types-doc.test.ts`
+
+**`docs/authoring-types.md` names every key, property type and prefix the type
+format actually supports** (#2265). The `.md`-with-frontmatter object-type
+format had no documentation outside its parser: `externalClass:` — the #2036 key
+that makes `type: claim` answer a query about `thought:Claim` — appeared in zero
+files under `docs/` or `website/docs/`. Five inventories, each read from its own
+authority: the frontmatter keys `types/parse.ts` reads, the per-property keys,
+`PROPERTY_TYPES`, `STANDARD_PREFIXES`, and the stock type files. The prefix list
+is the load-bearing one — it's the closed set a CURIE can resolve against, and
+the one thing a type author cannot discover by experiment, because an
+unrecognized prefix fails **silently**. **When it fires:** document the new key
+or prefix in the same PR that adds it.
+
+### `thought-ontology-doc.test.ts`
+
+**`docs/thought-ontology.md` names every class, property and individual the
+thought ontology declares, and names nothing it doesn't** (#2264).
+`ontology-thought.ttl` was the best-commented artifact in the repository and the
+least discoverable — 92 classes and 104 properties, every one carrying an
+`rdfs:comment`, with not one inbound prose reference. Bidirectional, and the
+sibling division is deliberate: `ontology-terms.test.ts` scans `src/` and asks
+whether the code names an undeclared term; this scans one doc and asks both
+directions, because a confident document describing an ontology that has moved
+on is the other failure mode. Direction 2 checks presence, not accuracy — the
+alternative would duplicate the Turtle byte for byte or be unfalsifiable.
+**When it fires:** add a class to the overview, or fix the CURIE you invented in
+prose. It covers `ontology-thought.ttl` only; `ontology.ttl` has no prose
+overview yet.
+
 ### `ontology-terms.test.ts`
 
 **Every `thought:X` / `minerva:X` named anywhere in `src/` is declared in
@@ -376,21 +458,37 @@ half of the original comment is asserted too: skills must still be registered
 before `buildMenu`, or the Learning / Research / Analysis menus come up empty.
 **When it fires:** move the work after `createWindow`, or behind a lazy load.
 
-### `duckdb-lazy-boot.test.ts`
+### `lazy-boot-modules.test.ts`
 
-**No value import of `@duckdb/node-api` outside `src/main/duckdb-lazy.ts`**
-(#2335). `main.ts` pulls its whole dependency graph at module scope, and the
-heaviest single edge was a native binding reached for a `before-quit` handler:
-`libduckdb.dylib` is 107MB packaged, and a cold import measures 2,896ms — the
-largest item on the boot path, ahead of `@comunica` at 732ms — against ~12ms
-warm, so it is a first-launch and post-reboot cost paid by every user including
-those who never open a table. A source-level check because the property that
-matters is about the built bundle and building takes minutes; what *can* be
-checked cheaply is the cause. Vite follows static value imports into the entry
-chunk, `import type` is erased before the bundler sees it, and `await import()`
-becomes a separate chunk. **A ratchet on the cause, not an assertion about the
-artifact** — the header says so rather than implying it proves more. **When it
-fires:** make it `import type`, or route it through `duckdb-lazy.ts`.
+**The expensive modules stay off the boot path** (#2335) — `@duckdb/node-api`,
+`@comunica/query-sparql-rdfjs`, and the three vendor LLM SDKs. `main.ts` pulls
+its whole dependency graph at module scope, and the heaviest single edge was a
+native binding reached for a `before-quit` handler: `libduckdb.dylib` is 107MB
+packaged and a cold import measures 2,896ms, ahead of `@comunica` at 732ms and
+`openai`/`@google/genai`/`@anthropic-ai/sdk` at 242/164/132ms. Warm they are a
+few milliseconds each, so this is a first-launch and post-reboot cost — the
+launch a new user judges the app on — paid by every user regardless of what they
+did next.
+
+Two shapes, checked differently. **A dedicated loader:** DuckDB and Comunica are
+reached through `await import(pkg)` in exactly one module, so the check is "no
+other module has a value import" *plus* "that module's own import really is
+dynamic" — otherwise exempting the loader by path would be a hole. **A lazily
+reached module:** each LLM provider imports its SDK statically, which is fine
+only because nothing statically imports the provider — `llm/provider/index.ts`
+uses `await import('./openai')` — so the assertion is on the edge *into* the
+provider, not out of it. Checking "only `openai.ts` imports openai" would pass
+while `provider/index.ts` dragged all three into the entry chunk.
+
+A source-level check because the property that matters is about the built bundle
+and building takes minutes; what *can* be checked cheaply is the cause. Vite
+follows static value imports into the entry chunk, `import type` is erased
+before the bundler sees it, and `await import()` becomes a separate chunk. **A
+ratchet on the cause, not an assertion about the artifact** — the header says so
+rather than implying it proves more. It strips comments before scanning, because
+`duckdb-lazy.ts`'s own header draws the dependency chain it exists to break and
+the first version read that prose as a real import (#2248 hit the same shape).
+**When it fires:** make it `import type`, or route it through the loader.
 
 ---
 
