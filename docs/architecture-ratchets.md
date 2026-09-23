@@ -21,7 +21,7 @@ what to do about it. `architecture-ratchets-doc.test.ts` keeps the two sides in
 step — a new test in `tests/architecture/` with no entry here fails, and an
 entry here naming a test that no longer exists fails too (#2262).
 
-Written up as of 2026-09-23, 37 tests.
+Written up as of 2026-09-23, 38 tests.
 
 ---
 
@@ -292,6 +292,24 @@ alternative would duplicate the Turtle byte for byte or be unfalsifiable.
 **When it fires:** add a class to the overview, or fix the CURIE you invented in
 prose. It covers `ontology-thought.ttl` only; `ontology.ttl` has no prose
 overview yet.
+
+### `mcp-servers-doc.test.ts`
+
+**The MCP Servers settings page names every transport and every connection
+status the code actually has** (#2259). The page documents Minerva as an MCP
+*client* — consuming third-party servers — and two of the things it tells a
+reader are facts the code already owns: the configurable transports
+(`shared/mcp-servers.ts`) and the connection states a row can show
+(`McpServersSettings.svelte`). A new transport or a sixth status would ship
+with the page still listing the old set, and nothing would say so; the page
+would simply be wrong, confidently, in the one place a confused reader goes.
+Further assertions keep it *reachable* (named on the settings page, listed in
+`_nav.json`) and keep the cross-link to `connecting-mcp.html`, which is the
+confusion it exists to fix — before #2259 the only page mentioning MCP
+described the opposite direction, Minerva as a *server*. **When it fires:** add
+the transport or status to the page. Presence and spelling, not accuracy — a
+status whose description is wrong still passes, because naming every state is
+the part that drifts.
 
 ### `ontology-terms.test.ts`
 
