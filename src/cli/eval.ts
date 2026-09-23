@@ -5,12 +5,12 @@
  * does at runtime** — reusing the real seam in `src/main/tools/executor.ts`
  * (`buildConversationPayload` / `buildOneShotPayload`) rather than
  * reconstructing the prompt — and writes it to the case's `output/` for review
- * with a diff tool. This PR emits only the **deterministic half**: `request.json`
- * (the packaged prompt) and a minimal `meta.json`. Same skill + same context +
- * same params ⇒ identical bytes, so `request.json` doubles as a committed CI
- * snapshot (see tests/cli/eval.test.ts) — no LLM call, no API key. The
- * non-deterministic half (`response.md` / `drafts.json` from a real model call)
- * lands in PR 2.
+ * with a diff tool. The default run emits the **deterministic half**:
+ * `request.json` (the packaged prompt) and a minimal `meta.json`. Same skill +
+ * same context + same params ⇒ identical bytes, so `request.json` doubles as a
+ * committed CI snapshot (see tests/cli/eval.test.ts) — no LLM call, no API key.
+ * `--live` adds the non-deterministic half (`response.md` / `drafts.json` from a
+ * real model call, plus usage/timing on `meta.json`); it needs a provider key.
  *
  * Context is assembled headlessly by `buildEvalContext` (./eval-context) over
  * the same Electron-free graph core the CLI already drives.

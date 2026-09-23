@@ -1,11 +1,15 @@
 /**
- * macOS OS-sandbox for the Python compute kernel — Phase 1 (#1329, #1421).
+ * macOS OS-sandbox for the Python compute kernel (#1329; Phase 1 #1421, Phase 2
+ * #1422 — both shipped, and both built here). `docs/architecture/compute-sandbox.md`
+ * is the ADR.
  *
  * Wraps the kernel spawn in `sandbox-exec` with a Seatbelt profile so the
  * interpreter runs under an OS-enforced boundary, not just the in-process
- * guards. Phase 1 contains **network egress**: it denies IP outbound/inbound
- * (re-allowing loopback) while leaving the filesystem open — filesystem
- * containment is Phase 2 (#1422).
+ * guards. The profile contains **network egress** — denying IP
+ * outbound/inbound, re-allowing loopback — and the **filesystem**: writes are
+ * confined to the project root plus temp, and reads of well-known secret
+ * locations are denied. Phase 3 (allow-list hardening, `mach-lookup`
+ * minimization, an XPC helper) is deferred and not built.
  *
  * Two properties make this a real boundary rather than an advisory one:
  *   - Seatbelt policies are **inherited by child processes**, so a `subprocess`

@@ -33,8 +33,11 @@ export default defineConfig({
       //   main as a single-file CJS lib, and bundling these large ESM trees
       //   (with their internal dynamic imports) makes rollup code-split the
       //   entry so `main.js` is never emitted and packaging fails. Externalize
-      //   them — Electron 42 / Node 22 can `require()` ESM — and ship their
-      //   closure via forge.config's `EXTERNAL_DEP_ROOTS`.
+      //   them — the Node that Electron embeds can `require()` ESM — and ship
+      //   their closure via forge.config's `EXTERNAL_DEP_ROOTS`. (The version
+      //   numbers that used to sit here, "Electron 42 / Node 22", were two
+      //   majors stale; the runtime is `electron` in package.json and the Node
+      //   floor is `engines.node`, #2267.)
       external: [
         'canvas',
         /^@duckdb\/node-bindings/,
