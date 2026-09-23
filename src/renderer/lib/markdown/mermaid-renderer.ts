@@ -18,6 +18,10 @@ import { getEffectiveTheme, getThemeMode } from '../theme';
 import { normalizeColor } from '../utils/oklch';
 import { sanitizeDiagramSvg } from './sanitize-diagram-svg';
 import { escapeHtml } from '../../../shared/text-escape';
+import { blockCacheFor, blockKey, clearSlot, createContentWrapper } from './hydrated-block-cache';
+
+/** Cache slot for rendered diagram wrappers — see `hydrated-block-cache.ts`. */
+const SLOT = 'mermaid';
 
 type MermaidApi = {
   initialize: (config: Record<string, unknown>) => void;
@@ -112,55 +116,108 @@ function readThemeTokens(): {
 }
 
 /**
- * Walk `root` for unrendered `.mermaid-block` placeholders and replace
- * each one's content with rendered SVG. Idempotent: blocks already
- * rendered (marked with `data-mermaid-rendered`) are skipped, so
- * multiple `$effect` runs after a debounced re-render don't double-render.
+ * Walk `root` for unrendered `.mermaid-block` placeholders and fill each one
+ * with rendered SVG.
+ *
+ * A block whose source was already rendered under this root gets its **existing
+ * SVG node moved back in** rather than re-rendered (#2323) — `mermaid.render()`
+ * is ~17-22ms of dagre layout for a four-node flowchart and ~79ms for a
+ * thirty-node one, per diagram, on the renderer's main thread, and the
+ * `{@html}` swap was asking for it once per render tick. Moving the node (not
+ * re-inserting its markup) is what keeps `bindFunctions`' tooltip handlers
+ * alive; see `hydrated-block-cache.ts`.
+ *
+ * Still idempotent within one rendered subtree: blocks already marked
+ * `data-mermaid-rendered` are skipped, so repeated `$effect` runs over the same
+ * DOM don't double-render.
  */
 export async function hydrateMermaidBlocks(root: HTMLElement): Promise<void> {
   const blocks = Array.from(
     root.querySelectorAll<HTMLElement>('.mermaid-block:not([data-mermaid-rendered])'),
   );
-  if (blocks.length === 0) return;
+  const cache = blockCacheFor(root, SLOT);
+  // No early return on an empty `blocks`: a note switched to one with no
+  // diagrams still has to sweep, or the outgoing note's SVG stays cached. When
+  // nothing changed the sweep is a no-op — every wrapper is still in `root`.
+  if (blocks.length === 0) {
+    cache.sweep(root);
+    return;
+  }
+
+  const counts = new Map<string, number>();
+  // Source lives either in textContent (first hydration) or stashed on
+  // dataset.mermaidSource (re-hydration after a theme change). Capture it
+  // before mutating innerHTML, since pending/error rendering would wipe it.
+  // Keys are assigned in document order, synchronously, before any await —
+  // the async render below must not interleave two blocks' occurrence counts.
+  const pending = blocks.map((el) => {
+    const source = (el.dataset.mermaidSource ?? el.textContent ?? '').trim();
+    el.dataset.mermaidSource = source;
+    return { el, source, key: blockKey(counts, source) };
+  });
+
+  // Restore what we already have before loading the library: a note whose
+  // diagrams are all cached never touches mermaid at all.
+  const toRender = pending.filter(({ el, key }) => {
+    const wrapper = cache.take(root, key);
+    if (!wrapper) return true;
+    el.removeAttribute('data-mermaid-pending');
+    el.innerHTML = '';
+    el.appendChild(wrapper);
+    el.setAttribute('data-mermaid-rendered', wrapper.dataset.mermaidResult ?? 'ok');
+    return false;
+  });
+
+  if (toRender.length === 0) {
+    cache.sweep(root);
+    return;
+  }
 
   let api: MermaidApi;
   try {
     api = await loadMermaid();
     ensureInitialized(api, labelFontFamily(root));
   } catch (err) {
+    // A failed library load is transient (unlike a parse error, which is a
+    // function of the source) — render it inline but never cache it, so the
+    // next tick retries instead of freezing the failure into the note.
     const msg = err instanceof Error ? err.message : String(err);
-    for (const el of blocks) {
+    for (const { el } of toRender) {
       el.setAttribute('data-mermaid-rendered', 'error');
       el.innerHTML = renderErrorHtml(`Failed to load mermaid: ${msg}`);
     }
+    cache.sweep(root);
     return;
   }
 
-  await Promise.all(blocks.map(async (el) => {
-    // Source lives either in textContent (first hydration) or stashed
-    // on dataset.mermaidSource (re-hydration after a theme change).
-    // Capture it before mutating innerHTML, since pending/error
-    // rendering would otherwise wipe it.
-    const source = (el.dataset.mermaidSource ?? el.textContent ?? '').trim();
-    el.dataset.mermaidSource = source;
+  await Promise.all(toRender.map(async ({ el, source, key }) => {
     el.removeAttribute('data-mermaid-pending');
     el.setAttribute('data-mermaid-rendered', 'pending');
+    const wrapper = createContentWrapper();
     el.innerHTML = '';
+    el.appendChild(wrapper);
+    let result: 'ok' | 'error' = 'ok';
     try {
       const id = `mermaid-${++counter}`;
       const { svg, bindFunctions } = await api.render(id, source);
       // Defense in depth behind CSP (#1331): scrub the library-generated SVG
       // before it hits the DOM. bindFunctions runs after and re-queries the
       // sanitised nodes by id/class (both preserved), so interactivity survives.
-      el.innerHTML = sanitizeDiagramSvg(svg);
-      el.setAttribute('data-mermaid-rendered', 'ok');
-      if (bindFunctions) bindFunctions(el);
+      wrapper.innerHTML = sanitizeDiagramSvg(svg);
+      if (bindFunctions) bindFunctions(wrapper);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      el.innerHTML = renderErrorHtml(msg);
-      el.setAttribute('data-mermaid-rendered', 'error');
+      wrapper.innerHTML = renderErrorHtml(msg);
+      result = 'error';
     }
+    // A parse failure is deterministic in the source text, so it is cached like
+    // a success — re-running a throwing parse every tick is the same waste.
+    wrapper.dataset.mermaidResult = result;
+    el.setAttribute('data-mermaid-rendered', result);
+    cache.put(root, key, wrapper);
   }));
+
+  cache.sweep(root);
 }
 
 /**
@@ -170,6 +227,10 @@ export async function hydrateMermaidBlocks(root: HTMLElement): Promise<void> {
  */
 export function invalidateMermaidTheme(): void {
   initializedFor = null;
+  // Wrinkle 2 of #2323: without this the next hydration would restore the
+  // old-palette SVG node from the cache and the theme switch would appear to
+  // do nothing to diagrams. Slot-wide, matching the global DOM sweep below.
+  clearSlot(SLOT);
   // Clear rendered state so subsequent hydration reapplies the new
   // theme rather than keeping stale SVG.
   document.querySelectorAll('.mermaid-block[data-mermaid-rendered]').forEach((el) => {

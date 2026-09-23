@@ -20,20 +20,40 @@
  * is pure CSS custom properties, so a theme switch re-skins it for free with
  * no re-mount needed here.
  *
- * Cleanup: unlike vega's `liveViews` `WeakMap` (safe only because
- * `invalidateVegaTheme` queries still-attached DOM to find its keys), a
- * mounted `TypeView` must be torn down through the SAME plain-array
- * mechanism `Preview.svelte` already uses for `activeCharts` — by the time
- * the revision effect that owns cleanup runs, `{@html rendered}` has already
- * replaced the old placeholder nodes, so a `WeakMap` keyed on the (now
- * discarded) element can't be re-derived from the DOM. `deps.activeViews` is
- * that array; see `Preview.svelte`'s revision `$effect` for the destroy side.
+ * That refresh cadence is what the `{@html rendered}` swap was quietly taking
+ * away (#2323): each tick handed the hydrator a brand-new placeholder with no
+ * `data-object-view-rendered` on it, so every embed re-mounted — and each mount
+ * runs `api.types.instances`, a full SPARQL projection with one OPTIONAL per
+ * declared property. Measured at **90ms (1,000-note vault) / 355ms (3,000)** of
+ * main-process query time, per block, per ~120ms tick. So the mounted instance
+ * is now **preserved** across ticks: the hydrator renders into a wrapper it
+ * owns and moves that wrapper into the next tick's placeholder, which is the
+ * refresh cadence the paragraph above always described.
+ *
+ * Two consequences:
+ *
+ * - **`revision` has to be a real prop.** `mount()` only propagates writes
+ *   through a `$state` props object; a plain one froze `revision` at its mount
+ *   value. Nothing noticed while every tick re-mounted. See
+ *   `mounted-props.svelte.ts`.
+ * - **Cleanup moved into the cache.** This used to be torn down through the
+ *   plain `deps.activeViews` array `Preview.svelte` also uses for
+ *   `activeCharts`, because by the time the revision effect ran, `{@html
+ *   rendered}` had already replaced the old placeholders and a `WeakMap` keyed
+ *   on the discarded element couldn't be re-derived from the DOM. The block
+ *   cache keys on the wrapper instead, which is exactly the node that survives,
+ *   so it can both re-adopt a live mount and `unmount()` one whose block is
+ *   gone — `sweep()` on every pass, `disposeCaches()` on Preview teardown.
  */
 import { mount, unmount } from 'svelte';
 import TypeView from '../components/TypeView.svelte';
-import type { ChartHandle } from '../charts';
 import type { ViewLayout } from '../../../shared/types';
 import { escapeHtml } from '../../../shared/text-escape';
+import { blockCacheFor, blockKey, createContentWrapper, HYDRATED_CONTENT_CLASS } from './hydrated-block-cache';
+import { reactiveProps } from './mounted-props.svelte';
+
+/** Cache slot for mounted object-view wrappers — see `hydrated-block-cache.ts`. */
+const SLOT = 'object-view';
 
 export interface ObjectViewSpec {
   typeId: string;
@@ -73,59 +93,120 @@ export interface ObjectViewDeps {
    *  `TypeView` so it re-projects while already mounted (#1070). */
   revision: number;
   onOpenNote: (relativePath: string) => void;
-  /** Live mounts to destroy, owned by the host (mirrors `activeCharts`). */
-  activeViews: ChartHandle[];
 }
+
+/** The props a mounted `TypeView` embed is driven through, kept reactive. */
+type ViewProps = {
+  typeId: string;
+  layout: ViewLayout;
+  sortColumn: string | null;
+  sortDir: 'asc' | 'desc';
+  columns: string[] | null;
+  revision: number;
+  chromeless: boolean;
+  onStateChange: () => void;
+  onOpenNote: (relativePath: string) => void;
+};
+
+/** Per-wrapper handle for a live mount, so a re-adopted one can be refreshed. */
+const mountedProps = new WeakMap<HTMLElement, ViewProps>();
 
 /**
  * Walk `root` for unrendered `.object-view-block` placeholders and mount a
- * chromeless `TypeView` into each. Idempotent: blocks already marked
- * `data-object-view-rendered` are skipped, so the post-render `$effect`
- * firing repeatedly doesn't double-mount.
+ * chromeless `TypeView` into each.
+ *
+ * A block whose spec was already mounted under this root gets its **live mount
+ * moved back in** rather than re-mounted (#2323); `deps.revision` is written
+ * onto the preserved props so a save still re-projects it. Idempotent within
+ * one rendered subtree: blocks already marked `data-object-view-rendered` are
+ * skipped, so the post-render `$effect` firing repeatedly doesn't double-mount.
  */
 export function hydrateObjectViewBlocks(root: HTMLElement, deps: ObjectViewDeps): void {
   const blocks = Array.from(
     root.querySelectorAll<HTMLElement>('.object-view-block:not([data-object-view-rendered])'),
   );
-  if (blocks.length === 0) return;
-
+  const cache = blockCacheFor(root, SLOT);
+  // No early return on an empty `blocks`: a note switched to one with no
+  // embeds at all still has to sweep, or the outgoing note's mounts stay
+  // cached (and, in `map` layout, hold a live MapLibre GL context) until the
+  // preview is destroyed. When nothing changed the sweep is a no-op, because
+  // every wrapper is still inside `root`.
+  const counts = new Map<string, number>();
   for (const el of blocks) {
     const raw = (el.textContent ?? '').trim();
+    const key = blockKey(counts, raw);
     el.removeAttribute('data-object-view-pending');
+
+    const cached = cache.take(root, key);
+    if (cached) {
+      el.innerHTML = '';
+      el.appendChild(cached);
+      // A preserved mount keeps the props object it was mounted with, so a
+      // graph change reaches `TypeView`'s own `$effect` the same way a
+      // re-mount used to.
+      const props = mountedProps.get(cached);
+      if (props) props.revision = deps.revision;
+      el.setAttribute('data-object-view-rendered', cached.dataset.objectViewResult ?? 'ok');
+      continue;
+    }
 
     let spec: ObjectViewSpec;
     try {
       spec = parseObjectViewSpec(raw);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      el.innerHTML = renderErrorHtml(msg);
+      // A malformed spec is a function of the fence text, not a transient
+      // failure, so the rendered message is cached like a mounted view — the
+      // next tick restores it instead of re-parsing and re-building it.
+      const wrapper = createContentWrapper();
+      wrapper.innerHTML = renderErrorHtml(msg);
+      wrapper.dataset.objectViewResult = 'error';
+      el.innerHTML = '';
+      el.appendChild(wrapper);
       el.setAttribute('data-object-view-rendered', 'error');
+      cache.put(root, key, wrapper);
       continue;
     }
 
+    const wrapper = createContentWrapper();
     el.innerHTML = '';
-    const instance = mount(TypeView, {
-      target: el,
-      props: {
-        typeId: spec.typeId,
-        layout: spec.layout,
-        sortColumn: spec.sortColumn,
-        sortDir: spec.sortDir,
-        columns: spec.columns,
-        revision: deps.revision,
-        chromeless: true,
-        // No in-preview UI for changing the embedded spec (#2067) — a
-        // sortable table header click inside an embed is inert rather than
-        // rewriting the note's fence text.
-        onStateChange: () => {},
-        onOpenNote: deps.onOpenNote,
-      },
+    el.appendChild(wrapper);
+    const props = reactiveProps<ViewProps>({
+      typeId: spec.typeId,
+      layout: spec.layout,
+      sortColumn: spec.sortColumn,
+      sortDir: spec.sortDir,
+      columns: spec.columns,
+      revision: deps.revision,
+      chromeless: true,
+      // No in-preview UI for changing the embedded spec (#2067) — a
+      // sortable table header click inside an embed is inert rather than
+      // rewriting the note's fence text.
+      onStateChange: () => {},
+      onOpenNote: deps.onOpenNote,
     });
-    // `unmount()` returns a Promise (it awaits any outro transition before
-    // removing the DOM) — `ChartHandle.destroy()` is fire-and-forget, same as
-    // every other handle pushed here, so the promise is intentionally dropped.
-    deps.activeViews.push({ destroy: () => { void unmount(instance); } });
+    const instance = mount(TypeView, { target: wrapper, props });
+    mountedProps.set(wrapper, props);
+    wrapper.dataset.objectViewResult = 'ok';
     el.setAttribute('data-object-view-rendered', 'ok');
+    // `unmount()` returns a Promise (it awaits any outro transition before
+    // removing the DOM) — teardown here is fire-and-forget, as it was when
+    // `Preview.svelte` held these handles, so the promise is dropped.
+    cache.put(root, key, wrapper, () => { void unmount(instance); });
+  }
+
+  cache.sweep(root);
+
+  // Forward `revision` to every embed currently on screen, not just the ones
+  // this pass touched. A save doesn't change `content`, so `{@html rendered}`
+  // does NOT re-run — the post-render effect fires again over the *same* DOM
+  // with a new revision, the `:not([data-object-view-rendered])` selector
+  // matches nothing, and the loop above never sees the block. Writing here is
+  // what keeps "TypeView re-projects against `revision` while mounted" true
+  // once the mount stops being rebuilt every tick.
+  for (const wrapper of root.querySelectorAll<HTMLElement>(`.${HYDRATED_CONTENT_CLASS}`)) {
+    const props = mountedProps.get(wrapper);
+    if (props) props.revision = deps.revision;
   }
 }
 

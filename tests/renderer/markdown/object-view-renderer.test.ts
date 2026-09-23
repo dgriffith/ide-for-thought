@@ -20,7 +20,7 @@ vi.mock('../../../src/renderer/lib/ipc/client', () => ({
 
 import { hydrateObjectViewBlocks, parseObjectViewSpec } from '../../../src/renderer/lib/markdown/object-view-renderer';
 import { objectTypesStore } from '../../../src/renderer/lib/stores/object-types.svelte';
-import type { ChartHandle } from '../../../src/renderer/lib/charts';
+import { disposeCaches } from '../../../src/renderer/lib/markdown/hydrated-block-cache';
 
 const TYPE = {
   id: 'book',
@@ -44,8 +44,7 @@ function previewWith(specText: string): HTMLElement {
 }
 
 function deps(over: Partial<Parameters<typeof hydrateObjectViewBlocks>[1]> = {}) {
-  const activeViews: ChartHandle[] = [];
-  return { revision: 0, onOpenNote: vi.fn(), activeViews, ...over };
+  return { revision: 0, onOpenNote: vi.fn(), ...over };
 }
 
 beforeEach(async () => {
@@ -142,14 +141,25 @@ describe('hydrateObjectViewBlocks (#2067)', () => {
     expect(instancesMock).not.toHaveBeenCalled();
   });
 
-  it('pushes a destroy handle onto activeViews for cleanup', async () => {
+  // Cleanup moved from `Preview.svelte`'s `activeViews` array into the block
+  // cache in #2323 — the mount is preserved across render ticks, so the thing
+  // that owns its lifetime has to be the thing that knows whether it survived.
+  it('disposeCaches tears the live mount down', async () => {
     const root = previewWith('{"typeId":"book","layout":"list"}');
-    const d = deps();
-    hydrateObjectViewBlocks(root, d);
+    hydrateObjectViewBlocks(root, deps());
     const block = root.querySelector('.object-view-block')!;
-    await waitFor(() => expect(block.getAttribute('data-object-view-rendered')).toBe('ok'));
+    await waitFor(() => expect(block.querySelector('.type-view, .object-view-error')).toBeTruthy());
 
-    expect(d.activeViews).toHaveLength(1);
-    expect(() => d.activeViews[0]!.destroy()).not.toThrow();
+    expect(() => disposeCaches(root)).not.toThrow();
+    // Disposed, so the next render tick's fresh placeholder is a new mount
+    // rather than a restore of a component that no longer exists.
+    instancesMock.mockClear();
+    root.innerHTML = '';
+    const fresh = document.createElement('div');
+    fresh.className = 'object-view-block';
+    fresh.textContent = '{"typeId":"book","layout":"list"}';
+    root.appendChild(fresh);
+    hydrateObjectViewBlocks(root, deps());
+    await waitFor(() => expect(instancesMock).toHaveBeenCalled());
   });
 });

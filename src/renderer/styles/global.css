@@ -372,6 +372,17 @@ mark.hl-orange { background: color-mix(in oklch, var(--hl-orange) 30%, transpare
    panel; error renders inline so a single broken diagram can't brick
    the doc. Per §8.6 the panel uses --bg-inset for the editorial
    "set apart" look matched by code blocks. */
+/* Hydrated-block content wrapper (#2323). Each diagram / object-view /
+   argument-map hydrator renders into a wrapper it owns, so the node Svelte's
+   `{@html}` created is never replaced — replacing the first or last top-level
+   node of that fragment corrupts Svelte's removal range. `display: contents`
+   makes the wrapper generate no box at all, so `.mermaid-block`'s flex
+   centering, `.mermaid-block svg`, and `.object-view-block[…="ok"]`'s bounded
+   height chain all apply exactly as they did before it existed. */
+.hydrated-block-content {
+  display: contents;
+}
+
 .mermaid-block {
   display: flex;
   justify-content: center;

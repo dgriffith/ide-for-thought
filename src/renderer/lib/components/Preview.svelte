@@ -10,6 +10,7 @@
     import {hydrateObjectViewBlocks} from '../markdown/object-view-renderer';
     import {hydrateArgumentMapBlocks, type ArgumentMapDeps} from '../markdown/argument-map-renderer';
     import {hydrateCardCallouts} from '../markdown/card-callout';
+    import {disposeCaches as disposeHydratedBlockCaches} from '../markdown/hydrated-block-cache';
     import {slugify} from '../../../shared/slug';
     import {createPreviewMarkdown} from '../preview/markdown-config';
     import {sanitizeNoteHtml} from '../preview/sanitize-note-html';
@@ -309,6 +310,11 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     onDestroy(() => {
         for (const url of mediaBlobCache.values()) URL.revokeObjectURL(url);
         mediaBlobCache.clear();
+        // Preserved diagram / object-view / argument-map nodes (#2323). Their
+        // sweep runs per hydration pass, and there is no next pass after this,
+        // so teardown has to be explicit — a `TypeView` in `map` layout holds a
+        // live MapLibre GL context.
+        if (previewEl) disposeHydratedBlockCaches(previewEl);
     });
 
     // Re-rendering markdown + KaTeX + highlight.js + citeproc on every
@@ -412,13 +418,13 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     });
     let previewEl = $state<HTMLDivElement>();
     let activeCharts: ChartHandle[] = [];
-    // Live object-view mounts (#2067) — same array-of-handles shape as
-    // `activeCharts`, not a WeakMap: by the time these get destroyed below,
-    // `{@html rendered}` has already replaced the old placeholder nodes, so
-    // there's nothing left to re-derive keys from a DOM query.
-    let activeObjectViews: ChartHandle[] = [];
-    // Live argument-map mounts (#907) — same shape/reasoning as activeObjectViews.
-    let activeArgumentMaps: ChartHandle[] = [];
+    // Object-view (#2067) and argument-map (#907) embeds used to be torn down
+    // here through plain arrays of handles, alongside `activeCharts`, because
+    // by the time this effect ran `{@html rendered}` had already replaced their
+    // placeholders. Since #2323 those two mounts are *preserved* across render
+    // ticks — the block cache keys on a wrapper node that survives the swap, so
+    // it both re-adopts a live mount and unmounts one whose block is gone. See
+    // `markdown/hydrated-block-cache.ts`; teardown is in the onDestroy below.
 
     /**
      * Numeric-style preview bibliography (#110). Author-date / note styles
@@ -463,7 +469,6 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
             queryPrefixes: QUERY_PREFIXES,
             resolvePath: (t) => resolveWikiLinkTargetWithIndex(t, wikiLinkIndex),
             onNavigate,
-            activeMaps: activeArgumentMaps,
         };
     }
 
@@ -506,14 +511,9 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         // Destroy previous chart instances before re-rendering
         activeCharts.forEach(c => c.destroy());
         activeCharts = [];
-        // Same reason: unmount previous object-view embeds before their
-        // placeholder DOM (already replaced by `{@html rendered}` by the
-        // time this effect runs) is gone for good.
-        activeObjectViews.forEach(v => v.destroy());
-        activeObjectViews = [];
-        // Same reason again: unmount previous argument-map embeds (#907).
-        activeArgumentMaps.forEach(v => v.destroy());
-        activeArgumentMaps = [];
+        // Object-view and argument-map embeds are deliberately NOT destroyed
+        // here any more (#2323) — their hydrators re-adopt the live mount and
+        // sweep away whatever this render no longer contains.
 
         requestAnimationFrame(() => {
             // Syntax-highlight fences off the critical render path (#1114).
@@ -559,7 +559,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
             // `onNavigate` resolves an exact relative path via
             // `resolveWikiLinkTarget`'s step-1 exact-match case, so no
             // separate "open by path" hook is needed.
-            if (previewEl) hydrateObjectViewBlocks(previewEl, { revision, onOpenNote: onNavigate, activeViews: activeObjectViews });
+            if (previewEl) hydrateObjectViewBlocks(previewEl, { revision, onOpenNote: onNavigate });
             // Argument-map embed hydration (#907) — mounts a live ArgumentMap
             // into each `.argument-map-block` placeholder.
             if (previewEl) hydrateArgumentMapBlocks(previewEl, argumentMapDeps());
