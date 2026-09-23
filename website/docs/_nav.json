@@ -373,6 +373,10 @@
             {
               "href": "settings-skills.html",
               "label": "Skills"
+            },
+            {
+              "href": "settings-mcp-servers.html",
+              "label": "MCP Servers"
             }
           ]
         }
