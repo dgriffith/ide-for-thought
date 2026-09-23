@@ -309,13 +309,14 @@ function citedUnread(sources: SourceFacts[]): Inspection[] {
  * (#90) this shouldn't happen — but a hand-created source folder, or two
  * ingests that raced before the dedupe landed, still produce it.
  */
-function duplicates(
-  sources: SourceFacts[],
-  field: 'doi' | 'uri',
-  type: string,
-  idPrefix: string,
-  noun: string,
-): Inspection[] {
+interface DuplicateGroup {
+  /** The normalised value the members share — what the message names. */
+  key: string;
+  iri: string;
+  ids: string[];
+}
+
+function duplicateGroups(sources: SourceFacts[], field: 'doi' | 'uri'): DuplicateGroup[] {
   const groups = new Map<string, SourceFacts[]>();
   for (const s of sources) {
     for (const raw of s.values[field]) {
@@ -330,19 +331,41 @@ function duplicates(
     .filter(([, members]) => members.length > 1)
     .sort(([a], [b]) => a.localeCompare(b))
     .slice(0, DUPLICATE_SOURCES_LIMIT)
-    .map(([key, members], i) => {
-      const ids = members.map(idOf).sort();
-      return {
-        id: `${idPrefix}-${i}`,
-        type,
-        severity: 'warning' as const,
-        nodeUri: members[0]!.iri,
-        nodeLabel: ids[0] ?? key,
-        message: `Duplicate ${noun} ${key}: ${ids.length} sources (${ids.join(', ')}).`,
-        suggestedAction: 'Right-click one and choose "Merge into…" to consolidate.',
-        fix: { kind: 'merge-sources' as const, label: 'Merge…', sourceIds: ids },
-      };
-    });
+    .map(([key, members]) => ({ key, iri: members[0]!.iri, ids: members.map(idOf).sort() }));
+}
+
+/**
+ * The two duplicate inspections are built here rather than from one
+ * parameterised helper so that `type: 'source_duplicate_doi'` and
+ * `type: 'source_duplicate_uri'` appear as LITERALS in the engine source.
+ * `tests/shared/inspections-catalog.test.ts` reads them out of it to prove no
+ * catalog entry is a switch that controls nothing; a `type` arrived at through
+ * a parameter is invisible to that, and the drift it exists to catch would be
+ * back.
+ */
+function duplicateInspections(sources: SourceFacts[]): Inspection[] {
+  const suggestedAction = 'Right-click one and choose "Merge into…" to consolidate.';
+  const doi = duplicateGroups(sources, 'doi').map(({ key, iri, ids }, i) => ({
+    id: `dup-doi-${i}`,
+    type: 'source_duplicate_doi',
+    severity: 'warning' as const,
+    nodeUri: iri,
+    nodeLabel: ids[0] ?? key,
+    message: `Duplicate DOI ${key}: ${ids.length} sources (${ids.join(', ')}).`,
+    suggestedAction,
+    fix: { kind: 'merge-sources' as const, label: 'Merge…', sourceIds: ids },
+  }));
+  const uri = duplicateGroups(sources, 'uri').map(({ key, iri, ids }, i) => ({
+    id: `dup-uri-${i}`,
+    type: 'source_duplicate_uri',
+    severity: 'warning' as const,
+    nodeUri: iri,
+    nodeLabel: ids[0] ?? key,
+    message: `Duplicate URL ${key}: ${ids.length} sources (${ids.join(', ')}).`,
+    suggestedAction,
+    fix: { kind: 'merge-sources' as const, label: 'Merge…', sourceIds: ids },
+  }));
+  return [...doi, ...uri];
 }
 
 /**
@@ -362,9 +385,6 @@ export async function runSourceChecks(
   if (plan.missingMetadata) out.push(...missingMetadata(sources));
   if (plan.agedStub) out.push(...agedStubs(sources, plan.stubDays));
   if (plan.citedUnread) out.push(...citedUnread(sources));
-  if (plan.duplicates) {
-    out.push(...duplicates(sources, 'doi', 'source_duplicate_doi', 'dup-doi', 'DOI'));
-    out.push(...duplicates(sources, 'uri', 'source_duplicate_uri', 'dup-uri', 'URL'));
-  }
+  if (plan.duplicates) out.push(...duplicateInspections(sources));
   return out;
 }
