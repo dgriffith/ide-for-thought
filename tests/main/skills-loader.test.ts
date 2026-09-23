@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { loadSkillCatalog } from '../../src/main/skills/loader';
+import { loadSkillCatalog, getSkillCatalog, reloadSkillCatalog } from '../../src/main/skills/loader';
 
 let dir: string;
 
@@ -80,5 +80,24 @@ describe('loadSkillCatalog', () => {
     const cat = await loadSkillCatalog(dir);
     expect(cat.skills.filter((s) => s.source === 'user').length).toBe(1);
     expect(cat.errors.some((e) => /duplicate user skill id/.test(e.message))).toBe(true);
+  });
+});
+
+describe('getSkillCatalog (the cached singleton)', () => {
+  it('serves concurrent callers one load, not one each (#2223)', async () => {
+    // Since #2223 the renderer boots alongside startup skill registration, so
+    // its `skills:list` and `registerSkillsAtStartup` routinely ask at the same
+    // time. Caching the resolved value leaves a window where both see `null`
+    // and both parse all 56 stock skills; caching the promise closes it. Same
+    // object identity from both is the observable difference.
+    const [a, b] = await Promise.all([getSkillCatalog(), getSkillCatalog()]);
+    expect(a).toBe(b);
+  });
+
+  it('a reload replaces what later callers get', async () => {
+    const before = await getSkillCatalog();
+    const reloaded = await reloadSkillCatalog();
+    expect(reloaded).not.toBe(before);
+    expect(await getSkillCatalog()).toBe(reloaded);
   });
 });

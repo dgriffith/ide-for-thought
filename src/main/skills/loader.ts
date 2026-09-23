@@ -124,14 +124,29 @@ export async function loadSkillCatalog(dir: string = userSkillsDir()): Promise<S
 
 // --- Cached singleton for the running app ------------------------------------
 
-let cached: SkillCatalog | null = null;
+// The PROMISE is cached, not the resolved catalog. Caching the value leaves a
+// window in which two callers both see `null` and both run the whole load —
+// 56 stock skills re-parsed — and that window is now routinely open: since
+// #2223 the renderer boots alongside startup registration, so its
+// `skills:list` lands mid-load rather than after it. A rejected load is
+// evicted so the next caller retries, matching the pre-#2223 behaviour of a
+// `cached` that was only assigned on success.
+let cached: Promise<SkillCatalog> | null = null;
 
-export async function getSkillCatalog(): Promise<SkillCatalog> {
-  if (!cached) cached = await loadSkillCatalog();
+export function getSkillCatalog(): Promise<SkillCatalog> {
+  cached ??= trackLoad(loadSkillCatalog());
   return cached;
 }
 
-export async function reloadSkillCatalog(): Promise<SkillCatalog> {
-  cached = await loadSkillCatalog();
+export function reloadSkillCatalog(): Promise<SkillCatalog> {
+  cached = trackLoad(loadSkillCatalog());
   return cached;
+}
+
+function trackLoad(load: Promise<SkillCatalog>): Promise<SkillCatalog> {
+  const tracked: Promise<SkillCatalog> = load.catch((err: unknown) => {
+    if (cached === tracked) cached = null;
+    throw err;
+  });
+  return tracked;
 }

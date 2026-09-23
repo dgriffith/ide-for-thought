@@ -84,12 +84,21 @@ void app.whenReady().then(async () => {
   initAutoUpdate();
   boot('auto-update initialized');
 
-  // Load + register skill files (#625) before any menu is built, so the
-  // dynamic Learning/Analysis menus include them on first paint. Failure to
-  // load a skill is isolated per-file inside the loader; a total failure here
-  // shouldn't block startup.
-  await registerSkillsAtStartup().catch((err) => logger('skills').warn('startup load failed:', err));
-  boot('skills registered');
+  // Load + register skill files (#625). The MENU depends on this — the dynamic
+  // Learning/Research/Analysis menus are built from the tool registry — but the
+  // WINDOW does not, and used to wait on it anyway (#2223). Started here and
+  // awaited below, after the windows exist: the renderer fetches and parses its
+  // entry chunk in its own process while main parses ~56 stock skill files,
+  // instead of after. Measured at ~50ms of skill parsing that no longer sits in
+  // front of `new BrowserWindow`.
+  //
+  // Nothing regresses on the menu side: a window is only *shown* on its first
+  // paint signal (`showWhenReady`), which lands hundreds of ms after the
+  // `buildMenu` below — so no window is ever on screen without its full menu.
+  // Failure to load a skill is isolated per-file inside the loader; a total
+  // failure here shouldn't block startup.
+  const skillsRegistered = registerSkillsAtStartup()
+    .catch((err) => logger('skills').warn('startup load failed:', err));
 
   const session = loadSession().filter((s) => {
     try { return fs.statSync(s.rootPath).isDirectory(); } catch { return false; }
@@ -99,7 +108,6 @@ void app.whenReady().then(async () => {
   if (session.length > 0) {
     for (const state of session) {
       const win = createWindow({ x: state.x, y: state.y, width: state.width, height: state.height });
-      buildMenu(win);
       win.webContents.once('did-finish-load', async () => {
         boot(`renderer loaded — opening project ${path.basename(state.rootPath)}`);
         await openProjectInWindow(win, state.rootPath);
@@ -111,16 +119,26 @@ void app.whenReady().then(async () => {
       });
     }
   } else {
-    const win = createWindow();
-    buildMenu(win);
+    createWindow();
   }
   boot('window(s) created');
 
+  // Wired before the await below, not after: this is the macOS "clicked the
+  // dock icon with no windows open" handler, and the startup path no longer
+  // runs to completion synchronously.
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
     }
   });
+
+  await skillsRegistered;
+  boot('skills registered');
+  // One call, not one per window: the menu is application-wide
+  // (`Menu.setApplicationMenu`), so building it inside the restore loop was
+  // rebuilding the same template N times.
+  buildMenu();
+  boot('menu built');
 });
 
 app.on('window-all-closed', () => {

@@ -21,6 +21,7 @@ const h = vi.hoisted(() => ({ constructed: [] as Array<{ webPreferences: Record<
 vi.mock('electron', () => {
   class FakeWebContents {
     on() { /* will-navigate wiring — never fired in this test */ }
+    once() { /* first-paint show triggers (#2223) — never fired in this test */ }
     send() { /* project-opened announce — never fired */ }
     setWindowOpenHandler() { /* nav guard wiring */ }
   }
@@ -34,10 +35,16 @@ vi.mock('electron', () => {
     loadURL() { return Promise.resolve(); }
     loadFile() { return Promise.resolve(); }
     on() { return this; }
+    once() { return this; }
+    isDestroyed() { return false; }
+    isVisible() { return false; }
+    show() { /* first paint (#2223) — this test only reads webPreferences */ }
     static getAllWindows() { return []; }
   }
   return {
     BrowserWindow,
+    // createWindow picks the pre-paint `backgroundColor` off the OS theme (#2223).
+    nativeTheme: { shouldUseDarkColors: true },
     // Present so security.ts / transitive modules' `import { … } from 'electron'`
     // bindings resolve; the members are only touched by code paths this test
     // never runs.

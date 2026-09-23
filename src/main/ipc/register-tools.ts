@@ -3,7 +3,7 @@ import { handle } from './typed-ipc';
 import { rebuildMenu } from '../menu';
 import { executeTool, prepareConversationTool } from '../tools/executor';
 import { getSkillCatalog } from '../skills/loader';
-import { reloadAndRegisterSkills, reapplyMenuConfig } from '../skills/register';
+import { reloadAndRegisterSkills, reapplyMenuConfig, skillsReady } from '../skills/register';
 import { pickAndImportSkill, removeUserSkill, revealSkillsFolder, type ImportedSkill } from '../skills/manage';
 import { getMenuConfig, saveMenuConfig } from '../skills/menu-config-store';
 import { toSkillInfo, type SkillCatalogInfo } from '../../shared/skills/types';
@@ -55,6 +55,14 @@ export function registerTools(): void {
   // Skills (#622). Returns serializable metadata only — prompt bodies stay in
   // main and are rendered at prepare/execute time (Phase 3).
   handle(Channels.SKILLS_LIST, async (): Promise<SkillCatalogInfo> => {
+    // The renderer now boots in parallel with startup skill registration
+    // (#2223), so this can arrive mid-load. Wait for it: `getMenuConfig()` is a
+    // synchronous read of a module cache that reads as "no config" until
+    // `loadMenuConfig` has resolved, and the renderer applies whatever config
+    // it is handed — so answering early would register disabled skills into
+    // the palette, slash commands and tool panel. The list is complete or it
+    // waits; it never comes back partial.
+    await skillsReady();
     const cat = await getSkillCatalog();
     return { skills: cat.skills.map(toSkillInfo), errors: cat.errors, config: getMenuConfig() };
   });

@@ -35,13 +35,45 @@ function applyCatalog(catalog: SkillCatalog): void {
   }
 }
 
+/** The in-flight (or settled) startup registration, so `skillsReady` can wait
+ *  on the same work rather than kicking off a second load. */
+let startupRegistration: Promise<SkillCatalog> | null = null;
+
 /** Load (cached) and register skills. Call once during app startup, before
  *  menus are built. */
-export async function registerSkillsAtStartup(): Promise<SkillCatalog> {
-  await loadMenuConfig();
-  const catalog = await getSkillCatalog();
-  applyCatalog(catalog);
-  return catalog;
+export function registerSkillsAtStartup(): Promise<SkillCatalog> {
+  startupRegistration ??= (async () => {
+    await loadMenuConfig();
+    const catalog = await getSkillCatalog();
+    applyCatalog(catalog);
+    return catalog;
+  })();
+  return startupRegistration;
+}
+
+/**
+ * Resolves once startup skill registration has finished — the menu config is
+ * cached and the catalog is in the registry.
+ *
+ * Since #2223 the window is created *before* this completes, so the renderer
+ * can reach an IPC handler mid-load. Anything answering a question whose
+ * correct answer depends on the catalog or on `getMenuConfig()` awaits this
+ * first: `getMenuConfig()` reads a module cache that is `emptyMenuConfig()`
+ * until `loadMenuConfig` resolves, and "empty" there does not mean "the user
+ * configured nothing" — it means "not read yet", which would silently hand the
+ * renderer every disabled skill as enabled.
+ *
+ * Resolves immediately when startup registration was never kicked off (tests,
+ * and the CLI, which builds its own catalog).
+ *
+ * A barrier, not a result: it resolves even when startup registration *failed*,
+ * so a broken load doesn't turn every later `skills:list` into a rejection. The
+ * caller goes on to ask `getSkillCatalog()`, which surfaces the failure on its
+ * own terms.
+ */
+export function skillsReady(): Promise<void> {
+  if (!startupRegistration) return Promise.resolve();
+  return startupRegistration.then(() => undefined, () => undefined);
 }
 
 /** Re-apply the current catalog with the current (already-loaded) menu config.

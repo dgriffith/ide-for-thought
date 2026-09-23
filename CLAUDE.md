@@ -26,6 +26,56 @@ Three-process Electron app with strict context isolation:
 
 IPC channels are defined in `src/shared/channels.ts`. Types in `src/shared/types.ts`.
 
+#### Startup: nothing is awaited in front of the window (#2223)
+
+Two rules, both held by tests, both about the same thing — the user should be
+looking at the app, not at a rectangle.
+
+**The window is built hidden and shown on its first paint signal.**
+`createWindow` passes `show: false` + a themed `backgroundColor`, and
+`showWhenReady` shows it. It used to map immediately and then sit in Electron's
+stock white for the whole renderer fetch + parse + mount — measured at ~207ms
+of guaranteed-blank window between `new BrowserWindow` and `did-finish-load`,
+plus however long the Svelte mount took after that.
+
+`show: false` is half a fix, and the missing half is the dangerous one: a
+window that *never* appears is far worse than a blank one. `ready-to-show` is
+documented as "may not fire" for a page that never becomes paintable, so
+`showWhenReady` arms three independent triggers — `ready-to-show`,
+`did-finish-load`/`did-fail-load`, and an unref'd 4s timer — first one wins,
+and it shows at most once (a later trigger must not haul back a window the user
+has since put away). **Any new window-construction site owes the same
+guarantee**; `tests/main/window-first-paint.test.ts` drives the real
+`createWindow` against a fake BrowserWindow for each of those paths.
+
+**Skill loading no longer gates window creation.** `main.ts` used to `await
+registerSkillsAtStartup()` before `createWindow()`, justified by "skills must
+precede menu building" — true of the *menu*, which is built after the window,
+and never true of the window. Startup now kicks the load off, creates the
+windows, and awaits it just before `buildMenu()`. Nothing regresses on the menu
+side because a window isn't *shown* until first paint, hundreds of ms after
+`buildMenu` lands. `tests/architecture/startup-window-not-gated.test.ts` is
+structural rather than a boot-timing assertion (#2229): it fails on **any**
+`await` reaching the ready path ahead of `createWindow`, not just this one.
+
+Un-gating opened a race that had not existed: the renderer can now call
+`skills:list` mid-load. Two consequences worth keeping in mind for anything
+else moved off the pre-window path:
+
+- **An "empty" answer must not mean "not ready yet".** `getMenuConfig()` is a
+  sync read of a module cache that reads as `emptyMenuConfig()` until
+  `loadMenuConfig` resolves — and empty there would have been applied by the
+  renderer as *the user disabled nothing*, putting every disabled skill into
+  the palette and slash commands. `SKILLS_LIST` awaits `skillsReady()` (a
+  barrier that resolves even on failure) first, so the list is complete or it
+  waits; it never comes back partial. That is the same rule as
+  `withRootPathOr`'s under **IPC error handling**, arriving from the other
+  direction.
+- **Cache the promise, not the resolved value.** `getSkillCatalog`'s
+  `if (!cached) cached = await load()` left a window where two callers both see
+  `null` and both parse all 56 stock skills — previously theoretical, now the
+  normal shape of startup.
+
 ## Conventions
 
 ### Svelte 5
