@@ -79,7 +79,12 @@ describe('runAllChecks — the findings on a project with one of everything (#22
       'links.md',
       '# Links\n\n[[target]] and [[target#real-heading]] are fine.\n\n'
       + '[[no-such-note]] is not.\n\n[[target#no-such-heading]] is not.\n\n'
-      + '[[cite::no-such-source]] is not.\n\n[[cite::cited-unread]] is fine.\n',
+      // Three sources are cited, and only one of them should be reported as
+      // cited-but-unread: `complete` is marked read and `aged-stub` is a stub.
+      // Without those two the cited-unread assertion below passes even with
+      // its readStatus/stub filters deleted — verified by removing them.
+      + '[[cite::no-such-source]] is not.\n\n'
+      + '[[cite::cited-unread]], [[cite::complete]] and [[cite::aged-stub]] are fine.\n',
     );
 
     // ── An orphaned inline asset, and a referenced one ───────────────────

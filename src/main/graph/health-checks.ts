@@ -22,6 +22,7 @@ import { noteTargetPathBeside } from '../../shared/wiki-link-resolver';
 import { onGraphChanged } from './graph-events';
 import { emitInspectionsChanged } from './inspection-events';
 import { isA, labelOf, supportedBy, unsupported } from './argument-patterns';
+import { runSourceChecks } from './source-checks';
 import {
   catalogTypeFor,
   isInspectionEnabled,
@@ -44,9 +45,6 @@ export type { Inspection, InspectionSeverity };
 
 /** Stale note check: max results to report */
 const STALE_NOTES_LIMIT = 20;
-
-/** Duplicate sources check: max results to report for each type (DOI, URI) */
-const DUPLICATE_SOURCES_LIMIT = 25;
 
 /** Broken links check: max links to scan before hitting soft cap */
 const BROKEN_LINKS_QUERY_LIMIT = 1000;
@@ -101,11 +99,18 @@ export async function runAllChecks(
       on('stale_note') ? checkStaleness(ctx, settings.staleDays) : none(),
       on('missing_warrant') || on('missing_backing') ? checkEvidenceGaps(ctx) : none(),
       on('contradiction') ? checkContradictions(ctx) : none(),
-      on('invalid_doi') ? checkInvalidDois(ctx) : none(),
-      on('source_missing_metadata') ? checkSourcesMissingMetadata(ctx) : none(),
-      on('stub_aged') ? checkLongUnresolvedStubs(ctx, settings.stubDays) : none(),
-      on('source_cited_unread') ? checkCitedUnreadSources(ctx) : none(),
-      on('source_duplicate_doi') ? checkDuplicateSources(ctx) : none(),
+      // The five source checks share ONE scan of the source table rather than
+      // opening `?source minerva:sourceId ?sourceId` six times over (#2208
+      // C1b) — see `source-checks.ts`. They stay individually switchable; what
+      // they no longer do is each pay for their own walk.
+      runSourceChecks(ctx, {
+        invalidDoi: on('invalid_doi'),
+        missingMetadata: on('source_missing_metadata'),
+        agedStub: on('stub_aged'),
+        citedUnread: on('source_cited_unread'),
+        duplicates: on('source_duplicate_doi'),
+        stubDays: settings.stubDays,
+      }),
       on('broken_note_link') || on('broken_anchor_link') || on('broken_cite_quote')
         ? checkBrokenLinks(ctx)
         : none(),
@@ -341,38 +346,6 @@ async function checkEvidenceGaps(ctx: ProjectContext): Promise<Inspection[]> {
   return inspections;
 }
 
-/**
- * Sources carrying a `bibo:doi` literal that doesn't match the
- * Crossref DOI shape (#473). Shape-only check — we don't hit
- * doi.org. Surfacing it through the inspections panel keeps the
- * warning soft and non-blocking, per the issue's "no popup" note.
- */
-const VALID_DOI_RE = /^10\.\d{4,9}\/[-._;/:a-zA-Z0-9()]+$/;
-
-async function checkInvalidDois(ctx: ProjectContext): Promise<Inspection[]> {
-  const results = await queryGraph(ctx, `
-    SELECT ?source ?sourceId ?title ?doi WHERE {
-      ?source minerva:sourceId ?sourceId .
-      ?source bibo:doi ?doi .
-      OPTIONAL { ?source dc:title ?title }
-    }
-  `);
-
-  return asRows(results).flatMap((r, i) => {
-    if (!r.doi || VALID_DOI_RE.test(r.doi)) return [];
-    const label = r.title || r.sourceId!;
-    return [{
-      id: `invalid-doi-${i}`,
-      type: 'invalid_doi',
-      severity: 'warning' as const,
-      nodeUri: r.source!,
-      nodeLabel: label,
-      message: `Source "${label}" has a DOI that doesn't look right: ${r.doi}`,
-      suggestedAction: 'Open the source meta.ttl and correct the bibo:doi value.',
-    }];
-  });
-}
-
 async function checkContradictions(ctx: ProjectContext): Promise<Inspection[]> {
   const results = await queryGraph(ctx, `
     SELECT ?a ?aLabel ?b ?bLabel ?notePath WHERE {
@@ -395,185 +368,6 @@ async function checkContradictions(ctx: ProjectContext): Promise<Inspection[]> {
     suggestedAction: 'Review both claims — at least one needs to be revised or its status changed',
     ...(r.notePath ? { notePath: r.notePath } : {}),
   }));
-}
-
-/**
- * Sources missing the bibliographic minimum — no dc:title OR no
- * dc:creator (#119). Stubs are intentionally partial; filter them
- * out so the inspections panel surfaces only sources that should
- * have been populated but weren't.
- */
-async function checkSourcesMissingMetadata(ctx: ProjectContext): Promise<Inspection[]> {
-  const results = await queryGraph(ctx, `
-    SELECT ?source ?sourceId ?title (GROUP_CONCAT(?creator; SEPARATOR=", ") AS ?creators) WHERE {
-      ?source minerva:sourceId ?sourceId .
-      OPTIONAL { ?source dc:title ?title }
-      OPTIONAL { ?source dc:creator ?creator }
-      FILTER NOT EXISTS { ?source thought:stubStatus ?_stub }
-      FILTER(!BOUND(?title) || !BOUND(?creator))
-    }
-    GROUP BY ?source ?sourceId ?title
-    LIMIT 50
-  `);
-
-  return asRows(results).map((r, i) => {
-    const label = r.title || r.sourceId!;
-    const missing: string[] = [];
-    if (!r.title) missing.push('title');
-    if (!r.creators) missing.push('authors');
-    return {
-      id: `source-missing-metadata-${i}`,
-      type: 'source_missing_metadata',
-      severity: 'info' as const,
-      nodeUri: r.source!,
-      nodeLabel: label,
-      message: `Source "${label}" is missing ${missing.join(' and ')}.`,
-      suggestedAction: missing.includes('title')
-        ? 'Open meta.ttl and set dc:title.'
-        : 'Open meta.ttl and add dc:creator entries.',
-    };
-  });
-}
-
-/**
- * Reference stubs (#106) that have lingered unresolved for more
- * than `thresholdDays` days (#119). Soft prompt to run Resolve
- * (#107) or hand-fix the stub.
- */
-async function checkLongUnresolvedStubs(ctx: ProjectContext, thresholdDays: number): Promise<Inspection[]> {
-  const cutoff = new Date(Date.now() - thresholdDays * DAY_MS).toISOString();
-  const results = await queryGraph(ctx, `
-    SELECT ?source ?sourceId ?title ?modified WHERE {
-      ?source minerva:sourceId ?sourceId .
-      ?source thought:stubStatus "unresolved" .
-      ?source dc:modified ?modified .
-      OPTIONAL { ?source dc:title ?title }
-      FILTER(?modified < "${cutoff}"^^<http://www.w3.org/2001/XMLSchema#dateTime>)
-    }
-    ORDER BY ?modified
-    LIMIT 50
-  `);
-
-  return asRows(results).map((r, i) => {
-    const label = r.title || r.sourceId!;
-    return {
-      id: `stub-aged-${i}`,
-      type: 'stub_aged',
-      severity: 'info' as const,
-      nodeUri: r.source!,
-      nodeLabel: label,
-      message: `Stub "${label}" has been unresolved since ${r.modified!.split('T')[0]}.`,
-      suggestedAction: 'Right-click the source and run "Resolve to full source", or hand-edit meta.ttl.',
-      // Deterministic quick-fix (#1446): resolve the stub against CrossRef.
-      fix: { kind: 'resolve-source-stub', label: 'Resolve source', sourceId: r.sourceId! },
-    };
-  });
-}
-
-/**
- * Sources cited by at least one note whose readStatus is unset or
- * explicitly "unread" (#119). Soft nudge — "you cited this; have
- * you read it?"
- */
-async function checkCitedUnreadSources(ctx: ProjectContext): Promise<Inspection[]> {
-  const results = await queryGraph(ctx, `
-    SELECT ?source ?sourceId ?title (COUNT(DISTINCT ?note) AS ?cites) WHERE {
-      ?source minerva:sourceId ?sourceId .
-      ?note thought:cites ?source .
-      OPTIONAL { ?source dc:title ?title }
-      OPTIONAL { ?source minerva:readStatus ?status }
-      FILTER(!BOUND(?status) || ?status = "unread")
-      FILTER NOT EXISTS { ?source thought:stubStatus ?_stub }
-    }
-    GROUP BY ?source ?sourceId ?title
-    ORDER BY DESC(?cites)
-    LIMIT 25
-  `);
-
-  return asRows(results).map((r, i) => {
-    const label = r.title || r.sourceId!;
-    const count = Number(r.cites ?? 0) || 0;
-    return {
-      id: `source-cited-unread-${i}`,
-      type: 'source_cited_unread',
-      severity: 'info' as const,
-      nodeUri: r.source!,
-      nodeLabel: label,
-      message: `"${label}" is cited ${count === 1 ? 'once' : `${count} times`} but you haven't marked it Reading or Read.`,
-      suggestedAction: 'Open the source and set its reading status, or right-click → Mark reading.',
-      // Deterministic quick-fix (#1446): mark the cited source read.
-      fix: { kind: 'set-read-status', label: 'Mark read', sourceId: r.sourceId!, status: 'read' },
-    };
-  });
-}
-
-/**
- * Sources sharing the same DOI or URL (#119). After the canonical-id
- * rules (#90) this shouldn't happen — but if a user hand-creates a
- * source folder, or two ingests raced before the dedupe landed,
- * the safety net flags the duplicates so they can be merged via
- * #90 part 2.
- */
-async function checkDuplicateSources(ctx: ProjectContext): Promise<Inspection[]> {
-  const inspections: Inspection[] = [];
-
-  // Check DOI duplicates.
-  const doiResults = await queryGraph(ctx, `
-    SELECT ?keyDoi (GROUP_CONCAT(DISTINCT ?source; SEPARATOR=" || ") AS ?sources)
-           (GROUP_CONCAT(DISTINCT ?sourceId; SEPARATOR=" || ") AS ?ids) WHERE {
-      ?source minerva:sourceId ?sourceId .
-      ?source bibo:doi ?doi . BIND(LCASE(?doi) AS ?keyDoi)
-    }
-    GROUP BY ?keyDoi
-    HAVING (COUNT(DISTINCT ?source) > 1)
-    LIMIT ${DUPLICATE_SOURCES_LIMIT}
-  `);
-
-  for (const [i, r] of asRows(doiResults).entries()) {
-    const ids = (r.ids ?? '').split(' || ').filter(Boolean);
-    const firstSource = (r.sources ?? '').split(' || ')[0] ?? '';
-    const keyValue = r.keyDoi!;
-    inspections.push({
-      id: `dup-doi-${i}`,
-      type: 'source_duplicate_doi',
-      severity: 'warning',
-      nodeUri: firstSource,
-      nodeLabel: ids[0] ?? keyValue,
-      message: `Duplicate DOI ${keyValue}: ${ids.length} sources (${ids.join(', ')}).`,
-      suggestedAction: 'Right-click one and choose "Merge into…" to consolidate.',
-      fix: { kind: 'merge-sources', label: 'Merge…', sourceIds: ids },
-    });
-  }
-
-  // Check URI duplicates.
-  const uriResults = await queryGraph(ctx, `
-    SELECT ?keyUri (GROUP_CONCAT(DISTINCT ?source; SEPARATOR=" || ") AS ?sources)
-           (GROUP_CONCAT(DISTINCT ?sourceId; SEPARATOR=" || ") AS ?ids) WHERE {
-      ?source minerva:sourceId ?sourceId .
-      ?source bibo:uri ?uri . BIND(LCASE(REPLACE(STR(?uri), "/$", "")) AS ?keyUri)
-    }
-    GROUP BY ?keyUri
-    HAVING (COUNT(DISTINCT ?source) > 1)
-    LIMIT ${DUPLICATE_SOURCES_LIMIT}
-  `);
-
-  for (const [i, r] of asRows(uriResults).entries()) {
-    const ids = (r.ids ?? '').split(' || ').filter(Boolean);
-    const firstSource = (r.sources ?? '').split(' || ')[0] ?? '';
-    const keyValue = r.keyUri!;
-    inspections.push({
-      id: `dup-uri-${i}`,
-      type: 'source_duplicate_uri',
-      severity: 'warning',
-      nodeUri: firstSource,
-      nodeLabel: ids[0] ?? keyValue,
-      message: `Duplicate URL ${keyValue}: ${ids.length} sources (${ids.join(', ')}).`,
-      suggestedAction: 'Right-click one and choose "Merge into…" to consolidate.',
-      fix: { kind: 'merge-sources', label: 'Merge…', sourceIds: ids },
-    });
-  }
-
-  return inspections;
 }
 
 /**

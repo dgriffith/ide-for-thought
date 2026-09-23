@@ -97,7 +97,7 @@ const BUDGETS: Record<string, number> = {
   // it — a state module importing `Inspection` from here while this imported
   // the state from there is a genuine cycle, and `no-cycles.test.ts` follows
   // type-only imports. Below 826 now, so the two raises are more than repaid.
-  'src/main/graph/health-checks.ts': 896,
+  'src/main/graph/health-checks.ts': 690,
   'src/renderer/lib/components/ExportDialog.svelte': 712,
   'src/renderer/lib/components/ProposalsPanel.svelte': 613,
   'src/renderer/lib/components/QueryPanel.svelte': 759,
