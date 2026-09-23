@@ -159,8 +159,11 @@ export async function initGraph(ctx: ProjectContext, opts?: InitGraphOptions): P
   const metaDir = path.join(rootPath, '.minerva');
   await fs.mkdir(metaDir, { recursive: true });
 
-  // Initialize Comunica engine (process-wide; stateless across projects)
-  getEngine();
+  // Warm the Comunica engine (process-wide; stateless across projects).
+  // Deliberately NOT awaited: the module is ~732ms cold (#2335), and project
+  // open has no need of it — the first query awaits the same promise, and by
+  // then this prefetch has usually finished.
+  void getEngine();
 
   const state: GraphState = {
     rootPath,

@@ -92,7 +92,7 @@ export async function queryGraph(
 ): Promise<{ results: unknown[]; columns: string[]; error?: string }> {
   const state = getState(ctx);
   if (!state) return { results: [], columns: [] };
-  const engine = getEngine();
+  const engine = await getEngine();
   try {
     // Build the mirror if cold, yielding so a large rebuild doesn't jank the
     // main thread (#1115). Warm queries return the live mirror with no yield.

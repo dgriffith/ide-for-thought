@@ -11,7 +11,7 @@
  */
 
 import * as $rdf from 'rdflib';
-import { QueryEngine } from '@comunica/query-sparql-rdfjs';
+import type { QueryEngine } from '@comunica/query-sparql-rdfjs';
 import * as N3 from 'n3';
 import { performance } from 'node:perf_hooks';
 import * as uriHelpers from './uri-helpers';
@@ -25,12 +25,33 @@ import { logger } from '../../shared/logger';
 
 // ── Comunica engine (process-wide; stateless across projects) ────────────────
 
-let engine: QueryEngine | null = null;
+/**
+ * The SPARQL engine, constructed once and loaded on first use (#2335).
+ *
+ * Construction was already lazy; the IMPORT was not, so `main.ts`'s module
+ * graph pulled `@comunica/query-sparql-rdfjs` at boot whether or not anyone
+ * ran a query. Measured unbundled at **732ms cold** — the second-largest item
+ * on the pre-window boot path after the DuckDB binding (#2338).
+ *
+ * `getEngine` is therefore async now. `queryGraph` was already async and just
+ * awaits it; `initGraph` fires it without awaiting, as a prefetch, so opening
+ * a project warms the engine in the background instead of blocking on it or
+ * leaving the first query to pay.
+ */
+let enginePromise: Promise<QueryEngine> | null = null;
 
-/** Lazily construct the process-wide Comunica engine and return it. */
-export function getEngine(): QueryEngine {
-  if (!engine) engine = new QueryEngine();
-  return engine;
+export function getEngine(): Promise<QueryEngine> {
+  if (!enginePromise) {
+    enginePromise = import('@comunica/query-sparql-rdfjs')
+      .then((m) => new m.QueryEngine())
+      .catch((err: unknown) => {
+        // Not cached on failure: a load error should not make every later
+        // query replay it.
+        enginePromise = null;
+        throw err;
+      });
+  }
+  return enginePromise;
 }
 
 // ── SPARQL/RDF plumbing ──────────────────────────────────────────────────────
