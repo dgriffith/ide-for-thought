@@ -184,31 +184,76 @@ async function checkUnsupportedClaims(ctx: ProjectContext): Promise<Inspection[]
  * selection semantics unchanged. Two queries rather than one, which is the
  * right trade even against C1b's "fewer round-trips" — both are cheap, and
  * together they are a third of the single query they replace.
+ *
+ * ── The GROUP BY is the same cliff, one step along (#2208 C1b) ─────────────
+ *
+ * The version above shipped as `GROUP BY ?note (MIN(?modified)) ORDER BY
+ * ?oldest LIMIT n`, and it left most of the cost in place. Measured at 3,000
+ * notes where every note is stale — the "mature thoughtbase" case the header
+ * describes, and the one the bench cannot reach, because
+ * `health-checks.bench.ts` writes notes with no frontmatter `modified`, so
+ * their `dc:modified` is the file's just-written mtime and NOTHING matches the
+ * 30-day filter:
+ *
+ *   | phase-one shape                           | 3,000 notes |
+ *   |-------------------------------------------|-------------|
+ *   | `GROUP BY ?note (MIN(…)) ORDER BY LIMIT`  |   1,009ms   |
+ *   | `GROUP BY ?note (MIN(…))`, no ORDER BY    |     887ms   |
+ *   | raw `?note ?modified`, aggregate in JS    |      80ms   |
+ *
+ * So the ORDER BY was ~120ms of a ~1,000ms query: Comunica's grouping over
+ * 3,000 distinct keys is what costs, and moving the sort out of SPARQL left it
+ * untouched. (Grouping is not slow per se — the citation counts in
+ * `source-checks.ts` group 3,000 rows into 40 keys in 25ms. It is the KEY
+ * COUNT, not the row count.)
+ *
+ * Aggregating in JS is the conclusion of the header's own diagnosis rather
+ * than a contradiction of it: "the cost is carrying four bound variables per
+ * row" is right, and this projection carries two. 3,000 rows of `{note,
+ * modified}` cost 80ms to materialise; the MIN-per-note, the sort and the
+ * slice over them are microseconds. Selection semantics are unchanged, which
+ * `staleness-selection.test.ts` — written for the previous fix and untouched
+ * by this one — is what proves.
  */
 async function oldestMatching(
   ctx: ProjectContext,
   opts: { subjectVar: string; where: string; limit: number },
 ): Promise<Array<{ iri: string; modified: string }>> {
   const { subjectVar: v, where, limit } = opts;
-  // GROUP BY + MIN rather than DISTINCT: a note carries TWO `dc:modified`
-  // values — the file's mtime and the frontmatter's — so a row-wise DISTINCT
-  // keeps both and the LIMIT then counts rows rather than notes. That is a
-  // pre-existing bug this fix would otherwise inherit: the old single query
-  // reported the same note twice in the panel, truncated by its own LIMIT, so
-  // "20 stale notes" could be ten notes listed twice. MIN also picks the right
-  // date to sort and report on — the older of the two is what makes a note
-  // stale.
   const results = await queryGraph(ctx, `
-    SELECT ?${v} (MIN(?modified) AS ?oldest) WHERE {
+    SELECT ?${v} ?modified WHERE {
       ${where}
     }
-    GROUP BY ?${v}
-    ORDER BY ?oldest
-    LIMIT ${limit}
   `);
-  return asRows(results)
-    .filter((r) => r[v] && r.oldest)
-    .map((r) => ({ iri: r[v]!, modified: r.oldest! }));
+
+  // MIN per subject, not a row-wise DISTINCT: a note carries TWO `dc:modified`
+  // values — the file's mtime and the frontmatter's — so keeping both would
+  // make the limit count rows rather than notes, and "20 stale notes" could be
+  // ten notes listed twice. MIN also picks the right date to sort and report
+  // on: the older of the two is what makes a note stale.
+  //
+  // Compared as strings. Every `dc:modified` the indexer writes is a
+  // `Z`-suffixed ISO-8601 instant, for which lexicographic and chronological
+  // order agree; a hand-written frontmatter date carrying a numeric UTC offset
+  // could in principle sort within a few hours of its true place. The
+  // membership decision is unaffected — SPARQL's `FILTER` above still made it
+  // by value — so the only reachable consequence is the order of two notes
+  // stale by the same day, which is why this isn't worth a date parse per row.
+  const oldest = new Map<string, string>();
+  for (const r of asRows(results)) {
+    const iri = r[v];
+    const modified = r.modified;
+    if (!iri || !modified) continue;
+    const seen = oldest.get(iri);
+    if (seen === undefined || modified < seen) oldest.set(iri, modified);
+  }
+
+  return [...oldest.entries()]
+    // Ties broken by IRI so the panel's order is stable between runs rather
+    // than however the engine happened to emit them.
+    .sort(([aIri, a], [bIri, b]) => (a < b ? -1 : a > b ? 1 : aIri.localeCompare(bIri)))
+    .slice(0, limit)
+    .map(([iri, modified]) => ({ iri, modified }));
 }
 
 /** `VALUES ?v { <a> <b> }`, or null when there is nothing to look up. */
