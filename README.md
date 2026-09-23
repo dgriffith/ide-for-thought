@@ -35,7 +35,7 @@ A fast CodeMirror 6 surface with live preview. Write plain markdown; get
 rendered blocks without leaving the keyboard.
 
 - **Three view modes** — source, preview, or split, toggled instantly.
-- **Wiki-links & typed links** — `[[note]]` plus 11 semantic link types
+- **Wiki-links & typed links** — `[[note]]` plus 12 semantic link types
   (supports, rebuts, depends-on, supersedes…), each color-coded.
 - **Rich blocks inline** — callouts, tables, footnotes, highlights, math
   (KaTeX), and diagrams.
@@ -70,7 +70,7 @@ the AI work from your real notes instead of guessing.
 
 ### Tools for Thought — skills
 
-Nearly 50 **skills**: structured thinking operations you invoke from the
+56 **skills**: structured thinking operations you invoke from the
 Learning, Research, and Analysis menus — *Explain Like I'm…*, *Check Facts*,
 *Extract Key Claims*, *Steelman*, *Double Crux*, *Murphyjitsu*, and many more.
 Each runs a careful prompt over your note and returns something you review.
@@ -141,6 +141,27 @@ or RDF/Turtle.
 - **isomorphic-git** — Version control (no system git required)
 - **Vite + electron-forge** — Build tooling
 
+## Download
+
+**[Download Minerva for macOS (Apple Silicon)](https://github.com/dgriffith/ide-for-thought/releases/latest/download/Minerva-mac-arm64.dmg)**
+— signed and notarized by Apple, so it opens without a security warning, and it
+updates itself from then on. Drag it to Applications and launch. No account, no
+sign-up, no cloud.
+
+Every build, with release notes, is on the
+[Releases page](https://github.com/dgriffith/ide-for-thought/releases).
+
+**macOS on Apple Silicon is the only platform shipped today.** Intel Macs get
+nothing from the installer or from auto-update, which serves per-architecture;
+x64 / universal coverage is tracked in
+[#962](https://github.com/dgriffith/ide-for-thought/issues/962). Windows and
+Linux aren't built yet either. On any platform you can run it from source — see
+[Development](#development) below.
+
+The full user manual — 118 pages covering the editor, the graph, sources,
+skills, conversations, and every settings tab — is at
+**<https://dgriffith.github.io/minerva/docs/>**.
+
 ## Development
 
 ```bash
@@ -187,19 +208,12 @@ src/
 
 ## Keyboard Shortcuts
 
-| Shortcut | Action |
-|----------|--------|
-| Cmd+N | New Note |
-| Cmd+S | Save |
-| Cmd+O | Open Project |
-| Cmd+B | Toggle Sidebar |
-| Cmd+Shift+P | Cycle View Mode |
-| Cmd+Shift+N | New Window |
-| Cmd+Shift+W | Close Project |
-| Cmd+Shift+C | Commit All |
-| Cmd+Shift+R | Reveal in Finder |
-| Cmd+F | Find |
-| Cmd+H | Find & Replace |
+**Help → Keyboard Shortcuts** (`Cmd+/`) lists every one of them, grouped by
+menu and formatted for your platform. It is generated from the live menu
+template rather than written down, so it cannot go stale — which is why this
+file no longer keeps a partial copy. Editor-local keys are covered on the docs
+site under
+[Editor → Keyboard shortcuts](https://dgriffith.github.io/minerva/docs/editor-keyboard-shortcuts.html).
 
 ## Contributing
 
