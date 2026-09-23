@@ -62,7 +62,8 @@ const THRESHOLD = 600;
  * taking the same commands out of a menu file that was executing them inline.
  */
 const BUDGETS: Record<string, number> = {
-  'src/renderer/App.svelte': 1843,
+  // +1 for #2256: toggleCommandPalette on the ipc-wiring ctx.
+  'src/renderer/App.svelte': 1844,
   // +32 for #2210 §3b: the shared wiki-link index and the comment explaining
   // why one index is safe for all three resolvers. Net code is SHORTER (two
   // duplicated file-array builds removed); the growth is the reasoning, which
@@ -76,12 +77,20 @@ const BUDGETS: Record<string, number> = {
   // Three changes stacked here: #2218 (PythonSettings doc + type), #2222
   // (sources.queueCounts signature + its why-comment) and #2220 (searchInNotes
   // returns a union, +1 export). 1360 is the three together, measured.
-  'src/renderer/lib/ipc/client.ts': 1360,
+  // +2 for #2256: the onCommandPalette signature and its why-comment. #2268
+  // predicted this: the IPC-surface files are budgeted and grow one line per
+  // channel by construction, so a bump here is the expected remedy, not a
+  // smell.
+  'src/renderer/lib/ipc/client.ts': 1362,
   'src/renderer/lib/stores/conversations.svelte.ts': 1165,
   'src/renderer/lib/components/Editor.svelte': 854,
   'src/renderer/lib/stores/editor.svelte.ts': 913,
     'src/renderer/lib/components/right-sidebar/PropertiesPanel.svelte': 1156,
-  'src/main/menu.ts': 956,
+  // +29 for #2254/#2256: the DOCS_URL rationale (why Help pointed at the
+  // repo's dev-docs folder and how the parity test keeps it honest) and the
+  // Command Palette item, whose comment explains that adding the item IS the
+  // documentation fix — Keyboard Shortcuts derives from this template.
+  'src/main/menu.ts': 985,
   'src/renderer/lib/components/Sidebar.svelte': 994,
   'src/renderer/lib/app/refactor-ops.svelte.ts': 856,
   // Raised again in #2208: the staleness check became two queries (sort a
@@ -102,8 +111,10 @@ const BUDGETS: Record<string, number> = {
   'src/renderer/lib/components/ProposalsPanel.svelte': 613,
   'src/renderer/lib/components/QueryPanel.svelte': 759,
   'src/renderer/lib/components/conversations/DraftCards.svelte': 758,
-  'src/shared/ipc-contract.ts': 784,  // #2288: two inline Inspection shapes → Inspection[]; #2222: sources:queueCounts
-  'src/shared/channels.ts': 745,  // #2222: SOURCES_QUEUE_COUNTS + its why-comment
+  // +1 for #2256: the MENU_COMMAND_PALETTE channel / its MENU_COMMANDS entry.
+  'src/shared/ipc-contract.ts': 785,  // #2288: two inline Inspection shapes → Inspection[]; #2222: sources:queueCounts
+  // +1 for #2256: the MENU_COMMAND_PALETTE channel / its MENU_COMMANDS entry.
+  'src/shared/channels.ts': 746,  // #2222: SOURCES_QUEUE_COUNTS + its why-comment
   'src/renderer/lib/app/note-ops.ts': 687,
   'src/renderer/lib/editor/formatting.ts': 668,
   // #2227: listTables went from a 2N per-table loop to a bounded column sweep
@@ -124,7 +135,8 @@ const BUDGETS: Record<string, number> = {
   // in two files. The seam worth taking here, if this file grows again, is the
   // ~250-line `<style>` block, not the logic.
   'src/renderer/lib/components/FindInNotesDialog.svelte': 633,
-  'src/preload/preload.ts': 650,  // #2222: sources.queueCounts passthrough
+  // +1 for #2256: onCommandPalette passthrough.
+  'src/preload/preload.ts': 651,  // #2222: sources.queueCounts passthrough
   'src/main/ipc/register-conversation-drafts.ts': 577,
   // New entry in #2218, which took this file from 538 over the threshold.
   // The seam this check asks about was taken first: the deadline POLICY —

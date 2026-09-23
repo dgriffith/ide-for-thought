@@ -640,6 +640,7 @@ export const MENU_COMMANDS = [
   'clearRecent',
   'closeGroup',
   'closeProject',
+  'commandPalette',
   'cycleTheme',
   'editSavedQueries',
   'editThoughtbaseDoc',

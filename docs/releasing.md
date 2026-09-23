@@ -276,4 +276,27 @@ draft's top section by hand when a release deserves a narrative.
 | `.github/workflows/release.yml` | Tag → signed build → draft Release |
 | `forge.config.ts` | Signing/notarization config (reads Apple env) |
 | `src/main/auto-update.ts` | In-app updater against update.electronjs.org |
-| `scripts/deploy-to-gh-pages.sh` | Publishes `website/` to the `gh-pages` branch (the live site) — not run automatically; run by hand whenever `website/` content changes |
+| `scripts/deploy-to-gh-pages.sh` | Publishes `website/` to the `gh-pages` branch of **`dgriffith/minerva`** — not run automatically; run by hand whenever `website/` content changes |
+
+### Where the site lives (#2254)
+
+<!-- DOCS_SITE_URL: keep in step with `DOCS_URL` in src/main/menu.ts —
+     tests/architecture/docs-url.test.ts asserts the two agree. -->
+
+- **User manual:** <https://dgriffith.github.io/minerva/docs/>
+- **Marketing site:** <https://dgriffith.github.io/minerva/>
+
+Written down here because it previously was not written down *anywhere* in
+the repository — not in this file, not in `README.md`, not in the deploy
+script's own output. That is almost certainly why Help → Documentation
+pointed at the repo's developer-docs folder instead of the manual: nobody
+had the real URL to put there.
+
+**Two repos, and that is deliberate — not drift.** The source lives in
+`dgriffith/ide-for-thought`; the site is published to `dgriffith/minerva`,
+whose GitHub description is literally "Minerva website". So the footer in
+`website/docs/_layout.html` linking *Source* at `ide-for-thought` is correct,
+and #2254's third item — "reconcile the `ide-for-thought` vs `minerva`
+repo-name inconsistency" — was a misreading of two repos doing two jobs.
+There is nothing to reconcile; there was something to write down.
+

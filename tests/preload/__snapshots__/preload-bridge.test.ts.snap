@@ -189,6 +189,7 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
     "onClearRecent",
     "onCloseGroup",
     "onCloseProject",
+    "onCommandPalette",
     "onCycleTheme",
     "onEditSavedQueries",
     "onEditThoughtbaseDoc",

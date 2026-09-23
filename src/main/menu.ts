@@ -475,6 +475,20 @@ function buildViewMenu(gate: Gate, isMac: boolean): Electron.MenuItemConstructor
   return {
     label: 'View',
     submenu: [
+      // First in View because it is the app's launcher, and because until
+      // #2256 it had no menu item at all — which made it invisible to Help ->
+      // Keyboard Shortcuts, since that dialog DERIVES its contents from this
+      // template (`collectAcceleratorsByMenu`) rather than restating them.
+      // A binding with no menu item is a binding the shortcuts help cannot
+      // know about, so the palette was discoverable only from the docs site —
+      // which the Help menu itself could not correctly reach either (#2254).
+      // Adding the item is the whole fix: the dialog picks it up for free.
+      gate({
+        label: 'Command Palette',
+        accelerator: 'CmdOrCtrl+K',
+        click: () => send(Channels.MENU_COMMAND_PALETTE),
+      }),
+      { type: 'separator' as const },
       gate({
         label: 'Toggle Left Sidebar',
         accelerator: 'CmdOrCtrl+B',
@@ -923,7 +937,22 @@ function buildHelpMenu(isMac: boolean): Electron.MenuItemConstructorOptions {
   };
 }
 
-const DOCS_URL = 'https://github.com/dgriffith/ide-for-thought/tree/main/docs';
+/**
+ * Help -> Documentation. The USER MANUAL, not the repo's developer-docs folder
+ * (#2254).
+ *
+ * This pointed at `github.com/dgriffith/ide-for-thought/tree/main/docs` — a raw
+ * file listing of `releasing.md`, `packaging.md`, `config-roots.md` and friends.
+ * The actual manual is 118 pages and 61,245 words, built from `website/docs/`,
+ * CI-gated with zero orphans, and the app could not reach it. Coverage without
+ * a path to it is zero.
+ *
+ * The URL is also recorded in `docs/releasing.md`, and
+ * `tests/architecture/docs-url.test.ts` asserts the two agree — because the
+ * reason this was wrong in the first place is that the site's canonical URL was
+ * written down nowhere, so there was nothing for anyone to keep it in step with.
+ */
+const DOCS_URL = 'https://dgriffith.github.io/minerva/docs/';
 // The template chooser, not the issue list: Help → Report an Issue is someone
 // wanting to report, and the chooser is where the bug / feature forms live
 // (.github/ISSUE_TEMPLATE). A blank issue is still one click from there.

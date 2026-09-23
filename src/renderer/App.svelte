@@ -910,6 +910,7 @@
       setShowAbout: (v) => { featureDialogs.setAbout(v); },
       setShowShortcuts: (v) => { featureDialogs.setShortcuts(v); },
       setShowSettings: (v) => { v ? featureDialogs.openSettings() : featureDialogs.closeSettings(); },
+      toggleCommandPalette: () => { featureDialogs.toggleCommandPalette(); },
       setPublishDialogOpen: (v) => { featureDialogs.setPublish(v); },
       setFindInNotesMode: (m) => { featureDialogs.setFindInNotes(m); },
       setExportDialogGroup: (g) => { featureDialogs.setExportGroup(g); },
