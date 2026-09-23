@@ -10,6 +10,7 @@ import { renderChart, type ChartConfig, type ChartHandle, type ChartSeries } fro
 import { normalizeSqlRows } from '../editor/sql-result';
 import { escapeHtml, escapeAttr } from './text';
 import { getLinkBundle } from '../sidebar-link-bundle';
+import type { SearchResult, RelatedNote } from '../../../shared/types';
 import {
   selectBacklinks,
   buildBacklinksHtml,
@@ -35,6 +36,45 @@ export interface QueryBlockDeps {
   /** Live chart handles. Timeseries blocks push here; the caller destroys them
    *  before the next render pass. Mutated in place. */
   activeCharts: ChartHandle[];
+}
+
+
+/**
+ * Cache key for a LIVE block — one whose answer depends on the graph rather
+ * than only on the query text (#2210 §3c).
+ *
+ * The backlinks block already had this property: `getLinkBundle(notePath,
+ * revision)` is memoized on the revision, so the preview's 120ms render tick
+ * re-reads a cached bundle instead of re-querying. The `search` and `semantic`
+ * branches did not — they `return`ed above the `queryCache` lookup entirely,
+ * so every render tick re-issued their IPC call. For `semantic` with a
+ * free-text body that means re-running the embedding model over the query
+ * string, eight times a second, for a string that has not changed.
+ *
+ * `revision` is in the key rather than being a reason to clear, so a graph
+ * change still refreshes these blocks (#1137/#1128) while a keystroke does
+ * not. Everything the IPC call itself depends on has to be in the key too —
+ * for `semantic` that is the kinds filter and the note path, both of which are
+ * arguments to the call, not post-hoc filtering.
+ */
+function liveKey(kind: string, revision: number, ...parts: (string | null | undefined)[]): string {
+  return `live::${kind}::${revision}::${parts.map((p) => p ?? '').join('::')}`;
+}
+
+/**
+ * Drop live entries from previous revisions.
+ *
+ * Without this the cache grows without bound: each save bumps the revision, so
+ * a note edited through a long session would accumulate one entry per block
+ * per save and never release any of them. Non-live keys (SPARQL/SQL, which are
+ * keyed on the query text alone) are deliberately untouched — they are already
+ * bounded by the number of distinct queries in the note.
+ */
+function pruneStaleLiveEntries(deps: QueryBlockDeps): void {
+  const current = `::${deps.revision}::`;
+  for (const key of deps.queryCache.keys()) {
+    if (key.startsWith('live::') && !key.includes(current)) deps.queryCache.delete(key);
+  }
 }
 
 export async function executeQueryBlock(deps: QueryBlockDeps, el: HTMLElement): Promise<void> {
@@ -67,12 +107,27 @@ export async function executeQueryBlock(deps: QueryBlockDeps, el: HTMLElement): 
   if (type === 'search') {
     const q = (query ?? '').trim();
     if (!q) { el.innerHTML = buildSearchHtml([], config); return; }
+    // The RAW results are cached, not the selected-and-rendered HTML: the
+    // selection reads `config`, which is not an input to `api.search.query`,
+    // so keeping it outside the cache lets a config edit re-select without
+    // re-querying the index.
+    const key = liveKey('search', deps.revision, q);
+    const hit = deps.queryCache.get(key);
+    if (hit) {
+      el.innerHTML = buildSearchHtml(
+        selectSearchResults(hit.results as SearchResult[], config, deps.notePath), config);
+      return;
+    }
+    pruneStaleLiveEntries(deps);
     el.innerHTML = '<span class="query-loading">Loading...</span>';
     try {
       const results = await api.search.query(q);
+      deps.queryCache.set(key, { results });
       el.innerHTML = buildSearchHtml(selectSearchResults(results, config, deps.notePath), config);
     } catch (e) {
       logger('query').warn('failed:', e);
+      // A failure is NOT cached — the next tick retries. Caching it would
+      // freeze a transient IPC error into the block until the next save.
       el.innerHTML = buildSearchHtml([], config);
     }
     return;
@@ -83,19 +138,34 @@ export async function executeQueryBlock(deps: QueryBlockDeps, el: HTMLElement): 
   // note" (the sidebar's stored-vector path). Read-only.
   if (type === 'semantic') {
     const q = (query ?? '').trim();
+    // `kinds` and the note path are ARGUMENTS to the IPC call, so both belong
+    // in the key; the rest of `config` only filters the result afterwards and
+    // deliberately does not.
+    const kinds = semanticKinds(config);
+    const key = liveKey('semantic', deps.revision, q, kinds.join(','), deps.notePath);
+    const hit = deps.queryCache.get(key);
+    if (hit) {
+      el.innerHTML = buildSemanticHtml(
+        selectSemanticNotes(hit.results as RelatedNote[], config), config);
+      return;
+    }
+    pruneStaleLiveEntries(deps);
     el.innerHTML = '<span class="query-loading">Loading...</span>';
     try {
       const result = q
         ? await api.embeddings.searchText(q, {
             limit: 25,
-            kinds: semanticKinds(config),
+            kinds,
             ...(deps.notePath ? { excludePath: deps.notePath } : {}),
           })
         : deps.notePath
           ? await api.embeddings.related(deps.notePath, 25)
           : { enabled: false, notes: [] };
-      const notes = result.enabled ? selectSemanticNotes(result.notes, config) : [];
-      el.innerHTML = buildSemanticHtml(notes, config);
+      // `enabled: false` (embeddings switched off) and "no matches" render
+      // identically, so an empty array is a faithful cache of both.
+      const raw = result.enabled ? result.notes : [];
+      deps.queryCache.set(key, { results: raw });
+      el.innerHTML = buildSemanticHtml(selectSemanticNotes(raw, config), config);
     } catch (e) {
       // A silent empty state hid the common cause here — a preload addition
       // (api.embeddings.searchText) needs a full app restart, not just Cmd-R.
