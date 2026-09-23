@@ -31,6 +31,11 @@ the wrong thing to put in front of someone reporting a bug.
 - **Author a skill** — the Learning / Research / Analysis menus are populated by
   markdown *skill* files, not code. You can add one without touching TypeScript;
   see [`authoring-skills.md`](authoring-skills.md).
+- **Author an object type** — Book, Person, Claim and friends are markdown files
+  too, one per type, living in your own thoughtbase. See
+  [`authoring-types.md`](authoring-types.md), and
+  [`thought-ontology.md`](thought-ontology.md) for the epistemic vocabulary a
+  type can align itself with.
 - **Send a pull request** — fixes, tests, docs, and features are all fair game.
   For anything large, please open an issue first so we can agree on the approach
   before you invest the time.

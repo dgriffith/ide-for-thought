@@ -1038,11 +1038,17 @@ header says so. What prevents a repeat there is structural: no module outside
 the package holds the store to pass on.
 
 ### Thought Ontology
-- Defined in `src/shared/ontology-thought.ttl`
+- Defined in `src/shared/ontology-thought.ttl`; prose overview in
+  `docs/thought-ontology.md` (#2264), which
+  `tests/architecture/thought-ontology-doc.test.ts` keeps in step with the
+  Turtle in both directions
 - Separate namespace: `thought:` (`https://minerva.dev/ontology/thought#`)
 - Models epistemic structure: claims, grounds, warrants, hypotheses, questions, and 30+ component types
 - Includes epistemic defects: fallacies, biases, rhetorical moves, structural problems
 - Proposals and conversations aligned with W3C PROV-O provenance model
+- Reached without hand-authoring Turtle via the Claim / Glossary Term stock
+  object types (`externalClass:` bridges a `types:` class to a `thought:` one)
+  — format reference in `docs/authoring-types.md` (#2265), also parity-tested
 
 #### Two representations of one claim, and the fragments that know both (#2230)
 
@@ -1054,7 +1060,8 @@ only one of them is a silent wrong answer, not an obvious bug:
   `thought:label`.
 - **A typed note** — what every claim the app itself files looks like since
   #2036. `type: claim` frontmatter asserts `a types:Claim`, which
-  `types/compile.ts` declares `rdfs:subClassOf thought:Claim` (deliberately not
+  `graph/indexers/type-classes.ts` declares `rdfs:subClassOf thought:Claim`
+  (the file moved out of `types/compile.ts` in #2234; deliberately not
   `owl:equivalentClass` — the store does no OWL entailment), and the title
   lands as `dc:title`. Neither `a thought:Claim` nor `thought:label` matches it.
 
