@@ -158,7 +158,7 @@ x64 / universal coverage is tracked in
 Linux aren't built yet either. On any platform you can run it from source — see
 [Development](#development) below.
 
-The full user manual — 118 pages covering the editor, the graph, sources,
+The full user manual — 119 pages covering the editor, the graph, sources,
 skills, conversations, and every settings tab — is at
 **<https://dgriffith.github.io/minerva/docs/>**.
 
