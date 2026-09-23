@@ -605,6 +605,7 @@ const api = {
     onEditSavedQueries: (cb: () => void) => subscribe(Channels.MENU_EDIT_SAVED_QUERIES, cb),
     onSortLines: (cb: () => void) => subscribe(Channels.MENU_SORT_LINES, cb),
     onOpenSettings: (cb: () => void) => subscribe(Channels.MENU_OPEN_SETTINGS, cb),
+    onCommandPalette: (cb: () => void) => subscribe(Channels.MENU_COMMAND_PALETTE, cb),
     onOpenProject: (cb: () => void) => subscribe(Channels.MENU_OPEN_PROJECT, cb),
     onNewProject: (cb: () => void) => subscribe(Channels.MENU_NEW_PROJECT, cb),
     onInstallTutorial: (cb: () => void) => subscribe(Channels.MENU_INSTALL_TUTORIAL, cb),

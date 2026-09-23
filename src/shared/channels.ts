@@ -254,6 +254,7 @@ export const Channels = {
   MENU_REPLACE_IN_NOTES: 'menu:replaceInNotes',
   MENU_SORT_LINES: 'menu:sortLines',
   MENU_OPEN_SETTINGS: 'menu:openSettings',
+  MENU_COMMAND_PALETTE: 'menu:commandPalette',
 
   // Refactor menu (issue #172) — title-bar menu commands dispatched to the renderer.
   MENU_REFACTOR_RENAME: 'menu:refactor:rename',

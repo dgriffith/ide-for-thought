@@ -23,7 +23,7 @@ const h = vi.hoisted(() => {
     'onClearRecent', 'onNavBack', 'onNavForward', 'onGotoLine', 'onQuickOpen', 'onNewQuery',
     'onOpenStockQuery', 'onEditSavedQueries', 'onSortLines', 'onFind', 'onFindReplace',
     'onFindInNotes', 'onReplaceInNotes', 'onPrint', 'onAbout', 'onShortcuts', 'onOpenInDefault',
-    'onOpenInTerminal', 'onOpenSettings', 'onRefactorRename', 'onRefactorMove', 'onRefactorCopy',
+    'onOpenInTerminal', 'onOpenSettings', 'onCommandPalette', 'onRefactorRename', 'onRefactorMove', 'onRefactorCopy',
     'onRefactorExtract', 'onRefactorSplitHere', 'onRefactorSplitByHeading', 'onRefactorAutoTag',
     'onRefactorAutoLink', 'onRefactorAutoLinkInbound', 'onRefactorDecompose', 'onFormat',
     'onBibliography', 'onIngestUrl', 'onIngestIdentifier', 'onIngestFile', 'onIngestBulk', 'onImportBibtex',
@@ -122,7 +122,7 @@ function makeCtx(): { ctx: IpcWiringCtx; spies: Record<string, ReturnType<typeof
   const names = [
     'bumpGraphRevision', 'setEditorFontSize', 'toggleSidebar', 'toggleRightSidebar',
     'setShowGotoLine', 'setShowGotoNote', 'setShowEditSavedQueries', 'setShowAbout',
-    'setShowShortcuts', 'setShowSettings', 'setPublishDialogOpen', 'setFindInNotesMode',
+    'setShowShortcuts', 'setShowSettings', 'toggleCommandPalette', 'setPublishDialogOpen', 'setFindInNotesMode',
     'setExportDialogGroup', 'setEmbeddingProgress', 'refreshSavedQueriesCache', 'refreshBacklinkCount',
     'newNote', 'editThoughtbaseGuide', 'openThoughtbaseProperties', 'save', 'saveAsTemplate', 'saveNoteAsObjectType', 'insertTemplate', 'cycleTheme',
     'selectTheme', 'openThoughtbase', 'newThoughtbase', 'installTutorial', 'showProposals', 'openRecentThoughtbase', 'navBack',
@@ -215,6 +215,8 @@ describe('menu bindings dispatch to the right action (no arg / no guard)', () =>
     ['onAbout', 'setShowAbout'],
     ['onShortcuts', 'setShowShortcuts'],
     ['onOpenSettings', 'setShowSettings'],
+    // #2256 — the palette's menu item dispatches the same toggle as Cmd+K.
+    ['onCommandPalette', 'toggleCommandPalette'],
     ['onToggleSidebar', 'toggleSidebar'],
     ['onToggleRightSidebar', 'toggleRightSidebar'],
     ['onQuickOpen', 'setShowGotoNote'],

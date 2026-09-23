@@ -85,6 +85,8 @@ export interface IpcWiringCtx {
   setShowAbout: (v: boolean) => void;
   setShowShortcuts: (v: boolean) => void;
   setShowSettings: (v: boolean) => void;
+  /** Toggle the command palette — the same action Cmd+K performs (#2256). */
+  toggleCommandPalette: () => void;
   setPublishDialogOpen: (v: boolean) => void;
   setFindInNotesMode: (m: 'find' | 'replace') => void;
   setExportDialogGroup: (g: string) => void;
@@ -371,6 +373,7 @@ export function registerAppIpc(ctx: IpcWiringCtx): void {
   api.menu.onOpenInDefault(() => { if (editor.activeFilePath) void api.shell.openInDefault(editor.activeFilePath); });
   api.menu.onOpenInTerminal(() => { void api.shell.openInTerminal(editor.activeFilePath ?? undefined); });
   api.menu.onOpenSettings(() => { ctx.setShowSettings(true); });
+  api.menu.onCommandPalette(() => { ctx.toggleCommandPalette(); });
 
   // Refactor menu (issue #172)
   api.menu.onRefactorRename(() => { if (editor.activeFilePath) ctx.rename(editor.activeFilePath); });

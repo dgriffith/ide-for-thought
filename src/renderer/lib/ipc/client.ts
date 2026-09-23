@@ -986,6 +986,8 @@ export interface MenuApi {
   onEditSavedQueries(cb: () => void): () => void;
   onSortLines(cb: () => void): () => void;
   onOpenSettings(cb: () => void): () => void;
+  /** View -> Command Palette (#2256). Same toggle the Cmd+K binding drives. */
+  onCommandPalette(cb: () => void): () => void;
   onPrint(cb: () => void): () => void;
   onAbout(cb: () => void): () => void;
   onShortcuts(cb: () => void): () => void;

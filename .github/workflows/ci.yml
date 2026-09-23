@@ -158,7 +158,8 @@ jobs:
   # transitive tooling unreachable at runtime — rdflib's git-URL resolver
   # (parse-url SSRF ×2, tmp, gry) and @huggingface/transformers' native/image
   # deps (sharp, adm-zip via onnxruntime-node, which our WASM-only voice +
-  # embeddings paths never load) — and were force-patched via `pnpm.overrides`
+  # embeddings paths never load) — and were force-patched via `overrides:` in
+  # `pnpm-workspace.yaml`
   # (parse-url ≥8.1, tmp ≥0.2.6, gry ≥6, sharp ≥0.35, adm-zip ≥0.6). No
   # `--ignore` allowlist was needed; the overrides resolved cleanly and graph/
   # SPARQL/voice were verified (pnpm lint + test + e2e).
@@ -178,9 +179,17 @@ jobs:
   # `node scripts/check-audit.mjs --update` when the set genuinely changes.
   #
   # Remediation levers: bump via the Dependabot PRs; force a patched transitive
-  # with a `pnpm.overrides` entry in package.json; allowlist an accepted/unfixable
-  # advisory with `--ignore <CVE>` (append to the commands below with a comment
-  # naming the advisory and why it's accepted).
+  # with an entry under `overrides:` in `pnpm-workspace.yaml`; allowlist an
+  # accepted/unfixable advisory with `--ignore <CVE>` (append to the commands
+  # below with a comment naming the advisory and why it's accepted).
+  #
+  # `pnpm-workspace.yaml`, NOT package.json's `pnpm` key (#2260). This line said
+  # package.json until pnpm 11/12 stopped reading settings from there (#2149) —
+  # and pnpm does not error on an unused `pnpm` key, it silently ignores it. So
+  # following the old instruction during a real advisory response produced an
+  # edit that looked applied and an advisory that stayed open. Note the
+  # `image-size` paragraph above already cites the right file; only this
+  # instruction was left behind.
   audit:
     runs-on: ubuntu-latest
     timeout-minutes: 10
