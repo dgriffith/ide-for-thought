@@ -19,14 +19,30 @@ import {
   DEFAULT_INSPECTION_SETTINGS,
 } from '../../src/shared/inspections';
 
-/** Every `type: '…'` the engine actually emits. */
+/**
+ * Every `type: '…'` the engine actually emits, across every module of it.
+ *
+ * Reads the whole `graph/` directory rather than naming `health-checks.ts`
+ * (#2208). It used to name that one file, which made this a check on a file
+ * PATH where it means to be a check on a responsibility — the same shape
+ * CLAUDE.md records under #2232. Moving the five source checks into
+ * `source-checks.ts` was enough to blind it: it immediately reported those
+ * five catalog entries as switches controlling nothing, which was the
+ * detector being wrong rather than the catalog. Scanning the directory means
+ * the next split costs nothing here.
+ *
+ * Scoped to `type: '<snake_case>',` in an object literal, which in this tree
+ * only ever spells an `Inspection`'s type; an unrelated match would surface as
+ * an "uncovered" failure rather than passing silently.
+ */
 function enginesEmittedTypes(): Set<string> {
-  const src = fs.readFileSync(
-    path.join(__dirname, '..', '..', 'src', 'main', 'graph', 'health-checks.ts'),
-    'utf-8',
-  );
+  const dir = path.join(__dirname, '..', '..', 'src', 'main', 'graph');
   const found = new Set<string>();
-  for (const m of src.matchAll(/^\s*type: '([a-z_]+)',/gm)) found.add(m[1]!);
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (!entry.isFile() || !entry.name.endsWith('.ts')) continue;
+    const src = fs.readFileSync(path.join(dir, entry.name), 'utf-8');
+    for (const m of src.matchAll(/^\s*type: '([a-z_]+)',/gm)) found.add(m[1]!);
+  }
   return found;
 }
 

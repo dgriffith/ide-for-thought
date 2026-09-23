@@ -22,6 +22,7 @@ import { noteTargetPathBeside } from '../../shared/wiki-link-resolver';
 import { onGraphChanged } from './graph-events';
 import { emitInspectionsChanged } from './inspection-events';
 import { isA, labelOf, supportedBy, unsupported } from './argument-patterns';
+import { runSourceChecks } from './source-checks';
 import {
   catalogTypeFor,
   isInspectionEnabled,
@@ -44,9 +45,6 @@ export type { Inspection, InspectionSeverity };
 
 /** Stale note check: max results to report */
 const STALE_NOTES_LIMIT = 20;
-
-/** Duplicate sources check: max results to report for each type (DOI, URI) */
-const DUPLICATE_SOURCES_LIMIT = 25;
 
 /** Broken links check: max links to scan before hitting soft cap */
 const BROKEN_LINKS_QUERY_LIMIT = 1000;
@@ -101,11 +99,18 @@ export async function runAllChecks(
       on('stale_note') ? checkStaleness(ctx, settings.staleDays) : none(),
       on('missing_warrant') || on('missing_backing') ? checkEvidenceGaps(ctx) : none(),
       on('contradiction') ? checkContradictions(ctx) : none(),
-      on('invalid_doi') ? checkInvalidDois(ctx) : none(),
-      on('source_missing_metadata') ? checkSourcesMissingMetadata(ctx) : none(),
-      on('stub_aged') ? checkLongUnresolvedStubs(ctx, settings.stubDays) : none(),
-      on('source_cited_unread') ? checkCitedUnreadSources(ctx) : none(),
-      on('source_duplicate_doi') ? checkDuplicateSources(ctx) : none(),
+      // The five source checks share ONE scan of the source table rather than
+      // opening `?source minerva:sourceId ?sourceId` six times over (#2208
+      // C1b) — see `source-checks.ts`. They stay individually switchable; what
+      // they no longer do is each pay for their own walk.
+      runSourceChecks(ctx, {
+        invalidDoi: on('invalid_doi'),
+        missingMetadata: on('source_missing_metadata'),
+        agedStub: on('stub_aged'),
+        citedUnread: on('source_cited_unread'),
+        duplicates: on('source_duplicate_doi'),
+        stubDays: settings.stubDays,
+      }),
       on('broken_note_link') || on('broken_anchor_link') || on('broken_cite_quote')
         ? checkBrokenLinks(ctx)
         : none(),
@@ -179,31 +184,76 @@ async function checkUnsupportedClaims(ctx: ProjectContext): Promise<Inspection[]
  * selection semantics unchanged. Two queries rather than one, which is the
  * right trade even against C1b's "fewer round-trips" — both are cheap, and
  * together they are a third of the single query they replace.
+ *
+ * ── The GROUP BY is the same cliff, one step along (#2208 C1b) ─────────────
+ *
+ * The version above shipped as `GROUP BY ?note (MIN(?modified)) ORDER BY
+ * ?oldest LIMIT n`, and it left most of the cost in place. Measured at 3,000
+ * notes where every note is stale — the "mature thoughtbase" case the header
+ * describes, and the one the bench cannot reach, because
+ * `health-checks.bench.ts` writes notes with no frontmatter `modified`, so
+ * their `dc:modified` is the file's just-written mtime and NOTHING matches the
+ * 30-day filter:
+ *
+ *   | phase-one shape                           | 3,000 notes |
+ *   |-------------------------------------------|-------------|
+ *   | `GROUP BY ?note (MIN(…)) ORDER BY LIMIT`  |   1,009ms   |
+ *   | `GROUP BY ?note (MIN(…))`, no ORDER BY    |     887ms   |
+ *   | raw `?note ?modified`, aggregate in JS    |      80ms   |
+ *
+ * So the ORDER BY was ~120ms of a ~1,000ms query: Comunica's grouping over
+ * 3,000 distinct keys is what costs, and moving the sort out of SPARQL left it
+ * untouched. (Grouping is not slow per se — the citation counts in
+ * `source-checks.ts` group 3,000 rows into 40 keys in 25ms. It is the KEY
+ * COUNT, not the row count.)
+ *
+ * Aggregating in JS is the conclusion of the header's own diagnosis rather
+ * than a contradiction of it: "the cost is carrying four bound variables per
+ * row" is right, and this projection carries two. 3,000 rows of `{note,
+ * modified}` cost 80ms to materialise; the MIN-per-note, the sort and the
+ * slice over them are microseconds. Selection semantics are unchanged, which
+ * `staleness-selection.test.ts` — written for the previous fix and untouched
+ * by this one — is what proves.
  */
 async function oldestMatching(
   ctx: ProjectContext,
   opts: { subjectVar: string; where: string; limit: number },
 ): Promise<Array<{ iri: string; modified: string }>> {
   const { subjectVar: v, where, limit } = opts;
-  // GROUP BY + MIN rather than DISTINCT: a note carries TWO `dc:modified`
-  // values — the file's mtime and the frontmatter's — so a row-wise DISTINCT
-  // keeps both and the LIMIT then counts rows rather than notes. That is a
-  // pre-existing bug this fix would otherwise inherit: the old single query
-  // reported the same note twice in the panel, truncated by its own LIMIT, so
-  // "20 stale notes" could be ten notes listed twice. MIN also picks the right
-  // date to sort and report on — the older of the two is what makes a note
-  // stale.
   const results = await queryGraph(ctx, `
-    SELECT ?${v} (MIN(?modified) AS ?oldest) WHERE {
+    SELECT ?${v} ?modified WHERE {
       ${where}
     }
-    GROUP BY ?${v}
-    ORDER BY ?oldest
-    LIMIT ${limit}
   `);
-  return asRows(results)
-    .filter((r) => r[v] && r.oldest)
-    .map((r) => ({ iri: r[v]!, modified: r.oldest! }));
+
+  // MIN per subject, not a row-wise DISTINCT: a note carries TWO `dc:modified`
+  // values — the file's mtime and the frontmatter's — so keeping both would
+  // make the limit count rows rather than notes, and "20 stale notes" could be
+  // ten notes listed twice. MIN also picks the right date to sort and report
+  // on: the older of the two is what makes a note stale.
+  //
+  // Compared as strings. Every `dc:modified` the indexer writes is a
+  // `Z`-suffixed ISO-8601 instant, for which lexicographic and chronological
+  // order agree; a hand-written frontmatter date carrying a numeric UTC offset
+  // could in principle sort within a few hours of its true place. The
+  // membership decision is unaffected — SPARQL's `FILTER` above still made it
+  // by value — so the only reachable consequence is the order of two notes
+  // stale by the same day, which is why this isn't worth a date parse per row.
+  const oldest = new Map<string, string>();
+  for (const r of asRows(results)) {
+    const iri = r[v];
+    const modified = r.modified;
+    if (!iri || !modified) continue;
+    const seen = oldest.get(iri);
+    if (seen === undefined || modified < seen) oldest.set(iri, modified);
+  }
+
+  return [...oldest.entries()]
+    // Ties broken by IRI so the panel's order is stable between runs rather
+    // than however the engine happened to emit them.
+    .sort(([aIri, a], [bIri, b]) => (a < b ? -1 : a > b ? 1 : aIri.localeCompare(bIri)))
+    .slice(0, limit)
+    .map(([iri, modified]) => ({ iri, modified }));
 }
 
 /** `VALUES ?v { <a> <b> }`, or null when there is nothing to look up. */
@@ -341,38 +391,6 @@ async function checkEvidenceGaps(ctx: ProjectContext): Promise<Inspection[]> {
   return inspections;
 }
 
-/**
- * Sources carrying a `bibo:doi` literal that doesn't match the
- * Crossref DOI shape (#473). Shape-only check — we don't hit
- * doi.org. Surfacing it through the inspections panel keeps the
- * warning soft and non-blocking, per the issue's "no popup" note.
- */
-const VALID_DOI_RE = /^10\.\d{4,9}\/[-._;/:a-zA-Z0-9()]+$/;
-
-async function checkInvalidDois(ctx: ProjectContext): Promise<Inspection[]> {
-  const results = await queryGraph(ctx, `
-    SELECT ?source ?sourceId ?title ?doi WHERE {
-      ?source minerva:sourceId ?sourceId .
-      ?source bibo:doi ?doi .
-      OPTIONAL { ?source dc:title ?title }
-    }
-  `);
-
-  return asRows(results).flatMap((r, i) => {
-    if (!r.doi || VALID_DOI_RE.test(r.doi)) return [];
-    const label = r.title || r.sourceId!;
-    return [{
-      id: `invalid-doi-${i}`,
-      type: 'invalid_doi',
-      severity: 'warning' as const,
-      nodeUri: r.source!,
-      nodeLabel: label,
-      message: `Source "${label}" has a DOI that doesn't look right: ${r.doi}`,
-      suggestedAction: 'Open the source meta.ttl and correct the bibo:doi value.',
-    }];
-  });
-}
-
 async function checkContradictions(ctx: ProjectContext): Promise<Inspection[]> {
   const results = await queryGraph(ctx, `
     SELECT ?a ?aLabel ?b ?bLabel ?notePath WHERE {
@@ -395,185 +413,6 @@ async function checkContradictions(ctx: ProjectContext): Promise<Inspection[]> {
     suggestedAction: 'Review both claims — at least one needs to be revised or its status changed',
     ...(r.notePath ? { notePath: r.notePath } : {}),
   }));
-}
-
-/**
- * Sources missing the bibliographic minimum — no dc:title OR no
- * dc:creator (#119). Stubs are intentionally partial; filter them
- * out so the inspections panel surfaces only sources that should
- * have been populated but weren't.
- */
-async function checkSourcesMissingMetadata(ctx: ProjectContext): Promise<Inspection[]> {
-  const results = await queryGraph(ctx, `
-    SELECT ?source ?sourceId ?title (GROUP_CONCAT(?creator; SEPARATOR=", ") AS ?creators) WHERE {
-      ?source minerva:sourceId ?sourceId .
-      OPTIONAL { ?source dc:title ?title }
-      OPTIONAL { ?source dc:creator ?creator }
-      FILTER NOT EXISTS { ?source thought:stubStatus ?_stub }
-      FILTER(!BOUND(?title) || !BOUND(?creator))
-    }
-    GROUP BY ?source ?sourceId ?title
-    LIMIT 50
-  `);
-
-  return asRows(results).map((r, i) => {
-    const label = r.title || r.sourceId!;
-    const missing: string[] = [];
-    if (!r.title) missing.push('title');
-    if (!r.creators) missing.push('authors');
-    return {
-      id: `source-missing-metadata-${i}`,
-      type: 'source_missing_metadata',
-      severity: 'info' as const,
-      nodeUri: r.source!,
-      nodeLabel: label,
-      message: `Source "${label}" is missing ${missing.join(' and ')}.`,
-      suggestedAction: missing.includes('title')
-        ? 'Open meta.ttl and set dc:title.'
-        : 'Open meta.ttl and add dc:creator entries.',
-    };
-  });
-}
-
-/**
- * Reference stubs (#106) that have lingered unresolved for more
- * than `thresholdDays` days (#119). Soft prompt to run Resolve
- * (#107) or hand-fix the stub.
- */
-async function checkLongUnresolvedStubs(ctx: ProjectContext, thresholdDays: number): Promise<Inspection[]> {
-  const cutoff = new Date(Date.now() - thresholdDays * DAY_MS).toISOString();
-  const results = await queryGraph(ctx, `
-    SELECT ?source ?sourceId ?title ?modified WHERE {
-      ?source minerva:sourceId ?sourceId .
-      ?source thought:stubStatus "unresolved" .
-      ?source dc:modified ?modified .
-      OPTIONAL { ?source dc:title ?title }
-      FILTER(?modified < "${cutoff}"^^<http://www.w3.org/2001/XMLSchema#dateTime>)
-    }
-    ORDER BY ?modified
-    LIMIT 50
-  `);
-
-  return asRows(results).map((r, i) => {
-    const label = r.title || r.sourceId!;
-    return {
-      id: `stub-aged-${i}`,
-      type: 'stub_aged',
-      severity: 'info' as const,
-      nodeUri: r.source!,
-      nodeLabel: label,
-      message: `Stub "${label}" has been unresolved since ${r.modified!.split('T')[0]}.`,
-      suggestedAction: 'Right-click the source and run "Resolve to full source", or hand-edit meta.ttl.',
-      // Deterministic quick-fix (#1446): resolve the stub against CrossRef.
-      fix: { kind: 'resolve-source-stub', label: 'Resolve source', sourceId: r.sourceId! },
-    };
-  });
-}
-
-/**
- * Sources cited by at least one note whose readStatus is unset or
- * explicitly "unread" (#119). Soft nudge — "you cited this; have
- * you read it?"
- */
-async function checkCitedUnreadSources(ctx: ProjectContext): Promise<Inspection[]> {
-  const results = await queryGraph(ctx, `
-    SELECT ?source ?sourceId ?title (COUNT(DISTINCT ?note) AS ?cites) WHERE {
-      ?source minerva:sourceId ?sourceId .
-      ?note thought:cites ?source .
-      OPTIONAL { ?source dc:title ?title }
-      OPTIONAL { ?source minerva:readStatus ?status }
-      FILTER(!BOUND(?status) || ?status = "unread")
-      FILTER NOT EXISTS { ?source thought:stubStatus ?_stub }
-    }
-    GROUP BY ?source ?sourceId ?title
-    ORDER BY DESC(?cites)
-    LIMIT 25
-  `);
-
-  return asRows(results).map((r, i) => {
-    const label = r.title || r.sourceId!;
-    const count = Number(r.cites ?? 0) || 0;
-    return {
-      id: `source-cited-unread-${i}`,
-      type: 'source_cited_unread',
-      severity: 'info' as const,
-      nodeUri: r.source!,
-      nodeLabel: label,
-      message: `"${label}" is cited ${count === 1 ? 'once' : `${count} times`} but you haven't marked it Reading or Read.`,
-      suggestedAction: 'Open the source and set its reading status, or right-click → Mark reading.',
-      // Deterministic quick-fix (#1446): mark the cited source read.
-      fix: { kind: 'set-read-status', label: 'Mark read', sourceId: r.sourceId!, status: 'read' },
-    };
-  });
-}
-
-/**
- * Sources sharing the same DOI or URL (#119). After the canonical-id
- * rules (#90) this shouldn't happen — but if a user hand-creates a
- * source folder, or two ingests raced before the dedupe landed,
- * the safety net flags the duplicates so they can be merged via
- * #90 part 2.
- */
-async function checkDuplicateSources(ctx: ProjectContext): Promise<Inspection[]> {
-  const inspections: Inspection[] = [];
-
-  // Check DOI duplicates.
-  const doiResults = await queryGraph(ctx, `
-    SELECT ?keyDoi (GROUP_CONCAT(DISTINCT ?source; SEPARATOR=" || ") AS ?sources)
-           (GROUP_CONCAT(DISTINCT ?sourceId; SEPARATOR=" || ") AS ?ids) WHERE {
-      ?source minerva:sourceId ?sourceId .
-      ?source bibo:doi ?doi . BIND(LCASE(?doi) AS ?keyDoi)
-    }
-    GROUP BY ?keyDoi
-    HAVING (COUNT(DISTINCT ?source) > 1)
-    LIMIT ${DUPLICATE_SOURCES_LIMIT}
-  `);
-
-  for (const [i, r] of asRows(doiResults).entries()) {
-    const ids = (r.ids ?? '').split(' || ').filter(Boolean);
-    const firstSource = (r.sources ?? '').split(' || ')[0] ?? '';
-    const keyValue = r.keyDoi!;
-    inspections.push({
-      id: `dup-doi-${i}`,
-      type: 'source_duplicate_doi',
-      severity: 'warning',
-      nodeUri: firstSource,
-      nodeLabel: ids[0] ?? keyValue,
-      message: `Duplicate DOI ${keyValue}: ${ids.length} sources (${ids.join(', ')}).`,
-      suggestedAction: 'Right-click one and choose "Merge into…" to consolidate.',
-      fix: { kind: 'merge-sources', label: 'Merge…', sourceIds: ids },
-    });
-  }
-
-  // Check URI duplicates.
-  const uriResults = await queryGraph(ctx, `
-    SELECT ?keyUri (GROUP_CONCAT(DISTINCT ?source; SEPARATOR=" || ") AS ?sources)
-           (GROUP_CONCAT(DISTINCT ?sourceId; SEPARATOR=" || ") AS ?ids) WHERE {
-      ?source minerva:sourceId ?sourceId .
-      ?source bibo:uri ?uri . BIND(LCASE(REPLACE(STR(?uri), "/$", "")) AS ?keyUri)
-    }
-    GROUP BY ?keyUri
-    HAVING (COUNT(DISTINCT ?source) > 1)
-    LIMIT ${DUPLICATE_SOURCES_LIMIT}
-  `);
-
-  for (const [i, r] of asRows(uriResults).entries()) {
-    const ids = (r.ids ?? '').split(' || ').filter(Boolean);
-    const firstSource = (r.sources ?? '').split(' || ')[0] ?? '';
-    const keyValue = r.keyUri!;
-    inspections.push({
-      id: `dup-uri-${i}`,
-      type: 'source_duplicate_uri',
-      severity: 'warning',
-      nodeUri: firstSource,
-      nodeLabel: ids[0] ?? keyValue,
-      message: `Duplicate URL ${keyValue}: ${ids.length} sources (${ids.join(', ')}).`,
-      suggestedAction: 'Right-click one and choose "Merge into…" to consolidate.',
-      fix: { kind: 'merge-sources', label: 'Merge…', sourceIds: ids },
-    });
-  }
-
-  return inspections;
 }
 
 /**
