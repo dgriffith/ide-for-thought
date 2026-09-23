@@ -69,7 +69,7 @@ than later ones.
 | Command | What it does |
 |---|---|
 | `pnpm dev` | Start the dev server (electron-forge + Vite HMR) |
-| `pnpm lint` | `tsc --noEmit`, then `svelte-check --threshold error`, then `eslint .` |
+| `pnpm lint` | `tsc --noEmit`, `svelte-check --threshold error` and `eslint .`, run in parallel (`pnpm lint:seq` for the sequential form) |
 | `pnpm test` | Run the test suite once (Vitest). `pnpm test:watch` for the watch loop |
 | `pnpm test <path>` | Run a single test file |
 | `pnpm coverage` | Full suite with coverage thresholds — this is what CI runs |
@@ -87,6 +87,11 @@ if you need to.
 > binding, a wrong prop type). If a `.svelte` change looks fine but `pnpm lint`
 > still fails, read the `svelte-check` section of the output.
 
+> **The three checks run concurrently** (`scripts/lint.mjs`), so a failing run
+> lists *every* check that failed, not just the first one — each prints as its
+> own labelled block after the ✓/✗ ticks. Don't fix the first block and assume
+> the rest passed.
+
 ## Architecture in one screen
 
 Three processes with strict context isolation:
@@ -100,10 +105,14 @@ Three processes with strict context isolation:
   stores under `src/renderer/lib/stores/*.svelte.ts`.
 
 IPC channels are declared in `src/shared/channels.ts` and typed in
-`src/shared/ipc-contract.ts`. **Adding a main-process operation** touches five
-files in a fixed order — channel constant → main handler → `register-*.ts`
-handler registration → `preload.ts` → the `api` interface in
-`src/renderer/lib/ipc/client.ts`. The recipe is spelled out in
+`src/shared/ipc-contract.ts`. **Adding a main-process operation** touches six
+files in a fixed order — channel constant → the `ChannelMap` entry in
+`ipc-contract.ts` → main handler → `register-*.ts` handler registration →
+`preload.ts` → the `api` interface in `src/renderer/lib/ipc/client.ts` — and
+then two snapshots to regenerate. The `ChannelMap` entry is **compile-blocking**
+(the typed `handle()`/`invoke()` wrappers are keyed on it and nothing uses raw
+`ipcMain.handle`), so leaving it out is a `tsc` failure, not a style nit. The
+full recipe, including the snapshot and budget steps, is spelled out in
 [`CLAUDE.md`](../CLAUDE.md) under *IPC Pattern*.
 
 ## Conventions
@@ -119,8 +128,11 @@ has the complete list.
   every main→renderer *event subscription* goes through a store
   (`src/renderer/lib/stores/*.svelte.ts`) or an App ops handler. This is enforced
   by ESLint — a mutation `api.*` call added to a component fails `pnpm lint`.
-- **Dialogs.** `prompt()` and `confirm()` are blocked by Electron. Use the custom
-  `showPrompt()` / `showConfirm(message, key, label)` from `App.svelte`.
+- **Dialogs.** `prompt()` and `confirm()` are blocked by Electron. Use
+  `showPrompt()` / `showConfirm(message, key, confirmLabel)` from the **dialogs
+  store**, `src/renderer/lib/stores/dialogs.svelte.ts` (`getDialogStore()`) —
+  `App.svelte` only destructures them, and a component can read the store
+  directly rather than take them as props.
 - **Styling.** Catppuccin-inspired dark theme via CSS custom properties in
   `src/renderer/styles/global.css`. Use the existing variables (`--bg`, `--text`,
   `--accent`, `--border`, `--font-mono`, …); keep component styles scoped in
@@ -201,10 +213,18 @@ doubt:
   disproportionate, say so in the PR rather than skipping the question.
 - Tests live under `tests/`, mirroring `src/` (`tests/main/`, `tests/renderer/`,
   `tests/preload/`, `tests/e2e/`).
-- Some changes need a snapshot refresh — e.g. adding a `window.api` method
-  requires `pnpm test tests/preload/preload-bridge.test.ts -u`, and the change
-  won't be caught by lint alone. If a snapshot test fails, read *why* before
-  regenerating it.
+- Some changes need a snapshot refresh — e.g. adding an IPC channel requires
+  **both** `pnpm test tests/preload/preload-bridge.test.ts -u` (the `window.api`
+  surface) and `pnpm test tests/main/ipc/registration.test.ts -u` (the
+  registered-channel set), and neither is caught by lint. If a snapshot test
+  fails, read *why* before regenerating it.
+- **`tests/architecture/` is not about any feature.** Its 32 tests check the
+  shape of the codebase — package cycles, file-size budgets, anti-pattern
+  ratchets, config-loader and dialog adoption, the CI workflows. Most fail by
+  naming a *new* offender against a committed baseline, so the first time you
+  meet one is often a red run on a PR that looks unrelated. Each is written up
+  in [`architecture-ratchets.md`](architecture-ratchets.md) — what it enforces
+  and what to do when it fires. Read the entry before editing the test.
 - CI runs `pnpm coverage` and the Playwright e2e suite on every PR; run
   `pnpm lint` and `pnpm test` locally first — the pre-push hook does the lint
   half for you.

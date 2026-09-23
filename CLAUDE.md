@@ -7,7 +7,7 @@ Minerva is a desktop markdown IDE built with Electron + Svelte 5 + TypeScript. I
 ## Commands
 
 - `pnpm dev` — Start the dev server (electron-forge + Vite HMR)
-- `pnpm lint` — Full static-check gate: `tsc --noEmit` (`.ts` type errors), then `svelte-check --threshold error` (`.svelte` script/template drift, undefined references, wrong prop types), then `eslint .` (lint rules, incl. the renderer data-flow rule). Note `svelte-check` — not `tsc` or `eslint` — is what catches script↔template drift in `.svelte` files. Warnings (a11y, state-referenced-locally) are not fatal.
+- `pnpm lint` — Full static-check gate (`scripts/lint.mjs`). Three checks — `tsc --noEmit` (`.ts` type errors), `svelte-check --threshold error` (`.svelte` script/template drift, undefined references, wrong prop types), and `eslint .` (lint rules, incl. the renderer data-flow rule) — run **in parallel** (#1645, `await Promise.all`). Two consequences: the wall clock is the slowest check rather than the sum (~48s → ~39s), and a bad run reports **every** check that failed, not just the first — so don't fix one and assume the rest were fine. Each check ticks off live and its output is printed as a labelled block at the end. `pnpm lint:seq` runs the same three sequentially if you want a first-failure stop. Note `svelte-check` — not `tsc` or `eslint` — is what catches script↔template drift in `.svelte` files. Warnings (a11y, state-referenced-locally) are not fatal.
 - `pnpm test` — Run tests once (vitest run). Use `pnpm test:watch` for the file-watcher loop.
 - `pnpm build` — Build distributable (electron-forge make)
 
@@ -246,7 +246,7 @@ for `waitFor`.
 This is a **professional tool**. Design accordingly:
 
 - **No danger styling.** Don't color destructive actions in red. Deleting a note is a normal operation, not a scary one.
-- **Respect the user.** Every confirmation dialog must include a "Don't ask again" checkbox. Use `showConfirm(message, key, label)` in App.svelte — the `key` parameter allows each dialog type to be independently suppressed via localStorage.
+- **Respect the user.** Every confirmation dialog must include a "Don't ask again" checkbox. Use `showConfirm(message, key, confirmLabel)` from the dialogs store (see **Dialogs** below) — the `key` parameter allows each dialog type to be independently suppressed via localStorage.
 - **Stay out of the way.** Prefer keyboard shortcuts and contextual actions (right-click menus) over modal UI. Don't add warnings, toasts, or interstitials unless absolutely necessary.
 - **No hand-holding.** Don't add validation that prevents the user from doing what they asked. Don't add "are you sure?" unless there's genuine data loss risk — and even then, make it dismissable.
 
@@ -256,17 +256,94 @@ This is a **professional tool**. Design accordingly:
 - Use the existing CSS variables (`--bg`, `--text`, `--accent`, `--border`, etc.)
 
 ### Dialogs
-- `prompt()` and `confirm()` are blocked by Electron. Use the custom `showPrompt()` and `showConfirm()` functions in App.svelte.
-- `showConfirm(message, key, confirmLabel)` returns `Promise<boolean>`. The `key` is used for "don't ask again" persistence in localStorage.
-- Dialog components: `PromptDialog.svelte`, `ConfirmDialog.svelte`
+
+`prompt()` and `confirm()` are blocked by Electron, so Minerva ships its own.
+
+- **They live in the dialogs store** — `src/renderer/lib/stores/dialogs.svelte.ts`,
+  reached through `getDialogStore()`. `App.svelte` merely destructures
+  `showPrompt` / `showConfirm` / `showComputeConsent` off it for its own call
+  sites; it is **not** where they are defined, and a component does not need
+  them threaded down as props — reading the store directly is the documented
+  shape (see *Reducing prop drilling* above, where `dialogs.showConfirm()` is
+  the worked example). CLAUDE.md said "in App.svelte" for long enough to be
+  worth naming (#2257): it contradicted the prop-drilling section two hundred
+  lines above it, and pointed anyone grepping for the implementation at the
+  wrong file.
+- `showConfirm(message, key, confirmLabel = 'OK', options: { hideDontAskAgain?: boolean } = {})`
+  → `Promise<boolean>`. `key` is the suppression identity: it goes through
+  `confirm-suppression.svelte.ts`, and a suppressed key **resolves `true`
+  immediately without rendering anything**, which is why the key has to be
+  specific to one decision rather than shared across dialogs that merely look
+  alike. `hideDontAskAgain: true` drops the checkbox — for the rare confirm
+  where permanent suppression would be wrong (`App.svelte:508`); the default is
+  to offer it, per **Respect the user** above.
+- `showPrompt(message, initial?)` → `Promise<string | null>` (`null` =
+  cancelled). Two overloads: a bare string is the initial value (Rename-style
+  flows), or pass `{ initial?, suggestions? }`.
+- Dialog components: `PromptDialog.svelte`, `ConfirmDialog.svelte`, hosted by
+  `DialogHost.svelte`. A new `*Dialog.svelte` should adopt the shared
+  `src/renderer/lib/components/ui/Dialog.svelte` shell (backdrop,
+  escape-to-close, focus trap) —
+  `tests/architecture/ui-dialog-adoption.test.ts` ratchets it and will fail a
+  new one that hand-rolls its own.
 
 ### IPC Pattern
-To add a new main-process operation:
-1. Add channel constant to `src/shared/channels.ts`
-2. Implement the operation in `src/main/notebase/fs.ts` (or appropriate module)
-3. Register the handler in the appropriate `src/main/ipc/register-*.ts` module (`src/main/ipc.ts` is just the orchestrator that calls each `register*()`)
-4. Expose it in `src/preload/preload.ts`
-5. Add the type to the API interface in `src/renderer/lib/ipc/client.ts`
+
+To add a new main-process operation (an **invoke** channel):
+
+1. Add the channel constant to `src/shared/channels.ts`.
+2. **Add the `ChannelMap` entry in `src/shared/ipc-contract.ts`** — key is the
+   channel *string literal*, value is the renderer-facing signature with the
+   return type **unwrapped** (`() => SourceMetadata[]`, not `Promise<…>`; the
+   wrappers re-wrap).
+3. Implement the operation in `src/main/notebase/fs.ts` (or appropriate module).
+4. Register the handler in the appropriate `src/main/ipc/register-*.ts` module
+   (`src/main/ipc.ts` is just the orchestrator that calls each `register*()`),
+   using the typed `handle()` from `ipc/typed-ipc.ts` and the `withRootPath*`
+   helpers from `ipc/helpers.ts`.
+5. Expose it in `src/preload/preload.ts` via the typed `invoke()`.
+6. Add the method to the API interface in `src/renderer/lib/ipc/client.ts`.
+7. **Regenerate the two snapshots** and add a registrar test (below).
+
+Step 2 is not optional and not a style preference — **it is compile-blocking**.
+Both the main-side `handle()` and the preload-side `invoke()` are
+`<K extends keyof ChannelMap>`, and the *only* `ipcMain.handle` call in
+`src/main` is the one inside `typed-ipc.ts`, so there is no escape hatch: a
+channel with no `ChannelMap` entry does not typecheck. The old five-step recipe
+omitted it entirely, which meant the first thing a contributor following it hit
+was a `tsc` error the instructions had not mentioned — and `docs/development.md`
+*named* `ipc-contract.ts` one sentence before reciting the same five steps that
+left it out (#2258).
+
+Step 7 is the other one the recipe used to swallow, and it fails in CI rather
+than locally, which is worse:
+
+- `pnpm test tests/preload/preload-bridge.test.ts -u` — `preload.ts`'s whole
+  `window.api` surface is snapshotted, so **any** method add / rename / removal
+  fails until the snapshot is re-blessed.
+- `pnpm test tests/main/ipc/registration.test.ts -u` — the registered channel
+  set is snapshotted too, for the same reason in the other direction (a dropped
+  or renamed registration).
+- Add an assertion to `tests/main/ipc/register-<domain>.test.ts`. A **new**
+  registrar with no test file at all fails
+  `tests/architecture/ipc-registrar-coverage.test.ts`.
+
+Two more things a channel addition reliably trips, both expected:
+
+- **File-size budgets.** `channels.ts`, `ipc-contract.ts`, `preload.ts` and
+  `client.ts` all grow by construction with every channel and are all under
+  committed budgets — raise the four numbers in
+  `tests/architecture/file-size-budgets.test.ts` in the same PR (see
+  *File-size budgets* below). #2222 is the worked example of the whole
+  sequence, and touched exactly these files.
+- **If the new channel mutates state**, its method name also goes in the
+  `no-restricted-syntax` block in `eslint.config.mjs` and gets classified in
+  `tests/renderer/dataflow-rule-coverage.test.ts` — that denylist fails
+  *closed*, so an unclassified new method fails a test either way. See
+  *Renderer data flow* above.
+
+One-way `send`/event channels (`*:changed`, `*:progress`, draft pushes) are a
+separate contract (#1633) and don't go through `ChannelMap`.
 
 #### The native menu is a command surface, not an implementation (#2233)
 
@@ -841,6 +918,30 @@ Its sibling `tests/architecture/ipc-registrar-coverage.test.ts` makes the
 above executable: a **new** registrar with no test fails, and the pre-existing
 untested ones sit in a `KNOWN_UNTESTED` list that may only shrink.
 
+### The architecture ratchets are inventoried in `docs/architecture-ratchets.md` (#2262)
+
+`tests/architecture/` holds **32** tests that check the shape of the codebase
+rather than the behavior of any feature — the package-cycle check, the file-size
+budgets, the anti-pattern ratchets, the dialog-adoption ratchet, the two
+temp-project-fixture ratchets, the CI-workflow checks, and so on. Most of them
+fail by *naming a new offender*, so the first time you meet one is usually a
+red run on a PR that looks unrelated to it.
+
+The prose above documents a dozen or so of them in the sections that motivated
+each. The full inventory — **what it enforces, what makes it fire, and what to
+do when it does** — lives in
+[`docs/architecture-ratchets.md`](docs/architecture-ratchets.md), one entry per
+test. Read the entry for the test that failed before editing it; almost all of
+these carry a baseline list that may only *shrink*, and adding your file to the
+list is a legitimate move only with a reason in the diff.
+
+**A new test in `tests/architecture/` needs an entry in that doc**, which
+`tests/architecture/architecture-ratchets-doc.test.ts` enforces in both
+directions: an undocumented test file fails, and so does a doc entry naming a
+test that no longer exists. That is the same arrangement as
+`tests/architecture/config-roots-doc.test.ts` — an inventory nobody checks
+becomes a document that tells you something false with confidence.
+
 ### File System
 - All paths are relative to the project root
 - `assertSafePath()` in `fs.ts` prevents path traversal — always use it//
@@ -853,7 +954,9 @@ untested ones sit in a `KNOWN_UNTESTED` list that may only shrink.
 - Manual rebuild via Query menu
 - Extracts: titles, tags, wiki-links, frontmatter metadata, embedded Turtle blocks, markdown tables (CSVW)
 - Queryable via SPARQL through `api.graph.query()`
-- Standard prefixes (minerva, thought, dc, rdf, rdfs, xsd, csvw, prov) are auto-injected into all queries
+- Standard prefixes are auto-injected into all queries — **fifteen** of them: `minerva`, `thought`, `dc`, `rdf`, `rdfs`, `xsd`, `csvw`, `owl`, `prov`, `bibo`, `schema`, `types`, `dcat`, `skos`, `foaf`.
+  - Declared once as `STANDARD_PREFIXES` in `src/main/graph/state.ts` and injected by `injectSparqlPrefixes` (`graph/queries/sparql.ts`). Injection is skipped per-prefix when the query already declares it (case-insensitively), so redeclaring one is safe rather than a duplicate-declaration error.
+  - The list is not decoration: it is exactly what someone writing SPARQL in the Query panel may use without a `PREFIX` line, and what `schemaForCompletion` offers the editor. The `types:` namespace in particular is pre-bound — every user-defined note type (#2036) compiles into it. CLAUDE.md named only eight for long enough that the seven added since were undiscoverable from the docs (#2257); `tests/architecture/claude-md-accuracy.test.ts` now fails if the bullet above and `STANDARD_PREFIXES` diverge in either direction, which is also why that bullet carries the bare list and nothing else.
 
 #### Per-project state goes in a `createProjectStore` slot (#2240)
 
@@ -1253,7 +1356,7 @@ whatever is on disk would be a permanent hole.
 
 The integrity-check SPARQL below detects `thought:Component` nodes attributed to an LLM that lack a corresponding approved proposal. Run it (Graph > Query) after any LLM integration work to verify the trust principle holds. It used to ship as the "Trust: Unreviewed LLM writes" stock query, but the `Trust:` / `Claims:` / `Compute:` stock queries were pulled from the default set as too confusing for end users — keep this one handy for development.
 
-It's also promoted to an automated gate (#1101): `findUnreviewedLLMWrites` in `src/main/graph/integrity.ts` is the canonical executable copy, asserted on every PR by `tests/main/graph/trust-integrity.test.ts` (honest path → empty; bypass / pending-only proposal → flagged). Keep the query below in sync with `UNREVIEWED_LLM_WRITES_QUERY` there.
+It's also promoted to an automated gate (#1101): `findUnreviewedLLMWrites` in `src/main/graph/integrity.ts` is the canonical executable copy, asserted on every PR by `tests/main/graph/trust-integrity.test.ts` (honest path → empty; bypass / pending-only proposal → flagged). Keep the query below in sync with `UNREVIEWED_LLM_WRITES_QUERY` there — and that instruction is itself now checked, by `tests/architecture/claude-md-accuracy.test.ts`, which compares the block below against the exported constant modulo the `PREFIX` lines (the executable copy carries none, because `queryGraph` injects them). It had drifted: the doc copy wrote `LCASE(?extractedBy)` where the executable one writes `LCASE(STR(?extractedBy))`, and those are not the same query — `LCASE` is defined on simple literals, so without `STR()` a language-tagged or typed `thought:extractedBy` value makes the expression an error rather than a match, and SPARQL's `FILTER` drops erroring rows. The doc copy would have under-reported exactly the bypasses it exists to find (#2257).
 
 ```sparql
 PREFIX thought: <https://minerva.dev/ontology/thought#>
@@ -1262,7 +1365,7 @@ PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 SELECT ?component ?label ?extractedBy WHERE {
   ?component rdf:type/rdfs:subClassOf* thought:Component .
   ?component thought:extractedBy ?extractedBy .
-  FILTER(CONTAINS(LCASE(?extractedBy), "llm"))
+  FILTER(CONTAINS(LCASE(STR(?extractedBy)), "llm"))
   OPTIONAL { ?component thought:label ?label }
   FILTER NOT EXISTS {
     ?proposal rdf:type thought:Proposal .
