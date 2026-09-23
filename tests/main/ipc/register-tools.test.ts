@@ -47,6 +47,7 @@ const h = vi.hoisted(() => {
     getSkillCatalog: vi.fn(),
     reloadAndRegisterSkills: vi.fn(),
     reapplyMenuConfig: vi.fn(),
+    skillsReady: vi.fn(),
     pickAndImportSkill: vi.fn(),
     removeUserSkill: vi.fn(),
     revealSkillsFolder: vi.fn(),
@@ -81,6 +82,7 @@ vi.mock('../../../src/main/skills/loader', () => ({ getSkillCatalog: h.getSkillC
 vi.mock('../../../src/main/skills/register', () => ({
   reloadAndRegisterSkills: (...a: unknown[]) => { h.order.push('reload'); return h.reloadAndRegisterSkills(...a); },
   reapplyMenuConfig: h.reapplyMenuConfig,
+  skillsReady: (...a: unknown[]) => { h.order.push('skillsReady'); return h.skillsReady(...a); },
 }));
 vi.mock('../../../src/main/skills/manage', () => ({
   pickAndImportSkill: h.pickAndImportSkill,
@@ -273,6 +275,30 @@ describe('SKILLS_LIST', () => {
     expect(JSON.stringify(result)).not.toContain('FIRST-MESSAGE-TEMPLATE');
     expect((result as { skills: Array<Record<string, unknown>> }).skills[0]).not.toHaveProperty('body');
     expect((result as { skills: Array<Record<string, unknown>> }).skills[0]).not.toHaveProperty('filePath');
+  });
+
+  it('waits for startup registration before answering (#2223)', async () => {
+    // The window is created before skills finish loading now, so this handler
+    // is reachable mid-load. `getMenuConfig()` is a synchronous module-cache
+    // read that reads as "no config" until `loadMenuConfig` resolves — and an
+    // early answer would hand the renderer that empty config, registering
+    // every DISABLED skill into the palette, slash commands and tool panel.
+    let release!: () => void;
+    h.skillsReady.mockReturnValue(new Promise<void>((resolve) => { release = resolve; }));
+    h.getSkillCatalog.mockResolvedValue({ skills: [SKILL], errors: [] });
+
+    let settled = false;
+    const pending = (call(Channels.SKILLS_LIST) as Promise<unknown>).then((r) => { settled = true; return r; });
+    // Drain the microtask queue: if the handler didn't await the barrier it
+    // would be done by now (`getSkillCatalog` is an already-resolved mock).
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+    expect(settled).toBe(false);
+    expect(h.getSkillCatalog).not.toHaveBeenCalled();
+
+    release();
+    const result = await pending as { skills: unknown[]; config: MenuConfig };
+    expect(result.skills).toHaveLength(1);
+    expect(result.config).toEqual(EMPTY_CONFIG);
   });
 
   it('reports an unloadable skill alongside the ones that loaded (#1631 rule 4)', async () => {

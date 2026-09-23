@@ -1,4 +1,4 @@
-import { BrowserWindow } from 'electron';
+import { BrowserWindow, nativeTheme } from 'electron';
 import path from 'node:path';
 import { Channels } from '../shared/channels';
 import { broadcast } from './ipc/broadcast';
@@ -54,6 +54,72 @@ export function markPathHandled(relativePath: string): void {
   markPathHandledImpl(relativePath);
 }
 
+// --- First paint (#2223) -----------------------------------------------------
+//
+// The window used to map the instant it was constructed, then sit there in
+// Electron's stock white while the renderer fetched and parsed its ~3.25MB
+// entry chunk — measured at ~200ms between `new BrowserWindow` and
+// `did-finish-load` on a warm cache, longer on a cold one. It is built hidden
+// now and shown on `ready-to-show` (Chromium's "first frame is ready to draw"
+// signal), so the first thing the user sees is the mounted UI.
+
+/** Fill painted behind the renderer until its first frame lands. `--bg` from
+ *  `renderer/styles/global.css`, both ends of the palette. The renderer's theme
+ *  choice lives in ITS localStorage and main can't read it, so we go off
+ *  `nativeTheme` — which is exactly right for the first-run default ('system',
+ *  see `renderer/lib/theme.ts`) and right for the majority of explicit picks.
+ *  Worst case it is the wrong shade for the few frames between `show()` and the
+ *  renderer repainting, instead of white for the whole load. */
+const BACKGROUND_DARK = '#1b1611';
+const BACKGROUND_LIGHT = '#f7f3eb';
+
+/** Longest a window may stay hidden waiting for a paint signal. */
+const SHOW_FALLBACK_MS = 4000;
+
+/**
+ * Show `win` as soon as it has something to show — and, crucially, show it
+ * even if it never does.
+ *
+ * `show: false` without a guaranteed counterpart is how you ship an app that
+ * launches to no window at all, which is a far worse failure than the blank
+ * one this replaces. So three independent triggers, first one wins:
+ *
+ *   - `ready-to-show` — the normal path (first frame ready to draw).
+ *   - `did-finish-load` / `did-fail-load` — a load that resolves either way.
+ *     `ready-to-show` is documented as "may not fire" when the page never
+ *     reaches a paintable state; a missing `index.html` in a bad package, or a
+ *     dev server that isn't up, lands here instead.
+ *   - a timer — the backstop for "neither of the above ever fired". Unref'd, so
+ *     it is never the reason the process stays alive.
+ */
+function showWhenReady(win: BrowserWindow): void {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let shown = false;
+  const show = (): void => {
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
+    if (shown) return;
+    shown = true;
+    // A window closed mid-load must stay closed; `show()` on a destroyed
+    // BrowserWindow throws.
+    if (win.isDestroyed() || win.isVisible()) return;
+    win.show();
+  };
+  timer = setTimeout(show, SHOW_FALLBACK_MS);
+  timer.unref?.();
+  win.once('ready-to-show', show);
+  win.webContents.once('did-finish-load', show);
+  win.webContents.once('did-fail-load', show);
+  win.once('closed', () => {
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
+  });
+}
+
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
 
 function persistSession(): void {
@@ -85,6 +151,10 @@ export function createWindow(opts?: { x?: number; y?: number; width?: number; he
     ...(opts?.x != null && opts?.y != null ? { x: opts.x, y: opts.y } : {}),
     minWidth: 600,
     minHeight: 400,
+    // Built hidden, shown on the first paint signal — see `showWhenReady`
+    // below for the "…and always shown" half (#2223).
+    show: false,
+    backgroundColor: nativeTheme.shouldUseDarkColors ? BACKGROUND_DARK : BACKGROUND_LIGHT,
     // Window + taskbar icon on Linux/Windows (macOS uses the app bundle's
     // embedded icon and ignores this) (#805).
     icon: appIconPath(),
@@ -101,6 +171,7 @@ export function createWindow(opts?: { x?: number; y?: number; width?: number; he
   });
 
   contexts.set(win.id, { rootPath: null, graphStore: null });
+  showWhenReady(win);
   installNavigationGuards(win.webContents);
 
   // Re-announce the open project to the renderer on every page load. The
