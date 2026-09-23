@@ -120,7 +120,7 @@ export function registerConversation(): void {
 
         // Every draft kind shares one streaming callback set; the divergent
         // per-kind work is in the CONVERSATION_FILE_*_DRAFT handlers, not here (#980).
-        const streamCallbacks = buildStreamCallbacks(win, convId, controller.signal, pendingAskUser);
+        const stream = buildStreamCallbacks(win, convId, controller.signal, pendingAskUser);
 
         // Per-conversation web override (#1533): when the conversation pins web
         // on/off, send it as a `web` override — completeWithTools merges it over
@@ -128,22 +128,40 @@ export function registerConversation(): void {
         const webOverride =
           conv.webEnabled !== undefined ? { web: { enabled: conv.webEnabled } } : {};
 
-        const result = await runCompletionWithContainerRecovery(
-          completeWithTools,
-          rootPath,
-          convId,
-          {
-            system: effectiveSystem,
-            toolContext: { rootPath, conversationId: convId },
-            model: conv.model,
-            effort: conv.effort,
-            extraTools,
-            ...webOverride,
-          },
-          messages,
-          conv.containerId,
-          streamCallbacks,
-        );
+        // The `finally` is the contract for #2219's chunk coalescing: main
+        // buffers stream text for up to STREAM_COALESCE_MS, so the last ≤100ms
+        // of the reply is still in that buffer when the completion settles.
+        // Flushing here — not after appendMessage, and not only on success —
+        // covers all three exits:
+        //   - normal completion: the tail reaches the renderer before this
+        //     handler's promise resolves, so it lands while the store still has
+        //     `streaming === true`. Once `send()` resolves, the store clears
+        //     `streamedChunks` and drops any later chunk on the floor.
+        //   - throw: the failure card renders `failure.partial` from exactly
+        //     this buffered text; without the flush a turn that died three
+        //     paragraphs in would show two.
+        //   - user pressed Stop: same path, same reason.
+        let result;
+        try {
+          result = await runCompletionWithContainerRecovery(
+            completeWithTools,
+            rootPath,
+            convId,
+            {
+              system: effectiveSystem,
+              toolContext: { rootPath, conversationId: convId },
+              model: conv.model,
+              effort: conv.effort,
+              extraTools,
+              ...webOverride,
+            },
+            messages,
+            conv.containerId,
+            stream.callbacks,
+          );
+        } finally {
+          stream.flush();
+        }
 
         const updated = await conversation.appendMessage(
           rootPath,

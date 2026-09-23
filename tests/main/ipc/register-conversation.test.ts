@@ -464,3 +464,71 @@ describe('CONVERSATION_COMPACT with a truncated summary (#1811)', () => {
     expect(h.archive).toHaveBeenCalledWith('/root', 'conv-1');
   });
 });
+
+// ── The stream tail is never lost (#2219) ──────────────────────────────────
+// Chunk coalescing buffers stream text for up to STREAM_COALESCE_MS, which
+// creates a failure the send-per-chunk code could not have: text still sitting
+// in the buffer when the turn ends. The registrar's `finally` around the
+// completion is the only thing that ships it, and a truncated final chunk is a
+// silently corrupted message — the user sees a reply that stops mid-sentence
+// with no error at all. These assert the flush on each exit path.
+//
+// Deliberately NOT timer-driven: no fake timers are installed in this file and
+// the window is 100ms, so nothing these tests observe can have been delivered
+// by the timer expiring. Anything that arrives, arrived because of the flush.
+describe('stream tail flush (#2219)', () => {
+  const streamed = (): string =>
+    h.fakeWin.webContents.send.mock.calls
+      .filter((c) => c[0] === Channels.CONVERSATION_STREAM)
+      .map((c) => c[1] as string)
+      .join('');
+
+  it('ships text buffered when the turn completes normally', async () => {
+    h.completeWithTools.mockImplementation(async (params: unknown) => {
+      const { callbacks } = params as { callbacks: { onChunk: (s: string) => void } };
+      callbacks.onChunk('the final ');
+      callbacks.onChunk('sentence.');
+      return completion('the final sentence.');
+    });
+
+    await send(evt, 'conv-1', 'hello');
+
+    expect(streamed()).toBe('the final sentence.');
+  });
+
+  it('ships the partial text when the turn throws', async () => {
+    // The failure card renders exactly this text (#1804). Without the flush a
+    // turn that died three paragraphs in would show two.
+    h.completeWithTools.mockImplementation(async (params: unknown) => {
+      const { callbacks } = params as { callbacks: { onChunk: (s: string) => void } };
+      callbacks.onChunk('three paragraphs of real output');
+      throw new Error('rate limited');
+    });
+
+    await expect(send(evt, 'conv-1', 'hello')).rejects.toThrow('rate limited');
+    expect(streamed()).toBe('three paragraphs of real output');
+  });
+
+  it('flushes before the reply, while the store is still streaming', async () => {
+    // Ordering matters as much as delivery: the renderer store drops any chunk
+    // arriving after `send()` resolves, because its `finally` clears
+    // `streamedChunks` and sets `streaming = false`. A flush that happened
+    // after the reply would deliver into a closed window of attention.
+    let sentByAppendTime = -1;
+    h.completeWithTools.mockImplementation(async (params: unknown) => {
+      const { callbacks } = params as { callbacks: { onChunk: (s: string) => void } };
+      callbacks.onChunk('tail text');
+      return completion('tail text');
+    });
+    h.appendMessage.mockImplementation(async () => {
+      sentByAppendTime = streamed().length;
+      return CONV;
+    });
+
+    await send(evt, 'conv-1', 'hello');
+
+    // appendMessage runs AFTER the completion's `finally`, so the tail is
+    // already on the wire by then — and therefore well before the reply.
+    expect(sentByAppendTime).toBe('tail text'.length);
+  });
+});
