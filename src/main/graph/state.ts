@@ -314,6 +314,32 @@ interface MutableStore {
   statementsMatching(s?: unknown, p?: unknown, o?: unknown, g?: unknown): $rdf.Statement[];
 }
 
+/**
+ * The store's monotonic mutation count, or `null` when this store instance has
+ * not been through `instrumentStoreMirror` and therefore isn't counting.
+ *
+ * This is the generation token derived caches key on (#2215). It is sound for
+ * that purpose for exactly one reason, and it's worth being explicit about it
+ * because a cache that is *almost* invalidated produces wrong answers rather
+ * than slow ones: the counter is bumped at the SAME chokepoint the write guard
+ * lives at (#2231) — `store.add` and `store.removeMatches` are the only two
+ * ways a triple enters or leaves the store, `$rdf.parse` goes through `add`
+ * per statement, and nothing in `src/main/` calls `store.remove` directly. So
+ * "the counter did not move" is equivalent to "not one triple changed", which
+ * is the only claim a derived-index cache actually needs.
+ *
+ * Returning `null` rather than `0` for an uninstrumented store is the load-
+ * bearing half. A store built by hand in a test (`$rdf.graph()` with no
+ * `instrumentStoreMirror`) never bumps, so a caller treating the absent
+ * counter as "generation 0" would hold a first build forever while the store
+ * mutated underneath it. `null` tells the caller to stop caching instead.
+ */
+export function storeMutationCount(store: $rdf.IndexedFormula): number | null {
+  const marker = store as unknown as MirrorMarker;
+  if (!marker.__minervaMirrored) return null;
+  return marker.__minervaMutations ?? 0;
+}
+
 /** Null the mirror so the next `queryGraph` rebuilds it from scratch. Use on a
  *  wholesale store swap or as the periodic/fallback rebuild. */
 export function resetN3Mirror(state: GraphState): void {

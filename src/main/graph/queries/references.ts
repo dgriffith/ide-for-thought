@@ -14,14 +14,13 @@
  */
 import * as $rdf from 'rdflib';
 import type { ProjectContext } from '../../project-context-types';
-import { LINK_TYPES } from '../../../shared/link-types';
 import { indexedNotePaths } from '../note-index';
+import { NOTE_LINK_TYPES_BY_PREDICATE } from './inbound-links';
 import {
   type GraphState,
   getState,
   MINERVA, RDF, THOUGHT,
   noteUri, sourceUri, excerptUri,
-  linkPredicate,
 } from '../state';
 
 /** Notes with a `thought:cites` edge to the given source URI. */
@@ -97,18 +96,28 @@ export function findNotesLinkingToAnchorImpl(
   slug: string,
 ): string[] {
   const { store } = state;
-  const exactTarget = `${noteUri(state, targetRelativePath).value}#${slug}`;
+  // The anchored target IRI is fully known here, so this is a plain
+  // object-indexed lookup — O(inbound edges at that anchor). It used to walk
+  // all twelve note-targeted link predicates' buckets and string-compare each
+  // object against this very IRI, i.e. O(total links in the project) to find
+  // the handful that match exactly (#2215).
+  //
+  // This one is on the SAVE path: `detectHeadingRename` calls it once per
+  // heading whose text changed, so a note with several renamed headings paid
+  // that scan several times per keystroke-triggered save. Measured on a
+  // 3,000-note × 5-link thoughtbase: 15,001 statements examined to return 1 row.
+  //
+  // The predicate filter keeps the previous semantics exactly: only typed body
+  // links reach an anchored IRI, and an inbound edge from something that isn't
+  // a link type (were one ever to appear) should not count as a heading
+  // reference the rename rewriter will rewrite.
+  const exactTarget = $rdf.sym(`${noteUri(state, targetRelativePath).value}#${slug}`);
   const seen = new Set<string>();
-  for (const lt of LINK_TYPES) {
-    if (lt.targetKind && lt.targetKind !== 'note') continue;
-    const stmts = store.statementsMatching(undefined, linkPredicate(lt), undefined);
-    for (const st of stmts) {
-      if (st.object.value !== exactTarget) continue;
-      const sourceNode = st.subject;
-      const pathStmts = store.statementsMatching(sourceNode, MINERVA('relativePath'), undefined);
-      const sourcePath = pathStmts[0]?.object.value;
-      if (sourcePath && sourcePath.endsWith('.md')) seen.add(sourcePath);
-    }
+  for (const st of store.statementsMatching(undefined, undefined, exactTarget)) {
+    if (!NOTE_LINK_TYPES_BY_PREDICATE.has(st.predicate.value)) continue;
+    const pathStmts = store.statementsMatching(st.subject, MINERVA('relativePath'), undefined);
+    const sourcePath = pathStmts[0]?.object.value;
+    if (sourcePath && sourcePath.endsWith('.md')) seen.add(sourcePath);
   }
   return [...seen];
 }
