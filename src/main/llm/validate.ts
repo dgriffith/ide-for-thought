@@ -38,5 +38,5 @@ export async function checkConnection(
   if (PROVIDERS[providerId].usesBaseURL && !effectiveBaseURL) {
     return { ok: false, error: 'No base URL to check — enter the endpoint above first.' };
   }
-  return createProviderForKey(providerId, key, effectiveBaseURL).checkConnection();
+  return (await createProviderForKey(providerId, key, effectiveBaseURL)).checkConnection();
 }

@@ -11,10 +11,25 @@ import { DEFAULT_WEB_SETTINGS, type LLMSettings } from '../../../shared/tools/ty
 import type { Effort } from '../../../shared/tools/effort';
 import { providerForModel } from '../../../shared/tools/models';
 import { type ProviderId } from '../../../shared/tools/providers';
-import { AnthropicProvider } from './anthropic';
-import { OpenAIProvider } from './openai';
-import { GoogleProvider } from './google';
 import type { LLMProvider, WebToolSettings } from './types';
+
+/**
+ * The three SDKs load on demand, and only the one being used (#2335).
+ *
+ * Each concrete provider statically imports its vendor SDK, and this factory
+ * statically imported all three — so `main.ts`'s module graph pulled every
+ * one at boot, through `ipc.ts` → `register-tools.ts` → `tools/executor` and
+ * `llm/validate`. Measured cold, unbundled: openai 242ms, @google/genai
+ * 164ms, @anthropic-ai/sdk 132ms — 538ms of pre-window boot for SDKs that a
+ * given user mostly does not use. A user on Anthropic now never loads the
+ * other two at all.
+ *
+ * `register-conversation.ts` already did `await import('../llm/index')` for
+ * its handler body; this closes the other door into the same graph.
+ */
+const anthropicProvider = () => import('./anthropic').then((m) => m.AnthropicProvider);
+const openaiProvider = () => import('./openai').then((m) => m.OpenAIProvider);
+const googleProvider = () => import('./google').then((m) => m.GoogleProvider);
 
 export type { LLMProvider } from './types';
 
@@ -51,22 +66,25 @@ function resolveProviderId(model: string, settings: LLMSettings): ProviderId {
 
 /** Construct the provider for `id`, reading its credentials from settings.
  *  Throws the missing-key marker when the required key is absent. */
-function buildProvider(id: ProviderId, settings: LLMSettings): LLMProvider {
+async function buildProvider(id: ProviderId, settings: LLMSettings): Promise<LLMProvider> {
   switch (id) {
     case 'anthropic': {
       const key = settings.providers.anthropic?.apiKey;
+      // The key check stays BEFORE the import: a user with no Anthropic key
+      // should get the "Open Settings" marker without paying 132ms to find
+      // out (#2335).
       if (!key) throw missingKeyError('anthropic');
-      return new AnthropicProvider(key);
+      return new (await anthropicProvider())(key);
     }
     case 'openai': {
       const c = settings.providers.openai;
       if (!c?.apiKey) throw missingKeyError('openai');
-      return new OpenAIProvider(c.apiKey, c.baseURL);
+      return new (await openaiProvider())(c.apiKey, c.baseURL);
     }
     case 'google': {
       const c = settings.providers.google;
       if (!c?.apiKey) throw missingKeyError('google');
-      return new GoogleProvider(c.apiKey);
+      return new (await googleProvider())(c.apiKey);
     }
     case 'local': {
       // OpenAI-compatible endpoint (Ollama/LM Studio/vLLM/…). Reuses the OpenAI
@@ -79,7 +97,7 @@ function buildProvider(id: ProviderId, settings: LLMSettings): LLMProvider {
         // ADDRESS, not a key, so it says so.
         throw new Error(missingBaseUrlMessage('local'));
       }
-      return new OpenAIProvider(c.apiKey ?? '', c.baseURL, undefined, 'local');
+      return new (await openaiProvider())(c.apiKey ?? '', c.baseURL, undefined, 'local');
     }
   }
 }
@@ -94,7 +112,7 @@ export async function getProvider(modelOverride?: string): Promise<ResolvedProvi
   const settings = await getSettings();
   const model = modelOverride ?? settings.model;
   const id = resolveProviderId(model, settings);
-  const provider = buildProvider(id, settings);
+  const provider = await buildProvider(id, settings);
   return {
     provider,
     id,
@@ -109,16 +127,20 @@ export async function getProvider(modelOverride?: string): Promise<ResolvedProvi
  * by the "Check connection" validator to test an unsaved typed key. Keeps
  * provider construction (and the SDKs) behind the seam.
  */
-export function createProviderForKey(providerId: ProviderId, apiKey: string, baseURL?: string): LLMProvider {
+export async function createProviderForKey(
+  providerId: ProviderId,
+  apiKey: string,
+  baseURL?: string,
+): Promise<LLMProvider> {
   switch (providerId) {
     case 'openai':
-      return new OpenAIProvider(apiKey, baseURL);
+      return new (await openaiProvider())(apiKey, baseURL);
     case 'local':
-      return new OpenAIProvider(apiKey, baseURL, undefined, 'local');
+      return new (await openaiProvider())(apiKey, baseURL, undefined, 'local');
     case 'google':
-      return new GoogleProvider(apiKey);
+      return new (await googleProvider())(apiKey);
     case 'anthropic':
     default:
-      return new AnthropicProvider(apiKey);
+      return new (await anthropicProvider())(apiKey);
   }
 }
