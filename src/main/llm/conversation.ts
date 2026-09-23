@@ -342,6 +342,14 @@ function convUri(id: string): string {
 const CONVERSATION_PREDICATES = [
   'conversationStatus',
   'startedAt',
+  'conversationArchivedAt',
+  // Pre-#2345 spelling. `thought:archivedAt` is now ONLY a source's
+  // archival-copy path (domain thought:Source); the conversation timestamp
+  // moved to `conversationArchivedAt` because one IRI was declared twice with
+  // contradictory range. Still listed here so re-projecting a graph written by
+  // an older build scrubs the old triple instead of leaving a dateTime sitting
+  // on a predicate that now means a file path. Same reason `resolvedAt` below
+  // is still here.
   'archivedAt',
   // Pre-#503 predicate; still listed so re-projecting an old graph
   // scrubs the legacy timestamp before writing the new shape.
@@ -393,7 +401,7 @@ function updateConversationInGraph(rootPath: string, conv: Conversation): void {
     @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
     <${uri}> thought:conversationStatus thought:${conv.status}
-      ${conv.archivedAt ? `; thought:archivedAt "${conv.archivedAt}"^^xsd:dateTime` : ''} .
+      ${conv.archivedAt ? `; thought:conversationArchivedAt "${conv.archivedAt}"^^xsd:dateTime` : ''} .
   `;
   graph.parseIntoStore(projectContext(rootPath), turtle);
 }
