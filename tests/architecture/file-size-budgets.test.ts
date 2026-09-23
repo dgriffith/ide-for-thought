@@ -110,7 +110,11 @@ const BUDGETS: Record<string, number> = {
   // + batched, mtime-keyed count cache. Raised rather than extracted — the new
   // helpers read `TablesState`'s private maps, so a seam would mean exporting
   // `getState` and handing the module's internals to another file.
-  'src/main/sources/tables.ts': 806,
+  // +4 for #2335: the DuckDB binding is reached through `main/duckdb-lazy.ts`
+  // instead of a static import, so the 107MB native module leaves the
+  // pre-window boot path. The extra lines are the lazy resolution and the
+  // comment saying why the import looks indirect.
+  'src/main/sources/tables.ts': 810,
   // #2220 (601 → 633): the search callback grew a match cap, a generation
   // guard that drops superseded responses, and a truncation-aware status line.
   // Raised rather than extracted on purpose — all 32 lines are the one
