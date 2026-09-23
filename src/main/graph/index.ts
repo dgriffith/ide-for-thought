@@ -103,7 +103,58 @@ function resolveBaseUri(rootPath: string): string {
 
 // ── Init ────────────────────────────────────────────────────────────────────
 
-export async function initGraph(ctx: ProjectContext): Promise<void> {
+export interface InitGraphOptions {
+  /**
+   * The caller will run `indexAllNotes` immediately after this resolves.
+   *
+   * That changes what the persisted snapshot is FOR. `indexAllNotes` swaps in
+   * a fresh store and re-derives everything from disk — notes, sources
+   * (`walkAndIndexSources`), excerpts (`walkAndIndexExcerpts`), folders, the
+   * type catalog — keeping exactly one thing out of the old store:
+   * `captureProposalStatements`. So when a rebuild follows, parsing
+   * `graph.ttl` contributes nothing except pending proposals, and if there are
+   * none it contributes nothing at all.
+   *
+   * Callers who own a throwaway store and do NOT rebuild — the CLI's
+   * `Engine.proposeNote`, per `llm/propose-note.ts` — must leave this unset:
+   * for them the snapshot IS the graph.
+   */
+  rebuildFollows?: boolean;
+}
+
+/**
+ * Does this snapshot mention a proposal at all?
+ *
+ * Deliberately an over-broad, case-insensitive substring rather than anything
+ * that looks like it understands Turtle, and the reason is worth recording
+ * because the tight version is very inviting and is WRONG.
+ *
+ * The obvious marker is `thought:Proposal`. It matches nothing. rdflib's
+ * serializer picks its own prefixes at write time and emits this namespace as
+ * `tho:` — a real `graph.ttl` reads `a tho:Proposal;`. A marker built from the
+ * prefix the rest of the codebase uses would have found no proposals in any
+ * file, skipped every parse, and silently dropped every pending proposal on
+ * project open. That is the worst failure this repo has available: the
+ * approval queue is the whole trust model (`CLAUDE.md`, The Trust Principle),
+ * and losing it is invisible until a user goes looking for a review.
+ *
+ * So the test is "could this file possibly contain a proposal", answered
+ * conservatively. Every proposal record contributes several independent
+ * occurrences — the class (`…:Proposal`), the subject IRI
+ * (`…/thought#proposal/<id>`), and predicates like `proposalStatus` — so a
+ * false negative would need rdflib to abbreviate mid-local-name, which it
+ * does not do.
+ *
+ * False POSITIVES are expected and harmless: a thoughtbase whose prose
+ * discusses proposals simply keeps the old behaviour and parses. Given what
+ * this app is for, that will not be rare. It is the right direction to be
+ * wrong in.
+ */
+function mayContainProposals(turtle: string): boolean {
+  return /proposal/i.test(turtle);
+}
+
+export async function initGraph(ctx: ProjectContext, opts?: InitGraphOptions): Promise<void> {
   const { rootPath } = ctx;
   const metaDir = path.join(rootPath, '.minerva');
   await fs.mkdir(metaDir, { recursive: true });
@@ -124,11 +175,20 @@ export async function initGraph(ctx: ProjectContext): Promise<void> {
   // the load below isn't mirrored — the first query rebuilds it from scratch.
   instrumentStoreMirror(state);
 
-  // Load persisted graph if it exists
+  // Load persisted graph if it exists.
+  //
+  // At project open this parse used to be pure waste: measured 94ms at 500
+  // notes, 274ms at 1,500, 573ms at 3,000 (1.38MB / 54k statements),
+  // synchronously on the main thread before any window paints — and then
+  // `indexAllNotes` threw all of it away except the proposals. Scanning the
+  // same text for a proposal marker costs 0.754ms at that size, ~760x less
+  // (#2216).
   const graphPath = path.join(metaDir, 'graph.ttl');
   try {
     const turtle = await fs.readFile(graphPath, 'utf-8');
-    $rdf.parse(turtle, state.store, 'urn:x-minerva:void', 'text/turtle');
+    if (!opts?.rebuildFollows || mayContainProposals(turtle)) {
+      $rdf.parse(turtle, state.store, 'urn:x-minerva:void', 'text/turtle');
+    }
   } catch (e) {
     // No persisted graph yet, start fresh — but never swallow a tripped guard
     // (#2231). `initGraph` is deliberately NOT wrapped in withTrustedContext:

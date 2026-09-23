@@ -63,7 +63,10 @@ export async function acquireProject(rootPath: string, winId: number): Promise<P
   if (!rec) {
     const ctx = projectContext(rootPath);
     const initPromise = (async () => {
-      await graph.initGraph(ctx);
+      // `indexAllNotes` below re-derives the whole store from disk and keeps
+      // only the proposals out of the snapshot, so the snapshot's parse is
+      // skippable when it holds none (#2216).
+      await graph.initGraph(ctx, { rebuildFollows: true });
       await tables.initTablesDb(ctx);
       // Vector store (#835): open the persisted embeddings DB + schema. Cheap —
       // no model load (the embedder is lazy). Existing notes are embedded
