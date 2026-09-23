@@ -352,11 +352,11 @@ all through the approval engine.
 <a name="grouping"></a>
 ## Grouping (thematic sub-menus)
 
-A menu with many skills gets hard to scan (the stock **Analysis** menu has 20).
+A menu with many skills gets hard to scan (the stock **Analysis** menu has 29).
 Give related skills the same `group:` and the menu renders them as nested
 submenus — e.g. `Analysis ▸ Planning ▸ Murphyjitsu`. The stock Analysis skills
-are grouped Disagreement / Planning / Motivation / Semantic / Generation /
-Pattern / Diagnostic.
+are grouped Data / Diagnostic / Disagreement / Generation / Motivation /
+Organization / Pattern / Planning / Semantic.
 
 - Grouping kicks in only when **at least one** skill in a menu has a `group`;
   otherwise the menu stays a flat list (Learning and Research ship ungrouped).
