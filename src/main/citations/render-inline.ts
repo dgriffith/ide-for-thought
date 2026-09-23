@@ -20,7 +20,7 @@
 import type { ProjectContext } from '../project-context-types';
 import { withPreviewRenderer } from './assets-cache';
 import { getBibliographyStyleId } from '../project-config';
-import { BUNDLED_STYLES, DEFAULT_STYLE } from '../publish/csl/assets';
+import { DEFAULT_STYLE } from '../publish/csl/assets';
 
 export interface InlineCiteRequest {
   kind: 'cite' | 'quote';
@@ -56,10 +56,18 @@ export async function renderInlineCitations(
   ctx: ProjectContext,
   refs: InlineCiteRequest[],
 ): Promise<InlineCiteResponse> {
-  const projectStyleId = getBibliographyStyleId(ctx.rootPath) ?? DEFAULT_STYLE;
-  const styleId = Object.prototype.hasOwnProperty.call(BUNDLED_STYLES, projectStyleId)
-    ? projectStyleId
-    : DEFAULT_STYLE;
+  // The project's style id goes to `loadCitationAssets` UNFILTERED (#2314).
+  //
+  // This used to gate it on `BUNDLED_STYLES` first and fall back to APA for
+  // anything else — so a user style imported under #302
+  // (`.minerva/csl-styles/<id>.csl`) was accepted by the settings picker, used
+  // by every exporter, and silently ignored by the preview, which rendered APA
+  // instead. `loadCitationAssets` already resolves against the MERGED registry
+  // and already falls back to `DEFAULT_STYLE` for an unknown id, so the gate
+  // was a second, narrower copy of a decision that was being made correctly
+  // one layer down. Deleting it is the fix; `assets.styleId` is the id that
+  // was actually used.
+  const styleId = getBibliographyStyleId(ctx.rootPath) ?? DEFAULT_STYLE;
 
   // The callback body is synchronous on purpose — it is one citeproc session
   // on a renderer shared with the next tick, and an `await` in here would let
@@ -79,14 +87,20 @@ export async function renderInlineCitations(
       }
     }
 
-    const numeric = isNumericStyle(BUNDLED_STYLES[styleId]!);
+    // Read the RESOLVED style, not `BUNDLED_STYLES[styleId]`. For a user id
+    // that lookup is `undefined` (and the non-null assertion on it would have
+    // thrown the moment the style resolved); for a user file overriding a
+    // bundled id it returns the bundled XML, so a `citation-format` the user
+    // changed was read from a style nobody was rendering with — the preview
+    // bibliography then appeared or vanished according to the wrong file.
+    const numeric = isNumericStyle(assets.style);
     const bibliography = numeric ? renderer.renderBibliography().entries : null;
 
     return {
       markers,
       bibliography,
       missing: [...renderer.missing()],
-      styleId,
+      styleId: assets.styleId,
     };
   });
 }
