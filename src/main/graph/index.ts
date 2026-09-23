@@ -163,7 +163,8 @@ export async function persistGraph(ctx: ProjectContext): Promise<void> {
   // It cost twice over. `removeMatches` bottoms out in a linear scan of
   // `store.statements`, so the strip was O(|ontology| x T) — 326ms at 3,000
   // notes, fully synchronous. Worse, ~2,200 mirror mutations in one call sail
-  // past `N3_PERIODIC_REBUILD_EVERY` (1,000) and null `state.n3Cache`, so the
+  // past the mirror's rebuild budget (a flat 1,000 then; `N3_REBUILD_FLOOR`
+  // and store-proportional since #2212) and null `state.n3Cache`, so the
   // next query pays a full cold `buildN3Store`. Measured at 2,000 notes: warm
   // query 2.18ms, post-persist 32.80ms — a 15x regression, caused entirely by
   // bookkeeping that changed nothing.

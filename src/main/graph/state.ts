@@ -122,9 +122,13 @@ export async function ensureN3Cache(state: GraphState): Promise<N3.Store> {
   if (state.n3Cache) return state.n3Cache;
   // A write raced our build: the snapshot is stale, so rebuild atomically.
   if ((marker.__minervaMutations ?? 0) !== startMutations) {
-    return (state.n3Cache = buildN3Store(state.store));
+    state.n3Cache = buildN3Store(state.store);
+    armRebuildBudget(state);
+    return state.n3Cache;
   }
-  return (state.n3Cache = n3);
+  state.n3Cache = n3;
+  armRebuildBudget(state);
+  return state.n3Cache;
 }
 
 // rdflib's term shape isn't fully typed at this boundary — accept anything
@@ -289,17 +293,77 @@ export function invalidate(state: GraphState): void {
 // count: a flattened quad is dropped only when rdflib no longer asserts that
 // (s,p,o) in ANY graph — provably identical to a from-scratch `buildN3Store`.
 
-/** Belt-and-suspenders: force a fresh full rebuild after this many incremental
- *  mirror mutations, so any unforeseen drift self-heals within a bounded window
- *  (#1110 asks for a periodic/fallback rebuild). Generous — the amortized cost
- *  of one O(n) rebuild per N writes is negligible next to N incremental deltas. */
-const N3_PERIODIC_REBUILD_EVERY = 1000;
+/**
+ * Belt-and-suspenders: force a fresh full rebuild after this many incremental
+ * mirror mutations, so any unforeseen drift self-heals within a bounded window
+ * (#1110 asks for a periodic/fallback rebuild).
+ *
+ * The budget is now proportional to the store, floored here, because a FIXED
+ * budget made the amortized cost grow with the corpus (#2212). Measured, on
+ * ordinary re-saves of a 5-link note:
+ *
+ *     notes   quads    mutations/save   reset every   rebuild   amortized
+ *       400    8,328              20      ~50 saves      59ms    1.18ms/save
+ *     1,200   22,728              20      ~50 saves      50ms    0.99ms/save
+ *     2,400   44,328              20      ~50 saves      84ms    1.69ms/save
+ *
+ * The middle column is the point: a save costs a roughly constant number of
+ * mirror mutations regardless of how big the project is, so a fixed budget
+ * fires at a constant CADENCE — every ~50 saves — while the rebuild it
+ * triggers is O(total triples). The report measures that rebuild at 542ms for
+ * 180k triples, which at this cadence is ~11ms amortized onto every save, and
+ * rising. The issue's own framing ("every ~20 saves") is close enough; the
+ * part worth stating precisely is that the cadence does not move with size
+ * while the price does.
+ *
+ * Making the budget the store's own size is the standard amortization: one
+ * O(T) rebuild per Θ(T) mutations is O(1) per mutation, at any corpus size.
+ * At 44k quads that is a reset every ~2,200 saves rather than every ~50.
+ *
+ * THE COST OF THIS, STATED PLAINLY: the drift window widens in the same
+ * proportion. This counter is not load-bearing for correctness — the removal
+ * path "leans on rdflib itself as the reference count", which the module
+ * comment above argues is provably identical to a from-scratch build, and no
+ * drift has ever been observed. It is insurance against a bug that does not
+ * currently exist. Widening the window makes that insurance slower to pay out
+ * on a large project, and that is the trade being made: a hypothetical drift
+ * bug would survive ~2,200 saves instead of ~50. If drift is ever actually
+ * observed, the right response is to fix it and tighten this, not to pay for
+ * a blind rebuild on every fiftieth save forever.
+ */
+const N3_REBUILD_FLOOR = 1000;
+
+/**
+ * Arm the next self-heal rebuild: zero the counter and FREEZE the budget at
+ * the store's size right now.
+ *
+ * Frozen, not recomputed per mutation, and that distinction is the whole
+ * mechanism. A live `Math.max(FLOOR, statements.length)` compared against a
+ * counter that `store.add` also increments grows 1:1 with that counter, so a
+ * store being appended to can never catch its own budget and the backstop
+ * NEVER fires — a fix that silently deletes the drift insurance while looking
+ * like a tuning change. That is what the first version of this did, and
+ * `n3-rebuild-budget.test.ts`'s "rebuilds once its OWN budget is crossed"
+ * caught it.
+ *
+ * Freezing at build time is also the honest reading of the amortization: the
+ * rebuild that just happened cost O(T) for the T triples then present, so T
+ * more mutations may be spent before paying again.
+ */
+function armRebuildBudget(state: GraphState): void {
+  const marker = state.store as unknown as MirrorMarker;
+  marker.__minervaN3Writes = 0;
+  marker.__minervaN3Budget = Math.max(N3_REBUILD_FLOOR, state.store.statements.length);
+}
 
 interface MirrorMarker {
   /** Set once per store instance so we never double-wrap. */
   __minervaMirrored?: boolean;
   /** Incremental mutations applied since the last full build (periodic reset). */
   __minervaN3Writes?: number;
+  /** Mutations allowed before the next self-heal rebuild, frozen at the store's
+   *  size when the mirror was last built (#2212). */
+  __minervaN3Budget?: number;
   /** Monotonic mutation count (every add/removeMatches, never reset). The
    *  yielding cold rebuild (`ensureN3Cache`) snapshots this before its yields
    *  and re-checks after, to detect a write that raced its async build. */
@@ -426,7 +490,9 @@ export function instrumentStoreMirror(state: GraphState): void {
   function bumpAndMaybeRebuild(): void {
     if (!state.n3Cache) return;
     marker.__minervaN3Writes = (marker.__minervaN3Writes ?? 0) + 1;
-    if (marker.__minervaN3Writes >= N3_PERIODIC_REBUILD_EVERY) resetN3Mirror(state);
+    if (marker.__minervaN3Writes >= (marker.__minervaN3Budget ?? N3_REBUILD_FLOOR)) {
+      resetN3Mirror(state);
+    }
   }
 
   m.add = function (s: RdflibTermLike, p: RdflibTermLike, o: RdflibTermLike, g?: unknown) {
