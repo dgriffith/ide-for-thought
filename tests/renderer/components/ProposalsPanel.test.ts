@@ -183,6 +183,38 @@ describe('ProposalsPanel — approval diff UI (#680)', () => {
     expect(approveMock).not.toHaveBeenCalled();
   });
 
+  it('y / n typed into the search field do not approve or reject (#2377, WCAG 2.1.4)', async () => {
+    listMock.mockResolvedValue([pendingProposal()]);
+    const { getByText, container } = await renderPanel();
+
+    await fireEvent.click(getByText('Crystallize claim about photosynthesis'));
+    const search = container.querySelector<HTMLInputElement>('.proposals-panel input')!;
+    expect(search, 'panel search field').toBeTruthy();
+    await fireEvent.keyDown(search, { key: 'y' });
+    await fireEvent.keyDown(search, { key: 'n' });
+
+    expect(approveMock).not.toHaveBeenCalled();
+    expect(rejectMock).not.toHaveBeenCalled();
+    // Still expanded — 's' in the field didn't collapse it either.
+    await fireEvent.keyDown(search, { key: 's' });
+    expect(container.querySelector('.proposal-detail')).toBeTruthy();
+  });
+
+  it('modified keys (⌘N, Ctrl+Y, ⌘S) are app shortcuts, not approve / reject / close (#2377)', async () => {
+    listMock.mockResolvedValue([pendingProposal()]);
+    const { getByText, container } = await renderPanel();
+
+    await fireEvent.click(getByText('Crystallize claim about photosynthesis'));
+    const panel = container.querySelector('.proposals-panel')!;
+    await fireEvent.keyDown(panel, { key: 'n', metaKey: true });
+    await fireEvent.keyDown(panel, { key: 'y', ctrlKey: true });
+    await fireEvent.keyDown(panel, { key: 's', metaKey: true });
+
+    expect(rejectMock).not.toHaveBeenCalled();
+    expect(approveMock).not.toHaveBeenCalled();
+    expect(container.querySelector('.proposal-detail')).toBeTruthy();
+  });
+
   it('a refused approve surfaces the actual reason (no silent failure, no guess) (#2362)', async () => {
     listMock.mockResolvedValue([pendingProposal()]);
     approveMock.mockResolvedValue({ ok: false, reason: 'not-pending', status: 'rejected' });
