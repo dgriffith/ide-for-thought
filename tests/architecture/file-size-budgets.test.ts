@@ -81,7 +81,7 @@ const BUDGETS: Record<string, number> = {
   // predicted this: the IPC-surface files are budgeted and grow one line per
   // channel by construction, so a bump here is the expected remedy, not a
   // smell.
-  'src/renderer/lib/ipc/client.ts': 1367,
+  'src/renderer/lib/ipc/client.ts': 1372,  // #2363/#2364: doc comments on graph.query + git.commit contracts
   'src/renderer/lib/stores/conversations.svelte.ts': 1165,
   'src/renderer/lib/components/Editor.svelte': 854,
   'src/renderer/lib/stores/editor.svelte.ts': 913,
@@ -106,13 +106,13 @@ const BUDGETS: Record<string, number> = {
   // it — a state module importing `Inspection` from here while this imported
   // the state from there is a genuine cycle, and `no-cycles.test.ts` follows
   // type-only imports. Below 826 now, so the two raises are more than repaid.
-  'src/main/graph/health-checks.ts': 735,
+  'src/main/graph/health-checks.ts': 759, // #2363: per-check isolation — one failing query no longer blanks the run
   'src/renderer/lib/components/ExportDialog.svelte': 712,
   'src/renderer/lib/components/ProposalsPanel.svelte': 614,
   'src/renderer/lib/components/QueryPanel.svelte': 759,
   'src/renderer/lib/components/conversations/DraftCards.svelte': 758,
   // +1 for #2256: the MENU_COMMAND_PALETTE channel / its MENU_COMMANDS entry.
-  'src/shared/ipc-contract.ts': 785,  // #2288: two inline Inspection shapes → Inspection[]; #2222: sources:queueCounts
+  'src/shared/ipc-contract.ts': 789,  // #2363/#2364: GraphQueryResult + git:commit doc comments; #2288: two inline Inspection shapes → Inspection[]; #2222: sources:queueCounts
   // +1 for #2256: the MENU_COMMAND_PALETTE channel / its MENU_COMMANDS entry.
   'src/shared/channels.ts': 746,  // #2222: SOURCES_QUEUE_COUNTS + its why-comment
   'src/renderer/lib/app/note-ops.ts': 687,

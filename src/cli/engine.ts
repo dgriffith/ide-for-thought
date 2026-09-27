@@ -113,8 +113,8 @@ export function createEngine(ctx: ProjectContext, opts: EngineOptions = {}): Eng
   return {
     async query(sparql) {
       await ensureGraph();
-      const { results, columns, error } = await graph.queryGraph(ctx, sparql);
-      return error ? { ok: false, error } : { ok: true, data: { columns, results } };
+      const r = await graph.queryGraph(ctx, sparql);
+      return r.ok ? { ok: true, data: { columns: r.columns, results: r.results } } : { ok: false, error: r.error };
     },
     async sql(sql) {
       await ensureTables();

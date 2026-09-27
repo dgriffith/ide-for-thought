@@ -20,12 +20,12 @@ const SMITH_ONLY = [ALL[0]];
 
 beforeEach(() => {
   queryMock.mockImplementation((sparql: string) => {
-    if (sparql.includes('DISTINCT ?src')) return Promise.resolve({ results: [{ src: 'smith-2023', title: 'Smith 2023' }], columns: [] });
-    if (sparql.includes('DISTINCT ?tag')) return Promise.resolve({ results: [{ tag: 'philosophy' }], columns: [] });
-    if (sparql.includes('DISTINCT ?path')) return Promise.resolve({ results: [{ path: 'Argument.md', title: 'Argument' }], columns: [] });
+    if (sparql.includes('DISTINCT ?src')) return Promise.resolve({ ok: true, results: [{ src: 'smith-2023', title: 'Smith 2023' }], columns: [] });
+    if (sparql.includes('DISTINCT ?tag')) return Promise.resolve({ ok: true, results: [{ tag: 'philosophy' }], columns: [] });
+    if (sparql.includes('DISTINCT ?path')) return Promise.resolve({ ok: true, results: [{ path: 'Argument.md', title: 'Argument' }], columns: [] });
     // the excerpt list
     const filtered = /sourceId "|tagName "|relativePath "/.test(sparql);
-    return Promise.resolve({ results: filtered ? SMITH_ONLY : ALL, columns: [] });
+    return Promise.resolve({ ok: true, results: filtered ? SMITH_ONLY : ALL, columns: [] });
   });
 });
 afterEach(() => { cleanup(); queryMock.mockReset(); });

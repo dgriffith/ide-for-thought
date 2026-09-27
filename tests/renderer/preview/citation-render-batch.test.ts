@@ -57,6 +57,7 @@ beforeEach(() => queryMock.mockReset());
 describe('resolveCiteLabels (batched, #1114)', () => {
   it('resolves N cite links in a single IPC call', async () => {
     queryMock.mockResolvedValue({
+      ok: true,
       results: [
         { sid: 's1', title: 'First', creator: 'Ada', issued: '2020-01-01' },
         { sid: 's2', title: 'Second', creator: 'Bob', issued: '2021-06-01' },
@@ -87,7 +88,7 @@ describe('resolveCiteLabels (batched, #1114)', () => {
   });
 
   it('serves cached ids without any IPC on a second pass', async () => {
-    queryMock.mockResolvedValue({ results: [{ sid: 's1', title: 'First', creator: 'Ada' }] });
+    queryMock.mockResolvedValue({ ok: true, results: [{ sid: 's1', title: 'First', creator: 'Ada' }] });
     const deps = makeDeps();
 
     await resolveCiteLabels(deps, [citeLink('s1')]);
@@ -107,6 +108,7 @@ describe('resolveCiteLabels (batched, #1114)', () => {
 describe('resolveQuoteLabels (batched, #1114)', () => {
   it('resolves N quote links in a single IPC call', async () => {
     queryMock.mockResolvedValue({
+      ok: true,
       results: [
         { eid: 'e1', citedText: 'quote one', sourceTitle: 'Src', page: '3' },
         { eid: 'e2', citedText: 'quote two' },

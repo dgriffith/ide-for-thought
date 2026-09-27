@@ -56,6 +56,6 @@ export interface UnreviewedLLMWrite {
  */
 export async function findUnreviewedLLMWrites(ctx: ProjectContext): Promise<UnreviewedLLMWrite[]> {
   const r = await queryGraph(ctx, UNREVIEWED_LLM_WRITES_QUERY);
-  if (r.error) throw new Error(`integrity query failed: ${r.error}`);
+  if (!r.ok) throw new Error(`integrity query failed: ${r.error}`);
   return r.results as UnreviewedLLMWrite[];
 }

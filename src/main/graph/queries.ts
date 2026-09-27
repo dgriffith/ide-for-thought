@@ -83,5 +83,6 @@ export {
   injectSparqlPrefixes,
   schemaForCompletion,
   queryGraph,
+  queryGraphRows,
 } from './queries/sparql';
 export type { SchemaEntry, GraphSchema } from './queries/sparql';

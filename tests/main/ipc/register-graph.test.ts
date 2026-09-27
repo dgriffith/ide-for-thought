@@ -5,9 +5,10 @@
  *
  * The graph registrar is where the #1631 rules are most visible in one file: a
  * `withRootPath` throw (GRAPH_QUERY), a discriminated `{ ok: false }` failure
- * arm (TABLES_QUERY), plain empty-value fallbacks (alias/frontmatter/inspection
- * lists), and — in GRAPH_GROUND_CHECK — the one handler that deliberately
- * REJECTS instead of passing an in-band `error` off as "no matches". All four
+ * arm (TABLES_QUERY, and GRAPH_QUERY since #2363), plain empty-value fallbacks
+ * (alias/frontmatter/inspection lists), and — in GRAPH_GROUND_CHECK — the one
+ * handler that deliberately REJECTS instead of passing a failed query off as
+ * "no matches". All four
  * are pinned here so a refactor can't quietly swap one for another.
  *
  * It also covers the rebase (#1443 B), whose ordering is load-bearing: the base
@@ -140,7 +141,7 @@ beforeEach(() => {
   h.order.length = 0;
   h.win.isDestroyed.mockReturnValue(false);
   h.readProjectConfig.mockReturnValue({});
-  h.queryGraph.mockResolvedValue({ results: [], columns: [] });
+  h.queryGraph.mockResolvedValue({ ok: true, results: [], columns: [] });
 });
 
 describe('register-graph — the #1631 project guard', () => {
@@ -209,10 +210,20 @@ describe('register-graph — the #1631 project guard', () => {
 
 describe('register-graph — queries and lookups', () => {
   it('GRAPH_QUERY passes the SPARQL straight through to the store', async () => {
-    h.queryGraph.mockResolvedValue({ results: [{ s: 'x' }], columns: ['s'] });
+    h.queryGraph.mockResolvedValue({ ok: true, results: [{ s: 'x' }], columns: ['s'] });
     await expect(callAsync(Channels.GRAPH_QUERY, 'SELECT ?s WHERE {}'))
-      .resolves.toEqual({ results: [{ s: 'x' }], columns: ['s'] });
+      .resolves.toEqual({ ok: true, results: [{ s: 'x' }], columns: ['s'] });
     expect(h.queryGraph).toHaveBeenCalledWith(CTX, 'SELECT ?s WHERE {}');
+  });
+
+  it('GRAPH_QUERY hands malformed SPARQL back as the { ok: false } arm, not a rejection (#2363)', async () => {
+    // Same rule as TABLES_QUERY below: a user's typo is a normal input the
+    // Query panel renders inline. Nothing here should throw — and there must
+    // be no `results` beside the error for a caller to mistake for an answer.
+    h.queryGraph.mockResolvedValue({ ok: false, error: 'Parse error on line 1' });
+    const r = await callAsync(Channels.GRAPH_QUERY, 'SELEKT ?s');
+    expect(r).toEqual({ ok: false, error: 'Parse error on line 1' });
+    expect(r).not.toHaveProperty('results');
   });
 
   it('TABLES_QUERY hands a bad-SQL failure back verbatim', async () => {
@@ -274,18 +285,19 @@ describe('register-graph — queries and lookups', () => {
 });
 
 describe('register-graph — GRAPH_GROUND_CHECK (#1631 rule 1 in action)', () => {
-  it('rejects when the engine reports an in-band error instead of returning "no matches"', async () => {
-    // `queryGraph` reports failures in-band for its query-panel callers. This
-    // handler has no such surface, so a dropped `error` would silently read as
-    // "nothing grounds this claim" — the worst possible wrong answer here.
-    h.queryGraph.mockResolvedValue({ results: [], columns: [], error: 'engine exploded' });
+  it('rejects when the engine reports a failure instead of returning "no matches"', async () => {
+    // `queryGraph` reports failures as `{ ok: false }` for its query-panel
+    // callers. This handler has no such surface, so a dropped failure would
+    // silently read as "nothing grounds this claim" — the worst possible wrong
+    // answer here.
+    h.queryGraph.mockResolvedValue({ ok: false, error: 'engine exploded' });
     await expect(callAsync(Channels.GRAPH_GROUND_CHECK, 'a claim'))
       .rejects.toThrow(/grounding query failed: engine exploded/);
   });
 
   it('returns the matched nodes when the query succeeds', async () => {
     const rows = [{ node: 'n1', label: 'Some Note', type: 'note' }];
-    h.queryGraph.mockResolvedValue({ results: rows, columns: ['node', 'label', 'type'] });
+    h.queryGraph.mockResolvedValue({ ok: true, results: rows, columns: ['node', 'label', 'type'] });
     await expect(callAsync(Channels.GRAPH_GROUND_CHECK, 'Some')).resolves.toEqual(rows);
   });
 

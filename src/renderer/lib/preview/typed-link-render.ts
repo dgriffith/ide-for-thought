@@ -10,6 +10,7 @@
  * re-render mid-fetch is skipped), and injecting escaped-string HTML.
  */
 import { api } from '../ipc/client';
+import { unwrapGraphQuery } from '../../../shared/graph-query';
 import type { NoteTypedProperties } from '../../../shared/objects/type-def';
 import type { QuoteMeta } from './cite-meta';
 import { buildObjectCardHtml, buildExcerptCardHtml, isBlockLevelLink } from './typed-card';
@@ -53,7 +54,7 @@ async function fetchQuoteMeta(deps: TypedCardDeps, id: string): Promise<QuoteMet
     }`;
   let row: Record<string, string> | undefined;
   try {
-    const res = await api.graph.query(deps.queryPrefixes + sparql);
+    const res = unwrapGraphQuery(await api.graph.query(deps.queryPrefixes + sparql));
     row = (res.results as Array<Record<string, string>>)[0];
   } catch {
     return null;

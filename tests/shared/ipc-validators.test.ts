@@ -82,11 +82,16 @@ describe('CHANNEL_VALIDATORS (#983)', () => {
     expect(v({ uri: 1 })).toBe(false);
   });
 
-  it('graph:query requires results[] + columns[] (error is optional)', () => {
+  it('graph:query is the { ok } union: rows on success, a string error on failure (#2363)', () => {
     const v = CHANNEL_VALIDATORS[Channels.GRAPH_QUERY]!;
-    expect(v({ results: [], columns: [] })).toBe(true);
-    expect(v({ results: [{}], columns: ['a'], error: 'boom' })).toBe(true);
-    expect(v({ results: [], columns: [1] })).toBe(false); // columns not strings
-    expect(v({ results: 'x', columns: [] })).toBe(false); // results not an array
+    expect(v({ ok: true, results: [], columns: [] })).toBe(true);
+    expect(v({ ok: true, results: [{}], columns: ['a'] })).toBe(true);
+    expect(v({ ok: false, error: 'Parse error' })).toBe(true);
+    expect(v({ ok: true, results: [], columns: [1] })).toBe(false); // columns not strings
+    expect(v({ ok: true, results: 'x', columns: [] })).toBe(false); // results not an array
+    expect(v({ ok: false })).toBe(false); // failure arm without its error
+    // The pre-#2363 shape has no discriminant — reject it rather than let a
+    // stale main process's `{ results, error? }` through as an answer.
+    expect(v({ results: [], columns: [] })).toBe(false);
   });
 });

@@ -11,6 +11,7 @@
    */
   import { onMount } from 'svelte';
   import { api } from '../ipc/client';
+  import { unwrapGraphQuery } from '../../../shared/graph-query';
   import { objectTypesStore } from '../stores/object-types.svelte';
   import { getDialogStore } from '../stores/dialogs.svelte';
   import { getToastStore } from '../stores/toasts.svelte';
@@ -41,9 +42,9 @@
   }
 
   async function loadCounts(): Promise<void> {
-    const { results } = await api.graph.query(
+    const { results } = unwrapGraphQuery(await api.graph.query(
       `SELECT ?id (COUNT(?x) AS ?n) WHERE { ?x a ?c . ?c minerva:typeId ?id } GROUP BY ?id`,
-    );
+    ));
     const out: Record<string, number> = {};
     for (const r of results as Array<{ id?: string; n?: string }>) if (r.id) out[r.id] = Number(r.n ?? 0);
     counts = out;

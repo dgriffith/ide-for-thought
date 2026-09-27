@@ -32,7 +32,7 @@ function deps(previewEl: HTMLElement): TypedCardDeps {
 
 beforeEach(() => {
   notePropsMock.mockImplementation((path: string) => Promise.resolve(path === 'Dune.md' ? TYPED : UNTYPED));
-  queryMock.mockResolvedValue({ results: [{ citedText: 'A quote.', sourceTitle: 'Src', pageRange: '1-2' }], columns: [] });
+  queryMock.mockResolvedValue({ ok: true, results: [{ citedText: 'A quote.', sourceTitle: 'Src', pageRange: '1-2' }], columns: [] });
 });
 afterEach(() => { notePropsMock.mockReset(); queryMock.mockReset(); document.body.innerHTML = ''; });
 

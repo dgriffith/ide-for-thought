@@ -248,7 +248,7 @@ async function rejectPending(ctx: ProjectContext, uri: string): Promise<boolean>
  * Expire proposals past their autoExpires date.
  */
 export async function expireProposals(ctx: ProjectContext): Promise<number> {
-  const results = await graph.queryGraph(ctx, `
+  const results = await graph.queryGraphRows(ctx, `
     SELECT ?proposal ?expires WHERE {
       ?proposal a thought:Proposal .
       ?proposal thought:proposalStatus thought:pending .

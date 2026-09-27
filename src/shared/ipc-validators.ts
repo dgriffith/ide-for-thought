@@ -33,6 +33,7 @@ import type {
   ReplaceInNotesResult,
 } from './types';
 import type { Proposal } from './proposals';
+import type { GraphQueryResult } from './graph-query';
 
 type ResultOf<K extends keyof ChannelMap> = Awaited<ReturnType<ChannelMap[K]>>;
 
@@ -88,11 +89,13 @@ function isProposal(v: unknown): v is Proposal {
   return isObj(v) && isString(v.uri) && isString(v.status);
 }
 const isProposalOrNull = (v: unknown): v is Proposal | null => v === null || isProposal(v);
-// SPARQL result surface (#1635): the query panel renders `results`/`columns`;
-// `error` is an optional in-band field, so only the two required arrays are
-// checked.
-function isQueryResult(v: unknown): v is { results: unknown[]; columns: string[]; error?: string } {
-  return isObj(v) && Array.isArray(v.results) && isStringArray(v.columns);
+// SPARQL result surface (#1635): a discriminated union since #2363 — the
+// success arm carries `results`/`columns`, the failure arm a string `error`.
+function isQueryResult(v: unknown): v is GraphQueryResult {
+  if (!isObj(v)) return false;
+  if (v.ok === true) return Array.isArray(v.results) && isStringArray(v.columns);
+  if (v.ok === false) return typeof v.error === 'string';
+  return false;
 }
 
 export const CHANNEL_VALIDATORS: {

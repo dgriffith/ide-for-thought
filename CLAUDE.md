@@ -479,13 +479,18 @@ can't quietly grow while nobody re-reads it:
   this list to be complete. The two the ratchet still counts —
   `PROPOSAL_EXPIRE`'s `0` and `NOTEBASE_GET_ONBOARDING_DISMISSED`'s `false` —
   mean the same thing as the genuinely-empty answer, per rule 2.)*
-- in-band `error?` → union: `GRAPH_QUERY` (`{ results, columns, error? }` should
-  match the `TABLES_QUERY` `{ ok:false; error }` shape).
-- swallows: `LINKS_CITATIONS_FOR_NOTE` (`.catch(()=>'')`), `CSL_REMOVE_STYLE` /
-  `CSL_REMOVE_LOCALE` (unlink swallows non-ENOENT), `RUN_COMPUTE_DRAFT`
-  (log-only append / audit-record). `FORMATTER_LOAD_SETTINGS` uses
-  `readJsonFileOr` as of #1841.
-- vestigial: `GIT_COMMIT.success` (hardcoded `true` — any failure throws).
+- in-band `error?` → union: *(cleared — `GRAPH_QUERY` returns
+  `shared/graph-query.ts`'s `GraphQueryResult`, the `TABLES_QUERY`
+  `{ ok: false; error }` shape, as of #2363; the ratchet is at zero. Main's
+  app-authored lookups use `queryGraphRows`, and renderer ones
+  `unwrapGraphQuery`, which THROW on the failure arm instead of reading as
+  "no rows".)*
+- swallows: `RUN_COMPUTE_DRAFT` (log-only append / audit-record).
+  *(`LINKS_CITATIONS_FOR_NOTE` and `CSL_REMOVE_STYLE` / `CSL_REMOVE_LOCALE`
+  catch ENOENT only as of #2364, via `isEnoent` in `config/json-file.ts`;
+  `FORMATTER_LOAD_SETTINGS` uses `readJsonFileOr` as of #1841.)*
+- vestigial: *(cleared — `GIT_COMMIT` resolves `{ sha }`; its hardcoded
+  `success: true` was removed in #2364.)*
 
 ### Config files (#1640)
 - Load JSON config through the shared helper in `src/main/config/config-store.ts`

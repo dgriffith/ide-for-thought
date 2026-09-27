@@ -80,7 +80,7 @@ function conversationProvenance(conversationId: string): { conversationUri: stri
  * `applied` reflects `approveProposal`'s real `ok` result rather than being
  * hardcoded `true` — the six call sites this replaces all hardcoded it even
  * when `proposal` came back falsy and nothing was filed, the same shape as
- * the vestigial `GIT_COMMIT.success` CLAUDE.md already flags. `proposeWrite`
+ * the vestigial `GIT_COMMIT.success` removed in #2364. `proposeWrite`
  * doesn't currently return a falsy value (it throws instead, via
  * `assertWiredPayloads`), so the `if (!proposal)` branch below is defensive
  * rather than reachable today — but it means a future change to that

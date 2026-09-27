@@ -141,7 +141,7 @@ beforeEach(() => {
   });
   h.loadUserStyles.mockResolvedValue([]);
   h.loadUserLocales.mockResolvedValue([]);
-  // The fs writers are awaited (and `unlink` is `.catch`-ed), so they have to
+  // The fs writers are awaited (and `unlink`'s ENOENT is caught), so they have to
   // hand back promises rather than the `undefined` a reset mock returns.
   h.mkdir.mockResolvedValue(undefined);
   h.writeFile.mockResolvedValue(undefined);
@@ -404,14 +404,20 @@ describe('register-bibliography — user CSL assets', () => {
     await expect(callAsync(Channels.CSL_REMOVE_STYLE, 'house-style')).resolves.toBeUndefined();
   });
 
-  it('a remove that failed for a REAL reason is swallowed too — a known #1631 outlier', async () => {
-    // Documented in CLAUDE.md's migration backlog ("CSL_REMOVE_STYLE /
-    // CSL_REMOVE_LOCALE (unlink swallows non-ENOENT)"): the bare
-    // `.catch(() => undefined)` also hides EACCES/EIO, so the settings row
-    // disappears while the file stays on disk and reappears on reload. Pinned
-    // as-is so the fix is a deliberate, visible change rather than a surprise.
-    h.unlink.mockRejectedValue(Object.assign(new Error('EACCES'), { code: 'EACCES' }));
-    await expect(callAsync(Channels.CSL_REMOVE_STYLE, 'house-style')).resolves.toBeUndefined();
+  it('removing a locale that was already gone is not an error either', async () => {
+    h.unlink.mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+    await expect(callAsync(Channels.CSL_REMOVE_LOCALE, 'en-GB')).resolves.toBeUndefined();
+  });
+
+  it.each([
+    [Channels.CSL_REMOVE_STYLE, 'house-style'],
+    [Channels.CSL_REMOVE_LOCALE, 'en-GB'],
+  ])('%s rejects when unlink fails for a REAL reason (#2364)', async (channel, id) => {
+    // Only ENOENT is an expected absence. EACCES means the file is still on
+    // disk: swallowing it would drop the settings row while the file
+    // reappears on reload, so the remove must reject instead.
+    h.unlink.mockRejectedValue(Object.assign(new Error('EACCES: permission denied'), { code: 'EACCES' }));
+    await expect(callAsync(channel, id)).rejects.toThrow('EACCES');
   });
 });
 

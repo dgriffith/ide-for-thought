@@ -262,7 +262,7 @@ async function claimMetadata(
 ): Promise<{ label: string; sourceText: string } | undefined> {
   // Property-path membership check — mirrors gatherContext's fix (#2036-era
   // Claim stock type asserts `a types:Claim`, not exact `a thought:Claim`).
-  const { results, error } = await graph.queryGraph(
+  const r = await graph.queryGraph(
     ctx,
     `PREFIX thought: <https://minerva.dev/ontology/thought#>
      SELECT ?label ?sourceText WHERE {
@@ -271,8 +271,8 @@ async function claimMetadata(
        OPTIONAL { <${uri}> thought:sourceText ?sourceText . }
      } LIMIT 1`,
   );
-  if (error) return undefined;
-  const row = (results as Array<{ label?: string; sourceText?: string }>)[0];
+  if (!r.ok) return undefined;
+  const row = (r.results as Array<{ label?: string; sourceText?: string }>)[0];
   if (!row) return undefined;
   return { label: row.label ?? '', sourceText: row.sourceText ?? '' };
 }

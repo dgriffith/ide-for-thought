@@ -166,8 +166,8 @@ async function exportExecutor(ref: DataSourceRef, markdown: string, rootPath?: s
   const ctx = projectContext(rootPath);
   if (ref.kind === 'sparql') {
     const res = await queryGraph(ctx, ref.query);
-    if (res.error) throw new Error(res.error);
-    return (res.results as VegaRows) ?? [];
+    if (!res.ok) throw new Error(res.error);
+    return res.results as VegaRows;
   }
   const sql = ref.kind === 'table' ? tableQuerySql(ref.name) : ref.query;
   const res = await runQuery(ctx, sql);

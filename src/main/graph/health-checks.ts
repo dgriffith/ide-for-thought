@@ -1,4 +1,4 @@
-import { queryGraph, headingsFor } from './index';
+import { queryGraphRows, headingsFor } from './index';
 import type { ProjectContext } from '../project-context-types';
 import {
   healthStore,
@@ -17,6 +17,8 @@ export { getInspections, isRunning };
 export type { HealthCheckDeps };
 import { LINK_TYPES } from '../../shared/link-types';
 import { DAY_MS } from '../../shared/time';
+import { logger } from '../../shared/logger';
+import { rethrowIfTrustGuard } from './write-guard';
 import { stripNoteExt, noteExtRank } from '../../shared/note-extensions';
 import { noteTargetPathBeside } from '../../shared/wiki-link-resolver';
 import { onGraphChanged } from './graph-events';
@@ -61,7 +63,7 @@ const PERIODIC_CHECKS_DEFAULT_INTERVAL_MS = 5 * 60 * 1000;
  *  instead of at each call site. `queryGraph` auto-injects the standard prefixes
  *  (`injectSparqlPrefixes`), so the checks' SELECT bodies omit the PREFIX
  *  boilerplate (#1602). */
-function asRows(result: Awaited<ReturnType<typeof queryGraph>>): Record<string, string>[] {
+function asRows(result: Awaited<ReturnType<typeof queryGraphRows>>): Record<string, string>[] {
   return result.results as Record<string, string>[];
 }
 
@@ -81,6 +83,27 @@ function asRows(result: Awaited<ReturnType<typeof queryGraph>>): Record<string, 
  * settings panel actually offers.
  */
 
+/**
+ * Run one check so that its failure costs only its own results (#2363).
+ *
+ * The checks' fixed queries go through `queryGraphRows`, which THROWS on the
+ * union's failure arm — before #2363 a failed query came back as empty rows,
+ * so a check that hit an engine error quietly reported nothing. Throwing is
+ * right (rule 1), but under the `Promise.all` below one throwing check would
+ * reject the whole run and blank every inspection. So: log it loudly, omit
+ * that check's results for this run, keep the rest. A trust-guard violation
+ * is never absorbed here.
+ */
+async function isolated(name: string, run: () => Promise<Inspection[]>): Promise<Inspection[]> {
+  try {
+    return await run();
+  } catch (err) {
+    rethrowIfTrustGuard(err);
+    logger('graph').warn(`inspection '${name}' failed; its results are omitted from this run:`, err);
+    return [];
+  }
+}
+
 export async function runAllChecks(
   ctx: ProjectContext,
   settings: InspectionSettings = DEFAULT_INSPECTION_SETTINGS,
@@ -92,32 +115,33 @@ export async function runAllChecks(
 
   const on = (type: string) => isInspectionEnabled(type, settings);
   const none = (): Promise<Inspection[]> => Promise.resolve([]);
+  const findOrphans = deps.findOrphanedAssets;
 
   try {
     const results = await Promise.all([
-      on('unsupported_claim') ? checkUnsupportedClaims(ctx) : none(),
-      on('stale_note') ? checkStaleness(ctx, settings.staleDays) : none(),
-      on('missing_warrant') || on('missing_backing') ? checkEvidenceGaps(ctx) : none(),
-      on('contradiction') ? checkContradictions(ctx) : none(),
+      on('unsupported_claim') ? isolated('unsupported_claim', () => checkUnsupportedClaims(ctx)) : none(),
+      on('stale_note') ? isolated('stale_note', () => checkStaleness(ctx, settings.staleDays)) : none(),
+      on('missing_warrant') || on('missing_backing') ? isolated('evidence_gaps', () => checkEvidenceGaps(ctx)) : none(),
+      on('contradiction') ? isolated('contradiction', () => checkContradictions(ctx)) : none(),
       // The five source checks share ONE scan of the source table rather than
       // opening `?source minerva:sourceId ?sourceId` six times over (#2208
       // C1b) — see `source-checks.ts`. They stay individually switchable; what
       // they no longer do is each pay for their own walk.
-      runSourceChecks(ctx, {
+      isolated('source_checks', () => runSourceChecks(ctx, {
         invalidDoi: on('invalid_doi'),
         missingMetadata: on('source_missing_metadata'),
         agedStub: on('stub_aged'),
         citedUnread: on('source_cited_unread'),
         duplicates: on('source_duplicate_doi'),
         stubDays: settings.stubDays,
-      }),
+      })),
       on('broken_note_link') || on('broken_anchor_link') || on('broken_cite_quote')
-        ? checkBrokenLinks(ctx)
+        ? isolated('broken_links', () => checkBrokenLinks(ctx))
         : none(),
       // Enabled AND wired: without an injected scanner there is no filesystem
       // to look at, so the check has nothing to report (see HealthCheckDeps).
-      on('unreferenced_image') && deps.findOrphanedAssets
-        ? checkUnreferencedImages(ctx, deps.findOrphanedAssets)
+      on('unreferenced_image') && findOrphans
+        ? isolated('unreferenced_image', () => checkUnreferencedImages(ctx, findOrphans))
         : none(),
     ]);
     // The multi-type checks above run as a unit, so drop the individual types
@@ -141,7 +165,7 @@ export async function runAllChecks(
 // ── Individual Checks ──────────────────────────────────────────────────────
 
 async function checkUnsupportedClaims(ctx: ProjectContext): Promise<Inspection[]> {
-  const results = await queryGraph(ctx, `
+  const results = await queryGraphRows(ctx, `
     SELECT ?claim ?label ?notePath WHERE {
       ${isA('claim', 'Claim')}
       ${labelOf('claim', 'label')}
@@ -220,7 +244,7 @@ async function oldestMatching(
   opts: { subjectVar: string; where: string; limit: number },
 ): Promise<Array<{ iri: string; modified: string }>> {
   const { subjectVar: v, where, limit } = opts;
-  const results = await queryGraph(ctx, `
+  const results = await queryGraphRows(ctx, `
     SELECT ?${v} ?modified WHERE {
       ${where}
     }
@@ -279,7 +303,7 @@ async function checkStaleness(ctx: ProjectContext, thresholdDays: number): Promi
   // Details for the handful that survived. `?modified` is deliberately NOT
   // re-read here — phase one already chose which of the note's two dates
   // matters, and re-joining it would bring the duplication straight back.
-  const results = await queryGraph(ctx, `
+  const results = await queryGraphRows(ctx, `
     SELECT DISTINCT ?note ?path ?title WHERE {
       ${values}
       ?note minerva:relativePath ?path .
@@ -341,7 +365,7 @@ async function checkEvidenceGaps(ctx: ProjectContext): Promise<Inspection[]> {
   const inspections: Inspection[] = [];
 
   // Claims with grounds but no warrant
-  const noWarrant = await queryGraph(ctx, `
+  const noWarrant = await queryGraphRows(ctx, `
     SELECT ?claim ?label ?notePath WHERE {
       ${isA('claim', 'Claim')}
       ${labelOf('claim', 'label')}
@@ -366,7 +390,7 @@ async function checkEvidenceGaps(ctx: ProjectContext): Promise<Inspection[]> {
   }
 
   // Warrants with no backing
-  const noBacking = await queryGraph(ctx, `
+  const noBacking = await queryGraphRows(ctx, `
     SELECT ?warrant ?label ?notePath WHERE {
       ${isA('warrant', 'Warrant')}
       ${labelOf('warrant', 'label')}
@@ -392,7 +416,7 @@ async function checkEvidenceGaps(ctx: ProjectContext): Promise<Inspection[]> {
 }
 
 async function checkContradictions(ctx: ProjectContext): Promise<Inspection[]> {
-  const results = await queryGraph(ctx, `
+  const results = await queryGraphRows(ctx, `
     SELECT ?a ?aLabel ?b ?bLabel ?notePath WHERE {
       ?a thought:contradicts ?b .
       ?a thought:hasStatus thought:established .
@@ -446,13 +470,13 @@ async function checkBrokenLinks(ctx: ProjectContext): Promise<Inspection[]> {
 
   // Pre-fetch the valid-target sets so per-row lookups are O(1).
   const [notesRes, sourcesRes, excerptsRes] = await Promise.all([
-    queryGraph(ctx, `
+    queryGraphRows(ctx, `
       SELECT ?path WHERE { ?n minerva:relativePath ?path . ?n a minerva:Note }
     `),
-    queryGraph(ctx, `
+    queryGraphRows(ctx, `
       SELECT ?id WHERE { ?s minerva:sourceId ?id }
     `),
-    queryGraph(ctx, `
+    queryGraphRows(ctx, `
       SELECT ?id WHERE { ?e minerva:excerptId ?id }
     `),
   ]);
@@ -472,7 +496,7 @@ async function checkBrokenLinks(ctx: ProjectContext): Promise<Inspection[]> {
   const validExcerpts = new Set((excerptsRes.results as { id: string }[]).map((r) => r.id));
 
   // Walk every link triple — across every typed-link predicate.
-  const linksRes = await queryGraph(ctx, `
+  const linksRes = await queryGraphRows(ctx, `
     SELECT ?source ?sourcePath ?predicate ?target WHERE {
       ?source minerva:relativePath ?sourcePath .
       ?source ?predicate ?target .

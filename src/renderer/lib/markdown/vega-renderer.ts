@@ -187,8 +187,8 @@ function findUrlRefs(node: unknown, acc: string[], depth = 0): void {
 async function rendererExecutor(ref: DataSourceRef, noteContent: string): Promise<VegaRows> {
   if (ref.kind === 'sparql') {
     const res = await api.graph.query(ref.query);
-    if (res.error) throw new Error(res.error);
-    return (res.results as VegaRows) ?? [];
+    if (!res.ok) throw new Error(res.error);
+    return res.results as VegaRows;
   }
   if (ref.kind === 'sql' || ref.kind === 'table') {
     const sql = ref.kind === 'table' ? tableQuerySql(ref.name) : ref.query;

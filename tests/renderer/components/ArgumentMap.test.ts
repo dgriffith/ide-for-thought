@@ -37,7 +37,7 @@ const QUALIFIER_URI = 'https://minerva.dev/notes/qualifier';
 const BACKING_URI = 'https://minerva.dev/notes/backing';
 
 function jsonResult(results: unknown[]) {
-  return { results, columns: [] };
+  return { ok: true, results, columns: [] };
 }
 
 /** Routes each call by inspecting the query text — same dispatch shape the
@@ -52,19 +52,19 @@ function mockQueriesFor(opts: {
 }) {
   queryMock.mockImplementation((sparql: string) => {
     if (sparql.includes('minerva:relativePath') && sparql.includes('?focus')) {
-      if (opts.errorOn === 'focus') return Promise.resolve({ results: [], columns: [], error: 'boom' });
+      if (opts.errorOn === 'focus') return Promise.resolve({ ok: false, error: 'boom' });
       return Promise.resolve(jsonResult(opts.focus ?? []));
     }
     if (sparql.includes('thought:defectIn')) {
-      if (opts.errorOn === 'defects') return Promise.resolve({ results: [], columns: [], error: 'boom' });
+      if (opts.errorOn === 'defects') return Promise.resolve({ ok: false, error: 'boom' });
       return Promise.resolve(jsonResult(opts.defects ?? []));
     }
     if (sparql.includes(`<${FOCUS_URI}>`)) {
-      if (opts.errorOn === 'hop1') return Promise.resolve({ results: [], columns: [], error: 'boom' });
+      if (opts.errorOn === 'hop1') return Promise.resolve({ ok: false, error: 'boom' });
       return Promise.resolve(jsonResult(opts.hop1 ?? []));
     }
     // Any deeper hop's VALUES clause references a prior hop's discovered node(s).
-    if (opts.errorOn === 'hop2') return Promise.resolve({ results: [], columns: [], error: 'boom' });
+    if (opts.errorOn === 'hop2') return Promise.resolve({ ok: false, error: 'boom' });
     return Promise.resolve(jsonResult(opts.hop2 ?? []));
   });
 }

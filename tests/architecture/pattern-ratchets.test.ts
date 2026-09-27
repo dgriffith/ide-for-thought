@@ -210,8 +210,6 @@ const SWALLOW_EXPR_BASELINE: Record<string, number> = {
   'src/main/embeddings/vector-store.ts': 1,
   'src/main/git/publish-git.ts': 3,
   'src/main/config/json-file.ts': 1,  // moved from ipc/ in #2283; same file, same count
-  'src/main/ipc/register-bibliography.ts': 2,
-  'src/main/ipc/register-links.ts': 1,
   'src/main/notebase/asset-references.ts': 2,
   'src/main/publish/exporters/note-pdf/electron-render.ts': 1,
   'src/main/publish/exporters/static-site/index.ts': 1,
@@ -324,17 +322,16 @@ const NO_PROJECT_UNDEFINED_BASELINE: Record<string, number> = {
 const IN_BAND_ERROR_ON_PAYLOAD = /Promise<\s*\{[^{}]*\berror\?:[^{}]*\}\s*>/g;
 
 /**
- * CLAUDE.md's own migration backlog names exactly one open instance:
- * `GRAPH_QUERY` (`{ results, columns, error? }` should match `TABLES_QUERY`'s
- * `{ ok:false; error }` shape). `attach-evidence.ts`'s `AttachEvidenceResult`
- * is a NAMED interface, not an inline `Promise<{...}>`, so it doesn't match
- * this ratchet's regex — it's a related but distinct half-migrated shape
- * (it already carries an `ok` field, just doesn't use it as a real TS
- * discriminant) worth its own look someday, not conflated with this one.
+ * Empty since #2363: the one instance CLAUDE.md's backlog named, `GRAPH_QUERY`'s
+ * `{ results, columns, error? }`, is now `shared/graph-query.ts`'s
+ * `GraphQueryResult` union — the `TABLES_QUERY` `{ ok: false; error }` shape.
+ * So this ratchet now holds the line at zero. `attach-evidence.ts`'s
+ * `AttachEvidenceResult` is a NAMED interface, not an inline `Promise<{...}>`,
+ * so it doesn't match this ratchet's regex — it's a related but distinct
+ * half-migrated shape (it already carries an `ok` field, just doesn't use it as
+ * a real TS discriminant) worth its own look someday, not conflated with this one.
  */
-const IN_BAND_ERROR_ON_PAYLOAD_BASELINE: Record<string, number> = {
-  'src/main/graph/queries/sparql.ts': 1,
-};
+const IN_BAND_ERROR_ON_PAYLOAD_BASELINE: Record<string, number> = {};
 
 describe('known-bad pattern ratchets (#1848)', () => {
   it('the scanners still find things — a broken regex would pass vacuously', () => {
@@ -344,7 +341,11 @@ describe('known-bad pattern ratchets (#1848)', () => {
     expect(Object.keys(countPerFile('src/main', NO_PROJECT_NULL)).length).toBeGreaterThan(0);
     expect(Object.keys(countPerFile('src/main', BOOLEAN_OVERLOAD)).length).toBeGreaterThan(0);
     expect(Object.keys(countPerFile('src/main', NO_PROJECT_UNDEFINED)).length).toBeGreaterThan(0);
-    expect(Object.keys(countPerFile('src/main', IN_BAND_ERROR_ON_PAYLOAD)).length).toBeGreaterThan(0);
+    // The in-band ratchet is at ZERO (#2363), so the live tree can no longer
+    // prove its regex works — pin it against the shape it exists to catch, and
+    // against the union that replaced it, instead.
+    expect('Promise<{ results: unknown[]; columns: string[]; error?: string }>'.match(IN_BAND_ERROR_ON_PAYLOAD)).toHaveLength(1);
+    expect('Promise<{ ok: true; results: unknown[] } | { ok: false; error: string }>'.match(IN_BAND_ERROR_ON_PAYLOAD)).toBeNull();
   });
 
   it('swallowed errors: no new ones', () => {

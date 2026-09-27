@@ -5,6 +5,7 @@ import type { Inspection, InspectionSettings } from '../../../shared/inspections
 import type { ClipperState } from '../../../shared/clipper-pairing';
 import type { McpServerDescriptor, McpServerStatus } from '../../../shared/mcp-servers';
 import type { Proposal, ProposalApproveResult, ProposalRejectResult } from '../../../shared/proposals';
+import type { GraphQueryResult } from '../../../shared/graph-query';
 import type { MaintenanceProgress } from '../../../shared/maintenance';
 import type { ThemeMode } from '../../../shared/theme';
 import type { BatchRevertResult, HistorySettings, LabelNotesResult, RevisionMeta, SelectionRoot, UnifiedTimelineEntry } from '../../../shared/history';
@@ -138,11 +139,15 @@ export interface SearchApi {
 
 export interface GitApi {
   status(): Promise<{ isRepo: boolean; branch: string | null; files: unknown[] }>;
-  commit(message: string): Promise<{ success: boolean; sha: string }>;
+  /** Rejects on any failure; resolves with the new commit's sha. */
+  commit(message: string): Promise<{ sha: string }>;
 }
 
 export interface GraphApi {
-  query(sparql: string): Promise<{ results: unknown[]; columns: string[]; error?: string }>;
+  /** Run user SPARQL. Does NOT reject for a malformed/failing query — that is
+   *  the `{ ok: false; error }` arm (#2363); it rejects only when no project is
+   *  open. For fixed app-authored SPARQL, wrap in `unwrapGraphQuery`. */
+  query(sparql: string): Promise<GraphQueryResult>;
   /** Rebase to a new base IRI + rebuild indexes (#1443 Part B). */
   setBaseUri(uri: string): Promise<{ ok: true } | { ok: false; error: string }>;
   groundCheck(claimText: string): Promise<{ node: string; label: string; type: string }[]>;

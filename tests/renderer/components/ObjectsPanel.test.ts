@@ -36,12 +36,12 @@ beforeEach(async () => {
   noteTypeMapMock.mockResolvedValue({});
   viewsListMock.mockResolvedValue([]); // saved-views store refresh (#1072)
   queryMock.mockImplementation((sparql: string) => {
-    if (sparql.includes('thought:Excerpt')) return Promise.resolve({ results: [{ n: '7' }], columns: [] }); // excerpt count
-    if (sparql.includes('COUNT')) return Promise.resolve({ results: [{ id: 'book', n: '2' }], columns: [] });
+    if (sparql.includes('thought:Excerpt')) return Promise.resolve({ ok: true, results: [{ n: '7' }], columns: [] }); // excerpt count
+    if (sparql.includes('COUNT')) return Promise.resolve({ ok: true, results: [{ id: 'book', n: '2' }], columns: [] });
     if (sparql.includes('types:Book')) {
-      return Promise.resolve({ results: [{ path: 'Dune.md', title: 'Dune' }, { path: 'Neuro.md', title: 'Neuromancer' }], columns: [] });
+      return Promise.resolve({ ok: true, results: [{ path: 'Dune.md', title: 'Dune' }, { path: 'Neuro.md', title: 'Neuromancer' }], columns: [] });
     }
-    return Promise.resolve({ results: [], columns: [] });
+    return Promise.resolve({ ok: true, results: [], columns: [] });
   });
 });
 afterEach(async () => {
