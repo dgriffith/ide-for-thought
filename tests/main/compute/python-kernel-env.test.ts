@@ -13,19 +13,22 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import path from 'node:path';
 import os from 'node:os';
 
-const h = vi.hoisted(() => ({ isPackaged: false }));
+const h = vi.hoisted(() => ({ root: '/repo/resources' }));
 
 vi.mock('electron', () => ({
-  app: {
-    get isPackaged() { return h.isPackaged; },
-    getPath: () => '',
-  },
+  app: { getPath: () => '' },
+}));
+
+// Packaged-vs-dev is `bundledResourcesRoot()`'s decision (#2410); stub it so
+// both branches of PYTHONPATH can be exercised here.
+vi.mock('../../../src/main/bundled-resources', () => ({
+  bundledResourcesRoot: () => h.root,
 }));
 
 import { buildKernelEnv, pythonResourcesRoot } from '../../../src/main/compute/python-kernel';
 
 beforeEach(() => {
-  h.isPackaged = false;
+  h.root = '/repo/resources';
 });
 
 /**
@@ -65,18 +68,13 @@ describe('buildKernelEnv (#2105)', () => {
     expect(actual.MINERVA_ALLOW_NETWORK).toBe('1');
   });
 
-  it('matches for a packaged build (pythonResourcesRoot varies by isPackaged)', () => {
-    h.isPackaged = true;
-    const originalResourcesPath = process.resourcesPath;
-    (process as { resourcesPath?: string }).resourcesPath = path.join('/fake', 'Resources');
-    try {
-      const rootPath = '/Users/test/packaged-project';
-      const socketPath = '/tmp/minerva-kernel-ghi.sock';
-      const expected = originalInlineEnv(rootPath, socketPath, false);
-      const actual = buildKernelEnv({ rootPath, socketPath, allowNetwork: false });
-      expect(actual).toEqual(expected);
-    } finally {
-      (process as { resourcesPath?: string }).resourcesPath = originalResourcesPath;
-    }
+  it('matches for a packaged build (PYTHONPATH follows the bundled resources root)', () => {
+    h.root = path.join('/fake', 'Resources', 'resources');
+    const rootPath = '/Users/test/packaged-project';
+    const socketPath = '/tmp/minerva-kernel-ghi.sock';
+    const expected = originalInlineEnv(rootPath, socketPath, false);
+    const actual = buildKernelEnv({ rootPath, socketPath, allowNetwork: false });
+    expect(actual).toEqual(expected);
+    expect(actual.PYTHONPATH!.startsWith(path.join('/fake', 'Resources', 'resources', 'python'))).toBe(true);
   });
 });

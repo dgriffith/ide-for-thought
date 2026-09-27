@@ -22,7 +22,6 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import path from 'node:path';
 import readline from 'node:readline';
-import { app } from 'electron';
 import { randomUUID } from 'node:crypto';
 import type { CellOutput, CellResult, KernelMimeBundle } from '../../shared/compute/types';
 import { startRpcServer, type RpcServer } from './rpc-server';
@@ -33,8 +32,7 @@ import {
   createCellDeadlines, cellTimeoutMessage, resolveCellBudgetMs, type CellDeadlines,
 } from './cell-deadline';
 import { logger } from '../../shared/logger';
-
-declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
+import { bundledResourcesRoot } from '../bundled-resources';
 
 interface PendingCell {
   resolve: (result: CellResult) => void;
@@ -91,31 +89,11 @@ async function resolvePythonBin(): Promise<string> {
   return resolvePythonInterpreter();
 }
 
-/**
- * Where the kernel script lives. In dev (Vite serves the renderer from
- * a localhost origin) the repo root is `process.cwd()`; in a packaged
- * build, electron-forge stages `resources/` next to the main bundle.
- */
 /** Root of the bundled Python resources tree. Exported for #808 regression
  *  coverage — the packaged path must include the `resources/` nesting that
- *  `extraResource` produces. */
+ *  `extraResource` produces, which `bundledResourcesRoot()` owns (#2410). */
 export function pythonResourcesRoot(): string {
-  // The build-time global is undefined in the test runner — guard so a
-  // ReferenceError doesn't kill the import. In dev (or in tests) the
-  // repo's `resources/` is reachable from cwd; in a packaged build,
-  // process.resourcesPath points at the .app's Resources dir.
-  const isDev =
-    typeof MAIN_WINDOW_VITE_DEV_SERVER_URL !== 'undefined'
-      ? Boolean(MAIN_WINDOW_VITE_DEV_SERVER_URL)
-      : !app?.isPackaged;
-  // `extraResource: ['resources']` (forge.config.ts) copies the whole
-  // `resources/` dir verbatim into the bundle, so the packaged kernel lands at
-  // `<Resources>/resources/python/…`, NOT `<Resources>/python/…`. The missing
-  // `resources` segment meant the packaged kernel path didn't exist (#808);
-  // app-icon.ts already resolves the icons the corrected way.
-  return isDev
-    ? path.join(process.cwd(), 'resources', 'python')
-    : path.join(process.resourcesPath, 'resources', 'python');
+  return path.join(bundledResourcesRoot(), 'python');
 }
 
 export function kernelScriptPath(): string {
