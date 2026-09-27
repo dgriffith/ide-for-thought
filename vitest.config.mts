@@ -591,9 +591,9 @@ export default defineConfig({
         // Loose `src/main/*.ts` modules (#2368). The enrollment test used to
         // police directories only, so these sat under the 45%-lines global
         // backstop alone. `coverage-floor-enrollment.test.ts` now requires a
-        // per-file entry for every loose module of 150+ lines; the two
-        // exceptions (main.ts, maintenance-commands.ts — both 0%) are listed
-        // there with reasons, and that list may only shrink.
+        // per-file entry for every loose module of 150+ lines; the one
+        // exception (main.ts, 0%) is listed there with a reason, and that
+        // list may only shrink.
         //
         // menu.ts ~36.4 L / 36.4 S / 23.6 F / 48.0 B — the native command
         // surface #2233 cares about. Low, and recorded as such: the template
@@ -630,6 +630,18 @@ export default defineConfig({
           statements: 88,
           functions: 85,
           branches: 80,
+        },
+        // maintenance-commands.ts 100 L / 100 S / 100 F / 100 B (#2407). The
+        // five commands #2233 pulled out of menu click handlers — the one
+        // implementation behind both the native menu and the maintenance /
+        // graph-export channels. Both registrar tests mock it, so until
+        // maintenance-commands.test.ts ran it for real it sat at 0%. Floors
+        // 10 under measured, per the single-file rule.
+        'src/main/maintenance-commands.ts': {
+          lines: 90,
+          statements: 90,
+          functions: 90,
+          branches: 90,
         },
         // saved-queries.ts ~95.7 L / 95.4 S / 95.7 F / 83.9 B.
         'src/main/saved-queries.ts': {

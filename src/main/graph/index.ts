@@ -351,7 +351,10 @@ export function serializeUserGraph(ctx: ProjectContext): string {
 
 export async function exportGraph(ctx: ProjectContext, destPath: string): Promise<void> {
   const state = getState(ctx);
-  if (!state) return;
+  // Throw rather than return: the caller has already shown a save dialog, and
+  // a silent no-op leaves the user with no file and no error (#2407; CLAUDE.md
+  // → IPC error handling, rule 2).
+  if (!state) throw new Error('No knowledge graph is loaded for this project — nothing to export');
   await persistGraph(ctx);
   const turtle = serializeGraph(ctx);
   await fs.writeFile(destPath, turtle, 'utf-8');

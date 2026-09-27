@@ -46,8 +46,9 @@
  * the line, the loose files are type re-exports, the `ipc.ts` orchestrator and
  * config shims of a few dozen lines, where a per-file floor is bookkeeping and
  * one added branch swings the ratio 5 points. 150 was chosen over a rounder
- * 200 on purpose: it is what catches `maintenance-commands.ts` (172 lines, 0%),
- * the one implementation both the menu and its registrar call.
+ * 200 on purpose: it is what caught `maintenance-commands.ts` (172 lines, then
+ * 0%), the one implementation both the menu and its registrar call — tested
+ * directly and given a floor in #2407.
  *
  * KNOWN_UNENROLLED is the backlog of files over the line that have no floor,
  * each with a reason. It may only shrink: a listed file that gains an entry,
@@ -146,8 +147,9 @@ const LOOSE_FILE_MIN_LINES = 150;
 
 /**
  * Loose modules over the line with no per-file floor (#2368). Shrink-only.
- * Both measured 0% lines at 2026-09-27, so a floor today would be `lines: 0`,
+ * Measured 0% lines at 2026-09-27, so a floor today would be `lines: 0`,
  * which records nothing; the entry is the record instead.
+ * (`maintenance-commands.ts` left the list in #2407.)
  */
 const KNOWN_UNENROLLED: Readonly<Record<string, string>> = {
   // The Electron entry point. Importing it runs `app.whenReady()` and builds
@@ -156,12 +158,6 @@ const KNOWN_UNENROLLED: Readonly<Record<string, string>> = {
   // `startup-window-not-gated.test.ts` rather than by line execution.
   'main.ts':
     'Electron entry point; importing it boots the app. Guarded structurally by startup-window-not-gated.test.ts.',
-  // The five long-running commands #2233 moved out of menu click handlers.
-  // Written to be testable without a BrowserWindow, but register-maintenance
-  // and register-graph mock the module, so nothing executes it. A real gap:
-  // test the commands directly and replace this entry with a floor.
-  'maintenance-commands.ts':
-    '0%: its registrar tests mock it. Backlog — test the commands directly, then add a floor.',
 };
 
 function lineCount(file: string): number {

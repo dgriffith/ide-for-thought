@@ -107,16 +107,15 @@ export async function rebuildSemanticIndex(
     // quiet status-bar progress rather than an overlay.
     style: 'background',
     emit,
+    // Count from the result, not the progress ticks: backfill's last tick is
+    // a `{ done: 0, running: false }` reset, so reading `p.done` made every
+    // summary say "0 notes embedded" (#2407).
     run: async () => {
-      let embedded = 0;
-      await runBackfill(projectContext(rootPath), {
+      const result = await runBackfill(projectContext(rootPath), {
         force: true,
-        onProgress: (p) => {
-          embedded = p.done;
-          emitBackfill(p);
-        },
+        onProgress: emitBackfill,
       });
-      return embedded;
+      return result.embedded;
     },
     summary: (embedded) => `Rebuilt semantic index — ${pluralizeNotes(embedded)} embedded`,
   });
