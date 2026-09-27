@@ -97,7 +97,7 @@ beforeEach(async () => {
   instancesMock.mockResolvedValue({ type: TYPE, instances: INSTANCES });
   listMock.mockResolvedValue({ types: [TYPE], errors: [] });
   noteTypeMapMock.mockResolvedValue({});
-  graphQueryMock.mockResolvedValue({ results: [], columns: [] });
+  graphQueryMock.mockResolvedValue({ ok: true, results: [], columns: [] });
   await objectTypesStore.refresh();
   instancesMock.mockClear();
 });

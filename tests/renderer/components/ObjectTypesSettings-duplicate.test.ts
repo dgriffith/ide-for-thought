@@ -48,7 +48,7 @@ const GADGET = {
 beforeEach(() => {
   listMock.mockResolvedValue({ types: [GADGET], errors: [] });
   noteTypeMapMock.mockResolvedValue({});
-  queryMock.mockResolvedValue({ results: [], columns: [] });
+  queryMock.mockResolvedValue({ ok: true, results: [], columns: [] });
   saveMock.mockResolvedValue({ id: 'gadget-copy', filePath: '.minerva/types/gadget-copy.md' });
 });
 afterEach(async () => {
