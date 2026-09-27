@@ -558,6 +558,16 @@ export default defineConfig({
           statements: 92,
           branches: 88,
         },
+        // path-containment.ts ~95 L / 100 F / 94 S / 93 B (#2398). The
+        // thoughtbase containment guard (moved out of notebase/fs.ts so the
+        // graph/search/embeddings walkers can share it) — a trust boundary,
+        // so it gets its own floor rather than riding a directory glob.
+        'src/main/path-containment.ts': {
+          lines: 90,
+          functions: 90,
+          statements: 88,
+          branches: 86,
+        },
         // privileged-sites.ts ~97 L / 100 F / 96 S / 92 B (#1100 added the test).
         'src/main/privileged-sites.ts': {
           lines: 88,

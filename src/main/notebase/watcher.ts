@@ -5,6 +5,7 @@ import path from 'node:path';
 import { INDEXABLE_EXTS } from '../../shared/indexable-files';
 import { wasHandled } from './path-dedup';
 import { createWatchIgnoreMatcher } from './watcher-ignore';
+import { canonicalRoot } from '../path-containment';
 
 /**
  * How long an `unlink` is held before it's surfaced as a deletion, giving a
@@ -100,14 +101,35 @@ export function startWatching(
 ): Promise<void> {
   stopWatching(id);
 
-  const notes = watch(rootPath, {
+  // Symlinks are NOT followed (#2398). With chokidar's default
+  // `followSymlinks: true`, a symlinked directory pointing out of the
+  // thoughtbase is descended and watched — measured: `notes/out -> ~/elsewhere`
+  // produced `add notes/out/secret.md` and `change` events for files outside
+  // the root, i.e. outside filenames reached the renderer as notebase events,
+  // and a link to `~` would subscribe the whole home directory. With it off,
+  // a link is reported as itself (`add`/`unlink`/retarget), and the handlers
+  // read its content through `notebaseFs`, whose `assertSafePath` refuses an
+  // escaping target and allows an in-root one — so in-root symlinked notes
+  // still appear and index. The one thing lost: an edit made to an in-root
+  // link's TARGET fires `change` on the target's own path (also watched, so
+  // it reindexes) but not on the link's path, which refreshes on the next
+  // rebuild.
+  //
+  // `followSymlinks: false` also makes chokidar `lstat` the watch root, so a
+  // thoughtbase opened through a symlinked directory would be seen as one
+  // link and never descended — verified: the only event was `add <root>`.
+  // Hence watch the canonical root and measure relative paths against it.
+  const watchRoot = canonicalRoot(rootPath);
+
+  const notes = watch(watchRoot, {
     // One predicate, matched on the path *relative to the thoughtbase*, and
     // sourced from the same `isIgnoredEntry` every listing walk uses. The
     // three glob/regex entries this replaces were two dead strings and one
     // over-eager regex — `watcher-ignore.ts` has the measurements (#2224).
-    ignored: createWatchIgnoreMatcher(rootPath),
+    ignored: createWatchIgnoreMatcher(watchRoot),
     persistent: true,
     ignoreInitial: true,
+    followSymlinks: false,
     // Guarantee fs.Stats on add/change so we can read inodes for robust
     // move correlation (see the move-detection block below).
     alwaysStat: true,
@@ -203,7 +225,7 @@ export function startWatching(
     if (!target.isAlive()) return;
     const ino = inodeOf(stats);
     if (ino !== undefined) inodeByPath.set(filePath, ino);
-    const relative = filePath.slice(rootPath.length + 1);
+    const relative = filePath.slice(watchRoot.length + 1);
     target.fileChanged(relative);
     indexChanged(relative);
   });
@@ -212,7 +234,7 @@ export function startWatching(
     if (!target.isAlive()) return;
     const ino = inodeOf(stats);
     if (ino !== undefined) inodeByPath.set(filePath, ino);
-    const relative = filePath.slice(rootPath.length + 1);
+    const relative = filePath.slice(watchRoot.length + 1);
     const basename = path.basename(filePath);
 
     // Unlink-first ordering: a held delete this add pairs with → rename.
@@ -247,7 +269,7 @@ export function startWatching(
 
   notes.on('unlink', (filePath) => {
     if (!target.isAlive()) return;
-    const relative = filePath.slice(rootPath.length + 1);
+    const relative = filePath.slice(watchRoot.length + 1);
     const basename = path.basename(filePath);
     const inode = inodeByPath.get(filePath);
     inodeByPath.delete(filePath);
@@ -288,8 +310,8 @@ export function startWatching(
   // Separate watcher scoped to .minerva/{sources,excerpts} so graph-backing
   // .ttl changes reindex without un-ignoring all of .minerva (bookmarks,
   // tabs, graph.ttl, etc.).
-  const sourcesRoot = path.join(rootPath, '.minerva', 'sources');
-  const excerptsRoot = path.join(rootPath, '.minerva', 'excerpts');
+  const sourcesRoot = path.join(watchRoot, '.minerva', 'sources');
+  const excerptsRoot = path.join(watchRoot, '.minerva', 'excerpts');
   // chokidar can miss directories that don't exist at startup, so materialize
   // the tree before registering. Safe: recursive mkdir no-ops if present.
   try { fs.mkdirSync(sourcesRoot, { recursive: true }); } catch { /* ignore */ }
@@ -297,6 +319,7 @@ export function startWatching(
   const minervaData = watch([sourcesRoot, excerptsRoot], {
     persistent: true,
     ignoreInitial: true,
+    followSymlinks: false,
     depth: 2,
   });
 

@@ -949,6 +949,11 @@ becomes a document that tells you something false with confidence.
 ### File System
 - All paths are relative to the project root
 - `assertSafePath()` in `fs.ts` prevents path traversal — always use it//
+  (it lives in `src/main/path-containment.ts` and `fs.ts` re-exports it, so
+  `graph/`, `search/` and `embeddings/` can share it without importing
+  `notebase/`). A bulk walker that reads with raw `fs.readFile` must skip
+  links that leave the root: `isEscapingSymlink(root, fullPath, dirent)` is
+  free for a non-link (#2398)
 - Hidden files (`.`) and `IGNORED_DIRS` (`.git`, `node_modules`, `.minerva`, `.obsidian`) are filtered from listings
 - Empty folders are shown in the sidebar (not filtered out)
 

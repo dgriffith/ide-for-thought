@@ -47,6 +47,7 @@ import { citedTextFromTtl } from '../sources/create-excerpt';
 import * as store from './vector-store';
 import type { RefKind } from './vector-store';
 import { logger } from '../../shared/logger';
+import { assertSafePath, isEscapingSymlink } from '../path-containment';
 
 export interface BackfillProgress {
   done: number;
@@ -153,20 +154,27 @@ async function collectWork(ctx: ProjectContext, opts: BackfillOptions): Promise<
         store.embeddedRefs(ctx, 'excerpt'),
       ]);
 
+  // Every load goes through the containment guard (#2398): the text is
+  // embedded into a store the LLM's semantic search reads, so a symlink out
+  // of the thoughtbase — a note, a source `body.md`, an excerpt `.ttl`, or a
+  // `.minerva/` directory — must not be read. A refused load throws, and the
+  // per-item catch in `runBackfill` skips it with a warning. One lstat per
+  // path segment, next to an embedding inference per item.
+  const read = (rel: string) => fs.readFile(assertSafePath(rootPath, rel), 'utf-8');
   const items: WorkItem[] = [];
   for (const ref of notePaths) {
-    if (!doneNotes.has(ref)) items.push({ kind: 'note', ref, load: () => fs.readFile(path.join(rootPath, ref), 'utf-8') });
+    if (!doneNotes.has(ref)) items.push({ kind: 'note', ref, load: () => read(ref) });
   }
   for (const ref of sourceIds) {
     if (!doneSources.has(ref)) {
-      items.push({ kind: 'source', ref, load: () => fs.readFile(path.join(rootPath, '.minerva', 'sources', ref, 'body.md'), 'utf-8') });
+      items.push({ kind: 'source', ref, load: () => read(path.join('.minerva', 'sources', ref, 'body.md')) });
     }
   }
   for (const ref of excerptIds) {
     if (!doneExcerpts.has(ref)) {
       items.push({
         kind: 'excerpt', ref,
-        load: async () => citedTextFromTtl(await fs.readFile(path.join(rootPath, '.minerva', 'excerpts', `${ref}.ttl`), 'utf-8')) ?? '',
+        load: async () => citedTextFromTtl(await read(path.join('.minerva', 'excerpts', `${ref}.ttl`))) ?? '',
       });
     }
   }
@@ -217,7 +225,13 @@ async function listMarkdownNotes(rootPath: string): Promise<string[]> {
       const full = path.join(dir, entry.name);
       if (entry.isDirectory()) {
         await walk(full);
-      } else if (entry.isFile() && entry.name.toLowerCase().endsWith('.md')) {
+      } else if (
+        entry.name.toLowerCase().endsWith('.md')
+        // A symlinked note that stays inside the root is embedded like any
+        // other (the graph and search walkers index it too); one that leaves
+        // the root is not (#2398). `isFile()` alone used to drop both.
+        && (entry.isFile() || (entry.isSymbolicLink() && !isEscapingSymlink(rootPath, full, entry)))
+      ) {
         const rel = path.relative(rootPath, full);
         if (isIndexable(rel)) out.push(rel);
       }
