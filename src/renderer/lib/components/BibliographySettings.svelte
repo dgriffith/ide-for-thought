@@ -245,12 +245,14 @@
     cursor: pointer;
   }
   .link-btn:hover { color: var(--text); }
+  /* Underlined at rest: it sits inside a sentence, and hue alone doesn't set
+     it apart from the surrounding hint text (axe link-in-text-block, #2375). */
   .ext-link {
     color: var(--accent);
-    text-decoration: none;
+    text-decoration: underline;
+    text-underline-offset: 2px;
     cursor: pointer;
   }
-  .ext-link:hover { text-decoration: underline; }
   .csl-error {
     margin-top: 8px;
     padding: 6px 10px;

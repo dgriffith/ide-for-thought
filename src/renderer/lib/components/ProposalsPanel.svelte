@@ -443,7 +443,7 @@
     border: 1px solid transparent;
   }
   .proposal-status.status-pending {
-    color: var(--accent);
+    color: color-mix(in oklch, var(--accent) 70%, var(--text)); /* AA on its tint in every theme (#2378) */
     background: color-mix(in oklch, var(--accent) 18%, transparent);
   }
   .proposal-status.status-approved {

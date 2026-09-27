@@ -60,7 +60,13 @@ export function buildExtensions(opts: BuildExtensionsOptions): Extension[] {
     basicSetup,
     // Give the `role="textbox"` content DOM an accessible name (#1005 a11y) —
     // CodeMirror's editable div is otherwise unlabeled (axe aria-input-field-name).
-    EditorView.contentAttributes.of({ 'aria-label': plainTextOnce ? 'Text editor' : 'Note editor' }),
+    // `tabindex="0"` makes the content's tab stop explicit (#2376). A
+    // contenteditable is already in the tab order, so keyboard behaviour is
+    // unchanged — but CodeMirror's `.cm-scroller` is a scroll container that
+    // opts itself out (tabindex=-1), and axe's scrollable-region-focusable
+    // only counts a scroller as keyboard-reachable when it contains an element
+    // with a declared tab stop; a bare contenteditable doesn't qualify.
+    EditorView.contentAttributes.of({ 'aria-label': plainTextOnce ? 'Text editor' : 'Note editor', tabindex: '0' }),
     // Mark plain-text editors so the drag-to-add-link machinery skips them —
     // a [[wiki-link]] doesn't resolve in a non-markdown file (#1129 / #1130).
     EditorView.editorAttributes.of(plainTextOnce ? { 'data-plaintext': 'true' } : {}),

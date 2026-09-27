@@ -201,6 +201,10 @@
     return EditorState.create({
       doc: initial,
       extensions: [
+        // Name the `role="textbox"` content (axe aria-input-field-name) and
+        // declare its tab stop so the `.cm-scroller` around it reads as
+        // keyboard-reachable — same as the note editor (#2375, #2376).
+        EditorView.contentAttributes.of({ 'aria-label': 'Query editor', tabindex: '0' }),
         lineNumbers(),
         history(),
         bracketMatching(),
@@ -220,6 +224,9 @@
             lineHeight: '1.5',
           },
           '.cm-scroller': { overflow: 'auto' },
+          // CodeMirror's stock placeholder grey (#888) is 3.4:1 on the light
+          // and contrast themes' paper; the faint tier is AA on every theme.
+          '.cm-placeholder': { color: 'var(--text-faint)' },
         }),
         Prec.highest(keymap.of([
           { key: 'Mod-Enter', run: () => { if (!isEmpty) void editorStore.executeQuery(); return true; } },

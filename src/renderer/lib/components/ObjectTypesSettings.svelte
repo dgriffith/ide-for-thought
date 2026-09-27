@@ -234,7 +234,9 @@
   .type-meta { font-size: 11px; color: var(--text-faint); }
   .type-src {
     font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em;
-    padding: 1px 6px; border-radius: 3px; color: var(--text-faint);
+    /* Muted, not faint: the chip's own tint costs the faint tier its AA
+       margin (3.96:1 dark, #2375). */
+    padding: 1px 6px; border-radius: 3px; color: var(--text-muted);
     background: color-mix(in oklch, var(--text) 6%, transparent);
   }
   .type-src.user { color: var(--accent); background: color-mix(in oklch, var(--accent) 12%, transparent); }

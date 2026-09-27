@@ -70,7 +70,12 @@ export function formatViolations(violations: AxeViolation[]): string {
   return violations
     .map((v) =>
       `  • [${v.impact ?? 'n/a'}] ${v.id} — ${v.help} (${v.helpUrl})\n` +
-      v.nodes.map((n) => `      ${n.target.join(' ')} :: ${n.html}`).join('\n'),
+      v.nodes.map((n) => {
+        // The summary's detail line carries the measured numbers for a
+        // contrast failure (ratio, fg/bg colours) — the part needed to fix it.
+        const detail = n.failureSummary?.split('\n').slice(1).map((l) => l.trim()).filter(Boolean).join(' ');
+        return `      ${n.target.join(' ')} :: ${n.html}` + (detail ? `\n        ↳ ${detail}` : '');
+      }).join('\n'),
     )
     .join('\n');
 }

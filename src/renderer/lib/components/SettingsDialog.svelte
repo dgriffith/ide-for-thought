@@ -469,6 +469,11 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  /* The accent tint behind the active row costs --text-faint its AA margin
+     (4.07:1 in dark); the muted tier clears it on the tinted row (#2375). */
+  .tab.active .tab-sub {
+    color: var(--text-muted);
+  }
 
   .panel {
     flex: 1;
