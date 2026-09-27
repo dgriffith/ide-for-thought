@@ -21,7 +21,7 @@ what to do about it. `architecture-ratchets-doc.test.ts` keeps the two sides in
 step — a new test in `tests/architecture/` with no entry here fails, and an
 entry here naming a test that no longer exists fails too (#2262).
 
-Written up as of 2026-09-23, 38 tests.
+Written up as of 2026-09-27, 39 tests.
 
 ---
 
@@ -614,6 +614,26 @@ care how a tag was made. This test pins both that the gate runs before the build
 published) and that the tag arrives through `env:` rather than interpolated into
 `run:`. **When it fires:** the tag and the manifest disagree, or someone moved
 the gate.
+
+### `electron-fuses.test.ts`
+
+**The packaged app's Electron fuses are a written-down decision, and the built
+binary is checked against it** (#2366). Fuses are bits in the Electron binary
+that no env var or flag can undo at runtime, and they fail silently both ways:
+a door left open produces no error, and a door shut that something needed
+(`RunAsNode` *is* the `minerva` CLI and MCP server, via `cli-install.ts`'s
+`ELECTRON_RUN_AS_NODE=1` shim) only breaks for the user who runs that thing.
+The policy — every fuse, with its reason — is `scripts/lib/electron-fuses.mjs`.
+This test pins each value (restated in the test, so changing one means changing
+both), checks `forge.config.ts` feeds that policy to `FusesPlugin` and packs an
+`asar` (the two asar fuses are meaningless or fatal without one), unit-tests the
+read-back comparison, and asserts `ci.yml`'s e2e job and `release.yml` run
+`scripts/check-electron-fuses.mjs` against the **built** app — release before
+the smoke boot. It also fails if `cli-install.ts` stops using
+`ELECTRON_RUN_AS_NODE`, because then `RunAsNode` has no reason to stay open.
+**When it fires:** you changed a fuse — update both lists and say why in the
+policy entry — or an Electron upgrade added a fuse and the read-back names it:
+decide it rather than inheriting the default.
 
 ### `out-of-band-checks-notify.test.ts`
 

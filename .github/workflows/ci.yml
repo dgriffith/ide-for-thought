@@ -312,6 +312,14 @@ jobs:
         # "the app stopped working entirely" incident.
         run: pnpm test:e2e
 
+      # Read the Electron fuses back off the app `test:e2e` just packaged
+      # (#2366). forge.config.ts asking for them proves nothing about the
+      # binary, and a fuse that silently didn't flip fails nothing else — the
+      # packaged specs pass either way. Also fails when an Electron upgrade
+      # adds a fuse scripts/lib/electron-fuses.mjs doesn't decide.
+      - name: Check Electron fuses on the packaged app
+        run: node scripts/check-electron-fuses.mjs
+
       # Flake visibility (#1946): Playwright retries a test twice in CI so a
       # transient Electron-boot hiccup doesn't fail the job, but nothing
       # previously aggregated how often that retry actually fired — a test

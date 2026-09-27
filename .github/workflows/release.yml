@@ -218,6 +218,13 @@ jobs:
           echo "Notarization staple: $DMG_PATH"
           xcrun stapler validate "$DMG_PATH"
 
+      # The fuses in the binary about to ship (#2366) — read off the signed
+      # .app, not inferred from forge.config.ts. Unconditional: an unsigned
+      # build carries the same fuses. Before the smoke boot so a wrong fuse
+      # fails with its own name rather than as a boot symptom.
+      - name: Check Electron fuses on the packaged app
+        run: node scripts/check-electron-fuses.mjs
+
       # Reuses the existing "packaged app opens a DuckDB-backed project"
       # e2e spec (tests/e2e/smoke.spec.ts) rather than writing a second boot
       # check — it already launches the real packaged .app (picking up the

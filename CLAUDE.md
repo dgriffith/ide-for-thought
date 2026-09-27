@@ -634,6 +634,30 @@ release.
   deflates about as well as minified JS. Expect ~4:1 from anything in this
   tree, and check the DMG before quoting a number.
 
+### The app ships as an integrity-checked `app.asar`, with fuses set (#2366)
+
+`packagerConfig.asar` is on, and the Electron fuses are set from
+`scripts/lib/electron-fuses.mjs` — the one list, with a reason per fuse.
+`RunAsNode` stays **on** (the `minerva` CLI shim runs the app binary with
+`ELECTRON_RUN_AS_NODE=1`); `NODE_OPTIONS` and `--inspect` are **off**; app
+code loads **only** from `app.asar`, validated against the Info.plist hash.
+`GrantFileProtocolExtraPrivileges` stays on because the renderer is `file://`
+— off, the window fails with `ERR_FILE_NOT_FOUND` reading inside the asar.
+
+Three consequences for anyone touching packaging:
+
+- **A new native dependency must be unpacked.** `asar.unpack` covers
+  `*.node` + `*.dylib`; anything else `dlopen`ed, or exec'd, from inside the
+  archive won't load. JS, worker scripts and `.wasm` reads work from inside it.
+- **The packaged-app e2e specs attach over CDP, not Playwright's Electron
+  driver** — that driver insists on `--inspect`, which the fuse refuses.
+  `launchMinerva({ executablePath })` handles it; there's no main-process
+  `app.evaluate` in that mode.
+- **The fuses are read back off the built app** in `ci.yml`'s e2e job and in
+  `release.yml` (`scripts/check-electron-fuses.mjs`), which also fails when an
+  Electron upgrade adds a fuse the policy doesn't name.
+  `tests/architecture/electron-fuses.test.ts` pins the values.
+
 ### The release tag is `v` + package.json's version (#2245)
 
 Exactly, including any prerelease suffix. Two different systems read the two
@@ -927,7 +951,7 @@ untested ones sit in a `KNOWN_UNTESTED` list that may only shrink.
 
 ### The architecture ratchets are inventoried in `docs/architecture-ratchets.md` (#2262)
 
-`tests/architecture/` holds **38** tests that check the shape of the codebase
+`tests/architecture/` holds **39** tests that check the shape of the codebase
 rather than the behavior of any feature — the package-cycle check, the file-size
 budgets, the anti-pattern ratchets, the dialog-adoption ratchet, the two
 temp-project-fixture ratchets, the CI-workflow checks, and so on. Most of them
