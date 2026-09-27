@@ -239,6 +239,7 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
     "onRefactorSplitByHeading",
     "onRefactorSplitHere",
     "onReplaceInNotes",
+    "onRevealFile",
     "onSave",
     "onSaveAsObjectType",
     "onSaveAsTemplate",

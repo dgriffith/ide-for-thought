@@ -370,6 +370,8 @@ export function registerAppIpc(ctx: IpcWiringCtx): void {
   api.menu.onPrint(() => window.print());
   api.menu.onAbout(() => { ctx.setShowAbout(true); });
   api.menu.onShortcuts(() => { ctx.setShowShortcuts(true); });
+  // No active file → nothing to reveal; a silent no-op, like Open in Default App.
+  api.menu.onRevealFile(() => { if (editor.activeFilePath) void api.shell.revealFile(editor.activeFilePath); });
   api.menu.onOpenInDefault(() => { if (editor.activeFilePath) void api.shell.openInDefault(editor.activeFilePath); });
   api.menu.onOpenInTerminal(() => { void api.shell.openInTerminal(editor.activeFilePath ?? undefined); });
   api.menu.onOpenSettings(() => { ctx.setShowSettings(true); });

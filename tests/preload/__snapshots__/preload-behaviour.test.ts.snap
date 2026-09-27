@@ -197,6 +197,7 @@ exports[`preload behaviour: surface-wide invariants (#2367) > the full method â†
   "menu.onRefactorSplitByHeading": "on menu:refactor:splitByHeading",
   "menu.onRefactorSplitHere": "on menu:refactor:splitHere",
   "menu.onReplaceInNotes": "on menu:replaceInNotes",
+  "menu.onRevealFile": "on menu:revealFile",
   "menu.onSave": "on menu:save",
   "menu.onSaveAsObjectType": "on menu:saveAsObjectType",
   "menu.onSaveAsTemplate": "on menu:saveAsTemplate",

@@ -690,6 +690,7 @@ export const MENU_COMMANDS = [
   'refactor:splitByHeading',
   'refactor:splitHere',
   'replaceInNotes',
+  'revealFile',
   'reportEditorState',
   'reportTheme',
   'save',
@@ -752,7 +753,6 @@ export interface EventMap extends MenuCommandEventMap {
   'conversation:askUser': (req: AskUserRequest) => void;
   'tool:stream': (chunk: string) => void;
   'tool:invoke': (toolId: string) => void;
-  'shell:revealFile': () => void; // fired by the native menu as a command event
   // Native-menu command channels (#1633) — payloaded here; the ~63 zero-arg
   // `menu:*` commands are derived from `MENU_COMMANDS` above (#2106).
   'menu:setTheme': (mode: ThemeMode) => void;

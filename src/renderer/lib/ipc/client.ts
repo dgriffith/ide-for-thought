@@ -1001,6 +1001,8 @@ export interface MenuApi {
   onPrint(cb: () => void): () => void;
   onAbout(cb: () => void): () => void;
   onShortcuts(cb: () => void): () => void;
+  /** File ▸ Open In ▸ Reveal in Finder (#2411). */
+  onRevealFile(cb: () => void): () => void;
   onOpenInDefault(cb: () => void): () => void;
   onOpenInTerminal(cb: () => void): () => void;
   onOpenProject(cb: () => void): () => void;

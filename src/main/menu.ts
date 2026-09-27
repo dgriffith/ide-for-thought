@@ -340,7 +340,7 @@ function buildFileMenu(gate: Gate, isMac: boolean): Electron.MenuItemConstructor
           gate({
             label: 'Reveal in Finder',
             accelerator: 'CmdOrCtrl+Shift+R',
-            click: () => send(Channels.SHELL_REVEAL_FILE),
+            click: () => send(Channels.MENU_REVEAL_FILE),
           }, { note: true }),
           gate({
             label: 'Open in Default App',
