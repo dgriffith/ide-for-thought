@@ -90,8 +90,9 @@ const h = vi.hoisted(() => {
     load: vi.fn().mockResolvedValue(undefined),
   };
   const dialog = { showConfirm: vi.fn().mockResolvedValue(false) };
+  const announce = vi.fn();
 
-  return { MENU_CHANNELS, captured, api, notebase, editor, busy, toasts, toolPanel, conversations, bookmarks, dialog };
+  return { MENU_CHANNELS, captured, api, notebase, editor, busy, toasts, toolPanel, conversations, bookmarks, dialog, announce };
 });
 
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({ api: h.api }));
@@ -103,6 +104,7 @@ vi.mock('../../../src/renderer/lib/stores/tool-panel.svelte', () => ({ getToolPa
 vi.mock('../../../src/renderer/lib/stores/conversations.svelte', () => ({ getConversationsStore: () => h.conversations }));
 vi.mock('../../../src/renderer/lib/stores/bookmarks.svelte', () => ({ getBookmarksStore: () => h.bookmarks }));
 vi.mock('../../../src/renderer/lib/stores/dialogs.svelte', () => ({ getDialogStore: () => h.dialog }));
+vi.mock('../../../src/renderer/lib/stores/announcer.svelte', () => ({ announce: h.announce }));
 vi.mock('../../../src/renderer/lib/stores/settings-formatter.svelte', () => ({ loadFormatSettings: vi.fn().mockResolvedValue(undefined) }));
 vi.mock('../../../src/renderer/lib/tools/tool-registry', () => ({ registerSkillInfos: vi.fn() }));
 vi.mock('../../../src/shared/skills/menu-config', () => ({ applyMenuConfig: vi.fn(() => []) }));
@@ -502,6 +504,57 @@ describe('non-menu event handlers (continued)', () => {
     expect(h.toasts.push).toHaveBeenCalledWith({
       message: 'Rebuilt semantic index — 9 notes embedded',
     });
+  });
+
+  // ── Screen-reader announcements (#2374): edges only, never ticks ─────────
+
+  it('backfill announces its start and its end once each, not per progress frame', () => {
+    for (let done = 0; done <= 50; done++) {
+      fire('embeddings.backfill', { running: true, done, total: 50 });
+    }
+    fire('embeddings.backfill', { running: false, done: 50, total: 50 });
+    expect(h.announce.mock.calls).toEqual([
+      ['Building semantic search index'],
+      ['Semantic search index ready'],
+    ]);
+  });
+
+  it('a backfill with nothing to embed says nothing', () => {
+    fire('embeddings.backfill', { running: true, done: 0, total: 0 });
+    fire('embeddings.backfill', { running: false, done: 0, total: 0 });
+    expect(h.announce).not.toHaveBeenCalled();
+  });
+
+  it('a background maintenance task announces its start once across progress frames', () => {
+    for (let done = 1; done <= 20; done++) {
+      fire('maintenance.progress', {
+        task: 'rebuildSemanticIndex', running: true, style: 'background',
+        label: 'Rebuilding semantic index', done, total: 20,
+      });
+    }
+    expect(h.announce.mock.calls).toEqual([['Rebuilding semantic index…']]);
+    // The outcome is spoken by the toast store (which the real one routes to
+    // the announcer), so completion adds no direct announce here…
+    fire('maintenance.progress', {
+      task: 'rebuildSemanticIndex', running: false, style: 'background',
+      label: 'Rebuilding semantic index',
+      outcome: { ok: true, summary: 'done' },
+    });
+    expect(h.announce).toHaveBeenCalledTimes(1);
+    // …and a second run announces its start again.
+    fire('maintenance.progress', {
+      task: 'rebuildSemanticIndex', running: true, style: 'background',
+      label: 'Rebuilding semantic index', done: 0, total: 20,
+    });
+    expect(h.announce).toHaveBeenCalledTimes(2);
+  });
+
+  it('a blocking maintenance task leaves its start announcement to the busy store', () => {
+    fire('maintenance.progress', {
+      task: 'rebuildIndexes', running: true, style: 'blocking',
+      label: 'Rebuilding indexes', done: 1, total: 10,
+    });
+    expect(h.announce).not.toHaveBeenCalled();
   });
 
   it('onProjectOpened restores the project then runs onboarding + entrypoints', async () => {

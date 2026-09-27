@@ -21,6 +21,12 @@
  * call in this file — outcome checks read the graph through
  * `window.api.graph.query` (a read) and the panel's own rendering.
  *
+ * Both also assert the decision reaches the app's screen-reader live region
+ * (#2374). The panel's banners are rendered conditionally, so they can't be
+ * reliable live regions themselves; the outcome is spoken through the single
+ * always-mounted `LiveAnnouncer` instead. That region is the thing a screen
+ * reader hears, so the assertion is on it, not on the banner.
+ *
  * Boots the in-tree `.vite/build` app, so it needs `pnpm build:e2e` first
  * (`pnpm test:e2e` does that).
  */
@@ -36,6 +42,8 @@ import { launchMinerva, projectRoot } from './helpers/launch';
 /** Mirrors `E2E_CLAIM_LABEL` in src/main/e2e-hooks.ts — the triple the seeded
  *  proposal adds when (and only when) it is approved. */
 const CLAIM_LABEL = 'E2E Approved Claim';
+/** The app-level polite live region (LiveAnnouncer.svelte, #2374). */
+const LIVE_REGION = '[data-testid="live-announcer-polite"]';
 /** The seeded proposal's `note`, which the panel renders on its card. */
 const PROPOSAL_NOTE = 'e2e seeded proposal';
 
@@ -122,8 +130,13 @@ test('proposal review: clicking Approve applies the payload and marks the propos
     await panel.getByRole('button', { name: 'Approve (y)', exact: true }).click();
 
     // The panel reports what landed — this banner renders only after
-    // `review.approveProposal` resolved `true`.
-    await expect(panel.getByRole('status')).toContainText('Approved — landed');
+    // `review.approveProposal` resolved `true`…
+    await expect(panel.locator('.success-banner')).toContainText('Approved — landed');
+    // …and the same outcome lands in the always-mounted live region, which is
+    // what a screen reader actually speaks (#2374).
+    const live = win.locator(LIVE_REGION);
+    await expect(live).toHaveAttribute('aria-live', 'polite');
+    await expect(live).toContainText('Approved — landed');
 
     // Graph effect: the payload's claim triple is now present…
     await expect.poll(() => graphRowCount(win, CLAIM_QUERY), {
@@ -154,6 +167,9 @@ test('proposal review: clicking Reject leaves the graph untouched and marks the 
       message: 'proposal should be rejected after clicking Reject',
     }).toBe(1);
     expect(await graphRowCount(win, statusQuery(uri, 'pending'))).toBe(0);
+
+    // The rejection is spoken through the app's live region (#2374).
+    await expect(win.locator(LIVE_REGION)).toContainText('Proposal rejected');
 
     // No graph effect: the payload's claim never landed.
     expect(await graphRowCount(win, CLAIM_QUERY), 'rejected payload must not be applied').toBe(0);

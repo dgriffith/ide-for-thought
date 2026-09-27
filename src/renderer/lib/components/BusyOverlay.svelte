@@ -13,7 +13,9 @@
   let { label, sub }: Props = $props();
 </script>
 
-<div class="overlay" role="status" aria-live="polite">
+<!-- Not a live region: the busy store announces the label through the
+     always-mounted LiveAnnouncer (#2374); this overlay is inserted pre-filled. -->
+<div class="overlay" aria-busy="true">
   <div class="card">
     <div class="spinner" aria-hidden="true">
       <svg viewBox="0 0 24 24" width="32" height="32">

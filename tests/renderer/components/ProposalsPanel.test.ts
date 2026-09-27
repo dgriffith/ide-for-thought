@@ -31,6 +31,7 @@ vi.mock('../../../src/renderer/lib/ipc/client', () => ({
 
 import ProposalsPanel from '../../../src/renderer/lib/components/ProposalsPanel.svelte';
 import { getProposalsStore } from '../../../src/renderer/lib/stores/proposals.svelte';
+import { getAnnouncerStore } from '../../../src/renderer/lib/stores/announcer.svelte';
 
 interface Payload { kind: string; [k: string]: unknown }
 function pendingProposal(over: Record<string, unknown> = {}) {
@@ -236,5 +237,37 @@ describe('ProposalsPanel — approval diff UI (#680)', () => {
     await waitFor(() => expect(queryByText('Crystallize claim about photosynthesis')).toBeNull());
     expect(getByText('Already approved thing')).toBeTruthy();
     expect(listMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('ProposalsPanel — screen-reader announcements (#2374)', () => {
+  // The banners are rendered conditionally, so the outcome is spoken through
+  // the always-mounted app announcer. The real store is used; its text is what
+  // LiveAnnouncer renders into the live regions.
+  const announcer = getAnnouncerStore();
+  const clean = (s: string) => s.replace(/\u00A0$/, '');
+
+  it('an approve announces what landed, politely', async () => {
+    approveMock.mockResolvedValue({ ok: true, filedPaths: [], rewrittenPaths: [] });
+    const { getByText } = await renderPanel();
+    await fireEvent.click(getByText('Crystallize claim about photosynthesis'));
+    await fireEvent.click(getByText('Approve (y)'));
+    await waitFor(() => expect(clean(announcer.polite)).toMatch(/^Approved — landed .*notes\/claim\.md/));
+  });
+
+  it('a reject announces the rejection', async () => {
+    rejectMock.mockResolvedValue({ ok: true });
+    const { getByText } = await renderPanel();
+    await fireEvent.click(getByText('Crystallize claim about photosynthesis'));
+    await fireEvent.click(getByText('Reject (n)'));
+    await waitFor(() => expect(clean(announcer.polite)).toBe('Proposal rejected'));
+  });
+
+  it('a refused decision is announced assertively with its reason', async () => {
+    approveMock.mockResolvedValue({ ok: false, reason: 'not-pending', status: 'rejected' });
+    const { getByText } = await renderPanel();
+    await fireEvent.click(getByText('Crystallize claim about photosynthesis'));
+    await fireEvent.click(getByText('Approve (y)'));
+    await waitFor(() => expect(clean(announcer.assertive)).toMatch(/^Not approved: .*already rejected/));
   });
 });

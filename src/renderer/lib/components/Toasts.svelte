@@ -2,13 +2,15 @@
   // Corner container for transient toasts (#1541). Renders the toast store's
   // queue bottom-right; each is dismissable and non-blocking. Clicking the body
   // runs its action (if any) and dismisses; the × dismisses without acting.
+  // Not a live region: the toast store speaks each message through the app's
+  // LiveAnnouncer (#2374), which is always mounted — this stack is not.
   import { getToastStore } from '../stores/toasts.svelte';
 
   const toasts = getToastStore();
 </script>
 
 {#if toasts.items.length > 0}
-  <div class="toast-stack" role="status" aria-live="polite">
+  <div class="toast-stack">
     {#each toasts.items as t (t.id)}
       <div class="toast" class:clickable={!!t.onClick}>
         <button

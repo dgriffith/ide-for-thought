@@ -47,6 +47,7 @@
   import MultiFileHistoryDialog from './MultiFileHistoryDialog.svelte';
   import DictationIndicator from './DictationIndicator.svelte';
   import Toasts from './Toasts.svelte';
+  import LiveAnnouncer from './LiveAnnouncer.svelte';
   import BusyOverlay from './BusyOverlay.svelte';
   import AboutDialog from './AboutDialog.svelte';
   import ShortcutsDialog from './ShortcutsDialog.svelte';
@@ -279,6 +280,7 @@
 {/if}
 <DictationIndicator />
 <Toasts />
+<LiveAnnouncer />
 {#if featureDialogs.about}
   <AboutDialog onClose={() => { featureDialogs.setAbout(false); }} />
 {/if}
