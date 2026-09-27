@@ -25,7 +25,7 @@ import * as search from './search/index';
 import * as tables from './sources/tables';
 import { projectContext } from './project-context-types';
 import { runMaintenance, pluralizeNotes } from './maintenance';
-import { runBackfill } from './embeddings/backfill';
+import { runBackfill, type BackfillResult } from './embeddings/backfill';
 import {
   restartKernel as restartPythonKernel,
   interruptKernel as interruptPythonKernel,
@@ -72,6 +72,15 @@ export async function rebuildAllIndexes(
     style: 'blocking',
     emit,
     run: async (report) => {
+      // With no graph loaded, `graph.indexAllNotes` is a silent no-op that
+      // returns 0 while search still indexes the directory — so this used to
+      // report "Rebuilt indexes — 0 notes" having rebuilt nothing the graph
+      // could see (#2414). Throw before touching anything: the failure becomes
+      // the terminal frame (CLAUDE.md → IPC error handling, rule 2), and the
+      // `false` return stops the menu refreshing the table panels.
+      if (!graph.isGraphLoaded(ctx)) {
+        throw new Error('No knowledge graph is loaded for this project — nothing to rebuild');
+      }
       // registerAllCsvs writes to the rdflib store that indexAllNotes
       // resets+rebuilds; sequence it after so its CSV-schema triples can't
       // land in the discarded store. search is independent (MiniSearch).
@@ -91,9 +100,30 @@ export async function rebuildAllIndexes(
 }
 
 /**
+ * "3 notes, 1 source, 2 excerpts" — what a backfill embedded, by corpus.
+ * Kinds with nothing embedded are left out; an empty pass reads "0 notes".
+ * The summary used to call every item a note, sources and excerpts included
+ * (#2414).
+ */
+export function describeEmbedded(byKind: BackfillResult['embeddedByKind']): string {
+  const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
+  const parts: string[] = [];
+  if (byKind.note > 0) parts.push(pluralizeNotes(byKind.note));
+  if (byKind.source > 0) parts.push(plural(byKind.source, 'source'));
+  if (byKind.excerpt > 0) parts.push(plural(byKind.excerpt, 'excerpt'));
+  return parts.length > 0 ? parts.join(', ') : pluralizeNotes(0);
+}
+
+/**
  * Force a full re-embed of the corpus (#836) — useful after suspected
  * corruption or to repopulate from scratch. Normal model-change / new-note
  * backfill is automatic on project open, so this is the explicit escape hatch.
+ *
+ * Every way the backfill can decline or stop short is a failure frame, not a
+ * success with a zero count (#2414): a pass already in flight (the automatic
+ * one on project open, or a second click), the vector store not being open, and a
+ * run aborted part-way because the project closed. Each of those used to read
+ * "Rebuilt semantic index — 0 notes embedded".
  */
 export async function rebuildSemanticIndex(
   rootPath: string,
@@ -115,9 +145,21 @@ export async function rebuildSemanticIndex(
         force: true,
         onProgress: emitBackfill,
       });
-      return result.embedded;
+      if (result.notRun === 'already-running') {
+        // Not waited for: the in-flight pass may be the non-forced one, and
+        // queueing a second full re-embed behind it is a decision the user
+        // can make by running this again once the status bar clears.
+        throw new Error('the semantic index is already being updated — try again when it finishes');
+      }
+      if (result.notRun === 'disabled') {
+        throw new Error('the semantic index isn\'t available for this thoughtbase — its store isn\'t open');
+      }
+      if (result.aborted) {
+        throw new Error(`stopped after ${describeEmbedded(result.embeddedByKind)} — the thoughtbase was closed`);
+      }
+      return result.embeddedByKind;
     },
-    summary: (embedded) => `Rebuilt semantic index — ${pluralizeNotes(embedded)} embedded`,
+    summary: (byKind) => `Rebuilt semantic index — ${describeEmbedded(byKind)} embedded`,
   });
 }
 

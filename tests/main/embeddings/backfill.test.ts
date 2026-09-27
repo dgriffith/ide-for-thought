@@ -148,4 +148,48 @@ describe('runBackfill', () => {
     expect(second).toMatchObject({ embedded: 0 });
     await first;
   });
+
+  it("says why it declined: notRun 'already-running' while another pass is in flight (#2414)", async () => {
+    await writeNote('a.md', '# A\nalpha');
+    await store.dispose(ctx());
+    await store.init(ctx(), { dbPath: path.join(root, '.minerva', 'vectors.duckdb'), embedder: fakeEmbedder(40) });
+    const first = runBackfill(ctx());
+
+    const second = await runBackfill(ctx(), { force: true });
+    const done = await first;
+
+    expect(second.notRun).toBe('already-running');
+    expect(done.notRun).toBeUndefined();
+  });
+
+  it("says why it declined: notRun 'disabled' when the vector store is not open (#2414)", async () => {
+    await writeNote('a.md', '# A\nalpha');
+    await store.dispose(ctx());
+
+    const res = await runBackfill(ctx());
+
+    expect(res).toMatchObject({ embedded: 0, notRun: 'disabled' });
+  });
+
+  it('a real pass over an already-embedded corpus has no notRun — 0 embedded is the true answer', async () => {
+    await writeNote('a.md', '# A\nalpha');
+    await runBackfill(ctx());
+
+    const second = await runBackfill(ctx());
+
+    expect(second.embedded).toBe(0);
+    expect(second.notRun).toBeUndefined();
+  });
+
+  it('splits the embedded count by corpus (#2414)', async () => {
+    await writeNote('n1.md', '# N1\none');
+    await writeNote('n2.md', '# N2\ntwo');
+    await fsp.mkdir(path.join(root, '.minerva', 'sources', 'src-1'), { recursive: true });
+    await fsp.writeFile(path.join(root, '.minerva', 'sources', 'src-1', 'body.md'), '# Paper\nbody');
+
+    const res = await runBackfill(ctx());
+
+    expect(res.embeddedByKind).toEqual({ note: 2, source: 1, excerpt: 0 });
+    expect(res.embedded).toBe(3);
+  });
 });

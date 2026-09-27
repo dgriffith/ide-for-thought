@@ -298,6 +298,20 @@ export function setBaseUri(ctx: ProjectContext, baseUri: string): void {
   if (state) state.baseUri = baseUri;
 }
 
+/**
+ * Whether `initGraph` has loaded a graph for this project (#2414).
+ *
+ * Most of the facade treats a project with no graph as a no-op — `indexAllNotes`
+ * returns 0, `serializeGraph` returns '' — which is right for a background
+ * reindex and wrong for a command the user asked for: "Rebuilt indexes — 0
+ * notes" is a false success when nothing was rebuilt. A caller that must not
+ * report success on a no-op asks this first. A pure read: it never allocates
+ * a project slot (#2240).
+ */
+export function isGraphLoaded(ctx: ProjectContext): boolean {
+  return getState(ctx) !== null;
+}
+
 export function serializeGraph(ctx: ProjectContext): string {
   const state = getState(ctx);
   if (!state) return '';
