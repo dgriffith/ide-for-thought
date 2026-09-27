@@ -144,7 +144,7 @@
   <div class="draft-actions">
     <button type="button" class="draft-btn primary" disabled={selectedItems.length === 0 && selected.size === 0} onclick={approve}>
       {#if isFolderDelete}
-        Delete {folders.length === 1 ? 'folder' : `${selected.size} folders`}
+        Delete {folders.length === 1 ? 'folder' : `${selected.size} folder${selected.size === 1 ? '' : 's'}`}
       {:else}
         Delete {selectedItems.length}
       {/if}
