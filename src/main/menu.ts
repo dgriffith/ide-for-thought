@@ -186,7 +186,7 @@ function buildRecentSubmenu(): Electron.MenuItemConstructorOptions[] {
             // Open in focused window if it has no project, otherwise new window
             const focused = BrowserWindow.getFocusedWindow();
             if (focused) {
-              send('menu:openRecentProject', projectPath);
+              send(Channels.MENU_OPEN_RECENT_PROJECT, projectPath);
             } else {
               const win = createWindow();
               win.webContents.once('did-finish-load', async () => {

@@ -207,6 +207,7 @@ export const Channels = {
   MENU_OPEN_PROJECT: 'menu:openProject',
   MENU_NEW_PROJECT: 'menu:newProject',
   MENU_INSTALL_TUTORIAL: 'menu:installTutorial',
+  MENU_OPEN_RECENT_PROJECT: 'menu:openRecentProject',
   MENU_CLOSE_PROJECT: 'menu:closeProject',
   MENU_CLEAR_RECENT: 'menu:clearRecent',
   MENU_PRINT: 'menu:print',

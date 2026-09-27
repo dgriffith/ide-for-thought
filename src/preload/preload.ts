@@ -609,7 +609,7 @@ const api = {
     onOpenProject: (cb: () => void) => subscribe(Channels.MENU_OPEN_PROJECT, cb),
     onNewProject: (cb: () => void) => subscribe(Channels.MENU_NEW_PROJECT, cb),
     onInstallTutorial: (cb: () => void) => subscribe(Channels.MENU_INSTALL_TUTORIAL, cb),
-    onOpenRecentProject: (cb: (path: string) => void) => subscribe('menu:openRecentProject', cb),
+    onOpenRecentProject: (cb: (path: string) => void) => subscribe(Channels.MENU_OPEN_RECENT_PROJECT, cb),
     onCloseProject: (cb: () => void) => subscribe(Channels.MENU_CLOSE_PROJECT, cb),
     onClearRecent: (cb: () => void) => subscribe(Channels.MENU_CLEAR_RECENT, cb),
     onPrint: (cb: () => void) => subscribe(Channels.MENU_PRINT, cb),
