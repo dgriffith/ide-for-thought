@@ -31,6 +31,7 @@ import {
   writeProposalToGraph,
 } from './proposal-persistence';
 import { logger } from '../../shared/logger';
+import { createProjectStore } from '../project-store';
 
 // Re-export the public surface so importers of './llm/approval' are unaffected
 // by the split.
@@ -95,10 +96,101 @@ export async function proposeWrite(ctx: ProjectContext, write: ProposedWrite): P
   return proposal;
 }
 
+// ── Per-URI in-flight guard (#2361) ─────────────────────────────────────────
+//
+// `approveProposal` reads the status, awaits `applyBundle` (file + graph I/O),
+// and only then writes `approved`. Two overlapping calls for one URI both used
+// to pass the `pending` check and apply the bundle twice. Callers are not just
+// the Proposals panel — auto-tag, auto-link, set/source-properties and the
+// conversation draft filer all call in directly — so the guard lives here.
+//
+// Semantics:
+//   - Same op, same URI (approve ‖ approve, reject ‖ reject): the second caller
+//     JOINS the first — it gets the first call's promise, so the bundle is
+//     applied once and both callers see the real outcome (the same `filedPaths`
+//     / `rewrittenPaths`, or the same error). An "already in progress"
+//     `ok: false` was the alternative, but every caller reads `ok: false` as
+//     "nothing was applied", which would be a lie while the first call is
+//     mid-apply and about to succeed.
+//   - Different ops, same URI (approve ‖ reject): the later one waits for the
+//     earlier to SETTLE, then runs its own status check. The status is no
+//     longer `pending`, so it declines normally (`ok: false` / `false`). If the
+//     earlier one failed, the proposal is still pending and the later one
+//     proceeds — which is exactly what a retry should do.
+//
+// The entry is registered synchronously (before the first `await`), so even a
+// `Promise.all([approve(u), approve(u)])` sees it; it is removed in a `finally`
+// on success AND failure, so a failed approval can be retried. The map is
+// per-project and lives in a `createProjectStore` slot (#2240); a lookup does
+// not allocate one — only starting an operation does.
+
+interface ProposalOpResults {
+  approve: ApproveResult;
+  reject: boolean;
+}
+type ProposalOp = keyof ProposalOpResults;
+
+interface InFlight {
+  op: ProposalOp;
+  promise: Promise<unknown>;
+}
+
+const inFlightStore = createProjectStore<Map<string, InFlight>>();
+
+function inFlightSlot(ctx: ProjectContext): Map<string, InFlight> {
+  let slot = inFlightStore.get(ctx);
+  if (!slot) {
+    slot = new Map();
+    inFlightStore.set(ctx, slot);
+  }
+  return slot;
+}
+
+function runExclusive<K extends ProposalOp>(
+  ctx: ProjectContext,
+  uri: string,
+  op: K,
+  run: () => Promise<ProposalOpResults[K]>,
+): Promise<ProposalOpResults[K]> {
+  const current = inFlightStore.get(ctx)?.get(uri);
+  if (current) {
+    if (current.op === op) return current.promise as Promise<ProposalOpResults[K]>;
+    // A different op on this URI is mid-flight: let it settle (either way),
+    // then re-enter so this call re-checks status against its outcome.
+    const settled = current.promise.then(() => undefined, () => undefined);
+    return settled.then(() => runExclusive(ctx, uri, op, run));
+  }
+  // Capture the slot: if the project is disposed mid-flight, cleanup still
+  // targets the map this entry was registered in, not a fresh one.
+  const slot = inFlightSlot(ctx);
+  // `.then(run)` defers `run` a microtask and `.finally` always runs
+  // asynchronously, so the entry is in the map before either can observe it.
+  const promise = Promise.resolve()
+    .then(run)
+    .finally(() => {
+      if (slot.get(uri)?.promise === promise) slot.delete(uri);
+    });
+  slot.set(uri, { op, promise });
+  return promise;
+}
+
+/** Test-only: URIs with an approve/reject currently in flight for `ctx`. */
+export function _inFlightProposalUrisForTests(ctx: ProjectContext): string[] {
+  return [...(inFlightStore.get(ctx)?.keys() ?? [])];
+}
+
 /**
  * Approve a pending proposal: apply its bundle and update status.
+ *
+ * Concurrency-safe per URI (#2361): a second call for the same URI while one is
+ * in flight returns the first call's result instead of applying again; a call
+ * racing a `rejectProposal` for the same URI waits for it and then declines.
  */
-export async function approveProposal(ctx: ProjectContext, uri: string): Promise<ApproveResult> {
+export function approveProposal(ctx: ProjectContext, uri: string): Promise<ApproveResult> {
+  return runExclusive(ctx, uri, 'approve', () => approvePending(ctx, uri));
+}
+
+async function approvePending(ctx: ProjectContext, uri: string): Promise<ApproveResult> {
   const proposal = await getProposal(ctx, uri);
   if (!proposal || proposal.status !== 'pending') return { ok: false, filedPaths: [], rewrittenPaths: [] };
 
@@ -135,9 +227,15 @@ export async function approveProposal(ctx: ProjectContext, uri: string): Promise
 }
 
 /**
- * Reject a pending proposal: update status without applying.
+ * Reject a pending proposal: update status without applying. Serialized per URI
+ * against `approveProposal` the same way (#2361), so a reject racing an approve
+ * can never flip an applied proposal to `rejected` or vice versa.
  */
-export async function rejectProposal(ctx: ProjectContext, uri: string): Promise<boolean> {
+export function rejectProposal(ctx: ProjectContext, uri: string): Promise<boolean> {
+  return runExclusive(ctx, uri, 'reject', () => rejectPending(ctx, uri));
+}
+
+async function rejectPending(ctx: ProjectContext, uri: string): Promise<boolean> {
   const proposal = await getProposal(ctx, uri);
   if (!proposal || proposal.status !== 'pending') return false;
 
