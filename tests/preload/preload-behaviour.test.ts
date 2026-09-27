@@ -377,6 +377,22 @@ describe('preload behaviour: surface-wide invariants (#2367)', () => {
     expect(crossed).toEqual([]);
   });
 
+  it('the full method → channel map is snapshotted (catches swaps no derived check can)', () => {
+    // The sibling-verb check above only catches a swap onto a channel NAMED
+    // after the other method. 110 leaves have a channel verb that differs from
+    // their own name (`graph.inspections` → `inspections:list`), and swapping
+    // two of those (`runInspections` → `inspections:run`) passes every derived
+    // check — verified. Hand-pinning all of them in HIGH_RISK would be 110
+    // unreviewed copies of the current values; a snapshot is the same pin with
+    // an honest diff. A swap shows up as two exchanged lines in
+    // `__snapshots__/preload-behaviour.test.ts.snap` — read that diff before
+    // re-blessing with `-u`; an added channel shows up as one new line.
+    const map = Object.fromEntries(
+      [...all].sort(([a], [b]) => a.localeCompare(b)).map(([path, o]) => [path, `${o.kind} ${o.channel}`]),
+    );
+    expect(map).toMatchSnapshot();
+  });
+
   it('every ChannelMap key is invoked by some preload leaf (or is documented internal-only)', () => {
     const invoked = new Set([...all.values()].filter((o) => o.kind === 'invoke').map((o) => o.channel));
     const unreached = [...CHANNEL_MAP_KEYS].filter((k) => !invoked.has(k) && !(k in INTERNAL_INVOKE_CHANNELS));
