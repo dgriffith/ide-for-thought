@@ -1,14 +1,7 @@
 {
   "_comment": "High/critical advisories in the FULL dependency tree, accepted as of the date below (#2249). The shipped surface (`pnpm audit --prod`) is blocking and separately clean — everything here is build/dev tooling that never reaches a user. This gate fails when the set GROWS, and when it SHRINKS (re-bless so the win is held). Tracks advisory ids, not a count: a count passes when one advisory is fixed and another appears. Re-bless with `node scripts/check-audit.mjs --update`.",
-  "blessed": "2026-09-22",
+  "blessed": "2026-09-27",
   "advisories": [
-    {
-      "id": "GHSA-5p2g-fcmc-qvqq",
-      "module": "image-size",
-      "severity": "high",
-      "title": "image-size: JXL and HEIF parsers allow denial of service through infinite loops",
-      "patched": ">=2.0.3"
-    },
     {
       "id": "GHSA-7pqw-9j4j-h8q3",
       "module": "extract-zip",
