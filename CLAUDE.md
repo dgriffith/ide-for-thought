@@ -321,6 +321,9 @@ than locally, which is worse:
 - `pnpm test tests/preload/preload-bridge.test.ts -u` — `preload.ts`'s whole
   `window.api` surface is snapshotted, so **any** method add / rename / removal
   fails until the snapshot is re-blessed.
+- `pnpm test tests/preload/preload-behaviour.test.ts -u` — the method → channel
+  map is snapshotted too (#2367). An added channel is one new line; **two
+  exchanged lines are a swapped channel** — read the diff before re-blessing.
 - `pnpm test tests/main/ipc/registration.test.ts -u` — the registered channel
   set is snapshotted too, for the same reason in the other direction (a dropped
   or renamed registration).

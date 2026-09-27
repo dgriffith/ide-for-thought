@@ -675,16 +675,23 @@ export default defineConfig({
         // 35/31). Ratchet upward again as bucket B (store/ops spine, #1452) and
         // the approval-proposal UI gain tests.
         //
-        // NOTE: src/preload is deliberately NOT given a line-coverage floor.
-        // It's a declarative contextBridge passthrough — `invoke(Channels.X, …)`
-        // arrows, one per channel; its correct gate is the shape +
-        // full-surface snapshot contract test (tests/preload/preload-bridge.test.ts,
-        // #676), not line execution. Calling every passthrough to hit a line
-        // floor would verify nothing the snapshot doesn't already pin.
         // Ratcheted 2026-08-26 (#1932): measured 57.8% L, set to 53% (3-5 pt margin).
         // Re-ratcheted 2026-09-27 (#2360): measured 64.2 L / 63.9 S / 61.2 F /
         // 53.2 B, against floors of 53/42/40/34 — a 19-point branch collapse
         // would have passed. Floors now sit ~4 under every metric.
+        // src/preload — the whole renderer↔main bridge. It sat at 0.5% L
+        // under a names-only snapshot, which could not see two same-signature
+        // methods with swapped channels or a dropped argument. #2367's
+        // behavioural test (tests/preload/preload-behaviour.test.ts) calls
+        // every leaf and asserts the channel + forwarded args; measured
+        // 99.7 L / 99.8 S / 100 F / 90 B. The floor is what says a new leaf
+        // was actually reached by it.
+        'src/preload/**': {
+          lines: 95,
+          functions: 95,
+          statements: 95,
+          branches: 80,
+        },
         'src/renderer/**': {
           lines: 60,
           functions: 57,

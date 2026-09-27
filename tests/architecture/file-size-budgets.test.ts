@@ -114,7 +114,7 @@ const BUDGETS: Record<string, number> = {
   // +1 for #2256: the MENU_COMMAND_PALETTE channel / its MENU_COMMANDS entry.
   'src/shared/ipc-contract.ts': 789,  // #2363/#2364: GraphQueryResult + git:commit doc comments; #2288: two inline Inspection shapes → Inspection[]; #2222: sources:queueCounts
   // +1 for #2256: the MENU_COMMAND_PALETTE channel / its MENU_COMMANDS entry.
-  'src/shared/channels.ts': 746,  // #2222: SOURCES_QUEUE_COUNTS + its why-comment
+  'src/shared/channels.ts': 747,  // #2367: MENU_OPEN_RECENT_PROJECT (was a bare literal in preload + menu); #2222: SOURCES_QUEUE_COUNTS + its why-comment
   'src/renderer/lib/app/note-ops.ts': 687,
   'src/renderer/lib/editor/formatting.ts': 668,
   // #2227: listTables went from a 2N per-table loop to a bounded column sweep
