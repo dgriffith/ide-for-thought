@@ -30,12 +30,28 @@
  *     aggregate cannot fail on account of one file*, which is a real and
  *     recurring shape — but deciding which subtree earns that treatment is a
  *     judgement about trust boundaries, not something to demand everywhere;
- *   - it does NOT cover the loose `src/main/*.ts` modules. Several have per-file
- *     floors (`security.ts`, `privileged-sites.ts`, `auto-update.ts`); the rest
- *     don't, and requiring one per file would be a different and much noisier
- *     rule than the one this enforces;
  *   - it DOES catch the case it exists for: a new subsystem directory landing
  *     with nothing but the global backstop behind it.
+ *
+ * ── Loose `src/main/*.ts` modules (#2368) ───────────────────────────────────
+ * The directory rule above left every file sitting directly in `src/main/`
+ * invisible, and those are not small leftovers: `menu.ts` (985 lines, the
+ * native command surface #2233 is about) was at 36% lines and
+ * `window-manager.ts` at 61%, both with nothing behind them but the 45%
+ * backstop an aggregate of ~37k lines will never trip on their account.
+ *
+ * So the second half of this test requires an exact per-file threshold key for
+ * every loose module of at least LOOSE_FILE_MIN_LINES lines. Requiring one for
+ * *every* loose file would be the noisy rule the old header rejected — below
+ * the line, the loose files are type re-exports, the `ipc.ts` orchestrator and
+ * config shims of a few dozen lines, where a per-file floor is bookkeeping and
+ * one added branch swings the ratio 5 points. 150 was chosen over a rounder
+ * 200 on purpose: it is what catches `maintenance-commands.ts` (172 lines, 0%),
+ * the one implementation both the menu and its registrar call.
+ *
+ * KNOWN_UNENROLLED is the backlog of files over the line that have no floor,
+ * each with a reason. It may only shrink: a listed file that gains an entry,
+ * drops under the line or is deleted fails until it is removed from the list.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -121,6 +137,82 @@ describe('coverage-floor enrollment (#2239)', () => {
         'aggregate). Record the measured numbers in the comment above the entry, the way ' +
         'every existing one does — the next person to touch it needs to know whether the ' +
         'floor is close to the real number or far below it.',
+    ).toEqual([]);
+  });
+});
+
+/** A loose `src/main/*.ts` module at or over this many lines needs its own floor. */
+const LOOSE_FILE_MIN_LINES = 150;
+
+/**
+ * Loose modules over the line with no per-file floor (#2368). Shrink-only.
+ * Both measured 0% lines at 2026-09-27, so a floor today would be `lines: 0`,
+ * which records nothing; the entry is the record instead.
+ */
+const KNOWN_UNENROLLED: Readonly<Record<string, string>> = {
+  // The Electron entry point. Importing it runs `app.whenReady()` and builds
+  // windows, so no unit test loads it; its one real invariant (nothing awaited
+  // ahead of `createWindow`) is held structurally by
+  // `startup-window-not-gated.test.ts` rather than by line execution.
+  'main.ts':
+    'Electron entry point; importing it boots the app. Guarded structurally by startup-window-not-gated.test.ts.',
+  // The five long-running commands #2233 moved out of menu click handlers.
+  // Written to be testable without a BrowserWindow, but register-maintenance
+  // and register-graph mock the module, so nothing executes it. A real gap:
+  // test the commands directly and replace this entry with a floor.
+  'maintenance-commands.ts':
+    '0%: its registrar tests mock it. Backlog — test the commands directly, then add a floor.',
+};
+
+function lineCount(file: string): number {
+  return readFileSync(file, 'utf-8').split('\n').length;
+}
+
+/** Loose `.ts` modules directly under `src/main/`, with their line counts. */
+function looseMainFiles(): Array<{ name: string; lines: number }> {
+  return readdirSync(MAIN_DIR, { withFileTypes: true })
+    .filter((e) => e.isFile() && e.name.endsWith('.ts') && !e.name.endsWith('.d.ts'))
+    .map((e) => ({ name: e.name, lines: lineCount(path.join(MAIN_DIR, e.name)) }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+describe('coverage-floor enrollment: loose src/main files (#2368)', () => {
+  const keys = new Set(thresholdKeys());
+  const isFileEnrolled = (name: string) => keys.has(`src/main/${name}`);
+
+  it('finds the loose files it is meant to police', () => {
+    const big = looseMainFiles().filter((f) => f.lines >= LOOSE_FILE_MIN_LINES).map((f) => f.name);
+    expect(big).toContain('menu.ts');
+    expect(big).toContain('window-manager.ts');
+  });
+
+  it(`every loose src/main module of ${LOOSE_FILE_MIN_LINES}+ lines has a per-file floor`, () => {
+    const unenrolled = looseMainFiles()
+      .filter((f) => f.lines >= LOOSE_FILE_MIN_LINES)
+      .filter((f) => !isFileEnrolled(f.name) && !(f.name in KNOWN_UNENROLLED));
+    expect(
+      unenrolled.map((f) => `src/main/${f.name} (${f.lines} lines)`),
+      `Loose module(s) of ${LOOSE_FILE_MIN_LINES}+ lines under src/main/ with no per-file coverage ` +
+        'floor, so only the 45%-lines global backstop stands behind them.\n\n' +
+        "Run `pnpm coverage`, read the file's measured numbers, and add a `'src/main/<file>.ts'` " +
+        'entry to `thresholds` in vitest.config.mts ~8-10 points below them, recording the ' +
+        'measured numbers in the comment above it. Adding the file to KNOWN_UNENROLLED instead ' +
+        'is a legitimate move only with a reason in the diff.',
+    ).toEqual([]);
+  });
+
+  it('KNOWN_UNENROLLED only shrinks — entries that no longer need to be there fail', () => {
+    const byName = new Map(looseMainFiles().map((f) => [f.name, f.lines]));
+    const stale = Object.keys(KNOWN_UNENROLLED).flatMap((name) => {
+      const lines = byName.get(name);
+      if (lines === undefined) return [`${name}: no longer exists`];
+      if (lines < LOOSE_FILE_MIN_LINES) return [`${name}: now ${lines} lines, under the line`];
+      if (isFileEnrolled(name)) return [`${name}: now has a per-file floor`];
+      return [];
+    });
+    expect(
+      stale,
+      'Delete these from KNOWN_UNENROLLED in this file so the ratchet holds the new ground.',
     ).toEqual([]);
   });
 });

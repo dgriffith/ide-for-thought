@@ -588,6 +588,81 @@ export default defineConfig({
           statements: 72,
           branches: 58,
         },
+        // Loose `src/main/*.ts` modules (#2368). The enrollment test used to
+        // police directories only, so these sat under the 45%-lines global
+        // backstop alone. `coverage-floor-enrollment.test.ts` now requires a
+        // per-file entry for every loose module of 150+ lines; the two
+        // exceptions (main.ts, maintenance-commands.ts — both 0%) are listed
+        // there with reasons, and that list may only shrink.
+        //
+        // menu.ts ~36.4 L / 36.4 S / 23.6 F / 48.0 B — the native command
+        // surface #2233 cares about. Low, and recorded as such: the template
+        // builders are exercised (menu-rebuild-io, menu-shortcuts), the
+        // click handlers mostly aren't. Floors sit 3 under measured (#2368),
+        // tighter than the usual 8-10 for a single file, so the one real
+        // number here can't erode while nobody is looking at it.
+        'src/main/menu.ts': {
+          lines: 33,
+          statements: 33,
+          functions: 20,
+          branches: 45,
+        },
+        // window-manager.ts ~60.9 L / 58.4 S / 39.4 F / 46.3 B (#2368).
+        // Floors 3 under measured, as for menu.ts.
+        'src/main/window-manager.ts': {
+          lines: 57,
+          statements: 55,
+          functions: 36,
+          branches: 43,
+        },
+        // The rest of the 150+-line loose modules, already well covered
+        // (#2368); floors ~8-10 under measured per the single-file rule.
+        // project-context.ts ~88.7 L / 89.1 S / 80.0 F / 100 B.
+        'src/main/project-context.ts': {
+          lines: 80,
+          statements: 80,
+          functions: 70,
+          branches: 90,
+        },
+        // project-config.ts ~96.9 L / 96.6 S / 94.1 F / 88.5 B.
+        'src/main/project-config.ts': {
+          lines: 88,
+          statements: 88,
+          functions: 85,
+          branches: 80,
+        },
+        // saved-queries.ts ~95.7 L / 95.4 S / 95.7 F / 83.9 B.
+        'src/main/saved-queries.ts': {
+          lines: 87,
+          statements: 87,
+          functions: 87,
+          branches: 75,
+        },
+        // saved-views.ts ~94.4 L / 93.3 S / 94.4 F / 80.0 B.
+        'src/main/saved-views.ts': {
+          lines: 86,
+          statements: 85,
+          functions: 86,
+          branches: 72,
+        },
+        // watch-handlers.ts ~94.7 L / 93.3 S / 93.3 F / 91.7 B.
+        'src/main/watch-handlers.ts': {
+          lines: 86,
+          statements: 85,
+          functions: 85,
+          branches: 83,
+        },
+        // src/cli/** ~82.2 L / 78.0 S / 79.6 F / 69.2 B across 10 files
+        // (#2368) — the `pnpm cli` eval/MCP entry points, previously with no
+        // glob of their own. Floors ~4-5 under measured. Weakest files:
+        // run.ts 75.5 L, eval-context.ts 66.3 L; main.ts (11 lines, the
+        // process entry) is 0%.
+        'src/cli/**': {
+          lines: 78,
+          statements: 74,
+          functions: 75,
+          branches: 65,
+        },
         // Renderer tree — every Svelte component plus the rune stores under
         // `lib/stores/`, the largest user-facing defect surface and previously
         // the least-gated (#1094 / QA C1). Floors sit below the measured-at-
@@ -607,11 +682,26 @@ export default defineConfig({
         // #676), not line execution. Calling every passthrough to hit a line
         // floor would verify nothing the snapshot doesn't already pin.
         // Ratcheted 2026-08-26 (#1932): measured 57.8% L, set to 53% (3-5 pt margin).
+        // Re-ratcheted 2026-09-27 (#2360): measured 64.2 L / 63.9 S / 61.2 F /
+        // 53.2 B, against floors of 53/42/40/34 — a 19-point branch collapse
+        // would have passed. Floors now sit ~4 under every metric.
         'src/renderer/**': {
-          lines: 53,
-          functions: 40,
-          statements: 42,
-          branches: 34,
+          lines: 60,
+          functions: 57,
+          statements: 60,
+          branches: 49,
+        },
+        // src/renderer/lib/components/** ~54.9 L / 57.8 S / 58.0 F / 41.7 B
+        // (#2360). The `src/renderer/**` aggregate above is carried by
+        // `lib/app` and `lib/stores` in the 80s, so the component tree — 138
+        // files, the largest and least-tested part of the renderer — could
+        // fall a long way without moving it ("a glob cannot fail on account of
+        // one file", CLAUDE.md #2239). Floors ~3-4 under measured.
+        'src/renderer/lib/components/**': {
+          lines: 51,
+          statements: 54,
+          functions: 54,
+          branches: 38,
         },
         // Per-file floors on the 1000+-line renderer components (#1613). The
         // `src/renderer/**` aggregate above is met by the many small, well-
@@ -715,6 +805,49 @@ export default defineConfig({
           statements: 95,
           functions: 95,
           branches: 90,
+        },
+        // The proposal draft cards (#2360) — the "human confirms" half of the
+        // Trust Principle, where the user sees what an LLM proposal would do
+        // and approves or rejects it. #2354 took them from 0% (DraftCards
+        // 13.8% L) to ~100% lines. Same shape as ReadingQueueSection above:
+        // lines/statements/functions just under 100, branches ~8 under their
+        // measured number (v8 counts Svelte template branches the tests don't
+        // all take).
+        //
+        // DraftCards.svelte ~99.6 L / 99.8 S / 99.5 F / 85.4 B.
+        'src/renderer/lib/components/conversations/DraftCards.svelte': {
+          lines: 95,
+          statements: 95,
+          functions: 95,
+          branches: 77,
+        },
+        // DeleteDraftCard.svelte 100 L / 100 S / 100 F / 87.1 B.
+        'src/renderer/lib/components/DeleteDraftCard.svelte': {
+          lines: 95,
+          statements: 95,
+          functions: 95,
+          branches: 79,
+        },
+        // NoteBodyDraftCard.svelte 100 L / 100 S / 100 F / 86.5 B.
+        'src/renderer/lib/components/NoteBodyDraftCard.svelte': {
+          lines: 95,
+          statements: 95,
+          functions: 95,
+          branches: 78,
+        },
+        // ReorgDraftCard.svelte 100 L / 100 S / 100 F / 80.4 B.
+        'src/renderer/lib/components/ReorgDraftCard.svelte': {
+          lines: 95,
+          statements: 95,
+          functions: 95,
+          branches: 72,
+        },
+        // RefactorDraftCard.svelte 100 L / 100 S / 100 F / 90.0 B.
+        'src/renderer/lib/components/RefactorDraftCard.svelte': {
+          lines: 95,
+          statements: 95,
+          functions: 95,
+          branches: 82,
         },
         // SettingsDialog.svelte ~77.1 L / 80.8 S / 58.1 F / 47.8 B (the shell;
         // extracted panels carry their own tests + the #999/#1094 aggregate).
