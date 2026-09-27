@@ -67,27 +67,27 @@
         {#each headings as heading, i}
           {#if isVisible(i)}
             <li>
-              <!-- A div, not a button: it carries the inner collapse-toggle
-                   button, and a button can't contain a button. -->
-              <div
-                class="outline-item"
-                role="button"
-                tabindex="0"
-                style:padding-left="{(heading.level - 1) * 14 + 8}px"
-                onclick={() => onScrollToLine(heading.line)}
-                onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onScrollToLine(heading.line); } }}
-              >
+              <!-- Two sibling buttons in a plain row — not a role="button" row
+                   wrapping the collapse toggle, because nested interactive
+                   controls aren't reliably announced or reachable (axe
+                   nested-interactive, #2378). -->
+              <div class="outline-item" style:padding-left="{(heading.level - 1) * 14 + 8}px">
                 {#if hasChildren(i) && !search.trim()}
                   <button
                     type="button"
                     class="collapse-toggle"
-                    onclick={(e) => { e.stopPropagation(); toggleCollapse(i); }}
+                    onclick={() => toggleCollapse(i)}
                     title={collapsed[i] ? 'Expand' : 'Collapse'}
+                    aria-expanded={!collapsed[i]}
                   >{collapsed[i] ? '▸' : '▾'}</button>
                 {:else}
                   <span class="collapse-spacer"></span>
                 {/if}
-                <span class="heading-text">{heading.text}</span>
+                <button
+                  type="button"
+                  class="heading-text"
+                  onclick={() => onScrollToLine(heading.line)}
+                >{heading.text}</button>
               </div>
             </li>
           {/if}
@@ -126,11 +126,10 @@
     background: none;
     color: var(--text);
     font-size: 12px;
-    cursor: pointer;
-    text-align: left;
     border-radius: 3px;
   }
-  .outline-item:focus-visible {
+  .heading-text:focus-visible,
+  .collapse-toggle:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: -2px;
   }
@@ -157,6 +156,15 @@
   }
 
   .heading-text {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    background: none;
+    padding: 0;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    text-align: left;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

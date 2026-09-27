@@ -371,6 +371,14 @@
     font-family: var(--font-mono, monospace);
     font-size: 12px;
   }
+  /* Unstyled, markdown links fell back to Chromium's #0000ee — 1.7:1 on the
+     dark paper (#2375). Accent + underline: legible, and distinguishable from
+     body text by more than hue. */
+  .msg-content :global(a) {
+    color: var(--accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
   /* User-turn content is plain text — preserve newlines. Streaming assistant
      content is now markdown-rendered (same as finalized assistant turns), so
      the rules above handle its layout. */

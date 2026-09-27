@@ -89,6 +89,10 @@
 </div>
 
 <style>
+  /* The bar paints --bg, so its text uses the body tokens (--text /
+     --text-muted), not --titlebar-text*: those pair with --bg-titlebar, which
+     the contrast theme makes dark — on this --bg they were white-on-white
+     there (1.44:1, #2378). In dark/light the two sets resolve identically. */
   .titlebar {
     -webkit-app-region: drag;
     height: 42px;
@@ -118,7 +122,7 @@
     border: none;
     border-radius: 6px;
     background: transparent;
-    color: var(--titlebar-text-muted);
+    color: var(--text-muted);
     cursor: pointer;
     display: inline-flex;
     align-items: center;
@@ -126,7 +130,7 @@
   }
   .nav-btn:hover:not(:disabled) {
     background: color-mix(in oklch, var(--text) 8%, transparent);
-    color: var(--titlebar-text);
+    color: var(--text);
   }
   .nav-btn:disabled {
     opacity: 0.35;
@@ -146,7 +150,7 @@
     align-items: center;
     gap: 8px;
     font-size: 13px;
-    color: var(--titlebar-text);
+    color: var(--text);
     min-width: 0;
     overflow: hidden;
     user-select: none;
@@ -157,7 +161,7 @@
     flex-shrink: 0;
   }
   .crumb {
-    color: var(--titlebar-text-muted);
+    color: var(--text-muted);
     font-family: var(--font-sans);
     white-space: nowrap;
     overflow: hidden;
@@ -169,7 +173,7 @@
     flex-shrink: 0;
   }
   .leaf {
-    color: var(--titlebar-text);
+    color: var(--text);
     font-family: var(--font-display);
     font-style: italic;
     font-weight: 500;
@@ -229,7 +233,7 @@
     border: none;
     border-radius: 6px;
     background: transparent;
-    color: var(--titlebar-text-muted);
+    color: var(--text-muted);
     cursor: pointer;
     display: inline-flex;
     align-items: center;
@@ -237,6 +241,6 @@
   }
   .icon-btn:hover {
     background: color-mix(in oklch, var(--text) 8%, transparent);
-    color: var(--titlebar-text);
+    color: var(--text);
   }
 </style>

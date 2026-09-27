@@ -420,8 +420,9 @@
     font-size: 10px;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: var(--text-muted, var(--text));
-    opacity: 0.6;
+    /* No opacity dim: on the --bg-button row it took the muted tier to
+       2.5-3.1:1. Muted alone clears AA on every theme (#2375). */
+    color: var(--text-muted);
   }
   .mcp-status {
     font-size: 11px;

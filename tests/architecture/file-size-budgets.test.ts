@@ -109,7 +109,7 @@ const BUDGETS: Record<string, number> = {
   'src/main/graph/health-checks.ts': 759, // #2363: per-check isolation — one failing query no longer blanks the run
   'src/renderer/lib/components/ExportDialog.svelte': 712,
   'src/renderer/lib/components/ProposalsPanel.svelte': 628, // +12: announce approve/reject outcomes (#2374); +2: bare-key guard (#2377)
-  'src/renderer/lib/components/QueryPanel.svelte': 759,
+  'src/renderer/lib/components/QueryPanel.svelte': 766, // +7: CM content a11y attrs + AA placeholder (#2375)
   'src/renderer/lib/components/conversations/DraftCards.svelte': 758,
   // +1 for #2256: the MENU_COMMAND_PALETTE channel / its MENU_COMMANDS entry.
   'src/shared/ipc-contract.ts': 789,  // #2363/#2364: GraphQueryResult + git:commit doc comments; #2288: two inline Inspection shapes → Inspection[]; #2222: sources:queueCounts

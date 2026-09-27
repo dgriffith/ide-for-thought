@@ -92,7 +92,9 @@
   --text-faint:   oklch(0.515 0.015 75);
   --border:       oklch(0.870 0.018 80);
   --border-strong: oklch(0.780 0.020 80);
-  --accent:       oklch(0.560 0.115 65);
+  /* AA bump (#2378): was 0.560 (#a2641b) — 4.3:1 on --bg, and 3.3-4.0:1 on
+     the accent-tinted active rows/tabs and --bg-elev-2 where it is text. */
+  --accent:       oklch(0.480 0.115 65);
   --accent-dim:   oklch(0.700 0.075 70);
   --accent-ink:   oklch(0.980 0.010 85);
   --sage:         oklch(0.460 0.060 148);

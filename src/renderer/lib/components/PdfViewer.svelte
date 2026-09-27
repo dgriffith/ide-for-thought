@@ -310,6 +310,7 @@
       <input
         type="number"
         class="page-input"
+        aria-label="Page number"
         min="1"
         max={numPages}
         value={page}
@@ -326,7 +327,12 @@
     <button type="button" class="tool-btn small" onclick={() => onShowMarkdown(sourceId)} title="Show the extracted text view">Show extracted</button>
   </div>
 
-  <div class="scroll-area">
+  <!-- Focusable so a keyboard user can scroll a zoomed page with the arrow
+       keys (ArrowUp/Down aren't claimed by handleKey) — axe
+       scrollable-region-focusable (#2375). A named region, so the tab stop
+       announces what it is. -->
+  <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+  <div class="scroll-area" tabindex="0" role="region" aria-label="PDF page">
     {#if loading}
       <div class="status">Loading PDF…</div>
     {:else if loadError}

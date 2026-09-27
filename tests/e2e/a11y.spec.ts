@@ -1,269 +1,369 @@
 /**
- * Real-browser accessibility pass (#1005).
+ * Real-browser accessibility pass (#1005, #2375, #2376, #2378).
  *
  * The unit suite runs axe against modal dialogs in jsdom with `color-contrast`
- * disabled (jsdom computes no layout/colour). This spec extends the net to the
- * main workspace surfaces — welcome screen, sidebar/file-tree, editor tabs +
- * status bar — in the actual Electron renderer, where Chromium computes layout
- * and colour, so the `color-contrast` check runs for real.
+ * disabled (jsdom computes no layout/colour). This spec runs axe in the actual
+ * Electron renderer, where Chromium computes layout and colour, so the
+ * `color-contrast` check runs for real.
  *
- * Baseline, not zero. The app has some pre-existing violations (faint
- * secondary text below AA contrast; a couple of structural ARIA-role issues on
- * the editor tabs). Rather than block this net on a full product-a11y sweep
- * (its own reviewed change), each surface carries an allowlist of the
- * currently-known violation *rule ids*; the test fails only on a NEW rule —
- * a real regression guard — and logs the tolerated ones so they stay visible.
- * The known set is tracked for a follow-up fix (see the PR).
+ * Zero tolerance. Every scan fails on ANY serious or critical violation — there
+ * is no per-surface allowlist of known rule ids any more (#2376 emptied the last
+ * two, both `scrollable-region-focusable`). A finding is fixed in the product,
+ * not tolerated here. Minor/moderate findings are reported, non-fatal.
+ *
+ * Coverage is surfaces × themes:
+ *
+ *  - **Surfaces** (#2375 added the last five): welcome screen, workspace shell
+ *    + editor, source viewer, PDF viewer, proposals panel, conversation panel,
+ *    Settings dialog (every section), Query panel (with results), neighborhood
+ *    graph, and the `:::argument` map.
+ *  - **Themes** (#2378): every shipped theme — dark, light, contrast. The theme
+ *    tokens are the thing most likely to regress contrast, and each theme pairs
+ *    them differently (the contrast theme's `--bg-titlebar` is dark over a
+ *    light body, so `--bg-titlebar` + `--text` is a broken pairing there and
+ *    nowhere else). A scan in one theme says nothing about the others.
+ *  - **One narrow window** (#2378): 1024×700, with both sidebars and the
+ *    conversation panel open — the size at which sidebar overflow shows up.
  *
  * Launches the in-tree `.vite/build` app (like smoke.spec.ts), so it needs
- * `pnpm build:e2e` first (the `pnpm test:e2e` script does that). Gates on
- * serious + critical impact; minor/moderate are reported, non-fatal.
+ * `pnpm build:e2e` first (the `pnpm test:e2e` script does that).
  */
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type ElectronApplication, type Page } from '@playwright/test';
 import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
 import { launchMinerva, projectRoot } from './helpers/launch';
-import { runAxe, formatViolations, seriousOrWorse, type AxeViolation } from '../helpers/axe-playwright';
+import { runAxe, formatViolations, seriousOrWorse } from '../helpers/axe-playwright';
 
+/** Every theme a user can pick (THEME_MODES minus `system`, which resolves to
+ *  dark or light). */
+const THEMES = ['dark', 'light', 'contrast'] as const;
+type Theme = (typeof THEMES)[number];
 
-// Pre-existing serious/critical violations tolerated so the net can land
-// without a product-a11y sweep. NEW rule ids fail the test. Tracked for a
-// follow-up fix — see #1005 / the PR.
-const KNOWN_WELCOME = new Set<string>([
-  // Clean: --text-faint was lifted to WCAG AA, so no tolerated violations here.
-]);
-const KNOWN_WORKSPACE = new Set<string>([
-  // color-contrast is now ENFORCED (#1080): the oneDark editor theme was
-  // replaced with the token-driven minervaHighlightStyle (#1117), and the code
-  // surface + gutters moved to --bg-inset, where every syntax color and the
-  // --text-faint gutter/decoration text clear WCAG AA (4.5:1). This spec forces
-  // the dark theme (via bootDarkTheme — the first-run default is now 'system',
-  // #1140), so a regression here fails CI.
-  // CodeMirror's `.cm-scroller` (tabindex=-1); its `.cm-content` editable IS
-  // keyboard-focusable, so this axe finding is a known CM quirk, not a real trap.
-  'scrollable-region-focusable',
-  // Fixed in this pass (kept out of the allowlist so a regression fails):
-  //   aria-input-field-name — CM content now has an aria-label
-  //   nested-interactive / aria-required-parent — editor tabs are plain
-  //     buttons (switch + sibling close), no half-applied role=tab widget.
-]);
+/** The PDF-backed source in tests/fixtures/sample-project. */
+const PDF_SOURCE_TITLE = 'A Census of Na D-traced neutral ISM';
 
-// Extending the real-browser axe net to two more primary surfaces (#1104
-// stretch): the source viewer (a major read surface) and the proposals panel
-// (the trust-review surface). Same baseline-not-zero discipline — each carries
-// an allowlist of the currently-known serious/critical rule ids so the net
-// lands without a full product-a11y sweep; a NEW rule id fails CI.
-const KNOWN_SOURCE = new Set<string>([
-  // Clean: the source viewer (SourceDetail) has no tolerated serious violations
-  // — the unlabeled reading-due date input surfaced by this pass was fixed
-  // (aria-label added), not allowlisted. Strict gate.
-]);
-const KNOWN_PROPOSALS = new Set<string>([
-  // The proposal diff renders in a CodeMirror view too.
-  'scrollable-region-focusable',
-]);
+/** Pinned so the argument map's `supports:` URI can be computed by hand — see
+ *  argument-map.spec.ts for why. */
+const ARG_BASE_URI = 'https://sample.minerva.dev/a11y-e2e/';
 
-/** Serious/critical violations whose rule id isn't in the tolerated set. */
-function unexpected(violations: AxeViolation[], allow: Set<string>): AxeViolation[] {
-  return seriousOrWorse(violations).filter((v) => !allow.has(v.id));
+interface LaunchOpts {
+  theme: Theme;
+  /** Copy tests/fixtures/sample-project in and restore it on boot. */
+  withProject?: boolean;
+  /** Extra files written into the project copy before launch. */
+  extraFiles?: Record<string, string>;
+  /** Window size seeded through session.json. */
+  size?: { width: number; height: number };
+  /** Runs against the workspace BEFORE the theme reload — anything the
+   *  renderer only reads at init (e.g. the open conversation tabs). */
+  beforeThemeBoot?: (win: Page) => Promise<void>;
 }
 
-/** Log the tolerated pre-existing violations so they stay visible in CI. */
-function reportKnown(surface: string, violations: AxeViolation[], allow: Set<string>): void {
-  const known = seriousOrWorse(violations).filter((v) => allow.has(v.id));
-  if (known.length > 0) {
-    console.log(`[a11y] ${surface}: ${known.length} known/tolerated violation(s):\n${formatViolations(known)}`);
-  }
-}
-
-/** Launch the dev build with an isolated userData dir (optionally seeded to
- *  auto-open the sample project on boot via session restore). */
-async function launchApp(seedProjectDir?: string, extraEnv?: Record<string, string>) {
-  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-a11y-userdata-'));
-  if (seedProjectDir) {
-    fs.writeFileSync(
-      path.join(userDataDir, 'session.json'),
-      JSON.stringify([{ x: 80, y: 80, width: 1200, height: 800, rootPath: seedProjectDir }]),
-    );
-  }
-  const app = await launchMinerva({
-    userDataDir,
-    env: extraEnv,
-  });
-  return { app, userDataDir };
+interface Session {
+  app: ElectronApplication;
+  win: Page;
 }
 
 /**
- * Pin the dark theme deterministically, then reload so the app boots straight
- * into it. The first-run default is 'system' (#1140), which would otherwise
- * resolve to the CI host's color scheme. Seeding localStorage + reloading
- * (rather than switching the theme live) is deliberate: a live switch animates
- * `.welcome button`'s `transition: background`, and axe can capture a
- * mid-transition frame — a light-theme background under already-snapped
- * dark-theme text — as a phantom contrast violation. Booting clean avoids it.
+ * Launch against an isolated profile (optionally restoring a copy of the
+ * sample project), pin the theme, and hand the window to `body`. Always tears
+ * the app and its temp dirs down.
  */
-async function bootDarkTheme(win: Page): Promise<void> {
-  await win.evaluate(() => localStorage.setItem('themeMode', 'dark'));
-  await win.reload();
-  await win.waitForLoadState('domcontentloaded');
+async function withApp(opts: LaunchOpts, body: (s: Session) => Promise<void>): Promise<void> {
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-a11y-userdata-'));
+  let projectDir: string | undefined;
+  if (opts.withProject) {
+    projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-a11y-project-'));
+    fs.cpSync(path.join(projectRoot, 'tests', 'fixtures', 'sample-project'), projectDir, { recursive: true });
+    for (const [rel, content] of Object.entries(opts.extraFiles ?? {})) {
+      fs.mkdirSync(path.dirname(path.join(projectDir, rel)), { recursive: true });
+      fs.writeFileSync(path.join(projectDir, rel), content);
+    }
+    const { width, height } = opts.size ?? { width: 1200, height: 800 };
+    fs.writeFileSync(
+      path.join(userDataDir, 'session.json'),
+      JSON.stringify([{ x: 80, y: 80, width, height, rootPath: projectDir }]),
+    );
+  }
+  // MINERVA_E2E exposes the main-process seed hooks (src/main/e2e-hooks.ts).
+  const app = await launchMinerva({ userDataDir, env: { MINERVA_E2E: '1' } });
+  try {
+    const win = await app.firstWindow({ timeout: 20_000 });
+    await win.waitForLoadState('domcontentloaded');
+    if (opts.withProject) {
+      await waitForWorkspace(win);
+      if (opts.beforeThemeBoot) await opts.beforeThemeBoot(win);
+    }
+    await bootTheme(win, opts.theme);
+    if (opts.withProject) await waitForWorkspace(win);
+    await body({ app, win });
+  } finally {
+    await app.close().catch(() => { /* already exited */ });
+    fs.rmSync(userDataDir, { recursive: true, force: true });
+    if (projectDir) fs.rmSync(projectDir, { recursive: true, force: true });
+  }
 }
 
-test('welcome screen: no NEW serious a11y violations (real-browser, incl. color-contrast)', async () => {
-  const { app, userDataDir } = await launchApp();
-  try {
-    const win: Page = await app.firstWindow({ timeout: 20_000 });
-    await win.waitForLoadState('domcontentloaded');
-    await bootDarkTheme(win);
-    await expect(win.getByRole('button', { name: 'Open Thoughtbase' })).toBeVisible({ timeout: 15_000 });
+/**
+ * Pin a theme deterministically, then reload so the app boots straight into
+ * it. Seeding localStorage + reloading (rather than switching live) is
+ * deliberate: a live switch animates `transition: background` on buttons, and
+ * axe can capture a mid-transition frame — a background from the old theme
+ * under text from the new one — as a phantom contrast violation.
+ */
+async function bootTheme(win: Page, theme: Theme): Promise<void> {
+  await win.evaluate((t) => localStorage.setItem('themeMode', t), theme);
+  await win.reload();
+  await win.waitForLoadState('domcontentloaded');
+  const attr = await win.evaluate(() => document.documentElement.getAttribute('data-theme'));
+  expect(attr, `theme did not apply`).toBe(theme === 'dark' ? null : theme);
+}
 
-    const violations = await runAxe(win);
-    reportKnown('welcome', violations, KNOWN_WELCOME);
-    const regressions = unexpected(violations, KNOWN_WELCOME);
-    expect(regressions, `NEW welcome-screen a11y violations:\n${formatViolations(regressions)}`).toHaveLength(0);
-  } finally {
-    await app.close().catch(() => { /* already exited */ });
-    fs.rmSync(userDataDir, { recursive: true, force: true });
-  }
-});
+async function waitForWorkspace(win: Page): Promise<void> {
+  // Session restore replaces the welcome screen with the workspace.
+  await expect(win.getByRole('button', { name: 'Open Thoughtbase' })).toHaveCount(0, { timeout: 25_000 });
+  // Wait for the sidebar tree to actually render rather than sleeping.
+  await expect(win.locator('[data-relative-path]').first()).toBeVisible({ timeout: 10_000 });
+}
 
-test('workspace (sidebar + editor): no NEW serious a11y violations (real-browser, incl. color-contrast)', async () => {
-  const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-a11y-project-'));
-  fs.cpSync(path.join(projectRoot, 'tests', 'fixtures', 'sample-project'), projectDir, { recursive: true });
-  const { app, userDataDir } = await launchApp(projectDir);
-  try {
-    const win: Page = await app.firstWindow({ timeout: 20_000 });
-    await win.waitForLoadState('domcontentloaded');
-    await bootDarkTheme(win);
-    // Session restore replaces the welcome screen with the workspace.
-    await expect(win.getByRole('button', { name: 'Open Thoughtbase' })).toHaveCount(0, { timeout: 25_000 });
-    // Wait for the sidebar tree to actually render, not a fixed guess at how
-    // long that takes — a loaded runner needs more real time, and a fixed
-    // sleep either scans too early (spurious violation) or wastes time.
-    await expect(win.locator('[data-relative-path]').first()).toBeVisible({ timeout: 10_000 });
+/** Open the first note and wait for its editor to mount. */
+async function openFirstNote(win: Page): Promise<void> {
+  await win.locator('[data-relative-path$=".md"]').first().click();
+  await expect(win.locator('.cm-content')).toBeVisible({ timeout: 10_000 });
+}
 
-    // Sidebar + shell.
-    const shell = await runAxe(win);
-    reportKnown('workspace shell', shell, KNOWN_WORKSPACE);
-    const shellRegressions = unexpected(shell, KNOWN_WORKSPACE);
-    expect(shellRegressions, `NEW workspace-shell a11y violations:\n${formatViolations(shellRegressions)}`).toHaveLength(0);
+/** Send a native-menu command to the renderer, the way menu.ts does. */
+async function sendMenu(app: ElectronApplication, channel: string): Promise<void> {
+  await app.evaluate(({ BrowserWindow }, ch) => {
+    BrowserWindow.getAllWindows()[0]?.webContents.send(ch);
+  }, channel);
+}
 
-    // Open a note so the editor surface is populated, then re-check.
-    const firstFile = win.locator('[data-relative-path$=".md"]').first();
-    if (await firstFile.count()) {
-      await firstFile.click();
-      await expect(win.locator('.cm-content')).toBeVisible({ timeout: 10_000 });
-      const withEditor = await runAxe(win);
-      reportKnown('workspace+editor', withEditor, KNOWN_WORKSPACE);
-      const editorRegressions = unexpected(withEditor, KNOWN_WORKSPACE);
-      expect(editorRegressions, `NEW workspace+editor a11y violations:\n${formatViolations(editorRegressions)}`).toHaveLength(0);
+/**
+ * Zero-tolerance gate: fail on any serious/critical violation. Soft, so a test
+ * that scans several states (every Settings section, empty + populated panels)
+ * reports all of them in one run rather than stopping at the first.
+ */
+async function expectNoSerious(win: Page, surface: string, theme: Theme, context?: string): Promise<void> {
+  const violations = seriousOrWorse(await runAxe(win, context));
+  expect.soft(
+    violations.map((v) => v.id),
+    `${surface} [${theme}] a11y violations:\n${formatViolations(violations)}`,
+  ).toEqual([]);
+}
 
-      // Justify the one allowlisted editor finding (`scrollable-region-focusable`
-      // on CM's `.cm-scroller`, which carries tabindex=-1) with a POSITIVE check
-      // rather than a bare comment: the editable content is keyboard-reachable,
-      // so there is no real keyboard trap — the axe rule is a false positive for
-      // CodeMirror's split scroller/content structure (#1104).
-      const editorKeyboardReachable = await win.evaluate(() => {
-        const content = document.querySelector('.cm-content');
-        if (!content) return { found: false, focusable: false, notInert: false };
-        content.focus();
-        return {
-          found: true,
-          focusable: document.activeElement === content,
-          // The scroller opts itself out of the tab order (tabindex=-1); the
-          // content must NOT, or the editor would be unreachable by keyboard.
-          notInert: content.getAttribute('tabindex') !== '-1',
-        };
+for (const theme of THEMES) {
+  test.describe(`a11y [${theme} theme]`, () => {
+    test('welcome screen', async () => {
+      await withApp({ theme }, async ({ win }) => {
+        await expect(win.getByRole('button', { name: 'Open Thoughtbase' })).toBeVisible({ timeout: 15_000 });
+        await expectNoSerious(win, 'welcome', theme);
       });
-      expect(editorKeyboardReachable.found, '.cm-content should be present').toBe(true);
-      expect(editorKeyboardReachable.focusable, '.cm-content must accept keyboard focus').toBe(true);
-      expect(editorKeyboardReachable.notInert, '.cm-content must stay in the tab order').toBe(true);
-    }
-  } finally {
-    await app.close().catch(() => { /* already exited */ });
-    fs.rmSync(userDataDir, { recursive: true, force: true });
-    fs.rmSync(projectDir, { recursive: true, force: true });
-  }
-});
-
-test('source viewer: no NEW serious a11y violations (real-browser, incl. color-contrast)', async () => {
-  const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-a11y-source-'));
-  fs.cpSync(path.join(projectRoot, 'tests', 'fixtures', 'sample-project'), projectDir, { recursive: true });
-  const { app, userDataDir } = await launchApp(projectDir);
-  try {
-    const win: Page = await app.firstWindow({ timeout: 20_000 });
-    await win.waitForLoadState('domcontentloaded');
-    await bootDarkTheme(win);
-    await expect(win.getByRole('button', { name: 'Open Thoughtbase' })).toHaveCount(0, { timeout: 25_000 });
-
-    // Switch the left sidebar to Sources and open the first source into the
-    // SourceDetail viewer (`.source-item` click → editor.openSource → tab).
-    await win.getByTitle('Sources', { exact: true }).click();
-    const firstSource = win.locator('.source-item').first();
-    await expect(firstSource).toBeVisible({ timeout: 10_000 });
-    await firstSource.click();
-    await expect(win.locator('.source-detail')).toBeVisible({ timeout: 10_000 });
-    // Wait for the markdown body to actually render, not a fixed guess at
-    // how long the fetch + Preview render takes.
-    await expect(win.locator('.body-view')).toBeVisible({ timeout: 10_000 });
-
-    const violations = await runAxe(win);
-    reportKnown('source viewer', violations, KNOWN_SOURCE);
-    const regressions = unexpected(violations, KNOWN_SOURCE);
-    expect(regressions, `NEW source-viewer a11y violations:\n${formatViolations(regressions)}`).toHaveLength(0);
-  } finally {
-    await app.close().catch(() => { /* already exited */ });
-    fs.rmSync(userDataDir, { recursive: true, force: true });
-    fs.rmSync(projectDir, { recursive: true, force: true });
-  }
-});
-
-test('proposals panel: no NEW serious a11y violations (real-browser, incl. color-contrast)', async () => {
-  const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-a11y-proposals-'));
-  fs.cpSync(path.join(projectRoot, 'tests', 'fixtures', 'sample-project'), projectDir, { recursive: true });
-  // MINERVA_E2E exposes the seedProposal hook so the panel has a real pending
-  // proposal to review (see src/main/e2e-hooks.ts), not just its empty state.
-  const { app, userDataDir } = await launchApp(projectDir, { MINERVA_E2E: '1' });
-  try {
-    const win: Page = await app.firstWindow({ timeout: 20_000 });
-    await win.waitForLoadState('domcontentloaded');
-    await bootDarkTheme(win);
-    await expect(win.getByRole('button', { name: 'Open Thoughtbase' })).toHaveCount(0, { timeout: 25_000 });
-
-    // Open a note and WAIT for the editor to mount: the right sidebar only
-    // renders for an active note tab (App.svelte `rightSidebarVisible &&
-    // activeTab?.type === 'note'`), and waiting on `.cm-content` also guarantees
-    // the renderer is fully live so its toggle-IPC listener is registered.
-    await win.locator('[data-relative-path$=".md"]').first().click();
-    await expect(win.locator('.cm-content')).toBeVisible({ timeout: 10_000 });
-
-    // Seed a pending proposal into the open project through the main-process hook.
-    await app.evaluate(async () => {
-      const g = globalThis as typeof globalThis & { __minervaE2E?: { seedProposal(): Promise<string | null> } };
-      if (!g.__minervaE2E) throw new Error('e2e hook missing — MINERVA_E2E not set?');
-      await g.__minervaE2E.seedProposal();
     });
 
-    // The Proposals panel now lives in the LEFT sidebar (#1526, after the
-    // right-sidebar surface was retired in #1540) — open it via its panel tab.
-    // The left sidebar is already visible (we clicked a note in it above), so
-    // no toggle is needed.
-    await win.locator('.panel-tab[title="Proposals"]').first().click();
-    // Expand the seeded proposal's review detail (payloads + Approve/Reject).
-    const firstProposal = win.locator('.proposal-item').first();
-    await expect(firstProposal).toBeVisible({ timeout: 10_000 });
-    if (await firstProposal.count()) {
-      await firstProposal.click();
-      await expect(win.locator('.proposal-detail')).toBeVisible({ timeout: 10_000 });
-    }
+    test('workspace shell + editor', async () => {
+      await withApp({ theme, withProject: true }, async ({ win }) => {
+        await expectNoSerious(win, 'workspace shell', theme);
 
-    const violations = await runAxe(win);
-    reportKnown('proposals panel', violations, KNOWN_PROPOSALS);
-    const regressions = unexpected(violations, KNOWN_PROPOSALS);
-    expect(regressions, `NEW proposals-panel a11y violations:\n${formatViolations(regressions)}`).toHaveLength(0);
-  } finally {
-    await app.close().catch(() => { /* already exited */ });
-    fs.rmSync(userDataDir, { recursive: true, force: true });
-    fs.rmSync(projectDir, { recursive: true, force: true });
-  }
-});
+        await openFirstNote(win);
+        await expectNoSerious(win, 'workspace+editor', theme);
+
+        // The editable content must stay keyboard-reachable — the positive
+        // half of the CodeMirror scroller fix (#1104, #2376).
+        const reach = await win.evaluate(() => {
+          const content = document.querySelector<HTMLElement>('.cm-content');
+          if (!content) return { found: false, focusable: false };
+          content.focus();
+          return { found: true, focusable: document.activeElement === content };
+        });
+        expect(reach.found, '.cm-content should be present').toBe(true);
+        expect(reach.focusable, '.cm-content must accept keyboard focus').toBe(true);
+      });
+    });
+
+    test('source viewer', async () => {
+      await withApp({ theme, withProject: true }, async ({ win }) => {
+        await win.getByTitle('Sources', { exact: true }).click();
+        const firstSource = win.locator('.source-item').first();
+        await expect(firstSource).toBeVisible({ timeout: 10_000 });
+        await firstSource.click();
+        await expect(win.locator('.source-detail')).toBeVisible({ timeout: 10_000 });
+        await expect(win.locator('.body-view')).toBeVisible({ timeout: 10_000 });
+        await expectNoSerious(win, 'source viewer', theme);
+      });
+    });
+
+    test('PDF viewer', async () => {
+      await withApp({ theme, withProject: true }, async ({ win }) => {
+        await win.getByTitle('Sources', { exact: true }).click();
+        const pdfSource = win.locator('.source-item', { hasText: PDF_SOURCE_TITLE }).first();
+        await expect(pdfSource).toBeVisible({ timeout: 10_000 });
+        await pdfSource.click();
+        await expect(win.locator('.source-detail')).toBeVisible({ timeout: 10_000 });
+        await win.getByRole('button', { name: 'Open original PDF' }).click();
+        await expect(win.locator('.pdf-viewer')).toBeVisible({ timeout: 15_000 });
+        // Wait for pdf.js to finish loading and paint the first page.
+        await expect(win.locator('.pdf-viewer .status')).toHaveCount(0, { timeout: 20_000 });
+        await expect(win.locator('.pdf-viewer canvas').first()).toBeVisible({ timeout: 20_000 });
+        await expectNoSerious(win, 'PDF viewer', theme);
+      });
+    });
+
+    test('proposals panel', async () => {
+      await withApp({ theme, withProject: true }, async ({ app, win }) => {
+        await openFirstNote(win);
+        // Seed a pending proposal through the real approval engine so the
+        // panel has something to review, not just its empty state.
+        await app.evaluate(async () => {
+          const g = globalThis as typeof globalThis & { __minervaE2E?: { seedProposal(): Promise<string | null> } };
+          if (!g.__minervaE2E) throw new Error('e2e hook missing — MINERVA_E2E not set?');
+          await g.__minervaE2E.seedProposal();
+        });
+        // The Proposals panel lives in the LEFT sidebar (#1526).
+        await win.locator('.panel-tab[title="Proposals"]').first().click();
+        const firstProposal = win.locator('.proposal-item').first();
+        await expect(firstProposal).toBeVisible({ timeout: 10_000 });
+        await firstProposal.click();
+        await expect(win.locator('.proposal-detail')).toBeVisible({ timeout: 10_000 });
+        // Expand a payload so its preview renders too.
+        const payload = win.locator('.payload-row').first();
+        if (await payload.count()) await payload.click();
+        await expectNoSerious(win, 'proposals panel', theme);
+      });
+    });
+
+    test('conversation panel', async () => {
+      await withApp({
+        theme,
+        withProject: true,
+        // A conversation with a real transcript, created before the theme
+        // reload so the panel restores it as an open tab on init. `create` and
+        // `append` only persist the log — no LLM call.
+        beforeThemeBoot: async (win) => {
+          await win.evaluate(async () => {
+            const conv = await window.api.conversations.create({ notePath: 'README.md' });
+            await window.api.conversations.append(conv.id, 'user', 'Summarise the **key claims** in this note.');
+            await window.api.conversations.append(
+              conv.id,
+              'assistant',
+              '## Key claims\n\n1. Complexity is *essential*, not accidental.\n2. See [[overview]] for context.\n\n' +
+              '> A quoted passage.\n\n```ts\nconst answer = 42;\n```\n\nInline `code` and a [link](https://example.com).',
+            );
+          });
+        },
+      }, async ({ win }) => {
+        await openFirstNote(win);
+        await win.getByRole('button', { name: 'New Conversation', exact: true }).click();
+        await expect(win.locator('.conv-panel')).toBeVisible({ timeout: 10_000 });
+        // Empty composer state of the freshly-opened conversation…
+        await expectNoSerious(win, 'conversation panel (new)', theme);
+        // …and the seeded transcript, with rendered markdown.
+        await win.locator('.conv-item-btn').first().click();
+        await expect(win.locator('.conv-panel').getByText('Complexity is')).toBeVisible({ timeout: 10_000 });
+        await expectNoSerious(win, 'conversation panel (transcript)', theme);
+      });
+    });
+
+    test('Settings dialog (every section)', async () => {
+      await withApp({ theme, withProject: true }, async ({ app, win }) => {
+        await sendMenu(app, 'menu:openSettings');
+        const dialog = win.getByRole('dialog', { name: 'Settings' });
+        await expect(dialog).toBeVisible({ timeout: 10_000 });
+        const tabs = dialog.locator('nav.tabs button.tab');
+        const count = await tabs.count();
+        expect(count, 'Settings should have sections').toBeGreaterThan(0);
+        for (let i = 0; i < count; i++) {
+          const tab = tabs.nth(i);
+          const label = (await tab.locator('.tab-label').textContent())?.trim() ?? `#${i}`;
+          await tab.click();
+          await expect(dialog.locator('.panel-title')).toHaveText(label, { timeout: 5_000 });
+          // Let async-loaded section content settle before scanning.
+          await win.waitForLoadState('domcontentloaded');
+          await expectNoSerious(win, `Settings › ${label}`, theme);
+        }
+      });
+    });
+
+    test('Query panel (with results)', async () => {
+      await withApp({ theme, withProject: true }, async ({ app, win }) => {
+        await sendMenu(app, 'menu:newQuery');
+        await expect(win.locator('.query-panel')).toBeVisible({ timeout: 10_000 });
+        await expect(win.locator('.query-panel .cm-content')).toBeVisible({ timeout: 10_000 });
+        await expectNoSerious(win, 'Query panel (empty)', theme);
+        // Run is disabled on an empty query — type one first.
+        await win.locator('.query-panel .cm-content').click();
+        await win.keyboard.type('SELECT ?title WHERE { ?note dc:title ?title } LIMIT 5');
+        await win.keyboard.press('Escape'); // dismiss any completion popup
+        await win.locator('.query-panel .run-btn').click();
+        await expect(win.locator('.query-panel .results-count')).toBeVisible({ timeout: 15_000 });
+        await expectNoSerious(win, 'Query panel (results)', theme);
+      });
+    });
+
+    test('neighborhood graph', async () => {
+      await withApp({ theme, withProject: true }, async ({ win }) => {
+        await openFirstNote(win);
+        await win.getByTitle('Toggle Right Sidebar (Cmd+Shift+B)').first().click();
+        await win.locator('.right-sidebar .group-tab[title="Links"]').click();
+        await win.locator('.right-sidebar .sub-tab[title="Outgoing"]').click();
+        await win.locator('.right-sidebar').getByTitle('Open as graph').click();
+        await expect(win.locator('.neighborhood-graph')).toBeVisible({ timeout: 10_000 });
+        await expect(win.locator('.neighborhood-graph svg, .neighborhood-graph canvas').first()).toBeVisible({ timeout: 10_000 });
+        await expectNoSerious(win, 'neighborhood graph', theme);
+      });
+    });
+
+    test('argument map', async () => {
+      const claimUri = `${ARG_BASE_URI}note/notes/${encodeURIComponent('The Claim')}`;
+      await withApp({
+        theme,
+        withProject: true,
+        extraFiles: {
+          '.minerva/config.json': JSON.stringify({ baseUri: ARG_BASE_URI }),
+          'notes/The Claim.md': '---\ntitle: The Claim\n---\n\n# The Claim\n\nSome assertion.\n\n```turtle\nthis: a thought:Claim .\n```\n',
+          'notes/Cited Evidence.md': `---\ntitle: Cited Evidence\nsupports: ${claimUri}\n---\n\n# Cited Evidence\n\nThe supporting case.\n`,
+          // Root level: folder rows start collapsed on a fresh profile.
+          'Argument Host.md': '---\ntitle: Argument Host\n---\n\n# Argument Host\n\n:::argument\n[[The Claim]]\n:::\n',
+        },
+      }, async ({ win }) => {
+        await win.locator('[data-relative-path="Argument Host.md"]').first().click();
+        await expect(win.locator('.cm-content')).toBeVisible({ timeout: 10_000 });
+        await win.getByRole('button', { name: 'Preview', exact: true }).click();
+        const outline = win.locator('.argument-map');
+        await expect(outline).toBeVisible({ timeout: 10_000 });
+        await expect(outline.getByRole('button', { name: 'Cited Evidence' })).toBeVisible({ timeout: 10_000 });
+        await expectNoSerious(win, 'argument map', theme);
+      });
+    });
+  });
+}
+
+/**
+ * One run at a narrow window (#2378). 1024×700 is where a crowded chrome — left
+ * sidebar, editor, right sidebar, conversation panel — starts to overflow, so
+ * it gets both an axe scan and a direct check that nothing pushes the page into
+ * horizontal scroll.
+ */
+for (const theme of ['dark', 'contrast'] as const) {
+  test(`a11y at 1024×700 [${theme} theme]: workspace with both sidebars + conversation panel`, async () => {
+    await withApp({ theme, withProject: true, size: { width: 1024, height: 700 } }, async ({ win }) => {
+      const inner = await win.evaluate(() => ({ w: window.innerWidth, h: window.innerHeight }));
+      expect(inner.w, 'window should be at the narrow width').toBeLessThanOrEqual(1024);
+
+      await openFirstNote(win);
+      await win.getByTitle('Toggle Right Sidebar (Cmd+Shift+B)').first().click();
+      await expect(win.locator('.right-sidebar')).toBeVisible({ timeout: 10_000 });
+      await win.getByRole('button', { name: 'New Conversation', exact: true }).click();
+      await expect(win.locator('.conv-panel')).toBeVisible({ timeout: 10_000 });
+
+      const overflow = await win.evaluate(() => ({
+        scrollW: document.documentElement.scrollWidth,
+        clientW: document.documentElement.clientWidth,
+      }));
+      expect(overflow.scrollW, 'page must not scroll horizontally at 1024×700').toBeLessThanOrEqual(overflow.clientW);
+
+      await expectNoSerious(win, 'workspace @1024×700', theme);
+    });
+  });
+}
