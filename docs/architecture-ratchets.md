@@ -381,9 +381,23 @@ way to answer it, and the answer was *no* for fifteen subsystems — including a
 all sitting under the 45%-lines global backstop, which is a net against
 wholesale collapse and not a per-area gate. A low bar on purpose, and the header
 is precise about what it does *not* check: calibration (a floor of `lines: 1`
-passes), nested subtrees, and loose `src/main/*.ts` modules. **When it fires:**
+passes) and nested subtrees. **When it fires:**
 add an entry, measured — 3-5 points below the real number for a larger tree,
 8-10 for a single-file one where one new file swings the aggregate.
+
+**Loose `src/main/*.ts` modules of 150+ lines need an exact per-file key**
+(#2368). The directory rule left them invisible: `menu.ts` (985 lines) sat at
+36% lines and `window-manager.ts` at 61% under the 45% backstop alone. Below
+150 lines the loose files are re-exports, the `ipc.ts` orchestrator and small
+shims, where a per-file floor is noise; 150 rather than 200 is what catches
+`maintenance-commands.ts`. A `KNOWN_UNENROLLED` list holds the files over the
+line with no floor, each with a reason — today `main.ts` (the Electron entry,
+guarded structurally by `startup-window-not-gated.test.ts`) and
+`maintenance-commands.ts` (0%, its registrar tests mock it: backlog). It may
+only shrink: a listed file that gains a floor, drops under the line or is
+deleted fails until the entry is removed. **When it fires:** measure the file
+and add a `'src/main/<file>.ts'` entry ~8-10 below its numbers; listing it
+instead needs a reason in the diff.
 
 It also pins that **CI still evaluates the floors** (#2359): PRs run plain
 `pnpm test` and only pushes to main run `pnpm coverage`, so a `ci.yml` edit that

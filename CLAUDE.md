@@ -1311,6 +1311,9 @@ floor was measured, not chosen: 3-5 points below the real number for the larger
 trees, 8-10 for single-file ones where one new file swings the aggregate. **A
 new subsystem directory under `src/main/` needs its own entry** — otherwise it
 inherits the backstop and can rot to 46% unnoticed.
+The same goes for a loose `src/main/*.ts` file of 150+ lines (#2368):
+`coverage-floor-enrollment.test.ts` requires a per-file floor, with a
+shrink-only `KNOWN_UNENROLLED` list for the two that can't have one yet.
 
 Two shapes worth knowing:
 
