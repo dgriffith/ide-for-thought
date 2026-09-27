@@ -23,7 +23,7 @@
  * numeric (IEEE, Vancouver), author-date (APA, Chicago AD, MLA) and note
  * (Chicago notes & bibliography) each lean on a different part of it.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { CitationRenderer } from '../../../src/main/publish/csl/renderer';
 import {
   BUNDLED_STYLES,
@@ -86,6 +86,23 @@ function session(r: CitationRenderer, tick: number): string {
 }
 
 const TICKS = 4;
+
+// This file is the one place the expensive thing IS the test: the baseline is
+// a brand-new `CSL.Engine` per tick, so each style's first case compiles its
+// style TICKS + 1 = 5 times, and there is nothing to share without defeating
+// the comparison. (The exporters used to pay the same cost per note by
+// accident; #2408 moved them to one compile per export.) Compilation cost is
+// superlinear in style size: citeproc's `expandMacro` rescans the whole style
+// tree once per macro reference. So the 168KB Chicago author-date style
+// dominates, while IEEE and Vancouver finish in ~50ms.
+//
+// Measured for #2408 under `pnpm vitest run --coverage` on a 10-core laptop
+// at load average 22-29: chicago-author-date's first case took 29.6s with
+// this file run alone, and hit the global 30s timeout at 40.3s when run
+// alongside the rest of tests/main/{publish,citations}. So the global default
+// is not enough headroom here. 90s is ~2x that worst case, which still fails
+// a genuine hang. It is scoped to this file, which does this work on purpose.
+vi.setConfig({ testTimeout: 90_000 });
 
 describe.each(Object.keys(BUNDLED_STYLES))('%s', (styleId) => {
   const style = BUNDLED_STYLES[styleId]!;

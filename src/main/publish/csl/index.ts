@@ -13,6 +13,7 @@ import { DEFAULT_STYLE, DEFAULT_LOCALE } from './assets';
 import { getMergedStyles, getMergedLocales } from './user-assets';
 
 export { CitationRenderer } from './renderer';
+export { createRendererSessions, type RendererSessions } from './sessions';
 export type { CslItem, ExcerptInfo } from './source-to-csl';
 
 export interface BuildRendererOptions {
@@ -24,7 +25,8 @@ export interface BuildRendererOptions {
  * Plan-level citation assets, loaded once by `resolvePlan` and shared
  * across every exporter call. The renderer itself is stateful and
  * per-session (bibliography ordering tracks citedIds) — exporters that
- * want a fresh session call `assets.createRenderer()` per note.
+ * want a fresh session per note go through `createRendererSessions(assets)`,
+ * which compiles the style once per export and resets between notes (#2408).
  */
 export interface CitationAssets {
   /** Resolved CSL style id after fallback (e.g. 'apa'). Surfaced for the preview UI (#301). */

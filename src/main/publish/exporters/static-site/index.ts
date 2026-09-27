@@ -40,6 +40,7 @@ import {
 import { resolveAnnotatedReading } from '../annotated-reading/resolve';
 import { STATIC_SITE_STYLE } from './style';
 import { SITE_SEARCH_SCRIPT } from './search-script';
+import { createRendererSessions } from '../../csl';
 
 export const staticSiteExporter: Exporter = {
   id: 'static-site',
@@ -101,9 +102,12 @@ export const staticSiteExporter: Exporter = {
     // the output once (the head-link is emitted by renderNotePage). Deduped
     // across notes since several may share one stylesheet.
     const copiedCss = new Set<string>();
+    // One compiled engine for the whole site; every page, the references page
+    // and each source page get a fresh session on it (#2408).
+    const sessions = createRendererSessions(plan.citations);
 
     for (const note of notes) {
-      const renderer = plan.citations?.createRenderer() ?? null;
+      const renderer = sessions.next() ?? null;
       const rootRel = relativeToRoot(note.relativePath);
       const html = await renderNotePage({ note, plan, config, index, rootRelative: rootRel, renderer, nav });
       files.push({ path: noteUrl(note.relativePath), contents: html });
@@ -139,7 +143,7 @@ export const staticSiteExporter: Exporter = {
       ? notes.find((n) => n.relativePath === config.landing)
       : null;
     if (landingNote) {
-      const renderer = plan.citations?.createRenderer() ?? null;
+      const renderer = sessions.next() ?? null;
       const html = await renderNotePage({
         note: landingNote,
         plan,
@@ -159,8 +163,8 @@ export const staticSiteExporter: Exporter = {
     }
 
     // Consolidated bibliography.
-    if (allCitedIds.size > 0 && plan.citations) {
-      const consolidator = plan.citations.createRenderer();
+    const consolidator = allCitedIds.size > 0 ? sessions.next() : undefined;
+    if (consolidator) {
       const bib = consolidator.renderBibliographyFor([...allCitedIds]);
       if (bib.entries.length > 0) {
         files.push({
@@ -179,7 +183,7 @@ export const staticSiteExporter: Exporter = {
       for (const sourceId of citedBy.keys()) {
         const item = citations.items.get(sourceId);
         const title = item?.title ?? sourceId;
-        const citationHtml = citations.createRenderer().renderBibliographyFor([sourceId]).entries[0] ?? '';
+        const citationHtml = sessions.next()?.renderBibliographyFor([sourceId]).entries[0] ?? '';
         // Excerpts anchored to this source (body isn't republished — only the
         // user's own excerpts). Missing body / excerpts degrade to empty.
         const body = await fs

@@ -6,7 +6,7 @@
  * mirrors how a user actually consumes the export.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
@@ -15,12 +15,11 @@ import JSZip from 'jszip';
 import { resolvePlan, runExporter } from '../../../src/main/publish/pipeline';
 import { treeMarkdownExporter } from '../../../src/main/publish/exporters/tree-markdown';
 
-// citeproc engine construction (notably Chicago note styles) is CPU-heavy —
-// ~1.7s for the Chicago case in isolation, but under full-suite parallelism it
-// can blow vitest's 5s default on a contended CI runner (#677). Scope a
-// generous timeout to this file so a genuine hang still fails, without
-// loosening the global default for unrelated suites.
-vi.setConfig({ testTimeout: 30_000 });
+// Each export here compiles its CSL style ONCE, however many notes it has
+// (#2408), and `export-engine-sessions.test.ts` holds that by count. These
+// suites used to compile once per note plus once for the bibliography, which
+// is what took the Chicago case to its 30s timeout under `pnpm coverage`, and
+// what the per-file timeout override that sat here was absorbing (#677).
 
 function mkProject(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-tree-md-'));

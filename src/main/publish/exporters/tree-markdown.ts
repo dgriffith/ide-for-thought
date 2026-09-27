@@ -21,6 +21,7 @@ import {
 } from '../link-resolver';
 import type { Exporter, ExportPlan, ExportPlanFile } from '../types';
 import { slugifyId } from '../../../shared/slug';
+import { createRendererSessions } from '../csl';
 
 export const treeMarkdownExporter: Exporter = {
   id: 'tree-markdown',
@@ -45,9 +46,11 @@ export const treeMarkdownExporter: Exporter = {
     const allCitedIds = new Set<string>();
     let isNoteStyle = false;
     const zip = new JSZip();
+    // One compiled engine for the whole bundle, a fresh session per note (#2408).
+    const sessions = createRendererSessions(bundlePlan.citations, { outputFormat: 'text' });
 
     for (const note of notes) {
-      const renderer = bundlePlan.citations?.createRenderer({ outputFormat: 'text' });
+      const renderer = sessions.next();
       let content = note.content;
       // 1. Inline cite/quote → CSL prose; appends per-note Footnotes
       //    or References. The same single-note `note-markdown`
@@ -64,8 +67,8 @@ export const treeMarkdownExporter: Exporter = {
     }
 
     // Consolidated `references.md` at the bundle root (#300 shape).
-    if (allCitedIds.size > 0 && bundlePlan.citations) {
-      const consolidator = bundlePlan.citations.createRenderer({ outputFormat: 'text' });
+    const consolidator = allCitedIds.size > 0 ? sessions.next() : undefined;
+    if (consolidator) {
       const bib = consolidator.renderBibliographyFor([...allCitedIds]);
       if (bib.entries.length > 0) {
         const heading = isNoteStyle ? 'Bibliography' : 'References';
