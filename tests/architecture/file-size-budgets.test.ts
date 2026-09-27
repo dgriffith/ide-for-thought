@@ -81,7 +81,7 @@ const BUDGETS: Record<string, number> = {
   // predicted this: the IPC-surface files are budgeted and grow one line per
   // channel by construction, so a bump here is the expected remedy, not a
   // smell.
-  'src/renderer/lib/ipc/client.ts': 1362,
+  'src/renderer/lib/ipc/client.ts': 1367,
   'src/renderer/lib/stores/conversations.svelte.ts': 1165,
   'src/renderer/lib/components/Editor.svelte': 854,
   'src/renderer/lib/stores/editor.svelte.ts': 913,
@@ -108,7 +108,7 @@ const BUDGETS: Record<string, number> = {
   // type-only imports. Below 826 now, so the two raises are more than repaid.
   'src/main/graph/health-checks.ts': 735,
   'src/renderer/lib/components/ExportDialog.svelte': 712,
-  'src/renderer/lib/components/ProposalsPanel.svelte': 613,
+  'src/renderer/lib/components/ProposalsPanel.svelte': 614,
   'src/renderer/lib/components/QueryPanel.svelte': 759,
   'src/renderer/lib/components/conversations/DraftCards.svelte': 758,
   // +1 for #2256: the MENU_COMMAND_PALETTE channel / its MENU_COMMANDS entry.

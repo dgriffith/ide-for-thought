@@ -135,7 +135,7 @@ describe('ProposalsPanel — approval diff UI (#680)', () => {
 
   it('selecting a proposal reveals Approve/Reject; Approve reaches IPC and shows the success banner', async () => {
     listMock.mockResolvedValue([pendingProposal()]);
-    approveMock.mockResolvedValue(true);
+    approveMock.mockResolvedValue({ ok: true, filedPaths: [], rewrittenPaths: [] });
     const { getByText, findByText } = await renderPanel();
 
     await fireEvent.click(getByText('Crystallize claim about photosynthesis'));
@@ -147,7 +147,7 @@ describe('ProposalsPanel — approval diff UI (#680)', () => {
 
   it('Reject button reaches api.proposals.reject with the proposal URI', async () => {
     listMock.mockResolvedValue([pendingProposal()]);
-    rejectMock.mockResolvedValue(true);
+    rejectMock.mockResolvedValue({ ok: true });
     const { getByText } = await renderPanel();
 
     await fireEvent.click(getByText('Crystallize claim about photosynthesis'));
@@ -158,7 +158,7 @@ describe('ProposalsPanel — approval diff UI (#680)', () => {
 
   it('the "y" keystroke approves the selected proposal (Trust keyboard path)', async () => {
     listMock.mockResolvedValue([pendingProposal()]);
-    approveMock.mockResolvedValue(true);
+    approveMock.mockResolvedValue({ ok: true, filedPaths: [], rewrittenPaths: [] });
     const { getByText, container } = await renderPanel();
 
     await fireEvent.click(getByText('Crystallize claim about photosynthesis'));
@@ -171,7 +171,7 @@ describe('ProposalsPanel — approval diff UI (#680)', () => {
 
   it('the "n" keystroke rejects the selected proposal', async () => {
     listMock.mockResolvedValue([pendingProposal()]);
-    rejectMock.mockResolvedValue(true);
+    rejectMock.mockResolvedValue({ ok: true });
     const { getByText, container } = await renderPanel();
 
     await fireEvent.click(getByText('Crystallize claim about photosynthesis'));
@@ -182,15 +182,37 @@ describe('ProposalsPanel — approval diff UI (#680)', () => {
     expect(approveMock).not.toHaveBeenCalled();
   });
 
-  it('a false approve result surfaces the stale/already-resolved error banner (no silent failure)', async () => {
+  it('a refused approve surfaces the actual reason (no silent failure, no guess) (#2362)', async () => {
     listMock.mockResolvedValue([pendingProposal()]);
-    approveMock.mockResolvedValue(false);
+    approveMock.mockResolvedValue({ ok: false, reason: 'not-pending', status: 'rejected' });
     const { getByText, findByText } = await renderPanel();
 
     await fireEvent.click(getByText('Crystallize claim about photosynthesis'));
     await fireEvent.click(getByText('Approve (y)'));
 
-    expect(await findByText(/Approve returned false/)).toBeTruthy();
+    expect(await findByText(/Not approved: .*already rejected/)).toBeTruthy();
+  });
+
+  it('a refused reject names a missing proposal as missing (#2362)', async () => {
+    listMock.mockResolvedValue([pendingProposal()]);
+    rejectMock.mockResolvedValue({ ok: false, reason: 'not-found' });
+    const { getByText, findByText } = await renderPanel();
+
+    await fireEvent.click(getByText('Crystallize claim about photosynthesis'));
+    await fireEvent.click(getByText('Reject (n)'));
+
+    expect(await findByText(/Not rejected: No proposal exists at that URI/)).toBeTruthy();
+  });
+
+  it('an approve that rejects (e.g. no project open) shows the thrown message (#2362)', async () => {
+    listMock.mockResolvedValue([pendingProposal()]);
+    approveMock.mockRejectedValue(new Error('No project open'));
+    const { getByText, findByText } = await renderPanel();
+
+    await fireEvent.click(getByText('Crystallize claim about photosynthesis'));
+    await fireEvent.click(getByText('Approve (y)'));
+
+    expect(await findByText(/Approve failed: No project open/)).toBeTruthy();
   });
 
   it('status tabs filter the loaded set client-side (no re-query)', async () => {

@@ -104,8 +104,8 @@ test('flow: pending proposal → approve → graph reflects the mutation', async
 
     // Approve through the normal proposals IPC — exactly what the Proposals
     // panel's approve button calls.
-    const ok = await win.evaluate((u) => window.api.proposals.approve(u), uri as string);
-    expect(ok, 'approve returned false').toBe(true);
+    const result = await win.evaluate((u) => window.api.proposals.approve(u), uri as string);
+    expect(result, 'approve was refused').toMatchObject({ ok: true });
 
     // After approval the applied mutation is reflected in the graph.
     const after = await win.evaluate((q) => window.api.graph.query(q), claimQuery);

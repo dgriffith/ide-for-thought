@@ -472,10 +472,13 @@ can't quietly grow while nobody re-reads it:
 - `null` no-project↔not-found: *(cleared — `GRAPH_SOURCE_DETAIL`,
   `GRAPH_EXCERPT_SOURCE`, `PROPOSAL_DETAIL`, `TEMPLATES_GET` and
   `CONVERSATION_LOAD` are all `withRootPath` now, #1841.)*
-- boolean overloads: proposals `APPROVE` / `REJECT` (`false` = no-project ↔
-  failed). *(`NOTEBASE_FILE_EXISTS` cleared in #1862, `SOURCES_HAS_PDF` in
-  #1881 — both were never listed here; the shape is worth grepping for rather
-  than trusting this list to be complete.)*
+- boolean overloads: *(cleared — proposals `APPROVE` / `REJECT` throw on
+  no-project and return a `{ ok: false; reason }` union as of #2362;
+  `NOTEBASE_FILE_EXISTS` cleared in #1862, `SOURCES_HAS_PDF` in #1881 — both
+  were never listed here; the shape is worth grepping for rather than trusting
+  this list to be complete. The two the ratchet still counts —
+  `PROPOSAL_EXPIRE`'s `0` and `NOTEBASE_GET_ONBOARDING_DISMISSED`'s `false` —
+  mean the same thing as the genuinely-empty answer, per rule 2.)*
 - in-band `error?` → union: `GRAPH_QUERY` (`{ results, columns, error? }` should
   match the `TABLES_QUERY` `{ ok:false; error }` shape).
 - swallows: `LINKS_CITATIONS_FOR_NOTE` (`.catch(()=>'')`), `CSL_REMOVE_STYLE` /

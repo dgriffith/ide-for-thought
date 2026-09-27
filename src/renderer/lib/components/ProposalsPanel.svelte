@@ -4,6 +4,7 @@
   import Ribbon from './right-sidebar/Ribbon.svelte';
   import { describeProposer } from '../../../shared/provenance';
   import { logger } from '../../../shared/logger';
+  import { describeProposalDecisionFailure } from '../../../shared/proposals';
 
   const review = getReviewStore();
   const store = getProposalsStore();
@@ -81,9 +82,9 @@
     // banner can say exactly what landed (and where).
     const snapshot = (store.proposals as unknown as Proposal[]).find((p) => p.uri === uri);
     try {
-      const ok = await review.approveProposal(uri);
-      if (!ok) {
-        lastError = 'Approve returned false — proposal may already be approved/rejected, or its payload has gone stale. Refresh to check.';
+      const result = await review.approveProposal(uri);
+      if (!result.ok) {
+        lastError = `Not approved: ${describeProposalDecisionFailure(result)}`;
       } else {
         if (snapshot) lastSuccess = formatApplied(snapshot);
         selectedUri = null;
@@ -117,9 +118,9 @@
     processing = true;
     lastError = null;
     try {
-      const ok = await review.rejectProposal(uri);
-      if (!ok) {
-        lastError = 'Reject returned false — proposal may already be resolved. Refresh to check.';
+      const result = await review.rejectProposal(uri);
+      if (!result.ok) {
+        lastError = `Not rejected: ${describeProposalDecisionFailure(result)}`;
       } else {
         selectedUri = null;
       }

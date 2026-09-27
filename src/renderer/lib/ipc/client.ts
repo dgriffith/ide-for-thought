@@ -4,7 +4,7 @@ import type { ToolExecutionRequest, ToolExecutionResult, ConversationToolPayload
 import type { Inspection, InspectionSettings } from '../../../shared/inspections';
 import type { ClipperState } from '../../../shared/clipper-pairing';
 import type { McpServerDescriptor, McpServerStatus } from '../../../shared/mcp-servers';
-import type { Proposal } from '../../../shared/proposals';
+import type { Proposal, ProposalApproveResult, ProposalRejectResult } from '../../../shared/proposals';
 import type { MaintenanceProgress } from '../../../shared/maintenance';
 import type { ThemeMode } from '../../../shared/theme';
 import type { BatchRevertResult, HistorySettings, LabelNotesResult, RevisionMeta, SelectionRoot, UnifiedTimelineEntry } from '../../../shared/history';
@@ -782,8 +782,13 @@ export interface ProposalsApi {
   /** `null` means exactly one thing: no proposal at that URI. Rejects if no
    *  project is open (#1841). */
   detail(uri: string): Promise<Proposal | null>;
-  approve(uri: string): Promise<boolean>;
-  reject(uri: string): Promise<boolean>;
+  /** Resolves `{ ok: false, reason }` for an expected refusal (no proposal at
+   *  that URI, or already resolved) — it does not reject for those. Rejects
+   *  if no project is open or the bundle fails to apply (#2362). */
+  approve(uri: string): Promise<ProposalApproveResult>;
+  /** Same contract as `approve`: `{ ok: false, reason }` for an expected
+   *  refusal; rejects only if no project is open or the write fails (#2362). */
+  reject(uri: string): Promise<ProposalRejectResult>;
   expire(): Promise<number>;
   /** Fires when the pending-proposal set changes (in-app or routed from a
    *  CLI/MCP client) — the proposals store re-fetches on it (#1524). */
