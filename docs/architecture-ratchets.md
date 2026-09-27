@@ -385,6 +385,13 @@ passes), nested subtrees, and loose `src/main/*.ts` modules. **When it fires:**
 add an entry, measured — 3-5 points below the real number for a larger tree,
 8-10 for a single-file one where one new file swings the aggregate.
 
+It also pins that **CI still evaluates the floors** (#2359): PRs run plain
+`pnpm test` and only pushes to main run `pnpm coverage`, so a `ci.yml` edit that
+dropped that step — or narrowed its `if:` to pull requests — would leave every
+floor unenforced while CI stayed green. **When that fires:** restore a step
+running `pnpm coverage` unconditionally or under
+`github.event_name != 'pull_request'`.
+
 ---
 
 ## Test-suite hygiene
