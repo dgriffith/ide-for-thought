@@ -7,6 +7,7 @@
    */
   import { onMount } from 'svelte';
   import { api } from '../ipc/client';
+  import { unwrapGraphQuery } from '../../../shared/graph-query';
 
   type Role = 'grounds' | 'supports' | 'rebuts';
 
@@ -31,9 +32,9 @@
   ];
 
   onMount(async () => {
-    const { results } = await api.graph.query(
+    const { results } = unwrapGraphQuery(await api.graph.query(
       `SELECT ?path ?title WHERE { ?n a thought:Claim ; minerva:relativePath ?path . OPTIONAL { ?n dc:title ?title } } ORDER BY ?title`,
-    );
+    ));
     claims = (results as Array<{ path?: string; title?: string }>)
       .filter((r): r is { path: string; title?: string } => !!r.path)
       .map((r) => ({ path: r.path, title: r.title || r.path.replace(/\.md$/i, '').split('/').pop() || r.path }));

@@ -203,6 +203,13 @@ export async function executeQueryBlock(deps: QueryBlockDeps, el: HTMLElement): 
       results = normalizeSqlRows(response.columns, response.rows);
     } else {
       const response = await api.graph.query(deps.queryPrefixes + query);
+      // A malformed query is the `ok: false` arm, not a rejection (#2363) —
+      // render the parser's message, same as the SQL branch above.
+      if (!response.ok) {
+        deps.queryCache.set(cacheKey, { results: [], error: response.error });
+        renderQueryResults(deps, el, type ?? 'list', config, [], response.error);
+        return;
+      }
       results = response.results as Record<string, string>[];
     }
     deps.queryCache.set(cacheKey, { results });

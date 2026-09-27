@@ -10,8 +10,10 @@ export function registerGit(): void {
     return gitOps.getStatus(rootPath);
   }));
 
+  // Any failure throws (CLAUDE.md IPC rule 1), so the only answer is the new
+  // commit's sha. A hardcoded `success: true` used to sit beside it (#2364).
   handle(Channels.GIT_COMMIT, withRootPath(async (rootPath, message: string) => {
     const sha = await gitOps.commitAll(rootPath, message);
-    return { success: true, sha };
+    return { sha };
   }));
 }

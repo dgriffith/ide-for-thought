@@ -692,7 +692,7 @@ function buildEditorStore() {
       } else {
         const response = await api.graph.query(tab.query);
         tab.executionTime = Math.round(performance.now() - start);
-        if (response.error) {
+        if (!response.ok) {
           tab.error = response.error;
         } else {
           const rows = response.results as Record<string, string>[];
@@ -701,7 +701,7 @@ function buildEditorStore() {
           // to the union of keys across all rows when the projection is absent
           // (e.g. an older main process that predates the columns field), so the
           // panel never renders header-less / cell-less.
-          tab.columns = response.columns?.length
+          tab.columns = response.columns.length
             ? response.columns
             : unionColumns(rows);
           tab.results = rows;

@@ -26,7 +26,7 @@ import {
 export {
   getAliasMap, getAliasEntries, aliasesForNote, getAllFrontmatterKeys, noteUriFor, excerptUriFor, headingsFor,
   findNotesCitingSource, findNotesQuotingExcerpt, findNotesLinkingToAnchor, allNotePaths,
-  injectSparqlPrefixes, schemaForCompletion, queryGraph,
+  injectSparqlPrefixes, schemaForCompletion, queryGraph, queryGraphRows,
   listTags, notesByTagPrefix, notesByTag, sourcesByTag, listAllSources, allTags,
   outgoingLinks, findDerivedNoteForCell, findNotesLinkingTo, backlinks, findExternalInboundLinks, noteTitle, sourceTitle,
   getSourceDetail, getReadingQueueSourceIds, getReadingQueueCounts, READING_QUEUE_VIEWS,

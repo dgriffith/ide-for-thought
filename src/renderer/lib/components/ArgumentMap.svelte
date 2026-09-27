@@ -93,7 +93,7 @@
     }
     try {
       const focusResp = await api.graph.query(queryPrefixes + buildFocusQuery(resolved));
-      if (focusResp.error) { status = 'error'; errorMessage = focusResp.error; return; }
+      if (!focusResp.ok) { status = 'error'; errorMessage = focusResp.error; return; }
       const focusRow = (focusResp.results as { focus?: string; title?: string; label?: string }[])[0];
       if (!focusRow?.focus) { status = 'unresolved'; return; }
 
@@ -105,7 +105,7 @@
       const nodes: ArgumentNode[] = [];
       for (let hop = 1; hop <= MAX_DEPTH && frontier.length > 0; hop++) {
         const resp = await api.graph.query(queryPrefixes + buildHopQuery(frontier));
-        if (resp.error) {
+        if (!resp.ok) {
           // Partial structure is still useful — don't discard what loaded.
           logger('preview').warn('argument-map hop query failed:', resp.error);
           break;
@@ -121,7 +121,7 @@
       const defectsQuery = buildDefectsQuery(notePaths);
       if (defectsQuery) {
         const defResp = await api.graph.query(queryPrefixes + defectsQuery);
-        defects = defResp.error ? [] : parseDefectRows(defResp.results as DefectRow[]);
+        defects = defResp.ok ? parseDefectRows(defResp.results as DefectRow[]) : [];
       }
       status = 'ready';
     } catch (e) {

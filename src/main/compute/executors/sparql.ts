@@ -18,11 +18,10 @@ import type { ExecutorFn } from '../registry';
  */
 export const executeSparql: ExecutorFn = async (code, ctx) => {
   const response = await queryGraph(projectContext(ctx.rootPath), code);
-  // `queryGraph` returns `{ results: [], error }` on parse / runtime
+  // `queryGraph` returns `{ ok: false, error }` on parse / runtime
   // failure — surface that as a cell-level error rather than a thrown
   // exception, so the shell writes a readable output block.
-  const err = (response as { error?: string }).error;
-  if (err) return { ok: false, error: err };
+  if (!response.ok) return { ok: false, error: response.error };
 
   const rows = response.results as Array<Record<string, string>>;
   if (rows.length === 0) {

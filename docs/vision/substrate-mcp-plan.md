@@ -46,7 +46,7 @@ Everything the children need already exists. The build is exposure over these:
 ### Read surface (#1146, #1149)
 | Capability | Function | File | Shape |
 |---|---|---|---|
-| SPARQL | `queryGraph(ctx, sparql)` | `graph/queries.ts:289` | `{ results, columns, error? }`; prefixes auto-injected (`:218`) |
+| SPARQL | `queryGraph(ctx, sparql)` | `graph/queries.ts:289` | `GraphQueryResult` — `{ ok: true, results, columns } | { ok: false, error }` (#2363); prefixes auto-injected (`:218`) |
 | SQL | `runQuery(ctx, sql)` | `sources/tables.ts:63` | `{ ok, columns, rows }`; BigInt-safe serialization |
 | Semantic | `searchRelated(ctx, query)` | `embeddings/vector-store.ts:206` | `RelatedHit[]` (`{kind, ref, chunkText, score}`); onnxruntime-web, offline |
 | Full-text | `search(ctx, query, {limit})` | `search/index.ts:80` | `SearchResult[]` (`{relativePath, title, snippet, score}`) |

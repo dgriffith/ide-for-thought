@@ -27,7 +27,22 @@ import { renderInlineCitations, type InlineCiteRequest, type InlineCiteResponse 
 import { invalidateCitationAssets } from '../citations/assets-cache';
 import { projectContext } from '../project-context-types';
 import { rootPathFromEvent, withRootPath, withRootPathOr, withRootPathWin, hooks } from './helpers';
+import { isEnoent } from '../config/json-file';
 import { handle } from './typed-ipc';
+
+/**
+ * Remove a user-installed CSL style/locale file. Already gone is the expected
+ * absence — removing twice, or a file deleted outside the app, is still
+ * "removed" — so ENOENT resolves. Any other failure (EACCES, EBUSY, …) means
+ * the file is still there, and rejects rather than reporting success (#2364).
+ */
+async function unlinkIfPresent(target: string): Promise<void> {
+  try {
+    await fs.unlink(target);
+  } catch (err) {
+    if (!isEnoent(err)) throw err;
+  }
+}
 
 export function registerBibliography(): void {
   // Bibliography (#113)
@@ -121,13 +136,13 @@ export function registerBibliography(): void {
   handle(Channels.CSL_REMOVE_STYLE, withRootPath(async (rootPath, id: string) => {
     if (!/^[a-z0-9_-]+$/i.test(id)) throw new Error('Invalid style id.');
     const target = path.join(rootPath, USER_STYLES_DIR, `${id}.csl`);
-    await fs.unlink(target).catch(() => undefined);
+    await unlinkIfPresent(target);
     invalidateCitationAssets(projectContext(rootPath)); // #2210, as above
   }));
   handle(Channels.CSL_REMOVE_LOCALE, withRootPath(async (rootPath, id: string) => {
     if (!/^[A-Za-z0-9_-]+$/.test(id)) throw new Error('Invalid locale id.');
     const target = path.join(rootPath, USER_LOCALES_DIR, `${id}.xml`);
-    await fs.unlink(target).catch(() => undefined);
+    await unlinkIfPresent(target);
     invalidateCitationAssets(projectContext(rootPath)); // #2210, as above
   }));
   handle(Channels.CITATION_RENDER_INLINE, withRootPathOr<[InlineCiteRequest[]], InlineCiteResponse | Promise<InlineCiteResponse>>({ markers: [], bibliography: null, missing: [], styleId: DEFAULT_STYLE }, async (rootPath, refs: InlineCiteRequest[]) => {

@@ -3,6 +3,16 @@ import path from 'node:path';
 import { randomBytes } from 'node:crypto';
 
 /**
+ * True for a "no such file" error — the one filesystem failure a handler may
+ * legitimately treat as an expected absence (CLAUDE.md → IPC error handling:
+ * catch the SPECIFIC expected condition, let the rest throw). Anything else —
+ * EACCES, EISDIR, EBUSY, a path-traversal refusal — is a real error (#2364).
+ */
+export function isEnoent(err: unknown): boolean {
+  return (err as NodeJS.ErrnoException | null)?.code === 'ENOENT';
+}
+
+/**
  * Read + `JSON.parse` a file, returning `fallback` ONLY when the file is absent
  * (ENOENT). A malformed-JSON parse error or any other read error is a genuine
  * failure and is rethrown, so it surfaces as an invoke rejection the caller can
@@ -20,7 +30,7 @@ export async function readJsonFileOr<T>(absPath: string, fallback: T): Promise<T
   try {
     raw = await fs.readFile(absPath, 'utf-8');
   } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return fallback;
+    if (isEnoent(err)) return fallback;
     throw err;
   }
   return JSON.parse(raw) as T;

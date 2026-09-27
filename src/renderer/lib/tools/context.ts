@@ -1,6 +1,7 @@
 import type { ToolContext, ContextRequirement } from '../../../shared/tools/types';
 import { getEditorStore } from '../stores/editor.svelte';
 import { api } from '../ipc/client';
+import { unwrapGraphQuery } from '../../../shared/graph-query';
 import { extractClaimUri } from '../../../shared/refactor/find-arguments';
 import type { EditorView } from '@codemirror/view';
 
@@ -63,14 +64,14 @@ export async function gatherContext(
         // (`type: claim` frontmatter) asserts `a types:Claim`, reaching
         // `thought:Claim` only through its `externalClass` subClassOf edge
         // (#2036), same idiom the rest of the codebase already uses for this.
-        const r = await api.graph.query(`
+        const r = unwrapGraphQuery(await api.graph.query(`
           PREFIX thought: <https://minerva.dev/ontology/thought#>
           SELECT ?label ?sourceText WHERE {
             <${uri}> a/rdfs:subClassOf* thought:Claim .
             OPTIONAL { <${uri}> thought:label ?label . }
             OPTIONAL { <${uri}> thought:sourceText ?sourceText . }
           } LIMIT 1
-        `);
+        `));
         const rows = r.results as Array<{ label?: string; sourceText?: string }>;
         if (rows.length > 0) {
           ctx.claimLabel = rows[0]!.label ?? '';

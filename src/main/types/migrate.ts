@@ -16,7 +16,7 @@ import type { TypeDef } from '../../shared/objects/type-def';
 /** Direct-instance note paths of a type class (its own instances, not a
  *  subclass's — those carry the subclass's `type:`, not this one). */
 async function directInstancePaths(rootPath: string, classLocalName: string): Promise<string[]> {
-  const { results } = await graph.queryGraph(
+  const { results } = await graph.queryGraphRows(
     projectContext(rootPath),
     `SELECT ?path WHERE { ?n a types:${classLocalName} ; minerva:relativePath ?path }`,
   );

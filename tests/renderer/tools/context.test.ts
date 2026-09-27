@@ -127,6 +127,7 @@ describe('claimUnderCursor', () => {
     const to = from + CLAIM.length;
     const view = makeView(doc, from, to);
     h.api.graph.query.mockResolvedValue({
+      ok: true,
       results: [{ label: 'A claim', sourceText: 'the source passage' }],
     });
 
@@ -145,7 +146,7 @@ describe('claimUnderCursor', () => {
     // Cursor (empty selection) somewhere on line 2.
     const head = doc.indexOf('https') + 4;
     const view = makeView(doc, head, head);
-    h.api.graph.query.mockResolvedValue({ results: [] });
+    h.api.graph.query.mockResolvedValue({ ok: true, results: [] });
 
     const ctx = await gatherContext(['claimUnderCursor'], view);
 
@@ -157,7 +158,7 @@ describe('claimUnderCursor', () => {
 
   it('defaults missing label/sourceText fields to empty strings', async () => {
     const view = makeView(CLAIM, 0, CLAIM.length);
-    h.api.graph.query.mockResolvedValue({ results: [{}] });
+    h.api.graph.query.mockResolvedValue({ ok: true, results: [{}] });
 
     const ctx = await gatherContext(['claimUnderCursor'], view);
 

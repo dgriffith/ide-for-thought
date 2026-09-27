@@ -20,7 +20,7 @@ const h = vi.hoisted(() => ({
 }));
 
 vi.mock('../../../src/main/graph/index', () => ({
-  queryGraph: h.queryGraph,
+  queryGraphRows: h.queryGraph,
   headingsFor: h.headingsFor,
 }));
 // checkUnreferencedImages (#1799) used to need mocking out here: it does real

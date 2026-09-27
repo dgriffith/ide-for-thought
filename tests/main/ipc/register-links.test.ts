@@ -373,8 +373,22 @@ describe('register-links — LINKS_CITATIONS_FOR_NOTE', () => {
     expect(h.citationsForNote).toHaveBeenCalledWith(CTX, 'a.md', '');
   });
 
-  // NOT pinned here, deliberately: the disk fallback is `.catch(() => '')`,
-  // which turns a real read failure (EACCES, a corrupt mount) into "this note
-  // cites nothing". That swallow is already on CLAUDE.md's #1631 backlog;
-  // asserting it would bless it.
+  it('a note that is gone from disk cites nothing — ENOENT is the expected absence (#2364)', async () => {
+    // Deleted or renamed while the panel refreshes from a graph event.
+    h.readFile.mockRejectedValue(Object.assign(new Error('ENOENT: no such file'), { code: 'ENOENT' }));
+    h.citationsForNote.mockReturnValue([]);
+    await expect(callAsync(Channels.LINKS_CITATIONS_FOR_NOTE, 'gone.md')).resolves.toEqual([]);
+    expect(h.citationsForNote).toHaveBeenCalledWith(CTX, 'gone.md', '');
+  });
+
+  it('a REAL read failure rejects instead of reading as "cites nothing" (#2364)', async () => {
+    h.readFile.mockRejectedValue(Object.assign(new Error('EACCES: permission denied'), { code: 'EACCES' }));
+    await expect(callAsync(Channels.LINKS_CITATIONS_FOR_NOTE, 'a.md')).rejects.toThrow('EACCES');
+    expect(h.citationsForNote).not.toHaveBeenCalled();
+  });
+
+  it('a path-traversal refusal rejects too — it carries no ENOENT code', async () => {
+    h.readFile.mockRejectedValue(new Error('Path traversal detected'));
+    await expect(callAsync(Channels.LINKS_CITATIONS_FOR_NOTE, '../x.md')).rejects.toThrow('Path traversal');
+  });
 });

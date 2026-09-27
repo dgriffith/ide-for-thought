@@ -170,6 +170,7 @@ describe('executeQuery', () => {
   it('runs a SPARQL query, using the engine column projection when present', async () => {
     editor.openQuery('SELECT ?s ?o WHERE {}', 'sparql');
     h.graphQuery.mockResolvedValueOnce({
+      ok: true,
       results: [{ s: 'x' }], // ?o unbound in this row
       columns: ['s', 'o'],   // projection keeps the empty column
     });
@@ -185,7 +186,8 @@ describe('executeQuery', () => {
   it('falls back to the union of row keys when the projection is absent', async () => {
     editor.openQuery('SELECT * WHERE {}', 'sparql');
     h.graphQuery.mockResolvedValueOnce({
-      results: [{ a: '1' }, { b: '2' }], // no columns field / older main
+      ok: true,
+      results: [{ a: '1' }, { b: '2' }], // empty projection (metadata unavailable)
       columns: [],
     });
     await editor.executeQuery();
@@ -194,7 +196,7 @@ describe('executeQuery', () => {
 
   it('records a SPARQL engine error', async () => {
     editor.openQuery('bad sparql', 'sparql');
-    h.graphQuery.mockResolvedValueOnce({ results: [], columns: [], error: 'parse error' });
+    h.graphQuery.mockResolvedValueOnce({ ok: false, error: 'parse error' });
     await editor.executeQuery();
     expect(editor.activeQueryTab?.error).toBe('parse error');
     expect(editor.activeQueryTab?.results).toBeNull();

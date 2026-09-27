@@ -70,7 +70,9 @@ test('flow: write a note → reindex → SPARQL query returns it', async () => {
         `SELECT ?title WHERE { ?note rdf:type minerva:Note ; dc:title ?title . FILTER(CONTAINS(STR(?title), "${title}")) }`,
       ), marker);
 
-    expect(res.error, res.error).toBeFalsy();
+    // `graph:query` is a `{ ok }` union (#2363): a failed query resolves as
+    // `{ ok: false, error }` rather than rejecting, so narrow before reading rows.
+    if (!res.ok) throw new Error(`SPARQL failed: ${res.error}`);
     const titles = (res.results as Array<{ title?: string }>).map((r) => r.title);
     expect(titles).toContain(marker);
   } finally {
@@ -100,6 +102,7 @@ test('flow: pending proposal → approve → graph reflects the mutation', async
 
     // Before approval the claim triple must be absent (the gate holds).
     const before = await win.evaluate((q) => window.api.graph.query(q), claimQuery);
+    if (!before.ok) throw new Error(`SPARQL failed: ${before.error}`);
     expect(before.results.length, 'claim should be absent before approval').toBe(0);
 
     // Approve through the normal proposals IPC — exactly what the Proposals
@@ -109,6 +112,7 @@ test('flow: pending proposal → approve → graph reflects the mutation', async
 
     // After approval the applied mutation is reflected in the graph.
     const after = await win.evaluate((q) => window.api.graph.query(q), claimQuery);
+    if (!after.ok) throw new Error(`SPARQL failed: ${after.error}`);
     expect(after.results.length, 'claim should be present after approval').toBeGreaterThan(0);
   } finally {
     await app.close().catch(() => { /* already exited */ });

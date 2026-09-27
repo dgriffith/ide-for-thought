@@ -61,7 +61,7 @@ async function launchWithProject() {
 
 async function graphRowCount(win: Page, sparql: string): Promise<number> {
   const res = await win.evaluate((q) => window.api.graph.query(q), sparql);
-  if (res.error) throw new Error(`SPARQL failed: ${res.error}\n${sparql}`);
+  if (!res.ok) throw new Error(`SPARQL failed: ${res.error}\n${sparql}`);
   return res.results.length;
 }
 

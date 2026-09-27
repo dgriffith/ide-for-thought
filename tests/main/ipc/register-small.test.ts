@@ -202,14 +202,15 @@ describe('register-git (#1840)', () => {
     expect(h.commitAll).not.toHaveBeenCalled();
   });
 
-  it('returns the sha of the commit it made', async () => {
+  it('returns exactly the sha of the commit it made — no vestigial success flag (#2364)', async () => {
     h.commitAll.mockResolvedValue('abc1234');
-    // NOTE: `success: true` is hardcoded — any real failure throws out of
-    // `commitAll` before this returns. It's on CLAUDE.md's #1631 backlog as
-    // vestigial, so this pins the sha and the delegation, not the flag's
-    // meaning, which would be blessing it.
-    await expect(call(Channels.GIT_COMMIT, 'msg')).resolves.toMatchObject({ sha: 'abc1234' });
+    await expect(call(Channels.GIT_COMMIT, 'msg')).resolves.toEqual({ sha: 'abc1234' });
     expect(h.commitAll).toHaveBeenCalledWith(ROOT, 'msg');
+  });
+
+  it('rejects when the commit fails, rather than reporting a flag', async () => {
+    h.commitAll.mockRejectedValue(new Error('nothing to commit'));
+    await expect(call(Channels.GIT_COMMIT, 'msg')).rejects.toThrow('nothing to commit');
   });
 });
 

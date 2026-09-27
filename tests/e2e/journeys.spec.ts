@@ -193,7 +193,7 @@ test('journey: conversation round-trip → transcript persists, filed draft writ
       window.api.graph.query(
         `SELECT ?title WHERE { ?note rdf:type minerva:Note ; dc:title ?title . FILTER(CONTAINS(STR(?title), "${title}")) }`,
       ), noteTitle);
-    expect(res.error, res.error).toBeFalsy();
+    if (!res.ok) throw new Error(`SPARQL failed: ${res.error}`);
     const titles = (res.results as Array<{ title?: string }>).map((r) => r.title);
     expect(titles).toContain(noteTitle);
   } finally {

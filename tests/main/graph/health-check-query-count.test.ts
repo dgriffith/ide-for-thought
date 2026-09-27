@@ -30,7 +30,7 @@ const h = vi.hoisted(() => ({
 }));
 
 vi.mock('../../../src/main/graph/index', () => ({
-  queryGraph: h.queryGraph,
+  queryGraphRows: h.queryGraph,
   headingsFor: h.headingsFor,
 }));
 

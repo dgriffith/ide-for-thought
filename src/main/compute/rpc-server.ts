@@ -78,7 +78,7 @@ const methods: Record<string, RpcMethod> = {
     const ctx = projectContext(rootPath);
     const query = asString(params.query, 'query');
     const r = await graph.queryGraph(ctx, query);
-    if (r.error) queryError(r.error);
+    if (!r.ok) queryError(r.error);
     return { rows: r.results };
   },
 

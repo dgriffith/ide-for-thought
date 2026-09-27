@@ -11,7 +11,7 @@
  */
 import type { ProjectContext } from '../project-context-types';
 import { getState, type GraphState } from './state';
-import { noteUriFor, queryGraph } from './queries';
+import { noteUriFor, queryGraphRows } from './queries';
 import { declaredPropertyPredicate } from './indexers';
 import { effectivePropertyDefs, type TypeLike } from '../../shared/objects/inheritance';
 import {
@@ -36,7 +36,7 @@ export async function getNoteTypedProperties(
 
   // Resolve the note's type via its class edge (only domain classes carry
   // minerva:typeId, so this skips minerva:Note). First match wins.
-  const { results: typeRows } = await queryGraph(
+  const { results: typeRows } = await queryGraphRows(
     ctx,
     `SELECT ?id WHERE { <${noteIri}> a ?c . ?c minerva:typeId ?id } LIMIT 1`,
   );
@@ -45,7 +45,7 @@ export async function getNoteTypedProperties(
   if (!def) return { type: null, properties: [] };
 
   // One pass over the note's predicate→value pairs, then map to declared props.
-  const { results: rows } = await queryGraph(ctx, `SELECT ?p ?v WHERE { <${noteIri}> ?p ?v }`);
+  const { results: rows } = await queryGraphRows(ctx, `SELECT ?p ?v WHERE { <${noteIri}> ?p ?v }`);
   const byPredicate = new Map<string, string>();
   for (const r of rows as Array<{ p?: string; v?: string }>) {
     if (r.p && r.v !== undefined && !byPredicate.has(r.p)) byPredicate.set(r.p, r.v);
@@ -83,7 +83,7 @@ export async function getNoteTypedProperties(
  */
 export async function getNoteTypeMap(ctx: ProjectContext): Promise<Record<string, string>> {
   if (!getState(ctx)) return {};
-  const { results } = await queryGraph(
+  const { results } = await queryGraphRows(
     ctx,
     `SELECT ?path ?id WHERE { ?n minerva:relativePath ?path ; a ?c . ?c minerva:typeId ?id }`,
   );
@@ -128,7 +128,7 @@ export async function getTypeInstances(
 
   // Subclass-aware (#1587): a parent's view includes its subclasses' instances
   // via the `rdfs:subClassOf*` path (matches the class itself + descendants).
-  const { results } = await queryGraph(
+  const { results } = await queryGraphRows(
     ctx,
     `SELECT ?path ?title ${selectCols} WHERE {
        ?n a/rdfs:subClassOf* types:${def.classLocalName} ; minerva:relativePath ?path .

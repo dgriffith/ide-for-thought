@@ -59,6 +59,7 @@ import type { InspectionSettings, Inspection } from './inspections';
 import type { ClipperState } from './clipper-pairing';
 import type { McpServerDescriptor, McpServerStatus } from './mcp-servers';
 import type { Proposal, ProposalApproveResult, ProposalRejectResult } from './proposals';
+import type { GraphQueryResult } from './graph-query';
 import type { BatchRevertResult, HistorySettings, LabelNotesResult, RevisionMeta, SelectionRoot, UnifiedTimelineEntry } from './history';
 import type { CellResult, CellOutput, ComputeConsentSummary, PythonProbeResult, PythonSettings } from './compute/types';
 import type { AutoLinkSuggestion } from './refactor/auto-link';
@@ -186,7 +187,8 @@ export interface ChannelMap {
 
   // Git (stubs)
   'git:status': () => { isRepo: boolean; branch: string | null; files: unknown[] };
-  'git:commit': (message: string) => { success: boolean; sha: string };
+  /** Rejects on any failure; resolves with the new commit's sha. */
+  'git:commit': (message: string) => { sha: string };
 
   // Privileged sites
   'sites:list': () => PrivilegedSite[];
@@ -271,7 +273,9 @@ export interface ChannelMap {
   'embeddings:searchText': (query: string, opts?: { limit?: number; kinds?: readonly ('note' | 'source' | 'excerpt')[]; excludePath?: string }) => RelatedNotesResult;
 
   // Graph
-  'graph:query': (sparql: string) => { results: unknown[]; columns: string[]; error?: string };
+  /** A malformed/failing query is the `{ ok: false }` arm, not a rejection
+   *  (#2363) — see `shared/graph-query.ts`. No project open throws. */
+  'graph:query': (sparql: string) => GraphQueryResult;
   /** Rebase to a new base IRI + rebuild indexes (#1443 Part B); refuses when the
    *  review queue is non-empty. */
   'graph:setBaseUri': (uri: string) => { ok: true } | { ok: false; error: string };

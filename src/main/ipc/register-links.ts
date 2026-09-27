@@ -7,6 +7,7 @@ import type { RefKind } from '../embeddings/vector-store';
 import { topRelatedNotes, markAlreadyLinked } from '../embeddings/related';
 import { projectContext } from '../project-context-types';
 import { withRootPathOr } from './helpers';
+import { isEnoent } from '../config/json-file';
 import type { RelatedNotesResult, CitationGroup } from '../../shared/types';
 
 export function registerLinks(): void {
@@ -114,7 +115,15 @@ export function registerLinks(): void {
       // count reflects what the user is typing right now. Falling back
       // to disk preserves correctness when the panel refreshes from a
       // graph event without an open editor buffer.
-      const text = content ?? await notebaseFs.readFile(rootPath, relativePath).catch(() => '');
+      //
+      // The one expected absence is a note that no longer exists on disk
+      // (deleted or renamed while the panel refreshes): it cites nothing.
+      // Any other read failure — a permission error, a path-traversal
+      // refusal — is real and rejects (#2364).
+      const text = content ?? await notebaseFs.readFile(rootPath, relativePath).catch((err: unknown) => {
+        if (isEnoent(err)) return '';
+        throw err;
+      });
       return graph.citationsForNote(projectContext(rootPath), relativePath, text);
     }),
   );

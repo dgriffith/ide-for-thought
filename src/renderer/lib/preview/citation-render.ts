@@ -6,6 +6,7 @@
 // that queries the graph and mutates the DOM.
 
 import { api } from '../ipc/client';
+import { unwrapGraphQuery } from '../../../shared/graph-query';
 import { collapseCiteRows, type CiteMeta, type QuoteMeta } from './cite-meta';
 import { logger } from '../../../shared/logger';
 
@@ -113,7 +114,7 @@ export async function resolveCiteLabels(deps: CitationRenderDeps, els: HTMLEleme
       }`;
   let rows: Array<Record<string, string>>;
   try {
-    const response = await api.graph.query(deps.queryPrefixes + sparql);
+    const response = unwrapGraphQuery(await api.graph.query(deps.queryPrefixes + sparql));
     rows = response.results as Array<Record<string, string>>;
   } catch {
     return; // leave uncached links as-is; next render retries.
@@ -190,7 +191,7 @@ export async function resolveQuoteLabels(deps: CitationRenderDeps, els: HTMLElem
     }`;
   let rows: Array<Record<string, string>>;
   try {
-    const response = await api.graph.query(deps.queryPrefixes + sparql);
+    const response = unwrapGraphQuery(await api.graph.query(deps.queryPrefixes + sparql));
     rows = response.results as Array<Record<string, string>>;
   } catch {
     return; // leave uncached links as-is; next render retries.

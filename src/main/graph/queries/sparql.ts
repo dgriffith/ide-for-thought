@@ -14,6 +14,7 @@ import {
   RDF,
   STANDARD_PREFIXES,
 } from '../state';
+import { unwrapGraphQuery, type GraphQueryResult, type GraphQueryRows } from '../../../shared/graph-query';
 
 export function injectSparqlPrefixes(sparql: string): string {
   // Only inject prefixes the user hasn't already declared. SPARQL's
@@ -86,12 +87,18 @@ export function schemaForCompletion(ctx: ProjectContext): GraphSchema {
   };
 }
 
+/**
+ * Run SPARQL the USER wrote (Query panel, ` ```sparql ` block, compute cell,
+ * LLM tool). A parse/evaluation failure is an expected outcome and comes back
+ * as `{ ok: false, error }` rather than a throw — see {@link GraphQueryResult}.
+ * For SPARQL the app authored itself, use {@link queryGraphRows}.
+ */
 export async function queryGraph(
   ctx: ProjectContext,
   sparql: string,
-): Promise<{ results: unknown[]; columns: string[]; error?: string }> {
+): Promise<GraphQueryResult> {
   const state = getState(ctx);
-  if (!state) return { results: [], columns: [] };
+  if (!state) return { ok: true, results: [], columns: [] };
   const engine = await getEngine();
   try {
     // Build the mirror if cold, yielding so a large rebuild doesn't jank the
@@ -105,7 +112,7 @@ export async function queryGraph(
     // silently drop an always-unbound column.
     const result = await engine.query(prefixed, { sources: [n3Store] });
     if (result.resultType !== 'bindings') {
-      return { results: [], columns: [] };
+      return { ok: true, results: [], columns: [] };
     }
     const metadata = await result.metadata();
     // Comunica's runtime shape for `variables` has drifted from its types: some
@@ -131,9 +138,19 @@ export async function queryGraph(
       columns = [...seen];
     }
 
-    return { results, columns };
+    return { ok: true, results, columns };
   } catch (e) {
-    return { results: [], columns: [], error: String(e) };
+    return { ok: false, error: String(e) };
   }
+}
+
+/**
+ * Run SPARQL the APP authored — a fixed lookup whose failure is a bug, not a
+ * user's typo. Throws `GraphQueryError` instead of answering "no rows", so a
+ * broken internal query surfaces rather than silently emptying whatever reads
+ * it (CLAUDE.md → IPC error handling, rule 1). Same rows as {@link queryGraph}.
+ */
+export async function queryGraphRows(ctx: ProjectContext, sparql: string): Promise<GraphQueryRows> {
+  return unwrapGraphQuery(await queryGraph(ctx, sparql));
 }
 

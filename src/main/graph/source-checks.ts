@@ -53,7 +53,7 @@
  * pair it replaces), but it is a real change to what `inspection-settings-
  * skip.test.ts` measures, so it is stated rather than discovered.
  */
-import { queryGraph } from './index';
+import { queryGraphRows } from './index';
 import type { ProjectContext } from '../project-context-types';
 import { DAY_MS } from '../../shared/time';
 import type { Inspection } from '../../shared/inspections';
@@ -142,7 +142,7 @@ async function loadSourceFacts(ctx: ProjectContext, withCites: boolean): Promise
     .join('\n    UNION ');
   // The `minerva:sourceId` guard is what makes this the SOURCE table rather
   // than every node in the graph that happens to have a `dc:title`.
-  const rows = await queryGraph(ctx, `
+  const rows = await queryGraphRows(ctx, `
     SELECT ?source ?key ?value WHERE {
       ?source minerva:sourceId ?_sid .
       ${unions}
@@ -170,7 +170,7 @@ async function loadSourceFacts(ctx: ProjectContext, withCites: boolean): Promise
     // Separate query on purpose: this one joins from the NOTE side, so folding
     // it into the scan above would multiply every property row by every
     // citation. 40 groups out of 3,000 citation triples measured 25ms.
-    const counts = await queryGraph(ctx, `
+    const counts = await queryGraphRows(ctx, `
       SELECT ?source (COUNT(DISTINCT ?note) AS ?cites) WHERE {
         ?note thought:cites ?source .
       }

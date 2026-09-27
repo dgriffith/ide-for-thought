@@ -9,6 +9,7 @@
    * host calls `refresh()` on write/reindex (mirroring the Tags panel).
    */
   import { api } from '../ipc/client';
+  import { unwrapGraphQuery } from '../../../shared/graph-query';
   import TypeIcon from './TypeIcon.svelte';
   import { objectTypesStore } from '../stores/object-types.svelte';
   import ExcerptsBrowser from './ExcerptsBrowser.svelte';
@@ -42,9 +43,9 @@
   async function loadCounts(): Promise<Record<string, number>> {
     // Subclass-aware (#1587): count each instance under its type AND every
     // ancestor, so a parent's count includes its subclasses' instances.
-    const { results } = await api.graph.query(
+    const { results } = unwrapGraphQuery(await api.graph.query(
       `SELECT ?id (COUNT(DISTINCT ?x) AS ?n) WHERE { ?x a ?sub . ?sub rdfs:subClassOf* ?c . ?c minerva:typeId ?id } GROUP BY ?id`,
-    );
+    ));
     const out: Record<string, number> = {};
     for (const r of results as Array<{ id?: string; n?: string }>) {
       if (r.id) out[r.id] = Number(r.n ?? 0);
@@ -55,12 +56,12 @@
   async function loadInstances(typeId: string): Promise<void> {
     const row = rows.find((r) => r.type.id === typeId);
     if (!row) return;
-    const { results } = await api.graph.query(
+    const { results } = unwrapGraphQuery(await api.graph.query(
       `SELECT ?path ?title WHERE {
          ?n a/rdfs:subClassOf* types:${row.type.classLocalName} ; minerva:relativePath ?path .
          OPTIONAL { ?n dc:title ?title }
        } ORDER BY ?title`,
-    );
+    ));
     instances[typeId] = (results as Array<{ path?: string; title?: string }>)
       .filter((r): r is { path: string; title?: string } => !!r.path)
       .map((r) => ({ path: r.path, title: r.title || basename(r.path) }));
@@ -74,7 +75,7 @@
   /** Reload counts, and re-project any expanded type. Called on mount + by the
    *  host after a write/reindex. */
   async function loadExcerptCount(): Promise<number> {
-    const { results } = await api.graph.query(`SELECT (COUNT(?e) AS ?n) WHERE { ?e a thought:Excerpt }`);
+    const { results } = unwrapGraphQuery(await api.graph.query(`SELECT (COUNT(?e) AS ?n) WHERE { ?e a thought:Excerpt }`));
     return Number((results as Array<{ n?: string }>)[0]?.n ?? 0);
   }
 

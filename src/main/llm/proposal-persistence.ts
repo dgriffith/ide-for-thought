@@ -93,7 +93,7 @@ export async function listProposals(ctx: ProjectContext, status?: string): Promi
     ? `?proposal thought:proposalStatus thought:${status} .`
     : '';
 
-  const results = await graph.queryGraph(ctx, `
+  const results = await graph.queryGraphRows(ctx, `
     SELECT ?proposal ?status ?operationType ?note ?proposedBy ?proposedAt ?autoExpires ?payloadJson
            (GROUP_CONCAT(DISTINCT ?affectsNode; separator="\\u001f") AS ?affectsNodes)
            ?conversation ?statusChangedAt WHERE {
@@ -122,7 +122,7 @@ export async function listProposals(ctx: ProjectContext, status?: string): Promi
  * Get a single proposal by URI.
  */
 export async function getProposal(ctx: ProjectContext, uri: string): Promise<Proposal | null> {
-  const results = await graph.queryGraph(ctx, `
+  const results = await graph.queryGraphRows(ctx, `
     SELECT ?status ?operationType ?note ?proposedBy ?proposedAt ?autoExpires ?payloadJson ?affectsNode ?conversation ?statusChangedAt WHERE {
       <${uri}> a thought:Proposal .
       <${uri}> thought:proposalStatus ?statusNode .

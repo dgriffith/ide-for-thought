@@ -8,6 +8,7 @@
    * Rendered inside the Objects panel (#1068) under the built-in "Excerpts" type.
    */
   import { api } from '../ipc/client';
+  import { unwrapGraphQuery } from '../../../shared/graph-query';
 
   interface Props {
     onOpenExcerpt: (excerptId: string) => void;
@@ -44,7 +45,7 @@
   }
 
   async function loadExcerpts(): Promise<void> {
-    const { results } = await api.graph.query(excerptQuery());
+    const { results } = unwrapGraphQuery(await api.graph.query(excerptQuery()));
     excerpts = (results as Array<{ id?: string; text?: string; srcTitle?: string }>)
       .filter((r): r is { id: string; text: string; srcTitle?: string } => !!r.id)
       .map((r) => ({ id: r.id, text: r.text ?? '', sourceTitle: r.srcTitle ?? '' }));
@@ -52,9 +53,9 @@
 
   async function loadFilterOptions(): Promise<void> {
     const [srcs, tags, notes] = await Promise.all([
-      api.graph.query(`SELECT DISTINCT ?src ?title WHERE { ?e a thought:Excerpt ; thought:fromSource ?s . ?s minerva:sourceId ?src . OPTIONAL { ?s dc:title ?title } } ORDER BY ?title`),
-      api.graph.query(`SELECT DISTINCT ?tag WHERE { ?e a thought:Excerpt ; thought:fromSource ?s . ?s minerva:hasTag ?t . ?t minerva:tagName ?tag } ORDER BY ?tag`),
-      api.graph.query(`SELECT DISTINCT ?path ?title WHERE { ?note thought:quotes ?e . ?e a thought:Excerpt . ?note minerva:relativePath ?path . OPTIONAL { ?note dc:title ?title } } ORDER BY ?title`),
+      api.graph.query(`SELECT DISTINCT ?src ?title WHERE { ?e a thought:Excerpt ; thought:fromSource ?s . ?s minerva:sourceId ?src . OPTIONAL { ?s dc:title ?title } } ORDER BY ?title`).then(unwrapGraphQuery),
+      api.graph.query(`SELECT DISTINCT ?tag WHERE { ?e a thought:Excerpt ; thought:fromSource ?s . ?s minerva:hasTag ?t . ?t minerva:tagName ?tag } ORDER BY ?tag`).then(unwrapGraphQuery),
+      api.graph.query(`SELECT DISTINCT ?path ?title WHERE { ?note thought:quotes ?e . ?e a thought:Excerpt . ?note minerva:relativePath ?path . OPTIONAL { ?note dc:title ?title } } ORDER BY ?title`).then(unwrapGraphQuery),
     ]);
     sourceOpts = (srcs.results as Array<{ src: string; title?: string }>).map((r) => ({ value: r.src, label: r.title || r.src }));
     tagOpts = (tags.results as Array<{ tag: string }>).map((r) => ({ value: r.tag, label: r.tag }));

@@ -8,7 +8,7 @@ async function runQuery(ctx: ToolContext, input: unknown): Promise<{ content: st
     throw new Error('sparql is required');
   }
   const response = await graph.queryGraph(projectContext(ctx.rootPath), sparql);
-  if (response.error) {
+  if (!response.ok) {
     return {
       content: `SPARQL error: ${response.error}\n\nCall describe_graph_schema to see available classes and predicates.`,
       isError: true,

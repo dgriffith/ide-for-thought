@@ -48,7 +48,7 @@ beforeEach(() => {
   deleteMock.mockResolvedValue(undefined);
   deleteSafelyMock.mockResolvedValue({ cleared: [], failed: [] });
   renameMock.mockResolvedValue({ newId: 'widget', migrated: ['W1.md'], failed: [] });
-  queryMock.mockResolvedValue({ results: [{ id: 'book', n: '3' }, { id: 'gadget', n: '1' }], columns: [] });
+  queryMock.mockResolvedValue({ ok: true, results: [{ id: 'book', n: '3' }, { id: 'gadget', n: '1' }], columns: [] });
   confirmMock.mockResolvedValue(true);
   promptMock.mockResolvedValue('Widget');
 });

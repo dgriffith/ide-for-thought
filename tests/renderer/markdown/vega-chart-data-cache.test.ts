@@ -63,7 +63,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   _clearChartDataCacheForTests();
   document.body.innerHTML = '';
-  h.graphQuery.mockResolvedValue({ results: [{ s: 'a' }, { s: 'b' }] });
+  h.graphQuery.mockResolvedValue({ ok: true, results: [{ s: 'a' }, { s: 'b' }] });
   h.tablesQuery.mockResolvedValue({ ok: true, columns: ['a'], rows: [{ a: 1 }] });
   // vega-embed is mocked to a no-op view; this file is about what happens
   // BEFORE the embed, and loading the real library here would pull megabytes.
@@ -105,7 +105,7 @@ describe('sparql-bound chart (#2210 §3c)', () => {
   it('a failed query is NOT cached — the next tick retries', async () => {
     // Freezing a transient query failure into the chart until the next save
     // would replace a performance bug with a correctness one.
-    h.graphQuery.mockResolvedValueOnce({ error: 'bad SPARQL' });
+    h.graphQuery.mockResolvedValueOnce({ ok: false, error: 'bad SPARQL' });
     await hydrateVegaBlocks(tick(sparqlSpec), '', 5);
     await hydrateVegaBlocks(tick(sparqlSpec), '', 5);
     expect(h.graphQuery).toHaveBeenCalledTimes(2);
