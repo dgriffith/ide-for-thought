@@ -32,6 +32,7 @@ import {
   restartKernel,
   exportKnowledgeGraph,
   interruptReason,
+  describeEmbedded,
 } from '../../src/main/maintenance-commands';
 import * as graph from '../../src/main/graph/index';
 import * as search from '../../src/main/search/index';
@@ -39,7 +40,7 @@ import * as tables from '../../src/main/sources/tables';
 import * as vectors from '../../src/main/embeddings/vector-store';
 import type { ChunkEmbedder } from '../../src/main/embeddings/vector-store';
 import { MODEL } from '../../src/main/embeddings/embedder';
-import { abortBackfill } from '../../src/main/embeddings/backfill';
+import { abortBackfill, runBackfill, isBackfilling } from '../../src/main/embeddings/backfill';
 import {
   runPython,
   activeKernels,
@@ -79,10 +80,11 @@ async function graphNotePaths(root: string): Promise<string[]> {
 }
 
 /** A deterministic bag-of-words embedder — the real model is a runtime download. */
-function hashingEmbedder(): ChunkEmbedder {
+function hashingEmbedder(delayMs = 0): ChunkEmbedder {
   return {
     dim: MODEL.dim,
     async embed(texts: string[]): Promise<Float32Array[]> {
+      if (delayMs) await new Promise((r) => setTimeout(r, delayMs));
       return texts.map((t) => {
         const v = new Float32Array(MODEL.dim);
         for (const w of t.toLowerCase().split(/\W+/).filter(Boolean)) {
@@ -249,6 +251,39 @@ describe('rebuildAllIndexes', () => {
   });
 });
 
+describe('rebuildAllIndexes with no graph loaded for the project (#2414)', () => {
+  const dir = useTempDir('minerva-maint-rebuild-nograph-');
+
+  beforeEach(async () => {
+    // A real thoughtbase directory — `.minerva/` exists — just not one whose
+    // graph is loaded. Without the directory, search's persist fails on ENOENT
+    // and masks the bug this block is about.
+    await fsp.mkdir(path.join(dir.root, '.minerva'), { recursive: true });
+    await write(dir.root, 'a.md', '# A\n\nquixotic');
+  });
+  afterEach(() => { search.disposeProject(projectContext(dir.root)); });
+
+  it('reports a failure frame instead of "Rebuilt indexes — 0 notes"', async () => {
+    const { frames, emit } = collector();
+
+    await rebuildAllIndexes(dir.root, emit);
+
+    expect(terminal(frames).outcome).toEqual({
+      ok: false, error: 'No knowledge graph is loaded for this project — nothing to rebuild',
+    });
+  });
+
+  it('resolves false so the menu does not refresh the table panels', async () => {
+    await expect(rebuildAllIndexes(dir.root, collector().emit)).resolves.toBe(false);
+  });
+
+  it('does not half-run: search is not indexed either', async () => {
+    await rebuildAllIndexes(dir.root, collector().emit);
+
+    expect(fs.existsSync(path.join(dir.root, '.minerva', 'search-index.json'))).toBe(false);
+  });
+});
+
 // ── rebuildSemanticIndex ────────────────────────────────────────────────────
 
 describe('rebuildSemanticIndex', () => {
@@ -260,10 +295,10 @@ describe('rebuildSemanticIndex', () => {
     await vectors.dispose(ctx());
   });
 
-  async function enableVectors(): Promise<void> {
+  async function enableVectors(delayMs = 0): Promise<void> {
     await vectors.init(ctx(), {
       dbPath: path.join(dir.root, '.minerva', 'vectors.duckdb'),
-      embedder: hashingEmbedder(),
+      embedder: hashingEmbedder(delayMs),
     });
   }
 
@@ -336,8 +371,8 @@ describe('rebuildSemanticIndex', () => {
     });
   });
 
-  it('is a clean no-op when the vector store is not enabled for the project', async () => {
-    await write(dir.root, 'a.md', '# A');
+  it('summarizes an empty corpus as 0 notes embedded — a real, empty pass', async () => {
+    await enableVectors();
     const { frames, emit } = collector();
 
     await rebuildSemanticIndex(dir.root, emit, () => {});
@@ -345,6 +380,94 @@ describe('rebuildSemanticIndex', () => {
     expect(terminal(frames).outcome).toEqual({
       ok: true, summary: 'Rebuilt semantic index — 0 notes embedded',
     });
+  });
+
+  it('counts sources and excerpts as what they are, not as notes (#2414)', async () => {
+    await enableVectors();
+    await write(dir.root, 'a.md', '# A\nalpha');
+    await write(dir.root, '.minerva/sources/paper-1/body.md', '# Paper\nmarine biology');
+    await write(
+      dir.root,
+      '.minerva/excerpts/paper-1-deadbeef.ttl',
+      'this: a thought:Excerpt ;\n    thought:fromSource sources:paper-1 ;\n    thought:citedText "a passage about reefs" .\n',
+    );
+    const { frames, emit } = collector();
+
+    await rebuildSemanticIndex(dir.root, emit, () => {});
+
+    expect(terminal(frames).outcome).toEqual({
+      ok: true, summary: 'Rebuilt semantic index — 1 note, 1 source, 1 excerpt embedded',
+    });
+  });
+
+  describe('when the rebuild does not actually run (#2414)', () => {
+    it('reports a failure — not "0 notes embedded" — when a backfill is already in flight', async () => {
+      await enableVectors(30);
+      await write(dir.root, 'a.md', '# A\nalpha');
+      await write(dir.root, 'b.md', '# B\nbeta');
+      const inFlight = runBackfill(ctx());
+      expect(isBackfilling(dir.root)).toBe(true);
+      const { frames, emit } = collector();
+
+      await rebuildSemanticIndex(dir.root, emit, () => {});
+      await inFlight;
+
+      expect(terminal(frames).outcome).toEqual({
+        ok: false,
+        error: 'the semantic index is already being updated — try again when it finishes',
+      });
+    });
+
+    it('does not disturb the backfill already in flight', async () => {
+      await enableVectors(30);
+      await write(dir.root, 'a.md', '# A\nalpha');
+      await write(dir.root, 'b.md', '# B\nbeta');
+      const inFlight = runBackfill(ctx());
+
+      await rebuildSemanticIndex(dir.root, collector().emit, () => {});
+
+      await expect(inFlight).resolves.toMatchObject({ embedded: 2, aborted: false });
+    });
+
+    it('reports a failure when the vector store is not open for the project', async () => {
+      await write(dir.root, 'a.md', '# A');
+      const { frames, emit } = collector();
+
+      await rebuildSemanticIndex(dir.root, emit, () => {});
+
+      expect(terminal(frames).outcome).toEqual({
+        ok: false,
+        error: 'the semantic index isn\'t available for this thoughtbase — its store isn\'t open',
+      });
+    });
+
+    it('reports a failure, with the partial count, when the run is aborted part-way', async () => {
+      await enableVectors();
+      for (const n of ['a', 'b', 'c']) await write(dir.root, `${n}.md`, `# ${n}\nbody ${n}`);
+      const { frames, emit } = collector();
+
+      // What closing the thoughtbase's last window does mid-rebuild.
+      await rebuildSemanticIndex(dir.root, emit, (p) => {
+        if (p.running && p.done === 1) abortBackfill(dir.root);
+      });
+
+      expect(terminal(frames).outcome).toEqual({
+        ok: false, error: 'stopped after 1 note — the thoughtbase was closed',
+      });
+    });
+  });
+});
+
+describe('describeEmbedded', () => {
+  it.each([
+    [{ note: 0, source: 0, excerpt: 0 }, '0 notes'],
+    [{ note: 1, source: 0, excerpt: 0 }, '1 note'],
+    [{ note: 3, source: 0, excerpt: 0 }, '3 notes'],
+    [{ note: 0, source: 2, excerpt: 0 }, '2 sources'],
+    [{ note: 2, source: 1, excerpt: 4 }, '2 notes, 1 source, 4 excerpts'],
+    [{ note: 0, source: 0, excerpt: 1 }, '1 excerpt'],
+  ])('%j → %s', (byKind, text) => {
+    expect(describeEmbedded(byKind)).toBe(text);
   });
 });
 

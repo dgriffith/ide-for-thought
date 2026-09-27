@@ -58,8 +58,23 @@ export interface BackfillProgress {
 
 export interface BackfillResult {
   embedded: number;
+  /** `embedded`, split by corpus — a caller summarizing the run for a user
+   *  must not call sources and excerpts "notes" (#2414). */
+  embeddedByKind: Record<RefKind, number>;
   skipped: number;
   aborted: boolean;
+  /**
+   * Set when this call did no work at all, and why (#2414). Without it, "a
+   * backfill was already in flight" and "the vector store is off" both came
+   * back as `{ embedded: 0 }` — indistinguishable from a real pass over an
+   * already-embedded corpus, so a forced rebuild reported "0 embedded" as
+   * success. Absent on any run that actually walked the corpus.
+   */
+  notRun?: 'already-running' | 'disabled';
+}
+
+function emptyResult(notRun: NonNullable<BackfillResult['notRun']>): BackfillResult {
+  return { embedded: 0, embeddedByKind: { note: 0, source: 0, excerpt: 0 }, skipped: 0, aborted: false, notRun };
 }
 
 export interface BackfillOptions {
@@ -86,11 +101,12 @@ export function abortBackfill(rootPath: string): void {
 
 /**
  * Run the backfill for a project. If one is already running, returns
- * immediately (no double-run). No-op when the vector store isn't enabled.
+ * immediately (no double-run) with `notRun: 'already-running'`. No-op when the
+ * vector store isn't enabled (`notRun: 'disabled'`).
  */
 export async function runBackfill(ctx: ProjectContext, opts: BackfillOptions = {}): Promise<BackfillResult> {
-  if (running.has(ctx.rootPath)) return { embedded: 0, skipped: 0, aborted: false };
-  if (!store.isEnabled(ctx)) return { embedded: 0, skipped: 0, aborted: false };
+  if (running.has(ctx.rootPath)) return emptyResult('already-running');
+  if (!store.isEnabled(ctx)) return emptyResult('disabled');
 
   const controller = new AbortController();
   running.set(ctx.rootPath, controller);
@@ -103,13 +119,17 @@ export async function runBackfill(ctx: ProjectContext, opts: BackfillOptions = {
 
     let done = 0;
     let embedded = 0;
+    const embeddedByKind: Record<RefKind, number> = { note: 0, source: 0, excerpt: 0 };
     emit(opts, { done, total, running: true });
     for (const item of items) {
-      if (signal.aborted) return { embedded, skipped: skipped + (total - done), aborted: true };
+      if (signal.aborted) {
+        return { embedded, embeddedByKind, skipped: skipped + (total - done), aborted: true };
+      }
       try {
         const content = await item.load();
         await store.indexChunks(ctx, item.kind, item.ref, content);
         embedded++;
+        embeddedByKind[item.kind]++;
       } catch (err) {
         // A single unreadable / oversized item must not abort the whole pass.
         logger('backfill').warn(`skipped ${item.kind}:${item.ref}:`, err);
@@ -117,7 +137,7 @@ export async function runBackfill(ctx: ProjectContext, opts: BackfillOptions = {
       done++;
       emit(opts, { done, total, running: true });
     }
-    return { embedded, skipped, aborted: false };
+    return { embedded, embeddedByKind, skipped, aborted: false };
   } finally {
     running.delete(ctx.rootPath);
     // Final tick so listeners can clear the indicator.
