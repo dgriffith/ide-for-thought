@@ -5,6 +5,7 @@ import { projectContext } from '../project-context-types';
 import { escapeTurtleLiteral } from '../../shared/turtle';
 import { costForUsage } from '../../shared/tools/models';
 import { loadConfigFile, asRecord, asBool, asFiniteNumber } from '../config/config-store';
+import { withFileLock } from '../config/file-lock';
 import { writeJsonFileAtomic } from '../config/json-file';
 import { logger } from '../../shared/logger';
 import type {
@@ -84,6 +85,22 @@ function generateId(): string {
 
 // ── CRUD ───────────────────────────────────────────────────────────────────
 
+/**
+ * Every mutation below is load → change → persist on one transcript file, with
+ * awaits in between, so two overlapping calls on the same conversation (a
+ * model change landing while a reply is being appended, say) each wrote back
+ * their own copy and the second dropped the first's change (#2416). They run
+ * one at a time per transcript; different conversations don't wait on each
+ * other.
+ *
+ * A missing or unreadable transcript is "not found" to `load`, so a mutation
+ * on a corrupt one throws (or, for `setContainerId`, does nothing) before it
+ * writes: there is no lenient read here to clobber from.
+ */
+function withConversationLock<T>(rootPath: string, id: string, fn: () => Promise<T>): Promise<T> {
+  return withFileLock(convPath(rootPath, id), fn);
+}
+
 export async function create(
   rootPath: string,
   contextBundle: ContextBundle,
@@ -112,40 +129,42 @@ export async function create(
   return conv;
 }
 
-export async function appendMessage(
+export function appendMessage(
   rootPath: string,
   id: string,
   role: ConversationMessage['role'],
   content: string,
   extra?: Partial<Pick<ConversationMessage, 'citations' | 'usage' | 'usageModel'>>,
 ): Promise<Conversation> {
-  const conv = await load(rootPath, id);
-  if (!conv) throw new Error(`Conversation not found: ${id}`);
-  if (conv.status !== 'active') throw new Error(`Conversation ${id} is ${conv.status}, cannot append`);
+  return withConversationLock(rootPath, id, async () => {
+    const conv = await load(rootPath, id);
+    if (!conv) throw new Error(`Conversation not found: ${id}`);
+    if (conv.status !== 'active') throw new Error(`Conversation ${id} is ${conv.status}, cannot append`);
 
-  const message: ConversationMessage = {
-    role,
-    content,
-    timestamp: new Date().toISOString(),
-  };
-  if (extra?.citations && extra.citations.length > 0) {
-    message.citations = extra.citations;
-  }
-  // Persist per-turn token usage + producing model on the assistant message
-  // so the conversation's running cost survives reload (#820), and derive the
-  // dollar cost once at append time (#821). An unpriced model leaves costUSD
-  // absent — the UI shows tokens only rather than a guessed figure.
-  if (extra?.usage) {
-    message.usage = extra.usage;
-    if (extra.usageModel) {
-      message.usageModel = extra.usageModel;
-      const cost = costForUsage(extra.usage, extra.usageModel);
-      if (cost !== null) message.costUSD = cost;
+    const message: ConversationMessage = {
+      role,
+      content,
+      timestamp: new Date().toISOString(),
+    };
+    if (extra?.citations && extra.citations.length > 0) {
+      message.citations = extra.citations;
     }
-  }
-  conv.messages.push(message);
-  await persist(rootPath, conv);
-  return conv;
+    // Persist per-turn token usage + producing model on the assistant message
+    // so the conversation's running cost survives reload (#820), and derive the
+    // dollar cost once at append time (#821). An unpriced model leaves costUSD
+    // absent — the UI shows tokens only rather than a guessed figure.
+    if (extra?.usage) {
+      message.usage = extra.usage;
+      if (extra.usageModel) {
+        message.usageModel = extra.usageModel;
+        const cost = costForUsage(extra.usage, extra.usageModel);
+        if (cost !== null) message.costUSD = cost;
+      }
+    }
+    conv.messages.push(message);
+    await persist(rootPath, conv);
+    return conv;
+  });
 }
 
 /**
@@ -154,18 +173,20 @@ export async function appendMessage(
  * with one archive state). Idempotent — archiving an already-archived
  * conversation no-ops past the load.
  */
-export async function archive(rootPath: string, id: string): Promise<Conversation> {
-  const conv = await load(rootPath, id);
-  if (!conv) throw new Error(`Conversation not found: ${id}`);
-  if (conv.status === 'archived') return conv;
+export function archive(rootPath: string, id: string): Promise<Conversation> {
+  return withConversationLock(rootPath, id, async () => {
+    const conv = await load(rootPath, id);
+    if (!conv) throw new Error(`Conversation not found: ${id}`);
+    if (conv.status === 'archived') return conv;
 
-  conv.status = 'archived';
-  conv.archivedAt = new Date().toISOString();
+    conv.status = 'archived';
+    conv.archivedAt = new Date().toISOString();
 
-  await persist(rootPath, conv);
-  updateConversationInGraph(rootPath, conv);
-  await fileAsSource(rootPath, conv);
-  return conv;
+    await persist(rootPath, conv);
+    updateConversationInGraph(rootPath, conv);
+    await fileAsSource(rootPath, conv);
+    return conv;
+  });
 }
 
 /**
@@ -175,36 +196,40 @@ export async function archive(rootPath: string, id: string): Promise<Conversatio
  * conversation IPC handler after `completeWithTools` returns. No
  * graph projection — this is purely API-protocol state.
  */
-export async function setContainerId(
+export function setContainerId(
   rootPath: string,
   id: string,
   containerId: string | undefined,
   expiresAt: string | undefined,
 ): Promise<void> {
-  const conv = await load(rootPath, id);
-  if (!conv) return;
-  if (containerId) {
-    conv.containerId = containerId;
-    if (expiresAt) conv.containerExpiresAt = expiresAt;
-    else delete conv.containerExpiresAt;
-  } else {
-    delete conv.containerId;
-    delete conv.containerExpiresAt;
-  }
-  await persist(rootPath, conv);
+  return withConversationLock(rootPath, id, async () => {
+    const conv = await load(rootPath, id);
+    if (!conv) return;
+    if (containerId) {
+      conv.containerId = containerId;
+      if (expiresAt) conv.containerExpiresAt = expiresAt;
+      else delete conv.containerExpiresAt;
+    } else {
+      delete conv.containerId;
+      delete conv.containerExpiresAt;
+    }
+    await persist(rootPath, conv);
+  });
 }
 
 /**
  * Pin a specific model to this conversation. Pass `undefined` to clear the
  * override so the conversation again tracks the global default.
  */
-export async function setModel(rootPath: string, id: string, model: string | undefined): Promise<Conversation> {
-  const conv = await load(rootPath, id);
-  if (!conv) throw new Error(`Conversation not found: ${id}`);
-  if (model) conv.model = model;
-  else delete conv.model;
-  await persist(rootPath, conv);
-  return conv;
+export function setModel(rootPath: string, id: string, model: string | undefined): Promise<Conversation> {
+  return withConversationLock(rootPath, id, async () => {
+    const conv = await load(rootPath, id);
+    if (!conv) throw new Error(`Conversation not found: ${id}`);
+    if (model) conv.model = model;
+    else delete conv.model;
+    await persist(rootPath, conv);
+    return conv;
+  });
 }
 
 /**
@@ -212,17 +237,19 @@ export async function setModel(rootPath: string, id: string, model: string | und
  * to clear it so the conversation again inherits the global default. Mirrors
  * `setModel`.
  */
-export async function setEffort(
+export function setEffort(
   rootPath: string,
   id: string,
   effort: import('../../shared/tools/effort').Effort | undefined,
 ): Promise<Conversation> {
-  const conv = await load(rootPath, id);
-  if (!conv) throw new Error(`Conversation not found: ${id}`);
-  if (effort) conv.effort = effort;
-  else delete conv.effort;
-  await persist(rootPath, conv);
-  return conv;
+  return withConversationLock(rootPath, id, async () => {
+    const conv = await load(rootPath, id);
+    if (!conv) throw new Error(`Conversation not found: ${id}`);
+    if (effort) conv.effort = effort;
+    else delete conv.effort;
+    await persist(rootPath, conv);
+    return conv;
+  });
 }
 
 /**
@@ -231,16 +258,18 @@ export async function setEffort(
  * Re-persists the whole JSON like every other mutation; no graph re-projection
  * since the conversation subject's triples don't depend on message content.
  */
-export async function replaceMessages(
+export function replaceMessages(
   rootPath: string,
   id: string,
   messages: ConversationMessage[],
 ): Promise<Conversation> {
-  const conv = await load(rootPath, id);
-  if (!conv) throw new Error(`Conversation not found: ${id}`);
-  conv.messages = messages;
-  await persist(rootPath, conv);
-  return conv;
+  return withConversationLock(rootPath, id, async () => {
+    const conv = await load(rootPath, id);
+    if (!conv) throw new Error(`Conversation not found: ${id}`);
+    conv.messages = messages;
+    await persist(rootPath, conv);
+    return conv;
+  });
 }
 
 export async function load(rootPath: string, id: string): Promise<Conversation | null> {

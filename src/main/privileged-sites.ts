@@ -11,7 +11,7 @@
 import path from 'node:path';
 import { app, BrowserWindow, session, type Session } from 'electron';
 import type { PrivilegedSite } from '../shared/privileged-sites';
-import { loadConfigFileSync, asRecord } from './config/config-store';
+import { loadConfigFileSync, loadConfigFileStrictSync, requireRecord } from './config/config-store';
 import { writeJsonFileAtomicSync } from './config/json-file';
 import { logger } from '../shared/logger';
 
@@ -34,15 +34,29 @@ function isPrivilegedSite(v: unknown): v is PrivilegedSite {
     && typeof o.addedAt === 'string' && (o.lastLoginAt === null || typeof o.lastLoginAt === 'string');
 }
 
+function decode(raw: unknown): FileShape {
+  const sites = requireRecord(raw, 'privileged-sites.json').sites;
+  if (sites !== undefined && !Array.isArray(sites)) throw new Error('"sites" is not an array');
+  return { sites: Array.isArray(sites) ? sites.filter(isPrivilegedSite) : [] };
+}
+
+/**
+ * LENIENT read, for display and URL routing: a corrupt file is reported and
+ * reads as no sites, so ingest just fetches without cookies. Never build a
+ * write from it (#2416).
+ */
 function readFile(): FileShape {
-  return loadConfigFileSync<FileShape>(
-    configFile,
-    (raw) => {
-      const sites = asRecord(raw).sites;
-      return { sites: Array.isArray(sites) ? sites.filter(isPrivilegedSite) : [] };
-    },
-    EMPTY,
-  );
+  return loadConfigFileSync<FileShape>(configFile, decode, EMPTY);
+}
+
+/**
+ * STRICT read, for every read-modify-write (#2416). A corrupt file THROWS
+ * rather than reading as `{ sites: [] }`, which the write would then persist:
+ * adding one site used to erase every other. Synchronous from read to write,
+ * so no two mutations can interleave between them.
+ */
+function readForWrite(): FileShape {
+  return loadConfigFileStrictSync<FileShape>(configFile(), decode, EMPTY);
 }
 
 function writeFile(data: FileShape): void {
@@ -80,7 +94,7 @@ export function listSites(): PrivilegedSite[] {
 export function addSite(domainInput: string, label?: string): PrivilegedSite {
   const domain = normaliseDomain(domainInput);
   if (!domain) throw new Error(`Not a valid domain: ${domainInput}`);
-  const data = readFile();
+  const data = readForWrite();
   const id = idForDomain(domain);
   // Re-adding the same domain is idempotent — return the existing entry.
   const existing = data.sites.find((s) => s.id === id);
@@ -98,7 +112,7 @@ export function addSite(domainInput: string, label?: string): PrivilegedSite {
 }
 
 export async function removeSite(id: string): Promise<void> {
-  const data = readFile();
+  const data = readForWrite();
   const next = data.sites.filter((s) => s.id !== id);
   if (next.length === data.sites.length) return;
   writeFile({ sites: next });
@@ -117,7 +131,7 @@ export async function logoutSite(id: string): Promise<void> {
   // Re-read AFTER the await, as `openLoginWindow`'s close handler does: a
   // snapshot taken before it would write back a list missing any site added
   // (or still holding any site removed) while the partition was clearing.
-  const fresh = readFile();
+  const fresh = readForWrite();
   const site = fresh.sites.find((s) => s.id === id);
   if (!site) return;
   // Reset lastLoginAt so the UI shows the site as logged-out.
@@ -197,11 +211,18 @@ export function openLoginWindow(id: string): Promise<void> {
     });
     void win.loadURL(`https://${site.domain}/`);
     win.on('closed', () => {
-      const fresh = readFile();
-      const target = fresh.sites.find((s) => s.id === id);
-      if (target) {
-        target.lastLoginAt = new Date().toISOString();
-        writeFile(fresh);
+      // An event callback: a throw here would be an uncaught exception in
+      // main, not a rejection anyone sees. The strict read has already
+      // reported an unreadable file; skip the timestamp and leave it be.
+      try {
+        const fresh = readForWrite();
+        const target = fresh.sites.find((s) => s.id === id);
+        if (target) {
+          target.lastLoginAt = new Date().toISOString();
+          writeFile(fresh);
+        }
+      } catch (e) {
+        logger('privileged-sites').warn(`did not record login for ${id}:`, e);
       }
       resolve();
     });

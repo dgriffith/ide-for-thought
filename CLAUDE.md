@@ -531,6 +531,24 @@ can't quietly grow while nobody re-reads it:
   the raw writes that remain (#2369) — three files, none a user store. When you
   touch a read-modify-write store, check its reader too: a lenient
   corrupt→defaults read feeding a write is the #1891 / #2356 clobber.
+- **Read-modify-write reads strictly, and async ones take the file lock
+  (#2416).** A store reads *leniently* to display (`loadConfigFile*`) and
+  *strictly* to mutate: `loadConfigFileStrict` / `loadConfigFileStrictSync`
+  share the decoder but THROW `UnreadableConfigError` on a corrupt file (ENOENT
+  is still the empty value), so the mutation rejects and the file is left
+  byte-identical. The decoder has to throw on a wrong top-level shape too —
+  `requireRecord` / `requireArray`, not `asRecord`, which reads `[]` as `{}` and
+  lets the clobber back in through `decode`. An **async** read-modify-write also
+  runs under `withFileLock(absPath, fn)` (`config/file-lock.ts`), a per-path
+  promise chain: without it two overlapping IPC calls both read the old file and
+  the second write drops the first's change — atomic writes don't help, they
+  only stop a torn file. A synchronous `readFileSync → writeFileSync` store
+  can't interleave and needs no lock. Converted: `privileged-sites`,
+  `mcp-oauth-tokens`, `mcp-servers`, `compute-consent`, `sources/collections`,
+  conversation transcripts. `recent-projects` is the one exception to
+  refusing: it runs inside opening a thoughtbase, so an unreadable file is
+  renamed to `recent-projects.json.unreadable` (kept whole) and the list starts
+  over.
 - **Where each config lives** is inventoried in `docs/config-roots.md` — the
   three roots (`userData/`, `~/.minerva/`, `<thoughtbase>/.minerva/`) and which
   ones hold secrets. The `userData/` table is checked against the code by

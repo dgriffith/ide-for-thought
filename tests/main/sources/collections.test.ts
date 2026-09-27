@@ -6,7 +6,7 @@
  * rather than mocking the fs.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
@@ -320,5 +320,51 @@ describe('resolveSmartMembers (#470 phase 2)', () => {
   it('readStatus predicate with an empty status list returns nothing', () => {
     const ids = resolveSmartMembers({ kind: 'readStatus', status: [] }, lookups());
     expect(ids.size).toBe(0);
+  });
+});
+
+// #2416: every mutation is a read-modify-write under the file's lock, and the
+// read is strict, so a corrupt file is never replaced by one change.
+describe('collections: corrupt file and overlap (#2416)', () => {
+  let root: string;
+  const file = () => path.join(root, '.minerva', 'collections.json');
+
+  beforeEach(() => {
+    root = mkTemp();
+  });
+  afterEach(async () => {
+    await fsp.rm(root, { recursive: true, force: true });
+  });
+
+  it.each([
+    ['not JSON', '{"collections": [{"id": "kept" TRUNCATED'],
+    ['a top-level array', '[]'],
+    ['null', 'null'],
+  ])('a mutation refuses %s and leaves it byte-identical', async (_what, text) => {
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    await fsp.mkdir(path.dirname(file()), { recursive: true });
+    await fsp.writeFile(file(), text, 'utf-8');
+    await expect(createCollection(root, { name: 'New' })).rejects.toThrow(/left untouched/);
+    await expect(scrubSourceFromCollections(root, 'x')).rejects.toThrow(/left untouched/);
+    expect(await fsp.readFile(file(), 'utf-8')).toBe(text);
+    errSpy.mockRestore();
+  });
+
+  it('overlapping adds into one collection all land', async () => {
+    const c = await createCollection(root, { name: 'C' });
+    await Promise.all(['a', 'b', 'c', 'd'].map((id) => addSourceToCollection(root, c.id, id)));
+    const data = await loadCollections(root);
+    expect(data.collections[0].members.sort()).toEqual(['a', 'b', 'c', 'd']);
+  });
+
+  it('overlapping creates all land, with distinct ids', async () => {
+    await Promise.all([
+      createCollection(root, { name: 'Same' }),
+      createCollection(root, { name: 'Same' }),
+      createSmartCollection(root, { name: 'Smart', predicate: { kind: 'tags', allOf: ['x'] } }),
+    ]);
+    const data = await loadCollections(root);
+    expect(data.collections.map((c) => c.id).sort()).toEqual(['same', 'same-2']);
+    expect(data.smartCollections.map((s) => s.id)).toEqual(['smart']);
   });
 });

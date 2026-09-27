@@ -11,6 +11,11 @@ import os from 'node:os';
 import {
   loadConfigFile,
   loadConfigFileSync,
+  loadConfigFileStrict,
+  loadConfigFileStrictSync,
+  UnreadableConfigError,
+  requireRecord,
+  requireArray,
   reportConfigError,
   asString,
   asBool,
@@ -134,5 +139,71 @@ describe('loadConfigFile (#1640)', () => {
   it('reportConfigError formats a recognizable, prefixed message', () => {
     reportConfigError('/tmp/x.json', 'read', new Error('EACCES'));
     expect(String(errSpy.mock.calls.at(-1)![0])).toMatch(/^\[config\] failed to read "\/tmp\/x\.json": EACCES/);
+  });
+});
+
+// The strict twin (#2416): same decoder, opposite failure contract. A write
+// built on the lenient loader's defaults replaces every entry in the file, so
+// the read half of a read-modify-write must THROW on corruption instead.
+describe('loadConfigFileStrict / loadConfigFileStrictSync (#2416)', () => {
+  let dir: string;
+  let errSpy: ReturnType<typeof vi.spyOn>;
+  const p = (name: string) => path.join(dir, name);
+  const strictDecode = (raw: unknown): Cfg => decode(requireRecord(raw));
+
+  beforeEach(async () => {
+    dir = await fs.mkdtemp(path.join(os.tmpdir(), 'minerva-cfg-strict-'));
+    errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+  afterEach(async () => {
+    errSpy.mockRestore();
+    await fs.rm(dir, { recursive: true, force: true });
+  });
+
+  it('a missing file is the empty value, silently, and a fresh copy each time', async () => {
+    const empty = { name: 'e', count: 0, on: false };
+    const a = await loadConfigFileStrict(p('missing.json'), strictDecode, empty);
+    expect(a).toEqual(empty);
+    expect(a).not.toBe(empty);
+    expect(loadConfigFileStrictSync(p('missing.json'), strictDecode, empty)).toEqual(empty);
+    expect(errSpy).not.toHaveBeenCalled();
+  });
+
+  it('decodes a good file', async () => {
+    await fs.writeFile(p('ok.json'), JSON.stringify({ name: 'x', count: 3, on: true }), 'utf-8');
+    await expect(loadConfigFileStrict(p('ok.json'), strictDecode, DEFAULTS)).resolves.toEqual({ name: 'x', count: 3, on: true });
+    expect(loadConfigFileStrictSync(p('ok.json'), strictDecode, DEFAULTS)).toEqual({ name: 'x', count: 3, on: true });
+  });
+
+  it('THROWS on malformed JSON, reports it, and says the file was left alone', async () => {
+    await fs.writeFile(p('bad.json'), '{ not json', 'utf-8');
+    const err = await loadConfigFileStrict(p('bad.json'), strictDecode, DEFAULTS).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(UnreadableConfigError);
+    expect((err as UnreadableConfigError).phase).toBe('parse');
+    expect((err as Error).message).toMatch(/left untouched/);
+    expect(() => loadConfigFileStrictSync(p('bad.json'), strictDecode, DEFAULTS)).toThrow(UnreadableConfigError);
+    expect(String(errSpy.mock.calls[0]![0])).toMatch(/refusing to write over it/);
+  });
+
+  it('THROWS when the decoder rejects the shape (an array where an object belongs)', async () => {
+    await fs.writeFile(p('arr.json'), '[1, 2]', 'utf-8');
+    const err = await loadConfigFileStrict(p('arr.json'), strictDecode, DEFAULTS).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(UnreadableConfigError);
+    expect((err as UnreadableConfigError).phase).toBe('validate');
+  });
+
+  it('THROWS on a read error other than ENOENT (a directory in the file\'s place)', async () => {
+    await fs.mkdir(p('dir.json'));
+    await expect(loadConfigFileStrict(p('dir.json'), strictDecode, DEFAULTS)).rejects.toBeInstanceOf(UnreadableConfigError);
+    expect(() => loadConfigFileStrictSync(p('dir.json'), strictDecode, DEFAULTS)).toThrow(UnreadableConfigError);
+  });
+
+  it('requireRecord / requireArray throw on the wrong top-level shape', () => {
+    expect(requireRecord({ a: 1 })).toEqual({ a: 1 });
+    expect(() => requireRecord([])).toThrow(/not a JSON object/);
+    expect(() => requireRecord(null)).toThrow(/not a JSON object/);
+    expect(() => requireRecord('x', 'thing.json')).toThrow(/thing\.json is not a JSON object/);
+    expect(requireArray([1])).toEqual([1]);
+    expect(() => requireArray({})).toThrow(/not a JSON array/);
   });
 });

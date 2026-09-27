@@ -122,3 +122,48 @@ describe('defaultThoughtbaseDir', () => {
     expect(defaultThoughtbaseDir()).toBe(h.paths.documents);
   });
 });
+
+// #2416: `addRecentProject` reads STRICTLY and from disk. A corrupt file used to
+// read as `[]`, and the write replaced it with one entry. It cannot refuse (it
+// runs inside opening a thoughtbase), so it sets the bytes aside instead.
+describe('addRecentProject with an unreadable file (#2416)', () => {
+  const file = () => path.join(h.paths.userData!, 'recent-projects.json');
+
+  it('sets the unreadable file aside byte-identical, then starts a new list', () => {
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const CORRUPT = '["/Users/me/Research", "/Users/me/Work" TRUNCATED';
+    fs.writeFileSync(file(), CORRUPT, 'utf-8');
+
+    addRecentProject('/Users/me/New');
+
+    expect(fs.readFileSync(`${file()}.unreadable`, 'utf-8')).toBe(CORRUPT);
+    expect(JSON.parse(fs.readFileSync(file(), 'utf-8'))).toEqual(['/Users/me/New']);
+    expect(getRecentProjects()).toEqual(['/Users/me/New']);
+    errSpy.mockRestore();
+    warnSpy.mockRestore();
+  });
+
+  it('a top-level object is unreadable too, not an empty list', () => {
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    fs.writeFileSync(file(), '{"a": 1}', 'utf-8');
+    addRecentProject('/Users/me/New');
+    expect(fs.readFileSync(`${file()}.unreadable`, 'utf-8')).toBe('{"a": 1}');
+    errSpy.mockRestore();
+    warnSpy.mockRestore();
+  });
+
+  it('builds on the file on disk, not a stale memo, so an external edit survives', () => {
+    addRecentProject('/Users/me/A');
+    expect(getRecentProjects()).toEqual(['/Users/me/A']); // memo now holds [A]
+    fs.writeFileSync(file(), JSON.stringify(['/Users/me/Edited', '/Users/me/A']), 'utf-8');
+    addRecentProject('/Users/me/B');
+    expect(getRecentProjects()).toEqual(['/Users/me/B', '/Users/me/Edited', '/Users/me/A']);
+  });
+
+  it('overlapping adds all land (synchronous read-to-write, nothing interleaves)', async () => {
+    await Promise.all(['/p/1', '/p/2', '/p/3'].map((p) => Promise.resolve().then(() => addRecentProject(p))));
+    expect(JSON.parse(fs.readFileSync(file(), 'utf-8'))).toEqual(['/p/3', '/p/2', '/p/1']);
+  });
+});

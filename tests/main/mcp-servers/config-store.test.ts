@@ -4,7 +4,7 @@
  * round-trip with no electron mocking needed (unlike the OAuth token store,
  * which lives under `userData/`).
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -149,5 +149,55 @@ describe('removeStoredServer', () => {
     await addStoredServer('A', stdioDescriptor, file);
     await expect(removeStoredServer('nonexistent', file)).resolves.toBeUndefined();
     expect(await getStoredServers(file)).toHaveLength(1);
+  });
+});
+
+// #2416: every mutation reads STRICTLY and runs under the file's lock.
+describe('mutations: corrupt file and overlap (#2416)', () => {
+  const CORRUPT = '{"servers": [{"id": "a", "name": "kept" TRUNCATED';
+
+  async function writeCorrupt(text = CORRUPT): Promise<void> {
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    await fs.writeFile(file, text, 'utf-8');
+  }
+
+  it.each([
+    ['addStoredServer', () => addStoredServer('new', stdioDescriptor, file)],
+    ['updateStoredServer', () => updateStoredServer('a', { name: 'renamed' }, file)],
+    ['setStoredServerEnabled', () => setStoredServerEnabled('a', true, file)],
+    ['removeStoredServer', () => removeStoredServer('a', file)],
+  ])('%s refuses a corrupt file and leaves it byte-identical', async (_name, op) => {
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    await writeCorrupt();
+    await expect(op()).rejects.toThrow(/left untouched/);
+    expect(await fs.readFile(file, 'utf-8')).toBe(CORRUPT);
+    errSpy.mockRestore();
+  });
+
+  it('refuses a file whose "servers" is not an array, rather than reading it as none', async () => {
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const text = '{"servers": {"a": 1}}';
+    await writeCorrupt(text);
+    await expect(addStoredServer('new', stdioDescriptor, file)).rejects.toThrow(/left untouched/);
+    expect(await fs.readFile(file, 'utf-8')).toBe(text);
+    errSpy.mockRestore();
+  });
+
+  it('overlapping adds all land', async () => {
+    await Promise.all([
+      addStoredServer('one', stdioDescriptor, file),
+      addStoredServer('two', httpDescriptor, file),
+      addStoredServer('three', stdioDescriptor, file),
+    ]);
+    expect((await getStoredServers(file)).map((s) => s.name).sort()).toEqual(['one', 'three', 'two']);
+  });
+
+  it('an overlapping enable and rename on different servers both land', async () => {
+    const a = await addStoredServer('a', stdioDescriptor, file);
+    const b = await addStoredServer('b', httpDescriptor, file);
+    await Promise.all([setStoredServerEnabled(a.id, true, file), updateStoredServer(b.id, { name: 'b2' }, file)]);
+    const byId = new Map((await getStoredServers(file)).map((s) => [s.id, s]));
+    expect(byId.get(a.id)?.enabled).toBe(true);
+    expect(byId.get(b.id)?.name).toBe('b2');
   });
 });

@@ -37,9 +37,9 @@ type Phase = 'read' | 'parse' | 'validate';
 /** Consistent, surfaced config failure. Loud (not the old silent swallow) but
  *  non-fatal — a bad config must not crash startup. Exported so a future PR can
  *  route it to a user-facing toast; today it logs with a recognizable prefix. */
-export function reportConfigError(file: string, phase: Phase, err: unknown): void {
+export function reportConfigError(file: string, phase: Phase, err: unknown, consequence = 'using defaults'): void {
   const detail = err instanceof Error ? err.message : String(err);
-  logger('config').error(`failed to ${phase} "${file}": ${detail} — using defaults`);
+  logger('config').error(`failed to ${phase} "${file}": ${detail} — ${consequence}`);
 }
 
 function isENOENT(err: unknown): boolean {
@@ -100,6 +100,88 @@ export function loadConfigFileSync<T>(getPath: () => string, decode: ConfigDecod
   return decodeText(absPath, text, decode, defaults);
 }
 
+// ── Strict loading, for read-modify-write (#2416) ────────────────────────────
+
+/**
+ * Thrown by the strict loaders when a config file exists but cannot be read,
+ * parsed, or decoded. The message names the file and says nothing was written,
+ * because it reaches the user as an IPC rejection; the original error rides
+ * along as `cause`.
+ */
+export class UnreadableConfigError extends Error {
+  constructor(
+    readonly file: string,
+    readonly phase: Phase,
+    cause: unknown,
+  ) {
+    const detail = cause instanceof Error ? cause.message : String(cause);
+    super(`"${file}" could not be ${PHASE_PAST[phase]} (${detail}); it was left untouched. Fix or remove it, then retry.`, { cause });
+    this.name = 'UnreadableConfigError';
+  }
+}
+
+const PHASE_PAST: Record<Phase, string> = { read: 'read', parse: 'parsed', validate: 'validated' };
+const REFUSING = 'refusing to write over it';
+
+function strictDecode<T>(absPath: string, text: string, decode: ConfigDecoder<T>): T {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(text);
+  } catch (err) {
+    reportConfigError(absPath, 'parse', err, REFUSING);
+    throw new UnreadableConfigError(absPath, 'parse', err);
+  }
+  try {
+    return decode(raw);
+  } catch (err) {
+    reportConfigError(absPath, 'validate', err, REFUSING);
+    throw new UnreadableConfigError(absPath, 'validate', err);
+  }
+}
+
+/**
+ * STRICT load, for the read half of a read-modify-write (#2416). Same decoder
+ * as `loadConfigFile`, opposite failure contract:
+ *
+ *   - missing file (ENOENT) → `empty` (nothing saved yet is not an error);
+ *   - unreadable / malformed / structurally wrong → reported, then THROWS
+ *     `UnreadableConfigError`.
+ *
+ * The lenient loader's "corrupt reads as defaults" is right for DISPLAY and
+ * wrong for a WRITE: a write built on those defaults replaces every entry the
+ * file held with just the one being changed (#1891, #2356). A store therefore
+ * reads leniently to show and strictly to mutate, and the decoder must throw
+ * on a wrong top-level shape (an array where an object belongs), or that
+ * clobber gets back in through `decode` instead of `JSON.parse`.
+ *
+ * Takes a plain path, not a thunk: a writer that cannot resolve its path
+ * cannot write either, so there is no quiet fallback to preserve.
+ */
+export async function loadConfigFileStrict<T>(absPath: string, decode: ConfigDecoder<T>, empty: T): Promise<T> {
+  let text: string;
+  try {
+    text = await readFile(absPath, 'utf-8');
+  } catch (err) {
+    if (isENOENT(err)) return clone(empty);
+    reportConfigError(absPath, 'read', err, REFUSING);
+    throw new UnreadableConfigError(absPath, 'read', err);
+  }
+  return strictDecode(absPath, text, decode);
+}
+
+/** Synchronous twin of `loadConfigFileStrict`, for the synchronous stores. */
+export function loadConfigFileStrictSync<T>(absPath: string, decode: ConfigDecoder<T>, empty: T): T {
+  let text: string;
+  try {
+    text = readFileSync(absPath, 'utf-8');
+  } catch (err) {
+    if (isENOENT(err)) return clone(empty);
+    reportConfigError(absPath, 'read', err, REFUSING);
+    throw new UnreadableConfigError(absPath, 'read', err);
+  }
+  return strictDecode(absPath, text, decode);
+}
+
 /** Resolve the path thunk; `null` = couldn't even locate the config (e.g.
  *  `app.getPath` threw with no electron) → caller falls back to defaults. */
 function resolvePath(getPath: () => string): string | null {
@@ -134,6 +216,22 @@ export function asEnum<T extends string>(v: unknown, allowed: readonly T[], fall
  *  reaching into nested config sections. */
 export function asRecord(v: unknown): Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+}
+
+/** `raw` itself as a plain object, or THROW. For a decoder whose file must be an
+ *  object at the top level: `asRecord` would read `[]` or `"x"` as `{}`, which
+ *  the strict loader would then hand to a write as "no entries" (#2416). */
+export function requireRecord(raw: unknown, what = 'config file'): Record<string, unknown> {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+    throw new Error(`${what} is not a JSON object`);
+  }
+  return raw as Record<string, unknown>;
+}
+
+/** `raw` itself as an array, or THROW — the array-rooted twin of `requireRecord`. */
+export function requireArray(raw: unknown, what = 'config file'): unknown[] {
+  if (!Array.isArray(raw)) throw new Error(`${what} is not a JSON array`);
+  return raw;
 }
 
 export function asStringArray(v: unknown, fallback: string[] = []): string[] {

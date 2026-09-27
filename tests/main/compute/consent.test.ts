@@ -146,3 +146,34 @@ describe('compute trust management (#1413)', () => {
     expect(listConsent()).toEqual([]);
   });
 });
+
+// #2416: grant and revoke read STRICTLY. The file holds every thoughtbase's
+// grants; a write built on the lenient "{}" recorded one grant and erased
+// the rest.
+describe('corrupt file is never written over (#2416)', () => {
+  const file = () => path.join(userDataDir, 'compute-consent.json');
+  const CORRUPT = '{"/some/thoughtbase": {"blanket": true, "cells": [ TRUNCATED';
+
+  it.each([
+    ['grantConsent (cell)', () => grantConsent(PROJECT, 'python', 'print(1)', 'cell')],
+    ['grantConsent (project)', () => grantConsent(OTHER, 'python', 'print(1)', 'project')],
+    ['revokeConsent', () => revokeConsent(PROJECT)],
+  ])('%s refuses and leaves the file byte-identical', (_name, op) => {
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    fs.writeFileSync(file(), CORRUPT, 'utf-8');
+    expect(op).toThrow(/left untouched/);
+    expect(fs.readFileSync(file(), 'utf-8')).toBe(CORRUPT);
+    // …and the check still fails safe: nothing is consented.
+    expect(consentStatus(PROJECT, 'python', 'print(1)')).toBe('none');
+    errSpy.mockRestore();
+  });
+
+  it('overlapping grants for different thoughtbases all land', async () => {
+    await Promise.all([
+      Promise.resolve().then(() => grantConsent(PROJECT, 'python', 'print(1)', 'cell')),
+      Promise.resolve().then(() => grantConsent(OTHER, 'python', 'print(2)', 'project')),
+    ]);
+    expect(consentStatus(PROJECT, 'python', 'print(1)')).toBe('cell');
+    expect(consentStatus(OTHER, 'sql', 'anything')).toBe('blanket');
+  });
+});

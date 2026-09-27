@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   create,
+  appendMessage,
   setModel,
   load,
 } from '../../../src/main/llm/conversation';
@@ -103,5 +104,34 @@ describe('conversation transcripts are written atomically (#2369)', () => {
 
     expect(fs.readFileSync(file, 'utf-8')).toBe(before);
     expect((await load(root, conv.id))?.model).toBe('claude-opus-4-7');
+  });
+});
+
+// #2416: every transcript mutation is load → change → persist, serialized per
+// conversation, so overlapping calls on one transcript all land.
+describe('conversation mutations: overlap and corrupt transcript (#2416)', () => {
+  const project = useGraphProject('minerva-conv-lock-test-');
+
+  it('an overlapping setModel and appendMessage both land', async () => {
+    const conv = await create(project.root, { notePath: 'x.md' });
+    await Promise.all([
+      appendMessage(project.root, conv.id, 'user', 'hello'),
+      setModel(project.root, conv.id, 'claude-opus-4-7'),
+      appendMessage(project.root, conv.id, 'assistant', 'hi'),
+    ]);
+    const reloaded = await load(project.root, conv.id);
+    expect(reloaded?.model).toBe('claude-opus-4-7');
+    expect(reloaded?.messages.map((m) => m.content)).toEqual(['hello', 'hi']);
+  });
+
+  it('a mutation on a corrupt transcript throws and leaves it byte-identical', async () => {
+    const conv = await create(project.root, { notePath: 'x.md' });
+    const file = path.join(project.root, '.minerva', 'conversations', `${conv.id}.json`);
+    expect(fs.existsSync(file)).toBe(true);
+    const CORRUPT = '{"id": "x", "messages": [ TRUNCATED';
+    fs.writeFileSync(file, CORRUPT, 'utf-8');
+    await expect(appendMessage(project.root, conv.id, 'user', 'hello')).rejects.toThrow(/not found/);
+    await expect(setModel(project.root, conv.id, 'claude-opus-4-7')).rejects.toThrow(/not found/);
+    expect(fs.readFileSync(file, 'utf-8')).toBe(CORRUPT);
   });
 });

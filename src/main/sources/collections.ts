@@ -12,15 +12,23 @@
  * "list members of X" trivial). Mutations are read-modify-write of
  * the whole file — collections per project are typically O(10–50),
  * so we don't need any of the contortions a graph-resident store
- * would have imposed.
+ * would have imposed. Each one runs under the file's lock
+ * (`withFileLock`, #2416): dragging two sources into collections in
+ * quick succession is two overlapping IPC calls, and unserialized, the
+ * second write dropped the first source.
+ *
+ * Reads are strict everywhere, display included: a corrupt file throws
+ * (reported via `reportConfigError`) rather than reading as empty, so a
+ * mutation can never write an empty list over it.
  *
  * Smart collections (#470 phase 2) will live in the same file later,
  * with a separate top-level array — the manual side will not need to
  * change.
  */
 
-import fs from 'node:fs/promises';
 import path from 'node:path';
+import { loadConfigFileStrict, requireRecord } from '../config/config-store';
+import { withFileLock } from '../config/file-lock';
 import { writeJsonFileAtomic } from '../config/json-file';
 import type { SmartCollection, SmartCollectionPredicate, ReadStatus } from '../../shared/types';
 
@@ -72,41 +80,51 @@ function parsePredicate(value: unknown): SmartCollectionPredicate | null {
   return null;
 }
 
+function decodeCollections(raw: unknown): CollectionsFile {
+  const parsed = requireRecord(raw, 'collections.json') as Partial<CollectionsFile>;
+  const collections = Array.isArray(parsed.collections) ? parsed.collections : [];
+  const smartCollections = Array.isArray(parsed.smartCollections) ? parsed.smartCollections : [];
+  return {
+    // Defensive: any record with a missing field falls through to safe defaults.
+    collections: collections.map((c) => ({
+      id: String(c.id ?? ''),
+      name: String(c.name ?? ''),
+      parent: c.parent == null ? null : String(c.parent),
+      members: Array.isArray(c.members) ? c.members.map((m) => String(m)) : [],
+    })).filter((c) => c.id),
+    smartCollections: smartCollections.map((s) => {
+      const predicate = parsePredicate(s.predicate);
+      if (!predicate) return null;
+      const id = String(s.id ?? '');
+      if (!id) return null;
+      return { id, name: String(s.name ?? id), predicate };
+    }).filter((s): s is SmartCollection => s !== null),
+  };
+}
+
+/** Missing file → empty; unreadable, malformed, or not an object → throws. */
 export async function loadCollections(rootPath: string): Promise<CollectionsFile> {
-  try {
-    const raw = await fs.readFile(filePath(rootPath), 'utf-8');
-    const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== 'object') return emptyFile();
-    const collections = Array.isArray((parsed as CollectionsFile).collections)
-      ? (parsed as CollectionsFile).collections
-      : [];
-    const smartCollections = Array.isArray((parsed as CollectionsFile).smartCollections)
-      ? (parsed as CollectionsFile).smartCollections
-      : [];
-    return {
-      // Defensive: any record with a missing field falls through to safe defaults.
-      collections: collections.map((c) => ({
-        id: String(c.id ?? ''),
-        name: String(c.name ?? ''),
-        parent: c.parent == null ? null : String(c.parent),
-        members: Array.isArray(c.members) ? c.members.map((m) => String(m)) : [],
-      })).filter((c) => c.id),
-      smartCollections: smartCollections.map((s) => {
-        const predicate = parsePredicate(s.predicate);
-        if (!predicate) return null;
-        const id = String(s.id ?? '');
-        if (!id) return null;
-        return { id, name: String(s.name ?? id), predicate };
-      }).filter((s): s is SmartCollection => s !== null),
-    };
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return emptyFile();
-    throw err;
-  }
+  return loadConfigFileStrict(filePath(rootPath), decodeCollections, emptyFile());
 }
 
 async function saveCollections(rootPath: string, data: CollectionsFile): Promise<void> {
   await writeJsonFileAtomic(filePath(rootPath), data);
+}
+
+/**
+ * Every mutation's read-modify-write, under the file's lock. `fn` edits `data`
+ * in place and returns whether to write, plus its result.
+ */
+function mutate<T>(
+  rootPath: string,
+  fn: (data: CollectionsFile) => { write: boolean; result: T },
+): Promise<T> {
+  return withFileLock(filePath(rootPath), async () => {
+    const data = await loadCollections(rootPath);
+    const { write, result } = fn(data);
+    if (write) await saveCollections(rootPath, data);
+    return result;
+  });
 }
 
 /**
@@ -146,29 +164,30 @@ export interface CreateCollectionArgs {
 export async function createCollection(rootPath: string, args: CreateCollectionArgs): Promise<Collection> {
   const trimmed = args.name.trim();
   if (!trimmed) throw new Error('Collection name cannot be empty.');
-  const data = await loadCollections(rootPath);
-  if (args.parent && !data.collections.some((c) => c.id === args.parent)) {
-    throw new Error(`Parent collection "${args.parent}" not found.`);
-  }
-  const collection: Collection = {
-    id: uniqueIdFor(trimmed, takenIds(data)),
-    name: trimmed,
-    parent: args.parent ?? null,
-    members: [],
-  };
-  data.collections.push(collection);
-  await saveCollections(rootPath, data);
-  return collection;
+  return mutate(rootPath, (data) => {
+    if (args.parent && !data.collections.some((c) => c.id === args.parent)) {
+      throw new Error(`Parent collection "${args.parent}" not found.`);
+    }
+    const collection: Collection = {
+      id: uniqueIdFor(trimmed, takenIds(data)),
+      name: trimmed,
+      parent: args.parent ?? null,
+      members: [],
+    };
+    data.collections.push(collection);
+    return { write: true, result: collection };
+  });
 }
 
 export async function renameCollection(rootPath: string, id: string, newName: string): Promise<void> {
   const trimmed = newName.trim();
   if (!trimmed) throw new Error('Collection name cannot be empty.');
-  const data = await loadCollections(rootPath);
-  const target = data.collections.find((c) => c.id === id);
-  if (!target) throw new Error(`Collection "${id}" not found.`);
-  target.name = trimmed;
-  await saveCollections(rootPath, data);
+  await mutate(rootPath, (data) => {
+    const target = data.collections.find((c) => c.id === id);
+    if (!target) throw new Error(`Collection "${id}" not found.`);
+    target.name = trimmed;
+    return { write: true, result: undefined };
+  });
 }
 
 /**
@@ -179,15 +198,16 @@ export async function renameCollection(rootPath: string, id: string, newName: st
  * that disappears.
  */
 export async function deleteCollection(rootPath: string, id: string): Promise<void> {
-  const data = await loadCollections(rootPath);
-  const before = data.collections.length;
-  data.collections = data.collections
-    .filter((c) => c.id !== id)
-    .map((c) => (c.parent === id ? { ...c, parent: null } : c));
-  if (data.collections.length === before) {
-    throw new Error(`Collection "${id}" not found.`);
-  }
-  await saveCollections(rootPath, data);
+  await mutate(rootPath, (data) => {
+    const before = data.collections.length;
+    data.collections = data.collections
+      .filter((c) => c.id !== id)
+      .map((c) => (c.parent === id ? { ...c, parent: null } : c));
+    if (data.collections.length === before) {
+      throw new Error(`Collection "${id}" not found.`);
+    }
+    return { write: true, result: undefined };
+  });
 }
 
 export async function addSourceToCollection(
@@ -195,13 +215,13 @@ export async function addSourceToCollection(
   collectionId: string,
   sourceId: string,
 ): Promise<void> {
-  const data = await loadCollections(rootPath);
-  const target = data.collections.find((c) => c.id === collectionId);
-  if (!target) throw new Error(`Collection "${collectionId}" not found.`);
-  if (!target.members.includes(sourceId)) {
+  await mutate(rootPath, (data) => {
+    const target = data.collections.find((c) => c.id === collectionId);
+    if (!target) throw new Error(`Collection "${collectionId}" not found.`);
+    if (target.members.includes(sourceId)) return { write: false, result: undefined };
     target.members.push(sourceId);
-    await saveCollections(rootPath, data);
-  }
+    return { write: true, result: undefined };
+  });
 }
 
 export async function removeSourceFromCollection(
@@ -209,14 +229,14 @@ export async function removeSourceFromCollection(
   collectionId: string,
   sourceId: string,
 ): Promise<void> {
-  const data = await loadCollections(rootPath);
-  const target = data.collections.find((c) => c.id === collectionId);
-  if (!target) throw new Error(`Collection "${collectionId}" not found.`);
-  const idx = target.members.indexOf(sourceId);
-  if (idx >= 0) {
+  await mutate(rootPath, (data) => {
+    const target = data.collections.find((c) => c.id === collectionId);
+    if (!target) throw new Error(`Collection "${collectionId}" not found.`);
+    const idx = target.members.indexOf(sourceId);
+    if (idx < 0) return { write: false, result: undefined };
     target.members.splice(idx, 1);
-    await saveCollections(rootPath, data);
-  }
+    return { write: true, result: undefined };
+  });
 }
 
 /**
@@ -225,14 +245,15 @@ export async function removeSourceFromCollection(
  * removed source doesn't linger as a dead entry forever.
  */
 export async function scrubSourceFromCollections(rootPath: string, sourceId: string): Promise<void> {
-  const data = await loadCollections(rootPath);
-  let mutated = false;
-  for (const c of data.collections) {
-    const before = c.members.length;
-    c.members = c.members.filter((id) => id !== sourceId);
-    if (c.members.length !== before) mutated = true;
-  }
-  if (mutated) await saveCollections(rootPath, data);
+  await mutate(rootPath, (data) => {
+    let mutated = false;
+    for (const c of data.collections) {
+      const before = c.members.length;
+      c.members = c.members.filter((id) => id !== sourceId);
+      if (c.members.length !== before) mutated = true;
+    }
+    return { write: mutated, result: undefined };
+  });
 }
 
 /**
@@ -249,16 +270,17 @@ export async function rewriteCollectionMemberships(
   destId: string,
 ): Promise<void> {
   if (srcId === destId) return;
-  const data = await loadCollections(rootPath);
-  let mutated = false;
-  for (const c of data.collections) {
-    const hasSrc = c.members.includes(srcId);
-    if (!hasSrc) continue;
-    c.members = c.members.filter((id) => id !== srcId);
-    if (!c.members.includes(destId)) c.members.push(destId);
-    mutated = true;
-  }
-  if (mutated) await saveCollections(rootPath, data);
+  await mutate(rootPath, (data) => {
+    let mutated = false;
+    for (const c of data.collections) {
+      const hasSrc = c.members.includes(srcId);
+      if (!hasSrc) continue;
+      c.members = c.members.filter((id) => id !== srcId);
+      if (!c.members.includes(destId)) c.members.push(destId);
+      mutated = true;
+    }
+    return { write: mutated, result: undefined };
+  });
 }
 
 // ─── Smart collections (#470 phase 2) ────────────────────────────────────
@@ -275,35 +297,37 @@ export async function createSmartCollection(
   const trimmed = args.name.trim();
   if (!trimmed) throw new Error('Smart collection name cannot be empty.');
   validatePredicate(args.predicate);
-  const data = await loadCollections(rootPath);
-  const smart: SmartCollection = {
-    id: uniqueIdFor(trimmed, takenIds(data)),
-    name: trimmed,
-    predicate: args.predicate,
-  };
-  data.smartCollections.push(smart);
-  await saveCollections(rootPath, data);
-  return smart;
+  return mutate(rootPath, (data) => {
+    const smart: SmartCollection = {
+      id: uniqueIdFor(trimmed, takenIds(data)),
+      name: trimmed,
+      predicate: args.predicate,
+    };
+    data.smartCollections.push(smart);
+    return { write: true, result: smart };
+  });
 }
 
 export async function renameSmartCollection(rootPath: string, id: string, newName: string): Promise<void> {
   const trimmed = newName.trim();
   if (!trimmed) throw new Error('Smart collection name cannot be empty.');
-  const data = await loadCollections(rootPath);
-  const target = data.smartCollections.find((s) => s.id === id);
-  if (!target) throw new Error(`Smart collection "${id}" not found.`);
-  target.name = trimmed;
-  await saveCollections(rootPath, data);
+  await mutate(rootPath, (data) => {
+    const target = data.smartCollections.find((s) => s.id === id);
+    if (!target) throw new Error(`Smart collection "${id}" not found.`);
+    target.name = trimmed;
+    return { write: true, result: undefined };
+  });
 }
 
 export async function deleteSmartCollection(rootPath: string, id: string): Promise<void> {
-  const data = await loadCollections(rootPath);
-  const before = data.smartCollections.length;
-  data.smartCollections = data.smartCollections.filter((s) => s.id !== id);
-  if (data.smartCollections.length === before) {
-    throw new Error(`Smart collection "${id}" not found.`);
-  }
-  await saveCollections(rootPath, data);
+  await mutate(rootPath, (data) => {
+    const before = data.smartCollections.length;
+    data.smartCollections = data.smartCollections.filter((s) => s.id !== id);
+    if (data.smartCollections.length === before) {
+      throw new Error(`Smart collection "${id}" not found.`);
+    }
+    return { write: true, result: undefined };
+  });
 }
 
 export async function updateSmartCollectionPredicate(
@@ -312,11 +336,12 @@ export async function updateSmartCollectionPredicate(
   predicate: SmartCollectionPredicate,
 ): Promise<void> {
   validatePredicate(predicate);
-  const data = await loadCollections(rootPath);
-  const target = data.smartCollections.find((s) => s.id === id);
-  if (!target) throw new Error(`Smart collection "${id}" not found.`);
-  target.predicate = predicate;
-  await saveCollections(rootPath, data);
+  await mutate(rootPath, (data) => {
+    const target = data.smartCollections.find((s) => s.id === id);
+    if (!target) throw new Error(`Smart collection "${id}" not found.`);
+    target.predicate = predicate;
+    return { write: true, result: undefined };
+  });
 }
 
 function validatePredicate(p: SmartCollectionPredicate): void {
