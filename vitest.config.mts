@@ -370,11 +370,24 @@ export default defineConfig({
         // shared `as*` decoders every migrated config reads through (#1640),
         // plus `json-file.ts` (#2283): the other read policy, which defaults on
         // ENOENT but rethrows corruption. The two sit together deliberately.
+        // Re-measured with the strict loaders + file lock (#2416): ~95.4 L /
+        // 98 F / 95.9 S / 90.7 B.
         'src/main/config/**': {
           lines: 85,
           functions: 92,
           statements: 86,
           branches: 80,
+        },
+        // file-lock.ts 100/100/100/100 (#2416). Its own floor because the glob
+        // above would carry it at 0%: it is what keeps overlapping
+        // read-modify-writes (mcp-servers, collections, OAuth tokens,
+        // conversation transcripts) from losing an update, and nothing else
+        // fails if it silently stops serializing.
+        'src/main/config/file-lock.ts': {
+          lines: 90,
+          functions: 90,
+          statements: 90,
+          branches: 90,
         },
         // bibliography ~87.5 L / 90.9 F / 85.9 S / 65.6 B.
         'src/main/bibliography/**': {

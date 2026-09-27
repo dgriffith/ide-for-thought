@@ -147,3 +147,39 @@ describe('deleteStoredTokens', () => {
     expect(await getStoredTokens('https://b.example.com/mcp')).not.toBeNull();
   });
 });
+
+// #2416: saves and deletes read STRICTLY. A corrupt file used to read as "no
+// stored tokens", and the save that followed erased every other server's.
+describe('corrupt file is never written over (#2416)', () => {
+  const file = () => path.join(tempDir, 'mcp-oauth-tokens.json');
+  const CORRUPT = '{"https://a.example.com/mcp": {"issuer": "x", TRUNCATED';
+
+  it.each([
+    ['saveStoredTokens', () => saveStoredTokens(record())],
+    ['deleteStoredTokens', () => deleteStoredTokens('https://a.example.com/mcp')],
+  ])('%s refuses and leaves the file byte-identical', async (_name, op) => {
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    fs.writeFileSync(file(), CORRUPT, 'utf-8');
+    await expect(op()).rejects.toThrow(/left untouched/);
+    expect(fs.readFileSync(file(), 'utf-8')).toBe(CORRUPT);
+    errSpy.mockRestore();
+  });
+
+  it('a save leaves another server\'s entry exactly as stored, even one the decoder would drop', async () => {
+    const other = { issuer: 'https://as.example.com', note: 'incomplete, but not ours to delete' };
+    fs.writeFileSync(file(), JSON.stringify({ 'https://other.example.com/mcp': other }), 'utf-8');
+    await saveStoredTokens(record());
+    const onDisk = JSON.parse(fs.readFileSync(file(), 'utf-8'));
+    expect(onDisk['https://other.example.com/mcp']).toEqual(other);
+    expect(onDisk['https://mcp.example.com/mcp'].accessToken).toMatch(/^enc:v1:/);
+  });
+
+  it('overlapping save + delete on different servers both land', async () => {
+    await saveStoredTokens(record({ serverUrl: 'https://gone.example.com/mcp' }));
+    await Promise.all([
+      saveStoredTokens(record({ serverUrl: 'https://new.example.com/mcp' })),
+      deleteStoredTokens('https://gone.example.com/mcp'),
+    ]);
+    expect(Object.keys(JSON.parse(fs.readFileSync(file(), 'utf-8')))).toEqual(['https://new.example.com/mcp']);
+  });
+});

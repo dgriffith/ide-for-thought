@@ -25,7 +25,7 @@ listed here. Adding a config without documenting it fails a test.
 | `inspection-settings.json` | Which graph-health inspections run, plus their staleness thresholds (#1792). |
 | `history-settings.json` | Local note-history retention limits — days, revisions per note, max file size (#1158). |
 | `privileged-sites.json` | Clipper privileged-site list. |
-| `recent-projects.json` | Recently opened thoughtbases. |
+| `recent-projects.json` | Recently opened thoughtbases. An unreadable one is set aside as `recent-projects.json.unreadable` rather than overwritten (#2416). |
 | `session.json` | Window / layout / tab session. |
 | `compute-audit.jsonl` | Append-only audit log of code-cell runs. |
 | `queries/`, `views/` | Saved queries / views at **global** scope. |

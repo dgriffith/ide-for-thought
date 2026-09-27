@@ -301,3 +301,68 @@ describe('openLoginWindow', () => {
     expect(wp.preload).toBeUndefined();
   });
 });
+
+// #2416: every mutation reads STRICTLY. A corrupt file used to read as no
+// sites, and the write that followed replaced it with just the one change.
+describe('corrupt file is never written over (#2416)', () => {
+  const file = () => path.join(h.userData.value, 'privileged-sites.json');
+  const CORRUPT = '{"sites": [{"id": "arxiv.org", "domain": "arxiv.org" TRUNCATED';
+
+  it.each([
+    ['addSite', () => addSite('jstor.org')],
+    ['removeSite', () => removeSite('arxiv.org')],
+  ])('%s refuses and leaves the file byte-identical', async (_name, op) => {
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    fs.writeFileSync(file(), CORRUPT, 'utf-8');
+    await expect(Promise.resolve().then(op)).rejects.toThrow(/left untouched/);
+    expect(fs.readFileSync(file(), 'utf-8')).toBe(CORRUPT);
+    errSpy.mockRestore();
+  });
+
+  it('logoutSite refuses when the file turns unreadable while the partition clears', async () => {
+    addSite('arxiv.org');
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    h.duringClear = () => fs.writeFileSync(file(), CORRUPT, 'utf-8');
+    await expect(logoutSite('arxiv.org')).rejects.toThrow(/left untouched/);
+    expect(fs.readFileSync(file(), 'utf-8')).toBe(CORRUPT);
+    errSpy.mockRestore();
+  });
+
+  it('logoutSite on an already-unreadable file finds no site and writes nothing', async () => {
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    fs.writeFileSync(file(), CORRUPT, 'utf-8');
+    await logoutSite('arxiv.org');
+    expect(fs.readFileSync(file(), 'utf-8')).toBe(CORRUPT);
+    errSpy.mockRestore();
+  });
+
+  it('the login-window close handler skips the timestamp instead of throwing', async () => {
+    addSite('arxiv.org');
+    const done = openLoginWindow('arxiv.org');
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    fs.writeFileSync(file(), CORRUPT, 'utf-8');
+    h.windows[0]!.close();
+    await done;
+    expect(fs.readFileSync(file(), 'utf-8')).toBe(CORRUPT);
+    errSpy.mockRestore();
+    warnSpy.mockRestore();
+  });
+
+  it('a top-level array is refused too, not read as no sites', () => {
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    fs.writeFileSync(file(), '[]', 'utf-8');
+    expect(() => addSite('jstor.org')).toThrow(/left untouched/);
+    expect(fs.readFileSync(file(), 'utf-8')).toBe('[]');
+    errSpy.mockRestore();
+  });
+
+  it('overlapping mutations all land (synchronous read-to-write, nothing interleaves)', async () => {
+    await Promise.all([
+      Promise.resolve().then(() => addSite('arxiv.org')),
+      Promise.resolve().then(() => addSite('jstor.org')),
+      Promise.resolve().then(() => addSite('ssrn.com')),
+    ]);
+    expect(listSites().map((s) => s.id).sort()).toEqual(['arxiv.org', 'jstor.org', 'ssrn.com']);
+  });
+});

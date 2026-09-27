@@ -105,7 +105,6 @@ const BASELINE: Record<string, string> = {
   'src/main/help-docs/corpus-store.ts': 'generated help-docs corpus cache, not user config',
   'src/main/search/minisearch-provider.ts': 'search index cache — corrupt index is rebuilt, not defaulted-and-reported',
   'src/main/saved-views.ts': 'one file per saved view, not a single settings blob — a corrupt view is skipped, not defaulted',
-  'src/main/sources/collections.ts': 'per-project collections data file — same shape question as saved-views, not picked up by #1913',
   'src/main/sources/mine-references.ts': 'unrelated in the same file: reads a note body on one line, JSON.parses a stripped LLM response on another — no config reader here',
   'src/main/compute/rpc-server.ts': 'unrelated in the same file: reads a note body via notebaseFs elsewhere, JSON.parses per-line RPC protocol messages off a socket — no config reader here',
   // Migrated (#1913) but still legitimately touch both patterns elsewhere in

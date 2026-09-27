@@ -6,18 +6,28 @@
  * `userData/`-rooted OAuth token store — this file lives entirely under the
  * user's home directory.
  *
- * Reads go through `loadConfigFile` (`../config/config-store.ts`) so a
- * missing file is silent-defaults and a corrupt one is loud-logged-defaults,
- * per CLAUDE.md's Config files convention. Writes go through
- * `writeJsonFileAtomic` (`../config/json-file.ts`, #2369), so a crash
- * mid-save can't leave a truncated file behind. No write lock:
- * mutations here come from one user in one settings panel, not from several
- * concurrent completions the way OAuth callbacks can.
+ * `getStoredServers` (display, and the registry's connect paths) goes through
+ * `loadConfigFile` (`../config/config-store.ts`), so a missing file is
+ * silent-defaults and a corrupt one is loud-logged-defaults, per CLAUDE.md's
+ * Config files convention. Every mutation reads STRICTLY instead (#2416): built
+ * on those defaults, adding one server would erase the rest, so a corrupt file
+ * makes the mutation throw and stays as it was. Writes go through
+ * `writeJsonFileAtomic` (`../config/json-file.ts`, #2369), so a crash mid-save
+ * can't leave a truncated file behind.
+ *
+ * Mutations are serialized per file (`withFileLock`). This header used to argue
+ * no lock was needed because "mutations here come from one user in one settings
+ * panel". That named who mutates, but the hazard is overlap, and one user
+ * produces overlap: Electron runs each `invoke` handler as it arrives, so two
+ * quick toggles, or the same panel open in two windows, give two
+ * read-modify-writes whose `await`s interleave, and the second write drops the
+ * first. The lock costs nothing when there is no contention.
  */
 import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { asBool, asRecord, asString, asStringArray, loadConfigFile } from '../config/config-store';
+import { asBool, asRecord, asString, asStringArray, loadConfigFile, loadConfigFileStrict, requireRecord } from '../config/config-store';
+import { withFileLock } from '../config/file-lock';
 import { writeJsonFileAtomic } from '../config/json-file';
 import type { McpServerDescriptor, StoredMcpServerConfig } from '../../shared/mcp-servers';
 
@@ -60,7 +70,8 @@ function decodeServer(raw: unknown): StoredMcpServerConfig | null {
 }
 
 function decode(raw: unknown): StoredMcpServerConfig[] {
-  const list = asRecord(raw).servers;
+  const list = requireRecord(raw, 'mcp-servers.json').servers;
+  if (list !== undefined && !Array.isArray(list)) throw new Error('"servers" is not an array');
   return Array.isArray(list)
     ? list.map(decodeServer).filter((s): s is StoredMcpServerConfig => s !== null)
     : [];
@@ -68,41 +79,50 @@ function decode(raw: unknown): StoredMcpServerConfig[] {
 
 /** `file` is injectable for tests (mirrors `menu-config-store.ts`'s
  *  `saveMenuConfig(config, file = menuConfigPath())` convention) — real
- *  callers never pass it. */
+ *  callers never pass it. LENIENT: never build a write from this. */
 export function getStoredServers(file: string = mcpServersConfigPath()): Promise<StoredMcpServerConfig[]> {
   return loadConfigFile(() => file, decode, []);
 }
 
-async function writeStoredServers(servers: StoredMcpServerConfig[], file: string): Promise<void> {
-  await writeJsonFileAtomic(file, { servers }, { trailingNewline: true });
+/**
+ * The one read-modify-write path: strict read, `fn`, atomic write, all under
+ * the file's lock. `fn` returns the list to write, or `null` to write nothing.
+ */
+function mutateServers<T>(
+  file: string,
+  fn: (servers: StoredMcpServerConfig[]) => { next: StoredMcpServerConfig[] | null; result: T },
+): Promise<T> {
+  return withFileLock(file, async () => {
+    const servers = await loadConfigFileStrict(file, decode, []);
+    const { next, result } = fn(servers);
+    if (next) await writeJsonFileAtomic(file, { servers: next }, { trailingNewline: true });
+    return result;
+  });
 }
 
-async function mutateOne(
+function mutateOne(
   id: string,
   fn: (server: StoredMcpServerConfig) => StoredMcpServerConfig,
   file: string,
 ): Promise<StoredMcpServerConfig | null> {
-  const servers = await getStoredServers(file);
-  let updated: StoredMcpServerConfig | null = null;
-  const next = servers.map((s) => {
-    if (s.id !== id) return s;
-    updated = fn(s);
-    return updated;
+  return mutateServers(file, (servers) => {
+    let updated: StoredMcpServerConfig | null = null;
+    const next = servers.map((s) => {
+      if (s.id !== id) return s;
+      updated = fn(s);
+      return updated;
+    });
+    return { next: updated ? next : null, result: updated };
   });
-  if (!updated) return null;
-  await writeStoredServers(next, file);
-  return updated;
 }
 
-export async function addStoredServer(
+export function addStoredServer(
   name: string,
   descriptor: McpServerDescriptor,
   file: string = mcpServersConfigPath(),
 ): Promise<StoredMcpServerConfig> {
   const server: StoredMcpServerConfig = { id: crypto.randomUUID(), name, enabled: false, descriptor };
-  const servers = await getStoredServers(file);
-  await writeStoredServers([...servers, server], file);
-  return server;
+  return mutateServers(file, (servers) => ({ next: [...servers, server], result: server }));
 }
 
 export interface StoredMcpServerPatch {
@@ -126,7 +146,6 @@ export function setStoredServerEnabled(
   return mutateOne(id, (s) => ({ ...s, enabled }), file);
 }
 
-export async function removeStoredServer(id: string, file: string = mcpServersConfigPath()): Promise<void> {
-  const servers = await getStoredServers(file);
-  await writeStoredServers(servers.filter((s) => s.id !== id), file);
+export function removeStoredServer(id: string, file: string = mcpServersConfigPath()): Promise<void> {
+  return mutateServers(file, (servers) => ({ next: servers.filter((s) => s.id !== id), result: undefined }));
 }

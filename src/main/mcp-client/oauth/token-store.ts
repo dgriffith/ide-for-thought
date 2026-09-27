@@ -8,14 +8,17 @@
  * `accessToken`/`refreshToken`/`clientSecret` are encrypted at rest via
  * `src/main/secret-storage.ts` (`enc:v1:`-prefixed, OS-keychain-backed) —
  * the same mechanism `llm/settings.ts` and `clipper/clipper-config.ts`
- * already use. Reads go through `config-store.ts`'s `loadConfigFile`, so a
+ * already use. Lookups go through `config-store.ts`'s `loadConfigFile`, so a
  * corrupt file degrades to "no stored tokens" (loud-logged) rather than
- * crashing a connect attempt. No legacy-format migration is needed — this
- * is a brand-new store.
+ * crashing a connect attempt. Saves and deletes read STRICTLY instead (#2416):
+ * a write built on that "no stored tokens" would erase every other server's
+ * tokens, so a corrupt file makes the write throw and stays as it was. No
+ * legacy-format migration is needed — this is a brand-new store.
  */
 import { app } from 'electron';
 import path from 'node:path';
-import { asFiniteNumber, asRecord, asString, loadConfigFile } from '../../config/config-store';
+import { asFiniteNumber, asRecord, asString, loadConfigFile, loadConfigFileStrict, requireRecord } from '../../config/config-store';
+import { withFileLock } from '../../config/file-lock';
 import { writeJsonFileAtomic } from '../../config/json-file';
 import { decryptSecret, encryptSecret } from '../../secret-storage';
 import type { StoredOAuthRecord } from './types';
@@ -55,9 +58,8 @@ function decodeRecord(raw: unknown, serverUrl: string): StoredOAuthRecord | null
 }
 
 function decode(raw: unknown): StoredOAuthMap {
-  const root = asRecord(raw);
   const out: StoredOAuthMap = {};
-  for (const [serverUrl, value] of Object.entries(root)) {
+  for (const [serverUrl, value] of Object.entries(requireRecord(raw, 'mcp-oauth-tokens.json'))) {
     const record = decodeRecord(value, serverUrl);
     if (record) out[serverUrl] = record;
   }
@@ -66,6 +68,17 @@ function decode(raw: unknown): StoredOAuthMap {
 
 function readAll(): Promise<StoredOAuthMap> {
   return loadConfigFile(tokenStorePath, decode, {});
+}
+
+/**
+ * The file as stored, for a write: every OTHER server's entry goes back to disk
+ * exactly as it was read, still encrypted. Re-encoding from decoded records
+ * would drop any record the decoder rejects, and would write back `''` for any
+ * token the keychain failed to decrypt this time (`decryptSecret` answers `''`
+ * rather than throwing), so one save could quietly lose other servers' tokens.
+ */
+function readStoredForWrite(file: string): Promise<Record<string, unknown>> {
+  return loadConfigFileStrict(file, (raw) => ({ ...requireRecord(raw, 'mcp-oauth-tokens.json') }), {});
 }
 
 function encodeRecord(record: StoredOAuthRecord): Record<string, unknown> {
@@ -83,23 +96,17 @@ function encodeRecord(record: StoredOAuthRecord): Record<string, unknown> {
   return onDisk;
 }
 
-async function writeAll(map: StoredOAuthMap): Promise<void> {
-  const onDisk: Record<string, unknown> = {};
-  for (const [serverUrl, record] of Object.entries(map)) onDisk[serverUrl] = encodeRecord(record);
-  await writeJsonFileAtomic(tokenStorePath(), onDisk);
-}
-
-/** Multiple servers can plausibly finish auth near-simultaneously (e.g. at
- *  app startup) — this in-module chain lock keeps a read-modify-write
- *  sequence from racing and silently dropping one server's token. */
-let chain: Promise<unknown> = Promise.resolve();
-function withLock<T>(fn: () => Promise<T>): Promise<T> {
-  const result = chain.then(fn, fn);
-  chain = result.then(
-    () => undefined,
-    () => undefined,
-  );
-  return result;
+/**
+ * Read-modify-write under the per-file lock (`config/file-lock.ts`). Several
+ * servers can finish auth near-simultaneously (e.g. at app startup), and two
+ * unserialized saves would each write back a map missing the other's token.
+ */
+function mutateStored(fn: (stored: Record<string, unknown>) => boolean): Promise<void> {
+  const file = tokenStorePath();
+  return withFileLock(file, async () => {
+    const stored = await readStoredForWrite(file);
+    if (fn(stored)) await writeJsonFileAtomic(file, stored);
+  });
 }
 
 export async function getStoredTokens(serverUrl: string): Promise<StoredOAuthRecord | null> {
@@ -108,18 +115,16 @@ export async function getStoredTokens(serverUrl: string): Promise<StoredOAuthRec
 }
 
 export function saveStoredTokens(record: StoredOAuthRecord): Promise<void> {
-  return withLock(async () => {
-    const all = await readAll();
-    all[record.serverUrl] = record;
-    await writeAll(all);
+  return mutateStored((stored) => {
+    stored[record.serverUrl] = encodeRecord(record);
+    return true;
   });
 }
 
 export function deleteStoredTokens(serverUrl: string): Promise<void> {
-  return withLock(async () => {
-    const all = await readAll();
-    if (!(serverUrl in all)) return;
-    delete all[serverUrl];
-    await writeAll(all);
+  return mutateStored((stored) => {
+    if (!(serverUrl in stored)) return false;
+    delete stored[serverUrl];
+    return true;
   });
 }
