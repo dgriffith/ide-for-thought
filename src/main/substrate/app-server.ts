@@ -120,6 +120,10 @@ export async function unregisterProject(rootPath: string): Promise<void> {
   }
 }
 
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
 function sendJson(res: http.ServerResponse, status: number, body: SubstrateResponse): void {
   const json = JSON.stringify(body);
   res.writeHead(status, { 'content-type': 'application/json' });
@@ -141,12 +145,21 @@ function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): voi
     }
   });
   req.on('end', () => {
+    // Every path below answers, and nothing escapes as an unhandled rejection
+    // (#2418). A throw outside the dispatch `try` — a JSON `null` body, whose
+    // `.rootPath` read used to throw — left the client's request hanging with
+    // no response and surfaced as an unhandled rejection in the app's main
+    // process. The trailing `.catch` answers 500 if nothing was sent yet.
     void (async () => {
-      let body: Record<string, unknown>;
+      let body: unknown;
       try {
-        body = JSON.parse(Buffer.concat(chunks).toString('utf-8')) as Record<string, unknown>;
+        body = JSON.parse(Buffer.concat(chunks).toString('utf-8'));
       } catch {
         sendJson(res, 400, { ok: false, error: 'invalid JSON body' });
+        return;
+      }
+      if (!isPlainObject(body)) {
+        sendJson(res, 400, { ok: false, error: 'request body must be a JSON object' });
         return;
       }
       const rootPath = typeof body.rootPath === 'string' ? body.rootPath : '';
@@ -158,17 +171,29 @@ function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): voi
         return;
       }
       const op = body.op;
-      const args = (body.args ?? {}) as Record<string, unknown>;
+      const args = isPlainObject(body.args) ? body.args : {};
       dispatchedCount++;
+      let response: SubstrateResponse;
       try {
-        sendJson(res, 200, await dispatch(entry.ctx, op, args));
+        response = await dispatch(entry.ctx, op, args);
       } catch (err) {
         // Handler failures ride in the body (like the Engine's ExecResult), not
         // the HTTP status — 200 means "the app processed it", ok:false means the
         // op failed.
-        sendJson(res, 200, { ok: false, error: err instanceof Error ? err.message : String(err) });
+        response = { ok: false, error: err instanceof Error ? err.message : String(err) };
       }
-    })();
+      // Outside the try on purpose: a response that fails to serialize is a
+      // server fault (500 below), not the op's failure dressed up as one.
+      sendJson(res, 200, response);
+    })().catch((err: unknown) => {
+      logger('substrate').error('request handling failed:', err);
+      try {
+        if (!res.headersSent) res.writeHead(500);
+        res.end();
+      } catch {
+        /* connection already gone */
+      }
+    });
   });
 }
 
