@@ -180,4 +180,27 @@ describe('route-through-app (#1524)', () => {
     expect(appServer._dispatchedCountForTest()).toBe(before);
     expect(r.ok).toBe(true);
   });
+
+  // #2418: a body that parses but isn't an object used to throw on `.rootPath`
+  // outside the dispatch try — no response (the client hung) and an unhandled
+  // rejection in the app's main process.
+  it.each([['null'], ['[]'], ['42'], ['"x"']])('answers a %s body with 400 instead of hanging', async (raw) => {
+    const vault = mkVault('badbody');
+    const ctx = projectContext(vault);
+    await graph.initGraph(ctx);
+    await appServer.registerProject(ctx);
+    cleanups.push(() => appServer.unregisterProject(vault));
+    const port = appServer._listeningPortForTest();
+
+    const before = appServer._dispatchedCountForTest();
+    const res = await fetch(`http://127.0.0.1:${port}/rpc`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: raw,
+      signal: AbortSignal.timeout(3000),
+    });
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { ok: boolean }).ok).toBe(false);
+    expect(appServer._dispatchedCountForTest()).toBe(before);
+  });
 });
