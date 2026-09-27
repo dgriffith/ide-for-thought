@@ -1,8 +1,10 @@
 # Codecov configuration (#1096 / QA H4).
 #
-# Purpose: TREND + per-PR coverage-delta VISIBILITY, not gating. The hard gate
-# stays the per-area floors in `vitest.config.mts` (enforced by `pnpm coverage`
-# in ci.yml, which fails the build on a floor breach). Codecov never blocks a
+# Purpose: TREND VISIBILITY, not gating. The hard gate stays the per-area
+# floors in `vitest.config.mts` (enforced by `pnpm coverage` in ci.yml, which
+# fails the build on a floor breach). Since #2359 coverage runs — and uploads —
+# on pushes to main only, so this reports per-commit trend on main rather than
+# a per-PR delta. Codecov never blocks a
 # PR here — it surfaces erosion that happens *within the headroom above* the
 # floors, which the pass/fail floors can't see.
 #

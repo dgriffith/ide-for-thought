@@ -38,7 +38,12 @@ export default defineConfig({
     // reckless here, and vitest's own hint puts it at ~14s of a ~9-minute run
     // anyway.
     //
-    // `pnpm coverage` is the PR critical path. Measured on CI run 35775982191
+    // UPDATE (#2359): PRs now run plain `pnpm test`; `pnpm coverage` (and so
+    // every floor below) gates pushes to main only. The trigger below fired —
+    // the step reached 686s on 2026-09-27 — and this is the "trim what the
+    // step does" option it names. The history is kept for the next revisit.
+    //
+    // `pnpm coverage` was the PR critical path. Measured on CI run 35775982191
     // (2026-09-22): `lint-and-test` 801s total, of which "Test + coverage" is
     // 568s — 71%. `ci.yml`'s three jobs have no `needs:` edges and run in
     // parallel (audit 13s, e2e 239s), so PR latency IS this job. Two days

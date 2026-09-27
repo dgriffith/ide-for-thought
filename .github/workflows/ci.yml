@@ -47,7 +47,9 @@ concurrency:
 jobs:
   lint-and-test:
     runs-on: macos-latest
-    timeout-minutes: 20
+    # 30, not 20 (#2359): main's `pnpm coverage` alone was 686s by 2026-09-27
+    # and the job 938s — 78% of the old limit, and growing ~35% in 3 weeks.
+    timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -128,14 +130,27 @@ jobs:
       # regress (#679). The citeproc publish suites carry per-test timeouts
       # (#677) that absorb the instrumentation slowdown.
       #
-      # This step is ~71% of the PR critical path and the slowest thing in CI
-      # (#2248). Sharding it was considered and deferred — vitest's
+      # PRs run plain `pnpm test`; the instrumented run + floors gate MAIN only
+      # (#2359). Coverage was ~71% of the PR critical path (686s by 2026-09-27),
+      # and the plain suite is a fraction of it. The cost is that a floor breach
+      # surfaces on the main run after merge instead of on the PR — acceptable
+      # only because main runs are never cancelled (#2352), so every merge gets
+      # that verdict. `coverage-floor-enrollment.test.ts` pins that main still
+      # runs this step: losing it would leave every floor below unenforced.
+      # Want the numbers on a PR? Run `pnpm coverage` locally.
+      #
+      # Sharding was considered and deferred (#2248) — vitest's
       # `--mergeReports` merges test results but NOT coverage, so it would mean
       # re-implementing this repo's per-glob threshold map outside vitest. The
       # measurement, the verification, and the revisit trigger are recorded at
       # the top of `vitest.config.mts`'s `test:` block; read that before
       # optimising this step.
+      - name: Test
+        if: github.event_name == 'pull_request'
+        run: pnpm test
+
       - name: Test + coverage
+        if: github.event_name != 'pull_request'
         run: pnpm coverage
 
       # Trend + per-PR coverage-delta visibility (#1096 / QA H4); tuned by
@@ -144,6 +159,7 @@ jobs:
       # Non-fatal so CI isn't blocked before the repo is enrolled / CODECOV_TOKEN
       # is set; the upload + PR comment activate automatically once it is.
       - name: Upload coverage to Codecov
+        if: github.event_name != 'pull_request'
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           files: ./coverage/lcov.info

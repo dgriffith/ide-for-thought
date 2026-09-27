@@ -41,6 +41,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parse } from 'yaml';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const VITEST_CONFIG = 'vitest.config.mts';
@@ -121,5 +122,39 @@ describe('coverage-floor enrollment (#2239)', () => {
         'every existing one does — the next person to touch it needs to know whether the ' +
         'floor is close to the real number or far below it.',
     ).toEqual([]);
+  });
+});
+
+/**
+ * The floors above only mean something if CI runs them (#2359).
+ *
+ * PRs run plain `pnpm test` to keep latency down; `pnpm coverage` — the only
+ * thing that evaluates `thresholds` — runs on pushes to main. That makes the
+ * main-branch step load-bearing in a way nothing else checks: drop it, or
+ * narrow its `if:` to pull_request by mistake, and every floor in
+ * vitest.config.mts stops being enforced anywhere, silently and green.
+ */
+describe('coverage floors are enforced in CI (#2359)', () => {
+  type Step = { name?: string; if?: string; run?: string };
+  const steps = (): Step[] => {
+    const ci = parse(readFileSync(path.join(ROOT, '.github', 'workflows', 'ci.yml'), 'utf-8')) as {
+      on: { push?: { branches?: string[] } };
+      jobs: Record<string, { steps?: Step[] }>;
+    };
+    expect(ci.on.push?.branches, 'ci.yml must run on push to main').toContain('main');
+    return Object.values(ci.jobs).flatMap((j) => j.steps ?? []);
+  };
+
+  it('a step runs `pnpm coverage` on pushes (not only on pull_request)', () => {
+    const coverage = steps().filter((s) => /\bpnpm coverage\b/.test(s.run ?? ''));
+    expect(coverage.length, 'no ci.yml step runs `pnpm coverage` — no floor is enforced').toBeGreaterThan(0);
+    const onPush = coverage.filter((s) => {
+      const cond = (s.if ?? '').replace(/\s+/g, '');
+      return cond === '' || cond === "github.event_name!='pull_request'";
+    });
+    expect(
+      onPush.map((s) => s.name),
+      "`pnpm coverage` must run unconditionally or under `github.event_name != 'pull_request'`",
+    ).not.toEqual([]);
   });
 });
