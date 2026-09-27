@@ -30,6 +30,12 @@ vi.mock('electron', () => ({
   },
 }));
 
+vi.mock('../../../src/main/config/config-store', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../src/main/config/config-store')>();
+  return { ...actual, reportConfigError: vi.fn() };
+});
+
+import { reportConfigError } from '../../../src/main/config/config-store';
 import {
   getClipperConfig,
   setClipperEnabled,
@@ -39,6 +45,7 @@ import {
 } from '../../../src/main/clipper/clipper-config';
 
 beforeEach(() => {
+  vi.mocked(reportConfigError).mockClear();
   tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-clipper-cfg-'));
 });
 afterEach(() => {
@@ -115,4 +122,17 @@ it('re-encrypts a legacy plaintext secret on read, before any write (#1642)', as
   expect((JSON.parse(fs.readFileSync(file, 'utf-8')).secret as string).startsWith('enc:v1:')).toBe(true);
   // …and the caller keeps seeing the usable plaintext secret afterwards.
   expect((await getClipperConfig()).secret).toBe(legacy);
+});
+
+it('a corrupt file is reported (not swallowed) and reads as defaults (#2356)', async () => {
+  const file = path.join(tempDir, 'clipper-config.json');
+  fs.writeFileSync(file, '{not json');
+  expect(await getClipperConfig()).toEqual(DEFAULT_CLIPPER_CONFIG);
+  expect(reportConfigError).toHaveBeenCalledWith(file, 'read', expect.anything());
+});
+
+it('a missing file is silent, and saves are atomic (no temp file left) (#2356)', async () => {
+  await setClipperEnabled(true);
+  expect(reportConfigError).not.toHaveBeenCalled();
+  expect(fs.readdirSync(tempDir)).toEqual(['clipper-config.json']);
 });

@@ -88,7 +88,10 @@ const BASELINE: Record<string, string> = {
   // Already tracked as hand-rolled in CLAUDE.md's "Config files" section —
   // migrate there, not here, when picked up.
   'src/main/clipper/clipper-config.ts': 'CLAUDE.md-tracked hand-rolled config (decrypt + lazy secret upgrade)',
-  'src/main/llm/settings.ts': 'CLAUDE.md-tracked hand-rolled config (nested providers/models)',
+  // Deliberate exception (#2356), same reason as project-config-store: the
+  // read-modify-write reader for stored API keys must THROW on corruption, or
+  // saveSettings writes over a silently-emptied `{}` and erases every key.
+  'src/main/llm/settings.ts': 'must throw on corruption for read-modify-write (#2356, the #1891 clobber shape for API keys) — incompatible with loadConfigFile\'s never-throw contract',
   'src/main/skills/menu-config-store.ts': 'CLAUDE.md-tracked hand-rolled config (menu-config-store)',
   // Not config in the #1640 sense: read-only helper, or a cache/log/per-item
   // data file where "corrupt → report + default" isn't the right model.
