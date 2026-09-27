@@ -58,7 +58,7 @@ import type {
 import type { InspectionSettings, Inspection } from './inspections';
 import type { ClipperState } from './clipper-pairing';
 import type { McpServerDescriptor, McpServerStatus } from './mcp-servers';
-import type { Proposal } from './proposals';
+import type { Proposal, ProposalApproveResult, ProposalRejectResult } from './proposals';
 import type { BatchRevertResult, HistorySettings, LabelNotesResult, RevisionMeta, SelectionRoot, UnifiedTimelineEntry } from './history';
 import type { CellResult, CellOutput, ComputeConsentSummary, PythonProbeResult, PythonSettings } from './compute/types';
 import type { AutoLinkSuggestion } from './refactor/auto-link';
@@ -574,8 +574,8 @@ export interface ChannelMap {
   // Proposals (approval engine)
   'proposal:list': (status?: string) => Proposal[];
   'proposal:detail': (uri: string) => Proposal | null;
-  'proposal:approve': (uri: string) => boolean;
-  'proposal:reject': (uri: string) => boolean;
+  'proposal:approve': (uri: string) => ProposalApproveResult;
+  'proposal:reject': (uri: string) => ProposalRejectResult;
   'proposal:expire': () => number;
   'proposals:notifyArrival': (arg: { count: number; proposer: string }) => void;
 

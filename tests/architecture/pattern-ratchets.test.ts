@@ -269,7 +269,7 @@ const BOOLEAN_OVERLOAD = /withRootPathOr[^(]*\(\s*(?:false|true|0|1)\s*[,)]/g;
 
 const BOOLEAN_OVERLOAD_BASELINE: Record<string, number> = {
   'src/main/ipc/register-notebase.ts': 1,
-  'src/main/ipc/register-proposals.ts': 3,
+  'src/main/ipc/register-proposals.ts': 1,
 };
 
 // ── Ratchet 4: no-project answered with undefined ───────────────────────────

@@ -10,7 +10,8 @@ import { Channels } from '../../shared/channels';
 import { broadcast } from './broadcast';
 import * as approval from '../llm/approval';
 import type { Proposal } from '../llm/approval';
-import { projectContext } from '../project-context-types';
+import type { ProposalApproveResult, ProposalDecisionFailure, ProposalRejectResult } from '../../shared/proposals';
+import { projectContext, type ProjectContext } from '../project-context-types';
 import { withRootPath, withRootPathOr, winFromEvent } from './helpers';
 import { handle } from './typed-ipc';
 
@@ -21,12 +22,21 @@ export function registerProposals(): void {
   // "No project open" throws instead of folding into the same `null` (#1841).
   handle(Channels.PROPOSAL_DETAIL, withRootPath((rootPath, uri: string) =>
     approval.getProposal(projectContext(rootPath), uri)));
-  handle(Channels.PROPOSAL_APPROVE, withRootPathOr<[string], boolean | Promise<boolean>>(false, async (rootPath, uri: string) => {
-    const result = await approval.approveProposal(projectContext(rootPath), uri);
-    return result.ok;
+  // Approve / reject (#2362): "no project open" throws (`withRootPath`), and an
+  // expected refusal — no proposal at that URI, or one already resolved —
+  // comes back as `{ ok: false, reason }` rather than a bare `false` that also
+  // meant "no project". An apply that fails outright still throws.
+  handle(Channels.PROPOSAL_APPROVE, withRootPath(async (rootPath, uri: string): Promise<ProposalApproveResult> => {
+    const ctx = projectContext(rootPath);
+    const result = await approval.approveProposal(ctx, uri);
+    if (result.ok) return { ok: true, filedPaths: result.filedPaths, rewrittenPaths: result.rewrittenPaths };
+    return whyNotDecided(ctx, uri);
   }));
-  handle(Channels.PROPOSAL_REJECT, withRootPathOr<[string], boolean | Promise<boolean>>(false, (rootPath, uri: string) =>
-    approval.rejectProposal(projectContext(rootPath), uri)));
+  handle(Channels.PROPOSAL_REJECT, withRootPath(async (rootPath, uri: string): Promise<ProposalRejectResult> => {
+    const ctx = projectContext(rootPath);
+    if (await approval.rejectProposal(ctx, uri)) return { ok: true };
+    return whyNotDecided(ctx, uri);
+  }));
   handle(Channels.PROPOSAL_EXPIRE, withRootPathOr<[], number | Promise<number>>(0, (rootPath) =>
     approval.expireProposals(projectContext(rootPath))));
 
@@ -50,4 +60,16 @@ export function registerProposals(): void {
     });
     notice.show();
   });
+}
+
+/**
+ * Classify an approve/reject the engine declined. `approveProposal` /
+ * `rejectProposal` answer only "not decided" (they refuse exactly when the
+ * proposal is missing or no longer pending), so re-read it to say which — the
+ * reviewer sees "already rejected" instead of a guess (#2362).
+ */
+async function whyNotDecided(ctx: ProjectContext, uri: string): Promise<ProposalDecisionFailure> {
+  const proposal = await approval.getProposal(ctx, uri);
+  if (!proposal) return { ok: false, reason: 'not-found' };
+  return { ok: false, reason: 'not-pending', status: proposal.status };
 }

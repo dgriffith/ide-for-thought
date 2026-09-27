@@ -135,7 +135,7 @@ describe('register-proposals (#1523) — the approval gate IPC surface', () => {
       const proposal = await fileClaim();
       expect(await claimInGraph(project.ctx)).toBe(false);
 
-      await expect(call(Channels.PROPOSAL_APPROVE, proposal.uri)).resolves.toBe(true);
+      await expect(call(Channels.PROPOSAL_APPROVE, proposal.uri)).resolves.toEqual({ ok: true, filedPaths: [], rewrittenPaths: [] });
 
       expect(await claimInGraph(project.ctx)).toBe(true);
       expect((await getProposal(project.ctx, proposal.uri))!.status).toBe('approved');
@@ -154,17 +154,19 @@ describe('register-proposals (#1523) — the approval gate IPC surface', () => {
     it('rejecting applies nothing — the payload never reaches the graph', async () => {
       const proposal = await fileClaim();
 
-      await expect(call(Channels.PROPOSAL_REJECT, proposal.uri)).resolves.toBe(true);
+      await expect(call(Channels.PROPOSAL_REJECT, proposal.uri)).resolves.toEqual({ ok: true });
 
       expect(await claimInGraph(project.ctx)).toBe(false);
       expect((await getProposal(project.ctx, proposal.uri))!.status).toBe('rejected');
     });
 
-    it('approving an already-rejected proposal returns false and still applies nothing', async () => {
+    it('approving an already-rejected proposal says so and still applies nothing', async () => {
       const proposal = await fileClaim();
       await call(Channels.PROPOSAL_REJECT, proposal.uri);
 
-      await expect(call(Channels.PROPOSAL_APPROVE, proposal.uri)).resolves.toBe(false);
+      await expect(call(Channels.PROPOSAL_APPROVE, proposal.uri)).resolves.toEqual({
+        ok: false, reason: 'not-pending', status: 'rejected',
+      });
 
       expect(await claimInGraph(project.ctx)).toBe(false);
       expect((await getProposal(project.ctx, proposal.uri))!.status).toBe('rejected');
@@ -172,17 +174,46 @@ describe('register-proposals (#1523) — the approval gate IPC surface', () => {
 
     it('approving twice does not re-apply', async () => {
       const proposal = await fileClaim();
-      await expect(call(Channels.PROPOSAL_APPROVE, proposal.uri)).resolves.toBe(true);
-      await expect(call(Channels.PROPOSAL_APPROVE, proposal.uri)).resolves.toBe(false);
+      await expect(call(Channels.PROPOSAL_APPROVE, proposal.uri)).resolves.toMatchObject({ ok: true });
+      await expect(call(Channels.PROPOSAL_APPROVE, proposal.uri)).resolves.toEqual({
+        ok: false, reason: 'not-pending', status: 'approved',
+      });
       expect((await getProposal(project.ctx, proposal.uri))!.status).toBe('approved');
     });
 
-    it('approving an unknown URI returns false rather than throwing', async () => {
-      await expect(call(Channels.PROPOSAL_APPROVE, 'urn:proposals-ipc:nope')).resolves.toBe(false);
+    it('approving an unknown URI answers not-found rather than throwing', async () => {
+      await expect(call(Channels.PROPOSAL_APPROVE, 'urn:proposals-ipc:nope')).resolves.toEqual({
+        ok: false, reason: 'not-found',
+      });
     });
 
-    it('rejecting an unknown URI returns false', async () => {
-      await expect(call(Channels.PROPOSAL_REJECT, 'urn:proposals-ipc:nope')).resolves.toBe(false);
+    it('rejecting an unknown URI answers not-found', async () => {
+      await expect(call(Channels.PROPOSAL_REJECT, 'urn:proposals-ipc:nope')).resolves.toEqual({
+        ok: false, reason: 'not-found',
+      });
+    });
+
+    it('rejecting an already-approved proposal says so and leaves it approved', async () => {
+      const proposal = await fileClaim();
+      await call(Channels.PROPOSAL_APPROVE, proposal.uri);
+
+      await expect(call(Channels.PROPOSAL_REJECT, proposal.uri)).resolves.toEqual({
+        ok: false, reason: 'not-pending', status: 'approved',
+      });
+      expect((await getProposal(project.ctx, proposal.uri))!.status).toBe('approved');
+    });
+
+    it('success reports the notes a bundle filed', async () => {
+      const proposal = await proposeWrite(project.ctx, {
+        operationType: 'new_claim',
+        payloads: [{ kind: 'note', relativePath: 'notes/filed-by-approval.md', content: '# Filed\n' }],
+        note: 'register-proposals test',
+        proposedBy: 'llm:conversation:c1',
+      });
+
+      await expect(call(Channels.PROPOSAL_APPROVE, proposal.uri)).resolves.toEqual({
+        ok: true, filedPaths: ['notes/filed-by-approval.md'], rewrittenPaths: [],
+      });
     });
   });
 
@@ -193,22 +224,24 @@ describe('register-proposals (#1523) — the approval gate IPC surface', () => {
   // rejected renderer promise either way) and worth pinning: a refactor that
   // made the guard async would change when the fallback is decided.
   describe('no project open', () => {
-    it('PROPOSAL_APPROVE returns false and does not apply the payload', async () => {
+    // `withRootPath`, not `withRootPathOr(false, …)`: "no project" used to fold
+    // into the same `false` as "approval refused" (#2362).
+    it('PROPOSAL_APPROVE throws and does not apply the payload', async () => {
       const proposal = await fileClaim();
       openProject = null;
 
-      expect(call(Channels.PROPOSAL_APPROVE, proposal.uri)).toBe(false);
+      expect(() => call(Channels.PROPOSAL_APPROVE, proposal.uri)).toThrow(/No project open/);
 
       openProject = project.root;
       expect(await claimInGraph(project.ctx)).toBe(false);
       expect((await getProposal(project.ctx, proposal.uri))!.status).toBe('pending');
     });
 
-    it('PROPOSAL_REJECT returns false and leaves the proposal pending', async () => {
+    it('PROPOSAL_REJECT throws and leaves the proposal pending', async () => {
       const proposal = await fileClaim();
       openProject = null;
 
-      expect(call(Channels.PROPOSAL_REJECT, proposal.uri)).toBe(false);
+      expect(() => call(Channels.PROPOSAL_REJECT, proposal.uri)).toThrow(/No project open/);
 
       openProject = project.root;
       expect((await getProposal(project.ctx, proposal.uri))!.status).toBe('pending');
@@ -297,7 +330,9 @@ describe('register-proposals (#1523) — the approval gate IPC surface', () => {
       });
       await call(Channels.PROPOSAL_EXPIRE);
 
-      await expect(call(Channels.PROPOSAL_APPROVE, stale.uri)).resolves.toBe(false);
+      await expect(call(Channels.PROPOSAL_APPROVE, stale.uri)).resolves.toEqual({
+        ok: false, reason: 'not-pending', status: 'expired',
+      });
       expect(await claimInGraph(project.ctx, 'urn:proposals-ipc:stale-2')).toBe(false);
     });
   });
