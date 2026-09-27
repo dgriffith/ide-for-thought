@@ -139,13 +139,7 @@ const INTERNAL_INVOKE_CHANNELS: Record<string, string> = {};
 
 /** `EventMap` keys no preload leaf subscribes to or sends, with why. May only
  *  shrink. */
-const UNSUBSCRIBED_EVENTS: Record<string, string> = {
-  // A REAL BUG, not a design choice: menu.ts's File ▸ Open In ▸ Reveal in
-  // Finder sends this event and nothing listens, so the item is a no-op. The
-  // same string is also an invoke channel (api.shell.revealFile), which is
-  // why every name-level check saw it as used. Remove this entry with #2411.
-  'shell:revealFile': 'dead menu command, #2411',
-};
+const UNSUBSCRIBED_EVENTS: Record<string, string> = {};
 
 /**
  * The mutations where a channel swap between two same-signature methods costs
@@ -421,5 +415,14 @@ describe('preload behaviour: surface-wide invariants (#2367)', () => {
     const used = new Set([...all.values()].filter((o) => o.kind !== 'invoke').map((o) => o.channel));
     const stale = Object.keys(UNSUBSCRIBED_EVENTS).filter((k) => !EVENT_MAP_KEYS.has(k) || used.has(k));
     expect(stale, 'remove these from UNSUBSCRIBED_EVENTS').toEqual([]);
+  });
+
+  it('no channel string is both an invoke channel and an event (#2411)', () => {
+    // `shell:revealFile` was both: the invoke behind api.shell.revealFile AND
+    // the event the native menu sent. Every name-level check above saw the
+    // string as "used", so the menu item was dead with nothing failing. An
+    // event gets its own name (menu commands use `menu:*`).
+    const both = [...EVENT_MAP_KEYS].filter((k) => CHANNEL_MAP_KEYS.has(k));
+    expect(both, 'these channels are both a ChannelMap and an EventMap key — give the event its own name').toEqual([]);
   });
 });

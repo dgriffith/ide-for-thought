@@ -22,7 +22,7 @@ const h = vi.hoisted(() => {
     'onCloseGroup', 'onOpenProject', 'onNewProject', 'onInstallTutorial', 'onOpenRecentProject', 'onCloseProject',
     'onClearRecent', 'onNavBack', 'onNavForward', 'onGotoLine', 'onQuickOpen', 'onNewQuery',
     'onOpenStockQuery', 'onEditSavedQueries', 'onSortLines', 'onFind', 'onFindReplace',
-    'onFindInNotes', 'onReplaceInNotes', 'onPrint', 'onAbout', 'onShortcuts', 'onOpenInDefault',
+    'onFindInNotes', 'onReplaceInNotes', 'onPrint', 'onAbout', 'onShortcuts', 'onRevealFile', 'onOpenInDefault',
     'onOpenInTerminal', 'onOpenSettings', 'onCommandPalette', 'onRefactorRename', 'onRefactorMove', 'onRefactorCopy',
     'onRefactorExtract', 'onRefactorSplitHere', 'onRefactorSplitByHeading', 'onRefactorAutoTag',
     'onRefactorAutoLink', 'onRefactorAutoLinkInbound', 'onRefactorDecompose', 'onFormat',
@@ -58,7 +58,7 @@ const h = vi.hoisted(() => {
     },
     tools: { onStream: cap('tools.stream'), onInvoke: cap('tools.invoke') },
     proposals: { onShowRequested: cap('proposals.onShowRequested') },
-    shell: { openInDefault: vi.fn(), openInTerminal: vi.fn() },
+    shell: { revealFile: vi.fn(), openInDefault: vi.fn(), openInTerminal: vi.fn() },
   };
 
   const notebase = {
@@ -340,6 +340,15 @@ describe('active-note guards', () => {
     h.editor.activeFilePath = 'a.md';
     fire('onOpenInDefault');
     expect(h.api.shell.openInDefault).toHaveBeenCalledWith('a.md');
+  });
+
+  it('onRevealFile reveals the active note, and is a silent no-op without one (#2411)', () => {
+    fire('onRevealFile');
+    expect(h.api.shell.revealFile).not.toHaveBeenCalled();
+    h.editor.activeFilePath = 'notes/b.md';
+    fire('onRevealFile');
+    expect(h.api.shell.revealFile).toHaveBeenCalledTimes(1);
+    expect(h.api.shell.revealFile).toHaveBeenCalledWith('notes/b.md');
   });
 });
 

@@ -615,6 +615,7 @@ const api = {
     onPrint: (cb: () => void) => subscribe(Channels.MENU_PRINT, cb),
     onAbout: (cb: () => void) => subscribe(Channels.MENU_ABOUT, cb),
     onShortcuts: (cb: () => void) => subscribe(Channels.MENU_SHORTCUTS, cb),
+    onRevealFile: (cb: () => void) => subscribe(Channels.MENU_REVEAL_FILE, cb),
     onOpenInDefault: (cb: () => void) => subscribe(Channels.MENU_OPEN_IN_DEFAULT, cb),
     onOpenInTerminal: (cb: () => void) => subscribe(Channels.MENU_OPEN_IN_TERMINAL, cb),
     onRefactorRename: (cb: () => void) => subscribe(Channels.MENU_REFACTOR_RENAME, cb),

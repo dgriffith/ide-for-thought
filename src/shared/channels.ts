@@ -213,6 +213,10 @@ export const Channels = {
   MENU_PRINT: 'menu:print',
   MENU_ABOUT: 'menu:about',
   MENU_SHORTCUTS: 'menu:shortcuts',
+  /** File ▸ Open In ▸ Reveal in Finder — renderer reveals the active note (#2411).
+   *  Deliberately NOT `shell:revealFile`: that string is the invoke channel
+   *  behind `api.shell.revealFile`, and sharing it hid a dead menu item. */
+  MENU_REVEAL_FILE: 'menu:revealFile',
   MENU_OPEN_IN_DEFAULT: 'menu:openInDefault',
   MENU_OPEN_IN_TERMINAL: 'menu:openInTerminal',
   MENU_NEW_NOTE: 'menu:newNote',
