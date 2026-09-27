@@ -4,7 +4,9 @@
  * reference implementation. Mirrors `python-kernel.test.ts`'s
  * `pythonAvailable()`/`skipIfNoPython` shape: the suite skips itself rather
  * than fails when the fixture can't be resolved (no network / npm registry
- * unreachable), so this stays opt-in for a CI environment without it.
+ * unreachable) — locally. Under CI a skip would read as a pass, so
+ * `tests/main/mcp-client/mcp-fixture-gate.test.ts` hard-asserts the fixture
+ * is available there (#2365).
  *
  * Verified (by hand, before writing the transport) to speak the LEGACY era
  * on both `stdio` and `streamableHttp` transports — exactly the real-world
