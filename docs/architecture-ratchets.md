@@ -554,6 +554,13 @@ it breaks — the workflows just quietly stop sharing a warm cache, invisible
 until someone reads the timings. **When it fires:** you gave an installing job a
 cache; it now owes a verify step.
 
+It also holds each workflow's `concurrency:` choice (#2247): every workflow
+declares a group and an explicit `cancel-in-progress`, `bench.yml` never
+cancels, and `ci.yml` cancels **PR runs only** (#2352) — `true` there cancelled
+25 of 40 main runs, leaving commits with no verdict. **When that fires:** you
+made main runs cancellable again; key the expression on
+`github.event_name == 'pull_request'`.
+
 ### `workflow-permissions.test.ts`
 
 **Every workflow declares `permissions:`, the workflow scope is

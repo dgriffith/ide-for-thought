@@ -36,11 +36,13 @@ on:
 permissions:
   contents: read
 
-# Cancel in-flight runs when a new commit lands on the same branch — saves
-# minutes on a busy PR.
+# Cancel a superseded run on a PR branch — saves minutes on a busy PR. NEVER
+# on main (#2352): every main commit must get a verdict. Cancelling there left
+# 25 of 40 main runs with no result, so a red main (#2348) couldn't be
+# bisected from CI and a release could be tagged on a SHA nobody had checked.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   lint-and-test:
