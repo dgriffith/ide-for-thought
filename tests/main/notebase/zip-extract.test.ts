@@ -154,6 +154,45 @@ describe('extractZipToTempDir (#2087)', () => {
     }
   });
 
+  it('never materializes a symlink entry as a symlink (#2357)', async () => {
+    // A zip can carry a Unix symlink: an entry whose external attributes say
+    // S_IFLNK and whose body is the link target. `unzip` would recreate the
+    // link; this extractor writes every entry with `writeFile`, so the "link"
+    // lands as a regular file whose content is the target string. Pinned so
+    // a future switch to a link-preserving extractor can't smuggle an
+    // escaping symlink into a thoughtbase via zip import.
+    const outsideDir = mkTempDir();
+    try {
+      fs.writeFileSync(path.join(outsideDir, 'secret.txt'), 'TOP SECRET');
+      const zip = new JSZip();
+      zip.file('escape', outsideDir, { unixPermissions: 0o120777 });
+      zip.file('escape-file.md', path.join(outsideDir, 'secret.txt'), { unixPermissions: 0o120777 });
+      zip.file('keep.md', '# keep');
+      const buf = await zip.generateAsync({ type: 'nodebuffer', platform: 'UNIX' });
+      // Precondition: the archive really does carry the symlink mode bits,
+      // so this test exercises the hostile shape rather than a plain file.
+      const reloaded = await JSZip.loadAsync(buf);
+      expect((reloaded.files['escape']!.unixPermissions as number) & 0o170000).toBe(0o120000);
+      const zipPath = path.join(staging, 'links.zip');
+      await fsp.writeFile(zipPath, buf);
+
+      const result = await extractZipToTempDir(zipPath);
+      try {
+        for (const name of ['escape', 'escape-file.md', 'keep.md']) {
+          const st = fs.lstatSync(path.join(result.tmpDir, name));
+          expect(st.isSymbolicLink(), `${name} was extracted as a symlink`).toBe(false);
+          expect(st.isFile()).toBe(true);
+        }
+        expect(fs.readFileSync(path.join(result.tmpDir, 'escape-file.md'), 'utf-8'))
+          .toBe(path.join(outsideDir, 'secret.txt'));
+      } finally {
+        await fsp.rm(result.tmpDir, { recursive: true, force: true });
+      }
+    } finally {
+      await fsp.rm(outsideDir, { recursive: true, force: true });
+    }
+  });
+
   it('enforces the entry cap DURING extraction, not after the fact', async () => {
     // Uses the shared override from folder-walk.ts, which zip-extract.ts's
     // own extraction loop must read live (via getMaxBulkIngestEntries())

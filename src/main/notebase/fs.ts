@@ -146,23 +146,140 @@ export function _clearRealRootCacheForTests(): void {
   realRootCache.length = 0;
 }
 
+/**
+ * Containment guard for every thoughtbase file operation. Returns the
+ * absolute path to hand to `fs.*`, or throws `Path traversal detected`.
+ *
+ * THREAT MODEL (#2357). The thoughtbase directory is NOT trusted content:
+ * it arrives by zip import, git clone and folder sync, and its relative
+ * paths reach this function from the renderer and from LLM tools
+ * (`read_note`, `fetch_properties`, …) whose arguments a prompt injection
+ * can choose. So the guarantee is about where the bytes actually live, not
+ * about how the path is spelled: **no path accepted here reads or writes
+ * outside the realpath of the root.** Two ways out are closed:
+ *
+ *   1. Lexical escape — `../x`, an absolute path. Caught by resolving
+ *      against the realpath'd root and checking the prefix.
+ *   2. Symlink escape — `notes/link → ~/.ssh`, then `notes/link/id_rsa`.
+ *      Lexically inside, but `fs.readFile`/`writeFile` follow the link.
+ *      Caught by `assertNoSymlinkEscape`, which canonicalises the part of
+ *      the path that exists and re-checks the prefix. A dangling link is
+ *      resolved by hand, because a write FOLLOWS a dangling link and
+ *      creates its target.
+ *
+ * Symlinks that stay inside the root keep working, and the root itself may
+ * be a symlink (#352: macOS's /var → /private/var, where tmpdir() lives) —
+ * both are the realpath'd-root case. An escaping symlink is refused in
+ * every operation, including rename/delete of the link itself: deleting
+ * one is left to Finder rather than special-cased here.
+ *
+ * NOT covered: a race where a component is swapped for a symlink between
+ * this check and the `fs.*` call (TOCTOU). Closing that needs
+ * `O_NOFOLLOW`/`openat`-style descriptor walking, which Node doesn't
+ * expose; the attacker would need live write access to the thoughtbase
+ * while the app runs, which is outside this model.
+ *
+ * The return value is the lexical resolution against the realpath'd root
+ * (for an in-root symlink it still names the path THROUGH the link), same
+ * as before #2357, so callers' path arithmetic is unchanged.
+ */
 export function assertSafePath(rootPath: string, relativePath: string): string {
-  // realpath the rootPath so a project rooted on a symlinked path —
-  // notably macOS's /var → /private/var, which is where tmpdir() lives
-  // (#352) — doesn't make a normal in-project relative path look like
-  // a traversal. We resolve `relativePath` *against* the realpath'd
-  // root (rather than realpath'ing each result) because the leaf or
-  // any intermediate dir may not exist yet (write-to-create), and
-  // resolve doesn't follow symlinks anyway, so this canonical-prefix
-  // form is enough to make the startsWith check sound.
   const root = realRoot(rootPath);
   const resolved = path.resolve(root, relativePath);
-  if (!resolved.startsWith(root + path.sep) && resolved !== root) {
+  if (!isWithin(root, resolved)) {
     throw new Error('Path traversal detected');
   }
-  // Return the realpath-anchored resolution: it's always usable by
-  // fs.* and won't drift between symlink endpoints in subsequent ops.
+  assertNoSymlinkEscape(root, resolved);
   return resolved;
+}
+
+function isWithin(root: string, p: string): boolean {
+  return p === root || p.startsWith(root + path.sep);
+}
+
+/**
+ * Walk `resolved` down from the (canonical) root with one `lstat` per
+ * component, and only if a component turns out to be a symlink pay for a
+ * full canonicalisation. `assertSafePath` is hot — every file IPC, several
+ * inside loops — and measured on macOS an `lstat` is ~1.2us against ~13us
+ * for `realpath`, so the common no-symlink case costs ~1us per path segment
+ * below the root and never calls `realpathSync` (which keeps #2216's
+ * "one realpath per root" property intact).
+ *
+ * The walk stops at the first component that doesn't exist: nothing below
+ * it can be a link, which is what makes write-to-create (leaf and any
+ * intermediate dirs missing) work. Any other `lstat` failure (ENOTDIR,
+ * EACCES) also stops it — the `fs.*` call can't get past that component
+ * either, so there is nothing further for it to follow.
+ */
+function assertNoSymlinkEscape(root: string, resolved: string): void {
+  if (resolved === root) return;
+  const parts = resolved.slice(root.length + 1).split(path.sep);
+  let cur = root;
+  for (let i = 0; i < parts.length; i++) {
+    cur = cur + path.sep + parts[i];
+    let st: fsSync.Stats | undefined;
+    try {
+      st = fsSync.lstatSync(cur, { throwIfNoEntry: false });
+    } catch {
+      return;
+    }
+    if (st === undefined) return;
+    if (st.isSymbolicLink()) {
+      // Everything from here down is resolved in one go: canonicalise the
+      // whole remaining path (chains, links-to-links, dangling links) and
+      // check where it really lands.
+      if (!isWithin(root, canonicalizeExisting(resolved))) {
+        throw new Error('Path traversal detected');
+      }
+      return;
+    }
+  }
+}
+
+/** Linux's MAXSYMLINKS; a chain longer than this is a loop (or hostile). */
+const MAX_SYMLINK_HOPS = 40;
+
+/**
+ * `realpath` for a path whose tail may not exist: canonicalise the deepest
+ * existing ancestor and re-append the missing components. If the first
+ * missing component is itself a (dangling) symlink, follow it by hand —
+ * `fs.writeFile` on a dangling link creates the link's TARGET, so its
+ * target is where a write would land. Only reached when a symlink is
+ * actually on the path, so its cost is off the hot path.
+ */
+function canonicalizeExisting(abs: string, hops = 0): string {
+  if (hops > MAX_SYMLINK_HOPS) {
+    // Can't prove where it lands; the fs call would ELOOP anyway.
+    throw new Error('Path traversal detected');
+  }
+  const tail: string[] = [];
+  let existing = abs;
+  for (;;) {
+    let real: string;
+    try {
+      real = fsSync.realpathSync(existing);
+    } catch {
+      const parent = path.dirname(existing);
+      if (parent === existing) return abs;
+      tail.unshift(path.basename(existing));
+      existing = parent;
+      continue;
+    }
+    if (tail.length === 0) return real;
+    const next = path.join(real, tail[0]!);
+    let st: fsSync.Stats | undefined;
+    try {
+      st = fsSync.lstatSync(next, { throwIfNoEntry: false });
+    } catch {
+      st = undefined;
+    }
+    if (st?.isSymbolicLink()) {
+      const target = path.resolve(real, fsSync.readlinkSync(next));
+      return canonicalizeExisting(path.join(target, ...tail.slice(1)), hops + 1);
+    }
+    return path.join(real, ...tail);
+  }
 }
 
 export async function readFile(rootPath: string, relativePath: string): Promise<string> {
