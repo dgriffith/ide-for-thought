@@ -16,6 +16,8 @@ import path from 'node:path';
 import { parseMarkdown } from '../parser';
 import { isIndexable } from '../../../shared/indexable-files';
 import { isIgnoredEntry } from '../../../shared/ignored-dirs';
+import { logger } from '../../../shared/logger';
+import { isEscapingSymlink } from '../../path-containment';
 
 import type { ProjectContext } from '../../project-context-types';
 
@@ -254,6 +256,9 @@ export async function indexAllNotes(ctx: ProjectContext, opts?: IndexAllNotesOpt
         ensureFolder(state!, rel);
         await walkAndIndex(fullPath, root);
       } else if (isIndexable(entry.name)) {
+        // Same skip as the pre-pass, so the two passes visit the same files
+        // (the pre-pass's count is this pass's progress total).
+        if (isEscapingSymlink(root, fullPath, entry)) continue;
         const relativePath = path.relative(root, fullPath);
         const cached = prepassContent.get(relativePath);
         const content = cached ?? await fs.readFile(fullPath, 'utf-8');
@@ -275,6 +280,15 @@ export async function indexAllNotes(ctx: ProjectContext, opts?: IndexAllNotesOpt
       if (entry.isDirectory()) {
         await walkAndCollectAliases(fullPath, root);
       } else if (isIndexable(entry.name)) {
+        // A symlinked FILE whose target is outside the thoughtbase
+        // (`leak.md -> ~/.ssh/id_rsa`) would otherwise be read into the graph
+        // with a plain `fs.readFile`, which follows links and never goes
+        // through `assertSafePath` (#2398). In-root links still index. Free
+        // for a regular file: the dirent already says it isn't a link.
+        if (isEscapingSymlink(root, fullPath, entry)) {
+          logger('graph').warn('not indexing a symlink that points outside the thoughtbase:', path.relative(root, fullPath));
+          continue;
+        }
         const relativePath = path.relative(root, fullPath);
         // Register every note path up front so the main pass resolves bare
         // `[[basename]]` links against the COMPLETE file set — otherwise a note

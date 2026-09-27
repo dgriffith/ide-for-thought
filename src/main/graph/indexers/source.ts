@@ -26,6 +26,7 @@ import {
 } from '../index-helpers';
 import { logger } from '../../../shared/logger';
 import { rethrowIfTrustGuard } from '../write-guard';
+import { isContainedPath } from '../../path-containment';
 
 export function indexSource(ctx: ProjectContext, sourceId: string, metaTtl: string, bodyMd?: string): void {
   const state = getState(ctx);
@@ -156,10 +157,17 @@ export async function walkAndIndexSources(ctx: ProjectContext, rootPath: string)
     const sourceId = entry.name;
     const metaPath = path.join(sourcesRoot, sourceId, 'meta.ttl');
     const bodyPath = path.join(sourcesRoot, sourceId, 'body.md');
+    // `.minerva/` arrives with the thoughtbase (zip import, git, sync), so a
+    // `meta.ttl`/`body.md` — or `.minerva/sources` itself — can be a link out
+    // of the root. Same containment rule as the note walkers (#2398); a few
+    // lstats per source, and only on a full rebuild.
+    if (!isContainedPath(rootPath, metaPath)) continue;
     try {
       const metaContent = await fs.readFile(metaPath, 'utf-8');
       let bodyContent: string | undefined;
-      try { bodyContent = await fs.readFile(bodyPath, 'utf-8'); } catch { /* body optional */ }
+      if (isContainedPath(rootPath, bodyPath)) {
+        try { bodyContent = await fs.readFile(bodyPath, 'utf-8'); } catch { /* body optional */ }
+      }
       indexSource(ctx, sourceId, metaContent, bodyContent);
       count++;
     } catch {

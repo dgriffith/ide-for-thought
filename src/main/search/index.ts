@@ -6,6 +6,7 @@ import type { ProjectContext } from '../project-context-types';
 import { createProjectStore } from '../project-store';
 import { isIgnoredEntry } from '../../shared/ignored-dirs';
 import { logger } from '../../shared/logger';
+import { isEscapingSymlink } from '../path-containment';
 
 interface SearchState {
   rootPath: string;
@@ -85,6 +86,10 @@ export async function indexAllNotes(ctx: ProjectContext): Promise<number> {
       if (entry.isDirectory()) {
         await walk(fullPath, root);
       } else if (entry.name.endsWith('.md')) {
+        // A symlinked note whose target is outside the thoughtbase must not
+        // be read into the index the LLM's search tools query (#2398). In-root
+        // links still index; a regular file costs nothing extra.
+        if (isEscapingSymlink(root, fullPath, entry)) continue;
         const relativePath = path.relative(root, fullPath);
         const content = await fs.readFile(fullPath, 'utf-8');
         const title = extractTitle(content) ?? path.basename(relativePath, '.md');

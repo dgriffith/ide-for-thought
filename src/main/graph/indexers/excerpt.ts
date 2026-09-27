@@ -23,6 +23,7 @@ import {
 import { fileMtimeIso, injectPrefixes } from '../index-helpers';
 import { logger } from '../../../shared/logger';
 import { rethrowIfTrustGuard } from '../write-guard';
+import { isContainedPath } from '../../path-containment';
 
 export function indexExcerpt(ctx: ProjectContext, excerptId: string, metaTtl: string): void {
   const state = getState(ctx);
@@ -97,6 +98,10 @@ export function parseExcerptIdFromPath(relativePath: string): string | null {
  *  `indexAllNotes` pass. Returns the count indexed. */
 export async function walkAndIndexExcerpts(ctx: ProjectContext, rootPath: string): Promise<number> {
   const excerptsRoot = path.join(rootPath, uriHelpers.EXCERPTS_DIR);
+  // Symlinked `.ttl` leaves are already skipped (`isFile()` is false for a
+  // link), but a symlinked `.minerva/excerpts` directory would be read
+  // through (#2398).
+  if (!isContainedPath(rootPath, excerptsRoot)) return 0;
   let count = 0;
   let entries: import('node:fs').Dirent[];
   try {
