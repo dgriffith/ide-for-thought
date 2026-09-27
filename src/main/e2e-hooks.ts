@@ -46,12 +46,26 @@ export const E2E_SOURCE_TITLE = 'E2E Ingested Source';
  *  (derived from the URL) is stable across runs. */
 const E2E_SOURCE_URL = 'https://e2e.minerva.test/ingested-source';
 
+/**
+ * The project the hooks act on: the focused window's, or — when no Minerva
+ * window holds OS focus — the single open window's. `getFocusedWindow()` alone
+ * returns null whenever another app is frontmost (a developer's terminal
+ * during a local run, or a busy CI desktop), which made seeding depend on
+ * which process happened to own focus (#2355). With several windows open and
+ * none focused there is no right answer, so that case still returns null.
+ */
+function targetRootPath(): string | null {
+  const focused = BrowserWindow.getFocusedWindow();
+  if (focused) return getRootPath(focused.id);
+  const all = BrowserWindow.getAllWindows();
+  return all.length === 1 ? getRootPath(all[0]!.id) : null;
+}
+
 export function installE2EHooks(): void {
   if (process.env.MINERVA_E2E !== '1') return;
   const hooks: E2EHooks = {
     async seedProposal() {
-      const win = BrowserWindow.getFocusedWindow();
-      const rootPath = win ? getRootPath(win.id) : null;
+      const rootPath = targetRootPath();
       if (!rootPath) throw new Error('[e2e] no open project to seed a proposal into');
       const proposal = await proposeWrite(projectContext(rootPath), {
         operationType: 'new_claim',
@@ -66,8 +80,7 @@ export function installE2EHooks(): void {
       return proposal?.uri ?? null;
     },
     async ingestSource() {
-      const win = BrowserWindow.getFocusedWindow();
-      const rootPath = win ? getRootPath(win.id) : null;
+      const rootPath = targetRootPath();
       if (!rootPath) throw new Error('[e2e] no open project to ingest a source into');
       const html =
         `<!doctype html><html><head><title>${E2E_SOURCE_TITLE}</title></head>` +
