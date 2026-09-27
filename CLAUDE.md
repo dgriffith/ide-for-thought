@@ -1342,7 +1342,8 @@ new subsystem directory under `src/main/` needs its own entry** — otherwise it
 inherits the backstop and can rot to 46% unnoticed.
 The same goes for a loose `src/main/*.ts` file of 150+ lines (#2368):
 `coverage-floor-enrollment.test.ts` requires a per-file floor, with a
-shrink-only `KNOWN_UNENROLLED` list for the two that can't have one yet.
+shrink-only `KNOWN_UNENROLLED` list for the one that can't have one yet
+(`main.ts`).
 
 Two shapes worth knowing:
 
