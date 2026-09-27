@@ -745,9 +745,9 @@ remove it "once the full tree is clean". Nothing could report that the
 precondition had been met, because the step was green whether the tree
 improved or regressed.
 
-Clean isn't reachable today. All four remaining highs are in the DMG maker's
+Clean isn't reachable today. All three remaining highs are in the DMG maker's
 tree and reach no user: two in `extract-zip` where **no patched version
-exists**, and two in `image-size` where a patch exists at `>=2.0.3` but the
+exists**, and one in `image-size` (GHSA-w3rx) where a patch exists at `>=2.0.3` but the
 installed 0.7.5 comes via `appdmg@0.6.6`, which declares `^0.7.4` and calls
 `require('image-size')(path, callback)` — 2.x is ESM-first, exports
 `{ imageSize }` taking a Buffer, and has no callback form. Forcing the

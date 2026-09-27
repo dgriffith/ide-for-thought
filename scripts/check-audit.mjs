@@ -13,7 +13,8 @@
  *   extract-zip ×2   GHSA-jmr9-qjv8-65gv, GHSA-7pqw-9j4j-h8q3
  *                    `patched: null` — no fixed version exists. 28 paths, all
  *                    under @electron/packager.
- *   image-size ×2    GHSA-w3rx-r6r6-pgpr, GHSA-5p2g-fcmc-qvqq
+ *   image-size ×1    GHSA-w3rx-r6r6-pgpr (GHSA-5p2g-fcmc-qvqq was narrowed
+ *                    upstream to >=1.2.0 on 2026-09-24 and dropped out)
  *                    Patched at >=2.0.3, but the installed 0.7.5 is reached
  *                    through `appdmg@0.6.6`, which declares `^0.7.4` and calls
  *                    `require('image-size')(path, callback)`. image-size 2.x is
