@@ -238,9 +238,12 @@ export class CitationRenderer {
    * bibliography, footnotes and missing-set to a freshly constructed one,
    * across consecutive sessions, for every bundled style.
    *
-   * Exporters do NOT use this — `assets.createRenderer()` still hands them a
-   * fresh instance per note, since a shared mutable engine is only safe for a
-   * caller that uses it synchronously and one session at a time.
+   * Exporters reach this through `createRendererSessions` (#2408): one engine
+   * per export run, reset between notes. That is sound for the same reason as
+   * the preview's — a shared mutable engine is only safe for a caller that
+   * uses it one session at a time, and an exporter's loop finishes each note
+   * before starting the next. The handle is local to one run, so concurrent
+   * exports never share an engine.
    *
    * One honest caveat, recorded so nobody trims this to the line the tests
    * can justify: removing `restoreProcessorState([])` and keeping only the

@@ -33,7 +33,7 @@ import {
   appendReferencesSection,
 } from './note-markdown-shared';
 import type { Exporter, ExportPlan } from '../types';
-import type { CitationRenderer } from '../csl';
+import { createRendererSessions, type CitationRenderer } from '../csl';
 
 export const noteMarkdownExporter: Exporter = {
   id: 'note-markdown',
@@ -54,11 +54,12 @@ export const noteMarkdownExporter: Exporter = {
     // `~/Desktop/bar.md`. Multi-note keeps the source tree so
     // `follow-to-file` cross-links still resolve.
     const flatten = notes.length === 1;
+    // Each note gets its own citation session — citeproc tracks citation
+    // ordering on the engine, so a per-note session gives each page its own
+    // References section. One compiled engine serves them all (#2408).
+    const sessions = createRendererSessions(plan.citations, { outputFormat: 'text' });
     const files = notes.map((f) => {
-      // Each note gets its own renderer — citeproc tracks citation
-      // ordering on the engine, so a per-note instance gives each
-      // page its own References section.
-      const renderer = plan.citations?.createRenderer({ outputFormat: 'text' });
+      const renderer = sessions.next();
       const transformed = transformNoteBody(f.content, ctx, renderer, plan.citations);
       const withTail = renderer ? appendCitationsTail(transformed, renderer) : transformed;
       return {

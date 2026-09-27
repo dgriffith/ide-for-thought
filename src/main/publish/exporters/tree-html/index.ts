@@ -26,6 +26,7 @@ import { renderFootnotesSection } from '../note-html';
 import { NOTE_HTML_STYLE } from '../note-html/style';
 import { bodyHasKatex, getKatexStyle } from '../note-html/katex-css';
 import type { Exporter, ExportOutput, ExportPlan, ExportPlanFile } from '../../types';
+import { createRendererSessions } from '../../csl';
 import { escapeHtmlFull as escapeHtml, escapeHtmlFull as escapeAttr } from '../../../../shared/text-escape';
 
 export const treeHtmlExporter: Exporter = {
@@ -62,8 +63,10 @@ export const treeHtmlExporter: Exporter = {
     let bundleHasMath = false;
 
     const files: ExportOutput['files'] = [];
+    // One compiled engine for the whole bundle, a fresh session per note (#2408).
+    const sessions = createRendererSessions(bundlePlan.citations);
     for (const note of notes) {
-      const renderer = bundlePlan.citations?.createRenderer();
+      const renderer = sessions.next();
       const rawBody = await renderNoteBody(note, bundlePlan, renderer);
       // Note styles: append the per-note footnotes (the inline `<sup>`
       // markers anchor to them). In-text styles: nothing here — the
@@ -93,8 +96,8 @@ export const treeHtmlExporter: Exporter = {
     // Bundle-level References page. Emitted only when at least one
     // note actually cited something — empty bundles don't grow a
     // useless `references.html` stub.
-    if (allCitedIds.size > 0 && bundlePlan.citations) {
-      const consolidator = bundlePlan.citations.createRenderer();
+    const consolidator = allCitedIds.size > 0 ? sessions.next() : undefined;
+    if (consolidator) {
       const bib = consolidator.renderBibliographyFor([...allCitedIds]);
       if (bib.entries.length > 0) {
         const heading = isNoteStyle ? 'Bibliography' : 'References';

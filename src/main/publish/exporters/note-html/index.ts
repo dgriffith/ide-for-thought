@@ -10,7 +10,7 @@
 import { renderNoteBody, inlineImages } from './render';
 import { wrapHtml } from './shell';
 import type { Exporter, ExportOutput } from '../../types';
-import type { CitationRenderer } from '../../csl';
+import { createRendererSessions, type CitationRenderer } from '../../csl';
 
 /**
  * Render the collected footnote bodies for note-class styles as a
@@ -79,11 +79,12 @@ export const noteHtmlExporter: Exporter = {
     // keep working as relative links.
     const flatten = notes.length === 1;
     const files: ExportOutput['files'] = [];
+    // One citation session per note so each page gets its own References
+    // section listing only what it cited — served by one compiled engine for
+    // the whole run rather than one per note (#2408).
+    const sessions = createRendererSessions(plan.citations);
     for (const f of notes) {
-      // One renderer per note so each page gets its own References
-      // section listing only what it cited. Tree-level consolidation
-      // is a follow-up; this is the simple, correct v1.
-      const renderer = plan.citations?.createRenderer();
+      const renderer = sessions.next();
       const rawBody = await renderNoteBody(f, plan, renderer);
       const withReferences = renderer ? appendCitationsTail(rawBody, renderer) : rawBody;
       const body = await inlineImages(withReferences, f, rootPath, plan.assetPolicy);

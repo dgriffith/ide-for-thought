@@ -24,6 +24,7 @@ import { NOTE_HTML_STYLE } from './note-html/style';
 import type { Exporter, ExportOutput, ExportPlan, ExportPlanFile } from '../types';
 import { escapeHtml, escapeRegex } from '../../../shared/text-escape';
 import { slugifyId } from '../../../shared/slug';
+import { createRendererSessions } from '../csl';
 
 export interface BuildTreePdfHtmlResult {
   html: string;
@@ -51,8 +52,10 @@ export async function buildTreePdfHtml(plan: ExportPlan): Promise<BuildTreePdfHt
   // anchor tags. We then post-process those into in-document `#anchors`.
   const chapterPlan: ExportPlan = { ...plan, linkPolicy: 'follow-to-file' };
 
+  // One compiled engine for the whole document, a fresh session per chapter (#2408).
+  const sessions = createRendererSessions(chapterPlan.citations);
   for (const note of notes) {
-    const renderer = chapterPlan.citations?.createRenderer();
+    const renderer = sessions.next();
     const rawBody = await renderNoteBody(note, chapterPlan, renderer);
     const withFootnotes = renderer ? `${rawBody}${renderFootnotesSection(renderer)}` : rawBody;
     const rewritten = rewriteInterChapterLinks(withFootnotes, notes, rootNote);
@@ -65,8 +68,8 @@ export async function buildTreePdfHtml(plan: ExportPlan): Promise<BuildTreePdfHt
 
   // Consolidated bibliography across the whole document.
   let bibSection = '';
-  if (allCitedIds.size > 0 && plan.citations) {
-    const consolidator = plan.citations.createRenderer();
+  const consolidator = allCitedIds.size > 0 ? sessions.next() : undefined;
+  if (consolidator) {
     const bib = consolidator.renderBibliographyFor([...allCitedIds]);
     if (bib.entries.length > 0) {
       const heading = isNoteStyle ? 'Bibliography' : 'References';
