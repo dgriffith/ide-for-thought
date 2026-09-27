@@ -17,6 +17,8 @@ import { isEffort, type Effort } from '../../shared/tools/effort';
 import { PROVIDERS, PROVIDER_IDS, type ProviderId } from '../../shared/tools/providers';
 import { providerForModel, DEFAULT_MODEL } from '../../shared/tools/models';
 import { encryptSecret, decryptSecret, isEncrypted, secretEncryptionAvailable } from '../secret-storage';
+import { reportConfigError } from '../config/config-store';
+import { writeJsonFileAtomic } from '../config/json-file';
 
 const DEPRECATED_MODELS = new Set<string>([
   'claude-sonnet-4-20250514',
@@ -101,9 +103,54 @@ interface StoredSettings {
   toolModelOverrides?: unknown;
 }
 
-async function readParsed(): Promise<StoredSettings> {
+/**
+ * STRICT read, for the read-modify-write paths (#2356). A missing file reads as
+ * `{}` — nothing saved yet, not an error. Anything else — an unreadable file
+ * (EACCES), malformed JSON, or JSON that isn't an object — is reported through
+ * `reportConfigError` and then RETHROWN.
+ *
+ * This used to be the only reader and it swallowed every failure as `{}`.
+ * `saveSettings` then built its write from that `{}`, so a corrupt file (which
+ * the old non-atomic `writeFile` could itself produce on a crash) became a file
+ * holding only the fields of the one update being saved: every stored provider
+ * API key gone. Same shape and same fix as `readRawProjectConfig` (#1891,
+ * #1913) — and for the same reason it deliberately does not go through
+ * `loadConfigFile`, whose contract is never-throw.
+ */
+async function readParsedStrict(): Promise<StoredSettings> {
+  const file = settingsPath();
+  let text: string;
   try {
-    return JSON.parse(await fs.readFile(settingsPath(), 'utf-8')) as StoredSettings;
+    text = await fs.readFile(file, 'utf-8');
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return {};
+    reportConfigError(file, 'read', err);
+    throw err;
+  }
+  let raw: unknown;
+  try {
+    raw = JSON.parse(text);
+  } catch (err) {
+    reportConfigError(file, 'parse', err);
+    throw err;
+  }
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    const err = new Error('settings file is not a JSON object');
+    reportConfigError(file, 'validate', err);
+    throw err;
+  }
+  return raw;
+}
+
+/**
+ * LENIENT read, for the display / call paths. Same as the strict read, except a
+ * failure (already reported by it) reads as `{}` — the settings panel still
+ * opens, and a model call reports "no API key" rather than crashing. Never use
+ * this to build a write: that is the clobber #2356 fixed.
+ */
+async function readParsedLenient(): Promise<StoredSettings> {
+  try {
+    return await readParsedStrict();
   } catch {
     return {};
   }
@@ -201,11 +248,13 @@ async function reencryptLegacyProviderKeys(parsed: StoredSettings): Promise<void
   // Drop the legacy top-level `apiKey` (now folded into providers) and persist.
   const { apiKey: _legacyApiKey, ...restParsed } = parsed;
   const onDisk = { ...restParsed, providers };
-  await fs.writeFile(settingsPath(), JSON.stringify(onDisk, null, 2), 'utf-8');
+  await writeJsonFileAtomic(settingsPath(), onDisk);
 }
 
 export async function getSettings(): Promise<LLMSettings> {
-  const parsed = await readParsed();
+  // Lenient: a corrupt file reads as `{}`, which has no legacy keys to upgrade,
+  // so the re-encryption write below never fires over a file it couldn't parse.
+  const parsed = await readParsedLenient();
   await reencryptLegacyProviderKeys(parsed);
   const effort = resolveEffortSetting(parsed.effort);
   const toolModelOverrides = resolveToolModelOverrides(parsed.toolModelOverrides);
@@ -229,7 +278,7 @@ export async function getSettings(): Promise<LLMSettings> {
  * usable key; `providers` carries the per-provider detail for the BYOM UI.
  */
 export async function getSettingsForDisplay(): Promise<LLMSettingsView> {
-  const parsed = await readParsed();
+  const parsed = await readParsedLenient();
   const effort = resolveEffortSetting(parsed.effort);
   const toolModelOverrides = resolveToolModelOverrides(parsed.toolModelOverrides);
   const model = resolveModel(parsed.model);
@@ -265,7 +314,9 @@ function applyCredsUpdate(existing: StoredCreds | undefined, u: ProviderCredenti
 
 export async function saveSettings(update: LLMSettingsUpdate): Promise<void> {
   const { apiKey: legacyKey, providers: providerUpdates, customModels: customModelsUpdate, ...rest } = update;
-  const parsed = await readParsed();
+  // Strict: a corrupt/unreadable file THROWS here rather than reading as `{}`
+  // and being overwritten with only this update's fields (#2356).
+  const parsed = await readParsedStrict();
   const existing = storedProviders(parsed);
   const next: Partial<Record<ProviderId, StoredCreds>> = { ...existing };
 
@@ -293,7 +344,7 @@ export async function saveSettings(update: LLMSettingsUpdate): Promise<void> {
     : resolveCustomModels(customModelsUpdate);
 
   const onDisk = { ...rest, providers, ...(customModels ? { customModels } : {}) };
-  await fs.writeFile(settingsPath(), JSON.stringify(onDisk, null, 2), 'utf-8');
+  await writeJsonFileAtomic(settingsPath(), onDisk);
 }
 
 /**
@@ -304,12 +355,8 @@ export async function saveSettings(update: LLMSettingsUpdate): Promise<void> {
  * legacy plaintext key reads back `encrypted: false` until it's re-saved).
  */
 export async function getApiKeyStorage(providerId: ProviderId = 'anthropic'): Promise<ApiKeyStorage> {
-  let encrypted = false;
-  try {
-    const raw = storedProviders(await readParsed())[providerId]?.apiKey;
-    encrypted = typeof raw === 'string' && raw.length > 0 && isEncrypted(raw);
-  } catch {
-    // No settings file yet — nothing stored, so nothing encrypted.
-  }
+  // Lenient: no file (or an unreadable one, reported) — nothing encrypted.
+  const raw = storedProviders(await readParsedLenient())[providerId]?.apiKey;
+  const encrypted = typeof raw === 'string' && raw.length > 0 && isEncrypted(raw);
   return { available: secretEncryptionAvailable(), encrypted };
 }

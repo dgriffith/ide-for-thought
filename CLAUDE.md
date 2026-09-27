@@ -502,9 +502,12 @@ can't quietly grow while nobody re-reads it:
   corrupt file rather than default, so a patch is never merged onto a silently-
   emptied file (#1891) — incompatible with `loadConfigFile`'s never-throw
   contract, so it stays hand-rolled but reports via `reportConfigError` before
-  rethrowing. Still hand-rolled (migrate when you touch them): `clipper-config`
-  (decrypt + lazy secret upgrade), `llm/settings` (nested providers/models),
-  `menu-config-store`. `tests/architecture/config-loader-usage.test.ts` (#1913)
+  rethrowing. `llm/settings` is the same deliberate exception (#2356): its
+  `saveSettings` read-modify-writes the stored provider API keys, so it reads
+  strictly (ENOENT → `{}`, anything else reported then rethrown) and writes via
+  `writeJsonFileAtomic`; only its display/call-path reads fall back to `{}`.
+  Still hand-rolled (migrate when you touch them): `clipper-config`
+  (decrypt + lazy secret upgrade), `menu-config-store`. `tests/architecture/config-loader-usage.test.ts` (#1913)
   ratchets this list itself — a new hand-rolled disk-read+`JSON.parse` config
   reader fails a test instead of staying invisible the way the six above did
   (`config-roots-doc.test.ts` only checks *where* a config lives, not *how* it's

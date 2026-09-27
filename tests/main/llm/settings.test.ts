@@ -42,7 +42,14 @@ vi.mock('electron', () => ({
   },
 }));
 
+// Spy on the corruption reporter while keeping its real behaviour (#2356).
+vi.mock('../../../src/main/config/config-store', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../src/main/config/config-store')>();
+  return { ...actual, reportConfigError: vi.fn(actual.reportConfigError) };
+});
+
 import { safeStorage } from 'electron';
+import { reportConfigError } from '../../../src/main/config/config-store';
 import { getSettings, getSettingsForDisplay, saveSettings, getApiKeyStorage } from '../../../src/main/llm/settings';
 import type { LLMSettingsUpdate } from '../../../src/shared/tools/types';
 
@@ -270,5 +277,75 @@ describe('llm settings — API key at-rest encryption (#1326)', () => {
       fs.writeFileSync(settingsFile(), JSON.stringify({ model: 'claude-sonnet-5', toolModelOverrides: {} }));
       expect((await getSettings()).toolModelOverrides).toBeUndefined();
     });
+  });
+});
+
+describe('llm settings — a corrupt file is never clobbered (#2356)', () => {
+  const CORRUPT = '{not json';
+  /** Every file in the settings dir, so a leaked atomic-write temp file shows up. */
+  const dirListing = () => fs.readdirSync(tempDir).sort();
+
+  it('saveSettings rejects on malformed JSON and leaves the file byte-identical', async () => {
+    fs.writeFileSync(settingsFile(), CORRUPT);
+    await expect(saveSettings({ ...base, apiKey: 'sk-ant-new' })).rejects.toThrow();
+    expect(fs.readFileSync(settingsFile(), 'utf-8')).toBe(CORRUPT);
+    expect(dirListing()).toEqual(['llm-settings.json']);
+    expect(reportConfigError).toHaveBeenCalledWith(settingsFile(), 'parse', expect.anything());
+  });
+
+  it('saveSettings rejects on a truncated file that still holds keys, preserving them', async () => {
+    await saveSettings({ ...base, providers: { anthropic: { apiKey: 'sk-ant-a' }, openai: { apiKey: 'sk-oa' } } });
+    const full = fs.readFileSync(settingsFile(), 'utf-8');
+    const truncated = full.slice(0, Math.floor(full.length / 2));
+    fs.writeFileSync(settingsFile(), truncated);
+    await expect(saveSettings({ model: 'claude-sonnet-5' })).rejects.toThrow();
+    expect(fs.readFileSync(settingsFile(), 'utf-8')).toBe(truncated);
+  });
+
+  it('saveSettings rejects on valid JSON that is not an object', async () => {
+    fs.writeFileSync(settingsFile(), 'null');
+    await expect(saveSettings({ ...base, apiKey: 'sk-ant-new' })).rejects.toThrow();
+    expect(fs.readFileSync(settingsFile(), 'utf-8')).toBe('null');
+    expect(reportConfigError).toHaveBeenCalledWith(settingsFile(), 'validate', expect.anything());
+  });
+
+  it.skipIf(process.getuid?.() === 0)('saveSettings rejects on an unreadable file (EACCES) without writing', async () => {
+    fs.writeFileSync(settingsFile(), JSON.stringify({ providers: { anthropic: { apiKey: 'sk-ant-kept' } } }));
+    fs.chmodSync(settingsFile(), 0o000);
+    try {
+      await expect(saveSettings({ ...base, apiKey: 'sk-ant-new' })).rejects.toMatchObject({ code: 'EACCES' });
+      expect(reportConfigError).toHaveBeenCalledWith(settingsFile(), 'read', expect.anything());
+    } finally {
+      fs.chmodSync(settingsFile(), 0o600);
+    }
+    expect(JSON.parse(fs.readFileSync(settingsFile(), 'utf-8')).providers.anthropic.apiKey).toBe('sk-ant-kept');
+  });
+
+  it('a missing file (ENOENT) still saves normally, silently', async () => {
+    fs.rmSync(settingsFile(), { force: true });
+    await saveSettings({ ...base, apiKey: 'sk-ant-fresh' });
+    expect(await anthropicKey()).toBe('sk-ant-fresh');
+    expect(reportConfigError).not.toHaveBeenCalled();
+    expect(dirListing()).toEqual(['llm-settings.json']); // atomic write left no temp file
+  });
+
+  it('display/call reads stay lenient: a corrupt file reads as empty, reported, never rewritten', async () => {
+    fs.writeFileSync(settingsFile(), CORRUPT);
+    // getSettings runs the legacy-key re-encryption migration writer; it must
+    // not fire over a file it could not parse.
+    const loaded = await getSettings();
+    expect(loaded.providers.anthropic).toBeUndefined();
+    const view = await getSettingsForDisplay();
+    expect(view.hasApiKey).toBe(false);
+    expect((await getApiKeyStorage()).encrypted).toBe(false);
+    expect(fs.readFileSync(settingsFile(), 'utf-8')).toBe(CORRUPT);
+    expect(reportConfigError).toHaveBeenCalledWith(settingsFile(), 'parse', expect.anything());
+  });
+
+  it('the legacy-key migration writes atomically (no temp file left behind)', async () => {
+    fs.writeFileSync(settingsFile(), JSON.stringify({ apiKey: 'sk-ant-old', model: 'claude-sonnet-5' }));
+    await getSettings();
+    expect(onDiskAnthropic()!.startsWith('enc:v1:')).toBe(true);
+    expect(dirListing()).toEqual(['llm-settings.json']);
   });
 });
