@@ -17,6 +17,8 @@ export { getInspections, isRunning };
 export type { HealthCheckDeps };
 import { LINK_TYPES } from '../../shared/link-types';
 import { DAY_MS } from '../../shared/time';
+import { logger } from '../../shared/logger';
+import { rethrowIfTrustGuard } from './write-guard';
 import { stripNoteExt, noteExtRank } from '../../shared/note-extensions';
 import { noteTargetPathBeside } from '../../shared/wiki-link-resolver';
 import { onGraphChanged } from './graph-events';
@@ -81,6 +83,27 @@ function asRows(result: Awaited<ReturnType<typeof queryGraphRows>>): Record<stri
  * settings panel actually offers.
  */
 
+/**
+ * Run one check so that its failure costs only its own results (#2363).
+ *
+ * The checks' fixed queries go through `queryGraphRows`, which THROWS on the
+ * union's failure arm — before #2363 a failed query came back as empty rows,
+ * so a check that hit an engine error quietly reported nothing. Throwing is
+ * right (rule 1), but under the `Promise.all` below one throwing check would
+ * reject the whole run and blank every inspection. So: log it loudly, omit
+ * that check's results for this run, keep the rest. A trust-guard violation
+ * is never absorbed here.
+ */
+async function isolated(name: string, run: () => Promise<Inspection[]>): Promise<Inspection[]> {
+  try {
+    return await run();
+  } catch (err) {
+    rethrowIfTrustGuard(err);
+    logger('graph').warn(`inspection '${name}' failed; its results are omitted from this run:`, err);
+    return [];
+  }
+}
+
 export async function runAllChecks(
   ctx: ProjectContext,
   settings: InspectionSettings = DEFAULT_INSPECTION_SETTINGS,
@@ -92,32 +115,33 @@ export async function runAllChecks(
 
   const on = (type: string) => isInspectionEnabled(type, settings);
   const none = (): Promise<Inspection[]> => Promise.resolve([]);
+  const findOrphans = deps.findOrphanedAssets;
 
   try {
     const results = await Promise.all([
-      on('unsupported_claim') ? checkUnsupportedClaims(ctx) : none(),
-      on('stale_note') ? checkStaleness(ctx, settings.staleDays) : none(),
-      on('missing_warrant') || on('missing_backing') ? checkEvidenceGaps(ctx) : none(),
-      on('contradiction') ? checkContradictions(ctx) : none(),
+      on('unsupported_claim') ? isolated('unsupported_claim', () => checkUnsupportedClaims(ctx)) : none(),
+      on('stale_note') ? isolated('stale_note', () => checkStaleness(ctx, settings.staleDays)) : none(),
+      on('missing_warrant') || on('missing_backing') ? isolated('evidence_gaps', () => checkEvidenceGaps(ctx)) : none(),
+      on('contradiction') ? isolated('contradiction', () => checkContradictions(ctx)) : none(),
       // The five source checks share ONE scan of the source table rather than
       // opening `?source minerva:sourceId ?sourceId` six times over (#2208
       // C1b) — see `source-checks.ts`. They stay individually switchable; what
       // they no longer do is each pay for their own walk.
-      runSourceChecks(ctx, {
+      isolated('source_checks', () => runSourceChecks(ctx, {
         invalidDoi: on('invalid_doi'),
         missingMetadata: on('source_missing_metadata'),
         agedStub: on('stub_aged'),
         citedUnread: on('source_cited_unread'),
         duplicates: on('source_duplicate_doi'),
         stubDays: settings.stubDays,
-      }),
+      })),
       on('broken_note_link') || on('broken_anchor_link') || on('broken_cite_quote')
-        ? checkBrokenLinks(ctx)
+        ? isolated('broken_links', () => checkBrokenLinks(ctx))
         : none(),
       // Enabled AND wired: without an injected scanner there is no filesystem
       // to look at, so the check has nothing to report (see HealthCheckDeps).
-      on('unreferenced_image') && deps.findOrphanedAssets
-        ? checkUnreferencedImages(ctx, deps.findOrphanedAssets)
+      on('unreferenced_image') && findOrphans
+        ? isolated('unreferenced_image', () => checkUnreferencedImages(ctx, findOrphans))
         : none(),
     ]);
     // The multi-type checks above run as a unit, so drop the individual types
