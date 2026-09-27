@@ -169,10 +169,10 @@ describe('the shared node_modules cache key stays identical (#1638, #663)', () =
  * of the one workflow whose entire product is a measurement.
  *
  * The `cancel-in-progress` VALUE is deliberately not asserted to one setting:
- * `ci.yml` cancels (superseded PR pushes are waste), `release.yml` and
- * `bench.yml` do not (a half-notarized release and a half-finished benchmark
- * are both worse than a slow one). What's asserted is that each workflow has
- * made the choice.
+ * `ci.yml` cancels superseded PR runs only (#2352 — a cancelled main run is a
+ * commit with no verdict), `release.yml` and `bench.yml` never cancel (a
+ * half-notarized release and a half-finished benchmark are both worse than a
+ * slow one). What's asserted is that each workflow has made the choice.
  */
 describe('every workflow has a concurrency group (#2247)', () => {
   const docs = () =>
@@ -182,7 +182,7 @@ describe('every workflow has a concurrency group (#2247)', () => {
       .map((file) => ({
         file,
         doc: parse(fs.readFileSync(path.join(WORKFLOW_DIR, file), 'utf-8')) as {
-          concurrency?: { group?: string; 'cancel-in-progress'?: boolean };
+          concurrency?: { group?: string; 'cancel-in-progress'?: boolean | string };
         },
       }));
 
@@ -200,11 +200,27 @@ describe('every workflow has a concurrency group (#2247)', () => {
 
   it('each makes an explicit cancel-in-progress choice', () => {
     // Omitting it defaults to false, which is right for two of the three — but
-    // defaulting is not deciding, and the reasoning differs per workflow.
+    // defaulting is not deciding, and the reasoning differs per workflow. An
+    // `${{ }}` expression is a decision too (ci.yml's PR-only form).
     const implicit = docs()
-      .filter((w) => typeof w.doc.concurrency?.['cancel-in-progress'] !== 'boolean')
+      .filter((w) => {
+        const v = w.doc.concurrency?.['cancel-in-progress'];
+        return typeof v !== 'boolean' && !(typeof v === 'string' && /^\$\{\{.*\}\}$/.test(v.trim()));
+      })
       .map((w) => w.file);
     expect(implicit).toEqual([]);
+  });
+
+  it('ci cancels superseded PR runs but never a main run (#2352)', () => {
+    // `true` here cancelled 25 of the last 40 main runs: two green PRs merged
+    // close together, the first main run was cancelled, and the red combination
+    // (#2348) had no CI verdict to bisect from. The expression must key on the
+    // event being a pull_request — not on the ref being something other than
+    // main, which a future release branch or merge queue would silently join.
+    const ci = docs().find((w) => w.file === 'ci.yml')!;
+    expect(String(ci.doc.concurrency?.['cancel-in-progress']).replace(/\s+/g, '')).toBe(
+      "${{github.event_name=='pull_request'}}",
+    );
   });
 
   it('bench does NOT cancel in progress', () => {

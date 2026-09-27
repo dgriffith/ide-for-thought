@@ -692,7 +692,8 @@ an installing job and you owe it a verify step.
 
 **Every workflow declares a `concurrency:` group, and decides
 `cancel-in-progress` explicitly** (#2247). The value differs on purpose:
-`ci.yml` cancels (a superseded PR push is waste), `release.yml` and
+`ci.yml` cancels superseded **PR** runs only (a superseded PR push is waste,
+but a cancelled main run is a commit with no verdict — #2352), `release.yml` and
 `bench.yml` do not — a half-notarized release and a half-finished benchmark
 are both worse than a slow one. `bench.yml` is the sharp case: two overlapping
 runs measure each other's CPU contention, corrupting the output of the one
