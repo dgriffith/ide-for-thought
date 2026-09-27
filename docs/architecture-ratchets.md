@@ -357,11 +357,15 @@ files gain a line per channel — and raising those is routine.
 
 ### `pattern-ratchets.test.ts`
 
-**Per-file counts of six known-bad shapes, which may go down and may not go
+**Per-file counts of seven known-bad shapes, which may go down and may not go
 up** (#1848): `catch { return [] | null | … }` swallows, `.catch(() => …)`
 swallows, `withRootPathOr(null, …)`, `withRootPathOr(false, …)` boolean
-overloads, `withRootPathOr(undefined, …)`, and in-band `error?` on an otherwise
-normal payload. Written because prose doesn't fail a build and it showed:
+overloads, `withRootPathOr(undefined, …)`, in-band `error?` on an otherwise
+normal payload, and a raw `writeFile*` of JSON (#2369) — a store a crash can
+leave truncated, where `writeJsonFileAtomic` / `writeJsonFileAtomicSync` in
+`config/json-file.ts` would not. That last one counts a call whose own argument
+list holds `JSON.stringify(` or a `'….json'` literal, which is what keeps
+exports (pre-rendered contents) and `notebaseFs.` note writes out of it. Written because prose doesn't fail a build and it showed:
 CLAUDE.md's migration backlog moved by one item in three weeks while brand-new
 code introduced two fresh instances of the very shapes it names. Nothing here
 claims every listed site is wrong — several are deliberate. Lexical scanning, so
@@ -369,7 +373,9 @@ it *undercounts* (a `console.warn` before the empty return isn't matched, nor a
 swallow written across an intermediate variable); the blind spots are listed in
 the file's own header rather than discovered later. **When it fires:** write the
 code the way CLAUDE.md's *IPC error handling* section describes — throw, or
-return a discriminated union — rather than raising the budget.
+return a discriminated union — rather than raising the budget; for the JSON-write
+count, route the store through the atomic writer (its `{ indent,
+trailingNewline }` options keep an existing file byte-identical).
 
 ### `coverage-floor-enrollment.test.ts`
 

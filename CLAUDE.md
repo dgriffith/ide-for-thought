@@ -520,6 +520,14 @@ can't quietly grow while nobody re-reads it:
   reader fails a test instead of staying invisible the way the six above did
   (`config-roots-doc.test.ts` only checks *where* a config lives, not *how* it's
   read).
+- **Write** a JSON store through `writeJsonFileAtomic` / `writeJsonFileAtomicSync`
+  (`config/json-file.ts`: temp file + `rename`, so a crash can't leave a
+  truncated file for the loader to read as corrupt), not a raw `writeFile` of
+  `JSON.stringify(...)`. `{ indent: 0 }` / `{ trailingNewline: true }` keep an
+  existing file's layout. `tests/architecture/pattern-ratchets.test.ts` counts
+  the raw writes that remain (#2369) — three files, none a user store. When you
+  touch a read-modify-write store, check its reader too: a lenient
+  corrupt→defaults read feeding a write is the #1891 / #2356 clobber.
 - **Where each config lives** is inventoried in `docs/config-roots.md` — the
   three roots (`userData/`, `~/.minerva/`, `<thoughtbase>/.minerva/`) and which
   ones hold secrets. The `userData/` table is checked against the code by

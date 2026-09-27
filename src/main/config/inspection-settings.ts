@@ -18,8 +18,8 @@
 
 import { app } from 'electron';
 import path from 'node:path';
-import fs from 'node:fs/promises';
 import { loadConfigFile, asRecord, asFiniteNumber, asStringArray } from './config-store';
+import { writeJsonFileAtomic } from './json-file';
 import {
   visibleInspections,
   DEFAULT_INSPECTION_SETTINGS,
@@ -66,5 +66,5 @@ export async function saveInspectionSettings(settings: InspectionSettings): Prom
     staleDays: clampDays(settings.staleDays, DEFAULT_INSPECTION_SETTINGS.staleDays),
     stubDays: clampDays(settings.stubDays, DEFAULT_INSPECTION_SETTINGS.stubDays),
   };
-  await fs.writeFile(settingsPath(), JSON.stringify(clean, null, 2), 'utf-8');
+  await writeJsonFileAtomic(settingsPath(), clean);
 }

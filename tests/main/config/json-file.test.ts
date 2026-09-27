@@ -20,7 +20,8 @@ import { promises as fsp } from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import { readJsonFileOr, writeJsonFileAtomic } from '../../../src/main/config/json-file';
+import fsSync from 'node:fs';
+import { readJsonFileOr, writeJsonFileAtomic, writeJsonFileAtomicSync } from '../../../src/main/config/json-file';
 
 describe('readJsonFileOr (#1631)', () => {
   let dir: string;
@@ -99,5 +100,44 @@ describe('writeJsonFileAtomic (#1915)', () => {
 
     const leftovers = await fs.readdir(dir);
     expect(leftovers).toEqual([]);
+  });
+
+  it('honours the file-format options (#2369)', async () => {
+    const p = path.join(dir, 'settings.json');
+    await writeJsonFileAtomic(p, { a: [1] }, { indent: 0 });
+    expect(await fs.readFile(p, 'utf-8')).toBe('{"a":[1]}');
+    await writeJsonFileAtomic(p, { a: [1] }, { trailingNewline: true });
+    expect(await fs.readFile(p, 'utf-8')).toBe(`${JSON.stringify({ a: [1] }, null, 2)}\n`);
+  });
+});
+
+describe('writeJsonFileAtomicSync (#2369)', () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = fsSync.mkdtempSync(path.join(os.tmpdir(), 'minerva-writejson-sync-'));
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    fsSync.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('creates missing parent directories and writes the same layout as the async twin', () => {
+    const p = path.join(dir, 'nested', 'config.json');
+    writeJsonFileAtomicSync(p, { a: 1 });
+    expect(fsSync.readFileSync(p, 'utf-8')).toBe(JSON.stringify({ a: 1 }, null, 2));
+    writeJsonFileAtomicSync(p, ['x'], { indent: 0 });
+    expect(fsSync.readFileSync(p, 'utf-8')).toBe('["x"]');
+  });
+
+  it('leaves the previous file intact, and no temp file, when the rename fails', () => {
+    const p = path.join(dir, 'config.json');
+    writeJsonFileAtomicSync(p, { version: 1 });
+
+    vi.spyOn(fsSync, 'renameSync').mockImplementationOnce(() => { throw new Error('simulated crash'); });
+    expect(() => writeJsonFileAtomicSync(p, { version: 2 })).toThrow('simulated crash');
+
+    expect(JSON.parse(fsSync.readFileSync(p, 'utf-8'))).toEqual({ version: 1 });
+    expect(fsSync.readdirSync(dir)).toEqual(['config.json']);
   });
 });

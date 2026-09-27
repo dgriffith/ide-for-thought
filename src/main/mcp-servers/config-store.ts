@@ -8,17 +8,17 @@
  *
  * Reads go through `loadConfigFile` (`../config/config-store.ts`) so a
  * missing file is silent-defaults and a corrupt one is loud-logged-defaults,
- * per CLAUDE.md's Config files convention. Writes are hand-rolled — that
- * module only centralizes reads (no shared save helper exists to route
- * through), matching `token-store.ts`/`menu-config-store.ts`. No write lock:
+ * per CLAUDE.md's Config files convention. Writes go through
+ * `writeJsonFileAtomic` (`../config/json-file.ts`, #2369), so a crash
+ * mid-save can't leave a truncated file behind. No write lock:
  * mutations here come from one user in one settings panel, not from several
  * concurrent completions the way OAuth callbacks can.
  */
-import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { asBool, asRecord, asString, asStringArray, loadConfigFile } from '../config/config-store';
+import { writeJsonFileAtomic } from '../config/json-file';
 import type { McpServerDescriptor, StoredMcpServerConfig } from '../../shared/mcp-servers';
 
 export function mcpServersConfigPath(): string {
@@ -74,8 +74,7 @@ export function getStoredServers(file: string = mcpServersConfigPath()): Promise
 }
 
 async function writeStoredServers(servers: StoredMcpServerConfig[], file: string): Promise<void> {
-  await fs.mkdir(path.dirname(file), { recursive: true });
-  await fs.writeFile(file, JSON.stringify({ servers }, null, 2) + '\n', 'utf-8');
+  await writeJsonFileAtomic(file, { servers }, { trailingNewline: true });
 }
 
 async function mutateOne(

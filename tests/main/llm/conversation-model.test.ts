@@ -1,4 +1,6 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import fs from 'node:fs';
+import path from 'node:path';
 import {
   create,
   setModel,
@@ -76,5 +78,30 @@ describe('conversation.create webEnabled (#1533 — per-conversation web)', () =
   it('persists an explicit web:true', async () => {
     const conv = await create(root, { notePath: 'x.md' }, undefined, { webEnabled: true });
     expect((await load(root, conv.id))?.webEnabled).toBe(true);
+  });
+});
+
+describe('conversation transcripts are written atomically (#2369)', () => {
+  const project = useGraphProject('minerva-conv-atomic-test-');
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  it('an interrupted save leaves the previous transcript whole', async () => {
+    const root = project.root;
+    const conv = await create(root, { notePath: 'x.md' });
+    await setModel(root, conv.id, 'claude-opus-4-7');
+    const file = path.join(root, '.minerva', 'conversations', `${conv.id}.json`);
+    const before = fs.readFileSync(file, 'utf-8');
+
+    // A crash between "temp file written" and "renamed into place": a raw
+    // writeFile would already have overwritten the transcript by now.
+    const realRename = fs.promises.rename;
+    vi.spyOn(fs.promises, 'rename').mockImplementation(async (from, to) => {
+      if (to === file) throw new Error('simulated crash');
+      await realRename(from, to);
+    });
+    await expect(setModel(root, conv.id, 'claude-haiku-4-5')).rejects.toThrow('simulated crash');
+
+    expect(fs.readFileSync(file, 'utf-8')).toBe(before);
+    expect((await load(root, conv.id))?.model).toBe('claude-opus-4-7');
   });
 });

@@ -7,8 +7,8 @@
 
 import { app } from 'electron';
 import path from 'node:path';
-import fs from 'node:fs/promises';
 import { loadConfigFile, asBool, asRecord } from '../config/config-store';
+import { writeJsonFileAtomic } from '../config/json-file';
 
 export interface IngestSettings {
   /** When true, the identifier-ingest adapters extract upstream
@@ -36,5 +36,5 @@ export async function getIngestSettings(): Promise<IngestSettings> {
 }
 
 export async function saveIngestSettings(settings: IngestSettings): Promise<void> {
-  await fs.writeFile(settingsPath(), JSON.stringify(settings, null, 2), 'utf-8');
+  await writeJsonFileAtomic(settingsPath(), settings);
 }

@@ -157,7 +157,6 @@ const SWALLOW_BASELINE: Record<string, number> = {
   'src/main/notebase/fs.ts': 1,
   'src/main/notebase/templates.ts': 1,
   'src/main/privileged-sites.ts': 1,
-  'src/main/project-config.ts': 1,
   'src/main/publish/csl/user-assets.ts': 2,
   'src/main/publish/exporters/static-site/search-script.ts': 1,
   'src/main/publish/pipeline.ts': 2,
@@ -333,6 +332,93 @@ const IN_BAND_ERROR_ON_PAYLOAD = /Promise<\s*\{[^{}]*\berror\?:[^{}]*\}\s*>/g;
  */
 const IN_BAND_ERROR_ON_PAYLOAD_BASELINE: Record<string, number> = {};
 
+// ── Ratchet 6: non-atomic JSON-store writes ─────────────────────────────────
+
+/**
+ * A raw `writeFile`/`writeFileSync` of JSON — the write that a crash (main
+ * dies, the machine loses power) can leave truncated on disk. A truncated
+ * settings/bookmarks/session file then reads as corrupt: `readJsonFileOr`
+ * rightly refuses it, and a lenient loader falls back to defaults — the user's
+ * state is gone either way. `writeJsonFileAtomic` / `writeJsonFileAtomicSync`
+ * in `config/json-file.ts` write a sibling temp file and `rename` it over the
+ * real one, so a reader sees the old file or the new one, never half of one.
+ *
+ * The heuristic, and why it doesn't flag exports: a call counts when its
+ * ARGUMENT LIST serializes JSON inline (`JSON.stringify(` / the CLI's
+ * `jsonStringify(`) or names a `'….json'` path literal. The export paths
+ * (`publish/run-export.ts`, `register-bibliography.ts`, the CSV/PDF saves)
+ * all write contents an exporter already rendered, so they don't match —
+ * nothing had to be allowlisted to leave them out. Calls through
+ * `notebaseFs.` are skipped: that is the sandboxed note-write API, whose
+ * files are the user's documents (history-captured, #1158), not stores.
+ *
+ * Known blind spots — it undercounts, like every scan in this file:
+ *   - JSON serialized into a variable first and written by a later call
+ *     (`const text = JSON.stringify(x); fs.writeFile(p, text)`), unless the
+ *     path argument is a `.json` literal;
+ *   - a serializer helper (`saved-views.ts`'s `serializeView(input)` into a
+ *     `${id}.json` path built earlier);
+ *   - a write through a stream or a library rather than `writeFile*`;
+ *   - the argument list is found by balancing parentheses, so a string
+ *     literal holding an unbalanced `(` or `)` would cut it short.
+ */
+const RAW_WRITE_CALL = /(?<!notebaseFs\.)(?<!function )\bwriteFile(?:Sync)?\(/g;
+const WRITES_JSON = /JSON\.stringify\(|\bjsonStringify\(|\.json['"`]/;
+
+/** The text between the `(` that ends at `openIdx` and its matching `)`. */
+function argumentListFrom(source: string, openIdx: number): string {
+  let depth = 1;
+  for (let i = openIdx; i < source.length; i++) {
+    if (source[i] === '(') depth++;
+    else if (source[i] === ')' && --depth === 0) return source.slice(openIdx, i);
+  }
+  return source.slice(openIdx);
+}
+
+function countNonAtomicJsonWrites(source: string): number {
+  let count = 0;
+  for (const call of source.matchAll(RAW_WRITE_CALL)) {
+    if (WRITES_JSON.test(argumentListFrom(source, call.index + call[0].length))) count++;
+  }
+  return count;
+}
+
+/** `config/json-file.ts` is the atomic writer itself — its temp-file write is the point. */
+const ATOMIC_WRITER = 'src/main/config/json-file.ts';
+
+function nonAtomicJsonWritesPerFile(): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const file of [...tsFilesUnder('src/main'), ...tsFilesUnder('src/cli')]) {
+    const rel = path.relative(ROOT, file);
+    if (rel === ATOMIC_WRITER) continue;
+    const n = countNonAtomicJsonWrites(fs.readFileSync(file, 'utf-8'));
+    if (n > 0) counts[rel] = n;
+  }
+  return counts;
+}
+
+/**
+ * Baseline as of #2369, which moved every user-state store onto the atomic
+ * writer (settings ×4, session, recent projects, privileged sites, compute consent,
+ * `.minerva/config.json` + `secrets.json`, menu config, MCP servers + OAuth
+ * tokens, collections, the history index, conversation transcripts). Not one
+ * of the survivors is a store the user would lose:
+ */
+const NON_ATOMIC_JSON_WRITE_BASELINE: Record<string, number> = {
+  // Golden-file eval outputs (`request.json`, `meta.json`, `drafts.json`),
+  // regenerated wholesale by `pnpm cli eval` and committed — a torn one is a
+  // red diff, re-run the command.
+  'src/cli/eval.ts': 3,
+  // The derived full-text index. `load` already treats a corrupt file as "start
+  // fresh" and it rebuilds from the notes; it is also the one large write here,
+  // and deliberately compact.
+  'src/main/search/minisearch-provider.ts': 1,
+  // `.minerva/runtime.json`, the running app's port+token advert for the CLI.
+  // Rewritten on every project open, deleted on close; a reader that can't
+  // parse it falls back to opening state directly.
+  'src/main/substrate/app-server.ts': 1,
+};
+
 describe('known-bad pattern ratchets (#1848)', () => {
   it('the scanners still find things — a broken regex would pass vacuously', () => {
     // The failure mode that would quietly turn all ratchets into decoration.
@@ -346,6 +432,27 @@ describe('known-bad pattern ratchets (#1848)', () => {
     // against the union that replaced it, instead.
     expect('Promise<{ results: unknown[]; columns: string[]; error?: string }>'.match(IN_BAND_ERROR_ON_PAYLOAD)).toHaveLength(1);
     expect('Promise<{ ok: true; results: unknown[] } | { ok: false; error: string }>'.match(IN_BAND_ERROR_ON_PAYLOAD)).toBeNull();
+  });
+
+  it('the non-atomic JSON-write scanner counts store writes and leaves exports alone', () => {
+    // The shapes it exists to catch — sync and async, JSON inline or a `.json`
+    // literal path, and an argument list spread over several lines.
+    expect(countNonAtomicJsonWrites("fs.writeFileSync(file(), JSON.stringify(data, null, 2), 'utf-8');")).toBe(1);
+    expect(countNonAtomicJsonWrites("await fs.writeFile(path.join(dir, 'meta.json'), text, 'utf-8');")).toBe(1);
+    expect(countNonAtomicJsonWrites(
+      "await fs.writeFile(\n  settingsPath(),\n  JSON.stringify({\n    a: f(x),\n  }, null, 2),\n  'utf-8',\n);",
+    )).toBe(1);
+    expect(countNonAtomicJsonWrites("await writeFile(p, `${jsonStringify(x, true)}\\n`);")).toBe(1);
+    // …and what it must not count: an exporter's pre-rendered contents, a note
+    // written through the sandbox, the atomic writer, a local function named
+    // `writeFile`, and JSON serialized somewhere other than the write's own call.
+    expect(countNonAtomicJsonWrites("await fs.writeFile(destAbs, f.contents, 'utf-8');")).toBe(0);
+    expect(countNonAtomicJsonWrites("await notebaseFs.writeFile(rootPath, 'data.json', JSON.stringify(x));")).toBe(0);
+    expect(countNonAtomicJsonWrites('await writeJsonFileAtomic(settingsPath(), clean);')).toBe(0);
+    expect(countNonAtomicJsonWrites('function writeFile(data: FileShape): void {')).toBe(0);
+    expect(countNonAtomicJsonWrites("fs.writeFileSync(a, b); const s = JSON.stringify(x);")).toBe(0);
+    // And it still finds the survivors in the live tree.
+    expect(Object.keys(nonAtomicJsonWritesPerFile()).length).toBeGreaterThan(0);
   });
 
   it('swallowed errors: no new ones', () => {
@@ -415,6 +522,19 @@ describe('known-bad pattern ratchets (#1848)', () => {
       'caller has to remember to check it even though the type doesn\'t say a truthy payload might ' +
       'still be garbage. Use the discriminated `{ ok: false; error } | { ok: true; ... }` union from ' +
       'CLAUDE.md IPC error handling rule 3 instead — see `TABLES_QUERY`\'s `{ ok, ... }` shape.',
+    );
+  });
+
+  it('non-atomic JSON-store writes: no new ones', () => {
+    assertRatchet(
+      'Non-atomic JSON writes (writeFile*(…JSON.stringify… | ….json))',
+      NON_ATOMIC_JSON_WRITE_BASELINE,
+      nonAtomicJsonWritesPerFile(),
+      'A crash mid-`writeFile` leaves a truncated file, which then reads as corrupt and the store ' +
+      'falls back to defaults. Write JSON stores through `writeJsonFileAtomic` / ' +
+      '`writeJsonFileAtomicSync` (`src/main/config/json-file.ts`), which take `{ indent, trailingNewline }` ' +
+      'to keep an existing file format. A file the user asked to export is not a store — if the scan ' +
+      'caught one, say why in the baseline comment.',
     );
   });
 });

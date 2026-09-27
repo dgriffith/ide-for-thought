@@ -8,11 +8,11 @@
  * The list is per-machine — cookies are tied to the local Electron
  * userData directory, so the config has no business living per-project.
  */
-import fs from 'node:fs';
 import path from 'node:path';
 import { app, BrowserWindow, session, type Session } from 'electron';
 import type { PrivilegedSite } from '../shared/privileged-sites';
 import { loadConfigFileSync, asRecord } from './config/config-store';
+import { writeJsonFileAtomicSync } from './config/json-file';
 import { logger } from '../shared/logger';
 
 interface FileShape {
@@ -46,7 +46,7 @@ function readFile(): FileShape {
 }
 
 function writeFile(data: FileShape): void {
-  fs.writeFileSync(configFile(), JSON.stringify(data, null, 2), 'utf-8');
+  writeJsonFileAtomicSync(configFile(), data);
 }
 
 /** Bare hostname normaliser: strips leading dot, lowercases, drops port. */
@@ -112,13 +112,17 @@ export async function removeSite(id: string): Promise<void> {
 }
 
 export async function logoutSite(id: string): Promise<void> {
-  const data = readFile();
-  const site = data.sites.find((s) => s.id === id);
-  if (!site) return;
+  if (!readFile().sites.some((s) => s.id === id)) return;
   await session.fromPartition(partitionFor(id)).clearStorageData();
+  // Re-read AFTER the await, as `openLoginWindow`'s close handler does: a
+  // snapshot taken before it would write back a list missing any site added
+  // (or still holding any site removed) while the partition was clearing.
+  const fresh = readFile();
+  const site = fresh.sites.find((s) => s.id === id);
+  if (!site) return;
   // Reset lastLoginAt so the UI shows the site as logged-out.
   site.lastLoginAt = null;
-  writeFile(data);
+  writeFile(fresh);
 }
 
 /**

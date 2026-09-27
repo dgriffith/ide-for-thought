@@ -1,7 +1,7 @@
-import fs from 'node:fs';
 import path from 'node:path';
 import { app } from 'electron';
 import { loadConfigFileSync } from './config/config-store';
+import { writeJsonFileAtomicSync } from './config/json-file';
 
 export interface WindowState {
   x: number;
@@ -35,5 +35,5 @@ export function loadSession(): WindowState[] {
 }
 
 export function saveSession(windows: WindowState[]): void {
-  fs.writeFileSync(filePath(), JSON.stringify(windows), 'utf-8');
+  writeJsonFileAtomicSync(filePath(), windows, { indent: 0 });
 }

@@ -14,6 +14,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { reportConfigError } from './config-store';
 import { invalidateProjectConfigCache } from './project-config-cache';
+import { writeJsonFileAtomicSync } from './json-file';
 
 function configPath(rootPath: string): string {
   return path.join(rootPath, '.minerva', 'config.json');
@@ -60,8 +61,7 @@ export function readRawProjectConfig(rootPath: string): Record<string, unknown> 
 export function patchRawProjectConfig(rootPath: string, patch: Record<string, unknown>): void {
   const existing = readRawProjectConfig(rootPath);
   const next = { ...existing, ...patch };
-  fs.mkdirSync(path.dirname(configPath(rootPath)), { recursive: true });
-  fs.writeFileSync(configPath(rootPath), JSON.stringify(next, null, 2), 'utf-8');
+  writeJsonFileAtomicSync(configPath(rootPath), next);
   // Every write of this file lands here — `patchProjectConfig` and
   // `graph/index.ts`'s `baseUri` both delegate to it — so this is the one
   // place the #2226 memo has to be dropped for an in-app write. Doing it here

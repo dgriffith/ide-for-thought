@@ -28,6 +28,8 @@ const h = vi.hoisted(() => ({
   clearedPartitions: [] as string[],
   globalFetchCalls: [] as unknown[],
   windows: [] as Array<{ options: unknown; url: string; close: () => void }>,
+  /** Runs inside `clearStorageData`, i.e. while `logoutSite` is awaiting it. */
+  duringClear: null as null | (() => void),
 }));
 
 vi.mock('electron', () => ({
@@ -36,6 +38,7 @@ vi.mock('electron', () => ({
     fromPartition: (partition: string) => ({
       clearStorageData: () => {
         h.clearedPartitions.push(partition);
+        h.duringClear?.();
         return Promise.resolve();
       },
       fetch: (target: unknown) => {
@@ -78,6 +81,7 @@ beforeEach(() => {
   h.clearedPartitions = [];
   h.globalFetchCalls = [];
   h.windows = [];
+  h.duringClear = null;
 });
 
 afterEach(() => {
@@ -247,6 +251,24 @@ describe('logoutSite', () => {
   it('is a no-op for an unknown id', async () => {
     await logoutSite('nope');
     expect(h.clearedPartitions).toEqual([]);
+  });
+  it('keeps a site added while the partition was clearing (#2369)', async () => {
+    addSite('arxiv.org');
+    // The snapshot logoutSite used to take before its await would write this
+    // site straight back out of the file.
+    h.duringClear = () => { addSite('jstor.org'); };
+
+    await logoutSite('arxiv.org');
+    expect(listSites().map((s) => s.id).sort()).toEqual(['arxiv.org', 'jstor.org']);
+  });
+
+  it('does not resurrect a site removed while the partition was clearing (#2369)', async () => {
+    addSite('arxiv.org');
+    addSite('jstor.org');
+    h.duringClear = () => { void removeSite('arxiv.org'); };
+
+    await logoutSite('arxiv.org');
+    expect(listSites().map((s) => s.id)).toEqual(['jstor.org']);
   });
 });
 

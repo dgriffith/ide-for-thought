@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { app } from 'electron';
 import { loadConfigFileSync, asStringArray } from './config/config-store';
+import { writeJsonFileAtomicSync } from './config/json-file';
 
 const MAX_RECENT = 10;
 
@@ -51,7 +52,7 @@ export function addRecentProject(projectPath: string): void {
   const recent = getRecentProjects().filter((p) => p !== projectPath);
   recent.unshift(projectPath);
   if (recent.length > MAX_RECENT) recent.length = MAX_RECENT;
-  fs.writeFileSync(recentsFilePath(), JSON.stringify(recent), 'utf-8');
+  writeJsonFileAtomicSync(recentsFilePath(), recent, { indent: 0 });
   cache = recent;
 }
 
@@ -86,6 +87,6 @@ export function defaultThoughtbaseDir(): string {
 }
 
 export function clearRecentProjects(): void {
-  fs.writeFileSync(recentsFilePath(), '[]', 'utf-8');
+  writeJsonFileAtomicSync(recentsFilePath(), [], { indent: 0 });
   cache = [];
 }

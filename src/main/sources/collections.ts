@@ -21,6 +21,7 @@
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { writeJsonFileAtomic } from '../config/json-file';
 import type { SmartCollection, SmartCollectionPredicate, ReadStatus } from '../../shared/types';
 
 const READ_STATUS_VALUES: ReadonlySet<ReadStatus> = new Set(['unread', 'reading', 'read', 'skipped']);
@@ -105,9 +106,7 @@ export async function loadCollections(rootPath: string): Promise<CollectionsFile
 }
 
 async function saveCollections(rootPath: string, data: CollectionsFile): Promise<void> {
-  const p = filePath(rootPath);
-  await fs.mkdir(path.dirname(p), { recursive: true });
-  await fs.writeFile(p, JSON.stringify(data, null, 2), 'utf-8');
+  await writeJsonFileAtomic(filePath(rootPath), data);
 }
 
 /**

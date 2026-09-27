@@ -12,6 +12,8 @@ import path from 'node:path';
 import { encryptSecret, decryptSecret } from './secret-storage';
 import { readCachedProjectConfig } from './config/project-config-cache';
 import { patchRawProjectConfig } from './config/project-config-store';
+import { isEnoent, writeJsonFileAtomicSync } from './config/json-file';
+import { reportConfigError } from './config/config-store';
 
 export interface ProjectConfigShape {
   baseUri?: string;
@@ -260,12 +262,31 @@ function secretsPath(rootPath: string): string {
   return path.join(rootPath, '.minerva', 'secrets.json');
 }
 
-function readSecrets(rootPath: string): Record<string, TargetSecret> {
+/**
+ * The stored per-target secrets. A missing file is `{}` (nothing stored yet).
+ * An unreadable or corrupt one is reported, then `null` — NOT `{}` — because
+ * every writer here is a read-modify-write of the whole map: building a write
+ * on a silently-emptied `{}` erased every other target's credential (upsert
+ * wrote back one entry; removing a target unlinked the file outright). Same
+ * clobber shape as #1891 / #2356, found moving this store onto the atomic
+ * writer (#2369).
+ */
+function readSecrets(rootPath: string): Record<string, TargetSecret> | null {
+  const file = secretsPath(rootPath);
+  let raw: string;
   try {
-    const parsed = JSON.parse(fs.readFileSync(secretsPath(rootPath), 'utf-8')) as { publishTargets?: Record<string, TargetSecret> };
+    raw = fs.readFileSync(file, 'utf-8');
+  } catch (err) {
+    if (isEnoent(err)) return {};
+    reportConfigError(file, 'read', err);
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(raw) as { publishTargets?: Record<string, TargetSecret> };
     return parsed.publishTargets ?? {};
-  } catch {
-    return {};
+  } catch (err) {
+    reportConfigError(file, 'parse', err);
+    return null;
   }
 }
 
@@ -288,8 +309,15 @@ function writeSecrets(rootPath: string, secrets: Record<string, TargetSecret>): 
     return;
   }
   ensureMinervaGitignored(rootPath, 'secrets.json');
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, JSON.stringify({ publishTargets: secrets }, null, 2), 'utf-8');
+  writeJsonFileAtomicSync(file, { publishTargets: secrets });
+}
+
+interface PublishState {
+  targets: StoredTarget[];
+  secrets: Record<string, TargetSecret>;
+  /** False when `secrets.json` exists but couldn't be read — `secrets` is then
+   *  `{}` for display only and must not be written back. */
+  secretsReadable: boolean;
 }
 
 /**
@@ -297,9 +325,10 @@ function writeSecrets(rootPath: string, secrets: Record<string, TargetSecret>): 
  * inline `*Enc` (pre-split, when secrets lived in config.json) out into
  * `secrets.json` on first access — so a git-backed thoughtbase never commits them.
  */
-function loadPublishState(rootPath: string): { targets: StoredTarget[]; secrets: Record<string, TargetSecret> } {
+function loadPublishState(rootPath: string): PublishState {
   const raw = (readProjectConfig(rootPath).publish?.targets ?? []) as (StoredTarget & { secretAccessKeyEnc?: string; githubTokenEnc?: string })[];
-  const secrets = readSecrets(rootPath);
+  const stored = readSecrets(rootPath);
+  const secrets = stored ?? {};
   let migrated = false;
   const targets: StoredTarget[] = raw.map((t) => {
     const { secretAccessKeyEnc, githubTokenEnc, ...rest } = t;
@@ -312,11 +341,24 @@ function loadPublishState(rootPath: string): { targets: StoredTarget[]; secrets:
     }
     return rest;
   });
-  if (migrated) {
+  // Persist the migration only onto a secrets file we could read: otherwise the
+  // write replaces it with just the migrated entries, and stripping the inline
+  // copies from config.json would drop the one readable copy of each.
+  if (migrated && stored) {
     patchProjectConfig(rootPath, { publish: { targets } });
     writeSecrets(rootPath, secrets);
   }
-  return { targets, secrets };
+  return { targets, secrets, secretsReadable: stored !== null };
+}
+
+/** `loadPublishState` for a read-modify-write: throws rather than hand back a
+ *  map that would erase the unreadable file's credentials when written. */
+function loadPublishStateForWrite(rootPath: string): PublishState {
+  const state = loadPublishState(rootPath);
+  if (!state.secretsReadable) {
+    throw new Error(`${secretsPath(rootPath)} could not be read; refusing to rewrite it and lose the credentials it holds`);
+  }
+  return state;
 }
 
 /** Map an on-disk target + its secret entry to the wire form: presence flags
@@ -389,7 +431,7 @@ function applySecret(prev: TargetSecret | undefined, target: PublishTarget): Tar
 /** Insert or replace a target by id, preserving the rest of the list and other
  *  targets' secrets. Non-secret fields → config.json; the credential → secrets.json. */
 export function upsertPublishTarget(rootPath: string, target: PublishTarget): void {
-  const { targets, secrets } = loadPublishState(rootPath);
+  const { targets, secrets } = loadPublishStateForWrite(rootPath);
   const stored = toStoredTarget(target);
   const idx = targets.findIndex((t) => t.id === target.id);
   if (idx >= 0) targets[idx] = stored;
@@ -402,7 +444,7 @@ export function upsertPublishTarget(rootPath: string, target: PublishTarget): vo
 }
 
 export function removePublishTarget(rootPath: string, id: string): void {
-  const { targets, secrets } = loadPublishState(rootPath);
+  const { targets, secrets } = loadPublishStateForWrite(rootPath);
   const next = targets.filter((t) => t.id !== id);
   delete secrets[id];
   patchProjectConfig(rootPath, { publish: { targets: next } });
