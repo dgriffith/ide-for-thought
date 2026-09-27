@@ -29,6 +29,7 @@ import { type Engine, type ExecResult } from './engine';
 import { createRoutedEngine } from './routed-engine';
 import { jsonStringify } from './json';
 import { runMcpServer } from './mcp';
+import { bundledResourcesRoot } from '../main/bundled-resources';
 import { runEval } from './eval';
 
 export interface CliResult {
@@ -240,11 +241,11 @@ export async function runCli(argv: string[], opts: RunOptions): Promise<CliResul
 
     const root = await resolveProjectRoot(args.project, opts.cwd);
 
-    // The bundled model lives at <repo>/resources. Both the built bundle
-    // (.vite/build/cli.js) and the TS source (src/cli/run.ts) sit two levels
-    // below the repo root, so this resolves the model regardless of the caller's
-    // cwd — where the embedder's old cwd-relative fallback broke (#1149).
-    const resourcesBase = path.join(__dirname, '..', '..', 'resources');
+    // The bundled model lives under `resources/`: `<repo>/resources` in a
+    // checkout, `<Resources>/resources` in the packaged app. It used to be
+    // `<cli.js>/../../resources`, right in a checkout (#1149) but, once
+    // packaged, `Resources/app.asar/resources` — which doesn't exist (#2410).
+    const resourcesBase = bundledResourcesRoot();
 
     // The MCP server is long-lived and owns its own IO; it doesn't fit the
     // request/response shape, so it's handled before the engine dispatch.

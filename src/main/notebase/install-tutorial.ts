@@ -16,10 +16,10 @@
  * without a running app; the IPC handler in `ipc/register-notebase.ts` supplies
  * the picked path and opens the result.
  */
-import { app } from 'electron';
 import fs from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
+import { bundledResourcesRoot } from '../bundled-resources';
 
 /** Folder name the tutorial ships under inside `resources/`. */
 const TUTORIAL_DIR_NAME = 'tutorial-thoughtbase';
@@ -28,16 +28,11 @@ const TUTORIAL_DIR_NAME = 'tutorial-thoughtbase';
 export const TUTORIAL_DEFAULT_NAME = 'Minerva Tutorial';
 
 /**
- * Absolute path to the bundled tutorial tree, resolved the same way as the
- * help-docs corpus (`help-docs/corpus-store.ts`): `process.resourcesPath` when
- * packaged, `process.cwd()` in dev. `resourcesBaseOverride` is a test seam.
+ * Absolute path to the bundled tutorial tree, under `bundledResourcesRoot()`
+ * (#2410). `resourcesBaseOverride` is a test seam.
  */
 export function tutorialResourceDir(resourcesBaseOverride?: string): string {
-  const resourcesBase =
-    resourcesBaseOverride ??
-    (app?.isPackaged
-      ? path.join(process.resourcesPath, 'resources')
-      : path.join(process.cwd(), 'resources'));
+  const resourcesBase = resourcesBaseOverride ?? bundledResourcesRoot();
   return path.join(resourcesBase, TUTORIAL_DIR_NAME);
 }
 

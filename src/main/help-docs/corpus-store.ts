@@ -7,11 +7,11 @@
  * `shared-embedder.ts`'s singleton and its dev/packaged path resolution.
  */
 
-import { app } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import { MODEL } from '../embeddings/embedder';
 import { logger } from '../../shared/logger';
+import { bundledResourcesRoot } from '../bundled-resources';
 
 export interface HelpDocChunk {
   id: string;
@@ -32,9 +32,7 @@ interface CorpusFile {
 let cached: HelpDocChunk[] | null = null;
 
 function corpusPath(resourcesBaseOverride?: string): string {
-  const resourcesBase = resourcesBaseOverride ?? (app?.isPackaged
-    ? path.join(process.resourcesPath, 'resources')
-    : path.join(process.cwd(), 'resources'));
+  const resourcesBase = resourcesBaseOverride ?? bundledResourcesRoot();
   return path.join(resourcesBase, 'help-docs', 'corpus.json');
 }
 

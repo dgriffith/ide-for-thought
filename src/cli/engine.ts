@@ -69,10 +69,11 @@ export interface EngineOptions {
    *  Resolved lazily — the shared embedder is only constructed if `semantic`
    *  actually runs. */
   embedder?: ChunkEmbedder | undefined;
-  /** Absolute path to the bundled `resources/` dir. The CLI derives this from the
-   *  bundle location so semantic search finds the model regardless of the
-   *  caller's cwd; the app omits it (electron resolves via `process.resourcesPath`)
-   *  and tests inject a fake embedder instead. */
+  /** Absolute path to the bundled `resources/` dir. The CLI passes
+   *  `bundledResourcesRoot()` (#2410) so semantic search finds the model
+   *  regardless of the caller's cwd, packaged or not; the app omits it (the
+   *  shared embedder resolves the same root itself) and tests inject a fake
+   *  embedder instead. */
   resourcesBase?: string | undefined;
 }
 

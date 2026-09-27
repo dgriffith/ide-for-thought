@@ -1,5 +1,5 @@
-import { app } from 'electron';
 import path from 'node:path';
+import { bundledResourcesRoot } from './bundled-resources';
 
 /**
  * Absolute path to the runtime app icon PNG (#805).
@@ -13,10 +13,8 @@ import path from 'node:path';
  * Shipped under `resources/icons/` via forge's `extraResource: ['resources']`,
  * which copies the `resources/` dir verbatim into the packaged Resources dir
  * (i.e. `<Resources>/resources/icons/...`, verified against a real package); in
- * dev it's read from the repo.
+ * dev it's read from the repo. Resolution is `bundledResourcesRoot()`'s (#2410).
  */
 export function appIconPath(): string {
-  return app.isPackaged
-    ? path.join(process.resourcesPath, 'resources', 'icons', 'minerva.png')
-    : path.join(process.cwd(), 'resources', 'icons', 'minerva.png');
+  return path.join(bundledResourcesRoot(), 'icons', 'minerva.png');
 }

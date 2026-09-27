@@ -53,14 +53,11 @@ const CLI_BUNDLE = path.join(REPO_ROOT, '.vite', 'build', 'cli.js');
  * — `app.getPath(…)` on an undefined `app` throws. None do today, for the
  * reasons noted per entry.
  */
+// (`embeddings/shared-embedder.ts` and `help-docs/corpus-store.ts` left this
+// list in #2410: both resolve `resources/` through the electron-free
+// `bundled-resources.ts` now, instead of reading `app?.isPackaged` — which is
+// undefined under ELECTRON_RUN_AS_NODE, so a packaged CLI took the dev branch.)
 const ELECTRON_IMPORTERS_ON_CLI_GRAPH = [
-  // `app.getPath('userData')` for the on-disk embedding cache, behind
-  // `app?.isPackaged` — already undefined-safe, and the CLI passes its own
-  // `resourcesBase` anyway (run.ts derives it from __dirname).
-  'src/main/embeddings/shared-embedder.ts',
-  // `app.getPath` for the packaged help corpus, also behind `app?.isPackaged`.
-  // Help docs are an in-app search surface; no CLI command exposes them.
-  'src/main/help-docs/corpus-store.ts',
   // `app.getPath('userData')` for history-settings.json. Reachable because
   // notebase/fs's write path calls history's capture hooks — but no CLI command
   // writes a note through it: `propose-note` files a pending proposal and
