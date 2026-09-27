@@ -166,6 +166,22 @@ body {
   overflow: hidden;
 }
 
+/* Present to assistive tech, invisible on screen (#2374). The standard clip
+   pattern — not display:none / visibility:hidden, which also hide it from
+   screen readers. Used by the app-level live regions (LiveAnnouncer.svelte). */
+.visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* CodeMirror content defaults to Plex Mono; a user-selected font preset
    (--content-font-family, set by appearance/settings.ts) overrides. */
 .cm-content {

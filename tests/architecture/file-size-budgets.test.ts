@@ -82,7 +82,7 @@ const BUDGETS: Record<string, number> = {
   // channel by construction, so a bump here is the expected remedy, not a
   // smell.
   'src/renderer/lib/ipc/client.ts': 1374,  // #2411: menu.onRevealFile; #2363/#2364: doc comments on graph.query + git.commit contracts
-  'src/renderer/lib/stores/conversations.svelte.ts': 1165,
+  'src/renderer/lib/stores/conversations.svelte.ts': 1191, // +26: turn start/settle screen-reader announcements (#2374)
   'src/renderer/lib/components/Editor.svelte': 854,
   'src/renderer/lib/stores/editor.svelte.ts': 913,
     'src/renderer/lib/components/right-sidebar/PropertiesPanel.svelte': 1156,
@@ -108,7 +108,7 @@ const BUDGETS: Record<string, number> = {
   // type-only imports. Below 826 now, so the two raises are more than repaid.
   'src/main/graph/health-checks.ts': 759, // #2363: per-check isolation — one failing query no longer blanks the run
   'src/renderer/lib/components/ExportDialog.svelte': 712,
-  'src/renderer/lib/components/ProposalsPanel.svelte': 614,
+  'src/renderer/lib/components/ProposalsPanel.svelte': 626, // +12: announce approve/reject outcomes (#2374)
   'src/renderer/lib/components/QueryPanel.svelte': 759,
   'src/renderer/lib/components/conversations/DraftCards.svelte': 758,
   // +1 for #2256: the MENU_COMMAND_PALETTE channel / its MENU_COMMANDS entry.

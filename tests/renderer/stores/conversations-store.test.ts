@@ -94,11 +94,14 @@ const h = vi.hoisted(() => {
   // Neutralize the eyes-on-code consent gate so runComputeDraft's IPC path is
   // what we exercise, not the dialog. Tests flip it to false to cover decline.
   const ensureComputeConsent = vi.fn().mockResolvedValue(true);
-  return { api, cbs, ensureComputeConsent };
+  // Spy on the app-level screen-reader announcer (#2374).
+  const announce = vi.fn();
+  return { api, cbs, ensureComputeConsent, announce };
 });
 
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({ api: h.api }));
 vi.mock('../../../src/renderer/lib/app/compute-ops', () => ({ ensureComputeConsent: h.ensureComputeConsent }));
+vi.mock('../../../src/renderer/lib/stores/announcer.svelte', () => ({ announce: h.announce }));
 
 const ensureComputeConsent = h.ensureComputeConsent;
 
@@ -835,5 +838,71 @@ describe('runBuiltinCommand', () => {
     store.runBuiltinCommand('not-a-real-command');
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
+  });
+});
+
+// ─────────────────── screen-reader announcements (#2374) ───────────────────
+// A reply streams as many chunks; a live region fed per chunk would talk over
+// the user for the whole reply. A turn speaks at its start and when it settles.
+describe('turn announcements', () => {
+  const reply = (text: string, id: string): Conversation => ({
+    id, contextBundle: {}, messages: [
+      { role: 'user', content: 'q', timestamp: 't' },
+      { role: 'assistant', content: text, timestamp: 't' },
+    ], status: 'active', startedAt: 't',
+  });
+
+  it('a streamed reply of 500 chunks produces exactly two announcements: start and completion', async () => {
+    const tab = await freshTab();
+    conv().send.mockImplementationOnce(async () => {
+      for (let i = 0; i < 500; i++) h.cbs.onStream?.(`tok${i} `);
+    });
+    conv().load.mockResolvedValueOnce(reply('The answer is 42.', tab.id));
+
+    await store.send('what is the answer?');
+
+    expect(tab.streamedChunks).toBe(''); // the stream did flow (and was cleared)
+    expect(h.announce).toHaveBeenCalledTimes(2);
+    expect(h.announce.mock.calls[0]).toEqual(['Generating response']);
+    expect(h.announce.mock.calls[1]).toEqual(['Response complete. The answer is 42.']);
+  });
+
+  it('retry announces the same two edges', async () => {
+    const tab = await freshTab();
+    conv().retry.mockImplementationOnce(async () => {
+      for (let i = 0; i < 50; i++) h.cbs.onStream?.('x');
+    });
+    conv().load.mockResolvedValueOnce(reply('Second try.', tab.id));
+
+    await store.retryLastTurn(tab.id);
+
+    expect(h.announce.mock.calls).toEqual([
+      ['Generating response'],
+      ['Response complete. Second try.'],
+    ]);
+  });
+
+  it('a stopped turn announces that it stopped, not that it completed', async () => {
+    await freshTab();
+    conv().send.mockImplementationOnce(async () => {
+      h.cbs.onStream?.('partial');
+      throw Object.assign(new Error('aborted'), { name: 'AbortError' });
+    });
+
+    await store.send('never mind');
+
+    expect(h.announce.mock.calls).toEqual([['Generating response'], ['Response stopped']]);
+  });
+
+  it('a failed turn is announced assertively with the reason', async () => {
+    await freshTab();
+    conv().send.mockRejectedValueOnce(new Error('socket hang up'));
+
+    await store.send('hello');
+
+    const last = h.announce.mock.calls.at(-1)!;
+    expect(last[0]).toMatch(/^Response failed\. /);
+    expect(last[1]).toBe('assertive');
+    expect(h.announce).toHaveBeenCalledTimes(2);
   });
 });

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { getReviewStore } from '../stores/review.svelte';
   import { getProposalsStore } from '../stores/proposals.svelte';
+  import { announce } from '../stores/announcer.svelte';
   import Ribbon from './right-sidebar/Ribbon.svelte';
   import { describeProposer } from '../../../shared/provenance';
   import { logger } from '../../../shared/logger';
@@ -93,12 +94,22 @@
       lastError = `Approve failed: ${e instanceof Error ? e.message : String(e)}`;
       logger('proposal').error('approve failed:', e);
     } finally {
+      announceDecision(lastSuccess ?? 'Proposal approved');
       // The approve path emits PROPOSALS_CHANGED (#1524) so the store re-lists
       // on its own; refresh directly too so the panel updates deterministically
       // without waiting on the broadcast round-trip.
       await store.refresh();
       processing = false;
     }
+  }
+
+  /** Speak a decision's outcome (#2374). The success banner and the error
+   *  banner are both rendered conditionally, so neither can be its own live
+   *  region; the app-level announcer is always mounted. A failure is assertive
+   *  — the user just asked for something that didn't happen. */
+  function announceDecision(successMessage: string) {
+    if (lastError) announce(lastError, 'assertive');
+    else announce(successMessage);
   }
 
   function formatApplied(p: Proposal): string {
@@ -128,6 +139,7 @@
       lastError = `Reject failed: ${e instanceof Error ? e.message : String(e)}`;
       logger('proposal').error('reject failed:', e);
     } finally {
+      announceDecision('Proposal rejected');
       await store.refresh();
       processing = false;
     }
@@ -273,7 +285,7 @@
     {/each}
   </div>
   {#if lastSuccess}
-    <div class="success-banner" role="status">{lastSuccess}</div>
+    <div class="success-banner">{lastSuccess}</div>
   {/if}
   {#if shown.length === 0}
     <p class="empty">{store.proposals.length === 0 ? 'No proposals' : 'No matches'}</p>

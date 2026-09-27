@@ -33,6 +33,7 @@ import { getConversationsStore } from '../stores/conversations.svelte';
 import { getBookmarksStore } from '../stores/bookmarks.svelte';
 import { getDialogStore } from '../stores/dialogs.svelte';
 import { getToastStore } from '../stores/toasts.svelte';
+import { announce } from '../stores/announcer.svelte';
 import { maintenanceLabel, maintenanceOutcomeMessage } from '../../../shared/maintenance';
 import { CONFIRM_KEYS } from '../confirm-keys';
 import { loadFormatSettings } from '../stores/settings-formatter.svelte';
@@ -276,8 +277,16 @@ export function registerAppIpc(ctx: IpcWiringCtx): void {
 
   // Semantic-index backfill progress (#836): a quiet status-bar indicator while
   // the corpus embeds in the background. Cleared on completion (running:false).
+  //
+  // Screen readers hear the two edges only (#2374) — never the per-note ticks.
+  let backfillRunning = false;
   api.embeddings.onBackfillProgress((p) => {
-    ctx.setEmbeddingProgress(p.running && p.total > 0 ? { done: p.done, total: p.total } : null);
+    const running = p.running && p.total > 0;
+    ctx.setEmbeddingProgress(running ? { done: p.done, total: p.total } : null);
+    if (running !== backfillRunning) {
+      backfillRunning = running;
+      announce(running ? 'Building semantic search index' : 'Semantic search index ready');
+    }
   });
 
   // File ▸ maintenance progress + completion (#1814). These run in main off the
@@ -289,12 +298,21 @@ export function registerAppIpc(ctx: IpcWiringCtx): void {
   // `background` one stays out of the way, and every task ends with a toast —
   // the one moment a user needs telling, since the alternative is guessing
   // whether a silent app is working or finished.
+  //
+  // Screen readers get the same two edges (#2374): the start once per task —
+  // a blocking task through the busy store, which speaks on going busy, a
+  // background one here — and the outcome through the toast. Progress frames
+  // in between stay silent.
   const toasts = getToastStore();
+  const runningTasks = new Set<string>();
   api.maintenance.onProgress((p) => {
     if (p.running) {
       if (p.style === 'blocking') busy.setLabel(maintenanceLabel(p));
+      else if (!runningTasks.has(p.task)) announce(`${p.label}…`);
+      runningTasks.add(p.task);
       return;
     }
+    runningTasks.delete(p.task);
     if (p.style === 'blocking') busy.setLabel(null);
     toasts.push({ message: maintenanceOutcomeMessage(p) });
   });

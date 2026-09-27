@@ -3,6 +3,7 @@ import { plainSnapshot } from '../ipc/plain-snapshot';
 import { getConversationsSettings } from '../conversations/settings';
 import { ensureComputeConsent } from '../app/compute-ops';
 import { getDialogStore } from './dialogs.svelte';
+import { announce } from './announcer.svelte';
 import { logger } from '../../../shared/logger';
 import type {
   Conversation,
@@ -514,11 +515,13 @@ async function send(content: string, currentNotePath?: string): Promise<void> {
   tab.streaming = true;
   tab.streamedChunks = '';
   tab.failure = null;
+  announceTurnStart();
   const tools = tab.extraTools.length > 0 ? [...tab.extraTools] : undefined;
   try {
     await api.conversations.send(tab.id, text, undefined, currentNotePath, tools);
     const reloaded = await api.conversations.load(tab.id);
     if (reloaded) tab.conversation = reloaded;
+    announceTurnComplete(tab);
   } catch (e) {
     handleTurnFailure(tab, e, text);
   } finally {
@@ -540,17 +543,36 @@ async function retryLastTurn(tabId: string, currentNotePath?: string): Promise<v
   tab.streaming = true;
   tab.streamedChunks = '';
   tab.failure = null;
+  announceTurnStart();
   const tools = tab.extraTools.length > 0 ? [...tab.extraTools] : undefined;
   try {
     await api.conversations.retry(tab.id, undefined, currentNotePath, tools);
     const reloaded = await api.conversations.load(tab.id);
     if (reloaded) tab.conversation = reloaded;
+    announceTurnComplete(tab);
   } catch (e) {
     handleTurnFailure(tab, e, null);
   } finally {
     tab.streaming = false;
     tab.streamedChunks = '';
   }
+}
+
+/**
+ * Screen-reader cues for a turn (#2374). A reply streams in as hundreds of
+ * `onStream` chunks, and none of them is announced — a live region fed per
+ * token would talk over the user for the whole reply. Instead a turn speaks
+ * at most twice: once when it starts, and once when it settles (the reply
+ * itself, condensed, or why it didn't arrive). The chunk handler above
+ * deliberately never calls `announce`.
+ */
+function announceTurnStart(): void {
+  announce('Generating response');
+}
+
+function announceTurnComplete(tab: TabRuntime): void {
+  const reply = [...tab.conversation.messages].reverse().find((m) => m.role === 'assistant');
+  announce(reply?.content.trim() ? `Response complete. ${reply.content}` : 'Response complete');
 }
 
 /**
@@ -569,6 +591,7 @@ async function retryLastTurn(tabId: string, currentNotePath?: string): Promise<v
  */
 function handleTurnFailure(tab: TabRuntime, e: unknown, sentText: string | null): void {
   if (isCancellation(e)) {
+    announce('Response stopped');
     // Quiet, but not destructive: a stopped turn keeps whatever it had already
     // written, in the slot the reply would have occupied. Main only appends the
     // assistant message on success, so this block is the *only* copy — hence
@@ -595,9 +618,12 @@ function handleTurnFailure(tab: TabRuntime, e: unknown, sentText: string | null)
   }
 
   const classified = classifyLlmFailure(e);
+  const failureMessage = describeLlmFailure(e);
+  // Assertive: the user is waiting on this turn, and it isn't coming.
+  announce(`Response failed. ${failureMessage}`, 'assertive');
   tab.failure = {
     kind: classified?.kind ?? 'unknown',
-    message: describeLlmFailure(e),
+    message: failureMessage,
     retryable: classified?.retryable ?? true,
     // Whatever streamed before the failure is real output — keep it. `finally`
     // clears streamedChunks, so capture it here.
