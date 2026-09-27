@@ -108,7 +108,7 @@ const BUDGETS: Record<string, number> = {
   // type-only imports. Below 826 now, so the two raises are more than repaid.
   'src/main/graph/health-checks.ts': 759, // #2363: per-check isolation — one failing query no longer blanks the run
   'src/renderer/lib/components/ExportDialog.svelte': 712,
-  'src/renderer/lib/components/ProposalsPanel.svelte': 626, // +12: announce approve/reject outcomes (#2374)
+  'src/renderer/lib/components/ProposalsPanel.svelte': 628, // +12: announce approve/reject outcomes (#2374); +2: bare-key guard (#2377)
   'src/renderer/lib/components/QueryPanel.svelte': 759,
   'src/renderer/lib/components/conversations/DraftCards.svelte': 758,
   // +1 for #2256: the MENU_COMMAND_PALETTE channel / its MENU_COMMANDS entry.

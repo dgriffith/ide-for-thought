@@ -6,6 +6,7 @@
   import { describeProposer } from '../../../shared/provenance';
   import { logger } from '../../../shared/logger';
   import { describeProposalDecisionFailure } from '../../../shared/proposals';
+  import { isBareKeyShortcut } from '../keymap/single-key-shortcut';
 
   const review = getReviewStore();
   const store = getProposalsStore();
@@ -249,6 +250,7 @@
 
   function handleKeydown(e: KeyboardEvent) {
     if (!selectedUri) return;
+    if (!isBareKeyShortcut(e)) return; // not while typing in search, not ⌘N/⌘S (#2377)
     if (e.key === 'y') { e.preventDefault(); void handleApprove(selectedUri); }
     if (e.key === 'n') { e.preventDefault(); void handleReject(selectedUri); }
     if (e.key === 's' || e.key === 'Escape') { e.preventDefault(); selectedUri = null; }
