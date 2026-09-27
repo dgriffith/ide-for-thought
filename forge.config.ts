@@ -2,6 +2,8 @@ import type { ForgeConfig } from '@electron-forge/shared-types';
 import { VitePlugin } from '@electron-forge/plugin-vite';
 import { MakerZIP } from '@electron-forge/maker-zip';
 import { MakerDMG } from '@electron-forge/maker-dmg';
+import { FusesPlugin } from '@electron-forge/plugin-fuses';
+import { FuseVersion } from '@electron/fuses';
 import path from 'node:path';
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
@@ -9,6 +11,7 @@ import { execFileSync } from 'node:child_process';
 // tests/scripts/package-prune.test.ts — a packaging filter that over-prunes
 // fails only in a packaged build, which is the slowest feedback loop here.
 import { makeCopyFilter, isTypesOnlyPackage } from './scripts/lib/package-prune.mjs';
+import { forgeFuseSettings } from './scripts/lib/electron-fuses.mjs';
 
 // @electron-forge/plugin-vite bundles the main process and ships NO node_modules
 // in the package. That's fine for everything Rollup can bundle — but a few deps
@@ -146,6 +149,24 @@ const wantSign = isDarwin && (hasNotarizeCreds || Boolean(process.env.OSX_SIGN_I
 const config: ForgeConfig = {
   packagerConfig: {
     name: 'Minerva',
+    // Pack the app into `app.asar` (#2366). This is what lets the fuses below
+    // mean anything: `OnlyLoadAppFromAsar` refuses to boot from a loose
+    // `Resources/app/` directory (which is what the packager emits when this is
+    // unset), and `EnableEmbeddedAsarIntegrityValidation` checks the archive
+    // against the header hash packager writes into Info.plist
+    // (`ElectronAsarIntegrity`) — so the code that runs is the code that was
+    // signed, not whatever a local process later dropped next to it.
+    //
+    // Native code can't be dlopen()ed out of an archive, so the DuckDB binding
+    // (`duckdb.node` + the `libduckdb.dylib` it links by rpath) is unpacked to
+    // `app.asar.unpacked/`; Electron redirects the `.node` require there
+    // itself. Everything else loads from inside the archive — including
+    // `cli.js` under ELECTRON_RUN_AS_NODE, the `embed-worker.js` worker thread
+    // and the ORT / sql.js `.wasm` reads — which the packaged e2e specs
+    // (smoke + embeddings) and the CLI shim check in #2366 exercise.
+    asar: {
+      unpack: '**/*.{node,dylib}',
+    },
     // Hardened runtime + entitlements (auto-detected Developer ID Application cert).
     // @electron/osx-sign applies the hardened runtime and signs nested binaries
     // (the DuckDB .node, dylibs) automatically; entitlements come from the plist.
@@ -203,6 +224,27 @@ const config: ForgeConfig = {
     new MakerDMG({ icon: path.resolve(process.cwd(), 'assets', 'Minerva.icns') }),
   ],
   plugins: [
+    // Electron fuses (#2366): bits baked into the Electron binary while
+    // packaging (before signing), which no env var or CLI switch can undo at
+    // runtime. The policy — every fuse, with the reason for its value — is
+    // scripts/lib/electron-fuses.mjs; tests/architecture/electron-fuses.test.ts
+    // pins it, and scripts/check-electron-fuses.mjs reads it back off the built
+    // .app in ci.yml's e2e job and release.yml.
+    //
+    // Headline: RunAsNode stays ENABLED because the `minerva` CLI shim
+    // (src/main/cli-install.ts) runs this binary with ELECTRON_RUN_AS_NODE=1 —
+    // it is the CLI and the MCP server. The NODE_OPTIONS / --inspect doors are
+    // shut, and app code loads only from the integrity-checked `app.asar`.
+    //
+    // `strictlyRequireAllFuses` can't be on: Electron 44's wire has nine fuses
+    // and @electron/fuses 1.x (the line plugin-fuses 7.x peers on) writes eight
+    // — the ninth, WasmTrapHandlers, keeps Electron's default (ON), which is
+    // also the policy. The read-back is the strictness instead: it fails on a
+    // wrong value or on any fuse the policy does not name.
+    new FusesPlugin({
+      version: FuseVersion.V1,
+      ...forgeFuseSettings(),
+    }),
     new VitePlugin({
       build: [
         {

@@ -7,6 +7,12 @@
  * (`ELECTRON_RUN_AS_NODE`) against that bundle — so `minerva query …` /
  * `minerva mcp …` work with no separate Node and no dev checkout.
  *
+ * That launch is why the packaged binary keeps the `RunAsNode` Electron fuse
+ * ENABLED (#2366, scripts/lib/electron-fuses.mjs): switching it off makes
+ * Electron ignore `ELECTRON_RUN_AS_NODE` and this shim — the CLI and the MCP
+ * server — stops working. `app.getAppPath()` is `…/Resources/app.asar`, and
+ * Node-mode Electron reads `cli.js` from inside the archive.
+ *
  * `~/.local/bin` is user-writable (no admin prompt); if it isn't on PATH we say
  * so, and always surface the absolute path for MCP clients (e.g. Claude
  * Desktop) that launch from a bare environment. macOS/Linux (sh); Windows is a
