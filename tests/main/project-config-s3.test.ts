@@ -163,3 +163,48 @@ describe('migration: legacy inline secrets in config.json move to secrets.json',
     expect((getPublishTargets(root)[1] as GitPublishTarget).hasToken).toBe(true);
   });
 });
+
+// A corrupt secrets.json used to read as `{}`, and every writer is a
+// read-modify-write of the whole map — so the next upsert wrote back ONE
+// target's credential and a remove unlinked the file outright (#2369, the
+// #1891 / #2356 clobber shape). Now a write refuses; reads still render.
+describe('a corrupt secrets.json is never rewritten from an empty read (#2369)', () => {
+  const git: GitPublishTarget = { id: 'g', label: 'G', exporter: 'static-site', gitRemote: 'https://x', gitBranch: 'gh-pages' };
+  const CORRUPT = '{"publishTargets": {"s3a": {"s3Secret": ';
+
+  beforeEach(() => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    upsertPublishTarget(root, s3);
+    upsertPublishTarget(root, git);
+    fs.writeFileSync(secretsFile(), CORRUPT, 'utf-8');
+  });
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  it('upsert throws and leaves the file as it was', () => {
+    expect(() => upsertPublishTarget(root, { ...git, githubToken: 'new-token' })).toThrow(/could not be read/);
+    expect(fs.readFileSync(secretsFile(), 'utf-8')).toBe(CORRUPT);
+  });
+
+  it('remove throws rather than unlinking the file', () => {
+    expect(() => removePublishTarget(root, 'g')).toThrow(/could not be read/);
+    expect(fs.readFileSync(secretsFile(), 'utf-8')).toBe(CORRUPT);
+  });
+
+  it('the read path still lists the targets, without their secrets', () => {
+    expect(getPublishTargets(root).map((t) => t.id)).toEqual(['s3a', 'g']);
+    expect((getPublishTargets(root)[0] as S3PublishTarget).hasSecret).toBe(false);
+  });
+
+  it('a legacy inline secret is not migrated over the unreadable file', () => {
+    const cfg = JSON.parse(fs.readFileSync(configFile(), 'utf-8'));
+    cfg.publish.targets[1].githubTokenEnc = 'enc:v1:legacy-gh';
+    fs.writeFileSync(configFile(), JSON.stringify(cfg), 'utf-8');
+
+    getPublishTargets(root);
+
+    // Neither half of the migration ran: the ciphertext is still in config.json
+    // (its only readable copy), and secrets.json is untouched.
+    expect(fs.readFileSync(configFile(), 'utf-8')).toContain('enc:v1:legacy-gh');
+    expect(fs.readFileSync(secretsFile(), 'utf-8')).toBe(CORRUPT);
+  });
+});

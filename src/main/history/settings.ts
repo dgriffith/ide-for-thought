@@ -23,8 +23,8 @@
  */
 import { app } from 'electron';
 import path from 'node:path';
-import fs from 'node:fs/promises';
 import { loadConfigFile, asFiniteNumber, asRecord } from '../config/config-store';
+import { writeJsonFileAtomic } from '../config/json-file';
 import type { HistorySettings } from '../../shared/history';
 
 export const DEFAULT_HISTORY_SETTINGS: HistorySettings = {
@@ -86,7 +86,7 @@ async function loadSettingsFromDisk(): Promise<HistorySettings> {
  *  the settings panel shows the effective values rather than what was typed. */
 export async function setHistorySettings(settings: HistorySettings): Promise<HistorySettings> {
   const next = sanitize(settings);
-  await fs.writeFile(settingsPath(), JSON.stringify(next, null, 2), 'utf-8');
+  await writeJsonFileAtomic(settingsPath(), next);
   cached = next;
   return next;
 }

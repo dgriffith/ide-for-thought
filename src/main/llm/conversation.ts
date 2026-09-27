@@ -325,9 +325,7 @@ export async function saveUIState(rootPath: string, state: ConversationsUIState)
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 async function persist(rootPath: string, conv: Conversation): Promise<void> {
-  const dir = convDir(rootPath);
-  await fs.mkdir(dir, { recursive: true });
-  await fs.writeFile(convPath(rootPath, conv.id), JSON.stringify(conv, null, 2), 'utf-8');
+  await writeJsonFileAtomic(convPath(rootPath, conv.id), conv);
 }
 
 // ── Graph Integration ──────────────────────────────────────────────────────

@@ -107,11 +107,11 @@ describe('saveStoredTokens', () => {
   });
 
   it('recovers the write lock after a failed save, so a later save still succeeds', async () => {
-    const originalDir = tempDir;
-    tempDir = path.join(tempDir, 'missing', 'nested'); // fs.writeFile ENOENTs — no parent dir, and it won't create one
-    await expect(saveStoredTokens(record())).rejects.toThrow();
+    // The atomic writer creates missing parent dirs (#2369), so fail its final
+    // rename instead — the step a crash mid-save would interrupt.
+    vi.spyOn(fs.promises, 'rename').mockRejectedValueOnce(new Error('simulated crash'));
+    await expect(saveStoredTokens(record())).rejects.toThrow('simulated crash');
 
-    tempDir = originalDir;
     await saveStoredTokens(record({ accessToken: 'access-token-after-recovery' }));
     expect((await getStoredTokens('https://mcp.example.com/mcp'))?.accessToken).toBe('access-token-after-recovery');
   });

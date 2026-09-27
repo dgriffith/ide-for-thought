@@ -15,8 +15,8 @@
  */
 import { app } from 'electron';
 import path from 'node:path';
-import fs from 'node:fs/promises';
 import { asFiniteNumber, asRecord, asString, loadConfigFile } from '../../config/config-store';
+import { writeJsonFileAtomic } from '../../config/json-file';
 import { decryptSecret, encryptSecret } from '../../secret-storage';
 import type { StoredOAuthRecord } from './types';
 
@@ -86,7 +86,7 @@ function encodeRecord(record: StoredOAuthRecord): Record<string, unknown> {
 async function writeAll(map: StoredOAuthMap): Promise<void> {
   const onDisk: Record<string, unknown> = {};
   for (const [serverUrl, record] of Object.entries(map)) onDisk[serverUrl] = encodeRecord(record);
-  await fs.writeFile(tokenStorePath(), JSON.stringify(onDisk, null, 2), 'utf-8');
+  await writeJsonFileAtomic(tokenStorePath(), onDisk);
 }
 
 /** Multiple servers can plausibly finish auth near-simultaneously (e.g. at

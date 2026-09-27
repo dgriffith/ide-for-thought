@@ -21,8 +21,8 @@
 import { app } from 'electron';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
-import fs from 'node:fs/promises';
 import { loadConfigFile, asString, asFiniteNumber, asRecord } from '../config/config-store';
+import { writeJsonFileAtomic } from '../config/json-file';
 import { DEFAULT_CELL_TIMEOUT_SECONDS, normalizeCellTimeoutSeconds } from '../../shared/compute/types';
 import type { PythonProbeResult, PythonSettings } from '../../shared/compute/types';
 
@@ -70,15 +70,11 @@ export async function getPythonSettings(): Promise<PythonSettings> {
 }
 
 export async function setPythonSettings(settings: PythonSettings): Promise<void> {
-  await fs.writeFile(
-    settingsPath(),
-    JSON.stringify({
-      pythonPath: settings.pythonPath,
-      allowNetwork: settings.allowNetwork === true,
-      cellTimeoutSeconds: normalizeCellTimeoutSeconds(settings.cellTimeoutSeconds),
-    }, null, 2),
-    'utf-8',
-  );
+  await writeJsonFileAtomic(settingsPath(), {
+    pythonPath: settings.pythonPath,
+    allowNetwork: settings.allowNetwork === true,
+    cellTimeoutSeconds: normalizeCellTimeoutSeconds(settings.cellTimeoutSeconds),
+  });
 }
 
 /**

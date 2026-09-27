@@ -21,9 +21,9 @@ import {
   type RevisionSource,
 } from './policy';
 import { getHistorySettings } from './settings';
-// A leaf (only `node:fs/promises`), imported directly rather than through the
+// A leaf (only `node:` builtins), imported directly rather than through the
 // `ipc/helpers` barrel so this stays clear of electron.
-import { readJsonFileOr } from '../config/json-file';
+import { readJsonFileOr, writeJsonFileAtomic } from '../config/json-file';
 import { emitHistoryChanged } from './history-events';
 import { classifyHistoryEvent, type HistorySettings, type UnifiedTimelineEntry } from '../../shared/history';
 import { logger } from '../../shared/logger';
@@ -81,7 +81,7 @@ async function readIndex(dir: string): Promise<RevisionMeta[]> {
 
 async function writeIndex(dir: string, entries: RevisionMeta[]): Promise<void> {
   const sorted = [...entries].sort((a, b) => b.ts - a.ts); // newest first
-  await fs.writeFile(path.join(dir, INDEX_FILE), JSON.stringify(sorted, null, 2), 'utf-8');
+  await writeJsonFileAtomic(path.join(dir, INDEX_FILE), sorted);
 }
 
 /** Does this note have any history? A stat, not a parse — see the call site. */

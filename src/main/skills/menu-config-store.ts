@@ -15,6 +15,7 @@ import {
   emptyMenuConfig,
   normalizeMenuConfig,
 } from '../../shared/skills/menu-config';
+import { writeJsonFileAtomic } from '../config/json-file';
 import { logger } from '../../shared/logger';
 
 export function menuConfigPath(): string {
@@ -52,8 +53,7 @@ export async function saveMenuConfig(
   file: string = menuConfigPath(),
 ): Promise<MenuConfig> {
   const normalized = normalizeMenuConfig(config);
-  await fs.mkdir(path.dirname(file), { recursive: true });
-  await fs.writeFile(file, JSON.stringify(normalized, null, 2) + '\n', 'utf-8');
+  await writeJsonFileAtomic(file, normalized, { trailingNewline: true });
   cached = normalized;
   return normalized;
 }

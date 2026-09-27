@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import fsSync from 'node:fs';
 import path from 'node:path';
 import { randomBytes } from 'node:crypto';
 
@@ -22,7 +23,7 @@ export function isEnoent(err: unknown): boolean {
  * convention (see CLAUDE.md → IPC error handling) is: a sentinel/fallback marks
  * exactly ONE expected condition; real failures throw.
  *
- * Leaf module (only `node:fs/promises`) so it's unit-testable without pulling in
+ * Leaf module (only `node:` builtins) so it's unit-testable without pulling in
  * electron via the `helpers` barrel that re-exports it.
  */
 export async function readJsonFileOr<T>(absPath: string, fallback: T): Promise<T> {
@@ -51,16 +52,62 @@ export async function readJsonFileOr<T>(absPath: string, fallback: T): Promise<T
  * partial write. The temp file is best-effort cleaned up on failure so a
  * crash doesn't leave litter behind, but that cleanup is not itself relied on
  * for correctness — only the rename is.
+ *
+ * Every JSON store in `src/main` writes through this or its sync twin below;
+ * `tests/architecture/pattern-ratchets.test.ts` counts the writes that still
+ * don't, and that count may only fall (#2369).
  */
-export async function writeJsonFileAtomic(absPath: string, value: unknown): Promise<void> {
-  const dir = path.dirname(absPath);
-  await fs.mkdir(dir, { recursive: true });
-  const tmpPath = path.join(dir, `.${path.basename(absPath)}.${randomBytes(6).toString('hex')}.tmp`);
+export async function writeJsonFileAtomic(absPath: string, value: unknown, format: JsonFileFormat = {}): Promise<void> {
+  await fs.mkdir(path.dirname(absPath), { recursive: true });
+  const tmpPath = siblingTempPath(absPath);
   try {
-    await fs.writeFile(tmpPath, JSON.stringify(value, null, 2), 'utf-8');
+    await fs.writeFile(tmpPath, serializeJson(value, format), 'utf-8');
     await fs.rename(tmpPath, absPath);
   } catch (err) {
     await fs.rm(tmpPath, { force: true }).catch(() => {});
     throw err;
   }
+}
+
+/**
+ * Synchronous twin of `writeJsonFileAtomic` — same temp-file-then-`rename`
+ * guarantee — for the stores whose whole API is synchronous: `session.json`,
+ * `recent-projects.json`, `privileged-sites.json`, and the
+ * `.minerva/config.json` / `secrets.json` read-modify-writes, where staying
+ * synchronous is also what keeps two patches from interleaving.
+ */
+export function writeJsonFileAtomicSync(absPath: string, value: unknown, format: JsonFileFormat = {}): void {
+  fsSync.mkdirSync(path.dirname(absPath), { recursive: true });
+  const tmpPath = siblingTempPath(absPath);
+  try {
+    fsSync.writeFileSync(tmpPath, serializeJson(value, format), 'utf-8');
+    fsSync.renameSync(tmpPath, absPath);
+  } catch (err) {
+    try { fsSync.rmSync(tmpPath, { force: true }); } catch { /* best-effort, as above — never mask `err` */ }
+    throw err;
+  }
+}
+
+/**
+ * How a store lays its JSON out on disk. The defaults — two-space indent, no
+ * trailing newline — are what `writeJsonFileAtomic` always wrote; the options
+ * exist so a store moving onto the atomic path keeps its file byte-for-byte
+ * what it was (#2369): compact `session.json` / `recent-projects.json`, a
+ * newline-terminated `menu-config.json` / `mcp-servers.json`.
+ */
+export interface JsonFileFormat {
+  /** `JSON.stringify` indent; `0` writes compact single-line JSON. Default 2. */
+  indent?: number;
+  /** End the file with a newline. Default false. */
+  trailingNewline?: boolean;
+}
+
+function serializeJson(value: unknown, { indent = 2, trailingNewline = false }: JsonFileFormat): string {
+  const json = JSON.stringify(value, null, indent);
+  return trailingNewline ? `${json}\n` : json;
+}
+
+/** In the same directory as `absPath`, so the final `rename` never crosses a volume. */
+function siblingTempPath(absPath: string): string {
+  return path.join(path.dirname(absPath), `.${path.basename(absPath)}.${randomBytes(6).toString('hex')}.tmp`);
 }
