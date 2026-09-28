@@ -214,35 +214,68 @@ describe('coverage-floor enrollment: loose src/main files (#2368)', () => {
 });
 
 /**
- * The floors above only mean something if CI runs them (#2359).
+ * The floors above only mean something if CI runs them — on the PR, before
+ * the merge (#2359, then #2432).
  *
- * PRs run plain `pnpm test` to keep latency down; `pnpm coverage` — the only
- * thing that evaluates `thresholds` — runs on pushes to main. That makes the
- * main-branch step load-bearing in a way nothing else checks: drop it, or
- * narrow its `if:` to pull_request by mistake, and every floor in
- * vitest.config.mts stops being enforced anywhere, silently and green.
+ * `pnpm coverage` is the only thing that evaluates `thresholds`. #2359 moved it
+ * to pushes on main to cut PR latency, and #2432 showed the cost: a PR merged
+ * green, dropped a file under its floor, and main went red for three commits —
+ * which blocks releases (#2371). It now runs as its own parallel, required
+ * `coverage` job on both events. Ways that silently regresses, all pinned here:
+ *
+ *   - the step gains an `if:` (or its job gains one) that skips pull_request
+ *     — the floors go back to being a post-merge verdict;
+ *   - the step disappears, or only runs on pull_request — main commits stop
+ *     getting a coverage verdict at all;
+ *   - the job stops being a required check — a red floor no longer blocks the
+ *     merge, which is the same post-merge verdict by another route.
  */
-describe('coverage floors are enforced in CI (#2359)', () => {
+describe('coverage floors are enforced in CI on PRs and on main (#2359, #2432)', () => {
   type Step = { name?: string; if?: string; run?: string };
-  const steps = (): Step[] => {
-    const ci = parse(readFileSync(path.join(ROOT, '.github', 'workflows', 'ci.yml'), 'utf-8')) as {
-      on: { push?: { branches?: string[] } };
-      jobs: Record<string, { steps?: Step[] }>;
+  type Job = { if?: string; steps?: Step[] };
+  const ci = () =>
+    parse(readFileSync(path.join(ROOT, '.github', 'workflows', 'ci.yml'), 'utf-8')) as {
+      on: { push?: { branches?: string[] }; pull_request?: unknown };
+      jobs: Record<string, Job>;
     };
-    expect(ci.on.push?.branches, 'ci.yml must run on push to main').toContain('main');
-    return Object.values(ci.jobs).flatMap((j) => j.steps ?? []);
-  };
+  const coverageSteps = () =>
+    Object.entries(ci().jobs).flatMap(([job, j]) =>
+      (j.steps ?? [])
+        .filter((s) => /\bpnpm coverage\b/.test(s.run ?? ''))
+        .map((s) => ({ job, jobIf: j.if, step: s })),
+    );
 
-  it('a step runs `pnpm coverage` on pushes (not only on pull_request)', () => {
-    const coverage = steps().filter((s) => /\bpnpm coverage\b/.test(s.run ?? ''));
-    expect(coverage.length, 'no ci.yml step runs `pnpm coverage` — no floor is enforced').toBeGreaterThan(0);
-    const onPush = coverage.filter((s) => {
-      const cond = (s.if ?? '').replace(/\s+/g, '');
-      return cond === '' || cond === "github.event_name!='pull_request'";
-    });
+  it('ci.yml runs on both pull_request and push to main', () => {
+    const on = ci().on;
+    expect(on.push?.branches, 'ci.yml must run on push to main').toContain('main');
+    expect('pull_request' in on, 'ci.yml must run on pull_request').toBe(true);
+  });
+
+  it('the `coverage` job runs `pnpm coverage` with no condition on the event', () => {
+    const found = coverageSteps();
+    expect(found.length, 'no ci.yml step runs `pnpm coverage` — no floor is enforced').toBeGreaterThan(0);
+    const unconditional = found.filter(
+      ({ jobIf, step }) => (jobIf ?? '').trim() === '' && (step.if ?? '').trim() === '',
+    );
     expect(
-      onPush.map((s) => s.name),
-      "`pnpm coverage` must run unconditionally or under `github.event_name != 'pull_request'`",
-    ).not.toEqual([]);
+      unconditional.map(({ job }) => job),
+      '`pnpm coverage` must run on every event — an `if:` on the step or its job that skips ' +
+        'pull_request turns the floors back into a post-merge verdict (#2432), and one that ' +
+        'skips push leaves main commits with none.',
+    ).toContain('coverage');
+  });
+
+  it('the coverage job is a required check, so a floor breach blocks the merge', () => {
+    type Ruleset = {
+      rules: Array<{ type: string; parameters?: { required_status_checks?: Array<{ context: string }> } }>;
+    };
+    const ruleset = JSON.parse(
+      readFileSync(path.join(ROOT, '.github', 'rulesets', 'main.json'), 'utf-8'),
+    ) as Ruleset;
+    const contexts = ruleset.rules
+      .filter((r) => r.type === 'required_status_checks')
+      .flatMap((r) => r.parameters?.required_status_checks ?? [])
+      .map((c) => c.context);
+    expect(contexts).toContain('coverage');
   });
 });

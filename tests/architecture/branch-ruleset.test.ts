@@ -33,7 +33,8 @@ const GITHUB_ACTIONS_APP_ID = 15368;
 
 /**
  * Jobs in ci.yml that run on pull_request but are deliberately NOT required.
- * Each needs a reason. Empty today: all three PR jobs gate the merge.
+ * Each needs a reason. Empty today: all four PR jobs gate the merge
+ * (`coverage` joined in #2432's follow-up, when the floors moved onto PRs).
  */
 const NOT_REQUIRED: Record<string, string> = {};
 

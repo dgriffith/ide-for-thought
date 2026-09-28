@@ -405,12 +405,16 @@ deleted fails until the entry is removed. **When it fires:** measure the file
 and add a `'src/main/<file>.ts'` entry ~8-10 below its numbers; listing it
 instead needs a reason in the diff.
 
-It also pins that **CI still evaluates the floors** (#2359): PRs run plain
-`pnpm test` and only pushes to main run `pnpm coverage`, so a `ci.yml` edit that
-dropped that step — or narrowed its `if:` to pull requests — would leave every
-floor unenforced while CI stayed green. **When that fires:** restore a step
-running `pnpm coverage` unconditionally or under
-`github.event_name != 'pull_request'`.
+It also pins that **CI evaluates the floors before the merge, not after**
+(#2359, #2432): `ci.yml`'s `coverage` job must run `pnpm coverage` with no
+`if:` on the step or the job, and `coverage` must be a required context in
+`.github/rulesets/main.json`. #2359 had moved coverage to main-only pushes;
+#2432 then merged green, dropped a file under its floor and left main red for
+three commits, which blocks releases (#2371). A parallel job on a public repo
+costs no minutes and roughly nothing on the critical path, so the post-merge
+trade-off is gone. **When that fires:** remove the `if:` that skips an event,
+restore the step, or re-add `coverage` to `required_status_checks` (and
+re-apply the ruleset).
 
 ---
 
@@ -568,7 +572,7 @@ fires:** pick the next even LTS line (26, from 2026-10-28), and update
 ### `lockfile-gate.test.ts`
 
 **Every conditionally-installing CI job verifies the lockfile first, with no
-`if:`, and the four `node_modules` cache keys stay byte-identical** (#2244,
+`if:`, and the five `node_modules` cache keys stay byte-identical** (#2244,
 #2247). `pnpm install --frozen-lockfile` is the only thing asserting
 `pnpm-lock.yaml` still matches `package.json`, and it sat behind
 `if: cache-hit != 'true'` while the cache key hashed the lockfile but not the
