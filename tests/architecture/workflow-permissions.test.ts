@@ -103,6 +103,20 @@ describe('writes are scoped to the job that needs them (#2251)', () => {
     expect(writeScopes(release.jobs?.['build-macos']?.permissions)).toEqual(['contents']);
   });
 
+  it('release.yml grants actions:read on ci-verdict alone (#2371)', () => {
+    // The release CI gate reads main's ci.yml runs. A job-level `permissions:`
+    // replaces the workflow scope entirely, so it re-declares contents:read
+    // (for checkout) beside actions:read. Kept off build-macos, the job
+    // holding the signing material, which has no reason to read CI runs.
+    const release = workflows().find((w) => w.file === 'release.yml')!.doc;
+    expect(release.permissions).toEqual({ contents: 'read' });
+    expect(release.jobs?.['ci-verdict']?.permissions).toEqual({ contents: 'read', actions: 'read' });
+    const withActions = Object.entries(release.jobs ?? {})
+      .filter(([, j]) => typeof j.permissions === 'object' && j.permissions?.actions !== undefined)
+      .map(([n]) => n);
+    expect(withActions).toEqual(['ci-verdict']);
+  });
+
   it('bench.yml grants issues:write on the bench job alone', () => {
     // #2242 needs it so the regression gate can file an issue when it fires.
     // It is the narrowest grant that does that: `contents` stays read.

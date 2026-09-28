@@ -718,6 +718,18 @@ produces artifacts that must not be published; and the tag arrives through
 `env:` rather than `${{ github.ref_name }}` interpolated into `run:`, which is
 the standard Actions script-injection shape.
 `tests/architecture/release-tag-gate.test.ts` pins both.
+
+**The tagged commit must also have passed main CI (#2371).** The release build
+re-runs lint and audit, not the test suite or e2e, so a tag on a commit whose
+main `ci.yml` push run was cancelled or red shipped green. The rule is
+`scripts/lib/release-ci-gate.mjs`: the latest run for that exact SHA
+(`event=push`, `branch=main`) must be `completed` + `success`; a rerun that
+went green counts (the run reports its latest attempt). `tag-release.mjs`
+checks HEAD — refusing one not on `origin/main`, or while CI is still running —
+and `release.yml`'s `ci-verdict` job, which `build-macos` `needs:`, runs
+`check-release-ci.mjs --wait "$GITHUB_SHA"`, polling a running CI for up to
+30 min on a cheap ubuntu runner rather than an idle macOS one. There is **no
+bypass**: rerun a flaky red run to green, fix a real one.
 ### The lockfile gate runs unconditionally (#2244)
 
 `pnpm install --frozen-lockfile` is the only thing in the pipeline that
@@ -868,7 +880,7 @@ Every workflow declares `permissions:`, the workflow-scope value is
 |---|---|---|
 | `ci.yml` | `contents: read` | — |
 | `bench.yml` | `contents: read` | `issues: write` on `bench` (#2242) |
-| `release.yml` | `contents: read` | `contents: write` on `build-macos` |
+| `release.yml` | `contents: read` | `contents: write` on `build-macos`; `actions: read` on `ci-verdict` (#2371) |
 
 `ci.yml` and `bench.yml` used to declare nothing, so their token scope came
 from a repository settings page. That page says least-privilege today —

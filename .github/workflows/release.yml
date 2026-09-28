@@ -47,7 +47,52 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Main CI must have passed for the commit being released (#2371).
+  #
+  # The build below re-runs lint and audit on the tagged commit, but not the
+  # test suite or the e2e job — those are main CI's, and nothing asked whether
+  # main CI passed for this SHA. A tag on a commit whose main run was cancelled
+  # or red produced a release that was green at every step here.
+  #
+  # Its own job rather than a step in build-macos, for two reasons. A tag
+  # pushed right after a merge races main CI (~12 min), so this polls an
+  # in-progress run for up to 30 min — which would not fit build-macos's
+  # 35-minute budget on top of a notarized build, and would idle a macOS
+  # runner (billed at 10x) while it waited. And it needs `actions: read` to
+  # see CI runs, which belongs on the job that reads them, not on the job
+  # holding the signing material.
+  #
+  # The rule is `scripts/lib/release-ci-gate.mjs`, shared with
+  # `tag-release.mjs`. No bypass: rerun a flaky red main run to green, fix a
+  # real one.
+  ci-verdict:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+
+      # Tag pushes only, like the tag check: a workflow_dispatch build of a
+      # branch is a deliberate test of the make path, not a release. The SHA
+      # comes from the runner's GITHUB_SHA environment variable and reaches
+      # the script as an argv — never `${{ github.sha }}` interpolated into
+      # the shell.
+      - name: Verify main CI passed for this commit
+        if: startsWith(github.ref, 'refs/tags/')
+        run: node scripts/check-release-ci.mjs --wait "$GITHUB_SHA"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+
   build-macos:
+    needs: ci-verdict
     runs-on: macos-latest
     # Creates the draft Release and uploads the DMG + ZIP to it. The only job
     # in this repo that writes anything.

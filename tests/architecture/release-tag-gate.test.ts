@@ -90,3 +90,83 @@ describe('release.yml verifies the pushed tag (#2245)', () => {
     expect(fs.existsSync(path.join(ROOT, 'scripts', 'check-release-tag.mjs'))).toBe(true);
   });
 });
+
+/**
+ * Main CI passed for the released commit (#2371).
+ *
+ * The build re-runs lint and audit on the tagged commit but not the test
+ * suite or e2e — those are main CI's, and nothing asked whether main CI
+ * passed for this SHA. `release-ci-gate.test.ts` covers the rule; this pins
+ * that release.yml runs it, early, and safely.
+ */
+describe('release.yml verifies main CI passed for the tagged commit (#2371)', () => {
+  const GATE_JOB = 'ci-verdict';
+  const isCiCheck = (s: Step) => /check-release-ci/.test(s.run ?? '');
+
+  type Loose = Step & { 'continue-on-error'?: unknown };
+  interface GateJob extends Job {
+    needs?: string | string[];
+    permissions?: Record<string, string>;
+    'continue-on-error'?: unknown;
+  }
+  const jobs = () => (release().jobs ?? {}) as Record<string, GateJob>;
+  const gateStep = (): Loose => jobs()[GATE_JOB]!.steps!.find(isCiCheck)!;
+
+  it('runs the CI check exactly once, in its own job', () => {
+    const found = Object.entries(jobs()).flatMap(([name, j]) =>
+      (j.steps ?? []).filter(isCiCheck).map(() => name),
+    );
+    expect(found, 'release.yml must run scripts/check-release-ci.mjs (#2371)').toEqual([GATE_JOB]);
+  });
+
+  it('runs on tag pushes, and polls a still-running CI', () => {
+    expect(gateStep().if).toContain('refs/tags/');
+    // A tag pushed right after a merge races main CI (~12 min).
+    expect(gateStep().run).toContain('--wait');
+  });
+
+  it('gates the build: build-macos needs it, and it comes first in the file', () => {
+    // `needs:` is what actually orders jobs; file order keeps a flattened
+    // step scan reading top to bottom.
+    const needs = jobs()['build-macos']!.needs;
+    expect([needs].flat()).toContain(GATE_JOB);
+    const names = Object.keys(jobs());
+    expect(names.indexOf(GATE_JOB)).toBeLessThan(names.indexOf('build-macos'));
+
+    const all = steps();
+    const checkAt = all.findIndex(isCiCheck);
+    const buildAt = all.findIndex((s) => /electron-forge (make|package)|pnpm build/.test(s.run ?? ''));
+    expect(checkAt).toBeGreaterThanOrEqual(0);
+    expect(buildAt).toBeGreaterThanOrEqual(0);
+    expect(checkAt).toBeLessThan(buildAt);
+  });
+
+  it('takes the SHA from the environment, never interpolated into the shell', () => {
+    expect(gateStep().run).toContain('"$GITHUB_SHA"');
+    expect(gateStep().run, 'no ${{ }} expression may reach the run: script').not.toMatch(/\$\{\{/);
+  });
+
+  it('authenticates gh with the job token', () => {
+    expect(gateStep().env?.GH_TOKEN).toContain('github.token');
+  });
+
+  it('has no bypass switch', () => {
+    // The remedy for a flaky red run is to rerun it to green; for a real one,
+    // to fix it. A `continue-on-error` or a skip flag turns the gate back into
+    // a log line.
+    expect(jobs()[GATE_JOB]!['continue-on-error']).toBeUndefined();
+    expect(gateStep()['continue-on-error']).toBeUndefined();
+    expect(gateStep().run).not.toMatch(/--(skip|force|no-verify|allow)/);
+  });
+
+  it('the scripts it calls exist', () => {
+    expect(fs.existsSync(path.join(ROOT, 'scripts', 'check-release-ci.mjs'))).toBe(true);
+    expect(fs.existsSync(path.join(ROOT, 'scripts', 'lib', 'release-ci-gate.mjs'))).toBe(true);
+  });
+
+  it('tag-release.mjs applies the same rule locally, and checks HEAD is on origin/main', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'scripts', 'tag-release.mjs'), 'utf-8');
+    expect(src).toContain('./lib/release-ci-gate.mjs');
+    expect(src).toMatch(/'--is-ancestor', head, 'origin\/main'/);
+  });
+});
