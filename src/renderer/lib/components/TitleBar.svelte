@@ -61,7 +61,7 @@
   <span class="nav-divider" aria-hidden="true"></span>
 
   <div class="breadcrumb">
-    <span class="brand"><Icon name="minervaMark" size={14} color="var(--accent)" /></span>
+    <span class="brand"><Icon name="minervaMark" size={14} color="var(--appbar-accent)" /></span>
     {#if notebaseName}
       <span class="crumb">{notebaseName}</span>
     {/if}
@@ -78,29 +78,40 @@
 
   <div class="right-cluster">
     <button class="search-box" onclick={onOpenGotoNote} title="Quick Open (Cmd+P) — fuzzy-match notes, sources, queries">
-      <Icon name="search" size={13} color="var(--text-muted)" />
+      <Icon name="search" size={13} color="var(--appbar-text-muted)" />
       <span class="search-placeholder">Quick Open…</span>
       <span class="search-kbd">⌘ P</span>
     </button>
     <button class="icon-btn" onclick={onOpenSettings} title="Settings">
-      <Icon name="settings" size={15} color="var(--text-muted)" />
+      <Icon name="settings" size={15} color="var(--appbar-text-muted)" />
     </button>
   </div>
 </div>
 
 <style>
-  /* The bar paints --bg, so its text uses the body tokens (--text /
-     --text-muted), not --titlebar-text*: those pair with --bg-titlebar, which
-     the contrast theme makes dark — on this --bg they were white-on-white
-     there (1.44:1, #2378). In dark/light the two sets resolve identically. */
+  /* The app bar reads ONLY the --appbar-* tokens (global.css), never the body
+     ones. In dark and light they default to the body set (--bg, --text, …), so
+     the bar looks as it always has; the contrast theme remaps them to its dark
+     #3a3a4a bar, matching the other --titlebar-* headers. History: the bar once
+     painted --bg with --titlebar-text* (white-on-white in contrast, 1.44:1,
+     #2378); #2426 moved the text to --text/--text-muted, which fixed the ratio
+     but left a light bar in a theme whose other headers are dark. One token set
+     for surface and ink means they can't drift apart again.
+
+     --accent is rebound here to --appbar-accent so everything inside the bar
+     that reaches for it — the minervaMark SVG (hardcoded var(--accent) in the
+     icon registry) and the global :focus-visible outline — gets a colour that
+     clears contrast on the bar. The contrast theme's bronze is 1.80:1 on
+     #3a3a4a; its --appbar-accent is 5.70:1. */
   .titlebar {
     -webkit-app-region: drag;
     height: 42px;
     display: flex;
     align-items: center;
     gap: 12px;
-    background: var(--bg);
-    border-bottom: 1px solid var(--border);
+    --accent: var(--appbar-accent);
+    background: var(--bg-appbar);
+    border-bottom: 1px solid var(--appbar-border);
     flex-shrink: 0;
     padding-left: 80px;
     padding-right: 14px;
@@ -122,15 +133,15 @@
     border: none;
     border-radius: 6px;
     background: transparent;
-    color: var(--text-muted);
+    color: var(--appbar-text-muted);
     cursor: pointer;
     display: inline-flex;
     align-items: center;
     justify-content: center;
   }
   .nav-btn:hover:not(:disabled) {
-    background: color-mix(in oklch, var(--text) 8%, transparent);
-    color: var(--text);
+    background: color-mix(in oklch, var(--appbar-text) 8%, transparent);
+    color: var(--appbar-text);
   }
   .nav-btn:disabled {
     opacity: 0.35;
@@ -140,7 +151,7 @@
   .nav-divider {
     width: 1px;
     height: 18px;
-    background: var(--border);
+    background: var(--appbar-border);
     flex-shrink: 0;
   }
 
@@ -150,7 +161,7 @@
     align-items: center;
     gap: 8px;
     font-size: 13px;
-    color: var(--text);
+    color: var(--appbar-text);
     min-width: 0;
     overflow: hidden;
     user-select: none;
@@ -161,19 +172,19 @@
     flex-shrink: 0;
   }
   .crumb {
-    color: var(--text-muted);
+    color: var(--appbar-text-muted);
     font-family: var(--font-sans);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
   .chev {
-    color: var(--text-faint);
+    color: var(--appbar-text-faint);
     font-size: 11px;
     flex-shrink: 0;
   }
   .leaf {
-    color: var(--text);
+    color: var(--appbar-text);
     font-family: var(--font-display);
     font-style: italic;
     font-weight: 500;
@@ -183,7 +194,7 @@
     min-width: 0;
   }
   .dirty {
-    color: var(--accent);
+    color: var(--appbar-accent);
     font-size: 16px;
     line-height: 1;
     flex-shrink: 0;
@@ -205,23 +216,23 @@
     gap: 6px;
     height: 24px;
     padding: 0 10px;
-    background: var(--bg-inset);
-    border: 1px solid var(--border);
+    background: var(--appbar-inset);
+    border: 1px solid var(--appbar-border);
     border-radius: 6px;
-    color: var(--text-muted);
+    color: var(--appbar-text-muted);
     cursor: text;
     font-family: var(--font-sans);
   }
   .search-box:hover {
-    border-color: var(--border-strong);
+    border-color: var(--appbar-border-strong);
   }
   .search-placeholder {
-    color: var(--text-muted);
+    color: var(--appbar-text-muted);
     font-size: 12px;
   }
   .search-kbd {
     margin-left: 16px;
-    color: var(--text-faint);
+    color: var(--appbar-text-faint);
     font-family: var(--font-mono);
     font-size: 10px;
   }
@@ -233,14 +244,14 @@
     border: none;
     border-radius: 6px;
     background: transparent;
-    color: var(--text-muted);
+    color: var(--appbar-text-muted);
     cursor: pointer;
     display: inline-flex;
     align-items: center;
     justify-content: center;
   }
   .icon-btn:hover {
-    background: color-mix(in oklch, var(--text) 8%, transparent);
-    color: var(--text);
+    background: color-mix(in oklch, var(--appbar-text) 8%, transparent);
+    color: var(--appbar-text);
   }
 </style>
