@@ -8,8 +8,8 @@
 # Deliberately NOT on `pull_request` / `push`: micro-benchmarks are noisy on
 # shared CI runners, so gating a PR on them would flap. The gate lives here on
 # the manual/scheduled runs (baseline-diff with a tolerance envelope), which is
-# resistant to that noise. macos-latest matches ci.yml and the dev machine the
-# baseline is blessed on.
+# resistant to that noise. macos-latest matches ci.yml, and the baseline is
+# blessed HERE, never on a dev machine (#2211, #2331).
 #
 # Re-blessing the baseline: dispatch this workflow with `update_baseline: true`.
 # It runs the benches, writes the new baseline, and uploads it as an artifact —
@@ -109,6 +109,22 @@ jobs:
           set -o pipefail
           pnpm bench:check 2>&1 | tee bench-report.txt
 
+      # Every ungated bench still has an owner (#2358). A `gate: false` entry
+      # links the issue that will arm it; once that issue is CLOSED nobody owns
+      # the ungated bench any more, and it would sit unarmed forever — which is
+      # how #2211's six entries outlived their fixes. Needs the network, so it
+      # lives here rather than in `pnpm test` (which checks the link EXISTS:
+      # tests/architecture/bench-ungated-entries-tracked.test.ts). Runs even
+      # when the gate above failed, and appends to the same report, so the
+      # notify step below carries both verdicts.
+      - name: Ungated benches link an open issue
+        if: ${{ !cancelled() && inputs.update_baseline != true }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -o pipefail
+          node scripts/check-bench-ungated.mjs 2>&1 | tee -a bench-report.txt
+
       # Re-bless run (dispatch with update_baseline=true): regenerate the baseline
       # and hand it back as an artifact for a human to commit.
       - name: Refresh benchmark baseline
@@ -148,11 +164,12 @@ jobs:
               'The bench regression gate exited non-zero. This is the only check that',
               'runs outside the PR loop, so nothing else will surface it.',
               '',
-              'Before treating a ratio as new code: the baseline is deliberately',
-              'part-stale (see the `_comment` in `tests/main/bench-baseline.json`),',
-              'seven save-path entries are held red BY DESIGN, and CI runs 1.2-1.4x',
-              'slower than the machine older entries were blessed on. Compare against',
-              'the previous scheduled run before bisecting.',
+              'Before treating a ratio as new code: compare the two controls',
+              '(cosineSimilarity, meanPoolNormalize) against the baseline — if they',
+              'moved too, the runner is slower, not the code — and compare against',
+              'the previous scheduled run before bisecting. If the failure is the',
+              'ungated-bench check, a `gate: false` entry links a closed issue: arm',
+              'it or re-link it (see `_comment` in `tests/main/bench-baseline.json`).',
               '',
               '```',
               report,

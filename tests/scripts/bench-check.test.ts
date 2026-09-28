@@ -137,10 +137,11 @@ describe('bench-check.mjs', () => {
   it('--update preserves hand-set budgetMs/tolerance/gate while refreshing mean/hz', () => {
     withTempDir((d) => {
       const baselinePath = writeTemp(d, 'baseline.json', {
+        _comment: 'hand-written guidance',
         tolerance: 2,
         benchmarks: [
           { name: 'scale op', mean: 100, hz: 10, budgetMs: 220, tolerance: 1.3 },
-          { name: 'noisy op', mean: 50, hz: 20, budgetMs: null, gate: false },
+          { name: 'noisy op', mean: 50, hz: 20, budgetMs: null, gate: false, issue: 4242, reason: 'known slow' },
         ],
       });
       const current = writeTemp(
@@ -162,6 +163,12 @@ describe('bench-check.mjs', () => {
       expect(scaleOp.tolerance).toBe(1.3);
       expect(noisyOp.mean).toBe(60);
       expect(noisyOp.gate).toBe(false);
+      // #2358: an ungated entry's owner link survives a re-bless, and so does
+      // the file's hand-written guidance.
+      expect(noisyOp.issue).toBe(4242);
+      expect(noisyOp.reason).toBe('known slow');
+      expect(scaleOp.issue).toBeUndefined();
+      expect(updated._comment).toBe('hand-written guidance');
     });
   });
 });

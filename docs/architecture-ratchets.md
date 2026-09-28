@@ -21,7 +21,7 @@ what to do about it. `architecture-ratchets-doc.test.ts` keeps the two sides in
 step — a new test in `tests/architecture/` with no entry here fails, and an
 entry here naming a test that no longer exists fails too (#2262).
 
-Written up as of 2026-09-27, 40 tests.
+Written up as of 2026-09-28, 41 tests.
 
 ---
 
@@ -674,6 +674,23 @@ the smoke boot. It also fails if `cli-install.ts` stops using
 **When it fires:** you changed a fuse — update both lists and say why in the
 policy entry — or an Electron upgrade added a fuse and the read-back names it:
 decide it rather than inheriting the default.
+
+### `bench-ungated-entries-tracked.test.ts`
+
+**Every `gate: false` entry in `tests/main/bench-baseline.json` carries an
+`issue` number and a `reason`** (#2358). `gate: false` — measure, never fail —
+is the one baseline state that fails nothing when it is forgotten: #2211 added
+six ungated entries with a sentence in `_comment` saying "turn gating on in the
+PR that fixes each", the fixes landed, and nobody armed them until #2331 while
+the scheduled gate stayed red on stale state for four Mondays. The offline half
+lives here; whether the linked issue is still **open** needs the network, so
+`bench.yml` runs `scripts/check-bench-ungated.mjs` after the gate and fails on a
+CLOSED link (a closed issue means nobody owns the ungated bench), which reaches
+the existing failure-notify step. The rule is also exercised against injected
+fixtures, since the committed file may have no ungated entries at all. **When it
+fires:** add `"issue": <n>, "reason": "..."` naming the issue that will arm the
+bench — or arm it now (drop `gate: false`, re-bless on CI). `bench-check.mjs
+--update` preserves both fields across a re-bless.
 
 ### `out-of-band-checks-notify.test.ts`
 
