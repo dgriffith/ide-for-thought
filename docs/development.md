@@ -81,6 +81,15 @@ than later ones.
 | `pnpm test:e2e` | Package the app and run the Playwright end-to-end journeys |
 | `pnpm package` | Build an unpackaged app for local testing |
 | `pnpm build` | Build a distributable |
+| `pnpm worktrees:prune` | List agent worktrees under `.claude/worktrees/` whose work has landed (dry run); add `-- --apply` to remove them |
+
+Agent worktrees each carry their own `node_modules`, so they pile up fast.
+`scripts/prune-worktrees.mjs` (#2391) removes the ones whose PR merged or
+whose changes are already on `origin/main` — detected by PR state, `git cherry`
+and `git merge-tree`, since squash merges hide from `git branch --merged`. It
+never touches a worktree with uncommitted/untracked files, one with commits not
+on main unless its PR merged, or one locked by a live agent that used git in the
+last 30 minutes (`--min-idle` changes that).
 
 A **pre-push hook** (`.githooks/pre-push`, activated by `pnpm install`) runs the
 lint gate before each push so obvious failures are caught locally instead of in

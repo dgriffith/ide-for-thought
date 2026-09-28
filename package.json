@@ -24,6 +24,7 @@
     "build": "electron-forge make",
     "package": "electron-forge package",
     "release:tag": "node scripts/tag-release.mjs",
+    "worktrees:prune": "node scripts/prune-worktrees.mjs",
     "lint": "node scripts/lint.mjs",
     "lint:seq": "tsc --noEmit && svelte-check --threshold error && eslint .",
     "lint:eslint": "eslint .",
