@@ -41,6 +41,22 @@
   --titlebar-button:      var(--bg-button);
   --titlebar-button-hover: var(--bg-button-hover);
 
+  /* App bar (TitleBar.svelte) — the window-top bar with the nav arrows,
+     breadcrumb and Quick Open. It is NOT a --bg-titlebar surface: in dark and
+     light it paints the body --bg (--bg-titlebar resolves to --bg-elev), so
+     every token here defaults to its body twin and those themes are
+     unchanged. The contrast theme remaps the whole set to its dark bar
+     (below). TitleBar reads only these — never a body token — so a surface
+     and its text can't be paired from different sets again (#2378, #2426). */
+  --bg-appbar:            var(--bg);
+  --appbar-text:          var(--text);
+  --appbar-text-muted:    var(--text-muted);
+  --appbar-text-faint:    var(--text-faint);
+  --appbar-accent:        var(--accent);
+  --appbar-border:        var(--border);
+  --appbar-border-strong: var(--border-strong);
+  --appbar-inset:         var(--bg-inset);
+
   /* Type — IBM Plex (Serif / Sans / Mono). Plex's regular weight reads
      heavy at small sizes, so UI body uses weight 450. */
   --font-display: 'IBM Plex Serif', Georgia, serif;
@@ -128,12 +144,29 @@
   --sage:          oklch(0.440 0.080 148);
   --rust:          oklch(0.500 0.140 38);
   --iris:          oklch(0.450 0.110 280);
-  /* Contrast theme keeps its dark title bar over a light body */
+  /* Contrast theme keeps a dark title bar over a light body: the --titlebar-*
+     surfaces (CSV headers, tool panel header, mermaid) and the app bar at the
+     top of the window (--appbar-*, TitleBar.svelte) are all this #3a3a4a. */
   --bg-titlebar:           #3a3a4a;
   --titlebar-text:         #ffffff;
   --titlebar-text-muted:   #cdd6f4;
   --titlebar-button:       #313244;
   --titlebar-button-hover: #45475a;
+  /* Ratios measured on #3a3a4a (and on the #313244 Quick Open inset):
+     text 11.15:1 (12.57), muted 7.71:1 (8.69), faint 5.01:1 (5.65). The
+     theme's --accent (bronze 0.500) is only 1.80:1 here, so the bar carries
+     the dark theme's lighter bronze, 5.70:1 — for the brand mark, the dirty
+     dot and the focus ring. --appbar-border (3.02:1) draws the divider and
+     the Quick Open box's outline, so the control's edge clears 1.4.11's 3:1;
+     --appbar-border-strong (3.95:1) is that outline on hover. */
+  --bg-appbar:             var(--bg-titlebar);
+  --appbar-text:           var(--titlebar-text);
+  --appbar-text-muted:     var(--titlebar-text-muted);
+  --appbar-text-faint:     #a6adc8;
+  --appbar-accent:         oklch(0.790 0.115 78);
+  --appbar-border:         #7f849c;
+  --appbar-border-strong:  #9399b2;
+  --appbar-inset:          var(--titlebar-button);
   --bg-tabbar:             var(--bg-elev);
   --bg-toolbar:            var(--bg-elev);
   --bg-code:               #eaeaef;
