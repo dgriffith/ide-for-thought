@@ -12,6 +12,7 @@ import { escapeHtml, escapeAttr } from './text';
 import { sanitizeComputeOutputHtml } from '../compute-output-sanitize';
 import type { CellOutput } from '../../../shared/compute/types';
 import { RUNNABLE_LANGUAGE_SET } from '../../../shared/compute/fences';
+import { withSqlAccessHint } from '../../../shared/sql-access-hint';
 
 /**
  * Walk backwards from the output fence token to find the executable
@@ -54,7 +55,7 @@ export function renderComputeOutput(content: string, source: { language: string;
   if (!p || typeof p !== 'object' || typeof p.type !== 'string') {
     inner = `<pre class="compute-output compute-output-json">${escapeHtml(JSON.stringify(payload, null, 2))}</pre>`;
   } else if (p.type === 'error') {
-    const message = typeof p.message === 'string' ? p.message : JSON.stringify(p.message);
+    const message = typeof p.message === 'string' ? withSqlAccessHint(p.message) : JSON.stringify(p.message);
     inner = `<div class="compute-output compute-output-error">${escapeHtml(message)}</div>`;
     // Errors aren't worth saving as notes; skip the overflow menu.
   } else if (p.type === 'text') {

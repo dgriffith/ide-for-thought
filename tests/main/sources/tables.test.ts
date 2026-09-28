@@ -1,9 +1,18 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { initTablesDb, disposeProject, runQuery } from '../../../src/main/sources/tables';
 import { projectContext } from '../../../src/main/project-context-types';
 import { coerceDuckRowsForIpc } from '../../../src/main/compute/duck-values';
 
-const ctx = projectContext('/tmp/minerva-tables-test');
+// The instance is locked to its root at init (#2437), which realpaths it — so
+// the root has to exist. One dir for the file-wide shared ctx, one for the
+// isolation test's second project.
+const base = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-tables-test-'));
+fs.mkdirSync(path.join(base, 'one'));
+fs.mkdirSync(path.join(base, 'other'));
+const ctx = projectContext(path.join(base, 'one'));
 
 describe('tables module — DuckDB lifecycle + runQuery (#232)', () => {
   beforeAll(async () => {
@@ -12,6 +21,7 @@ describe('tables module — DuckDB lifecycle + runQuery (#232)', () => {
 
   afterAll(() => {
     disposeProject(ctx);
+    fs.rmSync(base, { recursive: true, force: true });
   });
 
   it('runs the trivial round-trip query', async () => {
@@ -42,15 +52,16 @@ describe('tables module — DuckDB lifecycle + runQuery (#232)', () => {
   it('blocks httpfs extension autoload — no network egress from a SQL cell (#1325)', async () => {
     // A remote read forces DuckDB to autoload `httpfs`; with autoload
     // disabled at init (hardenConnection) it fails with a Missing Extension
-    // error instead of reaching the network. Loopback host so the assertion
-    // is about the block, not about DNS/connectivity.
+    // error instead of reaching the network — and since #2437 the file-access
+    // lockdown refuses a URL before autoload is even considered. Loopback host
+    // so the assertion is about the block, not about DNS/connectivity.
     const result = await runQuery(
       ctx,
       "SELECT * FROM read_csv_auto('https://127.0.0.1/leak.csv')",
     );
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error).toMatch(/extension|autoload|httpfs/i);
+      expect(result.error).toMatch(/extension|autoload|httpfs|disabled by configuration/i);
     }
   });
 
@@ -87,7 +98,7 @@ describe('tables module — DuckDB lifecycle + runQuery (#232)', () => {
   });
 
   it('two projects keep their tables isolated', async () => {
-    const otherCtx = projectContext('/tmp/minerva-tables-test-other');
+    const otherCtx = projectContext(path.join(base, 'other'));
     await initTablesDb(otherCtx);
     try {
       await runQuery(ctx, `CREATE TABLE scratch (x INTEGER)`);

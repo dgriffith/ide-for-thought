@@ -45,6 +45,17 @@ describe('renderComputeOutput', () => {
     expect(html).toContain('boom');
     expect(html).not.toContain('compute-output-wrap');
   });
+  it('adds the thoughtbase-only hint to a SQL cell refused by the file lockdown (#2437)', () => {
+    const refusal =
+      'Permission Error: Cannot access file "/Users/me/Downloads/x.csv" - file system operations are disabled by configuration';
+    const html = renderComputeOutput(
+      JSON.stringify({ type: 'error', message: refusal }),
+      { language: 'sql', code: "SELECT * FROM '/Users/me/Downloads/x.csv'" },
+    );
+    expect(html).toContain('Cannot access file');
+    expect(html).toContain('SQL can only read files inside this thoughtbase');
+    expect(html).not.toMatch(/Settings/);
+  });
   it('renders unparseable content as a raw pre', () => {
     const html = renderComputeOutput('not json {', null);
     expect(html).toContain('compute-output-raw');

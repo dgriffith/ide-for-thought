@@ -84,7 +84,7 @@ const BUDGETS: Record<string, number> = {
   'src/renderer/lib/ipc/client.ts': 1374,  // #2411: menu.onRevealFile; #2363/#2364: doc comments on graph.query + git.commit contracts
   'src/renderer/lib/stores/conversations.svelte.ts': 1191, // +26: turn start/settle screen-reader announcements (#2374)
   'src/renderer/lib/components/Editor.svelte': 854,
-  'src/renderer/lib/stores/editor.svelte.ts': 913,
+  'src/renderer/lib/stores/editor.svelte.ts': 914,
     'src/renderer/lib/components/right-sidebar/PropertiesPanel.svelte': 1156,
   // +29 for #2254/#2256: the DOCS_URL rationale (why Help pointed at the
   // repo's dev-docs folder and how the parity test keeps it honest) and the
@@ -125,7 +125,7 @@ const BUDGETS: Record<string, number> = {
   // instead of a static import, so the 107MB native module leaves the
   // pre-window boot path. The extra lines are the lazy resolution and the
   // comment saying why the import looks indirect.
-  'src/main/sources/tables.ts': 810,
+  'src/main/sources/tables.ts': 825,
   // #2220 (601 → 633): the search callback grew a match cap, a generation
   // guard that drops superseded responses, and a truncation-aware status line.
   // Raised rather than extracted on purpose — all 32 lines are the one
