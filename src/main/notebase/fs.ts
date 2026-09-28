@@ -8,6 +8,7 @@ import { onNoteWriting, onNoteWritten, onNoteDeleting, onNoteDeleted, moveHistor
 import { isIgnoredEntry } from '../../shared/ignored-dirs';
 import { isNotePath } from '../../shared/note-extensions';
 import { assertSafePath, isEscapingSymlink } from '../path-containment';
+import { logger } from '../../shared/logger';
 
 // The containment guard moved to a leaf module so the bulk walkers in
 // `graph/`, `search/` and `embeddings/` can share it without importing
@@ -50,7 +51,7 @@ async function readDirectory(dirPath: string, rootPath: string): Promise<NoteFil
     const relativePath = path.relative(rootPath, fullPath);
 
     if (entry.isDirectory()) {
-      const children = await readDirectory(fullPath, rootPath);
+      const children = await readSubdirectory(fullPath, rootPath);
       files.push({
         name: entry.name,
         relativePath,
@@ -93,6 +94,25 @@ async function readDirectory(dirPath: string, rootPath: string): Promise<NoteFil
   });
 
   return files;
+}
+
+/**
+ * A folder inside the thoughtbase that cannot be listed (permission denied,
+ * vanished mid-walk) is shown EMPTY rather than failing the whole tree
+ * (#2372) — one locked folder used to leave the sidebar with no files at all.
+ * The root is listed by `readDirectory` directly and still throws.
+ */
+async function readSubdirectory(dirPath: string, rootPath: string): Promise<NoteFile[]> {
+  try {
+    return await readDirectory(dirPath, rootPath);
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException | null)?.code;
+    // Only this folder's own listing failing is "unreadable"; a deeper one
+    // was already absorbed by its own readSubdirectory, and a non-fs throw is a bug.
+    if (typeof code !== 'string' || (err as NodeJS.ErrnoException).path !== dirPath) throw err;
+    logger('thoughtbase').warn(`cannot list folder (${code}):`, path.relative(rootPath, dirPath));
+    return [];
+  }
 }
 
 export async function readFile(rootPath: string, relativePath: string): Promise<string> {

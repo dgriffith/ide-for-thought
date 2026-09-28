@@ -13,6 +13,7 @@
 import * as $rdf from 'rdflib';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import type { Dirent } from 'node:fs';
 import { parseMarkdown } from '../parser';
 import { isIndexable } from '../../../shared/indexable-files';
 import { isIgnoredEntry } from '../../../shared/ignored-dirs';
@@ -247,7 +248,8 @@ export async function indexAllNotes(ctx: ProjectContext, opts?: IndexAllNotesOpt
   // writes the snapshot; an in-app rebuild only mutates the live store.
 
   async function walkAndIndex(dirPath: string, root: string) {
-    const entries = await fs.readdir(dirPath, { withFileTypes: true });
+    const entries = await readWalkedDir(dirPath, root);
+    if (entries === null) return;
     for (const entry of entries) {
       if (isIgnoredEntry(entry.name)) continue;
       const fullPath = path.join(dirPath, entry.name);
@@ -261,7 +263,10 @@ export async function indexAllNotes(ctx: ProjectContext, opts?: IndexAllNotesOpt
         if (isEscapingSymlink(root, fullPath, entry)) continue;
         const relativePath = path.relative(root, fullPath);
         const cached = prepassContent.get(relativePath);
-        const content = cached ?? await fs.readFile(fullPath, 'utf-8');
+        const content = cached ?? await readWalkedFile(fullPath, relativePath);
+        // Unreadable (dangling link, symlink loop, permissions): the pre-pass
+        // already skipped it, so skip it here too rather than abort (#2372).
+        if (content === null) continue;
         // Release as we go: the main pass visits each note once, so a retained
         // body is dead the moment it is used (#2216).
         if (cached !== undefined) prepassContent.delete(relativePath);
@@ -273,7 +278,8 @@ export async function indexAllNotes(ctx: ProjectContext, opts?: IndexAllNotesOpt
   }
 
   async function walkAndCollectAliases(dirPath: string, root: string) {
-    const entries = await fs.readdir(dirPath, { withFileTypes: true });
+    const entries = await readWalkedDir(dirPath, root);
+    if (entries === null) return;
     for (const entry of entries) {
       if (isIgnoredEntry(entry.name)) continue;
       const fullPath = path.join(dirPath, entry.name);
@@ -290,6 +296,12 @@ export async function indexAllNotes(ctx: ProjectContext, opts?: IndexAllNotesOpt
           continue;
         }
         const relativePath = path.relative(root, fullPath);
+        // Read BEFORE registering (#2372): a file that cannot be read — an
+        // in-root dangling symlink, a symlink loop, a permission-denied note —
+        // is not a note, and registering it would let `[[links]]` resolve to
+        // a path the graph never indexes.
+        const content = await readWalkedFile(fullPath, relativePath);
+        if (content === null) continue;
         // Register every note path up front so the main pass resolves bare
         // `[[basename]]` links against the COMPLETE file set — otherwise a note
         // indexed early couldn't resolve a link to one indexed later (#1142).
@@ -299,18 +311,13 @@ export async function indexAllNotes(ctx: ProjectContext, opts?: IndexAllNotesOpt
         // The pre-pass visits exactly what the main pass will index, so it
         // doubles as the count a progress bar needs (#1814).
         total++;
-        try {
-          const content = await fs.readFile(fullPath, 'utf-8');
-          if (prepassBytes + content.length <= PREPASS_CACHE_BUDGET_BYTES) {
-            prepassContent.set(relativePath, content);
-            prepassBytes += content.length;
-          }
-          const parsed = parseMarkdown(content);
-          const valid = parsed.aliases.filter(isAliasNameValid);
-          setNoteAliases(ctx, relativePath, valid);
-        } catch {
-          // Skip unreadable files; the main pass will surface the same error.
+        if (prepassBytes + content.length <= PREPASS_CACHE_BUDGET_BYTES) {
+          prepassContent.set(relativePath, content);
+          prepassBytes += content.length;
         }
+        const parsed = parseMarkdown(content);
+        const valid = parsed.aliases.filter(isAliasNameValid);
+        setNoteAliases(ctx, relativePath, valid);
       }
     }
   }
@@ -325,4 +332,41 @@ export async function indexAllNotes(ctx: ProjectContext, opts?: IndexAllNotesOpt
   // deterministically.
   prepassContent.clear();
   return count;
+}
+
+/**
+ * List one directory found by the rebuild walk, or `null` when a SUBdirectory
+ * refuses it (#2372): a permission-denied folder inside the thoughtbase used
+ * to reject the whole rebuild, the same way an unreadable note did. The root
+ * itself still throws — a thoughtbase that cannot be listed cannot be opened,
+ * and that is an error for the caller, not a quiet empty graph.
+ */
+async function readWalkedDir(dirPath: string, root: string): Promise<Dirent[] | null> {
+  try {
+    return await fs.readdir(dirPath, { withFileTypes: true });
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException | null)?.code;
+    if (dirPath === root || typeof code !== 'string') throw err;
+    logger('graph').warn(`not indexing unreadable folder (${code}):`, path.relative(root, dirPath));
+    return null;
+  }
+}
+
+/**
+ * Read one file found by the rebuild walk, or `null` when the filesystem
+ * refuses it (#2372). `readdir` lists an in-root dangling symlink, a symlink
+ * loop and a permission-denied file like any other entry, and a single one
+ * used to reject the whole rebuild — the project then opened with an empty
+ * graph. Only an fs errno (`err.code`) means "this file is unreadable"; any
+ * other throw is a bug and propagates.
+ */
+async function readWalkedFile(fullPath: string, relativePath: string): Promise<string | null> {
+  try {
+    return await fs.readFile(fullPath, 'utf-8');
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException | null)?.code;
+    if (typeof code !== 'string') throw err;
+    logger('graph').warn(`not indexing unreadable file (${code}):`, relativePath);
+    return null;
+  }
 }
