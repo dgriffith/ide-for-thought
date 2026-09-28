@@ -96,6 +96,7 @@ const EVENT_CHANNELS = new Set<string>([
   Channels.CONVERSATION_DELETE_DRAFT,
   Channels.CONVERSATION_NOTE_BODY_DRAFT,
   Channels.CONVERSATION_ASK_USER,
+  Channels.CONVERSATION_MCP_CONFIRM,
 ]);
 
 /** Parse the `ChannelMap` keys out of the contract source (single source of truth). */

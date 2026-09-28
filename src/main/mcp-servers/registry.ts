@@ -24,7 +24,14 @@ import {
   type McpToolCallResult,
 } from '../mcp-client';
 import { logger } from '../../shared/logger';
-import type { McpServerStatus, McpServerConnectionStatus, McpToolDescriptor, StoredMcpServerConfig } from '../../shared/mcp-servers';
+import type {
+  McpCallDecision,
+  McpServerStatus,
+  McpServerConnectionStatus,
+  McpToolDescriptor,
+  StoredMcpServerConfig,
+} from '../../shared/mcp-servers';
+import { allowTool, isToolAllowed } from './tool-permissions';
 import {
   addStoredServer,
   getStoredServers,
@@ -140,14 +147,82 @@ export async function connectAllEnabledServers(): Promise<void> {
   await Promise.allSettled(configs.map((cfg) => connectOne(cfg, { interactive: false })));
 }
 
-/** Invoke a tool on a connected server, addressed by the human-facing `name`
- *  (what the settings UI and the `mcp_call` dispatcher catalog both show —
- *  #2028). `live` is keyed by config id, so this resolves name -> id first. */
+/**
+ * Asks the user whether one `mcp_call` may run (#2439). Supplied by the
+ * conversation surface (`ipc/conversation-stream.ts`); `null` means there is
+ * no UI to ask in (the CLI, the eval harness, a background run), and a call
+ * that needs confirmation is then REFUSED, never allowed.
+ */
+export type McpCallConfirmer = (req: McpCallConfirmPrompt) => Promise<McpCallDecision>;
+
+/** What the confirmation card shows. `argsJson` is exactly what will be sent. */
+export interface McpCallConfirmPrompt {
+  serverName: string;
+  toolName: string;
+  title?: string;
+  description?: string;
+  argsJson: string;
+  destructiveHint?: boolean;
+}
+
+/** What `callServerTool` did. A declined call never touched the transport. */
+export type McpCallOutcome =
+  | { kind: 'called'; result: McpToolCallResult }
+  | { kind: 'declined'; reason: 'denied' | 'cancelled' | 'no-ui' };
+
+/** True only for a tool the server itself marked `readOnlyHint: true`. */
+export function isReadOnlyTool(tool: McpToolDescriptor): boolean {
+  return tool.annotations?.readOnlyHint === true;
+}
+
+function confirmPrompt(serverName: string, tool: McpToolDescriptor, args: Record<string, unknown>): McpCallConfirmPrompt {
+  const title = tool.annotations?.title;
+  const destructiveHint = tool.annotations?.destructiveHint;
+  return {
+    serverName,
+    toolName: tool.name,
+    ...(title !== undefined ? { title } : {}),
+    ...(tool.description !== undefined ? { description: tool.description } : {}),
+    // The same object `callTool` receives below, serialized once here so the
+    // card shows the bytes that go on the wire rather than a re-rendering.
+    argsJson: JSON.stringify(args, null, 2),
+    ...(destructiveHint !== undefined ? { destructiveHint } : {}),
+  };
+}
+
+/**
+ * Invoke a tool on a connected server, addressed by the human-facing `name`
+ * (what the settings UI and the `mcp_call` dispatcher catalog both show —
+ * #2028). `live` is keyed by config id, so this resolves name -> id first.
+ *
+ * ── The write-confirmation gate (#2439) ─────────────────────────────────────
+ * The gate lives here, not in the `mcp_call` tool, so no path reaches a
+ * server's `tools/call` around it: `confirm` is a required parameter, and a
+ * caller with no UI must pass `null` and accept the refusal.
+ *
+ *   1. `annotations.readOnlyHint === true` in the catalog the server advertised
+ *      at connect time: runs without asking.
+ *   2. Anything else (no annotations, `readOnlyHint: false`, any
+ *      `destructiveHint`) needs the user:
+ *      - no UI (`confirm === null`): refused, even if the user once chose
+ *        "Don't ask again". A remembered grant means "don't ask me", not "run
+ *        it where I can't see it";
+ *      - remembered for this exact server identity + tool
+ *        (`tool-permissions.ts`): runs;
+ *      - otherwise the conversation shows a card and waits.
+ *
+ * Accepted residual risk: `readOnlyHint` is the server's own claim. A server
+ * that mislabels a write tool as read-only gets it run unconfirmed. The MCP
+ * spec says clients must treat annotations from an untrusted server as
+ * untrusted; this gate covers honest servers, and the user chose which servers
+ * to connect.
+ */
 export async function callServerTool(
   serverName: string,
   toolName: string,
   args: Record<string, unknown>,
-): Promise<McpToolCallResult> {
+  confirm: McpCallConfirmer | null,
+): Promise<McpCallOutcome> {
   const configs = await getStoredServers();
   const matches = configs.filter((c) => c.name === serverName);
   if (matches.length > 1) {
@@ -167,9 +242,54 @@ export async function callServerTool(
   // can name anything; the catalog the model is shown is exactly `entry.tools`,
   // so this narrows the callable surface to what the user could see in
   // Settings rather than whatever the server will answer to.
-  if (!entry.tools.some((t) => t.name === toolName)) {
+  const tool = entry.tools.find((t) => t.name === toolName);
+  if (!tool) {
     const known = entry.tools.map((t) => t.name).join(', ') || '(none)';
     throw new Error(`MCP server "${serverName}" has no tool named "${toolName}". Its tools: ${known}`);
   }
-  return entry.client.callTool(toolName, args);
+
+  if (!isReadOnlyTool(tool)) {
+    const where = `${serverName}/${toolName}`;
+    const audit = logger('mcp-confirm');
+    if (!confirm) {
+      audit.info(`refused ${where}: not read-only, and no conversation UI to confirm it`);
+      return { kind: 'declined', reason: 'no-ui' };
+    }
+    let remember = false;
+    if (isToolAllowed(match.descriptor, toolName)) {
+      audit.info(`allowed ${where} (remembered: don't ask again)`);
+    } else {
+      let decision: McpCallDecision;
+      try {
+        decision = await confirm(confirmPrompt(serverName, tool, args));
+      } catch (err) {
+        // A confirmer that fails is not a yes.
+        audit.warn(`denied ${where}: the confirmation failed`, err);
+        return { kind: 'declined', reason: 'denied' };
+      }
+      if (!decision.allow) {
+        audit.info(`denied ${where} (${decision.reason})`);
+        return { kind: 'declined', reason: decision.reason };
+      }
+      remember = decision.remember;
+      audit.info(`allowed ${where} by the user${remember ? ", don't ask again" : ''}`);
+    }
+    // The card may have been up for minutes. If the server was disconnected or
+    // reconfigured meanwhile, the connection the user approved is gone and a
+    // new one may be a different program: refuse rather than send.
+    if (live.get(match.id) !== entry || entry.status !== 'connected' || !entry.client) {
+      audit.warn(`not sending ${where}: the server changed while awaiting confirmation`);
+      throw new Error(`MCP server "${serverName}" changed while the call was awaiting confirmation; nothing was sent.`);
+    }
+    if (remember) {
+      try {
+        allowTool(match.descriptor, serverName, toolName);
+      } catch (err) {
+        // The user said yes to THIS call. Failing to remember it only means
+        // they'll be asked again next time; it is not a reason to refuse.
+        audit.warn(`could not remember "don't ask again" for ${where}:`, err);
+      }
+    }
+  }
+  return { kind: 'called', result: await entry.client.callTool(toolName, args) };
 }

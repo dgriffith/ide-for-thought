@@ -143,9 +143,15 @@
     <h2 id="using">Using the tools in a conversation</h2>
     <p>Once a server is connected its tools reach the assistant automatically — nothing to enable per tool, nothing to type. Ask for something the server can do and the assistant reaches for it, naming the server and tool in the transcript. Only <em>connected</em> servers count: one that's off, failing, or offering no tools simply isn't mentioned to the assistant, so a broken server costs you nothing but the row.</p>
 
+    <h2 id="confirm">Tools that change things ask first</h2>
+    <p>A tool its server marks <b>read-only</b> — a search, a lookup — runs as soon as the assistant calls it. Any other tool, one that could post a message, open an issue or write a file, stops the turn and shows a card in the conversation first: the server, the tool, what the server says the tool does, and the exact arguments the assistant chose, as they will be sent. Nothing reaches the server until you click <b>Allow</b> (or press <kbd>Enter</kbd> in the card). <b>Deny</b> (or <kbd>Esc</kbd>) tells the assistant you declined, and the conversation carries on without it. Stopping the turn while a card is up counts as a denial.</p>
+    <p>Why ask: the assistant reads your notes, sources and web pages, and any of those can contain text written to steer it. Showing you the arguments means an instruction hidden in something it read can't quietly send your notes somewhere.</p>
+    <p>Tick <b>Don't ask again for this tool</b> to skip the card for that one tool from then on. The choice is kept on this computer only, never in a thoughtbase, so a shared or synced thoughtbase can't switch confirmations off for you. It also stops applying if you change the server's command, arguments, environment or URL, since that may be a different program. To start asking again for everything, click <b>Reset allowed MCP tools</b> at the bottom of this tab.</p>
+    <p>When there's no conversation window to show a card in — a skill running in the background, the command line — a tool that isn't read-only is refused rather than run, whatever you chose before.</p>
+
     <div class="box">
-      <span class="label">These calls aren't gated</span>
-      <p>Minerva's <a href="conversations-propose-review-approve.html">approval gate</a> protects <em>your notes and your graph</em> — nothing the AI proposes there lands until you approve it. A tool on a third-party server isn't your graph: it's someone else's service, and calling it happens directly, with no confirmation step. The tool list shows whether a tool claims to be read-only, but that claim comes from the server and is a hint, not a guarantee. Add servers you'd trust to act on your behalf.</p>
+      <span class="label">Read-only is the server's word</span>
+      <p>Minerva's <a href="conversations-propose-review-approve.html">approval gate</a> protects <em>your notes and your graph</em>; the card above is the same idea for someone else's service. Whether a tool is read-only is something the server reports about itself, so a badly written or dishonest server could label a tool that changes things as read-only, and it would then run without asking. Add servers you'd trust to act on your behalf.</p>
     </div>
 
     <h2 id="versus">Two directions, one protocol</h2>

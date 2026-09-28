@@ -34,6 +34,7 @@ describe('toToolCallbacks (#912 / #914 / #1003)', () => {
     onDeleteDraft: noop,
     onNoteBodyDraft: noop,
     askUser: async () => '',
+    confirmMcpCall: async () => ({ allow: false as const, reason: 'no-ui' as const }),
   };
 
   it('passes every tool-facing callback (TOOL_CALLBACK_KEYS) through, and nothing else', () => {

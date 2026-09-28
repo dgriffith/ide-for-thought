@@ -223,16 +223,18 @@ describe('connectAllEnabledServers', () => {
 
 describe('callServerTool', () => {
   it('delegates to the connected client, addressed by server name', async () => {
-    mockClient.listTools.mockResolvedValue([{ name: 'do_thing', inputSchema: { type: 'object' } }]);
+    // Read-only, so it runs without a confirmer; the gate itself is
+    // exercised in call-gate.test.ts (#2439).
+    mockClient.listTools.mockResolvedValue([{ name: 'do_thing', inputSchema: { type: 'object' }, annotations: { readOnlyHint: true } }]);
     mcpClientMocks.connectMcpServer.mockResolvedValue(mockClient);
     await addServer('S', stdioDescriptor);
     const id = await firstId();
     await setServerEnabled(id, true);
 
-    const result = await callServerTool('S', 'do_thing', { x: 1 });
+    const result = await callServerTool('S', 'do_thing', { x: 1 }, null);
 
     expect(mockClient.callTool).toHaveBeenCalledWith('do_thing', { x: 1 });
-    expect(result).toEqual({ content: [{ type: 'text', text: 'ok' }], isError: false });
+    expect(result).toEqual({ kind: 'called', result: { content: [{ type: 'text', text: 'ok' }], isError: false } });
   });
 
   it('refuses a tool the server did not advertise, without calling it (#2373)', async () => {
@@ -244,7 +246,7 @@ describe('callServerTool', () => {
     const id = await firstId();
     await setServerEnabled(id, true);
 
-    await expect(callServerTool('S', 'delete_everything', {})).rejects.toThrow(
+    await expect(callServerTool('S', 'delete_everything', {}, null)).rejects.toThrow(
       /MCP server "S" has no tool named "delete_everything"\. Its tools: search/,
     );
     expect(mockClient.callTool).not.toHaveBeenCalled();
@@ -252,7 +254,7 @@ describe('callServerTool', () => {
 
   it('throws for an unknown server name, listing the known ones', async () => {
     await addServer('S', stdioDescriptor);
-    await expect(callServerTool('nope', 'do_thing', {})).rejects.toThrow(/No MCP server named "nope".*S/);
+    await expect(callServerTool('nope', 'do_thing', {}, null)).rejects.toThrow(/No MCP server named "nope".*S/);
   });
 
   it('throws when the server is configured but not connected', async () => {
@@ -262,13 +264,13 @@ describe('callServerTool', () => {
     // an id recycled from an earlier test's connected server would otherwise
     // leak a stale 'connected' entry here. Force-disconnect to start clean.
     await setServerEnabled(id, false);
-    await expect(callServerTool('S', 'do_thing', {})).rejects.toThrow(/not connected/);
+    await expect(callServerTool('S', 'do_thing', {}, null)).rejects.toThrow(/not connected/);
   });
 
   it('throws on ambiguous duplicate server names', async () => {
     mcpClientMocks.connectMcpServer.mockResolvedValue(mockClient);
     await addServer('S', stdioDescriptor);
     await addServer('S', stdioDescriptor);
-    await expect(callServerTool('S', 'do_thing', {})).rejects.toThrow(/Multiple MCP servers are named "S"/);
+    await expect(callServerTool('S', 'do_thing', {}, null)).rejects.toThrow(/Multiple MCP servers are named "S"/);
   });
 });

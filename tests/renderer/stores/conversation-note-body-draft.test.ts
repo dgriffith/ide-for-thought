@@ -20,7 +20,7 @@ const h = vi.hoisted(() => {
       onSourcePropertyDraft: noop, onClaimsDraft: noop, onComputeDraft: noop,
       onRefactorDraft: noop, onReorgDraft: noop, onDeleteDraft: noop,
       onNoteBodyDraft: (cb: (draft: ConversationNoteBodyDraft) => void) => { noteBodyCb = cb; },
-      onAskUser: noop,
+      onAskUser: noop, onMcpConfirm: noop,
       saveUIState: vi.fn().mockResolvedValue(undefined),
       archive: vi.fn().mockResolvedValue(undefined),
       fileNoteBodyDraft: vi.fn().mockResolvedValue({ proposalUri: 'urn:p1', applied: true }),

@@ -15,7 +15,8 @@
  *                                     it stays here; see that file's header)
  *
  * What remains is what a registrar is for: resolve the project from the
- * calling window, wire abort controllers and the `ask_user` round-trip, and
+ * calling window, wire abort controllers, the `ask_user` round-trip and the
+ * `mcp_call` confirmation card (#2439), and
  * delegate.
  */
 import { Channels } from '../../shared/channels';
@@ -24,7 +25,7 @@ import * as conversation from '../llm/conversation';
 import { buildConversationSystemPrompt } from '../llm/conversation-prompt';
 import { runCompletionWithContainerRecovery } from '../llm/container-recovery';
 import { compactConversation } from '../llm/compact';
-import { buildStreamCallbacks, type PendingAskUser } from './conversation-stream';
+import { buildStreamCallbacks, type PendingAskUser, type PendingMcpConfirm } from './conversation-stream';
 import type { ContextBundle, ConversationCreateOptions, ConversationMessage } from '../../shared/conversation';
 import { rootPathFromEvent, winFromEvent, withRootPath, withRootPathOr } from './helpers';
 import { handle } from './typed-ipc';
@@ -67,6 +68,19 @@ export function registerConversation(): void {
     if (!pending) return;
     pendingAskUser.delete(questionId);
     pending.resolve(answer);
+  });
+
+  // Pending mcp_call confirmation cards (#2439). Each entry settles itself on
+  // abort and on window close (see `conversation-stream.ts`); this handler is
+  // the Allow / Deny path. Only the window that was shown the card may answer
+  // it, and only a literal `true` is an Allow: anything else the renderer
+  // sends is a Deny, so a malformed reply can never authorize a call.
+  const pendingMcpConfirm: PendingMcpConfirm = new Map();
+
+  handle(Channels.CONVERSATION_MCP_CONFIRM_REPLY, (e, requestId: string, allow: boolean, remember: boolean) => {
+    const pending = pendingMcpConfirm.get(requestId);
+    if (!pending || pending.winId !== winFromEvent(e).id) return;
+    pending.settle(allow === true ? { allow: true, remember: remember === true } : { allow: false, reason: 'denied' });
   });
 
   /**
@@ -120,7 +134,7 @@ export function registerConversation(): void {
 
         // Every draft kind shares one streaming callback set; the divergent
         // per-kind work is in the CONVERSATION_FILE_*_DRAFT handlers, not here (#980).
-        const stream = buildStreamCallbacks(win, convId, controller.signal, pendingAskUser);
+        const stream = buildStreamCallbacks(win, convId, controller.signal, pendingAskUser, pendingMcpConfirm);
 
         // Per-conversation web override (#1533): when the conversation pins web
         // on/off, send it as a `web` override — completeWithTools merges it over

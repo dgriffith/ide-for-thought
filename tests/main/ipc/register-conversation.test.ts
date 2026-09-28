@@ -25,7 +25,7 @@ type Handler = (event: unknown, ...args: unknown[]) => unknown;
 
 const h = vi.hoisted(() => {
   const handlers = new Map<string, Handler>();
-  const fakeWin = { id: 1, isDestroyed: () => false, webContents: { send: vi.fn() } };
+  const fakeWin = { id: 1, isDestroyed: () => false, webContents: { send: vi.fn() }, once: vi.fn(), removeListener: vi.fn() };
   return {
     handlers,
     fakeWin,
@@ -121,6 +121,7 @@ registerConversationDrafts();
 const evt = { sender: {} };
 const send = h.handlers.get(Channels.CONVERSATION_SEND)!;
 const cancel = h.handlers.get(Channels.CONVERSATION_CANCEL)!;
+const mcpConfirmReply = h.handlers.get(Channels.CONVERSATION_MCP_CONFIRM_REPLY)!;
 const retry = h.handlers.get(Channels.CONVERSATION_RETRY)!;
 const fileDraft = h.handlers.get(Channels.CONVERSATION_FILE_DRAFT)!;
 const fileDeleteDraft = h.handlers.get(Channels.CONVERSATION_FILE_DELETE_DRAFT)!;
@@ -258,6 +259,65 @@ describe('CONVERSATION_SEND (#1612)', () => {
       return completion('unwound');
     });
 
+    await expect(send(evt, 'conv-1', 'hello')).resolves.toBeDefined();
+  });
+
+  // ── mcp_call confirmation (#2439) ─────────────────────────────────────
+  type Confirm = (p: { serverName: string; toolName: string; argsJson: string }) => Promise<unknown>;
+  const PROMPT = { serverName: 'slack', toolName: 'post_message', argsJson: '{}' };
+  const lastConfirmRequestId = (): string => {
+    const call = h.fakeWin.webContents.send.mock.calls.filter((c) => c[0] === Channels.CONVERSATION_MCP_CONFIRM).at(-1)!;
+    return (call[1] as { requestId: string }).requestId;
+  };
+
+  it('Allow on the reply channel resolves the pending card, with "Don\'t ask again"', async () => {
+    h.completeWithTools.mockImplementation(async ({ callbacks }: { callbacks: { confirmMcpCall: Confirm } }) => {
+      const decision = callbacks.confirmMcpCall(PROMPT);
+      await mcpConfirmReply(evt, lastConfirmRequestId(), true, true);
+      await expect(decision).resolves.toEqual({ allow: true, remember: true });
+      return completion('ok');
+    });
+    await expect(send(evt, 'conv-1', 'hello')).resolves.toBeDefined();
+  });
+
+  it('anything but a literal true is a Deny', async () => {
+    h.completeWithTools.mockImplementation(async ({ callbacks }: { callbacks: { confirmMcpCall: Confirm } }) => {
+      const decision = callbacks.confirmMcpCall(PROMPT);
+      await mcpConfirmReply(evt, lastConfirmRequestId(), 'yes', true);
+      await expect(decision).resolves.toEqual({ allow: false, reason: 'denied' });
+      return completion('ok');
+    });
+    await expect(send(evt, 'conv-1', 'hello')).resolves.toBeDefined();
+  });
+
+  it('a reply from another window, or for an unknown id, is ignored', async () => {
+    h.completeWithTools.mockImplementation(async ({ callbacks }: { callbacks: { confirmMcpCall: Confirm } }) => {
+      let settled = false;
+      const decision = callbacks.confirmMcpCall(PROMPT).then((d) => { settled = true; return d; });
+      const id = lastConfirmRequestId();
+      await mcpConfirmReply(evt, 'no-such-id', true, false);
+      h.fakeWin.id = 2;
+      try {
+        await mcpConfirmReply(evt, id, true, false);
+      } finally {
+        h.fakeWin.id = 1;
+      }
+      await Promise.resolve();
+      expect(settled).toBe(false);
+      cancel(evt);
+      await expect(decision).resolves.toEqual({ allow: false, reason: 'cancelled' });
+      return completion('ok');
+    });
+    await expect(send(evt, 'conv-1', 'hello')).resolves.toBeDefined();
+  });
+
+  it('stopping the turn resolves a pending card as cancelled (never hangs, never allows)', async () => {
+    h.completeWithTools.mockImplementation(async ({ callbacks }: { callbacks: { confirmMcpCall: Confirm } }) => {
+      const decision = callbacks.confirmMcpCall(PROMPT);
+      cancel(evt);
+      await expect(decision).resolves.toEqual({ allow: false, reason: 'cancelled' });
+      return completion('unwound');
+    });
     await expect(send(evt, 'conv-1', 'hello')).resolves.toBeDefined();
   });
 });

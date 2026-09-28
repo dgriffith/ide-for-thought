@@ -30,3 +30,26 @@ export interface AskUserRequest {
   question: string;
   choices?: string[];
 }
+
+/**
+ * Payload for the inline MCP write-confirmation card (#2439). Sent main →
+ * renderer when `mcp_call` targets a tool the server did not mark
+ * `readOnlyHint: true` and the user hasn't chosen "Don't ask again" for it.
+ *
+ * `argsJson` is the call's arguments already pretty-printed by main, exactly
+ * as they will be sent — the renderer shows this string verbatim rather than
+ * re-serializing an object, so what the user approves is byte-for-byte what
+ * goes over the wire. `description` / `title` come from the server's own
+ * catalog (server-authored, not model-authored).
+ */
+export interface McpConfirmRequest {
+  requestId: string;
+  conversationId: string;
+  serverName: string;
+  toolName: string;
+  title?: string;
+  description?: string;
+  argsJson: string;
+  /** The server's own `destructiveHint`, when it sent one. Informational only. */
+  destructiveHint?: boolean;
+}

@@ -1533,7 +1533,19 @@ touch the tool surface:
   closed and statically bars tool modules from fs writes, approvals and
   trusted context.
 - **`mcp_call` reaches only advertised tools** of configured, connected
-  servers. Whether it needs a confirmation gate is #2439.
+  servers, **and a tool not marked `readOnlyHint: true` waits for the user**
+  (#2439). The gate is in `callServerTool` (`mcp-servers/registry.ts`), whose
+  `confirm` parameter is required: the conversation passes
+  `callbacks.confirmMcpCall` (an inline Allow / Deny card showing the exact
+  args), and a caller with no UI passes `null` and is refused — the eval
+  harness, the CLI, background runs, a closed window. A stopped turn or closed
+  window resolves a pending card as declined, never hangs. "Don't ask again"
+  lives in `userData/mcp-tool-permissions.json`, keyed by a hash of the
+  server's connection config + tool name, so a changed command/args/env/URL
+  voids it and a thoughtbase can't pre-authorize anything; it never applies
+  where there is no UI. Residual risk, accepted and documented: a server that
+  mislabels a write tool as read-only gets it run unconfirmed. A new renderer
+  callback like `confirmMcpCall` must be in `TOOL_CALLBACK_KEYS`.
 - **The tables DuckDB is locked to the thoughtbase root** (#2437).
   `initTablesDb` sets `allowed_directories` to the realpath'd root,
   `enable_external_access = false` and `lock_configuration = true`, so

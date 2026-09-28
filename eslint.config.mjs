@@ -55,7 +55,11 @@ const DATAFLOW_MUTATION_METHODS =
   // MCP servers (#2031): add/remove/setEnabled already covered above/below;
   // `update` (edit a server's name/descriptor) and `connect` (may open a
   // browser for OAuth, #2030) are this domain's own additions.
-  'update|connect';
+  'update|connect|' +
+  // mcp_call confirmation (#2439): answering the card authorizes a call, and
+  // resetting forgets every "Don't ask again" grant; the card's event lives in
+  // the conversations store.
+  'mcpConfirmReply|onMcpConfirm|resetAllowedTools';
 
 const DATAFLOW_MESSAGE =
   'Renderer data-flow rule (#1086): components must not call mutating/subscribing `api.*` methods directly. ' +

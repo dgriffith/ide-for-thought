@@ -22,13 +22,22 @@ import {
   buildStreamCallbacks,
   STREAM_COALESCE_MS,
   type PendingAskUser,
+  type PendingMcpConfirm,
 } from '../../../src/main/ipc/conversation-stream';
 
 function makeWin(destroyed = false) {
+  const listeners = new Map<string, Set<() => void>>();
   return {
     id: 1,
     isDestroyed: () => destroyed,
     webContents: { send: vi.fn() },
+    once: (ev: string, fn: () => void) => {
+      if (!listeners.has(ev)) listeners.set(ev, new Set());
+      listeners.get(ev)!.add(fn);
+    },
+    removeListener: (ev: string, fn: () => void) => { listeners.get(ev)?.delete(fn); },
+    emit: (ev: string) => { for (const fn of [...(listeners.get(ev) ?? [])]) fn(); },
+    listenerCount: (ev: string) => listeners.get(ev)?.size ?? 0,
   };
 }
 
@@ -44,6 +53,15 @@ function build(win: ReturnType<typeof makeWin>) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return buildStreamCallbacks(win as any, 'conv-1', new AbortController().signal, pending);
 }
+
+function buildWithConfirm(win: ReturnType<typeof makeWin>, controller = new AbortController()) {
+  const pendingMcp: PendingMcpConfirm = new Map();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handle = buildStreamCallbacks(win as any, 'conv-1', controller.signal, new Map(), pendingMcp);
+  return { ...handle, pendingMcp, controller };
+}
+
+const PROMPT = { serverName: 'slack', toolName: 'post_message', argsJson: '{\n  "text": "hi"\n}' };
 
 describe('stream chunk coalescing (#2219)', () => {
   beforeEach(() => vi.useFakeTimers());
@@ -199,5 +217,67 @@ describe('stream chunk coalescing (#2219)', () => {
     flush();
 
     expect(streamSends(win)).toEqual([]);
+  });
+});
+
+describe('mcp_call confirmation card (#2439)', () => {
+  it('flushes the lead-in text, then sends the card to the renderer', () => {
+    const win = makeWin();
+    const { callbacks } = buildWithConfirm(win);
+    callbacks.onChunk('I will post this: ');
+    void callbacks.confirmMcpCall!(PROMPT);
+    const calls = win.webContents.send.mock.calls;
+    expect(calls.map((c) => c[0])).toEqual([Channels.CONVERSATION_STREAM, Channels.CONVERSATION_MCP_CONFIRM]);
+    expect(calls[1]![1]).toMatchObject({ conversationId: 'conv-1', ...PROMPT, requestId: expect.any(String) });
+  });
+
+  it('resolves with the settled decision and cleans up', async () => {
+    const win = makeWin();
+    const { callbacks, pendingMcp } = buildWithConfirm(win);
+    const p = callbacks.confirmMcpCall!(PROMPT);
+    expect(pendingMcp.size).toBe(1);
+    const [, entry] = [...pendingMcp][0]!;
+    entry.settle({ allow: true, remember: true });
+    await expect(p).resolves.toEqual({ allow: true, remember: true });
+    expect(pendingMcp.size).toBe(0);
+    expect(win.listenerCount('closed')).toBe(0);
+    // A second settle is a no-op, not a second resolution.
+    entry.settle({ allow: false, reason: 'denied' });
+  });
+
+  it('stopping the turn resolves a pending card as cancelled, leaving nothing behind', async () => {
+    const win = makeWin();
+    const { callbacks, pendingMcp, controller } = buildWithConfirm(win);
+    const p = callbacks.confirmMcpCall!(PROMPT);
+    controller.abort();
+    await expect(p).resolves.toEqual({ allow: false, reason: 'cancelled' });
+    expect(pendingMcp.size).toBe(0);
+    expect(win.listenerCount('closed')).toBe(0);
+  });
+
+  it('an already-stopped turn never shows a card', async () => {
+    const win = makeWin();
+    const controller = new AbortController();
+    controller.abort();
+    const { callbacks, pendingMcp } = buildWithConfirm(win, controller);
+    await expect(callbacks.confirmMcpCall!(PROMPT)).resolves.toEqual({ allow: false, reason: 'cancelled' });
+    expect(pendingMcp.size).toBe(0);
+    expect(win.webContents.send).not.toHaveBeenCalled();
+  });
+
+  it('closing the window resolves a pending card as no-ui', async () => {
+    const win = makeWin();
+    const { callbacks, pendingMcp } = buildWithConfirm(win);
+    const p = callbacks.confirmMcpCall!(PROMPT);
+    win.emit('closed');
+    await expect(p).resolves.toEqual({ allow: false, reason: 'no-ui' });
+    expect(pendingMcp.size).toBe(0);
+  });
+
+  it('a destroyed window is no-ui, with no card sent', async () => {
+    const win = makeWin(true);
+    const { callbacks, pendingMcp } = buildWithConfirm(win);
+    await expect(callbacks.confirmMcpCall!(PROMPT)).resolves.toEqual({ allow: false, reason: 'no-ui' });
+    expect(pendingMcp.size).toBe(0);
   });
 });

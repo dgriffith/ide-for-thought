@@ -2,6 +2,7 @@
   import MessageCitations from '../MessageCitations.svelte';
   import StreamingMessageBody from './StreamingMessageBody.svelte';
   import DraftCards from './DraftCards.svelte';
+  import McpConfirmCard from './McpConfirmCard.svelte';
   import { getConversationsStore, type TabRuntime } from '../../stores/conversations.svelte';
   import { getEditorStore } from '../../stores/editor.svelte';
   import { getNotebaseStore } from '../../stores/notebase.svelte';
@@ -290,6 +291,16 @@
         <button type="button" class="ask-user-send" onclick={() => submitAnswer(tab.id, pendingAnswerText)} disabled={!pendingAnswerText.trim()}>Reply</button>
       </div>
     </div>
+  {/if}
+
+  {#if tab.pendingMcpConfirm}
+    {@const confirm = tab.pendingMcpConfirm}
+    {#key confirm.requestId}
+      <McpConfirmCard
+        request={confirm}
+        onAnswer={(allow, remember) => void store.answerMcpConfirm(tab.id, allow, remember)}
+      />
+    {/key}
   {/if}
 
   <!-- Orphans: cards anchored beyond the current message list. Happens during

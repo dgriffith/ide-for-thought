@@ -30,6 +30,9 @@ export function getSettingsStore() {
     /** May open a browser for OAuth (#2030) — only call in direct response
      *  to the user clicking Connect. */
     connectMcpServer: (id: string) => api.mcpServers.connect(id),
+    /** Forget every "Don't ask again" grant of the mcp_call confirmation card
+     *  (#2439). Resolves with how many were cleared. */
+    resetAllowedMcpTools: () => api.mcpServers.resetAllowedTools(),
 
     // ── Ingest / excerpt (per-machine + per-project) ──────────────────────
     setIngestSettings: (settings: { importUpstreamTags: boolean }) =>

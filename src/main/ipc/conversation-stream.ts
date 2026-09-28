@@ -23,6 +23,8 @@ import { Channels } from '../../shared/channels';
 import type { EventMap } from '../../shared/ipc-contract';
 import type { ConversationDraftBase } from '../../shared/conversation-draft-base';
 import type { StreamCallbacks } from '../llm/container-recovery';
+import type { McpCallDecision } from '../../shared/mcp-servers';
+import type { McpCallConfirmPrompt } from '../mcp-servers/registry';
 import { broadcast } from './broadcast';
 
 /** Pending `ask_user` prompts keyed by question id, owned by the registrar so
@@ -30,6 +32,19 @@ import { broadcast } from './broadcast';
 export type PendingAskUser = Map<
   string,
   { winId: number; resolve: (answer: string) => void; reject: (err: Error) => void }
+>;
+
+/**
+ * Pending `mcp_call` confirmation cards (#2439), keyed by request id, owned by
+ * the registrar so its reply handler can settle one. Unlike `ask_user`, an
+ * entry never rejects: every way a card can end — Allow, Deny, the turn being
+ * stopped, the window closing — RESOLVES with a decision, and only an Allow
+ * lets the call through. `settle` is idempotent and removes the entry and its
+ * listeners, so nothing outlives the card.
+ */
+export type PendingMcpConfirm = Map<
+  string,
+  { winId: number; settle: (decision: McpCallDecision) => void }
 >;
 
 /**
@@ -87,6 +102,7 @@ export function buildStreamCallbacks(
   convId: string,
   signal: AbortSignal,
   pendingAskUser: PendingAskUser,
+  pendingMcpConfirm: PendingMcpConfirm = new Map(),
 ): StreamCallbackHandle {
   // ── Chunk coalescing (#2219) ───────────────────────────────────────────────
   // ONE buffer, ONE timer, ONE reader (`flush`). That shape is the whole
@@ -181,6 +197,30 @@ export function buildStreamCallbacks(
           pendingAskUser.delete(questionId);
           reject(new Error('window destroyed'));
         }
+      });
+    },
+    confirmMcpCall: (prompt: McpCallConfirmPrompt) => {
+      // Same ordering rule: the card must not overtake the text that led to it.
+      flush();
+      if (signal.aborted) return Promise.resolve({ allow: false, reason: 'cancelled' });
+      if (win.isDestroyed()) return Promise.resolve({ allow: false, reason: 'no-ui' });
+      const requestId = randomUUID();
+      return new Promise<McpCallDecision>((resolve) => {
+        // One exit, however the card ends. Removing the entry and both
+        // listeners here is what keeps a stopped turn or a closed window from
+        // leaving a promise (and this closure) behind.
+        const settle = (decision: McpCallDecision): void => {
+          if (!pendingMcpConfirm.delete(requestId)) return;
+          signal.removeEventListener('abort', onAbort);
+          win.removeListener('closed', onClosed);
+          resolve(decision);
+        };
+        const onAbort = (): void => settle({ allow: false, reason: 'cancelled' });
+        const onClosed = (): void => settle({ allow: false, reason: 'no-ui' });
+        pendingMcpConfirm.set(requestId, { winId: win.id, settle });
+        signal.addEventListener('abort', onAbort);
+        win.once('closed', onClosed);
+        broadcast(win, Channels.CONVERSATION_MCP_CONFIRM, { requestId, conversationId: convId, ...prompt });
       });
     },
     signal,

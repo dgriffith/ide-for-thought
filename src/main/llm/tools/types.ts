@@ -11,6 +11,7 @@ import type {
 } from '../../../shared/conversation-refactor-drafts';
 import type { ConversationNoteBodyDraft } from '../../../shared/conversation-note-body-drafts';
 import type { ConversationClaimsDraft } from '../../../shared/conversation-claims-drafts';
+import type { McpCallConfirmer } from '../../mcp-servers/registry';
 
 export interface ToolContext {
   rootPath: string;
@@ -66,6 +67,9 @@ export interface ToolCallbacks {
    *  written. */
   onNoteBodyDraft?: (draft: ConversationNoteBodyDraft) => void;
   askUser?: (input: { question: string; choices?: string[] | undefined }) => Promise<string>;
+  /** The `mcp_call` write-confirmation card (#2439). Absent means there is no
+   *  conversation UI to ask in, and a non-read-only MCP call is refused. */
+  confirmMcpCall?: McpCallConfirmer;
 }
 
 export interface ToolResult {
