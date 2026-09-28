@@ -125,7 +125,10 @@ if (args.update) {
   // Preserve hand-set budgetMs / tolerance / gate flags across a re-bless —
   // only the measured mean/hz should move.
   const prevMeta = new Map(
-    (prev.benchmarks ?? []).map((b) => [b.name, { budgetMs: b.budgetMs ?? null, tolerance: b.tolerance ?? null, gate: b.gate }]),
+    (prev.benchmarks ?? []).map((b) => [
+      b.name,
+      { budgetMs: b.budgetMs ?? null, tolerance: b.tolerance ?? null, gate: b.gate, issue: b.issue, reason: b.reason },
+    ]),
   );
   const benchmarks = [...current.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
@@ -133,17 +136,21 @@ if (args.update) {
       const meta = prevMeta.get(name) ?? {};
       const entry = { name, mean: Number(mean.toFixed(6)), hz: Number(hz.toFixed(2)), budgetMs: meta.budgetMs ?? null };
       if (meta.tolerance != null) entry.tolerance = meta.tolerance;
-      if (meta.gate === false) entry.gate = false;
+      if (meta.gate === false) {
+        entry.gate = false;
+        // An ungated entry's owner link (#2358) survives a re-bless with it.
+        if (meta.issue != null) entry.issue = meta.issue;
+        if (meta.reason != null) entry.reason = meta.reason;
+      }
       return entry;
     });
   const out = {
+    // The hand-written `_comment` carries the file's durable guidance (bless on
+    // CI, the field docs) — keep it across a re-bless rather than resetting it.
     _comment:
-      'Committed benchmark baseline (#1099). Regenerate on the macos-latest ' +
-      'Bench runner with `pnpm bench:baseline` and commit the diff. `budgetMs` ' +
-      'is an optional hard ceiling (ms) — set it by hand for scale-envelope gates. ' +
-      '`tolerance` optionally overrides the file-level ratio gate per benchmark — ' +
-      'tighten it for a demonstrated low-variance bench so its slack matches its ' +
-      'actual noise instead of the noisiest bench in the file (#1945).',
+      prev._comment ??
+      'Committed benchmark baseline (#1099). Bless on CI: dispatch the Bench ' +
+        'workflow with `update_baseline: true` and commit the uploaded artifact.',
     tolerance: prev.tolerance ?? DEFAULT_TOLERANCE,
     benchmarks,
   };

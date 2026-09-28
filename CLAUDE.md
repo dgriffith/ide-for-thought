@@ -986,6 +986,12 @@ Two details in `bench.yml` worth preserving if you edit it:
 - **One issue, updated weekly**, not a new one per run. A notification path
   that files 52 issues a year becomes noise and then becomes ignored, which is
   where this started.
+- **An ungated bench names its owner** (#2358). A `gate: false` entry in
+  `tests/main/bench-baseline.json` carries `"issue": <n>, "reason": "…"`;
+  `bench-ungated-entries-tracked.test.ts` checks that offline, and `bench.yml`
+  fails the run if the linked issue is CLOSED — a closed owner means nobody
+  will ever arm it, which is how #2211's six ungated entries outlived their
+  fixes.
 
 Scheduled runs only. A failed manual dispatch already has someone watching it;
 filing at them trains everyone to skip the label.
@@ -1019,7 +1025,7 @@ untested ones sit in a `KNOWN_UNTESTED` list that may only shrink.
 
 ### The architecture ratchets are inventoried in `docs/architecture-ratchets.md` (#2262)
 
-`tests/architecture/` holds **40** tests that check the shape of the codebase
+`tests/architecture/` holds **41** tests that check the shape of the codebase
 rather than the behavior of any feature — the package-cycle check, the file-size
 budgets, the anti-pattern ratchets, the dialog-adoption ratchet, the two
 temp-project-fixture ratchets, the CI-workflow checks, and so on. Most of them
