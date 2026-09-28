@@ -602,8 +602,10 @@ assumed) but is not somewhere an invariant can live. `release.yml` declared
 `contents: write` at workflow scope: equivalent with one job, silently wrong at
 two, since a notarization reporter or a Linux/Windows builder would inherit
 repository write for no reason. Also rejects the `permissions: write-all`
-shorthand — one innocuous-looking word that grants every scope there is. **When
-it fires:** put the write on the job.
+shorthand — one innocuous-looking word that grants every scope there is. The
+one non-default read, `actions: read` for the release CI gate (#2371), is
+pinned to `release.yml`'s `ci-verdict` job alone. **When it fires:** put the
+write on the job.
 
 ### `branch-ruleset.test.ts`
 
@@ -656,8 +658,11 @@ nobody. The local check in `tag-release.mjs` was not enough: `git tag -a v2.0.3
 care how a tag was made. This test pins both that the gate runs before the build
 (a signed notarized build of the wrong version costs ~15 minutes and must not be
 published) and that the tag arrives through `env:` rather than interpolated into
-`run:`. **When it fires:** the tag and the manifest disagree, or someone moved
-the gate.
+`run:`. It also pins the **main-CI gate** (#2371): the `ci-verdict` job runs
+`check-release-ci.mjs --wait "$GITHUB_SHA"` on tag pushes, `build-macos`
+`needs:` it, the SHA never arrives via `${{ }}` in `run:`, and there is no
+`continue-on-error` or skip flag. **When it fires:** the tag and the manifest
+disagree, or someone moved or softened a gate.
 
 ### `electron-fuses.test.ts`
 

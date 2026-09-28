@@ -53,7 +53,12 @@ git commit -am "release: vX.Y.Z"
 
 Once the bump is on `main`, create the matching tag. The helper enforces that
 the tag equals `package.json`'s version (a mismatch means the updater never
-offers the build), that you're on a clean `main`, and that the tag is new:
+offers the build), that you're on a clean `main`, that the tag is new, and
+that **main CI passed for the commit you're tagging** (#2371) — HEAD must be on
+`origin/main` and its `ci.yml` push run must have concluded `success`. If CI
+is still running it refuses with the run URL; wait for it and re-run. A red or
+cancelled run has no bypass: rerun a flake to green (`gh run rerun <id>
+--failed`), fix a real failure on main. Needs an authenticated `gh`.
 
 ```bash
 git checkout main && git pull
@@ -65,6 +70,8 @@ git push origin vX.Y.Z  # this is what triggers CI
 
 The tag push runs `release.yml`:
 
+- asserts main CI passed for the tagged commit (`ci-verdict` job, #2371),
+  polling for up to 30 minutes if that run is still in progress,
 - imports the Developer ID cert, builds signed + notarized + stapled artifacts,
 - uploads them, and
 - cuts a **draft** GitHub Release with auto-generated notes
@@ -272,7 +279,8 @@ draft's top section by hand when a release deserves a narrative.
 | File | Role |
 |------|------|
 | `package.json` `version` | Source of truth for DMG name + update comparison |
-| `scripts/tag-release.mjs` (`pnpm release:tag`) | Guards version↔tag agreement |
+| `scripts/tag-release.mjs` (`pnpm release:tag`) | Guards version↔tag agreement, and that main CI passed for HEAD |
+| `scripts/check-release-ci.mjs` | release.yml's server-side main-CI check (rule in `scripts/lib/release-ci-gate.mjs`) |
 | `.github/workflows/release.yml` | Tag → signed build → draft Release |
 | `forge.config.ts` | Signing/notarization config (reads Apple env) |
 | `src/main/auto-update.ts` | In-app updater against update.electronjs.org |
