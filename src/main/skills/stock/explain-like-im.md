@@ -39,9 +39,12 @@ If the user wants the explanation filed as a new note (or split into a parent in
 
 Audience: {{param.audience}}.
 
+{{#context}}
 ## Note{{#if note.title}} — {{note.title}}{{/if}}
 
-{{note.content}}{{else}}You are a tutor explaining a topic the user wants to understand.
+{{note.content}}
+{{/context}}
+{{else}}You are a tutor explaining a topic the user wants to understand.
 
 Because no note is open, your first response should be a short clarifying question: what topic do you want explained, and at what audience level (if they didn't already pick one)? After that, follow the same explain-then-iterate flow.
 

@@ -23,6 +23,7 @@ import { Channels } from '../../shared/channels';
 import * as graph from '../graph/index';
 import * as conversation from '../llm/conversation';
 import { buildConversationSystemPrompt } from '../llm/conversation-prompt';
+import { withSkillContext } from '../llm/skill-context';
 import { runCompletionWithContainerRecovery } from '../llm/container-recovery';
 import { compactConversation } from '../llm/compact';
 import { buildStreamCallbacks, type PendingAskUser, type PendingMcpConfirm } from './conversation-stream';
@@ -121,9 +122,14 @@ export function registerConversation(): void {
         if (!conv) throw new Error(`Conversation not found: ${convId}`);
 
         const { completeWithTools } = await import('../llm/index');
-        const messages = conv.messages
-          .filter(m => m.role !== 'system')
-          .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+        // A skill's note/source material rides at the head of the first user
+        // turn, never in the system prompt (#2438).
+        const messages = withSkillContext(
+          conv.messages
+            .filter(m => m.role !== 'system')
+            .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+          conv.skillContext,
+        );
 
         const effectiveSystem = await buildConversationSystemPrompt(
           systemPrompt ?? conv.systemPrompt,

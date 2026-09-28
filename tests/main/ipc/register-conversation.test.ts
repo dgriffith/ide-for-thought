@@ -228,6 +228,29 @@ describe('CONVERSATION_SEND (#1612)', () => {
     expect(h.withLLMContext).toHaveBeenCalledTimes(1);
   });
 
+  it('sends a skill\'s material in the first user turn, never in the system prompt (#2438)', async () => {
+    const skillContext = '<thoughtbase-content kind="note" path="n.md">\nNOTE-BODY-CANARY\n</thoughtbase-content>';
+    h.appendMessage.mockResolvedValue({
+      ...CONV,
+      systemPrompt: 'You summarize notes.',
+      skillContext,
+      messages: [
+        { role: 'user', content: 'Summarize.' },
+        { role: 'assistant', content: 'Done.' },
+        { role: 'user', content: 'Shorter.' },
+      ],
+    });
+    h.completeWithTools.mockResolvedValue(completion('reply'));
+
+    await send(evt, 'conv-1', 'Shorter.');
+
+    const params = h.completeWithTools.mock.calls[0]![0] as { system: string; messages: Array<{ role: string; content: string }> };
+    expect(params.system).toContain('You summarize notes.');
+    expect(params.system).not.toContain('NOTE-BODY-CANARY');
+    expect(params.messages[0]).toEqual({ role: 'user', content: `${skillContext}\n\nSummarize.` });
+    expect(params.messages.slice(1).map((m) => m.content)).toEqual(['Done.', 'Shorter.']);
+  });
+
   it('retries once, stripping the container id, on the API container_id 400', async () => {
     h.completeWithTools
       .mockRejectedValueOnce(new Error('400 {"error":"container_id is required when there are pending tool uses"}'))

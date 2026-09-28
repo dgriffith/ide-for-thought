@@ -2,6 +2,11 @@ import { getToolDef } from '../../shared/tools/registry';
 import { complete } from '../llm/index';
 import { getSettings } from '../llm/settings';
 import type { ToolExecutionRequest, ToolExecutionResult, ThinkingToolDef, LLMSettings, ConversationToolPayload } from '../../shared/tools/types';
+import { UNTRUSTED_CONTENT_RULE } from '../../shared/untrusted-content';
+
+/** The user turn of a one-shot call whose skill had no thoughtbase material
+ *  (a user message can't be empty). */
+export const ONE_SHOT_NO_CONTEXT_MESSAGE = 'Proceed as instructed.';
 
 /**
  * Resolution order for which model a tool invocation runs on:
@@ -29,18 +34,23 @@ export function resolveToolModel(
  * prompt WITHOUT firing the LLM (the skill-eval harness, #1522) share the exact
  * same prompt + model resolution `executeTool` uses, instead of reimplementing
  * it and drifting.
+ *
+ * The skill's instructions are the call's `system`; its thoughtbase material
+ * (delimited) is the user turn (#2438). It used to be one user message with
+ * the note text spliced into the middle of the instructions.
  */
 export function buildOneShotPayload(
   tool: ThinkingToolDef,
   settings: Pick<LLMSettings, 'toolModelOverrides'>,
   request: Pick<ToolExecutionRequest, 'context'> & { modelOverride?: string },
-): { prompt: string; model?: string } {
+): { system: string; prompt: string; model?: string } {
   if (tool.outputMode === 'openConversation') {
     throw new Error(`Tool ${tool.id} is conversational — use buildConversationPayload instead.`);
   }
-  const prompt = tool.buildPrompt(request.context);
+  const system = `${tool.buildPrompt(request.context)}\n\n${UNTRUSTED_CONTENT_RULE}`;
+  const prompt = tool.buildUserContext?.(request.context) || ONE_SHOT_NO_CONTEXT_MESSAGE;
   const model = resolveToolModel(tool, settings, request.modelOverride);
-  return { prompt, ...(model ? { model } : {}) };
+  return { system, prompt, ...(model ? { model } : {}) };
 }
 
 export async function executeTool(
@@ -55,13 +65,14 @@ export async function executeTool(
   }
 
   const settings = await getSettings();
-  const { prompt, model } = buildOneShotPayload(tool, settings, request);
+  const { system, prompt, model } = buildOneShotPayload(tool, settings, request);
 
   // A skill's output usually becomes a note, so a reply cut off at the token
   // cap would be filed as if it were the finished piece. Mark it instead (#1811)
   // — the user can delete the line; they can't recover the fact it was lost.
   let truncated = false;
   const output = await complete(prompt, {
+    system,
     ...(onChunk ? { callbacks: { onChunk, signal } } : {}),
     ...(model ? { model } : {}),
     onTruncated: () => { truncated = true; },
@@ -109,6 +120,7 @@ export function buildConversationPayload(
     toolName: tool.name,
     systemPrompt: tool.buildSystemPrompt(request.context),
     firstMessage: tool.buildFirstMessage ? tool.buildFirstMessage(request.context) : '',
+    skillContext: tool.buildUserContext?.(request.context) ?? '',
     ...(model ? { model } : {}),
     webEnabled: tool.web?.defaultEnabled ?? false,
     ...(tool.requiresTools && tool.requiresTools.length > 0

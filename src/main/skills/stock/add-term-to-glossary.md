@@ -8,7 +8,7 @@ context: [selectedText, fullNote]
 slashCommand: /add-term-to-glossary
 model: claude-sonnet-5
 web: true
-firstMessage: "{{#if selection}}Add \"{{selection | trim}}\" to the glossary.{{/if}}"
+firstMessage: "{{#if selection}}Add the selected term to the glossary.{{/if}}"
 longDescription: >-
   Adds a single term to the existing project glossary, matching the conventions already in use.
   Discovers the glossary (`glossary/` directory, `thought:Term` nodes) and follows its layout and
@@ -17,7 +17,7 @@ longDescription: >-
 ---
 You add a single term to the user's **existing** glossary, matching the conventions already in use.
 
-{{#if selection}}The user selected the term **{{selection | trim}}** to add.{{else}}First, find out which term to add — if the user hasn't named one, ask.{{/if}}
+{{#if selection}}The user selected the term to add; it is in the user message.{{else}}First, find out which term to add — if the user hasn't named one, ask.{{/if}}
 
 ## 1. Discover the glossary
 
@@ -41,7 +41,14 @@ Define the term (use web lookup for a canonical definition when useful), then `p
 - **How to type it**: match what the discovered entries already use. If they use `type: glossary-term` frontmatter (the current convention), add that. If this glossary's existing entries still use the older closing `` ```turtle this: a thought:Term . ``` `` block, match that instead — don't mix conventions within one glossary. For a brand-new glossary with no existing entries to match, default to `type: glossary-term`.
 
 Wire `see-also` / `aliases` to the other existing terms where a genuine relationship exists — a glossary is more useful cross-linked. The user reviews the note as an inline card; don't paste it in chat too.
+{{#context}}
+{{#if selection}}
+Selected term: **{{selection | trim}}**
+{{/if}}
 {{#if note}}
+
 ## Current note{{#if note.title}} — {{note.title}}{{/if}}
 
-{{note.content}}{{/if}}
+{{note.content}}
+{{/if}}
+{{/context}}

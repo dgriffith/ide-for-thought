@@ -33,8 +33,8 @@ describe('find-tensions skill', () => {
     expect(def.outputMode).toBe('openConversation');
   });
 
-  it('threads both notes into the system prompt when the pick resolves', () => {
-    const sys = def.buildSystemPrompt!({
+  it('threads both notes into the user turn when the pick resolves (#2438)', () => {
+    const ctx = {
       fullNoteTitle: 'Active One',
       fullNoteContent: 'active-body-aaa',
       parameterValues: {
@@ -42,22 +42,29 @@ describe('find-tensions skill', () => {
         'otherNote.title': 'Other Two',
         'otherNote.content': 'other-body-bbb',
       },
-    });
-    expect(sys).toContain('active-body-aaa');
-    expect(sys).toContain('other-body-bbb');
-    expect(sys).toContain('Active One');
-    expect(sys).toContain('Other Two');
+    };
+    const sys = def.buildSystemPrompt!(ctx);
     expect(sys).toContain('## Process');
+    for (const text of ['active-body-aaa', 'other-body-bbb', 'Active One', 'Other Two']) {
+      expect(sys).not.toContain(text);
+    }
+    const material = def.buildUserContext!(ctx);
+    expect(material).toContain('<thoughtbase-content kind="note">\nactive-body-aaa\n</thoughtbase-content>');
+    // The picked note's companions are thoughtbase text too.
+    expect(material).toContain('<thoughtbase-content kind="note" path="ideas/Other.md">\nother-body-bbb\n</thoughtbase-content>');
+    expect(material).toContain('<thoughtbase-content kind="note-title">Active One</thoughtbase-content>');
+    expect(material).toContain('<thoughtbase-content kind="note-title">Other Two</thoughtbase-content>');
   });
 
-  it('first message names both notes', () => {
-    const fm = def.buildFirstMessage!({
+  it('first message asks generically; the note names ride in the user-turn material', () => {
+    const ctx = {
       fullNoteTitle: 'Active One',
       fullNoteContent: 'active-body',
       parameterValues: { otherNote: 'x.md', 'otherNote.title': 'Other Two', 'otherNote.content': 'b' },
-    });
-    expect(fm).toContain('Active One');
-    expect(fm).toContain('Other Two');
+    };
+    const fm = def.buildFirstMessage!(ctx);
+    expect(fm).toBe('Find the tensions between these two notes.');
+    expect(def.buildUserContext!(ctx)).toContain('Other Two');
   });
 
   it('falls back gracefully when the picked note could not be read', () => {
@@ -73,5 +80,11 @@ describe('find-tensions skill', () => {
       parameterValues: { otherNote: 'gone.md' },
     });
     expect(fm).toContain("couldn't be read");
+    expect(fm).not.toContain('gone.md');
+    expect(def.buildUserContext!({
+      fullNoteTitle: 'Active One',
+      fullNoteContent: 'active-body',
+      parameterValues: { otherNote: 'gone.md' },
+    })).toContain('Picked note path: <thoughtbase-content kind="note-path">gone.md</thoughtbase-content>');
   });
 });

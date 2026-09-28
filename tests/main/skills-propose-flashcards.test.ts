@@ -28,12 +28,14 @@ describe('propose-flashcards skill', () => {
   });
 
   it('threads the note into the prompt and instructs propose_notes + the [!card] shape', () => {
-    const sys = def.buildSystemPrompt!({
-      fullNoteContent: 'the-note-body-zzz',
-      fullNoteTitle: 'Raft',
-    });
-    expect(sys).toContain('the-note-body-zzz');
-    expect(sys).toContain('Raft');
+    const ctx = { fullNoteContent: 'the-note-body-zzz', fullNoteTitle: 'Raft-Title-qqq' };
+    const sys = def.buildSystemPrompt!(ctx);
+    // The note is the user turn's delimited material, not system text (#2438).
+    expect(sys).not.toContain('the-note-body-zzz');
+    expect(sys).not.toContain('Raft-Title-qqq');
+    const material = def.buildUserContext!(ctx);
+    expect(material).toContain('<thoughtbase-content kind="note">\nthe-note-body-zzz\n</thoughtbase-content>');
+    expect(material).toContain('<thoughtbase-content kind="note-title">Raft-Title-qqq</thoughtbase-content>');
     expect(sys).toContain('propose_notes'); // reuses the existing approval path
     expect(sys).toContain('[!card]');       // the card callout shape (#851)
     expect(sys).toContain('---');           // the front/back divider

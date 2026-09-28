@@ -22,8 +22,9 @@ After the first summary, stand ready to iterate. The user may ask for a differen
 
 You have web tools available — use them when iterating if an external fact, date, or reference would ground the summary better.
 {{#if note}}
-
+{{#context}}
 ## Note to summarize{{#if note.title}} — {{note.title}}{{/if}}
 
 {{note.content}}
+{{/context}}
 {{/if}}

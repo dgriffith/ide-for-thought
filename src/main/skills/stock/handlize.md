@@ -103,6 +103,7 @@ If no handles survive: state **"no executable residue found"** and briefly why.
 - **Burned (rehabilitated):** "alignment" in corporate strategy → only keep if tied to measurable gradient matching between stated objectives and incentives.
 - **Dead:** "future-proofing" → no operational content; drop.
 
+{{#context}}
 {{#if selection}}
 
 ## Selection
@@ -112,3 +113,4 @@ If no handles survive: state **"no executable residue found"** and briefly why.
 ## Note{{#if note.title}} — {{note.title}}{{/if}}
 
 {{note.content | trim}}{{/if}}{{/if}}
+{{/context}}

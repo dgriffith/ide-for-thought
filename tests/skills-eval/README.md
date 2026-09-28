@@ -75,7 +75,30 @@ invocation dialog does); a case's `parameters` override them. A required param
 with no default (e.g. taboo's `term`, find-tensions' `otherNote`) must be set in
 the case.
 
+## What `request.json` contains (#2438)
+
+The request is the one the app sends on the first turn, assembled by the
+app's own functions rather than a copy of them:
+
+- **`system`** — for a conversation skill, `buildConversationSystemPrompt`'s
+  output: Minerva's base conversation prompt, the thoughtbase's
+  `thoughtbase.md` (if any, delimited), the date line, the origin-note line
+  (the path delimited), then the skill's instructions. For a one-shot skill,
+  the skill's instructions plus the standing untrusted-content rule.
+- **`messages[0]`** — the skill's `{{#context}}` material (note, selection,
+  claim, source — each in a `<thoughtbase-content>` delimiter), then the
+  skill's `firstMessage`. This is `withSkillContext`, the same call the send
+  path makes.
+
+Thoughtbase text therefore never appears in `system` outside a delimiter; the
+injection cases are the quickest place to see it.
+
 ## Determinism
+
+The date line is pinned (`EVAL_CLOCK` in `src/cli/eval.ts`: Thursday
+2026-01-15, UTC), so `system` doesn't change with the day or the machine's
+time zone.
+
 
 `request.json` is deterministic — same skill + context + params ⇒ identical
 bytes — and is asserted in CI by `tests/cli/eval.test.ts` **without any LLM call

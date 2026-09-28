@@ -120,6 +120,7 @@ export async function create(
     startedAt: now,
   };
   if (options?.systemPrompt) conv.systemPrompt = options.systemPrompt;
+  if (options?.skillContext) conv.skillContext = options.skillContext;
   if (options?.model) conv.model = options.model;
   if (options?.webEnabled !== undefined) conv.webEnabled = options.webEnabled;
   if (options?.skill) conv.skill = options.skill;

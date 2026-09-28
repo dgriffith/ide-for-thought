@@ -9,15 +9,14 @@ context: [selectedText, fullNote]
 model: claude-sonnet-5
 web: true
 firstMessage: |-
-  {{#if selection}}Find the load-bearing claim in this passage.
+  {{#if selection}}Find the load-bearing claim in this passage.{{else}}{{#if note.content}}Find the load-bearing claim in this passage.{{else}}Find the load-bearing claim in the current passage.{{/if}}{{/if}}
+  {{#context}}
+  {{#if selection}}{{#if note.title}}Selection from: {{note.title}}
 
-  {{#if note.title}}Selection from: {{note.title}}
+  {{/if}}{{selection | trim}}{{else}}{{#if note.content}}{{#if note.title}}Note: {{note.title}}
 
-  {{/if}}{{selection | trim}}{{else}}{{#if note.content}}Find the load-bearing claim in this passage.
-
-  {{#if note.title}}Note: {{note.title}}
-
-  {{/if}}{{note.content | trim}}{{else}}Find the load-bearing claim in the current passage.{{/if}}{{/if}}
+  {{/if}}{{note.content | trim}}{{/if}}{{/if}}
+  {{/context}}
 longDescription: >-
   Opens a conversation that audits the selected passage (or the whole note) for the single highest-leverage claim — the one whose falsity would collapse the rest of the argument — plus 2-3 runners-up, each with an "if false" line.
   When you are satisfied with the analysis, ask the assistant to file it; you will see a draft note for review before anything lands.
@@ -84,4 +83,9 @@ If the user explicitly says they don't want the runners-up section, drop it. If 
 
 ## Source note
 
-{{#if note.path}}The passage comes from `{{note.path}}`. Use `{{note.path | stem}}` as the wiki-link target (the path without the `.md` suffix).{{else}}The passage was not pulled from a saved note. Skip the `load-bearing-for` frontmatter and inline wiki-link — there is nothing to point them at.{{/if}}
+{{#if note.path}}The passage comes from the note whose path is given in the user message ("Source note path"). Use its "Wiki-link target" (the path without the `.md` suffix) as the wiki-link target.
+{{#context}}
+Source note path: {{note.path}}
+Wiki-link target: {{note.path | stem}}
+{{/context}}
+{{else}}The passage was not pulled from a saved note. Skip the `load-bearing-for` frontmatter and inline wiki-link — there is nothing to point them at.{{/if}}

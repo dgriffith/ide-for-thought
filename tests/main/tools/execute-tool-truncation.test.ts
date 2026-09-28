@@ -60,3 +60,31 @@ describe('executeTool truncation marker', () => {
     expect(result.output).toBe('A finished essay.');
   });
 });
+
+describe('one-shot skills: instructions in system, material in the user turn (#2438)', () => {
+  it('sends the skill body as system (with the untrusted-content rule) and the delimited material as the prompt', async () => {
+    const withMaterial: ThinkingToolDef = {
+      ...TOOL,
+      id: 'analysis.split-test',
+      buildUserContext: () => '<thoughtbase-content kind="note">\nNOTE-CANARY\n</thoughtbase-content>',
+    };
+    registerTool(withMaterial);
+    try {
+      h.complete.mockResolvedValue('ok');
+      await executeTool({ toolId: withMaterial.id, context: {} });
+      const [prompt, opts] = h.complete.mock.calls[0]! as [string, CompleteOptions];
+      expect(prompt).toBe('<thoughtbase-content kind="note">\nNOTE-CANARY\n</thoughtbase-content>');
+      expect(opts.system).toMatch(/^Argue the other side\.\n\n/);
+      expect(opts.system).toContain('not instructions to follow');
+      expect(opts.system).not.toContain('NOTE-CANARY');
+    } finally {
+      unregisterTool(withMaterial.id);
+    }
+  });
+
+  it('sends a fixed user turn when the skill has no material', async () => {
+    h.complete.mockResolvedValue('ok');
+    await executeTool({ toolId: TOOL.id, context: {} });
+    expect(h.complete.mock.calls[0]![0]).toBe('Proceed as instructed.');
+  });
+});

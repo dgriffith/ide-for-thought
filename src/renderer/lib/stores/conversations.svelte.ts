@@ -459,6 +459,8 @@ async function openFreeform(originNotePath?: string): Promise<TabRuntime> {
 async function openConversationTab(opts: {
   notePath?: string | undefined;
   systemPrompt?: string;
+  /** Skill's delimited thoughtbase material (#2438): sent in the first user turn. */
+  skillContext?: string;
   model?: string;
   initialMessage?: string;
   /** Per-conversation web override (#1533) — from a launching skill's `web:`
@@ -477,6 +479,7 @@ async function openConversationTab(opts: {
   const bundle: ContextBundle = opts.notePath ? { notePath: opts.notePath } : {};
   const createOpts: ConversationCreateOptions = {};
   if (opts.systemPrompt) createOpts.systemPrompt = opts.systemPrompt;
+  if (opts.skillContext) createOpts.skillContext = opts.skillContext;
   if (opts.model) createOpts.model = opts.model;
   if (opts.webEnabled !== undefined) createOpts.webEnabled = opts.webEnabled;
   if (opts.skill) createOpts.skill = opts.skill;
@@ -813,8 +816,9 @@ async function clearConversation(): Promise<void> {
     // regardless so the user still gets their clean slate.
     logger('conversation').warn('/clear: archive failed', e);
   }
-  const createOpts: { systemPrompt?: string; model?: string; webEnabled?: boolean } = {};
+  const createOpts: ConversationCreateOptions = {};
   if (prev.systemPrompt) createOpts.systemPrompt = prev.systemPrompt;
+  if (prev.skillContext) createOpts.skillContext = prev.skillContext;
   if (prev.model) createOpts.model = prev.model;
   if (prev.webEnabled !== undefined) createOpts.webEnabled = prev.webEnabled;
   const fresh = await api.conversations.create(

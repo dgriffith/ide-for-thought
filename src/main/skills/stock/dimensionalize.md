@@ -306,6 +306,7 @@ Canonical definitions:
 https://github.com/jordanrubin/FUTURE_TOKENS/blob/main/dimensionalize.md
 
 Target dimension count: aim for ~{{param.target_count}}; deviate only if the source genuinely demands more or fewer.
+{{#context}}
 {{#if selection}}
 
 ## Selection
@@ -315,3 +316,4 @@ Target dimension count: aim for ~{{param.target_count}}; deviate only if the sou
 ## Note{{#if note.title}} — {{note.title}}{{/if}}
 
 {{note.content | trim}}{{/if}}{{/if}}
+{{/context}}

@@ -50,7 +50,7 @@ parameters:
           - Generate probe questions for each crux
           - Identify which cruxes are empirically testable vs. value-based
 ---
-You are performing an Excavate analysis — assumption archaeology. Your goal is to map the hidden assumptions supporting the claim, belief, or plan presented below. The core question is: **"What must be true for this to make sense?"**
+You are performing an Excavate analysis — assumption archaeology. Your goal is to map the hidden assumptions supporting the claim, belief, or plan presented in the user message. The core question is: **"What must be true for this to make sense?"**
 
 ## Assumption Categories
 
@@ -79,8 +79,10 @@ Produce three artifacts:
 
 The goal isn't judgment — it's mapping where effort and evidence should focus next. You are not arguing for or against the position; you are excavating its foundations.
 
+{{#context}}
 ## {{#if selection}}Selected Text{{else}}Note{{/if}}
 
 {{#if selection}}{{selection}}{{else}}{{note.content}}{{/if}}
+{{/context}}
 
 Respond in markdown. Use indented lists or tree notation for the assumption layers. Bold the [CRUX] items. End with the probe questions as a numbered list.

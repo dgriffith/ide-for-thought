@@ -9,7 +9,7 @@ context: [fullNote]
 model: claude-opus-5
 web: false
 tools: [ask_user]
-firstMessage: "{{#if note.path}}Decompose `{{note.path}}` into linked smaller notes.{{else}}Decompose this note into linked smaller notes.{{/if}}"
+firstMessage: "Decompose this note into linked smaller notes."
 longDescription: >-
   Opens a conversation that decomposes the active note into a parent index note plus 2–7
   topic-focused child notes, filed as a single propose_notes bundle. The agent picks the split axis
@@ -36,8 +36,13 @@ You are decomposing a long note into a parent index note plus 2–7 focused chil
 - The parent body must NOT contain a Contents list — the post-processor adds wiki-links automatically. (Do still link to the children inline in your orientation prose.)
 - No fewer than 2 children. No more than 7.
 
-## Source note{{#if note}} (`{{note.path}}`)
+{{#if note}}
+The source note is in the user message.
+{{#context}}
+## Source note ({{note.path}})
 
-{{note.content}}{{else}}
-
-No note is open. Ask the user which note to decompose before proceeding.{{/if}}
+{{note.content}}
+{{/context}}
+{{else}}
+No note is open. Ask the user which note to decompose before proceeding.
+{{/if}}

@@ -162,6 +162,7 @@ export function createConversationOps(ctx: ConversationOpsCtx) {
     await conversationsStore.openConversationTab({
       notePath,
       systemPrompt: prep.systemPrompt,
+      ...(prep.skillContext ? { skillContext: prep.skillContext } : {}),
       // Name the skill on the conversation, so a note revision it later
       // produces reads as "Antithesize" in the History panel (#1158).
       skill: { id: prep.toolId, name: prep.toolName },

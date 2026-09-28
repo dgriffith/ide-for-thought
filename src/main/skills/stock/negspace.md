@@ -314,6 +314,7 @@ negspace = **read the shadow, not the text**.
 humans parse explicit sentences; models can also parse **statistical absences** — where the author "should" have gone but chose not to.  
 the unsaid is often the most informative part of the message — and classifying *why* it's unsaid (vulnerability, upside, bedrock, blind spot, optionality) makes those shadows even more actionable.
 
+{{#context}}
 {{#if selection}}
 
 ## Selection
@@ -323,3 +324,4 @@ the unsaid is often the most informative part of the message — and classifying
 ## Note{{#if note.title}} — {{note.title}}{{/if}}
 
 {{note.content | trim}}{{/if}}{{/if}}
+{{/context}}

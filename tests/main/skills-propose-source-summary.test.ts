@@ -33,26 +33,27 @@ describe('propose-source-summary skill', () => {
     expect(def.context).toContain('sourceBody');
   });
 
-  it('threads the source into the system prompt and instructs the file tool', () => {
-    const sys = def.buildSystemPrompt!({
-      sourceId: 'src-xyz',
-      sourceTitle: 'On Widgets',
-      sourceBody: 'widget-body-zzz',
-    });
-    expect(sys).toContain('widget-body-zzz');
-    expect(sys).toContain('On Widgets');
-    expect(sys).toContain('src-xyz'); // sourceId passed through to the tool call
+  it('threads the source into the user turn (#2438) and instructs the file tool', () => {
+    const ctx = { sourceId: 'src-xyz', sourceTitle: 'On Widgets', sourceBody: 'widget-body-zzz' };
+    const sys = def.buildSystemPrompt!(ctx);
+    for (const text of ['widget-body-zzz', 'On Widgets', 'src-xyz']) expect(sys).not.toContain(text);
+    const material = def.buildUserContext!(ctx);
+    expect(material).toContain('<thoughtbase-content kind="source" id="src-xyz">\nwidget-body-zzz\n</thoughtbase-content>');
+    expect(material).toContain('<thoughtbase-content kind="source-title">On Widgets</thoughtbase-content>');
+    // sourceId, passed through to the tool call, arrives as delimited material.
+    expect(material).toContain('Source id: <thoughtbase-content kind="source-id">src-xyz</thoughtbase-content>');
     expect(sys).toContain('propose_source_properties');
     expect(sys).toContain('## Process');
   });
 
-  it('first message names the source when a body is present', () => {
+  it('first message asks for the summary without quoting the (attacker-chosen) title', () => {
     const fm = def.buildFirstMessage!({
       sourceId: 'src-1',
       sourceTitle: 'On Widgets',
       sourceBody: 'body',
     });
-    expect(fm).toContain('On Widgets');
+    expect(fm).toMatch(/^Summarize this source/);
+    expect(fm).not.toContain('On Widgets');
   });
 
   it('degrades gracefully when the source has no body', () => {

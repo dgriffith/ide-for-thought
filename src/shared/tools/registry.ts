@@ -112,6 +112,7 @@ function toInfo(tool: ThinkingToolMeta): ThinkingToolInfo {
     buildPrompt: _p,
     buildSystemPrompt: _s,
     buildFirstMessage: _f,
+    buildUserContext: _u,
     requiresTools: _r,
     ...info
   } = tool as ThinkingToolDef;

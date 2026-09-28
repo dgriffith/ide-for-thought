@@ -68,6 +68,24 @@ describe('/clear (#823)', () => {
     expect(store.tabs.filter((t) => t.id === originalId)).toHaveLength(0);
   });
 
+  it('carries a skill conversation\'s instructions AND its thoughtbase material across (#2438)', async () => {
+    await store.openFreeform('notes/origin.md');
+    const original = store.activeTab!;
+    original.conversation.systemPrompt = 'You summarize notes.';
+    original.conversation.skillContext = '<thoughtbase-content kind="note">\nBODY\n</thoughtbase-content>';
+    original.conversation.messages.push({ role: 'user', content: 'Summarize.', timestamp: 't' });
+    const originalId = original.id;
+
+    store.runBuiltinCommand('clear');
+    await vi.waitFor(() => expect(store.activeTab!.id).not.toBe(originalId));
+
+    const calls = h.api.conversations.create.mock.calls;
+    expect(calls[calls.length - 1]![2]).toMatchObject({
+      systemPrompt: 'You summarize notes.',
+      skillContext: '<thoughtbase-content kind="note">\nBODY\n</thoughtbase-content>',
+    });
+  });
+
   it('no-ops on an empty, never-used conversation (no archive churn)', async () => {
     await store.openFreeform('notes/origin.md');
     const id = store.activeTab!.id;

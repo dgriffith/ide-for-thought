@@ -68,7 +68,7 @@ describe('Learning skills (migrated from #180–#186 tools)', () => {
     expect(defs.get('learning.deep-dive')!.requiresSelection).toBe(true);
   });
 
-  it('deep-dive threads selected text + depth into system prompt and first message', () => {
+  it('deep-dive threads depth into the system prompt and the selected term into the user-turn context (#2438)', () => {
     const payload = buildConversationPayload(
       defs.get('learning.deep-dive')!,
       {},
@@ -80,9 +80,11 @@ describe('Learning skills (migrated from #180–#186 tools)', () => {
         },
       },
     );
-    expect(payload.systemPrompt).toContain('entropy');
+    expect(payload.systemPrompt).not.toContain('entropy');
     expect(payload.systemPrompt.toLowerCase()).toContain('multi-section');
-    expect(payload.firstMessage).toBe('Explain "entropy" in depth.');
+    expect(payload.firstMessage).toBe('Explain the selected term in depth.');
+    expect(payload.skillContext).toContain('Term to deep-dive: **<thoughtbase-content kind="selection">\nentropy\n</thoughtbase-content>**');
+    expect(payload.skillContext).toContain('<thoughtbase-content kind="note">\nThermodynamics notes.\n</thoughtbase-content>');
   });
 
   it('explain-like-im threads audience into system + first message', () => {
@@ -116,26 +118,32 @@ describe('Learning skills (migrated from #180–#186 tools)', () => {
     expect(payload.firstMessage).toBe('Quiz me.');
   });
 
-  it('give-examples, generate-glossary, find-prerequisites, find-counterexamples embed note content', () => {
+  it('give-examples, generate-glossary, find-prerequisites, find-counterexamples hand the note to the user turn (#2438)', () => {
     for (const id of ['learning.give-examples', 'learning.generate-glossary', 'learning.find-prerequisites', 'learning.find-counterexamples']) {
       const payload = buildConversationPayload(
         defs.get(id)!,
         {},
         { context: { fullNoteContent: 'distinctive-body-token', fullNoteTitle: 'Important Note' } },
       );
-      expect(payload.systemPrompt, id).toContain('distinctive-body-token');
-      expect(payload.systemPrompt, id).toContain('Important Note');
+      expect(payload.systemPrompt, id).not.toContain('distinctive-body-token');
+      expect(payload.systemPrompt, id).not.toContain('Important Note');
+      expect(payload.skillContext, id).toContain('<thoughtbase-content kind="note">\ndistinctive-body-token\n</thoughtbase-content>');
+      expect(payload.skillContext, id).toContain('<thoughtbase-content kind="note-title">Important Note</thoughtbase-content>');
     }
   });
 
-  it('summarize embeds note content and auto-fires "Summarize."', () => {
+  it('summarize hands the note to the user turn and auto-fires "Summarize." (#2438)', () => {
     const payload = buildConversationPayload(
       defs.get('learning.summarize')!,
       {},
       { context: { fullNoteContent: 'Fusion is when...', fullNoteTitle: 'Nuclear Fusion' } },
     );
-    expect(payload.systemPrompt).toContain('Nuclear Fusion');
-    expect(payload.systemPrompt).toContain('Fusion is when...');
+    expect(payload.systemPrompt).not.toContain('Nuclear Fusion');
+    expect(payload.systemPrompt).not.toContain('Fusion is when...');
+    expect(payload.skillContext).toBe(
+      '## Note to summarize — <thoughtbase-content kind="note-title">Nuclear Fusion</thoughtbase-content>\n\n'
+        + '<thoughtbase-content kind="note">\nFusion is when...\n</thoughtbase-content>',
+    );
     expect(payload.firstMessage).toBe('Summarize.');
   });
 });

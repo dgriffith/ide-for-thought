@@ -53,31 +53,46 @@ describe('research verification + discovery skills', () => {
     for (const id of ALL) expect(defs.get(id)!.slashCommand, id).toMatch(/^\//);
   });
 
-  it.each(VERIFICATION)('%s threads claim context into prompt + first message', (id) => {
+  it.each(VERIFICATION)('%s threads claim context into the user turn (#2438)', (id) => {
     const def = defs.get(id)!;
     const ctx = { claimUri: 'https://ex/claim/1', claimLabel: 'Coffee cures scurvy', claimSourceText: 'Coffee cures scurvy.' };
     const sys = def.buildSystemPrompt!(ctx);
-    expect(sys).toContain('https://ex/claim/1');
-    expect(sys).toContain('Coffee cures scurvy');
+    expect(sys).not.toContain('https://ex/claim/1');
+    expect(sys).not.toContain('Coffee cures scurvy');
     // claim URI present → the filing turtle block is emitted, hidden since it
     // annotates the ORIGINAL claim rather than this note (#907-era hidden-fence pass)
     expect(sys).toContain('```turtle-hidden');
-    expect(def.buildFirstMessage!(ctx)).toContain('Coffee cures scurvy');
+    const material = def.buildUserContext!(ctx);
+    expect(material).toContain('<thoughtbase-content kind="claim-uri">https://ex/claim/1</thoughtbase-content>');
+    expect(material).toContain('<thoughtbase-content kind="claim-label">Coffee cures scurvy</thoughtbase-content>');
+    expect(material).toContain('<thoughtbase-content kind="claim-source-text">');
+    // The visible first message says "this claim" rather than quoting it.
+    const fm = def.buildFirstMessage!(ctx);
+    expect(fm).toMatch(/this claim/);
+    expect(fm).not.toContain('Coffee cures scurvy');
   });
 
   it.each(VERIFICATION)('%s falls back to a selection when no claim is under the cursor', (id) => {
     const def = defs.get(id)!;
     const sys = def.buildSystemPrompt!({ selectedText: 'unique-passage-zzz' });
-    expect(sys).toContain('unique-passage-zzz');
+    expect(sys).not.toContain('unique-passage-zzz');
+    expect(def.buildUserContext!({ selectedText: 'unique-passage-zzz' })).toContain('unique-passage-zzz');
     // no claim URI → no turtle block to attach a verdict to
     expect(sys).not.toContain('```turtle-hidden');
-    expect(def.buildFirstMessage!({ selectedText: 'unique-passage-zzz' })).toContain('unique-passage-zzz');
+    const fm = def.buildFirstMessage!({ selectedText: 'unique-passage-zzz' });
+    expect(fm).toMatch(/this passage/);
+    expect(fm).not.toContain('unique-passage-zzz');
   });
 
   it('find-sources adapts to selection / note / neither without throwing', () => {
     const def = defs.get('research.find-sources')!;
-    expect(def.buildFirstMessage!({ selectedText: 'quantum error correction' })).toContain('quantum error correction');
-    expect(def.buildFirstMessage!({ fullNoteTitle: 'My Survey', fullNoteContent: 'body' })).toContain('My Survey');
+    const sel = { selectedText: 'quantum error correction' };
+    expect(def.buildFirstMessage!(sel)).toMatch(/this selection/);
+    expect(def.buildFirstMessage!(sel)).not.toContain('quantum error correction');
+    expect(def.buildUserContext!(sel)).toContain('quantum error correction');
+    const note = { fullNoteTitle: 'My Survey', fullNoteContent: 'body' };
+    expect(def.buildFirstMessage!(note)).toMatch(/this note/);
+    expect(def.buildUserContext!(note)).toContain('My Survey');
     expect(def.buildFirstMessage!({})).toMatch(/topic/i);
   });
 });

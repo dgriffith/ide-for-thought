@@ -32,8 +32,8 @@ function skill(overrides: Partial<SkillDef> = {}): SkillDef {
 describe('compileSkill', () => {
   it('maps a conversation skill and renders its templates', () => {
     const def = compileSkill(skill({
-      body: 'You help. {{#if note}}Note: {{note.content}}{{/if}}',
-      firstMessage: 'Go on {{note.title}}',
+      body: 'You help.{{#if note}}{{#context}}Note: {{note.content}}{{/context}}{{/if}}',
+      firstMessage: 'Go on.{{#if note}}{{#context}}Title: {{note.title}}{{/context}}{{/if}}',
       web: true,
       model: 'claude-opus-4-8',
       slashCommand: '/sample',
@@ -47,10 +47,17 @@ describe('compileSkill', () => {
     expect(def.requiresTools).toEqual(['ask_user']); // unknown "bogus" dropped
 
     const ctx = { fullNoteContent: 'BODY', fullNoteTitle: 'TITLE' };
-    expect(def.buildSystemPrompt!(ctx)).toBe('You help. Note: BODY');
-    expect(def.buildFirstMessage!(ctx)).toBe('Go on TITLE');
+    // Instructions and the visible first message carry no thoughtbase text (#2438)…
+    expect(def.buildSystemPrompt!(ctx)).toBe('You help.');
+    expect(def.buildFirstMessage!(ctx)).toBe('Go on.');
+    // …the material from BOTH templates goes to the user turn, delimited.
+    expect(def.buildUserContext!(ctx)).toBe(
+      'Note: <thoughtbase-content kind="note">\nBODY\n</thoughtbase-content>\n\n'
+        + 'Title: <thoughtbase-content kind="note-title">TITLE</thoughtbase-content>',
+    );
     // No note → conditional collapses.
-    expect(def.buildSystemPrompt!({})).toBe('You help. ');
+    expect(def.buildSystemPrompt!({})).toBe('You help.');
+    expect(def.buildUserContext!({})).toBe('');
   });
 
   it('maps a one-shot newNote skill to buildPrompt only', () => {
@@ -58,21 +65,42 @@ describe('compileSkill', () => {
       menu: 'Analysis',
       outputMode: 'newNote',
       outputNotePrefix: 'steelman',
-      body: 'Steelman: {{selection}}',
+      body: 'Steelman the passage.\n{{#context}}{{selection}}{{/context}}',
     }));
     expect(def.category).toBe('analysis');
     expect(def.outputNotePrefix).toBe('steelman');
     expect(def.buildSystemPrompt).toBeUndefined();
     expect(def.buildFirstMessage).toBeUndefined();
-    expect(def.buildPrompt({ selectedText: 'X' })).toBe('Steelman: X');
+    expect(def.buildPrompt({ selectedText: 'X' })).toBe('Steelman the passage.');
+    expect(def.buildUserContext!({ selectedText: 'X' }))
+      .toBe('<thoughtbase-content kind="selection">\nX\n</thoughtbase-content>');
+  });
+
+  it('auto-routes a thoughtbase variable a skill left outside {{#context}} (user skills)', () => {
+    const def = compileSkill(skill({ body: 'Summarize: {{note.content}}' }));
+    const ctx = { fullNoteContent: 'SECRET-BODY' };
+    expect(def.buildSystemPrompt!(ctx)).not.toContain('SECRET-BODY');
+    expect(def.buildUserContext!(ctx)).toBe('<thoughtbase-content kind="note">\nSECRET-BODY\n</thoughtbase-content>');
+  });
+
+  it('treats a note-type parameter\'s companions as thoughtbase text', () => {
+    const def = compileSkill(skill({
+      body: 'Compare.{{#context}}{{param.other.content}}{{/context}}',
+      parameters: [{ id: 'other', label: 'Other', type: 'note' }],
+    }));
+    const ctx = { parameterValues: { other: 'notes/b.md', 'other.content': 'B-BODY' } };
+    expect(def.buildSystemPrompt!(ctx)).toBe('Compare.');
+    expect(def.buildUserContext!(ctx)).toBe(
+      '<thoughtbase-content kind="note" path="notes/b.md">\nB-BODY\n</thoughtbase-content>',
+    );
   });
 });
 
 describe('compiled skill through the conversation payload builder', () => {
   it('produces the same payload shape as a hardcoded conversational tool', () => {
     const def = compileSkill(skill({
-      body: 'SYS {{note.content}}',
-      firstMessage: 'FIRST {{note.title}}',
+      body: 'SYS{{#context}}{{note.content}}{{/context}}',
+      firstMessage: 'FIRST',
       web: true,
       model: 'claude-opus-4-8',
     }));
@@ -86,8 +114,10 @@ describe('compiled skill through the conversation payload builder', () => {
       // Carried so a conversation the skill launches can be labeled with its
       // name downstream (note-history causes, #1158).
       toolName: 'Sample',
-      systemPrompt: 'SYS C',
-      firstMessage: 'FIRST T',
+      systemPrompt: 'SYS',
+      firstMessage: 'FIRST',
+      // The material rides separately, for the first user turn (#2438).
+      skillContext: '<thoughtbase-content kind="note">\nC\n</thoughtbase-content>',
       model: 'claude-opus-4-8', // differs from default → pinned
       webEnabled: true,
     });

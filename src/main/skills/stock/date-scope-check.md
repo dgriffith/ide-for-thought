@@ -10,13 +10,7 @@ slashCommand: /currency
 model: claude-sonnet-5
 web: true
 firstMessage: |-
-  {{#if claim.label}}Check whether this claim is still current and whether it ever held in the form stated:
-
-  **{{claim.label}}**{{else}}{{#if selection}}Check whether this passage is still current and whether it ever held as stated:
-
-  {{selection | blockquote}}{{else}}Check the currency and scope of the claim under discussion.{{/if}}{{/if}}{{#if claim.sourceText}}
-
-  {{claim.sourceText | blockquote}}{{/if}}
+  {{#if claim.label}}Check whether this claim is still current and whether it ever held in the form stated.{{else}}{{#if selection}}Check whether this passage is still current and whether it ever held as stated.{{else}}Check the currency and scope of the claim under discussion.{{/if}}{{/if}}
 
   Two questions: is it still true *now*, and was it ever true *in this exact form*?
 longDescription: >-
@@ -24,7 +18,7 @@ longDescription: >-
   scope (was it ever true in the form stated, or only under conditions the original specified?). Returns one of
   "current", "scope-shifted", "decayed", or "misstated", with the evidence and an as-of date for later decay sweeps.
 ---
-You are auditing a claim for two failure modes that fact-checking misses: **decay** (it was true once, but no longer) and **scope creep** (it was true under conditions the citation dropped).
+You are auditing a claim (given in the user message) for two failure modes that fact-checking misses: **decay** (it was true once, but no longer) and **scope creep** (it was true under conditions the citation dropped).
 
 ## The two questions
 
@@ -53,7 +47,7 @@ When the user is satisfied, call `propose_notes` with **one** note:
 ```markdown
 ---
 title: Currency check — <short paraphrase of the claim>
-{{#if claim.uri}}currency-check-of: {{claim.uri}}{{/if}}
+{{#if claim.uri}}currency-check-of: <the claim URI given in the user message>{{/if}}
 currency: <current | scope-shifted | decayed | misstated>
 as-of: <YYYY-MM-DD of this check>
 ---
@@ -77,7 +71,7 @@ as-of: <YYYY-MM-DD of this check>
 - [<title>](<URL>) — "<verbatim snippet>"
 {{#if claim.uri}}
 ```turtle-hidden
-<{{claim.uri}}> thought:currencyStatus "<current | scope-shifted | decayed | misstated>" ;
+<claim URI from the user message> thought:currencyStatus "<current | scope-shifted | decayed | misstated>" ;
     thought:asOfDate "<YYYY-MM-DD>" ;
     thought:verifiedBy "llm:date-scope-check" .
 ```
@@ -90,8 +84,9 @@ The `as-of` date is load-bearing: it's what makes a periodic "claims not re-chec
 
 Don't default to "current" because nothing jumped out. If you couldn't establish the original date or the current state, say which one you couldn't pin down rather than guessing a verdict.
 
+{{#context}}
 ## Claim
-{{#if claim.uri}}**URI:** `{{claim.uri}}`
+{{#if claim.uri}}**URI:** {{claim.uri}}
 {{/if}}{{#if claim.label}}**Label:** {{claim.label}}
 {{/if}}{{#if claim.sourceText}}**Source passage:**
 
@@ -102,3 +97,4 @@ Don't default to "current" because nothing jumped out. If you couldn't establish
 {{else}}{{#if note}}**Active note:** {{note.title}}
 
 {{note.content}}{{/if}}{{/if}}{{/if}}
+{{/context}}

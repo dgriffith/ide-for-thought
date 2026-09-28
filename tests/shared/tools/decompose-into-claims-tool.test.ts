@@ -39,14 +39,22 @@ describe('research.decompose-into-claims (#408, migrated #627)', () => {
     expect(tool.requiresSelection).toBeFalsy();
   });
 
-  it('threads the source path into the system prompt and pins the wiki-link convention', () => {
-    const sys = tool.buildSystemPrompt!({
+  it('threads the source path into the user-turn context (not the system prompt) and pins the wiki-link convention (#2438)', () => {
+    const ctx = {
       fullNotePath: 'notes/standup-2026-04-26.md',
       fullNoteTitle: 'standup-2026-04-26',
       fullNoteContent: 'Some passage with a few claims.',
-    });
-    expect(sys).toContain('notes/standup-2026-04-26.md');
-    expect(sys).toMatch(/`notes\/standup-2026-04-26`/);
+    };
+    const sys = tool.buildSystemPrompt!(ctx);
+    expect(sys).not.toContain('notes/standup-2026-04-26');
+    expect(sys).toContain('Wiki-link target');
+    const userCtx = tool.buildUserContext!(ctx);
+    expect(userCtx).toContain(
+      'Source note path: <thoughtbase-content kind="note-path">notes/standup-2026-04-26.md</thoughtbase-content>',
+    );
+    expect(userCtx).toContain(
+      'Wiki-link target: <thoughtbase-content kind="note-path">notes/standup-2026-04-26</thoughtbase-content>',
+    );
   });
 
   it('teaches the parent (decomposes:) and per-claim frontmatter contract', () => {
@@ -71,14 +79,21 @@ describe('research.decompose-into-claims (#408, migrated #627)', () => {
     expect(sys).toMatch(/decomposes:|extracted-from:/);
   });
 
-  it('builds a first message that includes the passage', () => {
+  it('carries the passage in the user-turn context, not the visible first message (#2438)', () => {
     const payload = buildConversationPayload(
       tool,
       {},
       { context: { selectedText: 'A then B then therefore C.', fullNoteContent: 'full note body', fullNoteTitle: 'argument' } },
     );
-    expect(payload.firstMessage).toContain('A then B then therefore C.');
-    expect(payload.firstMessage).toMatch(/Selection from: argument/);
+    expect(payload.firstMessage).toMatch(/^Decompose this passage into individual claims/);
+    expect(payload.firstMessage).not.toContain('A then B then therefore C.');
+    expect(payload.systemPrompt).not.toContain('A then B then therefore C.');
+    expect(payload.skillContext).toContain(
+      '<thoughtbase-content kind="selection">\nA then B then therefore C.\n</thoughtbase-content>',
+    );
+    expect(payload.skillContext).toContain(
+      'Selection from: <thoughtbase-content kind="note-title">argument</thoughtbase-content>',
+    );
   });
 
   it('handles the no-passage edge by asking the model to operate on the current passage', () => {

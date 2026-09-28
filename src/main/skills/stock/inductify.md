@@ -196,6 +196,7 @@ Cluster patterns into pattern families where they share a latent factor (e.g., "
 
 inductify = structured induction + mechanistic grounding + negative-space awareness + calibrated scope. Its job is not to generate pretty generalizations; it's to extract robust, falsifiable structure from messy particulars and make clear where you're extrapolating vs guessing.
 
+{{#context}}
 {{#if selection}}
 
 ## Selection
@@ -205,3 +206,4 @@ inductify = structured induction + mechanistic grounding + negative-space awaren
 ## Note{{#if note.title}} — {{note.title}}{{/if}}
 
 {{note.content | trim}}{{/if}}{{/if}}
+{{/context}}

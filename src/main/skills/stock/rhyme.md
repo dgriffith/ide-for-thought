@@ -364,6 +364,7 @@ Related concepts:
 - Analogical reasoning (Hofstadter)
 - Pattern matching in expertise (Klein)
 - Structural similarity (Gentner)
+{{#context}}
 {{#if selection}}
 
 ## Selection
@@ -373,3 +374,4 @@ Related concepts:
 ## Note{{#if note.title}} — {{note.title}}{{/if}}
 
 {{note.content | trim}}{{/if}}{{/if}}
+{{/context}}

@@ -32,8 +32,11 @@ Ask one question at a time. When the user answers, grade honestly (**correct**, 
 
 End with a one-paragraph assessment of which areas they've mastered and which need more work.
 
-Difficulty focus: {{param.difficulty}}{{#if note}}
-
+Difficulty focus: {{param.difficulty}}
+{{#if note}}
+{{#context}}
 ## Note{{#if note.title}} — {{note.title}}{{/if}}
 
-{{note.content}}{{/if}}
+{{note.content}}
+{{/context}}
+{{/if}}
