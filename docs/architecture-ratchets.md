@@ -21,7 +21,7 @@ what to do about it. `architecture-ratchets-doc.test.ts` keeps the two sides in
 step — a new test in `tests/architecture/` with no entry here fails, and an
 entry here naming a test that no longer exists fails too (#2262).
 
-Written up as of 2026-09-27, 39 tests.
+Written up as of 2026-09-27, 40 tests.
 
 ---
 
@@ -600,6 +600,26 @@ two, since a notarization reporter or a Linux/Windows builder would inherit
 repository write for no reason. Also rejects the `permissions: write-all`
 shorthand — one innocuous-looking word that grants every scope there is. **When
 it fires:** put the write on the job.
+
+### `branch-ruleset.test.ts`
+
+**main's committed ruleset (`.github/rulesets/main.json`) agrees with the CI it
+requires** (#2353). Required status checks are matched by *name*, and GitHub
+never validates that the name exists — so the realistic failure is a renamed
+job in `ci.yml`: the old context never reports again, sits at "Expected —
+waiting for status", and blocks every PR in the repository. Offline: it reads
+the file and the workflow, never the API. Asserts every required context is a
+`ci.yml` job id or `name:`, pinned to the GitHub Actions app (15368); every
+`ci.yml` job — all of them run on `pull_request` — is required or sits in the
+commented `NOT_REQUIRED` list; strict ("require up to date") is on; deletion and
+force-push are forbidden; and no bypass actor has a mode other than
+`pull_request`, so an override is always a visible PR merge and never a silent
+push. Drift in the *live* settings is the other half, checked by
+`pnpm check:ruleset` (`scripts/check-branch-ruleset.mjs`), which needs the
+network and so is not in this test. **When it fires:** you renamed or added a
+CI job — update `required_status_checks` in `main.json` in the same PR and
+re-apply it (`gh api --method PUT repos/{owner}/{repo}/rulesets/<id> --input
+.github/rulesets/main.json`), or exempt the job in `NOT_REQUIRED` with a reason.
 
 ### `actions-sha-pinned.test.ts`
 

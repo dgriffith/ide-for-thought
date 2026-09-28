@@ -888,6 +888,40 @@ a future job *should* inherit, so there inheritance is the feature.
 `tests/architecture/workflow-permissions.test.ts` holds all of it, including a
 rejection of the `permissions: write-all` shorthand — one innocuous-looking
 word that grants every scope there is.
+
+### main is protected by a committed ruleset (#2353)
+
+A PR cannot merge into `main` until `lint-and-test`, `audit` and `e2e` are
+green **on a branch that is up to date with main**; `main` cannot be deleted
+or force-pushed. Before this every gate in CI was advisory at merge time —
+three PRs merged with a red e2e (#2159-#2161), and two individually-green PRs
+could combine into a red main (#2348).
+
+The ruleset lives in **`.github/rulesets/main.json`**, which is the exact body
+of `POST /repos/{owner}/{repo}/rulesets`. The file is the source of truth, not
+the settings page:
+
+- **Check it:** `pnpm check:ruleset` reads the live ruleset back with `gh api`
+  and diffs its policy fields against the file (exit 1 on drift).
+- **Re-apply it:** `gh api --method PUT repos/{owner}/{repo}/rulesets/<id>
+  --input .github/rulesets/main.json` (the id is in `gh api
+  repos/{owner}/{repo}/rulesets`). Change the file in a PR first, then apply —
+  never the other way round.
+- **Renaming or adding a CI job** means updating `required_status_checks` in
+  the same PR. A required name that no job reports blocks *every* PR, and
+  GitHub doesn't validate it; `tests/architecture/branch-ruleset.test.ts`
+  does, offline.
+
+**"Require up to date" has a cost you will meet:** once one PR merges, every
+other open PR is behind and cannot merge until it is updated and CI re-runs on
+the result — `gh pr update-branch <n>`, then wait for green. That re-run is the
+point: it is what catches two green PRs that are red together.
+
+**The emergency bypass is `gh pr merge <n> --admin`** (or the UI's bypass
+checkbox). The repository-admin role is the only bypass actor, and its mode is
+`pull_request`, so an override is always a deliberate, visible PR merge — never
+a direct push to `main`. The architecture test rejects any bypass in `always`
+mode.
 ### Actions are pinned to commit SHAs (#2250)
 
 `actions/checkout@v7` is a **mutable** reference: the tag can be moved,
@@ -985,7 +1019,7 @@ untested ones sit in a `KNOWN_UNTESTED` list that may only shrink.
 
 ### The architecture ratchets are inventoried in `docs/architecture-ratchets.md` (#2262)
 
-`tests/architecture/` holds **39** tests that check the shape of the codebase
+`tests/architecture/` holds **40** tests that check the shape of the codebase
 rather than the behavior of any feature — the package-cycle check, the file-size
 budgets, the anti-pattern ratchets, the dialog-adoption ratchet, the two
 temp-project-fixture ratchets, the CI-workflow checks, and so on. Most of them

@@ -48,6 +48,7 @@
     "fetch:help-corpus": "vite-node scripts/build-help-corpus.mjs",
     "build:docs": "node scripts/build-docs.mjs",
     "check:docs": "node scripts/build-docs.mjs --check",
+    "check:ruleset": "node scripts/check-branch-ruleset.mjs",
     "predev": "node scripts/prep.mjs",
     "prebuild": "node scripts/prep.mjs",
     "prebuild:e2e": "node scripts/prep.mjs"
