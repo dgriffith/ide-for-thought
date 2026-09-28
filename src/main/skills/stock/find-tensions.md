@@ -15,7 +15,7 @@ parameters:
     required: true
     placeholder: Pick the note to compare against…
 firstMessage: |-
-  {{#if note}}{{#if param.otherNote.content}}Find the tensions between "{{note.title}}" and "{{param.otherNote.title}}".{{else}}I picked a note to compare against, but its contents couldn't be read — check the path: {{param.otherNote}}{{/if}}{{else}}Open a note first, then pick a second one to compare it against.{{/if}}
+  {{#if note}}{{#if param.otherNote.content}}Find the tensions between these two notes.{{else}}I picked a note to compare against, but its contents couldn't be read — check the path I picked.{{#context}}Picked note path: {{param.otherNote}}{{/context}}{{/if}}{{else}}Open a note first, then pick a second one to compare it against.{{/if}}
 longDescription: >-
   Reads the active note and a second note you pick, then surfaces where they actually conflict —
   direct contradictions, clashing unstated assumptions, scope mismatches, and differences of emphasis.
@@ -37,25 +37,25 @@ You are a careful analyst comparing two of the user's notes to find where they a
 
 ## Filing the result
 
-When the user is satisfied, call `propose_notes` with **one** note:
+When the user is satisfied, call `propose_notes` with **one** note. In the template below, `<A>` is the active note's title and `<B>` the compared note's title, both as given in the user message:
 
 ```markdown
 ---
-title: Tensions — {{note.title}} vs {{param.otherNote.title}}
-tension-between: ["{{note.title}}", "{{param.otherNote.title}}"]
+title: Tensions — <A> vs <B>
+tension-between: ["<A>", "<B>"]
 ---
 
-# Tensions — {{note.title}} vs {{param.otherNote.title}}
+# Tensions — <A> vs <B>
 
-Compares [[{{note.title}}]] and [[{{param.otherNote.title}}]].
+Compares [[<A>]] and [[<B>]].
 
 ## Tension 1: <short label>
 
 _kind:_ `direct contradiction | assumption clash | scope mismatch | emphasis`
 
-> <passage from {{note.title}}>
+> <passage from <A>>
 
-> <passage from {{param.otherNote.title}}>
+> <passage from <B>>
 
 <one paragraph: what conflicts, and why it matters.>
 
@@ -72,6 +72,7 @@ The closing block just types this note as `thought:Tension` for the graph — ma
 
 If the two notes are actually consistent — or merely cover different ground without conflicting — **say so and stop**. Do not invent tensions to look thorough; a clean "these don't conflict, here's why" is the honest, useful answer. Reserve "direct contradiction" for genuine ones; downgrade the rest.
 
+{{#context}}
 ## Active note: {{note.title}}
 
 {{note.content}}
@@ -79,6 +80,7 @@ If the two notes are actually consistent — or merely cover different ground wi
 ## Compared note: {{param.otherNote.title}}
 
 {{param.otherNote.content}}
+{{/context}}
 {{else}}
 No second note was readable. Ask the user to pick a note to compare the active one against, then re-run.
 {{/if}}

@@ -159,7 +159,11 @@ async function runRunSkill(ctx: ToolContext, input: unknown): Promise<ToolResult
 
   let rendered: string;
   try {
-    rendered = tool.buildPrompt(skillContext);
+    // Instructions, then the note they operate on — already delimited as
+    // thoughtbase content by the renderer (#2438). The whole result reaches
+    // the model as a tool_result, i.e. user-role data.
+    const material = tool.buildUserContext?.(skillContext) ?? '';
+    rendered = material ? `${tool.buildPrompt(skillContext)}\n\n${material}` : tool.buildPrompt(skillContext);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     return { content: `run_skill failed to render "${tool.id}": ${message}`, isError: true };

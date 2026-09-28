@@ -28,6 +28,8 @@ import {
   resolveToolModel,
 } from '../main/tools/executor';
 import { buildConversationTools } from '../main/llm/tools/registry';
+import { buildConversationSystemPrompt, type PromptClock } from '../main/llm/conversation-prompt';
+import { withSkillContext } from '../main/llm/skill-context';
 import {
   complete,
   completeWithTools,
@@ -74,13 +76,23 @@ export interface EvalCaseManifest {
   injection?: { canary: string };
 }
 
+/**
+ * "Today", pinned, so the conversation system prompt's date line — built by
+ * the app's own `buildConversationSystemPrompt` — is the same bytes on every
+ * machine, in every time zone, on every day (#2438).
+ */
+export const EVAL_CLOCK: PromptClock = { now: new Date('2026-01-15T12:00:00Z'), timeZone: 'UTC' };
+
 /** The packaged LLM request written to `output/request.json` — the bytes that
  *  would be sent to the model. Deterministic given skill + context + params. */
 export interface PackagedRequest {
   skill: string;
   model?: string;
-  /** System prompt — conversation skills only (one-shot has none). */
-  system?: string;
+  /** System prompt. For a conversation skill it is the whole prompt the app
+   *  sends — the conversation base prompt, `thoughtbase.md`, date and note
+   *  lines, then the skill's instructions — built by the app's own function.
+   *  For a one-shot skill it is the skill's instructions (#2438). */
+  system: string;
   messages: { role: 'user'; content: string }[];
   /** Conversation skills only. */
   webEnabled?: boolean;
@@ -221,11 +233,22 @@ async function packageCase(
       context,
       ...(manifest.model ? { modelOverride: manifest.model } : {}),
     });
+    // Exactly what `register-conversation.ts` sends on the first turn: the
+    // renderer opens the tab with `notePath` = the skill's note and auto-sends
+    // the first message with the same note as the current one.
+    const notePath = context.fullNotePath;
+    const system = await buildConversationSystemPrompt(
+      payload.systemPrompt,
+      notePath ? { notePath } : {},
+      notePath,
+      ctx.rootPath,
+      EVAL_CLOCK,
+    );
     const request: PackagedRequest = {
       skill: def.id,
       ...(model ? { model } : {}),
-      system: payload.systemPrompt,
-      messages: [{ role: 'user', content: payload.firstMessage }],
+      system,
+      messages: withSkillContext([{ role: 'user' as const, content: payload.firstMessage }], payload.skillContext),
       webEnabled: payload.webEnabled,
       tools: (await buildConversationTools({ extraTools: payload.requiresTools })).map((t) => t.name),
       ...(payload.requiresTools ? { requiresTools: payload.requiresTools } : {}),
@@ -233,13 +256,14 @@ async function packageCase(
     return { request, meta: { skill: def.id, ...(model ? { model } : {}), outputMode: def.outputMode } };
   }
 
-  const { prompt } = buildOneShotPayload(def, settings, {
+  const { system, prompt } = buildOneShotPayload(def, settings, {
     context,
     ...(manifest.model ? { modelOverride: manifest.model } : {}),
   });
   const request: PackagedRequest = {
     skill: def.id,
     ...(model ? { model } : {}),
+    system,
     messages: [{ role: 'user', content: prompt }],
   };
   return { request, meta: { skill: def.id, ...(model ? { model } : {}), outputMode: def.outputMode } };
@@ -256,6 +280,7 @@ async function packageCase(
  */
 async function runLive(
   request: PackagedRequest,
+  conversational: boolean,
   rootPath: string,
   caseName: string,
   llm: LlmSeam,
@@ -268,12 +293,12 @@ async function runLive(
   const start = Date.now();
 
   try {
-    // A one-shot skill (no system prompt) is a plain completion — no tools, no
-    // drafts.
-    if (request.system === undefined) {
+    // A one-shot skill is a plain completion — no tools, no drafts.
+    if (!conversational) {
       let usage: TurnUsage | undefined;
       let usageModel: string | undefined;
       const text = await llm.complete(request.messages[0]!.content, {
+        system: request.system,
         ...(request.model ? { model: request.model } : {}),
         onUsage: (u, m) => {
           usage = u;
@@ -409,7 +434,7 @@ export async function runEval(caseDirs: string[], opts: RunEvalOptions): Promise
     let security: InjectionScore | undefined;
     if (opts.live) {
       const approvedBefore = manifest.injection ? await approvedProposalUris(ctx) : new Set<string>();
-      live = await runLive(request, ctx.rootPath, path.basename(caseDir), opts.llm ?? REAL_LLM);
+      live = await runLive(request, def.outputMode === 'openConversation', ctx.rootPath, path.basename(caseDir), opts.llm ?? REAL_LLM);
       if (manifest.injection) {
         const approvedNow = [...await approvedProposalUris(ctx)].filter((u) => !approvedBefore.has(u));
         security = scoreInjectionTranscript({

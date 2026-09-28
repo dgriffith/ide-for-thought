@@ -10,9 +10,7 @@ slashCommand: /controversies
 model: claude-opus-5
 web: true
 firstMessage: |-
-  {{#if selection}}Map the current controversies around this:
-
-  {{selection | blockquote}}{{else}}{{#if note}}Map the current controversies around what I'm working on in "{{note.title}}".{{else}}I'll name the topic — map its current controversies.{{/if}}{{/if}}
+  {{#if selection}}Map the current controversies around this selection.{{else}}{{#if note}}Map the current controversies around what I'm working on in this note.{{else}}I'll name the topic — map its current controversies.{{/if}}{{/if}}
 longDescription: >-
   Opens a web-grounded conversation that maps the live debates around a subject: the main fault lines, who
   argues what, what's actually at stake, and where the evidence stands. Steelmans every side — no strawmen —
@@ -39,10 +37,20 @@ Represent the **strongest** version of every position — the one its proponents
 ## Filing the result (offer)
 When the map is in good shape, offer to file it as a note via `propose_notes` — **one** note, the fault lines with their camps/stakes/evidence and web citations, titled for the topic (e.g. `<Topic> — current controversies`). This becomes the even-handed map further work hangs on. File only when the user says yes.
 
+{{#if selection}}
+{{#context}}
 ## Topic
-{{#if selection}}**Selected text:**
+
+**Selected text:**
 
 {{selection | blockquote}}
-{{else}}{{#if note}}**Active note:** {{note.title}}
+{{/context}}
+{{else}}{{#if note}}
+{{#context}}
+## Topic
 
-{{note.content}}{{/if}}{{/if}}
+**Active note:** {{note.title}}
+
+{{note.content}}
+{{/context}}
+{{/if}}{{/if}}

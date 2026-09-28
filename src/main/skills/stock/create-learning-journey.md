@@ -34,9 +34,12 @@ File the whole bundle into ONE new directory named for the journey, e.g. `notes/
 
 Use web search when a stop is a term you need to look up for accuracy.
 
+{{#context}}
 ## Note{{#if note.title}} — {{note.title}}{{/if}}
 
-{{note.content}}{{else}}You are designing an ordered learning path toward mastery of a topic the user will name.
+{{note.content}}
+{{/context}}
+{{else}}You are designing an ordered learning path toward mastery of a topic the user will name.
 
 Because no note is open, your FIRST response should be a short clarifying question: what is the destination — the topic the user wants to understand by the end of the journey? Optionally also ask their starting point ("what do you already know?"). Don't propose stops yet.
 

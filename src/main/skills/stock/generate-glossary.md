@@ -67,9 +67,12 @@ A **Monoid** adds an identity element; a **Group** adds inverses as well.
 
 `type: glossary-term` is load-bearing: it's the Glossary Term stock object type (`externalClass: thought:Term`), so it types this note the way the old embedded `` ```turtle this: a thought:Term . ``` `` block used to — glossary queries ("list every term", "terms lacking a see-also") and the term's distinct graph rendering still work, no fenced turtle block needed. Keep the frontmatter key spelled `type: glossary-term` exactly (not `type: term`) so it matches the registered stock type.
 
+{{#context}}
 ## Note{{#if note.title}} — {{note.title}}{{/if}}
 
-{{note.content}}{{else}}You are building a glossary for a topic the user wants to understand.
+{{note.content}}
+{{/context}}
+{{else}}You are building a glossary for a topic the user wants to understand.
 
 Because no note is open, your FIRST response should be a short clarifying question: what topic or domain do you want a glossary for? Don't propose terms yet.
 

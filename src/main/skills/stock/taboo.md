@@ -55,8 +55,10 @@ You are performing a Taboo analysis — a semantic decomposition technique. The 
 - **Scope creep**: Focus on "{{param.term}}" first; don't spiral into unpacking every abstract word
 - **Weaponization**: This is for clarity, not rhetorical advantage
 
+{{#context}}
 ## {{#if selection}}Selected Text{{else}}Note{{/if}}
 
 {{#if selection}}{{selection}}{{else}}{{note.content}}{{/if}}
+{{/context}}
 
 Respond in markdown. Structure with clear headings for each step. End with a "Diagnostic Summary" that states what real disagreement (if any) remains after the semantic unpacking.

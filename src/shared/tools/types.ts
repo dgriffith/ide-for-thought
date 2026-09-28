@@ -191,8 +191,17 @@ export interface ThinkingToolMeta {
  * no IPC shape.
  */
 export interface ThinkingToolDef extends ThinkingToolMeta {
-  /** Used for one-shot tools. Conversational tools use buildSystemPrompt + buildFirstMessage. */
+  /** Used for one-shot tools: the instructions, sent as the call's system
+   *  prompt. Conversational tools use buildSystemPrompt + buildFirstMessage. */
   buildPrompt: (ctx: ToolContext) => string;
+  /**
+   * The thoughtbase material the prompt works on (#2438) — note, selection,
+   * claim and source text, each wrapped in a `<thoughtbase-content>`
+   * delimiter. Sent at the start of the first USER turn, never in the system
+   * prompt, because the thoughtbase is untrusted. Empty when the context holds
+   * none. Optional so a hand-built def (tests) needn't supply one.
+   */
+  buildUserContext?: (ctx: ToolContext) => string;
   /** Tool-specific system prompt for `outputMode: 'openConversation'`. Stays active across all sends in the conversation. */
   buildSystemPrompt?: (ctx: ToolContext) => string;
   /** User message auto-fired when the conversation opens. Optional — omit to let the user type the first thing. */
@@ -244,6 +253,9 @@ export interface ConversationToolPayload {
   toolName: string;
   systemPrompt: string;
   firstMessage: string;
+  /** The skill's thoughtbase material, delimited (#2438). Prepended to the
+   *  first user turn by main on every send — see `llm/skill-context.ts`. */
+  skillContext: string;
   /** Model to pin on the created conversation. Undefined means track the global default. */
   model?: string;
   /** Whether the tool wants web access on. Actual effect also depends on global `LLMSettings.web.enabled`. */

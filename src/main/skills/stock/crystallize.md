@@ -8,7 +8,7 @@ outputMode: openConversation
 context: [fullNote]
 model: claude-sonnet-5
 web: false
-firstMessage: "{{#if note.path}}Crystallize `{{note.path}}` as components.{{else}}Crystallize this note as components.{{/if}}"
+firstMessage: "Crystallize this note as components."
 longDescription: >-
   Opens a conversation that extracts structured thought components (claims, grounds, hypotheses,
   observations, etc.) from the active note and files ONE crystallization note containing an embedded
@@ -19,7 +19,7 @@ You are extracting structured thought components from a note's body and filing a
 
 ## Procedure
 
-1. **Read the source.** Use `read_note`.
+1. **Read the source.** It is in the user message; use `read_note` if you need it again.
 2. **Refresh the schema if needed.** Call `describe_graph_schema` to remind yourself of the `thought:` ontology — Claim, Grounds, Warrant, Hypothesis, Question, Observation, Insight, Principle, Assumption, Implication, Definition, Goal, Plan, Tension. Use only types from that ontology.
 3. **Identify the substantive components.** A component is a discrete epistemic unit, not every sentence. Aim for the load-bearing ideas. Skip throat-clearing. Capture inter-component relationships (`thought:supports`, `thought:challenges`, `thought:presupposes`, etc.) where they're clear.
 4. **Build the crystallization note.** Call `propose_notes` with ONE note:
@@ -42,8 +42,12 @@ You are extracting structured thought components from a note's body and filing a
 - The Turtle block must be valid (the indexer parses it on save).
 - Do NOT also paste the components as prose outside the Turtle block — the block is the deliverable, just a hidden one.
 
-## Source note{{#if note}} (`{{note.path}}`)
+{{#if note}}
+{{#context}}
+## Source note ({{note.path}})
 
-{{note.content}}{{else}}
-
-No note is open. Ask the user which note to crystallize before proceeding.{{/if}}
+{{note.content}}
+{{/context}}
+{{else}}
+No note is open. Ask the user which note to crystallize before proceeding.
+{{/if}}

@@ -15,7 +15,7 @@ model: claude-opus-5
 # dates, and specifics as it drafts — the onboarding overview wants this too.
 web: true
 tools: [ask_user]
-firstMessage: "{{#if note}}Build me an overview of \"{{note.title}}\".{{/if}}"
+firstMessage: "{{#if note}}Build me an overview of this note's subject.{{/if}}"
 longDescription: >-
   Opens a conversation that drafts an orientation to a subject as a single reviewable bundle:
   a top-level index note (framing paragraphs + wiki-links to the children in reading order) plus
@@ -52,12 +52,7 @@ parameters:
     type: text
     placeholder: "e.g. onboarding a new hire, prepping a talk, scaffolding to edit"
 ---
-{{#if note}}You are drafting an orientation to the subject of the note below, filed as a single bundle of linked notes the user can review and approve in one Proposal.
-
-## Subject
-{{note.title}}
-
-{{note.content}}
+{{#if note}}You are drafting an orientation to the subject of the note in the user message, filed as a single bundle of linked notes the user can review and approve in one Proposal.
 
 ## Scope
 Aim for {{param.depth}}.
@@ -78,7 +73,15 @@ Children should partition the subject; overlap is fine where ideas span boundari
 - Plain prose over wall-to-wall bullets — some paragraphs make the notes read like a tour, not a checklist.
 - Wiki-links use `[[note-name]]` against the bare basename; the system resolves them, so the index links must match the children's basenames.
 
-Use web search when a claim needs checking for accuracy. Don't ask the user to approve a plan first — just produce the bundle.{{else}}You are drafting an orientation to a subject the user will name, filed as a single bundle of linked notes they can review and approve in one Proposal.
+Use web search when a claim needs checking for accuracy. Don't ask the user to approve a plan first — just produce the bundle.
+{{#context}}
+## Subject
+
+{{note.title}}
+
+{{note.content}}
+{{/context}}
+{{else}}You are drafting an orientation to a subject the user will name, filed as a single bundle of linked notes they can review and approve in one Proposal.
 
 Because no note is open, your FIRST response should be a short clarifying question: what subject should the overview cover? Don't draft the bundle yet. If the subject is ambiguous (e.g. "Mercury" — planet, element, or god?), disambiguate with `ask_user` before drafting.
 

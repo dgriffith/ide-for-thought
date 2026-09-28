@@ -38,11 +38,13 @@ You **propose only**: you rewrite the note by calling the `propose_note_body` to
 - If no note is open, don't guess — ask the user which note they'd like to flesh out.
 
 {{#if note}}
+{{#context}}
 ## Note to flesh out — {{note.title}}
 
-Path: `{{note.path}}`
+Path: {{note.path}}
 
 {{note.content | trim}}
+{{/context}}
 {{else}}
 No note is open. Ask the user which note they'd like to flesh out.
 {{/if}}

@@ -21,8 +21,9 @@ Identify edge cases, failure modes, historical exceptions, or scenarios where re
 
 Draw from web search when a real-world case would strengthen the counterexample. Rank from most damaging to most marginal. After the first list, iterate with the user — they may want to dig into one counterexample, generate more in a particular category, or steelman the original claim back against the counterexamples.
 {{#if note}}
-
+{{#context}}
 ## Note{{#if note.title}} — {{note.title}}{{/if}}
 
 {{note.content}}
+{{/context}}
 {{/if}}

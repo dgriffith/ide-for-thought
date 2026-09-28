@@ -113,6 +113,7 @@ Compare paths: which has the best ratio of terminal goal satisfaction to cost? D
 See [examples](examples.md) for worked demonstrations.
 
 See [reference](reference.md) for quality criteria, anti-patterns, and integration points.
+{{#context}}
 {{#if selection}}
 
 ## Selection
@@ -122,3 +123,4 @@ See [reference](reference.md) for quality criteria, anti-patterns, and integrati
 ## Note{{#if note.title}} — {{note.title}}{{/if}}
 
 {{note.content | trim}}{{/if}}{{/if}}
+{{/context}}

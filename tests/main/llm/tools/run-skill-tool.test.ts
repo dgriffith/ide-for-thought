@@ -190,6 +190,22 @@ describe('run_skill run()', () => {
     expect(res.content).toMatch(/Unknown or unsupported skill/);
   });
 
+  it('returns the instructions followed by the skill\'s delimited material (#2438)', async () => {
+    const split: ThinkingToolDef = {
+      ...NEW_NOTE_SKILL,
+      id: 'test.split-fixture',
+      buildPrompt: () => 'Steelman the note in the material below.',
+      buildUserContext: (ctx) => `<thoughtbase-content kind="note">\n${ctx.fullNoteContent}\n</thoughtbase-content>`,
+    };
+    register(split);
+    await writeNote(project.root, 'notes/a.md', '# A\n\nBODY-CANARY');
+    const res = await runSkill.run({ rootPath: project.root }, { skillId: split.id, notePath: 'notes/a.md' }, {});
+    expect(res.isError).toBe(false);
+    expect(res.content).toContain(
+      'Steelman the note in the material below.\n\n<thoughtbase-content kind="note">\n# A\n\nBODY-CANARY\n</thoughtbase-content>',
+    );
+  });
+
   it('requires notePath when the skill needs a note', async () => {
     register(NEW_NOTE_SKILL);
     const res = await runSkill.run({ rootPath: project.root }, { skillId: NEW_NOTE_SKILL.id }, {});

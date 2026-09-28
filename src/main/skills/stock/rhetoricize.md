@@ -328,6 +328,7 @@ most persuasion is just gradient descent on "what vibe makes this feel inevitabl
 
 satire exists bc sometimes the cleanest way to see the boundary is to tap it with a clown hammer.
 
+{{#context}}
 {{#if selection}}
 
 ## Selection
@@ -337,3 +338,4 @@ satire exists bc sometimes the cleanest way to see the boundary is to tap it wit
 ## Note{{#if note.title}} — {{note.title}}{{/if}}
 
 {{note.content | trim}}{{/if}}{{/if}}
+{{/context}}
