@@ -1490,6 +1490,30 @@ genuinely called from LLM context. `initGraph` is deliberately **not** wrapped:
 nothing calls it from an LLM path today, and blanket-trusting a bulk load of
 whatever is on disk would be a permanent hole.
 
+#### Prompt injection: the tool surface is gated, the model is not (#2373)
+
+`tests/main/llm/prompt-injection/` holds the gate. It is deterministic and
+runs in `pnpm test`. It drives the real `completeWithTools` loop with a model
+**scripted to obey** an injection corpus
+(`tests/skills-eval/injection-thoughtbase/`), and asserts on the system
+rather than on the model. Four things it relies on are worth knowing when you
+touch the tool surface:
+
+- **Tool dispatch runs in `withLLMContext`** inside the loop itself, and
+  `executeNotebaseTool` re-throws a `TrustGuardError` instead of folding it
+  into an error `tool_result`.
+- **`queryGraph` is read-only.** Comunica's read-only flag refuses SPARQL
+  Update, and `SERVICE`/`LOAD` make no network request.
+- **A new tool must be classified** in `tool-surface.test.ts`, which fails
+  closed and statically bars tool modules from fs writes, approvals and
+  trusted context.
+- **`mcp_call` reaches only advertised tools** of configured, connected
+  servers. Whether it needs a confirmation gate is #2439.
+
+Known open gaps: `query_sql` can read outside the root (#2437, pinned as
+`it.fails`). Skill context renders untrusted note/source text into the system
+prompt (#2438).
+
 ### Integrity Query
 
 The integrity-check SPARQL below detects `thought:Component` nodes attributed to an LLM that lack a corresponding approved proposal. Run it (Graph > Query) after any LLM integration work to verify the trust principle holds. It used to ship as the "Trust: Unreviewed LLM writes" stock query, but the `Trust:` / `Claims:` / `Compute:` stock queries were pulled from the default set as too confusing for end users — keep this one handy for development.

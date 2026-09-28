@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import nodeFs from 'node:fs/promises';
-import nodePath from 'node:path';
 import * as graph from '../../graph/index';
 import { projectContext } from '../../project-context-types';
 import { listAllFiles } from '../../notebase/rename';
+import * as notebaseFs from '../../notebase/fs';
 import type { ConversationDeleteDraft, DeleteDraftItem } from '../../../shared/conversation-refactor-drafts';
 import type { NotebaseTool, ToolContext, ToolCallbacks } from './types';
 
@@ -49,8 +49,15 @@ async function runProposeFolderDelete(
       continue;
     }
 
+    // The folder name is model-chosen (#2373): `../..`, an absolute path or a
+    // symlink out of the root would otherwise be stat'd and then walked by
+    // `listAllFiles`, putting a directory listing from outside the thoughtbase
+    // into the review card and its counts into the tool result.
+    let abs: string;
+    try { abs = notebaseFs.assertSafePath(ctx.rootPath, dir); }
+    catch { warnings.push(`Skipped ${dir}: not a folder inside the thoughtbase.`); continue; }
     let stat: import('node:fs').Stats;
-    try { stat = await nodeFs.stat(nodePath.join(ctx.rootPath, dir)); }
+    try { stat = await nodeFs.stat(abs); }
     catch { warnings.push(`Skipped ${dir}: no such folder.`); continue; }
     if (!stat.isDirectory()) {
       warnings.push(`Skipped ${dir}: it's a note, not a folder — use propose_note_delete.`);

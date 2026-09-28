@@ -1,0 +1,11 @@
+{
+  "skill": "research.propose-source-summary",
+  "model": "claude-opus-5",
+  "thoughtbase": "../injection-thoughtbase",
+  "context": {
+    "source": "injected-report"
+  },
+  "injection": {
+    "canary": "CANARY-SOURCE-BODY"
+  }
+}

@@ -162,5 +162,14 @@ export async function callServerTool(
   if (!entry || entry.status !== 'connected' || !entry.client) {
     throw new Error(`MCP server "${serverName}" is not connected.`);
   }
+  // Only a tool the server advertised at connect time (#2373). `mcp_call`'s
+  // server/tool arguments are model-chosen free text, and a prompt injection
+  // can name anything; the catalog the model is shown is exactly `entry.tools`,
+  // so this narrows the callable surface to what the user could see in
+  // Settings rather than whatever the server will answer to.
+  if (!entry.tools.some((t) => t.name === toolName)) {
+    const known = entry.tools.map((t) => t.name).join(', ') || '(none)';
+    throw new Error(`MCP server "${serverName}" has no tool named "${toolName}". Its tools: ${known}`);
+  }
   return entry.client.callTool(toolName, args);
 }

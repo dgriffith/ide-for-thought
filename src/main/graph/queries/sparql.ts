@@ -88,10 +88,33 @@ export function schemaForCompletion(ctx: ProjectContext): GraphSchema {
 }
 
 /**
+ * Comunica's read-only flag (`KeysQueryOperation.readOnly`). Spelled as the
+ * raw key rather than importing `@comunica/context-entries`, which is not a
+ * direct dependency; `tests/main/llm/prompt-injection/` pins that it still
+ * takes effect (the refusal names Comunica's own error, not ours), so a
+ * Comunica upgrade that renames it fails a test.
+ */
+const COMUNICA_READ_ONLY = '@comunica/bus-query-operation:readOnly';
+
+export const READ_ONLY_ERROR =
+  'SPARQL Update is not supported here: the knowledge graph is read-only to queries. ' +
+  'Notes and proposals are the only way to change it.';
+
+/**
  * Run SPARQL the USER wrote (Query panel, ` ```sparql ` block, compute cell,
  * LLM tool). A parse/evaluation failure is an expected outcome and comes back
  * as `{ ok: false, error }` rather than a throw — see {@link GraphQueryResult}.
  * For SPARQL the app authored itself, use {@link queryGraphRows}.
+ *
+ * READ-ONLY (#2373). SPARQL Update is refused (`{ ok: false }`), both by
+ * Comunica's own read-only flag and by the `void` result check below — the
+ * store may only change through the indexers and the approval engine, and
+ * the N3 mirror this runs against is a derived cache that an update would
+ * silently desynchronise from the rdflib store. Federation (`SERVICE`,
+ * `LOAD`, dereferencing a `FROM <http://…>`) makes no network request: the
+ * `query-sparql-rdfjs` build ships no HTTP actor, so the dereference bus has
+ * nothing to answer it. `tests/main/llm/prompt-injection/` pins both with a
+ * local listener that counts hits.
  */
 export async function queryGraph(
   ctx: ProjectContext,
@@ -110,7 +133,18 @@ export async function queryGraph(
     // metadata: the SELECT projection — in order, including variables that end
     // up unbound in every row. Deriving columns from the bindings alone would
     // silently drop an always-unbound column.
-    const result = await engine.query(prefixed, { sources: [n3Store] });
+    const result = await engine.query(prefixed, {
+      sources: [n3Store],
+      [COMUNICA_READ_ONLY]: true,
+    });
+    if (result.resultType === 'void') {
+      // SPARQL Update (INSERT / DELETE / LOAD / CLEAR / …). Refused outright
+      // (#2373): this entry point answers questions, and the store is only
+      // ever mutated through the indexers and the approval engine. It used to
+      // answer "no rows" — the update was simply never executed — which told a
+      // caller (including a prompt-injected model) that its write succeeded.
+      return { ok: false, error: READ_ONLY_ERROR };
+    }
     if (result.resultType !== 'bindings') {
       return { ok: true, results: [], columns: [] };
     }

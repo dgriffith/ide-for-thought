@@ -26,6 +26,7 @@ import { formatToolCall } from './format-tool-call';
 import { toLlmFailureError } from './classify-error';
 import type { ProviderId } from '../../shared/tools/providers';
 import { logger } from '../../shared/logger';
+import { withLLMContext } from '../graph/index';
 
 /**
  * Run one provider round-trip, classifying any throw into the shared failure
@@ -224,6 +225,18 @@ export interface CompleteWithToolsOptions {
    * tools." See conversation.ts:setContainerId for persistence.
    */
   initialContainerId?: string;
+  /** Observer fired after each client-side tool call with what the model sent
+   *  and what went back (#2373). The skill-eval harness's `--live` run scores
+   *  its injection cases from this; the app does not use it. */
+  onToolExecuted?: ((call: ExecutedToolCall) => void) | undefined;
+}
+
+/** One client-side tool call as the loop executed it — see `onToolExecuted`. */
+export interface ExecutedToolCall {
+  name: string;
+  input: unknown;
+  content: string;
+  isError: boolean;
 }
 
 export interface CompleteWithToolsResult {
@@ -459,12 +472,17 @@ export async function completeWithTools(
     const compactableToolUseIds = new Set<string>();
     for (const use of turn.toolCalls) {
       logger('conversation').info(`tool call: ${use.name}`, JSON.stringify(use.input).slice(0, 200));
-      const { content, isError } = await executeNotebaseTool(
+      // Model-chosen arguments run with the write guard armed (#2373): whatever
+      // the tool does, a graph write that skips the approval engine trips it.
+      // The conversation IPC handler already wraps the whole turn; doing it
+      // here too means no other caller of this loop can forget.
+      const { content, isError } = await withLLMContext(() => executeNotebaseTool(
         toolContext,
         use.name,
         use.input,
         toToolCallbacks(callbacks),
-      );
+      ));
+      options.onToolExecuted?.({ name: use.name, input: use.input, content, isError });
       if (isError) {
         logger('conversation').warn(`tool ${use.name} returned error:`, content.slice(0, 300));
       } else if (toolResultSignalsDrafted(content)) {

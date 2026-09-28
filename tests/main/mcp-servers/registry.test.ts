@@ -223,6 +223,7 @@ describe('connectAllEnabledServers', () => {
 
 describe('callServerTool', () => {
   it('delegates to the connected client, addressed by server name', async () => {
+    mockClient.listTools.mockResolvedValue([{ name: 'do_thing', inputSchema: { type: 'object' } }]);
     mcpClientMocks.connectMcpServer.mockResolvedValue(mockClient);
     await addServer('S', stdioDescriptor);
     const id = await firstId();
@@ -232,6 +233,21 @@ describe('callServerTool', () => {
 
     expect(mockClient.callTool).toHaveBeenCalledWith('do_thing', { x: 1 });
     expect(result).toEqual({ content: [{ type: 'text', text: 'ok' }], isError: false });
+  });
+
+  it('refuses a tool the server did not advertise, without calling it (#2373)', async () => {
+    // mcp_call's tool name is model-chosen text; only the catalog the user can
+    // see in Settings (what listTools returned at connect) is callable.
+    mockClient.listTools.mockResolvedValue([{ name: 'search', inputSchema: { type: 'object' } }]);
+    mcpClientMocks.connectMcpServer.mockResolvedValue(mockClient);
+    await addServer('S', stdioDescriptor);
+    const id = await firstId();
+    await setServerEnabled(id, true);
+
+    await expect(callServerTool('S', 'delete_everything', {})).rejects.toThrow(
+      /MCP server "S" has no tool named "delete_everything"\. Its tools: search/,
+    );
+    expect(mockClient.callTool).not.toHaveBeenCalled();
   });
 
   it('throws for an unknown server name, listing the known ones', async () => {

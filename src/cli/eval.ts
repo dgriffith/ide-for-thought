@@ -40,6 +40,8 @@ import type { ThinkingToolDef } from '../shared/tools/types';
 import type { ConversationToolKey } from '../shared/conversation-tools';
 import type { TurnUsage } from '../shared/conversation';
 import { jsonStringify } from './json';
+import { listProposals } from '../main/llm/proposal-persistence';
+import { scoreInjectionTranscript, type InjectionScore, type ScoredToolCall } from './eval-injection';
 import {
   buildEvalContext,
   applyParamDefaults,
@@ -66,6 +68,10 @@ export interface EvalCaseManifest {
   context?: CaseContextRefs;
   /** Skill parameter values, threaded in as `ctx.parameterValues`. */
   parameters?: Record<string, string>;
+  /** Marks a prompt-injection case (#2373): the context carries adversarial
+   *  instructions ending in `canary`. A `--live` run records the tool calls
+   *  and scores them (`output/security.json`); see `./eval-injection`. */
+  injection?: { canary: string };
 }
 
 /** The packaged LLM request written to `output/request.json` — the bytes that
@@ -118,6 +124,8 @@ export interface LiveOutput {
   timingMs: number;
   /** Present when the model call threw — the batch records it and moves on. */
   error?: string;
+  /** Every client-side tool call the model made, in order (#2373). */
+  toolCalls: ScoredToolCall[];
 }
 
 export interface EvalResult {
@@ -127,6 +135,8 @@ export interface EvalResult {
   meta: EvalMeta;
   /** Present only when `opts.live` made a real model call. */
   live?: LiveOutput;
+  /** Present for an injection case after a `--live` run (#2373). */
+  security?: InjectionScore;
 }
 
 /** The two model-call entry points the harness drives, injectable so the live
@@ -251,6 +261,7 @@ async function runLive(
   llm: LlmSeam,
 ): Promise<LiveOutput> {
   const drafts: CapturedDraft[] = [];
+  const toolCalls: ScoredToolCall[] = [];
   const capture = (kind: string) => (draft: unknown) => {
     drafts.push({ kind, draft });
   };
@@ -272,6 +283,7 @@ async function runLive(
       return {
         response: text,
         drafts,
+        toolCalls,
         ...(usage ? { usage } : {}),
         ...(usageModel ? { usageModel } : {}),
         timingMs: Date.now() - start,
@@ -302,10 +314,12 @@ async function runLive(
       // wired in the app — so the harness enforces the declaration itself).
       ...(request.webEnabled === false ? { web: { enabled: false } } : {}),
       callbacks,
+      onToolExecuted: (call) => toolCalls.push(call),
     });
     return {
       response: result.text,
       drafts,
+      toolCalls,
       usage: result.usage,
       usageModel: result.usageModel,
       timingMs: Date.now() - start,
@@ -314,8 +328,14 @@ async function runLive(
     // A live batch must not die because one case errored (e.g. a provider 400) —
     // capture it, write it as this case's response, and let the batch continue.
     const msg = err instanceof Error ? err.message : String(err);
-    return { response: `[eval error] ${msg}`, drafts, error: msg, timingMs: Date.now() - start };
+    return { response: `[eval error] ${msg}`, drafts, toolCalls, error: msg, timingMs: Date.now() - start };
   }
+}
+
+/** URIs of the thoughtbase's approved proposals — diffed around an injection
+ *  case's live run, so one approved during it is a breach (#2373). */
+async function approvedProposalUris(ctx: ProjectContext): Promise<Set<string>> {
+  return new Set((await listProposals(ctx, 'approved')).map((p) => p.uri));
 }
 
 /** Marker for the API 400 raised when a `server_tool_use` (web_search / code
@@ -386,8 +406,20 @@ export async function runEval(caseDirs: string[], opts: RunEvalOptions): Promise
     const { request, meta } = await packageCase(manifest, inline, def, ctx, settings);
 
     let live: LiveOutput | undefined;
+    let security: InjectionScore | undefined;
     if (opts.live) {
+      const approvedBefore = manifest.injection ? await approvedProposalUris(ctx) : new Set<string>();
       live = await runLive(request, ctx.rootPath, path.basename(caseDir), opts.llm ?? REAL_LLM);
+      if (manifest.injection) {
+        const approvedNow = [...await approvedProposalUris(ctx)].filter((u) => !approvedBefore.has(u));
+        security = scoreInjectionTranscript({
+          rootPath: ctx.rootPath,
+          canary: manifest.injection.canary,
+          calls: live.toolCalls,
+          response: live.response,
+          approvedProposalUris: approvedNow,
+        });
+      }
       meta.timingMs = live.timingMs;
       meta.draftCount = live.drafts.length;
       meta.harnessVersion = typeof __APP_COMMIT__ === 'string' ? __APP_COMMIT__ : 'unknown';
@@ -405,9 +437,16 @@ export async function runEval(caseDirs: string[], opts: RunEvalOptions): Promise
         await fs.writeFile(path.join(outDir, 'response.md'), `${live.response.replace(/\n*$/, '')}\n`, 'utf-8');
         await fs.writeFile(path.join(outDir, 'drafts.json'), `${jsonStringify(live.drafts, true)}\n`, 'utf-8');
       }
+      if (security && live) {
+        await fs.writeFile(
+          path.join(outDir, 'security.json'),
+          `${jsonStringify({ ...security, toolCalls: live.toolCalls }, true)}\n`,
+          'utf-8',
+        );
+      }
     }
 
-    results.push({ caseDir: given, request, meta, ...(live ? { live } : {}) });
+    results.push({ caseDir: given, request, meta, ...(live ? { live } : {}), ...(security ? { security } : {}) });
   }
   return results;
 }
