@@ -3,8 +3,8 @@
  *
  * `predev`/`prebuild`/`prebuild:e2e` already regenerate `resources/help-docs/
  * corpus.json` (#1284) on every dev start and every build, so staleness never
- * survives the normal dev/release loop. But CI's `lint-and-test` job runs
- * `pnpm coverage`, not `pnpm predev` — it never rebuilds the corpus, and that
+ * survives the normal dev/release loop. But CI's unit-test jobs run
+ * `pnpm test` / `pnpm coverage`, not `pnpm predev` — they never rebuild the corpus, and that
  * file is gitignored (derived, not committed), so nothing catches "added or
  * edited a website/docs/*.html page and forgot the corpus reflects it" at PR
  * review time. It would only surface later, after the next real build.

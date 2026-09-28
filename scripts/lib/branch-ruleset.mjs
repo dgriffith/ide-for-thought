@@ -2,7 +2,7 @@
  * One definition of "the live ruleset on main matches the committed one" (#2353).
  *
  * `.github/rulesets/main.json` is the source of truth for main's protection:
- * the required checks (`lint-and-test`, `audit`, `e2e`), "require branches to
+ * the required checks (`lint-and-test`, `coverage`, `audit`, `e2e`), "require branches to
  * be up to date", no deletion, no force-push, and an admin bypass that exists
  * only as a deliberate override on a PR merge. The file is the exact body of
  * `POST /repos/{owner}/{repo}/rulesets`, so re-applying it is one `gh api` call.

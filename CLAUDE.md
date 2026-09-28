@@ -754,7 +754,7 @@ assertion.
 
 `tests/architecture/lockfile-gate.test.ts` holds both halves: every
 conditionally-installing job verifies first and does it with no `if:`, and the
-`node_modules` cache keys stay byte-identical across all four jobs in
+`node_modules` cache keys stay byte-identical across all five jobs in
 `ci.yml`, `release.yml` and `bench.yml` (#1638, #663, #2247). That second one
 fails nothing when it breaks — the workflows just quietly stop sharing a warm
 cache and pay a cold install every run, which is invisible until someone reads
@@ -903,8 +903,8 @@ word that grants every scope there is.
 
 ### main is protected by a committed ruleset (#2353)
 
-A PR cannot merge into `main` until `lint-and-test`, `audit` and `e2e` are
-green **on a branch that is up to date with main**; `main` cannot be deleted
+A PR cannot merge into `main` until `lint-and-test`, `coverage`, `audit` and
+`e2e` are green **on a branch that is up to date with main**; `main` cannot be deleted
 or force-pushed. Before this every gate in CI was advisory at merge time —
 three PRs merged with a red e2e (#2159-#2161), and two individually-green PRs
 could combine into a red main (#2348).
@@ -920,7 +920,10 @@ the settings page:
   repos/{owner}/{repo}/rulesets`). Change the file in a PR first, then apply —
   never the other way round.
 - **Renaming or adding a CI job** means updating `required_status_checks` in
-  the same PR. A required name that no job reports blocks *every* PR, and
+  the same PR, and applying the updated file to the live ruleset once the PR's
+  new job has reported green — *before* merging, so the PR proves the new
+  requirement (the `coverage` job was added this way). Every other open PR then
+  needs `gh pr update-branch` to pick up the new job before it can merge. A required name that no job reports blocks *every* PR, and
   GitHub doesn't validate it; `tests/architecture/branch-ruleset.test.ts`
   does, offline.
 
@@ -973,9 +976,9 @@ Resolve an annotated tag one more hop through `git/tags/<sha>`.
 
 ### Out-of-band checks ship their notification path (#2242)
 
-Every detector in this repo runs inside `pnpm test` — coverage floors,
-file-size budgets, pattern ratchets, IPC registrar coverage, the architecture
-tests — so it fails a PR in front of someone already looking. `bench.yml` is
+Every detector in this repo runs on the PR, inside `pnpm test` or (for the
+coverage floors) `pnpm coverage` — coverage floors, file-size budgets, pattern
+ratchets, IPC registrar coverage, the architecture tests — so it fails a PR in front of someone already looking. `bench.yml` is
 the one that runs outside the PR loop, and it is the one that went unheard: the
 regression gate exited non-zero on **seven consecutive scheduled runs**
 (2026-08-03 → 2026-09-14) while a real 3-3.8× save-path regression shipped.
@@ -1440,6 +1443,16 @@ Two shapes worth knowing:
   it. That's why `oauth/**` has a floor of its own, and why `ipc/helpers.ts`,
   `register-proposals.ts` and friends have per-file entries. Add one whenever a
   single file inside a well-covered tree is its own trust boundary.
+- **Floors are a pre-merge gate.** `pnpm coverage` runs as `ci.yml`'s own
+  `coverage` job on every PR *and* every push to main, in parallel with
+  `lint-and-test` (which runs plain `pnpm test`), and `coverage` is a required
+  check. It was main-only for a while (#2359, to cut PR latency when coverage
+  was a step inside `lint-and-test`); #2432 then merged green, dropped
+  `project-context.ts` under its floor and left main red for three commits —
+  which blocks releases (#2371). Actions minutes are free on this public repo
+  and a parallel job costs roughly nothing on the critical path, so that
+  trade-off is gone. `coverage-floor-enrollment.test.ts` pins it: no `if:` on
+  the step or job, and `coverage` stays required.
 - **A floor can record a weakness.** `src/main/formatter/**` is fenced at 50/34
   — its real numbers. That fixes nothing, but it stops the gap widening and
   puts it in the same file as its neighbours in the 80s and 90s, which is where

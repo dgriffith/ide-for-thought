@@ -1,8 +1,14 @@
 # CI for Minerva (#340 + #394).
 #
-# Two jobs run in parallel:
-#   - lint-and-test: tsc + svelte-check + eslint + vitest (with coverage floors)
+# Four jobs run in parallel, with no `needs:` edges between them:
+#   - lint-and-test: tsc + svelte-check + eslint + plain vitest
+#   - coverage: vitest with v8 instrumentation + the per-area coverage floors
+#   - audit: dependency advisories (ubuntu; reads only the lockfile)
 #   - e2e: electron-forge package + Playwright Electron smoke
+#
+# All four are required checks in `.github/rulesets/main.json` (#2353), on
+# pull requests AND on main — so the PR critical path is the slowest of them,
+# not their sum.
 #
 # Both on macos-latest: matches the dev machine, and the chokidar
 # watcher tests (#345) exercise macOS fsevents semantics — a Linux
@@ -47,9 +53,10 @@ concurrency:
 jobs:
   lint-and-test:
     runs-on: macos-latest
-    # 30, not 20 (#2359): main's `pnpm coverage` alone was 686s by 2026-09-27
-    # and the job 938s — 78% of the old limit, and growing ~35% in 3 weeks.
-    timeout-minutes: 30
+    # Lint + the plain suite only; the instrumented run is the `coverage` job
+    # below. Longest recent PR run of this shape was 731s (2026-09-27), 61% of
+    # 20 minutes. (It was 30 while this job also ran `pnpm coverage` on main.)
+    timeout-minutes: 20
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -124,33 +131,96 @@ jobs:
       - name: Install Python packages for compute rich-output tests
         run: pip3 install --quiet --break-system-packages pandas matplotlib pillow
 
-      # `pnpm coverage` runs the full suite with v8 instrumentation and enforces
-      # the per-area thresholds in vitest.config (src/shared, src/main/llm,
-      # src/main/notebase) — so the trust + security paths can't silently
-      # regress (#679). The citeproc publish suites carry per-test timeouts
-      # (#677) that absorb the instrumentation slowdown.
-      #
-      # PRs run plain `pnpm test`; the instrumented run + floors gate MAIN only
-      # (#2359). Coverage was ~71% of the PR critical path (686s by 2026-09-27),
-      # and the plain suite is a fraction of it. The cost is that a floor breach
-      # surfaces on the main run after merge instead of on the PR — acceptable
-      # only because main runs are never cancelled (#2352), so every merge gets
-      # that verdict. `coverage-floor-enrollment.test.ts` pins that main still
-      # runs this step: losing it would leave every floor below unenforced.
-      # Want the numbers on a PR? Run `pnpm coverage` locally.
-      #
-      # Sharding was considered and deferred (#2248) — vitest's
-      # `--mergeReports` merges test results but NOT coverage, so it would mean
-      # re-implementing this repo's per-glob threshold map outside vitest. The
-      # measurement, the verification, and the revisit trigger are recorded at
-      # the top of `vitest.config.mts`'s `test:` block; read that before
-      # optimising this step.
+      # Plain, uninstrumented suite on every event. The floors are enforced by
+      # the parallel `coverage` job below; this one stays so a plain test
+      # failure (and lint) reports in the time it takes to run, without
+      # waiting on the instrumentation slowdown.
       - name: Test
-        if: github.event_name == 'pull_request'
         run: pnpm test
 
+  # The coverage floors, on pull requests AND on main (#2359 → reversed here).
+  #
+  # `pnpm coverage` runs the full suite with v8 instrumentation and enforces the
+  # per-area thresholds in vitest.config — so the trust + security paths can't
+  # silently regress (#679). The citeproc publish suites carry per-test
+  # timeouts (#677) that absorb the instrumentation slowdown.
+  #
+  # History, kept because the trade-off was reasonable and is now gone: #2359
+  # moved `pnpm coverage` to main-only pushes, because as a STEP inside
+  # lint-and-test it was ~71% of the PR critical path (686s by 2026-09-27), and
+  # a floor breach surfacing post-merge looked acceptable since main runs are
+  # never cancelled (#2352). It was not acceptable in practice: #2432 merged
+  # green, dropped `src/main/project-context.ts` branch coverage under its 90%
+  # floor, and left main's lint-and-test red for three commits. A red main is
+  # not a cosmetic cost — release.yml refuses to release a SHA whose main CI
+  # run wasn't a success (#2371), so a post-merge verdict blocks shipping for
+  # everyone until someone lands a fix.
+  #
+  # What changed the answer: this repo is public, so Actions minutes are free
+  # and the constraint was only ever wall clock. As its OWN job, running
+  # alongside lint-and-test rather than after lint inside it, coverage costs
+  # one extra runner and roughly nothing on the critical path — the PR waits
+  # for max(lint-and-test, coverage), not their sum. It is a required check,
+  # so a floor breach now blocks the merge that causes it.
+  # `coverage-floor-enrollment.test.ts` pins that this job runs on
+  # pull_request as well as on push; losing either leaves the floors
+  # unenforced somewhere, silently and green.
+  #
+  # Sharding was considered and deferred (#2248) — vitest's `--mergeReports`
+  # merges test results but NOT coverage, so it would mean re-implementing this
+  # repo's per-glob threshold map outside vitest. The measurement, the
+  # verification, and the revisit trigger are recorded at the top of
+  # `vitest.config.mts`'s `test:` block; read that before optimising this job.
+  #
+  # Setup mirrors lint-and-test step for step — the suite is the same suite,
+  # only instrumented. The embedding model arrives via the `precoverage` hook
+  # (scripts/fetch-embedding-model.mjs), and no step here builds the help-docs
+  # corpus because no unit test reads the built corpus (the e2e job's cache
+  # step is for the packaged app).
+  coverage:
+    runs-on: macos-latest
+    # `pnpm coverage` alone was 603-686s on main in late 2026-09; 30 leaves room
+    # for the ~35%-in-3-weeks growth #2359 measured.
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up pnpm
+        # Version comes from the `packageManager` field in package.json.
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      # Unconditional lockfile/manifest check (#2244) — see lint-and-test for
+      # why this cannot rely on the conditional install below.
+      - name: Verify lockfile matches package.json
+        run: pnpm install --frozen-lockfile --lockfile-only
+
+      # Same key as lint-and-test and e2e so all three share the cached tree
+      # (#663); lockfile-gate.test.ts holds the keys byte-identical.
+      - name: Cache node_modules
+        id: node-modules-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: node_modules
+          key: node-modules-v1-${{ runner.os }}-${{ runner.arch }}-node-${{ hashFiles('.nvmrc') }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install dependencies
+        if: steps.node-modules-cache.outputs.cache-hit != 'true'
+        run: pnpm install --frozen-lockfile
+
+      # Same reasoning as lint-and-test (#2056): python-kernel.test.ts
+      # hard-asserts these under CI rather than skipping, so the instrumented
+      # run needs them exactly as the plain one does.
+      - name: Install Python packages for compute rich-output tests
+        run: pip3 install --quiet --break-system-packages pandas matplotlib pillow
+
       - name: Test + coverage
-        if: github.event_name != 'pull_request'
         run: pnpm coverage
 
       # Trend + per-PR coverage-delta visibility (#1096 / QA H4); tuned by
@@ -158,8 +228,8 @@ jobs:
       # Codecov is informational and never blocks a PR (fail_ci_if_error: false).
       # Non-fatal so CI isn't blocked before the repo is enrolled / CODECOV_TOKEN
       # is set; the upload + PR comment activate automatically once it is.
+      # (Fork PRs get no secrets, so their upload is a silent no-op too.)
       - name: Upload coverage to Codecov
-        if: github.event_name != 'pull_request'
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           files: ./coverage/lcov.info
@@ -243,7 +313,7 @@ jobs:
         run: node scripts/check-audit.mjs
 
   e2e:
-    # Runs in parallel with lint-and-test. Stays out of the unit loop
+    # Runs in parallel with lint-and-test and coverage. Stays out of the unit loop
     # because Electron boot is 5–10s and the watcher loop should stay
     # snappy.
     runs-on: macos-latest
@@ -267,8 +337,8 @@ jobs:
       - name: Verify lockfile matches package.json
         run: pnpm install --frozen-lockfile --lockfile-only
 
-      # See lint-and-test for the rationale; same key so both jobs share the
-      # cached tree across runs (#663).
+      # See lint-and-test for the rationale; same key so all three macOS jobs
+      # share the cached tree across runs (#663).
       - name: Cache node_modules
         id: node-modules-cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0

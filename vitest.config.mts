@@ -38,10 +38,19 @@ export default defineConfig({
     // reckless here, and vitest's own hint puts it at ~14s of a ~9-minute run
     // anyway.
     //
-    // UPDATE (#2359): PRs now run plain `pnpm test`; `pnpm coverage` (and so
-    // every floor below) gates pushes to main only. The trigger below fired —
-    // the step reached 686s on 2026-09-27 — and this is the "trim what the
-    // step does" option it names. The history is kept for the next revisit.
+    // UPDATE (#2359): PRs ran plain `pnpm test` and `pnpm coverage` gated
+    // pushes to main only — the "trim what the step does" option named below,
+    // taken when the step reached 686s on 2026-09-27.
+    //
+    // UPDATE 2 (after #2432): reversed. A post-merge floor verdict let #2432
+    // merge green and leave main red for three commits, which blocks releases
+    // (#2371). `pnpm coverage` is now ci.yml's own `coverage` job, required on
+    // PRs and on main and running in PARALLEL with lint-and-test — the repo is
+    // public, so the extra runner is free and the critical path is
+    // max(lint-and-test, coverage) rather than their sum. That puts this
+    // step's duration back on the PR critical path by itself, so the revisit
+    // trigger below applies to the `coverage` job's "Test + coverage" step.
+    // The history is kept for the next revisit.
     //
     // `pnpm coverage` was the PR critical path. Measured on CI run 35775982191
     // (2026-09-22): `lint-and-test` 801s total, of which "Test + coverage" is
