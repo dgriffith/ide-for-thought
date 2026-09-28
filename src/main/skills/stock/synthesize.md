@@ -865,6 +865,7 @@ Canonical examples:
 
 Output tier: {{param.depth}}.
 Audience: {{param.audience}}.
+{{#context}}
 {{#if selection}}
 
 ## Selection
@@ -874,3 +875,4 @@ Audience: {{param.audience}}.
 ## Note{{#if note.title}} — {{note.title}}{{/if}}
 
 {{note.content | trim}}{{/if}}{{/if}}
+{{/context}}

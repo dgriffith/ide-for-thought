@@ -32,15 +32,18 @@ describe('extract-key-claims skill', () => {
     expect(def.context).toContain('sourceBody');
   });
 
-  it('threads the body into the system prompt and instructs propose_claims', () => {
-    const sys = def.buildSystemPrompt!({
-      sourceId: 'src-1',
-      sourceTitle: 'A Paper',
-      sourceBody: 'body-text-zzz',
-    });
-    expect(sys).toContain('body-text-zzz');
-    expect(sys).toContain('A Paper');
-    expect(sys).toContain('src-1'); // sourceId passed to the tool call
+  it('threads the source into the user turn (#2438) and instructs propose_claims', () => {
+    const ctx = { sourceId: 'src-1', sourceTitle: 'A Paper', sourceBody: 'body-text-zzz' };
+    const sys = def.buildSystemPrompt!(ctx);
+    // The source's text never reaches the system prompt…
+    expect(sys).not.toContain('body-text-zzz');
+    expect(sys).not.toContain('A Paper');
+    expect(sys).not.toContain('src-1');
+    // …it is the delimited material of the first user turn.
+    const material = def.buildUserContext!(ctx);
+    expect(material).toContain('<thoughtbase-content kind="source" id="src-1">\nbody-text-zzz\n</thoughtbase-content>');
+    expect(material).toContain('<thoughtbase-content kind="source-title">A Paper</thoughtbase-content>');
+    expect(material).toContain('<thoughtbase-content kind="source-id">src-1</thoughtbase-content>'); // passed to the tool call
     expect(sys).toContain('propose_claims');
     expect(sys).toContain('verbatim');
   });

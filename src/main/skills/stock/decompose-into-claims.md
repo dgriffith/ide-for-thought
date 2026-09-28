@@ -9,15 +9,14 @@ context: [selectedText, fullNote]
 model: claude-sonnet-5
 web: false
 firstMessage: |-
-  {{#if selection}}Decompose this passage into individual claims. List each one with its kind so I can confirm or adjust before you file.
+  {{#if selection}}Decompose this passage into individual claims. List each one with its kind so I can confirm or adjust before you file.{{else}}{{#if note.content}}Decompose this passage into individual claims. List each one with its kind so I can confirm or adjust before you file.{{else}}Decompose the current passage into individual claims.{{/if}}{{/if}}
+  {{#context}}
+  {{#if selection}}{{#if note.title}}Selection from: {{note.title}}
 
-  {{#if note.title}}Selection from: {{note.title}}
+  {{/if}}{{selection | trim}}{{else}}{{#if note.content}}{{#if note.title}}Note: {{note.title}}
 
-  {{/if}}{{selection | trim}}{{else}}{{#if note.content}}Decompose this passage into individual claims. List each one with its kind so I can confirm or adjust before you file.
-
-  {{#if note.title}}Note: {{note.title}}
-
-  {{/if}}{{note.content | trim}}{{else}}Decompose the current passage into individual claims.{{/if}}{{/if}}
+  {{/if}}{{note.content | trim}}{{/if}}{{/if}}
+  {{/context}}
 longDescription: >-
   Opens a conversation that decomposes the selected passage (or the whole note) into individual claims, one per atom.
   Each claim is typed (factual / evaluative / definitional / predictive). When you are satisfied, the assistant proposes a bundle: a parent decomposition note plus one note per claim, each tagged so the graph treats them as `thought:Claim` nodes.
@@ -93,4 +92,10 @@ The frontmatter `claimKind`, `source-text`, `extracted-from`, and `extracted-by`
 
 ## Source note
 
-{{#if note.path}}The passage comes from `{{note.path}}`. Use `{{note.path | stem}}` as the wiki-link target everywhere the prompt says `<source-note-stem>`. Use `{{#if note.title}}{{note.title}}{{else}}{{note.path | stem}}{{/if}}` (or a short slug derived from it) in titles and basenames where the prompt says `<source-title>` / `<source-stem>`.{{else}}The passage was not pulled from a saved note. Skip the `decomposes:` and `extracted-from:` frontmatter keys — there is nothing to point them at — and use a generic stem like `passage` for derived filenames.{{/if}}
+{{#if note.path}}The passage comes from the note whose path is given in the user message ("Source note path"). Use its "Wiki-link target" everywhere the prompt says `<source-note-stem>`. Use its "Source title" (or a short slug derived from it) in titles and basenames where the prompt says `<source-title>` / `<source-stem>`.
+{{#context}}
+Source note path: {{note.path}}
+Wiki-link target: {{note.path | stem}}
+Source title: {{#if note.title}}{{note.title}}{{else}}{{note.path | stem}}{{/if}}
+{{/context}}
+{{else}}The passage was not pulled from a saved note. Skip the `decomposes:` and `extracted-from:` frontmatter keys — there is nothing to point them at — and use a generic stem like `passage` for derived filenames.{{/if}}

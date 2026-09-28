@@ -576,6 +576,7 @@ Related concepts:
 - Analogical reasoning (Hofstadter)
 - Dimensional analysis (Buckingham π theorem)
 - Queueing theory (Kendall notation)
+{{#context}}
 {{#if selection}}
 
 ## Selection
@@ -585,3 +586,4 @@ Related concepts:
 ## Note{{#if note.title}} — {{note.title}}{{/if}}
 
 {{note.content | trim}}{{/if}}{{/if}}
+{{/context}}

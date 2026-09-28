@@ -40,7 +40,7 @@ Cover the note's load-bearing ideas — the facts, definitions, distinctions, an
 When the user is satisfied, call `propose_notes` **exactly once** with a single note payload:
 
 - `relativePath`: a sibling of the source note named after it — e.g. if this note is `notes/raft.md`, propose `notes/Raft — Flashcards.md`. Keep the basename free of characters that are awkward to link to.
-- `content`: a level-1 heading (`# {{note.title}} — Flashcards`) followed by one `[!card]` callout per card, in this exact shape:
+- `content`: a level-1 heading (`# <note title> — Flashcards`, using the note title given in the user message) followed by one `[!card]` callout per card, in this exact shape:
 
   ```
   > [!card]
@@ -57,9 +57,11 @@ The user reviews the proposed note as an inline card; Approve files it through t
 
 If the note has little worth memorizing — it's a stub, a pure index, or all prose with no retainable facts — say so and propose nothing. Don't manufacture cards to look thorough, and don't split one idea into padded near-duplicates.
 
+{{#context}}
 ## Note{{#if note.title}} — {{note.title}}{{/if}}
 
 {{note.content}}
+{{/context}}
 {{else}}
 There's no active note to make flashcards from. Open a note and run Propose Flashcards from the Learning menu.
 {{/if}}

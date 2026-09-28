@@ -9,7 +9,7 @@ slashCommand: /deep-dive
 model: claude-sonnet-5
 web: true
 requiresSelection: true
-firstMessage: "Explain \"{{selection | trim}}\" in depth."
+firstMessage: "Explain the selected term in depth."
 longDescription: >-
   Opens a conversation that deep-dives a selected word or phrase, using the surrounding note as secondary context.
   Pick a depth — overview, standard (~500 words), or exhaustive (multi-section). The exhaustive mode is designed to be note-worthy; promote via Create Note from Conversation when ready.
@@ -33,10 +33,14 @@ Use the surrounding note to calibrate depth and angle — don't repeat what the 
 
 After the first response, iterate with the user — they may want more depth on one facet, a different angle, or to promote the result to a note.
 
-Term to deep-dive: **{{selection | trim}}**
+Depth: {{param.depth}}
 
-Depth: {{param.depth}}{{#if note}}
+The term to deep-dive and its surrounding note are in the user message.
+
+{{#context}}
+{{#if selection}}Term to deep-dive: **{{selection | trim}}**{{/if}}{{#if note}}
 
 ## Surrounding note{{#if note.title}} — {{note.title}}{{/if}}
 
 {{note.content}}{{/if}}
+{{/context}}

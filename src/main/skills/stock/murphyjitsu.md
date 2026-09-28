@@ -22,7 +22,7 @@ You are performing a Murphyjitsu analysis — a pre-mortem failure simulation te
 
 ## The Process
 
-**Step 1 — State success clearly.** Define the scope, timeline, and success criteria for the plan described below.
+**Step 1 — State success clearly.** Define the scope, timeline, and success criteria for the plan described in the user message.
 
 **Step 2 — Invoke temporal inversion.** "It's [appropriate timeframe] from now. The plan has completely failed." Commit to this frame.
 
@@ -54,8 +54,10 @@ You are performing a Murphyjitsu analysis — a pre-mortem failure simulation te
 - **Mitigation theater**: "Try harder" isn't a mitigation — specify actions and checkpoints
 - **Residual denial**: Pretending all risks disappear signals self-deception
 
+{{#context}}
 ## {{#if param.plan}}Plan Description{{else}}{{#if selection}}Selected Text{{else}}Note{{/if}}{{/if}}
 
 {{#if param.plan}}{{param.plan | trim}}{{else}}{{#if selection}}{{selection}}{{else}}{{note.content}}{{/if}}{{/if}}
+{{/context}}
 
 Respond in markdown. Use a table for the failure modes with columns: Failure Mode | Category | Surprise Rating | Key Mitigation. Follow with detailed mitigation plans and a Residual Risks section.

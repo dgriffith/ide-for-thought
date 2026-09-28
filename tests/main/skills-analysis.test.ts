@@ -55,10 +55,13 @@ describe('Analysis skills load + classify', () => {
     const def = defs.get(id)!;
     expect(def.outputMode).toBe('openConversation');
     expect(def.buildSystemPrompt).toBeDefined();
-    // Selection threads in under a Selection heading.
+    // Selection threads in under a Selection heading — in the user turn,
+    // delimited, never in the system prompt (#2438).
     const sys = def.buildSystemPrompt!({ selectedText: 'distinct-token-xyz' });
-    expect(sys).toContain('## Selection');
-    expect(sys).toContain('distinct-token-xyz');
+    expect(sys).not.toContain('distinct-token-xyz');
+    const material = def.buildUserContext!({ selectedText: 'distinct-token-xyz' });
+    expect(material).toContain('## Selection');
+    expect(material).toContain('<thoughtbase-content kind="selection">\ndistinct-token-xyz\n</thoughtbase-content>');
     // First message names the subject.
     expect(def.buildFirstMessage!({ selectedText: 'x' })).toMatch(/^For this selection, /);
     expect(def.buildFirstMessage!({ fullNoteContent: 'x' })).toMatch(/^For this note, /);
@@ -69,8 +72,12 @@ describe('Analysis skills load + classify', () => {
     expect(def.outputMode).toBe('newNote');
     expect(def.outputNotePrefix).toBeTruthy();
     expect(def.slashCommand).toMatch(/^\//);
+    // Instructions only; the note is the user turn, delimited (#2438).
     const prompt = def.buildPrompt({ fullNoteContent: 'note-token-abc' });
-    expect(prompt).toContain('note-token-abc');
+    expect(prompt.length).toBeGreaterThan(0);
+    expect(prompt).not.toContain('note-token-abc');
+    expect(def.buildUserContext!({ fullNoteContent: 'note-token-abc' }))
+      .toContain('<thoughtbase-content kind="note">\nnote-token-abc\n</thoughtbase-content>');
   });
 });
 
@@ -104,12 +111,14 @@ describe('Analysis parameter threading', () => {
 
   it('murphyjitsu prefers the plan param over note content', () => {
     const def = defs.get('planning.murphyjitsu')!;
-    const withPlan = def.buildPrompt({ fullNoteContent: 'NOTE', parameterValues: { plan: 'MY PLAN' } });
+    // The plan / note is the material, sent in the user turn (#2438).
+    const withPlan = def.buildUserContext!({ fullNoteContent: 'NOTE', parameterValues: { plan: 'MY PLAN' } });
     expect(withPlan).toContain('Plan Description');
     expect(withPlan).toContain('MY PLAN');
     expect(withPlan).not.toContain('NOTE');
-    const noPlan = def.buildPrompt({ fullNoteContent: 'NOTE', parameterValues: {} });
-    expect(noPlan).toContain('NOTE');
+    const noPlan = def.buildUserContext!({ fullNoteContent: 'NOTE', parameterValues: {} });
+    expect(noPlan).toContain('<thoughtbase-content kind="note">\nNOTE\n</thoughtbase-content>');
+    expect(def.buildPrompt({ fullNoteContent: 'NOTE', parameterValues: {} })).not.toContain('NOTE');
   });
 
   it('taboo substitutes the banned term throughout the prompt', () => {

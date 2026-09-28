@@ -125,6 +125,7 @@ Now that the real aversion is visible:
 See [examples](examples.md) for worked demonstrations.
 
 See [reference](reference.md) for aversion taxonomy, quality criteria, anti-patterns, and integration points.
+{{#context}}
 {{#if selection}}
 
 ## Selection
@@ -134,3 +135,4 @@ See [reference](reference.md) for aversion taxonomy, quality criteria, anti-patt
 ## Note{{#if note.title}} — {{note.title}}{{/if}}
 
 {{note.content | trim}}{{/if}}{{/if}}
+{{/context}}

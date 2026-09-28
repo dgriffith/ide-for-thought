@@ -10,9 +10,7 @@ slashCommand: /find-sources
 model: claude-sonnet-5
 web: true
 firstMessage: |-
-  {{#if selection}}Build me a reading list on this:
-
-  {{selection | blockquote}}{{else}}{{#if note}}Build me a reading list for what I'm working on in "{{note.title}}".{{else}}I'll tell you the topic — build me a candidate reading list, then I'll pick what to ingest.{{/if}}{{/if}}
+  {{#if selection}}Build me a reading list on this selection.{{else}}{{#if note}}Build me a reading list for what I'm working on in this note.{{else}}I'll tell you the topic — build me a candidate reading list, then I'll pick what to ingest.{{/if}}{{/if}}
 longDescription: >-
   Guided literature search. The assistant uses web search plus your existing notes to assemble a candidate reading list —
   title, authors, year, venue, and a one-line reason each — flagging what you already have. You pick which to actually
@@ -44,10 +42,20 @@ If the user wants the curated list kept, call `propose_notes` with **one** note 
 
 Recommend only what you'd actually defend. A short list of genuinely relevant sources beats a padded one — if the topic is narrow and three sources cover it, recommend three. Don't invent citations: every entry must be a real, locatable work. If you're unsure a paper exists as described, say so and offer to verify before the user spends time chasing it.
 
+{{#if selection}}
+{{#context}}
 ## Topic
-{{#if selection}}**Selected text:**
+
+**Selected text:**
 
 {{selection | blockquote}}
-{{else}}{{#if note}}**Active note:** {{note.title}}
+{{/context}}
+{{else}}{{#if note}}
+{{#context}}
+## Topic
 
-{{note.content}}{{/if}}{{/if}}
+**Active note:** {{note.title}}
+
+{{note.content}}
+{{/context}}
+{{/if}}{{/if}}

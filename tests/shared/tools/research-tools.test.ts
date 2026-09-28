@@ -33,7 +33,7 @@ describe('research.load-bearing-claim (#413, migrated #627)', () => {
     expect(defs.get('research.load-bearing-claim')!.requiresSelection).toBeFalsy();
   });
 
-  it('threads the source path into the system prompt without the .md suffix', () => {
+  it('threads the source path into the user-turn context, with a stem wiki-link target (#2438)', () => {
     const payload = buildConversationPayload(
       defs.get('research.load-bearing-claim')!,
       {},
@@ -45,8 +45,14 @@ describe('research.load-bearing-claim (#413, migrated #627)', () => {
         },
       },
     );
-    expect(payload.systemPrompt).toContain('notes/standup-2026-04-26.md');
-    expect(payload.systemPrompt).toMatch(/`notes\/standup-2026-04-26`/);
+    expect(payload.systemPrompt).not.toContain('notes/standup-2026-04-26');
+    expect(payload.systemPrompt).toContain('Wiki-link target');
+    expect(payload.skillContext).toContain(
+      'Source note path: <thoughtbase-content kind="note-path">notes/standup-2026-04-26.md</thoughtbase-content>',
+    );
+    expect(payload.skillContext).toContain(
+      'Wiki-link target: <thoughtbase-content kind="note-path">notes/standup-2026-04-26</thoughtbase-content>',
+    );
   });
 
   it('teaches the typed-wiki-link convention so structure flows through indexing', () => {
@@ -64,14 +70,20 @@ describe('research.load-bearing-claim (#413, migrated #627)', () => {
     expect(sys).toMatch(/load-bearing-for/);
   });
 
-  it('builds a first message that includes the passage and a source label', () => {
+  it('carries the passage and its source label in the user-turn context, not the first message (#2438)', () => {
     const payload = buildConversationPayload(
       defs.get('research.load-bearing-claim')!,
       {},
       { context: { selectedText: 'A then B then therefore C.', fullNoteContent: 'full note body', fullNoteTitle: 'argument' } },
     );
-    expect(payload.firstMessage).toContain('A then B then therefore C.');
-    expect(payload.firstMessage).toMatch(/Selection from: argument/);
+    expect(payload.firstMessage).toBe('Find the load-bearing claim in this passage.');
+    expect(payload.systemPrompt).not.toContain('A then B then therefore C.');
+    expect(payload.skillContext).toContain(
+      '<thoughtbase-content kind="selection">\nA then B then therefore C.\n</thoughtbase-content>',
+    );
+    expect(payload.skillContext).toContain(
+      'Selection from: <thoughtbase-content kind="note-title">argument</thoughtbase-content>',
+    );
   });
 
   it('handles the no-passage edge by operating on the current passage', () => {

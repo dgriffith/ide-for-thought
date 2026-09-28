@@ -103,6 +103,7 @@ Either investigate now (using the appropriate skill — innerloop for prediction
 
 See [examples.md](examples.md) for worked examples.
 See [reference.md](reference.md) for quality criteria, anti-patterns, and integration points.
+{{#context}}
 {{#if selection}}
 
 ## Selection
@@ -112,3 +113,4 @@ See [reference.md](reference.md) for quality criteria, anti-patterns, and integr
 ## Note{{#if note.title}} — {{note.title}}{{/if}}
 
 {{note.content | trim}}{{/if}}{{/if}}
+{{/context}}

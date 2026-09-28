@@ -114,6 +114,7 @@ Either:
 
 - For worked examples, see [examples.md](examples.md)
 - For quality criteria, anti-patterns, and integration points, see [reference.md](reference.md)
+{{#context}}
 {{#if selection}}
 
 ## Selection
@@ -123,3 +124,4 @@ Either:
 ## Note{{#if note.title}} — {{note.title}}{{/if}}
 
 {{note.content | trim}}{{/if}}{{/if}}
+{{/context}}

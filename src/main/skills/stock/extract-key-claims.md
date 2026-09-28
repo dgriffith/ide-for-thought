@@ -9,7 +9,7 @@ outputMode: openConversation
 context: [sourceMetadata, sourceBody]
 model: claude-opus-5
 firstMessage: |-
-  {{#if source}}{{#if source.body}}Extract the key claims from "{{source.title}}" — each with a verbatim supporting quote and a confidence — for my review.{{else}}This source has no extracted body text to mine yet — ingest or add its body.md first.{{/if}}{{else}}Open a source first, then run Extract Key Claims from its Tools menu.{{/if}}
+  {{#if source}}{{#if source.body}}Extract the key claims from this source — each with a verbatim supporting quote and a confidence — for my review.{{else}}This source has no extracted body text to mine yet — ingest or add its body.md first.{{/if}}{{else}}Open a source first, then run Extract Key Claims from its Tools menu.{{/if}}
 longDescription: >-
   Reads this source's body and identifies the central claims it makes — not every atom, the load-bearing
   ones. For each it proposes the claim, its kind, a verbatim supporting quote, and a confidence. On
@@ -39,15 +39,19 @@ A claim is one distinct assertion presented as true. Extract the **central, load
 
 ## Filing the result
 
-When the user is satisfied, call `propose_claims` exactly once with `{ sourceId: {{source.id}}, claims: [{ text, kind, quote, confidence }, …] }`. Each claim becomes a `thought:Claim` note citing a `thought:Excerpt` (its evidence) with its confidence — after the user approves the inline card. Do not paste the claims as prose instead of calling the tool; the tool is what makes them reviewable and filable.
+When the user is satisfied, call `propose_claims` exactly once with `{ sourceId: <the source id given in the user message, verbatim>, claims: [{ text, kind, quote, confidence }, …] }`. Each claim becomes a `thought:Claim` note citing a `thought:Excerpt` (its evidence) with its confidence — after the user approves the inline card. Do not paste the claims as prose instead of calling the tool; the tool is what makes them reviewable and filable.
 
 ## Anti-flattery
 
 If the source makes no strong claims — it's purely descriptive, or only raises questions — say so and file nothing. Do not invent claims to look thorough. Reserve high confidence for claims the source plainly asserts.
 
+{{#context}}
 ## Source: {{source.title}}
 
+Source id: {{source.id}}
+
 {{source.body}}
+{{/context}}
 {{else}}
 This source has no readable body text, so there's nothing to mine. Ask the user to ingest the source's full text (or add a `body.md`) and try again.
 {{/if}}

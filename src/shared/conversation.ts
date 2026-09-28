@@ -107,6 +107,7 @@ export interface ConversationSkill {
 
 export interface ConversationCreateOptions {
   systemPrompt?: string;
+  skillContext?: string;
   model?: string;
   webEnabled?: boolean;
   skill?: ConversationSkill;
@@ -140,6 +141,14 @@ export interface Conversation {
    * conversation was launched from a `outputMode: 'openConversation'` tool.
    */
   systemPrompt?: string;
+  /**
+   * The launching skill's thoughtbase material — note, selection, claim or
+   * source text, each wrapped in a `<thoughtbase-content>` delimiter (#2438).
+   * Never part of the system prompt: main prepends it to the first user turn
+   * on every send (`llm/skill-context.ts`). Kept off `messages` so the chat
+   * shows the skill's short first message, not the whole note.
+   */
+  skillContext?: string;
   /**
    * Per-conversation web-search override (#1533). `undefined` inherits the
    * global `LLMSettings.web.enabled`; `true`/`false` pin web on/off for this

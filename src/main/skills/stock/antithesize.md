@@ -652,6 +652,7 @@ done well, thesis-holder should say "that's a strong counter, i need to think ab
 the goal isn't to WIN—it's to find TRUTH via collision of complete worldviews.
 
 Contract: {{param.intensity}}
+{{#context}}
 {{#if selection}}
 
 ## Selection
@@ -661,3 +662,4 @@ Contract: {{param.intensity}}
 ## Note{{#if note.title}} — {{note.title}}{{/if}}
 
 {{note.content | trim}}{{/if}}{{/if}}
+{{/context}}

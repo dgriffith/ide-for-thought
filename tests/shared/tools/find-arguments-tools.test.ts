@@ -41,22 +41,38 @@ describe('Find Supporting / Opposing Arguments (#409 / #410, migrated #627)', ()
     // The renderer's pre-invoke check still prevents this path in practice.
     const tool = defs.get('research.find-supporting-arguments')!;
     expect(() => tool.buildSystemPrompt!({})).not.toThrow();
-    expect(tool.buildSystemPrompt!({})).toContain('**URI:**');
+    // The claim block is material, so it lives in the user-turn context (#2438).
+    expect(tool.buildSystemPrompt!({})).not.toContain('**URI:**');
+    expect(tool.buildUserContext!({})).toContain('**URI:**');
   });
 
-  it('threads the claim URI into the system prompt as the literal IRI value of the polarity-specific frontmatter', () => {
+  it('teaches the polarity-specific frontmatter and hands the claim URI over in the user-turn context (#2438)', () => {
     const claim = {
       claimUri: 'https://minerva.dev/c/claim-abc',
       claimLabel: 'Z is true.',
       claimSourceText: 'Of course Z is the case.',
     };
-    const supportSys = defs.get('research.find-supporting-arguments')!.buildSystemPrompt!(claim);
-    const opposeSys = defs.get('research.find-opposing-arguments')!.buildSystemPrompt!(claim);
+    const support = defs.get('research.find-supporting-arguments')!;
+    const oppose = defs.get('research.find-opposing-arguments')!;
+    const supportSys = support.buildSystemPrompt!(claim);
+    const opposeSys = oppose.buildSystemPrompt!(claim);
 
-    expect(supportSys).toContain('supports: https://minerva.dev/c/claim-abc');
+    expect(supportSys).toContain('supports: <the claim URI given in the user message>');
     expect(supportSys).not.toContain('rebuts:');
-    expect(opposeSys).toContain('rebuts: https://minerva.dev/c/claim-abc');
+    expect(opposeSys).toContain('rebuts: <the claim URI given in the user message>');
     expect(opposeSys).not.toContain('supports:');
+    for (const sys of [supportSys, opposeSys]) {
+      expect(sys).not.toContain('https://minerva.dev/c/claim-abc');
+      expect(sys).not.toContain('Z is true.');
+    }
+    for (const def of [support, oppose]) {
+      expect(def.buildUserContext!(claim)).toContain(
+        '**URI:** <thoughtbase-content kind="claim-uri">https://minerva.dev/c/claim-abc</thoughtbase-content>',
+      );
+      expect(def.buildUserContext!(claim)).toContain(
+        '**Label:** <thoughtbase-content kind="claim-label">Z is true.</thoughtbase-content>',
+      );
+    }
 
     expect(supportSys).toMatch(/do \*\*not\*\* soften|do not soften/i);
     expect(opposeSys).toMatch(/do \*\*not\*\* weaken|do not weaken/i);
@@ -67,17 +83,20 @@ describe('Find Supporting / Opposing Arguments (#409 / #410, migrated #627)', ()
     }
   });
 
-  it('threads the claim source-text into the prompt as a blockquote', () => {
-    const sys = defs.get('research.find-supporting-arguments')!.buildSystemPrompt!({
+  it('threads the claim source-text into the user-turn context as a delimited blockquote', () => {
+    const def = defs.get('research.find-supporting-arguments')!;
+    const ctx = {
       claimUri: 'https://minerva.dev/c/claim-x',
       claimLabel: 'X.',
       claimSourceText: 'Quoted source line one.\nQuoted source line two.',
-    });
-    expect(sys).toContain('> Quoted source line one.');
-    expect(sys).toContain('> Quoted source line two.');
+    };
+    expect(def.buildSystemPrompt!(ctx)).not.toContain('Quoted source line');
+    expect(def.buildUserContext!(ctx)).toContain(
+      '<thoughtbase-content kind="claim-source-text">\n> Quoted source line one.\n> Quoted source line two.\n</thoughtbase-content>',
+    );
   });
 
-  it('builds a first message that names the polarity verb and carries the claim label', () => {
+  it('builds a first message that names the polarity verb; the claim label rides in the context (#2438)', () => {
     const ctx = {
       claimUri: 'https://minerva.dev/c/claim-x',
       claimLabel: 'X is the case.',
@@ -86,9 +105,11 @@ describe('Find Supporting / Opposing Arguments (#409 / #410, migrated #627)', ()
     const supportPayload = buildConversationPayload(defs.get('research.find-supporting-arguments')!, {}, { context: ctx });
     const opposePayload = buildConversationPayload(defs.get('research.find-opposing-arguments')!, {}, { context: ctx });
 
-    expect(supportPayload.firstMessage).toMatch(/support/);
-    expect(supportPayload.firstMessage).toContain('X is the case.');
-    expect(opposePayload.firstMessage).toMatch(/rebut/);
-    expect(opposePayload.firstMessage).toContain('X is the case.');
+    expect(supportPayload.firstMessage).toMatch(/^Find the strongest arguments that support this claim\./);
+    expect(opposePayload.firstMessage).toMatch(/^Find the strongest arguments that rebut this claim\./);
+    for (const p of [supportPayload, opposePayload]) {
+      expect(p.firstMessage).not.toContain('X is the case.');
+      expect(p.skillContext).toContain('<thoughtbase-content kind="claim-label">X is the case.</thoughtbase-content>');
+    }
   });
 });

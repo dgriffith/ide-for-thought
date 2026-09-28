@@ -19,8 +19,9 @@ Produce 3–5 varied examples. Prefer real-world cases. Span multiple domains wh
 
 Keep each example short and self-contained: one sentence setting it up, one or two sentences on why it illustrates the point. After the first set, iterate with the user — different domains, more extreme cases, a single example in more depth, etc.
 {{#if note}}
-
+{{#context}}
 ## Note{{#if note.title}} — {{note.title}}{{/if}}
 
 {{note.content}}
+{{/context}}
 {{/if}}

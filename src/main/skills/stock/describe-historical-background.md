@@ -10,9 +10,7 @@ slashCommand: /historical-background
 model: claude-opus-5
 web: true
 firstMessage: |-
-  {{#if selection}}Trace the historical background of this:
-
-  {{selection | blockquote}}{{else}}{{#if note}}Trace the historical background of what I'm working on in "{{note.title}}".{{else}}I'll name the topic — trace its historical background.{{/if}}{{/if}}
+  {{#if selection}}Trace the historical background of this selection.{{else}}{{#if note}}Trace the historical background of what I'm working on in this note.{{else}}I'll name the topic — trace its historical background.{{/if}}{{/if}}
 longDescription: >-
   Opens a web-grounded conversation that lays down the temporal context of a subject: where it came from,
   the handful of developments that actually moved it, and how today's understanding came to be. Even-handed
@@ -39,10 +37,20 @@ Search the web for dates and claims that carry weight (`web_search` / `web_fetch
 ## Filing the result (offer)
 When the account is in good shape, offer to file it as a note via `propose_notes` — **one** note, the chronological account with its web citations, titled for the topic (e.g. `<Topic> — historical background`). A chronology makes a stable reference the user keeps and links from other notes. File only when the user says yes.
 
+{{#if selection}}
+{{#context}}
 ## Topic
-{{#if selection}}**Selected text:**
+
+**Selected text:**
 
 {{selection | blockquote}}
-{{else}}{{#if note}}**Active note:** {{note.title}}
+{{/context}}
+{{else}}{{#if note}}
+{{#context}}
+## Topic
 
-{{note.content}}{{/if}}{{/if}}
+**Active note:** {{note.title}}
+
+{{note.content}}
+{{/context}}
+{{/if}}{{/if}}

@@ -82,7 +82,7 @@ const BUDGETS: Record<string, number> = {
   // channel by construction, so a bump here is the expected remedy, not a
   // smell.
   'src/renderer/lib/ipc/client.ts': 1381,  // #2439: mcp_call confirm reply/subscription + resetAllowedTools; #2411: menu.onRevealFile; #2363/#2364: doc comments on graph.query + git.commit contracts
-  'src/renderer/lib/stores/conversations.svelte.ts': 1230, // +39: mcp_call confirmation card state, beside ask_user's (#2439); +26: turn start/settle screen-reader announcements (#2374)
+  'src/renderer/lib/stores/conversations.svelte.ts': 1234, // +4: carry a skill's user-turn material through open + /clear (#2438); +39: mcp_call confirmation card state, beside ask_user's (#2439); +26: turn start/settle screen-reader announcements (#2374)
   'src/renderer/lib/components/Editor.svelte': 854,
   'src/renderer/lib/stores/editor.svelte.ts': 914,
     'src/renderer/lib/components/right-sidebar/PropertiesPanel.svelte': 1156,

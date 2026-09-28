@@ -11,13 +11,27 @@
 import type { ThinkingToolDef, ToolContext } from '../../shared/tools/types';
 import { menuToCategory, type SkillDef } from '../../shared/skills/types';
 import type { ConversationToolKey } from '../../shared/conversation-tools';
-import { renderTemplate, toRenderContext } from './template';
+import { renderTemplateDiagnostic, toRenderContext } from './template';
 
 const CONVERSATION_TOOL_KEYS: readonly ConversationToolKey[] = ['ask_user'];
 
 export function compileSkill(skill: SkillDef): ThinkingToolDef {
-  const render = (template: string, ctx: ToolContext): string =>
-    renderTemplate(template, toRenderContext(ctx));
+  // `note`-type params carry a thoughtbase path + note text (#2438).
+  const noteParams = skill.parameters.filter((p) => p.type === 'note').map((p) => p.id);
+  const renderBoth = (template: string, ctx: ToolContext) =>
+    renderTemplateDiagnostic(template, toRenderContext(ctx, noteParams));
+  const render = (template: string, ctx: ToolContext): string => renderBoth(template, ctx).text;
+  // The first user turn's material: every {{#context}} block of the body, then
+  // of firstMessage (plus anything auto-routed out of either).
+  const userContext = (ctx: ToolContext): string => {
+    const pieces = [...renderBoth(skill.body, ctx).context];
+    if (skill.firstMessage) {
+      for (const piece of renderBoth(skill.firstMessage, ctx).context) {
+        if (!pieces.includes(piece)) pieces.push(piece);
+      }
+    }
+    return pieces.join('\n\n');
+  };
 
   // `tools:` is, for now, the set of opt-in conversation tools the skill wants
   // on top of the default set (only `ask_user` exists today). Unknown entries
@@ -37,6 +51,7 @@ export function compileSkill(skill: SkillDef): ThinkingToolDef {
     parameters: skill.parameters,
     outputMode: skill.outputMode,
     buildPrompt: (ctx) => render(skill.body, ctx),
+    buildUserContext: userContext,
     requiresSelection: skill.requiresSelection,
     web: { defaultEnabled: skill.web },
   };

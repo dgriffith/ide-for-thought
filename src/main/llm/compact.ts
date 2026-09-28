@@ -139,8 +139,9 @@ export async function compactConversation(
   // Archive the original (files the full transcript as a thought:Source —
   // recoverable) before opening the compacted continuation.
   await conversation.archive(rootPath, convId);
-  const createOpts: { systemPrompt?: string; model?: string; webEnabled?: boolean } = {};
+  const createOpts: import('../../shared/conversation').ConversationCreateOptions = {};
   if (conv.systemPrompt) createOpts.systemPrompt = conv.systemPrompt;
+  if (conv.skillContext) createOpts.skillContext = conv.skillContext;
   if (conv.model) createOpts.model = conv.model;
   if (conv.webEnabled !== undefined) createOpts.webEnabled = conv.webEnabled;
   const fresh = await conversation.create(
