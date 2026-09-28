@@ -18,6 +18,7 @@ import { loadCsvSchema, buildReadCsvSql } from './csv-schema';
 import { logger } from '../../shared/logger';
 import { lockToDirectories } from './duckdb-lockdown';
 import { createCsvSniffer, type CsvSniffer } from './csv-sniffer';
+import { guardModelSql, type SqlGuardVerdict } from './llm-sql-guard';
 
 interface TablesState {
   rootPath: string;
@@ -180,6 +181,20 @@ export async function runQuery(ctx: ProjectContext, sql: string): Promise<QueryR
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
+}
+
+/**
+ * Decide whether model-authored `sql` may run (#2442): only registered
+ * relations and a few pure table functions, never a file. The LLM
+ * `query_sql` path calls this before `runQuery`; no other caller does.
+ */
+export async function checkModelSql(ctx: ProjectContext, sql: string): Promise<SqlGuardVerdict> {
+  const state = getState(ctx);
+  if (!state) return { ok: false, reason: 'Tables DB is not initialized' };
+  return guardModelSql(async (q, params) => {
+    const reader = await state.connection.runAndReadAll(q, [...params]);
+    return reader.getRowObjectsJS();
+  }, sql);
 }
 
 // ── CSV pipeline (#233) ─────────────────────────────────────────────────────

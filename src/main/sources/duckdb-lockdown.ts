@@ -32,6 +32,10 @@
  * file outside it no longer registers: the same rule `assertSafePath` applies
  * to every other reader (#2357).
  *
+ * The lock cannot exclude a subdirectory of the root, so `<root>/.minerva/`
+ * stays readable here. `query_sql` is closed off from it separately, by the
+ * relation allowlist in `llm-sql-guard.ts` (#2442).
+ *
  * Verified against DuckDB 1.5.3 in `tests/main/sources/tables-lockdown.test.ts`.
  */
 

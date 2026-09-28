@@ -3,8 +3,10 @@ import * as tables from '../../sources/tables';
 import { coerceDuckBigInt } from '../../compute/duck-values';
 import type { NotebaseTool, ToolContext } from './types';
 
+// A cheap first pass. The real gate is `tables.checkModelSql` (#2442), which
+// parses the statement with DuckDB and admits only registered relations.
 const SQL_READONLY_FIRST_WORDS = new Set([
-  'SELECT', 'WITH', 'DESCRIBE', 'SHOW', 'EXPLAIN', 'SUMMARIZE', 'TABLE', 'FROM', 'VALUES', 'PIVOT', 'UNPIVOT',
+  'SELECT', 'WITH', 'DESCRIBE', 'SHOW', 'SUMMARIZE', 'TABLE', 'FROM', 'VALUES',
 ]);
 const QUERY_SQL_ROW_CAP = 200;
 
@@ -40,12 +42,17 @@ async function runQuerySql(ctx: ToolContext, input: unknown): Promise<{ content:
   if (!firstWord || !SQL_READONLY_FIRST_WORDS.has(firstWord)) {
     return {
       content:
-        'query_sql is read-only — start with SELECT / WITH / DESCRIBE / SHOW / EXPLAIN / SUMMARIZE. ' +
+        'query_sql is read-only — start with SELECT / WITH / FROM / DESCRIBE / SHOW / SUMMARIZE. ' +
         'Use propose_compute to propose a cell for anything that modifies state.',
       isError: true,
     };
   }
-  const response = await tables.runQuery(projectContext(ctx.rootPath), trimmed);
+  const pctx = projectContext(ctx.rootPath);
+  // Only registered tables/views, never a file — `.minerva/` is inside the
+  // root the DuckDB lockdown allows (#2442). See sources/llm-sql-guard.ts.
+  const verdict = await tables.checkModelSql(pctx, trimmed);
+  if (!verdict.ok) return { content: verdict.reason, isError: true };
+  const response = await tables.runQuery(pctx, trimmed);
   if (!response.ok) {
     return {
       content: `SQL error: ${response.error}\n\nCall describe_tables to see available tables and columns.`,
@@ -71,8 +78,11 @@ export const querySql: NotebaseTool = {
       'Run a read-only SQL query against the thoughtbase\'s DuckDB and get ' +
       'the rows back. Use this to actually inspect CSV table data (count, ' +
       'filter, join, aggregate) and reason over the result. This is the SQL ' +
-      'counterpart to query_graph. Read-only: only SELECT / WITH / DESCRIBE ' +
-      '/ SHOW / EXPLAIN / SUMMARIZE queries run; one statement at a time. If ' +
+      'counterpart to query_graph. Read-only: only SELECT / WITH / FROM / ' +
+      'DESCRIBE / SUMMARIZE / SHOW TABLES queries run, one statement at a ' +
+      'time, over the registered tables and views (plus range() / ' +
+      'generate_series() / unnest()) — file functions like read_csv are not ' +
+      'available here. If ' +
       'you are unsure about table or column names, call describe_tables ' +
       'first. (Use propose_compute instead when the user should review and ' +
       'keep the query as a cell.)',
