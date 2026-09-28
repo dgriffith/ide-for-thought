@@ -1534,10 +1534,19 @@ touch the tool surface:
   trusted context.
 - **`mcp_call` reaches only advertised tools** of configured, connected
   servers. Whether it needs a confirmation gate is #2439.
+- **The tables DuckDB is locked to the thoughtbase root** (#2437).
+  `initTablesDb` sets `allowed_directories` to the realpath'd root,
+  `enable_external_access = false` and `lock_configuration = true`, so
+  `read_text`/`read_csv`/`glob`/`COPY … TO`/`ATTACH` outside it are refused
+  for every caller of that instance — `query_sql`, the Query panel, SQL cells,
+  `minerva.sql()`, vega — and can't be re-enabled. Root only, by decision: no
+  allowlist, because a directory the user's SQL can read is one a prompt
+  injection can read. Markdown tables are typed by a private sniffer instance
+  (`sources/csv-sniffer.ts`) instead of a temp CSV on the shared connection.
+  `tests/main/sources/tables-lockdown.test.ts` holds the refusal matrix.
 
-Known open gaps: `query_sql` can read outside the root (#2437, pinned as
-`it.fails`). Skill context renders untrusted note/source text into the system
-prompt (#2438).
+Known open gap: skill context renders untrusted note/source text into the
+system prompt (#2438).
 
 ### Integrity Query
 

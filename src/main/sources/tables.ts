@@ -1,7 +1,5 @@
 import fs from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
-import crypto from 'node:crypto';
 import YAML from 'yaml';
 import type { DuckDBInstance, DuckDBConnection } from '@duckdb/node-api';
 import { duckdb } from '../duckdb-lazy';
@@ -18,6 +16,8 @@ import type { ProjectContext } from '../project-context-types';
 import { createProjectStore } from '../project-store';
 import { loadCsvSchema, buildReadCsvSql } from './csv-schema';
 import { logger } from '../../shared/logger';
+import { lockToDirectories } from './duckdb-lockdown';
+import { createCsvSniffer, type CsvSniffer } from './csv-sniffer';
 
 interface TablesState {
   rootPath: string;
@@ -64,6 +64,12 @@ interface TablesState {
    * with no watcher running, not the primary signal.
    */
   csvRowCounts: Map<string, { mtimeMs: number; size: number; rowCount: number }>;
+  /**
+   * The private DuckDB that types markdown-table cells (#2437), created on the
+   * first captioned table. The promise is cached so concurrent registrations
+   * share one instance instead of racing to create two.
+   */
+  sniffer: Promise<CsvSniffer> | null;
 }
 
 // Dispose closes the in-memory DuckDB (connection then instance) before the
@@ -72,6 +78,8 @@ const store = createProjectStore<TablesState>({
   dispose: (state) => {
     try { state.connection.closeSync(); } catch { /* already closed */ }
     try { state.instance.closeSync(); } catch { /* already closed */ }
+    state.sniffer?.then((s) => s.close(), () => { /* never opened */ })
+      .catch((err: unknown) => logger('tables').warn('closing the markdown-table sniffer failed:', err));
   },
 });
 
@@ -105,7 +113,17 @@ export async function initTablesDb(ctx: ProjectContext): Promise<void> {
   const { DuckDBInstance } = await duckdb();
   const instance = await DuckDBInstance.create(':memory:');
   const connection = await instance.connect();
-  await hardenConnection(connection);
+  try {
+    await hardenConnection(connection);
+    // Root only (#2437): see duckdb-lockdown.ts for what this refuses and why
+    // there is deliberately no allowlist beyond the thoughtbase.
+    await lockToDirectories(connection, [ctx.rootPath]);
+  } catch (err) {
+    // Fail closed: an instance we couldn't lock down is never registered.
+    try { connection.closeSync(); } catch { /* already closed */ }
+    try { instance.closeSync(); } catch { /* already closed */ }
+    throw err;
+  }
   store.set(ctx, {
     rootPath: ctx.rootPath,
     instance,
@@ -115,6 +133,7 @@ export async function initTablesDb(ctx: ProjectContext): Promise<void> {
     noteTables: new Map(),
     tableToNote: new Map(),
     csvRowCounts: new Map(),
+    sniffer: null,
   });
 }
 
@@ -131,11 +150,7 @@ export async function initTablesDb(ctx: ProjectContext): Promise<void> {
  * CSV pipeline relies on (`read_csv_auto`, `read_csv`) fully functional —
  * they need no extension.
  *
- * Local file *read* via core built-ins (`read_text`, `read_csv_auto` of an
- * arbitrary path) is a core capability we can't drop without breaking CSV
- * views; that residual is covered by the per-project compute trust gate
- * (`renderer/lib/app/compute-ops.ts`). This is the network half of the
- * defense-in-depth pair.
+ * Local file access is the other half, closed by `lockToDirectories` (#2437).
  */
 async function hardenConnection(connection: DuckDBConnection): Promise<void> {
   await connection.run(
@@ -406,8 +421,8 @@ export async function unregisterCsv(ctx: ProjectContext, relativePath: string): 
 /**
  * Materialize a captioned markdown table into the shared DuckDB as a real
  * TABLE (not a VIEW — an embedded table has no backing file to `read_csv`
- * lazily). The rows are serialized to CSV text and loaded through DuckDB's
- * CSV sniffer so **type inference matches the standalone-`.csv` path** (a
+ * lazily). The rows are serialized to CSV text and typed by DuckDB's CSV
+ * sniffer so **type inference matches the standalone-`.csv` path** (a
  * numeric column comes back numeric).
  *
  * Opt-in: only tables carrying a `name` (from a `Table: <caption>` line, #1356)
@@ -448,18 +463,20 @@ export async function registerMarkdownTable(
     return { ok: false, reason: 'collision', collision };
   }
 
-  // Round-trip the cells through a temp CSV so DuckDB's sniffer types them.
+  // DuckDB's own CSV sniffer types the cells, on a private instance — the
+  // shared connection is locked to the root and never touches a temp file
+  // (#2437, see csv-sniffer.ts for why a TRY_CAST re-implementation won't do).
   const csvText = serializeCsv(table.headers, table.rows);
-  const tmpPath = path.join(os.tmpdir(), `minerva-mdtable-${crypto.randomUUID()}.csv`);
   try {
-    await fs.writeFile(tmpPath, csvText, 'utf-8');
-    const escaped = tmpPath.replace(/'/g, "''");
-    // header=true: we always emit a header row, so don't leave it to sniffing.
-    // null_padding=true: tolerate short rows in a hand-written markdown table.
-    await connection.run(
-      `CREATE OR REPLACE TABLE "${tableName}" AS SELECT * FROM ` +
-      `read_csv_auto('${escaped}', header=true, null_padding=true)`,
-    );
+    state.sniffer ??= createCsvSniffer();
+    let sniffer: CsvSniffer;
+    try {
+      sniffer = await state.sniffer;
+    } catch (err) {
+      state.sniffer = null; // let the next table retry rather than caching a failure
+      throw err;
+    }
+    await sniffer.loadInto(connection, tableName, csvText);
     const entries = noteTables.get(notePath) ?? [];
     entries.push({ name: tableName, tableIndex, caption: table.caption ?? tableName });
     noteTables.set(notePath, entries);
@@ -475,8 +492,6 @@ export async function registerMarkdownTable(
       `'${notePath}': ` + (err instanceof Error ? err.message : String(err)),
     );
     return { ok: false, reason: 'error', error: err };
-  } finally {
-    await fs.rm(tmpPath, { force: true }).catch(() => { /* best-effort cleanup */ });
   }
 }
 

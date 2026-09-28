@@ -214,7 +214,6 @@ const SWALLOW_EXPR_BASELINE: Record<string, number> = {
   'src/main/publish/exporters/static-site/index.ts': 1,
   'src/main/sources/api-adapters/pubmed.ts': 1,
   'src/main/sources/ingest.ts': 1,
-  'src/main/sources/tables.ts': 1,
   'src/main/types/write.ts': 1,
   'src/renderer/lib/components/Preview.svelte': 1,
   'src/renderer/lib/components/right-sidebar/CitationsPanel.svelte': 1,

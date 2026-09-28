@@ -21,6 +21,7 @@ import {
   buildSearchHtml,
 } from './live-blocks';
 import { logger } from '../../../shared/logger';
+import { withSqlAccessHint } from '../../../shared/sql-access-hint';
 
 export interface QueryBlockDeps {
   /** Project-relative path of the note being previewed; used by the read-only
@@ -223,7 +224,7 @@ export async function executeQueryBlock(deps: QueryBlockDeps, el: HTMLElement): 
 
 function renderQueryResults(deps: QueryBlockDeps, el: HTMLElement, type: string, config: Record<string, string>, results: unknown[], error?: string): void {
   if (error) {
-    el.innerHTML = `<p class="query-error">${escapeHtml(error)}</p>`;
+    el.innerHTML = `<p class="query-error">${escapeHtml(withSqlAccessHint(error))}</p>`;
     return;
   }
 

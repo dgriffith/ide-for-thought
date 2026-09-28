@@ -16,6 +16,7 @@ import {
 } from '../editor/tab-types';
 import { buildSession, normalizeSession, resolveRestoredSession } from '../editor/tab-session';
 import { logger } from '../../../shared/logger';
+import { withSqlAccessHint } from '../../../shared/sql-access-hint';
 
 // ── Tab types ───────────────────────────────────────────────────────────────
 // Moved to ../editor/tab-types.ts (#1919) so the session-serialization module
@@ -684,7 +685,7 @@ function buildEditorStore() {
         const response = await api.tables.query(tab.query);
         tab.executionTime = Math.round(performance.now() - start);
         if (!response.ok) {
-          tab.error = response.error;
+          tab.error = withSqlAccessHint(response.error);
         } else {
           tab.columns = response.columns;
           tab.results = normalizeSqlRows(response.columns, response.rows);

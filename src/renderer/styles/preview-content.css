@@ -422,6 +422,7 @@
         background: var(--bg-button);
         padding: 8px 12px;
         border-radius: 4px;
+        white-space: pre-wrap;
     }
 
 .preview .query-title {

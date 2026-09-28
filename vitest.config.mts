@@ -213,6 +213,16 @@ export default defineConfig({
           statements: 78,
           branches: 65,
         },
+        // The DuckDB file-access lockdown (#2437) is its own trust boundary —
+        // it is what keeps `query_sql` inside the thoughtbase — so the
+        // `sources/**` aggregate must not be able to carry it. 100% at
+        // floor-time via `tables-lockdown.test.ts`.
+        'src/main/sources/duckdb-lockdown.ts': {
+          lines: 95,
+          functions: 95,
+          statements: 95,
+          branches: 90,
+        },
         // Local note history (#1158) — capture, retention, labels, the limits.
         // Measured at floor-time: 92% L / 100% F / 91% S / 88% B; floors ~10
         // points below so a refactor won't flap but new untested code fails.
