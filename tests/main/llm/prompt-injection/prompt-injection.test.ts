@@ -35,7 +35,9 @@
  *     system prompt, never as user text.
  *
  *   - `query_sql` cannot reach a file outside the root through DuckDB's file
- *     functions: the tables instance is locked to the thoughtbase (#2437).
+ *     functions: the tables instance is locked to the thoughtbase (#2437);
+ *     nor `.minerva/` inside it: query_sql admits only registered relations
+ *     (#2442).
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'node:fs';
@@ -435,5 +437,39 @@ describe('prompt-injection corpus: the tool surface holds against a compromised 
     ]);
     for (const req of requests) expect(JSON.stringify(req)).not.toContain(SECRET);
     expect(calls.slice(1).every((c) => c.isError)).toBe(true);
+  }, 30_000);
+
+  // `.minerva/` is INSIDE the root the lockdown allows, so #2437 alone lets
+  // query_sql read past conversations and secrets.json. The relation
+  // allowlist on the query_sql path refuses every file read (#2442).
+  it('query_sql cannot read .minerva/conversations or .minerva/secrets.json (#2442)', async () => {
+    const convCanary = `CANARY-2442-CONVO-${crypto.randomUUID()}`;
+    const secretCanary = `CANARY-2442-SECRET-${crypto.randomUUID()}`;
+    const minerva = path.join(project.root, '.minerva');
+    fs.mkdirSync(path.join(minerva, 'conversations'), { recursive: true });
+    fs.writeFileSync(path.join(minerva, 'conversations', 'conv-old.json'), JSON.stringify({ messages: [{ role: 'user', content: convCanary }] }));
+    fs.writeFileSync(path.join(minerva, 'secrets.json'), JSON.stringify({ anthropic: secretCanary }));
+    const abs = (p: string) => path.join(fs.realpathSync(project.root), p);
+
+    const { requests, calls } = await runCompromised(resolveDeliver(CARRIERS[0]!), [
+      { name: 'query_sql', input: { sql: "SELECT content FROM read_text('.minerva/conversations/*')" } },
+      { name: 'query_sql', input: { sql: `SELECT content FROM read_text('${abs('.minerva/conversations')}/' || '*.json')` } },
+      { name: 'query_sql', input: { sql: `SELECT * FROM read_json('${abs('.minerva/conversations/conv-old.json')}')` } },
+      { name: 'query_sql', input: { sql: `SELECT * FROM '${abs('.minerva/secrets.json')}'` } },
+      { name: 'query_sql', input: { sql: `SELECT * FROM "${abs('.minerva/secrets.json')}"` } },
+      { name: 'query_sql', input: { sql: `SUMMARIZE '${abs('.minerva/secrets.json')}'` } },
+      { name: 'query_sql', input: { sql: `SELECT * FROM query('SELECT content FROM read_text(''${abs('.minerva/secrets.json')}'')')` } },
+      { name: 'query_sql', input: { sql: `WITH x AS (SELECT content FROM read_blob('${abs('.minerva/secrets.json')}')) SELECT * FROM x` } },
+    ]);
+    for (const req of requests) {
+      expect(JSON.stringify(req)).not.toContain(convCanary);
+      expect(JSON.stringify(req)).not.toContain(secretCanary);
+    }
+    const attacks = calls.slice(1);
+    expect(attacks).toHaveLength(8);
+    for (const c of attacks) {
+      expect(c.isError, c.content).toBe(true);
+      expect(c.content).toMatch(/^Refused: .*query_sql can only read the tables and views Minerva registered/s);
+    }
   }, 30_000);
 });

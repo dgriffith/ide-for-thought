@@ -125,7 +125,7 @@ const BUDGETS: Record<string, number> = {
   // instead of a static import, so the 107MB native module leaves the
   // pre-window boot path. The extra lines are the lazy resolution and the
   // comment saying why the import looks indirect.
-  'src/main/sources/tables.ts': 825,
+  'src/main/sources/tables.ts': 840,
   // #2220 (601 → 633): the search callback grew a match cap, a generation
   // guard that drops superseded responses, and a truncation-aware status line.
   // Raised rather than extracted on purpose — all 32 lines are the one

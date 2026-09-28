@@ -1556,6 +1556,18 @@ touch the tool surface:
   injection can read. Markdown tables are typed by a private sniffer instance
   (`sources/csv-sniffer.ts`) instead of a temp CSV on the shared connection.
   `tests/main/sources/tables-lockdown.test.ts` holds the refusal matrix.
+- **`query_sql` reads registered relations only** (#2442). The root lock
+  can't exclude `<root>/.minerva/` (conversation transcripts,
+  `secrets.json`), so before `query_sql` runs, `sources/llm-sql-guard.ts`
+  parses it with DuckDB's own `json_serialize_sql` and walks the tree
+  fail-closed: one SELECT-shaped statement; every `BASE_TABLE` a plain
+  identifier naming an in-scope CTE or a relation in the live catalog (an
+  unresolved name is a replacement-scan file read); table functions only
+  from `SAFE_TABLE_FUNCTIONS`; a few SQL-evaluating scalars refused; any
+  unknown node kind refused. LLM path only — cells, the Query panel,
+  `minerva.sql()` and vega still `read_csv` in-root files.
+  `tests/main/sources/llm-sql-guard.test.ts` holds the refusal matrix and
+  pins the raw AST shapes, so a DuckDB upgrade that changes them fails.
 
 Known open gap: skill context renders untrusted note/source text into the
 system prompt (#2438).

@@ -223,6 +223,16 @@ export default defineConfig({
           statements: 95,
           branches: 90,
         },
+        // The relation allowlist on `query_sql` (#2442) — what keeps the model
+        // out of `.minerva/`, which the root lockdown above cannot exclude.
+        // Same reasoning: its own floor. 100% L/F/S, 94% B at floor-time via
+        // `llm-sql-guard.test.ts`.
+        'src/main/sources/llm-sql-guard.ts': {
+          lines: 95,
+          functions: 95,
+          statements: 95,
+          branches: 88,
+        },
         // Local note history (#1158) — capture, retention, labels, the limits.
         // Measured at floor-time: 92% L / 100% F / 91% S / 88% B; floors ~10
         // points below so a refactor won't flap but new untested code fails.
