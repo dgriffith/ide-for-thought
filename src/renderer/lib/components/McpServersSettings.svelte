@@ -185,6 +185,25 @@
     }
   }
 
+  // "Don't ask again" grants of the mcp_call confirmation card (#2439).
+  let resetNote = $state<string | null>(null);
+
+  async function resetAllowedTools(): Promise<void> {
+    error = null;
+    resetNote = null;
+    busy = true;
+    try {
+      const cleared = await settings.resetAllowedMcpTools();
+      resetNote = cleared === 0
+        ? 'No tools were set to skip confirmation.'
+        : `Cleared ${cleared} ${cleared === 1 ? 'tool' : 'tools'}. They will ask again before running.`;
+    } catch (e) {
+      error = e instanceof Error ? e.message : String(e);
+    } finally {
+      busy = false;
+    }
+  }
+
   onMount(loadServers);
 </script>
 
@@ -294,6 +313,24 @@
         </li>
       {/each}
     </ul>
+  {/if}
+</div>
+
+<div class="field">
+  <span class="field-label">Tool confirmation</span>
+  <p class="hint">
+    Before the assistant runs a server tool that isn't marked read-only, it asks
+    you in the conversation. Tools you chose "Don't ask again" for skip that step
+    on this machine, until the server's command, arguments, environment or URL
+    changes.
+  </p>
+  <div class="mcp-actions">
+    <button class="action-btn" onclick={() => { void resetAllowedTools(); }} disabled={busy}>
+      Reset allowed MCP tools
+    </button>
+  </div>
+  {#if resetNote}
+    <p class="hint" role="status">{resetNote}</p>
   {/if}
 </div>
 

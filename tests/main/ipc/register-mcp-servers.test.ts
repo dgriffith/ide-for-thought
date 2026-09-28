@@ -10,6 +10,7 @@ const handlers = vi.hoisted(() => new Map<string, Handler>());
 
 vi.mock('electron', () => ({
   ipcMain: { handle: (channel: string, fn: Handler) => { handlers.set(channel, fn); } },
+  app: { getPath: () => '/fake-user-data' },
 }));
 
 const registryMock = vi.hoisted(() => ({
@@ -22,10 +23,15 @@ const registryMock = vi.hoisted(() => ({
 }));
 vi.mock('../../../src/main/mcp-servers/registry', () => registryMock);
 
+const permissionsMock = vi.hoisted(() => ({ resetAllowedTools: vi.fn(), configureMcpToolPermissionsPath: vi.fn() }));
+vi.mock('../../../src/main/mcp-servers/tool-permissions', () => permissionsMock);
+
 import { registerMcpServers } from '../../../src/main/ipc/register-mcp-servers';
 import { Channels } from '../../../src/shared/channels';
 
 registerMcpServers();
+// Captured before beforeEach's clearAllMocks wipes the call record.
+const configuredPermissionsPath = permissionsMock.configureMcpToolPermissionsPath.mock.calls[0]?.[0];
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -74,5 +80,16 @@ describe('registerMcpServers', () => {
     const h = handlers.get(Channels.MCP_SERVERS_CONNECT)!;
     await expect(h({}, 'id-1')).resolves.toEqual(['the-list']);
     expect(registryMock.connectServer).toHaveBeenCalledWith('id-1');
+  });
+
+  it('MCP_SERVERS_RESET_ALLOWED_TOOLS clears the "Don\'t ask again" grants and returns the count (#2439)', async () => {
+    permissionsMock.resetAllowedTools.mockReturnValue(3);
+    const h = handlers.get(Channels.MCP_SERVERS_RESET_ALLOWED_TOOLS)!;
+    await expect(Promise.resolve(h({}))).resolves.toBe(3);
+    expect(permissionsMock.resetAllowedTools).toHaveBeenCalledWith();
+  });
+
+  it('points the "Don\'t ask again" store at userData, never at a thoughtbase (#2439)', () => {
+    expect(configuredPermissionsPath).toBe('/fake-user-data/mcp-tool-permissions.json');
   });
 });

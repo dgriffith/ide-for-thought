@@ -118,7 +118,7 @@ function tab(over: Partial<Record<keyof TabRuntime, unknown>> = {}, messageCount
     propertyDrafts: [], propertyDraftResults: {}, sourcePropertyDrafts: [],
     sourcePropertyDraftResults: {}, claimsDrafts: [], claimsDraftResults: {},
     computeDrafts: [], refactorDrafts: [], reorgDrafts: [], deleteDrafts: [],
-    noteBodyDrafts: [], computeDraftState: {}, pendingQuestion: null,
+    noteBodyDrafts: [], computeDraftState: {}, pendingQuestion: null, pendingMcpConfirm: null,
     composer: '', streaming: false, streamedChunks: '', failure: null, extraTools: [],
     ...over,
   } as unknown as TabRuntime;

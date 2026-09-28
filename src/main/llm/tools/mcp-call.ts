@@ -1,4 +1,4 @@
-import type { NotebaseTool, ToolContext } from './types';
+import type { NotebaseTool, ToolCallbacks, ToolContext } from './types';
 import { callServerTool } from '../../mcp-servers/registry';
 import type { McpContentBlock } from '../../mcp-client';
 import type { McpServerStatus } from '../../../shared/mcp-servers';
@@ -12,13 +12,18 @@ import type { McpServerStatus } from '../../../shared/mcp-servers';
  * separate schema entries, so the array Claude sees never grows with the
  * number of connected servers or their tool counts.
  *
- * No confirmation gate: MCP tool calls hit third-party services, not
- * Minerva's own graph, so the Trust Principle's approval engine (scoped to
- * graph writes) doesn't apply here. `readOnlyHint`/`destructiveHint` are
- * surfaced in the catalog text as a best-effort signal for the model, not
- * enforced at runtime — a malicious/misconfigured server could mislabel a
- * destructive tool as read-only regardless, so this was never going to be a
- * real security boundary.
+ * Confirmation gate (#2439): MCP tools act on third-party services, not on
+ * Minerva's graph, so the approval engine doesn't cover them. The same idea
+ * applies anyway — the LLM proposes, the human confirms — so a call to any
+ * tool the server did NOT mark `readOnlyHint: true` waits for the user to
+ * Allow it in an inline conversation card (`callbacks.confirmMcpCall`), unless
+ * they chose "Don't ask again" for that exact server config + tool. With no
+ * conversation UI to ask in (CLI, eval harness, a background run, a closed
+ * window) such a call is refused. The gate itself is in `callServerTool`
+ * (`mcp-servers/registry.ts`), where no caller can route around it.
+ *
+ * Residual risk, accepted: `readOnlyHint` is the server's own claim, and a
+ * server that mislabels a write tool as read-only gets it run unconfirmed.
  */
 function flattenMcpContent(blocks: McpContentBlock[]): string {
   const parts = blocks.map((block) => {
@@ -45,11 +50,36 @@ function parseInput(input: unknown): McpCallInput | { error: string } {
   return { server, tool, args };
 }
 
-async function runMcpCall(_ctx: ToolContext, input: unknown): Promise<{ content: string; isError: boolean }> {
+/** The tool_result for a call the gate stopped. Nothing reached the server in
+ *  any of these cases, and the text says so — the model must not report the
+ *  action as done. */
+function declinedMessage(where: string, reason: 'denied' | 'cancelled' | 'no-ui'): string {
+  switch (reason) {
+    case 'denied':
+      return `The user declined the call to ${where}. Nothing was sent to the server. ` +
+        'Do not retry it; continue without it, or ask the user how they want to proceed.';
+    case 'cancelled':
+      return `The call to ${where} was cancelled before the user confirmed it. Nothing was sent to the server.`;
+    case 'no-ui':
+      return `mcp_call refused ${where}: the tool is not marked read-only, so it needs the user's ` +
+        'confirmation, and there is no conversation window here to ask in (a skill or background ' +
+        'run, the CLI, or a closed window). Nothing was sent to the server.';
+  }
+}
+
+async function runMcpCall(
+  _ctx: ToolContext,
+  input: unknown,
+  callbacks: ToolCallbacks,
+): Promise<{ content: string; isError: boolean }> {
   const parsed = parseInput(input);
   if ('error' in parsed) return { content: parsed.error, isError: true };
   try {
-    const result = await callServerTool(parsed.server, parsed.tool, parsed.args);
+    const outcome = await callServerTool(parsed.server, parsed.tool, parsed.args, callbacks.confirmMcpCall ?? null);
+    if (outcome.kind === 'declined') {
+      return { content: declinedMessage(`${parsed.server}/${parsed.tool}`, outcome.reason), isError: true };
+    }
+    const { result } = outcome;
     return { content: flattenMcpContent(result.content), isError: result.isError };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
@@ -100,5 +130,5 @@ export const mcpCall: NotebaseTool = {
       required: ['server', 'tool'],
     },
   },
-  run: (ctx, input) => runMcpCall(ctx, input),
+  run: (ctx, input, callbacks) => runMcpCall(ctx, input, callbacks),
 };

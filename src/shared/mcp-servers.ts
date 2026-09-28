@@ -59,3 +59,17 @@ export interface McpServerStatus extends StoredMcpServerConfig {
   /** Cached from the most recent successful connect; empty when not connected. */
   tools: McpToolDescriptor[];
 }
+
+/**
+ * The user's answer to an MCP write-confirmation card (#2439), as the main
+ * process consumes it. `remember` is only meaningful with `allow: true` —
+ * "Don't ask again for this tool" never records a denial.
+ *
+ * The deny arm carries WHY, because the model is told: `denied` (the user
+ * clicked Deny / pressed Escape), `cancelled` (the turn was stopped while the
+ * card was up), `no-ui` (no conversation surface could show a card — the
+ * window closed, or the caller is the CLI / eval harness / a background run).
+ */
+export type McpCallDecision =
+  | { allow: true; remember: boolean }
+  | { allow: false; reason: 'denied' | 'cancelled' | 'no-ui' };

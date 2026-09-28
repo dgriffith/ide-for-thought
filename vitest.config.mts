@@ -376,6 +376,15 @@ export default defineConfig({
           statements: 91,
           branches: 84,
         },
+        // The "Don't ask again" store behind the mcp_call confirmation gate
+        // (#2439) — its own trust boundary, so the glob above can't carry a
+        // regression here. Measured 100 L / 100 F / 100 S / 93.75 B.
+        'src/main/mcp-servers/tool-permissions.ts': {
+          lines: 95,
+          functions: 95,
+          statements: 95,
+          branches: 85,
+        },
         // substrate ~82.5 L / 88.9 F / 81.4 S / 60.8 B — the electron-free
         // CLI/MCP server surface (epic #1145). Lowest branch number of the
         // group, so the floor sits lower rather than being quietly rounded up.

@@ -24,7 +24,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Conversation } from '../../../src/shared/conversation';
-import type { AskUserRequest } from '../../../src/shared/conversation-tools';
+import type { AskUserRequest, McpConfirmRequest } from '../../../src/shared/conversation-tools';
 
 type Cb = (payload: { draftId: string; conversationId: string }) => void;
 
@@ -61,6 +61,7 @@ const h = vi.hoisted(() => {
       onDeleteDraft: cap('onDeleteDraft'),
       onNoteBodyDraft: cap('onNoteBodyDraft'),
       onAskUser: cap('onAskUser'),
+      onMcpConfirm: cap('onMcpConfirm'),
       // lifecycle / persistence
       loadUIState: vi.fn().mockResolvedValue({ visible: false, height: 320, activeTabId: null }),
       saveUIState: vi.fn().mockResolvedValue(undefined),
@@ -76,6 +77,7 @@ const h = vi.hoisted(() => {
       setModel: vi.fn(),
       setEffort: vi.fn(),
       askUserReply: vi.fn().mockResolvedValue(undefined),
+      mcpConfirmReply: vi.fn().mockResolvedValue(undefined),
       // draft-filing (the approval-engine hand-off)
       fileDraft: vi.fn().mockResolvedValue({ proposalUri: 'urn:p', applied: true, filedPaths: ['notes/a.md'] }),
       fileSourceDraft: vi.fn().mockResolvedValue({ outcomes: [{ input: { url: 'https://x' }, sourceId: 's1', title: 'X' }] }),
@@ -502,6 +504,70 @@ describe('ask_user (onAskUser → answerQuestion)', () => {
     const req: AskUserRequest = { questionId: 'q-ghost', conversationId: 'no-such-tab', question: '?' };
     (h.cbs.onAskUser as (r: AskUserRequest) => void)(req);
     expect(conv().askUserReply).toHaveBeenCalledWith('q-ghost', '');
+  });
+});
+
+// ─────────────────── mcp_call confirmation card (#2439) ───────────────────
+
+describe('mcp_call confirmation (onMcpConfirm → answerMcpConfirm)', () => {
+  const request = (conversationId: string, requestId = 'r1'): McpConfirmRequest => ({
+    requestId, conversationId, serverName: 'slack', toolName: 'post_message', argsJson: '{}',
+  });
+  const push = (r: McpConfirmRequest) => (h.cbs.onMcpConfirm as (r: McpConfirmRequest) => void)(r);
+
+  it('surfaces the card on its tab and announces it', async () => {
+    const tab = await freshTab();
+    push(request(tab.id));
+    expect(tab.pendingMcpConfirm).toEqual(request(tab.id));
+    expect(h.announce).toHaveBeenCalledWith(expect.stringContaining('post_message on slack'), 'assertive');
+  });
+
+  it('Allow replies with the checkbox, and clears the card', async () => {
+    const tab = await freshTab();
+    push(request(tab.id));
+    await store.answerMcpConfirm(tab.id, true, true);
+    expect(conv().mcpConfirmReply).toHaveBeenCalledWith('r1', true, true);
+    expect(tab.pendingMcpConfirm).toBeNull();
+  });
+
+  it('Deny never sends "remember"', async () => {
+    const tab = await freshTab();
+    push(request(tab.id));
+    await store.answerMcpConfirm(tab.id, false, true);
+    expect(conv().mcpConfirmReply).toHaveBeenCalledWith('r1', false, false);
+  });
+
+  it('answering twice replies once', async () => {
+    const tab = await freshTab();
+    push(request(tab.id));
+    await store.answerMcpConfirm(tab.id, true, false);
+    await store.answerMcpConfirm(tab.id, true, false);
+    expect(conv().mcpConfirmReply).toHaveBeenCalledTimes(1);
+  });
+
+  it('denies a card for a tab that no longer exists', async () => {
+    await freshTab();
+    push(request('no-such-tab', 'r-ghost'));
+    expect(conv().mcpConfirmReply).toHaveBeenCalledWith('r-ghost', false, false);
+  });
+
+  it('closing the tab denies its pending card', async () => {
+    const tab = await freshTab();
+    push(request(tab.id, 'r-close'));
+    await store.closeTab(tab.id);
+    expect(conv().mcpConfirmReply).toHaveBeenCalledWith('r-close', false, false);
+  });
+
+  it('the card is cleared when the turn settles (e.g. the user pressed Stop)', async () => {
+    const tab = await freshTab();
+    let finish!: () => void;
+    conv().send.mockImplementationOnce(() => new Promise<undefined>((r) => { finish = () => r(undefined); }));
+    const sending = store.send('go');
+    push(request(tab.id, 'r-turn'));
+    expect(tab.pendingMcpConfirm).not.toBeNull();
+    finish();
+    await sending;
+    expect(tab.pendingMcpConfirm).toBeNull();
   });
 });
 

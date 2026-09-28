@@ -22,6 +22,7 @@ import type { ConversationNoteBodyDraft } from '../../shared/conversation-note-b
 import type { ConversationSourcePropertyDraft } from '../../shared/conversation-source-property-drafts';
 import type { ConversationClaimsDraft } from '../../shared/conversation-claims-drafts';
 import type { ConversationToolKey } from '../../shared/conversation-tools';
+import type { McpCallConfirmer } from '../mcp-servers/registry';
 import { formatToolCall } from './format-tool-call';
 import { toLlmFailureError } from './classify-error';
 import type { ProviderId } from '../../shared/tools/providers';
@@ -122,6 +123,12 @@ export interface StreamCallbacks {
    * the agent must continue without the answer.
    */
   askUser?: (input: { question: string; choices?: string[] }) => Promise<string>;
+  /**
+   * The `mcp_call` write-confirmation card (#2439). Wired by the conversation
+   * IPC handler; without it a call to an MCP tool not marked read-only is
+   * refused ("no conversation UI to ask in") rather than run.
+   */
+  confirmMcpCall?: McpCallConfirmer;
 }
 
 /** The conversation callbacks that pass through to tool execution. When a tool
@@ -131,6 +138,7 @@ export interface StreamCallbacks {
 export const TOOL_CALLBACK_KEYS = [
   'onDraft', 'onSourceDraft', 'onPropertyDraft', 'onSourcePropertyDraft',
   'onClaimsDraft', 'onComputeDraft', 'onRefactorDraft', 'onReorgDraft', 'onDeleteDraft', 'onNoteBodyDraft', 'askUser',
+  'confirmMcpCall',
 ] as const satisfies readonly (keyof ToolCallbacks)[];
 
 // Completeness guard (#1003). `satisfies` above rejects a stale/typo'd key; this

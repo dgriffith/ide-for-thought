@@ -5,7 +5,7 @@ import type { SearchInNotesOptions, ReplaceInNotesOptions, MenuEditorState, Book
 import type { ThemeMode } from '../shared/theme';
 import type { ChannelMap, EventMap } from '../shared/ipc-contract';
 import type { ConversationDraftBase } from '../shared/conversation-draft-base';
-import type { AskUserRequest } from '../shared/conversation-tools';
+import type { AskUserRequest, McpConfirmRequest } from '../shared/conversation-tools';
 import type { McpServerDescriptor } from '../shared/mcp-servers';
 
 /**
@@ -294,6 +294,9 @@ const api = {
     onAskUser: (cb: (req: AskUserRequest) => void) => subscribe(Channels.CONVERSATION_ASK_USER, cb),
     askUserReply: (questionId: string, answer: string) =>
       invoke(Channels.CONVERSATION_ASK_USER_REPLY, questionId, answer),
+    onMcpConfirm: (cb: (req: McpConfirmRequest) => void) => subscribe(Channels.CONVERSATION_MCP_CONFIRM, cb),
+    mcpConfirmReply: (requestId: string, allow: boolean, remember: boolean) =>
+      invoke(Channels.CONVERSATION_MCP_CONFIRM_REPLY, requestId, allow, remember),
     onStream: (cb: (chunk: string) => void) => subscribe(Channels.CONVERSATION_STREAM, cb),
     cancel: () => invoke(Channels.CONVERSATION_CANCEL),
     onDraft: (cb: (draft: ConversationDraftBase) => void) => subscribe(Channels.CONVERSATION_DRAFT, cb),
@@ -377,6 +380,7 @@ const api = {
     remove: (id: string) => invoke(Channels.MCP_SERVERS_REMOVE, id),
     setEnabled: (id: string, enabled: boolean) => invoke(Channels.MCP_SERVERS_SET_ENABLED, id, enabled),
     connect: (id: string) => invoke(Channels.MCP_SERVERS_CONNECT, id),
+    resetAllowedTools: () => invoke(Channels.MCP_SERVERS_RESET_ALLOWED_TOOLS),
   },
   tabs: {
     save: (session: LayoutSession) => invoke(Channels.TABS_SAVE, session),

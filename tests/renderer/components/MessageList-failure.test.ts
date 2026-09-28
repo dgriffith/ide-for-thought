@@ -18,6 +18,7 @@ const h = vi.hoisted(() => ({
   dismissFailure: vi.fn(),
   runBuiltinCommand: vi.fn(),
   answerQuestion: vi.fn(),
+  answerMcpConfirm: vi.fn(),
 }));
 
 vi.mock('../../../src/renderer/lib/stores/conversations.svelte', () => ({
@@ -26,6 +27,7 @@ vi.mock('../../../src/renderer/lib/stores/conversations.svelte', () => ({
     dismissFailure: h.dismissFailure,
     runBuiltinCommand: h.runBuiltinCommand,
     answerQuestion: h.answerQuestion,
+    answerMcpConfirm: h.answerMcpConfirm,
   }),
 }));
 vi.mock('../../../src/renderer/lib/stores/editor.svelte', () => ({
@@ -58,7 +60,7 @@ function tabWith(failure: TabFailure | null, streaming = false): TabRuntime {
     propertyDrafts: [], propertyDraftResults: {}, sourcePropertyDrafts: [],
     sourcePropertyDraftResults: {}, claimsDrafts: [], claimsDraftResults: {},
     computeDrafts: [], refactorDrafts: [], reorgDrafts: [], deleteDrafts: [],
-    noteBodyDrafts: [], computeDraftState: {}, pendingQuestion: null,
+    noteBodyDrafts: [], computeDraftState: {}, pendingQuestion: null, pendingMcpConfirm: null,
     composer: '', streaming, streamedChunks: '', failure, extraTools: [],
   } as unknown as TabRuntime;
 }
@@ -161,5 +163,22 @@ describe('failed turn, rendered inline (#1804)', () => {
     // Retrying shouldn't leave the old error sitting under a live spinner.
     render(MessageList, { props: { tab: tabWith(failure(), true), currentNotePath: null } });
     expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
+  });
+});
+
+describe('mcp_call confirmation card in the transcript (#2439)', () => {
+  it('renders the pending card and routes Allow through the store', async () => {
+    const tab = tabWith(null, true);
+    (tab as unknown as { pendingMcpConfirm: unknown }).pendingMcpConfirm = {
+      requestId: 'r1', conversationId: 'conv-1', serverName: 'slack', toolName: 'post_message', argsJson: '{}',
+    };
+    render(MessageList, { props: { tab, currentNotePath: null } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Allow' }));
+    expect(h.answerMcpConfirm).toHaveBeenCalledWith('tab-1', true, false);
+  });
+
+  it('renders no card when nothing is pending', () => {
+    render(MessageList, { props: { tab: tabWith(null), currentNotePath: null } });
+    expect(screen.queryByTestId('mcp-confirm-card')).toBeNull();
   });
 });

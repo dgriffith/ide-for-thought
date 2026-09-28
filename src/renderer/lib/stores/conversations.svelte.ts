@@ -40,6 +40,7 @@ import type { CellResult } from '../../../shared/compute/types';
 import type {
   AskUserRequest,
   ConversationToolKey,
+  McpConfirmRequest,
 } from '../../../shared/conversation-tools';
 import {
   isProviderUnconfiguredError,
@@ -195,6 +196,10 @@ export interface TabRuntime {
   computeDraftState: Record<string, ComputeDraftStateEntry>;
   /** In-flight ask_user prompt, if the agent is waiting on a reply. */
   pendingQuestion: AskUserRequest | null;
+  /** An mcp_call waiting on Allow / Deny (#2439). Tools run one at a time, so
+   *  there is at most one per turn. Cleared when the turn settles, however it
+   *  ends: main has already resolved it as cancelled by then. */
+  pendingMcpConfirm: McpConfirmRequest | null;
   composer: string;
   streaming: boolean;
   streamedChunks: string;
@@ -237,6 +242,7 @@ let saveTimer: ReturnType<typeof setTimeout> | null = null;
 let draftsSubscribed = false;
 let streamSubscribed = false;
 let askUserSubscribed = false;
+let mcpConfirmSubscribed = false;
 
 function findTab(id: string | null): TabRuntime | undefined {
   if (!id) return undefined;
@@ -325,6 +331,20 @@ function ensureSubscriptions(): void {
       t.pendingQuestion = req;
     });
     askUserSubscribed = true;
+  }
+  if (!mcpConfirmSubscribed) {
+    api.conversations.onMcpConfirm((req) => {
+      const t = tabs.find((tab) => tab.id === req.conversationId);
+      if (!t) {
+        // Nowhere to show it: deny, so the turn continues without the call
+        // rather than waiting on a card nobody can see.
+        void api.conversations.mcpConfirmReply(req.requestId, false, false);
+        return;
+      }
+      t.pendingMcpConfirm = req;
+      announce(`Confirm MCP tool call: ${req.toolName} on ${req.serverName}`, 'assertive');
+    });
+    mcpConfirmSubscribed = true;
   }
 }
 
@@ -479,6 +499,9 @@ async function openConversationTab(opts: {
 async function closeTab(id: string): Promise<void> {
   const idx = tabs.findIndex((t) => t.id === id);
   if (idx === -1) return;
+  // A card the user can no longer see is a Deny, not a hang.
+  const pendingConfirm = tabs[idx]!.pendingMcpConfirm;
+  if (pendingConfirm) void answerMcpConfirm(id, false, false);
   try {
     await api.conversations.archive(id);
   } catch {
@@ -527,6 +550,7 @@ async function send(content: string, currentNotePath?: string): Promise<void> {
   } finally {
     tab.streaming = false;
     tab.streamedChunks = '';
+    tab.pendingMcpConfirm = null;
   }
 }
 
@@ -555,6 +579,7 @@ async function retryLastTurn(tabId: string, currentNotePath?: string): Promise<v
   } finally {
     tab.streaming = false;
     tab.streamedChunks = '';
+    tab.pendingMcpConfirm = null;
   }
 }
 
@@ -682,6 +707,18 @@ async function answerQuestion(tabId: string, answer: string): Promise<void> {
   await api.conversations.askUserReply(questionId, answer);
 }
 
+/**
+ * Allow / Deny an mcp_call confirmation card (#2439). `remember` is the card's
+ * "Don't ask again for this tool" checkbox; main ignores it on a Deny.
+ */
+async function answerMcpConfirm(tabId: string, allow: boolean, remember: boolean): Promise<void> {
+  const tab = findTab(tabId);
+  if (!tab || !tab.pendingMcpConfirm) return;
+  const { requestId } = tab.pendingMcpConfirm;
+  tab.pendingMcpConfirm = null;
+  await api.conversations.mcpConfirmReply(requestId, allow, allow && remember);
+}
+
 async function setModel(tabId: string, model: string | undefined): Promise<void> {
   const tab = findTab(tabId);
   if (!tab) return;
@@ -745,6 +782,7 @@ function blankTabRuntime(conv: Conversation, extraTools: ConversationToolKey[]):
     noteBodyDrafts: [],
     computeDraftState: {},
     pendingQuestion: null,
+    pendingMcpConfirm: null,
     composer: '',
     streaming: false,
     streamedChunks: '',
@@ -1160,6 +1198,7 @@ export function getConversationsStore() {
     retryLastTurn,
     dismissFailure,
     answerQuestion,
+    answerMcpConfirm,
     cancel,
     setModel,
     setEffort,

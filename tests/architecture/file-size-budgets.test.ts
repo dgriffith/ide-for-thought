@@ -81,8 +81,8 @@ const BUDGETS: Record<string, number> = {
   // predicted this: the IPC-surface files are budgeted and grow one line per
   // channel by construction, so a bump here is the expected remedy, not a
   // smell.
-  'src/renderer/lib/ipc/client.ts': 1374,  // #2411: menu.onRevealFile; #2363/#2364: doc comments on graph.query + git.commit contracts
-  'src/renderer/lib/stores/conversations.svelte.ts': 1191, // +26: turn start/settle screen-reader announcements (#2374)
+  'src/renderer/lib/ipc/client.ts': 1381,  // #2439: mcp_call confirm reply/subscription + resetAllowedTools; #2411: menu.onRevealFile; #2363/#2364: doc comments on graph.query + git.commit contracts
+  'src/renderer/lib/stores/conversations.svelte.ts': 1230, // +39: mcp_call confirmation card state, beside ask_user's (#2439); +26: turn start/settle screen-reader announcements (#2374)
   'src/renderer/lib/components/Editor.svelte': 854,
   'src/renderer/lib/stores/editor.svelte.ts': 914,
     'src/renderer/lib/components/right-sidebar/PropertiesPanel.svelte': 1156,
@@ -112,9 +112,9 @@ const BUDGETS: Record<string, number> = {
   'src/renderer/lib/components/QueryPanel.svelte': 766, // +7: CM content a11y attrs + AA placeholder (#2375)
   'src/renderer/lib/components/conversations/DraftCards.svelte': 758,
   // +1 for #2256: the MENU_COMMAND_PALETTE channel / its MENU_COMMANDS entry.
-  'src/shared/ipc-contract.ts': 789,  // #2363/#2364: GraphQueryResult + git:commit doc comments; #2288: two inline Inspection shapes → Inspection[]; #2222: sources:queueCounts
+  'src/shared/ipc-contract.ts': 792, // #2439: mcp_call confirm reply/event + resetAllowedTools; #2363/#2364: GraphQueryResult + git:commit doc comments; #2288: two inline Inspection shapes → Inspection[]; #2222: sources:queueCounts
   // +1 for #2256: the MENU_COMMAND_PALETTE channel / its MENU_COMMANDS entry.
-  'src/shared/channels.ts': 751,  // #2411: MENU_REVEAL_FILE + why it isn't shell:revealFile; #2367: MENU_OPEN_RECENT_PROJECT (was a bare literal in preload + menu); #2222: SOURCES_QUEUE_COUNTS + its why-comment
+  'src/shared/channels.ts': 758,  // #2439: CONVERSATION_MCP_CONFIRM(_REPLY) + MCP_SERVERS_RESET_ALLOWED_TOOLS; #2411: MENU_REVEAL_FILE + why it isn't shell:revealFile; #2367: MENU_OPEN_RECENT_PROJECT (was a bare literal in preload + menu); #2222: SOURCES_QUEUE_COUNTS + its why-comment
   'src/renderer/lib/app/note-ops.ts': 687,
   'src/renderer/lib/editor/formatting.ts': 668,
   // #2227: listTables went from a 2N per-table loop to a bounded column sweep
@@ -136,7 +136,7 @@ const BUDGETS: Record<string, number> = {
   // ~250-line `<style>` block, not the logic.
   'src/renderer/lib/components/FindInNotesDialog.svelte': 633,
   // +1 for #2256: onCommandPalette passthrough.
-  'src/preload/preload.ts': 652,  // #2411: menu.onRevealFile; #2222: sources.queueCounts passthrough
+  'src/preload/preload.ts': 656,  // #2439: mcp_call confirm + resetAllowedTools passthroughs; #2411: menu.onRevealFile; #2222: sources.queueCounts passthrough
   'src/main/ipc/register-conversation-drafts.ts': 577,
   // New entry in #2218, which took this file from 538 over the threshold.
   // The seam this check asks about was taken first: the deadline POLICY —

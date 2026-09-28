@@ -422,6 +422,8 @@ export const Channels = {
   MCP_SERVERS_REMOVE: 'mcpServers:remove',
   MCP_SERVERS_SET_ENABLED: 'mcpServers:setEnabled',
   MCP_SERVERS_CONNECT: 'mcpServers:connect',
+  /** Forget every "Don't ask again" MCP tool grant (#2439). Returns how many. */
+  MCP_SERVERS_RESET_ALLOWED_TOOLS: 'mcpServers:resetAllowedTools',
   /** Smart-route ingest: takes a raw string from a clipboard paste or
    *  the "+" button, detects whether it's a DOI / arXiv id / PMID /
    *  URL, and dispatches to the matching ingest path (#473). */
@@ -626,6 +628,11 @@ export const Channels = {
   CONVERSATION_ASK_USER: 'conversation:askUser',
   /** renderer → main: user's reply to an ask_user prompt. Payload is { questionId, answer }. */
   CONVERSATION_ASK_USER_REPLY: 'conversation:askUserReply',
+  /** main → renderer: mcp_call wants to run a tool not marked read-only (#2439).
+   *  Payload is McpConfirmRequest; the card answers on the reply channel. */
+  CONVERSATION_MCP_CONFIRM: 'conversation:mcpConfirm',
+  /** renderer → main: Allow / Deny (+ "Don't ask again") for a pending card. */
+  CONVERSATION_MCP_CONFIRM_REPLY: 'conversation:mcpConfirmReply',
   GRAPH_GROUND_CHECK: 'graph:groundCheck',
   INSPECTIONS_LIST: 'inspections:list',
   INSPECTIONS_RUN: 'inspections:run',

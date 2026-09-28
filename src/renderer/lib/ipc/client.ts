@@ -654,6 +654,9 @@ export interface McpServersApi {
   /** The only call allowed to pop a browser tab for OAuth (#2030) — call only
    *  in direct response to the user clicking Connect. */
   connect(id: string): Promise<McpServerStatus[]>;
+  /** Forget every "Don't ask again" MCP tool grant on this machine (#2439).
+   *  Resolves with how many were cleared. */
+  resetAllowedTools(): Promise<number>;
 }
 
 export interface ConversationsApi {
@@ -682,6 +685,10 @@ export interface ConversationsApi {
   saveUIState(state: import('../../../shared/conversation').ConversationsUIState): Promise<void>;
   onAskUser(cb: (req: import('../../../shared/conversation-tools').AskUserRequest) => void): () => void;
   askUserReply(questionId: string, answer: string): Promise<void>;
+  /** An mcp_call awaits the user's Allow / Deny (#2439). */
+  onMcpConfirm(cb: (req: import('../../../shared/conversation-tools').McpConfirmRequest) => void): () => void;
+  /** Answer a pending MCP confirmation card. `remember` = "Don't ask again for this tool". */
+  mcpConfirmReply(requestId: string, allow: boolean, remember: boolean): Promise<void>;
   onStream(cb: (chunk: string) => void): () => void;
   cancel(): Promise<void>;
   setModel(conversationId: string, model: string | undefined): Promise<Conversation>;

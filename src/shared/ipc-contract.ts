@@ -91,7 +91,7 @@ import type { ParsedReference } from './mine-references';
 import type { ResolveCandidate } from './resolve-stub';
 import type { Conversation, ConversationCreateOptions, ConversationMessage, ContextBundle, ConversationsUIState, CompactResult } from './conversation';
 import type { PrivilegedSite } from './privileged-sites';
-import type { ConversationToolKey, AskUserRequest } from './conversation-tools';
+import type { ConversationToolKey, AskUserRequest, McpConfirmRequest } from './conversation-tools';
 import type { ConversationDraftBase } from './conversation-draft-base';
 import type { ThemeMode } from './theme';
 import type { Effort } from './tools/effort';
@@ -209,6 +209,7 @@ export interface ChannelMap {
   'mcpServers:remove': (id: string) => McpServerStatus[];
   'mcpServers:setEnabled': (id: string, enabled: boolean) => McpServerStatus[];
   'mcpServers:connect': (id: string) => McpServerStatus[];
+  'mcpServers:resetAllowedTools': () => number;
 
   // Export
   'export:csv': (csv: string) => void;
@@ -596,6 +597,7 @@ export interface ChannelMap {
   'conversation:uiStateLoad': () => ConversationsUIState;
   'conversation:uiStateSave': (state: ConversationsUIState) => void;
   'conversation:askUserReply': (questionId: string, answer: string) => void;
+  'conversation:mcpConfirmReply': (requestId: string, allow: boolean, remember: boolean) => void;
   'conversation:setModel': (conversationId: string, model: string | undefined) => Conversation;
   'conversation:setEffort': (conversationId: string, effort: Effort | undefined) => Conversation;
   'conversation:compact': (conversationId: string) => CompactResult;
@@ -751,6 +753,7 @@ export interface EventMap extends MenuCommandEventMap {
   // Conversation + tool streaming / prompts
   'conversation:stream': (chunk: string) => void;
   'conversation:askUser': (req: AskUserRequest) => void;
+  'conversation:mcpConfirm': (req: McpConfirmRequest) => void;
   'tool:stream': (chunk: string) => void;
   'tool:invoke': (toolId: string) => void;
   // Native-menu command channels (#1633) — payloaded here; the ~63 zero-arg
