@@ -2,9 +2,10 @@
 #
 # Purpose: TREND VISIBILITY, not gating. The hard gate stays the per-area
 # floors in `vitest.config.mts` (enforced by `pnpm coverage` in ci.yml, which
-# fails the build on a floor breach). Since #2359 coverage runs — and uploads —
-# on pushes to main only, so this reports per-commit trend on main rather than
-# a per-PR delta. Codecov never blocks a
+# fails the build on a floor breach). Coverage runs — and uploads — from
+# ci.yml's `coverage` job on every PR and every push to main (it was main-only
+# between #2359 and #2432's follow-up), so this can report both the per-commit
+# trend on main and a per-PR delta. Codecov never blocks a
 # PR here — it surfaces erosion that happens *within the headroom above* the
 # floors, which the pass/fail floors can't see.
 #

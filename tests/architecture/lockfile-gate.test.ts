@@ -18,7 +18,7 @@
  *   1. **Every job that installs dependencies verifies the lockfile first, and
  *      does it unconditionally.** An `if:` on this step re-creates the bug in
  *      a form that looks fixed.
- *   2. **The three cache keys stay byte-identical.** `ci.yml` and
+ *   2. **The `node_modules` cache keys stay byte-identical.** `ci.yml` and
  *      `release.yml` deliberately share one warm `node_modules` cache (#1638,
  *      #663). Nothing fails when they drift — the workflows just quietly stop
  *      sharing and every run pays a cold install, which is invisible until
@@ -76,12 +76,14 @@ const isNodeModulesCache = (s: Step) =>
 describe('every installing job verifies the lockfile first (#2244)', () => {
   it('finds the jobs — an empty scan would pass vacuously', () => {
     const installing = allJobs().filter((j) => j.steps.some(isInstall));
-    // All four install behind a cache check. #2244's issue named two of them;
-    // `ci.yml`'s e2e job had the same conditional shape and was missed, and
-    // `bench.yml` joined them in #2247 when it gained a cache. Listed so a
-    // future reader doesn't re-derive this.
+    // All five install behind a cache check. #2244's issue named two of them;
+    // `ci.yml`'s e2e job had the same conditional shape and was missed,
+    // `bench.yml` joined them in #2247 when it gained a cache, and `ci.yml`'s
+    // `coverage` job arrived with a verify step when the floors moved back onto
+    // PRs (#2432). Listed so a future reader doesn't re-derive this.
     expect(installing.map((j) => `${j.file}:${j.job}`).sort()).toEqual([
       'bench.yml:bench',
+      'ci.yml:coverage',
       'ci.yml:e2e',
       'ci.yml:lint-and-test',
       'release.yml:build-macos',

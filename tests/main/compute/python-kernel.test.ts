@@ -302,7 +302,7 @@ skipIfNoPython('python kernel (#241)', () => {
    * `it.skip`, which reads as a pass in CI — so a runner-image change (or
    * someone dropping the pip-install step) that removes one of these three
    * would silently vanish the coverage with no signal. CI installs all three
-   * (see ci.yml's `lint-and-test` job) specifically so this can hard-assert.
+   * (see ci.yml's `lint-and-test` and `coverage` jobs) specifically so this can hard-assert.
    * Local dev machines legitimately may not have these installed — Settings
    * → Python Interpreter documents pointing at a venv that does
    * (docs/packaging.md) — so this only hard-asserts under CI.
