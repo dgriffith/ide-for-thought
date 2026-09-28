@@ -86,6 +86,7 @@ export {
   enterTrustedContext,
   exitTrustedContext,
   withTrustedContext,
+  rethrowIfTrustGuard,
 } from './write-guard';
 
 // ── Project config (persisted in .minerva/config.json) ─────────────────────

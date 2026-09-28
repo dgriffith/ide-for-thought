@@ -405,10 +405,10 @@ function nonAtomicJsonWritesPerFile(): Record<string, number> {
  * of the survivors is a store the user would lose:
  */
 const NON_ATOMIC_JSON_WRITE_BASELINE: Record<string, number> = {
-  // Golden-file eval outputs (`request.json`, `meta.json`, `drafts.json`),
-  // regenerated wholesale by `pnpm cli eval` and committed — a torn one is a
-  // red diff, re-run the command.
-  'src/cli/eval.ts': 3,
+  // Golden-file eval outputs (`request.json`, `meta.json`, `drafts.json`, and
+  // an injection case's `security.json`, #2373), regenerated wholesale by
+  // `pnpm cli eval` — a torn one is a red diff, re-run the command.
+  'src/cli/eval.ts': 4,
   // The derived full-text index. `load` already treats a corrupt file as "start
   // fresh" and it rebuilds from the notes; it is also the one large write here,
   // and deliberately compact.

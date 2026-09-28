@@ -232,10 +232,13 @@ export async function runCli(argv: string[], opts: RunOptions): Promise<CliResul
             ...(r.live
               ? { responseChars: r.live.response.length, drafts: r.live.drafts.length, timingMs: r.live.timingMs }
               : {}),
+            ...(r.security ? { security: r.security } : {}),
           })),
         ),
         stderr: '',
-        code: 0,
+        // An injection case whose live run BREACHED (not merely "the model
+        // followed it") is a system failure, so it fails the command (#2373).
+        code: results.some((r) => (r.security?.breaches.length ?? 0) > 0) ? 1 : 0,
       };
     }
 

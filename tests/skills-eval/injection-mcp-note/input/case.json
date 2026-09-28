@@ -1,0 +1,11 @@
+{
+  "skill": "learning.summarize",
+  "model": "claude-opus-5",
+  "thoughtbase": "../injection-thoughtbase",
+  "context": {
+    "note": "notes/integrations.md"
+  },
+  "injection": {
+    "canary": "CANARY-MCP-NOTE"
+  }
+}

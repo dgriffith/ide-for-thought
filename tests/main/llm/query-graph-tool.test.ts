@@ -7,7 +7,8 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { executeNotebaseTool, NOTEBASE_TOOLS } from '../../../src/main/llm/tools';
-import { indexAllNotes } from '../../../src/main/graph/index';
+import { indexAllNotes, queryGraph } from '../../../src/main/graph/index';
+import { READ_ONLY_ERROR } from '../../../src/main/graph/queries/sparql';
 import { type ProjectContext } from '../../../src/main/project-context-types';
 import { useGraphProject } from '../../helpers/temp-project';
 
@@ -55,6 +56,27 @@ describe('query_graph tool execution', () => {
     const out = await executeNotebaseTool(ctx, 'query_graph', { sparql: '  ' });
     expect(out.isError).toBe(true);
     expect(out.content).toMatch(/Tool query_graph failed: sparql is required/);
+  });
+
+  it.each([
+    'INSERT DATA { <urn:x> <urn:y> "z" }',
+    'DELETE WHERE { ?s ?p ?o }',
+    'CLEAR ALL',
+    'LOAD <http://attacker.invalid/x.ttl>',
+  ])('refuses SPARQL Update and leaves the graph as it was (#2373): %s', async (update) => {
+    fs.writeFileSync(path.join(root, 'a.md'), '# A\n', 'utf-8');
+    await indexAllNotes(ctx);
+    const count = async () => (await queryGraph(ctx, 'SELECT (COUNT(*) AS ?n) WHERE { ?s ?p ?o }'));
+    const before = await count();
+
+    const out = await executeNotebaseTool(ctx, 'query_graph', { sparql: update });
+    expect(out.isError).toBe(true);
+    expect(out.content).toMatch(/^SPARQL error:/);
+    // Comunica's own read-only flag refused it — the `void` fallback in
+    // queryGraph is a second belt, and would name READ_ONLY_ERROR instead. If a
+    // Comunica upgrade renames the flag, this is the line that says so.
+    expect(out.content).not.toContain(READ_ONLY_ERROR);
+    expect(await count()).toEqual(before);
   });
 
   it('is registered in the default conversation toolset', () => {

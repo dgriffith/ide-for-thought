@@ -52,6 +52,13 @@ tests/skills-eval/thoughtbase/.minerva/*
 !tests/skills-eval/thoughtbase/.minerva/sources/**
 !tests/skills-eval/thoughtbase/.minerva/excerpts/
 !tests/skills-eval/thoughtbase/.minerva/excerpts/**
+# Prompt-injection corpus (#2373): same arrangement as the thoughtbase above.
+!tests/skills-eval/injection-thoughtbase/.minerva/
+tests/skills-eval/injection-thoughtbase/.minerva/*
+!tests/skills-eval/injection-thoughtbase/.minerva/sources/
+!tests/skills-eval/injection-thoughtbase/.minerva/sources/**
+!tests/skills-eval/injection-thoughtbase/.minerva/excerpts/
+!tests/skills-eval/injection-thoughtbase/.minerva/excerpts/**
 
 # Bundled tutorial thoughtbase (#1543): ship its .minerva/ payload. Unlike the
 # fixtures above, config.json IS tracked here — it carries the canonical baseUri

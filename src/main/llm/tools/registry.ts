@@ -33,6 +33,7 @@ import { proposeObjectType } from './propose-object-type';
 import { proposeClaims } from './propose-claims';
 import { proposeCompute } from './propose-compute';
 import { askUser } from './ask-user';
+import { rethrowIfTrustGuard } from '../../graph/index';
 
 /**
  * The default notebase toolset, in registration order. Order is preserved in
@@ -160,6 +161,11 @@ export async function executeNotebaseTool(
   try {
     return await tool.run(ctx, input, callbacks);
   } catch (e) {
+    // A tripped write guard is a Trust Principle bypass, not a tool failure the
+    // model should see and retry around (#2373). Folding it into an error
+    // tool_result would turn the guard's under-test throw into a string the
+    // conversation carries on past — CLAUDE.md: never swallow a TrustGuardError.
+    rethrowIfTrustGuard(e);
     const message = e instanceof Error ? e.message : String(e);
     return { content: `Tool ${name} failed: ${message}`, isError: true };
   }
