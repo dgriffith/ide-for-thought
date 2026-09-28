@@ -6,6 +6,7 @@ import { INDEXABLE_EXTS } from '../../shared/indexable-files';
 import { wasHandled } from './path-dedup';
 import { createWatchIgnoreMatcher } from './watcher-ignore';
 import { canonicalRoot } from '../path-containment';
+import { logger } from '../../shared/logger';
 
 /**
  * How long an `unlink` is held before it's surfaced as a deletion, giving a
@@ -363,6 +364,20 @@ export function startWatching(
   // armed for new sub-directories, leading to dropped events on small
   // file ops that follow immediately. 100ms is empirically enough to
   // close the gap without making real teardown sluggish.
+  // An `error` listener is not optional (#2372). chokidar reports an entry it
+  // cannot watch — a permission-denied folder inside the thoughtbase is the
+  // realistic one — by emitting `error`, and an EventEmitter with no listener
+  // THROWS it. That throw escaped chokidar's own traversal as an unhandled
+  // rejection, so `ready` never fired and every folder still queued behind the
+  // locked one went unwatched: edits there never reindexed. With a listener
+  // chokidar skips the entry and carries on.
+  const onWatchError = (err: unknown) => {
+    const e = err as NodeJS.ErrnoException | null;
+    logger('watcher').warn(`cannot watch ${e?.path ?? 'an entry'} (${e?.code ?? 'error'}):`, e?.message ?? err);
+  };
+  notes.on('error', onWatchError);
+  minervaData.on('error', onWatchError);
+
   return Promise.all([
     new Promise<void>((r) => notes.once('ready', () => r())),
     new Promise<void>((r) => minervaData.once('ready', () => r())),

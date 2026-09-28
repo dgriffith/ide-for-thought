@@ -1015,6 +1015,13 @@ becomes a document that tells you something false with confidence.
   `notebase/`). A bulk walker that reads with raw `fs.readFile` must skip
   links that leave the root: `isEscapingSymlink(root, fullPath, dirent)` is
   free for a non-link (#2398)
+- A walker skips an entry the filesystem refuses (a dangling or looping
+  link, a permission-denied note or subfolder, i.e. any error with an errno
+  `code`) and keeps going, but still throws when the ROOT can't be listed.
+  One such entry used to reject the whole graph rebuild, search index,
+  sidebar listing or watcher `ready` (#2372). Test new walkers against
+  `tests/helpers/hostile-thoughtbase.ts`, which builds these at test time
+  along with bad-byte notes, PATH_MAX paths and a corrupt `.minerva/`
 - Hidden files (`.`) and `IGNORED_DIRS` (`.git`, `node_modules`, `.minerva`, `.obsidian`) are filtered from listings
 - Empty folders are shown in the sidebar (not filtered out)
 

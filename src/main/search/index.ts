@@ -1,5 +1,6 @@
 import path from 'node:path';
 import fs from 'node:fs/promises';
+import type { Dirent } from 'node:fs';
 import type { SearchProvider, SearchResult } from './types';
 import { MiniSearchProvider } from './minisearch-provider';
 import type { ProjectContext } from '../project-context-types';
@@ -79,7 +80,17 @@ export async function indexAllNotes(ctx: ProjectContext): Promise<number> {
   await state.provider.save(indexPath(state));
 
   async function walk(dirPath: string, root: string) {
-    const entries = await fs.readdir(dirPath, { withFileTypes: true });
+    let entries: Dirent[];
+    try {
+      entries = await fs.readdir(dirPath, { withFileTypes: true });
+    } catch (err) {
+      // A permission-denied SUBfolder is skipped like an unreadable note
+      // (#2372); the root itself failing to list is a real error.
+      const code = (err as NodeJS.ErrnoException | null)?.code;
+      if (dirPath === root || typeof code !== 'string') throw err;
+      logger('search').warn(`not indexing unreadable folder (${code}):`, path.relative(root, dirPath));
+      return;
+    }
     for (const entry of entries) {
       if (isIgnoredEntry(entry.name)) continue;
       const fullPath = path.join(dirPath, entry.name);
@@ -91,7 +102,19 @@ export async function indexAllNotes(ctx: ProjectContext): Promise<number> {
         // links still index; a regular file costs nothing extra.
         if (isEscapingSymlink(root, fullPath, entry)) continue;
         const relativePath = path.relative(root, fullPath);
-        const content = await fs.readFile(fullPath, 'utf-8');
+        let content: string;
+        try {
+          content = await fs.readFile(fullPath, 'utf-8');
+        } catch (err) {
+          // An in-root dangling symlink, a symlink loop or a permission-denied
+          // note is listed by `readdir` like any other file; one of them used
+          // to reject the whole walk and leave search empty (#2372). Only an
+          // fs errno means "unreadable" — anything else is a bug.
+          const code = (err as NodeJS.ErrnoException | null)?.code;
+          if (typeof code !== 'string') throw err;
+          logger('search').warn(`not indexing unreadable file (${code}):`, relativePath);
+          continue;
+        }
         const title = extractTitle(content) ?? path.basename(relativePath, '.md');
         state.provider.index(relativePath, title, content);
         count++;

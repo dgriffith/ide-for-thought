@@ -12,6 +12,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { useTempDir } from '../../helpers/temp-project';
+import { CORRUPT_JSON_VARIANT_NAMES, writeCorruptJson } from '../../helpers/hostile-thoughtbase';
 
 const project = useTempDir('minerva-llm-settings-');
 let tempDir: string;
@@ -340,6 +341,23 @@ describe('llm settings — a corrupt file is never clobbered (#2356)', () => {
     expect((await getApiKeyStorage()).encrypted).toBe(false);
     expect(fs.readFileSync(settingsFile(), 'utf-8')).toBe(CORRUPT);
     expect(reportConfigError).toHaveBeenCalledWith(settingsFile(), 'parse', expect.anything());
+  });
+
+  // Every way a settings file goes bad in the wild, from the shared hostile
+  // generator (#2372). The cases above pin the mechanism on one shape each;
+  // this pins that none of the others slips past the strict read.
+  it.each(CORRUPT_JSON_VARIANT_NAMES)('saveSettings refuses a %s file and leaves its bytes alone', async (variant) => {
+    const bytes = writeCorruptJson(settingsFile(), variant);
+    await expect(saveSettings({ ...base, apiKey: 'sk-ant-new' })).rejects.toThrow();
+    expect(fs.readFileSync(settingsFile()).equals(bytes)).toBe(true);
+    expect(dirListing()).toEqual(['llm-settings.json']);
+  });
+
+  it.each(CORRUPT_JSON_VARIANT_NAMES)('display reads of a %s file stay lenient and never rewrite it', async (variant) => {
+    const bytes = writeCorruptJson(settingsFile(), variant);
+    expect((await getSettings()).providers.anthropic).toBeUndefined();
+    expect((await getSettingsForDisplay()).hasApiKey).toBe(false);
+    expect(fs.readFileSync(settingsFile()).equals(bytes)).toBe(true);
   });
 
   it('the legacy-key migration writes atomically (no temp file left behind)', async () => {

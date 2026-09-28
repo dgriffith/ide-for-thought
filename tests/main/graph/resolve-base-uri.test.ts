@@ -7,6 +7,11 @@
  * destructive overwrite. Now both writers share one leaf
  * (`config/project-config-store.ts`) that merges instead of replacing, and
  * throws on a corrupt file instead of silently defaulting.
+ *
+ * `initGraph` itself no longer propagates that throw (#2372): refusing to
+ * open the whole thoughtbase over one unparseable settings file was the
+ * wrong answer to "don't overwrite it". It uses the coined base URI for the
+ * session and writes nothing — the #1891 guarantee is the untouched bytes.
  */
 import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
@@ -43,12 +48,12 @@ describe('resolveBaseUri via initGraph (#1891)', () => {
     expect(cfg.baseUri).toBeTruthy();
   });
 
-  it('a corrupt config throws instead of being silently overwritten', async () => {
+  it('a corrupt config is never overwritten, and does not stop the graph opening (#2372)', async () => {
     fs.mkdirSync(path.join(project.root, '.minerva'), { recursive: true });
     const corrupt = '{ "displayName": "unterminated';
     fs.writeFileSync(configFile(project.root), corrupt, 'utf-8');
 
-    await expect(initGraph(projectContext(project.root))).rejects.toThrow();
+    await expect(initGraph(projectContext(project.root))).resolves.toBeUndefined();
 
     // No field loss: the corrupt bytes are exactly as they were, not
     // replaced by a freshly-coined `{baseUri}`.

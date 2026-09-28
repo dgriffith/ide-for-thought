@@ -94,7 +94,20 @@ export {
 // whole file with just `{baseUri}`, destroying displayName/publishTargets/etc.
 
 function resolveBaseUri(rootPath: string): string {
-  const existing = readRawProjectConfig(rootPath);
+  let existing: Record<string, unknown>;
+  try {
+    existing = readRawProjectConfig(rootPath);
+  } catch {
+    // A corrupt config.json used to reject `initGraph`, so the whole
+    // thoughtbase refused to open over one unparseable settings file (#2372).
+    // `readRawProjectConfig` has already reported it (reportConfigError).
+    // Use a coined base for this session and do NOT persist it: writing now
+    // would be the merge-over-a-corrupt-file #1891 exists to prevent, and the
+    // user's real baseUri may still be recoverable from the broken bytes.
+    // The graph is re-derived from the notes on open, so a session-only base
+    // costs nothing that isn't rebuilt next time the file parses.
+    return uriHelpers.coinBaseUri(rootPath);
+  }
   if (typeof existing.baseUri === 'string' && existing.baseUri) return existing.baseUri;
   const coined = uriHelpers.coinBaseUri(rootPath);
   patchRawProjectConfig(rootPath, { baseUri: coined });

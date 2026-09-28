@@ -130,7 +130,24 @@ export async function acquireProject(rootPath: string, winId: number): Promise<P
     projects.set(rootPath, rec);
   }
   rec.acquirers.add(winId);
-  await rec.initPromise;
+  try {
+    await rec.initPromise;
+  } catch (err) {
+    // Don't cache a failed open (#2372). The record used to stay in `projects`
+    // holding the rejected promise, so every later open of this root — after
+    // the user fixed whatever broke it — got the same rejection back without
+    // re-running init, until every window that had tried let go. Drop the
+    // state the partial init left behind, THEN evict, so the next open
+    // starts from scratch. Stores are keyed by rootPath, so disposing after
+    // eviction could tear down a fresh open that raced in between; disposing
+    // first means a racer just joins this rejection instead. Idempotent when
+    // several acquirers of the same failed init all land here.
+    if (projects.get(rootPath) === rec) {
+      await disposeAllProjectStores(rec.ctx);
+      if (projects.get(rootPath) === rec) projects.delete(rootPath);
+    }
+    throw err;
+  }
   return rec.ctx;
 }
 
