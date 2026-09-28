@@ -87,4 +87,22 @@ describe('acquireProject does not cache a failed open (#2372)', () => {
 
     expect((await search(ctx, 'alphamarker')).map((r) => r.relativePath)).toEqual([posix(CONTROL_NOTES.alpha)]);
   });
+
+  it.skipIf(process.getuid?.() === 0)('two windows sharing one failed open both reject, and it is evicted once', async () => {
+    // Both acquirers await the same init promise, so both land in the catch.
+    // The first to get past dispose evicts the record; the second must find
+    // it already gone and leave the registry alone rather than delete a
+    // record that isn't its own.
+    fs.chmodSync(tb.manifest.root, 0o000);
+    const results = await Promise.allSettled([
+      acquireProject(tb.manifest.root, WIN),
+      acquireProject(tb.manifest.root, WIN + 1),
+    ]);
+    expect(results.map((r) => r.status)).toEqual(['rejected', 'rejected']);
+    expect(getProjectContext(tb.manifest.root)).toBeNull();
+
+    fs.chmodSync(tb.manifest.root, 0o755);
+    const ctx = await acquireProject(tb.manifest.root, WIN);
+    expect((await search(ctx, 'alphamarker')).map((r) => r.relativePath)).toEqual([posix(CONTROL_NOTES.alpha)]);
+  });
 });
