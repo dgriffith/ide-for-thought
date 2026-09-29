@@ -1,16 +1,34 @@
 #!/bin/sh
-# Pre-push lint gate (#690).
+# Pre-push lint gate (#690), with opt-in related tests (#2380).
 #
 # Runs the fast `pnpm lint` (tsc + svelte-check + eslint, run in parallel, ~40s)
 # before a push so an obvious type/template/lint failure is caught locally
 # instead of burning a slow macos-latest CI run. Pre-push (not pre-commit) keeps
 # commits frictionless.
 #
+# Opt-in: `PREPUSH_TESTS=1 git push` also runs `vitest related --run` on the
+# files this push changes (scripts/prepush-related-tests.mjs), concurrently
+# with lint. Off by default so the default hook costs exactly what it did.
+# `PREPUSH_TESTS=0` keeps it off and hides the one-line tip.
+#
 # Escape hatches: `git push --no-verify`, or `SKIP_HOOKS=1 git push`.
 # Activated by the `prepare` script (sets core.hooksPath to .githooks on install).
+#
+# POSIX sh on purpose — no bash-isms (tests/architecture/prepush-hook.test.ts).
 
 if [ "$SKIP_HOOKS" = "1" ]; then
   exit 0
+fi
+
+# Git passes the remote's name as $1 and feeds the pushed refs on stdin. The
+# refs are read here, in the foreground, only when tests are opted into: a
+# background job in a non-interactive shell gets /dev/null for stdin, and the
+# default path has never read stdin (git tolerates a hook that doesn't).
+remote="${1:-origin}"
+run_tests=0
+if [ "${PREPUSH_TESTS:-}" = "1" ]; then
+  run_tests=1
+  push_refs="$(cat)"
 fi
 
 # Warn (never block) when the local Node major differs from .nvmrc (#2252).
@@ -38,14 +56,59 @@ if [ -f .nvmrc ] && command -v node >/dev/null 2>&1; then
   fi
 fi
 
+# One line of discoverability while the var is unset. Setting it to anything
+# (PREPUSH_TESTS=0 in your shell profile) is a decision, and silences it.
+if [ -z "${PREPUSH_TESTS+set}" ]; then
+  echo "  tip: PREPUSH_TESTS=1 git push also runs the tests related to your changes (PREPUSH_TESTS=0 hides this)."
+fi
+
 echo "→ pre-push: pnpm lint:fonts (skip with --no-verify)…"
 if ! pnpm lint:fonts; then
   echo "✗ pre-push: hardcoded mono font literal found — use var(--font-mono). See reports/design-review-2.md §2." >&2
   exit 1
 fi
 
+started="$(date +%s)"
+
+# Related tests run in the background while lint runs in the foreground, their
+# output captured to a file and printed as one block once lint is done — so
+# the two never interleave. Measured on a two-file change: lint 65s + tests 12s
+# sequentially, 61s concurrently.
+if [ "$run_tests" = "1" ]; then
+  tests_log="$(mktemp "${TMPDIR:-/tmp}/minerva-prepush.XXXXXX")" || exit 1
+  trap 'rm -f "$tests_log"' EXIT
+  # A background job in a non-interactive shell ignores SIGINT, so Ctrl-C
+  # would leave vitest running after the push was abandoned. Forward it.
+  trap 'kill "$tests_pid" 2>/dev/null; exit 130' INT TERM
+  echo "→ pre-push: related tests running in the background (PREPUSH_TESTS=1); output follows lint…"
+  printf '%s\n' "$push_refs" | node scripts/prepush-related-tests.mjs "$remote" >"$tests_log" 2>&1 &
+  tests_pid=$!
+fi
+
 echo "→ pre-push: pnpm lint (skip with --no-verify)…"
-if ! pnpm lint; then
+pnpm lint
+lint_status=$?
+
+tests_status=0
+if [ "$run_tests" = "1" ]; then
+  wait "$tests_pid"
+  tests_status=$?
+  echo "── related tests ──────────────────────────────────────────────"
+  cat "$tests_log"
+fi
+
+elapsed=$(( $(date +%s) - started ))
+
+if [ "$lint_status" -ne 0 ]; then
   echo "✗ pre-push: lint failed — push aborted. Fix it, or bypass with: git push --no-verify" >&2
+fi
+if [ "$tests_status" -ne 0 ]; then
+  echo "✗ pre-push: related tests failed — push aborted. Fix them, or bypass with: git push --no-verify (or SKIP_HOOKS=1 git push)" >&2
+fi
+if [ "$lint_status" -ne 0 ] || [ "$tests_status" -ne 0 ]; then
   exit 1
+fi
+
+if [ "$run_tests" = "1" ]; then
+  echo "✓ pre-push: lint + related tests passed in ${elapsed}s"
 fi

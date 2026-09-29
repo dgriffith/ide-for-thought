@@ -97,6 +97,34 @@ lint gate before each push so obvious failures are caught locally instead of in
 CI. Bypass a single push with `git push --no-verify` (or `SKIP_HOOKS=1 git push`)
 if you need to.
 
+**Also run the tests your push touches (opt-in).** `PREPUSH_TESTS=1 git push`
+adds `vitest related --run` on the files the push changes, running concurrently
+with lint and printed as its own block once lint finishes (#2380). Put
+`export PREPUSH_TESTS=1` in your shell profile to make it your default, or
+`PREPUSH_TESTS=0` to keep it off and hide the one-line tip the hook prints
+while the variable is unset.
+
+- **Which files.** For each ref being pushed: `remote..local` for an update; the
+  merge-base with the remote's default branch (`<remote>/HEAD`, then `main`,
+  then `master`) for a new branch, or for an update whose remote commit you
+  never fetched; nothing for a deletion. The union is filtered to files that
+  still exist and that vitest can relate — code under any path, plus the
+  `.json`/`.ttl`/`.md` files `src/` imports. A docs-only push prints one line
+  and runs nothing.
+- **What it costs.** Measured on a two-file change touching skill-context code:
+  the default hook 62s, with `PREPUSH_TESTS=1` 63s (the related run — 40 test
+  files and 502 tests in 15s — hides behind lint). A widely-imported file costs
+  more: a one-line edit to `src/shared/time.ts` relates to 275 test files.
+- **Big pushes run anyway.** Past 150 files the hook says the related set may
+  be most of the suite, then runs it — you opted into a test gate, and `related`
+  is never more than `pnpm test`. Only when the paths would overflow the
+  command line does it switch to the full suite (a superset).
+- **What it can't see.** `related` walks the import graph, so a test that reads
+  a file off disk rather than importing it — most of `tests/architecture/`, the
+  snapshot-of-a-file tests — isn't selected. CI still runs everything.
+- A failure aborts the push; `--no-verify` / `SKIP_HOOKS=1` still bypass all
+  of it.
+
 > **Gotcha:** in a `.svelte` file it's `svelte-check` — not `tsc` or `eslint` —
 > that catches script↔template drift (a template referencing a renamed/removed
 > binding, a wrong prop type). If a `.svelte` change looks fine but `pnpm lint`
@@ -233,7 +261,7 @@ doubt:
   surface) and `pnpm test tests/main/ipc/registration.test.ts -u` (the
   registered-channel set), and neither is caught by lint. If a snapshot test
   fails, read *why* before regenerating it.
-- **`tests/architecture/` is not about any feature.** Its 43 tests check the
+- **`tests/architecture/` is not about any feature.** Its 44 tests check the
   shape of the codebase — package cycles, file-size budgets, anti-pattern
   ratchets, config-loader and dialog adoption, the CI workflows. Most fail by
   naming a *new* offender against a committed baseline, so the first time you

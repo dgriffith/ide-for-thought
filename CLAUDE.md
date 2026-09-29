@@ -16,6 +16,15 @@ A **pre-push hook** (`.githooks/pre-push`, activated by the `prepare` script's
 `core.hooksPath` on `pnpm install`) runs `pnpm lint` before each push so an
 obvious failure is caught locally instead of in CI (#690). Bypass a single push
 with `git push --no-verify` (or `SKIP_HOOKS=1 git push`).
+**Opt-in:** `PREPUSH_TESTS=1 git push` also runs `vitest related --run` on the
+files the push changes, concurrently with lint (#2380) — off by default, so the
+default hook costs what it always did (`PREPUSH_TESTS=0` hides the one-line
+tip). File selection is `scripts/lib/prepush-changed-files.mjs`: per pushed
+ref `remote..local`, or the merge-base with `<remote>/HEAD`/`main` for a new
+branch; deletions skipped. `related` follows imports, so tests that read files
+off disk (most of `tests/architecture/`) aren't selected — CI still runs them.
+`tests/architecture/prepush-hook.test.ts` executes the hook with stubs to pin
+the default path and the bypasses.
 
 ## Architecture
 
@@ -1106,7 +1115,7 @@ untested ones sit in a `KNOWN_UNTESTED` list that may only shrink.
 
 ### The architecture ratchets are inventoried in `docs/architecture-ratchets.md` (#2262)
 
-`tests/architecture/` holds **43** tests that check the shape of the codebase
+`tests/architecture/` holds **44** tests that check the shape of the codebase
 rather than the behavior of any feature — the package-cycle check, the file-size
 budgets, the anti-pattern ratchets, the dialog-adoption ratchet, the two
 temp-project-fixture ratchets, the CI-workflow checks, and so on. Most of them
