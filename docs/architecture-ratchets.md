@@ -21,7 +21,7 @@ what to do about it. `architecture-ratchets-doc.test.ts` keeps the two sides in
 step — a new test in `tests/architecture/` with no entry here fails, and an
 entry here naming a test that no longer exists fails too (#2262).
 
-Written up as of 2026-09-29, 43 tests.
+Written up as of 2026-09-29, 44 tests.
 
 ---
 
@@ -568,6 +568,24 @@ hook's skew check *warns* rather than blocks: a hook that blocks a push over an
 advisory is a hook people disable, and the lint gate goes with it. **When it
 fires:** pick the next even LTS line (26, from 2026-10-28), and update
 `engines` and the workflows together.
+
+### `prepush-hook.test.ts`
+
+**The pre-push hook's related-tests run stays opt-in, and the bypasses still
+bypass** (#2380). `PREPUSH_TESTS=1 git push` runs `vitest related --run` on the
+pushed files alongside lint; with the variable unset the hook must do exactly
+what it did before (lint only, plus one tip line), and `SKIP_HOOKS=1` must
+return before anything runs — including before reading git's stdin. The test
+*executes* the hook under `sh` and, where installed, `dash`, with `pnpm` /
+`node` / `vitest` stubbed on `PATH` to record what was called, so it pins
+behaviour rather than wording; a static scan for bash-isms backs up shells not
+on the machine. It also pins the concurrent mode's exit handling: either a lint
+or a test failure fails the push, and both are reported. **When it fires:** if
+the default path now runs something new, that is the regression the issue was
+worried about — make it opt-in. If you only restructured the hook, keep the
+stubs' contract (`node scripts/prepush-related-tests.mjs <remote>` with the ref
+list on stdin) or update the test alongside it. The file selection itself is
+unit-tested in `tests/scripts/prepush-changed-files.test.ts`.
 
 ### `lockfile-gate.test.ts`
 
