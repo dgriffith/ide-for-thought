@@ -309,6 +309,10 @@ export interface ChannelMap {
   'tables:query': (sql: string) =>
     | { ok: true; columns: string[]; rows: Record<string, unknown>[] }
     | { ok: false; error: string };
+  /** Note-embedded SQL (#2448): the allowlist refusal is the `ok: false` arm. */
+  'tables:queryNote': (sql: string) =>
+    | { ok: true; columns: string[]; rows: Record<string, unknown>[] }
+    | { ok: false; error: string };
   'tables:list': () => Array<{
     name: string;
     relativePath: string;

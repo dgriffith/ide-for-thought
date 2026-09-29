@@ -40,10 +40,32 @@
  * Where this module's scope is narrower than DuckDB's, the answer is a
  * refusal, never a file read.
  *
- * This runs on the `query_sql` path ONLY. User SQL cells, the Query panel,
- * Python's `minerva.sql()` and vega specs keep the full locked connection —
- * reading an in-root CSV with `read_csv` there is a feature.
+ * Two paths run it (#2448), each with its own {@link SqlGuardAudience}:
+ *   - `model` — the LLM's `query_sql` tool (#2442).
+ *   - `note` — SQL written INSIDE a note that runs without the user running
+ *     anything: a vega-lite `data.sql` / `data.table` binding (preview and
+ *     HTML export) and a `:::query-*` block with `language: sql` (preview).
+ *     A note's author is not necessarily the user — a shared thoughtbase is
+ *     untrusted input — and opening the note is enough to run it.
+ * The walker is the same for both; only the refusal wording differs.
+ *
+ * What the user runs deliberately keeps the full locked connection: the Query
+ * panel, ```sql cells (behind the compute trust gate) and Python's
+ * `minerva.sql()`. Reading an in-root CSV with `read_csv` there is a feature.
  */
+
+/**
+ * Who authored the SQL being checked, which decides only how a refusal is
+ * worded: `model` speaks to the LLM (names its tools), `note` speaks to a
+ * person looking at a chart or query block in the preview or an export.
+ */
+export type SqlGuardAudience = 'model' | 'note';
+
+/** How a refusal names the thing that may not call a function. */
+const SUBJECT: Record<SqlGuardAudience, string> = {
+  model: 'query_sql',
+  note: 'charts and query blocks in notes',
+};
 
 /** One row of the live catalog (`duckdb_tables()` ∪ `duckdb_views()`). */
 export interface CatalogRelation {
@@ -139,7 +161,10 @@ function isLogicalType(o: JsonObject): boolean {
 }
 
 class Walker {
-  constructor(private readonly catalog: readonly CatalogRelation[]) {}
+  constructor(
+    private readonly catalog: readonly CatalogRelation[],
+    private readonly subject: string,
+  ) {}
 
   visit(v: Json, scope: ReadonlySet<string>): void {
     if (Array.isArray(v)) {
@@ -174,7 +199,7 @@ class Walker {
     if (cls === 'FUNCTION') {
       const name = str(o.function_name).toLowerCase();
       if (REFUSED_SCALAR_FUNCTIONS.has(name) || REFUSED_SCALAR_PREFIXES.some((p) => name.startsWith(p))) {
-        throw new Refusal(`the function ${name}() is not available to query_sql`);
+        throw new Refusal(`the function ${name}() is not available to ${this.subject}`);
       }
     }
     this.children(o, scope);
@@ -244,7 +269,7 @@ class Walker {
     const name = str(fn.function_name).toLowerCase();
     if (str(fn.schema) || str(fn.catalog) || !SAFE_TABLE_FUNCTIONS.has(name)) {
       const shown = [str(fn.catalog), str(fn.schema), name].filter(Boolean).join('.');
-      throw new Refusal(`the table function ${shown}() is not available to query_sql`);
+      throw new Refusal(`the table function ${shown}() is not available to ${this.subject}`);
     }
     // Arguments may hold subqueries and scalar calls of their own.
     this.children(fn, scope);
@@ -269,7 +294,11 @@ class Walker {
  * Check a `json_serialize_sql` result against `catalog`. Pure: the caller
  * supplies both, which is what lets the tests pin raw AST fixtures.
  */
-export function checkSerializedSql(serialized: Json, catalog: readonly CatalogRelation[]): SqlGuardVerdict {
+export function checkSerializedSql(
+  serialized: Json,
+  catalog: readonly CatalogRelation[],
+  audience: SqlGuardAudience = 'model',
+): SqlGuardVerdict {
   if (!isObject(serialized)) return { ok: false, reason: 'the statement could not be parsed' };
   if (serialized.error !== false) {
     const msg = str(serialized.error_message);
@@ -282,10 +311,10 @@ export function checkSerializedSql(serialized: Json, catalog: readonly CatalogRe
   }
   const statements = serialized.statements;
   if (!Array.isArray(statements) || statements.length !== 1) {
-    return { ok: false, reason: 'query_sql runs exactly one statement' };
+    return { ok: false, reason: 'exactly one statement can run' };
   }
   try {
-    new Walker(catalog).visit(statements[0], new Set());
+    new Walker(catalog, SUBJECT[audience]).visit(statements[0], new Set());
     return { ok: true };
   } catch (err) {
     if (err instanceof Refusal) return { ok: false, reason: err.message };
@@ -308,11 +337,40 @@ export function describeRegistered(catalog: readonly CatalogRelation[]): string 
 }
 
 /**
- * Parse `sql` with DuckDB (via `read`, the locked tables connection), read
- * the live catalog, and decide. The verdict's `reason` is written for the
- * model: it says what is allowed and names what it may query.
+ * The full refusal message: the walker's `reason`, then what IS allowed and
+ * what exists to query. The model is pointed at its `describe_tables` tool; a
+ * person is pointed at the Tables panel and told how to keep a CSV chart
+ * working (query the CSV's registered view by name, not its path).
  */
-export async function guardModelSql(read: RowReader, sql: string): Promise<SqlGuardVerdict> {
+function refusalMessage(audience: SqlGuardAudience, reason: string, catalog: readonly CatalogRelation[]): string {
+  if (audience === 'note') {
+    return (
+      `Refused: ${reason}. Charts and query blocks in notes can only read the tables and views ` +
+      'Minerva registered (CSV files and captioned markdown tables), plus range() / generate_series() / ' +
+      'unnest(); they cannot read files directly. To chart a CSV, query its registered view by name ' +
+      '(the Tables panel lists them) instead of its path. ' +
+      describeRegistered(catalog)
+    );
+  }
+  return (
+    `Refused: ${reason}. query_sql can only read the tables and views Minerva registered ` +
+    '(CSV files and captioned markdown tables), plus range() / generate_series() / unnest() and the ' +
+    'duckdb_tables() / duckdb_columns() catalog functions; it cannot read files. ' +
+    describeRegistered(catalog) +
+    ' Call describe_tables for their columns.'
+  );
+}
+
+/**
+ * Parse `sql` with DuckDB (via `read`, the locked tables connection), read
+ * the live catalog, and decide. The verdict's `reason` is worded for
+ * `audience`: it says what is allowed and names what may be queried.
+ */
+export async function guardSql(
+  read: RowReader,
+  sql: string,
+  audience: SqlGuardAudience,
+): Promise<SqlGuardVerdict> {
   const [parsedRows, catalogRows] = await Promise.all([
     read('SELECT json_serialize_sql(?::VARCHAR) AS ast', [sql]),
     read(CATALOG_SQL, []),
@@ -329,15 +387,12 @@ export async function guardModelSql(read: RowReader, sql: string): Promise<SqlGu
   } catch {
     ast = null;
   }
-  const verdict = checkSerializedSql(ast, catalog);
+  const verdict = checkSerializedSql(ast, catalog, audience);
   if (verdict.ok) return verdict;
-  return {
-    ok: false,
-    reason:
-      `Refused: ${verdict.reason}. query_sql can only read the tables and views Minerva registered ` +
-      '(CSV files and captioned markdown tables), plus range() / generate_series() / unnest() and the ' +
-      'duckdb_tables() / duckdb_columns() catalog functions; it cannot read files. ' +
-      describeRegistered(catalog) +
-      ' Call describe_tables for their columns.',
-  };
+  return { ok: false, reason: refusalMessage(audience, verdict.reason, catalog) };
+}
+
+/** {@link guardSql} for the LLM's `query_sql` (#2442). */
+export function guardModelSql(read: RowReader, sql: string): Promise<SqlGuardVerdict> {
+  return guardSql(read, sql, 'model');
 }

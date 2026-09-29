@@ -80,6 +80,9 @@ const READ_ALLOWLIST = new Set<string>([
   // graph / links reads
   'query', 'aliasMap', 'frontmatterKeys', 'inspections', 'schemaForCompletion',
   'sourceDetail', 'citationsForNote', 'expandNode', 'neighborhood',
+  // tables.queryNote (#2448): note-embedded SQL under the registered-relations
+  // allowlist — a read like `query`, just a narrower one.
+  'queryNote',
   // notebase reads
   'getProperties', 'listFiles', 'readFile', 'searchInNotes',
   // tags / types / tables / templates / collections / sites / skills reads

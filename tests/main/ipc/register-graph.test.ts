@@ -48,6 +48,7 @@ const h = vi.hoisted(() => ({
   // search / tables
   searchIndexAllNotes: vi.fn(),
   runQuery: vi.fn(),
+  runNoteQuery: vi.fn(),
   listTables: vi.fn(),
   registerAllCsvs: vi.fn(),
   registerAllNoteTables: vi.fn(),
@@ -105,6 +106,7 @@ vi.mock('../../../src/main/graph/index', () => ({
 vi.mock('../../../src/main/search/index', () => ({ indexAllNotes: h.searchIndexAllNotes }));
 vi.mock('../../../src/main/sources/tables', () => ({
   runQuery: h.runQuery,
+  runNoteQuery: h.runNoteQuery,
   listTables: h.listTables,
   registerAllCsvs: h.registerAllCsvs,
   registerAllNoteTables: h.registerAllNoteTables,
@@ -256,6 +258,31 @@ describe('register-graph — queries and lookups', () => {
     expect(result.rows[0]).toEqual({ id: 7, label: 'alpha', huge: '9007199254740992' });
     expect(typeof result.rows[0]!.id).toBe('number');
     expect(result.columns).toEqual(['id', 'label', 'huge']);
+  });
+
+  // #2448 — note-embedded SQL (vega data.sql, :::query blocks) gets the
+  // registered-relations allowlist. The channel's whole point is WHICH tables
+  // function it reaches: never the unguarded `runQuery`.
+  it('TABLES_QUERY_NOTE runs through the guarded runNoteQuery, never runQuery', async () => {
+    h.runNoteQuery.mockResolvedValue({ ok: true, columns: ['n'], rows: [{ n: 3n }] });
+    await expect(callAsync(Channels.TABLES_QUERY_NOTE, 'SELECT count(*) AS n FROM sales'))
+      .resolves.toEqual({ ok: true, columns: ['n'], rows: [{ n: 3 }] });
+    expect(h.runNoteQuery).toHaveBeenCalledWith(CTX, 'SELECT count(*) AS n FROM sales');
+    expect(h.runQuery).not.toHaveBeenCalled();
+  });
+
+  it('TABLES_QUERY_NOTE hands a refusal back on the union, for the block to render', async () => {
+    h.runNoteQuery.mockResolvedValue({ ok: false, error: 'Refused: the table function read_text() is not available' });
+    await expect(callAsync(Channels.TABLES_QUERY_NOTE, "SELECT * FROM read_text('.minerva/secrets.json')"))
+      .resolves.toEqual({ ok: false, error: 'Refused: the table function read_text() is not available' });
+    expect(h.runQuery).not.toHaveBeenCalled();
+  });
+
+  it('TABLES_QUERY_NOTE reports "no project" on its union', async () => {
+    openProject = null;
+    await expect(callAsync(Channels.TABLES_QUERY_NOTE, 'SELECT 1'))
+      .resolves.toEqual({ ok: false, error: 'No project open' });
+    expect(h.runNoteQuery).not.toHaveBeenCalled();
   });
 
   it('TABLES_LIST reports the registered tables', async () => {

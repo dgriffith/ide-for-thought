@@ -341,6 +341,7 @@ exports[`preload behaviour: surface-wide invariants (#2367) > the full method â†
   "tables.onChanged": "on tables:changed",
   "tables.onNameCollision": "on tables:nameCollision",
   "tables.query": "invoke tables:query",
+  "tables.queryNote": "invoke tables:queryNote",
   "tabs.load": "invoke tabs:load",
   "tabs.save": "invoke tabs:save",
   "tags.allNames": "invoke tags:allNames",

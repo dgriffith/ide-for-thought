@@ -180,6 +180,7 @@ const api = {
   },
   tables: {
     query: (sql: string) => invoke(Channels.TABLES_QUERY, sql),
+    queryNote: (sql: string) => invoke(Channels.TABLES_QUERY_NOTE, sql),
     list: () => invoke(Channels.TABLES_LIST),
     onChanged: (cb: () => void) => subscribe(Channels.TABLES_CHANGED, cb),
     onNameCollision: (cb: (collision: import('../shared/types').CsvTableCollision) => void) =>

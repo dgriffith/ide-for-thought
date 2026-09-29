@@ -405,6 +405,7 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
     "onChanged",
     "onNameCollision",
     "query",
+    "queryNote",
   ],
   "tabs": [
     "load",

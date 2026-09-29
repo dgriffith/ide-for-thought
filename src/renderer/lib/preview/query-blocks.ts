@@ -195,7 +195,10 @@ export async function executeQueryBlock(deps: QueryBlockDeps, el: HTMLElement): 
   try {
     let results: Record<string, string>[];
     if (language === 'sql') {
-      const response = await api.tables.query(query);
+      // Note-embedded SQL runs on preview with nobody pressing Run, so main
+      // holds it to registered tables and views (#2448); a refusal renders
+      // in place like any other query error.
+      const response = await api.tables.queryNote(query);
       if (!response.ok) {
         deps.queryCache.set(cacheKey, { results: [], error: response.error });
         renderQueryResults(deps, el, type ?? 'list', config, [], response.error);
