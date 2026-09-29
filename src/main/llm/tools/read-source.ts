@@ -2,6 +2,7 @@ import * as fs from '../../notebase/fs';
 import { projectContext } from '../../project-context-types';
 import { sourceTitle } from '../../graph/index';
 import type { NotebaseTool, ToolContext } from './types';
+import { bareSourceId } from './agent-path';
 
 /**
  * Read an ingested source's extracted body (#1371). Sibling of `read_note`:
@@ -16,13 +17,11 @@ async function runRead(ctx: ToolContext, input: unknown): Promise<string> {
   if (typeof source_id !== 'string' || !source_id.trim()) {
     throw new Error('source_id is required');
   }
-  const id = source_id.trim();
-  // A source id is a flat identifier, never a path. Reject separators / traversal
-  // up front for a clearer message than a deep assertSafePath throw (the fs read
-  // below is also guarded, so this is defence-in-depth, not the only check).
-  if (id.includes('/') || id.includes('\\') || id.includes('..')) {
-    throw new Error(`Invalid source_id "${id}": expected a bare source identifier, not a path.`);
-  }
+  // A source id is a flat identifier, never a path: this tool builds the
+  // `.minerva/sources/<id>/body.md` path itself, so a separator or `..` would
+  // walk it out of `sources/` (to `conversations/`, say). The fs read below is
+  // also containment-guarded; this keeps it inside the directory meant.
+  const id = bareSourceId(source_id.trim());
 
   let body: string;
   try {

@@ -1,6 +1,7 @@
 import * as fs from '../../notebase/fs';
 import { readFrontmatterProperties } from '../../../shared/refactor/frontmatter-patch';
 import type { NotebaseTool, ToolContext } from './types';
+import { agentPath } from './agent-path';
 
 /**
  * Read the frontmatter of a single note and return it as JSON. No
@@ -11,7 +12,7 @@ async function runFetchProperties(ctx: ToolContext, input: unknown): Promise<str
   if (typeof relative_path !== 'string' || !relative_path) {
     throw new Error('relative_path is required');
   }
-  const content = await fs.readFile(ctx.rootPath, relative_path);
+  const content = await fs.readFile(ctx.rootPath, agentPath(ctx, relative_path));
   const props = readFrontmatterProperties(content);
   return JSON.stringify(props, null, 2);
 }
@@ -35,7 +36,7 @@ export const fetchProperties: NotebaseTool = {
           type: 'string',
           description:
             'Path relative to the thoughtbase root, including the `.md` ' +
-            'extension. Path traversal (..) is rejected.',
+            'extension. Path traversal (..) and hidden folders such as .minerva/ are rejected.',
         },
       },
       required: ['relative_path'],

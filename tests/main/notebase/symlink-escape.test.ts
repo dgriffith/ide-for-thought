@@ -80,8 +80,10 @@ describe('a symlinked DIRECTORY pointing outside the root', () => {
 
   it('refuses it via the LLM read_note tool', async () => {
     const ctx = { rootPath: root } as unknown as ToolContext;
+    // The tool's agent-path guard (#2453) answers first, in its own words —
+    // the same `assertSafePath` verdict underneath.
     await expect(readNote.run(ctx, { relative_path: 'notes/link/secret.txt' }))
-      .rejects.toThrow(/traversal/i);
+      .rejects.toThrow(/not a path inside the thoughtbase/);
   });
 
   it('refuses it when the root is spelled through its realpath too', async () => {

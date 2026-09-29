@@ -1,5 +1,6 @@
 import { proposeNoteTypings, type TypingAssignment } from '../infer-types';
 import type { NotebaseTool, ToolContext, ToolCallbacks } from './types';
+import { agentPathProblem } from './agent-path';
 
 /**
  * `propose_note_types` (#1075) — migrate untyped notes to registry types. Unlike
@@ -17,6 +18,10 @@ async function runProposeNoteTypes(
   }
   const parsed = parseInput(input);
   if ('error' in parsed) return { content: parsed.error, isError: true };
+  for (const a of parsed.assignments) {
+    const refused = agentPathProblem(ctx, a.relativePath);
+    if (refused) return { content: refused, isError: true };
+  }
 
   const { proposed, skipped } = await proposeNoteTypings(
     ctx.rootPath,

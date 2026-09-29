@@ -9,6 +9,7 @@ import {
   type ProposeClaimsInput,
 } from '../../../shared/conversation-claims-drafts';
 import type { NotebaseTool, ToolContext, ToolCallbacks } from './types';
+import { bareSourceId } from './agent-path';
 
 /**
  * Trust-principle parity with the other draft tools (#104):
@@ -94,6 +95,7 @@ function parseProposeClaimsInput(
   if (!note) return { error: '`note` is required and must be a non-empty string.' };
   const sourceId = typeof obj.sourceId === 'string' ? obj.sourceId.trim() : '';
   if (!sourceId) return { error: '`sourceId` is required and must be a non-empty string.' };
+  try { bareSourceId(sourceId); } catch (e) { return { error: (e as Error).message }; }
   if (!Array.isArray(obj.claims) || obj.claims.length === 0) {
     return { error: '`claims` must be a non-empty array. If you have no claims to '
       + 'extract, reply to the user in plain text instead.' };

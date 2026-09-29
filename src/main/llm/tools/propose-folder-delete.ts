@@ -6,6 +6,7 @@ import { listAllFiles } from '../../notebase/rename';
 import * as notebaseFs from '../../notebase/fs';
 import type { ConversationDeleteDraft, DeleteDraftItem } from '../../../shared/conversation-refactor-drafts';
 import type { NotebaseTool, ToolContext, ToolCallbacks } from './types';
+import { agentPathProblem } from './agent-path';
 
 /**
  * propose_folder_delete — the folder counterpart to propose_note_delete. Each
@@ -53,6 +54,8 @@ async function runProposeFolderDelete(
     // symlink out of the root would otherwise be stat'd and then walked by
     // `listAllFiles`, putting a directory listing from outside the thoughtbase
     // into the review card and its counts into the tool result.
+    const refused = agentPathProblem(ctx, dir);
+    if (refused) { warnings.push(`Skipped ${dir}: ${refused}`); continue; }
     let abs: string;
     try { abs = notebaseFs.assertSafePath(ctx.rootPath, dir); }
     catch { warnings.push(`Skipped ${dir}: not a folder inside the thoughtbase.`); continue; }

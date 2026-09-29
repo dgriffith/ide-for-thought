@@ -204,6 +204,27 @@ describe.each(['standalone', 'routed through a running app'])('MCP agent guards 
     const user = await engine.read('.minerva/secrets.json');
     expect(bigintSafe(user)).toContain(SECRET);
   });
+
+  // #2453: the one write, too — no proposal may target Minerva's own state.
+  it('propose_note refuses a target in .minerva/ or another hidden folder, filing nothing', async () => {
+    const { engine, vault } = mode();
+    for (const p of [
+      '.minerva/types/evil.md',
+      './.minerva/templates/evil.md',
+      'notes/../.minerva/secrets.json',
+      '.MINERVA/types/evil.md',
+      '.git/hooks/pre-commit',
+      'notes/innocent.json',
+    ]) {
+      const r = await callTool(engine, 'propose_note', { relative_path: p, content: '# evil\n' });
+      expect(r.isError, p).toBe(true);
+      expect(r.content[0].text, p).toMatch(/Refused: /);
+    }
+    expect(fs.existsSync(path.join(vault.root, '.minerva', 'types'))).toBe(false);
+    const ok = await callTool(engine, 'propose_note', { relative_path: 'notes/minerva-ideas.md', content: '# Ideas\n' });
+    expect(ok.isError, ok.content[0].text).toBeFalsy();
+    expect(ok.content[0].text).toContain('pending');
+  });
 });
 
 describe('the running app has no SQL op to route agent SQL around the guard (#2452)', () => {

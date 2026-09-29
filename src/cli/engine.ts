@@ -27,7 +27,7 @@ import { getSharedEmbedder } from '../main/embeddings/shared-embedder';
 import { fileNoteProposal, type ProposeNoteInput } from '../main/llm/propose-note';
 import { readFile } from '../main/notebase/fs';
 import { searchInNotes } from '../main/notebase/search-in-notes';
-import { hasIgnoredSegment } from '../shared/ignored-dirs';
+import { agentPathRefusal } from '../main/path-containment';
 import type { ProjectContext } from '../main/project-context-types';
 
 export type ExecResult = { ok: true; data: unknown } | { ok: false; error: string };
@@ -147,24 +147,6 @@ export function createEngine(ctx: ProjectContext, opts: EngineOptions = {}): Eng
     await vectors.init(ctx, { embedder: opts.embedder ?? getSharedEmbedder(opts.resourcesBase) });
   })());
 
-  /** Does `relativePath`, with every symlink followed, resolve to an ignored
-   *  path under the root? A path the filesystem won't resolve (missing,
-   *  dangling link, loop, permission — any errno) is left to `readPath`, whose
-   *  own error is the right answer; anything else is a real failure. */
-  async function landsInIgnored(relativePath: string): Promise<boolean> {
-    const resolved = await Promise.all([
-      fs.realpath(path.resolve(ctx.rootPath, relativePath)),
-      fs.realpath(ctx.rootPath),
-    ]).catch((err: unknown) => {
-      if (err instanceof Error && typeof (err as NodeJS.ErrnoException).code === 'string') return null;
-      throw err;
-    });
-    if (!resolved) return false;
-    const [real, realRoot] = resolved;
-    const rel = path.relative(realRoot, real);
-    return !rel.startsWith('..') && !path.isAbsolute(rel) && hasIgnoredSegment(rel);
-  }
-
   async function readPath(relativePath: string): Promise<ExecResult> {
     try {
       const content = await readFile(ctx.rootPath, relativePath);
@@ -233,10 +215,12 @@ export function createEngine(ctx: ProjectContext, opts: EngineOptions = {}): Eng
       if (typeof relativePath !== 'string' || !relativePath) {
         return { ok: false, error: 'relative_path is required' };
       }
-      // Check the path as spelled AND where it really lands: an in-root
-      // symlink (`notes/x.json → ../.minerva/secrets.json`) passes the
-      // containment check by design, so the lexical test alone is not enough.
-      if (hasIgnoredSegment(relativePath) || (await landsInIgnored(relativePath))) {
+      // The shared agent-path guard (#2453): the path as spelled AND where it
+      // really lands, since an in-root symlink (`notes/x.json →
+      // ../.minerva/secrets.json`) passes the containment check by design.
+      // An `outside` verdict falls through to `readPath`, whose traversal
+      // error is the answer the CLI has always given.
+      if (agentPathRefusal(ctx.rootPath, relativePath) === 'hidden') {
         return {
           ok: false,
           error:

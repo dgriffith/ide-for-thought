@@ -6,6 +6,7 @@ import type {
   ConversationReorgDraft,
 } from '../../../shared/conversation-refactor-drafts';
 import type { NotebaseTool, ToolContext, ToolCallbacks } from './types';
+import { agentPathProblem } from './agent-path';
 
 /**
  * propose_folder_move — the folder counterpart to propose_note_move/rename.
@@ -60,6 +61,10 @@ async function runProposeFolderMove(
   const parsed = parsePairs(input);
   if ('error' in parsed) return { content: parsed.error, isError: true };
   const { pairs } = parsed;
+  for (const { from, to } of pairs) {
+    const refused = agentPathProblem(ctx, from) ?? agentPathProblem(ctx, to);
+    if (refused) return { content: refused, isError: true };
+  }
 
   if (pairs.length > 1) {
     if (!callbacks.onReorgDraft) {

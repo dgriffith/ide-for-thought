@@ -18,6 +18,7 @@ import { isIndexable } from '../../shared/indexable-files';
 import { setSourceProperties, readMeta, sourceMetaPath, restoreSourceMeta } from '../sources/source-meta-write';
 import { saveType, deleteType, slugify } from '../types/write';
 import type { ProjectContext } from '../project-context-types';
+import { assertAgentPath, assertBareId } from '../path-containment';
 import type { AppliedRecord, PayloadOf, ProposalPayload } from './proposal-types';
 import { applyTurtle } from './proposal-persistence';
 import { logger } from '../../shared/logger';
@@ -80,12 +81,50 @@ export function collectAffectsNodes(ctx: ProjectContext, payloads: ProposalPaylo
 }
 
 /**
+ * The thoughtbase paths a payload names that an agent chose — a note, a
+ * rewrite target, a move's endpoints, a folder. Kinds whose path Minerva
+ * builds itself (`excerpt`, `excerpt-evidence`, `source-meta`, `type-def`
+ * write under `.minerva/` by design) and `graph-triples` name none.
+ */
+function agentChosenPaths(p: ProposalPayload): string[] {
+  switch (p.kind) {
+    case 'note': return [p.relativePath];
+    case 'note-rewrite':
+    case 'note-delete':
+    case 'folder-delete': return [p.path];
+    case 'note-refactor':
+    case 'folder-refactor': return [p.fromPath, p.toPath];
+    default: return [];
+  }
+}
+
+/**
+ * Refuse a bundle that names a path inside `.minerva/` or another hidden
+ * folder, or outside the root (#2453) — the approval engine's half of
+ * `assertAgentPath`. Every producer of these kinds is LLM-originated (the
+ * conversation tools, auto-tag/link, set_properties, infer-types, MCP
+ * `propose_note`), and each already refuses such a path itself; this runs at
+ * propose time AND again at apply time, so a producer that forgets, or a
+ * proposal filed before the check existed and still pending in `graph.ttl`,
+ * can never write Minerva's own state on an Approve click.
+ */
+export function assertPayloadPaths(ctx: ProjectContext, payloads: ProposalPayload[]): void {
+  for (const p of payloads) {
+    for (const rel of agentChosenPaths(p)) assertAgentPath(ctx.rootPath, rel);
+    // `sourceMetaPath` is a bare `path.join` onto `.minerva/sources/`, so the
+    // model-supplied id is the whole containment story for this kind.
+    if (p.kind === 'source-meta') assertBareId(p.sourceId, 'sourceId');
+  }
+}
+
+/**
  * Apply a proposal's payloads as a trusted bundle. File-system payloads run
  * first, triples last — so a triples parse failure can roll back FS effects
  * without needing an rdflib snapshot. On any failure the applied records are
  * walked in reverse and rolled back best-effort.
  */
 export async function applyBundle(ctx: ProjectContext, payloads: ProposalPayload[]): Promise<AppliedRecord[]> {
+  assertPayloadPaths(ctx, payloads);
   const ordered = [
     ...payloads.filter((p) => p.kind !== 'graph-triples'),
     ...payloads.filter((p) => p.kind === 'graph-triples'),

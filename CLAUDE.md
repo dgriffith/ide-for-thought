@@ -1104,6 +1104,12 @@ becomes a document that tells you something false with confidence.
   `notebase/`). A bulk walker that reads with raw `fs.readFile` must skip
   links that leave the root: `isEscapingSymlink(root, fullPath, dirent)` is
   free for a non-link (#2398)
+- A path an **agent** chose — any LLM tool argument, an MCP client's
+  `read_note` / `propose_note` — goes through `assertAgentPath` /
+  `agentPathRefusal` (same file) instead, which adds the listing policy:
+  nothing in `.minerva/`, `.git/`, `node_modules/` or any dot-segment, as
+  spelled or after following symlinks, and never the root itself (#2453). See
+  *Prompt injection* below.
 - A walker skips an entry the filesystem refuses (a dangling or looping
   link, a permission-denied note or subfolder, i.e. any error with an errno
   `code`) and keeps going, but still throws when the ROOT can't be listed.
@@ -1580,6 +1586,27 @@ touch the tool surface:
 - **A new tool must be classified** in `tool-surface.test.ts`, which fails
   closed and statically bars tool modules from fs writes, approvals and
   trusted context.
+- **No path an agent chose reaches `.minerva/`** (#2453). `assertSafePath`
+  is containment only, and `.minerva/` (transcripts, `secrets.json`,
+  `config.json`, the proposal store, types, templates) is inside the root,
+  so `read_note(".minerva/secrets.json")` used to return the file. Every
+  tool argument that names a path — to read, to diff, or as a proposal
+  target — goes through `llm/tools/agent-path.ts` → `agentPathRefusal`
+  (`path-containment.ts`): refused when any segment is one the walkers skip
+  (any dot-segment, `node_modules`; case-folded, since the default macOS
+  volume is case-insensitive), when `assertSafePath` refuses it, when it
+  really lands in such a folder through an in-root symlink (checked on the
+  canonical path, so a not-yet-existing write target under a linked folder
+  counts), or when it names the root itself. A source id Minerva splices
+  into `.minerva/sources/<id>/…` goes through `assertBareId` instead.
+  `minerva mcp`'s `agentRead` and `fileNoteProposal` (MCP / CLI / substrate
+  `propose_note`) use the same function. Under the tools, the approval
+  engine's `assertPayloadPaths` refuses such a target at `proposeWrite` AND
+  again in `applyBundle`, so a pending proposal filed before the check can't
+  write Minerva's state on Approve. `tool-surface.test.ts` fails closed on
+  any tool parameter whose name is path-shaped and isn't classified to a
+  guard its module calls; `agent-paths.test.ts` drives every guarded tool
+  through the loop with each spelling and three canaries.
 - **`mcp_call` reaches only advertised tools** of configured, connected
   servers, **and a tool not marked `readOnlyHint: true` waits for the user**
   (#2439). The gate is in `callServerTool` (`mcp-servers/registry.ts`), whose

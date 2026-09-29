@@ -5,9 +5,13 @@
  * reads OUTSIDE it. It cannot close reads INSIDE it: `allowed_directories`
  * has no way to exclude `<root>/.minerva/`, where conversation transcripts,
  * `secrets.json`, the proposal store and the rest of Minerva's own state
- * live. Every other LLM read tool refuses that directory; `query_sql` has no
- * approval gate, so without this a planted note could pull the user's
- * conversation history into the model's context.
+ * live. Every other LLM tool that takes a path refuses that directory — as
+ * spelled, in any case, via `..` or through an in-root symlink — through the
+ * shared agent-path guard (`agentPathRefusal` in `src/main/path-containment.ts`,
+ * #2453; before that, `read_note` and friends did NOT). `query_sql` names
+ * files in SQL rather than in a path argument, and has no approval gate, so
+ * without this a planted note could pull the user's conversation history into
+ * the model's context.
  *
  * `query_sql` legitimately needs only the relations Minerva registered — CSV
  * views and captioned markdown tables — plus a few pure table functions. It

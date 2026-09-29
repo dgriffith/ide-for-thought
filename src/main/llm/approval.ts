@@ -20,7 +20,7 @@ import type {
   ProposalPayload,
   ProposedWrite,
 } from './proposal-types';
-import { applyBundle, collectAffectsNodes, wiredPayloadKinds } from './apply-dispatch';
+import { applyBundle, assertPayloadPaths, collectAffectsNodes, wiredPayloadKinds } from './apply-dispatch';
 import { runWithHistorySource } from '../history';
 import { proposalCause } from './proposal-cause';
 import { emitProposalsChanged } from './proposal-events';
@@ -75,6 +75,7 @@ function assertWiredPayloads(payloads: ProposalPayload[]): void {
  */
 export async function proposeWrite(ctx: ProjectContext, write: ProposedWrite): Promise<Proposal> {
   assertWiredPayloads(write.payloads);
+  assertPayloadPaths(ctx, write.payloads);
   const now = new Date().toISOString();
   const expiryDate = new Date(Date.now() + (write.expiryDays ?? 7) * DAY_MS).toISOString();
 
