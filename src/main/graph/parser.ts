@@ -1,4 +1,5 @@
 import YAML from 'yaml';
+import { ownRecord } from '../../shared/own-record';
 import { splitAnchor } from '../../shared/slug';
 import { slugifyTableName } from '../../shared/table-name';
 
@@ -199,26 +200,44 @@ function extractLinks(content: string): ParsedLink[] {
   return links;
 }
 
+/**
+ * The note's frontmatter as a NULL-PROTOTYPE record (as is every nested map).
+ * Keys are user text: into a `{}`, a `__proto__:` key would hit the prototype
+ * setter — dropped, and an object value re-parents the record so later reads
+ * see its members as inherited keys — and an absent `constructor` / `toString`
+ * would read back as `Object.prototype`'s. `yaml` itself is safe here (it
+ * defines `__proto__` as an own data property on an ordinary object); the copy
+ * below is where it used to go wrong. Key-driven lookups against other plain
+ * records (e.g. `mapFrontmatterKey`) still go through `getOwn`.
+ */
 function extractFrontmatter(content: string): Record<string, FrontmatterValue> {
   const match = content.match(FRONTMATTER_RE);
-  if (!match) return {};
+  if (!match) return ownRecord([]);
 
-  let raw: unknown;
+  const raw = parseYamlOrEmpty(match[1]!);
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return ownRecord([]);
+  return sanitizedEntries(raw as Record<string, unknown>, 0);
+}
+
+/** Malformed frontmatter indexes as none (the empty map is copied into a
+ *  null-prototype record by the caller like any other). */
+function parseYamlOrEmpty(text: string): unknown {
   try {
-    raw = YAML.parse(match[1]!);
+    return YAML.parse(text);
   } catch {
     return {};
   }
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+}
 
-  const result: Record<string, FrontmatterValue> = {};
-  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
-    const sanitized = sanitizeFrontmatterValue(value);
-    if (sanitized !== undefined && key.trim()) {
-      result[key.trim()] = sanitized;
-    }
+/** Own entries of a YAML mapping → a null-prototype record of sanitised values,
+ *  keys trimmed, blank keys and unsanitisable values dropped. */
+function sanitizedEntries(raw: Record<string, unknown>, depth: number): Record<string, FrontmatterValue> {
+  const entries: Array<[string, FrontmatterValue]> = [];
+  for (const [key, value] of Object.entries(raw)) {
+    const sanitized = sanitizeFrontmatterValue(value, depth);
+    if (sanitized !== undefined && key.trim()) entries.push([key.trim(), sanitized]);
   }
-  return result;
+  return ownRecord(entries);
 }
 
 /** Deepest nesting level a frontmatter mapping is materialised to before we
@@ -244,11 +263,7 @@ function sanitizeFrontmatterValue(value: unknown, depth = 0): FrontmatterValue |
   // survive; bail past the depth cap. An empty map (nothing sanitisable inside)
   // collapses to `undefined` so no dangling blank node is emitted.
   if (typeof value === 'object' && depth < MAX_FRONTMATTER_DEPTH) {
-    const map: FrontmatterMap = {};
-    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-      const s = sanitizeFrontmatterValue(v, depth + 1);
-      if (s !== undefined && k.trim()) map[k.trim()] = s;
-    }
+    const map: FrontmatterMap = sanitizedEntries(value as Record<string, unknown>, depth + 1);
     return Object.keys(map).length > 0 ? map : undefined;
   }
   return undefined;

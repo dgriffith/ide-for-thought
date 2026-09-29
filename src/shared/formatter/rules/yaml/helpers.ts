@@ -13,6 +13,7 @@
 
 import YAML from 'yaml';
 import type { ParseCache } from '../../types';
+import { getOwn } from '../../../own-record';
 
 export function transformFrontmatterDoc(
   content: string,
@@ -69,7 +70,7 @@ export function readFrontmatterKey(
   try {
     const parsed: unknown = YAML.parse(m[1]!);
     if (parsed && typeof parsed === 'object') {
-      return (parsed as Record<string, unknown>)[key];
+      return getOwn(parsed as Record<string, unknown>, key);
     }
   } catch {
     // fall through

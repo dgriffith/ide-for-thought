@@ -8,6 +8,7 @@ import type {
 import type { PropertyPatch, PropertyValue } from '../../../shared/refactor/frontmatter-patch';
 import type { NotebaseTool, ToolContext, ToolCallbacks } from './types';
 import { agentPathProblem } from './agent-path';
+import { ownRecord } from '../../../shared/own-record';
 
 /**
  * Trust-principle parity with `propose_notes` / `propose_sources`:
@@ -149,13 +150,16 @@ function parseSetPropertiesInput(
     // anything outside that means the model sent something exotic
     // (undefined, function, bigint) — reject early so the user doesn't
     // approve a no-op patch.
-    const sanitized: PropertyPatch = {};
+    // Null-prototype, so a `__proto__` key the model sent (JSON.parse makes it
+    // an own key) is carried as a property rather than re-parenting the patch.
+    const entries: Array<[string, PropertyValue]> = [];
     for (const [k, v] of Object.entries(props)) {
       if (!isPropertyValue(v)) {
         return { error: `update for ${relativePath}: value for key "${k}" is not a YAML-encodable scalar/array/object/null.` };
       }
-      sanitized[k] = v;
+      entries.push([k, v]);
     }
+    const sanitized: PropertyPatch = ownRecord(entries);
     updates.push({ relativePath, properties: sanitized });
   }
   return { note, updates };

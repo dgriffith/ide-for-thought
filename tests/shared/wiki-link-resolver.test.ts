@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { isNotePath } from '../../src/shared/note-extensions';
 import {
-  canonicalizeWikiLinkTarget, noteTargetPathBeside, aliasRecord, lookupAlias,
+  canonicalizeWikiLinkTarget, noteTargetPathBeside,
 } from '../../src/shared/wiki-link-resolver';
+import { getOwn, ownRecord } from '../../src/shared/own-record';
 
 describe('noteTargetPathBeside (#1446 create-note path)', () => {
   it('creates beside a root note', () => {
@@ -222,9 +223,9 @@ describe('targets named after Object.prototype members', () => {
    *  renderer (an ordinary object again). */
   const shapes = (entries: [string, string][]): [string, Record<string, string>][] => [
     ['plain object', Object.fromEntries(entries)],
-    ['aliasRecord', aliasRecord(entries)],
-    ['after a JSON round-trip', JSON.parse(JSON.stringify(aliasRecord(entries))) as Record<string, string>],
-    ['after structured clone', structuredClone(aliasRecord(entries))],
+    ['ownRecord', ownRecord(entries)],
+    ['after a JSON round-trip', JSON.parse(JSON.stringify(ownRecord(entries))) as Record<string, string>],
+    ['after structured clone', structuredClone(ownRecord(entries))],
   ];
 
   for (const [shape, aliases] of shapes([['intro', 'notes/other.md']])) {
@@ -247,7 +248,7 @@ describe('targets named after Object.prototype members', () => {
 
   it('resolves a note that really is named after one', () => {
     const files = [...others, { relativePath: 'notes/constructor.md', isDirectory: false }];
-    const index = buildWikiLinkIndex(files, aliasRecord([]));
+    const index = buildWikiLinkIndex(files, ownRecord([]));
     expect(resolveWikiLinkTarget('constructor', files, {})).toBe('notes/constructor.md');
     expect(resolveWikiLinkTargetWithIndex('constructor', index)).toBe('notes/constructor.md');
     expect(resolveWikiLinkTargetWithIndex('toString', index)).toBeNull();
@@ -270,14 +271,14 @@ describe('targets named after Object.prototype members', () => {
   }
 
   it('keeps an alias literally named __proto__ as an own key', () => {
-    const rec = aliasRecord([['__proto__', 'a.md'], ['b', 'b.md']]);
+    const rec = ownRecord([['__proto__', 'a.md'], ['b', 'b.md']]);
     expect(Object.keys(rec).sort()).toEqual(['__proto__', 'b']);
-    expect(lookupAlias(rec, '__proto__')).toBe('a.md');
-    expect(lookupAlias(rec, 'b')).toBe('b.md');
+    expect(getOwn(rec, '__proto__')).toBe('a.md');
+    expect(getOwn(rec, 'b')).toBe('b.md');
     // …and it survives the trip across IPC as an own key, not a prototype.
     const cloned = structuredClone(rec);
     expect(Object.getPrototypeOf(cloned)).toBe(Object.prototype);
-    expect(lookupAlias(cloned, '__proto__')).toBe('a.md');
-    expect(lookupAlias(cloned, 'b')).toBe('b.md');
+    expect(getOwn(cloned, '__proto__')).toBe('a.md');
+    expect(getOwn(cloned, 'b')).toBe('b.md');
   });
 });

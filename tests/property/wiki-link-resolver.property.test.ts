@@ -13,8 +13,9 @@
  */
 import { describe, it, expect } from 'vitest';
 import fc from 'fast-check';
+import { ownRecord } from '../../src/shared/own-record';
 import {
-  aliasRecord, buildWikiLinkIndex, resolveWikiLinkTarget, resolveWikiLinkTargetWithIndex,
+  buildWikiLinkIndex, resolveWikiLinkTarget, resolveWikiLinkTargetWithIndex,
 } from '../../src/shared/wiki-link-resolver';
 import { propertyParams } from '../helpers/property';
 
@@ -37,9 +38,9 @@ const ENTRIES: [string, string][] = [['intro', 'notes/raft.md'], ['consensus', '
 const aliasShape = fc.constantFrom<[string, () => Record<string, string>]>(
   ['none', () => ({})],
   ['plain object', () => Object.fromEntries(ENTRIES)],
-  ['aliasRecord', () => aliasRecord(ENTRIES)],
-  ['structured clone', () => structuredClone(aliasRecord(ENTRIES))],
-  ['JSON', () => JSON.parse(JSON.stringify(aliasRecord(ENTRIES))) as Record<string, string>],
+  ['ownRecord', () => ownRecord(ENTRIES)],
+  ['structured clone', () => structuredClone(ownRecord(ENTRIES))],
+  ['JSON', () => JSON.parse(JSON.stringify(ownRecord(ENTRIES))) as Record<string, string>],
 );
 
 describe('resolver alias lookup ignores Object.prototype (#2456 follow-up)', () => {
@@ -59,7 +60,7 @@ describe('resolver alias lookup ignores Object.prototype (#2456 follow-up)', () 
   it('resolves a prototype member name used as an alias to that alias', () => {
     fc.assert(
       fc.property(fc.constantFrom(...PROTO_NAMES), (alias) => {
-        const aliases = structuredClone(aliasRecord([...ENTRIES, [alias.toLowerCase(), 'journal/2026-09-29.md']]));
+        const aliases = structuredClone(ownRecord([...ENTRIES, [alias.toLowerCase(), 'journal/2026-09-29.md']]));
         const index = buildWikiLinkIndex(FILES, aliases);
         expect(resolveWikiLinkTarget(alias, FILES, aliases)).toBe('journal/2026-09-29.md');
         expect(resolveWikiLinkTargetWithIndex(alias, index)).toBe('journal/2026-09-29.md');

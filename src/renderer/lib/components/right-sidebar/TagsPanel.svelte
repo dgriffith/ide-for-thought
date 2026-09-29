@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { TagInfo, TaggedNote, TaggedSource } from '../../../../shared/types';
+  import { SvelteSet } from 'svelte/reactivity';
   import { api } from '../../ipc/client';
   import { extractTagsFromContent } from '../../../../shared/refactor/auto-tag';
   import Ribbon from './Ribbon.svelte';
@@ -43,27 +44,38 @@
   // re-renders the same set of tags within a session and `localStorage`
   // is the same convention we use for sidebar widths. Project-scoped
   // expand state can be a follow-up if anyone notices.
+  //
+  // A `SvelteSet` of expanded tag paths, not a `Record<string, boolean>`: tag
+  // paths are user text, and a plain-object record answers `constructor` /
+  // `toString` / `hasOwnProperty` from `Object.prototype` (so those tags read
+  // as expanded before anyone touched them) and treats a `__proto__` key as the
+  // prototype. A Set has no inherited keys to confuse with tag names, and
+  // `has`/`add`/`delete` are tracked per key, so no whole-object reassignment
+  // is needed to trigger a re-render. The persisted shape is unchanged — a
+  // `path → true` JSON object — so saved state from before carries over.
   const STORAGE_KEY = 'minerva.tagsPanel.expanded';
-  let expanded = $state<Record<string, boolean>>(loadExpanded());
+  const expanded = new SvelteSet<string>(loadExpanded());
 
-  function loadExpanded(): Record<string, boolean> {
+  function loadExpanded(): string[] {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return {};
+      if (!raw) return [];
       const parsed = JSON.parse(raw) as unknown;
       if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        const out: Record<string, boolean> = {};
-        for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
-          if (typeof v === 'boolean') out[k] = v;
-        }
-        return out;
+        // `Object.entries` reads own keys only — JSON.parse makes `__proto__`
+        // an own key, so it comes through like any other tag path.
+        return Object.entries(parsed as Record<string, unknown>)
+          .filter(([, v]) => v === true)
+          .map(([k]) => k);
       }
     } catch { /* fall through */ }
-    return {};
+    return [];
   }
   function persistExpanded(): void {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(expanded));
+      // `Object.fromEntries` defines own properties (never the `__proto__`
+      // setter), so every path survives the round-trip.
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(Object.fromEntries([...expanded].map((p) => [p, true]))));
     } catch { /* localStorage full / disabled — non-fatal */ }
   }
 
@@ -135,13 +147,14 @@
    */
   function isExpanded(path: string): boolean {
     if (search.trim().length > 0) return true;
-    return !!expanded[path];
+    return expanded.has(path);
   }
 
   const visibleRows = $derived(flattenTagTree(visibleTree, isExpanded));
 
   function toggle(path: string): void {
-    expanded = { ...expanded, [path]: !expanded[path] };
+    if (expanded.has(path)) expanded.delete(path);
+    else expanded.add(path);
     persistExpanded();
   }
 

@@ -1,4 +1,5 @@
 import YAML from 'yaml';
+import { ownRecord } from '../own-record';
 
 /**
  * Patch a note's YAML frontmatter with a shallow key/value merge.
@@ -50,12 +51,15 @@ export interface PatchResult {
 
 export function patchFrontmatterProperties(content: string, patch: PropertyPatch): PatchResult {
   const match = content.match(FRONTMATTER_RE);
-  let fm: Record<string, unknown> = {};
+  let fm: Record<string, unknown> = ownRecord([]);
   if (match) {
     try {
       const parsed: unknown = YAML.parse(match[1]!);
       if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        fm = parsed as Record<string, unknown>;
+        // Null-prototype copy: `key in fm`, `fm[key]` and `fm[key] = v` below
+        // take user-text keys, which on a `{}` would see `Object.prototype`
+        // members or hit the `__proto__` setter.
+        fm = ownRecord(Object.entries(parsed));
       }
     } catch {
       // Malformed frontmatter — treat as empty so the patch produces a
@@ -113,7 +117,7 @@ export function readFrontmatterProperties(content: string): Record<string, unkno
   try {
     const parsed: unknown = YAML.parse(match[1]!);
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-      return parsed as Record<string, unknown>;
+      return ownRecord(Object.entries(parsed));
     }
   } catch {
     /* malformed — treat as empty */

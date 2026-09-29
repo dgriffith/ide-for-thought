@@ -17,6 +17,7 @@
 
   import YAML from 'yaml';
   import { onMount, tick } from 'svelte';
+  import { SvelteMap } from 'svelte/reactivity';
   import { api } from '../../ipc/client';
   import { getNotebaseStore } from '../../stores/notebase.svelte';
   import AutocompleteDropdown from './AutocompleteDropdown.svelte';
@@ -117,8 +118,8 @@
     const row = rowByKey.get(pd.name);
     if (!row) return '';
     const s = row.shape;
-    if (s.kind === 'string') return drafts[row.key] ?? s.value;
-    if (s.kind === 'number') return drafts[row.key] ?? String(s.value);
+    if (s.kind === 'string') return drafts.get(row.key) ?? s.value;
+    if (s.kind === 'number') return drafts.get(row.key) ?? String(s.value);
     if (s.kind === 'date') return s.value;
     if (s.kind === 'boolean') return String(s.value);
     return '';
@@ -152,7 +153,10 @@
   // Editing a value too eagerly fights the user mid-keystroke. Mirror
   // each row into a local `draft` keyed by row index; flush to the
   // buffer on blur or after a short idle window.
-  let drafts = $state<Record<string, string>>({});
+  // Maps, not `$state` records: the keys are frontmatter keys (user text), and
+  // a plain-object record would answer an undrafted `constructor:` or
+  // `toString:` row with `Object.prototype`'s function instead of the value.
+  const drafts = new SvelteMap<string, string>();
   let flushTimer: ReturnType<typeof setTimeout> | null = null;
 
   /**
@@ -230,8 +234,8 @@
 
   function scalarText(row: Row): string {
     const s = row.shape;
-    if (s.kind === 'string') return drafts[row.key] ?? s.value;
-    if (s.kind === 'number') return drafts[row.key] ?? String(s.value);
+    if (s.kind === 'string') return drafts.get(row.key) ?? s.value;
+    if (s.kind === 'number') return drafts.get(row.key) ?? String(s.value);
     if (s.kind === 'date') return s.value;
     return '';
   }
@@ -262,10 +266,10 @@
   }
 
   function scheduleFlush(key: string, value: string, fn: (k: string, v: string) => void): void {
-    drafts[key] = value;
+    drafts.set(key, value);
     if (flushTimer) clearTimeout(flushTimer);
     flushTimer = setTimeout(() => {
-      const v = drafts[key];
+      const v = drafts.get(key);
       if (v !== undefined) fn(key, v);
       flushTimer = null;
     }, 250);
@@ -273,12 +277,12 @@
 
   // ── String-list (chip) editing ────────────────────────────────
 
-  let newChip = $state<Record<string, string>>({});
+  const newChip = new SvelteMap<string, string>();
   function addChip(key: string, current: string[]): void {
-    const v = (newChip[key] ?? '').trim();
+    const v = (newChip.get(key) ?? '').trim();
     if (!v) return;
     setKeyValueList(key, [...current, v]);
-    newChip[key] = '';
+    newChip.set(key, '');
   }
   function removeChip(key: string, current: string[], idx: number): void {
     const next = current.slice();
@@ -485,8 +489,8 @@
               type="text"
               class="chip-input"
               placeholder="Add…"
-              value={newChip[row.key] ?? ''}
-              oninput={(e) => { newChip[row.key] = e.currentTarget.value; }}
+              value={newChip.get(row.key) ?? ''}
+              oninput={(e) => { newChip.set(row.key, e.currentTarget.value); }}
               onkeydown={(e) => {
                 if (e.key === 'Enter' || e.key === ',') {
                   e.preventDefault();
