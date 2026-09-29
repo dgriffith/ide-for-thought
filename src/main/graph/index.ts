@@ -33,6 +33,10 @@ export {
   sourcesByReadStatus, citationsForNote, getExcerptSource,
 } from './queries';
 export type { AliasEntry, SchemaEntry, GraphSchema, ReadingQueueView, ReadingQueueCounts } from './queries';
+// Resolver indexes before/after a rename, folder move or merge (#2456) — what
+// `notebase/rename.ts` and `notebase/merge.ts` rewrite wiki-links against.
+export { relocationLinkIndexes } from './note-index';
+export type { RelocationLinkIndexes } from './note-index';
 export { getNoteTypedProperties, getTypeInstances, getNoteTypeMap } from './note-properties';
 export { neighborhood, expandNode } from './neighborhood';
 export type {

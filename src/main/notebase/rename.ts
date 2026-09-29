@@ -2,9 +2,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import * as notebaseFs from './fs';
 import {
-  rewriteWikiLinks,
+  relocateWikiLinks,
   rewriteRelativeMarkdownLinks,
-  normalizePath as normalizeLinkPath,
 } from './link-rewriting';
 import * as graph from '../graph/index';
 import { projectContext } from '../project-context-types';
@@ -53,6 +52,29 @@ export async function listAllFiles(rootPath: string, relDir: string): Promise<st
     }
   } catch { /* directory may not exist */ }
   return results;
+}
+
+/**
+ * The wiki-link half of every note relocation — single rename, folder
+ * move/rename, the LLM refactor proposals' preview and apply, and merge
+ * (`merge.ts`) — in one place (#2456). Must be called BEFORE anything moves:
+ * it snapshots what each link resolves to now and what it will resolve to
+ * after `moves` lands, and returns a rewriter that retargets every link that
+ * resolved to a moved note (by path, basename, slug or alias) and re-spells
+ * any link the move would otherwise make resolve somewhere else.
+ *
+ * `carryAliases` is false for a merge, where the source's frontmatter — and
+ * so its aliases — is dropped.
+ */
+export function wikiLinkRelocator(
+  rootPath: string,
+  moves: ReadonlyMap<string, string>,
+  opts: { carryAliases: boolean } = { carryAliases: true },
+): (content: string) => { content: string; rewritten: number } {
+  if (moves.size === 0) return (content) => ({ content, rewritten: 0 });
+  const { before, after } = graph.relocationLinkIndexes(projectContext(rootPath), moves, opts);
+  const reloc = { moves, before, after };
+  return (content) => relocateWikiLinks(content, reloc);
 }
 
 /** A note refactor (move/rename) that can't proceed — collision, no-op, an
@@ -111,10 +133,8 @@ export async function planRename(rootPath: string, fromPath: string, toPath: str
     throw new RefactorError(`A file already exists at the destination: ${toPath}`);
   }
 
-  const ctx = projectContext(rootPath);
-  const rewrites = new Map([[normalizeLinkPath(fromPath), normalizeLinkPath(toPath)]]);
   const mdRewrites = new Map([[fromPath, toPath]]);
-  const referringNotes = new Set(graph.findNotesLinkingTo(ctx, `${normalizeLinkPath(fromPath)}.md`));
+  const relocate = wikiLinkRelocator(rootPath, mdRewrites);
 
   const affectedNotes: AffectedNote[] = [];
   for (const currentPath of await listIndexableFiles(rootPath, '')) {
@@ -122,10 +142,7 @@ export async function planRename(rootPath: string, fromPath: string, toPath: str
     let content: string;
     try { content = await notebaseFs.readFile(rootPath, currentPath); } catch { continue; }
 
-    let rewritten = content;
-    if (!isMoved && referringNotes.has(currentPath)) {
-      rewritten = rewriteWikiLinks(rewritten, rewrites);
-    }
+    let rewritten = relocate(content).content;
     rewritten = rewriteRelativeMarkdownLinks(
       rewritten,
       isMoved ? fromPath : currentPath,
@@ -171,24 +188,16 @@ export async function planFolderRename(rootPath: string, fromDir: string, toDir:
   try { await fs.stat(path.join(rootPath, to)); } catch { destExists = false; }
   if (destExists) throw new RefactorError(`Something already exists at the destination: ${to}`);
 
-  const ctx = projectContext(rootPath);
-
   // Wiki-link + markdown-link rewrite maps, built exactly as
   // `renameWithLinkRewrites` does for a directory.
   const descendants = await listIndexableFiles(rootPath, from);
-  const rewrites = new Map<string, string>();
-  for (const d of descendants) {
-    rewrites.set(normalizeLinkPath(d), normalizeLinkPath(to + d.slice(from.length)));
-  }
+  const moves = new Map<string, string>();
+  for (const d of descendants) moves.set(d, to + d.slice(from.length));
   const mdRewrites = new Map<string, string>();
   for (const d of await listAllFiles(rootPath, from)) {
     mdRewrites.set(d, to + d.slice(from.length));
   }
-
-  const referringNotes = new Set<string>();
-  for (const oldPath of rewrites.keys()) {
-    for (const p of graph.findNotesLinkingTo(ctx, `${oldPath}.md`)) referringNotes.add(p);
-  }
+  const relocate = wikiLinkRelocator(rootPath, moves);
 
   const movedSet = new Set(descendants);
   const affectedNotes: AffectedNote[] = [];
@@ -197,10 +206,7 @@ export async function planFolderRename(rootPath: string, fromDir: string, toDir:
     let content: string;
     try { content = await notebaseFs.readFile(rootPath, currentPath); } catch { continue; }
 
-    let rewritten = content;
-    if (!isMoved && referringNotes.has(currentPath)) {
-      rewritten = rewriteWikiLinks(rewritten, rewrites);
-    }
+    let rewritten = relocate(content).content;
     // A moved note's authored relative links resolve against its OLD location;
     // the new location is its mapped destination.
     const newEquivalent = isMoved ? to + currentPath.slice(from.length) : currentPath;
@@ -254,16 +260,13 @@ export async function renameWithLinkRewrites(
   const oldStat = await fs.stat(path.join(rootPath, oldRelPath));
   const isDirectory = oldStat.isDirectory();
 
-  // Build the wiki-link rewrites map: normalized-old-path → normalized-new-path.
-  const rewrites = new Map<string, string>();
+  // Every relocated note: old relativePath → new relativePath.
+  const moves = new Map<string, string>();
   if (isDirectory) {
     const descendants = await listIndexableFiles(rootPath, oldRelPath);
-    for (const d of descendants) {
-      const newEquivalent = newRelPath + d.slice(oldRelPath.length);
-      rewrites.set(normalizeLinkPath(d), normalizeLinkPath(newEquivalent));
-    }
+    for (const d of descendants) moves.set(d, newRelPath + d.slice(oldRelPath.length));
   } else if (isIndexable(oldRelPath)) {
-    rewrites.set(normalizeLinkPath(oldRelPath), normalizeLinkPath(newRelPath));
+    moves.set(oldRelPath, newRelPath);
   }
 
   // Markdown-link rewrites map: full-path → full-path. Covers every
@@ -281,12 +284,12 @@ export async function renameWithLinkRewrites(
     mdRewrites.set(oldRelPath, newRelPath);
   }
 
-  // Compute referring notes BEFORE renaming (querying pre-rename graph state).
+  // Snapshot link resolution and the referring notes BEFORE renaming, while
+  // the graph still describes the pre-rename thoughtbase.
+  const relocate = wikiLinkRelocator(rootPath, moves);
   const referringNotes = new Set<string>();
-  for (const oldPath of rewrites.keys()) {
-    for (const p of graph.findNotesLinkingTo(ctx, `${oldPath}.md`)) {
-      referringNotes.add(p);
-    }
+  for (const oldPath of moves.keys()) {
+    for (const p of graph.findNotesLinkingTo(ctx, oldPath)) referringNotes.add(p);
   }
 
   markPathHandled?.(oldRelPath);
@@ -319,13 +322,15 @@ export async function renameWithLinkRewrites(
     transitions.push({ old: oldRelPath, new: newRelPath });
   }
 
-  // Rewrite links across the project. Two rewriters run in one pass:
-  //   - wiki-link rewriter (graph-driven): only referring notes need a
-  //     pass, since wiki-link targets are root-relative.
-  //   - markdown-link rewriter (whole-project sweep): authored relative
-  //     paths can target moved files OR live inside a moved file —
-  //     both directions need re-relativization, and the graph doesn't
-  //     index markdown-link edges, so we walk every indexable note.
+  // Rewrite links across the project. Two rewriters run in one pass over
+  // every indexable note:
+  //   - wiki-link rewriter (resolution-driven, #2456): retargets links that
+  //     resolved to a moved note, and re-spells links to OTHER notes that
+  //     the move would make ambiguous — the latter aren't in
+  //     `referringNotes`, so this can't be limited to it.
+  //   - markdown-link rewriter: authored relative paths can target moved
+  //     files OR live inside a moved file — both directions need
+  //     re-relativization, and the graph doesn't index markdown-link edges.
   // Both passes share a single read/write cycle per file so we don't
   // double-write notes that both passes would touch.
   const rewrittenPaths: string[] = [];
@@ -349,13 +354,7 @@ export async function renameWithLinkRewrites(
       continue;
     }
 
-    let rewritten = content;
-
-    // Wiki-link pass — only useful when this note actually refers to
-    // one of the moved targets. The graph-driven set tells us which.
-    if (referringNotes.has(oldEquivalent)) {
-      rewritten = rewriteWikiLinks(rewritten, rewrites);
-    }
+    let rewritten = relocate(content).content;
 
     // Markdown-link pass — applies whenever the source moved (so all
     // its relative links need re-relativizing) OR a target moved (so

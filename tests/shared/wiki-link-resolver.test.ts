@@ -187,3 +187,23 @@ describe('resolveWikiLinkTarget — non-markdown notes (#1446)', () => {
     expect(resolveWikiLinkTargetWithIndex('budget.csv', idx)).toBe('reports/budget.csv');
   });
 });
+
+describe('resolveWikiLinkTargetWithIndex — pathSlugFallback: false (#2456)', () => {
+  const idx = buildWikiLinkIndex(
+    ['algorithms/multi-paxos.md', 'notes/Foo Bar.md'].map((relativePath) => ({ relativePath, isDirectory: false })),
+    { mp: 'algorithms/multi-paxos.md' },
+  );
+
+  it('still resolves by path, basename, alias and basename slug', () => {
+    for (const t of ['algorithms/multi-paxos', 'multi-paxos', 'multi-paxos.md', 'MP', 'foo bar']) {
+      expect(resolveWikiLinkTargetWithIndex(t, idx, { pathSlugFallback: false }), t).not.toBeNull();
+    }
+  });
+
+  it('skips the whole-path and path-suffix slug fallbacks', () => {
+    // `paxos` only reaches multi-paxos.md through the path-suffix slug (step 6).
+    expect(resolveWikiLinkTargetWithIndex('paxos', idx)).toBe('algorithms/multi-paxos.md');
+    expect(resolveWikiLinkTargetWithIndex('paxos', idx, { pathSlugFallback: false })).toBeNull();
+    expect(resolveWikiLinkTargetWithIndex('Algorithms Multi Paxos', idx, { pathSlugFallback: false })).toBeNull();
+  });
+});

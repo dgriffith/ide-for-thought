@@ -336,3 +336,198 @@ describe('listAllFiles — the rewrites-map walker (#1897)', () => {
     expect(files).not.toContain('node_modules/pkg/index.js');
   });
 });
+
+describe('renameWithLinkRewrites — links that RESOLVED to the note, however spelled (#2456)', () => {
+  let root: string;
+  let ctx: ProjectContext;
+
+  beforeEach(async () => {
+    root = mkTempProject();
+    ctx = projectContext(root);
+    await initGraph(ctx);
+  });
+
+  afterEach(() => {
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  /** Write + index, in call order — which is the resolver's tie-break order. */
+  async function seed(relPath: string, content: string): Promise<void> {
+    writeNote(root, relPath, content);
+    await indexNote(ctx, relPath, content);
+  }
+
+  // The two counterexamples fast-check shrank to in the property test.
+  it('rewrites a basename-with-extension link when the basename changes: [[foo.md]]', async () => {
+    await seed('notes/foo.md', '# Foo');
+    await seed('notes/ref.md', 'See [[foo.md]].');
+
+    await renameWithLinkRewrites(root, 'notes/foo.md', 'notes/bar.md');
+
+    expect(readNote(root, 'notes/ref.md')).toBe('See [[bar.md]].');
+    expect(findNotesLinkingTo(ctx, 'notes/bar.md')).toEqual(['notes/ref.md']);
+  });
+
+  it('rewrites a spaced basename link moved to another folder: [[Foo Bar.md]]', async () => {
+    await seed('notes/deep/Foo Bar.md', '# Foo Bar');
+    await seed('notes/ref.md', 'See [[Foo Bar.md]] and [[Foo Bar]].');
+
+    await renameWithLinkRewrites(root, 'notes/deep/Foo Bar.md', 'elsewhere/renamed note.md');
+
+    expect(readNote(root, 'notes/ref.md')).toBe('See [[renamed note.md]] and [[renamed note]].');
+  });
+
+  it('rewrites a slug-resolved link as a basename', async () => {
+    await seed('notes/deep/Foo Bar.md', '# Foo Bar');
+    await seed('notes/ref.md', 'See [[foo bar]].');
+
+    await renameWithLinkRewrites(root, 'notes/deep/Foo Bar.md', 'elsewhere/renamed note.md');
+
+    expect(readNote(root, 'notes/ref.md')).toBe('See [[renamed note]].');
+  });
+
+  it('leaves a basename link alone when a move keeps the basename', async () => {
+    await seed('notes/foo.md', '# Foo');
+    await seed('notes/ref.md', 'See [[foo]] and [[notes/foo]].');
+
+    await renameWithLinkRewrites(root, 'notes/foo.md', 'archive/foo.md');
+
+    expect(readNote(root, 'notes/ref.md')).toBe('See [[foo]] and [[archive/foo]].');
+    expect(findNotesLinkingTo(ctx, 'archive/foo.md')).toEqual(['notes/ref.md']);
+  });
+
+  it('keeps type, anchor, display text and embeds on a basename link', async () => {
+    await seed('notes/foo.md', '# Foo\n\n## Section\n\npara ^blk');
+    const body = [
+      'Typed [[supports::foo]].',
+      'Anchored [[foo#Section]] and [[foo#^blk]].',
+      'Displayed [[foo|the foo]].',
+      'All [[rebuts::foo.md#Section|see this]].',
+      'Embed ![[foo#^blk]].',
+    ].join('\n');
+    await seed('notes/ref.md', body);
+
+    await renameWithLinkRewrites(root, 'notes/foo.md', 'notes/bar.md');
+
+    expect(readNote(root, 'notes/ref.md')).toBe([
+      'Typed [[supports::bar]].',
+      'Anchored [[bar#Section]] and [[bar#^blk]].',
+      'Displayed [[bar|the foo]].',
+      'All [[rebuts::bar.md#Section|see this]].',
+      'Embed ![[bar#^blk]].',
+    ].join('\n'));
+  });
+
+  it('falls back to the path when the new basename is ambiguous', async () => {
+    await seed('archive/bar.md', '# The other bar');
+    await seed('notes/foo.md', '# Foo');
+    await seed('notes/ref.md', 'See [[foo]] and [[foo.md]].');
+
+    await renameWithLinkRewrites(root, 'notes/foo.md', 'notes/bar.md');
+
+    // `[[bar]]` could mean either note, depending on scan order — so the
+    // link names the folder, which only the renamed note answers to.
+    expect(readNote(root, 'notes/ref.md')).toBe('See [[notes/bar]] and [[notes/bar.md]].');
+    expect(findNotesLinkingTo(ctx, 'notes/bar.md')).toEqual(['notes/ref.md']);
+  });
+
+  it("re-spells OTHER notes' links that the rename would make ambiguous (reverse case)", async () => {
+    await seed('c/foo.md', '# The existing foo');
+    await seed('a/x.md', '# X');
+    await seed('notes/ref.md', 'See [[foo]] and [[x]].');
+
+    await renameWithLinkRewrites(root, 'a/x.md', 'b/foo.md');
+
+    // `[[foo]]` meant c/foo.md. With b/foo.md arriving, the answer would
+    // depend on which of the two the resolver scans first: insertion order
+    // in this session, directory order after a rebuild (which flips it). So
+    // it is pinned to the note it meant.
+    expect(readNote(root, 'notes/ref.md')).toBe('See [[c/foo]] and [[b/foo]].');
+    expect(findNotesLinkingTo(ctx, 'c/foo.md')).toEqual(['notes/ref.md']);
+    expect(findNotesLinkingTo(ctx, 'b/foo.md')).toEqual(['notes/ref.md']);
+  });
+
+  it('leaves a same-basename link that resolved to a DIFFERENT note alone', async () => {
+    await seed('c/foo.md', '# The foo the link means');
+    await seed('notes/foo.md', '# Another foo');
+    await seed('notes/ref.md', 'See [[foo]].');
+    // Tie-break: c/foo.md was indexed first, so [[foo]] resolves to it.
+    expect(findNotesLinkingTo(ctx, 'c/foo.md')).toEqual(['notes/ref.md']);
+
+    await renameWithLinkRewrites(root, 'notes/foo.md', 'notes/bar.md');
+
+    expect(readNote(root, 'notes/ref.md')).toBe('See [[foo]].');
+    expect(findNotesLinkingTo(ctx, 'c/foo.md')).toEqual(['notes/ref.md']);
+  });
+
+  it('leaves an alias link alone even when the basename changes', async () => {
+    await seed('presidents/kennedy.md', '---\naliases: [JFK]\n---\n# John F. Kennedy');
+    await seed('notes/ref.md', 'See [[JFK]].');
+
+    await renameWithLinkRewrites(root, 'presidents/kennedy.md', 'presidents/jfk-35.md');
+
+    expect(readNote(root, 'notes/ref.md')).toBe('See [[JFK]].');
+    expect(findNotesLinkingTo(ctx, 'presidents/jfk-35.md')).toEqual(['notes/ref.md']);
+  });
+
+  it('does not touch links inside code spans or fences', async () => {
+    await seed('notes/foo.md', '# Foo');
+    await seed('notes/ref.md', 'Live [[foo]], code `[[foo]]`, fence:\n```\n[[foo]]\n```\n');
+
+    await renameWithLinkRewrites(root, 'notes/foo.md', 'notes/bar.md');
+
+    expect(readNote(root, 'notes/ref.md')).toBe('Live [[bar]], code `[[foo]]`, fence:\n```\n[[foo]]\n```\n');
+  });
+
+  it('rewrites links to a non-md note (#1446)', async () => {
+    await seed('data/budget.csv', 'item,cost\nrent,100\n');
+    await seed('notes/ref.md', 'See [[budget]], [[budget.csv]] and [[data/budget.csv]].');
+
+    await renameWithLinkRewrites(root, 'data/budget.csv', 'data/costs.csv');
+
+    expect(readNote(root, 'notes/ref.md')).toBe('See [[costs]], [[costs.csv]] and [[data/costs.csv]].');
+  });
+
+  it('rewrites frontmatter wiki-links through the same rewriter (#1351)', async () => {
+    await seed('notes/foo.md', '# Foo');
+    await seed('notes/claim.md', '---\nsupports: "[[foo]]"\nrelated: "[[supports::foo#Section]]"\n---\n# Claim');
+    expect(findNotesLinkingTo(ctx, 'notes/foo.md')).toEqual(['notes/claim.md']);
+
+    await renameWithLinkRewrites(root, 'notes/foo.md', 'notes/bar.md');
+
+    expect(readNote(root, 'notes/claim.md')).toBe(
+      '---\nsupports: "[[bar]]"\nrelated: "[[supports::bar#Section]]"\n---\n# Claim',
+    );
+    expect(findNotesLinkingTo(ctx, 'notes/bar.md')).toEqual(['notes/claim.md']);
+  });
+
+  it('rewrites a self-link inside the renamed note', async () => {
+    await seed('notes/foo.md', '# Foo\n\nBack to [[foo#top]].');
+
+    await renameWithLinkRewrites(root, 'notes/foo.md', 'notes/bar.md');
+
+    expect(readNote(root, 'notes/bar.md')).toBe('# Foo\n\nBack to [[bar#top]].');
+  });
+
+  it('folder move: basename links survive and path links follow', async () => {
+    await seed('inbox/b.md', '# B');
+    await seed('inbox/note.md', 'Sibling [[b]] and [[inbox/b]].');
+    await seed('ref.md', 'Out [[b]] and [[inbox/b.md]].');
+
+    await renameWithLinkRewrites(root, 'inbox', 'archive/inbox');
+
+    expect(readNote(root, 'archive/inbox/note.md')).toBe('Sibling [[b]] and [[archive/inbox/b]].');
+    expect(readNote(root, 'ref.md')).toBe('Out [[b]] and [[archive/inbox/b.md]].');
+    expect(findNotesLinkingTo(ctx, 'archive/inbox/b.md').sort()).toEqual(['archive/inbox/note.md', 'ref.md']);
+  });
+
+  it('folder rename: a renamed descendant reachable only by a partial path is re-spelled', async () => {
+    await seed('projects/alpha/plan.md', '# Plan');
+    await seed('ref.md', 'See [[alpha/plan]].');
+
+    await renameWithLinkRewrites(root, 'projects/alpha', 'projects/beta');
+
+    // `alpha/plan` reached the note by path-suffix slug; `beta/plan` does now.
+    expect(readNote(root, 'ref.md')).toBe('See [[beta/plan]].');
+  });
+});

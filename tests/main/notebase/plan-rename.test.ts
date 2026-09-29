@@ -58,6 +58,21 @@ describe('planRename', () => {
     expect(planned).toEqual(new Set(rewrittenPaths));
   });
 
+  it('previews basename and reverse-ambiguity rewrites exactly as the commit applies them (#2456)', async () => {
+    await write('c/foo.md', '# The existing foo');
+    await write('a/x.md', '# X');
+    await write('ref.md', 'See [[x]], [[x.md|X]] and [[foo]].');
+    for (const f of ['c/foo.md', 'a/x.md', 'ref.md']) {
+      await indexNote(ctx(), f, await fsp.readFile(path.join(root, f), 'utf-8'));
+    }
+    const plan = await planRename(root, 'a/x.md', 'b/foo.md');
+    const ref = plan.affectedNotes.find((a) => a.path === 'ref.md')!;
+    expect(ref.after).toBe('See [[b/foo]], [[b/foo.md|X]] and [[c/foo]].');
+
+    await renameWithLinkRewrites(root, 'a/x.md', 'b/foo.md');
+    expect(await fsp.readFile(path.join(root, 'ref.md'), 'utf-8')).toBe(ref.after);
+  });
+
   describe('guardrails', () => {
     beforeEach(async () => { await write('note.md', '# Note'); await write('exists.md', '# Exists'); });
 

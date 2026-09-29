@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { initGraph, indexNote } from '../../../src/main/graph/index';
+import { initGraph, indexNote, findNotesLinkingTo } from '../../../src/main/graph/index';
 import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
 import { mergeNotes, previewMergeNotes } from '../../../src/main/notebase/merge';
 
@@ -62,6 +62,33 @@ describe('mergeNotes — merge note into another (issue #464)', () => {
     // 4 "" (from the \n\n separator), 5 "# Source" — the source body
     // starts on line 5.
     expect(result.mergeLine).toBe(5);
+  });
+
+  it('retargets links that resolved to the source by basename, slug or alias (#2456)', async () => {
+    const source = '---\naliases: [SN]\n---\n# Source\n\nSelf: [[Source Note#Intro]].';
+    const refer = [
+      'Basename [[Source Note]], with ext ![[Source Note.md#^b]].',
+      'Slug [[source note|label]], typed [[supports::Source Note]].',
+      'Alias [[SN]], frontmatter-style "[[SN]]", code `[[Source Note]]`.',
+    ].join('\n');
+    writeNote(root, 'notes/deep/Source Note.md', source);
+    writeNote(root, 'notes/target.md', '# Target');
+    writeNote(root, 'refer.md', refer);
+    await indexNote(ctx, 'notes/deep/Source Note.md', source);
+    await indexNote(ctx, 'notes/target.md', '# Target');
+    await indexNote(ctx, 'refer.md', refer);
+
+    const result = await mergeNotes(root, 'notes/deep/Source Note.md', 'notes/target.md');
+
+    expect(readNote(root, 'refer.md')).toBe([
+      'Basename [[target]], with ext ![[target.md#^b]].',
+      'Slug [[target|label]], typed [[supports::target]].',
+      'Alias [[target]], frontmatter-style "[[target]]", code `[[Source Note]]`.',
+    ].join('\n'));
+    expect(result.rewrittenLinks).toBe(6);
+    // The source's self-link now points at the target it was merged into.
+    expect(readNote(root, 'notes/target.md')).toContain('Self: [[target#Intro]].');
+    expect(findNotesLinkingTo(ctx, 'notes/target.md').sort()).toEqual(['notes/target.md', 'refer.md']);
   });
 
   it('drops the source frontmatter on merge but preserves the target frontmatter', async () => {
@@ -183,6 +210,18 @@ describe('previewMergeNotes — pre-flight count (issue #464)', () => {
     const preview = await previewMergeNotes(root, 'notes/source.md', 'notes/target.md');
     expect(preview.linkOccurrences).toBe(3);
     expect(preview.affectedFiles).toBe(2);
+  });
+
+  it('counts basename, slug and alias links too (#2456)', async () => {
+    writeNote(root, 'notes/Source Note.md', '---\naliases: [SN]\n---\n# Source');
+    writeNote(root, 'notes/target.md', '# Target');
+    writeNote(root, 'notes/a.md', '[[Source Note]], [[source note]] and [[SN]] — but `[[SN]]` is code');
+    await indexNote(ctx, 'notes/Source Note.md', '---\naliases: [SN]\n---\n# Source');
+    await indexNote(ctx, 'notes/target.md', '# Target');
+    await indexNote(ctx, 'notes/a.md', '[[Source Note]], [[source note]] and [[SN]] — but `[[SN]]` is code');
+
+    const preview = await previewMergeNotes(root, 'notes/Source Note.md', 'notes/target.md');
+    expect(preview).toEqual({ linkOccurrences: 3, affectedFiles: 1 });
   });
 
   it('returns zero counts for source == target', async () => {

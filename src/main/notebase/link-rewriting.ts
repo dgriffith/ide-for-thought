@@ -16,14 +16,149 @@
  */
 
 import { WIKI_LINK_RE, parseWikiInner, reassembleWikiLink } from '../../shared/wiki-link';
+import { resolveWikiLinkTargetWithIndex, type WikiLinkIndex } from '../../shared/wiki-link-resolver';
+import { isNotePath, stripNoteExt } from '../../shared/note-extensions';
+import { LINK_TYPE_MAP } from '../../shared/link-types';
 
 /** Strip a trailing `.md` extension so rewrite keys match the indexer's convention. */
 export function normalizePath(p: string): string {
   return p.replace(/\.md$/, '');
 }
 
+// ── Resolution-driven rewriting: rename, folder move, merge (#2456) ────────
+
 /**
- * Apply a rewrites map to all wiki-link targets in the content.
+ * What a note relocation changes, as the resolver sees it. `moves` maps each
+ * relocated note's old relativePath to its new one (real extensions on both
+ * sides). `before` resolves links against the thoughtbase as it is; every
+ * index in `after` resolves them against the thoughtbase as it will be — see
+ * `graph/note-index.ts`'s `relocationLinkIndexes`, which builds two with the
+ * relocated notes at opposite ends of the scan order.
+ */
+export interface WikiRelocation {
+  moves: ReadonlyMap<string, string>;
+  before: WikiLinkIndex;
+  after: readonly WikiLinkIndex[];
+}
+
+/** Code the indexer never reads links from — the parser's own `CODE_BLOCK_RE`
+ *  (`graph/parser.ts`): fenced blocks and single-line code spans. */
+const CODE_RE = /```[\s\S]*?```|`[^`\n]+`/g;
+
+function codeRanges(content: string): [number, number][] {
+  const out: [number, number][] = [];
+  for (const m of content.matchAll(CODE_RE)) out.push([m.index, m.index + m[0].length]);
+  return out;
+}
+
+/**
+ * Rewrite every wiki-link that RESOLVED to a relocated note so it resolves to
+ * that note's new path — however it was spelled — and every link whose answer
+ * the relocation would otherwise change back to what it resolved to before.
+ * Returns the new content and how many links were rewritten.
+ *
+ * Per link (outside code, which the indexer doesn't read either):
+ *
+ * - It resolved nowhere, or it is a `cite::`/`quote::` id → untouched.
+ * - `desired` is where it should resolve afterwards: the new path of the note
+ *   it reached, or — for a link to a note that did not move — that same note.
+ * - A link spelled as the old full path (`[[notes/foo]]`, `[[notes/foo.md]]`,
+ *   and `[[raft]]` for a root-level `raft.md`) to a moved note becomes the new
+ *   full path, keeping the extension shape.
+ * - Anything else is left alone if it still reaches `desired` under every
+ *   `after` index, i.e. regardless of the resolver's order-dependent
+ *   tie-break. That covers a basename kept by a move, a frontmatter alias
+ *   (aliases travel with the note), and a link to an unrelated note. For a
+ *   moved note it must get there without the whole-path slug fallbacks.
+ * - Otherwise it is re-spelled in the author's style: a basename (or slug)
+ *   link becomes the new basename; a partial path keeps as many segments.
+ *   Where that spelling is ambiguous it grows to the shortest suffix that is
+ *   not, then the full stem, then the full path with its extension (which
+ *   always resolves exactly).
+ *
+ * Type prefix, anchor, display text, an embed's `!`, and every byte outside a
+ * rewritten link are preserved.
+ */
+export function relocateWikiLinks(
+  content: string,
+  reloc: WikiRelocation,
+): { content: string; rewritten: number } {
+  if (reloc.moves.size === 0) return { content, rewritten: 0 };
+  const code = codeRanges(content);
+  const inCode = (at: number) => code.some(([s, e]) => at >= s && at < e);
+  const resolvesTo = (target: string, want: string, pathSlugFallback = true) =>
+    reloc.after.every((ix) => resolveWikiLinkTargetWithIndex(target, ix, { pathSlugFallback }) === want);
+
+  let rewritten = 0;
+  const out = content.replace(WIKI_LINK_RE, (match: string, inner: string, offset: number) => {
+    if (inCode(offset)) return match;
+    const parsed = parseWikiInner(inner);
+    const kind = parsed.type ? LINK_TYPE_MAP.get(parsed.type)?.targetKind : undefined;
+    if (kind === 'source' || kind === 'excerpt') return match;
+    const target = parsed.target;
+    if (!target) return match;
+
+    const was = resolveWikiLinkTargetWithIndex(target, reloc.before);
+    if (!was) return match;
+    const moved = reloc.moves.get(was);
+    const desired = moved ?? was;
+    const targetStem = stripNoteExt(target);
+    // Spelled as the full path. For a root-level note that is also its
+    // basename (`[[raft]]` for `raft.md`); it counts as a path, so moving the
+    // note into a folder still writes `[[algorithms/raft]]`, as it always has.
+    const pathSpelled = targetStem === stripNoteExt(was);
+
+    // Leave it if it still gets there whatever the scan order. A link to a
+    // note that moved must get there by name — path, basename, alias or
+    // basename slug — not only by a whole-path slug fallback that happens to
+    // match (`[[paxos]]` → `multi-paxos.md`); `respell` still keeps it when
+    // its spelling is already the best one available.
+    const keep = moved === undefined
+      ? resolvesTo(target, desired)
+      : !pathSpelled && resolvesTo(target, desired, false);
+    if (keep) return match;
+
+    const next = respell(desired, targetStem, isNotePath(target), pathSpelled, resolvesTo);
+    if (next === null || next === target) return match;
+    rewritten++;
+    return reassembleWikiLink(parsed, next);
+  });
+  return { content: out, rewritten };
+}
+
+/** The spelling for a link that must now reach `desired`, in the author's
+ *  style where that is unambiguous. */
+function respell(
+  desired: string,
+  targetStem: string,
+  hadExt: boolean,
+  pathSpelled: boolean,
+  resolvesTo: (target: string, want: string) => boolean,
+): string | null {
+  const stem = stripNoteExt(desired);
+  const ext = desired.slice(stem.length);
+  const withExt = (s: string) => (hadExt ? s + ext : s);
+  const segs = stem.split('/');
+
+  const candidates: string[] = [];
+  if (pathSpelled) {
+    candidates.push(withExt(stem));
+  } else {
+    const authored = targetStem.split('/').filter(Boolean).length;
+    for (let t = Math.min(Math.max(authored, 1), segs.length); t <= segs.length; t++) {
+      candidates.push(withExt(segs.slice(segs.length - t).join('/')));
+    }
+  }
+  candidates.push(stem, desired);
+  for (const c of candidates) if (resolvesTo(c, desired)) return c;
+  return null;
+}
+
+/**
+ * Apply a rewrites map to all wiki-link targets in the content — links
+ * SPELLED as a mapped path only. Rename, folder move and merge use
+ * {@link relocateWikiLinks} instead, which follows what a link resolves to
+ * (#2456); this remains the path-keyed primitive.
  * Returns the rewritten content (unchanged if nothing matched).
  */
 export function rewriteWikiLinks(content: string, rewrites: Map<string, string>): string {

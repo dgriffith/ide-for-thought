@@ -123,8 +123,17 @@ export interface AliasEntry {
  *      file at `JFK.md` always wins over another note's "JFK" alias.
  */
 function resolveAliases(idx: NoteIndex): AliasEntry[] {
+  return resolveAliasesFrom(idx.paths, idx.aliasesPerNote);
+}
+
+/** `resolveAliases` over an explicit path set + alias table — the same policy,
+ *  applied to a hypothetical post-move index by `relocationIndexesFrom`. */
+function resolveAliasesFrom(
+  paths: Iterable<string>,
+  aliasesPerNote: ReadonlyMap<string, readonly string[]>,
+): AliasEntry[] {
   const canonical = new Set<string>();
-  for (const path of idx.paths) {
+  for (const path of paths) {
     const stem = stripNoteExt(path).toLowerCase();
     canonical.add(stem);
     const basename = stem.split('/').pop() ?? '';
@@ -133,8 +142,8 @@ function resolveAliases(idx: NoteIndex): AliasEntry[] {
 
   const claimed = new Set<string>();
   const out: AliasEntry[] = [];
-  for (const path of [...idx.aliasesPerNote.keys()].sort()) {
-    for (const alias of idx.aliasesPerNote.get(path) ?? []) {
+  for (const path of [...aliasesPerNote.keys()].sort()) {
+    for (const alias of aliasesPerNote.get(path) ?? []) {
       const key = alias.toLowerCase();
       if (canonical.has(key) || claimed.has(key)) continue;
       claimed.add(key);
@@ -309,4 +318,86 @@ export function aliasesForNote(ctx: ProjectContext, relativePath: string): strin
 /** Every relativePath the indexer has touched, in insertion order. */
 export function indexedNotePaths(ctx: ProjectContext): string[] {
   return [...(noteIndexStore.get(ctx)?.paths ?? [])];
+}
+
+// ── Relocation: rename / folder move / merge (#2456) ────────────────────────
+
+/**
+ * The resolver indexes a relocation's link rewrite needs. `before` is what a
+ * wiki-link resolves to right now; `after` is what it WILL resolve to once
+ * `moves` (old relativePath → new relativePath) has been applied.
+ *
+ * `after` holds TWO indexes, identical except for where the relocated notes
+ * sit in the scan order: first in one, last in the other. The resolver breaks
+ * a tie by scan order (first match wins), and that order is an accident — the
+ * incremental index appends a renamed note at the end, a full rebuild walks
+ * the directory tree, the renderer walks its file tree. So a link is only left
+ * alone if it resolves to the right note under BOTH orders. One that depends
+ * on where the moved note happens to land is ambiguous, and the rewriter
+ * spells it out instead.
+ *
+ * A pure read: nothing here touches `paths`/`aliasesPerNote`, so there is no
+ * version to bump, and a project with no index gets an empty answer rather
+ * than a newly-allocated slot (#2240).
+ */
+export interface RelocationLinkIndexes {
+  before: WikiLinkIndex;
+  after: readonly [WikiLinkIndex, WikiLinkIndex];
+}
+
+export function relocationLinkIndexes(
+  ctx: ProjectContext,
+  moves: ReadonlyMap<string, string>,
+  opts: { carryAliases: boolean },
+): RelocationLinkIndexes {
+  const idx = noteIndexStore.get(ctx);
+  if (!idx) return relocationIndexesFrom([], new Map(), moves, opts, EMPTY_LINK_INDEX);
+  return relocationIndexesFrom([...idx.paths], idx.aliasesPerNote, moves, opts, ensureLinkIndex(idx));
+}
+
+/**
+ * The pure core of {@link relocationLinkIndexes}, over an explicit note list
+ * (the property tests drive it directly).
+ *
+ * - `carryAliases: true` (rename / move): a note's frontmatter aliases travel
+ *   with it, since they live in the file.
+ * - `carryAliases: false` (merge): the source's frontmatter is dropped, so its
+ *   aliases vanish; the destination keeps its own.
+ *
+ * Aliases are re-resolved against the post-move path set rather than remapped,
+ * because the canonical-name rule depends on it: a renamed note's NEW basename
+ * can shadow another note's alias, and its OLD basename can stop shadowing one.
+ */
+export function relocationIndexesFrom(
+  paths: readonly string[],
+  aliasesPerNote: ReadonlyMap<string, readonly string[]>,
+  moves: ReadonlyMap<string, string>,
+  opts: { carryAliases: boolean },
+  before?: WikiLinkIndex,
+): RelocationLinkIndexes {
+  const build = (order: readonly string[], aliases: Record<string, string>) =>
+    buildWikiLinkIndex(order.map((relativePath) => ({ relativePath, isDirectory: false })), aliases);
+
+  const rest = paths.filter((p) => !moves.has(p));
+  const restSet = new Set(rest);
+  // A merge's destination already exists: it is in `rest`, not newly landed.
+  const landed = [...new Set(moves.values())].filter((p) => !restSet.has(p));
+
+  const aliasesAfter = new Map<string, readonly string[]>();
+  for (const [p, list] of aliasesPerNote) {
+    const to = moves.get(p);
+    if (to === undefined) aliasesAfter.set(p, list);
+    else if (opts.carryAliases) aliasesAfter.set(to, list);
+  }
+  const aliases = aliasObject(resolveAliasesFrom([...rest, ...landed], aliasesAfter));
+  return {
+    before: before ?? build(paths, aliasObject(resolveAliasesFrom(paths, aliasesPerNote))),
+    after: [build([...landed, ...rest], aliases), build([...rest, ...landed], aliases)],
+  };
+}
+
+function aliasObject(entries: readonly AliasEntry[]): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const { alias, relativePath } of entries) out[alias.toLowerCase()] = relativePath;
+  return out;
 }

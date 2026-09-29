@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import * as notebaseFs from './fs';
-import { rewriteWikiLinks, normalizePath as normalizeLinkPath } from './link-rewriting';
+import { wikiLinkRelocator } from './rename';
 import * as graph from '../graph/index';
 import { projectContext } from '../project-context-types';
 import { isIndexable } from '../../shared/indexable-files';
@@ -10,8 +10,8 @@ import { stripFrontmatter } from '../../shared/frontmatter-strip';
 
 /**
  * Merge note (#464). Append the source note's body to a target note,
- * rewrite every wiki-link `[[source]]` across the project to point at
- * the target, and delete the source. Source frontmatter is dropped on
+ * rewrite every wiki-link that resolves to the source — by path, basename,
+ * slug or alias (#2456) — to point at the target, and delete the source. Source frontmatter is dropped on
  * merge — the target keeps its own.
  *
  * Conceptually: the inverse of "extract selection to new note." Borrowed
@@ -25,7 +25,7 @@ import { stripFrontmatter } from '../../shared/frontmatter-strip';
 
 export interface MergePreview {
   /** Number of wiki-link occurrences across the project that will be
-   *  rewritten from source → target. */
+   *  rewritten from source → target (links that resolve to the source). */
   linkOccurrences: number;
   /** Number of files that contain at least one such link. */
   affectedFiles: number;
@@ -84,17 +84,15 @@ export async function previewMergeNotes(
   // Graph-driven reverse-link query — fast for the common case where
   // the source has only a handful of inbound links.
   const referring = graph.findNotesLinkingTo(ctx, sourceRelPath);
+  const relocate = wikiLinkRelocator(rootPath, new Map([[sourceRelPath, targetRelPath]]), { carryAliases: false });
   let occurrences = 0;
   let files = 0;
-  const sourceBase = normalizeLinkPath(sourceRelPath);
-  const re = buildLinkOccurrenceRegex(sourceBase);
   for (const ref of referring) {
     if (ref === sourceRelPath) continue; // self-references will vanish with the file
     try {
-      const content = await notebaseFs.readFile(rootPath, ref);
-      const matches = content.match(re);
-      if (matches && matches.length > 0) {
-        occurrences += matches.length;
+      const { rewritten } = relocate(await notebaseFs.readFile(rootPath, ref));
+      if (rewritten > 0) {
+        occurrences += rewritten;
         files++;
       }
     } catch {
@@ -102,20 +100,6 @@ export async function previewMergeNotes(
     }
   }
   return { linkOccurrences: occurrences, affectedFiles: files };
-}
-
-/**
- * Compile a regex matching `[[<sourceBase>]]` and its variants
- * (`![[…]]`, `[[…|alias]]`, `[[…#anchor]]`, with or without `.md`).
- * Used only by `previewMergeNotes`; the actual rewrite delegates to
- * `rewriteWikiLinks` which has its own parser.
- */
-function buildLinkOccurrenceRegex(sourceBase: string): RegExp {
-  // Escape regex metachars in the path; allow optional .md, optional
-  // anchor (#…), and optional alias (|…). The leading `[[` may be
-  // preceded by `!` for embeds.
-  const escaped = sourceBase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return new RegExp(`!?\\[\\[\\s*${escaped}(?:\\.md)?\\s*(?:#[^\\]|]*)?\\s*(?:\\|[^\\]]*)?\\]\\]`, 'g');
 }
 
 export async function mergeNotes(
@@ -148,11 +132,10 @@ export async function mergeNotes(
   const mergedContent = targetContent + separator + sourceBody;
   const mergeLine = countLines(mergedContent.slice(0, mergeOffset));
 
-  // Build the link-rewrites map. `rewriteWikiLinks` keys are normalized
-  // paths (no `.md`). After the rewrite, links pointing at the source
-  // resolve to the target.
-  const rewrites = new Map<string, string>();
-  rewrites.set(normalizeLinkPath(sourceRelPath), normalizeLinkPath(targetRelPath));
+  // Snapshot link resolution before anything is written: every link that
+  // resolves to the source now must resolve to the target afterwards. The
+  // source's frontmatter is dropped, so its aliases don't carry over.
+  const relocate = wikiLinkRelocator(rootPath, new Map([[sourceRelPath, targetRelPath]]), { carryAliases: false });
 
   // Find the set of referrers via the graph; cheaper than walking every
   // note. The graph is up-to-date for saved files; unsaved buffers are
@@ -169,7 +152,7 @@ export async function mergeNotes(
   // 1. Write the merged target. The merged content may contain
   //    `[[source]]` references inherited from the source body — rewrite
   //    those as part of the same write pass.
-  const targetRewritten = rewriteWikiLinks(mergedContent, rewrites);
+  const targetRewritten = relocate(mergedContent).content;
   opts.markPathHandled?.(targetRelPath);
   await notebaseFs.writeFile(rootPath, targetRelPath, targetRewritten);
   await graph.indexNote(ctx, targetRelPath, targetRewritten);
@@ -188,12 +171,9 @@ export async function mergeNotes(
       logger('merge').error(`read failed for ${ref}:`, err instanceof Error ? err.message : err);
       continue;
     }
-    const rewritten = rewriteWikiLinks(content, rewrites);
+    const { content: rewritten, rewritten: count } = relocate(content);
     if (rewritten === content) continue;
-    // Count occurrences by diffing. Cheap and accurate enough — wiki-link
-    // rewrites change exact substrings, so the regex pass is reliable.
-    const before = content.match(buildLinkOccurrenceRegex(normalizeLinkPath(sourceRelPath)));
-    rewrittenLinks += before?.length ?? 0;
+    rewrittenLinks += count;
     try {
       opts.markPathHandled?.(ref);
       await notebaseFs.writeFile(rootPath, ref, rewritten);

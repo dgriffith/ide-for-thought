@@ -62,6 +62,15 @@ describe('note-refactor proposal (#911)', () => {
     expect(await read('consensus.md')).not.toContain('[[raft]]');
   });
 
+  it('on approval re-spells a basename link when the rename changes the basename (#2456)', async () => {
+    await seed('algorithms/paxos.md', '# Paxos');
+    await seed('history.md', 'Before Raft there was [[paxos|Paxos]].');
+    const proposal = await refactor('algorithms/paxos.md', 'algorithms/multi-paxos.md');
+    expect((await approveProposal(ctx(), proposal.uri)).ok).toBe(true);
+
+    expect(await read('history.md')).toBe('Before Raft there was [[multi-paxos|Paxos]].');
+  });
+
   it('rolls back exactly when a later payload fails', async () => {
     const before = await read('consensus.md');
     // Bundle the refactor with a malformed-turtle payload that throws at apply,
