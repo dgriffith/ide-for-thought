@@ -30,11 +30,11 @@
  * Boots the in-tree `.vite/build` app, so it needs `pnpm build:e2e` first
  * (`pnpm test:e2e` does that).
  */
-import { test, expect, type ElectronApplication, type Page } from '@playwright/test';
+import { test, expect, type ElectronApplication, type Page } from './helpers/test';
 import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
-import { launchMinerva, projectRoot } from './helpers/launch';
+import { closeMinerva, launchMinerva, projectRoot, seedProposal } from './helpers/launch';
 import { POLITE_REGION, expectAnnounced, recordAnnouncements } from './helpers/announcements';
 
 // `window.api` is used inside `win.evaluate` — the renderer's global typing
@@ -87,11 +87,7 @@ async function openSeededProposal(app: ElectronApplication, win: Page) {
   await recordAnnouncements(win);
 
   // Seed through the main-process hook (stands in for the LLM conversation).
-  const uri = await app.evaluate(async () => {
-    const g = globalThis as typeof globalThis & { __minervaE2E?: { seedProposal(): Promise<string | null> } };
-    if (!g.__minervaE2E) throw new Error('e2e hook missing — MINERVA_E2E not set?');
-    return g.__minervaE2E.seedProposal();
-  });
+  const uri = await seedProposal(app);
   expect(uri, 'seedProposal returned no uri').toBeTruthy();
 
   // Precondition — the gate holds: pending, and its payload not yet applied.
@@ -121,7 +117,7 @@ async function withApp(body: (app: ElectronApplication, win: Page) => Promise<vo
     const win = await app.firstWindow({ timeout: 20_000 });
     await body(app, win);
   } finally {
-    await app.close().catch(() => { /* already exited */ });
+    await closeMinerva(app);
     fs.rmSync(userDataDir, { recursive: true, force: true });
     fs.rmSync(projectDir, { recursive: true, force: true });
   }

@@ -26,11 +26,11 @@
  * Boots the in-tree `.vite/build` app (like happy-paths.spec.ts), so it needs
  * `pnpm build:e2e` first (the `pnpm test:e2e` script does that).
  */
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './helpers/test';
 import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
-import { launchMinerva, projectRoot } from './helpers/launch';
+import { closeMinerva, ingestSource, launchMinerva, projectRoot } from './helpers/launch';
 
 
 // These flows call `window.api` (the preload bridge) inside `win.evaluate` — the
@@ -74,13 +74,7 @@ test('journey: ingest a source → it lands in the source list and on disk', asy
     // Ingest through the real persistence pipeline, offline. `ingestSource`
     // stands in for `api.sources.ingestUrl`'s post-fetch half (fetching a live
     // URL isn't CI-deterministic); the persist → index → meta.ttl path is real.
-    const seeded = await app.evaluate(async () => {
-      const g = globalThis as typeof globalThis & {
-        __minervaE2E?: { ingestSource(): Promise<{ sourceId: string; title: string }> };
-      };
-      if (!g.__minervaE2E) throw new Error('e2e hook missing — MINERVA_E2E not set?');
-      return g.__minervaE2E.ingestSource();
-    });
+    const seeded = await ingestSource(app);
     expect(seeded?.sourceId, 'ingestSource returned no sourceId').toBeTruthy();
     expect(seeded.title).toBe(E2E_SOURCE_TITLE);
 
@@ -97,7 +91,7 @@ test('journey: ingest a source → it lands in the source list and on disk', asy
     const meta = await win.evaluate((rel) => window.api.notebase.readFile(rel), metaRel);
     expect(meta, 'source meta.ttl not written').toContain(E2E_SOURCE_TITLE);
   } finally {
-    await app.close().catch(() => { /* already exited */ });
+    await closeMinerva(app);
     fs.rmSync(userDataDir, { recursive: true, force: true });
     fs.rmSync(projectDir, { recursive: true, force: true });
   }
@@ -137,7 +131,7 @@ test('journey: export the thoughtbase → files are written to the output dir', 
     const written = fs.readdirSync(outputDir, { recursive: true }) as string[];
     expect(written.length, 'output dir is empty after export').toBeGreaterThan(0);
   } finally {
-    await app.close().catch(() => { /* already exited */ });
+    await closeMinerva(app);
     fs.rmSync(userDataDir, { recursive: true, force: true });
     fs.rmSync(projectDir, { recursive: true, force: true });
     fs.rmSync(outputDir, { recursive: true, force: true });
@@ -197,7 +191,7 @@ test('journey: conversation round-trip → transcript persists, filed draft writ
     const titles = (res.results as Array<{ title?: string }>).map((r) => r.title);
     expect(titles).toContain(noteTitle);
   } finally {
-    await app.close().catch(() => { /* already exited */ });
+    await closeMinerva(app);
     fs.rmSync(userDataDir, { recursive: true, force: true });
     fs.rmSync(projectDir, { recursive: true, force: true });
   }
@@ -232,7 +226,7 @@ test('journey: rename a note → wiki-links pointing at it are rewritten', async
     const exists = await win.evaluate(() => window.api.notebase.fileExists('e2e-renamed.md'));
     expect(exists, 'renamed file does not exist at its new path').toBe(true);
   } finally {
-    await app.close().catch(() => { /* already exited */ });
+    await closeMinerva(app);
     fs.rmSync(userDataDir, { recursive: true, force: true });
     fs.rmSync(projectDir, { recursive: true, force: true });
   }

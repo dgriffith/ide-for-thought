@@ -39,11 +39,11 @@
  * Boots the in-tree `.vite/build` app, same as the other e2e specs — needs
  * `pnpm build:e2e` first (`pnpm test:e2e` does that).
  */
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './helpers/test';
 import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
-import { launchMinerva } from './helpers/launch';
+import { closeMinerva, launchMinerva } from './helpers/launch';
 
 const BASE_URI = 'https://sample.minerva.dev/argument-map-e2e/';
 
@@ -121,7 +121,7 @@ test('argument map: renders a real supports edge as a clickable outline (#907)',
     await outline.getByRole('button', { name: 'Cited Evidence' }).click();
     await expect(win.getByText('The supporting case')).toBeVisible({ timeout: 10_000 });
   } finally {
-    await app.close().catch(() => { /* already exited */ });
+    await closeMinerva(app);
     fs.rmSync(userDataDir, { recursive: true, force: true });
     fs.rmSync(projectDir, { recursive: true, force: true });
   }

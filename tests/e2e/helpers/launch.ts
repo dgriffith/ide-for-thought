@@ -31,6 +31,8 @@
 import {
   _electron as electron,
   chromium,
+  expect,
+  test,
   type Browser,
   type ElectronApplication,
   type Page,
@@ -39,6 +41,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { annotate, captureProcessState, inTest, probeApp, settlesWithin, withinBound } from './bounded';
 
 // Playwright transpiles tests as CJS (no `"type": "module"` in package.json),
 // so `__dirname` is available — `import.meta.url` would force ESM and trip
@@ -123,15 +126,252 @@ export async function launchMinerva(opts: LaunchOptions): Promise<ElectronApplic
   const userDataArg = `--user-data-dir=${userDataDir}`;
   const launchEnv = { ...scrubbedEnv(), ELECTRON_ENABLE_LOGGING: '1', ...env };
 
-  if (executablePath) {
-    return launchPackaged(executablePath, [userDataArg], launchEnv, timeout);
+  // A step, so a report of a slow or hung attempt says whether launch is where
+  // the time went (#2458).
+  const app = await test.step(executablePath ? 'launch Minerva (packaged)' : 'launch Minerva', () =>
+    executablePath
+      ? launchPackaged(executablePath, [userDataArg], launchEnv, timeout)
+      : electron.launch({
+        args: [projectRoot, userDataArg],
+        cwd: projectRoot,
+        timeout,
+        env: launchEnv,
+      }));
+  track(app);
+  if (!executablePath) {
+    applyNavigationTimeout(app as ElectronApplication);
+    await startTrace(app as ElectronApplication);
   }
-  return electron.launch({
-    args: [projectRoot, userDataArg],
-    cwd: projectRoot,
-    timeout,
-    env: launchEnv,
-  });
+  return app;
+}
+
+/**
+ * `use.navigationTimeout` in playwright.config.ts only reaches contexts
+ * Playwright Test creates; an Electron app's pages kept the library default
+ * (measured: `waitForURL` gave up at exactly 30000ms with the config at 20s).
+ * Apply the configured value to the app's context so the config is what
+ * bounds `reload` / `waitForLoadState` / `waitForURL` here too (#2458).
+ */
+function applyNavigationTimeout(app: ElectronApplication): void {
+  if (!inTest()) return;
+  const ms = test.info().project.use.navigationTimeout;
+  if (typeof ms === 'number' && ms > 0) app.context().setDefaultNavigationTimeout(ms);
+}
+
+// ── Traces of the Electron renderer (#2458) ─────────────────────────────────
+//
+// `use.trace` in playwright.config.ts only instruments the contexts Playwright
+// Test creates itself (the `page`/`context` fixtures). An Electron app's context
+// is created by `_electron.launch`, so on its own the config yields a runner-only
+// trace — steps and errors, no DOM snapshots or action log. So the helper
+// records the app's context itself, under the same mode, and the `test.ts`
+// fixture keeps or discards the file once the attempt's outcome is known.
+// Packaged launches (CDP-attached, no Electron handle) aren't traced.
+//
+// Snapshots, not screenshots. Measured on the full suite, 53 tests, green:
+// 101s untraced, 119s with snapshots (+17%), 141s with screenshots too (+38%).
+// The screencast is the expensive half and the less useful one for a hang —
+// a wedged main process stops producing frames anyway.
+
+const traced = new Set<ElectronApplication>();
+const pendingTraces: string[] = [];
+
+type TraceSetting = string | { mode?: string } | undefined;
+
+/** The configured trace mode, as a plain string. */
+function traceMode(): string {
+  const t = test.info().project.use.trace as TraceSetting;
+  return (typeof t === 'string' ? t : t?.mode) ?? 'off';
+}
+
+function shouldRecordTrace(): boolean {
+  const mode = traceMode();
+  if (mode === 'off') return false;
+  // Only the first attempt's trace can be kept in this mode — don't pay for
+  // recording on a retry.
+  if (mode === 'retain-on-first-failure') return test.info().retry === 0;
+  return true;
+}
+
+async function startTrace(app: ElectronApplication): Promise<void> {
+  if (!inTest() || !shouldRecordTrace()) return;
+  await app.context().tracing.start({ screenshots: false, snapshots: true, title: test.info().title });
+  traced.add(app);
+}
+
+/** Stop recording into the attempt's output dir. Bounded: when main is wedged
+ *  the stop may never answer, and a missing trace beats a hung teardown. */
+async function stopTrace(app: ElectronApplication): Promise<void> {
+  if (!traced.delete(app) || !inTest()) return;
+  const file = test.info().outputPath(`electron-trace-${pendingTraces.length + 1}.zip`);
+  await settlesWithin(app.context().tracing.stop({ path: file }), 5_000);
+  if (fs.existsSync(file)) pendingTraces.push(file);
+}
+
+/**
+ * Keep this attempt's Electron traces if the configured mode says so, as
+ * `electron-trace` attachments (open with `npx playwright show-trace`);
+ * otherwise delete them. Called by the `test.ts` fixture after the test.
+ */
+export async function settleTraces(): Promise<void> {
+  const files = pendingTraces.splice(0);
+  if (files.length === 0 || !inTest()) return;
+  const info = test.info();
+  const failed = info.status !== info.expectedStatus;
+  const mode = traceMode();
+  const keep = mode === 'on' || (failed && (mode !== 'retain-on-first-failure' || info.retry === 0));
+  for (const file of files) {
+    // `attach` copies into the attempt's attachments/, so the original goes
+    // either way — one copy per kept trace, none per discarded one.
+    if (keep) await info.attach('electron-trace', { path: file, contentType: 'application/zip' });
+    fs.rmSync(file, { force: true });
+  }
+}
+
+// ── Teardown that cannot hang (#2458) ───────────────────────────────────────
+//
+// `ElectronApplication.close()` asks the main process to quit and waits for
+// the child to exit — with no timeout. When main is wedged it never returns;
+// the test's `finally` stalls, and if the test already timed out, Playwright's
+// own worker teardown tries the same graceful close and stalls too: "Worker
+// teardown timeout of 60000ms exceeded", an error outside any test that fails
+// the job whatever the retries did (#2458, 1 in 46 CI runs).
+//
+// So every close goes through `closeMinerva`: `close()`, bounded; on a miss,
+// SIGKILL the child — the way `launchPackaged`'s `stop()` already did — and
+// say so loudly: a console line, an `app-killed` annotation the flake report
+// prints, and a soft failure so the attempt is red. A wedged app becomes a
+// failed (then, on retry, flaky) test inside the #2379 budget, never a silent
+// one.
+//
+// `test.ts`'s auto fixture runs the same close on any app still alive when a
+// test ends — which is the case that matters most: a test that TIMED OUT never
+// reaches its own `finally`, because the await it is stuck in never settles.
+
+/**
+ * How long `close()` may take before the child is killed. Measured (#2458):
+ * 0.07-0.2s on a quiet machine across the whole suite, up to ~2s under normal
+ * load. Under deliberate CPU starvation (load 30-50 on 10 cores) a healthy quit
+ * took up to 11.8s — the JS side finishes in <0.2s and the rest is Electron's
+ * native shutdown waiting on starved helper processes — so a kill at 10s can
+ * fire on a merely-starved runner too. The report says which: see the probe.
+ */
+export const CLOSE_BOUND_MS = 10_000;
+
+/** What both launch flavours share, as far as teardown is concerned. */
+export type MinervaApp = ElectronApplication | PackagedMinerva;
+
+const liveApps = new Set<MinervaApp>();
+
+function track(app: MinervaApp): void {
+  liveApps.add(app);
+  app.process().once('exit', () => liveApps.delete(app));
+}
+
+/** Apps launched in this worker whose process has not exited. */
+export function liveMinervaApps(): MinervaApp[] {
+  return [...liveApps];
+}
+
+function isAlive(child: ChildProcess): boolean {
+  return child.exitCode === null && child.signalCode === null;
+}
+
+/**
+ * Close Minerva, and kill it if it won't close. Never throws — a failed kill
+ * is recorded as a soft failure instead — so a `finally` calling it keeps the
+ * test body's own error as the primary one.
+ */
+export async function closeMinerva(app: MinervaApp, why = 'the test'): Promise<void> {
+  const child = app.process();
+  const run = async () => {
+    if (!isAlive(child)) {
+      liveApps.delete(app);
+      return;
+    }
+    const start = Date.now();
+    if ('evaluate' in app) await stopTrace(app);
+    const closed = await settlesWithin(app.close(), CLOSE_BOUND_MS);
+    if (closed && !isAlive(child)) {
+      liveApps.delete(app);
+      return;
+    }
+    // close() settled but the child lingers, or close() never returned.
+    const exited = new Promise<void>((r) => {
+      if (!isAlive(child)) r();
+      else child.once('exit', () => r());
+    });
+    if (closed) await settlesWithin(exited, 2_000);
+    if (!isAlive(child)) {
+      liveApps.delete(app);
+      return;
+    }
+    const title = inTest() ? test.info().titlePath.slice(1).join(' › ') : 'a test that already ended';
+    // Probe BEFORE the kill: whether main still answers is the one fact that
+    // says what wedged, and a stack sample of the live process says where.
+    // The main probe is skipped for the packaged flavour (no main handle).
+    const probe = 'evaluate' in app ? await probeApp(app).catch(() => '') : '';
+    // probeApp already sampled the stacks if main was wedged; otherwise do it
+    // here — a process that answered app.quit() but won't exit is its own case.
+    const state = [probe, probe.includes('process-state') ? '' : await captureProcessState(child, 'close')]
+      .filter(Boolean).join('\n');
+    child.kill('SIGKILL');
+    await settlesWithin(exited, 5_000);
+    liveApps.delete(app);
+    const msg =
+      `app did not quit within ${CLOSE_BOUND_MS / 1000}s after ${title} (closed by ${why}) — killed ` +
+      `(SIGKILL, pid ${child.pid}, after ${((Date.now() - start) / 1000).toFixed(1)}s)` +
+      (state ? `\n${state}` : '');
+    // Loud on purpose: this is the line to grep a CI log for.
+    console.error(`\n[e2e] ✗ ${msg}\n`);
+    annotate('app-killed', msg);
+    if (inTest()) expect.soft(false, msg).toBe(true);
+  };
+  if (inTest()) await test.step('close Minerva', run);
+  else await run();
+}
+
+// ── The main-process e2e hooks, bounded (#2458) ─────────────────────────────
+
+/**
+ * `seedProposal` runs a Turtle parse, a graph persist and a broadcast. Measured
+ * (#2458): 9-24ms across ~90 local runs, and 12-30ms under deliberate CPU
+ * starvation. 15s is ~500x that and far below the 60s test timeout, so a hang
+ * fails here — step named, main probed — instead of eating the whole test
+ * budget in silence.
+ */
+export const SEED_BOUND_MS = 15_000;
+
+/** File the fixed pending proposal (src/main/e2e-hooks.ts) and return its URI. */
+export async function seedProposal(app: ElectronApplication): Promise<string | null> {
+  return test.step('seed proposal (main-process hook)', () =>
+    withinBound(
+      'seedProposal (app.evaluate in the main process)',
+      SEED_BOUND_MS,
+      app.evaluate(async () => {
+        const g = globalThis as typeof globalThis & { __minervaE2E?: { seedProposal(): Promise<string | null> } };
+        if (!g.__minervaE2E) throw new Error('e2e hook missing — MINERVA_E2E not set?');
+        return g.__minervaE2E.seedProposal();
+      }),
+      () => probeApp(app),
+    ));
+}
+
+/** Ingest the fixed offline source (src/main/e2e-hooks.ts). */
+export async function ingestSource(app: ElectronApplication): Promise<{ sourceId: string; title: string }> {
+  return test.step('ingest source (main-process hook)', () =>
+    withinBound(
+      'ingestSource (app.evaluate in the main process)',
+      SEED_BOUND_MS,
+      app.evaluate(async () => {
+        const g = globalThis as typeof globalThis & {
+          __minervaE2E?: { ingestSource(): Promise<{ sourceId: string; title: string }> };
+        };
+        if (!g.__minervaE2E) throw new Error('e2e hook missing — MINERVA_E2E not set?');
+        return g.__minervaE2E.ingestSource();
+      }),
+      () => probeApp(app),
+    ));
 }
 
 /**

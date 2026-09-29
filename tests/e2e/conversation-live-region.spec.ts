@@ -17,13 +17,13 @@
  * Boots the in-tree `.vite/build` app, so it needs `pnpm build:e2e` first
  * (`pnpm test:e2e` does that).
  */
-import { test, expect } from '@playwright/test';
+import { test, expect } from './helpers/test';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
-import { launchMinerva, projectRoot } from './helpers/launch';
+import { closeMinerva, launchMinerva, projectRoot } from './helpers/launch';
 
 /** The app-level polite live region (LiveAnnouncer.svelte). */
 const LIVE_REGION = '[data-testid="live-announcer-polite"]';
@@ -136,7 +136,7 @@ test('conversation: a streamed reply is announced once, on completion, not per t
     expect(replyValues, `region values: ${JSON.stringify(seen)}`).toEqual([`Response complete. ${REPLY}`]);
     expect(seen).toContain('Generating response');
   } finally {
-    await app.close().catch(() => { /* already exited */ });
+    await closeMinerva(app);
     llm.server.close();
     fs.rmSync(userDataDir, { recursive: true, force: true });
     fs.rmSync(projectDir, { recursive: true, force: true });

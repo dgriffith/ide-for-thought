@@ -27,15 +27,10 @@
  *     regression of that shape actually slips through.
  */
 
-import { test, expect, type ConsoleMessage, type Page } from '@playwright/test';
+import { test, expect, type ConsoleMessage, type Page } from './helpers/test';
 import path from 'node:path';
 import fs from 'node:fs';
-import {
-  launchMinerva,
-  makeTempDir,
-  seedSession,
-  projectRoot,
-} from './helpers/launch';
+import { closeMinerva, launchMinerva, makeTempDir, projectRoot, seedSession } from './helpers/launch';
 
 /** Path to the packaged app binary, or null if it hasn't been built. */
 function packagedBinary(): string | null {
@@ -143,7 +138,7 @@ test('app launches, renderer mounts, no thrown errors', async () => {
     if (mainStdout.length) console.error(`[smoke] main stdout:\n${mainStdout.join('')}`);
     throw err;
   } finally {
-    await app.close().catch(() => { /* already exited */ });
+    await closeMinerva(app);
     fs.rmSync(userDataDir, { recursive: true, force: true });
   }
 
@@ -203,7 +198,7 @@ test('packaged app opens a DuckDB-backed project (native binding shipped)', asyn
       openedProject = true;
     } catch { /* fall through to the stream assertion for a clearer message */ }
   } finally {
-    await app.close().catch(() => { /* already exited */ });
+    await closeMinerva(app);
     fs.rmSync(userDataDir, { recursive: true, force: true });
     fs.rmSync(projectDir, { recursive: true, force: true });
   }

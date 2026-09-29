@@ -18,6 +18,25 @@ export interface PlaywrightReport {
   errors?: ({ message?: string } | string)[];
 }
 
+/** A diagnostic an e2e helper recorded on one attempt (#2458). */
+export interface AttemptNote {
+  type: string;
+  text: string;
+}
+
+/** One attempt that failed, or carries a helper diagnostic (#2458). */
+export interface AttemptDiagnostic {
+  title: string;
+  attempt: number;
+  status: string;
+  duration: number;
+  step: { title: string; duration: number } | null;
+  error: string;
+  notes: AttemptNote[];
+}
+
+export const DIAGNOSTIC_ANNOTATIONS: string[];
+
 export interface FlakeBudgetResult {
   ok: boolean;
   flakyCount: number;
@@ -25,6 +44,8 @@ export interface FlakeBudgetResult {
   flaky: RetriedTest[];
   failedCount: number;
   runErrors: string[];
+  attempts: AttemptDiagnostic[];
+  killedApps: string[];
   playwrightFailed: boolean;
   verdict: string;
 }
@@ -32,6 +53,7 @@ export interface FlakeBudgetResult {
 export function collectRetriedTests(json: PlaywrightReport): RetriedTest[];
 export function collectFlakyTests(json: PlaywrightReport): RetriedTest[];
 export function collectRunErrors(json: PlaywrightReport): string[];
+export function collectAttemptDiagnostics(json: PlaywrightReport): AttemptDiagnostic[];
 export function evaluateFlakeBudget(json: PlaywrightReport, maxFlaky?: number): FlakeBudgetResult;
 export function formatReport(
   json: PlaywrightReport,

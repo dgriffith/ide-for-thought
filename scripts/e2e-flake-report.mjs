@@ -13,6 +13,9 @@
  *   - says why the Playwright step failed when it did — a test that failed
  *     every attempt, or an error outside any test such as a worker teardown
  *     timeout — so the flake table is never read as the cause of a red run;
+ *   - names, for every failed attempt, the `test.step` it ended in and any
+ *     hang probe or app kill the e2e helpers recorded on it, and raises a
+ *     `::warning` per killed app (#2458);
  *   - appends all of it to $GITHUB_STEP_SUMMARY when set.
  *
  * The policy is here, in one tested module, rather than as Playwright flags:
@@ -56,8 +59,11 @@ if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) {
     console.log(`e2e-flake-report: no report at ${args.report} — nothing to analyze.`);
     process.exit(0);
   }
-  const { summary, body, verdict, ok } = formatReport(JSON.parse(raw), args.maxFlaky);
+  const { summary, body, verdict, ok, killedApps } = formatReport(JSON.parse(raw), args.maxFlaky);
   console.log(`\n${summary}\n\n${body}\n\n${verdict}\n`);
+  // A killed app is never silent (#2458): each gets its own run annotation,
+  // whether or not its test went on to pass on a retry.
+  for (const k of killedApps) console.log(`::warning title=E2E app under test was killed::${k}`);
 
   if (process.env.GITHUB_STEP_SUMMARY) {
     appendFileSync(process.env.GITHUB_STEP_SUMMARY, `\n## ${summary}\n\n${body}\n\n\`\`\`\n${verdict}\n\`\`\`\n`);

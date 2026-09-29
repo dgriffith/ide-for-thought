@@ -31,5 +31,17 @@ export default defineConfig({
   reporter: [['list'], ['json', { outputFile: 'playwright-report.json' }]],
   use: {
     actionTimeout: 10_000,
+    // Bounds `reload` / `waitForLoadState` / `waitForURL` (#2458). Playwright
+    // Test applies this only to contexts it creates, so launchMinerva applies
+    // it to the Electron app's context itself — without that, Electron pages
+    // kept the library default of 30s (measured). Measured normal: bootTheme's
+    // reload 0.1-0.25s locally (0.3-0.55s with the CI trace recording), the
+    // first window's load ~0.35s.
+    navigationTimeout: 20_000,
+    // A trace of the first failing attempt, kept for CI only (#2458): the
+    // failure worth a trace is the rare one that never reproduces locally.
+    // Green attempts discard theirs; retries record none. Written under
+    // test-results/, which ci.yml uploads with the JSON report.
+    trace: process.env.CI ? 'retain-on-first-failure' : 'off',
   },
 });

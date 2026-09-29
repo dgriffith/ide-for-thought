@@ -14,11 +14,11 @@
  * Boots the in-tree `.vite/build` app, same as the other e2e specs — needs
  * `pnpm build:e2e` first (`pnpm test:e2e` does that).
  */
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './helpers/test';
 import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
-import { launchMinerva, projectRoot } from './helpers/launch';
+import { closeMinerva, launchMinerva, projectRoot } from './helpers/launch';
 
 const ARTIFACT_HTML = `<!DOCTYPE html>
 <html>
@@ -87,7 +87,7 @@ test('HTML preview: static-only sandboxed iframe renders markup but never runs s
     await win.waitForTimeout(1000);
     await expect(frame.locator('#dynamic')).toHaveCount(0);
   } finally {
-    await app.close().catch(() => { /* already exited */ });
+    await closeMinerva(app);
     fs.rmSync(userDataDir, { recursive: true, force: true });
     fs.rmSync(projectDir, { recursive: true, force: true });
   }

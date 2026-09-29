@@ -28,11 +28,11 @@
  * Launches the in-tree `.vite/build` app (like smoke.spec.ts), so it needs
  * `pnpm build:e2e` first (the `pnpm test:e2e` script does that).
  */
-import { test, expect, type ElectronApplication, type Page } from '@playwright/test';
+import { test, expect, type ElectronApplication, type Page } from './helpers/test';
 import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
-import { launchMinerva, projectRoot } from './helpers/launch';
+import { closeMinerva, launchMinerva, projectRoot, seedProposal } from './helpers/launch';
 import { runAxe, formatViolations, seriousOrWorse } from '../helpers/axe-playwright';
 
 /** Every theme a user can pick (THEME_MODES minus `system`, which resolves to
@@ -69,6 +69,10 @@ interface Session {
  * Launch against an isolated profile (optionally restoring a copy of the
  * sample project), pin the theme, and hand the window to `body`. Always tears
  * the app and its temp dirs down.
+ *
+ * Each phase is a `test.step` (#2458): a hung attempt's JSON report names the
+ * phase that ate the time, where it used to say only "Test timeout of 60000ms
+ * exceeded".
  */
 async function withApp(opts: LaunchOpts, body: (s: Session) => Promise<void>): Promise<void> {
   const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-a11y-userdata-'));
@@ -89,17 +93,20 @@ async function withApp(opts: LaunchOpts, body: (s: Session) => Promise<void>): P
   // MINERVA_E2E exposes the main-process seed hooks (src/main/e2e-hooks.ts).
   const app = await launchMinerva({ userDataDir, env: { MINERVA_E2E: '1' } });
   try {
-    const win = await app.firstWindow({ timeout: 20_000 });
-    await win.waitForLoadState('domcontentloaded');
+    const win = await test.step('first window', async () => {
+      const w = await app.firstWindow({ timeout: 20_000 });
+      await w.waitForLoadState('domcontentloaded');
+      return w;
+    });
     if (opts.withProject) {
       await waitForWorkspace(win);
-      if (opts.beforeThemeBoot) await opts.beforeThemeBoot(win);
+      if (opts.beforeThemeBoot) await test.step('before theme boot', () => opts.beforeThemeBoot!(win));
     }
     await bootTheme(win, opts.theme);
     if (opts.withProject) await waitForWorkspace(win);
     await body({ app, win });
   } finally {
-    await app.close().catch(() => { /* already exited */ });
+    await closeMinerva(app);
     fs.rmSync(userDataDir, { recursive: true, force: true });
     if (projectDir) fs.rmSync(projectDir, { recursive: true, force: true });
   }
@@ -113,24 +120,32 @@ async function withApp(opts: LaunchOpts, body: (s: Session) => Promise<void>): P
  * under text from the new one — as a phantom contrast violation.
  */
 async function bootTheme(win: Page, theme: Theme): Promise<void> {
-  await win.evaluate((t) => localStorage.setItem('themeMode', t), theme);
-  await win.reload();
-  await win.waitForLoadState('domcontentloaded');
-  const attr = await win.evaluate(() => document.documentElement.getAttribute('data-theme'));
-  expect(attr, `theme did not apply`).toBe(theme === 'dark' ? null : theme);
+  // `reload` and `waitForLoadState` are bounded by the config's
+  // `navigationTimeout` (#2458) — Playwright Test's default is none.
+  await test.step(`boot ${theme} theme (reload)`, async () => {
+    await win.evaluate((t) => localStorage.setItem('themeMode', t), theme);
+    await win.reload();
+    await win.waitForLoadState('domcontentloaded');
+    const attr = await win.evaluate(() => document.documentElement.getAttribute('data-theme'));
+    expect(attr, `theme did not apply`).toBe(theme === 'dark' ? null : theme);
+  });
 }
 
 async function waitForWorkspace(win: Page): Promise<void> {
-  // Session restore replaces the welcome screen with the workspace.
-  await expect(win.getByRole('button', { name: 'Open Thoughtbase' })).toHaveCount(0, { timeout: 25_000 });
-  // Wait for the sidebar tree to actually render rather than sleeping.
-  await expect(win.locator('[data-relative-path]').first()).toBeVisible({ timeout: 10_000 });
+  await test.step('wait for workspace', async () => {
+    // Session restore replaces the welcome screen with the workspace.
+    await expect(win.getByRole('button', { name: 'Open Thoughtbase' })).toHaveCount(0, { timeout: 25_000 });
+    // Wait for the sidebar tree to actually render rather than sleeping.
+    await expect(win.locator('[data-relative-path]').first()).toBeVisible({ timeout: 10_000 });
+  });
 }
 
 /** Open the first note and wait for its editor to mount. */
 async function openFirstNote(win: Page): Promise<void> {
-  await win.locator('[data-relative-path$=".md"]').first().click();
-  await expect(win.locator('.cm-content')).toBeVisible({ timeout: 10_000 });
+  await test.step('open first note', async () => {
+    await win.locator('[data-relative-path$=".md"]').first().click();
+    await expect(win.locator('.cm-content')).toBeVisible({ timeout: 10_000 });
+  });
 }
 
 /** Send a native-menu command to the renderer, the way menu.ts does. */
@@ -214,21 +229,20 @@ for (const theme of THEMES) {
       await withApp({ theme, withProject: true }, async ({ app, win }) => {
         await openFirstNote(win);
         // Seed a pending proposal through the real approval engine so the
-        // panel has something to review, not just its empty state.
-        await app.evaluate(async () => {
-          const g = globalThis as typeof globalThis & { __minervaE2E?: { seedProposal(): Promise<string | null> } };
-          if (!g.__minervaE2E) throw new Error('e2e hook missing — MINERVA_E2E not set?');
-          await g.__minervaE2E.seedProposal();
+        // panel has something to review, not just its empty state. Bounded,
+        // with main probed on a miss — the prime suspect in #2458.
+        await seedProposal(app);
+        await test.step('open proposals panel', async () => {
+          // The Proposals panel lives in the LEFT sidebar (#1526).
+          await win.locator('.panel-tab[title="Proposals"]').first().click();
+          const firstProposal = win.locator('.proposal-item').first();
+          await expect(firstProposal).toBeVisible({ timeout: 10_000 });
+          await firstProposal.click();
+          await expect(win.locator('.proposal-detail')).toBeVisible({ timeout: 10_000 });
+          // Expand a payload so its preview renders too.
+          const payload = win.locator('.payload-row').first();
+          if (await payload.count()) await payload.click();
         });
-        // The Proposals panel lives in the LEFT sidebar (#1526).
-        await win.locator('.panel-tab[title="Proposals"]').first().click();
-        const firstProposal = win.locator('.proposal-item').first();
-        await expect(firstProposal).toBeVisible({ timeout: 10_000 });
-        await firstProposal.click();
-        await expect(win.locator('.proposal-detail')).toBeVisible({ timeout: 10_000 });
-        // Expand a payload so its preview renders too.
-        const payload = win.locator('.payload-row').first();
-        if (await payload.count()) await payload.click();
         await expectNoSerious(win, 'proposals panel', theme);
       });
     });

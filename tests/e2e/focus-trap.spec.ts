@@ -11,11 +11,11 @@
  * Boots the in-tree `.vite/build` app (like the other e2e specs), so it needs
  * `pnpm build:e2e` first.
  */
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './helpers/test';
 import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
-import { launchMinerva, projectRoot } from './helpers/launch';
+import { closeMinerva, launchMinerva, projectRoot } from './helpers/launch';
 
 
 async function launch() {
@@ -78,7 +78,7 @@ test('command palette traps Tab focus and restores it to the editor on close', a
     await expect(win.locator(palette)).toHaveCount(0, { timeout: 5000 });
     expect(await focusInside(win, '.cm-content'), 'focus should return to the editor after close').toBe(true);
   } finally {
-    await app.close().catch(() => { /* already exited */ });
+    await closeMinerva(app);
     fs.rmSync(userDataDir, { recursive: true, force: true });
     fs.rmSync(projectDir, { recursive: true, force: true });
   }

@@ -16,11 +16,11 @@
  * Boots the in-tree `.vite/build` app (like smoke.spec.ts), so it needs
  * `pnpm build:e2e` first (the `pnpm test:e2e` script does that).
  */
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './helpers/test';
 import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
-import { launchMinerva, projectRoot } from './helpers/launch';
+import { closeMinerva, launchMinerva, projectRoot, seedProposal } from './helpers/launch';
 
 
 // These flows call `window.api` (the preload bridge) inside `win.evaluate` —
@@ -76,7 +76,7 @@ test('flow: write a note → reindex → SPARQL query returns it', async () => {
     const titles = (res.results as Array<{ title?: string }>).map((r) => r.title);
     expect(titles).toContain(marker);
   } finally {
-    await app.close().catch(() => { /* already exited */ });
+    await closeMinerva(app);
     fs.rmSync(userDataDir, { recursive: true, force: true });
     fs.rmSync(projectDir, { recursive: true, force: true });
   }
@@ -93,11 +93,7 @@ test('flow: pending proposal → approve → graph reflects the mutation', async
 
     // Seed a pending proposal via the main-process e2e hook (stands in for the
     // LLM conversation). requires_approval ⇒ its payload is NOT applied yet.
-    const uri = await app.evaluate(async () => {
-      const g = globalThis as typeof globalThis & { __minervaE2E?: { seedProposal(): Promise<string | null> } };
-      if (!g.__minervaE2E) throw new Error('e2e hook missing — MINERVA_E2E not set?');
-      return g.__minervaE2E.seedProposal();
-    });
+    const uri = await seedProposal(app);
     expect(uri, 'seedProposal returned no uri').toBeTruthy();
 
     // Before approval the claim triple must be absent (the gate holds).
@@ -115,7 +111,7 @@ test('flow: pending proposal → approve → graph reflects the mutation', async
     if (!after.ok) throw new Error(`SPARQL failed: ${after.error}`);
     expect(after.results.length, 'claim should be present after approval').toBeGreaterThan(0);
   } finally {
-    await app.close().catch(() => { /* already exited */ });
+    await closeMinerva(app);
     fs.rmSync(userDataDir, { recursive: true, force: true });
     fs.rmSync(projectDir, { recursive: true, force: true });
   }

@@ -9,7 +9,9 @@
  */
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
-import type { Page } from '@playwright/test';
+import { test, type ElectronApplication, type Page } from '@playwright/test';
+import { probeApp, probePage, withinBound } from '../e2e/helpers/bounded';
+import { liveMinervaApps } from '../e2e/helpers/launch';
 
 const require = createRequire(__filename);
 // axe-core's main entry is a UMD bundle; running it defines `window.axe`.
@@ -29,11 +31,33 @@ export interface AxeViolation {
 }
 
 /**
+ * Bound on one axe pass (inject + run), which is a `page.evaluate` and so has
+ * no timeout of its own (#2458). Measured normal: 0.1-0.4s per scan locally
+ * (~350 scans, with and without the CI trace recording and under deliberate
+ * CPU starvation). 20s is ~50x the slowest and still leaves most of the 60s
+ * test budget to report in.
+ */
+export const AXE_BOUND_MS = 20_000;
+
+/** The app's state when a scan overran: every live Minerva's main + renderer,
+ *  or just this page's renderer when the page isn't Minerva's. */
+async function describeHang(page: Page): Promise<string> {
+  const apps = liveMinervaApps().filter((a): a is ElectronApplication => 'evaluate' in a);
+  if (apps.length === 0) return probePage(page);
+  return (await Promise.all(apps.map((a) => probeApp(a)))).join('\n');
+}
+
+/**
  * Inject axe-core and run it against `context` (a CSS selector, or the whole
  * document by default). `color-contrast` is ON — that's the point of the
  * real-browser pass. Returns the raw violations.
  */
 export async function runAxe(page: Page, context?: string): Promise<AxeViolation[]> {
+  return test.step(`axe scan${context ? ` (${context})` : ''}`, () =>
+    withinBound(`axe scan${context ? ` of ${context}` : ''} (page.evaluate in the renderer)`, AXE_BOUND_MS, scan(page, context), () => describeHang(page)));
+}
+
+async function scan(page: Page, context?: string): Promise<AxeViolation[]> {
   // The app ships a hardened CSP (`script-src 'self' 'wasm-unsafe-eval' blob:`)
   // that blocks Playwright's `addScriptTag` inline injection. blob: URLs ARE
   // allowed, so load axe from an object URL — which also proves the pass runs

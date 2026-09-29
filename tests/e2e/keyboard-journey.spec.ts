@@ -44,11 +44,11 @@
  * Boots the in-tree `.vite/build` app, so it needs `pnpm build:e2e` first
  * (`pnpm test:e2e` does that).
  */
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './helpers/test';
 import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
-import { launchMinerva, projectRoot } from './helpers/launch';
+import { closeMinerva, launchMinerva, projectRoot, seedProposal } from './helpers/launch';
 import { expectAnnounced, recordAnnouncements } from './helpers/announcements';
 
 // `window.api` is used inside `win.evaluate` — the renderer's global typing
@@ -197,11 +197,7 @@ test('keyboard only: create a note, wiki-link it, approve a proposal — no poin
     }).toBeGreaterThan(0);
 
     // ── 3. Approve a pending proposal ───────────────────────────────────
-    const uri = await app.evaluate(async () => {
-      const g = globalThis as typeof globalThis & { __minervaE2E?: { seedProposal(): Promise<string | null> } };
-      if (!g.__minervaE2E) throw new Error('e2e hook missing — MINERVA_E2E not set?');
-      return g.__minervaE2E.seedProposal();
-    });
+    const uri = await seedProposal(app);
     expect(uri, 'seedProposal returned no uri').toBeTruthy();
     expect(await graphRowCount(win, statusQuery(uri!, 'pending'))).toBe(1);
     expect(await graphRowCount(win, CLAIM_QUERY), 'claim must be absent before review').toBe(0);
@@ -239,7 +235,7 @@ test('keyboard only: create a note, wiki-link it, approve a proposal — no poin
     // ── No pointer, at any point ────────────────────────────────────────
     expect(await pointerLog(win), 'the journey must not produce any pointer events').toEqual([]);
   } finally {
-    await app.close().catch(() => { /* already exited */ });
+    await closeMinerva(app);
     fs.rmSync(userDataDir, { recursive: true, force: true });
     fs.rmSync(projectDir, { recursive: true, force: true });
   }
