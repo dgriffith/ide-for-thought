@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { isNotePath } from '../../src/shared/note-extensions';
-import { canonicalizeWikiLinkTarget, noteTargetPathBeside } from '../../src/shared/wiki-link-resolver';
+import {
+  canonicalizeWikiLinkTarget, noteTargetPathBeside, aliasRecord, lookupAlias,
+} from '../../src/shared/wiki-link-resolver';
 
 describe('noteTargetPathBeside (#1446 create-note path)', () => {
   it('creates beside a root note', () => {
@@ -205,5 +207,77 @@ describe('resolveWikiLinkTargetWithIndex — pathSlugFallback: false (#2456)', (
     expect(resolveWikiLinkTargetWithIndex('paxos', idx)).toBe('algorithms/multi-paxos.md');
     expect(resolveWikiLinkTargetWithIndex('paxos', idx, { pathSlugFallback: false })).toBeNull();
     expect(resolveWikiLinkTargetWithIndex('Algorithms Multi Paxos', idx, { pathSlugFallback: false })).toBeNull();
+  });
+});
+
+// ── Object.prototype names are not aliases (#2456 follow-up) ────────────────
+// The alias record is a plain object — it crosses IPC as one — so a bare
+// `aliases[key]` answered `[[constructor]]` with `Object`, a function, which
+// the callers then treated as a note path.
+describe('targets named after Object.prototype members', () => {
+  const PROTO_NAMES = ['constructor', 'toString', '__proto__', 'hasOwnProperty', 'valueOf'];
+  const others = [{ relativePath: 'notes/other.md', isDirectory: false }];
+  /** The shapes an alias record arrives in: an ordinary literal, the
+   *  null-prototype one main builds, and what JSON / structured clone hand the
+   *  renderer (an ordinary object again). */
+  const shapes = (entries: [string, string][]): [string, Record<string, string>][] => [
+    ['plain object', Object.fromEntries(entries)],
+    ['aliasRecord', aliasRecord(entries)],
+    ['after a JSON round-trip', JSON.parse(JSON.stringify(aliasRecord(entries))) as Record<string, string>],
+    ['after structured clone', structuredClone(aliasRecord(entries))],
+  ];
+
+  for (const [shape, aliases] of shapes([['intro', 'notes/other.md']])) {
+    it(`resolves none of them when no such note exists (${shape})`, () => {
+      const index = buildWikiLinkIndex(others, aliases);
+      for (const name of PROTO_NAMES) {
+        expect(resolveWikiLinkTarget(name, others, aliases), name).toBeNull();
+        expect(resolveWikiLinkTargetWithIndex(name, index), name).toBeNull();
+        expect(resolveWikiLinkTargetWithIndex(name, index, { pathSlugFallback: false }), name).toBeNull();
+      }
+    });
+  }
+
+  it('resolves none of them without an alias map, or with the default one', () => {
+    for (const name of PROTO_NAMES) {
+      expect(resolveWikiLinkTarget(name, others), name).toBeNull();
+      expect(resolveWikiLinkTargetWithIndex(name, buildWikiLinkIndex(others)), name).toBeNull();
+    }
+  });
+
+  it('resolves a note that really is named after one', () => {
+    const files = [...others, { relativePath: 'notes/constructor.md', isDirectory: false }];
+    const index = buildWikiLinkIndex(files, aliasRecord([]));
+    expect(resolveWikiLinkTarget('constructor', files, {})).toBe('notes/constructor.md');
+    expect(resolveWikiLinkTargetWithIndex('constructor', index)).toBe('notes/constructor.md');
+    expect(resolveWikiLinkTargetWithIndex('toString', index)).toBeNull();
+  });
+
+  for (const [shape, aliases] of shapes([['tostring', 'notes/other.md'], ['__proto__', 'notes/proto-alias.md']])) {
+    it(`resolves an alias that really is named after one (${shape})`, () => {
+      const files = [...others, { relativePath: 'notes/proto-alias.md', isDirectory: false }];
+      const index = buildWikiLinkIndex(files, aliases);
+      for (const resolve of [
+        (t: string) => resolveWikiLinkTarget(t, files, aliases),
+        (t: string) => resolveWikiLinkTargetWithIndex(t, index),
+      ]) {
+        expect(resolve('toString')).toBe('notes/other.md');
+        expect(resolve('__proto__')).toBe('notes/proto-alias.md');
+        expect(resolve('constructor')).toBeNull();
+        expect(resolve('valueOf')).toBeNull();
+      }
+    });
+  }
+
+  it('keeps an alias literally named __proto__ as an own key', () => {
+    const rec = aliasRecord([['__proto__', 'a.md'], ['b', 'b.md']]);
+    expect(Object.keys(rec).sort()).toEqual(['__proto__', 'b']);
+    expect(lookupAlias(rec, '__proto__')).toBe('a.md');
+    expect(lookupAlias(rec, 'b')).toBe('b.md');
+    // …and it survives the trip across IPC as an own key, not a prototype.
+    const cloned = structuredClone(rec);
+    expect(Object.getPrototypeOf(cloned)).toBe(Object.prototype);
+    expect(lookupAlias(cloned, '__proto__')).toBe('a.md');
+    expect(lookupAlias(cloned, 'b')).toBe('b.md');
   });
 });

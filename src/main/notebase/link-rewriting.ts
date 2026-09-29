@@ -1,18 +1,17 @@
 /**
- * Rewrite wiki-link targets inside markdown content.
+ * Rewrite link targets inside markdown content when the things they point at
+ * move or are renamed:
  *
- * Given a `rewrites` map of normalized old-path → new-path (no `.md`
- * suffix on either side), walk every `[[…]]` token in the content and
- * substitute matching targets while preserving:
+ *   - `relocateWikiLinks` — rename, folder move and merge (#2456). Follows what
+ *     each `[[…]]` RESOLVED to, not how it was spelled, preserving the type
+ *     prefix, anchor, display text, embed `!` and extension shape.
+ *   - `rewriteTypedIdLinks` — `[[cite::id]]` / `[[quote::id]]` id renames.
+ *   - `rewriteAnchorInLinks` — a heading rename in the target note.
+ *   - `rewriteRelativeMarkdownLinks` — `[text](rel)` / `![alt](rel)` links.
  *
- *   - type prefix       `[[type::old]]`     → `[[type::new]]`
- *   - display text      `[[old|label]]`     → `[[new|label]]`
- *   - anchor suffix     `[[old#heading]]`   → `[[new#heading]]`
- *   - `.md` extension   `[[old.md]]`        → `[[new.md]]`
- *
- * Non-matching links, typed links pointing at sources/excerpts
- * (`[[cite::foo]]`, `[[quote::bar]]`), and tokens that don't look
- * like wiki-links at all are left untouched.
+ * (The path-keyed `rewriteWikiLinks` that preceded `relocateWikiLinks` was
+ * removed once nothing called it; its cases live on in
+ * `tests/main/notebase/link-rewriting.test.ts` against the resolver-driven one.)
  */
 
 import { WIKI_LINK_RE, parseWikiInner, reassembleWikiLink } from '../../shared/wiki-link';
@@ -152,31 +151,6 @@ function respell(
   candidates.push(stem, desired);
   for (const c of candidates) if (resolvesTo(c, desired)) return c;
   return null;
-}
-
-/**
- * Apply a rewrites map to all wiki-link targets in the content — links
- * SPELLED as a mapped path only. Rename, folder move and merge use
- * {@link relocateWikiLinks} instead, which follows what a link resolves to
- * (#2456); this remains the path-keyed primitive.
- * Returns the rewritten content (unchanged if nothing matched).
- */
-export function rewriteWikiLinks(content: string, rewrites: Map<string, string>): string {
-  if (rewrites.size === 0) return content;
-  return content.replace(WIKI_LINK_RE, (match: string, inner: string) => {
-    const parsed = parseWikiInner(inner);
-    // Typed links that target non-notes (cite/quote) are out of scope —
-    // their targets are ids, not paths. Skip them.
-    if (parsed.type === 'cite' || parsed.type === 'quote') return match;
-
-    const normalized = normalizePath(parsed.target);
-    const newPath = rewrites.get(normalized);
-    if (newPath === undefined) return match;
-
-    const hadExtension = parsed.target.endsWith('.md');
-    const finalTarget = hadExtension ? `${newPath}.md` : newPath;
-    return reassembleWikiLink(parsed, finalTarget);
-  });
 }
 
 /**

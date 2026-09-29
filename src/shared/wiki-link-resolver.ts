@@ -43,6 +43,31 @@ const slug = (s: string): string =>
 
 export type NoteFileLike = Pick<NoteFile, 'relativePath' | 'isDirectory'>;
 
+/**
+ * Look up an alias in a lowercased alias → relativePath record. OWN keys only:
+ * the record is a plain object (it crosses IPC as one — `graph:aliasMap`), so a
+ * bare `aliases[key]` answers `[[constructor]]`, `[[toString]]` or
+ * `[[__proto__]]` with whatever `Object.prototype` holds under that name — a
+ * function, not a path. Building the record with `Object.create(null)` (see
+ * {@link aliasRecord}) is not enough on its own: structured clone and JSON both
+ * hand back an ordinary object, so the guard has to live on the read side.
+ */
+export function lookupAlias(aliases: Readonly<Record<string, string>>, key: string): string | undefined {
+  return Object.hasOwn(aliases, key) ? aliases[key] : undefined;
+}
+
+/**
+ * Build a lowercased alias → relativePath record with no prototype, so an alias
+ * literally named `__proto__` becomes an ordinary own key instead of invoking
+ * the `Object.prototype.__proto__` setter (which would re-parent the object
+ * and drop the alias). Reads still go through {@link lookupAlias}.
+ */
+export function aliasRecord(entries: Iterable<readonly [string, string]>): Record<string, string> {
+  const out = Object.create(null) as Record<string, string>;
+  for (const [alias, relativePath] of entries) out[alias] = relativePath;
+  return out;
+}
+
 /** Note files only, sorted so a lower `noteExtRank` (`.md` = 0) comes first.
  *  `Array.prototype.sort` is stable, so files of the same extension keep their
  *  input order — this makes bare-link precedence (`budget.md` over `budget.csv`)
@@ -102,7 +127,7 @@ export function resolveWikiLinkTarget(
 
   // 3. Frontmatter alias (case-insensitive), if a map was supplied.
   if (aliases) {
-    const hit = aliases[targetStem.toLowerCase()];
+    const hit = lookupAlias(aliases, targetStem.toLowerCase());
     if (hit) return hit;
   }
 
@@ -157,7 +182,7 @@ export interface WikiLinkIndex {
   aliases: Record<string, string>;
 }
 
-export function buildWikiLinkIndex(files: NoteFileLike[], aliases: Record<string, string> = {}): WikiLinkIndex {
+export function buildWikiLinkIndex(files: NoteFileLike[], aliases: Record<string, string> = aliasRecord([])): WikiLinkIndex {
   const byRelPath = new Map<string, string>();
   const byBasenameExt = new Map<string, string>();
   const byStem = new Map<string, string>();
@@ -213,7 +238,7 @@ export function resolveWikiLinkTargetWithIndex(
   const s = slug(stem);
   const direct = index.byStem.get(stem)
     ?? index.byBasename.get(stem)
-    ?? index.aliases[stem.toLowerCase()]
+    ?? lookupAlias(index.aliases, stem.toLowerCase())
     ?? (s ? index.bySlugBase.get(s) : undefined);
   if (direct !== undefined || opts.pathSlugFallback === false) return direct ?? null;
   return (s ? index.bySlugStem.get(s) : undefined)
