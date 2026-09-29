@@ -80,7 +80,8 @@ than later ones.
 | `pnpm coverage` | Full suite with coverage thresholds — this is what CI runs |
 | `pnpm test:e2e` | Package the app and run the Playwright end-to-end journeys |
 | `pnpm package` | Build an unpackaged app for local testing |
-| `pnpm build` | Build a distributable |
+| `pnpm build` | Build a distributable (DMG + ZIP), **unsigned** — even with Apple creds in your shell |
+| `pnpm build:release` | Build a **signed + notarized** distributable (sets `MINERVA_RELEASE=1`; fails if the creds are missing). See [`releasing.md`](releasing.md#signing-is-opt-in-minerva_release) |
 | `pnpm worktrees:prune` | List agent worktrees under `.claude/worktrees/` whose work has landed (dry run); add `-- --apply` to remove them |
 
 Agent worktrees each carry their own `node_modules`, so they pile up fast.
@@ -232,7 +233,7 @@ doubt:
   surface) and `pnpm test tests/main/ipc/registration.test.ts -u` (the
   registered-channel set), and neither is caught by lint. If a snapshot test
   fails, read *why* before regenerating it.
-- **`tests/architecture/` is not about any feature.** Its 41 tests check the
+- **`tests/architecture/` is not about any feature.** Its 42 tests check the
   shape of the codebase — package cycles, file-size budgets, anti-pattern
   ratchets, config-loader and dialog adoption, the CI workflows. Most fail by
   naming a *new* offender against a committed baseline, so the first time you

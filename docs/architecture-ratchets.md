@@ -21,7 +21,7 @@ what to do about it. `architecture-ratchets-doc.test.ts` keeps the two sides in
 step — a new test in `tests/architecture/` with no entry here fails, and an
 entry here naming a test that no longer exists fails too (#2262).
 
-Written up as of 2026-09-28, 41 tests.
+Written up as of 2026-09-29, 42 tests.
 
 ---
 
@@ -663,6 +663,28 @@ published) and that the tag arrives through `env:` rather than interpolated into
 `needs:` it, the SHA never arrives via `${{ }}` in `run:`, and there is no
 `continue-on-error` or skip flag. **When it fires:** the tag and the manifest
 disagree, or someone moved or softened a gate.
+
+### `release-signing-flag.test.ts`
+
+**Only an explicit release flag signs and notarizes — never credentials in the
+environment.** `forge.config.ts` used to sign whenever the App Store Connect
+key vars (or `OSX_SIGN_IDENTITY`) were set; the maintainer's shell exports
+them, so every `pnpm build:e2e` / `pnpm package` / `pnpm build` on that machine
+— agents' test builds included — ran `notarytool submit` under the maintainer's
+Developer ID. The rule is `scripts/lib/signing-policy.mjs` (unit-tested in
+`tests/scripts/signing-policy.test.ts`): sign only with `MINERVA_RELEASE=1`,
+and with the flag set, missing or incomplete credentials are an error. This
+test pins the wiring: `forge.config.ts` reads no Apple env var itself (the
+policy is the only route), loading it with fake creds and no flag yields no
+`osxSign`/`osxNotarize`, and with the flag and no creds it refuses to load;
+`release.yml`'s one flag-setting step is its `HAS_SIGNING`-gated
+`pnpm build:release`, before the identically-gated `codesign --verify`, with
+the unsigned `pnpm build` on the complementary condition and no later step
+repackaging; `ci.yml` and `bench.yml` never mention the flag; and no
+`package.json` script but `build:release` sets it or chains into it.
+**When it fires:** something reintroduced a second route to signing, or a
+workflow/script started setting the flag. Route it through `build:release` in
+the one signed release step, or don't sign.
 
 ### `electron-fuses.test.ts`
 

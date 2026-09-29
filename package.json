@@ -22,6 +22,7 @@
     "cli:build": "vite build --config vite.cli.config.mts && chmod +x .vite/build/cli.js",
     "cli": "pnpm cli:build && node .vite/build/cli.js",
     "build": "electron-forge make",
+    "build:release": "MINERVA_RELEASE=1 electron-forge make",
     "package": "electron-forge package",
     "release:tag": "node scripts/tag-release.mjs",
     "worktrees:prune": "node scripts/prune-worktrees.mjs",
@@ -51,6 +52,7 @@
     "check:ruleset": "node scripts/check-branch-ruleset.mjs",
     "predev": "node scripts/prep.mjs",
     "prebuild": "node scripts/prep.mjs",
+    "prebuild:release": "node scripts/prep.mjs",
     "prebuild:e2e": "node scripts/prep.mjs"
   },
   "dependencies": {

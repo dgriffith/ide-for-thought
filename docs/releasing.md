@@ -31,6 +31,30 @@ For what "signed" requires and the one-time secret setup, see
 
 ---
 
+## Signing is opt-in (`MINERVA_RELEASE`)
+
+A build signs and notarizes **only** when `MINERVA_RELEASE=1` is set. Having
+the Apple credentials in your shell is not enough — it used to be, which made
+every local `pnpm build:e2e` / `pnpm package` / `pnpm build` notarize under your
+Developer ID as a side effect.
+
+| command | signs + notarizes? |
+|---|---|
+| `pnpm build:release` | **yes** — sets `MINERVA_RELEASE=1`; fails before packaging if `APPLE_API_KEY` / `APPLE_API_KEY_ID` / `APPLE_API_ISSUER` are missing or incomplete |
+| `pnpm build` | no — unsigned DMG + ZIP; prints one line if creds are present |
+| `pnpm build:e2e`, `pnpm package`, `pnpm test:e2e`, `pnpm dev` | no, ever |
+
+- **A local signed build is now `pnpm build:release`** (it was `pnpm build`).
+- `MINERVA_RELEASE=1` with `OSX_SIGN_IDENTITY` alone (no API-key vars) signs as
+  that identity without notarizing, and says so.
+- In CI, `release.yml` runs `pnpm build:release` on the step gated by
+  `HAS_SIGNING == 'true'` (the signing secrets are configured) and plain
+  `pnpm build` otherwise, so a secretless run still builds unsigned as before.
+- The rule lives in `scripts/lib/signing-policy.mjs`;
+  `tests/architecture/release-signing-flag.test.ts` pins who sets the flag.
+
+---
+
 ## The loop
 
 ### 1. Bump the version
@@ -72,7 +96,8 @@ The tag push runs `release.yml`:
 
 - asserts main CI passed for the tagged commit (`ci-verdict` job, #2371),
   polling for up to 30 minutes if that run is still in progress,
-- imports the Developer ID cert, builds signed + notarized + stapled artifacts,
+- imports the Developer ID cert, builds signed + notarized + stapled artifacts
+  (`pnpm build:release`, i.e. with `MINERVA_RELEASE=1`),
 - uploads them, and
 - cuts a **draft** GitHub Release with auto-generated notes
   (`generate_release_notes: true`).
@@ -282,7 +307,8 @@ draft's top section by hand when a release deserves a narrative.
 | `scripts/tag-release.mjs` (`pnpm release:tag`) | Guards version↔tag agreement, and that main CI passed for HEAD |
 | `scripts/check-release-ci.mjs` | release.yml's server-side main-CI check (rule in `scripts/lib/release-ci-gate.mjs`) |
 | `.github/workflows/release.yml` | Tag → signed build → draft Release |
-| `forge.config.ts` | Signing/notarization config (reads Apple env) |
+| `forge.config.ts` | Signing/notarization config — applies the policy below |
+| `scripts/lib/signing-policy.mjs` | Whether a build signs: only with `MINERVA_RELEASE=1`, and never quietly unsigned when it is set |
 | `src/main/auto-update.ts` | In-app updater against update.electronjs.org |
 | `scripts/deploy-to-gh-pages.sh` | Publishes `website/` to the `gh-pages` branch of **`dgriffith/minerva`** — not run automatically; run by hand whenever `website/` content changes |
 
