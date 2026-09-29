@@ -56,7 +56,7 @@
 import type { ProjectContext } from '../project-context-types';
 import { createProjectStore } from '../project-store';
 import { stripNoteExt } from '../../shared/note-extensions';
-import { buildWikiLinkIndex, type WikiLinkIndex } from '../../shared/wiki-link-resolver';
+import { aliasRecord, buildWikiLinkIndex, type WikiLinkIndex } from '../../shared/wiki-link-resolver';
 
 interface NoteIndex {
   paths: Set<string>;
@@ -173,7 +173,7 @@ function ensureLinkIndex(idx: NoteIndex): WikiLinkIndex {
   ensureAliasMap(idx);
   const files = [...idx.paths].map((relativePath) => ({ relativePath, isDirectory: false }));
   // aliasMap keys are already lowercased by resolveAliases' projection.
-  idx.linkIndex = buildWikiLinkIndex(files, Object.fromEntries(idx.aliasMap));
+  idx.linkIndex = buildWikiLinkIndex(files, aliasRecord(idx.aliasMap));
   idx.linkIndexVersion = idx.version;
   _derivationCountsForTests.linkIndex++;
   return idx.linkIndex;
@@ -181,7 +181,7 @@ function ensureLinkIndex(idx: NoteIndex): WikiLinkIndex {
 
 /** The answer for a project with nothing indexed. Built once — a read must not
  *  allocate anything per call, let alone a project slot (#2240). */
-const EMPTY_LINK_INDEX: WikiLinkIndex = buildWikiLinkIndex([], {});
+const EMPTY_LINK_INDEX: WikiLinkIndex = buildWikiLinkIndex([], aliasRecord([]));
 
 // ── Maintenance (the indexer's side) ────────────────────────────────────────
 
@@ -294,9 +294,11 @@ export function wikiLinkIndex(ctx: ProjectContext): WikiLinkIndex {
   return ensureLinkIndex(idx);
 }
 
-/** Lowercased alias → relativePath as a plain object, for the IPC boundary. */
+/** Lowercased alias → relativePath as a record, for the IPC boundary. It
+ *  arrives in the renderer as an ordinary object (structured clone drops the
+ *  null prototype), which is why every read goes through `lookupAlias`. */
 export function aliasMapObject(ctx: ProjectContext): Record<string, string> {
-  return Object.fromEntries(aliasMap(ctx));
+  return aliasRecord(aliasMap(ctx));
 }
 
 /**
@@ -397,7 +399,5 @@ export function relocationIndexesFrom(
 }
 
 function aliasObject(entries: readonly AliasEntry[]): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const { alias, relativePath } of entries) out[alias.toLowerCase()] = relativePath;
-  return out;
+  return aliasRecord(entries.map(({ alias, relativePath }) => [alias.toLowerCase(), relativePath] as const));
 }

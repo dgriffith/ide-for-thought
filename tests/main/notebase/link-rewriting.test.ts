@@ -1,9 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import {
-  rewriteWikiLinks,
+  relocateWikiLinks,
   rewriteRelativeMarkdownLinks,
   normalizePath,
+  type WikiRelocation,
 } from '../../../src/main/notebase/link-rewriting';
+import { relocationIndexesFrom } from '../../../src/main/graph/note-index';
 
 const map = (pairs: [string, string][]) => new Map(pairs);
 
@@ -17,101 +19,112 @@ describe('normalizePath', () => {
   });
 });
 
-describe('rewriteWikiLinks', () => {
-  it('returns input unchanged when rewrites is empty', () => {
-    expect(rewriteWikiLinks('[[foo]]', new Map())).toBe('[[foo]]');
+/**
+ * Example cases for the resolver-driven wiki-link rewriter (#2456). These were
+ * the unit tests of the path-keyed `rewriteWikiLinks` it replaced; each one
+ * still describes what a rename must do, so they moved here rather than going
+ * with it. `tests/property/link-rewriting.property.test.ts` covers the same
+ * ground generatively.
+ */
+describe('relocateWikiLinks', () => {
+  const NOTES = ['notes/foo.md', 'notes/bar.md', 'notes/a.md', 'notes/b.md', 'notes/c.md', 'readme.md'];
+
+  function relocate(content: string, moves: [string, string][], paths: string[] = NOTES): string {
+    const m = new Map(moves);
+    const reloc: WikiRelocation = {
+      moves: m,
+      ...relocationIndexesFrom(paths, new Map(), m, { carryAliases: true }),
+    };
+    return relocateWikiLinks(content, reloc).content;
+  }
+  const FOO: [string, string][] = [['notes/foo.md', 'archive/foo.md']];
+
+  it('returns input unchanged when nothing moved', () => {
+    expect(relocateWikiLinks('[[notes/foo]]', {
+      moves: new Map(),
+      ...relocationIndexesFrom(NOTES, new Map(), new Map(), { carryAliases: true }),
+    })).toEqual({ content: '[[notes/foo]]', rewritten: 0 });
   });
 
-  it('rewrites a simple wiki-link', () => {
-    const out = rewriteWikiLinks('See [[notes/foo]].', map([['notes/foo', 'archive/foo']]));
-    expect(out).toBe('See [[archive/foo]].');
+  it('rewrites a simple wiki-link and counts it', () => {
+    const m = new Map(FOO);
+    const out = relocateWikiLinks('See [[notes/foo]].', {
+      moves: m, ...relocationIndexesFrom(NOTES, new Map(), m, { carryAliases: true }),
+    });
+    expect(out).toEqual({ content: 'See [[archive/foo]].', rewritten: 1 });
   });
 
   it('preserves display text', () => {
-    const out = rewriteWikiLinks('See [[notes/foo|the foo note]].', map([['notes/foo', 'archive/foo']]));
-    expect(out).toBe('See [[archive/foo|the foo note]].');
+    expect(relocate('See [[notes/foo|the foo note]].', FOO)).toBe('See [[archive/foo|the foo note]].');
   });
 
   it('preserves the type prefix on typed links', () => {
-    const out = rewriteWikiLinks(
-      'It [[supports::notes/foo]] the claim.',
-      map([['notes/foo', 'archive/foo']]),
-    );
-    expect(out).toBe('It [[supports::archive/foo]] the claim.');
+    expect(relocate('It [[supports::notes/foo]] the claim.', FOO)).toBe('It [[supports::archive/foo]] the claim.');
   });
 
   it('preserves anchor suffix (headings)', () => {
-    const out = rewriteWikiLinks('[[notes/foo#components]]', map([['notes/foo', 'archive/foo']]));
-    expect(out).toBe('[[archive/foo#components]]');
+    expect(relocate('[[notes/foo#components]]', FOO)).toBe('[[archive/foo#components]]');
   });
 
   it('preserves block-id suffix', () => {
-    const out = rewriteWikiLinks('[[notes/foo#^p4]]', map([['notes/foo', 'archive/foo']]));
-    expect(out).toBe('[[archive/foo#^p4]]');
+    expect(relocate('[[notes/foo#^p4]]', FOO)).toBe('[[archive/foo#^p4]]');
   });
 
   it('preserves all three (type + anchor + display)', () => {
-    const out = rewriteWikiLinks(
-      '[[rebuts::notes/foo#section|see section]]',
-      map([['notes/foo', 'archive/foo']]),
-    );
-    expect(out).toBe('[[rebuts::archive/foo#section|see section]]');
+    expect(relocate('[[rebuts::notes/foo#section|see section]]', FOO))
+      .toBe('[[rebuts::archive/foo#section|see section]]');
+  });
+
+  it('preserves the embed marker', () => {
+    expect(relocate('![[notes/foo]]', FOO)).toBe('![[archive/foo]]');
   });
 
   it('preserves a .md suffix when the source had one', () => {
-    const out = rewriteWikiLinks('[[notes/foo.md]]', map([['notes/foo', 'archive/foo']]));
-    expect(out).toBe('[[archive/foo.md]]');
+    expect(relocate('[[notes/foo.md]]', FOO)).toBe('[[archive/foo.md]]');
   });
 
   it('does not add .md when the source did not have one', () => {
-    const out = rewriteWikiLinks('[[notes/foo]]', map([['notes/foo', 'archive/foo']]));
-    expect(out).toBe('[[archive/foo]]');
+    expect(relocate('[[notes/foo]]', FOO)).toBe('[[archive/foo]]');
   });
 
-  it('leaves cite links alone — they use source ids, not paths', () => {
-    const out = rewriteWikiLinks(
-      '[[cite::notes/foo]] and [[quote::notes/foo]]',
-      map([['notes/foo', 'archive/foo']]),
-    );
-    expect(out).toBe('[[cite::notes/foo]] and [[quote::notes/foo]]');
+  it('leaves cite and quote links alone — they use source ids, not paths', () => {
+    expect(relocate('[[cite::notes/foo]] and [[quote::notes/foo]]', FOO))
+      .toBe('[[cite::notes/foo]] and [[quote::notes/foo]]');
   });
 
-  it('leaves non-matching targets alone', () => {
-    const out = rewriteWikiLinks('[[notes/bar]] [[notes/foo]]', map([['notes/foo', 'archive/foo']]));
-    expect(out).toBe('[[notes/bar]] [[archive/foo]]');
+  it('leaves links to notes that did not move alone', () => {
+    expect(relocate('[[notes/bar]] [[notes/foo]]', FOO)).toBe('[[notes/bar]] [[archive/foo]]');
   });
 
-  it('handles multiple rewrites in a single pass', () => {
-    const out = rewriteWikiLinks(
+  it('leaves a basename link alone when the basename still resolves', () => {
+    expect(relocate('[[foo]]', FOO)).toBe('[[foo]]');
+  });
+
+  it('handles multiple moves in a single pass', () => {
+    const out = relocate(
       '[[notes/a]] links to [[notes/b]] links to [[notes/c]]',
-      map([
-        ['notes/a', 'archive/a'],
-        ['notes/b', 'archive/b'],
-      ]),
+      [['notes/a.md', 'archive/a.md'], ['notes/b.md', 'archive/b.md']],
     );
     expect(out).toBe('[[archive/a]] links to [[archive/b]] links to [[notes/c]]');
   });
 
-  it('rewrites links in frontmatter values too (regex covers the whole file)', () => {
+  it('rewrites links in frontmatter values too', () => {
     const input = `---
 related: "[[notes/foo]]"
 ---
 # My note
 See [[notes/foo]].
 `;
-    const out = rewriteWikiLinks(input, map([['notes/foo', 'archive/foo']]));
+    const out = relocate(input, FOO);
     expect(out).toContain('related: "[[archive/foo]]"');
     expect(out).toContain('See [[archive/foo]].');
   });
 
-  it('does not rewrite inside fenced code blocks (known limitation — regex is whole-file)', () => {
-    // This documents current behavior. Rewriting inside code fences is a
-    // scoped future change; today a plain regex reaches in.
-    const out = rewriteWikiLinks(
-      '```\n[[notes/foo]]\n```',
-      map([['notes/foo', 'archive/foo']]),
-    );
-    expect(out).toBe('```\n[[archive/foo]]\n```');
+  it('does not rewrite inside fenced code blocks or inline code', () => {
+    // The path-keyed rewriter reached into code (a documented limitation);
+    // this one skips what the indexer does not read links from.
+    expect(relocate('```\n[[notes/foo]]\n```', FOO)).toBe('```\n[[notes/foo]]\n```');
+    expect(relocate('`[[notes/foo]]` and [[notes/foo]]', FOO)).toBe('`[[notes/foo]]` and [[archive/foo]]');
   });
 });
 
