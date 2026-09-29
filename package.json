@@ -126,6 +126,7 @@
     "esbuild": "^0.28.2",
     "eslint": "^10.11.0",
     "eslint-plugin-svelte": "^3.23.0",
+    "fast-check": "^4.10.2",
     "globals": "^17.12.0",
     "happy-dom": "^20.14.5",
     "highlight.js": "^11.12.0",
