@@ -1632,6 +1632,24 @@ touch the tool surface:
   `tests/main/sources/note-sql-guard.test.ts` drives a hostile shared note
   (`writeNoteSqlExfilThoughtbase` in `tests/helpers/hostile-thoughtbase.ts`)
   through both and decodes the export's SVGs looking for the canaries.
+- **`minerva mcp` gets the same allowlist; `minerva sql` does not** (#2452).
+  An external agent reads thoughtbase text through the MCP tools, so a
+  planted note can steer it into `sql_query` exactly as it could the in-app
+  model. The `Engine` (`src/cli/engine.ts`) splits by who wrote the input:
+  `sql` / `read` are the USER's (the CLI commands — full root-locked
+  connection, any in-root path), `agentSql` / `agentRead` are an AGENT's
+  (MCP `sql_query` → `tables.runAgentQuery`, i.e. `guardSql(…, 'agent')`,
+  worded for a client with no Tables panel — it lists the registered
+  relations and points at `SHOW TABLES` / `DESCRIBE`; MCP `read_note` →
+  refuses any path with a `hasIgnoredSegment` segment, as spelled or after
+  following symlinks, so `.minerva/` is unreachable). **An MCP tool never
+  calls `engine.sql` or `engine.read`, and the CLI never calls the `agent*`
+  methods.** SQL is never routed to a running app (#1524) — the substrate
+  server has no SQL op; one added there must use `runAgentQuery`.
+  `tests/cli/mcp-agent-guard.test.ts` drives the #2442 spellings through
+  MCP `tools/call`, standalone and with a live app registered, proves each
+  reads the canary on the user path, and fails if any MCP tool reaches
+  `sql` / `read`.
 
 - **Skill context is user-turn data, never system prompt** (#2438). A
   skill's note / selection / claim / source text is rendered from

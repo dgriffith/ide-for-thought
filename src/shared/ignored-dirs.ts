@@ -31,3 +31,19 @@ export const IGNORED_DIRS: ReadonlySet<string> = new Set(['.git', 'node_modules'
 export function isIgnoredEntry(name: string): boolean {
   return name.startsWith('.') || IGNORED_DIRS.has(name);
 }
+
+/**
+ * True when any segment of a thoughtbase-relative path is one
+ * {@link isIgnoredEntry} would skip — `.minerva/secrets.json`,
+ * `notes/.git/config`, `node_modules/x/README.md`, `..`. Lets a single-path
+ * read refuse exactly what the walkers never list (#2452): an external
+ * agent's `read_note` should reach the notes it could have found, not
+ * Minerva's own state. `.` segments and empty ones (`./a.md`, `a//b.md`) are
+ * not names and are ignored. Splits on both separators, since a
+ * Windows-style path reaches the same `path.resolve`.
+ */
+export function hasIgnoredSegment(relativePath: string): boolean {
+  return relativePath
+    .split(/[\\/]/)
+    .some((seg) => seg !== '' && seg !== '.' && isIgnoredEntry(seg));
+}

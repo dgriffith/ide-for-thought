@@ -272,6 +272,10 @@ export async function runCli(argv: string[], opts: RunOptions): Promise<CliResul
         return format(await engine.query(rest), 'SPARQL error');
       case 'sql':
         if (!rest.trim()) throw new UsageError('sql: a SQL string is required.');
+        // `sql`, not `agentSql`, on purpose (#2452): this is SQL the user typed
+        // at their own shell, like the Query panel, so it keeps the full
+        // root-locked connection (`read_csv` of an in-root file works). The
+        // guarded method is for MCP `sql_query`, whose SQL an agent wrote.
         return format(await engine.sql(rest), 'SQL error');
       case 'search':
         if (!rest.trim()) throw new UsageError('search: a query string is required.');
