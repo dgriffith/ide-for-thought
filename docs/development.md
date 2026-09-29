@@ -240,6 +240,20 @@ doubt:
   meet one is often a red run on a PR that looks unrelated. Each is written up
   in [`architecture-ratchets.md`](architecture-ratchets.md) — what it enforces
   and what to do when it fires. Read the entry before editing the test.
+- **Property tests live in `tests/property/`** (#2388, [fast-check](https://fast-check.dev)):
+  the delimiter neutralizer, the path guards, the SQL relation allowlist,
+  SPARQL prefix injection and rename link rewriting, each checked against
+  generated inputs rather than hand-picked ones. Settings are in
+  `tests/helpers/property.ts`: a modest `numRuns` per property, and **no fixed
+  seed**, so each CI run explores new inputs. That means a property can fail
+  on a PR that didn't touch its module — it found a new input, it is not a
+  flake. The failure prints the seed, the replay path and the *shrunk*
+  counterexample; replay with `FC_SEED=… FC_PATH=… pnpm test <file>`. **The
+  convention: fix the bug and add the shrunk counterexample as an ordinary
+  example test next to the fix**, so that input is pinned on every run
+  forever while the property keeps exploring. A finding too big for the PR
+  that hit it gets an issue and an `it.skip` naming it. Soak one locally with
+  `FC_NUM_RUNS_SCALE=50`.
 - CI runs `pnpm coverage` and the Playwright e2e suite on every PR; run
   `pnpm lint` and `pnpm test` locally first — the pre-push hook does the lint
   half for you.

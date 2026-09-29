@@ -16,16 +16,44 @@ import {
 } from '../state';
 import { unwrapGraphQuery, type GraphQueryResult, type GraphQueryRows } from '../../../shared/graph-query';
 
+/**
+ * One declaration in a SPARQL prologue, anchored at `lastIndex` (sticky):
+ * leading whitespace and `#` comments, then `BASE <iri>` or
+ * `PREFIX name: <iri>` (keyword in any case; `name` may be empty).
+ */
+const PROLOGUE_DECL = /(?:\s|#[^\n]*(?:\n|$))*(?:(base)\s*<[^>\s]*>|(prefix)(?:\s+|(?=:))([^\s:<>#]*):\s*<[^>\s]*>)/iy;
+
+/**
+ * The prefix names `sparql` itself declares, exactly as spelled (prefix
+ * names are case-sensitive: `PREFIX DC:` does not declare `dc`). Only the
+ * PROLOGUE is read — the one place a SPARQL query can declare a prefix — so a
+ * `# PREFIX skos: …` comment, a string literal or an IRI that merely mentions
+ * one is not mistaken for a declaration (#2388).
+ */
+function declaredSparqlPrefixes(sparql: string): Set<string> {
+  const names = new Set<string>();
+  PROLOGUE_DECL.lastIndex = 0;
+  for (let m = PROLOGUE_DECL.exec(sparql); m; m = PROLOGUE_DECL.exec(sparql)) {
+    if (m[2]) names.add(m[3] ?? '');
+  }
+  return names;
+}
+
 export function injectSparqlPrefixes(sparql: string): string {
-  // Only inject prefixes the user hasn't already declared. SPARQL's
-  // PREFIX keyword is case-insensitive and allows varied whitespace,
-  // so a naive includes("PREFIX x:") test misses `Prefix x:` and
-  // `PREFIX  x :` — both legal, both would produce duplicate-decl
-  // errors from the evaluator if we blindly injected on top.
+  // Only inject prefixes the user hasn't already declared: a duplicate
+  // declaration is an evaluator error. The keyword is case-insensitive and
+  // spacing varies (`Prefix  x:`), which a naive includes("PREFIX x:") missed.
+  //
+  // What counts as "declared" is the prologue, not a text search (#2388): the
+  // old `\bprefix\s+x\s*:` test also matched a comment or a string that
+  // mentioned one, and a query whose `skos:` injection was skipped that way
+  // still PARSED — Comunica silently pre-binds a few common prefixes to its
+  // own namespaces (its `skos:` is the 2008 draft, not 2004/02/skos/core) —
+  // and quietly matched nothing.
+  const declared = declaredSparqlPrefixes(sparql);
   const lines: string[] = [];
   for (const [prefix, iri] of STANDARD_PREFIXES) {
-    const re = new RegExp(`\\bprefix\\s+${prefix}\\s*:`, 'i');
-    if (!re.test(sparql)) {
+    if (!declared.has(prefix)) {
       lines.push(`PREFIX ${prefix}: <${iri}>`);
     }
   }
