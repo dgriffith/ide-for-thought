@@ -12,6 +12,7 @@ import { execFileSync } from 'node:child_process';
 // fails only in a packaged build, which is the slowest feedback loop here.
 import { makeCopyFilter, isTypesOnlyPackage } from './scripts/lib/package-prune.mjs';
 import { forgeFuseSettings } from './scripts/lib/electron-fuses.mjs';
+import { resolveSigningPolicy, forgeSigningConfig } from './scripts/lib/signing-policy.mjs';
 
 // @electron-forge/plugin-vite bundles the main process and ships NO node_modules
 // in the package. That's fine for everything Rollup can bundle — but a few deps
@@ -127,24 +128,30 @@ function copyCliBundle(buildPath: string): void {
   fs.copyFileSync(src, path.join(destDir, 'cli.js'));
 }
 
-// macOS code signing + notarization (#661/#662). Signing runs only on macOS;
-// notarization additionally requires the App Store Connect API-key env vars, so a
-// plain local `pnpm build` (no creds) still signs but skips notarization instead
-// of erroring. Credentials are read from the environment and never committed:
+// macOS code signing + notarization (#661/#662) — gated behind an explicit
+// release flag. The policy lives in `scripts/lib/signing-policy.mjs`; read its
+// header before changing this. In short:
+//
+//   - Nothing signs unless MINERVA_RELEASE=1 (`pnpm build:release`, and
+//     release.yml's signed build step). Apple credentials in the shell are NOT
+//     enough — they used to be, which made every `pnpm build:e2e` / `package`
+//     on the maintainer's machine notarize under their Developer ID.
+//   - With the flag set, missing or incomplete credentials throw here, so a
+//     "release" build can never come out quietly unsigned.
+//   - Credentials present without the flag print one line saying signing was
+//     skipped and how to turn it on.
+//
+// Credentials are read from the environment and never committed:
 //   APPLE_API_KEY     — path to the AuthKey_XXXX.p8 file
 //   APPLE_API_KEY_ID  — the key's Key ID (10 chars)
 //   APPLE_API_ISSUER  — the App Store Connect Issuer ID (UUID)
 // The Developer ID Application identity is auto-detected from the login keychain;
-// set OSX_SIGN_IDENTITY to disambiguate if more than one is installed.
-const isDarwin = process.platform === 'darwin';
-const hasNotarizeCreds = Boolean(
-  process.env.APPLE_API_KEY && process.env.APPLE_API_KEY_ID && process.env.APPLE_API_ISSUER,
-);
-// Only sign for real release builds. Otherwise `electron-forge package` (used by
-// `pnpm build:e2e`) would try to sign on every dev/CI run and fail wherever no
-// Developer ID cert is installed. Signing turns on when notarize creds are present
-// (the release path), or when OSX_SIGN_IDENTITY is set to force sign-without-notarize.
-const wantSign = isDarwin && (hasNotarizeCreds || Boolean(process.env.OSX_SIGN_IDENTITY));
+// set OSX_SIGN_IDENTITY to disambiguate (or, alone, to sign without notarizing).
+const signingDecision = resolveSigningPolicy({ platform: process.platform, env: process.env });
+if (signingDecision.message) console.log(signingDecision.message);
+const signing = forgeSigningConfig(signingDecision, {
+  entitlements: path.resolve(process.cwd(), 'build', 'entitlements.mac.plist'),
+});
 
 const config: ForgeConfig = {
   packagerConfig: {
@@ -167,25 +174,10 @@ const config: ForgeConfig = {
     asar: {
       unpack: '**/*.{node,dylib}',
     },
-    // Hardened runtime + entitlements (auto-detected Developer ID Application cert).
-    // @electron/osx-sign applies the hardened runtime and signs nested binaries
-    // (the DuckDB .node, dylibs) automatically; entitlements come from the plist.
-    osxSign: wantSign
-      ? {
-          optionsForFile: () => ({
-            entitlements: path.resolve(process.cwd(), 'build', 'entitlements.mac.plist'),
-          }),
-          ...(process.env.OSX_SIGN_IDENTITY ? { identity: process.env.OSX_SIGN_IDENTITY } : {}),
-        }
-      : undefined,
-    osxNotarize:
-      isDarwin && hasNotarizeCreds
-        ? {
-            appleApiKey: process.env.APPLE_API_KEY as string,
-            appleApiKeyId: process.env.APPLE_API_KEY_ID as string,
-            appleApiIssuer: process.env.APPLE_API_ISSUER as string,
-          }
-        : undefined,
+    // Hardened runtime + entitlements + notarization — both undefined unless
+    // the release flag is set (see signing-policy.mjs above).
+    osxSign: signing.osxSign,
+    osxNotarize: signing.osxNotarize,
     // App icon (#805). Base path without extension — electron-packager picks
     // `.icns` on macOS and `.ico` on Windows. Linux has no embedded app icon,
     // so the window/taskbar icon is set at runtime from resources/icons.
@@ -279,19 +271,20 @@ const config: ForgeConfig = {
     // DMG maker wraps that app WITHOUT stapling the .dmg itself. An un-stapled DMG
     // still works online (Gatekeeper checks notarization on mount) but fails to
     // open offline. Notarize + staple each produced DMG here so the wrapper is
-    // self-contained. Runs only for release builds (notarize creds present); a
-    // plain dev `pnpm build` with no creds produces an unsigned DMG and skips this.
+    // self-contained. Runs only when the signing policy chose sign-and-notarize —
+    // i.e. MINERVA_RELEASE=1 with full creds. Creds alone never reach here.
     postMake: (_forgeConfig, makeResults) => {
-      if (!(isDarwin && hasNotarizeCreds)) return makeResults;
+      const notarize = signing.osxNotarize;
+      if (!notarize) return makeResults;
       const dmgs = makeResults.flatMap((r) => r.artifacts).filter((a) => a.endsWith('.dmg'));
       for (const dmg of dmgs) {
         execFileSync(
           'xcrun',
           [
             'notarytool', 'submit', dmg,
-            '--key', process.env.APPLE_API_KEY as string,
-            '--key-id', process.env.APPLE_API_KEY_ID as string,
-            '--issuer', process.env.APPLE_API_ISSUER as string,
+            '--key', notarize.appleApiKey,
+            '--key-id', notarize.appleApiKeyId,
+            '--issuer', notarize.appleApiIssuer,
             '--wait',
           ],
           { stdio: 'inherit' },

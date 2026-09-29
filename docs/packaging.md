@@ -10,6 +10,7 @@ artifacts:
 |---|---|---|
 | `pnpm package` | `out/Minerva-<platform>-<arch>/Minerva.app` | Fastest path. Produces a runnable `.app` bundle and nothing else. |
 | `pnpm build` | `out/Minerva-<platform>-<arch>/Minerva.app` + `out/make/...` (DMG, ZIP) | Use when you want a shippable artifact to hand around. |
+| `pnpm build:release` | Same as `pnpm build`, **signed + notarized** | A local release build. Sets `MINERVA_RELEASE=1`; fails if the Apple creds are missing. |
 
 `pnpm build` is `electron-forge make` under the hood — it runs the
 package step first, then invokes every configured maker.
@@ -31,9 +32,13 @@ open out/Minerva-darwin-arm64/Minerva.app          # first launch
 in `forge.config.ts`, wired into `release.yml` — #841/#959), so a DMG from a
 published Release opens without a Gatekeeper prompt.
 
-A **local** `pnpm build` is only signed if you have a Developer ID cert in your
-keychain and the notarization env vars set; otherwise it takes the unsigned
-path and first launch will throw:
+Signing is **opt-in by flag, not by credentials**: only `pnpm build:release`
+(`MINERVA_RELEASE=1`) signs and notarizes, and it needs a Developer ID cert in
+your keychain plus `APPLE_API_KEY` / `APPLE_API_KEY_ID` / `APPLE_API_ISSUER` —
+it fails rather than build unsigned without them. `pnpm build`, `pnpm package`
+and `pnpm build:e2e` are always unsigned, even with those vars exported (see
+[`releasing.md`](./releasing.md#signing-is-opt-in-minerva_release)). An unsigned
+build's first launch will throw:
 
 > "Minerva" cannot be opened because the developer cannot be verified.
 
