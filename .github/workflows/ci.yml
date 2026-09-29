@@ -390,18 +390,28 @@ jobs:
       - name: Check Electron fuses on the packaged app
         run: node scripts/check-electron-fuses.mjs
 
-      # Flake visibility (#1946): Playwright retries a test twice in CI so a
-      # transient Electron-boot hiccup doesn't fail the job, but nothing
-      # previously aggregated how often that retry actually fired — a test
-      # that needed one on every run was indistinguishable from one that
-      # always passed first try. `if: always()` so this runs (and the rate
-      # gets recorded) even when the job ultimately failed.
+      # Flake report + budget (#1946, #2379). Playwright retries a test twice
+      # in CI so one transient Electron-boot hiccup doesn't fail the job
+      # (#1097); this step tables every retry and FAILS THE JOB when more than
+      # one test in the run needed one. The budget (1) and the measurement
+      # behind it live in scripts/lib/e2e-flake-budget.mjs, not here and not
+      # as a Playwright flag. `if: always()` so the table and the verdict are
+      # recorded even when the Playwright step already failed.
       #
-      # Decision recorded here: a retry does NOT fail the job today (no
-      # --max-flaky passed). Failing on any retry would defeat the reason
-      # retries exist (#1097), and the actual flake rate isn't known yet —
-      # this step's job right now is accumulating that history in the
-      # Actions run summaries so a real numeric budget can be set later.
+      # What fails the e2e job, exactly:
+      #   - the Playwright step: a test that failed every attempt, OR an error
+      #     outside any test (e.g. "Worker teardown timeout" — the app under
+      #     test never quit). Retries cannot absorb either, and a single flake
+      #     can sit next to one: PR #2455's first run showed "1 flaky" and a
+      #     red job, and the cause was the teardown timeout, not the flake.
+      #     This step's verdict now says which it was.
+      #   - this step: flaky tests > 1 ("flake budget exceeded: 2 flaky > 1",
+      #     listing them, also as an ::error annotation).
+      #
+      # Don't `gh run rerun --failed` a flaky e2e job to green without naming
+      # the test that flaked (in the PR, or an issue): a rerun replaces the
+      # attempt people look at, and the flake drops out of the record — which
+      # is how 34 flakes in 59 runs read as "0 flakes in 8+ runs" (#2379).
       - name: E2E flake report
         if: always()
         run: node scripts/e2e-flake-report.mjs playwright-report.json

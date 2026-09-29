@@ -35,6 +35,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
 import { launchMinerva, projectRoot } from './helpers/launch';
+import { POLITE_REGION, expectAnnounced, recordAnnouncements } from './helpers/announcements';
 
 // `window.api` is used inside `win.evaluate` — the renderer's global typing
 // isn't in this spec's scope, so calls are validated at runtime, not by tsc.
@@ -42,8 +43,6 @@ import { launchMinerva, projectRoot } from './helpers/launch';
 /** Mirrors `E2E_CLAIM_LABEL` in src/main/e2e-hooks.ts — the triple the seeded
  *  proposal adds when (and only when) it is approved. */
 const CLAIM_LABEL = 'E2E Approved Claim';
-/** The app-level polite live region (LiveAnnouncer.svelte, #2374). */
-const LIVE_REGION = '[data-testid="live-announcer-polite"]';
 /** The seeded proposal's `note`, which the panel renders on its card. */
 const PROPOSAL_NOTE = 'e2e seeded proposal';
 
@@ -81,6 +80,11 @@ async function graphRowCount(win: Page, sparql: string): Promise<number> {
 async function openSeededProposal(app: ElectronApplication, win: Page) {
   await win.waitForLoadState('domcontentloaded');
   await expect(win.getByRole('button', { name: 'Open Thoughtbase' })).toHaveCount(0, { timeout: 25_000 });
+  // Record every announcement from here on: the seed's own "New proposal"
+  // arrival toast and the semantic index finishing both announce on their own
+  // schedule, and either can replace the decision's text in the region before
+  // a point-in-time read sees it (#2379 — 25 flakes in 49 CI runs).
+  await recordAnnouncements(win);
 
   // Seed through the main-process hook (stands in for the LLM conversation).
   const uri = await app.evaluate(async () => {
@@ -134,9 +138,8 @@ test('proposal review: clicking Approve applies the payload and marks the propos
     await expect(panel.locator('.success-banner')).toContainText('Approved — landed');
     // …and the same outcome lands in the always-mounted live region, which is
     // what a screen reader actually speaks (#2374).
-    const live = win.locator(LIVE_REGION);
-    await expect(live).toHaveAttribute('aria-live', 'polite');
-    await expect(live).toContainText('Approved — landed');
+    await expect(win.locator(POLITE_REGION)).toHaveAttribute('aria-live', 'polite');
+    await expectAnnounced(win, 'Approved — landed');
 
     // Graph effect: the payload's claim triple is now present…
     await expect.poll(() => graphRowCount(win, CLAIM_QUERY), {
@@ -169,7 +172,7 @@ test('proposal review: clicking Reject leaves the graph untouched and marks the 
     expect(await graphRowCount(win, statusQuery(uri, 'pending'))).toBe(0);
 
     // The rejection is spoken through the app's live region (#2374).
-    await expect(win.locator(LIVE_REGION)).toContainText('Proposal rejected');
+    await expectAnnounced(win, 'Proposal rejected');
 
     // No graph effect: the payload's claim never landed.
     expect(await graphRowCount(win, CLAIM_QUERY), 'rejected payload must not be applied').toBe(0);
