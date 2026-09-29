@@ -483,6 +483,11 @@ before restore completes). *A convention that eight of nine call sites follow is
 not a convention, it's a coincidence.* `launchMinerva` makes `userDataDir`
 required so omitting it is a type error; this closes the other route, where a
 new spec reaches for `electron.launch` and never learns the helper exists.
+It also holds the teardown half (#2458): every spec that launches Minerva
+closes it with `closeMinerva` (a bare `app.close()` has no timeout and hung a
+CI job's worker teardown), imports `test` from `tests/e2e/helpers/test.ts`
+(whose fixture kills whatever a timed-out test left running), and calls the
+`MINERVA_E2E` hooks through the bounded `seedProposal` / `ingestSource`.
 **When it fires:** use the helper.
 
 ### `embedding-model-gate.test.ts`
@@ -778,6 +783,9 @@ the one Playwright's `json` reporter writes (rename one side and the report
 exits 0 on "nothing to analyze" forever); CI `retries` stay ≥ 1; and
 `failOnFlakyTests` / `--fail-on-flaky-tests` stay off — a budget of 0 in
 disguise, which defeats the retries that absorb Electron-boot hiccups (#1097).
+It also pins what makes a counted flake diagnosable (#2458): `navigationTimeout`
+is set and below the test timeout, CI keeps `retain-on-first-failure` traces,
+and the report artifact uploads `test-results/`, where those traces land.
 **When it fires:** restore the wiring, or change the budget in
 `e2e-flake-budget.mjs` — with new flake history in the PR, since the number is
 a measurement, not a preference.

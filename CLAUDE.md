@@ -1049,6 +1049,47 @@ test.** The rerun replaces the attempt everyone looks at, and the flake leaves
 the record — which is how 34 flakes read as "0 flakes in 8+ runs" in the issue
 that set this budget.
 
+**A hang names its step, and a wedged app is killed, not waited on (#2458).**
+`a11y › proposals panel` once spent its whole 60s test timeout in a call with no
+timeout of its own, then the app never quit and Playwright's worker teardown
+hung too — "error outside any test", a red job. Four pieces now make that
+diagnosable first and bounded second:
+
+- **Steps.** `launchMinerva`, `closeMinerva`, the seed hooks, `runAxe` and the
+  a11y spec's phases are `test.step`s; the flake report prints, for every
+  failed attempt, the step it ended in, its first error, and any `hang` /
+  `app-killed` note the helpers recorded.
+- **Bounds.** The main-process hooks (`seedProposal` / `ingestSource` in
+  `tests/e2e/helpers/launch.ts`, 15s) and axe (20s) race a timer that fails
+  naming the call and probes the app (`tests/e2e/helpers/bounded.ts`): does
+  main answer a trivial `evaluate` in 2s, does each renderer — plus, on macOS,
+  a 1s `sample` of every thread, attached. `navigationTimeout` (20s) is
+  applied to the Electron context by `launchMinerva`, because Playwright Test
+  only applies `use.*` timeouts to contexts it creates. Every bound is far
+  above the measured normal time written next to it. Call the hooks through
+  those helpers, never an inline `app.evaluate(() => __minervaE2E…)`.
+- **Teardown kill.** `closeMinerva(app)` bounds `close()` at 10s, then
+  SIGKILLs the child: a `[e2e] ✗ app did not quit…` line, an `app-killed`
+  annotation, a `::warning` from the flake report, and a soft failure — so a
+  wedge is a failed (then flaky) attempt inside the budget above, never a
+  silent one and never a job-killing teardown timeout. That is a deliberate
+  trade, made only once the hang could say where it was. Specs import `test`
+  from `tests/e2e/helpers/test.ts`, whose auto fixture runs the same close on
+  anything a TIMED-OUT test left running (its `finally` never runs).
+  Under deliberate CPU starvation a healthy quit took up to ~12s, all of it
+  Electron's native shutdown after the JS side finished, so a kill on a
+  starved runner is possible — the probe says which it was.
+- **Trace.** CI records `trace: 'retain-on-first-failure'`; `launchMinerva`
+  traces the Electron context itself (DOM snapshots, no screenshots — +17% on
+  the suite's wall time where screenshots cost +38%). Green attempts keep
+  nothing; the first failing attempt's trace lands in `test-results/`, which
+  `ci.yml` uploads beside `playwright-report.json`.
+
+`tests/architecture/e2e-launch-hygiene.test.ts` requires `closeMinerva`, the
+helper `test`, and the bounded hook helpers in every spec;
+`e2e-flake-budget.test.ts` pins the navigation bound, the CI trace mode and the
+`test-results/` upload.
+
 ### Out-of-band checks ship their notification path (#2242)
 
 Every detector in this repo runs on the PR, inside `pnpm test` or (for the

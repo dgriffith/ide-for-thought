@@ -13,6 +13,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {
   FLAKE_BUDGET,
+  collectAttemptDiagnostics,
   collectFlakyTests,
   collectRetriedTests,
   collectRunErrors,
@@ -142,6 +143,133 @@ describe('evaluateFlakeBudget', () => {
   });
 });
 
+// #2458: the a11y › proposals panel hang — attempt 1 spent its whole budget
+// somewhere, and the report could only say "Test timeout exceeded". These are
+// the shapes the e2e helpers now leave on an attempt, taken from a real run
+// with the main process deliberately wedged.
+const KILL = 'app did not quit within 10s after a11y [light theme] › proposals panel (closed by the post-test reaper) — killed (SIGKILL, pid 4242, after 14.0s)';
+const PROBE = 'main process: NO answer to a trivial evaluate within 2000ms — main is wedged';
+function hangReport(): PlaywrightReport {
+  const hung = {
+    status: 'timedOut',
+    retry: 0,
+    duration: 74_000,
+    errors: [
+      { message: '\u001b[31mTest timeout of 60000ms exceeded.\u001b[39m' },
+      { message: `Error: ${KILL}\n${PROBE}` },
+    ],
+    annotations: [{ type: 'app-killed', description: `${KILL}\n${PROBE}` }, { type: 'issue', description: 'unrelated' }],
+    steps: [
+      { title: 'launch Minerva', duration: 400 },
+      { title: 'wait for workspace', duration: 600 },
+      { title: 'seed proposal (main-process hook)', duration: 58_900, error: { message: 'Test timeout of 60000ms exceeded.' } },
+      { title: 'close Minerva', duration: 14_000, error: { message: KILL } },
+    ],
+  };
+  const retried = { status: 'passed', retry: 1, duration: 2_100, errors: [], annotations: [], steps: [] };
+  const seedHang = {
+    status: 'failed',
+    retry: 0,
+    duration: 19_500,
+    errors: [{ message: `Error: seedProposal (app.evaluate in the main process) did not settle within 15000ms\n${PROBE}` }],
+    annotations: [{ type: 'hang', description: `seedProposal (app.evaluate in the main process) did not settle within 15000ms\n${PROBE}` }],
+    steps: [{
+      title: 'outer',
+      duration: 19_000,
+      error: { message: 'x' },
+      steps: [{ title: 'seed proposal (main-process hook)', duration: 19_000, error: { message: 'x' } }],
+    }],
+  };
+  const plain = {
+    status: 'failed',
+    retry: 0,
+    duration: 900,
+    errors: [{ message: 'Error: expect(locator).toBeVisible() failed\nmore' }],
+    steps: [{ title: 'launch Minerva', duration: 300 }],
+  };
+  return {
+    suites: [{
+      title: 'a11y.spec.ts',
+      specs: [
+        spec('solid test', passed),
+        spec('proposals panel', [hung, retried]),
+        spec('seeded', [seedHang, retried]),
+        spec('plain failure', [plain, retried]),
+      ],
+    }],
+    stats: { expected: 1, unexpected: 0, flaky: 3, skipped: 0 },
+    errors: [],
+  };
+}
+
+describe('collectAttemptDiagnostics (#2458)', () => {
+  it('lists only attempts that did not pass, with the step each ended in', () => {
+    const attempts = collectAttemptDiagnostics(hangReport());
+    expect(attempts.map((a) => [a.title, a.attempt, a.status])).toEqual([
+      ['a11y.spec.ts › proposals panel', 1, 'timedOut'],
+      ['a11y.spec.ts › seeded', 1, 'failed'],
+      ['a11y.spec.ts › plain failure', 1, 'failed'],
+    ]);
+    expect(attempts[0]!.step).toEqual({ title: 'seed proposal (main-process hook)', duration: 58_900 });
+  });
+
+  it('names the deepest errored step, not its parent', () => {
+    expect(collectAttemptDiagnostics(hangReport())[1]!.step?.title).toBe('outer › seed proposal (main-process hook)');
+  });
+
+  it('does not guess a step when the failure was outside every named one', () => {
+    expect(collectAttemptDiagnostics(hangReport())[2]!.step).toBeNull();
+  });
+
+  it("reports the attempt's own error ahead of a teardown kill, ANSI stripped, first line only", () => {
+    const [timedOut, seeded] = collectAttemptDiagnostics(hangReport());
+    expect(timedOut!.error).toBe('Test timeout of 60000ms exceeded.');
+    expect(seeded!.error).toBe('Error: seedProposal (app.evaluate in the main process) did not settle within 15000ms');
+  });
+
+  it('keeps the helper diagnostics (hang, app-killed) with their probe lines, and drops other annotations', () => {
+    const [timedOut, seeded] = collectAttemptDiagnostics(hangReport());
+    expect(timedOut!.notes).toEqual([{ type: 'app-killed', text: `${KILL}\n${PROBE}` }]);
+    expect(seeded!.notes.map((n) => n.type)).toEqual(['hang']);
+  });
+
+  it('lists a passing attempt that somehow carries a kill — a silent kill is the thing to prevent', () => {
+    const json: PlaywrightReport = {
+      suites: [{ title: 'x.spec.ts', specs: [spec('t', [{ status: 'passed', retry: 0, annotations: [{ type: 'app-killed', description: KILL }] }])] }],
+    };
+    expect(collectAttemptDiagnostics(json)).toHaveLength(1);
+  });
+
+  it('is empty for a clean run', () => {
+    expect(collectAttemptDiagnostics(report({ flaky: 0 }))).toEqual([]);
+  });
+});
+
+describe('evaluateFlakeBudget — hang diagnostics (#2458)', () => {
+  it('names every killed app, and every failed attempt with its step, error and probe', () => {
+    const r = evaluateFlakeBudget(hangReport(), 5);
+    expect(r.killedApps).toEqual([KILL]);
+    expect(r.verdict).toContain('✗ 1 app(s) under test would not quit and were killed');
+    expect(r.verdict).toContain(
+      'a11y.spec.ts › proposals panel — attempt 1 timedOut after 74.0s in step "seed proposal (main-process hook)" (58.9s)',
+    );
+    expect(r.verdict).toContain(`      app-killed: ${KILL}`);
+    expect(r.verdict).toContain(`      ${PROBE}`);
+    expect(r.verdict).toContain('a11y.spec.ts › plain failure — attempt 1 failed after 0.9s (not inside a named step)');
+  });
+
+  it('a kill does not by itself change the budget verdict — the killed attempt already counts as a flake or a failure', () => {
+    expect(evaluateFlakeBudget(hangReport(), 3).ok).toBe(true);
+    expect(evaluateFlakeBudget(hangReport(), 2).ok).toBe(false);
+  });
+
+  it('says nothing about kills or failed attempts on a clean run', () => {
+    const r = evaluateFlakeBudget(report({ flaky: 0 }));
+    expect(r.verdict).not.toContain('killed');
+    expect(r.verdict).not.toContain('Failed attempts');
+  });
+});
+
 describe('formatReport', () => {
   it('summarizes stats and lists every retried test as a markdown table', () => {
     const { summary, body, flakyCount } = formatReport(report());
@@ -216,6 +344,14 @@ describe('CLI contract', () => {
       expect(md).toContain('## E2E flake report');
       expect(md).toContain('| a11y.spec.ts › flaky test 1 | 2 | passed |');
       expect(md).toContain('flake budget exceeded: 2 flaky > 1');
+    });
+  });
+
+  it('raises a ::warning annotation per killed app, even when the budget holds (#2458)', () => {
+    withReport(hangReport(), (p) => {
+      const { status, stdout } = run([p, '--max-flaky', '5']);
+      expect(status).toBe(0);
+      expect(stdout).toContain(`::warning title=E2E app under test was killed::${KILL}`);
     });
   });
 

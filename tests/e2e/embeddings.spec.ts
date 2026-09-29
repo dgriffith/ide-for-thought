@@ -29,10 +29,10 @@
  * rather than treating an empty result as success.
  */
 
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './helpers/test';
 import path from 'node:path';
 import fs from 'node:fs';
-import { launchMinerva, makeTempDir, seedSession, projectRoot } from './helpers/launch';
+import { closeMinerva, launchMinerva, makeTempDir, projectRoot, seedSession } from './helpers/launch';
 
 /** Path to the packaged app binary, or null if it hasn't been built. */
 function packagedBinary(): string | null {
@@ -95,7 +95,7 @@ test('packaged app runs the local embedder (ORT WASM shipped)', async () => {
       }
     });
   } finally {
-    await app.close().catch(() => { /* already exited */ });
+    await closeMinerva(app);
     fs.rmSync(userDataDir, { recursive: true, force: true });
     fs.rmSync(projectDir, { recursive: true, force: true });
   }

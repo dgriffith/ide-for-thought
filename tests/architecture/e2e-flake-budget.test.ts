@@ -21,6 +21,12 @@
  *  - `failOnFlakyTests` stays off. It is a budget of 0 in disguise, which
  *    defeats the retries that absorb Electron-boot hiccups (#1097), and it
  *    fails without saying which budget or why.
+ *
+ * And the diagnostics that make a flaky test worth counting (#2458): a hang
+ * that retries absorb is only a finding if the failed attempt says where it
+ * hung. So navigation is bounded (Playwright Test's default is no timeout),
+ * CI keeps the trace of each test's first failing attempt, and the uploaded
+ * artifact carries `test-results/`, where those traces are written.
  */
 import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
@@ -31,7 +37,7 @@ import { FLAKE_BUDGET } from '../../scripts/lib/e2e-flake-budget.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
-interface Step { name?: string; run?: string; if?: string; 'continue-on-error'?: unknown }
+interface Step { name?: string; run?: string; if?: string; uses?: string; with?: { path?: string }; 'continue-on-error'?: unknown }
 interface Workflow { jobs?: Record<string, { steps?: Step[]; 'continue-on-error'?: unknown }> }
 
 const ci = parse(fs.readFileSync(path.join(ROOT, '.github', 'workflows', 'ci.yml'), 'utf-8')) as Workflow;
@@ -77,5 +83,22 @@ describe('e2e flake budget wiring (#2379)', () => {
     for (const s of e2e?.steps ?? []) expect(s.run ?? '').not.toMatch(/--fail-on-flaky-tests/);
     const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf-8')) as { scripts: Record<string, string> };
     expect(pkg.scripts['test:e2e']).not.toMatch(/--fail-on-flaky-tests/);
+  });
+
+  it('navigation is bounded — no reload can spend the whole test timeout in silence (#2458)', () => {
+    const nav = /navigationTimeout:\s*([\d_]+)/.exec(playwrightConfig)?.[1];
+    expect(nav, 'playwright.config.ts must set use.navigationTimeout').toBeDefined();
+    const ms = Number(nav!.replace(/_/g, ''));
+    expect(ms).toBeGreaterThan(0);
+    const testTimeout = Number(/\btimeout:\s*([\d_]+)/.exec(playwrightConfig)?.[1]?.replace(/_/g, ''));
+    expect(ms, 'a navigation bound at or above the test timeout bounds nothing').toBeLessThan(testTimeout);
+  });
+
+  it('CI keeps the trace of a first failing attempt, and uploads where it is written (#2458)', () => {
+    expect(playwrightConfig).toMatch(/trace:\s*process\.env\.CI\s*\?\s*'retain-on-first-failure'/);
+    const upload = e2e?.steps?.find((s) => s.uses?.startsWith('actions/upload-artifact@') && s.with?.path?.includes('playwright-report.json'));
+    expect(upload, 'the e2e job must upload the Playwright report').toBeDefined();
+    expect(upload?.if).toBe('always()');
+    expect(upload?.with?.path?.split(/\s+/)).toContain('test-results/');
   });
 });

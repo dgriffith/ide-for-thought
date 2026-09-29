@@ -17,6 +17,11 @@
  * spec reaches for `electron.launch` directly and never learns the helper
  * exists.
  *
+ * It also holds the teardown half (#2458): specs close through `closeMinerva`
+ * (bounded, then SIGKILL, reported), import the reaping `test` from
+ * `helpers/test.ts`, and call the main-process seed hooks through their bounded
+ * helpers rather than an unbounded inline `app.evaluate`.
+ *
  * Deliberately a whole-file scan rather than a lint rule: the rule is about
  * *which* API a spec may reach for, which reads more clearly as one assertion
  * naming the reason than as an `eslint` `no-restricted-syntax` entry.
@@ -57,6 +62,47 @@ describe('e2e launch hygiene (#1928)', () => {
       'profile: the app restores their last project and the run writes back to it. That is\n' +
       'exactly how the smoke test came to assert the opposite of what it claimed (#1928).\n' +
       'Use `launchMinerva({ userDataDir })` — it requires the profile and filters the env.',
+    ).toEqual([]);
+  });
+
+  // #2458: a wedged app hung `app.close()` forever, and a test that timed out
+  // left its app for Playwright's worker teardown — which hung the same way and
+  // failed the job with an error outside any test. `closeMinerva` bounds the
+  // close and SIGKILLs loudly; the `test` in helpers/test.ts reaps whatever a
+  // timed-out test left running. Both only help if specs actually use them.
+  function code(file: string): string {
+    return fs.readFileSync(file, 'utf8')
+      .split('\n').filter((l) => !l.trim().startsWith('*') && !l.trim().startsWith('//')).join('\n');
+  }
+  const launching = () => specFiles().filter((f) => /\blaunchMinerva\s*\(/.test(code(f)));
+
+  it('no spec closes the app with a bare close() — they use closeMinerva (#2458)', () => {
+    expect(launching().length, 'the scan should find specs that launch Minerva').toBeGreaterThanOrEqual(5);
+    const offenders = launching().filter((f) => /\bapp\s*\.\s*close\s*\(/.test(code(f)));
+    expect(
+      offenders.map((f) => path.basename(f)),
+      '`app.close()` has no timeout: when the main process is wedged it never returns, and the\n' +
+      'run fails with "Worker teardown timeout" outside any test (#2458). Use\n' +
+      '`closeMinerva(app)` from tests/e2e/helpers/launch.ts — bounded, then SIGKILL, reported.',
+    ).toEqual([]);
+  });
+
+  it('every spec that launches Minerva imports `test` from helpers/test (the post-test reaper) (#2458)', () => {
+    const offenders = launching().filter((f) => !/import\s*\{[^}]*\btest\b[^}]*\}\s*from\s*'\.\/helpers\/test'/.test(code(f)));
+    expect(
+      offenders.map((f) => path.basename(f)),
+      'A test that times out never reaches its own `finally`, so its app is only closed if the\n' +
+      "auto fixture in tests/e2e/helpers/test.ts runs. Import `test` (and `expect`) from './helpers/test'.",
+    ).toEqual([]);
+  });
+
+  it('no spec calls the MINERVA_E2E hooks inline — the bounded helpers do (#2458)', () => {
+    const offenders = specFiles().filter((f) => /__minervaE2E/.test(code(f)));
+    expect(
+      offenders.map((f) => path.basename(f)),
+      'An inline `app.evaluate(() => __minervaE2E.…)` runs in the main process with no timeout.\n' +
+      'Use `seedProposal(app)` / `ingestSource(app)` from tests/e2e/helpers/launch.ts, which bound\n' +
+      'the call and probe the main process when it overruns.',
     ).toEqual([]);
   });
 
