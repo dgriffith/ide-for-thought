@@ -190,8 +190,18 @@ export function buildWikiLinkIndex(files: NoteFileLike[], aliases: Record<string
 }
 
 /** O(1) equivalent of `resolveWikiLinkTarget` using a prebuilt `WikiLinkIndex`.
- *  Verified to match the loop-based resolver in wiki-link-resolver.test.ts. */
-export function resolveWikiLinkTargetWithIndex(target: string, index: WikiLinkIndex): string | null {
+ *  Verified to match the loop-based resolver in wiki-link-resolver.test.ts.
+ *
+ *  `pathSlugFallback: false` stops after step 4, skipping the two whole-path
+ *  slug fallbacks (5, 6). Rename uses it to tell a link that still names its
+ *  note from one that only reaches it by coincidence — `[[paxos]]` "resolves"
+ *  to `multi-paxos.md` by path-suffix slug, but nobody would call that a link
+ *  to it (#2456). */
+export function resolveWikiLinkTargetWithIndex(
+  target: string,
+  index: WikiLinkIndex,
+  opts: { pathSlugFallback?: boolean } = {},
+): string | null {
   // Step 0: explicit extension → exact path, or basename-with-ext for a bare
   //         target (mirrors the loop resolver).
   if (isNotePath(target)) {
@@ -201,11 +211,12 @@ export function resolveWikiLinkTargetWithIndex(target: string, index: WikiLinkIn
   }
   const stem = stripNoteExt(target);
   const s = slug(stem);
-  return index.byStem.get(stem)
+  const direct = index.byStem.get(stem)
     ?? index.byBasename.get(stem)
     ?? index.aliases[stem.toLowerCase()]
-    ?? (s ? index.bySlugBase.get(s) : undefined)
-    ?? (s ? index.bySlugStem.get(s) : undefined)
+    ?? (s ? index.bySlugBase.get(s) : undefined);
+  if (direct !== undefined || opts.pathSlugFallback === false) return direct ?? null;
+  return (s ? index.bySlugStem.get(s) : undefined)
     ?? (s ? index.bySuffixSlug.get(s) : undefined)
     ?? null;
 }

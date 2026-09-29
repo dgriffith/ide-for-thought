@@ -35,7 +35,7 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 
 import { indexNote, indexAllNotes, removeNote, queryGraph, getAliasMap } from '../../../src/main/graph/index';
-import { wikiLinkIndex, _derivationCountsForTests } from '../../../src/main/graph/note-index';
+import { wikiLinkIndex, relocationLinkIndexes, _derivationCountsForTests } from '../../../src/main/graph/note-index';
 import { resolveWikiLinkTargetWithIndex } from '../../../src/shared/wiki-link-resolver';
 import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
 import { useGraphProject } from '../../helpers/temp-project';
@@ -211,5 +211,37 @@ describe('wiki-link resolve index — caching (#2214)', () => {
     expect(a).toBe(b);
     expect(resolveWikiLinkTargetWithIndex('anything', a)).toBeNull();
     expect(c.since()).toEqual({ aliasMap: 0, linkIndex: 0 });
+  });
+
+  it('relocation indexes (#2456) are a pure read: the live index is untouched and still cached', async () => {
+    await indexNote(
+      ctx,
+      'notes/research/thermohaline-circulation.md',
+      ['---', 'aliases:', '  - THC', '---', '# Thermohaline', ''].join('\n'),
+    );
+    const live = wikiLinkIndex(ctx);
+    const c = counter();
+    const moves = new Map([['notes/research/thermohaline-circulation.md', 'notes/ocean/overturning.md']]);
+    const { before, after } = relocationLinkIndexes(ctx, moves, { carryAliases: true });
+
+    // `before` IS the cached live index; nothing was invalidated or rebuilt.
+    expect(before).toBe(live);
+    expect(wikiLinkIndex(ctx)).toBe(live);
+    expect(c.since()).toEqual({ aliasMap: 0, linkIndex: 0 });
+    expect(resolves(ctx, 'thermohaline-circulation')).toBe('notes/research/thermohaline-circulation.md');
+
+    // Both `after` orders describe the thoughtbase post-move, alias included.
+    for (const ix of after) {
+      expect(resolveWikiLinkTargetWithIndex('overturning', ix)).toBe('notes/ocean/overturning.md');
+      expect(resolveWikiLinkTargetWithIndex('THC', ix)).toBe('notes/ocean/overturning.md');
+      expect(resolveWikiLinkTargetWithIndex('thermohaline-circulation', ix)).toBeNull();
+    }
+    // A merge drops the moved note's aliases.
+    const merged = relocationLinkIndexes(ctx, moves, { carryAliases: false });
+    expect(resolveWikiLinkTargetWithIndex('THC', merged.after[0])).toBeNull();
+
+    // Never-seen project: no slot allocated, nothing resolves.
+    const ghost = projectContext('/tmp/minerva-2456-never-seen');
+    expect(relocationLinkIndexes(ghost, moves, { carryAliases: true }).before).toBe(wikiLinkIndex(ghost));
   });
 });
