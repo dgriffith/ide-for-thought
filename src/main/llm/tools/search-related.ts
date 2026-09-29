@@ -2,6 +2,7 @@ import { projectContext } from '../../project-context-types';
 import * as vectors from '../../embeddings/vector-store';
 import type { RelatedHit, RefKind } from '../../embeddings/vector-store';
 import type { NotebaseTool, ToolContext } from './types';
+import { agentPath } from './agent-path';
 
 async function runSearchRelated(
   ctx: ToolContext,
@@ -11,6 +12,10 @@ async function runSearchRelated(
     query?: string; relative_path?: string; limit?: number; kinds?: RefKind[];
   };
   const pctx = projectContext(ctx.rootPath);
+  // Check a model-chosen note path before anything else answers (#2453). The
+  // lookup is index-only, so this refuses rather than protects a read — but a
+  // refusal is the honest answer, and it keeps every path argument on one rule.
+  const notePath = typeof relative_path === 'string' && relative_path.trim() ? agentPath(ctx, relative_path.trim()) : '';
 
   if (!vectors.isEnabled(pctx)) {
     return {
@@ -24,14 +29,14 @@ async function runSearchRelated(
   let hits: RelatedHit[];
   let descriptor: string;
 
-  if (typeof relative_path === 'string' && relative_path.trim()) {
+  if (notePath) {
     // Over-fetch chunk-level hits so best-per-ref de-dup still yields ~n results.
-    hits = await vectors.relatedToNote(pctx, relative_path.trim(), { limit: n * 5, ...(kindFilter ? { kinds: kindFilter } : {}) });
-    descriptor = `related to ${relative_path.trim()}`;
+    hits = await vectors.relatedToNote(pctx, notePath, { limit: n * 5, ...(kindFilter ? { kinds: kindFilter } : {}) });
+    descriptor = `related to ${notePath}`;
     if (hits.length === 0) {
       return {
         content:
-          `No related items found for "${relative_path.trim()}". The note may not be ` +
+          `No related items found for "${notePath}". The note may not be ` +
           `indexed yet — semantic indexing runs in the background, so results can be ` +
           `incomplete shortly after a note is created or the model changes.`,
         isError: false,

@@ -6,6 +6,7 @@ import type {
   ProposeNotesInput,
 } from '../../../shared/conversation-drafts';
 import type { NotebaseTool, ToolContext, ToolCallbacks } from './types';
+import { agentPathProblem } from './agent-path';
 import { logger } from '../../../shared/logger';
 
 /**
@@ -36,6 +37,12 @@ function runProposeNotes(
   const parsed = parseProposeNotesInput(input);
   if ('error' in parsed) {
     return { content: parsed.error, isError: true };
+  }
+  // A target in `.minerva/` (types, templates, the proposal store) or any
+  // other hidden folder would be Minerva's own state, not a note (#2453).
+  for (const p of parsed.payloads) {
+    const refused = agentPathProblem(ctx, p.relativePath);
+    if (refused) return { content: refused, isError: true };
   }
 
   // Models routinely pick human-readable relativePaths ("Sets, Functions,

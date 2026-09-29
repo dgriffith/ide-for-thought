@@ -7,6 +7,7 @@ import type {
 } from '../../../shared/conversation-property-drafts';
 import type { PropertyPatch, PropertyValue } from '../../../shared/refactor/frontmatter-patch';
 import type { NotebaseTool, ToolContext, ToolCallbacks } from './types';
+import { agentPathProblem } from './agent-path';
 
 /**
  * Trust-principle parity with `propose_notes` / `propose_sources`:
@@ -53,6 +54,11 @@ async function runSetProperties(
   const updates: PropertyUpdate[] = [];
   const warnings: string[] = [];
   for (const u of parsed.updates) {
+    const refused = agentPathProblem(ctx, u.relativePath);
+    if (refused) {
+      warnings.push(`Skipped ${u.relativePath}: ${refused}`);
+      continue;
+    }
     if (!(await fs.fileExists(ctx.rootPath, u.relativePath))) {
       warnings.push(`Skipped ${u.relativePath}: no such note. set_properties patches existing notes — use propose_notes to create one.`);
       continue;

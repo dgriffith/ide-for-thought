@@ -5,6 +5,7 @@ import type {
   NoteBodyDraftItem,
 } from '../../../shared/conversation-note-body-drafts';
 import type { NotebaseTool, ToolContext, ToolCallbacks } from './types';
+import { agentPathProblem } from './agent-path';
 
 /**
  * propose_note_body — like every other propose_* tool, this does NOT write the
@@ -44,6 +45,11 @@ async function runProposeNoteBody(
       continue;
     }
     const p = relative_path.trim();
+    const refused = agentPathProblem(ctx, p);
+    if (refused) {
+      warnings.push(`Skipped ${p}: ${refused}`);
+      continue;
+    }
     if (typeof content !== 'string' || content.length === 0) {
       warnings.push(`Skipped ${p}: content is required (the complete new markdown).`);
       continue;

@@ -4,6 +4,7 @@ import type {
   ProposeSourcePropertiesInput,
 } from '../../../shared/conversation-source-property-drafts';
 import type { NotebaseTool, ToolContext, ToolCallbacks } from './types';
+import { bareSourceId } from './agent-path';
 
 /**
  * Trust-principle parity with `set_properties`, for sources (#103):
@@ -76,6 +77,7 @@ function parseProposeSourcePropertiesInput(
   if (!note) return { error: '`note` is required and must be a non-empty string.' };
   const sourceId = typeof obj.sourceId === 'string' ? obj.sourceId.trim() : '';
   if (!sourceId) return { error: '`sourceId` is required and must be a non-empty string.' };
+  try { bareSourceId(sourceId); } catch (e) { return { error: (e as Error).message }; }
   const abstract = typeof obj.abstract === 'string' ? obj.abstract.trim() : '';
   const tldr = typeof obj.tldr === 'string' ? obj.tldr.trim() : '';
   if (!abstract && !tldr) {

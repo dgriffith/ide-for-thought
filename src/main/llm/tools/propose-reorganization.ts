@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { planReorg, type ReorgOperation } from '../../notebase/reorg';
 import type { ConversationReorgDraft } from '../../../shared/conversation-refactor-drafts';
 import type { NotebaseTool, ToolContext, ToolCallbacks } from './types';
+import { agentPathProblem } from './agent-path';
 
 async function runProposeReorganization(
   ctx: ToolContext, input: unknown, callbacks: ToolCallbacks,
@@ -19,6 +20,8 @@ async function runProposeReorganization(
     if (typeof op.path !== 'string' || !op.path.trim() || typeof op.newPath !== 'string' || !op.newPath.trim()) {
       return { content: 'each operation needs a non-empty string `path` and `newPath`.', isError: true };
     }
+    const refused = agentPathProblem(ctx, op.path.trim()) ?? agentPathProblem(ctx, op.newPath.trim());
+    if (refused) return { content: refused, isError: true };
     ops.push({ path: op.path.trim(), newPath: op.newPath.trim() });
   }
 

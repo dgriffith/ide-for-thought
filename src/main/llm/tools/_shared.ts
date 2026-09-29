@@ -6,6 +6,7 @@ import type {
   ConversationReorgDraft,
 } from '../../../shared/conversation-refactor-drafts';
 import type { ToolContext, ToolCallbacks } from './types';
+import { agentPathProblem } from './agent-path';
 
 /** Shared core: dry-run the rename (validates guardrails + computes the blast
  *  radius), then emit a refactor draft for review. Never moves the note. */
@@ -80,6 +81,10 @@ export async function runProposeRefactorBatch(
   verb: 'Rename' | 'Move',
 ): Promise<{ content: string; isError: boolean }> {
   const lower = verb.toLowerCase();
+  for (const { fromPath, toPath } of pairs) {
+    const refused = agentPathProblem(ctx, fromPath) ?? agentPathProblem(ctx, toPath);
+    if (refused) return { content: refused, isError: true };
+  }
   if (pairs.length === 1) {
     return runProposeRefactor(ctx, pairs[0]!.fromPath, pairs[0]!.toPath, callbacks, verb);
   }

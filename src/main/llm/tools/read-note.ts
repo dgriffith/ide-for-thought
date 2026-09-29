@@ -1,12 +1,13 @@
 import * as fs from '../../notebase/fs';
 import type { NotebaseTool, ToolContext } from './types';
+import { agentPath } from './agent-path';
 
 async function runRead(ctx: ToolContext, input: unknown): Promise<string> {
   const { relative_path } = input as { relative_path: string };
   if (typeof relative_path !== 'string' || !relative_path) {
     throw new Error('relative_path is required');
   }
-  return fs.readFile(ctx.rootPath, relative_path);
+  return fs.readFile(ctx.rootPath, agentPath(ctx, relative_path));
 }
 
 export const readNote: NotebaseTool = {
@@ -29,7 +30,7 @@ export const readNote: NotebaseTool = {
           type: 'string',
           description:
             'Path relative to the thoughtbase root. Must include the file ' +
-            'extension. Path traversal (..) is rejected.',
+            'extension. Path traversal (..) and hidden folders such as .minerva/ are rejected.',
         },
       },
       required: ['relative_path'],

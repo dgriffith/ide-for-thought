@@ -4,6 +4,7 @@ import * as graph from '../../graph/index';
 import { projectContext } from '../../project-context-types';
 import type { ConversationDeleteDraft } from '../../../shared/conversation-refactor-drafts';
 import type { NotebaseTool, ToolContext, ToolCallbacks } from './types';
+import { agentPathProblem } from './agent-path';
 
 async function runProposeNoteDelete(
   ctx: ToolContext, input: unknown, callbacks: ToolCallbacks,
@@ -24,6 +25,8 @@ async function runProposeNoteDelete(
     const p = raw.trim();
     if (seen.has(p)) continue;
     seen.add(p);
+    const refused = agentPathProblem(ctx, p);
+    if (refused) { warnings.push(`Skipped ${p}: ${refused}`); continue; }
     if (!p.endsWith('.md')) { warnings.push(`Skipped ${p}: only .md notes can be deleted.`); continue; }
     if (!(await fs.fileExists(ctx.rootPath, p))) { warnings.push(`Skipped ${p}: no such note.`); continue; }
     valid.push(p);

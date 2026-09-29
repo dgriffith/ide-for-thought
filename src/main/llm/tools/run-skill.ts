@@ -9,6 +9,7 @@ import {
   type ToolContext as SkillToolContext,
 } from '../../../shared/tools/types';
 import type { NotebaseTool, ToolContext, ToolResult } from './types';
+import { agentPathProblem } from './agent-path';
 
 /**
  * run_skill (#2165) — lets the model reach for one of the thoughtbase's
@@ -148,6 +149,8 @@ async function runRunSkill(ctx: ToolContext, input: unknown): Promise<ToolResult
 
   const skillContext: SkillToolContext = {};
   if (parsed.notePath) {
+    const refused = agentPathProblem(ctx, parsed.notePath);
+    if (refused) return { content: refused, isError: true };
     if (!(await fs.fileExists(ctx.rootPath, parsed.notePath))) {
       return { content: `No such note: ${parsed.notePath}`, isError: true };
     }

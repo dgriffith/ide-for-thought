@@ -2,12 +2,23 @@
  * The walker-facing half of the containment guard (#2398): `isEscapingSymlink`
  * and `isContainedPath`, plus `listFiles`' mtime for an escaping link.
  * `assertSafePath` itself is covered by `tests/main/notebase/symlink-escape.test.ts`.
+ * Also the agent-path guard (#2453) — `agentPathRefusal` / `assertAgentPath` /
+ * `assertBareId` — at the unit level; its tool-level proof is
+ * `tests/main/llm/prompt-injection/agent-paths.test.ts`.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { isEscapingSymlink, isContainedPath, canonicalRoot } from '../../src/main/path-containment';
+import {
+  isEscapingSymlink,
+  isContainedPath,
+  canonicalRoot,
+  agentPathRefusal,
+  assertAgentPath,
+  assertBareId,
+  AgentPathRefusedError,
+} from '../../src/main/path-containment';
 import { listFiles } from '../../src/main/notebase/fs';
 
 let base: string;
@@ -110,5 +121,91 @@ describe('listFiles and escaping links (#2398)', () => {
     expect(byName.get('leak.md')?.mtimeMs).not.toBe(old.getTime());
     // An in-root link keeps showing its target's time, as before.
     expect(byName.get('alias.md')?.mtimeMs).toBe(old.getTime());
+  });
+});
+
+// ── the agent-path guard (#2453) ────────────────────────────────────────────
+describe('agentPathRefusal / assertAgentPath', () => {
+  beforeEach(() => {
+    fs.mkdirSync(path.join(root, '.minerva', 'conversations'), { recursive: true });
+    fs.writeFileSync(path.join(root, '.minerva', 'secrets.json'), '{}');
+    fs.mkdirSync(path.join(root, 'notes'));
+    fs.writeFileSync(path.join(root, 'notes', 'minerva-ideas.md'), '# ideas');
+    fs.mkdirSync(path.join(root, 'node_modules', 'pkg'), { recursive: true });
+    fs.symlinkSync(path.join(root, '.minerva'), path.join(root, 'notes', 'state'));
+    fs.symlinkSync(path.join(root, '.minerva', 'secrets.json'), path.join(root, 'notes', 'innocent.json'));
+    fs.symlinkSync(path.join(root, 'notes', 'minerva-ideas.md'), path.join(root, 'alias.md'));
+    fs.symlinkSync(path.join(root, '.minerva', 'missing'), path.join(root, 'notes', 'dangling-in'));
+    fs.symlinkSync(path.join(outside, 'secret.md'), path.join(root, 'leak.md'));
+  });
+
+  it.each([
+    '.minerva/secrets.json',
+    './.minerva/secrets.json',
+    'notes/../.minerva/secrets.json',
+    '.MINERVA/secrets.json',
+    '.minerva\\secrets.json',
+    '.minerva',
+    '.minerva/conversations/c.json',
+    '.git/config',
+    'notes/.obsidian/x.json',
+    'node_modules/pkg/x.md',
+    'NODE_MODULES/pkg/x.md',
+    'notes/.hidden.md',
+    '../tb/notes/minerva-ideas.md',
+    // Symlinks: as spelled, nothing hidden; where they land, `.minerva/`.
+    'notes/state/secrets.json',
+    'notes/state',
+    'notes/innocent.json',
+    // Write targets whose tail does not exist yet land there too.
+    'notes/state/new.md',
+    'notes/state/types/new.md',
+    'notes/dangling-in',
+  ])('%s is refused as hidden', (p) => {
+    expect(agentPathRefusal(root, p)).toBe('hidden');
+    expect(() => assertAgentPath(root, p)).toThrow(AgentPathRefusedError);
+    expect(() => assertAgentPath(root, p)).toThrow(/hidden or Minerva-internal folder/);
+  });
+
+  it.each(['/etc/passwd', 'leak.md'])('%s is refused as outside', (p) => {
+    expect(agentPathRefusal(root, p)).toBe('outside');
+    expect(() => assertAgentPath(root, p)).toThrow(/not a path inside the thoughtbase/);
+  });
+
+  it('an absolute path to a file outside is refused as outside', () => {
+    expect(agentPathRefusal(root, path.join(outside, 'secret.md'))).toBe('outside');
+  });
+
+  it.each(['.', './', ''])('"%s" names the root and is refused', (p) => {
+    expect(() => assertAgentPath(root, p)).toThrow(AgentPathRefusedError);
+  });
+
+  it.each([
+    'notes/minerva-ideas.md',
+    './notes/minerva-ideas.md',
+    'alias.md',
+    'notes/new-note.md',
+    'new-folder/new.md',
+    'minerva/notes.md',
+    'notes/my.minerva.md',
+    '%2Eminerva/secrets.json',
+  ])('%s is allowed', (p) => {
+    expect(agentPathRefusal(root, p)).toBeNull();
+    expect(assertAgentPath(root, p)).toBe(path.resolve(canonicalRoot(root), p));
+  });
+
+  it('a root that does not exist yet still answers (its canonical ancestor is compared)', () => {
+    const missing = path.join(base, 'not-yet');
+    expect(agentPathRefusal(missing, 'notes/a.md')).toBeNull();
+    expect(agentPathRefusal(missing, '.minerva/a.md')).toBe('hidden');
+  });
+});
+
+describe('assertBareId', () => {
+  it.each(['abc', 'doi-10.1000_xyz', 'a.b'])('%s is a bare id', (id) => {
+    expect(assertBareId(id)).toBe(id);
+  });
+  it.each(['', '.', '..', '../conversations', 'a/b', 'a\\b', 'x..y', 'a\0b'])('%j is refused', (id) => {
+    expect(() => assertBareId(id, 'source_id')).toThrow(/Invalid source_id/);
   });
 });

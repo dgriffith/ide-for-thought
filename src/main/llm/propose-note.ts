@@ -12,6 +12,7 @@
  */
 import * as graph from '../graph/index';
 import * as approval from './approval';
+import { AgentPathRefusedError, agentPathRefusal } from '../path-containment';
 import type { ProjectContext } from '../project-context-types';
 
 export interface ProposeNoteInput {
@@ -39,6 +40,13 @@ export async function fileNoteProposal(
 ): Promise<ProposeNoteResult> {
   const rel = input.relativePath?.trim();
   if (!rel) return { ok: false, error: 'A relative note path is required.' };
+  // Every caller is an agent or files on one's behalf (MCP `propose_note`,
+  // the substrate server, `minerva propose`): no proposal may target
+  // `.minerva/` or another hidden folder, or leave the root (#2453).
+  // `proposeWrite` and the apply step refuse it too; this is the one that
+  // answers with a message instead of a throw.
+  const refused = agentPathRefusal(ctx.rootPath, rel);
+  if (refused) return { ok: false, error: new AgentPathRefusedError(rel, refused).message };
   if (typeof input.content !== 'string' || !input.content.trim()) {
     return { ok: false, error: 'Note content is required.' };
   }
