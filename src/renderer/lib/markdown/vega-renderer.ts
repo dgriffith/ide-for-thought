@@ -192,7 +192,8 @@ async function rendererExecutor(ref: DataSourceRef, noteContent: string): Promis
   }
   if (ref.kind === 'sql' || ref.kind === 'table') {
     const sql = ref.kind === 'table' ? tableQuerySql(ref.name) : ref.query;
-    const res = await api.tables.query(sql);
+    // Note-embedded SQL: registered tables and views only (#2448).
+    const res = await api.tables.queryNote(sql);
     if (!res.ok) throw new Error(res.error);
     return res.rows;
   }

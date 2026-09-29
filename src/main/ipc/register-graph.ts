@@ -65,6 +65,14 @@ export function registerGraph(): void {
     return result.ok ? { ...result, rows: coerceDuckRowsForIpc(result.rows) } : result;
   }));
 
+  // Note-embedded SQL (#2448) — vega `data.sql`/`data.table` and `:::query-*`
+  // blocks in the preview. `runNoteQuery` applies the registered-relations
+  // allowlist before anything runs; there is no argument that skips it.
+  handle(Channels.TABLES_QUERY_NOTE, withRootPathOr<[string], QueryResult | Promise<QueryResult>>({ ok: false, error: 'No project open' }, async (rootPath, sql: string) => {
+    const result = await tables.runNoteQuery(projectContext(rootPath), sql);
+    return result.ok ? { ...result, rows: coerceDuckRowsForIpc(result.rows) } : result;
+  }));
+
   handle(Channels.TABLES_LIST, withRootPathOr<[], TableInfo[] | Promise<TableInfo[]>>([], (rootPath) =>
     tables.listTables(projectContext(rootPath))));
 

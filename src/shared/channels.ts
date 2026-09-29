@@ -467,6 +467,10 @@ export const Channels = {
 
   /** Run a SQL query against the project's DuckDB (#232). */
   TABLES_QUERY: 'tables:query',
+  /** Run SQL written inside a note — a vega `data.sql`/`data.table` binding or
+   *  a `:::query-*` block — for the preview (#2448). Main always applies the
+   *  registered-relations allowlist first: no file functions, no path-as-table. */
+  TABLES_QUERY_NOTE: 'tables:queryNote',
   /** List every registered CSV table with its columns + row count (#234, for autocomplete). */
   TABLES_LIST: 'tables:list',
   /** Broadcast from main when the set of registered DuckDB tables changes (#235). */

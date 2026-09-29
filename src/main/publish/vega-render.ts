@@ -20,6 +20,9 @@
  *     remote data (`url`) is refused and the loader rejects every fetch. A
  *     chart that can't render (bad JSON, blocked data, compile error) degrades
  *     to its spec text + an italic note — export never hard-fails on one chart.
+ *   - A `data.sql` / `data.table` binding runs through `runNoteQuery` (#2448):
+ *     registered tables and views only, so an export can never bake a file
+ *     from `.minerva/` into a published page.
  *   - A neutral light theme `config` is applied so charts read on the white
  *     background of a printed / publish artifact (vs. the in-app dark theme).
  *
@@ -37,7 +40,7 @@ import {
 } from '../../shared/vega/data-binding';
 import { findCellOutput } from '../../shared/compute/cell-output';
 import { queryGraph } from '../graph/index';
-import { runQuery } from '../sources/tables';
+import { runNoteQuery } from '../sources/tables';
 import { projectContext } from '../project-context-types';
 
 // Catppuccin-derived categorical palette, shared in spirit with the renderer
@@ -169,8 +172,12 @@ async function exportExecutor(ref: DataSourceRef, markdown: string, rootPath?: s
     if (!res.ok) throw new Error(res.error);
     return res.results as VegaRows;
   }
+  // Note-embedded SQL runs here with nobody pressing Run, and whatever it
+  // returns is baked into an HTML file the user may publish — so it gets the
+  // registered-relations allowlist, never a file read (#2448). A refusal
+  // throws into `degrade`, which leaves an error note in the export.
   const sql = ref.kind === 'table' ? tableQuerySql(ref.name) : ref.query;
-  const res = await runQuery(ctx, sql);
+  const res = await runNoteQuery(ctx, sql);
   if (!res.ok) throw new Error(res.error);
   return res.rows;
 }

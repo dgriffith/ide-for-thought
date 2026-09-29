@@ -32,7 +32,7 @@ const h = vi.hoisted(() => ({
 
 vi.mock('vega-embed', () => ({ default: h.embed }));
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({
-  api: { graph: { query: h.graphQuery }, tables: { query: h.tablesQuery } },
+  api: { graph: { query: h.graphQuery }, tables: { queryNote: h.tablesQuery } },
 }));
 vi.mock('../../../src/renderer/lib/theme', () => ({
   getEffectiveTheme: () => 'dark',

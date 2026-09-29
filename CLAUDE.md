@@ -1565,7 +1565,7 @@ touch the tool surface:
   `enable_external_access = false` and `lock_configuration = true`, so
   `read_text`/`read_csv`/`glob`/`COPY … TO`/`ATTACH` outside it are refused
   for every caller of that instance — `query_sql`, the Query panel, SQL cells,
-  `minerva.sql()`, vega — and can't be re-enabled. Root only, by decision: no
+  `minerva.sql()`, charts and query blocks — and can't be re-enabled. Root only, by decision: no
   allowlist, because a directory the user's SQL can read is one a prompt
   injection can read. Markdown tables are typed by a private sniffer instance
   (`sources/csv-sniffer.ts`) instead of a temp CSV on the shared connection.
@@ -1578,10 +1578,26 @@ touch the tool surface:
   identifier naming an in-scope CTE or a relation in the live catalog (an
   unresolved name is a replacement-scan file read); table functions only
   from `SAFE_TABLE_FUNCTIONS`; a few SQL-evaluating scalars refused; any
-  unknown node kind refused. LLM path only — cells, the Query panel,
-  `minerva.sql()` and vega still `read_csv` in-root files.
+  unknown node kind refused.
   `tests/main/sources/llm-sql-guard.test.ts` holds the refusal matrix and
   pins the raw AST shapes, so a DuckDB upgrade that changes them fails.
+- **Note-embedded SQL gets the same allowlist** (#2448). A vega `data.sql` /
+  `data.table` chart and a `:::query-*` block with `language: sql` run on
+  preview (and the chart on HTML export) with nobody pressing Run, and a
+  note's author is not necessarily the user. They go through
+  `tables.runNoteQuery` — `guardSql(…, 'note')`, the same walker as
+  `query_sql` with human wording ("Charts and query blocks in notes can only
+  read the tables and views Minerva registered…") — via the
+  `tables:queryNote` channel in the preview and directly in
+  `publish/vega-render.ts`. A refusal renders in place; on export it degrades
+  to an error note and the export completes. **New code that auto-runs note
+  SQL uses `runNoteQuery` / `api.tables.queryNote`, never `runQuery` /
+  `api.tables.query`.** What the user runs deliberately — the Query panel,
+  ```` ```sql ```` cells (behind the compute trust gate), `minerva.sql()` —
+  keeps the full root-locked connection and can `read_csv` in-root files.
+  `tests/main/sources/note-sql-guard.test.ts` drives a hostile shared note
+  (`writeNoteSqlExfilThoughtbase` in `tests/helpers/hostile-thoughtbase.ts`)
+  through both and decodes the export's SVGs looking for the canaries.
 
 - **Skill context is user-turn data, never system prompt** (#2438). A
   skill's note / selection / claim / source text is rendered from

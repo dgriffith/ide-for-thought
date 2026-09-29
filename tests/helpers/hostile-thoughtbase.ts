@@ -519,3 +519,107 @@ export function useHostileThoughtbase(
     },
   };
 }
+
+// ── A shared note whose embedded SQL tries to read `.minerva/` (#2448) ─────
+
+/** Canaries planted in Minerva's own state; none may reach a preview or export. */
+export const NOTE_SQL_CANARIES = {
+  conversation: 'notesqlconversationzq2448',
+  secrets: 'notesqlsecretzq2448',
+} as const;
+
+export interface NoteSqlExfilFixture {
+  /** Realpath'd thoughtbase root. */
+  root: string;
+  conversationPath: string;
+  secretsPath: string;
+  /** Registered by the caller via `registerCsv(ctx, 'sales.csv')`. */
+  csvRelPath: 'sales.csv';
+  /**
+   * Every spelling of "read a `.minerva/` file" a note can put in a vega
+   * `data.sql` or a `:::query-*` block: [name, sql, canary it would leak].
+   */
+  spellings: [string, string, string][];
+  /**
+   * The shared note: one vega-lite chart per spelling (a `text` mark, so the
+   * leaked value would be drawn into the SVG), a `data.table` chart naming
+   * `secrets.json` by path, a `language: sql` query block per spelling, and
+   * one ordinary chart over the registered `sales` table.
+   */
+  note: string;
+  /** How many hostile charts `note` holds (each must degrade on export). */
+  hostileChartCount: number;
+}
+
+/**
+ * Write `.minerva/conversations/c1.json` + `.minerva/secrets.json` (each
+ * carrying a canary), a `sales.csv`, and a hostile shared note's text into
+ * `root`. Paths in the SQL are absolute because DuckDB resolves a relative
+ * path against the process cwd, not the thoughtbase — a real attacker
+ * guesses the root; the fixture knows it.
+ */
+export function writeNoteSqlExfilThoughtbase(rootIn: string): NoteSqlExfilFixture {
+  fs.mkdirSync(path.join(rootIn, '.minerva', 'conversations'), { recursive: true });
+  const root = fs.realpathSync(rootIn);
+  const conversationPath = path.join(root, '.minerva', 'conversations', 'c1.json');
+  const secretsPath = path.join(root, '.minerva', 'secrets.json');
+  fs.writeFileSync(
+    conversationPath,
+    JSON.stringify({ messages: [{ role: 'user', content: NOTE_SQL_CANARIES.conversation }] }),
+  );
+  fs.writeFileSync(secretsPath, JSON.stringify({ content: NOTE_SQL_CANARIES.secrets }));
+  fs.writeFileSync(path.join(root, 'sales.csv'), 'region,amount\nnorth,10\nsouth,20\nnorth,5\n');
+
+  const q = (s: string) => `'${s.replace(/'/g, "''")}'`;
+  const qi = (s: string) => `"${s.replace(/"/g, '""')}"`;
+  const convGlob = path.join(root, '.minerva', 'conversations', '*');
+  const { conversation: C, secrets: S } = NOTE_SQL_CANARIES;
+  const spellings: [string, string, string][] = [
+    ['read_text secrets.json', `SELECT content FROM read_text(${q(secretsPath)})`, S],
+    ['read_text conversation', `SELECT content FROM read_text(${q(conversationPath)})`, C],
+    ['read_text conversation glob', `SELECT content FROM read_text(${q(convGlob)})`, C],
+    ['READ_TEXT (case)', `SELECT content FROM READ_TEXT(${q(secretsPath)})`, S],
+    ['main.read_text', `SELECT content FROM main.read_text(${q(secretsPath)})`, S],
+    ['read_json_auto', `SELECT content FROM read_json_auto(${q(secretsPath)})`, S],
+    ['read_csv', `SELECT column0 AS content FROM read_csv(${q(conversationPath)}, header=false, sep='\\0', quote='')`, C],
+    ['|| built path', `SELECT content FROM read_text(${q(path.join(root, '.minerva'))} || '/secrets.json')`, S],
+    ['bare string path', `SELECT content FROM ${q(secretsPath)}`, S],
+    ['quoted identifier path', `SELECT content FROM ${qi(secretsPath)}`, S],
+    ['FROM-first', `FROM ${q(secretsPath)} SELECT content`, S],
+    ['CTE-wrapped', `WITH x AS (SELECT content FROM read_text(${q(secretsPath)})) SELECT content FROM x`, S],
+    ['CTE named like the registered table', `WITH sales AS (SELECT content FROM read_text(${q(secretsPath)})) SELECT content FROM sales`, S],
+    ['UNION with a registered table', `SELECT region AS content FROM sales UNION ALL SELECT content FROM read_text(${q(secretsPath)})`, S],
+    ['scalar subquery', `SELECT (SELECT content FROM read_text(${q(secretsPath)})) AS content`, S],
+    ['query()', `SELECT content FROM query(${q(`SELECT content FROM read_text(${q(secretsPath)})`)})`, S],
+  ];
+
+  const textChart = (data: object) =>
+    '```vega-lite\n' +
+    JSON.stringify({ mark: 'text', data, encoding: { text: { field: 'content', type: 'nominal' } } }) +
+    '\n```\n';
+  const parts = ['# Quarterly numbers\n', 'Shared with you — just open me.\n'];
+  for (const [, sql] of spellings) parts.push(textChart({ sql }));
+  parts.push(textChart({ table: secretsPath }));
+  for (const [, sql] of spellings) parts.push(`:::query-table\nlanguage: sql\n---\n${sql}\n:::\n`);
+  parts.push(
+    '```vega-lite\n' +
+      JSON.stringify({
+        mark: 'bar',
+        data: { sql: 'SELECT region, SUM(amount) AS total FROM sales GROUP BY region ORDER BY region' },
+        encoding: {
+          x: { field: 'region', type: 'nominal' },
+          y: { field: 'total', type: 'quantitative' },
+        },
+      }) +
+      '\n```\n',
+  );
+  return {
+    root,
+    conversationPath,
+    secretsPath,
+    csvRelPath: 'sales.csv',
+    spellings,
+    note: parts.join('\n'),
+    hostileChartCount: spellings.length + 1,
+  };
+}

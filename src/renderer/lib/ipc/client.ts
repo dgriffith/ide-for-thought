@@ -207,7 +207,12 @@ export interface TableInfo {
 }
 
 export interface TablesApi {
+  /** User-initiated SQL (Query panel): the full root-locked connection. */
   query(sql: string): Promise<TablesQueryResult>;
+  /** SQL written inside a note, run by the preview with nobody pressing Run
+   *  (#2448): registered tables and views only. A refusal is the `ok: false`
+   *  arm, worded for a person — render it in place. */
+  queryNote(sql: string): Promise<TablesQueryResult>;
   list(): Promise<TableInfo[]>;
   /** Fires when a CSV is registered/unregistered or the initial scan completes. */
   onChanged(cb: () => void): () => void;

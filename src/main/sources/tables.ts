@@ -18,7 +18,7 @@ import { loadCsvSchema, buildReadCsvSql } from './csv-schema';
 import { logger } from '../../shared/logger';
 import { lockToDirectories } from './duckdb-lockdown';
 import { createCsvSniffer, type CsvSniffer } from './csv-sniffer';
-import { guardModelSql, type SqlGuardVerdict } from './llm-sql-guard';
+import { guardSql, type SqlGuardAudience, type SqlGuardVerdict } from './llm-sql-guard';
 
 interface TablesState {
   rootPath: string;
@@ -183,18 +183,45 @@ export async function runQuery(ctx: ProjectContext, sql: string): Promise<QueryR
   }
 }
 
+async function checkRegisteredSql(
+  ctx: ProjectContext,
+  sql: string,
+  audience: SqlGuardAudience,
+): Promise<SqlGuardVerdict> {
+  const state = getState(ctx);
+  if (!state) return { ok: false, reason: 'Tables DB is not initialized' };
+  return guardSql(async (q, params) => {
+    const reader = await state.connection.runAndReadAll(q, [...params]);
+    return reader.getRowObjectsJS();
+  }, sql, audience);
+}
+
 /**
  * Decide whether model-authored `sql` may run (#2442): only registered
  * relations and a few pure table functions, never a file. The LLM
- * `query_sql` path calls this before `runQuery`; no other caller does.
+ * `query_sql` path calls this before `runQuery`.
  */
-export async function checkModelSql(ctx: ProjectContext, sql: string): Promise<SqlGuardVerdict> {
-  const state = getState(ctx);
-  if (!state) return { ok: false, reason: 'Tables DB is not initialized' };
-  return guardModelSql(async (q, params) => {
-    const reader = await state.connection.runAndReadAll(q, [...params]);
-    return reader.getRowObjectsJS();
-  }, sql);
+export function checkModelSql(ctx: ProjectContext, sql: string): Promise<SqlGuardVerdict> {
+  return checkRegisteredSql(ctx, sql, 'model');
+}
+
+/**
+ * Run SQL written inside a note (#2448) — a vega `data.sql` / `data.table`
+ * binding or a `:::query-*` block with `language: sql` — through the same
+ * relation allowlist as `query_sql`, then execute it. These run on preview
+ * and on HTML export with nobody pressing Run, and a note's author is not
+ * necessarily the user, so they get registered tables and views only, never
+ * a file (`.minerva/` is inside the root the connection is locked to).
+ *
+ * A refusal is the `{ ok: false, error }` arm, worded for a person, so the
+ * chart or block renders it in place. Every caller that runs note-embedded
+ * SQL goes through here: the `TABLES_QUERY_NOTE` channel and the export's
+ * `vega-render.ts`.
+ */
+export async function runNoteQuery(ctx: ProjectContext, sql: string): Promise<QueryResult> {
+  const verdict = await checkRegisteredSql(ctx, sql, 'note');
+  if (!verdict.ok) return { ok: false, error: verdict.reason };
+  return runQuery(ctx, sql);
 }
 
 // ── CSV pipeline (#233) ─────────────────────────────────────────────────────

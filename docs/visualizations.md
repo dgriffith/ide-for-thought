@@ -123,6 +123,14 @@ SQL / table (the project's CSV files are registered as DuckDB tables):
   is quoted as a DuckDB identifier).
 - Table names come from the CSV path (`deriveTableName`) or a `table_name:` in
   the CSV's companion `.md`; the Tables view lists them.
+- Chart SQL reads **registered tables and views only** (#2448) — the same
+  allowlist as the LLM's `query_sql`. No `read_csv`/`read_text`/`glob`, and no
+  file path used as a table (`FROM 'x.csv'`): a note's author isn't
+  necessarily the user, and the chart runs on preview and export with nobody
+  pressing Run. Query a CSV through its registered name instead. A refusal
+  renders inline, and an HTML export keeps an error note in the chart's place.
+  `:::query-*` blocks with `language: sql` follow the same rule; the Query
+  panel, ```` ```sql ```` cells and `minerva.sql()` keep full in-root access.
 
 **Compute cell** — bind to the output of a runnable cell in the same note. Give
 the cell a stable id and reference it:
