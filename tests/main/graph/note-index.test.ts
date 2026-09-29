@@ -28,7 +28,10 @@ import {
   aliasEntries,
   aliasesForNote,
   indexedNotePaths,
+  wikiLinkIndex,
+  relocationIndexesFrom,
 } from '../../../src/main/graph/note-index';
+import { resolveWikiLinkTarget, resolveWikiLinkTargetWithIndex } from '../../../src/shared/wiki-link-resolver';
 import { projectContext } from '../../../src/main/project-context-types';
 
 let n = 0;
@@ -177,5 +180,53 @@ describe('note index — empty and isolated', () => {
 
     expect(aliasMapObject(a)).toEqual({ froma: 'note.md' });
     expect(aliasMapObject(b)).toEqual({ fromb: 'note.md' });
+  });
+});
+
+describe('aliases named after Object.prototype members (#2456 follow-up)', () => {
+  const PROTO_NAMES = ['constructor', 'toString', '__proto__', 'hasOwnProperty', 'valueOf'];
+
+  it('resolves none of them when no note or alias has that name', () => {
+    const ctx = freshCtx();
+    seed(ctx, [['notes/a.md', ['intro']]]);
+    const ix = wikiLinkIndex(ctx);
+    const wire = structuredClone(aliasMapObject(ctx));
+    for (const name of PROTO_NAMES) {
+      expect(resolveWikiLinkTargetWithIndex(name, ix), name).toBeNull();
+      expect(resolveWikiLinkTarget(name, [{ relativePath: 'notes/a.md', isDirectory: false }], wire), name).toBeNull();
+    }
+  });
+
+  it('keeps aliases with those names as ordinary entries, including __proto__', () => {
+    const ctx = freshCtx();
+    seed(ctx, [['notes/a.md', ['__proto__', 'toString']], ['notes/constructor.md', []]]);
+    const obj = aliasMapObject(ctx);
+    expect(Object.keys(obj).sort()).toEqual(['__proto__', 'tostring']);
+    expect(Object.hasOwn(obj, '__proto__')).toBe(true);
+    const ix = wikiLinkIndex(ctx);
+    expect(resolveWikiLinkTargetWithIndex('__proto__', ix)).toBe('notes/a.md');
+    expect(resolveWikiLinkTargetWithIndex('toString', ix)).toBe('notes/a.md');
+    expect(resolveWikiLinkTargetWithIndex('constructor', ix)).toBe('notes/constructor.md');
+    expect(resolveWikiLinkTargetWithIndex('valueOf', ix)).toBeNull();
+    // The IPC copy the renderer resolves against.
+    const files = [
+      { relativePath: 'notes/a.md', isDirectory: false },
+      { relativePath: 'notes/constructor.md', isDirectory: false },
+    ];
+    const wire = structuredClone(obj);
+    expect(resolveWikiLinkTarget('__proto__', files, wire)).toBe('notes/a.md');
+    expect(resolveWikiLinkTarget('hasOwnProperty', files, wire)).toBeNull();
+  });
+
+  it('carries an alias named __proto__ through a relocation', () => {
+    const moves = new Map([['notes/a.md', 'archive/a.md']]);
+    const { before, after } = relocationIndexesFrom(
+      ['notes/a.md', 'notes/b.md'], new Map([['notes/a.md', ['__proto__']]]), moves, { carryAliases: true },
+    );
+    expect(resolveWikiLinkTargetWithIndex('__proto__', before)).toBe('notes/a.md');
+    for (const ix of after) {
+      expect(resolveWikiLinkTargetWithIndex('__proto__', ix)).toBe('archive/a.md');
+      expect(resolveWikiLinkTargetWithIndex('constructor', ix)).toBeNull();
+    }
   });
 });

@@ -160,6 +160,45 @@ describe('handleJumpToMatch', () => {
   });
 });
 
+describe('handleNavigate with targets named after Object.prototype members (#2456 follow-up)', () => {
+  // The renderer's alias map arrives over IPC as an ordinary object, so a bare
+  // `aliases[key]` lookup answered `[[constructor]]` with `Object` — a
+  // function, which was then handed to `openFile` as a path.
+  const PROTO_NAMES = ['constructor', 'toString', '__proto__', 'hasOwnProperty', 'valueOf'];
+  const wire = (entries: [string, string][]) =>
+    structuredClone(Object.fromEntries(entries)) as Record<string, string>;
+
+  beforeEach(() => {
+    h.notebase.files = [{ relativePath: 'notes/other.md', isDirectory: false, name: 'other.md' }];
+  });
+
+  it('falls through to `<name>.md` when no such note or alias exists', async () => {
+    ctx.getAliasMap = () => wire([['intro', 'notes/other.md']]);
+    for (const name of PROTO_NAMES) {
+      h.editor.openFile.mockClear();
+      await view.handleNavigate(name);
+      expect(h.editor.openFile).toHaveBeenCalledWith(`${name}.md`);
+    }
+  });
+
+  it('opens the note or alias that really has that name', async () => {
+    h.notebase.files = [
+      { relativePath: 'notes/other.md', isDirectory: false, name: 'other.md' },
+      { relativePath: 'deep/constructor.md', isDirectory: false, name: 'constructor.md' },
+    ];
+    ctx.getAliasMap = () => wire([['tostring', 'notes/other.md'], ['__proto__', 'notes/other.md']]);
+
+    await view.handleNavigate('constructor');
+    expect(h.editor.openFile).toHaveBeenLastCalledWith('deep/constructor.md');
+    await view.handleNavigate('toString');
+    expect(h.editor.openFile).toHaveBeenLastCalledWith('notes/other.md');
+    await view.handleNavigate('__proto__');
+    expect(h.editor.openFile).toHaveBeenLastCalledWith('notes/other.md');
+    await view.handleNavigate('valueOf');
+    expect(h.editor.openFile).toHaveBeenLastCalledWith('valueOf.md');
+  });
+});
+
 describe('handleNavBack', () => {
   it('opens the note position returned by goBack', async () => {
     h.nav.goBack.mockReturnValue({ type: 'note', relativePath: 'a.md', offset: 5 });
