@@ -67,4 +67,28 @@ describe('injectSparqlPrefixes', () => {
     const out = injectSparqlPrefixes(input);
     expect(out).toBe(input);
   });
+
+  // Shrunk counterexamples from tests/property/sparql-prefixes.property.test.ts (#2388).
+  it('still injects a prefix that a comment in the body only mentions', () => {
+    const out = injectSparqlPrefixes(
+      'SELECT * WHERE {\n  BIND(skos:x AS ?v0)\n  # PREFIX skos: <http://example.com/skos-in-a-comment#>\n}',
+    );
+    expect(out).toContain('PREFIX skos: <http://www.w3.org/2004/02/skos/core#>');
+  });
+
+  it('still injects a prefix that a string literal only mentions', () => {
+    const out = injectSparqlPrefixes('SELECT * WHERE { BIND("prefix owl: in a string" AS ?s) }');
+    expect(out).toContain('PREFIX owl: <http://www.w3.org/2002/07/owl#>');
+  });
+
+  it('treats prefix names as case-sensitive: PREFIX DC: does not declare dc', () => {
+    const out = injectSparqlPrefixes('PREFIX DC: <http://example.com/a#>\nSELECT * WHERE { ?s dc:title ?t }');
+    expect(out).toContain('PREFIX dc: <http://purl.org/dc/terms/>');
+    expect(out).toContain('PREFIX DC: <http://example.com/a#>');
+  });
+
+  it('reads declarations after comments and BASE in the prologue', () => {
+    const input = '# header\nBASE <urn:b:>\nprefix\tfoaf:<http://example.com/f#>\nSELECT * WHERE { ?s foaf:x ?o }';
+    expect(injectSparqlPrefixes(input)).not.toContain('PREFIX foaf:');
+  });
 });
