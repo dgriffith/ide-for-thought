@@ -9,7 +9,8 @@ Minerva is a desktop markdown IDE built with Electron + Svelte 5 + TypeScript. I
 - `pnpm dev` — Start the dev server (electron-forge + Vite HMR)
 - `pnpm lint` — Full static-check gate (`scripts/lint.mjs`). Three checks — `tsc --noEmit` (`.ts` type errors), `svelte-check --threshold error` (`.svelte` script/template drift, undefined references, wrong prop types), and `eslint .` (lint rules, incl. the renderer data-flow rule) — run **in parallel** (#1645, `await Promise.all`). Two consequences: the wall clock is the slowest check rather than the sum (~48s → ~39s), and a bad run reports **every** check that failed, not just the first — so don't fix one and assume the rest were fine. Each check ticks off live and its output is printed as a labelled block at the end. `pnpm lint:seq` runs the same three sequentially if you want a first-failure stop. Note `svelte-check` — not `tsc` or `eslint` — is what catches script↔template drift in `.svelte` files. Warnings (a11y, state-referenced-locally) are not fatal.
 - `pnpm test` — Run tests once (vitest run). Use `pnpm test:watch` for the file-watcher loop.
-- `pnpm build` — Build distributable (electron-forge make)
+- `pnpm build` — Build distributable (electron-forge make), **unsigned**
+- `pnpm build:release` — Signed + notarized distributable (`MINERVA_RELEASE=1`). Agents: never run it; see *Signing is opt-in* below
 
 A **pre-push hook** (`.githooks/pre-push`, activated by the `prepare` script's
 `core.hooksPath` on `pnpm install`) runs `pnpm lint` before each push so an
@@ -692,6 +693,39 @@ Three consequences for anyone touching packaging:
   Electron upgrade adds a fuse the policy doesn't name.
   `tests/architecture/electron-fuses.test.ts` pins the values.
 
+### Signing is opt-in: `MINERVA_RELEASE=1`
+
+A packaged build signs and notarizes **only** when `MINERVA_RELEASE=1` is set —
+`pnpm build:release` sets it, and `release.yml`'s signed build step runs that
+script. Apple credentials in the environment (`APPLE_API_KEY` /
+`APPLE_API_KEY_ID` / `APPLE_API_ISSUER`, `OSX_SIGN_IDENTITY`) never sign on
+their own. They used to: the maintainer's shell exports them, so every
+`pnpm build:e2e`, `pnpm package` and `pnpm build` on that machine — agents'
+test builds included — signed and ran `notarytool submit` under the
+maintainer's Developer ID.
+
+| command | signs + notarizes? |
+|---|---|
+| `pnpm build:release` | yes — and **fails** if the creds are missing or incomplete |
+| `pnpm build` | no (prints one line if creds are present, pointing at `build:release`) |
+| `pnpm build:e2e`, `pnpm package`, `pnpm test:e2e`, `pnpm dev` | no |
+
+- **The policy is `scripts/lib/signing-policy.mjs`**, a pure
+  `{platform, env} → sign-and-notarize | sign | skip | error` function that
+  `forge.config.ts` feeds to `osxSign`, `osxNotarize` and the `postMake` DMG
+  notarization. `forge.config.ts` reads no Apple env var itself — keep it that
+  way, or a creds-only route to signing comes back.
+- **Fail-loud both ways.** Flag + no/partial creds (or a non-macOS host, or an
+  unrecognised flag value) throws while forge loads the config, before
+  anything is packaged: a "release" is never quietly unsigned. Flag +
+  `OSX_SIGN_IDENTITY` alone signs without notarizing and says so.
+- `tests/scripts/signing-policy.test.ts` covers the rule;
+  `tests/architecture/release-signing-flag.test.ts` pins who sets the flag —
+  only `build:release`, only on `release.yml`'s `HAS_SIGNING`-gated step, never
+  in `ci.yml`/`bench.yml`.
+- **Agents: never run `pnpm build:release`, and never set `MINERVA_RELEASE`
+  alongside real credentials.** Use `pnpm build:e2e` / `pnpm package`.
+
 ### The release tag is `v` + package.json's version (#2245)
 
 Exactly, including any prerelease suffix. Two different systems read the two
@@ -1040,7 +1074,7 @@ untested ones sit in a `KNOWN_UNTESTED` list that may only shrink.
 
 ### The architecture ratchets are inventoried in `docs/architecture-ratchets.md` (#2262)
 
-`tests/architecture/` holds **41** tests that check the shape of the codebase
+`tests/architecture/` holds **42** tests that check the shape of the codebase
 rather than the behavior of any feature — the package-cycle check, the file-size
 budgets, the anti-pattern ratchets, the dialog-adoption ratchet, the two
 temp-project-fixture ratchets, the CI-workflow checks, and so on. Most of them

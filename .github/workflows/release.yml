@@ -218,7 +218,20 @@ jobs:
             echo "SIGNING_KEYCHAIN=$KEYCHAIN_PATH"
           } >> "$GITHUB_ENV"
 
-      - name: Build distributables (electron-forge make)
+      # Signing is opt-in by an explicit flag, never by credentials being in
+      # the environment (scripts/lib/signing-policy.mjs). `build:release` sets
+      # MINERVA_RELEASE=1; forge.config.ts then signs + notarizes, and FAILS the
+      # build if the creds exported above are missing or incomplete — a release
+      # build never comes out quietly unsigned. A secretless run (fork, manual
+      # dispatch without creds) takes the plain unsigned `pnpm build` instead,
+      # exactly as before. Only these two steps run forge; the verify, fuse and
+      # smoke-boot steps below read the built app and never repackage it.
+      - name: Build distributables — signed release (electron-forge make)
+        if: env.HAS_SIGNING == 'true'
+        run: pnpm build:release
+
+      - name: Build distributables — unsigned (no signing secrets)
+        if: env.HAS_SIGNING != 'true'
         run: pnpm build
 
       # The signed/notarized artifact was previously never launched or
