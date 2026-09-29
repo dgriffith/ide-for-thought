@@ -21,7 +21,7 @@ what to do about it. `architecture-ratchets-doc.test.ts` keeps the two sides in
 step — a new test in `tests/architecture/` with no entry here fails, and an
 entry here naming a test that no longer exists fails too (#2262).
 
-Written up as of 2026-09-29, 42 tests.
+Written up as of 2026-09-29, 43 tests.
 
 ---
 
@@ -746,6 +746,23 @@ stamps every source file with the checkout time), so the corpus stays correct
 and the cache just quietly stops paying. **When it fires:** add the
 `if: failure()` notify step — one issue updated weekly, not one per run — or
 re-sync the cache key with the hashed input set.
+
+### `e2e-flake-budget.test.ts`
+
+**The e2e flake budget is wired up, and set in one place** (#2379).
+`scripts/e2e-flake-report.mjs` fails the e2e job when more than `FLAKE_BUDGET`
+(1, in `scripts/lib/e2e-flake-budget.mjs`, with the measurement behind it)
+tests needed a retry in one run. This pins the wiring any of which can be
+removed silently: `ci.yml`'s e2e job runs the report with `if: always()` and no
+`continue-on-error` (the #1946 state, where the budget was a log line), with no
+`--max-flaky` flag (a second copy of the policy to drift); the file it reads is
+the one Playwright's `json` reporter writes (rename one side and the report
+exits 0 on "nothing to analyze" forever); CI `retries` stay ≥ 1; and
+`failOnFlakyTests` / `--fail-on-flaky-tests` stay off — a budget of 0 in
+disguise, which defeats the retries that absorb Electron-boot hiccups (#1097).
+**When it fires:** restore the wiring, or change the budget in
+`e2e-flake-budget.mjs` — with new flake history in the PR, since the number is
+a measurement, not a preference.
 
 ---
 

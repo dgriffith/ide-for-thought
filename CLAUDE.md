@@ -763,7 +763,8 @@ checks HEAD — refusing one not on `origin/main`, or while CI is still running 
 and `release.yml`'s `ci-verdict` job, which `build-macos` `needs:`, runs
 `check-release-ci.mjs --wait "$GITHUB_SHA"`, polling a running CI for up to
 30 min on a cheap ubuntu runner rather than an idle macOS one. There is **no
-bypass**: rerun a flaky red run to green, fix a real one.
+bypass**: rerun a flaky red run to green — naming the test that flaked (see
+*The e2e job has a flake budget* below) — and fix a real one.
 ### The lockfile gate runs unconditionally (#2244)
 
 `pnpm install --frozen-lockfile` is the only thing in the pipeline that
@@ -1008,6 +1009,37 @@ gh api repos/<owner>/<repo>/git/ref/tags/<tag> --jq .object.sha
 
 Resolve an annotated tag one more hop through `git/tags/<sha>`.
 
+### The e2e job has a flake budget of one (#2379)
+
+Playwright retries each e2e test twice in CI so one Electron-boot hiccup
+doesn't fail the job (#1097). `scripts/e2e-flake-report.mjs` tables every
+retry and **fails the job when more than one test needed one**
+(`flake budget exceeded: 2 flaky > 1`, naming them, also as an `::error`
+annotation). The number lives in `scripts/lib/e2e-flake-budget.mjs` with the
+evidence, not as a Playwright flag or a workflow argument;
+`tests/architecture/e2e-flake-budget.test.ts` pins the wiring.
+
+It is a measurement. Over 105 `ci.yml` runs: 0 flakes in the 48 before the
+proposal-review specs landed, then 34 in 59, 20 runs with one and 7 with two.
+33 of the 34 were one race: a later announcement replaced the approve/reject
+announcement in the single polite live region before the spec read it —
+almost always the seeded proposal's own "New proposal" arrival toast, flushed
+after a 300ms coalescing window (twice, "Semantic search index ready"). A
+budget of one would have caught it the first day. Two consequences:
+
+- **A red e2e job with "1 flaky" was not failed by the flake.** Playwright
+  also exits 1 on an error outside any test — a worker teardown timeout means
+  the app under test never quit — and retries can't absorb that. The report's
+  verdict now names it, so the flake table isn't read as the cause.
+- **Assert on announcements as a history.** `tests/e2e/helpers/announcements.ts`
+  records every text the live region showed. A point-in-time
+  `toContainText` on the region races whatever announces next.
+
+**Don't `gh run rerun --failed` a flaky e2e job to green without naming the
+test.** The rerun replaces the attempt everyone looks at, and the flake leaves
+the record — which is how 34 flakes read as "0 flakes in 8+ runs" in the issue
+that set this budget.
+
 ### Out-of-band checks ship their notification path (#2242)
 
 Every detector in this repo runs on the PR, inside `pnpm test` or (for the
@@ -1074,7 +1106,7 @@ untested ones sit in a `KNOWN_UNTESTED` list that may only shrink.
 
 ### The architecture ratchets are inventoried in `docs/architecture-ratchets.md` (#2262)
 
-`tests/architecture/` holds **42** tests that check the shape of the codebase
+`tests/architecture/` holds **43** tests that check the shape of the codebase
 rather than the behavior of any feature — the package-cycle check, the file-size
 budgets, the anti-pattern ratchets, the dialog-adoption ratchet, the two
 temp-project-fixture ratchets, the CI-workflow checks, and so on. Most of them
