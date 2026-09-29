@@ -49,9 +49,13 @@ let arrivalTimer: ReturnType<typeof setTimeout> | null = null;
 
 function flushArrivals(): void {
   arrivalTimer = null;
-  if (arrivalBuffer.size === 0) return;
-  const batch = [...arrivalBuffer.values()];
+  // Only what is STILL pending. A proposal decided inside the coalescing
+  // window is not news any more — announcing "New proposal" for it would land
+  // after, and overwrite, the approve/reject announcement in the single polite
+  // live region (#2379: the most common cause of the e2e flakes measured).
+  const batch = [...arrivalBuffer.values()].filter((p) => prevPending.has(p.uri));
   arrivalBuffer = new Map();
+  if (batch.length === 0) return;
   for (const cb of arrivalListeners) cb(batch);
 }
 

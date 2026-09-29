@@ -85,6 +85,30 @@ describe('proposals store arrival detection (#1541)', () => {
     expect(batches[0]!.map((x) => x.uri).sort()).toEqual(['a', 'b']);
   });
 
+  // #2379: the seeded proposal's arrival toast flushed AFTER the reviewer had
+  // already approved it, and its "New proposal" announcement overwrote
+  // "Approved — landed" in the live region — 33 of 34 measured e2e flakes.
+  it('does NOT announce a proposal decided inside the coalescing window', async () => {
+    listMock.mockResolvedValue([p('a')]);
+    refs.onChanged!();
+    await vi.advanceTimersByTimeAsync(100); // buffered, not yet flushed
+    listMock.mockResolvedValue([p('a', 'approved')]);
+    refs.onChanged!();
+    await vi.advanceTimersByTimeAsync(300);
+    expect(batches).toEqual([]);
+  });
+
+  it('keeps the still-pending half of a batch when part of it is decided early', async () => {
+    listMock.mockResolvedValue([p('a'), p('b')]);
+    refs.onChanged!();
+    await vi.advanceTimersByTimeAsync(100);
+    listMock.mockResolvedValue([p('a', 'rejected'), p('b')]);
+    refs.onChanged!();
+    await vi.advanceTimersByTimeAsync(300);
+    expect(batches).toHaveLength(1);
+    expect(batches[0]!.map((x) => x.uri)).toEqual(['b']);
+  });
+
   it('only the NEW proposal in a growing list is an arrival', async () => {
     await baseline([p('a')]);
     batches = [];

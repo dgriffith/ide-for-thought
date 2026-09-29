@@ -49,6 +49,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
 import { launchMinerva, projectRoot } from './helpers/launch';
+import { expectAnnounced, recordAnnouncements } from './helpers/announcements';
 
 // `window.api` is used inside `win.evaluate` — the renderer's global typing
 // isn't in this spec's scope, so calls are validated at runtime, not by tsc.
@@ -161,6 +162,9 @@ test('keyboard only: create a note, wiki-link it, approve a proposal — no poin
     await expect(win.getByRole('button', { name: 'Open Thoughtbase' })).toHaveCount(0, { timeout: 25_000 });
 
     await installPointerCounter(win);
+    // Announcements are asserted as a history, not a point-in-time read of the
+    // region — see helpers/announcements.ts (#2379).
+    await recordAnnouncements(win);
 
     // ── 1. Create a note ────────────────────────────────────────────────
     await win.keyboard.press('ControlOrMeta+KeyN');
@@ -225,7 +229,7 @@ test('keyboard only: create a note, wiki-link it, approve a proposal — no poin
     await expect(panel.locator('.success-banner')).toContainText('Approved — landed');
     // …and a keyboard/screen-reader user hears it through the app's live
     // region, since the banner itself is not one (#2374).
-    await expect(win.locator('[data-testid="live-announcer-polite"]')).toContainText('Approved — landed');
+    await expectAnnounced(win, 'Approved — landed');
     await expect.poll(() => graphRowCount(win, CLAIM_QUERY), {
       message: 'claim should be present after approving by keyboard',
     }).toBeGreaterThan(0);

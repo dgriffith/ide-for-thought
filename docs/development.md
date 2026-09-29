@@ -233,7 +233,7 @@ doubt:
   surface) and `pnpm test tests/main/ipc/registration.test.ts -u` (the
   registered-channel set), and neither is caught by lint. If a snapshot test
   fails, read *why* before regenerating it.
-- **`tests/architecture/` is not about any feature.** Its 42 tests check the
+- **`tests/architecture/` is not about any feature.** Its 43 tests check the
   shape of the codebase — package cycles, file-size budgets, anti-pattern
   ratchets, config-loader and dialog adoption, the CI workflows. Most fail by
   naming a *new* offender against a committed baseline, so the first time you
@@ -264,6 +264,12 @@ doubt:
   boot, the smoke path) are *not* exercised on Windows/Linux. If Minerva ever
   ships those platforms (#962 tracks x64/universal packaging), this boundary is
   where cross-platform e2e coverage would need to be added.
+- **The e2e job has a flake budget of one** (#2379). CI retries each e2e test
+  twice; if more than one test needed a retry in a run, the "E2E flake report"
+  step fails the job and names them. A single flaky test passes, but it is
+  still in the step summary — fix it or file it. Don't re-run a flaky e2e job
+  to green without saying which test flaked: the re-run replaces the attempt
+  everyone looks at, and the flake disappears from the record.
 
 ## Pull requests
 
