@@ -270,10 +270,12 @@ function throwingEngine(message = 'boom'): Engine {
   return {
     query: fail,
     sql: fail,
+    agentSql: fail,
     search: fail,
     grep: fail,
     semantic: fail,
     read: fail,
+    agentRead: fail,
     context: fail,
     proposeNote: fail,
   };

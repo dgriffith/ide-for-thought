@@ -15,6 +15,12 @@
  * Reads plus exactly one write, `propose_note` (#1147), which goes through the
  * approval gate — an external agent proposes, the human confirms. Nothing here
  * touches the vault directly.
+ *
+ * Every argument here is the external agent's, and that agent reads note text
+ * a shared thoughtbase can plant instructions in. So the tools that take a
+ * path, or a query language that can name a file, call the Engine's `agent*`
+ * methods (#2452): `sql_query` → `agentSql` (registered relations only, the
+ * #2442 allowlist) and `read_note` → `agentRead` (nothing under `.minerva/`).
  */
 import * as readline from 'node:readline';
 import { type Engine, type EngineOptions, type ExecResult } from './engine';
@@ -91,14 +97,25 @@ export const MCP_TOOLS: McpTool[] = [
   {
     name: 'sql_query',
     description:
-      "Run a DuckDB SQL query over the vault's CSV tables (each CSV is registered under a " +
-      'name derived from its path). Returns rows.',
+      'Run one read-only DuckDB SELECT over the tables and views Minerva registered for this ' +
+      'thoughtbase: each CSV file (under a name derived from its path) and each captioned markdown ' +
+      'table. Query them by name; "SHOW TABLES" lists them and "DESCRIBE <table>" gives columns. ' +
+      'Files cannot be read directly — read_csv / read_text / glob and quoted file paths are refused. ' +
+      'Returns rows.',
     inputSchema: {
       type: 'object',
-      properties: { sql: { type: 'string', description: 'A DuckDB SQL query string.' } },
+      properties: {
+        sql: {
+          type: 'string',
+          description: 'One DuckDB SELECT / WITH / DESCRIBE / SUMMARIZE / SHOW TABLES statement over registered tables.',
+        },
+      },
       required: ['sql'],
     },
-    run: (engine, args) => engine.sql(str(args.sql)),
+    // `agentSql`, never `sql` (#2452): the SQL is the external agent's, which a
+    // planted note can steer, so it gets the #2442 relation allowlist. The
+    // user-typed `minerva sql` CLI command is the one caller of `engine.sql`.
+    run: (engine, args) => engine.agentSql(str(args.sql)),
   },
   {
     name: 'search_notes',
@@ -158,13 +175,18 @@ export const MCP_TOOLS: McpTool[] = [
   },
   {
     name: 'read_note',
-    description: "Read a note's raw markdown by its vault-relative path.",
+    description:
+      "Read a note's raw markdown by its vault-relative path. Paths inside hidden or " +
+      'Minerva-internal folders (such as .minerva/) are refused.',
     inputSchema: {
       type: 'object',
       properties: { relative_path: { type: 'string', description: 'Vault-relative note path.' } },
       required: ['relative_path'],
     },
-    run: (engine, args) => engine.read(str(args.relative_path)),
+    // `agentRead`, never `read` (#2452): the path is the external agent's
+    // choice, so `.minerva/` (transcripts, secrets.json) and other ignored
+    // paths are refused. `minerva read` on the CLI keeps `read`.
+    run: (engine, args) => engine.agentRead(str(args.relative_path)),
   },
   {
     name: 'gather_context',

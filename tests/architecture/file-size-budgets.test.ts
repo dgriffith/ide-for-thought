@@ -125,7 +125,7 @@ const BUDGETS: Record<string, number> = {
   // instead of a static import, so the 107MB native module leaves the
   // pre-window boot path. The extra lines are the lazy resolution and the
   // comment saying why the import looks indirect.
-  'src/main/sources/tables.ts': 867,  // #2448: runNoteQuery + checkRegisteredSql sit beside runQuery (they need the connection state)
+  'src/main/sources/tables.ts': 881,  // #2448/#2452: runNoteQuery / runAgentQuery + checkRegisteredSql sit beside runQuery (they need the connection state)
   // #2220 (601 → 633): the search callback grew a match cap, a generation
   // guard that drops superseded responses, and a truncation-aware status line.
   // Raised rather than extracted on purpose — all 32 lines are the one

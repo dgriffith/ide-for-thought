@@ -155,6 +155,16 @@ Tools: `query_graph`, `sql_query`, `search_notes`, `grep_notes`,
 slice — see *Context handoff*), and `propose_note` (files a pending proposal
 stamped `mcp:<client-name>` — see *Proposing* above).
 
+The MCP tools run what an external agent chose, and that agent reads note text a
+shared thoughtbase could plant instructions in, so two of them are narrower than
+their CLI counterparts (#2452). `sql_query` reads only the tables and views
+Minerva registered (CSV files, captioned markdown tables) plus `SHOW TABLES` /
+`DESCRIBE`; `read_csv`, `read_text`, `glob` and quoted file paths are refused,
+with a message listing the registered tables. `read_note` refuses any path in
+`.minerva/` or another hidden folder, including one reached through an in-root
+symlink. The CLI's `minerva sql` and `minerva read` are your own input and are
+not restricted: `minerva sql` can still `read_csv` any file inside the thoughtbase.
+
 Point an MCP client at it (the client launches it as a subprocess):
 
 ```json

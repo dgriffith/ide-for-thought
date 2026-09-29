@@ -197,6 +197,14 @@ function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): voi
   });
 }
 
+/**
+ * The ops a CLI/MCP client may forward. Deliberately just these two: every
+ * other Engine op runs in the client's own process. In particular there is NO
+ * SQL op (#2452) — MCP `sql_query` is agent-authored and runs guarded in the
+ * client (`agentSql` → `tables.runAgentQuery`). A SQL op added here must call
+ * `runAgentQuery`, never `runQuery`, since this endpoint cannot tell the user's
+ * CLI from an agent's MCP call.
+ */
 async function dispatch(
   ctx: ProjectContext,
   op: unknown,

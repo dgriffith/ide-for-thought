@@ -218,8 +218,22 @@ export function checkModelSql(ctx: ProjectContext, sql: string): Promise<SqlGuar
  * SQL goes through here: the `TABLES_QUERY_NOTE` channel and the export's
  * `vega-render.ts`.
  */
-export async function runNoteQuery(ctx: ProjectContext, sql: string): Promise<QueryResult> {
-  const verdict = await checkRegisteredSql(ctx, sql, 'note');
+export function runNoteQuery(ctx: ProjectContext, sql: string): Promise<QueryResult> {
+  return runGuardedQuery(ctx, sql, 'note');
+}
+
+/**
+ * Run SQL an EXTERNAL agent wrote (#2452) — the `sql_query` tool of
+ * `minerva mcp` — through the same allowlist, worded for that agent. The
+ * user's own `minerva sql <sql>` does not come through here; it keeps
+ * {@link runQuery}, like the Query panel.
+ */
+export function runAgentQuery(ctx: ProjectContext, sql: string): Promise<QueryResult> {
+  return runGuardedQuery(ctx, sql, 'agent');
+}
+
+async function runGuardedQuery(ctx: ProjectContext, sql: string, audience: SqlGuardAudience): Promise<QueryResult> {
+  const verdict = await checkRegisteredSql(ctx, sql, audience);
   if (!verdict.ok) return { ok: false, error: verdict.reason };
   return runQuery(ctx, sql);
 }

@@ -27,6 +27,7 @@ import { getSharedEmbedder } from '../main/embeddings/shared-embedder';
 import { fileNoteProposal, type ProposeNoteInput } from '../main/llm/propose-note';
 import { readFile } from '../main/notebase/fs';
 import { searchInNotes } from '../main/notebase/search-in-notes';
+import { hasIgnoredSegment } from '../shared/ignored-dirs';
 import type { ProjectContext } from '../main/project-context-types';
 
 export type ExecResult = { ok: true; data: unknown } | { ok: false; error: string };
@@ -44,9 +45,32 @@ const GREP_MAX_LIMIT = 200;
 
 export type { ProposeNoteInput };
 
+/*
+ * WHO WROTE THE INPUT decides which method runs it (#2452). Two callers drive
+ * this engine and they are not equally trusted:
+ *
+ *   - the CLI (`minerva sql`, `minerva read`, …) runs what the USER typed at
+ *     their own shell — like the Query panel, it gets the full root-locked
+ *     connection and can `read_csv` an in-root file;
+ *   - `minerva mcp` runs what an EXTERNAL AGENT chose, and that agent reads
+ *     thoughtbase text (which a shared note can plant instructions in) through
+ *     the other MCP tools. Its input is untrusted, so it gets the `agent*`
+ *     methods: `agentSql` (the #2442 relation allowlist) and `agentRead`
+ *     (nothing under `.minerva/` or any other ignored/hidden path).
+ *
+ * Do not "fix" the CLI into the guarded methods (it is the user's own input),
+ * and do not point an MCP tool at `sql` / `read` (it would reopen
+ * `.minerva/conversations/*` and `.minerva/secrets.json` to a planted note).
+ * `tests/cli/mcp-agent-guard.test.ts` fails if an MCP tool reaches either.
+ */
 export interface Engine {
   query(sparql: string): Promise<ExecResult>;
+  /** The USER's own SQL (the `minerva sql` CLI command): unguarded, on the
+   *  root-locked connection. Never call this with agent-authored SQL. */
   sql(sql: string): Promise<ExecResult>;
+  /** Agent-authored SQL (MCP `sql_query`): registered tables and views only,
+   *  never a file — `tables.runAgentQuery`, the #2442 allowlist (#2452). */
+  agentSql(sql: string): Promise<ExecResult>;
   search(text: string, limit?: number): Promise<ExecResult>;
   semantic(text: string, limit?: number): Promise<ExecResult>;
   /** Exact literal / regex search over raw note text (like grep) — matches
@@ -54,7 +78,13 @@ export interface Engine {
    *  full-text) and `semantic` (meaning); the tool for exact strings, symbols,
    *  and structural patterns. */
   grep(pattern: string, opts?: GrepOptions): Promise<ExecResult>;
+  /** The USER's own read (the `minerva read` CLI command): any in-root path. */
   read(relativePath: string): Promise<ExecResult>;
+  /** Agent-requested read (MCP `read_note`): as `read`, but refuses a path
+   *  with an ignored or hidden segment — `.minerva/` (transcripts,
+   *  `secrets.json`), `.git/`, `node_modules/`, dotfiles — the same entries
+   *  every listing, index and search already skips (#2452). */
+  agentRead(relativePath: string): Promise<ExecResult>;
   /** Assemble a task-relevant slice of the thoughtbase for a topic: the matching
    *  notes plus their link neighborhood and full content, as one bundle an
    *  external agent can seed its own context with (#1150). */
@@ -75,6 +105,12 @@ export interface EngineOptions {
    *  shared embedder resolves the same root itself) and tests inject a fake
    *  embedder instead. */
   resourcesBase?: string | undefined;
+}
+
+function sqlResult(result: tables.QueryResult): ExecResult {
+  return result.ok
+    ? { ok: true, data: { columns: result.columns, rows: result.rows } }
+    : { ok: false, error: result.error };
 }
 
 const SEMANTIC_EMPTY_NOTE =
@@ -111,6 +147,33 @@ export function createEngine(ctx: ProjectContext, opts: EngineOptions = {}): Eng
     await vectors.init(ctx, { embedder: opts.embedder ?? getSharedEmbedder(opts.resourcesBase) });
   })());
 
+  /** Does `relativePath`, with every symlink followed, resolve to an ignored
+   *  path under the root? A path the filesystem won't resolve (missing,
+   *  dangling link, loop, permission — any errno) is left to `readPath`, whose
+   *  own error is the right answer; anything else is a real failure. */
+  async function landsInIgnored(relativePath: string): Promise<boolean> {
+    const resolved = await Promise.all([
+      fs.realpath(path.resolve(ctx.rootPath, relativePath)),
+      fs.realpath(ctx.rootPath),
+    ]).catch((err: unknown) => {
+      if (err instanceof Error && typeof (err as NodeJS.ErrnoException).code === 'string') return null;
+      throw err;
+    });
+    if (!resolved) return false;
+    const [real, realRoot] = resolved;
+    const rel = path.relative(realRoot, real);
+    return !rel.startsWith('..') && !path.isAbsolute(rel) && hasIgnoredSegment(rel);
+  }
+
+  async function readPath(relativePath: string): Promise<ExecResult> {
+    try {
+      const content = await readFile(ctx.rootPath, relativePath);
+      return { ok: true, data: { path: relativePath, content } };
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    }
+  }
+
   return {
     async query(sparql) {
       await ensureGraph();
@@ -118,11 +181,14 @@ export function createEngine(ctx: ProjectContext, opts: EngineOptions = {}): Eng
       return r.ok ? { ok: true, data: { columns: r.columns, results: r.results } } : { ok: false, error: r.error };
     },
     async sql(sql) {
+      // User-typed (CLI) — deliberately unguarded; see the note on `Engine`.
       await ensureTables();
-      const result = await tables.runQuery(ctx, sql);
-      return result.ok
-        ? { ok: true, data: { columns: result.columns, rows: result.rows } }
-        : { ok: false, error: result.error };
+      return sqlResult(await tables.runQuery(ctx, sql));
+    },
+    async agentSql(sql) {
+      // Agent-authored (MCP) — guarded; see the note on `Engine`.
+      await ensureTables();
+      return sqlResult(await tables.runAgentQuery(ctx, sql));
     },
     async search(text, limit) {
       await ensureSearch();
@@ -162,13 +228,24 @@ export function createEngine(ctx: ProjectContext, opts: EngineOptions = {}): Eng
         data: { pattern, regex, caseSensitive, total, truncated: matches.length < total, matches },
       };
     },
-    async read(relativePath) {
-      try {
-        const content = await readFile(ctx.rootPath, relativePath);
-        return { ok: true, data: { path: relativePath, content } };
-      } catch (err) {
-        return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    read: readPath,
+    async agentRead(relativePath) {
+      if (typeof relativePath !== 'string' || !relativePath) {
+        return { ok: false, error: 'relative_path is required' };
       }
+      // Check the path as spelled AND where it really lands: an in-root
+      // symlink (`notes/x.json → ../.minerva/secrets.json`) passes the
+      // containment check by design, so the lexical test alone is not enough.
+      if (hasIgnoredSegment(relativePath) || (await landsInIgnored(relativePath))) {
+        return {
+          ok: false,
+          error:
+            `Refused: "${relativePath}" is inside a hidden or Minerva-internal folder (such as .minerva/), ` +
+            'which read_note cannot read. Read notes by the paths search_notes, grep_notes and ' +
+            'gather_context return.',
+        };
+      }
+      return readPath(relativePath);
     },
 
     async context(topic, limit) {

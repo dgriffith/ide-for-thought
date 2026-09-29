@@ -11,6 +11,14 @@
  *
  * Every other op (query/search/sql/grep/read/context) is read-only or in-memory
  * and passes straight through to the direct engine, unrouted.
+ *
+ * That includes the agent-guarded `agentSql` / `agentRead` (#2452): MCP
+ * `sql_query` and `read_note` run in THIS process, through the #2442 allowlist
+ * and the ignored-path check, whether or not an app is open — the app's
+ * substrate server has no SQL or read op to forward them to. If one is ever
+ * added, its handler must call `tables.runAgentQuery` (never `runQuery`), and
+ * `tests/cli/mcp-agent-guard.test.ts` drives the refusal matrix with a live
+ * app registered so a routed path is covered by the same cases.
  */
 import http from 'node:http';
 import fs from 'node:fs/promises';

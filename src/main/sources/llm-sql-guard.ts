@@ -40,31 +40,40 @@
  * Where this module's scope is narrower than DuckDB's, the answer is a
  * refusal, never a file read.
  *
- * Two paths run it (#2448), each with its own {@link SqlGuardAudience}:
- *   - `model` — the LLM's `query_sql` tool (#2442).
+ * Three paths run it, each with its own {@link SqlGuardAudience}:
+ *   - `model` — the in-app LLM's `query_sql` tool (#2442).
  *   - `note` — SQL written INSIDE a note that runs without the user running
  *     anything: a vega-lite `data.sql` / `data.table` binding (preview and
- *     HTML export) and a `:::query-*` block with `language: sql` (preview).
- *     A note's author is not necessarily the user — a shared thoughtbase is
- *     untrusted input — and opening the note is enough to run it.
- * The walker is the same for both; only the refusal wording differs.
+ *     HTML export) and a `:::query-*` block with `language: sql` (preview)
+ *     (#2448). A note's author is not necessarily the user — a shared
+ *     thoughtbase is untrusted input — and opening the note is enough to run it.
+ *   - `agent` — the `sql_query` tool `minerva mcp` exposes to an EXTERNAL
+ *     agent (Claude Desktop, a coding agent, …) (#2452). That agent reads
+ *     thoughtbase text through the other MCP tools, so a planted note can
+ *     steer it exactly as it could the in-app model — and it often holds
+ *     web or shell tools that could carry what it read off the machine.
+ * The walker is the same for all three; only the refusal wording differs.
  *
  * What the user runs deliberately keeps the full locked connection: the Query
- * panel, ```sql cells (behind the compute trust gate) and Python's
- * `minerva.sql()`. Reading an in-root CSV with `read_csv` there is a feature.
+ * panel, ```sql cells (behind the compute trust gate), Python's
+ * `minerva.sql()` and the user-typed `minerva sql <sql>` CLI command.
+ * Reading an in-root CSV with `read_csv` there is a feature.
  */
 
 /**
  * Who authored the SQL being checked, which decides only how a refusal is
- * worded: `model` speaks to the LLM (names its tools), `note` speaks to a
- * person looking at a chart or query block in the preview or an export.
+ * worded: `model` speaks to the in-app LLM (names its tools), `note` speaks
+ * to a person looking at a chart or query block in the preview or an export,
+ * and `agent` speaks to an external MCP client, which has neither Minerva's
+ * Tables panel nor its `describe_tables` tool — only `sql_query` itself.
  */
-export type SqlGuardAudience = 'model' | 'note';
+export type SqlGuardAudience = 'model' | 'note' | 'agent';
 
 /** How a refusal names the thing that may not call a function. */
 const SUBJECT: Record<SqlGuardAudience, string> = {
   model: 'query_sql',
   note: 'charts and query blocks in notes',
+  agent: 'sql_query',
 };
 
 /** One row of the live catalog (`duckdb_tables()` ∪ `duckdb_views()`). */
@@ -340,9 +349,20 @@ export function describeRegistered(catalog: readonly CatalogRelation[]): string 
  * The full refusal message: the walker's `reason`, then what IS allowed and
  * what exists to query. The model is pointed at its `describe_tables` tool; a
  * person is pointed at the Tables panel and told how to keep a CSV chart
- * working (query the CSV's registered view by name, not its path).
+ * working (query the CSV's registered view by name, not its path); an
+ * external agent is pointed at `SHOW TABLES` / `DESCRIBE`, which run through
+ * the same `sql_query` tool and pass this guard.
  */
 function refusalMessage(audience: SqlGuardAudience, reason: string, catalog: readonly CatalogRelation[]): string {
+  if (audience === 'agent') {
+    return (
+      `Refused: ${reason}. sql_query can only read the tables and views Minerva registered ` +
+      '(CSV files and captioned markdown tables), plus range() / generate_series() / unnest() and the ' +
+      'duckdb_tables() / duckdb_columns() catalog functions; it cannot read files by path. ' +
+      describeRegistered(catalog) +
+      ' Query one by name; run "SHOW TABLES" or "DESCRIBE <table>" through sql_query for their columns.'
+    );
+  }
   if (audience === 'note') {
     return (
       `Refused: ${reason}. Charts and query blocks in notes can only read the tables and views ` +
