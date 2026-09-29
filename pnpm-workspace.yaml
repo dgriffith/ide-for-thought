@@ -43,6 +43,14 @@ overrides:
   # actual native-module extraction — the real call site) before landing,
   # not just `pnpm audit` going quiet. Fixes 12 advisories incl. 1 critical.
   tar: '>=7.5.21'
+  # undici advisories published 2026-09-29 (GHSA-rfgv-xxqx-mfg5 WebSocket
+  # subprotocol DoS, GHSA-w293-vg96-wgc3 BalancedPool TLS-validation bypass,
+  # GHSA-vp8m-p9jh-q5pm interceptor cache poisoning). Three edges on three
+  # majors, so three scoped overrides, each held inside its own major: a global
+  # `undici` key would drag the 6.x/7.x consumers onto 8.x (a real API break).
+  'openai>undici': '>=8.10.2 <9.0.0'
+  '@digitalbazaar/http-client>undici': '>=6.28.1 <7.0.0'
+  '@electron/get>undici': '>=7.29.1 <8.0.0' # dev only: Electron binary download
 
 # electron/esbuild/fs-xattr/macos-alias ship native postinstall builds we
 # actually need (native module rebuilds, macOS alias-file support). Replaces
