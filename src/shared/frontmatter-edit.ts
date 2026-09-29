@@ -6,6 +6,7 @@
  * storage, never the interface).
  */
 import YAML from 'yaml';
+import { ownRecord } from './own-record';
 
 const FRONTMATTER_RE = /^---\n([\s\S]*?)\n---\n?/;
 
@@ -18,22 +19,20 @@ function toDisplay(v: unknown): string {
 }
 
 /** Current frontmatter values as a `key → display string` map. Empty if there's
- *  no (or malformed) frontmatter. Non-scalar values become ''. */
+ *  no (or malformed) frontmatter. Non-scalar values become ''. A null-prototype
+ *  record (keys are user text — a `__proto__:` key must survive, and an absent
+ *  `constructor` must read as undefined); read by key through `getOwn`. */
 export function getFrontmatterValues(content: string): Record<string, string> {
   const m = content.match(FRONTMATTER_RE);
-  if (!m) return {};
+  if (!m) return ownRecord([]);
   let parsed: unknown;
   try {
     parsed = YAML.parse(m[1]!);
   } catch {
-    return {};
+    return ownRecord([]);
   }
-  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return {};
-  const out: Record<string, string> = {};
-  for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
-    out[k] = toDisplay(v);
-  }
-  return out;
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return ownRecord([]);
+  return ownRecord(Object.entries(parsed as Record<string, unknown>).map(([k, v]) => [k, toDisplay(v)] as const));
 }
 
 /**

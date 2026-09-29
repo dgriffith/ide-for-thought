@@ -85,7 +85,7 @@ const BUDGETS: Record<string, number> = {
   'src/renderer/lib/stores/conversations.svelte.ts': 1234, // +4: carry a skill's user-turn material through open + /clear (#2438); +39: mcp_call confirmation card state, beside ask_user's (#2439); +26: turn start/settle screen-reader announcements (#2374)
   'src/renderer/lib/components/Editor.svelte': 854,
   'src/renderer/lib/stores/editor.svelte.ts': 914,
-    'src/renderer/lib/components/right-sidebar/PropertiesPanel.svelte': 1156,
+    'src/renderer/lib/components/right-sidebar/PropertiesPanel.svelte': 1160,
   // +29 for #2254/#2256: the DOCS_URL rationale (why Help pointed at the
   // repo's dev-docs folder and how the parity test keeps it honest) and the
   // Command Palette item, whose comment explains that adding the item IS the

@@ -1,6 +1,7 @@
 import YAML from 'yaml';
 import { registerRule } from '../../registry';
 import { transformFrontmatterDoc } from '../yaml/helpers';
+import { getOwn } from '../../../own-record';
 
 /**
  * Alias → canonical key. Pulled from Minerva's frontmatter-predicates map
@@ -36,7 +37,9 @@ registerRule({
       for (const pair of doc.contents.items) {
         const name = keyString(pair.key);
         if (name === null) continue;
-        const canonical = ALIAS_TO_CANONICAL[name];
+        // Own keys only — a `constructor:` key must not "canonicalise" to
+        // `Object.prototype.constructor` and be rewritten as a function.
+        const canonical = getOwn(ALIAS_TO_CANONICAL, name);
         if (!canonical) continue;
         // If both the alias and the canonical form are present, leave
         // the alias alone — merging two distinct values is out of scope.

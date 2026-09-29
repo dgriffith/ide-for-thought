@@ -10,6 +10,8 @@
  * minor spelling differences.
  */
 
+import { getOwn } from '../../shared/own-record';
+
 export type FrontmatterNamespace = 'dc' | 'bibo' | 'schema' | 'thought' | 'prov';
 
 export interface FrontmatterPredicate {
@@ -104,6 +106,9 @@ const MAP: Record<string, FrontmatterPredicate> = {
   derived_from_cell: THOUGHT('derivedFromCell'),
 };
 
+/** Own keys only: `key` is user text, and `MAP` is a plain object — a
+ *  `constructor:` or `toString:` frontmatter key must not come back as an
+ *  `Object.prototype` function masquerading as a mapping. */
 export function mapFrontmatterKey(key: string): FrontmatterPredicate | null {
-  return MAP[key] ?? null;
+  return getOwn(MAP, key) ?? null;
 }

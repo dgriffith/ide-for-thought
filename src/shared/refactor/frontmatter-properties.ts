@@ -11,6 +11,15 @@
  * `key: "false"`.
  */
 import YAML from 'yaml';
+import { ownRecord } from '../own-record';
+
+/*
+ * Every parsed map is copied into a null-prototype record (`ownRecord`) before
+ * it is read or written by key: keys are user text, so on an ordinary object
+ * `key in fm` / `fm[key]` would see `constructor`, `toString`, … as present,
+ * and `fm['__proto__'] = v` would hit the prototype setter instead of adding
+ * the key. `YAML.stringify` serialises a null-prototype record as usual.
+ */
 
 const FRONTMATTER_RE = /^---\n([\s\S]*?)\n---\n?/;
 
@@ -20,7 +29,7 @@ function parseFrontmatterObject(content: string): { fm: Record<string, unknown>;
   let parsed: unknown;
   try { parsed = YAML.parse(match[1]!); } catch { return null; }
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
-  return { fm: parsed as Record<string, unknown>, match };
+  return { fm: ownRecord(Object.entries(parsed)), match };
 }
 
 /**
@@ -49,12 +58,12 @@ export interface SetPropertyResult {
  */
 export function setPropertyInContent(content: string, key: string, value: unknown): SetPropertyResult {
   const match = content.match(FRONTMATTER_RE);
-  let fm: Record<string, unknown> = {};
+  let fm: Record<string, unknown> = ownRecord([]);
   if (match) {
     try {
       const parsed: unknown = YAML.parse(match[1]!);
       if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        fm = parsed as Record<string, unknown>;
+        fm = ownRecord(Object.entries(parsed));
       }
     } catch { /* malformed frontmatter — overwrite */ }
   }

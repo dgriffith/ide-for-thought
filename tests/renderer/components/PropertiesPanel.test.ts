@@ -254,6 +254,43 @@ describe('PropertiesPanel (#471 / #1596)', () => {
   });
 });
 
+// Drafts / new-chip text are keyed by frontmatter key (user text). As `$state`
+// records, an undrafted `constructor:` row read `drafts.constructor` — the
+// `Object` function — instead of its value (#2461 follow-up).
+describe('PropertiesPanel — keys named after Object.prototype members', () => {
+  const PROTO_CONTENT = [
+    '---',
+    'constructor: foo',
+    'toString: bar',
+    '__proto__: baz',
+    'hasOwnProperty:',
+    '  - one',
+    '---',
+    '# Body',
+    '',
+  ].join('\n');
+
+  it('shows each value, not an inherited function', () => {
+    render(PropertiesPanel, props({ content: PROTO_CONTENT }));
+    for (const v of ['foo', 'bar', 'baz']) expect(screen.getByDisplayValue(v)).toBeTruthy();
+    expect(screen.queryByDisplayValue(/native code|function/)).toBeNull();
+    expect(screen.getByPlaceholderText('Add…').value).toBe('');
+  });
+
+  it('edits one without touching the others', async () => {
+    const onContentChange = vi.fn();
+    render(PropertiesPanel, props({ content: PROTO_CONTENT, onContentChange }));
+    const input = screen.getByDisplayValue('foo');
+    await fireEvent.input(input, { target: { value: 'changed' } });
+    await fireEvent.blur(input);
+    const next = lastRewrite(onContentChange);
+    expect(next).toContain('constructor: changed');
+    expect(next).toContain('toString: bar');
+    expect(next).toContain('__proto__: baz');
+    expect(next).toContain('# Body');
+  });
+});
+
 // ── Declared type fields (merged in from the retired Fields panel) ──────────
 //
 // The Fields panel duplicated this panel: same frontmatter keys, same buffer,
