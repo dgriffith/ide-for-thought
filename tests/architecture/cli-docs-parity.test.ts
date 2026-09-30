@@ -33,6 +33,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { markdownRow, pasteStub } from '../helpers/paste-stub';
 
 const RUN = 'src/cli/run.ts';
 const MCP = 'src/cli/mcp.ts';
@@ -104,7 +105,9 @@ describe('docs/cli.md matches the CLI (#2263)', () => {
       `Command(s) the CLI runs that ${DOC} never names.\n\n  ${undocumented.join('\n  ')}\n\n` +
         `Add a row to the Commands table in ${DOC} — and check the status blockquote at the ` +
         'top, which lists the surface as a sentence. A command nobody is told about is a ' +
-        'command nobody uses.',
+        'command nobody uses.' +
+        pasteStub(`the Commands table in ${DOC} (Command | Purpose | Output)`,
+          undocumented.map((c) => markdownRow([`\`${c} <args>\``, '<what it does (`--flags`)>', '`{ <output shape> }`']))),
     ).toEqual([]);
   });
 
@@ -115,7 +118,11 @@ describe('docs/cli.md matches the CLI (#2263)', () => {
       missing,
       `Command(s) the CLI runs that \`minerva --help\` never mentions.\n\n  ${missing.join('\n  ')}\n\n` +
         `Add a line to the Commands: block of HELP in ${RUN}. \`--help\` is the only ` +
-        'documentation a user reaches without leaving the terminal.',
+        'documentation a user reaches without leaving the terminal.' +
+        // Two-space indent, name column padded to 22 — the shape the other
+        // lines use and the shape the check above matches.
+        pasteStub(`the Commands: block of HELP in ${RUN}`,
+          missing.map((c) => `  ${`${c} <args>`.padEnd(22)}<One-line description.>`)),
     ).toEqual([]);
   });
 
@@ -126,7 +133,9 @@ describe('docs/cli.md matches the CLI (#2263)', () => {
       `MCP tool(s) the server exposes that ${DOC} never names.\n\n  ${undocumented.join('\n  ')}\n\n` +
         `Add them to the tool list in the "MCP server" section of ${DOC}. An agent client ` +
         'discovers tools over the wire, but a human deciding whether to point one at their ' +
-        'thoughtbase reads this page.',
+        'thoughtbase reads this page.' +
+        pasteStub(`the "Tools:" sentence in the "MCP server" section of ${DOC}`,
+          undocumented.map((t) => `\`${t}\` (<what it does>),`)),
     ).toEqual([]);
   });
 

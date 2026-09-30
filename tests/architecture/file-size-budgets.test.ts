@@ -35,6 +35,7 @@ import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { pasteStub } from '../helpers/paste-stub';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -208,11 +209,19 @@ describe('file-size budgets (#1854)', () => {
     const sizes = measured();
     const grown: string[] = [];
     const fresh: string[] = [];
+    // Paste-ready BUDGETS lines (#2381).
+    const grownLines: string[] = [];
+    const freshLines: string[] = [];
 
     for (const [file, count] of Object.entries(sizes)) {
       const budget = BUDGETS[file];
-      if (budget === undefined) fresh.push(`  + ${file}: ${count} lines (no budget)`);
-      else if (count > budget) grown.push(`  + ${file}: ${budget} → ${count} (+${count - budget})`);
+      if (budget === undefined) {
+        fresh.push(`  + ${file}: ${count} lines (no budget)`);
+        freshLines.push(`  '${file}': ${count}, // <#issue: why this is one file>`);
+      } else if (count > budget) {
+        grown.push(`  + ${file}: ${budget} → ${count} (+${count - budget})`);
+        grownLines.push(`  '${file}': ${count}, // +${count - budget}: <what grew> (#<issue>)`);
+      }
     }
 
     if (grown.length > 0) {
@@ -221,7 +230,8 @@ describe('file-size budgets (#1854)', () => {
         'Two ways forward, and choosing is the point of this check: extract a seam (if the ' +
         'addition does not belong in the same file as the rest, now is when that is easiest to ' +
         'see), or raise the number in BUDGETS in this same PR because the file really is the ' +
-        'right home. Both are fine. Neither happening silently is the goal.',
+        'right home. Both are fine. Neither happening silently is the goal.' +
+        pasteStub('BUDGETS in this file, replacing each line if you are raising rather than extracting (append to any existing comment)', grownLines),
       );
     }
 
@@ -230,7 +240,8 @@ describe('file-size budgets (#1854)', () => {
         `New file(s) over the ${THRESHOLD}-line threshold:\n\n${fresh.join('\n')}\n\n` +
         'Landing over the threshold on day one is the one case worth a second look, since ' +
         'nothing forced it to be one file. If it should be, add it to BUDGETS in this file at ' +
-        'its current size and the ratchet takes over from there.',
+        'its current size and the ratchet takes over from there.' +
+        pasteStub('BUDGETS in this file', freshLines),
       );
     }
   });
@@ -239,11 +250,15 @@ describe('file-size budgets (#1854)', () => {
     const sizes = measured();
     const shrunk: string[] = [];
     const gone: string[] = [];
+    const shrunkLines: string[] = [];
 
     for (const [file, budget] of Object.entries(BUDGETS)) {
       const count = sizes[file];
       if (count === undefined) gone.push(`  − ${file} (was ${budget}, no longer in src/)`);
-      else if (count < budget) shrunk.push(`  − ${file}: ${budget} → ${count} (−${budget - count})`);
+      else if (count < budget) {
+        shrunk.push(`  − ${file}: ${budget} → ${count} (−${budget - count})`);
+        if (count >= THRESHOLD) shrunkLines.push(`  '${file}': ${count},`);
+      }
     }
 
     if (shrunk.length > 0) {
@@ -251,7 +266,10 @@ describe('file-size budgets (#1854)', () => {
         `File(s) got smaller — nice.\n\n${shrunk.join('\n')}\n\n` +
         `Lower the number in BUDGETS so the ratchet holds the new ground, or delete the entry ` +
         `outright if the file is now under ${THRESHOLD} lines. Otherwise the reclaimed space ` +
-        'quietly becomes headroom for the next addition.',
+        'quietly becomes headroom for the next addition.' +
+        (shrunkLines.length > 0
+          ? pasteStub('BUDGETS in this file, replacing each line (keep any trailing comment)', shrunkLines)
+          : ''),
       );
     }
 

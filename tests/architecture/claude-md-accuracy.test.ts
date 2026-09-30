@@ -36,6 +36,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { pasteStub } from '../helpers/paste-stub';
 
 const CLAUDE_MD = 'CLAUDE.md';
 const DEV_MD = 'docs/development.md';
@@ -202,7 +203,11 @@ describe('every concrete repo path named in the docs exists (#2257)', () => {
           `${missing.map((p) => `  ${p}`).join('\n')}\n\n` +
           'Either the file moved (fix the doc) or it was deleted (fix the doc, and check whether the ' +
           'convention it illustrated still holds). If it is a build artifact that only exists after a ' +
-          'build step, add it to GENERATED in this test with the step that produces it.',
+          'build step, add it to GENERATED in this test with the step that produces it.' +
+          pasteStub(
+            'GENERATED in this test (only for a real build output)',
+            missing.map((p) => `    '${p}': '<the build step that produces it>; gitignored',`),
+          ),
       ).toEqual([]);
     });
   }
@@ -369,7 +374,11 @@ describe('CLAUDE.md lists exactly the auto-injected SPARQL prefixes (#2257)', ()
         `  in the doc but not injected: ${extra.join(', ') || '(none)'}\n\n` +
         'The doc list is what a user may write in the Query panel without a PREFIX line. An ' +
         'under-count makes a usable namespace invisible; an over-count produces a query that ' +
-        "doesn't parse.",
+        "doesn't parse." +
+        pasteStub(
+          'CLAUDE.md, replacing the prefix list at the end of the "Standard prefixes" bullet',
+          `${codePrefixes.map((p) => `\`${p}\``).join(', ')}.`,
+        ),
     ).toEqual({ missing: [], extra: [] });
 
     // The prose count, too — "eight" outlived the eight, and a reader who

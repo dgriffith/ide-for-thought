@@ -14,6 +14,13 @@ shrink, so the failure message is "you added a new one", not "this is
 forbidden". Adding yourself to a baseline list is sometimes the right answer —
 it is never the answer that needs no reason in the diff.
 
+The **inventory** ratchets — a doc or list must name every X — end their
+failure message with a `──── paste into … ────` block holding the missing entry
+in the target's exact format, `<placeholders>` marking the prose only you can
+write (#2381, via `tests/helpers/paste-stub.ts`). They most often fire after a
+merge race between two PRs that each added an entry (#2348), where the fix
+should be a paste. A new inventory ratchet should do the same.
+
 CLAUDE.md documents about a dozen of these in the convention sections that
 motivated them, and those sections carry the *why* at length. This file is the
 complete inventory: one entry per test, what it enforces, what makes it fire,

@@ -43,6 +43,7 @@ import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { markdownRow, pasteStub } from '../helpers/paste-stub';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -130,7 +131,9 @@ describe('docs/authoring-types.md is checked against the code (#2265)', () => {
         `${PARSE} reads frontmatter key(s) that ${DOC} never names: ` +
         `${gaps.join(', ')}. Add them to the frontmatter reference (or, if one ` +
         'is deliberately undocumented, say so there — a key a hand-author ' +
-        'cannot discover is a key that only exists for the dialog).',
+        'cannot discover is a key that only exists for the dialog).' +
+        pasteStub(`the frontmatter table in ${DOC} (Field | Type | Default | Notes)`,
+          gaps.map((k) => markdownRow([`\`${k}\``, '<type>', '<default>', '<what it does>']))),
     ).toEqual([]);
   });
 
@@ -139,7 +142,9 @@ describe('docs/authoring-types.md is checked against the code (#2265)', () => {
     expect(
       gaps,
       gaps.length === 0 ? '' :
-        `${PARSE} reads property key(s) that ${DOC} never names: ${gaps.join(', ')}.`,
+        `${PARSE} reads property key(s) that ${DOC} never names: ${gaps.join(', ')}.` +
+        pasteStub(`the property-key table in ${DOC} (Key | Required | Notes)`,
+          gaps.map((k) => markdownRow([`\`${k}\``, '<no / yes / `<type>` only>', '<what it does>']))),
     ).toEqual([]);
   });
 
@@ -149,7 +154,9 @@ describe('docs/authoring-types.md is checked against the code (#2265)', () => {
       gaps,
       gaps.length === 0 ? '' :
         `PROPERTY_TYPES has value(s) ${DOC} never names: ${gaps.join(', ')}. ` +
-        'A property type nobody documented is one nobody will use.',
+        'A property type nobody documented is one nobody will use.' +
+        pasteStub(`the property-type table in ${DOC} (\`type\` | Holds | Notes)`,
+          gaps.map((t) => markdownRow([`\`${t}\``, '<what a value looks like>', '<coercion / caveats>']))),
     ).toEqual([]);
   });
 
@@ -166,7 +173,11 @@ describe('docs/authoring-types.md is checked against the code (#2265)', () => {
         `\n  missing/changed IRI: ${gapIris.join(', ') || '(none)'}\n\n` +
         'This one matters more than the others: an unrecognized prefix in a ' +
         'type definition is ignored silently, so the table is the only way a ' +
-        'type author learns which vocabularies are reachable.',
+        'type author learns which vocabularies are reachable.' +
+        pasteStub(`the Prefix | IRI table in ${DOC} (replace any existing row for a changed IRI)`,
+          prefixes
+            .filter((p) => gapPrefixes.includes(p.prefix) || gapIris.includes(p.prefix))
+            .map((p) => markdownRow([`\`${p.prefix}\``, `\`${p.iri}\``]))),
     ).toEqual({ gapPrefixes: [], gapIris: [] });
   });
 
@@ -175,7 +186,9 @@ describe('docs/authoring-types.md is checked against the code (#2265)', () => {
     expect(
       gaps,
       gaps.length === 0 ? '' :
-        `${STOCK_DIR} ships type(s) ${DOC}'s stock table omits: ${gaps.join(', ')}.`,
+        `${STOCK_DIR} ships type(s) ${DOC}'s stock table omits: ${gaps.join(', ')}.` +
+        pasteStub(`the stock-type table in ${DOC} (Type | Notable for)`,
+          gaps.map((f) => markdownRow([`\`${f}\``, '<what this example shows that the others don\'t>']))),
     ).toEqual([]);
   });
 });

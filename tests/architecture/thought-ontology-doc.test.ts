@@ -49,6 +49,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Parser } from 'n3';
+import { markdownRow, pasteStub } from '../helpers/paste-stub';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -132,6 +133,45 @@ function thoughtOntologyTerms(): string[] {
   return [...declared].sort();
 }
 
+const RDF_TYPE = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type';
+const RDFS_COMMENT = 'http://www.w3.org/2000/01/rdf-schema#comment';
+
+/**
+ * For the failure message (#2381): each missing term as a table row in the
+ * doc's `| \`thought:X\` | Means |` shape, its `rdfs:comment` pre-filled,
+ * grouped by what kind of term it is so the reader knows which table it goes in.
+ */
+function missingTermStubs(missing: readonly string[]): string {
+  const comment = new Map<string, string>();
+  const kind = new Map<string, 'class' | 'property' | 'individual'>();
+  for (const quad of new Parser().parse(read(THOUGHT_TTL))) {
+    const term = quad.subject.termType === 'NamedNode' ? toCurie(quad.subject.value) : null;
+    if (!term) continue;
+    if (quad.predicate.value === RDFS_COMMENT && !comment.has(term)) {
+      comment.set(term, quad.object.value.replace(/\s+/g, ' ').trim());
+    }
+    if (quad.predicate.value === RDF_TYPE) {
+      const t = quad.object.value;
+      if (/Property$/.test(t)) kind.set(term, 'property');
+      else if (/#Class$/.test(t)) kind.set(term, kind.get(term) ?? 'class');
+      else if (!kind.has(term)) kind.set(term, 'individual');
+    }
+  }
+  const where = {
+    class: 'the matching `| Class | Means |` table under "The core model"',
+    property: 'the matching `| Predicate | … |` table under "Relations"',
+    individual: 'the table or list that names its class\'s values',
+  } as const;
+  return (['class', 'property', 'individual'] as const)
+    .map((k) => {
+      const rows = missing
+        .filter((t) => (kind.get(t) ?? 'individual') === k)
+        .map((t) => markdownRow([`\`${t}\``, comment.get(t) ?? '<what it means>']));
+      return rows.length === 0 ? '' : pasteStub(`${DOC} — ${where[k]}`, rows);
+    })
+    .join('');
+}
+
 /** Terms the doc names, in the two namespaces we own. */
 function docTerms(): string[] {
   const doc = read(DOC);
@@ -189,7 +229,7 @@ describe('docs/thought-ontology.md is checked against the ontology (#2264)', () 
         `names:\n  ${missing.join('\n  ')}\n\n` +
         `Add them to ${DOC}. The overview is meant to be a complete map of the ` +
         'vocabulary — a term the document silently omits is a term nobody ' +
-        'reading it will know exists.',
+        'reading it will know exists.' + missingTermStubs(missing),
     ).toEqual([]);
   });
 });
