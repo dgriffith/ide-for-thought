@@ -125,16 +125,26 @@ async function rerender(): Promise<void> {
 
 const label = `${note.lines}-line note with ${note.citeCount} citations`;
 
+// Capped samples, the way full-index.bench.ts caps indexAllNotes. On the
+// macos-latest runner the full re-render takes ~3.5s a sample (~1.2s locally),
+// and the default 64-sample floor put the test at the bench config's 300s
+// `testTimeout`: the first CI bless took 13 minutes and the second timed out.
+// Locally the relative margin of error is ~1.5% at 64 samples, so 10 loses
+// little precision. The cap goes to `.run()`: in vitest 5 the options argument
+// of `bench(name, options, fn)` is per-function hooks, and sampling options
+// passed there are silently ignored.
+const SAMPLES = { iterations: 10, warmupIterations: 2, time: 0, warmupTime: 0 };
+
 describe('preview re-render', () => {
   test(`preview render + sanitize: ${label}`, async ({ bench }) => {
     await bench(`preview render + sanitize: ${label}`, () => {
       renderContent(note.text);
-    }).run();
+    }).run(SAMPLES);
   });
 
   test(`preview re-render (render, DOM, citation passes): ${label}`, async ({ bench }) => {
     await bench(`preview re-render (render, DOM, citation passes): ${label}`, async () => {
       await rerender();
-    }).run();
+    }).run(SAMPLES);
   });
 });

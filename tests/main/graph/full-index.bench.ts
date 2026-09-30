@@ -79,14 +79,14 @@ for (const scale of SCALES) {
     test(`indexAllNotes: ${scale} notes from scratch`, async ({ bench }) => {
       await bench(
         `indexAllNotes: ${scale} notes from scratch`,
-        // A single rebuild is O(seconds) at the top scale, and each one allocates
-        // a fresh multi-thousand-node rdflib graph — the default 10-iteration
-        // floor piles ~15 of those onto the heap and turns a ~2.5s op into an
-        // 11-minute, GC-thrashing, ±200%-variance sample. A few iterations give a
-        // representative number without the pile-up (the regression gate treats
-        // this bench as tracked-not-gated for the same variance reason — see
-        // bench-baseline.json).
-        { iterations: 3, warmupIterations: 1, time: 0, warmupTime: 0 },
+        // Default sampling (64), deliberately. This used to pass
+        // `{ iterations: 3, … }` as `bench()`'s second argument, to avoid an
+        // 11-minute GC-thrashing sample seen before vitest 5 — but vitest 5
+        // reads that argument as per-function hooks, so the cap was silently
+        // ignored (sampling options go to `.run()`). The gate was blessed on
+        // 64-sample means (#2331), and actually applying the cap gave the
+        // 2000-note entry a ~37% margin of error over its 3 samples, so the
+        // dead argument was removed rather than moved (#2385).
         async () => {
           // indexAllNotes resets and rebuilds the whole store on every call, so
           // it's safe (and necessary, to measure the real full-index cost rather
