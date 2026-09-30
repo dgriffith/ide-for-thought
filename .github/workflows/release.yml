@@ -291,6 +291,13 @@ jobs:
       - name: Smoke-boot the packaged app
         run: pnpm exec playwright test tests/e2e/smoke.spec.ts -g "packaged app"
 
+      # The smoke boot above also recorded the app's time-to-first-paint
+      # (#2384) — here, of the binary about to ship. Reported, never gated;
+      # ci.yml's e2e job records the same number on every main push.
+      - name: First-paint time (packaged app)
+        if: always()
+        run: node scripts/first-paint-report.mjs test-results/first-paint.jsonl --label "release, ${{ runner.os }} ${{ runner.arch }}"
+
       - name: Collect artifacts
         run: |
           mkdir -p dist-artifacts

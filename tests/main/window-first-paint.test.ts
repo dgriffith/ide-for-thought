@@ -118,6 +118,7 @@ vi.mock('../../src/main/session', () => ({ saveSession: () => {}, loadSession: (
 (globalThis as unknown as { MAIN_WINDOW_VITE_NAME: string }).MAIN_WINDOW_VITE_NAME = 'main_window';
 
 import { createWindow } from '../../src/main/window-manager';
+import { _resetFirstPaintMarkForTests, BOOT_TIMING_ENV } from '../../src/main/boot-timing';
 
 /** `createWindow`'s return value, seen as the fake it actually is. */
 function make(): FakeWindow {
@@ -215,5 +216,41 @@ describe('createWindow first paint (#2223)', () => {
     expect(first!.visible).toBe(false);
     vi.advanceTimersByTime(5000);
     expect(first!.visible).toBe(true);
+  });
+});
+
+describe('first-paint mark for the packaged smoke boot (#2384)', () => {
+  const FIRST_PAINT = /^\[boot\] first-paint trigger=(\S+) uptimeMs=(\d+)$/;
+  let info: ReturnType<typeof vi.spyOn>;
+  const marks = (): string[] =>
+    info.mock.calls.map((c) => String(c[0])).filter((m) => m.startsWith('[boot] first-paint'));
+
+  beforeEach(() => {
+    _resetFirstPaintMarkForTests();
+    info = vi.spyOn(console, 'info').mockImplementation(() => {});
+  });
+  afterEach(() => {
+    info.mockRestore();
+    vi.unstubAllEnvs();
+  });
+
+  it('prints nothing on a normal launch', () => {
+    make().emit('ready-to-show');
+    expect(marks()).toEqual([]);
+  });
+
+  it('names the trigger that showed the first window, once per process', () => {
+    vi.stubEnv(BOOT_TIMING_ENV, '1');
+    make().emit('ready-to-show');
+    make().emit('ready-to-show');
+    expect(marks()).toHaveLength(1);
+    expect(FIRST_PAINT.exec(marks()[0]!)?.[1]).toBe('ready-to-show');
+  });
+
+  it('says when the number is the fallback timer rather than a paint', () => {
+    vi.stubEnv(BOOT_TIMING_ENV, '1');
+    make();
+    vi.advanceTimersByTime(5000);
+    expect(FIRST_PAINT.exec(marks()[0] ?? '')?.[1]).toBe('timeout');
   });
 });

@@ -3,6 +3,7 @@ import path from 'node:path';
 import { Channels } from '../shared/channels';
 import { broadcast } from './ipc/broadcast';
 import { appIconPath } from './app-icon';
+import { markFirstPaint, type FirstPaintTrigger } from './boot-timing';
 import { resolveDisplayName } from './project-config';
 import { startWatching, stopWatching } from './notebase/watcher';
 import { createWatchHandlers } from './watch-handlers';
@@ -95,23 +96,25 @@ const SHOW_FALLBACK_MS = 4000;
 function showWhenReady(win: BrowserWindow): void {
   let timer: ReturnType<typeof setTimeout> | null = null;
   let shown = false;
-  const show = (): void => {
+  const show = (trigger: FirstPaintTrigger): void => {
     if (timer) {
       clearTimeout(timer);
       timer = null;
     }
     if (shown) return;
     shown = true;
+    // Measured, not gated (#2384): the packaged smoke boot reads this line.
+    markFirstPaint(trigger);
     // A window closed mid-load must stay closed; `show()` on a destroyed
     // BrowserWindow throws.
     if (win.isDestroyed() || win.isVisible()) return;
     win.show();
   };
-  timer = setTimeout(show, SHOW_FALLBACK_MS);
+  timer = setTimeout(() => show('timeout'), SHOW_FALLBACK_MS);
   timer.unref?.();
-  win.once('ready-to-show', show);
-  win.webContents.once('did-finish-load', show);
-  win.webContents.once('did-fail-load', show);
+  win.once('ready-to-show', () => show('ready-to-show'));
+  win.webContents.once('did-finish-load', () => show('did-finish-load'));
+  win.webContents.once('did-fail-load', () => show('did-fail-load'));
   win.once('closed', () => {
     if (timer) {
       clearTimeout(timer);

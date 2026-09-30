@@ -58,6 +58,19 @@ has since put away). **Any new window-construction site owes the same
 guarantee**; `tests/main/window-first-paint.test.ts` drives the real
 `createWindow` against a fake BrowserWindow for each of those paths.
 
+**First paint is measured, as a trend (#2384).** The structural tests can't
+see a lazily loaded module going eager again — the app just appears later. With
+`MINERVA_BOOT_TIMING=1`, `showWhenReady`'s winning trigger prints one
+`[boot] first-paint trigger=… uptimeMs=…` line (`src/main/boot-timing.ts`);
+the packaged smoke spec launches with it, records spawn → mark and the main
+process's own uptime to `test-results/first-paint.jsonl`, and
+`scripts/first-paint-report.mjs` puts both in the job summary of `ci.yml`'s
+e2e job (every main push — that's the trend) and `release.yml`'s smoke boot.
+**Never gated**: a missing mark or a `timeout` trigger is a `::warning`, not a
+failure. Measured locally on an M-series Mac, packaged arm64, session restore
+of the sample project: ~720-770ms spawn → paint, ~580-600ms main uptime (a
+first launch after packaging: ~2.9s).
+
 **Skill loading no longer gates window creation.** `main.ts` used to `await
 registerSkillsAtStartup()` before `createWindow()`, justified by "skills must
 precede menu building" — true of the *menu*, which is built after the window,

@@ -30,7 +30,8 @@
 import { test, expect, type ConsoleMessage, type Page } from './helpers/test';
 import path from 'node:path';
 import fs from 'node:fs';
-import { closeMinerva, launchMinerva, makeTempDir, projectRoot, seedSession } from './helpers/launch';
+import { closeMinerva, firstPaintOf, launchMinerva, makeTempDir, projectRoot, seedSession } from './helpers/launch';
+import { recordFirstPaint } from './helpers/first-paint';
 
 /** Path to the packaged app binary, or null if it hasn't been built. */
 function packagedBinary(): string | null {
@@ -178,13 +179,20 @@ test('packaged app opens a DuckDB-backed project (native binding shipped)', asyn
   seedSession(userDataDir, projectDir);
 
   const mainOut: string[] = [];
-  const app = await launchMinerva({ userDataDir, executablePath: appBinary as string });
+  // MINERVA_BOOT_TIMING: the app prints its first-paint mark, which this
+  // records as a trend — never asserted (#2384, helpers/first-paint.ts).
+  const app = await launchMinerva({
+    userDataDir,
+    executablePath: appBinary as string,
+    env: { MINERVA_BOOT_TIMING: '1' },
+  });
   app.process().stderr?.on('data', (chunk: Buffer) => mainOut.push(chunk.toString()));
   app.process().stdout?.on('data', (chunk: Buffer) => mainOut.push(chunk.toString()));
 
   let openedProject = false;
   try {
     const win: Page = await app.firstWindow({ timeout: 20_000 });
+    recordFirstPaint(await firstPaintOf(app));
     await win.waitForLoadState('domcontentloaded');
     // Session restore opens the project in `did-finish-load` → acquireProject →
     // registerAllCsvs (DuckDB). On success the welcome screen is replaced by the
