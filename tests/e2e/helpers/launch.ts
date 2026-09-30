@@ -26,6 +26,14 @@
  *    handing the app under test the developer's real `GH_TOKEN` / `GITHUB_TOKEN`
  *    (both of which `src/main/git/` actually reads) along with any model API
  *    keys. A test run should not be able to authenticate as the developer.
+ *  - **HOME is isolated too (#2466).** Scrubbing credentials left the real
+ *    `HOME`, and the app reads `~/.minerva/` from it: user skills (a different
+ *    skill catalog, menus and slash commands under test), `menu-config.json`,
+ *    and `mcp-servers.json` — whose servers it spawns at startup, which on the
+ *    maintainer's machine meant an `npx github:…` download per launch. CI's
+ *    HOME is clean, so local and CI runs disagreed. `minervaEnv` points HOME at
+ *    an empty directory inside the profile; a spec that needs something there
+ *    seeds it under `isolatedHome(userDataDir)` before launching.
  */
 
 import {
@@ -66,6 +74,27 @@ export function scrubbedEnv(): Record<string, string> {
     out[k] = v;
   }
   return out;
+}
+
+/**
+ * The HOME a launch against `userDataDir` sees (#2466): an empty directory
+ * inside the profile, so it is removed with it and a relaunch against the same
+ * profile sees the same HOME. Created on demand; seed `.minerva/` here when a
+ * spec needs user skills or config.
+ */
+export function isolatedHome(userDataDir: string): string {
+  const home = path.join(userDataDir, 'e2e-home');
+  fs.mkdirSync(home, { recursive: true });
+  return home;
+}
+
+/**
+ * The environment every Minerva process under test gets: credentials
+ * scrubbed, HOME isolated to `home`, then `extra` on top. Specs build env
+ * through this, never `scrubbedEnv()` directly — that leaves the real HOME.
+ */
+export function minervaEnv(home: string, extra: Record<string, string> = {}): Record<string, string> {
+  return { ...scrubbedEnv(), HOME: home, ...extra };
 }
 
 /**
@@ -128,7 +157,7 @@ export function launchMinerva(opts: LaunchOptions & { executablePath?: undefined
 export async function launchMinerva(opts: LaunchOptions): Promise<ElectronApplication | PackagedMinerva> {
   const { userDataDir, executablePath, env = {}, args = [], timeout = 60_000 } = opts;
   const userDataArg = `--user-data-dir=${userDataDir}`;
-  const launchEnv = { ...scrubbedEnv(), ELECTRON_ENABLE_LOGGING: '1', ...env };
+  const launchEnv = minervaEnv(isolatedHome(userDataDir), { ELECTRON_ENABLE_LOGGING: '1', ...env });
 
   // A step, so a report of a slow or hung attempt says whether launch is where
   // the time went (#2458).

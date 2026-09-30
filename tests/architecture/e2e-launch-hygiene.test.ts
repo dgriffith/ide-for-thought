@@ -114,6 +114,42 @@ describe('e2e launch hygiene (#1928)', () => {
     expect(src.match(/userDataArg/g)?.length ?? 0).toBeGreaterThanOrEqual(3);
   });
 
+  // #2466: scrubbing credentials still left the real HOME, so a local run read
+  // the developer's ~/.minerva/ — user skills, menu config, and MCP servers the
+  // app then spawned. CI's HOME is empty, so nothing there could notice.
+  it('every launch gets an isolated HOME inside its profile (#2466)', async () => {
+    const { minervaEnv, isolatedHome } = await import('../e2e/helpers/launch');
+    const os = await import('node:os');
+    const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'hygiene-home-'));
+    try {
+      const home = isolatedHome(profile);
+      expect(home.startsWith(profile + path.sep)).toBe(true);
+      expect(fs.readdirSync(home)).toEqual([]);
+      const env = minervaEnv(home, { MINERVA_E2E: '1' });
+      expect(env.HOME).toBe(home);
+      expect(env.HOME).not.toBe(os.homedir());
+      expect(env.MINERVA_E2E).toBe('1');
+    } finally {
+      fs.rmSync(profile, { recursive: true, force: true });
+    }
+
+    // …and the launch path actually uses it, for both the dev and packaged
+    // branches (they share `launchEnv`).
+    const src = fs.readFileSync(HELPER, 'utf8');
+    expect(src).toMatch(/const launchEnv = minervaEnv\(isolatedHome\(userDataDir\)/);
+    expect(src.match(/\blaunchEnv\b/g)?.length ?? 0).toBeGreaterThanOrEqual(3);
+  });
+
+  it('no spec builds a process env from scrubbedEnv() directly — minervaEnv isolates HOME (#2466)', () => {
+    const offenders = specFiles().filter((f) => /\bscrubbedEnv\s*\(/.test(code(f)));
+    expect(
+      offenders.map((f) => path.basename(f)),
+      '`scrubbedEnv()` drops credentials but keeps the real HOME, so the process under test\n' +
+      "reads the developer's ~/.minerva/ (skills, menu config, MCP servers it then spawns).\n" +
+      'Use `minervaEnv(home, extra)` from tests/e2e/helpers/launch.ts with a temp HOME.',
+    ).toEqual([]);
+  });
+
   it('the helper filters credentials out of the forwarded environment', async () => {
     const { scrubbedEnv } = await import('../e2e/helpers/launch');
     const before = { ...process.env };
