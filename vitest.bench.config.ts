@@ -10,7 +10,9 @@ import { defineConfig } from 'vitest/config';
  * Non-gating: run manually (`pnpm bench`) or from the scheduled `Bench` workflow
  * — never on PR CI (benchmarks are noisy on shared runners). The point is to
  * make scale regressions visible — graph index/query latency and embedding
- * throughput, the costs that grow with the knowledge base.
+ * throughput, the costs that grow with the knowledge base — plus two renderer
+ * scenarios (#2385), typing in a large note and re-rendering its preview, which
+ * pick their DOM per file with an `@vitest-environment` docblock.
  */
 export default defineConfig({
   test: {
