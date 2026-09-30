@@ -28,9 +28,11 @@ import { describe, test } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { initGraph, indexAllNotes } from '../../../src/main/graph/index';
+import { initGraph, indexAllNotes, getAliasMap, queryGraphRows } from '../../../src/main/graph/index';
+import { _derivationCountsForTests } from '../../../src/main/graph/note-index';
 import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
 import { trackTempDir } from '../../helpers/bench-temp-dirs';
+import { assertFixtureReaches } from '../../helpers/bench-fixture';
 
 const SCALES = [500, 2000, 5000];
 
@@ -43,6 +45,33 @@ for (const scale of SCALES) {
     fs.writeFileSync(
       path.join(root, `note-${i}.md`),
       `${aliasBlock}# Note ${i}\n\n${'lorem ipsum '.repeat(20)}\n\n#tag-${i % 20}\n\n[[note-${(i + 1) % scale}]]\n`,
+    );
+  }
+
+  // ── What this fixture must reach (#2383) ───────────────────────────────────
+  // The scale cliff this bench guards (#1106) lives in alias resolution during
+  // the walk, so the walk has to resolve wiki-links against a non-empty alias
+  // map: every note indexed, every fifth note's alias registered, every note's
+  // `[[note-(i+1)]]` resolved to a real note rather than left dangling.
+  {
+    const derivationsBefore = _derivationCountsForTests.aliasMap;
+    await indexAllNotes(ctx);
+    const derivations = _derivationCountsForTests.aliasMap - derivationsBefore;
+    assertFixtureReaches('the full-index walk resolves links through the alias map', derivations > 0, derivations);
+
+    const aliases = Object.keys(getAliasMap(ctx)).length;
+    assertFixtureReaches(`every fifth note registers an alias (${scale / 5})`, aliases === scale / 5, aliases);
+
+    const counts = await queryGraphRows(ctx, `
+      SELECT (COUNT(DISTINCT ?n) AS ?notes) (COUNT(DISTINCT ?t) AS ?targets) WHERE {
+        ?n a minerva:Note .
+        OPTIONAL { ?n minerva:references ?t . ?t minerva:relativePath ?p }
+      }`);
+    const row = counts.results[0] as Record<string, string> | undefined;
+    assertFixtureReaches(
+      `all ${scale} notes are indexed and each one's wiki-link resolves to a real note`,
+      Number(row?.notes) === scale && Number(row?.targets) === scale,
+      row,
     );
   }
 

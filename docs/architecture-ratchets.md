@@ -28,7 +28,7 @@ what to do about it. `architecture-ratchets-doc.test.ts` keeps the two sides in
 step — a new test in `tests/architecture/` with no entry here fails, and an
 entry here naming a test that no longer exists fails too (#2262).
 
-Written up as of 2026-09-29, 44 tests.
+Written up as of 2026-09-30, 45 tests.
 
 ---
 
@@ -756,6 +756,25 @@ fixtures, since the committed file may have no ungated entries at all. **When it
 fires:** add `"issue": <n>, "reason": "..."` naming the issue that will arm the
 bench — or arm it now (drop `gate: false`, re-bless on CI). `bench-check.mjs
 --update` preserves both fields across a re-bless.
+
+### `bench-fixture-reach.test.ts`
+
+**Every `*.bench.ts` calls `assertFixtureReaches`** (`tests/helpers/bench-fixture.ts`)
+in its setup (#2383). A bench reports a time, and a time cannot say what it
+measured: #2211's `note-${i}.md` seeding understated the save path's link-index
+cost by ~5x, and #2330 found `health-checks.bench.ts` had never reached the
+staleness check (nothing passed the 30-day filter). #2383 found a third — the
+same bench never wired `findOrphanedAssets`, so the unreferenced-image scan
+never ran. Each bench now asserts, after seeding, what its fixture reaches: a
+count from a `_…ForTests` counter (`_derivationCountsForTests`,
+`_n3MirrorCountsForTests`) or an observable effect (rows a query returns,
+inspection types a sweep reports). A failed assertion throws from the bench's
+top-level setup, which fails `pnpm bench`, the scheduled gate, and its
+notify step. The test checks the call exists, not that it is a good one — that
+judgement stays in review. **When it fires:** add an assertion to the new bench
+stating what its fixture must reach. Assert on the fixture, not on performance
+behavior: "the query matched 50 notes", not "the mirror was not rebuilt" — a
+regression should show up as a number in the gate, not as a setup crash.
 
 ### `out-of-band-checks-notify.test.ts`
 
