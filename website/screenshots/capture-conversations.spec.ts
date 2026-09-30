@@ -172,23 +172,17 @@ test('conversations-drafts', async () => {
 });
 
 // ── conversations-propose-review-approve ───────────────────────────────────
-// The Proposals panel with a pending proposal. FLAGGED: a pending proposal can
-// only be filed through the main-process approval engine. We best-effort the
-// MINERVA_E2E seed hook; if the harness didn't set MINERVA_E2E the hook is
-// absent and the panel shows its empty state — a human must either launch the
-// harness with MINERVA_E2E=1 or pre-bake a pending proposal into the demo graph.
+// The Proposals panel with a pending proposal open for review. The queue is
+// seeded by the rsb-proposals fixture's embedded turtle (see below).
 test('conversations-propose-review-approve', async () => {
   // The proposals queue is seeded project-wide by the right-sidebar fixture's
   // embedded turtle (copied into the vault for every spec), so it's populated
   // here too. Open that note for a coherent editor context.
   await openNote(h.win, 'rsb-proposals');
 
-  // Open the right sidebar → Activity group → Proposals panel.
-  await h.win.locator('[title^="Toggle Right Sidebar"]').first().click();
-  await h.win.waitForTimeout(400);
-  await h.win.locator('.group-tab[title="Activity"]').first().click();
-  await h.win.waitForTimeout(300);
-  await h.win.locator('.sub-tab[title="Proposals"]').first().click();
+  // Proposals live in the LEFT sidebar since #1523 (docs moved in #1772); the
+  // right sidebar's Activity group now holds only Inspections (#2481).
+  await h.win.locator('aside.sidebar .panel-tab[title="Proposals"]').click();
   await h.win.waitForTimeout(600);
 
   // Select the first (newest, pending) proposal so its review detail expands —
@@ -197,5 +191,5 @@ test('conversations-propose-review-approve', async () => {
   await h.win.locator('.proposal-item').first().click();
   await h.win.waitForTimeout(600);
 
-  await shoot(h.win, 'conversations-propose-review-approve', h.win.locator('aside.right-sidebar'));
+  await shoot(h.win, 'conversations-propose-review-approve', h.win.locator('aside.sidebar'));
 });

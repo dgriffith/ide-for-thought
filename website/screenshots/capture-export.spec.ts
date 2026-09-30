@@ -12,7 +12,7 @@
  * message straight to the window's webContents from the main process — the same
  * channel the menu click uses (src/main/menu.ts → Channels.MENU_*).
  */
-import { test } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { launchDemo, shoot, type Harness } from './lib/harness';
 
 let h: Harness;
@@ -45,9 +45,13 @@ test('export-bibliography', async () => {
   await h.win.waitForTimeout(600);
   await h.win.locator('.tab', { hasText: 'Bibliography' }).first().click();
   await h.win.waitForTimeout(600);
-  await shoot(h.win, 'export-bibliography', h.win.locator('.dialog[aria-label="Settings"]'));
-  await h.win.getByRole('button', { name: 'Cancel', exact: true }).click();
-  await h.win.waitForTimeout(300);
+  const settings = h.win.locator('.dialog[aria-label="Settings"]');
+  await shoot(h.win, 'export-bibliography', settings);
+  // Settings closes on Escape (it has Done, not Cancel). Assert it's gone: a
+  // Settings dialog left open hides the next test's Export dialog, which then
+  // fails one test later with nothing pointing back here (#2481).
+  await h.win.keyboard.press('Escape');
+  await expect(settings).toHaveCount(0);
 });
 
 // Export dialog at project scope: the Including list plus the Excluded list,
@@ -62,7 +66,8 @@ test('export-scopes-privacy', async () => {
   if (await projectRadio.count()) await projectRadio.first().check();
   // Let resolvePlan walk the tree and classify the private notes.
   await h.win.waitForTimeout(1500);
-  await shoot(h.win, 'export-scopes-privacy', h.win.locator('.export-dialog'));
+  // ExportDialog sits on the shared ui/Dialog shell (`.card[role=dialog]`).
+  await shoot(h.win, 'export-scopes-privacy', h.win.locator('[role="dialog"][aria-labelledby="export-dialog-title"]'));
   await h.win.getByRole('button', { name: 'Cancel', exact: true }).click();
   await h.win.waitForTimeout(300);
 });
@@ -99,7 +104,10 @@ test('export-publishing', async () => {
   });
   await sendMenu('menu:publish');
   await h.win.waitForTimeout(700);
-  await shoot(h.win, 'export-publishing', h.win.locator('.publish-dialog'));
-  await h.win.getByRole('button', { name: 'Close', exact: true }).click();
-  await h.win.waitForTimeout(300);
+  const publish = h.win.locator('[role="dialog"][aria-labelledby="publish-title"]');
+  await shoot(h.win, 'export-publishing', publish);
+  // Escape, not a "Close" button: the dialog has one per target card plus its
+  // own, so a role query matches several.
+  await h.win.keyboard.press('Escape');
+  await expect(publish).toHaveCount(0);
 });
