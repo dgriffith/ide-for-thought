@@ -953,6 +953,12 @@ or force-pushed. Before this every gate in CI was advisory at merge time —
 three PRs merged with a red e2e (#2159-#2161), and two individually-green PRs
 could combine into a red main (#2348).
 
+The one `ci.yml` job that is deliberately **not** required is `x64-smoke`
+(#2387): an unsigned x64 build smoke-booted on `macos-15-intel`, on main
+pushes and PRs labelled `x64-smoke` only, `continue-on-error` so it can't turn
+a run red — an early warning for #962, see `docs/packaging.md`.
+`branch-ruleset.test.ts` requires any such exemption to be `continue-on-error`.
+
 The ruleset lives in **`.github/rulesets/main.json`**, which is the exact body
 of `POST /repos/{owner}/{repo}/rulesets`. The file is the source of truth, not
 the settings page:

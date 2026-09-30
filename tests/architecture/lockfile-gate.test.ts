@@ -86,6 +86,7 @@ describe('every installing job verifies the lockfile first (#2244)', () => {
       'ci.yml:coverage',
       'ci.yml:e2e',
       'ci.yml:lint-and-test',
+      'ci.yml:x64-smoke',
       'release.yml:build-macos',
     ]);
   });

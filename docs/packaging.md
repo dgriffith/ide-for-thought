@@ -88,6 +88,15 @@ pnpm build -- --arch=universal
 
 This produces a universal binary at the cost of ~2× the .app size.
 
+Releases ship arm64 only (#962). An **x64** build is exercised anyway, as an
+early warning: `ci.yml`'s `x64-smoke` job packages natively on a
+`macos-15-intel` runner on every push to `main` (and on PRs labelled
+`x64-smoke`), checks that every native binary in the bundle is `x86_64`, and
+runs the packaged smoke boot. It is non-blocking (`continue-on-error`, not a
+required check) — a red X on a main commit there means x64 broke, not that
+main did. An arm64 build can't be tested on an Intel runner "under Rosetta":
+Rosetta translates x86_64 → arm64 only.
+
 ### 5. Windows / Linux
 
 Same commands work cross-platform:
