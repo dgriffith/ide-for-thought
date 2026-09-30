@@ -60,7 +60,7 @@ describe('workflow token scopes are declared (#2251)', () => {
   it('finds the workflows — an empty scan would pass vacuously', () => {
     const found = workflows();
     expect(found.length).toBeGreaterThanOrEqual(3);
-    expect(found.map((w) => w.file).sort()).toEqual(['bench.yml', 'ci.yml', 'release.yml']);
+    expect(found.map((w) => w.file).sort()).toEqual(['bench.yml', 'ci.yml', 'quality-dashboard.yml', 'release.yml']);
   });
 
   it('every workflow declares a permissions block', () => {
@@ -123,6 +123,17 @@ describe('writes are scoped to the job that needs them (#2251)', () => {
     const bench = workflows().find((w) => w.file === 'bench.yml')!.doc;
     expect(writeScopes(bench.permissions)).toEqual([]);
     expect(writeScopes(bench.jobs?.['bench']?.permissions)).toEqual(['issues']);
+  });
+
+  it('quality-dashboard.yml grants issues:write + actions:read on the dashboard job alone (#2389)', () => {
+    // It edits the one dashboard issue (and files a failure issue), and reads
+    // ci.yml/bench.yml runs, job steps and e2e job logs. A job-level
+    // `permissions:` replaces the workflow scope, so contents:read (checkout)
+    // is re-declared beside them. Nothing writes to the repository.
+    const dash = workflows().find((w) => w.file === 'quality-dashboard.yml')!.doc;
+    expect(dash.permissions).toEqual({ contents: 'read' });
+    expect(dash.jobs?.['dashboard']?.permissions).toEqual({ contents: 'read', actions: 'read', issues: 'write' });
+    expect(Object.keys(dash.jobs ?? {})).toEqual(['dashboard']);
   });
 
   it('ci.yml grants no writes at all', () => {

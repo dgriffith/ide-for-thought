@@ -117,6 +117,17 @@ describe('out-of-band checks notify someone (#2242)', () => {
     expect(perms?.issues, 'the notify step needs issues: write').toBe('write');
   });
 
+  it('quality-dashboard.yml files an issue on a failed scheduled run (#2389)', () => {
+    // Scheduled like bench.yml, so the same rule: the failure has to reach a
+    // person, and an `echo` would satisfy the generic check above.
+    const dash = workflows().find((w) => w.file === 'quality-dashboard.yml')!;
+    expect(isScheduled(dash.doc)).toBe(true);
+    const steps = failureSteps(dash.doc);
+    expect(steps.some((s) => String(s.uses ?? '').includes('github-script'))).toBe(true);
+    const perms = dash.doc.jobs?.['dashboard']?.permissions as Record<string, string> | undefined;
+    expect(perms?.issues, 'the notify step needs issues: write').toBe('write');
+  });
+
   it('the gate output is captured, so the issue can say what regressed', () => {
     // `tee` without `pipefail` reports tee's exit status — the gate would go
     // green and the notification would never fire. Easy to lose in an edit.

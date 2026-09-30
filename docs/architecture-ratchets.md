@@ -634,8 +634,10 @@ two, since a notarization reporter or a Linux/Windows builder would inherit
 repository write for no reason. Also rejects the `permissions: write-all`
 shorthand — one innocuous-looking word that grants every scope there is. The
 one non-default read, `actions: read` for the release CI gate (#2371), is
-pinned to `release.yml`'s `ci-verdict` job alone. **When it fires:** put the
-write on the job.
+pinned to `release.yml`'s `ci-verdict` job alone; `quality-dashboard.yml`'s
+`dashboard` job (#2389) is named too, with `issues: write` for the one
+dashboard issue and `actions: read` for run listings and e2e job logs.
+**When it fires:** put the write on the job.
 
 ### `branch-ruleset.test.ts`
 
@@ -659,7 +661,7 @@ re-apply it (`gh api --method PUT repos/{owner}/{repo}/rulesets/<id> --input
 
 ### `actions-sha-pinned.test.ts`
 
-**Every `uses:` across all three workflows is a 40-character commit SHA with a
+**Every `uses:` across every workflow is a 40-character commit SHA with a
 version comment, and one action resolves to one SHA everywhere** (#2250).
 `actions/checkout@v7` is a *mutable* reference — the tag can be moved, reverted
 or repointed upstream and the next run executes different code with no diff here
@@ -775,7 +777,10 @@ an mtime-based skip check reports a cache hit and rebuilds anyway (`checkout`
 stamps every source file with the checkout time), so the corpus stays correct
 and the cache just quietly stops paying. **When it fires:** add the
 `if: failure()` notify step — one issue updated weekly, not one per run — or
-re-sync the cache key with the hashed input set.
+re-sync the cache key with the hashed input set. `quality-dashboard.yml`
+(#2389) is the second scheduled workflow and is pinned by name the same way
+`bench.yml` is: its failure step files an issue via `github-script`, and its
+job holds `issues: write`.
 
 ### `e2e-flake-budget.test.ts`
 

@@ -894,7 +894,7 @@ user-facing fix, and CI already gates the full tree on every PR.
 ### Node comes from `.nvmrc`, and it is an LTS line (#2252)
 
 `.nvmrc` is the single answer to "which Node does this project run on?" — all
-three workflows resolve their runtime from it via `node-version-file`, and
+workflows resolve their runtime from it via `node-version-file`, and
 nothing hardcodes a version beside it.
 
 It says **24**, which is the LTS line (supported to 2028-04-30), and it stays
@@ -925,6 +925,7 @@ Every workflow declares `permissions:`, the workflow-scope value is
 | `ci.yml` | `contents: read` | — |
 | `bench.yml` | `contents: read` | `issues: write` on `bench` (#2242) |
 | `release.yml` | `contents: read` | `contents: write` on `build-macos`; `actions: read` on `ci-verdict` (#2371) |
+| `quality-dashboard.yml` | `contents: read` | `issues: write` + `actions: read` on `dashboard` (#2389) |
 
 `ci.yml` and `bench.yml` used to declare nothing, so their token scope came
 from a repository settings page. That page says least-privilege today —
@@ -985,7 +986,7 @@ mode.
 
 `actions/checkout@v7` is a **mutable** reference: the tag can be moved,
 reverted or repointed upstream, and the next run executes different code with
-no diff here to show it. A SHA cannot move. Every `uses:` across all three
+no diff here to show it. A SHA cannot move. Every `uses:` across the
 workflows carries one, with the version as a trailing comment:
 
 ```yaml
@@ -1123,6 +1124,19 @@ Two details in `bench.yml` worth preserving if you edit it:
   fails the run if the linked issue is CLOSED — a closed owner means nobody
   will ever arm it, which is how #2211's six ungated entries outlived their
   fixes.
+
+**The weekly quality dashboard (#2389) is the second out-of-band workflow.**
+`quality-dashboard.yml` writes main-CI outcomes, test-step durations, e2e
+flake counts, bench status, Codecov coverage by process, the ratchet baseline
+totals and the `fix:` commits since the last tag into ONE pinned issue (label
+`quality-dashboard`), edited in place each Monday — the issue's edit history is
+the trend. The logic is `scripts/quality-dashboard.mjs` (I/O; no flag = dry-run
+print) and `scripts/lib/quality-dashboard.mjs` (pure, tested). Ratchet totals
+are read from the baseline constants in the tests that enforce them, and
+`tests/scripts/quality-dashboard.test.ts` measures each against the real file,
+so **renaming a baseline constant listed in its `RATCHETS` means updating that
+entry**. A source it can't read renders as unavailable, not as zeros, and the
+run then fails into the same notify-step shape as `bench.yml`.
 
 Scheduled runs only. A failed manual dispatch already has someone watching it;
 filing at them trains everyone to skip the label.
