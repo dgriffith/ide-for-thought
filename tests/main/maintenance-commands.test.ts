@@ -20,6 +20,7 @@
  * in the sibling `maintenance-commands-kernel.test.ts`.
  */
 import { describe, it, expect, beforeEach, afterEach, afterAll } from 'vitest';
+import { silenceLogTags } from '../helpers/quiet-logs';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
@@ -112,6 +113,9 @@ function pythonAvailable(): boolean {
 const RUNNING_AS_ROOT = typeof process.getuid === 'function' && process.getuid() === 0;
 
 // ── rebuildAllIndexes ───────────────────────────────────────────────────────
+
+// Expected: these tests drive failure paths the code logs (#2390).
+silenceLogTags('maintenance');
 
 describe('rebuildAllIndexes', () => {
   const project = useGraphProject('minerva-maint-rebuild-');

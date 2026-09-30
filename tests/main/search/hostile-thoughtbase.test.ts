@@ -9,6 +9,7 @@
  * line) is a file the index must take without incident.
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { silenceLogTags } from '../../helpers/quiet-logs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { indexAllNotes, search, disposeProject } from '../../../src/main/search/index';
@@ -25,6 +26,9 @@ import {
 async function hits(ctx: ProjectContext, q: string): Promise<string[]> {
   return (await search(ctx, q)).map((r) => r.relativePath).sort();
 }
+
+// Expected: these tests drive failure paths the code logs (#2390).
+silenceLogTags('search');
 
 describe('search indexAllNotes on a hostile thoughtbase (#2372)', () => {
   const tb = useHostileThoughtbase(NOTE_TREE_FEATURES, 'minerva-search-hostile-');

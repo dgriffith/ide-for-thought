@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { silenceLogTags } from '../../helpers/quiet-logs';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -32,6 +33,9 @@ afterEach(() => {
   fs.rmSync(dir, { recursive: true, force: true });
   resetHelpDocsCorpusCache();
 });
+
+// Expected: these tests drive failure paths the code logs (#2390).
+silenceLogTags('help-docs');
 
 describe('corpus-store', () => {
   it('loads a valid corpus matching the shipped embedding model', () => {

@@ -12,6 +12,7 @@
  * AFTER the change that must not be reported, as in `watcher-symlinks.test.ts`.
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { silenceLogTags } from '../../helpers/quiet-logs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { startWatching, stopWatching, type WatcherTarget } from '../../../src/main/notebase/watcher';
@@ -41,6 +42,9 @@ async function until(predicate: () => boolean, timeoutMs = 5000): Promise<void> 
 }
 
 const noop = { onFileCreated: () => undefined, onFileChanged: () => undefined, onFileDeleted: () => undefined };
+
+// Expected: these tests drive failure paths the code logs (#2390).
+silenceLogTags('watcher');
 
 describe('startWatching on a hostile thoughtbase (#2372)', () => {
   const tb = useHostileThoughtbase(ALL_HOSTILE_FEATURES, 'minerva-watch-hostile-');

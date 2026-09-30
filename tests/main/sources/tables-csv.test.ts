@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { silenceLogTags } from '../../helpers/quiet-logs';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
@@ -21,6 +22,9 @@ import { projectContext, type ProjectContext } from '../../../src/main/project-c
 function mkTempProject(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-tables-csv-test-'));
 }
+
+// Expected: these tests drive failure paths the code logs (#2390).
+silenceLogTags('tables');
 
 describe('deriveTableName (#233)', () => {
   it('converts slashes and dots to underscores', () => {

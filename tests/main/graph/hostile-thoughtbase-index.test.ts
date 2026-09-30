@@ -13,6 +13,7 @@
  * refused to open the thoughtbase at all.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { silenceLogTags } from '../../helpers/quiet-logs';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
@@ -47,6 +48,9 @@ async function graphMentions(ctx: ProjectContext, needle: string): Promise<boole
   `);
   return results.length > 0;
 }
+
+// Expected: these tests drive failure paths the code logs (#2390).
+silenceLogTags('graph');
 
 describe('graph indexAllNotes on a hostile note tree (#2372)', () => {
   const tb = useHostileThoughtbase(NOTE_TREE_FEATURES, 'minerva-graph-hostile-');

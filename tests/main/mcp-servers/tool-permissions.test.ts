@@ -8,6 +8,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { silenceLogTags } from '../../helpers/quiet-logs';
 import type { McpServerDescriptor } from '../../../src/shared/mcp-servers';
 import { useTempDir } from '../../helpers/temp-project';
 import {
@@ -28,6 +29,9 @@ beforeEach(() => {
 afterEach(() => _setMcpToolPermissionsPathForTests(null));
 
 const stdio: McpServerDescriptor = { kind: 'stdio', command: 'node', args: ['server.js'], env: { B: '2', A: '1' }, cwd: '/srv' };
+
+// Expected: these tests drive failure paths the code logs (#2390).
+silenceLogTags('config');
 
 describe('serverIdentity', () => {
   it('is stable across key order, env order and an absent vs. empty args', () => {

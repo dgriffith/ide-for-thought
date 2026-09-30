@@ -32,6 +32,7 @@
  * test file).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { silenceLogTags } from '../../helpers/quiet-logs';
 import path from 'node:path';
 
 /** Absolute paths handed to `readFileSync` / `statSync`, in call order. */
@@ -112,6 +113,9 @@ beforeEach(() => {
   io.pinStamp = false;
   resetIo();
 });
+
+// Expected: these tests drive failure paths the code logs (#2390).
+silenceLogTags('config');
 
 describe('the memo removes the repeated read (#2226)', () => {
   it('twenty preview-style style lookups read config.json once', () => {

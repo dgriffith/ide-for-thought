@@ -33,6 +33,7 @@
  * file's blanket `graph/index` stub.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { silenceLogTags } from '../../helpers/quiet-logs';
 
 const h = vi.hoisted(() => ({
   proposeWrite: vi.fn(),
@@ -112,6 +113,9 @@ const WRITE = {
 };
 
 beforeEach(() => { vi.clearAllMocks(); });
+
+// Expected: these tests drive failure paths the code logs (#2390).
+silenceLogTags('conversation');
 
 describe('fileAndApprove', () => {
   it('files and approves, returning the real approve result', async () => {

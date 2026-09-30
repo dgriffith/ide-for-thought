@@ -18,6 +18,7 @@
  */
 
 import { describe, it, expect, afterAll, vi } from 'vitest';
+import { silenceLogTags } from '../../helpers/quiet-logs';
 import { execSync } from 'node:child_process';
 
 /**
@@ -60,6 +61,9 @@ function pythonAvailable(): boolean {
 }
 
 const skipIfNoPython = pythonAvailable() ? describe : describe.skip;
+
+// Expected: these tests drive failure paths the code logs (#2390).
+silenceLogTags('python-kernel');
 
 skipIfNoPython('python cell execution timeout (#2218)', () => {
   const ROOT = '/tmp/minerva-pyk-timeout-root';

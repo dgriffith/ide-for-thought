@@ -8,6 +8,7 @@
  * triggered the destructive overwrite.
  */
 import { describe, it, expect } from 'vitest';
+import { silenceLogTags } from '../../helpers/quiet-logs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { readRawProjectConfig, patchRawProjectConfig } from '../../../src/main/config/project-config-store';
@@ -18,6 +19,9 @@ const project = useTempDir('minerva-project-config-store-test-');
 function configFile(root: string): string {
   return path.join(root, '.minerva', 'config.json');
 }
+
+// Expected: these tests drive failure paths the code logs (#2390).
+silenceLogTags('config');
 
 describe('readRawProjectConfig (#1891)', () => {
   it('returns {} when the file is missing', () => {

@@ -12,6 +12,7 @@
  * re-running init.
  */
 import { describe, it, expect, afterEach } from 'vitest';
+import { silenceLogTags } from '../helpers/quiet-logs';
 import fs from 'node:fs';
 import {
   acquireProject,
@@ -30,6 +31,9 @@ import {
 } from '../helpers/hostile-thoughtbase';
 
 const WIN = 4242;
+
+// Expected: these tests drive failure paths the code logs (#2390).
+silenceLogTags('graph', 'search', 'config', 'project-context');
 
 describe('acquireProject on a hostile thoughtbase (#2372)', () => {
   const tb = useHostileThoughtbase(ALL_HOSTILE_FEATURES, 'minerva-open-hostile-');

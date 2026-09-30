@@ -16,6 +16,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { silenceLogTags } from '../../helpers/quiet-logs';
 import {
   createCellDeadlines,
   cellTimeoutMessage,
@@ -70,6 +71,9 @@ function complete(h: Harness, id: string, deadlines: ReturnType<typeof createCel
 
 beforeEach(() => { vi.useFakeTimers(); });
 afterEach(() => { vi.useRealTimers(); });
+
+// Expected: these tests drive failure paths the code logs (#2390).
+silenceLogTags('python-kernel');
 
 describe('createCellDeadlines — which cell gets armed (#2218)', () => {
   it('interrupts the head cell once its budget elapses', () => {
