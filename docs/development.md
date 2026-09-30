@@ -314,6 +314,14 @@ doubt:
 6. **Describe testing.** Say what you ran and, for UI changes, what you verified
    by hand. Screenshots/recordings welcome.
 
+7. **Label fixes `bug`.** If a PR fixes a defect (a `fix:` commit), the issue it
+   closes carries the `bug` label. If there is no issue, the PR gets the label.
+   Defect trends are counted from that label. In six months there were 126
+   `fix:` commits but only 46 `bug` issues, so the count said little.
+
+`.github/pull_request_template.md` has a checklist with these items, plus one for
+proposal and draft UI: those components need a component test in the same PR.
+
 A maintainer will review and, once it's ready, squash-merge it.
 
 ## License
