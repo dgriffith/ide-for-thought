@@ -416,6 +416,16 @@ jobs:
         if: always()
         run: node scripts/e2e-flake-report.mjs playwright-report.json
 
+      # Time-to-first-paint of the packaged app (#2384), from the packaged
+      # smoke spec that ran above. A trend, not a gate: into the job summary
+      # and a `::notice`, always exit 0. Here as well as in release.yml because
+      # releases are rare and every main push packages the app anyway — this
+      # is the path that makes it a trend. The raw samples ride along in the
+      # test-results/ upload below (first-paint.jsonl).
+      - name: First-paint time (packaged app)
+        if: always()
+        run: node scripts/first-paint-report.mjs test-results/first-paint.jsonl --label "ci e2e, ${{ runner.os }} ${{ runner.arch }}"
+
       # The JSON report, plus test-results/: the trace of each test's first
       # failing attempt (runner trace + the Electron renderer's own trace,
       # `electron-trace`) and its error context (#2458). A green run retains no

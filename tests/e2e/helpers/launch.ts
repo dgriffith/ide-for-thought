@@ -42,6 +42,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { annotate, captureProcessState, inTest, probeApp, settlesWithin, withinBound } from './bounded';
+import { watchFirstPaint, type FirstPaintSample } from './first-paint';
 
 // Playwright transpiles tests as CJS (no `"type": "module"` in package.json),
 // so `__dirname` is available — `import.meta.url` would force ESM and trip
@@ -374,6 +375,17 @@ export async function ingestSource(app: ElectronApplication): Promise<{ sourceId
     ));
 }
 
+const firstPaintWatchers = new WeakMap<ChildProcess, ReturnType<typeof watchFirstPaint>>();
+
+/**
+ * A packaged app's first-paint mark (#2384), or `null` if none arrived within
+ * `timeoutMs`. The app prints it only when launched with
+ * `env: { MINERVA_BOOT_TIMING: '1' }`; see `helpers/first-paint.ts`.
+ */
+export function firstPaintOf(app: PackagedMinerva, timeoutMs = 10_000): Promise<FirstPaintSample | null> {
+  return firstPaintWatchers.get(app.process())?.waitFor(timeoutMs) ?? Promise.resolve(null);
+}
+
 /**
  * Launch the packaged binary and attach over the Chrome DevTools Protocol.
  *
@@ -395,10 +407,13 @@ async function launchPackaged(
   env: Record<string, string>,
   timeout: number,
 ): Promise<PackagedMinerva> {
+  const spawnedAt = performance.now();
   const child = spawn(executablePath, ['--remote-debugging-port=0', ...args], {
     env,
     stdio: ['ignore', 'pipe', 'pipe'],
   });
+  // Watching from spawn, before any await, so an early mark can't be missed.
+  firstPaintWatchers.set(child, watchFirstPaint(child, spawnedAt));
   // Keep both pipes draining for the life of the process, whoever else is
   // listening: an unread pipe fills (64 KB) and then blocks the app mid-write,
   // and ELECTRON_ENABLE_LOGGING is chatty. Callers attach their own 'data'

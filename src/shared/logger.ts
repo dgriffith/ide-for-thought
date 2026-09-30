@@ -20,6 +20,7 @@ export const LOG_TAGS = [
   'approval',
   'auto-update',
   'backfill',
+  'boot',
   'command-palette',
   'compute',
   'config',
