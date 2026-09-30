@@ -19,9 +19,10 @@ import { describe, test } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { initGraph, indexNote } from '../../../src/main/graph/index';
+import { initGraph, indexNote, queryGraphRows } from '../../../src/main/graph/index';
 import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
 import { trackTempDir } from '../../helpers/bench-temp-dirs';
+import { assertFixtureReaches } from '../../helpers/bench-fixture';
 
 const SEED_NOTES = 500;
 
@@ -38,17 +39,40 @@ for (let i = 0; i < SEED_NOTES; i++) {
   );
 }
 
+const BENCH_NOTE = `# Bench Note\n\nBody with a #tag-3 and a [[seed-1]] link and ${'more words '.repeat(30)}.\n`;
+
+// ── What this fixture must reach (#2383) ─────────────────────────────────────
+// A per-note cost "at scale" needs the scale to be in the store, and the note
+// under test to do the three things its name says: a title, a tag, and a
+// wiki-link that RESOLVES against the seeded notes — an unresolved link skips
+// the resolver lookup the bench is meant to include.
+{
+  const notes = await queryGraphRows(ctx, 'SELECT (COUNT(?n) AS ?c) WHERE { ?n a minerva:Note }');
+  const count = Number((notes.results[0] as Record<string, string> | undefined)?.c);
+  assertFixtureReaches(`the store holds all ${SEED_NOTES} seeded notes`, count === SEED_NOTES, count);
+
+  await indexNote(ctx, 'bench-note.md', BENCH_NOTE);
+  const edges = await queryGraphRows(ctx, `
+    SELECT ?title ?tag ?target WHERE {
+      ?n minerva:relativePath "bench-note.md" ; dc:title ?title ;
+         minerva:hasTag/minerva:tagName ?tag ; minerva:references ?t .
+      ?t minerva:relativePath ?target .
+    }`);
+  const row = edges.results[0] as Record<string, string> | undefined;
+  assertFixtureReaches(
+    'the note under test indexes a title, a tag, and a wiki-link resolved to seed-1.md',
+    row?.title === 'Bench Note' && row.tag === 'tag-3' && row.target === 'seed-1.md',
+    edges.results,
+  );
+}
+
 describe('graph indexing', () => {
   // Re-index the same path in place (indexNote strips the note's prior triples
   // then re-adds), so each iteration is a stable steady-state cost rather than
   // a monotonically growing store.
   test(`indexNote: a note (title + tag + wiki-link) into a ${SEED_NOTES}-note store`, async ({ bench }) => {
     await bench(`indexNote: a note (title + tag + wiki-link) into a ${SEED_NOTES}-note store`, async () => {
-      await indexNote(
-        ctx,
-        'bench-note.md',
-        `# Bench Note\n\nBody with a #tag-3 and a [[seed-1]] link and ${'more words '.repeat(30)}.\n`,
-      );
+      await indexNote(ctx, 'bench-note.md', BENCH_NOTE);
     }).run();
   });
 });

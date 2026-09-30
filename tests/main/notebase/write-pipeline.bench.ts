@@ -25,11 +25,13 @@ import { describe, test } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { initGraph, indexAllNotes } from '../../../src/main/graph/index';
-import { initSearch, indexAllNotes as searchIndexAllNotes } from '../../../src/main/search/index';
+import { initGraph, indexAllNotes, queryGraphRows } from '../../../src/main/graph/index';
+import { wikiLinkIndex } from '../../../src/main/graph/note-index';
+import { initSearch, indexAllNotes as searchIndexAllNotes, search } from '../../../src/main/search/index';
 import { writeAndReindex, type WritePipelineHooks } from '../../../src/main/notebase/write-pipeline';
 import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
 import { trackTempDir } from '../../helpers/bench-temp-dirs';
+import { assertFixtureReaches } from '../../helpers/bench-fixture';
 
 const SCALES = [500, 2000, 5000];
 
@@ -57,6 +59,9 @@ function noteTarget(i: number): string {
   return `design-note-about-topic-${i}`;
 }
 
+const BENCH_PATH = 'notes/research/bench-note-under-test.md';
+const BENCH_NOTE = `# Bench Note\n\nBody with a #tag-3 and a [[${noteTarget(1)}]] link and ${'more words '.repeat(30)}.\n`;
+
 const noopHooks: WritePipelineHooks = {
   markPathHandled: () => {},
   broadcastRewritten: () => {},
@@ -79,17 +84,45 @@ for (const scale of SCALES) {
   // Bulk-seed both indexes (the O(n) path, #1106) rather than looping
   // writeAndReindex itself here — that's what the bench below measures.
   await indexAllNotes(ctx);
-  await searchIndexAllNotes(ctx);
+  const searchIndexed = await searchIndexAllNotes(ctx);
+
+  // ── What this fixture must reach (#2383) ───────────────────────────────────
+  // A save is three things — the file, the graph, the search index — and the
+  // link-index size is the whole point of the fixture's filenames (#2211). So:
+  // both indexes hold the full vault; the resolver index carries the ~6 suffix
+  // entries per note a real vault's nested multi-word paths produce (the
+  // `note-${i}` fixture produced 1); and one save lands in all three places,
+  // with its wiki-link resolved against the seeded notes rather than dangling.
+  {
+    assertFixtureReaches(`the search index holds all ${scale} seeded notes`, searchIndexed === scale, searchIndexed);
+    const suffixes = wikiLinkIndex(ctx).bySuffixSlug.size;
+    assertFixtureReaches(
+      `the link index carries the multi-segment suffix entries of real filenames (>= ${5 * scale})`,
+      suffixes >= 5 * scale,
+      suffixes,
+    );
+
+    await writeAndReindex(root, BENCH_PATH, BENCH_NOTE, noopHooks);
+    assertFixtureReaches('the save writes the note to disk', fs.readFileSync(path.join(root, BENCH_PATH), 'utf-8') === BENCH_NOTE);
+    const link = await queryGraphRows(ctx, `
+      SELECT ?target WHERE {
+        ?n minerva:relativePath "${BENCH_PATH}" ; minerva:references ?t .
+        ?t minerva:relativePath ?target .
+      }`);
+    const target = (link.results[0] as Record<string, string> | undefined)?.target;
+    assertFixtureReaches(`the save indexes the note's wiki-link, resolved to ${notePath(1)}`, target === notePath(1), link.results);
+    const hits = await search(ctx, 'Bench Note', { limit: 5 });
+    assertFixtureReaches(
+      'the save reaches the search index',
+      hits.some((h) => h.relativePath === BENCH_PATH),
+      hits.map((h) => h.relativePath),
+    );
+  }
 
   describe(`writeAndReindex — ${scale}-note vault`, () => {
     test(`writeAndReindex: re-save one note in a ${scale}-note vault`, async ({ bench }) => {
       await bench(`writeAndReindex: re-save one note in a ${scale}-note vault`, async () => {
-        await writeAndReindex(
-          root,
-          'notes/research/bench-note-under-test.md',
-          `# Bench Note\n\nBody with a #tag-3 and a [[${noteTarget(1)}]] link and ${'more words '.repeat(30)}.\n`,
-          noopHooks,
-        );
+        await writeAndReindex(root, BENCH_PATH, BENCH_NOTE, noopHooks);
       }).run();
     });
   });

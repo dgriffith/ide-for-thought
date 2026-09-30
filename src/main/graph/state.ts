@@ -80,6 +80,14 @@ function addStatementToN3(n3Store: N3.Store, st: $rdf.Statement, df: typeof N3.D
   } catch { /* skip malformed triples */ }
 }
 
+/**
+ * Test-only (#2383), in the style of `note-index.ts`'s `_derivationCountsForTests`:
+ * `fullBuilds` = from-scratch mirror builds (either path); `deltaWrites` = store
+ * writes applied incrementally to a LIVE mirror (#1110). Bench setup asserts on
+ * these so a fixture that never reaches the path it names fails loudly.
+ */
+export const _n3MirrorCountsForTests = { fullBuilds: 0, deltaWrites: 0 };
+
 /** Build an N3.Store from rdflib's IndexedFormula for Comunica to query,
  *  SYNCHRONOUSLY (atomic — no yield). O(n) in `s.statements.length`; see
  *  `N3_REBUILD_WARN_MS`. `ensureN3Cache` is the yielding front door that falls
@@ -88,6 +96,7 @@ export function buildN3Store(s: $rdf.IndexedFormula): N3.Store {
   const started = performance.now();
   const n3Store = new N3.Store();
   const df = N3.DataFactory;
+  _n3MirrorCountsForTests.fullBuilds++;
 
   for (const st of s.statements) addStatementToN3(n3Store, st, df);
 
@@ -148,6 +157,7 @@ export async function ensureN3Cache(state: GraphState): Promise<N3.Store> {
     return state.n3Cache;
   }
   state.n3Cache = n3;
+  _n3MirrorCountsForTests.fullBuilds++;
   armRebuildBudget(state);
   return state.n3Cache;
 }
@@ -435,6 +445,7 @@ export function resetN3Mirror(state: GraphState): void {
 function mirrorAdd(state: GraphState, s: RdflibTermLike, p: RdflibTermLike, o: RdflibTermLike): void {
   const n3 = state.n3Cache;
   if (!n3) return;
+  _n3MirrorCountsForTests.deltaWrites++;
   const df = N3.DataFactory;
   try {
     const subject = convertTerm(s, df);
@@ -451,6 +462,7 @@ function mirrorAdd(state: GraphState, s: RdflibTermLike, p: RdflibTermLike, o: R
 function mirrorRemove(state: GraphState, removed: $rdf.Statement[]): void {
   const n3 = state.n3Cache;
   if (!n3) return;
+  _n3MirrorCountsForTests.deltaWrites++;
   const df = N3.DataFactory;
   for (const st of removed) {
     try {

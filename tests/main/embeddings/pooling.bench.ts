@@ -12,6 +12,7 @@
  */
 import { describe, test } from 'vitest';
 import { meanPoolNormalize, cosineSimilarity } from '../../../src/main/embeddings/pooling';
+import { assertFixtureReaches } from '../../helpers/bench-fixture';
 
 const DIM = 384;   // all-MiniLM-L6-v2 embedding width
 const SEQ = 512;   // the model's max sequence length — the worst-case pool
@@ -32,6 +33,19 @@ const tokens = fill(new Float32Array(SEQ * DIM), 0);
 const mask = new Float32Array(SEQ).fill(1);
 const query = fill(new Float32Array(DIM), 1);
 const corpus = Array.from({ length: CORPUS }, (_, i) => fill(new Float32Array(DIM), i));
+
+// ── What this fixture must reach (#2383) ─────────────────────────────────────
+// These two are the CONTROLS the gate is read against (pure CPU, no I/O), so
+// they must do the full-size work: a unit vector of the model's width out of
+// the pool, and a corpus of DISTINCT vectors — identical filler would let a
+// future short-circuit (e.g. an identity check) score it for free.
+{
+  const pooled = meanPoolNormalize(tokens, mask, SEQ, DIM);
+  const norm = Math.hypot(...pooled);
+  assertFixtureReaches(`the pool yields a ${DIM}-wide unit vector`, pooled.length === DIM && Math.abs(norm - 1) < 1e-4, { length: pooled.length, norm });
+  const scores = new Set(corpus.slice(0, 100).map((v) => cosineSimilarity(query, v).toFixed(6)));
+  assertFixtureReaches('the corpus vectors are distinct (scores vary)', scores.size > 50, scores.size);
+}
 
 describe('embedding pooling', () => {
   test(`meanPoolNormalize: seq=${SEQ} dim=${DIM}`, async ({ bench }) => {
