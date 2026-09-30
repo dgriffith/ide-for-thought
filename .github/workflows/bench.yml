@@ -9,7 +9,9 @@
 # shared CI runners, so gating a PR on them would flap. The gate lives here on
 # the manual/scheduled runs (baseline-diff with a tolerance envelope), which is
 # resistant to that noise. macos-latest matches ci.yml, and the baseline is
-# blessed HERE, never on a dev machine (#2211, #2331).
+# blessed HERE, never on a dev machine (#2211, #2331). PRs touching graph/ or
+# notebase/ get pr-bench.yml instead (#2386): the fast subset, gated on the
+# PR's head against its base on one runner, not against this baseline.
 #
 # Re-blessing the baseline: dispatch this workflow with `update_baseline: true`.
 # It runs the benches, writes the new baseline, and uploads it as an artifact —

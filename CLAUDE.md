@@ -945,6 +945,7 @@ Every workflow declares `permissions:`, the workflow-scope value is
 | `ci.yml` | `contents: read` | — |
 | `bench.yml` | `contents: read` | `issues: write` on `bench` (#2242) |
 | `release.yml` | `contents: read` | `contents: write` on `build-macos`; `actions: read` on `ci-verdict` (#2371) |
+| `pr-bench.yml` | `contents: read` | — (#2386) |
 | `quality-dashboard.yml` | `contents: read` | `issues: write` + `actions: read` on `dashboard` (#2389) |
 
 `ci.yml` and `bench.yml` used to declare nothing, so their token scope came
@@ -1166,6 +1167,16 @@ run then fails into the same notify-step shape as `bench.yml`.
 
 Scheduled runs only. A failed manual dispatch already has someone watching it;
 filing at them trains everyone to skip the label.
+
+**PRs touching `src/main/graph/**` or `src/main/notebase/**` also get
+`pr-bench.yml` (#2386)** — the fast graph + save-path benches, run for the PR's
+base and head interleaved on ONE runner and gated on the head/base ratio, so
+runner speed cancels out (a baseline comparison would flap per PR). The rule is
+`scripts/lib/pr-bench.mjs`: best run per side, fail only past 2.0x AND with no
+overlap between the sides' runs — 2.0 because an identical-code dry run reached
+1.70x on noise alone. Advisory, not a required check: a path-filtered job
+reports nothing on the PRs it skips, and a required check that never reports
+blocks every PR.
 
 ### File-size budgets (#1854)
 

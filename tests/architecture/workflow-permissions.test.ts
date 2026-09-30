@@ -60,7 +60,7 @@ describe('workflow token scopes are declared (#2251)', () => {
   it('finds the workflows — an empty scan would pass vacuously', () => {
     const found = workflows();
     expect(found.length).toBeGreaterThanOrEqual(3);
-    expect(found.map((w) => w.file).sort()).toEqual(['bench.yml', 'ci.yml', 'quality-dashboard.yml', 'release.yml']);
+    expect(found.map((w) => w.file).sort()).toEqual(['bench.yml', 'ci.yml', 'pr-bench.yml', 'quality-dashboard.yml', 'release.yml']);
   });
 
   it('every workflow declares a permissions block', () => {
