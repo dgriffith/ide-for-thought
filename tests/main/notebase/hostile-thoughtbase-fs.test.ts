@@ -8,6 +8,7 @@
  * re-checked against the shared hostile tree rather than a one-off fixture.
  */
 import { describe, it, expect } from 'vitest';
+import { silenceLogTags } from '../../helpers/quiet-logs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { listFiles, readFile } from '../../../src/main/notebase/fs';
@@ -22,6 +23,9 @@ import {
 function flatten(files: NoteFile[]): NoteFile[] {
   return files.flatMap((f) => [f, ...(f.children ? flatten(f.children) : [])]);
 }
+
+// Expected: these tests drive failure paths the code logs (#2390).
+silenceLogTags('thoughtbase');
 
 describe('notebase listFiles on a hostile thoughtbase (#2372)', () => {
   const tb = useHostileThoughtbase(ALL_HOSTILE_FEATURES, 'minerva-fs-hostile-');

@@ -12,6 +12,7 @@
  * prove that sharing didn't silently drop either one's behavior.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { silenceLogTags } from '../helpers/quiet-logs';
 
 const h = vi.hoisted(() => ({
   wasHandled: vi.fn().mockReturnValue(false),
@@ -160,6 +161,9 @@ describe.each([
     await expect(pick(handlers)('notes/a.md')).resolves.toBeUndefined();
   });
 });
+
+// Expected: these tests drive failure paths the code logs (#2390).
+silenceLogTags('watcher');
 
 describe('onFileDeleted', () => {
   it('does nothing when the path was already handled by an IPC write', async () => {

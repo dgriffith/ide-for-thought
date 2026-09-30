@@ -12,6 +12,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { silenceLogTags } from '../../helpers/quiet-logs';
 import type { McpCallDecision, McpServerDescriptor, McpToolDescriptor, StoredMcpServerConfig } from '../../../src/shared/mcp-servers';
 import { useTempDir } from '../../helpers/temp-project';
 
@@ -74,6 +75,9 @@ beforeEach(async () => {
 afterEach(() => {
   _setMcpToolPermissionsPathForTests(null);
 });
+
+// Expected: these tests drive failure paths the code logs (#2390).
+silenceLogTags('config', 'mcp-confirm');
 
 describe('which calls are gated', () => {
   it('runs a readOnlyHint: true tool without asking', async () => {

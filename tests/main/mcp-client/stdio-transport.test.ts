@@ -10,6 +10,7 @@
  * result fields, cancellation, and a modern-era MRTR round-trip.
  */
 import { describe, it, expect } from 'vitest';
+import { silenceLogTags } from '../../helpers/quiet-logs';
 import { StdioTransport } from '../../../src/main/mcp-client/stdio-transport';
 import { McpConnectionError, McpProtocolError } from '../../../src/main/mcp-client/errors';
 import { _setEraProbeTimeoutMsForTests } from '../../../src/main/mcp-client/era';
@@ -131,6 +132,9 @@ function fixtureDescriptor(mode: string) {
     env: { FIXTURE_MODE: mode },
   };
 }
+
+// Expected: these tests drive failure paths the code logs (#2390).
+silenceLogTags('mcp-client');
 
 describe('StdioTransport (#2029)', () => {
   it('resolves to legacy on an explicit -32601 discover response, then lists/calls tools', async () => {

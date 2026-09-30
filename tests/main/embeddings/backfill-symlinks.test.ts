@@ -6,6 +6,7 @@
  * check used to drop every link, in-root ones included).
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { silenceLogTags } from '../../helpers/quiet-logs';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -51,6 +52,9 @@ afterEach(async () => {
   fs.rmSync(root, { recursive: true, force: true });
   fs.rmSync(outside, { recursive: true, force: true });
 });
+
+// Expected: these tests drive failure paths the code logs (#2390).
+silenceLogTags('backfill');
 
 describe('runBackfill and symlinks (#2398)', () => {
   it('does not embed a symlinked note whose target is outside the thoughtbase', async () => {

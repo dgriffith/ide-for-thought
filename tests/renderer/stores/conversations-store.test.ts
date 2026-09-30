@@ -23,6 +23,7 @@
  * mutation call.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { silenceLogTags } from '../../helpers/quiet-logs';
 import type { Conversation } from '../../../src/shared/conversation';
 import type { AskUserRequest, McpConfirmRequest } from '../../../src/shared/conversation-tools';
 
@@ -234,6 +235,7 @@ describe('openConversationTab / closeTab', () => {
 // ───────────────────────────── send() turn ─────────────────────────────
 
 describe('send()', () => {
+  silenceLogTags('conversation');
   it('echoes the user turn, routes through api.conversations.send, then reloads the canonical transcript', async () => {
     const tab = await freshTab();
     const reloaded: Conversation = {
@@ -606,6 +608,7 @@ describe('UI state', () => {
 // ══════════════════ Trust Principle: draft filing (LLM proposes → human files) ══════════════════
 
 describe('propose_notes draft (fileDraft)', () => {
+  silenceLogTags('conversation');
   it('Approve files through the approval engine and replaces the card with a Filed: summary', async () => {
     const tab = await freshTab();
     (h.cbs.onDraft as Cb)({ draftId: 'd1', conversationId: tab.id });
@@ -829,6 +832,7 @@ const computeDraft = (tab: { id: string }, draftId: string) => ({
 });
 
 describe('propose_compute draft (runComputeDraft / insertComputeDraft)', () => {
+  silenceLogTags('conversation');
   it('Run gates on consent, executes through api, stores the result, and reloads the transcript', async () => {
     const tab = await freshTab();
     seedComputeDraft(tab, 'cp-1');
@@ -911,6 +915,7 @@ describe('runBuiltinCommand', () => {
 // A reply streams as many chunks; a live region fed per chunk would talk over
 // the user for the whole reply. A turn speaks at its start and when it settles.
 describe('turn announcements', () => {
+  silenceLogTags('conversation');
   const reply = (text: string, id: string): Conversation => ({
     id, contextBundle: {}, messages: [
       { role: 'user', content: 'q', timestamp: 't' },

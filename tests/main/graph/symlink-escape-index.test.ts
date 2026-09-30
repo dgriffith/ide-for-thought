@@ -11,6 +11,7 @@
  * it is outside the root for real rather than by spelling.
  */
 import { describe, it, expect, beforeEach } from 'vitest';
+import { silenceLogTags } from '../../helpers/quiet-logs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { indexAllNotes, queryGraph } from '../../../src/main/graph/index';
@@ -30,6 +31,9 @@ async function graphMentions(ctx: ProjectContext, needle: string): Promise<boole
   `);
   return results.length > 0;
 }
+
+// Expected: these tests drive failure paths the code logs (#2390).
+silenceLogTags('graph');
 
 describe('indexAllNotes and symlinks (#2398)', () => {
   const project = useGraphProject('minerva-symlink-index-');

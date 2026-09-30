@@ -13,6 +13,7 @@
  * call with a stub.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { silenceLogTags } from '../../helpers/quiet-logs';
 import {
   stripCodeExecutionTurns,
   runCompletionWithContainerRecovery,
@@ -51,6 +52,9 @@ const HISTORY: LlmMessage[] = [
 ];
 
 beforeEach(() => { vi.clearAllMocks(); });
+
+// Expected: these tests drive failure paths the code logs (#2390).
+silenceLogTags('conversation');
 
 describe('stripCodeExecutionTurns', () => {
   it('drops assistant turns carrying a code-execution marker', () => {

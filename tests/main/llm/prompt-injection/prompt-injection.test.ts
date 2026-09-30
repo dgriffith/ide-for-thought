@@ -40,6 +40,7 @@
  *     (#2442).
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
+import { silenceLogTags } from '../../../helpers/quiet-logs';
 import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
@@ -207,6 +208,9 @@ function snapshotTree(dir: string): Record<string, string> {
 
 // ── the project under attack ────────────────────────────────────────────────
 const SECRET = `-----BEGIN OPENSSH PRIVATE KEY----- OUTSIDE-SECRET-${crypto.randomUUID()}`;
+
+// Expected: these tests drive failure paths the code logs (#2390).
+silenceLogTags('conversation');
 
 describe('prompt-injection corpus: the tool surface holds against a compromised model (#2373)', () => {
   const project = useGraphProject('minerva-injection-');

@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
+import { silenceLogTags } from '../../helpers/quiet-logs';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -50,6 +51,9 @@ function table(caption: string, headers: string[], rows: string[][]): ParsedTabl
   const name = caption.replace(/\s+/g, '_');
   return { headers, rows, caption, name };
 }
+
+// Expected: these tests drive failure paths the code logs (#2390).
+silenceLogTags('tables');
 
 describe('registerMarkdownTable (#1357)', () => {
   it('materializes rows with inferred types (numbers as numbers)', async () => {

@@ -14,6 +14,7 @@
  * resolve, mediaMime) run for real.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { silenceLogTags } from '../../helpers/quiet-logs';
 
 // --- Hoisted mocks -------------------------------------------------------
 const h = vi.hoisted(() => ({
@@ -102,6 +103,9 @@ afterEach(() => {
 // =========================================================================
 // highlightCodeBlocks
 // =========================================================================
+// Expected: these tests drive failure paths the code logs (#2390).
+silenceLogTags('preview');
+
 describe('highlightCodeBlocks', () => {
   it('returns without throwing when there is no preview element', () => {
     expect(() => highlightCodeBlocks(makeCtx(undefined))).not.toThrow();

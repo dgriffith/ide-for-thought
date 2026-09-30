@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { silenceLogTags } from '../../helpers/quiet-logs';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
@@ -19,6 +20,9 @@ async function writeFile(root: string, rel: string, content: string): Promise<vo
   await fsp.mkdir(path.dirname(abs), { recursive: true });
   await fsp.writeFile(abs, content, 'utf-8');
 }
+
+// Expected: these tests drive failure paths the code logs (#2390).
+silenceLogTags('tables');
 
 describe('sidecarSchemaPath / companionMdPath', () => {
   it('derives the sidecar path by appending .schema.yaml to the CSV', () => {

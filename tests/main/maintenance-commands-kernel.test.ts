@@ -10,6 +10,7 @@
  * nowhere else.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { silenceLogTags } from '../helpers/quiet-logs';
 import type { MaintenanceProgress, MaintenanceFinished } from '../../src/shared/maintenance';
 
 const kernel = vi.hoisted(() => ({
@@ -37,6 +38,9 @@ beforeEach(() => {
   kernel.interruptKernel.mockReset();
   kernel.restartKernel.mockReset();
 });
+
+// Expected: these tests drive failure paths the code logs (#2390).
+silenceLogTags('maintenance');
 
 describe('interruptCell → kernel manager', () => {
   it('interrupts the kernel of the project it was asked about', async () => {

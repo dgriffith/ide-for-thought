@@ -28,6 +28,23 @@ export default defineConfig({
     // (e.g., watcher, chokidar waits, network probes) need >5s to avoid flakes;
     // 30s provides enough headroom without being overly lenient (#1942).
     testTimeout: 30000,
+    // Turn off Node's built-in Web Storage in the test workers (#2390).
+    //
+    // Node 25 unflagged `globalThis.localStorage`; with no `--localstorage-file`
+    // the getter prints "`--localstorage-file` was provided without a valid
+    // path" on first touch. Renderer modules that probe `localStorage` at import
+    // time (`refactor/settings.ts`'s `typeof localStorage` guard) do exactly that
+    // when a NODE-environment test imports them, so a run printed the warning
+    // once per worker that happened to. jsdom tests are unaffected either way —
+    // the jsdom environment installs its own `localStorage`.
+    //
+    // Disabling it, rather than pointing it at a file, is the fix: a real file
+    // would be storage shared across every worker and run, and it makes a
+    // node-environment test see what `.nvmrc`'s Node 24 (CI) sees —
+    // `localStorage` undefined — instead of whichever Node the laptop has. The
+    // flag is accepted by both lines (24: `--experimental-webstorage` is off by
+    // default; 25+: on, and this negation is the documented opt-out).
+    execArgv: ['--no-experimental-webstorage'],
     // ── Execution strategy: the defaults, deliberately (#2248) ─────────────
     //
     // Nothing here sets `pool`, `poolOptions`, `maxWorkers`, `isolate` or

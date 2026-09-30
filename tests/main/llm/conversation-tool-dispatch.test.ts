@@ -10,6 +10,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { silenceLogTags } from '../../helpers/quiet-logs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import type Anthropic from '@anthropic-ai/sdk';
@@ -102,6 +103,9 @@ function toolUseMessageWithUsage(
 ): Anthropic.Message {
   return { ...toolUseMessage(name, input, id), usage: usage as unknown as Anthropic.Usage };
 }
+
+// Expected: these tests drive failure paths the code logs (#2390).
+silenceLogTags('conversation');
 
 describe('completeWithTools() dispatch loop (#342)', () => {
   const project = useTempDir('minerva-conv-dispatch-');

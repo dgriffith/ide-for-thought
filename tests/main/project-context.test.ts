@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { silenceLogTags } from '../helpers/quiet-logs';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
@@ -15,6 +16,9 @@ import { queryGraph } from '../../src/main/graph/index';
 function mkTempProject(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-project-context-test-'));
 }
+
+// Expected: these tests drive failure paths the code logs (#2390).
+silenceLogTags('project-context');
 
 describe('project-context lifecycle (#333)', () => {
   let root: string;

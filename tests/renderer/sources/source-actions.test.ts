@@ -5,6 +5,7 @@
  * copy, the no-op guards, the onDone refresh seam, and error swallowing.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { silenceLogTags } from '../../helpers/quiet-logs';
 
 const h = vi.hoisted(() => ({
   api: {
@@ -28,6 +29,9 @@ const source = { sourceId: 's1', title: 'My Source', uri: null, doi: null, tags:
 beforeEach(() => {
   vi.clearAllMocks();
 });
+
+// Expected: these tests drive failure paths the code logs (#2390).
+silenceLogTags('sources');
 
 describe('renameSource', () => {
   it('sets the trimmed title and runs onDone when the name changes', async () => {

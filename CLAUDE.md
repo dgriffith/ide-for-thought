@@ -643,6 +643,13 @@ logger('watcher').warn('indexing failed for', relativePath, err);
   including muting it entirely — without touching every other subsystem's
   output. Deliberately just a `console` wrapper with level control, not an
   observability platform: no transports, no batching, no remote shipping.
+- **A test that drives a failure path the code logs** mutes exactly those tags
+  with `silenceLogTags(...tags)` from `tests/helpers/quiet-logs.ts` — at file
+  level, or inside the `describe` that expects them if another test in the file
+  asserts a log of the same tag (#2390). A green `pnpm test` printed ~1,750
+  `stderr |` blocks of expected noise before this; keep it quiet so a real
+  warning is visible. Never mute globally or change production logging to
+  quiet a test.
 - `no-restricted-syntax` in `eslint.config.mjs` bans bare `console.*` in
   `src/` (the logger module itself is exempt, since it's the one file
   allowed to touch `console`). The rule is duplicated into the renderer
