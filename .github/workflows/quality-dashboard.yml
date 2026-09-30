@@ -1,0 +1,123 @@
+# Weekly quality dashboard (#2389).
+#
+# Trends like the cancelled-main-run rate, the test-step duration and the
+# ratchet totals were only visible when someone ran a review. This writes them
+# into ONE pinned issue (label `quality-dashboard`, title "Quality dashboard
+# (weekly)"), edited in place every Monday — the #2242 rule for anything that
+# reports from outside the PR loop: one issue, updated, never a new one per
+# run. The issue's edit history is the time series.
+#
+# The logic is not in this file. `scripts/quality-dashboard.mjs` gathers and
+# publishes; `scripts/lib/quality-dashboard.mjs` renders, pure and tested by
+# `tests/scripts/quality-dashboard.test.ts`. Run it locally without
+# `--publish` to print the dashboard instead of writing the issue:
+#
+#   node scripts/quality-dashboard.mjs --repo dgriffith/ide-for-thought
+#
+# No `pnpm install`: the script is dependency-free Node, so this job has no
+# node_modules cache and no lockfile to verify (lockfile-gate.test.ts only
+# requires the verify step of a job that installs).
+name: Quality dashboard
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 7 * * 1' # Mondays 07:00 UTC — an hour after bench.yml, so its verdict is in
+
+# Read the repo; everything else is granted on the job (#2251).
+permissions:
+  contents: read
+
+# One dashboard write at a time. Find-or-create is not atomic: two overlapping
+# runs could each find no issue and each create one. `cancel-in-progress:
+# true` because a newer run's snapshot supersedes an older one's — unlike
+# bench.yml, nothing here is a measurement that two runs would corrupt, and
+# the write is one PATCH, so cancelling mid-run leaves last week's body intact.
+concurrency:
+  group: quality-dashboard
+  cancel-in-progress: true
+
+jobs:
+  dashboard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read  # checkout; git history + tags for ratchet deltas and fix: commits
+      actions: read   # ci.yml / bench.yml run listings, job steps, e2e job logs
+      issues: write   # the one dashboard issue (and the failure issue below)
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Full history and tags: the ratchet column diffs against the commit
+          # from a week ago, and `fix:` commits count from the last v* tag.
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+
+      # Writes the issue, THEN exits 1 if any section was unavailable — so the
+      # dashboard still shows everything it could gather, and the step below
+      # still says which section broke. `dashboard.md` is kept for that step.
+      - name: Build and publish the dashboard
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/quality-dashboard.mjs --repo "$GITHUB_REPOSITORY" --out dashboard.md --publish
+
+      # Only for the SCHEDULED run, same as bench.yml (#2242): a failed manual
+      # dispatch already has someone watching it. One issue, commented on each
+      # failing week, never one per run.
+      - name: Report the failure where someone will see it
+        if: ${{ failure() && github.event_name == 'schedule' }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const fs = require('fs');
+            const TITLE = 'Quality dashboard: the weekly run is failing';
+            const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}` +
+              `/actions/runs/${context.runId}`;
+
+            let unavailable = '(no dashboard.md — the script failed before rendering)';
+            try {
+              const md = fs.readFileSync('dashboard.md', 'utf8');
+              const i = md.indexOf('## Unavailable this week');
+              unavailable = i === -1
+                ? '(dashboard rendered with every section — the failure was in publishing; see the run log)'
+                : md.slice(i);
+            } catch { /* script died before writing it */ }
+
+            const body = [
+              `Scheduled run ${new Date().toISOString().slice(0, 10)} — [run log](${run}).`,
+              '',
+              'The weekly quality dashboard (#2389) could not gather or publish everything.',
+              'Sections it could not read are marked unavailable on the dashboard itself',
+              'rather than shown as zeros.',
+              '',
+              unavailable,
+            ].join('\n');
+
+            const { data: open } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100,
+            });
+            const existing = open.find((i) => !i.pull_request && i.title === TITLE);
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body,
+              });
+              core.notice(`Dashboard still failing — commented on #${existing.number}`);
+            } else {
+              const { data: created } = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: TITLE,
+                body,
+              });
+              core.notice(`Dashboard failing — filed #${created.number}`);
+            }
