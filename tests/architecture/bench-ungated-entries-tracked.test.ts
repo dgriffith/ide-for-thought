@@ -25,6 +25,7 @@ import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { pasteStub } from '../helpers/paste-stub';
 import {
   findClosedLinks,
   findUntrackedUngated,
@@ -50,7 +51,11 @@ describe('ungated bench entries link an owning issue (#2358)', () => {
         problems.map((p) => `  ${p.name}: ${p.problem}`).join('\n') +
         '\n\nAdd `"issue": <number>, "reason": "<why>"` to each — the issue that will arm it. ' +
         'An ungated bench with no owner is a gate nobody will ever turn back on. ' +
-        'bench.yml additionally fails if the linked issue is closed.',
+        'bench.yml additionally fails if the linked issue is closed.' +
+        pasteStub(
+          'each named entry in tests/main/bench-baseline.json, after `"gate": false,`',
+          '"issue": <open issue number>,\n"reason": "<why it is not gated yet>",',
+        ),
     ).toEqual([]);
   });
 

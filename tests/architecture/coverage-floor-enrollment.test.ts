@@ -59,6 +59,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse } from 'yaml';
+import { pasteStub } from '../helpers/paste-stub';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const VITEST_CONFIG = 'vitest.config.mts';
@@ -104,6 +105,22 @@ function hasTsFile(dir: string): boolean {
   return false;
 }
 
+/**
+ * One `thresholds` entry in vitest.config.mts's shape, with the measured
+ * numbers left for `pnpm coverage` to supply (#2381).
+ */
+function floorStub(key: string): string {
+  return [
+    '        // <what it is>. Measured <L>% L / <F>% F / <S>% S / <B>% B (<date>).',
+    `        '${key}': {`,
+    '          lines: <L - n>,',
+    '          functions: <F - n>,',
+    '          statements: <S - n>,',
+    '          branches: <B - n>,',
+    '        },',
+  ].join('\n');
+}
+
 /** Whether any threshold key would match files under `src/main/<name>/`. */
 function isEnrolled(name: string, keys: string[]): boolean {
   const prefix = `src/main/${name}/`;
@@ -137,7 +154,8 @@ describe('coverage-floor enrollment (#2239)', () => {
         'below them (8-10 if it is a single file, where one addition moves the whole ' +
         'aggregate). Record the measured numbers in the comment above the entry, the way ' +
         'every existing one does — the next person to touch it needs to know whether the ' +
-        'floor is close to the real number or far below it.',
+        'floor is close to the real number or far below it.' +
+        pasteStub(`\`thresholds\` in ${VITEST_CONFIG}`, unenrolled.map((n) => floorStub(`src/main/${n}/**`)).join('\n')),
     ).toEqual([]);
   });
 });
@@ -193,7 +211,8 @@ describe('coverage-floor enrollment: loose src/main files (#2368)', () => {
         "Run `pnpm coverage`, read the file's measured numbers, and add a `'src/main/<file>.ts'` " +
         'entry to `thresholds` in vitest.config.mts ~8-10 points below them, recording the ' +
         'measured numbers in the comment above it. Adding the file to KNOWN_UNENROLLED instead ' +
-        'is a legitimate move only with a reason in the diff.',
+        'is a legitimate move only with a reason in the diff.' +
+        pasteStub(`\`thresholds\` in ${VITEST_CONFIG}`, unenrolled.map((f) => floorStub(`src/main/${f.name}`)).join('\n')),
     ).toEqual([]);
   });
 

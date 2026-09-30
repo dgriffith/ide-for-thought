@@ -34,6 +34,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { markdownRow, pasteStub } from '../helpers/paste-stub';
 
 const MAIN_DIR = 'src/main';
 const DOC = 'docs/config-roots.md';
@@ -106,11 +107,12 @@ describe('docs/config-roots.md matches the code (#1853)', () => {
     doc.includes(`\`${name}\``) || doc.includes(`\`${name}/\``);
 
   it('documents every userData path built in src/main', () => {
-    const undocumented = [...new Set(
-      sites
-        .filter((s) => !documented(s.name))
-        .map((s) => `  ${s.name}  (${s.file})`),
-    )].sort();
+    const missingSites = sites.filter((s) => !documented(s.name));
+    const undocumented = [...new Set(missingSites.map((s) => `  ${s.name}  (${s.file})`))].sort();
+    // Directories are written with a trailing slash in the table. A name with
+    // no extension is almost always a directory (`queries`, `views`).
+    const rows = [...new Set(missingSites.map((s) => s.name))].sort().map((name) =>
+      markdownRow([`\`${/\.[a-z0-9]+$/i.test(name) ? name : `${name}/`}\``, '<what it holds — **bold** any secret>']));
     expect(
       undocumented,
       `Config path(s) under userData/ that ${DOC} doesn't mention.\n\n` +
@@ -118,7 +120,8 @@ describe('docs/config-roots.md matches the code (#1853)', () => {
         `Add a row to the "1. \`userData/\` — per machine" table in ${DOC} saying what the file ` +
         'holds — and, if it holds a secret, list it under "Secrets, at a glance" too. The doc is ' +
         'the only inventory of where Minerva keeps state; a config that isn\'t in it is a config ' +
-        'nobody can find, back up, or reason about.',
+        'nobody can find, back up, or reason about.' +
+        pasteStub(`the "1. \`userData/\`" table in ${DOC}`, rows),
     ).toEqual([]);
   });
 
@@ -141,7 +144,11 @@ describe('docs/config-roots.md matches the code (#1853)', () => {
       'File(s) referencing getPath(\'userData\') without a path this test can read:\n' +
         `${unexplained.join('\n')}\n` +
         'Build the path as `path.join(app.getPath(\'userData\'), \'<name>\')` so the inventory check ' +
-        'can see it, or add the file to KNOWN_MENTION_ONLY in this test with a reason.',
+        'can see it, or add the file to KNOWN_MENTION_ONLY in this test with a reason.' +
+        pasteStub(
+          'KNOWN_MENTION_ONLY in this test (only if it really builds no userData path)',
+          unexplained.map((f) => `      '${f}': '<why it names userData without building a path>',`),
+        ),
     ).toEqual([]);
   });
 });

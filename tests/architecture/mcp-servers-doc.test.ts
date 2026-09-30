@@ -26,6 +26,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { deflistRow, pasteStub } from '../helpers/paste-stub';
 
 const TYPES = 'src/shared/mcp-servers.ts';
 const PANEL = 'src/renderer/lib/components/McpServersSettings.svelte';
@@ -83,7 +84,14 @@ describe('the MCP Servers doc page matches the code', () => {
 
     const documented = sorted([...read(DOC).matchAll(/<code>([a-z]+)<\/code>/g)].map((m) => m[1]));
     for (const kind of kinds) {
-      expect(documented, `${DOC} names the '${kind}' transport in a <code> span`).toContain(kind);
+      expect(
+        documented,
+        `${DOC} names the '${kind}' transport in a <code> span` +
+          pasteStub(
+            `the transport deflist in ${DOC}`,
+            deflistRow(`<Label shown on the radio> (<code>${kind}</code>)`, '<what it runs, and which fields to fill in>'),
+          ),
+      ).toContain(kind);
     }
   });
 
@@ -106,7 +114,16 @@ describe('the MCP Servers doc page matches the code', () => {
     labels.set(uncased[0], fallback![1]);
 
     const expected = sorted(statuses.map((s) => labels.get(s)!));
-    expect(deflistKeys(read(DOC), 'status').sort()).toEqual(expected);
+    const actual = deflistKeys(read(DOC), 'status').sort();
+    const undocumented = expected.filter((l) => !actual.includes(l));
+    expect(
+      actual,
+      `${DOC}'s "What the status says" list is out of step with the panel's statusLabel().` +
+        (undocumented.length === 0 ? '' : pasteStub(
+          `the <h2 id="status"> deflist in ${DOC}`,
+          undocumented.map((l) => deflistRow(l, '<what this status means, and what to do about it>')),
+        )),
+    ).toEqual(expected);
   });
 
   it('is reachable: named on the settings page, listed in the nav', () => {

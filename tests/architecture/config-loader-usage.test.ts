@@ -41,6 +41,7 @@ import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { pasteStub } from '../helpers/paste-stub';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const MAIN_DIR = 'src/main';
@@ -130,7 +131,11 @@ describe('config loader usage (#1913)', () => {
       `${unexplained.join('\n')}\n\n` +
       'If this is genuinely a new hand-rolled config reader, migrate it to loadConfigFile/loadConfigFileSync ' +
       'and update CLAUDE.md\'s "Config files" section instead of adding it here. If it\'s not config in the ' +
-      '#1640 sense (a cache, a log, unrelated read+parse in the same file), add it to BASELINE with why.',
+      '#1640 sense (a cache, a log, unrelated read+parse in the same file), add it to BASELINE with why.' +
+      pasteStub(
+        'BASELINE in this test (only if it is not a config reader)',
+        unexplained.map((f) => `  '${f}': '<what it reads, and why that is not config in the #1640 sense>',`),
+      ),
     ).toEqual([]);
     expect(
       stale,

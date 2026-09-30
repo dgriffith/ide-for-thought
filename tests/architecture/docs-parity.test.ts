@@ -49,6 +49,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { LINK_TYPES } from '../../src/shared/link-types';
+import { deflistRow, pasteStub } from '../helpers/paste-stub';
 
 const README = 'README.md';
 const FEATURES = 'website/features.html';
@@ -90,7 +91,7 @@ function asNumber(raw: string): number {
 
 // ── The code side: every expected value, computed ───────────────────────────
 
-interface StockSkill { file: string; name: string; menu: string }
+interface StockSkill { file: string; name: string; menu: string; description: string }
 
 function stockSkills(): StockSkill[] {
   return readdirSync(STOCK_DIR)
@@ -101,6 +102,8 @@ function stockSkills(): StockSkill[] {
         file: f,
         name: /^name:\s*(.+)$/m.exec(src)?.[1]?.trim() ?? '',
         menu: /^menu:\s*(.+)$/m.exec(src)?.[1]?.trim() ?? '',
+        // Only for the failure message's paste-ready row (#2381).
+        description: /^description:\s*['"]?(.+?)['"]?\s*$/m.exec(src)?.[1] ?? '<what it does>',
       };
     });
 }
@@ -246,14 +249,17 @@ describe('the Settings docs page matches the Settings dialog (#2261)', () => {
     const DOC_SPELLING: Record<string, string> = {
       'Browser Clipper': 'Clipper',
     };
-    const missing = TABS
-      .filter((t) => !doc.includes(DOC_SPELLING[t.label] ?? t.label))
-      .map((t) => `  ${t.label}  (id: ${t.id})`);
+    const missingTabs = TABS.filter((t) => !doc.includes(DOC_SPELLING[t.label] ?? t.label));
+    const missing = missingTabs.map((t) => `  ${t.label}  (id: ${t.id})`);
     expect(
       missing,
       `Settings tab(s) the docs page never mentions:\n${missing.join('\n')}\n\n` +
         `Add a row to the glance table in ${SETTINGS_DOC}. A tab nobody documented is a ` +
-        'feature nobody can find — Inspections and MCP Servers both sat unlisted until #2261.',
+        'feature nobody can find — Inspections and MCP Servers both sat unlisted until #2261.' +
+        pasteStub(
+          `the glance deflist in ${SETTINGS_DOC}, in sidebar order`,
+          missingTabs.map((t) => deflistRow(t.label, '<what the tab controls, in one sentence>')),
+        ),
     ).toEqual([]);
   });
 });
@@ -274,11 +280,13 @@ describe('the thinking-tools pages list every stock skill (#2261)', () => {
     // `>Name<` rather than a bare substring: it anchors on the cell text, so a
     // skill mentioned in passing in a lede doesn't count as documented.
     const missing = names.filter((n) => !doc.includes(`>${n}<`)).sort();
+    const rows = missing.map((n) => deflistRow(n, SKILLS.find((s) => s.name === n)!.description));
     expect(
       missing,
       `Stock ${menu} skill(s) with no row on ${file}:\n${missing.map((m) => `  ${m}`).join('\n')}\n\n` +
         'Add a row under the matching group heading. Adding a skill is one file; keeping the ' +
-        'docs honest about it is the second.',
+        'docs honest about it is the second.' +
+        pasteStub(`${file}, under the matching group heading`, rows),
     ).toEqual([]);
   });
 

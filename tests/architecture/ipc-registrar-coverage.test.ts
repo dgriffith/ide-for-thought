@@ -49,6 +49,7 @@ import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { pasteStub } from '../helpers/paste-stub';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const IPC_DIR = path.join(ROOT, 'src', 'main', 'ipc');
@@ -119,6 +120,39 @@ function untestedRegistrars(): string[] {
   return registrars().filter((name) => !imported.has(name));
 }
 
+/**
+ * A starting test file for a registrar, in the shape the existing ones share
+ * (#2381): capture `ipcMain.handle` registrations, call the registrar, invoke
+ * a handler. `register-foo-bar` exports `registerFooBar`.
+ */
+function registrarTestStub(name: string): string {
+  const fn = name.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
+  return [
+    `// tests/main/ipc/${name}.test.ts`,
+    "import { describe, it, expect, vi } from 'vitest';",
+    '',
+    'type Handler = (event: unknown, ...args: unknown[]) => unknown;',
+    'const { handlers } = vi.hoisted(() => ({ handlers: new Map<string, Handler>() }));',
+    '',
+    "vi.mock('electron', () => ({",
+    '  ipcMain: { handle: (channel: string, fn: Handler) => { handlers.set(channel, fn); } },',
+    '}));',
+    '// <vi.mock whatever else the handlers reach — see register-shell.test.ts>',
+    '',
+    `import { ${fn} } from '../../../src/main/ipc/${name}';`,
+    "import { Channels } from '../../../src/shared/channels';",
+    '',
+    `${fn}();`,
+    '',
+    `describe('${name}', () => {`,
+    "  it('<CHANNEL> <does what>', async () => {",
+    '    const result = await handlers.get(Channels.<CHANNEL>)!({}, /* <args> */);',
+    '    expect(result).toEqual(/* <expected> */);',
+    '  });',
+    '});',
+  ].join('\n');
+}
+
 describe('IPC registrar test coverage (#1851)', () => {
   it('the enumeration still finds things — a broken scan would pass vacuously', () => {
     // If `registrars()` returned nothing, "every registrar has a test" would
@@ -143,7 +177,8 @@ describe('IPC registrar test coverage (#1851)', () => {
         'for LLM/Graph PRs": an untested handler is how the CONVERSATION_SEND gap slipped in ' +
         '(#1612), so a new handler needs both a test and a coverage threshold.\n\n' +
         'The KNOWN_UNTESTED list in this file is the pre-existing backlog and may only shrink — ' +
-        'it is not where new registrars go.',
+        'it is not where new registrars go.' +
+        unexpected.map((n) => pasteStub(`a new file tests/main/ipc/${n}.test.ts`, registrarTestStub(n))).join(''),
       );
     }
   });

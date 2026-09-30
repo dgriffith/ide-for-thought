@@ -36,9 +36,30 @@
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
+import { pasteStub } from '../helpers/paste-stub';
 
 const DIR = 'tests/architecture';
 const DOC = 'docs/architecture-ratchets.md';
+
+/**
+ * The entry skeleton every section in the doc follows: heading, one bolded
+ * sentence of what it enforces with its issue, the why, and the bolded
+ * "When it fires:" cue the last test below requires (#2381).
+ */
+function entryStub(file: string): string {
+  return [
+    `### \`${file}\``,
+    '',
+    '**<What it enforces, in one bolded sentence>** (#<issue>). <Why: the concrete',
+    'defect it was written for, if there was one.> **When it fires:** <what to do —',
+    'the legitimate responses, in preference order>.',
+  ].join('\n');
+}
+
+/** The `## ` group headings, so the stub can say where an entry goes. */
+function sections(doc: string): string[] {
+  return [...doc.matchAll(/^## (.+)$/gm)].map((m) => m[1]!);
+}
 
 /** Every test file in this directory, by bare filename. */
 function testFiles(): string[] {
@@ -74,7 +95,11 @@ describe('docs/architecture-ratchets.md inventories tests/architecture (#2262)',
         `Add a \`### \\\`${undocumented[0] ?? 'name.test.ts'}\\\`\` section saying what it enforces, why ` +
         '(the concrete defect it was written for, if there was one), and — most importantly — what ' +
         'to do when it fires. Someone will meet this test for the first time as a red run on an ' +
-        'unrelated PR, and the default response to an undocumented failing assertion is to edit it.',
+        'unrelated PR, and the default response to an undocumented failing assertion is to edit it.' +
+        pasteStub(
+          `${DOC}, under the matching \`## \` section (${sections(doc).join(' · ')})`,
+          undocumented.map(entryStub).join('\n\n'),
+        ),
     ).toEqual([]);
   });
 
@@ -105,21 +130,26 @@ describe('docs/architecture-ratchets.md inventories tests/architecture (#2262)',
       ['CLAUDE.md', readFileSync('CLAUDE.md', 'utf8')],
       ['docs/development.md', readFileSync('docs/development.md', 'utf8')],
     ];
-    const stale = SITES
+    // Only the sentences that actually quote a count of tests, so a doc that
+    // stops naming a number isn't forced to start.
+    const staleClaims = SITES
       .filter(([, text]) => /tests\/architecture/.test(text))
-      .filter(([, text]) => {
-        // Only the sentences that actually quote a count of tests, so a doc
-        // that stops naming a number isn't forced to start.
-        const claims = [...text.matchAll(/\*\*(\d+)\*\* tests|Its (\d+) tests|, (\d+) tests/g)];
-        return claims.some((m) => Number(m[1] ?? m[2] ?? m[3]) !== n);
-      })
-      .map(([name]) => name);
+      .flatMap(([name, text]) =>
+        [...text.matchAll(/\*\*(\d+)\*\* tests|Its (\d+) tests|, (\d+) tests/g)]
+          .filter((m) => Number(m[1] ?? m[2] ?? m[3]) !== n)
+          .map((m) => ({ name, old: m[0], fixed: m[0].replace(/\d+/, String(n)) })),
+      );
+    const stale = [...new Set(staleClaims.map((c) => c.name))];
     expect(
       stale,
       `Document(s) stating a stale count of tests/architecture tests (the real count is ${n}): ` +
         `${stale.join(', ')}.\n\n` +
         'Update the number wherever it appears. It is the one figure in these files that dates ' +
-        'them at a glance, which also means a wrong one makes the rest look older than it is.',
+        'them at a glance, which also means a wrong one makes the rest look older than it is.' +
+        pasteStub(
+          'each document (replace the left side with the right)',
+          staleClaims.map((c) => `  ${c.name}:  ${c.old}  →  ${c.fixed}`),
+        ),
     ).toEqual([]);
   });
 
@@ -136,7 +166,11 @@ describe('docs/architecture-ratchets.md inventories tests/architecture (#2262)',
       missing,
       `Entries in ${DOC} with no "**When it fires:**" guidance: ${missing.join(', ')}.\n\n` +
         'Describing what a ratchet enforces without saying how to respond leaves the reader exactly ' +
-        'where they started, because they already know what failed — the test told them.',
+        'where they started, because they already know what failed — the test told them.' +
+        pasteStub(
+          `the end of each of those entries in ${DOC}`,
+          '**When it fires:** <what to do — the legitimate responses, in preference order>.',
+        ),
     ).toEqual([]);
   });
 
