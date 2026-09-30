@@ -51,7 +51,7 @@ rl.on('line', (line) => {
       send({ jsonrpc: '2.0', id: msg.id, result: { supportedVersions: ['2026-07-28'], capabilities: {} } });
     } else if (mode === 'unsupported-version') {
       send({ jsonrpc: '2.0', id: msg.id, error: { code: -32022, message: 'Unsupported protocol version', data: { supported: ['2099-01-01'] } } });
-    } else if (mode === 'silent-discover') {
+    } else if (mode === 'silent-discover' || mode === 'silent-discover-slow-initialize') {
       // deliberately never respond — the client's probe should time out
     } else if (mode === 'exits-during-discover') {
       // Simulate a wrapper (e.g. \`uv run\`) that prints some startup chatter
@@ -66,6 +66,10 @@ rl.on('line', (line) => {
   if (msg.method === 'initialize') {
     if (mode === 'initialize-fails') {
       send({ jsonrpc: '2.0', id: msg.id, error: { code: -32000, message: 'initialize refused by fixture' } });
+    } else if (mode === 'silent-discover-slow-initialize') {
+      // A legacy server still starting up (a cold \`npx\`/\`uv run\`): it
+      // answers the handshake, just later than the discover probe waits.
+      setTimeout(() => send({ jsonrpc: '2.0', id: msg.id, result: { protocolVersion: '2025-06-18', capabilities: {}, serverInfo: { name: 'fixture', version: '0' } } }), 300);
     } else {
       send({ jsonrpc: '2.0', id: msg.id, result: { protocolVersion: '2025-06-18', capabilities: {}, serverInfo: { name: 'fixture', version: '0' } } });
     }
@@ -207,6 +211,22 @@ describe('StdioTransport (#2029)', () => {
     _setEraProbeTimeoutMsForTests(100);
     try {
       const transport = new StdioTransport(fixtureDescriptor('silent-discover'));
+      await transport.connect();
+      expect(transport.era).toBe('legacy');
+      await transport.close();
+    } finally {
+      _setEraProbeTimeoutMsForTests(null);
+    }
+  });
+
+  it('the legacy initialize after a timed-out probe gets the request timeout, not the probe timeout', async () => {
+    // The probe timeout bounds only the probe. It used to bound the legacy
+    // handshake too, so a slow-starting legacy server that outlived the probe
+    // then had one more probe window to finish initialize — and this test's
+    // sibling above flaked whenever a loaded machine took >100ms to answer.
+    _setEraProbeTimeoutMsForTests(100);
+    try {
+      const transport = new StdioTransport(fixtureDescriptor('silent-discover-slow-initialize'));
       await transport.connect();
       expect(transport.era).toBe('legacy');
       await transport.close();
