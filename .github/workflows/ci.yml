@@ -10,6 +10,10 @@
 # pull requests AND on main — so the PR critical path is the slowest of them,
 # not their sum.
 #
+# A fifth, `x64-smoke`, is NOT required and cannot fail the run: an x64 build
+# smoke-booted on an Intel runner, on main pushes (and PRs labelled
+# `x64-smoke`) only — an early warning for #962. See the job for why.
+#
 # Both on macos-latest: matches the dev machine, and the chokidar
 # watcher tests (#345) exercise macOS fsevents semantics — a Linux
 # runner would need different timing tolerances. The e2e job
@@ -436,6 +440,135 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: playwright-report
+          path: |
+            playwright-report.json
+            test-results/
+          retention-days: 30
+
+  # Early warning for an x64 (Intel) macOS build — #2387, ahead of #962.
+  #
+  # NON-BLOCKING, and not in .github/rulesets/main.json. Minerva ships arm64
+  # only today; this job exists so that when #962 is picked up, "does an x64
+  # build even boot?" already has a history of answers, and the commit that
+  # first broke it is identifiable.
+  #
+  # Why an x64 build on an Intel runner, not the issue's "arm64 build under
+  # Rosetta on macos-13": Rosetta 2 translates x86_64 code to run on Apple
+  # silicon — there is no translation the other way, so an arm64 binary cannot
+  # run on an Intel Mac at all. And the `macos-13` image was retired (Dec
+  # 2025). `macos-15-intel` is GitHub's current — and announced last — x86_64
+  # macOS image, supported until August 2027, which is also the horizon for
+  # any x64 support we'd verify in CI.
+  #
+  # What it does: a native x64 install (so the platform-specific optional deps
+  # resolve to their darwin-x64 builds — `@duckdb/node-bindings-darwin-x64`
+  # above all; embeddings/voice are WASM), an UNSIGNED `pnpm build:e2e` (plain
+  # electron-forge package; signing is opt-in and never set here), a check
+  # that every native binary in the bundle really is x86_64, the fuse
+  # read-back, and the same packaged smoke boot release.yml runs (it opens a
+  # DuckDB-backed project, so a missing or wrong-arch binding fails it).
+  #
+  # When it runs: pushes to main, plus any PR labelled `x64-smoke` (a PR
+  # touching packaging or native deps). Not on every PR: macOS runners are the
+  # scarce resource (the free plan's concurrent-macOS limit is 5, and every PR
+  # already takes three), and an Intel queue wait per push buys nothing a
+  # per-main-commit signal doesn't. Not a scheduled workflow: a per-commit
+  # result names the commit that broke it, and a push-triggered job needs no
+  # separate failure-notification path (#2242) — its red X sits on that main
+  # commit in the history. Job-level `continue-on-error` keeps the RUN's
+  # conclusion green, so release.yml's main-CI gate (#2371) is unaffected.
+  x64-smoke:
+    name: x64 smoke boot (non-blocking)
+    if: >-
+      github.event_name == 'push' ||
+      contains(github.event.pull_request.labels.*.name, 'x64-smoke')
+    runs-on: macos-15-intel
+    continue-on-error: true
+    # Not yet measured; Intel runners are slower than the arm64 ones and this
+    # one installs cold the first time (its node_modules cache is per-arch).
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up pnpm
+        # Version comes from the `packageManager` field in package.json.
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      # Unconditional lockfile/manifest check (#2244) — see lint-and-test.
+      - name: Verify lockfile matches package.json
+        run: pnpm install --frozen-lockfile --lockfile-only
+
+      # Same key as the other jobs (lockfile-gate.test.ts holds them
+      # byte-identical); `runner.arch` in it gives x64 its own entry.
+      - name: Cache node_modules
+        id: node-modules-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: node_modules
+          key: node-modules-v1-${{ runner.os }}-${{ runner.arch }}-node-${{ hashFiles('.nvmrc') }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install dependencies
+        if: steps.node-modules-cache.outputs.cache-hit != 'true'
+        run: pnpm install --frozen-lockfile
+
+      # The corpus is data, not code, so this is the e2e job's exact key and a
+      # hit shares its entry. See there for why the rebuild check is a content
+      # hash and must stay one.
+      - name: Cache help-docs corpus
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: resources/help-docs
+          key: >-
+            help-corpus-v1-${{ hashFiles('website/docs/_content/**',
+            'scripts/build-help-corpus.mjs', 'scripts/lib/extract-docs-corpus.mjs',
+            'scripts/lib/docs-model.mjs', 'src/main/embeddings/**') }}
+
+      # Unsigned by construction: signing is opt-in by a flag only release.yml's
+      # signed step sets (release-signing-flag.test.ts). forge packages for the host
+      # arch, so this produces out/Minerva-darwin-x64.
+      - name: Package the x64 app (unsigned)
+        run: pnpm build:e2e
+
+      # Would an Intel Mac load every native piece? `lipo -archs` on the app's
+      # executables and each unpacked .node/.dylib: anything without x86_64 (an
+      # arm64-only binding copied in by mistake) fails here, by name, rather
+      # than as a boot symptom.
+      - name: Every native binary in the bundle is x86_64
+        run: |
+          set -euo pipefail
+          APP="out/Minerva-darwin-x64/Minerva.app"
+          test -d "$APP" || { echo "::error::no $APP — did forge package for x64?"; ls out; exit 1; }
+          bad=0
+          n=0
+          while IFS= read -r -d '' f; do
+            archs="$(lipo -archs "$f")"
+            n=$((n + 1))
+            echo "$archs  ${f#"$APP/"}"
+            case " $archs " in *" x86_64 "*) ;; *) echo "::error::not x86_64: $f ($archs)"; bad=1 ;; esac
+          done < <(find "$APP/Contents/MacOS" "$APP/Contents/Resources/app.asar.unpacked" \
+                     -type f \( -path '*/Contents/MacOS/*' -o -name '*.node' -o -name '*.dylib' \) -print0)
+          if [ "$n" -lt 2 ]; then echo "::error::found only $n native binaries — the scan is broken"; exit 1; fi
+          exit "$bad"
+
+      - name: Check Electron fuses on the packaged app
+        run: node scripts/check-electron-fuses.mjs
+
+      # The same smoke boot release.yml runs on the signed arm64 build.
+      - name: Smoke-boot the packaged app
+        run: pnpm exec playwright test tests/e2e/smoke.spec.ts -g "packaged app"
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: x64-smoke-report
           path: |
             playwright-report.json
             test-results/

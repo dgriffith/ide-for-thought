@@ -649,7 +649,9 @@ waiting for status", and blocks every PR in the repository. Offline: it reads
 the file and the workflow, never the API. Asserts every required context is a
 `ci.yml` job id or `name:`, pinned to the GitHub Actions app (15368); every
 `ci.yml` job — all of them run on `pull_request` — is required or sits in the
-commented `NOT_REQUIRED` list; strict ("require up to date") is on; deletion and
+commented `NOT_REQUIRED` list (today: `x64-smoke`, #2387), and any job in that
+list is `continue-on-error` — non-required AND unable to turn main's run red,
+which release.yml's #2371 gate would read as a failed commit; strict ("require up to date") is on; deletion and
 force-push are forbidden; and no bypass actor has a mode other than
 `pull_request`, so an override is always a visible PR merge and never a silent
 push. Drift in the *live* settings is the other half, checked by

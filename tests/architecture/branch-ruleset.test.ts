@@ -33,10 +33,15 @@ const GITHUB_ACTIONS_APP_ID = 15368;
 
 /**
  * Jobs in ci.yml that run on pull_request but are deliberately NOT required.
- * Each needs a reason. Empty today: all four PR jobs gate the merge
- * (`coverage` joined in #2432's follow-up, when the floors moved onto PRs).
+ * Each needs a reason. The four main PR jobs all gate the merge (`coverage`
+ * joined in #2432's follow-up, when the floors moved onto PRs).
  */
-const NOT_REQUIRED: Record<string, string> = {};
+const NOT_REQUIRED: Record<string, string> = {
+  'x64 smoke boot (non-blocking)':
+    'An early warning for #962 (x64 builds), which Minerva does not ship: runs on main pushes ' +
+    'and only on PRs labelled x64-smoke, and is continue-on-error by design (#2387). ' +
+    'Requiring it would block every PR on a check that usually never reports.',
+};
 
 interface Check { context: string; integration_id?: number }
 interface Rule { type: string; parameters?: Record<string, unknown> }
@@ -115,6 +120,16 @@ describe('main ruleset ↔ ci.yml (#2353)', () => {
         'Either add the job to required_status_checks in .github/rulesets/main.json (and ' +
         're-apply it), or add it to NOT_REQUIRED in this test with a reason.',
     ).toEqual([]);
+  });
+
+  it('an exempted job cannot fail the run either — non-blocking means both', () => {
+    const blocking = Object.entries(ci.jobs)
+      .filter(([id, job]) => reportedName(id, job) in NOT_REQUIRED)
+      .filter(([, job]) => (job as { 'continue-on-error'?: unknown })['continue-on-error'] !== true)
+      .map(([id]) => id);
+    // A red non-required job would still turn main's run red, and release.yml
+    // refuses a SHA whose main CI run wasn't a success (#2371).
+    expect(blocking).toEqual([]);
   });
 
   it('the exemption list names only real jobs', () => {
