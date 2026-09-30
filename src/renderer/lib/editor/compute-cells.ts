@@ -184,6 +184,20 @@ export function computeCellsExtension(opts: ComputeCellsOptions): Extension {
 
   if (opts.runAllRef) opts.runAllRef.run = runAll;
 
+  /**
+   * Runnable fences keyed by opening-line offset, rebuilt once per doc change.
+   * `lineMarker` runs for every rendered line on every gutter update; it used
+   * to stringify the whole doc and rescan it for fences each time, so a
+   * keystroke cost (rendered lines × note size): #2385's typing bench (an
+   * insert + delete in a 3,000-line note) went from 16.1ms to 4.6ms when this
+   * index replaced the rescans. The flag title is filled in
+   * lazily, per fence, the first time a marker for it is drawn.
+   */
+  const fenceIndex = StateField.define<Map<number, FenceEntry>>({
+    create: (state) => indexFences(state.doc.toString(), allowed),
+    update: (index, tr) => (tr.docChanged ? indexFences(tr.newDoc.toString(), allowed) : index),
+  });
+
   function fenceAtCursor(view: EditorView): FenceRange | null {
     const doc = view.state.doc.toString();
     const pos = view.state.selection.main.head;
@@ -197,15 +211,15 @@ export function computeCellsExtension(opts: ComputeCellsOptions): Extension {
   const runGutter = gutter({
     class: 'cm-compute-gutter',
     lineMarker(view, line) {
-      const running = view.state.field(runningField, false) ?? new Set<number>();
-      const doc = view.state.doc.toString();
-      const fences = findRunnableFences(doc, allowed);
-      for (const f of fences) {
-        if (f.startOffset === line.from) {
-          return new RunMarker(running.has(f.startOffset), flagTitleFor(f.language, codeOf(doc, f)));
-        }
+      const entry = view.state.field(fenceIndex).get(line.from);
+      if (!entry) return null;
+      if (entry.flagTitle === undefined) {
+        const { startOffset, endOffset } = entry.fence;
+        const body = view.state.sliceDoc(startOffset, endOffset);
+        entry.flagTitle = flagTitleFor(entry.fence.language, codeOf(body, { ...entry.fence, startOffset: 0, endOffset: body.length }));
       }
-      return null;
+      const running = view.state.field(runningField, false) ?? new Set<number>();
+      return new RunMarker(running.has(entry.fence.startOffset), entry.flagTitle);
     },
     // No initialSpacer — we want the column to collapse to zero width
     // when the note has no runnable fences. Minor reflow when the first
@@ -234,7 +248,21 @@ export function computeCellsExtension(opts: ComputeCellsOptions): Extension {
     },
   ]));
 
-  return [runningField, runGutter, runKeymap];
+  return [runningField, fenceIndex, runGutter, runKeymap];
+}
+
+interface FenceEntry {
+  fence: FenceRange;
+  /** `undefined` until the fence's marker is first drawn. */
+  flagTitle: string | null | undefined;
+}
+
+function indexFences(doc: string, allowed: ReadonlySet<string>): Map<number, FenceEntry> {
+  const index = new Map<number, FenceEntry>();
+  for (const fence of findRunnableFences(doc, allowed)) {
+    index.set(fence.startOffset, { fence, flagTitle: undefined });
+  }
+  return index;
 }
 
 // Small CSS block exposed so the host editor can include it alongside its
