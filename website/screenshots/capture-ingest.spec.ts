@@ -14,14 +14,19 @@
  *     This recipe grabs the closest in-app surface (Settings → Browser Clipper)
  *     as a placeholder; a human must screenshot the extension popup in a real
  *     browser and swap it in.
- *   • ingest-pdf            — FLAGGED. The OCR "offer to recognize" dialog only
- *     renders after a scanned (image-only) PDF is ingested through App's ingest
- *     handler, which sets the OCR-flow store. There is no scanned PDF in the
- *     vault and no state-injection hook, so this recipe drives the intended path
- *     (palette → Ingest URL → prompt) with a PLACEHOLDER url; it needs a real
- *     scanned PDF reachable offline (or a renderer test hook) to actually land.
+ *   • ingest-pdf            — SOLID (#1399). The OCR "offer to recognize"
+ *     dialog only renders after a scanned (image-only) PDF is ingested through
+ *     App's ingest handler, which sets the OCR-flow store. The recipe serves
+ *     `fixtures/ingest/scanned-mandolin-method.pdf` — two 1-bit page images, no
+ *     text layer, rendered from public-domain-style method-book prose — from a
+ *     loopback HTTP server and ingests it through the real palette → "Ingest
+ *     URL as Source…" path, so nothing about the flow is faked.
  */
 import { test } from '@playwright/test';
+import fs from 'node:fs';
+import http from 'node:http';
+import type { AddressInfo } from 'node:net';
+import path from 'node:path';
 import { launchDemo, shoot, type Harness } from './lib/harness';
 
 let h: Harness;
@@ -70,7 +75,7 @@ test('ingest-adding-sources', async () => {
   // Click the "+" add-source button in the filter row.
   await h.win.locator('.add-source-btn').click();
   // The smart-paste PromptDialog opens ("URL, DOI, arXiv id, or PubMed id:").
-  const promptInput = h.win.locator('.dialog[aria-labelledby="prompt-dialog-title"] input.input');
+  const promptInput = h.win.locator('[role="dialog"][aria-labelledby="prompt-dialog-title"] input');
   await promptInput.waitFor({ timeout: 5000 });
   await promptInput.fill('https://en.wikipedia.org/wiki/Mandolin');
   await h.win.waitForTimeout(400);
@@ -98,30 +103,36 @@ test('ingest-clipper', async () => {
 });
 
 // ── ingest-pdf ───────────────────────────────────────────────────────────
-// FLAGGED. The doc shot is the OCR "offer to recognize a scanned PDF" dialog
-// (OcrProgressDialog, confirm stage — title "Run OCR on …"). It only renders
-// after App's ingest handler detects a scanned PDF (result.needsOcr) and sets
-// the OCR-flow store (sourceFlow.setOcrSession + setOcrPdfBytes). There is no
-// scanned PDF in the demo vault, the fixtures mechanism only copies .md files,
-// and no renderer hook exposes the store — so this recipe drives the real path
-// (palette → "Ingest URL as Source…" → prompt → confirm) with a PLACEHOLDER
-// url. To make it land, a human must supply a real image-only PDF reachable by
-// the ingest path offline, OR add a renderer test hook that sets the OCR store
-// directly. As written, a bogus url yields an ingest-error dialog instead and
-// the OCR-dialog wait fails — that failure is expected until wired.
-const SCANNED_PDF_URL = 'https://example.com/REPLACE-with-a-scanned-image-only.pdf';
+// The OCR "offer to recognize a scanned PDF" dialog (OcrProgressDialog, confirm
+// stage — title "Run OCR on …"). It renders once App's ingest handler sees
+// `result.needsOcr` and sets the OCR-flow store, so the recipe ingests a real
+// image-only PDF over loopback HTTP. The dialog is captured at its confirm
+// stage and dismissed; OCR itself never runs.
+const SCANNED_PDF = path.join(__dirname, 'fixtures', 'ingest', 'scanned-mandolin-method.pdf');
 test('ingest-pdf', async () => {
   await reset();
-  await runCommand('Ingest URL as Source');
-  // handleIngestUrlAsSource → showPrompt('URL to ingest as a source:')
-  const promptInput = h.win.locator('.dialog[aria-labelledby="prompt-dialog-title"] input.input');
-  await promptInput.waitFor({ timeout: 5000 });
-  await promptInput.fill(SCANNED_PDF_URL);
-  await promptInput.press('Enter');
-  // On a scanned PDF, handleIngestedSourceResult sets the OCR session and the
-  // confirm dialog renders. Crop that dialog.
-  const ocrDialog = h.win.locator('.dialog', { hasText: 'Run OCR on' });
-  await ocrDialog.waitFor({ timeout: 30000 });
-  await shoot(h.win, 'ingest-pdf', ocrDialog);
+  const pdf = fs.readFileSync(SCANNED_PDF);
+  const server = http.createServer((_req, res) => {
+    res.writeHead(200, { 'Content-Type': 'application/pdf', 'Content-Length': pdf.length });
+    res.end(pdf);
+  });
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const { port } = server.address() as AddressInfo;
+  try {
+    await runCommand('Ingest URL as Source');
+    // handleIngestUrlAsSource → showPrompt('URL to ingest as a source:'). The
+    // prompt sits on the shared ui/Dialog shell (`.card[role=dialog]`), so select
+    // it by role + label rather than a `.dialog` class it no longer has.
+    const promptInput = h.win.locator('[role="dialog"][aria-labelledby="prompt-dialog-title"] input');
+    await promptInput.waitFor({ timeout: 5000 });
+    await promptInput.fill(`http://127.0.0.1:${port}/scanned-mandolin-method.pdf`);
+    await promptInput.press('Enter');
+    const ocrDialog = h.win.locator('.dialog', { hasText: 'Run OCR on' });
+    await ocrDialog.waitFor({ timeout: 30000 });
+    await h.win.waitForTimeout(400);
+    await shoot(h.win, 'ingest-pdf', ocrDialog);
+  } finally {
+    server.close();
+  }
   await reset();
 });

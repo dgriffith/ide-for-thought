@@ -100,6 +100,9 @@ export interface LaunchOptions {
   executablePath?: string;
   /** Extra env on top of the scrubbed base (e.g. `MINERVA_E2E: '1'`). */
   env?: Record<string, string>;
+  /** Extra Chromium/Electron switches after the profile flag (e.g. the docs
+   *  screenshot harness's `--force-device-scale-factor=2`). */
+  args?: string[];
   /** Defaults to 60s — local boot is ~3s; a cold CI runner needs the headroom. */
   timeout?: number;
 }
@@ -123,7 +126,7 @@ export interface PackagedMinerva {
 export function launchMinerva(opts: LaunchOptions & { executablePath: string }): Promise<PackagedMinerva>;
 export function launchMinerva(opts: LaunchOptions & { executablePath?: undefined }): Promise<ElectronApplication>;
 export async function launchMinerva(opts: LaunchOptions): Promise<ElectronApplication | PackagedMinerva> {
-  const { userDataDir, executablePath, env = {}, timeout = 60_000 } = opts;
+  const { userDataDir, executablePath, env = {}, args = [], timeout = 60_000 } = opts;
   const userDataArg = `--user-data-dir=${userDataDir}`;
   const launchEnv = { ...scrubbedEnv(), ELECTRON_ENABLE_LOGGING: '1', ...env };
 
@@ -131,9 +134,9 @@ export async function launchMinerva(opts: LaunchOptions): Promise<ElectronApplic
   // the time went (#2458).
   const app = await test.step(executablePath ? 'launch Minerva (packaged)' : 'launch Minerva', () =>
     executablePath
-      ? launchPackaged(executablePath, [userDataArg], launchEnv, timeout)
+      ? launchPackaged(executablePath, [userDataArg, ...args], launchEnv, timeout)
       : electron.launch({
-        args: [projectRoot, userDataArg],
+        args: [projectRoot, userDataArg, ...args],
         cwd: projectRoot,
         timeout,
         env: launchEnv,
