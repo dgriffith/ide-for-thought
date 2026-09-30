@@ -39,6 +39,7 @@
  *                re-bless numbers.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
+import { benchMeansFromReport } from './lib/bench-report.mjs';
 
 const DEFAULT_BASELINE = 'tests/main/bench-baseline.json';
 const DEFAULT_TOLERANCE = 2.0;
@@ -72,28 +73,10 @@ function flatten(json) {
     }
     return map;
   }
-  // Vitest 5 (#1009): `--outputJson` is gone — a fresh run comes from the
-  // standard `--reporter=json` test-result shape instead (`bench:json`'s
-  // `vitest bench --reporter=json --outputFile=…`). Each `test()` that calls
-  // `bench()` shows up as one `assertionResults[]` entry, carrying a
-  // `benchmarks[]` array (one per `bench()` call in that test — normally
-  // just one here) whose `tasks[]` holds the actual per-benchmark numbers,
-  // keyed by the `bench()` call's own `name` (NOT the group/test title).
-  // `latency.mean` is ms/op, `throughput.mean` is ops/sec (same meaning as
-  // the old flat `mean`/`hz`).
-  for (const result of json.testResults ?? []) {
-    for (const assertion of result.assertionResults ?? []) {
-      for (const group of assertion.benchmarks ?? []) {
-        for (const task of group.tasks ?? []) {
-          const mean = task.latency?.mean;
-          // A benchmark that errored (e.g. a setup race) reports no mean —
-          // skip it rather than crash; the "missing from run" report below
-          // surfaces it.
-          if (typeof mean !== 'number' || !Number.isFinite(mean)) continue;
-          map.set(task.name, { mean, hz: task.throughput?.mean, budgetMs: null });
-        }
-      }
-    }
+  // A fresh `vitest bench --reporter=json` run (#1009) — parsed by the helper
+  // the per-PR bench shares (#2386).
+  for (const [name, { mean, hz }] of benchMeansFromReport(json)) {
+    map.set(name, { mean, hz, budgetMs: null });
   }
   return map;
 }

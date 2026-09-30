@@ -1,0 +1,147 @@
+# Per-PR benchmark check for the graph and save paths (#2386).
+#
+# The weekly Bench workflow is the only thing that times these paths, and the
+# save-path regression #2242 found went seven weeks between shipping and anyone
+# noticing. This runs the fast graph + save-path benches on the PRs that can
+# cause that kind of regression — the path filter below — so it's seen on the
+# PR that introduces it.
+#
+# It does NOT compare against tests/main/bench-baseline.json. Runner speed
+# alone moves every number ~1.4-1.5x between identical runs (#2331, #2385),
+# which is why bench.yml's header says a baseline gate would flap on PRs — and
+# it would. Instead this job measures the PR's BASE and HEAD on the same runner,
+# interleaved (base, head, base, head), so the runner's speed cancels out of the
+# ratio. The rule — best-of per side, a 2.0x tolerance measured against an
+# identical-code dry run, and a no-overlap condition — is in
+# scripts/lib/pr-bench.mjs.
+#
+# NOT a required check, on purpose. A path-filtered job reports nothing on the
+# PRs it skips, and a required check that never reports blocks every PR
+# (CLAUDE.md, "main is protected by a committed ruleset"). A regression shows
+# as a red check on the PR with the table in the job summary; it's advisory.
+name: PR bench
+
+on:
+  pull_request:
+    paths:
+      - 'src/main/graph/**'
+      - 'src/main/notebase/**'
+      - 'tests/main/graph/*.bench.ts'
+      - 'tests/main/notebase/*.bench.ts'
+      - 'tests/helpers/bench-fixture.ts'
+      - 'scripts/pr-bench-compare.mjs'
+      - 'scripts/lib/pr-bench.mjs'
+      - 'scripts/lib/bench-report.mjs'
+      - 'vitest.bench.config.ts'
+      - '.github/workflows/pr-bench.yml'
+
+permissions:
+  contents: read
+
+# A new push to the PR supersedes the run in flight: its verdict is about a
+# commit nobody will merge. (bench.yml keeps its runs because each is its own
+# measurement; here the two sides already share one job and one runner, so a
+# cancelled run can't leave a half-measured comparison behind.)
+concurrency:
+  group: pr-bench-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  pr-bench:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      # The PR's merge commit (the default for pull_request) is base + the PR,
+      # so against base.sha the only difference is the PR's own change.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Check out the PR's base beside it
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: .pr-bench-base
+
+      - name: Set up pnpm
+        # Version comes from the `packageManager` field in package.json.
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      # Unconditional lockfile/manifest check (#2244): the install below sits
+      # behind a cache hit, so this is the assertion.
+      - name: Verify lockfile matches package.json
+        run: pnpm install --frozen-lockfile --lockfile-only
+
+      # Byte-identical key to ci.yml, release.yml and bench.yml, so this job
+      # shares their warm tree (#663, #1638); lockfile-gate.test.ts holds it.
+      - name: Cache node_modules
+        id: node-modules-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: node_modules
+          key: node-modules-v1-${{ runner.os }}-${{ runner.arch }}-node-${{ hashFiles('.nvmrc') }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install dependencies
+        if: steps.node-modules-cache.outputs.cache-hit != 'true'
+        run: pnpm install --frozen-lockfile
+
+      # Same lockfile → the base borrows the head's node_modules. A PR that
+      # changes dependencies gets the base's own install, so each side runs
+      # against its own dependency tree.
+      - name: Give the base its dependencies
+        run: |
+          if cmp -s pnpm-lock.yaml .pr-bench-base/pnpm-lock.yaml; then
+            ln -s "$GITHUB_WORKSPACE/node_modules" .pr-bench-base/node_modules
+          else
+            echo "::notice::pnpm-lock.yaml differs from the base; installing the base's dependencies separately"
+            (cd .pr-bench-base && pnpm install --frozen-lockfile)
+          fi
+
+      # The list comes from the HEAD's scripts/lib/pr-bench.mjs, read line by
+      # line (never word-split); a file the base doesn't have yet is skipped on
+      # that side and reported as new. A side whose run fails is a warning, not
+      # a stop — the compare step decides with whatever did run, and fails if
+      # nothing ran on both sides.
+      - name: Bench base and head, interleaved
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p pr-bench
+          for round in 1 2; do
+            for side in base head; do
+              dir=.
+              [ "$side" = base ] && dir=.pr-bench-base
+              files=()
+              while IFS= read -r f; do
+                [ -n "$f" ] && [ -f "$dir/$f" ] && files+=("$f")
+              done < <(node scripts/pr-bench-compare.mjs --list)
+              if [ ${#files[@]} -eq 0 ]; then
+                echo "::warning::no PR bench files exist on the $side side"
+                continue
+              fi
+              echo "::group::round $round · $side"
+              (cd "$dir" && pnpm exec vitest bench --run --config vitest.bench.config.ts "${files[@]}" \
+                --reporter=json --outputFile="$GITHUB_WORKSPACE/pr-bench/$side-$round.json") \
+                || echo "::warning::the $side bench run failed (round $round); comparing what did run"
+              echo "::endgroup::"
+            done
+          done
+
+      - name: Compare head with base
+        run: |
+          node scripts/pr-bench-compare.mjs \
+            --base pr-bench/base-1.json --head pr-bench/head-1.json \
+            --base pr-bench/base-2.json --head pr-bench/head-2.json \
+            --summary "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the raw reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pr-bench
+          path: pr-bench/
+          if-no-files-found: ignore

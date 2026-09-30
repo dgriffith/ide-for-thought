@@ -76,6 +76,7 @@ describe('GitHub Actions are SHA-pinned (#2250)', () => {
     expect([...new Set(all.map((u) => u.file))].sort()).toEqual([
       'bench.yml',
       'ci.yml',
+      'pr-bench.yml',
       'quality-dashboard.yml',
       'release.yml',
     ]);

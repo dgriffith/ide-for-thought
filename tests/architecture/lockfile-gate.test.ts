@@ -80,13 +80,15 @@ describe('every installing job verifies the lockfile first (#2244)', () => {
     // `ci.yml`'s e2e job had the same conditional shape and was missed,
     // `bench.yml` joined them in #2247 when it gained a cache, and `ci.yml`'s
     // `coverage` job arrived with a verify step when the floors moved back onto
-    // PRs (#2432). Listed so a future reader doesn't re-derive this.
+    // PRs (#2432), and `pr-bench.yml` with one from the start (#2386). Listed so
+    // a future reader doesn't re-derive this.
     expect(installing.map((j) => `${j.file}:${j.job}`).sort()).toEqual([
       'bench.yml:bench',
       'ci.yml:coverage',
       'ci.yml:e2e',
       'ci.yml:lint-and-test',
       'ci.yml:x64-smoke',
+      'pr-bench.yml:pr-bench',
       'release.yml:build-macos',
     ]);
   });
