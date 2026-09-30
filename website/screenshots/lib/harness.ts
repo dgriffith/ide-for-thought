@@ -134,6 +134,10 @@ async function launchInto(
 /** Open a note by its file-tree label (the filename without extension). */
 export async function openNote(win: Page, label: string): Promise<void> {
   const tree = win.locator('aside.sidebar');
+  // The left sidebar remembers its panel, so a previous recipe may have left it
+  // on Objects, Sources, … where the file tree isn't rendered (#2481). Go back
+  // to Notes first.
+  await tree.getByRole('button', { name: 'Notes', exact: true }).click();
   await tree.getByText(label, { exact: true }).first().click();
   // Editor swaps the "Select a note" placeholder for the note's content.
   await win.waitForTimeout(800);

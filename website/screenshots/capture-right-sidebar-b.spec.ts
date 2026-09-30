@@ -1,8 +1,10 @@
 /**
- * Docs screenshot harness — Right sidebar (batch B: Links + Activity groups).
+ * Docs screenshot harness — Right sidebar (batch B: the Links group).
  *
- * Captures the Outgoing, Backlinks, Related, Citations, Bookmarks and Proposals
- * panels of the right sidebar. Each test opens a note that populates the panel,
+ * Captures the Outgoing, Backlinks, Related, Citations and Bookmarks panels of
+ * the right sidebar. (Proposals moved to the left sidebar in #1523; its docs
+ * page is left-sidebar-proposals, and the right-sidebar recipe was removed in
+ * #2481.) Each test opens a note that populates the panel,
  * reveals the right sidebar, switches to the panel's group + sub-tab, and crops
  * `aside.right-sidebar` so the group chips, the active sub-tab, the panel title
  * and its populated body are all visible.
@@ -14,9 +16,6 @@
  *   via `[[cite::<sourceId>]]`.
  * - Bookmarks — the demo vault already ships one bookmark on "Mandolin Family
  *   Tree" (`.minerva/bookmarks.json`).
- * - Proposals — a fixture note whose embedded turtle cell seeds a few
- *   `thought:Proposal` nodes so the review queue has content (no live approval
- *   flow, which would require an API key).
  */
 import { test } from '@playwright/test';
 import { launchDemo, openNote, shoot, type Harness } from './lib/harness';
@@ -123,13 +122,4 @@ test('right-sidebar-bookmarks', async () => {
   await openPanel(h.win, 'Links', 'Bookmarks');
   await h.win.waitForTimeout(500);
   await shoot(h.win, 'right-sidebar-bookmarks', h.win.locator(RIGHT_SIDEBAR));
-});
-
-test('right-sidebar-proposals', async () => {
-  // Proposals are project-wide (not note-scoped); the fixture's embedded turtle
-  // seeds the queue. Open the fixture note just for a coherent editor context.
-  await openNote(h.win, 'rsb-proposals');
-  await openPanel(h.win, 'Activity', 'Proposals');
-  await h.win.waitForTimeout(800);
-  await shoot(h.win, 'right-sidebar-proposals', h.win.locator(RIGHT_SIDEBAR));
 });

@@ -180,10 +180,8 @@ test('data-analysis', async () => {
 test('proposal-review', async () => {
   await openNote(h.win, 'rsb-proposals');
   await setView(h.win, 'Preview');
-  await setRightSidebar(true);
-  await h.win.locator('.group-tab[title="Activity"]').first().click();
-  await h.win.waitForTimeout(300);
-  await h.win.locator('.sub-tab[title="Proposals"]').first().click();
+  // Proposals live in the left sidebar since #1523 (#2481).
+  await h.win.locator('aside.sidebar .panel-tab[title="Proposals"]').click();
   await h.win.waitForTimeout(600);
   await h.win.locator('.proposal-item').first().click();
   await h.win.waitForTimeout(700);

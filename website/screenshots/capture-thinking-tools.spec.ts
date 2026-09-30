@@ -22,7 +22,7 @@
  * populated) and closes it in afterAll.
  */
 import { test } from '@playwright/test';
-import { launchDemo, shoot, type Harness } from './lib/harness';
+import { launchDemo, openNote, shoot, type Harness } from './lib/harness';
 
 let h: Harness;
 
@@ -47,6 +47,11 @@ test.afterAll(async () => {
 async function ensureComposer(): Promise<void> {
   const composer = h.win.locator('.composer textarea');
   if ((await composer.count()) > 0 && (await composer.first().isVisible())) return;
+  // "New Conversation" sits in the editor group's header, which only renders
+  // with a tab open — and the demo vault has no entrypoint note, so whether a
+  // tab was open at this point used to depend on launch timing (#2481). Open
+  // one deterministically.
+  await openNote(h.win, 'Mandolin Family Tree');
   await h.win.locator('[title="New Conversation"]').first().click();
   await composer.first().waitFor({ state: 'visible', timeout: 5000 });
   await h.win.waitForTimeout(400);
