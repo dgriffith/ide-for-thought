@@ -51,6 +51,14 @@ overrides:
   'openai>undici': '>=8.10.2 <9.0.0'
   '@digitalbazaar/http-client>undici': '>=6.28.1 <7.0.0'
   '@electron/get>undici': '>=7.29.1 <8.0.0' # dev only: Electron binary download
+  # brace-expansion advisories (GHSA-6j4f-fj2g-mc7p parseCommaParts recursion,
+  # GHSA-qhr7-859c-m2p7 nested-group recursion — both stack-exhaustion DoS).
+  # Resolved on three majors (1.x/2.x/5.x via minimatch generations), so one
+  # override per major, each held inside it: a global key would drag the old
+  # minimatch consumers across a major.
+  'brace-expansion@1': '>=1.1.20 <2.0.0'
+  'brace-expansion@2': '>=2.1.6 <3.0.0'
+  'brace-expansion@5': '>=5.0.11 <6.0.0'
 
 # electron/esbuild/fs-xattr/macos-alias ship native postinstall builds we
 # actually need (native module rebuilds, macOS alias-file support). Replaces
