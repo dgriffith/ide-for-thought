@@ -194,12 +194,15 @@ export class StdioTransport implements McpTransport {
     // in between, so `this.dead` can't flip mid-sequence and leave a
     // registered (timer-armed) promise that nothing ever awaits — the
     // orphaned-promise shape that produced an UnhandledPromiseRejectionWarning
-    // ~`getEraProbeTimeoutMs()`ms later once this branch was ever reached
+    // ~`DEFAULT_REQUEST_TIMEOUT_MS` later once this branch was ever reached
     // post-death (belt-and-suspenders alongside the rethrow above, which
     // should already prevent reaching this branch while dead).
     if (this.dead) throw new McpConnectionError('mcp transport is not connected');
     const initId = this.ids.nextId();
-    const initPromise = this.pending.register(initId, getEraProbeTimeoutMs());
+    // The handshake gets a normal request's budget: the probe timeout bounds
+    // only the probe, and a slow-starting legacy server (a cold `npx` /
+    // `uv run`) has usually spent it already by the time we get here.
+    const initPromise = this.pending.register(initId, DEFAULT_REQUEST_TIMEOUT_MS);
     this.writeRaw({
       jsonrpc: '2.0',
       id: initId,
