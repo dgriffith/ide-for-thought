@@ -31,7 +31,7 @@ import { test, expect } from '@playwright/test';
 import { spawnSync, type SpawnSyncReturns } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs';
-import { makeTempDir, projectRoot, scrubbedEnv } from './helpers/launch';
+import { makeTempDir, minervaEnv, projectRoot } from './helpers/launch';
 
 /** The packaged `.app`, or null if it hasn't been built. */
 function packagedApp(): string | null {
@@ -43,12 +43,15 @@ function packagedApp(): string | null {
 let app: string | null;
 let project: string;
 let elsewhere: string;
+let home: string;
 
 test.beforeAll(() => {
   app = packagedApp();
   project = makeTempDir('minerva-e2e-cli-tb-');
   // The CLI runs from any directory; the pre-#2410 dev fallback was cwd-relative.
   elsewhere = makeTempDir('minerva-e2e-cli-cwd-');
+  // Not the developer's HOME: the CLI would read their ~/.minerva/ (#2466).
+  home = makeTempDir('minerva-e2e-cli-home-');
   fs.writeFileSync(
     path.join(project, 'apples.md'),
     '---\ntitle: Apples\ntags: [fruit]\n---\n# Apples\n\nApples grow on trees in orchards.\n',
@@ -58,6 +61,7 @@ test.beforeAll(() => {
 test.afterAll(() => {
   fs.rmSync(project, { recursive: true, force: true });
   fs.rmSync(elsewhere, { recursive: true, force: true });
+  fs.rmSync(home, { recursive: true, force: true });
 });
 
 /** Run the packaged CLI exactly as the installed shim does. */
@@ -68,7 +72,7 @@ function minerva(args: string[], input?: string): SpawnSyncReturns<string> {
     [path.join(a, 'Contents', 'Resources', 'app.asar', '.vite', 'build', 'cli.js'), ...args],
     {
       cwd: elsewhere,
-      env: { ...scrubbedEnv(), ELECTRON_RUN_AS_NODE: '1' },
+      env: minervaEnv(home, { ELECTRON_RUN_AS_NODE: '1' }),
       encoding: 'utf-8',
       input,
       timeout: 45_000,
