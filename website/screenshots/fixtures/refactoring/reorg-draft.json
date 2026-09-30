@@ -1,0 +1,326 @@
+{
+  "draftId": "reorg-docs-1",
+  "conversationId": "conv-docs-reorg",
+  "createdAt": "2026-06-02T10:04:31.000Z",
+  "note": "Reorganize 7 notes",
+  "items": [
+    {
+      "fromPath": "notes/mandolin-history/Renaissance Predecessors - Gitterns Mandoras and Mandolas.md",
+      "toPath": "notes/mandolin-history/eras/Renaissance Predecessors.md",
+      "affectedNotes": [
+        {
+          "path": "Ancient Roots - The Oud and the Lute Family.md",
+          "before": "[[notes/mandolin-history/Renaissance Predecessors - Gitterns Mandoras and Mandolas]]",
+          "after": "[[notes/mandolin-history/eras/Renaissance Predecessors]]",
+          "isMoved": false
+        },
+        {
+          "path": "Mandolin Family Tree.md",
+          "before": "- [[references::notes/mandolin-history/Renaissance Predecessors - Gitterns Mandoras and Mandolas]]",
+          "after": "- [[references::notes/mandolin-history/eras/Renaissance Predecessors]]",
+          "isMoved": false
+        },
+        {
+          "path": "notes/mandolin-history/History of the Mandolin.md",
+          "before": "2. [[notes/mandolin-history/Renaissance Predecessors - Gitterns Mandoras and Mandolas]]",
+          "after": "2. [[notes/mandolin-history/eras/Renaissance Predecessors]]",
+          "isMoved": false
+        },
+        {
+          "path": "notes/mandolin-history/The Baroque Mandolin and Regional Varieties-2.md",
+          "before": "[[Renaissance Predecessors - Gitterns Mandoras and Mandolas]]",
+          "after": "[[Renaissance Predecessors]]",
+          "isMoved": false
+        },
+        {
+          "path": "notes/mandolin-history/The Baroque Mandolin and Regional Varieties.md",
+          "before": "[[notes/mandolin-history/Renaissance Predecessors - Gitterns Mandoras and Mandolas]]",
+          "after": "[[notes/mandolin-history/eras/Renaissance Predecessors]]",
+          "isMoved": false
+        },
+        {
+          "path": "notes/mandolin-history/The Physics of the Mandolin.md",
+          "before": "[^1]: Marin Mersenne, *Harmonie universelle* (Paris, 1636). The mandolin lineage at this date was still in the [[notes/mandolin-history/Renaissance Predecessors - Gitterns Mandoras and Mandolas|gittern/mandora]] phase; the Neapolitan mandolin wouldn't crystallize for another 124 years.",
+          "after": "[^1]: Marin Mersenne, *Harmonie universelle* (Paris, 1636). The mandolin lineage at this date was still in the [[notes/mandolin-history/eras/Renaissance Predecessors|gittern/mandora]] phase; the Neapolitan mandolin wouldn't crystallize for another 124 years.",
+          "isMoved": false
+        },
+        {
+          "path": "notes/mandolin-history/sources/Gittern (Wikipedia).md",
+          "before": "- [[notes/mandolin-history/Renaissance Predecessors - Gitterns Mandoras and Mandolas]]",
+          "after": "- [[notes/mandolin-history/eras/Renaissance Predecessors]]",
+          "isMoved": false
+        },
+        {
+          "path": "notes/mandolin-history/sources/History of the Mandolin (Wikipedia).md",
+          "before": "- [[notes/mandolin-history/Renaissance Predecessors - Gitterns Mandoras and Mandolas]]",
+          "after": "- [[notes/mandolin-history/eras/Renaissance Predecessors]]",
+          "isMoved": false
+        },
+        {
+          "path": "notes/mandolin-history/sources/Mandore instrument (Wikipedia).md",
+          "before": "- [[notes/mandolin-history/Renaissance Predecessors - Gitterns Mandoras and Mandolas]]",
+          "after": "- [[notes/mandolin-history/eras/Renaissance Predecessors]]",
+          "isMoved": false
+        }
+      ]
+    },
+    {
+      "fromPath": "notes/mandolin-history/The Baroque Mandolin and Regional Varieties.md",
+      "toPath": "notes/mandolin-history/eras/The Baroque Mandolin.md",
+      "affectedNotes": [
+        {
+          "path": "notes/mandolin-history/History of the Mandolin.md",
+          "before": "3. [[notes/mandolin-history/The Baroque Mandolin and Regional Varieties]]",
+          "after": "3. [[notes/mandolin-history/eras/The Baroque Mandolin]]",
+          "isMoved": false
+        },
+        {
+          "path": "notes/mandolin-history/Renaissance Predecessors - Gitterns Mandoras and Mandolas.md",
+          "before": "[[notes/mandolin-history/The Baroque Mandolin and Regional Varieties]]",
+          "after": "[[notes/mandolin-history/eras/The Baroque Mandolin]]",
+          "isMoved": false
+        },
+        {
+          "path": "notes/mandolin-history/The Neapolitan Mandolin - The Modern Standard.md",
+          "before": "[[notes/mandolin-history/The Baroque Mandolin and Regional Varieties]]",
+          "after": "[[notes/mandolin-history/eras/The Baroque Mandolin]]",
+          "isMoved": false
+        },
+        {
+          "path": "notes/mandolin-history/The Physics of the Mandolin.md",
+          "before": "The Baroque [[notes/mandolin-history/The Baroque Mandolin and Regional Varieties|Milanese mandolin]] used six courses of gut, not four of metal. Gut's linear density at the same diameter is roughly **half** that of phosphor-bronze. If we naively swap to steel without rebuilding the top, the bridge load shoots up:\n- [[references::notes/mandolin-history/The Baroque Mandolin and Regional Varieties]] — the gut-string era",
+          "after": "The Baroque [[notes/mandolin-history/eras/The Baroque Mandolin|Milanese mandolin]] used six courses of gut, not four of metal. Gut's linear density at the same diameter is roughly **half** that of phosphor-bronze. If we naively swap to steel without rebuilding the top, the bridge load shoots up:\n- [[references::notes/mandolin-history/eras/The Baroque Mandolin]] — the gut-string era",
+          "isMoved": false
+        },
+        {
+          "path": "notes/mandolin-history/sources/History of the Mandolin (Wikipedia).md",
+          "before": "- [[notes/mandolin-history/The Baroque Mandolin and Regional Varieties]]",
+          "after": "- [[notes/mandolin-history/eras/The Baroque Mandolin]]",
+          "isMoved": false
+        },
+        {
+          "path": "notes/mandolin-history/sources/Mandolin (Wikipedia).md",
+          "before": "- [[notes/mandolin-history/The Baroque Mandolin and Regional Varieties]]",
+          "after": "- [[notes/mandolin-history/eras/The Baroque Mandolin]]",
+          "isMoved": false
+        },
+        {
+          "path": "notes/mandolin-history/sources/Mandolin Concerto Vivaldi (Wikipedia).md",
+          "before": "- [[notes/mandolin-history/The Baroque Mandolin and Regional Varieties]]",
+          "after": "- [[notes/mandolin-history/eras/The Baroque Mandolin]]",
+          "isMoved": false
+        },
+        {
+          "path": "notes/mandolin-history/sources/Mandore instrument (Wikipedia).md",
+          "before": "- [[notes/mandolin-history/The Baroque Mandolin and Regional Varieties]]",
+          "after": "- [[notes/mandolin-history/eras/The Baroque Mandolin]]",
+          "isMoved": false
+        }
+      ]
+    },
+    {
+      "fromPath": "notes/mandolin-history/The Neapolitan Mandolin - The Modern Standard.md",
+      "toPath": "notes/mandolin-history/eras/The Neapolitan Mandolin.md",
+      "affectedNotes": [
+        {
+          "path": "Mandolin Family Tree.md",
+          "before": "- [[references::notes/mandolin-history/The Neapolitan Mandolin - The Modern Standard]]",
+          "after": "- [[references::notes/mandolin-history/eras/The Neapolitan Mandolin]]",
+          "isMoved": false
+        },
+        {
+          "path": "notes/mandolin-history/America and the Gibson Revolution.md",
+          "before": "At the end of the 19th century, the mandolin arrived in America with Italian immigrants and quickly became enormously popular. American luthiers — particularly **Orville Gibson** and **Lloyd Loar** — then transformed the instrument's design, [[supersedes::notes/mandolin-history/The Neapolitan Mandolin - The Modern Standard|superseding the bowl-back Neapolitan tradition]] for English-speaking audiences in a single generation.",
+          "after": "At the end of the 19th century, the mandolin arrived in America with Italian immigrants and quickly became enormously popular. American luthiers — particularly **Orville Gibson** and **Lloyd Loar** — then transformed the instrument's design, [[supersedes::notes/mandolin-history/eras/The Neapolitan Mandolin|superseding the bowl-back Neapolitan tradition]] for English-speaking audiences in a single generation.",
+          "isMoved": false
+        },
+        {
+          "path": "notes/mandolin-history/Glossary - The Neapolitan Mandolin.md",
+          "before": "Key terms for [[The Neapolitan Mandolin - The Modern Standard]].",
+          "after": "Key terms for [[The Neapolitan Mandolin]].",
+          "isMoved": false
+        },
+        {
+          "path": "notes/mandolin-history/History of the Mandolin.md",
+          "before": "4. [[notes/mandolin-history/The Neapolitan Mandolin - The Modern Standard]]",
+          "after": "4. [[notes/mandolin-history/eras/The Neapolitan Mandolin]]",
+          "isMoved": false
+        },
+        {
+          "path": "notes/mandolin-history/Mandolin Models - A Survey.md",
+          "before": "- [[references::notes/mandolin-history/The Neapolitan Mandolin - The Modern Standard]] — the bowl-back era",
+          "after": "- [[references::notes/mandolin-history/eras/The Neapolitan Mandolin]] — the bowl-back era",
+          "isMoved": false
+        },
+        {
+          "path": "notes/mandolin-history/The Baroque Mandolin and Regional Varieties-2.md",
+          "before": "[[The Neapolitan Mandolin - The Modern Standard]]",
+          "after": "[[The Neapolitan Mandolin]]",
+          "isMoved": false
+        },
+        {
+          "path": "notes/mandolin-history/The Baroque Mandolin and Regional Varieties.md",
+          "before": "[[notes/mandolin-history/The Neapolitan Mandolin - The Modern Standard]]",
+          "after": "[[notes/mandolin-history/eras/The Neapolitan Mandolin]]",
+          "isMoved": false
+        },
+        {
+          "path": "notes/mandolin-history/The Mandolin in Classical Composition.md",
+          "before": "[[notes/mandolin-history/The Neapolitan Mandolin - The Modern Standard]]",
+          "after": "[[notes/mandolin-history/eras/The Neapolitan Mandolin]]",
+          "isMoved": false
+        },
+        {
+          "path": "notes/mandolin-history/The Physics of the Mandolin.md",
+          "before": "- [[references::notes/mandolin-history/The Neapolitan Mandolin - The Modern Standard]] — when metal arrived",
+          "after": "- [[references::notes/mandolin-history/eras/The Neapolitan Mandolin]] — when metal arrived",
+          "isMoved": false
+        },
+        {
+          "path": "notes/mandolin-history/sources/History of the Mandolin (Wikipedia).md",
+          "before": "- [[notes/mandolin-history/The Neapolitan Mandolin - The Modern Standard]]",
+          "after": "- [[notes/mandolin-history/eras/The Neapolitan Mandolin]]",
+          "isMoved": false
+        },
+        {
+          "path": "notes/mandolin-history/sources/Mandolin (Britannica).md",
+          "before": "- [[notes/mandolin-history/The Neapolitan Mandolin - The Modern Standard]]",
+          "after": "- [[notes/mandolin-history/eras/The Neapolitan Mandolin]]",
+          "isMoved": false
+        },
+        {
+          "path": "notes/mandolin-history/sources/Mandolin (Wikipedia).md",
+          "before": "- [[notes/mandolin-history/The Neapolitan Mandolin - The Modern Standard]]",
+          "after": "- [[notes/mandolin-history/eras/The Neapolitan Mandolin]]",
+          "isMoved": false
+        },
+        {
+          "path": "notes/mandolin-history/sources/Neapolitan Mandolin — Victoria and Albert Museum.md",
+          "before": "- [[notes/mandolin-history/The Neapolitan Mandolin - The Modern Standard]]",
+          "after": "- [[notes/mandolin-history/eras/The Neapolitan Mandolin]]",
+          "isMoved": false
+        },
+        {
+          "path": "notes/mandolin-history/sources/Pasquale Vinaccia (Wikipedia).md",
+          "before": "- [[notes/mandolin-history/The Neapolitan Mandolin - The Modern Standard]]",
+          "after": "- [[notes/mandolin-history/eras/The Neapolitan Mandolin]]",
+          "isMoved": false
+        }
+      ]
+    },
+    {
+      "fromPath": "notes/mandolin-history/America and the Gibson Revolution.md",
+      "toPath": "notes/mandolin-history/regions/America and the Gibson Revolution.md",
+      "affectedNotes": [
+        {
+          "path": "Mandolin Family Tree.md",
+          "before": "- [[references::notes/mandolin-history/America and the Gibson Revolution]]",
+          "after": "- [[references::notes/mandolin-history/regions/America and the Gibson Revolution]]",
+          "isMoved": false
+        },
+        {
+          "path": "notes/mandolin-history/History of the Mandolin.md",
+          "before": "7. [[notes/mandolin-history/America and the Gibson Revolution]]",
+          "after": "7. [[notes/mandolin-history/regions/America and the Gibson Revolution]]",
+          "isMoved": false
+        },
+        {
+          "path": "notes/mandolin-history/Mandolin Models - A Survey.md",
+          "before": "The bowl-back tradition dominated for almost a century and a half before [[notes/mandolin-history/America and the Gibson Revolution|Orville Gibson's]] flat/carved-back patent reset the standard.\n- [[references::notes/mandolin-history/America and the Gibson Revolution]] — the F-series story",
+          "after": "The bowl-back tradition dominated for almost a century and a half before [[notes/mandolin-history/regions/America and the Gibson Revolution|Orville Gibson's]] flat/carved-back patent reset the standard.\n- [[references::notes/mandolin-history/regions/America and the Gibson Revolution]] — the F-series story",
+          "isMoved": false
+        },
+        {
+          "path": "notes/mandolin-history/The 1892 Genoa Competition and Mandolin Orchestras.md",
+          "before": "[[notes/mandolin-history/America and the Gibson Revolution]]",
+          "after": "[[notes/mandolin-history/regions/America and the Gibson Revolution]]",
+          "isMoved": false
+        },
+        {
+          "path": "notes/mandolin-history/The Physics of the Mandolin.md",
+          "before": "- [[supports::notes/mandolin-history/America and the Gibson Revolution]] — Orville Gibson's carved-top response",
+          "after": "- [[supports::notes/mandolin-history/regions/America and the Gibson Revolution]] — Orville Gibson's carved-top response",
+          "isMoved": false
+        },
+        {
+          "path": "notes/mandolin-history/The Rise of Bluegrass.md",
+          "before": "[[notes/mandolin-history/America and the Gibson Revolution]]",
+          "after": "[[notes/mandolin-history/regions/America and the Gibson Revolution]]",
+          "isMoved": false
+        },
+        {
+          "path": "notes/mandolin-history/sources/Lloyd Loar (Wikipedia).md",
+          "before": "- [[notes/mandolin-history/America and the Gibson Revolution]]",
+          "after": "- [[notes/mandolin-history/regions/America and the Gibson Revolution]]",
+          "isMoved": false
+        },
+        {
+          "path": "notes/mandolin-history/sources/Mandolin (Wikipedia).md",
+          "before": "- [[notes/mandolin-history/America and the Gibson Revolution]]",
+          "after": "- [[notes/mandolin-history/regions/America and the Gibson Revolution]]",
+          "isMoved": false
+        },
+        {
+          "path": "notes/mandolin-history/sources/Mandolins in North America (Wikipedia).md",
+          "before": "- [[notes/mandolin-history/America and the Gibson Revolution]]",
+          "after": "- [[notes/mandolin-history/regions/America and the Gibson Revolution]]",
+          "isMoved": false
+        },
+        {
+          "path": "notes/mandolin-history/sources/Orville Gibson (Wikipedia).md",
+          "before": "- [[notes/mandolin-history/America and the Gibson Revolution]]",
+          "after": "- [[notes/mandolin-history/regions/America and the Gibson Revolution]]",
+          "isMoved": false
+        }
+      ]
+    },
+    {
+      "fromPath": "notes/mandolin-history/The Mandolin in Brazil.md",
+      "toPath": "notes/mandolin-history/regions/The Mandolin in Brazil.md",
+      "affectedNotes": [
+        {
+          "path": "notes/mandolin-history/History of the Mandolin.md",
+          "before": "9. [[notes/mandolin-history/The Mandolin in Brazil]]",
+          "after": "9. [[notes/mandolin-history/regions/The Mandolin in Brazil]]",
+          "isMoved": false
+        },
+        {
+          "path": "notes/mandolin-history/The Mandolin Today.md",
+          "before": "[[notes/mandolin-history/The Mandolin in Brazil]]",
+          "after": "[[notes/mandolin-history/regions/The Mandolin in Brazil]]",
+          "isMoved": false
+        },
+        {
+          "path": "notes/mandolin-history/The Rise of Bluegrass.md",
+          "before": "[[notes/mandolin-history/The Mandolin in Brazil]]",
+          "after": "[[notes/mandolin-history/regions/The Mandolin in Brazil]]",
+          "isMoved": false
+        },
+        {
+          "path": "notes/mandolin-history/sources/Jacob do Bandolim (Wikipedia).md",
+          "before": "- [[notes/mandolin-history/The Mandolin in Brazil]]",
+          "after": "- [[notes/mandolin-history/regions/The Mandolin in Brazil]]",
+          "isMoved": false
+        }
+      ]
+    },
+    {
+      "fromPath": "notes/mandolin-history/The Physics of the Mandolin.md",
+      "toPath": "notes/mandolin-history/craft/The Physics of the Mandolin.md",
+      "affectedNotes": [
+        {
+          "path": "notes/mandolin-history/America and the Gibson Revolution.md",
+          "before": "The carved top wasn't just a stylistic move. It was a structural response to the rising tension of [[notes/mandolin-history/The Physics of the Mandolin|metal strings under standard tuning]]: an arched soundboard resolves string tension as compression along the grain instead of bending across it.",
+          "after": "The carved top wasn't just a stylistic move. It was a structural response to the rising tension of [[notes/mandolin-history/craft/The Physics of the Mandolin|metal strings under standard tuning]]: an arched soundboard resolves string tension as compression along the grain instead of bending across it.",
+          "isMoved": false
+        }
+      ]
+    },
+    {
+      "fromPath": "notes/mandolin-history/Mandolin String Materials.md",
+      "toPath": "notes/mandolin-history/craft/Mandolin String Materials.md",
+      "affectedNotes": []
+    }
+  ],
+  "warnings": []
+}

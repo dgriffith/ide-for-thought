@@ -1,0 +1,20 @@
+{
+  "id": "conv-docs-reorg",
+  "contextBundle": {
+    "notePath": "notes/mandolin-history/History of the Mandolin.md"
+  },
+  "status": "active",
+  "startedAt": "2026-06-02T10:03:50.000Z",
+  "messages": [
+    {
+      "role": "user",
+      "content": "notes/mandolin-history has gotten flat and hard to browse. Group the history notes by era, the country studies by region, and the construction notes under craft — and shorten the long titles while you're at it.",
+      "timestamp": "2026-06-02T10:03:58.000Z"
+    },
+    {
+      "role": "assistant",
+      "content": "_🗂 Planning a reorganization…_\n\nI've drafted a plan that moves seven notes into **eras/**, **regions/** and **craft/** subfolders, shortening three long titles on the way. Every link that points at a moved note is rewritten to match. Nothing has moved yet — untick anything you'd rather leave where it is, then approve.",
+      "timestamp": "2026-06-02T10:04:31.000Z"
+    }
+  ]
+}

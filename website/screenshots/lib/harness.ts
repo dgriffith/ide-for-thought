@@ -1,15 +1,24 @@
 /**
  * Launch + setup helper for the docs screenshot harness.
  *
- * Boots the *packaged* app (native bindings guaranteed) against a throwaway copy
- * of the demo thoughtbase, restored via a seeded `session.json` — the same trick
- * the e2e smoke suite uses, so no open-dialog click-through. Forces the Honey
- * theme and a fixed window size + 2× device scale so every image is consistent.
+ * Boots the app against a throwaway copy of the demo thoughtbase, restored via a
+ * seeded `session.json` — no open-dialog click-through. Forces the Honey theme
+ * and a fixed window size + 2× device scale so every image is consistent.
+ *
+ * Launches go through the e2e suite's `launchMinerva`, so the harness gets the
+ * same guarantees: an isolated profile, credentials scrubbed from the env, and
+ * an isolated HOME (#2466) — a capture never shows the developer's own user
+ * skills or spawns their MCP servers. It boots the IN-TREE build
+ * (`.vite/build/main.js`) rather than the packaged binary: since the #2366
+ * fuses the packaged app refuses `--inspect`, which Playwright's Electron driver
+ * needs, and several recipes replay main → renderer events through
+ * `app.evaluate`, which only the driver provides.
  */
-import { _electron as electron, expect, type ElectronApplication, type Page } from '@playwright/test';
+import { expect, type ElectronApplication, type Page } from '@playwright/test';
 import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
+import { launchMinerva, makeTempDir, seedSession } from '../../../tests/e2e/helpers/launch';
 
 const projectRoot = path.resolve(__dirname, '..', '..', '..');
 
@@ -22,48 +31,34 @@ export const IMG_DIR = path.join(projectRoot, 'website', 'docs', 'img');
 /** Where captured marketing-site PNGs land (index/features/getting-started). */
 export const MARKETING_IMG_DIR = path.join(projectRoot, 'website', 'img');
 
+/** The first-run onboarding wizard (OnboardingDialog.svelte). */
+export const ONBOARDING_DIALOG = '.dialog[aria-labelledby="onboarding-title"]';
+
 /** Fixed capture geometry (logical px). 2× scale is applied at launch. */
 export const WINDOW = { width: 1440, height: 900 };
-
-/** Packaged app binary produced by `pnpm build:e2e`, or null if unbuilt. */
-export function packagedBinary(): string | null {
-  if (process.platform !== 'darwin') return null;
-  const p = path.join(
-    projectRoot, 'out', `Minerva-${process.platform}-${process.arch}`,
-    'Minerva.app', 'Contents', 'MacOS', 'Minerva',
-  );
-  return fs.existsSync(p) ? p : null;
-}
 
 export interface Harness {
   app: ElectronApplication;
   win: Page;
-  /** The throwaway copy of the demo vault this run is pointed at. Exposed so a
-   *  spec can seed per-feature state that lives BESIDE the notes rather than in
-   *  them — e.g. `.minerva/history/` for the History panel. */
+  /** The throwaway thoughtbase this run is pointed at. Exposed so a spec can
+   *  seed per-feature state that lives BESIDE the notes rather than in them —
+   *  e.g. `.minerva/history/` for the History panel. */
   projectDir: string;
   cleanup: () => void;
 }
 
 /** Launch the app into a fresh copy of the demo vault, Honey theme, at WINDOW. */
 export async function launchDemo(): Promise<Harness> {
-  const binary = packagedBinary();
-  if (!binary) throw new Error('packaged app not built — run `pnpm build:e2e` first');
   if (!fs.existsSync(DEMO_VAULT)) throw new Error(`demo vault not found at ${DEMO_VAULT}`);
-
-  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-shots-userdata-'));
-  // Copy the vault into a nicely-named leaf folder so the file-tree root reads
-  // "Demo" in screenshots rather than a random temp-dir hash.
-  const projectParent = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-shots-'));
-  const projectDir = path.join(projectParent, 'Demo');
-  fs.cpSync(DEMO_VAULT, projectDir, { recursive: true });
-  // Drop the purpose-built showcase notes into the vault root so each feature
-  // has a short, tightly-cropping note to photograph. Fixtures live in
-  // per-section folders under fixtures/ (fixtures/notes, fixtures/settings, …);
-  // every .md in any of them is copied to the vault root, so file-tree labels
-  // (the note filename) stay unique across sections.
-  const fixturesRoot = path.join(__dirname, '..', 'fixtures');
-  if (fs.existsSync(fixturesRoot)) {
+  return launchInto('Demo', (projectDir) => {
+    fs.cpSync(DEMO_VAULT, projectDir, { recursive: true });
+    // Drop the purpose-built showcase notes into the vault root so each feature
+    // has a short, tightly-cropping note to photograph. Fixtures live in
+    // per-section folders under fixtures/ (fixtures/notes, fixtures/settings, …);
+    // every .md in any of them is copied to the vault root, so file-tree labels
+    // (the note filename) stay unique across sections.
+    const fixturesRoot = path.join(__dirname, '..', 'fixtures');
+    if (!fs.existsSync(fixturesRoot)) return;
     for (const entry of fs.readdirSync(fixturesRoot, { withFileTypes: true })) {
       if (!entry.isDirectory()) continue;
       const dir = path.join(fixturesRoot, entry.name);
@@ -71,18 +66,41 @@ export async function launchDemo(): Promise<Harness> {
         if (f.endsWith('.md')) fs.copyFileSync(path.join(dir, f), path.join(projectDir, f));
       }
     }
+  });
+}
+
+/**
+ * Launch the app into a brand-new, EMPTY thoughtbase (#1409) — no demo copy,
+ * no fixtures — which is the one state the first-run onboarding wizard appears
+ * in. Waits for that wizard rather than for a settled workspace.
+ */
+export async function launchEmpty(name = 'My Thoughtbase'): Promise<Harness> {
+  return launchInto(name, () => { /* empty on purpose */ }, { expectOnboarding: true });
+}
+
+async function launchInto(
+  name: string,
+  populate: (projectDir: string) => void,
+  { expectOnboarding = false } = {},
+): Promise<Harness> {
+  if (!fs.existsSync(path.join(projectRoot, '.vite', 'build', 'main.js'))) {
+    throw new Error('in-tree build missing — run `pnpm build:e2e` first');
   }
+  const userDataDir = makeTempDir('minerva-shots-userdata-');
+  // A nicely-named leaf folder so the file-tree root reads "Demo" (or `name`)
+  // in screenshots rather than a random temp-dir hash.
+  const projectParent = makeTempDir('minerva-shots-');
+  const projectDir = path.join(projectParent, name);
+  fs.mkdirSync(projectDir, { recursive: true });
+  populate(projectDir);
+  seedSession(userDataDir, projectDir);
+  // seedSession writes a default geometry; captures need exactly WINDOW.
   fs.writeFileSync(
     path.join(userDataDir, 'session.json'),
     JSON.stringify([{ x: 60, y: 60, width: WINDOW.width, height: WINDOW.height, rootPath: projectDir }]),
   );
 
-  const app = await electron.launch({
-    executablePath: binary,
-    args: [`--user-data-dir=${userDataDir}`, '--force-device-scale-factor=2'],
-    timeout: 60_000,
-    env: { ...process.env, ELECTRON_ENABLE_LOGGING: '1' },
-  });
+  const app = await launchMinerva({ userDataDir, args: ['--force-device-scale-factor=2'] });
 
   const cleanup = () => {
     fs.rmSync(userDataDir, { recursive: true, force: true });
@@ -91,17 +109,22 @@ export async function launchDemo(): Promise<Harness> {
 
   const win = await app.firstWindow({ timeout: 20_000 });
   await win.waitForLoadState('domcontentloaded');
-  // Wait for the restored project to replace the welcome screen.
-  await expect(win.getByRole('button', { name: 'Open Thoughtbase' }))
-    .toHaveCount(0, { timeout: 30_000 });
+  const settled = async () => {
+    if (expectOnboarding) {
+      await expect(win.locator(ONBOARDING_DIALOG)).toBeVisible({ timeout: 30_000 });
+    } else {
+      // Wait for the restored project to replace the welcome screen.
+      await expect(win.getByRole('button', { name: 'Open Thoughtbase' })).toHaveCount(0, { timeout: 30_000 });
+    }
+  };
+  await settled();
 
   // Force Honey (the default warm palette) deterministically, regardless of the
   // host machine's light/dark preference, then re-render.
   await win.evaluate(() => localStorage.setItem('themeMode', 'dark'));
   await win.reload();
   await win.waitForLoadState('domcontentloaded');
-  await expect(win.getByRole('button', { name: 'Open Thoughtbase' }))
-    .toHaveCount(0, { timeout: 30_000 });
+  await settled();
   // Let fonts, the graph index, and first paint settle.
   await win.waitForTimeout(1500);
 

@@ -26,19 +26,24 @@ const MANIFEST = {
 };
 
 /** Build the <figure> replacement from a placeholder's size-modifier class, id,
- *  and its `.k`/`.d` text (caption / alt). */
-function figure(mod, id, k, d) {
+ *  its other attributes (e.g. getting-started's `style="margin-top:30px;"`,
+ *  kept so the page's spacing survives the swap), and its `.k`/`.d` text
+ *  (caption / alt). */
+function figure(mod, id, attrs, k, d) {
   const alt = (d ?? '').trim().replace(/\s+/g, ' ');
   const caption = (k ?? '').trim().replace(/^Screenshot\s*[—-]\s*/i, '').replace(/^Screenshot\s*\/\s*screencast\s*[—-]\s*/i, '');
   const cls = `shot-img${mod}`.replace(/\bwide\b/, '').replace(/\s+/g, ' ').trim();
   const figcaption = caption ? `\n      <figcaption>${esc(caption)}</figcaption>` : '';
-  return `<figure class="${cls}">\n      <img src="img/${id}.png" alt="${esc(alt)}" loading="lazy" />${figcaption}\n    </figure>`;
+  return `<figure class="${cls}"${attrs}>\n      <img src="img/${id}.png" alt="${esc(alt)}" loading="lazy" />${figcaption}\n    </figure>`;
 }
 
 // A `.shot` placeholder block: captures the size-modifier class, optional data-shot
-// id, optional `.k`, and `.d`.
+// id, any other attributes after them (#1409: getting-started's placeholder
+// carries a `style=`, which the old pattern's bare `>` refused to match — so it
+// was never stamped or swapped), optional `.k`, and `.d`.
+const OTHER_ATTRS = `((?:\\s+(?!data-shot)[\\w-]+="[^"]*")*)`;
 const BLOCK = (dataShot) => new RegExp(
-  `<div class="shot([^"]*)"${dataShot ? ` data-shot="([^"]*)"` : `(?!\\s+data-shot)`}>` +
+  `<div class="shot([^"]*)"${dataShot ? ` data-shot="([^"]*)"` : ''}${OTHER_ATTRS}>` +
   `\\s*<div class="icon">[\\s\\S]*?</div>` +
   `\\s*(?:<div class="k">([\\s\\S]*?)</div>\\s*)?` +
   `<div class="d">([\\s\\S]*?)</div>\\s*</div>`,
@@ -53,21 +58,21 @@ for (const [page, ids] of Object.entries(MANIFEST)) {
   let html = fs.readFileSync(file, 'utf8');
 
   // Pass 1 — already-stamped placeholders: swap any whose image now exists.
-  html = html.replace(BLOCK(true), (m, mod, id, k, d) => {
+  html = html.replace(BLOCK(true), (m, mod, id, attrs, k, d) => {
     if (!fs.existsSync(path.join(IMG, `${id}.png`))) return m; // still pending
     swapped++;
-    return figure(mod, id, k, d);
+    return figure(mod, id, attrs, k, d);
   });
 
   // Pass 2 — fresh (unstamped) placeholders: assign ids positionally, then swap
   // if the image exists, otherwise stamp the id so a later run can find it.
   let i = 0;
-  html = html.replace(BLOCK(false), (m, mod, k, d) => {
+  html = html.replace(BLOCK(false), (m, mod, attrs, k, d) => {
     const id = ids[i++];
     if (!id) return m; // more placeholders than manifest entries — leave as-is
-    if (fs.existsSync(path.join(IMG, `${id}.png`))) { swapped++; return figure(mod, id, k, d); }
+    if (fs.existsSync(path.join(IMG, `${id}.png`))) { swapped++; return figure(mod, id, attrs, k, d); }
     stamped++;
-    return m.replace(/^<div class="shot([^"]*)">/, `<div class="shot$1" data-shot="${id}">`);
+    return m.replace(/^<div class="shot([^"]*)"/, `<div class="shot$1" data-shot="${id}"`);
   });
 
   fs.writeFileSync(file, html);
