@@ -495,7 +495,14 @@ closes it with `closeMinerva` (a bare `app.close()` has no timeout and hung a
 CI job's worker teardown), imports `test` from `tests/e2e/helpers/test.ts`
 (whose fixture kills whatever a timed-out test left running), and calls the
 `MINERVA_E2E` hooks through the bounded `seedProposal` / `ingestSource`.
-**When it fires:** use the helper.
+And it holds HOME isolation (#2466): the credential-scrubbed env still carried
+the real `HOME`, so a local run read the developer's `~/.minerva/` — user
+skills, menu config, and `mcp-servers.json`, whose servers the app spawned
+(an `npx github:…` download per launch on the maintainer's machine). Every
+launch gets `minervaEnv(isolatedHome(userDataDir), …)`, and no spec may build
+an env from `scrubbedEnv()` directly.
+**When it fires:** use the helper — `launchMinerva`, or `minervaEnv(home, …)`
+with a temp HOME for a process a spec spawns itself (`cli-packaged.spec.ts`).
 
 ### `embedding-model-gate.test.ts`
 
