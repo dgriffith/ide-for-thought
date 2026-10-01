@@ -650,7 +650,8 @@ function handleTurnFailure(tab: TabRuntime, e: unknown, sentText: string | null)
   if (isProviderUnconfiguredError(e)) {
     if (sentText !== null) {
       tab.conversation.messages = tab.conversation.messages.slice(0, -1);
-      tab.composer = sentText;
+      // Put the message back without losing anything drafted since (#1744).
+      tab.composer = tab.composer.trim() ? `${sentText}\n\n${tab.composer}` : sentText;
     }
     needsApiKey = true;
     return;
@@ -831,7 +832,8 @@ function blankTabRuntime(conv: Conversation, extraTools: ConversationToolKey[]):
  */
 async function clearConversation(): Promise<void> {
   const tab = activeTab();
-  if (!tab) return;
+  // Never archive a conversation out from under its own in-flight turn.
+  if (!tab || tab.streaming) return;
   const prev = tab.conversation;
   // A brand-new, never-used conversation has nothing to archive — just no-op
   // so spamming /clear doesn't litter the archived list with empties.
