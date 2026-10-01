@@ -164,6 +164,13 @@
     store.discardSourceDraft(tabId, draftId);
   }
 
+  /** `["city", "hours"]` → `{{city}}, {{hours}}` for the property card (#2491).
+   *  Built in script: a literal double brace in Svelte markup is parsed as an
+   *  expression. */
+  function placeholderList(names: string[]): string {
+    return names.map((n) => '{' + '{' + n + '}' + '}').join(', ');
+  }
+
   async function handleApproveProperty(tabId: string, draft: ConversationPropertyDraft) {
     try {
       await store.approvePropertyDraft(tabId, draft);
@@ -350,6 +357,11 @@
               </li>
             {/each}
           </ul>
+          {#if u.fillsPlaceholders?.length}
+            <div class="property-fills">
+              Also fills {placeholderList(u.fillsPlaceholders)} in the note's body.
+            </div>
+          {/if}
         </li>
       {/each}
     </ul>
@@ -539,6 +551,11 @@
 {/each}
 
 <style>
+  .property-fills {
+    margin-top: 4px;
+    font-size: 0.85em;
+    color: var(--text-muted);
+  }
   .draft-paths { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 4px; }
   .draft-path-btn {
     width: 100%;

@@ -1,0 +1,172 @@
+/**
+ * Property placeholders in an object type's default body (#2490, epic #2489).
+ *
+ * A type's template can name its properties — `Address: {{address}}` — and a
+ * placeholder whose property has a value is replaced by it. One without a value
+ * stays literally `{{address}}` (unknown placeholders already survive
+ * `substituteTemplate`), so it can be filled later, when the property is set
+ * (#2491) or by the LLM path (#2492). This module is the ONE rule all three
+ * use, so creation, editing and the model can't disagree about what fills.
+ *
+ * Syntax:
+ *   {{name}}        — a declared property, unless `name` is a built-in
+ *                     placeholder (title, date, time, cursor, selection), which wins
+ *   {{prop:name}}   — always the property; the escape hatch for a type that
+ *                     declares, say, a `date` property
+ *
+ * Fill once, don't bind: a filled placeholder becomes ordinary text, and later
+ * property changes never rewrite it — only placeholders still present literally
+ * are ever filled. `\{{` stays an escaped literal.
+ *
+ * Pure and Node-free (`src/shared` is lint-enforced pure).
+ */
+import { parseFrontmatter, type Row } from '../refactor/frontmatter-rows';
+
+/** Placeholder names `substituteTemplate` owns. A bare `{{date}}` is the date,
+ *  not a `date` property — use `{{prop:date}}` for that. */
+export const BUILTIN_PLACEHOLDERS: ReadonlySet<string> = new Set(['title', 'date', 'time', 'cursor', 'selection']);
+
+/**
+ * The property a placeholder expression names, or `null` when it names none of
+ * `propertyNames` (a built-in, a `date:FMT`/`prompt:` form, or an unknown word).
+ */
+export function propertyPlaceholderName(expr: string, propertyNames: ReadonlySet<string>): string | null {
+  const e = expr.trim();
+  if (e.startsWith('prop:')) {
+    const name = e.slice(5).trim();
+    return propertyNames.has(name) ? name : null;
+  }
+  if (BUILTIN_PLACEHOLDERS.has(e) || e.includes(':')) return null;
+  return propertyNames.has(e) ? e : null;
+}
+
+/**
+ * A frontmatter value as body text, or `null` when there's nothing to fill
+ * (missing, empty, or a shape with no sensible inline form).
+ */
+export function renderPropertyValue(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'string') return value.trim() === '' ? null : value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value.toISOString().slice(0, 10);
+  if (Array.isArray(value)) {
+    const parts = value.map(renderPropertyValue).filter((p): p is string => p !== null);
+    return parts.length > 0 ? parts.join(', ') : null;
+  }
+  return null; // a nested object has no inline form; leave the placeholder
+}
+
+/**
+ * Replace every property placeholder in `body` whose property has a value.
+ * Everything else — built-ins, unknown placeholders, `\{{` escapes, ordinary
+ * text — is left exactly as it was. Returns the body unchanged (same string)
+ * when nothing filled, so callers can cheaply tell whether to write.
+ */
+export function fillPropertyPlaceholders(
+  body: string,
+  values: Readonly<Record<string, unknown>>,
+  propertyNames: Iterable<string>,
+): string {
+  return fillWithReport(body, values, propertyNames).text;
+}
+
+/** `fillPropertyPlaceholders`, also naming each property it filled (in order,
+ *  de-duplicated) — for a review card that says what an approval will change. */
+export function fillWithReport(
+  body: string,
+  values: Readonly<Record<string, unknown>>,
+  propertyNames: Iterable<string>,
+): { text: string; filled: string[] } {
+  const names = new Set(propertyNames);
+  if (names.size === 0 || !body.includes('{{')) return { text: body, filled: [] };
+  let out = '';
+  let i = 0;
+  const filled: string[] = [];
+  while (i < body.length) {
+    if (body[i] === '\\' && body.startsWith('{{', i + 1)) {
+      out += '\\{{';
+      i += 3;
+      continue;
+    }
+    if (body.startsWith('{{', i)) {
+      const close = body.indexOf('}}', i + 2);
+      if (close < 0) { out += body.slice(i); break; }
+      const name = propertyPlaceholderName(body.slice(i + 2, close), names);
+      const text = name === null ? null : renderPropertyValue(values[name]);
+      if (text !== null && name !== null) {
+        out += text;
+        if (!filled.includes(name)) filled.push(name);
+      } else {
+        out += body.slice(i, close + 2);
+      }
+      i = close + 2;
+      continue;
+    }
+    out += body[i];
+    i++;
+  }
+  return filled.length > 0 ? { text: out, filled } : { text: body, filled };
+}
+
+/**
+ * Fill a whole note's body from its OWN frontmatter (#2491): the frontmatter is
+ * read, its values fill any property placeholder still present in the body, and
+ * the frontmatter block itself is left byte-identical. Returns `content`
+ * unchanged (same string) when there's no frontmatter, it doesn't parse, or
+ * nothing filled — so a caller can tell cheaply whether anything changed.
+ *
+ * Called only from explicit property edits (the Properties panel, an approved
+ * `set_properties`), never on ordinary typing, so the body is never rewritten
+ * under the cursor.
+ */
+export function fillNotePlaceholders(content: string, propertyNames: Iterable<string>): string {
+  return fillNoteWithReport(content, propertyNames).content;
+}
+
+/** `fillNotePlaceholders`, also naming the properties it filled. */
+export function fillNoteWithReport(
+  content: string,
+  propertyNames: Iterable<string>,
+): { content: string; filled: string[] } {
+  const fm = parseFrontmatter(content);
+  if (!fm.ok || ('none' in fm && fm.none)) return { content, filled: [] };
+  // Null-prototype: frontmatter keys are user text, and a `constructor` key must
+  // read as that key's value, not Object.prototype's function (#2463).
+  const values: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
+  for (const row of fm.rows) values[row.key] = rowValue(row.shape);
+  const head = content.slice(0, fm.blockEnd);
+  const body = content.slice(fm.blockEnd);
+  const { text, filled } = fillWithReport(body, values, propertyNames);
+  return filled.length > 0 ? { content: head + text, filled } : { content, filled };
+}
+
+/** The note's `type:` from its frontmatter, or `null` (no frontmatter, no type,
+ *  unparseable). Read from the content itself, so an update that sets `type:`
+ *  and a property together fills against the NEW type. */
+export function noteTypeId(content: string): string | null {
+  const fm = parseFrontmatter(content);
+  if (!fm.ok || ('none' in fm && fm.none)) return null;
+  const row = fm.rows.find((r) => r.key === 'type');
+  return row && row.shape.kind === 'string' && row.shape.value.trim() ? row.shape.value.trim() : null;
+}
+
+function rowValue(shape: Row['shape']): unknown {
+  switch (shape.kind) {
+    case 'wiki-link': return shape.raw;
+    case 'yaml': return undefined; // no inline form
+    default: return shape.value;
+  }
+}
+
+/**
+ * The `properties` context `substituteTemplate` takes when instantiating a
+ * type's template (#2490): the type's effective property names, and whatever
+ * values are known. A note made from the UI has none yet, so every `{{prop}}`
+ * stays for the fill on property edit (#2491).
+ */
+export function typePlaceholderContext(
+  type: { properties: readonly { name: string }[]; effectivePropertyNames?: string[] | undefined },
+  values: Readonly<Record<string, unknown>> = {},
+): { names: ReadonlySet<string>; values: Readonly<Record<string, unknown>> } {
+  return { names: new Set(type.effectivePropertyNames ?? type.properties.map((p) => p.name)), values };
+}

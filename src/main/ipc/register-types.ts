@@ -34,7 +34,8 @@ import { saveType, deleteType, type SaveTypeInput } from '../types/write';
 import { deleteTypeSafely, renameType } from '../types/migrate';
 import * as graph from '../graph/index';
 import { projectContext } from '../project-context-types';
-import { toTypeInfo, type TypeCatalogInfo, type NoteTypedProperties, type TypeInstancesResult } from '../../shared/objects/type-def';
+import { type TypeCatalogInfo, type NoteTypedProperties, type TypeInstancesResult } from '../../shared/objects/type-def';
+import { toTypeInfoWithInheritance } from '../../shared/objects/inheritance';
 import { handle } from './typed-ipc';
 import { withRootPath, withRootPathOr } from './helpers';
 
@@ -43,7 +44,10 @@ export function registerTypes(): void {
     Channels.TYPES_LIST,
     withRootPathOr<[], TypeCatalogInfo | Promise<TypeCatalogInfo>>({ types: [], errors: [] }, async (rootPath) => {
       const catalog = await loadTypeCatalog(rootPath);
-      return { types: catalog.types.map(toTypeInfo), errors: catalog.errors };
+      // Inherited views (effective default body, effective property names) need
+      // the whole catalog, so they're resolved here rather than per type (#2494).
+      const byId = new Map(catalog.types.map((t) => [t.id, t]));
+      return { types: catalog.types.map((t) => toTypeInfoWithInheritance(t, byId)), errors: catalog.errors };
     }),
   );
 

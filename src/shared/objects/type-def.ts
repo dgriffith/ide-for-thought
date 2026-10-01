@@ -97,6 +97,16 @@ export interface TypeInfo {
   parent?: string | undefined;
   /** See `TypeDef.externalClass` (#2036). */
   externalClass?: string | undefined;
+  /** The body a new note of this type starts from (#2494): `template` if set,
+   *  else the nearest ancestor's. `template` itself stays this type's OWN
+   *  body — the type editor round-trips it, and must never save a parent's
+   *  body into the child. Set only where the catalog is known. */
+  effectiveTemplate?: string | undefined;
+  /** Which type `effectiveTemplate` came from; differs from `id` when inherited. */
+  templateFrom?: string | undefined;
+  /** Own + inherited property names, in order (#2490) — what a template's
+   *  `{{name}}` placeholders may refer to. Set only where the catalog is known. */
+  effectivePropertyNames?: string[] | undefined;
   source: TypeSource;
   /** See `TypeDef.overridesStock` — a locally customized stock type. */
   overridesStock?: boolean | undefined;
@@ -121,6 +131,8 @@ export interface TypeCatalogInfo {
   errors: TypeLoadError[];
 }
 
+/** A type's own view. `toTypeInfoWithInheritance` (inheritance.ts) adds the
+ *  views that need the whole catalog. */
 export function toTypeInfo(t: TypeDef): TypeInfo {
   return {
     id: t.id,

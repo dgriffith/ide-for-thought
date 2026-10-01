@@ -31,6 +31,10 @@ export interface PropertyUpdate {
   /** Shallow patch — keys to set or null-to-delete. Null deletes the
    *  key from frontmatter; unmentioned keys are left untouched. */
   properties: PropertyPatch;
+  /** Properties whose `{{name}}` placeholders in the note's body this update
+   *  will fill on approval (#2491) — computed when the draft is built, so the
+   *  card can say the body changes too. Absent/empty when none. */
+  fillsPlaceholders?: string[];
 }
 
 export interface ConversationPropertyDraft extends ConversationToolDraft {

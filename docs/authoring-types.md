@@ -121,7 +121,7 @@ A type with no `label` (and no `name`) is rejected outright, as is one whose
 | `card` | list *or* comma-separated string | derived | Ordered property names shown on the render card (link cards, hovers, preview). |
 | `parent` | type id | — | The type this one specializes. `extends` is accepted as an alias. Materialized as `rdfs:subClassOf`. Single inheritance. |
 | `externalClass` | CURIE | — | An *additional* `rdfs:subClassOf` edge to a standard vocabulary class. See [External vocabulary](#external-vocabulary). |
-| *body* | markdown | — | Template inserted into new instances. Optional, unlike a skill's body. |
+| *body* | markdown | — | Default body new instances start from, with placeholders (see *The template body*). Optional, unlike a skill's body. |
 
 ### Errors are soft where they can be
 
@@ -318,24 +318,53 @@ Single inheritance for v1. A parent that doesn't exist, or a type that is its
 own parent, is flagged and cleared. Cycles are *not* rejected — SPARQL property
 paths handle them, and single inheritance keeps them rare.
 
-Inheritance affects the **class hierarchy**, not property inheritance: a child
-type does not automatically get its parent's declared properties in its form.
-Declare what you want on the child.
+A child type also **inherits its parent's properties** (#1587): the property
+form, the table and gallery views, and a new note's frontmatter scaffold show
+the ancestors' properties first, then the child's own, with a child property of
+the same name overriding the parent's. And it inherits the parent's **template
+body** when it has none of its own (#2494) — see below.
 
 ## The template body
 
-Everything after the frontmatter is a template inserted into new instances. It
-is a **plain note scaffold** — not a prompt, and not a template language. There
-is no `{{…}}` interpolation here; a skill's body has that, a type's body does
-not. Headings you want every instance to start with, and nothing more:
+Everything after the frontmatter is the **default body** a new note of this
+type starts from. It's a note scaffold, not a prompt: headings every instance
+should start with, and placeholders for what the note will know.
 
 ```markdown
-## Summary
+## Visit
+
+Address: {{address}}
+Opening hours: {{hours}}
 
 ## Notes
 
-## Quotes
+{{cursor}}
 ```
+
+**Placeholders** (#2490):
+
+| Placeholder | Becomes |
+|---|---|
+| `{{title}}` | the new note's title |
+| `{{date}}`, `{{date:FMT}}`, `{{time}}`, `{{time:FMT}}` | now, formatted (`YYYY-MM-DD`, `HH:mm`, …) |
+| `{{cursor}}` | where the caret lands; removed from the text |
+| `{{prompt:Label}}` | asks for a value when the note is created |
+| `{{name}}` | the value of the type's property `name` (own or inherited) |
+| `{{prop:name}}` | the property `name`, even when a built-in above shares the name (`{{prop:date}}`) |
+| `\{{` | a literal `{{` |
+
+A **property placeholder fills once**. When the note is created with a value for
+that property, or later when the property is set (in the Properties panel, or by
+an approved `set_properties`), the placeholder is replaced by the value and
+becomes ordinary text. Until then it stays literally `{{address}}` in the note.
+Changing the property afterwards never rewrites the text, and a hand edit to the
+frontmatter in source view doesn't fill anything.
+
+**Inheritance:** a type with no body uses its nearest ancestor's (#2494). A
+child with a body of its own uses only its own; bodies aren't combined.
+
+The assistant sees each type's default body (`list_object_types`), starts a
+note of that type from it, and fills the placeholders it has values for (#2492).
 
 The body travels to the renderer with the rest of the type metadata, so the type
 picker and inline creation can instantiate a note without a round trip.

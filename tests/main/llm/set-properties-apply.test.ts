@@ -94,3 +94,26 @@ describe('applyPropertyUpdates (#942)', () => {
     expect(await approvedRewriteCount()).toBe(0);
   });
 });
+
+describe('applyPropertyUpdates — fills the type\'s placeholders (#2491)', () => {
+  it('fills a placeholder still in the body as part of the approved rewrite, leaving the rest', async () => {
+    await plant('places/kantyna.md', '---\ntype: place\naddress:\n---\n\nFind it at {{address}}. {{notes}} {{rating}}\n');
+    await applyPropertyUpdates(project.root, [{ relativePath: 'places/kantyna.md', properties: { address: 'Politických vězňů 5' } }], 'conv-1');
+    const onDisk = await fsp.readFile(path.join(project.root, 'places/kantyna.md'), 'utf-8');
+    expect(onDisk).toContain('address: Politických vězňů 5');
+    // Filled; an unset property and an undeclared name stay literal.
+    expect(onDisk).toContain('Find it at Politických vězňů 5. {{notes}} {{rating}}');
+  });
+
+  it('fills against a type set in the SAME update', async () => {
+    await plant('places/new.md', '# New\n\nAt {{address}}.\n');
+    await applyPropertyUpdates(project.root, [{ relativePath: 'places/new.md', properties: { type: 'place', address: 'Na Příkopě 1' } }], 'conv-1');
+    expect(await fsp.readFile(path.join(project.root, 'places/new.md'), 'utf-8')).toContain('At Na Příkopě 1.');
+  });
+
+  it('leaves an untyped note\'s braces alone', async () => {
+    await plant('notes/plain.md', '# Plain\n\n{{address}}\n');
+    await applyPropertyUpdates(project.root, [{ relativePath: 'notes/plain.md', properties: { address: 'x' } }], 'conv-1');
+    expect(await fsp.readFile(path.join(project.root, 'notes/plain.md'), 'utf-8')).toContain('\n{{address}}\n');
+  });
+});

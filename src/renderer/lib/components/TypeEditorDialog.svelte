@@ -15,7 +15,14 @@
   import { PROPERTY_TYPES, titleCase, type PropertyDef, type PropertyType } from '../../../shared/objects/type-def';
   import { COLOR_SWATCHES, DEFAULT_SWATCH, toHex6 } from '../../../shared/color-swatches';
   import { IS_MAC } from '../utils/platform';
-  import type { TypeEditorInitial } from './type-editor-value';
+  import type { TypeInfo } from '../../../shared/objects/type-def';
+  import {
+    TEMPLATE_BUILTIN_CHIPS,
+    insertPlaceholder,
+    templatePreview,
+    templatePropertyNames,
+    type TypeEditorInitial,
+  } from './type-editor-value';
 
   interface Props {
     initial: TypeEditorInitial | null;
@@ -57,6 +64,10 @@
   let cover = $state(seed?.cover ?? '');
   let parent = $state(seed?.parent ?? '');
   let externalClass = $state(seed?.externalClass ?? '');
+  /** The default body new notes of this type start from (#2493). Its own body
+   *  only — an inherited one is shown as a hint, never copied in on save. */
+  let template = $state(seed?.template ?? '');
+  let templateArea = $state<HTMLTextAreaElement | undefined>();
   let rows = $state<Row[]>(
     (seed?.properties ?? []).map((p) => ({
       name: p.name,
@@ -75,12 +86,36 @@
 
   // Existing type ids for the link-to-type target dropdown.
   let typeIds = $state<string[]>([]);
+  let typeInfos = $state<TypeInfo[]>([]);
   onMount(async () => {
     const cat = await api.types.list();
+    typeInfos = cat.types;
     typeIds = cat.types.map((t) => t.id).filter((id) => id !== initial?.id);
   });
 
   const propNames = $derived(rows.map((r) => r.name.trim()).filter(Boolean));
+
+  // ── Default body (#2493) ──────────────────────────────────────────────
+  const parentInfo = $derived(parent ? typeInfos.find((t) => t.id === parent) : undefined);
+  /** Names a `{{…}}` placeholder may use: inherited properties, then own. */
+  const placeholderNames = $derived(templatePropertyNames(propNames, parentInfo?.effectivePropertyNames ?? []));
+  /** With no body of its own, a new note starts from the parent's (#2494). */
+  const inheritedBody = $derived(!template.trim() && parentInfo?.effectiveTemplate
+    ? { body: parentInfo.effectiveTemplate, from: parentInfo.templateFrom ?? parentInfo.id }
+    : null);
+  const preview = $derived(templatePreview(template.trim() ? template : (inheritedBody?.body ?? ''), label.trim(), placeholderNames));
+
+  function insertChip(name: string): void {
+    const el = templateArea;
+    const start = el?.selectionStart ?? template.length;
+    const end = el?.selectionEnd ?? template.length;
+    const next = insertPlaceholder(template, start, end, name);
+    template = next.text;
+    queueMicrotask(() => {
+      el?.focus();
+      el?.setSelectionRange(next.caret, next.caret);
+    });
+  }
 
   function addRow(): void {
     rows = [...rows, { name: '', type: 'text', options: '', targetType: '', onCard: false, label: '', predicate: '' }];
@@ -124,7 +159,7 @@
         ...(cardNames.length > 0 ? { card: cardNames } : {}),
         ...(parent && typeIds.includes(parent) ? { parent } : {}),
         ...(externalClass.trim() ? { externalClass: externalClass.trim() } : {}),
-        ...(initial?.template ? { template: initial.template } : {}),
+        ...(template.trim() ? { template } : {}),
       });
       onSaved?.(result.id);
       onClose();
@@ -293,6 +328,34 @@
       </label>
     </div>
 
+    <div class="field template-field">
+      <label for="te-template">Default note body</label>
+      <textarea
+        id="te-template"
+        bind:this={templateArea}
+        bind:value={template}
+        rows="6"
+        spellcheck="false"
+        placeholder={inheritedBody ? `Empty — new notes use ${inheritedBody.from}'s body` : 'Markdown a new note of this type starts with'}
+      ></textarea>
+      <div class="chips" aria-label="Insert a placeholder">
+        {#each placeholderNames as n (n)}
+          <button type="button" class="chip" onclick={() => insertChip(n)} title="Filled from this property's value">{n}</button>
+        {/each}
+        {#each TEMPLATE_BUILTIN_CHIPS as n (n)}
+          <button type="button" class="chip builtin" onclick={() => insertChip(n)}>{n}</button>
+        {/each}
+      </div>
+      {#if inheritedBody}
+        <p class="hint">Inherited from {inheritedBody.from}. Write a body here to replace it for this type.</p>
+      {/if}
+      {#if preview.length > 0}
+        <div class="preview" aria-label="How a new note starts">
+          {#each preview as line, i (i)}<div>{line}</div>{/each}
+        </div>
+      {/if}
+    </div>
+
     {#if error}<p class="error">{error}</p>{/if}
 
     <div class="actions">
@@ -397,6 +460,39 @@
   .icon-btn:hover:not(:disabled) { color: var(--text); border-color: var(--accent); }
   .icon-btn:disabled { opacity: 0.4; cursor: default; }
   .type-selects { display: flex; gap: 16px; margin-bottom: 12px; }
+  .template-field { margin-top: 12px; }
+  .template-field textarea {
+    width: 100%;
+    box-sizing: border-box;
+    font-family: var(--font-mono, monospace);
+    font-size: 12px;
+    background: var(--bg-inset);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 6px 8px;
+    resize: vertical;
+  }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+  .chip {
+    font-size: 11px;
+    font-family: var(--font-mono, monospace);
+    padding: 1px 6px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg-button);
+    color: var(--text);
+    cursor: pointer;
+  }
+  .chip.builtin { color: var(--text-muted); }
+  .hint { margin: 4px 0 0; font-size: 11px; color: var(--text-muted); }
+  .preview {
+    margin-top: 6px;
+    padding: 6px 8px;
+    border-left: 2px solid var(--border);
+    font-size: 12px;
+    color: var(--text-muted);
+  }
   .field.cover { max-width: 260px; }
   .error { color: var(--accent); font-size: 12px; margin: 0 0 10px; }
   .actions { display: flex; justify-content: flex-end; gap: 8px; }

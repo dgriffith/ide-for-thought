@@ -7,6 +7,7 @@ import type {
 } from '../../../shared/conversation-drafts';
 import type { NotebaseTool, ToolContext, ToolCallbacks } from './types';
 import { agentPathProblem } from './agent-path';
+import { fillTypedNotePlaceholders } from '../../types/fill';
 import { logger } from '../../../shared/logger';
 
 /**
@@ -17,11 +18,11 @@ import { logger } from '../../../shared/logger';
  * onDraft callback, and returns to the model with a brief
  * acknowledgement.
  */
-function runProposeNotes(
+async function runProposeNotes(
   ctx: ToolContext,
   input: unknown,
   callbacks: ToolCallbacks,
-): { content: string; isError: boolean } {
+): Promise<{ content: string; isError: boolean }> {
   if (!callbacks.onDraft) {
     return {
       content: 'propose_notes is only available in conversation contexts.',
@@ -58,11 +59,16 @@ function runProposeNotes(
       `inter-bundle wiki-link(s) across ${fixup.rewritten.length} note(s)`,
     );
   }
-  const fixedPayloads: DraftPayload[] = parsed.payloads.map((p, i) => ({
-    kind: 'note',
-    relativePath: p.relativePath,
-    content: fixup.notes[i]!.content, // fixup.notes is 1:1 with parsed.payloads
-  }));
+  // A typed note whose body still has {{property}} placeholders for values its
+  // own frontmatter sets gets them filled here (#2492): a model that copies its
+  // type's default body without filling it still produces a filled note, and
+  // the draft card shows what will actually land. Same rule as everywhere else.
+  const fixedPayloads: DraftPayload[] = [];
+  for (const [i, p] of parsed.payloads.entries()) {
+    const { content, filled } = await fillTypedNotePlaceholders(ctx.rootPath, fixup.notes[i]!.content); // 1:1 with payloads
+    if (filled.length > 0) logger('llm-tools').info(`[propose_notes] filled ${filled.join(', ')} in ${p.relativePath}`);
+    fixedPayloads.push({ kind: 'note', relativePath: p.relativePath, content });
+  }
 
   const draft: ConversationDraft = {
     draftId: `draft-${randomUUID()}`,
@@ -148,6 +154,13 @@ export const proposeNotes: NotebaseTool = {
       'and the Need for Types.md`. Good: `[[Sets, Functions, and the Need for ' +
       'Types]]`. Prefer paths without commas/punctuation in the basename if you ' +
       'can — they\'re easier to link to.\n' +
+      '\n' +
+      'Typed notes: when a note declares `type: X` in its frontmatter and X has a ' +
+      'default body (list_object_types shows it), START the note from that body — ' +
+      'keep its headings and structure — and fill its {{property}} placeholders with ' +
+      'the values you set in frontmatter. A placeholder whose property you set is ' +
+      'filled automatically if you leave it; leave one whose value you don\'t know as ' +
+      '{{name}}, for the user to fill.\n' +
       '\n' +
       'Grouping & ordering: put the whole bundle (parent index + every child) in ' +
       'ONE new directory named for the topic, e.g. "notes/group-theory-journey/…", ' +

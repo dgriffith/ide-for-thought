@@ -29,3 +29,14 @@ describe('buildTypedNoteScaffold (#1064)', () => {
     expect(buildTypedNoteScaffold(bare, '')).toMatchObject({ content: '---\ntype: idea\n---\n' });
   });
 });
+
+describe('buildTypedNoteScaffold — inherited keys (#2494)', () => {
+  it('writes the effective (own + inherited) property keys when known', () => {
+    const shop: TypeInfo = {
+      id: 'shop', label: 'Shop', classLocalName: 'Shop', source: 'project', parent: 'place',
+      properties: [{ name: 'category', type: 'text' }],
+      effectivePropertyNames: ['address', 'city', 'category'],
+    };
+    expect(buildTypedNoteScaffold(shop, '').content).toBe('---\ntype: shop\naddress:\ncity:\ncategory:\n---\n');
+  });
+});
