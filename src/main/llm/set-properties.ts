@@ -12,6 +12,7 @@
  * Electron-free: returns the rewritten paths for the IPC layer to broadcast
  * (NOTEBASE_REWRITTEN), mirroring the approval engine's own seam.
  */
+import { fillTypedNotePlaceholders } from '../types/fill';
 import * as notebaseFs from '../notebase/fs';
 import { withLLMContext } from '../graph/index';
 import { projectContext } from '../project-context-types';
@@ -60,12 +61,17 @@ export async function applyPropertyUpdates(
         const before = await notebaseFs.readFile(rootPath, u.relativePath);
         const result = patchFrontmatterProperties(before, u.properties);
         if (result.changedKeys.length > 0) {
+          // Setting a property also fills that type's `{{prop}}` placeholders
+          // still present in the body (#2491) — inside this same approved
+          // note_rewrite, so it's audited and rolls back with it. The draft card
+          // already told the user which (`PropertyUpdate.fillsPlaceholders`).
+          const { content: filledContent } = await fillTypedNotePlaceholders(rootPath, result.content);
           // Route through the approval engine. The user already reviewed the
           // property draft card, so approve immediately; a thought:Proposal is
           // still filed as the audit record.
           const proposal = await proposeWrite(ctx, {
             operationType: 'note_rewrite',
-            payloads: [{ kind: 'note-rewrite', path: u.relativePath, content: result.content }],
+            payloads: [{ kind: 'note-rewrite', path: u.relativePath, content: filledContent }],
             note: `Set properties on ${u.relativePath}: ${result.changedKeys.join(', ')}`,
             conversationUri: `https://minerva.dev/ontology/thought#conversation/${conversationId}`,
             proposedBy: `llm:conversation:${conversationId}`,

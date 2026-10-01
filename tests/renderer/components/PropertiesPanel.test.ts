@@ -428,3 +428,45 @@ describe('PropertiesPanel — declared type fields', () => {
     expect(screen.queryByText('Other')).toBeNull();
   });
 });
+
+describe('PropertiesPanel — fills the type\'s body placeholders on a committed edit (#2491)', () => {
+  const SCHEMA = { ...BOOK_SCHEMA, type: { ...BOOK_SCHEMA.type, effectivePropertyNames: ['author', 'rating', 'status', 'published'] } };
+  const content = ['---', 'type: book', 'author:', '---', '# Dune', '', 'By {{author}}, rated {{rating}}.', ''].join('\n');
+
+  beforeEach(() => {
+    h.api.types.noteProperties.mockResolvedValue(SCHEMA);
+  });
+
+  it('sets the property and fills its placeholder in ONE content change, leaving the others', async () => {
+    const onContentChange = vi.fn();
+    render(PropertiesPanel, typedProps({ content, onContentChange }));
+    await waitFor(() => expect(screen.getByText('Book')).toBeTruthy());
+    const author = screen.getAllByRole('textbox').find((el) => (el as HTMLInputElement).value === '')!;
+    await fireEvent.change(author, { target: { value: 'Frank Herbert' } });
+
+    expect(onContentChange).toHaveBeenCalledTimes(1); // one change → one undo
+    const next = lastRewrite(onContentChange);
+    expect(next).toContain('author: Frank Herbert');
+    expect(next).toContain('By Frank Herbert, rated {{rating}}.');
+  });
+
+  it('never rewrites text a placeholder was already filled with', async () => {
+    const filled = content.replace('author:', 'author: Frank Herbert').replace('{{author}}', 'Frank Herbert');
+    const onContentChange = vi.fn();
+    render(PropertiesPanel, typedProps({ content: filled, onContentChange }));
+    await waitFor(() => expect(screen.getByText('Book')).toBeTruthy());
+    await fireEvent.change(screen.getByDisplayValue('Frank Herbert'), { target: { value: 'F. Herbert' } });
+    const next = lastRewrite(onContentChange);
+    expect(next).toContain('author: F. Herbert');
+    expect(next).toContain('By Frank Herbert, rated {{rating}}.');
+  });
+
+  it('does nothing to the body of an untyped note', async () => {
+    h.api.types.noteProperties.mockResolvedValue({ type: null, properties: [] });
+    const plain = ['---', 'author: x', '---', '{{author}}', ''].join('\n');
+    const onContentChange = vi.fn();
+    render(PropertiesPanel, typedProps({ content: plain, onContentChange }));
+    await fireEvent.blur(screen.getByDisplayValue('x'), { target: { value: 'y' } });
+    for (const call of onContentChange.mock.calls) expect(call[0]).toContain('{{author}}');
+  });
+});

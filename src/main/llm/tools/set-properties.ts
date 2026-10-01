@@ -9,6 +9,8 @@ import type { PropertyPatch, PropertyValue } from '../../../shared/refactor/fron
 import type { NotebaseTool, ToolContext, ToolCallbacks } from './types';
 import { agentPathProblem } from './agent-path';
 import { ownRecord } from '../../../shared/own-record';
+import { patchFrontmatterProperties } from '../../../shared/refactor/frontmatter-patch';
+import { fillTypedNotePlaceholders } from '../../types/fill';
 
 /**
  * Trust-principle parity with `propose_notes` / `propose_sources`:
@@ -64,7 +66,13 @@ async function runSetProperties(
       warnings.push(`Skipped ${u.relativePath}: no such note. set_properties patches existing notes — use propose_notes to create one.`);
       continue;
     }
-    updates.push(u);
+    // Preview the body fill the approval will apply (#2491), so the card can
+    // say so: the same patch + fill `applyPropertyUpdates` runs, read-only here.
+    const before = await fs.readFile(ctx.rootPath, u.relativePath);
+    const { filled } = await fillTypedNotePlaceholders(
+      ctx.rootPath, patchFrontmatterProperties(before, u.properties).content,
+    );
+    updates.push(filled.length > 0 ? { ...u, fillsPlaceholders: filled } : u);
   }
 
   if (updates.length === 0) {

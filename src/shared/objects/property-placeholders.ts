@@ -20,6 +20,7 @@
  *
  * Pure and Node-free (`src/shared` is lint-enforced pure).
  */
+import { parseFrontmatter, type Row } from '../refactor/frontmatter-rows';
 
 /** Placeholder names `substituteTemplate` owns. A bare `{{date}}` is the date,
  *  not a `date` property — use `{{prop:date}}` for that. */
@@ -66,11 +67,21 @@ export function fillPropertyPlaceholders(
   values: Readonly<Record<string, unknown>>,
   propertyNames: Iterable<string>,
 ): string {
+  return fillWithReport(body, values, propertyNames).text;
+}
+
+/** `fillPropertyPlaceholders`, also naming each property it filled (in order,
+ *  de-duplicated) — for a review card that says what an approval will change. */
+export function fillWithReport(
+  body: string,
+  values: Readonly<Record<string, unknown>>,
+  propertyNames: Iterable<string>,
+): { text: string; filled: string[] } {
   const names = new Set(propertyNames);
-  if (names.size === 0 || !body.includes('{{')) return body;
+  if (names.size === 0 || !body.includes('{{')) return { text: body, filled: [] };
   let out = '';
   let i = 0;
-  let changed = false;
+  const filled: string[] = [];
   while (i < body.length) {
     if (body[i] === '\\' && body.startsWith('{{', i + 1)) {
       out += '\\{{';
@@ -82,9 +93,9 @@ export function fillPropertyPlaceholders(
       if (close < 0) { out += body.slice(i); break; }
       const name = propertyPlaceholderName(body.slice(i + 2, close), names);
       const text = name === null ? null : renderPropertyValue(values[name]);
-      if (text !== null) {
+      if (text !== null && name !== null) {
         out += text;
-        changed = true;
+        if (!filled.includes(name)) filled.push(name);
       } else {
         out += body.slice(i, close + 2);
       }
@@ -94,5 +105,55 @@ export function fillPropertyPlaceholders(
     out += body[i];
     i++;
   }
-  return changed ? out : body;
+  return filled.length > 0 ? { text: out, filled } : { text: body, filled };
+}
+
+/**
+ * Fill a whole note's body from its OWN frontmatter (#2491): the frontmatter is
+ * read, its values fill any property placeholder still present in the body, and
+ * the frontmatter block itself is left byte-identical. Returns `content`
+ * unchanged (same string) when there's no frontmatter, it doesn't parse, or
+ * nothing filled — so a caller can tell cheaply whether anything changed.
+ *
+ * Called only from explicit property edits (the Properties panel, an approved
+ * `set_properties`), never on ordinary typing, so the body is never rewritten
+ * under the cursor.
+ */
+export function fillNotePlaceholders(content: string, propertyNames: Iterable<string>): string {
+  return fillNoteWithReport(content, propertyNames).content;
+}
+
+/** `fillNotePlaceholders`, also naming the properties it filled. */
+export function fillNoteWithReport(
+  content: string,
+  propertyNames: Iterable<string>,
+): { content: string; filled: string[] } {
+  const fm = parseFrontmatter(content);
+  if (!fm.ok || ('none' in fm && fm.none)) return { content, filled: [] };
+  // Null-prototype: frontmatter keys are user text, and a `constructor` key must
+  // read as that key's value, not Object.prototype's function (#2463).
+  const values: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
+  for (const row of fm.rows) values[row.key] = rowValue(row.shape);
+  const head = content.slice(0, fm.blockEnd);
+  const body = content.slice(fm.blockEnd);
+  const { text, filled } = fillWithReport(body, values, propertyNames);
+  return filled.length > 0 ? { content: head + text, filled } : { content, filled };
+}
+
+/** The note's `type:` from its frontmatter, or `null` (no frontmatter, no type,
+ *  unparseable). Read from the content itself, so an update that sets `type:`
+ *  and a property together fills against the NEW type. */
+export function noteTypeId(content: string): string | null {
+  const fm = parseFrontmatter(content);
+  if (!fm.ok || ('none' in fm && fm.none)) return null;
+  const row = fm.rows.find((r) => r.key === 'type');
+  return row && row.shape.kind === 'string' && row.shape.value.trim() ? row.shape.value.trim() : null;
+}
+
+function rowValue(shape: Row['shape']): unknown {
+  switch (shape.kind) {
+    case 'wiki-link': return shape.raw;
+    case 'yaml': return undefined; // no inline form
+    default: return shape.value;
+  }
 }

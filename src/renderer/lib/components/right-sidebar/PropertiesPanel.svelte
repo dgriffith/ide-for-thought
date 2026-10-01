@@ -24,6 +24,7 @@
   import Icon from '../Icon.svelte';
   import { resolveWikiLinkTarget } from '../../wiki-link-resolver';
   import type { IconName } from '../icons/registry';
+  import { fillNotePlaceholders } from '../../../../shared/objects/property-placeholders';
   import { CANONICAL_FRONTMATTER_KEYS } from '../../../../shared/frontmatter-canonical-keys';
   import PropertyValueEditor from '../PropertyValueEditor.svelte';
   import TypeIcon from '../TypeIcon.svelte';
@@ -165,16 +166,22 @@
    * frontmatter-rows.ts (#1596); a null result means "unparseable — don't
    * clobber the user's WIP", so we no-op.
    */
-  function mutate(fn: (doc: YAML.Document) => void): void {
+  function mutate(fn: (doc: YAML.Document) => void, fillPlaceholders = true): void {
     const next = applyFrontmatterMutation(content, fn);
-    if (next !== null) onContentChange(next);
+    if (next === null) return;
+    // A committed property edit also fills that type's `{{prop}}` placeholders
+    // still present in the body (#2491) — in the SAME content change, so one
+    // undo reverts both. Never on the mid-typing idle flush (`fillPlaceholders`
+    // false): fill-once would freeze "Pra" before the user finishes "Prague".
+    const names = schema.type?.effectivePropertyNames;
+    onContentChange(fillPlaceholders && names ? fillNotePlaceholders(next, names) : next);
   }
 
-  function setKeyValue(key: string, value: unknown): void {
+  function setKeyValue(key: string, value: unknown, fillPlaceholders = true): void {
     mutate((doc) => {
       if (!YAML.isMap(doc.contents)) return;
       doc.set(key, value);
-    });
+    }, fillPlaceholders);
   }
 
   function setKeyValueList(key: string, values: string[]): void {
@@ -208,15 +215,15 @@
 
   // ── Type-specific commit helpers ──────────────────────────────
 
-  function commitString(key: string, raw: string): void {
-    setKeyValue(key, raw);
+  function commitString(key: string, raw: string, fillPlaceholders = true): void {
+    setKeyValue(key, raw, fillPlaceholders);
   }
 
-  function commitNumber(key: string, raw: string): void {
+  function commitNumber(key: string, raw: string, fillPlaceholders = true): void {
     if (raw.trim() === '') return;
     const n = Number(raw);
     if (!Number.isFinite(n)) return;
-    setKeyValue(key, n);
+    setKeyValue(key, n, fillPlaceholders);
   }
 
   function commitBoolean(key: string, value: boolean): void {
@@ -265,12 +272,13 @@
     setKeyValue(row.key, coerceScalar(next, current));
   }
 
-  function scheduleFlush(key: string, value: string, fn: (k: string, v: string) => void): void {
+  function scheduleFlush(key: string, value: string, fn: (k: string, v: string, fill: boolean) => void): void {
     drafts.set(key, value);
     if (flushTimer) clearTimeout(flushTimer);
     flushTimer = setTimeout(() => {
       const v = drafts.get(key);
-      if (v !== undefined) fn(key, v);
+      // Mid-typing: write the value, but don't fill placeholders yet (#2491).
+      if (v !== undefined) fn(key, v, false);
       flushTimer = null;
     }, 250);
   }

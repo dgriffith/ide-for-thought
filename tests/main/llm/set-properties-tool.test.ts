@@ -234,3 +234,25 @@ describe('set_properties tool execution', () => {
     expect(NOTEBASE_TOOLS.map((t) => t.name)).toContain('set_properties');
   });
 });
+
+describe('set_properties — the card says when the body will change too (#2491)', () => {
+  const project = useTempDir('minerva-set-properties-fills-');
+
+  it('reports which placeholders the approval will fill, and still writes nothing', async () => {
+    const rel = 'places/kantyna.md';
+    const before = '---\ntype: place\naddress:\n---\n\nAt {{address}}. {{notes}}\n';
+    await fsp.mkdir(path.join(project.root, 'places'), { recursive: true });
+    await fsp.writeFile(path.join(project.root, rel), before, 'utf-8');
+    const onPropertyDraft = vi.fn();
+    const out = await executeNotebaseTool(
+      { rootPath: project.root, conversationId: 'conv-test' },
+      'set_properties',
+      { note: 'x', updates: [{ relativePath: rel, properties: { address: 'Politických vězňů 5' } }] },
+      { onPropertyDraft },
+    );
+    expect(out.isError).toBe(false);
+    const draft = onPropertyDraft.mock.calls[0]![0] as ConversationPropertyDraft;
+    expect(draft.updates[0]!.fillsPlaceholders).toEqual(['address']);
+    expect(await fsp.readFile(path.join(project.root, rel), 'utf-8')).toBe(before);
+  });
+});
