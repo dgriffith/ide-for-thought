@@ -263,11 +263,11 @@ describe('TypeView (#1070)', () => {
     });
   });
 
-  describe('Save view (#1072)', () => {
+  describe('Save as note (#2507)', () => {
     it('is not offered when onSaveView is omitted', async () => {
       render(TypeView, props({ layout: 'list' }));
       await waitFor(() => expect(screen.getByText('Dune')).toBeTruthy());
-      expect(screen.queryByText('Save view')).toBeNull();
+      expect(screen.queryByText('Save as note')).toBeNull();
     });
 
     it('flashes "Saved" after onSaveView resolves true', async () => {
@@ -277,7 +277,7 @@ describe('TypeView (#1070)', () => {
       const onSaveView = vi.fn().mockResolvedValue(true);
       render(TypeView, props({ layout: 'list', onSaveView }));
       await waitFor(() => expect(screen.getByText('Dune')).toBeTruthy());
-      await fireEvent.click(screen.getByText('Save view'));
+      await fireEvent.click(screen.getByText('Save as note'));
       expect(onSaveView).toHaveBeenCalled();
       await waitFor(() => expect(screen.getByText('Saved')).toBeTruthy());
     });
@@ -286,7 +286,7 @@ describe('TypeView (#1070)', () => {
       const onSaveView = vi.fn().mockResolvedValue(false);
       render(TypeView, props({ layout: 'list', onSaveView }));
       await waitFor(() => expect(screen.getByText('Dune')).toBeTruthy());
-      await fireEvent.click(screen.getByText('Save view'));
+      await fireEvent.click(screen.getByText('Save as note'));
       // Await the exact promise the click handler is also awaiting: since its
       // `.then` was attached first (at click time), this guarantees the
       // handler's post-await `if (saved)` branch has already run by the time
@@ -294,7 +294,7 @@ describe('TypeView (#1070)', () => {
       await onSaveView.mock.results[0]?.value;
       expect(onSaveView).toHaveBeenCalled();
       expect(screen.queryByText('Saved')).toBeNull();
-      expect(screen.getByText('Save view')).toBeTruthy();
+      expect(screen.getByText('Save as note')).toBeTruthy();
     });
   });
 

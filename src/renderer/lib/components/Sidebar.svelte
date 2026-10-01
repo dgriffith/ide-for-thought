@@ -21,7 +21,7 @@
   import { flattenVisible } from '../sidebar-tree-utils';
   import { getSidebarSettings, setSidebarSettings } from '../sidebar/settings';
   import { tick, untrack } from 'svelte';
-  import type { SavedView, SourceMetadata } from '../../../shared/types';
+  import type { SourceMetadata } from '../../../shared/types';
 
   type PanelType = 'notes' | 'sites' | 'tags' | 'tables' | 'objects' | 'bookmarks' | 'proposals';
 
@@ -77,8 +77,6 @@
     onSourceSelect?: (sourceId: string) => void;
     onOpenExcerpt?: (excerptId: string) => void;
     onOpenType?: (typeId: string) => void;
-    onOpenView?: (view: SavedView) => void;
-    onManageViews?: () => void;
     onSourceDeleted?: (sourceId: string) => void;
     onMineReferences?: (source: SourceMetadata) => Promise<void>;
     onTableClick?: (tableName: string) => void;
@@ -689,7 +687,7 @@
     {:else if activePanel === 'tags'}
       <TagPanel bind:this={tagPanel} {onFileSelect} {...(panelOps?.onSourceSelect !== undefined ? { onSourceSelect: panelOps.onSourceSelect } : {})} />
     {:else if activePanel === 'objects'}
-      <ObjectsPanel bind:this={objectsPanel} {onFileSelect} {...(panelOps?.onOpenExcerpt !== undefined ? { onOpenExcerpt: panelOps.onOpenExcerpt } : {})} {...(panelOps?.onOpenType !== undefined ? { onOpenType: panelOps.onOpenType } : {})} {...(panelOps?.onOpenView !== undefined ? { onOpenView: panelOps.onOpenView } : {})} {...(panelOps?.onManageViews !== undefined ? { onManageViews: panelOps.onManageViews } : {})} />
+      <ObjectsPanel bind:this={objectsPanel} {onFileSelect} {...(panelOps?.onOpenExcerpt !== undefined ? { onOpenExcerpt: panelOps.onOpenExcerpt } : {})} {...(panelOps?.onOpenType !== undefined ? { onOpenType: panelOps.onOpenType } : {})} />
     {:else if activePanel === 'tables'}
       {#if panelOps?.onTableClick && panelOps.onOpenCsv && panelOps.onOpenNote}
         <TablesPanel bind:this={tablesPanel} onTableClick={panelOps.onTableClick} onOpenCsv={panelOps.onOpenCsv} onOpenNote={panelOps.onOpenNote} />

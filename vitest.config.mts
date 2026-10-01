@@ -718,13 +718,6 @@ export default defineConfig({
           functions: 87,
           branches: 75,
         },
-        // saved-views.ts ~94.4 L / 93.3 S / 94.4 F / 80.0 B.
-        'src/main/saved-views.ts': {
-          lines: 86,
-          statements: 85,
-          functions: 86,
-          branches: 72,
-        },
         // watch-handlers.ts ~94.7 L / 93.3 S / 93.3 F / 91.7 B.
         'src/main/watch-handlers.ts': {
           lines: 86,

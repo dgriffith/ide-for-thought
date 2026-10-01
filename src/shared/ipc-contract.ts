@@ -41,8 +41,6 @@ import type {
   LayoutSession,
   TabSession,
   SavedQuery,
-  SavedView,
-  SavedViewInput,
   SearchResult,
   OutgoingLink,
   Backlink,
@@ -250,11 +248,6 @@ export interface ChannelMap {
   'queries:setOrder': (entries: Array<{ filePath: string; order: number | null }>) => void;
 
   // Saved views (typed-object multi-view presets — #1072)
-  'views:list': () => SavedView[];
-  'views:save': (scope: 'project' | 'global', input: SavedViewInput) => SavedView;
-  'views:delete': (filePath: string) => void;
-  'views:rename': (filePath: string, newName: string) => string;
-  'views:setOrder': (entries: Array<{ filePath: string; order: number | null }>) => void;
 
   // Search
   'search:query': (query: string) => SearchResult[];

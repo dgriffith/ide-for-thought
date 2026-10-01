@@ -159,34 +159,9 @@ export interface SavedQuery {
   order: number | null;
 }
 
-/** Saved views (#1072) — named presets over a type's multi-view (#1070). The
- *  types live here (renderer-safe, no electron) so the IPC contract + renderer
- *  share them; the store lives in `src/main/saved-views.ts`. */
+/** A type view's layout (#1070) — the type-view tab and the ```object-view
+ *  note embed (#2067) share it. */
 export type ViewLayout = 'list' | 'table' | 'gallery' | 'map';
-export type ViewScope = 'project' | 'global';
-
-/** The persisted config of a saved view (id/scope/filePath are derived from
- *  where the file lives, so they're not part of the input). */
-export interface SavedViewInput {
-  name: string;
-  typeId: string;
-  layout: ViewLayout;
-  /** Sort key: a property name, `__title`, or null for the intrinsic order. */
-  sortColumn: string | null;
-  sortDir: 'asc' | 'desc';
-  /** Visible property names in table view; null = every declared column. */
-  columns: string[] | null;
-  order?: number | null;
-}
-
-export interface SavedView extends SavedViewInput {
-  /** Filename stem — stable id for rename/delete/reorder. */
-  id: string;
-  scope: ViewScope;
-  /** Absolute path (for delete/rename/reorder). */
-  filePath: string;
-  order: number | null;
-}
 
 export interface OutgoingLink {
   target: string;
