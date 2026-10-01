@@ -204,3 +204,44 @@ export function costForUsage(usage: UsageLike, model: string): number | null {
     usage.cacheCreationTokens * perToken(price.input * CACHE_WRITE_MULTIPLIER)
   );
 }
+
+// ── Context windows ─────────────────────────────────────────────────────────
+
+/**
+ * Input context window per model, in tokens — only where a source says so
+ * (Claude: the API model table; GPT-6: OpenAI's launch notes, 1,050,000;
+ * Gemini 2.5: 1,048,576). A model absent here — a local model, or one whose
+ * window wasn't confirmed — gets the conservative ceiling below.
+ */
+export const MODEL_CONTEXT_WINDOWS: Readonly<Record<string, number>> = {
+  'claude-opus-5-5': 1_000_000,
+  'claude-opus-5': 1_000_000,
+  'claude-fable-5': 1_000_000,
+  'claude-opus-4-8': 1_000_000,
+  'claude-sonnet-5': 1_000_000,
+  'claude-sonnet-4-6': 1_000_000,
+  'claude-haiku-4-5': 200_000,
+  'gpt-6-astra': 1_050_000,
+  'gpt-6-sol': 1_050_000,
+  'gpt-6-luna': 1_050_000,
+  'gemini-2.5-pro': 1_048_576,
+  'gemini-2.5-flash': 1_048_576,
+};
+
+/** The per-turn ceiling for a model of unknown window — the old fixed value,
+ *  sized for a 200k window with room left for the reply. */
+export const DEFAULT_TURN_CONTEXT_CEILING = 180_000;
+/** Never let one turn's request grow past this, whatever the window: past it,
+ *  every further step re-reads the whole thing, and cost outruns usefulness. */
+export const MAX_TURN_CONTEXT_CEILING = 500_000;
+
+/**
+ * How large one request in a tool-using turn may grow before the loop stops
+ * (`completeWithTools`' context guard): 90% of the model's window — 180k on a
+ * 200k model, exactly as before — capped at MAX_TURN_CONTEXT_CEILING.
+ */
+export function turnContextCeiling(model: string): number {
+  const window = MODEL_CONTEXT_WINDOWS[model];
+  if (!window) return DEFAULT_TURN_CONTEXT_CEILING;
+  return Math.min(Math.floor(window * 0.9), MAX_TURN_CONTEXT_CEILING);
+}

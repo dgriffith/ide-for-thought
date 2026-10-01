@@ -398,7 +398,7 @@ describe('completeWithTools() dispatch loop (#342)', () => {
   it('stops before an oversized iteration, without another provider call (#2025)', async () => {
     setupStreamWith([
       toolUseMessageWithUsage('read_note', { relative_path: 'missing.md' }, 'tu-1', {
-        input_tokens: 190_000,
+        input_tokens: 600_000, // past the 500k cap of the default (1M-window) model
         output_tokens: 10,
         cache_creation_input_tokens: 0,
         cache_read_input_tokens: 0,
@@ -421,10 +421,40 @@ describe('completeWithTools() dispatch loop (#342)', () => {
     expect(chunks.join('')).toContain('more content than fits in one exchange');
   });
 
+  it('caps the web tools: bounded page size and uses per request', async () => {
+    setupStreamWith([textMessage('ok')]);
+    await completeWithTools({
+      system: 'sys', messages: [{ role: 'user', content: 'research' }], toolContext: { rootPath: root },
+      web: { enabled: true },
+    });
+    const tools = (streamMock.mock.calls[0]![0] as { tools: Array<Record<string, unknown>> }).tools;
+    expect(tools.find((t) => t.type === 'web_fetch_20260209')).toMatchObject({ max_content_tokens: 10_000, max_uses: 5 });
+    expect(tools.find((t) => t.type === 'web_search_20260209')).toMatchObject({ max_uses: 8 });
+  });
+
+  it('sizes the guard to the model: a 1M model goes on past 190k, Haiku (200k) stops there', async () => {
+    const big = () => toolUseMessageWithUsage('read_note', { relative_path: 'missing.md' }, 'tu-1', {
+      input_tokens: 190_000, output_tokens: 10, cache_creation_input_tokens: 0, cache_read_input_tokens: 0,
+    });
+    setupStreamWith([big(), textMessage('Answered.')]);
+    const wide = await completeWithTools({
+      system: 'sys', messages: [{ role: 'user', content: 'go' }], toolContext: { rootPath: root }, model: 'claude-opus-5-5',
+    });
+    expect(wide.text).toContain('Answered.');
+    expect(wide.text).not.toContain('more content than fits');
+
+    streamMock.mockReset();
+    setupStreamWith([big(), textMessage('should never be reached')]);
+    const narrow = await completeWithTools({
+      system: 'sys', messages: [{ role: 'user', content: 'go' }], toolContext: { rootPath: root }, model: 'claude-haiku-4-5',
+    });
+    expect(narrow.text).toContain('more content than fits in one exchange');
+  });
+
   it('stops before an oversized iteration even with no callbacks object', async () => {
     setupStreamWith([
       toolUseMessageWithUsage('read_note', { relative_path: 'missing.md' }, 'tu-1', {
-        input_tokens: 190_000,
+        input_tokens: 600_000, // past the 500k cap of the default (1M-window) model
         output_tokens: 10,
         cache_creation_input_tokens: 0,
         cache_read_input_tokens: 0,
