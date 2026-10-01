@@ -10,10 +10,22 @@
  * point at sources / excerpts whose output rendering is its own problem
  * (a citations ticket), so we leave them untouched and let the consumer
  * decide.
+ *
+ * **A link resolves to exactly the note the app would open (#2518).** Exports
+ * used to match only a target's full thoughtbase-relative path, so the common
+ * `[[Note Name]]`, a note-relative `[[sub/Note]]`, an alias and a case variant
+ * all exported as dead text — even with the target in the export. Every
+ * lookup now goes through `resolveTarget`: the app's own
+ * `resolveWikiLinkTarget`, over the WHOLE thoughtbase's notes and alias map
+ * (the plan's `linkTargets`, from the graph). Resolving against only the
+ * exported notes would be wrong in a quieter way — a fuzzy step could land on
+ * a different, included note than the one the app opens. Inclusion is asked
+ * afterwards, of the note the link really names.
  */
 
 import path from 'node:path';
 import type { ExportPlan, LinkPolicy } from './types';
+import { resolveWikiLinkTarget } from '../../shared/wiki-link-resolver';
 
 export interface LinkResolverContext {
   /**
@@ -27,6 +39,9 @@ export interface LinkResolverContext {
    */
   includedPaths: Set<string>;
   linkPolicy: LinkPolicy;
+  /** The note a wiki-link target names, resolved as the app resolves it
+   *  (#2518) — thoughtbase-relative with its real extension — or null. */
+  resolveTarget: (target: string) => string | null;
 }
 
 /** Build a resolver context from a resolved export plan. */
@@ -40,7 +55,52 @@ export function buildLinkResolverContext(plan: ExportPlan): LinkResolverContext 
     titleByTarget.set(f.relativePath, f.title);
     titleByTarget.set(stem, f.title);
   }
-  return { titleByTarget, includedPaths, linkPolicy: plan.linkPolicy };
+  const targets = plan.linkTargets ?? linkTargetsFromInputs(plan);
+  const files = targets.paths.map((relativePath) => ({ relativePath, isDirectory: false }));
+  const memo = new Map<string, string | null>();
+  const resolveTarget = (target: string): string | null => {
+    let hit = memo.get(target);
+    if (hit === undefined) {
+      hit = resolveWikiLinkTarget(target, files, targets.aliases);
+      memo.set(target, hit);
+    }
+    return hit;
+  };
+  return { titleByTarget, includedPaths, linkPolicy: plan.linkPolicy, resolveTarget };
+}
+
+/**
+ * Without the graph (a test, or a project that isn't indexed yet), resolve
+ * against the exported notes and their own frontmatter aliases — the best
+ * available stand-in for the thoughtbase's link targets.
+ */
+function linkTargetsFromInputs(plan: ExportPlan): { paths: string[]; aliases: Record<string, string> } {
+  const paths: string[] = [];
+  const aliases: Record<string, string> = Object.create(null) as Record<string, string>;
+  for (const f of plan.inputs) {
+    if (f.kind !== 'note') continue;
+    paths.push(f.relativePath);
+    const fm = f.frontmatter as Record<string, unknown> | undefined;
+    for (const key of ['aliases', 'alias']) {
+      const v = fm?.[key];
+      for (const a of Array.isArray(v) ? v : [v]) {
+        if (typeof a !== 'string' || !a.trim()) continue;
+        const k = a.trim().toLowerCase();
+        if (!(k in aliases)) aliases[k] = f.relativePath;
+      }
+    }
+  }
+  return { paths, aliases };
+}
+
+/**
+ * A link destination safe in markdown and HTML: spaces and the characters
+ * that end or confuse a CommonMark destination are percent-encoded, so
+ * `Kampa Museum.md` stays one link in GitHub, Hugo and every other renderer
+ * (#2518). Everything else — letters in any script, `/`, `#` — stays readable.
+ */
+export function encodeLinkDestination(href: string): string {
+  return href.replace(/[ ()<>]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0')}`);
 }
 
 /**
@@ -56,19 +116,19 @@ export function resolveWikiLink(
   ctx: LinkResolverContext,
   fromPath?: string,
 ): string {
-  const title = titleFor(target, ctx);
+  const resolved = ctx.resolveTarget(target);
+  const title = resolved ? titleFor(resolved, ctx) : null;
   switch (ctx.linkPolicy) {
     case 'drop':
       return display ?? title ?? target;
     case 'inline-title':
       return title ?? display ?? target;
     case 'follow-to-file': {
-      const asMd = target.endsWith('.md') ? target : `${target}.md`;
-      if (ctx.includedPaths.has(asMd)) {
+      if (resolved && ctx.includedPaths.has(resolved)) {
         const label = display ?? title ?? target;
-        const rel = relativeTarget(fromPath, asMd);
+        const rel = relativeTarget(fromPath, resolved);
         const href = anchor ? `${rel}#${anchor}` : rel;
-        return `[${label}](${href})`;
+        return `[${label}](${encodeLinkDestination(href)})`;
       }
       return title ?? display ?? target;
     }

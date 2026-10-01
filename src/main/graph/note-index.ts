@@ -323,6 +323,19 @@ export function indexedNotePaths(ctx: ProjectContext): string[] {
   return [...(noteIndexStore.get(ctx)?.paths ?? [])];
 }
 
+/**
+ * Everything a wiki-link resolves against, exactly as the app resolves it:
+ * every indexed note (any note extension) and the lowercased alias map
+ * (#2518 — exports resolve links the way the app does). `null` when this
+ * project has nothing indexed, so a caller can fall back rather than resolve
+ * against an empty world. A read: it never allocates a slot (#2240).
+ */
+export function wikiLinkTargets(ctx: ProjectContext): { paths: string[]; aliases: Record<string, string> } | null {
+  const idx = noteIndexStore.get(ctx);
+  if (!idx || idx.paths.size === 0) return null;
+  return { paths: [...idx.paths], aliases: aliasMapObject(ctx) };
+}
+
 // ── Relocation: rename / folder move / merge (#2456) ────────────────────────
 
 /**

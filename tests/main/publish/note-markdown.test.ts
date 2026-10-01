@@ -202,7 +202,10 @@ describe('clean-markdown exporter (#250)', () => {
     const paths = output.files.map((f) => f.path).sort();
     expect(paths).toEqual(['notes/a.md', 'notes/b.md']);
     const a = String(output.files.find((f) => f.path === 'notes/a.md')!.contents);
-    expect(a).toContain('[B](notes/b.md)');
+    // Relative to the linking file (#2518): `notes/a.md` sits in `notes/`, so
+    // its link to `notes/b.md` is `b.md`. This used to assert `notes/b.md`,
+    // which from inside `notes/` points at `notes/notes/b.md`.
+    expect(a).toContain('[B](b.md)');
   });
 
   it('exporter exposes the expected id and label for the registry', () => {

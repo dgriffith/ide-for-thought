@@ -60,7 +60,9 @@ export const noteMarkdownExporter: Exporter = {
     const sessions = createRendererSessions(plan.citations, { outputFormat: 'text' });
     const files = notes.map((f) => {
       const renderer = sessions.next();
-      const transformed = transformNoteBody(f.content, ctx, renderer, plan.citations);
+      // Multi-note output mirrors the folders, so links are relative to the
+      // linking file (#2518); a flattened single note links nowhere else.
+      const transformed = transformNoteBody(f.content, ctx, renderer, plan.citations, flatten ? undefined : f.relativePath);
       const withTail = renderer ? appendCitationsTail(transformed, renderer) : transformed;
       return {
         path: flatten ? basename(f.relativePath) : f.relativePath,
@@ -86,12 +88,13 @@ function transformNoteBody(
   ctx: LinkResolverContext,
   renderer: CitationRenderer | undefined,
   citations: ExportPlan['citations'],
+  fromPath?: string,
 ): string {
   let out = content;
   if (renderer && citations) {
     out = rewriteCitations(out, renderer, citations);
   }
-  out = rewriteWikiLinksInContent(out, ctx);
+  out = rewriteWikiLinksInContent(out, ctx, fromPath);
   out = stripTurtleBlocks(out);
   return out;
 }

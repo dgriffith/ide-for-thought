@@ -19,6 +19,8 @@ import YAML from 'yaml';
 import { checkExclusion } from './exclusion';
 import { isIgnoredEntry } from '../../shared/ignored-dirs';
 import { resolveTree, extractWikiLinkTargets } from './tree-resolver';
+import { wikiLinkTargets } from '../graph/index';
+import { projectContext } from '../project-context-types';
 import { loadCitationAssets } from './csl';
 import type {
   ExportInput,
@@ -110,6 +112,10 @@ export async function resolvePlan(
     outputDir: opts.outputDir,
     rootPath,
     citations,
+    // What the app resolves wiki-links against (#2518): every indexed note and
+    // the alias map. Null when the project isn't indexed (a test) — the link
+    // resolver then falls back to the exported notes.
+    linkTargets: wikiLinkTargets(projectContext(rootPath)) ?? undefined,
   };
 }
 
