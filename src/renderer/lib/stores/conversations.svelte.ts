@@ -202,6 +202,10 @@ export interface TabRuntime {
   pendingMcpConfirm: McpConfirmRequest | null;
   composer: string;
   streaming: boolean;
+  /** When the in-flight turn started (epoch ms), for the elapsed time on the
+   *  turn-status line; null when idle. On the tab, not in the component, so
+   *  switching tabs and back doesn't restart the clock. */
+  turnStartedAt: number | null;
   streamedChunks: string;
   /** The last turn's failure, or null. Cleared when a new turn starts. */
   failure: TabFailure | null;
@@ -550,6 +554,7 @@ async function send(content: string, currentNotePath?: string): Promise<void> {
     { role: 'user', content: text, timestamp: new Date().toISOString() },
   ];
   tab.streaming = true;
+  tab.turnStartedAt = Date.now();
   tab.streamedChunks = '';
   tab.failure = null;
   announceTurnStart();
@@ -563,6 +568,7 @@ async function send(content: string, currentNotePath?: string): Promise<void> {
     handleTurnFailure(tab, e, text);
   } finally {
     tab.streaming = false;
+    tab.turnStartedAt = null;
     tab.streamedChunks = '';
     tab.pendingMcpConfirm = null;
   }
@@ -579,6 +585,7 @@ async function retryLastTurn(tabId: string, currentNotePath?: string): Promise<v
   const tab = findTab(tabId);
   if (!tab || tab.streaming) return;
   tab.streaming = true;
+  tab.turnStartedAt = Date.now();
   tab.streamedChunks = '';
   tab.failure = null;
   announceTurnStart();
@@ -592,6 +599,7 @@ async function retryLastTurn(tabId: string, currentNotePath?: string): Promise<v
     handleTurnFailure(tab, e, null);
   } finally {
     tab.streaming = false;
+    tab.turnStartedAt = null;
     tab.streamedChunks = '';
     tab.pendingMcpConfirm = null;
   }
@@ -684,6 +692,7 @@ async function compactConversation(): Promise<void> {
   const tab = activeTab();
   if (!tab || tab.streaming) return;
   tab.streaming = true;
+  tab.turnStartedAt = Date.now();
   tab.streamedChunks = 'Compacting earlier turns…';
   try {
     const result = await api.conversations.compact(tab.id);
@@ -710,6 +719,7 @@ async function compactConversation(): Promise<void> {
     // If the tab was swapped out, this just touches the now-detached old tab
     // object; the new tab starts with streaming=false.
     tab.streaming = false;
+    tab.turnStartedAt = null;
     tab.streamedChunks = '';
   }
 }
@@ -816,6 +826,7 @@ function blankTabRuntime(conv: Conversation, extraTools: ConversationToolKey[]):
     pendingMcpConfirm: null,
     composer: '',
     streaming: false,
+    turnStartedAt: null,
     streamedChunks: '',
     failure: null,
     extraTools,

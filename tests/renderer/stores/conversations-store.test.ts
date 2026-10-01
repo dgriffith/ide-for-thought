@@ -260,6 +260,18 @@ describe('send()', () => {
     expect(tab.composer).toBe('');
   });
 
+  it('records when a turn started, for the status line, and clears it when the turn settles', async () => {
+    const tab = await freshTab();
+    let finish!: () => void;
+    conv().send.mockReturnValueOnce(new Promise<void>((r) => { finish = r; }));
+    const before = Date.now();
+    const sending = store.send('hello');
+    expect(tab.turnStartedAt).toBeGreaterThanOrEqual(before);
+    finish();
+    await sending;
+    expect(tab.turnStartedAt).toBeNull();
+  });
+
   it('surfaces an unconfigured-provider error: restores the composer, drops the optimistic turn, flips needsApiKey', async () => {
     const tab = await freshTab();
     // Built through the shared helper rather than a hardcoded string, so this
