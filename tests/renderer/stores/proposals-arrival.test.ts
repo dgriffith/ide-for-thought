@@ -117,3 +117,34 @@ describe('proposals store arrival detection (#1541)', () => {
     expect(batches[0]!.map((x) => x.uri)).toEqual(['b']);
   });
 });
+
+describe('overlapping re-lists (the dock/sidebar count race)', () => {
+  /** A list call that resolves only when released. */
+  function deferredList() {
+    let release!: (v: P[]) => void;
+    const promise = new Promise<P[]>((r) => { release = r; });
+    return { promise, release };
+  }
+
+  it('a stale list can no longer land last: the count reflects the latest change', async () => {
+    const filed = deferredList(); // file: 'x' pending
+    listMock.mockReturnValueOnce(filed.promise).mockResolvedValueOnce([p('x', 'approved')]);
+    refs.onChanged!(); // proposal filed
+    refs.onChanged!(); // …and approved straight away (a conversation draft card)
+    filed.release([p('x', 'pending')]);
+    await vi.advanceTimersByTimeAsync(300);
+    expect(listMock).toHaveBeenCalledTimes(3); // baseline's + one in flight + one re-run, not one per event racing
+    expect(store.pendingCount).toBe(0);
+  });
+
+  it('a baseline asked for during an in-flight refresh is still a baseline (no toast on switch)', async () => {
+    const inFlight = deferredList();
+    listMock.mockReturnValueOnce(inFlight.promise).mockResolvedValueOnce([p('a'), p('b')]);
+    refs.onChanged!();
+    refs.onProjectOpened!(); // thoughtbase switch arrives mid-refresh
+    inFlight.release([]);
+    await vi.advanceTimersByTimeAsync(300);
+    expect(store.pendingCount).toBe(2);
+    expect(batches).toEqual([]);
+  });
+});
