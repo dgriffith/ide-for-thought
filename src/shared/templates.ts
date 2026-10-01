@@ -34,6 +34,8 @@
  * Anything else in FMT is preserved literally.
  */
 
+import { propertyPlaceholderName, renderPropertyValue } from './objects/property-placeholders';
+
 export interface SubstitutionContext {
   /** Title to substitute for `{{title}}`. */
   title: string;
@@ -46,6 +48,10 @@ export interface SubstitutionContext {
   /** Resolver for `{{prompt:Label}}`. Returns `null` if the user cancels;
    *  the engine then aborts substitution and returns `cancelled: true`. */
   prompt?: (label: string) => Promise<string | null>;
+  /** An object type's properties (#2490): `{{name}}` / `{{prop:name}}` fill
+   *  from `values`; one with no value is left for later. `names` should be the
+   *  type's EFFECTIVE property names (own + inherited). */
+  properties?: { names: ReadonlySet<string>; values: Readonly<Record<string, unknown>> };
 }
 
 export interface SubstitutionResult {
@@ -181,6 +187,15 @@ async function resolvePlaceholder(
     const answer = await ctx.prompt(label);
     if (answer === null) return { kind: 'cancelled' };
     return { kind: 'text', text: answer };
+  }
+  // A property of the note's type (#2490): filled when it has a value; left
+  // verbatim otherwise so it can be filled when the property is set (#2491).
+  if (ctx.properties) {
+    const name = propertyPlaceholderName(expr, ctx.properties.names);
+    if (name !== null) {
+      const text = renderPropertyValue(ctx.properties.values[name]);
+      return { kind: 'text', text: text ?? `{{${expr}}}` };
+    }
   }
   // Unknown placeholder — preserve verbatim so the user can see what
   // didn't resolve rather than ending up with a confusing gap.

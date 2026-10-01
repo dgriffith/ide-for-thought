@@ -13,16 +13,16 @@ import type { ProjectContext } from '../project-context-types';
 import { getState, type GraphState } from './state';
 import { noteUriFor, queryGraphRows } from './queries';
 import { declaredPropertyPredicate } from './indexers';
-import { effectivePropertyDefs, type TypeLike } from '../../shared/objects/inheritance';
+import { effectivePropertyDefs, toTypeInfoWithInheritance } from '../../shared/objects/inheritance';
 import {
-  toTypeInfo,
   type NoteTypedProperties,
+  type TypeDef,
   type TypeInstancesResult,
   type TypeInstanceRow,
 } from '../../shared/objects/type-def';
 
 /** The project's types keyed by id — for resolving inheritance chains (#1587). */
-function typeCatalogById(state: GraphState): ReadonlyMap<string, TypeLike> {
+function typeCatalogById(state: GraphState): ReadonlyMap<string, TypeDef> {
   return new Map(state.typeCatalog.types.map((t) => [t.id, t]));
 }
 
@@ -64,7 +64,7 @@ export async function getNoteTypedProperties(
     value: byPredicate.get(declaredPropertyPredicate(pd.name, pd).value) ?? null,
   }));
 
-  return { type: toTypeInfo(def), properties };
+  return { type: toTypeInfoWithInheritance(def, typeCatalogById(state)), properties };
 }
 
 /**
@@ -153,5 +153,5 @@ export async function getTypeInstances(
     });
   }
 
-  return { type: toTypeInfo(def), instances };
+  return { type: toTypeInfoWithInheritance(def, typeCatalogById(state)), instances };
 }

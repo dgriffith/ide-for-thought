@@ -22,6 +22,17 @@ import { setFrontmatterProperty, getFrontmatterValues } from '../../../shared/fr
 import { deriveTypeProperties } from '../../../shared/objects/derive-type';
 import type { TypeInfo, PropertyDef } from '../../../shared/objects/type-def';
 import { substituteTemplate } from '../../../shared/templates';
+
+/** Property placeholders for a type's template at creation (#2490). A note made
+ *  from the UI has no values yet, so every `{{prop}}` stays for the fill on
+ *  property edit (#2491); passing the names still makes `{{prop:x}}` resolve
+ *  the same way the later fill will. */
+function typePlaceholderContext(type: TypeInfo) {
+  return {
+    names: new Set(type.effectivePropertyNames ?? type.properties.map((p) => p.name)),
+    values: {},
+  };
+}
 import { buildTypedNoteScaffold } from '../../../shared/objects/scaffold';
 import { CONFIRM_KEYS } from '../confirm-keys';
 import type { SafeDeleteBlocker } from '../../../shared/types';
@@ -95,10 +106,12 @@ export function createNoteOps(ctx: NoteOpsCtx) {
       // Created *as* a type (#1064): frontmatter `type:` + a scaffold of the
       // type's declared property keys, then its (substituted) template body.
       let body = '';
-      if (result.type.template) {
-        const sub = await substituteTemplate(result.type.template, {
+      const template = result.type.effectiveTemplate ?? result.type.template;
+      if (template) {
+        const sub = await substituteTemplate(template, {
           title: result.name,
           prompt: (label: string) => showPrompt(`${label}:`),
+          properties: typePlaceholderContext(result.type),
         });
         if (sub.cancelled) return;
         body = sub.content;
@@ -193,10 +206,12 @@ export function createNoteOps(ctx: NoteOpsCtx) {
     if (resolveWikiLinkTarget(title, files)) return title;
 
     let body = '';
-    if (type.template) {
-      const sub = await substituteTemplate(type.template, {
+    const template = type.effectiveTemplate ?? type.template;
+    if (template) {
+      const sub = await substituteTemplate(template, {
         title,
         prompt: (label: string) => showPrompt(`${label}:`),
+        properties: typePlaceholderContext(type),
       });
       if (sub.cancelled) return null;
       body = sub.content;

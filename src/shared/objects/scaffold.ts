@@ -18,7 +18,8 @@ export interface TypedNoteScaffold {
 /** `body` is the type's template body, already run through substituteTemplate. */
 export function buildTypedNoteScaffold(type: TypeInfo, body: string): TypedNoteScaffold {
   const fm = ['---', `type: ${type.id}`];
-  for (const p of type.properties) fm.push(`${p.name}:`);
+  // Inherited keys too (#2494): a Shop that extends Place gets Place's fields.
+  for (const name of type.effectivePropertyNames ?? type.properties.map((p) => p.name)) fm.push(`${name}:`);
   fm.push('---', '');
   const prefix = fm.join('\n'); // ends with `---\n` (the trailing '' adds the newline)
   const trimmedBody = body.replace(/^\n+/, '');
