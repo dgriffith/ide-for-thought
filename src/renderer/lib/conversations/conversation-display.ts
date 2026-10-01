@@ -6,16 +6,18 @@
 
 export interface TabTitleInput {
   title: string | null;
-  conversation: { messages: { role: string; content: string }[] };
+  conversation: { title?: string; messages: { role: string; content: string }[] };
 }
 
 /**
- * Tab label: the explicit title if set, else a preview of the first user
+ * Tab label: the conversation's saved title (a rename, or the model-written
+ * one), else the tab's seeded title, else a preview of the first user
  * message — flattened whitespace, truncated to 60 chars on a word boundary when
  * one falls in the last quarter (so common 60–80 char openers don't slice
  * mid-word) — else "New conversation".
  */
 export function tabTitle(tab: TabTitleInput): string {
+  if (tab.conversation.title) return tab.conversation.title;
   if (tab.title) return tab.title;
   const firstUser = tab.conversation.messages.find((m) => m.role === 'user');
   if (!firstUser) return 'New conversation';

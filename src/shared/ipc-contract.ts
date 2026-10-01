@@ -604,6 +604,7 @@ export interface ChannelMap {
   'conversation:mcpConfirmReply': (requestId: string, allow: boolean, remember: boolean) => void;
   'conversation:setModel': (conversationId: string, model: string | undefined) => Conversation;
   'conversation:setEffort': (conversationId: string, effort: Effort | undefined) => Conversation;
+  'conversation:setTitle': (conversationId: string, title: string | null) => Conversation;
   'conversation:compact': (conversationId: string) => CompactResult;
 
   // Conversation draft filing (renderer approves an inline card)
@@ -757,6 +758,7 @@ export interface EventMap extends MenuCommandEventMap {
   // Conversation + tool streaming / prompts
   'conversation:stream': (chunk: string) => void;
   'conversation:askUser': (req: AskUserRequest) => void;
+  'conversation:titleChanged': (change: { conversationId: string; title: string }) => void;
   'conversation:mcpConfirm': (req: McpConfirmRequest) => void;
   'tool:stream': (chunk: string) => void;
   'tool:invoke': (toolId: string) => void;

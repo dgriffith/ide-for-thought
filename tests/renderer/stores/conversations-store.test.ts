@@ -62,6 +62,7 @@ const h = vi.hoisted(() => {
       onDeleteDraft: cap('onDeleteDraft'),
       onNoteBodyDraft: cap('onNoteBodyDraft'),
       onAskUser: cap('onAskUser'),
+      onTitleChanged: cap('onTitleChanged'),
       onMcpConfirm: cap('onMcpConfirm'),
       // lifecycle / persistence
       loadUIState: vi.fn().mockResolvedValue({ visible: false, height: 320, activeTabId: null }),
@@ -77,6 +78,7 @@ const h = vi.hoisted(() => {
       cancel: vi.fn().mockResolvedValue(undefined),
       setModel: vi.fn(),
       setEffort: vi.fn(),
+      setTitle: vi.fn(async (id: string, title: string | null) => ({ ...makeConv({}), id, ...(title ? { title, titleSource: 'user' as const } : {}) })),
       askUserReply: vi.fn().mockResolvedValue(undefined),
       mcpConfirmReply: vi.fn().mockResolvedValue(undefined),
       // draft-filing (the approval-engine hand-off)
@@ -488,6 +490,42 @@ describe('cancel / setModel / setEffort / setComposer', () => {
 });
 
 // ─────────────────────── ask_user round-trip ───────────────────────
+
+describe('conversation titles', () => {
+  it('shows a model-written title the moment main announces it', async () => {
+    const tab = await freshTab();
+    (h.cbs.onTitleChanged as (c: { conversationId: string; title: string }) => void)({ conversationId: tab.id, title: 'Mandolin tuning history' });
+    expect(tab.conversation.title).toBe('Mandolin tuning history');
+    expect(tab.conversation.titleSource).toBe('auto');
+  });
+
+  it('ignores an announcement for a conversation that is not open', async () => {
+    const tab = await freshTab();
+    (h.cbs.onTitleChanged as (c: { conversationId: string; title: string }) => void)({ conversationId: 'elsewhere', title: 'x' });
+    expect(tab.conversation.title).toBeUndefined();
+  });
+
+  it('renames through the api, trimming, and clears on a blank name', async () => {
+    const tab = await freshTab();
+    await store.renameConversation(tab.id, '  Trip planning  ');
+    expect(conv().setTitle).toHaveBeenLastCalledWith(tab.id, 'Trip planning');
+    expect(tab.conversation.title).toBe('Trip planning');
+    await store.renameConversation(tab.id, '   ');
+    expect(conv().setTitle).toHaveBeenLastCalledWith(tab.id, null);
+    expect(tab.conversation.title).toBeUndefined();
+  });
+
+  it('keeps a title that arrived while the post-send reload was in flight', async () => {
+    const tab = await freshTab();
+    conv().send.mockImplementationOnce(async () => {
+      (h.cbs.onTitleChanged as (c: { conversationId: string; title: string }) => void)({ conversationId: tab.id, title: 'Early title' });
+    });
+    // The reload read the file before the title was saved, so it has none.
+    conv().load.mockImplementationOnce(async () => ({ ...tab.conversation, title: undefined, titleSource: undefined, messages: [{ role: 'user', content: 'hi', timestamp: 't' }] } as Conversation));
+    await store.send(tab.id, 'hi');
+    expect(tab.conversation.title).toBe('Early title');
+  });
+});
 
 describe('ask_user (onAskUser → answerQuestion)', () => {
   it('surfaces a pending question and answerQuestion replies through api + clears it', async () => {

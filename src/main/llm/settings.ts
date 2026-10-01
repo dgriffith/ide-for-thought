@@ -101,6 +101,7 @@ interface StoredSettings {
   web?: unknown;
   effort?: unknown;
   toolModelOverrides?: unknown;
+  autoTitleConversations?: unknown;
 }
 
 /**
@@ -265,6 +266,7 @@ export async function getSettings(): Promise<LLMSettings> {
     web: resolveWeb(parsed.web),
     ...(effort ? { effort } : {}),
     ...(toolModelOverrides ? { toolModelOverrides } : {}),
+    ...(parsed.autoTitleConversations === false ? { autoTitleConversations: false } : {}),
     ...(customModels ? { customModels } : {}),
   };
 }
@@ -291,6 +293,7 @@ export async function getSettingsForDisplay(): Promise<LLMSettingsView> {
     web: resolveWeb(parsed.web),
     ...(effort ? { effort } : {}),
     ...(toolModelOverrides ? { toolModelOverrides } : {}),
+    ...(parsed.autoTitleConversations === false ? { autoTitleConversations: false } : {}),
     hasApiKey,
     providers,
     ...(customModels ? { customModels } : {}),

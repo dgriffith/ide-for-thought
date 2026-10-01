@@ -30,6 +30,8 @@
   interface Props {
     model: string;
     effort: Effort | undefined;
+    /** Name new conversations with a model-written title after the first reply. */
+    autoTitle: boolean;
     /** Per-provider input state, keyed by provider id. */
     providerInputs: Record<ProviderId, ProviderInput>;
     /** Loaded per-provider status (no plaintext keys). */
@@ -45,6 +47,7 @@
   let {
     model = $bindable(),
     effort = $bindable(),
+    autoTitle = $bindable(),
     providerInputs = $bindable(),
     providerViews,
     secureStorageAvailable,
@@ -145,6 +148,18 @@
     Higher effort lets the model think longer. Leave on “Model default” to send
     no preference. Not all models support every level — each provider maps this
     to its own control, and unsupported levels are clamped.
+  </p>
+</div>
+
+<div class="field">
+  <label class="checkbox-row">
+    <input type="checkbox" bind:checked={autoTitle} />
+    Name new conversations automatically
+  </label>
+  <p class="hint">
+    After a conversation's first reply, a quick model call gives it a short title,
+    using the provider's cheaper model (Sonnet, GPT-6 Luna, Gemini Flash). Double-click
+    a conversation in the list to rename it; your name is always kept.
   </p>
 </div>
 

@@ -344,6 +344,10 @@ const api = {
       invoke(Channels.CONVERSATION_SET_MODEL, conversationId, model),
     setEffort: (conversationId: string, effort: Parameters<ChannelMap['conversation:setEffort']>[1]) =>
       invoke(Channels.CONVERSATION_SET_EFFORT, conversationId, effort),
+    setTitle: (conversationId: string, title: string | null) =>
+      invoke(Channels.CONVERSATION_SET_TITLE, conversationId, title),
+    onTitleChanged: (cb: (change: { conversationId: string; title: string }) => void) =>
+      subscribe(Channels.CONVERSATION_TITLE_CHANGED, cb),
     compact: (conversationId: string) =>
       invoke(Channels.CONVERSATION_COMPACT, conversationId),
   },

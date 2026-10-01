@@ -621,6 +621,10 @@ export const Channels = {
   CONVERSATION_SET_MODEL: 'conversation:setModel',
   /** Per-conversation reasoning-effort override (#825). */
   CONVERSATION_SET_EFFORT: 'conversation:setEffort',
+  /** Rename a conversation (a `user` title, which auto-titling never overwrites); `null` clears it. */
+  CONVERSATION_SET_TITLE: 'conversation:setTitle',
+  /** main → renderer: a conversation got its model-written title after its first exchange. */
+  CONVERSATION_TITLE_CHANGED: 'conversation:titleChanged',
   /** Client-side compaction (#824): summarize earlier turns into a fresh
    *  conversation, archiving the original. */
   CONVERSATION_COMPACT: 'conversation:compact',
