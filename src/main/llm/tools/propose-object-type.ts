@@ -2,6 +2,7 @@ import { proposeObjectTypeDef } from '../object-types';
 import { PROPERTY_TYPES, type PropertyDef, type PropertyType } from '../../../shared/objects/type-def';
 import type { SaveTypeInput } from '../../types/write';
 import type { NotebaseTool, ToolContext, ToolCallbacks } from './types';
+import { MARKDOWN_BODY_RULES } from './markdown-body-rules';
 
 /**
  * `propose_object_type` (#2069) — the LLM-facing counterpart to
@@ -137,7 +138,15 @@ export const proposeObjectType: NotebaseTool = {
         card: { type: 'array', items: { type: 'string' }, description: 'Property names shown on a note-link card for this type.' },
         parent: { type: 'string', description: 'Existing type id this type specializes.' },
         externalClass: { type: 'string', description: 'External vocabulary CURIE this type aligns to, e.g. "foaf:Person".' },
-        template: { type: 'string', description: 'Template body (markdown) seeded into new instances.' },
+        template: {
+          type: 'string',
+          description:
+            'Default body every new note of this type starts from — a scaffold of the ' +
+            'headings and fields each instance should have, not a prompt. Placeholders: ' +
+            '{{name}} is the value of property `name` (filled when it is set), and ' +
+            '{{title}}, {{date}} and {{cursor}} are the note\'s title, today and where the ' +
+            'caret lands. ' + MARKDOWN_BODY_RULES,
+        },
       },
       required: ['label', 'properties'],
     },

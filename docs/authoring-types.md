@@ -333,13 +333,17 @@ should start with, and placeholders for what the note will know.
 ```markdown
 ## Visit
 
-Address: {{address}}
-Opening hours: {{hours}}
+- **Address:** {{address}}
+- **Opening hours:** {{hours}}
 
 ## Notes
 
 {{cursor}}
 ```
+
+It's Markdown, so a field per line belongs in a list (or a table): two bare
+consecutive lines like `Address: …` / `Opening hours: …` render as one run-on
+paragraph. The model is told the same thing when it proposes a type.
 
 **Placeholders** (#2490):
 

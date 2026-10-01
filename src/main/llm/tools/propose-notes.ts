@@ -7,6 +7,7 @@ import type {
 } from '../../../shared/conversation-drafts';
 import type { NotebaseTool, ToolContext, ToolCallbacks } from './types';
 import { agentPathProblem } from './agent-path';
+import { MARKDOWN_BODY_RULES } from './markdown-body-rules';
 import { fillTypedNotePlaceholders } from '../../types/fill';
 import { logger } from '../../../shared/logger';
 
@@ -161,6 +162,8 @@ export const proposeNotes: NotebaseTool = {
       'the values you set in frontmatter. A placeholder whose property you set is ' +
       'filled automatically if you leave it; leave one whose value you don\'t know as ' +
       '{{name}}, for the user to fill.\n' +
+      '\n' +
+      'Every note body: ' + MARKDOWN_BODY_RULES + '\n' +
       '\n' +
       'Grouping & ordering: put the whole bundle (parent index + every child) in ' +
       'ONE new directory named for the topic, e.g. "notes/group-theory-journey/…", ' +
