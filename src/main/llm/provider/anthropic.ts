@@ -48,14 +48,33 @@ function outputConfigFor(
  * `blocked_domains` pass through per user setting (mutually exclusive from the
  * model's perspective, but the API accepts either independently).
  */
+/**
+ * Caps on the server-side web tools. Uncapped, one research turn — "find cool
+ * museums in Prague and make notes" — searched repeatedly and fetched whole
+ * pages (one page four times), and every result stayed in context for the rest
+ * of the turn: 400k-600k tokens read across a turn whose saved history was 15k
+ * characters, until the context guard stopped it before any note was filed.
+ *
+ * `max_content_tokens` truncates a fetched page — 10k tokens is several
+ * screens of article, plenty to research from. `max_uses` bounds each request
+ * (the API counts per request, not per turn; the loop's context guard bounds
+ * the turn).
+ */
+export const WEB_FETCH_MAX_CONTENT_TOKENS = 10_000;
+export const WEB_SEARCH_MAX_USES = 8;
+export const WEB_FETCH_MAX_USES = 5;
+
 function buildWebTools(web: WebToolSettings): Anthropic.Messages.ToolUnion[] {
   const webSearch: Anthropic.Messages.WebSearchTool20260209 = {
     type: 'web_search_20260209',
     name: 'web_search',
+    max_uses: WEB_SEARCH_MAX_USES,
   };
   const webFetch: Anthropic.Messages.WebFetchTool20260209 = {
     type: 'web_fetch_20260209',
     name: 'web_fetch',
+    max_uses: WEB_FETCH_MAX_USES,
+    max_content_tokens: WEB_FETCH_MAX_CONTENT_TOKENS,
   };
   if (web.allowedDomains && web.allowedDomains.length > 0) {
     webSearch.allowed_domains = web.allowedDomains;

@@ -1,4 +1,5 @@
 import { getProvider } from './provider';
+import { turnContextCeiling } from '../../shared/tools/models';
 import type {
   ChatMessage,
   ProviderMessage,
@@ -381,11 +382,11 @@ export async function completeWithTools(
   // explains. Each iteration's OWN usage (not the cumulative `usage` above,
   // which sums across iterations for pricing per #820) approximates the
   // context size that request just sent, since every iteration resends the
-  // whole growing history. 200k is the smallest context window among the
-  // models this app ships (Sonnet 4.6, Haiku 4.5, GPT-5.6, Gemini 2.5); stop
-  // comfortably under it so there's still room for the next response + tool
-  // results before the wall.
-  const MAX_ITERATION_CONTEXT_TOKENS = 180_000;
+  // whole growing history. The ceiling follows the MODEL's window
+  // (`turnContextCeiling`): 90% of it, capped at 500k — 180k on a 200k model as
+  // before, but no longer 180k on the 1M-window models most conversations now
+  // run on, which stopped web-research turns at under a fifth of their window.
+  const MAX_ITERATION_CONTEXT_TOKENS = turnContextCeiling(model);
   let lastIterationContextTokens = 0;
 
   // Surface a tool call as a live "🔍 Searching…" indicator the moment the model
