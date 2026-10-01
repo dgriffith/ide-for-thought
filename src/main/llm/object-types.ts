@@ -13,7 +13,7 @@
  */
 import * as graph from '../graph/index';
 import { projectContext } from '../project-context-types';
-import { proposeWrite } from './approval';
+import { listProposals, proposeWrite } from './approval';
 import { loadTypeCatalog } from '../types/loader';
 import { slugify, type SaveTypeInput } from '../types/write';
 import { PROPERTY_TYPES } from '../../shared/objects/type-def';
@@ -62,6 +62,20 @@ export async function proposeObjectTypeDef(
     throw new Error(
       `A type with id "${id}" already exists ("${existing.label}"). ` +
         'Choose a different label, or pass id="' + id + '" to propose an edit to it.',
+    );
+  }
+
+  // One pending proposal per type. A second one for the same id is never what
+  // anyone wants: a model that misread its own successful call as a failure
+  // re-proposed the same type five times in one turn (2026-10-01), and each
+  // landed as a separate card. Say where the first one is instead.
+  const pending = (await listProposals(projectContext(rootPath), 'pending')).find((p) =>
+    p.payloads.some((pl) => pl.kind === 'type-def' && (pl as { id?: string }).id === id));
+  if (pending) {
+    throw new Error(
+      `A proposal for type "${id}" is already pending (filed ${pending.proposedAt}) — it IS in the ` +
+        'Proposals panel. Do not propose it again: tell the user it is waiting for review. To change it, ' +
+        'the user rejects that proposal first.',
     );
   }
 

@@ -34,7 +34,7 @@ vi.mock('@anthropic-ai/sdk', () => {
 
 vi.mock('../../../src/main/llm/settings', () => ({ getSettings: getSettingsMock }));
 
-import { completeWithTools, toolResultSignalsDrafted } from '../../../src/main/llm/index';
+import { completeWithTools } from '../../../src/main/llm/index';
 
 /** Mint a stream-shaped object that resolves to `message` on finalMessage(). */
 function streamReturning(message: Anthropic.Message): unknown {
@@ -325,7 +325,13 @@ describe('completeWithTools() dispatch loop (#342)', () => {
     expect(result.text).not.toContain('Final answer.');
   });
 
-  it('compacts a drafted proposal tool_use block once it executes (#2024)', async () => {
+  it('keeps the history append-only across iterations — a proposal call is never rewritten', async () => {
+    // #2024 used to replace a successful proposal call's tool_use.input with a
+    // stub ("Input omitted — already delivered out-of-band") before the next
+    // request. The model then saw its own call with no arguments, decided it
+    // had failed, and proposed the same object type again: five identical
+    // proposals in one turn (2026-10-01). Every request must now begin with
+    // exactly the request before it.
     const bigContent = 'x'.repeat(500);
     const bundleInput = {
       note: 'Bundle',
@@ -333,7 +339,8 @@ describe('completeWithTools() dispatch loop (#342)', () => {
     };
     const snapshots = setupStreamWith([
       toolUseMessage('propose_notes', bundleInput, 'tu-draft'),
-      textMessage('Drafted 1 note for review.'),
+      toolUseMessage('propose_notes', { ...bundleInput, note: 'Second' }, 'tu-draft-2'),
+      textMessage('Drafted 2 notes for review.'),
     ]);
 
     const drafts: unknown[] = [];
@@ -344,18 +351,27 @@ describe('completeWithTools() dispatch loop (#342)', () => {
       callbacks: { onChunk: () => undefined, onDraft: (d) => drafts.push(d) },
     });
 
-    // The real payload reached the renderer out-of-band...
-    expect(drafts).toHaveLength(1);
-
-    // ...so iteration 2's request must no longer carry the original bundle
-    // content in the tool_use block — only the stub.
-    const secondMessages = snapshots[1];
-    const assistantTurn = secondMessages[1];
-    expect(assistantTurn.role).toBe('assistant');
-    const block = (assistantTurn.content as Anthropic.ToolUseBlockParam[])[0];
-    expect(block.type).toBe('tool_use');
-    expect(JSON.stringify(block.input)).not.toContain(bigContent);
-    expect(block.input).toMatchObject({ compacted: true });
+    expect(drafts).toHaveLength(2);
+    expect(snapshots).toHaveLength(3);
+    // The prompt-cache marker moves to the newest message each request (and
+    // turns a plain-string message into one text block to carry it); the API
+    // doesn't count cache_control placement as a history edit, so neither do
+    // we. Everything else must be byte-identical.
+    const normalized = (messages: Anthropic.MessageParam[]) => JSON.stringify(messages.map((m) => ({
+      role: m.role,
+      content: typeof m.content === 'string'
+        ? [{ type: 'text', text: m.content }]
+        : m.content.map((b) => {
+          const { cache_control: _cc, ...rest } = b as unknown as Record<string, unknown>;
+          return rest;
+        }),
+    })));
+    for (let i = 1; i < snapshots.length; i++) {
+      expect(normalized(snapshots[i].slice(0, snapshots[i - 1].length))).toBe(normalized(snapshots[i - 1]));
+    }
+    // And the model still sees what it actually sent.
+    const block = (snapshots[1][1].content as Anthropic.ToolUseBlockParam[])[0];
+    expect(block.input).toEqual(bundleInput);
   });
 
   it('leaves a non-proposal tool_use block untouched', async () => {
@@ -449,41 +465,3 @@ describe('completeWithTools() dispatch loop (#342)', () => {
   });
 });
 
-describe('toolResultSignalsDrafted (#2024)', () => {
-  it('recognizes a pure-JSON drafted result', () => {
-    expect(toolResultSignalsDrafted(JSON.stringify({
-      status: 'drafted',
-      draftId: 'draft-1',
-      hint: 'STOP. Review it.',
-    }))).toBe(true);
-  });
-
-  it('recognizes a drafted result with a trailing human-readable suffix', () => {
-    // propose_notes/propose_compute/propose_claims/propose_sources/
-    // propose_source_properties/set_properties all append text after the
-    // JSON blob — a strict JSON.parse would reject these outright.
-    const content = JSON.stringify({ status: 'drafted', hint: 'STOP. Review it.' })
-      + '\n\n(filed as draft: notes/a.md)';
-    expect(toolResultSignalsDrafted(content)).toBe(true);
-  });
-
-  it('rejects a result with no hint field', () => {
-    expect(toolResultSignalsDrafted(JSON.stringify({ status: 'ok', count: 3 }))).toBe(false);
-  });
-
-  it('rejects a hint that doesn\'t start with STOP', () => {
-    expect(toolResultSignalsDrafted(JSON.stringify({ hint: 'Keep going.' }))).toBe(false);
-  });
-
-  it('rejects non-JSON content', () => {
-    expect(toolResultSignalsDrafted('# Hello\nFile body.')).toBe(false);
-  });
-
-  it('rejects a hint whose captured text is not valid JSON once unescaped', () => {
-    // An unrecognized escape sequence (`\q`) inside the hint value makes the
-    // extracted group fail `JSON.parse` even though the outer regex matched —
-    // exercises the catch branch. Falls back to "not drafted" rather than
-    // throwing.
-    expect(toolResultSignalsDrafted('{"hint":"STOP \\q bad escape"}')).toBe(false);
-  });
-});

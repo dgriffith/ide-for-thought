@@ -65,6 +65,26 @@ describe('proposeObjectTypeDef (#2069)', () => {
     expect(await approvedCountByOperation('type_definition')).toBe(1);
   });
 
+  it('refuses a second pending proposal for the same type, and says where the first one is', async () => {
+    // 2026-10-01: a model re-proposed one type five times in a turn, each a
+    // separate card. The second call must point at the first, not file again.
+    await proposeObjectTypeDef(root, 'conv1', RECIPE, 'New type');
+    await expect(proposeObjectTypeDef(root, 'conv1', { ...RECIPE, icon: '🍲' }, 'Again'))
+      .rejects.toThrow(/already pending .* Proposals panel/);
+    expect(await pendingCount()).toBe(1);
+  });
+
+  it('allows a fresh proposal once the pending one is resolved, and other types meanwhile', async () => {
+    const first = await proposeObjectTypeDef(root, 'conv1', RECIPE, 'New type');
+    // A different type is unaffected while Recipe is pending.
+    await proposeObjectTypeDef(root, 'conv1', { label: 'Gadget', properties: [{ name: 'maker', type: 'text' as const }] }, 'Gadgets');
+    expect(await pendingCount()).toBe(2);
+    const { listProposals, rejectProposal } = await import('../../../src/main/llm/approval');
+    const recipe = (await listProposals(ctx, 'pending')).find((p) => p.payloads.some((pl) => (pl as { id?: string }).id === first.id))!;
+    await rejectProposal(ctx, recipe.uri);
+    await expect(proposeObjectTypeDef(root, 'conv1', RECIPE, 'Try again')).resolves.toMatchObject({ id: 'recipe' });
+  });
+
   it('rejects an id collision that is not an explicit edit', async () => {
     await saveType(root, { label: 'Recipe', properties: [] });
     await expect(proposeObjectTypeDef(root, 'conv1', RECIPE, 'New type')).rejects.toThrow(/already exists/);
