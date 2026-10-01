@@ -44,9 +44,18 @@ async function runProposeObjectType(
 
 const PROPERTY_TYPE_SET: ReadonlySet<string> = new Set(PROPERTY_TYPES);
 
+function describeValue(v: unknown): string {
+  if (v === undefined) return 'nothing (the field was missing)';
+  if (Array.isArray(v)) return 'an empty array';
+  if (typeof v === 'string') return `a string (${v.length} characters) — pass the array itself, not JSON text`;
+  return `a ${v === null ? 'null' : typeof v}`;
+}
+
 function parseProperties(raw: unknown): PropertyDef[] | { error: string } {
   if (!Array.isArray(raw) || raw.length === 0) {
-    return { error: '`properties` must be a non-empty array.' };
+    // Say what arrived: "must be an array" alone, answered to a model that
+    // believes it sent one, reads as "the parameters aren't getting through".
+    return { error: `\`properties\` must be a non-empty array of { name, type } objects — received ${describeValue(raw)}.` };
   }
   const properties: PropertyDef[] = [];
   for (const item of raw) {

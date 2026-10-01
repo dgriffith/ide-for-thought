@@ -1,6 +1,7 @@
 import type { ConversationToolKey } from '../../../shared/conversation-tools';
 import type { ToolSpec } from '../provider/types';
 import type { NotebaseTool, ToolContext, ToolCallbacks, ToolResult } from './types';
+import { normalizeToolInput } from './normalize-input';
 import { listServerStatuses } from '../../mcp-servers/registry';
 import { mcpCall, describeMcpCatalog } from './mcp-call';
 import { runSkill, describeSkillCatalog } from './run-skill';
@@ -161,7 +162,9 @@ export async function executeNotebaseTool(
     return { content: `Unknown tool: ${name}`, isError: true };
   }
   try {
-    return await tool.run(ctx, input, callbacks);
+    // An array/object argument sent as a JSON-encoded string is decoded against
+    // the tool's own schema first — see normalize-input.ts for the loop it ends.
+    return await tool.run(ctx, normalizeToolInput(tool.definition.input_schema, input, name), callbacks);
   } catch (e) {
     // A tripped write guard is a Trust Principle bypass, not a tool failure the
     // model should see and retry around (#2373). Folding it into an error
