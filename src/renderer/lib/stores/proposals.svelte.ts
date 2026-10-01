@@ -19,6 +19,7 @@
  * subscribe only. Because approve/reject/expire now emit `PROPOSALS_CHANGED`,
  * the list self-updates after a mutation with no manual refresh.
  */
+import { coalescedRun } from '../../../shared/coalesced-run';
 import { api } from '../ipc/client';
 import type { Proposal } from '../../../shared/proposals';
 
@@ -73,15 +74,29 @@ function bufferArrivals(arrived: Proposal[]): void {
  * any newly-pending proposals as arrivals.
  */
 async function refresh(opts?: { baseline?: boolean }): Promise<void> {
+  if (opts?.baseline) baselinePending = true;
+  return runRefresh();
+}
+
+/** A baseline asked for while refreshes are coalesced — honoured by the next
+ *  run, so a project switch never toasts its whole pending set as new. */
+let baselinePending = false;
+
+/** Coalesced (`coalescedRun`): overlapping lists could land out of order, and
+ *  a stale one landing last left the count and badge wrong — the same race as
+ *  the dock badge's. */
+const runRefresh = coalescedRun(async () => {
+  const baseline = baselinePending;
+  baselinePending = false;
   proposals = await api.proposals.list();
   loaded = true;
   const pending = proposals.filter((p) => p.status === 'pending');
-  if (!opts?.baseline) {
+  if (!baseline) {
     const arrived = pending.filter((p) => !prevPending.has(p.uri));
     if (arrived.length > 0) bufferArrivals(arrived);
   }
   prevPending = new Set(pending.map((p) => p.uri));
-}
+});
 
 function start(): void {
   if (started) return;
