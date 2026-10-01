@@ -699,6 +699,11 @@ export interface ConversationsApi {
   setModel(conversationId: string, model: string | undefined): Promise<Conversation>;
   /** Per-conversation reasoning-effort override (#825). Pass undefined to
    *  clear it and inherit the global default. */
+  /** Rename a conversation; `null` clears the name (the tab falls back to a
+   *  preview of the first message). A rename is never overwritten by auto-titling. */
+  setTitle(conversationId: string, title: string | null): Promise<Conversation>;
+  /** A conversation got its model-written title after its first exchange. */
+  onTitleChanged(cb: (change: { conversationId: string; title: string }) => void): () => void;
   setEffort(
     conversationId: string,
     effort: import('../../../shared/tools/effort').Effort | undefined,

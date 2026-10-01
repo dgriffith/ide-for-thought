@@ -44,7 +44,7 @@
   let { currentNotePath, onCreateNoteFromConversation, onInvokeSkill }: Props = $props();
 
   const store = getConversationsStore();
-  const { showConfirm } = getDialogStore();
+  const { showConfirm, showPrompt } = getDialogStore();
 
   let composer = $state<{ focus: () => void }>();
   let messageList = $state<{ getPaneSelectionText: () => string }>();
@@ -134,6 +134,15 @@
     await store.setEffort(tabId, isEffort(value) ? value : undefined);
   }
 
+  /** Rename a conversation (double-click its list entry). A blank name clears
+   *  it, falling back to the first-message preview; auto-titling never
+   *  overwrites a name set here. */
+  async function renameTab(tab: (typeof store.tabs)[number]): Promise<void> {
+    const next = await showPrompt('Rename conversation:', tabTitle(tab));
+    if (next === null) return;
+    await store.renameConversation(tab.id, next);
+  }
+
   async function handleNewTab() {
     // A blank conversation — the "New conversation" button is note-agnostic.
     // Note-scoped conversations come from the "Ask about this note" affordance.
@@ -206,7 +215,8 @@
                 type="button"
                 class="conv-item-btn"
                 onclick={() => store.setActiveTab(tab.id)}
-                title={tabTitle(tab)}
+                ondblclick={() => void renameTab(tab)}
+                title={`${tabTitle(tab)} — double-click to rename`}
               >
                 <span class="conv-item-title">{tabTitle(tab)}</span>
                 {#if tab.conversation.contextBundle.notePath}

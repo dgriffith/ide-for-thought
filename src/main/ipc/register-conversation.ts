@@ -30,6 +30,9 @@ import { buildStreamCallbacks, type PendingAskUser, type PendingMcpConfirm } fro
 import type { ContextBundle, ConversationCreateOptions, ConversationMessage } from '../../shared/conversation';
 import { rootPathFromEvent, winFromEvent, withRootPath, withRootPathOr } from './helpers';
 import { handle } from './typed-ipc';
+import { broadcast } from './broadcast';
+import { autoTitleConversation, wantsAutoTitle } from '../llm/conversation-title';
+import { getSettings } from '../llm/settings';
 import { logger } from '../../shared/logger';
 
 export function registerConversation(): void {
@@ -203,6 +206,20 @@ export function registerConversation(): void {
             result.containerExpiresAt,
           );
         }
+        // Name the conversation after its first exchange, in the background:
+        // the reply is already back, and a title must never delay or fail it.
+        if (wantsAutoTitle(updated)) {
+          void (async () => {
+            await autoTitleConversation(updated, {
+              complete: (prompt, options) => import('../llm/index').then((m) => m.complete(prompt, options)),
+              settings: await getSettings(),
+              setTitle: (title) => conversation.setTitle(rootPath, convId, title, 'auto'),
+              notify: (title) => {
+                if (!win.isDestroyed()) broadcast(win, Channels.CONVERSATION_TITLE_CHANGED, { conversationId: convId, title });
+              },
+            });
+          })().catch((err: unknown) => logger('conversation').warn('auto-title setup failed:', err));
+        }
         return updated;
       });
     } finally {
@@ -236,6 +253,9 @@ export function registerConversation(): void {
       return conversation.setEffort(rootPath, convId, effort);
     }),
   );
+
+  handle(Channels.CONVERSATION_SET_TITLE, withRootPath(async (rootPath, convId: string, title: string | null) =>
+    (await conversation.setTitle(rootPath, convId, title, 'user')).conversation));
 
   handle(Channels.CONVERSATION_COMPACT, withRootPath((rootPath, convId: string) =>
     compactConversation(rootPath, convId)));

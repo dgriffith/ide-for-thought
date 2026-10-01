@@ -219,6 +219,38 @@ export function setContainerId(
 }
 
 /**
+ * Name a conversation. A `user` title always applies (or clears, with `null`).
+ * An `auto` title applies only while the conversation has none — so the model
+ * never replaces a rename, or its own earlier title. Returns the conversation
+ * and whether the title changed.
+ */
+export function setTitle(
+  rootPath: string,
+  id: string,
+  title: string | null,
+  source: 'auto' | 'user',
+): Promise<{ conversation: Conversation; changed: boolean }> {
+  return withConversationLock(rootPath, id, async () => {
+    const conv = await load(rootPath, id);
+    if (!conv) throw new Error(`Conversation not found: ${id}`);
+    if (source === 'auto' && conv.title) return { conversation: conv, changed: false };
+    const next = title?.trim() || undefined;
+    if (next === conv.title && (next === undefined || conv.titleSource === source)) {
+      return { conversation: conv, changed: false };
+    }
+    if (next) {
+      conv.title = next;
+      conv.titleSource = source;
+    } else {
+      delete conv.title;
+      delete conv.titleSource;
+    }
+    await persist(rootPath, conv);
+    return { conversation: conv, changed: true };
+  });
+}
+
+/**
  * Pin a specific model to this conversation. Pass `undefined` to clear the
  * override so the conversation again tracks the global default.
  */

@@ -241,6 +241,7 @@ let saveTimer: ReturnType<typeof setTimeout> | null = null;
 // per-kind subscriptions are all wired together in a single pass (#980).
 let draftsSubscribed = false;
 let streamSubscribed = false;
+let titleSubscribed = false;
 let askUserSubscribed = false;
 let mcpConfirmSubscribed = false;
 
@@ -318,6 +319,16 @@ function ensureSubscriptions(): void {
     api.conversations.onDeleteDraft(draftHandler((t, d) => { t.deleteDrafts = [...t.deleteDrafts, d]; }));
     api.conversations.onNoteBodyDraft(draftHandler((t, d) => { t.noteBodyDrafts = [...t.noteBodyDrafts, d]; }));
     draftsSubscribed = true;
+  }
+  if (!titleSubscribed) {
+    // The model named a conversation after its first exchange (main, in the
+    // background). A rename the user made meanwhile already won on disk, and
+    // main only announces a title it actually saved.
+    api.conversations.onTitleChanged(({ conversationId, title }) => {
+      const t = tabs.find((tab) => tab.id === conversationId);
+      if (t) t.conversation = { ...t.conversation, title, titleSource: 'auto' };
+    });
+    titleSubscribed = true;
   }
   if (!askUserSubscribed) {
     api.conversations.onAskUser((req) => {
@@ -546,7 +557,7 @@ async function send(content: string, currentNotePath?: string): Promise<void> {
   try {
     await api.conversations.send(tab.id, text, undefined, currentNotePath, tools);
     const reloaded = await api.conversations.load(tab.id);
-    if (reloaded) tab.conversation = reloaded;
+    if (reloaded) tab.conversation = keepKnownTitle(reloaded, tab.conversation);
     announceTurnComplete(tab);
   } catch (e) {
     handleTurnFailure(tab, e, text);
@@ -575,7 +586,7 @@ async function retryLastTurn(tabId: string, currentNotePath?: string): Promise<v
   try {
     await api.conversations.retry(tab.id, undefined, currentNotePath, tools);
     const reloaded = await api.conversations.load(tab.id);
-    if (reloaded) tab.conversation = reloaded;
+    if (reloaded) tab.conversation = keepKnownTitle(reloaded, tab.conversation);
     announceTurnComplete(tab);
   } catch (e) {
     handleTurnFailure(tab, e, null);
@@ -727,6 +738,22 @@ async function setModel(tabId: string, model: string | undefined): Promise<void>
   if (!tab) return;
   const updated = await api.conversations.setModel(tabId, model);
   tab.conversation = updated;
+}
+
+/**
+ * A reload read before the auto-title landed would drop a title the
+ * `onTitleChanged` event already put on screen; keep the one we know about.
+ */
+function keepKnownTitle(reloaded: Conversation, current: Conversation): Conversation {
+  if (reloaded.title || !current.title) return reloaded;
+  return { ...reloaded, title: current.title, ...(current.titleSource ? { titleSource: current.titleSource } : {}) };
+}
+
+/** Rename a conversation; `null`/blank clears the name (back to the first-message preview). */
+async function renameConversation(tabId: string, title: string | null): Promise<void> {
+  const tab = findTab(tabId);
+  if (!tab) return;
+  tab.conversation = await api.conversations.setTitle(tabId, title?.trim() ? title.trim() : null);
 }
 
 async function setEffort(
@@ -1095,7 +1122,7 @@ async function runComputeDraft(
     // Reload the conversation so the user-role context message the
     // main process appended shows up immediately in the transcript.
     const reloaded = await api.conversations.load(tab.id);
-    if (reloaded) tab.conversation = reloaded;
+    if (reloaded) tab.conversation = keepKnownTitle(reloaded, tab.conversation);
   } catch (e) {
     logger('conversation').error('run compute draft failed:', e);
     tab.computeDraftState = {
@@ -1206,6 +1233,7 @@ export function getConversationsStore() {
     cancel,
     setModel,
     setEffort,
+    renameConversation,
     runBuiltinCommand,
     approveDraft,
     discardDraft,

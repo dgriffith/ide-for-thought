@@ -38,6 +38,8 @@ const h = vi.hoisted(() => {
     archive: vi.fn(),
     create: vi.fn(),
     replaceMessages: vi.fn(),
+    setTitle: vi.fn(),
+    getSettings: vi.fn(),
     proposeWrite: vi.fn(),
     approveProposal: vi.fn(),
   };
@@ -97,7 +99,14 @@ vi.mock('../../../src/main/llm/conversation', () => ({
   archive: h.archive,
   create: h.create,
   replaceMessages: h.replaceMessages,
+  setTitle: h.setTitle,
   DEFAULT_UI_STATE: { visible: false, height: 320, activeTabId: null },
+}));
+
+// Settings — only what auto-titling reads; the rest of the module is real.
+vi.mock('../../../src/main/llm/settings', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../src/main/llm/settings')>()),
+  getSettings: h.getSettings,
 }));
 
 // Approval engine — the trust gate.
@@ -613,5 +622,54 @@ describe('stream tail flush (#2219)', () => {
     // appendMessage runs AFTER the completion's `finally`, so the tail is
     // already on the wire by then — and therefore well before the reply.
     expect(sentByAppendTime).toBe('tail text'.length);
+  });
+});
+
+
+// ── Conversation titles ─────────────────────────────────────────────────────
+// After the first exchange, one background call on the provider's cheap tier
+// names the conversation; a rename is a `user` title auto-titling never touches.
+
+describe('conversation titles', () => {
+  const setTitleHandler = h.handlers.get(Channels.CONVERSATION_SET_TITLE)!;
+  const firstExchange = {
+    ...CONV,
+    messages: [{ role: 'user', content: 'how were mandolins tuned in 1700?' }, { role: 'assistant', content: 'In fifths, mostly.' }],
+  };
+  const titleEvents = () => h.fakeWin.webContents.send.mock.calls.filter((c) => c[0] === Channels.CONVERSATION_TITLE_CHANGED);
+
+  it('renames through setTitle as a user title', async () => {
+    h.setTitle.mockResolvedValue({ conversation: { ...CONV, title: 'Trip', titleSource: 'user' }, changed: true });
+    const out = await setTitleHandler(evt, 'conv-1', 'Trip');
+    expect(h.setTitle).toHaveBeenCalledWith('/root', 'conv-1', 'Trip', 'user');
+    expect(out).toMatchObject({ title: 'Trip' });
+  });
+
+  it('titles the conversation after its first reply, on the cheap tier, and tells the window', async () => {
+    h.appendMessage.mockResolvedValue({ ...firstExchange, model: 'claude-opus-5-5' });
+    h.getSettings.mockResolvedValue({ model: 'claude-opus-5', providers: {} });
+    h.complete.mockResolvedValue('"Mandolin tuning in 1700."');
+    h.setTitle.mockResolvedValue({ conversation: firstExchange, changed: true });
+    h.completeWithTools.mockResolvedValue(completion('In fifths, mostly.'));
+
+    await send(evt, 'conv-1', 'how were mandolins tuned in 1700?');
+    await vi.waitFor(() => expect(titleEvents()).toHaveLength(1));
+
+    expect(h.complete.mock.calls[0]![1]).toMatchObject({ model: 'claude-sonnet-5', effort: 'low' });
+    expect(h.setTitle).toHaveBeenCalledWith('/root', 'conv-1', 'Mandolin tuning in 1700', 'auto');
+    expect(titleEvents()[0]![1]).toEqual({ conversationId: 'conv-1', title: 'Mandolin tuning in 1700' });
+  });
+
+  it('does nothing when auto-titling is off, or after the first exchange', async () => {
+    h.completeWithTools.mockResolvedValue(completion('reply'));
+    h.appendMessage.mockResolvedValue(firstExchange);
+    h.getSettings.mockResolvedValue({ model: 'claude-opus-5', providers: {}, autoTitleConversations: false });
+    await send(evt, 'conv-1', 'hello');
+    h.appendMessage.mockResolvedValue({ ...firstExchange, messages: [...firstExchange.messages, ...firstExchange.messages] });
+    h.getSettings.mockResolvedValue({ model: 'claude-opus-5', providers: {} });
+    await send(evt, 'conv-1', 'hello');
+    await new Promise((r) => setTimeout(r, 20));
+    expect(h.complete).not.toHaveBeenCalled();
+    expect(titleEvents()).toHaveLength(0);
   });
 });

@@ -82,8 +82,8 @@ const BUDGETS: Record<string, number> = {
   // predicted this: the IPC-surface files are budgeted and grow one line per
   // channel by construction, so a bump here is the expected remedy, not a
   // smell.
-  'src/renderer/lib/ipc/client.ts': 1386,  // #2448: tables.queryNote; #2439: mcp_call confirm reply/subscription + resetAllowedTools; #2411: menu.onRevealFile; #2363/#2364: doc comments on graph.query + git.commit contracts
-  'src/renderer/lib/stores/conversations.svelte.ts': 1234, // +4: carry a skill's user-turn material through open + /clear (#2438); +39: mcp_call confirmation card state, beside ask_user's (#2439); +26: turn start/settle screen-reader announcements (#2374)
+  'src/renderer/lib/ipc/client.ts': 1391,  // #2448: tables.queryNote; #2439: mcp_call confirm reply/subscription + resetAllowedTools; #2411: menu.onRevealFile; #2363/#2364: doc comments on graph.query + git.commit contracts; +5: setTitle + onTitleChanged (conversation titles)
+  'src/renderer/lib/stores/conversations.svelte.ts': 1262, // +4: carry a skill's user-turn material through open + /clear (#2438); +39: mcp_call confirmation card state, beside ask_user's (#2439); +26: turn start/settle screen-reader announcements (#2374); +28: conversation titles — rename, the titleChanged subscription, keepKnownTitle for the post-send reload race
   'src/renderer/lib/components/Editor.svelte': 854,
   'src/renderer/lib/stores/editor.svelte.ts': 914,
     'src/renderer/lib/components/right-sidebar/PropertiesPanel.svelte': 1168, // +8 (#2491): a committed edit fills the type's body placeholders in the same change
@@ -114,9 +114,9 @@ const BUDGETS: Record<string, number> = {
   // +17 (#2491): the property card's "Also fills {{name}} in the note's body" line, its helper and style.
   'src/renderer/lib/components/conversations/DraftCards.svelte': 775,
   // +1 for #2256: the MENU_COMMAND_PALETTE channel / its MENU_COMMANDS entry.
-  'src/shared/ipc-contract.ts': 796, // #2448: tables:queryNote; #2439: mcp_call confirm reply/event + resetAllowedTools; #2363/#2364: GraphQueryResult + git:commit doc comments; #2288: two inline Inspection shapes → Inspection[]; #2222: sources:queueCounts
+  'src/shared/ipc-contract.ts': 798, // #2448: tables:queryNote; #2439: mcp_call confirm reply/event + resetAllowedTools; #2363/#2364: GraphQueryResult + git:commit doc comments; #2288: two inline Inspection shapes → Inspection[]; #2222: sources:queueCounts; +2: conversation:setTitle + conversation:titleChanged
   // +1 for #2256: the MENU_COMMAND_PALETTE channel / its MENU_COMMANDS entry.
-  'src/shared/channels.ts': 762,  // #2448: TABLES_QUERY_NOTE; #2439: CONVERSATION_MCP_CONFIRM(_REPLY) + MCP_SERVERS_RESET_ALLOWED_TOOLS; #2411: MENU_REVEAL_FILE + why it isn't shell:revealFile; #2367: MENU_OPEN_RECENT_PROJECT (was a bare literal in preload + menu); #2222: SOURCES_QUEUE_COUNTS + its why-comment
+  'src/shared/channels.ts': 766,  // #2448: TABLES_QUERY_NOTE; #2439: CONVERSATION_MCP_CONFIRM(_REPLY) + MCP_SERVERS_RESET_ALLOWED_TOOLS; #2411: MENU_REVEAL_FILE + why it isn't shell:revealFile; #2367: MENU_OPEN_RECENT_PROJECT (was a bare literal in preload + menu); #2222: SOURCES_QUEUE_COUNTS + its why-comment; +4: CONVERSATION_SET_TITLE + CONVERSATION_TITLE_CHANGED
   // +5 (#2494): both typed-note creation paths read the type's effective (inherited) template.
   'src/renderer/lib/app/note-ops.ts': 692,
   'src/renderer/lib/editor/formatting.ts': 668,
@@ -139,7 +139,7 @@ const BUDGETS: Record<string, number> = {
   // ~250-line `<style>` block, not the logic.
   'src/renderer/lib/components/FindInNotesDialog.svelte': 633,
   // +1 for #2256: onCommandPalette passthrough.
-  'src/preload/preload.ts': 657,  // #2448: tables.queryNote; #2439: mcp_call confirm + resetAllowedTools passthroughs; #2411: menu.onRevealFile; #2222: sources.queueCounts passthrough
+  'src/preload/preload.ts': 661,  // #2448: tables.queryNote; #2439: mcp_call confirm + resetAllowedTools passthroughs; #2411: menu.onRevealFile; #2222: sources.queueCounts passthrough; +4: conversations.setTitle + onTitleChanged (conversation titles)
   'src/main/ipc/register-conversation-drafts.ts': 577,
   // New entry in #2218, which took this file from 538 over the threshold.
   // The seam this check asks about was taken first: the deadline POLICY —

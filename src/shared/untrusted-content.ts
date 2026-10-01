@@ -55,7 +55,9 @@ export type UntrustedKind =
   | 'source'
   | 'source-id'
   | 'source-title'
-  | 'thoughtbase-conventions';
+  | 'thoughtbase-conventions'
+  /** A conversation's opening exchange, read to title it. */
+  | 'conversation-excerpt';
 
 /** Kinds whose value is prose/markup, rendered on their own lines inside the
  *  tag; the rest are short scalars rendered inline. */
@@ -65,6 +67,7 @@ const BLOCK_KINDS: ReadonlySet<UntrustedKind> = new Set<UntrustedKind>([
   'claim-source-text',
   'source',
   'thoughtbase-conventions',
+  'conversation-excerpt',
 ]);
 
 // A `<` or a fullwidth / small-form lookalike: the candidates for neutralizing.

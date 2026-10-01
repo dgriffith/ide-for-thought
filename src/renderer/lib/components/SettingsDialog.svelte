@@ -140,6 +140,7 @@
   let importUpstreamTags = $state(true);
   let model = $state(DEFAULT_MODEL);
   let effort = $state<import('../../../shared/tools/effort').Effort | undefined>(undefined);
+  let autoTitle = $state(true);
   // Per-provider credential inputs + loaded status (BYOM #1498).
   let providerInputs = $state<Record<ProviderId, ProviderInput>>(emptyProviderInputs());
   let providerViews = $state<Partial<Record<ProviderId, ProviderConfigView>>>({});
@@ -156,6 +157,7 @@
       const s = await api.tools.getSettings();
       model = s.model;
       effort = s.effort;
+      autoTitle = s.autoTitleConversations !== false;
       providerViews = s.providers ?? {};
       customModels = s.customModels ? [...s.customModels] : [];
       // Prefill base-URL inputs from stored config so the user sees/edits them.
@@ -224,6 +226,7 @@
         blockedDomains: parseDomains(blockedDomainsText),
       },
       ...(effort ? { effort } : {}),
+      autoTitleConversations: autoTitle,
       ...(Object.keys(toolModelOverrides).length > 0 ? { toolModelOverrides } : {}),
       ...(Object.keys(providerUpdates).length > 0 ? { providers: providerUpdates } : {}),
       customModels,
@@ -331,6 +334,7 @@
           <AiSettings
             bind:model
             bind:effort
+            bind:autoTitle
             bind:providerInputs
             bind:customModels
             {providerViews}

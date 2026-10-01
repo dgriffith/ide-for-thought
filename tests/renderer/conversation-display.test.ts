@@ -68,3 +68,12 @@ describe('sourceKindLabel', () => {
     expect(sourceKindLabel({ identifier: 'something-else' })).toBe('id');
   });
 });
+
+describe('tabTitle — a saved conversation title comes first', () => {
+  it('prefers the conversation\'s title over a seeded tab title and the preview', () => {
+    const messages = [{ role: 'user', content: 'how were mandolins tuned?' }];
+    expect(tabTitle({ title: 'Seeded', conversation: { title: 'Mandolin tuning', messages } })).toBe('Mandolin tuning');
+    expect(tabTitle({ title: 'Seeded', conversation: { messages } })).toBe('Seeded');
+    expect(tabTitle({ title: null, conversation: { messages } })).toBe('how were mandolins tuned?');
+  });
+});

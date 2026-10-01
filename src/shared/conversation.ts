@@ -123,6 +123,14 @@ export interface Conversation {
   /** Set when status flips to 'archived'. */
   archivedAt?: string;
   /**
+   * The conversation's name on its tab and in the list. Absent ⇒ the panel
+   * shows a preview of the first user message. `titleSource` says who set it:
+   * `auto` — the model, once, after the first exchange (`llm/conversation-title.ts`);
+   * `user` — a rename, which nothing automatic ever overwrites.
+   */
+  title?: string;
+  titleSource?: 'auto' | 'user';
+  /**
    * Model used for LLM calls in this conversation. `undefined` means the
    * global default from LLMSettings — the conversation then tracks the
    * default if the user changes it later. Once set explicitly, it sticks.

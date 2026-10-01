@@ -370,6 +370,9 @@ export interface LLMSettings {
    *   request.modelOverride ?? toolModelOverrides[id] ?? tool.preferredModel ?? model
    */
   toolModelOverrides?: Record<string, string>;
+  /** Name new conversations with a short model-written title after their first
+   *  exchange, on the provider's cheap tier. Absent ⇒ on. */
+  autoTitleConversations?: boolean;
 }
 
 /**
@@ -381,6 +384,8 @@ export interface LLMSettings {
  */
 export interface LLMSettingsView {
   model: string;
+  /** See `LLMSettings.autoTitleConversations`. Absent ⇒ on. */
+  autoTitleConversations?: boolean;
   web?: WebSettings;
   effort?: import('./effort').Effort;
   toolModelOverrides?: Record<string, string>;
@@ -418,6 +423,8 @@ export interface LLMSettingsUpdate {
   web?: WebSettings;
   effort?: import('./effort').Effort;
   toolModelOverrides?: Record<string, string>;
+  /** See `LLMSettings.autoTitleConversations`. */
+  autoTitleConversations?: boolean;
 }
 
 /** Source-scoped tools (#103) live in the Source viewer; everything else is

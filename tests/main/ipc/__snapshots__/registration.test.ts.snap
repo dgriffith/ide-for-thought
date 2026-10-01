@@ -64,6 +64,7 @@ exports[`IPC registration contract (#997) > matches the known set of registered 
   "conversation:send",
   "conversation:setEffort",
   "conversation:setModel",
+  "conversation:setTitle",
   "conversation:uiStateLoad",
   "conversation:uiStateSave",
   "csl:importLocale",
