@@ -170,7 +170,10 @@
 </div>
 
 <style>
-  .objects-panel { display: flex; flex-direction: column; padding: 4px; }
+  /* The panel is the scroller: bounded by the sidebar (flex: 1 + min-height: 0)
+     and scrolling inside it. It had no height constraint at all, so a long type
+     list ran off the bottom of the window with nothing to scroll. */
+  .objects-panel { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; padding: 4px; }
   .empty { font-size: 12px; color: var(--text-faint); padding: 12px 8px; }
   .type-row-wrap { position: relative; display: flex; align-items: center; }
   .type-row {
@@ -290,4 +293,9 @@
     cursor: pointer;
   }
   .manage-views:hover { color: var(--text); }
+  /* Now that the column has a definite height, every row keeps its natural
+     height: the Excerpts row is a `.type-row` (flex: 1, for its row layout),
+     which would otherwise stretch to fill the panel, and a child with
+     overflow: hidden would shrink to nothing. Last, so it wins on order. */
+  .objects-panel > :global(*) { flex: none; }
 </style>
