@@ -8,13 +8,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent, cleanup, waitFor, screen } from '@testing-library/svelte';
 
-const { typesMock, queryMock, viewsListMock, noteTypeMapMock } = vi.hoisted(() => ({
-  typesMock: vi.fn(), queryMock: vi.fn(), viewsListMock: vi.fn(),
+const { typesMock, queryMock, noteTypeMapMock } = vi.hoisted(() => ({
+  typesMock: vi.fn(), queryMock: vi.fn(),
   // Instance rows carry a per-row type icon read from the store's map.
   noteTypeMapMock: vi.fn(),
 }));
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({
-  api: { types: { list: typesMock, noteTypeMap: noteTypeMapMock }, graph: { query: queryMock }, views: { list: viewsListMock } },
+  api: { types: { list: typesMock, noteTypeMap: noteTypeMapMock }, graph: { query: queryMock } },
 }));
 
 import ObjectsPanel from '../../../src/renderer/lib/components/ObjectsPanel.svelte';
@@ -34,7 +34,6 @@ async function seedTypes(map: Record<string, string>, types: unknown[] = [BOOK, 
 beforeEach(async () => {
   typesMock.mockResolvedValue({ types: [BOOK, MEETING], errors: [] });
   noteTypeMapMock.mockResolvedValue({});
-  viewsListMock.mockResolvedValue([]); // saved-views store refresh (#1072)
   queryMock.mockImplementation((sparql: string) => {
     if (sparql.includes('thought:Excerpt')) return Promise.resolve({ ok: true, results: [{ n: '7' }], columns: [] }); // excerpt count
     if (sparql.includes('COUNT')) return Promise.resolve({ ok: true, results: [{ id: 'book', n: '2' }], columns: [] });
@@ -47,7 +46,7 @@ beforeEach(async () => {
 afterEach(async () => {
   cleanup();
   await seedTypes({}, []); // the store is a module singleton — don't leak a map
-  typesMock.mockReset(); queryMock.mockReset(); viewsListMock.mockReset(); noteTypeMapMock.mockReset();
+  typesMock.mockReset(); queryMock.mockReset(); noteTypeMapMock.mockReset();
 });
 
 describe('ObjectsPanel (#1068)', () => {

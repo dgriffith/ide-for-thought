@@ -161,7 +161,6 @@ const SWALLOW_BASELINE: Record<string, number> = {
   'src/main/publish/exporters/static-site/search-script.ts': 1,
   'src/main/publish/pipeline.ts': 2,
   'src/main/saved-queries.ts': 1,
-  'src/main/saved-views.ts': 1,
   'src/main/search/minisearch-provider.ts': 1,
   'src/main/secret-storage.ts': 1,
   'src/main/sources/create-reference-stubs.ts': 1,
@@ -355,8 +354,8 @@ const IN_BAND_ERROR_ON_PAYLOAD_BASELINE: Record<string, number> = {};
  *   - JSON serialized into a variable first and written by a later call
  *     (`const text = JSON.stringify(x); fs.writeFile(p, text)`), unless the
  *     path argument is a `.json` literal;
- *   - a serializer helper (`saved-views.ts`'s `serializeView(input)` into a
- *     `${id}.json` path built earlier);
+ *   - a serializer helper (`serializeX(input)` written to a `${id}.json`
+ *     path built earlier);
  *   - a write through a stream or a library rather than `writeFile*`;
  *   - the argument list is found by balancing parentheses, so a string
  *     literal holding an unbalanced `(` or `)` would cut it short.

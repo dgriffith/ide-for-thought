@@ -32,7 +32,6 @@ beforeEach(() => {
   d.closeSettings();
   d.setOnboarding(false);
   d.setThoughtbaseProperties(false);
-  d.setEditSavedViews(false);
   d.setEditSavedQueries(false);
   d.setAbout(false);
   d.setShortcuts(false);

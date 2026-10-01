@@ -9,7 +9,7 @@
    *
    * Projection state (layout / sort / visible columns) is PROP-DRIVEN: it lives
    * on the tab (persisted across sessions) and is mutated via `onStateChange`,
-   * so a saved view (#1072) restores it exactly and "Save view" can capture it.
+   * so "Save as note" (#2507) can embed it exactly in a new note.
    *
    * A read-only surface: rows/cards deep-link to the note (the property form
    * #1066 is where values are edited); table cells never mutate the graph.
@@ -274,7 +274,7 @@
         {/if}
         <button class="tv-btn" onclick={copyAsMarkdown}>{markdownCopied ? 'Copied' : 'Copy as markdown'}</button>
         {#if onSaveView}
-          <button class="tv-btn" onclick={handleSaveViewClick}>{viewSaved ? 'Saved' : 'Save view'}</button>
+          <button class="tv-btn" onclick={handleSaveViewClick} title="Save this view as a note, with the view embedded live">{viewSaved ? 'Saved' : 'Save as note'}</button>
         {/if}
         <div class="tv-switch" role="tablist" aria-label="View">
           {#each LAYOUTS as l (l.id)}

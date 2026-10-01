@@ -66,7 +66,6 @@ let settings = $state(false);
 let settingsTab = $state<SettingsTab>(undefined);
 let onboarding = $state(false);
 let thoughtbaseProperties = $state(false);
-let editSavedViews = $state(false);
 let editSavedQueries = $state(false);
 let about = $state(false);
 let shortcuts = $state(false);
@@ -96,9 +95,6 @@ export function getFeatureDialogStore() {
 
     get thoughtbaseProperties() { return thoughtbaseProperties; },
     setThoughtbaseProperties(open: boolean) { thoughtbaseProperties = open; },
-
-    get editSavedViews() { return editSavedViews; },
-    setEditSavedViews(open: boolean) { editSavedViews = open; },
 
     get editSavedQueries() { return editSavedQueries; },
     setEditSavedQueries(open: boolean) { editSavedQueries = open; },

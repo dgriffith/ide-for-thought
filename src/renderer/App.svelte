@@ -21,7 +21,8 @@
   import { onMount } from 'svelte';
   import { getNotebaseStore } from './lib/stores/notebase.svelte';
   import { getEditorStore, type TypeViewTab } from './lib/stores/editor.svelte';
-  import { savedViewsStore } from './lib/stores/saved-views.svelte';
+  import { objectTypesStore } from './lib/stores/object-types.svelte';
+  import { suggestViewNoteName } from '../shared/objects/view-note';
   import { getSourceDataStore } from './lib/stores/source-data.svelte';
   import { createNoteOps, type NoteOpsCtx } from './lib/app/note-ops';
   import { deleteAsset } from './lib/app/asset-ops';
@@ -42,7 +43,7 @@
   // PdfViewer + OcrProgressDialog are loaded lazily at their render sites
   // (`{#await import()}`) so pdfjs-dist + tesseract.js stay out of the eager
   // startup graph (#691).
-  import type { MenuEditorState, SavedView, InspectionFix } from '../shared/types';
+  import type { MenuEditorState, InspectionFix } from '../shared/types';
   import type { Command } from './lib/command-palette/types';
   import { buildCommandRegistry } from './lib/command-palette/registry';
   import { createCommandKeymap, type CommandKeymapCtx } from './lib/app/command-keymap';
@@ -391,29 +392,15 @@
     }
   }
 
-  // Open a saved view (#1072): its exact projection — mode, sort, columns —
-  // re-applied onto (or opening) the type's multi-view tab.
-  function handleOpenSavedView(view: SavedView): void {
-    editor.openTypeView(view.typeId, {
-      layout: view.layout,
-      sortColumn: view.sortColumn,
-      sortDir: view.sortDir,
-      columns: view.columns,
-    });
-  }
-
-  // Save the active type-view's projection as a named view (#1072). Defaults to
-  // project scope so the preset travels with the thoughtbase.
-  /** Returns `true` iff a view was actually saved — `false` for a cancelled
-   *  name prompt — so TypeView's toolbar button can flash a "Saved"
-   *  confirmation only on a real save, not on every click regardless of
-   *  outcome (#2028-adjacent report: a cancelled prompt looked identical to
-   *  a successful save, since neither ever gave any visible feedback). */
+  /** Save the active type view as a note holding a live embed of it (#2507),
+   *  named at the prompt (suggested: "<Type> <layout>"). Returns `true` iff a
+   *  note was written — `false` for a cancelled prompt — so TypeView's toolbar
+   *  button only flashes "Saved" on a real save. */
   async function handleSaveView(tab: TypeViewTab): Promise<boolean> {
-    const name = await showPrompt('Save view as:');
-    if (!name) return false;
-    await savedViewsStore.save('project', {
-      name,
+    const label = objectTypesStore.types.find((t) => t.id === tab.typeId)?.label ?? tab.typeId;
+    const name = await showPrompt('Save view as a note:', suggestViewNoteName(label, tab.layout));
+    if (!name?.trim()) return false;
+    await saveViewAsNote(name, {
       typeId: tab.typeId,
       layout: tab.layout,
       sortColumn: tab.sortColumn,
@@ -663,7 +650,7 @@
     openTypeEditor: (initial, promoteNotePath) => { featureDialogs.setTypeEditor({ initial, promoteNotePath }); },
   };
   const {
-    handleNewNote, createNoteFromReference, removeBrokenAnchor, handleInlineTypeCreate, handlePromoteToType, handleSaveNoteAsObjectType, handleNewFolder, handleDelete, openFirstReferenceFromSafeDelete,
+    handleNewNote, saveViewAsNote, createNoteFromReference, removeBrokenAnchor, handleInlineTypeCreate, handlePromoteToType, handleSaveNoteAsObjectType, handleNewFolder, handleDelete, openFirstReferenceFromSafeDelete,
     handleCut, handleCopy, handleMove, handlePaste, handleMerge, performMerge,
     handleRename, handleCopyWithPrompt, handleMoveWithPrompt,
   } = createNoteOps(noteOpsCtx);
@@ -1120,8 +1107,6 @@
             onSourceSelect: (id) => handleOpenSource(id),
             onOpenExcerpt: handleOpenExcerpt,
             onOpenType: handleOpenTypeView,
-            onOpenView: handleOpenSavedView,
-            onManageViews: () => { featureDialogs.setEditSavedViews(true); },
             onSourceDeleted: handleSourceDeleted,
             onMineReferences: handleMineReferences,
             onTableClick: (name) => editor.openQuery(`SELECT * FROM ${name}`, 'sql'),

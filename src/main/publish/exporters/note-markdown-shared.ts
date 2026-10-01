@@ -12,6 +12,7 @@
  *     bundle root.
  */
 
+import { stripHiddenFences } from '../../../shared/markdown/fence-info';
 import { parseLocatorAlias } from './note-html/render';
 import type { ExportPlan } from '../types';
 import type { CitationRenderer } from '../csl';
@@ -138,7 +139,10 @@ function renderCiteRun(
  * indexing) but noise outside it.
  */
 export function stripTurtleBlocks(content: string): string {
-  return content.replace(/^```turtle\b[\s\S]*?^```\s*\n?/gm, '');
+  // Hidden fences (#2039) go too, whatever their language (#2509): content
+  // the author marked not-for-readers. The turtle regex alone missed
+  // `json-hidden`, `TURTLE-HIDDEN` and friends.
+  return stripHiddenFences(content).replace(/^```turtle\b[\s\S]*?^```\s*\n?/gm, '');
 }
 
 /**

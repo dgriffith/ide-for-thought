@@ -29,6 +29,7 @@ import type { ExportPlanFile, ExportPlan } from '../../types';
 import type { CitationRenderer } from '../../csl';
 import { escapeHtmlFull as escapeHtml, escapeHtmlFull as escapeAttr } from '../../../../shared/text-escape';
 import { stripFrontmatter } from '../../../../shared/frontmatter-strip';
+import { parseFenceInfo } from '../../../../shared/markdown/fence-info';
 
 /**
  * Returns the rendered body HTML — just the article content, no `<html>`
@@ -94,6 +95,18 @@ function buildMd(plan: ExportPlan, renderer?: CitationRenderer, fromPath?: strin
   md.validateLink = (url: string): boolean =>
     url.trim().toLowerCase().startsWith('data:image/svg+xml') || defaultValidateLink(url);
   md.use(footnote);
+  // A `-hidden` fence (#2039) is machine-facing content the preview renders as
+  // nothing; an export must not publish it either (#2509). Same rule as the
+  // preview's fence plugin (`parseFenceInfo`), so the two can't disagree.
+  // The clean-markdown and pandoc exports drop it too (`stripHiddenFences`);
+  // only the Minerva-internal passthrough `markdown` exporter keeps it.
+  const renderFence = md.renderer.rules.fence;
+  md.renderer.rules.fence = (tokens, idx, options, env, self) =>
+    parseFenceInfo(tokens[idx]!.info).hidden
+      ? ''
+      : renderFence
+        ? renderFence(tokens, idx, options, env, self)
+        : self.renderToken(tokens, idx, options);
   // `$…$` / `$$…$$` → KaTeX HTML (#327). Same plugin Preview uses so
   // the export and the editor preview render math identically.
   installMath(md);

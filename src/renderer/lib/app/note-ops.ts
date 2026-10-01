@@ -24,6 +24,7 @@ import type { TypeInfo, PropertyDef } from '../../../shared/objects/type-def';
 import { substituteTemplate } from '../../../shared/templates';
 import { typePlaceholderContext } from '../../../shared/objects/property-placeholders';
 import { buildTypedNoteScaffold } from '../../../shared/objects/scaffold';
+import { buildViewNoteContent, firstFreePath, viewNoteFilename, type ViewNoteSpec } from '../../../shared/objects/view-note';
 import { CONFIRM_KEYS } from '../confirm-keys';
 import type { SafeDeleteBlocker } from '../../../shared/types';
 import { tick } from 'svelte';
@@ -688,5 +689,19 @@ export function createNoteOps(ctx: NoteOpsCtx) {
     await handleMove(relativePath, destDir);
   }
 
-  return { handleNewNote, createNoteFromReference, removeBrokenAnchor, handleInlineTypeCreate, handlePromoteToType, handleSaveNoteAsObjectType, handleNewFolder, handleDelete, executeDeletes, openFirstReferenceFromSafeDelete, handleCut, handleCopy, handleMove, handlePaste, handleMerge, performMerge, handleRename, handleCopyWithPrompt, handleMoveWithPrompt };
+  /**
+   * Save a type view as a note (#2507): a note at the root, named as the user
+   * typed it, holding a live ```object-view embed of exactly this view. Never
+   * overwrites — a taken name gets " 2", " 3"… Opens the note, so the user
+   * sees the view they saved rendered in it.
+   */
+  async function saveViewAsNote(name: string, spec: ViewNoteSpec): Promise<string> {
+    const relativePath = await firstFreePath(viewNoteFilename(name), (p) => api.notebase.fileExists(p));
+    await api.notebase.writeFile(relativePath, buildViewNoteContent(name.trim().replace(/\.md$/i, ''), spec));
+    await notebase.refresh();
+    await openNoteRecordingHistory(relativePath, getOffset);
+    return relativePath;
+  }
+
+  return { handleNewNote, saveViewAsNote, createNoteFromReference, removeBrokenAnchor, handleInlineTypeCreate, handlePromoteToType, handleSaveNoteAsObjectType, handleNewFolder, handleDelete, executeDeletes, openFirstReferenceFromSafeDelete, handleCut, handleCopy, handleMove, handlePaste, handleMerge, performMerge, handleRename, handleCopyWithPrompt, handleMoveWithPrompt };
 }

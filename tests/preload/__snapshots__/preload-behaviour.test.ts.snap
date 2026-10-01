@@ -373,11 +373,6 @@ exports[`preload behaviour: surface-wide invariants (#2367) > the full method â†
   "types.noteTypeMap": "invoke types:noteTypeMap",
   "types.rename": "invoke types:rename",
   "types.save": "invoke types:save",
-  "views.delete": "invoke views:delete",
-  "views.list": "invoke views:list",
-  "views.rename": "invoke views:rename",
-  "views.save": "invoke views:save",
-  "views.setOrder": "invoke views:setOrder",
   "youtube.thumbnail": "invoke youtube:thumbnail",
 }
 `;
