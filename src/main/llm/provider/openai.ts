@@ -22,7 +22,7 @@ import type { TurnUsage } from '../../../shared/conversation';
 import type { ConnectionCheckResult } from '../../../shared/tools/types';
 import { toConnectionResult } from '../connection-error';
 import { PROVIDERS, type ProviderId } from '../../../shared/tools/providers';
-import type { Effort } from '../../../shared/tools/effort';
+import { effortSupported, type Effort } from '../../../shared/tools/effort';
 import type {
   ChatMessage,
   CompletionRequest,
@@ -53,13 +53,17 @@ function emptyUsage(): TurnUsage {
   return { inputTokens: 0, outputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0 };
 }
 
-/** Map neutral effort → OpenAI `reasoning_effort`. Levels above `high` (xhigh/
- *  max) clamp to `high` — the caller has already clamped to the model's
- *  supported set (effort.ts SUPPORT), so a non-reasoning model never reaches
- *  here with an effort. */
-export function reasoningEffortFor(effort: Effort | undefined): 'low' | 'medium' | 'high' | undefined {
+/** Map neutral effort → OpenAI `reasoning_effort` for `model`. xhigh/max go
+ *  through as-is for a model listed with them in effort.ts (the GPT-6 family);
+ *  for any other model they clamp to `high`, the ceiling up to gpt-5.6. The
+ *  caller has already clamped to the model's supported set, so a non-reasoning
+ *  model never reaches here with an effort. */
+export function reasoningEffortFor(
+  effort: Effort | undefined, model: string,
+): 'low' | 'medium' | 'high' | 'xhigh' | 'max' | undefined {
   if (!effort) return undefined;
-  return effort === 'low' || effort === 'medium' ? effort : 'high';
+  if (effort === 'low' || effort === 'medium' || effort === 'high') return effort;
+  return effortSupported(model, effort) ? effort : 'high';
 }
 
 /** ToolSpec (`{name, description, input_schema}`) → OpenAI function tool. */
@@ -166,7 +170,7 @@ export class OpenAIProvider implements LLMProvider {
       ...(req.history as unknown as ChatMsg[][]).flat(),
     ];
 
-    const reasoning = reasoningEffortFor(req.effort);
+    const reasoning = reasoningEffortFor(req.effort, req.model);
     const stream = await this.client.chat.completions.create(
       {
         model: req.model,
@@ -247,7 +251,7 @@ export class OpenAIProvider implements LLMProvider {
       ...(req.system ? [{ role: 'system' as const, content: req.system }] : []),
       ...req.messages.map((m) => ({ role: m.role, content: m.content })),
     ];
-    const reasoning = reasoningEffortFor(req.effort);
+    const reasoning = reasoningEffortFor(req.effort, req.model);
     const base = {
       model: req.model,
       messages,

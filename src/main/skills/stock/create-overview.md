@@ -10,7 +10,7 @@ context: [fullNote]
 # derivation that would mark it note-required). Mirrors create-learning-journey.
 requiresNote: false
 slashCommand: /overview
-model: claude-opus-5
+model: claude-opus-5-5
 # Web on: an overview is factual scaffolding, so let the assistant check names,
 # dates, and specifics as it drafts — the onboarding overview wants this too.
 web: true

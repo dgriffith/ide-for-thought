@@ -5,7 +5,7 @@ description: Propose a new object type (or an edit to one), reviewed and approve
 menu: Analysis
 group: Organization
 outputMode: openConversation
-model: claude-opus-5
+model: claude-opus-5-5
 web: false
 firstMessage: "Help me define a new object type."
 longDescription: >-

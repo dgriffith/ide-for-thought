@@ -6,7 +6,7 @@ menu: Research
 group: Decomposition
 outputMode: openConversation
 context: [fullNote]
-model: claude-opus-5
+model: claude-opus-5-5
 web: false
 tools: [ask_user]
 firstMessage: "Decompose this note into linked smaller notes."

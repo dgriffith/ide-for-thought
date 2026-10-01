@@ -10,7 +10,7 @@ context: [fullNote]
 # derivation that would otherwise mark it note-required).
 requiresNote: false
 slashCommand: /learning-journey
-model: claude-opus-5
+model: claude-opus-5-5
 web: true
 firstMessage: "{{#if note}}Build me a learning journey.{{/if}}"
 longDescription: >-

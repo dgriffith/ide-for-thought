@@ -10,7 +10,7 @@
  *   |------------------|-------------------------------------|
  *   | Haiku 4.5        | none (sending effort 400s)          |
  *   | Sonnet 4.6 / 5   | low / medium / high / max           |
- *   | Opus 4.8 / 5     | low / medium / high / xhigh / max   |
+ *   | Opus 4.8 / 5 / 5.5 | low / medium / high / xhigh / max |
  *   | Fable 5          | low / medium / high / xhigh / max   |
  *
  * The UI label "Extra" maps to `xhigh`, which is Opus/Fable-tier only (Sonnet
@@ -41,22 +41,29 @@ export const DEFAULT_EFFORT: Effort = 'medium';
  * yields `[]` — we send no effort rather than risk a 400.
  */
 const SUPPORT: Record<string, Effort[]> = {
+  // Opus 5.5's API default is `medium` (Opus 5's was `high`); with no effort
+  // configured we omit it and take the model's own default.
+  'claude-opus-5-5': ['low', 'medium', 'high', 'xhigh', 'max'],
   'claude-opus-5': ['low', 'medium', 'high', 'xhigh', 'max'],
   'claude-fable-5': ['low', 'medium', 'high', 'xhigh', 'max'],
   'claude-opus-4-8': ['low', 'medium', 'high', 'xhigh', 'max'],
   'claude-sonnet-5': ['low', 'medium', 'high', 'max'],
   'claude-sonnet-4-6': ['low', 'medium', 'high', 'max'],
   'claude-haiku-4-5': [],
-  // OpenAI reasoning models take `reasoning_effort` (low/medium/high). The
-  // provider maps neutral xhigh/max → high, and clampEffort snaps a picked
-  // xhigh/max down to high since it's not listed here. gpt-5/gpt-5-mini/o3/
-  // o4-mini are retired from MODEL_OPTIONS but keep an entry as a harmless
-  // orphan (see model-registry-parity.test.ts).
+  // OpenAI reasoning models take `reasoning_effort`. Up to gpt-5.6 that is
+  // low/medium/high: clampEffort snaps a picked xhigh/max down to high since
+  // it's not listed. The GPT-6 family accepts xhigh and max as well (Sol and
+  // Luna also accept `none`, which has no neutral equivalent here), and the
+  // provider passes them through for exactly the models listed with them.
+  // gpt-5/gpt-5-mini/o3/o4-mini are retired from MODEL_OPTIONS but keep an
+  // entry as a harmless orphan (see model-registry-parity.test.ts).
   'gpt-5': ['low', 'medium', 'high'],
   'gpt-5-mini': ['low', 'medium', 'high'],
   'o3': ['low', 'medium', 'high'],
   'o4-mini': ['low', 'medium', 'high'],
-  'gpt-6-astra': ['low', 'medium', 'high'],
+  'gpt-6-astra': ['low', 'medium', 'high', 'xhigh', 'max'],
+  'gpt-6-sol': ['low', 'medium', 'high', 'xhigh', 'max'],
+  'gpt-6-luna': ['low', 'medium', 'high', 'xhigh', 'max'],
   'gpt-5.6-sol': ['low', 'medium', 'high'],
   'gpt-5.6-terra': ['low', 'medium', 'high'],
   'gpt-5.6-luna': ['low', 'medium', 'high'],

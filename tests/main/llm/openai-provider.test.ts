@@ -45,13 +45,22 @@ function fakeClient(opts: {
 }
 
 describe('OpenAIProvider — pure mappers', () => {
-  it('reasoningEffortFor maps neutral effort, clamping xhigh/max → high', () => {
-    expect(reasoningEffortFor(undefined)).toBeUndefined();
-    expect(reasoningEffortFor('low')).toBe('low');
-    expect(reasoningEffortFor('medium')).toBe('medium');
-    expect(reasoningEffortFor('high')).toBe('high');
-    expect(reasoningEffortFor('xhigh')).toBe('high');
-    expect(reasoningEffortFor('max')).toBe('high');
+  it('reasoningEffortFor maps neutral effort, clamping xhigh/max → high below GPT-6', () => {
+    expect(reasoningEffortFor(undefined, 'gpt-5.6-sol')).toBeUndefined();
+    expect(reasoningEffortFor('low', 'gpt-5.6-sol')).toBe('low');
+    expect(reasoningEffortFor('medium', 'gpt-5.6-sol')).toBe('medium');
+    expect(reasoningEffortFor('high', 'gpt-5.6-sol')).toBe('high');
+    expect(reasoningEffortFor('xhigh', 'gpt-5.6-sol')).toBe('high');
+    expect(reasoningEffortFor('max', 'gpt-5.6-sol')).toBe('high');
+  });
+
+  it('reasoningEffortFor passes xhigh/max through for the GPT-6 family', () => {
+    for (const model of ['gpt-6-astra', 'gpt-6-sol', 'gpt-6-luna']) {
+      expect(reasoningEffortFor('xhigh', model)).toBe('xhigh');
+      expect(reasoningEffortFor('max', model)).toBe('max');
+    }
+    // An unknown id (a local model) never gets a level it may not accept.
+    expect(reasoningEffortFor('max', 'my-local-model')).toBe('high');
   });
 
   it('toChatTools translates a ToolSpec to an OpenAI function tool', () => {
