@@ -65,6 +65,7 @@ const CLASSIFIED: Record<string, ToolClass> = {
   propose_folder_move: 'propose',
   propose_folder_delete: 'propose',
   propose_note_body: 'propose',
+  propose_note_edits: 'propose',
   propose_notes: 'propose',
   propose_sources: 'propose',
   set_properties: 'propose',
@@ -125,6 +126,8 @@ const PATH_GUARDED: Record<string, { guard: 'agentPath' | 'bareSourceId'; site: 
   search_related: { guard: 'agentPath', site: 'search-related.ts' },
   run_skill: { guard: 'agentPath', site: 'run-skill.ts' },
   propose_note_body: { guard: 'agentPath', site: 'propose-note-body.ts' },
+  // Shares `readNoteForEdit` with propose_note_body, which is where the guard is.
+  propose_note_edits: { guard: 'agentPath', site: 'propose-note-body.ts' },
   propose_notes: { guard: 'agentPath', site: 'propose-notes.ts' },
   propose_note_delete: { guard: 'agentPath', site: 'propose-note-delete.ts' },
   set_properties: { guard: 'agentPath', site: 'set-properties.ts' },

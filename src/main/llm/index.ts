@@ -465,8 +465,14 @@ export async function completeWithTools(
     // reply that stops mid-sentence read as a complete answer (#1811) — same
     // treatment as the wedged-tool bail-out below.
     if (turn.stopReason === 'max_tokens') {
-      const msg = '\n\n_(I hit the length limit for one reply and stopped here. '
-        + 'Ask me to continue if you want the rest.)_';
+      // A cut-off tool call is not resumable: "continue" re-emits the whole call
+      // and hits the same cap (#1749 — a long propose_note_body). Say what does
+      // work instead of inviting the user to repeat the failure (#1816).
+      const msg = turn.toolCalls.length > 0
+        ? '\n\n_(I ran out of room partway through preparing that change, so nothing was drafted. '
+          + 'For a long note, ask me to edit specific passages instead of rewriting the whole note.)_'
+        : '\n\n_(I hit the length limit for one reply and stopped here. '
+          + 'Ask me to continue if you want the rest.)_';
       textPieces.push(msg);
       if (callbacks) callbacks.onChunk(msg);
       break;
