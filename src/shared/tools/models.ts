@@ -31,7 +31,11 @@ export const MODEL_OPTIONS: ModelOption[] = [
   // most→least capable. Opus 5 is the current flagship and the default (see
   // DEFAULT_MODEL in main/llm/settings.ts). Opus 4.8 is kept (still active) so
   // a user who explicitly selected it isn't reset to the default. Sonnet 4.6 is
-  // likewise kept; Sonnet 5 is its successor tier.
+  // likewise kept; Sonnet 5 is its successor tier. Opus 5.5 succeeds Opus 5 in
+  // the Opus line at a lower price; Opus 5 is kept for the same reason as 4.8.
+  // Opus 5.5 can't run with thinking disabled and 400s on a forced
+  // `tool_choice` — neither of which this app sends.
+  { value: 'claude-opus-5-5', label: 'Claude Opus 5.5', provider: 'anthropic' },
   { value: 'claude-opus-5', label: 'Claude Opus 5', provider: 'anthropic' },
   { value: 'claude-fable-5', label: 'Claude Fable 5', provider: 'anthropic' },
   { value: 'claude-opus-4-8', label: 'Claude Opus 4.8', provider: 'anthropic' },
@@ -41,10 +45,14 @@ export const MODEL_OPTIONS: ModelOption[] = [
   // OpenAI (BYOM #1495). gpt-5/gpt-5-mini/o3/o4-mini were retired by OpenAI
   // (shutdown Oct/Dec 2026) — reasoning is now unified into the gpt-5.6/gpt-6
   // line rather than a separate o-series. gpt-6-astra is the top-tier flagship
-  // (the OpenAI analog of Fable 5 — not the default); gpt-5.6-sol is the
-  // regular flagship/default tier (analog of Opus 5); terra and luna are the
-  // cheaper siblings.
+  // (the OpenAI analog of Fable 5 — not the default). gpt-6-sol and gpt-6-luna
+  // (2026-09-22) replace gpt-5.6-sol / gpt-5.6-luna at half the price: Sol is
+  // the regular flagship tier (analog of Opus), Luna the low-cost one. There is
+  // no GPT-6 Terra. The 5.6 models are kept — nothing has retired them, and a
+  // user who selected one shouldn't be reset.
   { value: 'gpt-6-astra', label: 'GPT-6 Astra', provider: 'openai' },
+  { value: 'gpt-6-sol', label: 'GPT-6 Sol', provider: 'openai' },
+  { value: 'gpt-6-luna', label: 'GPT-6 Luna', provider: 'openai' },
   { value: 'gpt-5.6-sol', label: 'GPT-5.6 Sol', provider: 'openai' },
   { value: 'gpt-5.6-terra', label: 'GPT-5.6 Terra', provider: 'openai' },
   { value: 'gpt-5.6-luna', label: 'GPT-5.6 Luna', provider: 'openai' },
@@ -122,6 +130,8 @@ export interface ModelPrice {
 export const MODEL_PRICING: Record<string, ModelPrice> = {
   // Opus 5 at the standard Opus tier ($5/$25), matching every prior Opus 4.x
   // release (confirmed at GA — no flagship premium).
+  // Opus 5.5 undercuts Opus 5 ($4/$20 vs $5/$25); cache reads $0.20.
+  'claude-opus-5-5': { input: 4, output: 20 },
   'claude-opus-5': { input: 5, output: 25 },
   'claude-fable-5': { input: 10, output: 50 },
   'claude-opus-4-8': { input: 5, output: 25 },
@@ -145,6 +155,8 @@ export const MODEL_PRICING: Record<string, ModelPrice> = {
   'o3': { input: 2, output: 8 },
   'o4-mini': { input: 1.1, output: 4.4 },
   'gpt-6-astra': { input: 10, output: 50 },
+  'gpt-6-sol': { input: 2, output: 10 },
+  'gpt-6-luna': { input: 0.1, output: 0.5 },
   'gpt-5.6-sol': { input: 4, output: 20 },
   'gpt-5.6-terra': { input: 2, output: 12 },
   'gpt-5.6-luna': { input: 0.2, output: 1.2 },

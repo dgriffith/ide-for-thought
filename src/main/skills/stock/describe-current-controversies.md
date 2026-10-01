@@ -7,7 +7,7 @@ group: Context
 outputMode: openConversation
 context: [selectedText, fullNote]
 slashCommand: /controversies
-model: claude-opus-5
+model: claude-opus-5-5
 web: true
 firstMessage: |-
   {{#if selection}}Map the current controversies around this selection.{{else}}{{#if note}}Map the current controversies around what I'm working on in this note.{{else}}I'll name the topic — map its current controversies.{{/if}}{{/if}}

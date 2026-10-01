@@ -216,7 +216,7 @@ describe('SkillsSettings (#672)', () => {
 describe('SkillsSettings — Reset to Default (per provider)', () => {
   /** One heavy skill and one light one, so a reset has both tiers to place. */
   const TIERED = [
-    skill({ id: 'deep', name: 'Antithesize', model: 'claude-opus-5' }),
+    skill({ id: 'deep', name: 'Antithesize', model: 'claude-opus-5-5' }),
     skill({ id: 'quick', name: 'Add Term', model: 'claude-sonnet-5' }),
   ];
 
@@ -230,7 +230,7 @@ describe('SkillsSettings — Reset to Default (per provider)', () => {
     listMock.mockResolvedValue(catalog(TIERED));
     const rendered = render(SkillsSettings, {
       toolModelOverrides: overrides,
-      defaultModel: 'claude-opus-5',
+      defaultModel: 'claude-opus-5-5',
     });
     await rendered.findByText('Antithesize');
     return rendered;
@@ -251,8 +251,8 @@ describe('SkillsSettings — Reset to Default (per provider)', () => {
 
   it('clears every pin when resetting onto the provider the skills were authored for', async () => {
     confirmMock.mockResolvedValue(true);
-    const { getByText, container } = await openPanel({ deep: 'gpt-5.6-sol', quick: 'gpt-5.6-terra' });
-    expect(rowModels(container)).toEqual(['gpt-5.6-sol', 'gpt-5.6-terra']);
+    const { getByText, container } = await openPanel({ deep: 'gpt-6-sol', quick: 'gpt-6-luna' });
+    expect(rowModels(container)).toEqual(['gpt-6-sol', 'gpt-6-luna']);
 
     await fireEvent.click(getByText('Reset to Default…'));
 
@@ -263,13 +263,13 @@ describe('SkillsSettings — Reset to Default (per provider)', () => {
 
   it('does nothing when the confirmation is declined', async () => {
     confirmMock.mockResolvedValue(false);
-    const { getByText, getByLabelText, container } = await openPanel({ deep: 'gpt-5.6-sol' });
+    const { getByText, getByLabelText, container } = await openPanel({ deep: 'gpt-6-sol' });
 
     await fireEvent.change(getByLabelText('Provider to reset skill models to'), { target: { value: 'openai' } });
     await fireEvent.click(getByText('Reset to Default…'));
 
     await waitFor(() => expect(confirmMock).toHaveBeenCalled());
-    expect(rowModels(container)).toEqual(['gpt-5.6-sol', '']);
+    expect(rowModels(container)).toEqual(['gpt-6-sol', '']);
   });
 
   it('names the provider in the confirmation, and promises menus are untouched', async () => {

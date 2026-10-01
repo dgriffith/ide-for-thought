@@ -7,7 +7,7 @@ group: Context
 outputMode: openConversation
 context: [selectedText, fullNote]
 slashCommand: /historical-background
-model: claude-opus-5
+model: claude-opus-5-5
 web: true
 firstMessage: |-
   {{#if selection}}Trace the historical background of this selection.{{else}}{{#if note}}Trace the historical background of what I'm working on in this note.{{else}}I'll name the topic — trace its historical background.{{/if}}{{/if}}

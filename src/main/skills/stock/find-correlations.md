@@ -5,7 +5,7 @@ description: Surface the strongest correlations across the thoughtbase's tabular
 menu: Analysis
 group: Data
 outputMode: openConversation
-model: claude-opus-5
+model: claude-opus-5-5
 web: false
 slashCommand: /find-correlations
 firstMessage: "Find the strongest correlations in this thoughtbase's tabular data, and show me a note to review."

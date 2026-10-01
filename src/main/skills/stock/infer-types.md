@@ -5,7 +5,7 @@ description: Propose a type for untyped notes, reviewed and approved per note
 menu: Analysis
 group: Organization
 outputMode: openConversation
-model: claude-opus-5
+model: claude-opus-5-5
 web: false
 firstMessage: "Look over the untyped notes in this thoughtbase and propose a type for the ones that clearly fit an existing type. Show them to me to approve per note."
 longDescription: >-

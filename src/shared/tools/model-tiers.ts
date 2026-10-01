@@ -36,11 +36,14 @@ export function isResettableProvider(v: string): v is ResettableProvider {
 
 /** The two ends of each provider's range. Keep in step with `MODEL_OPTIONS`. */
 export const TIER_MODELS: Record<ResettableProvider, Record<ModelTier, string>> = {
-  anthropic: { deep: 'claude-opus-5', quick: 'claude-sonnet-5' },
-  // gpt-5.6-sol is the regular flagship/default tier (the OpenAI analog of
-  // Opus 5); gpt-6-astra sits above it as an ultra-premium option, the same
-  // way Fable 5 sits above Opus 5 without being `deep` here.
-  openai: { deep: 'gpt-5.6-sol', quick: 'gpt-5.6-terra' },
+  // Opus 5.5 succeeds Opus 5 as the Opus-tier pick, at a lower price.
+  anthropic: { deep: 'claude-opus-5-5', quick: 'claude-sonnet-5' },
+  // gpt-6-sol is the regular flagship tier (the OpenAI analog of Opus);
+  // gpt-6-astra sits above it as an ultra-premium option, the same way Fable 5
+  // sits above Opus without being `deep` here. `quick` is gpt-6-luna: there is
+  // no GPT-6 Terra, and gpt-5.6-terra ($2/$12) now costs more than gpt-6-sol
+  // ($2/$10), so the cheap end of the range is the only cheaper sibling left.
+  openai: { deep: 'gpt-6-sol', quick: 'gpt-6-luna' },
   google: { deep: 'gemini-2.5-pro', quick: 'gemini-2.5-flash' },
 };
 
@@ -49,7 +52,7 @@ export const TIER_MODELS: Record<ResettableProvider, Record<ModelTier, string>> 
  *  a skill is never quietly downgraded by a model we don't recognise. */
 const QUICK_MODELS = new Set<string>([
   'claude-sonnet-5', 'claude-sonnet-4-6', 'claude-haiku-4-5',
-  'gpt-5-mini', 'o4-mini', 'gpt-5.6-terra', 'gpt-5.6-luna',
+  'gpt-5-mini', 'o4-mini', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-6-luna',
   'gemini-2.5-flash', 'gemini-3.8-flash',
 ]);
 

@@ -21,11 +21,15 @@ describe('tierForModel', () => {
   it('reads the cheap sibling of each provider as the quick tier', () => {
     expect(tierForModel('claude-sonnet-5')).toBe('quick');
     expect(tierForModel('gpt-5.6-terra')).toBe('quick');
+    expect(tierForModel('gpt-6-luna')).toBe('quick');
     expect(tierForModel('gemini-2.5-flash')).toBe('quick');
   });
 
   it('reads flagships as the deep tier', () => {
+    expect(tierForModel('claude-opus-5-5')).toBe('deep');
     expect(tierForModel('claude-opus-5')).toBe('deep');
+    expect(tierForModel('gpt-6-sol')).toBe('deep');
+    expect(tierForModel('gpt-6-astra')).toBe('deep');
     expect(tierForModel('gpt-5.6-sol')).toBe('deep');
     expect(tierForModel('gemini-2.5-pro')).toBe('deep');
   });
@@ -63,35 +67,44 @@ describe('TIER_MODELS', () => {
 
 describe('defaultOverridesForProvider', () => {
   const skills = [
-    { id: 'antithesize', model: 'claude-opus-5' },      // deep
+    { id: 'antithesize', model: 'claude-opus-5-5' },    // deep
     { id: 'add-term', model: 'claude-sonnet-5' },        // quick
     { id: 'no-preference' },                             // deep by default
   ];
 
   it('keeps each skill on its own tier when moving to another provider', () => {
-    expect(defaultOverridesForProvider(skills, 'google', 'claude-opus-5')).toEqual({
+    expect(defaultOverridesForProvider(skills, 'google', 'claude-opus-5-5')).toEqual({
       antithesize: 'gemini-2.5-pro',
       'add-term': 'gemini-2.5-flash',
       'no-preference': 'gemini-2.5-pro',
     });
-    expect(defaultOverridesForProvider(skills, 'openai', 'claude-opus-5')).toEqual({
-      antithesize: 'gpt-5.6-sol',
-      'add-term': 'gpt-5.6-terra',
-      'no-preference': 'gpt-5.6-sol',
+    expect(defaultOverridesForProvider(skills, 'openai', 'claude-opus-5-5')).toEqual({
+      antithesize: 'gpt-6-sol',
+      'add-term': 'gpt-6-luna',
+      'no-preference': 'gpt-6-sol',
     });
   });
 
   it('records no override where the skill already resolves to the tier model', () => {
     // Resetting onto the provider the skills were authored for should return
     // the panel to its pristine state, not pin fifty redundant values.
-    expect(defaultOverridesForProvider(skills, 'anthropic', 'claude-opus-5')).toEqual({});
+    expect(defaultOverridesForProvider(skills, 'anthropic', 'claude-opus-5-5')).toEqual({});
+  });
+
+  it('moves a skill still on the previous Opus onto the current one', () => {
+    // A global default of Opus 5 (the pre-5.5 default) no longer matches the
+    // Anthropic deep tier, so a skill with no preference of its own is pinned
+    // to Opus 5.5 by an Anthropic reset rather than left on the older model.
+    expect(defaultOverridesForProvider(skills, 'anthropic', 'claude-opus-5')).toEqual({
+      'no-preference': 'claude-opus-5-5',
+    });
   });
 
   it('pins a skill whose own preference differs from the global default', () => {
     // With a Sonnet default, the deep skills need an explicit pin and the
     // quick one doesn't.
     expect(defaultOverridesForProvider(skills, 'anthropic', 'claude-sonnet-5')).toEqual({
-      'no-preference': 'claude-opus-5',
+      'no-preference': 'claude-opus-5-5',
     });
   });
 
