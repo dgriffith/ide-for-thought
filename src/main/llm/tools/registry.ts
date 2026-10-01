@@ -20,6 +20,7 @@ import { proposeNoteDelete } from './propose-note-delete';
 import { proposeFolderMove } from './propose-folder-move';
 import { proposeFolderDelete } from './propose-folder-delete';
 import { proposeNoteBody } from './propose-note-body';
+import { proposeNoteEdits } from './propose-note-edits';
 import { proposeNotes } from './propose-notes';
 import { describeGraphSchema } from './describe-graph-schema';
 import { describeTables } from './describe-tables';
@@ -56,6 +57,7 @@ const DEFAULT_TOOLS: NotebaseTool[] = [
   proposeFolderMove,
   proposeFolderDelete,
   proposeNoteBody,
+  proposeNoteEdits,
   proposeNotes,
   describeGraphSchema,
   describeTables,

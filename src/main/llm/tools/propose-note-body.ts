@@ -20,11 +20,74 @@ import { agentPathProblem } from './agent-path';
  * than failing the call: one bad path in a batch of twenty shouldn't discard
  * the nineteen good rewrites the model just produced.
  */
+/**
+ * The checks every in-place note edit shares — the agent-path guard (#2453),
+ * `.md` only, and the note must exist — then its current content. Used by
+ * `propose_note_body` (whole-file rewrite) and `propose_note_edits` (anchored
+ * replacements, #1816), so the two can't drift on what they refuse.
+ * Returns a warning string instead of throwing: a bad path in a batch is
+ * reported and skipped, never fatal to the rest.
+ */
+export async function readNoteForEdit(
+  ctx: ToolContext, relativePath: unknown, tool: string,
+): Promise<{ path: string; before: string } | { warning: string }> {
+  if (typeof relativePath !== 'string' || !relativePath.trim()) return { warning: 'Skipped an edit with no relative_path.' };
+  const p = relativePath.trim();
+  const refused = agentPathProblem(ctx, p);
+  if (refused) return { warning: `Skipped ${p}: ${refused}` };
+  if (!p.endsWith('.md')) return { warning: `Skipped ${p}: only .md notes can be edited.` };
+  if (!(await fs.fileExists(ctx.rootPath, p))) {
+    return { warning: `Skipped ${p}: no such note. ${tool} edits existing notes — use propose_notes to create one.` };
+  }
+  return { path: p, before: await fs.readFile(ctx.rootPath, p) };
+}
+
+/**
+ * Hand a batch of before/after pairs to the renderer as ONE review card, filed
+ * on approval as ONE bundled `note-rewrite` proposal — whichever tool produced
+ * the `after` text. Reports why when nothing survived rather than opening an
+ * empty card.
+ */
+export function fileNoteBodyDraft(
+  ctx: ToolContext & { conversationId: string },
+  callbacks: ToolCallbacks & { onNoteBodyDraft: NonNullable<ToolCallbacks['onNoteBodyDraft']> },
+  items: NoteBodyDraftItem[], warnings: string[], note: unknown, emptyMessage: string,
+): { content: string; isError: boolean } {
+  if (items.length === 0) {
+    return { content: `${emptyMessage}\n${warnings.join('\n')}`, isError: true };
+  }
+  const summary = items.length === 1
+    ? `Rewrite ${items[0]!.relativePath}`
+    : `Rewrite ${items.length} notes`;
+  const draft: ConversationNoteBodyDraft = {
+    draftId: `note-body-${randomUUID()}`,
+    conversationId: ctx.conversationId,
+    note: typeof note === 'string' && note.trim() ? note.trim() : summary,
+    items,
+    warnings,
+    createdAt: new Date().toISOString(),
+  };
+  callbacks.onNoteBodyDraft(draft);
+  return {
+    content: JSON.stringify({
+      status: 'drafted',
+      draftId: draft.draftId,
+      paths: items.map((i) => i.relativePath),
+      ...(warnings.length > 0 ? { skipped: warnings } : {}),
+      hint: 'STOP. The changes are queued for the user to review as before/after diffs and approve — ' +
+        'nothing has been written. End the turn with one short acknowledgement and do NOT call this tool again this turn.',
+    }),
+    isError: false,
+  };
+}
+
 async function runProposeNoteBody(
   ctx: ToolContext, input: unknown, callbacks: ToolCallbacks,
 ): Promise<{ content: string; isError: boolean }> {
-  if (!callbacks.onNoteBodyDraft) return { content: 'propose_note_body is only available in conversation contexts.', isError: true };
-  if (!ctx.conversationId) return { content: 'propose_note_body requires a bound conversation id.', isError: true };
+  const onNoteBodyDraft = callbacks.onNoteBodyDraft;
+  if (!onNoteBodyDraft) return { content: 'propose_note_body is only available in conversation contexts.', isError: true };
+  const conversationId = ctx.conversationId;
+  if (!conversationId) return { content: 'propose_note_body requires a bound conversation id.', isError: true };
 
   const { edits, note } = input as { edits?: unknown; note?: unknown };
   if (!Array.isArray(edits) || edits.length === 0) {
@@ -37,38 +100,22 @@ async function runProposeNoteBody(
   const items: NoteBodyDraftItem[] = [];
   const warnings: string[] = [];
   const seen = new Set<string>();
-
   for (const raw of edits) {
     const { relative_path, content } = (raw ?? {}) as { relative_path?: unknown; content?: unknown };
-    if (typeof relative_path !== 'string' || !relative_path.trim()) {
-      warnings.push('Skipped an edit with no relative_path.');
-      continue;
-    }
-    const p = relative_path.trim();
-    const refused = agentPathProblem(ctx, p);
-    if (refused) {
-      warnings.push(`Skipped ${p}: ${refused}`);
-      continue;
-    }
     if (typeof content !== 'string' || content.length === 0) {
-      warnings.push(`Skipped ${p}: content is required (the complete new markdown).`);
+      const label = typeof relative_path === 'string' && relative_path.trim() ? relative_path.trim() : 'an edit';
+      warnings.push(`Skipped ${label}: content is required (the complete new markdown).`);
       continue;
     }
-    if (!p.endsWith('.md')) {
-      warnings.push(`Skipped ${p}: only .md notes can be rewritten.`);
-      continue;
-    }
+    const read = await readNoteForEdit(ctx, relative_path, 'propose_note_body');
+    if ('warning' in read) { warnings.push(read.warning); continue; }
+    const { path: p, before } = read;
     // A repeated path would mean two rewrites of one note in a single bundle —
     // the second silently winning. Keep the first and say so.
     if (seen.has(p)) {
       warnings.push(`Skipped a duplicate edit for ${p}; kept the first.`);
       continue;
     }
-    if (!(await fs.fileExists(ctx.rootPath, p))) {
-      warnings.push(`Skipped ${p}: no such note. propose_note_body rewrites existing notes — use propose_notes to create one.`);
-      continue;
-    }
-    const before = await fs.readFile(ctx.rootPath, p);
     if (before === content) {
       warnings.push(`Skipped ${p}: the proposed content is identical to the current content.`);
       continue;
@@ -77,39 +124,7 @@ async function runProposeNoteBody(
     items.push({ relativePath: p, beforeContent: before, afterContent: content });
   }
 
-  if (items.length === 0) {
-    // Nothing survived — report why rather than opening an empty review card.
-    return {
-      content: `No rewrites to propose.\n${warnings.join('\n')}`,
-      isError: true,
-    };
-  }
-
-  const summary = items.length === 1
-    ? `Rewrite ${items[0]!.relativePath}`
-    : `Rewrite ${items.length} notes`;
-
-  const draft: ConversationNoteBodyDraft = {
-    draftId: `note-body-${randomUUID()}`,
-    conversationId: ctx.conversationId,
-    note: typeof note === 'string' && note.trim() ? note.trim() : summary,
-    items,
-    warnings,
-    createdAt: new Date().toISOString(),
-  };
-  callbacks.onNoteBodyDraft(draft);
-
-  return {
-    content: JSON.stringify({
-      status: 'drafted',
-      draftId: draft.draftId,
-      paths: items.map((i) => i.relativePath),
-      ...(warnings.length > 0 ? { skipped: warnings } : {}),
-      hint: 'STOP. The rewrites are queued for the user to review as before/after diffs and approve — ' +
-        'nothing has been written. End the turn with one short acknowledgement and do NOT call this tool again this turn.',
-    }),
-    isError: false,
-  };
+  return fileNoteBodyDraft({ ...ctx, conversationId }, { ...callbacks, onNoteBodyDraft }, items, warnings, note, 'No rewrites to propose.');
 }
 
 export const proposeNoteBody: NotebaseTool = {
@@ -119,7 +134,10 @@ export const proposeNoteBody: NotebaseTool = {
       'Propose rewriting the full content of one or more EXISTING notes in place, ' +
       'for the user to review as before/after diffs. Use this to flesh out a sparse ' +
       'or dictated stub, restructure a note, tighten prose, or fold in new material — ' +
-      'anything that changes a note\'s body. Each note must already exist (use ' +
+      'anything that changes a note\'s body. For a change that leaves most of a note ' +
+      'as it is — and for ANY long note — use propose_note_edits instead: this tool must ' +
+      'emit the entire file in one reply and can run out of room partway, drafting ' +
+      'nothing. Each note must already exist (use ' +
       'propose_notes to create one, propose_note_rename to move it). ' +
       'ALWAYS read a note first (read_note) so your rewrite builds on what is ' +
       'there rather than replacing it blindly. Pass the COMPLETE new markdown in ' +

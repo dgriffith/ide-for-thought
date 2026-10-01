@@ -26,6 +26,7 @@
     "propose_folder_move",
     "propose_folder_delete",
     "propose_note_body",
+    "propose_note_edits",
     "propose_notes",
     "describe_graph_schema",
     "describe_tables",

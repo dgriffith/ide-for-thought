@@ -31,7 +31,7 @@ import { agentPathProblem } from './agent-path';
  * context and hands the TEXT back as the tool result — the same shape Claude
  * Code's own Skill tool uses (load instructions into context; the same agent
  * carries them out). The model then follows those instructions itself, using
- * its existing `propose_notes` / `propose_note_body` tools to file whatever
+ * its existing `propose_notes` / `propose_note_edits` tools to file whatever
  * the skill produces — so the result goes through the exact same review card
  * and approval path any other conversational note creation does, with no new
  * drafting code here.
@@ -173,7 +173,11 @@ async function runRunSkill(ctx: ToolContext, input: unknown): Promise<ToolResult
   }
 
   const filingHint = tool.outputMode === 'appendToNote'
-    ? `Then call propose_note_body to append the result onto ${parsed.notePath} — that is the ONLY way to file it.`
+    // Anchored edit, not a whole-file rewrite (#1816): appending to a long note
+    // with propose_note_body re-emits the whole file and can hit the output cap.
+    ? `Then call propose_note_edits to append the result onto ${parsed.notePath}: set old_text to the ` +
+      `note's final line(s) — enough to be unique — and new_text to those same lines followed by the result. ` +
+      `That is the ONLY way to file it.`
     : 'Then call propose_notes to file the result as a new note — that is the ONLY way to file it.';
 
   return {
@@ -196,7 +200,7 @@ export const runSkill: NotebaseTool = {
       '`parameterValues` it declares (a param you omit uses its authored default). The ' +
       'tool result is the skill\'s rendered prompt, NOT a finished artifact — after ' +
       'reading it, follow its instructions and then file the outcome with your own ' +
-      'propose_notes / propose_note_body call (the catalog entry says which). Do not ' +
+      'propose_notes / propose_note_edits call (the catalog entry says which). Do not ' +
       'write the result any other way.',
     input_schema: {
       type: 'object',

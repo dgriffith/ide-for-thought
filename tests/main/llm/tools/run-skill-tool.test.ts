@@ -239,7 +239,7 @@ describe('run_skill run()', () => {
     expect(res.content).toMatch(/nothing has been (generated or filed|written)/i);
   });
 
-  it('tells the model to use propose_note_body for an appendToNote skill', async () => {
+  it('tells the model to use propose_note_edits for an appendToNote skill (#1816)', async () => {
     register(APPEND_SKILL);
     await writeNote(project.root, 'notes/log.md', 'Existing log content.');
     const res = await runSkill.run(
@@ -248,7 +248,9 @@ describe('run_skill run()', () => {
       {},
     );
     expect(res.isError).toBe(false);
-    expect(res.content).toContain('propose_note_body');
+    expect(res.content).toContain('propose_note_edits');
+    // Appending by whole-file rewrite is the #1749 wall on a long note.
+    expect(res.content).not.toContain('propose_note_body');
     expect(res.content).toContain('notes/log.md');
   });
 
