@@ -13,9 +13,7 @@
   import TypeIcon from './TypeIcon.svelte';
   import { objectTypesStore } from '../stores/object-types.svelte';
   import ExcerptsBrowser from './ExcerptsBrowser.svelte';
-  import { savedViewsStore } from '../stores/saved-views.svelte';
   import type { TypeInfo } from '../../../shared/objects/type-def';
-  import type { SavedView } from '../../../shared/types';
 
   interface Props {
     onFileSelect: (relativePath: string) => void;
@@ -23,12 +21,8 @@
     onOpenExcerpt?: (excerptId: string) => void;
     /** Open a type's instances in the main-pane list/table/gallery view (#1070). */
     onOpenType?: (typeId: string) => void;
-    /** Open a saved view (its preset) in the main-pane multi-view (#1072). */
-    onOpenView?: (view: SavedView) => void;
-    /** Open the rename/delete/reorder dialog for saved views (#1072). */
-    onManageViews?: () => void;
   }
-  let { onFileSelect, onOpenExcerpt, onOpenType, onOpenView, onManageViews }: Props = $props();
+  let { onFileSelect, onOpenExcerpt, onOpenType }: Props = $props();
 
   interface TypeRow { type: TypeInfo; count: number; }
   interface Instance { title: string; path: string; }
@@ -84,7 +78,6 @@
       api.types.list(),
       loadCounts(),
       loadExcerptCount(),
-      savedViewsStore.refresh(), // #1072 — keep the saved-view sub-rows fresh
     ]);
     rows = cat.types.map((type) => ({ type, count: counts[type.id] ?? 0 }));
     excerptCount = exCount;
@@ -116,15 +109,6 @@
         <button class="open-view" title={`Open ${row.type.label} view`} aria-label={`Open ${row.type.label} view`} onclick={() => onOpenType(row.type.id)}>⤢</button>
       {/if}
     </div>
-    <!-- Saved views for this type (#1072) — preset projections, always visible. -->
-    {#if onOpenView}
-      {#each savedViewsStore.forType(row.type.id) as view (view.id)}
-        <button class="view-row" onclick={() => onOpenView(view)} title={`Open saved view: ${view.name}`}>
-          <span class="view-icon">⊞</span>
-          <span class="view-name">{view.name}</span>
-        </button>
-      {/each}
-    {/if}
     {#if open}
       {#if (instances[row.type.id] ?? []).length === 0}
         <p class="no-instances">No {row.type.label.toLowerCase()} yet</p>
@@ -164,9 +148,6 @@
     <p class="empty">No types or excerpts in this project yet.</p>
   {/if}
 
-  {#if onManageViews && savedViewsStore.views.length > 0}
-    <button class="manage-views" onclick={() => onManageViews()}>Manage saved views…</button>
-  {/if}
 </div>
 
 <style>
@@ -262,37 +243,6 @@
     padding: 4px 8px 4px 30px;
     margin: 0;
   }
-  /* Saved-view sub-rows (#1072) — indented under their type. */
-  .view-row {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    width: 100%;
-    padding: 3px 8px 3px 30px;
-    border: none;
-    border-radius: 5px;
-    background: transparent;
-    color: var(--text-muted);
-    font-family: inherit;
-    font-size: 12px;
-    cursor: pointer;
-    text-align: left;
-  }
-  .view-row:hover { background: color-mix(in oklch, var(--text) 4%, transparent); color: var(--text); }
-  .view-icon { font-size: 11px; color: var(--text-faint); flex-shrink: 0; }
-  .view-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .manage-views {
-    margin-top: 6px;
-    padding: 5px 8px;
-    border: none;
-    background: transparent;
-    color: var(--text-faint);
-    font-family: inherit;
-    font-size: 11.5px;
-    text-align: left;
-    cursor: pointer;
-  }
-  .manage-views:hover { color: var(--text); }
   /* Now that the column has a definite height, every row keeps its natural
      height: the Excerpts row is a `.type-row` (flex: 1, for its row layout),
      which would otherwise stretch to fill the panel, and a child with

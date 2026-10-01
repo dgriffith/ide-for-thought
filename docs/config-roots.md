@@ -29,7 +29,7 @@ listed here. Adding a config without documenting it fails a test.
 | `recent-projects.json` | Recently opened thoughtbases. An unreadable one is set aside as `recent-projects.json.unreadable` rather than overwritten (#2416). |
 | `session.json` | Window / layout / tab session. |
 | `compute-audit.jsonl` | Append-only audit log of code-cell runs. |
-| `queries/`, `views/` | Saved queries / views at **global** scope. |
+| `queries/` | Saved queries at **global** scope. |
 
 ## 2. `~/.minerva/` — per **user** (home)
 

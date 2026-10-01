@@ -59,7 +59,6 @@
   import GotoLineDialog from './GotoLineDialog.svelte';
   import FindInNotesDialog from './FindInNotesDialog.svelte';
   import EditSavedQueriesDialog from './EditSavedQueriesDialog.svelte';
-  import EditSavedViewsDialog from './EditSavedViewsDialog.svelte';
   import SaveQueryDialog from './SaveQueryDialog.svelte';
   import AttachEvidenceDialog from './AttachEvidenceDialog.svelte';
   import TypeEditorDialog from './TypeEditorDialog.svelte';
@@ -175,9 +174,6 @@
 {/if}
 {#if featureDialogs.editSavedQueries}
   <EditSavedQueriesDialog projectOpen={!!notebase.meta} onClose={() => { featureDialogs.setEditSavedQueries(false); }} />
-{/if}
-{#if featureDialogs.editSavedViews}
-  <EditSavedViewsDialog onClose={() => { featureDialogs.setEditSavedViews(false); }} />
 {/if}
 {#if featureDialogs.attachEvidenceExcerptId}
   <AttachEvidenceDialog

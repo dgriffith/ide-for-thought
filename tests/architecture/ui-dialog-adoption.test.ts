@@ -39,7 +39,6 @@ const UNMIGRATED_BASELINE = [
   'CollectionPickerDialog.svelte',
   'CommandPaletteDialog.svelte',
   'EditSavedQueriesDialog.svelte',
-  'EditSavedViewsDialog.svelte',
   'FindInNotesDialog.svelte',
   'GotoLineDialog.svelte',
   'GotoNoteDialog.svelte',

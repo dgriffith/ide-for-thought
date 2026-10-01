@@ -12,7 +12,7 @@ const h = vi.hoisted(() => {
     notebase: {
       createFile: vi.fn(), writeFile: vi.fn(), rename: vi.fn(), copy: vi.fn(),
       deleteFile: vi.fn(), deleteFolder: vi.fn(), createFolder: vi.fn(),
-      readFile: vi.fn(), mergePreview: vi.fn(), merge: vi.fn(),
+      readFile: vi.fn(), mergePreview: vi.fn(), merge: vi.fn(), fileExists: vi.fn(),
     },
     links: { externalInbound: vi.fn() },
     templates: { get: vi.fn() },
@@ -216,6 +216,28 @@ describe('createNoteFromReference — nav history (#1446)', () => {
     // The referencing note is on the back stack, so Back returns to it — the
     // bug was that createNoteFromReference bypassed nav recording entirely.
     expect(nav.goBack()).toEqual({ type: 'note', relativePath: 'topic/Referrer.md', offset: 0 });
+  });
+});
+
+describe('saveViewAsNote (#2507)', () => {
+  const spec = { typeId: 'place', layout: 'map' as const, sortColumn: null, sortDir: 'asc' as const, columns: null };
+
+  it('writes a note at the root embedding the view, then opens it', async () => {
+    h.api.notebase.fileExists.mockResolvedValue(false);
+    const path = await ops.saveViewAsNote('Prague places', spec);
+    expect(path).toBe('Prague places.md');
+    const [written, content] = h.api.notebase.writeFile.mock.calls.at(-1) as [string, string];
+    expect(written).toBe('Prague places.md');
+    expect(content).toContain('# Prague places');
+    expect(content).toContain('```object-view\n{\n  "typeId": "place",\n  "layout": "map"\n}\n```');
+    expect(h.notebase.refresh).toHaveBeenCalled();
+    expect(h.editor.openFile).toHaveBeenCalledWith('Prague places.md');
+  });
+
+  it('never overwrites an existing note', async () => {
+    h.api.notebase.fileExists.mockImplementation(async (p: string) => p === 'Places.md');
+    expect(await ops.saveViewAsNote('Places', spec)).toBe('Places 2.md');
+    expect(h.api.notebase.writeFile).not.toHaveBeenCalledWith('Places.md', expect.anything());
   });
 });
 

@@ -32,9 +32,6 @@ const { handlers, listeners, h } = vi.hoisted(() => ({
     logoutSite: vi.fn(), openLoginWindow: vi.fn(),
     // git
     getStatus: vi.fn(), commitAll: vi.fn(),
-    // saved views
-    listSavedViews: vi.fn(), saveView: vi.fn(), deleteView: vi.fn(),
-    renameView: vi.fn(), setViewOrder: vi.fn(),
     // clipper
     getClipperConfig: vi.fn(), setClipperEnabled: vi.fn(), regenerateClipperSecret: vi.fn(),
     getClipperInfo: vi.fn(), applyClipperConfigChange: vi.fn(),
@@ -81,10 +78,6 @@ vi.mock('../../../src/main/privileged-sites', () => ({
   logoutSite: h.logoutSite, openLoginWindow: h.openLoginWindow,
 }));
 vi.mock('../../../src/main/git/index', () => ({ getStatus: h.getStatus, commitAll: h.commitAll }));
-vi.mock('../../../src/main/saved-views', () => ({
-  listSavedViews: h.listSavedViews, saveView: h.saveView, deleteView: h.deleteView,
-  renameView: h.renameView, setViewOrder: h.setViewOrder,
-}));
 vi.mock('../../../src/main/clipper/clipper-config', () => ({
   getClipperConfig: h.getClipperConfig,
   setClipperEnabled: h.setClipperEnabled,
@@ -102,14 +95,12 @@ import { Channels } from '../../../src/shared/channels';
 import { registerTags } from '../../../src/main/ipc/register-tags';
 import { registerSites } from '../../../src/main/ipc/register-sites';
 import { registerGit } from '../../../src/main/ipc/register-git';
-import { registerViews } from '../../../src/main/ipc/register-views';
 import { registerClipper } from '../../../src/main/ipc/register-clipper';
 import { registerApp } from '../../../src/main/ipc/register-app';
 
 registerTags();
 registerSites();
 registerGit();
-registerViews();
 registerClipper();
 registerApp();
 
@@ -214,37 +205,6 @@ describe('register-git (#1840)', () => {
   });
 });
 
-describe('register-views (#1840)', () => {
-  it('hands the store a null root when no project is open', () => {
-    // Deliberate (see the module docstring): saved views exist in a global
-    // scope too, so the store decides what a project-less list means. The
-    // registrar's job is only to report the truth about the window.
-    openProject = null;
-    h.listSavedViews.mockReturnValue([]);
-    expect(call(Channels.VIEWS_LIST)).toEqual([]);
-    expect(h.listSavedViews).toHaveBeenCalledWith(null);
-  });
-
-  it('scopes list and save to the open project', () => {
-    call(Channels.VIEWS_LIST);
-    expect(h.listSavedViews).toHaveBeenCalledWith(ROOT);
-    const input = { typeId: 't', name: 'v' };
-    call(Channels.VIEWS_SAVE, 'project', input);
-    expect(h.saveView).toHaveBeenCalledWith(ROOT, 'project', input);
-  });
-
-  it('addresses delete, rename and reorder by file path, not by project', () => {
-    // These take an absolute path the caller already has, so they work the
-    // same with or without a project open.
-    openProject = null;
-    call(Channels.VIEWS_DELETE, '/p/v.md');
-    call(Channels.VIEWS_RENAME, '/p/v.md', 'new');
-    call(Channels.VIEWS_SET_ORDER, [{ filePath: '/p/v.md', order: 1 }]);
-    expect(h.deleteView).toHaveBeenCalledWith('/p/v.md');
-    expect(h.renameView).toHaveBeenCalledWith('/p/v.md', 'new');
-    expect(h.setViewOrder).toHaveBeenCalledWith([{ filePath: '/p/v.md', order: 1 }]);
-  });
-});
 
 describe('register-clipper (#1840)', () => {
   beforeEach(() => {
