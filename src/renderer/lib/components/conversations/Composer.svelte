@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tick } from 'svelte';
+  import { tick, untrack } from 'svelte';
   import Icon from '../Icon.svelte';
   import { getConversationsStore, type TabRuntime } from '../../stores/conversations.svelte';
   import { getVoiceStore } from '../../voice/voice.svelte';
@@ -68,13 +68,21 @@
 
   function refreshSlash(text: string) {
     const q = slashQueryFromComposer(text);
-    if (q === null) { slashOpen = false; return; }
+    // No launcher mid-turn: a command or skill can't run until the reply is
+    // done. The menu opens once it is (the effect below).
+    if (q === null || tab.streaming) { slashOpen = false; return; }
     // Read the registry lazily — skills register at app startup, which may race
     // this panel's mount; reading on open guarantees the populated list.
     slashItems = buildSlashMenu(getSlashCommands(), q);
     slashIndex = 0;
     slashOpen = slashItems.length > 0;
   }
+
+  // A `/…` typed during a reply opens its menu when the reply finishes. Tracks
+  // only `streaming`: typing already refreshes the menu through oninput.
+  $effect(() => {
+    if (!tab.streaming) untrack(() => refreshSlash(tab.composer));
+  });
 
   function selectSlash(item: SlashMenuItem) {
     slashOpen = false;
@@ -111,6 +119,10 @@
     }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
+      // Typing during a reply is drafting the next message (#1744); it sends
+      // once the reply is done. Enter does nothing meanwhile — not a newline,
+      // and not a send `store.send` would drop.
+      if (tab.streaming) return;
       void handleSend();
     }
   }
@@ -156,7 +168,6 @@
       onkeydown={handleKeydown}
       placeholder={tab.conversation.contextBundle.notePath ? 'Ask about this note, or type / for skills…' : 'Ask anything, or type / for skills…'}
       rows="2"
-      disabled={tab.streaming}
     ></textarea>
     <div class="composer-footer">
       {#if tab.conversation.contextBundle.notePath}
@@ -181,7 +192,7 @@
           class="mic-btn"
           class:recording={voice.recording && voice.surface === 'composer'}
           onclick={toggleDictation}
-          disabled={tab.streaming || voice.status === 'transcribing' || (voice.busy && voice.surface !== 'composer')}
+          disabled={voice.status === 'transcribing' || (voice.busy && voice.surface !== 'composer')}
           title={voice.recording ? 'Stop & transcribe' : 'Dictate'}
           aria-label={voice.recording ? 'Stop dictation and transcribe' : 'Start dictation'}
         >
@@ -194,7 +205,7 @@
           title={costBadge.title}
         >{costBadge.text}</span>
       {/if}
-      <span class="composer-hint">⏎ send · ⇧⏎ newline</span>
+      <span class="composer-hint">{tab.streaming ? 'Reply in progress — send when it finishes' : '⏎ send · ⇧⏎ newline'}</span>
       {#if tab.streaming}
         <button type="button" class="send-btn" onclick={() => store.cancel()}>Cancel</button>
       {:else}

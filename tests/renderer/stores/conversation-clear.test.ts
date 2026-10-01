@@ -86,6 +86,20 @@ describe('/clear (#823)', () => {
     });
   });
 
+  it('refuses mid-turn: never archives a conversation out from under its reply (#1744)', async () => {
+    await store.openFreeform('notes/origin.md');
+    const tab = store.activeTab!;
+    tab.conversation.messages.push({ role: 'user', content: 'hi', timestamp: 't' });
+    tab.streaming = true;
+
+    store.runBuiltinCommand('clear');
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(h.api.conversations.archive).not.toHaveBeenCalled();
+    expect(store.activeTab!.id).toBe(tab.id);
+    tab.streaming = false;
+  });
+
   it('no-ops on an empty, never-used conversation (no archive churn)', async () => {
     await store.openFreeform('notes/origin.md');
     const id = store.activeTab!.id;

@@ -289,6 +289,19 @@ describe('send()', () => {
     expect(store.needsApiKey).toBe(false);
   });
 
+  it('restores an unconfigured-provider message without losing a follow-up drafted meanwhile (#1744)', async () => {
+    const tab = await freshTab();
+    let reject!: (e: Error) => void;
+    conv().send.mockReturnValueOnce(new Promise((_, r) => { reject = r; }));
+
+    const sending = store.send('needs a key');
+    tab.composer = 'and then this'; // typed while the turn was in flight
+    reject(new Error(missingApiKeyMessage('openai')));
+    await sending;
+
+    expect(tab.composer).toBe('needs a key\n\nand then this');
+  });
+
   // ── Failure reporting (#1804) ──────────────────────────────────────────
   // Everything except the unconfigured case used to end at `console.error`: the
   // spinner stopped, the streamed text was discarded, and the user's turn sat
