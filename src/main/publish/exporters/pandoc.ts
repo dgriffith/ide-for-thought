@@ -19,6 +19,7 @@
  * cross-references that pandoc doesn't synthesize automatically.
  */
 
+import { stripHiddenFences } from '../../../shared/markdown/fence-info';
 import path from 'node:path';
 import type { Exporter } from '../types';
 import type { CslItem } from '../csl/source-to-csl';
@@ -70,7 +71,8 @@ export const pandocExporter: Exporter = {
     // The link-resolver leaves `[[cite::]]` and `[[quote::]]` alone, so
     // we can do a second pass for those.
     const linkCtx = buildLinkResolverContext(plan);
-    let body = rewriteWikiLinksInContent(note.content, linkCtx);
+    // Hidden fences (#2039) are not for readers; pandoc's output is (#2509).
+    let body = rewriteWikiLinksInContent(stripHiddenFences(note.content), linkCtx);
     body = rewriteCitations(body, citations.excerpts, keys);
 
     const noteStem = path.basename(note.relativePath).replace(/\.md$/i, '');
