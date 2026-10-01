@@ -10,6 +10,7 @@
  * and releases on close.
  */
 
+import { coalescedRun } from '../shared/coalesced-run';
 import { app } from 'electron';
 import * as graph from './graph/index';
 import * as search from './search/index';
@@ -197,8 +198,12 @@ export function getProjectContext(rootPath: string): ProjectContext | null {
  * out-of-process), approved, rejected, expired, or as projects open/close.
  * Best-effort: `app.setBadgeCount` is a no-op on platforms without a badge
  * (Windows), and a failure must never disrupt the change that triggered it.
+ *
+ * Coalesced: overlapping refreshes used to race, and a stale count could land
+ * last (a conversation draft's approve fires file + approve back to back). See
+ * `coalescedRun`.
  */
-export async function updateDockBadge(): Promise<void> {
+export const updateDockBadge: () => Promise<void> = coalescedRun(async () => {
   try {
     let total = 0;
     for (const rec of projects.values()) {
@@ -208,7 +213,7 @@ export async function updateDockBadge(): Promise<void> {
   } catch (err) {
     logger('project-context').warn('dock badge update failed:', err);
   }
-}
+});
 
 /**
  * Flush every currently-held project's persistent state to disk —
