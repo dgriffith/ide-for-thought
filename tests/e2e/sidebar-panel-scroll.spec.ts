@@ -35,6 +35,10 @@ function seedProject(dir: string): void {
     const id = `kind-${String(i).padStart(2, '0')}`;
     write(`.minerva/types/${id}.md`, `---\nlabel: Kind ${i}\nid: ${id}\nproperties:\n  - name: note\n    type: text\n---\n`);
   }
+  // Root-level notes: the tree shows only top-level rows until a folder is
+  // expanded, and expansion state isn't something to depend on (CI's runner
+  // left them collapsed, so Notes had ~5 rows and proved nothing).
+  for (let i = 0; i < 30; i++) write(`note-${String(i).padStart(2, '0')}.md`, `# Note ${i}\n`);
   write('notes/many-tags.md', `# Many tags\n\n${Array.from({ length: 40 }, (_, i) => `#topic-${i}`).join(' ')}\n`);
   for (let i = 0; i < 20; i++) write(`data/table-${i}.csv`, 'a,b\n1,2\n');
   write('.minerva/bookmarks.json', JSON.stringify(
