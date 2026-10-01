@@ -40,11 +40,33 @@ describe('list_object_types tool (#2069)', () => {
     expect(res.content).toMatch(/author \(link-to-type\).*targetType: person/);
   });
 
-  it('reports parent and template presence', async () => {
-    await saveType(root, { label: 'Cookbook', parent: 'book', template: '# {{title}}', properties: [] });
+  it('reports parent and shows the default body itself (#2492)', async () => {
+    await saveType(root, { label: 'Cookbook', parent: 'book', template: '# {{title}}\n\nBy {{author}}', properties: [] });
     const res = await listObjectTypes.run({ rootPath: root }, {}, {});
     const block = res.content.split('\n\n').find((b) => b.startsWith('cookbook —'));
     expect(block).toContain('parent: book');
-    expect(block).toContain('template: yes');
+    expect(res.content).toContain('  default body:\n    # {{title}}');
+    expect(res.content).toContain('    By {{author}}');
+  });
+
+  it('shows an inherited body and says where it came from (#2494)', async () => {
+    await saveType(root, { label: 'Venue', template: '## Visit\n{{address}}', properties: [{ name: 'address', type: 'text' }] });
+    await saveType(root, { label: 'Shop', parent: 'venue', properties: [{ name: 'category', type: 'text' }] });
+    const res = await listObjectTypes.run({ rootPath: root }, {}, {});
+    const shop = res.content.slice(res.content.indexOf('shop —'));
+    expect(shop).toContain('default body (inherited from venue):\n    ## Visit\n    {{address}}');
+  });
+
+  it('truncates a long body in the listing, and type_id returns it in full', async () => {
+    const long = Array.from({ length: 60 }, (_, i) => `Line ${i} of a long default body.`).join('\n');
+    await saveType(root, { label: 'Dossier', template: long, properties: [] });
+    const listing = await listObjectTypes.run({ rootPath: root }, {}, {});
+    expect(listing.content).toContain('…(truncated — call list_object_types with type_id: "dossier" for the full body)');
+    expect(listing.content).not.toContain('Line 59 of');
+    const one = await listObjectTypes.run({ rootPath: root }, { type_id: 'dossier' }, {});
+    expect(one.isError).toBe(false);
+    expect(one.content).toContain('Line 59 of a long default body.');
+    expect(one.content).not.toContain('truncated');
+    expect((await listObjectTypes.run({ rootPath: root }, { type_id: 'nope' }, {})).isError).toBe(true);
   });
 });

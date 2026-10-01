@@ -133,3 +133,33 @@ describe('propose_notes tool execution', () => {
     expect(out.content).toMatch(/non-empty array/i);
   });
 });
+
+describe('propose_notes — a typed note\'s placeholders are filled before drafting (#2492)', () => {
+  it('fills placeholders the note\'s own frontmatter has values for, leaving the rest', async () => {
+    const fsp = await import('node:fs/promises');
+    const os = await import('node:os');
+    const path = await import('node:path');
+    const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'minerva-propose-typed-'));
+    try {
+      const onDraft = vi.fn();
+      const out = await executeNotebaseTool(
+        { rootPath: root, conversationId: 'conv-test' },
+        'propose_notes',
+        {
+          note: 'A place',
+          payloads: [{
+            kind: 'note',
+            relativePath: 'places/kantyna.md',
+            content: '---\ntype: place\naddress: Politických vězňů 5\n---\n# Kantýna\n\nAt {{address}}. {{notes}}\n',
+          }],
+        },
+        { onDraft },
+      );
+      expect(out.isError).toBe(false);
+      const draft = onDraft.mock.calls[0]![0] as ConversationDraft;
+      expect(draft.payloads[0]!.content).toContain('At Politických vězňů 5. {{notes}}');
+    } finally {
+      await fsp.rm(root, { recursive: true, force: true });
+    }
+  });
+});
