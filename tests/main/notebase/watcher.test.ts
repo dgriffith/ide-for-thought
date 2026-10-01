@@ -48,10 +48,18 @@ function makeWin(alive = true): StubTarget {
  * Polls `predicate` every 25ms up to `timeoutMs`, resolving when it
  * returns true. Used to wait for callback events that arrive on
  * chokidar's own schedule.
+ *
+ * The bound is generous on purpose: it returns the moment the event lands, so
+ * it costs a healthy run nothing, and it is only ever spent on a slow runner.
+ * 4s was not enough there — `files under node_modules/ are ignored` needs
+ * chokidar to notice a brand-new subfolder before the file inside it, and
+ * under coverage instrumentation on CI that took 4,180ms (PR #2504's run).
+ * Still well inside vitest's 30s testTimeout, so a genuinely missing event
+ * fails here, naming the wait, rather than as an anonymous test timeout.
  */
 async function waitFor(
   predicate: () => boolean,
-  timeoutMs = 4000,
+  timeoutMs = 15_000,
 ): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
