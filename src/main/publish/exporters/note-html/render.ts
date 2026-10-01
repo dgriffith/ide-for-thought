@@ -18,7 +18,8 @@ import MarkdownIt from 'markdown-it';
 import type { MarkdownIt as MarkdownItInstance } from 'markdown-it';
 import footnote from 'markdown-it-footnote';
 import hljs from 'highlight.js';
-import { buildLinkResolverContext } from '../../link-resolver';
+import { buildLinkResolverContext, type LinkResolverContext } from '../../link-resolver';
+import { extractLiveBlocks, renderLiveBlocks, spliceLiveBlocks } from '../../live-blocks';
 import { installMath } from '../../../../shared/markdown/math-plugin';
 import { renderVegaBlocks } from '../../vega-render';
 import { renderYouTubeBlocks } from '../../youtube-render';
@@ -46,7 +47,13 @@ export async function renderNoteBody(
   // #906 — inline `![[note]]` / `![[note#H]]` / `![[note^block]]` embeds before
   // anything else, so the embedded content's own charts / links get processed
   // by the passes below. Resolved against the export's note set (in memory).
-  const inlined = resolveTransclusions(stripFrontmatter(file.content), file.relativePath, plan.inputs);
+  const transcluded = resolveTransclusions(stripFrontmatter(file.content), file.relativePath, plan.inputs);
+  // #2510 — live blocks (object views) are rendered by the window that asked
+  // for the export, with the preview's own components, and spliced back in
+  // after markdown rendering; here they become placeholder paragraphs.
+  const live = extractLiveBlocks(transcluded, file.relativePath);
+  const liveResults = await renderLiveBlocks(live.blocks, plan.renderLiveBlocks);
+  const inlined = live.markdown;
   // #831 — pre-render ```vega-lite / ```vega fences to static SVG images
   // before markdown rendering (md.render is sync; vega's toSVG is async).
   // The result is `<img>` markdown, so it survives the `html: false` instance.
@@ -58,7 +65,9 @@ export async function renderNoteBody(
   // #908 — degrade local audio/video image-refs to links (inlining media into a
   // single-file export isn't sensible; keep the reference).
   const bodyMarkdown = linkifyLocalMedia(withYouTube);
-  return md.render(bodyMarkdown);
+  const linkCtx = buildLinkResolverContext(plan);
+  const fromDir = file.relativePath ? path.posix.dirname(file.relativePath) : null;
+  return spliceLiveBlocks(md.render(bodyMarkdown), liveResults, (notePath) => noteHref(notePath, linkCtx, fromDir));
 }
 
 function buildMd(plan: ExportPlan, renderer?: CitationRenderer, fromPath?: string): MarkdownItInstance {
@@ -151,11 +160,9 @@ function installWikiLinkRule(md: MarkdownItInstance, plan: ExportPlan, fromPath?
 
     const token = state.push('html_inline', '', 0);
     if (ctx.linkPolicy === 'follow-to-file') {
-      const asMd = target.endsWith('.md') ? target : `${target}.md`;
-      if (ctx.includedPaths.has(asMd)) {
+      const rel = noteHref(target, ctx, fromDir);
+      if (rel !== null) {
         const label = display ?? title ?? target;
-        const targetHtml = asMd.replace(/\.md$/, '.html');
-        const rel = relativeHref(fromDir, targetHtml);
         const href = anchor ? `${rel}#${anchor}` : rel;
         token.content = `<a href="${escapeAttr(href)}">${escapeHtml(label)}</a>`;
       } else {
@@ -171,6 +178,19 @@ function installWikiLinkRule(md: MarkdownItInstance, plan: ExportPlan, fromPath?
     state.pos = close + 2;
     return true;
   });
+}
+
+/**
+ * The href an export links a note by, or null when it doesn't link it: only
+ * `follow-to-file`, and only to a note in the export. Shared by wiki-links and
+ * the note links inside rendered live blocks (#2510), so a view's rows link
+ * exactly where a wiki-link to the same note would.
+ */
+export function noteHref(target: string, ctx: LinkResolverContext, fromDir: string | null): string | null {
+  if (ctx.linkPolicy !== 'follow-to-file') return null;
+  const asMd = target.endsWith('.md') ? target : `${target}.md`;
+  if (!ctx.includedPaths.has(asMd)) return null;
+  return relativeHref(fromDir, asMd.replace(/\.md$/, '.html'));
 }
 
 /**

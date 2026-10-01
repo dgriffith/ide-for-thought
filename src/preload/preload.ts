@@ -228,6 +228,10 @@ const api = {
     resolvePlan: (input: Parameters<ChannelMap['publish:resolvePlan']>[0], opts?: Parameters<ChannelMap['publish:resolvePlan']>[1]) =>
       invoke(Channels.PUBLISH_RESOLVE_PLAN, input, opts),
     runExport: (args: Parameters<ChannelMap['publish:runExport']>[0]) => invoke(Channels.PUBLISH_RUN_EXPORT, args),
+    onRenderLiveBlocks: (cb: (request: Parameters<EventMap['publish:renderLiveBlocks']>[0]) => void) =>
+      subscribe(Channels.PUBLISH_RENDER_LIVE_BLOCKS, cb),
+    liveBlocksRendered: (requestId: string, results: Parameters<ChannelMap['publish:liveBlocksRendered']>[1]) =>
+      invoke(Channels.PUBLISH_LIVE_BLOCKS_RENDERED, requestId, results),
     listTargets: () => invoke(Channels.PUBLISH_LIST_TARGETS),
     upsertTarget: (target: Parameters<ChannelMap['publish:upsertTarget']>[0]) => invoke(Channels.PUBLISH_UPSERT_TARGET, target),
     removeTarget: (id: string) => invoke(Channels.PUBLISH_REMOVE_TARGET, id),

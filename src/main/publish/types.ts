@@ -11,6 +11,8 @@
  * individual exporter all agree on the vocabulary.
  */
 
+import type { LiveBlockRenderer } from './live-blocks';
+
 /** What the caller asked to export. The pipeline resolves this into a plan. */
 export interface ExportInput {
   kind: 'single-note' | 'folder' | 'project' | 'tree' | 'source';
@@ -115,6 +117,12 @@ export interface ExportPlan {
    * itself, so a per-note reset is cheaper than trying to reuse.
    */
   citations?: import('./csl').CitationAssets;
+  /**
+   * Renders live blocks (object views, …) with the preview's own components
+   * (#2510) — bound to the window that started the export. Absent (tests,
+   * no window) → each live block exports as a one-line note instead.
+   */
+  renderLiveBlocks?: LiveBlockRenderer | undefined;
 }
 
 /**

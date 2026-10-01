@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from 'svelte';
   /**
    * Multi-view over all instances of a typed-object type (#1070) — the same
    * typed notes rendered as a list, a table (declared properties as columns), or
@@ -48,8 +49,11 @@
      *  provides its own surrounding context. Defaults to the full-pane tab
      *  chrome everywhere else. */
     chromeless?: boolean;
+    /** Called once the instances have loaded AND rendered into the DOM — for
+     *  the export snapshot (#2510), which must not capture "Loading…". */
+    onLoaded?: () => void;
   }
-  let { typeId, layout, sortColumn, sortDir, columns, revision, onStateChange, onOpenNote, onSaveView, chromeless = false }: Props = $props();
+  let { typeId, layout, sortColumn, sortDir, columns, revision, onStateChange, onOpenNote, onSaveView, chromeless = false, onLoaded }: Props = $props();
 
   let type = $state<TypeInfo | null>(null);
   let instances = $state<TypeInstanceRow[]>([]);
@@ -62,6 +66,7 @@
     type = result.type;
     instances = result.instances;
     loading = false;
+    if (onLoaded) { await tick(); onLoaded(); }
   }
   // Re-project when the type changes or the graph is rewritten.
   $effect(() => { typeId; revision; void load(); });
@@ -295,7 +300,7 @@
     <div class="tv-list">
       {#each instances as inst (inst.path)}
         {@const rt = rowType(inst)}
-        <button class="tv-list-row" onclick={() => onOpenNote(inst.path)} title={inst.path}>
+        <button class="tv-list-row" onclick={() => onOpenNote(inst.path)} title={inst.path} data-note-path={inst.path}>
           {#if rt}<span class="tv-list-icon"><TypeIcon type={rt} size={14} /></span>{/if}
           <span class="tv-list-body">
             <span class="tv-list-title">{inst.title}</span>
@@ -328,7 +333,7 @@
         <tbody>
           {#each sorted as inst (inst.path)}
             {@const rt = rowType(inst)}
-            <tr onclick={() => onOpenNote(inst.path)} title={inst.path}>
+            <tr onclick={() => onOpenNote(inst.path)} title={inst.path} data-note-path={inst.path}>
               <td class="tv-cell-title">
                 <span class="tv-cell-title-inner">
                   {#if rt}<TypeIcon type={rt} size={13} />{/if}
@@ -347,7 +352,7 @@
     <div class="tv-gallery">
       {#each instances as inst (inst.path)}
         {@const rt = rowType(inst)}
-        <button class="tv-card" onclick={() => onOpenNote(inst.path)} title={inst.path}>
+        <button class="tv-card" onclick={() => onOpenNote(inst.path)} title={inst.path} data-note-path={inst.path}>
           <div class="tv-card-cover">
             {#if isImageUrl(inst.cover)}
               <img src={inst.cover} alt="" loading="lazy" />

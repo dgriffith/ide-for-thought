@@ -1,4 +1,5 @@
 import { dialog, app } from 'electron';
+import { windowLiveBlockRenderer, receiveLiveBlockResults } from './live-block-bridge';
 import { Channels } from '../../shared/channels';
 import { handle } from './typed-ipc';
 import { DEFAULT_STYLE } from '../publish/csl/assets';
@@ -99,8 +100,14 @@ export function registerPublish(): void {
       if (result.canceled || result.filePaths.length === 0) return null;
       outputDir = result.filePaths[0]!;
     }
-    return await publish.runExport(rootPath, { ...args, outputDir });
+    return await publish.runExport(rootPath, { ...args, outputDir }, { renderLiveBlocks: windowLiveBlockRenderer(win) });
   }));
+
+  // The exporting window's answer to a live-block render request (#2510).
+  // Accepted only from the window that was asked — see live-block-bridge.ts.
+  handle(Channels.PUBLISH_LIVE_BLOCKS_RENDERED, (event, requestId, results) => {
+    receiveLiveBlockResults(event.sender.id, requestId, results);
+  });
 
   // ── Publish → git remote (#254) ────────────────────────────────────────────
 
@@ -124,8 +131,9 @@ export function registerPublish(): void {
   // rejection (#254 acceptance).
   handle(
     Channels.PUBLISH_TO_GIT,
-    withRootPath(async (
+    withRootPathWin(async (
       rootPath,
+      win,
       targetId: string,
       opts?: { dryRun?: boolean; createRepo?: { private: boolean } },
     ) => {
@@ -136,6 +144,7 @@ export function registerPublish(): void {
         const result = await publish.publishTarget(rootPath, targetId, {
           dryRun: opts?.dryRun ?? false,
           version: app.getVersion(),
+          renderLiveBlocks: windowLiveBlockRenderer(win),
           ...(opts?.createRepo ? { createRepo: opts.createRepo } : {}),
         });
         return { ok: true as const, result };

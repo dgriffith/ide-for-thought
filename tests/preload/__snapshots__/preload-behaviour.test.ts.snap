@@ -269,6 +269,8 @@ exports[`preload behaviour: surface-wide invariants (#2367) > the full method â†
   "publish.checkS3": "invoke publish:checkS3",
   "publish.listExporters": "invoke publish:listExporters",
   "publish.listTargets": "invoke publish:listTargets",
+  "publish.liveBlocksRendered": "invoke publish:liveBlocksRendered",
+  "publish.onRenderLiveBlocks": "on publish:renderLiveBlocks",
   "publish.removeTarget": "invoke publish:removeTarget",
   "publish.resolvePlan": "invoke publish:resolvePlan",
   "publish.runExport": "invoke publish:runExport",

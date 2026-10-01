@@ -1,4 +1,5 @@
 import type { NoteFile, NotebaseMeta, TagInfo, TaggedNote, TaggedSource, SavedQuery, SearchResult, OutgoingLink, Backlink, TabSession, LayoutSession, BookmarkNode, SourceDetail, SearchInNotesOptions, SearchInNotesResult, ReplaceInNotesOptions, ReplaceInNotesResult, HeadingRenameCandidate, MenuEditorState } from '../../../shared/types';
+import type { LiveBlockRequest, LiveBlockResult } from '../../../shared/live-blocks';
 import type { Conversation, ConversationCreateOptions, ContextBundle, ConversationMessage } from '../../../shared/conversation';
 import type { ToolExecutionRequest, ToolExecutionResult, ConversationToolPayload } from '../../../shared/tools/types';
 import type { Inspection, InspectionSettings } from '../../../shared/inspections';
@@ -397,6 +398,10 @@ export interface PublishApi {
    * picker modally and the call resolves to `null` if the user cancels.
    */
   runExport(args: Omit<RunExportInput, 'outputDir'> & { outputDir?: string }): Promise<RunExportResult | null>;
+  /** An export asks this window to render its live blocks with the preview's
+   *  components (#2510); answer with `liveBlocksRendered`. */
+  onRenderLiveBlocks(cb: (request: { requestId: string; blocks: LiveBlockRequest[] }) => void): () => void;
+  liveBlocksRendered(requestId: string, results: LiveBlockResult[]): Promise<void>;
 
   // ── Publish → git remote (#254) ───────────────────────────────────────────
   /** Configured git-push targets for the open thoughtbase. */
