@@ -23,6 +23,7 @@
  * patch used to run at script-init; moving them to onMount is safe because main
  * only broadcasts them after a project is open (post-mount).
  */
+import { installExportLiveBlockRenderer } from './export-live-blocks';
 import { tick } from 'svelte';
 import { api } from '../ipc/client';
 import { getNotebaseStore } from '../stores/notebase.svelte';
@@ -268,6 +269,8 @@ export function registerAppIpc(ctx: IpcWiringCtx): void {
     void ctx.refreshSourcesCache();
   }, WATCHER_REFRESH_DEBOUNCE_MS);
   api.sources.onChanged(refreshSourcesViews);
+  // An export asks this window to render its live blocks (#2510).
+  installExportLiveBlockRenderer();
 
   // Main broadcasts after the initial CSV scan and on every register/unregister
   // from the watcher — keeps the sidebar Tables panel in lockstep.

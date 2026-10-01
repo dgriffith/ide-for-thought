@@ -26,6 +26,7 @@
  * so a wrong param/return type fails `tsc` instead of silently
  * corrupting renderer state.
  */
+import type { LiveBlockRequest, LiveBlockResult } from './live-blocks';
 import type {
   NotebaseMeta,
   NoteFile,
@@ -378,6 +379,7 @@ export interface ChannelMap {
     forceInclude?: string[];
     forceExclude?: string[];
   }) => { filesWritten: number; summary: string; outputDir: string; writtenPaths: string[] } | null;
+  'publish:liveBlocksRendered': (requestId: string, results: LiveBlockResult[]) => void;
   'publish:listTargets': () => PublishTarget[];
   'publish:upsertTarget': (target: PublishTarget) => PublishTarget[];
   'publish:removeTarget': (id: string) => PublishTarget[];
@@ -759,6 +761,7 @@ export interface EventMap extends MenuCommandEventMap {
   'conversation:stream': (chunk: string) => void;
   'conversation:askUser': (req: AskUserRequest) => void;
   'conversation:titleChanged': (change: { conversationId: string; title: string }) => void;
+  'publish:renderLiveBlocks': (request: { requestId: string; blocks: LiveBlockRequest[] }) => void;
   'conversation:mcpConfirm': (req: McpConfirmRequest) => void;
   'tool:stream': (chunk: string) => void;
   'tool:invoke': (toolId: string) => void;

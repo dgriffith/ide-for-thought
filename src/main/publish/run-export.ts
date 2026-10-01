@@ -14,6 +14,7 @@ import path from 'node:path';
 import { getExporter } from './registry';
 import { resolvePlan, runExporter } from './pipeline';
 import type { ExportInput, LinkPolicy, AssetPolicy } from './types';
+import type { LiveBlockRenderer } from './live-blocks';
 
 export interface RunExportInput {
   exporterId: string;
@@ -53,9 +54,17 @@ export interface RunExportResult {
   writtenPaths: string[];
 }
 
+/** What an export needs from the window that started it (#2510). */
+export interface RunExportDeps {
+  /** Renders live blocks with the preview's own components; absent → each
+   *  live block exports as a one-line note. */
+  renderLiveBlocks?: LiveBlockRenderer | undefined;
+}
+
 export async function runExport(
   rootPath: string,
   args: RunExportInput,
+  deps: RunExportDeps = {},
 ): Promise<RunExportResult> {
   const exporter = getExporter(args.exporterId);
   if (!exporter) throw new Error(`No exporter registered with id "${args.exporterId}"`);
@@ -69,6 +78,7 @@ export async function runExport(
     forceExclude: args.forceExclude,
     outputDir: args.outputDir,
   });
+  plan.renderLiveBlocks = deps.renderLiveBlocks;
   const output = await runExporter(exporter, plan);
 
   const absOutputDir = path.resolve(args.outputDir);

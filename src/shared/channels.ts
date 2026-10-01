@@ -726,6 +726,10 @@ export const Channels = {
   PUBLISH_RESOLVE_PLAN: 'publish:resolvePlan',
   /** Publication: run an exporter end-to-end, writing files under the chosen output dir. */
   PUBLISH_RUN_EXPORT: 'publish:runExport',
+  /** Main → the exporting window: render these live blocks (#2510). */
+  PUBLISH_RENDER_LIVE_BLOCKS: 'publish:renderLiveBlocks',
+  /** The window's answer to PUBLISH_RENDER_LIVE_BLOCKS (#2510). */
+  PUBLISH_LIVE_BLOCKS_RENDERED: 'publish:liveBlocksRendered',
   /** Publication: list configured git-push targets for this thoughtbase (#254). */
   PUBLISH_LIST_TARGETS: 'publish:listTargets',
   /** Publication: add or replace a git-push target (#254). */

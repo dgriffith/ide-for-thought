@@ -14,6 +14,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { getPublishTarget, getGitCredentials } from '../project-config';
 import { runExport } from './run-export';
+import type { LiveBlockRenderer } from './live-blocks';
 import * as pg from '../git/publish-git';
 import * as gh from '../git/github-repo';
 import type { PublishChange } from '../git/publish-git';
@@ -55,6 +56,9 @@ export interface PublishOptions {
   createRepo?: { private: boolean };
   /** App version for `{{version}}` in the commit template. */
   version?: string;
+  /** Renders live blocks with the preview's components (#2510), from the
+   *  window that started the publish; absent → each becomes a one-line note. */
+  renderLiveBlocks?: LiveBlockRenderer | undefined;
   /** ISO timestamp for `{{date}}`; defaults to now. Injectable for tests. */
   nowIso?: string;
 }
@@ -120,7 +124,7 @@ export async function publishToGit(
     exporterId: target.exporter,
     input: { kind: 'project' },
     outputDir: destDir,
-  });
+  }, { renderLiveBlocks: opts.renderLiveBlocks });
 
   const changes = await pg.pendingChanges(workspace);
 

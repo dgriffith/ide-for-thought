@@ -34,6 +34,9 @@ let openProject: string | null = ROOT;
 type Handler = (event: unknown, ...args: unknown[]) => unknown;
 
 const h = vi.hoisted(() => ({
+  windowRenderer: vi.fn(),
+  receiveLiveBlockResults: vi.fn(),
+  windowLiveBlockRenderer: vi.fn(),
   handlers: new Map<string, Handler>(),
   win: { id: 1, isDestroyed: vi.fn(() => false), webContents: { send: vi.fn() } },
   // electron
@@ -93,6 +96,12 @@ vi.mock('../../../src/main/publish', async () => {
     checkS3Connection: h.checkS3Connection,
   };
 });
+// The live-block bridge (#2510): each export/publish path must hand its
+// window's renderer to the engine; a sentinel proves which one it got.
+vi.mock('../../../src/main/ipc/live-block-bridge', () => ({
+  windowLiveBlockRenderer: (win: unknown) => { h.windowLiveBlockRenderer(win); return h.windowRenderer; },
+  receiveLiveBlockResults: h.receiveLiveBlockResults,
+}));
 vi.mock('../../../src/main/publish/csl/audit', () => ({ buildCitationAudit: h.buildCitationAudit }));
 vi.mock('../../../src/main/publish/csl/user-assets', () => ({
   getMergedStyles: h.getMergedStyles,
@@ -353,7 +362,8 @@ describe('register-publish — PUBLISH_RUN_EXPORT', () => {
       .resolves.toEqual({ files: 3, outputDir: '/out' });
 
     expect(h.showOpenDialog).not.toHaveBeenCalled();
-    expect(h.runExport).toHaveBeenCalledWith(ROOT, { exporterId: 'markdown', input: { kind: 'project' }, outputDir: '/out' });
+    expect(h.runExport).toHaveBeenCalledWith(ROOT, { exporterId: 'markdown', input: { kind: 'project' }, outputDir: '/out' }, { renderLiveBlocks: h.windowRenderer });
+    expect(h.windowLiveBlockRenderer).toHaveBeenCalledWith(h.win);
   });
 
   it('asks for a destination, parented to the invoking window, when none was given', async () => {
@@ -367,7 +377,7 @@ describe('register-publish — PUBLISH_RUN_EXPORT', () => {
     expect(h.showOpenDialog).toHaveBeenCalledWith(h.win, expect.objectContaining({
       properties: ['openDirectory', 'createDirectory'],
     }));
-    expect(h.runExport).toHaveBeenCalledWith(ROOT, { exporterId: 'markdown', input: { kind: 'project' }, outputDir: '/picked' });
+    expect(h.runExport).toHaveBeenCalledWith(ROOT, { exporterId: 'markdown', input: { kind: 'project' }, outputDir: '/picked' }, { renderLiveBlocks: h.windowRenderer });
   });
 
   it.each([
@@ -427,14 +437,14 @@ describe('register-publish — PUBLISH_TO_GIT', () => {
     await callAsync(Channels.PUBLISH_TO_GIT, 't1');
     // The version goes into the commit message, so a published site can be
     // traced back to the build that produced it.
-    expect(h.publishTarget).toHaveBeenCalledWith(ROOT, 't1', { dryRun: false, version: '1.2.3' });
+    expect(h.publishTarget).toHaveBeenCalledWith(ROOT, 't1', { dryRun: false, version: '1.2.3', renderLiveBlocks: h.windowRenderer });
   });
 
   it('passes dryRun through for the preview, and createRepo only when asked', async () => {
     h.publishTarget.mockResolvedValue({});
     await callAsync(Channels.PUBLISH_TO_GIT, 't1', { dryRun: true, createRepo: { private: true } });
     expect(h.publishTarget).toHaveBeenCalledWith(ROOT, 't1', {
-      dryRun: true, version: '1.2.3', createRepo: { private: true },
+      dryRun: true, version: '1.2.3', createRepo: { private: true }, renderLiveBlocks: h.windowRenderer,
     });
   });
 
@@ -498,5 +508,18 @@ describe('register-publish — connection checks', () => {
     await expect(callAsync(Channels.PUBLISH_CHECK_GITHUB, { token: 'ghp_x' }))
       .resolves.toEqual({ ok: false, error: 'Bad credentials' });
     expect(h.checkGitHubToken).toHaveBeenCalledWith('ghp_x');
+  });
+});
+
+describe('register-publish — PUBLISH_LIVE_BLOCKS_RENDERED (#2510)', () => {
+  it('hands the reply to the bridge with the replying window\'s id', () => {
+    const results = [{ id: 'B0', ok: true, html: '<div/>' }];
+    h.handlers.get(Channels.PUBLISH_LIVE_BLOCKS_RENDERED)!({ sender: { id: 42 } }, 'req-1', results);
+    expect(h.receiveLiveBlockResults).toHaveBeenCalledWith(42, 'req-1', results);
+  });
+
+  it('works with no project open: it only answers a request main already made', () => {
+    openProject = null;
+    expect(() => h.handlers.get(Channels.PUBLISH_LIVE_BLOCKS_RENDERED)!({ sender: { id: 1 } }, 'r', [])).not.toThrow();
   });
 });

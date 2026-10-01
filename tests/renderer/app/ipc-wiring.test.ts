@@ -38,6 +38,7 @@ const h = vi.hoisted(() => {
 
   const api = {
     menu,
+    publish: { onRenderLiveBlocks: cap('publish.onRenderLiveBlocks'), liveBlocksRendered: vi.fn() },
     skills: { list: vi.fn().mockResolvedValue({ skills: [], config: {} }) },
     sources: {
       onChanged: cap('sources.onChanged'),

@@ -138,7 +138,7 @@ export async function publishToS3(
 
   const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-s3-publish-'));
   try {
-    await runExport(rootPath, { exporterId: target.exporter, input: { kind: 'project' }, outputDir: workspace });
+    await runExport(rootPath, { exporterId: target.exporter, input: { kind: 'project' }, outputDir: workspace }, { renderLiveBlocks: opts.renderLiveBlocks });
     const files = walkFiles(workspace);
     const newKeys = new Map(files.map((f) => [objectKey(prefix, f.relPath), f.absPath]));
 
