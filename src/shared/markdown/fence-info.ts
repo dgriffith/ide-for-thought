@@ -31,3 +31,45 @@ export function parseFenceInfo(rawInfo: string): FenceInfo {
   }
   return { lang: info, hidden: false };
 }
+
+/**
+ * Remove every hidden fence (opening line through closing line) from markdown
+ * source (#2509), for exports meant for readers outside Minerva. A line scanner,
+ * not a regex: it tracks every fence it's inside, so a hidden-looking fence
+ * quoted INSIDE another code block is left alone, and a fence closes only on
+ * the same character, at least as long as it opened (CommonMark). An unclosed
+ * hidden fence runs to the end of the document, as CommonMark renders it.
+ */
+export function stripHiddenFences(markdown: string): string {
+  const lines = markdown.split('\n');
+  const out: string[] = [];
+  let open: { char: string; len: number; hidden: boolean } | null = null;
+  // Set after a hidden fence closes: one blank line after it is dropped when
+  // the line before it was blank too, so removing a fence doesn't leave a
+  // double gap. Nothing else's spacing is touched.
+  let afterRemoved = false;
+  for (const line of lines) {
+    if (afterRemoved) {
+      afterRemoved = false;
+      if (line.trim() === '' && (out.length === 0 || out[out.length - 1]!.trim() === '')) continue;
+    }
+    const m = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(line);
+    if (open) {
+      if (m && m[1]![0] === open.char && m[1]!.length >= open.len && m[2]!.trim() === '') {
+        if (!open.hidden) out.push(line);
+        else afterRemoved = true;
+        open = null;
+        continue;
+      }
+      if (!open.hidden) out.push(line);
+      continue;
+    }
+    if (m && !(m[1]![0] === '`' && m[2]!.includes('`'))) {
+      open = { char: m[1]![0]!, len: m[1]!.length, hidden: parseFenceInfo(m[2]!).hidden };
+      if (!open.hidden) out.push(line);
+      continue;
+    }
+    out.push(line);
+  }
+  return out.join('\n');
+}
