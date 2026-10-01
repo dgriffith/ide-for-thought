@@ -318,3 +318,50 @@ describe('TypeEditorDialog — color picker', () => {
     expect(screen.queryByLabelText('Clear color')).toBeNull();
   });
 });
+
+describe('TypeEditorDialog — default note body (#2493)', () => {
+  const shop = {
+    id: 'shop', label: 'Shop', parent: 'place',
+    properties: [{ name: 'category', type: 'text' as const }],
+  };
+  beforeEach(() => {
+    listMock.mockResolvedValue({
+      types: [
+        { id: 'place', label: 'Place', effectiveTemplate: '## Visit\n{{address}}', templateFrom: 'place', effectivePropertyNames: ['address', 'city'] },
+        { id: 'shop' },
+      ],
+      errors: [],
+    });
+  });
+
+  it('saves an edited body, inserting placeholders from chips — inherited properties included', async () => {
+    render(TypeEditorDialog, { initial: { ...shop, template: 'Shop notes' }, onClose: vi.fn() });
+    const area = screen.getByLabelText('Default note body');
+    await fireEvent.input(area, { target: { value: 'Sells: ' } });
+    area.setSelectionRange(7, 7);
+    // `address` comes from the parent; `category` is the type's own.
+    await waitFor(() => expect(screen.getByRole('button', { name: 'address' })).toBeTruthy());
+    await fireEvent.click(screen.getByRole('button', { name: 'category' }));
+    await fireEvent.click(screen.getByText('Save'));
+    await waitFor(() => expect(saveMock).toHaveBeenCalled());
+    expect(saveMock.mock.calls[0]![0].template).toBe('Sells: {{category}}');
+  });
+
+  it('round-trips an untouched body unchanged', async () => {
+    render(TypeEditorDialog, { initial: { ...shop, template: '# {{title}}\n\nAt {{address}}' }, onClose: vi.fn() });
+    await fireEvent.click(screen.getByText('Save'));
+    await waitFor(() => expect(saveMock).toHaveBeenCalled());
+    expect(saveMock.mock.calls[0]![0].template).toBe('# {{title}}\n\nAt {{address}}');
+  });
+
+  it('with no body of its own, says it inherits the parent\'s — and never saves the parent\'s body into the child', async () => {
+    render(TypeEditorDialog, { initial: { ...shop }, onClose: vi.fn() });
+    await waitFor(() => expect(screen.getByText(/Inherited from place/)).toBeTruthy());
+    // The preview shows how a new note would start: the parent's body.
+    expect(screen.getByText('## Visit')).toBeTruthy();
+    expect(screen.getByText('‹address›')).toBeTruthy();
+    await fireEvent.click(screen.getByText('Save'));
+    await waitFor(() => expect(saveMock).toHaveBeenCalled());
+    expect(saveMock.mock.calls[0]![0].template).toBeUndefined();
+  });
+});

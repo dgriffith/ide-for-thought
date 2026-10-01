@@ -149,6 +149,28 @@
       </div>
     </div>
 
+    <h2 id="default-body">Default note body</h2>
+    <p>A type can give every new note of its kind a starting body: the headings you always want, and blanks for the details. Write it under <strong>Default note body</strong> in the type's dialog. The buttons below the box insert a placeholder for each of the type's fields, plus the note's title, today's date, and where the cursor should land.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Placeholders fill themselves in</div>
+        <div class="v">Write <code>Address: {{address}}</code>, and when the note's <em>address</em> field gets a value — as you create the note, later in the Properties panel, or when you approve a suggestion from the assistant — the placeholder is replaced with it. Until then it stays in the note as <code>{{address}}</code>, a reminder of what's still to fill.</div>
+      </div>
+      <div class="row">
+        <div class="k">Filled once</div>
+        <div class="v">After a placeholder is filled, the text is yours: changing the field later doesn't rewrite it.</div>
+      </div>
+      <div class="row">
+        <div class="k">Inherited</div>
+        <div class="v">A type with no body of its own uses its parent type's, and the dialog shows which one. Write a body to replace it.</div>
+      </div>
+      <div class="row">
+        <div class="k">The assistant uses it</div>
+        <div class="v">When the assistant drafts a note of a type, it starts from that type's default body and fills in what it knows.</div>
+      </div>
+    </div>
+
     <h2 id="customizing-stock">Adjusting a built-in type</h2>
     <p>The stock types are a starting point, not a fixed set. If Book should track which shelf it's on, edit Book and add the field — no need to build your own near-copy.</p>
 

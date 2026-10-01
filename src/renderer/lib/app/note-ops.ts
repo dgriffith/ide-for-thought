@@ -22,17 +22,7 @@ import { setFrontmatterProperty, getFrontmatterValues } from '../../../shared/fr
 import { deriveTypeProperties } from '../../../shared/objects/derive-type';
 import type { TypeInfo, PropertyDef } from '../../../shared/objects/type-def';
 import { substituteTemplate } from '../../../shared/templates';
-
-/** Property placeholders for a type's template at creation (#2490). A note made
- *  from the UI has no values yet, so every `{{prop}}` stays for the fill on
- *  property edit (#2491); passing the names still makes `{{prop:x}}` resolve
- *  the same way the later fill will. */
-function typePlaceholderContext(type: TypeInfo) {
-  return {
-    names: new Set(type.effectivePropertyNames ?? type.properties.map((p) => p.name)),
-    values: {},
-  };
-}
+import { typePlaceholderContext } from '../../../shared/objects/property-placeholders';
 import { buildTypedNoteScaffold } from '../../../shared/objects/scaffold';
 import { CONFIRM_KEYS } from '../confirm-keys';
 import type { SafeDeleteBlocker } from '../../../shared/types';

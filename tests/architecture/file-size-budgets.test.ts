@@ -86,7 +86,7 @@ const BUDGETS: Record<string, number> = {
   'src/renderer/lib/stores/conversations.svelte.ts': 1234, // +4: carry a skill's user-turn material through open + /clear (#2438); +39: mcp_call confirmation card state, beside ask_user's (#2439); +26: turn start/settle screen-reader announcements (#2374)
   'src/renderer/lib/components/Editor.svelte': 854,
   'src/renderer/lib/stores/editor.svelte.ts': 914,
-    'src/renderer/lib/components/right-sidebar/PropertiesPanel.svelte': 1160,
+    'src/renderer/lib/components/right-sidebar/PropertiesPanel.svelte': 1168, // +8 (#2491): a committed edit fills the type's body placeholders in the same change
   // +29 for #2254/#2256: the DOCS_URL rationale (why Help pointed at the
   // repo's dev-docs folder and how the parity test keeps it honest) and the
   // Command Palette item, whose comment explains that adding the item IS the
@@ -111,12 +111,14 @@ const BUDGETS: Record<string, number> = {
   'src/renderer/lib/components/ExportDialog.svelte': 712,
   'src/renderer/lib/components/ProposalsPanel.svelte': 628, // +12: announce approve/reject outcomes (#2374); +2: bare-key guard (#2377)
   'src/renderer/lib/components/QueryPanel.svelte': 766, // +7: CM content a11y attrs + AA placeholder (#2375)
-  'src/renderer/lib/components/conversations/DraftCards.svelte': 758,
+  // +17 (#2491): the property card's "Also fills {{name}} in the note's body" line, its helper and style.
+  'src/renderer/lib/components/conversations/DraftCards.svelte': 775,
   // +1 for #2256: the MENU_COMMAND_PALETTE channel / its MENU_COMMANDS entry.
   'src/shared/ipc-contract.ts': 796, // #2448: tables:queryNote; #2439: mcp_call confirm reply/event + resetAllowedTools; #2363/#2364: GraphQueryResult + git:commit doc comments; #2288: two inline Inspection shapes → Inspection[]; #2222: sources:queueCounts
   // +1 for #2256: the MENU_COMMAND_PALETTE channel / its MENU_COMMANDS entry.
   'src/shared/channels.ts': 762,  // #2448: TABLES_QUERY_NOTE; #2439: CONVERSATION_MCP_CONFIRM(_REPLY) + MCP_SERVERS_RESET_ALLOWED_TOOLS; #2411: MENU_REVEAL_FILE + why it isn't shell:revealFile; #2367: MENU_OPEN_RECENT_PROJECT (was a bare literal in preload + menu); #2222: SOURCES_QUEUE_COUNTS + its why-comment
-  'src/renderer/lib/app/note-ops.ts': 687,
+  // +5 (#2494): both typed-note creation paths read the type's effective (inherited) template.
+  'src/renderer/lib/app/note-ops.ts': 692,
   'src/renderer/lib/editor/formatting.ts': 668,
   // #2227: listTables went from a 2N per-table loop to a bounded column sweep
   // + batched, mtime-keyed count cache. Raised rather than extracted — the new

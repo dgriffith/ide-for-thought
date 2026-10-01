@@ -157,3 +157,16 @@ function rowValue(shape: Row['shape']): unknown {
     default: return shape.value;
   }
 }
+
+/**
+ * The `properties` context `substituteTemplate` takes when instantiating a
+ * type's template (#2490): the type's effective property names, and whatever
+ * values are known. A note made from the UI has none yet, so every `{{prop}}`
+ * stays for the fill on property edit (#2491).
+ */
+export function typePlaceholderContext(
+  type: { properties: readonly { name: string }[]; effectivePropertyNames?: string[] | undefined },
+  values: Readonly<Record<string, unknown>> = {},
+): { names: ReadonlySet<string>; values: Readonly<Record<string, unknown>> } {
+  return { names: new Set(type.effectivePropertyNames ?? type.properties.map((p) => p.name)), values };
+}
