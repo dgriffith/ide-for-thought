@@ -1,4 +1,5 @@
 <script lang="ts">
+  import TurnStatus from './TurnStatus.svelte';
   import MessageCitations from '../MessageCitations.svelte';
   import StreamingMessageBody from './StreamingMessageBody.svelte';
   import DraftCards from './DraftCards.svelte';
@@ -215,11 +216,7 @@
            before iteration 2 starts) would otherwise have zero animated
            feedback; keeping the dots visible throughout means the user always
            knows the turn is still working. -->
-      <div class="thinking-indicator" aria-label="Thinking" role="status">
-        <span class="thinking-dot"></span>
-        <span class="thinking-dot"></span>
-        <span class="thinking-dot"></span>
-      </div>
+      <TurnStatus startedAt={tab.turnStartedAt} />
     </div>
   {/if}
 
@@ -445,30 +442,6 @@
   .turn-error-action.subtle:hover { color: var(--text); }
   /* The partial text above a failure is real output, just incomplete. */
   .failed .msg-content { opacity: 0.85; }
-
-  /* "Thinking…" interstitial — three dots that pulse out of phase so the user
-     can see the agent is in flight before the first chunk or tool indicator
-     arrives. */
-  .thinking-indicator {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 4px 0;
-  }
-  .thinking-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--text-muted);
-    opacity: 0.35;
-    animation: thinking-pulse 1.2s ease-in-out infinite;
-  }
-  .thinking-dot:nth-child(2) { animation-delay: 0.18s; }
-  .thinking-dot:nth-child(3) { animation-delay: 0.36s; }
-  @keyframes thinking-pulse {
-    0%, 80%, 100% { opacity: 0.25; transform: scale(0.85); }
-    40%          { opacity: 1;    transform: scale(1.1); }
-  }
 
   .ask-user-card {
     margin-top: 4px;
