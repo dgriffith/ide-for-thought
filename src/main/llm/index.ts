@@ -388,8 +388,6 @@ export async function completeWithTools(
   const MAX_ITERATION_CONTEXT_TOKENS = 180_000;
   let lastIterationContextTokens = 0;
 
-  const COMPACTED_TOOL_INPUT_STUB = { compacted: true, note: 'Input omitted — already delivered out-of-band this turn.' };
-
   // Surface a tool call as a live "🔍 Searching…" indicator the moment the model
   // emits it — pushed inline into the transcript and streamed to the UI. The
   // provider fires this exactly once per block (client- or server-side).
@@ -443,7 +441,6 @@ export async function completeWithTools(
     sumUsage(usage, turn.usage);
     lastIterationContextTokens = turn.usage.inputTokens + turn.usage.cacheReadTokens
       + turn.usage.cacheCreationTokens;
-    const assistantMessageIndex = history.length;
     history.push(turn.assistantMessage);
     // Hold on to the container so the next iteration can reuse it; don't clear
     // it when a later turn reports none.
@@ -483,7 +480,6 @@ export async function completeWithTools(
     if (turn.toolCalls.length === 0) break;
 
     const toolResults: ProviderToolResult[] = [];
-    const compactableToolUseIds = new Set<string>();
     for (const use of turn.toolCalls) {
       logger('conversation').info(`tool call: ${use.name}`, JSON.stringify(use.input).slice(0, 200));
       // Model-chosen arguments run with the write guard armed (#2373): whatever
@@ -499,25 +495,20 @@ export async function completeWithTools(
       options.onToolExecuted?.({ name: use.name, input: use.input, content, isError });
       if (isError) {
         logger('conversation').warn(`tool ${use.name} returned error:`, content.slice(0, 300));
-      } else if (toolResultSignalsDrafted(content)) {
-        compactableToolUseIds.add(use.id);
       }
       toolResults.push({ toolUseId: use.id, content, isError });
     }
 
-    // Once a proposal tool's real payload is safely out-of-band, the model's
-    // own input for that call is dead weight for the rest of the turn (#2024).
-    // Overwrite the assistant message already sitting in `history` in place —
-    // every remaining iteration re-sends that same array, so this is the one
-    // place a replacement here pays off for the whole rest of the turn.
-    if (compactableToolUseIds.size > 0) {
-      history[assistantMessageIndex] = provider.compactToolUseInputs(
-        turn.assistantMessage,
-        compactableToolUseIds,
-        COMPACTED_TOOL_INPUT_STUB,
-      );
-    }
-
+    // The history is APPEND-ONLY: never rewrite a message already sent. #2024
+    // used to overwrite a proposal tool's tool_use.input here with a stub
+    // ("Input omitted — already delivered out-of-band"), to keep a busy turn's
+    // context small. The model then saw its own successful call with its
+    // arguments gone, concluded the call had failed, and filed the same
+    // proposal again — five identical object-type proposals in one turn
+    // (2026-10-01). Editing an earlier message also breaks the prompt cache
+    // from that point on, and on models that bind thinking blocks to the
+    // conversation (Opus 5.5, Fable 5.1) it can invalidate them. The context
+    // ceiling is guarded by MAX_ITERATION_CONTEXT_TOKENS above instead.
     history.push(provider.toolResultMessage(toolResults));
 
     // Track runs of all-error iterations and bail out of a wedged retry loop.
@@ -561,34 +552,3 @@ function sumUsage(acc: TurnUsage, turn: TurnUsage): TurnUsage {
   return acc;
 }
 
-/**
- * Whether a tool's result signals the real payload was already delivered
- * out-of-band — a drafted proposal card, or a `thought:Proposal` node filed
- * directly — so the model's own `tool_use.input` for that call is now
- * redundant (#2024). Every propose_* (and set_properties) tool's success
- * payload already carries `hint: 'STOP...'` telling the model not to repeat itself;
- * reusing that as the compaction signal avoids hardcoding a tool-name list
- * that would go stale as new proposal tools are added.
- *
- * A regex over a leading `"hint"` substring rather than `JSON.parse(content)`
- * on purpose: several of these tools (propose_notes, propose_compute,
- * propose_claims, propose_sources, propose_source_properties,
- * set_properties) append a short human-readable suffix after the JSON blob
- * ("\n\n(filed as draft: ...)"), which a strict parse would reject wholesale.
- *
- * Exported for direct unit testing — it's a pure string→boolean check, no
- * reason to only exercise it through the full agentic loop.
- */
-const HINT_PATTERN = /"hint"\s*:\s*"((?:[^"\\]|\\.)*)"/;
-export function toolResultSignalsDrafted(content: string): boolean {
-  const match = content.match(HINT_PATTERN);
-  if (!match) return false;
-  try {
-    const hint = JSON.parse(`"${match[1]}"`) as string;
-    return hint.startsWith('STOP');
-  } catch {
-    // A malformed escape inside the captured hint (not something any current
-    // tool emits) — treat it the same as "no hint": don't compact.
-    return false;
-  }
-}
