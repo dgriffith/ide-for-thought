@@ -26,6 +26,8 @@ vi.mock('../../../src/renderer/lib/map/load-maplibre', () => ({
 
 import TypeView from '../../../src/renderer/lib/components/TypeView.svelte';
 import { objectTypesStore } from '../../../src/renderer/lib/stores/object-types.svelte';
+import { buildViewEmbed, buildViewNoteContent } from '../../../src/shared/objects/view-note';
+import { parseObjectViewSpec } from '../../../src/renderer/lib/markdown/object-view-renderer';
 
 const TYPE = {
   id: 'book',
@@ -216,34 +218,36 @@ describe('TypeView (#1070)', () => {
       Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
     });
 
-    it('copies a table layout as a markdown table matching the compute-cell format, respecting sort/columns', async () => {
-      render(TypeView, props({ layout: 'table', sortColumn: 'rating', sortDir: 'asc', columns: ['author'] }));
-      await waitFor(() => expect(screen.getByRole('columnheader', { name: /Author/ })).toBeTruthy());
-      await fireEvent.click(screen.getByText('Copy as markdown'));
+    /** What the clipboard got, parsed back the way a pasted note would read it. */
+    const copiedSpec = () => {
+      const md = writeText.mock.calls[0]![0] as string;
+      expect(md).toMatch(/^```object-view\n[\s\S]*\n```\n$/);
+      return parseObjectViewSpec(md.replace(/^```object-view\n/, '').replace(/\n```\n$/, ''));
+    };
 
-      expect(writeText).toHaveBeenCalledWith(
-        '| Title | Author |\n| --- | --- |\n| Neuromancer | William Gibson |\n| Dune | Frank Herbert |',
-      );
+    it('copies the live embed, byte-for-byte the block Save as note writes', async () => {
+      const spec = { typeId: 'book', layout: 'table' as const, sortColumn: 'rating', sortDir: 'desc' as const, columns: ['author'], folder: 'shelf/a', filters: [{ property: 'rating', min: '4' }] };
+      render(TypeView, props(spec));
+      await fireEvent.click(await screen.findByText('Copy as markdown'));
+      expect(writeText).toHaveBeenCalledWith(buildViewEmbed(spec));
+      expect(buildViewNoteContent('Books', spec)).toContain(writeText.mock.calls[0]![0] as string);
+      expect(copiedSpec()).toEqual({ ...spec, filters: [{ property: 'rating', min: '4', max: null }] }); // the parser's normal form
     });
 
-    it('copies a list layout as a wiki-linked bullet list with the on-screen summary', async () => {
-      render(TypeView, props({ layout: 'list' }));
-      await waitFor(() => expect(screen.getByText('Dune')).toBeTruthy());
-      await fireEvent.click(screen.getByText('Copy as markdown'));
-
-      expect(writeText).toHaveBeenCalledWith(
-        '- [[Dune]] — Author: Frank Herbert\n- [[Neuro]] — Author: William Gibson',
-      );
+    it('a map copies as a map — not a list (the report)', async () => {
+      render(TypeView, props({ layout: 'map' }));
+      await fireEvent.click(await screen.findByText('Copy as markdown'));
+      expect(copiedSpec()).toMatchObject({ typeId: 'book', layout: 'map', folder: null, filters: [] });
     });
 
-    it('falls back to the same bullet-list format for gallery (no literal grid markdown)', async () => {
-      render(TypeView, props({ layout: 'gallery' }));
-      await waitFor(() => expect(screen.getByText('Dune')).toBeTruthy());
-      await fireEvent.click(screen.getByText('Copy as markdown'));
-
-      expect(writeText).toHaveBeenCalledWith(
-        '- [[Dune]] — Author: Frank Herbert\n- [[Neuro]] — Author: William Gibson',
-      );
+    it('every layout round-trips: the pasted block opens the view it was copied from', async () => {
+      for (const layout of ['list', 'gallery', 'table'] as const) {
+        writeText.mockClear();
+        const { unmount } = render(TypeView, props({ layout }));
+        await fireEvent.click(await screen.findByText('Copy as markdown'));
+        expect(copiedSpec().layout).toBe(layout);
+        unmount();
+      }
     });
 
     it('is not offered in chromeless (inline-embed) mode', async () => {
