@@ -18,6 +18,8 @@ const h = vi.hoisted(() => {
     openSource: vi.fn(),
     closeTabsForSource: vi.fn(),
     switchTab: vi.fn(),
+    openTypeView: vi.fn(),
+    groups: [] as Array<{ tabs: unknown[] }>,
     tabs: [] as unknown[],
     activeTab: undefined as unknown,
     activeFilePath: null as string | null,
@@ -54,6 +56,7 @@ beforeEach(() => {
   // which isn't defined under the node test env — stub it as a no-op scheduler.
   vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => { void cb; return 0; });
   h.editor.tabs = [];
+  h.editor.groups = [];
   h.editor.activeTab = undefined;
   h.editor.activeFilePath = null;
   h.editor.content = '';
@@ -211,5 +214,41 @@ describe('handleNavBack', () => {
     await view.handleNavBack();
     expect(h.editor.openFile).not.toHaveBeenCalled();
     expect(h.editor.openSource).not.toHaveBeenCalled();
+  });
+});
+
+describe('object views on the back/forward stack', () => {
+  const mapTab = { type: 'type-view', typeId: 'place', folder: 'trip/prague', layout: 'map', sortColumn: null, sortDir: 'asc', columns: null, filters: [{ property: 'city', values: ['Prague'] }] };
+  const mapPos = { type: 'type-view', typeId: 'place', folder: 'trip/prague', view: { layout: 'map', sortColumn: null, sortDir: 'asc', columns: null, filters: [{ property: 'city', values: ['Prague'] }] } };
+
+  it('leaving a view for a note (a map pin) records the view first', async () => {
+    h.editor.activeTab = mapTab;
+    await view.handleFileSelect('trip/prague/Kampa.md');
+    expect(h.nav.record.mock.calls.map((c) => c[0])).toEqual([mapPos, { type: 'note', relativePath: 'trip/prague/Kampa.md', offset: 0 }]);
+  });
+
+  it('opening a type from the Objects panel records where you were, then the view', () => {
+    h.editor.activeTab = { type: 'note' };
+    h.editor.activeFilePath = 'a.md';
+    view.handleOpenTypeView('book');
+    expect(h.editor.openTypeView).toHaveBeenCalledWith('book');
+    expect(h.nav.record.mock.calls.map((c) => c[0])).toEqual([
+      { type: 'note', relativePath: 'a.md', offset: 0 },
+      { type: 'type-view', typeId: 'book', folder: null },
+    ]);
+  });
+
+  it('Back to a still-open view focuses it as it is now', async () => {
+    h.editor.groups = [{ tabs: [mapTab] }];
+    h.nav.goBack.mockReturnValue(mapPos);
+    await view.handleNavBack();
+    expect(h.editor.openTypeView).toHaveBeenCalledWith('place', { folder: 'trip/prague' });
+    expect(h.nav.doneNavigating).toHaveBeenCalled();
+  });
+
+  it('Back to a closed view reopens it the way it was', async () => {
+    h.nav.goBack.mockReturnValue(mapPos);
+    await view.handleNavBack();
+    expect(h.editor.openTypeView).toHaveBeenCalledWith('place', { ...mapPos.view, folder: 'trip/prague' });
   });
 });
