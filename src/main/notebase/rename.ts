@@ -10,6 +10,7 @@ import { projectContext } from '../project-context-types';
 import { isIndexable } from '../../shared/indexable-files';
 import { isIgnoredEntry } from '../../shared/ignored-dirs';
 import { logger } from '../../shared/logger';
+import { rewriteViewFolders } from '../../shared/objects/view-folder-rename';
 
 async function listIndexableFiles(rootPath: string, relDir: string): Promise<string[]> {
   const results: string[] = [];
@@ -211,6 +212,8 @@ export async function planFolderRename(rootPath: string, fromDir: string, toDir:
     // the new location is its mapped destination.
     const newEquivalent = isMoved ? to + currentPath.slice(from.length) : currentPath;
     rewritten = rewriteRelativeMarkdownLinks(rewritten, currentPath, newEquivalent, mdRewrites);
+    // Folder-scoped views follow the folder (#2535).
+    rewritten = rewriteViewFolders(rewritten, from, to);
 
     if (rewritten !== content || isMoved) {
       affectedNotes.push({ path: currentPath, before: content, after: rewritten, isMoved });
@@ -238,6 +241,9 @@ export interface RenameResult {
   transitions: PathTransition[];
   /** Paths of OTHER notes whose content was rewritten by the pass. */
   rewrittenPaths: string[];
+  /** Set for a folder rename/move (#2535), so open folder-scoped view tabs
+   *  can follow. Kept out of `transitions`, which rollback replays file by file. */
+  folder?: PathTransition;
 }
 
 /**
@@ -367,6 +373,9 @@ export async function renameWithLinkRewrites(
       currentPath,
       mdRewrites,
     );
+    // Folder-scoped ```object-view embeds follow the folder (#2535) — same
+    // pass, same write, so the rename's undo covers them too.
+    if (isDirectory) rewritten = rewriteViewFolders(rewritten, oldRelPath, newRelPath);
 
     if (rewritten !== content) {
       try {
@@ -395,5 +404,5 @@ export async function renameWithLinkRewrites(
     }
   }
 
-  return { transitions, rewrittenPaths };
+  return { transitions, rewrittenPaths, ...(isDirectory ? { folder: { old: oldRelPath, new: newRelPath } } : {}) };
 }

@@ -70,7 +70,7 @@ const api = {
     onFileChanged: (cb: (path: string) => void) => subscribe(Channels.NOTEBASE_FILE_CHANGED, cb),
     onFileCreated: (cb: (path: string) => void) => subscribe(Channels.NOTEBASE_FILE_CREATED, cb),
     onFileDeleted: (cb: (path: string) => void) => subscribe(Channels.NOTEBASE_FILE_DELETED, cb),
-    onRenamed: (cb: (transitions: Array<{ old: string; new: string }>) => void) =>
+    onRenamed: (cb: (transitions: Array<{ old: string; new: string; folder?: boolean }>) => void) =>
       subscribe(Channels.NOTEBASE_RENAMED, cb),
     onRewritten: (cb: (paths: string[]) => void) => subscribe(Channels.NOTEBASE_REWRITTEN, cb),
     onHeadingRenameSuggested: (cb: (candidate: {

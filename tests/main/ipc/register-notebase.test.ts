@@ -582,6 +582,25 @@ describe('register-notebase — rename / merge broadcasts', () => {
     expect(h.persistIndexes).toHaveBeenCalledWith(ROOT);
   });
 
+  it('NOTEBASE_RENAME of a folder also names the folder, so scoped view tabs follow (#2535)', async () => {
+    h.renameWithLinkRewrites.mockResolvedValue({
+      transitions: [{ old: 'trip/a.md', new: 'travel/a.md' }],
+      rewrittenPaths: ['plan.md'],
+      folder: { old: 'trip', new: 'travel' },
+    });
+    await call(Channels.NOTEBASE_RENAME, 'trip', 'travel');
+    expect(sends()[0]).toEqual([Channels.NOTEBASE_RENAMED, [
+      { old: 'trip/a.md', new: 'travel/a.md' },
+      { old: 'trip', new: 'travel', folder: true },
+    ]]);
+  });
+
+  it('NOTEBASE_RENAME of an empty folder still broadcasts the folder', async () => {
+    h.renameWithLinkRewrites.mockResolvedValue({ transitions: [], rewrittenPaths: [], folder: { old: 'trip', new: 'travel' } });
+    await call(Channels.NOTEBASE_RENAME, 'trip', 'travel');
+    expect(sends()).toEqual([[Channels.NOTEBASE_RENAMED, [{ old: 'trip', new: 'travel', folder: true }]]]);
+  });
+
   it('NOTEBASE_RENAME stays quiet when nothing moved and nothing was rewritten', async () => {
     h.renameWithLinkRewrites.mockResolvedValue({ transitions: [], rewrittenPaths: [] });
     await call(Channels.NOTEBASE_RENAME, 'a.md', 'a.md');

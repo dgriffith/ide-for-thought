@@ -4,7 +4,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { initGraph, indexNote, findNotesLinkingTo } from '../../../src/main/graph/index';
 import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
-import { renameWithLinkRewrites, listAllFiles } from '../../../src/main/notebase/rename';
+import { renameWithLinkRewrites, listAllFiles, planFolderRename } from '../../../src/main/notebase/rename';
 
 function mkTempProject(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-rename-test-'));
@@ -529,5 +529,62 @@ describe('renameWithLinkRewrites — links that RESOLVED to the note, however sp
 
     // `alpha/plan` reached the note by path-suffix slug; `beta/plan` does now.
     expect(readNote(root, 'ref.md')).toBe('See [[beta/plan]].');
+  });
+});
+
+describe('renameWithLinkRewrites — folder-scoped views follow the folder (#2535)', () => {
+  let root: string;
+  let ctx: ProjectContext;
+  const view = (folder: string) => `# Plan\n\n\`\`\`object-view\n{"typeId":"place","layout":"map","folder":"${folder}"}\n\`\`\`\n`;
+
+  beforeEach(async () => {
+    root = mkTempProject();
+    ctx = projectContext(root);
+    await initGraph(ctx);
+    writeNote(root, 'trip/prague/Kampa.md', '# Kampa');
+    writeNote(root, 'trip/prague/old town/Clock.md', '# Clock');
+    writeNote(root, 'trip/prague-old/Gone.md', '# Gone');
+    writeNote(root, 'views/Prague map.md', view('trip/prague'));
+    writeNote(root, 'views/Old town.md', view('trip/prague/old town'));
+    writeNote(root, 'views/Sibling.md', view('trip/prague-old'));
+    writeNote(root, 'trip/prague/Inside.md', view('trip/prague')); // a view saved inside the folder it scopes
+    for (const p of ['trip/prague/Kampa.md', 'trip/prague/old town/Clock.md', 'trip/prague-old/Gone.md', 'views/Prague map.md', 'views/Old town.md', 'views/Sibling.md', 'trip/prague/Inside.md']) {
+      await indexNote(ctx, p, readNote(root, p));
+    }
+  });
+
+  afterEach(() => { fs.rmSync(root, { recursive: true, force: true }); });
+
+  it('rename: rewrites the folder in every view under it, reports them, and names the folder', async () => {
+    const { rewrittenPaths, folder } = await renameWithLinkRewrites(root, 'trip/prague', 'trip/praha');
+    expect(readNote(root, 'views/Prague map.md')).toBe(view('trip/praha'));
+    expect(readNote(root, 'views/Old town.md')).toBe(view('trip/praha/old town'));
+    expect(readNote(root, 'trip/praha/Inside.md')).toBe(view('trip/praha'));
+    expect(readNote(root, 'views/Sibling.md')).toBe(view('trip/prague-old')); // shared prefix, left alone
+    expect(rewrittenPaths).toEqual(expect.arrayContaining(['views/Prague map.md', 'views/Old town.md']));
+    expect(rewrittenPaths).not.toContain('views/Sibling.md');
+    expect(folder).toEqual({ old: 'trip/prague', new: 'trip/praha' });
+  });
+
+  it('move: a parent moving carries nested scopes with it', async () => {
+    await renameWithLinkRewrites(root, 'trip', 'archive/2026');
+    expect(readNote(root, 'views/Prague map.md')).toBe(view('archive/2026/prague'));
+    expect(readNote(root, 'views/Old town.md')).toBe(view('archive/2026/prague/old town'));
+    expect(readNote(root, 'views/Sibling.md')).toBe(view('archive/2026/prague-old'));
+  });
+
+  it('planFolderRename previews the same view rewrite, writing nothing — what a proposal shows and rolls back', async () => {
+    const plan = await planFolderRename(root, 'trip/prague', 'trip/praha');
+    const mapNote = plan.affectedNotes.find((n) => n.path === 'views/Prague map.md');
+    expect(mapNote).toMatchObject({ before: view('trip/prague'), after: view('trip/praha'), isMoved: false });
+    expect(plan.affectedNotes.find((n) => n.path === 'views/Sibling.md')).toBeUndefined();
+    expect(readNote(root, 'views/Prague map.md')).toBe(view('trip/prague')); // nothing written
+  });
+
+  it('a note rename never touches view folders, and reports no folder', async () => {
+    const before = readNote(root, 'views/Prague map.md');
+    const { folder } = await renameWithLinkRewrites(root, 'trip/prague/Kampa.md', 'trip/prague/Kampa Museum.md');
+    expect(readNote(root, 'views/Prague map.md')).toBe(before);
+    expect(folder).toBeUndefined();
   });
 });

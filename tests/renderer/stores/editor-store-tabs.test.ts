@@ -799,3 +799,26 @@ describe('rescopeTypeView — the folder chip (#2532)', () => {
     expect((editor.activeTab as { typeId?: string; folder?: string | null }) ).toMatchObject({ typeId: 'widen-b', folder: null });
   });
 });
+
+describe('folder renames move scoped view tabs (#2535)', () => {
+  const folders = (typeId: string) => editor.groups.flatMap((g) => g.tabs)
+    .filter((t) => t.type === 'type-view' && t.typeId === typeId).map((t) => (t as { folder: string | null }).folder);
+
+  it('a folder entry retargets tabs scoped to it or under it, and leaves siblings and unscoped tabs alone', () => {
+    editor.openTypeView('rn-a', { folder: 'trip/prague' });
+    editor.openTypeView('rn-a', { folder: 'trip/prague/old town' });
+    editor.openTypeView('rn-a', { folder: 'trip/prague-old' });
+    editor.openTypeView('rn-a');
+    editor.applyRenameTransitions([
+      { old: 'trip/prague/Kampa.md', new: 'trip/praha/Kampa.md' },
+      { old: 'trip/prague', new: 'trip/praha', folder: true },
+    ]);
+    expect(folders('rn-a')).toEqual(['trip/praha', 'trip/praha/old town', 'trip/prague-old', null]);
+  });
+
+  it('file-only transitions (a note rename) never move a view', () => {
+    editor.openTypeView('rn-b', { folder: 'trip/prague' });
+    editor.applyRenameTransitions([{ old: 'trip/prague/Kampa.md', new: 'elsewhere/Kampa.md' }]);
+    expect(folders('rn-b')).toEqual(['trip/prague']);
+  });
+});
