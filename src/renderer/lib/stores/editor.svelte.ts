@@ -350,6 +350,28 @@ function buildEditorStore() {
     }
   }
 
+  /**
+   * Change a type view's folder scope (#2532) — the panel's "in <folder> ✕"
+   * chip widens to the whole thoughtbase. Folder is part of a view's identity,
+   * so when a tab with the new scope is already open it's focused and this one
+   * closes, rather than leaving two tabs that are the same view.
+   */
+  function rescopeTypeView(typeId: string, fromFolder: string | null, toFolder: string | null) {
+    const target = normalizeFolder(toFolder);
+    const from = locateTab((t) => isTypeView(t) && t.typeId === typeId && t.folder === fromFolder);
+    if (!from) return;
+    const existing = locateTab((t) => isTypeView(t) && t.typeId === typeId && t.folder === target);
+    if (existing) {
+      const fromTab = from.group.tabs[from.index];
+      focusExistingTab(existing);
+      const at = from.group.tabs.indexOf(fromTab!);
+      if (at !== -1) closeTab(at, from.group.id);
+      return;
+    }
+    (from.group.tabs[from.index] as TypeViewTab).folder = target;
+    schedulePersistTabs();
+  }
+
   function openPdf(sourceId: string, opts?: { page?: number; groupId?: string }) {
     // Forbid duplicate open (#815): if this PDF is already open in any pane,
     // refocus it (jumping to the requested page) instead of opening a copy.
@@ -888,6 +910,7 @@ function buildEditorStore() {
     setGraphDepth,
     openTypeView,
     setTypeViewState,
+    rescopeTypeView,
     setPdfPage,
     save,
     isPathDirty,

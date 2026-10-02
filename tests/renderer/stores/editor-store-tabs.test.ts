@@ -781,3 +781,21 @@ describe('type-view tabs are a type AND a folder (#2531)', () => {
     expect(tabs.find((t) => t.folder === 'b')!.layout).toBe('gallery');
   });
 });
+
+describe('rescopeTypeView — the folder chip (#2532)', () => {
+  const viewTabs = (typeId: string) => editor.groups.flatMap((g) => g.tabs).filter((t) => t.type === 'type-view' && t.typeId === typeId) as Array<{ folder: string | null }>;
+
+  it('widens a scoped view in place when no unscoped one is open', () => {
+    editor.openTypeView('widen-a', { folder: 'trip/prague' });
+    editor.rescopeTypeView('widen-a', 'trip/prague', null);
+    expect(viewTabs('widen-a').map((t) => t.folder)).toEqual([null]);
+  });
+
+  it('merges into an already-open unscoped view instead of duplicating it', () => {
+    editor.openTypeView('widen-b');
+    editor.openTypeView('widen-b', { folder: 'trip/prague' });
+    editor.rescopeTypeView('widen-b', 'trip/prague', null);
+    expect(viewTabs('widen-b').map((t) => t.folder)).toEqual([null]);
+    expect((editor.activeTab as { typeId?: string; folder?: string | null }) ).toMatchObject({ typeId: 'widen-b', folder: null });
+  });
+});

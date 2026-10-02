@@ -341,3 +341,27 @@ describe('folder scope and filters (#2531)', () => {
     expect(screen.queryByText('Dune')).toBeNull();
   });
 });
+
+describe('the folder chip (#2532)', () => {
+  beforeEach(() => {
+    instancesMock.mockResolvedValue({ type: TYPE, instances: [{ path: 'shelf/a/Dune.md', title: 'Dune', values: { author: 'Frank Herbert', rating: '5' }, cover: null }] });
+  });
+
+  it('shows the scope in the panel and widens it on ✕', async () => {
+    const onClearFolder = vi.fn();
+    render(TypeView, props({ folder: 'shelf/a', onClearFolder }));
+    await waitFor(() => expect(screen.getByText('in shelf/a')).toBeTruthy());
+    await fireEvent.click(screen.getByRole('button', { name: 'Show Book from the whole thoughtbase' }));
+    expect(onClearFolder).toHaveBeenCalled();
+  });
+
+  it('isn\'t shown unscoped, or chromeless (an embed or export)', async () => {
+    const { unmount } = render(TypeView, props({ onClearFolder: vi.fn() }));
+    await waitFor(() => expect(screen.getByText('Dune')).toBeTruthy());
+    expect(screen.queryByText(/^in /)).toBeNull();
+    unmount();
+    render(TypeView, props({ folder: 'shelf/a', chromeless: true, onClearFolder: vi.fn() }));
+    await waitFor(() => expect(screen.getByText('Dune')).toBeTruthy());
+    expect(screen.queryByText('in shelf/a')).toBeNull();
+  });
+});

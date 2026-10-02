@@ -59,10 +59,13 @@
     /** Property filters, AND-ed (#2531). Applied in every mode — the panel, a
      *  note embed and an export all show the same filtered set. */
     filters?: ViewFilter[];
+    /** Widen a folder-scoped view to the whole thoughtbase (#2532) — the
+     *  "in <folder> ✕" chip. Absent (an embed, an export) → no chip. */
+    onClearFolder?: () => void;
     /** Map layout only: render for an export and hand back a capture (#2511). */
     mapExport?: MapExportHooks;
   }
-  let { typeId, layout, sortColumn, sortDir, columns, revision, onStateChange, onOpenNote, onSaveView, chromeless = false, onLoaded, mapExport, folder = null, filters = [] }: Props = $props();
+  let { typeId, layout, sortColumn, sortDir, columns, revision, onStateChange, onOpenNote, onSaveView, chromeless = false, onLoaded, mapExport, folder = null, filters = [], onClearFolder }: Props = $props();
 
   let type = $state<TypeInfo | null>(null);
   let instances = $state<TypeInstanceRow[]>([]);
@@ -278,6 +281,12 @@
       <span class="tv-icon" style={type?.color ? `color:${type.color}` : undefined}>{type?.icon ?? '◆'}</span>
       <h1 class="tv-title">{type?.label ?? typeId}</h1>
       <span class="tv-count">{scoped.length === instances.length ? scoped.length : `${scoped.length} of ${instances.length}`}</span>
+      {#if folder && onClearFolder}
+        <span class="tv-chip" title="Only notes under {folder}">
+          in {folder}
+          <button type="button" class="tv-chip-x" aria-label="Show {type?.label ?? typeId} from the whole thoughtbase" onclick={onClearFolder}>✕</button>
+        </span>
+      {/if}
 
       <div class="tv-actions">
         {#if layout === 'table' && allColumns.length > 0}
@@ -561,4 +570,8 @@
   .tv-card-icon { font-size: 32px; opacity: 0.5; }
   .tv-card-title { font-size: 12.5px; font-weight: 500; padding: 0 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tv-card-summary { font-size: 11px; color: var(--text-faint); padding: 0 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* Folder scope chip (#2532). */
+  .tv-chip { display: inline-flex; align-items: center; gap: 4px; padding: 1px 4px 1px 8px; border-radius: 999px; background: var(--bg-button); color: var(--text-muted); font-size: 11.5px; white-space: nowrap; }
+  .tv-chip-x { border: none; background: transparent; color: var(--text-muted); cursor: pointer; padding: 0 4px; border-radius: 999px; font-size: 10px; line-height: 1.6; }
+  .tv-chip-x:hover { color: var(--text); background: color-mix(in oklch, var(--text) 8%, transparent); }
 </style>
