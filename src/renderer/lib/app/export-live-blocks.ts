@@ -10,12 +10,15 @@ import { api } from '../ipc/client';
 import type { LiveBlockRequest, LiveBlockResult } from '../../../shared/live-blocks';
 import { renderObjectViewForExport } from '../export/render-object-view';
 import { renderQueryBlockForExport } from '../export/render-query-block';
+import { renderMermaidForExport } from '../export/render-mermaid';
 
 export async function renderLiveBlock(block: LiveBlockRequest): Promise<LiveBlockResult> {
   try {
     switch (block.kind) {
       case 'object-view':
         return { id: block.id, ok: true, html: await renderObjectViewForExport(block.source) };
+      case 'mermaid':
+        return { id: block.id, ok: true, html: await renderMermaidForExport(block.source) };
       case 'query':
         return { id: block.id, ok: true, html: await renderQueryBlockForExport(block.source, block.notePath) };
     }
