@@ -137,6 +137,33 @@ describe('multi-file history (#2090)', () => {
       expect(await readFile(root, 'a.md')).toBe('v1');
     });
 
+    it('keeps an edit made in another app before overwriting it, so the revert can be undone', async () => {
+      await writeFile(root, 'a.md', 'v1');
+      const [{ ts: ts1 }] = await listRevisions(root, 'a.md');
+      await writeFile(root, 'a.md', 'v2');
+      await new Promise((r) => setTimeout(r, 5));
+      await fs.writeFile(path.join(root, 'a.md'), 'edited elsewhere'); // history hasn't seen this
+
+      const result = await batchRevertToPointInTime(root, ['a.md'], [], ts1, makeHooks());
+
+      expect(result.reverted).toEqual(['a.md']);
+      expect(await readFile(root, 'a.md')).toBe('v1');
+      const revs = await listRevisions(root, 'a.md');
+      const before = revs.find((r) => r.cause === 'Before revert');
+      expect(before).toBeDefined();
+      // …and reverting to that moment brings the outside edit back.
+      await batchRevertToPointInTime(root, ['a.md'], [], before!.ts, makeHooks());
+      expect(await readFile(root, 'a.md')).toBe('edited elsewhere');
+    });
+
+    it('adds no extra version when history already has the current text', async () => {
+      await writeFile(root, 'a.md', 'v1');
+      const [{ ts: ts1 }] = await listRevisions(root, 'a.md');
+      await writeFile(root, 'a.md', 'v2');
+      await batchRevertToPointInTime(root, ['a.md'], [], ts1, makeHooks());
+      expect((await listRevisions(root, 'a.md')).some((r) => r.cause === 'Before revert')).toBe(false);
+    });
+
     it('recreated: existed then, deleted since — undeleted', async () => {
       await writeFile(root, 'a.md', 'v1');
       const [{ ts: ts1 }] = await listRevisions(root, 'a.md');

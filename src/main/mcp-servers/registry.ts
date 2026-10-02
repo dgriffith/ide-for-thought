@@ -31,7 +31,7 @@ import type {
   McpToolDescriptor,
   StoredMcpServerConfig,
 } from '../../shared/mcp-servers';
-import { allowTool, isToolAllowed } from './tool-permissions';
+import { allowTool, isToolAllowed, serverIdentity } from './tool-permissions';
 import {
   addStoredServer,
   getStoredServers,
@@ -106,11 +106,20 @@ export async function addServer(name: string, descriptor: StoredMcpServerConfig[
 }
 
 export async function updateServer(id: string, patch: StoredMcpServerPatch): Promise<McpServerStatus[]> {
-  // The old client is stale the moment the descriptor changes — disconnect
-  // rather than leave it talking to a server the config no longer describes.
-  // A name-only edit needs no reconnect.
-  if (patch.descriptor) await disconnectOne(id);
+  // The settings form sends the connection details with every save, so
+  // "a descriptor arrived" doesn't mean "it changed" — compare. A save that
+  // only renames (or re-saves the same details) leaves the connection alone;
+  // it used to drop it, and the row sat disconnected until you clicked Connect.
+  const before = await requireStoredServer(id);
+  const changed = patch.descriptor !== undefined && serverIdentity(patch.descriptor) !== serverIdentity(before.descriptor);
+  // A changed descriptor makes the old client stale — don't leave it talking
+  // to a server the config no longer describes.
+  if (changed) await disconnectOne(id);
   await updateStoredServer(id, patch);
+  // …and an enabled server reconnects to the new details on its own, the
+  // same best-effort, non-interactive connect as switching it on: a remote
+  // server that needs signing in shows that, rather than popping a browser.
+  if (changed && before.enabled) await connectOne(await requireStoredServer(id), { interactive: false });
   return listServerStatuses();
 }
 

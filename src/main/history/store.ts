@@ -373,14 +373,33 @@ export async function captureCurrentStateBeforeDelete(
   relPath: string,
   now: number = Date.now(),
 ): Promise<RevisionMeta | null> {
+  return captureCurrentState(rootPath, relPath, 'Final version before deletion', now);
+}
+
+/**
+ * Record a note's current on-disk text before something replaces it, when it
+ * differs from the newest recorded version — an edit made in another app, say,
+ * that history hasn't seen yet. `captureSnapshot` dedupes, so this is free
+ * when history is already current. The general form of the pre-delete
+ * capture above; a batch revert uses it before overwriting each note (#2547
+ * follow-up), so a revert can always be undone by reverting to a moment just
+ * before it. Returns null when there's nothing on disk.
+ */
+export async function captureCurrentState(
+  rootPath: string,
+  relPath: string,
+  cause: string,
+  now: number = Date.now(),
+): Promise<RevisionMeta | null> {
   await ensureInitialRevision(rootPath, relPath, now);
   let content: string;
   try {
     content = await fs.readFile(path.resolve(rootPath, relPath), 'utf-8');
-  } catch {
-    return null; // already gone — nothing to capture
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null; // already gone — nothing to capture
+    throw err;
   }
-  return captureSnapshot(rootPath, relPath, content, { origin: 'edit', cause: 'Final version before deletion' }, now);
+  return captureSnapshot(rootPath, relPath, content, { origin: 'edit', cause }, now);
 }
 
 /**
