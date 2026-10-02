@@ -48,6 +48,7 @@
     "fetch:model": "node scripts/fetch-embedding-model.mjs",
     "fetch:help-corpus": "vite-node scripts/build-help-corpus.mjs",
     "build:docs": "node scripts/build-docs.mjs",
+    "docs:screenshots": "playwright test --config playwright.docs-screenshots.config.ts",
     "check:docs": "node scripts/build-docs.mjs --check",
     "check:ruleset": "node scripts/check-branch-ruleset.mjs",
     "predev": "node scripts/prep.mjs",

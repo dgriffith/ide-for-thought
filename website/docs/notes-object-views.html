@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Minerva — Docs — Footnotes</title>
-<meta name="description" content="Add footnotes to your notes: mark a spot in your text, write the note at the bottom, and jump between the two in every view." />
+<title>Minerva — Docs — Object views</title>
+<meta name="description" content="Put a live list, table, gallery, or map of your typed notes inside any note, kept current as those notes change." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -62,13 +62,13 @@
     <a href="notes-callouts.html" class="sub">Callouts</a>
     <a href="notes-images.html" class="sub">Images</a>
     <a href="notes-tables.html" class="sub">Tables &amp; CSV</a>
-    <a href="notes-footnotes.html" class="sub active">Footnotes</a>
+    <a href="notes-footnotes.html" class="sub">Footnotes</a>
     <a href="notes-flashcards.html" class="sub">Flashcards</a>
     <a href="notes-media.html" class="sub">Media</a>
     <a href="notes-math.html" class="sub">Math</a>
     <a href="notes-diagrams.html" class="sub">Diagrams</a>
     <a href="notes-charts.html" class="sub">Charts</a>
-    <a href="notes-object-views.html" class="sub">Object views</a>
+    <a href="notes-object-views.html" class="sub active">Object views</a>
     <a href="notes-code.html" class="sub">Code &amp; compute cells</a>
     <a href="notes-query.html" class="sub">Query cells</a>
     <a href="notes-search.html" class="sub">Search cells</a>
@@ -95,77 +95,60 @@
 
   <!-- ===== Content ===== -->
   <main class="docs-content">
-    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="notes.html">Notes</a><span class="sep">/</span>Footnotes</p>
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="notes.html">Notes</a><span class="sep">/</span>Object views</p>
 
-    <h1>Footnotes</h1>
-    <p class="lede">Footnotes let you move an aside, a caveat, or a citation out of the sentence and down to the bottom of the note. You mark the spot in your text and write the note itself elsewhere in the file, and Minerva keeps the two linked wherever you're reading.</p>
+    <h1>Object views</h1>
+    <p class="lede">A note can hold a live view of your <a href="notes-typed-notes.html">typed notes</a> — the same list, table, gallery or map you get when you open a type from the <a href="left-sidebar-objects.html">Objects panel</a>. It shows the notes as they are now, every time you open it, so a page about a trip can carry a map of every place you've noted for it without you keeping a list up to date.</p>
 
-    <h2 id="syntax">Writing a footnote</h2>
-    <p>A footnote has two parts: a <b>marker</b> that sits inline where the thought occurs, and the <b>note text</b> that supplies its content.</p>
+    <h2 id="adding">Adding a view to a note</h2>
+    <p>Start from the view itself: open a type from the Objects panel (or <b>View Objects</b> on a folder), then arrange it the way you want — pick a layout, sort it, choose columns, add filters. Then use one of the two buttons in its header:</p>
 
     <div class="deflist">
       <div class="row">
-        <div class="k"><code>[^label]</code></div>
-        <div class="v"><b>The marker.</b> Drop it inline in your text. The label can be a number (<code>[^1]</code>) or a word (<code>[^caveat]</code>) — anything without spaces.</div>
+        <div class="k">Save as note</div>
+        <div class="v">Makes a new note holding the view. You're asked for a name, and the note opens once it's made.</div>
       </div>
       <div class="row">
-        <div class="k"><code>[^label]: text…</code></div>
-        <div class="v"><b>The note text.</b> Start a fresh line with the same label, a colon, and the footnote's content. These usually collect at the bottom of the note, but you can put them anywhere.</div>
+        <div class="k">Copy as markdown</div>
+        <div class="v">Copies the view so you can paste it into a note you already have, wherever you want it among your writing.</div>
       </div>
     </div>
 
-    <p>Need more than a sentence? Continue a footnote across several paragraphs by indenting the lines that follow. Here's a complete example:</p>
-<pre><code>The results replicate the 2019 study,[^rep] though with a smaller
-effect size.[^size]
+    <p>Both give you exactly the same thing: the view's layout, sorting, columns, folder and filters, all kept. You can paste the same view into as many notes as you like.</p>
 
-[^rep]: Only the primary outcome was replicated; the secondary
-    measures did not reach significance.
+    <h2 id="how-it-looks">How it looks</h2>
+    <p>In the editor, a view is a short block of text naming the type and how to show it. A Place map limited to one folder looks like this:</p>
 
-[^size]: d = 0.31 vs. the original d = 0.62.</code></pre>
+<pre><code>```object-view
+{
+  "typeId": "place",
+  "layout": "map",
+  "folder": "trip/prague"
+}
+```</code></pre>
 
-    <h2 id="rendering">How footnotes look</h2>
-    <p>When your note is rendered, each marker turns into a small numbered superscript, and all the footnote text gathers into a tidy section at the bottom. Click a number to glide down to the matching footnote; each one ends with a small arrow that takes you back to where you were reading. Prefer not to leave your place? Hover a number and the footnote appears in a tooltip right there.</p>
-
-    <figure class="shot-img">
-      <img src="img/notes-footnotes.png" alt="A rendered note showing a superscript number in a paragraph with its hover tooltip open, and the collected footnotes gathered at the bottom of the note." loading="lazy" />
-      <figcaption>Screenshot — Footnote in a rendered note</figcaption>
-    </figure>
+    <p>You don't need to write or read this yourself — Save as note and Copy as markdown write it for you. In the preview it becomes the real view, and clicking a row, card or pin opens that note. The view's own filter controls and folder chip stay in its tab, so in a note you see just the notes it shows.</p>
 
     <div class="box">
-      <span class="label">Labels vs. numbers</span>
-      <p>Your label is just a name for you — it isn't what readers see. Footnotes are numbered automatically in the order their markers appear, so <code>[^caveat]</code> shows up as ¹ if it's the first one. Use whatever labels help you keep track; the finished note stays neat.</p>
+      <span class="label">To change a view, make it again</span>
+      <p>The simplest way to change what a view in a note shows is to open the type's view, arrange it the new way, and copy or save it again in place of the old one.</p>
     </div>
 
-    <h2 id="editor">Jumping between marker and note</h2>
-    <p>While you're writing, markers and their notes act as two-way links:</p>
-    <ul>
-      <li><b>Click a marker</b> — jump to its footnote text.</li>
-      <li><b>Click a footnote's text</b> — jump to the first place it's used.</li>
-      <li><b>Hover a marker</b> — preview the footnote without leaving the sentence. If you haven't written it yet, the preview tells you so.</li>
-    </ul>
-    <p>To add one quickly, use the <b>Insert Footnote</b> command: it drops the next free numbered marker where your cursor is, adds a matching line at the end of the note, and puts your cursor there so you can start typing.</p>
+    <h2 id="kept-current">It stays current</h2>
+    <p>Add a place, fill in a location, or change a field, and the view in your note shows it the next time you look. Renaming or moving a folder doesn't break a view that was limited to it — the view follows the folder to its new name.</p>
 
-    <h2 id="panel">The Footnotes panel</h2>
-    <p>The right sidebar's <b>Footnotes</b> panel lists every footnote in the note, with a preview of each and a search box for long documents. Click an entry to jump to where it's used. The panel also catches loose ends:</p>
-    <ul>
-      <li><b>Defined, never used</b> — a footnote you wrote but never pointed to.</li>
-      <li><b>Referenced, not defined</b> — a marker in your text with no footnote written yet. Click it to go straight to the spot and fill it in.</li>
-    </ul>
-
-    <div class="shot">
-      <div class="icon">🗂️</div>
-      <div class="k">Screenshot — Footnotes panel</div>
-      <div class="d">The right-sidebar Footnotes panel showing several footnotes with their labels and previews, including one flagged as never used and one flagged as not yet written.</div>
-    </div>
+    <h2 id="exports">In exports and on the web</h2>
+    <p>When you export a note as a web page or PDF, or publish it as part of a website, its views appear as they do in the preview — a table is a table, a gallery is cards. A map becomes a still picture framed just as the preview frames it, with the map's credit line beneath. If the map can't be drawn — say you're offline when you export — the places are listed as a table instead, so the page never shows an empty box.</p>
+    <p>A Markdown export keeps the view as the text you'd see in the editor.</p>
 
     <div class="pager">
-      <a class="prev" href="notes-tables.html">
+      <a class="prev" href="notes-charts.html">
         <span class="dir">Previous</span>
-        <span class="ttl">← Tables &amp; CSV</span>
+        <span class="ttl">← Charts</span>
       </a>
-      <a class="next" href="notes-flashcards.html">
+      <a class="next" href="notes-code.html">
         <span class="dir">Next</span>
-        <span class="ttl">Flashcards →</span>
+        <span class="ttl">Code &amp; compute cells →</span>
       </a>
     </div>
   </main>

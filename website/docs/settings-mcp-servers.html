@@ -109,6 +109,7 @@
         <div class="v">Minerva connects over the network to a server somebody else runs. Fill in the <b>URL</b>. If it requires a login, Minerva handles that — see <b>Needs authorization</b> below.</div>
       </div>
     </div>
+    <p>Servers are saved in <code>~/.minerva/mcp-servers.json</code> in your home folder — environment variables included, so an API key you put under <b>Environment</b> is stored in that file in plain text. A remote server's sign-in tokens are kept separately, encrypted, in Minerva's application data folder.</p>
     <p>The name is how the assistant refers to the server, so keep it short and distinct — two servers sharing a name can't be told apart. A server you've just added starts <b>switched off</b>: nothing is launched or contacted until you turn it on.</p>
 
     <h2 id="status">What the status says</h2>
@@ -136,9 +137,9 @@
     </div>
 
     <h2 id="switch">Switching on, connecting, editing</h2>
-    <p>The switch at the start of each row is the whole control: on connects straight away, off disconnects. Servers left on are reconnected in the background each time you start Minerva, so a working setup stays working. <b>Connect</b> appears on a row that's on but not connected — use it to retry after a failure or to complete a sign-in. <b>Edit</b> changes the name or the address; changing the address drops the existing connection, since it no longer says where the server is. <b>Remove</b> disconnects and forgets the server.</p>
+    <p>The switch at the start of each row is the whole control: on connects straight away, off disconnects. Servers left on are reconnected in the background each time you start Minerva, so a working setup stays working. <b>Connect</b> appears on a row that's on but not connected — use it to retry after a failure or to complete a sign-in. <b>Edit</b> changes the name or the connection details. Saving an edit drops the live connection — click <b>Connect</b> on the row to bring it back with the new settings. Changing the command, arguments, environment or URL also voids any <b>Don't ask again</b> choices for that server's tools (see <a href="#confirm">below</a>), since it may now be a different program; renaming it keeps them. <b>Remove</b> disconnects and forgets the server.</p>
 
-    <div class="shot">Screenshot — the MCP Servers settings panel: the Add server… button, and a configured server's row showing its switch, kind, status and expandable tool list.</div>
+    <figure class="shot-img"><img src="img/settings-mcp-servers.png" alt="The MCP Servers tab in Settings: an Add server… button, and below it one configured local-command server in a row showing its on/off switch, its kind (stdio) and its connection status." loading="lazy" /><figcaption>Screenshot — the MCP Servers tab with one local-command server configured: its switch, kind and status.</figcaption></figure>
 
     <h2 id="using">Using the tools in a conversation</h2>
     <p>Once a server is connected its tools reach the assistant automatically — nothing to enable per tool, nothing to type. Ask for something the server can do and the assistant reaches for it, naming the server and tool in the transcript. Only <em>connected</em> servers count: one that's off, failing, or offering no tools simply isn't mentioned to the assistant, so a broken server costs you nothing but the row.</p>

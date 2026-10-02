@@ -1,0 +1,48 @@
+---
+title: Minerva — Docs — Object views
+description: Put a live list, table, gallery, or map of your typed notes inside any note, kept current as those notes change.
+---
+
+    <h1>Object views</h1>
+    <p class="lede">A note can hold a live view of your <a href="notes-typed-notes.html">typed notes</a> — the same list, table, gallery or map you get when you open a type from the <a href="left-sidebar-objects.html">Objects panel</a>. It shows the notes as they are now, every time you open it, so a page about a trip can carry a map of every place you've noted for it without you keeping a list up to date.</p>
+
+    <h2 id="adding">Adding a view to a note</h2>
+    <p>Start from the view itself: open a type from the Objects panel (or <b>View Objects</b> on a folder), then arrange it the way you want — pick a layout, sort it, choose columns, add filters. Then use one of the two buttons in its header:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Save as note</div>
+        <div class="v">Makes a new note holding the view. You're asked for a name, and the note opens once it's made.</div>
+      </div>
+      <div class="row">
+        <div class="k">Copy as markdown</div>
+        <div class="v">Copies the view so you can paste it into a note you already have, wherever you want it among your writing.</div>
+      </div>
+    </div>
+
+    <p>Both give you exactly the same thing: the view's layout, sorting, columns, folder and filters, all kept. You can paste the same view into as many notes as you like.</p>
+
+    <h2 id="how-it-looks">How it looks</h2>
+    <p>In the editor, a view is a short block of text naming the type and how to show it. A Place map limited to one folder looks like this:</p>
+
+<pre><code>```object-view
+{
+  "typeId": "place",
+  "layout": "map",
+  "folder": "trip/prague"
+}
+```</code></pre>
+
+    <p>You don't need to write or read this yourself — Save as note and Copy as markdown write it for you. In the preview it becomes the real view, and clicking a row, card or pin opens that note. The view's own filter controls and folder chip stay in its tab, so in a note you see just the notes it shows.</p>
+
+    <div class="box">
+      <span class="label">To change a view, make it again</span>
+      <p>The simplest way to change what a view in a note shows is to open the type's view, arrange it the new way, and copy or save it again in place of the old one.</p>
+    </div>
+
+    <h2 id="kept-current">It stays current</h2>
+    <p>Add a place, fill in a location, or change a field, and the view in your note shows it the next time you look. Renaming or moving a folder doesn't break a view that was limited to it — the view follows the folder to its new name.</p>
+
+    <h2 id="exports">In exports and on the web</h2>
+    <p>When you export a note as a web page or PDF, or publish it as part of a website, its views appear as they do in the preview — a table is a table, a gallery is cards. A map becomes a still picture framed just as the preview frames it, with the map's credit line beneath. If the map can't be drawn — say you're offline when you export — the places are listed as a table instead, so the page never shows an empty box.</p>
+    <p>A Markdown export keeps the view as the text you'd see in the editor.</p>

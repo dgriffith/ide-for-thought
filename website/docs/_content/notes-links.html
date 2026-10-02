@@ -103,6 +103,24 @@ See [[depends-on::auth-redesign|the redesign proposal]] before touching this.</c
 
     <p>While editing, clicking a link jumps to the note it points at. Hold <kbd>⌘</kbd> (or <kbd>Ctrl</kbd>) and click to place your cursor inside the link and edit it instead.</p>
 
+    <h2 id="cards">Links to typed notes show as cards</h2>
+    <p>When a link points at a <a href="notes-typed-notes.html">typed note</a> — a Book, a Person, a Place — and sits on a line by itself, the preview shows it as a card instead of a line of text: the note's cover picture or its type's icon, its title, and the few fields its type picks for cards, such as a Book's author. Click the card to open the note, just as you would the link. Export the note and the export shows the same card.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Inline links stay links</div>
+        <div class="v">A link in the middle of a sentence is left as an ordinary link. Only a link with nothing else on its line becomes a card, and only when the note it points at has a type.</div>
+      </div>
+      <div class="row">
+        <div class="k">Cover pictures</div>
+        <div class="v">A cover shows as a picture only when its value is a web address, starting <code>http://</code> or <code>https://</code>. Otherwise the card shows the type's icon.</div>
+      </div>
+      <div class="row">
+        <div class="k">Choosing the fields</div>
+        <div class="v">Which fields a card shows is set per type, with the <em>card</em> tick boxes in <a href="settings-object-types.html#editing">Settings → Object Types</a>.</div>
+      </div>
+    </div>
+
     <h2 id="backlinks">Backlinks</h2>
     <p>Links work in both directions. When you're reading a note, the <b>Backlinks</b> panel in the right sidebar lists every other note that links to it, each labeled and colored by its link type — so you can see at a glance which notes support, rebut, or merely reference the one you're looking at.</p>
 

@@ -103,7 +103,7 @@
     <div class="deflist">
       <div class="row">
         <div class="k">stock</div>
-        <div class="v">One of the types Minerva ships with — Book, Person, Meeting, Project, Idea, Article — exactly as it comes.</div>
+        <div class="v">One of the ten types Minerva ships with — Article, Book, Claim, Event, Glossary Term, Idea, Meeting, Person, Place, Project — exactly as it comes.</div>
       </div>
       <div class="row">
         <div class="k">customized</div>
@@ -128,29 +128,95 @@
         <div class="v">The character that marks notes of this type in every list. On macOS the ☺ button opens the system emoji picker; you can also paste or type one.</div>
       </div>
       <div class="row">
-        <div class="k">Colour</div>
-        <div class="v">Tints the icon. Pick from the swatches beside the field, use the colour well for anything else, or type a hex value. The × clears it.</div>
+        <div class="k">Color</div>
+        <div class="v">Tints the icon. Pick from the swatches beside the field, use the color well for anything else, or type a hex value. The × clears it.</div>
       </div>
       <div class="row">
         <div class="k">Fields</div>
-        <div class="v">The properties notes of this type are expected to have. Each one has a name and a kind — text, number, date, a fixed list of choices, or a link to a note of another type. Add, remove, and reorder them; the order is the order they appear in on a note.</div>
+        <div class="v">The properties notes of this type are expected to have. Each one has a name and a kind — text, number, date, a fixed list of choices (<em>enum</em>), a link to another note (<em>link-to-type</em>), or a location (<em>geo</em>). Add, remove, and reorder them; the order is the order they appear in on a note.</div>
       </div>
       <div class="row">
         <div class="k">Card</div>
-        <div class="v">Tick a field to include it when the note is shown as a card rather than a row.</div>
+        <div class="v">Tick a field to include it on the card shown when another note links to this one on a line of its own — see <a href="notes-links.html#cards">Links</a>.</div>
       </div>
       <div class="row">
         <div class="k">Cover</div>
-        <div class="v">Which field holds an image, for the gallery view.</div>
+        <div class="v">Which field holds an image, for the gallery view and for cards.</div>
       </div>
       <div class="row">
         <div class="k">Parent type</div>
         <div class="v">A more general type this one is a kind of. It inherits the parent's fields, and counts as one of the parent wherever they're gathered.</div>
       </div>
+      <div class="row">
+        <div class="k">External class (advanced)</div>
+        <div class="v">Optional. Names a class from a standard vocabulary — <code>foaf:Person</code>, say — that notes of this type should also count as in your project's <a href="notes-rdf.html">graph</a>, so a query written in that vocabulary finds them too. Leave it empty and nothing changes.</div>
+      </div>
+    </div>
+
+    <figure class="shot-img">
+      <img src="img/settings-object-types-editor.png" alt="The type editor dialog for the stock Place type: its name, icon and color at the top, a list of fields with a kind chosen for each, the cover, parent type and external class boxes, and the default note body with placeholder buttons beneath it and a preview of how a new note starts." loading="lazy" />
+      <figcaption>Screenshot — the type editor for Place, with its fields and default body</figcaption>
+    </figure>
+
+    <h2 id="field-kinds">Kinds of field</h2>
+    <p>A field's kind decides what control it gets in the <a href="right-sidebar-properties.html">Properties panel</a>, and what Minerva can do with its values.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">text, number, date</div>
+        <div class="v">A text box, a number box, or a date picker.</div>
+      </div>
+      <div class="row">
+        <div class="k">enum</div>
+        <div class="v">A fixed list of choices. Type the options into the box beside the kind, separated by commas, and the field becomes a dropdown of exactly those.</div>
+      </div>
+      <div class="row">
+        <div class="k">link-to-type</div>
+        <div class="v">A link to another note, written as <code>[[Note]]</code>. The box beside the kind sets which type the linked note should be — a Project's <em>owner</em> is a Person — or <em>(any type)</em> to allow any note.</div>
+      </div>
+      <div class="row">
+        <div class="k">geo</div>
+        <div class="v">A location, written as latitude and longitude separated by a comma — <code>48.8584,2.2945</code>. In the Properties panel it's a plain text box. A type with a location field can also be shown as a <a href="left-sidebar-objects.html#views">map</a>. The stock Place type has one.</div>
+      </div>
+    </div>
+
+    <p>Most kinds also have a small <em>predicate</em> box beside them. Like External class, it's optional and only matters for queries: it stores that field under a property from a standard vocabulary instead of Minerva's own — the stock Person type keeps its email under <code>foaf:mbox</code>. Leave it empty and the field works the same as any other.</p>
+
+    <div class="box">
+      <span class="label">Bridges in the stock types</span>
+      <p>A few built-in types use these already. Person counts as a <code>foaf:Person</code>. Claim and Glossary Term count as the Claim and Term of Minerva's <a href="notes-rdf.html">thought vocabulary</a>, so a Claim note is found by everything that looks for claims, and Article and Book map to its Article and Book. You never need to touch any of this to use them.</p>
     </div>
 
     <h2 id="default-body">Default note body</h2>
-    <p>A type can give every new note of its kind a starting body: the headings you always want, and blanks for the details. Write it under <strong>Default note body</strong> in the type's dialog. The buttons below the box insert a placeholder for each of the type's fields, plus the note's title, today's date, and where the cursor should land.</p>
+    <p>A type can give every new note of its kind a starting body: the headings you always want, and blanks for the details. Write it under <strong>Default note body</strong> in the type's dialog. The buttons below the box insert a placeholder for each of the type's fields, plus the note's title, today's date, and where the cursor should land. Underneath, a preview shows how a new note starts.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k"><code>{{title}}</code></div>
+        <div class="v">The new note's title.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>{{date}}</code>, <code>{{time}}</code></div>
+        <div class="v">Today's date and the current time, when the note is created.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>{{cursor}}</code></div>
+        <div class="v">Where your cursor lands in the new note. The placeholder itself disappears.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>{{prompt:Label}}</code></div>
+        <div class="v">Asks you for a value, under that label, when you create the note.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>{{name}}</code></div>
+        <div class="v">The value of the type's field called <em>name</em> — see below.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>{{prop:name}}</code></div>
+        <div class="v">The same, for a field whose name clashes with one of the placeholders above. Event and Meeting both have a <em>date</em> field: <code>{{date}}</code> is always today, so write <code>{{prop:date}}</code> for the date of the event.</div>
+      </div>
+    </div>
+
 
     <div class="deflist">
       <div class="row">
@@ -200,6 +266,10 @@
       <div class="row">
         <div class="k">From a note</div>
         <div class="v"><strong>File → Save Note as Object Type</strong> builds a type out of a note you've already written, taking its properties as the fields.</div>
+      </div>
+      <div class="row">
+        <div class="k">With the assistant</div>
+        <div class="v"><strong>Analysis → Organization → Create an Object Type</strong> opens a conversation where you describe what you want to track, and the assistant designs a type with you — fields, icon, an optional parent — checking first that you don't already have one like it. It can also suggest changes to an existing type. Nothing is created or changed until you approve it in the <a href="left-sidebar-proposals.html">Proposals panel</a>.</div>
       </div>
     </div>
 

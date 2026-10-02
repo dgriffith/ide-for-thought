@@ -7,8 +7,8 @@ description: Use the Minerva command-line interface: build and run it, query the
     <p class="lede">The Minerva CLI gives headless, scriptable access to a thoughtbase from your shell — the same core the app runs on, so it works with the app closed. Every result is printed as <b>JSON</b> on standard output, so it pipes straight into <code>jq</code> or feeds an agent directly.</p>
 
     <h2 id="build">Getting the command</h2>
-    <p>If you installed Minerva from the download, choose <b>Help → Install ‘minerva’ Command in PATH…</b> in the app. That writes a <code>minerva</code> launcher to <code>~/.local/bin</code> — the app runs its own bundled Node, so there's nothing else to install. If <code>~/.local/bin</code> isn't on your <code>PATH</code>, the dialog shows how to add it, and gives the full path to use for MCP clients.</p>
-    <p>Working from the source tree instead? Build and link it:</p>
+    <p>If you installed Minerva from the download on a Mac, choose <b>Help → Install ‘minerva’ Command in PATH…</b> in the app. That writes a <code>minerva</code> launcher to <code>~/.local/bin</code> — the app runs its own bundled Node, so there's nothing else to install. If <code>~/.local/bin</code> isn't on your <code>PATH</code>, the dialog shows how to add it, and gives the full path to use for MCP clients.</p>
+    <p>The menu item is macOS-only for now. On other platforms, or working from the source tree, build and link it:</p>
     <pre><code>pnpm cli:build        # builds .vite/build/cli.js
 pnpm link --global    # exposes it globally as `minerva`</code></pre>
     <p>Either way, <code>minerva</code> then works anywhere. Point any command at a thoughtbase with <code>--project &lt;path&gt;</code> — it defaults to the current directory.</p>
@@ -27,6 +27,10 @@ pnpm link --global    # exposes it globally as `minerva`</code></pre>
       <div class="row">
         <div class="k"><code>search &lt;text&gt;</code></div>
         <div class="v">Full-text search over notes (<code>--limit &lt;n&gt;</code>, default 20).</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>grep &lt;pattern&gt;</code></div>
+        <div class="v">Exact text search over every note's raw markdown, returning the path and line of each match. A literal string by default; <code>--regex</code> treats it as a regular expression, <code>--case-sensitive</code> matches case exactly, and <code>--limit &lt;n&gt;</code> caps the matches returned (default 50, at most 200).</div>
       </div>
       <div class="row">
         <div class="k"><code>semantic &lt;text&gt;</code></div>
@@ -61,9 +65,11 @@ minerva query \
     <pre><code>cat draft.md | minerva propose-note notes/idea.md --by cli --project ~/vault</code></pre>
     <p>The body comes from stdin, so it composes with anything upstream. <code>--by &lt;id&gt;</code> records who proposed it (default <code>cli</code>), and that attribution survives a reindex — a note proposed while the app was closed still shows up, and stays attributed, once you reopen it.</p>
 
+    <p>Like proposals from an outside agent, it can't target <code>.minerva/</code>, another hidden folder, or anything outside the thoughtbase.</p>
+
     <div class="box">
-      <span class="label">One writer at a time</span>
-      <p>A proposal is written into the thoughtbase's graph file. If Minerva has the same thoughtbase open, both processes write it, so file proposals when the app isn't actively editing — and expect the app to surface them after its next refresh.</p>
+      <span class="label">With the app open, or closed</span>
+      <p>The CLI checks whether Minerva has the same thoughtbase open (the app leaves a <code>.minerva/runtime.json</code> marker while it does). If it has, <code>propose-note</code> and <code>semantic</code> are handed to the running app: the proposal goes through the app's own approval gate and appears in the Proposals panel right away, and semantic search uses the app's current index. If it hasn't, both run directly against the files, and the proposal is waiting the next time you open the thoughtbase. Every other command reads the thoughtbase directly either way, as it is when you run it.</p>
     </div>
 
     <h2 id="related">Related</h2>

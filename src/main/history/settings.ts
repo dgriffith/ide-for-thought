@@ -6,9 +6,11 @@
  * how many pile up per note, and how big a file is still worth snapshotting.
  * The same thoughtbase on a roomier machine can reasonably keep more.
  *
- * Labeled revisions and a note's initial revision are exempt from the retention
- * rules regardless (see `policy.ts`) — a deliberate keepsake and the "undo
- * everything" baseline aren't what fills a disk.
+ * Labeled revisions and delete markers are exempt from the retention rules
+ * regardless (see `policy.ts`'s `selectForRetention`) — a deliberate keepsake
+ * isn't what fills a disk, and a marker holds no content. A note's initial
+ * revision keeps its ROW forever (so the timeline still shows when the note
+ * first appeared), but its content ages out like any unlabeled revision (#2167).
  *
  * What these limits do and don't bound (#1836): they bound history PER NOTE —
  * at most `maxRevisionsPerNote` unlabeled revisions, none older than
