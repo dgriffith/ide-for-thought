@@ -34,12 +34,13 @@ export function suggestViewNoteName(typeLabel: string, layout: ViewLayout): stri
 }
 
 /**
- * The note: a heading and the embed. The spec carries only what departs from
- * the defaults (no sort → none, all columns → none), so a hand-read block
- * stays short; `parseObjectViewSpec` reads the omissions back as the same
- * defaults.
+ * The live embed for a view: an ```object-view fence. The spec carries only
+ * what departs from the defaults (no sort → none, all columns → none), so a
+ * hand-read block stays short; `parseObjectViewSpec` reads the omissions back
+ * as the same defaults. Save as note wraps it in a note; Copy as markdown
+ * copies it bare, to paste into any note — the same view either way.
  */
-export function buildViewNoteContent(title: string, spec: ViewNoteSpec): string {
+export function buildViewEmbed(spec: ViewNoteSpec): string {
   const body: Record<string, unknown> = { typeId: spec.typeId, layout: spec.layout };
   if (spec.sortColumn) {
     body.sortColumn = spec.sortColumn;
@@ -48,7 +49,12 @@ export function buildViewNoteContent(title: string, spec: ViewNoteSpec): string 
   if (spec.columns) body.columns = spec.columns;
   if (spec.folder) body.folder = spec.folder;
   if (spec.filters && spec.filters.length > 0) body.filters = spec.filters;
-  return `# ${title.trim()}\n\n\`\`\`object-view\n${JSON.stringify(body, null, 2)}\n\`\`\`\n`;
+  return `\`\`\`object-view\n${JSON.stringify(body, null, 2)}\n\`\`\`\n`;
+}
+
+/** The note: a heading and the embed. */
+export function buildViewNoteContent(title: string, spec: ViewNoteSpec): string {
+  return `# ${title.trim()}\n\n${buildViewEmbed(spec)}`;
 }
 
 /**

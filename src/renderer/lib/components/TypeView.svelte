@@ -20,9 +20,8 @@
   import TypeViewFilters from './TypeViewFilters.svelte';
   import type { MapExportHooks } from '../map/map-export';
   import { applyViewSpec, type ViewFilter } from '../../../shared/objects/view-spec';
+  import { buildViewEmbed } from '../../../shared/objects/view-note';
   import { objectTypesStore } from '../stores/object-types.svelte';
-  import { outputToMarkdownClipboard } from '../preview/compute-output-render';
-  import { stripNoteExt } from '../../../shared/note-extensions';
   import { effectivePropertyDefs } from '../../../shared/objects/inheritance';
   import { logger } from '../../../shared/logger';
   import type { PropertyDef, TypeInfo, TypeInstanceRow } from '../../../shared/objects/type-def';
@@ -178,57 +177,26 @@
     });
   });
 
-  /** Same link-to-type decoding as `display()`, but '' (not '—') for a
-   *  missing value — '—' is a UI placeholder; the compute-cell markdown-copy
-   *  precedent this matches (`outputToMarkdownClipboard`) uses an empty cell
-   *  for a null value. */
-  function copyValue(prop: PropertyDef, value: string | null): string {
-    if (value === null || value === '') return '';
-    if (prop.type === 'link-to-type') {
-      const tail = value.split(/[/#]/).pop() ?? value;
-      try { return decodeURIComponent(tail); } catch { return tail; }
-    }
-    return value;
-  }
-
   let markdownCopied = $state(false);
   let viewSaved = $state(false);
 
   /**
-   * "Copy as markdown" (#2068) — a stateless OS side-effect
-   * (`navigator.clipboard`), so it's called directly rather than routed
-   * through a store per CLAUDE.md's renderer data-flow rule. Table reuses
-   * the exact compute-cell markdown-table serializer (`outputToMarkdownClipboard`)
-   * so a user never sees two different "markdown table" conventions in the
-   * same app; list/gallery/map have no literal tabular/grid markdown
-   * representation, so they all fall back to the same wiki-linked bullet
-   * list — the same title + summary already shown on screen for those
-   * layouts, just as `- [[note]] — summary` lines. Respects the table's
-   * current sort/visible-columns (list/gallery/map have no sort or filter
-   * to respect — sorting is table-only, per this view's own docs above).
+   * "Copy as markdown" copies the view's live embed — the same ```object-view
+   * block Save as note writes (`buildViewEmbed`), with this view's layout,
+   * sort, columns, folder and filters — so pasting it into any note shows
+   * exactly this view, kept current. It used to copy a snapshot (a markdown
+   * table, or a bullet list for every other layout), which pasted as
+   * something else entirely: a map came out as a list.
    *
-   * Awaits the write and flashes the button label to "Copied" on success
-   * (matching ClipperSettings.svelte's copy-confirmation pattern) — a
-   * clipboard write has no other visible effect, so with no feedback at all
-   * a real success is indistinguishable from a silent failure (report: "does
-   * not appear to do anything").
+   * A stateless OS side-effect (`navigator.clipboard`), so it's called
+   * directly rather than routed through a store per CLAUDE.md's renderer
+   * data-flow rule. Awaits the write and flashes the button label to
+   * "Copied" on success — a clipboard write has no other visible effect, so
+   * with no feedback a real success is indistinguishable from a silent
+   * failure (report: "does not appear to do anything").
    */
   async function copyAsMarkdown(): Promise<void> {
-    let md: string;
-    if (layout === 'table') {
-      const cols = ['Title', ...visibleColumns.map((c) => c.label ?? c.name)];
-      const rows = sorted.map((inst) => [
-        inst.title,
-        ...visibleColumns.map((c) => copyValue(c, inst.values[c.name] ?? null)),
-      ]);
-      md = outputToMarkdownClipboard({ type: 'table', columns: cols, rows });
-    } else {
-      md = scoped.map((inst) => {
-        const link = `[[${stripNoteExt(inst.path)}]]`;
-        const s = summary(inst);
-        return s ? `- ${link} — ${s}` : `- ${link}`;
-      }).join('\n');
-    }
+    const md = buildViewEmbed({ typeId, layout, sortColumn, sortDir, columns, folder, filters });
     try {
       await navigator.clipboard.writeText(md);
       markdownCopied = true;
