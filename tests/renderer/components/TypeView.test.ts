@@ -340,6 +340,27 @@ describe('folder scope and filters (#2531)', () => {
     await waitFor(() => expect(screen.getByText('Foundation')).toBeTruthy());
     expect(screen.queryByText('Dune')).toBeNull();
   });
+
+  it('chromeless with folder + filters: the filtered set, and no controls at all (#2534)', async () => {
+    const { container } = render(TypeView, props({
+      chromeless: true, folder: 'shelf/a', filters: [{ property: 'rating', min: '5' }], onClearFolder: vi.fn(),
+    }));
+    await waitFor(() => expect(screen.getByText('Dune')).toBeTruthy());
+    expect(screen.queryByText('Neuromancer')).toBeNull();
+    expect(screen.queryByText('Foundation')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Filter ▾' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Remove filter/ })).toBeNull();
+    expect(screen.queryByText('in shelf/a')).toBeNull();
+    expect(container.querySelector('.tv-filters, .tv-chip, .tv-count')).toBeNull();
+  });
+
+  it('the panel (not chromeless) does show them for the same spec', async () => {
+    render(TypeView, props({ folder: 'shelf/a', filters: [{ property: 'rating', min: '5' }], onClearFolder: vi.fn() }));
+    await waitFor(() => expect(screen.getByText('Dune')).toBeTruthy());
+    expect(screen.getByRole('button', { name: 'Filter ▾' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Rating: ≥ 5' })).toBeTruthy();
+    expect(screen.getByText('in shelf/a')).toBeTruthy();
+  });
 });
 
 describe('the folder chip (#2532)', () => {

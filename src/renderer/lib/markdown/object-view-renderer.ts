@@ -1,6 +1,25 @@
 /**
  * Live Typed-Objects view embedded in a note's preview (#2067).
  *
+ * The fence holds a JSON spec (Save as note writes one, #2507). Only `typeId`
+ * is required; everything else defaults as `parseObjectViewSpec` says:
+ *
+ *     ```object-view
+ *     {"typeId": "place", "layout": "map",
+ *      "sortColumn": "city", "sortDir": "asc", "columns": ["city", "rating"],
+ *      "folder": "trip/prague",
+ *      "filters": [{"property": "city", "values": ["Prague"]},
+ *                  {"property": "rating", "min": "4"},
+ *                  {"property": "visited", "min": "2026-05", "max": "2026-06"}]}
+ *     ```
+ *
+ * `folder` limits it to notes under that folder, recursively; `filters` keep a
+ * note only if it passes every one (#2531, `shared/objects/view-spec.ts`) —
+ * `values` is one-of, `min`/`max` an inclusive range for number and date
+ * fields. The embed, and every export of it (#2510/#2511, which render through
+ * this same chromeless `TypeView`), shows the scoped, filtered set with no
+ * filter controls or folder chip: those are the view panel's (#2534).
+ *
  * Mirrors `vega-renderer.ts`'s shape: the fence rule emits a placeholder
  * `<div class="object-view-block">` carrying the raw JSON spec as text
  * content; `hydrateObjectViewBlocks` walks the DOM and replaces each
