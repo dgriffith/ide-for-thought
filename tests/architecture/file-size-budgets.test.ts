@@ -64,7 +64,7 @@ const THRESHOLD = 600;
  */
 const BUDGETS: Record<string, number> = {
   // +1 for #2256: toggleCommandPalette on the ipc-wiring ctx.
-  'src/renderer/App.svelte': 1834, // +4: folder/filters passed to the view tab and Save as note (#2531); +1: the folder chip widens a scoped view (#2532)
+  'src/renderer/App.svelte': 1837, // +4: folder/filters passed to the view tab and Save as note (#2531); +1: the folder chip widens a scoped view (#2532); +3: switching to a view tab records it in back/forward history
   // +32 for #2210 §3b: the shared wiki-link index and the comment explaining
   // why one index is safe for all three resolvers. Net code is SHORTER (two
   // duplicated file-array builds removed); the growth is the reasoning, which
