@@ -1,3 +1,4 @@
+import type { ViewFilter } from '../../../shared/objects/view-spec';
 /**
  * Tab/editor-group type definitions, extracted from `stores/editor.svelte.ts`
  * (#1919) so `editor/tab-session.ts` (the pure session-serialization module)
@@ -91,6 +92,11 @@ export interface TypeViewState {
   sortDir: 'asc' | 'desc';
   /** Visible property names (table); null = every declared column. */
   columns: string[] | null;
+  /** Only notes under this folder, recursively (#2531); null = everywhere.
+   *  Part of the tab's identity — two folders' views are two tabs. */
+  folder: string | null;
+  /** Property filters, AND-ed (#2531). */
+  filters: ViewFilter[];
 }
 export interface TypeViewTab extends TypeViewState {
   type: 'type-view';

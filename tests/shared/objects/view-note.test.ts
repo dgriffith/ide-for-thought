@@ -29,14 +29,25 @@ describe('view notes', () => {
   it('embed the view so the preview renders exactly what was saved', () => {
     const content = buildViewNoteContent('Restaurants by rating', spec);
     expect(content.startsWith('# Restaurants by rating\n')).toBe(true);
-    expect(parseObjectViewSpec(fenceBody(content))).toEqual(spec);
+    expect(parseObjectViewSpec(fenceBody(content))).toEqual({ ...spec, folder: null, filters: [] });
   });
 
   it('leave defaults out of the block, and read back as the same defaults', () => {
     const plain = { typeId: 'place', layout: 'map' as const, sortColumn: null, sortDir: 'asc' as const, columns: null };
     const body = fenceBody(buildViewNoteContent('Places', plain));
     expect(JSON.parse(body)).toEqual({ typeId: 'place', layout: 'map' });
-    expect(parseObjectViewSpec(body)).toEqual(plain);
+    expect(parseObjectViewSpec(body)).toEqual({ ...plain, folder: null, filters: [] });
+  });
+
+  it('carry a folder scope and filters through to the embed parser (#2531)', () => {
+    const scoped = { ...spec, folder: 'trip/prague', filters: [{ property: 'city', values: ['Prague'] }, { property: 'rating', min: '4', max: null }] };
+    expect(parseObjectViewSpec(fenceBody(buildViewNoteContent('Prague places', scoped)))).toEqual(scoped);
+  });
+
+  it('write no folder or filters keys when there are none', () => {
+    const body = JSON.parse(fenceBody(buildViewNoteContent('All', { ...spec, folder: null, filters: [] }))) as Record<string, unknown>;
+    expect(body).not.toHaveProperty('folder');
+    expect(body).not.toHaveProperty('filters');
   });
 
   it('suggest a name from the type and layout', () => {

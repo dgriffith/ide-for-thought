@@ -13,6 +13,7 @@
  * write lives in `renderer/lib/app/note-ops.ts`.
  */
 import type { ViewLayout } from '../types';
+import type { ViewFilter } from './view-spec';
 
 export interface ViewNoteSpec {
   typeId: string;
@@ -20,6 +21,9 @@ export interface ViewNoteSpec {
   sortColumn: string | null;
   sortDir: 'asc' | 'desc';
   columns: string[] | null;
+  /** Folder scope and filters (#2531); written only when set. */
+  folder?: string | null | undefined;
+  filters?: readonly ViewFilter[] | undefined;
 }
 
 const LAYOUT_NAMES: Record<ViewLayout, string> = { list: 'list', table: 'table', gallery: 'gallery', map: 'map' };
@@ -42,6 +46,8 @@ export function buildViewNoteContent(title: string, spec: ViewNoteSpec): string 
     body.sortDir = spec.sortDir;
   }
   if (spec.columns) body.columns = spec.columns;
+  if (spec.folder) body.folder = spec.folder;
+  if (spec.filters && spec.filters.length > 0) body.filters = spec.filters;
   return `# ${title.trim()}\n\n\`\`\`object-view\n${JSON.stringify(body, null, 2)}\n\`\`\`\n`;
 }
 

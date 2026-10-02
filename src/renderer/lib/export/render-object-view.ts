@@ -64,6 +64,8 @@ export async function renderObjectViewForExport(source: string): Promise<string>
           sortColumn: spec.sortColumn,
           sortDir: spec.sortDir,
           columns: spec.columns,
+          folder: spec.folder,
+          filters: spec.filters,
           revision: 0,
           chromeless: true,
           onStateChange: () => {},

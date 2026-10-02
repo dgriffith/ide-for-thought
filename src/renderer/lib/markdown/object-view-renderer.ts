@@ -48,6 +48,7 @@
 import { mount, unmount } from 'svelte';
 import TypeView from '../components/TypeView.svelte';
 import type { ViewLayout } from '../../../shared/types';
+import { normalizeFolder, parseViewFilters, type ViewFilter } from '../../../shared/objects/view-spec';
 import { escapeHtml } from '../../../shared/text-escape';
 import { blockCacheFor, blockKey, createContentWrapper, HYDRATED_CONTENT_CLASS } from './hydrated-block-cache';
 import { reactiveProps } from './mounted-props.svelte';
@@ -61,6 +62,10 @@ export interface ObjectViewSpec {
   sortColumn: string | null;
   sortDir: 'asc' | 'desc';
   columns: string[] | null;
+  /** Folder scope and filters (#2531): the embed shows the filtered set, with
+   *  no filter controls (chromeless). */
+  folder: string | null;
+  filters: ViewFilter[];
 }
 
 const LAYOUTS: ReadonlySet<ViewLayout> = new Set(['list', 'table', 'gallery', 'map']);
@@ -85,6 +90,8 @@ export function parseObjectViewSpec(raw: string): ObjectViewSpec {
     columns: Array.isArray(spec.columns)
       ? spec.columns.filter((c): c is string => typeof c === 'string')
       : null,
+    folder: normalizeFolder(typeof spec.folder === 'string' ? spec.folder : null),
+    filters: parseViewFilters(spec.filters),
   };
 }
 
@@ -102,6 +109,8 @@ type ViewProps = {
   sortColumn: string | null;
   sortDir: 'asc' | 'desc';
   columns: string[] | null;
+  folder: string | null;
+  filters: ViewFilter[];
   revision: number;
   chromeless: boolean;
   onStateChange: () => void;
@@ -177,6 +186,8 @@ export function hydrateObjectViewBlocks(root: HTMLElement, deps: ObjectViewDeps)
       sortColumn: spec.sortColumn,
       sortDir: spec.sortDir,
       columns: spec.columns,
+      folder: spec.folder,
+      filters: spec.filters,
       revision: deps.revision,
       chromeless: true,
       // No in-preview UI for changing the embedded spec (#2067) — a

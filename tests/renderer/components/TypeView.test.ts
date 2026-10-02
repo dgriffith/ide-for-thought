@@ -313,3 +313,31 @@ describe('TypeView (#1070)', () => {
     });
   });
 });
+
+describe('folder scope and filters (#2531)', () => {
+  const SCOPED = [
+    { path: 'shelf/a/Dune.md', title: 'Dune', values: { author: 'Frank Herbert', rating: '5' }, cover: null },
+    { path: 'shelf/a/Neuro.md', title: 'Neuromancer', values: { author: 'William Gibson', rating: '4' }, cover: null },
+    { path: 'shelf/b/Foundation.md', title: 'Foundation', values: { author: 'Isaac Asimov', rating: '5' }, cover: null },
+  ];
+  beforeEach(() => { instancesMock.mockResolvedValue({ type: TYPE, instances: SCOPED }); });
+
+  it('shows only the folder\'s instances, through the filters, with an n-of-m count', async () => {
+    const { container } = render(TypeView, props({ folder: 'shelf/a', filters: [{ property: 'rating', min: '5' }] }));
+    await waitFor(() => expect(screen.getByText('Dune')).toBeTruthy());
+    expect(screen.queryByText('Neuromancer')).toBeNull(); // in the folder, filtered out
+    expect(screen.queryByText('Foundation')).toBeNull(); // passes the filter, outside the folder
+    expect(container.querySelector('.tv-count')!.textContent).toBe('1 of 3');
+  });
+
+  it('says so when nothing in scope matches', async () => {
+    render(TypeView, props({ folder: 'shelf/b', filters: [{ property: 'author', values: ['Nobody'] }] }));
+    await waitFor(() => expect(screen.getByText('No book in shelf/b match these filters.')).toBeTruthy());
+  });
+
+  it('applies the same scope chromeless — what an embed or export shows', async () => {
+    render(TypeView, props({ chromeless: true, folder: 'shelf/b' }));
+    await waitFor(() => expect(screen.getByText('Foundation')).toBeTruthy());
+    expect(screen.queryByText('Dune')).toBeNull();
+  });
+});

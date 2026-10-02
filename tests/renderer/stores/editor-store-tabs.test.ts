@@ -752,4 +752,32 @@ describe('persistTabs — structured-clone safety', () => {
       sortColumn: 'rating', sortDir: 'desc', columns: ['author'],
     });
   });
+  it('round-trips a folder scope and filters, as clone-safe plain data (#2531)', async () => {
+    const filters = [{ property: 'city', values: ['Prague'] }, { property: 'rating', min: '4', max: null }];
+    editor.openTypeView('place', { layout: 'map', folder: '/trip/prague/', filters });
+    editor.persistTabs();
+    const session = h.tabsSave.mock.calls.at(-1)![0] as LayoutSession;
+    expect(() => structuredClone(session)).not.toThrow();
+    const saved = session.groups.flatMap((g) => g.tabs).find((t) => t.type === 'type-view' && t.typeId === 'place');
+    expect(saved).toMatchObject({ folder: 'trip/prague', filters });
+  });
+});
+
+describe('type-view tabs are a type AND a folder (#2531)', () => {
+  it('two folders\' views of one type are two tabs; the same folder refocuses', () => {
+    const count = () => editor.groups.flatMap((g) => g.tabs).filter((t) => t.type === 'type-view' && t.typeId === 'museum').length;
+    editor.openTypeView('museum', { folder: 'trip/prague' });
+    editor.openTypeView('museum', { folder: 'trip/budapest' });
+    editor.openTypeView('museum', { folder: 'trip/prague/' }); // same folder, normalized
+    expect(count()).toBe(2);
+  });
+
+  it('a state change lands on the tab for that folder only', () => {
+    editor.openTypeView('gallery-type', { folder: 'a' });
+    editor.openTypeView('gallery-type', { folder: 'b' });
+    editor.setTypeViewState('gallery-type', 'b', { layout: 'gallery' });
+    const tabs = editor.groups.flatMap((g) => g.tabs).filter((t) => t.type === 'type-view' && t.typeId === 'gallery-type') as Array<{ folder: string | null; layout: string }>;
+    expect(tabs.find((t) => t.folder === 'a')!.layout).toBe('table');
+    expect(tabs.find((t) => t.folder === 'b')!.layout).toBe('gallery');
+  });
 });

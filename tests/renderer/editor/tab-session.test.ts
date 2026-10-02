@@ -108,7 +108,9 @@ describe('savedTabIdentity', () => {
     expect(savedTabIdentity({ type: 'note', relativePath: 'a.md' })).toBe('note:a.md');
     expect(savedTabIdentity({ type: 'source', sourceId: 's1' })).toBe('source:s1');
     expect(savedTabIdentity({ type: 'pdf', sourceId: 's1' })).toBe('pdf:s1');
-    expect(savedTabIdentity({ type: 'type-view', typeId: 'book' })).toBe('type-view:book');
+    expect(savedTabIdentity({ type: 'type-view', typeId: 'book' })).toBe('type-view:book:');
+    // A view is its type AND its folder (#2531): two folders' views are two tabs.
+    expect(savedTabIdentity({ type: 'type-view', typeId: 'book', folder: 'shelf/a' })).toBe('type-view:book:shelf/a');
   });
 
   it('a query tab has no shared-buffer identity — never deduped', () => {

@@ -8,6 +8,7 @@
  * module only computes what to persist and how to turn persisted data back
  * into live tabs.
  */
+import { normalizeFolder, parseViewFilters } from '../../../shared/objects/view-spec';
 import type {
   TabSession, SavedTab, SavedGroup, LayoutSession,
 } from '../../../shared/types';
@@ -38,7 +39,13 @@ export function toSavedTab(t: Tab): SavedTab {
   } else if (isGraph(t)) {
     return { type: 'graph', relativePath: t.relativePath, depth: t.depth };
   } else if (isTypeView(t)) {
-    return { type: 'type-view', typeId: t.typeId, layout: t.layout, sortColumn: t.sortColumn, sortDir: t.sortDir, columns: t.columns };
+    return {
+      type: 'type-view', typeId: t.typeId, layout: t.layout, sortColumn: t.sortColumn, sortDir: t.sortDir, columns: t.columns,
+      ...(t.folder ? { folder: t.folder } : {}),
+      // A plain copy: filters set from component state can be a reactive Proxy,
+      // which the structured-clone IPC boundary rejects — losing the session.
+      ...(t.filters.length > 0 ? { filters: JSON.parse(JSON.stringify(t.filters)) as unknown[] } : {}),
+    };
   } else {
     return {
       type: 'source',
@@ -115,6 +122,8 @@ export async function reconstructTab(saved: SavedTab, nextQueryId: () => string)
       sortColumn: saved.sortColumn ?? null,
       sortDir: saved.sortDir ?? 'asc',
       columns: saved.columns ?? null,
+      folder: normalizeFolder(saved.folder),
+      filters: parseViewFilters(saved.filters),
     };
   } else {
     return { type: 'source', sourceId: saved.sourceId, highlightExcerptId: saved.highlightExcerptId };
@@ -132,7 +141,7 @@ export function savedTabIdentity(t: SavedTab): string | null {
   if (t.type === 'note') return `note:${t.relativePath}`;
   if (t.type === 'source') return `source:${t.sourceId}`;
   if (t.type === 'pdf') return `pdf:${t.sourceId}`;
-  if (t.type === 'type-view') return `type-view:${t.typeId}`;
+  if (t.type === 'type-view') return `type-view:${t.typeId}:${t.folder ?? ''}`;
   return null;
 }
 
