@@ -37,7 +37,7 @@ import {
   recordComputeProposalRun,
   buildComputeProposalNoteBlock,
 } from './register-compute';
-import { withRootPath, withRootPathWin, reindexFile, persistIndexes, hooks } from './helpers';
+import { withRootPath, withRootPathWin, reindexFile, persistIndexes, hooks, broadcastApplied } from './helpers';
 import { logger } from '../../shared/logger';
 import { handle } from './typed-ipc';
 import { buildClaimNoteContent } from '../llm/claim-note';
@@ -93,6 +93,9 @@ export async function fileAndApprove(
   const proposal = await approval.proposeWrite(ctx, write);
   if (!proposal) return { proposalUri: null, applied: false, filedPaths: [], rewrittenPaths: [] };
   const result = await approval.approveProposal(ctx, proposal.uri);
+  // Every draft approval tells open windows what it moved and rewrote (#2541),
+  // the way a user rename does — a moved note's tab follows instead of closing.
+  if (result.ok) broadcastApplied(ctx.rootPath, result);
   return { proposalUri: proposal.uri, applied: result.ok, filedPaths: result.filedPaths, rewrittenPaths: result.rewrittenPaths };
 }
 
@@ -239,7 +242,7 @@ export function registerConversationDrafts(): void {
         // ONE proposal carrying one `note-rewrite` payload per note. applyBundle
         // applies them in order and rolls the whole bundle back on any failure,
         // so a twenty-note rewrite can't land half-applied.
-        const { proposalUri, applied, rewrittenPaths } = await fileAndApprove(ctx, {
+        const { proposalUri, applied } = await fileAndApprove(ctx, {
           operationType: 'note_rewrite',
           payloads: chosen.map((i) => ({
             kind: 'note-rewrite' as const,
@@ -249,8 +252,7 @@ export function registerConversationDrafts(): void {
           note: draft.note,
           ...conversationProvenance(draft.conversationId),
         });
-        hooks.broadcastRewritten(rootPath, rewrittenPaths);
-        return { proposalUri, applied };
+        return { proposalUri, applied }; // fileAndApprove broadcast the rewrites
       });
     }),
   );

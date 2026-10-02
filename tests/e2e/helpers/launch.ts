@@ -375,17 +375,18 @@ export async function closeMinerva(app: MinervaApp, why = 'the test'): Promise<v
  */
 export const SEED_BOUND_MS = 15_000;
 
-/** File the fixed pending proposal (src/main/e2e-hooks.ts) and return its URI. */
-export async function seedProposal(app: ElectronApplication): Promise<string | null> {
+/** File a pending proposal (src/main/e2e-hooks.ts) and return its URI — the
+ *  fixed claim by default, or `write` (e.g. a note/folder move, #2541). */
+export async function seedProposal(app: ElectronApplication, write?: Record<string, unknown>): Promise<string | null> {
   return test.step('seed proposal (main-process hook)', () =>
     withinBound(
       'seedProposal (app.evaluate in the main process)',
       SEED_BOUND_MS,
-      app.evaluate(async () => {
-        const g = globalThis as typeof globalThis & { __minervaE2E?: { seedProposal(): Promise<string | null> } };
+      app.evaluate(async (_electron, w) => {
+        const g = globalThis as typeof globalThis & { __minervaE2E?: { seedProposal(write?: unknown): Promise<string | null> } };
         if (!g.__minervaE2E) throw new Error('e2e hook missing — MINERVA_E2E not set?');
-        return g.__minervaE2E.seedProposal();
-      }),
+        return g.__minervaE2E.seedProposal(w);
+      }, write),
       () => probeApp(app),
     ));
 }
