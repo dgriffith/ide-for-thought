@@ -21,6 +21,11 @@ import hljs from 'highlight.js';
 import { buildLinkResolverContext, encodeLinkDestination, type LinkResolverContext } from '../../link-resolver';
 import { extractLiveBlocks, renderLiveBlocks, spliceLiveBlocks } from '../../live-blocks';
 import { installMath } from '../../../../shared/markdown/math-plugin';
+import { installCallouts } from '../../../../shared/markdown/callout-plugin';
+import { installAnchors } from '../../../../shared/markdown/anchor-plugin';
+import { installDoiAutolink } from '../../../../shared/markdown/doi-plugin';
+import { installHighlight } from '../../../../shared/markdown/highlight-plugin';
+import { slugify } from '../../../../shared/slug';
 import { renderVegaBlocks } from '../../vega-render';
 import { renderYouTubeBlocks } from '../../youtube-render';
 import { resolveTransclusions } from '../../transclusion-resolve';
@@ -109,7 +114,15 @@ function buildMd(plan: ExportPlan, renderer?: CitationRenderer, fromPath?: strin
         : self.renderToken(tokens, idx, options);
   // `$…$` / `$$…$$` → KaTeX HTML (#327). Same plugin Preview uses so
   // the export and the editor preview render math identically.
+  // The preview's own markdown extensions, in the preview's order (#2515):
+  // callouts (flashcards included — an export shows the answer; a page can't
+  // reveal one), DOI auto-links, ==highlight==, and heading/block ids, so a
+  // `[[note#Heading]]` link lands on a real anchor.
   installMath(md);
+  installCallouts(md);
+  installDoiAutolink(md);
+  installHighlight(md);
+  installAnchors(md);
   installWikiLinkRule(md, plan, fromPath);
   installTagRule(md);
   installCiteStubRule(md, plan, renderer);
@@ -166,7 +179,8 @@ function installWikiLinkRule(md: MarkdownItInstance, plan: ExportPlan, fromPath?
       const rel = noteHref(target, ctx, fromDir);
       if (rel !== null) {
         const label = display ?? title ?? target;
-        const href = anchor ? `${rel}#${anchor}` : rel;
+        // The anchor plugin ids a heading by its slug and a block by `^id`.
+        const href = anchor ? `${rel}#${anchor.startsWith('^') ? anchor : slugify(anchor)}` : rel;
         token.content = `<a href="${escapeAttr(href)}">${escapeHtml(label)}</a>`;
       } else {
         token.content = `<em class="wikilink-unresolved">${escapeHtml(title ?? display ?? target)}</em>`;

@@ -7,6 +7,8 @@
  * from any browser, which is what the PDF exporter will lean on.
  */
 
+import { EXPORT_CALLOUT_CSS } from '../callout-style';
+
 export const NOTE_HTML_STYLE = `
 :root {
   --fg: #1a1a1a;
@@ -167,4 +169,4 @@ th { background: var(--code-bg); font-weight: 600; }
   pre, blockquote, table, img { page-break-inside: avoid; }
   .export-meta { display: none; }
 }
-`;
+${EXPORT_CALLOUT_CSS}`;

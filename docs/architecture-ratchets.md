@@ -28,7 +28,7 @@ what to do about it. `architecture-ratchets-doc.test.ts` keeps the two sides in
 step — a new test in `tests/architecture/` with no entry here fails, and an
 entry here naming a test that no longer exists fails too (#2262).
 
-Written up as of 2026-09-30, 45 tests.
+Written up as of 2026-10-02, 46 tests.
 
 ---
 
@@ -167,6 +167,28 @@ next copy-paste. Lexical, not a CSS parser; a rule nested in `@media` folds the
 condition into the "selector", which under-matches rather than false-failing.
 **When it fires:** promote the shape to `global.css` (leaving genuinely
 per-instance one-liners local), or make the copies diverge on purpose.
+
+### `export-live-block-parity.test.ts`
+
+**Everything the preview renders live has an export answer** (#2515, epic
+#2508). Views, query blocks, mermaid, argument maps and saved cell outputs had
+all exported as their raw source for as long as they'd existed, and hidden
+fences were published verbatim, because nothing connected the preview's
+live-rendering list to the export pipeline. The test reads the preview's own
+inventories out of its source: the `fenceRenderers` table, the hidden-fence
+rule, the `:::` directive rules, the query-block types, the markdown plugins
+`createPreviewMarkdown` installs and the `hydrate*` passes `Preview.svelte`
+runs. Each must be classified in `PARITY` as a **handler**, whose `holds()`
+checks the export side for real (a `LIVE_FENCES`/`LIVE_DIRECTIVES` entry, a
+renderer `case`, an installed plugin, a behavioural check on the vega/YouTube
+degrades); a **gap**, naming its open issue; or a **decision**, saying why the
+export deliberately differs (a flashcard shows its answer; local media
+becomes a link). Stale entries fail too. **When it fires:** a new fence
+renderer, directive, query type, plugin or hydration pass shipped preview-only.
+Render it for exports (the live-block machinery in
+`src/main/publish/live-blocks.ts` and `src/renderer/lib/export/` is built for
+exactly this), or classify it as a gap with an issue or a decision with a
+reason. Don't just add it to `PARITY` to go green.
 
 ---
 
