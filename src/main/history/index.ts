@@ -13,7 +13,7 @@
  * reverse.
  */
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { captureSnapshot, ensureInitialRevision, captureCurrentStateBeforeDelete, captureDeletion } from './store';
+import { captureSnapshot, ensureInitialRevision, captureCurrentStateBeforeDelete, captureCurrentState, captureDeletion } from './store';
 import { isNotePath } from '../../shared/note-extensions';
 import type { RevisionSource } from './policy';
 import { logger } from '../../shared/logger';
@@ -118,6 +118,16 @@ export async function onNoteDeleting(rootPath: string, relPath: string): Promise
   } catch (err) {
     logger('history').error(`pre-delete capture failed for "${relPath}":`, err);
   }
+}
+
+/**
+ * Save a note's current text before a deliberate overwrite (a batch revert),
+ * if history hasn't recorded it yet. Unlike the write/delete hooks this
+ * THROWS: the caller must not go on to overwrite text it failed to preserve.
+ */
+export async function captureBeforeOverwrite(rootPath: string, relPath: string, cause: string): Promise<void> {
+  if (!isCapturable(relPath)) return;
+  await captureCurrentState(rootPath, relPath, cause);
 }
 
 /**

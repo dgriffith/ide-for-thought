@@ -95,7 +95,7 @@ export function getMultiFileHistoryStore() {
      */
     async revert(ts: number): Promise<BatchRevertResult | null> {
       const ok = await getDialogStore().showConfirm(
-        'Revert the selection to this point in time? Notes will be edited, undeleted, or removed to match — this cannot be undone from here.',
+        'Revert the selection to this point in time? Notes will be edited, undeleted, or removed to match. Each note\'s current version is kept in its history, so you can undo this by reverting to a moment just before.',
         CONFIRM_KEYS.multiFileHistoryRevert,
         'Revert',
       );

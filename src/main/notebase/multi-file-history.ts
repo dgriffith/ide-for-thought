@@ -132,6 +132,10 @@ export async function batchRevertToPointInTime(
         continue;
       }
 
+      // Keep the text being replaced — an edit made in another app may not be
+      // in history yet — so the revert itself can be undone. Throws rather
+      // than overwrite text it couldn't save; the catch below reports it.
+      if (existsNow) await history.captureBeforeOverwrite(rootPath, relPath, 'Before revert');
       await history.runWithHistorySource(
         { origin: 'restore', cause: `Reverted to ${formatDateTime(ts)} (batch)` },
         () => writeAndReindex(rootPath, relPath, targetContent, hooks),
