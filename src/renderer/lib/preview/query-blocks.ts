@@ -6,7 +6,7 @@
 // chart path, which registers a handle the caller destroys before re-render.
 
 import { api } from '../ipc/client';
-import { renderChart, type ChartConfig, type ChartHandle, type ChartSeries } from '../charts';
+import { renderChart, type ChartConfig, type ChartHandle, type ChartSeries, type RenderChartOptions } from '../charts';
 import { normalizeSqlRows } from '../editor/sql-result';
 import { escapeHtml, escapeAttr } from './text';
 import { getLinkBundle } from '../sidebar-link-bundle';
@@ -37,6 +37,9 @@ export interface QueryBlockDeps {
   /** Live chart handles. Timeseries blocks push here; the caller destroys them
    *  before the next render pass. Mutated in place. */
   activeCharts: ChartHandle[];
+  /** Chart drawing options — the export passes no animation and a light
+   *  palette (#2512); the preview passes nothing. */
+  chartOptions?: RenderChartOptions;
 }
 
 
@@ -341,6 +344,6 @@ function renderAsTimeseries(deps: QueryBlockDeps, el: HTMLElement, config: Recor
   el.innerHTML = '';
   el.appendChild(wrapper);
 
-  const handle = renderChart(canvas, chartConfig);
+  const handle = renderChart(canvas, chartConfig, deps.chartOptions);
   deps.activeCharts.push(handle);
 }

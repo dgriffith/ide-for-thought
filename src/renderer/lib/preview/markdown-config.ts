@@ -26,6 +26,7 @@ import { installWikiLinks, installNoteTags, installTransclusions } from '../mark
 import { installAnchors } from '../markdown/anchor-plugin';
 import { installFences } from '../markdown/fence-plugin';
 import { escapeAttr } from './text';
+import { splitQueryDirective, queryBlockPlaceholderHtml } from './query-directive';
 import { resolveRelativeImagePath } from './image-paths';
 import { mediaKind } from '../../../shared/media';
 import type { PreviewMarkdownDeps } from './markdown-deps';
@@ -160,24 +161,8 @@ export function createPreviewMarkdown(deps: PreviewMarkdownDeps): MarkdownItInst
         const contentEnd = state.bMarks[nextLine];
         const body = state.src.slice(contentStart, contentEnd).trim();
 
-        // Split on --- separator: config above, query below. If no separator, entire body is the query.
-        const sepIdx = body.indexOf('\n---\n');
-        const config: Record<string, string> = {};
-        let query: string;
-        if (sepIdx >= 0) {
-            const configBlock = body.slice(0, sepIdx).trim();
-            query = body.slice(sepIdx + 5).trim();
-            for (const line of configBlock.split('\n')) {
-                const colonIdx = line.indexOf(':');
-                if (colonIdx > 0) {
-                    const key = line.slice(0, colonIdx).trim();
-                    const value = line.slice(colonIdx + 1).trim();
-                    if (key && value) config[key] = value;
-                }
-            }
-        } else {
-            query = body;
-        }
+        // Config above a `---`, query below — shared with the export renderer (#2512).
+        const {query, config} = splitQueryDirective(body);
 
         const token = state.push('query_directive', 'div', 0);
         token.content = query;
@@ -190,8 +175,7 @@ export function createPreviewMarkdown(deps: PreviewMarkdownDeps): MarkdownItInst
     md.renderer.rules.query_directive = (tokens: Token[], idx: number) => {
         const query = tokens[idx]!.content;
         const {type, config} = tokens[idx]!.meta as { type: string; config: Record<string, unknown> };
-        const configJson = Object.keys(config).length > 0 ? escapeAttr(JSON.stringify(config)) : '';
-        return `<div class="query-block" data-type="${escapeAttr(type)}" data-query="${escapeAttr(query)}"${configJson ? ` data-config="${configJson}"` : ''}><span class="query-loading">Loading...</span></div>`;
+        return queryBlockPlaceholderHtml(type, query, config);
     };
 
     // Argument-map directive (#907): :::argument ... :::. Same config/body

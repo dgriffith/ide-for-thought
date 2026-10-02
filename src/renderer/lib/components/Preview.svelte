@@ -13,6 +13,7 @@
     import {disposeCaches as disposeHydratedBlockCaches} from '../markdown/hydrated-block-cache';
     import {slugify} from '../../../shared/slug';
     import {createPreviewMarkdown} from '../preview/markdown-config';
+    import { QUERY_PREFIXES } from '../preview/query-prefixes';
     import {sanitizeNoteHtml} from '../preview/sanitize-note-html';
     import {api} from '../ipc/client';
     import {clampSubmenu} from '../utils/menuClamp';
@@ -261,15 +262,6 @@
     // read+parse of an unchanged body is skipped.
     const transclusionRenderCache = new Map<string, string>();
 
-    const QUERY_PREFIXES = `PREFIX minerva: <https://minerva.dev/ontology#>
-PREFIX thought: <https://minerva.dev/ontology/thought#>
-PREFIX dc: <http://purl.org/dc/terms/>
-PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
-PREFIX csvw: <http://www.w3.org/ns/csvw#>
-PREFIX prov: <http://www.w3.org/ns/prov#>
-`;
 
     // When rendering a transcluded fragment (#906), relative image paths inside
     // it resolve against the *embedded* note's location, not the host's. md.render
