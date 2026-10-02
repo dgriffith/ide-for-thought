@@ -16,6 +16,7 @@ import type { ProjectContext } from '../project-context-types';
 import type {
   ApproveResult,
   AppliedRecord,
+  RenameStep,
   Proposal,
   ProposalPayload,
   ProposedWrite,
@@ -37,6 +38,7 @@ import { createProjectStore } from '../project-store';
 // by the split.
 export type {
   ApproveResult,
+  RenameStep,
   OperationType,
   Proposal,
   ProposalPayload,
@@ -193,7 +195,7 @@ export function approveProposal(ctx: ProjectContext, uri: string): Promise<Appro
 
 async function approvePending(ctx: ProjectContext, uri: string): Promise<ApproveResult> {
   const proposal = await getProposal(ctx, uri);
-  if (!proposal || proposal.status !== 'pending') return { ok: false, filedPaths: [], rewrittenPaths: [] };
+  if (!proposal || proposal.status !== 'pending') return { ok: false, filedPaths: [], rewrittenPaths: [], renames: [] };
 
   if (proposal.payloads.length === 0) {
     // Don't quietly flip status to approved on an empty bundle — that's
@@ -224,7 +226,17 @@ async function approvePending(ctx: ProjectContext, uri: string): Promise<Approve
   const rewrittenPaths = applied
     .filter((a): a is AppliedRecord & { kind: 'note-rewrite' } => a.kind === 'note-rewrite')
     .map((a) => (a.rollbackData as { path: string }).path);
-  return { ok: true, filedPaths, rewrittenPaths };
+  // Note/folder moves (#2541): what they moved, and whose links they rewrote.
+  const renames: RenameStep[] = [];
+  for (const a of applied) {
+    if (a.kind !== 'note-refactor' && a.kind !== 'folder-refactor') continue;
+    const r = a.rollbackData as { fromPath: string; toPath: string; transitions: Array<{ old: string; new: string }>; rewrittenPaths: string[] };
+    renames.push(a.kind === 'folder-refactor'
+      ? [...r.transitions, { old: r.fromPath, new: r.toPath, folder: true }]
+      : [...r.transitions]);
+    for (const p of r.rewrittenPaths) if (!rewrittenPaths.includes(p)) rewrittenPaths.push(p);
+  }
+  return { ok: true, filedPaths, rewrittenPaths, renames };
 }
 
 /**

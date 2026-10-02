@@ -226,9 +226,20 @@ export interface ApproveResult {
   /** Project-relative paths of existing notes overwritten in place by
    *  `note-rewrite` payloads in this bundle (#936). The IPC caller broadcasts
    *  NOTEBASE_REWRITTEN for these so an open editor reloads the new content —
-   *  the approval engine stays Electron-free and only returns the paths. */
+   *  the approval engine stays Electron-free and only returns the paths.
+   *  Also carries the notes whose links a note/folder move rewrote (#2541). */
   rewrittenPaths: string[];
+  /** The moves this bundle made, one step per applied note/folder refactor,
+   *  in apply order (#2541) — each step is what a user rename broadcasts as
+   *  NOTEBASE_RENAMED (a folder move adds a `folder: true` entry), so open
+   *  tabs, scoped views and bookmarks follow an approved move exactly as they
+   *  follow one the user made. Steps stay separate because a reorg can chain
+   *  moves (A→B, then B→C), and each broadcast is applied as one lookup. */
+  renames: RenameStep[];
 }
+
+/** One move's transitions, as NOTEBASE_RENAMED carries them. */
+export type RenameStep = Array<{ old: string; new: string; folder?: boolean }>;
 
 /**
  * Per-payload undo state. `applyBundle` populates this as each payload

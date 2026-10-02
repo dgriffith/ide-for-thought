@@ -114,9 +114,11 @@ describe('IPC handlers route path args through a known-safe sink (#397)', () => 
   /** Find a handler block by its `Channels.X` ref and return the
    *  text from the call open to its matching closing brace. */
   function handlerBody(source: string, channelConst: string): string | null {
-    const startMarker = `Channels.${channelConst}`;
-    const idx = source.indexOf(startMarker);
-    if (idx < 0) return null;
+    // Whole name only: `Channels.NOTEBASE_RENAME` must not match a mention of
+    // `Channels.NOTEBASE_RENAMED` (a broadcast) earlier in the source (#2541).
+    const m = new RegExp(`Channels\\.${channelConst}(?![A-Za-z0-9_])`).exec(source);
+    if (!m) return null;
+    const idx = m.index;
     // The handler block is `ipcMain.handle(Channels.X, async (...) => { … });`.
     // Find the body open after the channel ref.
     const arrowIdx = source.indexOf('=>', idx);

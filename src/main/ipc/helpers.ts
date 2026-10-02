@@ -137,6 +137,28 @@ export async function persistIndexes(rootPath: string): Promise<void> {
   await search.persist(ctx);
 }
 
+/**
+ * Tell every window showing this project what an approved proposal changed
+ * on disk (#2541): its moves, as NOTEBASE_RENAMED (one broadcast per move, in
+ * order, so a chained reorg lands right), then the notes it rewrote, as
+ * NOTEBASE_REWRITTEN — exactly what a user rename sends (`NOTEBASE_RENAME`),
+ * so open tabs, folder-scoped views and bookmarks follow either the same way.
+ * Every approve surface goes through here so the two can't drift again; the
+ * approval engine stays Electron-free and only reports what it did.
+ */
+export function broadcastApplied(
+  rootPath: string,
+  applied: { renames?: ReadonlyArray<ReadonlyArray<{ old: string; new: string; folder?: boolean }>>; rewrittenPaths?: readonly string[] },
+): void {
+  const steps = (applied.renames ?? []).filter((s) => s.length > 0);
+  const rewritten = applied.rewrittenPaths ?? [];
+  if (steps.length === 0 && rewritten.length === 0) return;
+  for (const targetWin of windowsForProject(rootPath)) {
+    for (const step of steps) broadcast(targetWin, Channels.NOTEBASE_RENAMED, [...step]);
+    if (rewritten.length > 0) broadcast(targetWin, Channels.NOTEBASE_REWRITTEN, [...rewritten]);
+  }
+}
+
 export function broadcastRewritten(rootPath: string, paths: string[]): void {
   if (paths.length === 0) return;
   for (const targetWin of windowsForProject(rootPath)) {

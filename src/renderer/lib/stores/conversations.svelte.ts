@@ -950,9 +950,11 @@ function discardFrom(tabId: string, key: DraftArrayKey, draftId: string): void {
  * before the filter removes it, so the caller doesn't need its own `findTab`
  * just for that) even though only 5 of the 9 approve functions use it — the
  * ones that stash a persistent result card keyed by `afterMessageIndex`. The
- * other 4 (refactor/reorg/delete/note-body) just drop the card; the approval
- * engine's own broadcasts (NOTEBASE_RENAMED/REWRITTEN/FILE_DELETED) update
- * any open editors, so there's nothing else for them to do with the result.
+ * other 4 (refactor/reorg/delete/note-body) just drop the card; the approve
+ * handler broadcasts what the bundle did (`broadcastApplied`, #2541 —
+ * NOTEBASE_RENAMED per move, NOTEBASE_REWRITTEN for rewritten notes; a delete
+ * reaches tabs as the watcher's FILE_DELETED), so open editors follow without
+ * anything here.
  *
  * Returns `undefined` on failure (no tab, or `applyDraft` caught an error —
  * already recorded on `tab.failure`); otherwise the found `tab` (so a result-
@@ -995,9 +997,9 @@ async function approveDraft(tabId: string, draft: ConversationDraft): Promise<{ 
 function discardDraft(tabId: string, draftId: string): void { discardFrom(tabId, 'drafts', draftId); }
 
 async function approveRefactorDraft(tabId: string, draft: ConversationRefactorDraft): Promise<void> {
-  // The move + link rewrites land via the approval engine, and the
-  // NOTEBASE_RENAMED / NOTEBASE_REWRITTEN broadcasts update any open editors —
-  // nothing else to do here once the card is dropped.
+  // The move + link rewrites land via the approval engine, and the handler's
+  // NOTEBASE_RENAMED / NOTEBASE_REWRITTEN broadcasts (#2541) move and reload
+  // any open editors — nothing else to do here once the card is dropped.
   await approveFrom(tabId, 'refactorDrafts', draft.draftId, () => api.conversations.fileRefactorDraft(plainSnapshot(draft)));
 }
 

@@ -18,7 +18,7 @@
 import { BrowserWindow } from 'electron';
 import { getRootPath } from './window-manager';
 import { projectContext } from './project-context-types';
-import { proposeWrite } from './llm/approval';
+import { proposeWrite, type ProposedWrite } from './llm/approval';
 import { ingestHtmlString } from './sources/ingest';
 import { reindexSource } from './sources/source-meta-write';
 
@@ -26,7 +26,7 @@ export interface E2EHooks {
   /** File a fixed pending proposal into the focused window's project.
    *  Returns the proposal URI, or null if it applied autonomously (it won't —
    *  new_claim is requires_approval). */
-  seedProposal(): Promise<string | null>;
+  seedProposal(write?: ProposedWrite): Promise<string | null>;
   /** Ingest a fixed source from an in-memory HTML string into the focused
    *  window's project — the same persistence pipeline `api.sources.ingestUrl`
    *  runs *after* its network fetch, minus the fetch. Deterministic and
@@ -64,10 +64,12 @@ function targetRootPath(): string | null {
 export function installE2EHooks(): void {
   if (process.env.MINERVA_E2E !== '1') return;
   const hooks: E2EHooks = {
-    async seedProposal() {
+    async seedProposal(write) {
       const rootPath = targetRootPath();
       if (!rootPath) throw new Error('[e2e] no open project to seed a proposal into');
-      const proposal = await proposeWrite(projectContext(rootPath), {
+      // A spec can file its own proposal (a note/folder move, #2541); the
+      // default is the fixed claim the proposal-review specs approve.
+      const proposal = await proposeWrite(projectContext(rootPath), write ?? {
         operationType: 'new_claim',
         payloads: [{
           kind: 'graph-triples',

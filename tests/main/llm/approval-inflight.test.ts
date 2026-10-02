@@ -55,7 +55,7 @@ describe('approveProposal / rejectProposal per-URI in-flight guard (#2361)', () 
     // A double apply would have filed a collision-suffixed `once-2.md`.
     expect(notesOnDisk()).toEqual(['once.md']);
     // The joining caller sees the real outcome, not a spurious failure.
-    expect(a).toEqual({ ok: true, filedPaths: ['notes/once.md'], rewrittenPaths: [] });
+    expect(a).toEqual({ ok: true, filedPaths: ['notes/once.md'], rewrittenPaths: [], renames: [] });
     expect(b).toEqual(a);
     expect((await getProposal(ctx, p.uri))?.status).toBe('approved');
     expect(_inFlightProposalUrisForTests(ctx)).toEqual([]);

@@ -22,9 +22,13 @@
  * test rather than as a comment.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import path from 'node:path';
+import fsp from 'node:fs/promises';
 
 /** What `getRootPath(win.id)` reports. `null` models "no project open". */
 let openProject: string | null = null;
+/** Windows showing the project — empty unless a test wants to see broadcasts. */
+let projectWindows: unknown[] = [];
 
 type Handler = (event: unknown, ...args: unknown[]) => unknown;
 
@@ -74,13 +78,13 @@ vi.mock('electron', () => ({
 vi.mock('../../../src/main/window-manager', () => ({
   getRootPath: (id: number) => (id === win.id ? openProject : null),
   markPathHandled: vi.fn(),
-  windowsForProject: () => [],
+  windowsForProject: () => projectWindows,
 }));
 
 import { registerProposals } from '../../../src/main/ipc/register-proposals';
 import { proposeWrite, getProposal } from '../../../src/main/llm/approval';
 import { findUnreviewedLLMWrites } from '../../../src/main/graph/integrity';
-import { queryGraph } from '../../../src/main/graph/index';
+import { queryGraph, indexNote } from '../../../src/main/graph/index';
 import { Channels } from '../../../src/shared/channels';
 import { useGraphProject } from '../../helpers/temp-project';
 import type { ProjectContext } from '../../../src/main/project-context-types';
@@ -112,6 +116,7 @@ describe('register-proposals (#1523) — the approval gate IPC surface', () => {
     win.isMinimized.mockReturnValue(false);
     notifications.length = 0;
     openProject = project.root;
+    projectWindows = [];
   });
 
   /** File a pending proposal for one LLM-attributed claim. */
@@ -394,6 +399,43 @@ describe('register-proposals (#1523) — the approval gate IPC surface', () => {
 
       expect(win.show).not.toHaveBeenCalled();
       expect(win.webContents.send).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('PROPOSAL_APPROVE tells open windows what it moved and rewrote (#2541)', () => {
+    async function seedNote(rel: string, body: string) {
+      const abs = path.join(project.root, rel);
+      await fsp.mkdir(path.dirname(abs), { recursive: true });
+      await fsp.writeFile(abs, body, 'utf-8');
+      await indexNote(project.ctx, rel, body);
+    }
+    const sent = () => win.webContents.send.mock.calls.map(([ch, payload]) => [ch, payload]);
+
+    it('a note move: NOTEBASE_RENAMED for the move, NOTEBASE_REWRITTEN for the referrer — as a user rename sends', async () => {
+      await seedNote('b.md', '# B');
+      await seedNote('a.md', '# A\n\nSee [[b]].');
+      projectWindows = [win];
+      const p = await proposeWrite(project.ctx, { operationType: 'note_refactor', payloads: [{ kind: 'note-refactor', fromPath: 'b.md', toPath: 'notes/b.md' }], note: 'move', proposedBy: 'llm:conversation:c1' });
+      const res = await call(Channels.PROPOSAL_APPROVE, p.uri);
+      expect(res).toMatchObject({ ok: true, rewrittenPaths: ['a.md'] });
+      expect(sent()).toEqual([
+        [Channels.NOTEBASE_RENAMED, [{ old: 'b.md', new: 'notes/b.md' }]],
+        [Channels.NOTEBASE_REWRITTEN, ['a.md']],
+      ]);
+    });
+
+    it('a folder move includes the folder entry, so scoped view tabs follow', async () => {
+      await seedNote('trip/k.md', '# K');
+      projectWindows = [win];
+      const p = await proposeWrite(project.ctx, { operationType: 'note_refactor', payloads: [{ kind: 'folder-refactor', fromPath: 'trip', toPath: 'travel' }], note: 'move', proposedBy: 'llm:conversation:c1' });
+      await call(Channels.PROPOSAL_APPROVE, p.uri);
+      expect(sent()[0]).toEqual([Channels.NOTEBASE_RENAMED, [{ old: 'trip/k.md', new: 'travel/k.md' }, { old: 'trip', new: 'travel', folder: true }]]);
+    });
+
+    it('a proposal that moves and rewrites nothing broadcasts nothing', async () => {
+      projectWindows = [win];
+      await call(Channels.PROPOSAL_APPROVE, (await fileClaim()).uri);
+      expect(sent()).toEqual([]);
     });
   });
 });

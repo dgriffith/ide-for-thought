@@ -73,3 +73,38 @@ describe('batch note-refactor bundle (#914)', () => {
     expect(await read('a.md')).toBe(aBefore);
   });
 });
+
+describe('ApproveResult reports what moved, for the open-window broadcast (#2541)', () => {
+  it('a chained reorg reports one rename step per move, in order, plus the rewritten referrers', async () => {
+    const p = await bundle([
+      { kind: 'note-refactor', fromPath: 'b.md', toPath: 'notes/b.md' },
+      { kind: 'note-refactor', fromPath: 'notes/b.md', toPath: 'archive/b.md' },
+    ]);
+    const result = await approveProposal(ctx(), p.uri);
+    expect(result.ok).toBe(true);
+    // Separate steps: applied as one lookup, a merged [b→notes/b, notes/b→archive/b]
+    // would leave a tab on b.md at notes/b.md.
+    expect(result.renames).toEqual([
+      [{ old: 'b.md', new: 'notes/b.md' }],
+      [{ old: 'notes/b.md', new: 'archive/b.md' }],
+    ]);
+    expect(result.rewrittenPaths).toContain('a.md'); // its [[b]] link was rewritten
+  });
+
+  it('a folder move adds the folder entry after its files', async () => {
+    await seed('trip/k.md', '# K');
+    await seed('plan.md', '# Plan\n\nSee [[trip/k]].');
+    const p = await bundle([{ kind: 'folder-refactor', fromPath: 'trip', toPath: 'travel' }]);
+    const result = await approveProposal(ctx(), p.uri);
+    expect(result.renames).toEqual([[
+      { old: 'trip/k.md', new: 'travel/k.md' },
+      { old: 'trip', new: 'travel', folder: true },
+    ]]);
+    expect(result.rewrittenPaths).toContain('plan.md');
+  });
+
+  it('a bundle with no moves reports none', async () => {
+    const p = await proposeWrite(ctx(), { operationType: 'component_creation', payloads: [{ kind: 'note', relativePath: 'n.md', content: '# N' }], note: 'x', proposedBy: 'unit-test' });
+    expect((await approveProposal(ctx(), p.uri)).renames).toEqual([]);
+  });
+});

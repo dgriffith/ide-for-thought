@@ -78,6 +78,7 @@ vi.mock('../../../src/main/ipc/helpers', () => ({
   reindexFile: vi.fn(),
   persistIndexes: vi.fn(),
   hooks: {},
+  broadcastApplied: vi.fn(),
 }));
 
 // graph: only the LLM-context guard is exercised here.
