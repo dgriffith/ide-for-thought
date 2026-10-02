@@ -46,9 +46,23 @@ test('the root folder\'s menu has Copy Path, Open In, View Objects and history',
     });
 
     await test.step('Copy Path copies where the thoughtbase is on disk', async () => {
+      // Record what the page hands the clipboard rather than reading the OS
+      // clipboard back: `navigator.clipboard.writeText` rejects when the
+      // document isn't focused, which a CI runner's window often isn't (the
+      // read then returned whatever an earlier test left there). A user
+      // clicking the menu always has focus; what's under test is what's copied.
+      await win.evaluate(() => {
+        const w = window as unknown as { __copied: string[] };
+        w.__copied = [];
+        Object.defineProperty(navigator.clipboard, 'writeText', {
+          configurable: true,
+          value: (text: string) => { w.__copied.push(text); return Promise.resolve(); },
+        });
+      });
       await menu.getByRole('button', { name: 'Copy Path', exact: true }).click();
-      const copied = await app.evaluate(({ clipboard }) => clipboard.readText());
-      expect(fs.realpathSync(copied)).toBe(fs.realpathSync(projectDir));
+      const copied = await win.evaluate(() => (window as unknown as { __copied: string[] }).__copied);
+      expect(copied).toHaveLength(1);
+      expect(fs.realpathSync(copied[0]!)).toBe(fs.realpathSync(projectDir));
     });
 
     await test.step('View Objects lists the whole thoughtbase\'s types and opens an unscoped view', async () => {
