@@ -40,6 +40,7 @@ const h = vi.hoisted(() => ({
   approveProposal: vi.fn(),
   handlers: new Map<string, (...args: unknown[]) => unknown>(),
   broadcastRewritten: vi.fn(),
+  broadcastApplied: vi.fn(),
   readFile: vi.fn(),
   writeAndReindex: vi.fn(),
   applyPropertyUpdates: vi.fn(),
@@ -76,6 +77,7 @@ vi.mock('../../../src/main/ipc/helpers', () => ({
   reindexFile: vi.fn(),
   persistIndexes: vi.fn(),
   hooks: { broadcastRewritten: h.broadcastRewritten },
+  broadcastApplied: h.broadcastApplied,
 }));
 vi.mock('../../../src/main/ipc/register-compute', () => ({
   formatComputeResultAsContext: h.formatComputeResultAsContext,
@@ -185,6 +187,21 @@ describe('CONVERSATION_FILE_REFACTOR_DRAFT (#1900)', () => {
     expect(res).toEqual({ proposalUri: 'urn:p:refactor', applied: true });
   });
 
+  it('tells open windows what the approved move did (#2541)', async () => {
+    const result = { ok: true, filedPaths: [], rewrittenPaths: ['x.md'], renames: [[{ old: 'a.md', new: 'b.md' }]] };
+    h.proposeWrite.mockResolvedValue({ uri: 'urn:p:refactor' });
+    h.approveProposal.mockResolvedValue(result);
+    await call(Channels.CONVERSATION_FILE_REFACTOR_DRAFT, '/vault', { draftId: 'r1', conversationId: 'c1', fromPath: 'a.md', toPath: 'b.md', note: 'm' });
+    expect(h.broadcastApplied).toHaveBeenCalledWith('/vault', result);
+  });
+
+  it('broadcasts nothing when the approval didn\'t apply', async () => {
+    h.proposeWrite.mockResolvedValue({ uri: 'urn:p:refactor' });
+    h.approveProposal.mockResolvedValue({ ok: false, filedPaths: [], rewrittenPaths: [], renames: [] });
+    await call(Channels.CONVERSATION_FILE_REFACTOR_DRAFT, '/vault', { draftId: 'r1', conversationId: 'c1', fromPath: 'a.md', toPath: 'b.md', note: 'm' });
+    expect(h.broadcastApplied).not.toHaveBeenCalled();
+  });
+
   it('files a folder-refactor payload when the draft is a folder move', async () => {
     h.proposeWrite.mockResolvedValue({ uri: 'urn:p:folder' });
     h.approveProposal.mockResolvedValue({ ok: true, filedPaths: [], rewrittenPaths: [] });
@@ -263,7 +280,8 @@ describe('CONVERSATION_FILE_NOTE_BODY_DRAFT (#1900)', () => {
         { kind: 'note-rewrite', path: 'b.md', content: 'new b' },
       ],
     }));
-    expect(h.broadcastRewritten).toHaveBeenCalledWith('/vault', ['a.md', 'b.md']);
+    expect(h.broadcastApplied).toHaveBeenCalledWith('/vault', expect.objectContaining({ rewrittenPaths: ['a.md', 'b.md'] }));
+    expect(h.broadcastRewritten).not.toHaveBeenCalled(); // once, through broadcastApplied
     expect(res).toEqual({ proposalUri: 'urn:p:notebody', applied: true });
   });
 

@@ -12,7 +12,7 @@ import * as approval from '../llm/approval';
 import type { Proposal } from '../llm/approval';
 import type { ProposalApproveResult, ProposalDecisionFailure, ProposalRejectResult } from '../../shared/proposals';
 import { projectContext, type ProjectContext } from '../project-context-types';
-import { withRootPath, withRootPathOr, winFromEvent } from './helpers';
+import { withRootPath, withRootPathOr, winFromEvent, broadcastApplied } from './helpers';
 import { handle } from './typed-ipc';
 
 export function registerProposals(): void {
@@ -29,7 +29,11 @@ export function registerProposals(): void {
   handle(Channels.PROPOSAL_APPROVE, withRootPath(async (rootPath, uri: string): Promise<ProposalApproveResult> => {
     const ctx = projectContext(rootPath);
     const result = await approval.approveProposal(ctx, uri);
-    if (result.ok) return { ok: true, filedPaths: result.filedPaths, rewrittenPaths: result.rewrittenPaths };
+    if (result.ok) {
+      // Open tabs follow what the proposal moved and reload what it rewrote (#2541).
+      broadcastApplied(rootPath, result);
+      return { ok: true, filedPaths: result.filedPaths, rewrittenPaths: result.rewrittenPaths };
+    }
     return whyNotDecided(ctx, uri);
   }));
   handle(Channels.PROPOSAL_REJECT, withRootPath(async (rootPath, uri: string): Promise<ProposalRejectResult> => {
