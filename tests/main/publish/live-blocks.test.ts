@@ -122,3 +122,13 @@ describe('extractLiveBlocks — mermaid (#2513)', () => {
     expect(blocks.map((b) => [b.kind, b.source.trim()])).toEqual([['mermaid', 'graph TD; A-->B']]);
   });
 });
+
+describe('extractLiveBlocks — :::argument (#2514)', () => {
+  it('extracts an argument directive whole, alongside query directives', () => {
+    const { blocks } = extractLiveBlocks('A\n\n:::argument\ndepth: 2\n---\n[[Claim A]]\n:::\n\n:::query-backlinks\n:::\n', 'n.md');
+    expect(blocks.map((b) => [b.kind, b.source])).toEqual([
+      ['argument', ':::argument\ndepth: 2\n---\n[[Claim A]]\n:::'],
+      ['query', ':::query-backlinks\n:::'],
+    ]);
+  });
+});

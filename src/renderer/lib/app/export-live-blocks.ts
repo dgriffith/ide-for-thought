@@ -11,6 +11,7 @@ import type { LiveBlockRequest, LiveBlockResult } from '../../../shared/live-blo
 import { renderObjectViewForExport } from '../export/render-object-view';
 import { renderQueryBlockForExport } from '../export/render-query-block';
 import { renderMermaidForExport } from '../export/render-mermaid';
+import { renderArgumentMapForExport } from '../export/render-argument-map';
 
 export async function renderLiveBlock(block: LiveBlockRequest): Promise<LiveBlockResult> {
   try {
@@ -19,6 +20,8 @@ export async function renderLiveBlock(block: LiveBlockRequest): Promise<LiveBloc
         return { id: block.id, ok: true, html: await renderObjectViewForExport(block.source) };
       case 'mermaid':
         return { id: block.id, ok: true, html: await renderMermaidForExport(block.source) };
+      case 'argument':
+        return { id: block.id, ok: true, html: await renderArgumentMapForExport(block.source) };
       case 'query':
         return { id: block.id, ok: true, html: await renderQueryBlockForExport(block.source, block.notePath) };
     }

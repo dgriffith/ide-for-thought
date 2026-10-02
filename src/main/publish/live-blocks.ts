@@ -1,6 +1,6 @@
 /**
  * Live blocks in exports (#2508, #2510): blocks that render live in the
- * preview — ```object-view, ```mermaid and `:::query-*` — rendered for an export by the SAME
+ * preview — ```object-view, ```mermaid, `:::query-*` and `:::argument` — rendered for an export by the SAME
  * components the preview uses, in the window that asked for the export, and
  * spliced into the exported HTML.
  *
@@ -52,7 +52,7 @@ export function extractLiveBlocks(markdown: string, notePath: string): { markdow
     if (!kind || info.hidden) continue;
     found.push({ start: tok.map[0], end: tok.map[1], kind, source: tok.content });
   }
-  found.push(...findQueryDirectives(lines, code));
+  found.push(...findDirectives(lines, code));
   if (found.length === 0) return { markdown, blocks: [] };
   found.sort((a, b) => a.start - b.start);
   const blocks: LiveBlockRequest[] = found.map((f, i) => ({ id: placeholder(i), kind: f.kind, source: f.source, notePath }));
@@ -64,24 +64,31 @@ export function extractLiveBlocks(markdown: string, notePath: string): { markdow
   return { markdown: lines.join('\n'), blocks };
 }
 
+/** Directive opening lines rendered as live blocks, and their kind. */
+const LIVE_DIRECTIVES: ReadonlyArray<[RegExp, LiveBlockKind]> = [
+  [/^\s{0,3}:::query-\w+\s*$/, 'query'],
+  [/^\s{0,3}:::argument\s*$/, 'argument'],
+];
+
 /**
- * `:::query-TYPE` … `:::` directives (#2512), by the preview plugin's rules:
- * an opening line of exactly `:::query-<word>`, closed by the first line that
+ * `:::query-TYPE` (#2512) and `:::argument` (#2514) directives, by the
+ * preview plugins' rules: an exact opening line, closed by the first line that
  * is `:::`; an unclosed one isn't a directive. Inside a code block (fenced or
  * indented) it's code, not a directive. The source sent to the window is the
  * whole directive, which the preview's own parser reads back.
  */
-function findQueryDirectives(lines: string[], code: Array<[number, number]>): Array<{ start: number; end: number; kind: LiveBlockKind; source: string }> {
+function findDirectives(lines: string[], code: Array<[number, number]>): Array<{ start: number; end: number; kind: LiveBlockKind; source: string }> {
   const inCode = (i: number) => code.some(([s, e]) => i >= s && i < e);
   const out: Array<{ start: number; end: number; kind: LiveBlockKind; source: string }> = [];
   for (let i = 0; i < lines.length; i++) {
-    if (inCode(i) || !/^\s{0,3}:::query-\w+\s*$/.test(lines[i]!)) continue;
+    const kind = inCode(i) ? undefined : LIVE_DIRECTIVES.find(([re]) => re.test(lines[i]!))?.[1];
+    if (!kind) continue;
     let close = -1;
     for (let j = i + 1; j < lines.length; j++) {
       if (lines[j]!.trim() === ':::') { close = j; break; }
     }
     if (close < 0) continue;
-    out.push({ start: i, end: close + 1, kind: 'query', source: lines.slice(i, close + 1).join('\n') });
+    out.push({ start: i, end: close + 1, kind, source: lines.slice(i, close + 1).join('\n') });
     i = close;
   }
   return out;
