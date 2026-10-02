@@ -132,7 +132,7 @@
               : tab.type === 'graph'
                 ? `Graph: ${tab.relativePath}`
                 : tab.type === 'type-view'
-                  ? `Type: ${tab.typeId}`
+                  ? `Type: ${tab.typeId}${tab.folder ? ` in ${tab.folder}` : ''}`
                   : tab.type === 'unsupported'
                     ? tab.relativePath
                     : `Source: ${sourceTabLabel(tab.sourceId)}`}
@@ -163,7 +163,7 @@
           {:else if tab.type === 'query'}{tab.title}
           {:else if tab.type === 'pdf'}{sourceTabLabel(tab.sourceId)} (PDF)
           {:else if tab.type === 'graph'}{(tab.relativePath.split('/').pop() ?? tab.relativePath).replace(/\.md$/, '')} (Graph)
-          {:else if tab.type === 'type-view'}{tab.typeId.charAt(0).toUpperCase() + tab.typeId.slice(1)}
+          {:else if tab.type === 'type-view'}{tab.typeId.charAt(0).toUpperCase() + tab.typeId.slice(1)}{tab.folder ? ` · ${tab.folder}` : ''}
           {:else if tab.type === 'unsupported'}{tab.fileName}
           {:else}{sourceTabLabel(tab.sourceId)}{/if}
         </span>

@@ -315,6 +315,9 @@ export interface SavedTypeViewTab {
   sortColumn?: string | null;
   sortDir?: 'asc' | 'desc';
   columns?: string[] | null;
+  /** Folder scope and property filters (#2531); absent = none. */
+  folder?: string | null;
+  filters?: unknown[];
 }
 
 export type SavedTab = SavedNoteTab | SavedQueryTab | SavedSourceTab | SavedPdfTab | SavedGraphTab | SavedTypeViewTab | SavedUnsupportedTab;

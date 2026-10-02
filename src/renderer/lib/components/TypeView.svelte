@@ -18,6 +18,7 @@
   import TypeIcon from './TypeIcon.svelte';
   import TypeViewMap from './TypeViewMap.svelte';
   import type { MapExportHooks } from '../map/map-export';
+  import { applyViewSpec, type ViewFilter } from '../../../shared/objects/view-spec';
   import { objectTypesStore } from '../stores/object-types.svelte';
   import { outputToMarkdownClipboard } from '../preview/compute-output-render';
   import { stripNoteExt } from '../../../shared/note-extensions';
@@ -26,7 +27,7 @@
   import type { PropertyDef, TypeInfo, TypeInstanceRow } from '../../../shared/objects/type-def';
 
   type Layout = 'list' | 'table' | 'gallery' | 'map';
-  interface StatePatch { layout?: Layout; sortColumn?: string | null; sortDir?: 'asc' | 'desc'; columns?: string[] | null }
+  interface StatePatch { layout?: Layout; sortColumn?: string | null; sortDir?: 'asc' | 'desc'; columns?: string[] | null; folder?: string | null; filters?: ViewFilter[] }
 
   interface Props {
     typeId: string;
@@ -53,10 +54,15 @@
     /** Called once the instances have loaded AND rendered into the DOM — for
      *  the export snapshot (#2510), which must not capture "Loading…". */
     onLoaded?: () => void;
+    /** Only notes under this folder, recursively (#2531); null = everywhere. */
+    folder?: string | null;
+    /** Property filters, AND-ed (#2531). Applied in every mode — the panel, a
+     *  note embed and an export all show the same filtered set. */
+    filters?: ViewFilter[];
     /** Map layout only: render for an export and hand back a capture (#2511). */
     mapExport?: MapExportHooks;
   }
-  let { typeId, layout, sortColumn, sortDir, columns, revision, onStateChange, onOpenNote, onSaveView, chromeless = false, onLoaded, mapExport }: Props = $props();
+  let { typeId, layout, sortColumn, sortDir, columns, revision, onStateChange, onOpenNote, onSaveView, chromeless = false, onLoaded, mapExport, folder = null, filters = [] }: Props = $props();
 
   let type = $state<TypeInfo | null>(null);
   let instances = $state<TypeInstanceRow[]>([]);
@@ -133,12 +139,26 @@
     return col === '__title' ? inst.title : inst.values[col] ?? null;
   }
 
+  /** What this view shows (#2531): the type's instances in `folder`, through
+   *  `filters` — the one rule the panel, embeds and exports share. */
+  const scoped = $derived<TypeInstanceRow[]>(applyViewSpec(
+    instances,
+    { folder, filters },
+    Object.fromEntries(allColumns.map((c) => [c.name, c.type])),
+  ));
+
+  function emptyScopedMessage(label: string): string {
+    const what = label.toLowerCase();
+    if (filters.length > 0) return folder ? `No ${what} in ${folder} match these filters.` : `No ${what} match these filters.`;
+    return `No ${what} in ${folder}.`;
+  }
+
   const sorted = $derived.by<TypeInstanceRow[]>(() => {
-    if (!sortColumn) return instances;
+    if (!sortColumn) return scoped;
     const col = sortColumn;
     const numeric = col !== '__title' && allColumns.find((c) => c.name === col)?.type === 'number';
     const dir = sortDir === 'asc' ? 1 : -1;
-    return [...instances].sort((a, b) => {
+    return [...scoped].sort((a, b) => {
       const av = cellFor(a, col);
       const bv = cellFor(b, col);
       if (av === null || av === '') return bv === null || bv === '' ? 0 : 1;
@@ -195,7 +215,7 @@
       ]);
       md = outputToMarkdownClipboard({ type: 'table', columns: cols, rows });
     } else {
-      md = instances.map((inst) => {
+      md = scoped.map((inst) => {
         const link = `[[${stripNoteExt(inst.path)}]]`;
         const s = summary(inst);
         return s ? `- ${link} — ${s}` : `- ${link}`;
@@ -257,7 +277,7 @@
     <header class="tv-header">
       <span class="tv-icon" style={type?.color ? `color:${type.color}` : undefined}>{type?.icon ?? '◆'}</span>
       <h1 class="tv-title">{type?.label ?? typeId}</h1>
-      <span class="tv-count">{instances.length}</span>
+      <span class="tv-count">{scoped.length === instances.length ? scoped.length : `${scoped.length} of ${instances.length}`}</span>
 
       <div class="tv-actions">
         {#if layout === 'table' && allColumns.length > 0}
@@ -299,9 +319,11 @@
     <p class="tv-empty">This type is no longer defined.</p>
   {:else if instances.length === 0}
     <p class="tv-empty">No {type.label.toLowerCase()} instances yet.</p>
+  {:else if scoped.length === 0}
+    <p class="tv-empty">{emptyScopedMessage(type.label)}</p>
   {:else if layout === 'list'}
     <div class="tv-list">
-      {#each instances as inst (inst.path)}
+      {#each scoped as inst (inst.path)}
         {@const rt = rowType(inst)}
         <button class="tv-list-row" onclick={() => onOpenNote(inst.path)} title={inst.path} data-note-path={inst.path}>
           {#if rt}<span class="tv-list-icon"><TypeIcon type={rt} size={14} /></span>{/if}
@@ -353,7 +375,7 @@
     </div>
   {:else if layout === 'gallery'}
     <div class="tv-gallery">
-      {#each instances as inst (inst.path)}
+      {#each scoped as inst (inst.path)}
         {@const rt = rowType(inst)}
         <button class="tv-card" onclick={() => onOpenNote(inst.path)} title={inst.path} data-note-path={inst.path}>
           <div class="tv-card-cover">
@@ -369,7 +391,7 @@
       {/each}
     </div>
   {:else if locationProperty}
-    <TypeViewMap {instances} {locationProperty} {onOpenNote} {...(mapExport ? { exportHooks: mapExport } : {})} />
+    <TypeViewMap instances={scoped} {locationProperty} {onOpenNote} {...(mapExport ? { exportHooks: mapExport } : {})} />
   {:else}
     <!-- A saved/persisted tab claims layout: 'map' but the type no longer has
          a geo property (e.g. edited after the view was saved) — fall back to

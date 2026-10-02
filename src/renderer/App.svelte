@@ -406,6 +406,8 @@
       sortColumn: tab.sortColumn,
       sortDir: tab.sortDir,
       columns: tab.columns,
+      folder: tab.folder,
+      filters: tab.filters,
     });
     return true;
   }
@@ -1399,15 +1401,17 @@
                   />
                 {/key}
               {:else if active?.type === 'type-view'}
-                {#key active.typeId}
+                {#key `${active.typeId}:${active.folder ?? ''}`}
                   <TypeView
                     typeId={active.typeId}
                     layout={active.layout}
                     sortColumn={active.sortColumn}
                     sortDir={active.sortDir}
                     columns={active.columns}
+                    folder={active.folder}
+                    filters={active.filters}
                     revision={graphRevision}
-                    onStateChange={(patch) => editor.setTypeViewState(active.typeId, patch)}
+                    onStateChange={(patch) => editor.setTypeViewState(active.typeId, active.folder, patch)}
                     onOpenNote={(p) => handleFileSelect(p)}
                     {...(notebase.meta ? { onSaveView: () => handleSaveView(active) } : {})}
                   />

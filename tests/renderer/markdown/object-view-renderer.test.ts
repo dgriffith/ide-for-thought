@@ -67,12 +67,14 @@ describe('parseObjectViewSpec (#2067)', () => {
       sortColumn: null,
       sortDir: 'asc',
       columns: null,
+      folder: null,
+      filters: [],
     });
   });
 
   it('carries through explicit sort/columns', () => {
     expect(parseObjectViewSpec('{"typeId":"book","layout":"table","sortColumn":"author","sortDir":"desc","columns":["author"]}'))
-      .toEqual({ typeId: 'book', layout: 'table', sortColumn: 'author', sortDir: 'desc', columns: ['author'] });
+      .toEqual({ typeId: 'book', layout: 'table', sortColumn: 'author', sortDir: 'desc', columns: ['author'], folder: null, filters: [] });
   });
 
   it('throws on malformed JSON', () => {
