@@ -64,7 +64,7 @@ const THRESHOLD = 600;
  */
 const BUDGETS: Record<string, number> = {
   // +1 for #2256: toggleCommandPalette on the ipc-wiring ctx.
-  'src/renderer/App.svelte': 1833, // +4: folder/filters passed to the view tab and Save as note (#2531)
+  'src/renderer/App.svelte': 1834, // +4: folder/filters passed to the view tab and Save as note (#2531); +1: the folder chip widens a scoped view (#2532)
   // +32 for #2210 §3b: the shared wiki-link index and the comment explaining
   // why one index is safe for all three resolvers. Net code is SHORTER (two
   // duplicated file-array builds removed); the growth is the reasoning, which
@@ -85,7 +85,7 @@ const BUDGETS: Record<string, number> = {
   'src/renderer/lib/ipc/client.ts': 1386,  // #2448: tables.queryNote; #2439: mcp_call confirm reply/subscription + resetAllowedTools; #2411: menu.onRevealFile; #2363/#2364: doc comments on graph.query + git.commit contracts; +5: setTitle + onTitleChanged (conversation titles); +5: live-block export render request/reply (#2510)
   'src/renderer/lib/stores/conversations.svelte.ts': 1275, // +4: carry a skill's user-turn material through open + /clear (#2438); +39: mcp_call confirmation card state, beside ask_user's (#2439); +26: turn start/settle screen-reader announcements (#2374); +28: conversation titles — rename, the titleChanged subscription, keepKnownTitle for the post-send reload race; +2: typing during a reply (#1744) — /clear refuses mid-turn, a restored message keeps the draft; +11: turnStartedAt for the turn-status clock (set at the three turn starts, cleared at the three settles)
   'src/renderer/lib/components/Editor.svelte': 854,
-  'src/renderer/lib/stores/editor.svelte.ts': 919, // +5: type-view tabs keyed by type + folder (#2531)
+  'src/renderer/lib/stores/editor.svelte.ts': 942, // +5: type-view tabs keyed by type + folder (#2531); +23: rescopeTypeView — widen a folder-scoped view, merging into an open one (#2532)
     'src/renderer/lib/components/right-sidebar/PropertiesPanel.svelte': 1168, // +8 (#2491): a committed edit fills the type's body placeholders in the same change
   // +29 for #2254/#2256: the DOCS_URL rationale (why Help pointed at the
   // repo's dev-docs folder and how the parity test keeps it honest) and the

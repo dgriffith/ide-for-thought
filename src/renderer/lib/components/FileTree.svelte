@@ -2,6 +2,7 @@
   import type { NoteFile } from '../../../shared/types';
   import FileTree from './FileTree.svelte';
   import Icon from './Icon.svelte';
+  import FolderViewObjectsMenu from './FolderViewObjectsMenu.svelte';
   import TypeIcon from './TypeIcon.svelte';
   import { objectTypesStore } from '../stores/object-types.svelte';
   import { formatRelativeTime } from '../utils/format-relative-time';
@@ -368,6 +369,9 @@
           <button onclick={() => { void api.shell.openInTerminal(contextMenu!.target); contextMenu = null; }}>Open in Terminal</button>
         </div>
       </div>
+      {#if contextMenu.targetIsDir}
+        <FolderViewObjectsMenu folder={contextMenu.target} onDone={() => { contextMenu = null; }} />
+      {/if}
       {#if onAddTag || onRemoveTag || onAddProperty || onRemoveProperty || onFormat}
         <div class="separator"></div>
         {#if onAddTag}
@@ -584,7 +588,10 @@
     min-width: 160px;
   }
 
-  .submenu-item:hover .submenu {
+  /* :focus-within too, so a submenu opens from the keyboard (#2532). */
+  .submenu-item:hover .submenu,
+  .submenu-item:focus-within .submenu {
     display: block;
   }
+
 </style>

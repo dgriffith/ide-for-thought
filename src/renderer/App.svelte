@@ -1412,6 +1412,7 @@
                     filters={active.filters}
                     revision={graphRevision}
                     onStateChange={(patch) => editor.setTypeViewState(active.typeId, active.folder, patch)}
+                    onClearFolder={() => editor.rescopeTypeView(active.typeId, active.folder, null)}
                     onOpenNote={(p) => handleFileSelect(p)}
                     {...(notebase.meta ? { onSaveView: () => handleSaveView(active) } : {})}
                   />
