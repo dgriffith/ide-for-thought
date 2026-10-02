@@ -14,6 +14,7 @@
     import {slugify} from '../../../shared/slug';
     import {createPreviewMarkdown} from '../preview/markdown-config';
     import { QUERY_PREFIXES } from '../preview/query-prefixes';
+    import { chartPaletteFrom } from '../charts/theme-palette';
     import {sanitizeNoteHtml} from '../preview/sanitize-note-html';
     import {api} from '../ipc/client';
     import {clampSubmenu} from '../utils/menuClamp';
@@ -441,7 +442,9 @@
         };
     }
     function queryDeps(): QueryBlockDeps {
-        return { notePath, revision, queryCache, queryPrefixes: QUERY_PREFIXES, activeCharts };
+        // Charts take their text/grid colours from the theme they render in (#2522).
+        const palette = previewEl ? chartPaletteFrom(previewEl) : undefined;
+        return { notePath, revision, queryCache, queryPrefixes: QUERY_PREFIXES, activeCharts, ...(palette ? { chartOptions: { palette } } : {}) };
     }
     // Type-keyed card pass (#1071): promote block-level typed links to cards.
     // resolvePath reuses the same wiki-link resolution as the hover fetcher.
@@ -575,6 +578,12 @@
         if (previewEl) {
             void hydrateMermaidBlocks(previewEl);
             void hydrateVegaBlocks(previewEl, content);
+            // Query-block charts drew their colours from the old theme (#2522).
+            // Results are cached, so re-running a timeseries block only redraws.
+            for (const chart of activeCharts.splice(0)) chart.destroy();
+            for (const el of Array.from(previewEl.querySelectorAll<HTMLElement>('.query-block[data-type="timeseries"]'))) {
+                void executeQueryBlock(queryDeps(), el);
+            }
         }
     }
 

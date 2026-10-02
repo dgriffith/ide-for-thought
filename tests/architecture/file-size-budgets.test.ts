@@ -72,7 +72,7 @@ const BUDGETS: Record<string, number> = {
   // +2 for #2210 §3c: `revision` threaded to `hydrateVegaBlocks` so a chart's
   // backing query is keyed per graph revision rather than re-run per render
   // tick, plus the comment saying why the argument is there.
-  'src/renderer/lib/components/Preview.svelte': 1367,
+  'src/renderer/lib/components/Preview.svelte': 1376, // +9: charts take the theme's palette, and re-theme on a theme switch (#2522)
   'src/renderer/lib/components/SourceDetail.svelte': 1346,
   'src/renderer/lib/components/SourcesPanel.svelte': 789,
   // Three changes stacked here: #2218 (PythonSettings doc + type), #2222
