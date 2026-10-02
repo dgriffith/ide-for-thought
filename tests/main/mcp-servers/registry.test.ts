@@ -177,14 +177,48 @@ describe('connectServer', () => {
 });
 
 describe('updateServer', () => {
-  it('disconnects a live connection when the descriptor changes', async () => {
+  it('a changed descriptor drops the old connection and reconnects an enabled server to the new one', async () => {
     mcpClientMocks.connectMcpServer.mockResolvedValue(mockClient);
     await addServer('S', stdioDescriptor);
     const id = await firstId();
     await setServerEnabled(id, true);
-    const list = await updateServer(id, { descriptor: httpDescriptor });
+    const changed: McpServerDescriptor = { ...stdioDescriptor, args: ['--other'] };
+    const list = await updateServer(id, { descriptor: changed });
     expect(mockClient.close).toHaveBeenCalledTimes(1);
-    expect(list[0]).toMatchObject({ descriptor: httpDescriptor, status: 'disconnected' });
+    expect(mcpClientMocks.connectMcpServer).toHaveBeenCalledTimes(2);
+    expect(mcpClientMocks.connectMcpServer).toHaveBeenLastCalledWith(changed);
+    expect(list[0]).toMatchObject({ descriptor: changed, status: 'connected' });
+  });
+
+  it('re-saving the same details (the settings form sends them every time) keeps the connection', async () => {
+    mcpClientMocks.connectMcpServer.mockResolvedValue(mockClient);
+    await addServer('S', stdioDescriptor);
+    const id = await firstId();
+    await setServerEnabled(id, true);
+    const list = await updateServer(id, { name: 'Renamed', descriptor: { ...stdioDescriptor } });
+    expect(mockClient.close).not.toHaveBeenCalled();
+    expect(mcpClientMocks.connectMcpServer).toHaveBeenCalledTimes(1);
+    expect(list[0]).toMatchObject({ name: 'Renamed', status: 'connected' });
+  });
+
+  it('a disabled server stays disconnected after its details change', async () => {
+    await addServer('S', stdioDescriptor);
+    const id = await firstId();
+    const list = await updateServer(id, { descriptor: { ...stdioDescriptor, command: 'other-binary' } });
+    expect(mcpClientMocks.connectMcpServer).not.toHaveBeenCalled();
+    expect(list[0]).toMatchObject({ status: 'disconnected' });
+  });
+
+  it('switching to a remote server reconnects without popping a browser', async () => {
+    mcpClientMocks.connectMcpServer.mockResolvedValue(mockClient);
+    mcpClientMocks.connectMcpServerWithOAuth.mockResolvedValue(mockClient);
+    await addServer('S', stdioDescriptor);
+    const id = await firstId();
+    await setServerEnabled(id, true);
+    await updateServer(id, { descriptor: httpDescriptor });
+    expect(mockClient.close).toHaveBeenCalledTimes(1);
+    const [, opts] = mcpClientMocks.connectMcpServerWithOAuth.mock.calls.at(-1)! as [unknown, { interactive?: boolean } | undefined];
+    expect(opts?.interactive ?? false).toBe(false);
   });
 
   it('does not disconnect on a name-only edit', async () => {
