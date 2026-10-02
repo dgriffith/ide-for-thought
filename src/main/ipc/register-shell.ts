@@ -1,6 +1,7 @@
 import { app, shell, dialog } from 'electron';
 import { handle } from './typed-ipc';
 import path from 'node:path';
+import { statSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { Channels } from '../../shared/channels';
 import { assertSafePath } from '../notebase/fs';
@@ -39,11 +40,14 @@ export function registerShell(): void {
   }));
 
   handle(Channels.SHELL_OPEN_IN_TERMINAL, withRootPathOr(undefined, (rootPath, relativePath?: string) => {
-    // Validate the full path is in-root, then open its containing dir —
-    // dirname of an in-root path is itself in-root.
-    const dir = relativePath
-      ? path.dirname(assertSafePath(rootPath, relativePath))
-      : rootPath;
+    // Validate the full path is in-root, then open the folder itself, or a
+    // note's containing folder — dirname of an in-root path is itself in-root.
+    // A folder used to open its parent, because this always took the dirname.
+    let dir = rootPath;
+    if (relativePath) {
+      const full = assertSafePath(rootPath, relativePath);
+      dir = statSync(full, { throwIfNoEntry: false })?.isDirectory() ? full : path.dirname(full);
+    }
     // Use spawn with explicit args (no shell) so a filename containing
     // shell metacharacters can't inject. Detached + unref so closing the
     // app doesn't kill the user's terminal session.
