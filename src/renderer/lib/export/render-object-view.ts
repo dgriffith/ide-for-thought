@@ -12,11 +12,17 @@
  * One deliberate difference from the preview: the preview frames an embed in
  * a fixed 360px box that scrolls; an export shows every row, because a page —
  * and a PDF above all — can't scroll a box.
+ *
+ * A map (#2511) is the exception to snapshotting the DOM: it's the preview's
+ * own `TypeViewMap` in export mode, in the preview's 360px frame, flattened to
+ * one PNG with its pins — or, when it can't be drawn, a table of its places.
  */
 import { mount, tick, unmount } from 'svelte';
 import TypeView from '../components/TypeView.svelte';
 import { parseObjectViewSpec } from '../markdown/object-view-renderer';
 import { snapshotLiveBlock } from './live-block-snapshot';
+import { LIVE_BLOCK_CLASS, NOTE_LINK_ATTR } from '../../../shared/live-blocks';
+import { MAP_EXPORT_HEIGHT, MAP_EXPORT_TIMEOUT_MS, mapCaptureHtml, type MapCapture } from '../map/map-export';
 
 /** Wide enough for a table's columns; a gallery reflows to it. */
 export const EXPORT_BLOCK_WIDTH_PX = 760;
@@ -36,13 +42,17 @@ export async function renderObjectViewForExport(source: string): Promise<string>
   const block = document.createElement('div');
   block.className = 'object-view-block';
   block.setAttribute('data-object-view-rendered', 'ok');
-  block.style.height = 'auto'; // every row — see the file header
+  // Every row — see the file header. A map needs a real height: the preview's.
+  block.style.height = spec.layout === 'map' ? `${MAP_EXPORT_HEIGHT}px` : 'auto';
   themed.appendChild(block);
   host.appendChild(themed);
   document.body.appendChild(host);
 
   let instance: ReturnType<typeof mount> | null = null;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let mapTimer: ReturnType<typeof setTimeout> | undefined;
+  let resolveCapture!: (c: MapCapture) => void;
+  const captured = new Promise<MapCapture>((resolve) => { resolveCapture = resolve; });
   try {
     const loaded = new Promise<void>((resolve, reject) => {
       timer = setTimeout(() => reject(new Error('the view took too long to load')), OBJECT_VIEW_LOAD_TIMEOUT_MS);
@@ -59,14 +69,27 @@ export async function renderObjectViewForExport(source: string): Promise<string>
           onStateChange: () => {},
           onOpenNote: () => {},
           onLoaded: () => resolve(),
+          ...(spec.layout === 'map' ? { mapExport: { onCaptured: (c: MapCapture) => resolveCapture(c) } } : {}),
         },
       });
     });
     await loaded;
     await tick();
+    // A map layout that actually mounted a map waits for its capture; one that
+    // didn't (no location property, no instances) is ordinary DOM.
+    if (spec.layout === 'map' && block.querySelector('.type-view-map')) {
+      const capture = await Promise.race([
+        captured,
+        new Promise<never>((_, reject) => {
+          mapTimer = setTimeout(() => reject(new Error('the map took too long to draw')), MAP_EXPORT_TIMEOUT_MS + 5_000);
+        }),
+      ]);
+      return mapCaptureHtml(capture, LIVE_BLOCK_CLASS, NOTE_LINK_ATTR);
+    }
     return snapshotLiveBlock(themed);
   } finally {
     clearTimeout(timer);
+    clearTimeout(mapTimer);
     if (instance) void unmount(instance);
     host.remove();
   }

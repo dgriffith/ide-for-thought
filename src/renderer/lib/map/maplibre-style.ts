@@ -21,3 +21,8 @@ export function styleUrlForTheme(): string {
   const effective = getEffectiveTheme(getThemeMode());
   return effective === 'light' ? LIGHT_STYLE_URL : DARK_STYLE_URL;
 }
+
+/** Exports read on white, whatever the app's theme (#2511) — as charts do. */
+export function exportStyleUrl(): string {
+  return LIGHT_STYLE_URL;
+}

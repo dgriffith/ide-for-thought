@@ -35,7 +35,9 @@ export function snapshotLiveBlock(themed: HTMLElement): string {
   // A row reads as it does in the preview — plain text, not a page link —
   // whatever the export page styles `a` as; a real link (follow-to-file)
   // shows itself on hover. Covers the bare `<a>` an unlinked row ends as.
-  const base = `.${LIVE_BLOCK_CLASS}{margin:1em 0}.${LIVE_BLOCK_CLASS} a{color:inherit;text-decoration:none}.${LIVE_BLOCK_CLASS} a[href]:hover{text-decoration:underline}`;
+  // Images keep the view's own spacing, not the export page's `img { margin:
+  // 1em auto }` (#2511) — a gallery cover would shift inside its card.
+  const base = `.${LIVE_BLOCK_CLASS}{margin:1em 0}.${LIVE_BLOCK_CLASS} a{color:inherit;text-decoration:none}.${LIVE_BLOCK_CLASS} a[href]:hover{text-decoration:underline}.${LIVE_BLOCK_CLASS} img{margin:0}`;
   return `<div class="${LIVE_BLOCK_CLASS}"><style>${base}${css}</style>${clone.outerHTML}</div>`;
 }
 

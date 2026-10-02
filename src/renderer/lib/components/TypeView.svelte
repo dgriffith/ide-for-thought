@@ -17,6 +17,7 @@
   import { api } from '../ipc/client';
   import TypeIcon from './TypeIcon.svelte';
   import TypeViewMap from './TypeViewMap.svelte';
+  import type { MapExportHooks } from '../map/map-export';
   import { objectTypesStore } from '../stores/object-types.svelte';
   import { outputToMarkdownClipboard } from '../preview/compute-output-render';
   import { stripNoteExt } from '../../../shared/note-extensions';
@@ -52,8 +53,10 @@
     /** Called once the instances have loaded AND rendered into the DOM — for
      *  the export snapshot (#2510), which must not capture "Loading…". */
     onLoaded?: () => void;
+    /** Map layout only: render for an export and hand back a capture (#2511). */
+    mapExport?: MapExportHooks;
   }
-  let { typeId, layout, sortColumn, sortDir, columns, revision, onStateChange, onOpenNote, onSaveView, chromeless = false, onLoaded }: Props = $props();
+  let { typeId, layout, sortColumn, sortDir, columns, revision, onStateChange, onOpenNote, onSaveView, chromeless = false, onLoaded, mapExport }: Props = $props();
 
   let type = $state<TypeInfo | null>(null);
   let instances = $state<TypeInstanceRow[]>([]);
@@ -366,7 +369,7 @@
       {/each}
     </div>
   {:else if locationProperty}
-    <TypeViewMap {instances} {locationProperty} {onOpenNote} />
+    <TypeViewMap {instances} {locationProperty} {onOpenNote} {...(mapExport ? { exportHooks: mapExport } : {})} />
   {:else}
     <!-- A saved/persisted tab claims layout: 'map' but the type no longer has
          a geo property (e.g. edited after the view was saved) — fall back to
