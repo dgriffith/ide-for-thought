@@ -161,6 +161,9 @@ function canvasesToImages(live: HTMLElement, clone: HTMLElement): void {
  *  results, backlinks, search, semantic) become links main resolves exactly as
  *  it resolves a `[[target]]` in the note (#2512, #2518). */
 function linkWikiLinks(root: HTMLElement): void {
+  // An excerpt card's target is an excerpt id, not a note: resolving it as a
+  // [[target]] could land on an unrelated note, so it stays unlinked (#2526).
+  for (const a of Array.from(root.querySelectorAll<HTMLElement>('a.quote-link[data-target]'))) a.removeAttribute('data-target');
   for (const a of Array.from(root.querySelectorAll<HTMLElement>('a.wiki-link[data-target]'))) {
     a.setAttribute(NOTE_LINK_ATTR, a.getAttribute('data-target') ?? '');
     a.removeAttribute('data-target');

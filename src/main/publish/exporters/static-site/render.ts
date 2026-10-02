@@ -8,6 +8,7 @@
  * up as a multi-page site.
  */
 
+import { tagPageFilename } from '../../../../shared/markdown/note-tags-plugin';
 import path from 'node:path';
 import { renderNoteBody } from '../note-html/render';
 import type { ExportPlanFile, ExportPlan } from '../../types';
@@ -45,7 +46,12 @@ export async function renderNotePage(input: RenderPageInput): Promise<string> {
   // forced to `follow-to-file` here (same as tree-html does) since the
   // bundle ships every note as an .html sibling — readers want
   // working cross-links inside the site.
-  const sitePlan: ExportPlan = { ...plan, linkPolicy: 'follow-to-file' };
+  // A `#tag` in the body links to its tag page (#2526) — the site has one.
+  const sitePlan: ExportPlan = {
+    ...plan,
+    linkPolicy: 'follow-to-file',
+    tagPageHref: (tag) => `${rootRelative}tags/${tagPageFilename(tag)}`,
+  };
   const rawBody = await renderNoteBody(note, sitePlan, renderer ?? undefined);
   const bodyWithFootnotes = renderer ? `${rawBody}${renderFootnotesSection(renderer)}` : rawBody;
   const bodyWithBroken = markBrokenWikiLinks(bodyWithFootnotes);
@@ -61,7 +67,7 @@ export async function renderNotePage(input: RenderPageInput): Promise<string> {
   // Per-note metadata sidebar.
   const tags = extractTagList(note);
   const metaTags = tags.length > 0
-    ? `<h3>Tags</h3><ul>${tags.map((t) => `<li><a href="${rootRelative}tags/${encodeURIComponent(t)}.html">#${escapeHtml(t)}</a></li>`).join('')}</ul>`
+    ? `<h3>Tags</h3><ul>${tags.map((t) => `<li><a href="${rootRelative}tags/${tagPageFilename(t)}">#${escapeHtml(t)}</a></li>`).join('')}</ul>`
     : '';
   const date = typeof note.frontmatter.date === 'string' ? note.frontmatter.date : '';
   const metaDate = date ? `<h3>Date</h3><ul><li>${escapeHtml(date)}</li></ul>` : '';
@@ -137,7 +143,7 @@ function buildPublishHead(
 export function renderTagCloud(config: SiteConfig, index: SiteIndex, rootRelative: string, nav: NavFlags): string {
   const sorted = [...index.tags.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   const items = sorted.map(([tag, notes]) => (
-    `<li><a href="${encodeURIComponent(tag)}.html">#${escapeHtml(tag)}<span class="count">${notes.length}</span></a></li>`
+    `<li><a href="${tagPageFilename(tag)}">#${escapeHtml(tag)}<span class="count">${notes.length}</span></a></li>`
   )).join('');
   const body = `<article><h1>Tags</h1>${
     sorted.length === 0 ? '<p>No tags in this thoughtbase.</p>' : `<ul class="tag-cloud">${items}</ul>`

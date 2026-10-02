@@ -1,6 +1,7 @@
 /**
  * Live blocks in exports (#2508, #2510): blocks that render live in the
- * preview — ```object-view, ```mermaid, ```output, `:::query-*` and `:::argument` — rendered for an export by the SAME
+ * preview — ```object-view, ```mermaid, ```output, `:::query-*`, `:::argument` and block-level
+ * link cards — rendered for an export by the SAME
  * components the preview uses, in the window that asked for the export, and
  * spliced into the exported HTML.
  *
@@ -20,6 +21,7 @@
  * never to the raw spec, which is what every export printed before.
  */
 import MarkdownIt from 'markdown-it';
+import type { Token } from 'markdown-it';
 import { parseFenceInfo } from '../../shared/markdown/fence-info';
 import { NOTE_LINK_ATTR, type LiveBlockKind, type LiveBlockRequest, type LiveBlockResult } from '../../shared/live-blocks';
 import { escapeHtmlFull as escapeHtml, escapeHtmlFull as escapeAttr } from '../../shared/text-escape';
@@ -43,7 +45,9 @@ export function extractLiveBlocks(markdown: string, notePath: string): { markdow
   const lines = markdown.split('\n');
   const found: Array<{ start: number; end: number; kind: LiveBlockKind; source: string }> = [];
   const code: Array<[number, number]> = [];
-  for (const tok of scanner.parse(markdown, {})) {
+  const tokens = scanner.parse(markdown, {});
+  found.push(...findLinkCards(tokens));
+  for (const tok of tokens) {
     if ((tok.type !== 'fence' && tok.type !== 'code_block') || !tok.map) continue;
     code.push([tok.map[0], tok.map[1]]);
     if (tok.type !== 'fence') continue;
@@ -62,6 +66,28 @@ export function extractLiveBlocks(markdown: string, notePath: string): { markdow
     lines.splice(f.start, f.end - f.start, '', blocks[i]!.id, '');
   }
   return { markdown: lines.join('\n'), blocks };
+}
+
+/** A paragraph that is one plain `[[link]]` or `[[quote::id]]` and nothing
+ *  else — what the preview's typed-card pass considers (#1071). */
+const CARD_LINK = /^\[\[(?:quote::)?(?![a-z][\w-]*::)[^[\]\n]+\]\]$/;
+
+/**
+ * Block-level links that the preview may promote to a typed-note or excerpt
+ * card (#2526). Only top-level paragraphs: a line inside a quote or list
+ * can't be swapped for a placeholder without breaking its container. The
+ * window decides whether it really is a card (an untyped note isn't); when it
+ * isn't, the export renders the paragraph as an ordinary link.
+ */
+function findLinkCards(tokens: Token[]): Array<{ start: number; end: number; kind: LiveBlockKind; source: string }> {
+  const out: Array<{ start: number; end: number; kind: LiveBlockKind; source: string }> = [];
+  tokens.forEach((tok, i) => {
+    if (tok.type !== 'paragraph_open' || tok.level !== 0 || !tok.map) return;
+    const inline = tokens[i + 1];
+    if (!inline || inline.type !== 'inline' || !CARD_LINK.test(inline.content.trim())) return;
+    out.push({ start: tok.map[0], end: tok.map[1], kind: 'card', source: inline.content.trim() });
+  });
+  return out;
 }
 
 /** Directive opening lines rendered as live blocks, and their kind. */

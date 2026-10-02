@@ -13,6 +13,7 @@ import { renderQueryBlockForExport } from '../export/render-query-block';
 import { renderMermaidForExport } from '../export/render-mermaid';
 import { renderArgumentMapForExport } from '../export/render-argument-map';
 import { renderOutputForExport } from '../export/render-output';
+import { renderCardForExport } from '../export/render-card';
 
 export async function renderLiveBlock(block: LiveBlockRequest): Promise<LiveBlockResult> {
   try {
@@ -25,6 +26,8 @@ export async function renderLiveBlock(block: LiveBlockRequest): Promise<LiveBloc
         return { id: block.id, ok: true, html: await renderArgumentMapForExport(block.source) };
       case 'output':
         return { id: block.id, ok: true, html: renderOutputForExport(block.source) };
+      case 'card':
+        return { id: block.id, ok: true, html: await renderCardForExport(block.source) };
       case 'query':
         return { id: block.id, ok: true, html: await renderQueryBlockForExport(block.source, block.notePath) };
     }
