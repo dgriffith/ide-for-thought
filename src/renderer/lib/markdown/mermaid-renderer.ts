@@ -45,9 +45,13 @@ async function loadMermaid(): Promise<MermaidApi> {
 function ensureInitialized(api: MermaidApi, fontFamily: string): void {
   const key = `${getEffectiveTheme(getThemeMode())}|${fontFamily}`;
   if (initializedFor === key) return;
+  initializeWith(api, readThemeTokens(document.documentElement), fontFamily);
+  initializedFor = key;
+}
+
+function initializeWith(api: MermaidApi, tokens: ReturnType<typeof readThemeTokens>, fontFamily: string): void {
   // Mermaid's `base` theme accepts variable overrides; using it instead
   // of `dark` / `default` lets us pin every color to a catppuccin token.
-  const tokens = readThemeTokens();
   api.initialize({
     startOnLoad: false,
     securityLevel: 'strict',
@@ -70,7 +74,37 @@ function ensureInitialized(api: MermaidApi, fontFamily: string): void {
       fontFamily,
     },
   });
-  initializedFor = key;
+}
+
+/**
+ * Render one diagram for an export (#2513, epic #2508) with the preview's own
+ * mermaid setup — same `base` theme, same token mapping, same sanitizer — but
+ * themed from `themeRoot` (the export's light host) and measured in
+ * `fontFamily`, the font the exported page will draw the labels in. Mermaid
+ * bakes each label's measured width into the SVG, so measuring in the
+ * preview's content font and showing in another clips labels (#1802).
+ *
+ * Mermaid's configuration is global: the theme cache is cleared afterwards so
+ * the preview's next render re-initializes with its own theme. The id is
+ * unique per call, so two diagrams in one export can't collide on mermaid's
+ * `#id`-scoped styles.
+ */
+export async function renderMermaidSvgForExport(source: string, themeRoot: HTMLElement, fontFamily: string): Promise<string> {
+  const api = await loadMermaid();
+  initializedFor = null;
+  initializeWith(api, readThemeTokens(themeRoot), fontFamily);
+  try {
+    const id = `mermaid-export-${Math.random().toString(36).slice(2, 10)}`;
+    const { svg } = await api.render(id, source);
+    return sanitizeDiagramSvg(svg);
+  } finally {
+    initializedFor = null;
+  }
+}
+
+/** The preview's error box for a diagram that doesn't parse. */
+export function mermaidErrorHtml(msg: string): string {
+  return renderErrorHtml(msg);
 }
 
 /**
@@ -93,11 +127,11 @@ function labelFontFamily(root: HTMLElement): string {
   return getComputedStyle(root).fontFamily || 'inherit';
 }
 
-function readThemeTokens(): {
+function readThemeTokens(from: Element): {
   bg: string; bgTitlebar: string; bgButton: string;
   text: string; textMuted: string; border: string; accent: string;
 } {
-  const cs = getComputedStyle(document.documentElement);
+  const cs = getComputedStyle(from);
   // Our theme tokens are authored in `oklch()` (CSS Color 4). The browser
   // renders them fine, but mermaid's color lib (khroma) can't parse `oklch()`
   // and throws "Unsupported color format", bricking every diagram. Convert

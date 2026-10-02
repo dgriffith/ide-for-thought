@@ -48,6 +48,8 @@ export function snapshotLiveBlock(themed: HTMLElement): string {
 export function collectCss(root: HTMLElement, scope: string): string {
   const out: string[] = [];
   for (const sheet of Array.from(document.styleSheets)) {
+    // A block's own <style> (a mermaid SVG carries one) travels inside it.
+    if (sheet.ownerNode && root.contains(sheet.ownerNode)) continue;
     let rules: CSSRuleList;
     try {
       rules = sheet.cssRules;

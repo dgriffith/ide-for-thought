@@ -115,3 +115,10 @@ describe('extractLiveBlocks — :::query-* directives (#2512)', () => {
     expect(markdown).toContain('SELECT ?never_closed WHERE {}');
   });
 });
+
+describe('extractLiveBlocks — mermaid (#2513)', () => {
+  it('extracts a ```mermaid fence with its exact source, but not a hidden one', () => {
+    const { blocks } = extractLiveBlocks('A\n\n```mermaid\ngraph TD; A-->B\n```\n\n```mermaid-hidden\ngraph TD; X-->Y\n```\n', 'n.md');
+    expect(blocks.map((b) => [b.kind, b.source.trim()])).toEqual([['mermaid', 'graph TD; A-->B']]);
+  });
+});

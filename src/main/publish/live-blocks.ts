@@ -1,6 +1,6 @@
 /**
  * Live blocks in exports (#2508, #2510): blocks that render live in the
- * preview — ```object-view and `:::query-*` — rendered for an export by the SAME
+ * preview — ```object-view, ```mermaid and `:::query-*` — rendered for an export by the SAME
  * components the preview uses, in the window that asked for the export, and
  * spliced into the exported HTML.
  *
@@ -27,7 +27,7 @@ import { escapeHtmlFull as escapeHtml, escapeHtmlFull as escapeAttr } from '../.
 export type LiveBlockRenderer = (blocks: LiveBlockRequest[]) => Promise<LiveBlockResult[]>;
 
 /** Fence languages rendered as live blocks, and their kind. */
-const LIVE_FENCES: Readonly<Record<string, LiveBlockKind>> = { 'object-view': 'object-view' };
+const LIVE_FENCES: Readonly<Record<string, LiveBlockKind>> = { 'object-view': 'object-view', mermaid: 'mermaid' };
 
 /** Letters and digits only: no markdown syntax can reach into it. */
 const placeholder = (n: number): string => `MINERVALIVEBLOCK${n}Z`;
