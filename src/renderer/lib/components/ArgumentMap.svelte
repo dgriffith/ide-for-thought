@@ -24,7 +24,7 @@
    * embed is the legibility layer for structure other tooling will
    * increasingly produce, not the thing that produces it (see #907).
    */
-  import { untrack } from 'svelte';
+  import { tick, untrack } from 'svelte';
   import { api } from '../ipc/client';
   import { hydrateMermaidBlocks } from '../markdown/mermaid-renderer';
   import { normalizeColor } from '../utils/oklch';
@@ -58,9 +58,16 @@
     onNavigate: (relativePath: string) => void;
     initialDepth?: number;
     initialView?: 'outline' | 'diagram';
+    /** Called once the map has finished loading — and, in diagram view, once
+     *  the diagram is drawn — for the export snapshot (#2514). */
+    onSettled?: () => void;
+    /** Draw the diagram with this instead of the preview's mermaid hydration —
+     *  an export renders it light-themed in the export page's font (#2514). */
+    renderDiagramSvg?: (source: string) => Promise<string>;
   }
 
-  let { focusRef, queryPrefixes, resolvePath, onNavigate, initialDepth, initialView }: Props = $props();
+  let { focusRef, queryPrefixes, resolvePath, onNavigate, initialDepth, initialView, onSettled, renderDiagramSvg }: Props = $props();
+  let rootEl = $state<HTMLDivElement>();
 
   type Status = 'loading' | 'unresolved' | 'error' | 'ready';
   let status = $state<Status>('loading');
@@ -84,6 +91,16 @@
   const isEmpty = $derived(status === 'ready' && visibleNodes.length === 0 && defects.length === 0);
 
   async function load(): Promise<void> {
+    await loadStructure();
+    // Every exit settles (an unresolved focus returns early): a diagram once
+    // it's drawn (the effect below), everything else now.
+    if (onSettled && !(status === 'ready' && view === 'diagram' && !isEmpty)) {
+      await tick();
+      onSettled();
+    }
+  }
+
+  async function loadStructure(): Promise<void> {
     status = 'loading';
     const target = parseFocusRef(focusRef);
     const resolved = target ? resolvePath(target) : null;
@@ -139,7 +156,9 @@
    *  `mermaid-renderer.ts`'s `readThemeTokens` does for the diagram's base
    *  theme variables. */
   function resolveMermaidColors() {
-    const cs = getComputedStyle(document.documentElement);
+    // Read where the map is mounted (tokens inherit, so the preview sees the
+    // app's theme exactly as before; an export's light host sees light).
+    const cs = getComputedStyle(rootEl ?? document.documentElement);
     const get = (name: string) => normalizeColor(cs.getPropertyValue(name).trim());
     return {
       support: get('--sage'),
@@ -157,6 +176,16 @@
     if (view !== 'diagram' || status !== 'ready' || !mermaidHost || !focusUri) return;
     const source = buildArgumentMermaid(focusUri, focusLabel, visibleNodes, resolveMermaidColors());
     mermaidHost.classList.add('mermaid-block');
+    if (renderDiagramSvg) {
+      const host = mermaidHost;
+      void renderDiagramSvg(source)
+        .then((svg) => { host.innerHTML = svg; host.setAttribute('data-mermaid-rendered', 'ok'); })
+        .catch((err: unknown) => {
+          host.innerHTML = `<p class="query-error">${String(err instanceof Error ? err.message : err).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]!)}</p>`;
+        })
+        .finally(() => onSettled?.());
+      return;
+    }
     mermaidHost.dataset.mermaidSource = source;
     mermaidHost.removeAttribute('data-mermaid-rendered');
     // hydrateMermaidBlocks looks at DESCENDANTS of the element it's given —
@@ -170,7 +199,7 @@
   const KIND_ORDER: RelationKind[] = ['support', 'attack', 'qualify', 'other'];
 </script>
 
-<div class="argument-map">
+<div class="argument-map" bind:this={rootEl}>
   {#if status === 'loading'}
     <p class="query-loading">Loading argument structure…</p>
   {:else if status === 'unresolved'}
@@ -211,7 +240,7 @@
                   <li>
                     {#if node.roleType}<span class="role-type">{node.roleType}:</span>{/if}
                     {#if node.notePath}
-                      <button type="button" class="node-link" onclick={() => onNavigate(node.notePath!)}>{node.label}</button>
+                      <button type="button" class="node-link" onclick={() => onNavigate(node.notePath!)} data-note-path={node.notePath}>{node.label}</button>
                     {:else}
                       <span>{node.label}</span>
                     {/if}

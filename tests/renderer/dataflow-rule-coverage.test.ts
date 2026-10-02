@@ -78,7 +78,7 @@ const READ_ALLOWLIST = new Set<string>([
   // ordinary typed input, so no in-app state changes behind the component.
   'showEmojiPanel',
   // graph / links reads
-  'query', 'aliasMap', 'frontmatterKeys', 'inspections', 'schemaForCompletion',
+  'query', 'aliasMap', 'aliasEntries', 'frontmatterKeys', 'inspections', 'schemaForCompletion',
   'sourceDetail', 'citationsForNote', 'expandNode', 'neighborhood',
   // tables.queryNote (#2448): note-embedded SQL under the registered-relations
   // allowlist — a read like `query`, just a narrower one.
