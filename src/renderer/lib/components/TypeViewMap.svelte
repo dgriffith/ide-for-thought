@@ -30,7 +30,8 @@
   import { onMount } from 'svelte';
   import type * as maplibregl from 'maplibre-gl';
   import { loadMapLibre } from '../map/load-maplibre';
-  import { styleUrlForTheme } from '../map/maplibre-style';
+  import { styleUrlForTheme, exportStyleUrl } from '../map/maplibre-style';
+  import { MAP_EXPORT_ERROR_GRACE_MS, MAP_EXPORT_PIXEL_RATIO, MAP_EXPORT_TIMEOUT_MS, MAP_TILES_FAILED, attributionText, compositeMap, parseLatLng, type MapExportHooks, type MapPlace } from '../map/map-export';
   import { objectTypesStore } from '../stores/object-types.svelte';
   import type { TypeInstanceRow } from '../../../shared/objects/type-def';
 
@@ -41,8 +42,12 @@
     /** Name of the type's `geo`-typed property (e.g. `location`). */
     locationProperty: string;
     onOpenNote: (relativePath: string) => void;
+    /** Render once for an export instead of interactively (#2511): light
+     *  style, no controls, then hand back a PNG of exactly this framing —
+     *  or the places, when the map can't be drawn. */
+    exportHooks?: MapExportHooks;
   }
-  let { instances, locationProperty, onOpenNote }: Props = $props();
+  let { instances, locationProperty, onOpenNote, exportHooks }: Props = $props();
 
   let container = $state<HTMLDivElement>();
   // Flips true once the map is constructed — a plain `map`/`gl` reference
@@ -53,17 +58,8 @@
   let map: maplibregl.Map | null = null;
   let gl: MapLibreModule | null = null;
   let markers: maplibregl.Marker[] = [];
-
-  /** Parse a "<lat>,<lng>" geo value; null for missing/malformed — omitted, not
-   *  errored, per #2066's acceptance criteria. */
-  function parseLatLng(value: string | null): [number, number] | null {
-    if (!value) return null;
-    const parts = value.split(',').map((s) => Number(s.trim()));
-    if (parts.length !== 2) return null;
-    const [lat, lng] = parts;
-    if (lat === undefined || lng === undefined || !Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-    return [lat, lng];
-  }
+  /** Markers placed and framed at least once — an export capture waits for it. */
+  let placed = false;
 
   /** Rebuilds every marker from the current `instances` prop. Re-run whenever
    *  the prop changes (a note added/edited/removed while this map is already
@@ -102,6 +98,7 @@
       map.setCenter([0, 20]);
       map.setZoom(1);
     }
+    placed = true;
   }
 
   onMount(() => {
@@ -111,11 +108,24 @@
       const mod = await loadMapLibre();
       if (disposed || !container) return;
       gl = mod;
-      map = new mod.Map({
-        container,
-        style: styleUrlForTheme(),
-      });
-      map.addControl(new mod.NavigationControl(), 'top-right');
+      if (exportHooks) {
+        map = new mod.Map({
+          container,
+          style: exportStyleUrl(),
+          interactive: false,
+          attributionControl: false,
+          fadeDuration: 0,
+          pixelRatio: MAP_EXPORT_PIXEL_RATIO,
+          canvasContextAttributes: { preserveDrawingBuffer: true },
+        });
+        armExportCapture(map, exportHooks);
+      } else {
+        map = new mod.Map({
+          container,
+          style: styleUrlForTheme(),
+        });
+        map.addControl(new mod.NavigationControl(), 'top-right');
+      }
       ready = true;
     })();
 
@@ -129,6 +139,78 @@
       ready = false;
     };
   });
+
+  /**
+   * Each style source as LOADED — where a TileJSON-backed source (OpenFreeMap's
+   * are) carries its attribution, which the style JSON itself doesn't. Same
+   * place MapLibre's own attribution control reads it from.
+   */
+  function loadedSources(m: maplibregl.Map): Record<string, { attribution?: string }> {
+    const declared = (m.getStyle()?.sources ?? {}) as Record<string, { attribution?: string }>;
+    const out: Record<string, { attribution?: string }> = {};
+    for (const id of Object.keys(declared)) {
+      const loaded = (m.getSource(id) as { attribution?: string } | undefined)?.attribution;
+      const attribution = loaded ?? declared[id]?.attribution;
+      out[id] = attribution ? { attribution } : {};
+    }
+    return out;
+  }
+
+  /** The located instances, as the export's fallback lists them. */
+  function places(): MapPlace[] {
+    const out: MapPlace[] = [];
+    for (const inst of instances) {
+      const ll = parseLatLng(inst.values[locationProperty] ?? null);
+      if (ll) out.push({ path: inst.path, title: inst.title, lat: ll[0], lng: ll[1] });
+    }
+    return out;
+  }
+
+  /**
+   * Export capture (#2511): once the map is `idle` — style loaded, every
+   * tile in, nothing animating — flatten canvas + pins into one PNG. Any
+   * map error first, or no `idle` within the bound, hands back the places
+   * instead, so a half-drawn map is never published as if it were whole.
+   */
+  function armExportCapture(m: maplibregl.Map, hooks: MapExportHooks): void {
+    let settled = false;
+    let failed = false;
+    let grace: ReturnType<typeof setTimeout> | undefined;
+    const fallBack = (reason: string) => finish(() => hooks.onCaptured({ ok: false, reason, places: places() }));
+    const finish = (run: () => Promise<void> | void) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      clearTimeout(grace);
+      void Promise.resolve(run()).catch((err: unknown) => {
+        hooks.onCaptured({ ok: false, reason: err instanceof Error ? err.message : String(err), places: places() });
+      });
+    };
+    const timer = setTimeout(() => finish(() => hooks.onCaptured({ ok: false, reason: 'the map tiles took too long to load', places: places() })), MAP_EXPORT_TIMEOUT_MS);
+    m.on('error', () => {
+      if (failed) return;
+      failed = true;
+      grace = setTimeout(() => fallBack(MAP_TILES_FAILED), MAP_EXPORT_ERROR_GRACE_MS);
+    });
+    m.on('idle', () => {
+      // `idle` before the markers are placed would capture a pinless map;
+      // placing them moves the camera, so another `idle` follows.
+      if (!placed || settled) return;
+      if (failed) {
+        fallBack(MAP_TILES_FAILED);
+        return;
+      }
+      finish(async () => {
+        const rect = m.getContainer().getBoundingClientRect();
+        const pins = markers.map((mk) => ({ element: mk.getElement(), point: m.project(mk.getLngLat()) }));
+        const image = await compositeMap(m.getCanvas(), pins, rect.width, rect.height);
+        hooks.onCaptured({
+          ok: true, image, width: rect.width, height: rect.height,
+          attribution: attributionText({ sources: loadedSources(m) }), places: places(),
+        });
+      });
+    });
+  }
 
   // Re-syncs on the map becoming ready (first placement) AND on every later
   // `instances`/`locationProperty` change (an already-open map picking up a
