@@ -15,7 +15,18 @@ export interface SourceNavPosition {
   highlightExcerptId?: string | undefined;
 }
 
-export type NavPosition = NoteNavPosition | QueryNavPosition | SourceNavPosition;
+/** An object view (#1070) — a type, optionally scoped to a folder (#2531).
+ *  Clicking a map pin or a row opens a note; Back returns to the view. */
+export interface TypeViewNavPosition {
+  type: 'type-view';
+  typeId: string;
+  folder: string | null;
+  /** The view as it was, to reopen it that way if its tab has since closed.
+   *  Not part of the position's identity — a re-sorted view is the same place. */
+  view?: Omit<import('../editor/tab-types').TypeViewState, 'folder'> | undefined;
+}
+
+export type NavPosition = NoteNavPosition | QueryNavPosition | SourceNavPosition | TypeViewNavPosition;
 
 const MAX_HISTORY = 100;
 
@@ -48,6 +59,9 @@ export function getNavigationStore() {
     if (a.type === 'query' && b.type === 'query') return a.tabId === b.tabId;
     if (a.type === 'note' && b.type === 'note') {
       return a.relativePath === b.relativePath && Math.abs(a.offset - b.offset) < 20;
+    }
+    if (a.type === 'type-view' && b.type === 'type-view') {
+      return a.typeId === b.typeId && a.folder === b.folder;
     }
     if (a.type === 'source' && b.type === 'source') {
       return a.sourceId === b.sourceId && a.highlightExcerptId === b.highlightExcerptId;

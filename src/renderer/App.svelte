@@ -849,6 +849,9 @@
     } else if (targetTab?.type === 'query') {
       editor.switchTab(index);
       nav.record({ type: 'query', tabId: targetTab.id });
+    } else if (targetTab?.type === 'type-view') {
+      editor.switchTab(index);
+      nav.record({ type: 'type-view', typeId: targetTab.typeId, folder: targetTab.folder });
     } else {
       editor.switchTab(index);
     }

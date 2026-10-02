@@ -178,7 +178,9 @@ export function createNavView(ctx: NavViewCtx) {
 
   /** Open the list/table/gallery multi-view over a type's instances (#1070). */
   function handleOpenTypeView(typeId: string) {
+    recordCurrentPosition();
     editor.openTypeView(typeId);
+    nav.record({ type: 'type-view', typeId, folder: null });
   }
 
   function recordCurrentPosition() {
@@ -188,6 +190,9 @@ export function createNavView(ctx: NavViewCtx) {
       nav.record({ type: 'note', relativePath: editor.activeFilePath, offset: ctx.getEditorComponent()?.getOffset() ?? 0 });
     } else if (activeTab.type === 'query') {
       nav.record({ type: 'query', tabId: activeTab.id });
+    } else if (activeTab.type === 'type-view') {
+      const { typeId, folder, layout, sortColumn, sortDir, columns, filters } = activeTab;
+      nav.record({ type: 'type-view', typeId, folder, view: { layout, sortColumn, sortDir, columns: columns ? [...columns] : null, filters: [...filters] } });
     }
   }
 
@@ -200,6 +205,12 @@ export function createNavView(ctx: NavViewCtx) {
       });
     } else if (pos.type === 'source') {
       editor.openSource(pos.sourceId, { highlightExcerptId: pos.highlightExcerptId });
+      nav.doneNavigating();
+    } else if (pos.type === 'type-view') {
+      // An open tab is focused as it is now (its current layout, sort and
+      // filters); a closed one reopens the way it was when we left it.
+      const open = editor.groups.some((g) => g.tabs.some((t) => t.type === 'type-view' && t.typeId === pos.typeId && t.folder === pos.folder));
+      editor.openTypeView(pos.typeId, open || !pos.view ? { folder: pos.folder } : { ...pos.view, folder: pos.folder });
       nav.doneNavigating();
     } else {
       const idx = editor.tabs.findIndex((t) => t.type === 'query' && t.id === pos.tabId);
