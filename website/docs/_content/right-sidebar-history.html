@@ -8,7 +8,7 @@ description: The right sidebar's History panel keeps every saved version of a no
 
     <div class="box">
       <span class="label">This is not git</span>
-      <p>Nothing here needs setting up, and none of it is a commit. History is kept automatically, on this machine, for every note — including the <code>.csv</code>, <code>.ttl</code> and <code>.py</code> notes, not just the markdown ones. It lives in the <code>.minerva</code> folder beside your notes and never leaves your computer, so it isn't part of <a href="export-publishing.html">publishing</a> and doesn't travel with a note you export.</p>
+      <p>Nothing here needs setting up, and none of it is a commit. History is kept automatically, on this machine, for every note — including the <code>.csv</code>, <code>.ttl</code> and <code>.py</code> notes, not just the markdown ones. It lives in the <code>.minerva</code> folder beside your notes and never leaves your computer, so it isn't part of <a href="export-publishing.html">publishing</a> and doesn't travel with a note you export. Renaming or moving a note — or a whole folder — takes its history along with it.</p>
     </div>
 
     <h2 id="timeline">Reading the timeline</h2>
@@ -21,11 +21,11 @@ description: The right sidebar's History panel keeps every saved version of a no
       </div>
       <div class="row">
         <div class="k">What caused it</div>
-        <div class="v">The line underneath names the action, not the machinery. A save you made reads <b>Edit</b>. A version a thinking tool produced carries that skill's name — <b>Antithesize</b>, <b>Auto-tag</b> — so you can see at a glance which changes were yours and which weren't.</div>
+        <div class="v">The line underneath names the action, not the machinery. A save you made reads <b>Edit</b>. A change Minerva's AI made, once you approved it, names the command that produced it — a thinking tool's own name like <b>Antithesize</b>, a built-in like <b>Auto-tag</b> or <b>Auto-link</b>, <b>Conversation</b> for something filed from a chat, or what was done, like <b>Claim filed</b> or <b>Note moved</b>. One with nothing more specific to say reads <b>Minerva AI</b>. AI-caused lines are tinted in the accent colour, so you can see at a glance which changes were yours and which weren't.</div>
       </div>
       <div class="row">
         <div class="k">Initial version</div>
-        <div class="v">The oldest version of every note, and the one "undo everything" gets you back to. It's created the first time a note is written through Minerva — including for notes that already existed before there was any history, whose text is captured before your first edit lands on top of it. It is never dropped, however old it gets.</div>
+        <div class="v">The oldest version of every note, and the one "undo everything" gets you back to. It's created the first time a note is written through Minerva — including for notes that already existed before there was any history, whose text is captured before your first edit lands on top of it. Its row stays in the timeline for good, so you can always see when a note first appeared, but its text ages out under the same limits as any unnamed version. Once it has, selecting it says <i>This revision's content is no longer available.</i> and offers no Restore. To keep a note's starting point indefinitely, <a href="#naming">name it</a>.</div>
       </div>
       <div class="row">
         <div class="k">Restored from…</div>
@@ -73,5 +73,32 @@ description: The right sidebar's History panel keeps every saved version of a no
     <p>A restore point is often bigger than one note. In the <a href="left-sidebar-notes-tree.html">Notes panel</a>, select the notes (or a folder) you're about to change, right-click and choose <b>Label Version…</b>: the current version of every note in the selection gets the same name. One name, one moment, however many notes — the thing to reach for before a refactor or a big AI-assisted pass.</p>
     <p>Nothing is written into the notes themselves; the name is attached to their history, exactly as it would be from this panel. Notes that can't be labelled are reported afterwards, and the rest still get their restore point.</p>
 
+    <h2 id="many-notes-history">Looking back across several notes</h2>
+    <p>This panel follows one note. To see what happened to a set of them — a folder after a big AI-assisted pass, say — select the notes or folder in the <a href="left-sidebar-notes-tree.html">Notes panel</a> (or right-click the thoughtbase itself), right-click and choose <b>View Local History…</b>. One timeline opens for everything in the selection, newest first, including notes that have since been deleted. Each row gives the time, whether the note was <i>added</i>, <i>modified</i> or <i>deleted</i>, its path, and what caused it.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Picking a moment</div>
+        <div class="v">Click a row to pick that moment. The panel beside the timeline reads <i>As of &lt;time&gt;:</i> and lists every note in the selection with what reverting would do to it — <b>will revert</b>, <b>will undelete</b>, <b>will remove</b>, <b>no change</b> or <b>skipped</b>. Click a note in that list to see its changes.</div>
+      </div>
+      <div class="row">
+        <div class="k">Revert selection…</div>
+        <div class="v">Puts every note in the selection back as it was at that moment: notes deleted since come back, and notes created since are deleted. It asks first (with a "Don't ask again" box), then sums up — <i>Reverted to …: 2 reverted, 1 undeleted, 1 removed, 4 unchanged</i>. The revert is recorded in each note's history like any other change, and what a removed note held is saved before it goes, so you can pick a moment just before the revert and go back.</div>
+      </div>
+    </div>
+
+    <div class="box">
+      <span class="label">Check the preview first</span>
+      <p>A note Minerva has never recorded a version of — one added by another app and never edited here — has no history to say when it appeared, so it counts as not existing yet at any past moment, and reverting removes it. The preview marks it <b>will remove</b>; read the list before you press Revert.</p>
+    </div>
+
+    <figure class="shot-img">
+      <img src="img/right-sidebar-history-multi-file.png" alt="The View Local History dialog for a folder: a newest-first timeline of several notes' versions, including one marked deleted, with one moment selected and a per-note preview beside it reading will revert, will undelete and no change." loading="lazy" />
+      <figcaption>Screenshot — the history of a folder, with a moment picked and what reverting to it would do</figcaption>
+    </figure>
+
+    <h3 id="deleted-notes">Deleted notes keep their history</h3>
+    <p>Deleting a note records its final text and then a <b>Deleted</b> marker, so its history outlives it. A deleted note no longer has a row in the Notes panel to right-click, but its old folder does: select that folder (or right-click the thoughtbase itself) and choose <b>View Local History…</b>, and the note is in the timeline. Pick a moment from before it was deleted and revert — that's how you bring a deleted note back. The marker is never pruned; the text ages out under the same limits as any other unnamed version.</p>
+
     <h2 id="limits">How much is kept</h2>
-    <p>By default a note keeps its unnamed versions for 30 days, up to 500 of them, and files over 1 MB aren't recorded at all. All three are adjustable — see <a href="settings-versioning.html">Settings → Versioning</a>.</p>
+    <p>By default a note keeps its unnamed versions for 30 days, up to 500 of them, and files over 1 MB aren't recorded at all. Versions you've named and delete markers are kept regardless. All three limits are adjustable — see <a href="settings-versioning.html">Settings → Versioning</a>.</p>

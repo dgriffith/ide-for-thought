@@ -133,7 +133,34 @@
     </div>
 
     <h2 id="create">Creating notes and folders</h2>
-    <p>Right-click empty space in the tree to get <b>New Note</b> and <b>New Folder</b>. Right-click an existing folder for the same two options, creating the new item inside that folder instead. This is the place to make a new folder.</p>
+    <p>Right-click empty space in the tree, or the thoughtbase's own row at the top, to get <b>New Note</b> and <b>New Folder</b> at the top level. Right-click an existing folder for the same two options, creating the new item inside that folder instead. This is the place to make a new folder.</p>
+
+    <h2 id="root-menu">The thoughtbase itself</h2>
+    <p>The menu on the thoughtbase's row (and on the empty space below the tree) also has the folder actions that make sense for the whole thoughtbase:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Paste</div>
+        <div class="v">When you've cut or copied something, paste it at the top level.</div>
+      </div>
+      <div class="row">
+        <div class="k">Copy Path</div>
+        <div class="v">Copies where the thoughtbase is on your computer — the full folder path.</div>
+      </div>
+      <div class="row">
+        <div class="k">Open In</div>
+        <div class="v">Reveal the thoughtbase in Finder, open it in its default app, or open a Terminal in it.</div>
+      </div>
+      <div class="row">
+        <div class="k">View Objects</div>
+        <div class="v">Every <a href="notes-typed-notes.html">type</a> in the thoughtbase, with a count — open one to see all its notes. See <a href="#view-objects">below</a>.</div>
+      </div>
+      <div class="row">
+        <div class="k">Label Version… / View Local History…</div>
+        <div class="v">Name the current version of every note at once, or look back across the whole thoughtbase's history. See <a href="#label-version">below</a>.</div>
+      </div>
+    </div>
+    <p>Actions that would change every note at once — adding a tag or property, Format — and Rename and Delete aren't offered for the thoughtbase itself.</p>
 
     <h2 id="rename-move">Renaming and moving</h2>
     <p>Right-clicking a note or folder opens a fuller menu — Cut, Copy, Paste, New Note, New Folder, Rename, and more, down to Delete. The most common ways to reorganize:</p>
@@ -141,7 +168,7 @@
     <div class="deflist">
       <div class="row">
         <div class="k">Rename</div>
-        <div class="v">Right-click and choose Rename. Links to that note from elsewhere in your project are updated automatically so nothing breaks.</div>
+        <div class="v">Right-click and choose Rename. Links to that note from elsewhere in your project are updated automatically so nothing breaks. Rename a folder and any <a href="left-sidebar-objects.html#folder-views">views of just that folder</a> follow it too.</div>
       </div>
       <div class="row">
         <div class="k">Move by dragging</div>
@@ -162,19 +189,20 @@
     </div>
 
     <figure class="shot-img panel">
-      <img src="img/left-sidebar-notes-tree.png" alt="The Notes panel showing its title and note count, the expand, collapse, and auto-reveal buttons, and the tree below with a folder opened to reveal a mix of notes and an empty subfolder. A right-click menu is open on a note, offering Cut, Copy, New Note, New Folder, Rename, tag options, and Delete." loading="lazy" />
-      <figcaption>The Notes panel with a right-click menu open</figcaption>
+      <img src="img/left-sidebar-notes-tree.png" alt="The Notes panel with a trip folder open, showing its notes and subfolders. A right-click menu is open on the folder, offering Cut, Copy, New Note, New Folder, Rename, Copy path, Open In, View Objects and more, with the View Objects submenu listing the folder's types and how many of each it holds." loading="lazy" />
+      <figcaption>The Notes panel with a folder's right-click menu open, showing View Objects</figcaption>
     </figure>
 
     <h2 id="view-objects">Seeing a folder's objects</h2>
-    <p>When a folder holds <a href="notes-typed-notes.html">typed notes</a> — in it or in any folder beneath it — its right-click menu offers <b>View Objects</b>, listing each type there with a count. Choosing one opens that type's table, map or gallery showing only the folder's notes. See <a href="left-sidebar-objects.html#folder-views">Objects</a> for working with the view.</p>
+    <p>When a folder holds <a href="notes-typed-notes.html">typed notes</a> — in it or in any folder beneath it — its right-click menu offers <b>View Objects</b>, listing each type there with a count, along with the more general types they belong to. Choosing one opens that type's view as a table, showing only the folder's notes; switch it to a list, gallery or map from there. The thoughtbase's own menu has View Objects too, for every type in the thoughtbase. See <a href="left-sidebar-objects.html#folder-views">Objects</a> for working with the view.</p>
 
     <h2 id="label-version">Naming a restore point across several notes</h2>
-    <p>Select the notes you're about to change — several at once, or a whole folder — then right-click and choose <b>Label Version…</b>. The current version of every note in the selection is given the name you type, so a whole set of notes gets one restore point before a refactor or a big AI-assisted pass. Nothing is written into the notes themselves; the name attaches to each note's <a href="right-sidebar-history.html">history</a>, and a named version is never dropped by the usual <a href="settings-versioning.html">retention limits</a>.</p>
+    <p>Select the notes you're about to change — several at once, a whole folder, or right-click the thoughtbase itself for everything — then choose <b>Label Version…</b>. The current version of every note in the selection is given the name you type, so a whole set of notes gets one restore point before a refactor or a big AI-assisted pass. Nothing is written into the notes themselves; the name attaches to each note's <a href="right-sidebar-history.html">history</a>, and a named version is never dropped by the usual <a href="settings-versioning.html">retention limits</a>.</p>
+    <p>The same menu's <b>View Local History…</b> opens one timeline for everything you selected — including notes that have since been deleted — where you can see what changed and put the whole selection back as it was at any moment. See <a href="right-sidebar-history.html#many-notes-history">Looking back across several notes</a>.</p>
 
     <div class="box">
       <span class="label">Deleting is calm, not scary</span>
-      <p>Deleting a note is a normal, everyday action — you get a plain confirmation with a "don't ask again" option, no alarming warnings.</p>
+      <p>Deleting a note is a normal, everyday action — you get a plain confirmation with a "don't ask again" option, no alarming warnings. A deleted note's history is kept, so you can bring it back from the folder's <b>View Local History…</b>.</p>
     </div>
 
     <h2 id="empty-project">No notes yet</h2>

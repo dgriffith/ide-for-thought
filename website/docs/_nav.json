@@ -87,6 +87,10 @@
               "label": "Charts"
             },
             {
+              "href": "notes-object-views.html",
+              "label": "Object views"
+            },
+            {
               "href": "notes-code.html",
               "label": "Code &amp; compute cells"
             },

@@ -68,8 +68,8 @@
   <div class="field">
     <label for="retention-days">Keep versions for</label>
     <p class="hint">
-      Days before an unnamed version is dropped. Named versions and each note's
-      initial version are kept regardless.
+      Days before an unnamed version is dropped. Named versions are kept
+      regardless.
     </p>
     <div class="number-row">
       <input

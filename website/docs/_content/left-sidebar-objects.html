@@ -1,6 +1,6 @@
 ---
 title: Minerva — Docs — Left sidebar: Objects
-description: The Objects panel — your project browsed by kind rather than by folder, with list, table, and gallery views.
+description: The Objects panel — your project browsed by kind rather than by folder, with list, table, gallery, and map views.
 ---
 
     <h1>Objects</h1>
@@ -12,7 +12,7 @@ description: The Objects panel — your project browsed by kind rather than by f
     <p>Click a type to expand it and see its notes; click again to collapse. Clicking a note opens it in the editor. Each note carries its own icon, which matters when a type has more specific kinds beneath it — a Book that's really a Novel shows the Novel icon while still being counted as a Book.</p>
 
     <h2 id="views">Opening a type as a collection</h2>
-    <p>The ⤢ button on a type row opens all of its notes in the main area, where they're more than a list. Three ways to look at the same set:</p>
+    <p>The ⤢ button on a type row opens all of its notes in the main area, where they're more than a list. There are three ways to look at the same set — four, for a type with a location:</p>
 
     <div class="deflist">
       <div class="row">
@@ -27,15 +27,33 @@ description: The Objects panel — your project browsed by kind rather than by f
         <div class="k">Gallery</div>
         <div class="v">Cards with cover images, for types whose notes have a picture worth seeing — book jackets, people, places.</div>
       </div>
+      <div class="row">
+        <div class="k">Map</div>
+        <div class="v">One pin per note, placed by its location. Offered only for a type that has a location field — Place has one, called <i>location</i>, and every kind of place beneath it (a Restaurant, a Hotel) inherits it. See <a href="#map">The map</a> below.</div>
+      </div>
     </div>
 
-    <p>Switching between the three doesn't re-fetch anything; it's the same set of notes shown three ways. Clicking any row or card opens that note.</p>
+    <figure class="shot-img"><img src="img/left-sidebar-objects-table.png" alt="A Place view as a table of six places in Prague, with columns for location, city, kind and date visited. The header shows the count &quot;6 of 10&quot;, an &quot;in trip&quot; folder chip, a &quot;City: Prague&quot; filter chip and the Filter button, then Columns, Copy as markdown, Save as note and the List, Table, Gallery and Map tabs." loading="lazy" /><figcaption>Screenshot — the Place table for the trip folder, filtered to Prague</figcaption></figure>
+
+    <p>Switching between layouts doesn't re-fetch anything; it's the same set of notes shown different ways. Clicking any row, card or pin opens that note — and <a href="navigation-back-forward.html">Back</a> brings you to the view again, just as you left it.</p>
+
+    <h2 id="map">The map</h2>
+    <p>A location is written as latitude, then longitude, separated by a comma — <code>50.087, 14.421</code> is the middle of Prague. Each note with a location gets a pin; a note with the field empty, or with something that isn't a location, simply isn't on the map. The map frames itself to fit all the pins.</p>
+    <p>Each pin takes the colour of the note's own type, so on a Place map a restaurant and a hotel look different at a glance. Hover a pin to see the note's title, and click it to open the note.</p>
+
+    <figure class="shot-img"><img src="img/left-sidebar-objects-map.png" alt="The same Place view on its Map tab: a map of central Prague with six pins — sights in the Place colour and two restaurants in the Restaurant colour, since each pin takes its own note's type colour." loading="lazy" /><figcaption>Screenshot — the Place map, filtered to Prague; restaurants are pinned in their own colour</figcaption></figure>
+
+    <div class="box">
+      <span class="label">The background needs a connection</span>
+      <p>The pins are your notes, but the streets and coastlines behind them are fetched from the internet as you look. Offline, the map has nothing to draw them on.</p>
+    </div>
 
     <h2 id="folder-views">Just one folder's objects</h2>
-    <p>To see only the objects in part of your thoughtbase, right-click a folder in the <a href="left-sidebar-notes-tree.html">Notes tree</a> and choose <b>View Objects</b>. It lists each type found in that folder and everything under it, with how many there are — plus the more general types they belong to, so a folder of restaurants offers both Restaurant and Place. Pick one and its view opens showing only that folder's notes; the tab is named for the folder (<i>Place · trip/prague</i>). The <b>in trip/prague ✕</b> chip in the view's header widens it back to the whole thoughtbase.</p>
+    <p>To see only the objects in part of your thoughtbase, right-click a folder in the <a href="left-sidebar-notes-tree.html">Notes tree</a> and choose <b>View Objects</b>. It lists each type found in that folder and everything under it, with how many there are — plus the more general types they belong to, so a folder of restaurants offers both Restaurant and Place. Pick one and its view opens showing only that folder's notes; the tab is named for the folder (<i>Place · trip/prague</i>). The view opens as a table; switch layouts as you like. The <b>in trip/prague ✕</b> chip in the view's header widens it back to the whole thoughtbase. The <a href="left-sidebar-notes-tree.html#root-menu">thoughtbase's own menu</a> — right-click the top row of the Notes tree, or the empty space below it — has <b>View Objects</b> too, covering your whole thoughtbase.</p>
+    <p>If you rename or move the folder later, its views follow it: views saved in notes and view tabs you have open now point at the folder's new place, so they keep showing the same notes.</p>
 
     <h2 id="filters">Filtering by a field</h2>
-    <p>Use <b>Filter</b> in a view's header to narrow it by one of the type's fields. For a text, choice or link field, tick the values you want from the ones that actually appear — each shown with how many notes have it — so a map of places can show only those whose city is Prague. For a number or a date, give a lowest value, a highest value, or both; a date range can be as coarse as a month (<i>2026-05</i>). Filters on different fields all apply at once, and a note with the field left empty is left out. Each active filter shows as a chip: click it to change it, or its ✕ to remove it. The count then reads <i>2 of 3</i>, so you can see how much is hidden.</p>
+    <p>Use <b>Filter</b> in a view's header to narrow it by one of the type's fields. For a text, choice or link field, tick the values you want from the ones that actually appear — each shown with how many notes have it — so a map of places can show only those whose city is Prague. Location fields aren't offered. For a number or a date, give a lowest value, a highest value, or both; a date range can be as coarse as a month (<i>2026-05</i>). Filters on different fields all apply at once, and a note with the field left empty is left out. Each active filter shows as a chip: click it to change it, or its ✕ to remove it. The count then reads <i>2 of 3</i>, so you can see how much is hidden.</p>
 
     <div class="box">
       <span class="label">A more general type includes the specific ones</span>
@@ -43,9 +61,14 @@ description: The Objects panel — your project browsed by kind rather than by f
     </div>
 
     <h2 id="saved-views">Saved views</h2>
-    <p>Once you've arranged a type's view the way you like it — a map of places, or a table sorted by rating with three columns showing — use <b>Save</b> to keep it as a note. You're asked for a name (Minerva suggests one, like <i>Restaurant map</i>), and a new note is created at the top of your thoughtbase with the view embedded in it, live: it shows the current objects every time you open it, arranged exactly as you saved it. Because it's an ordinary note, you can move it, rename it, link to it, or add your own writing around the view.</p>
+    <p>Once you've arranged a type's view the way you like it — a map of places, or a table sorted by rating with three columns showing — use <b>Save as note</b> to keep it as a note. You're asked for a name (Minerva suggests one, like <i>Restaurant map</i>), and a new note is created at the top of your thoughtbase with the view embedded in it, live: it shows the current objects every time you open it, arranged exactly as you saved it. Because it's an ordinary note, you can move it, rename it, link to it, or add your own writing around the view.</p>
     <p>To put the view into a note you already have, use <b>Copy as markdown</b> instead and paste it where you want it. What's copied is the same live view that Save as note embeds — the same layout, sorting, columns, folder and filters — so it shows the same thing.</p>
-    <p>A view saved from a folder keeps that folder, and a filtered view keeps its filters. In the note, its preview and anything you export or publish from it, you see just those objects — the filter controls and the folder chip belong to the view's own tab, so they don't appear there. To change what a saved view shows, open the type's view, arrange it again, and save it anew.</p>
+    <p>A view saved from a folder keeps that folder, and a filtered view keeps its filters. In the note's preview, in a web page or PDF exported from it, and on a published site, you see just those objects — the filter controls and the folder chip belong to the view's own tab, so they don't appear there. A Markdown export keeps the view as the text you'd see in the editor. To change what a saved view shows, open the type's view, arrange it again, and save it anew. <a href="notes-object-views.html">Object views</a> has more on views inside notes.</p>
+
+    <div class="box">
+      <span class="label">Views saved in earlier versions</span>
+      <p>Views saved before Save as note used to be listed under their types in this panel. They no longer appear. To get one back, set the view up again and use <b>Save as note</b>.</p>
+    </div>
 
     <h2 id="excerpts">Excerpts</h2>
     <p>Below your types sits Excerpts — the passages you've saved from <a href="left-sidebar-sources.html">sources</a>. It isn't an object type you defined, but it belongs here for the same reason: it's a kind of thing you accumulate, and you often want to browse all of it at once.</p>

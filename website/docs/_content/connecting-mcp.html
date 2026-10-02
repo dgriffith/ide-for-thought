@@ -12,7 +12,7 @@ description: Connect an AI agent to a Minerva thoughtbase over the Model Context
     </div>
 
     <h2 id="start">Starting the server</h2>
-    <p>The MCP server is the <code>mcp</code> subcommand of the same CLI — <a href="connecting-cli.html#build">install it once</a> (Help → Install ‘minerva’ Command, or build from source) and you have the <code>minerva</code> command. The server runs over standard input/output as a subprocess — you don't start it by hand so much as tell a client how to launch it. On its own:</p>
+    <p>The MCP server is the <code>mcp</code> subcommand of the same CLI — <a href="connecting-cli.html#build">install it once</a> (on macOS, <b>Help → Install ‘minerva’ Command in PATH…</b>; on other platforms, build it from the source tree) and you have the <code>minerva</code> command. The server runs over standard input/output as a subprocess — you don't start it by hand so much as tell a client how to launch it. On its own:</p>
     <pre><code>minerva mcp --project /path/to/thoughtbase</code></pre>
     <p>It speaks newline-delimited JSON-RPC 2.0 and stays running until its input closes. Each modality initializes once and stays warm across tool calls.</p>
 
@@ -26,18 +26,19 @@ description: Connect an AI agent to a Minerva thoughtbase over the Model Context
     }
   }
 }</code></pre>
-    <p>Some clients launch from a bare environment without your shell's PATH, so <code>minerva</code> may not resolve. If so, give the absolute path to the built file instead:</p>
+    <p>Some clients — Claude Desktop among them — launch from a bare environment without your shell's PATH, so <code>minerva</code> may not resolve. If so, give the full path to the launcher instead. The install dialog shows it: <code>~/.local/bin/minerva</code>, spelled out from your home folder, since a client won't expand <code>~</code> for you:</p>
     <pre><code>{
   "mcpServers": {
     "minerva": {
-      "command": "node",
-      "args": ["/absolute/path/to/minerva/.vite/build/cli.js", "mcp", "--project", "/path/to/thoughtbase"]
+      "command": "/Users/you/.local/bin/minerva",
+      "args": ["mcp", "--project", "/path/to/thoughtbase"]
     }
   }
 }</code></pre>
+    <p>Running from a source checkout instead? There's no launcher, so have the client run the built file with Node: <code>"command": "node"</code>, with <code>"/absolute/path/to/minerva/.vite/build/cli.js"</code> as the first argument ahead of <code>"mcp"</code>.</p>
 
     <h2 id="tools">Tools</h2>
-    <p>The server exposes seven tools — the reads return grounded JSON, and the one write is gated:</p>
+    <p>The server exposes eight tools — the reads return grounded JSON, and the one write is gated:</p>
     <div class="deflist">
       <div class="row">
         <div class="k"><code>query_graph</code></div>
@@ -50,6 +51,10 @@ description: Connect an AI agent to a Minerva thoughtbase over the Model Context
       <div class="row">
         <div class="k"><code>search_notes</code></div>
         <div class="v">Full-text search over notes.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>grep_notes</code></div>
+        <div class="v">Exact text search over every note's raw markdown, like <code>grep</code> — a literal string by default, or a regular expression with <code>regex</code>; <code>case_sensitive</code> and <code>limit</code> (default 50, at most 200) are optional. Returns the path and line of each match, so it suits a known phrase, a pattern such as unfinished <code>- [ ]</code> tasks, or checking whether something appears at all.</div>
       </div>
       <div class="row">
         <div class="k"><code>semantic_search</code></div>
@@ -65,8 +70,13 @@ description: Connect an AI agent to a Minerva thoughtbase over the Model Context
       </div>
       <div class="row">
         <div class="k"><code>propose_note</code></div>
-        <div class="v">File a new note as a pending proposal (gated).</div>
+        <div class="v">File a new note as a pending proposal (gated), with an optional one-line <code>note</code> summary that's shown in the review queue.</div>
       </div>
+    </div>
+
+    <div class="box" id="fenced">
+      <span class="label">Why the agent's tools are fenced in</span>
+      <p>An outside agent reads your notes, and a note — especially one someone shared with you — can contain text written to steer whatever reads it. So the tools hold the line regardless of what the agent asks for: <code>read_note</code> won't open anything in <code>.minerva/</code> (your conversations, settings and stored keys) or any other hidden folder; <code>sql_query</code> sees only the tables Minerva registered and can't read files by path — <code>SHOW TABLES</code> lists them and <code>DESCRIBE &lt;table&gt;</code> shows a table's columns; and <code>propose_note</code> can't target those folders or anything outside the thoughtbase. The same reads typed in your own shell — <code>minerva read</code>, <code>minerva sql</code> — aren't restricted this way, because you wrote them.</p>
     </div>
 
     <div class="box">
@@ -75,7 +85,18 @@ description: Connect an AI agent to a Minerva thoughtbase over the Model Context
     </div>
 
     <h2 id="freshness">A note on freshness</h2>
-    <p>The server reads your thoughtbase once at startup and serves results as of that moment. If you edit notes in the app while it's running, restart the server to pick up the changes. And as with the CLI, file proposals when the app isn't actively editing the same thoughtbase, so the two aren't writing the graph at once.</p>
+    <p>The server notices on its own whether Minerva has the same thoughtbase open (the app leaves a <code>.minerva/runtime.json</code> marker while it does), and acts differently:</p>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">App open</div>
+        <div class="v"><code>propose_note</code> and <code>semantic_search</code> are handed to the running app. A proposal goes through the app's own approval gate and appears in the Proposals panel right away; semantic search uses the app's current index.</div>
+      </div>
+      <div class="row">
+        <div class="k">App closed</div>
+        <div class="v">Both run directly against the thoughtbase's files. A proposal is waiting in the Proposals panel the next time you open it.</div>
+      </div>
+    </div>
+    <p>Either way, <code>read_note</code> and <code>grep_notes</code> read the files as they are now. The knowledge graph, full-text index and tables behind <code>query_graph</code>, <code>search_notes</code>, <code>sql_query</code> and <code>gather_context</code> are loaded the first time a tool needs them and kept for the rest of the session, so restart the server to pick up notes edited since.</p>
 
     <h2 id="related">Related</h2>
     <div class="doc-cards">

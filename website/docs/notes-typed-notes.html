@@ -68,6 +68,7 @@
     <a href="notes-math.html" class="sub">Math</a>
     <a href="notes-diagrams.html" class="sub">Diagrams</a>
     <a href="notes-charts.html" class="sub">Charts</a>
+    <a href="notes-object-views.html" class="sub">Object views</a>
     <a href="notes-code.html" class="sub">Code &amp; compute cells</a>
     <a href="notes-query.html" class="sub">Query cells</a>
     <a href="notes-search.html" class="sub">Search cells</a>
@@ -100,7 +101,7 @@
     <p class="lede">Most notes are just notes. But some are clearly a <em>kind</em> of thing — a book you're reading, a person you keep meeting, a project with a deadline. Give a note a type and Minerva knows what to expect from it: the fields it should have, the icon it wears in every list, and how it looks when you gather all of its kind together. It's still an ordinary markdown note underneath, and you can take the type off again at any time.</p>
 
     <h2 id="making">Making a note typed</h2>
-    <p>A note is typed when its <a href="notes-frontmatter.html">properties</a> include a <code>type:</code> line naming one of your object types — <code>type: book</code>. You rarely write that by hand. There are three ways to get there:</p>
+    <p>A note is typed when its <a href="notes-frontmatter.html">properties</a> include a <code>type:</code> line naming one of your object types — <code>type: book</code>. You rarely write that by hand. There are a few ways to get there:</p>
 
     <div class="deflist">
       <div class="row">
@@ -109,11 +110,15 @@
       </div>
       <div class="row">
         <div class="k">While you're writing</div>
-        <div class="v">Type <code>/</code> at the start of a line in an empty note and your types appear in the autocomplete — <code>/Book</code>, <code>/Person</code>. Choosing one sets the type without leaving the keyboard.</div>
+        <div class="v">Type <code>/</code> at the start of a line, or after a space, anywhere in a note and your types appear in the autocomplete — <code>/Book</code>, <code>/Person</code>. Choosing one creates a <em>new</em> note of that type and puts a link to it where you were typing, so you can mention a new book mid-sentence without leaving the keyboard. The note you're writing in keeps its own type.</div>
       </div>
       <div class="row">
         <div class="k">To a note you already have</div>
-        <div class="v">Use <strong>Treat this as…</strong> to give an existing note a type. Its text and existing properties are left exactly as they are — only <code>type:</code> is added — and the Properties panel opens so you can fill in the gaps.</div>
+        <div class="v">Run <strong>Treat This Note as a Type…</strong> from the <a href="navigation-command-palette.html">command palette</a> and pick a type to give the note you're looking at. Its text and existing properties are left exactly as they are — only <code>type:</code> is added — and the Properties panel opens so you can fill in the gaps.</div>
+      </div>
+      <div class="row">
+        <div class="k">Let the assistant suggest</div>
+        <div class="v"><strong>Analysis → Organization → Infer Types for Notes</strong> looks over your untyped notes and suggests a type for each one that clearly fits a type you already have — a note with an author and an ISBN is a Book. Each suggestion is filed separately in the <a href="left-sidebar-proposals.html">Proposals panel</a>, and nothing changes until you approve it; approving just adds the <code>type:</code> line.</div>
       </div>
     </div>
 
@@ -131,12 +136,12 @@
         <div class="v">The properties this kind of note is expected to have — a Book's author and rating, a Meeting's date and attendees. They appear as a form at the top of the <a href="right-sidebar-properties.html">Properties panel</a>, including the ones you haven't filled in yet.</div>
       </div>
       <div class="row">
-        <div class="k">Icon and colour</div>
-        <div class="v">A single character — 📖, 👤 — that marks every note of this type wherever notes are listed, tinted with the type's colour.</div>
+        <div class="k">Icon and color</div>
+        <div class="v">A single character — 📖, 👤 — that marks every note of this type wherever notes are listed, tinted with the type's color.</div>
       </div>
       <div class="row">
         <div class="k">Card fields</div>
-        <div class="v">The handful of fields worth showing when the note appears as a card rather than a row, such as in a link preview.</div>
+        <div class="v">The handful of fields worth showing when the note appears as a card — when another note links to it on a line of its own (see below).</div>
       </div>
       <div class="row">
         <div class="k">Cover</div>
@@ -151,7 +156,7 @@
     <p>All of that is defined once, per type, in <a href="settings-object-types.html">Settings → Object Types</a> — not per note.</p>
 
     <h2 id="filling-in">Filling in the fields</h2>
-    <p>Open the <a href="right-sidebar-properties.html">Properties panel</a> on a typed note and its fields are laid out as a form above its other properties. Each field gets the control that suits it: a list of choices for a field with fixed options, a date picker for a date, a number box for a number. Fields the note hasn't filled in yet are still shown, so the form answers "what does a Book need?" rather than only "what has this note got?"</p>
+    <p>Open the <a href="right-sidebar-properties.html">Properties panel</a> on a typed note and its fields are laid out as a form above its other properties. Each field gets the control that suits it: a list of choices for a field with fixed options, a date picker for a date, a number box for a number. A link field takes a <code>[[Note]]</code>, and a location takes a latitude and longitude, like <code>48.8584,2.2945</code>. Fields the note hasn't filled in yet are still shown, so the form answers "what does a Book need?" rather than only "what has this note got?"</p>
 
     <p>Nothing is required. Leaving a field empty is perfectly fine — it just means you don't know that yet, or it doesn't apply.</p>
 
@@ -171,8 +176,16 @@
         <div class="v">Opening a type gives you every note of that kind as a list, a table of their fields, or a gallery of cover images.</div>
       </div>
       <div class="row">
+        <div class="k">As a card when you link to one</div>
+        <div class="v">Put a link to a typed note on a line by itself and the preview shows it as a card: the note's cover picture or its type's icon, its title, and the type's card fields. Export the note holding the link and the export shows the same card. A cover appears as a picture only when its value is a web address (starting <code>http://</code> or <code>https://</code>); otherwise the card shows the icon. A link in the middle of a sentence stays an ordinary link. See <a href="notes-links.html#cards">Links</a>.</div>
+      </div>
+      <div class="row">
+        <div class="k">On a map</div>
+        <div class="v">A type with a location field, like the stock Place, can show its notes as pins on a <a href="left-sidebar-objects.html#views">map</a>.</div>
+      </div>
+      <div class="row">
         <div class="k">In queries</div>
-        <div class="v">Types become part of your project's <a href="notes-rdf.html">graph</a>, so you can ask for them directly — every Book published before 1970, say.</div>
+        <div class="v">Types become part of your project's <a href="notes-rdf.html">graph</a>, so you can ask for them directly — every Book published before 1970, say. Some types also count as a class from a standard vocabulary: a Claim note is found by anything that looks for claims, a Person by anything that looks for <code>foaf:Person</code>. The skills that pull claims out of a note or build a glossary file their results as Claim and Glossary Term notes.</div>
       </div>
     </div>
 

@@ -15,21 +15,21 @@ description: Settings for how long Minerva keeps each note's saved versions, how
     <div class="deflist">
       <div class="row">
         <div class="k">Keep versions for</div>
-        <div class="v">How many days an unnamed version lives before it's dropped. Default: <b>30</b>. Raise it if you want a longer memory; lower it if history is using more disk than it's worth to you.</div>
+        <div class="v">How many days an unnamed version lives before it's dropped. Default: <b>30</b>. Raise it if you want a longer memory; lower it if history is using more disk than it's worth to you. The minimum is <b>1</b>; a <code>0</code> is raised to 1, since nobody means "keep nothing" by it.</div>
       </div>
       <div class="row">
         <div class="k">Versions per note</div>
-        <div class="v">How many unnamed versions to keep for a single note, newest first. Default: <b>500</b>. This is the backstop for a long editing session, which can otherwise produce hundreds of versions of one note in an afternoon.</div>
+        <div class="v">How many unnamed versions to keep for a single note, newest first. Default: <b>500</b>. This is the backstop for a long editing session, which can otherwise produce hundreds of versions of one note in an afternoon. The minimum is <b>1</b>, as above.</div>
       </div>
       <div class="row">
         <div class="k">Maximum file size</div>
-        <div class="v">Files bigger than this get no history at all. Default: <b>1024 KB</b> — far above any note you'd write by hand, and low enough that a large generated <code>.csv</code> isn't copied on every save. Set it to <code>0</code> if you'd rather have history on everything and have the disk for it.</div>
+        <div class="v">Files bigger than this get no history at all. Default: <b>1024 KB</b> — far above any note you'd write by hand, and low enough that a large generated <code>.csv</code> isn't copied on every save. This is the one limit where <code>0</code> means something: set it to <code>0</code> if you'd rather have history on everything and have the disk for it.</div>
       </div>
     </div>
 
     <div class="box">
-      <span class="label">Two versions are never dropped</span>
-      <p>Neither limit touches a version you've <a href="right-sidebar-history.html#naming">named</a>, or a note's <b>initial version</b>. A name is a deliberate "keep this", and the initial version is what "undo everything" gets you back to — losing either to a retention rule would defeat the point of keeping history at all. Neither is what fills a disk.</p>
+      <span class="label">What is never dropped</span>
+      <p>Neither limit touches a version you've <a href="right-sidebar-history.html#naming">named</a> — a name is a deliberate "keep this" — or the <b>Deleted</b> marker left when a note is deleted, which holds no text and is how a deleted note's history stays findable. A note's <b>initial version</b> is half-exempt: its row stays in the timeline for good, but its text ages out like any other unnamed version, after which it can no longer be restored. Name it if you want to keep it.</p>
     </div>
 
     <h2 id="lowering">What happens when you lower a limit</h2>
@@ -40,4 +40,6 @@ description: Settings for how long Minerva keeps each note's saved versions, how
     <p>These limits are stored for this computer and apply to every thoughtbase you open on it — what they're budgeting is this machine's disk, and the same thoughtbase on a roomier machine can reasonably keep more. The history itself is per-thoughtbase: it lives in the <code>.minerva</code> folder beside the notes, so a thoughtbase carries its own past with it if you move it.</p>
 
     <h2 id="what-is-recorded">What gets recorded</h2>
-    <p>Every save of every note — markdown and the <code>.csv</code>, <code>.ttl</code> and <code>.py</code> notes alike — whether the save came from you, from a <a href="thinking-tools.html">thinking tool</a>, or from restoring an earlier version. Attachments and images aren't notes and aren't recorded. Neither is anything inside <code>.minerva</code> itself.</p>
+    <p>Every save of every note — markdown and the <code>.csv</code>, <code>.ttl</code> and <code>.py</code> notes alike — whether the save came from you, from an AI change you approved (a <a href="thinking-tools.html">thinking tool</a>, a conversation, Auto-tag), from restoring an earlier version, or from <a href="right-sidebar-history.html#many-notes-history">reverting several notes at once</a>. Deleting a note records its final text first (<i>Final version before deletion</i>), then a <b>Deleted</b> marker.</p>
+    <p>A change made in another app isn't recorded when it happens. It's picked up the next time Minerva writes, labels or deletes that note: labelling or deleting captures the note exactly as it stands first, and a save records whatever the note holds once it lands.</p>
+    <p>Attachments and images aren't notes and aren't recorded. Neither is anything inside <code>.minerva</code> itself.</p>
