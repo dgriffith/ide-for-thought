@@ -1,6 +1,6 @@
 /**
  * Live blocks in exports (#2508, #2510): blocks that render live in the
- * preview — today ```object-view — rendered for an export by the SAME
+ * preview — ```object-view and `:::query-*` — rendered for an export by the SAME
  * components the preview uses, in the window that asked for the export, and
  * spliced into the exported HTML.
  *
@@ -42,14 +42,19 @@ const scanner = new MarkdownIt();
 export function extractLiveBlocks(markdown: string, notePath: string): { markdown: string; blocks: LiveBlockRequest[] } {
   const lines = markdown.split('\n');
   const found: Array<{ start: number; end: number; kind: LiveBlockKind; source: string }> = [];
+  const code: Array<[number, number]> = [];
   for (const tok of scanner.parse(markdown, {})) {
-    if (tok.type !== 'fence' || !tok.map) continue;
+    if ((tok.type !== 'fence' && tok.type !== 'code_block') || !tok.map) continue;
+    code.push([tok.map[0], tok.map[1]]);
+    if (tok.type !== 'fence') continue;
     const info = parseFenceInfo(tok.info);
     const kind = LIVE_FENCES[info.lang];
     if (!kind || info.hidden) continue;
     found.push({ start: tok.map[0], end: tok.map[1], kind, source: tok.content });
   }
+  found.push(...findQueryDirectives(lines, code));
   if (found.length === 0) return { markdown, blocks: [] };
+  found.sort((a, b) => a.start - b.start);
   const blocks: LiveBlockRequest[] = found.map((f, i) => ({ id: placeholder(i), kind: f.kind, source: f.source, notePath }));
   // Bottom-up, so earlier line numbers stay valid.
   for (let i = found.length - 1; i >= 0; i--) {
@@ -57,6 +62,29 @@ export function extractLiveBlocks(markdown: string, notePath: string): { markdow
     lines.splice(f.start, f.end - f.start, '', blocks[i]!.id, '');
   }
   return { markdown: lines.join('\n'), blocks };
+}
+
+/**
+ * `:::query-TYPE` … `:::` directives (#2512), by the preview plugin's rules:
+ * an opening line of exactly `:::query-<word>`, closed by the first line that
+ * is `:::`; an unclosed one isn't a directive. Inside a code block (fenced or
+ * indented) it's code, not a directive. The source sent to the window is the
+ * whole directive, which the preview's own parser reads back.
+ */
+function findQueryDirectives(lines: string[], code: Array<[number, number]>): Array<{ start: number; end: number; kind: LiveBlockKind; source: string }> {
+  const inCode = (i: number) => code.some(([s, e]) => i >= s && i < e);
+  const out: Array<{ start: number; end: number; kind: LiveBlockKind; source: string }> = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (inCode(i) || !/^\s{0,3}:::query-\w+\s*$/.test(lines[i]!)) continue;
+    let close = -1;
+    for (let j = i + 1; j < lines.length; j++) {
+      if (lines[j]!.trim() === ':::') { close = j; break; }
+    }
+    if (close < 0) continue;
+    out.push({ start: i, end: close + 1, kind: 'query', source: lines.slice(i, close + 1).join('\n') });
+    i = close;
+  }
+  return out;
 }
 
 /** Render a batch, never throwing: any failure becomes per-block errors. */

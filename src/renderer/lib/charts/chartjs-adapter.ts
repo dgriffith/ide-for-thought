@@ -48,8 +48,25 @@ function isTimeData(values: (string | number | Date)[]): boolean {
   return /^\d{4}-\d{2}/.test(sample);
 }
 
-export function renderChart(canvas: HTMLCanvasElement, config: ChartConfig): ChartHandle {
+/** Text and grid colours for a chart. The default is the app's dark preview
+ *  palette; an export passes a light one (#2512) so a chart reads on white. */
+export interface ChartPalette {
+  text: string;
+  tick: string;
+  grid: string;
+}
+const DARK_PALETTE: ChartPalette = { text: '#cdd6f4', tick: '#6c7086', grid: '#31324433' };
+
+export interface RenderChartOptions {
+  /** false draws the final frame at once — for a snapshot, which must not
+   *  capture a chart mid-animation (#2512). Default: animate. */
+  animate?: boolean;
+  palette?: ChartPalette;
+}
+
+export function renderChart(canvas: HTMLCanvasElement, config: ChartConfig, opts: RenderChartOptions = {}): ChartHandle {
   const { series, type, title, height } = config;
+  const palette = opts.palette ?? DARK_PALETTE;
 
   canvas.style.height = `${height}px`;
   canvas.height = height;
@@ -76,16 +93,17 @@ export function renderChart(canvas: HTMLCanvasElement, config: ChartConfig): Cha
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      ...(opts.animate === false ? { animation: false as const } : {}),
       plugins: {
-        title: title ? { display: true, text: title, color: '#cdd6f4', font: { size: 14, weight: 'bold' } } : { display: false },
-        legend: { display: series.length > 1, labels: { color: '#cdd6f4' } },
+        title: title ? { display: true, text: title, color: palette.text, font: { size: 14, weight: 'bold' } } : { display: false },
+        legend: { display: series.length > 1, labels: { color: palette.text } },
         tooltip: { mode: 'index', intersect: false },
       },
       scales: {
         x: useTime
-          ? { type: 'time', time: { tooltipFormat: 'PPP' }, ticks: { color: '#6c7086' }, grid: { color: '#31324422' } }
-          : { type: 'category', ticks: { color: '#6c7086' }, grid: { color: '#31324422' } },
-        y: { ticks: { color: '#6c7086' }, grid: { color: '#31324433' }, beginAtZero: true },
+          ? { type: 'time', time: { tooltipFormat: 'PPP' }, ticks: { color: palette.tick }, grid: { color: palette.grid } }
+          : { type: 'category', ticks: { color: palette.tick }, grid: { color: palette.grid } },
+        y: { ticks: { color: palette.tick }, grid: { color: palette.grid }, beginAtZero: true },
       },
       interaction: { mode: 'nearest', axis: 'x', intersect: false },
     },

@@ -68,3 +68,50 @@ describe('spliceLiveBlocks', () => {
     expect(out).not.toContain(id);
   });
 });
+
+describe('extractLiveBlocks — :::query-* directives (#2512)', () => {
+  const NOTE_Q = [
+    'Top',
+    '',
+    ':::query-list',
+    'title: Museums',
+    '---',
+    'SELECT ?n WHERE { ?n a minerva:Note }',
+    ':::',
+    '',
+    '```object-view',
+    '{"typeId":"place","layout":"list"}',
+    '```',
+    '',
+    ':::query-backlinks',
+    ':::',
+    '',
+    '```markdown',
+    ':::query-list',
+    'SELECT ?quoted WHERE {}',
+    ':::',
+    '```',
+    '',
+    '    :::query-table',
+    '    SELECT ?indented WHERE {}',
+    '    :::',
+    '',
+    ':::query-table',
+    'SELECT ?never_closed WHERE {}',
+  ].join('\n');
+
+  it('extracts each directive whole, in document order with fences', () => {
+    const { blocks, markdown } = extractLiveBlocks(NOTE_Q, 'n.md');
+    expect(blocks.map((b) => b.kind)).toEqual(['query', 'object-view', 'query']);
+    expect(blocks[0]!.source).toBe(':::query-list\ntitle: Museums\n---\nSELECT ?n WHERE { ?n a minerva:Note }\n:::');
+    expect(blocks[2]!.source).toBe(':::query-backlinks\n:::');
+    expect(markdown).not.toContain('SELECT ?n WHERE');
+  });
+
+  it('leaves a directive quoted in a code block, an indented one, and an unclosed one alone', () => {
+    const { markdown } = extractLiveBlocks(NOTE_Q, 'n.md');
+    expect(markdown).toContain('SELECT ?quoted WHERE {}');
+    expect(markdown).toContain('SELECT ?indented WHERE {}');
+    expect(markdown).toContain('SELECT ?never_closed WHERE {}');
+  });
+});

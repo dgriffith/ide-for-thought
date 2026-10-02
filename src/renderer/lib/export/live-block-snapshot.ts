@@ -29,7 +29,9 @@ export function snapshotLiveBlock(themed: HTMLElement): string {
   const css = collectCss(themed, `.${LIVE_BLOCK_CLASS}`);
   const vars = resolveVars(themed, css);
   const clone = themed.cloneNode(true) as HTMLElement;
+  canvasesToImages(themed, clone);
   linkRows(clone);
+  linkWikiLinks(clone);
   stripInteractivity(clone);
   clone.setAttribute('style', vars);
   // A row reads as it does in the preview — plain text, not a page link —
@@ -128,6 +130,38 @@ function linkRows(root: HTMLElement): void {
     a.setAttribute(NOTE_LINK_ATTR, path);
     while (el.firstChild) a.appendChild(el.firstChild);
     el.replaceWith(a);
+  }
+}
+
+/**
+ * A cloned canvas is blank — its pixels live in the original's context. Each
+ * one (a query block's chart, #2512) becomes an image of what it drew, at the
+ * size it was laid out.
+ */
+function canvasesToImages(live: HTMLElement, clone: HTMLElement): void {
+  const originals = Array.from(live.querySelectorAll('canvas'));
+  const copies = Array.from(clone.querySelectorAll('canvas'));
+  originals.forEach((canvas, i) => {
+    const copy = copies[i];
+    if (!copy) return;
+    const img = document.createElement('img');
+    img.src = canvas.toDataURL('image/png');
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width) img.setAttribute('width', String(Math.round(rect.width)));
+    if (rect.height) img.setAttribute('height', String(Math.round(rect.height)));
+    img.setAttribute('alt', 'Chart');
+    img.style.cssText = 'display:block;max-width:100%;height:auto';
+    copy.replaceWith(img);
+  });
+}
+
+/** The preview's result links (`<a class="wiki-link" data-target>` — query
+ *  results, backlinks, search, semantic) become links main resolves exactly as
+ *  it resolves a `[[target]]` in the note (#2512, #2518). */
+function linkWikiLinks(root: HTMLElement): void {
+  for (const a of Array.from(root.querySelectorAll<HTMLElement>('a.wiki-link[data-target]'))) {
+    a.setAttribute(NOTE_LINK_ATTR, a.getAttribute('data-target') ?? '');
+    a.removeAttribute('data-target');
   }
 }
 
