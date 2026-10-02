@@ -18,7 +18,7 @@ import MarkdownIt from 'markdown-it';
 import type { MarkdownIt as MarkdownItInstance } from 'markdown-it';
 import footnote from 'markdown-it-footnote';
 import hljs from 'highlight.js';
-import { buildLinkResolverContext, type LinkResolverContext } from '../../link-resolver';
+import { buildLinkResolverContext, encodeLinkDestination, type LinkResolverContext } from '../../link-resolver';
 import { extractLiveBlocks, renderLiveBlocks, spliceLiveBlocks } from '../../live-blocks';
 import { installMath } from '../../../../shared/markdown/math-plugin';
 import { renderVegaBlocks } from '../../vega-render';
@@ -156,7 +156,10 @@ function installWikiLinkRule(md: MarkdownItInstance, plan: ExportPlan, fromPath?
     const target = hashIdx >= 0 ? untyped.slice(0, hashIdx).trim() : untyped;
     const anchor = hashIdx >= 0 ? untyped.slice(hashIdx + 1).trim() : null;
 
-    const title = findTitle(target, ctx.titleByTarget);
+    // The note the app would open for this target (#2518) — by name, path,
+    // note-relative path, alias or case variant — not just an exact path.
+    const resolved = ctx.resolveTarget(target);
+    const title = resolved ? findTitle(resolved, ctx.titleByTarget) : null;
 
     const token = state.push('html_inline', '', 0);
     if (ctx.linkPolicy === 'follow-to-file') {
@@ -188,9 +191,9 @@ function installWikiLinkRule(md: MarkdownItInstance, plan: ExportPlan, fromPath?
  */
 export function noteHref(target: string, ctx: LinkResolverContext, fromDir: string | null): string | null {
   if (ctx.linkPolicy !== 'follow-to-file') return null;
-  const asMd = target.endsWith('.md') ? target : `${target}.md`;
-  if (!ctx.includedPaths.has(asMd)) return null;
-  return relativeHref(fromDir, asMd.replace(/\.md$/, '.html'));
+  const resolved = ctx.resolveTarget(target);
+  if (!resolved || !ctx.includedPaths.has(resolved)) return null;
+  return encodeLinkDestination(relativeHref(fromDir, resolved.replace(/\.md$/, '.html')));
 }
 
 /**

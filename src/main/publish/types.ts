@@ -123,6 +123,12 @@ export interface ExportPlan {
    * no window) → each live block exports as a one-line note instead.
    */
   renderLiveBlocks?: LiveBlockRenderer | undefined;
+  /**
+   * Every note a wiki-link can name, and the alias map — what the app
+   * resolves links against (#2518). Set by `resolvePlan` from the graph;
+   * absent → resolution falls back to the exported notes and their aliases.
+   */
+  linkTargets?: { paths: string[]; aliases: Record<string, string> } | undefined;
 }
 
 /**
