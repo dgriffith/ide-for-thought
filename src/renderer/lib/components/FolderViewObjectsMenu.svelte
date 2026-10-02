@@ -14,11 +14,15 @@
   import { flattenNotePaths } from '../app/text-helpers';
 
   interface Props {
+    /** Project-relative folder; '' for the whole thoughtbase (the root menu). */
     folder: string;
+    /** What to call it in the menu's accessible name — the folder path, or
+     *  the thoughtbase's name for the root. */
+    label?: string | undefined;
     /** Close the context menu once a view is opened. */
     onDone: () => void;
   }
-  let { folder, onDone }: Props = $props();
+  let { folder, label, onDone }: Props = $props();
 
   const notebase = getNotebaseStore();
   const editor = getEditorStore();
@@ -28,7 +32,7 @@
 {#if folderTypes.length > 0}
   <div class="submenu-item">
     <span class="submenu-trigger" tabindex="0" role="button" aria-haspopup="menu">View Objects <Icon name="chevronRight" size={10} /></span>
-    <div class="submenu" role="menu" aria-label="View objects in {folder}">
+    <div class="submenu" role="menu" aria-label="View objects in {label ?? folder}">
       {#each folderTypes as ft (ft.type.id)}
         <button role="menuitem" onclick={() => { editor.openTypeView(ft.type.id, { folder, layout: 'table' }); onDone(); }}>
           <span class="submenu-label">{ft.type.label}</span><span class="submenu-count">{ft.count}</span>

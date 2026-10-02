@@ -92,8 +92,8 @@ const BUDGETS: Record<string, number> = {
   // Command Palette item, whose comment explains that adding the item IS the
   // documentation fix — Keyboard Shortcuts derives from this template.
   'src/main/menu.ts': 985,
-  'src/renderer/lib/components/Sidebar.svelte': 992,
-  'src/renderer/lib/app/refactor-ops.svelte.ts': 856,
+  'src/renderer/lib/components/Sidebar.svelte': 982, // -10: root menu items moved to NotesRootMenu.svelte
+  'src/renderer/lib/app/refactor-ops.svelte.ts': 860, // +4: Label Version / history accept the thoughtbase root
   // Raised again in #2208: the staleness check became two queries (sort a
   // two-variable projection, then fetch details for the survivors) plus the
   // GROUP BY/MIN that stops a note with two dc:modified values being reported

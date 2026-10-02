@@ -284,6 +284,38 @@ describe('handleLabelVersion (#1158)', () => {
   });
 });
 
+describe('the thoughtbase root (path \'\') — the Notes panel\'s root menu', () => {
+  const tree = () => [
+    { name: 'top.md', relativePath: 'top.md', isDirectory: false },
+    { name: 'notes', relativePath: 'notes', isDirectory: true, children: [
+      { name: 'a.md', relativePath: 'notes/a.md', isDirectory: false },
+      { name: 'data.csv', relativePath: 'notes/data.csv', isDirectory: false },
+      { name: 'pic.png', relativePath: 'notes/pic.png', isDirectory: false },
+    ] },
+  ];
+
+  it('View Local History covers every note, and searches the whole history for deleted ones', async () => {
+    h.notebase.files = tree();
+    sidebar.getSelectionPaths.mockReturnValue(['top.md']); // a stale selection must not narrow it
+    await ops.handleViewHistory('', true, { targetOnly: true });
+    expect(h.api.history.listUnified).toHaveBeenCalledWith(
+      expect.arrayContaining(['top.md', 'notes/a.md', 'notes/data.csv']),
+      [{ relativePath: '', isDirectory: true }],
+    );
+    expect((h.api.history.listUnified.mock.calls[0]![0] as string[])).not.toContain('notes/pic.png');
+  });
+
+  it('Label Version labels every note in the thoughtbase', async () => {
+    h.notebase.files = tree();
+    h.dialog.showPrompt.mockResolvedValue('before the reorg');
+    h.api.history.labelNotes.mockResolvedValue({ label: 'before the reorg', labeled: [], errors: [] });
+    await ops.handleLabelVersion('', true, { targetOnly: true });
+    const [paths, label] = h.api.history.labelNotes.mock.calls[0]!;
+    expect([...(paths as string[])].sort()).toEqual(['notes/a.md', 'notes/data.csv', 'top.md']);
+    expect(label).toBe('before the reorg');
+  });
+});
+
 describe('handleViewHistory (#2092)', () => {
   it('confirms "nothing to show" with an empty selection and no fallback', async () => {
     await ops.handleViewHistory();
