@@ -1,5 +1,6 @@
 import { api } from '../ipc/client';
 import { normalizeFolder } from '../../../shared/objects/view-spec';
+import { movedFolder } from '../../../shared/objects/view-folder-rename';
 import { fileCapability, extensionOf } from '../../../shared/file-capability';
 import { normalizeSqlRows, unionColumns } from '../editor/sql-result';
 import {
@@ -469,12 +470,17 @@ function buildEditorStore() {
   /**
    * Apply file renames (from the main process) to tab paths in every group.
    * Content is unchanged, so no reload is needed — the tab's buffer is still
-   * correct.
+   * correct. A folder entry (`folder: true`, #2535) moves the type-view tabs
+   * scoped to that folder or under it; the files in it arrive as their own
+   * entries.
    */
-  function applyRenameTransitions(transitions: Array<{ old: string; new: string }>): void {
+  function applyRenameTransitions(transitions: Array<{ old: string; new: string; folder?: boolean }>): void {
     if (transitions.length === 0) return;
-    const byOld = new Map(transitions.map((t) => [t.old, t.new]));
+    const byOld = new Map(transitions.filter((t) => !t.folder).map((t) => [t.old, t.new]));
     let touched = false;
+    for (const t of transitions) {
+      if (t.folder && retargetTypeViewFolders(t.old, t.new)) touched = true;
+    }
     for (const tab of allTabs()) {
       // Note tabs (markdown + plain-text) and unsupported-file tabs both carry a
       // relativePath that must follow a move (#1130).
@@ -488,6 +494,17 @@ function buildEditorStore() {
       }
     }
     if (touched) schedulePersistTabs();
+  }
+
+  /** Re-point view tabs scoped to `from` (or under it) at `to`. True if any moved. */
+  function retargetTypeViewFolders(from: string, to: string): boolean {
+    let moved = false;
+    for (const tab of allTabs()) {
+      if (!isTypeView(tab) || tab.folder === null) continue;
+      const next = movedFolder(tab.folder, from, to);
+      if (next !== null && next !== tab.folder) { tab.folder = next; moved = true; }
+    }
+    return moved;
   }
 
   /**

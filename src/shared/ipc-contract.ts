@@ -719,7 +719,7 @@ export interface EventMap extends MenuCommandEventMap {
   'notebase:fileChanged': (path: string) => void;
   'notebase:fileCreated': (path: string) => void;
   'notebase:fileDeleted': (path: string) => void;
-  'notebase:renamed': (transitions: Array<{ old: string; new: string }>) => void;
+  'notebase:renamed': (transitions: Array<{ old: string; new: string; folder?: boolean }>) => void;
   'notebase:rewritten': (paths: string[]) => void;
   'notebase:headingRenameSuggested': (candidate: HeadingRenameCandidate) => void;
   'embeddings:backfillProgress': (p: { done: number; total: number; running: boolean }) => void;

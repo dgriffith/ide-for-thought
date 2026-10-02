@@ -263,7 +263,7 @@ export function registerNotebase(): void {
 
   handle(Channels.NOTEBASE_RENAME, withRootPath(async (rootPath, oldRelPath: string, newRelPath: string) => {
     const ctx = projectContext(rootPath);
-    const { transitions, rewrittenPaths } = await renameWithLinkRewrites(rootPath, oldRelPath, newRelPath, {
+    const { transitions, rewrittenPaths, folder } = await renameWithLinkRewrites(rootPath, oldRelPath, newRelPath, {
       markPathHandled,
       reindexHook: (relPath, content) => indexSearchAndVectorsFor(ctx, relPath, content),
       removeHook: (relPath) => removeSearchAndVectorsFor(ctx, relPath),
@@ -271,9 +271,12 @@ export function registerNotebase(): void {
 
     // Broadcast to every window showing this project so their editor tabs
     // refresh paths and content instead of silently overwriting on next save.
+    // A folder rename also says so (`folder: true`), so view tabs scoped to
+    // it follow (#2535) — even an empty folder, which has no file transitions.
+    const renamed = folder ? [...transitions, { ...folder, folder: true }] : transitions;
     for (const targetWin of windowsForProject(rootPath)) {
-      if (transitions.length > 0) {
-        broadcast(targetWin, Channels.NOTEBASE_RENAMED, transitions);
+      if (renamed.length > 0) {
+        broadcast(targetWin, Channels.NOTEBASE_RENAMED, renamed);
       }
       if (rewrittenPaths.length > 0) {
         broadcast(targetWin, Channels.NOTEBASE_REWRITTEN, rewrittenPaths);
