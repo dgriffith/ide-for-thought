@@ -3,6 +3,7 @@
   import FileTree from './FileTree.svelte';
   import Icon from './Icon.svelte';
   import FolderViewObjectsMenu from './FolderViewObjectsMenu.svelte';
+  import OpenInMenu from './OpenInMenu.svelte';
   import TypeIcon from './TypeIcon.svelte';
   import { objectTypesStore } from '../stores/object-types.svelte';
   import { formatRelativeTime } from '../utils/format-relative-time';
@@ -361,14 +362,7 @@
           </button>
         {/if}
       {/if}
-      <div class="submenu-item">
-        <span class="submenu-trigger">Open In <Icon name="chevronRight" size={10} /></span>
-        <div class="submenu">
-          <button onclick={() => { void api.shell.revealFile(contextMenu!.target); contextMenu = null; }}>Reveal in Finder</button>
-          <button onclick={() => { void api.shell.openInDefault(contextMenu!.target!); contextMenu = null; }}>Open in Default App</button>
-          <button onclick={() => { void api.shell.openInTerminal(contextMenu!.target); contextMenu = null; }}>Open in Terminal</button>
-        </div>
-      </div>
+      <OpenInMenu path={contextMenu.target} onDone={() => { contextMenu = null; }} />
       {#if contextMenu.targetIsDir}
         <FolderViewObjectsMenu folder={contextMenu.target} onDone={() => { contextMenu = null; }} />
       {/if}
@@ -555,43 +549,4 @@
     background: var(--border);
     margin: 4px 0;
   }
-
-  .submenu-item {
-    position: relative;
-  }
-
-  .submenu-trigger {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    padding: 6px 12px;
-    font-size: 12px;
-    color: var(--text);
-    cursor: default;
-  }
-
-  .submenu-trigger:hover {
-    background: var(--bg-button);
-  }
-
-  .submenu {
-    display: none;
-    position: absolute;
-    left: 100%;
-    top: 0;
-    background: var(--bg-sidebar);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 4px 0;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    min-width: 160px;
-  }
-
-  /* :focus-within too, so a submenu opens from the keyboard (#2532). */
-  .submenu-item:hover .submenu,
-  .submenu-item:focus-within .submenu {
-    display: block;
-  }
-
 </style>

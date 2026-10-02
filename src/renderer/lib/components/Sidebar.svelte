@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { NoteFile } from '../../../shared/types';
   import FileTree from './FileTree.svelte';
+  import NotesRootMenu from './NotesRootMenu.svelte';
   import TagPanel from './TagPanel.svelte';
   import SourcesPanel from './SourcesPanel.svelte';
   import TablesPanel from './TablesPanel.svelte';
@@ -55,8 +56,10 @@
     onNewFolder: (directory: string) => void;
     onDelete: (relativePath: string, isDirectory: boolean) => void;
     onAddTag?: (relativePath: string, isDirectory: boolean) => void;
-    onLabelVersion?: (relativePath: string, isDirectory: boolean) => void;
-    onViewHistory?: (relativePath: string, isDirectory: boolean) => void;
+    /** `targetOnly` acts on the given path even when the sidebar has a
+     *  selection — the root menu passes it, since the root is never selected. */
+    onLabelVersion?: (relativePath: string, isDirectory: boolean, opts?: { targetOnly?: boolean }) => void;
+    onViewHistory?: (relativePath: string, isDirectory: boolean, opts?: { targetOnly?: boolean }) => void;
     onRemoveTag?: (relativePath: string, isDirectory: boolean) => void;
     onAddProperty?: (relativePath: string, isDirectory: boolean) => void;
     onRemoveProperty?: (relativePath: string, isDirectory: boolean) => void;
@@ -706,12 +709,15 @@
       style:left="{contextMenu.x}px"
       style:top="{contextMenu.y}px"
     >
-      <button onclick={() => { fileOps.onNewNote(''); contextMenu = null; }}>
-        New Note
-      </button>
-      <button onclick={() => { fileOps.onNewFolder(''); contextMenu = null; }}>
-        New Folder
-      </button>
+      <NotesRootMenu
+        {canPaste}
+        onPaste={() => fileOps.onPaste('')}
+        onNewNote={() => fileOps.onNewNote('')}
+        onNewFolder={() => fileOps.onNewFolder('')}
+        {...(fileOps.onLabelVersion ? { onLabelVersion: () => fileOps.onLabelVersion?.('', true, { targetOnly: true }) } : {})}
+        {...(fileOps.onViewHistory ? { onViewHistory: () => fileOps.onViewHistory?.('', true, { targetOnly: true }) } : {})}
+        onDone={() => { contextMenu = null; }}
+      />
     </div>
   {/if}
 </aside>
@@ -972,21 +978,5 @@
      per-instance min-width stays local. */
   .context-menu {
     min-width: 140px;
-  }
-
-  .context-menu button {
-    display: block;
-    width: 100%;
-    padding: 6px 12px;
-    border: none;
-    background: none;
-    color: var(--text);
-    font-size: 12px;
-    cursor: pointer;
-    text-align: left;
-  }
-
-  .context-menu button:hover {
-    background: var(--bg-button);
   }
 </style>

@@ -317,6 +317,10 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
     if (fallbackPath && fallbackIsDir) {
       return expand(new Set([fallbackPath]), notebase.files);
     }
+    // The thoughtbase root ('' — the Notes panel's root menu): everything.
+    if (fallbackPath === '' && fallbackIsDir) {
+      return expand(new Set(notebase.files.map((f) => f.relativePath)), notebase.files);
+    }
     return null;
   }
 
