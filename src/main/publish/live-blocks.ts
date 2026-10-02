@@ -1,6 +1,6 @@
 /**
  * Live blocks in exports (#2508, #2510): blocks that render live in the
- * preview — ```object-view, ```mermaid, `:::query-*` and `:::argument` — rendered for an export by the SAME
+ * preview — ```object-view, ```mermaid, ```output, `:::query-*` and `:::argument` — rendered for an export by the SAME
  * components the preview uses, in the window that asked for the export, and
  * spliced into the exported HTML.
  *
@@ -27,7 +27,7 @@ import { escapeHtmlFull as escapeHtml, escapeHtmlFull as escapeAttr } from '../.
 export type LiveBlockRenderer = (blocks: LiveBlockRequest[]) => Promise<LiveBlockResult[]>;
 
 /** Fence languages rendered as live blocks, and their kind. */
-const LIVE_FENCES: Readonly<Record<string, LiveBlockKind>> = { 'object-view': 'object-view', mermaid: 'mermaid' };
+export const LIVE_FENCES: Readonly<Record<string, LiveBlockKind>> = { 'object-view': 'object-view', mermaid: 'mermaid', output: 'output' };
 
 /** Letters and digits only: no markdown syntax can reach into it. */
 const placeholder = (n: number): string => `MINERVALIVEBLOCK${n}Z`;
@@ -65,7 +65,7 @@ export function extractLiveBlocks(markdown: string, notePath: string): { markdow
 }
 
 /** Directive opening lines rendered as live blocks, and their kind. */
-const LIVE_DIRECTIVES: ReadonlyArray<[RegExp, LiveBlockKind]> = [
+export const LIVE_DIRECTIVES: ReadonlyArray<[RegExp, LiveBlockKind]> = [
   [/^\s{0,3}:::query-\w+\s*$/, 'query'],
   [/^\s{0,3}:::argument\s*$/, 'argument'],
 ];

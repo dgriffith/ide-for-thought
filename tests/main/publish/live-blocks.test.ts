@@ -132,3 +132,11 @@ describe('extractLiveBlocks — :::argument (#2514)', () => {
     ]);
   });
 });
+
+describe('extractLiveBlocks — output (#2515)', () => {
+  it('extracts a saved cell output, leaving its source cell alone', () => {
+    const { blocks, markdown } = extractLiveBlocks('```python\nprint(1)\n```\n\n```output\n{"type":"text","value":"1"}\n```\n', 'n.md');
+    expect(blocks.map((b) => [b.kind, b.source.trim()])).toEqual([['output', '{"type":"text","value":"1"}']]);
+    expect(markdown).toContain('print(1)');
+  });
+});

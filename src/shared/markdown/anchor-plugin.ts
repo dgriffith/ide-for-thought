@@ -19,7 +19,7 @@
  * itself already built.
  */
 import type { MarkdownIt, Token } from 'markdown-it';
-import { slugify } from '../../../shared/slug';
+import { slugify } from '../slug';
 
 export function installAnchors(md: MarkdownIt): void {
     // Give every heading an id derived from its text so [[note#heading]] anchor

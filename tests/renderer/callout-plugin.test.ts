@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import MarkdownIt from 'markdown-it';
-import { installCallouts } from '../../src/renderer/lib/markdown/callout-plugin';
+import { installCallouts } from '../../src/shared/markdown/callout-plugin';
 
 function md(): MarkdownIt {
   const m = new MarkdownIt({ html: true });

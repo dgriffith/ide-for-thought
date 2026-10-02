@@ -18,6 +18,8 @@
  * --fg-faint, --bg, --bg-elev, --accent, --border, --code-bg, --strike.
  */
 
+import { EXPORT_CALLOUT_CSS } from '../callout-style';
+
 export const STATIC_SITE_STYLE = `
 :root {
   /* Calm, warm "reading" defaults — soft ink on warm paper, a muted slate-blue
@@ -304,4 +306,4 @@ article .wikilink-broken { text-decoration: line-through; color: var(--strike); 
 .hljs-title, .hljs-section, .hljs-name, .hljs-selector-id, .hljs-selector-class { color: #4271ae; }
 .hljs-type, .hljs-class .hljs-title { color: #c82829; }
 .hljs-symbol, .hljs-bullet, .hljs-built_in, .hljs-builtin-name { color: #3e999f; }
-`;
+${EXPORT_CALLOUT_CSS}`;

@@ -70,7 +70,7 @@ describe('noteHtmlExporter (#248)', () => {
     expect(html).toContain('minerva-export-version');
     expect(html).toContain('<style>');
     expect(html).toContain('<article>');
-    expect(html).toContain('<h1>Hello</h1>');
+    expect(html).toContain('<h1 id="hello">Hello</h1>');
     expect(html).toContain('<p>A paragraph.</p>');
     // Guard against accidentally leaving external CSS / JS refs.
     expect(html).not.toMatch(/<link[^>]+rel="stylesheet"/);
@@ -106,7 +106,7 @@ describe('noteHtmlExporter (#248)', () => {
     const output = await noteHtmlExporter.run(plan);
     const html = String(output.files[0].contents);
     expect(html).not.toMatch(/foo:\s*bar/);
-    expect(html).toContain('<h1>Body heading</h1>');
+    expect(html).toContain('<h1 id="body-heading">Body heading</h1>');
   });
 
   it('linkPolicy inline-title emits <em>title</em> for wiki-links', async () => {

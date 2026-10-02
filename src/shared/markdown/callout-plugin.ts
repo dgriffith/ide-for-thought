@@ -27,8 +27,8 @@
 import type { MarkdownIt } from 'markdown-it';
 import type { StateCore } from 'markdown-it';
 import type { Token } from 'markdown-it';
-import { TRAILING_ID_RE } from '../../../shared/flashcards/cards';
-import { escapeHtml, escapeAttr } from '../../../shared/text-escape';
+import { TRAILING_ID_RE } from '../flashcards/cards';
+import { escapeHtml, escapeAttr } from '../text-escape';
 
 /**
  * First-line marker. Title whitespace is restricted to spaces/tabs so a
