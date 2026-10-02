@@ -12,6 +12,7 @@
 import type { MarkdownIt } from 'markdown-it';
 import type { StateBlock } from 'markdown-it';
 import { getLinkType } from '../../../shared/link-types';
+import { installNoteTags as installSharedNoteTags } from '../../../shared/markdown/note-tags-plugin';
 import { escapeHtml, escapeAttr } from '../preview/text';
 
 /**
@@ -92,23 +93,7 @@ export function installWikiLinks(md: MarkdownIt): void {
 }
 
 /** `#tag` note tags — at line start or after whitespace (not mid-URL). */
+/** The preview's `#tag` chip — the rule itself is shared with exports (#2526). */
 export function installNoteTags(md: MarkdownIt): void {
-  md.inline.ruler.push('note_tag', (state, silent) => {
-    // Must be at start or preceded by whitespace.
-    if (state.pos > 0 && state.src[state.pos - 1] !== ' ' && state.src[state.pos - 1] !== '\n') return false;
-    const src = state.src.slice(state.pos);
-    const match = src.match(/^#([a-zA-Z][\w-/]*)/);
-    if (!match) return false;
-    if (!silent) {
-      const token = state.push('note_tag', '', 0);
-      token.meta = { tag: match[1] };
-    }
-    state.pos += match[0].length;
-    return true;
-  });
-
-  md.renderer.rules.note_tag = (tokens, idx) => {
-    const { tag } = tokens[idx]!.meta as { tag: string };
-    return `<span class="note-tag" data-tag="${escapeAttr(tag)}">#${escapeHtml(tag)}</span>`;
-  };
+  installSharedNoteTags(md);
 }

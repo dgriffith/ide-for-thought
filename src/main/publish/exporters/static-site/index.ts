@@ -21,6 +21,7 @@
  *   - incremental rebuild
  */
 
+import { tagPageFilename } from '../../../../shared/markdown/note-tags-plugin';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import type { Exporter, ExportOutput, ExportPlanFile } from '../../types';
@@ -132,7 +133,7 @@ export const staticSiteExporter: Exporter = {
       });
       for (const [tag, taggedNotes] of index.tags) {
         files.push({
-          path: `tags/${encodeFilename(tag)}.html`,
+          path: `tags/${tagPageFilename(tag)}`,
           contents: renderTagPage(tag, taggedNotes, config, '../', nav),
         });
       }
@@ -272,9 +273,6 @@ function relativeToRoot(relativePath: string): string {
  * characters that'd break the URL or the filesystem; collapses
  * everything else to `-`.
  */
-function encodeFilename(tag: string): string {
-  return tag.replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'tag';
-}
 
 // Reserved for future image/asset copying — keeps the import shape
 // stable so the follow-up that copies referenced images can land

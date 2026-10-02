@@ -140,3 +140,18 @@ describe('extractLiveBlocks — output (#2515)', () => {
     expect(markdown).toContain('print(1)');
   });
 });
+
+describe('extractLiveBlocks — link cards (#2526)', () => {
+  const kinds = (md: string) => extractLiveBlocks(md, 'n.md').blocks.map((b) => [b.kind, b.source]);
+
+  it('a paragraph that is one plain or quote link may become a card', () => {
+    expect(kinds('Intro\n\n[[Kampa Museum]]\n\n[[quote::ex-42]]\n')).toEqual([
+      ['card', '[[Kampa Museum]]'],
+      ['card', '[[quote::ex-42]]'],
+    ]);
+  });
+
+  it('not a cite or other typed link, a link mid-sentence, or one inside a quote', () => {
+    expect(kinds('[[cite::smith-2020]]\n\n[[supports::Claim]]\n\nSee [[Kampa Museum]] today.\n\n> [[Kampa Museum]]\n')).toEqual([]);
+  });
+});

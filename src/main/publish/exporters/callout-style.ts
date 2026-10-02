@@ -16,6 +16,8 @@ details.callout > summary.callout-title { cursor: pointer; }
 .callout-warning, .callout-failure, .callout-danger { --callout-color: #b4532a; }
 .callout-quote { --callout-color: #777; }
 .callout-card { --callout-color: #a07a16; }
+.note-tag { display: inline-block; padding: 0 0.4em; border-radius: 999px; background: #efe9dc; color: #6b5a3a; font-size: 0.9em; text-decoration: none; }
+a.note-tag:hover { text-decoration: underline; }
 mark.hl { background: #fbe9a6; color: inherit; padding: 0 0.1em; border-radius: 2px; }
 mark.hl-yellow { background: #fbe9a6; }
 mark.hl-green { background: #cfe8cf; }

@@ -26,6 +26,7 @@ import { installAnchors } from '../../../../shared/markdown/anchor-plugin';
 import { installDoiAutolink } from '../../../../shared/markdown/doi-plugin';
 import { installHighlight } from '../../../../shared/markdown/highlight-plugin';
 import { slugify } from '../../../../shared/slug';
+import { installNoteTags, noteTagChipHtml } from '../../../../shared/markdown/note-tags-plugin';
 import { renderVegaBlocks } from '../../vega-render';
 import { renderYouTubeBlocks } from '../../youtube-render';
 import { resolveTransclusions } from '../../transclusion-resolve';
@@ -72,6 +73,12 @@ export async function renderNoteBody(
   const bodyMarkdown = linkifyLocalMedia(withYouTube);
   const linkCtx = buildLinkResolverContext(plan);
   const fromDir = file.relativePath ? path.posix.dirname(file.relativePath) : null;
+  // A link the window didn't make a card of (an untyped note, or no window at
+  // all) is an ordinary link — rendered here, under this export's policy (#2526).
+  for (const b of live.blocks) {
+    const r = liveResults.get(b.id);
+    if (b.kind === 'card' && (!r || !r.ok || !r.html)) liveResults.set(b.id, { id: b.id, ok: true, html: md.render(b.source) });
+  }
   return spliceLiveBlocks(md.render(bodyMarkdown), liveResults, (notePath) => noteHref(notePath, linkCtx, fromDir));
 }
 
@@ -124,7 +131,12 @@ function buildMd(plan: ExportPlan, renderer?: CitationRenderer, fromPath?: strin
   installHighlight(md);
   installAnchors(md);
   installWikiLinkRule(md, plan, fromPath);
-  installTagRule(md);
+  // The preview's tag rule (#2526): a static site links each tag to its tag
+  // page; a single-file export shows the chip, styled.
+  installNoteTags(md, (tag) => {
+    const href = plan.tagPageHref?.(tag, fromPath ?? '');
+    return href ? `<a class="note-tag" href="${escapeAttr(href)}">#${escapeHtml(tag)}</a>` : noteTagChipHtml(tag);
+  });
   installCiteStubRule(md, plan, renderer);
   return md;
 }
@@ -230,12 +242,6 @@ function relativeHref(fromDir: string | null, targetHtml: string): string {
  * Implemented as a cheap post-processing pass rather than a new rule so
  * we don't duplicate the Preview's tag grammar.
  */
-function installTagRule(_md: MarkdownItInstance): void {
-  // The existing Preview wraps `#tag` in a .note-tag span. For exports
-  // we let markdown-it emit the raw `#tag` text — readers see it as
-  // unstyled prose, which is the correct rendering outside the app.
-  // No-op by design; keeping the hook so future per-rule work has a home.
-}
 
 /**
  * Cite / quote rule — resolves `[[cite::id]]` and `[[quote::id]]`

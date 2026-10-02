@@ -12,14 +12,11 @@
  */
 import { mount, tick, unmount } from 'svelte';
 import ArgumentMap from '../components/ArgumentMap.svelte';
-import { api } from '../ipc/client';
-import { getNotebaseStore } from '../stores/notebase.svelte';
-import { flattenNotePaths } from '../app/text-helpers';
-import { buildWikiLinkIndex, resolveWikiLinkTargetWithIndex } from '../../../shared/wiki-link-resolver';
 import { splitQueryDirective } from '../preview/query-directive';
 import { QUERY_PREFIXES } from '../preview/query-prefixes';
 import { mermaidErrorHtml, renderMermaidSvgForExport } from '../markdown/mermaid-renderer';
 import { snapshotLiveBlock } from './live-block-snapshot';
+import { previewWikiResolver } from './wiki-resolver';
 import { EXPORT_BLOCK_WIDTH_PX } from './render-object-view';
 import { EXPORT_DIAGRAM_FONT } from './render-mermaid';
 
@@ -39,11 +36,7 @@ export async function renderArgumentMapForExport(source: string): Promise<string
   if (!directive) throw new Error('not an argument block');
 
   // The preview's resolver, over the same inputs App hands the preview.
-  const aliases = await api.graph.aliasEntries();
-  const index = buildWikiLinkIndex(
-    flattenNotePaths(getNotebaseStore().files).map((relativePath) => ({ relativePath, isDirectory: false })),
-    Object.fromEntries(aliases.map((a) => [a.alias.toLowerCase(), a.relativePath])),
-  );
+  const resolvePath = await previewWikiResolver();
 
   const host = document.createElement('div');
   host.setAttribute('aria-hidden', 'true');
@@ -72,7 +65,7 @@ export async function renderArgumentMapForExport(source: string): Promise<string
         props: {
           focusRef: directive.focusRef,
           queryPrefixes: QUERY_PREFIXES,
-          resolvePath: (t: string) => resolveWikiLinkTargetWithIndex(t, index),
+          resolvePath,
           onNavigate: () => {},
           ...(depth && Number.isFinite(depth) ? { initialDepth: depth } : {}),
           ...(view ? { initialView: view } : {}),

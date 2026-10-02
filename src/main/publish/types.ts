@@ -129,6 +129,12 @@ export interface ExportPlan {
    * absent → resolution falls back to the exported notes and their aliases.
    */
   linkTargets?: { paths: string[]; aliases: Record<string, string> } | undefined;
+  /**
+   * Where a `#tag` in a note body links (#2526) — set by the static site,
+   * whose tag pages exist; absent → the tag renders as a static chip.
+   * `fromPath` is the note being rendered, for a relative href.
+   */
+  tagPageHref?: ((tag: string, fromPath: string) => string) | undefined;
 }
 
 /**

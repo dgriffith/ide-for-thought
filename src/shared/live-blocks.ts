@@ -5,7 +5,7 @@
  */
 
 /** Block kinds the export asks a window to render. Grows per #2508 child. */
-export type LiveBlockKind = 'object-view' | 'query' | 'mermaid' | 'argument' | 'output';
+export type LiveBlockKind = 'object-view' | 'query' | 'mermaid' | 'argument' | 'output' | 'card';
 
 export interface LiveBlockRequest {
   /** Unique within one request batch. */

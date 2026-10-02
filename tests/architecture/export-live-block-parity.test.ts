@@ -21,7 +21,7 @@
 import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
-import { LIVE_DIRECTIVES, LIVE_FENCES } from '../../src/main/publish/live-blocks';
+import { LIVE_DIRECTIVES, LIVE_FENCES, extractLiveBlocks } from '../../src/main/publish/live-blocks';
 import { hasVegaBlocks } from '../../src/main/publish/vega-render';
 import { renderYouTubeBlocks } from '../../src/main/publish/youtube-render';
 
@@ -90,7 +90,7 @@ const PARITY: Record<string, Answer> = {
   'plugin:installAnchors': { handler: 'same shared plugin; [[note#Heading]] hrefs use its slugs (#2515)', holds: exportInstalls('installAnchors') },
   'plugin:installWikiLinks': { handler: 'the export wiki-link rule, resolved like the app (#2518)', holds: () => /installWikiLinkRule\(md\b/.test(EXPORT_RENDER) },
   'plugin:installTransclusions': { handler: 'resolveTransclusions (#906)', holds: () => EXPORT_RENDER.includes('resolveTransclusions(') },
-  'plugin:installNoteTags': { gap: 2526, reason: '#tag chips export as plain text; the static site\'s tag pages aren\'t linked' },
+  'plugin:installNoteTags': { handler: 'the shared tag rule: a chip, or a link to the static site\'s tag page (#2526)', holds: exportInstalls('installNoteTags') },
   'plugin:installFences': { decision: 'the fence table itself — each fence kind is classified above' },
   // Post-render hydration passes
   'hydrate:hydrateMermaidBlocks': { handler: 'live block (#2513)', holds: liveFence('mermaid') },
@@ -103,7 +103,7 @@ const PARITY: Record<string, Answer> = {
   'hydrate:hydrateRemoteImages': { decision: 'a remote image keeps its URL; the exported page loads it as the preview does' },
   'hydrate:hydrateLocalMedia': { decision: 'local audio/video become links (#908) — a single-file export doesn\'t inline media' },
   'hydrate:hydrateCardCallouts': { decision: 'a flashcard exports with its answer shown — a page (or PDF) can\'t reveal one' },
-  'hydrate:hydrateTypedCards': { gap: 2526, reason: 'typed-note and quote link cards export as plain links' },
+  'hydrate:hydrateTypedCards': { handler: 'live block, the preview\'s hydrateTypedCards (#2526)', holds: () => extractLiveBlocks('A\n\n[[Some Note]]\n', 'n.md').blocks[0]?.kind === 'card' && EXPORT_DISPATCH.includes("case 'card':") },
 };
 
 describe('export parity with the preview\'s live rendering (#2515)', () => {
