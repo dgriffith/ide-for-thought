@@ -17,6 +17,7 @@
   import { api } from '../ipc/client';
   import TypeIcon from './TypeIcon.svelte';
   import TypeViewMap from './TypeViewMap.svelte';
+  import TypeViewFilters from './TypeViewFilters.svelte';
   import type { MapExportHooks } from '../map/map-export';
   import { applyViewSpec, type ViewFilter } from '../../../shared/objects/view-spec';
   import { objectTypesStore } from '../stores/object-types.svelte';
@@ -141,6 +142,10 @@
   function cellFor(inst: TypeInstanceRow, col: string): string | null {
     return col === '__title' ? inst.title : inst.values[col] ?? null;
   }
+
+  /** The folder's instances before filtering — what the filter controls offer
+   *  values from (#2533), so ticking one value doesn't hide the others. */
+  const inFolderOnly = $derived<TypeInstanceRow[]>(applyViewSpec(instances, { folder }));
 
   /** What this view shows (#2531): the type's instances in `folder`, through
    *  `filters` — the one rule the panel, embeds and exports share. */
@@ -287,6 +292,7 @@
           <button type="button" class="tv-chip-x" aria-label="Show {type?.label ?? typeId} from the whole thoughtbase" onclick={onClearFolder}>✕</button>
         </span>
       {/if}
+      <TypeViewFilters properties={allColumns} instances={inFolderOnly} {filters} {display} onChange={(next) => onStateChange({ filters: next })} />
 
       <div class="tv-actions">
         {#if layout === 'table' && allColumns.length > 0}
