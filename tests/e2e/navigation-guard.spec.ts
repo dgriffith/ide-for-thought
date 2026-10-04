@@ -54,7 +54,9 @@ async function expectStillOnRenderer(win: Page, startUrl: string): Promise<void>
   await win.waitForTimeout(1000);
   expect(win.url()).toBe(startUrl);
   expect(await win.title()).not.toBe('PWNED');
-  await expect(win.locator('.status-bar')).toBeVisible();
+  // Still the app: the file tree that was there at startup is still there.
+  // (Not `.status-bar` — it sits in the editor pane and isn't always rendered.)
+  await expect(win.locator('[data-relative-path]').first()).toBeVisible();
 }
 
 test('a file dropped where nothing accepts it does not navigate the window (#2554, M6)', async () => {
