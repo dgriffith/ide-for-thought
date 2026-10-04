@@ -562,7 +562,7 @@ can't quietly grow while nobody re-reads it:
   truncated file for the loader to read as corrupt), not a raw `writeFile` of
   `JSON.stringify(...)`. `{ indent: 0 }` / `{ trailingNewline: true }` keep an
   existing file's layout. `tests/architecture/pattern-ratchets.test.ts` counts
-  the raw writes that remain (#2369) — three files, none a user store. When you
+  the raw writes that remain (#2369) — two files, none a user store. When you
   touch a read-modify-write store, check its reader too: a lenient
   corrupt→defaults read feeding a write is the #1891 / #2356 clobber.
 - **Read-modify-write reads strictly, and async ones take the file lock

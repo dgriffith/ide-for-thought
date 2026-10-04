@@ -55,3 +55,22 @@ export function decodePairingCode(code: string): PairingPayload | null {
     return null;
   }
 }
+
+// ── Proving the server before sending the secret (#2567) ─────────────────────
+
+/** Header carrying the extension's nonce on a secret-less `/ping`. */
+export const CLIPPER_CHALLENGE_HEADER = 'x-minerva-clipper-challenge';
+
+/** A challenge nonce: 32–128 hex chars. */
+export const CLIPPER_NONCE_RE = /^[0-9a-f]{32,128}$/i;
+
+/**
+ * What the server MACs, with the pairing secret as the key, to prove it holds
+ * the secret: the nonce AND the port it is actually listening on. Binding the
+ * port defeats a relay — a process squatting the paired port can forward the
+ * challenge to the real Minerva (which then listens elsewhere), but the proof
+ * it gets back names the real port, not the paired one the extension expects.
+ */
+export function clipperProofMessage(nonce: string, port: number): string {
+  return `minerva-clipper-proof:v1:${nonce.toLowerCase()}:${port}`;
+}

@@ -15,7 +15,7 @@
 import { startClipperServer, type ClipperServerHandle } from './clipper-server';
 import { clipperIngest } from './clipper-ingest';
 import { previewSourceFromHtml } from '../sources/ingest';
-import { getClipperConfig, ensureClipperSecret } from './clipper-config';
+import { getClipperConfig, ensureClipperSecret, getPairedClipperOrigin, pinClipperOrigin } from './clipper-config';
 
 /** Preferred loopback port; falls back to an ephemeral one if taken. */
 const PREFERRED_PORT = 41599;
@@ -49,6 +49,7 @@ export async function ensureClipperRunning(
         resolveRootPath,
         ingest: clipperIngest,
         preview: ({ html, url }) => previewSourceFromHtml(html, url),
+        pairedOrigin: { get: getPairedClipperOrigin, pin: pinClipperOrigin },
         port: PREFERRED_PORT,
       }))
       .then((h) => {
