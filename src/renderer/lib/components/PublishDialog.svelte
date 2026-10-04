@@ -197,6 +197,24 @@
     }
   }
 
+  /**
+   * Answer the "send your credentials to this remote?" prompt (#2556): the
+   * target's remote came from the thoughtbase, not from this machine. Re-runs
+   * the same attempt (preview or publish) with the exact URL the user saw;
+   * main refuses the approval if the config changed again in between.
+   */
+  async function approveRemoteAndRun(target: PublishTarget, url: string, dryRun: boolean): Promise<void> {
+    busyId = target.id;
+    busyDryRun = dryRun;
+    outcome = null;
+    try {
+      const res = await publish.toGit(target.id, { dryRun, approveRemote: url });
+      outcome = { targetId: target.id, dryRun, res };
+    } finally {
+      busyId = null;
+    }
+  }
+
   function counts(res: PublishGitResponse): string {
     if (!res.ok) return '';
     const c = res.result.changes;
@@ -257,6 +275,25 @@
                   <div class="outcome-head">Publish failed</div>
                   <pre class="raw">{res.error}</pre>
                   <button class="ghost small" onclick={() => copyError(res.error)}>Copy error</button>
+                {:else if res.result.remoteUnapproved}
+                  {@const remote = res.result.remoteUnapproved}
+                  <div class="outcome-head">Confirm where your credentials go</div>
+                  <div class="muted">
+                    {#if remote.previous}
+                      This target's remote has changed from <code>{remote.previous}</code> to
+                      <code>{remote.url}</code> since you last published from this machine.
+                    {:else}
+                      This target's remote, <code>{remote.url}</code>, came with the thoughtbase's
+                      settings rather than being entered on this machine.
+                    {/if}
+                    Publishing sends your Git credentials to <strong>{remote.host}</strong>. Nothing has
+                    been sent yet.
+                  </div>
+                  <div class="repo-create">
+                    <button onclick={() => void approveRemoteAndRun(t, remote.url, outcome?.dryRun ?? false)} disabled={busyId === t.id}>
+                      {outcome.dryRun ? 'Preview' : 'Publish'} to {remote.host}
+                    </button>
+                  </div>
                 {:else if res.result.repoMissing}
                   <div class="outcome-head">Repository not found</div>
                   <div class="muted">

@@ -24,6 +24,7 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import type { ConnectionCheckResult } from '../../shared/tools/types';
+import { ambientTokenAllowed, parsePublishRemote } from './remote-policy';
 
 const AUTHOR = { name: 'Minerva', email: 'user@minerva.local' };
 
@@ -34,29 +35,25 @@ export interface PublishChange {
 
 // ── Pure helpers (unit-tested directly) ─────────────────────────────────────
 
-/**
- * Rewrite an SSH remote URL to its HTTPS equivalent. isomorphic-git can't do
- * SSH, so `git@github.com:owner/repo.git` and `ssh://git@host/owner/repo`
- * become `https://…`. HTTP(S) URLs pass through untouched.
- */
-export function normalizeRemoteToHttps(url: string): string {
-  const trimmed = url.trim();
-  const scp = trimmed.match(/^git@([^:]+):(.+)$/); // scp-like: git@host:owner/repo.git
-  if (scp) return `https://${scp[1]}/${scp[2]}`;
-  const ssh = trimmed.match(/^ssh:\/\/(?:git@)?([^/]+)\/(.+)$/);
-  if (ssh) return `https://${ssh[1]}/${ssh[2]}`;
-  return trimmed;
-}
+export { normalizeRemoteToHttps } from './remote-policy';
 
 /**
- * Resolve an HTTPS token. Precedence (#1508): a `preferred` token (the target's
- * safeStorage-encrypted token, so the `gh` CLI need not be installed) → the
- * GitHub CLI (`gh auth token`) → a `GH_TOKEN`/`GITHUB_TOKEN` env var. Throws a
- * user-facing message when nothing works — the "GitHub isn't configured" surface.
+ * Resolve the HTTPS token to send to `remote`. Precedence (#1508): a
+ * `preferred` token (the target's safeStorage-encrypted token, so the `gh` CLI
+ * need not be installed) → the GitHub CLI (`gh auth token`) → a
+ * `GH_TOKEN`/`GITHUB_TOKEN` env var. The last two are the user's GitHub
+ * identity and are offered to github.com ONLY (#2556) — see `remote-policy.ts`.
+ * Throws a user-facing message when nothing applies.
  */
-export function resolveGitHubToken(preferred?: string): string {
+export function resolveGitHubToken(preferred: string | undefined, remote: URL): string {
   const stored = preferred?.trim();
   if (stored) return stored;
+  if (!ambientTokenAllowed(remote)) {
+    throw new Error(
+      `No token is stored for this target. Your GitHub CLI and GH_TOKEN credentials are only ever sent to ` +
+        `github.com, not ${remote.host} — add a token for ${remote.host} in the publish target.`,
+    );
+  }
   const cli = ghCliToken();
   if (cli) return cli;
   const env = (process.env.GH_TOKEN || process.env.GITHUB_TOKEN || '').trim();
@@ -137,7 +134,8 @@ export async function prepareWorkspace(opts: {
   branch: string;
   token: string;
 }): Promise<{ branchExisted: boolean }> {
-  const url = normalizeRemoteToHttps(opts.url);
+  // Refuses http:// and non-URLs here too, not only in the orchestration (#2556).
+  const url = parsePublishRemote(opts.url).href;
   await fsp.rm(opts.dir, { recursive: true, force: true });
   await fsp.mkdir(opts.dir, { recursive: true });
 

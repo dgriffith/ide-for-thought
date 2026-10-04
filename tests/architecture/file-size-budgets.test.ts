@@ -82,7 +82,7 @@ const BUDGETS: Record<string, number> = {
   // predicted this: the IPC-surface files are budgeted and grow one line per
   // channel by construction, so a bump here is the expected remedy, not a
   // smell.
-  'src/renderer/lib/ipc/client.ts': 1386,  // #2448: tables.queryNote; #2439: mcp_call confirm reply/subscription + resetAllowedTools; #2411: menu.onRevealFile; #2363/#2364: doc comments on graph.query + git.commit contracts; +5: setTitle + onTitleChanged (conversation titles); +5: live-block export render request/reply (#2510)
+  'src/renderer/lib/ipc/client.ts': 1392,  // +6: publish remoteUnapproved + approveRemote (#2556); #2448: tables.queryNote; #2439: mcp_call confirm reply/subscription + resetAllowedTools; #2411: menu.onRevealFile; #2363/#2364: doc comments on graph.query + git.commit contracts; +5: setTitle + onTitleChanged (conversation titles); +5: live-block export render request/reply (#2510)
   'src/renderer/lib/stores/conversations.svelte.ts': 1277, // +4: carry a skill's user-turn material through open + /clear (#2438); +39: mcp_call confirmation card state, beside ask_user's (#2439); +26: turn start/settle screen-reader announcements (#2374); +28: conversation titles — rename, the titleChanged subscription, keepKnownTitle for the post-send reload race; +2: typing during a reply (#1744) — /clear refuses mid-turn, a restored message keeps the draft; +11: turnStartedAt for the turn-status clock (set at the three turn starts, cleared at the three settles); +2: approve comments name the broadcast that really happens (#2541)
   'src/renderer/lib/components/Editor.svelte': 854,
   'src/renderer/lib/stores/editor.svelte.ts': 959, // +5: type-view tabs keyed by type + folder (#2531); +23: rescopeTypeView — widen a folder-scoped view, merging into an open one (#2532); +17: folder renames move scoped view tabs, beside applyRenameTransitions (#2535)
@@ -114,7 +114,7 @@ const BUDGETS: Record<string, number> = {
   // +17 (#2491): the property card's "Also fills {{name}} in the note's body" line, its helper and style.
   'src/renderer/lib/components/conversations/DraftCards.svelte': 775,
   // +1 for #2256: the MENU_COMMAND_PALETTE channel / its MENU_COMMANDS entry.
-  'src/shared/ipc-contract.ts': 794, // #2448: tables:queryNote; #2439: mcp_call confirm reply/event + resetAllowedTools; #2363/#2364: GraphQueryResult + git:commit doc comments; #2288: two inline Inspection shapes → Inspection[]; #2222: sources:queueCounts; +2: conversation:setTitle + conversation:titleChanged; +3: live-block export render request/reply (#2510)
+  'src/shared/ipc-contract.ts': 795, // +1: publish remoteUnapproved (#2556); #2448: tables:queryNote; #2439: mcp_call confirm reply/event + resetAllowedTools; #2363/#2364: GraphQueryResult + git:commit doc comments; #2288: two inline Inspection shapes → Inspection[]; #2222: sources:queueCounts; +2: conversation:setTitle + conversation:titleChanged; +3: live-block export render request/reply (#2510)
   // +1 for #2256: the MENU_COMMAND_PALETTE channel / its MENU_COMMANDS entry.
   'src/shared/channels.ts': 762,  // #2448: TABLES_QUERY_NOTE; #2439: CONVERSATION_MCP_CONFIRM(_REPLY) + MCP_SERVERS_RESET_ALLOWED_TOOLS; #2411: MENU_REVEAL_FILE + why it isn't shell:revealFile; #2367: MENU_OPEN_RECENT_PROJECT (was a bare literal in preload + menu); #2222: SOURCES_QUEUE_COUNTS + its why-comment; +4: CONVERSATION_SET_TITLE + CONVERSATION_TITLE_CHANGED; +4: live-block export render request/reply (#2510)
   // +5 (#2494): both typed-note creation paths read the type's effective (inherited) template.
@@ -151,7 +151,7 @@ const BUDGETS: Record<string, number> = {
   // half the growth is comment: the head-of-queue rule and the `proc.killed`
   // trap are both things the next reader will otherwise rediscover the
   // expensive way.
-  'src/main/compute/python-kernel.ts': 631,
+  'src/main/compute/python-kernel.ts': 622,
 };
 
 /** Source files this applies to: authored `.ts` / `.svelte` under `src/`. */
