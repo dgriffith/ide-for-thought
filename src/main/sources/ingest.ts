@@ -354,6 +354,11 @@ export function extractReadableFromDoc(document: Document, _url: string, titleFa
 
 // ── Markdown body ───────────────────────────────────────────────────────
 
+/** Backslash-escape `<` so markdown renders it as text, never as an HTML tag. */
+function escapeAngleBrackets(text: string): string {
+  return text.replace(/</g, '\\<');
+}
+
 export function buildBodyMarkdown(article: ExtractedArticle): string {
   const turndown = new TurndownService({
     headingStyle: 'atx',
@@ -361,9 +366,17 @@ export function buildBodyMarkdown(article: ExtractedArticle): string {
     codeBlockStyle: 'fenced',
     emDelimiter: '*',
   });
+  // A page's VISIBLE `<…>` text (an article about HTML, or a planted
+  // `<img src=x onerror=…>`) arrives as a text node, and Turndown's default
+  // escaping leaves `<` alone — so it landed in body.md as live HTML for every
+  // later renderer (#2558). Backslash-escape it: CommonMark renders `\<` as a
+  // literal `<`, so visible text stays visible text. Text nodes only — code
+  // spans and blocks aren't passed through `escape`.
+  const escapeMarkdown = turndown.escape.bind(turndown);
+  turndown.escape = (text: string) => escapeAngleBrackets(escapeMarkdown(text));
   // Keep links and images — they're frequently load-bearing for web articles.
   const body = turndown.turndown(article.contentHtml || article.textContent);
-  const header = `# ${article.title}\n\n`;
+  const header = `# ${escapeAngleBrackets(article.title)}\n\n`;
   return header + body.trim() + '\n';
 }
 
