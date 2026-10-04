@@ -9,11 +9,12 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const state = vi.hoisted(() => ({ available: true }));
+const state = vi.hoisted(() => ({ available: true, backend: 'gnome_libsecret', warn: [] as unknown[][], throws: false }));
 
 vi.mock('electron', () => ({
   safeStorage: {
-    isEncryptionAvailable: () => state.available,
+    isEncryptionAvailable: () => { if (state.throws) throw new Error('not ready'); return state.available; },
+    getSelectedStorageBackend: () => state.backend,
     encryptString: (s: string) => Buffer.from('FAKEENC:' + s, 'utf-8'),
     decryptString: (buf: Buffer) => {
       const s = buf.toString('utf-8');
@@ -23,10 +24,25 @@ vi.mock('electron', () => ({
   },
 }));
 
-import { encryptSecret, decryptSecret, isEncrypted } from '../../src/main/secret-storage';
+vi.mock('../../src/shared/logger', () => ({
+  logger: () => ({ warn: (...a: unknown[]) => { state.warn.push(a); }, info: () => {}, error: () => {}, debug: () => {} }),
+}));
+
+import {
+  encryptSecret, decryptSecret, isEncrypted, secretStorageStatus, secretEncryptionAvailable,
+  _resetPlaintextWarningForTests,
+} from '../../src/main/secret-storage';
+
+const realPlatform = process.platform;
+const setPlatform = (p: string) => Object.defineProperty(process, 'platform', { value: p });
 
 beforeEach(() => {
   state.available = true;
+  state.backend = 'gnome_libsecret';
+  state.warn = [];
+  state.throws = false;
+  setPlatform(realPlatform);
+  _resetPlaintextWarningForTests();
 });
 
 describe('secret-storage (#1326)', () => {
@@ -69,5 +85,50 @@ describe('secret-storage (#1326)', () => {
   it('the encrypted prefix does not collide with real secret shapes', () => {
     expect('sk-ant-api03-xyz'.startsWith('enc:v1:')).toBe(false);
     expect('a'.repeat(64).startsWith('enc:v1:')).toBe(false);
+  });
+});
+
+describe('no OS key store is explicit, not silent (#2569)', () => {
+  it('safeStorage off: plain text, reported as no-keystore, warned once per process', () => {
+    state.available = false;
+    expect(secretStorageStatus()).toEqual({ encrypted: false, reason: 'no-keystore' });
+    expect(secretEncryptionAvailable()).toBe(false);
+    expect(encryptSecret('sk-ant-1')).toBe('sk-ant-1');
+    expect(encryptSecret('sk-ant-2')).toBe('sk-ant-2');
+    expect(state.warn).toHaveLength(1);
+    expect(String(state.warn[0]![0])).toMatch(/plain text/);
+  });
+
+  it('Linux basic_text counts as unencrypted: no enc: tag that would claim otherwise', () => {
+    setPlatform('linux');
+    state.backend = 'basic_text';
+    expect(secretStorageStatus()).toEqual({ encrypted: false, reason: 'linux-basic-text' });
+    const stored = encryptSecret('refresh-token');
+    expect(stored).toBe('refresh-token');
+    expect(isEncrypted(stored)).toBe(false);
+    expect(String(state.warn[0]![0])).toMatch(/basic_text/);
+  });
+
+  it('a value encrypted earlier under basic_text still reads back', () => {
+    const earlier = encryptSecret('k'); // libsecret-era
+    setPlatform('linux');
+    state.backend = 'basic_text';
+    expect(decryptSecret(earlier)).toBe('k');
+  });
+
+  it('a real keyring on Linux, or any other platform, is encrypted and silent', () => {
+    setPlatform('linux');
+    state.backend = 'kwallet6';
+    expect(secretStorageStatus()).toEqual({ encrypted: true, reason: 'os-keystore' });
+    setPlatform('darwin');
+    state.backend = 'basic_text'; // ignored off Linux
+    expect(isEncrypted(encryptSecret('k'))).toBe(true);
+    expect(state.warn).toHaveLength(0);
+  });
+
+  it('an availability probe that throws (app not ready) reads as no-keystore', () => {
+    state.throws = true;
+    expect(secretStorageStatus()).toEqual({ encrypted: false, reason: 'no-keystore' });
+    expect(encryptSecret('k')).toBe('k');
   });
 });

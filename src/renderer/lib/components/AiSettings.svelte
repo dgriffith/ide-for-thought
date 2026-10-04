@@ -39,6 +39,8 @@
     /** Whether OS secure storage is available (machine-wide) — drives the
      *  "encrypted at rest" claim honestly. */
     secureStorageAvailable: boolean;
+    /** Why storage is or isn't encrypted (#2569) — picks the note's wording. */
+    secureStorageReason?: import('../../../shared/secret-storage-status').SecretStorageStatus['reason'];
     /** User-defined local models. */
     customModels: CustomModel[];
     onCheckConnection: (providerId: ProviderId, candidateKey: string, baseURL: string) => Promise<ConnectionCheckResult>;
@@ -51,6 +53,7 @@
     providerInputs = $bindable(),
     providerViews,
     secureStorageAvailable,
+    secureStorageReason = 'no-keystore',
     customModels = $bindable(),
     onCheckConnection,
   }: Props = $props();
@@ -289,9 +292,13 @@
     {#if secureStorageAvailable}
       Keys are encrypted at rest with your operating system's secure storage
       (Keychain on macOS, Credential Manager on Windows, libsecret on Linux).
+    {:else if secureStorageReason === 'linux-basic-text'}
+      No Secret Service (such as GNOME Keyring or KWallet) is running, so keys
+      are saved as plain text in a file only your user account can read. Start
+      or unlock one and re-save your keys to encrypt them.
     {:else}
       No system secure store is available here, so keys are saved as plain text
-      in your user data directory.
+      in a file only your user account can read.
     {/if}
     Saved keys are never displayed back.
   </p>

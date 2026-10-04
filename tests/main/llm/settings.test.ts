@@ -172,20 +172,20 @@ describe('llm settings — API key at-rest encryption (#1326)', () => {
 
   describe('getApiKeyStorage — settings-panel indicator (#1326)', () => {
     it('reports available + not-encrypted when no key is stored', async () => {
-      expect(await getApiKeyStorage()).toEqual({ available: true, encrypted: false });
+      expect(await getApiKeyStorage()).toEqual({ available: true, encrypted: false, reason: 'os-keystore' });
     });
 
     it('reports encrypted after a key is saved', async () => {
       await saveSettings({ ...base, apiKey: 'sk-ant-secret' });
-      expect(await getApiKeyStorage()).toEqual({ available: true, encrypted: true });
+      expect(await getApiKeyStorage()).toEqual({ available: true, encrypted: true, reason: 'os-keystore' });
     });
 
     it('reports NOT-encrypted for a legacy plaintext key until it is re-saved', async () => {
       fs.writeFileSync(settingsFile(), JSON.stringify({ apiKey: 'sk-ant-legacy', model: 'claude-sonnet-5' }));
-      expect(await getApiKeyStorage()).toEqual({ available: true, encrypted: false });
+      expect(await getApiKeyStorage()).toEqual({ available: true, encrypted: false, reason: 'os-keystore' });
       // Re-saving migrates it to encrypted, which the indicator then reflects.
       await saveSettings(await getSettings());
-      expect(await getApiKeyStorage()).toEqual({ available: true, encrypted: true });
+      expect(await getApiKeyStorage()).toEqual({ available: true, encrypted: true, reason: 'os-keystore' });
     });
   });
 
@@ -234,8 +234,8 @@ describe('llm settings — API key at-rest encryption (#1326)', () => {
 
     it('getApiKeyStorage targets the requested provider', async () => {
       await saveSettings({ model: base.model, providers: { openai: { apiKey: 'sk-openai' } } });
-      expect(await getApiKeyStorage('openai')).toEqual({ available: true, encrypted: true });
-      expect(await getApiKeyStorage('anthropic')).toEqual({ available: true, encrypted: false });
+      expect(await getApiKeyStorage('openai')).toEqual({ available: true, encrypted: true, reason: 'os-keystore' });
+      expect(await getApiKeyStorage('anthropic')).toEqual({ available: true, encrypted: false, reason: 'os-keystore' });
     });
   });
 
