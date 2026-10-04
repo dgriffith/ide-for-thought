@@ -23,4 +23,20 @@ export default defineConfig({
     // mermaid path keeps working too.
     dedupe: ['d3-path'],
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // Tesseract fetches `<langPath>/<lang>.traineddata` — it builds the
+        // file name from the language code — so the OCR language data must
+        // keep its plain name. With Vite's default `[name]-[hash]` it emitted
+        // `eng-<hash>.traineddata`, a file tesseract can never ask for, and
+        // OCR could not load its language in a packaged build (#2564). It
+        // changes only with a deliberate data swap, so no hash is needed.
+        assetFileNames: (info) =>
+          info.names.some((n) => n.endsWith('.traineddata'))
+            ? 'assets/[name][extname]'
+            : 'assets/[name]-[hash][extname]',
+      },
+    },
+  },
 });

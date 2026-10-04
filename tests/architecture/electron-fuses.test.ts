@@ -37,7 +37,7 @@ const EXPECTED: Record<string, boolean> = {
   EnableEmbeddedAsarIntegrityValidation: true,
   OnlyLoadAppFromAsar: true,
   LoadBrowserProcessSpecificV8Snapshot: false,
-  GrantFileProtocolExtraPrivileges: true, // renderer is file:// — see policy
+  GrantFileProtocolExtraPrivileges: false, // renderer is app:// (#2564) — see policy
   WasmTrapHandlers: true,
 };
 
