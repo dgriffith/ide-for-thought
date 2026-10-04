@@ -663,7 +663,7 @@
     // Preview.svelte isn't remounted per note the way Editor.svelte is, but
     // every call site passes a fixed set of these callbacks for this
     // instance's whole lifetime (stable named functions in App.svelte, or
-    // inline closures whose captured variables — `groupId`, `showComputeConsent`
+    // inline closures whose captured variables — `groupId`, say
     // — don't change per note either) — so capturing them once here is safe
     // in practice, same reasoning Editor.svelte's `plainTextOnce` documents.
     // `untrack` expresses that intent and silences `state_referenced_locally`.

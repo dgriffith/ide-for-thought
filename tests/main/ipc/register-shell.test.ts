@@ -39,6 +39,8 @@ const {
   writeFileCalls: [] as { path: string; content: string }[],
 }));
 
+const dialogState = vi.hoisted(() => ({ answer: 0, calls: 0, show: (..._a: unknown[]) => Promise.resolve({ response: 0, checkboxChecked: false }) }));
+dialogState.show = () => { dialogState.calls++; return Promise.resolve({ response: dialogState.answer, checkboxChecked: false }); };
 vi.mock('electron', () => ({
   ipcMain: { handle: (channel: string, fn: Handler) => { handlers.set(channel, fn); } },
   app: { showEmojiPanel: () => { emojiPanelCalls.n += 1; } },
@@ -47,7 +49,10 @@ vi.mock('electron', () => ({
     openPath: (p: string) => { shellCalls.openPath.push(p); return Promise.resolve(''); },
     openExternal: (u: string) => { shellCalls.openExternal.push(u); return Promise.resolve(); },
   },
-  dialog: { showSaveDialog: () => Promise.resolve(saveDialog.result) },
+  dialog: {
+    showSaveDialog: () => Promise.resolve(saveDialog.result),
+    showMessageBox: (...a: unknown[]) => dialogState.show(...a),
+  },
 }));
 
 vi.mock('node:child_process', () => ({
@@ -275,5 +280,27 @@ describe('SHELL_SHOW_EMOJI_PANEL', () => {
       withPlatform(p, () => { expect(() => h({})).not.toThrow(); });
     }
     expect(emojiPanelCalls.n).toBe(0);
+  });
+});
+
+describe('SHELL_OPEN_IN_DEFAULT — opening something that would RUN asks main first (#2568)', () => {
+  it('a script / app / installer type needs the native confirm; declined, nothing opens', async () => {
+    const h = handlers.get(Channels.SHELL_OPEN_IN_DEFAULT)!;
+    const before = shellCalls.openPath.length;
+    dialogState.calls = 0;
+    dialogState.answer = 1;
+    await h({}, 'evil.command');
+    expect(dialogState.calls).toBe(1);
+    expect(shellCalls.openPath.length).toBe(before);
+    dialogState.answer = 0;
+    await h({}, 'tools/Installer.pkg');
+    expect(shellCalls.openPath.at(-1)).toBe(path.resolve(ROOT, 'tools/Installer.pkg'));
+  });
+
+  it('a document opens with no prompt', async () => {
+    const h = handlers.get(Channels.SHELL_OPEN_IN_DEFAULT)!;
+    dialogState.calls = 0;
+    await h({}, 'paper.pdf');
+    expect(dialogState.calls).toBe(0);
   });
 });

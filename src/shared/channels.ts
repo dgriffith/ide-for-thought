@@ -229,6 +229,9 @@ export const Channels = {
   MENU_SET_THEME: 'menu:setTheme',
   // Renderer → main: report the current theme so the menu's radio reflects it.
   MENU_REPORT_THEME: 'menu:reportTheme',
+  // Preload → main, synchronous, once per page load: the renderer's
+  // localStorage from the old file:// origin, for the app:// move (#2564).
+  STORAGE_LEGACY_ORIGIN_ENTRIES: 'storage:legacyOriginEntries',
   // Renderer → main: report editor gating state (is a note active, is there a
   // selection) so the native menu can gray out note/selection-only items.
   MENU_REPORT_EDITOR_STATE: 'menu:reportEditorState',
@@ -697,7 +700,9 @@ export const Channels = {
   COMPUTE_CONSENT_STATUS: 'compute:consentStatus',
   /** Grant consent for this cell (`scope: 'cell'`) or the whole thoughtbase
    *  (`scope: 'project'`). Stored per-machine, never in the thoughtbase. */
-  COMPUTE_GRANT_CONSENT: 'compute:grantConsent',
+  // Main asks with its own native dialog and records the answer (#2568);
+  // replaces the renderer-callable compute:grantConsent.
+  COMPUTE_REQUEST_CONSENT: 'compute:requestConsent',
   /** List every thoughtbase this machine has granted compute trust to, for the
    *  Settings → Compute management list (#1413). */
   COMPUTE_LIST_CONSENT: 'compute:listConsent',

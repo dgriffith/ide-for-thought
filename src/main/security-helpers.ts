@@ -3,6 +3,8 @@
  * exercise them without pulling in `electron`'s `session`/`shell`/`app`.
  */
 
+import { APP_ORIGIN } from './app-protocol-paths';
+
 export interface CspOptions {
   /** When set, dev-mode loosenings (Vite origin + ws) are added. */
   devServerOrigin?: string | undefined;
@@ -113,7 +115,9 @@ function isDevServerOrigin(url: string, devServerOrigin: string | undefined): bo
  *  requesting origin for any file:// page is just `file:///`. It is NOT a
  *  navigation allowlist — see `isRendererEntry` (#2552). */
 export function isOwnOrigin(url: string, devServerOrigin?: string): boolean {
-  if (url.startsWith('file://')) return true;
+  // `app://minerva` (#2564) — no longer any `file://`, which granted the mic
+  // and clipboard to every local HTML file a window could open.
+  if (url === APP_ORIGIN || url.startsWith(`${APP_ORIGIN}/`)) return true;
   return isDevServerOrigin(url, devServerOrigin);
 }
 
@@ -132,7 +136,10 @@ export function isRendererEntry(url: string, entryUrl: string, devServerOrigin?:
   if (isDevServerOrigin(url, devServerOrigin)) return true;
   const u = parseUrl(url);
   const entry = parseUrl(entryUrl);
-  if (!u || !entry || u.protocol !== 'file:' || entry.protocol !== 'file:') return false;
+  // Same scheme, host and path as the entry (`app://minerva/index.html` since
+  // #2564; a `file://` entry compared the same way). Never across schemes.
+  if (!u || !entry || u.protocol !== entry.protocol) return false;
+  if (u.protocol === 'http:' || u.protocol === 'https:') return false; // the dev server is matched above
   return u.host === entry.host && u.pathname === entry.pathname;
 }
 

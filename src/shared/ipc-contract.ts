@@ -420,7 +420,7 @@ export interface ChannelMap {
   'compute:probePython': (candidate?: string) => PythonProbeResult;
   'compute:browsePython': () => string | null;
   'compute:consentStatus': (language: string, code: string) => 'cell' | 'blanket' | 'none';
-  'compute:grantConsent': (language: string, code: string, scope: 'cell' | 'project') => void;
+  'compute:requestConsent': (language: string, code: string, forceReview?: boolean) => 'cell' | 'project' | 'cancel';
   'compute:listConsent': () => ComputeConsentSummary[];
   'compute:revokeConsent': (rootPath: string) => void;
   'compute:revealAuditLog': () => void;

@@ -28,15 +28,14 @@
  * @type {ReadonlyArray<Readonly<{ name: string; index: number; enabled: boolean }>>}
  */
 export const FUSE_POLICY = Object.freeze([
-  // ON, deliberately. The `minerva` CLI shim written by "Install 'minerva'
-  // Command in PATH" (src/main/cli-install.ts) is
-  //   exec env ELECTRON_RUN_AS_NODE=1 <Minerva binary> <app.asar>/.vite/build/cli.js
-  // — it IS the headless CLI and the `minerva mcp` server (#1437), and no
-  // separate Node ships. Off, both die. The cost: anyone who can exec the
-  // binary can run it as plain Node, which is no more than running `node` on
-  // the same machine — it gets none of Electron's APIs (no `safeStorage`),
-  // and the sandboxed renderer cannot exec anything.
-  Object.freeze({ name: 'RunAsNode', index: 0, enabled: true }),
+  // OFF (#2565). It was on for the `minerva` CLI shim, which ran
+  //   ELECTRON_RUN_AS_NODE=1 <Minerva binary> <app.asar>/.vite/build/cli.js
+  // and the cost was not "no more than running node": the code runs AS the
+  // notarized Minerva process, with its microphone and Files & Folders TCC
+  // grants, past any allowlist keyed on the signature. The shim now runs
+  // `<Minerva> --minerva-cli -- <args>` (src/main/cli-mode.ts), which executes
+  // only the bundled CLI; an old shim is recognised and still works.
+  Object.freeze({ name: 'RunAsNode', index: 0, enabled: false }),
 
   // ON. The privileged-site partitions (src/main/privileged-sites.ts) persist
   // real login cookies; this encrypts the cookie store at rest with the OS
@@ -75,13 +74,14 @@ export const FUSE_POLICY = Object.freeze([
   // snapshot, so there is nothing for this to load.
   Object.freeze({ name: 'LoadBrowserProcessSpecificV8Snapshot', index: 6, enabled: false }),
 
-  // ON (Electron's default), and it has to stay on for now. The renderer
-  // loads from `file://` (window-manager.ts `loadFile`), and with this fuse
-  // off Chromium's file handler cannot read inside `app.asar`: measured on
-  // the packaged build, the window fails with ERR_FILE_NOT_FOUND on its own
-  // index.html. Turning it off needs the renderer served from a custom
-  // privileged protocol (`app://`) first — a change of its own, not a flip.
-  Object.freeze({ name: 'GrantFileProtocolExtraPrivileges', index: 7, enabled: true }),
+  // OFF (#2564). The renderer is served from the privileged `app://` scheme
+  // (app-protocol.ts), which reads the bundle with main's asar-aware fs, so
+  // nothing needs `file://` to have more than Chrome's default powers. It had
+  // to stay on while the renderer loaded from `file://`: off, Chromium's file
+  // handler can't read inside `app.asar` (ERR_FILE_NOT_FOUND on index.html).
+  // With it on, `file://` pages could fetch any other `file://` URL — and CSP
+  // `'self'` under `file://` meant the whole disk.
+  Object.freeze({ name: 'GrantFileProtocolExtraPrivileges', index: 7, enabled: false }),
 
   // ON (Electron's default). V8's signal-handler-based WASM bounds checks;
   // off, every WASM memory access pays an explicit check, and the embedder
