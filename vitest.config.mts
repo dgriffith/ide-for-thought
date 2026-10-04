@@ -20,6 +20,9 @@ export default defineConfig({
   ],
   test: {
     include: ['tests/**/*.test.ts'],
+    // Registrar tests drive raw IPC handlers with hand-built events; the
+    // sender guard is tested on its own (#2553). See the file's header.
+    setupFiles: ['tests/setup/trust-ipc-senders.ts'],
     // `default` is the familiar concise summary; `skipReporter` (#2061) adds
     // the one thing it's missing — naming any skipped test, so "1 skipped"
     // never requires a `--reporter=verbose` re-run to identify.
