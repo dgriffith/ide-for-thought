@@ -713,8 +713,10 @@ release.
 
 `packagerConfig.asar` is on, and the Electron fuses are set from
 `scripts/lib/electron-fuses.mjs` — the one list, with a reason per fuse.
-`RunAsNode` stays **on** (the `minerva` CLI shim runs the app binary with
-`ELECTRON_RUN_AS_NODE=1`); `NODE_OPTIONS` and `--inspect` are **off**; app
+`RunAsNode` is **off** (#2565): the `minerva` CLI shim runs the binary in CLI
+mode, `Minerva --minerva-cli -- <args>` (`src/main/cli-mode.ts`), which runs
+only the bundled CLI — never arbitrary JS as Minerva; `NODE_OPTIONS` and
+`--inspect` are **off**; app
 code loads **only** from `app.asar`, validated against the Info.plist hash.
 `GrantFileProtocolExtraPrivileges` is **off** (#2564): the renderer is served
 from the privileged `app://minerva` scheme (`src/main/app-protocol.ts`), which

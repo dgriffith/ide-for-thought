@@ -28,15 +28,14 @@
  * @type {ReadonlyArray<Readonly<{ name: string; index: number; enabled: boolean }>>}
  */
 export const FUSE_POLICY = Object.freeze([
-  // ON, deliberately. The `minerva` CLI shim written by "Install 'minerva'
-  // Command in PATH" (src/main/cli-install.ts) is
-  //   exec env ELECTRON_RUN_AS_NODE=1 <Minerva binary> <app.asar>/.vite/build/cli.js
-  // — it IS the headless CLI and the `minerva mcp` server (#1437), and no
-  // separate Node ships. Off, both die. The cost: anyone who can exec the
-  // binary can run it as plain Node, which is no more than running `node` on
-  // the same machine — it gets none of Electron's APIs (no `safeStorage`),
-  // and the sandboxed renderer cannot exec anything.
-  Object.freeze({ name: 'RunAsNode', index: 0, enabled: true }),
+  // OFF (#2565). It was on for the `minerva` CLI shim, which ran
+  //   ELECTRON_RUN_AS_NODE=1 <Minerva binary> <app.asar>/.vite/build/cli.js
+  // and the cost was not "no more than running node": the code runs AS the
+  // notarized Minerva process, with its microphone and Files & Folders TCC
+  // grants, past any allowlist keyed on the signature. The shim now runs
+  // `<Minerva> --minerva-cli -- <args>` (src/main/cli-mode.ts), which executes
+  // only the bundled CLI; an old shim is recognised and still works.
+  Object.freeze({ name: 'RunAsNode', index: 0, enabled: false }),
 
   // ON. The privileged-site partitions (src/main/privileged-sites.ts) persist
   // real login cookies; this encrypts the cookie store at rest with the OS
