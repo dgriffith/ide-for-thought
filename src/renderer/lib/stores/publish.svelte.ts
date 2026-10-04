@@ -13,7 +13,7 @@ export function getPublishStore() {
   return {
     runExport: (args: Parameters<typeof api.publish.runExport>[0]) =>
       api.publish.runExport(args),
-    toGit: (targetId: string, opts?: { dryRun?: boolean; createRepo?: { private: boolean } }) =>
+    toGit: (targetId: string, opts?: { dryRun?: boolean; createRepo?: { private: boolean }; approveRemote?: string }) =>
       api.publish.toGit(targetId, opts),
     upsertTarget: (target: Parameters<typeof api.publish.upsertTarget>[0]) =>
       api.publish.upsertTarget(target),

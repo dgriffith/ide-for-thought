@@ -43,6 +43,9 @@ export interface RenderInput {
 
 export function renderAnnotatedReading(input: RenderInput): RenderedReading {
   const { data, sourceTitle, renderer } = input;
+  // Drop any highlight sentinel the source body itself carries, before
+  // aligning, so the only ones left after wrapping are ours (#2558).
+  const sourceBody = data.sourceBody.replace(HL_SENTINELS, '');
 
   // Align each excerpt's cited text against the source body to find
   // an offset for the highlight. Substring match for v1; fuzzy match
@@ -55,7 +58,7 @@ export function renderAnnotatedReading(input: RenderInput): RenderedReading {
       unaligned.push(ex);
       continue;
     }
-    const start = data.sourceBody.indexOf(ex.citedText);
+    const start = sourceBody.indexOf(ex.citedText);
     if (start < 0) {
       unaligned.push(ex);
       continue;
@@ -67,13 +70,15 @@ export function renderAnnotatedReading(input: RenderInput): RenderedReading {
   // reverse-iterate when wrapping spans so earlier offsets stay valid.
   aligned.sort((a, b) => a.start - b.start);
 
-  const bodyWithHighlights = wrapHighlights(data.sourceBody, aligned);
-  // `html: true` so the `<mark>` highlight spans we wrapped above
-  // survive markdown rendering. Source bodies are the user's own
-  // content (their `body.md`), so it's no more risky than what's
-  // already in their thoughtbase.
-  const md = new MarkdownIt({ html: true, linkify: true, typographer: true });
-  const sourceHtml = md.render(bodyWithHighlights);
+  // Source bodies are NOT the user's own content (#2558): web, clipper and
+  // ingested sources are third-party pages, and Turndown passes a page's
+  // literal `<…>` text straight into `body.md`. So the body renders with
+  // `html: false` — any raw HTML in it comes out as escaped text — and the
+  // `<mark>` highlights travel through markdown-it as private-use sentinels,
+  // swapped for real tags after rendering (`markHighlights`).
+  const bodyWithHighlights = wrapHighlights(sourceBody, aligned);
+  const md = new MarkdownIt({ html: false, linkify: true, typographer: true });
+  const sourceHtml = markHighlights(md.render(bodyWithHighlights), aligned);
 
   // Citation block at the top of the margin pane.
   const citationBlock = renderer
@@ -149,9 +154,33 @@ function renderExcerptCard(ex: AnnotatedExcerpt & { aligned: boolean }): string 
   </article>`;
 }
 
+// Private-use code points marking a highlight's start (`HL_OPEN` + the
+// excerpt's index in `aligned` + `HL_END_INDEX`) and end (`HL_CLOSE`) through
+// markdown rendering. None of them is markdown syntax or an HTML special, so
+// markdown-it passes them through untouched; any already in the body are
+// stripped first, so a source can't forge a highlight (#2558).
+const HL_OPEN = '\uE000';
+const HL_END_INDEX = '\uE001';
+const HL_CLOSE = '\uE002';
+const HL_SENTINELS = /[\uE000-\uE002]/g;
+const HL_MARKERS = /\uE000(\d+)\uE001|\uE002/g;
+
+/** Swap the sentinels in rendered HTML for the real `<mark>` tags. */
+function markHighlights(
+  html: string,
+  aligned: Array<{ excerpt: AnnotatedExcerpt }>,
+): string {
+  return html.replace(HL_MARKERS, (_m, index: string | undefined) => {
+    if (index === undefined) return '</mark>';
+    const ex = aligned[Number(index)]?.excerpt;
+    return ex ? `<mark class="excerpt-hl" data-excerpt="${escapeAttr(ex.id)}">` : '';
+  });
+}
+
 /**
- * Wrap each aligned excerpt's range in a `<mark>` span. Iterates
- * right-to-left so earlier offsets aren't invalidated by inserts.
+ * Wrap each aligned excerpt's range in highlight sentinels (`markHighlights`
+ * turns them into `<mark>` spans after rendering). Iterates right-to-left so
+ * earlier offsets aren't invalidated by inserts.
  *
  * Overlapping excerpts (a passage that's cited twice with different
  * surrounding text): the first wins; the second falls into the
@@ -162,14 +191,15 @@ function wrapHighlights(
   body: string,
   aligned: Array<{ excerpt: AnnotatedExcerpt; start: number; end: number }>,
 ): string {
-  const sorted = [...aligned].sort((a, b) => b.start - a.start);
+  const indexed = aligned.map((a, index) => ({ ...a, index }));
+  const sorted = indexed.sort((a, b) => b.start - a.start);
   let out = body;
-  for (const { excerpt, start, end } of sorted) {
+  for (const { start, end, index } of sorted) {
     out = (
       out.slice(0, start) +
-      `<mark class="excerpt-hl" data-excerpt="${escapeAttr(excerpt.id)}">` +
+      `${HL_OPEN}${index}${HL_END_INDEX}` +
       out.slice(start, end) +
-      '</mark>' +
+      HL_CLOSE +
       out.slice(end)
     );
   }

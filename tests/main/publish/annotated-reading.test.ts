@@ -226,3 +226,84 @@ describe('renderAnnotatedReading (#253) — render-layer unit', () => {
     expect(out.html).toContain("addEventListener('click'");
   });
 });
+
+describe('renderAnnotatedReading — a third-party source body can\'t script the export (#2558)', () => {
+  /** The <article class="source-body"> part of the document, where the body lands. */
+  function sourceBodyHtml(html: string): string {
+    const m = html.match(/<article class="source-body">([\s\S]*?)<\/article>\s*<aside/);
+    if (!m) throw new Error('no source-body article in the export');
+    return m[1]!;
+  }
+  const excerpt = (id: string, citedText: string) => ({ id, citedText, locator: '', tags: [], linkedNotes: [] });
+
+  it('renders raw <script> / on* HTML in the body as text, not markup', () => {
+    const data = {
+      sourceId: 'web',
+      sourceBody: [
+        'Intro paragraph with a quotable passage.',
+        '',
+        '<img src=x onerror=alert(1)>',
+        '',
+        '<script>alert(document.cookie)</script>',
+        '',
+        'Inline <svg onload=alert(2)> and <a href="javascript:alert(3)">x</a> too.',
+      ].join('\n'),
+      excerpts: [excerpt('ex1', 'quotable passage')],
+      relatedNotes: [],
+    };
+    const { html } = renderAnnotatedReading({ data, sourceTitle: 'Web page', renderer: null });
+    const body = sourceBodyHtml(html);
+    expect(body).not.toMatch(/<script/i);
+    expect(body).not.toMatch(/<img\b/i);
+    expect(body).not.toMatch(/<svg\b/i);
+    expect(body).not.toMatch(/<a\b[^>]*javascript:/i);
+    // No element anywhere in the body carries an event-handler attribute.
+    expect(body).not.toMatch(/<[a-z][^>]*\son\w+\s*=/i);
+    // It's still all there, as visible text.
+    expect(body).toContain('&lt;img src=x onerror=alert(1)&gt;');
+    expect(body).toContain('&lt;script&gt;');
+    // The export's own inline script is the only <script> in the document.
+    expect(html.match(/<script>/g)).toHaveLength(1);
+  });
+
+  it('still highlights excerpts with <mark>, including next to escaped HTML and inside code', () => {
+    const data = {
+      sourceId: 'web',
+      sourceBody: 'Before <b>raw</b> the cited words after.\n\n```\ncode with cited snippet\n```\n',
+      excerpts: [excerpt('ex-a', 'the cited words'), excerpt('ex-b', 'cited snippet')],
+      relatedNotes: [],
+    };
+    const { html, unalignedExcerpts } = renderAnnotatedReading({ data, sourceTitle: 'T', renderer: null });
+    const body = sourceBodyHtml(html);
+    expect(unalignedExcerpts).toEqual([]);
+    expect(body).toContain('<mark class="excerpt-hl" data-excerpt="ex-a">the cited words</mark>');
+    expect(body).toContain('<mark class="excerpt-hl" data-excerpt="ex-b">cited snippet</mark>');
+    expect(body).toContain('&lt;b&gt;raw&lt;/b&gt;');
+  });
+
+  it('a body can\'t forge a highlight with the private-use sentinels', () => {
+    const data = {
+      sourceId: 'web',
+      sourceBody: 'Forged 0 opener and closer  here; real passage.',
+      excerpts: [excerpt('ex-real', 'real passage')],
+      relatedNotes: [],
+    };
+    const { html } = renderAnnotatedReading({ data, sourceTitle: 'T', renderer: null });
+    const body = sourceBodyHtml(html);
+    expect(body.match(/<mark /g)).toHaveLength(1);
+    expect(body.match(/<\/mark>/g)).toHaveLength(1);
+    expect(body).toContain('<mark class="excerpt-hl" data-excerpt="ex-real">real passage</mark>');
+    expect(body).not.toMatch(/[-]/);
+  });
+
+  it('escapes an excerpt id in the generated <mark>', () => {
+    const data = {
+      sourceId: 'web',
+      sourceBody: 'the passage',
+      excerpts: [excerpt('x"><script>alert(1)</script>', 'passage')],
+      relatedNotes: [],
+    };
+    const body = sourceBodyHtml(renderAnnotatedReading({ data, sourceTitle: 'T', renderer: null }).html);
+    expect(body).not.toMatch(/<script/i);
+  });
+});

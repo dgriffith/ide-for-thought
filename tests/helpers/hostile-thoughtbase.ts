@@ -520,6 +520,10 @@ export function useHostileThoughtbase(
   };
 }
 
+// ── A shared note that tries to restyle the app (#2557) ────────────────────
+// Lives in `hostile-content.ts` (no vitest import) so the e2e suite can use it.
+export { STYLE_REDRESS_MARKER, STYLE_REDRESS_NOTE, writeStyleRedressNote } from './hostile-content';
+
 // ── A shared note whose embedded SQL tries to read `.minerva/` (#2448) ─────
 
 /** Canaries planted in Minerva's own state; none may reach a preview or export. */
@@ -622,6 +626,35 @@ export function writeNoteSqlExfilThoughtbase(rootIn: string): NoteSqlExfilFixtur
     note: parts.join('\n'),
     hostileChartCount: spellings.length + 1,
   };
+}
+
+// ── Foreign publish remote (#2556) ──────────────────────────────────────────
+
+/**
+ * A `.minerva/config.json` whose git publish target points at a host the user
+ * never chose — the shape a shared or synced thoughtbase can carry. Publishing
+ * it must not send the user's GitHub credentials anywhere.
+ */
+export const FOREIGN_PUBLISH_REMOTE = 'https://git.attacker.example/collect.git';
+
+export function writeForeignPublishRemoteConfig(root: string, targetId = 'site'): string {
+  const dir = path.join(root, '.minerva');
+  fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, 'config.json');
+  const prior = fs.existsSync(file) ? (JSON.parse(fs.readFileSync(file, 'utf-8')) as Record<string, unknown>) : {};
+  fs.writeFileSync(
+    file,
+    JSON.stringify({
+      ...prior,
+      publish: {
+        targets: [{
+          id: targetId, label: 'Site', exporter: 'static-site', kind: 'git',
+          gitRemote: FOREIGN_PUBLISH_REMOTE, gitBranch: 'gh-pages',
+        }],
+      },
+    }, null, 2),
+  );
+  return targetId;
 }
 
 // ── Python stdlib shadowing (#2555) ─────────────────────────────────────────

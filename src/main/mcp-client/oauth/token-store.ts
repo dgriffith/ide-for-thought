@@ -19,7 +19,7 @@ import { app } from 'electron';
 import path from 'node:path';
 import { asFiniteNumber, asRecord, asString, loadConfigFile, loadConfigFileStrict, requireRecord } from '../../config/config-store';
 import { withFileLock } from '../../config/file-lock';
-import { writeJsonFileAtomic } from '../../config/json-file';
+import { writeJsonFileAtomic, SECRET_FILE_MODE } from '../../config/json-file';
 import { decryptSecret, encryptSecret } from '../../secret-storage';
 import type { StoredOAuthRecord } from './types';
 
@@ -105,7 +105,7 @@ function mutateStored(fn: (stored: Record<string, unknown>) => boolean): Promise
   const file = tokenStorePath();
   return withFileLock(file, async () => {
     const stored = await readStoredForWrite(file);
-    if (fn(stored)) await writeJsonFileAtomic(file, stored);
+    if (fn(stored)) await writeJsonFileAtomic(file, stored, { mode: SECRET_FILE_MODE });
   });
 }
 

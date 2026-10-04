@@ -28,7 +28,7 @@ what to do about it. `architecture-ratchets-doc.test.ts` keeps the two sides in
 step — a new test in `tests/architecture/` with no entry here fails, and an
 entry here naming a test that no longer exists fails too (#2262).
 
-Written up as of 2026-10-02, 46 tests.
+Written up as of 2026-10-04, 48 tests.
 
 ---
 
@@ -141,6 +141,20 @@ re-affirms it rather than watching a count grow. A third assertion fails on
 *stale* entries, so a migrated dialog has to be removed from the list. **When it
 fires:** import `ui/Dialog.svelte`. If the dialog genuinely needs a custom
 shell, add it with a reason.
+
+### `html-sinks.test.ts`
+
+**Every renderer `{@html …}` sink is a reviewed one** (#2563). `{@html}`
+injects a string as markup, so anything a note, source, model or library wrote
+reaching it is renderer XSS — and the renderer holds `window.api`. The test
+keeps a `REVIEWED_SINKS` map of file → expression → why that input is safe
+(DOMPurify, markdown-it `html: false`, or static), skipping comments. It fails
+on a sink not in the map — including an existing one switched to a different
+expression — and on a map entry whose sink is gone. `ComputeDraftCard`'s
+safety-flag messages were the unsanitized one; they render as text now.
+**When it fires:** render text instead, or route the input through
+`sanitizeNoteHtml` / `sanitizeComputeOutputHtml`, then add the entry with its
+reason.
 
 ### `argument-map-read-only.test.ts`
 
@@ -855,6 +869,25 @@ a measurement, not a preference.
 ---
 
 ## Configuration, IPC and logging
+
+### `webcontents-deny-by-default.test.ts`
+
+**Every webContents and session starts deny-by-default** (#2559).
+`security.ts`'s `installGlobalWebContentsGuards` hooks `web-contents-created`
+(no window-open, no `will-navigate`, no `<webview>` attach) and
+`session-created` (every permission denied; `installPermissions` narrows the
+default session afterwards). Before it, guards were installed per construction
+site, and two windows had none — the privileged-site login partition
+auto-approved mic, camera, location and notifications for any page. The test
+pins that `main.ts` installs the hook before `app.whenReady()`, that permission
+handlers, those two listeners and any `action: 'allow'` window-open decision
+exist only in `security.ts`, that `webviewTag` / `nodeIntegrationInSubFrames`
+are never enabled, and that the `new BrowserWindow(` sites are a known list.
+**When it fires:** a new window site — decide whether the default posture is
+right and add it to `KNOWN_WINDOW_SITES` with why, or opt it in through
+`security.ts` (`installNavigationGuards` for an app window,
+`allowHttpsBrowsing` for a partition that browses the web). A permission
+handler or allowing open-handler elsewhere — move it into `security.ts`.
 
 ### `config-loader-usage.test.ts`
 
