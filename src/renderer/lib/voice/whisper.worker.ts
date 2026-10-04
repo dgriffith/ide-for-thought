@@ -10,9 +10,8 @@
  * the embeddings/tesseract precedent of WASM-in-renderer ML).
  *
  * Model weights are fetched from the HF hub on first use and cached by the
- * browser Cache API thereafter — the same shape as tesseract.js pulling its
- * trained data from a CDN. Only weights are fetched; captured audio never
- * leaves the process.
+ * browser Cache API thereafter. Only weights are fetched; captured audio never
+ * leaves the process. The ONNX Runtime WASM is NOT fetched — see below (#2564).
  */
 
 import {
@@ -28,6 +27,15 @@ declare const self: DedicatedWorkerGlobalScope;
 // first-run cost is paid once.
 env.allowLocalModels = false;
 env.useBrowserCache = true;
+
+// Load ONNX Runtime's WASM from the bundle, not jsdelivr (#2564). On import,
+// transformers.js points `wasmPaths` at cdn.jsdelivr.net, overriding
+// onnxruntime-web's own lookup — which resolves the `.wasm` beside its bundle
+// (`new URL(…, import.meta.url)`), the very file Vite already emits into the
+// app. So the app shipped a 27MB WASM and downloaded the same bytes from a CDN
+// (no SRI, a host anyone can publish to) on first dictation. Clearing the
+// override restores the bundled lookup; the CSP no longer allows jsdelivr.
+if (env.backends.onnx.wasm) delete env.backends.onnx.wasm.wasmPaths;
 
 function reply(msg: WhisperResponse, transfer: Transferable[] = []): void {
   self.postMessage(msg, transfer);
