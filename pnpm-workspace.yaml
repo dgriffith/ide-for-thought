@@ -64,6 +64,10 @@ overrides:
   # stringifyAsync unhandled rejection), all fixed in 5.9.3. Only svelte pulls
   # it in (5.9.2); held inside 5.x so svelte's own range isn't crossed.
   devalue: '>=5.9.3 <6.0.0'
+  # GHSA-ch52-4w7c-c8xp (max-stale cross-user cache disclosure), fixed in
+  # 4.3.0. Dev only: got → cacheable-request, i.e. electron-forge's Electron
+  # binary download. A minor bump, held inside 4.x.
+  http-cache-semantics: '>=4.3.0 <5.0.0'
 
 # electron/esbuild/fs-xattr/macos-alias ship native postinstall builds we
 # actually need (native module rebuilds, macOS alias-file support). Replaces
@@ -104,3 +108,4 @@ blockExoticSubdeps: false
 # version #2154's security override intentionally pins to.
 minimumReleaseAgeExclude:
   - adm-zip@0.6.1
+  - http-cache-semantics@4.3.0
