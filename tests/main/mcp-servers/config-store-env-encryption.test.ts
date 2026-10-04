@@ -11,12 +11,12 @@ import fsSync from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-const k = vi.hoisted(() => ({ available: true, undecryptable: new Set<string>() }));
+const k = vi.hoisted(() => ({ available: true, undecryptable: new Set<string>(), availabilityChecks: 0 }));
 vi.mock('../../../src/main/secret-storage', () => {
   const PREFIX = 'enc:v1:';
   return {
     isEncrypted: (v: string) => v.startsWith(PREFIX),
-    secretEncryptionAvailable: () => k.available,
+    secretEncryptionAvailable: () => { k.availabilityChecks++; return k.available; },
     encryptSecret: (v: string) => (v && k.available ? PREFIX + [...v].reverse().join('') : v),
     decryptSecret: (v: string) => {
       if (!v.startsWith(PREFIX)) return v;
@@ -43,6 +43,7 @@ beforeEach(async () => {
   file = path.join(dir, 'mcp-servers.json');
   k.available = true;
   k.undecryptable.clear();
+  k.availabilityChecks = 0;
   _resetEnvUpgradeForTests();
 });
 afterEach(async () => {
@@ -106,5 +107,19 @@ describe('MCP stdio env encryption (#2562)', () => {
     const raw = await fs.readFile(file, 'utf-8');
     expect(raw).not.toContain('new-secret');
     expect((await getStoredServers(file))[0]!.descriptor).toMatchObject({ env: { K: 'new-secret' } });
+  });
+
+  it('never asks the keychain at startup unless there is plaintext to upgrade', async () => {
+    // Missing file (a fresh profile): no keychain access at all. It used to
+    // check availability on every load, which is a synchronous keychain call
+    // on macOS — it hung the packaged app's launch on a headless CI runner.
+    expect(await getStoredServers(file)).toEqual([]);
+    expect(k.availabilityChecks).toBe(0);
+    // Everything already encrypted: still none.
+    await addStoredServer('a', { kind: 'stdio', command: 'npx', env: { K: 'v' } }, file);
+    k.availabilityChecks = 0;
+    _resetEnvUpgradeForTests();
+    await getStoredServers(file);
+    expect(k.availabilityChecks).toBe(0);
   });
 });

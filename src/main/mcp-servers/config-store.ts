@@ -97,8 +97,6 @@ function decodeWith(envValue: EnvValueDecoder) {
   };
 }
 
-/** For use: env values decrypted. */
-const decode = decodeWith(decryptSecret);
 /** For a write: env values exactly as on disk (encrypted, or legacy plaintext). */
 const decodeStored = decodeWith(asStored);
 
@@ -121,8 +119,14 @@ function hasPlaintextEnv(servers: StoredMcpServerConfig[]): boolean {
  *  `saveMenuConfig(config, file = menuConfigPath())` convention) — real
  *  callers never pass it. LENIENT: never build a write from this. */
 export async function getStoredServers(file: string = mcpServersConfigPath()): Promise<StoredMcpServerConfig[]> {
-  scheduleEnvUpgrade(file);
-  return loadConfigFile(() => file, decode, []);
+  // Read as stored first: only a file that still holds plaintext env values
+  // schedules the upgrade — so a profile with nothing to encrypt never touches
+  // the keychain (safeStorage) at startup. Doing so unconditionally hung the
+  // packaged app's launch on a CI runner, where a keychain prompt has no one
+  // to answer it, and would prompt users who have never stored a secret.
+  const stored = await loadConfigFile(() => file, decodeStored, []);
+  if (hasPlaintextEnv(stored)) scheduleEnvUpgrade(file);
+  return stored.map(toUsable);
 }
 
 /**
