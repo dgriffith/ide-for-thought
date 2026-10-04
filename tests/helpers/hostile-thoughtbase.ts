@@ -520,6 +520,10 @@ export function useHostileThoughtbase(
   };
 }
 
+// ── A shared note that tries to restyle the app (#2557) ────────────────────
+// Lives in `hostile-content.ts` (no vitest import) so the e2e suite can use it.
+export { STYLE_REDRESS_MARKER, STYLE_REDRESS_NOTE, writeStyleRedressNote } from './hostile-content';
+
 // ── A shared note whose embedded SQL tries to read `.minerva/` (#2448) ─────
 
 /** Canaries planted in Minerva's own state; none may reach a preview or export. */
