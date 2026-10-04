@@ -1,5 +1,6 @@
 import { BrowserWindow, nativeTheme } from 'electron';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { Channels } from '../shared/channels';
 import { broadcast } from './ipc/broadcast';
 import { appIconPath } from './app-icon';
@@ -173,9 +174,16 @@ export function createWindow(opts?: { x?: number; y?: number; width?: number; he
     },
   });
 
+  // The one file the renderer is loaded from, and therefore the only
+  // file:// page this window may navigate to (#2552).
+  const rendererEntry = path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`);
+
   contexts.set(win.id, { rootPath: null, graphStore: null });
   showWhenReady(win);
-  installNavigationGuards(win.webContents);
+  installNavigationGuards(
+    win.webContents,
+    MAIN_WINDOW_VITE_DEV_SERVER_URL ?? pathToFileURL(rendererEntry).href,
+  );
 
   // Re-announce the open project to the renderer on every page load. The
   // initial open is driven elsewhere (session restore in main.ts, or the
@@ -201,9 +209,7 @@ export function createWindow(opts?: { x?: number; y?: number; width?: number; he
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     void win.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
   } else {
-    void win.loadFile(
-      path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`)
-    );
+    void win.loadFile(rendererEntry);
   }
 
   win.on('closed', () => {
