@@ -135,6 +135,26 @@ export function isMacSandboxAvailable(): boolean {
   return process.platform === 'darwin' && fs.existsSync(SANDBOX_EXEC);
 }
 
+/**
+ * Interpreter flags the kernel always runs with (#2555).
+ *
+ *  - `-E` ignores every `PYTHON*` environment variable. The thoughtbase root
+ *    used to arrive through `PYTHONPATH`, which Python puts AHEAD of the
+ *    standard library and searches for `sitecustomize` at startup — so a
+ *    shared thoughtbase's `sitecustomize.py` or `json.py` ran before the
+ *    kernel's first line, on any cell the user consented to. The kernel
+ *    bootstrap now appends the root to `sys.path` itself, after the stdlib
+ *    and site-packages.
+ *  - `-u` because `-E` also ignores `PYTHONUNBUFFERED`, and the line protocol
+ *    on stdout needs every event flushed.
+ *
+ * Not `-I`: that adds `-P`, which drops the script's own directory —
+ * `resources/python`, trusted, where `import minerva` resolves — and `-s`,
+ * which drops the user's own site-packages (`pip install --user`). Neither
+ * is reachable from a thoughtbase.
+ */
+export const KERNEL_PYTHON_FLAGS = ['-E', '-u'] as const;
+
 export interface KernelLaunch {
   command: string;
   args: string[];
@@ -163,7 +183,7 @@ export function planKernelLaunch(
   const platform = opts.platform ?? process.platform;
   if (platform !== 'darwin') {
     // Not the ship target — no macOS sandbox to apply.
-    return { command: pythonBin, args: [scriptPath] };
+    return { command: pythonBin, args: [...KERNEL_PYTHON_FLAGS, scriptPath] };
   }
   const available = opts.sandboxAvailable ?? isMacSandboxAvailable();
   if (!available) throw new Error(SANDBOX_UNAVAILABLE_ERROR);
@@ -172,5 +192,5 @@ export function planKernelLaunch(
     projectRoot: opts.projectRoot,
     homeDir: opts.homeDir,
   });
-  return { command: SANDBOX_EXEC, args: ['-p', profile, pythonBin, scriptPath] };
+  return { command: SANDBOX_EXEC, args: ['-p', profile, pythonBin, ...KERNEL_PYTHON_FLAGS, scriptPath] };
 }

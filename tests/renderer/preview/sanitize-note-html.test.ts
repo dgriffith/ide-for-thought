@@ -243,3 +243,34 @@ describe('sanitizeNoteHtml — end-to-end over real preview output', () => {
     expect(out).not.toContain('tracker.example');
   });
 });
+
+describe('sanitizeNoteHtml — page-level tags a note could redress the app with (#2557)', () => {
+  it('drops <style>, <link>, <meta> and <base>, keeping the surrounding content', () => {
+    const out = sanitizeNoteHtml(
+      '<p>keep</p><style>.approve-btn{display:none}</style>'
+      + '<link rel="stylesheet" href="redress.css">'
+      + '<meta http-equiv="refresh" content="0; url=https://attacker.example/">'
+      + '<base href="https://attacker.example/"><p>also keep</p>',
+    );
+    for (const tag of ['<style', '<link', '<meta', '<base']) expect(out).not.toContain(tag);
+    expect(out).not.toContain('approve-btn');
+    expect(out).toContain('<p>keep</p>');
+    expect(out).toContain('<p>also keep</p>');
+  });
+
+  it('drops a <style> nested inside inline SVG', () => {
+    const out = sanitizeNoteHtml('<svg width="10" height="10"><style>.status-bar{visibility:hidden}</style><rect width="10" height="10"></rect></svg>');
+    expect(out).not.toContain('<style');
+    expect(out).not.toContain('status-bar');
+    expect(out).toContain('<rect');
+  });
+
+  it('strips every tag from the hostile-thoughtbase redress note, end to end through the real markdown pipeline', async () => {
+    const { STYLE_REDRESS_NOTE, STYLE_REDRESS_MARKER } = await import('../../helpers/hostile-thoughtbase');
+    const md = createPreviewMarkdown(makeDeps());
+    const out = sanitizeNoteHtml(md.render(STYLE_REDRESS_NOTE));
+    for (const tag of ['<style', '<link', '<meta', '<base']) expect(out, tag).not.toContain(tag);
+    expect(out).not.toContain('t.example/beacon');
+    expect(out).toContain(STYLE_REDRESS_MARKER);
+  });
+});

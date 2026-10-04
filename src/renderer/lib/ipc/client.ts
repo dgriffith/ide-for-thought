@@ -416,10 +416,13 @@ export interface PublishApi {
    * A GitHub target whose repo doesn't exist comes back `ok: true` with
    * `result.repoMissing` and nothing published — creating a repo needs an
    * explicit answer, so the caller asks and calls again with `createRepo`.
+   * Likewise `result.remoteUnapproved` (#2556): the remote came from the
+   * thoughtbase rather than this machine, so the caller confirms and calls
+   * again with `approveRemote`.
    */
   toGit(
     targetId: string,
-    opts?: { dryRun?: boolean; createRepo?: { private: boolean } },
+    opts?: { dryRun?: boolean; createRepo?: { private: boolean }; approveRemote?: string },
   ): Promise<PublishGitResponse>;
   /** Validate S3 credentials + endpoint against the bucket, before saving (#1444). */
   checkS3(config: {
@@ -476,6 +479,9 @@ export interface PublishGitResult {
   commitMessage?: string;
   /** GitHub repo absent — NOTHING was published; ask, then retry with `createRepo`. */
   repoMissing?: { owner: string; repo: string };
+  /** The remote isn't the one this machine approved (#2556) — NOTHING was sent,
+   *  no credential included; confirm, then retry with `approveRemote: url`. */
+  remoteUnapproved?: { host: string; url: string; previous?: string };
   /** This run created the GitHub repo. */
   repoCreated?: boolean;
   /** GitHub Pages site URL, once Pages serves this branch. */

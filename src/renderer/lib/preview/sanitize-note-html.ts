@@ -14,7 +14,10 @@
  * `style`-positioned spans + MathML), mermaid / vega / query placeholders,
  * wiki / cite / quote links (`data-*`), callouts, footnotes, task-list
  * checkboxes, tables — while `<script>` / `<iframe>` / `<object>` /
- * `<embed>` / `<form>` and inline `on*` handlers are stripped. Using
+ * `<embed>` / `<form>` and inline `on*` handlers are stripped — as are
+ * `<style>` / `<link>` / `<meta>` / `<base>`, which would restyle or re-point
+ * the whole app rather than the note (#2557; see `UNTRUSTED_HTML_FORBID_TAGS`
+ * for why that's a Trust Principle problem, not a cosmetic one). Using
  * `FORBID_*` over an `USE_PROFILES` allowlist is deliberate: enumerating
  * every tag/attr the rich pipeline emits (all of KaTeX's MathML, SVG, the
  * custom `data-*` vocabulary) is brittle; forbidding the small dangerous set
@@ -35,9 +38,10 @@
  */
 
 import DOMPurify from 'dompurify';
+import { UNTRUSTED_HTML_FORBID_TAGS } from '../compute-output-sanitize';
 import { hasAppImageMark } from './app-image-mark';
 
-const FORBID_TAGS = ['script', 'iframe', 'object', 'embed', 'form'];
+const FORBID_TAGS = UNTRUSTED_HTML_FORBID_TAGS;
 
 // KaTeX emits its accessibility MathML wrapped in `<semantics>` with the
 // original TeX in `<annotation encoding="application/x-tex">`. DOMPurify's

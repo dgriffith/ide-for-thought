@@ -64,11 +64,11 @@ describe('planKernelLaunch (#1329 P1)', () => {
   it('wraps the interpreter in sandbox-exec on macOS', () => {
     const launch = planKernelLaunch('/usr/bin/python3', '/k/kernel.py', { allowNetwork: false, ...macOpts });
     expect(launch.command).toBe(SANDBOX_EXEC);
-    // sandbox-exec -p <profile> <py> <script>
+    // sandbox-exec -p <profile> <py> -E -u <script> (#2555)
     expect(launch.args[0]).toBe('-p');
     expect(launch.args[1]).toContain('(deny network-outbound');
     expect(launch.args[1]).toContain('(deny file-write*)');
-    expect(launch.args.slice(2)).toEqual(['/usr/bin/python3', '/k/kernel.py']);
+    expect(launch.args.slice(2)).toEqual(['/usr/bin/python3', '-E', '-u', '/k/kernel.py']);
   });
 
   it('passes allowNetwork through to the profile it wraps', () => {
@@ -89,6 +89,6 @@ describe('planKernelLaunch (#1329 P1)', () => {
       sandboxAvailable: false,
       ...PATHS,
     });
-    expect(launch).toEqual({ command: '/usr/bin/python3', args: ['/k/kernel.py'] });
+    expect(launch).toEqual({ command: '/usr/bin/python3', args: ['-E', '-u', '/k/kernel.py'] });
   });
 });
