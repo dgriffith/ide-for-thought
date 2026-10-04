@@ -51,6 +51,11 @@ export const HARDENED_WEB_PREFERENCES = {
   contextIsolation: true,
   nodeIntegration: false,
   sandbox: true,
+  // A file dropped where nothing accepts it must not become the top-level
+  // page — the preload would run on it (#2554). Electron's default, pinned
+  // here so it can't change underneath us; the renderer also refuses
+  // unaccepted file drops (`lib/app/navigation-guard.ts`).
+  navigateOnDragDrop: false,
 } as const;
 
 /** Install the CSP for every response served to the default session. */

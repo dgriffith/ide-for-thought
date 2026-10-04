@@ -371,6 +371,17 @@ Two more things a channel addition reliably trips, both expected:
 One-way `send`/event channels (`*:changed`, `*:progress`, draft pushes) are a
 separate contract (#1633) and don't go through `ChannelMap`.
 
+**Every handler refuses a caller that isn't the renderer (#2553).** `handle()`
+runs `ipc/sender-guard.ts` first: the event's `senderFrame` must be the main
+window's top frame, showing exactly the `index.html` that `renderer-entry.ts`
+says the window loaded (the dev-server origin under `pnpm dev`). That pairs
+with the navigation guard (#2552), which keeps the window on that page.
+Neither check depends on the other. A new `ipcMain.on` listener calls
+`isTrustedIpcSender(e)` itself (see `register-app.ts`). Registrar tests are
+unaffected: `tests/setup/trust-ipc-senders.ts`, a global vitest setup file,
+mocks the guard, and `tests/main/ipc/sender-guard.test.ts` un-mocks it to test
+it for real.
+
 #### The native menu is a command surface, not an implementation (#2233)
 
 `menu.ts` is not exempt from the five steps above. It used to be: five
