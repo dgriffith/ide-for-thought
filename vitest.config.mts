@@ -689,6 +689,14 @@ export default defineConfig({
         // click handlers mostly aren't. Floors sit 3 under measured (#2368),
         // tighter than the usual 8-10 for a single file, so the one real
         // number here can't erode while nobody is looking at it.
+        // legacy-storage-migration.ts ~96.4 L / 93.8 S / 93.3 F / 87.5 B —
+        // the one-time file:// → app:// localStorage carry (#2564).
+        'src/main/legacy-storage-migration.ts': {
+          lines: 86,
+          statements: 84,
+          functions: 84,
+          branches: 78,
+        },
         'src/main/menu.ts': {
           lines: 33,
           statements: 33,
