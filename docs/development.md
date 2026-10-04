@@ -261,7 +261,7 @@ doubt:
   surface) and `pnpm test tests/main/ipc/registration.test.ts -u` (the
   registered-channel set), and neither is caught by lint. If a snapshot test
   fails, read *why* before regenerating it.
-- **`tests/architecture/` is not about any feature.** Its 46 tests check the
+- **`tests/architecture/` is not about any feature.** Its 47 tests check the
   shape of the codebase — package cycles, file-size budgets, anti-pattern
   ratchets, config-loader and dialog adoption, the CI workflows. Most fail by
   naming a *new* offender against a committed baseline, so the first time you
