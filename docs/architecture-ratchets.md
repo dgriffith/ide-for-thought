@@ -28,7 +28,7 @@ what to do about it. `architecture-ratchets-doc.test.ts` keeps the two sides in
 step — a new test in `tests/architecture/` with no entry here fails, and an
 entry here naming a test that no longer exists fails too (#2262).
 
-Written up as of 2026-10-04, 47 tests.
+Written up as of 2026-10-04, 48 tests.
 
 ---
 
