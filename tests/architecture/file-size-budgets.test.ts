@@ -139,7 +139,7 @@ const BUDGETS: Record<string, number> = {
   // ~250-line `<style>` block, not the logic.
   'src/renderer/lib/components/FindInNotesDialog.svelte': 633,
   // +1 for #2256: onCommandPalette passthrough.
-  'src/preload/preload.ts': 670,  // +14: file:// → app:// localStorage copy (#2564); #2448: tables.queryNote; #2439: mcp_call confirm + resetAllowedTools passthroughs; #2411: menu.onRevealFile; #2222: sources.queueCounts passthrough; +4: conversations.setTitle + onTitleChanged (conversation titles); +4: live-block export render request/reply (#2510)
+  'src/preload/preload.ts': 663,  // +7: file:// → app:// localStorage copy, the call into legacy-storage.ts (#2564); #2448: tables.queryNote; #2439: mcp_call confirm + resetAllowedTools passthroughs; #2411: menu.onRevealFile; #2222: sources.queueCounts passthrough; +4: conversations.setTitle + onTitleChanged (conversation titles); +4: live-block export render request/reply (#2510)
   'src/main/ipc/register-conversation-drafts.ts': 579, // +2: approved drafts broadcast their moves + rewrites (#2541)
   // New entry in #2218, which took this file from 538 over the threshold.
   // The seam this check asks about was taken first: the deadline POLICY —
