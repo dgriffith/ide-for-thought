@@ -42,7 +42,7 @@ describe('getOrFetchThumbnail', () => {
 
   it('downloads, caches to disk, and returns the bytes on a miss', async () => {
     const payload = new Uint8Array([9, 8, 7]);
-    stubFetch(async () => ({ ok: true, arrayBuffer: async () => payload.buffer }));
+    stubFetch(async () => new Response(payload, { status: 200, headers: { 'content-type': 'image/jpeg' } }));
 
     const bytes = await getOrFetchThumbnail(root, ID);
     expect(Array.from(bytes!)).toEqual([9, 8, 7]);

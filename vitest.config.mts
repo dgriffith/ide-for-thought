@@ -22,7 +22,8 @@ export default defineConfig({
     include: ['tests/**/*.test.ts'],
     // Registrar tests drive raw IPC handlers with hand-built events; the
     // sender guard is tested on its own (#2553). See the file's header.
-    setupFiles: ['tests/setup/trust-ipc-senders.ts'],
+    // …and safeFetch resolves names without real DNS (#2566).
+    setupFiles: ['tests/setup/trust-ipc-senders.ts', 'tests/setup/hermetic-dns.ts'],
     // `default` is the familiar concise summary; `skipReporter` (#2061) adds
     // the one thing it's missing — naming any skipped test, so "1 skipped"
     // never requires a `--reporter=verbose` re-run to identify.
@@ -672,6 +673,14 @@ export default defineConfig({
         // click handlers mostly aren't. Floors sit 3 under measured (#2368),
         // tighter than the usual 8-10 for a single file, so the one real
         // number here can't erode while nobody is looking at it.
+        // safe-fetch.ts ~97.2 L / 93.0 S / 77.8 F / 85.7 B — the SSRF guard for
+        // every main-process fetch of an untrusted URL (#2566).
+        'src/main/safe-fetch.ts': {
+          lines: 88,
+          statements: 84,
+          functions: 68,
+          branches: 76,
+        },
         'src/main/menu.ts': {
           lines: 33,
           statements: 33,

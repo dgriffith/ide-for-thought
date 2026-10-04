@@ -118,11 +118,27 @@ async function runAuthorizationFlowInner(
   if (!authorizationEndpoint || !tokenEndpoint) {
     throw new McpOAuthDiscoveryError(`authorization server ${issuer} is missing authorization_endpoint or token_endpoint`);
   }
+  // Discovered endpoints are the server's claim, and the token endpoint gets
+  // the authorization code + PKCE verifier (and later the refresh token):
+  // https only, except a loopback server on this machine (#2566).
+  for (const [what, value] of [
+    ['issuer', issuer],
+    ['authorization_endpoint', authorizationEndpoint],
+    ['token_endpoint', tokenEndpoint],
+    ['registration_endpoint', asMetadata.registration_endpoint],
+  ] as const) {
+    if (value !== undefined && !isSecureOAuthUrl(value)) {
+      throw new McpOAuthDiscoveryError(`authorization server ${issuer}: ${what} ${value} is not https (only a loopback server may use http)`);
+    }
+  }
 
   const resource = canonicalServerUri(prm.resource || serverUrl);
   const scope = opts.scopeHint || (prm.scopes_supported ?? []).join(' ');
 
-  const callback = await startCallbackListener(opts.signal);
+  // Generated before the listener starts so it can ignore any callback that
+  // doesn't carry it (#2566).
+  const state = generateState();
+  const callback = await startCallbackListener(opts.signal, state);
   try {
     const reuseClient = opts.existingRecord?.issuer === issuer ? opts.existingRecord : undefined;
     const registration = await registerClient(asMetadata, {
@@ -140,7 +156,6 @@ async function runAuthorizationFlowInner(
     });
 
     const { codeVerifier, codeChallenge } = generatePkce();
-    const state = generateState();
     const authorizationUrl = buildAuthorizationUrl({
       authorizationEndpoint,
       clientId: registration.clientId,
@@ -332,4 +347,14 @@ export async function reauthorizeWithStepUp(
   const record: StoredOAuthRecord = { ...result.record, scope: result.tokens.scope || union };
   await saveStoredTokens(record);
   clearStepUpAttempts(serverUrl, union);
+}
+
+/** https, or http to a loopback host (a local MCP server's own auth). */
+export function isSecureOAuthUrl(raw: string): boolean {
+  if (!URL.canParse(raw)) return false;
+  const u = new URL(raw);
+  if (u.protocol === 'https:') return true;
+  if (u.protocol !== 'http:') return false;
+  const host = u.hostname.replace(/^\[|\]$/g, '');
+  return host === 'localhost' || host === '::1' || /^127\.\d+\.\d+\.\d+$/.test(host);
 }
