@@ -31,27 +31,29 @@ afterEach(() => {
   }
 });
 
+const GITHUB = new URL('https://github.com/o/r.git');
+
 describe('resolveGitHubToken — precedence', () => {
   it('prefers the passed (stored) token, without invoking gh', () => {
     h.execFileSync.mockImplementation(() => 'gh-token');
-    expect(resolveGitHubToken('  stored-token  ')).toBe('stored-token');
+    expect(resolveGitHubToken('  stored-token  ', GITHUB)).toBe('stored-token');
     expect(h.execFileSync).not.toHaveBeenCalled();
   });
 
   it('falls back to the gh CLI when no stored token', () => {
     h.execFileSync.mockReturnValue('gh-token\n');
-    expect(resolveGitHubToken()).toBe('gh-token');
+    expect(resolveGitHubToken(undefined, GITHUB)).toBe('gh-token');
   });
 
   it('falls back to the env var when gh is unavailable', () => {
     h.execFileSync.mockImplementation(GH_ABSENT);
     process.env.GH_TOKEN = 'env-token';
-    expect(resolveGitHubToken()).toBe('env-token');
+    expect(resolveGitHubToken(undefined, GITHUB)).toBe('env-token');
   });
 
   it('throws a configuration message when nothing is available', () => {
     h.execFileSync.mockImplementation(GH_ABSENT);
-    expect(() => resolveGitHubToken()).toThrow(/aren't configured/i);
+    expect(() => resolveGitHubToken(undefined, GITHUB)).toThrow(/aren't configured/i);
   });
 });
 
