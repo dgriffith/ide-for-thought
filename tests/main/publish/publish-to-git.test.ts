@@ -58,6 +58,11 @@ vi.mock('../../../src/main/git/github-repo', async (orig) => {
 });
 
 import { publishToGit } from '../../../src/main/publish/publish-to-git';
+import {
+  _setRemoteApprovalsPathForTests,
+  approveRemote,
+  approvedRemote,
+} from '../../../src/main/publish/remote-approvals';
 
 // `useTempDir` registers its own beforeEach/afterEach, so the dir is always
 // removed even when a test throws — the prior mkdtempSync-with-no-cleanup
@@ -77,6 +82,10 @@ beforeEach(() => {
   h.gh.checkRepoExists.mockResolvedValue('exists');
   h.gh.enablePages.mockResolvedValue('https://o.github.io/r/');
   h.runExport.mockClear();
+  // The machine-local approval store (#2556), in this test's temp dir, with
+  // the default target's remote approved — as if the user had typed it.
+  _setRemoteApprovalsPathForTests(path.join(root, 'approvals.json'));
+  approveRemote(root, 't', 'https://github.com/o/r.git');
 });
 
 const opts = { version: '1.2.3', nowIso: '2026-07-03T09:00:00Z' };
@@ -186,6 +195,7 @@ describe('publishToGit — GitHub repo provisioning', () => {
 
   it('leaves a non-GitHub remote entirely alone', async () => {
     h.target.gitRemote = 'https://gitlab.com/o/r.git';
+    approveRemote(root, 't', 'https://gitlab.com/o/r.git'); // as if typed in the dialog (#2556)
     h.pg.pendingChanges.mockResolvedValue([{ path: 'index.html', status: 'added' }]);
     const res = await publishToGit(root, 't', opts);
 
@@ -233,5 +243,73 @@ describe('publishToGit — GitHub Pages', () => {
     expect(res.pushed).toBe(true);
     expect(res.sha).toBe('sha_abc');
     expect(res.pagesNote).toMatch(/paid plan/);
+  });
+});
+
+describe('publishToGit — credentials go only to an approved HTTPS remote (#2556)', () => {
+  const opts = { version: '1.0.0', nowIso: '2026-10-04T00:00:00Z' };
+
+  it('a remote this machine never approved sends nothing — not even a token lookup', async () => {
+    h.target.gitRemote = 'https://git.attacker.example/x.git';
+    const res = await publishToGit(root, 't', opts);
+    expect(res.remoteUnapproved).toEqual({
+      host: 'git.attacker.example',
+      url: 'https://git.attacker.example/x.git',
+      previous: 'https://github.com/o/r.git',
+    });
+    expect(res.pushed).toBe(false);
+    expect(h.pg.resolveGitHubToken).not.toHaveBeenCalled();
+    expect(h.pg.prepareWorkspace).not.toHaveBeenCalled();
+    expect(h.gh.checkRepoExists).not.toHaveBeenCalled();
+    expect(h.runExport).not.toHaveBeenCalled();
+  });
+
+  it('a target with no approval at all reports no previous remote', async () => {
+    _setRemoteApprovalsPathForTests(path.join(root, 'fresh-approvals.json'));
+    const res = await publishToGit(root, 't', opts);
+    expect(res.remoteUnapproved).toEqual({ host: 'github.com', url: 'https://github.com/o/r.git' });
+  });
+
+  it('the user\'s confirmation of that exact URL approves it and the publish proceeds', async () => {
+    h.target.gitRemote = 'https://gitlab.com/o/r.git';
+    h.pg.pendingChanges.mockResolvedValue([{ path: 'index.html', status: 'added' }]);
+    const res = await publishToGit(root, 't', { ...opts, approveRemote: 'https://gitlab.com/o/r.git' });
+    expect(res.remoteUnapproved).toBeUndefined();
+    expect(res.pushed).toBe(true);
+    expect(approvedRemote(root, 't')).toBe('https://gitlab.com/o/r.git');
+    // ...and the token is resolved against the parsed remote, so the host rule applies.
+    expect(h.pg.resolveGitHubToken).toHaveBeenCalledWith(undefined, new URL('https://gitlab.com/o/r.git'));
+    // An approved, unchanged remote doesn't ask again.
+    const again = await publishToGit(root, 't', opts);
+    expect(again.remoteUnapproved).toBeUndefined();
+  });
+
+  it('a confirmation of a DIFFERENT url (config changed again meanwhile) is not an approval', async () => {
+    h.target.gitRemote = 'https://git.attacker.example/x.git';
+    const res = await publishToGit(root, 't', { ...opts, approveRemote: 'https://gitlab.com/o/r.git' });
+    expect(res.remoteUnapproved?.url).toBe('https://git.attacker.example/x.git');
+    expect(h.pg.prepareWorkspace).not.toHaveBeenCalled();
+    expect(approvedRemote(root, 't')).toBe('https://github.com/o/r.git');
+  });
+
+  it('refuses an http:// remote outright, with a clear reason', async () => {
+    h.target.gitRemote = 'http://github.com/o/r.git';
+    await expect(publishToGit(root, 't', { ...opts, approveRemote: 'http://github.com/o/r.git' }))
+      .rejects.toThrow(/plain http:\/\/.*unencrypted/);
+    expect(h.pg.resolveGitHubToken).not.toHaveBeenCalled();
+  });
+
+  it('compares the SSH spelling by its HTTPS form, so rewriting it isn\'t a change', async () => {
+    h.target.gitRemote = 'git@github.com:o/r.git';
+    const res = await publishToGit(root, 't', opts);
+    expect(res.remoteUnapproved).toBeUndefined();
+  });
+
+  it('with the store unconfigured (no IPC, e.g. the CLI), nothing is approved — fail closed', async () => {
+    _setRemoteApprovalsPathForTests(null);
+    const res = await publishToGit(root, 't', opts);
+    expect(res.remoteUnapproved).toBeDefined();
+    await expect(publishToGit(root, 't', { ...opts, approveRemote: 'https://github.com/o/r.git' }))
+      .rejects.toThrow(/not configured/);
   });
 });
