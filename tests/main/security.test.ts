@@ -161,6 +161,7 @@ describe('HARDENED_WEB_PREFERENCES (#1001)', () => {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      navigateOnDragDrop: false,
     });
   });
 });

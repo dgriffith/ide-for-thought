@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { dialog, app } from 'electron';
 import { windowLiveBlockRenderer, receiveLiveBlockResults } from './live-block-bridge';
 import { Channels } from '../../shared/channels';
@@ -13,9 +14,15 @@ import {
   type PublishTarget,
 } from '../project-config';
 import { checkGitHubToken } from '../git/publish-git';
+import { publishRemoteHref } from '../git/remote-policy';
+import { approveRemote, configureRemoteApprovalsPath } from '../publish/remote-approvals';
 import { withRootPath, withRootPathWin } from './helpers';
 
 export function registerPublish(): void {
+  // Per MACHINE, never per thoughtbase (#2556): config.json travels, so the
+  // record of which remote may receive credentials can't. See remote-approvals.ts.
+  configureRemoteApprovalsPath(path.join(app.getPath('userData'), 'publish-remote-approvals.json'));
+
   // ── Publication (#282) ─────────────────────────────────────────────────────
 
   handle(Channels.PUBLISH_LIST_EXPORTERS, () =>
@@ -116,7 +123,19 @@ export function registerPublish(): void {
   }));
 
   handle(Channels.PUBLISH_UPSERT_TARGET, withRootPath((rootPath, target: PublishTarget) => {
+    // A remote the user typed into the dialog is approved for credentials
+    // (#2556) — but only one they typed: a NEW target, or a changed remote.
+    // The edit form re-sends every field, so approving whatever arrived would
+    // let a label edit silently approve a URL a collaborator changed on disk.
+    const before = getPublishTargets(rootPath).find((t) => t.id === target.id);
+    const priorRemote = before && before.kind !== 's3' ? before.gitRemote : null;
     upsertPublishTarget(rootPath, target);
+    if (target.kind !== 's3' && typeof target.gitRemote === 'string' && target.gitRemote !== priorRemote) {
+      // An http:// or malformed remote saves but isn't approved; publishing
+      // it then fails with `parsePublishRemote`'s explanation.
+      const href = publishRemoteHref(target.gitRemote);
+      if (href) approveRemote(rootPath, target.id, href);
+    }
     return getPublishTargets(rootPath);
   }));
 
@@ -135,7 +154,7 @@ export function registerPublish(): void {
       rootPath,
       win,
       targetId: string,
-      opts?: { dryRun?: boolean; createRepo?: { private: boolean } },
+      opts?: { dryRun?: boolean; createRepo?: { private: boolean }; approveRemote?: string },
     ) => {
       try {
         // Dispatch by target kind (#1444). Git is the only transport today; S3
@@ -146,6 +165,7 @@ export function registerPublish(): void {
           version: app.getVersion(),
           renderLiveBlocks: windowLiveBlockRenderer(win),
           ...(opts?.createRepo ? { createRepo: opts.createRepo } : {}),
+          ...(opts?.approveRemote ? { approveRemote: opts.approveRemote } : {}),
         });
         return { ok: true as const, result };
       } catch (err) {

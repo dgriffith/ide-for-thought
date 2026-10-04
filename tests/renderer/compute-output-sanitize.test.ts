@@ -76,3 +76,26 @@ describe('sanitizeComputeOutputHtml (#243)', () => {
     expect(out).toContain('<circle');
   });
 });
+
+describe('sanitizeComputeOutputHtml — page-level tags (#2557)', () => {
+  it('drops <style> (incl. pandas\' <style scoped>), <link>, <meta> and <base>', () => {
+    const out = sanitizeComputeOutputHtml(
+      '<div><style scoped>.dataframe tbody tr th { vertical-align: top }</style>'
+      + '<table class="dataframe"><tr><td>1</td></tr></table></div>'
+      + '<link rel="stylesheet" href="x.css"><meta http-equiv="refresh" content="0"><base href="https://a.example/">',
+    );
+    for (const tag of ['<style', '<link', '<meta', '<base']) expect(out).not.toContain(tag);
+    expect(out).toContain('<table class="dataframe">');
+  });
+
+  it('drops a <style> inside SVG output', () => {
+    const out = sanitizeComputeOutputHtml('<svg><style>body{display:none}</style><circle r="1"></circle></svg>');
+    expect(out).not.toContain('<style');
+    expect(out).toContain('<circle');
+  });
+
+  it('shares one forbid list with the note sanitizer', async () => {
+    const { UNTRUSTED_HTML_FORBID_TAGS } = await import('../../src/renderer/lib/compute-output-sanitize');
+    expect(UNTRUSTED_HTML_FORBID_TAGS).toEqual(expect.arrayContaining(['style', 'link', 'meta', 'base', 'script', 'iframe']));
+  });
+});

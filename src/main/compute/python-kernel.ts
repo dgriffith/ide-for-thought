@@ -101,8 +101,8 @@ export function kernelScriptPath(): string {
 }
 
 interface KernelEnvOptions {
-  /** The project's directory — appended to PYTHONPATH and exposed to the
-   *  kernel so it knows which notebase it's running against. */
+  /** The project's directory — exposed to the kernel, which appends it to
+   *  `sys.path` (after the stdlib) and knows which notebase it serves. */
   rootPath: string;
   /** Path of the RPC socket the kernel connects back to on first import. */
   socketPath: string;
@@ -119,21 +119,12 @@ interface KernelEnvOptions {
 export function buildKernelEnv({ rootPath, socketPath, allowNetwork }: KernelEnvOptions): NodeJS.ProcessEnv {
   return {
     ...process.env,
-    // PYTHONUNBUFFERED ensures the kernel's stdout writes flush
-    // immediately — without it, Python's buffering would hold each
-    // event line until 4KB accumulated, breaking the line-protocol.
-    PYTHONUNBUFFERED: '1',
-    // PYTHONPATH = bundled-libs ++ project-root.
-    //   1. `pythonResourcesRoot()` is where the bundled `minerva`
-    //      package lives — listed first so the user can never shadow
-    //      `import minerva` with their own `minerva.py`.
-    //   2. `rootPath` is the project's directory, so any `.py` file
-    //      the user puts in their notebase is importable from a
-    //      ```python cell (`from helpers import foo` for `helpers.py`
-    //      at the root; `from python.utils import foo` for
-    //      `python/utils.py`). Mirrors how `.csv` and `.ttl` files
-    //      are first-class in the notebase.
-    PYTHONPATH: pythonResourcesRoot() + path.delimiter + rootPath,
+    // No PYTHONPATH / PYTHONUNBUFFERED (#2555): the kernel runs with `-E -u`
+    // (`KERNEL_PYTHON_FLAGS`), which ignores every PYTHON* variable. The
+    // bundled `minerva` package resolves from the script's own directory
+    // (sys.path[0]); the project root — so a ```python cell can
+    // `from helpers import foo` for `helpers.py` — is appended to sys.path
+    // by the kernel bootstrap from MINERVA_PROJECT_ROOT, after the stdlib.
     MINERVA_IPC_SOCKET: socketPath,
     MINERVA_PROJECT_ROOT: rootPath,
     // Network egress off by default (#1413). The kernel bootstrap installs a

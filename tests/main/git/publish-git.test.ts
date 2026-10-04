@@ -58,6 +58,8 @@ describe('renderCommitMessage', () => {
   });
 });
 
+const GITHUB = new URL('https://github.com/o/r.git');
+
 describe('resolveGitHubToken', () => {
   // process.env is worker-global, so snapshot + restore to avoid leaking the
   // deletions into other test files that share the worker.
@@ -76,16 +78,31 @@ describe('resolveGitHubToken', () => {
 
   it('prefers the gh CLI token', () => {
     hoisted.execFileSync.mockReturnValue('gho_fromcli\n');
-    expect(resolveGitHubToken()).toBe('gho_fromcli');
+    expect(resolveGitHubToken(undefined, GITHUB)).toBe('gho_fromcli');
   });
   it('falls back to GH_TOKEN when gh is unavailable', () => {
     hoisted.execFileSync.mockImplementation(() => { throw new Error('gh: not found'); });
     process.env.GH_TOKEN = 'ghp_fromenv';
-    expect(resolveGitHubToken()).toBe('ghp_fromenv');
+    expect(resolveGitHubToken(undefined, GITHUB)).toBe('ghp_fromenv');
   });
   it('throws a configuration message when nothing is available', () => {
     hoisted.execFileSync.mockImplementation(() => { throw new Error('gh: not found'); });
-    expect(() => resolveGitHubToken()).toThrow(/credentials aren't configured/i);
+    expect(() => resolveGitHubToken(undefined, GITHUB)).toThrow(/credentials aren't configured/i);
+  });
+
+  it('never offers the gh CLI or env token to a host other than github.com (#2556)', () => {
+    hoisted.execFileSync.mockReturnValue('gho_fromcli\n');
+    process.env.GH_TOKEN = 'ghp_fromenv';
+    for (const url of ['https://git.attacker.example/x.git', 'https://github.com.attacker.example/x.git', 'https://gitlab.com/o/r.git']) {
+      expect(() => resolveGitHubToken(undefined, new URL(url)), url).toThrow(/only ever sent to github\.com/);
+    }
+    // Not even asked for: the CLI is never run for a foreign host.
+    expect(hoisted.execFileSync).not.toHaveBeenCalled();
+  });
+
+  it('sends a token stored on the target to that target\'s own host (#2556)', () => {
+    expect(resolveGitHubToken('glpat_stored', new URL('https://gitlab.com/o/r.git'))).toBe('glpat_stored');
+    expect(hoisted.execFileSync).not.toHaveBeenCalled();
   });
 });
 
@@ -129,6 +146,22 @@ describe('prepareWorkspace — the clone is not to be taken at its word', () => 
     expect(res.branchExisted).toBe(true);
     // The cloned history survives — this is the incremental-publish path.
     expect(await git.log({ fs: fsMod, dir, depth: 1 })).toHaveLength(1);
+  });
+
+  it('refuses an http:// remote before any clone, so onAuth never sees a token (#2556)', async () => {
+    const clone = vi.spyOn(git, 'clone');
+    await expect(prepareWorkspace({ dir, url: 'http://example.com/o/r.git', branch: 'gh-pages', token: 'secret' }))
+      .rejects.toThrow(/plain http:\/\//);
+    expect(clone).not.toHaveBeenCalled();
+  });
+
+  it('hands onAuth the token for the https remote it was given', async () => {
+    let seen: { url: string; auth: unknown } | null = null;
+    vi.spyOn(git, 'clone').mockImplementation(async (o) => {
+      seen = { url: o.url, auth: await o.onAuth?.(o.url, {}) };
+    });
+    await prepareWorkspace({ dir, url: 'git@github.com:o/r.git', branch: 'gh-pages', token: 'secret' });
+    expect(seen).toEqual({ url: 'https://github.com/o/r.git', auth: { username: 'x-access-token', password: 'secret' } });
   });
 
   it('falls back to a fresh repo when the clone throws (branch absent)', async () => {
