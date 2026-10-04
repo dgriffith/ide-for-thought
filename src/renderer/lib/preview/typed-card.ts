@@ -11,6 +11,7 @@
 import { escapeHtml, escapeAttr } from './text';
 import type { NoteTypedProperties } from '../../../shared/objects/type-def';
 import { selectCardFields } from '../../../shared/objects/card';
+import { safeCssColor } from '../../../shared/css-color';
 import type { QuoteMeta } from './cite-meta';
 
 /** An http(s) cover value renders as an <img>; anything else falls back to the
@@ -29,10 +30,13 @@ export function buildObjectCardHtml(rb: NoteTypedProperties, opts: { title: stri
   if (!type) return escapeHtml(opts.title);
   const { fields, cover } = selectCardFields(rb);
   const icon = type.icon ?? '◆';
+  // Validated at parse too (main/types/parse.ts); this card bypasses DOMPurify,
+  // so it re-checks rather than trusting that (#2561).
+  const color = safeCssColor(type.color);
 
   const coverHtml = isImageUrl(cover)
     ? `<span class="oc-cover"><img src="${escapeAttr(cover)}" alt="" loading="lazy" /></span>`
-    : `<span class="oc-cover oc-cover-icon"${type.color ? ` style="color:${escapeAttr(type.color)}"` : ''}>${escapeHtml(icon)}</span>`;
+    : `<span class="oc-cover oc-cover-icon"${color ? ` style="color:${escapeAttr(color)}"` : ''}>${escapeHtml(icon)}</span>`;
 
   const chips = fields
     .filter((f) => f.value !== null && f.value !== '')
