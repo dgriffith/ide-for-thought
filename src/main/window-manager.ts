@@ -17,12 +17,12 @@ import { saveSession, type WindowState } from './session';
 import { acquireProject, releaseProject } from './project-context';
 import { runBackfill } from './embeddings/backfill';
 import { installNavigationGuards, HARDENED_WEB_PREFERENCES } from './security';
+import { rendererEntryPath, rendererEntryUrl } from './renderer-entry';
 import { ensureClipperRunning, stopClipperServer, isClipperEnabled } from './clipper/lifecycle';
 import type { ProjectContext } from './project-context-types';
 import { logger } from '../shared/logger';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
-declare const MAIN_WINDOW_VITE_NAME: string;
 
 // Menu-rebuild trigger, injected rather than imported (#986). window-manager
 // needs to rebuild the native menu when window/project state changes (focus,
@@ -175,7 +175,8 @@ export function createWindow(opts?: { x?: number; y?: number; width?: number; he
 
   contexts.set(win.id, { rootPath: null, graphStore: null });
   showWhenReady(win);
-  installNavigationGuards(win.webContents);
+  // The only page this window may navigate to (#2552).
+  installNavigationGuards(win.webContents, rendererEntryUrl());
 
   // Re-announce the open project to the renderer on every page load. The
   // initial open is driven elsewhere (session restore in main.ts, or the
@@ -201,9 +202,7 @@ export function createWindow(opts?: { x?: number; y?: number; width?: number; he
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     void win.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
   } else {
-    void win.loadFile(
-      path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`)
-    );
+    void win.loadFile(rendererEntryPath());
   }
 
   win.on('closed', () => {
