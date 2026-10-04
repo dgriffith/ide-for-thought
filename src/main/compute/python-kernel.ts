@@ -28,6 +28,7 @@ import { startRpcServer, type RpcServer } from './rpc-server';
 import os from 'node:os';
 import { resolvePythonInterpreter, getPythonSettings } from './python-settings';
 import { planKernelLaunch, resolveRealPath } from './sandbox';
+import { allowlistedEnv, KERNEL_ENV_EXTRA } from '../subprocess-env';
 import {
   createCellDeadlines, cellTimeoutMessage, resolveCellBudgetMs, type CellDeadlines,
 } from './cell-deadline';
@@ -116,9 +117,14 @@ interface KernelEnvOptions {
  * environment-construction logic — a missed var here silently breaks every
  * compute cell — is testable independent of actually spawning a process.
  */
-export function buildKernelEnv({ rootPath, socketPath, allowNetwork }: KernelEnvOptions): NodeJS.ProcessEnv {
+export function buildKernelEnv(
+  { rootPath, socketPath, allowNetwork }: KernelEnvOptions,
+  source: NodeJS.ProcessEnv = process.env,
+): NodeJS.ProcessEnv {
   return {
-    ...process.env,
+    // An allowlist, not `...process.env` (#2560): a cell must not read the
+    // API keys and tokens the user's shell exported. See subprocess-env.ts.
+    ...allowlistedEnv(source, KERNEL_ENV_EXTRA),
     // No PYTHONPATH / PYTHONUNBUFFERED (#2555): the kernel runs with `-E -u`
     // (`KERNEL_PYTHON_FLAGS`), which ignores every PYTHON* variable. The
     // bundled `minerva` package resolves from the script's own directory

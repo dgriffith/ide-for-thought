@@ -102,7 +102,7 @@
     <div class="deflist">
       <div class="row">
         <div class="k">Local command (<code>stdio</code>)</div>
-        <div class="v">Minerva launches the server itself as a background program. Fill in the <b>Command</b> (for example <code>npx</code>), any <b>Arguments</b> one per line, and any <b>Environment</b> variables as <code>KEY=VALUE</code>, one per line — that's where an API key the server needs goes.</div>
+        <div class="v">Minerva launches the server itself as a background program. Fill in the <b>Command</b> (for example <code>npx</code>), any <b>Arguments</b> one per line, and any <b>Environment</b> variables as <code>KEY=VALUE</code>, one per line — that's where an API key the server needs goes. The server sees only what you list there plus the few variables any program needs to run (<code>PATH</code>, <code>HOME</code>, your language and time zone settings) — not the rest of the environment Minerva was started with, so keys and tokens your shell exports for other tools aren't passed to it. If a server relied on one of those, add it under <b>Environment</b>.</div>
       </div>
       <div class="row">
         <div class="k">Remote URL (<code>http</code>)</div>
