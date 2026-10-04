@@ -21,6 +21,14 @@ import * as pdfjs from 'pdfjs-dist';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { createWorker, type Worker as TesseractWorker } from 'tesseract.js';
 import engTrainedDataUrl from '../../assets/ocr/eng.traineddata?url';
+// The worker script and WASM core ship in the bundle (#2564). Left unset,
+// tesseract.js fetches both from cdn.jsdelivr.net at run time — no SRI, a
+// host anyone can publish to, and under our CSP (`script-src 'self'`) its
+// `importScripts` of the CDN URL is refused, so OCR needs them local anyway.
+// One core variant: SIMD + LSTM-only, matching `createWorker('eng', 1)`
+// (OEM 1 = LSTM only) on Chromium, which always has WASM SIMD.
+import tesseractWorkerUrl from 'tesseract.js/dist/worker.min.js?url';
+import tesseractCoreUrl from 'tesseract.js-core/tesseract-core-simd-lstm.wasm.js?url';
 
 // Point pdfjs at its worker script. Vite bundles `pdf.worker.min.mjs` as
 // an asset and gives us a URL; pdfjs uses it to spawn its worker.
@@ -76,11 +84,21 @@ async function createTesseractWorker(): Promise<TesseractWorker> {
   // directory ending in `/` that contains `<lang>.traineddata`; our
   // ?url import gives the file URL, so we strip the filename. Using
   // `gzip: false` since the bundled blob is raw, not compressed.
+  //
+  // Known gap (#2564): under `file://` the worker's fetch of this sibling
+  // asset fails, so OCR doesn't complete in the packaged app (it does under
+  // the dev server). Serving the renderer from `app://` fixes that; the
+  // in-memory `{ code, data }` form would too, but tesseract.js 7.0.0's
+  // worker joins those by `.data` instead of `.code`.
   const lastSlash = engTrainedDataUrl.lastIndexOf('/');
   const langPath = engTrainedDataUrl.slice(0, lastSlash + 1);
   const worker = await createWorker('eng', 1, {
     langPath,
     gzip: false,
+    // Loaded from the bundle, never the CDN default (#2564).
+    workerPath: tesseractWorkerUrl,
+    // A core path ending in `.js` is loaded as-is (no SIMD sniffing, no CDN).
+    corePath: tesseractCoreUrl,
   });
   return worker;
 }

@@ -12,11 +12,11 @@ export interface CspOptions {
  *  adapters (Crossref, arXiv, PubMed, Anthropic) talk to their endpoints
  *  in main, so renderer connect-src stays narrow. */
 export const RENDERER_FETCH_HOSTS = [
-  // tesseract.js core/wasm + worker glue, and transformers.js's
-  // onnxruntime-web WASM. Keep both so a CDN switch in either doesn't
-  // break OCR / voice silently.
-  'https://cdn.jsdelivr.net',
-  'https://unpkg.com',
+  // No package CDNs (#2564). jsdelivr / unpkg used to be here for tesseract.js
+  // (worker + core) and transformers.js's onnxruntime-web WASM; all three ship
+  // in the bundle now (run-ocr.ts, whisper.worker.ts). They were an exfil
+  // channel for any renderer bug — anyone can publish to them — and code
+  // loaded from them had no integrity check. Don't add one back: bundle it.
   // Local Whisper model weights for dictation (#voice) are fetched once
   // from the HF hub and then cached by the browser. The hub redirects the
   // actual file bytes to its LFS / Xet CDN, whose hostnames are regional and

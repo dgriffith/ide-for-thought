@@ -23,7 +23,8 @@ describe('buildCsp (#339)', () => {
 
   it('connect-src allows the renderer-direct hosts but is otherwise tight', () => {
     const csp = buildCsp();
-    expect(csp).toMatch(/connect-src 'self' https:\/\/cdn\.jsdelivr\.net https:\/\/unpkg\.com/);
+    // No package CDNs (#2564): tesseract and onnxruntime-web assets are bundled.
+    expect(csp).not.toMatch(/jsdelivr|unpkg/);
     // Whisper model weights for voice dictation (#voice) come from the HF hub,
     // whose file bytes redirect to regional LFS/Xet CDN subdomains.
     const connectSrc = csp.match(/connect-src ([^;]+)/)![1];
