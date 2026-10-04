@@ -61,7 +61,7 @@ export async function writeJsonFileAtomic(absPath: string, value: unknown, forma
   await fs.mkdir(path.dirname(absPath), { recursive: true });
   const tmpPath = siblingTempPath(absPath);
   try {
-    await fs.writeFile(tmpPath, serializeJson(value, format), 'utf-8');
+    await fs.writeFile(tmpPath, serializeJson(value, format), fileOptions(format));
     await fs.rename(tmpPath, absPath);
   } catch (err) {
     await fs.rm(tmpPath, { force: true }).catch(() => {});
@@ -80,7 +80,7 @@ export function writeJsonFileAtomicSync(absPath: string, value: unknown, format:
   fsSync.mkdirSync(path.dirname(absPath), { recursive: true });
   const tmpPath = siblingTempPath(absPath);
   try {
-    fsSync.writeFileSync(tmpPath, serializeJson(value, format), 'utf-8');
+    fsSync.writeFileSync(tmpPath, serializeJson(value, format), fileOptions(format));
     fsSync.renameSync(tmpPath, absPath);
   } catch (err) {
     try { fsSync.rmSync(tmpPath, { force: true }); } catch { /* best-effort, as above — never mask `err` */ }
@@ -100,6 +100,24 @@ export interface JsonFileFormat {
   indent?: number;
   /** End the file with a newline. Default false. */
   trailingNewline?: boolean;
+  /**
+   * File permissions, e.g. `SECRET_FILE_MODE` for a store holding credentials
+   * (#2562). Applied when the TEMP file is created — so the secret is never on
+   * disk with wider permissions, not even between write and chmod — and the
+   * rename carries it over, which also tightens an existing 0644 file on its
+   * next write. Omitted: the process default (0666 & ~umask, usually 0644).
+   */
+  mode?: number;
+}
+
+/**
+ * Owner read/write only, for stores that hold credentials (#2562): another
+ * local user must not be able to read them, encrypted or not.
+ */
+export const SECRET_FILE_MODE = 0o600;
+
+function fileOptions({ mode }: JsonFileFormat): { encoding: 'utf-8'; mode?: number } {
+  return mode === undefined ? { encoding: 'utf-8' } : { encoding: 'utf-8', mode };
 }
 
 function serializeJson(value: unknown, { indent = 2, trailingNewline = false }: JsonFileFormat): string {
