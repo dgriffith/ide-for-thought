@@ -137,3 +137,21 @@ describe('ComputeDraftCard (#672)', () => {
     expect(onOpenInserted).toHaveBeenCalledWith('notes/sub/analysis.md');
   });
 });
+
+describe('ComputeDraftCard — safety-flag messages render as text (#2563)', () => {
+  it('shows backtick runs as <code> and the rest as text', () => {
+    const { container } = renderCard({ draft: draft({ safetyFlags: [{ id: 'f1', message: 'Imports `socket`' }] }) });
+    const li = container.querySelector('.compute-safety li')!;
+    expect(li.textContent).toBe('Imports socket');
+    expect(li.querySelector('code')?.textContent).toBe('socket');
+  });
+
+  it('a message carrying markup is shown, never parsed', () => {
+    const evil = 'Imports `<img src=x onerror="window.__pwned=1">` and <b>bold</b>';
+    const { container } = renderCard({ draft: draft({ safetyFlags: [{ id: 'f1', message: evil }] }) });
+    const li = container.querySelector('.compute-safety li')!;
+    expect(li.querySelector('img')).toBeNull();
+    expect(li.querySelector('b')).toBeNull();
+    expect(li.textContent).toBe('Imports <img src=x onerror="window.__pwned=1"> and <b>bold</b>');
+  });
+});

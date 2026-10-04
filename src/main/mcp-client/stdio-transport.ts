@@ -37,6 +37,7 @@ import {
   type McpToolDescriptor,
   type McpTransport,
 } from './types';
+import { allowlistedEnv } from '../subprocess-env';
 
 type StdioDescriptor = Extract<McpServerDescriptor, { kind: 'stdio' }>;
 
@@ -73,7 +74,9 @@ export class StdioTransport implements McpTransport {
 
     const proc = spawn(this.descriptor.command, this.descriptor.args ?? [], {
       stdio: ['pipe', 'pipe', 'pipe'],
-      env: { ...process.env, ...this.descriptor.env },
+      // The base allowlist plus the server's own configured env — not the
+      // whole parent env, which carries the user's API keys and tokens (#2560).
+      env: { ...allowlistedEnv(process.env), ...this.descriptor.env },
       cwd: this.descriptor.cwd,
     });
     this.proc = proc;

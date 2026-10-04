@@ -36,6 +36,10 @@ vi.mock('../../../src/renderer/assets/ocr/eng.traineddata?url', () => ({
 vi.mock('tesseract.js', () => ({
   createWorker: createWorkerMock,
 }));
+vi.mock('tesseract.js/dist/worker.min.js?url', () => ({ default: 'bundle://assets/worker.min.js' }));
+vi.mock('tesseract.js-core/tesseract-core-simd-lstm.wasm.js?url', () => ({
+  default: 'bundle://assets/tesseract-core-simd-lstm.wasm.js',
+}));
 
 import { runOcr, type OcrProgress } from '../../../src/renderer/lib/ocr/run-ocr';
 
@@ -177,5 +181,25 @@ describe('runOcr() (#343)', () => {
       expect(terminateMock).toHaveBeenCalledTimes(1);
       expect(taskDestroy).toHaveBeenCalledTimes(1);
     });
+  });
+});
+
+describe('runOcr() loads tesseract from the bundle, never a CDN (#2564)', () => {
+  it('passes bundled workerPath / corePath / langPath, none of them remote', async () => {
+    const { loadingTask } = stubPdf(1);
+    getDocumentMock.mockReturnValue(loadingTask);
+    recognizeMock.mockResolvedValueOnce({ data: { text: 't' } });
+    createWorkerMock.mockResolvedValue({ recognize: recognizeMock, terminate: terminateMock });
+
+    await runOcr(new Uint8Array(), () => undefined);
+    const opts = createWorkerMock.mock.calls[0]![2] as Record<string, unknown>;
+    expect(opts).toMatchObject({
+      workerPath: 'bundle://assets/worker.min.js',
+      corePath: 'bundle://assets/tesseract-core-simd-lstm.wasm.js',
+      langPath: 'stub://lang/',
+    });
+    for (const v of Object.values(opts)) {
+      if (typeof v === 'string') expect(v).not.toMatch(/^https?:/);
+    }
   });
 });

@@ -16,7 +16,7 @@ import fs from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
 import { encryptSecret, decryptSecret, isEncrypted, secretEncryptionAvailable } from '../secret-storage';
 import { reportConfigError } from '../config/config-store';
-import { writeJsonFileAtomic } from '../config/json-file';
+import { writeJsonFileAtomic, SECRET_FILE_MODE } from '../config/json-file';
 
 export interface ClipperConfig {
   enabled: boolean;
@@ -78,7 +78,7 @@ async function saveClipperConfig(config: ClipperConfig): Promise<void> {
   // encrypted (#1326).
   const onDisk: ClipperConfig = { ...config, secret: encryptSecret(config.secret) };
   // Atomic (#2356): a crash mid-write must not leave a truncated file behind.
-  await writeJsonFileAtomic(configPath(), onDisk);
+  await writeJsonFileAtomic(configPath(), onDisk, { mode: SECRET_FILE_MODE });
 }
 
 /** Set the enable flag. Enabling issues a secret if none exists yet. */

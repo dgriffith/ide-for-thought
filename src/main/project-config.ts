@@ -12,7 +12,7 @@ import path from 'node:path';
 import { encryptSecret, decryptSecret } from './secret-storage';
 import { readCachedProjectConfig } from './config/project-config-cache';
 import { patchRawProjectConfig } from './config/project-config-store';
-import { isEnoent, writeJsonFileAtomicSync } from './config/json-file';
+import { isEnoent, writeJsonFileAtomicSync, SECRET_FILE_MODE } from './config/json-file';
 import { reportConfigError } from './config/config-store';
 
 export interface ProjectConfigShape {
@@ -309,7 +309,7 @@ function writeSecrets(rootPath: string, secrets: Record<string, TargetSecret>): 
     return;
   }
   ensureMinervaGitignored(rootPath, 'secrets.json');
-  writeJsonFileAtomicSync(file, { publishTargets: secrets });
+  writeJsonFileAtomicSync(file, { publishTargets: secrets }, { mode: SECRET_FILE_MODE });
 }
 
 interface PublishState {

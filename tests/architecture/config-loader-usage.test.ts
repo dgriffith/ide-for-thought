@@ -82,6 +82,10 @@ function candidates(): string[] {
 const BASELINE: Record<string, string> = {
   // The shared loader itself — reads + JSON.parses by definition.
   'src/main/config/config-store.ts': 'the shared loader — this is its implementation',
+  // #2564: parses the JSON a hidden window's executeJavaScript returns (the old
+  // file:// origin's localStorage, read once) and scans leveldb .log bytes for
+  // a marker string. Neither is a config file; its own marker is only written.
+  'src/main/legacy-storage-migration.ts': 'one-time localStorage carry: parses executeJavaScript output, not a config file',
   // Deliberate exception (#1913): must THROW on corruption, not default, so a
   // patch is never merged onto a silently-emptied file (#1891). See the
   // docstring on `readRawProjectConfig` for the full reasoning.

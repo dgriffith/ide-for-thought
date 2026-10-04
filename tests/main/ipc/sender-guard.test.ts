@@ -16,7 +16,7 @@ vi.mock('electron', () => ({
 }));
 
 // The vite `define` globals: a packaged build (no dev server), whose entry
-// is `<__dirname>/../renderer/main_window/index.html`.
+// is app://minerva/index.html (#2564).
 vi.stubGlobal('MAIN_WINDOW_VITE_DEV_SERVER_URL', undefined);
 vi.stubGlobal('MAIN_WINDOW_VITE_NAME', 'main_window');
 
@@ -37,7 +37,7 @@ beforeEach(() => h.handlers.clear());
 
 describe('isTrustedIpcSender (#2553)', () => {
   it('trusts the renderer entry\'s main frame, with or without a hash', () => {
-    expect(ENTRY).toMatch(/^file:\/\/.*\/renderer\/main_window\/index\.html$/);
+    expect(ENTRY).toBe('app://minerva/index.html');
     expect(isTrustedIpcSender(event(ENTRY) as never)).toBe(true);
     expect(isTrustedIpcSender(event(`${ENTRY}#/notes/a.md`) as never)).toBe(true);
   });

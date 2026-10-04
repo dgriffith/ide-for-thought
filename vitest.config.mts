@@ -667,12 +667,6 @@ export default defineConfig({
         // exception (main.ts, 0%) is listed there with a reason, and that
         // list may only shrink.
         //
-        // menu.ts ~36.4 L / 36.4 S / 23.6 F / 48.0 B — the native command
-        // surface #2233 cares about. Low, and recorded as such: the template
-        // builders are exercised (menu-rebuild-io, menu-shortcuts), the
-        // click handlers mostly aren't. Floors sit 3 under measured (#2368),
-        // tighter than the usual 8-10 for a single file, so the one real
-        // number here can't erode while nobody is looking at it.
         // safe-fetch.ts ~97.2 L / 93.0 S / 77.8 F / 85.7 B — the SSRF guard for
         // every main-process fetch of an untrusted URL (#2566).
         'src/main/safe-fetch.ts': {
@@ -681,6 +675,20 @@ export default defineConfig({
           functions: 68,
           branches: 76,
         },
+        // legacy-storage-migration.ts ~96.4 L / 93.8 S / 93.3 F / 87.5 B —
+        // the one-time file:// → app:// localStorage carry (#2564).
+        'src/main/legacy-storage-migration.ts': {
+          lines: 86,
+          statements: 84,
+          functions: 84,
+          branches: 78,
+        },
+        // menu.ts ~36.4 L / 36.4 S / 23.6 F / 48.0 B — the native command
+        // surface #2233 cares about. Low, and recorded as such: the template
+        // builders are exercised (menu-rebuild-io, menu-shortcuts), the
+        // click handlers mostly aren't. Floors sit 3 under measured (#2368),
+        // tighter than the usual 8-10 for a single file, so the one real
+        // number here can't erode while nobody is looking at it.
         'src/main/menu.ts': {
           lines: 33,
           statements: 33,
