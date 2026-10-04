@@ -11,7 +11,7 @@ import { appIconPath } from './app-icon';
 import { loadSession } from './session';
 import { registerBuiltinExecutors } from './compute/executors';
 import { registerBuiltinExporters } from './publish';
-import { installCsp, installPermissions, rendererCsp } from './security';
+import { installCsp, installGlobalWebContentsGuards, installPermissions, rendererCsp } from './security';
 import { installAppProtocol, registerAppScheme } from './app-protocol';
 import { rendererRoot } from './renderer-entry';
 import { registerLegacyStorageMigration } from './legacy-storage-migration';
@@ -43,6 +43,10 @@ function boot(label: string): void {
 }
 
 boot('main module loaded');
+
+// Every webContents and session Electron creates from here on starts
+// deny-by-default (#2559) — registered before any window can exist.
+installGlobalWebContentsGuards();
 
 // The renderer's `app://` scheme must be declared privileged before the app
 // is ready (#2564).

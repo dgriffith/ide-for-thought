@@ -21,11 +21,20 @@
  *    or the Vite dev server's origin in dev; http(s) requests get diverted
  *    to the OS browser.
  *
+ *  - **Deny by default, everywhere** (#2559). `installGlobalWebContentsGuards`
+ *    hooks `web-contents-created` and `session-created`, so EVERY webContents
+ *    starts unable to open a window, navigate, or attach a `<webview>`, and
+ *    every session but the default one denies every permission. A window
+ *    that needs more opts in: the main window through
+ *    `installNavigationGuards`, the privileged-site login partition through
+ *    `allowHttpsBrowsing`. A window someone adds later is guarded before its
+ *    author thinks about it — the PDF-render and login windows were not.
+ *
  * Pure logic lives in security-helpers.ts so tests can exercise the
  * CSP string and routing decisions without pulling in `electron`.
  */
 
-import { session, shell, type WebContents } from 'electron';
+import { app, session, shell, type Session, type WebContents } from 'electron';
 import { buildCsp, externalNavTarget, isOwnOrigin, isRendererEntry } from './security-helpers';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
@@ -42,6 +51,11 @@ export const HARDENED_WEB_PREFERENCES = {
   contextIsolation: true,
   nodeIntegration: false,
   sandbox: true,
+  // A file dropped where nothing accepts it must not become the top-level
+  // page — the preload would run on it (#2554). Electron's default, pinned
+  // here so it can't change underneath us; the renderer also refuses
+  // unaccepted file drops (`lib/app/navigation-guard.ts`).
+  navigateOnDragDrop: false,
 } as const;
 
 /** The CSP the renderer runs under (dev loosenings when the dev server is up). */
@@ -105,6 +119,85 @@ export function installPermissions(): void {
   });
 }
 
+// ── Deny by default (#2559) ────────────────────────────────────────────────
+
+/** webContents whose top-level navigation is decided by their own guard. */
+const navigationOptIn = new WeakSet<WebContents>();
+
+/** What the webContents of an opted-in session may do. */
+interface SessionBrowsingPolicy {
+  /** The partition string, so a popup is pinned to the same session. */
+  partition: string;
+}
+
+/** Sessions whose pages may browse https (the privileged-site login partition). */
+const httpsBrowsingSessions = new WeakMap<Session, SessionBrowsingPolicy>();
+
+function isHttps(url: string): boolean {
+  return URL.canParse(url) && new URL(url).protocol === 'https:';
+}
+
+/** Deny every permission request and check — the default for every session
+ *  but the app's own (`installPermissions` narrows that one). */
+export function denyAllPermissions(sess: Session): void {
+  sess.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
+  sess.setPermissionCheckHandler(() => false);
+}
+
+/**
+ * The guards every webContents gets at creation. With no opt-in it can't open
+ * a window, navigate, or attach a `<webview>`. A webContents in a session
+ * `allowHttpsBrowsing` registered may navigate to https and open https popups
+ * in the same partition (OAuth sign-in flows need both); nothing else.
+ */
+export function applyDefaultWebContentsGuards(wc: WebContents): void {
+  const browsing = httpsBrowsingSessions.get(wc.session);
+
+  wc.setWindowOpenHandler(({ url }) => {
+    if (browsing && isHttps(url)) {
+      return {
+        action: 'allow',
+        overrideBrowserWindowOptions: {
+          webPreferences: { ...HARDENED_WEB_PREFERENCES, partition: browsing.partition },
+        },
+      };
+    }
+    return { action: 'deny' };
+  });
+
+  wc.on('will-navigate', (event, url) => {
+    if (navigationOptIn.has(wc)) return; // its own guard decides
+    if (browsing && isHttps(url)) return;
+    event.preventDefault();
+  });
+
+  wc.on('will-attach-webview', (event) => {
+    event.preventDefault();
+  });
+}
+
+/**
+ * Let pages in `partition`'s session browse https — top-level navigation and
+ * same-partition popups — and nothing else. Its permissions stay denied. Call
+ * before creating a window in that partition.
+ */
+export function allowHttpsBrowsing(partition: string): Session {
+  const sess = session.fromPartition(partition);
+  httpsBrowsingSessions.set(sess, { partition });
+  return sess;
+}
+
+/**
+ * Hook every webContents and session Electron creates. Call once, at startup,
+ * before any window exists. The default session's `session-created` (if it
+ * fires after this) gets deny-all too; `installPermissions` replaces that with
+ * the app's narrow allowlist once the app is ready.
+ */
+export function installGlobalWebContentsGuards(): void {
+  app.on('web-contents-created', (_event, wc) => applyDefaultWebContentsGuards(wc));
+  app.on('session-created', (sess) => denyAllPermissions(sess));
+}
+
 /**
  * Install the per-WebContents navigation guards. Called once per window
  * from window-manager.createWindow, after the BrowserWindow is built.
@@ -112,6 +205,9 @@ export function installPermissions(): void {
  * file:// page it may ever navigate to (#2552).
  */
 export function installNavigationGuards(webContents: WebContents, entryUrl: string): void {
+  // Replaces the default-deny window-open handler, and tells the default
+  // will-navigate guard to stand down: the listener below decides.
+  navigationOptIn.add(webContents);
   webContents.setWindowOpenHandler(({ url }) => {
     const route = externalNavTarget(url);
     if (route.kind === 'external') {

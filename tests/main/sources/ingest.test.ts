@@ -126,6 +126,36 @@ describe('buildBodyMarkdown (#93)', () => {
   });
 });
 
+describe('buildBodyMarkdown keeps a page\'s visible <…> text as text (#2558)', () => {
+  const base = { byline: null, siteName: null, excerpt: null, publishedTime: null, lang: null, textContent: '' };
+
+  it('backslash-escapes < from text nodes, so markdown renders it literally', async () => {
+    const md = buildBodyMarkdown({
+      ...base,
+      title: 'About <script> tags',
+      contentHtml: '<p>Visible text: &lt;img src=x onerror=alert(1)&gt; and &lt;script&gt;alert(1)&lt;/script&gt;</p><p><code>&lt;b&gt;</code> in code</p>',
+    });
+    expect(md).toContain('\\<img src=x onerror=alert(1)>');
+    expect(md).toMatch(/^# About \\<script> tags/);
+    // Code is not escaped — it's already literal there.
+    expect(md).toContain('`<b>`');
+
+    // Rendered by markdown-it with html ENABLED (the in-app preview's setting),
+    // the escaped text still comes out as text, not as elements.
+    const MarkdownIt = (await import('markdown-it')).default;
+    const html = new MarkdownIt({ html: true }).render(md);
+    expect(html).not.toMatch(/<img\b/);
+    expect(html).not.toMatch(/<script/);
+    expect(html).toContain('&lt;img src=x onerror=alert(1)&gt;');
+  });
+
+  it('leaves real markup from the page (links, emphasis) converted as before', () => {
+    const md = buildBodyMarkdown({ ...base, title: 'T', contentHtml: '<p>A <a href="https://e.example/">link</a> and <em>emphasis</em>.</p>' });
+    expect(md).toContain('[link](https://e.example/)');
+    expect(md).toContain('*emphasis*');
+  });
+});
+
 describe('buildMetaTtl (#93)', () => {
   it('emits a well-formed WebPage record with the standard predicates', () => {
     const ttl = buildMetaTtl(
