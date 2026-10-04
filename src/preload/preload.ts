@@ -1,20 +1,13 @@
 import { contextBridge, ipcRenderer, webUtils, webFrame } from 'electron';
 import { Channels } from '../shared/channels';
 import { invoke } from './typed-invoke';
+import { importLegacyOriginStorage } from './legacy-storage';
 
-// The file:// → app:// move (#2564): before any page script reads
-// localStorage, copy in what the old origin held. Main answers null on every
-// launch but the first after the upgrade; an existing key always wins.
-try {
-  const legacy = ipcRenderer.sendSync(Channels.STORAGE_LEGACY_ORIGIN_ENTRIES) as Record<string, string> | null;
-  if (legacy) {
-    for (const [key, value] of Object.entries(legacy)) {
-      if (window.localStorage.getItem(key) === null) window.localStorage.setItem(key, value);
-    }
-  }
-} catch {
-  // Storage unavailable (or main gone): start fresh rather than break the page.
-}
+// Before any page script reads localStorage (#2564) — see legacy-storage.ts.
+importLegacyOriginStorage(
+  () => ipcRenderer.sendSync(Channels.STORAGE_LEGACY_ORIGIN_ENTRIES) as Record<string, string> | null,
+  () => window.localStorage,
+);
 import type { SearchInNotesOptions, ReplaceInNotesOptions, MenuEditorState, BookmarkNode, LayoutSession, NeighborhoodOptions } from '../shared/types';
 import type { ThemeMode } from '../shared/theme';
 import type { ChannelMap, EventMap } from '../shared/ipc-contract';
