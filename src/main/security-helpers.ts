@@ -93,12 +93,47 @@ export function buildCsp(opts: CspOptions = {}): string {
     .join('; ');
 }
 
+/** Parse `url`, or null when it isn't one. */
+function parseUrl(url: string): URL | null {
+  return URL.canParse(url) ? new URL(url) : null;
+}
+
+/** True when `url` is on the Vite dev server's exact origin. An origin
+ *  comparison, not a prefix match: `http://localhost:5173.evil.example`
+ *  starts with `http://localhost:5173`. */
+function isDevServerOrigin(url: string, devServerOrigin: string | undefined): boolean {
+  if (!devServerOrigin) return false;
+  const u = parseUrl(url);
+  const dev = parseUrl(devServerOrigin);
+  return !!u && !!dev && u.origin === dev.origin;
+}
+
 /** True when `url` is the app's own origin (file:// in prod, the Vite
- *  dev server in dev). */
+ *  dev server in dev). Used for the Chromium permission grants, whose
+ *  requesting origin for any file:// page is just `file:///`. It is NOT a
+ *  navigation allowlist — see `isRendererEntry` (#2552). */
 export function isOwnOrigin(url: string, devServerOrigin?: string): boolean {
   if (url.startsWith('file://')) return true;
-  if (devServerOrigin && url.startsWith(devServerOrigin)) return true;
-  return false;
+  return isDevServerOrigin(url, devServerOrigin);
+}
+
+/**
+ * True when a top-level navigation to `url` stays on the renderer itself:
+ * the exact `index.html` the window was loaded from (`entryUrl`, ignoring
+ * query and hash), or — under `pnpm dev` — the Vite dev server's origin.
+ *
+ * Every other file:// URL is refused (#2552). CSP `script-src 'self'` on a
+ * file:// page admits any file:// script on disk and the preload runs on
+ * whatever page the window lands on, so "any file://" as own origin meant a
+ * clicked link to an attacker's `.html` (a shared thoughtbase on a mounted
+ * volume) got the full `window.api`.
+ */
+export function isRendererEntry(url: string, entryUrl: string, devServerOrigin?: string): boolean {
+  if (isDevServerOrigin(url, devServerOrigin)) return true;
+  const u = parseUrl(url);
+  const entry = parseUrl(entryUrl);
+  if (!u || !entry || u.protocol !== 'file:' || entry.protocol !== 'file:') return false;
+  return u.host === entry.host && u.pathname === entry.pathname;
 }
 
 /** Whether a URL routed through setWindowOpenHandler / will-navigate
