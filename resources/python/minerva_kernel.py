@@ -34,16 +34,16 @@ import ast
 import importlib
 import traceback
 
-# Make user .py files in the notebase importable. The main process also
-# sets PYTHONPATH to include the project root, but propagation through
-# venv launchers / matplotlib backends / wrapper scripts is finicky
-# enough that we re-do it here from $MINERVA_PROJECT_ROOT. Inserted at
-# index 1 (not 0) so the bundled `minerva` package — staged at
-# sys.path[0] via the kernel script's own directory — still wins over
-# any user-side file named `minerva.py`.
+# Make user .py files in the notebase importable (#2555). APPENDED, so the
+# stdlib and installed packages always win: a thoughtbase is not trusted, and
+# a `socket.py` / `json.py` at its root must not replace a module the kernel
+# (or its network guard) imports later. The bundled `minerva` package stays
+# ahead of everything at sys.path[0], the script's own directory.
+# The interpreter runs with `-E`, so nothing reached sys.path from
+# PYTHONPATH and no thoughtbase `sitecustomize.py` ran at startup.
 _project_root = os.environ.get('MINERVA_PROJECT_ROOT')
 if _project_root and _project_root not in sys.path:
-    sys.path.insert(1, _project_root)
+    sys.path.append(_project_root)
 
 
 _LOCAL_HOSTS = frozenset({'127.0.0.1', '::1', 'localhost', '', '0.0.0.0'})

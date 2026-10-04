@@ -7,6 +7,10 @@
  * here would silently break every compute cell, so the extraction itself is
  * pinned against the exact literal `spawnKernel` used to construct in place,
  * not just asserted indirectly via end-to-end kernel behavior.
+ *
+ * #2555 then removed PYTHONPATH and PYTHONUNBUFFERED on purpose: the kernel
+ * runs with `-E -u`, and the root reaches sys.path only through the
+ * bootstrap's append. The baseline below records that change.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -32,15 +36,12 @@ beforeEach(() => {
 });
 
 /**
- * Reproduces, verbatim, the `env:` object literal `spawnKernel` built inline
- * before the #2105 extraction — the pre-extraction baseline `buildKernelEnv`
- * must match exactly for the same inputs.
+ * The `env:` literal `spawnKernel` built inline before the #2105 extraction,
+ * minus the two PYTHON* variables #2555 dropped.
  */
 function originalInlineEnv(rootPath: string, socketPath: string, allowNetwork: boolean): NodeJS.ProcessEnv {
   return {
     ...process.env,
-    PYTHONUNBUFFERED: '1',
-    PYTHONPATH: pythonResourcesRoot() + path.delimiter + rootPath,
     MINERVA_IPC_SOCKET: socketPath,
     MINERVA_PROJECT_ROOT: rootPath,
     ...(allowNetwork ? { MINERVA_ALLOW_NETWORK: '1' } : {}),
@@ -68,13 +69,14 @@ describe('buildKernelEnv (#2105)', () => {
     expect(actual.MINERVA_ALLOW_NETWORK).toBe('1');
   });
 
-  it('matches for a packaged build (PYTHONPATH follows the bundled resources root)', () => {
+  it('sets no PYTHONPATH: the root must never be searched ahead of the stdlib (#2555)', () => {
     h.root = path.join('/fake', 'Resources', 'resources');
     const rootPath = '/Users/test/packaged-project';
-    const socketPath = '/tmp/minerva-kernel-ghi.sock';
-    const expected = originalInlineEnv(rootPath, socketPath, false);
-    const actual = buildKernelEnv({ rootPath, socketPath, allowNetwork: false });
-    expect(actual).toEqual(expected);
-    expect(actual.PYTHONPATH!.startsWith(path.join('/fake', 'Resources', 'resources', 'python'))).toBe(true);
+    const actual = buildKernelEnv({ rootPath, socketPath: '/tmp/s.sock', allowNetwork: false });
+    expect(actual.PYTHONPATH).toBe(process.env.PYTHONPATH);
+    expect(String(actual.PYTHONPATH ?? '')).not.toContain(rootPath);
+    expect(actual.MINERVA_PROJECT_ROOT).toBe(rootPath);
+    // Still resolves the bundled package from the packaged resources root.
+    expect(pythonResourcesRoot()).toBe(path.join('/fake', 'Resources', 'resources', 'python'));
   });
 });
