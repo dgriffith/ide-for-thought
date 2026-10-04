@@ -30,7 +30,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.
 
 // The decision table. Reasons live beside each entry in the policy file.
 const EXPECTED: Record<string, boolean> = {
-  RunAsNode: true, // the `minerva` CLI shim is ELECTRON_RUN_AS_NODE=1
+  RunAsNode: false, // the CLI runs in CLI mode, not as plain Node (#2565)
   EnableCookieEncryption: true,
   EnableNodeOptionsEnvironmentVariable: false,
   EnableNodeCliInspectArguments: false,
@@ -68,12 +68,19 @@ describe('Electron fuse policy (#2366)', () => {
     }
   });
 
-  it('keeps RunAsNode only while the CLI shim needs it', () => {
-    // If cli-install.ts stops launching through ELECTRON_RUN_AS_NODE, the
-    // reason for leaving this fuse open is gone — close it.
+  it('RunAsNode stays off, and the CLI shim never relies on it (#2565)', () => {
+    // The shim runs the binary in CLI mode (cli-mode.ts). A shim that set
+    // ELECTRON_RUN_AS_NODE again would silently do nothing with the fuse off —
+    // and turning the fuse back on to "fix" it reopens arbitrary JS as Minerva.
     const src = fs.readFileSync(path.join(ROOT, 'src', 'main', 'cli-install.ts'), 'utf-8');
-    expect(src).toMatch(/ELECTRON_RUN_AS_NODE=1/);
-    expect(FUSE_POLICY.find((f) => f.name === 'RunAsNode')?.enabled).toBe(true);
+    expect(src).not.toMatch(/ELECTRON_RUN_AS_NODE=1/);
+    expect(src).toMatch(/CLI_MODE_FLAG/);
+    expect(FUSE_POLICY.find((f) => f.name === 'RunAsNode')?.enabled).toBe(false);
+  });
+
+  it('the entitlements never re-enable loading unsigned libraries (#2565)', () => {
+    const plist = fs.readFileSync(path.join(ROOT, 'build', 'entitlements.mac.plist'), 'utf-8');
+    expect(plist).not.toMatch(/<key>com\.apple\.security\.cs\.disable-library-validation<\/key>/);
   });
 });
 

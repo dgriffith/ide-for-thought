@@ -23,151 +23,161 @@ import { registerSkillsAtStartup } from './skills/register';
 import { initAutoUpdate, setUpdateStateListener } from './auto-update';
 import { installE2EHooks } from './e2e-hooks';
 import { logger } from '../shared/logger';
+import { cliModeArgs, runCliMode } from './cli-mode';
 
-app.setName('Minerva');
+// `minerva` CLI (#2565): the shim runs this binary with `--minerva-cli`. In
+// that mode the app never starts — the bundled CLI runs and exits — so it is
+// decided before anything else here. See cli-mode.ts.
+const cliArgs = cliModeArgs(process.argv, process.env);
+if (cliArgs) runCliMode(cliArgs);
+else startApp();
 
-// e2e test seams (#998) — no-op unless MINERVA_E2E=1 (set by the Playwright job).
-installE2EHooks();
+function startApp(): void {
+  app.setName('Minerva');
 
-// Boot-trace: stderr-tagged so the e2e smoke test (#394) can recover them
-// from the captured main-process stream when launch hangs on CI (#518).
-// In normal runs these are a few lines and harmless; on a hang they tell
-// us which step never returned — and the elapsed-ms makes them a cheap
-// startup profile (which phase owns the time).
-const BOOT_T0 = Date.now();
-function boot(label: string): void {
-  logger('entrypoint').error(`boot +${Date.now() - BOOT_T0}ms: ${label}`);
-}
+  // e2e test seams (#998) — no-op unless MINERVA_E2E=1 (set by the Playwright job).
+  installE2EHooks();
 
-boot('main module loaded');
-
-// Every webContents and session Electron creates from here on starts
-// deny-by-default (#2559) — registered before any window can exist.
-installGlobalWebContentsGuards();
-
-void app.whenReady().then(async () => {
-  boot('app ready');
-  // Sweep RPC sockets an earlier process left behind without cleaning up
-  // (#1933) — a hard kill or crash bypasses every in-process close() path.
-  // Synchronous and cheap (one tmpdir listing); fine to do inline at startup.
-  sweepStaleRpcSockets();
-  // Break the menu.ts <-> window-manager.ts import cycle (#986): window-manager
-  // triggers menu rebuilds through this injected callback rather than importing
-  // `rebuildMenu` directly. Registered before any window is created so the
-  // focus/project-change rebuild triggers are wired from the first window.
-  setMenuRebuilder(rebuildMenu);
-  setMenuStateCleaner(clearMenuEditorState);
-  // macOS dev dock icon (#805). A packaged .app gets its icon from the bundle
-  // (packagerConfig.icon); an unpackaged `electron-forge start` shows the stock
-  // Electron icon unless we set the dock icon here.
-  if (process.platform === 'darwin' && !app.isPackaged) {
-    app.dock?.setIcon(appIconPath());
+  // Boot-trace: stderr-tagged so the e2e smoke test (#394) can recover them
+  // from the captured main-process stream when launch hangs on CI (#518).
+  // In normal runs these are a few lines and harmless; on a hang they tell
+  // us which step never returned — and the elapsed-ms makes them a cheap
+  // startup profile (which phase owns the time).
+  const BOOT_T0 = Date.now();
+  function boot(label: string): void {
+    logger('entrypoint').error(`boot +${Date.now() - BOOT_T0}ms: ${label}`);
   }
-  installCsp();
-  installPermissions();
-  boot('csp installed');
-  registerIpcHandlers();
-  boot('ipc handlers registered');
 
-  // Configured MCP servers (#2031): best-effort, non-interactive connect for
-  // every enabled server. Fire-and-forget like `runBackfill` — a slow
-  // subprocess spawn or unreachable remote server must never delay first
-  // paint. Non-interactive means a server needing OAuth with no valid stored
-  // token just lands on 'needs-auth' rather than popping a browser at startup.
-  void connectAllEnabledServers().catch((err) => logger('mcp-servers').warn('startup connect failed:', err));
-  registerBuiltinExecutors();
-  boot('executors registered');
-  registerBuiltinExporters();
-  boot('exporters registered');
+  boot('main module loaded');
 
-  // In-app auto-update via the hosted update.electronjs.org feed (#662).
-  // No-ops in dev (unpackaged); only a signed packaged build polls + applies.
-  // Rebuild the menu on state changes so the "Restart to Install Update" item
-  // appears once a build is staged (#963).
-  setUpdateStateListener(() => rebuildMenu());
-  initAutoUpdate();
-  boot('auto-update initialized');
+  // Every webContents and session Electron creates from here on starts
+  // deny-by-default (#2559) — registered before any window can exist.
+  installGlobalWebContentsGuards();
 
-  // Load + register skill files (#625). The MENU depends on this — the dynamic
-  // Learning/Research/Analysis menus are built from the tool registry — but the
-  // WINDOW does not, and used to wait on it anyway (#2223). Started here and
-  // awaited below, after the windows exist: the renderer fetches and parses its
-  // entry chunk in its own process while main parses ~56 stock skill files,
-  // instead of after. Measured at ~50ms of skill parsing that no longer sits in
-  // front of `new BrowserWindow`.
-  //
-  // Nothing regresses on the menu side: a window is only *shown* on its first
-  // paint signal (`showWhenReady`), which lands hundreds of ms after the
-  // `buildMenu` below — so no window is ever on screen without its full menu.
-  // Failure to load a skill is isolated per-file inside the loader; a total
-  // failure here shouldn't block startup.
-  const skillsRegistered = registerSkillsAtStartup()
-    .catch((err) => logger('skills').warn('startup load failed:', err));
-
-  const session = loadSession().filter((s) => {
-    try { return fs.statSync(s.rootPath).isDirectory(); } catch { return false; }
-  });
-  boot(`session loaded (entries=${session.length})`);
-
-  if (session.length > 0) {
-    for (const state of session) {
-      const win = createWindow({ x: state.x, y: state.y, width: state.width, height: state.height });
-      win.webContents.once('did-finish-load', async () => {
-        boot(`renderer loaded — opening project ${path.basename(state.rootPath)}`);
-        await openProjectInWindow(win, state.rootPath);
-        boot(`project indexed ${path.basename(state.rootPath)}`);
-        broadcast(win, Channels.PROJECT_OPENED, {
-          rootPath: state.rootPath,
-          name: resolveDisplayName(state.rootPath),
-        });
-      });
+  void app.whenReady().then(async () => {
+    boot('app ready');
+    // Sweep RPC sockets an earlier process left behind without cleaning up
+    // (#1933) — a hard kill or crash bypasses every in-process close() path.
+    // Synchronous and cheap (one tmpdir listing); fine to do inline at startup.
+    sweepStaleRpcSockets();
+    // Break the menu.ts <-> window-manager.ts import cycle (#986): window-manager
+    // triggers menu rebuilds through this injected callback rather than importing
+    // `rebuildMenu` directly. Registered before any window is created so the
+    // focus/project-change rebuild triggers are wired from the first window.
+    setMenuRebuilder(rebuildMenu);
+    setMenuStateCleaner(clearMenuEditorState);
+    // macOS dev dock icon (#805). A packaged .app gets its icon from the bundle
+    // (packagerConfig.icon); an unpackaged `electron-forge start` shows the stock
+    // Electron icon unless we set the dock icon here.
+    if (process.platform === 'darwin' && !app.isPackaged) {
+      app.dock?.setIcon(appIconPath());
     }
-  } else {
-    createWindow();
-  }
-  boot('window(s) created');
+    installCsp();
+    installPermissions();
+    boot('csp installed');
+    registerIpcHandlers();
+    boot('ipc handlers registered');
 
-  // Wired before the await below, not after: this is the macOS "clicked the
-  // dock icon with no windows open" handler, and the startup path no longer
-  // runs to completion synchronously.
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
+    // Configured MCP servers (#2031): best-effort, non-interactive connect for
+    // every enabled server. Fire-and-forget like `runBackfill` — a slow
+    // subprocess spawn or unreachable remote server must never delay first
+    // paint. Non-interactive means a server needing OAuth with no valid stored
+    // token just lands on 'needs-auth' rather than popping a browser at startup.
+    void connectAllEnabledServers().catch((err) => logger('mcp-servers').warn('startup connect failed:', err));
+    registerBuiltinExecutors();
+    boot('executors registered');
+    registerBuiltinExporters();
+    boot('exporters registered');
+
+    // In-app auto-update via the hosted update.electronjs.org feed (#662).
+    // No-ops in dev (unpackaged); only a signed packaged build polls + applies.
+    // Rebuild the menu on state changes so the "Restart to Install Update" item
+    // appears once a build is staged (#963).
+    setUpdateStateListener(() => rebuildMenu());
+    initAutoUpdate();
+    boot('auto-update initialized');
+
+    // Load + register skill files (#625). The MENU depends on this — the dynamic
+    // Learning/Research/Analysis menus are built from the tool registry — but the
+    // WINDOW does not, and used to wait on it anyway (#2223). Started here and
+    // awaited below, after the windows exist: the renderer fetches and parses its
+    // entry chunk in its own process while main parses ~56 stock skill files,
+    // instead of after. Measured at ~50ms of skill parsing that no longer sits in
+    // front of `new BrowserWindow`.
+    //
+    // Nothing regresses on the menu side: a window is only *shown* on its first
+    // paint signal (`showWhenReady`), which lands hundreds of ms after the
+    // `buildMenu` below — so no window is ever on screen without its full menu.
+    // Failure to load a skill is isolated per-file inside the loader; a total
+    // failure here shouldn't block startup.
+    const skillsRegistered = registerSkillsAtStartup()
+      .catch((err) => logger('skills').warn('startup load failed:', err));
+
+    const session = loadSession().filter((s) => {
+      try { return fs.statSync(s.rootPath).isDirectory(); } catch { return false; }
+    });
+    boot(`session loaded (entries=${session.length})`);
+
+    if (session.length > 0) {
+      for (const state of session) {
+        const win = createWindow({ x: state.x, y: state.y, width: state.width, height: state.height });
+        win.webContents.once('did-finish-load', async () => {
+          boot(`renderer loaded — opening project ${path.basename(state.rootPath)}`);
+          await openProjectInWindow(win, state.rootPath);
+          boot(`project indexed ${path.basename(state.rootPath)}`);
+          broadcast(win, Channels.PROJECT_OPENED, {
+            rootPath: state.rootPath,
+            name: resolveDisplayName(state.rootPath),
+          });
+        });
+      }
+    } else {
       createWindow();
     }
+    boot('window(s) created');
+
+    // Wired before the await below, not after: this is the macOS "clicked the
+    // dock icon with no windows open" handler, and the startup path no longer
+    // runs to completion synchronously.
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        createWindow();
+      }
+    });
+
+    await skillsRegistered;
+    boot('skills registered');
+    // One call, not one per window: the menu is application-wide
+    // (`Menu.setApplicationMenu`), so building it inside the restore loop was
+    // rebuilding the same template N times.
+    buildMenu();
+    boot('menu built');
   });
 
-  await skillsRegistered;
-  boot('skills registered');
-  // One call, not one per window: the menu is application-wide
-  // (`Menu.setApplicationMenu`), so building it inside the restore loop was
-  // rebuilding the same template N times.
-  buildMenu();
-  boot('menu built');
-});
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') {
+      app.quit();
+    }
+  });
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
-});
-
-// graph.ttl is a cold snapshot (#348). releaseProject persists per-project
-// when a window closes; this catches Cmd+Q where windows close concurrently
-// and we want the snapshot on disk before the process exits. Re-emits the
-// before-quit event after the flush so Electron's normal teardown still
-// runs.
-let isFlushingForQuit = false;
-app.on('before-quit', (event) => {
-  if (isFlushingForQuit) return;
-  event.preventDefault();
-  isFlushingForQuit = true;
-  Promise.allSettled([
-    flushAllProjects(),
-    shutdownAllKernels(),
-    shutdownAllMcpClients(),
-    stopClipperServer(),
-    disposeSharedEmbedder(),
-  ])
-    .catch((err) => logger('quit').warn('shutdown failed:', err))
-    .finally(() => app.quit());
-});
+  // graph.ttl is a cold snapshot (#348). releaseProject persists per-project
+  // when a window closes; this catches Cmd+Q where windows close concurrently
+  // and we want the snapshot on disk before the process exits. Re-emits the
+  // before-quit event after the flush so Electron's normal teardown still
+  // runs.
+  let isFlushingForQuit = false;
+  app.on('before-quit', (event) => {
+    if (isFlushingForQuit) return;
+    event.preventDefault();
+    isFlushingForQuit = true;
+    Promise.allSettled([
+      flushAllProjects(),
+      shutdownAllKernels(),
+      shutdownAllMcpClients(),
+      stopClipperServer(),
+      disposeSharedEmbedder(),
+    ])
+      .catch((err) => logger('quit').warn('shutdown failed:', err))
+      .finally(() => app.quit());
+  });
+}

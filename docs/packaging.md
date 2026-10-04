@@ -113,6 +113,32 @@ each yields a ZIP under `out/make/zip/<platform>/<arch>/`. Add
 `MakerSquirrel` (Windows) or `MakerDeb` / `MakerRpm` (Linux) to
 `forge.config.ts` if you want first-class installers per platform.
 
+### 6. Code signing posture (#2565)
+
+Two things a notarized app can grant that malware on the same machine would
+love to borrow, and where Minerva stands on each:
+
+- **Running arbitrary code as Minerva.** With Electron's `RunAsNode` fuse on,
+  `ELECTRON_RUN_AS_NODE=1 Minerva.app/Contents/MacOS/Minerva -e '…'` runs any
+  JS inside a process macOS sees as notarized Minerva, inheriting its
+  microphone and Files & Folders permissions. The fuse is **off**. The
+  `minerva` CLI (which needed it) runs as `Minerva --minerva-cli -- <args>`,
+  which executes only the bundled `cli.js`; an old shim written before the
+  change is recognised and still works.
+- **Loading unsigned code.** The hardened runtime's library validation only
+  loads code signed by Apple or by our team. `osx-sign` signs every Mach-O in
+  the bundle — including `app.asar.unpacked/**/*.node` and `*.dylib` — with
+  the team identity (checked on the v3.0.0 release: DuckDB's `duckdb.node`
+  and `libduckdb.dylib` carry `TeamIdentifier=ZC2MK8M828`), so the
+  `disable-library-validation` entitlement is **not** shipped. A new native
+  dependency is signed the same way; `release.yml`'s signed smoke boot opens a
+  DuckDB project, so one that fails validation stops the release.
+
+What remains, accepted: `allow-jit` and `allow-unsigned-executable-memory`,
+which V8 needs under the hardened runtime; and the CLI itself — anything that
+can run `minerva` can run its commands (read a thoughtbase it can already
+read, file proposals), which is what the CLI is for.
+
 ## Demo-prep checklist
 
 If you're packaging right before a demo, run through this once:
@@ -147,9 +173,10 @@ self-contained demo machine.
 - `vite.cli.config.mts` — self-contained build of the headless `minerva`
   CLI (#1437). `forge.config.ts`'s `afterPrune` (`copyCliBundle`) builds it
   and stages `.vite/build/cli.js` into the app beside `main.js`, so it
-  resolves the same shipped `node_modules`. At runtime it's launched via the
-  app's own Electron binary under `ELECTRON_RUN_AS_NODE` — no separate `node`
-  ships. Users expose it on PATH with **Help → Install 'minerva' Command in
+  resolves the same shipped `node_modules`. At runtime the app's own binary
+  runs it in CLI mode, `Minerva --minerva-cli -- <args>` (`src/main/cli-mode.ts`)
+  — no separate `node` ships, and the `RunAsNode` fuse is off (see *Code
+  signing posture* below). Users expose it on PATH with **Help → Install 'minerva' Command in
   PATH…** (`src/main/cli-install.ts`), which writes a shim to
   `~/.local/bin/minerva`. macOS/Linux; Windows is a follow-up.
 - `resources/python/` — bundled Python kernel + `minerva` helper
