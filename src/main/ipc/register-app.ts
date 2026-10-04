@@ -1,6 +1,7 @@
 import { ipcMain, app, BrowserWindow } from 'electron';
 import { Channels } from '../../shared/channels';
 import { handle } from './typed-ipc';
+import { isTrustedIpcSender } from './sender-guard';
 import { getMenuShortcuts, setMenuThemeMode, setMenuEditorState } from '../menu';
 import type { ThemeMode } from '../../shared/theme';
 import type { MenuEditorState } from '../../shared/types';
@@ -37,11 +38,14 @@ export function registerApp(): void {
 
   // The renderer owns the theme (localStorage); it reports changes so the
   // native View → Theme submenu can show the active radio (#1139).
-  ipcMain.on(Channels.MENU_REPORT_THEME, (_e, mode: ThemeMode) => setMenuThemeMode(mode));
+  ipcMain.on(Channels.MENU_REPORT_THEME, (e, mode: ThemeMode) => {
+    if (isTrustedIpcSender(e)) setMenuThemeMode(mode);
+  });
 
   // The renderer owns note/selection state; it reports flips so the native menu
   // can gray out note/selection-only items for the reporting window.
   ipcMain.on(Channels.MENU_REPORT_EDITOR_STATE, (e, state: MenuEditorState) => {
+    if (!isTrustedIpcSender(e)) return;
     const win = BrowserWindow.fromWebContents(e.sender);
     if (win) setMenuEditorState(win.id, state);
   });

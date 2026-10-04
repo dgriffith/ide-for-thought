@@ -17,6 +17,8 @@ import { runExport } from './run-export';
 import type { LiveBlockRenderer } from './live-blocks';
 import * as pg from '../git/publish-git';
 import * as gh from '../git/github-repo';
+import { parsePublishRemote } from '../git/remote-policy';
+import { approveRemote, approvedRemote } from './remote-approvals';
 import type { PublishChange } from '../git/publish-git';
 
 export interface PublishResult {
@@ -39,6 +41,14 @@ export interface PublishResult {
   repoMissing?: { owner: string; repo: string };
   /** This run created the repository. */
   repoCreated?: boolean;
+  /**
+   * The target's remote isn't the one this machine approved — it was written
+   * by someone else (a shared or synced thoughtbase) or changed since (#2556).
+   * NOTHING was sent, not even a credential. The UI confirms, then calls again
+   * with `approveRemote` set to exactly this `url`. `previous` is the remote
+   * this machine had approved for the target, if any.
+   */
+  remoteUnapproved?: { host: string; url: string; previous?: string };
   /** GitHub Pages site URL, once Pages is serving this branch. */
   pagesUrl?: string;
   /** Why Pages wasn't configured, when it couldn't be. */
@@ -54,6 +64,12 @@ export interface PublishOptions {
    * explicit answer to the `repoMissing` prompt.
    */
   createRepo?: { private: boolean };
+  /**
+   * The user confirmed sending credentials to this remote (#2556). Must equal
+   * the `remoteUnapproved.url` they were shown — a different value (the config
+   * changed again in between) is not an approval and asks again.
+   */
+  approveRemote?: string;
   /** App version for `{{version}}` in the commit template. */
   version?: string;
   /** Renders live blocks with the preview's components (#2510), from the
@@ -74,14 +90,33 @@ export async function publishToGit(
   if (target.kind === 's3') throw new Error(`Publish target "${targetId}" is not a git target.`);
 
   const dryRun = opts.dryRun ?? false;
+
+  // ── Where credentials may go (#2556) ───────────────────────────────────
+  // HTTPS only, and only to the remote this machine approved for the target:
+  // the URL is in config.json, which travels with the thoughtbase. Checked
+  // before any token is resolved, so an unapproved remote receives nothing.
+  const remote = parsePublishRemote(target.gitRemote);
+  const approved = approvedRemote(rootPath, targetId);
+  if (approved !== remote.href) {
+    if (opts.approveRemote !== remote.href) {
+      return {
+        targetId, dryRun, branch: target.gitBranch, branchCreated: false,
+        changes: [], committed: false, pushed: false,
+        remoteUnapproved: { host: remote.host, url: remote.href, ...(approved ? { previous: approved } : {}) },
+      };
+    }
+    approveRemote(rootPath, targetId, remote.href);
+  }
+
   // Fail fast with a clear message before doing any work if creds are missing.
-  // Prefer the target's stored token (#1508), else the gh CLI / env.
-  const token = pg.resolveGitHubToken(getGitCredentials(rootPath, targetId).token);
+  // Prefer the target's stored token (#1508), else the gh CLI / env — the
+  // latter for github.com only.
+  const token = pg.resolveGitHubToken(getGitCredentials(rootPath, targetId).token, remote);
 
   // ── GitHub repo provisioning ───────────────────────────────────────────
   // Only for github.com remotes; a GitLab/Codeberg target parses to null and
   // takes none of this path.
-  const ref = gh.parseGitHubRepo(pg.normalizeRemoteToHttps(target.gitRemote));
+  const ref = gh.parseGitHubRepo(remote.href);
   let repoCreated = false;
   if (ref) {
     const state = await gh.checkRepoExists(token, ref);
@@ -110,7 +145,7 @@ export async function publishToGit(
   const workspace = path.join(rootPath, '.minerva', 'publish-cache', target.id);
   const { branchExisted } = await pg.prepareWorkspace({
     dir: workspace,
-    url: target.gitRemote,
+    url: remote.href,
     branch: target.gitBranch,
     token,
   });
