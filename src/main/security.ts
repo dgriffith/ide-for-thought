@@ -16,15 +16,17 @@
  *  - **will-navigate** wired per-window in window-manager.ts so a stray
  *    `<a href="https://…">` click that escapes the app's click handler
  *    can't navigate the renderer wholesale. Top-level navigation is
- *    allowed only to the app's own origin (file:// in prod, the Vite
- *    dev server in dev); http(s) requests get diverted to the OS browser.
+ *    allowed only to the renderer's own entry: the exact `index.html` the
+ *    window was loaded from in prod (any other file:// is refused, #2552),
+ *    or the Vite dev server's origin in dev; http(s) requests get diverted
+ *    to the OS browser.
  *
  * Pure logic lives in security-helpers.ts so tests can exercise the
  * CSP string and routing decisions without pulling in `electron`.
  */
 
 import { session, shell, type WebContents } from 'electron';
-import { buildCsp, externalNavTarget, isOwnOrigin } from './security-helpers';
+import { buildCsp, externalNavTarget, isOwnOrigin, isRendererEntry } from './security-helpers';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
 
@@ -40,6 +42,11 @@ export const HARDENED_WEB_PREFERENCES = {
   contextIsolation: true,
   nodeIntegration: false,
   sandbox: true,
+  // A file dropped where nothing accepts it must not become the top-level
+  // page — the preload would run on it (#2554). Electron's default, pinned
+  // here so it can't change underneath us; the renderer also refuses
+  // unaccepted file drops (`lib/app/navigation-guard.ts`).
+  navigateOnDragDrop: false,
 } as const;
 
 /** Install the CSP for every response served to the default session. */
@@ -99,8 +106,10 @@ export function installPermissions(): void {
 /**
  * Install the per-WebContents navigation guards. Called once per window
  * from window-manager.createWindow, after the BrowserWindow is built.
+ * `entryUrl` is the URL the window loads its renderer from — the only
+ * file:// page it may ever navigate to (#2552).
  */
-export function installNavigationGuards(webContents: WebContents): void {
+export function installNavigationGuards(webContents: WebContents, entryUrl: string): void {
   webContents.setWindowOpenHandler(({ url }) => {
     const route = externalNavTarget(url);
     if (route.kind === 'external') {
@@ -111,7 +120,7 @@ export function installNavigationGuards(webContents: WebContents): void {
   });
 
   webContents.on('will-navigate', (event, url) => {
-    if (isOwnOrigin(url, MAIN_WINDOW_VITE_DEV_SERVER_URL)) return;
+    if (isRendererEntry(url, entryUrl, MAIN_WINDOW_VITE_DEV_SERVER_URL)) return;
     event.preventDefault();
     const route = externalNavTarget(url);
     if (route.kind === 'external') {
