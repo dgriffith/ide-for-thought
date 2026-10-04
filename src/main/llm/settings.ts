@@ -18,7 +18,7 @@ import { PROVIDERS, PROVIDER_IDS, type ProviderId } from '../../shared/tools/pro
 import { providerForModel, DEFAULT_MODEL } from '../../shared/tools/models';
 import { encryptSecret, decryptSecret, isEncrypted, secretEncryptionAvailable } from '../secret-storage';
 import { reportConfigError } from '../config/config-store';
-import { writeJsonFileAtomic } from '../config/json-file';
+import { writeJsonFileAtomic, SECRET_FILE_MODE } from '../config/json-file';
 
 const DEPRECATED_MODELS = new Set<string>([
   'claude-sonnet-4-20250514',
@@ -249,7 +249,7 @@ async function reencryptLegacyProviderKeys(parsed: StoredSettings): Promise<void
   // Drop the legacy top-level `apiKey` (now folded into providers) and persist.
   const { apiKey: _legacyApiKey, ...restParsed } = parsed;
   const onDisk = { ...restParsed, providers };
-  await writeJsonFileAtomic(settingsPath(), onDisk);
+  await writeJsonFileAtomic(settingsPath(), onDisk, { mode: SECRET_FILE_MODE });
 }
 
 export async function getSettings(): Promise<LLMSettings> {
@@ -347,7 +347,7 @@ export async function saveSettings(update: LLMSettingsUpdate): Promise<void> {
     : resolveCustomModels(customModelsUpdate);
 
   const onDisk = { ...rest, providers, ...(customModels ? { customModels } : {}) };
-  await writeJsonFileAtomic(settingsPath(), onDisk);
+  await writeJsonFileAtomic(settingsPath(), onDisk, { mode: SECRET_FILE_MODE });
 }
 
 /**
