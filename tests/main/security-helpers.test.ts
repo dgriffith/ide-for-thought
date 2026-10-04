@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { buildCsp, isOwnOrigin, externalNavTarget } from '../../src/main/security-helpers';
+import { buildCsp, isOwnOrigin, isRendererEntry, externalNavTarget } from '../../src/main/security-helpers';
 
 describe('buildCsp (#339)', () => {
   it('production CSP: strict default-src self, no external script-src, no inline script', () => {
@@ -101,6 +101,53 @@ describe('isOwnOrigin (#339)', () => {
 
   it('rejects file:// when dev origin set, file:// stays own (prod-mode reload still works)', () => {
     expect(isOwnOrigin('file:///x/y.html', 'http://localhost:5173')).toBe(true);
+  });
+});
+
+describe('isOwnOrigin dev-server match is by origin, not prefix (#2552)', () => {
+  it('rejects a host that merely starts with the dev server origin', () => {
+    expect(isOwnOrigin('http://localhost:5173.evil.example/', 'http://localhost:5173')).toBe(false);
+    expect(isOwnOrigin('http://localhost:51730/', 'http://localhost:5173')).toBe(false);
+  });
+});
+
+describe('isRendererEntry (#2552)', () => {
+  const ENTRY = 'file:///Applications/Minerva.app/Contents/Resources/app.asar/.vite/renderer/main_window/index.html';
+
+  it('allows the exact entry, ignoring query and hash', () => {
+    expect(isRendererEntry(ENTRY, ENTRY)).toBe(true);
+    expect(isRendererEntry(`${ENTRY}#/notes/a.md`, ENTRY)).toBe(true);
+    expect(isRendererEntry(`${ENTRY}?x=1#y`, ENTRY)).toBe(true);
+  });
+
+  it('refuses any other file:// URL', () => {
+    expect(isRendererEntry('file:///tmp/x.html', ENTRY)).toBe(false);
+    expect(isRendererEntry('file:///Volumes/share/tb/evil.html', ENTRY)).toBe(false);
+    expect(isRendererEntry(ENTRY.replace('index.html', 'evil.html'), ENTRY)).toBe(false);
+    expect(isRendererEntry('file://evilhost/Applications/Minerva.app/Contents/Resources/app.asar/.vite/renderer/main_window/index.html', ENTRY)).toBe(false);
+  });
+
+  it('normalises dot segments and percent-encoding before comparing', () => {
+    // `..` that resolves back onto the entry is the entry; one that leaves it is not.
+    expect(isRendererEntry(ENTRY.replace('main_window/', 'main_window/x/../'), ENTRY)).toBe(true);
+    expect(isRendererEntry(`${ENTRY}/../../../../../../../tmp/x.html`, ENTRY)).toBe(false);
+    const spaced = 'file:///Users/a%20b/Minerva/index.html';
+    expect(isRendererEntry('file:///Users/a b/Minerva/index.html', spaced)).toBe(true);
+  });
+
+  it('refuses non-file schemes and garbage', () => {
+    expect(isRendererEntry('https://example.com/index.html', ENTRY)).toBe(false);
+    expect(isRendererEntry('javascript:alert(1)', ENTRY)).toBe(false);
+    expect(isRendererEntry('not a url', ENTRY)).toBe(false);
+  });
+
+  it('allows the dev server origin in dev, by exact origin', () => {
+    const dev = 'http://localhost:5173';
+    expect(isRendererEntry('http://localhost:5173/', dev, dev)).toBe(true);
+    expect(isRendererEntry('http://localhost:5173/#/x', dev, dev)).toBe(true);
+    expect(isRendererEntry('http://localhost:5173.evil.example/', dev, dev)).toBe(false);
+    // Without a dev server, the dev origin is just a foreign URL.
+    expect(isRendererEntry('http://localhost:5173/', ENTRY)).toBe(false);
   });
 });
 

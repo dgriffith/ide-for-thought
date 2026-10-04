@@ -93,6 +93,8 @@ describe('installPermissions (#1001, clipboard grant #2068)', () => {
 });
 
 describe('installNavigationGuards (#1001)', () => {
+  const ENTRY = 'file:///Users/x/app/renderer/main_window/index.html';
+
   /** A minimal WebContents stub that records the handlers security.ts installs. */
   function fakeWebContents() {
     let openHandler: (d: { url: string }) => { action: string } = () => ({ action: '' });
@@ -111,7 +113,7 @@ describe('installNavigationGuards (#1001)', () => {
 
   it('denies every window.open and diverts http(s) targets to the OS browser', () => {
     const h = fakeWebContents();
-    installNavigationGuards(h.wc);
+    installNavigationGuards(h.wc, ENTRY);
 
     expect(h.windowOpen('https://example.com/doc')).toEqual({ action: 'deny' });
     expect(cap.openExternal).toEqual(['https://example.com/doc']);
@@ -119,7 +121,7 @@ describe('installNavigationGuards (#1001)', () => {
 
   it('blocks top-level navigation off the app origin and diverts it, allows own origin', () => {
     const h = fakeWebContents();
-    installNavigationGuards(h.wc);
+    installNavigationGuards(h.wc, ENTRY);
 
     // Foreign navigation: prevented + diverted.
     let prevented = false;
@@ -130,8 +132,25 @@ describe('installNavigationGuards (#1001)', () => {
     // Own-origin navigation (file://): allowed, no divert.
     cap.openExternal = [];
     let preventedOwn = false;
-    h.willNavigate({ preventDefault: () => { preventedOwn = true; } }, 'file:///Users/x/app/index.html');
+    h.willNavigate({ preventDefault: () => { preventedOwn = true; } }, `${ENTRY}#/note`);
     expect(preventedOwn).toBe(false);
+    expect(cap.openExternal).toEqual([]);
+  });
+
+  it('refuses every file:// page but the renderer entry, and never hands one to the OS (#2552)', () => {
+    const h = fakeWebContents();
+    installNavigationGuards(h.wc, ENTRY);
+
+    for (const url of [
+      'file:///tmp/x.html',
+      'file:///Volumes/shared/thoughtbase/evil.html',
+      'file:///Users/x/app/renderer/main_window/other.html',
+      'file:///Users/x/app/renderer/main_window/index.html/../../../../tmp/x.html',
+    ]) {
+      let prevented = false;
+      h.willNavigate({ preventDefault: () => { prevented = true; } }, url);
+      expect(prevented, url).toBe(true);
+    }
     expect(cap.openExternal).toEqual([]);
   });
 });
