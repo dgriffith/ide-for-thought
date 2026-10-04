@@ -11,7 +11,7 @@ import { appIconPath } from './app-icon';
 import { loadSession } from './session';
 import { registerBuiltinExecutors } from './compute/executors';
 import { registerBuiltinExporters } from './publish';
-import { installCsp, installPermissions } from './security';
+import { installCsp, installGlobalWebContentsGuards, installPermissions } from './security';
 import { flushAllProjects } from './project-context';
 import { shutdownAllKernels } from './compute/python-kernel';
 import { shutdownAllMcpClients } from './mcp-client';
@@ -40,6 +40,10 @@ function boot(label: string): void {
 }
 
 boot('main module loaded');
+
+// Every webContents and session Electron creates from here on starts
+// deny-by-default (#2559) — registered before any window can exist.
+installGlobalWebContentsGuards();
 
 void app.whenReady().then(async () => {
   boot('app ready');

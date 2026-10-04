@@ -28,7 +28,7 @@ what to do about it. `architecture-ratchets-doc.test.ts` keeps the two sides in
 step — a new test in `tests/architecture/` with no entry here fails, and an
 entry here naming a test that no longer exists fails too (#2262).
 
-Written up as of 2026-10-02, 46 tests.
+Written up as of 2026-10-04, 47 tests.
 
 ---
 
@@ -855,6 +855,25 @@ a measurement, not a preference.
 ---
 
 ## Configuration, IPC and logging
+
+### `webcontents-deny-by-default.test.ts`
+
+**Every webContents and session starts deny-by-default** (#2559).
+`security.ts`'s `installGlobalWebContentsGuards` hooks `web-contents-created`
+(no window-open, no `will-navigate`, no `<webview>` attach) and
+`session-created` (every permission denied; `installPermissions` narrows the
+default session afterwards). Before it, guards were installed per construction
+site, and two windows had none — the privileged-site login partition
+auto-approved mic, camera, location and notifications for any page. The test
+pins that `main.ts` installs the hook before `app.whenReady()`, that permission
+handlers, those two listeners and any `action: 'allow'` window-open decision
+exist only in `security.ts`, that `webviewTag` / `nodeIntegrationInSubFrames`
+are never enabled, and that the `new BrowserWindow(` sites are a known list.
+**When it fires:** a new window site — decide whether the default posture is
+right and add it to `KNOWN_WINDOW_SITES` with why, or opt it in through
+`security.ts` (`installNavigationGuards` for an app window,
+`allowHttpsBrowsing` for a partition that browses the web). A permission
+handler or allowing open-handler elsewhere — move it into `security.ts`.
 
 ### `config-loader-usage.test.ts`
 

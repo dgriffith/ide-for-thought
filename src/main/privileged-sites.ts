@@ -14,6 +14,7 @@ import type { PrivilegedSite } from '../shared/privileged-sites';
 import { loadConfigFileSync, loadConfigFileStrictSync, requireRecord } from './config/config-store';
 import { writeJsonFileAtomicSync } from './config/json-file';
 import { logger } from '../shared/logger';
+import { allowHttpsBrowsing, HARDENED_WEB_PREFERENCES } from './security';
 
 interface FileShape {
   sites: PrivilegedSite[];
@@ -196,17 +197,23 @@ export function openLoginWindow(id: string): Promise<void> {
   const site = data.sites.find((s) => s.id === id);
   if (!site) throw new Error(`Unknown site: ${id}`);
 
+  // A real third-party site signing in: it may browse https and open https
+  // popups in this same partition (OAuth), and nothing else — no other
+  // scheme, no permissions (mic, camera, location, notifications), no
+  // webviews (#2559). The deny-by-default guards are global; this opts the
+  // partition into https browsing.
+  const partition = partitionFor(id);
+  allowHttpsBrowsing(partition);
+
   return new Promise((resolve) => {
     const win = new BrowserWindow({
       width: 1024,
       height: 768,
       title: `Login — ${site.label}`,
       webPreferences: {
-        partition: partitionFor(id),
+        partition,
         // No preload — this is a real third-party site, no Minerva APIs.
-        contextIsolation: true,
-        nodeIntegration: false,
-        sandbox: true,
+        ...HARDENED_WEB_PREFERENCES,
       },
     });
     void win.loadURL(`https://${site.domain}/`);
