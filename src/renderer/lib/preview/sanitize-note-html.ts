@@ -35,6 +35,7 @@
  */
 
 import DOMPurify from 'dompurify';
+import { hasAppImageMark } from './app-image-mark';
 
 const FORBID_TAGS = ['script', 'iframe', 'object', 'embed', 'form'];
 
@@ -67,9 +68,9 @@ const FORBID_ATTR = [
 ];
 
 // App-generated `<img>` (from the preview image rule / youtube fence) carries
-// one of these markers; a raw-HTML `<img>` beacon carries none, so the
-// remote-content strip below keys on their absence.
-const APP_IMAGE_CLASS = /\b(?:remote-image|local-image|youtube-thumb)\b/;
+// this page load's random token (`app-image-mark.ts`); a raw-HTML `<img>`
+// beacon can't, so the remote-content strip below keys on its absence. It used
+// to key on marker classes / `data-rel`, which a note can write (#2561).
 // Remote (http/https) or protocol-relative (`//host/…`). data:/blob:/local
 // srcs are untouched.
 const REMOTE_SRC = /^(?:https?:)?\/\//i;
@@ -94,12 +95,7 @@ function neutraliseBeacons(node: Element): void {
   REMOTE_CSS_URL.lastIndex = 0;
 
   if (node.nodeName !== 'IMG') return;
-  const cls = node.getAttribute('class') ?? '';
-  const isAppImage =
-    node.hasAttribute('data-remote-src') ||
-    node.hasAttribute('data-rel') ||
-    APP_IMAGE_CLASS.test(cls);
-  if (isAppImage) return;
+  if (hasAppImageMark(node)) return;
   // Unmarked raw <img>: drop remote src + any srcset so it can't phone home.
   if (REMOTE_SRC.test(node.getAttribute('src') ?? '')) node.removeAttribute('src');
   if (node.hasAttribute('srcset')) node.removeAttribute('srcset');

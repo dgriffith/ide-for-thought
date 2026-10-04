@@ -122,3 +122,23 @@ describe('isBlockLevelLink (#1071)', () => {
     expect(isBlockLevelLink(li.querySelector('a')!)).toBe(false);
   });
 });
+
+describe('buildObjectCardHtml — hostile cover / colour values (#2561)', () => {
+  it('never emits a non-http(s) cover, and escapes a quote in an http one', () => {
+    const js = buildObjectCardHtml(book({ cover: 'javascript:alert(1)' }), { title: 'T' });
+    expect(js).not.toContain('<img');
+    expect(js).not.toContain('javascript:');
+    const quoted = buildObjectCardHtml(book({ cover: 'https://x/a.png" onerror="alert(1)' }), { title: 'T' });
+    // The quote stays inside src, escaped — no attribute escapes the value.
+    expect(quoted).not.toMatch(/\sonerror="/);
+    expect(quoted).toContain('src="https://x/a.png&quot; onerror=&quot;alert(1)"');
+  });
+
+  it('drops a colour carrying extra CSS, keeps a real one', () => {
+    const evil = buildObjectCardHtml(book({ cover: null }, { color: 'red;background:url(https://t.example/b)' }), { title: 'T' });
+    expect(evil).not.toContain('style=');
+    expect(evil).not.toContain('t.example');
+    const ok = buildObjectCardHtml(book({ cover: null }, { color: '#89b4fa' }), { title: 'T' });
+    expect(ok).toContain('style="color:#89b4fa"');
+  });
+});
