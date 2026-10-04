@@ -39,7 +39,7 @@ User-global extensions that travel across machines only if the user copies them.
 |---|---|
 | `skills/` | User-authored skills (`*.md` or a folder with `SKILL.md`). Additive over stock. |
 | `menu-config.json` | Learning/Research/Analysis menu enable · reassign · order (per machine). |
-| `mcp-servers.json` | Configured MCP servers (#2031): stdio command/args/env, or a remote URL, plus name and enable flag. Global, not per-thoughtbase — matches `mcp-oauth-tokens.json`'s own precedent. No secrets here; OAuth tokens stay in `userData/mcp-oauth-tokens.json`. |
+| `mcp-servers.json` | Configured MCP servers (#2031): stdio command/args/env, or a remote URL, plus name and enable flag. Global, not per-thoughtbase — matches `mcp-oauth-tokens.json`'s own precedent. **stdio `env` values are encrypted** at rest (they're where a server's API key goes, #2562); a legacy plaintext file still loads and is re-encrypted. OAuth tokens stay in `userData/mcp-oauth-tokens.json`. |
 
 ## 3. `<thoughtbase>/.minerva/` — per **thoughtbase** (project)
 
@@ -70,4 +70,11 @@ legacy plaintext value still reads back and is re-encrypted on next read/write
 - `userData/llm-settings.json` — provider API keys
 - `userData/clipper-config.json` — the clipper shared secret
 - `userData/mcp-oauth-tokens.json` — MCP server OAuth access/refresh tokens
+- `~/.minerva/mcp-servers.json` — stdio servers' `env` values (#2562)
 - `<thoughtbase>/.minerva/secrets.json` — publish-target credentials
+
+Each of these files is also written **owner-only (0600)** — `SECRET_FILE_MODE`
+via `writeJsonFileAtomic*`'s `mode` option, applied to the temp file before the
+rename so the secret is never on disk world-readable, and tightening an older
+0644 file on its next write (#2562). `tests/main/config/secret-file-mode.test.ts`
+fails if a write to one of them drops it.

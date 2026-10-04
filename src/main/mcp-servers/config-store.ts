@@ -22,20 +22,38 @@
  * quick toggles, or the same panel open in two windows, give two
  * read-modify-writes whose `await`s interleave, and the second write drops the
  * first. The lock costs nothing when there is no contention.
+ *
+ * ── stdio `env` values are secrets (#2562) ─────────────────────────────────
+ * A server's `env` is where its API key goes, so each value is stored
+ * `encryptSecret`-ed (`enc:v1:…`, OS keychain via safeStorage) and the file is
+ * written 0600. The lenient read DECRYPTS (it feeds connecting and the
+ * settings form). A mutation does NOT: it reads every value exactly as stored
+ * and writes the untouched servers back verbatim, encrypting only values that
+ * aren't yet — because `decryptSecret` answers `''` when the keychain can't
+ * decrypt, and decode-then-re-encode would quietly blank every other server's
+ * key on an unrelated toggle (the same trap `mcp-oauth/token-store.ts` names).
+ * Legacy plaintext files still load; their values are encrypted on the next
+ * write, and a load that finds any schedules that write itself.
  */
 import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { asBool, asRecord, asString, asStringArray, loadConfigFile, loadConfigFileStrict, requireRecord } from '../config/config-store';
 import { withFileLock } from '../config/file-lock';
-import { writeJsonFileAtomic } from '../config/json-file';
+import { writeJsonFileAtomic, SECRET_FILE_MODE } from '../config/json-file';
+import { decryptSecret, encryptSecret, isEncrypted, secretEncryptionAvailable } from '../secret-storage';
+import { logger } from '../../shared/logger';
 import type { McpServerDescriptor, StoredMcpServerConfig } from '../../shared/mcp-servers';
 
 export function mcpServersConfigPath(): string {
   return path.join(os.homedir(), '.minerva', 'mcp-servers.json');
 }
 
-function decodeDescriptor(raw: unknown): McpServerDescriptor | null {
+/** How an env value is read: decrypted for use, or kept as stored for a write. */
+type EnvValueDecoder = (stored: string) => string;
+const asStored: EnvValueDecoder = (v) => v;
+
+function decodeDescriptor(raw: unknown, envValue: EnvValueDecoder): McpServerDescriptor | null {
   const o = asRecord(raw);
   if (o.kind === 'stdio') {
     const command = asString(o.command, '');
@@ -46,7 +64,7 @@ function decodeDescriptor(raw: unknown): McpServerDescriptor | null {
     const envEntries = Object.entries(asRecord(o.env)).filter(
       (entry): entry is [string, string] => typeof entry[1] === 'string',
     );
-    if (envEntries.length > 0) descriptor.env = Object.fromEntries(envEntries);
+    if (envEntries.length > 0) descriptor.env = Object.fromEntries(envEntries.map(([k, v]) => [k, envValue(v)]));
     const cwd = asString(o.cwd, '');
     if (cwd) descriptor.cwd = cwd;
     return descriptor;
@@ -58,30 +76,73 @@ function decodeDescriptor(raw: unknown): McpServerDescriptor | null {
   return null;
 }
 
-function decodeServer(raw: unknown): StoredMcpServerConfig | null {
+function decodeServer(raw: unknown, envValue: EnvValueDecoder): StoredMcpServerConfig | null {
   const o = asRecord(raw);
   const id = asString(o.id, '');
   const name = asString(o.name, '');
-  const descriptor = decodeDescriptor(o.descriptor);
+  const descriptor = decodeDescriptor(o.descriptor, envValue);
   // A record missing any of these is useless — drop it rather than hand
   // back a half-formed entry the registry can't act on.
   if (!id || !name || !descriptor) return null;
   return { id, name, enabled: asBool(o.enabled, false), descriptor };
 }
 
-function decode(raw: unknown): StoredMcpServerConfig[] {
-  const list = requireRecord(raw, 'mcp-servers.json').servers;
-  if (list !== undefined && !Array.isArray(list)) throw new Error('"servers" is not an array');
-  return Array.isArray(list)
-    ? list.map(decodeServer).filter((s): s is StoredMcpServerConfig => s !== null)
-    : [];
+function decodeWith(envValue: EnvValueDecoder) {
+  return (raw: unknown): StoredMcpServerConfig[] => {
+    const list = requireRecord(raw, 'mcp-servers.json').servers;
+    if (list !== undefined && !Array.isArray(list)) throw new Error('"servers" is not an array');
+    return Array.isArray(list)
+      ? list.map((s) => decodeServer(s, envValue)).filter((s): s is StoredMcpServerConfig => s !== null)
+      : [];
+  };
+}
+
+/** For use: env values decrypted. */
+const decode = decodeWith(decryptSecret);
+/** For a write: env values exactly as on disk (encrypted, or legacy plaintext). */
+const decodeStored = decodeWith(asStored);
+
+function mapEnv(server: StoredMcpServerConfig, fn: (v: string) => string): StoredMcpServerConfig {
+  const d = server.descriptor;
+  if (d.kind !== 'stdio' || !d.env) return server;
+  return { ...server, descriptor: { ...d, env: Object.fromEntries(Object.entries(d.env).map(([k, v]) => [k, fn(v)])) } };
+}
+
+/** On-disk form: every env value encrypted, already-encrypted ones untouched. */
+const toStored = (s: StoredMcpServerConfig) => mapEnv(s, (v) => (isEncrypted(v) ? v : encryptSecret(v)));
+/** Caller-facing form of a stored record. */
+const toUsable = (s: StoredMcpServerConfig) => mapEnv(s, decryptSecret);
+
+function hasPlaintextEnv(servers: StoredMcpServerConfig[]): boolean {
+  return servers.some((s) => s.descriptor.kind === 'stdio' && Object.values(s.descriptor.env ?? {}).some((v) => v && !isEncrypted(v)));
 }
 
 /** `file` is injectable for tests (mirrors `menu-config-store.ts`'s
  *  `saveMenuConfig(config, file = menuConfigPath())` convention) — real
  *  callers never pass it. LENIENT: never build a write from this. */
-export function getStoredServers(file: string = mcpServersConfigPath()): Promise<StoredMcpServerConfig[]> {
+export async function getStoredServers(file: string = mcpServersConfigPath()): Promise<StoredMcpServerConfig[]> {
+  scheduleEnvUpgrade(file);
   return loadConfigFile(() => file, decode, []);
+}
+
+/**
+ * Lazy upgrade (#2562): once per file per process, if the stored env still
+ * holds plaintext values and the keychain is usable, rewrite the file so they
+ * are encrypted — and the file tightened to 0600 — without waiting for the
+ * user to edit a server. Never fails the read; a failure is logged and the
+ * next mutation encrypts them anyway.
+ */
+const upgradeAttempted = new Set<string>();
+function scheduleEnvUpgrade(file: string): void {
+  if (upgradeAttempted.has(file) || !secretEncryptionAvailable()) return;
+  upgradeAttempted.add(file);
+  void mutateServers(file, (servers) => ({ next: hasPlaintextEnv(servers) ? servers : null, result: undefined }))
+    .catch((e: unknown) => logger('mcp-client').warn('could not encrypt MCP server env values in', file, e));
+}
+
+/** Test-only: forget which files have had their lazy upgrade attempted. */
+export function _resetEnvUpgradeForTests(): void {
+  upgradeAttempted.clear();
 }
 
 /**
@@ -93,9 +154,10 @@ function mutateServers<T>(
   fn: (servers: StoredMcpServerConfig[]) => { next: StoredMcpServerConfig[] | null; result: T },
 ): Promise<T> {
   return withFileLock(file, async () => {
-    const servers = await loadConfigFileStrict(file, decode, []);
+    // Values as stored — see the header for why a write never decrypts.
+    const servers = await loadConfigFileStrict(file, decodeStored, []);
     const { next, result } = fn(servers);
-    if (next) await writeJsonFileAtomic(file, { servers: next }, { trailingNewline: true });
+    if (next) await writeJsonFileAtomic(file, { servers: next.map(toStored) }, { trailingNewline: true, mode: SECRET_FILE_MODE });
     return result;
   });
 }
@@ -112,7 +174,7 @@ function mutateOne(
       updated = fn(s);
       return updated;
     });
-    return { next: updated ? next : null, result: updated };
+    return { next: updated ? next : null, result: updated ? toUsable(updated) : null };
   });
 }
 
@@ -122,7 +184,7 @@ export function addStoredServer(
   file: string = mcpServersConfigPath(),
 ): Promise<StoredMcpServerConfig> {
   const server: StoredMcpServerConfig = { id: crypto.randomUUID(), name, enabled: false, descriptor };
-  return mutateServers(file, (servers) => ({ next: [...servers, server], result: server }));
+  return mutateServers(file, (servers) => ({ next: [...servers, server], result: toUsable(server) }));
 }
 
 export interface StoredMcpServerPatch {
