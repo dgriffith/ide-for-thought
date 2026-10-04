@@ -7,7 +7,7 @@
  * execute arbitrary code, so the handlers here carry two contracts worth
  * pinning rather than one:
  *
- *   - the #1631 project guard — `COMPUTE_RUN_CELL` / `COMPUTE_GRANT_CONSENT` /
+ *   - the #1631 project guard — `COMPUTE_RUN_CELL` / `COMPUTE_REQUEST_CONSENT` /
  *     `COMPUTE_SAVE_CELL_OUTPUT` THROW with no project open, while the
  *     `withRootPathOr` handlers answer a value that genuinely means what it
  *     says (`'none'` = not consented, `{ ok: false, reason: 'no-kernel' }` =
@@ -44,9 +44,11 @@ const h = vi.hoisted(() => {
     // from inside a handler, so a mutable holder is enough.
     userData: { dir: '' },
     handlers: new Map<string, Handler>(),
-    win: { id: 1 },
+    win: { id: 1, isDestroyed: () => false },
     // electron
     showOpenDialog: vi.fn(),
+    // Main's native confirm (#2568): resolves "OK" unless a test says otherwise.
+    showMessageBox: vi.fn(),
     showItemInFolder: vi.fn(),
     // compute/registry
     runCell: vi.fn(),
@@ -69,7 +71,7 @@ const h = vi.hoisted(() => {
 
 vi.mock('electron', () => ({
   ipcMain: { handle: (channel: string, fn: Handler) => { h.handlers.set(channel, fn); } },
-  dialog: { showOpenDialog: h.showOpenDialog },
+  dialog: { showOpenDialog: h.showOpenDialog, showMessageBox: h.showMessageBox },
   shell: { showItemInFolder: h.showItemInFolder },
   // The REAL consent store reads this to find `compute-consent.json`.
   app: { getPath: () => h.userData.dir },
@@ -87,6 +89,12 @@ vi.mock('../../../src/main/ipc/helpers', () => ({
   withRootPathOr:
     <A extends unknown[], R>(fallback: R, fn: (rootPath: string, ...a: A) => R) =>
       (_e: unknown, ...args: A): R => (openProject ? fn(openProject, ...args) : fallback),
+  withRootPathWin:
+    <A extends unknown[], R>(fn: (rootPath: string, win: unknown, ...a: A) => R) =>
+      (_e: unknown, ...args: A): R => {
+        if (!openProject) throw new Error('No project open');
+        return fn(openProject, h.win, ...args);
+      },
 }));
 
 vi.mock('../../../src/main/compute/registry', () => ({
@@ -112,8 +120,8 @@ vi.mock('../../../src/main/compute/save-cell-output', () => ({ saveCellOutput: h
 // graph on import. Nothing here calls them; the stub just keeps the graph out.
 vi.mock('../../../src/main/graph/index', () => ({}));
 
-import { registerCompute } from '../../../src/main/ipc/register-compute';
-import { cellHash } from '../../../src/main/compute/consent';
+import { registerCompute, _resetApprovedInterpretersForTests } from '../../../src/main/ipc/register-compute';
+import { cellHash, grantConsent } from '../../../src/main/compute/consent';
 import { Channels } from '../../../src/shared/channels';
 import { DEFAULT_CELL_TIMEOUT_SECONDS } from '../../../src/shared/compute/types';
 
@@ -127,6 +135,10 @@ const callAsync = async (channel: string, ...args: unknown[]) => call(channel, .
 
 const consentFile = () => path.join(h.userData.dir, 'compute-consent.json');
 
+/** Record consent the way main does after the user agrees (setup only — the
+ *  renderer can no longer grant consent itself, #2568). */
+const grant = (language: string, code: string, scope: 'cell' | 'project') => grantConsent(openProject!, language, code, scope);
+
 beforeEach(() => {
   vi.clearAllMocks();
   openProject = ROOT;
@@ -134,6 +146,9 @@ beforeEach(() => {
   // about the guard has to start from.
   fs.rmSync(consentFile(), { force: true });
   h.auditLogPath.mockReturnValue(path.join(h.userData.dir, 'audit', 'compute-audit.jsonl'));
+  h.showMessageBox.mockResolvedValue({ response: 0, checkboxChecked: false });
+  h.getPythonSettings.mockResolvedValue({ pythonPath: '', allowNetwork: false, cellTimeoutSeconds: 60 });
+  _resetApprovedInterpretersForTests();
 });
 
 afterAll(() => { fs.rmSync(h.userData.dir, { recursive: true, force: true }); });
@@ -155,7 +170,7 @@ describe('COMPUTE_RUN_CELL — the consent enforcement boundary (#1411/#1412)', 
 
   it('runs the cell once that exact code is consented', async () => {
     h.runCell.mockResolvedValue(OK_RESULT);
-    call(Channels.COMPUTE_GRANT_CONSENT, 'python', 'print(1)', 'cell');
+    grant('python', 'print(1)', 'cell');
 
     await expect(callAsync(Channels.COMPUTE_RUN_CELL, 'python', 'print(1)')).resolves.toEqual(OK_RESULT);
     expect(h.runCell).toHaveBeenCalledWith('python', 'print(1)', { rootPath: ROOT });
@@ -163,7 +178,7 @@ describe('COMPUTE_RUN_CELL — the consent enforcement boundary (#1411/#1412)', 
 
   it('consent is content-addressed — editing a single character re-refuses', async () => {
     h.runCell.mockResolvedValue(OK_RESULT);
-    call(Channels.COMPUTE_GRANT_CONSENT, 'python', 'print(1)', 'cell');
+    grant('python', 'print(1)', 'cell');
 
     // This is the whole reason consent is keyed on a code hash: an approved
     // cell must not become a licence to run whatever replaces it.
@@ -175,14 +190,14 @@ describe('COMPUTE_RUN_CELL — the consent enforcement boundary (#1411/#1412)', 
 
   it('blanket project trust lets an unseen cell run', async () => {
     h.runCell.mockResolvedValue(OK_RESULT);
-    call(Channels.COMPUTE_GRANT_CONSENT, 'python', 'anything', 'project');
+    grant('python', 'anything', 'project');
 
     await expect(callAsync(Channels.COMPUTE_RUN_CELL, 'python', 'never seen before')).resolves.toEqual(OK_RESULT);
   });
 
   it("blanket trust is per-thoughtbase — it doesn't spill to another project", async () => {
     h.runCell.mockResolvedValue(OK_RESULT);
-    call(Channels.COMPUTE_GRANT_CONSENT, 'python', 'x', 'project');
+    grant('python', 'x', 'project');
 
     openProject = '/other-vault';
     const result = await call(Channels.COMPUTE_RUN_CELL, 'python', 'x');
@@ -199,7 +214,7 @@ describe('COMPUTE_RUN_CELL — the consent enforcement boundary (#1411/#1412)', 
 
   it('audits the run, keyed to the consent decision that permitted it', async () => {
     h.runCell.mockResolvedValue(OK_RESULT);
-    call(Channels.COMPUTE_GRANT_CONSENT, 'python', 'print(1)', 'cell');
+    grant('python', 'print(1)', 'cell');
 
     await call(Channels.COMPUTE_RUN_CELL, 'python', 'print(1)', 'notes/a.md');
 
@@ -218,7 +233,7 @@ describe('COMPUTE_RUN_CELL — the consent enforcement boundary (#1411/#1412)', 
 
   it('omits notePath entirely when the cell has no note (not `notePath: undefined`)', async () => {
     h.runCell.mockResolvedValue(OK_RESULT);
-    call(Channels.COMPUTE_GRANT_CONSENT, 'sql', 'SELECT 1', 'cell');
+    grant('sql', 'SELECT 1', 'cell');
 
     await call(Channels.COMPUTE_RUN_CELL, 'sql', 'SELECT 1');
 
@@ -229,7 +244,7 @@ describe('COMPUTE_RUN_CELL — the consent enforcement boundary (#1411/#1412)', 
   it("a failed cell RESOLVES its `{ ok: false }` arm and is still audited", async () => {
     const failure = { ok: false, error: 'NameError: x is not defined' };
     h.runCell.mockResolvedValue(failure);
-    call(Channels.COMPUTE_GRANT_CONSENT, 'python', 'x', 'cell');
+    grant('python', 'x', 'cell');
 
     // A cell that errors is a normal input, not a bug — CLAUDE.md rule 3.
     await expect(callAsync(Channels.COMPUTE_RUN_CELL, 'python', 'x')).resolves.toEqual(failure);
@@ -239,23 +254,23 @@ describe('COMPUTE_RUN_CELL — the consent enforcement boundary (#1411/#1412)', 
 
   it('propagates an executor crash (a thrown error is not a cell result)', async () => {
     h.runCell.mockRejectedValue(new Error('kernel died'));
-    call(Channels.COMPUTE_GRANT_CONSENT, 'python', 'boom', 'cell');
+    grant('python', 'boom', 'cell');
 
     await expect(callAsync(Channels.COMPUTE_RUN_CELL, 'python', 'boom')).rejects.toThrow(/kernel died/);
     expect(h.recordExecution).not.toHaveBeenCalled();
   });
 });
 
-describe('COMPUTE_CONSENT_STATUS / GRANT / LIST / REVOKE', () => {
+describe('COMPUTE_CONSENT_STATUS / LIST / REVOKE', () => {
   it('reports none → cell → blanket as consent is granted', () => {
     expect(call(Channels.COMPUTE_CONSENT_STATUS, 'python', 'print(1)')).toBe('none');
 
-    call(Channels.COMPUTE_GRANT_CONSENT, 'python', 'print(1)', 'cell');
+    grant('python', 'print(1)', 'cell');
     expect(call(Channels.COMPUTE_CONSENT_STATUS, 'python', 'print(1)')).toBe('cell');
 
     // An eyes-on-code'd cell keeps reporting `cell` under blanket trust, so the
     // conversation path can still tell "reviewed" from "merely trusted".
-    call(Channels.COMPUTE_GRANT_CONSENT, 'python', 'other', 'project');
+    grant('python', 'other', 'project');
     expect(call(Channels.COMPUTE_CONSENT_STATUS, 'python', 'print(1)')).toBe('cell');
     expect(call(Channels.COMPUTE_CONSENT_STATUS, 'python', 'unseen')).toBe('blanket');
   });
@@ -267,22 +282,16 @@ describe('COMPUTE_CONSENT_STATUS / GRANT / LIST / REVOKE', () => {
     expect(call(Channels.COMPUTE_CONSENT_STATUS, 'python', 'print(1)')).toBe('none');
   });
 
-  it('anything other than the literal "project" scope grants only this cell', () => {
-    call(Channels.COMPUTE_GRANT_CONSENT, 'python', 'print(1)', 'everything');
-    expect(call(Channels.COMPUTE_CONSENT_STATUS, 'python', 'print(1)')).toBe('cell');
-    // No blanket trust leaked in from the unrecognised scope.
-    expect(call(Channels.COMPUTE_CONSENT_STATUS, 'python', 'something else')).toBe('none');
-  });
-
-  it('GRANT throws with no project — trust cannot be recorded against nothing', () => {
+  it('REQUEST_CONSENT throws with no project — trust cannot be recorded against nothing', async () => {
     openProject = null;
-    expect(() => call(Channels.COMPUTE_GRANT_CONSENT, 'python', 'print(1)', 'project')).toThrow(/No project open/);
+    await expect(callAsync(Channels.COMPUTE_REQUEST_CONSENT, 'python', 'print(1)')).rejects.toThrow(/No project open/);
+    expect(h.showMessageBox).not.toHaveBeenCalled();
     expect(fs.existsSync(consentFile())).toBe(false);
   });
 
   it('LIST and REVOKE are machine-scoped — they work with no project open', () => {
-    call(Channels.COMPUTE_GRANT_CONSENT, 'python', 'print(1)', 'cell');
-    call(Channels.COMPUTE_GRANT_CONSENT, 'python', 'x', 'project');
+    grant('python', 'print(1)', 'cell');
+    grant('python', 'x', 'project');
 
     // Settings → Compute has to show (and undo) trust for thoughtbases that
     // aren't the open one, so these deliberately aren't `withRootPath`.
@@ -297,7 +306,7 @@ describe('COMPUTE_CONSENT_STATUS / GRANT / LIST / REVOKE', () => {
 
   it('a revoked thoughtbase prompts again on its next run', async () => {
     h.runCell.mockResolvedValue(OK_RESULT);
-    call(Channels.COMPUTE_GRANT_CONSENT, 'python', 'print(1)', 'cell');
+    grant('python', 'print(1)', 'cell');
     call(Channels.COMPUTE_REVOKE_CONSENT, ROOT);
 
     const result = await call(Channels.COMPUTE_RUN_CELL, 'python', 'print(1)');
@@ -306,7 +315,7 @@ describe('COMPUTE_CONSENT_STATUS / GRANT / LIST / REVOKE', () => {
   });
 
   it('revoking a thoughtbase that was never trusted is a no-op, not an error', () => {
-    call(Channels.COMPUTE_GRANT_CONSENT, 'python', 'print(1)', 'project');
+    grant('python', 'print(1)', 'project');
     call(Channels.COMPUTE_REVOKE_CONSENT, '/never-seen');
     // The unrelated root's consent record must survive untouched.
     expect(call(Channels.COMPUTE_LIST_CONSENT)).toEqual([
@@ -315,7 +324,7 @@ describe('COMPUTE_CONSENT_STATUS / GRANT / LIST / REVOKE', () => {
   });
 
   it('hashes are stored, not the code itself', () => {
-    call(Channels.COMPUTE_GRANT_CONSENT, 'python', 'API_KEY = "hunter2"', 'cell');
+    grant('python', 'API_KEY = "hunter2"', 'cell');
     const stored = fs.readFileSync(consentFile(), 'utf-8');
     // The consent store sits in userData forever; it must not become a copy of
     // every cell the user has ever run.
@@ -500,5 +509,79 @@ describe('the remaining delegations', () => {
     openProject = null;
     await expect(callAsync(Channels.COMPUTE_SAVE_CELL_OUTPUT, {})).rejects.toThrow(/No project open/);
     expect(h.saveCellOutput).not.toHaveBeenCalled();
+  });
+});
+
+describe('COMPUTE_REQUEST_CONSENT — main asks, in a dialog the renderer cannot draw (#2568)', () => {
+  it('shows the code in a native dialog and records a cell grant on Run', async () => {
+    await expect(callAsync(Channels.COMPUTE_REQUEST_CONSENT, 'python', 'print("hi")')).resolves.toBe('cell');
+    const [win, opts] = h.showMessageBox.mock.calls[0] as [unknown, { detail: string; buttons: string[]; checkboxLabel: string }];
+    expect(win).toBe(h.win);
+    expect(opts.detail).toContain('print("hi")');
+    expect(opts.buttons[0]).toBe('Run');
+    expect(opts.checkboxLabel).toMatch(/Trust all code in this thoughtbase/);
+    expect(call(Channels.COMPUTE_CONSENT_STATUS, 'python', 'print("hi")')).toBe('cell');
+  });
+
+  it('the checkbox records blanket trust for the thoughtbase', async () => {
+    h.showMessageBox.mockResolvedValue({ response: 0, checkboxChecked: true });
+    await expect(callAsync(Channels.COMPUTE_REQUEST_CONSENT, 'python', 'x')).resolves.toBe('project');
+    expect(call(Channels.COMPUTE_CONSENT_STATUS, 'python', 'never seen')).toBe('blanket');
+  });
+
+  it('Cancel records nothing — and a run without consent still executes nothing', async () => {
+    h.showMessageBox.mockResolvedValue({ response: 1, checkboxChecked: true });
+    h.runCell.mockResolvedValue(OK_RESULT);
+    await expect(callAsync(Channels.COMPUTE_REQUEST_CONSENT, 'python', 'os.system("x")')).resolves.toBe('cancel');
+    expect(call(Channels.COMPUTE_CONSENT_STATUS, 'python', 'os.system("x")')).toBe('none');
+    await call(Channels.COMPUTE_RUN_CELL, 'python', 'os.system("x")');
+    expect(h.runCell).not.toHaveBeenCalled();
+  });
+
+  it('no dialog for an already-consented cell, or under blanket trust without forceReview', async () => {
+    grant('python', 'print(1)', 'cell');
+    await expect(callAsync(Channels.COMPUTE_REQUEST_CONSENT, 'python', 'print(1)', true)).resolves.toBe('cell');
+    grant('python', 'other', 'project');
+    await expect(callAsync(Channels.COMPUTE_REQUEST_CONSENT, 'python', 'unseen')).resolves.toBe('project');
+    expect(h.showMessageBox).not.toHaveBeenCalled();
+  });
+
+  it('forceReview shows a model-proposed cell even under blanket trust', async () => {
+    grant('python', 'other', 'project');
+    await callAsync(Channels.COMPUTE_REQUEST_CONSENT, 'python', 'proposed by the model', true);
+    expect(h.showMessageBox).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('Python interpreter — main confirms the program it will run (#2568)', () => {
+  it('a typed new interpreter path needs main\'s confirm; declining keeps the old path', async () => {
+    h.getPythonSettings.mockResolvedValue({ pythonPath: '/usr/bin/python3', allowNetwork: false, cellTimeoutSeconds: 60 });
+    h.showMessageBox.mockResolvedValue({ response: 1, checkboxChecked: false });
+    await call(Channels.COMPUTE_SET_PYTHON_SETTINGS, { pythonPath: '/tmp/evil', allowNetwork: true, cellTimeoutSeconds: 30 });
+    expect((h.showMessageBox.mock.calls[0]![1] as { detail: string }).detail).toContain('/tmp/evil');
+    expect(h.setPythonSettings).toHaveBeenCalledWith({ pythonPath: '/usr/bin/python3', allowNetwork: true, cellTimeoutSeconds: 30 });
+  });
+
+  it('an unchanged path, or one picked in the native file picker, asks nothing', async () => {
+    h.getPythonSettings.mockResolvedValue({ pythonPath: '/usr/bin/python3', allowNetwork: false, cellTimeoutSeconds: 60 });
+    await call(Channels.COMPUTE_SET_PYTHON_SETTINGS, { pythonPath: '/usr/bin/python3', allowNetwork: true, cellTimeoutSeconds: 60 });
+    h.showOpenDialog.mockResolvedValue({ canceled: false, filePaths: ['/opt/venv/bin/python'] });
+    await call(Channels.COMPUTE_BROWSE_PYTHON);
+    h.probePythonInterpreter.mockResolvedValue({ ok: true, path: '/opt/venv/bin/python', version: 'Python 3.12.1' });
+    await call(Channels.COMPUTE_PROBE_PYTHON, '/opt/venv/bin/python');
+    await call(Channels.COMPUTE_SET_PYTHON_SETTINGS, { pythonPath: '/opt/venv/bin/python', allowNetwork: false, cellTimeoutSeconds: 60 });
+    expect(h.showMessageBox).not.toHaveBeenCalled();
+  });
+
+  it('probing a typed path RUNS it — declined, nothing runs; confirmed once, Save does not ask again', async () => {
+    h.showMessageBox.mockResolvedValueOnce({ response: 1, checkboxChecked: false });
+    await expect(callAsync(Channels.COMPUTE_PROBE_PYTHON, '/tmp/evil')).resolves.toMatchObject({ ok: false });
+    expect(h.probePythonInterpreter).not.toHaveBeenCalled();
+
+    h.probePythonInterpreter.mockResolvedValue({ ok: true, path: '/opt/py', version: 'Python 3.12.0' });
+    await call(Channels.COMPUTE_PROBE_PYTHON, '/opt/py'); // confirmed (default stub)
+    await call(Channels.COMPUTE_SET_PYTHON_SETTINGS, { pythonPath: '/opt/py', allowNetwork: false, cellTimeoutSeconds: 60 });
+    expect(h.showMessageBox).toHaveBeenCalledTimes(2); // the declined probe + the confirmed one; Save asked nothing
+    expect(h.setPythonSettings).toHaveBeenLastCalledWith({ pythonPath: '/opt/py', allowNetwork: false, cellTimeoutSeconds: 60 });
   });
 });

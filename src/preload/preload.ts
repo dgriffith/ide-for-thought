@@ -217,8 +217,8 @@ const api = {
     browsePython: () => invoke(Channels.COMPUTE_BROWSE_PYTHON),
     consentStatus: (language: string, code: string) =>
       invoke(Channels.COMPUTE_CONSENT_STATUS, language, code),
-    grantConsent: (language: string, code: string, scope: 'cell' | 'project') =>
-      invoke(Channels.COMPUTE_GRANT_CONSENT, language, code, scope),
+    requestConsent: (language: string, code: string, forceReview?: boolean) =>
+      invoke(Channels.COMPUTE_REQUEST_CONSENT, language, code, forceReview),
     listConsent: () => invoke(Channels.COMPUTE_LIST_CONSENT),
     revokeConsent: (rootPath: string) => invoke(Channels.COMPUTE_REVOKE_CONSENT, rootPath),
     revealAuditLog: () => invoke(Channels.COMPUTE_REVEAL_AUDIT_LOG),
