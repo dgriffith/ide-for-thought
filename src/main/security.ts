@@ -44,9 +44,16 @@ export const HARDENED_WEB_PREFERENCES = {
   sandbox: true,
 } as const;
 
-/** Install the CSP for every response served to the default session. */
+/** The CSP the renderer runs under (dev loosenings when the dev server is up). */
+export function rendererCsp(): string {
+  return buildCsp({ devServerOrigin: MAIN_WINDOW_VITE_DEV_SERVER_URL });
+}
+
+/** Install the CSP for every response served to the default session. (The
+ *  `app://` handler also sets it on its own responses, which don't pass
+ *  through webRequest — see app-protocol.ts.) */
 export function installCsp(): void {
-  const csp = buildCsp({ devServerOrigin: MAIN_WINDOW_VITE_DEV_SERVER_URL });
+  const csp = rendererCsp();
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     callback({
       responseHeaders: {

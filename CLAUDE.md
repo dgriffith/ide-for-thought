@@ -716,8 +716,11 @@ release.
 `RunAsNode` stays **on** (the `minerva` CLI shim runs the app binary with
 `ELECTRON_RUN_AS_NODE=1`); `NODE_OPTIONS` and `--inspect` are **off**; app
 code loads **only** from `app.asar`, validated against the Info.plist hash.
-`GrantFileProtocolExtraPrivileges` stays on because the renderer is `file://`
-— off, the window fails with `ERR_FILE_NOT_FOUND` reading inside the asar.
+`GrantFileProtocolExtraPrivileges` is **off** (#2564): the renderer is served
+from the privileged `app://minerva` scheme (`src/main/app-protocol.ts`), which
+reads the bundle with main's asar-aware `fs` — `file://` gets no extra powers,
+and CSP `'self'` means the bundle, not the disk. A new renderer asset is served
+by that handler automatically; one it must `fetch()` needs no `file://` access.
 
 Three consequences for anyone touching packaging:
 

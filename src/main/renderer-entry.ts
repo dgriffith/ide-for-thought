@@ -8,20 +8,20 @@
  */
 
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { APP_ENTRY_URL } from './app-protocol-paths';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
 declare const MAIN_WINDOW_VITE_NAME: string;
 
-/** Absolute path of the packaged renderer's `index.html`. */
-export function rendererEntryPath(): string {
-  return path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`);
+/** The packaged renderer bundle's directory — what `app://minerva/` serves. */
+export function rendererRoot(): string {
+  return path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}`);
 }
 
 /** The URL the main window loads: the Vite dev server under `pnpm dev`,
- *  otherwise the file URL of `rendererEntryPath()`. */
+ *  otherwise `app://minerva/index.html` (#2564; it was a `file://` URL). */
 export function rendererEntryUrl(): string {
-  return MAIN_WINDOW_VITE_DEV_SERVER_URL ?? pathToFileURL(rendererEntryPath()).href;
+  return MAIN_WINDOW_VITE_DEV_SERVER_URL ?? APP_ENTRY_URL;
 }
 
 /** The dev server origin, or undefined in a packaged build. */

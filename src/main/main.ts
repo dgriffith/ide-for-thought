@@ -11,7 +11,10 @@ import { appIconPath } from './app-icon';
 import { loadSession } from './session';
 import { registerBuiltinExecutors } from './compute/executors';
 import { registerBuiltinExporters } from './publish';
-import { installCsp, installPermissions } from './security';
+import { installCsp, installPermissions, rendererCsp } from './security';
+import { installAppProtocol, registerAppScheme } from './app-protocol';
+import { rendererRoot } from './renderer-entry';
+import { registerLegacyStorageMigration } from './legacy-storage-migration';
 import { flushAllProjects } from './project-context';
 import { shutdownAllKernels } from './compute/python-kernel';
 import { shutdownAllMcpClients } from './mcp-client';
@@ -41,6 +44,10 @@ function boot(label: string): void {
 
 boot('main module loaded');
 
+// The renderer's `app://` scheme must be declared privileged before the app
+// is ready (#2564).
+registerAppScheme();
+
 void app.whenReady().then(async () => {
   boot('app ready');
   // Sweep RPC sockets an earlier process left behind without cleaning up
@@ -61,6 +68,11 @@ void app.whenReady().then(async () => {
   }
   installCsp();
   installPermissions();
+  // Serve the renderer bundle at app://minerva/ (#2564). Under `pnpm dev`
+  // the window loads the Vite server instead; serving the bundle too is
+  // harmless.
+  installAppProtocol(rendererRoot(), rendererCsp());
+  registerLegacyStorageMigration();
   boot('csp installed');
   registerIpcHandlers();
   boot('ipc handlers registered');
