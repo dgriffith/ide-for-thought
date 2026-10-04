@@ -10,6 +10,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { thumbnailUrl } from '../../shared/youtube/youtube';
+import { safeFetch } from '../safe-fetch';
 
 // A YouTube id is exactly 11 URL-safe base64 chars — validate before it reaches
 // the filesystem so a crafted id can't escape the cache dir.
@@ -37,16 +38,11 @@ export async function getOrFetchThumbnail(rootPath: string, id: string): Promise
   }
 
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-    let bytes: Uint8Array;
-    try {
-      const res = await fetch(thumbnailUrl(id), { signal: controller.signal });
-      if (!res.ok) return null;
-      bytes = new Uint8Array(await res.arrayBuffer());
-    } finally {
-      clearTimeout(timer);
-    }
+    // Fixed host and a validated id, but the same fetch rules as every other
+    // untrusted image (#2566) — notably a byte cap it never had.
+    const res = await safeFetch(thumbnailUrl(id), { timeoutMs: FETCH_TIMEOUT_MS, maxBytes: 5 * 1024 * 1024 });
+    if (!res.ok) return null;
+    const bytes = res.bytes;
     await fs.mkdir(path.dirname(file), { recursive: true });
     await fs.writeFile(file, bytes);
     return bytes;

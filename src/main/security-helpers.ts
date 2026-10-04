@@ -3,6 +3,8 @@
  * exercise them without pulling in `electron`'s `session`/`shell`/`app`.
  */
 
+import { APP_ORIGIN } from './app-protocol-paths';
+
 export interface CspOptions {
   /** When set, dev-mode loosenings (Vite origin + ws) are added. */
   devServerOrigin?: string | undefined;
@@ -12,11 +14,11 @@ export interface CspOptions {
  *  adapters (Crossref, arXiv, PubMed, Anthropic) talk to their endpoints
  *  in main, so renderer connect-src stays narrow. */
 export const RENDERER_FETCH_HOSTS = [
-  // tesseract.js core/wasm + worker glue, and transformers.js's
-  // onnxruntime-web WASM. Keep both so a CDN switch in either doesn't
-  // break OCR / voice silently.
-  'https://cdn.jsdelivr.net',
-  'https://unpkg.com',
+  // No package CDNs (#2564). jsdelivr / unpkg used to be here for tesseract.js
+  // (worker + core) and transformers.js's onnxruntime-web WASM; all three ship
+  // in the bundle now (run-ocr.ts, whisper.worker.ts). They were an exfil
+  // channel for any renderer bug — anyone can publish to them — and code
+  // loaded from them had no integrity check. Don't add one back: bundle it.
   // Local Whisper model weights for dictation (#voice) are fetched once
   // from the HF hub and then cached by the browser. The hub redirects the
   // actual file bytes to its LFS / Xet CDN, whose hostnames are regional and
@@ -113,7 +115,9 @@ function isDevServerOrigin(url: string, devServerOrigin: string | undefined): bo
  *  requesting origin for any file:// page is just `file:///`. It is NOT a
  *  navigation allowlist — see `isRendererEntry` (#2552). */
 export function isOwnOrigin(url: string, devServerOrigin?: string): boolean {
-  if (url.startsWith('file://')) return true;
+  // `app://minerva` (#2564) — no longer any `file://`, which granted the mic
+  // and clipboard to every local HTML file a window could open.
+  if (url === APP_ORIGIN || url.startsWith(`${APP_ORIGIN}/`)) return true;
   return isDevServerOrigin(url, devServerOrigin);
 }
 
@@ -132,7 +136,10 @@ export function isRendererEntry(url: string, entryUrl: string, devServerOrigin?:
   if (isDevServerOrigin(url, devServerOrigin)) return true;
   const u = parseUrl(url);
   const entry = parseUrl(entryUrl);
-  if (!u || !entry || u.protocol !== 'file:' || entry.protocol !== 'file:') return false;
+  // Same scheme, host and path as the entry (`app://minerva/index.html` since
+  // #2564; a `file://` entry compared the same way). Never across schemes.
+  if (!u || !entry || u.protocol !== entry.protocol) return false;
+  if (u.protocol === 'http:' || u.protocol === 'https:') return false; // the dev server is matched above
   return u.host === entry.host && u.pathname === entry.pathname;
 }
 
