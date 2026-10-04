@@ -6,6 +6,7 @@
  */
 import YAML from 'yaml';
 import { slugifyId as slugify } from '../../shared/slug';
+import { safeCssColor } from '../../shared/css-color';
 import {
   PROPERTY_TYPES,
   pascalCase,
@@ -146,8 +147,15 @@ export function parseType(content: string, source: TypeSource, filePath: string)
   if (template) type.template = template;
   const icon = asString(fm.icon);
   if (icon) type.icon = icon;
-  const color = asString(fm.color);
-  if (color) type.color = color;
+  // A colour lands in `style` attributes across the renderer, and type files
+  // travel with the thoughtbase: anything but a pure colour is CSS injection
+  // (#2561). Reported, not loaded — the type still loads.
+  const rawColor = asString(fm.color);
+  if (rawColor) {
+    const color = safeCssColor(rawColor);
+    if (color) type.color = color;
+    else errors.push(`\`color\` "${rawColor}" isn't a CSS colour (use e.g. #89b4fa, teal or rgb(…))`);
+  }
   const cover = asString(fm.cover);
   if (cover) {
     // Soft-validate: `cover` must name a declared property (else the gallery has
