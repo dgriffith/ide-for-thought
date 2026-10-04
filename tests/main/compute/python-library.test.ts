@@ -5,7 +5,7 @@
  * `import minerva` cell, and assert the response shape. The kernel
  * connects back to the main-side RPC server over a Unix socket, so
  * a green run here exercises:
- *   - the kernel adapter spawns with PYTHONPATH + MINERVA_IPC_SOCKET set
+ *   - the kernel adapter spawns with MINERVA_PROJECT_ROOT + MINERVA_IPC_SOCKET set
  *   - the RPC server listens, dispatches, replies
  *   - the Python package's blocking socket client + JSON framing
  *   - the exception-class translation (server error -> NotFoundError)
