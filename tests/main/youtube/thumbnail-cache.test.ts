@@ -51,7 +51,9 @@ describe('getOrFetchThumbnail', () => {
   });
 
   it('returns null (and writes nothing) when the download is not ok', async () => {
-    stubFetch(async () => ({ ok: false }));
+    // A real Response: safeFetch (#2566) reads headers and body, so a bare
+    // `{ ok: false }` throws inside it and only ever exercised the catch.
+    stubFetch(async () => new Response('not found', { status: 404 }));
     expect(await getOrFetchThumbnail(root, ID)).toBeNull();
     expect(fs.existsSync(cacheFile(ID))).toBe(false);
   });
