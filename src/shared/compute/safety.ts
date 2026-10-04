@@ -90,3 +90,17 @@ function stripSqlLineComments(code: string): string {
     })
     .join('\n');
 }
+
+/**
+ * A safety-flag message split into plain-text and `code` runs (#2563).
+ * Messages mark identifiers with markdown backticks (``Imports `socket` ``);
+ * the card renders each run as text — never as HTML — with the code runs in
+ * `<code>` elements built by the template, so a message can't inject markup
+ * even if a future flag interpolates text from the scanned cell.
+ */
+export function safetyMessageParts(message: string): Array<{ text: string; code: boolean }> {
+  return message
+    .split('`')
+    .map((text, i) => ({ text, code: i % 2 === 1 }))
+    .filter((p) => p.text !== '');
+}
