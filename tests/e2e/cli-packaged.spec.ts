@@ -30,7 +30,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { spawnSync, type SpawnSyncReturns } from 'node:child_process';
+import { spawn, spawnSync, type SpawnSyncReturns } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs';
 import { makeTempDir, minervaEnv, projectRoot } from './helpers/launch';
@@ -85,7 +85,35 @@ function cliJs(): string {
   return path.join(app as string, 'Contents', 'Resources', 'app.asar', '.vite', 'build', 'cli.js');
 }
 
-function describeRun(r: SpawnSyncReturns<string>): string {
+/**
+ * Run something that may start the whole GUI app, for at most `ms`, then kill
+ * its entire process group. spawnSync can't do this. Its timeout kills only
+ * the main process, then waits for stdout/stderr to close, and Electron's
+ * helper processes hold those pipes open, so the call never returns. That
+ * hung the e2e job until its 20-minute timeout. Resolves on `exit`, not on
+ * `close`, for the same reason.
+ */
+function runBounded(cmd: string, args: string[], opts: { cwd: string; env: NodeJS.ProcessEnv }, ms: number):
+  Promise<{ status: number | null; signal: NodeJS.Signals | null; stdout: string; stderr: string }> {
+  return new Promise((resolve) => {
+    const child = spawn(cmd, args, { ...opts, detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (d: Buffer) => { stdout += d.toString(); });
+    child.stderr.on('data', (d: Buffer) => { stderr += d.toString(); });
+    const killGroup = () => { try { process.kill(-child.pid!, 'SIGKILL'); } catch { /* already gone */ } };
+    const timer = setTimeout(killGroup, ms);
+    child.on('exit', (status, signal) => {
+      clearTimeout(timer);
+      killGroup(); // helpers outlive the main process otherwise
+      child.stdout.destroy();
+      child.stderr.destroy();
+      resolve({ status, signal, stdout, stderr });
+    });
+  });
+}
+
+function describeRun(r: { status: number | null; signal: NodeJS.Signals | null; stdout: string; stderr: string }): string {
   return `exit=${r.status} signal=${r.signal}\nstdout:\n${r.stdout}\nstderr:\n${r.stderr}`;
 }
 
@@ -145,9 +173,12 @@ test('packaged binary: ELECTRON_RUN_AS_NODE no longer runs arbitrary JS (RunAsNo
   test.skip(app === null, 'packaged app not built — run `pnpm build:e2e` first');
   const canary = path.join(elsewhere, 'runasnode-canary');
   // Under RunAsNode this ran as plain Node, as "Minerva", and wrote the file.
-  const r = spawnSync(binary(), ['-e', `require('fs').writeFileSync(${JSON.stringify(canary)}, 'ran')`], {
-    cwd: elsewhere, env: minervaEnv(home, { ELECTRON_RUN_AS_NODE: '1' }), encoding: 'utf-8', timeout: 8_000,
-  });
+  const r = await runBounded(
+    binary(),
+    ['-e', `require('fs').writeFileSync(${JSON.stringify(canary)}, 'ran')`],
+    { cwd: elsewhere, env: minervaEnv(home, { ELECTRON_RUN_AS_NODE: '1' }) },
+    8_000,
+  );
   // With the fuse off the binary starts as the app (and is killed by the
   // timeout, or exits) — the code is never evaluated.
   expect(fs.existsSync(canary), describeRun(r)).toBe(false);
