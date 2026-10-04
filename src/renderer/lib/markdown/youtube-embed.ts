@@ -17,6 +17,7 @@
 
 import { parseYouTubeUrl, thumbnailUrl } from '../../../shared/youtube/youtube';
 import { escapeHtml, escapeAttr } from '../../../shared/text-escape';
+import { appImageMark } from '../preview/app-image-mark';
 
 /** Build the poster-card HTML for a `youtube` fence body, or an inline error
  *  if the URL doesn't parse as a YouTube video. */
@@ -43,7 +44,7 @@ export function renderYouTubeFence(body: string): string {
     // The remote `img.youtube.com` src is the immediate/offline fallback; the
     // preview's post-render pass swaps in a cached local copy (via
     // `data-youtube-id`) so the poster survives offline once viewed (#...).
-    + `<img class="youtube-thumb" data-youtube-id="${escapeAttr(ref.id)}" src="${escapeAttr(thumb)}" alt="${escapeAttr(label)}" loading="lazy" />`
+    + `<img class="youtube-thumb"${appImageMark()} data-youtube-id="${escapeAttr(ref.id)}" src="${escapeAttr(thumb)}" alt="${escapeAttr(label)}" loading="lazy" />`
     + `<span class="youtube-embed-play" aria-hidden="true"></span>`
     + `</span>`
     + `<span class="youtube-embed-caption">`

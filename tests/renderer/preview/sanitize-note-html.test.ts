@@ -24,6 +24,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { sanitizeNoteHtml } from '../../../src/renderer/lib/preview/sanitize-note-html';
+import { appImageMark, APP_IMAGE_TOKEN } from '../../../src/renderer/lib/preview/app-image-mark';
 import { createPreviewMarkdown, type PreviewMarkdownDeps } from '../../../src/renderer/lib/preview/markdown-config';
 
 function makeDeps(over: Partial<PreviewMarkdownDeps> = {}): PreviewMarkdownDeps {
@@ -93,26 +94,52 @@ describe('sanitizeNoteHtml — neutralises L4 remote privacy beacons', () => {
   });
 });
 
-describe('sanitizeNoteHtml — preserves the app image feature (marked images)', () => {
-  it('keeps a marked remote-image src (markdown ![](https://…))', () => {
+/** The `src` attribute of the first <img> in `html` (parsed, not substring-matched:
+ *  `data-remote-src="…"` contains `src="…"` too, which once hid a stripped src). */
+function imgSrc(html: string): string | null {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  return doc.querySelector('img')?.getAttribute('src') ?? null;
+}
+
+describe('sanitizeNoteHtml — preserves the app image feature (token-marked images, #2561)', () => {
+  it('keeps the remote src of an app-generated remote-image (markdown ![](https://…))', () => {
     const out = sanitizeNoteHtml(
-      '<img class="remote-image" data-remote-src="https://ex.com/a.png" src="https://ex.com/a.png" alt="a" loading="lazy">',
+      `<img class="remote-image"${appImageMark()} data-remote-src="https://ex.com/a.png" src="https://ex.com/a.png" alt="a" loading="lazy">`,
     );
-    expect(out).toContain('src="https://ex.com/a.png"');
-    expect(out).toContain('data-remote-src');
+    expect(imgSrc(out)).toBe('https://ex.com/a.png');
   });
 
-  it('keeps a youtube-thumb remote src', () => {
+  it('keeps an app-generated youtube-thumb remote src', () => {
     const out = sanitizeNoteHtml(
-      '<img class="youtube-thumb" data-youtube-id="abc" src="https://img.youtube.com/vi/abc/0.jpg" alt="v">',
+      `<img class="youtube-thumb"${appImageMark()} data-youtube-id="abc" src="https://img.youtube.com/vi/abc/0.jpg" alt="v">`,
     );
-    expect(out).toContain('img.youtube.com');
+    expect(imgSrc(out)).toBe('https://img.youtube.com/vi/abc/0.jpg');
   });
 
   it('keeps a local-image placeholder (data-rel, no src)', () => {
-    const out = sanitizeNoteHtml('<img class="local-image" data-rel="notes/a.png" alt="a">');
+    const out = sanitizeNoteHtml(`<img class="local-image"${appImageMark()} data-rel="notes/a.png" alt="a">`);
     expect(out).toContain('data-rel="notes/a.png"');
     expect(out).toContain('local-image');
+  });
+
+  it('end to end: the real markdown image rule and youtube fence keep their images', () => {
+    const md = createPreviewMarkdown(makeDeps());
+    expect(imgSrc(sanitizeNoteHtml(md.render('![a](https://ex.com/a.png)')))).toBe('https://ex.com/a.png');
+  });
+});
+
+describe('sanitizeNoteHtml — a note can\'t spoof the app-image marker (#2561)', () => {
+  it.each([
+    ['remote-image class + data-remote-src', '<img class="remote-image" data-remote-src="https://t.example/b.gif" src="https://t.example/b.gif">'],
+    ['youtube-thumb class', '<img class="youtube-thumb" src="https://t.example/b.gif">'],
+    ['local-image class + data-rel', '<img class="local-image" data-rel="x.png" src="https://t.example/b.gif">'],
+    ['a guessed token', '<img data-minerva-img="00000000000000000000000000000000" src="https://t.example/b.gif">'],
+  ])('neutralises a raw <img> wearing %s', (_label, html) => {
+    expect(imgSrc(sanitizeNoteHtml(html))).toBeNull();
+  });
+
+  it('the token is random per load, not a constant a note could copy from the source', () => {
+    expect(APP_IMAGE_TOKEN).toMatch(/^[0-9a-f]{32}$/);
   });
 });
 

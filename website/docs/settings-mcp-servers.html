@@ -109,7 +109,7 @@
         <div class="v">Minerva connects over the network to a server somebody else runs. Fill in the <b>URL</b>. If it requires a login, Minerva handles that — see <b>Needs authorization</b> below.</div>
       </div>
     </div>
-    <p>Servers are saved in <code>~/.minerva/mcp-servers.json</code> in your home folder — environment variables included, so an API key you put under <b>Environment</b> is stored in that file in plain text. A remote server's sign-in tokens are kept separately, encrypted, in Minerva's application data folder.</p>
+    <p>Servers are saved in <code>~/.minerva/mcp-servers.json</code> in your home folder — environment variables included. The values you put under <b>Environment</b> are encrypted with your system keychain before they're saved, and the file is readable only by your user account. A remote server's sign-in tokens are kept separately, also encrypted, in Minerva's application data folder.</p>
     <p>The name is how the assistant refers to the server, so keep it short and distinct — two servers sharing a name can't be told apart. A server you've just added starts <b>switched off</b>: nothing is launched or contacted until you turn it on.</p>
 
     <h2 id="status">What the status says</h2>

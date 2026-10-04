@@ -21,7 +21,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import fsSync from 'node:fs';
-import { readJsonFileOr, writeJsonFileAtomic, writeJsonFileAtomicSync } from '../../../src/main/config/json-file';
+import { readJsonFileOr, writeJsonFileAtomic, writeJsonFileAtomicSync, SECRET_FILE_MODE } from '../../../src/main/config/json-file';
 
 describe('readJsonFileOr (#1631)', () => {
   let dir: string;
@@ -139,5 +139,50 @@ describe('writeJsonFileAtomicSync (#2369)', () => {
 
     expect(JSON.parse(fsSync.readFileSync(p, 'utf-8'))).toEqual({ version: 1 });
     expect(fsSync.readdirSync(dir)).toEqual(['config.json']);
+  });
+});
+
+describe('atomic writes honour a file mode (#2562)', () => {
+  const posix = process.platform !== 'win32';
+  const modeOf = (p: string) => fsSync.statSync(p).mode & 0o777;
+
+  it.runIf(posix)('creates the file with the given mode (async and sync)', async () => {
+    const dir = fsSync.mkdtempSync(path.join(os.tmpdir(), 'minerva-mode-'));
+    try {
+      const a = path.join(dir, 'a.json');
+      const b = path.join(dir, 'b.json');
+      await writeJsonFileAtomic(a, { k: 1 }, { mode: SECRET_FILE_MODE });
+      writeJsonFileAtomicSync(b, { k: 1 }, { mode: SECRET_FILE_MODE });
+      expect(modeOf(a)).toBe(0o600);
+      expect(modeOf(b)).toBe(0o600);
+    } finally {
+      fsSync.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it.runIf(posix)('tightens an existing 0644 file on its next write', async () => {
+    const dir = fsSync.mkdtempSync(path.join(os.tmpdir(), 'minerva-mode-'));
+    try {
+      const a = path.join(dir, 'a.json');
+      fsSync.writeFileSync(a, '{}', { mode: 0o644 });
+      fsSync.chmodSync(a, 0o644);
+      await writeJsonFileAtomic(a, { k: 2 }, { mode: SECRET_FILE_MODE });
+      expect(modeOf(a)).toBe(0o600);
+      expect(JSON.parse(fsSync.readFileSync(a, 'utf-8'))).toEqual({ k: 2 });
+    } finally {
+      fsSync.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it.runIf(posix)('leaves the process default when no mode is given', async () => {
+    const dir = fsSync.mkdtempSync(path.join(os.tmpdir(), 'minerva-mode-'));
+    try {
+      const a = path.join(dir, 'a.json');
+      await writeJsonFileAtomic(a, {});
+      const umask = process.umask();
+      expect(modeOf(a)).toBe(0o666 & ~umask);
+    } finally {
+      fsSync.rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

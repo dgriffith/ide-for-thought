@@ -149,6 +149,14 @@ describe('parseType (#1062)', () => {
     expect(r.type!.template).toBe('body');
   });
 
+  it('keeps a real colour, and reports-but-drops one carrying extra CSS (#2561)', () => {
+    expect(parseType(`---\nlabel: Thing\ncolor: '#89b4fa'\n---\n`, 'user', '/x/t.md').type?.color).toBe('#89b4fa');
+    const r = parseType(`---\nlabel: Thing\ncolor: 'red; position: fixed; inset: 0'\n---\n`, 'user', '/x/t.md');
+    expect(r.type?.id).toBe('thing'); // still loads
+    expect(r.type?.color).toBeUndefined();
+    expect(r.errors.some((e) => /isn't a CSS colour/.test(e))).toBe(true);
+  });
+
   it('rejects a def with no label', () => {
     const r = parseType(`---\nicon: 📦\n---\n`, 'user', '/x/nolabel.md');
     expect(r.type).toBeUndefined();
