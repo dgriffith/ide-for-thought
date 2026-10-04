@@ -378,7 +378,7 @@ export interface ChannelMap {
   'publish:removeTarget': (id: string) => PublishTarget[];
   'publish:toGit': (
     targetId: string,
-    opts?: { dryRun?: boolean; createRepo?: { private: boolean } },
+    opts?: { dryRun?: boolean; createRepo?: { private: boolean }; approveRemote?: string },
   ) =>
     | { ok: true; result: {
         targetId: string;
@@ -391,6 +391,7 @@ export interface ChannelMap {
         sha?: string;
         commitMessage?: string;
         repoMissing?: { owner: string; repo: string };
+        remoteUnapproved?: { host: string; url: string; previous?: string };
         repoCreated?: boolean;
         pagesUrl?: string;
         pagesNote?: string;

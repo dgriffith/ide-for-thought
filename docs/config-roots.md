@@ -20,6 +20,7 @@ listed here. Adding a config without documenting it fails a test.
 | `clipper-config.json` | Browser-clipper enable flag + the loopback **shared secret (encrypted)**. |
 | `mcp-oauth-tokens.json` | Per-server OAuth 2.1 tokens for remote MCP servers (#2030), keyed by the server's canonical URL. **Access/refresh tokens (and client secret, if issued) encrypted** at rest. |
 | `mcp-tool-permissions.json` | MCP tools the user chose "Don't ask again" for in the `mcp_call` confirmation card (#2439). Keyed by a SHA-256 of the server's connection config (stdio command/args/env/cwd, or the remote URL) plus the tool name, so changing what the server runs voids the grant. Machine-scoped on purpose: a synced thoughtbase must not be able to pre-authorize a write tool. Env values are hashed, never stored. Cleared by Settings → MCP → *Reset allowed MCP tools*. |
+| `publish-remote-approvals.json` | Which git remote this machine approved to receive publish credentials, per target (#2556). Keyed by a SHA-256 of the thoughtbase's realpath plus the target id; the approved URL is stored as written (not secret). Machine-scoped on purpose: a target's remote lives in the travelling `config.json`, so the approval can't. Written when the user types a remote in the Publish dialog or confirms a changed one. |
 | `ingest-settings.json` | Source-ingest defaults. |
 | `python-settings.json` | Python interpreter path, network posture, and the per-cell execution limit (#2218). |
 | `compute-consent.json` | Content-addressed code-cell consent, keyed on each cell's code hash (#1412). Machine-scoped so it never rides along with a shared thoughtbase. |
@@ -39,7 +40,7 @@ User-global extensions that travel across machines only if the user copies them.
 |---|---|
 | `skills/` | User-authored skills (`*.md` or a folder with `SKILL.md`). Additive over stock. |
 | `menu-config.json` | Learning/Research/Analysis menu enable · reassign · order (per machine). |
-| `mcp-servers.json` | Configured MCP servers (#2031): stdio command/args/env, or a remote URL, plus name and enable flag. Global, not per-thoughtbase — matches `mcp-oauth-tokens.json`'s own precedent. No secrets here; OAuth tokens stay in `userData/mcp-oauth-tokens.json`. |
+| `mcp-servers.json` | Configured MCP servers (#2031): stdio command/args/env, or a remote URL, plus name and enable flag. Global, not per-thoughtbase — matches `mcp-oauth-tokens.json`'s own precedent. **stdio `env` values are encrypted** at rest (they're where a server's API key goes, #2562); a legacy plaintext file still loads and is re-encrypted. OAuth tokens stay in `userData/mcp-oauth-tokens.json`. |
 
 ## 3. `<thoughtbase>/.minerva/` — per **thoughtbase** (project)
 
@@ -70,4 +71,11 @@ legacy plaintext value still reads back and is re-encrypted on next read/write
 - `userData/llm-settings.json` — provider API keys
 - `userData/clipper-config.json` — the clipper shared secret
 - `userData/mcp-oauth-tokens.json` — MCP server OAuth access/refresh tokens
+- `~/.minerva/mcp-servers.json` — stdio servers' `env` values (#2562)
 - `<thoughtbase>/.minerva/secrets.json` — publish-target credentials
+
+Each of these files is also written **owner-only (0600)** — `SECRET_FILE_MODE`
+via `writeJsonFileAtomic*`'s `mode` option, applied to the temp file before the
+rename so the secret is never on disk world-readable, and tightening an older
+0644 file on its next write (#2562). `tests/main/config/secret-file-mode.test.ts`
+fails if a write to one of them drops it.

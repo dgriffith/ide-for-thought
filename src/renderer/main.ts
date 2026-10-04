@@ -13,6 +13,11 @@ import '@fontsource/ibm-plex-mono/500.css';
 import './styles/global.css';
 import App from './App.svelte';
 import { mount } from 'svelte';
+import { installNavigationGuard } from './lib/app/navigation-guard';
+
+// Before mount, so no link or file drop can ever take the window off the
+// renderer (#2554).
+installNavigationGuard();
 
 const app = mount(App, {
   target: document.getElementById('app')!,

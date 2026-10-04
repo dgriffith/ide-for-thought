@@ -100,6 +100,10 @@ rl.on('line', (line) => {
   }
   if (msg.method === 'tools/call') {
     if (mode === 'crash-on-call') { process.exit(1); }
+    if (mode === 'dump-env') {
+      send({ jsonrpc: '2.0', id: msg.id, result: { content: [{ type: 'text', text: JSON.stringify(process.env) }], isError: false } });
+      return;
+    }
     if (mode === 'tools-call-error') {
       send({ jsonrpc: '2.0', id: msg.id, error: { code: -32602, message: 'bad arguments' } });
       return;
@@ -305,5 +309,42 @@ describe('StdioTransport (#2029)', () => {
     setTimeout(() => controller.abort(), 50);
     await expect(callPromise).rejects.toMatchObject({ constructor: McpConnectionError, message: expect.stringContaining('aborted') });
     await transport.close();
+  });
+});
+
+describe('StdioTransport — the server gets an allowlisted env, not ours (#2560)', () => {
+  const SECRETS = {
+    ANTHROPIC_API_KEY: 'sk-ant-should-not-leak',
+    OPENAI_API_KEY: 'sk-should-not-leak',
+    GH_TOKEN: 'ghp_should_not_leak',
+    AWS_SECRET_ACCESS_KEY: 'aws-should-not-leak',
+  };
+
+  it('passes the base allowlist plus its own configured env, and none of the parent\'s secrets', async () => {
+    const saved = Object.fromEntries(Object.keys(SECRETS).map((k) => [k, process.env[k]]));
+    Object.assign(process.env, SECRETS);
+    const transport = new StdioTransport({
+      ...fixtureDescriptor('dump-env'),
+      env: { FIXTURE_MODE: 'dump-env', SERVER_API_KEY: 'configured-for-this-server' },
+    });
+    try {
+      await transport.connect();
+      const result = await transport.callTool('dump', {});
+      const block = result.content[0] as { type: 'text'; text: string };
+      const env = JSON.parse(block.text) as Record<string, string>;
+      // Its own configured env arrives…
+      expect(env.SERVER_API_KEY).toBe('configured-for-this-server');
+      // …as does what it needs to run…
+      expect(env.PATH).toBe(process.env.PATH);
+      if (process.env.HOME) expect(env.HOME).toBe(process.env.HOME);
+      // …and nothing the parent's shell exported for other purposes.
+      for (const k of Object.keys(SECRETS)) expect(env[k], k).toBeUndefined();
+    } finally {
+      await transport.close();
+      for (const [k, v] of Object.entries(saved)) {
+        if (v === undefined) delete process.env[k];
+        else process.env[k] = v;
+      }
+    }
   });
 });

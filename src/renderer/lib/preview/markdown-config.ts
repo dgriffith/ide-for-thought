@@ -29,6 +29,7 @@ import { escapeAttr } from './text';
 import { splitQueryDirective, queryBlockPlaceholderHtml } from './query-directive';
 import { resolveRelativeImagePath } from './image-paths';
 import { mediaKind } from '../../../shared/media';
+import { appImageMark } from './app-image-mark';
 import type { PreviewMarkdownDeps } from './markdown-deps';
 
 export type { PreviewMarkdownDeps } from './markdown-deps';
@@ -105,7 +106,7 @@ export function createPreviewMarkdown(deps: PreviewMarkdownDeps): MarkdownItInst
             const alt = altIdx >= 0 ? (tok.attrs![altIdx]![1] as string) : (tok.content ?? '');
             const titleIdx = tok.attrIndex('title');
             const title = titleIdx >= 0 ? ` title="${escapeAttr(tok.attrs![titleIdx]![1] as string)}"` : '';
-            return `<img class="remote-image" data-remote-src="${escapeAttr(url)}" src="${escapeAttr(src)}" alt="${escapeAttr(alt)}"${title} loading="lazy" />`;
+            return `<img class="remote-image"${appImageMark()} data-remote-src="${escapeAttr(url)}" src="${escapeAttr(src)}" alt="${escapeAttr(alt)}"${title} loading="lazy" />`;
         }
         const rel = resolveRelativeImagePath(src, deps.getRenderPathOverride() ?? deps.getNotePath());
         const altIdx = tok.attrIndex('alt');
@@ -121,7 +122,7 @@ export function createPreviewMarkdown(deps: PreviewMarkdownDeps): MarkdownItInst
         if (kind === 'audio') {
             return `<audio class="local-media" data-rel="${escapeAttr(rel)}" controls preload="metadata"${title}></audio>`;
         }
-        return `<img class="local-image" data-rel="${escapeAttr(rel)}" alt="${escapeAttr(alt)}"${title} />`;
+        return `<img class="local-image"${appImageMark()} data-rel="${escapeAttr(rel)}" alt="${escapeAttr(alt)}"${title} />`;
     };
 
     // Custom fence rendering (output blocks, mermaid, vega, youtube, runnable

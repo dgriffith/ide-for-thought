@@ -148,7 +148,7 @@ skipIfNoPython('python kernel (#241)', () => {
   // ── invalidate(): auto-reload .py modules (#529) ────────────────────
 
   it('invalidate(): editing an imported .py file picks up new value on next import', async () => {
-    // Need a real project root so the kernel's PYTHONPATH inserts a
+    // Need a real project root so the kernel's sys.path gains a
     // directory where we can drop a helper module. Each test gets a
     // fresh tmpdir so the module name doesn't collide across runs.
     const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'minerva-py-invalidate-'));

@@ -26,6 +26,7 @@
  * be imported here); what's under test is WHICH wrapper each handler picked.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import path from 'node:path';
 
 const ROOT = '/vault';
 /** What `rootPathFromEvent` reports; null models "no project open". */
@@ -58,12 +59,15 @@ const h = vi.hoisted(() => ({
   getPublishTargets: vi.fn(),
   upsertPublishTarget: vi.fn(),
   removePublishTarget: vi.fn(),
+  // remote approvals (#2556)
+  approveRemote: vi.fn(),
+  configureRemoteApprovalsPath: vi.fn(),
 }));
 
 vi.mock('electron', () => ({
   ipcMain: { handle: (channel: string, fn: Handler) => { h.handlers.set(channel, fn); } },
   dialog: { showOpenDialog: h.showOpenDialog },
-  app: { getVersion: h.getVersion },
+  app: { getVersion: h.getVersion, getPath: () => '/userData' },
 }));
 
 vi.mock('../../../src/main/ipc/helpers', () => ({
@@ -108,6 +112,10 @@ vi.mock('../../../src/main/publish/csl/user-assets', () => ({
   getMergedLocales: h.getMergedLocales,
 }));
 vi.mock('../../../src/main/git/publish-git', () => ({ checkGitHubToken: h.checkGitHubToken }));
+vi.mock('../../../src/main/publish/remote-approvals', () => ({
+  approveRemote: h.approveRemote,
+  configureRemoteApprovalsPath: h.configureRemoteApprovalsPath,
+}));
 vi.mock('../../../src/main/project-config', () => ({
   getPublishTargets: h.getPublishTargets,
   upsertPublishTarget: h.upsertPublishTarget,
@@ -120,6 +128,8 @@ import { EXPORT_GROUPS } from '../../../src/main/publish/types';
 import { DEFAULT_STYLE } from '../../../src/main/publish/csl/assets';
 
 registerPublish();
+// Captured before the first beforeEach's vi.resetAllMocks() wipes the call log.
+const approvalsPathAtRegister = h.configureRemoteApprovalsPath.mock.calls[0]?.[0];
 
 const call = (channel: string, ...args: unknown[]): unknown => h.handlers.get(channel)!({}, ...args);
 const callAsync = (channel: string, ...args: unknown[]): Promise<unknown> =>
@@ -417,6 +427,39 @@ describe('register-publish — publish targets', () => {
     expect(h.upsertPublishTarget).toHaveBeenCalledWith(ROOT, target);
   });
 
+  it('stores remote approvals per machine, in userData (#2556)', () => {
+    expect(approvalsPathAtRegister).toBe(path.join('/userData', 'publish-remote-approvals.json'));
+  });
+
+  it('approves the remote of a NEW git target the user typed (#2556)', () => {
+    h.getPublishTargets.mockReturnValue([]);
+    call(Channels.PUBLISH_UPSERT_TARGET, { id: 't1', label: 'Site', exporter: 'site', kind: 'git', gitRemote: 'git@gitlab.com:me/site.git', gitBranch: 'pages' });
+    expect(h.approveRemote).toHaveBeenCalledWith(ROOT, 't1', 'https://gitlab.com/me/site.git');
+  });
+
+  it('approves a remote the user CHANGED in the form (#2556)', () => {
+    h.getPublishTargets.mockReturnValue([{ id: 't1', label: 'Site', exporter: 'site', kind: 'git', gitRemote: 'https://github.com/me/old.git', gitBranch: 'gh-pages' }]);
+    call(Channels.PUBLISH_UPSERT_TARGET, { id: 't1', label: 'Site', exporter: 'site', kind: 'git', gitRemote: 'https://github.com/me/new.git', gitBranch: 'gh-pages' });
+    expect(h.approveRemote).toHaveBeenCalledWith(ROOT, 't1', 'https://github.com/me/new.git');
+  });
+
+  it('does NOT approve an on-disk remote re-sent by an edit to another field (#2556)', () => {
+    // A collaborator changed config.json's remote; the user opens the form and
+    // renames the target. The form re-sends the foreign URL unchanged.
+    const onDisk = { id: 't1', label: 'Site', exporter: 'site', kind: 'git' as const, gitRemote: 'https://git.attacker.example/x.git', gitBranch: 'gh-pages' };
+    h.getPublishTargets.mockReturnValue([onDisk]);
+    call(Channels.PUBLISH_UPSERT_TARGET, { ...onDisk, label: 'Renamed' });
+    expect(h.upsertPublishTarget).toHaveBeenCalled();
+    expect(h.approveRemote).not.toHaveBeenCalled();
+  });
+
+  it('saves but does not approve an http:// remote (#2556)', () => {
+    h.getPublishTargets.mockReturnValue([]);
+    call(Channels.PUBLISH_UPSERT_TARGET, { id: 't1', label: 'Site', exporter: 'site', kind: 'git', gitRemote: 'http://example.com/x.git', gitBranch: 'pages' });
+    expect(h.upsertPublishTarget).toHaveBeenCalled();
+    expect(h.approveRemote).not.toHaveBeenCalled();
+  });
+
   it('PUBLISH_REMOVE_TARGET answers with the list AFTER the removal', () => {
     h.getPublishTargets.mockReturnValue([{ id: 't2', label: 'Other', exporter: 'site', kind: 'git' }]);
     expect(call(Channels.PUBLISH_REMOVE_TARGET, 't1'))
@@ -445,6 +488,14 @@ describe('register-publish — PUBLISH_TO_GIT', () => {
     await callAsync(Channels.PUBLISH_TO_GIT, 't1', { dryRun: true, createRepo: { private: true } });
     expect(h.publishTarget).toHaveBeenCalledWith(ROOT, 't1', {
       dryRun: true, version: '1.2.3', createRepo: { private: true }, renderLiveBlocks: h.windowRenderer,
+    });
+  });
+
+  it('passes the user\'s remote approval through (#2556)', async () => {
+    h.publishTarget.mockResolvedValue({});
+    await callAsync(Channels.PUBLISH_TO_GIT, 't1', { approveRemote: 'https://gitlab.com/me/site.git' });
+    expect(h.publishTarget).toHaveBeenCalledWith(ROOT, 't1', {
+      dryRun: false, version: '1.2.3', approveRemote: 'https://gitlab.com/me/site.git', renderLiveBlocks: h.windowRenderer,
     });
   });
 
