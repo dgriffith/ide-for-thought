@@ -13,6 +13,7 @@
    * callbacks. So the Trust boundary is unchanged: this card only proposes;
    * the store/approval path still does the work.
    */
+  import { safetyMessageParts } from '../../../shared/compute/safety';
   import type { ConversationComputeDraft } from '../../../shared/conversation-compute-drafts';
   import type { CellOutput, CellResult } from '../../../shared/compute/types';
   import { sanitizeComputeOutputHtml } from '../compute-output-sanitize';
@@ -99,7 +100,8 @@
       <strong>⚠ Risky patterns detected:</strong>
       <ul>
         {#each draft.safetyFlags as f (f.id)}
-          <li>{@html f.message}</li>
+          <!-- Text, not {@html} (#2563): backtick runs become <code> here. -->
+          <li>{#each safetyMessageParts(f.message) as part, i (i)}{#if part.code}<code>{part.text}</code>{:else}{part.text}{/if}{/each}</li>
         {/each}
       </ul>
       {#if armedRisky}

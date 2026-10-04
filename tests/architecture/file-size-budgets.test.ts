@@ -116,7 +116,7 @@ const BUDGETS: Record<string, number> = {
   // +1 for #2256: the MENU_COMMAND_PALETTE channel / its MENU_COMMANDS entry.
   'src/shared/ipc-contract.ts': 795, // +1: publish remoteUnapproved (#2556); #2448: tables:queryNote; #2439: mcp_call confirm reply/event + resetAllowedTools; #2363/#2364: GraphQueryResult + git:commit doc comments; #2288: two inline Inspection shapes → Inspection[]; #2222: sources:queueCounts; +2: conversation:setTitle + conversation:titleChanged; +3: live-block export render request/reply (#2510)
   // +1 for #2256: the MENU_COMMAND_PALETTE channel / its MENU_COMMANDS entry.
-  'src/shared/channels.ts': 762,  // #2448: TABLES_QUERY_NOTE; #2439: CONVERSATION_MCP_CONFIRM(_REPLY) + MCP_SERVERS_RESET_ALLOWED_TOOLS; #2411: MENU_REVEAL_FILE + why it isn't shell:revealFile; #2367: MENU_OPEN_RECENT_PROJECT (was a bare literal in preload + menu); #2222: SOURCES_QUEUE_COUNTS + its why-comment; +4: CONVERSATION_SET_TITLE + CONVERSATION_TITLE_CHANGED; +4: live-block export render request/reply (#2510)
+  'src/shared/channels.ts': 765,  // +3: STORAGE_LEGACY_ORIGIN_ENTRIES (#2564); #2448: TABLES_QUERY_NOTE; #2439: CONVERSATION_MCP_CONFIRM(_REPLY) + MCP_SERVERS_RESET_ALLOWED_TOOLS; #2411: MENU_REVEAL_FILE + why it isn't shell:revealFile; #2367: MENU_OPEN_RECENT_PROJECT (was a bare literal in preload + menu); #2222: SOURCES_QUEUE_COUNTS + its why-comment; +4: CONVERSATION_SET_TITLE + CONVERSATION_TITLE_CHANGED; +4: live-block export render request/reply (#2510)
   // +5 (#2494): both typed-note creation paths read the type's effective (inherited) template.
   'src/renderer/lib/app/note-ops.ts': 707, // +15: saveViewAsNote — "Save as note" writes a note with a live object-view embed (#2507)
   'src/renderer/lib/editor/formatting.ts': 668,
@@ -139,7 +139,7 @@ const BUDGETS: Record<string, number> = {
   // ~250-line `<style>` block, not the logic.
   'src/renderer/lib/components/FindInNotesDialog.svelte': 633,
   // +1 for #2256: onCommandPalette passthrough.
-  'src/preload/preload.ts': 656,  // #2448: tables.queryNote; #2439: mcp_call confirm + resetAllowedTools passthroughs; #2411: menu.onRevealFile; #2222: sources.queueCounts passthrough; +4: conversations.setTitle + onTitleChanged (conversation titles); +4: live-block export render request/reply (#2510)
+  'src/preload/preload.ts': 670,  // +14: file:// → app:// localStorage copy (#2564); #2448: tables.queryNote; #2439: mcp_call confirm + resetAllowedTools passthroughs; #2411: menu.onRevealFile; #2222: sources.queueCounts passthrough; +4: conversations.setTitle + onTitleChanged (conversation titles); +4: live-block export render request/reply (#2510)
   'src/main/ipc/register-conversation-drafts.ts': 579, // +2: approved drafts broadcast their moves + rewrites (#2541)
   // New entry in #2218, which took this file from 538 over the threshold.
   // The seam this check asks about was taken first: the deadline POLICY —
@@ -151,7 +151,7 @@ const BUDGETS: Record<string, number> = {
   // half the growth is comment: the head-of-queue rule and the `proc.killed`
   // trap are both things the next reader will otherwise rediscover the
   // expensive way.
-  'src/main/compute/python-kernel.ts': 622,
+  'src/main/compute/python-kernel.ts': 628, // #2555 shrank it; +env allowlist (#2560)
 };
 
 /** Source files this applies to: authored `.ts` / `.svelte` under `src/`. */

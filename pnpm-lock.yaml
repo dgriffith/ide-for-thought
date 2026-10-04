@@ -248,6 +248,9 @@ importers:
       tesseract.js:
         specifier: ^7.0.0
         version: 7.0.0(encoding@0.1.13)
+      tesseract.js-core:
+        specifier: ^7.0.0
+        version: 7.0.0
       tslib:
         specifier: ^2.8.1
         version: 2.8.1

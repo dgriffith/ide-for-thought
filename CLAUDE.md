@@ -718,8 +718,11 @@ mode, `Minerva --minerva-cli -- <args>` (`src/main/cli-mode.ts`), which runs
 only the bundled CLI — never arbitrary JS as Minerva; `NODE_OPTIONS` and
 `--inspect` are **off**; app
 code loads **only** from `app.asar`, validated against the Info.plist hash.
-`GrantFileProtocolExtraPrivileges` stays on because the renderer is `file://`
-— off, the window fails with `ERR_FILE_NOT_FOUND` reading inside the asar.
+`GrantFileProtocolExtraPrivileges` is **off** (#2564): the renderer is served
+from the privileged `app://minerva` scheme (`src/main/app-protocol.ts`), which
+reads the bundle with main's asar-aware `fs` — `file://` gets no extra powers,
+and CSP `'self'` means the bundle, not the disk. A new renderer asset is served
+by that handler automatically; one it must `fetch()` needs no `file://` access.
 
 Three consequences for anyone touching packaging:
 
@@ -1224,7 +1227,7 @@ untested ones sit in a `KNOWN_UNTESTED` list that may only shrink.
 
 ### The architecture ratchets are inventoried in `docs/architecture-ratchets.md` (#2262)
 
-`tests/architecture/` holds **47** tests that check the shape of the codebase
+`tests/architecture/` holds **48** tests that check the shape of the codebase
 rather than the behavior of any feature — the package-cycle check, the file-size
 budgets, the anti-pattern ratchets, the dialog-adoption ratchet, the two
 temp-project-fixture ratchets, the CI-workflow checks, and so on. Most of them

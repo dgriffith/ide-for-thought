@@ -74,13 +74,14 @@ export const FUSE_POLICY = Object.freeze([
   // snapshot, so there is nothing for this to load.
   Object.freeze({ name: 'LoadBrowserProcessSpecificV8Snapshot', index: 6, enabled: false }),
 
-  // ON (Electron's default), and it has to stay on for now. The renderer
-  // loads from `file://` (window-manager.ts `loadFile`), and with this fuse
-  // off Chromium's file handler cannot read inside `app.asar`: measured on
-  // the packaged build, the window fails with ERR_FILE_NOT_FOUND on its own
-  // index.html. Turning it off needs the renderer served from a custom
-  // privileged protocol (`app://`) first — a change of its own, not a flip.
-  Object.freeze({ name: 'GrantFileProtocolExtraPrivileges', index: 7, enabled: true }),
+  // OFF (#2564). The renderer is served from the privileged `app://` scheme
+  // (app-protocol.ts), which reads the bundle with main's asar-aware fs, so
+  // nothing needs `file://` to have more than Chrome's default powers. It had
+  // to stay on while the renderer loaded from `file://`: off, Chromium's file
+  // handler can't read inside `app.asar` (ERR_FILE_NOT_FOUND on index.html).
+  // With it on, `file://` pages could fetch any other `file://` URL — and CSP
+  // `'self'` under `file://` meant the whole disk.
+  Object.freeze({ name: 'GrantFileProtocolExtraPrivileges', index: 7, enabled: false }),
 
   // ON (Electron's default). V8's signal-handler-based WASM bounds checks;
   // off, every WASM memory access pays an explicit check, and the embedder
