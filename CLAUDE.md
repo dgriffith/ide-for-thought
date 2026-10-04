@@ -886,8 +886,8 @@ remove it "once the full tree is clean". Nothing could report that the
 precondition had been met, because the step was green whether the tree
 improved or regressed.
 
-Clean isn't reachable today. All three remaining highs are in the DMG maker's
-tree and reach no user: two in `extract-zip` where **no patched version
+Clean isn't reachable today. Three of the four remaining highs are in the DMG
+maker's tree and reach no user: two in `extract-zip` where **no patched version
 exists**, and one in `image-size` (GHSA-w3rx) where a patch exists at `>=2.0.3` but the
 installed 0.7.5 comes via `appdmg@0.6.6`, which declares `^0.7.4` and calls
 `require('image-size')(path, callback)` — 2.x is ESM-first, exports
@@ -896,6 +896,10 @@ override and reproducing appdmg's call gives `sizeOf is not a function`, so
 the fix breaks `pnpm build`'s DMG step. Same shape as the
 `plist>@xmldom/xmldom` entry in `pnpm-workspace.yaml`, but with no safe floor
 — 1.x is vulnerable too.
+The fourth, `braces` (GHSA-vfj7, blessed 2026-10-04), has no patched version
+either. It arrives only through `@electron-forge/core` → `fast-glob` →
+`micromatch`, and the DoS needs an attacker-chosen glob pattern, which Forge's
+build-time globbing never takes.
 
 **The baseline tracks advisory ids, not a count.** A count passes when one
 advisory is fixed and another appears the same week, which is the drift this
