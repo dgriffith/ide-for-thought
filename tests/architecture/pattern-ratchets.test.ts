@@ -411,10 +411,8 @@ const NON_ATOMIC_JSON_WRITE_BASELINE: Record<string, number> = {
   // fresh" and it rebuilds from the notes; it is also the one large write here,
   // and deliberately compact.
   'src/main/search/minisearch-provider.ts': 1,
-  // `.minerva/runtime.json`, the running app's port+token advert for the CLI.
-  // Rewritten on every project open, deleted on close; a reader that can't
-  // parse it falls back to opening state directly.
-  'src/main/substrate/app-server.ts': 1,
+  // (`substrate/app-server.ts`'s runtime.json moved to writeJsonFileAtomic,
+  // owner-only, in #2567.)
 };
 
 describe('known-bad pattern ratchets (#1848)', () => {

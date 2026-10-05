@@ -28,7 +28,7 @@ what to do about it. `architecture-ratchets-doc.test.ts` keeps the two sides in
 step — a new test in `tests/architecture/` with no entry here fails, and an
 entry here naming a test that no longer exists fails too (#2262).
 
-Written up as of 2026-10-04, 48 tests.
+Written up as of 2026-10-04, 49 tests.
 
 ---
 
@@ -914,3 +914,23 @@ only shrink. This is the class of gap that let the `CONVERSATION_SEND` hole in
 Note the neighbouring obligations a channel addition also carries — the
 `ChannelMap` entry, and the two snapshots (`preload-bridge`, `registration`) —
 which are spelled out in CLAUDE.md under *IPC Pattern* (#2258).
+
+### `privileged-ipc-confirm.test.ts`
+
+**A renderer compromise is not code execution** (#2568). Any IPC handler that
+can end in code running on the user's machine (granting compute consent,
+saving or probing a Python interpreter, adding or changing a stdio MCP
+server's command, opening a launchable file) must be in `PRIVILEGED_CHANNELS`
+(`src/main/ipc/privileged-channels.ts`) and ask main's own native dialog,
+`confirmNative` (`src/main/native-confirm.ts`), directly or through a helper
+that does. A compromised renderer can call any channel and click through any
+dialog the renderer draws, but it can't answer a `dialog.showMessageBox`. The
+test finds handlers by the sinks they reach (`spawn`, `execFile`, `openPath`,
+`grantConsent`, `addServer`, `runComputeCell`, …). A handler reaching one that
+is neither privileged nor in `EXEMPT` with a reason fails by name. The
+exemptions cover code that already passed a privileged gate: `COMPUTE_RUN_CELL`
+and the conversation draft runner check recorded consent, and MCP
+connect/enable run only commands that a confirmed add/update stored. Exemptions
+may only shrink. **When it fires:** gate the handler with `confirmNative` and
+list it in `PRIVILEGED_CHANNELS`. If it really can't run anything new, add it
+to `EXEMPT` and say why.

@@ -15,6 +15,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { safeFetch } from '../safe-fetch';
 
 const FETCH_TIMEOUT_MS = 10_000;
 const MAX_BYTES = 20 * 1024 * 1024; // 20 MB — skip oversized remote images.
@@ -51,7 +52,10 @@ export async function getOrFetchRemoteImage(rootPath: string, url: string): Prom
   } catch {
     return null;
   }
-  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+  // https only (#2566): fetching http:// from main bypassed Chromium's Private
+  // Network Access — a note's image could make main GET a LAN endpoint. The
+  // renderer's CSP never loads http images either.
+  if (parsed.protocol !== 'https:') return null;
 
   const bytesFile = bytesPath(rootPath, url);
   const mimeFile = mimePath(rootPath, url);
@@ -66,22 +70,13 @@ export async function getOrFetchRemoteImage(rootPath: string, url: string): Prom
   }
 
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-    let result: RemoteImage | null = null;
-    try {
-      const res = await fetch(url, { signal: controller.signal });
-      if (!res.ok) return null;
-      const mime = (res.headers.get('content-type') ?? '').split(';')[0]!.trim().toLowerCase();
-      if (!mime.startsWith('image/')) return null; // don't cache HTML error pages etc.
-      const declared = Number(res.headers.get('content-length') ?? '');
-      if (Number.isFinite(declared) && declared > MAX_BYTES) return null;
-      const buf = new Uint8Array(await res.arrayBuffer());
-      if (buf.byteLength > MAX_BYTES) return null;
-      result = { bytes: buf, mime };
-    } finally {
-      clearTimeout(timer);
-    }
+    // safeFetch (#2566): no private/loopback destination, re-checked on every
+    // redirect; timeout and size cap. A refusal is just "no cached copy".
+    const res = await safeFetch(url, { timeoutMs: FETCH_TIMEOUT_MS, maxBytes: MAX_BYTES });
+    if (!res.ok) return null;
+    const mime = res.contentType.split(';')[0]!.trim();
+    if (!mime.startsWith('image/')) return null; // don't cache HTML error pages etc.
+    const result: RemoteImage = { bytes: res.bytes, mime };
     await fs.mkdir(cacheDir(rootPath), { recursive: true });
     await Promise.all([
       fs.writeFile(bytesFile, result.bytes),

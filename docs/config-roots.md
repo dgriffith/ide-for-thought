@@ -29,6 +29,8 @@ listed here. Adding a config without documenting it fails a test.
 | `privileged-sites.json` | Clipper privileged-site list. |
 | `recent-projects.json` | Recently opened thoughtbases. An unreadable one is set aside as `recent-projects.json.unreadable` rather than overwritten (#2416). |
 | `session.json` | Window / layout / tab session. |
+| `Local Storage/` | Chromium's own store for the renderer's localStorage (theme, layout, "Don't ask again" choices). Not written by Minerva directly; read once, by the `file://` → `app://minerva` migration (#2564), to tell an upgraded profile from a fresh one. |
+| `storage-origin-migration.json` | Marker that the renderer's localStorage was carried from the old `file://` origin to `app://minerva` (#2564), so the one-time migration never runs again. Holds a timestamp and a key count, no values. |
 | `compute-audit.jsonl` | Append-only audit log of code-cell runs. |
 | `queries/` | Saved queries at **global** scope. |
 

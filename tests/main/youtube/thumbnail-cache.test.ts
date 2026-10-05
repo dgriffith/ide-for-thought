@@ -42,7 +42,7 @@ describe('getOrFetchThumbnail', () => {
 
   it('downloads, caches to disk, and returns the bytes on a miss', async () => {
     const payload = new Uint8Array([9, 8, 7]);
-    stubFetch(async () => ({ ok: true, arrayBuffer: async () => payload.buffer }));
+    stubFetch(async () => new Response(payload, { status: 200, headers: { 'content-type': 'image/jpeg' } }));
 
     const bytes = await getOrFetchThumbnail(root, ID);
     expect(Array.from(bytes!)).toEqual([9, 8, 7]);
@@ -51,7 +51,9 @@ describe('getOrFetchThumbnail', () => {
   });
 
   it('returns null (and writes nothing) when the download is not ok', async () => {
-    stubFetch(async () => ({ ok: false }));
+    // A real Response: safeFetch (#2566) reads headers and body, so a bare
+    // `{ ok: false }` throws inside it and only ever exercised the catch.
+    stubFetch(async () => new Response('not found', { status: 404 }));
     expect(await getOrFetchThumbnail(root, ID)).toBeNull();
     expect(fs.existsSync(cacheFile(ID))).toBe(false);
   });

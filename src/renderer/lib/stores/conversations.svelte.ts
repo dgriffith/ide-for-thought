@@ -2,7 +2,6 @@ import { api } from '../ipc/client';
 import { plainSnapshot } from '../ipc/plain-snapshot';
 import { getConversationsSettings } from '../conversations/settings';
 import { ensureComputeConsent } from '../app/compute-ops';
-import { getDialogStore } from './dialogs.svelte';
 import { announce } from './announcer.svelte';
 import { logger } from '../../../shared/logger';
 import type {
@@ -1109,7 +1108,7 @@ async function runComputeDraft(
   // for review before its first run — `forceReview` bypasses blanket trust — so
   // AI-authored code is never run unreviewed. Declining leaves the draft un-run.
   const codeToRun = editedCode ?? draft.code;
-  if (!(await ensureComputeConsent(draft.language, codeToRun, { showConsent: getDialogStore().showComputeConsent }, { forceReview: true }))) {
+  if (!(await ensureComputeConsent(draft.language, codeToRun, { forceReview: true }))) {
     return;
   }
   const state = tab.computeDraftState[draft.draftId];

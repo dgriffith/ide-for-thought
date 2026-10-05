@@ -52,6 +52,7 @@ const KNOWN_WINDOW_SITES: Record<string, string> = {
   'window-manager.ts': 'the main window — opts in via installNavigationGuards (renderer entry only)',
   'privileged-sites.ts': 'the login window — opts its partition in via allowHttpsBrowsing (https + OAuth popups)',
   'publish/exporters/note-pdf/electron-render.ts': 'off-screen PDF render — needs nothing; stays fully denied',
+  'legacy-storage-migration.ts': 'hidden one-shot reader of the old file:// localStorage (#2564) — loadFile is not a navigation; needs no popups or permissions; stays fully denied',
 };
 
 describe('webContents and sessions are deny-by-default (#2559)', () => {

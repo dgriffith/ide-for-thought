@@ -91,3 +91,21 @@ describe('startCallbackListener', () => {
     first.close();
   });
 });
+
+describe('startCallbackListener with an expected state (#2566)', () => {
+  it('answers a wrong-state callback 400 and keeps waiting for the right one', async () => {
+    const listener = await startCallbackListener(undefined, 'the-real-state');
+    try {
+      const bad = await fetch(`${listener.redirectUri}?code=evil&state=guess`);
+      expect(bad.status).toBe(400);
+      const missing = await fetch(`${listener.redirectUri}?code=evil`);
+      expect(missing.status).toBe(400);
+
+      const good = await fetch(`${listener.redirectUri}?code=real&state=the-real-state`);
+      expect(good.status).toBe(200);
+      await expect(listener.result).resolves.toMatchObject({ code: 'real', state: 'the-real-state' });
+    } finally {
+      listener.close();
+    }
+  });
+});
