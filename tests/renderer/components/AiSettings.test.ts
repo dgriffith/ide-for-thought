@@ -54,6 +54,14 @@ describe('AiSettings (BYOM #1498)', () => {
     expect(getByText('✓ API key saved')).toBeTruthy();
   });
 
+  it('says why keys are plain text: no store at all, or Linux with no Secret Service (#2569)', () => {
+    const none = render(AiSettings, props({ secureStorageAvailable: false, secureStorageReason: 'no-keystore' }));
+    expect(none.getByText(/No system secure store is available here/)).toBeTruthy();
+    none.unmount();
+    const linux = render(AiSettings, props({ secureStorageAvailable: false, secureStorageReason: 'linux-basic-text' }));
+    expect(linux.getByText(/No Secret Service \(such as GNOME Keyring or KWallet\) is running/)).toBeTruthy();
+  });
+
   it('Clear saved key flips to the cleared state; Cancel clear restores it', async () => {
     const { getByText } = render(AiSettings, props());
     await fireEvent.click(getByText('Clear saved key'));

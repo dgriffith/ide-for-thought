@@ -204,7 +204,13 @@
     }
   }
 
-  onMount(loadServers);
+  // #2569: say plainly when environment values and sign-in tokens can't be
+  // encrypted here (a read, so a component may call it).
+  let plaintextSecrets = $state(false);
+  onMount(() => {
+    void loadServers();
+    api.tools.getKeyStorage().then((s) => { plaintextSecrets = !s.available; }, () => {});
+  });
 </script>
 
 <div class="field">
@@ -214,6 +220,13 @@
     a local command (stdio) or a remote URL, which may require authorizing
     in your browser. Enabling a server keeps it connected across restarts.
   </p>
+  {#if plaintextSecrets}
+    <p class="hint" data-testid="mcp-plaintext-note">
+      This machine has no system secure store, so environment values and
+      sign-in tokens are saved as plain text in files only your user account
+      can read.
+    </p>
+  {/if}
   <div class="mcp-actions">
     <button class="action-btn" onclick={openAddForm} disabled={busy}>
       Add server…

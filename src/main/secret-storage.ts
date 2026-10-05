@@ -10,12 +10,26 @@
  * config still decrypts (returned verbatim), and the value is re-stored
  * encrypted the next time its config is written.
  *
- * When `safeStorage` is unavailable (e.g. Linux with no keyring, or before the
- * app is `ready`) we fall back to storing plaintext — encryption at rest is a
- * hardening measure, not a boundary that should ever cost the user their API
- * key, and this preserves the prior behavior exactly.
+ * When there is no real OS key store, secrets are stored as plain text, and
+ * that is explicit rather than silent (#2569):
+ *  - "No real key store" includes Linux's `basic_text` backend. There
+ *    `isEncryptionAvailable()` says true, but the "encryption" uses a key
+ *    compiled into Chromium, so the bytes are only obfuscated. Wrapping them in
+ *    `enc:v1:` would make Settings claim "encrypted at rest" for what is in
+ *    effect plain text. So we treat it as unavailable.
+ *  - `secretStorageStatus()` says which case applies, and why. Settings shows
+ *    it as a persistent note beside the keys. The first plaintext write in a
+ *    process logs one warning.
+ *  - Nothing is refused. Refusing to save an API key or OAuth refresh token on
+ *    a machine with no keyring would leave Minerva unusable there, which
+ *    would protect nobody. The user is told the truth where they enter the
+ *    secret, and the file is 0600 (#2562).
+ * This is tracked against the cross-platform epic (#2198): macOS always has
+ * the Keychain, so today this only affects ports.
  */
 import { safeStorage } from 'electron';
+import { logger } from '../shared/logger';
+import type { SecretStorageStatus } from '../shared/secret-storage-status';
 
 /**
  * Marks a `safeStorage`-encrypted, base64-encoded value. A real Anthropic key
@@ -24,26 +38,54 @@ import { safeStorage } from 'electron';
  */
 const ENC_PREFIX = 'enc:v1:';
 
-function encryptionAvailable(): boolean {
+/**
+ * How a secret written now would be stored, and why (#2569). Read fresh each
+ * time: on Linux the backend is only known once the app is ready.
+ */
+export function secretStorageStatus(): SecretStorageStatus {
   try {
-    return (
-      typeof safeStorage?.isEncryptionAvailable === 'function' &&
-      safeStorage.isEncryptionAvailable()
-    );
+    if (typeof safeStorage?.isEncryptionAvailable !== 'function' || !safeStorage.isEncryptionAvailable()) {
+      return { encrypted: false, reason: 'no-keystore' };
+    }
+    if (process.platform === 'linux' && typeof safeStorage.getSelectedStorageBackend === 'function'
+      && safeStorage.getSelectedStorageBackend() === 'basic_text') {
+      return { encrypted: false, reason: 'linux-basic-text' };
+    }
+    return { encrypted: true, reason: 'os-keystore' };
   } catch {
     // isEncryptionAvailable can throw before the app is ready on some platforms.
-    return false;
+    return { encrypted: false, reason: 'no-keystore' };
   }
 }
 
+function encryptionAvailable(): boolean {
+  return secretStorageStatus().encrypted;
+}
+
 /**
- * Whether OS-backed secure storage is usable on this machine — i.e. whether a
- * secret written now would actually be encrypted at rest. Surfaced to the UI so
- * the settings panel can tell the user the truth rather than claiming security
- * unconditionally (#1326).
+ * Whether a secret written now would really be encrypted at rest by an OS key
+ * store (#1326). Linux's `basic_text` counts as no (#2569).
  */
 export function secretEncryptionAvailable(): boolean {
   return encryptionAvailable();
+}
+
+let warnedPlaintext = false;
+/** One log line per process the first time a secret is stored in the clear. */
+function notePlaintextWrite(): void {
+  if (warnedPlaintext) return;
+  warnedPlaintext = true;
+  const { reason } = secretStorageStatus();
+  logger('secrets').warn(
+    reason === 'linux-basic-text'
+      ? 'no OS key store (Linux basic_text backend; install/unlock a Secret Service such as gnome-keyring or KWallet) — secrets are stored as plain text, in owner-only files'
+      : 'no OS key store available — secrets are stored as plain text, in owner-only files',
+  );
+}
+
+/** Test-only: re-arm the once-per-process plaintext warning. */
+export function _resetPlaintextWarningForTests(): void {
+  warnedPlaintext = false;
 }
 
 /**
@@ -53,12 +95,16 @@ export function secretEncryptionAvailable(): boolean {
  */
 export function encryptSecret(plain: string): string {
   if (!plain) return '';
-  if (!encryptionAvailable()) return plain;
+  if (!encryptionAvailable()) {
+    notePlaintextWrite();
+    return plain;
+  }
   try {
     return ENC_PREFIX + safeStorage.encryptString(plain).toString('base64');
   } catch {
     // Never lose the user's secret to a transient encryption failure — the
     // worst case degrades to the old plaintext-at-rest behavior.
+    notePlaintextWrite();
     return plain;
   }
 }
