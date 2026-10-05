@@ -1625,6 +1625,31 @@ after the user accepted the tags on the conversation card.
 > operation is ever needed, re-introduce a tier deliberately rather than assuming
 > one exists.
 
+### Security checklist for every PR (#2571)
+
+The LLM/Graph checklist below asks whether a write was approved. These ask
+where input comes from, because the 2026-10-02 review's worst findings
+weren't LLM bugs. Two were a file or config **travelling with a shared
+thoughtbase** into a privileged sink: a root `json.py` ran in the Python
+kernel (#2555), and `.minerva/config.json` chose where the GitHub credential
+went (#2556). Three more came from treating `file://` as the app's own
+origin.
+
+- [ ] **Where does this run, and what file, env var or URL from a *shared
+  thoughtbase* reaches it?** Everything a thoughtbase carries is someone
+  else's input, including notes, `.minerva/` config, sources, and `.py` /
+  `.html` files, even values Minerva wrote itself on another machine. If one
+  reaches code execution, a credential, a network request or a window's page,
+  gate it, and drive the gate with a fixture from
+  `tests/helpers/hostile-thoughtbase.ts`.
+- [ ] **Does this add a window, a protocol, a permission or an
+  `ipcMain.on` listener?** Read
+  [`docs/electron-origin-model.md`](docs/electron-origin-model.md) first: which
+  page gets the preload, what CSP `'self'` means, and the guards each new
+  surface owes.
+- [ ] **Can this IPC end in code running on the machine?** Then main asks
+  with its own native dialog (see *Dialogs*), not a renderer confirm.
+
 ### Code Review Checklist for LLM/Graph PRs
 
 When reviewing PRs that touch LLM integration or graph write paths:
