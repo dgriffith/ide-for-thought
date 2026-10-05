@@ -51,6 +51,16 @@ describe('renameWithLinkRewrites — file rename (issue #136)', () => {
     expect(transitions).toEqual([{ old: 'notes/foo.md', new: 'archive/foo.md' }]);
   });
 
+  it('marks the old path as moved away BEFORE moving it, so the watcher never reports it deleted (#2594)', async () => {
+    writeNote(root, 'notes/foo.md', '# Foo');
+    await indexNote(ctx, 'notes/foo.md', '# Foo');
+    const marked: Array<{ path: string; stillThere: boolean }> = [];
+    await renameWithLinkRewrites(root, 'notes/foo.md', 'archive/foo.md', {
+      markPathMovedAway: (p) => marked.push({ path: p, stillThere: fs.existsSync(path.join(root, p)) }),
+    });
+    expect(marked).toEqual([{ path: 'notes/foo.md', stillThere: true }]);
+  });
+
   it('emits one transition per indexable file when a folder is renamed', async () => {
     writeNote(root, 'notes/a.md', '# A');
     writeNote(root, 'notes/b.md', '# B');

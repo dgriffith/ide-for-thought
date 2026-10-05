@@ -13,6 +13,9 @@ import {
   markPathHandled,
   wasHandled,
   _resetForTests,
+  markPathMovedAway,
+  wasMovedAway,
+  forgetMovedAway,
 } from '../../../src/main/notebase/path-dedup';
 
 describe('path-dedup (#345)', () => {
@@ -81,5 +84,35 @@ describe('path-dedup (#345)', () => {
     vi.advanceTimersByTime(1500); // a is now 2500ms old, b is 1500ms old
     expect(wasHandled('notes/a.md')).toBe(false); // expired
     expect(wasHandled('notes/b.md')).toBe(true);  // still fresh
+  });
+});
+
+describe('moved-away marks (#2594)', () => {
+  beforeEach(() => {
+    _resetForTests();
+    vi.useFakeTimers();
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it('covers the exact path and everything under a moved folder, not a sibling with the same prefix', () => {
+    markPathMovedAway('trip');
+    expect(wasMovedAway('trip')).toBe(true);
+    expect(wasMovedAway('trip/day1.md')).toBe(true);
+    expect(wasMovedAway('tripod/notes.md')).toBe(false);
+    expect(wasMovedAway('other.md')).toBe(false);
+  });
+
+  it('lasts longer than the dedup window (a slow broadcast), then expires', () => {
+    markPathMovedAway('a.md');
+    vi.advanceTimersByTime(5_000);
+    expect(wasMovedAway('a.md')).toBe(true);
+    vi.advanceTimersByTime(5_001);
+    expect(wasMovedAway('a.md')).toBe(false);
+  });
+
+  it('forgetMovedAway clears it (the path exists again)', () => {
+    markPathMovedAway('a.md');
+    forgetMovedAway('a.md');
+    expect(wasMovedAway('a.md')).toBe(false);
   });
 });

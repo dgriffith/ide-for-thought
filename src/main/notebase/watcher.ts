@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { INDEXABLE_EXTS } from '../../shared/indexable-files';
-import { wasHandled } from './path-dedup';
+import { wasHandled, wasMovedAway, forgetMovedAway } from './path-dedup';
 import { createWatchIgnoreMatcher } from './watcher-ignore';
 import { canonicalRoot } from '../path-containment';
 import { logger } from '../../shared/logger';
@@ -237,6 +237,9 @@ export function startWatching(
     if (ino !== undefined) inodeByPath.set(filePath, ino);
     const relative = filePath.slice(watchRoot.length + 1);
     const basename = path.basename(filePath);
+    // The path exists again (rolled back, or a new note at the old name), so a
+    // later unlink of it is a real deletion (#2594).
+    forgetMovedAway(relative);
 
     // Unlink-first ordering: a held delete this add pairs with → rename.
     // In-app creates (wasHandled) never pair — they route their own tab
@@ -274,6 +277,15 @@ export function startWatching(
     const basename = path.basename(filePath);
     const inode = inodeByPath.get(filePath);
     inodeByPath.delete(filePath);
+
+    // An in-app rename or move took the note away from here (#2594). Its
+    // renamer broadcasts NOTEBASE_RENAMED and the tab follows that; a
+    // FILE_DELETED would close the tab first if it won the race. Drop the old
+    // path from the index only. The tree refresh comes from the new path's add.
+    if (wasMovedAway(relative)) {
+      indexDeleted(relative);
+      return;
+    }
 
     // In-app renames already moved the tab via NOTEBASE_RENAMED; emit the
     // delete immediately (unchanged behavior) rather than debouncing it.

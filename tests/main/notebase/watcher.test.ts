@@ -18,6 +18,7 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { startWatching, stopWatching, type WatcherTarget } from '../../../src/main/notebase/watcher';
+import { markPathHandled, markPathMovedAway, _resetForTests as resetPathDedup } from '../../../src/main/notebase/path-dedup';
 import { Channels } from '../../../src/main/../shared/channels';
 
 /**
@@ -83,6 +84,7 @@ describe('startWatching() (#345)', () => {
 
   afterEach(async () => {
     stopWatching(winId);
+    resetPathDedup();
     // Give chokidar a beat to release its handles before we yank the dir.
     await new Promise((r) => setTimeout(r, 50));
     await fsp.rm(root, { recursive: true, force: true });
@@ -370,6 +372,77 @@ describe('startWatching() (#345)', () => {
         rel,
       );
       expect(win.send.mock.calls.some((c) => c[0] === Channels.NOTEBASE_RENAMED)).toBe(false);
+    });
+  });
+
+  describe('in-app moves: the old path is not a deletion (#2594)', () => {
+    const noCallbacks = (deleted: string[]) => ({
+      onFileCreated: () => undefined,
+      onFileChanged: () => undefined,
+      onFileDeleted: (p: string) => { deleted.push(p); },
+    });
+    const sentDeletes = () => win.send.mock.calls.filter((c) => c[0] === Channels.NOTEBASE_FILE_DELETED).map((c) => c[1] as string);
+
+    it('an in-app move (what renameWithLinkRewrites marks) never broadcasts FILE_DELETED for the old path', async () => {
+      await fsp.mkdir(path.join(root, 'archive'), { recursive: true });
+      await fsp.writeFile(path.join(root, 'Moving Note.md'), '# m\n', 'utf-8');
+      const deleted: string[] = [];
+      await startWatching(root, win, winId, noCallbacks(deleted));
+
+      markPathHandled('Moving Note.md');
+      markPathHandled('archive/Moving Note.md');
+      markPathMovedAway('Moving Note.md');
+      await fsp.rename(path.join(root, 'Moving Note.md'), path.join(root, 'archive', 'Moving Note.md'));
+
+      // The index still drops the old path...
+      await waitFor(() => deleted.includes('Moving Note.md'));
+      // ...but nothing tells the renderer to close its tab: that is left to the
+      // mover's own NOTEBASE_RENAMED, however late it arrives.
+      await new Promise((r) => setTimeout(r, 300));
+      expect(sentDeletes()).toEqual([]);
+      expect(win.send).toHaveBeenCalledWith(Channels.NOTEBASE_FILE_CREATED, 'archive/Moving Note.md');
+    });
+
+    it('an in-app DELETE (handled, not moved away) still closes the tab at once', async () => {
+      await fsp.writeFile(path.join(root, 'bye.md'), 'x\n', 'utf-8');
+      const deleted: string[] = [];
+      await startWatching(root, win, winId, noCallbacks(deleted));
+      markPathHandled('bye.md');
+      await fsp.rm(path.join(root, 'bye.md'));
+      await waitFor(() => sentDeletes().includes('bye.md'));
+    });
+
+    it('a folder move covers every note it held', async () => {
+      await fsp.mkdir(path.join(root, 'trip'), { recursive: true });
+      await fsp.writeFile(path.join(root, 'trip', 'a.md'), 'a\n', 'utf-8');
+      await fsp.writeFile(path.join(root, 'trip', 'b.md'), 'b\n', 'utf-8');
+      const deleted: string[] = [];
+      await startWatching(root, win, winId, noCallbacks(deleted));
+
+      markPathHandled('trip');
+      markPathHandled('travel');
+      markPathMovedAway('trip');
+      await fsp.rename(path.join(root, 'trip'), path.join(root, 'travel'));
+
+      await waitFor(() => win.send.mock.calls.some((c) => c[0] === Channels.NOTEBASE_FILE_CREATED && String(c[1]).startsWith('travel/')));
+      await new Promise((r) => setTimeout(r, 400));
+      expect(sentDeletes().filter((p) => p.startsWith('trip/'))).toEqual([]);
+    });
+
+    it('once the old path exists again, deleting it is a real deletion', async () => {
+      const deleted: string[] = [];
+      await startWatching(root, win, winId, noCallbacks(deleted));
+      // A note was moved away from back.md (the path is gone)…
+      markPathMovedAway('back.md');
+      // …then a new note is created there (or a rolled-back move restores it).
+      await fsp.writeFile(path.join(root, 'back.md'), 'new\n', 'utf-8');
+      await waitFor(() => win.send.mock.calls.some((c) => c[0] === Channels.NOTEBASE_FILE_CREATED && c[1] === 'back.md'));
+      // Deleting THAT note closes its tab as usual.
+      // Past the add-first move-pairing window, or the add and the unlink pair
+      // up as a rename of back.md to itself.
+      await new Promise((r) => setTimeout(r, 300));
+      await fsp.rm(path.join(root, 'back.md'));
+      await waitFor(() => sentDeletes().includes('back.md'));
     });
   });
 
