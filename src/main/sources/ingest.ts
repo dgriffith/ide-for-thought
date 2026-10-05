@@ -26,6 +26,7 @@ import { mergeMetaTtl } from './source-merge';
 import { extractStructured, structuredToArticleMetadata } from './site-handlers';
 import { buildMetaTtl as buildArticleMetaTtl } from './ingest-identifier';
 import { ingestPdfBuffer } from './ingest-pdf';
+import { safeFetch } from '../safe-fetch';
 
 export interface IngestResult {
   sourceId: string;
@@ -262,28 +263,41 @@ type FetchedContent =
  * Content-Type (`application/pdf`) or, when the server is vague, by a `.pdf`
  * URL path. Anything else that isn't HTML/XML is rejected as before.
  */
+/** Ingest limits (#2566): a page or PDF the user asked for — generous, not unbounded. */
+const INGEST_TIMEOUT_MS = 60_000;
+const INGEST_MAX_BYTES = 200 * 1024 * 1024;
+
 async function fetchForIngest(url: string, f: typeof fetch): Promise<FetchedContent> {
-  const res = await f(url, {
-    headers: {
-      // Accept both HTML and PDF; prefer HTML for content negotiation.
-      'Accept': 'text/html,application/xhtml+xml,application/pdf;q=0.9,application/xml;q=0.8,*/*;q=0.7',
-      // Some sites gate on UA; pretend to be a browser.
-      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+  // safeFetch (#2566): the URL can come from a shared note or an LLM
+  // `propose_sources` card, so no private/loopback destination (checked on
+  // every redirect), a timeout and a size cap. http is still allowed — plenty
+  // of pages redirect to https — but never to the local network.
+  const res = await safeFetch(url, {
+    fetchImpl: f,
+    protocols: ['https:', 'http:'],
+    timeoutMs: INGEST_TIMEOUT_MS,
+    maxBytes: INGEST_MAX_BYTES,
+    init: {
+      headers: {
+        // Accept both HTML and PDF; prefer HTML for content negotiation.
+        'Accept': 'text/html,application/xhtml+xml,application/pdf;q=0.9,application/xml;q=0.8,*/*;q=0.7',
+        // Some sites gate on UA; pretend to be a browser.
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+      },
     },
-    redirect: 'follow',
   });
   if (!res.ok) {
-    throw new Error(`Fetch failed: ${res.status} ${res.statusText}`);
+    throw new Error(`Fetch failed: ${res.status}`);
   }
-  const ct = (res.headers.get('content-type') ?? '').toLowerCase();
+  const ct = res.contentType;
   const looksPdfByUrl = /\.pdf(?:[?#]|$)/i.test(url);
   if (ct.includes('pdf') || (looksPdfByUrl && (ct.includes('octet-stream') || ct.length === 0))) {
-    return { kind: 'pdf', bytes: await res.arrayBuffer() };
+    return { kind: 'pdf', bytes: res.bytes.slice().buffer };
   }
   if (!ct.includes('html') && !ct.includes('xml') && ct.length > 0) {
     throw new Error(`Unsupported content-type for ingest: ${ct}`);
   }
-  return { kind: 'html', text: await res.text() };
+  return { kind: 'html', text: new TextDecoder().decode(res.bytes) };
 }
 
 /** Best-effort filename for a PDF fetched from a URL — the last path segment,

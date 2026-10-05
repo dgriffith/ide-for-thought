@@ -35,19 +35,25 @@ export interface CallbackListener {
 
 /** Start listening. Resolves once bound (not once a callback lands — that's
  *  what the returned `result` promise is for). */
-export function startCallbackListener(signal?: AbortSignal): Promise<CallbackListener> {
-  return bindCallbackListener(0, signal);
+export function startCallbackListener(signal?: AbortSignal, expectedState?: string): Promise<CallbackListener> {
+  return bindCallbackListener(0, signal, expectedState);
 }
 
 /** Test-only escape hatch — binds a caller-chosen port instead of an
  *  ephemeral one, so a test can deliberately collide two listeners and
  *  verify a bind failure (e.g. EADDRINUSE) rejects the returned promise
  *  instead of hanging. */
-export function _startCallbackListenerOnPortForTests(port: number, signal?: AbortSignal): Promise<CallbackListener> {
-  return bindCallbackListener(port, signal);
+export function _startCallbackListenerOnPortForTests(port: number, signal?: AbortSignal, expectedState?: string): Promise<CallbackListener> {
+  return bindCallbackListener(port, signal, expectedState);
 }
 
-function bindCallbackListener(port: number, signal?: AbortSignal): Promise<CallbackListener> {
+/**
+ * `expectedState`: when given, a callback whose `state` differs is answered
+ * 400 and IGNORED — the listener keeps waiting for the real one (#2566). Any
+ * local process can hit 127.0.0.1:<port>/callback; resolving on the first
+ * request let one cancel the sign-in by getting there first.
+ */
+function bindCallbackListener(port: number, signal?: AbortSignal, expectedState?: string): Promise<CallbackListener> {
   return new Promise((resolveListener, rejectListener) => {
     const server = http.createServer();
     let settled = false;
@@ -77,6 +83,11 @@ function bindCallbackListener(port: number, signal?: AbortSignal): Promise<Callb
       for (const key of ['code', 'state', 'iss', 'error', 'error_description'] as const) {
         const value = url.searchParams.get(key);
         if (value !== null) params[key] = value;
+      }
+      if (expectedState !== undefined && params.state !== expectedState) {
+        res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8', Connection: 'close' });
+        res.end('This sign-in link does not match the one Minerva started.');
+        return;
       }
       // `Connection: close` (not just server.close()) so the socket doesn't
       // linger keep-alive — server.close() alone only stops accepting NEW

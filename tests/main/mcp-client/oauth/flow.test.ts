@@ -97,9 +97,13 @@ describe('runAuthorizationFlow', () => {
     await expect(runAuthorizationFlow(fixture.resourceServerUrl, {})).rejects.toThrow(McpOAuthDiscoveryError);
   });
 
-  it('rejects a callback whose state does not match the original request', async () => {
+  it('a callback with the wrong state does not complete the flow (ignored, not accepted) (#2566)', async () => {
     fixture = await startOAuthFixture({ overrideCallbackState: 'not-the-real-state' });
-    await expect(runAuthorizationFlow(fixture.resourceServerUrl, {})).rejects.toThrow(/state did not match/);
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(), 1500);
+    // The bogus callback is answered 400 and ignored; the flow keeps waiting
+    // for the real one, so it ends only when aborted — never with tokens.
+    await expect(runAuthorizationFlow(fixture.resourceServerUrl, { signal: controller.signal })).rejects.toThrow(/abort/i);
   });
 
   it('dedups two near-simultaneous flows for the same server into one', async () => {
@@ -128,9 +132,15 @@ describe('runAuthorizationFlow', () => {
     await expect(runAuthorizationFlow(fixture.resourceServerUrl, {})).rejects.toThrow(/missing authorization_endpoint or token_endpoint/);
   });
 
-  it('refuses to open a non-http(s) authorization URL', async () => {
+  it('refuses a non-https authorization URL before opening anything (#2566)', async () => {
     fixture = await startOAuthFixture({ asMetadataOverrides: { authorization_endpoint: 'ftp://evil.example.com/authorize' } });
-    await expect(runAuthorizationFlow(fixture.resourceServerUrl, {})).rejects.toThrow(/refusing to open/);
+    await expect(runAuthorizationFlow(fixture.resourceServerUrl, {})).rejects.toThrow(/not https/);
+    expect(shell.openExternal).not.toHaveBeenCalled();
+  });
+
+  it('refuses a plain-http token endpoint on a non-loopback host (#2566)', async () => {
+    fixture = await startOAuthFixture({ asMetadataOverrides: { token_endpoint: 'http://auth.example.com/token' } });
+    await expect(runAuthorizationFlow(fixture.resourceServerUrl, {})).rejects.toThrow(/token_endpoint .* is not https/);
     expect(shell.openExternal).not.toHaveBeenCalled();
   });
 
