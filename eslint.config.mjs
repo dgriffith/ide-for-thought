@@ -76,6 +76,9 @@ export default tseslint.config(
       // presents as an unexplained OOM in the pre-push hook, not as anything
       // to do with worktrees.
       '.claude/**',
+      // Semgrep rule-test targets (#2570): deliberately unsafe sample code,
+      // in no tsconfig, checked by `semgrep --test` rather than by us.
+      '.semgrep/**',
       'dist/**',
       'out/**',
       'coverage/**',

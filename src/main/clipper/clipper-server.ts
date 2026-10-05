@@ -143,6 +143,9 @@ function applyCors(req: http.IncomingMessage, res: http.ServerResponse): void {
   // secret header + the explicit 403 below are the real gates.
   const origin = req.headers.origin;
   if (isAllowedOrigin(origin)) {
+    // Reflected only after isAllowedOrigin admitted it (an extension origin), so
+    // not the open reflection Semgrep's generic CORS rule looks for (#2570).
+    // nosemgrep: javascript.express.security.cors-misconfiguration.cors-misconfiguration
     res.setHeader('Access-Control-Allow-Origin', origin ?? '*');
   }
   res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
