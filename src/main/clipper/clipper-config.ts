@@ -22,6 +22,12 @@ export interface ClipperConfig {
   enabled: boolean;
   /** 64 hex chars, or '' before one has been issued. */
   secret: string;
+  /**
+   * The extension origin (`chrome-extension://<id>`) of the first paired
+   * client to authenticate; others are refused afterwards (#2567). Not a
+   * secret. Cleared when the secret is regenerated (a new pairing).
+   */
+  pairedOrigin?: string;
 }
 
 export const DEFAULT_CLIPPER_CONFIG: ClipperConfig = {
@@ -46,6 +52,7 @@ export async function getClipperConfig(): Promise<ClipperConfig> {
       // Decrypt the secret at rest (#1326); a legacy plaintext secret passes
       // through unchanged so existing pairings keep working.
       secret: typeof parsed.secret === 'string' ? decryptSecret(parsed.secret) : DEFAULT_CLIPPER_CONFIG.secret,
+      ...(typeof parsed.pairedOrigin === 'string' && parsed.pairedOrigin ? { pairedOrigin: parsed.pairedOrigin } : {}),
     };
     // Lazily upgrade a legacy plaintext secret to encrypted-at-rest the first
     // time it's read on a machine where encryption is now available (#1642),
@@ -94,6 +101,8 @@ export async function setClipperEnabled(enabled: boolean): Promise<ClipperConfig
 export async function regenerateClipperSecret(): Promise<ClipperConfig> {
   const config = await getClipperConfig();
   config.secret = newSecret();
+  // A new pairing: whichever extension pairs with the new code is pinned next.
+  delete config.pairedOrigin;
   await saveClipperConfig(config);
   return config;
 }
@@ -105,4 +114,17 @@ export async function ensureClipperSecret(): Promise<string> {
   config.secret = newSecret();
   await saveClipperConfig(config);
   return config.secret;
+}
+
+/** The pinned extension origin, if one has paired (#2567). */
+export async function getPairedClipperOrigin(): Promise<string | null> {
+  return (await getClipperConfig()).pairedOrigin ?? null;
+}
+
+/** Pin `origin` as the paired extension, unless one is already pinned. */
+export async function pinClipperOrigin(origin: string): Promise<void> {
+  const config = await getClipperConfig();
+  if (config.pairedOrigin) return;
+  config.pairedOrigin = origin;
+  await saveClipperConfig(config);
 }

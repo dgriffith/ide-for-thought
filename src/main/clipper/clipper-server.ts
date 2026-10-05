@@ -22,7 +22,9 @@
  */
 
 import http from 'node:http';
-import { timingSafeEqual } from 'node:crypto';
+import { isLoopbackHost } from '../loopback-guards';
+import { createHmac, timingSafeEqual } from 'node:crypto';
+import { CLIPPER_CHALLENGE_HEADER, CLIPPER_NONCE_RE, clipperProofMessage } from '../../shared/clipper-pairing';
 
 export interface ClipperPayload {
   /** The page URL — enables site-handler metadata + a bibo:uri on the source. */
@@ -84,6 +86,12 @@ export interface ClipperListenerOptions {
   preview: ClipperPreviewFn;
   /** Reject bodies larger than this (default 32 MB). */
   maxBodyBytes?: number;
+  /**
+   * Extension-origin pinning (#2567): the first authenticated request from an
+   * extension origin pins it; another extension origin is refused after that.
+   * Omitted (tests, raw use): any extension origin with the secret is served.
+   */
+  pairedOrigin?: { get(): Promise<string | null>; pin(origin: string): Promise<void> };
 }
 
 export interface ClipperServerHandle {
@@ -116,11 +124,7 @@ function sendJson(res: http.ServerResponse, status: number, body: unknown): void
  * still send its own domain in `Host`, which we reject. An absent Host (raw
  * clients / tests) is allowed.
  */
-export function isLoopbackHost(host: string | undefined): boolean {
-  if (!host) return true;
-  const name = host.replace(/:\d+$/, '').replace(/^\[|\]$/g, '').toLowerCase();
-  return name === '127.0.0.1' || name === 'localhost' || name === '::1';
-}
+export { isLoopbackHost } from '../loopback-guards';
 
 /**
  * The request `Origin`, when present, must be a browser-extension origin
@@ -207,12 +211,43 @@ export function createClipperRequestListener(
         return;
       }
 
+      const url = req.url ?? '/';
+
+      // Server proof, BEFORE any secret is sent (#2567). A paired extension
+      // sends only a nonce; we answer HMAC(secret, nonce + our real port). An
+      // impostor squatting the paired port has no secret to compute it, and
+      // a proof relayed from the real server names the wrong port — so the
+      // extension never hands its secret (or a clipped page) to either.
+      const challenge = req.headers[CLIPPER_CHALLENGE_HEADER];
+      if (req.method === 'GET' && url === '/ping' && typeof challenge === 'string' && req.headers[SECRET_HEADER] === undefined) {
+        if (!CLIPPER_NONCE_RE.test(challenge)) {
+          sendJson(res, 400, { error: 'Invalid challenge' });
+          return;
+        }
+        const proof = createHmac('sha256', opts.secret)
+          .update(clipperProofMessage(challenge, req.socket.localPort ?? 0))
+          .digest('hex');
+        sendJson(res, 200, { proof });
+        return;
+      }
+
       if (!secretsMatch(req.headers[SECRET_HEADER] as string | undefined, opts.secret)) {
         sendJson(res, 401, { error: 'Unauthorized' });
         return;
       }
 
-      const url = req.url ?? '/';
+      // Pin the paired extension (#2567). Absent Origin (a raw client with the
+      // secret) isn't an extension and isn't pinned or refused here.
+      const origin = req.headers.origin;
+      if (opts.pairedOrigin && typeof origin === 'string' && origin !== '') {
+        const pinned = await opts.pairedOrigin.get();
+        if (pinned === null) {
+          await opts.pairedOrigin.pin(origin);
+        } else if (pinned !== origin) {
+          sendJson(res, 403, { error: 'This extension is not the one paired with Minerva — re-pair it in Settings.' });
+          return;
+        }
+      }
 
       // Health/pairing probe — lets the extension verify the secret + see
       // whether a thoughtbase is currently open.

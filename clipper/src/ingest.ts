@@ -7,7 +7,7 @@
  * a content-script Origin (the page's `http(s)://`) is rejected with 403.
  */
 
-import type { PairingPayload } from '../../src/shared/clipper-pairing';
+import { CLIPPER_CHALLENGE_HEADER, clipperProofMessage, type PairingPayload } from '../../src/shared/clipper-pairing';
 import type { ClipPayload } from './payload';
 
 const SECRET_HEADER = 'x-minerva-clipper-secret';
@@ -27,12 +27,60 @@ function endpoint(pairing: PairingPayload, path: string): string {
   return `http://127.0.0.1:${pairing.port}${path}`;
 }
 
+async function hmacHex(secret: string, message: string): Promise<string> {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, enc.encode(message)));
+  return Array.from(sig, (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** Pairings whose server proved itself in this service-worker lifetime. */
+const verified = new Set<string>();
+
+/**
+ * Make the server at the paired port prove it holds the secret BEFORE we send
+ * the secret or a page to it (#2567). Something squatting the paired port
+ * (Minerva then listens elsewhere) can neither compute the proof nor relay the
+ * real server's — that proof is bound to the real server's port.
+ *
+ * An app too old to answer the challenge (401 without a proof) is accepted, so
+ * an extension update doesn't break against an older Minerva; it's the
+ * impostor answering with a WRONG proof, or no proof on 200, that's refused.
+ */
+export async function verifyServer(pairing: PairingPayload, fetchImpl: typeof fetch = fetch): Promise<string | null> {
+  const key = `${pairing.port}:${pairing.secret}`;
+  if (verified.has(key)) return null;
+  const nonceBytes = crypto.getRandomValues(new Uint8Array(16));
+  const nonce = Array.from(nonceBytes, (b) => b.toString(16).padStart(2, '0')).join('');
+  let res: Response;
+  try {
+    res = await fetchImpl(endpoint(pairing, '/ping'), { headers: { [CLIPPER_CHALLENGE_HEADER]: nonce } });
+  } catch {
+    return 'Minerva isn’t reachable — is it running with a thoughtbase open?';
+  }
+  if (res.status === 401) return null; // pre-#2567 app: no challenge support
+  const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  const expected = await hmacHex(pairing.secret, clipperProofMessage(nonce, pairing.port));
+  if (!res.ok || body.proof !== expected) {
+    return 'Something other than Minerva is answering on the paired port — open Minerva, then re-pair the extension in its Settings.';
+  }
+  verified.add(key);
+  return null;
+}
+
+/** Test seam: forget verified pairings. */
+export function _resetVerifiedServersForTests(): void {
+  verified.clear();
+}
+
 /** POST a clip; resolves to a `ClipResult` (never throws — errors are mapped). */
 export async function sendClip(
   pairing: PairingPayload,
   payload: ClipPayload,
   fetchImpl: typeof fetch = fetch,
 ): Promise<ClipResult> {
+  const impostor = await verifyServer(pairing, fetchImpl);
+  if (impostor) return { ok: false, error: impostor };
   let res: Response;
   try {
     res = await fetchImpl(endpoint(pairing, '/ingest'), {
@@ -77,6 +125,8 @@ export async function preview(
   payload: { url: string; html: string },
   fetchImpl: typeof fetch = fetch,
 ): Promise<PreviewResult> {
+  const impostor = await verifyServer(pairing, fetchImpl);
+  if (impostor) return { ok: false, error: impostor };
   let res: Response;
   try {
     res = await fetchImpl(endpoint(pairing, '/preview'), {
@@ -110,6 +160,8 @@ export async function ping(
   pairing: PairingPayload,
   fetchImpl: typeof fetch = fetch,
 ): Promise<PingResult> {
+  const impostor = await verifyServer(pairing, fetchImpl);
+  if (impostor) return { ok: false, error: impostor };
   let res: Response;
   try {
     res = await fetchImpl(endpoint(pairing, '/ping'), {
