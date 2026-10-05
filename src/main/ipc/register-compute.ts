@@ -16,7 +16,9 @@ import {
 } from '../compute/python-settings';
 import { DEFAULT_CELL_TIMEOUT_SECONDS, normalizeCellTimeoutSeconds } from '../../shared/compute/types';
 import { saveCellOutput, type SaveCellOutputInput } from '../compute/save-cell-output';
-import { winFromEvent, withRootPath, withRootPathOr } from './helpers';
+import { winFromEvent, withRootPath, withRootPathOr, withRootPathWin } from './helpers';
+import { confirmNative } from '../native-confirm';
+import type { IpcMainInvokeEvent } from 'electron';
 import { logger } from '../../shared/logger';
 
 // propose_compute helpers (#245) now live in ../compute/proposal-helpers (#676,
@@ -27,6 +29,27 @@ export {
   recordComputeProposalRun,
   buildComputeProposalNoteBlock,
 } from '../compute/proposal-helpers';
+
+/**
+ * Interpreter paths the user vouched for this session (#2568): picked in the
+ * native file picker, or confirmed in main's dialog — so a typed path is asked
+ * about once, not at Test and again at Save.
+ */
+const approvedInterpreters = new Set<string>();
+
+/** Test seam. */
+export function _resetApprovedInterpretersForTests(): void {
+  approvedInterpreters.clear();
+}
+
+async function interpreterApproved(e: IpcMainInvokeEvent, interpreter: string, action: 'save' | 'probe'): Promise<boolean> {
+  if (!interpreter || approvedInterpreters.has(interpreter)) return true;
+  const answer = await confirmNative(winFromEvent(e), action === 'save'
+    ? { message: 'Use this program as the Python interpreter?', detail: `Every Python cell will run:\n\n${interpreter}`, confirmLabel: 'Use It' }
+    : { message: 'Run this program to check it?', detail: `Minerva will run:\n\n${interpreter} --version`, confirmLabel: 'Run' });
+  if (answer.confirmed) approvedInterpreters.add(interpreter);
+  return answer.confirmed;
+}
 
 export function registerCompute(): void {
   handle(Channels.COMPUTE_RUN_CELL, withRootPath(async (rootPath, language: string, code: string, notePath?: string) => {
@@ -52,9 +75,15 @@ export function registerCompute(): void {
     return await getPythonSettings();
   });
 
-  handle(Channels.COMPUTE_SET_PYTHON_SETTINGS, async (_e, settings: PythonSettings) => {
+  handle(Channels.COMPUTE_SET_PYTHON_SETTINGS, async (e, settings: PythonSettings) => {
+    const requested = typeof settings?.pythonPath === 'string' ? settings.pythonPath.trim() : '';
+    const current = (await getPythonSettings()).pythonPath;
+    // A new interpreter is the program every Python cell will run (#2568):
+    // main confirms it unless the user picked it in the native file picker or
+    // already confirmed it. Declined → the other fields save, the path doesn't.
+    const pythonPath = requested === current || (await interpreterApproved(e, requested, 'save')) ? requested : current;
     await setPythonSettings({
-      pythonPath: typeof settings?.pythonPath === 'string' ? settings.pythonPath : '',
+      pythonPath,
       allowNetwork: settings?.allowNetwork === true,
       // Re-validated main-side rather than trusted from the renderer, like
       // the two fields above — the payload crossing IPC is `unknown` in
@@ -72,11 +101,16 @@ export function registerCompute(): void {
     });
   });
 
-  handle(Channels.COMPUTE_PROBE_PYTHON, async (_e, candidate?: string) => {
+  handle(Channels.COMPUTE_PROBE_PYTHON, async (e, candidate?: string) => {
     // Empty `candidate` → probe the same interpreter the resolver
     // would pick right now (override → env var → python3). That's
     // the "active" interpreter the Settings status line surfaces.
-    const target = candidate?.trim() ? candidate : await resolvePythonInterpreter();
+    const typed = candidate?.trim() ?? '';
+    if (typed && typed !== (await getPythonSettings()).pythonPath && !(await interpreterApproved(e, typed, 'probe'))) {
+      // Probing RUNS `<path> --version` (#2568); without a yes, nothing runs.
+      return { ok: false as const, path: typed, error: 'Not checked — running it was cancelled.' };
+    }
+    const target = typed || await resolvePythonInterpreter();
     return await probePythonInterpreter(target);
   });
 
@@ -86,8 +120,29 @@ export function registerCompute(): void {
   handle(Channels.COMPUTE_CONSENT_STATUS, withRootPathOr('none', (rootPath, language: string, code: string) =>
     consentStatus(rootPath, language, code)));
 
-  handle(Channels.COMPUTE_GRANT_CONSENT, withRootPath((rootPath, language: string, code: string, scope: 'cell' | 'project') => {
-    grantConsent(rootPath, language, code, scope === 'project' ? 'project' : 'cell');
+  // Consent to run code is asked by MAIN, in a native dialog that shows the
+  // code (#2568). The renderer used to show its own dialog and then call
+  // `compute:grantConsent` — which a compromised renderer could call with no
+  // dialog at all, then run anything. Now it can only ask; a human answers.
+  // `forceReview` (a model-proposed cell) shows the code even under blanket
+  // trust, unless this exact cell was already consented.
+  handle(Channels.COMPUTE_REQUEST_CONSENT, withRootPathWin(async (rootPath, win, language: string, code: string, forceReview?: boolean) => {
+    const status = consentStatus(rootPath, language, code);
+    if (status === 'cell') return 'cell' as const;
+    if (status === 'blanket' && !forceReview) return 'project' as const;
+    const lang = language.toLowerCase() === 'sql' ? 'SQL' : language.toLowerCase() === 'python' ? 'Python' : language;
+    const answer = await confirmNative(win, {
+      message: `Run this ${lang} code?`,
+      detail: 'It runs on your machine with access to your files'
+        + (lang === 'Python' ? ' (and the network, if allowed, and any installed package)' : '')
+        + '. Only run code you trust.\n\n' + code,
+      confirmLabel: 'Run',
+      checkboxLabel: 'Trust all code in this thoughtbase',
+    });
+    if (!answer.confirmed) return 'cancel' as const;
+    const scope = answer.checked ? 'project' : 'cell';
+    grantConsent(rootPath, language, code, scope);
+    return scope;
   }));
 
   // Trust management (#1413): list/revoke consent across every thoughtbase this
@@ -125,7 +180,11 @@ export function registerCompute(): void {
       buttonLabel: 'Use this interpreter',
     });
     if (result.canceled || result.filePaths.length === 0) return null;
-    return result.filePaths[0] ?? null;
+    const picked = result.filePaths[0] ?? null;
+    // Chosen by the user in a native picker main opened: no second confirm
+    // when it's then probed or saved (#2568).
+    if (picked) approvedInterpreters.add(picked);
+    return picked;
   });
 
   handle(Channels.COMPUTE_SAVE_CELL_OUTPUT, withRootPath(async (rootPath, input: SaveCellOutputInput) => {

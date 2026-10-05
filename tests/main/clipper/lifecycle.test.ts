@@ -27,6 +27,8 @@ vi.mock('../../../src/main/clipper/clipper-server', () => ({
 vi.mock('../../../src/main/clipper/clipper-config', () => ({
   getClipperConfig: h.getClipperConfig,
   ensureClipperSecret: h.ensureClipperSecret,
+  getPairedClipperOrigin: vi.fn(async () => null),
+  pinClipperOrigin: vi.fn(async () => {}),
 }));
 // Not invoked by lifecycle.ts's own logic — only threaded through as options
 // startClipperServer's real request handling would call. Stubbed so

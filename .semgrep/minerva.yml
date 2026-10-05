@@ -1,0 +1,67 @@
+# Custom Semgrep rules for the pattern classes behind the 2026-10-02 security
+# review (#2570). They run advisory in ci.yml's `security-scan` job, beside the
+# p/electron and p/typescript registry packs. Each rule names the issue whose
+# fix it watches. Scope comes from the scan's target (src/main), not from
+# `paths:`, so the rule tests in minerva.ts can exercise them:
+#   uvx semgrep scan --config .semgrep/minerva.yml src/main
+#   uvx semgrep --test --config .semgrep/minerva.yml .semgrep/minerva.ts
+rules:
+  - id: minerva-ipc-handler-without-sender-check
+    # #2553: every handler refuses a caller that isn't the renderer. The typed
+    # `handle()` in ipc/typed-ipc.ts runs the sender guard, so it is the only
+    # place `ipcMain.handle` may appear. A bare `ipcMain.on` must call
+    # isTrustedIpcSender itself.
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      IPC listener without a sender check. Register invoke handlers through
+      ipc/typed-ipc.ts's handle(), and have an ipcMain.on listener call
+      isTrustedIpcSender(e) first (#2553).
+    paths:
+      exclude: ['/src/main/ipc/typed-ipc.ts']
+    pattern-either:
+      - pattern: ipcMain.handle(...)
+      - pattern: ipcMain.handleOnce(...)
+      - patterns:
+          - pattern-either:
+              - pattern: ipcMain.on($CH, $FN)
+              - pattern: ipcMain.once($CH, $FN)
+          - pattern-not: |
+              ipcMain.on($CH, ($E, ...) => { ... isTrustedIpcSender($E); ... })
+          - pattern-not: |
+              ipcMain.once($CH, ($E, ...) => { ... isTrustedIpcSender($E); ... })
+          - pattern-not: |
+              ipcMain.on($CH, ($E, ...) => { ... if (<... isTrustedIpcSender($E) ...>) $BODY; ... })
+          - pattern-not: |
+              ipcMain.once($CH, ($E, ...) => { ... if (<... isTrustedIpcSender($E) ...>) $BODY; ... })
+
+  - id: minerva-markdown-it-html-unsanitized
+    # #2558: markdown-it with `html: true` passes raw HTML straight through. In
+    # main that output is exported or published, so it has to go through a
+    # sanitizer before it leaves the function.
+    languages: [typescript]
+    severity: WARNING
+    message: >-
+      new MarkdownIt({ html: true }) without a sanitizer in the same function.
+      Render with html:false, or sanitize the output (#2558).
+    patterns:
+      - pattern: 'new MarkdownIt({..., html: true, ...})'
+      - pattern-not-inside: |
+          function $F(...) { ... DOMPurify.sanitize(...); ... }
+      - pattern-not-inside: |
+          function $F(...) { ... sanitizeHtml(...); ... }
+      - pattern-not-inside: |
+          function $F(...) { ... sanitizeExportHtml(...); ... }
+
+  - id: minerva-spawn-inherits-process-env
+    # #2560: a child process gets an allowlisted environment, not main's whole
+    # process.env (which can hold API keys from the user's shell).
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      Child process spawned with main's whole environment. Build it from an
+      allowlist instead (see compute/kernel-env.ts, #2560).
+    pattern-either:
+      - pattern: '$SPAWN($CMD, $ARGS, {..., env: {..., ...process.env, ...}, ...})'
+      - pattern: '$SPAWN($CMD, {..., env: {..., ...process.env, ...}, ...})'
+      - pattern: '$SPAWN($CMD, $ARGS, {..., env: process.env, ...})'

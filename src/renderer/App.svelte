@@ -364,7 +364,7 @@
   // so the many call sites read unchanged. <DialogHost> renders the state.
   const dialogs = getDialogStore();
   const featureDialogs = getFeatureDialogStore();
-  const { showPrompt, showConfirm, showComputeConsent } = dialogs;
+  const { showPrompt, showConfirm } = dialogs;
 
 
   // Type editor (#1585) opened from "Save Note as Object Type" — pre-filled from
@@ -1283,7 +1283,7 @@
                             void showConfirm(message, CONFIRM_KEYS.imageUploadFailed, 'OK');
                           }}
                           onRunCell={(language, code, notePath) =>
-                            runCellWithTrust(language, code, notePath, { showConsent: showComputeConsent })
+                            runCellWithTrust(language, code, notePath)
                           }
                           menuOps={{
                             invokeTool: handleToolInvoke,
@@ -1343,7 +1343,7 @@
                         onOpenConversation={openConversation}
                         onBookmark={() => bookmarkStore.add(note.fileName.replace(/\.(md|ttl|csv)$/, ''), note.relativePath)}
                         onRunCell={(language, code, notePath) =>
-                          runCellWithTrust(language, code, notePath, { showConsent: showComputeConsent })
+                          runCellWithTrust(language, code, notePath)
                         }
                         onApplyCellOutputEdit={(newContent) => { editor.setContent(newContent, groupId); }}
                       />

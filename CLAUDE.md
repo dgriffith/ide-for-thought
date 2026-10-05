@@ -284,7 +284,7 @@ This is a **professional tool**. Design accordingly:
 
 - **They live in the dialogs store** — `src/renderer/lib/stores/dialogs.svelte.ts`,
   reached through `getDialogStore()`. `App.svelte` merely destructures
-  `showPrompt` / `showConfirm` / `showComputeConsent` off it for its own call
+  `showPrompt` / `showConfirm` off it for its own call
   sites; it is **not** where they are defined, and a component does not need
   them threaded down as props — reading the store directly is the documented
   shape (see *Reducing prop drilling* above, where `dialogs.showConfirm()` is
@@ -300,6 +300,14 @@ This is a **professional tool**. Design accordingly:
   alike. `hideDontAskAgain: true` drops the checkbox — for the rare confirm
   where permanent suppression would be wrong (`App.svelte:508`); the default is
   to offer it, per **Respect the user** above.
+- **A confirm that guards code execution is not one of these (#2568).**
+  Anything a compromised renderer could click through itself — compute
+  consent, a new Python interpreter, a stdio MCP server's command, opening a
+  launchable file — is asked by main with `confirmNative`
+  (`src/main/native-confirm.ts`), a native dialog the renderer can't draw or
+  answer. The channel goes in `src/main/ipc/privileged-channels.ts`, and
+  `tests/architecture/privileged-ipc-confirm.test.ts` fails on a handler that
+  reaches a code-execution sink without one.
 - `showPrompt(message, initial?)` → `Promise<string | null>` (`null` =
   cancelled). Two overloads: a bare string is the initial value (Rename-style
   flows), or pass `{ initial?, suggestions? }`.
@@ -562,7 +570,7 @@ can't quietly grow while nobody re-reads it:
   truncated file for the loader to read as corrupt), not a raw `writeFile` of
   `JSON.stringify(...)`. `{ indent: 0 }` / `{ trailingNewline: true }` keep an
   existing file's layout. `tests/architecture/pattern-ratchets.test.ts` counts
-  the raw writes that remain (#2369) — three files, none a user store. When you
+  the raw writes that remain (#2369) — two files, none a user store. When you
   touch a read-modify-write store, check its reader too: a lenient
   corrupt→defaults read feeding a write is the #1891 / #2356 clobber.
 - **Read-modify-write reads strictly, and async ones take the file lock
@@ -713,11 +721,16 @@ release.
 
 `packagerConfig.asar` is on, and the Electron fuses are set from
 `scripts/lib/electron-fuses.mjs` — the one list, with a reason per fuse.
-`RunAsNode` stays **on** (the `minerva` CLI shim runs the app binary with
-`ELECTRON_RUN_AS_NODE=1`); `NODE_OPTIONS` and `--inspect` are **off**; app
+`RunAsNode` is **off** (#2565): the `minerva` CLI shim runs the binary in CLI
+mode, `Minerva --minerva-cli -- <args>` (`src/main/cli-mode.ts`), which runs
+only the bundled CLI — never arbitrary JS as Minerva; `NODE_OPTIONS` and
+`--inspect` are **off**; app
 code loads **only** from `app.asar`, validated against the Info.plist hash.
-`GrantFileProtocolExtraPrivileges` stays on because the renderer is `file://`
-— off, the window fails with `ERR_FILE_NOT_FOUND` reading inside the asar.
+`GrantFileProtocolExtraPrivileges` is **off** (#2564): the renderer is served
+from the privileged `app://minerva` scheme (`src/main/app-protocol.ts`), which
+reads the bundle with main's asar-aware `fs` — `file://` gets no extra powers,
+and CSP `'self'` means the bundle, not the disk. A new renderer asset is served
+by that handler automatically; one it must `fetch()` needs no `file://` access.
 
 Three consequences for anyone touching packaging:
 
@@ -1222,7 +1235,7 @@ untested ones sit in a `KNOWN_UNTESTED` list that may only shrink.
 
 ### The architecture ratchets are inventoried in `docs/architecture-ratchets.md` (#2262)
 
-`tests/architecture/` holds **48** tests that check the shape of the codebase
+`tests/architecture/` holds **49** tests that check the shape of the codebase
 rather than the behavior of any feature — the package-cycle check, the file-size
 budgets, the anti-pattern ratchets, the dialog-adoption ratchet, the two
 temp-project-fixture ratchets, the CI-workflow checks, and so on. Most of them

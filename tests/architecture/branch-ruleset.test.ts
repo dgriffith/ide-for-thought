@@ -41,6 +41,10 @@ const NOT_REQUIRED: Record<string, string> = {
     'An early warning for #962 (x64 builds), which Minerva does not ship: runs on main pushes ' +
     'and only on PRs labelled x64-smoke, and is continue-on-error by design (#2387). ' +
     'Requiring it would block every PR on a check that usually never reports.',
+  'security scan (advisory)':
+    'Electronegativity + Semgrep against a baseline (#2570). Advisory while the baseline settles: a new ' +
+    'finding is a ::warning and a summary row, and continue-on-error keeps it out of the merge gate. ' +
+    'Promote it to required (and drop this entry) once it has run clean for a while.',
 };
 
 interface Check { context: string; integration_id?: number }

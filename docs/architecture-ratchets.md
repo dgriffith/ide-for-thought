@@ -28,7 +28,7 @@ what to do about it. `architecture-ratchets-doc.test.ts` keeps the two sides in
 step — a new test in `tests/architecture/` with no entry here fails, and an
 entry here naming a test that no longer exists fails too (#2262).
 
-Written up as of 2026-10-04, 48 tests.
+Written up as of 2026-10-04, 49 tests.
 
 ---
 
@@ -914,3 +914,54 @@ only shrink. This is the class of gap that let the `CONVERSATION_SEND` hole in
 Note the neighbouring obligations a channel addition also carries — the
 `ChannelMap` entry, and the two snapshots (`preload-bridge`, `registration`) —
 which are spelled out in CLAUDE.md under *IPC Pattern* (#2258).
+
+### `privileged-ipc-confirm.test.ts`
+
+**A renderer compromise is not code execution** (#2568). Any IPC handler that
+can end in code running on the user's machine (granting compute consent,
+saving or probing a Python interpreter, adding or changing a stdio MCP
+server's command, opening a launchable file) must be in `PRIVILEGED_CHANNELS`
+(`src/main/ipc/privileged-channels.ts`) and ask main's own native dialog,
+`confirmNative` (`src/main/native-confirm.ts`), directly or through a helper
+that does. A compromised renderer can call any channel and click through any
+dialog the renderer draws, but it can't answer a `dialog.showMessageBox`. The
+test finds handlers by the sinks they reach (`spawn`, `execFile`, `openPath`,
+`grantConsent`, `addServer`, `runComputeCell`, …). A handler reaching one that
+is neither privileged nor in `EXEMPT` with a reason fails by name. The
+exemptions cover code that already passed a privileged gate: `COMPUTE_RUN_CELL`
+and the conversation draft runner check recorded consent, and MCP
+connect/enable run only commands that a confirmed add/update stored. Exemptions
+may only shrink. **When it fires:** gate the handler with `confirmNative` and
+list it in `PRIVILEGED_CHANNELS`. If it really can't run anything new, add it
+to `EXEMPT` and say why.
+
+## Beyond this directory: security regressions and scanners (#2570)
+
+Two security detectors sit outside `tests/architecture/`, so they have no
+`###` entries above, but they're the same shape and they fail the same way.
+
+- **`tests/security/findings-coverage.test.ts`** holds
+  `tests/security/findings.ts`, which maps every High and Medium finding of the
+  2026-10-02 review (H1–H3, M1–M6) to the tests that fail if its fix regresses.
+  When the attack travels inside a shared thoughtbase, the finding also names a
+  `tests/helpers/hostile-thoughtbase.ts` fixture that reproduces it, and one of
+  its tests has to use that fixture (`writeLocalHtmlLureThoughtbase` for H1,
+  `writeClippedScriptSourceThoughtbase` for M2, and so on). Otherwise
+  `fixture: null` says why. **When it fires:** a fixture or a test that drives
+  it was renamed or deleted, and the message names the finding. Put it back, or
+  point the entry at its replacement. A new finding from a later review gets
+  an entry here with its fixture.
+- **ci.yml's `security scan (advisory)` job** runs Electronegativity and
+  Semgrep (`p/electron-desktop-app`, `p/typescript`, `r/javascript.electron`,
+  plus the custom rules in `.semgrep/minerva.yml`: an IPC listener with no
+  sender check, `markdown-it` with `html: true` and no sanitizer, and a child
+  process spawned with main's whole `process.env`). It compares both reports
+  with `build/security-scan-baseline.json`, where each accepted finding is
+  keyed `tool:check:file` and carries the reason it's safe. The rule tests in
+  `.semgrep/minerva.ts` have to keep passing too (`semgrep --test`). **When it
+  warns:** a new finding is a `::warning` and a job-summary row. Fix it, or
+  baseline it with a reason. The job is `continue-on-error`, and it's exempted
+  in `branch-ruleset.test.ts` until the baseline settles. Then promote it to a
+  required check. Run it locally with `uvx semgrep scan --config
+  .semgrep/minerva.yml src/main`. Note the registry has no `p/electron` pack;
+  the Electron rules live under the two names above.

@@ -38,7 +38,7 @@ const DATAFLOW_MUTATION_METHODS =
   // settings: clipper / tools / bibliography / csl / sites / skills / compute
   'setEnabled|regenerateSecret|setSettings|setStyle|generate|importStyle|importLocale|' +
   'removeStyle|removeLocale|login|logout|setMenuConfig|setPythonSettings|restartPythonKernel|' +
-  'interruptPythonKernel|saveCellOutput|grantConsent|revokeConsent|runCell|' +
+  'interruptPythonKernel|saveCellOutput|requestConsent|revokeConsent|runCell|' +
   // publish / proposals / graph / refactor actions
   'runExport|toGit|upsertTarget|removeTarget|approve|reject|expire|runInspections|' +
   'setInspectionSettings|' +
@@ -76,6 +76,9 @@ export default tseslint.config(
       // presents as an unexplained OOM in the pre-push hook, not as anything
       // to do with worktrees.
       '.claude/**',
+      // Semgrep rule-test targets (#2570): deliberately unsafe sample code,
+      // in no tsconfig, checked by `semgrep --test` rather than by us.
+      '.semgrep/**',
       'dist/**',
       'out/**',
       'coverage/**',

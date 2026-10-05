@@ -561,11 +561,16 @@ export interface ComputeApi {
   /**
    * Content-addressed compute consent (#1412). `consentStatus` reports whether
    * this exact cell is already consented (`cell`), the whole project is blanket-
-   * trusted (`blanket`), or neither (`none`); the run gate prompts (showing the
-   * code) when needed and records the choice via `grantConsent`. Stored
-   * per-machine, so consent never travels with a shared thoughtbase. */
+   * trusted (`blanket`), or neither (`none`). Stored per-machine, so consent
+   * never travels with a shared thoughtbase.
+   *
+   * `requestConsent` asks MAIN to obtain consent (#2568): main shows its own
+   * native dialog with the code — one the renderer can't draw or answer — and
+   * records the answer. Resolves `cell` / `project` (already consented, or the
+   * user just agreed; `project` = blanket trust) or `cancel`. The renderer
+   * cannot grant consent itself. */
   consentStatus(language: string, code: string): Promise<'cell' | 'blanket' | 'none'>;
-  grantConsent(language: string, code: string, scope: 'cell' | 'project'): Promise<void>;
+  requestConsent(language: string, code: string, forceReview?: boolean): Promise<'cell' | 'project' | 'cancel'>;
   /**
    * Trust management (#1413). `listConsent` returns every thoughtbase this
    * machine has trusted for compute (blanket + per-cell counts) for the

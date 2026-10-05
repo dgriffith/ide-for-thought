@@ -179,7 +179,7 @@ const HIGH_RISK: Record<string, string> = {
   'publish.toGit': 'publish:toGit',
   'git.commit': 'git:commit',
   'compute.runCell': 'compute:runCell',
-  'compute.grantConsent': 'compute:grantConsent',
+  'compute.requestConsent': 'compute:requestConsent',
   'compute.revokeConsent': 'compute:revokeConsent',
   'conversations.runComputeDraft': 'conversation:runComputeDraft',
   'conversations.fileDeleteDraft': 'conversation:fileDeleteDraft',

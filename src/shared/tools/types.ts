@@ -284,6 +284,8 @@ export interface ApiKeyStorage {
    * since encryption landed, or secure storage is unavailable.
    */
   encrypted: boolean;
+  /** Why secrets are, or aren't, encrypted on this machine (#2569). */
+  reason: import('../secret-storage-status').SecretStorageStatus['reason'];
 }
 
 /** Result of an active "check connection" against Anthropic (#...). Unlike the

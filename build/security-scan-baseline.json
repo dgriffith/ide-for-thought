@@ -1,0 +1,21 @@
+{
+  "_comment": "Accepted findings of ci.yml's advisory security-scan job (#2570), keyed tool:check:file (no line number). Each value is the reason the finding is safe. A new finding gets a ::warning; an entry that matches nothing is listed so it can be removed. Re-bless with: node scripts/security-scan-report.mjs <electronegativity.csv> <semgrep.json> --update (keeps existing reasons).",
+  "accepted": {
+    "electronegativity:CSP_GLOBAL_CHECK:main/security.ts": "The CSP is built by buildCsp() and set as a response header, so the static check can't parse it ('may not be valid'). Its contents are pinned by tests/main/security-helpers.test.ts.",
+    "electronegativity:OPEN_EXTERNAL_JS_CHECK:renderer/lib/editor/build-extensions.ts": "Renderer side: api.shell.openExternal goes to SHELL_OPEN_EXTERNAL, which refuses anything but http(s) in main (register-shell.ts).",
+    "electronegativity:OPEN_EXTERNAL_JS_CHECK:renderer/lib/editor/context-menu.ts": "Renderer side: same SHELL_OPEN_EXTERNAL http(s)-only gate in main.",
+    "electronegativity:OPEN_EXTERNAL_JS_CHECK:renderer/lib/preview/click-routing.ts": "Renderer side: same SHELL_OPEN_EXTERNAL http(s)-only gate in main.",
+    "electronegativity:OPEN_EXTERNAL_JS_CHECK:main/menu.ts": "Opens hardcoded https constants (DOCS_URL and the issues URL), never input.",
+    "electronegativity:OPEN_EXTERNAL_JS_CHECK:main/security.ts": "Only after externalNavTarget() classified the URL as http(s) (tests/main/security-helpers.test.ts).",
+    "electronegativity:OPEN_EXTERNAL_JS_CHECK:main/ipc/register-shell.ts": "Parsed with new URL() and refused unless the protocol is http: or https:.",
+    "electronegativity:OPEN_EXTERNAL_JS_CHECK:main/mcp-client/oauth/flow.ts": "Refuses (throws on) any non-http(s) authorization URL before opening it.",
+    "electronegativity:AUXCLICK_JS_CHECK:main/privileged-sites.ts": "A middle-click new window goes through setWindowOpenHandler, and #2559's deny-by-default web-contents-created guard denies it.",
+    "electronegativity:AUXCLICK_JS_CHECK:main/window-manager.ts": "A middle-click new window goes through the main window's setWindowOpenHandler (security.ts), which opens http(s) externally and denies the rest.",
+    "electronegativity:AUXCLICK_JS_CHECK:main/publish/exporters/note-pdf/electron-render.ts": "Hidden, never-shown print window over our own exported HTML; no user input reaches it, and #2559's guard denies window opens.",
+    "electronegativity:CONTEXT_ISOLATION_JS_CHECK:main/privileged-sites.ts": "False positive: contextIsolation:true comes from ...HARDENED_WEB_PREFERENCES, which the static check can't follow.",
+    "electronegativity:CONTEXT_ISOLATION_JS_CHECK:main/window-manager.ts": "False positive: contextIsolation:true comes from ...HARDENED_WEB_PREFERENCES.",
+    "electronegativity:SANDBOX_JS_CHECK:main/privileged-sites.ts": "False positive: sandbox:true comes from ...HARDENED_WEB_PREFERENCES.",
+    "electronegativity:SANDBOX_JS_CHECK:main/window-manager.ts": "False positive: sandbox:true comes from ...HARDENED_WEB_PREFERENCES.",
+    "electronegativity:PRELOAD_JS_CHECK:main/window-manager.ts": "The main window's preload is the contextBridge API by design. Its whole surface is snapshotted (preload-bridge.test.ts), and every handler checks its sender (#2553)."
+  }
+}

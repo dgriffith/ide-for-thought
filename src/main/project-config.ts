@@ -291,7 +291,7 @@ function readSecrets(rootPath: string): Record<string, TargetSecret> | null {
 }
 
 /** Ensure a rule is present in the Minerva-owned `.minerva/.gitignore`. */
-function ensureMinervaGitignored(rootPath: string, rule: string): void {
+export function ensureMinervaGitignored(rootPath: string, rule: string): void {
   const dir = path.join(rootPath, '.minerva');
   const file = path.join(dir, '.gitignore');
   let current = '';

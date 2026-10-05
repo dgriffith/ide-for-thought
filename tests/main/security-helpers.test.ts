@@ -86,8 +86,12 @@ describe('buildCsp (#339)', () => {
 });
 
 describe('isOwnOrigin (#339)', () => {
-  it('treats file:// URLs as own origin (packaged build)', () => {
-    expect(isOwnOrigin('file:///Applications/Minerva.app/Contents/Resources/index.html')).toBe(true);
+  it('treats app://minerva as own origin, and file:// as NOT (#2564)', () => {
+    expect(isOwnOrigin('app://minerva')).toBe(true);
+    expect(isOwnOrigin('app://minerva/index.html')).toBe(true);
+    expect(isOwnOrigin('app://minerva.evil/x')).toBe(false);
+    expect(isOwnOrigin('app://other/index.html')).toBe(false);
+    expect(isOwnOrigin('file:///Applications/Minerva.app/Contents/Resources/index.html')).toBe(false);
   });
 
   it('treats the Vite dev server as own origin in dev', () => {
@@ -100,8 +104,8 @@ describe('isOwnOrigin (#339)', () => {
     expect(isOwnOrigin('https://example.com/', 'http://localhost:5173')).toBe(false);
   });
 
-  it('rejects file:// when dev origin set, file:// stays own (prod-mode reload still works)', () => {
-    expect(isOwnOrigin('file:///x/y.html', 'http://localhost:5173')).toBe(true);
+  it('file:// is never own origin, dev server or not (#2564)', () => {
+    expect(isOwnOrigin('file:///x/y.html', 'http://localhost:5173')).toBe(false);
   });
 });
 
@@ -173,5 +177,17 @@ describe('externalNavTarget (#339)', () => {
     expect(externalNavTarget('data:text/html,<script>')).toEqual({ kind: 'drop' });
     expect(externalNavTarget('mailto:x@y.z')).toEqual({ kind: 'drop' });
     expect(externalNavTarget('chrome://settings')).toEqual({ kind: 'drop' });
+  });
+});
+
+describe('isRendererEntry with the app:// entry (#2564)', () => {
+  const ENTRY = 'app://minerva/index.html';
+  it('allows the entry with hash/query, refuses other paths, hosts and schemes', () => {
+    expect(isRendererEntry(ENTRY, ENTRY)).toBe(true);
+    expect(isRendererEntry(`${ENTRY}#/x`, ENTRY)).toBe(true);
+    expect(isRendererEntry('app://minerva/other.html', ENTRY)).toBe(false);
+    expect(isRendererEntry('app://evil/index.html', ENTRY)).toBe(false);
+    expect(isRendererEntry('file:///tmp/index.html', ENTRY)).toBe(false);
+    expect(isRendererEntry('https://minerva/index.html', ENTRY)).toBe(false);
   });
 });

