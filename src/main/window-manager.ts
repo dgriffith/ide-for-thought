@@ -17,12 +17,11 @@ import { saveSession, type WindowState } from './session';
 import { acquireProject, releaseProject } from './project-context';
 import { runBackfill } from './embeddings/backfill';
 import { installNavigationGuards, HARDENED_WEB_PREFERENCES } from './security';
-import { rendererEntryPath, rendererEntryUrl } from './renderer-entry';
+import { rendererEntryUrl } from './renderer-entry';
 import { ensureClipperRunning, stopClipperServer, isClipperEnabled } from './clipper/lifecycle';
 import type { ProjectContext } from './project-context-types';
 import { logger } from '../shared/logger';
 
-declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
 
 // Menu-rebuild trigger, injected rather than imported (#986). window-manager
 // needs to rebuild the native menu when window/project state changes (focus,
@@ -199,11 +198,8 @@ export function createWindow(opts?: { x?: number; y?: number; width?: number; he
     }
   });
 
-  if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
-    void win.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
-  } else {
-    void win.loadFile(rendererEntryPath());
-  }
+  // The dev server under `pnpm dev`; otherwise app://minerva/index.html (#2564).
+  void win.loadURL(rendererEntryUrl());
 
   win.on('closed', () => {
     const watchPath = watchers.get(win.id);

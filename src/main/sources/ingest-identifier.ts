@@ -19,6 +19,7 @@ import type { ArticleMetadata } from './api-adapters/types';
 import { fetchCrossrefMetadata } from './api-adapters/crossref';
 import { fetchArxivMetadata } from './api-adapters/arxiv';
 import { fetchPubmedMetadata } from './api-adapters/pubmed';
+import { safeFetch } from '../safe-fetch';
 
 export type IdentifierKind = 'doi' | 'arxiv' | 'pubmed';
 
@@ -178,24 +179,30 @@ async function fetchMetadataFor(
 }
 
 async function fetchPdfBytes(url: string, fetchImpl: typeof fetch): Promise<Uint8Array> {
-  const res = await fetchImpl(url, {
-    headers: {
-      'Accept': 'application/pdf,*/*;q=0.8',
-      // Some publishers gate PDF access on a browser-shaped UA.
-      'User-Agent': 'Mozilla/5.0 Minerva/1.0',
+  // The PDF URL comes from third-party metadata (Crossref / arXiv / PubMed):
+  // safeFetch's private-address, redirect, timeout and size rules (#2566).
+  const res = await safeFetch(url, {
+    fetchImpl,
+    protocols: ['https:', 'http:'],
+    timeoutMs: 60_000,
+    maxBytes: 200 * 1024 * 1024,
+    init: {
+      headers: {
+        'Accept': 'application/pdf,*/*;q=0.8',
+        // Some publishers gate PDF access on a browser-shaped UA.
+        'User-Agent': 'Mozilla/5.0 Minerva/1.0',
+      },
     },
-    redirect: 'follow',
   });
-  if (!res.ok) throw new Error(`PDF fetch ${res.status}: ${res.statusText}`);
-  const ct = (res.headers.get('content-type') ?? '').toLowerCase();
+  if (!res.ok) throw new Error(`PDF fetch ${res.status}`);
+  const ct = res.contentType;
   // Publishers sometimes 200 with an HTML paywall/interstitial. Refuse
   // anything that doesn't look like PDF bytes — the user can fetch the
   // PDF manually later with the advertised URL saved in meta.ttl.
   if (!ct.includes('pdf') && ct.length > 0) {
     throw new Error(`PDF endpoint returned ${ct} instead of a PDF`);
   }
-  const ab = await res.arrayBuffer();
-  return new Uint8Array(ab);
+  return res.bytes;
 }
 
 /**

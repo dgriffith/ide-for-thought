@@ -89,21 +89,22 @@ describe('installPermissions (#1001, clipboard grant #2068)', () => {
       return granted;
     };
 
-    expect(grant('file:///Users/x/app/index.html', 'media')).toBe(true);
+    expect(grant('app://minerva/index.html', 'media')).toBe(true);
     expect(grant('https://evil.example', 'media')).toBe(false);   // foreign origin
-    expect(grant('file:///Users/x/app/index.html', 'clipboard-sanitized-write')).toBe(true);
+    expect(grant('app://minerva/index.html', 'clipboard-sanitized-write')).toBe(true);
     expect(grant('https://evil.example', 'clipboard-sanitized-write')).toBe(false); // foreign origin
-    expect(grant('file:///Users/x/app/index.html', 'geolocation')).toBe(false); // neither media nor clipboard
+    expect(grant('app://minerva/index.html', 'geolocation')).toBe(false); // neither media nor clipboard
     expect(grant(undefined, 'media')).toBe(false);                // no URL
+    expect(grant('file:///tmp/x.html', 'media')).toBe(false);     // any local file: not us (#2564)
   });
 
   it('check handler mirrors the request handler', () => {
     installPermissions();
     const check = cap.permissionCheck!;
-    expect(check(null, 'media', 'file:///Users/x/app/index.html')).toBe(true);
+    expect(check(null, 'media', 'app://minerva')).toBe(true);
     expect(check(null, 'media', 'https://evil.example')).toBe(false);
-    expect(check(null, 'clipboard-sanitized-write', 'file:///Users/x/app/index.html')).toBe(true);
-    expect(check(null, 'notifications', 'file:///Users/x/app/index.html')).toBe(false);
+    expect(check(null, 'clipboard-sanitized-write', 'app://minerva')).toBe(true);
+    expect(check(null, 'notifications', 'app://minerva')).toBe(false);
   });
 });
 
