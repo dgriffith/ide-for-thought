@@ -36,7 +36,44 @@ export function wasHandled(relativePath: string): boolean {
   return true;
 }
 
+/**
+ * Paths an in-app rename or move just took a note (or folder) AWAY from
+ * (#2594). The watcher's `unlink` for such a path is not a deletion: the
+ * renamer broadcasts NOTEBASE_RENAMED itself, and the tab follows that. An
+ * in-app unlink used to be surfaced as FILE_DELETED at once, on the
+ * assumption that RENAMED had already landed. An approved AI move broadcasts
+ * RENAMED only after its whole bundle has applied, so on a loaded machine
+ * FILE_DELETED won the race and closed the tab the move should have
+ * retargeted.
+ *
+ * The window is longer than the dedup one because what it guards against is
+ * a slow broadcast, not a duplicate event. A folder mark covers every path
+ * under it, since a folder move unlinks each file it held.
+ */
+const MOVED_AWAY_WINDOW_MS = 10_000;
+const movedAwayPaths = new Map<string, number>();
+
+export function markPathMovedAway(relativePath: string): void {
+  movedAwayPaths.set(relativePath, Date.now());
+}
+
+/** True when `relativePath`, or a folder containing it, was moved away within the window. */
+export function wasMovedAway(relativePath: string): boolean {
+  const now = Date.now();
+  for (const [p, ts] of movedAwayPaths) {
+    if (now - ts > MOVED_AWAY_WINDOW_MS) { movedAwayPaths.delete(p); continue; }
+    if (relativePath === p || relativePath.startsWith(`${p}/`)) return true;
+  }
+  return false;
+}
+
+/** The path exists again (a rollback, or a new note at the old name): a later unlink of it is a real deletion. */
+export function forgetMovedAway(relativePath: string): void {
+  movedAwayPaths.delete(relativePath);
+}
+
 /** Test-only reset. */
 export function _resetForTests(): void {
   recentlyHandledPaths.clear();
+  movedAwayPaths.clear();
 }
