@@ -1141,6 +1141,19 @@ diagnosable first and bounded second:
   nothing; the first failing attempt's trace lands in `test-results/`, which
   `ci.yml` uploads beside `playwright-report.json`.
 
+**Playwright's ready gate is checked at launch (#2595).** Its Electron loader
+holds back `ready` until the runner's fire-and-forget `__playwright_run()`
+lands. When that call is lost, the app never makes a window, `firstWindow()`
+times out at 20s, and the quit then wedges. That happened on about 3 launches
+in ~900, on whichever spec was launching. `launchMinerva` now compares the
+gated `app.isReady()` with Electron's own readiness (`session.defaultSession`
+throws until then). Ready with the gate still closed 2s later means the
+release was lost: it calls `__playwright_run()` itself and records
+`ready-gate-repaired`, which the flake report raises as a `::warning`. Not
+natively ready after 30s is a real startup hang and fails, saying so.
+`tests/e2e/ready-gate.spec.ts` loses the first release on purpose
+(`tests/e2e/fixtures/lose-first-ready-release.cjs`) and checks the repair.
+
 `tests/architecture/e2e-launch-hygiene.test.ts` requires `closeMinerva`, the
 helper `test`, and the bounded hook helpers in every spec;
 `e2e-flake-budget.test.ts` pins the navigation bound, the CI trace mode and the

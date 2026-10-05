@@ -64,7 +64,7 @@ export function collectRetriedTests(json) {
 }
 
 /** Annotation types the e2e helpers push onto an attempt (tests/e2e/helpers). */
-export const DIAGNOSTIC_ANNOTATIONS = ['hang', 'app-killed'];
+export const DIAGNOSTIC_ANNOTATIONS = ['hang', 'app-killed', 'ready-gate-repaired'];
 
 const firstLine = (text) => String(text ?? '').replace(ANSI, '').split('\n')[0].trim();
 
@@ -147,6 +147,9 @@ export function evaluateFlakeBudget(json, maxFlaky = FLAKE_BUDGET) {
   const runErrors = collectRunErrors(json);
   const attempts = collectAttemptDiagnostics(json);
   const killedApps = attempts.flatMap((a) => a.notes.filter((n) => n.type === 'app-killed').map((n) => firstLine(n.text)));
+  // Launches whose lost Playwright ready-release the helper repaired (#2595):
+  // not a failure, but never silent, so a rising count is visible.
+  const repairedGates = attempts.flatMap((a) => a.notes.filter((n) => n.type === 'ready-gate-repaired').map((n) => `${a.title} — ${firstLine(n.text)}`));
   const ok = flakyCount <= maxFlaky;
 
   const lines = [];
@@ -167,6 +170,10 @@ export function evaluateFlakeBudget(json, maxFlaky = FLAKE_BUDGET) {
     lines.push(`✗ ${killedApps.length} app(s) under test would not quit and were killed — a wedged app, not a slow one (#2458):`);
     for (const k of killedApps) lines.push(`  - ${k}`);
   }
+  if (repairedGates.length > 0) {
+    lines.push(`⚠ ${repairedGates.length} launch(es) lost Playwright's ready release and were repaired by the helper (#2595):`);
+    for (const g of repairedGates) lines.push(`  - ${g}`);
+  }
   if (attempts.length > 0) {
     lines.push(`Failed attempts — where each one ended (#2458):`);
     for (const a of attempts) {
@@ -179,7 +186,7 @@ export function evaluateFlakeBudget(json, maxFlaky = FLAKE_BUDGET) {
   if (flakyCount > 0) {
     lines.push('Every flaky test above is a real race somewhere. Fix it or file it; re-running the job only removes it from the record.');
   }
-  return { ok, flakyCount, maxFlaky, flaky, failedCount, runErrors, attempts, killedApps, playwrightFailed: failedCount > 0 || runErrors.length > 0, verdict: lines.join('\n') };
+  return { ok, flakyCount, maxFlaky, flaky, failedCount, runErrors, attempts, killedApps, repairedGates, playwrightFailed: failedCount > 0 || runErrors.length > 0, verdict: lines.join('\n') };
 }
 
 export function formatReport(json, maxFlaky = FLAKE_BUDGET) {

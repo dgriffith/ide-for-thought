@@ -132,6 +132,9 @@ export interface LaunchOptions {
   /** Extra Chromium/Electron switches after the profile flag (e.g. the docs
    *  screenshot harness's `--force-device-scale-factor=2`). */
   args?: string[];
+  /** Node arguments before the app path (dev launches only), e.g. a `-r`
+   *  shim. Only the ready-gate regression spec uses it (#2595). */
+  nodeArgs?: string[];
   /** Defaults to 60s — local boot is ~3s; a cold CI runner needs the headroom. */
   timeout?: number;
 }
@@ -155,7 +158,7 @@ export interface PackagedMinerva {
 export function launchMinerva(opts: LaunchOptions & { executablePath: string }): Promise<PackagedMinerva>;
 export function launchMinerva(opts: LaunchOptions & { executablePath?: undefined }): Promise<ElectronApplication>;
 export async function launchMinerva(opts: LaunchOptions): Promise<ElectronApplication | PackagedMinerva> {
-  const { userDataDir, executablePath, env = {}, args = [], timeout = 60_000 } = opts;
+  const { userDataDir, executablePath, env = {}, args = [], nodeArgs = [], timeout = 60_000 } = opts;
   const userDataArg = `--user-data-dir=${userDataDir}`;
   const launchEnv = minervaEnv(isolatedHome(userDataDir), { ELECTRON_ENABLE_LOGGING: '1', ...env });
 
@@ -165,17 +168,86 @@ export async function launchMinerva(opts: LaunchOptions): Promise<ElectronApplic
     executablePath
       ? launchPackaged(executablePath, [userDataArg, ...args], launchEnv, timeout)
       : electron.launch({
-        args: [projectRoot, userDataArg, ...args],
+        args: [...nodeArgs, projectRoot, userDataArg, ...args],
         cwd: projectRoot,
         timeout,
         env: launchEnv,
       }));
   track(app);
   if (!executablePath) {
+    await test.step('wait for Electron ready', () => releaseReadyGate(app as ElectronApplication));
     applyNavigationTimeout(app as ElectronApplication);
     await startTrace(app as ElectronApplication);
   }
   return app;
+}
+
+// ── Playwright's ready gate (#2595) ─────────────────────────────────────────
+//
+// Playwright's Electron loader (`-r …/electron/loader.js`) swallows Electron's
+// `ready` and replays it only when the runner sends
+// `Runtime.evaluate("__playwright_run()")`. That send is fire-and-forget. If it
+// arrives before the loader has defined `__playwright_run`, or is otherwise
+// lost, it fails silently: Electron is ready, but the app never sees `ready`,
+// creates no window, and `firstWindow()` times out. A quit then hangs too,
+// because the app never finished starting. CI saw this about 3 times in ~900
+// launches, on different specs. The trace's stderr stopped at
+// `boot +0ms: main module loaded`, with the main thread idle.
+//
+// The loader replaces `app.isReady` with its gated flag. Electron's own
+// readiness is still observable: `session.defaultSession` throws until the app
+// is natively ready. So the two can be told apart:
+//  - native ready, gate still closed 2s later: the release was lost. Repair it
+//    by calling `__playwright_run()` and annotate `ready-gate-repaired`, which
+//    the flake report raises as a ::warning;
+//  - native never ready: Electron itself didn't start. That's a real hang, so
+//    fail, naming it, rather than repairing anything.
+// Measured normal: the gate is already open, or opens within ~1s of launch.
+
+const READY_POLL_MS = 250;
+const GATE_GRACE_MS = 2_000;
+const NATIVE_READY_LIMIT_MS = 30_000;
+
+interface ReadyState { gated: boolean; native: boolean; hasRun: boolean }
+
+async function readyState(app: ElectronApplication): Promise<ReadyState> {
+  return app.evaluate(({ app: a, session }) => {
+    // The loader replaced app.isReady itself. `session.defaultSession` throws
+    // until Electron is natively ready, and the app uses that session anyway,
+    // so reading it changes nothing. (An earlier version probed `screen`,
+    // which creates the screen module and its display observers in main. That
+    // perturbed later specs: 3 of 5 full runs failed, against 0 of 3 without.)
+    let native: boolean;
+    try { native = !!session.defaultSession; } catch { native = false; }
+    return {
+      gated: a.isReady(),
+      native,
+      hasRun: typeof (globalThis as { __playwright_run?: unknown }).__playwright_run === 'function',
+    };
+  });
+}
+
+async function releaseReadyGate(app: ElectronApplication): Promise<void> {
+  const start = Date.now();
+  let nativeSince: number | null = null;
+  for (;;) {
+    const s = await readyState(app);
+    if (s.gated) return;
+    const now = Date.now();
+    if (s.native) {
+      nativeSince ??= now;
+      if (now - nativeSince >= GATE_GRACE_MS && s.hasRun) {
+        const note = `Electron was ready but Playwright's ready release never landed; called __playwright_run() after ${((now - start) / 1000).toFixed(1)}s`;
+        console.warn(`[e2e] ⚠ ${note}`);
+        annotate('ready-gate-repaired', note);
+        await app.evaluate(() => (globalThis as unknown as { __playwright_run(): Promise<void> }).__playwright_run());
+        return;
+      }
+    } else if (now - start >= NATIVE_READY_LIMIT_MS) {
+      throw new Error(`Electron never became ready within ${NATIVE_READY_LIMIT_MS / 1000}s of launch (native app.isReady() still false). A real startup hang, not Playwright's ready gate (#2595).`);
+    }
+    await new Promise((r) => setTimeout(r, READY_POLL_MS));
+  }
 }
 
 /**
