@@ -6,6 +6,7 @@ import { proposeWrite, approveProposal } from '../../../src/main/llm/approval';
 import { indexNote, disposeProject as disposeGraph } from '../../../src/main/graph/index';
 import { initSearch, indexNote as searchIndex, disposeProject as disposeSearch } from '../../../src/main/search/index';
 import { makeGraphProject, type GraphProject } from '../../helpers/temp-project';
+import { wasMovedAway, _resetForTests as resetPathDedup } from '../../../src/main/notebase/path-dedup';
 
 let root: string;
 let project: GraphProject;
@@ -62,6 +63,14 @@ describe('folder-refactor proposal (#911 follow-up)', () => {
     expect(p.status).toBe('pending');
     expect(exists('topic/a.md')).toBe(true);
     expect(exists('archive/topic/a.md')).toBe(false);
+  });
+
+  it('marks the folder moved-away, covering every note it held (#2594)', async () => {
+    resetPathDedup();
+    const p = await moveFolder('topic', 'archive/topic');
+    expect((await approveProposal(ctx(), p.uri)).ok).toBe(true);
+    expect(wasMovedAway('topic/a.md')).toBe(true);
+    expect(wasMovedAway('archive/topic/a.md')).toBe(false);
   });
 
   it('on approval moves the whole folder, its asset, and rewrites links', async () => {

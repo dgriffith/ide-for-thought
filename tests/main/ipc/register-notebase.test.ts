@@ -580,6 +580,9 @@ describe('register-notebase — rename / merge broadcasts', () => {
       [Channels.NOTEBASE_REWRITTEN, ['c.md']],
     ]);
     expect(h.persistIndexes).toHaveBeenCalledWith(ROOT);
+    // The old path is marked moved-away, so the watcher's unlink for it can't
+    // close the tab this RENAMED retargets (#2594).
+    expect(h.renameWithLinkRewrites.mock.calls[0]![3]).toHaveProperty('markPathMovedAway', expect.any(Function));
   });
 
   it('NOTEBASE_RENAME of a folder also names the folder, so scoped view tabs follow (#2535)', async () => {

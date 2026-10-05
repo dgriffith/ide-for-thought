@@ -1,4 +1,5 @@
 import { dialog } from 'electron';
+import { markPathMovedAway } from '../notebase/path-dedup';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { Channels } from '../../shared/channels';
@@ -265,6 +266,7 @@ export function registerNotebase(): void {
     const ctx = projectContext(rootPath);
     const { transitions, rewrittenPaths, folder } = await renameWithLinkRewrites(rootPath, oldRelPath, newRelPath, {
       markPathHandled,
+      markPathMovedAway,
       reindexHook: (relPath, content) => indexSearchAndVectorsFor(ctx, relPath, content),
       removeHook: (relPath) => removeSearchAndVectorsFor(ctx, relPath),
     });

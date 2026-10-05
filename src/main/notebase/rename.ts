@@ -225,6 +225,10 @@ export async function planFolderRename(rootPath: string, fromDir: string, toDir:
 export interface RenameWithLinksOptions {
   /** Called for every relative path we're about to touch so the watcher can dedupe. Optional. */
   markPathHandled?: (relativePath: string) => void;
+  /** Called with the path the note or folder is moving AWAY from, so the
+   *  watcher doesn't surface its unlink as a deletion that closes the tab the
+   *  caller's NOTEBASE_RENAMED is about to retarget (#2594). Optional. */
+  markPathMovedAway?: (relativePath: string) => void;
   /** Called with (relativePath, content) after each reindex so additional indexes (e.g. search) can update. Optional. */
   reindexHook?: (relativePath: string, content: string) => void;
   /** Called with relativePath after each removal from the graph. Optional. */
@@ -258,7 +262,7 @@ export async function renameWithLinkRewrites(
   newRelPath: string,
   opts: RenameWithLinksOptions = {},
 ): Promise<RenameResult> {
-  const { markPathHandled, reindexHook, removeHook } = opts;
+  const { markPathHandled, markPathMovedAway, reindexHook, removeHook } = opts;
   const ctx = projectContext(rootPath);
 
   // Determine whether this is a directory rename BEFORE the fs.rename call
@@ -300,6 +304,7 @@ export async function renameWithLinkRewrites(
 
   markPathHandled?.(oldRelPath);
   markPathHandled?.(newRelPath);
+  markPathMovedAway?.(oldRelPath);
   await notebaseFs.rename(rootPath, oldRelPath, newRelPath);
 
   // Re-index the renamed file(s) at their new location, recording transitions.

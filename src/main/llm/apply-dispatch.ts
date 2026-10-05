@@ -11,7 +11,7 @@ import * as graph from '../graph/index';
 import * as notebaseFs from '../notebase/fs';
 import * as search from '../search/index';
 import * as vectors from '../embeddings/vector-store';
-import { markPathHandled } from '../notebase/path-dedup';
+import { markPathHandled, markPathMovedAway } from '../notebase/path-dedup';
 import { planRename, planFolderRename, renameWithLinkRewrites, listAllFiles } from '../notebase/rename';
 import type { PathTransition } from '../notebase/rename';
 import { isIndexable } from '../../shared/indexable-files';
@@ -280,6 +280,7 @@ register({
 
     const { transitions, rewrittenPaths } = await renameWithLinkRewrites(ctx.rootPath, p.fromPath, p.toPath, {
       markPathHandled,
+      markPathMovedAway,
       reindexHook: (relPath, content) => {
         if (relPath.endsWith('.md')) {
           search.indexNote(ctx, relPath, content);
@@ -361,6 +362,7 @@ register({
 
     const { transitions, rewrittenPaths } = await renameWithLinkRewrites(ctx.rootPath, p.fromPath, p.toPath, {
       markPathHandled,
+      markPathMovedAway,
       reindexHook: (relPath, content) => {
         if (relPath.endsWith('.md')) { search.indexNote(ctx, relPath, content); void vectors.indexNote(ctx, relPath, content); }
       },

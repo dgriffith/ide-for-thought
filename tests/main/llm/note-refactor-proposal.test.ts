@@ -6,6 +6,7 @@ import { proposeWrite, approveProposal } from '../../../src/main/llm/approval';
 import { indexNote, disposeProject as disposeGraph } from '../../../src/main/graph/index';
 import { initSearch, indexNote as searchIndex, disposeProject as disposeSearch } from '../../../src/main/search/index';
 import { makeGraphProject, type GraphProject } from '../../helpers/temp-project';
+import { wasMovedAway, _resetForTests as resetPathDedup } from '../../../src/main/notebase/path-dedup';
 
 let root: string;
 let project: GraphProject;
@@ -60,6 +61,14 @@ describe('note-refactor proposal (#911)', () => {
     expect(exists('algorithms/raft.md')).toBe(true);
     expect(await read('consensus.md')).toContain('[[algorithms/raft]]');
     expect(await read('consensus.md')).not.toContain('[[raft]]');
+  });
+
+  it('marks the old path moved-away, so the watcher can\'t close the tab before RENAMED lands (#2594)', async () => {
+    resetPathDedup();
+    const proposal = await refactor('raft.md', 'algorithms/raft.md');
+    expect((await approveProposal(ctx(), proposal.uri)).ok).toBe(true);
+    expect(wasMovedAway('raft.md')).toBe(true);
+    expect(wasMovedAway('algorithms/raft.md')).toBe(false);
   });
 
   it('on approval re-spells a basename link when the rename changes the basename (#2456)', async () => {
