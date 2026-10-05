@@ -68,7 +68,21 @@ Lives inside each thoughtbase root and travels **with** it. `.minerva/` carries 
 
 At-rest encryption uses Electron `safeStorage` with an `enc:v1:` version tag; a
 legacy plaintext value still reads back and is re-encrypted on next read/write
-(`src/main/secret-storage.ts`, #1326 / #1642). Secrets live in:
+(`src/main/secret-storage.ts`, #1326 / #1642).
+
+**When there's no OS key store, secrets are plain text, and Minerva says so
+(#2569).** That happens with no `safeStorage` at all, or on Linux with the
+`basic_text` backend (no Secret Service is running). `basic_text` counts as
+unencrypted because Chromium's fallback "encrypts" with a key compiled into
+the browser, and an `enc:v1:` tag on that would make Settings claim protection
+that doesn't exist. `secretStorageStatus()` reports which case applies, AI
+settings and MCP settings show a persistent note, and the first plaintext
+write in a process logs one `[secrets]` warning. Nothing is refused, because
+refusing a key on a machine with no keyring would leave the app unusable
+there. The files are owner-only (0600, #2562) either way. macOS always has the
+Keychain, so this only affects the Linux/Windows ports (#2198).
+
+Secrets live in:
 
 - `userData/llm-settings.json` — provider API keys
 - `userData/clipper-config.json` — the clipper shared secret

@@ -7,11 +7,12 @@
  * exercise the real store code, exactly like SkillsSettings.test.ts does for
  * `api.skills.*`.
  */
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, fireEvent, cleanup, waitFor } from '@testing-library/svelte';
 import type { McpServerStatus } from '../../../src/shared/mcp-servers';
 
-const { listMock, addMock, updateMock, removeMock, setEnabledMock, connectMock } = vi.hoisted(() => ({
+const { listMock, addMock, updateMock, removeMock, setEnabledMock, connectMock, keyStorageMock } = vi.hoisted(() => ({
+  keyStorageMock: vi.fn(),
   listMock: vi.fn(),
   addMock: vi.fn(),
   updateMock: vi.fn(),
@@ -30,6 +31,7 @@ vi.mock('../../../src/renderer/lib/ipc/client', () => ({
       setEnabled: setEnabledMock,
       connect: connectMock,
     },
+    tools: { getKeyStorage: keyStorageMock },
   },
 }));
 
@@ -47,7 +49,26 @@ function server(over: Partial<McpServerStatus> & Pick<McpServerStatus, 'id' | 'n
 
 afterEach(() => {
   cleanup();
-  [listMock, addMock, updateMock, removeMock, setEnabledMock, connectMock].forEach((m) => m.mockReset());
+  [listMock, addMock, updateMock, removeMock, setEnabledMock, connectMock, keyStorageMock].forEach((m) => m.mockReset());
+});
+
+beforeEach(() => {
+  keyStorageMock.mockResolvedValue({ available: true, encrypted: false, reason: 'os-keystore' });
+});
+
+describe('plain-text secrets note (#2569)', () => {
+  it('shows when there is no system secure store, and not otherwise', async () => {
+    listMock.mockResolvedValue([]);
+    keyStorageMock.mockResolvedValue({ available: false, encrypted: false, reason: 'linux-basic-text' });
+    const { findByTestId } = render(McpServersSettings, {});
+    expect((await findByTestId('mcp-plaintext-note')).textContent).toMatch(/plain text/);
+    cleanup();
+
+    keyStorageMock.mockResolvedValue({ available: true, encrypted: true, reason: 'os-keystore' });
+    const { findByText, queryByTestId } = render(McpServersSettings, {});
+    await findByText('No MCP servers configured yet.');
+    expect(queryByTestId('mcp-plaintext-note')).toBeNull();
+  });
 });
 
 describe('McpServersSettings (#2031)', () => {

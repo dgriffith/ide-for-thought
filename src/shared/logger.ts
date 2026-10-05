@@ -51,6 +51,7 @@ export const LOG_TAGS = [
   'quit',
   'rename',
   'search',
+  'secrets',
   'set-properties',
   'settings',
   'skills',

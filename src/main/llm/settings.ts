@@ -16,7 +16,7 @@ import { DEFAULT_WEB_SETTINGS } from '../../shared/tools/types';
 import { isEffort, type Effort } from '../../shared/tools/effort';
 import { PROVIDERS, PROVIDER_IDS, type ProviderId } from '../../shared/tools/providers';
 import { providerForModel, DEFAULT_MODEL } from '../../shared/tools/models';
-import { encryptSecret, decryptSecret, isEncrypted, secretEncryptionAvailable } from '../secret-storage';
+import { encryptSecret, decryptSecret, isEncrypted, secretEncryptionAvailable, secretStorageStatus } from '../secret-storage';
 import { reportConfigError } from '../config/config-store';
 import { writeJsonFileAtomic, SECRET_FILE_MODE } from '../config/json-file';
 
@@ -361,5 +361,6 @@ export async function getApiKeyStorage(providerId: ProviderId = 'anthropic'): Pr
   // Lenient: no file (or an unreadable one, reported) — nothing encrypted.
   const raw = storedProviders(await readParsedLenient())[providerId]?.apiKey;
   const encrypted = typeof raw === 'string' && raw.length > 0 && isEncrypted(raw);
-  return { available: secretEncryptionAvailable(), encrypted };
+  const status = secretStorageStatus();
+  return { available: status.encrypted, encrypted, reason: status.reason };
 }

@@ -29,6 +29,9 @@ import {
   type SubstrateResponse,
 } from './protocol';
 import { logger } from '../../shared/logger';
+import { isLoopbackHost, tokensMatch } from '../loopback-guards';
+import { ensureMinervaGitignored } from '../project-config';
+import { writeJsonFileAtomic, SECRET_FILE_MODE } from '../config/json-file';
 
 interface ProjectEntry {
   token: string;
@@ -92,7 +95,10 @@ export async function registerProject(ctx: ProjectContext): Promise<void> {
       token,
       startedAt: new Date().toISOString(),
     };
-    await fs.writeFile(advertPath(ctx.rootPath), JSON.stringify(advert, null, 2), 'utf-8');
+    // It holds the token: owner-only, and never committed or shared with the
+    // thoughtbase (#2567) — it is written inside it.
+    ensureMinervaGitignored(ctx.rootPath, RUNTIME_FILE);
+    await writeJsonFileAtomic(advertPath(ctx.rootPath), advert, { mode: SECRET_FILE_MODE });
   } catch (err) {
     logger('substrate').warn(
       `failed to advertise ${ctx.rootPath}:`,
@@ -130,13 +136,35 @@ function sendJson(res: http.ServerResponse, status: number, body: SubstrateRespo
   res.end(json);
 }
 
+/** Largest request body accepted (#2567). Substrate requests are small JSON. */
+const MAX_BODY_BYTES = 1024 * 1024;
+
 function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
   if (req.method !== 'POST' || req.url !== '/rpc') {
     res.writeHead(404).end();
     return;
   }
+  // DNS-rebinding guard, as the clipper's (#2567): a page that resolves its
+  // own domain to 127.0.0.1 still sends that domain as Host.
+  if (!isLoopbackHost(req.headers.host)) {
+    sendJson(res, 403, { ok: false, error: 'forbidden host' });
+    return;
+  }
   const chunks: Buffer[] = [];
-  req.on('data', (c: Buffer) => chunks.push(c));
+  let received = 0;
+  let tooLarge = false;
+  req.on('data', (c: Buffer) => {
+    if (tooLarge) return;
+    received += c.length;
+    if (received > MAX_BODY_BYTES) {
+      tooLarge = true;
+      chunks.length = 0;
+      sendJson(res, 413, { ok: false, error: 'request body too large' });
+      req.destroy();
+      return;
+    }
+    chunks.push(c);
+  });
   req.on('error', () => {
     try {
       res.writeHead(400).end();
@@ -145,6 +173,7 @@ function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): voi
     }
   });
   req.on('end', () => {
+    if (tooLarge) return;
     // Every path below answers, and nothing escapes as an unhandled rejection
     // (#2418). A throw outside the dispatch `try` — a JSON `null` body, whose
     // `.rootPath` read used to throw — left the client's request hanging with
@@ -166,7 +195,8 @@ function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): voi
       const entry = registry.get(rootPath);
       // Constant contract: unknown project and bad token look the same to a
       // client (403) — no oracle for "is this project open".
-      if (!entry || entry.token !== body.token) {
+      // Constant-time compare (#2567).
+      if (!entry || !tokensMatch(body.token, entry.token)) {
         sendJson(res, 403, { ok: false, error: 'unknown project or invalid token' });
         return;
       }

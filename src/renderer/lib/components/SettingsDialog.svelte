@@ -145,6 +145,7 @@
   let providerInputs = $state<Record<ProviderId, ProviderInput>>(emptyProviderInputs());
   let providerViews = $state<Partial<Record<ProviderId, ProviderConfigView>>>({});
   let secureStorageAvailable = $state(false);
+  let secureStorageReason = $state<import('../../../shared/secret-storage-status').SecretStorageStatus['reason']>('os-keystore');
   let customModels = $state<CustomModel[]>([]);
 
   let toolModelOverrides = $state<Record<string, string>>({});
@@ -165,7 +166,9 @@
         providerInputs[id].baseURL = s.providers?.[id]?.baseURL ?? '';
       }
       try {
-        secureStorageAvailable = (await api.tools.getKeyStorage()).available;
+        const storage = await api.tools.getKeyStorage();
+        secureStorageAvailable = storage.available;
+        secureStorageReason = storage.reason;
       } catch (e) {
         logger('settings').error('failed to load key storage status:', e);
       }
@@ -339,6 +342,7 @@
             bind:customModels
             {providerViews}
             {secureStorageAvailable}
+            {secureStorageReason}
             onCheckConnection={(providerId, candidateKey, baseURL) => api.tools.checkConnection(providerId, candidateKey, baseURL)}
           />
         {/if}
