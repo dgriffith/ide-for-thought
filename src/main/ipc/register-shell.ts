@@ -6,6 +6,26 @@ import { spawn } from 'node:child_process';
 import { Channels } from '../../shared/channels';
 import { assertSafePath } from '../notebase/fs';
 import { winFromEvent, withRootPathOr } from './helpers';
+import { confirmNative } from '../native-confirm';
+
+/** Extensions that run (or install) something when opened, on macOS / Windows / Linux. */
+const LAUNCHABLE_EXTENSIONS = new Set([
+  '.app', '.command', '.tool', '.terminal', '.workflow', '.action', '.scpt', '.scptd', '.applescript',
+  '.pkg', '.mpkg', '.dmg', '.sh', '.bash', '.zsh', '.csh', '.ksh', '.fish', '.py', '.pyw', '.rb', '.pl', '.php',
+  '.jar', '.exe', '.bat', '.cmd', '.com', '.msi', '.ps1', '.vbs', '.js', '.jse', '.wsf', '.lnk', '.desktop', '.appimage', '.run',
+  '.url', '.webloc', '.inetloc', '.fileloc',
+]);
+
+/** True for a file that opening would run: an app/script type, or anything executable. */
+export function isLaunchable(fullPath: string): boolean {
+  if (LAUNCHABLE_EXTENSIONS.has(path.extname(fullPath).toLowerCase())) return true;
+  const st = statSync(fullPath, { throwIfNoEntry: false });
+  if (!st) return false;
+  // A bundle directory (`Foo.app/`) is caught by its extension above; any
+  // other directory just opens in the file manager.
+  if (st.isDirectory()) return false;
+  return process.platform !== 'win32' && (st.mode & 0o111) !== 0;
+}
 
 export function registerShell(): void {
   // Export
@@ -35,8 +55,21 @@ export function registerShell(): void {
     shell.showItemInFolder(fullPath);
   }));
 
-  handle(Channels.SHELL_OPEN_IN_DEFAULT, withRootPathOr(undefined, (rootPath, relativePath: string) => {
-    void shell.openPath(assertSafePath(rootPath, relativePath));
+  handle(Channels.SHELL_OPEN_IN_DEFAULT, withRootPathOr(undefined, (rootPath, relativePath: string): void | Promise<void> => {
+    const full = assertSafePath(rootPath, relativePath);
+    // Opening an app, a script or an installer RUNS it (#2568) — and a shared
+    // thoughtbase can carry one. Main confirms those; documents open as before.
+    if (!isLaunchable(full)) {
+      void shell.openPath(full);
+      return;
+    }
+    return confirmNative(null, {
+      message: `Run "${path.basename(full)}"?`,
+      detail: `It's a program or script, so opening it runs it on your machine:\n\n${full}`,
+      confirmLabel: 'Run',
+    }).then((answer) => {
+      if (answer.confirmed) void shell.openPath(full);
+    });
   }));
 
   handle(Channels.SHELL_OPEN_IN_TERMINAL, withRootPathOr(undefined, (rootPath, relativePath?: string) => {

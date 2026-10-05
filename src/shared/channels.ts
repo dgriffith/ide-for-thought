@@ -700,7 +700,9 @@ export const Channels = {
   COMPUTE_CONSENT_STATUS: 'compute:consentStatus',
   /** Grant consent for this cell (`scope: 'cell'`) or the whole thoughtbase
    *  (`scope: 'project'`). Stored per-machine, never in the thoughtbase. */
-  COMPUTE_GRANT_CONSENT: 'compute:grantConsent',
+  // Main asks with its own native dialog and records the answer (#2568);
+  // replaces the renderer-callable compute:grantConsent.
+  COMPUTE_REQUEST_CONSENT: 'compute:requestConsent',
   /** List every thoughtbase this machine has granted compute trust to, for the
    *  Settings → Compute management list (#1413). */
   COMPUTE_LIST_CONSENT: 'compute:listConsent',

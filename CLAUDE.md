@@ -284,7 +284,7 @@ This is a **professional tool**. Design accordingly:
 
 - **They live in the dialogs store** — `src/renderer/lib/stores/dialogs.svelte.ts`,
   reached through `getDialogStore()`. `App.svelte` merely destructures
-  `showPrompt` / `showConfirm` / `showComputeConsent` off it for its own call
+  `showPrompt` / `showConfirm` off it for its own call
   sites; it is **not** where they are defined, and a component does not need
   them threaded down as props — reading the store directly is the documented
   shape (see *Reducing prop drilling* above, where `dialogs.showConfirm()` is
@@ -300,6 +300,14 @@ This is a **professional tool**. Design accordingly:
   alike. `hideDontAskAgain: true` drops the checkbox — for the rare confirm
   where permanent suppression would be wrong (`App.svelte:508`); the default is
   to offer it, per **Respect the user** above.
+- **A confirm that guards code execution is not one of these (#2568).**
+  Anything a compromised renderer could click through itself — compute
+  consent, a new Python interpreter, a stdio MCP server's command, opening a
+  launchable file — is asked by main with `confirmNative`
+  (`src/main/native-confirm.ts`), a native dialog the renderer can't draw or
+  answer. The channel goes in `src/main/ipc/privileged-channels.ts`, and
+  `tests/architecture/privileged-ipc-confirm.test.ts` fails on a handler that
+  reaches a code-execution sink without one.
 - `showPrompt(message, initial?)` → `Promise<string | null>` (`null` =
   cancelled). Two overloads: a bare string is the initial value (Rename-style
   flows), or pass `{ initial?, suggestions? }`.
@@ -1227,7 +1235,7 @@ untested ones sit in a `KNOWN_UNTESTED` list that may only shrink.
 
 ### The architecture ratchets are inventoried in `docs/architecture-ratchets.md` (#2262)
 
-`tests/architecture/` holds **48** tests that check the shape of the codebase
+`tests/architecture/` holds **49** tests that check the shape of the codebase
 rather than the behavior of any feature — the package-cycle check, the file-size
 budgets, the anti-pattern ratchets, the dialog-adoption ratchet, the two
 temp-project-fixture ratchets, the CI-workflow checks, and so on. Most of them
