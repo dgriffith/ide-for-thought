@@ -59,11 +59,12 @@ if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) {
     console.log(`e2e-flake-report: no report at ${args.report} — nothing to analyze.`);
     process.exit(0);
   }
-  const { summary, body, verdict, ok, killedApps } = formatReport(JSON.parse(raw), args.maxFlaky);
+  const { summary, body, verdict, ok, killedApps, repairedGates } = formatReport(JSON.parse(raw), args.maxFlaky);
   console.log(`\n${summary}\n\n${body}\n\n${verdict}\n`);
   // A killed app is never silent (#2458): each gets its own run annotation,
   // whether or not its test went on to pass on a retry.
   for (const k of killedApps) console.log(`::warning title=E2E app under test was killed::${k}`);
+  for (const g of repairedGates) console.log(`::warning title=E2E launch lost Playwright's ready release (repaired)::${g}`);
 
   if (process.env.GITHUB_STEP_SUMMARY) {
     appendFileSync(process.env.GITHUB_STEP_SUMMARY, `\n## ${summary}\n\n${body}\n\n\`\`\`\n${verdict}\n\`\`\`\n`);

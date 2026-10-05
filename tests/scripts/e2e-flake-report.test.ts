@@ -245,6 +245,24 @@ describe('collectAttemptDiagnostics (#2458)', () => {
   });
 });
 
+describe('evaluateFlakeBudget — repaired ready gates (#2595)', () => {
+  const NOTE = "Electron was ready but Playwright's ready release never landed; called __playwright_run() after 2.1s";
+  const json: PlaywrightReport = {
+    suites: [{ title: 'focus-trap.spec.ts', specs: [spec('palette', [{ status: 'passed', retry: 0, annotations: [{ type: 'ready-gate-repaired', description: NOTE }] }])] }],
+  };
+
+  it('a passing attempt that needed the repair is listed and raised, never silent', () => {
+    const r = evaluateFlakeBudget(json, 1);
+    expect(r.ok).toBe(true);
+    expect(r.repairedGates).toEqual([`focus-trap.spec.ts › palette — ${NOTE}`]);
+    expect(r.verdict).toContain("⚠ 1 launch(es) lost Playwright's ready release and were repaired by the helper (#2595)");
+  });
+
+  it('a clean run reports none', () => {
+    expect(evaluateFlakeBudget(report({ flaky: 0 }), 1).repairedGates).toEqual([]);
+  });
+});
+
 describe('evaluateFlakeBudget — hang diagnostics (#2458)', () => {
   it('names every killed app, and every failed attempt with its step, error and probe', () => {
     const r = evaluateFlakeBudget(hangReport(), 5);

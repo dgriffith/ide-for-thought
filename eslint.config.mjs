@@ -79,6 +79,9 @@ export default tseslint.config(
       // Semgrep rule-test targets (#2570): deliberately unsafe sample code,
       // in no tsconfig, checked by `semgrep --test` rather than by us.
       '.semgrep/**',
+      // A `-r` preload shim the e2e ready-gate spec hands to Electron's Node
+      // (#2595). Plain CommonJS in no tsconfig, loaded by Electron, not by us.
+      'tests/e2e/fixtures/*.cjs',
       'dist/**',
       'out/**',
       'coverage/**',

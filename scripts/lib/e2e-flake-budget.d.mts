@@ -46,6 +46,8 @@ export interface FlakeBudgetResult {
   runErrors: string[];
   attempts: AttemptDiagnostic[];
   killedApps: string[];
+  /** Launches whose lost Playwright ready-release the helper repaired (#2595). */
+  repairedGates: string[];
   playwrightFailed: boolean;
   verdict: string;
 }
