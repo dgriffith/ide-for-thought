@@ -17,20 +17,27 @@
  * Selection holds project-relative paths (files OR directories).
  * Action handlers expand directories to their contained files via a
  * helper at use-site.
+ *
+ * `createPathSelection()` is the same model unbound from the sidebar (#2431):
+ * a type view's table/list/gallery owns one per mounted view, so ⌘/⇧-click
+ * there means exactly what it means in the file tree.
  */
 
-let selected = $state<Set<string>>(new Set());
-let anchor = $state<string | null>(null);
-/**
- * Keyboard-focus cursor (#428). The row arrow keys move from. Distinct
- * from `anchor` (which stays put during shift-extend to keep the range
- * growing/shrinking from the original click) and from `selected` (which
- * is the entire chosen set). When a single item is selected, all three
- * collapse to the same path; the multi-selection cases pull them apart.
- */
-let focused = $state<string | null>(null);
+export type PathSelection = ReturnType<typeof createPathSelection>;
 
-export function getSidebarSelectionStore() {
+/** A fresh, independent selection with the sidebar's semantics. */
+export function createPathSelection() {
+  let selected = $state<Set<string>>(new Set());
+  let anchor = $state<string | null>(null);
+  /**
+   * Keyboard-focus cursor (#428). The row arrow keys move from. Distinct
+   * from `anchor` (which stays put during shift-extend to keep the range
+   * growing/shrinking from the original click) and from `selected` (which
+   * is the entire chosen set). When a single item is selected, all three
+   * collapse to the same path; the multi-selection cases pull them apart.
+   */
+  let focused = $state<string | null>(null);
+
   function clear(): void {
     selected = new Set();
     anchor = null;
@@ -141,4 +148,10 @@ export function getSidebarSelectionStore() {
     paths,
     size,
   };
+}
+
+const sidebarSelection = createPathSelection();
+
+export function getSidebarSelectionStore(): PathSelection {
+  return sidebarSelection;
 }

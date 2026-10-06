@@ -12,6 +12,8 @@ describe('inferPropertyType', () => {
     expect(inferPropertyType('2020-06-01')).toBe('date');
     expect(inferPropertyType('2020-06-01T09:00')).toBe('date');
     expect(inferPropertyType('Frank Herbert')).toBe('text');
+    expect(inferPropertyType('true')).toBe('boolean');
+    expect(inferPropertyType('false')).toBe('boolean');
     expect(inferPropertyType('9780441172719')).toBe('number'); // long digit run — still numeric
   });
 });

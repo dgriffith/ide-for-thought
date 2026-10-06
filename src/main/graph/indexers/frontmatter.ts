@@ -303,6 +303,13 @@ function coerceDeclared(
       if (YEAR_RE.test(s)) return plain($rdf.lit(s, undefined, XSD('gYear')));
       return asString();
     }
+    case 'boolean': {
+      // A checkbox (#2431): a real YAML boolean, or the words true/false.
+      const b = typeof value === 'boolean' ? value : str.trim().toLowerCase();
+      if (b === true || b === 'true') return plain($rdf.lit('true', undefined, XSD('boolean')));
+      if (b === false || b === 'false') return plain($rdf.lit('false', undefined, XSD('boolean')));
+      return asString();
+    }
     case 'link-to-type':
       // Whole-value link only (edge-labeling is #1073) — untyped reference under
       // the frontmatter key, so honorLinkType is false.

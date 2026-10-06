@@ -13,6 +13,7 @@
   import ConfirmDialog from './ConfirmDialog.svelte';
   import OpenTargetDialog from './OpenTargetDialog.svelte';
   import AddPropertyDialog from './AddPropertyDialog.svelte';
+  import BulkPropertiesDialog from './BulkPropertiesDialog.svelte';
   import { getDialogStore } from '../stores/dialogs.svelte';
 
   const dialogs = getDialogStore();
@@ -85,5 +86,14 @@
     keySuggestions={dialogs.addProperty.keySuggestions}
     onConfirm={(v) => dialogs.confirmAddProperty(v)}
     onCancel={() => dialogs.cancelAddProperty()}
+  />
+{/if}
+
+{#if dialogs.bulkProperties}
+  <BulkPropertiesDialog
+    model={dialogs.bulkProperties.model}
+    tagSuggestions={dialogs.bulkProperties.tagSuggestions}
+    onConfirm={(edits) => dialogs.confirmBulkProperties(edits)}
+    onCancel={() => dialogs.cancelBulkProperties()}
   />
 {/if}

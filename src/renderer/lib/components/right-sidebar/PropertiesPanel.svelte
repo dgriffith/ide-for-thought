@@ -27,6 +27,8 @@
   import { fillNotePlaceholders } from '../../../../shared/objects/property-placeholders';
   import { CANONICAL_FRONTMATTER_KEYS } from '../../../../shared/frontmatter-canonical-keys';
   import PropertyValueEditor from '../PropertyValueEditor.svelte';
+  import DeclaredPropertyField from '../DeclaredPropertyField.svelte';
+  import ChipListEditor from '../ChipListEditor.svelte';
   import TypeIcon from '../TypeIcon.svelte';
   import type { NoteTypedProperties, PropertyDef } from '../../../../shared/objects/type-def';
   import {
@@ -142,6 +144,7 @@
    *  type declares it. */
   function commitDeclared(pd: PropertyDef, raw: string): void {
     if (raw.trim() === '') { removeKey(pd.name); return; }
+    if (pd.type === 'boolean') { setKeyValue(pd.name, raw === 'true'); return; }
     if (pd.type === 'number') {
       const n = Number(raw);
       if (!Number.isFinite(n)) return;
@@ -285,12 +288,8 @@
 
   // ── String-list (chip) editing ────────────────────────────────
 
-  const newChip = new SvelteMap<string, string>();
-  function addChip(key: string, current: string[]): void {
-    const v = (newChip.get(key) ?? '').trim();
-    if (!v) return;
+  function addChip(key: string, current: string[], v: string): void {
     setKeyValueList(key, [...current, v]);
-    newChip.set(key, '');
   }
   function removeChip(key: string, current: string[], idx: number): void {
     const next = current.slice();
@@ -481,32 +480,12 @@
             onToggle={(c) => commitBoolean(row.key, c)}
           />
         {:else if row.shape.kind === 'string-list'}
-          <div class="chips">
-            {#each row.shape.value as chip, i (chip + ':' + i)}
-              <span class="chip">
-                {chip}
-                <button
-                  class="chip-x"
-                  title="Remove"
-                  aria-label="Remove {chip}"
-                  onclick={() => removeChip(row.key, (row.shape as { kind: 'string-list'; value: string[] }).value, i)}
-                >×</button>
-              </span>
-            {/each}
-            <input
-              type="text"
-              class="chip-input"
-              placeholder="Add…"
-              value={newChip.get(row.key) ?? ''}
-              oninput={(e) => { newChip.set(row.key, e.currentTarget.value); }}
-              onkeydown={(e) => {
-                if (e.key === 'Enter' || e.key === ',') {
-                  e.preventDefault();
-                  addChip(row.key, (row.shape as { kind: 'string-list'; value: string[] }).value);
-                }
-              }}
-            />
-          </div>
+          {@const list = row.shape.value}
+          <ChipListEditor
+            chips={list.map((label) => ({ label }))}
+            onAdd={(v) => addChip(row.key, list, v)}
+            onRemove={(i) => removeChip(row.key, list, i)}
+          />
         {:else if row.shape.kind === 'wiki-link'}
           {#if editingLinkKey === row.key}
             <AutocompleteDropdown
@@ -599,22 +578,8 @@
               <span class="dfield-label">{pd.label ?? pd.name}</span>
               {#if row && usesRowEditor(pd)}
                 <div class="value">{@render valueEditor(row)}</div>
-              {:else if pd.type === 'enum'}
-                <select value={declaredText(pd)} onchange={(e) => commitDeclared(pd, e.currentTarget.value)}>
-                  <option value=""></option>
-                  {#each pd.options ?? [] as opt (opt)}<option value={opt}>{opt}</option>{/each}
-                </select>
-              {:else if pd.type === 'number'}
-                <input type="number" value={declaredText(pd)} onchange={(e) => commitDeclared(pd, e.currentTarget.value)} />
-              {:else if pd.type === 'date'}
-                <input type="date" value={declaredText(pd)} onchange={(e) => commitDeclared(pd, e.currentTarget.value)} />
               {:else}
-                <input
-                  type="text"
-                  value={declaredText(pd)}
-                  placeholder={pd.type === 'link-to-type' ? '[[Note]]' : ''}
-                  onchange={(e) => commitDeclared(pd, e.currentTarget.value)}
-                />
+                <DeclaredPropertyField def={pd} text={declaredText(pd)} unset={!row} onCommit={(raw) => commitDeclared(pd, raw)} />
               {/if}
             </div>
           {/each}
@@ -760,29 +725,8 @@
     text-transform: uppercase;
     color: var(--text-faint);
   }
-  /* A declared-but-empty field is a prompt, not an error — dim the frame
-     slightly so filled fields read first, and no danger styling. */
-  .dfield.unset input,
-  .dfield.unset select {
-    border-style: dashed;
-  }
-  .dfield input,
-  .dfield select {
-    width: 100%;
-    padding: 5px 8px;
-    border: 1px solid var(--border);
-    border-radius: 5px;
-    background: var(--bg-inset);
-    color: var(--text);
-    font-family: var(--font-sans);
-    font-size: 12.5px;
-    box-sizing: border-box;
-  }
-  .dfield input:focus,
-  .dfield select:focus {
-    outline: none;
-    border-color: var(--accent);
-  }
+  /* The declared widgets (and their dashed "unset" frame) are styled in
+     DeclaredPropertyField.svelte. */
 
   /* Divider between the schema form and this note's own keys. */
   .section-rule {
@@ -921,47 +865,7 @@
   /* The value inputs render inside <PropertyValueEditor>, so their styling lives
      there — scoped `.row .value > input` rules here never matched (#1600). */
 
-  .chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    padding: 2px 0;
-  }
-  .chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    background: var(--bg-button);
-    color: var(--text);
-    padding: 1px 6px;
-    border-radius: 10px;
-    font-size: 11px;
-  }
-  .chip-x {
-    background: none;
-    border: none;
-    color: var(--text-muted);
-    cursor: pointer;
-    font-size: 12px;
-    line-height: 1;
-    padding: 0;
-  }
-  .chip-x:hover { color: var(--text); }
-  .chip-input {
-    flex: 1;
-    min-width: 60px;
-    background: none;
-    border: 1px dashed var(--border);
-    border-radius: 10px;
-    padding: 1px 6px;
-    color: var(--text);
-    font-size: 11px;
-  }
-  .chip-input:focus {
-    border-style: solid;
-    border-color: var(--accent);
-    outline: none;
-  }
+  /* The string-list chips are styled in ChipListEditor.svelte. */
 
   /* Wiki-link value chip + adjacent edit button (#489). Mirrors the
      existing string-list chip styling so the panel reads as one

@@ -42,6 +42,7 @@ import { getMultiFileHistoryStore } from '../stores/multi-file-history.svelte';
 import { isNotePath } from '../../../shared/note-extensions';
 import { ENTRYPOINT_TAG } from '../../../shared/entrypoint';
 import { CONFIRM_KEYS } from '../confirm-keys';
+import { createBulkPropertyOps } from './bulk-property-ops';
 import type { AutoLinkSuggestion } from '../../../shared/refactor/auto-link';
 import type { AutoLinkInboundSuggestion } from '../../../shared/refactor/auto-link-inbound';
 
@@ -57,6 +58,8 @@ export interface RefactorOpsCtx {
   getSidebar: () => SidebarRef | undefined;
   getEditorComponent: () => EditorRef | undefined;
   maybeHandleMissingApiKey: (err: unknown) => Promise<boolean>;
+  /** After a bulk property edit lands: re-project type views etc. (#2431). */
+  onBulkPropertiesWritten?: () => void;
 }
 
 export function createRefactorOps(ctx: RefactorOpsCtx) {
@@ -559,6 +562,19 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
     await showConfirm(msg, confirmKey, 'OK');
   }
 
+  const bulkProperties = createBulkPropertyOps({
+    syncOpenTabsToDisk,
+    reportBulkSummary,
+    onWritten: () => { ctx.getSidebar()?.refreshTags(); ctx.onBulkPropertiesWritten?.(); },
+  });
+
+  /** "Edit properties…" for an explicit set of notes — a type view's
+   *  multi-selection (#2431). */
+  async function handleEditProperties(paths: string[]): Promise<void> {
+    if (!notebase.meta) return;
+    await bulkProperties.editProperties(paths);
+  }
+
   async function reportBulkTagSummary(
     op: 'Add' | 'Remove',
     tag: string,
@@ -586,6 +602,9 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
       await showConfirm('The selection contains no .md files to edit.', CONFIRM_KEYS.bulkTagNoSelection, 'OK');
       return;
     }
+    // A typed selection gets the type-aware panel (#2431), which also adds
+    // free-form keys — the schema's widgets beat a raw string prompt.
+    if (await bulkProperties.isTypedSelection(targets)) { await bulkProperties.editProperties(targets); return; }
 
     let keyVocab: string[] = [];
     try { keyVocab = (await api.graph.frontmatterKeys()).filter((k) => k !== 'tags'); }
@@ -634,6 +653,8 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
       await showConfirm('The selection contains no .md files to edit.', CONFIRM_KEYS.bulkTagNoSelection, 'OK');
       return;
     }
+    // Same panel (#2431): every field can be cleared, other keys removed.
+    if (await bulkProperties.isTypedSelection(targets)) { await bulkProperties.editProperties(targets); return; }
 
     const keySet = new Set<string>();
     const readFailures: OperationFailure[] = [];
@@ -853,7 +874,7 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
   return {
     handleExtractSelection, handleSplitByHeading, handleSplitHere,
     handleAutoLink, handleAutoLinkInbound, handleAutoLinkInboundApply, handleAutoLinkApply,
-    handleAddTag, handleRemoveTag, handleAddProperty, handleRemoveProperty, handleToggleEntrypoint,
+    handleAddTag, handleRemoveTag, handleAddProperty, handleRemoveProperty, handleEditProperties, handleToggleEntrypoint,
     handleLabelVersion, handleViewHistory,
     handleFormat, handleBibliography, handleAutoTag, handleAutoTagApply,
   };
