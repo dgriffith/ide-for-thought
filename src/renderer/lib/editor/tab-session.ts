@@ -9,6 +9,7 @@
  * into live tabs.
  */
 import { normalizeFolder, parseViewFilters } from '../../../shared/objects/view-spec';
+import { parseMapStyle } from '../../../shared/objects/map-style';
 import type {
   TabSession, SavedTab, SavedGroup, LayoutSession,
 } from '../../../shared/types';
@@ -45,6 +46,7 @@ export function toSavedTab(t: Tab): SavedTab {
       // A plain copy: filters set from component state can be a reactive Proxy,
       // which the structured-clone IPC boundary rejects — losing the session.
       ...(t.filters.length > 0 ? { filters: JSON.parse(JSON.stringify(t.filters)) as unknown[] } : {}),
+      ...(t.mapStyle !== 'auto' ? { mapStyle: t.mapStyle } : {}),
     };
   } else {
     return {
@@ -124,6 +126,7 @@ export async function reconstructTab(saved: SavedTab, nextQueryId: () => string)
       columns: saved.columns ?? null,
       folder: normalizeFolder(saved.folder),
       filters: parseViewFilters(saved.filters),
+      mapStyle: parseMapStyle(saved.mapStyle),
     };
   } else {
     return { type: 'source', sourceId: saved.sourceId, highlightExcerptId: saved.highlightExcerptId };

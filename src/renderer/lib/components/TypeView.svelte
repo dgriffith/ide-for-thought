@@ -19,6 +19,7 @@
   import TypeViewMap from './TypeViewMap.svelte';
   import TypeViewFilters from './TypeViewFilters.svelte';
   import type { MapExportHooks } from '../map/map-export';
+  import type { MapStyle } from '../../../shared/objects/map-style';
   import { applyViewSpec, type ViewFilter } from '../../../shared/objects/view-spec';
   import { buildViewEmbed } from '../../../shared/objects/view-note';
   import { objectTypesStore } from '../stores/object-types.svelte';
@@ -27,7 +28,7 @@
   import type { PropertyDef, TypeInfo, TypeInstanceRow } from '../../../shared/objects/type-def';
 
   type Layout = 'list' | 'table' | 'gallery' | 'map';
-  interface StatePatch { layout?: Layout; sortColumn?: string | null; sortDir?: 'asc' | 'desc'; columns?: string[] | null; folder?: string | null; filters?: ViewFilter[] }
+  interface StatePatch { layout?: Layout; sortColumn?: string | null; sortDir?: 'asc' | 'desc'; columns?: string[] | null; folder?: string | null; filters?: ViewFilter[]; mapStyle?: MapStyle }
 
   interface Props {
     typeId: string;
@@ -64,8 +65,11 @@
     onClearFolder?: () => void;
     /** Map layout only: render for an export and hand back a capture (#2511). */
     mapExport?: MapExportHooks;
+    /** Map layout's tile style (#2665); `auto` follows the app theme. The
+     *  panel shows a control to change it; an embed or export doesn't. */
+    mapStyle?: MapStyle;
   }
-  let { typeId, layout, sortColumn, sortDir, columns, revision, onStateChange, onOpenNote, onSaveView, chromeless = false, onLoaded, mapExport, folder = null, filters = [], onClearFolder }: Props = $props();
+  let { typeId, layout, sortColumn, sortDir, columns, revision, onStateChange, onOpenNote, onSaveView, chromeless = false, onLoaded, mapExport, folder = null, filters = [], onClearFolder, mapStyle = 'auto' }: Props = $props();
 
   let type = $state<TypeInfo | null>(null);
   let instances = $state<TypeInstanceRow[]>([]);
@@ -196,7 +200,7 @@
    * failure (report: "does not appear to do anything").
    */
   async function copyAsMarkdown(): Promise<void> {
-    const md = buildViewEmbed({ typeId, layout, sortColumn, sortDir, columns, folder, filters });
+    const md = buildViewEmbed({ typeId, layout, sortColumn, sortDir, columns, folder, filters, mapStyle });
     try {
       await navigator.clipboard.writeText(md);
       markdownCopied = true;
@@ -374,7 +378,14 @@
       {/each}
     </div>
   {:else if locationProperty}
-    <TypeViewMap instances={scoped} {locationProperty} {onOpenNote} {...(mapExport ? { exportHooks: mapExport } : {})} />
+    <TypeViewMap
+      instances={scoped}
+      {locationProperty}
+      {onOpenNote}
+      {mapStyle}
+      {...(mapExport ? { exportHooks: mapExport } : {})}
+      {...(chromeless || mapExport ? {} : { onMapStyleChange: (next: MapStyle) => onStateChange({ mapStyle: next }) })}
+    />
   {:else}
     <!-- A saved/persisted tab claims layout: 'map' but the type no longer has
          a geo property (e.g. edited after the view was saved) — fall back to

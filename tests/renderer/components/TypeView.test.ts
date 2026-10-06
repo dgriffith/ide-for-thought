@@ -189,6 +189,24 @@ describe('TypeView (#1070)', () => {
       await waitFor(() => expect(container.querySelector('[aria-label="Map"]')).toBeTruthy());
     });
 
+    it('the panel offers a light/dark/auto map-style control that writes the view state (#2665)', async () => {
+      instancesMock.mockResolvedValue({ type: PLACE, instances: PLACE_INSTANCES });
+      const onStateChange = vi.fn();
+      render(TypeView, props({ typeId: 'place', layout: 'map', mapStyle: 'light', onStateChange }));
+      const group = await screen.findByRole('group', { name: 'Map style' });
+      const pressed = [...group.querySelectorAll('button')].map((btn) => [btn.textContent, btn.getAttribute('aria-pressed')]);
+      expect(pressed).toEqual([['Auto', 'false'], ['Light', 'true'], ['Dark', 'false']]);
+      await fireEvent.click(screen.getByRole('button', { name: 'Dark' }));
+      expect(onStateChange).toHaveBeenCalledWith({ mapStyle: 'dark' });
+    });
+
+    it('an embed renders the map with no map-style control (#2665, as #2534 dropped the filters)', async () => {
+      instancesMock.mockResolvedValue({ type: PLACE, instances: PLACE_INSTANCES });
+      const { container } = render(TypeView, props({ typeId: 'place', layout: 'map', mapStyle: 'dark', chromeless: true }));
+      await waitFor(() => expect(container.querySelector('[aria-label="Map"]')).toBeTruthy());
+      expect(screen.queryByRole('group', { name: 'Map style' })).toBeNull();
+    });
+
     it('falls back to a message instead of mounting the map when the type has no geo property', async () => {
       // A stale saved-view/tab-state claims layout: 'map' for a type that no
       // longer has (or never had) a geo property.
@@ -231,13 +249,24 @@ describe('TypeView (#1070)', () => {
       await fireEvent.click(await screen.findByText('Copy as markdown'));
       expect(writeText).toHaveBeenCalledWith(buildViewEmbed(spec));
       expect(buildViewNoteContent('Books', spec)).toContain(writeText.mock.calls[0]![0] as string);
-      expect(copiedSpec()).toEqual({ ...spec, filters: [{ property: 'rating', min: '4', max: null }] }); // the parser's normal form
+      expect(copiedSpec()).toEqual({ ...spec, filters: [{ property: 'rating', min: '4', max: null }], mapStyle: 'auto' }); // the parser's normal form
     });
 
     it('a map copies as a map — not a list (the report)', async () => {
       render(TypeView, props({ layout: 'map' }));
       await fireEvent.click(await screen.findByText('Copy as markdown'));
       expect(copiedSpec()).toMatchObject({ typeId: 'book', layout: 'map', folder: null, filters: [] });
+    });
+
+    it('a map copies with its explicit style, and an auto one leaves it out (#2665)', async () => {
+      render(TypeView, props({ layout: 'map', mapStyle: 'dark' }));
+      await fireEvent.click(await screen.findByText('Copy as markdown'));
+      expect(copiedSpec()).toMatchObject({ layout: 'map', mapStyle: 'dark' });
+      cleanup();
+      writeText.mockClear();
+      render(TypeView, props({ layout: 'map' }));
+      await fireEvent.click(await screen.findByText('Copy as markdown'));
+      expect(writeText.mock.calls[0]![0] as string).not.toContain('mapStyle');
     });
 
     it('every layout round-trips: the pasted block opens the view it was copied from', async () => {

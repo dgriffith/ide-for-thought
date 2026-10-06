@@ -10,6 +10,7 @@
  * already calls.
  */
 import { getEffectiveTheme, getThemeMode } from '../theme';
+import type { MapStyle } from '../../../shared/objects/map-style';
 
 const LIGHT_STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
 const DARK_STYLE_URL = 'https://tiles.openfreemap.org/styles/dark';
@@ -22,7 +23,21 @@ export function styleUrlForTheme(): string {
   return effective === 'light' ? LIGHT_STYLE_URL : DARK_STYLE_URL;
 }
 
-/** Exports read on white, whatever the app's theme (#2511) — as charts do. */
-export function exportStyleUrl(): string {
-  return LIGHT_STYLE_URL;
+/** Which tiles a view's chosen style (#2665) means right now: `light` /
+ *  `dark` as chosen, `auto` whatever the app theme maps to. */
+export function resolveMapStyle(style: MapStyle): 'light' | 'dark' {
+  if (style !== 'auto') return style;
+  return styleUrlForTheme() === LIGHT_STYLE_URL ? 'light' : 'dark';
+}
+
+/** The style URL for a view's chosen style (#2665). */
+export function mapStyleUrl(style: MapStyle): string {
+  return resolveMapStyle(style) === 'light' ? LIGHT_STYLE_URL : DARK_STYLE_URL;
+}
+
+/** Exports read on white, whatever the app's theme (#2511) — as charts do —
+ *  unless the view explicitly chose a style (#2665), which the export keeps:
+ *  the map is a captured image, so a dark map is still legible on white. */
+export function exportStyleUrl(style: MapStyle = 'auto'): string {
+  return style === 'dark' ? DARK_STYLE_URL : LIGHT_STYLE_URL;
 }

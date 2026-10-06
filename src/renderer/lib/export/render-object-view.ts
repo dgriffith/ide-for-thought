@@ -7,7 +7,8 @@
  * The off-screen host reproduces the preview's container (`.object-view-block`
  * with `data-object-view-rendered="ok"`, so the embed's own border and
  * background rules apply) inside a `data-theme="light"` element: exports read
- * on white, as charts already do (`vega-render.ts`).
+ * on white, as charts already do (`vega-render.ts`). A map whose view chose
+ * `light` or `dark` (#2665) is captured in that style; `auto` exports light.
  *
  * One deliberate difference from the preview: the preview frames an embed in
  * a fixed 360px box that scrolls; an export shows every row, because a page —
@@ -66,6 +67,7 @@ export async function renderObjectViewForExport(source: string): Promise<string>
           columns: spec.columns,
           folder: spec.folder,
           filters: spec.filters,
+          mapStyle: spec.mapStyle,
           revision: 0,
           chromeless: true,
           onStateChange: () => {},
