@@ -2,6 +2,7 @@ import YAML from 'yaml';
 import { ownRecord } from '../../shared/own-record';
 import { splitAnchor } from '../../shared/slug';
 import { slugifyTableName } from '../../shared/table-name';
+import { CODE_BLOCK_RE, extractInlineTags } from '../../shared/inline-tags';
 
 export interface ParsedLink {
   /** Bare target path/id with any `#anchor` stripped. */
@@ -55,10 +56,8 @@ export interface ParsedNote {
 
 // [[type::target|display]] or [[type::target]] or [[target|display]] or [[target]]
 const WIKI_LINK_RE = /\[\[([^\]]+?)\]\]/g;
-const TAG_RE = /(?:^|\s)#([a-zA-Z][\w-/]*)/g;
 const HEADING_RE = /^#\s+(.+)$/m;
 const FRONTMATTER_RE = /^---\n([\s\S]*?)\n---/;
-const CODE_BLOCK_RE = /```[\s\S]*?```|`[^`\n]+`/g;
 // A `-hidden` suffix (#2039, see shared/markdown/fence-info.ts) only changes
 // human-facing rendering — a hidden turtle block is still graph-real content,
 // so extraction must keep recognizing it.
@@ -77,7 +76,9 @@ export function parseMarkdown(content: string): ParsedNote {
   // on every note, on every index pass — and boot makes three of those.
   const frontmatter = extractFrontmatter(content);
   const title = extractTitle(content, frontmatter);
-  const tags = extractTags(stripped);
+  // Tag lexing lives in shared/inline-tags (#2430) so the tag merge rewrite
+  // and this indexer share one definition of what a tag is.
+  const tags = extractInlineTags(content);
   const links = extractLinks(stripped);
   const tables = extractTables(stripped);
   const aliases = extractAliases(frontmatter);
@@ -124,38 +125,6 @@ function extractTitle(content: string, fm: Record<string, FrontmatterValue>): st
   // Fall back to first H1
   const match = content.match(HEADING_RE);
   return match ? match[1]!.trim() : null;
-}
-
-/** Each `/`-delimited segment of a nested tag must look like a normal
- *  tag identifier — letter, then word chars or hyphens. Empty segments
- *  (`#a//b`) and segments starting with non-letter (`#a/1b`) are
- *  rejected so the tree view (#466) never sprouts garbage levels. */
-const TAG_SEGMENT_RE = /^[a-zA-Z][\w-]*$/;
-
-function extractTags(content: string): string[] {
-  const tags = new Set<string>();
-  let match;
-  TAG_RE.lastIndex = 0;
-  while ((match = TAG_RE.exec(content)) !== null) {
-    const cleaned = normalizeNestedTag(match[1]!);
-    if (cleaned) tags.add(cleaned);
-  }
-  return [...tags];
-}
-
-/**
- * Strip a trailing slash and validate every `/`-delimited segment.
- * Returns null when any segment is malformed — the indexer treats
- * that as "this isn't actually a tag", same as a bare `#` would be.
- */
-function normalizeNestedTag(raw: string): string | null {
-  const trimmed = raw.replace(/\/+$/, '');
-  if (!trimmed) return null;
-  const parts = trimmed.split('/');
-  for (const p of parts) {
-    if (!TAG_SEGMENT_RE.test(p)) return null;
-  }
-  return parts.join('/');
 }
 
 function extractLinks(content: string): ParsedLink[] {

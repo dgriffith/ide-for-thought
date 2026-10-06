@@ -13,16 +13,18 @@
     size?: Size;
     /** When provided, the chip renders as a <button>; otherwise a <span>. */
     onclick?: (e: MouseEvent) => void;
+    /** Right-click handler (e.g. a tag's context menu, #2430). */
+    oncontextmenu?: (e: MouseEvent) => void;
     /** Native title (tooltip). */
     title?: string;
     children: Snippet;
   }
 
-  let { tone = 'default', size = 'sm', onclick, title, children }: Props = $props();
+  let { tone = 'default', size = 'sm', onclick, oncontextmenu, title, children }: Props = $props();
 </script>
 
 {#if onclick}
-  <button type="button" class="chip" class:big={size === 'md'} data-tone={tone} {title} {onclick}>
+  <button type="button" class="chip" class:big={size === 'md'} data-tone={tone} {title} {onclick} {oncontextmenu}>
     {@render children()}
   </button>
 {:else}

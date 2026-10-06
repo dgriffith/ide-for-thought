@@ -247,6 +247,8 @@ exports[`IPC registration contract (#997) > matches the known set of registered 
   "tabs:save",
   "tags:allNames",
   "tags:list",
+  "tags:merge",
+  "tags:mergePreview",
   "tags:notesByTag",
   "tags:notesByTagPrefix",
   "tags:sourcesByTag",

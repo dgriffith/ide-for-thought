@@ -7,6 +7,7 @@ import type { ClipperState } from '../../../shared/clipper-pairing';
 import type { McpServerDescriptor, McpServerStatus } from '../../../shared/mcp-servers';
 import type { Proposal, ProposalApproveResult, ProposalRejectResult } from '../../../shared/proposals';
 import type { GraphQueryResult } from '../../../shared/graph-query';
+import type { TagMergePreview, TagMergeResult } from '../../../shared/refactor/merge-tag';
 import type { MaintenanceProgress } from '../../../shared/maintenance';
 import type { ThemeMode } from '../../../shared/theme';
 import type { BatchRevertResult, HistorySettings, LabelNotesResult, RevisionMeta, SelectionRoot, UnifiedTimelineEntry } from '../../../shared/history';
@@ -255,6 +256,12 @@ export interface TagsApi {
   notesByTagPrefix(prefix: string): Promise<TaggedNote[]>;
   sourcesByTag(tag: string): Promise<TaggedSource[]>;
   allNames(): Promise<string[]>;
+  /** What merging `from` into `to` would change (#2430). Pure read. */
+  mergePreview(from: string, to: string): Promise<TagMergePreview>;
+  /** Merge tag `from` into `to` (a rename when `to` is new) across notes and
+   *  sources (#2430). Throws on an invalid name or no project; per-note
+   *  failures come back in `errors`. */
+  merge(from: string, to: string): Promise<TagMergeResult>;
 }
 
 export interface TemplateInfo {

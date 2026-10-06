@@ -86,7 +86,7 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="left-sidebar.html">Left sidebar</a><span class="sep">/</span>Tags</p>
 
     <h1>Tags</h1>
-    <p class="lede">Tags are simple labels you attach to notes to group related material. The Tags panel gathers every tag in your project into one alphabetical list, and clicking a tag shows you everything that carries it. It's a way to browse and filter — you add and remove tags in a note itself, not here.</p>
+    <p class="lede">Tags are simple labels you attach to notes to group related material. The Tags panel gathers every tag in your project into one alphabetical list, and clicking a tag shows you everything that carries it. It's a way to browse and filter — you add and remove tags in a note itself, though you can merge or rename a tag here.</p>
 
     <h2 id="sources">Where tags come from</h2>
     <p>There are two ways to tag a note, and both feed the same list.</p>
@@ -138,6 +138,8 @@
     <p>Click a chip to see everything that carries that tag. Matching notes and sources are listed right below the chips. Click a note to open it in the editor, or a source to open it in the source viewer.</p>
 
     <p>One tag is active at a time — clicking another chip switches to it. Click the active chip again to deselect it and clear the results.</p>
+
+    <p>Right-click a chip and choose <strong>Merge into tag…</strong> to fold one tag into another — <code>#ml</code> into <code>#machine-learning</code>, say. Pick an existing tag from the suggestions, or type a new name to rename the tag. Minerva tells you how many notes and sources will change, then rewrites the tag everywhere: in note properties, inline <code>#tags</code>, nested tags underneath it (<code>#ml/nlp</code> becomes <code>#machine-learning/nlp</code>), and the tags on your sources. Code samples and links are left alone, and a note that already had the other tag doesn't get it twice. To undo, restore a note's previous version from its local history.</p>
 
     <div class="box">
       <span class="label">This is a separate list</span>

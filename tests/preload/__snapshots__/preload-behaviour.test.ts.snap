@@ -350,6 +350,8 @@ exports[`preload behaviour: surface-wide invariants (#2367) > the full method â†
   "tabs.save": "invoke tabs:save",
   "tags.allNames": "invoke tags:allNames",
   "tags.list": "invoke tags:list",
+  "tags.merge": "invoke tags:merge",
+  "tags.mergePreview": "invoke tags:mergePreview",
   "tags.notesByTag": "invoke tags:notesByTag",
   "tags.notesByTagPrefix": "invoke tags:notesByTagPrefix",
   "tags.sourcesByTag": "invoke tags:sourcesByTag",

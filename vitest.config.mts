@@ -383,6 +383,15 @@ export default defineConfig({
           statements: 85,
           branches: 79,
         },
+        // tags ~98.3 L / 100 F / 95.7 S / 62.5 B (#2430). Tag merge/rename: a
+        // bulk rewrite of notes + source meta.ttl. Single file, so floors sit
+        // ~10 below; the branch gap is the per-source failure arm.
+        'src/main/tags/**': {
+          lines: 88,
+          functions: 90,
+          statements: 85,
+          branches: 52,
+        },
         // clipper ~92.9 L / 94.6 F / 93 S / 83.7 B. A localhost HTTP server
         // taking browser-extension POSTs, with a shared secret — a remote-input
         // trust boundary, so the branch floor is the one that matters.
