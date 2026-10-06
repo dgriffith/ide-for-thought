@@ -45,7 +45,7 @@ const EXTERNAL_DEP_ROOTS = [
   'sql.js',
   // Local embeddings (#834). onnxruntime-web is externalized in vite.main.config
   // (it loads its ORT `.wasm` from disk), so its closure — incl. the `.wasm` —
-  // must ship for the bundled `embed-worker.js` to `import('onnxruntime-web')`.
+  // must ship for the bundled `embed-worker.cjs` to `import('onnxruntime-web')`.
   'onnxruntime-web',
 ];
 
@@ -105,7 +105,7 @@ function copyExternalDeps(buildPath: string): void {
   }
 }
 
-// Stage the headless CLI (#1437) into the packaged app next to `main.js`, so it
+// Stage the headless CLI (#1437) into the packaged app next to `main.cjs`, so it
 // resolves the same shipped `node_modules` (the native roots `copyExternalDeps`
 // stages) — `cli.js` is self-contained JS otherwise (vite.cli.config.ts). At
 // runtime it's launched via the app's own Electron binary under
@@ -115,7 +115,7 @@ function copyExternalDeps(buildPath: string): void {
 // We build cli.js HERE rather than in a `generateAssets` hook: that runs before
 // the Vite plugin, which then empties `.vite/build` and deletes it. By afterPrune
 // the plugin's builds are done, and `vite.cli.config`'s `emptyOutDir:false` keeps
-// `main.js` intact. The build runs against the repo's node_modules (unaffected by
+// `main.cjs` intact. The build runs against the repo's node_modules (unaffected by
 // the app prune), and afterPrune is before signing, so the addition is signed.
 function copyCliBundle(buildPath: string): void {
   execFileSync('pnpm', ['cli:build'], { stdio: 'inherit' });
@@ -168,7 +168,7 @@ const config: ForgeConfig = {
     // (`duckdb.node` + the `libduckdb.dylib` it links by rpath) is unpacked to
     // `app.asar.unpacked/`; Electron redirects the `.node` require there
     // itself. Everything else loads from inside the archive — including
-    // `cli.js` under ELECTRON_RUN_AS_NODE, the `embed-worker.js` worker thread
+    // `cli.js` under ELECTRON_RUN_AS_NODE, the `embed-worker.cjs` worker thread
     // and the ORT / sql.js `.wasm` reads — which the packaged e2e specs
     // (smoke + embeddings) and the CLI shim check in #2366 exercise.
     asar: {
@@ -194,14 +194,11 @@ const config: ForgeConfig = {
     // packaged app, so process.resourcesPath finds it (#241).
     extraResource: ['resources'],
     afterPrune: [
-      (buildPath, _electronVersion, _platform, _arch, done) => {
-        try {
-          copyExternalDeps(buildPath);
-          copyCliBundle(buildPath);
-          done();
-        } catch (err) {
-          done(err instanceof Error ? err : new Error(String(err)));
-        }
+      // @electron/packager 20 (forge 8) dropped callback hooks: a hook takes
+      // `{ buildPath, … }` and a throw fails the package step.
+      ({ buildPath }) => {
+        copyExternalDeps(buildPath);
+        copyCliBundle(buildPath);
       },
     ],
   },
@@ -228,13 +225,14 @@ const config: ForgeConfig = {
     // it is the CLI and the MCP server. The NODE_OPTIONS / --inspect doors are
     // shut, and app code loads only from the integrity-checked `app.asar`.
     //
-    // `strictlyRequireAllFuses` can't be on: Electron 44's wire has nine fuses
-    // and @electron/fuses 1.x (the line plugin-fuses 7.x peers on) writes eight
-    // — the ninth, WasmTrapHandlers, keeps Electron's default (ON), which is
-    // also the policy. The read-back is the strictness instead: it fails on a
-    // wrong value or on any fuse the policy does not name.
+    // `strictlyRequireAllFuses` makes the plugin refuse to package unless the
+    // policy sets every fuse @electron/fuses knows — possible since fuses 2.x
+    // (plugin-fuses 8) names the ninth, WasmTrapHandlers, which 1.x couldn't
+    // write. The read-back stays: it checks the built binary, and fails on a
+    // fuse the policy does not name even if this library doesn't know it yet.
     new FusesPlugin({
       version: FuseVersion.V1,
+      strictlyRequireAllFuses: true,
       ...forgeFuseSettings(),
     }),
     new VitePlugin({
@@ -250,9 +248,9 @@ const config: ForgeConfig = {
           target: 'preload',
         },
         {
-          // Off-thread embedder (#834). Emitted as `embed-worker.js` beside
-          // `main.js` so it shares the externalized node_modules; spawned by
-          // embedder-service.ts via `new Worker(__dirname/embed-worker.js)`.
+          // Off-thread embedder (#834). Emitted as `embed-worker.cjs` beside
+          // `main.cjs` so it shares the externalized node_modules; spawned by
+          // embedder-service.ts via `new Worker(__dirname/embed-worker.cjs)`.
           entry: 'src/main/embeddings/embed-worker.ts',
           config: 'vite.main.config.mts',
           target: 'main',

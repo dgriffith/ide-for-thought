@@ -4,7 +4,7 @@
  * Embeds the query with the same process-global embedder singleton the
  * thoughtbase's own semantic search uses (`shared-embedder.ts` — no second
  * model load) unless a caller injects its own (tests: the shared singleton is
- * worker-thread-backed and needs a built `embed-worker.js`, so tests pass a
+ * worker-thread-backed and needs a built `embed-worker.cjs`, so tests pass a
  * directly-instantiated `createWasmEmbedder()` instead — same pattern as
  * `cli/engine.ts`'s `opts.embedder ?? getSharedEmbedder(...)`). Then
  * brute-force cosine-ranks it against the corpus loaded by `corpus-store.ts`.

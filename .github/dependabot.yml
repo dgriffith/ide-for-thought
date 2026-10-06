@@ -19,6 +19,18 @@ updates:
     # individual PRs (they carry breaking-change risk and deserve their own
     # review) — but security fixes always open regardless of grouping.
     groups:
+      # Electron Forge is one tool shipped as many packages, and they must
+      # move together — majors included. Split, the forge 8 bump arrived as
+      # five PRs: merging one left forge-core on 7 with a maker on 8, and
+      # merging two in a row combined their lockfile edits textually into one
+      # pnpm refused to install (#2658 on top of #2657). @electron/fuses rides
+      # along because plugin-fuses peers on its major. Listed BEFORE
+      # minor-and-patch: dependabot puts a dependency in the first group it
+      # matches.
+      electron-forge:
+        patterns:
+          - "@electron-forge/*"
+          - "@electron/fuses"
       minor-and-patch:
         update-types:
           - "minor"

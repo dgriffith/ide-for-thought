@@ -163,7 +163,7 @@ export function createWindow(opts?: { x?: number; y?: number; width?: number; he
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 12, y: 12 },
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, 'preload.cjs'),
       // contextIsolation on / nodeIntegration off / sandbox on. The preload
       // imports only `electron` + the pure `shared/channels` module (no Node
       // builtins), so the renderer never needs Node — run it sandboxed,

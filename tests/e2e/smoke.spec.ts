@@ -10,7 +10,7 @@
  *
  * Strategy:
  *   1. Boot the *built* app via Playwright's `_electron.launch`. We
- *      use the in-tree `.vite/build/main.js` rather than the packaged
+ *      use the in-tree `.vite/build/main.cjs` rather than the packaged
  *      .app so the build step is a one-liner (`vite build` for each
  *      target) instead of a 30-second `electron-forge package`.
  *   2. Wait for the first BrowserWindow to load.
@@ -156,7 +156,7 @@ test('app launches, renderer mounts, no thrown errors', async () => {
 
 /**
  * Packaging regression: the *packaged* app opens a project that uses DuckDB
- * tables (#691 follow-up). The test above boots `.vite/build/main.js` against
+ * tables (#691 follow-up). The test above boots `.vite/build/main.cjs` against
  * the repo, so it uses the dev `node_modules` and never exercises what actually
  * shipped. @electron-forge/plugin-vite bundles the main process and ships no
  * node_modules, so the externalized `@duckdb/node-bindings` native binary has to

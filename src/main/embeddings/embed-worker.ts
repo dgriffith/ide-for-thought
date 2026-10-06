@@ -4,7 +4,7 @@
  * Embedding is CPU-bound (WASM matmuls, ~10 ms/text) and would otherwise block
  * the main thread's event loop — felt most during the #836 backfill. So the
  * embedder runs here, off the main thread. Bundled as its own forge/vite entry
- * (`embed-worker.js`, beside `main.js`) so it shares the externalized
+ * (`embed-worker.cjs`, beside `main.cjs`) so it shares the externalized
  * node_modules; `embedder-service.ts` spawns and talks to it.
  *
  * Protocol: `{ id, texts }` in → `{ id, vectors }` or `{ id, error }` out. The

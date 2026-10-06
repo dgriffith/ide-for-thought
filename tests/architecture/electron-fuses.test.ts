@@ -92,7 +92,11 @@ describe('forge.config.ts applies the policy', () => {
         typeof p === 'object' && p !== null && (p as { name?: string }).name === 'fuses',
     );
     expect(fuses, 'forge.config.ts has no FusesPlugin').toBeDefined();
-    expect(fuses!.fusesConfig).toEqual({ version: '1', ...forgeFuseSettings() });
+    expect(fuses!.fusesConfig).toEqual({
+      version: '1',
+      strictlyRequireAllFuses: true,
+      ...forgeFuseSettings(),
+    });
 
     // OnlyLoadAppFromAsar with no asar is an app that cannot start; integrity
     // validation with no asar validates nothing.

@@ -87,9 +87,9 @@ export const FUSE_POLICY = Object.freeze([
   // off, every WASM memory access pays an explicit check, and the embedder
   // (ORT), sql.js and the renderer's Whisper worker are all WASM hot loops.
   // A performance mechanism, not attack surface an app switch would close.
-  // (@electron/fuses 1.x — the line plugin-fuses 7.x peers on — predates this
-  // fuse and does not write it, so this entry is what holds it: the read-back
-  // fails if it is ever not ON.)
+  // (@electron/fuses 1.x — the line plugin-fuses 7.x peered on — predated this
+  // fuse and did not write it; with 2.x this entry is written like the rest,
+  // and the read-back still fails if it is ever not ON.)
   Object.freeze({ name: 'WasmTrapHandlers', index: 8, enabled: true }),
 ]);
 

@@ -1,7 +1,7 @@
 /**
  * Main-process handle to the off-thread embedder (#834).
  *
- * Spawns `embed-worker.js` lazily (on first embed, so launch pays nothing) and
+ * Spawns `embed-worker.cjs` lazily (on first embed, so launch pays nothing) and
  * multiplexes requests over it by id. This is the seam the rest of the
  * semantic-search subsystem (vector store #835, search_related #837) calls — it
  * never touches onnxruntime-web or the worker directly.
@@ -25,7 +25,7 @@ export interface EmbedderServiceOptions {
   resourcesBase?: string;
   /** Where ORT-web finds its `.wasm`, if the default resolution doesn't. */
   wasmPaths?: string;
-  /** Override the worker path (tests). Defaults to `embed-worker.js` beside the
+  /** Override the worker path (tests). Defaults to `embed-worker.cjs` beside the
    *  bundled main. */
   workerPath?: string;
 }
@@ -36,7 +36,7 @@ interface Pending {
 }
 
 export function createEmbedderService(opts: EmbedderServiceOptions = {}): EmbedderService {
-  const workerPath = opts.workerPath ?? path.join(__dirname, 'embed-worker.js');
+  const workerPath = opts.workerPath ?? path.join(__dirname, 'embed-worker.cjs');
   const workerData = { resourcesBase: opts.resourcesBase, wasmPaths: opts.wasmPaths };
 
   let worker: Worker | null = null;
