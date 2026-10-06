@@ -62,6 +62,22 @@ describe('renderObjectViewForExport', () => {
     expect(html).not.toContain('tabindex');
   });
 
+  it('a kanban export honours the column order and Show empty columns, read-only (#2614)', async () => {
+    const PROJECT = {
+      id: 'project', label: 'Project', classLocalName: 'Project', icon: '🚀', source: 'stock' as const,
+      properties: [{ name: 'status', type: 'enum' as const, options: ['active', 'paused', 'done'] }],
+    };
+    instancesMock.mockResolvedValue({ type: PROJECT, instances: [
+      { path: 'p/Shed.md', title: 'Garden Shed', values: { status: 'active' }, cover: null },
+      { path: 'p/Tax.md', title: 'Tax Return', values: { status: 'done' }, cover: null },
+    ] });
+    const html = await renderObjectViewForExport(JSON.stringify({ typeId: 'project', layout: 'kanban', columnOrder: ['done'], showEmptyColumns: false }));
+    const order = [...html.matchAll(/data-column-value="([^"]*)"/g)].map((m) => m[1]);
+    expect(order).toEqual(['done', 'active']); // paused is empty, so hidden
+    expect(html).not.toContain('kb-col-menu-btn');
+    expect(html).not.toContain('data-draggable');
+  });
+
   it('honours the saved sort, as the preview does', async () => {
     const html = await renderObjectViewForExport(JSON.stringify({ typeId: 'place', layout: 'table', sortColumn: '__title', sortDir: 'desc' }));
     expect(html.indexOf('Széchenyi Baths')).toBeLessThan(html.indexOf('Kampa Museum'));

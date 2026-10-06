@@ -22,7 +22,8 @@
  * filter controls or folder chip: those are the view panel's (#2534).
  * A `"layout": "kanban"` spec may name `"groupBy"`, the enum property its
  * columns come from (#2601, `shared/objects/kanban.ts`); absent, the type's
- * first enum property.
+ * first enum property, and may carry `"columnOrder"` (column values, `""` for
+ * No value) and `"showEmptyColumns": false` (#2614).
  *
  * Mirrors `vega-renderer.ts`'s shape: the fence rule emits a placeholder
  * `<div class="object-view-block">` carrying the raw JSON spec as text
@@ -74,7 +75,7 @@ import type { ViewLayout } from '../../../shared/types';
 import { normalizeFolder, parseViewFilters, type ViewFilter } from '../../../shared/objects/view-spec';
 import { escapeHtml } from '../../../shared/text-escape';
 import { parseMapStyle, type MapStyle } from '../../../shared/objects/map-style';
-import { parseGroupBy } from '../../../shared/objects/kanban';
+import { parseColumnOrder, parseGroupBy, parseShowEmptyColumns } from '../../../shared/objects/kanban';
 import { parseViewHeight } from '../../../shared/objects/view-height';
 import { blockCacheFor, blockKey, createContentWrapper, HYDRATED_CONTENT_CLASS } from './hydrated-block-cache';
 import { reactiveProps } from './mounted-props.svelte';
@@ -100,6 +101,10 @@ export interface ObjectViewSpec {
   /** Kanban's grouping enum property (#2601); absent → the type's first enum.
    *  Only its shape is checked here — `TypeView` checks it against the type. */
   groupBy: string | null;
+  /** Kanban's column order (#2614); absent or malformed → `[]`, the enum order. */
+  columnOrder: string[];
+  /** Kanban's Show empty columns (#2614); only an explicit `false` hides them. */
+  showEmptyColumns: boolean;
 }
 
 const LAYOUTS: ReadonlySet<ViewLayout> = new Set(['list', 'table', 'gallery', 'map', 'kanban']);
@@ -129,6 +134,8 @@ export function parseObjectViewSpec(raw: string): ObjectViewSpec {
     mapStyle: parseMapStyle(spec.mapStyle),
     height: parseViewHeight(spec.height),
     groupBy: parseGroupBy(spec.groupBy),
+    columnOrder: parseColumnOrder(spec.columnOrder),
+    showEmptyColumns: parseShowEmptyColumns(spec.showEmptyColumns),
   };
 }
 
@@ -150,6 +157,8 @@ type ViewProps = {
   filters: ViewFilter[];
   mapStyle: MapStyle;
   groupBy: string | null;
+  columnOrder: string[];
+  showEmptyColumns: boolean;
   revision: number;
   chromeless: boolean;
   onStateChange: () => void;
@@ -233,6 +242,8 @@ export function hydrateObjectViewBlocks(root: HTMLElement, deps: ObjectViewDeps)
       filters: spec.filters,
       mapStyle: spec.mapStyle,
       groupBy: spec.groupBy,
+      columnOrder: spec.columnOrder,
+      showEmptyColumns: spec.showEmptyColumns,
       revision: deps.revision,
       chromeless: true,
       // No in-preview UI for changing the embedded spec (#2067) — a

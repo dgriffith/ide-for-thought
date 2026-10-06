@@ -10,7 +10,7 @@
  */
 import { normalizeFolder, parseViewFilters } from '../../../shared/objects/view-spec';
 import { parseMapStyle } from '../../../shared/objects/map-style';
-import { parseGroupBy } from '../../../shared/objects/kanban';
+import { parseColumnOrder, parseGroupBy, parseShowEmptyColumns } from '../../../shared/objects/kanban';
 import type {
   TabSession, SavedTab, SavedGroup, LayoutSession,
 } from '../../../shared/types';
@@ -49,6 +49,8 @@ export function toSavedTab(t: Tab): SavedTab {
       ...(t.filters.length > 0 ? { filters: JSON.parse(JSON.stringify(t.filters)) as unknown[] } : {}),
       ...(t.mapStyle !== 'auto' ? { mapStyle: t.mapStyle } : {}),
       ...(t.groupBy ? { groupBy: t.groupBy } : {}),
+      ...(t.columnOrder.length > 0 ? { columnOrder: [...t.columnOrder] } : {}),
+      ...(t.showEmptyColumns ? {} : { showEmptyColumns: false }),
     };
   } else {
     return {
@@ -130,6 +132,8 @@ export async function reconstructTab(saved: SavedTab, nextQueryId: () => string)
       filters: parseViewFilters(saved.filters),
       mapStyle: parseMapStyle(saved.mapStyle),
       groupBy: parseGroupBy(saved.groupBy),
+      columnOrder: parseColumnOrder(saved.columnOrder),
+      showEmptyColumns: parseShowEmptyColumns(saved.showEmptyColumns),
     };
   } else {
     return { type: 'source', sourceId: saved.sourceId, highlightExcerptId: saved.highlightExcerptId };

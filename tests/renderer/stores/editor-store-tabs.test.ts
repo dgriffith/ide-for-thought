@@ -777,6 +777,23 @@ describe('persistTabs — structured-clone safety', () => {
     const saved = session.groups.flatMap((g) => g.tabs).find((t) => t.type === 'type-view' && t.typeId === 'board-project');
     expect(saved).toMatchObject({ layout: 'kanban', groupBy: 'status' });
   });
+  it('a kanban column order and Show empty columns set from the view persist on the tab (#2614)', () => {
+    editor.openTypeView('ordered-project', { layout: 'kanban' });
+    const tab = () => editor.groups.flatMap((g) => g.tabs).find((t) => t.type === 'type-view' && t.typeId === 'ordered-project');
+    expect(tab()).toMatchObject({ columnOrder: [], showEmptyColumns: true });
+    editor.setTypeViewState('ordered-project', null, { columnOrder: ['done', 'active'], showEmptyColumns: false });
+    editor.persistTabs();
+    const session = h.tabsSave.mock.calls.at(-1)![0] as LayoutSession;
+    const saved = session.groups.flatMap((g) => g.tabs).find((t) => t.type === 'type-view' && t.typeId === 'ordered-project');
+    expect(saved).toMatchObject({ layout: 'kanban', columnOrder: ['done', 'active'], showEmptyColumns: false });
+  });
+  it('reopening a board with an explicit order re-applies it to the open tab (#2614)', () => {
+    editor.openTypeView('reorder-project', { layout: 'kanban' });
+    editor.openTypeView('reorder-project', { layout: 'kanban', columnOrder: ['paused'], showEmptyColumns: false });
+    const tabs = editor.groups.flatMap((g) => g.tabs).filter((t) => t.type === 'type-view' && t.typeId === 'reorder-project');
+    expect(tabs).toHaveLength(1);
+    expect(tabs[0]).toMatchObject({ columnOrder: ['paused'], showEmptyColumns: false });
+  });
 });
 
 describe('type-view tabs are a type AND a folder (#2531)', () => {

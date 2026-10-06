@@ -26,7 +26,7 @@
   import type { MapStyle } from '../../../shared/objects/map-style';
   import { applyViewSpec, type ViewFilter } from '../../../shared/objects/view-spec';
   import { buildViewEmbed } from '../../../shared/objects/view-note';
-  import { boardColumns, groupByForSpec, resolveGroupBy } from '../../../shared/objects/kanban';
+  import { boardColumns, groupByForSpec, moveColumn, resolveGroupBy } from '../../../shared/objects/kanban';
   import { objectTypesStore } from '../stores/object-types.svelte';
   import { effectivePropertyDefs } from '../../../shared/objects/inheritance';
   import { logger } from '../../../shared/logger';
@@ -37,7 +37,7 @@
   import type { PropertyDef, TypeInfo, TypeInstanceRow } from '../../../shared/objects/type-def';
 
   type Layout = 'list' | 'table' | 'gallery' | 'map' | 'kanban';
-  interface StatePatch { layout?: Layout; sortColumn?: string | null; sortDir?: 'asc' | 'desc'; columns?: string[] | null; folder?: string | null; filters?: ViewFilter[]; mapStyle?: MapStyle; groupBy?: string | null }
+  interface StatePatch { layout?: Layout; sortColumn?: string | null; sortDir?: 'asc' | 'desc'; columns?: string[] | null; folder?: string | null; filters?: ViewFilter[]; mapStyle?: MapStyle; groupBy?: string | null; columnOrder?: string[]; showEmptyColumns?: boolean }
 
   interface Props {
     typeId: string;
@@ -80,11 +80,14 @@
     /** Kanban's grouping enum property (#2601); null = the type's first enum.
      *  Checked against the type here, where the schema is known. */
     groupBy?: string | null;
+    /** Kanban's column order and Show empty columns (#2614, `kanban.ts`). */
+    columnOrder?: string[];
+    showEmptyColumns?: boolean;
     /** Bulk-edit the selected notes' properties (#2431). Absent (an embed, an
      *  export) → rows don't multi-select; a click just opens the note. */
     onEditProperties?: (paths: string[]) => void;
   }
-  let { typeId, layout, sortColumn, sortDir, columns, revision, onStateChange, onOpenNote, onSaveView, chromeless = false, onLoaded, mapExport, folder = null, filters = [], onClearFolder, mapStyle = 'auto', groupBy = null, onEditProperties }: Props = $props();
+  let { typeId, layout, sortColumn, sortDir, columns, revision, onStateChange, onOpenNote, onSaveView, chromeless = false, onLoaded, mapExport, folder = null, filters = [], onClearFolder, mapStyle = 'auto', groupBy = null, columnOrder = [], showEmptyColumns = true, onEditProperties }: Props = $props();
 
   let type = $state<TypeInfo | null>(null);
   let instances = $state<TypeInstanceRow[]>([]);
@@ -217,7 +220,7 @@
    */
   async function copyAsMarkdown(): Promise<void> {
     // A `groupBy` the type no longer has as an enum is dropped, not copied.
-    const md = buildViewEmbed({ typeId, layout, sortColumn, sortDir, columns, folder, filters, mapStyle, groupBy: groupByForSpec(groupBy, type ? allColumns : null) });
+    const md = buildViewEmbed({ typeId, layout, sortColumn, sortDir, columns, folder, filters, mapStyle, groupBy: groupByForSpec(groupBy, type ? allColumns : null), columnOrder, showEmptyColumns });
     try {
       await navigator.clipboard.writeText(md);
       markdownCopied = true;
@@ -270,11 +273,14 @@
   // Kanban (#2602): the grouping enum, then the columns — sorted cards, the
   // values filter on that property narrowing the columns (`boardColumns`).
   const groupProp = $derived(resolveGroupBy(groupBy, allColumns));
-  const board = $derived(groupProp ? boardColumns(sorted, groupProp, filters) : []);
+  const board = $derived(groupProp ? boardColumns(sorted, groupProp, filters, { columnOrder, showEmptyColumns }) : []);
   function moveTo(paths: string[], target: MoveTarget): void {
     sel.closeMenu();
     const cards = paths.map((p) => ({ path: p, title: instances.find((i) => i.path === p)?.title ?? p }));
     if (groupProp && cards.length > 0) void moves.moveCards(cards, groupProp.name, target);
+  }
+  function onMoveColumn(key: string, target: string, side: 'before' | 'after'): void {
+    if (groupProp) onStateChange({ columnOrder: moveColumn(instances, groupProp, columnOrder, key, target, side) });
   }
 </script>
 
@@ -318,7 +324,7 @@
         {#if onSaveView}
           <button class="tv-btn" onclick={handleSaveViewClick} title="Save this view as a note, with the view embedded live">{viewSaved ? 'Saved' : 'Save as note'}</button>
         {/if}
-        <TypeViewLayoutSwitch {layout} properties={allColumns} {groupBy} {onStateChange} />
+        <TypeViewLayoutSwitch {layout} properties={allColumns} {groupBy} {showEmptyColumns} {onStateChange} />
       </div>
     </header>
   {/if}
@@ -405,6 +411,7 @@
       {type} properties={allColumns} group={groupProp} columns={board} visible={columns} {display} {rowType} {selectable}
       isSelected={sel.has} onCardClick={sel.click} onCardContextMenu={sel.contextMenu}
       onMove={selectable ? (p, t) => moveTo([p], t) : undefined} onUndoMove={selectable ? () => void moves.undoLastMove() : undefined}
+      {...(chromeless ? {} : { onMoveColumn })}
     />
   {:else if locationProperty}
     <TypeViewMap

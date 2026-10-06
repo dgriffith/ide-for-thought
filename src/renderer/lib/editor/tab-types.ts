@@ -102,6 +102,10 @@ export interface TypeViewState {
   mapStyle: MapStyle;
   /** Kanban's grouping enum property (#2601); null = the type's first enum. */
   groupBy: string | null;
+  /** Kanban's column order, as column keys (#2614); empty = the enum order. */
+  columnOrder: string[];
+  /** Kanban shows columns with no cards (#2614); default true. */
+  showEmptyColumns: boolean;
 }
 export interface TypeViewTab extends TypeViewState {
   type: 'type-view';

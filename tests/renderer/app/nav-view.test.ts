@@ -218,8 +218,8 @@ describe('handleNavBack', () => {
 });
 
 describe('object views on the back/forward stack', () => {
-  const mapTab = { type: 'type-view', typeId: 'place', folder: 'trip/prague', layout: 'map', sortColumn: null, sortDir: 'asc', columns: null, filters: [{ property: 'city', values: ['Prague'] }] };
-  const mapPos = { type: 'type-view', typeId: 'place', folder: 'trip/prague', view: { layout: 'map', sortColumn: null, sortDir: 'asc', columns: null, filters: [{ property: 'city', values: ['Prague'] }] } };
+  const mapTab = { type: 'type-view', typeId: 'place', folder: 'trip/prague', layout: 'map', sortColumn: null, sortDir: 'asc', columns: null, filters: [{ property: 'city', values: ['Prague'] }], columnOrder: [], showEmptyColumns: true };
+  const mapPos = { type: 'type-view', typeId: 'place', folder: 'trip/prague', view: { layout: 'map', sortColumn: null, sortDir: 'asc', columns: null, filters: [{ property: 'city', values: ['Prague'] }], columnOrder: [], showEmptyColumns: true } };
 
   it('leaving a view for a note (a map pin) records the view first', async () => {
     h.editor.activeTab = mapTab;
@@ -253,11 +253,24 @@ describe('object views on the back/forward stack', () => {
   });
 
   it('a kanban view records its groupBy, and Back to it closed reopens grouped the same way (#2601)', async () => {
-    const boardView = { layout: 'kanban', sortColumn: null, sortDir: 'asc', columns: null, filters: [], mapStyle: 'auto', groupBy: 'status' };
+    const boardView = { layout: 'kanban', sortColumn: null, sortDir: 'asc', columns: null, filters: [], mapStyle: 'auto', groupBy: 'status', columnOrder: [], showEmptyColumns: true };
     h.editor.activeTab = { type: 'type-view', typeId: 'project', folder: null, ...boardView };
     await view.handleFileSelect('p.md');
     const recorded = h.nav.record.mock.calls[0]![0] as { view: unknown };
     expect(recorded.view).toEqual(boardView);
+    h.nav.goBack.mockReturnValue(recorded);
+    await view.handleNavBack();
+    expect(h.editor.openTypeView).toHaveBeenCalledWith('project', { ...boardView, folder: null });
+  });
+
+  it('a kanban view records its column order and Show empty columns, and Back reopens it the same way (#2614)', async () => {
+    const boardView = { layout: 'kanban', sortColumn: null, sortDir: 'asc', columns: null, filters: [], mapStyle: 'auto', groupBy: null, columnOrder: ['done', 'active'], showEmptyColumns: false };
+    h.editor.activeTab = { type: 'type-view', typeId: 'project', folder: null, ...boardView };
+    await view.handleFileSelect('p.md');
+    const recorded = h.nav.record.mock.calls[0]![0] as { view: { columnOrder: string[] } };
+    expect(recorded.view).toEqual(boardView);
+    // A copy: a later reorder on the live tab doesn't rewrite history.
+    expect(recorded.view.columnOrder).not.toBe(boardView.columnOrder);
     h.nav.goBack.mockReturnValue(recorded);
     await view.handleNavBack();
     expect(h.editor.openTypeView).toHaveBeenCalledWith('project', { ...boardView, folder: null });

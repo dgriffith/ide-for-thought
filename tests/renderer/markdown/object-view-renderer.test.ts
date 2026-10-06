@@ -72,12 +72,25 @@ describe('parseObjectViewSpec (#2067)', () => {
       mapStyle: 'auto',
       height: 360,
       groupBy: null,
+      columnOrder: [],
+      showEmptyColumns: true,
     });
   });
 
   it('carries through explicit sort/columns', () => {
     expect(parseObjectViewSpec('{"typeId":"book","layout":"table","sortColumn":"author","sortDir":"desc","columns":["author"]}'))
-      .toEqual({ typeId: 'book', layout: 'table', sortColumn: 'author', sortDir: 'desc', columns: ['author'], folder: null, filters: [], mapStyle: 'auto', height: 360, groupBy: null });
+      .toEqual({ typeId: 'book', layout: 'table', sortColumn: 'author', sortDir: 'desc', columns: ['author'], folder: null, filters: [], mapStyle: 'auto', height: 360, groupBy: null, columnOrder: [], showEmptyColumns: true });
+  });
+
+  it('reads columnOrder and showEmptyColumns, dropping invalid shapes rather than throwing (#2614)', () => {
+    const spec = (extra: string) => parseObjectViewSpec(`{"typeId":"project","layout":"kanban"${extra}}`);
+    expect(spec(',"columnOrder":["done","","active"],"showEmptyColumns":false')).toMatchObject({ columnOrder: ['done', '', 'active'], showEmptyColumns: false });
+    expect(spec('')).toMatchObject({ columnOrder: [], showEmptyColumns: true });
+    // Not an array → none; non-string entries and repeats dropped.
+    expect(spec(',"columnOrder":"done"').columnOrder).toEqual([]);
+    expect(spec(',"columnOrder":[1,"done",null,"done",{"x":1},"paused"]').columnOrder).toEqual(['done', 'paused']);
+    // Only an explicit false hides empty columns.
+    for (const v of ['0', '"false"', 'null', '"no"']) expect(spec(`,"showEmptyColumns":${v}`).showEmptyColumns).toBe(true);
   });
 
   it('accepts the kanban layout and reads groupBy, dropping a malformed one (#2601)', () => {
