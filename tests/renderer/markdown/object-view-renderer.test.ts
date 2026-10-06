@@ -69,12 +69,20 @@ describe('parseObjectViewSpec (#2067)', () => {
       columns: null,
       folder: null,
       filters: [],
+      mapStyle: 'auto',
     });
   });
 
   it('carries through explicit sort/columns', () => {
     expect(parseObjectViewSpec('{"typeId":"book","layout":"table","sortColumn":"author","sortDir":"desc","columns":["author"]}'))
-      .toEqual({ typeId: 'book', layout: 'table', sortColumn: 'author', sortDir: 'desc', columns: ['author'], folder: null, filters: [] });
+      .toEqual({ typeId: 'book', layout: 'table', sortColumn: 'author', sortDir: 'desc', columns: ['author'], folder: null, filters: [], mapStyle: 'auto' });
+  });
+
+  it('reads mapStyle: light/dark kept, anything else auto (#2665)', () => {
+    expect(parseObjectViewSpec('{"typeId":"place","layout":"map","mapStyle":"dark"}').mapStyle).toBe('dark');
+    expect(parseObjectViewSpec('{"typeId":"place","layout":"map","mapStyle":"light"}').mapStyle).toBe('light');
+    expect(parseObjectViewSpec('{"typeId":"place","layout":"map","mapStyle":"sepia"}').mapStyle).toBe('auto');
+    expect(parseObjectViewSpec('{"typeId":"place","layout":"map","mapStyle":1}').mapStyle).toBe('auto');
   });
 
   it('throws on malformed JSON', () => {

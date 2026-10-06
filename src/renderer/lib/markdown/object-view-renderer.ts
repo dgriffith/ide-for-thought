@@ -10,7 +10,8 @@
  *      "folder": "trip/prague",
  *      "filters": [{"property": "city", "values": ["Prague"]},
  *                  {"property": "rating", "min": "4"},
- *                  {"property": "visited", "min": "2026-05", "max": "2026-06"}]}
+ *                  {"property": "visited", "min": "2026-05", "max": "2026-06"}],
+ *      "mapStyle": "dark"}
  *     ```
  *
  * `folder` limits it to notes under that folder, recursively; `filters` keep a
@@ -69,6 +70,7 @@ import TypeView from '../components/TypeView.svelte';
 import type { ViewLayout } from '../../../shared/types';
 import { normalizeFolder, parseViewFilters, type ViewFilter } from '../../../shared/objects/view-spec';
 import { escapeHtml } from '../../../shared/text-escape';
+import { parseMapStyle, type MapStyle } from '../../../shared/objects/map-style';
 import { blockCacheFor, blockKey, createContentWrapper, HYDRATED_CONTENT_CLASS } from './hydrated-block-cache';
 import { reactiveProps } from './mounted-props.svelte';
 
@@ -85,6 +87,8 @@ export interface ObjectViewSpec {
    *  no filter controls (chromeless). */
   folder: string | null;
   filters: ViewFilter[];
+  /** Map tile style (#2665); absent → `auto`, following the app theme. */
+  mapStyle: MapStyle;
 }
 
 const LAYOUTS: ReadonlySet<ViewLayout> = new Set(['list', 'table', 'gallery', 'map']);
@@ -111,6 +115,7 @@ export function parseObjectViewSpec(raw: string): ObjectViewSpec {
       : null,
     folder: normalizeFolder(typeof spec.folder === 'string' ? spec.folder : null),
     filters: parseViewFilters(spec.filters),
+    mapStyle: parseMapStyle(spec.mapStyle),
   };
 }
 
@@ -130,6 +135,7 @@ type ViewProps = {
   columns: string[] | null;
   folder: string | null;
   filters: ViewFilter[];
+  mapStyle: MapStyle;
   revision: number;
   chromeless: boolean;
   onStateChange: () => void;
@@ -207,6 +213,7 @@ export function hydrateObjectViewBlocks(root: HTMLElement, deps: ObjectViewDeps)
       columns: spec.columns,
       folder: spec.folder,
       filters: spec.filters,
+      mapStyle: spec.mapStyle,
       revision: deps.revision,
       chromeless: true,
       // No in-preview UI for changing the embedded spec (#2067) — a

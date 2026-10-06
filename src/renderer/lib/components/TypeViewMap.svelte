@@ -14,11 +14,13 @@
    * native `title` attribute is set to the instance's title, so hovering shows
    * the OS/browser's own tooltip — no custom popup UI to build or maintain.
    *
-   * Theme-aware via `styleUrlForTheme()` picking OpenFreeMap's light or dark
-   * named style — read once at mount, not live-updated: switching the app theme
-   * takes effect the next time this layout is (re)mounted (matches how a fresh
-   * tab/reload already reads the current theme), not via a heavier `map.setStyle`
-   * mid-session swap.
+   * The tile style is the view's `mapStyle` (#2665): `light` / `dark` pin
+   * OpenFreeMap's named style, `auto` follows the app theme (`styleUrlForTheme`,
+   * read when the style is applied — an app-theme switch alone doesn't restyle
+   * an open map). Choosing a style in the on-map control switches it LIVE via
+   * `map.setStyle`, which keeps the camera; the pins are DOM `Marker`s, not
+   * style layers, so they survive the swap untouched — nothing to re-add.
+   * MapLibre's attribution control re-reads the new style's sources on its own.
    *
    * Each marker is colored by the instance's own EXACT type (via
    * `objectTypesStore.typeForNote`), not the tab's type — a "Place" map
@@ -30,7 +32,8 @@
   import { onMount } from 'svelte';
   import type * as maplibregl from 'maplibre-gl';
   import { loadMapLibre } from '../map/load-maplibre';
-  import { styleUrlForTheme, exportStyleUrl } from '../map/maplibre-style';
+  import { exportStyleUrl, mapStyleUrl, resolveMapStyle } from '../map/maplibre-style';
+  import { MAP_STYLES, type MapStyle } from '../../../shared/objects/map-style';
   import { MAP_EXPORT_ERROR_GRACE_MS, MAP_EXPORT_PIXEL_RATIO, MAP_EXPORT_TIMEOUT_MS, MAP_TILES_FAILED, attributionText, compositeMap, parseLatLng, type MapExportHooks, type MapPlace } from '../map/map-export';
   import { objectTypesStore } from '../stores/object-types.svelte';
   import type { TypeInstanceRow } from '../../../shared/objects/type-def';
@@ -46,8 +49,24 @@
      *  style, no controls, then hand back a PNG of exactly this framing —
      *  or the places, when the map can't be drawn. */
     exportHooks?: MapExportHooks;
+    /** The view's tile style (#2665); `auto` follows the app theme. An
+     *  export uses it too, except that `auto` exports light. */
+    mapStyle?: MapStyle;
+    /** Shows the on-map light/dark/auto control and receives a choice.
+     *  Absent (a note embed, an export) → no control, as embeds have no
+     *  filter controls either (#2534). */
+    onMapStyleChange?: (style: MapStyle) => void;
   }
-  let { instances, locationProperty, onOpenNote, exportHooks }: Props = $props();
+  let { instances, locationProperty, onOpenNote, exportHooks, mapStyle = 'auto', onMapStyleChange }: Props = $props();
+
+  const STYLE_LABELS: Record<MapStyle, string> = { auto: 'Auto', light: 'Light', dark: 'Dark' };
+  const STYLE_TITLES: Record<MapStyle, string> = {
+    auto: 'Follow the app appearance',
+    light: 'Light map, whatever the app appearance',
+    dark: 'Dark map, whatever the app appearance',
+  };
+  /** Which style the tiles actually are — drives the pins' dark-tile halo. */
+  const resolvedStyle = $derived(resolveMapStyle(mapStyle));
 
   let container = $state<HTMLDivElement>();
   // Flips true once the map is constructed — a plain `map`/`gl` reference
@@ -58,6 +77,9 @@
   let map: maplibregl.Map | null = null;
   let gl: MapLibreModule | null = null;
   let markers: maplibregl.Marker[] = [];
+  /** The style URL the map was built with or last switched to — so the live
+   *  switch below only calls `setStyle` on a real change. */
+  let appliedStyleUrl: string | null = null;
   /** Markers placed and framed at least once — an export capture waits for it. */
   let placed = false;
 
@@ -111,7 +133,7 @@
       if (exportHooks) {
         map = new mod.Map({
           container,
-          style: exportStyleUrl(),
+          style: exportStyleUrl(mapStyle),
           interactive: false,
           attributionControl: false,
           fadeDuration: 0,
@@ -120,9 +142,10 @@
         });
         armExportCapture(map, exportHooks);
       } else {
+        appliedStyleUrl = mapStyleUrl(mapStyle);
         map = new mod.Map({
           container,
-          style: styleUrlForTheme(),
+          style: appliedStyleUrl,
         });
         map.addControl(new mod.NavigationControl(), 'top-right');
       }
@@ -136,6 +159,7 @@
       map?.remove();
       map = null;
       gl = null;
+      appliedStyleUrl = null;
       ready = false;
     };
   });
@@ -212,6 +236,17 @@
     });
   }
 
+  // Live style switch (#2665): a changed `mapStyle` restyles the open map in
+  // place. `setStyle` leaves the camera alone, and the pins are DOM markers
+  // outside the style, so markers and framing are exactly as they were.
+  // Export mode renders once, in the style it was built with.
+  $effect(() => {
+    const url = mapStyleUrl(mapStyle);
+    if (!ready || !map || exportHooks || url === appliedStyleUrl) return;
+    appliedStyleUrl = url;
+    map.setStyle(url);
+  });
+
   // Re-syncs on the map becoming ready (first placement) AND on every later
   // `instances`/`locationProperty` change (an already-open map picking up a
   // newly added/edited/removed instance).
@@ -223,10 +258,31 @@
   });
 </script>
 
-<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-<div class="type-view-map" bind:this={container} role="application" aria-label="Map" tabindex="0"></div>
+<div class="type-view-map-wrap" class:dark-tiles={resolvedStyle === 'dark'}>
+  <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+  <div class="type-view-map" bind:this={container} role="application" aria-label="Map" tabindex="0"></div>
+  {#if onMapStyleChange && !exportHooks}
+    <div class="map-style-switch" role="group" aria-label="Map style">
+      {#each MAP_STYLES as s (s)}
+        <button
+          type="button"
+          aria-pressed={mapStyle === s}
+          class:active={mapStyle === s}
+          title={STYLE_TITLES[s]}
+          onclick={() => { if (s !== mapStyle) onMapStyleChange(s); }}
+        >{STYLE_LABELS[s]}</button>
+      {/each}
+    </div>
+  {/if}
+</div>
 
 <style>
+  .type-view-map-wrap {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+  }
   .type-view-map {
     width: 100%;
     height: 100%;
@@ -246,6 +302,39 @@
      its tip lands on the coordinate, and inflating it directly (e.g. via
      padding) would shift the icon off its true location. Empty `content`
      and no background keeps it fully invisible. */
+  /* Light / Dark / Auto (#2665), top-left — the zoom buttons own top-right.
+     Its own surface rather than theme tokens over the tiles, because the
+     tiles' brightness is the view's choice, not the app's. */
+  .map-style-switch {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 2;
+    display: flex;
+    border-radius: 5px;
+    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
+  }
+  .map-style-switch button {
+    padding: 3px 9px;
+    border: 1px solid var(--border);
+    background: var(--bg-button);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 11.5px;
+    cursor: pointer;
+  }
+  .map-style-switch button:first-child { border-radius: 5px 0 0 5px; }
+  .map-style-switch button:last-child { border-radius: 0 5px 5px 0; }
+  .map-style-switch button:not(:first-child) { border-left: none; }
+  .map-style-switch button.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+  .map-style-switch button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; position: relative; }
+
+  /* On dark tiles a pin in a dark type colour can sink into the background;
+     a thin light halo keeps every pin's outline readable. */
+  .dark-tiles :global(.maplibregl-marker svg) {
+    filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.9)) drop-shadow(0 0 2px rgba(255, 255, 255, 0.5));
+  }
+
   :global(.maplibregl-marker::before) {
     content: '';
     position: absolute;

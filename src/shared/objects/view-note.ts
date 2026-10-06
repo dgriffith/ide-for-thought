@@ -14,6 +14,7 @@
  */
 import type { ViewLayout } from '../types';
 import type { ViewFilter } from './view-spec';
+import type { MapStyle } from './map-style';
 
 export interface ViewNoteSpec {
   typeId: string;
@@ -24,6 +25,8 @@ export interface ViewNoteSpec {
   /** Folder scope and filters (#2531); written only when set. */
   folder?: string | null | undefined;
   filters?: readonly ViewFilter[] | undefined;
+  /** Map tile style (#2665); written only when not `auto`. */
+  mapStyle?: MapStyle | undefined;
 }
 
 const LAYOUT_NAMES: Record<ViewLayout, string> = { list: 'list', table: 'table', gallery: 'gallery', map: 'map' };
@@ -49,6 +52,7 @@ export function buildViewEmbed(spec: ViewNoteSpec): string {
   if (spec.columns) body.columns = spec.columns;
   if (spec.folder) body.folder = spec.folder;
   if (spec.filters && spec.filters.length > 0) body.filters = spec.filters;
+  if (spec.mapStyle && spec.mapStyle !== 'auto') body.mapStyle = spec.mapStyle;
   return `\`\`\`object-view\n${JSON.stringify(body, null, 2)}\n\`\`\`\n`;
 }
 

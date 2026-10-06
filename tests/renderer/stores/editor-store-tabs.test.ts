@@ -761,6 +761,14 @@ describe('persistTabs — structured-clone safety', () => {
     const saved = session.groups.flatMap((g) => g.tabs).find((t) => t.type === 'type-view' && t.typeId === 'place');
     expect(saved).toMatchObject({ folder: 'trip/prague', filters });
   });
+  it('a map style set from the view persists on the tab (#2665)', () => {
+    editor.openTypeView('styled-place', { layout: 'map' });
+    editor.setTypeViewState('styled-place', null, { mapStyle: 'dark' });
+    editor.persistTabs();
+    const session = h.tabsSave.mock.calls.at(-1)![0] as LayoutSession;
+    const saved = session.groups.flatMap((g) => g.tabs).find((t) => t.type === 'type-view' && t.typeId === 'styled-place');
+    expect(saved).toMatchObject({ layout: 'map', mapStyle: 'dark' });
+  });
 });
 
 describe('type-view tabs are a type AND a folder (#2531)', () => {

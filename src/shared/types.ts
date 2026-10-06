@@ -318,6 +318,8 @@ export interface SavedTypeViewTab {
   /** Folder scope and property filters (#2531); absent = none. */
   folder?: string | null;
   filters?: unknown[];
+  /** Map tile style (#2665); absent = `auto`. Read leniently on restore. */
+  mapStyle?: string;
 }
 
 export type SavedTab = SavedNoteTab | SavedQueryTab | SavedSourceTab | SavedPdfTab | SavedGraphTab | SavedTypeViewTab | SavedUnsupportedTab;
