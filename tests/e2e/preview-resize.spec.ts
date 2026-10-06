@@ -37,6 +37,21 @@ async function dragHandle(win: Page, handle: Locator, dx: number, dy: number): P
   await win.mouse.up();
 }
 
+/**
+ * Run `action`, which changes the note, then wait for the preview to re-render
+ * it (#2680). The preview re-renders a content change ~120ms later, debounced,
+ * and `{@html}` swaps in all-new nodes, resize handles included. A step that
+ * reaches for a handle before the swap gets one that's about to be detached:
+ * "not attached to the DOM", a drag that lands on a vanishing element, or keys
+ * sent to a handle that's gone. A slow CI runner widens that window. So: hold
+ * a node from the current render and wait until it's gone.
+ */
+async function changingPreview(win: Page, preview: Locator, action: () => Promise<void>): Promise<void> {
+  const marker = await preview.locator('h1').first().elementHandle();
+  await action();
+  await win.waitForFunction((el) => !el.isConnected, marker, { timeout: 10_000 });
+}
+
 test('preview resize handles write the size into the note, undoably (#2666)', async () => {
   const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-e2e-resize-userdata-'));
   const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-e2e-resize-project-'));
@@ -56,15 +71,19 @@ test('preview resize handles write the size into the note, undoably (#2666)', as
 
     await test.step('drag the image corner wider', async () => {
       await preview.locator('.resizable-image').hover();
-      await dragHandle(win, preview.locator('.resizable-image [data-resize-handle]'), 80, 0);
-      await expect(source).toContainText('![shot|280](pic.png)');
+      await changingPreview(win, preview, async () => {
+        await dragHandle(win, preview.locator('.resizable-image [data-resize-handle]'), 80, 0);
+        await expect(source).toContainText('![shot|280](pic.png)');
+      });
       await expect(preview.locator('img.local-image')).toHaveAttribute('width', '280');
     });
 
     await test.step('⌘Z in the editor takes the resize back', async () => {
       await source.click();
-      await win.keyboard.press('Meta+z');
-      await expect(source).toContainText('![shot|200](pic.png)');
+      await changingPreview(win, preview, async () => {
+        await win.keyboard.press('Meta+z');
+        await expect(source).toContainText('![shot|200](pic.png)');
+      });
     });
 
     await test.step('drag the object view\'s bottom edge shorter', async () => {
@@ -73,17 +92,21 @@ test('preview resize handles write the size into the note, undoably (#2666)', as
       await preview.locator('.fence-object-view').hover();
       // Upward: the handle sits near the window's bottom edge, and a drag
       // past the viewport isn't delivered to the page.
-      await dragHandle(win, preview.locator('.fence-object-view [data-resize-handle]'), 0, -100);
-      await expect(source).toContainText('"height":260');
+      await changingPreview(win, preview, async () => {
+        await dragHandle(win, preview.locator('.fence-object-view [data-resize-handle]'), 0, -100);
+        await expect(source).toContainText('"height":260');
+      });
       await expect.poll(() => block.evaluate((el) => Math.round(el.getBoundingClientRect().height))).toBe(260);
     });
 
     await test.step('Alt+arrows step the image and keep focus on its handle', async () => {
       const handle = preview.locator('.resizable-image [data-resize-handle]');
       await handle.focus();
-      await win.keyboard.press('Alt+ArrowRight');
-      await win.keyboard.press('Alt+ArrowRight');
-      await expect(source).toContainText('![shot|240](pic.png)');
+      await changingPreview(win, preview, async () => {
+        await win.keyboard.press('Alt+ArrowRight');
+        await win.keyboard.press('Alt+ArrowRight');
+        await expect(source).toContainText('![shot|240](pic.png)');
+      });
       await expect.poll(() => win.evaluate(() => document.activeElement?.hasAttribute('data-resize-handle') ?? false)).toBe(true);
       await win.keyboard.press('Alt+0');
       await expect(source).toContainText('![shot](pic.png)');
