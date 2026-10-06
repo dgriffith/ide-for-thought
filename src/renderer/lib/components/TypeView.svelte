@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tick } from 'svelte';
+  import { tick, untrack } from 'svelte';
   /**
    * Multi-view over all instances of a typed-object type (#1070) — the same
    * typed notes rendered as a list, a table (declared properties as columns), a
@@ -32,6 +32,8 @@
   import { logger } from '../../../shared/logger';
   import { createTypeViewSelection } from './type-view-selection.svelte';
   import TypeViewRowMenu from './TypeViewRowMenu.svelte';
+  import { getKanbanMoveStore } from '../stores/kanban-moves.svelte';
+  import { moveTargets, sharedColumnValue, type MoveTarget } from '../../../shared/objects/kanban-move';
   import type { PropertyDef, TypeInfo, TypeInstanceRow } from '../../../shared/objects/type-def';
 
   type Layout = 'list' | 'table' | 'gallery' | 'map' | 'kanban';
@@ -90,7 +92,7 @@
   let columnsMenuOpen = $state(false);
 
   async function load(): Promise<void> {
-    loading = true;
+    loading = untrack(() => type?.id !== typeId); // a refresh keeps the view (and a board's focus) up
     const result = await api.types.instances(typeId);
     type = result.type;
     instances = result.instances;
@@ -98,7 +100,8 @@
     if (onLoaded) { await tick(); onLoaded(); }
   }
   // Re-project when the type changes or the graph is rewritten.
-  $effect(() => { typeId; revision; void load(); });
+  const moves = getKanbanMoveStore(); // a card move (#2603) re-projects too
+  $effect(() => { typeId; revision; moves.revision; void load(); });
 
   // Effective (inherited + own) properties, not just `type.properties` —
   // otherwise a subtype relying on an ancestor's property (e.g. a `geo`
@@ -268,6 +271,11 @@
   // values filter on that property narrowing the columns (`boardColumns`).
   const groupProp = $derived(resolveGroupBy(groupBy, allColumns));
   const board = $derived(groupProp ? boardColumns(sorted, groupProp, filters) : []);
+  function moveTo(paths: string[], target: MoveTarget): void {
+    sel.closeMenu();
+    const cards = paths.map((p) => ({ path: p, title: instances.find((i) => i.path === p)?.title ?? p }));
+    if (groupProp && cards.length > 0) void moves.moveCards(cards, groupProp.name, target);
+  }
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -396,6 +404,7 @@
     <TypeViewKanban
       {type} properties={allColumns} group={groupProp} columns={board} visible={columns} {display} {rowType} {selectable}
       isSelected={sel.has} onCardClick={sel.click} onCardContextMenu={sel.contextMenu}
+      onMove={selectable ? (p, t) => moveTo([p], t) : undefined} onUndoMove={selectable ? () => void moves.undoLastMove() : undefined}
     />
   {:else if locationProperty}
     <TypeViewMap
@@ -414,7 +423,10 @@
   {/if}
 
   {#if sel.menu}
-    <TypeViewRowMenu x={sel.menu.x} y={sel.menu.y} count={sel.selectedPaths.length} onEdit={sel.editSelected} onClose={sel.closeMenu} />
+    <TypeViewRowMenu
+      x={sel.menu.x} y={sel.menu.y} count={sel.selectedPaths.length} onEdit={sel.editSelected} onClose={sel.closeMenu}
+      {...(layout === 'kanban' && groupProp ? { moveTargets: moveTargets(groupProp, board), moveFrom: sharedColumnValue(board, sel.selectedPaths), onMove: (t: MoveTarget) => moveTo(sel.selectedPaths, t) } : {})}
+    />
   {/if}
 </div>
 

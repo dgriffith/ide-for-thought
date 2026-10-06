@@ -15,16 +15,21 @@
    *   tabindex): ↑/↓ move between a column's cards, ←/→ to the neighbouring
    *   column that has any, Home/End to a column's first/last card, and Enter
    *   opens the focused card (it's a button).
-   * - **Read-only.** The board writes nothing yet. Moving a card (#2603) and
-   *   reordering columns (#2614) attach to the hooks below rather than
-   *   restructuring it: every column carries `data-column-value` (the option,
-   *   or `""` for No value) and `data-column-kind`, its header is its own
-   *   element (`.kb-col-header`, the column-drag handle), every card carries
-   *   `data-note-path`, and keyboard focus is tracked by note path rather than
-   *   position, so a card that changes column keeps focus.
+   * - **Moving a card** (#2603): drag it onto another column (pointer events,
+   *   `kanban/card-drag.ts`), or Shift+F10 / the ContextMenu key for the
+   *   card's menu and its *Move to ▸*; ⌘Z on the board undoes the last move.
+   *   The write is the host's (`onMove`, the `kanban-moves` store). Every
+   *   column carries `data-column-value` (the option, or `""` for No value)
+   *   and `data-column-kind`, its header is its own element (`.kb-col-header`,
+   *   the column-drag handle for #2614), every card carries `data-note-path`,
+   *   and keyboard focus is tracked by note path rather than position, so a
+   *   card that changes column keeps focus.
    */
-  import { tick } from 'svelte';
+  import { tick, untrack } from 'svelte';
   import TypeIcon from './TypeIcon.svelte';
+  import { cardDrag, cardMoveKey, openCardMenu } from './kanban/card-drag';
+  import { getKanbanMoveStore } from '../stores/kanban-moves.svelte';
+  import type { MoveTarget } from '../../../shared/objects/kanban-move';
   import { selectInstanceCardFields } from '../../../shared/objects/card';
   import type { KanbanColumn } from '../../../shared/objects/kanban';
   import type { PropertyDef, TypeInfo, TypeInstanceRow } from '../../../shared/objects/type-def';
@@ -48,8 +53,11 @@
     selectable: boolean;
     onCardClick: (e: MouseEvent, path: string) => void;
     onCardContextMenu: (e: MouseEvent, path: string) => void;
+    /** Move a card to a column (#2603); absent → cards don't move (an embed). */
+    onMove?: ((path: string, target: MoveTarget) => void) | undefined;
+    onUndoMove?: (() => void) | undefined;
   }
-  let { type, properties, group, columns, visible, display, rowType, isSelected, selectable, onCardClick, onCardContextMenu }: Props = $props();
+  let { type, properties, group, columns, visible, display, rowType, isSelected, selectable, onCardClick, onCardContextMenu, onMove, onUndoMove }: Props = $props();
 
   const byName = $derived(new Map(properties.map((p) => [p.name, p] as const)));
   function fieldsFor(inst: TypeInstanceRow) {
@@ -103,9 +111,35 @@
     el?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
   }
 
+  // A moved card is redrawn in its new column: keep focus on it (#2603).
+  const moves = getKanbanMoveStore();
+  let refocus: string | null = null;
+  $effect(() => {
+    const m = moves.lastMove;
+    untrack(() => {
+      if (m && focusedPath && m.paths.includes(focusedPath) && board?.contains(document.activeElement)) refocus = focusedPath;
+    });
+  });
+  $effect(() => {
+    void columns;
+    if (!refocus) return;
+    const active = document.activeElement;
+    if (active && active !== document.body && !board?.contains(active)) { refocus = null; return; } // focus went elsewhere
+    const path = refocus;
+    const el = [...(board?.querySelectorAll<HTMLElement>('[data-kanban-card]') ?? [])].find((c) => c.dataset['notePath'] === path);
+    if (el && el !== active) { refocus = null; void focusCard(path); }
+  });
+
   function onKeydown(e: KeyboardEvent): void {
-    if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
     const card = (e.target as HTMLElement | null)?.closest<HTMLElement>('[data-kanban-card]');
+    const moveKey = onMove ? cardMoveKey(e) : null;
+    if (moveKey) {
+      e.preventDefault();
+      if (moveKey === 'undo') onUndoMove?.();
+      else if (card) openCardMenu(card);
+      return;
+    }
+    if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
     const path = card?.dataset['notePath'];
     if (!path) return;
     const next = target(path, e.key);
@@ -122,7 +156,7 @@
   <p class="kb-empty">This type has no choice property to group by.</p>
 {:else}
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="kb-board" bind:this={board} onkeydown={onKeydown} data-group-by={group.name}>
+  <div class="kb-board" bind:this={board} onkeydown={onKeydown} data-group-by={group.name} use:cardDrag={{ enabled: !!onMove, onDrop: (p, t) => onMove?.(p, t) }}>
     {#each columns as col (columnKey(col))}
       <section class="kb-column" data-column-value={col.value ?? ''} data-column-kind={col.kind}>
         <h2 class="kb-col-header">
@@ -237,6 +271,9 @@
   }
   .kb-card:hover { border-color: var(--accent); }
   .kb-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  /* Moving a card (#2603): the card being dragged, and the column it'd land in. */
+  .kb-column:global([data-drop-target]) { border-color: var(--accent); background: color-mix(in oklch, var(--accent) 10%, var(--bg)); outline: 1px solid var(--accent); }
+  .kb-card:global([data-dragging]) { opacity: 0.45; border-style: dashed; }
   .kb-card.selected { background: color-mix(in oklch, var(--accent) 16%, var(--bg-button)); border-color: var(--accent); }
   .kb-card-title { display: flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 500; min-width: 0; overflow-wrap: anywhere; }
   .kb-fields { display: flex; flex-direction: column; gap: 2px; }
