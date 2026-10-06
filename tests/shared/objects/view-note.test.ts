@@ -29,19 +29,19 @@ describe('view notes', () => {
   it('embed the view so the preview renders exactly what was saved', () => {
     const content = buildViewNoteContent('Restaurants by rating', spec);
     expect(content.startsWith('# Restaurants by rating\n')).toBe(true);
-    expect(parseObjectViewSpec(fenceBody(content))).toEqual({ ...spec, folder: null, filters: [], mapStyle: 'auto', height: 360 });
+    expect(parseObjectViewSpec(fenceBody(content))).toEqual({ ...spec, folder: null, filters: [], mapStyle: 'auto', height: 360, groupBy: null });
   });
 
   it('leave defaults out of the block, and read back as the same defaults', () => {
     const plain = { typeId: 'place', layout: 'map' as const, sortColumn: null, sortDir: 'asc' as const, columns: null };
     const body = fenceBody(buildViewNoteContent('Places', plain));
     expect(JSON.parse(body)).toEqual({ typeId: 'place', layout: 'map' });
-    expect(parseObjectViewSpec(body)).toEqual({ ...plain, folder: null, filters: [], mapStyle: 'auto', height: 360 });
+    expect(parseObjectViewSpec(body)).toEqual({ ...plain, folder: null, filters: [], mapStyle: 'auto', height: 360, groupBy: null });
   });
 
   it('carry a folder scope and filters through to the embed parser (#2531)', () => {
     const scoped = { ...spec, folder: 'trip/prague', filters: [{ property: 'city', values: ['Prague'] }, { property: 'rating', min: '4', max: null }] };
-    expect(parseObjectViewSpec(fenceBody(buildViewNoteContent('Prague places', scoped)))).toEqual({ ...scoped, mapStyle: 'auto', height: 360 });
+    expect(parseObjectViewSpec(fenceBody(buildViewNoteContent('Prague places', scoped)))).toEqual({ ...scoped, mapStyle: 'auto', height: 360, groupBy: null });
   });
 
   it('omit an auto map style, and keep an explicit light or dark one (#2665)', () => {
@@ -51,8 +51,16 @@ describe('view notes', () => {
     for (const mapStyle of ['light', 'dark'] as const) {
       const body = fenceBody(buildViewNoteContent('Places', { ...map, mapStyle }));
       expect(JSON.parse(body)).toEqual({ typeId: 'place', layout: 'map', mapStyle });
-      expect(parseObjectViewSpec(body)).toEqual({ ...map, folder: null, filters: [], mapStyle, height: 360 });
+      expect(parseObjectViewSpec(body)).toEqual({ ...map, folder: null, filters: [], mapStyle, height: 360, groupBy: null });
     }
+  });
+
+  it('carry a kanban groupBy through, and omit it when it is the default (#2601)', () => {
+    const board = { typeId: 'project', layout: 'kanban' as const, sortColumn: null, sortDir: 'asc' as const, columns: null };
+    expect(JSON.parse(fenceBody(buildViewNoteContent('Projects', { ...board, groupBy: null })))).toEqual({ typeId: 'project', layout: 'kanban' });
+    const body = fenceBody(buildViewNoteContent('Projects', { ...board, groupBy: 'status' }));
+    expect(JSON.parse(body)).toEqual({ typeId: 'project', layout: 'kanban', groupBy: 'status' });
+    expect(parseObjectViewSpec(body)).toEqual({ ...board, folder: null, filters: [], mapStyle: 'auto', height: 360, groupBy: 'status' });
   });
 
   it('write no folder or filters keys when there are none', () => {
@@ -64,6 +72,7 @@ describe('view notes', () => {
   it('suggest a name from the type and layout', () => {
     expect(suggestViewNoteName('Restaurant', 'map')).toBe('Restaurant map');
     expect(suggestViewNoteName('  ', 'list')).toBe('Objects list');
+    expect(suggestViewNoteName('Project', 'kanban')).toBe('Project board');
   });
 
   it('turn a typed name into one note at the root', () => {

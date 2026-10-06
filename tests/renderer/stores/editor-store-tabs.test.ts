@@ -769,6 +769,14 @@ describe('persistTabs — structured-clone safety', () => {
     const saved = session.groups.flatMap((g) => g.tabs).find((t) => t.type === 'type-view' && t.typeId === 'styled-place');
     expect(saved).toMatchObject({ layout: 'map', mapStyle: 'dark' });
   });
+  it('a kanban groupBy set from the view persists on the tab (#2601)', () => {
+    editor.openTypeView('board-project', { layout: 'kanban' });
+    editor.setTypeViewState('board-project', null, { groupBy: 'status' });
+    editor.persistTabs();
+    const session = h.tabsSave.mock.calls.at(-1)![0] as LayoutSession;
+    const saved = session.groups.flatMap((g) => g.tabs).find((t) => t.type === 'type-view' && t.typeId === 'board-project');
+    expect(saved).toMatchObject({ layout: 'kanban', groupBy: 'status' });
+  });
 });
 
 describe('type-view tabs are a type AND a folder (#2531)', () => {

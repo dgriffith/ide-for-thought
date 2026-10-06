@@ -82,7 +82,7 @@ export interface UnsupportedTab {
 }
 
 /** Multi-view over all instances of a typed-object type (#1070). */
-export type TypeViewLayout = 'list' | 'table' | 'gallery' | 'map';
+export type TypeViewLayout = 'list' | 'table' | 'gallery' | 'map' | 'kanban';
 /** The view's mutable projection state — layout + sort + visible columns.
  *  Carried on the tab (persisted across sessions) and captured into a saved
  *  view (#1072). */
@@ -100,6 +100,8 @@ export interface TypeViewState {
   filters: ViewFilter[];
   /** Map layout's tile style (#2665); `auto` follows the app theme. */
   mapStyle: MapStyle;
+  /** Kanban's grouping enum property (#2601); null = the type's first enum. */
+  groupBy: string | null;
 }
 export interface TypeViewTab extends TypeViewState {
   type: 'type-view';

@@ -23,6 +23,7 @@
   import { getEditorStore, type TypeViewTab } from './lib/stores/editor.svelte';
   import { objectTypesStore } from './lib/stores/object-types.svelte';
   import { suggestViewNoteName } from '../shared/objects/view-note';
+  import { groupByForType } from '../shared/objects/kanban';
   import { getSourceDataStore } from './lib/stores/source-data.svelte';
   import { createNoteOps, type NoteOpsCtx } from './lib/app/note-ops';
   import { deleteAsset } from './lib/app/asset-ops';
@@ -409,6 +410,7 @@
       folder: tab.folder,
       filters: tab.filters,
       mapStyle: tab.mapStyle,
+      groupBy: groupByForType(tab.groupBy, tab.typeId, objectTypesStore.types),
     });
     return true;
   }
@@ -1417,6 +1419,7 @@
                     folder={active.folder}
                     filters={active.filters}
                     mapStyle={active.mapStyle}
+                    groupBy={active.groupBy}
                     revision={graphRevision}
                     onStateChange={(patch) => editor.setTypeViewState(active.typeId, active.folder, patch)}
                     onClearFolder={() => editor.rescopeTypeView(active.typeId, active.folder, null)}

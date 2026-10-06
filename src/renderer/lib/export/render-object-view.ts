@@ -70,6 +70,7 @@ export async function renderObjectViewForExport(source: string): Promise<string>
           folder: spec.folder,
           filters: spec.filters,
           mapStyle: spec.mapStyle,
+          groupBy: spec.groupBy,
           revision: 0,
           chromeless: true,
           onStateChange: () => {},
