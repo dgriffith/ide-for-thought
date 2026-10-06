@@ -36,6 +36,25 @@ const queryTab: QueryTab = {
   results: null, columns: [], error: null, executing: false, executionTime: null,
 };
 
+describe('type-view map style (#2665)', () => {
+  const view = (mapStyle: 'auto' | 'light' | 'dark'): Tab => ({
+    type: 'type-view', typeId: 'place', layout: 'map', sortColumn: null, sortDir: 'asc', columns: null, folder: null, filters: [], mapStyle,
+  });
+
+  it('omits auto from the saved tab and keeps an explicit light or dark', () => {
+    expect(toSavedTab(view('auto'))).not.toHaveProperty('mapStyle');
+    expect(toSavedTab(view('light'))).toMatchObject({ mapStyle: 'light' });
+    expect(toSavedTab(view('dark'))).toMatchObject({ mapStyle: 'dark' });
+  });
+
+  it('restores it, reading absent or unknown as auto', async () => {
+    for (const mapStyle of ['auto', 'light', 'dark'] as const) {
+      expect(await reconstructTab(toSavedTab(view(mapStyle)), () => 'q')).toEqual(view(mapStyle));
+    }
+    expect(await reconstructTab({ type: 'type-view', typeId: 'place', mapStyle: 'sepia' }, () => 'q')).toMatchObject({ mapStyle: 'auto' });
+  });
+});
+
 describe('toSavedTab', () => {
   it('drops runtime-only note fields not meant for the saved shape', () => {
     const withHistory: NoteTab = { ...noteTab, historyJson: { fake: true }, cursorOffset: 5 };

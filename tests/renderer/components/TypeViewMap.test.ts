@@ -8,6 +8,9 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, cleanup, waitFor, fireEvent } from '@testing-library/svelte';
+import { flushSync, mount, unmount } from 'svelte';
+import { reactiveProps } from '../../../src/renderer/lib/markdown/mounted-props.svelte';
+import type { MapStyle } from '../../../src/shared/objects/map-style';
 
 const { mapInstances, markerInstances, FakeMap, FakeMarker, FakeNavigationControl, FakeLngLatBounds } = vi.hoisted(() => {
   const mapInstances: InstanceType<typeof FakeMap>[] = [];
@@ -35,9 +38,10 @@ const { mapInstances, markerInstances, FakeMap, FakeMarker, FakeNavigationContro
     constructor(opts: unknown) { this.opts = opts; mapInstances.push(this); }
     addControl(): void {}
     resize(): void {}
-    fitBounds(): void {}
-    setCenter(): void {}
-    setZoom(): void {}
+    fitBounds = vi.fn();
+    setCenter = vi.fn();
+    setZoom = vi.fn();
+    setStyle = vi.fn();
   }
   return { mapInstances, markerInstances, FakeMap, FakeMarker, FakeNavigationControl, FakeLngLatBounds };
 });
@@ -51,7 +55,10 @@ vi.mock('../../../src/renderer/lib/map/load-maplibre', () => ({
   }),
 }));
 vi.mock('../../../src/renderer/lib/map/maplibre-style', () => ({
-  styleUrlForTheme: () => 'https://tiles.openfreemap.org/styles/liberty',
+  // The app theme is light here, so `auto` resolves to the light style.
+  mapStyleUrl: (s: string) => (s === 'dark' ? 'https://tiles.openfreemap.org/styles/dark' : 'https://tiles.openfreemap.org/styles/liberty'),
+  resolveMapStyle: (s: string) => (s === 'dark' ? 'dark' : 'light'),
+  exportStyleUrl: () => 'https://tiles.openfreemap.org/styles/liberty',
 }));
 
 const { typeForNote } = vi.hoisted(() => ({ typeForNote: vi.fn() }));
@@ -168,6 +175,85 @@ describe('TypeViewMap (#2066)', () => {
     render(TypeViewMap, { instances: [INSTANCES[0]!], locationProperty: 'location', onOpenNote: vi.fn() });
     await waitFor(() => expect(markerInstances.length).toBe(1));
     expect(markerInstances[0]!.opts).toBeUndefined();
+  });
+
+  describe('map style (#2665)', () => {
+    const LIGHT = 'https://tiles.openfreemap.org/styles/liberty';
+    const DARK = 'https://tiles.openfreemap.org/styles/dark';
+    const base = { instances: INSTANCES, locationProperty: 'location', onOpenNote: vi.fn() };
+
+    it('builds the map in the view\'s explicit style', async () => {
+      render(TypeViewMap, { ...base, mapStyle: 'dark' });
+      await waitFor(() => expect(mapInstances.length).toBe(1));
+      expect(mapInstances[0]!.opts).toMatchObject({ style: DARK });
+    });
+
+    /** Mounted the way the app mounts it: each prop its own reactive source,
+     *  so changing `mapStyle` changes only `mapStyle`. (`rerender` replaces
+     *  the whole props object, which re-fires every prop read.) */
+    function mountReactive(mapStyle: MapStyle) {
+      const target = document.body.appendChild(document.createElement('div'));
+      const props = reactiveProps<{ instances: typeof INSTANCES; locationProperty: string; onOpenNote: () => void; mapStyle: MapStyle }>({ ...base, mapStyle });
+      const instance = mount(TypeViewMap, { target, props });
+      mounted.push(() => { void unmount(instance); target.remove(); });
+      return { props, target };
+    }
+    const mounted: Array<() => void> = [];
+    afterEach(() => { for (const off of mounted.splice(0)) off(); });
+
+    it('switches live with setStyle, keeping every marker and the camera', async () => {
+      const { props } = mountReactive('auto');
+      await waitFor(() => expect(markerInstances.length).toBe(2));
+      const map = mapInstances[0]!;
+      expect(map.opts).toMatchObject({ style: LIGHT });
+      const framed = map.fitBounds.mock.calls.length;
+
+      flushSync(() => { props.mapStyle = 'dark'; });
+      expect(map.setStyle).toHaveBeenCalledWith(DARK);
+      expect(mapInstances).toHaveLength(1); // restyled in place, not rebuilt
+      expect(markerInstances).toHaveLength(2); // no marker re-created…
+      for (const m of markerInstances) expect(m.remove).not.toHaveBeenCalled(); // …or removed
+      expect(map.fitBounds.mock.calls.length).toBe(framed); // the camera isn't re-framed
+
+      flushSync(() => { props.mapStyle = 'light'; });
+      expect(map.setStyle).toHaveBeenLastCalledWith(LIGHT);
+      // `auto` on a light app is the light style already — no redundant swap.
+      flushSync(() => { props.mapStyle = 'auto'; });
+      expect(map.setStyle).toHaveBeenCalledTimes(2);
+    });
+
+    it('marks the tiles dark, so the pins get their light halo', () => {
+      const { props, target } = mountReactive('light');
+      expect(target.querySelector('.type-view-map-wrap.dark-tiles')).toBeNull();
+      flushSync(() => { props.mapStyle = 'dark'; });
+      expect(target.querySelector('.type-view-map-wrap.dark-tiles')).toBeTruthy();
+    });
+
+    it('the control is a labelled button group announcing the current style, operable by keyboard', async () => {
+      const onMapStyleChange = vi.fn();
+      render(TypeViewMap, { ...base, mapStyle: 'auto', onMapStyleChange });
+      const group = await waitFor(() => {
+        const g = document.querySelector('[role="group"][aria-label="Map style"]');
+        expect(g).toBeTruthy();
+        return g!;
+      });
+      const buttons = [...group.querySelectorAll('button')];
+      expect(buttons.map((b) => [b.textContent, b.getAttribute('aria-pressed')])).toEqual([['Auto', 'true'], ['Light', 'false'], ['Dark', 'false']]);
+      // Native <button>s: focusable, and Enter/Space activate them as a click.
+      for (const b of buttons) expect(b.getAttribute('type')).toBe('button');
+      buttons[2]!.focus();
+      expect(document.activeElement).toBe(buttons[2]);
+      await fireEvent.click(buttons[2]!);
+      expect(onMapStyleChange).toHaveBeenCalledWith('dark');
+      await fireEvent.click(buttons[0]!); // the current one is a no-op
+      expect(onMapStyleChange).toHaveBeenCalledTimes(1);
+    });
+
+    it('shows no control without a handler (an embed)', async () => {
+      render(TypeViewMap, { ...base, mapStyle: 'dark' });
+      await waitFor(() => expect(mapInstances.length).toBe(1));
+      expect(document.querySelector('[aria-label="Map style"]')).toBeNull();
+    });
   });
 
   it('does not throw with zero located instances', async () => {

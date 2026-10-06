@@ -51,8 +51,9 @@ vi.mock('../../../src/renderer/lib/map/load-maplibre', () => ({
   loadMapLibre: vi.fn().mockResolvedValue({ Map: h.FakeMap, Marker: h.FakeMarker, NavigationControl: class {}, LngLatBounds: h.FakeLngLatBounds }),
 }));
 vi.mock('../../../src/renderer/lib/map/maplibre-style', () => ({
-  styleUrlForTheme: () => 'https://tiles.example/dark',
-  exportStyleUrl: () => 'https://tiles.example/light',
+  mapStyleUrl: () => 'https://tiles.example/dark', // the app is dark
+  resolveMapStyle: () => 'dark',
+  exportStyleUrl: (s: string = 'auto') => (s === 'dark' ? 'https://tiles.example/dark' : 'https://tiles.example/light'),
 }));
 vi.mock('../../../src/renderer/lib/stores/object-types.svelte', () => ({ objectTypesStore: { typeForNote: () => null } }));
 vi.mock('../../../src/renderer/lib/map/map-export', async (importOriginal) => ({
@@ -68,9 +69,9 @@ const INSTANCES = [
   { path: 'trip/Nowhere.md', title: 'Nowhere', values: { location: null }, cover: null },
 ];
 
-async function mountForExport() {
+async function mountForExport(extra: { mapStyle?: 'auto' | 'light' | 'dark'; onMapStyleChange?: () => void } = {}) {
   const captures: MapCapture[] = [];
-  render(TypeViewMap, { instances: INSTANCES, locationProperty: 'location', onOpenNote: vi.fn(), exportHooks: { onCaptured: (c) => captures.push(c) } });
+  render(TypeViewMap, { instances: INSTANCES, locationProperty: 'location', onOpenNote: vi.fn(), exportHooks: { onCaptured: (c) => captures.push(c) }, ...extra });
   await waitFor(() => expect(h.maps).toHaveLength(1));
   await new Promise((r) => setTimeout(r, 0)); // markers placed by the effect
   return { map: h.maps[0]!, captures };
@@ -84,6 +85,22 @@ describe('TypeViewMap export mode (#2511)', () => {
     const { map } = await mountForExport();
     expect(map.opts).toMatchObject({ style: 'https://tiles.example/light', interactive: false, attributionControl: false, fadeDuration: 0, canvasContextAttributes: { preserveDrawingBuffer: true } });
     expect(map.controls).toBe(0);
+  });
+
+  it('an explicit dark style exports dark; light and auto export light (#2665)', async () => {
+    const { map, captures } = await mountForExport({ mapStyle: 'dark', onMapStyleChange: vi.fn() });
+    expect(map.opts).toMatchObject({ style: 'https://tiles.example/dark', interactive: false });
+    expect(document.querySelector('[aria-label="Map style"]')).toBeNull(); // never a control in an export
+    map.emit('idle');
+    await waitFor(() => expect(captures).toHaveLength(1));
+    expect(captures[0]).toMatchObject({ ok: true, attribution: '© OpenStreetMap contributors · © Inline' });
+    cleanup();
+    for (const mapStyle of ['light', 'auto'] as const) {
+      h.maps.length = 0;
+      const { map: m } = await mountForExport({ mapStyle });
+      expect(m.opts).toMatchObject({ style: 'https://tiles.example/light' });
+      cleanup();
+    }
   });
 
   it('captures once idle: the composited image, the credit, and the located places', async () => {

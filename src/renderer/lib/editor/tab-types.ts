@@ -1,4 +1,5 @@
 import type { ViewFilter } from '../../../shared/objects/view-spec';
+import type { MapStyle } from '../../../shared/objects/map-style';
 /**
  * Tab/editor-group type definitions, extracted from `stores/editor.svelte.ts`
  * (#1919) so `editor/tab-session.ts` (the pure session-serialization module)
@@ -97,6 +98,8 @@ export interface TypeViewState {
   folder: string | null;
   /** Property filters, AND-ed (#2531). */
   filters: ViewFilter[];
+  /** Map layout's tile style (#2665); `auto` follows the app theme. */
+  mapStyle: MapStyle;
 }
 export interface TypeViewTab extends TypeViewState {
   type: 'type-view';
