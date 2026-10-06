@@ -407,6 +407,19 @@ describe('PropertiesPanel — declared type fields', () => {
     expect(next).toContain('# Dune');
   });
 
+  it('a declared boolean is a checkbox that writes a real YAML boolean (#2431)', async () => {
+    h.api.types.noteProperties.mockResolvedValue({
+      ...BOOK_SCHEMA,
+      properties: [{ name: 'owned', type: 'boolean', label: 'Owned', value: null }],
+    });
+    const onContentChange = vi.fn();
+    render(PropertiesPanel, typedProps({ onContentChange }));
+    await waitFor(() => expect(screen.getByText('Owned')).toBeTruthy());
+    const box = screen.getByText('Owned').parentElement!.querySelector('input[type="checkbox"]')!;
+    await fireEvent.click(box);
+    expect(lastRewrite(onContentChange)).toContain('\nowned: true\n');
+  });
+
   it('keeps the rich editor for a declared property holding a list', async () => {
     // A declared `text` property whose actual value is a YAML list must not be
     // flattened into a single-line input on the next commit.

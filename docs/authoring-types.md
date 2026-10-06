@@ -147,7 +147,7 @@ Each entry under `properties:` is a mapping:
 | Key | Required | Notes |
 |---|---|---|
 | `name` | yes | The **frontmatter key** the value is stored under on an instance. |
-| `type` | no (`text`) | One of the six below. |
+| `type` | no (`text`) | One of the seven below. |
 | `label` | no | Human label for the form. Defaults to a title-cased `name` (`first_name` → `First Name`). |
 | `options` | `enum` only | The allowed values. Validated-but-not-enforced — a note may hold something else. |
 | `targetType` | `link-to-type` only | The type id this property points at. `target` is accepted as an alias. |
@@ -163,6 +163,7 @@ Each entry under `properties:` is a mapping:
 | `enum` | one of `options` | Advisory, not enforced — a note may hold anything. |
 | `link-to-type` | a wiki-link to a note of `targetType` | Written as `[[Target Note]]`. |
 | `geo` | `"<lat>,<lng>"` | A plain string. Deliberately no coordinate parsing, no geocoding, no structured sub-fields. |
+| `boolean` | `true` / `false` | A checkbox. Written as a real YAML boolean and coerced to `xsd:boolean`; the words `true`/`false` are accepted too. |
 
 The declared type is **schema over value-guessing**: an untyped frontmatter key
 gets its RDF datatype guessed from the value's shape, a declared one gets it

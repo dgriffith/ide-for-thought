@@ -754,11 +754,12 @@
     getSidebar: () => sidebar,
     getEditorComponent: () => editorComponent,
     maybeHandleMissingApiKey: (err) => maybeHandleMissingApiKey(err),
+    onBulkPropertiesWritten: () => { graphRevision++; sidebar?.refreshObjects?.(); rightSidebar?.refresh(); },
   };
   const {
     handleExtractSelection, handleSplitByHeading, handleSplitHere,
     handleAutoLink, handleAutoLinkInbound, handleAutoLinkInboundApply, handleAutoLinkApply,
-    handleAddTag, handleRemoveTag, handleAddProperty, handleRemoveProperty, handleToggleEntrypoint,
+    handleAddTag, handleRemoveTag, handleAddProperty, handleRemoveProperty, handleEditProperties, handleToggleEntrypoint,
     handleLabelVersion, handleViewHistory,
     handleFormat, handleBibliography, handleAutoTag, handleAutoTagApply,
   } = createRefactorOps(refactorOpsCtx);
@@ -1419,6 +1420,7 @@
                     onStateChange={(patch) => editor.setTypeViewState(active.typeId, active.folder, patch)}
                     onClearFolder={() => editor.rescopeTypeView(active.typeId, active.folder, null)}
                     onOpenNote={(p) => handleFileSelect(p)}
+                    onEditProperties={(paths) => void handleEditProperties(paths)}
                     {...(notebase.meta ? { onSaveView: () => handleSaveView(active) } : {})}
                   />
                 {/key}

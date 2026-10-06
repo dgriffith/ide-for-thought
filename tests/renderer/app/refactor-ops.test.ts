@@ -5,7 +5,7 @@
  * auto-link review + apply, bulk tagging, bibliography), not just that menus
  * reach them.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const h = vi.hoisted(() => {
   const api = {
@@ -39,14 +39,23 @@ const h = vi.hoisted(() => {
     openFile: vi.fn().mockResolvedValue(undefined),
     setContent: vi.fn(),
   };
-  const dialog = { showPrompt: vi.fn(), showConfirm: vi.fn(), showAddPropertyDialog: vi.fn() };
-  return { api, notebase, editor, dialog };
+  const dialog = { showPrompt: vi.fn(), showConfirm: vi.fn(), showAddPropertyDialog: vi.fn(), showBulkPropertiesDialog: vi.fn() };
+  /** note path → type, for the typed-selection routing (#2431). */
+  const noteTypes: Record<string, unknown> = {};
+  return { api, notebase, editor, dialog, noteTypes };
 });
 
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({ api: h.api }));
 vi.mock('../../../src/renderer/lib/stores/notebase.svelte', () => ({ getNotebaseStore: () => h.notebase }));
 vi.mock('../../../src/renderer/lib/stores/editor.svelte', () => ({ getEditorStore: () => h.editor }));
 vi.mock('../../../src/renderer/lib/stores/dialogs.svelte', () => ({ getDialogStore: () => h.dialog }));
+vi.mock('../../../src/renderer/lib/stores/object-types.svelte', () => ({
+  objectTypesStore: {
+    get types() { return Object.values(h.noteTypes); },
+    refresh: vi.fn().mockResolvedValue(undefined),
+    typeForNote: (p: string) => h.noteTypes[p] ?? null,
+  },
+}));
 
 import { createRefactorOps, type RefactorOpsCtx } from '../../../src/renderer/lib/app/refactor-ops.svelte';
 import { getRefactorFlowStore } from '../../../src/renderer/lib/stores/refactor-flow.svelte';
@@ -726,6 +735,37 @@ describe('handleRemoveProperty', () => {
     const msg = h.dialog.showConfirm.mock.calls.at(-1)?.[0] as string;
     expect(msg).toContain('properties to remove');
     expect(h.dialog.showPrompt).not.toHaveBeenCalled();
+    expect(h.api.notebase.writeFile).not.toHaveBeenCalled();
+  });
+});
+
+describe('Add / Remove Property on a typed selection (#2431)', () => {
+  const TASK = { id: 'task', label: 'Task', classLocalName: 'Task', source: 'user', properties: [{ name: 'done', type: 'boolean' }] };
+  beforeEach(() => { h.noteTypes['note.md'] = TASK; });
+  afterEach(() => { delete h.noteTypes['note.md']; });
+
+  for (const action of ['handleAddProperty', 'handleRemoveProperty'] as const) {
+    it(`${action} opens the type-aware panel instead of the free-text prompt`, async () => {
+      h.api.notebase.readFile.mockResolvedValue('---\ntype: task\n---\nbody');
+      h.api.tags.list.mockResolvedValue([]);
+      h.dialog.showBulkPropertiesDialog.mockResolvedValue([{ op: 'set', key: 'done', value: true }]);
+      h.api.notebase.writeFile.mockResolvedValue(undefined);
+      await ops[action]('note.md', false);
+      expect(h.dialog.showAddPropertyDialog).not.toHaveBeenCalled();
+      expect(h.dialog.showPrompt).not.toHaveBeenCalled();
+      const model = h.dialog.showBulkPropertiesDialog.mock.calls[0]![0] as { sharedType: { id: string } };
+      expect(model.sharedType.id).toBe('task');
+      expect(h.api.notebase.writeFile).toHaveBeenCalledWith('note.md', '---\ntype: task\ndone: true\n---\nbody');
+      expect(h.editor.reloadTabFromDisk).toHaveBeenCalledWith('note.md');
+    });
+  }
+
+  it('handleEditProperties opens the panel for an explicit set (a type view selection)', async () => {
+    h.api.notebase.readFile.mockResolvedValue('---\ntype: task\n---\n');
+    h.api.tags.list.mockResolvedValue([]);
+    h.dialog.showBulkPropertiesDialog.mockResolvedValue(null);
+    await ops.handleEditProperties(['note.md']);
+    expect(h.dialog.showBulkPropertiesDialog).toHaveBeenCalled();
     expect(h.api.notebase.writeFile).not.toHaveBeenCalled();
   });
 });

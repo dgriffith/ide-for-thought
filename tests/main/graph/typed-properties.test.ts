@@ -47,6 +47,17 @@ describe('typed properties: datatype coercion (#1063)', () => {
     expect(await datatypeOf('A', 'minerva:meta-published')).toMatch(/#date$/);
   });
 
+  it('a declared `boolean` becomes xsd:boolean — from YAML true or the word "false" (#2431)', async () => {
+    writeNote('.minerva/types/chore.md', '---\nlabel: Chore\nid: chore\nproperties:\n  - name: done\n    type: boolean\n---\n');
+    writeNote('A.md', `---\ntitle: A\ntype: chore\ndone: true\n---\n`);
+    writeNote('B.md', `---\ntitle: B\ntype: chore\ndone: "false"\n---\n`);
+    writeNote('C.md', `---\ntitle: C\ntype: chore\ndone: maybe\n---\n`);
+    await indexAllNotes(ctx);
+    expect(await datatypeOf('A', 'minerva:meta-done')).toMatch(/#boolean$/);
+    expect(await datatypeOf('B', 'minerva:meta-done')).toMatch(/#boolean$/);
+    expect(await datatypeOf('C', 'minerva:meta-done')).toMatch(/#string$/); // not coercible → plain
+  });
+
   it('a declared `text` stays a plain string — not mis-inferred as a number/year', async () => {
     // isbn is declared text; a bare-year-looking value must NOT become xsd:gYear.
     writeNote('A.md', `---\ntitle: A\ntype: book\nisbn: 2020\n---\n`);

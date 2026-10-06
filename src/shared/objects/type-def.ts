@@ -13,9 +13,10 @@
 
 /** The MVP five property types (decision 4), plus `geo` (#2064/#2065 design
  *  spike): a location stored as a plain `"<lat>,<lng>"` string — no
- *  geocoding, no structured sub-fields, deferred per that decision doc.
+ *  geocoding, no structured sub-fields, deferred per that decision doc —
+ *  and `boolean` (#2431): a checkbox, stored as a real YAML `true`/`false`.
  *  Deferred still: computed, multi-value, units. */
-export const PROPERTY_TYPES = ['text', 'date', 'number', 'enum', 'link-to-type', 'geo'] as const;
+export const PROPERTY_TYPES = ['text', 'date', 'number', 'enum', 'link-to-type', 'geo', 'boolean'] as const;
 export type PropertyType = (typeof PROPERTY_TYPES)[number];
 
 export interface PropertyDef {

@@ -11,8 +11,9 @@
    * on the tab (persisted across sessions) and is mutated via `onStateChange`,
    * so "Save as note" (#2507) can embed it exactly in a new note.
    *
-   * A read-only surface: rows/cards deep-link to the note (the property form
-   * #1066 is where values are edited); table cells never mutate the graph.
+   * Rows/cards deep-link to the note; cells never mutate anything. Rows
+   * multi-select (⌘/⇧-click, ⌘A) and "Edit properties (N)" hands the selection
+   * to the host's bulk editor (#2431) — the view itself still writes nothing.
    */
   import { api } from '../ipc/client';
   import TypeIcon from './TypeIcon.svelte';
@@ -25,6 +26,8 @@
   import { objectTypesStore } from '../stores/object-types.svelte';
   import { effectivePropertyDefs } from '../../../shared/objects/inheritance';
   import { logger } from '../../../shared/logger';
+  import { createTypeViewSelection } from './type-view-selection.svelte';
+  import TypeViewRowMenu from './TypeViewRowMenu.svelte';
   import type { PropertyDef, TypeInfo, TypeInstanceRow } from '../../../shared/objects/type-def';
 
   type Layout = 'list' | 'table' | 'gallery' | 'map';
@@ -68,8 +71,11 @@
     /** Map layout's tile style (#2665); `auto` follows the app theme. The
      *  panel shows a control to change it; an embed or export doesn't. */
     mapStyle?: MapStyle;
+    /** Bulk-edit the selected notes' properties (#2431). Absent (an embed, an
+     *  export) → rows don't multi-select; a click just opens the note. */
+    onEditProperties?: (paths: string[]) => void;
   }
-  let { typeId, layout, sortColumn, sortDir, columns, revision, onStateChange, onOpenNote, onSaveView, chromeless = false, onLoaded, mapExport, folder = null, filters = [], onClearFolder, mapStyle = 'auto' }: Props = $props();
+  let { typeId, layout, sortColumn, sortDir, columns, revision, onStateChange, onOpenNote, onSaveView, chromeless = false, onLoaded, mapExport, folder = null, filters = [], onClearFolder, mapStyle = 'auto', onEditProperties }: Props = $props();
 
   let type = $state<TypeInfo | null>(null);
   let instances = $state<TypeInstanceRow[]>([]);
@@ -225,6 +231,15 @@
     }
   }
 
+  // Multi-select (#2431): ⌘/⇧-click, ⌘A, Escape, right-click — the sidebar's semantics.
+  const selectable = $derived(!!onEditProperties && !chromeless);
+  const sel = createTypeViewSelection({
+    order: () => (layout === 'table' ? sorted : scoped).map((i) => i.path),
+    enabled: () => selectable,
+    onOpen: (p) => onOpenNote(p),
+    onEdit: (paths) => onEditProperties?.(paths),
+  });
+
   function isImageUrl(v: string | null): v is string {
     return !!v && /^https?:\/\//i.test(v);
   }
@@ -252,7 +267,8 @@
   ]);
 </script>
 
-<div class="type-view">
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div class="type-view" onkeydown={sel.keydown}>
   {#if !chromeless}
     <header class="tv-header">
       <span class="tv-icon" style={type?.color ? `color:${type.color}` : undefined}>{type?.icon ?? '◆'}</span>
@@ -267,6 +283,11 @@
       <TypeViewFilters properties={allColumns} instances={inFolderOnly} {filters} {display} onChange={(next) => onStateChange({ filters: next })} />
 
       <div class="tv-actions">
+        {#if selectable && sel.selectedPaths.length > 0}
+          <button class="tv-btn tv-edit" onclick={sel.editSelected} title="Edit the selected notes' properties together">
+            Edit properties ({sel.selectedPaths.length})
+          </button>
+        {/if}
         {#if layout === 'table' && allColumns.length > 0}
           <div class="tv-columns">
             <button class="tv-btn" aria-expanded={columnsMenuOpen} onclick={() => (columnsMenuOpen = !columnsMenuOpen)}>Columns ▾</button>
@@ -312,7 +333,7 @@
     <div class="tv-list">
       {#each scoped as inst (inst.path)}
         {@const rt = rowType(inst)}
-        <button class="tv-list-row" onclick={() => onOpenNote(inst.path)} title={inst.path} data-note-path={inst.path}>
+        <button class="tv-list-row" class:selected={sel.has(inst.path)} aria-pressed={selectable ? sel.has(inst.path) : undefined} onclick={(e) => sel.click(e, inst.path)} oncontextmenu={(e) => sel.contextMenu(e, inst.path)} title={inst.path} data-note-path={inst.path}>
           {#if rt}<span class="tv-list-icon"><TypeIcon type={rt} size={14} /></span>{/if}
           <span class="tv-list-body">
             <span class="tv-list-title">{inst.title}</span>
@@ -345,7 +366,7 @@
         <tbody>
           {#each sorted as inst (inst.path)}
             {@const rt = rowType(inst)}
-            <tr onclick={() => onOpenNote(inst.path)} title={inst.path} data-note-path={inst.path}>
+            <tr class:selected={sel.has(inst.path)} data-selected={sel.has(inst.path) || undefined} onclick={(e) => sel.click(e, inst.path)} oncontextmenu={(e) => sel.contextMenu(e, inst.path)} title={inst.path} data-note-path={inst.path}>
               <td class="tv-cell-title">
                 <span class="tv-cell-title-inner">
                   {#if rt}<TypeIcon type={rt} size={13} />{/if}
@@ -364,7 +385,7 @@
     <div class="tv-gallery">
       {#each scoped as inst (inst.path)}
         {@const rt = rowType(inst)}
-        <button class="tv-card" onclick={() => onOpenNote(inst.path)} title={inst.path} data-note-path={inst.path}>
+        <button class="tv-card" class:selected={sel.has(inst.path)} aria-pressed={selectable ? sel.has(inst.path) : undefined} onclick={(e) => sel.click(e, inst.path)} oncontextmenu={(e) => sel.contextMenu(e, inst.path)} title={inst.path} data-note-path={inst.path}>
           <div class="tv-card-cover">
             {#if isImageUrl(inst.cover)}
               <img src={inst.cover} alt="" loading="lazy" />
@@ -391,6 +412,10 @@
          a geo property (e.g. edited after the view was saved) — fall back to
          a message rather than mounting a map with nothing to plot. -->
     <p class="tv-empty">This type has no location property.</p>
+  {/if}
+
+  {#if sel.menu}
+    <TypeViewRowMenu x={sel.menu.x} y={sel.menu.y} count={sel.selectedPaths.length} onEdit={sel.editSelected} onClose={sel.closeMenu} />
   {/if}
 </div>
 
@@ -555,6 +580,12 @@
   .tv-card-icon { font-size: 32px; opacity: 0.5; }
   .tv-card-title { font-size: 12.5px; font-weight: 500; padding: 0 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tv-card-summary { font-size: 11px; color: var(--text-faint); padding: 0 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* Multi-selection (#2431): an accent wash, same as the sidebar's. */
+  .tv-list-row.selected,
+  .tv-table tbody tr.selected,
+  .tv-card.selected { background: color-mix(in oklch, var(--accent) 16%, transparent); }
+  .tv-card.selected { border-color: var(--accent); }
+  .tv-edit { color: var(--text); border-color: var(--accent); }
   /* Folder scope chip (#2532). */
   .tv-chip { display: inline-flex; align-items: center; gap: 4px; padding: 1px 4px 1px 8px; border-radius: 999px; background: var(--bg-button); color: var(--text-muted); font-size: 11.5px; white-space: nowrap; }
   .tv-chip-x { border: none; background: transparent; color: var(--text-muted); cursor: pointer; padding: 0 4px; border-radius: 999px; font-size: 10px; line-height: 1.6; }

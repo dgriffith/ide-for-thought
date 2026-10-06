@@ -18,6 +18,7 @@ import type { NoteExt, NewNoteResult } from '../components/new-note-dialog-types
 import type { TemplateInfo } from '../ipc/client';
 import type { TypeInfo } from '../../../shared/objects/type-def';
 import type { SourceMetadata } from '../../../shared/types';
+import type { BulkEdit, BulkFieldModel } from '../../../shared/objects/bulk-properties';
 
 export interface PromptState {
   message: string;
@@ -59,6 +60,14 @@ export interface AddPropertyState {
   resolve: (value: AddPropertyResult | null) => void;
 }
 
+/** "Edit properties…" for a selection (#2431); resolves with the touched
+ *  fields' edits, or null on cancel. */
+export interface BulkPropertiesState {
+  model: BulkFieldModel;
+  tagSuggestions: string[];
+  resolve: (edits: BulkEdit[] | null) => void;
+}
+
 /** "Treat this note as a…" type picker (#1067). */
 export interface TypePickerState {
   types: TypeInfo[];
@@ -80,6 +89,7 @@ let mergeSources = $state<MergeSourcesState | null>(null);
 let confirm = $state<ConfirmState | null>(null);
 let openTarget = $state<OpenTargetState | null>(null);
 let addProperty = $state<AddPropertyState | null>(null);
+let bulkProperties = $state<BulkPropertiesState | null>(null);
 
 export function getDialogStore() {
   const confirmSuppression = getConfirmSuppressionStore();
@@ -132,6 +142,11 @@ export function getDialogStore() {
     return new Promise((resolve) => { addProperty = { message, keySuggestions, resolve }; });
   }
 
+  /** Edit the touched properties of a selection on one panel (#2431). */
+  function showBulkPropertiesDialog(model: BulkFieldModel, tagSuggestions: string[] = []): Promise<BulkEdit[] | null> {
+    return new Promise((resolve) => { bulkProperties = { model, tagSuggestions, resolve }; });
+  }
+
   /** Pure open-target prompt — always shows. App.svelte wraps this with the
    *  "no project open → 'this'" shortcut, which is app logic, not dialog logic. */
   function askOpenTarget(message: string): Promise<OpenTargetChoice> {
@@ -176,6 +191,9 @@ export function getDialogStore() {
   function confirmAddProperty(value: AddPropertyResult) { const r = addProperty?.resolve; addProperty = null; r?.(value); }
   function cancelAddProperty() { const r = addProperty?.resolve; addProperty = null; r?.(null); }
 
+  function confirmBulkProperties(edits: BulkEdit[]) { const r = bulkProperties?.resolve; bulkProperties = null; r?.(edits); }
+  function cancelBulkProperties() { const r = bulkProperties?.resolve; bulkProperties = null; r?.(null); }
+
   return {
     get prompt() { return prompt; },
     get newNote() { return newNote; },
@@ -185,11 +203,13 @@ export function getDialogStore() {
     get confirm() { return confirm; },
     get openTarget() { return openTarget; },
     get addProperty() { return addProperty; },
+    get bulkProperties() { return bulkProperties; },
     showPrompt,
     showNewNoteDialog,
     showConfirm,
     showSnippetPicker,
     showAddPropertyDialog,
+    showBulkPropertiesDialog,
     askOpenTarget,
     confirmPrompt,
     cancelPrompt,
@@ -208,6 +228,8 @@ export function getDialogStore() {
     resolveOpenTarget,
     confirmAddProperty,
     cancelAddProperty,
+    confirmBulkProperties,
+    cancelBulkProperties,
   };
 }
 
@@ -221,4 +243,5 @@ export function __resetDialogsForTests(): void {
   confirm = null;
   openTarget = null;
   addProperty = null;
+  bulkProperties = null;
 }

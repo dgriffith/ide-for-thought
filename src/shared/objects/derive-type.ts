@@ -17,6 +17,7 @@ const RESERVED = new Set(['title', 'tags', 'type', 'aliases', 'publish']);
 export function inferPropertyType(value: string): PropertyType {
   const v = value.trim();
   if (/^\[\[.*\]\]$/.test(v)) return 'link-to-type';
+  if (/^(true|false)$/.test(v)) return 'boolean';
   if (/^-?\d+(\.\d+)?$/.test(v)) return 'number';
   if (/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?/.test(v)) return 'date';
   return 'text';

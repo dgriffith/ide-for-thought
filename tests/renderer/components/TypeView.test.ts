@@ -419,3 +419,67 @@ describe('the folder chip (#2532)', () => {
     expect(screen.queryByText('in shelf/a')).toBeNull();
   });
 });
+
+describe('multi-select + Edit properties (#2431)', () => {
+  const THREE = [
+    ...INSTANCES,
+    { path: 'Snow.md', title: 'Snow Crash', values: { author: 'Neal Stephenson', rating: '3' }, cover: null },
+  ];
+  beforeEach(() => { instancesMock.mockResolvedValue({ type: TYPE, instances: THREE }); });
+  const row = (title: string) => screen.getByText(title).closest('tr')!;
+
+  it('⌘-click toggles rows without opening; the header button edits exactly the selection', async () => {
+    const onOpenNote = vi.fn();
+    const onEditProperties = vi.fn();
+    render(TypeView, props({ layout: 'table', onOpenNote, onEditProperties }));
+    await waitFor(() => expect(screen.getByText('Dune')).toBeTruthy());
+    await fireEvent.click(row('Dune'), { metaKey: true });
+    await fireEvent.click(row('Snow Crash'), { ctrlKey: true });
+    expect(onOpenNote).not.toHaveBeenCalled();
+    expect(row('Dune').classList.contains('selected')).toBe(true);
+    expect(row('Neuromancer').classList.contains('selected')).toBe(false);
+    await fireEvent.click(screen.getByRole('button', { name: /Edit properties \(2\)/ }));
+    expect(onEditProperties).toHaveBeenCalledWith(['Dune.md', 'Snow.md']);
+  });
+
+  it('⇧-click selects the on-screen range from the anchor', async () => {
+    const onEditProperties = vi.fn();
+    render(TypeView, props({ layout: 'table', onEditProperties }));
+    await waitFor(() => expect(screen.getByText('Dune')).toBeTruthy());
+    await fireEvent.click(row('Dune'), { metaKey: true });
+    await fireEvent.click(row('Snow Crash'), { shiftKey: true });
+    await fireEvent.click(screen.getByRole('button', { name: /Edit properties \(3\)/ }));
+    expect(onEditProperties).toHaveBeenCalledWith(['Dune.md', 'Neuro.md', 'Snow.md']);
+  });
+
+  it('a plain click still opens the note; ⌘A selects all; Escape clears', async () => {
+    const onOpenNote = vi.fn();
+    render(TypeView, props({ layout: 'list', onOpenNote, onEditProperties: vi.fn() }));
+    await waitFor(() => expect(screen.getByText('Dune')).toBeTruthy());
+    await fireEvent.click(screen.getByText('Dune'));
+    expect(onOpenNote).toHaveBeenCalledWith('Dune.md');
+    const view = document.querySelector('.type-view')!;
+    await fireEvent.keyDown(view, { key: 'a', metaKey: true });
+    expect(screen.getByRole('button', { name: /Edit properties \(3\)/ })).toBeTruthy();
+    await fireEvent.keyDown(view, { key: 'Escape' });
+    expect(screen.queryByRole('button', { name: /Edit properties/ })).toBeNull();
+  });
+
+  it('right-click offers Edit Properties for the row (gallery)', async () => {
+    const onEditProperties = vi.fn();
+    render(TypeView, props({ layout: 'gallery', onEditProperties }));
+    await waitFor(() => expect(screen.getByText('Neuromancer')).toBeTruthy());
+    await fireEvent.contextMenu(screen.getByText('Neuromancer'));
+    await fireEvent.click(screen.getByRole('menuitem', { name: /Edit Properties/ }));
+    expect(onEditProperties).toHaveBeenCalledWith(['Neuro.md']);
+  });
+
+  it('without a host editor (an embed), modifier clicks just open the note', async () => {
+    const onOpenNote = vi.fn();
+    render(TypeView, props({ layout: 'table', onOpenNote }));
+    await waitFor(() => expect(screen.getByText('Dune')).toBeTruthy());
+    await fireEvent.click(row('Dune'), { metaKey: true });
+    expect(onOpenNote).toHaveBeenCalledWith('Dune.md');
+    expect(screen.queryByRole('button', { name: /Edit properties/ })).toBeNull();
+  });
+});
