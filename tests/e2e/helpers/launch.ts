@@ -122,7 +122,7 @@ export interface LaunchOptions {
   /** Required: the profile this run may read and write. */
   userDataDir: string;
   /**
-   * Packaged-binary path. Omit to boot the in-tree `.vite/build/main.js`.
+   * Packaged-binary path. Omit to boot the in-tree `.vite/build/main.cjs`.
    * Given, the launch attaches over CDP instead of Playwright's Electron
    * driver — see `launchPackaged` for why.
    */

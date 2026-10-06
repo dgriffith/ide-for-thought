@@ -21,7 +21,7 @@ package step first, then invokes every configured maker.
 pnpm build
 open out/Minerva-darwin-arm64/Minerva.app          # first launch
 # .app then lives at out/Minerva-darwin-arm64/Minerva.app
-# DMG lands at out/make/Minerva-darwin-arm64-<version>.dmg
+# DMG lands at out/make/dmg/arm64/Minerva-<version>-arm64.dmg
 ```
 
 ## Caveats worth knowing before you double-click

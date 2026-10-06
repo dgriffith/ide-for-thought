@@ -85,7 +85,7 @@ describe('main BrowserWindow security flags (#1102)', () => {
   it('routes the renderer through the preload bridge', () => {
     createWindow();
     const wp = h.constructed[0]!.webPreferences;
-    expect(wp.preload).toMatch(/preload\.js$/);
+    expect(wp.preload).toMatch(/preload\.cjs$/);
   });
 
   it('applies the shared HARDENED_WEB_PREFERENCES with no local override re-enabling node', () => {

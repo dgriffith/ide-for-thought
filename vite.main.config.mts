@@ -32,7 +32,7 @@ export default defineConfig({
       // - `vega` / `vega-lite` (#831, headless chart export): the plugin builds
       //   main as a single-file CJS lib, and bundling these large ESM trees
       //   (with their internal dynamic imports) makes rollup code-split the
-      //   entry so `main.js` is never emitted and packaging fails. Externalize
+      //   entry so `main.cjs` is never emitted and packaging fails. Externalize
       //   them — the Node that Electron embeds can `require()` ESM — and ship
       //   their closure via forge.config's `EXTERNAL_DEP_ROOTS`. (The version
       //   numbers that used to sit here, "Electron 42 / Node 22", were two

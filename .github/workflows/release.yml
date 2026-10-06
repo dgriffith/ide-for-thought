@@ -253,7 +253,8 @@ jobs:
           set -euo pipefail
           APP_DIR="$(find out -maxdepth 1 -iname 'Minerva-darwin-*' -type d)"
           APP_PATH="$APP_DIR/Minerva.app"
-          DMG_PATH="$(find out/make -maxdepth 1 -name '*.dmg' | head -n1)"
+          # maker-dmg 8 writes to out/make/dmg/<arch>/, not out/make itself.
+          DMG_PATH="$(find out/make -name '*.dmg' | head -n1)"
           if [ -z "$DMG_PATH" ]; then
             echo "::error::No .dmg in out/make to verify — did the build step actually produce one?"
             exit 1

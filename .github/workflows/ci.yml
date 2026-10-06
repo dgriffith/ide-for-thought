@@ -258,10 +258,10 @@ jobs:
   #
   # `audit:all` (full tree incl. build/dev tooling) is BLOCKING as of #2249,
   # ratcheted against `build/audit-baseline.json` rather than against zero.
-  # STEP 2 of the promotion path, in the only form it can take: the three
-  # remaining high advisories are two in `extract-zip` (no patched version
-  # exists at all) and one in `image-size` (patched at >=2.0.3, but reached via
-  # `appdmg@0.6.6` which declares `^0.7.4` and calls
+  # STEP 2 of the promotion path, in the only form it can take: the one
+  # remaining high advisory is in `image-size` (the two unpatchable
+  # `extract-zip` ones left with Electron Forge 8): patched at >=2.0.3 (but
+  # reached via `appdmg@0.6.6` which declares `^0.7.4` and calls
   # `require('image-size')(path, cb)`; 2.x is ESM-first, exports
   # `{ imageSize }` taking a Buffer, and has no callback form — forcing the
   # override and reproducing appdmg's call gives `sizeOf is not a function`,
