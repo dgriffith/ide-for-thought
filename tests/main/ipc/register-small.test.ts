@@ -27,6 +27,9 @@ const { handlers, listeners, h } = vi.hoisted(() => ({
     // graph (tags)
     listTags: vi.fn(), notesByTag: vi.fn(), notesByTagPrefix: vi.fn(),
     sourcesByTag: vi.fn(), allTags: vi.fn(),
+    // tag merge (#2430)
+    previewTagMerge: vi.fn(), mergeTag: vi.fn(),
+    persistIndexes: vi.fn(), broadcastRewritten: vi.fn(), broadcastSourcesChanged: vi.fn(),
     // privileged sites
     listSites: vi.fn(), addSite: vi.fn(), removeSite: vi.fn(),
     logoutSite: vi.fn(), openLoginWindow: vi.fn(),
@@ -64,6 +67,14 @@ vi.mock('../../../src/main/ipc/helpers', () => ({
   withRootPathOr:
     <A extends unknown[], R>(fallback: R, fn: (rootPath: string, ...a: A) => R) =>
       (_e: unknown, ...args: A): R => (openProject ? fn(openProject, ...args) : fallback),
+  persistIndexes: (...a: unknown[]) => h.persistIndexes(...a),
+  broadcastRewritten: (...a: unknown[]) => h.broadcastRewritten(...a),
+  broadcastSourcesChanged: (...a: unknown[]) => h.broadcastSourcesChanged(...a),
+  hooks: { marker: 'write-pipeline-hooks' },
+}));
+vi.mock('../../../src/main/tags/merge-tags', () => ({
+  previewTagMerge: (...a: unknown[]) => h.previewTagMerge(...a),
+  mergeTag: (...a: unknown[]) => h.mergeTag(...a),
 }));
 
 vi.mock('../../../src/main/graph/index', () => ({
@@ -137,6 +148,56 @@ describe('register-tags (#1840)', () => {
 
     call(Channels.TAGS_NOTES_BY_TAG_PREFIX, 'area/');
     expect(h.notesByTagPrefix).toHaveBeenCalledWith({ rootPath: ROOT }, 'area/');
+  });
+});
+
+describe('register-tags — merge / rename (#2430)', () => {
+  it.each([Channels.TAGS_MERGE_PREVIEW, Channels.TAGS_MERGE])(
+    '%s throws with no project open rather than answering "nothing to merge"',
+    (channel) => {
+      openProject = null;
+      expect(() => call(channel, 'ml', 'machine-learning')).toThrow(/No project open/);
+      expect(h.previewTagMerge).not.toHaveBeenCalled();
+      expect(h.mergeTag).not.toHaveBeenCalled();
+    },
+  );
+
+  it('previews against the open project, writing nothing', async () => {
+    const preview = { notes: 2, sources: 1, sourcesBodyOnly: 0, nestedTags: ['ml/nlp'], isRename: false };
+    h.previewTagMerge.mockResolvedValue(preview);
+    await expect(call(Channels.TAGS_MERGE_PREVIEW, 'ml', 'machine-learning')).resolves.toEqual(preview);
+    expect(h.previewTagMerge).toHaveBeenCalledWith(ROOT, 'ml', 'machine-learning');
+    expect(h.persistIndexes).not.toHaveBeenCalled();
+    expect(h.broadcastRewritten).not.toHaveBeenCalled();
+  });
+
+  it('merges through the shared write hooks, then broadcasts the rewritten notes and persists once', async () => {
+    const order: string[] = [];
+    h.mergeTag.mockImplementation(() => { order.push('merge'); return Promise.resolve({ notePaths: ['a.md', 'b.md'], sourceIds: ['s1'], errors: [] }); });
+    h.broadcastRewritten.mockImplementation(() => { order.push('rewritten'); });
+    h.broadcastSourcesChanged.mockImplementation(() => { order.push('sources'); });
+    h.persistIndexes.mockImplementation(() => { order.push('persist'); return Promise.resolve(); });
+
+    const result = await call(Channels.TAGS_MERGE, 'ml', 'machine-learning');
+    expect(result).toEqual({ notePaths: ['a.md', 'b.md'], sourceIds: ['s1'], errors: [] });
+    expect(h.mergeTag).toHaveBeenCalledWith(ROOT, 'ml', 'machine-learning', { marker: 'write-pipeline-hooks' });
+    expect(h.broadcastRewritten).toHaveBeenCalledWith(ROOT, ['a.md', 'b.md']);
+    expect(h.broadcastSourcesChanged).toHaveBeenCalledWith(ROOT);
+    expect(order).toEqual(['merge', 'rewritten', 'sources', 'persist']);
+  });
+
+  it('announces no source change when no source changed', async () => {
+    h.mergeTag.mockResolvedValue({ notePaths: ['a.md'], sourceIds: [], errors: [] });
+    h.persistIndexes.mockResolvedValue(undefined);
+    await call(Channels.TAGS_MERGE, 'ml', 'machine-learning');
+    expect(h.broadcastSourcesChanged).not.toHaveBeenCalled();
+  });
+
+  it('broadcasts nothing when the merge itself throws (an invalid name)', async () => {
+    h.mergeTag.mockRejectedValue(new Error('"bad name" is not a valid tag name.'));
+    await expect(call(Channels.TAGS_MERGE, 'ml', 'bad name')).rejects.toThrow(/not a valid tag name/);
+    expect(h.broadcastRewritten).not.toHaveBeenCalled();
+    expect(h.persistIndexes).not.toHaveBeenCalled();
   });
 });
 

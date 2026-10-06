@@ -190,6 +190,8 @@ const api = {
     notesByTagPrefix: (prefix: string) => invoke(Channels.TAGS_NOTES_BY_TAG_PREFIX, prefix),
     sourcesByTag: (tag: string) => invoke(Channels.TAGS_SOURCES_BY_TAG, tag),
     allNames: () => invoke(Channels.TAGS_ALL_NAMES),
+    mergePreview: (from: string, to: string) => invoke(Channels.TAGS_MERGE_PREVIEW, from, to),
+    merge: (from: string, to: string) => invoke(Channels.TAGS_MERGE, from, to),
   },
   templates: {
     list: () => invoke(Channels.TEMPLATES_LIST),

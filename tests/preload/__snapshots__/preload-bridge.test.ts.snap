@@ -418,6 +418,8 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
   "tags": [
     "allNames",
     "list",
+    "merge",
+    "mergePreview",
     "notesByTag",
     "notesByTagPrefix",
     "sourcesByTag",

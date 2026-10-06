@@ -186,6 +186,12 @@ export const Channels = {
   TAGS_NOTES_BY_TAG_PREFIX: 'tags:notesByTagPrefix',
   TAGS_SOURCES_BY_TAG: 'tags:sourcesByTag',
   TAGS_ALL_NAMES: 'tags:allNames',
+  /** Count what merging one tag into another would change (#2430). Read. */
+  TAGS_MERGE_PREVIEW: 'tags:mergePreview',
+  /** Merge one tag into another — or rename it — across notes (frontmatter,
+   *  inline, nested) and source tags (#2430). Broadcasts NOTEBASE_REWRITTEN
+   *  for the rewritten notes and SOURCES_CHANGED when a source changed. */
+  TAGS_MERGE: 'tags:merge',
 
   // Templates (#475) — per-project markdown templates under
   // `.minerva/templates/`. Listing, reading, and saving go through

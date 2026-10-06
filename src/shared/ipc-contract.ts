@@ -62,6 +62,7 @@ import type { GraphQueryResult } from './graph-query';
 import type { BatchRevertResult, HistorySettings, LabelNotesResult, RevisionMeta, SelectionRoot, UnifiedTimelineEntry } from './history';
 import type { CellResult, CellOutput, ComputeConsentSummary, PythonProbeResult, PythonSettings } from './compute/types';
 import type { AutoLinkSuggestion } from './refactor/auto-link';
+import type { TagMergePreview, TagMergeResult } from './refactor/merge-tag';
 import type { AutoLinkInboundSuggestion } from './refactor/auto-link-inbound';
 import type { FormatSettings } from './formatter/engine';
 import type { FormatFileResult } from './formatter/types';
@@ -178,6 +179,8 @@ export interface ChannelMap {
   'tags:notesByTagPrefix': (prefix: string) => TaggedNote[];
   'tags:sourcesByTag': (tag: string) => TaggedSource[];
   'tags:allNames': () => string[];
+  'tags:mergePreview': (from: string, to: string) => TagMergePreview;
+  'tags:merge': (from: string, to: string) => TagMergeResult;
 
   // Templates
   'templates:list': () => { name: string; filename: string }[];

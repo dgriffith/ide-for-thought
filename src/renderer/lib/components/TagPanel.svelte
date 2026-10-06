@@ -2,6 +2,9 @@
   import type { TagInfo, TaggedNote, TaggedSource } from '../../../shared/types';
   import { api } from '../ipc/client';
   import Chip from './ui/Chip.svelte';
+  import { clampMenuToViewport } from '../utils/menuClamp';
+  import { installDismissOnClickOutside } from '../dismiss-menu';
+  import { getTagMergeStore } from '../stores/tag-merge.svelte';
 
   /** Tags that always render in the accent variant, no matter their
    *  count. Per IMPLEMENTATION.md §5.4 the default list is `entrypoint`
@@ -21,6 +24,37 @@
   let taggedNotes = $state<TaggedNote[]>([]);
   let taggedSources = $state<TaggedSource[]>([]);
   let showSources = $state(true);
+
+  const tagMerge = getTagMergeStore();
+  /** Right-click menu on a tag chip (#2430). */
+  let tagMenu = $state<{ x: number; y: number; tag: string } | null>(null);
+  let tagMenuEl = $state<HTMLDivElement | undefined>();
+
+  $effect(() => {
+    if (!tagMenu || !tagMenuEl) return;
+    const next = clampMenuToViewport(tagMenu.x, tagMenu.y, tagMenuEl);
+    if (next.x !== tagMenu.x || next.y !== tagMenu.y) tagMenu = { ...tagMenu, ...next };
+  });
+
+  function openTagMenu(e: MouseEvent, tag: string) {
+    e.preventDefault();
+    e.stopPropagation();
+    tagMenu = { x: e.clientX, y: e.clientY, tag };
+    installDismissOnClickOutside(() => { tagMenu = null; });
+  }
+
+  /** Merge the tag into another (or rename it), then show what it became. */
+  async function mergeIntoTag(from: string) {
+    tagMenu = null;
+    const result = await tagMerge.mergeInteractive(from);
+    if (!result) return;
+    if (activeTag === from) {
+      activeTag = null;
+      taggedNotes = [];
+      taggedSources = [];
+    }
+    await refresh();
+  }
 
   /** Combined note+source count for sizing/sorting; sources can be
    *  hidden via the toggle but the chip's prominence still reflects
@@ -101,6 +135,7 @@
           tone={active ? 'accent' : chipTone(t.tag)}
           size={chipSize(total)}
           onclick={() => showNotesForTag(t.tag)}
+          oncontextmenu={(e) => openTagMenu(e, t.tag)}
           title={`#${t.tag} · ${t.noteCount} note${t.noteCount === 1 ? '' : 's'}, ${t.sourceCount} source${t.sourceCount === 1 ? '' : 's'}`}
         >
           <span class="tag-name">#{t.tag}</span>
@@ -140,7 +175,35 @@
   {/if}
 </div>
 
+{#if tagMenu}
+  <div
+    class="context-menu"
+    role="menu"
+    bind:this={tagMenuEl}
+    style:left="{tagMenu.x}px"
+    style:top="{tagMenu.y}px"
+  >
+    <button role="menuitem" onclick={() => mergeIntoTag(tagMenu!.tag)}>Merge into tag…</button>
+  </div>
+{/if}
+
 <style>
+  /* Base shape shared via .context-menu in global.css (#1910); the button
+     block is the same per-component copy the other menus carry (see the
+     BASELINE note in scoped-css-duplication.test.ts). */
+  .context-menu button {
+    display: block;
+    width: 100%;
+    padding: 6px 12px;
+    border: none;
+    background: none;
+    color: var(--text);
+    font-size: 12px;
+    cursor: pointer;
+    text-align: left;
+  }
+  .context-menu button:hover { background: var(--bg-button); }
+
   .tag-panel {
     flex: 1;
     overflow-y: auto;

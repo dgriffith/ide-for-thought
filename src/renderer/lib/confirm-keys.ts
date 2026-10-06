@@ -107,6 +107,11 @@ export const CONFIRM_KEYS = {
   mergeFailed: 'merge-failed',
   /** Surfaced when a duplicate-source merge (inspection quick-fix) fails (#1446). */
   mergeSourcesFailed: 'merge-sources-failed',
+  /** Pre-flight confirmation before "Merge into tag…" rewrites every note and
+   *  source carrying a tag (#2430). */
+  mergeTag: 'merge-tag',
+  /** Outcome of a tag merge that hit per-note failures, or that threw (#2430). */
+  mergeTagFailed: 'merge-tag-failed',
   bibliographyResult: 'bibliography-result',
   bibliographyFailed: 'bibliography-failed',
   /** Shown when an LLM-backed action runs without an Anthropic API key
@@ -460,6 +465,18 @@ export const CONFIRM_REGISTRY: ConfirmRegistryEntry[] = [
     title: 'Merge sources failed',
     description:
       'Shown when the duplicate-source merge quick-fix (Inspections panel, #1446) fails to merge one of the duplicates into the kept source.',
+  },
+  {
+    key: CONFIRM_KEYS.mergeTag,
+    title: 'Merge into tag…',
+    description:
+      'Pre-flight confirmation before merging one tag into another, or renaming it (#2430). Gives the note and source counts the merge will rewrite, since it edits many files in one operation; each rewritten note keeps its previous version in Local History.',
+  },
+  {
+    key: CONFIRM_KEYS.mergeTagFailed,
+    title: 'Merge tag failed',
+    description:
+      'Shown when a tag merge is refused (an invalid tag name) or finishes with notes or sources it could not rewrite, listing them.',
   },
   {
     key: CONFIRM_KEYS.bibliographyResult,
