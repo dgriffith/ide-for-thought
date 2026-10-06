@@ -55,6 +55,11 @@ function initializeWith(api: MermaidApi, tokens: ReturnType<typeof readThemeToke
   api.initialize({
     startOnLoad: false,
     securityLevel: 'strict',
+    // Mermaid 12 made ELK the default layout. Pinned to dagre so diagrams
+    // (and the argument map) keep the shape they had, and the per-render
+    // costs measured below still hold. ELK ships bundled now, so a diagram
+    // can still ask for it with `config: { layout: elk }` in its frontmatter.
+    layout: 'dagre',
     theme: 'base',
     themeVariables: {
       background: tokens.bg,
