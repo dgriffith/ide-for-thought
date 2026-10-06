@@ -32,6 +32,16 @@ async function seedTypes(map: Record<string, string>, types: unknown[] = [BOOK, 
 }
 
 beforeEach(async () => {
+  // happy-dom's localStorage isn't wired for a functional getItem here (same
+  // gap CollectionsTree.test.ts works around); the "hide empty" preference
+  // (#2664) is read/written through it. In-memory stand-in.
+  const ls: Record<string, string> = {};
+  vi.stubGlobal('localStorage', {
+    getItem: (k: string) => ls[k] ?? null,
+    setItem: (k: string, v: string) => { ls[k] = v; },
+    removeItem: (k: string) => { delete ls[k]; },
+    clear: () => { for (const k of Object.keys(ls)) delete ls[k]; },
+  });
   typesMock.mockResolvedValue({ types: [BOOK, MEETING], errors: [] });
   noteTypeMapMock.mockResolvedValue({});
   queryMock.mockImplementation((sparql: string) => {
@@ -45,6 +55,7 @@ beforeEach(async () => {
 });
 afterEach(async () => {
   cleanup();
+  vi.unstubAllGlobals();
   await seedTypes({}, []); // the store is a module singleton — don't leak a map
   typesMock.mockReset(); queryMock.mockReset(); noteTypeMapMock.mockReset();
 });
@@ -98,5 +109,137 @@ describe('ObjectsPanel (#1068)', () => {
     const meetingRow = await screen.findByText('Meeting');
     await fireEvent.click(meetingRow);
     await waitFor(() => expect(screen.getByText(/no meeting yet/i)).toBeTruthy());
+  });
+});
+
+describe('ObjectsPanel: hide empty object types (#2664)', () => {
+  /** Route the count queries; anything else answers empty. */
+  function answerCounts(counts: Array<{ id: string; n: string }>, excerpts: string): void {
+    queryMock.mockImplementation((sparql: string) => {
+      if (sparql.includes('thought:Excerpt')) return Promise.resolve({ ok: true, results: [{ n: excerpts }], columns: [] });
+      if (sparql.includes('COUNT')) return Promise.resolve({ ok: true, results: counts, columns: [] });
+      return Promise.resolve({ ok: true, results: [], columns: [] });
+    });
+  }
+  const toggle = () => screen.getByRole('checkbox', { name: /hide empty/i });
+
+  it('is off by default: zero-count rows stay visible', async () => {
+    answerCounts([{ id: 'book', n: '2' }], '0');
+    render(ObjectsPanel, { onFileSelect: vi.fn() });
+    await screen.findByText('Book');
+    expect((toggle() as HTMLInputElement).checked).toBe(false);
+    expect(screen.getByText('Meeting')).toBeTruthy();
+    expect(screen.getByText('Excerpts')).toBeTruthy();
+  });
+
+  it('toggled on, hides zero-count type rows and an empty Excerpts row', async () => {
+    answerCounts([{ id: 'book', n: '2' }], '0');
+    render(ObjectsPanel, { onFileSelect: vi.fn() });
+    await screen.findByText('Meeting');
+    await fireEvent.click(toggle());
+    await waitFor(() => expect(screen.queryByText('Meeting')).toBeNull());
+    expect(screen.getByText('Book')).toBeTruthy();
+    expect(screen.queryByText('Excerpts')).toBeNull();
+  });
+
+  it('keeps the Excerpts row while there are excerpts', async () => {
+    answerCounts([], '3');
+    render(ObjectsPanel, { onFileSelect: vi.fn() });
+    await screen.findByText('Excerpts');
+    await fireEvent.click(toggle());
+    await waitFor(() => expect(screen.queryByText('Book')).toBeNull());
+    expect(screen.getByText('Excerpts')).toBeTruthy();
+  });
+
+  it('keeps a parent whose only instances are through a subtype', async () => {
+    // Book has no direct instances, but a Novel counts toward it (#1587): the
+    // subclass-aware count query reports book=1, and that is what the row shows.
+    typesMock.mockResolvedValue({ types: [BOOK, MEETING, NOVEL], errors: [] });
+    answerCounts([{ id: 'book', n: '1' }, { id: 'novel', n: '1' }], '0');
+    render(ObjectsPanel, { onFileSelect: vi.fn() });
+    await screen.findByText('Meeting');
+    await fireEvent.click(toggle());
+    await waitFor(() => expect(screen.queryByText('Meeting')).toBeNull());
+    expect(screen.getByText('Book')).toBeTruthy();
+    expect(screen.getByText('Novel')).toBeTruthy();
+  });
+
+  it('says so when everything is hidden, and "Show all" turns the filter off', async () => {
+    answerCounts([], '0');
+    render(ObjectsPanel, { onFileSelect: vi.fn() });
+    await screen.findByText('Book');
+    await fireEvent.click(toggle());
+    await screen.findByText(/no object types in use/i);
+    expect(screen.queryByText('Book')).toBeNull();
+    expect(screen.queryByText(/no types or excerpts/i)).toBeNull();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Show all' }));
+    await screen.findByText('Book');
+    expect((toggle() as HTMLInputElement).checked).toBe(false);
+    expect(screen.queryByText(/no object types in use/i)).toBeNull();
+  });
+
+  it('keeps the no-types empty state for a catalog with nothing in it', async () => {
+    typesMock.mockResolvedValue({ types: [], errors: [] });
+    answerCounts([], '0');
+    localStorage.setItem('minerva.objectsPanel.hideEmpty', 'true');
+    render(ObjectsPanel, { onFileSelect: vi.fn() });
+    await screen.findByText(/no types or excerpts in this project yet/i);
+    expect(screen.queryByText(/no object types in use/i)).toBeNull();
+  });
+
+  it('remembers the preference across a remount', async () => {
+    answerCounts([{ id: 'book', n: '2' }], '0');
+    const first = render(ObjectsPanel, { onFileSelect: vi.fn() });
+    await screen.findByText('Meeting');
+    await fireEvent.click(toggle());
+    await waitFor(() => expect(screen.queryByText('Meeting')).toBeNull());
+    first.unmount();
+
+    render(ObjectsPanel, { onFileSelect: vi.fn() });
+    await screen.findByText('Book');
+    expect((toggle() as HTMLInputElement).checked).toBe(true);
+    expect(screen.queryByText('Meeting')).toBeNull();
+  });
+
+  it('falls back to off when localStorage throws', async () => {
+    vi.stubGlobal('localStorage', {
+      getItem: () => { throw new Error('blocked'); },
+      setItem: () => { throw new Error('blocked'); },
+    });
+    answerCounts([{ id: 'book', n: '2' }], '0');
+    render(ObjectsPanel, { onFileSelect: vi.fn() });
+    await screen.findByText('Meeting');
+    await fireEvent.click(toggle()); // still toggles for the session
+    await waitFor(() => expect(screen.queryByText('Meeting')).toBeNull());
+  });
+
+  it('updates live: a type that gains an instance reappears on refresh()', async () => {
+    answerCounts([{ id: 'book', n: '2' }], '0');
+    const { component } = render(ObjectsPanel, { onFileSelect: vi.fn() });
+    await screen.findByText('Meeting');
+    await fireEvent.click(toggle());
+    await waitFor(() => expect(screen.queryByText('Meeting')).toBeNull());
+
+    answerCounts([{ id: 'book', n: '2' }, { id: 'meeting', n: '1' }], '0');
+    await component.refresh();
+    await screen.findByText('Meeting');
+
+    answerCounts([{ id: 'meeting', n: '1' }], '0');
+    await component.refresh();
+    await waitFor(() => expect(screen.queryByText('Book')).toBeNull());
+  });
+
+  it('offers the same toggle from the panel context menu', async () => {
+    answerCounts([{ id: 'book', n: '2' }], '0');
+    const { container } = render(ObjectsPanel, { onFileSelect: vi.fn() });
+    await screen.findByText('Meeting');
+    await fireEvent.contextMenu(container.querySelector('.objects-panel')!);
+    const item = await screen.findByRole('menuitemcheckbox', { name: /hide empty object types/i });
+    expect(item.getAttribute('aria-checked')).toBe('false');
+    await fireEvent.click(item);
+    await waitFor(() => expect(screen.queryByText('Meeting')).toBeNull());
+    expect((toggle() as HTMLInputElement).checked).toBe(true);
+    expect(screen.queryByRole('menuitemcheckbox')).toBeNull();
   });
 });

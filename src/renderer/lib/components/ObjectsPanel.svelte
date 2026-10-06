@@ -3,7 +3,8 @@
    * Objects-by-type browser (#1068). Top level = the registry's types (icon +
    * label + live instance count); expanding one projects `?x rdf:type :Type`
    * over the graph and lists its instances; clicking opens the note. Zero-
-   * instance types stay visible so "create your first Book" is discoverable.
+   * instance types stay visible so "create your first Book" is discoverable —
+   * unless the viewer opts into "Hide empty object types" (#2664).
    *
    * A pure projection of the graph the #1062/#1063 indexing already builds — the
    * host calls `refresh()` on write/reindex (mirroring the Tags panel).
@@ -13,6 +14,8 @@
   import TypeIcon from './TypeIcon.svelte';
   import { objectTypesStore } from '../stores/object-types.svelte';
   import ExcerptsBrowser from './ExcerptsBrowser.svelte';
+  import { clampMenuToViewport } from '../utils/menuClamp';
+  import { installDismissOnClickOutside } from '../dismiss-menu';
   import type { TypeInfo } from '../../../shared/objects/type-def';
 
   interface Props {
@@ -33,6 +36,42 @@
   // Built-in Excerpts type (#1069) — thought:Excerpt, not a registry type.
   let excerptCount = $state(0);
   let excerptsOpen = $state(false);
+
+  /** "Hide empty object types" (#2664): a per-machine display filter, default
+   *  off. Not per-thoughtbase and not synced — a viewer convenience, so
+   *  localStorage (wrapped: it can throw in private/blocked storage). */
+  const HIDE_EMPTY_KEY = 'minerva.objectsPanel.hideEmpty';
+  let hideEmpty = $state<boolean>(loadHideEmpty());
+  function loadHideEmpty(): boolean {
+    try { return localStorage.getItem(HIDE_EMPTY_KEY) === 'true'; } catch { return false; }
+  }
+  function setHideEmpty(next: boolean): void {
+    hideEmpty = next;
+    try { localStorage.setItem(HIDE_EMPTY_KEY, String(next)); } catch { /* ok */ }
+  }
+
+  // Hiding uses the same subclass-aware count the row shows (#1587), so a
+  // parent with instances only through a subtype stays. Derived from `rows`,
+  // which refresh() reloads on every write — so the list updates live.
+  const visibleRows = $derived(hideEmpty ? rows.filter((r) => r.count > 0) : rows);
+  const showExcerpts = $derived(!hideEmpty || excerptCount > 0);
+  const allHidden = $derived(
+    hideEmpty && visibleRows.length === 0 && !showExcerpts && (rows.length > 0 || excerptCount > 0),
+  );
+
+  let contextMenu = $state<{ x: number; y: number } | null>(null);
+  let contextMenuEl = $state<HTMLDivElement | undefined>();
+  $effect(() => {
+    if (!contextMenu || !contextMenuEl) return;
+    const next = clampMenuToViewport(contextMenu.x, contextMenu.y, contextMenuEl);
+    if (next.x !== contextMenu.x || next.y !== contextMenu.y) contextMenu = { ...next };
+  });
+  function handleContextMenu(e: MouseEvent): void {
+    e.preventDefault();
+    e.stopPropagation();
+    contextMenu = { x: e.clientX, y: e.clientY };
+    installDismissOnClickOutside(() => { contextMenu = null; });
+  }
 
   async function loadCounts(): Promise<Record<string, number>> {
     // Subclass-aware (#1587): count each instance under its type AND every
@@ -94,8 +133,16 @@
   $effect(() => { void refresh(); });
 </script>
 
-<div class="objects-panel">
-  {#each rows as row (row.type.id)}
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div class="objects-panel" oncontextmenu={handleContextMenu}>
+  <div class="controls-row">
+    <label class="hide-empty-toggle" title="Hide empty object types">
+      <input type="checkbox" checked={hideEmpty} onchange={(e) => setHideEmpty(e.currentTarget.checked)} />
+      <span>hide empty</span>
+    </label>
+  </div>
+
+  {#each visibleRows as row (row.type.id)}
     {@const open = expanded.has(row.type.id)}
     <div class="type-row-wrap">
       <button class="type-row" onclick={() => toggle(row.type.id)} aria-expanded={open}>
@@ -131,24 +178,44 @@
     {/if}
   {/each}
 
-  <!-- Built-in Excerpts type (#1069): thought:Excerpt, browsable + filterable. -->
-  <button class="type-row" onclick={() => (excerptsOpen = !excerptsOpen)} aria-expanded={excerptsOpen}>
-    <span class="chevron" class:open={excerptsOpen}>▸</span>
-    <span class="type-icon">✂️</span>
-    <span class="type-label">Excerpts</span>
-    <span class="type-count">{excerptCount}</span>
-  </button>
-  {#if excerptsOpen}
-    {#if onOpenExcerpt}
-      <ExcerptsBrowser {onOpenExcerpt} />
+  <!-- Built-in Excerpts type (#1069): thought:Excerpt, browsable + filterable.
+       Hidden by the same rule as a type row when there are none (#2664). -->
+  {#if showExcerpts}
+    <button class="type-row" onclick={() => (excerptsOpen = !excerptsOpen)} aria-expanded={excerptsOpen}>
+      <span class="chevron" class:open={excerptsOpen}>▸</span>
+      <span class="type-icon">✂️</span>
+      <span class="type-label">Excerpts</span>
+      <span class="type-count">{excerptCount}</span>
+    </button>
+    {#if excerptsOpen}
+      {#if onOpenExcerpt}
+        <ExcerptsBrowser {onOpenExcerpt} />
+      {/if}
     {/if}
   {/if}
 
   {#if rows.length === 0 && excerptCount === 0}
     <p class="empty">No types or excerpts in this project yet.</p>
+  {:else if allHidden}
+    <!-- Everything filtered out (a fresh thoughtbase): say so, not a blank panel. -->
+    <p class="empty">No object types in use. <button class="show-all" onclick={() => setHideEmpty(false)}>Show all</button></p>
   {/if}
 
 </div>
+
+{#if contextMenu}
+  <div
+    class="context-menu"
+    role="menu"
+    bind:this={contextMenuEl}
+    style:left="{contextMenu.x}px"
+    style:top="{contextMenu.y}px"
+  >
+    <button class="check-item" role="menuitemcheckbox" aria-checked={hideEmpty} onclick={() => { setHideEmpty(!hideEmpty); contextMenu = null; }}>
+      <span class="check">{hideEmpty ? '✓' : ''}</span>Hide Empty Object Types
+    </button>
+  </div>
+{/if}
 
 <style>
   /* The panel is the scroller: bounded by the sidebar (flex: 1 + min-height: 0)
@@ -156,6 +223,41 @@
      list ran off the bottom of the window with nothing to scroll. */
   .objects-panel { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; padding: 4px; }
   .empty { font-size: 12px; color: var(--text-faint); padding: 12px 8px; }
+  .controls-row {
+    display: flex;
+    justify-content: flex-end;
+    padding: 2px 8px 4px;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .hide-empty-toggle { display: flex; align-items: center; gap: 4px; cursor: pointer; user-select: none; }
+  .hide-empty-toggle input { cursor: pointer; }
+  .show-all {
+    border: none;
+    background: none;
+    padding: 0;
+    color: var(--accent);
+    font: inherit;
+    cursor: pointer;
+  }
+  .show-all:hover { text-decoration: underline; }
+  /* Base shape shared via .context-menu in global.css (#1910). The one item is
+     a checkable row with a check gutter, so it is styled by its own class. */
+  .context-menu { min-width: 200px; }
+  .check-item {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 6px 12px 6px 6px;
+    border: none;
+    background: none;
+    color: var(--text);
+    font-size: 12px;
+    cursor: pointer;
+    text-align: left;
+  }
+  .check-item:hover { background: var(--bg-button); }
+  .check { width: 16px; flex-shrink: 0; text-align: center; }
   .type-row-wrap { position: relative; display: flex; align-items: center; }
   .type-row {
     flex: 1;

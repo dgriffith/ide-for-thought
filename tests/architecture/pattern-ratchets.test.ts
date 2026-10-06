@@ -170,6 +170,9 @@ const SWALLOW_BASELINE: Record<string, number> = {
   'src/main/sources/tables.ts': 1,
   'src/renderer/lib/command-palette/recent.ts': 1,
   'src/renderer/lib/components/ComputeDraftCard.svelte': 1,
+  // localStorage can throw (private window, blocked site data); the "hide empty"
+  // pref (#2664) then reads as its default, off. Same shape as graph-settings.
+  'src/renderer/lib/components/ObjectsPanel.svelte': 1,
   'src/renderer/lib/components/find-excerpt-range.ts': 1,
   'src/renderer/lib/editor/note-preview.ts': 1,
   'src/renderer/lib/preview/typed-link-render.ts': 1,
