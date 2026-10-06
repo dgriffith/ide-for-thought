@@ -2,8 +2,9 @@
   import { tick } from 'svelte';
   /**
    * Multi-view over all instances of a typed-object type (#1070) — the same
-   * typed notes rendered as a list, a table (declared properties as columns), or
-   * a gallery of cards keyed off a designated cover property. "Switch the view,
+   * typed notes rendered as a list, a table (declared properties as columns), a
+   * gallery of cards keyed off a designated cover property, a map (#2066) or a
+   * Kanban board grouped by an enum property (#2602). "Switch the view,
    * same data": every projection reads the one `api.types.instances(typeId)`
    * result, so toggling never re-queries the instance set.
    *
@@ -18,12 +19,14 @@
   import { api } from '../ipc/client';
   import TypeIcon from './TypeIcon.svelte';
   import TypeViewMap from './TypeViewMap.svelte';
+  import TypeViewKanban from './TypeViewKanban.svelte';
+  import TypeViewLayoutSwitch from './TypeViewLayoutSwitch.svelte';
   import TypeViewFilters from './TypeViewFilters.svelte';
   import type { MapExportHooks } from '../map/map-export';
   import type { MapStyle } from '../../../shared/objects/map-style';
   import { applyViewSpec, type ViewFilter } from '../../../shared/objects/view-spec';
   import { buildViewEmbed } from '../../../shared/objects/view-note';
-  import { groupByForSpec } from '../../../shared/objects/kanban';
+  import { boardColumns, groupByForSpec, resolveGroupBy } from '../../../shared/objects/kanban';
   import { objectTypesStore } from '../stores/object-types.svelte';
   import { effectivePropertyDefs } from '../../../shared/objects/inheritance';
   import { logger } from '../../../shared/logger';
@@ -239,7 +242,7 @@
   // Multi-select (#2431): ⌘/⇧-click, ⌘A, Escape, right-click — the sidebar's semantics.
   const selectable = $derived(!!onEditProperties && !chromeless);
   const sel = createTypeViewSelection({
-    order: () => (layout === 'table' ? sorted : scoped).map((i) => i.path),
+    order: () => (layout === 'kanban' ? board.flatMap((c) => c.instances) : layout === 'table' ? sorted : scoped).map((i) => i.path),
     enabled: () => selectable,
     onOpen: (p) => onOpenNote(p),
     onEdit: (paths) => onEditProperties?.(paths),
@@ -259,19 +262,12 @@
     return objectTypesStore.typeForNote(inst.path) ?? type;
   }
 
-  // #2066: Map only appears for a type that actually has a location-shaped
-  // (geo) property — not a menu item that's always present but broken for
-  // Book/Person/etc. Mirrors PropertiesPanel.svelte's existing `pd.type === 'x'`
-  // gating precedent, not `cover`'s ungated "any property name" one.
+  // The switcher offers Map / Kanban only where they can draw (#2066, #2602).
   const locationProperty = $derived<string | null>(allColumns.find((c) => c.type === 'geo')?.name ?? null);
-  const LAYOUTS = $derived<{ id: Layout; label: string }[]>([
-    { id: 'list', label: 'List' },
-    { id: 'table', label: 'Table' },
-    { id: 'gallery', label: 'Gallery' },
-    ...(locationProperty ? [{ id: 'map' as const, label: 'Map' }] : []),
-    // Kanban joins here with the board (#2602), gated on `canShowKanban`. Until
-    // then a spec that already says `kanban` (an embed, a tab) shows the list.
-  ]);
+  // Kanban (#2602): the grouping enum, then the columns — sorted cards, the
+  // values filter on that property narrowing the columns (`boardColumns`).
+  const groupProp = $derived(resolveGroupBy(groupBy, allColumns));
+  const board = $derived(groupProp ? boardColumns(sorted, groupProp, filters) : []);
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -314,16 +310,7 @@
         {#if onSaveView}
           <button class="tv-btn" onclick={handleSaveViewClick} title="Save this view as a note, with the view embedded live">{viewSaved ? 'Saved' : 'Save as note'}</button>
         {/if}
-        <div class="tv-switch" role="tablist" aria-label="View">
-          {#each LAYOUTS as l (l.id)}
-            <button
-              role="tab"
-              aria-selected={layout === l.id}
-              class:active={layout === l.id}
-              onclick={() => onStateChange({ layout: l.id })}
-            >{l.label}</button>
-          {/each}
-        </div>
+        <TypeViewLayoutSwitch {layout} properties={allColumns} {groupBy} {onStateChange} />
       </div>
     </header>
   {/if}
@@ -336,7 +323,7 @@
     <p class="tv-empty">No {type.label.toLowerCase()} instances yet.</p>
   {:else if scoped.length === 0}
     <p class="tv-empty">{emptyScopedMessage(type.label)}</p>
-  {:else if layout === 'list' || layout === 'kanban'}
+  {:else if layout === 'list'}
     <div class="tv-list">
       {#each scoped as inst (inst.path)}
         {@const rt = rowType(inst)}
@@ -405,6 +392,11 @@
         </button>
       {/each}
     </div>
+  {:else if layout === 'kanban'}
+    <TypeViewKanban
+      {type} properties={allColumns} group={groupProp} columns={board} visible={columns} {display} {rowType} {selectable}
+      isSelected={sel.has} onCardClick={sel.click} onCardContextMenu={sel.contextMenu}
+    />
   {:else if locationProperty}
     <TypeViewMap
       instances={scoped}
@@ -483,20 +475,6 @@
     border-radius: 4px;
   }
   .tv-columns-menu label:hover { background: color-mix(in oklch, var(--text) 5%, transparent); }
-  .tv-switch { display: flex; gap: 0; }
-  .tv-switch button {
-    padding: 3px 10px;
-    border: 1px solid var(--border);
-    background: var(--bg-button);
-    color: var(--text-muted);
-    font-family: inherit;
-    font-size: 11.5px;
-    cursor: pointer;
-  }
-  .tv-switch button:first-child { border-radius: 5px 0 0 5px; }
-  .tv-switch button:last-child { border-radius: 0 5px 5px 0; }
-  .tv-switch button:not(:first-child) { border-left: none; }
-  .tv-switch button.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
   .tv-empty { padding: 24px 16px; color: var(--text-faint); font-size: 13px; }
 
   /* List */

@@ -5,7 +5,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
-  canShowKanban, groupByForSpec, groupByForType, groupInstances, NO_VALUE_LABEL, parseGroupBy, resolveGroupBy,
+  boardColumns, canShowKanban, groupByForSpec, groupByForType, groupInstances, NO_VALUE_LABEL, parseGroupBy, resolveGroupBy,
 } from '../../../src/shared/objects/kanban';
 import { effectivePropertyDefs } from '../../../src/shared/objects/inheritance';
 import type { PropertyDef, TypeInstanceRow } from '../../../src/shared/objects/type-def';
@@ -141,5 +141,44 @@ describe('parsing and serialising groupBy (#2601)', () => {
     expect(groupByForType('status', 'client-project', TYPES)).toBe('status');
     expect(groupByForType('client', 'client-project', TYPES)).toBeNull();
     expect(groupByForType('status', 'unloaded', TYPES)).toBe('status');
+  });
+});
+
+describe('boardColumns (#2602)', () => {
+  const filed = [row('a', { status: 'active' }), row('b', { status: 'done' })];
+
+  it('leaves out No value when every note has a value, and keeps empty options', () => {
+    expect(summary(boardColumns(filed, STATUS))).toEqual([
+      ['active', 'option', ['a']],
+      ['paused', 'option', []],
+      ['done', 'option', ['b']],
+      ['abandoned', 'option', []],
+    ]);
+  });
+
+  it('shows No value, last, when some note has no value', () => {
+    expect(summary(boardColumns([...filed, row('c', { status: '' })], STATUS)).at(-1)).toEqual([NO_VALUE_LABEL, 'no-value', ['c']]);
+  });
+
+  it('a values filter on the grouping property keeps only its columns', () => {
+    const cols = boardColumns(filed, STATUS, [{ property: 'status', values: ['done', 'active'] }]);
+    expect(cols.map((c) => c.label)).toEqual(['active', 'done']); // declared order, not the filter's
+  });
+
+  it('two values filters on it intersect, as filters AND', () => {
+    const cols = boardColumns(filed, STATUS, [
+      { property: 'status', values: ['done', 'active'] },
+      { property: 'status', values: ['done', 'paused'] },
+    ]);
+    expect(cols.map((c) => c.label)).toEqual(['done']);
+  });
+
+  it('a filter on another property, or a range filter, leaves the columns alone', () => {
+    expect(boardColumns(filed, STATUS, [{ property: 'owner', values: ['Ann'] }])).toHaveLength(4);
+    expect(boardColumns(filed, STATUS, [{ property: 'status', min: 'a', max: 'z' }])).toHaveLength(4);
+  });
+
+  it('an enum with no options still shows the values notes use', () => {
+    expect(boardColumns(filed, { name: 'status', type: 'enum' }).map((c) => [c.label, c.kind])).toEqual([['active', 'off-list'], ['done', 'off-list']]);
   });
 });

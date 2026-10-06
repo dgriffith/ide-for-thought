@@ -328,6 +328,27 @@ for (const theme of THEMES) {
       });
     });
 
+    test('Kanban board', async () => {
+      // Stock Project type, grouped by `status` (#2602): filled, empty and No
+      // value columns, so every column shape is scanned.
+      await withApp({
+        theme,
+        withProject: true,
+        extraFiles: {
+          'projects/Garden Shed.md': '---\ntype: project\nstatus: active\n---\n# Garden Shed\n',
+          'projects/Tax Return.md': '---\ntype: project\nstatus: done\n---\n# Tax Return\n',
+          'projects/Someday Boat.md': '---\ntype: project\n---\n# Someday Boat\n',
+        },
+      }, async ({ win }) => {
+        await win.locator('.panel-tab[title="Objects"]').first().click();
+        await win.getByRole('button', { name: 'Open Project view' }).click({ force: true });
+        await win.getByRole('tab', { name: 'Kanban' }).click();
+        await expect(win.locator('.kb-board [data-kanban-card]')).toHaveCount(3, { timeout: 15_000 });
+        await win.locator('.kb-board [data-kanban-card]').first().focus();
+        await expectNoSerious(win, 'Kanban board', theme);
+      });
+    });
+
     test('argument map', async () => {
       const claimUri = `${ARG_BASE_URI}note/notes/${encodeURIComponent('The Claim')}`;
       await withApp({

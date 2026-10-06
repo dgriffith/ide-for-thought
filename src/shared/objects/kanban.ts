@@ -20,6 +20,7 @@
  */
 import type { PropertyDef, TypeInstanceRow } from './type-def';
 import { effectivePropertyDefs, type TypeLike } from './inheritance';
+import { isValuesFilter, type ValuesFilter, type ViewFilter } from './view-spec';
 
 /** The No value column's heading. */
 export const NO_VALUE_LABEL = 'No value';
@@ -127,4 +128,34 @@ export function groupInstances(
     col.instances.push(inst);
   }
   return [...columns.values(), noValue];
+}
+
+/**
+ * The columns a board actually draws (#2602): `groupInstances`, then two
+ * view-level rules on top of it.
+ *
+ * - **No value** appears only when some card has no value. `groupInstances`
+ *   always returns it (an empty one is still a drop target once cards move,
+ *   #2603), but an empty No value column on a board where every note is
+ *   filed is noise.
+ * - **A *values* filter on the grouping property** narrows the columns to the
+ *   values it lists. Those are the only cards the view shows, so the other
+ *   columns could only ever be empty. A range filter, or a filter on another
+ *   property, leaves the columns alone.
+ *
+ * `filters` is the view's filters; `instances` must already be scoped,
+ * filtered and sorted — cards keep this order within a column.
+ */
+export function boardColumns(
+  instances: readonly TypeInstanceRow[],
+  group: PropertyDef,
+  filters: readonly ViewFilter[] = [],
+): KanbanColumn[] {
+  const allowed = filters
+    .filter((f): f is ValuesFilter => f.property === group.name && isValuesFilter(f))
+    .map((f) => new Set(f.values));
+  return groupInstances(instances, group.name, { enumOptions: group.options ?? [] }).filter((col) => {
+    if (col.kind === 'no-value') return col.instances.length > 0;
+    return allowed.every((values) => values.has(col.value!));
+  });
 }

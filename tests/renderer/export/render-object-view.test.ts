@@ -46,6 +46,22 @@ describe('renderObjectViewForExport', () => {
     expect(html).not.toContain('Loading…');
   });
 
+  it('a kanban view exports its board without crashing, every card linked (#2602)', async () => {
+    const PROJECT = {
+      id: 'project', label: 'Project', classLocalName: 'Project', icon: '🚀', source: 'stock' as const,
+      properties: [{ name: 'status', type: 'enum' as const, options: ['active', 'done'] }],
+    };
+    instancesMock.mockResolvedValue({ type: PROJECT, instances: [
+      { path: 'p/Shed.md', title: 'Garden Shed', values: { status: 'active' }, cover: null },
+      { path: 'p/Tax.md', title: 'Tax Return', values: { status: 'done' }, cover: null },
+    ] });
+    const html = await renderObjectViewForExport(JSON.stringify({ typeId: 'project', layout: 'kanban' }));
+    expect(html).toContain('kb-board');
+    expect(html).toContain('data-note-link="p/Shed.md"');
+    expect(html).toContain('data-note-link="p/Tax.md"');
+    expect(html).not.toContain('tabindex');
+  });
+
   it('honours the saved sort, as the preview does', async () => {
     const html = await renderObjectViewForExport(JSON.stringify({ typeId: 'place', layout: 'table', sortColumn: '__title', sortDir: 'desc' }));
     expect(html.indexOf('Széchenyi Baths')).toBeLessThan(html.indexOf('Kampa Museum'));
