@@ -10,6 +10,7 @@
  */
 import { normalizeFolder, parseViewFilters } from '../../../shared/objects/view-spec';
 import { parseMapStyle } from '../../../shared/objects/map-style';
+import { parseGroupBy } from '../../../shared/objects/kanban';
 import type {
   TabSession, SavedTab, SavedGroup, LayoutSession,
 } from '../../../shared/types';
@@ -47,6 +48,7 @@ export function toSavedTab(t: Tab): SavedTab {
       // which the structured-clone IPC boundary rejects — losing the session.
       ...(t.filters.length > 0 ? { filters: JSON.parse(JSON.stringify(t.filters)) as unknown[] } : {}),
       ...(t.mapStyle !== 'auto' ? { mapStyle: t.mapStyle } : {}),
+      ...(t.groupBy ? { groupBy: t.groupBy } : {}),
     };
   } else {
     return {
@@ -127,6 +129,7 @@ export async function reconstructTab(saved: SavedTab, nextQueryId: () => string)
       folder: normalizeFolder(saved.folder),
       filters: parseViewFilters(saved.filters),
       mapStyle: parseMapStyle(saved.mapStyle),
+      groupBy: parseGroupBy(saved.groupBy),
     };
   } else {
     return { type: 'source', sourceId: saved.sourceId, highlightExcerptId: saved.highlightExcerptId };

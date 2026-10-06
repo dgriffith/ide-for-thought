@@ -23,6 +23,7 @@
   import type { MapStyle } from '../../../shared/objects/map-style';
   import { applyViewSpec, type ViewFilter } from '../../../shared/objects/view-spec';
   import { buildViewEmbed } from '../../../shared/objects/view-note';
+  import { groupByForSpec } from '../../../shared/objects/kanban';
   import { objectTypesStore } from '../stores/object-types.svelte';
   import { effectivePropertyDefs } from '../../../shared/objects/inheritance';
   import { logger } from '../../../shared/logger';
@@ -30,8 +31,8 @@
   import TypeViewRowMenu from './TypeViewRowMenu.svelte';
   import type { PropertyDef, TypeInfo, TypeInstanceRow } from '../../../shared/objects/type-def';
 
-  type Layout = 'list' | 'table' | 'gallery' | 'map';
-  interface StatePatch { layout?: Layout; sortColumn?: string | null; sortDir?: 'asc' | 'desc'; columns?: string[] | null; folder?: string | null; filters?: ViewFilter[]; mapStyle?: MapStyle }
+  type Layout = 'list' | 'table' | 'gallery' | 'map' | 'kanban';
+  interface StatePatch { layout?: Layout; sortColumn?: string | null; sortDir?: 'asc' | 'desc'; columns?: string[] | null; folder?: string | null; filters?: ViewFilter[]; mapStyle?: MapStyle; groupBy?: string | null }
 
   interface Props {
     typeId: string;
@@ -71,11 +72,14 @@
     /** Map layout's tile style (#2665); `auto` follows the app theme. The
      *  panel shows a control to change it; an embed or export doesn't. */
     mapStyle?: MapStyle;
+    /** Kanban's grouping enum property (#2601); null = the type's first enum.
+     *  Checked against the type here, where the schema is known. */
+    groupBy?: string | null;
     /** Bulk-edit the selected notes' properties (#2431). Absent (an embed, an
      *  export) → rows don't multi-select; a click just opens the note. */
     onEditProperties?: (paths: string[]) => void;
   }
-  let { typeId, layout, sortColumn, sortDir, columns, revision, onStateChange, onOpenNote, onSaveView, chromeless = false, onLoaded, mapExport, folder = null, filters = [], onClearFolder, mapStyle = 'auto', onEditProperties }: Props = $props();
+  let { typeId, layout, sortColumn, sortDir, columns, revision, onStateChange, onOpenNote, onSaveView, chromeless = false, onLoaded, mapExport, folder = null, filters = [], onClearFolder, mapStyle = 'auto', groupBy = null, onEditProperties }: Props = $props();
 
   let type = $state<TypeInfo | null>(null);
   let instances = $state<TypeInstanceRow[]>([]);
@@ -206,7 +210,8 @@
    * failure (report: "does not appear to do anything").
    */
   async function copyAsMarkdown(): Promise<void> {
-    const md = buildViewEmbed({ typeId, layout, sortColumn, sortDir, columns, folder, filters, mapStyle });
+    // A `groupBy` the type no longer has as an enum is dropped, not copied.
+    const md = buildViewEmbed({ typeId, layout, sortColumn, sortDir, columns, folder, filters, mapStyle, groupBy: groupByForSpec(groupBy, type ? allColumns : null) });
     try {
       await navigator.clipboard.writeText(md);
       markdownCopied = true;
@@ -264,6 +269,8 @@
     { id: 'table', label: 'Table' },
     { id: 'gallery', label: 'Gallery' },
     ...(locationProperty ? [{ id: 'map' as const, label: 'Map' }] : []),
+    // Kanban joins here with the board (#2602), gated on `canShowKanban`. Until
+    // then a spec that already says `kanban` (an embed, a tab) shows the list.
   ]);
 </script>
 
@@ -329,7 +336,7 @@
     <p class="tv-empty">No {type.label.toLowerCase()} instances yet.</p>
   {:else if scoped.length === 0}
     <p class="tv-empty">{emptyScopedMessage(type.label)}</p>
-  {:else if layout === 'list'}
+  {:else if layout === 'list' || layout === 'kanban'}
     <div class="tv-list">
       {#each scoped as inst (inst.path)}
         {@const rt = rowType(inst)}

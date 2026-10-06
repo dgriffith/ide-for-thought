@@ -30,9 +30,12 @@ export interface ViewNoteSpec {
   mapStyle?: MapStyle | undefined;
   /** The embed's height in px (#2666); written only when it isn't the default. */
   height?: number | null | undefined;
+  /** Kanban's grouping enum property (#2601); written only when chosen — absent
+   *  means the type's first enum property. */
+  groupBy?: string | null | undefined;
 }
 
-const LAYOUT_NAMES: Record<ViewLayout, string> = { list: 'list', table: 'table', gallery: 'gallery', map: 'map' };
+const LAYOUT_NAMES: Record<ViewLayout, string> = { list: 'list', table: 'table', gallery: 'gallery', map: 'map', kanban: 'board' };
 
 /** "Restaurant map", "Museum table" — the prompt's starting value. */
 export function suggestViewNoteName(typeLabel: string, layout: ViewLayout): string {
@@ -56,6 +59,7 @@ export function buildViewEmbed(spec: ViewNoteSpec): string {
   if (spec.folder) body.folder = spec.folder;
   if (spec.filters && spec.filters.length > 0) body.filters = spec.filters;
   if (spec.mapStyle && spec.mapStyle !== 'auto') body.mapStyle = spec.mapStyle;
+  if (spec.groupBy) body.groupBy = spec.groupBy;
   const height = viewHeightField(spec.height);
   if (height !== undefined) body.height = height;
   return `\`\`\`object-view\n${JSON.stringify(body, null, 2)}\n\`\`\`\n`;

@@ -71,12 +71,20 @@ describe('parseObjectViewSpec (#2067)', () => {
       filters: [],
       mapStyle: 'auto',
       height: 360,
+      groupBy: null,
     });
   });
 
   it('carries through explicit sort/columns', () => {
     expect(parseObjectViewSpec('{"typeId":"book","layout":"table","sortColumn":"author","sortDir":"desc","columns":["author"]}'))
-      .toEqual({ typeId: 'book', layout: 'table', sortColumn: 'author', sortDir: 'desc', columns: ['author'], folder: null, filters: [], mapStyle: 'auto', height: 360 });
+      .toEqual({ typeId: 'book', layout: 'table', sortColumn: 'author', sortDir: 'desc', columns: ['author'], folder: null, filters: [], mapStyle: 'auto', height: 360, groupBy: null });
+  });
+
+  it('accepts the kanban layout and reads groupBy, dropping a malformed one (#2601)', () => {
+    expect(parseObjectViewSpec('{"typeId":"project","layout":"kanban","groupBy":"status"}')).toMatchObject({ layout: 'kanban', groupBy: 'status' });
+    expect(parseObjectViewSpec('{"typeId":"project","layout":"kanban"}').groupBy).toBeNull();
+    expect(parseObjectViewSpec('{"typeId":"project","layout":"kanban","groupBy":7}').groupBy).toBeNull();
+    expect(parseObjectViewSpec('{"typeId":"project","layout":"kanban","groupBy":""}').groupBy).toBeNull();
   });
 
   it('reads mapStyle: light/dark kept, anything else auto (#2665)', () => {

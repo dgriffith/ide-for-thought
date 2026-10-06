@@ -20,6 +20,9 @@
  * fields. The embed, and every export of it (#2510/#2511, which render through
  * this same chromeless `TypeView`), shows the scoped, filtered set with no
  * filter controls or folder chip: those are the view panel's (#2534).
+ * A `"layout": "kanban"` spec may name `"groupBy"`, the enum property its
+ * columns come from (#2601, `shared/objects/kanban.ts`); absent, the type's
+ * first enum property.
  *
  * Mirrors `vega-renderer.ts`'s shape: the fence rule emits a placeholder
  * `<div class="object-view-block">` carrying the raw JSON spec as text
@@ -71,6 +74,7 @@ import type { ViewLayout } from '../../../shared/types';
 import { normalizeFolder, parseViewFilters, type ViewFilter } from '../../../shared/objects/view-spec';
 import { escapeHtml } from '../../../shared/text-escape';
 import { parseMapStyle, type MapStyle } from '../../../shared/objects/map-style';
+import { parseGroupBy } from '../../../shared/objects/kanban';
 import { parseViewHeight } from '../../../shared/objects/view-height';
 import { blockCacheFor, blockKey, createContentWrapper, HYDRATED_CONTENT_CLASS } from './hydrated-block-cache';
 import { reactiveProps } from './mounted-props.svelte';
@@ -93,9 +97,12 @@ export interface ObjectViewSpec {
   /** The embed's height in px (#2666) — `OBJECT_VIEW_DEFAULT_HEIGHT` when the
    *  spec omits it. */
   height: number;
+  /** Kanban's grouping enum property (#2601); absent → the type's first enum.
+   *  Only its shape is checked here — `TypeView` checks it against the type. */
+  groupBy: string | null;
 }
 
-const LAYOUTS: ReadonlySet<ViewLayout> = new Set(['list', 'table', 'gallery', 'map']);
+const LAYOUTS: ReadonlySet<ViewLayout> = new Set(['list', 'table', 'gallery', 'map', 'kanban']);
 
 export function parseObjectViewSpec(raw: string): ObjectViewSpec {
   const parsed: unknown = JSON.parse(raw);
@@ -107,7 +114,7 @@ export function parseObjectViewSpec(raw: string): ObjectViewSpec {
     throw new Error('"typeId" is required and must be a non-empty string');
   }
   if (typeof spec.layout !== 'string' || !LAYOUTS.has(spec.layout as ViewLayout)) {
-    throw new Error('"layout" must be one of "list", "table", "gallery", "map"');
+    throw new Error('"layout" must be one of "list", "table", "gallery", "map", "kanban"');
   }
   return {
     typeId: spec.typeId,
@@ -121,6 +128,7 @@ export function parseObjectViewSpec(raw: string): ObjectViewSpec {
     filters: parseViewFilters(spec.filters),
     mapStyle: parseMapStyle(spec.mapStyle),
     height: parseViewHeight(spec.height),
+    groupBy: parseGroupBy(spec.groupBy),
   };
 }
 
@@ -141,6 +149,7 @@ type ViewProps = {
   folder: string | null;
   filters: ViewFilter[];
   mapStyle: MapStyle;
+  groupBy: string | null;
   revision: number;
   chromeless: boolean;
   onStateChange: () => void;
@@ -223,6 +232,7 @@ export function hydrateObjectViewBlocks(root: HTMLElement, deps: ObjectViewDeps)
       folder: spec.folder,
       filters: spec.filters,
       mapStyle: spec.mapStyle,
+      groupBy: spec.groupBy,
       revision: deps.revision,
       chromeless: true,
       // No in-preview UI for changing the embedded spec (#2067) — a

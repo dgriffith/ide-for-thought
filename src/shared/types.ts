@@ -161,7 +161,7 @@ export interface SavedQuery {
 
 /** A type view's layout (#1070) — the type-view tab and the ```object-view
  *  note embed (#2067) share it. */
-export type ViewLayout = 'list' | 'table' | 'gallery' | 'map';
+export type ViewLayout = 'list' | 'table' | 'gallery' | 'map' | 'kanban';
 
 export interface OutgoingLink {
   target: string;
@@ -309,8 +309,8 @@ export interface SavedTypeViewTab {
   type: 'type-view';
   /** The type whose instances the multi-view shows (#1070). */
   typeId: string;
-  /** Chosen projection (list/table/gallery/map); restored on reload. */
-  layout?: 'list' | 'table' | 'gallery' | 'map';
+  /** Chosen projection (list/table/gallery/map/kanban); restored on reload. */
+  layout?: 'list' | 'table' | 'gallery' | 'map' | 'kanban';
   /** Sort + visible columns, restored on reload (#1072). */
   sortColumn?: string | null;
   sortDir?: 'asc' | 'desc';
@@ -320,6 +320,9 @@ export interface SavedTypeViewTab {
   filters?: unknown[];
   /** Map tile style (#2665); absent = `auto`. Read leniently on restore. */
   mapStyle?: string;
+  /** Kanban's grouping enum property (#2601); absent = the type's first enum.
+   *  Read leniently on restore. */
+  groupBy?: string;
 }
 
 export type SavedTab = SavedNoteTab | SavedQueryTab | SavedSourceTab | SavedPdfTab | SavedGraphTab | SavedTypeViewTab | SavedUnsupportedTab;

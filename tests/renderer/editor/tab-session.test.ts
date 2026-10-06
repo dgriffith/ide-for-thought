@@ -7,7 +7,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { EditorGroup, Tab, NoteTab, QueryTab } from '../../../src/renderer/lib/editor/tab-types';
-import type { LayoutSession, TabSession } from '../../../src/shared/types';
+import type { LayoutSession, SavedTab, TabSession } from '../../../src/shared/types';
 import { leaf } from '../../../src/renderer/lib/editor/layout-tree';
 
 const h = vi.hoisted(() => ({
@@ -38,7 +38,7 @@ const queryTab: QueryTab = {
 
 describe('type-view map style (#2665)', () => {
   const view = (mapStyle: 'auto' | 'light' | 'dark'): Tab => ({
-    type: 'type-view', typeId: 'place', layout: 'map', sortColumn: null, sortDir: 'asc', columns: null, folder: null, filters: [], mapStyle,
+    type: 'type-view', typeId: 'place', layout: 'map', sortColumn: null, sortDir: 'asc', columns: null, folder: null, filters: [], mapStyle, groupBy: null,
   });
 
   it('omits auto from the saved tab and keeps an explicit light or dark', () => {
@@ -52,6 +52,25 @@ describe('type-view map style (#2665)', () => {
       expect(await reconstructTab(toSavedTab(view(mapStyle)), () => 'q')).toEqual(view(mapStyle));
     }
     expect(await reconstructTab({ type: 'type-view', typeId: 'place', mapStyle: 'sepia' }, () => 'q')).toMatchObject({ mapStyle: 'auto' });
+  });
+});
+
+describe('type-view kanban groupBy (#2601)', () => {
+  const view = (groupBy: string | null): Tab => ({
+    type: 'type-view', typeId: 'project', layout: 'kanban', sortColumn: null, sortDir: 'asc', columns: null, folder: null, filters: [], mapStyle: 'auto', groupBy,
+  });
+
+  it('omits the default (null) from the saved tab and keeps an explicit choice', () => {
+    expect(toSavedTab(view(null))).not.toHaveProperty('groupBy');
+    expect(toSavedTab(view('status'))).toMatchObject({ layout: 'kanban', groupBy: 'status' });
+  });
+
+  it('restores it, reading absent or malformed as the default', async () => {
+    for (const groupBy of [null, 'status']) {
+      expect(await reconstructTab(toSavedTab(view(groupBy)), () => 'q')).toEqual(view(groupBy));
+    }
+    const odd = { type: 'type-view', typeId: 'project', layout: 'kanban', groupBy: 42 } as unknown as SavedTab;
+    expect(await reconstructTab(odd, () => 'q')).toMatchObject({ layout: 'kanban', groupBy: null });
   });
 });
 

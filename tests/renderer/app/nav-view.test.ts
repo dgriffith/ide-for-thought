@@ -251,4 +251,15 @@ describe('object views on the back/forward stack', () => {
     await view.handleNavBack();
     expect(h.editor.openTypeView).toHaveBeenCalledWith('place', { ...mapPos.view, folder: 'trip/prague' });
   });
+
+  it('a kanban view records its groupBy, and Back to it closed reopens grouped the same way (#2601)', async () => {
+    const boardView = { layout: 'kanban', sortColumn: null, sortDir: 'asc', columns: null, filters: [], mapStyle: 'auto', groupBy: 'status' };
+    h.editor.activeTab = { type: 'type-view', typeId: 'project', folder: null, ...boardView };
+    await view.handleFileSelect('p.md');
+    const recorded = h.nav.record.mock.calls[0]![0] as { view: unknown };
+    expect(recorded.view).toEqual(boardView);
+    h.nav.goBack.mockReturnValue(recorded);
+    await view.handleNavBack();
+    expect(h.editor.openTypeView).toHaveBeenCalledWith('project', { ...boardView, folder: null });
+  });
 });

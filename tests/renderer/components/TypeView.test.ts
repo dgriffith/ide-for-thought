@@ -59,6 +59,24 @@ function props(over: Record<string, unknown> = {}) {
   };
 }
 
+/** A type with enum properties — what a Kanban board groups by (#2601). */
+const TASK = {
+  id: 'task',
+  label: 'Task',
+  classLocalName: 'Task',
+  icon: '☑',
+  source: 'user' as const,
+  properties: [
+    { name: 'owner', type: 'text' as const },
+    { name: 'status', type: 'enum' as const, options: ['todo', 'doing', 'done'] },
+    { name: 'priority', type: 'enum' as const, options: ['low', 'high'] },
+  ],
+};
+const TASK_INSTANCES = [
+  { path: 'a.md', title: 'Write spec', values: { owner: 'Ann', status: 'doing', priority: 'high' }, cover: null },
+  { path: 'b.md', title: 'Ship it', values: { owner: 'Bo', status: null, priority: null }, cover: null },
+];
+
 const NOVEL = { id: 'novel', label: 'Novel', classLocalName: 'Novel', icon: '📕', parent: 'book', source: 'user' as const, properties: [] };
 
 /** Seed the module-singleton note→type store used for per-row icons. */
@@ -229,6 +247,22 @@ describe('TypeView (#1070)', () => {
     });
   });
 
+  describe('kanban layout before the board renders (#2601)', () => {
+    it('is not in the layout switcher yet, even for a type with an enum property', async () => {
+      instancesMock.mockResolvedValue({ type: TASK, instances: TASK_INSTANCES });
+      render(TypeView, props({ typeId: 'task', layout: 'list' }));
+      await screen.findByText('Write spec');
+      expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['List', 'Table', 'Gallery']);
+    });
+
+    it('a spec that already says kanban (an embed, a restored tab) shows the list, not nothing', async () => {
+      instancesMock.mockResolvedValue({ type: TASK, instances: TASK_INSTANCES });
+      const { container } = render(TypeView, props({ typeId: 'task', layout: 'kanban', chromeless: true }));
+      await screen.findByText('Write spec');
+      expect([...container.querySelectorAll('.tv-list-title')].map((e) => e.textContent)).toEqual(['Write spec', 'Ship it']);
+    });
+  });
+
   describe('Copy as markdown (#2068)', () => {
     let writeText: ReturnType<typeof vi.fn>;
     beforeEach(() => {
@@ -249,7 +283,7 @@ describe('TypeView (#1070)', () => {
       await fireEvent.click(await screen.findByText('Copy as markdown'));
       expect(writeText).toHaveBeenCalledWith(buildViewEmbed(spec));
       expect(buildViewNoteContent('Books', spec)).toContain(writeText.mock.calls[0]![0] as string);
-      expect(copiedSpec()).toEqual({ ...spec, filters: [{ property: 'rating', min: '4', max: null }], mapStyle: 'auto', height: 360 }); // the parser's normal form
+      expect(copiedSpec()).toEqual({ ...spec, filters: [{ property: 'rating', min: '4', max: null }], mapStyle: 'auto', height: 360, groupBy: null }); // the parser's normal form
     });
 
     it('a map copies as a map — not a list (the report)', async () => {
@@ -277,6 +311,23 @@ describe('TypeView (#1070)', () => {
         expect(copiedSpec().layout).toBe(layout);
         unmount();
       }
+    });
+
+    it('a kanban view copies its groupBy when it is an enum of the type, and drops one that is not (#2601)', async () => {
+      instancesMock.mockResolvedValue({ type: TASK, instances: TASK_INSTANCES });
+      render(TypeView, props({ typeId: 'task', layout: 'kanban', groupBy: 'priority' }));
+      await screen.findByText('Write spec');
+      await fireEvent.click(screen.getByText('Copy as markdown'));
+      expect(copiedSpec()).toMatchObject({ typeId: 'task', layout: 'kanban', groupBy: 'priority' });
+      cleanup();
+      writeText.mockClear();
+      // `owner` is a text property, so it can't group a board: left out, which
+      // reads back as the default (the first enum).
+      render(TypeView, props({ typeId: 'task', layout: 'kanban', groupBy: 'owner' }));
+      await screen.findByText('Write spec');
+      await fireEvent.click(screen.getByText('Copy as markdown'));
+      expect(writeText.mock.calls[0]![0] as string).not.toContain('groupBy');
+      expect(copiedSpec()).toMatchObject({ layout: 'kanban', groupBy: null });
     });
 
     it('is not offered in chromeless (inline-embed) mode', async () => {
