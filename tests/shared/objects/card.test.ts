@@ -5,7 +5,7 @@
  * doubled as a chip.
  */
 import { describe, it, expect } from 'vitest';
-import { selectCardFields, DEFAULT_CARD_FIELD_COUNT } from '../../../src/shared/objects/card';
+import { selectCardFields, selectInstanceCardFields, DEFAULT_CARD_FIELD_COUNT } from '../../../src/shared/objects/card';
 import type { NoteTypedProperties, TypeInfo } from '../../../src/shared/objects/type-def';
 
 function typed(over: Partial<TypeInfo>, values: Record<string, string | null>): NoteTypedProperties {
@@ -64,5 +64,33 @@ describe('selectCardFields (#1071)', () => {
   it('has no cover when the type declares none', () => {
     const rb = typed({ card: ['author'] }, { author: 'x' });
     expect(selectCardFields(rb).cover).toBeNull();
+  });
+});
+
+describe('selectInstanceCardFields (#2602 — a board card)', () => {
+  const { type } = typed({}, {});
+  const inst = {
+    path: 'Dune.md', title: 'Dune', cover: null,
+    values: { cover: 'https://x/y.png', author: 'Herbert', rating: '5', status: 'reading', isbn: null },
+  };
+  const names = (fields: { name: string }[]) => fields.map((f) => f.name);
+
+  it('with no visible set, uses the type’s card template', () => {
+    const t = { ...type!, card: ['rating', 'author'] };
+    expect(names(selectInstanceCardFields(t, t.properties, inst))).toEqual(['rating', 'author']);
+  });
+
+  it('with no template either, the first few properties, minus the omitted one', () => {
+    expect(names(selectInstanceCardFields(type!, type!.properties, inst, { omit: ['author'] }))).toEqual(['cover', 'rating', 'status']);
+  });
+
+  it('the view’s visible properties win, in declared order, and drop empties and omissions', () => {
+    const t = { ...type!, card: ['rating'] };
+    const fields = selectInstanceCardFields(t, t.properties, inst, { visible: ['isbn', 'status', 'author'], omit: ['status'] });
+    expect(fields).toEqual([{ name: 'author', label: 'Author', value: 'Herbert' }]);
+  });
+
+  it('a view that shows no properties shows no fields', () => {
+    expect(selectInstanceCardFields(type!, type!.properties, inst, { visible: [] })).toEqual([]);
   });
 });

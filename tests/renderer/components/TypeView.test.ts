@@ -247,22 +247,6 @@ describe('TypeView (#1070)', () => {
     });
   });
 
-  describe('kanban layout before the board renders (#2601)', () => {
-    it('is not in the layout switcher yet, even for a type with an enum property', async () => {
-      instancesMock.mockResolvedValue({ type: TASK, instances: TASK_INSTANCES });
-      render(TypeView, props({ typeId: 'task', layout: 'list' }));
-      await screen.findByText('Write spec');
-      expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['List', 'Table', 'Gallery']);
-    });
-
-    it('a spec that already says kanban (an embed, a restored tab) shows the list, not nothing', async () => {
-      instancesMock.mockResolvedValue({ type: TASK, instances: TASK_INSTANCES });
-      const { container } = render(TypeView, props({ typeId: 'task', layout: 'kanban', chromeless: true }));
-      await screen.findByText('Write spec');
-      expect([...container.querySelectorAll('.tv-list-title')].map((e) => e.textContent)).toEqual(['Write spec', 'Ship it']);
-    });
-  });
-
   describe('Copy as markdown (#2068)', () => {
     let writeText: ReturnType<typeof vi.fn>;
     beforeEach(() => {

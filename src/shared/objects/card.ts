@@ -8,7 +8,7 @@
  * Renderer-safe (no main imports) so the preview pipeline can build cards
  * directly, and pure so it tests without IPC.
  */
-import type { NoteTypedProperties } from './type-def';
+import type { NoteTypedProperties, PropertyDef, TypeInfo, TypeInstanceRow } from './type-def';
 
 export interface CardField {
   name: string;
@@ -51,4 +51,36 @@ export function selectCardFields(rb: NoteTypedProperties): ObjectCard {
     if (!type.card && fields.length >= DEFAULT_CARD_FIELD_COUNT) break;
   }
   return { fields, cover };
+}
+
+/**
+ * The property chips for one instance of a type view (#2602 — a Kanban card),
+ * chosen by `selectCardFields` so a board card shows what the type's render
+ * card shows. `visible` is the view's visible properties (`columns`): when
+ * the view names them, they are the card's fields, in declared order; when it
+ * doesn't (null, "all"), the type's `card:` template — or its first few
+ * properties — decides, since every property on every card would bury the
+ * title. `omit` drops properties the context already shows (a board's
+ * grouping property is the column the card sits in). Empty values are left
+ * out, as on the render card.
+ */
+export function selectInstanceCardFields(
+  type: TypeInfo,
+  properties: readonly PropertyDef[],
+  inst: TypeInstanceRow,
+  opts: { visible?: readonly string[] | null; omit?: readonly string[] } = {},
+): CardField[] {
+  const omit = new Set(opts.omit ?? []);
+  const kept = properties.filter((p) => !omit.has(p.name));
+  let card = type.card;
+  const visible = opts.visible;
+  if (visible) {
+    card = kept.map((p) => p.name).filter((n) => visible.includes(n));
+    if (card.length === 0) return []; // the view shows no properties
+  }
+  const { fields } = selectCardFields({
+    type: { ...type, card },
+    properties: kept.map((p) => ({ ...p, value: inst.values[p.name] ?? null })),
+  });
+  return fields.filter((f) => f.value !== null && f.value !== '');
 }
