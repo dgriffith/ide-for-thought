@@ -29,6 +29,7 @@
   } from '../editor/bookmark-gutter';
   import type { TypeInfo } from '../../../shared/objects/type-def';
   import { toHistorySnapshot, canRestoreHistory } from '../editor/history-snapshot';
+  import { applyExternalContent } from '../editor/external-content';
   import { DEFAULT_FONT, clampFontSize, parseStoredFontSize } from '../editor/font-size';
   import { findFrontmatterFoldRange } from '../editor/frontmatter';
   import { findHiddenFenceFoldRanges } from '../editor/hidden-fences';
@@ -655,9 +656,8 @@
   $effect(() => {
     if (view && content !== view.state.doc.toString()) {
       ignoreNextUpdate = true;
-      view.dispatch({
-        changes: { from: 0, to: view.state.doc.length, insert: content },
-      });
+      // The smallest change, so ⌘Z undoes just it (#2666).
+      applyExternalContent(view, content);
     }
   });
 

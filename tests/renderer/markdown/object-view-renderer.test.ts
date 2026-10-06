@@ -70,12 +70,13 @@ describe('parseObjectViewSpec (#2067)', () => {
       folder: null,
       filters: [],
       mapStyle: 'auto',
+      height: 360,
     });
   });
 
   it('carries through explicit sort/columns', () => {
     expect(parseObjectViewSpec('{"typeId":"book","layout":"table","sortColumn":"author","sortDir":"desc","columns":["author"]}'))
-      .toEqual({ typeId: 'book', layout: 'table', sortColumn: 'author', sortDir: 'desc', columns: ['author'], folder: null, filters: [], mapStyle: 'auto' });
+      .toEqual({ typeId: 'book', layout: 'table', sortColumn: 'author', sortDir: 'desc', columns: ['author'], folder: null, filters: [], mapStyle: 'auto', height: 360 });
   });
 
   it('reads mapStyle: light/dark kept, anything else auto (#2665)', () => {
@@ -171,5 +172,29 @@ describe('hydrateObjectViewBlocks (#2067)', () => {
     root.appendChild(fresh);
     hydrateObjectViewBlocks(root, deps());
     await waitFor(() => expect(instancesMock).toHaveBeenCalled());
+  });
+
+  // #2666: the embed's height comes from its spec, and a resize — which only
+  // changes `height` — keeps the live mount rather than re-querying.
+  it('sizes the box from data-view-height, and a resize re-adopts the mount', async () => {
+    const root = previewWith('{"typeId":"book","layout":"list"}');
+    const block = root.querySelector<HTMLElement>('.object-view-block')!;
+    block.dataset.viewHeight = '360';
+    hydrateObjectViewBlocks(root, deps());
+    await waitFor(() => expect(block.textContent).toContain('Dune'));
+    expect(block.style.height).toBe('360px');
+
+    instancesMock.mockClear();
+    root.innerHTML = '';
+    const resized = document.createElement('div');
+    resized.className = 'object-view-block';
+    resized.dataset.viewHeight = '520';
+    resized.textContent = '{"typeId":"book","layout":"list","height":520}';
+    root.appendChild(resized);
+    hydrateObjectViewBlocks(root, deps());
+    expect(resized.getAttribute('data-object-view-rendered')).toBe('ok');
+    expect(resized.style.height).toBe('520px');
+    expect(resized.textContent).toContain('Dune');
+    expect(instancesMock).not.toHaveBeenCalled();
   });
 });

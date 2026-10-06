@@ -8,6 +8,7 @@
  */
 
 import { mediaKind } from '../../shared/media';
+import { parseImageSizeSuffix } from '../../shared/markdown/image-size';
 
 // `![alt](url)` or `![alt](url "title")` — same shape the image-inliner matches.
 const MD_IMAGE_RE = /!\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
@@ -18,7 +19,8 @@ export function linkifyLocalMedia(markdown: string): string {
   return markdown.replace(MD_IMAGE_RE, (full, alt: string, url: string) => {
     if (/^(?:https?:|data:|blob:|file:|mailto:)/i.test(url) || url.startsWith('//')) return full;
     if (!mediaKind(url)) return full;
-    const label = alt.trim() || url.split('/').pop() || url;
+    // A size suffix (`|400`, #2666) sizes an image; it isn't part of a link's text.
+    const label = parseImageSizeSuffix(alt).alt.trim() || url.split('/').pop() || url;
     return `[${label}](${url})`;
   });
 }

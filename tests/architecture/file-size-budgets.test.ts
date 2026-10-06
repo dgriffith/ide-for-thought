@@ -64,7 +64,7 @@ const THRESHOLD = 600;
  */
 const BUDGETS: Record<string, number> = {
   // +1 for #2256: toggleCommandPalette on the ipc-wiring ctx.
-  'src/renderer/App.svelte': 1841, // +2: type views hand their multi-selection to the bulk property editor (#2431); +2: a map view's style passed to the view tab and Save as note (#2665); +4: folder/filters passed to the view tab and Save as note (#2531); +1: the folder chip widens a scoped view (#2532); +3: switching to a view tab records it in back/forward history
+  'src/renderer/App.svelte': 1842, // +1: the preview's resize handles write through onApplyEdit (#2666); +2: type views hand their multi-selection to the bulk property editor (#2431); +2: a map view's style passed to the view tab and Save as note (#2665); +4: folder/filters passed to the view tab and Save as note (#2531); +1: the folder chip widens a scoped view (#2532); +3: switching to a view tab records it in back/forward history
   // +32 for #2210 §3b: the shared wiki-link index and the comment explaining
   // why one index is safe for all three resolvers. Net code is SHORTER (two
   // duplicated file-array builds removed); the growth is the reasoning, which
@@ -72,7 +72,7 @@ const BUDGETS: Record<string, number> = {
   // +2 for #2210 §3c: `revision` threaded to `hydrateVegaBlocks` so a chart's
   // backing query is keyed per graph revision rather than re-run per render
   // tick, plus the comment saying why the argument is there.
-  'src/renderer/lib/components/Preview.svelte': 1376, // +9: charts take the theme's palette, and re-theme on a theme switch (#2522)
+  'src/renderer/lib/components/Preview.svelte': 1393, // +9: charts take the theme's palette, and re-theme on a theme switch (#2522); +17: the onApplyEdit prop and installing the resize controller (#2666) — the controller itself is preview/embed-resize.ts
   'src/renderer/lib/components/SourceDetail.svelte': 1346,
   'src/renderer/lib/components/SourcesPanel.svelte': 789,
   // Three changes stacked here: #2218 (PythonSettings doc + type), #2222

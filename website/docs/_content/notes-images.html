@@ -33,8 +33,16 @@ description: Add images to your notes in Minerva: drag and drop, paste, or type 
 
     <p>The description in the brackets is the picture's caption for anyone who can't see it, and it shows as a tooltip when you hover. The part in parentheses can point to a picture stored with your notes or to a web address.</p>
 
+    <p>To set the size a picture is shown at, add a width after a <code>|</code> in the brackets, in pixels — or a width and a height. This is the same way Obsidian writes it, so notes you bring over keep their sizes:</p>
+
+<pre><code>![System architecture|400](architecture.png)
+![System architecture|400x300](architecture.png)</code></pre>
+
+    <p>A picture wider than the page is shown at the page's width; the size you wrote stays as it is.</p>
+
     <h2 id="rendering">Viewing images</h2>
     <p>As you read a note, images show up right in the flow of your writing. Click one to open it full screen so you can see the detail, then click away or press <kbd>Esc</kbd> to close it.</p>
+    <p>To resize a picture, drag the handle at its bottom-right corner; it keeps its shape. From the keyboard, tab to the handle and press <kbd>Alt</kbd>+<kbd>←</kbd> / <kbd>Alt</kbd>+<kbd>→</kbd>, and <kbd>Alt</kbd>+<kbd>0</kbd> — or a double-click on the handle — returns it to its natural size. Minerva writes the new width into the image link for you, and <kbd>⌘Z</kbd> undoes it. Web pages, PDFs and published sites show the picture at the same size, and a Markdown export keeps the <code>|400</code> just as you wrote it.</p>
 
     <figure class="shot-img">
       <img src="img/notes-images.png" alt="A picture displayed inline within a note. Clicking it opens a full-screen view so you can inspect the detail without leaving your writing." loading="lazy" />

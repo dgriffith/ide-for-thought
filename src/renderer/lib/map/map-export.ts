@@ -24,10 +24,10 @@ export interface MapExportHooks {
   onCaptured: (capture: MapCapture) => void;
 }
 
-/** The export frame, in CSS pixels — the preview embed's height, the export
- *  block's width. Rendered at 2× for a sharp image on screen and in PDF. */
+/** The export frame's width, in CSS pixels — the export block's. Its height is
+ *  the embed's own (`height` in the spec, #2666). Rendered at 2× for a sharp
+ *  image on screen and in PDF. */
 export const MAP_EXPORT_WIDTH = 760;
-export const MAP_EXPORT_HEIGHT = 360;
 export const MAP_EXPORT_PIXEL_RATIO = 2;
 /** Style + every tile must be in by now, or the export lists the places. */
 export const MAP_EXPORT_TIMEOUT_MS = 20_000;

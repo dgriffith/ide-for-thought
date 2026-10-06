@@ -90,6 +90,7 @@ const PARITY: Record<string, Answer> = {
   'plugin:installAnchors': { handler: 'same shared plugin; [[note#Heading]] hrefs use its slugs (#2515)', holds: exportInstalls('installAnchors') },
   'plugin:installWikiLinks': { handler: 'the export wiki-link rule, resolved like the app (#2518)', holds: () => /installWikiLinkRule\(md\b/.test(EXPORT_RENDER) },
   'plugin:installTransclusions': { handler: 'resolveTransclusions (#906)', holds: () => EXPORT_RENDER.includes('resolveTransclusions(') },
+  'plugin:installImageSize': { handler: 'same shared plugin: `|400` sizes become <img width/height> (#2666)', holds: exportInstalls('installImageSize') },
   'plugin:installNoteTags': { handler: 'the shared tag rule: a chip, or a link to the static site\'s tag page (#2526)', holds: exportInstalls('installNoteTags') },
   'plugin:installFences': { decision: 'the fence table itself — each fence kind is classified above' },
   // Post-render hydration passes

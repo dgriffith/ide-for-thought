@@ -71,6 +71,7 @@ import type { ViewLayout } from '../../../shared/types';
 import { normalizeFolder, parseViewFilters, type ViewFilter } from '../../../shared/objects/view-spec';
 import { escapeHtml } from '../../../shared/text-escape';
 import { parseMapStyle, type MapStyle } from '../../../shared/objects/map-style';
+import { parseViewHeight } from '../../../shared/objects/view-height';
 import { blockCacheFor, blockKey, createContentWrapper, HYDRATED_CONTENT_CLASS } from './hydrated-block-cache';
 import { reactiveProps } from './mounted-props.svelte';
 
@@ -89,6 +90,9 @@ export interface ObjectViewSpec {
   filters: ViewFilter[];
   /** Map tile style (#2665); absent → `auto`, following the app theme. */
   mapStyle: MapStyle;
+  /** The embed's height in px (#2666) — `OBJECT_VIEW_DEFAULT_HEIGHT` when the
+   *  spec omits it. */
+  height: number;
 }
 
 const LAYOUTS: ReadonlySet<ViewLayout> = new Set(['list', 'table', 'gallery', 'map']);
@@ -116,6 +120,7 @@ export function parseObjectViewSpec(raw: string): ObjectViewSpec {
     folder: normalizeFolder(typeof spec.folder === 'string' ? spec.folder : null),
     filters: parseViewFilters(spec.filters),
     mapStyle: parseMapStyle(spec.mapStyle),
+    height: parseViewHeight(spec.height),
   };
 }
 
@@ -168,7 +173,9 @@ export function hydrateObjectViewBlocks(root: HTMLElement, deps: ObjectViewDeps)
   const counts = new Map<string, number>();
   for (const el of blocks) {
     const raw = (el.textContent ?? '').trim();
-    const key = blockKey(counts, raw);
+    // Keyed on the spec WITHOUT its height (#2666): a resize only reframes the
+    // view, so the live mount is moved into the new placeholder, not rebuilt.
+    const key = blockKey(counts, specKeyWithoutHeight(raw));
     el.removeAttribute('data-object-view-pending');
 
     const cached = cache.take(root, key);
@@ -180,7 +187,9 @@ export function hydrateObjectViewBlocks(root: HTMLElement, deps: ObjectViewDeps)
       // re-mount used to.
       const props = mountedProps.get(cached);
       if (props) props.revision = deps.revision;
-      el.setAttribute('data-object-view-rendered', cached.dataset.objectViewResult ?? 'ok');
+      const result = cached.dataset.objectViewResult ?? 'ok';
+      if (result === 'ok') applyViewHeight(el);
+      el.setAttribute('data-object-view-rendered', result);
       continue;
     }
 
@@ -225,6 +234,7 @@ export function hydrateObjectViewBlocks(root: HTMLElement, deps: ObjectViewDeps)
     const instance = mount(TypeView, { target: wrapper, props });
     mountedProps.set(wrapper, props);
     wrapper.dataset.objectViewResult = 'ok';
+    applyViewHeight(el);
     el.setAttribute('data-object-view-rendered', 'ok');
     // `unmount()` returns a Promise (it awaits any outro transition before
     // removing the DOM) — teardown here is fire-and-forget, as it was when
@@ -244,6 +254,25 @@ export function hydrateObjectViewBlocks(root: HTMLElement, deps: ObjectViewDeps)
   for (const wrapper of root.querySelectorAll<HTMLElement>(`.${HYDRATED_CONTENT_CLASS}`)) {
     const props = mountedProps.get(wrapper);
     if (props) props.revision = deps.revision;
+  }
+}
+
+/** Size a mounted embed to its spec's `height` (#2666). Set through the CSSOM
+ *  rather than a `style` attribute in the markup, which CSP would govern. */
+function applyViewHeight(el: HTMLElement): void {
+  const h = Number(el.dataset.viewHeight);
+  if (Number.isFinite(h) && h > 0) el.style.height = `${h}px`;
+}
+
+/** The block-cache key for a spec: the text, minus any `height`. */
+function specKeyWithoutHeight(raw: string): string {
+  try {
+    const spec: unknown = JSON.parse(raw);
+    if (!spec || typeof spec !== 'object' || Array.isArray(spec)) return raw;
+    const { height: _height, ...rest } = spec as Record<string, unknown>;
+    return JSON.stringify(rest);
+  } catch {
+    return raw;
   }
 }
 

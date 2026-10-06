@@ -25,6 +25,7 @@ import { installCallouts } from '../../../../shared/markdown/callout-plugin';
 import { installAnchors } from '../../../../shared/markdown/anchor-plugin';
 import { installDoiAutolink } from '../../../../shared/markdown/doi-plugin';
 import { installHighlight } from '../../../../shared/markdown/highlight-plugin';
+import { installImageSize } from '../../../../shared/markdown/image-size';
 import { slugify } from '../../../../shared/slug';
 import { installNoteTags, noteTagChipHtml } from '../../../../shared/markdown/note-tags-plugin';
 import { renderVegaBlocks } from '../../vega-render';
@@ -130,6 +131,9 @@ function buildMd(plan: ExportPlan, renderer?: CitationRenderer, fromPath?: strin
   installDoiAutolink(md);
   installHighlight(md);
   installAnchors(md);
+  // `![alt|400](pic.png)` → `<img width="400">` (#2666): every HTML export —
+  // note HTML/PDF, tree HTML/PDF, the static site — renders through here.
+  installImageSize(md);
   installWikiLinkRule(md, plan, fromPath);
   // The preview's tag rule (#2526): a static site links each tag to its tag
   // page; a single-file export shows the chip, styled.
