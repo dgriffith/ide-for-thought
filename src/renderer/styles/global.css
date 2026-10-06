@@ -544,6 +544,7 @@ mark.hl-orange { background: color-mix(in oklch, var(--hl-orange) 30%, transpare
   overflow: hidden;
 }
 .object-view-block[data-object-view-rendered="ok"] {
+  /* The default; a spec's `height` (#2666) is set on the element. */
   height: 360px;
   border: 1px solid var(--border);
   background: var(--bg-inset);

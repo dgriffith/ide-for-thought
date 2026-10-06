@@ -15,6 +15,7 @@
 import type { ViewLayout } from '../types';
 import type { ViewFilter } from './view-spec';
 import type { MapStyle } from './map-style';
+import { viewHeightField } from './view-height';
 
 export interface ViewNoteSpec {
   typeId: string;
@@ -27,6 +28,8 @@ export interface ViewNoteSpec {
   filters?: readonly ViewFilter[] | undefined;
   /** Map tile style (#2665); written only when not `auto`. */
   mapStyle?: MapStyle | undefined;
+  /** The embed's height in px (#2666); written only when it isn't the default. */
+  height?: number | null | undefined;
 }
 
 const LAYOUT_NAMES: Record<ViewLayout, string> = { list: 'list', table: 'table', gallery: 'gallery', map: 'map' };
@@ -53,6 +56,8 @@ export function buildViewEmbed(spec: ViewNoteSpec): string {
   if (spec.folder) body.folder = spec.folder;
   if (spec.filters && spec.filters.length > 0) body.filters = spec.filters;
   if (spec.mapStyle && spec.mapStyle !== 'auto') body.mapStyle = spec.mapStyle;
+  const height = viewHeightField(spec.height);
+  if (height !== undefined) body.height = height;
   return `\`\`\`object-view\n${JSON.stringify(body, null, 2)}\n\`\`\`\n`;
 }
 

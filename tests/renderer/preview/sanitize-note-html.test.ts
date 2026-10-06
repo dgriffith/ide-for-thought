@@ -274,3 +274,29 @@ describe('sanitizeNoteHtml — page-level tags a note could redress the app with
     expect(out).toContain(STYLE_REDRESS_MARKER);
   });
 });
+
+describe('sanitizeNoteHtml — image size (#2666)', () => {
+  it('keeps width and height on an <img>, and still drops <style>', () => {
+    const out = sanitizeNoteHtml('<p><img src="data:image/png;base64,AAA" alt="x" width="400" height="300"></p><style>img{width:9999px}</style>');
+    expect(out).toContain('width="400"');
+    expect(out).toContain('height="300"');
+    expect(out).not.toContain('<style');
+    expect(out).not.toContain('9999px');
+  });
+
+  it('keeps the size and the resize frame from the real markdown pipeline', () => {
+    const md = createPreviewMarkdown(makeDeps({ getNotePath: () => 'n.md', getCanResize: () => true }));
+    const out = sanitizeNoteHtml(md.render('![shot|400x300](pic.png)\n'));
+    expect(out).toMatch(/<img [^>]*width="400"[^>]*height="300"/);
+    expect(out).toContain('alt="shot"');
+    expect(out).toContain('data-resize-kind="image"');
+    expect(out).toContain('data-image-ref=');
+    expect(out).toMatch(/role="slider"[^>]*tabindex="0"/);
+  });
+
+  it('strips a remote url() a raw <img> style carries, keeping its size', () => {
+    const out = sanitizeNoteHtml('<img src="data:image/png;base64,AAA" width="200" style="background:url(https://tracker.example/b.png)">');
+    expect(out).toContain('width="200"');
+    expect(out).not.toContain('tracker.example');
+  });
+});

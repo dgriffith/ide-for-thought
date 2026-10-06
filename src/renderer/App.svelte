@@ -1348,6 +1348,7 @@
                           runCellWithTrust(language, code, notePath)
                         }
                         onApplyCellOutputEdit={(newContent) => { editor.setContent(newContent, groupId); }}
+                        onApplyEdit={(newContent) => { editor.setContent(newContent, groupId); }}
                       />
                     </div>
                   {/if}

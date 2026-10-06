@@ -4,6 +4,10 @@
  * marker survives into the page. The per-kind specs (`export-*.spec.ts`)
  * compare each against the preview in depth; this one is the net under all of
  * them — the case where kinds interact in one export.
+ *
+ * It also carries a resized image and a resized map (#2666): the image's
+ * `|200` becomes `width="200"` on its `<img>`, and the map is captured in the
+ * frame its spec's `height` sets rather than the default 360px.
  */
 import { test, expect } from './helpers/test';
 import fs from 'node:fs';
@@ -14,6 +18,15 @@ import { closeMinerva, launchMinerva, projectRoot } from './helpers/launch';
 const BASE_URI = 'https://sample.minerva.dev/export-parity-e2e/';
 const noteUri = (rel: string) => `${BASE_URI}note/${rel.replace(/\.(md|ttl)$/, '').split('/').map(encodeURIComponent).join('/')}`;
 const HIDDEN_CANARY = 'urn:canary:parity-hidden';
+// The map style is served by the test, so the capture needs no tile provider.
+const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
+const OFFLINE_STYLE = {
+  version: 8,
+  sources: { credit: { type: 'geojson', data: { type: 'FeatureCollection', features: [] }, attribution: '© Test Tiles contributors' } },
+  layers: [{ id: 'land', type: 'background', paint: { 'background-color': '#e9e4d6' } }],
+};
+// A 1×1 PNG for the resized image.
+const PNG_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
 
 function seed(dir: string): void {
   const write = (rel: string, content: string) => {
@@ -23,11 +36,16 @@ function seed(dir: string): void {
   write('.minerva/config.json', JSON.stringify({ baseUri: BASE_URI }));
   write('.minerva/types/place.md', ['---', 'label: Place', 'id: place', 'icon: 📍', 'properties:', '  - name: city', '    type: text', '    label: City', '---', ''].join('\n'));
   write('places/Kampa Museum.md', '---\ntype: place\ncity: Prague\n---\n# Kampa Museum\n\n#museum\n');
+  write('.minerva/types/spot.md', ['---', 'label: Spot', 'id: spot', 'icon: 📌', 'properties:', '  - name: location', '    type: geo', '    label: Location', '---', ''].join('\n'));
+  write('spots/Petrin Tower.md', '---\ntype: spot\nlocation: "50.0833,14.3950"\n---\n# Petrin Tower\n');
+  fs.writeFileSync(path.join(dir, 'pic.png'), Buffer.from(PNG_BASE64, 'base64'));
   write('notes/The Claim.md', '---\ntitle: The Claim\n---\n\n# The Claim\n\n```turtle\nthis: a thought:Claim .\n```\n');
   write('notes/Cited Evidence.md', `---\ntitle: Cited Evidence\nsupports: ${noteUri('notes/The Claim.md')}\n---\n\n# Cited Evidence\n`);
   write('Everything.md', [
     '# Everything', '',
     '```object-view', '{"typeId":"place","layout":"list"}', '```', '',
+    '```object-view', '{"typeId":"spot","layout":"map","height":240}', '```', '',
+    '![shot|200](pic.png)', '',
     '```mermaid', 'graph TD; A[Start] --> B[Finish]', '```', '',
     ':::query-list', 'SELECT ?title ?path WHERE { ?note minerva:hasTag ?t . ?t minerva:tagName "museum" . ?note dc:title ?title . ?note minerva:relativePath ?path . }', ':::', '',
     ':::argument', '[[The Claim]]', ':::', '',
@@ -50,6 +68,7 @@ test('a note with every live kind exports each one rendered, no raw source left 
   const app = await launchMinerva({ userDataDir, env: { MINERVA_E2E: '1' } });
   try {
     const win = await app.firstWindow({ timeout: 20_000 });
+    await win.route(`${STYLE_URL}*`, (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(OFFLINE_STYLE) }));
     await expect(win.getByRole('button', { name: 'Open Thoughtbase' })).toHaveCount(0, { timeout: 25_000 });
     await expect(win.locator('[data-relative-path="Everything.md"]').first()).toBeVisible({ timeout: 10_000 });
 
@@ -64,7 +83,7 @@ test('a note with every live kind exports each one rendered, no raw source left 
     });
 
     await test.step('every kind rendered', async () => {
-      expect(html.match(/class="minerva-live-block"/g)?.length, 'object view, mermaid, query, argument map, output').toBe(5);
+      expect(html.match(/class="minerva-live-block"/g)?.length, 'object view, map, mermaid, query, argument map, output').toBe(6);
       expect(html).toContain('Kampa Museum'); // the view's row, and the query's result
       expect(html).toMatch(/<svg[^>]*id="mermaid-export-/); // mermaid
       expect(html).toContain('Cited Evidence'); // the argument map's node
@@ -76,8 +95,15 @@ test('a note with every live kind exports each one rendered, no raw source left 
       expect(html).toContain('Prague'); // the flashcard's answer is shown
     });
 
+    await test.step('sizes carry through (#2666)', async () => {
+      // The map's frame is its spec's 240px, inside the 1px border: 758×238.
+      expect(html).toMatch(/<img src="data:image\/png;base64,[A-Za-z0-9+/=]{200,}" width="758" height="238"/);
+      expect(html).toContain('<img src="pic.png" alt="shot" width="200">');
+      expect(html).not.toContain('shot|200');
+    });
+
     await test.step('no raw source survives', async () => {
-      for (const marker of ['```', ':::query', ':::argument', '[!note]', '[!card]', '&quot;typeId&quot;', '{&quot;type&quot;:&quot;text&quot;', 'graph TD;', HIDDEN_CANARY]) {
+      for (const marker of ['```', ':::query', ':::argument', '[!note]', '[!card]', '&quot;typeId&quot;', '|200', '{&quot;type&quot;:&quot;text&quot;', 'graph TD;', HIDDEN_CANARY]) {
         expect(html, `raw "${marker}" in the export`).not.toContain(marker);
       }
       expect(html).not.toContain('couldn&#39;t be rendered for export');

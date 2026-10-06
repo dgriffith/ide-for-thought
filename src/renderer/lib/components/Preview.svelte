@@ -16,6 +16,7 @@
     import { QUERY_PREFIXES } from '../preview/query-prefixes';
     import { chartPaletteFrom } from '../charts/theme-palette';
     import {sanitizeNoteHtml} from '../preview/sanitize-note-html';
+    import {installEmbedResize, restoreResizeFocus} from '../preview/embed-resize';
     import {api} from '../ipc/client';
     import {clampSubmenu} from '../utils/menuClamp';
     import {type ChartHandle} from '../charts';
@@ -127,6 +128,9 @@
          * regular doc edit.
          */
         onApplyCellOutputEdit?: (newContent: string) => void;
+        /** A resize handle's new size, as an edited full document (#2666).
+         *  Without it images and embeds get no handles. */
+        onApplyEdit?: (newContent: string) => void;
         /**
          * Click on a bare-DOI link the DOI plugin rendered (#473).
          * The host decides what to do: open the matching source if it
@@ -172,6 +176,7 @@
         onBookmark,
         onRunCell,
         onApplyCellOutputEdit,
+        onApplyEdit,
         onDoiClick,
         numberedHeadings = false,
         getNotePaths,
@@ -276,6 +281,7 @@
         getRenderPathOverride: () => renderPathOverride,
         getNotePath: () => notePath,
         getCanRun: () => !!(onRunCell && onApplyCellOutputEdit && notePath),
+        getCanResize: () => !!(onApplyEdit && notePath),
     });
 
     /**
@@ -561,6 +567,17 @@
             // Flashcard polish: tuck each [!card]'s answer (the part after `---`)
             // behind a collapsed "Show answer" disclosure.
             if (previewEl) hydrateCardCallouts(previewEl, notePath);
+            if (previewEl) restoreResizeFocus(previewEl);
+        });
+    });
+
+    // Resize handles on images and object-view embeds (#2666): the write goes
+    // to the host as an ordinary edit of the note's source.
+    $effect(() => {
+        if (!previewEl) return;
+        return installEmbedResize(previewEl, {
+            getContent: () => content,
+            applyEdit: (next) => onApplyEdit?.(next),
         });
     });
 

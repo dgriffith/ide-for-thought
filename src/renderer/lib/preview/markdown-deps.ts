@@ -17,4 +17,8 @@ export interface PreviewMarkdownDeps {
     /** Whether a runnable fence should show its ▶ button — i.e. the host wired
      *  `onRunCell` + `onApplyCellOutputEdit` and a note path is known. */
     getCanRun: () => boolean;
+    /** Whether images and object-view embeds get a resize handle (#2666) —
+     *  i.e. the host wired `onApplyEdit`, so a new size can be written back
+     *  into the note. Absent → no handles (a read-only preview). */
+    getCanResize?: () => boolean;
 }

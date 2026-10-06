@@ -15,7 +15,8 @@
  * and a PDF above all — can't scroll a box.
  *
  * A map (#2511) is the exception to snapshotting the DOM: it's the preview's
- * own `TypeViewMap` in export mode, in the preview's 360px frame, flattened to
+ * own `TypeViewMap` in export mode, in the embed's frame (its spec `height`,
+ * 360px by default — #2666), flattened to
  * one PNG with its pins — or, when it can't be drawn, a table of its places.
  */
 import { mount, tick, unmount } from 'svelte';
@@ -23,7 +24,7 @@ import TypeView from '../components/TypeView.svelte';
 import { parseObjectViewSpec } from '../markdown/object-view-renderer';
 import { snapshotLiveBlock } from './live-block-snapshot';
 import { LIVE_BLOCK_CLASS, NOTE_LINK_ATTR } from '../../../shared/live-blocks';
-import { MAP_EXPORT_HEIGHT, MAP_EXPORT_TIMEOUT_MS, mapCaptureHtml, type MapCapture } from '../map/map-export';
+import { MAP_EXPORT_TIMEOUT_MS, mapCaptureHtml, type MapCapture } from '../map/map-export';
 
 /** Wide enough for a table's columns; a gallery reflows to it. */
 export const EXPORT_BLOCK_WIDTH_PX = 760;
@@ -43,8 +44,9 @@ export async function renderObjectViewForExport(source: string): Promise<string>
   const block = document.createElement('div');
   block.className = 'object-view-block';
   block.setAttribute('data-object-view-rendered', 'ok');
-  // Every row — see the file header. A map needs a real height: the preview's.
-  block.style.height = spec.layout === 'map' ? `${MAP_EXPORT_HEIGHT}px` : 'auto';
+  // Every row — see the file header. A map needs a real height: the embed's
+  // own (`height` in its spec, #2666 — the 360px default when it has none).
+  block.style.height = spec.layout === 'map' ? `${spec.height}px` : 'auto';
   themed.appendChild(block);
   host.appendChild(themed);
   document.body.appendChild(host);

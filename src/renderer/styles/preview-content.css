@@ -842,3 +842,70 @@
 .preview .anchor-landing {
         animation: anchor-landing-pulse 1.2s ease-out;
     }
+
+/* Resizable images and object-view embeds (#2666). The frame shrink-wraps the
+   image and never exceeds the column, so a stored width wider than the pane
+   draws at pane width without the note changing. The handle shows on hover
+   or keyboard focus; dragging it is `preview/embed-resize.ts`. */
+.preview .resizable-image {
+        position: relative;
+        display: inline-block;
+        max-width: 100%;
+        vertical-align: bottom;
+    }
+.preview .resizable-image img {
+        display: block;
+    }
+.preview img[width] {
+        height: auto;
+        max-height: 4096px;
+    }
+.preview img[width][height] {
+        height: auto;
+        object-fit: contain;
+    }
+.preview .resize-handle {
+        position: absolute;
+        opacity: 0;
+        background: var(--accent);
+        touch-action: none;
+        transition: opacity 0.12s;
+        z-index: 2;
+    }
+.preview .resize-handle-corner {
+        right: -4px;
+        bottom: -4px;
+        width: 12px;
+        height: 12px;
+        border-radius: 3px;
+        border: 2px solid var(--bg);
+        cursor: nwse-resize;
+    }
+.preview .fence-object-view .fence-body {
+        position: relative;
+    }
+.preview .resize-handle-bottom {
+        left: 50%;
+        bottom: 3px;
+        width: 48px;
+        height: 6px;
+        margin-left: -24px;
+        border-radius: 3px;
+        cursor: ns-resize;
+    }
+.preview .object-view-block:not([data-object-view-rendered="ok"]) + .resize-handle {
+        display: none;
+    }
+.preview .resizable-image:hover > .resize-handle,
+.preview .fence-object-view:hover .resize-handle,
+.preview [data-resize-kind].resizing .resize-handle,
+.preview .resize-handle:focus-visible {
+        opacity: 1;
+    }
+.preview .resize-handle:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+    }
+.preview [data-resize-kind].resizing {
+        user-select: none;
+    }
