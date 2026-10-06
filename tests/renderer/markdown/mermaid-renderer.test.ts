@@ -63,6 +63,13 @@ describe('hydrateMermaidBlocks font resolution (#1802)', () => {
     expect(lastFontFamily()).not.toBe('inherit');
   });
 
+  it('pins the dagre layout — mermaid 12 defaults to ELK, which reshapes every diagram', async () => {
+    await hydrateMermaidBlocks(previewWith('Georgia, serif'));
+
+    const call = initialize.mock.calls.at(-1)?.[0] as { layout?: unknown };
+    expect(call?.layout).toBe('dagre');
+  });
+
   it('re-initializes when the content font changes under an unchanged theme', async () => {
     await hydrateMermaidBlocks(previewWith('"IBM Plex Sans", sans-serif'));
     expect(lastFontFamily()).toBe('"IBM Plex Sans", sans-serif');

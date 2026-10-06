@@ -85,7 +85,7 @@
     "linkedom": "^0.18.13",
     "maplibre-gl": "^6.11.2",
     "markdown-it-footnote": "^4.0.0",
-    "mermaid": "^11.17.2",
+    "mermaid": "^12.1.0",
     "minisearch": "^7.2.0",
     "n3": "^2.8.0",
     "onnxruntime-web": "^1.30.0",
