@@ -21,17 +21,24 @@
    *   The write is the host's (`onMove`, the `kanban-moves` store). Every
    *   column carries `data-column-value` (the option, or `""` for No value)
    *   and `data-column-kind`, its header is its own element (`.kb-col-header`,
-   *   the column-drag handle for #2614), every card carries `data-note-path`,
+   *   the column-drag handle), every card carries `data-note-path`,
    *   and keyboard focus is tracked by note path rather than position, so a
    *   card that changes column keeps focus.
+   * - **Column order** (#2614) is wired onto the header and lives in
+   *   `kanban/`: drag a header (`column-drag.ts`) or use its menu's *Move
+   *   column left / right* (`KanbanColumnMenu.svelte`; ↑ from a column's first
+   *   card reaches it). Both hand `onMoveColumn` a (key, target, side) triple;
+   *   without `onMoveColumn` (an embed, an export) the header is inert.
    */
   import { tick, untrack } from 'svelte';
   import TypeIcon from './TypeIcon.svelte';
   import { cardDrag, cardMoveKey, openCardMenu } from './kanban/card-drag';
   import { getKanbanMoveStore } from '../stores/kanban-moves.svelte';
   import type { MoveTarget } from '../../../shared/objects/kanban-move';
+  import KanbanColumnMenu from './kanban/KanbanColumnMenu.svelte';
+  import { afterColumnMove, columnDrag, focusColumnHeader, type DropSide } from './kanban/column-drag';
   import { selectInstanceCardFields } from '../../../shared/objects/card';
-  import type { KanbanColumn } from '../../../shared/objects/kanban';
+  import { columnKey as orderKey, type KanbanColumn } from '../../../shared/objects/kanban';
   import type { PropertyDef, TypeInfo, TypeInstanceRow } from '../../../shared/objects/type-def';
 
   interface Props {
@@ -56,8 +63,11 @@
     /** Move a card to a column (#2603); absent → cards don't move (an embed). */
     onMove?: ((path: string, target: MoveTarget) => void) | undefined;
     onUndoMove?: (() => void) | undefined;
+    /** Reorder columns (#2614): move `key` to `side` of the visible column
+     *  `target`. Absent → the columns can't be moved. */
+    onMoveColumn?: (key: string, target: string, side: DropSide) => void;
   }
-  let { type, properties, group, columns, visible, display, rowType, isSelected, selectable, onCardClick, onCardContextMenu, onMove, onUndoMove }: Props = $props();
+  let { type, properties, group, columns, visible, display, rowType, isSelected, selectable, onCardClick, onCardContextMenu, onMove, onUndoMove, onMoveColumn }: Props = $props();
 
   const byName = $derived(new Map(properties.map((p) => [p.name, p] as const)));
   function fieldsFor(inst: TypeInstanceRow) {
@@ -103,6 +113,16 @@
     return null;
   }
 
+  /** Column moves (#2614): a header drag, or the menu's left/right (keyboard). */
+  function moveColumn(col: KanbanColumn, target: string, side: DropSide, focus: boolean): void {
+    onMoveColumn?.(orderKey(col), target, side);
+    void afterColumnMove(() => board, orderKey(col), col.label, { focus });
+  }
+  function moveBy(i: number, dir: 'left' | 'right'): void {
+    const next = columns[dir === 'left' ? i - 1 : i + 1];
+    if (next) moveColumn(columns[i]!, orderKey(next), dir === 'left' ? 'before' : 'after', true);
+  }
+
   async function focusCard(path: string): Promise<void> {
     focusedPath = path;
     await tick();
@@ -143,6 +163,10 @@
     const path = card?.dataset['notePath'];
     if (!path) return;
     const next = target(path, e.key);
+    if (next === null && e.key === 'ArrowUp' && onMoveColumn && focusColumnHeader(card?.closest('.kb-column'))) {
+      e.preventDefault();
+      return;
+    }
     if (next === null) {
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) e.preventDefault();
       return;
@@ -157,11 +181,12 @@
 {:else}
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="kb-board" bind:this={board} onkeydown={onKeydown} data-group-by={group.name} use:cardDrag={{ enabled: !!onMove, onDrop: (p, t) => onMove?.(p, t) }}>
-    {#each columns as col (columnKey(col))}
+    {#each columns as col, ci (columnKey(col))}
       <section class="kb-column" data-column-value={col.value ?? ''} data-column-kind={col.kind}>
-        <h2 class="kb-col-header">
+        <h2 class="kb-col-header" use:columnDrag={{ key: orderKey(col), enabled: !!onMoveColumn, onDrop: (_k, t, side) => moveColumn(col, t, side, false) }}>
           <span class="kb-col-label" class:kb-no-value={col.kind === 'no-value'}>{col.label}</span>
           <span class="kb-col-count">{col.instances.length}</span>
+          {#if onMoveColumn}<KanbanColumnMenu label={col.label} canMoveLeft={ci > 0} canMoveRight={ci < columns.length - 1} onMove={(dir) => moveBy(ci, dir)} />{/if}
         </h2>
         <ul class="kb-cards" class:kb-cards-empty={col.instances.length === 0} aria-label="{col.label}, {countLabel(col.instances.length)}">
           {#each col.instances as inst (inst.path)}
@@ -216,6 +241,7 @@
     overflow: auto;
   }
   .kb-column {
+    position: relative;
     flex: 0 0 248px;
     display: flex;
     flex-direction: column;
@@ -242,6 +268,22 @@
     font-weight: 600;
     line-height: 1.4;
   }
+  /* Column drag (#2614, kanban/column-drag.ts): the dragged column dims, and
+     an accent bar in the gap marks where it will land. */
+  .kb-col-header:global([data-draggable]) { cursor: grab; user-select: none; }
+  .kb-board:global([data-column-dragging]) .kb-col-header { cursor: grabbing; }
+  .kb-column:global([data-dragging]) { opacity: 0.55; outline: 2px dashed var(--accent); outline-offset: -2px; }
+  .kb-column:global([data-drop-side])::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    border-radius: 2px;
+    background: var(--accent);
+  }
+  .kb-column:global([data-drop-side='before'])::before { left: -8px; }
+  .kb-column:global([data-drop-side='after'])::before { right: -8px; }
   .kb-col-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .kb-no-value { font-style: italic; }
   .kb-col-count {

@@ -13,7 +13,12 @@
    * The Group by picker lists the type's enum properties and appears only when
    * there is a choice to make (more than one). A pick goes through
    * `onStateChange` like every other toolbar control, so it lands on the tab
-   * and round-trips through the session, the embed and Save as note.
+   * and round-trips through the session, the embed and Save as note. A new
+   * grouping starts from its enum's own column order: a `columnOrder` (#2614)
+   * names another property's values, so it's cleared with the pick.
+   *
+   * **Show empty columns** (#2614) sits beside it on every board (default on,
+   * since an empty column is still a drop target).
    */
   import { canShowKanban, enumProperties, resolveGroupBy } from '../../../shared/objects/kanban';
   import type { PropertyDef } from '../../../shared/objects/type-def';
@@ -26,9 +31,11 @@
     properties: PropertyDef[];
     /** The view's `groupBy` (null = the first enum). */
     groupBy: string | null;
-    onStateChange: (patch: { layout?: Layout; groupBy?: string | null }) => void;
+    /** The view's Show empty columns (#2614). */
+    showEmptyColumns: boolean;
+    onStateChange: (patch: { layout?: Layout; groupBy?: string | null; columnOrder?: string[]; showEmptyColumns?: boolean }) => void;
   }
-  let { layout, properties, groupBy, onStateChange }: Props = $props();
+  let { layout, properties, groupBy, showEmptyColumns, onStateChange }: Props = $props();
 
   const LAYOUTS = $derived<{ id: Layout; label: string }[]>([
     { id: 'list', label: 'List' },
@@ -44,11 +51,17 @@
 {#if layout === 'kanban' && groupChoices.length > 1 && grouped}
   <label class="tv-groupby">
     Group by
-    <select value={grouped.name} onchange={(e) => onStateChange({ groupBy: e.currentTarget.value })}>
+    <select value={grouped.name} onchange={(e) => onStateChange({ groupBy: e.currentTarget.value, columnOrder: [] })}>
       {#each groupChoices as p (p.name)}
         <option value={p.name}>{p.label ?? p.name}</option>
       {/each}
     </select>
+  </label>
+{/if}
+{#if layout === 'kanban' && grouped}
+  <label class="tv-groupby">
+    <input type="checkbox" checked={showEmptyColumns} onchange={(e) => onStateChange({ showEmptyColumns: e.currentTarget.checked })} />
+    Show empty columns
   </label>
 {/if}
 <div class="tv-switch" role="tablist" aria-label="View">
@@ -73,6 +86,7 @@
     font-family: inherit;
     font-size: 11.5px;
   }
+  .tv-groupby input { margin: 0; accent-color: var(--accent); }
   .tv-switch { display: flex; gap: 0; }
   .tv-switch button {
     padding: 3px 10px;

@@ -173,7 +173,8 @@ describe('Kanban board (#2602)', () => {
     expect(picker.value).toBe('priority');
     expect([...picker.options].map((o) => o.textContent)).toEqual(['status', 'Priority']);
     await fireEvent.change(picker, { target: { value: 'status' } });
-    expect(onStateChange).toHaveBeenCalledWith({ groupBy: 'status' });
+    // A new grouping starts from its own enum order (#2614).
+    expect(onStateChange).toHaveBeenCalledWith({ groupBy: 'status', columnOrder: [] });
   });
 
   it('a groupBy that is not an enum of the type falls back to the first enum', async () => {
@@ -260,7 +261,10 @@ describe('Kanban board (#2602)', () => {
       await fireEvent.keyDown(document.activeElement!, { key: 'Home' });
       await vi.waitFor(() => expect(document.activeElement).toBe(card(container, 'a.md')));
 
+      // ↑ from a column's first card goes up to its header (#2614), ↓ comes back.
       await fireEvent.keyDown(document.activeElement!, { key: 'ArrowUp' });
+      expect(document.activeElement).toBe(container.querySelector('.kb-column[data-column-value="active"] .kb-col-menu-btn'));
+      await fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' });
       expect(document.activeElement).toBe(card(container, 'a.md'));
     });
 

@@ -323,6 +323,10 @@ export interface SavedTypeViewTab {
   /** Kanban's grouping enum property (#2601); absent = the type's first enum.
    *  Read leniently on restore. */
   groupBy?: string;
+  /** Kanban's column order (#2614); absent = the enum order. Read leniently. */
+  columnOrder?: string[];
+  /** Kanban's Show empty columns (#2614); absent = true. Read leniently. */
+  showEmptyColumns?: boolean;
 }
 
 export type SavedTab = SavedNoteTab | SavedQueryTab | SavedSourceTab | SavedPdfTab | SavedGraphTab | SavedTypeViewTab | SavedUnsupportedTab;

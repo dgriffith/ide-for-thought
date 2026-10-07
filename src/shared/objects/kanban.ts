@@ -17,6 +17,16 @@
  * - **Columns** (`groupInstances`): the enum's options in declared order, then
  *   any value that isn't an option (hand-edited frontmatter) in first-seen
  *   order — shown, not hidden — then **No value** last.
+ * - **`columnOrder`** (#2614) is a per-view column order: column keys
+ *   (`columnKey` — the option value, `""` for No value). Listed columns come
+ *   first, in the listed order; the rest follow in their natural order, so a
+ *   newly added option lands after the listed ones and **No value** stays last
+ *   unless it is listed. It only ever orders columns that exist: a stale entry
+ *   naming an option the type no longer has makes no column. Empty means the
+ *   natural order, and is omitted when serialised. The order belongs to the
+ *   view, never the type — reordering doesn't touch the enum definition.
+ * - **`showEmptyColumns`** (#2614), default on: off hides columns with no
+ *   cards. On by default because an empty column is still a drop target.
  */
 import type { PropertyDef, TypeInstanceRow } from './type-def';
 import { effectivePropertyDefs, type TypeLike } from './inheritance';
@@ -24,6 +34,26 @@ import { isValuesFilter, type ValuesFilter, type ViewFilter } from './view-spec'
 
 /** The No value column's heading. */
 export const NO_VALUE_LABEL = 'No value';
+
+/** No value's key in `columnOrder` and `data-column-value` — the empty value. */
+export const NO_VALUE_KEY = '';
+
+/** A column's key: its value, or `NO_VALUE_KEY` for No value. */
+export function columnKey(col: { value: string | null }): string {
+  return col.value ?? NO_VALUE_KEY;
+}
+
+/** `columnOrder` from untrusted JSON: the string entries of an array, first
+ *  occurrence kept; anything else is absent (`[]`). Never throws. */
+export function parseColumnOrder(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return [...new Set(raw.filter((v): v is string => typeof v === 'string'))];
+}
+
+/** `showEmptyColumns` from untrusted JSON: only an explicit `false` turns it off. */
+export function parseShowEmptyColumns(raw: unknown): boolean {
+  return raw !== false;
+}
 
 /** `groupBy` from untrusted JSON: a non-empty string, else absent. Whether it
  *  names an enum property is the schema's call (`resolveGroupBy`). */
@@ -88,21 +118,45 @@ export interface KanbanColumn {
 
 /**
  * Options to `groupInstances`. A bag rather than positional arguments so the
- * view-spec fields that shape a board can join it without touching callers:
- * #2614 adds `columnOrder` (a per-view column order) and `showEmptyColumns`.
+ * view-spec fields that shape a board join it without touching callers.
  */
 export interface GroupInstancesOptions {
   /** The grouped enum property's declared options (`PropertyDef.options`), in
    *  order — the board's columns before any off-list value. */
   enumOptions: readonly string[];
+  /** The view's column order (#2614), as column keys; absent or empty = the
+   *  natural order. */
+  columnOrder?: readonly string[] | undefined;
+  /** Show columns with no cards (#2614); default true. */
+  showEmptyColumns?: boolean | undefined;
+}
+
+/** The board-shaping view-spec fields `boardColumns` passes through. */
+export type BoardOptions = Pick<GroupInstancesOptions, 'columnOrder' | 'showEmptyColumns'>;
+
+/**
+ * `columns` in `columnOrder` (#2614): listed columns first, in the listed
+ * order, then the unlisted ones in the order they came. A listed key with no
+ * column is skipped — it never makes one. Stable, and a no-op for an empty
+ * order.
+ */
+export function orderColumns<C extends { value: string | null }>(columns: readonly C[], columnOrder: readonly string[] | undefined): C[] {
+  if (!columnOrder || columnOrder.length === 0) return [...columns];
+  const rank = new Map<string, number>();
+  columnOrder.forEach((key, i) => { if (!rank.has(key)) rank.set(key, i); });
+  const listed = columns.filter((c) => rank.has(columnKey(c))).sort((a, b) => rank.get(columnKey(a))! - rank.get(columnKey(b))!);
+  return [...listed, ...columns.filter((c) => !rank.has(columnKey(c)))];
 }
 
 /**
  * Group a view's instances into board columns by the `groupBy` property's
  * value: one column per declared option, in declared order, whether or not
  * any card has it (an empty column is still somewhere to put a card); then a
- * column per off-list value, in first-seen order; then **No value**, always
- * last, for notes that leave the property empty. Cards keep their input order.
+ * column per off-list value, in first-seen order; then **No value**, last,
+ * for notes that leave the property empty. Cards keep their input order.
+ *
+ * Then the view's `columnOrder` reorders them (`orderColumns`), and
+ * `showEmptyColumns: false` drops every column with no cards (#2614).
  */
 export function groupInstances(
   instances: readonly TypeInstanceRow[],
@@ -127,7 +181,37 @@ export function groupInstances(
     }
     col.instances.push(inst);
   }
-  return [...columns.values(), noValue];
+  const ordered = orderColumns([...columns.values(), noValue], options.columnOrder);
+  return options.showEmptyColumns === false ? ordered.filter((c) => c.instances.length > 0) : ordered;
+}
+
+/**
+ * The `columnOrder` after moving column `key` to just `side` of column
+ * `target` (#2614) — a header drag, or *Move column left / right* (the
+ * neighbouring *visible* column, so a column hidden by *Show empty columns*
+ * keeps its place). `instances` is every instance of the type, so an
+ * off-list column's place survives a filter that hides its cards.
+ *
+ * Normalised so the spec stays short and keeps its promises: No value is
+ * left out while it is last (so it stays last when an option is added), and
+ * an order that is just the natural one comes back empty — omitted.
+ */
+export function moveColumn(
+  instances: readonly TypeInstanceRow[],
+  group: PropertyDef,
+  columnOrder: readonly string[] | undefined,
+  key: string,
+  target: string,
+  side: 'before' | 'after',
+): string[] {
+  const enumOptions = group.options ?? [];
+  const natural = groupInstances(instances, group.name, { enumOptions }).map(columnKey);
+  const keys = groupInstances(instances, group.name, { enumOptions, columnOrder }).map(columnKey);
+  if (key === target || !keys.includes(key) || !keys.includes(target)) return [...(columnOrder ?? [])];
+  const next = keys.filter((k) => k !== key);
+  next.splice(next.indexOf(target) + (side === 'after' ? 1 : 0), 0, key);
+  if (next.every((k, i) => k === natural[i])) return [];
+  return next.at(-1) === NO_VALUE_KEY ? next.slice(0, -1) : next;
 }
 
 /**
@@ -144,17 +228,20 @@ export function groupInstances(
  *   property, leaves the columns alone.
  *
  * `filters` is the view's filters; `instances` must already be scoped,
- * filtered and sorted — cards keep this order within a column.
+ * filtered and sorted — cards keep this order within a column. `options` are
+ * the view's `columnOrder` and `showEmptyColumns` (#2614), applied by
+ * `groupInstances`.
  */
 export function boardColumns(
   instances: readonly TypeInstanceRow[],
   group: PropertyDef,
   filters: readonly ViewFilter[] = [],
+  options: BoardOptions = {},
 ): KanbanColumn[] {
   const allowed = filters
     .filter((f): f is ValuesFilter => f.property === group.name && isValuesFilter(f))
     .map((f) => new Set(f.values));
-  return groupInstances(instances, group.name, { enumOptions: group.options ?? [] }).filter((col) => {
+  return groupInstances(instances, group.name, { ...options, enumOptions: group.options ?? [] }).filter((col) => {
     if (col.kind === 'no-value') return col.instances.length > 0;
     return allowed.every((values) => values.has(col.value!));
   });

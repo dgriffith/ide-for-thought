@@ -33,6 +33,11 @@ export interface ViewNoteSpec {
   /** Kanban's grouping enum property (#2601); written only when chosen — absent
    *  means the type's first enum property. */
   groupBy?: string | null | undefined;
+  /** Kanban's column order (#2614); written only when not empty — absent means
+   *  the enum order. */
+  columnOrder?: readonly string[] | undefined;
+  /** Kanban's Show empty columns (#2614); written only when off. */
+  showEmptyColumns?: boolean | undefined;
 }
 
 const LAYOUT_NAMES: Record<ViewLayout, string> = { list: 'list', table: 'table', gallery: 'gallery', map: 'map', kanban: 'board' };
@@ -60,6 +65,8 @@ export function buildViewEmbed(spec: ViewNoteSpec): string {
   if (spec.filters && spec.filters.length > 0) body.filters = spec.filters;
   if (spec.mapStyle && spec.mapStyle !== 'auto') body.mapStyle = spec.mapStyle;
   if (spec.groupBy) body.groupBy = spec.groupBy;
+  if (spec.columnOrder && spec.columnOrder.length > 0) body.columnOrder = [...spec.columnOrder];
+  if (spec.showEmptyColumns === false) body.showEmptyColumns = false;
   const height = viewHeightField(spec.height);
   if (height !== undefined) body.height = height;
   return `\`\`\`object-view\n${JSON.stringify(body, null, 2)}\n\`\`\`\n`;

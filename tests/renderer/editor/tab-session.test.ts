@@ -38,7 +38,7 @@ const queryTab: QueryTab = {
 
 describe('type-view map style (#2665)', () => {
   const view = (mapStyle: 'auto' | 'light' | 'dark'): Tab => ({
-    type: 'type-view', typeId: 'place', layout: 'map', sortColumn: null, sortDir: 'asc', columns: null, folder: null, filters: [], mapStyle, groupBy: null,
+    type: 'type-view', typeId: 'place', layout: 'map', sortColumn: null, sortDir: 'asc', columns: null, folder: null, filters: [], mapStyle, groupBy: null, columnOrder: [], showEmptyColumns: true,
   });
 
   it('omits auto from the saved tab and keeps an explicit light or dark', () => {
@@ -57,7 +57,7 @@ describe('type-view map style (#2665)', () => {
 
 describe('type-view kanban groupBy (#2601)', () => {
   const view = (groupBy: string | null): Tab => ({
-    type: 'type-view', typeId: 'project', layout: 'kanban', sortColumn: null, sortDir: 'asc', columns: null, folder: null, filters: [], mapStyle: 'auto', groupBy,
+    type: 'type-view', typeId: 'project', layout: 'kanban', sortColumn: null, sortDir: 'asc', columns: null, folder: null, filters: [], mapStyle: 'auto', groupBy, columnOrder: [], showEmptyColumns: true,
   });
 
   it('omits the default (null) from the saved tab and keeps an explicit choice', () => {
@@ -71,6 +71,36 @@ describe('type-view kanban groupBy (#2601)', () => {
     }
     const odd = { type: 'type-view', typeId: 'project', layout: 'kanban', groupBy: 42 } as unknown as SavedTab;
     expect(await reconstructTab(odd, () => 'q')).toMatchObject({ layout: 'kanban', groupBy: null });
+  });
+});
+
+describe('type-view kanban column order and empty columns (#2614)', () => {
+  const view = (columnOrder: string[], showEmptyColumns: boolean): Tab => ({
+    type: 'type-view', typeId: 'project', layout: 'kanban', sortColumn: null, sortDir: 'asc', columns: null, folder: null, filters: [], mapStyle: 'auto', groupBy: null, columnOrder, showEmptyColumns,
+  });
+
+  it('omits the defaults (no order, empty columns shown) from the saved tab and keeps the rest', () => {
+    const plain = toSavedTab(view([], true));
+    expect(plain).not.toHaveProperty('columnOrder');
+    expect(plain).not.toHaveProperty('showEmptyColumns');
+    expect(toSavedTab(view(['done', '', 'active'], false))).toMatchObject({ columnOrder: ['done', '', 'active'], showEmptyColumns: false });
+  });
+
+  it('saves a plain copy of the order, not the live array', () => {
+    const order = ['done', 'active'];
+    const saved = toSavedTab(view(order, true)) as { columnOrder: string[] };
+    expect(saved.columnOrder).toEqual(order);
+    expect(saved.columnOrder).not.toBe(order);
+  });
+
+  it('restores both, reading absent or malformed values as the defaults', async () => {
+    for (const [order, show] of [[[], true], [['done', '', 'active'], false], [['paused'], true]] as const) {
+      expect(await reconstructTab(toSavedTab(view([...order], show)), () => 'q')).toEqual(view([...order], show));
+    }
+    const odd = { type: 'type-view', typeId: 'project', layout: 'kanban', columnOrder: 'done', showEmptyColumns: 'no' } as unknown as SavedTab;
+    expect(await reconstructTab(odd, () => 'q')).toMatchObject({ columnOrder: [], showEmptyColumns: true });
+    const legacy = { type: 'type-view', typeId: 'project', layout: 'kanban' } as SavedTab;
+    expect(await reconstructTab(legacy, () => 'q')).toMatchObject({ columnOrder: [], showEmptyColumns: true });
   });
 });
 

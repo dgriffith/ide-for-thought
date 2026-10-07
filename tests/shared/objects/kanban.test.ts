@@ -5,7 +5,8 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
-  boardColumns, canShowKanban, groupByForSpec, groupByForType, groupInstances, NO_VALUE_LABEL, parseGroupBy, resolveGroupBy,
+  boardColumns, canShowKanban, columnKey, groupByForSpec, groupByForType, groupInstances, moveColumn, NO_VALUE_KEY, NO_VALUE_LABEL,
+  orderColumns, parseColumnOrder, parseGroupBy, parseShowEmptyColumns, resolveGroupBy,
 } from '../../../src/shared/objects/kanban';
 import { effectivePropertyDefs } from '../../../src/shared/objects/inheritance';
 import type { PropertyDef, TypeInstanceRow } from '../../../src/shared/objects/type-def';
@@ -180,5 +181,134 @@ describe('boardColumns (#2602)', () => {
 
   it('an enum with no options still shows the values notes use', () => {
     expect(boardColumns(filed, { name: 'status', type: 'enum' }).map((c) => [c.label, c.kind])).toEqual([['active', 'off-list'], ['done', 'off-list']]);
+  });
+});
+
+describe('column order (#2614)', () => {
+  const mixed = [
+    row('a', { status: 'done' }),
+    row('b', { status: 'active' }),
+    row('c', { status: null }),
+    row('d', { status: 'blocked' }), // off-list
+  ];
+  const labels = (cols: ReturnType<typeof groupInstances>) => cols.map((c) => c.label);
+  const opts = (columnOrder?: string[]) => ({ enumOptions: STATUS.options!, columnOrder });
+
+  it('empty or absent is the enum order', () => {
+    const natural = ['active', 'paused', 'done', 'abandoned', 'blocked', NO_VALUE_LABEL];
+    expect(labels(groupInstances(mixed, 'status', opts()))).toEqual(natural);
+    expect(labels(groupInstances(mixed, 'status', opts([])))).toEqual(natural);
+  });
+
+  it('listed columns come first, in the listed order; the rest follow in enum order, then off-list, then No value', () => {
+    expect(labels(groupInstances(mixed, 'status', opts(['done', 'paused'])))).toEqual(['done', 'paused', 'active', 'abandoned', 'blocked', NO_VALUE_LABEL]);
+  });
+
+  it('an option added since the order was set lands after the listed ones', () => {
+    const grown = { enumOptions: ['triage', ...STATUS.options!], columnOrder: ['done', 'active', 'paused', 'abandoned'] };
+    expect(labels(groupInstances(mixed, 'status', grown))).toEqual(['done', 'active', 'paused', 'abandoned', 'triage', 'blocked', NO_VALUE_LABEL]);
+  });
+
+  it('No value stays last unless it is listed, and goes where it is listed when it is', () => {
+    expect(labels(groupInstances(mixed, 'status', opts(['abandoned']))).at(-1)).toBe(NO_VALUE_LABEL);
+    expect(labels(groupInstances(mixed, 'status', opts([NO_VALUE_KEY, 'done'])))).toEqual([NO_VALUE_LABEL, 'done', 'active', 'paused', 'abandoned', 'blocked']);
+  });
+
+  it('an off-list value can be listed like an option', () => {
+    expect(labels(groupInstances(mixed, 'status', opts(['blocked'])))).toEqual(['blocked', 'active', 'paused', 'done', 'abandoned', NO_VALUE_LABEL]);
+  });
+
+  it('a stale entry naming an option the type no longer has is dropped, not an empty phantom column', () => {
+    const cols = groupInstances(mixed, 'status', opts(['archived', 'done', 'someday']));
+    expect(labels(cols)).toEqual(['done', 'active', 'paused', 'abandoned', 'blocked', NO_VALUE_LABEL]);
+    expect(cols.some((c) => c.label === 'archived' || c.label === 'someday')).toBe(false);
+  });
+
+  it('cards keep their input order within a reordered column', () => {
+    const cols = groupInstances([row('x', { status: 'done' }), row('y', { status: 'done' })], 'status', opts(['done']));
+    expect(cols[0]!.instances.map((i) => i.path)).toEqual(['x', 'y']);
+  });
+
+  it('orderColumns is stable and ignores repeated keys', () => {
+    const cols = [{ value: 'a' }, { value: 'b' }, { value: null }, { value: 'c' }];
+    expect(orderColumns(cols, ['c', 'c', 'a']).map(columnKey)).toEqual(['c', 'a', 'b', NO_VALUE_KEY]);
+  });
+});
+
+describe('showEmptyColumns (#2614)', () => {
+  const some = [row('a', { status: 'done' }), row('b', { status: null })];
+
+  it('defaults to on: empty options and an empty No value are kept by groupInstances', () => {
+    expect(groupInstances([row('a', { status: 'done' })], 'status', { enumOptions: STATUS.options! }).map((c) => c.label))
+      .toEqual(['active', 'paused', 'done', 'abandoned', NO_VALUE_LABEL]);
+  });
+
+  it('off hides every column with no cards', () => {
+    expect(summary(groupInstances(some, 'status', { enumOptions: STATUS.options!, showEmptyColumns: false }))).toEqual([
+      ['done', 'option', ['a']],
+      [NO_VALUE_LABEL, 'no-value', ['b']],
+    ]);
+  });
+
+  it('combines with a column order', () => {
+    const cols = groupInstances(some, 'status', { enumOptions: STATUS.options!, columnOrder: ['paused', NO_VALUE_KEY], showEmptyColumns: false });
+    expect(cols.map((c) => c.label)).toEqual([NO_VALUE_LABEL, 'done']);
+  });
+
+  it('boardColumns passes both through, on top of its own rules', () => {
+    const filed = [row('a', { status: 'active' }), row('b', { status: 'done' })];
+    expect(boardColumns(filed, STATUS, [], { columnOrder: ['done'] }).map((c) => c.label)).toEqual(['done', 'active', 'paused', 'abandoned']);
+    expect(boardColumns(filed, STATUS, [], { showEmptyColumns: false }).map((c) => c.label)).toEqual(['active', 'done']);
+    // A values filter still narrows; the order still applies to what's left.
+    expect(boardColumns(filed, STATUS, [{ property: 'status', values: ['active', 'done', 'paused'] }], { columnOrder: ['paused', 'done'] }).map((c) => c.label))
+      .toEqual(['paused', 'done', 'active']);
+  });
+});
+
+describe('moveColumn (#2614)', () => {
+  const all = [row('a', { status: 'active' }), row('b', { status: 'done' }), row('c', { status: null }), row('d', { status: 'blocked' })];
+
+  it('moves a column before or after another, writing the full order', () => {
+    expect(moveColumn(all, STATUS, [], 'done', 'active', 'before')).toEqual(['done', 'active', 'paused', 'abandoned', 'blocked']);
+    expect(moveColumn(all, STATUS, [], 'active', 'abandoned', 'after')).toEqual(['paused', 'done', 'abandoned', 'active', 'blocked']);
+  });
+
+  it('builds on the current order', () => {
+    const order = moveColumn(all, STATUS, [], 'done', 'active', 'before');
+    expect(moveColumn(all, STATUS, order, 'abandoned', 'done', 'before')).toEqual(['abandoned', 'done', 'active', 'paused', 'blocked']);
+  });
+
+  it('leaves No value out while it is last, and writes it once it is moved', () => {
+    expect(moveColumn(all, STATUS, [], 'paused', 'active', 'before')).not.toContain(NO_VALUE_KEY);
+    expect(moveColumn(all, STATUS, [], NO_VALUE_KEY, 'active', 'before')).toEqual([NO_VALUE_KEY, 'active', 'paused', 'done', 'abandoned', 'blocked']);
+  });
+
+  it('a move back to the natural order is no order at all', () => {
+    const order = moveColumn(all, STATUS, [], 'done', 'active', 'before');
+    expect(moveColumn(all, STATUS, order, 'done', 'paused', 'after')).toEqual([]);
+  });
+
+  it('a move past a hidden (empty) column leaves that column where it was', () => {
+    // paused and abandoned are empty; with them hidden, "move done left" lands before active.
+    expect(moveColumn(all, STATUS, [], 'done', 'active', 'before')).toEqual(['done', 'active', 'paused', 'abandoned', 'blocked']);
+  });
+
+  it('a stale order is pruned by a move, and a move naming no column changes nothing', () => {
+    expect(moveColumn(all, STATUS, ['archived', 'done'], 'active', 'done', 'before')).toEqual(['active', 'done', 'paused', 'abandoned', 'blocked']);
+    expect(moveColumn(all, STATUS, ['done'], 'gone', 'active', 'before')).toEqual(['done']);
+    expect(moveColumn(all, STATUS, ['done'], 'done', 'done', 'after')).toEqual(['done']);
+  });
+});
+
+describe('parsing columnOrder and showEmptyColumns (#2614)', () => {
+  it('parseColumnOrder keeps string entries once, in order, and reads anything else as none', () => {
+    expect(parseColumnOrder(['done', '', 'active', 'done'])).toEqual(['done', '', 'active']);
+    expect(parseColumnOrder(['a', 1, null, { x: 1 }, 'b'])).toEqual(['a', 'b']);
+    for (const raw of [undefined, null, 'done', 3, { 0: 'a' }]) expect(parseColumnOrder(raw)).toEqual([]);
+  });
+
+  it('parseShowEmptyColumns is on unless explicitly false', () => {
+    expect(parseShowEmptyColumns(false)).toBe(false);
+    for (const raw of [undefined, null, true, 0, 'false', '']) expect(parseShowEmptyColumns(raw)).toBe(true);
   });
 });
