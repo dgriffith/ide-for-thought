@@ -43,6 +43,7 @@ import { isNotePath } from '../../../shared/note-extensions';
 import { ENTRYPOINT_TAG } from '../../../shared/entrypoint';
 import { CONFIRM_KEYS } from '../confirm-keys';
 import { createBulkPropertyOps } from './bulk-property-ops';
+import { syncOpenTabsToDisk as syncOpenTabs } from '../stores/open-tab-sync';
 import type { AutoLinkSuggestion } from '../../../shared/refactor/auto-link';
 import type { AutoLinkInboundSuggestion } from '../../../shared/refactor/auto-link-inbound';
 
@@ -73,27 +74,9 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
   const flow = getRefactorFlowStore();
   const { showPrompt, showConfirm, showAddPropertyDialog } = dialogs;
 
-  /**
-   * After a renderer-initiated bulk write (tag add/remove, entrypoint toggle),
-   * sync any affected OPEN note tabs to disk so the visible page reflects the
-   * change. `api.notebase.writeFile` suppresses the `rewritten` broadcast that
-   * normally drives this (it assumes the writer is the editor saving its own
-   * buffer) — so the writer refreshes the views itself, mirroring App's
-   * onRewritten flow including the unsaved-edits prompt.
-   */
-  async function syncOpenTabsToDisk(paths: string[]): Promise<void> {
-    for (const path of paths) {
-      if (editor.isPathDirty(path)) {
-        const keepDisk = await showConfirm(
-          `"${path}" is open with unsaved edits. Discard them and load the updated version?`,
-          CONFIRM_KEYS.rewriteConflict,
-          'Load disk',
-        );
-        if (!keepDisk) continue;
-      }
-      await editor.reloadTabFromDisk(path);
-    }
-  }
+  /** After a renderer-initiated bulk write, reload affected open tabs
+   *  (prompting over unsaved edits) — shared with the Kanban move (#2603). */
+  const syncOpenTabsToDisk = syncOpenTabs;
 
   async function resolveTitle(body: string): Promise<string | null> {
     const derived = deriveProposedTitle(body);

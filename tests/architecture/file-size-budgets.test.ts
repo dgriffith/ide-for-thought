@@ -93,7 +93,7 @@ const BUDGETS: Record<string, number> = {
   // documentation fix — Keyboard Shortcuts derives from this template.
   'src/main/menu.ts': 985,
   'src/renderer/lib/components/Sidebar.svelte': 982, // -10: root menu items moved to NotesRootMenu.svelte
-  'src/renderer/lib/app/refactor-ops.svelte.ts': 881, // +21: Add/Remove Property route a typed selection to the bulk editor, whose body lives in bulk-property-ops.ts (#2431); +4: Label Version / history accept the thoughtbase root
+  'src/renderer/lib/app/refactor-ops.svelte.ts': 864, // -17: syncOpenTabsToDisk moved to stores/open-tab-sync.ts, shared with the Kanban move (#2603); +21: Add/Remove Property route a typed selection to the bulk editor, whose body lives in bulk-property-ops.ts (#2431); +4: Label Version / history accept the thoughtbase root
   // Raised again in #2208: the staleness check became two queries (sort a
   // two-variable projection, then fetch details for the survivors) plus the
   // GROUP BY/MIN that stops a note with two dc:modified values being reported
