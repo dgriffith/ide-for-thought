@@ -1,0 +1,171 @@
+/**
+ * The Timeline layout's view-spec model (#2607, epic #2606): which types may
+ * show it, and the visible range it pins. Pure, so the panel, an embed and
+ * every export (all `TypeView`) read a spec the same way. Nothing here draws;
+ * #2608 does, from `timelineDomain`.
+ *
+ * - **Event types only.** `timeline` is offered for Event and any type that
+ *   inherits from it, however deep (`canShowTimeline`). A spec that names
+ *   `timeline` for another type reads back as the default layout wherever the
+ *   type is known (`timelineSpecForType`), never as an error. Where it isn't
+ *   known yet (the type, or one of its ancestors, isn't in the catalog), the
+ *   spec is kept as written and judged when the view is drawn — the split
+ *   `groupByForSpec` uses.
+ * - **`from` / `to`** are date values in the spike's grammar
+ *   (`date-precision.ts`): `"1960"`, `"1975-06"`, `"1969-07-20"`, `"-0043"`.
+ *   The visible domain is `dateRange(from, to)`: from the start of `from`'s
+ *   span to the END of `to`'s, so `from: 1960, to: 1975` shows all of 1975.
+ *   Zoom is implied by the range; there is no separate zoom field.
+ *   - Both absent means **fit all events**, and nothing is serialised. One
+ *     absent leaves that side to the events: `from` alone runs from `from` to
+ *     the last event.
+ *   - Calendar precision only (year, month, day). A clock value waits for the
+ *     `datetime` type (#2613), which is when the spike says the timeline zooms
+ *     below a day; until then one reads as absent.
+ *   - Untrusted JSON (a session file, an embed) is read leniently: a number is
+ *     taken as written (YAML and JSON both make `1960` a number), and a value
+ *     that isn't a calendar date is dropped on its own, without throwing.
+ *   - **A `to` that doesn't end after `from` begins** (`from: 1975, to: 1960`)
+ *     is not a range at all, so the pair reads back as fit all (both dropped),
+ *     per the spike — not swapped, and not half-kept.
+ */
+import type { ViewLayout } from '../types';
+import { inheritsFrom, type TypeLike } from './inheritance';
+import { civilMs, dateRange, dateSpan, isClockPrecision, parseDateValue } from './date-precision';
+
+/** The stock Event type's id — the root of every type a timeline can show. */
+export const EVENT_TYPE_ID = 'event';
+
+/** A type view's default layout (`openTypeView`, a restored tab without one). */
+export const DEFAULT_VIEW_LAYOUT: ViewLayout = 'table';
+
+/** A timeline's visible range; null on a side = fit that side to the events. */
+export interface TimelineRange {
+  from: string | null;
+  to: string | null;
+}
+
+/** Fit all events: the default, omitted when serialised. */
+export const FIT_ALL: TimelineRange = Object.freeze({ from: null, to: null });
+
+type TypeRef = Pick<TypeLike, 'id' | 'parent'>;
+
+/** May the view of `typeId` show a Timeline? Event, or any descendant of it
+ *  through `parent` in the catalog `types`. */
+export function canShowTimeline(typeId: string, types: readonly TypeRef[]): boolean {
+  return inheritsFrom(typeId, EVENT_TYPE_ID, new Map(types.map((t) => [t.id, t] as const)));
+}
+
+/** One edge from untrusted JSON: a calendar-precision date value, as written
+ *  (trimmed; a whole number as its digits), else null. Never throws. */
+export function parseTimelineEdge(raw: unknown): string | null {
+  let text: string;
+  if (typeof raw === 'number' && Number.isInteger(raw)) text = String(raw);
+  else if (typeof raw === 'string') text = raw.trim();
+  else return null;
+  const parsed = parseDateValue(text);
+  return parsed && !isClockPrecision(parsed.precision) ? text : null;
+}
+
+/** `from` / `to` from untrusted JSON (see the header): each invalid edge
+ *  dropped on its own; a `to` that doesn't end after `from` begins drops both. */
+export function parseTimelineRange(from: unknown, to: unknown): TimelineRange {
+  const f = parseTimelineEdge(from);
+  const t = parseTimelineEdge(to);
+  if (f !== null && t !== null) {
+    const r = dateRange(f, t);
+    if (!r.ok || r.range.endIssue !== null) return FIT_ALL;
+  }
+  return f === null && t === null ? FIT_ALL : { from: f, to: t };
+}
+
+/** Is this the default (fit all)? */
+export function isFitAll(range: TimelineRange): boolean {
+  return range.from === null && range.to === null;
+}
+
+/**
+ * The range as civil-axis ms (`date-precision.ts`), [start, end): `start` is
+ * the start of `from`'s span, `end` the end of `to`'s. Null on a side that
+ * fits to the events — and on one that doesn't parse, so a range that skipped
+ * `parseTimelineRange` still can't draw an invalid domain.
+ */
+export function timelineDomain(range: TimelineRange): { start: number | null; end: number | null } {
+  const { from, to } = parseTimelineRange(range.from, range.to);
+  return { start: from === null ? null : dateSpan(from)!.start, end: to === null ? null : dateSpan(to)!.end };
+}
+
+/** A year as the grammar writes it: `1960`, `0044`, `-0043`, `+12026`. */
+function formatYear(y: number): string {
+  const digits = String(Math.abs(y)).padStart(4, '0');
+  if (y < 0) return `-${digits}`;
+  return y > 9999 ? `+${digits}` : digits;
+}
+
+function formatDay(ms: number): string {
+  const d = new Date(ms);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${formatYear(d.getUTCFullYear())}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
+}
+
+function onYearBoundary(ms: number): boolean {
+  return civilMs(new Date(ms).getUTCFullYear(), 0, 1) === ms;
+}
+
+/**
+ * The range to store for a visible domain [start, end) in civil ms — what
+ * #2608 writes after a zoom or pan. The coarsest precision that covers it, per
+ * the spike: whole years when both edges sit on year boundaries, else the days
+ * the domain touches. Fit all for an empty or non-finite domain.
+ */
+export function timelineRangeFromDomain(start: number, end: number): TimelineRange {
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return FIT_ALL;
+  if (onYearBoundary(start) && onYearBoundary(end)) {
+    return { from: formatYear(new Date(start).getUTCFullYear()), to: formatYear(new Date(end).getUTCFullYear() - 1) };
+  }
+  return { from: formatDay(start), to: formatDay(end - 1) };
+}
+
+/** The timeline fields of a view spec. */
+export interface TimelineSpecFields {
+  layout: ViewLayout;
+  from: string | null;
+  to: string | null;
+}
+
+/**
+ * The layout and range a spec carries for `typeId`, judged against the
+ * catalog: a `timeline` layout for a type that isn't Event or a descendant
+ * reads back as `DEFAULT_VIEW_LAYOUT`, and its range is dropped (it means
+ * nothing to another layout). Where the schema isn't known here, the spec is
+ * kept as written: `types` null, a catalog without `typeId`, or a `parent`
+ * chain that leaves the catalog before it ends — a subtype whose ancestors
+ * haven't loaded yet must not lose its timeline to a half-loaded catalog.
+ */
+export function timelineSpecForType(
+  spec: TimelineSpecFields,
+  typeId: string,
+  types: readonly TypeRef[] | null,
+): TimelineSpecFields {
+  if (types === null || !isKnownNonEvent(typeId, new Map(types.map((t) => [t.id, t] as const)))) {
+    return { layout: spec.layout, from: spec.from, to: spec.to };
+  }
+  return { layout: spec.layout === 'timeline' ? DEFAULT_VIEW_LAYOUT : spec.layout, from: null, to: null };
+}
+
+/** Does the catalog settle that `typeId` is not Event or a descendant — its
+ *  whole `parent` chain present, ending at a root (or a cycle) without Event? */
+function isKnownNonEvent(typeId: string, byId: ReadonlyMap<string, TypeRef>): boolean {
+  const visited = new Set<string>();
+  let cur = byId.get(typeId);
+  if (!cur) return false;
+  while (!visited.has(cur.id)) {
+    if (cur.id === EVENT_TYPE_ID) return false;
+    visited.add(cur.id);
+    if (!cur.parent) return true;
+    const next = byId.get(cur.parent);
+    if (!next) return false; // the chain leaves the catalog: not known yet
+    cur = next;
+  }
+  return true; // a cycle without Event
+}

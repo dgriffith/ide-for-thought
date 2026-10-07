@@ -38,7 +38,7 @@ const queryTab: QueryTab = {
 
 describe('type-view map style (#2665)', () => {
   const view = (mapStyle: 'auto' | 'light' | 'dark'): Tab => ({
-    type: 'type-view', typeId: 'place', layout: 'map', sortColumn: null, sortDir: 'asc', columns: null, folder: null, filters: [], mapStyle, groupBy: null, columnOrder: [], showEmptyColumns: true,
+    type: 'type-view', typeId: 'place', layout: 'map', sortColumn: null, sortDir: 'asc', columns: null, folder: null, filters: [], mapStyle, groupBy: null, columnOrder: [], showEmptyColumns: true, from: null, to: null,
   });
 
   it('omits auto from the saved tab and keeps an explicit light or dark', () => {
@@ -57,7 +57,7 @@ describe('type-view map style (#2665)', () => {
 
 describe('type-view kanban groupBy (#2601)', () => {
   const view = (groupBy: string | null): Tab => ({
-    type: 'type-view', typeId: 'project', layout: 'kanban', sortColumn: null, sortDir: 'asc', columns: null, folder: null, filters: [], mapStyle: 'auto', groupBy, columnOrder: [], showEmptyColumns: true,
+    type: 'type-view', typeId: 'project', layout: 'kanban', sortColumn: null, sortDir: 'asc', columns: null, folder: null, filters: [], mapStyle: 'auto', groupBy, columnOrder: [], showEmptyColumns: true, from: null, to: null,
   });
 
   it('omits the default (null) from the saved tab and keeps an explicit choice', () => {
@@ -76,7 +76,7 @@ describe('type-view kanban groupBy (#2601)', () => {
 
 describe('type-view kanban column order and empty columns (#2614)', () => {
   const view = (columnOrder: string[], showEmptyColumns: boolean): Tab => ({
-    type: 'type-view', typeId: 'project', layout: 'kanban', sortColumn: null, sortDir: 'asc', columns: null, folder: null, filters: [], mapStyle: 'auto', groupBy: null, columnOrder, showEmptyColumns,
+    type: 'type-view', typeId: 'project', layout: 'kanban', sortColumn: null, sortDir: 'asc', columns: null, folder: null, filters: [], mapStyle: 'auto', groupBy: null, columnOrder, showEmptyColumns, from: null, to: null,
   });
 
   it('omits the defaults (no order, empty columns shown) from the saved tab and keeps the rest', () => {
@@ -101,6 +101,31 @@ describe('type-view kanban column order and empty columns (#2614)', () => {
     expect(await reconstructTab(odd, () => 'q')).toMatchObject({ columnOrder: [], showEmptyColumns: true });
     const legacy = { type: 'type-view', typeId: 'project', layout: 'kanban' } as SavedTab;
     expect(await reconstructTab(legacy, () => 'q')).toMatchObject({ columnOrder: [], showEmptyColumns: true });
+  });
+});
+
+describe('type-view timeline range (#2607)', () => {
+  const view = (from: string | null, to: string | null): Tab => ({
+    type: 'type-view', typeId: 'event', layout: 'timeline', sortColumn: null, sortDir: 'asc', columns: null, folder: null, filters: [], mapStyle: 'auto', groupBy: null, columnOrder: [], showEmptyColumns: true, from, to,
+  });
+
+  it('omits fit all from the saved tab and keeps each edge that is set', () => {
+    const plain = toSavedTab(view(null, null));
+    expect(plain).toMatchObject({ layout: 'timeline' });
+    expect(plain).not.toHaveProperty('from');
+    expect(plain).not.toHaveProperty('to');
+    expect(toSavedTab(view('1960', '1975'))).toMatchObject({ from: '1960', to: '1975' });
+    expect(toSavedTab(view('-0043', null))).not.toHaveProperty('to');
+  });
+
+  it('restores it, and reads invalid or backwards values leniently', async () => {
+    for (const [from, to] of [[null, null], ['1960', '1975'], ['-0043', null], [null, '1969-07-20']] as const) {
+      expect(await reconstructTab(toSavedTab(view(from, to)), () => 'q')).toEqual(view(from, to));
+    }
+    const restore = (extra: Record<string, unknown>) =>
+      reconstructTab({ type: 'type-view', typeId: 'event', layout: 'timeline', ...extra } as unknown as SavedTab, () => 'q');
+    expect(await restore({ from: 'soon', to: 1975 })).toMatchObject({ from: null, to: '1975' });
+    expect(await restore({ from: '1975', to: '1960' })).toMatchObject({ layout: 'timeline', from: null, to: null });
   });
 });
 

@@ -23,7 +23,7 @@
   import { canShowKanban, enumProperties, resolveGroupBy } from '../../../shared/objects/kanban';
   import type { PropertyDef } from '../../../shared/objects/type-def';
 
-  type Layout = 'list' | 'table' | 'gallery' | 'map' | 'kanban';
+  type Layout = 'list' | 'table' | 'gallery' | 'map' | 'kanban' | 'timeline';
 
   interface Props {
     layout: Layout;
@@ -43,6 +43,9 @@
     { id: 'gallery', label: 'Gallery' },
     ...(properties.some((p) => p.type === 'geo') ? [{ id: 'map' as const, label: 'Map' }] : []),
     ...(canShowKanban(properties) ? [{ id: 'kanban' as const, label: 'Kanban' }] : []),
+    // Timeline joins here with the drawing (#2608), gated on `canShowTimeline`
+    // (Event and its subtypes, `shared/objects/timeline.ts`). Until then a spec
+    // that already says `timeline` shows the list, and no tab is selected.
   ]);
   const groupChoices = $derived(enumProperties(properties));
   const grouped = $derived(resolveGroupBy(groupBy, properties));

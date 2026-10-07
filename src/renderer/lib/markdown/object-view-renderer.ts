@@ -24,6 +24,9 @@
  * columns come from (#2601, `shared/objects/kanban.ts`); absent, the type's
  * first enum property, and may carry `"columnOrder"` (column values, `""` for
  * No value) and `"showEmptyColumns": false` (#2614).
+ * A `"layout": "timeline"` spec (#2607, `shared/objects/timeline.ts`; Event
+ * and its subtypes) may pin its visible range with `"from"` / `"to"`, date
+ * values like `"1960"` or `"1969-07-20"`; absent, it fits all events.
  *
  * Mirrors `vega-renderer.ts`'s shape: the fence rule emits a placeholder
  * `<div class="object-view-block">` carrying the raw JSON spec as text
@@ -76,6 +79,7 @@ import { normalizeFolder, parseViewFilters, type ViewFilter } from '../../../sha
 import { escapeHtml } from '../../../shared/text-escape';
 import { parseMapStyle, type MapStyle } from '../../../shared/objects/map-style';
 import { parseColumnOrder, parseGroupBy, parseShowEmptyColumns } from '../../../shared/objects/kanban';
+import { parseTimelineRange } from '../../../shared/objects/timeline';
 import { parseViewHeight } from '../../../shared/objects/view-height';
 import { blockCacheFor, blockKey, createContentWrapper, HYDRATED_CONTENT_CLASS } from './hydrated-block-cache';
 import { reactiveProps } from './mounted-props.svelte';
@@ -105,9 +109,14 @@ export interface ObjectViewSpec {
   columnOrder: string[];
   /** Kanban's Show empty columns (#2614); only an explicit `false` hides them. */
   showEmptyColumns: boolean;
+  /** Timeline's visible range (#2607); an invalid edge is dropped, and a `to`
+   *  before `from` reads as fit all (both null). Whether the type can show a
+   *  timeline at all is `TypeView`'s call, where the type is known. */
+  from: string | null;
+  to: string | null;
 }
 
-const LAYOUTS: ReadonlySet<ViewLayout> = new Set(['list', 'table', 'gallery', 'map', 'kanban']);
+const LAYOUTS: ReadonlySet<ViewLayout> = new Set(['list', 'table', 'gallery', 'map', 'kanban', 'timeline']);
 
 export function parseObjectViewSpec(raw: string): ObjectViewSpec {
   const parsed: unknown = JSON.parse(raw);
@@ -119,7 +128,7 @@ export function parseObjectViewSpec(raw: string): ObjectViewSpec {
     throw new Error('"typeId" is required and must be a non-empty string');
   }
   if (typeof spec.layout !== 'string' || !LAYOUTS.has(spec.layout as ViewLayout)) {
-    throw new Error('"layout" must be one of "list", "table", "gallery", "map", "kanban"');
+    throw new Error('"layout" must be one of "list", "table", "gallery", "map", "kanban", "timeline"');
   }
   return {
     typeId: spec.typeId,
@@ -136,6 +145,7 @@ export function parseObjectViewSpec(raw: string): ObjectViewSpec {
     groupBy: parseGroupBy(spec.groupBy),
     columnOrder: parseColumnOrder(spec.columnOrder),
     showEmptyColumns: parseShowEmptyColumns(spec.showEmptyColumns),
+    ...parseTimelineRange(spec.from, spec.to),
   };
 }
 
@@ -159,6 +169,8 @@ type ViewProps = {
   groupBy: string | null;
   columnOrder: string[];
   showEmptyColumns: boolean;
+  from: string | null;
+  to: string | null;
   revision: number;
   chromeless: boolean;
   onStateChange: () => void;
@@ -244,6 +256,8 @@ export function hydrateObjectViewBlocks(root: HTMLElement, deps: ObjectViewDeps)
       groupBy: spec.groupBy,
       columnOrder: spec.columnOrder,
       showEmptyColumns: spec.showEmptyColumns,
+      from: spec.from,
+      to: spec.to,
       revision: deps.revision,
       chromeless: true,
       // No in-preview UI for changing the embedded spec (#2067) — a

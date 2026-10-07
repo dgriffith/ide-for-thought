@@ -27,6 +27,7 @@
   import { applyViewSpec, type ViewFilter } from '../../../shared/objects/view-spec';
   import { buildViewEmbed } from '../../../shared/objects/view-note';
   import { boardColumns, groupByForSpec, moveColumn, resolveGroupBy } from '../../../shared/objects/kanban';
+  import { timelineSpecForType } from '../../../shared/objects/timeline';
   import { objectTypesStore } from '../stores/object-types.svelte';
   import { effectivePropertyDefs } from '../../../shared/objects/inheritance';
   import { displayPropertyValue } from '../../../shared/objects/property-display';
@@ -37,8 +38,8 @@
   import { moveTargets, sharedColumnValue, type MoveTarget } from '../../../shared/objects/kanban-move';
   import type { PropertyDef, TypeInfo, TypeInstanceRow } from '../../../shared/objects/type-def';
 
-  type Layout = 'list' | 'table' | 'gallery' | 'map' | 'kanban';
-  interface StatePatch { layout?: Layout; sortColumn?: string | null; sortDir?: 'asc' | 'desc'; columns?: string[] | null; folder?: string | null; filters?: ViewFilter[]; mapStyle?: MapStyle; groupBy?: string | null; columnOrder?: string[]; showEmptyColumns?: boolean }
+  type Layout = 'list' | 'table' | 'gallery' | 'map' | 'kanban' | 'timeline';
+  interface StatePatch { layout?: Layout; sortColumn?: string | null; sortDir?: 'asc' | 'desc'; columns?: string[] | null; folder?: string | null; filters?: ViewFilter[]; mapStyle?: MapStyle; groupBy?: string | null; columnOrder?: string[]; showEmptyColumns?: boolean; from?: string | null; to?: string | null }
 
   interface Props {
     typeId: string;
@@ -86,11 +87,13 @@
     showEmptyColumns?: boolean;
     /** Kanban only: draw the board for an export (#2604) — its columns wrap. */
     kanbanExport?: boolean;
+    /** Timeline's visible range (#2607, `timeline.ts`); null on both = fit all. */
+    from?: string | null; to?: string | null;
     /** Bulk-edit the selected notes' properties (#2431). Absent (an embed, an
      *  export) → rows don't multi-select; a click just opens the note. */
     onEditProperties?: (paths: string[]) => void;
   }
-  let { typeId, layout, sortColumn, sortDir, columns, revision, onStateChange, onOpenNote, onSaveView, chromeless = false, onLoaded, mapExport, folder = null, filters = [], onClearFolder, mapStyle = 'auto', groupBy = null, columnOrder = [], showEmptyColumns = true, kanbanExport = false, onEditProperties }: Props = $props();
+  let { typeId, layout, sortColumn, sortDir, columns, revision, onStateChange, onOpenNote, onSaveView, chromeless = false, onLoaded, mapExport, folder = null, filters = [], onClearFolder, mapStyle = 'auto', groupBy = null, columnOrder = [], showEmptyColumns = true, kanbanExport = false, from = null, to = null, onEditProperties }: Props = $props();
 
   let type = $state<TypeInfo | null>(null);
   let instances = $state<TypeInstanceRow[]>([]);
@@ -125,6 +128,10 @@
         )
       : [],
   );
+  // A `timeline` spec for a type that isn't Event (or a subtype) reads back as
+  // the default layout, its range dropped (#2607); kept as written until the type loads.
+  const timelineSpec = $derived(timelineSpecForType({ layout, from, to }, typeId, type ? [...objectTypesStore.types, type] : null));
+  const shown = $derived<Layout>(timelineSpec.layout);
   // Visible columns (table): null on the tab means "all". Order follows the
   // type's declared order regardless of the saved set.
   const visibleColumns = $derived<PropertyDef[]>(
@@ -218,7 +225,7 @@
    */
   async function copyAsMarkdown(): Promise<void> {
     // A `groupBy` the type no longer has as an enum is dropped, not copied.
-    const md = buildViewEmbed({ typeId, layout, sortColumn, sortDir, columns, folder, filters, mapStyle, groupBy: groupByForSpec(groupBy, type ? allColumns : null), columnOrder, showEmptyColumns });
+    const md = buildViewEmbed({ typeId, ...timelineSpec, sortColumn, sortDir, columns, folder, filters, mapStyle, groupBy: groupByForSpec(groupBy, type ? allColumns : null), columnOrder, showEmptyColumns });
     try {
       await navigator.clipboard.writeText(md);
       markdownCopied = true;
@@ -246,7 +253,7 @@
   // Multi-select (#2431): ⌘/⇧-click, ⌘A, Escape, right-click — the sidebar's semantics.
   const selectable = $derived(!!onEditProperties && !chromeless);
   const sel = createTypeViewSelection({
-    order: () => (layout === 'kanban' ? board.flatMap((c) => c.instances) : layout === 'table' ? sorted : scoped).map((i) => i.path),
+    order: () => (shown === 'kanban' ? board.flatMap((c) => c.instances) : shown === 'table' ? sorted : scoped).map((i) => i.path),
     enabled: () => selectable,
     onOpen: (p) => onOpenNote(p),
     onEdit: (paths) => onEditProperties?.(paths),
@@ -303,7 +310,7 @@
             Edit properties ({sel.selectedPaths.length})
           </button>
         {/if}
-        {#if layout === 'table' && allColumns.length > 0}
+        {#if shown === 'table' && allColumns.length > 0}
           <div class="tv-columns">
             <button class="tv-btn" aria-expanded={columnsMenuOpen} onclick={() => (columnsMenuOpen = !columnsMenuOpen)}>Columns ▾</button>
             {#if columnsMenuOpen}
@@ -322,7 +329,7 @@
         {#if onSaveView}
           <button class="tv-btn" onclick={handleSaveViewClick} title="Save this view as a note, with the view embedded live">{viewSaved ? 'Saved' : 'Save as note'}</button>
         {/if}
-        <TypeViewLayoutSwitch {layout} properties={allColumns} {groupBy} {showEmptyColumns} {onStateChange} />
+        <TypeViewLayoutSwitch layout={shown} properties={allColumns} {groupBy} {showEmptyColumns} {onStateChange} />
       </div>
     </header>
   {/if}
@@ -335,7 +342,8 @@
     <p class="tv-empty">No {type.label.toLowerCase()} instances yet.</p>
   {:else if scoped.length === 0}
     <p class="tv-empty">{emptyScopedMessage(type.label)}</p>
-  {:else if layout === 'list'}
+  {:else if shown === 'list' || shown === 'timeline'}
+    <!-- #2608 draws the timeline; until then a `timeline` spec (Event types only) shows the list. -->
     <div class="tv-list">
       {#each scoped as inst (inst.path)}
         {@const rt = rowType(inst)}
@@ -348,7 +356,7 @@
         </button>
       {/each}
     </div>
-  {:else if layout === 'table'}
+  {:else if shown === 'table'}
     <div class="tv-table-scroll">
       <table class="tv-table">
         <thead>
@@ -387,7 +395,7 @@
         </tbody>
       </table>
     </div>
-  {:else if layout === 'gallery'}
+  {:else if shown === 'gallery'}
     <div class="tv-gallery">
       {#each scoped as inst (inst.path)}
         {@const rt = rowType(inst)}
@@ -404,7 +412,7 @@
         </button>
       {/each}
     </div>
-  {:else if layout === 'kanban'}
+  {:else if shown === 'kanban'}
     <TypeViewKanban
       {type} properties={allColumns} group={groupProp} columns={board} visible={columns} {display} {rowType} {selectable}
       isSelected={sel.has} onCardClick={sel.click} onCardContextMenu={sel.contextMenu}
@@ -431,7 +439,7 @@
   {#if sel.menu}
     <TypeViewRowMenu
       x={sel.menu.x} y={sel.menu.y} count={sel.selectedPaths.length} onEdit={sel.editSelected} onClose={sel.closeMenu}
-      {...(layout === 'kanban' && groupProp ? { moveTargets: moveTargets(groupProp, board), moveFrom: sharedColumnValue(board, sel.selectedPaths), onMove: (t: MoveTarget) => moveTo(sel.selectedPaths, t) } : {})}
+      {...(shown === 'kanban' && groupProp ? { moveTargets: moveTargets(groupProp, board), moveFrom: sharedColumnValue(board, sel.selectedPaths), onMove: (t: MoveTarget) => moveTo(sel.selectedPaths, t) } : {})}
     />
   {/if}
 </div>

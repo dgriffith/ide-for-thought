@@ -267,7 +267,7 @@ describe('TypeView (#1070)', () => {
       await fireEvent.click(await screen.findByText('Copy as markdown'));
       expect(writeText).toHaveBeenCalledWith(buildViewEmbed(spec));
       expect(buildViewNoteContent('Books', spec)).toContain(writeText.mock.calls[0]![0] as string);
-      expect(copiedSpec()).toEqual({ ...spec, filters: [{ property: 'rating', min: '4', max: null }], mapStyle: 'auto', height: 360, groupBy: null, columnOrder: [], showEmptyColumns: true }); // the parser's normal form
+      expect(copiedSpec()).toEqual({ ...spec, filters: [{ property: 'rating', min: '4', max: null }], mapStyle: 'auto', height: 360, groupBy: null, columnOrder: [], showEmptyColumns: true, from: null, to: null }); // the parser's normal form
     });
 
     it('a map copies as a map — not a list (the report)', async () => {
@@ -516,5 +516,85 @@ describe('multi-select + Edit properties (#2431)', () => {
     await fireEvent.click(row('Dune'), { metaKey: true });
     expect(onOpenNote).toHaveBeenCalledWith('Dune.md');
     expect(screen.queryByRole('button', { name: /Edit properties/ })).toBeNull();
+  });
+});
+
+describe('timeline layout before #2608 draws it (#2607)', () => {
+  const EVENT = {
+    id: 'event', label: 'Event', classLocalName: 'Event', icon: '📅', source: 'stock' as const,
+    properties: [
+      { name: 'date', type: 'date' as const },
+      { name: 'end', type: 'date' as const },
+      { name: 'location', type: 'link-to-type' as const, targetType: 'place' },
+    ],
+  };
+  const CONFERENCE = { id: 'conference', label: 'Conference', classLocalName: 'Conference', icon: '🎤', parent: 'event', source: 'user' as const, properties: [] };
+  const EVENTS = [
+    { path: 'moon.md', title: 'Moon landing', values: { date: '1969-07-20', end: null, location: null }, cover: null },
+    { path: 'war.md', title: 'Thirty Years War', values: { date: '1618', end: '1648', location: null }, cover: null },
+  ];
+  let writeText: ReturnType<typeof vi.fn>;
+  beforeEach(async () => {
+    writeText = vi.fn();
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    await seedTypes({}, [TYPE, EVENT, CONFERENCE]);
+  });
+  const copied = async () => {
+    await fireEvent.click(screen.getByText('Copy as markdown'));
+    const md = writeText.mock.calls.at(-1)![0] as string;
+    return { md, spec: parseObjectViewSpec(md.replace(/^```object-view\n/, '').replace(/\n```\n$/, '')) };
+  };
+  const listTitles = (root: HTMLElement) => [...root.querySelectorAll('.tv-list-title')].map((e) => e.textContent);
+
+  it('is not in the layout switcher yet, even for Event', async () => {
+    instancesMock.mockResolvedValue({ type: EVENT, instances: EVENTS });
+    render(TypeView, props({ typeId: 'event', layout: 'list' }));
+    await screen.findByText('Moon landing');
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['List', 'Table', 'Gallery']);
+  });
+
+  it('an Event spec that already says timeline shows the list, in the panel and in an embed', async () => {
+    instancesMock.mockResolvedValue({ type: EVENT, instances: EVENTS });
+    const panel = render(TypeView, props({ typeId: 'event', layout: 'timeline', from: '1960', to: '1975' }));
+    await screen.findByText('Moon landing');
+    expect(listTitles(panel.container)).toEqual(['Moon landing', 'Thirty Years War']);
+    expect(screen.getAllByRole('tab').every((t) => t.getAttribute('aria-selected') === 'false')).toBe(true);
+    cleanup();
+    const embed = render(TypeView, props({ typeId: 'event', layout: 'timeline', chromeless: true }));
+    await screen.findByText('Moon landing');
+    expect(listTitles(embed.container)).toEqual(['Moon landing', 'Thirty Years War']);
+  });
+
+  it('Copy as markdown keeps a timeline and its range for Event, and omits fit all', async () => {
+    instancesMock.mockResolvedValue({ type: EVENT, instances: EVENTS });
+    render(TypeView, props({ typeId: 'event', layout: 'timeline', from: '-0043', to: '1975-06' }));
+    await screen.findByText('Moon landing');
+    expect((await copied()).spec).toMatchObject({ typeId: 'event', layout: 'timeline', from: '-0043', to: '1975-06' });
+    cleanup();
+    render(TypeView, props({ typeId: 'event', layout: 'timeline' }));
+    await screen.findByText('Moon landing');
+    const { md, spec } = await copied();
+    expect(md).not.toContain('"from"');
+    expect(md).not.toContain('"to"');
+    expect(spec).toMatchObject({ layout: 'timeline', from: null, to: null });
+  });
+
+  it('a user subtype of Event keeps its timeline too', async () => {
+    instancesMock.mockResolvedValue({ type: CONFERENCE, instances: EVENTS });
+    const { container } = render(TypeView, props({ typeId: 'conference', layout: 'timeline', from: '1960' }));
+    await screen.findByText('Moon landing');
+    expect(listTitles(container)).toEqual(['Moon landing', 'Thirty Years War']);
+    expect((await copied()).spec).toMatchObject({ typeId: 'conference', layout: 'timeline', from: '1960', to: null });
+  });
+
+  it('a timeline spec for a non-Event type reads back as the default layout, without an error', async () => {
+    const { container } = render(TypeView, props({ typeId: 'book', layout: 'timeline', from: '1960', to: '1975' }));
+    await screen.findByText('Dune');
+    expect(container.querySelector('.tv-table')).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Table' }).getAttribute('aria-selected')).toBe('true');
+    const { md, spec } = await copied();
+    expect(spec).toMatchObject({ typeId: 'book', layout: 'table', from: null, to: null });
+    expect(md).not.toContain('timeline');
+    expect(md).not.toContain('1960');
   });
 });

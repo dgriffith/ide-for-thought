@@ -161,7 +161,7 @@ export interface SavedQuery {
 
 /** A type view's layout (#1070) — the type-view tab and the ```object-view
  *  note embed (#2067) share it. */
-export type ViewLayout = 'list' | 'table' | 'gallery' | 'map' | 'kanban';
+export type ViewLayout = 'list' | 'table' | 'gallery' | 'map' | 'kanban' | 'timeline';
 
 export interface OutgoingLink {
   target: string;
@@ -309,8 +309,8 @@ export interface SavedTypeViewTab {
   type: 'type-view';
   /** The type whose instances the multi-view shows (#1070). */
   typeId: string;
-  /** Chosen projection (list/table/gallery/map/kanban); restored on reload. */
-  layout?: 'list' | 'table' | 'gallery' | 'map' | 'kanban';
+  /** Chosen projection (list/table/gallery/map/kanban/timeline); restored on reload. */
+  layout?: 'list' | 'table' | 'gallery' | 'map' | 'kanban' | 'timeline';
   /** Sort + visible columns, restored on reload (#1072). */
   sortColumn?: string | null;
   sortDir?: 'asc' | 'desc';
@@ -327,6 +327,10 @@ export interface SavedTypeViewTab {
   columnOrder?: string[];
   /** Kanban's Show empty columns (#2614); absent = true. Read leniently. */
   showEmptyColumns?: boolean;
+  /** Timeline's visible range (#2607), date values; absent = fit all events.
+   *  Read leniently on restore (`parseTimelineRange`). */
+  from?: string;
+  to?: string;
 }
 
 export type SavedTab = SavedNoteTab | SavedQueryTab | SavedSourceTab | SavedPdfTab | SavedGraphTab | SavedTypeViewTab | SavedUnsupportedTab;

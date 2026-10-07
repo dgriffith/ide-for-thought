@@ -82,7 +82,7 @@ export interface UnsupportedTab {
 }
 
 /** Multi-view over all instances of a typed-object type (#1070). */
-export type TypeViewLayout = 'list' | 'table' | 'gallery' | 'map' | 'kanban';
+export type TypeViewLayout = 'list' | 'table' | 'gallery' | 'map' | 'kanban' | 'timeline';
 /** The view's mutable projection state — layout + sort + visible columns.
  *  Carried on the tab (persisted across sessions) and captured into a saved
  *  view (#1072). */
@@ -106,6 +106,10 @@ export interface TypeViewState {
   columnOrder: string[];
   /** Kanban shows columns with no cards (#2614); default true. */
   showEmptyColumns: boolean;
+  /** Timeline's visible range as date values (#2607, `timeline.ts`); null on
+   *  both = fit all events. */
+  from: string | null;
+  to: string | null;
 }
 export interface TypeViewTab extends TypeViewState {
   type: 'type-view';
