@@ -22,10 +22,15 @@ const { mapInstances, markerInstances, FakeMap, FakeMarker, FakeNavigationContro
     isEmpty(): boolean { return this.empty; }
   }
   class FakeMarker {
-    el = document.createElement('div');
+    el: HTMLElement;
     lngLat: [number, number] | null = null;
-    opts: { color?: string } | undefined;
-    constructor(opts?: { color?: string }) { this.opts = opts; }
+    opts: { color?: string; element?: HTMLElement; anchor?: string; offset?: [number, number] } | undefined;
+    constructor(opts?: { color?: string; element?: HTMLElement; anchor?: string; offset?: [number, number] }) {
+      this.opts = opts;
+      // A custom element is the marker's own, as in MapLibre; else a stand-in
+      // for the stock pin's wrapper.
+      this.el = opts?.element ?? document.createElement('div');
+    }
     setLngLat(ll: [number, number]): this { this.lngLat = ll; return this; }
     addTo(): this { markerInstances.push(this); return this; }
     getElement(): HTMLElement { return this.el; }
@@ -178,6 +183,68 @@ describe('TypeViewMap (#2066)', () => {
     expect(markerInstances[0]!.opts).toBeUndefined();
   });
 
+  describe('type icon pins (#2711)', () => {
+    const typed = (path: string) => {
+      if (path === 'SF.md') return { id: 'restaurant', label: 'Restaurant', color: '#f38ba8', icon: '🍕' };
+      if (path === 'NYC.md') return { id: 'hotel', label: 'Hotel', color: '#89b4fa' }; // no icon
+      return null;
+    };
+
+    it('a typed instance\'s pin carries its type\'s emoji, in a teardrop of the type\'s colour', async () => {
+      typeForNote.mockImplementation(typed);
+      render(TypeViewMap, { instances: INSTANCES, locationProperty: 'location', onOpenNote: vi.fn() });
+      await waitFor(() => expect(markerInstances.length).toBe(2));
+      const pin = markerInstances[0]!;
+      // A custom element, bottom-anchored and nudged so the tip is on the point.
+      expect(pin.opts?.element).toBeInstanceOf(HTMLElement);
+      expect(pin.opts?.anchor).toBe('bottom');
+      expect(pin.opts?.offset?.[0]).toBe(0);
+      expect(pin.opts?.offset?.[1]).toBeGreaterThan(0);
+      const el = pin.getElement();
+      expect(el.querySelector('text')?.textContent).toBe('🍕');
+      expect(el.querySelector('svg g[fill="#f38ba8"] path')).toBeTruthy();
+    });
+
+    it('an icon-less type keeps the stock pin', async () => {
+      typeForNote.mockImplementation(typed);
+      render(TypeViewMap, { instances: INSTANCES, locationProperty: 'location', onOpenNote: vi.fn() });
+      await waitFor(() => expect(markerInstances.length).toBe(2));
+      expect(markerInstances[1]!.opts).toEqual({ color: '#89b4fa' });
+      expect(markerInstances[1]!.getElement().querySelector('text')).toBeNull();
+    });
+
+    it('an icon with no type colour gets the stock pin\'s colour', async () => {
+      typeForNote.mockReturnValue({ id: 'place', label: 'Place', icon: '📍' });
+      render(TypeViewMap, { instances: [INSTANCES[0]!], locationProperty: 'location', onOpenNote: vi.fn() });
+      await waitFor(() => expect(markerInstances.length).toBe(1));
+      expect(markerInstances[0]!.getElement().querySelector('svg g[fill="#3FB1CE"] path')).toBeTruthy();
+    });
+
+    it('keeps click-to-open and pointer; named by the title, emoji decorative, no native tooltip (the shared hover, #2710)', async () => {
+      typeForNote.mockImplementation(typed);
+      const onOpenNote = vi.fn();
+      render(TypeViewMap, { instances: INSTANCES, locationProperty: 'location', onOpenNote });
+      await waitFor(() => expect(markerInstances.length).toBe(2));
+      const el = markerInstances[0]!.getElement();
+      expect(el.title).toBe(''); // the shared hover preview replaced the native tooltip (#2710)
+      expect(el.style.cursor).toBe('pointer');
+      expect(el.getAttribute('role')).toBe('img');
+      expect(el.getAttribute('aria-label')).toBe('San Francisco');
+      expect(el.querySelector('text')!.getAttribute('aria-hidden')).toBe('true');
+      await fireEvent.click(el.querySelector('text')!);
+      expect(onOpenNote).toHaveBeenCalledWith('SF.md');
+    });
+
+    it('an icon is text, never markup — a type definition can come from a shared thoughtbase', async () => {
+      typeForNote.mockReturnValue({ id: 'x', label: 'X', icon: '<img src=x onerror=alert(1)>' });
+      render(TypeViewMap, { instances: [INSTANCES[0]!], locationProperty: 'location', onOpenNote: vi.fn() });
+      await waitFor(() => expect(markerInstances.length).toBe(1));
+      const el = markerInstances[0]!.getElement();
+      expect(el.querySelector('img')).toBeNull();
+      expect(el.querySelector('text')!.textContent).toBe('<img src=x onerror=alert(1)>');
+    });
+  });
+
   describe('map style (#2665)', () => {
     const LIGHT = 'https://tiles.openfreemap.org/styles/liberty';
     const DARK = 'https://tiles.openfreemap.org/styles/dark';
@@ -221,6 +288,19 @@ describe('TypeViewMap (#2066)', () => {
       // `auto` on a light app is the light style already — no redundant swap.
       flushSync(() => { props.mapStyle = 'auto'; });
       expect(map.setStyle).toHaveBeenCalledTimes(2);
+    });
+
+    it('icon pins survive a live style switch too: same elements, emoji intact', async () => {
+      typeForNote.mockReturnValue({ id: 'place', label: 'Place', color: '#f38ba8', icon: '📍' });
+      const { props } = mountReactive('light');
+      await waitFor(() => expect(markerInstances.length).toBe(2));
+      const els = markerInstances.map((m) => m.getElement());
+      flushSync(() => { props.mapStyle = 'dark'; });
+      expect(mapInstances[0]!.setStyle).toHaveBeenCalledWith(DARK);
+      expect(markerInstances).toHaveLength(2);
+      for (const m of markerInstances) expect(m.remove).not.toHaveBeenCalled();
+      expect(markerInstances.map((m) => m.getElement())).toEqual(els);
+      for (const el of els) expect(el.querySelector('text')!.textContent).toBe('📍');
     });
 
     it('marks the tiles dark, so the pins get their light halo', () => {
