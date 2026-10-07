@@ -18,6 +18,7 @@ import path from 'node:path';
 import YAML from 'yaml';
 import { checkExclusion } from './exclusion';
 import { isIgnoredEntry } from '../../shared/ignored-dirs';
+import { noteTitle } from '../../shared/note-title';
 import { resolveTree, extractWikiLinkTargets } from './tree-resolver';
 import { wikiLinkTargets } from '../graph/index';
 import { projectContext } from '../project-context-types';
@@ -296,12 +297,10 @@ function parseHeader(relativePath: string, content: string): {
   title: string;
 } {
   const fm = extractFrontmatter(content);
-  const titleFromFm = typeof fm.title === 'string' ? fm.title.trim() : '';
-  if (titleFromFm) return { frontmatter: fm, title: titleFromFm };
-  // Fall back to the first H1, then the filename stem.
-  const bodyAfterFm = content.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '');
-  const h1 = bodyAfterFm.match(/^\s*#\s+(.+?)\s*$/m);
-  if (h1) return { frontmatter: fm, title: h1[1]! };
+  // Frontmatter title, else the first body H1 (#2683), else the filename stem.
+  // `fm` is this module's own CRLF-tolerant parse, handed in so it's read once.
+  const title = noteTitle(content, fm);
+  if (title) return { frontmatter: fm, title };
   const stem = (relativePath.split('/').pop() ?? relativePath).replace(/\.md$/i, '');
   return { frontmatter: fm, title: stem };
 }

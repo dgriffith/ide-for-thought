@@ -7,6 +7,7 @@ import type { ProjectContext } from '../project-context-types';
 import { createProjectStore } from '../project-store';
 import { isIgnoredEntry } from '../../shared/ignored-dirs';
 import { logger } from '../../shared/logger';
+import { noteTitle } from '../../shared/note-title';
 import { isEscapingSymlink } from '../path-containment';
 
 interface SearchState {
@@ -115,7 +116,7 @@ export async function indexAllNotes(ctx: ProjectContext): Promise<number> {
           logger('search').warn(`not indexing unreadable file (${code}):`, relativePath);
           continue;
         }
-        const title = extractTitle(content) ?? path.basename(relativePath, '.md');
+        const title = noteTitle(content) ?? path.basename(relativePath, '.md');
         state.provider.index(relativePath, title, content);
         count++;
       }
@@ -128,7 +129,7 @@ export async function indexAllNotes(ctx: ProjectContext): Promise<number> {
 export function indexNote(ctx: ProjectContext, relativePath: string, content: string): void {
   const state = getState(ctx);
   if (!state) return;
-  const title = extractTitle(content) ?? path.basename(relativePath, '.md');
+  const title = noteTitle(content) ?? path.basename(relativePath, '.md');
   state.provider.index(relativePath, title, content);
 }
 
@@ -173,14 +174,4 @@ export function schedulePersist(ctx: ProjectContext): void {
       logger('search').warn(`debounced persist failed for ${state.rootPath}:`, err);
     }
   }, persistDebounceMs);
-}
-
-/** Simple title extraction matching what the graph parser does */
-function extractTitle(content: string): string | null {
-  // Frontmatter title
-  const fmMatch = content.match(/^---\n[\s\S]*?\ntitle:\s*["']?(.+?)["']?\s*\n[\s\S]*?\n---/);
-  if (fmMatch) return fmMatch[1]!;
-  // First H1
-  const h1Match = content.match(/^#\s+(.+)$/m);
-  return h1Match ? h1Match[1]!.trim() : null;
 }

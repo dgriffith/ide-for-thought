@@ -30,6 +30,7 @@ import path from 'node:path';
 import {
   initSearch,
   indexNote,
+  search,
   persist,
   schedulePersist,
   disposeProject,
@@ -137,5 +138,46 @@ describe('search index persistence (perf #1107)', () => {
     // second, redundant write.
     await vi.advanceTimersByTimeAsync(DEBOUNCE_MS * 2);
     expect(fs.statSync(indexFilePath(root)).mtimeMs).toBe(firstWrite);
+  });
+});
+
+describe('search indexNote titles (#2683)', () => {
+  let root: string;
+  let ctx: ProjectContext;
+
+  beforeEach(async () => {
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-search-title-'));
+    fs.mkdirSync(path.join(root, '.minerva'), { recursive: true });
+    ctx = projectContext(root);
+    await initSearch(ctx);
+  });
+
+  afterEach(() => {
+    disposeProject(ctx);
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  async function titleOf(relativePath: string, content: string, query: string): Promise<string | undefined> {
+    indexNote(ctx, relativePath, content);
+    const results = await search(ctx, query);
+    return results.find((r) => r.relativePath === relativePath)?.title;
+  }
+
+  it('takes the body H1, not a YAML comment in the frontmatter', async () => {
+    const content = '---\ntype: project\n# keep this comment\nstatus: active\n---\n# Garden Shed\n\nshedmarker\n';
+    expect(await titleOf('shed.md', content, 'shedmarker')).toBe('Garden Shed');
+  });
+
+  it('reads title: the way the graph parser does (YAML, not a line regex)', async () => {
+    // Two things search's hand-rolled `title:` regex got wrong: it required a
+    // newline BEFORE `title:`, so a key on the first frontmatter line was
+    // missed entirely, and it would have kept a trailing YAML comment.
+    const content = '---\ntitle: Field Notes  # working title\n---\n# Heading\n\nfieldmarker\n';
+    expect(await titleOf('field.md', content, 'fieldmarker')).toBe('Field Notes');
+  });
+
+  it('falls back to the filename stem when there is no title at all', async () => {
+    const content = '---\n# only a comment\n---\nstemmarker\n';
+    expect(await titleOf('folder/my-stem.md', content, 'stemmarker')).toBe('my-stem');
   });
 });

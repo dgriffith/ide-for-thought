@@ -10,7 +10,7 @@
  */
 import { resolveWikiLinkTarget } from '../../../shared/wiki-link-resolver';
 import { parseTransclusionTarget, sliceTransclusion } from '../../../shared/transclusion';
-import { stripFrontmatter } from '../../../shared/frontmatter-strip';
+import { noteTitle } from '../../../shared/note-title';
 
 export interface NotePreview {
   /** Resolved relativePath of the target note. */
@@ -70,21 +70,13 @@ export function makeNotePreviewFetcher(deps: NotePreviewDeps) {
     if (!slice.ok && (parsed.heading || parsed.blockId)) {
       slice = sliceTransclusion(content, { path: parsed.path });
     }
-    const title = noteTitle(content, resolved);
+    const title = previewTitle(content, resolved);
     return { path: resolved, title, snippet: truncate(dropLeadingH1(slice.text, title)) };
   };
 }
 
-function noteTitle(content: string, path: string): string {
-  const fm = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-  if (fm) {
-    const t = fm[1]!.match(/^title:\s*(.+)$/m);
-    if (t) return t[1]!.trim().replace(/^["']|["']$/g, '');
-  }
-  const body = stripFrontmatter(content);
-  const h1 = body.match(/^#\s+(.+)$/m);
-  if (h1) return h1[1]!.trim();
-  return path.split('/').pop()!.replace(/\.md$/i, '');
+function previewTitle(content: string, path: string): string {
+  return noteTitle(content) ?? path.split('/').pop()!.replace(/\.md$/i, '');
 }
 
 /** Drop a leading `# Title` line when it just repeats the title shown above. */

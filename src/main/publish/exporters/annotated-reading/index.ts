@@ -18,6 +18,7 @@ import { renderAnnotatedReading } from './render';
 import type { Exporter, ExportPlanFile } from '../../types';
 import { isIgnoredEntry } from '../../../../shared/ignored-dirs';
 import { slugifyId } from '../../../../shared/slug';
+import { noteTitle } from '../../../../shared/note-title';
 
 export const annotatedReadingExporter: Exporter = {
   id: 'annotated-reading-html',
@@ -116,15 +117,8 @@ async function walk(rootPath: string, sub: string, out: ExportPlanFile[]): Promi
 }
 
 function titleFromContent(content: string, fallbackName: string): string {
-  // Frontmatter title wins; first H1 fallback; else filename stem.
-  const fm = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-  if (fm) {
-    const t = fm[1]!.match(/^title:\s*(.+)$/m);
-    if (t) return t[1]!.trim().replace(/^['"]|['"]$/g, '');
-  }
-  const h1 = content.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '').match(/^#\s+(.+?)\s*$/m);
-  if (h1) return h1[1]!;
-  return fallbackName.replace(/\.md$/i, '');
+  // Frontmatter title wins; first body H1 fallback; else filename stem (#2683).
+  return noteTitle(content) ?? fallbackName.replace(/\.md$/i, '');
 }
 
 function slugify(s: string): string {

@@ -89,6 +89,16 @@ describe('title extraction', () => {
     expect(result.title).toBe('First Heading');
   });
 
+  it('does not take a YAML comment in the frontmatter as the title (#2683)', () => {
+    const result = parseMarkdown('---\ntype: project\n# keep this comment\nstatus: active\n---\n# Garden Shed\n');
+    expect(result.title).toBe('Garden Shed');
+  });
+
+  it('a frontmatter comment with no body H1 leaves the note untitled (#2683)', () => {
+    const result = parseMarkdown('---\n# just a comment\nstatus: active\n---\nbody text\n');
+    expect(result.title).toBeNull();
+  });
+
   it('returns null when no title found', () => {
     const result = parseMarkdown('Just some content without a title');
     expect(result.title).toBeNull();
