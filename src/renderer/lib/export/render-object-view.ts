@@ -14,6 +14,9 @@
  * a fixed 360px box that scrolls; an export shows every row, because a page —
  * and a PDF above all — can't scroll a box.
  *
+ * A Kanban board (#2604) is drawn in its export mode: its columns wrap onto
+ * further rows within the block's width instead of scrolling sideways.
+ *
  * A map (#2511) is the exception to snapshotting the DOM: it's the preview's
  * own `TypeViewMap` in export mode, in the embed's frame (its spec `height`,
  * 360px by default — #2666), flattened to
@@ -78,6 +81,8 @@ export async function renderObjectViewForExport(source: string): Promise<string>
           onStateChange: () => {},
           onOpenNote: () => {},
           onLoaded: () => resolve(),
+          // A board wraps its columns within the page (#2604).
+          ...(spec.layout === 'kanban' ? { kanbanExport: true } : {}),
           ...(spec.layout === 'map' ? { mapExport: { onCaptured: (c: MapCapture) => resolveCapture(c) } } : {}),
         },
       });
