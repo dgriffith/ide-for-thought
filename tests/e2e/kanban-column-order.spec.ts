@@ -11,43 +11,31 @@ import os from 'node:os';
 import path from 'node:path';
 import { closeMinerva, launchMinerva, projectRoot } from './helpers/launch';
 import { expectAnnounced, recordAnnouncements } from './helpers/announcements';
+import { openProjectBoard, seedProjects, type SeedProject } from './helpers/kanban';
 
-const PROJECTS: [string, string | null][] = [
+const PROJECTS: SeedProject[] = [
   ['Garden Shed', 'active'],
   ['Tax Return', 'done'],
   ['Pottery Class', 'paused'],
   ['Someday Boat', null],
 ];
 
-function seed(dir: string): void {
-  for (const [title, status] of PROJECTS) {
-    const rel = path.join(dir, 'projects', `${title}.md`);
-    fs.mkdirSync(path.dirname(rel), { recursive: true });
-    fs.writeFileSync(rel, `---\ntype: project\n${status ? `status: ${status}\n` : ''}---\n# ${title}\n`);
-  }
-}
-
 test('Kanban columns: drag a header to reorder, the order stays with the view, and Move column by keyboard (#2614)', async () => {
   const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-kanban-cols-userdata-'));
   const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-kanban-cols-project-'));
   fs.cpSync(path.join(projectRoot, 'tests', 'fixtures', 'sample-project'), projectDir, { recursive: true });
-  seed(projectDir);
+  seedProjects(projectDir, PROJECTS);
   fs.writeFileSync(path.join(userDataDir, 'session.json'), JSON.stringify([{ x: 80, y: 80, width: 1400, height: 900, rootPath: projectDir }]));
   const app = await launchMinerva({ userDataDir, env: { MINERVA_E2E: '1' } });
   try {
     const win = await app.firstWindow({ timeout: 20_000 });
     await expect(win.getByRole('button', { name: 'Open Thoughtbase' })).toHaveCount(0, { timeout: 25_000 });
-    const board = win.locator('.kb-board');
-    const labels = board.locator('.kb-col-label');
-    const column = (value: string) => board.locator(`.kb-column[data-column-value="${value}"]`);
-
-    await test.step('open the Project view as a board', async () => {
-      await win.locator('.panel-tab[title="Objects"]').first().click();
-      await win.getByRole('button', { name: 'Open Project view' }).click({ force: true });
-      await win.getByRole('tab', { name: 'Kanban' }).click();
-      await expect(board.locator('[data-kanban-card]')).toHaveCount(4, { timeout: 15_000 });
-      await expect(labels).toHaveText(['active', 'paused', 'done', 'abandoned', 'No value']);
+    const { board, column } = await test.step('open the Project view as a board', async () => {
+      const b = await openProjectBoard(win, PROJECTS.length);
+      await expect(b.board.locator('.kb-col-label')).toHaveText(['active', 'paused', 'done', 'abandoned', 'No value']);
+      return b;
     });
+    const labels = board.locator('.kb-col-label');
 
     await test.step('drag the done header in front of active', async () => {
       const from = await column('done').locator('.kb-col-label').boundingBox();

@@ -21,7 +21,7 @@
  *
  * Pure DOM work over a mounted subtree — the mounting is the caller's.
  */
-import { LIVE_BLOCK_CLASS, NOTE_LINK_ATTR } from '../../../shared/live-blocks';
+import { EXPORT_OMIT_ATTR, LIVE_BLOCK_CLASS, NOTE_LINK_ATTR } from '../../../shared/live-blocks';
 
 /** Snapshot `themed` (the element carrying `data-theme`, the mount's parent)
  *  as one self-contained block of HTML. */
@@ -170,8 +170,15 @@ function linkWikiLinks(root: HTMLElement): void {
   }
 }
 
-/** A static copy keeps no focus traps or handler-only controls. */
+/** A static copy keeps no focus traps or handler-only controls: anything
+ *  marked `data-export-omit` goes, and so do the attributes that announce a
+ *  control — a toggle's pressed state, a menu button's popup, a drag handle
+ *  (#2604). */
 function stripInteractivity(root: HTMLElement): void {
+  for (const el of Array.from(root.querySelectorAll(`[${EXPORT_OMIT_ATTR}]`))) el.remove();
+  for (const el of Array.from(root.querySelectorAll<HTMLElement>('[aria-pressed], [aria-haspopup], [aria-expanded], [data-draggable]'))) {
+    for (const attr of ['aria-pressed', 'aria-haspopup', 'aria-expanded', 'data-draggable']) el.removeAttribute(attr);
+  }
   for (const el of Array.from(root.querySelectorAll<HTMLElement>('[tabindex], [aria-sort]'))) {
     el.removeAttribute('tabindex');
     el.removeAttribute('aria-sort');

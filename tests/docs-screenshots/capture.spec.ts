@@ -32,6 +32,17 @@ const RESTAURANTS: Array<[string, string, string, string, string]> = [
   ['budapest', 'Gerbeaud', 'Budapest', '47.4969,19.0505', 'Café'],
 ];
 
+/** Projects for the board shot: title, status (null = No value), started. */
+const PROJECTS: Array<[string, string | null, string]> = [
+  ['Book the night train', 'active', '2026-04-02'],
+  ['Budapest hotel', 'active', '2026-04-05'],
+  ['Photo book of the trip', 'paused', '2026-03-20'],
+  ['Rail passes', 'done', '2026-03-01'],
+  ['Travel insurance', 'done', '2026-03-03'],
+  ['Learn some Czech', 'abandoned', '2026-02-14'],
+  ['A day at the thermal baths', null, '2026-04-10'],
+];
+
 function seed(dir: string): void {
   const write = (rel: string, content: string) => {
     fs.mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true });
@@ -215,6 +226,30 @@ test('capture the docs screenshots', async () => {
       await expect(editor).toBeVisible();
       await win.waitForTimeout(500);
       await shot(win, '[role="dialog"][aria-label="Edit object type"]', 'settings-object-types-editor.png');
+      await win.keyboard.press('Escape');
+      await expect(editor).toHaveCount(0);
+      await win.keyboard.press('Escape');
+      await expect(settings).toHaveCount(0);
+    });
+
+    await test.step('Objects: a Project board', async () => {
+      // Written last, in a folder of their own, so none of the shots above
+      // (the trip folder's menu, its table, its history) gains a Project.
+      for (const [title, status, started] of PROJECTS) {
+        const rel = path.join(root, 'projects', `${title}.md`);
+        fs.mkdirSync(path.dirname(rel), { recursive: true });
+        fs.writeFileSync(rel, `---\ntype: project\n${status ? `status: ${status}\n` : ''}started: ${started}\n---\n# ${title}\n`);
+      }
+      await win.locator('.panel-tab[title="Objects"]').first().click();
+      await win.getByRole('button', { name: 'Open Project view' }).click({ force: true });
+      await win.getByRole('tab', { name: 'Kanban' }).click();
+      await expect(win.locator('.kb-board [data-kanban-card]')).toHaveCount(PROJECTS.length, { timeout: 15_000 });
+      // Hide the sidebar so all five columns fit, and stop below the
+      // tallest column (the first, with two cards) rather than the board's
+      // full height.
+      await send('menu:toggleSidebar');
+      await win.waitForTimeout(400);
+      await shotUnion(win, ['.type-view'], 'left-sidebar-objects-kanban.png', { bottomOf: '.kb-column', pad: 24 });
     });
   } finally {
     await closeMinerva(app);
