@@ -1,4 +1,4 @@
-# Vision: Objects Expansion — Place/Event, Map View (#2063 design spike, #2064), Timeline (#2611)
+# Vision: Objects Expansion — Place/Event, Map View (#2063 design spike, #2064), Timeline (#2611), Calendar (#2700)
 
 Resolves the two decisions #2064 identified as blocking both the Place stock
 type (#2065) and the Map view (#2066), mirroring the design-spike pattern
@@ -506,3 +506,474 @@ packs everything into 2026. Each is the median of 15 runs, Fit-all at 1,200 px:
 6. **Moving the date range filter to span comparison** (Decision 2): in #2613
    as suggested, or as its own small fix sooner? It changes how a signed
    year is filtered today, which is currently misordered.
+
+---
+
+## Calendar (#2699 design story, #2700)
+
+Settles the five open decisions of the Calendar epic (#2699): which types get
+a calendar, where partial dates go in a grid, the week start, what a
+reschedule writes, and time zones. It also measures cell capacity and a busy
+month. Same shape as the Timeline spike above: a decision, not a feature. No
+layout, no `TypeView` change, and no new dependency. Two pure helpers ship
+with tests because their rules are only pinned once they run:
+
+- `src/shared/objects/calendar-grid.ts`: month pages, ISO week numbers,
+  keyboard day movement, placement by precision, per-week-row segments, slots
+  and "+N more" (`tests/shared/objects/calendar-grid.test.ts`, 45 cases).
+- `src/shared/objects/date-shift.ts`: the reschedule rule
+  (`tests/shared/objects/date-shift.test.ts`, 27 cases).
+
+Neither has a caller yet; #2702 and #2703 are the first. Both build on
+`date-precision.ts` and `interval-lanes.ts` (#2611) rather than restating them.
+
+Measured on an Apple M1 Max, Node 25.9.0, and **this repo's Electron 44.5.1**
+(Chromium 152.0.7977.130, ICU 78.2, CLDR 48.0) on 2026-10-07. The probes
+were throwaway scripts outside the repo.
+
+### Decision 1: any type with a date property, behind a *Date by* picker
+
+**Calendar is offered for every type with a `date` or `datetime` property,
+inherited ones included, and a *Date by* picker chooses which one**, as
+Kanban's *Group by* chooses an enum. **The same answer applies to Timeline**,
+in a follow-up rather than in this epic.
+
+Stock types and their date properties:
+
+| type | date properties | Calendar today? |
+|---|---|---|
+| Event | `date`, `end` (`datetime`) | yes |
+| Meeting | inherits Event's | yes |
+| Project | `started` | with *Date by* |
+| Book | `published` | with *Date by* |
+| Article | `published` | with *Date by* |
+| Idea | `created` | with *Date by* |
+| Claim | `asOfDate` | with *Date by* |
+| Person, Place, Glossary Term | none | no |
+
+- **Discoverability.** Event-only hides the calendar from the types people
+  actually plan with: Projects by `started`, Books by `published`, and a
+  user's Task by `due`. The grid knows nothing Event-specific, so restricting
+  it would be policy without a reason.
+- **Clutter.** The switcher gains one tab on 7 of the 11 stock types. Kanban
+  already appears on 5 of them by the same kind of rule (`canShowKanban`: has
+  an enum). A type without a date property never sees it, which is the rule
+  Map follows for `geo`.
+- **The picker appears only when there is a choice** (more than one date
+  property), exactly like *Group by*. Event and Meeting never show it in
+  practice, because `end` is not offered as a start (below).
+- **Default:** a property named `date` if the type has one (Event's),
+  otherwise the first date or datetime property in declaration order.
+- **The end.** An end is read only from the Event convention: a property
+  named `end` when *Date by* is `date`. Every other *Date by* places
+  single-day (or single-instant) events. `end` itself is not offered as a
+  *Date by* choice when `date` exists. A general *End by* picker is left out
+  of 4.0: no stock type other than Event has a start/end pair, and a second
+  picker for a case nobody has yet is clutter. Revisit when a type ships
+  `start`/`finish`.
+
+**What Timeline would change to adopt it** (a follow-up issue, not #2699):
+`canShowTimeline` becomes "has a date or datetime property" instead of
+`inheritsFrom(…, 'event')`; `timelineSpecForType` validates against that;
+`timeline-events.ts`'s fixed `DATE_PROPERTY` / `END_PROPERTY` come from the
+spec's `dateBy` with the same end rule; and the Timeline toolbar shows the
+same *Date by* picker. The spec field is shared, so a view switched between
+Timeline and Calendar keeps its date property.
+
+### Decision 2: partial dates go in two bands above the grid
+
+Placement follows the **start's** precision (`placementOf`), because the
+start is what places an event on any calendar:
+
+- **A day or a clock time** sits in the cells. A day start with a **coarser
+  end** (`date: 1969-07-20`, `end: 1969-08`) is a bar through the end of the
+  end's span, as `dateRange` already reads it. Its days inside the end's span
+  are drawn **hatched with a dashed outline**, the Timeline's approximate
+  style (`uncertainFrom`, `WeekSegment.uncertainFromCol`). It prints, and it
+  avoids `--accent-dim`, which fails 3:1 in light.
+- **A month start** (`1969-07`) goes in a **month band** above the grid:
+  "July 1969 — no day". It is listed on **every month page its range meets**
+  (`rangeMeets` with `monthBounds`). So `date: 1969-07, end: 1969-09` is
+  listed on July, August and September, labelled with its range ("Jul–Sep
+  1969"), and marked as continuing from or into the neighbouring page with
+  "since July" / "until September". It is never spread across the cells: a
+  bar across every day of the month would claim a precision the value
+  doesn't have, and it would push every real event down a slot.
+- **A year start** (`1969`) goes in a **year band** ("1969 — no month") on
+  every month page of the years its range meets.
+- Both bands use the same hatch and dashed-outline chip as the grid's
+  uncertain days, so "approximate" looks the same on Calendar and Timeline.
+- **Undated** (no start, or an unreadable one, with the reason) stays a
+  separate tray below the grid, as on the timeline.
+
+**This departs from the epic's proposed "Imprecise" list beside the Undated
+tray**, for one reason: a list independent of the page holds every
+year-precision event in the thoughtbase. On a historical thoughtbase that is
+unbounded, and it has nothing to do with the month on screen. Listing a
+partial date on the pages its span covers is what the span semantics of
+`date-precision.ts` say: the event happened somewhere in those pages.
+
+### Decision 3: the locale's week start, an app setting to override it, and optional ISO week numbers
+
+**Measured in Electron 44.5.1's renderer** (main process identical):
+
+| locale | `getWeekInfo().firstDay` | `weekend` |
+|---|---|---|
+| en-US | 7 (Sunday) | 6, 7 |
+| en-GB | 1 (Monday) | 6, 7 |
+| de-DE | 1 | 6, 7 |
+| ar-SA | 7 | 5, 6 |
+| he-IL | 7 | 5, 6 |
+| ja-JP | 7 | 6, 7 |
+| fr-FR, en-AU | 1 | 6, 7 |
+| pt-BR | 7 | 6, 7 |
+| ar-EG | 6 (Saturday) | 5, 6 |
+| fa-IR | 6 | 5 |
+| en-IN | 7 | 7 |
+| en-DE (Node, same ICU line) | 1 | 6, 7 |
+
+- **`Intl.Locale.prototype.weekInfo` (the getter) does not exist.** It
+  returns `undefined`. Only the method **`getWeekInfo()`** does. There is no
+  `minimalDays` either (it was removed from the proposal), so week-numbering
+  rules can't come from `Intl`.
+- **The `-u-fw-` extension is honoured:** `new
+  Intl.Locale('en-US-u-fw-mon').getWeekInfo().firstDay` is 1, and
+  `en-GB-u-fw-sun` gives 7. A setting can therefore be applied by tagging
+  the locale, if that's convenient.
+- **The renderer's locale is the language, not the region.**
+  `navigator.language` and `app.getLocale()` were `en-US` here, the same
+  as `app.getSystemLocale()` (this Mac is `en_US`). On macOS,
+  `getSystemLocale()` comes from `NSLocale` and carries the user's
+  **region** (an English speaker in Germany is `en-DE`, whose first day is
+  Monday), and `navigator.language` doesn't. **Not verified on a machine
+  with a non-US region**: this Mac is `en_US`.
+- **macOS's own "First day of week" preference is not visible.** Electron
+  doesn't expose it, and Chromium's `Intl` doesn't read it
+  (`AppleFirstWeekday` is unset here, so this couldn't be tested either
+  way).
+
+**Decision:**
+- **Default ("Automatic"):** `getWeekInfo().firstDay` of
+  `app.getSystemLocale()`, handed to the renderer once. Fall back to
+  `navigator.language`, then Monday (ISO), when `getWeekInfo` is missing.
+- **An app setting, "Week starts on": Automatic / Monday / Sunday /
+  Saturday.** These are the three days CLDR uses. The setting is needed
+  because the OS's own override can't be read. It is per machine, like
+  other appearance settings, not per view or per thoughtbase: a shared
+  thoughtbase must not change a reader's week.
+- **ISO week numbers: off by default, behind a "Show week numbers"
+  setting.** Most locales don't use them (en-US, ja-JP), so showing them
+  always is clutter. Where they are used (de-DE, sv-SE) they are ISO 8601.
+  A row is labelled with **the ISO week of its Thursday** (`rowWeekNumber`):
+  with a Monday start the row *is* that ISO week; with a Sunday start it is
+  the ISO week holding 6 of the row's 7 days; with a Saturday start, 5. US
+  "week 1 contains 1 January" numbering is not offered: it can't be read
+  from `Intl`, and the people who want week numbers use ISO's.
+- **Rows:** a page shows exactly the weeks that hold a day of the month
+  (`monthWeeks`): 4, 5 or 6 rows, with leading and trailing days of the
+  neighbouring months, dimmed. February 2026 is 4 rows with a Sunday start;
+  October 2026 is 5 with Monday or Sunday and 6 with Saturday; August 2026 is
+  6 either way. (See the questions below on a fixed 6.)
+
+### Decision 4: a reschedule moves whole days, and keeps precision and duration
+
+Executable as `src/shared/objects/date-shift.ts`:
+
+```ts
+shiftDateValue(raw, days): string | null
+rescheduleRefusal(startRaw, endRaw): 'not-a-day' | 'end-not-a-day' | 'invalid' | null
+rescheduleByDays(startRaw, endRaw, days, opts?):
+  | { ok: true; start: string; end: string | null /* null = leave the end field alone */; days: number }
+  | { ok: false; reason: 'not-a-day' | 'end-not-a-day' | 'invalid' | 'out-of-range' }
+startDayOf(startRaw, opts?): number | null   // the civil day the start shows on for this viewer
+```
+
+The rules:
+
+- **A move is a whole number of civil days.** A drag passes `dropDay −
+  grabDay`, where the grab day is whichever cell of the bar the pointer
+  pressed. So **dragging any segment of a multi-day event moves the whole
+  event**. *Move to date…* passes `targetDay − startDayOf(start)`.
+- **Month and year boundaries are nothing special.** `2026-10-31` + 1 is
+  `2026-11-01`, and `2026-12-30T22:00 – 2027-01-02T08:00` moved −30 days is
+  `2026-11-30T22:00 – 2026-12-03T08:00`.
+- **Leap days never need clamping, because there is no "move by a month".**
+  `2028-02-29` + 7 days is `2028-03-07`, and + 365 days is `2029-02-28`.
+  `2026-01-31` + 29 days is `2026-03-01`, and in 2028 it is `2028-02-29`.
+  A day can only be dropped on a day that exists. Clamping exists only
+  for keyboard *focus*: Page Down from 31 January focuses 28 or 29
+  February (`addMonthsClamped`), as the WAI-ARIA date grid does.
+- **Precision and written form are kept.** Only `YYYY-MM-DD` changes:
+  - a date stays a date;
+  - a clock value keeps its time, seconds, fraction and offset **verbatim**
+    (`2026-10-05T09:00:05.5+05:30` + 30 is `2026-11-04T09:00:05.5+05:30`);
+  - the year keeps its form: `-0001-12-31` + 1 is `0000-01-01`, and
+    `9999-12-31` + 1 is `+10000-01-01`;
+  - a floating time keeps its wall clock across DST.
+- **Duration is kept: the end moves by the same days.** For a date or a
+  floating time that keeps the wall-clock length; for offset times, the
+  elapsed time (tested).
+- **What can't be dragged**, refused with a reason the live region speaks:
+  - a **month- or year-precision start** (`not-a-day`). There's no day to
+    drag from, and moving a month by days has no answer that keeps its
+    precision. These live in the bands, which aren't drop sources: open the
+    note to edit.
+  - **an end that is only a month or a year** (`end-not-a-day`), for the
+    same reason. Moving the start and leaving such an end would silently
+    change the duration, and moving the end would change its precision.
+  - Undated and unreadable starts aren't in the grid at all.
+- **An end that isn't a date** is left exactly as written (`end: null` in
+  the result). **An end before its start** is a readable date, so it moves
+  too: the event still reads "end ignored", and the move can't accidentally
+  make it valid.
+- **Offset times near midnight across the viewer's DST change.** Moving the
+  written date N days moves the instant N × 24 h, and the viewer's offset
+  may change in between. `rescheduleByDays` corrects the count by ±1 so the
+  start shows on the day it was dropped on: in London, `2026-10-24T23:30Z`
+  (00:30 BST on the 25th) dropped on the 26th is written
+  `2026-10-26T23:30Z`, +2 days, because +1 would show on the 25th again.
+  **Where the zone springs forward, a time near midnight skips a local day
+  entirely**: in London, 23:30Z shows on 28 March 2026 and then on 30 March.
+  No whole-day move reaches 29 March, so the plain move stands. A test sweeps
+  a year of drags in three zones to check this is the only miss.
+
+**What #2703 must change in Kanban's write path:** `kanban-moves.svelte.ts`
+writes ONE field through `setGroupValue`. A reschedule writes two, the start
+and the end, in one save, one Local History revision and one undo entry.
+`applyBulkEdits` already takes a list of edits, so the store generalises to
+"set these fields" with a per-field undo check (Kanban's `groupValueOf`
+check, for each field). `applyOne` reuses the existing scalar node, so an
+unquoted `date: 2026-10-05` stays unquoted and a quoted one stays quoted.
+
+### Decision 5: time zones, as #2613 decided, confirmed
+
+A floating value shows as written. An offset value shows on the viewer's
+wall clock and so on the viewer's local day. Nothing in the grid knows about
+zones: `dateRange` has already moved an offset value onto the viewer's civil
+axis, and `segmentByWeek` places civil days.
+
+**`2026-10-05T23:30-05:00`** is 04:30Z on 6 October (tested with
+`Intl`-derived zone offsets, and under `TZ=America/New_York`,
+`Europe/London` and `Pacific/Auckland`):
+
+| viewer | local time | day in the grid |
+|---|---|---|
+| New York (EDT, −04:00) | 00:30 | **Tue 6 Oct** |
+| London (BST, +01:00) | 05:30 | **Tue 6 Oct** |
+| Auckland (NZDT, +13:00) | 17:30 | **Tue 6 Oct** |
+| any zone, the floating `2026-10-05T23:30` | 23:30 | Mon 5 Oct |
+
+Note New York: in October it is on −04:00, so a −05:00 value (Central, or
+New York's winter offset) is already past midnight there. Dragged to the
+8th, the event is written `2026-10-07T23:30-05:00`, keeping its offset, and
+shows on the 8th for all three.
+
+**Recommendation: accept it.** An offset value is an instant by #2613's
+decision, and "which day is it on?" has a different answer per viewer, so
+showing the viewer's own day is the only reading that doesn't lie to
+somebody. Two things make it legible rather than surprising:
+- the chip shows the **local** time ("12:30 AM");
+- the hover card shows the **written** value when the local day differs
+  ("written as Oct 5, 11:30 PM −05:00").
+
+The docs (#2705) should say: write a floating time for something that
+happens "on Tuesday" wherever you are, and an offset for an instant.
+
+### Month-grid maths
+
+`src/shared/objects/calendar-grid.ts`:
+
+```ts
+type Weekday = 1 | 2 | 3 | 4 | 5 | 6 | 7                       // getWeekInfo's: 1 = Monday … 7 = Sunday
+monthWeeks({ year, month }, weekStart): GridWeek[]              // 4–6 rows × 7 GridDay { start, year, month, day, weekday, inMonth }
+addMonths, monthOf, monthBounds, parseMonthAnchor, formatMonthAnchor   // "2026-10", "-0043-03", "+12026-01"
+isoWeekOf(ms), rowWeekNumber(week)
+addDays, addMonthsClamped, weekEdge, dayStart, weekdayOf        // keyboard movement
+placementOf(range): 'grid' | 'month' | 'year';  rangeMeets;  uncertainFrom
+coveredDays(range); segmentByWeek(range, weeks, uncertain?): WeekSegment[]
+  // { row, startCol, endCol (exclusive), continuesBefore, continuesAfter, uncertainFromCol }
+layoutMonth(items, weeks): RowLayout[]   // { row, segments: PlacedSegment[] (+ key, slot), slotCount }
+overflowRow(row, capacity): { visible, more: number[7] }
+```
+
+- **Civil days only.** A day is always `DAY_MS` on the civil axis, so DST
+  can't make a 23- or 25-hour cell (tested through the 2026 US and EU
+  changes). Years are proleptic Gregorian and astronomical: March 44 BCE is
+  `{ year: -43, month: 3 }`, and year 0 is a leap year (tested).
+- **A range covers every day its half-open span meets.** A clock end at
+  exactly midnight doesn't spill into the next day; a minute-precision
+  point covers its one day.
+- **Slots stay consistent across a row's days by construction.** Each
+  row's segments go to `packLanes` as intervals in whole columns
+  `[startCol, endCol)`, so a segment gets one lane for all its days. The
+  order is first day, then last day, then the start time of day (encoded
+  into `packLanes`' title tie-break), then title, then key, so a day's
+  events stack by time, deterministically. First-fit in start order uses
+  the minimum number of slots: the most events sharing one day. A bar that
+  continues into the next row is packed afresh there, so its slot can
+  change between rows. Google Calendar and Apple Calendar do the same.
+- **"+N more" never draws a bar in pieces.** A cell holds `capacity` lines.
+  A day whose events fit shows them all. A day that doesn't uses its last
+  line for "+N more" and shows the slots above it. A bar that would cross
+  an overflowing day is hidden on *every* day of its segment and counted in
+  each day's "+N more". A test checks, for every capacity, that the visible
+  segments plus "+N more" account for each day's events exactly, and that
+  nothing is drawn where "+N more" goes.
+
+### Capacity, measured
+
+The probe used the app's real font (IBM Plex Sans Variable, from
+`@fontsource-variable`) and Electron's own `setZoomFactor`. A chip is one
+line of 11.5px/16px text with 1px padding and a 2px gap, so the stride is
+**20 CSS px**. The day number takes 18px. The page had 200 CSS px of chrome
+above the grid (title bar, tabs, the type view's header and toolbar, month
+navigation, weekday header) and a 260px sidebar. Those are assumptions, not
+measurements of the real `TypeView`. **Slots** counts every line that fits,
+including the one "+N more" uses.
+
+| window (pt) | zoom | 5-row month: cell height → slots | 6-row month |
+|---|---|---|---|
+| 1200 × 800 (default window) | 50% | 280 → 12 | 233 → 10 |
+| | 75% | 173 → 7 | 144 → 6 |
+| | **100%** | **120 → 4** | **100 → 3** |
+| | 125% | 88 → 3 | 73 → 2 |
+| | 150% | 67 → 2 | 55 → 1 |
+| | 200% | 40 → **0** | 33 → **0** |
+| 1512 × 945 (14″ MacBook Pro) | 100% | 149 → 6 | 124 → 5 |
+| | 200% | 54 → 1 | 45 → 1 |
+| 1920 × 1080 | 100% | 176 → 7 | 147 → 6 |
+| | 200% | 68 → 2 | 57 → 1 |
+
+So:
+- **Compute capacity at runtime** from the measured cell height
+  (`ResizeObserver` on one cell): `floor((cellHeight − dayNumber − padding) /
+  20)`. A constant would be wrong at every window size but one.
+- **Give rows a minimum height of 2 slots** (about 64 CSS px), and let the
+  grid scroll vertically below that. At 200% zoom in the default window,
+  the cells otherwise have room for **zero** events: a calendar of
+  "+N more" buttons.
+- At the default window and zoom, a busy day shows **3 events + "+N more"**
+  (5-row month) or **2 + "+N more"** (6-row).
+
+### 1,000 events in a month
+
+Synthetic October 2026: 60% single days, 25% clock times, 15% bars of 2–6
+days. Times are medians: of 15 runs for the helpers (Node 25.9), and of 7
+for the DOM (Electron 44, raw DOM without Svelte's overhead, capacity 4).
+
+| events | `dateRange` | `layoutMonth` | `overflowRow` × rows | most slots in a row | DOM nodes drawn | build + layout |
+|---|---|---|---|---|---|---|
+| 100 | 0.18 ms | 0.13 ms | 0.02 ms | 8 | 162 | 1.4 ms |
+| 1,000 | 1.35 ms | 1.06 ms | 0.04 ms | 56 | **194** | 2.9 ms |
+| 1,000, every event drawn (export) | | | | | 1,128 | 6.8 ms |
+| 10,000 | 11.0 ms | 14.5 ms | 0.09 ms | 518 | 194 | 14 ms |
+
+Each case reached the second animation frame in about 16 ms: a frame wait,
+not work.
+
+- **No virtualisation is needed.** "+N more" bounds what the live grid draws
+  to about 35 cells × capacity, whatever the count: 194 nodes at 1,000 or
+  10,000 events. Parse once per data revision (as Timeline does); paging
+  months re-runs only `layoutMonth`, about 1 ms at 1,000 events in the page.
+- **Export (#2704) can list every event in its cell**: 1,000 events is
+  1,128 nodes and 7 ms. Recommendation for #2704: list a day's full events
+  **in the cell**, not after the grid, because "+N more" can't open on
+  paper and a separate list would repeat every event. Rows must not split
+  across a printed page (`break-inside: avoid`), and a very busy day makes
+  a tall row, which is acceptable in print.
+
+### Accessibility: the WAI-ARIA date grid, one tab stop
+
+Following the APG **Date Picker Dialog** example's grid
+(<https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/examples/datepicker-dialog/>)
+and the **Grid** pattern's "layout grid" interaction:
+
+- `role="grid"` labelled "October 2026". A `row` of `columnheader`s carries
+  full weekday names (`abbr`/`aria-label`, narrow text visible). Each week
+  is a `row` and each day a `gridcell` named like "Tuesday, 6 October
+  2026, 3 events". Today is `aria-current="date"`, with a ring and bold
+  number, so it isn't marked by colour alone. Days outside the month are
+  dimmed but still focusable.
+- **One tab stop with a roving `tabindex`** on the focused day, as on Kanban
+  and Timeline.
+  - **←/→** move a day and **↑/↓** a week. Crossing the page edge turns the
+    page, and the month is written back through `onStateChange`.
+  - **Page Up/Down** move a month, and **Shift+Page Up/Down** a year, both
+    clamped (`addMonthsClamped`).
+  - **Home/End** go to the first and last day of the row (`weekEdge`), and
+    honour the week start.
+- **Events inside a day: Enter opens the day's list**, a popover listing
+  *all* the day's events (it is the same popover "+N more" opens, so there
+  is one model, not two). In it, ↑/↓ move, Enter opens the note, and
+  Shift+F10 or the ContextMenu key opens the event's menu with *Move to
+  date…* (Kanban's keys). Escape returns focus to the day. A pointer user
+  clicks an event directly. This keeps the grid's arrows meaning *days*
+  (the APG grid) rather than overloading them with events, and every event
+  is reachable even when hidden behind "+N more".
+- **Consistency:** Kanban uses ↑/↓/←/→/Home/End over cards, with Enter
+  opening and Shift+F10 for the menu. Timeline uses ←/→ through events in
+  time order. A calendar's primary objects are days, so its arrows move
+  between days. Enter, Shift+F10, ⌘Z (undo the last move) and the roving
+  tab stop are the same on all three.
+- The bands and the Undated tray are ordinary lists of links after the grid
+  in tab order.
+
+### What the dependent stories do as a result
+
+- **#2701 (spec):**
+  - Add `layout: calendar`.
+  - Add `month` (read with `parseMonthAnchor`, written with
+    `formatMonthAnchor`; absent means the current month).
+  - Add **`dateBy`**, validated like `groupBy` against the type's date and
+    datetime properties, inherited included; absent means the Decision 1
+    default.
+  - Offer Calendar when the type has a date property, not by Event
+    ancestry.
+- **#2702 (grid):**
+  - Use `monthWeeks` with the week-start setting, and add the "Week starts
+    on" and "Show week numbers" app settings (`rowWeekNumber`).
+  - Use `placementOf` for the grid, the month band, the year band and the
+    Undated tray.
+  - Use `layoutMonth` and `overflowRow` with a runtime capacity and a
+    2-slot minimum row.
+  - Hatch from `uncertainFromCol`.
+  - Implement the keyboard model above.
+- **#2703 (reschedule):**
+  - Use `rescheduleRefusal` to decide what's draggable, and
+    `rescheduleByDays` with `dropDay − grabDay` or `target −
+    startDayOf`.
+  - Generalise Kanban's move store to a two-field write with one undo
+    entry.
+  - Announce refusals ("1969-07 has no day to move; open it to edit").
+- **#2704 (export):** list full days in the cell; bands and the Undated
+  tray after the grid.
+- **#2705 (docs):** floating vs offset in a calendar; why a partial date
+  sits in a band.
+- **Timeline follow-up (new issue):** adopt `dateBy` as described in
+  Decision 1.
+
+### Questions for the maintainer before #2701 starts
+
+1. **Types:** any type with a date property behind *Date by*, for Calendar
+   now and Timeline in a follow-up? *Recommended: yes.*
+2. **The end:** only Event's `date`/`end` pair for 4.0, with no *End by*
+   picker? *Recommended: yes.*
+3. **Partial dates:** month and year bands on the pages their span covers,
+   instead of the epic's page-independent Imprecise list? *Recommended:
+   bands.*
+4. **Week start:** Automatic from `getSystemLocale()`'s region, plus a
+   per-machine "Week starts on" setting (Mon/Sun/Sat)? ISO week numbers off
+   by default behind a setting? *Recommended: yes to both.*
+5. **Coarse ends:** refuse to drag an event whose end is only a month or
+   year, the same as a partial start? *Recommended: refuse; open to edit.*
+6. **Offset near midnight across DST:** correct by a day so the event lands
+   where it was dropped (the plain move where that day is skipped)?
+   *Recommended: yes, as implemented.*
+7. **Time zones:** confirm that an offset event shows on the viewer's local
+   day, with the written value on the hover card when the day differs.
+   *Recommended: confirm.*
+8. **Rows:** 4–6 rows per month as implemented, or always 6 so the grid
+   doesn't change height between months (at the cost of about a slot per
+   cell in 4- and 5-row months)? *Recommended: 4–6.*
+9. **Export:** full days listed in the cell rather than a list after the
+   grid? *Recommended: in the cell.*
