@@ -161,7 +161,7 @@ export interface SavedQuery {
 
 /** A type view's layout (#1070) — the type-view tab and the ```object-view
  *  note embed (#2067) share it. */
-export type ViewLayout = 'list' | 'table' | 'gallery' | 'map' | 'kanban' | 'timeline';
+export type ViewLayout = 'list' | 'table' | 'gallery' | 'map' | 'kanban' | 'timeline' | 'calendar';
 
 export interface OutgoingLink {
   target: string;
@@ -309,8 +309,8 @@ export interface SavedTypeViewTab {
   type: 'type-view';
   /** The type whose instances the multi-view shows (#1070). */
   typeId: string;
-  /** Chosen projection (list/table/gallery/map/kanban/timeline); restored on reload. */
-  layout?: 'list' | 'table' | 'gallery' | 'map' | 'kanban' | 'timeline';
+  /** Chosen projection (list/table/gallery/map/kanban/timeline/calendar); restored on reload. */
+  layout?: 'list' | 'table' | 'gallery' | 'map' | 'kanban' | 'timeline' | 'calendar';
   /** Sort + visible columns, restored on reload (#1072). */
   sortColumn?: string | null;
   sortDir?: 'asc' | 'desc';
@@ -331,6 +331,12 @@ export interface SavedTypeViewTab {
    *  Read leniently on restore (`parseTimelineRange`). */
   from?: string;
   to?: string;
+  /** Calendar's month page (#2701), `"2026-10"`; absent = the current month.
+   *  Read leniently on restore (`parseCalendarMonth`). */
+  month?: string;
+  /** The date property the view places notes by (#2701, `date-by.ts`);
+   *  absent = the type's default. Read leniently on restore. */
+  dateBy?: string;
 }
 
 export type SavedTab = SavedNoteTab | SavedQueryTab | SavedSourceTab | SavedPdfTab | SavedGraphTab | SavedTypeViewTab | SavedUnsupportedTab;

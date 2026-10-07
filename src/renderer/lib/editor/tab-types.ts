@@ -82,7 +82,7 @@ export interface UnsupportedTab {
 }
 
 /** Multi-view over all instances of a typed-object type (#1070). */
-export type TypeViewLayout = 'list' | 'table' | 'gallery' | 'map' | 'kanban' | 'timeline';
+export type TypeViewLayout = 'list' | 'table' | 'gallery' | 'map' | 'kanban' | 'timeline' | 'calendar';
 /** The view's mutable projection state — layout + sort + visible columns.
  *  Carried on the tab (persisted across sessions) and captured into a saved
  *  view (#1072). */
@@ -110,6 +110,12 @@ export interface TypeViewState {
    *  both = fit all events. */
   from: string | null;
   to: string | null;
+  /** Calendar's month page (#2701, `calendar.ts`), `"2026-10"`; null = the
+   *  current month. */
+  month: string | null;
+  /** The date property the view places notes by (#2701, `date-by.ts`); null =
+   *  the type's default (`date`, else its first date property). */
+  dateBy: string | null;
 }
 export interface TypeViewTab extends TypeViewState {
   type: 'type-view';

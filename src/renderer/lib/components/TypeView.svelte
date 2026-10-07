@@ -30,6 +30,7 @@
   import { comparePropertyValues, viewToCsv } from '../../../shared/objects/view-values';
   import { boardColumns, groupByForSpec, moveColumn, resolveGroupBy } from '../../../shared/objects/kanban';
   import { canShowTimeline, timelineSpecForType } from '../../../shared/objects/timeline';
+  import { calendarSpecForType } from '../../../shared/objects/calendar';
   import { objectTypesStore } from '../stores/object-types.svelte';
   import { effectivePropertyDefs } from '../../../shared/objects/inheritance';
   import { displayPropertyValue } from '../../../shared/objects/property-display';
@@ -40,8 +41,8 @@
   import { moveTargets, sharedColumnValue, type MoveTarget } from '../../../shared/objects/kanban-move';
   import type { PropertyDef, TypeInfo, TypeInstanceRow } from '../../../shared/objects/type-def';
 
-  type Layout = 'list' | 'table' | 'gallery' | 'map' | 'kanban' | 'timeline';
-  interface StatePatch { layout?: Layout; sortColumn?: string | null; sortDir?: 'asc' | 'desc'; columns?: string[] | null; folder?: string | null; filters?: ViewFilter[]; mapStyle?: MapStyle; groupBy?: string | null; columnOrder?: string[]; showEmptyColumns?: boolean; from?: string | null; to?: string | null }
+  type Layout = 'list' | 'table' | 'gallery' | 'map' | 'kanban' | 'timeline' | 'calendar';
+  interface StatePatch { layout?: Layout; sortColumn?: string | null; sortDir?: 'asc' | 'desc'; columns?: string[] | null; folder?: string | null; filters?: ViewFilter[]; mapStyle?: MapStyle; groupBy?: string | null; columnOrder?: string[]; showEmptyColumns?: boolean; from?: string | null; to?: string | null; month?: string | null; dateBy?: string | null }
 
   interface Props {
     typeId: string;
@@ -92,11 +93,13 @@
     timelineExport?: boolean; // Timeline only: draw for an export, #2609's hook (`TypeViewTimeline`).
     /** Timeline's visible range (#2607, `timeline.ts`); null on both = fit all. */
     from?: string | null; to?: string | null;
+    /** Calendar's month page and the date property notes are placed by (#2701, `calendar.ts`); null = this month, the default. */
+    month?: string | null; dateBy?: string | null;
     /** Bulk-edit the selected notes' properties (#2431). Absent (an embed, an
      *  export) → rows don't multi-select; a click just opens the note. */
     onEditProperties?: (paths: string[]) => void;
   }
-  let { typeId, layout, sortColumn, sortDir, columns, revision, onStateChange, onOpenNote, onSaveView, chromeless = false, onLoaded, mapExport, folder = null, filters = [], onClearFolder, mapStyle = 'auto', groupBy = null, columnOrder = [], showEmptyColumns = true, kanbanExport = false, timelineExport = false, from = null, to = null, onEditProperties }: Props = $props();
+  let { typeId, layout, sortColumn, sortDir, columns, revision, onStateChange, onOpenNote, onSaveView, chromeless = false, onLoaded, mapExport, folder = null, filters = [], onClearFolder, mapStyle = 'auto', groupBy = null, columnOrder = [], showEmptyColumns = true, kanbanExport = false, timelineExport = false, from = null, to = null, month = null, dateBy = null, onEditProperties }: Props = $props();
 
   let type = $state<TypeInfo | null>(null);
   let instances = $state<TypeInstanceRow[]>([]);
@@ -131,10 +134,12 @@
         )
       : [],
   );
-  // A `timeline` spec for a type that isn't Event (or a subtype) reads back as
-  // the default layout, its range dropped (#2607); kept as written until the type loads.
-  const timelineSpec = $derived(timelineSpecForType({ layout, from, to }, typeId, type ? [...objectTypesStore.types, type] : null));
-  const shown = $derived<Layout>(timelineSpec.layout);
+  // A `timeline` spec for a non-Event type (#2607), or a `calendar` one for a type with no
+  // date property (#2701), reads back as the default layout; kept as written until the type loads.
+  const catalog = $derived(type ? [...objectTypesStore.types, type] : null);
+  const timelineSpec = $derived(timelineSpecForType({ layout, from, to }, typeId, catalog));
+  const calendarSpec = $derived(calendarSpecForType({ layout: timelineSpec.layout, month, dateBy }, typeId, catalog));
+  const shown = $derived<Layout>(calendarSpec.layout);
   // Visible columns (table): null on the tab means "all". Order follows the
   // type's declared order regardless of the saved set.
   const visibleColumns = $derived<PropertyDef[]>(
@@ -224,7 +229,7 @@
    */
   async function copyAsMarkdown(): Promise<void> {
     // A `groupBy` the type no longer has as an enum is dropped, not copied.
-    const md = buildViewEmbed({ typeId, ...timelineSpec, sortColumn, sortDir, columns, folder, filters, mapStyle, groupBy: groupByForSpec(groupBy, type ? allColumns : null), columnOrder, showEmptyColumns });
+    const md = buildViewEmbed({ typeId, ...timelineSpec, ...calendarSpec, sortColumn, sortDir, columns, folder, filters, mapStyle, groupBy: groupByForSpec(groupBy, type ? allColumns : null), columnOrder, showEmptyColumns });
     try {
       await navigator.clipboard.writeText(md);
       markdownCopied = true;
@@ -350,7 +355,8 @@
     <p class="tv-empty">{emptyScopedMessage(type.label)}</p>
   {:else if shown === 'timeline'}
     <TypeViewTimeline {type} properties={allColumns} instances={scoped} {filters} from={timelineSpec.from} to={timelineSpec.to} {display} {rowType} {onOpenNote} onStateChange={(p) => onStateChange(p)} readOnly={chromeless} exportMode={timelineExport} />
-  {:else if shown === 'list'}
+  {:else if shown === 'list' || shown === 'calendar'}
+    <!-- #2702 draws the month grid; until then a `calendar` spec (a type with a date property) shows the list. -->
     <div class="tv-list">
       {#each scoped as inst (inst.path)}
         {@const rt = rowType(inst)}

@@ -12,6 +12,8 @@ import { normalizeFolder, parseViewFilters } from '../../../shared/objects/view-
 import { parseMapStyle } from '../../../shared/objects/map-style';
 import { parseColumnOrder, parseGroupBy, parseShowEmptyColumns } from '../../../shared/objects/kanban';
 import { parseTimelineRange } from '../../../shared/objects/timeline';
+import { parseCalendarMonth } from '../../../shared/objects/calendar';
+import { parseDateBy } from '../../../shared/objects/date-by';
 import type {
   TabSession, SavedTab, SavedGroup, LayoutSession,
 } from '../../../shared/types';
@@ -54,6 +56,8 @@ export function toSavedTab(t: Tab): SavedTab {
       ...(t.showEmptyColumns ? {} : { showEmptyColumns: false }),
       ...(t.from !== null ? { from: t.from } : {}),
       ...(t.to !== null ? { to: t.to } : {}),
+      ...(t.month !== null ? { month: t.month } : {}),
+      ...(t.dateBy ? { dateBy: t.dateBy } : {}),
     };
   } else {
     return {
@@ -138,6 +142,8 @@ export async function reconstructTab(saved: SavedTab, nextQueryId: () => string)
       columnOrder: parseColumnOrder(saved.columnOrder),
       showEmptyColumns: parseShowEmptyColumns(saved.showEmptyColumns),
       ...parseTimelineRange(saved.from, saved.to),
+      month: parseCalendarMonth(saved.month),
+      dateBy: parseDateBy(saved.dateBy),
     };
   } else {
     return { type: 'source', sourceId: saved.sourceId, highlightExcerptId: saved.highlightExcerptId };

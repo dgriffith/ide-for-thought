@@ -25,6 +25,7 @@
   import { suggestViewNoteName } from '../shared/objects/view-note';
   import { groupByForType } from '../shared/objects/kanban';
   import { timelineSpecForType } from '../shared/objects/timeline';
+  import { calendarSpecForType } from '../shared/objects/calendar';
   import { getSourceDataStore } from './lib/stores/source-data.svelte';
   import { createNoteOps, type NoteOpsCtx } from './lib/app/note-ops';
   import { deleteAsset } from './lib/app/asset-ops';
@@ -401,11 +402,12 @@
   async function handleSaveView(tab: TypeViewTab): Promise<boolean> {
     const label = objectTypesStore.types.find((t) => t.id === tab.typeId)?.label ?? tab.typeId;
     const timeline = timelineSpecForType(tab, tab.typeId, objectTypesStore.types); // non-Event `timeline` → default (#2607)
-    const name = await showPrompt('Save view as a note:', suggestViewNoteName(label, timeline.layout));
+    const calendar = calendarSpecForType({ ...tab, layout: timeline.layout }, tab.typeId, objectTypesStore.types); // dateless `calendar` → default; dateBy checked (#2701)
+    const name = await showPrompt('Save view as a note:', suggestViewNoteName(label, calendar.layout));
     if (!name?.trim()) return false;
     await saveViewAsNote(name, {
       typeId: tab.typeId,
-      ...timeline,
+      ...timeline, ...calendar,
       sortColumn: tab.sortColumn,
       sortDir: tab.sortDir,
       columns: tab.columns,
@@ -1424,7 +1426,7 @@
                     mapStyle={active.mapStyle}
                     groupBy={active.groupBy}
                     columnOrder={active.columnOrder} showEmptyColumns={active.showEmptyColumns}
-                    from={active.from} to={active.to}
+                    from={active.from} to={active.to} month={active.month} dateBy={active.dateBy}
                     revision={graphRevision}
                     onStateChange={(patch) => editor.setTypeViewState(active.typeId, active.folder, patch)}
                     onClearFolder={() => editor.rescopeTypeView(active.typeId, active.folder, null)}

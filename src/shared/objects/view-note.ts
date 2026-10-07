@@ -42,9 +42,15 @@ export interface ViewNoteSpec {
    *  both absent means fit all events. */
   from?: string | null | undefined;
   to?: string | null | undefined;
+  /** Calendar's month page (#2701); written only when set — absent means the
+   *  current month. */
+  month?: string | null | undefined;
+  /** The date property the view places notes by (#2701); written only when
+   *  chosen — absent means the type's default. */
+  dateBy?: string | null | undefined;
 }
 
-const LAYOUT_NAMES: Record<ViewLayout, string> = { list: 'list', table: 'table', gallery: 'gallery', map: 'map', kanban: 'board', timeline: 'timeline' };
+const LAYOUT_NAMES: Record<ViewLayout, string> = { list: 'list', table: 'table', gallery: 'gallery', map: 'map', kanban: 'board', timeline: 'timeline', calendar: 'calendar' };
 
 /** "Restaurant map", "Museum table" — the prompt's starting value. */
 export function suggestViewNoteName(typeLabel: string, layout: ViewLayout): string {
@@ -73,6 +79,8 @@ export function buildViewEmbed(spec: ViewNoteSpec): string {
   if (spec.showEmptyColumns === false) body.showEmptyColumns = false;
   if (spec.from) body.from = spec.from;
   if (spec.to) body.to = spec.to;
+  if (spec.month) body.month = spec.month;
+  if (spec.dateBy) body.dateBy = spec.dateBy;
   const height = viewHeightField(spec.height);
   if (height !== undefined) body.height = height;
   return `\`\`\`object-view\n${JSON.stringify(body, null, 2)}\n\`\`\`\n`;

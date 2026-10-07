@@ -27,6 +27,10 @@
  * A `"layout": "timeline"` spec (#2607, `shared/objects/timeline.ts`; Event
  * and its subtypes) may pin its visible range with `"from"` / `"to"`, date
  * values like `"1960"` or `"1969-07-20"`; absent, it fits all events.
+ * A `"layout": "calendar"` spec (#2701, `shared/objects/calendar.ts`; any type
+ * with a date property) may pin its page with `"month"` (`"2026-10"`; absent,
+ * the current month) and name `"dateBy"`, the date property it places notes
+ * by (`shared/objects/date-by.ts`; absent, `date`, else the first one).
  *
  * Mirrors `vega-renderer.ts`'s shape: the fence rule emits a placeholder
  * `<div class="object-view-block">` carrying the raw JSON spec as text
@@ -80,6 +84,8 @@ import { escapeHtml } from '../../../shared/text-escape';
 import { parseMapStyle, type MapStyle } from '../../../shared/objects/map-style';
 import { parseColumnOrder, parseGroupBy, parseShowEmptyColumns } from '../../../shared/objects/kanban';
 import { parseTimelineRange } from '../../../shared/objects/timeline';
+import { parseCalendarMonth } from '../../../shared/objects/calendar';
+import { parseDateBy } from '../../../shared/objects/date-by';
 import { parseViewHeight } from '../../../shared/objects/view-height';
 import { blockCacheFor, blockKey, createContentWrapper, HYDRATED_CONTENT_CLASS } from './hydrated-block-cache';
 import { reactiveProps } from './mounted-props.svelte';
@@ -114,9 +120,15 @@ export interface ObjectViewSpec {
    *  timeline at all is `TypeView`'s call, where the type is known. */
   from: string | null;
   to: string | null;
+  /** Calendar's month page (#2701); anything but a month (`"2026-10"`) is
+   *  dropped, null meaning the current month. */
+  month: string | null;
+  /** The date property the view places notes by (#2701); only its shape is
+   *  checked here — `TypeView` checks it against the type, as with `groupBy`. */
+  dateBy: string | null;
 }
 
-const LAYOUTS: ReadonlySet<ViewLayout> = new Set(['list', 'table', 'gallery', 'map', 'kanban', 'timeline']);
+const LAYOUTS: ReadonlySet<ViewLayout> = new Set(['list', 'table', 'gallery', 'map', 'kanban', 'timeline', 'calendar']);
 
 export function parseObjectViewSpec(raw: string): ObjectViewSpec {
   const parsed: unknown = JSON.parse(raw);
@@ -128,7 +140,7 @@ export function parseObjectViewSpec(raw: string): ObjectViewSpec {
     throw new Error('"typeId" is required and must be a non-empty string');
   }
   if (typeof spec.layout !== 'string' || !LAYOUTS.has(spec.layout as ViewLayout)) {
-    throw new Error('"layout" must be one of "list", "table", "gallery", "map", "kanban", "timeline"');
+    throw new Error('"layout" must be one of "list", "table", "gallery", "map", "kanban", "timeline", "calendar"');
   }
   return {
     typeId: spec.typeId,
@@ -146,6 +158,8 @@ export function parseObjectViewSpec(raw: string): ObjectViewSpec {
     columnOrder: parseColumnOrder(spec.columnOrder),
     showEmptyColumns: parseShowEmptyColumns(spec.showEmptyColumns),
     ...parseTimelineRange(spec.from, spec.to),
+    month: parseCalendarMonth(spec.month),
+    dateBy: parseDateBy(spec.dateBy),
   };
 }
 
@@ -171,6 +185,8 @@ type ViewProps = {
   showEmptyColumns: boolean;
   from: string | null;
   to: string | null;
+  month: string | null;
+  dateBy: string | null;
   revision: number;
   chromeless: boolean;
   onStateChange: () => void;
@@ -258,6 +274,8 @@ export function hydrateObjectViewBlocks(root: HTMLElement, deps: ObjectViewDeps)
       showEmptyColumns: spec.showEmptyColumns,
       from: spec.from,
       to: spec.to,
+      month: spec.month,
+      dateBy: spec.dateBy,
       revision: deps.revision,
       chromeless: true,
       // No in-preview UI for changing the embedded spec (#2067) — a

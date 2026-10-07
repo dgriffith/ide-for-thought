@@ -805,6 +805,27 @@ describe('persistTabs — structured-clone safety', () => {
     editor.persistTabs();
     expect(saved()).toMatchObject({ layout: 'timeline', from: '1960', to: '1975' });
   });
+  it('a calendar month and dateBy set from the view persist on the tab, and the defaults are omitted (#2701)', () => {
+    editor.openTypeView('dated-book', { layout: 'calendar' });
+    const tab = () => editor.groups.flatMap((g) => g.tabs).find((t) => t.type === 'type-view' && t.typeId === 'dated-book');
+    expect(tab()).toMatchObject({ layout: 'calendar', month: null, dateBy: null });
+    const saved = () => (h.tabsSave.mock.calls.at(-1)![0] as LayoutSession).groups.flatMap((g) => g.tabs).find((t) => t.type === 'type-view' && t.typeId === 'dated-book');
+    editor.persistTabs();
+    expect(saved()).not.toHaveProperty('month');
+    expect(saved()).not.toHaveProperty('dateBy');
+    editor.setTypeViewState('dated-book', null, { month: '2026-10', dateBy: 'published' });
+    editor.persistTabs();
+    expect(saved()).toMatchObject({ layout: 'calendar', month: '2026-10', dateBy: 'published' });
+  });
+  it('reopening a calendar with an explicit month re-applies it to the open tab (#2701)', () => {
+    editor.openTypeView('repaged-book', { layout: 'calendar' });
+    editor.openTypeView('repaged-book', { month: '-0043-03' });
+    const tabs = editor.groups.flatMap((g) => g.tabs).filter((t) => t.type === 'type-view' && t.typeId === 'repaged-book');
+    expect(tabs).toHaveLength(1);
+    expect(tabs[0]).toMatchObject({ month: '-0043-03' });
+    editor.openTypeView('repaged-book', { dateBy: 'published' });
+    expect(editor.groups.flatMap((g) => g.tabs).find((t) => t.type === 'type-view' && t.typeId === 'repaged-book')).toMatchObject({ dateBy: 'published' });
+  });
   it('reopening a timeline with an explicit range re-applies it to the open tab (#2607)', () => {
     editor.openTypeView('reranged-event', { layout: 'timeline' });
     editor.openTypeView('reranged-event', { from: '-0043', to: '0014' });
