@@ -67,12 +67,25 @@ function initializeWith(api: MermaidApi, tokens: ReturnType<typeof readThemeToke
       primaryTextColor: tokens.text,
       primaryBorderColor: tokens.border,
       secondaryColor: tokens.bgButton,
-      tertiaryColor: tokens.bgTitlebar,
+      // The tertiary/cluster surface is the body's --bg-elev, NOT --bg-titlebar
+      // (#2688). Every text and line colour here is a body token, so the fill
+      // under them has to be a body surface too. In dark and light the two are
+      // the same colour (--bg-titlebar is var(--bg-elev) there), so neither
+      // theme changes; the contrast theme's --bg-titlebar is the dark #3a3a4a
+      // bar over a light body, and painting clusters with it put subgraph
+      // titles and edges dark-on-dark. It also reaches far past clusters:
+      // mermaid's `base` theme derives state alt-composites (altBackground),
+      // ER relationship labels, mindmap/timeline/kanban section 2 (cScale2),
+      // git branch 2, pie slices 3 and 6, venn set 3, gantt section 0,
+      // tooltips and railroad comments from tertiaryColor — all drawn with
+      // body text. Don't key this on getThemeMode(): an export themes from its
+      // own light host while the app may be in contrast.
+      tertiaryColor: tokens.bgElev,
       lineColor: tokens.textMuted,
       textColor: tokens.text,
       mainBkg: tokens.bgButton,
       nodeBorder: tokens.accent,
-      clusterBkg: tokens.bgTitlebar,
+      clusterBkg: tokens.bgElev,
       clusterBorder: tokens.border,
       titleColor: tokens.text,
       edgeLabelBackground: tokens.bg,
@@ -133,7 +146,7 @@ function labelFontFamily(root: HTMLElement): string {
 }
 
 function readThemeTokens(from: Element): {
-  bg: string; bgTitlebar: string; bgButton: string;
+  bg: string; bgElev: string; bgButton: string;
   text: string; textMuted: string; border: string; accent: string;
 } {
   const cs = getComputedStyle(from);
@@ -145,7 +158,7 @@ function readThemeTokens(from: Element): {
   const get = (name: string) => normalizeColor(cs.getPropertyValue(name).trim());
   return {
     bg: get('--bg'),
-    bgTitlebar: get('--bg-titlebar'),
+    bgElev: get('--bg-elev'),
     bgButton: get('--bg-button'),
     text: get('--text'),
     textMuted: get('--text-muted'),
