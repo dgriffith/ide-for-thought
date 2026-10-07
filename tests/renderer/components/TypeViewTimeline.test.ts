@@ -180,16 +180,18 @@ describe('opening and the hover card', () => {
     expect(onOpenNote).toHaveBeenCalledWith('moon.md');
   });
 
-  it('hovering shows the card: dates and the type\'s fields', async () => {
+  // The hover is the shared NoteHoverPreview (#2710): it opens after the
+  // link-hover delay and closes after a short grace, hence the waits.
+  it('hovering shows the preview: dates and the type\'s fields', async () => {
     setup();
     const { event } = { event: (p: string) => document.querySelector<SVGGElement>(`[data-note-path="${p}"]`)! };
     await fireEvent.pointerEnter(event('moon.md'));
-    const card = screen.getByRole('tooltip');
+    const card = await screen.findByRole('tooltip');
+    await waitFor(() => expect(card.textContent).toContain('20 Jul 1969'));
     expect(card.textContent).toContain('Moon landing');
-    expect(card.textContent).toContain('20 Jul 1969');
     expect(card.textContent).toContain('Sea of Tranquility');
     await fireEvent.pointerLeave(event('moon.md'));
-    expect(screen.queryByRole('tooltip')).toBeNull();
+    await waitFor(() => expect(screen.queryByRole('tooltip')).toBeNull());
   });
 
   it('flags a backwards end on the card, and keeps the event at its start', async () => {
@@ -197,13 +199,13 @@ describe('opening and the hover card', () => {
     expect(event('typo.md').hasAttribute('data-end-issue')).toBe(true);
     expect(event('typo.md').getAttribute('aria-label')).toBe('Typo, 1 May 1972 (end date ignored)');
     await fireEvent.pointerEnter(event('typo.md'));
-    expect(screen.getByRole('tooltip').textContent).toContain('End date ignored: 1971-01-01 is before the start');
+    expect((await screen.findByRole('tooltip')).textContent).toContain('End date ignored: 1971-01-01 is before the start');
   });
 
   it('a partial date says it is approximate on the card', async () => {
     const { event } = setup();
     await fireEvent.pointerEnter(event('woodstock.md'));
-    expect(screen.getByRole('tooltip').textContent).toContain('approximate');
+    expect((await screen.findByRole('tooltip')).textContent).toContain('approximate');
   });
 });
 

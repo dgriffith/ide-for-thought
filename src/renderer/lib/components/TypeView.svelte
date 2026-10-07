@@ -432,7 +432,7 @@
       instances={scoped}
       {locationProperty}
       {onOpenNote}
-      {mapStyle}
+      {mapStyle} {type} properties={allColumns} {display}
       {...(mapExport ? { exportHooks: mapExport } : {})}
       {...(chromeless || mapExport ? {} : { onMapStyleChange: (next: MapStyle) => onStateChange({ mapStyle: next }) })}
     />

@@ -28,11 +28,12 @@
         type QuoteMeta,
         buildCiteTooltip,
         buildQuoteTooltip,
-        buildFootnoteTooltip,
-        buildNotePreviewTooltip,
-        buildNotePreviewMissing
+        buildFootnoteTooltip
     } from '../preview/cite-meta';
     import { makeNotePreviewFetcher } from '../editor/note-preview';
+    import NoteHoverPreview from './NoteHoverPreview.svelte';
+    import type { HoverInstance } from './note-hover/hover-instance';
+    import { createNoteHover } from './note-hover/note-hover.svelte';
     import {
         tableToCsv,
         outputToMarkdownClipboard
@@ -40,7 +41,6 @@
     import { applyCslMarkers, resolveCiteQuoteLabels, type CitationRenderDeps } from '../preview/citation-render';
     import { hydrateTypedCards, type TypedCardDeps } from '../preview/typed-link-render';
     import { markBrokenWikiLinks } from '../preview/broken-links';
-    import { buildObjectCardHtml } from '../preview/typed-card';
     import { buildWikiLinkIndex, resolveWikiLinkTargetWithIndex } from '../../../shared/wiki-link-resolver';
     import type { NoteTypedProperties } from '../../../shared/objects/type-def';
     import { executeQueryBlock, type QueryBlockDeps } from '../preview/query-blocks';
@@ -221,15 +221,39 @@
         Object.fromEntries((getAliases?.() ?? []).map((a) => [a.alias.toLowerCase(), a.relativePath])),
     ));
 
-    // Wiki-link hover preview (#1132) — reuses the editor's async fetcher +
-    // per-path read cache. A monotonic token cancels a stale async result when
-    // the pointer has since left or moved to another link.
+    // Wiki-link hover preview (#1132) — the shared `NoteHoverPreview` (#2710),
+    // the one the type views show, fed by the editor's async fetcher + per-path
+    // read cache. A typed target adds its card fields as the properties strip.
     const notePreviewFetcher = makeNotePreviewFetcher({
         getNotePaths: () => getNotePaths?.() ?? [],
         getAliases: () => getAliases?.() ?? [],
         readNote: (p) => api.notebase.readFile(p),
     });
-    let hoverToken = 0;
+    const linkHover = createNoteHover();
+    const previewUid = $props.id();
+    const linkHoverId = `${previewUid}-link-preview`;
+    // Each link element its own hover key, so two links to one note are two anchors.
+    const linkKeys = new WeakMap<Element, string>();
+    let nextLinkKey = 0;
+    function linkKey(el: Element): string {
+        let k = linkKeys.get(el);
+        if (!k) { k = `link-${++nextLinkKey}`; linkKeys.set(el, k); }
+        return k;
+    }
+    async function linkHoverInstance(path: string): Promise<HoverInstance | null> {
+        const rb = typePropsCache.get(path) ?? await api.types.noteProperties(path);
+        typePropsCache.set(path, rb);
+        if (!rb.type) return null;
+        const values = Object.fromEntries(rb.properties.map((p) => [p.name, p.value]));
+        return { type: rb.type, properties: rb.properties, inst: { path, title: '', values, cover: null }, rowType: rb.type };
+    }
+    // The hovered link names its preview (it lives in `{@html}` output, so by hand).
+    $effect(() => {
+        const s = linkHover.current;
+        if (!s) return;
+        s.anchor.setAttribute('aria-describedby', linkHoverId);
+        return () => s.anchor.removeAttribute('aria-describedby');
+    });
 
     // Per-fence collapse state, keyed by the fence's opening line in the
     // source markdown. Survives doc-edit re-renders (line numbers may
@@ -695,7 +719,7 @@
         getRunningFences: () => runningFences,
         getCollapsedFences: () => collapsedFences,
         ...onceOps,
-        dismissTooltip: () => dismissTooltip(),
+        dismissTooltip: () => { dismissTooltip(); linkHover.close(); },
         openOutputMenu: (btn, wrap) => openOutputMenu(btn, wrap),
     };
 
@@ -829,18 +853,6 @@
     let tooltipVisible = $state(false);
     let tooltipHtml = $state('');
     let tooltipStyle = $state('');
-    // When the hovered link is broken (and a create handler is wired), the raw
-    // target to offer "Create Note From Reference" for (#1446). Non-null turns
-    // the tooltip interactive (see `.has-fix`).
-    let tooltipFixTarget = $state<string | null>(null);
-    let tooltipEl = $state<HTMLDivElement>();
-    // Grace timer for the interactive (broken-link) tooltip: leaving the link
-    // schedules a dismiss that entering the tooltip cancels, so the cursor can
-    // cross the gap to click Create-Note. Plain tooltips dismiss immediately.
-    let tooltipDismissTimer: ReturnType<typeof setTimeout> | null = null;
-    function cancelScheduledDismiss() {
-        if (tooltipDismissTimer !== null) { clearTimeout(tooltipDismissTimer); tooltipDismissTimer = null; }
-    }
 
     function handleMouseOver(e: MouseEvent) {
         const target = e.target as HTMLElement | null;
@@ -859,46 +871,18 @@
             const body = previewEl?.querySelector<HTMLElement>(`#${CSS.escape(id)}`);
             if (body) {
                 tooltipHtml = buildFootnoteTooltip(body);
-                tooltipFixTarget = null;
                 tooltipVisible = true;
                 positionTooltip(footnoteRef);
             }
             return;
         }
-        // Wiki-link hover (#1132): unlike cite/quote (whose metadata is on the
-        // element), a note's content is in another file — resolve + cached-read
-        // + snippet, then fill. Async, so guard against the pointer having moved
-        // on before the read resolves.
+        // Wiki-link hover (#1132): the shared preview (#2710) — its controller
+        // owns the delay, the grace onto the preview, and the async read.
         const wiki = target.closest<HTMLElement>('.wiki-link');
         if (wiki) {
             const linkTarget = wiki.dataset.target;
             if (!linkTarget || !getNotePaths) return;
-            const token = ++hoverToken;
-            void notePreviewFetcher(linkTarget).then(async (preview) => {
-                if (token !== hoverToken) return; // superseded by another hover / mouseout
-                if (!preview) {
-                    tooltipHtml = buildNotePreviewMissing(linkTarget);
-                    // Offer the create-note fix on a broken link (#1446). The
-                    // anchor is dropped — the fix creates the note, not a heading.
-                    tooltipFixTarget = onCreateNoteFromReference ? linkTarget : null;
-                    tooltipVisible = true;
-                    positionTooltip(wiki);
-                    return;
-                }
-                // A typed note shows its card (#1071); an untyped one keeps the
-                // title+snippet preview. Reuses the card pass's per-path cache.
-                const rb = typePropsCache.get(preview.path) ?? await api.types.noteProperties(preview.path);
-                typePropsCache.set(preview.path, rb);
-                if (token !== hoverToken) return;
-                tooltipHtml = rb.type
-                    ? `<div class="object-card oc-tooltip">${buildObjectCardHtml(rb, { title: preview.title })}</div>`
-                    : buildNotePreviewTooltip(preview.title, preview.snippet);
-                tooltipFixTarget = null;
-                tooltipVisible = true;
-                positionTooltip(wiki);
-            }).catch(() => {
-                if (token === hoverToken) tooltipVisible = false;
-            });
+            linkHover.pointerEnter({ key: linkKey(wiki), target: linkTarget, anchor: wiki });
             return;
         }
         const el = target.closest<HTMLElement>('.cite-link, .quote-link');
@@ -912,7 +896,6 @@
         } catch {
             return;
         }
-        tooltipFixTarget = null;
         tooltipVisible = true;
         positionTooltip(el);
     }
@@ -924,33 +907,22 @@
         // relatedTarget can be null when cursor leaves the window — dismiss anyway
         const to = e.relatedTarget as Node | null;
         if (to && leaving.contains(to)) return;
-        // Moving onto an interactive (broken-link) tooltip keeps it open so its
-        // Create-Note button is clickable; the tooltip's own mouseleave dismisses.
-        if (to && tooltipEl?.contains(to)) return;
-        // For that interactive tooltip, delay the dismiss so the cursor can cross
-        // the gap between the link and the tooltip (mouseenter cancels it).
-        if (tooltipFixTarget !== null) {
-            cancelScheduledDismiss();
-            tooltipDismissTimer = setTimeout(() => { tooltipDismissTimer = null; dismissTooltip(); }, 180);
+        if (leaving.classList.contains('wiki-link')) {
+            linkHover.pointerLeave(linkKey(leaving));
             return;
         }
         dismissTooltip();
     }
 
-    /** Apply the broken-link hover fix — create the missing note, then dismiss. */
-    function applyTooltipFix() {
-        const t = tooltipFixTarget;
-        dismissTooltip();
-        if (t) onCreateNoteFromReference?.(t);
+    /** The broken-link hover fix (#1446) — create the missing note, then close. */
+    function applyLinkFix(target: string) {
+        linkHover.close();
+        onCreateNoteFromReference?.(target);
     }
 
-    /** Hide the hover tooltip and cancel any in-flight wiki-link fetch (#1132)
-     *  so a late-resolving read can't re-show it. */
+    /** Hide the cite / quote / footnote hover tooltip. */
     function dismissTooltip() {
-        cancelScheduledDismiss();
-        hoverToken++;
         tooltipVisible = false;
-        tooltipFixTarget = null;
     }
 
     function positionTooltip(anchor: HTMLElement) {
@@ -989,25 +961,25 @@
             {/each}
         </aside>
     {/if}
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
             class="cite-tooltip"
             class:visible={tooltipVisible}
-            class:has-fix={tooltipFixTarget !== null}
             style={tooltipStyle}
             aria-hidden="true"
-            bind:this={tooltipEl}
-            onmouseenter={cancelScheduledDismiss}
-            onmouseleave={dismissTooltip}
     >
         {@html sanitizeNoteHtml(tooltipHtml)}
-        {#if tooltipFixTarget !== null}
-            <button class="tooltip-fix" onclick={applyTooltipFix}>
-                <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 13h4M6.5 15h3"/><path d="M8 1a5 5 0 0 0-3 9c.5.4.8 1 .8 1.6h4.4c0-.6.3-1.2.8-1.6A5 5 0 0 0 8 1z"/></svg>
-                <span>Create Note From Reference</span>
-            </button>
-        {/if}
     </div>
+    <NoteHoverPreview id={linkHoverId} hover={linkHover} fetchPreview={notePreviewFetcher} instance={linkHoverInstance}>
+        {#snippet missing(target)}
+            <div class="link-missing">“{target}” not found</div>
+            {#if onCreateNoteFromReference}
+                <button class="tooltip-fix" onclick={() => applyLinkFix(target)}>
+                    <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 13h4M6.5 15h3"/><path d="M8 1a5 5 0 0 0-3 9c.5.4.8 1 .8 1.6h4.4c0-.6.3-1.2.8-1.6A5 5 0 0 0 8 1z"/></svg>
+                    <span>Create Note From Reference</span>
+                </button>
+            {/if}
+        {/snippet}
+    </NoteHoverPreview>
 </div>
 
 {#if outputMenu}
@@ -1127,12 +1099,11 @@
         visibility: visible;
     }
 
-    /* Broken-link tooltip is interactive so its Create-Note button is clickable
-       (the plain preview tooltip stays pointer-events:none). (#1446) */
-    .cite-tooltip.has-fix {
-        pointer-events: auto;
-    }
+    /* A broken link's hover (#1446): "not found", and the Create-Note fix —
+       rendered inside the shared NoteHoverPreview (#2710). */
+    .link-missing { color: var(--text-muted); font-style: italic; font-size: 12px; }
     .tooltip-fix {
+        align-self: flex-start;
         display: inline-flex;
         align-items: center;
         gap: 5px;
@@ -1164,21 +1135,6 @@
         font-size: 12px;
         color: var(--text-muted);
         font-family: var(--font-mono);
-    }
-
-    /* Wiki-link hover preview (#1132) — the target note's opening snippet. */
-    .cite-tooltip :global(.tt-note-body) {
-        color: var(--text-muted);
-        font-size: 12px;
-        white-space: pre-wrap;
-        word-break: break-word;
-        max-height: 12em;
-        overflow: hidden;
-    }
-    .cite-tooltip :global(.tt-note-missing) {
-        color: var(--text-muted);
-        font-style: italic;
-        font-size: 12px;
     }
 
     .cite-tooltip :global(.tt-quote) {
@@ -1226,7 +1182,6 @@
     .preview.numbered {
         counter-reset: h2;
     }
-    :global(.cite-tooltip .object-card.oc-tooltip) { margin: 0; border: none; background: transparent; padding: 0; }
     :global(.object-card .oc-cover) {
         flex-shrink: 0;
         display: flex;

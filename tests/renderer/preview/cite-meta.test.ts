@@ -9,8 +9,6 @@ import {
   buildCiteTooltip,
   buildQuoteTooltip,
   buildFootnoteTooltip,
-  buildNotePreviewTooltip,
-  buildNotePreviewMissing,
   type CiteMeta,
 } from '../../../src/renderer/lib/preview/cite-meta';
 
@@ -103,19 +101,3 @@ describe('buildFootnoteTooltip', () => {
   });
 });
 
-describe('buildNotePreviewTooltip (#1132)', () => {
-  it('renders title + snippet with escaped HTML', () => {
-    const html = buildNotePreviewTooltip('The <b>Topic</b>', 'a & b < c');
-    expect(html).toContain('<div class="tt-title">The &lt;b&gt;Topic&lt;/b&gt;</div>');
-    expect(html).toContain('<div class="tt-note-body">a &amp; b &lt; c</div>');
-  });
-  it('shows an empty-note placeholder when the snippet is blank', () => {
-    expect(buildNotePreviewTooltip('T', '')).toContain('(empty note)');
-  });
-  it('buildNotePreviewMissing is a quiet not-found', () => {
-    const html = buildNotePreviewMissing('ghost');
-    expect(html).toContain('tt-note-missing');
-    expect(html).toContain('ghost');
-    expect(html).toContain('not found');
-  });
-});

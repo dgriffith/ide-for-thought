@@ -111,11 +111,10 @@
     }
 
 /* Type-keyed cards (#1071) — a block-level `[[TypedNote]]` / `[[quote::id]]`
-       promoted from a chip to a card. Shared by the preview block and the hover
-       tooltip (via .oc-tooltip). */
+       promoted from a chip to a card. (A link's hover is the shared
+       NoteHoverPreview since #2710, with the card fields as its strip.) */
 .preview .wiki-link.object-card,
-.preview .quote-link.excerpt-card,
-.cite-tooltip .object-card {
+.preview .quote-link.excerpt-card {
         display: flex;
         gap: 10px;
         align-items: flex-start;
