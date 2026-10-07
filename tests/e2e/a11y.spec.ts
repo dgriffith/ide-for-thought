@@ -34,6 +34,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
 import { closeMinerva, launchMinerva, projectRoot, seedProposal } from './helpers/launch';
+import { openEventTimeline } from './helpers/timeline';
 import { runAxe, formatViolations, seriousOrWorse } from '../helpers/axe-playwright';
 
 /** Every theme a user can pick (THEME_MODES minus `system`, which resolves to
@@ -367,11 +368,8 @@ for (const theme of THEMES) {
           'meetings/Debrief.md': '---\ntype: meeting\ndate: 1969-07-25\n---\n# Debrief\n',
         },
       }, async ({ win }) => {
-        await win.locator('.panel-tab[title="Objects"]').first().click();
-        await win.getByRole('button', { name: 'Open Event view' }).click({ force: true });
-        await win.getByRole('tab', { name: 'Timeline' }).click();
-        await expect(win.locator('.tl-plot [data-timeline-event]')).toHaveCount(5, { timeout: 15_000 });
-        await win.locator('.tl-plot [data-timeline-event][aria-label^="Typo,"]').focus();
+        const { eventFor } = await openEventTimeline(win, 5);
+        await eventFor('Typo').focus();
         await expect(win.getByRole('tooltip')).toBeVisible();
         await expectNoSerious(win, 'Timeline', theme);
         await win.getByRole('button', { name: 'List' }).click();

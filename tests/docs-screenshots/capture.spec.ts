@@ -43,6 +43,19 @@ const PROJECTS: Array<[string, string | null, string]> = [
   ['A day at the thermal baths', null, '2026-04-10'],
 ];
 
+/** Events for the timeline shot: path, type, title, date, end (null = none). */
+const EVENTS: Array<[string, 'event' | 'meeting', string, string | null, string | null]> = [
+  ['events', 'event', 'Spring festival', '2026-04', null],
+  ['meetings', 'meeting', 'Packing call', '2026-04-19T18:00', null],
+  ['events', 'event', 'Four days in Prague', '2026-04-20', '2026-04-23'],
+  ['events', 'event', 'Castle tour', '2026-04-21T10:00', null],
+  ['events', 'event', 'Dinner at Lokál', '2026-04-21T19:30', null],
+  ['events', 'event', 'Night train to Budapest', '2026-04-23T22:10', '2026-04-24T07:30'],
+  ['events', 'event', 'Three days in Budapest', '2026-04-24', '2026-04-26'],
+  ['events', 'event', 'A day at the baths', '2026-04-25', null],
+  ['events', 'event', 'On to Vienna', null, null],
+];
+
 function seed(dir: string): void {
   const write = (rel: string, content: string) => {
     fs.mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true });
@@ -250,6 +263,29 @@ test('capture the docs screenshots', async () => {
       await send('menu:toggleSidebar');
       await win.waitForTimeout(400);
       await shotUnion(win, ['.type-view'], 'left-sidebar-objects-kanban.png', { bottomOf: '.kb-column', pad: 24 });
+    });
+
+    await test.step('Objects: an Event timeline', async () => {
+      // Written last too, for the same reason.
+      for (const [folder, type, title, date, end] of EVENTS) {
+        const rel = path.join(root, folder, `${title}.md`);
+        fs.mkdirSync(path.dirname(rel), { recursive: true });
+        fs.writeFileSync(rel, `---\ntype: ${type}\n${date ? `date: ${date}\n` : ''}${end ? `end: ${end}\n` : ''}---\n# ${title}\n`);
+      }
+      // The board's step hid the sidebar: show it to reach the Objects panel,
+      // then hide it again so the drawing has the window's width.
+      await send('menu:toggleSidebar');
+      await win.locator('.panel-tab[title="Objects"]').first().click();
+      await win.getByRole('button', { name: 'Open Event view' }).click({ force: true });
+      await win.getByRole('tab', { name: 'Timeline' }).click();
+      await expect(win.locator('.tl-plot [data-timeline-event]')).toHaveCount(EVENTS.filter((e) => e[3]).length, { timeout: 15_000 });
+      await send('menu:toggleSidebar');
+      // The drawing fills the view's height and the Undated tray sits at the
+      // bottom, so a shorter window keeps the tray in sight of the events
+      // rather than a screen's worth of empty lanes below them.
+      await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.setSize(1440, 470); });
+      await win.waitForTimeout(600);
+      await shotUnion(win, ['.type-view'], 'left-sidebar-objects-timeline.png', { bottomOf: '.tl-undated', pad: 24 });
     });
   } finally {
     await closeMinerva(app);
