@@ -13,6 +13,7 @@ import {
 } from './extract';
 import type { RefactorSettings } from './settings';
 import { DEFAULT_REFACTOR_SETTINGS } from './settings';
+import { noteTitle } from '../../../shared/note-title';
 
 export interface SplitByHeadingPlan {
   /** Files to write (order doesn't matter; caller writes each). */
@@ -34,8 +35,8 @@ export interface PlanSplitByHeadingOptions {
 const HEADING_RE = /^(#{1,6})\s+(.+?)\s*#*\s*$/;
 
 function extractSourceTitle(relativePath: string, content: string): string {
-  const m = content.match(/^#\s+(.+)$/m);
-  if (m) return m[1]!.trim();
+  const title = noteTitle(content);
+  if (title) return title;
   return (relativePath.split('/').pop() ?? relativePath).replace(/\.md$/, '');
 }
 

@@ -19,6 +19,7 @@ import {
   NOTE_TREE_FEATURES,
   CONTROL_NOTES,
   OUTSIDE_SECRET,
+  FM_COMMENT_NOTE,
   posix,
   type HostileFeature,
 } from '../../helpers/hostile-thoughtbase';
@@ -85,7 +86,7 @@ describe('search indexAllNotes on a hostile thoughtbase (#2372)', () => {
     'symlink-in-root', 'invalid-utf8', 'utf8-bom', 'cesu-surrogate', 'nul-bytes',
     'crlf-frontmatter', 'long-filename', 'long-path', 'nfc-nfd-pair', 'special-chars',
     'emoji-name', 'case-pair', 'huge-single-line', 'fm-unterminated', 'fm-yaml-throws',
-    'fm-alias-bomb',
+    'fm-alias-bomb', 'fm-comment-no-title',
   ];
   it.each(markedFeatures)('indexes the %s note(s) under their own path', async (feature) => {
     await indexAllNotes(ctx);
@@ -105,6 +106,12 @@ describe('search indexAllNotes on a hostile thoughtbase (#2372)', () => {
     } finally {
       fs.chmodSync(tb.manifest.root, 0o755);
     }
+  });
+
+  it('titles a note with a frontmatter comment and no title: by its body H1 (#2683)', async () => {
+    await indexAllNotes(ctx);
+    const results = await search(ctx, 'fmcommentmarker');
+    expect(results.map((r) => [r.relativePath, r.title])).toEqual([[posix(FM_COMMENT_NOTE.rel), FM_COMMENT_NOTE.title]]);
   });
 
   it('decodes invalid UTF-8 lossily (U+FFFD) rather than dropping the rest of the note', async () => {

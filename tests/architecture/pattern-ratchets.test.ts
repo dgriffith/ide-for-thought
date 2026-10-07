@@ -147,7 +147,6 @@ const SWALLOW_BASELINE: Record<string, number> = {
   'src/main/git/publish-git.ts': 1,
   'src/main/graph/indexers/excerpt.ts': 1,
   'src/main/graph/indexers/source.ts': 1,
-  'src/main/graph/parser.ts': 1,
   'src/main/images/remote-image-cache.ts': 2,
   'src/main/llm/conversation.ts': 2,
   'src/main/llm/provider/openai.ts': 1,

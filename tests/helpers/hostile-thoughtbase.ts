@@ -67,6 +67,7 @@ export const CONTENT_FEATURES = [
   'fm-unterminated',
   'fm-yaml-throws',
   'fm-alias-bomb',
+  'fm-comment-no-title',
 ] as const;
 
 /**
@@ -114,6 +115,19 @@ export const CONTROL_NOTES = {
  * If it shows up in any index, something read through an escaping link.
  */
 export const OUTSIDE_SECRET = 'outsidesecretzq2372';
+
+/**
+ * The `fm-comment-no-title` note (#2683): a YAML comment line inside the
+ * frontmatter and no `title:` key. A perfectly normal note shape — the comment
+ * is `# ` at the start of a line, which a whole-file first-H1 match used to
+ * take as the title. Its title is the BODY's H1.
+ */
+export const FM_COMMENT_NOTE = {
+  rel: path.join('content', 'fm-comment.md'),
+  content: '---\ntype: project\n# keep this comment\nstatus: active\n---\n# Garden Shed\n\nfmcommentmarker\n',
+  title: 'Garden Shed',
+  comment: 'keep this comment',
+} as const;
 
 /** Size of the `huge-single-line` note's one line (bytes, ASCII). */
 export const HUGE_LINE_BYTES = 3 * 1024 * 1024;
@@ -394,6 +408,10 @@ export function buildHostileThoughtbase(root: string, opts: BuildOptions): Hosti
     for (let i = 1; i < 9; i++) lines.push(`a${i}: &a${i} [${Array(9).fill(`*a${i - 1}`).join(',')}]`);
     write(rel, `---\n${lines.join('\n')}\n---\n# Bomb Heading\n\nbombmarker\n`, 'bombmarker');
     record('fm-alias-bomb', rel);
+  }
+  if (features.has('fm-comment-no-title')) {
+    write(FM_COMMENT_NOTE.rel, FM_COMMENT_NOTE.content, 'fmcommentmarker');
+    record('fm-comment-no-title', FM_COMMENT_NOTE.rel);
   }
 
   // ── Permissions ──────────────────────────────────────────────────────────

@@ -19,6 +19,7 @@
 import type { RefactorSettings } from './settings';
 import { DEFAULT_REFACTOR_SETTINGS } from './settings';
 import { renderTemplate } from './tokens';
+import { noteTitle } from '../../../shared/note-title';
 
 export interface ExtractPlan {
   /** Relative path of the new note, including `.md`. */
@@ -250,10 +251,11 @@ export function renderExtractedBody(
   });
 }
 
-/** Source note's title for template contexts — the H1 or the filename stem. */
+/** Source note's title for template contexts — the note's title (#2683) or
+ *  the filename stem. */
 function sourceTitleFor(relativePath: string, content: string): string {
-  const match = content.match(/^#\s+(.+)$/m);
-  if (match) return match[1]!.trim();
+  const title = noteTitle(content);
+  if (title) return title;
   return (relativePath.split('/').pop() ?? relativePath).replace(/\.md$/, '');
 }
 

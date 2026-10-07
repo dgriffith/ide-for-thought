@@ -1,8 +1,12 @@
-import YAML from 'yaml';
-import { ownRecord } from '../../shared/own-record';
+import { parseFrontmatter, type FrontmatterValue } from '../../shared/frontmatter-parse';
+import { noteTitle } from '../../shared/note-title';
 import { splitAnchor } from '../../shared/slug';
 import { slugifyTableName } from '../../shared/table-name';
 import { CODE_BLOCK_RE, extractInlineTags } from '../../shared/inline-tags';
+
+// The frontmatter value types live beside the parser that produces them, in
+// shared/frontmatter-parse.ts (#2683); re-exported so graph/ keeps one import.
+export type { FrontmatterScalar, FrontmatterMap, FrontmatterValue } from '../../shared/frontmatter-parse';
 
 export interface ParsedLink {
   /** Bare target path/id with any `#anchor` stripped. */
@@ -31,12 +35,6 @@ export interface ParsedTable {
   name?: string;
 }
 
-/** A frontmatter value after YAML parsing — preserves type info the indexer needs. */
-export type FrontmatterScalar = string | number | boolean | Date | null;
-/** A nested YAML mapping. The indexer materialises it as a blank node. */
-export interface FrontmatterMap { [key: string]: FrontmatterValue }
-export type FrontmatterValue = FrontmatterScalar | FrontmatterValue[] | FrontmatterMap;
-
 export interface ParsedNote {
   title: string | null;
   tags: string[];
@@ -56,8 +54,6 @@ export interface ParsedNote {
 
 // [[type::target|display]] or [[type::target]] or [[target|display]] or [[target]]
 const WIKI_LINK_RE = /\[\[([^\]]+?)\]\]/g;
-const HEADING_RE = /^#\s+(.+)$/m;
-const FRONTMATTER_RE = /^---\n([\s\S]*?)\n---/;
 // A `-hidden` suffix (#2039, see shared/markdown/fence-info.ts) only changes
 // human-facing rendering — a hidden turtle block is still graph-real content,
 // so extraction must keep recognizing it.
@@ -70,12 +66,12 @@ export function parseMarkdown(content: string): ParsedNote {
   // Strip code blocks so we don't extract links/tags from them
   const stripped = content.replace(CODE_BLOCK_RE, '');
 
-  // Parse the frontmatter ONCE and hand it to `extractTitle` (#2216).
-  // `extractTitle` reads `title:` from frontmatter before falling back to the
-  // first H1, so it used to run a second full `YAML.parse` of the same block
-  // on every note, on every index pass — and boot makes three of those.
-  const frontmatter = extractFrontmatter(content);
-  const title = extractTitle(content, frontmatter);
+  // Parse the frontmatter ONCE and hand it to `noteTitle` (#2216). It reads
+  // `title:` from frontmatter before falling back to the body's first H1, so
+  // it used to run a second full `YAML.parse` of the same block on every note,
+  // on every index pass — and boot makes three of those.
+  const frontmatter = parseFrontmatter(content);
+  const title = noteTitle(content, frontmatter);
   // Tag lexing lives in shared/inline-tags (#2430) so the tag merge rewrite
   // and this indexer share one definition of what a tag is.
   const tags = extractInlineTags(content);
@@ -114,17 +110,6 @@ function extractTurtleBlocks(content: string): string[] {
     if (block) blocks.push(block);
   }
   return blocks;
-}
-
-function extractTitle(content: string, fm: Record<string, FrontmatterValue>): string | null {
-  // Try frontmatter title first. `fm` is passed in rather than re-parsed:
-  // this is the note's already-extracted frontmatter (#2216).
-  const fmTitle = fm.title;
-  if (typeof fmTitle === 'string' && fmTitle.trim()) return fmTitle.trim();
-
-  // Fall back to first H1
-  const match = content.match(HEADING_RE);
-  return match ? match[1]!.trim() : null;
 }
 
 function extractLinks(content: string): ParsedLink[] {
@@ -167,75 +152,6 @@ function extractLinks(content: string): ParsedLink[] {
   }
 
   return links;
-}
-
-/**
- * The note's frontmatter as a NULL-PROTOTYPE record (as is every nested map).
- * Keys are user text: into a `{}`, a `__proto__:` key would hit the prototype
- * setter — dropped, and an object value re-parents the record so later reads
- * see its members as inherited keys — and an absent `constructor` / `toString`
- * would read back as `Object.prototype`'s. `yaml` itself is safe here (it
- * defines `__proto__` as an own data property on an ordinary object); the copy
- * below is where it used to go wrong. Key-driven lookups against other plain
- * records (e.g. `mapFrontmatterKey`) still go through `getOwn`.
- */
-function extractFrontmatter(content: string): Record<string, FrontmatterValue> {
-  const match = content.match(FRONTMATTER_RE);
-  if (!match) return ownRecord([]);
-
-  const raw = parseYamlOrEmpty(match[1]!);
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return ownRecord([]);
-  return sanitizedEntries(raw as Record<string, unknown>, 0);
-}
-
-/** Malformed frontmatter indexes as none (the empty map is copied into a
- *  null-prototype record by the caller like any other). */
-function parseYamlOrEmpty(text: string): unknown {
-  try {
-    return YAML.parse(text);
-  } catch {
-    return {};
-  }
-}
-
-/** Own entries of a YAML mapping → a null-prototype record of sanitised values,
- *  keys trimmed, blank keys and unsanitisable values dropped. */
-function sanitizedEntries(raw: Record<string, unknown>, depth: number): Record<string, FrontmatterValue> {
-  const entries: Array<[string, FrontmatterValue]> = [];
-  for (const [key, value] of Object.entries(raw)) {
-    const sanitized = sanitizeFrontmatterValue(value, depth);
-    if (sanitized !== undefined && key.trim()) entries.push([key.trim(), sanitized]);
-  }
-  return ownRecord(entries);
-}
-
-/** Deepest nesting level a frontmatter mapping is materialised to before we
- *  stop recursing — a guard against pathological / cyclic structures. */
-const MAX_FRONTMATTER_DEPTH = 8;
-
-function sanitizeFrontmatterValue(value: unknown, depth = 0): FrontmatterValue | undefined {
-  if (value === null || value === undefined) return null;
-  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-    return value;
-  }
-  if (value instanceof Date) return value;
-  if (Array.isArray(value)) {
-    const items: FrontmatterValue[] = [];
-    for (const item of value) {
-      const s = sanitizeFrontmatterValue(item, depth + 1);
-      if (s !== undefined && s !== null) items.push(s);
-    }
-    return items;
-  }
-  // Nested mapping — kept (the indexer materialises it as a blank node with the
-  // sub-keys as its own predicates). Recurse so deeply-nested maps and lists
-  // survive; bail past the depth cap. An empty map (nothing sanitisable inside)
-  // collapses to `undefined` so no dangling blank node is emitted.
-  if (typeof value === 'object' && depth < MAX_FRONTMATTER_DEPTH) {
-    const map: FrontmatterMap = sanitizedEntries(value as Record<string, unknown>, depth + 1);
-    return Object.keys(map).length > 0 ? map : undefined;
-  }
-  return undefined;
 }
 
 /**

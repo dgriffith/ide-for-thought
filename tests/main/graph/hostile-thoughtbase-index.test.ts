@@ -33,6 +33,7 @@ import {
   NOTE_TREE_FEATURES,
   CONTROL_NOTES,
   OUTSIDE_SECRET,
+  FM_COMMENT_NOTE,
   posix,
   type HostileFeature,
 } from '../../helpers/hostile-thoughtbase';
@@ -116,13 +117,21 @@ describe('graph indexAllNotes on a hostile note tree (#2372)', () => {
     'symlink-in-root', 'invalid-utf8', 'utf8-bom', 'cesu-surrogate', 'nul-bytes',
     'crlf-frontmatter', 'long-filename', 'long-path', 'nfc-nfd-pair', 'special-chars',
     'emoji-name', 'case-pair', 'empty-note', 'huge-single-line', 'fm-unterminated',
-    'fm-yaml-throws', 'fm-alias-bomb',
+    'fm-yaml-throws', 'fm-alias-bomb', 'fm-comment-no-title',
   ];
   it.each(indexedFeatures)('indexes the %s note(s) under their own relative path', async (feature) => {
     await indexAllNotes(ctx);
     const paths = await indexedPaths(ctx);
     const missing = (tb.manifest.paths[feature] ?? []).map(posix).filter((p) => !paths.has(p));
     expect(missing).toEqual([]);
+  });
+
+  it('titles a note with a frontmatter comment and no title: by its body H1 (#2683)', async () => {
+    await indexAllNotes(ctx);
+    const { results } = await queryGraph(ctx, `
+      SELECT ?t WHERE { ?n minerva:relativePath "${posix(FM_COMMENT_NOTE.rel)}" ; dc:title ?t . }
+    `);
+    expect((results as Array<{ t: string }>).map((r) => r.t)).toEqual([FM_COMMENT_NOTE.title]);
   });
 
   it('keeps the body text that follows invalid UTF-8 bytes', async () => {
