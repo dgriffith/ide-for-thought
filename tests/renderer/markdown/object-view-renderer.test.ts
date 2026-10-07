@@ -113,8 +113,8 @@ describe('parseObjectViewSpec (#2067)', () => {
     expect(spec(',"from":"someday","to":"1975"')).toMatchObject({ from: null, to: '1975' });
     expect(spec(',"from":"1960","to":{"y":1975}')).toMatchObject({ from: '1960', to: null });
     expect(spec(',"from":"1975","to":"1960"')).toMatchObject({ from: null, to: null });
-    // A clock value waits for `datetime` (#2613).
-    expect(spec(',"from":"1969-07-20T20:17"')).toMatchObject({ from: null });
+    // A clock value is a range edge too, since #2608 zooms below a day.
+    expect(spec(',"from":"1969-07-20T20:17"')).toMatchObject({ from: '1969-07-20T20:17' });
     // The type isn't known to the parser, so any type's timeline is kept as written.
     expect(parseObjectViewSpec('{"typeId":"book","layout":"timeline","from":"1960"}')).toMatchObject({ layout: 'timeline', from: '1960' });
   });

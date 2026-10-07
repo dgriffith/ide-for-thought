@@ -19,12 +19,13 @@
  *   - Both absent means **fit all events**, and nothing is serialised. One
  *     absent leaves that side to the events: `from` alone runs from `from` to
  *     the last event.
- *   - Calendar precision only (year, month, day). A clock value waits for the
- *     `datetime` type (#2613), which is when the spike says the timeline zooms
- *     below a day; until then one reads as absent.
+ *   - Any precision. A clock value (#2608, with `datetime`, #2613) lets a view
+ *     zoomed below a day keep its range; a `to` at clock precision is the
+ *     instant itself, as an event's `end` is (`dateRange`), so
+ *     `from: 1969-07-20T14:00, to: 1969-07-20T16:00` is two hours.
  *   - Untrusted JSON (a session file, an embed) is read leniently: a number is
  *     taken as written (YAML and JSON both make `1960` a number), and a value
- *     that isn't a calendar date is dropped on its own, without throwing.
+ *     that isn't a date is dropped on its own, without throwing.
  *   - **A `to` that doesn't end after `from` begins** (`from: 1975, to: 1960`)
  *     is not a range at all, so the pair reads back as fit all (both dropped),
  *     per the spike — not swapped, and not half-kept.
@@ -56,15 +57,14 @@ export function canShowTimeline(typeId: string, types: readonly TypeRef[]): bool
   return inheritsFrom(typeId, EVENT_TYPE_ID, new Map(types.map((t) => [t.id, t] as const)));
 }
 
-/** One edge from untrusted JSON: a calendar-precision date value, as written
+/** One edge from untrusted JSON: a date value at any precision, as written
  *  (trimmed; a whole number as its digits), else null. Never throws. */
 export function parseTimelineEdge(raw: unknown): string | null {
   let text: string;
   if (typeof raw === 'number' && Number.isInteger(raw)) text = String(raw);
   else if (typeof raw === 'string') text = raw.trim();
   else return null;
-  const parsed = parseDateValue(text);
-  return parsed && !isClockPrecision(parsed.precision) ? text : null;
+  return parseDateValue(text) ? text : null;
 }
 
 /** `from` / `to` from untrusted JSON (see the header): each invalid edge
@@ -86,13 +86,21 @@ export function isFitAll(range: TimelineRange): boolean {
 
 /**
  * The range as civil-axis ms (`date-precision.ts`), [start, end): `start` is
- * the start of `from`'s span, `end` the end of `to`'s. Null on a side that
- * fits to the events — and on one that doesn't parse, so a range that skipped
- * `parseTimelineRange` still can't draw an invalid domain.
+ * the start of `from`'s span, `end` the end of `to`'s — or, for a `to` at
+ * clock precision, that instant. Null on a side that fits to the events — and
+ * on one that doesn't parse, so a range that skipped `parseTimelineRange`
+ * still can't draw an invalid domain.
  */
 export function timelineDomain(range: TimelineRange): { start: number | null; end: number | null } {
   const { from, to } = parseTimelineRange(range.from, range.to);
-  return { start: from === null ? null : dateSpan(from)!.start, end: to === null ? null : dateSpan(to)!.end };
+  return { start: from === null ? null : dateSpan(from)!.start, end: to === null ? null : endOf(to) };
+}
+
+/** Where a range ending at `to` ends: its span's end, or the instant itself at
+ *  clock precision — `dateRange`'s rule for an event's `end`. */
+function endOf(to: string): number {
+  const span = dateSpan(to)!;
+  return isClockPrecision(span.precision) ? span.start : span.end;
 }
 
 /** A year as the grammar writes it: `1960`, `0044`, `-0043`, `+12026`. */
@@ -108,22 +116,40 @@ function formatDay(ms: number): string {
   return `${formatYear(d.getUTCFullYear())}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
 }
 
+function formatMinute(ms: number): string {
+  const d = new Date(ms);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${formatDay(ms)}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+}
+
 function onYearBoundary(ms: number): boolean {
   return civilMs(new Date(ms).getUTCFullYear(), 0, 1) === ms;
 }
+
+const DAY_MS = 86_400_000;
+const MINUTE_MS = 60_000;
+/** Write whole days only while rounding out to them grows the range by at most
+ *  this much; past it, a zoomed-in range is written to the minute. */
+export const DAY_ROUNDING_TOLERANCE = 1.25;
 
 /**
  * The range to store for a visible domain [start, end) in civil ms — what
  * #2608 writes after a zoom or pan. The coarsest precision that covers it, per
  * the spike: whole years when both edges sit on year boundaries, else the days
- * the domain touches. Fit all for an empty or non-finite domain.
+ * the domain touches — unless rounding out to whole days would grow it by more
+ * than `DAY_ROUNDING_TOLERANCE` (a view zoomed in to hours), when it is the
+ * minutes it touches, as floating clock values (`1969-07-20T14:05`) with `to`
+ * the instant it ends. Fit all for an empty or non-finite domain.
  */
 export function timelineRangeFromDomain(start: number, end: number): TimelineRange {
   if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return FIT_ALL;
   if (onYearBoundary(start) && onYearBoundary(end)) {
     return { from: formatYear(new Date(start).getUTCFullYear()), to: formatYear(new Date(end).getUTCFullYear() - 1) };
   }
-  return { from: formatDay(start), to: formatDay(end - 1) };
+  const dayStart = Math.floor(start / DAY_MS) * DAY_MS;
+  const dayEnd = Math.ceil(end / DAY_MS) * DAY_MS;
+  if (dayEnd - dayStart <= (end - start) * DAY_ROUNDING_TOLERANCE) return { from: formatDay(start), to: formatDay(end - 1) };
+  return { from: formatMinute(Math.floor(start / MINUTE_MS) * MINUTE_MS), to: formatMinute(Math.ceil(end / MINUTE_MS) * MINUTE_MS) };
 }
 
 /** The timeline fields of a view spec. */

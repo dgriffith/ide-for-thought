@@ -16,8 +16,8 @@
  *  - **Surfaces** (#2375 added the last five): welcome screen, workspace shell
  *    + editor, source viewer, PDF viewer, proposals panel, conversation panel,
  *    Settings dialog (every section), Query panel (with results), neighborhood
- *    graph, the `:::argument` map, and the preview's fenced-block toolbars
- *    (#2679).
+ *    graph, the `:::argument` map, the preview's fenced-block toolbars
+ *    (#2679), the Kanban board and the Timeline (#2608).
  *  - **Themes** (#2378): every shipped theme — dark, light, contrast. The theme
  *    tokens are the thing most likely to regress contrast, and each theme pairs
  *    them differently (the contrast theme's `--bg-titlebar` is dark over a
@@ -347,6 +347,36 @@ for (const theme of THEMES) {
         await expect(win.locator('.kb-board [data-kanban-card]')).toHaveCount(3, { timeout: 15_000 });
         await win.locator('.kb-board [data-kanban-card]').first().focus();
         await expectNoSerious(win, 'Kanban board', theme);
+      });
+    });
+
+    test('Timeline', async () => {
+      // Stock Event (#2608): a point, a span, a partial (hatched) date, a
+      // backwards end, a Meeting, and an undated event in the Undated tray —
+      // scanned with an event focused (its hover card showing), then as the
+      // list alternative.
+      await withApp({
+        theme,
+        withProject: true,
+        extraFiles: {
+          'events/Moon landing.md': '---\ntype: event\ndate: 1969-07-20\n---\n# Moon landing\n',
+          'events/Apollo 11.md': '---\ntype: event\ndate: 1969-07-16\nend: 1969-07-24\n---\n# Apollo 11\n',
+          'events/Woodstock.md': '---\ntype: event\ndate: 1969-08\n---\n# Woodstock\n',
+          'events/Typo.md': '---\ntype: event\ndate: 1969-09-01\nend: 1969-01-01\n---\n# Typo\n',
+          'events/Someday.md': '---\ntype: event\n---\n# Someday\n',
+          'meetings/Debrief.md': '---\ntype: meeting\ndate: 1969-07-25\n---\n# Debrief\n',
+        },
+      }, async ({ win }) => {
+        await win.locator('.panel-tab[title="Objects"]').first().click();
+        await win.getByRole('button', { name: 'Open Event view' }).click({ force: true });
+        await win.getByRole('tab', { name: 'Timeline' }).click();
+        await expect(win.locator('.tl-plot [data-timeline-event]')).toHaveCount(5, { timeout: 15_000 });
+        await win.locator('.tl-plot [data-timeline-event][aria-label^="Typo,"]').focus();
+        await expect(win.getByRole('tooltip')).toBeVisible();
+        await expectNoSerious(win, 'Timeline', theme);
+        await win.getByRole('button', { name: 'List' }).click();
+        await expect(win.locator('.tl-list')).toBeVisible();
+        await expectNoSerious(win, 'Timeline list', theme);
       });
     });
 

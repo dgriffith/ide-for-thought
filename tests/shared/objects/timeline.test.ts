@@ -82,9 +82,14 @@ describe('parseTimelineEdge (#2607)', () => {
     expect(parseTimelineEdge(-43)).toBe('-43');
   });
 
-  it('drops anything that is not a calendar date value, without throwing', () => {
+  it('takes a clock value too, with `datetime` (#2608, #2613)', () => {
+    expect(parseTimelineEdge('1969-07-20T20:17')).toBe('1969-07-20T20:17');
+    expect(parseTimelineEdge('1969-07-20T20:17:40Z')).toBe('1969-07-20T20:17:40Z');
+  });
+
+  it('drops anything that is not a date value, without throwing', () => {
     for (const bad of [
-      '', '   ', 'soon', '1969-13', '1969-02-30', '-0000', '07/20/1969', '1969-07-20T20:17', '1969-07-20T20:17Z',
+      '', '   ', 'soon', '1969-13', '1969-02-30', '-0000', '07/20/1969', '1969-07-20T24:00', '1969-07-20T20:17+15:00',
       1960.5, NaN, Infinity, null, undefined, true, {}, ['1960'],
     ]) {
       expect(parseTimelineEdge(bad)).toBeNull();
@@ -132,6 +137,13 @@ describe('timelineDomain (#2607)', () => {
     expect(timelineDomain({ from: '1969-07-20', to: '1969-07-20' })).toEqual({ start: civilMs(1969, 6, 20), end: civilMs(1969, 6, 21) });
   });
 
+  it('a `to` at clock precision ends at that instant, as an event\'s `end` does', () => {
+    expect(timelineDomain({ from: '1969-07-20T14:00', to: '1969-07-20T16:00' }))
+      .toEqual({ start: civilMs(1969, 6, 20, 14), end: civilMs(1969, 6, 20, 16) });
+    // A clock `to` at or before a clock `from` is no range.
+    expect(timelineDomain({ from: '1969-07-20T14:00', to: '1969-07-20T14:00' })).toEqual({ start: null, end: null });
+  });
+
   it('leaves an absent or unreadable side to the events', () => {
     expect(timelineDomain(FIT_ALL)).toEqual({ start: null, end: null });
     expect(timelineDomain({ from: '-0043', to: null })).toEqual({ start: civilMs(-43, 0, 1), end: null });
@@ -151,11 +163,23 @@ describe('timelineRangeFromDomain (#2607)', () => {
     expect(timelineRangeFromDomain(civilMs(1969, 0, 1), civilMs(1969, 6, 24, 6))).toEqual({ from: '1969-01-01', to: '1969-07-24' });
   });
 
+  it('zoomed in below whole days, writes the minutes the domain touches (#2608)', () => {
+    expect(timelineRangeFromDomain(civilMs(1969, 6, 20, 13, 30, 20), civilMs(1969, 6, 20, 16, 5, 1)))
+      .toEqual({ from: '1969-07-20T13:30', to: '1969-07-20T16:06' });
+    // A day and a half that doesn't sit on midnight would round out to three days: minutes.
+    expect(timelineRangeFromDomain(civilMs(1969, 6, 20, 12), civilMs(1969, 6, 22))).toEqual({ from: '1969-07-20T12:00', to: '1969-07-22T00:00' });
+    expect(timelineRangeFromDomain(civilMs(-43, 2, 15, 9), civilMs(-43, 2, 15, 11))).toEqual({ from: '-0043-03-15T09:00', to: '-0043-03-15T11:00' });
+    // Whole days are still days, however short.
+    expect(timelineRangeFromDomain(civilMs(1969, 6, 20), civilMs(1969, 6, 21))).toEqual({ from: '1969-07-20', to: '1969-07-20' });
+  });
+
   it('round-trips: what it writes reads back as a domain covering the input', () => {
     for (const [s, e] of [
       [civilMs(1960, 0, 1), civilMs(1976, 0, 1)],
       [civilMs(1969, 6, 20, 13), civilMs(1969, 6, 24, 1)],
       [civilMs(-43, 2, 15), civilMs(-43, 2, 16)],
+      [civilMs(1969, 6, 20, 13, 30, 20), civilMs(1969, 6, 20, 16, 5, 1)],
+      [civilMs(1969, 6, 20, 23, 50), civilMs(1969, 6, 21, 0, 10)],
     ] as const) {
       const range = timelineRangeFromDomain(s, e);
       expect(parseTimelineRange(range.from, range.to)).toEqual(range);
