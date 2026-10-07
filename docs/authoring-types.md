@@ -325,6 +325,30 @@ the ancestors' properties first, then the child's own, with a child property of
 the same name overriding the parent's. And it inherits the parent's **template
 body** when it has none of its own (#2494) — see below.
 
+Inherited properties index exactly like the child's own: a Meeting's
+`location` lands under `types:location` as an Event's does, so the parent's
+views and queries read it.
+
+The stock **Meeting** is the worked example (#2612): `parent: event`, one own
+property (`organizer`) and its own *Agenda / Notes / Decisions* body. It
+deliberately does **not** redeclare `attendees` — a child property of the same
+name overrides the parent's, so keeping its old free-text `attendees` would
+have kept a text field where Event has a link to Person.
+
+### Plain text on a link property
+
+Changing a property from `text` to `link-to-type` (directly, or as Meeting did,
+by inheriting one) doesn't invalidate a note that holds plain names. A value
+that isn't a whole wiki-link indexes as a plain string under the same
+predicate, and every surface shows it as written: the Properties panel, the
+type views and their cards, link and hover cards, embeds and exports. Nothing
+rewrites it. Where some of the names match a note of the target type, the
+Properties panel offers **Link <property>** (e.g. *Link attendees*): one
+confirm naming what changes, then a frontmatter rewrite of that one note,
+matching names as a wiki-link would resolve them (path, filename, alias,
+filename slug) or by a unique title. A comma-separated string becomes a YAML
+list when any name in it is linked.
+
 ## The template body
 
 Everything after the frontmatter is the **default body** a new note of this
@@ -405,10 +429,10 @@ reference examples — copy one out, change the `label`, and edit from there.
 | `article.md` | `externalClass: thought:Article` |
 | `book.md` | `externalClass: thought:Book` |
 | `claim.md` | The thought-ontology bridge: `externalClass: thought:Claim`, and a `predicate:` on every property |
-| `event.md` | Two `link-to-type` properties (`place`, `person`) |
+| `event.md` | Two `link-to-type` properties (`place`, `person`); the parent of Meeting |
 | `glossary-term.md` | `externalClass: thought:Term`, `predicate: thought:seeAlso` |
 | `idea.md` | A plain `enum` lifecycle |
-| `meeting.md` | `link-to-type` organizer, free-text attendees |
+| `meeting.md` | `parent: event` — the stock example of inheritance: Event's `date`, `end`, `location` and link-to-Person `attendees`, plus its own `organizer` and body (#2612) |
 | `person.md` | `externalClass: foaf:Person` plus a property-level `predicate: foaf:mbox` |
 | `place.md` | The only `geo` property in the stock set |
 | `project.md` | `enum` status + `link-to-type` owner |

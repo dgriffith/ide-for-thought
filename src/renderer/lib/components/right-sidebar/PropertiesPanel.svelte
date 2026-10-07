@@ -20,11 +20,15 @@
   import { SvelteMap } from 'svelte/reactivity';
   import { api } from '../../ipc/client';
   import { getNotebaseStore } from '../../stores/notebase.svelte';
+  import { getDialogStore } from '../../stores/dialogs.svelte';
+  import { objectTypesStore } from '../../stores/object-types.svelte';
   import AutocompleteDropdown from './AutocompleteDropdown.svelte';
   import Icon from '../Icon.svelte';
   import { resolveWikiLinkTarget } from '../../wiki-link-resolver';
   import type { IconName } from '../icons/registry';
   import { fillNotePlaceholders } from '../../../../shared/objects/property-placeholders';
+  import { describeLinkPlan, planLinkNames, type LinkNamesPlan } from '../../../../shared/objects/link-names';
+  import { useLinkNameMatchers } from './link-name-matchers.svelte';
   import { CANONICAL_FRONTMATTER_KEYS } from '../../../../shared/frontmatter-canonical-keys';
   import PropertyValueEditor from '../PropertyValueEditor.svelte';
   import DeclaredPropertyField from '../DeclaredPropertyField.svelte';
@@ -85,6 +89,7 @@
   let { content, onContentChange, onNavigate, activeFilePath = null, revision = 0 }: Props = $props();
 
   const notebase = getNotebaseStore();
+  const dialogs = getDialogStore();
 
   // ── Declared type schema (absorbed from the old Fields panel) ─────
   // A pure read, so it may live in the component (renderer data-flow rule).
@@ -348,6 +353,54 @@
     if (!target) return false;
     return resolveWikiLinkTarget(target, flatNotes, aliasMap) !== null;
   }
+
+  // ── Link names (#2612) ──────────────────────────────────────────
+  //
+  // A link-to-type property can hold plain names — every meeting note's
+  // `attendees: Alice, Bob` from before Meeting inherited Event's
+  // link-to-Person `attendees`. Those render as text; this offers, per note,
+  // to link the ones that name a note of the target type. One note at a time
+  // on purpose: the confirm can name every change, and the rewrite goes
+  // through this panel's buffer like any other edit, so it is one undo.
+
+  /** Has a value a plain name could be in: a string, or a list of them. */
+  function holdsNames(row: Row | undefined): boolean {
+    return row?.shape.kind === 'string' || row?.shape.kind === 'string-list';
+  }
+
+  /** The target types worth fetching instances for, as a stable key so the
+   *  fetch below doesn't re-run on every keystroke. */
+  const linkTargetTypes = $derived(
+    [...new Set(declaredDefs
+      .filter((pd) => pd.type === 'link-to-type' && pd.targetType && holdsNames(rowByKey.get(pd.name)))
+      .map((pd) => pd.targetType!))].sort().join('\n'),
+  );
+
+  const matchers = useLinkNameMatchers(() => ({ targetTypes: linkTargetTypes, revision, files: flatNotes, aliases: aliasMap }));
+
+  function linkPlanFor(pd: PropertyDef): LinkNamesPlan | null {
+    if (pd.type !== 'link-to-type' || !pd.targetType) return null;
+    const m = matchers.get(pd.targetType);
+    return m && holdsNames(rowByKey.get(pd.name)) ? planLinkNames(content, pd.name, m) : null;
+  }
+
+  async function linkNames(pd: PropertyDef): Promise<void> {
+    const plan = linkPlanFor(pd);
+    if (!plan) return;
+    const what = targetTypeLabel(pd.targetType!);
+    const ok = await dialogs.showConfirm(describeLinkPlan(plan, what), 'link-property-names', 'Link');
+    if (!ok) return;
+    // Re-plan against the buffer as it is now: it may have changed while the
+    // confirm was open.
+    const fresh = linkPlanFor(pd);
+    if (!fresh) return;
+    const names = schema.type?.effectivePropertyNames;
+    onContentChange(names ? fillNotePlaceholders(fresh.content, names) : fresh.content);
+  }
+
+  function targetTypeLabel(id: string): string {
+    return objectTypesStore.types.find((t) => t.id === id)?.label ?? (id.charAt(0).toUpperCase() + id.slice(1));
+  }
   onMount(() => {
     void refreshProjectKeys();
     void refreshNoteBasenames();
@@ -581,6 +634,14 @@
               {:else}
                 <DeclaredPropertyField def={pd} text={declaredText(pd)} unset={!row} onCommit={(raw) => commitDeclared(pd, raw)} />
               {/if}
+              {#if linkPlanFor(pd)}
+                <button
+                  type="button"
+                  class="link-names"
+                  title="Turn the names that match a {targetTypeLabel(pd.targetType ?? '')} note into links"
+                  onclick={() => void linkNames(pd)}
+                >Link {(pd.label ?? pd.name).toLowerCase()}</button>
+              {/if}
             </div>
           {/each}
         </div>
@@ -718,6 +779,20 @@
     padding: 2px 12px 10px;
   }
   .dfield { display: flex; flex-direction: column; gap: 3px; }
+  .link-names {
+    align-self: flex-start;
+    padding: 1px 8px;
+    border: 1px dashed color-mix(in oklch, var(--accent) 40%, transparent);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .link-names:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
   .dfield-label {
     font-family: var(--font-mono);
     font-size: 10px;

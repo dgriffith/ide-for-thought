@@ -20,6 +20,7 @@
   import type { IconName } from './icons/registry';
   import { api, type TemplateInfo } from '../ipc/client';
   import type { TypeInfo } from '../../../shared/objects/type-def';
+  import { typeFieldCount as fieldCount } from '../../../shared/objects/property-display';
   import type { NoteExt, NewNoteResult } from './new-note-dialog-types';
   import Dialog from './ui/Dialog.svelte';
 
@@ -158,7 +159,7 @@
                 <span class="type-emoji" style={t.color ? `color:${t.color}` : undefined}>{t.icon ?? '◆'}</span>
                 <span class="type-text">
                   <span class="type-label">{t.label}</span>
-                  <span class="type-desc">{t.properties.length} field{t.properties.length === 1 ? '' : 's'}</span>
+                  <span class="type-desc">{fieldCount(t)} field{fieldCount(t) === 1 ? '' : 's'}</span>
                 </span>
               </button>
             {/each}

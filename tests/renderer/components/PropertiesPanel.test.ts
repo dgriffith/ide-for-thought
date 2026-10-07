@@ -41,6 +41,10 @@ vi.mock('../../../src/renderer/lib/ipc/client', () => ({ api: h.api }));
 vi.mock('../../../src/renderer/lib/stores/notebase.svelte', () => ({
   getNotebaseStore: () => h.notebase,
 }));
+const showConfirm = vi.hoisted(() => vi.fn());
+vi.mock('../../../src/renderer/lib/stores/dialogs.svelte', () => ({
+  getDialogStore: () => ({ showConfirm }),
+}));
 
 import PropertiesPanel from '../../../src/renderer/lib/components/right-sidebar/PropertiesPanel.svelte';
 
@@ -481,5 +485,117 @@ describe('PropertiesPanel — fills the type\'s body placeholders on a committed
     render(PropertiesPanel, typedProps({ content: plain, onContentChange }));
     await fireEvent.blur(screen.getByDisplayValue('x'), { target: { value: 'y' } });
     for (const call of onContentChange.mock.calls) expect(call[0]).toContain('{{author}}');
+  });
+});
+
+// ── Plain-text names on a link-to-type property (#2612) ───────────────────
+//
+// Meeting inherits Event's link-to-Person `attendees`, but every existing
+// meeting note holds names. The panel shows them as the text they are — not
+// as a wiki-link chip, and not with the broken-link warning.
+
+const MEETING_SCHEMA = {
+  type: { id: 'meeting', label: 'Meeting', classLocalName: 'Meeting', source: 'stock', icon: '🗓️', parent: 'event', properties: [] },
+  properties: [
+    { name: 'date', type: 'date', label: 'Date', value: null },
+    { name: 'attendees', type: 'link-to-type', targetType: 'person', label: 'Attendees', value: null },
+    { name: 'organizer', type: 'link-to-type', targetType: 'person', label: 'Organizer', value: null },
+  ],
+};
+
+describe('PropertiesPanel — plain-text names on a link property (#2612)', () => {
+  beforeEach(() => {
+    h.api.types.noteProperties.mockResolvedValue(MEETING_SCHEMA);
+    h.api.types.instances = vi.fn().mockResolvedValue({ type: null, instances: [] });
+  });
+
+  it('a comma-separated string shows as text in the field', async () => {
+    const content = ['---', 'type: meeting', 'attendees: Alice, Bob', '---', ''].join('\n');
+    const { container } = render(PropertiesPanel, typedProps({ content }));
+    await waitFor(() => expect(screen.getByText('Meeting')).toBeTruthy());
+    expect(screen.getByDisplayValue('Alice, Bob')).toBeTruthy();
+    expect(container.querySelector('.wiki-chip')).toBeNull();
+  });
+
+  it('a YAML list of names shows as plain chips, not broken links', async () => {
+    const content = ['---', 'type: meeting', 'attendees:', '  - Alice', '  - Bob', '---', ''].join('\n');
+    const { container } = render(PropertiesPanel, typedProps({ content }));
+    await waitFor(() => expect(screen.getByText('Meeting')).toBeTruthy());
+    expect(screen.getByText('Alice')).toBeTruthy();
+    expect(screen.getByText('Bob')).toBeTruthy();
+    expect(container.querySelector('.wiki-chip')).toBeNull();
+    expect(container.querySelector('.broken')).toBeNull();
+  });
+});
+
+describe('PropertiesPanel — Link attendees (#2612)', () => {
+  const PEOPLE = [
+    { path: 'people/Alice.md', title: 'Alice', values: {}, cover: null },
+    { path: 'people/p-002.md', title: 'Bob Jones', values: {}, cover: null },
+  ];
+  const meetingNote = (attendees: string, eol = '\n') =>
+    ['---', 'type: meeting', attendees, '---', '## Agenda', ''].join(eol);
+
+  beforeEach(() => {
+    h.api.types.noteProperties.mockResolvedValue(MEETING_SCHEMA);
+    h.api.types.instances = vi.fn().mockResolvedValue({ type: null, instances: PEOPLE });
+    h.api.notebase.listFiles.mockResolvedValue(PEOPLE.map((p) => ({ name: p.path, relativePath: p.path, isDirectory: false })));
+    showConfirm.mockReset();
+  });
+
+  it('offers the action when a name matches, and confirms what will change', async () => {
+    showConfirm.mockResolvedValue(true);
+    const onContentChange = vi.fn();
+    render(PropertiesPanel, typedProps({ content: meetingNote('attendees: Alice, Bob Jones, Zed'), onContentChange }));
+    const btn = await screen.findByRole('button', { name: 'Link attendees' });
+    expect(h.api.types.instances).toHaveBeenCalledWith('person');
+    await fireEvent.click(btn);
+
+    await waitFor(() => expect(onContentChange).toHaveBeenCalled());
+    expect(showConfirm).toHaveBeenCalledWith(
+      'Link Alice and Bob Jones to their Person notes? Zed stays as text.',
+      'link-property-names',
+      'Link',
+    );
+    expect(lastRewrite(onContentChange)).toBe(meetingNote(
+      'attendees:\n  - "[[Alice]]"\n  - "[[p-002|Bob Jones]]"\n  - Zed',
+    ));
+  });
+
+  it('writes nothing when the confirm is cancelled', async () => {
+    showConfirm.mockResolvedValue(false);
+    const onContentChange = vi.fn();
+    render(PropertiesPanel, typedProps({ content: meetingNote('attendees: Alice'), onContentChange }));
+    await fireEvent.click(await screen.findByRole('button', { name: 'Link attendees' }));
+    await waitFor(() => expect(showConfirm).toHaveBeenCalled());
+    expect(onContentChange).not.toHaveBeenCalled();
+  });
+
+  it('keeps a CRLF note CRLF', async () => {
+    showConfirm.mockResolvedValue(true);
+    const onContentChange = vi.fn();
+    render(PropertiesPanel, typedProps({ content: meetingNote('attendees:\r\n  - Alice\r\n  - Zed', '\r\n'), onContentChange }));
+    await fireEvent.click(await screen.findByRole('button', { name: 'Link attendees' }));
+    await waitFor(() => expect(onContentChange).toHaveBeenCalled());
+    expect(lastRewrite(onContentChange)).toBe(meetingNote('attendees:\r\n  - "[[Alice]]"\r\n  - Zed', '\r\n'));
+  });
+
+  it('is not offered when no name matches, or the value is already a link', async () => {
+    const { unmount } = render(PropertiesPanel, typedProps({ content: meetingNote('attendees: Zed, Yan') }));
+    await waitFor(() => expect(h.api.types.instances).toHaveBeenCalled());
+    await new Promise((r) => setTimeout(r, 0));
+    expect(screen.queryByRole('button', { name: 'Link attendees' })).toBeNull();
+    unmount();
+
+    render(PropertiesPanel, typedProps({ content: meetingNote('attendees: "[[Alice]]"') }));
+    await waitFor(() => expect(screen.getByText('Meeting')).toBeTruthy());
+    await new Promise((r) => setTimeout(r, 0));
+    expect(screen.queryByRole('button', { name: 'Link attendees' })).toBeNull();
+  });
+
+  it('is offered per link property — the organizer too', async () => {
+    render(PropertiesPanel, typedProps({ content: meetingNote('organizer: Alice') }));
+    expect(await screen.findByRole('button', { name: 'Link organizer' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Link attendees' })).toBeNull();
   });
 });

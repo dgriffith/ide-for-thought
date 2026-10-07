@@ -141,6 +141,10 @@
         <div class="v">The type says what kind of value a field holds, so a field with a fixed set of choices becomes a dropdown of exactly those, a date becomes a date picker, a number becomes a number box. A link field takes a <code>[[Note]]</code>, and a location is a text box for a latitude and longitude, like <code>48.8584,2.2945</code>.</div>
       </div>
       <div class="row">
+        <div class="k">Names that could be links</div>
+        <div class="v">A link field can still hold plain names — a Meeting's attendees written as <code>Alice, Bob</code>, say. They show as the names you wrote, never as broken links. When some of them name a note of the right kind, a <strong>Link attendees</strong> button appears under the field (<strong>Link organizer</strong>, <strong>Link location</strong>, and so on for other fields). It asks once, naming who will be linked and who stays as text, then turns the matches into links in this note — matching a note's name, an alias, or its title. Undo puts the names back.</div>
+      </div>
+      <div class="row">
         <div class="k">Field names are fixed</div>
         <div class="v">A field's name comes from the type, so it's shown as a label rather than an editable box. Renaming it here would only detach this one note from its type. Rename it in <a href="settings-object-types.html">Settings → Object Types</a> instead, and every note of that type follows.</div>
       </div>
