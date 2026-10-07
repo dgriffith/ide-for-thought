@@ -37,7 +37,7 @@
   const rt = $derived(rowType(event.inst));
 </script>
 
-<div {id} class="tl-card" class:flip role="tooltip" style="left:{x}px;top:{y}px">
+<div {id} class="tl-card" class:flip role="tooltip" data-export-omit style="left:{x}px;top:{y}px">
   <span class="tl-card-title">
     {#if rt}<TypeIcon type={rt} size={13} />{/if}
     <span>{event.title}</span>

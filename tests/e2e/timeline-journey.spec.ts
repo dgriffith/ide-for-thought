@@ -153,11 +153,18 @@ test('the Timeline journey: Events as a timeline, zoomed and stepped by keyboard
       const file = res!.writtenPaths.find((p) => p.endsWith('.html'))!;
       return fs.readFileSync(path.isAbsolute(file) ? file : path.join(outDir, file), 'utf-8');
     });
-    // The events are on the exported page, and the fence isn't left as
-    // source. #2609 (static timelines in exports: the saved range, events
-    // linked, partial dates marked approximate, an Undated list, the lane cap)
-    // tightens these into checks on the timeline itself.
-    for (const title of [...IN_TIME_ORDER, 'Someday']) expect(html, `${title} is in the export`).toContain(title);
+    // The export draws the SAVED range (#2609): the view was saved zoomed to
+    // around 1969, so the Ides of March (44 BC) is left off and counted in the
+    // "N more fall outside this range" note instead. Every dated event is
+    // either on the page or counted there, so nothing vanishes silently, and
+    // the undated one is in the Undated list.
+    expect(html, 'the event the journey stepped to is in the export').toContain('Moon landing');
+    expect(html, 'an event outside the saved range is not drawn').not.toContain('Ides of March');
+    const outside = Number(/(\d+) more falls? outside this range/.exec(html)?.[1] ?? 0);
+    const shown = IN_TIME_ORDER.filter((title) => html.includes(title)).length;
+    expect(shown + outside, 'every dated event is shown or counted as outside the range').toBe(IN_TIME_ORDER.length);
+    expect(outside, 'the Ides of March is counted outside the range').toBeGreaterThanOrEqual(1);
+    expect(html, 'the undated event is in the Undated list').toContain('Someday');
     expect(html, 'no raw spec in the export').not.toContain('&quot;typeId&quot;');
     expect(html, 'no raw spec in the export').not.toContain('"typeId"');
     expect(html, 'no object-view code block in the export').not.toMatch(/<code[^>]*object-view/);

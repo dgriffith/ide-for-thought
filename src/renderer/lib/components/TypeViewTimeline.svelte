@@ -42,8 +42,27 @@
    *   the tab stop is always kept, so the keyboard order stays whole.
    * - **Read-only** (an ```object-view embed, `readOnly`): no zoom/pan
    *   controls or gestures, and nothing written back — the arrows still step
-   *   through the events. **Export** (`exportMode`) is #2609's hook: today it
-   *   only draws without controls, tab stops or hover, at the export width.
+   *   through the events.
+   * - **Export** (`exportMode`, #2609): one static picture of the spec's range
+   *   (`from` / `to`, or fit-all) at the export block's width, for
+   *   `snapshotLiveBlock` — no toolbar, gestures, tab stops or hover card, and
+   *   the SVG scales down to a narrower page instead of overflowing it. Each
+   *   event's `<g data-note-path>` becomes a link under the export's link
+   *   policy (a real `/URI` annotation in a PDF; plain text under
+   *   `inline-title`). `timeline-export.ts` picks what is drawn: only events
+   *   meeting the range, in at most `EXPORT_MAX_LANES` lanes, the rest named
+   *   in a "+N more" note. A legend says what the hatch means, because print
+   *   has no hover card.
+   *   **A dated list follows the drawing**, every event in range in time order
+   *   with its dates (and "approximate", and a flagged `end`). The links
+   *   survive, so it isn't needed to *reach* a note — it is there because the
+   *   drawing alone can't be *read* on paper: an event's dates live in the
+   *   hover card, a label is shortened past 40 characters, the axis only
+   *   places an event to within a tick, and lanes past the cap aren't drawn.
+   *   It is also the live view's List alternative, which a page can't toggle.
+   *   **Fallback:** when the drawing can't be made (no dated events, or the
+   *   layout throws), the export is that list (and the Undated tray) with a
+   *   line saying so — never the raw spec.
    */
   import { tick, untrack } from 'svelte';
   import { dateSpan } from '../../../shared/objects/date-precision';
@@ -55,6 +74,8 @@
   import { axisTicks, clampDomain, fitDomain, panDomain, panToShow, PAN_STEP, resolveDomain, xOf, zoomDomain, ZOOM_STEP, type Domain } from './timeline/timeline-scale';
   import { BAR_PX, cullToView, LANE_PX, labelWidth, layoutTimeline, timeOrder, trailingLabelRoom, VIRTUALIZE_ABOVE } from './timeline/timeline-layout';
   import { timelineGestures } from './timeline/timeline-gestures';
+  import { EXPORT_MAX_LANES, planTimelineExport, type TimelineExportPlan } from './timeline/timeline-export';
+  import { logger } from '../../../shared/logger';
 
   interface Props {
     type: TypeInfo;
@@ -71,7 +92,7 @@
     onStateChange: (patch: { from: string | null; to: string | null }) => void;
     /** An embed: no zoom/pan, nothing written back. */
     readOnly?: boolean;
-    /** Draw for an export (#2609 fills this in). */
+    /** Draw one static picture for an export (#2609; see the header). */
     exportMode?: boolean;
     /** Formatting locale; the viewer's when absent. */
     locale?: string;
@@ -169,8 +190,22 @@
 
   // Lanes depend on the scale alone — a pan keeps them (`timeline-layout.ts`).
   const pxPerMs = $derived(domain ? Number((width / (domain.end - domain.start)).toPrecision(12)) : 0);
-  const layout = $derived(layoutTimeline(model.dated, pxPerMs));
-  const plotHeight = $derived(TOP_PX + Math.max(1, layout.laneCount) * LANE_PX + 8);
+  /** An export's drawing (`timeline-export.ts`); `ok: false` = it couldn't be drawn, so list instead. */
+  const exportPlan = $derived.by<{ ok: true; plan: TimelineExportPlan } | { ok: false } | null>(() => {
+    if (!exportMode || model.dated.length === 0) return null;
+    try {
+      // The range straight from the spec (the `domain` effect lands on the same one, a tick later).
+      return { ok: true, plan: planTimelineExport(model.dated, resolveDomain(timelineDomain({ from, to }), fit), width) };
+    } catch (err) {
+      logger('objects').warn('timeline export: the drawing failed, listing its events instead', err);
+      return { ok: false };
+    }
+  });
+  const layout = $derived(exportMode ? (exportPlan?.ok ? exportPlan.plan.layout : { placements: new Map(), laneCount: 0 }) : layoutTimeline(model.dated, pxPerMs));
+  const laneCount = $derived(exportPlan?.ok ? exportPlan.plan.laneCount : layout.laneCount);
+  const plotHeight = $derived(TOP_PX + Math.max(1, laneCount) * LANE_PX + 8);
+  /** An export's dated list: what's in range, or every dated event when the drawing failed. */
+  const exportList = $derived<TimelineEvent[]>(!exportPlan ? [] : exportPlan.ok ? exportPlan.plan.listed : order.map((k) => byKey.get(k)!));
   const ticks = $derived(domain ? axisTicks(domain, width, locale ? { locale } : {}) : { unit: 'year' as const, ticks: [] });
 
   let focusedKey = $state<string | null>(null);
@@ -185,6 +220,7 @@
   });
 
   const drawn = $derived.by<TimelineEvent[]>(() => {
+    if (exportMode) return exportPlan?.ok ? exportPlan.plan.drawn : [];
     if (!domain || model.dated.length <= VIRTUALIZE_ABOVE) return model.dated;
     const firstLane = Math.floor((scrollTop - TOP_PX) / LANE_PX) - 10;
     const lastLane = viewportHeight > 0 ? Math.ceil((scrollTop + viewportHeight) / LANE_PX) + 10 : Infinity;
@@ -261,7 +297,7 @@
 
 <div class="tl" class:tl-export={exportMode}>
   {#if !exportMode}
-    <div class="tl-toolbar">
+    <div class="tl-toolbar" data-export-omit>
       {#if interactive && !listMode}
         <button type="button" class="tl-btn" aria-label="Zoom out" title="Zoom out (−)" onclick={() => zoomBy(1 / ZOOM_STEP)}>−</button>
         <button type="button" class="tl-btn" aria-label="Zoom in" title="Zoom in (+)" onclick={() => zoomBy(ZOOM_STEP)}>+</button>
@@ -286,6 +322,8 @@
     </ol>
   {:else if model.dated.length === 0}
     <p class="tl-empty">No {type.label.toLowerCase()} here has a date yet.</p>
+  {:else if exportPlan && !exportPlan.ok}
+    <p class="tl-export-note tl-fallback">The timeline couldn't be drawn, so its events are listed below.</p>
   {:else if domain}
     <div class="tl-stage">
       <div
@@ -297,7 +335,7 @@
         onscroll={(e) => (scrollTop = e.currentTarget.scrollTop)}
         use:timelineGestures={{ enabled: interactive, view: () => (domain ? { domain, width } : null), onDomain: setDomain, onSettle: () => scheduleCommit(0) }}
       >
-        <svg class="tl-axis" width={width} height={AXIS_PX} aria-hidden="true">
+        <svg class="tl-axis" width={width} height={AXIS_PX} viewBox={exportMode ? `0 0 ${width} ${AXIS_PX}` : undefined} aria-hidden="true">
           {#each ticks.ticks as t (t.t)}
             {@const x = xOf(t.t, domain, width)}
             <line class="tl-tick" x1={x} x2={x} y1={AXIS_PX - 7} y2={AXIS_PX} />
@@ -310,12 +348,13 @@
           class="tl-plot"
           width={width}
           height={plotHeight}
+          viewBox={exportMode ? `0 0 ${width} ${plotHeight}` : undefined}
           role="group"
           aria-label={rangeLabel}
           data-tick-unit={ticks.unit}
           data-domain-start={domain.start}
           data-domain-end={domain.end}
-          data-lanes={layout.laneCount}
+          data-lanes={laneCount}
           onkeydown={onKeydown}
           onfocusin={() => (plotFocused = true)}
           onfocusout={() => (plotFocused = false)}
@@ -337,12 +376,13 @@
             {@const x0 = xOf(ev.start, domain, width)}
             {@const x1 = xOf(ev.end, domain, width)}
             {@const y = laneY(ev.key)}
-            <!-- svelte-ignore a11y_click_events_have_key_events -->
+            <!-- The role is `link` except in an export, where only main knows whether it becomes one (inline-title leaves text); an export takes no tab stop either. -->
+            <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_tabindex -->
             <g
               class="tl-event"
               class:approx={ev.approx}
               transform="translate(0 {y})"
-              role="link"
+              role={exportMode ? undefined : 'link'}
               tabindex={exportMode ? undefined : ev.key === tabStop ? 0 : -1}
               aria-label={ev.label}
               aria-describedby={cardKey === ev.key ? cardId : undefined}
@@ -357,11 +397,11 @@
               onpointerleave={() => { if (hoveredKey === ev.key) hoveredKey = null; }}
             >
               {#if p.point}
-                <circle class="tl-ring" cx={clampX(x0)} cy={BAR_PX / 2} r="9" />
+                {#if !exportMode}<circle class="tl-ring" cx={clampX(x0)} cy={BAR_PX / 2} r="9" />{/if}
                 <circle class="tl-point" class:tl-approx-point={ev.approx} cx={clampX(x0)} cy={BAR_PX / 2} r="5" />
                 <text class="tl-label" x={clampX(x0) + 10} y={BAR_PX / 2 + 4}>{p.labelText}</text>
               {:else}
-                <rect class="tl-ring" x={clampX(x0) - 3} y="-3" width={Math.max(0, clampX(x1) - clampX(x0)) + 6} height={BAR_PX + 6} rx="4" />
+                {#if !exportMode}<rect class="tl-ring" x={clampX(x0) - 3} y="-3" width={Math.max(0, clampX(x1) - clampX(x0)) + 6} height={BAR_PX + 6} rx="4" />{/if}
                 {#each ev.segments as s, si (si)}
                   {@const sx0 = clampX(xOf(s.start, domain, width))}
                   {@const sx1 = clampX(xOf(s.end, domain, width))}
@@ -388,6 +428,36 @@
         <TimelineHoverCard id={cardId} event={cardEvent} {type} {properties} {display} {rowType} x={cardPos.x} y={cardPos.y} flip={cardPos.flip} />
       {/if}
     </div>
+    {#if exportPlan?.ok}
+      {@const plan = exportPlan.plan}
+      {#if plan.drawn.some((ev) => ev.approx)}
+        <p class="tl-export-note tl-legend">
+          <svg width="26" height="12" aria-hidden="true"><rect class="tl-bar-approx" x="0.5" y="0.5" width="25" height="11" fill="url(#{uid}-hatch)" /></svg>
+          Hatched, dashed edge: approximate — only the year or month is known.
+        </p>
+      {/if}
+      {#if plan.overflow.length > 0}
+        <p class="tl-export-note tl-more">+{plan.overflow.length} more not drawn (past {EXPORT_MAX_LANES} lanes): {plan.overflow.map((ev) => ev.title).join(', ')}.</p>
+      {/if}
+      {#if plan.outside > 0}
+        <p class="tl-export-note tl-outside">{plan.outside} more {plan.outside === 1 ? 'falls' : 'fall'} outside this range.</p>
+      {/if}
+    {/if}
+  {/if}
+
+  {#if exportList.length > 0}
+    <section class="tl-export-events" aria-labelledby="{uid}-dated">
+      <h3 id="{uid}-dated" class="tl-undated-head">Dated <span class="tl-undated-count">{exportList.length}</span></h3>
+      <ol class="tl-export-list">
+        {#each exportList as ev (ev.key)}
+          <li class="tl-export-row">
+            <span class="tl-list-title" data-note-path={ev.key}>{ev.title}</span>
+            <span class="tl-list-date">{ev.dateText}{ev.approx ? ' (approximate)' : ''}</span>
+            {#if ev.endNote}<span class="tl-list-flag">{ev.endNote}</span>{/if}
+          </li>
+        {/each}
+      </ol>
+    </section>
   {/if}
 
   {#if model.undated.length > 0}
@@ -432,9 +502,11 @@
   .tl-tick, .tl-axis-line { stroke: var(--text-muted); stroke-width: 1; }
   .tl-tick-label { fill: var(--text-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
   .tl-grid { stroke: var(--border); stroke-width: 1; }
-  .tl-event { cursor: pointer; outline: none; }
+  .tl-event { outline: none; }
+  .tl:not(.tl-export) .tl-event { cursor: pointer; }
   .tl-ring { fill: none; stroke: var(--text); stroke-width: 2; visibility: hidden; }
   .tl-event:focus-visible .tl-ring, .tl-event:hover .tl-ring { visibility: visible; }
+  /* Not on the hatched stretches: a class rule beats the `fill` attribute that points at the pattern. */
   .tl-bar:not(.tl-bar-approx) { fill: var(--accent); }
   .tl-bar-approx { stroke: var(--accent); stroke-width: 1; stroke-dasharray: 3 2; }
   .tl-hatch-bg { fill: var(--bg); }
@@ -471,8 +543,21 @@
   .tl-undated-count { font-family: var(--font-mono); font-weight: 400; color: var(--text-muted); }
   .tl-undated-list { list-style: none; margin: 0; padding: 0; }
 
-  /* Export (#2609's hook): a page doesn't scroll, so the drawing takes its full height. */
+  /* Export (#2609): a page doesn't scroll, so the drawing takes its full
+     height, and it scales down (viewBox) on a page narrower than the block. */
   .tl-export .tl-stage { position: static; }
-  .tl-export .tl-viewport { position: static; overflow: visible; cursor: auto; }
+  .tl-export .tl-viewport { position: static; overflow: visible; }
+  .tl-export .tl-axis { position: static; }
+  .tl-export svg { max-width: 100%; height: auto; }
+  .tl-export .tl-plot { break-inside: avoid; }
   .tl-export .tl-undated { max-height: none; overflow: visible; }
+  .tl-export-note { margin: 6px 12px 0; font-size: 11.5px; color: var(--text-muted); line-height: 1.4; }
+  .tl-legend { display: flex; align-items: center; gap: 8px; }
+  .tl-legend svg { flex-shrink: 0; }
+  .tl-fallback { padding-top: 8px; }
+  .tl-export-events { border-top: 1px solid var(--border); margin-top: 8px; padding: 6px 6px 8px; }
+  .tl-export-list { margin: 0; padding: 0 10px 0 32px; }
+  .tl-export-row { padding: 2px 0; font-size: 13px; break-inside: avoid; }
+  .tl-export-row::marker { color: var(--text-muted); font-size: 11.5px; }
+  .tl-export-row > span + span { margin-left: 8px; }
 </style>

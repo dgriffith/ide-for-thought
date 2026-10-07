@@ -11,6 +11,10 @@
  *
  * And a Kanban board (#2604): its columns and card titles render, and the
  * no-raw-source check covers its spec too.
+ *
+ * And a Timeline of Events, one of them a Meeting (#2609, #2612): drawn as
+ * SVG in export mode, every event in the drawing and in the dated list after
+ * it, and its spec never left behind.
  */
 import { test, expect } from './helpers/test';
 import fs from 'node:fs';
@@ -44,6 +48,10 @@ function seed(dir: string): void {
   // Projects for the board (the stock Project type groups by `status`).
   write('projects/Garden Shed.md', '---\ntype: project\nstatus: active\n---\n# Garden Shed\n');
   write('projects/Tax Return.md', '---\ntype: project\nstatus: done\n---\n# Tax Return\n');
+  // Events for the timeline, one of them a Meeting (an Event subtype, #2612).
+  write('events/Moon landing.md', '---\ntype: event\ndate: 1969-07-20\n---\n# Moon landing\n');
+  write('events/Apollo 11.md', '---\ntype: event\ndate: 1969-07-16\nend: 1969-07-24\n---\n# Apollo 11\n');
+  write('meetings/Splashdown debrief.md', '---\ntype: meeting\ndate: 1969-07-25\n---\n# Splashdown debrief\n');
   fs.writeFileSync(path.join(dir, 'pic.png'), Buffer.from(PNG_BASE64, 'base64'));
   write('notes/The Claim.md', '---\ntitle: The Claim\n---\n\n# The Claim\n\n```turtle\nthis: a thought:Claim .\n```\n');
   write('notes/Cited Evidence.md', `---\ntitle: Cited Evidence\nsupports: ${noteUri('notes/The Claim.md')}\n---\n\n# Cited Evidence\n`);
@@ -52,6 +60,7 @@ function seed(dir: string): void {
     '```object-view', '{"typeId":"place","layout":"list"}', '```', '',
     '```object-view', '{"typeId":"spot","layout":"map","height":240}', '```', '',
     '```object-view', '{"typeId":"project","layout":"kanban","groupBy":"status"}', '```', '',
+    '```object-view', '{"typeId":"event","layout":"timeline"}', '```', '',
     '![shot|200](pic.png)', '',
     '```mermaid', 'graph TD; A[Start] --> B[Finish]', '```', '',
     ':::query-list', 'SELECT ?title ?path WHERE { ?note minerva:hasTag ?t . ?t minerva:tagName "museum" . ?note dc:title ?title . ?note minerva:relativePath ?path . }', ':::', '',
@@ -90,7 +99,7 @@ test('a note with every live kind exports each one rendered, no raw source left 
     });
 
     await test.step('every kind rendered', async () => {
-      expect(html.match(/class="minerva-live-block"/g)?.length, 'object view, map, board, mermaid, query, argument map, output').toBe(7);
+      expect(html.match(/class="minerva-live-block"/g)?.length, 'object view, map, board, timeline, mermaid, query, argument map, output').toBe(8);
       expect(html).toContain('Kampa Museum'); // the view's row, and the query's result
       expect(html).toMatch(/<svg[^>]*id="mermaid-export-/); // mermaid
       expect(html).toContain('Cited Evidence'); // the argument map's node
@@ -99,6 +108,13 @@ test('a note with every live kind exports each one rendered, no raw source left 
       expect([...html.matchAll(/class="kb-col-label[^"]*">([^<]+)</g)].map((m) => m[1])).toEqual(['active', 'paused', 'done', 'abandoned']);
       expect(html).toContain('Garden Shed');
       expect(html).toContain('Tax Return');
+      // The Timeline, in export mode: an SVG drawing with every event in it, the Meeting included, then the dated list.
+      expect(html).toMatch(/class="tl[^"]*\btl-export\b/);
+      const drawing = /<svg[^>]*class="tl-plot[\s\S]*?<\/svg>/.exec(html)?.[0] ?? '';
+      for (const title of ['Moon landing', 'Apollo 11', 'Splashdown debrief']) {
+        expect(drawing, `${title} drawn`).toContain(title);
+        expect(html, `${title} listed`).toMatch(new RegExp(`class="tl-list-title[^"]*">${title}<`));
+      }
       expect(html).toContain('compute-output-text'); // the saved output
       expect(html).toMatch(/<img[^>]+src="data:image\/svg\+xml/); // the vega-lite chart
       expect(html).toContain('youtube'); // the linked thumbnail
@@ -115,7 +131,7 @@ test('a note with every live kind exports each one rendered, no raw source left 
     });
 
     await test.step('no raw source survives', async () => {
-      for (const marker of ['```', ':::query', ':::argument', '[!note]', '[!card]', '&quot;typeId&quot;', '&quot;kanban&quot;', '|200', '{&quot;type&quot;:&quot;text&quot;', 'graph TD;', HIDDEN_CANARY]) {
+      for (const marker of ['```', ':::query', ':::argument', '[!note]', '[!card]', '&quot;typeId&quot;', '&quot;kanban&quot;', '&quot;timeline&quot;', '|200', '{&quot;type&quot;:&quot;text&quot;', 'graph TD;', HIDDEN_CANARY]) {
         expect(html, `raw "${marker}" in the export`).not.toContain(marker);
       }
       expect(html).not.toContain('couldn&#39;t be rendered for export');

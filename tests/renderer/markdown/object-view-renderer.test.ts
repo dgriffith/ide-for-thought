@@ -189,6 +189,41 @@ describe('hydrateObjectViewBlocks (#2067)', () => {
     expect(onOpenNote).toHaveBeenCalledWith('p/Shed.md');
   });
 
+  it('a timeline embed is read-only: no zoom/pan/Fit, a wheel moves nothing, not export mode; List and opening still work (#2608, pinned by #2609)', async () => {
+    const EVENT = {
+      id: 'event', label: 'Event', classLocalName: 'Event', icon: '📅', source: 'stock' as const,
+      properties: [{ name: 'date', type: 'datetime' as const }, { name: 'end', type: 'datetime' as const }],
+    };
+    listMock.mockResolvedValue({ types: [TYPE, EVENT], errors: [] });
+    await objectTypesStore.refresh();
+    instancesMock.mockResolvedValue({ type: EVENT, instances: [
+      { path: 'e/Moon.md', title: 'Moon landing', values: { date: '1969-07-20', end: null }, cover: null },
+      { path: 'e/Apollo.md', title: 'Apollo 11', values: { date: '1969-07-16', end: '1969-07-24' }, cover: null },
+    ] });
+    const root = previewWith('{"typeId":"event","layout":"timeline","from":"1969-07","to":"1969-07"}');
+    const onOpenNote = vi.fn();
+    hydrateObjectViewBlocks(root, deps({ onOpenNote }));
+    const block = root.querySelector('.object-view-block')!;
+    await waitFor(() => expect(block.querySelector('[data-timeline-event]')).not.toBeNull());
+
+    expect(block.querySelector('.tl')!.classList.contains('tl-export')).toBe(false);
+    expect(block.querySelector('.tv-header')).toBeNull();
+    const buttons = [...block.querySelectorAll('.tl-toolbar button')].map((b) => b.textContent.trim());
+    expect(buttons).toEqual(['List']);
+    expect(block.querySelector('.tl-viewport')!.classList.contains('tl-pannable')).toBe(false);
+    const plot = block.querySelector<SVGSVGElement>('.tl-plot')!;
+    const before = [plot.dataset['domainStart'], plot.dataset['domainEnd']];
+    block.querySelector('.tl-viewport')!.dispatchEvent(new WheelEvent('wheel', { deltaY: -240, bubbles: true, cancelable: true }));
+    const ev = block.querySelector<SVGGElement>('[data-timeline-event][data-note-path="e/Moon.md"]')!;
+    ev.dispatchEvent(new KeyboardEvent('keydown', { key: '+', bubbles: true }));
+    await new Promise((r) => setTimeout(r, 400));
+    expect([plot.dataset['domainStart'], plot.dataset['domainEnd']]).toEqual(before);
+    // Not an export: no dated list under it.
+    expect(block.querySelector('.tl-export-events')).toBeNull();
+    ev.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(onOpenNote).toHaveBeenCalledWith('e/Moon.md');
+  });
+
   it('opens a note via the provided onOpenNote when a row is clicked', async () => {
     const root = previewWith('{"typeId":"book","layout":"list"}');
     const onOpenNote = vi.fn();
