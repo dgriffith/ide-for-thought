@@ -11,14 +11,24 @@
  * indexes that as a plain literal, and it is shown exactly as written. Only an
  * IRI is shortened: this used to cut every link value at its last `/` or `#`,
  * which turned `Carol / Dan` into ` Dan`.
+ *
+ * A `datetime` (#2613) is shown in the viewer's locale at its own precision:
+ * the time only when one was written, BCE with an era (`-0043` → "44 BC").
+ * A `date` is shown as written.
  */
 import type { PropertyDef, TypeInfo } from './type-def';
+import { formatDateValue, type FormatDateOptions } from './date-values';
 
 /** The graph's note IRIs are http(s) (`uri-helpers.ts`'s `coinBaseUri`). */
 const IRI_RE = /^https?:\/\/\S+$/i;
 
-export function displayPropertyValue(prop: Pick<PropertyDef, 'type'>, value: string | null): string {
+export function displayPropertyValue(
+  prop: Pick<PropertyDef, 'type'>,
+  value: string | null,
+  opts: FormatDateOptions = {},
+): string {
   if (value === null || value === '') return '—';
+  if (prop.type === 'datetime') return formatDateValue(value, opts);
   if (prop.type === 'link-to-type' && IRI_RE.test(value)) {
     const tail = value.split(/[/#]/).pop() || value;
     try { return decodeURIComponent(tail); } catch { return tail; }

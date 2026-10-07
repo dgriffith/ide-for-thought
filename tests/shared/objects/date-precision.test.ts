@@ -271,10 +271,12 @@ describe('precision helpers', () => {
 });
 
 /**
- * Range filters (#2533) compare lexically (`view-spec.ts`). For the values
- * both understand — unsigned four-digit years at calendar precision — that
- * is exactly "the value's span starts within [span(min).start, span(max).end)".
- * Pinned here so the two readings of a partial date can't drift apart.
+ * Range filters (#2533) used to compare lexically; since #2613 a `date` /
+ * `datetime` filter compares spans (`view-spec.ts` → `dateValueInRange`). For
+ * unsigned four-digit years at calendar precision the old lexical rule was
+ * exactly "the value's span starts within [span(min).start, span(max).end)",
+ * so this table — written against the lexical rule — must still hold: the
+ * move changed nothing for ordinary dates.
  */
 describe('agrees with the range filter for four-digit calendar dates', () => {
   const values = ['1968', '1969', '1969-01', '1969-06', '1969-07', '1969-07-01', '1969-07-19', '1969-07-20', '1969-07-31', '1969-08', '1969-12-31', '1970', '1970-01-01'];
@@ -291,4 +293,76 @@ describe('agrees with the range filter for four-digit calendar dates', () => {
       }
     });
   }
+});
+
+/**
+ * The `datetime` property type (#2613) accepts exactly what this parser
+ * reads: a clock time, local unless an offset is written, and every date-only
+ * or partial value `date` accepts — each meaning its whole span — so a
+ * property can move from `date` to `datetime` without invalidating a note.
+ */
+describe('datetime property values (#2613): precision and zone', () => {
+  it.each([
+    // date-only and partial: the span of their precision, no zone
+    ['2026-10-05', 'day', null, U(2026, 10, 5), U(2026, 10, 6)],
+    ['2026-10', 'month', null, U(2026, 10), U(2026, 11)],
+    ['2026', 'year', null, U(2026), U(2027)],
+    ['-43', 'year', null, U(-43), U(-42)],
+    // local (floating): the wall clock, whatever the viewer's zone
+    ['2026-10-05T14:30', 'minute', null, U(2026, 10, 5, 14, 30), U(2026, 10, 5, 14, 31)],
+    ['2026-10-05T14:30:15', 'second', null, U(2026, 10, 5, 14, 30, 15), U(2026, 10, 5, 14, 30, 16)],
+    // offset: an instant, here read by a UTC viewer
+    ['2026-10-05T14:30Z', 'minute', 0, U(2026, 10, 5, 14, 30), U(2026, 10, 5, 14, 31)],
+    ['2026-10-05T14:30+02:00', 'minute', 120, U(2026, 10, 5, 12, 30), U(2026, 10, 5, 12, 31)],
+    ['2026-10-05T23:30-05:00', 'minute', -300, U(2026, 10, 6, 4, 30), U(2026, 10, 6, 4, 31)],
+  ])('%s → %s, offset %s', (raw, precision, offset, start, end) => {
+    expect(parseDateValue(raw)).toMatchObject({ precision, offsetMinutes: offset });
+    expect(dateSpan(raw, UTC)).toEqual({ start, end, precision });
+  });
+
+  it('a floating time is the same for every viewer; an offset one moves with the viewer', () => {
+    for (const minutes of [-480, 0, 330, 840]) {
+      expect(dateSpan('2026-10-05T14:30', zone(minutes))!.start).toBe(U(2026, 10, 5, 14, 30));
+    }
+    expect(dateSpan('2026-10-05T14:30Z', zone(330))!.start).toBe(U(2026, 10, 5, 20, 0));
+  });
+
+  it.each(['2026-10-05T14', '2026-10-05T14:30:60', '2026-10-05T14:30+15:00', '2026-10-05 14:30', '2026-10-05T2:30', '14:30', 'Oct 5 2026 2:30pm'])(
+    '%j is invalid',
+    (raw) => { expect(parseDateValue(raw)).toBeNull(); },
+  );
+});
+
+/** Where span comparison and the old lexical rule part ways (#2613). */
+describe('range filters compare spans: signed years and mixed offsets (#2613)', () => {
+  const match = (v: string, min: string | null, max: string | null, type: 'date' | 'datetime' = 'datetime') =>
+    matchesFilter({ path: 'n.md', title: 'n', values: { when: v } }, { property: 'when', min, max }, type, UTC);
+
+  it('orders signed and short years by time, for date and datetime', () => {
+    for (const type of ['date', 'datetime'] as const) {
+      expect(match('-43', '-0100', '-0001', type)).toBe(true); // lexically '-43' < '-0100' is false…
+      expect(match('-0043-03-15', '-0044', '-0043', type)).toBe(true);
+      expect(match('44', '0001', '0099', type)).toBe(true); // '44' > '0099' as strings
+      expect(match('12026', '2000', '9999', type)).toBe(false); // '12026' < '9999' as strings
+    }
+  });
+
+  it('compares mixed offsets as instants', () => {
+    // 23:30-05:00 is 04:30Z on the 6th: lexically before a 01:00Z max, really after it.
+    expect(match('2026-10-05T23:30-05:00', null, '2026-10-06T01:00Z')).toBe(false);
+    expect(match('2026-10-06T03:00+05:00', '2026-10-05T23:00Z', null)).toBe(false);
+    expect(match('2026-10-06T00:30+02:00', '2026-10-05T22:00Z', '2026-10-05T23:00Z')).toBe(true);
+  });
+
+  it('keeps a whole bound span, down to the minute', () => {
+    expect(match('2026-10-05T14:30:59', '2026-10-05T14:30', '2026-10-05T14:30')).toBe(true);
+    expect(match('2026-10-05T23:59', '2026-10-05', '2026-10-05')).toBe(true);
+    expect(match('2026-10-06T00:00', '2026-10-05', '2026-10-05')).toBe(false);
+  });
+
+  it('falls back to the lexical rule when a value or bound isn\'t a date', () => {
+    // Neither '2026-5-14' nor 'next year' parses, so these are the old string comparisons.
+    expect(match('2026-5-14', '2026-05', '2026-06')).toBe(false); // '2026-5' > '2026-06' as strings
+    expect(match('2026-05-14', '2026-05', 'next year')).toBe(true); // '2026-05-14' <= 'next year' as strings
+  });
 });

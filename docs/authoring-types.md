@@ -147,7 +147,7 @@ Each entry under `properties:` is a mapping:
 | Key | Required | Notes |
 |---|---|---|
 | `name` | yes | The **frontmatter key** the value is stored under on an instance. |
-| `type` | no (`text`) | One of the seven below. |
+| `type` | no (`text`) | One of the eight below. |
 | `label` | no | Human label for the form. Defaults to a title-cased `name` (`first_name` → `First Name`). |
 | `options` | `enum` only | The allowed values. Validated-but-not-enforced — a note may hold something else. |
 | `targetType` | `link-to-type` only | The type id this property points at. `target` is accepted as an alias. |
@@ -158,12 +158,39 @@ Each entry under `properties:` is a mapping:
 | `type` | Holds | Notes |
 |---|---|---|
 | `text` | a string | The default. Stays a plain literal even if the value looks like a year. |
-| `date` | a date | Coerced to `xsd:date`, `xsd:dateTime`, `xsd:gYearMonth` or `xsd:gYear` depending on the shape written. |
+| `date` | a date | `2026-10-05`, or as coarse as `2026-10` or `2026`. Coerced to `xsd:date`, `xsd:gYearMonth` or `xsd:gYear` by the precision written (a clock time, if one is written, to `xsd:dateTime`). |
+| `datetime` | a date and time | `2026-10-05T14:30`, seconds optional, with an optional `Z` or `±HH:MM` offset. A date-only or partial value is accepted too and means that whole span, so changing a `date` property to `datetime` never invalidates a note. Coerced to `xsd:dateTime` (seconds added: `T14:30` → `T14:30:00`), or by precision like `date`. |
 | `number` | a number | Coerced to `xsd:integer` or `xsd:decimal`. |
 | `enum` | one of `options` | Advisory, not enforced — a note may hold anything. |
 | `link-to-type` | a wiki-link to a note of `targetType` | Written as `[[Target Note]]`. |
 | `geo` | `"<lat>,<lng>"` | A plain string. Deliberately no coordinate parsing, no geocoding, no structured sub-fields. |
 | `boolean` | `true` / `false` | A checkbox. Written as a real YAML boolean and coerced to `xsd:boolean`; the words `true`/`false` are accepted too. |
+
+**Dates and times.** `date` and `datetime` read their values the same way
+(`src/shared/objects/date-precision.ts`):
+
+- **A value is the span of its own precision.** `1969` is all of 1969,
+  `1969-07` all of July, `1969-07-20` that whole day, and `T20:17` that
+  minute. A view's range filter keeps a value whose span starts inside
+  [the start of `min`, the end of `max`], so `max: 2026-05` keeps all of May,
+  and a view sorts by span, not by string.
+- **Times are floating local time unless an offset is written.**
+  `2026-10-05T14:30` means 14:30 wherever it is read. `2026-10-05T14:30+02:00`
+  is an instant, shown and compared at the reader's local time.
+- **Years are proleptic Gregorian, numbered astronomically**: `0000` is 1 BCE
+  and `-0043` is 44 BCE. A month, day or time needs a four-digit year or a
+  signed one (`-0043-03-15`); a year alone can be any integer up to six
+  digits. In the graph, years are written the XSD way (`-0043`, `0044`,
+  `12026`).
+- **Graph literals and SPARQL.** `xsd:date` and `xsd:dateTime` values compare
+  with `<` / `>` in a SPARQL `FILTER`; compare a `datetime` property against a
+  `"…"^^xsd:dateTime` literal (with seconds). Minerva's SPARQL engine can't
+  compare `xsd:gYear` or `xsd:gYearMonth`, or an `xsd:dateTime` whose year is
+  signed or past 9999, so those values are typed but drop out of a range
+  `FILTER`. A view's range filter handles all of them.
+- **In a view**, a `datetime` is shown in your locale at its own precision,
+  with the time only when one was written ("44 BC" for `-0043`). A `date`
+  shows as written. **Export CSV** writes the ISO value either way.
 
 The declared type is **schema over value-guessing**: an untyped frontmatter key
 gets its RDF datatype guessed from the value's shape, a declared one gets it
@@ -429,7 +456,7 @@ reference examples — copy one out, change the `label`, and edit from there.
 | `article.md` | `externalClass: thought:Article` |
 | `book.md` | `externalClass: thought:Book` |
 | `claim.md` | The thought-ontology bridge: `externalClass: thought:Claim`, and a `predicate:` on every property |
-| `event.md` | Two `link-to-type` properties (`place`, `person`); the parent of Meeting |
+| `event.md` | `date` and `end` as `datetime`, and two `link-to-type` properties (`place`, `person`); the parent of Meeting |
 | `glossary-term.md` | `externalClass: thought:Term`, `predicate: thought:seeAlso` |
 | `idea.md` | A plain `enum` lifecycle |
 | `meeting.md` | `parent: event` — the stock example of inheritance: Event's `date`, `end`, `location` and link-to-Person `attendees`, plus its own `organizer` and body (#2612) |

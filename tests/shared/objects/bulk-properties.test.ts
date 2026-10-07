@@ -92,6 +92,9 @@ describe('scalarEditFor', () => {
     expect(scalarEditFor({ name: 'b', type: 'boolean' }, 'true')).toEqual({ op: 'set', key: 'b', value: true });
     expect(scalarEditFor({ name: 'b', type: 'boolean' }, 'false')).toEqual({ op: 'set', key: 'b', value: false });
     expect(scalarEditFor({ name: 'd', type: 'date' }, '2026-12-01')).toEqual({ op: 'set', key: 'd', value: '2026-12-01' });
+    // datetime (#2613): as written, so a partial or date-only value isn't rewritten to a timestamp.
+    expect(scalarEditFor({ name: 'w', type: 'datetime' }, ' 2026-12-01T09:30 ')).toEqual({ op: 'set', key: 'w', value: '2026-12-01T09:30' });
+    expect(scalarEditFor({ name: 'w', type: 'datetime' }, '1969')).toEqual({ op: 'set', key: 'w', value: '1969' });
     expect(scalarEditFor({ name: 't', type: 'text' }, ' hi ')).toEqual({ op: 'set', key: 't', value: ' hi ' });
     expect(scalarEditFor({ name: 't', type: 'text' }, '  ')).toEqual({ op: 'clear', key: 't' });
   });

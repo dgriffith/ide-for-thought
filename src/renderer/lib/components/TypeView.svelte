@@ -26,6 +26,7 @@
   import type { MapStyle } from '../../../shared/objects/map-style';
   import { applyViewSpec, type ViewFilter } from '../../../shared/objects/view-spec';
   import { buildViewEmbed } from '../../../shared/objects/view-note';
+  import { comparePropertyValues, viewToCsv } from '../../../shared/objects/view-values';
   import { boardColumns, groupByForSpec, moveColumn, resolveGroupBy } from '../../../shared/objects/kanban';
   import { timelineSpecForType } from '../../../shared/objects/timeline';
   import { objectTypesStore } from '../stores/object-types.svelte';
@@ -149,8 +150,7 @@
     onStateChange({ columns: next.length === all.length ? null : next });
   }
 
-  // A link shows its note's name; plain text on a link property (an unlinked
-  // meeting attendee, #2612) shows as written.
+  // A link: its note's name, or plain text as written (#2612). A datetime: locale-formatted (#2613).
   const display = displayPropertyValue;
 
   function summary(inst: TypeInstanceRow): string {
@@ -191,17 +191,14 @@
   const sorted = $derived.by<TypeInstanceRow[]>(() => {
     if (!sortColumn) return scoped;
     const col = sortColumn;
-    const numeric = col !== '__title' && allColumns.find((c) => c.name === col)?.type === 'number';
+    const colType = col === '__title' ? undefined : allColumns.find((c) => c.name === col)?.type;
     const dir = sortDir === 'asc' ? 1 : -1;
     return [...scoped].sort((a, b) => {
       const av = cellFor(a, col);
       const bv = cellFor(b, col);
       if (av === null || av === '') return bv === null || bv === '' ? 0 : 1;
       if (bv === null || bv === '') return -1;
-      const cmp = numeric
-        ? Number(av) - Number(bv)
-        : av.localeCompare(bv, undefined, { numeric: true, sensitivity: 'base' });
-      return cmp * dir;
+      return comparePropertyValues(colType, av, bv) * dir;
     });
   });
 
@@ -233,6 +230,12 @@
     } catch (e) {
       logger('objects').error('copy as markdown failed:', e);
     }
+  }
+
+  /** Export CSV (#2613): this view's rows and columns, ISO values. A stateless OS side-effect. */
+  function exportCsv(): void {
+    const rows = layout === 'table' ? sorted : layout === 'kanban' ? board.flatMap((c) => c.instances) : scoped;
+    void api.export.csv(viewToCsv(visibleColumns, rows));
   }
 
   /** Save-view confirmation (#1072) — same "flash the button label" pattern
@@ -326,6 +329,7 @@
           </div>
         {/if}
         <button class="tv-btn" onclick={copyAsMarkdown}>{markdownCopied ? 'Copied' : 'Copy as markdown'}</button>
+        <button class="tv-btn" onclick={exportCsv} title="Save the notes this view shows, with their properties, as a CSV file">Export CSV</button>
         {#if onSaveView}
           <button class="tv-btn" onclick={handleSaveViewClick} title="Save this view as a note, with the view embedded live">{viewSaved ? 'Saved' : 'Save as note'}</button>
         {/if}

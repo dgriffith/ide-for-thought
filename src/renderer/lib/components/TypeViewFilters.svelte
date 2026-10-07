@@ -14,6 +14,7 @@
   import { tick } from 'svelte';
   import type { PropertyDef, TypeInstanceRow } from '../../../shared/objects/type-def';
   import { isValuesFilter, type ViewFilter } from '../../../shared/objects/view-spec';
+  import { isDateType } from '../../../shared/objects/date-values';
 
   interface Props {
     /** The type's (effective) properties. */
@@ -28,7 +29,9 @@
   let { properties, instances, filters, display, onChange }: Props = $props();
 
   const filterable = $derived(properties.filter((p) => p.type !== 'geo'));
-  const isRange = (p: PropertyDef) => p.type === 'number' || p.type === 'date';
+  const isRange = (p: PropertyDef) => p.type === 'number' || isDateType(p.type);
+  /** What a bound looks like: a date may be as coarse as a year (`1969`). */
+  const boundPlaceholder = (p: PropertyDef) => (p.type === 'date' ? 'YYYY-MM-DD' : p.type === 'datetime' ? 'YYYY-MM-DDTHH:mm' : '');
 
   let open = $state(false);
   let editing = $state<string | null>(null);
@@ -91,7 +94,7 @@
     const min = f.min ?? null;
     const max = f.max ?? null;
     if (min !== null && max !== null) return `${min} – ${max}`;
-    if (prop?.type === 'date') return min !== null ? `from ${min}` : `until ${max}`;
+    if (isDateType(prop?.type)) return min !== null ? `from ${min}` : `until ${max}`;
     return min !== null ? `≥ ${min}` : `≤ ${max}`;
   }
 
@@ -148,10 +151,10 @@
               {@const range = f && !isValuesFilter(f) ? f : null}
               <div class="tv-filter-range">
                 <label>Min
-                  <input type={prop.type === 'number' ? 'number' : 'text'} placeholder={prop.type === 'date' ? 'YYYY-MM-DD' : ''} value={range?.min ?? ''} onchange={(e) => setBound(prop.name, 'min', e.currentTarget.value)} />
+                  <input type={prop.type === 'number' ? 'number' : 'text'} placeholder={boundPlaceholder(prop)} value={range?.min ?? ''} onchange={(e) => setBound(prop.name, 'min', e.currentTarget.value)} />
                 </label>
                 <label>Max
-                  <input type={prop.type === 'number' ? 'number' : 'text'} placeholder={prop.type === 'date' ? 'YYYY-MM-DD' : ''} value={range?.max ?? ''} onchange={(e) => setBound(prop.name, 'max', e.currentTarget.value)} />
+                  <input type={prop.type === 'number' ? 'number' : 'text'} placeholder={boundPlaceholder(prop)} value={range?.max ?? ''} onchange={(e) => setBound(prop.name, 'max', e.currentTarget.value)} />
                 </label>
               </div>
             {:else}

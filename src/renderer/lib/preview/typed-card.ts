@@ -39,7 +39,8 @@ export function buildObjectCardHtml(rb: NoteTypedProperties, opts: { title: stri
     ? `<span class="oc-cover"><img src="${escapeAttr(cover)}" alt="" loading="lazy" /></span>`
     : `<span class="oc-cover oc-cover-icon"${color ? ` style="color:${escapeAttr(color)}"` : ''}>${escapeHtml(icon)}</span>`;
 
-  // A link value reads as its note's name, plain text as written (#2612).
+  // A link value reads as its note's name, plain text as written (#2612), a
+  // datetime locale-formatted (#2613) — as in a type view.
   const typeOf = new Map(rb.properties.map((p) => [p.name, p.type]));
   const chips = fields
     .filter((f) => f.value !== null && f.value !== '')

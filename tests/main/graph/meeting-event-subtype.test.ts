@@ -71,7 +71,9 @@ describe('the stock Meeting type (#2612)', () => {
     const byId = new Map(cat.types.map((t) => [t.id, t]));
     const eff = effectivePropertyDefs('meeting', byId);
     expect(eff.map((p) => p.name)).toEqual(['date', 'end', 'location', 'attendees', 'organizer']);
-    expect(eff.find((p) => p.name === 'date')).toMatchObject({ type: 'date' });
+    // Event's date and end are datetime since #2613, so Meeting's are too.
+    expect(eff.find((p) => p.name === 'date')).toMatchObject({ type: 'datetime' });
+    expect(eff.find((p) => p.name === 'end')).toMatchObject({ type: 'datetime' });
     expect(eff.find((p) => p.name === 'location')).toMatchObject({ type: 'link-to-type', targetType: 'place' });
     expect(eff.find((p) => p.name === 'attendees')).toMatchObject({ type: 'link-to-type', targetType: 'person' });
     expect(eff.find((p) => p.name === 'organizer')).toMatchObject({ type: 'link-to-type', targetType: 'person' });
@@ -128,6 +130,15 @@ describe('Meeting in the graph (#2612)', () => {
     await indexAllNotes(ctx);
     const found = await rows(`SELECT (DATATYPE(?d) AS ?dt) WHERE { ?m dc:title "Standup" ; ?p ?d . FILTER(isLiteral(?d) && STR(?d) = "2026-06") }`);
     expect(found.map((r) => r.dt)).toContain('http://www.w3.org/2001/XMLSchema#gYearMonth');
+  });
+
+  it("a meeting's inherited date and end take a time, typed xsd:dateTime (#2613)", async () => {
+    write('Standup.md', `---\ntitle: Standup\ntype: meeting\ndate: 2026-06-02T09:30\nend: 2026-06-02T09:45+02:00\n---\n`);
+    await indexAllNotes(ctx);
+    const found = await rows(`SELECT ?d WHERE { ?m dc:title "Standup" ; ?p ?d . FILTER(isLiteral(?d) && DATATYPE(?d) = xsd:dateTime) }`);
+    const lexicals = found.map((r) => r.d); // also holds the note's own file-modified time
+    expect(lexicals).toContain('2026-06-02T09:30:00');
+    expect(lexicals).toContain('2026-06-02T09:45:00+02:00');
   });
 
   it("an organizer link still resolves to the Person, under its role predicate", async () => {

@@ -90,6 +90,84 @@ describe('typed properties: datatype coercion (#1063)', () => {
   });
 });
 
+describe('typed properties: date and datetime literals (#2613)', () => {
+  const TYPE = '---\nlabel: Happening\nid: happening\nproperties:\n  - name: when\n    type: datetime\n  - name: day\n    type: date\n---\n';
+  const note = (title: string, fm: string) => writeNote(`${title}.md`, `---\ntitle: ${title}\ntype: happening\n${fm}\n---\n`);
+
+  async function literalOf(title: string, key: string): Promise<{ v?: string; dt?: string }> {
+    const { results } = await queryGraph(
+      ctx,
+      `SELECT ?v (DATATYPE(?v) AS ?dt) WHERE { ?n dc:title "${title}" ; minerva:meta-${key} ?v }`,
+    );
+    return (results as Array<{ v?: string; dt?: string }>)[0] ?? {};
+  }
+
+  it.each([
+    ['when: 2026-10-05T14:30', 'when', '2026-10-05T14:30:00', 'dateTime'],
+    ['when: 2026-10-05T14:30:15+02:00', 'when', '2026-10-05T14:30:15+02:00', 'dateTime'],
+    ['when: 2026-10-05T14:30Z', 'when', '2026-10-05T14:30:00Z', 'dateTime'],
+    ['when: 2026-10-05', 'when', '2026-10-05', 'date'],
+    ['when: 2026-10', 'when', '2026-10', 'gYearMonth'],
+    ['when: 1969', 'when', '1969', 'gYear'],
+    ['when: -0043', 'when', '-0043', 'gYear'], // YAML reads -0043 as the number -43
+    ['when: 44', 'when', '0044', 'gYear'],
+    ['when: "-0043-03-15"', 'when', '-0043-03-15', 'date'],
+    ['when: "+12026-01-01"', 'when', '12026-01-01', 'date'],
+    ['day: -0043', 'day', '-0043', 'gYear'], // the four-digit-year gap closed for `date` too
+    ['day: "-0043-03-15"', 'day', '-0043-03-15', 'date'],
+    ['day: 2026-10-05T14:30', 'day', '2026-10-05T14:30:00', 'dateTime'],
+  ])('%s → "%s"^^xsd:%s', async (fm, key, lexical, datatype) => {
+    writeNote('.minerva/types/happening.md', TYPE);
+    note('A', fm);
+    await indexAllNotes(ctx);
+    const lit = await literalOf('A', key);
+    expect(lit.v).toBe(lexical);
+    expect(lit.dt).toBe(`http://www.w3.org/2001/XMLSchema#${datatype}`);
+  });
+
+  it('a value that isn\'t a date stays a plain string', async () => {
+    writeNote('.minerva/types/happening.md', TYPE);
+    note('A', 'when: next tuesday');
+    note('B', 'day: 1969-02-30');
+    await indexAllNotes(ctx);
+    expect((await literalOf('A', 'when')).dt).toMatch(/#string$/);
+    expect((await literalOf('B', 'day')).dt).toMatch(/#string$/);
+  });
+
+  it('answers a SPARQL range query over datetime values, across offsets and a date-only value', async () => {
+    writeNote('.minerva/types/happening.md', TYPE);
+    note('Breakfast', 'when: 2026-10-05T08:00Z');
+    note('Standup', 'when: 2026-10-05T11:30+02:00'); // 09:30Z
+    note('Lunch', 'when: 2026-10-05T12:00Z');
+    note('Dinner', 'when: 2026-10-05T14:30-05:00'); // 19:30Z
+    note('Allday', 'when: 2026-10-06');
+    await indexAllNotes(ctx);
+    const { results } = await queryGraph(ctx, `
+      SELECT ?title WHERE {
+        ?n a types:Happening ; dc:title ?title ; minerva:meta-when ?w .
+        FILTER(DATATYPE(?w) = xsd:dateTime && ?w >= "2026-10-05T09:00:00Z"^^xsd:dateTime && ?w < "2026-10-05T20:00:00Z"^^xsd:dateTime)
+      } ORDER BY ?w`);
+    expect((results as Array<{ title: string }>).map((r) => r.title)).toEqual(['Standup', 'Lunch', 'Dinner']);
+
+    const { results: days } = await queryGraph(ctx, `
+      SELECT ?title WHERE {
+        ?n a types:Happening ; dc:title ?title ; minerva:meta-when ?w .
+        FILTER(DATATYPE(?w) = xsd:date && ?w > "2026-10-05"^^xsd:date)
+      }`);
+    expect((days as Array<{ title: string }>).map((r) => r.title)).toEqual(['Allday']);
+  });
+
+  it('a floating (offset-free) time compares in a range query once its seconds are written', async () => {
+    writeNote('.minerva/types/happening.md', TYPE);
+    note('Early', 'when: 2026-10-05T08:00');
+    note('Late', 'when: 2026-10-05T18:45');
+    await indexAllNotes(ctx);
+    const { results } = await queryGraph(ctx, `
+      SELECT ?title WHERE { ?n dc:title ?title ; minerva:meta-when ?w . FILTER(?w > "2026-10-05T12:00:00"^^xsd:dateTime) }`);
+    expect((results as Array<{ title: string }>).map((r) => r.title)).toEqual(['Late']);
+  });
+});
+
 describe('typed properties: read-back (#1063)', () => {
   it('returns every declared property, incl. declared-but-empty, with values', async () => {
     writeNote('Dune.md', `---\ntitle: Dune\ntype: book\nauthor: Frank Herbert\nrating: 5\n---\n`);

@@ -424,6 +424,71 @@ describe('PropertiesPanel — declared type fields', () => {
     expect(lastRewrite(onContentChange)).toContain('\nowned: true\n');
   });
 
+  describe('a declared datetime (#2613)', () => {
+    const EVENT_SCHEMA = {
+      type: { id: 'event', label: 'Event', classLocalName: 'Event', source: 'stock', icon: '📅', properties: [] },
+      properties: [{ name: 'date', type: 'datetime', label: 'Date', value: null }],
+    };
+    const eventProps = (date: string, over: Record<string, unknown> = {}) =>
+      typedProps({ content: ['---', 'type: event', `date: ${date}`, '---', '# Talk', ''].join('\n'), ...over });
+    const field = () => screen.getByText('Date').parentElement!.querySelector<HTMLInputElement>('input[type="text"]')!;
+
+    beforeEach(() => { h.api.types.noteProperties.mockResolvedValue(EVENT_SCHEMA); });
+
+    it('is a typed text field showing the value as written', async () => {
+      render(PropertiesPanel, eventProps('2026-10-05T14:30'));
+      await waitFor(() => expect(screen.getByText('Date')).toBeTruthy());
+      expect(field().value).toBe('2026-10-05T14:30');
+      expect(field().getAttribute('placeholder')).toBe('YYYY-MM-DDTHH:mm');
+      expect(field().getAttribute('aria-invalid')).toBeNull();
+    });
+
+    it('shows a partial or date-only value as written, not as a timestamp', async () => {
+      render(PropertiesPanel, eventProps('1969'));
+      await waitFor(() => expect(screen.getByText('Date')).toBeTruthy());
+      expect(field().value).toBe('1969');
+      cleanup();
+      render(PropertiesPanel, eventProps('2026-10-05'));
+      await waitFor(() => expect(screen.getByText('Date')).toBeTruthy());
+      expect(field().value).toBe('2026-10-05');
+    });
+
+    it('writes typed values back as written: a time, a date, a bare year', async () => {
+      const onContentChange = vi.fn();
+      render(PropertiesPanel, eventProps('2026-10-05', { onContentChange }));
+      await waitFor(() => expect(screen.getByText('Date')).toBeTruthy());
+
+      await fireEvent.change(field(), { target: { value: ' 2026-10-05T09:15 ' } });
+      expect(lastRewrite(onContentChange)).toMatch(/\ndate: 2026-10-05T09:15\n/);
+
+      await fireEvent.change(field(), { target: { value: '1969' } });
+      const next = lastRewrite(onContentChange);
+      expect(next).toMatch(/\ndate: ["']?1969["']?\n/); // still 1969, never 1969-01-01T00:00
+      expect(next).not.toMatch(/1969-/);
+      expect(next).toContain('# Talk');
+    });
+
+    it('marks a value it can\'t read as invalid, without rewriting it', async () => {
+      const onContentChange = vi.fn();
+      render(PropertiesPanel, eventProps('next tuesday', { onContentChange }));
+      await waitFor(() => expect(screen.getByText('Date')).toBeTruthy());
+      expect(field().value).toBe('next tuesday');
+      expect(field().getAttribute('aria-invalid')).toBe('true');
+      expect(onContentChange).not.toHaveBeenCalled();
+    });
+
+    it('commits the picker\'s value as a floating local time', async () => {
+      const onContentChange = vi.fn();
+      render(PropertiesPanel, eventProps('2026-10-05T14:30', { onContentChange }));
+      await waitFor(() => expect(screen.getByText('Date')).toBeTruthy());
+      const picker = screen.getByText('Date').parentElement!.querySelector<HTMLInputElement>('input[type="datetime-local"]')!;
+      expect(picker.value).toBe('2026-10-05T14:30');
+      expect(screen.getByRole('button', { name: 'Pick Date' })).toBeTruthy();
+      await fireEvent.change(picker, { target: { value: '2026-10-07T08:00' } });
+      expect(lastRewrite(onContentChange)).toMatch(/\ndate: 2026-10-07T08:00\n/);
+    });
+  });
+
   it('keeps the rich editor for a declared property holding a list', async () => {
     // A declared `text` property whose actual value is a YAML list must not be
     // flattened into a single-line input on the next commit.

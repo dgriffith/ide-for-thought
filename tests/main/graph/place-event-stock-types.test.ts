@@ -108,6 +108,34 @@ describe('a `type: event` note links to Place and multiple Person attendees (#20
   });
 });
 
+describe('Event\'s date and end are datetime (#2613)', () => {
+  it('declares both as datetime', async () => {
+    const event = (await loadTypeCatalog(root)).types.find((t) => t.id === 'event')!;
+    expect(event.properties.find((p) => p.name === 'date')?.type).toBe('datetime');
+    expect(event.properties.find((p) => p.name === 'end')?.type).toBe('datetime');
+  });
+
+  it('types a timed event xsd:dateTime, and keeps date-only and partial values valid', async () => {
+    writeNote('Talk.md', `---\ntitle: Talk\ntype: event\ndate: 2026-10-05T14:30\nend: 2026-10-05T15:15\n---\n`);
+    writeNote('Launch Party.md', `---\ntitle: Launch Party\ntype: event\ndate: 2026-06-01\n---\n`);
+    writeNote('Moon.md', `---\ntitle: Moon\ntype: event\ndate: 1969-07\nend: 1969\n---\n`);
+    await indexAllNotes(ctx);
+    const value = async (path: string, name: string) =>
+      (await getNoteTypedProperties(ctx, path)).properties.find((p) => p.name === name)?.value;
+    expect(await value('Talk.md', 'date')).toBe('2026-10-05T14:30:00');
+    expect(await value('Talk.md', 'end')).toBe('2026-10-05T15:15:00');
+    expect(await value('Launch Party.md', 'date')).toBe('2026-06-01');
+    expect(await value('Moon.md', 'date')).toBe('1969-07');
+    expect(await value('Moon.md', 'end')).toBe('1969');
+
+    const { results } = await queryGraph(ctx, `
+      SELECT ?title (DATATYPE(?d) AS ?dt) WHERE { ?e a types:Event ; dc:title ?title ; dc:issued ?d } ORDER BY ?title`);
+    expect((results as Array<{ title: string; dt: string }>).map((r) => [r.title, r.dt.split('#')[1]])).toEqual([
+      ['Launch Party', 'date'], ['Moon', 'gYearMonth'], ['Talk', 'dateTime'],
+    ]);
+  });
+});
+
 describe('materializes types:Place and types:Event as rdfs:Class (#2065)', () => {
   it('both classes carry a typeId, alongside the original six', async () => {
     await indexAllNotes(ctx);

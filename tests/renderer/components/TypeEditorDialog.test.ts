@@ -128,6 +128,23 @@ describe('TypeEditorDialog (#1585)', () => {
     ]);
   });
 
+  it('offers datetime in the type picker, and round-trips a datetime property (#2613)', async () => {
+    render(TypeEditorDialog, {
+      initial: { id: 'event', label: 'Event', properties: [{ name: 'date', type: 'datetime' }, { name: 'end', type: 'datetime' }, { name: 'day', type: 'date' }] },
+      onSaved: vi.fn(), onClose: vi.fn(),
+    });
+    await waitFor(() => expect(screen.getByDisplayValue('Event')).toBeTruthy());
+    const pickers = [...document.querySelectorAll<HTMLSelectElement>('select.p-type')];
+    // datetime sits beside date in the picker.
+    expect([...pickers[0]!.options].map((o) => o.value)).toEqual(['text', 'date', 'datetime', 'number', 'enum', 'link-to-type', 'geo', 'boolean']);
+    expect(pickers.map((p) => p.value)).toEqual(['datetime', 'datetime', 'date']);
+    await fireEvent.click(screen.getByText('Save'));
+    await waitFor(() => expect(saveMock).toHaveBeenCalled());
+    expect(saveMock.mock.calls[0]![0].properties).toEqual([
+      { name: 'date', type: 'datetime' }, { name: 'end', type: 'datetime' }, { name: 'day', type: 'date' },
+    ]);
+  });
+
   it('reorders properties', async () => {
     render(TypeEditorDialog, {
       initial: { label: 'T', properties: [{ name: 'first', type: 'text' }, { name: 'second', type: 'text' }] },

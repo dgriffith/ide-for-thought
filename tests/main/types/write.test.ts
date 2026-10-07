@@ -30,6 +30,14 @@ describe('serializeTypeFile (#save-as-type)', () => {
     expect(byName.get('status')).toMatchObject({ type: 'enum', options: ['reading', 'read'] });
   });
 
+  it('round-trips a datetime property beside a date one (#2613)', () => {
+    const content = serializeTypeFile('gig', { label: 'Gig', properties: [{ name: 'starts', type: 'datetime' }, { name: 'day', type: 'date' }] });
+    expect(content).toContain('type: datetime');
+    const r = parseType(content, 'user', '/x/gig.md');
+    expect(r.errors).toEqual([]);
+    expect(r.type?.properties.map((p) => [p.name, p.type])).toEqual([['starts', 'datetime'], ['day', 'date']]);
+  });
+
   it('carries icon/color/cover/card + a template body through the round-trip (#1584)', () => {
     const content = serializeTypeFile('book', {
       label: 'Book', properties: PROPS, icon: '📖', color: '#89b4fa', cover: 'author', card: ['rating'],
