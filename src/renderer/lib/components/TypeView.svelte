@@ -20,6 +20,7 @@
   import TypeIcon from './TypeIcon.svelte';
   import TypeViewMap from './TypeViewMap.svelte';
   import TypeViewKanban from './TypeViewKanban.svelte';
+  import TypeViewTimeline from './TypeViewTimeline.svelte';
   import TypeViewLayoutSwitch from './TypeViewLayoutSwitch.svelte';
   import TypeViewFilters from './TypeViewFilters.svelte';
   import type { MapExportHooks } from '../map/map-export';
@@ -28,7 +29,7 @@
   import { buildViewEmbed } from '../../../shared/objects/view-note';
   import { comparePropertyValues, viewToCsv } from '../../../shared/objects/view-values';
   import { boardColumns, groupByForSpec, moveColumn, resolveGroupBy } from '../../../shared/objects/kanban';
-  import { timelineSpecForType } from '../../../shared/objects/timeline';
+  import { canShowTimeline, timelineSpecForType } from '../../../shared/objects/timeline';
   import { objectTypesStore } from '../stores/object-types.svelte';
   import { effectivePropertyDefs } from '../../../shared/objects/inheritance';
   import { displayPropertyValue } from '../../../shared/objects/property-display';
@@ -88,13 +89,14 @@
     showEmptyColumns?: boolean;
     /** Kanban only: draw the board for an export (#2604) — its columns wrap. */
     kanbanExport?: boolean;
+    timelineExport?: boolean; // Timeline only: draw for an export, #2609's hook (`TypeViewTimeline`).
     /** Timeline's visible range (#2607, `timeline.ts`); null on both = fit all. */
     from?: string | null; to?: string | null;
     /** Bulk-edit the selected notes' properties (#2431). Absent (an embed, an
      *  export) → rows don't multi-select; a click just opens the note. */
     onEditProperties?: (paths: string[]) => void;
   }
-  let { typeId, layout, sortColumn, sortDir, columns, revision, onStateChange, onOpenNote, onSaveView, chromeless = false, onLoaded, mapExport, folder = null, filters = [], onClearFolder, mapStyle = 'auto', groupBy = null, columnOrder = [], showEmptyColumns = true, kanbanExport = false, from = null, to = null, onEditProperties }: Props = $props();
+  let { typeId, layout, sortColumn, sortDir, columns, revision, onStateChange, onOpenNote, onSaveView, chromeless = false, onLoaded, mapExport, folder = null, filters = [], onClearFolder, mapStyle = 'auto', groupBy = null, columnOrder = [], showEmptyColumns = true, kanbanExport = false, timelineExport = false, from = null, to = null, onEditProperties }: Props = $props();
 
   let type = $state<TypeInfo | null>(null);
   let instances = $state<TypeInstanceRow[]>([]);
@@ -333,7 +335,7 @@
         {#if onSaveView}
           <button class="tv-btn" onclick={handleSaveViewClick} title="Save this view as a note, with the view embedded live">{viewSaved ? 'Saved' : 'Save as note'}</button>
         {/if}
-        <TypeViewLayoutSwitch layout={shown} properties={allColumns} {groupBy} {showEmptyColumns} {onStateChange} />
+        <TypeViewLayoutSwitch layout={shown} properties={allColumns} timeline={canShowTimeline(typeId, type ? [...objectTypesStore.types, type] : objectTypesStore.types)} {groupBy} {showEmptyColumns} {onStateChange} />
       </div>
     </header>
   {/if}
@@ -346,8 +348,9 @@
     <p class="tv-empty">No {type.label.toLowerCase()} instances yet.</p>
   {:else if scoped.length === 0}
     <p class="tv-empty">{emptyScopedMessage(type.label)}</p>
-  {:else if shown === 'list' || shown === 'timeline'}
-    <!-- #2608 draws the timeline; until then a `timeline` spec (Event types only) shows the list. -->
+  {:else if shown === 'timeline'}
+    <TypeViewTimeline {type} properties={allColumns} instances={scoped} {filters} from={timelineSpec.from} to={timelineSpec.to} {display} {rowType} {onOpenNote} onStateChange={(p) => onStateChange(p)} readOnly={chromeless} exportMode={timelineExport} />
+  {:else if shown === 'list'}
     <div class="tv-list">
       {#each scoped as inst (inst.path)}
         {@const rt = rowType(inst)}

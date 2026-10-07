@@ -62,7 +62,7 @@ describe('renderObjectViewForExport', () => {
     expect(html).not.toContain('tabindex');
   });
 
-  it('a timeline spec exports without crashing: an Event view as the interim list, another type as its default layout (#2607)', async () => {
+  it('a timeline spec exports without crashing: an Event view as its drawing, linked and with no tab stops (#2608; #2609 owns the real export), another type as its default layout (#2607)', async () => {
     const EVENT = {
       id: 'event', label: 'Event', classLocalName: 'Event', icon: '📅', source: 'stock' as const,
       properties: [{ name: 'date', type: 'date' as const }, { name: 'end', type: 'date' as const }],
@@ -72,8 +72,10 @@ describe('renderObjectViewForExport', () => {
       { path: 'e/Moon.md', title: 'Moon landing', values: { date: '1969-07-20', end: null }, cover: null },
     ] });
     const html = await renderObjectViewForExport(JSON.stringify({ typeId: 'event', layout: 'timeline', from: '1960', to: '1975' }));
-    expect(html).toContain('tv-list');
+    expect(html).toContain('tl-plot');
+    expect(html).not.toContain('tl-toolbar');
     expect(html).toContain('data-note-link="e/Moon.md"');
+    expect(html).not.toContain('tabindex');
     instancesMock.mockResolvedValue({ type: TYPE, instances: INSTANCES });
     const place = await renderObjectViewForExport(JSON.stringify({ typeId: 'place', layout: 'timeline', from: '1960' }));
     expect(place).toContain('tv-table');

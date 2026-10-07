@@ -195,6 +195,9 @@ importers:
       cytoscape:
         specifier: ^3.34.3
         version: 3.34.3
+      d3-time:
+        specifier: 3.1.0
+        version: 3.1.0
       date-fns:
         specifier: ^4.4.0
         version: 4.4.0
@@ -313,6 +316,9 @@ importers:
       '@types/chrome':
         specifier: ^0.3.4
         version: 0.3.4
+      '@types/d3-time':
+        specifier: 3.0.4
+        version: 3.0.4
       '@types/markdown-it':
         specifier: ^14.2.0
         version: 14.2.0

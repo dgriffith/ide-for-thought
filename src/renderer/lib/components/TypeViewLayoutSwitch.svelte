@@ -9,6 +9,9 @@
    *   not a menu item that's always present but broken for Book/Person/etc.
    * - **Kanban** only for a type with an enum property (`canShowKanban`,
    *   #2601), since a board's columns are an enum's options.
+   * - **Timeline** only for Event and its subtypes (`canShowTimeline`,
+   *   `shared/objects/timeline.ts`, #2608) — the host judges it, since it needs
+   *   the type catalog, not just the properties.
    *
    * The Group by picker lists the type's enum properties and appears only when
    * there is a choice to make (more than one). A pick goes through
@@ -29,13 +32,15 @@
     layout: Layout;
     /** The type's effective properties. */
     properties: PropertyDef[];
+    /** The type is Event or a subtype (`canShowTimeline`). */
+    timeline?: boolean;
     /** The view's `groupBy` (null = the first enum). */
     groupBy: string | null;
     /** The view's Show empty columns (#2614). */
     showEmptyColumns: boolean;
     onStateChange: (patch: { layout?: Layout; groupBy?: string | null; columnOrder?: string[]; showEmptyColumns?: boolean }) => void;
   }
-  let { layout, properties, groupBy, showEmptyColumns, onStateChange }: Props = $props();
+  let { layout, properties, timeline = false, groupBy, showEmptyColumns, onStateChange }: Props = $props();
 
   const LAYOUTS = $derived<{ id: Layout; label: string }[]>([
     { id: 'list', label: 'List' },
@@ -43,9 +48,7 @@
     { id: 'gallery', label: 'Gallery' },
     ...(properties.some((p) => p.type === 'geo') ? [{ id: 'map' as const, label: 'Map' }] : []),
     ...(canShowKanban(properties) ? [{ id: 'kanban' as const, label: 'Kanban' }] : []),
-    // Timeline joins here with the drawing (#2608), gated on `canShowTimeline`
-    // (Event and its subtypes, `shared/objects/timeline.ts`). Until then a spec
-    // that already says `timeline` shows the list, and no tab is selected.
+    ...(timeline ? [{ id: 'timeline' as const, label: 'Timeline' }] : []),
   ]);
   const groupChoices = $derived(enumProperties(properties));
   const grouped = $derived(resolveGroupBy(groupBy, properties));

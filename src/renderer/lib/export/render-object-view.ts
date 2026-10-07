@@ -85,6 +85,8 @@ export async function renderObjectViewForExport(source: string): Promise<string>
           onLoaded: () => resolve(),
           // A board wraps its columns within the page (#2604).
           ...(spec.layout === 'kanban' ? { kanbanExport: true } : {}),
+          // A timeline draws without controls or tab stops; #2609 makes it a real export.
+          ...(spec.layout === 'timeline' ? { timelineExport: true } : {}),
           ...(spec.layout === 'map' ? { mapExport: { onCaptured: (c: MapCapture) => resolveCapture(c) } } : {}),
         },
       });

@@ -519,7 +519,7 @@ describe('multi-select + Edit properties (#2431)', () => {
   });
 });
 
-describe('timeline layout before #2608 draws it (#2607)', () => {
+describe('timeline layout (#2607, #2608)', () => {
   const EVENT = {
     id: 'event', label: 'Event', classLocalName: 'Event', icon: '📅', source: 'stock' as const,
     properties: [
@@ -529,6 +529,7 @@ describe('timeline layout before #2608 draws it (#2607)', () => {
     ],
   };
   const CONFERENCE = { id: 'conference', label: 'Conference', classLocalName: 'Conference', icon: '🎤', parent: 'event', source: 'user' as const, properties: [] };
+  const MEETING = { id: 'meeting', label: 'Meeting', classLocalName: 'Meeting', icon: '🗓️', parent: 'event', source: 'stock' as const, properties: [{ name: 'organizer', type: 'text' as const }] };
   const EVENTS = [
     { path: 'moon.md', title: 'Moon landing', values: { date: '1969-07-20', end: null, location: null }, cover: null },
     { path: 'war.md', title: 'Thirty Years War', values: { date: '1618', end: '1648', location: null }, cover: null },
@@ -537,42 +538,77 @@ describe('timeline layout before #2608 draws it (#2607)', () => {
   beforeEach(async () => {
     writeText = vi.fn();
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
-    await seedTypes({}, [TYPE, EVENT, CONFERENCE]);
+    await seedTypes({}, [TYPE, EVENT, CONFERENCE, MEETING]);
   });
   const copied = async () => {
     await fireEvent.click(screen.getByText('Copy as markdown'));
     const md = writeText.mock.calls.at(-1)![0] as string;
     return { md, spec: parseObjectViewSpec(md.replace(/^```object-view\n/, '').replace(/\n```\n$/, '')) };
   };
-  const listTitles = (root: HTMLElement) => [...root.querySelectorAll('.tv-list-title')].map((e) => e.textContent);
+  const drawn = (root: HTMLElement) => [...root.querySelectorAll<SVGGElement>('[data-timeline-event]')].map((e) => e.dataset['notePath']);
+  const tabs = () => screen.getAllByRole('tab').map((t) => t.textContent);
 
-  it('is not in the layout switcher yet, even for Event', async () => {
+  it('the switcher offers Timeline for Event and its subtypes only', async () => {
     instancesMock.mockResolvedValue({ type: EVENT, instances: EVENTS });
     render(TypeView, props({ typeId: 'event', layout: 'list' }));
     await screen.findByText('Moon landing');
-    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['List', 'Table', 'Gallery']);
+    expect(tabs()).toEqual(['List', 'Table', 'Gallery', 'Timeline']);
+    cleanup();
+    instancesMock.mockResolvedValue({ type: MEETING, instances: EVENTS });
+    render(TypeView, props({ typeId: 'meeting', layout: 'list' }));
+    await screen.findByText('Moon landing');
+    expect(tabs()).toContain('Timeline');
+    cleanup();
+    instancesMock.mockResolvedValue({ type: CONFERENCE, instances: EVENTS });
+    render(TypeView, props({ typeId: 'conference', layout: 'list' }));
+    await screen.findByText('Moon landing');
+    expect(tabs()).toContain('Timeline');
+    cleanup();
+    instancesMock.mockResolvedValue({ type: TYPE, instances: INSTANCES });
+    render(TypeView, props({ typeId: 'book', layout: 'list' }));
+    await screen.findByText('Dune');
+    expect(tabs()).not.toContain('Timeline');
   });
 
-  it('an Event spec that already says timeline shows the list, in the panel and in an embed', async () => {
+  it('picking Timeline asks the host for it', async () => {
     instancesMock.mockResolvedValue({ type: EVENT, instances: EVENTS });
-    const panel = render(TypeView, props({ typeId: 'event', layout: 'timeline', from: '1960', to: '1975' }));
+    const onStateChange = vi.fn();
+    render(TypeView, props({ typeId: 'event', layout: 'list', onStateChange }));
     await screen.findByText('Moon landing');
-    expect(listTitles(panel.container)).toEqual(['Moon landing', 'Thirty Years War']);
-    expect(screen.getAllByRole('tab').every((t) => t.getAttribute('aria-selected') === 'false')).toBe(true);
+    await fireEvent.click(screen.getByRole('tab', { name: 'Timeline' }));
+    expect(onStateChange).toHaveBeenCalledWith({ layout: 'timeline' });
+  });
+
+  it('an Event spec that says timeline draws the timeline, in the panel and (read-only) in an embed', async () => {
+    instancesMock.mockResolvedValue({ type: EVENT, instances: EVENTS });
+    const panel = render(TypeView, props({ typeId: 'event', layout: 'timeline', from: '1600', to: '1975' }));
+    await waitFor(() => expect(drawn(panel.container)).toEqual(['moon.md', 'war.md']));
+    expect(screen.getByRole('tab', { name: 'Timeline' }).getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByRole('button', { name: 'Fit' })).toBeTruthy();
     cleanup();
     const embed = render(TypeView, props({ typeId: 'event', layout: 'timeline', chromeless: true }));
-    await screen.findByText('Moon landing');
-    expect(listTitles(embed.container)).toEqual(['Moon landing', 'Thirty Years War']);
+    await waitFor(() => expect(drawn(embed.container)).toEqual(['moon.md', 'war.md']));
+    expect(screen.queryByRole('button', { name: 'Fit' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Zoom in' })).toBeNull();
+  });
+
+  it('a range filter on the date applies to the timeline, and zooming writes from/to through onStateChange', async () => {
+    instancesMock.mockResolvedValue({ type: EVENT, instances: EVENTS });
+    const onStateChange = vi.fn();
+    const { container } = render(TypeView, props({ typeId: 'event', layout: 'timeline', filters: [{ property: 'date', min: '1900', max: null }], onStateChange }));
+    await waitFor(() => expect(drawn(container)).toEqual(['moon.md']));
+    await fireEvent.click(screen.getByRole('button', { name: 'Zoom in' }));
+    await waitFor(() => expect(onStateChange).toHaveBeenCalledWith({ from: expect.any(String), to: expect.any(String) }));
   });
 
   it('Copy as markdown keeps a timeline and its range for Event, and omits fit all', async () => {
     instancesMock.mockResolvedValue({ type: EVENT, instances: EVENTS });
     render(TypeView, props({ typeId: 'event', layout: 'timeline', from: '-0043', to: '1975-06' }));
-    await screen.findByText('Moon landing');
+    await screen.findByText('Copy as markdown');
     expect((await copied()).spec).toMatchObject({ typeId: 'event', layout: 'timeline', from: '-0043', to: '1975-06' });
     cleanup();
     render(TypeView, props({ typeId: 'event', layout: 'timeline' }));
-    await screen.findByText('Moon landing');
+    await screen.findByText('Copy as markdown');
     const { md, spec } = await copied();
     expect(md).not.toContain('"from"');
     expect(md).not.toContain('"to"');
@@ -582,8 +618,7 @@ describe('timeline layout before #2608 draws it (#2607)', () => {
   it('a user subtype of Event keeps its timeline too', async () => {
     instancesMock.mockResolvedValue({ type: CONFERENCE, instances: EVENTS });
     const { container } = render(TypeView, props({ typeId: 'conference', layout: 'timeline', from: '1960' }));
-    await screen.findByText('Moon landing');
-    expect(listTitles(container)).toEqual(['Moon landing', 'Thirty Years War']);
+    await waitFor(() => expect(drawn(container)).toEqual(['moon.md', 'war.md']));
     expect((await copied()).spec).toMatchObject({ typeId: 'conference', layout: 'timeline', from: '1960', to: null });
   });
 
