@@ -83,11 +83,13 @@
     /** Kanban's column order and Show empty columns (#2614, `kanban.ts`). */
     columnOrder?: string[];
     showEmptyColumns?: boolean;
+    /** Kanban only: draw the board for an export (#2604) — its columns wrap. */
+    kanbanExport?: boolean;
     /** Bulk-edit the selected notes' properties (#2431). Absent (an embed, an
      *  export) → rows don't multi-select; a click just opens the note. */
     onEditProperties?: (paths: string[]) => void;
   }
-  let { typeId, layout, sortColumn, sortDir, columns, revision, onStateChange, onOpenNote, onSaveView, chromeless = false, onLoaded, mapExport, folder = null, filters = [], onClearFolder, mapStyle = 'auto', groupBy = null, columnOrder = [], showEmptyColumns = true, onEditProperties }: Props = $props();
+  let { typeId, layout, sortColumn, sortDir, columns, revision, onStateChange, onOpenNote, onSaveView, chromeless = false, onLoaded, mapExport, folder = null, filters = [], onClearFolder, mapStyle = 'auto', groupBy = null, columnOrder = [], showEmptyColumns = true, kanbanExport = false, onEditProperties }: Props = $props();
 
   let type = $state<TypeInfo | null>(null);
   let instances = $state<TypeInstanceRow[]>([]);
@@ -412,6 +414,7 @@
       isSelected={sel.has} onCardClick={sel.click} onCardContextMenu={sel.contextMenu}
       onMove={selectable ? (p, t) => moveTo([p], t) : undefined} onUndoMove={selectable ? () => void moves.undoLastMove() : undefined}
       {...(chromeless ? {} : { onMoveColumn })}
+      exportMode={kanbanExport}
     />
   {:else if locationProperty}
     <TypeViewMap

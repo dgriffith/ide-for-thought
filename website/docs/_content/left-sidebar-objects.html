@@ -1,6 +1,6 @@
 ---
 title: Minerva — Docs — Left sidebar: Objects
-description: The Objects panel — your project browsed by kind rather than by folder, with list, table, gallery, and map views.
+description: The Objects panel — your project browsed by kind rather than by folder, with list, table, gallery, map and Kanban views.
 ---
 
     <h1>Objects</h1>
@@ -12,7 +12,7 @@ description: The Objects panel — your project browsed by kind rather than by f
     <p>Click a type to expand it and see its notes; click again to collapse. Clicking a note opens it in the editor. Each note carries its own icon, which matters when a type has more specific kinds beneath it — a Book that's really a Novel shows the Novel icon while still being counted as a Book.</p>
 
     <h2 id="views">Opening a type as a collection</h2>
-    <p>The ⤢ button on a type row opens all of its notes in the main area, where they're more than a list. There are three ways to look at the same set — four, for a type with a location:</p>
+    <p>The ⤢ button on a type row opens all of its notes in the main area, where they're more than a list. There are three ways to look at the same set, plus a map for a type with a location and a board for a type with a choice field:</p>
 
     <div class="deflist">
       <div class="row">
@@ -31,6 +31,10 @@ description: The Objects panel — your project browsed by kind rather than by f
         <div class="k">Map</div>
         <div class="v">One pin per note, placed by its location. Offered only for a type that has a location field — Place has one, called <i>location</i>, and every kind of place beneath it (a Restaurant, a Hotel) inherits it. See <a href="#map">The map</a> below.</div>
       </div>
+      <div class="row">
+        <div class="k">Kanban</div>
+        <div class="v">A board: one column per choice of a choice field, one card per note, and moving a card to another column changes that field in the note. Offered only for a type with a choice field — Project's <i>status</i> gives you a board of your projects with no setup. See <a href="#kanban">The Kanban board</a> below.</div>
+      </div>
     </div>
 
     <figure class="shot-img"><img src="img/left-sidebar-objects-table.png" alt="A Place view as a table of six places in Prague, with columns for location, city, kind and date visited. The header shows the count &quot;6 of 10&quot;, an &quot;in trip&quot; folder chip, a &quot;City: Prague&quot; filter chip and the Filter button, then Columns, Copy as markdown, Save as note and the List, Table, Gallery and Map tabs." loading="lazy" /><figcaption>Screenshot — the Place table for the trip folder, filtered to Prague</figcaption></figure>
@@ -48,6 +52,57 @@ description: The Objects panel — your project browsed by kind rather than by f
       <span class="label">The background needs a connection</span>
       <p>The pins are your notes, but the streets and coastlines behind them are fetched from the internet as you look. Offline, the map has nothing to draw them on.</p>
     </div>
+
+    <h2 id="kanban">The Kanban board</h2>
+    <p>A board lays a type's notes out in columns by one of its choice fields — a field with a fixed list of choices, an <em>enum</em> in <a href="settings-object-types.html">Settings → Object Types</a>: one column per choice, one card per note. Project's <i>status</i> makes columns for <i>active</i>, <i>paused</i>, <i>done</i> and <i>abandoned</i>, so a board of your projects needs no setup. If the type has more than one choice field, <b>Group by</b> in the view's header picks which one makes the columns.</p>
+    <p>The columns come in the order the type lists its choices, each headed with how many cards it holds. An empty column stays on the board, since it's still somewhere to put a card. A note whose field holds something that isn't one of the choices — <code>status: blocked</code>, typed by hand — gets a column of its own after the type's choices, rather than being hidden. Notes that leave the field empty gather in <b>No value</b>, at the end, which appears only when some note has no value.</p>
+    <p>A card shows the note's icon, its title and the view's visible fields, leaving out the one the columns already show. Within a column, cards follow the view's sort. A filter on the grouping field limits the board to the columns you ticked; a filter on any other field leaves the columns alone and just thins the cards. Click a card to open its note.</p>
+
+    <figure class="shot-img"><img src="img/left-sidebar-objects-kanban.png" alt="A Project view on its Kanban tab: columns headed active (2), paused (1), done (2), abandoned (1) and No value (1), each holding cards with a project's title and the date it started." loading="lazy" /><figcaption>Screenshot — a board of trip projects, grouped by status</figcaption></figure>
+
+    <h3>Moving a card</h3>
+    <p>Drag a card to another column and the note's field changes to that column's choice. Dropping it on <b>No value</b> takes the field out. Only that one line of the note changes, whether or not the note is open; if it's open in a tab with edits you haven't saved, you're asked whether to load the new version, as with any change made outside the editor. A drop back on the card's own column, or <kbd>Esc</kbd> while you're dragging, changes nothing, and finishing a drag never opens the note.</p>
+    <p>Without a pointer, right-click a card (or press <kbd>⇧</kbd><kbd>F10</kbd> on it) and choose <b>Move to ▸</b>. It lists every column, including ones the board isn't showing, with the card's current column greyed out. Select several cards first — <kbd>⌘</kbd>-click or <kbd>⇧</kbd>-click — and it moves them all.</p>
+    <p>Each move is an ordinary save, so it shows up in <a href="right-sidebar-history.html">Local History</a> and can be restored from there like any other edit. While the board has focus, <kbd>⌘</kbd><kbd>Z</kbd> takes back the last move, and the one before it, and so on. If you've edited the note since, only the field is put back; if the field itself has changed again, the note is left alone and Minerva tells you so. <kbd>⌘</kbd><kbd>Z</kbd> on the board never touches the editor's own undo.</p>
+
+    <h3>Arranging the columns</h3>
+    <p>Drag a column's header sideways to put it somewhere else. Each header also has a <b>⋯</b> button (or right-click the header) with <b>Move column left</b> and <b>Move column right</b>. The order belongs to the view, not the type, so it never changes the type's list of choices, and choosing a different <b>Group by</b> starts the order afresh.</p>
+    <p><b>Show empty columns</b>, beside Group by, is on to start with. Turn it off and columns with no cards drop out of sight; <b>Move to ▸</b> still offers them.</p>
+
+    <h3>By keyboard</h3>
+    <p>The whole board is one stop on <kbd>Tab</kbd>, after the layout tabs. From there:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k"><kbd>↑</kbd> <kbd>↓</kbd></div>
+        <div class="v">The card above or below, in the same column. <kbd>↑</kbd> from a column's first card reaches its header's <b>⋯</b> button, and <kbd>↓</kbd> goes back to the cards.</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>←</kbd> <kbd>→</kbd></div>
+        <div class="v">The nearest card in the next column that has any, at the same height or that column's last card. On the header row they go header to header, so an empty column's header can be reached too.</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>Home</kbd> <kbd>End</kbd></div>
+        <div class="v">The column's first or last card.</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>⏎</kbd></div>
+        <div class="v">Opens the card's note — or, on a header's <b>⋯</b> button, its menu.</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>⇧</kbd><kbd>F10</kbd></div>
+        <div class="v">The card's menu (the menu key does the same). <kbd>→</kbd> or <kbd>⏎</kbd> opens <b>Move to ▸</b>, <kbd>↑</kbd> <kbd>↓</kbd> choose a column, <kbd>⏎</kbd> moves the card there, and <kbd>Esc</kbd> closes the menu. Focus stays with the card in its new column.</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>⌘</kbd><kbd>Z</kbd></div>
+        <div class="v">Takes back the last move.</div>
+      </div>
+    </div>
+
+    <p>Moves and column changes are announced to screen readers — <i>Moved Garden Shed to done.</i></p>
+
+    <h3>Saving a board</h3>
+    <p>Group by, the column order and Show empty columns belong to the view, like its sort and filters. They're kept with the tab, and <a href="#saved-views">Save as note</a> (Minerva suggests a name like <i>Project board</i>) and <b>Copy as markdown</b> carry them into the note. A board in a note is for looking at: its cards open their notes, but they don't drag and have no <b>Move to ▸</b>, and the headers have no menus. A web page or PDF exported from the note, and a published site, show the same board read-only, its columns wrapping onto the page and each card a link to its note. <a href="notes-object-views.html#kanban">Object views</a> shows what a saved board looks like in the editor.</p>
 
     <h2 id="folder-views">Just one folder's objects</h2>
     <p>To see only the objects in part of your thoughtbase, right-click a folder in the <a href="left-sidebar-notes-tree.html">Notes tree</a> and choose <b>View Objects</b>. It lists each type found in that folder and everything under it, with how many there are — plus the more general types they belong to, so a folder of restaurants offers both Restaurant and Place. Pick one and its view opens showing only that folder's notes; the tab is named for the folder (<i>Place · trip/prague</i>). The view opens as a table; switch layouts as you like. The <b>in trip/prague ✕</b> chip in the view's header widens it back to the whole thoughtbase. The <a href="left-sidebar-notes-tree.html#root-menu">thoughtbase's own menu</a> — right-click the top row of the Notes tree, or the empty space below it — has <b>View Objects</b> too, covering your whole thoughtbase.</p>

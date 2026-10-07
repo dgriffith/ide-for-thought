@@ -65,6 +65,21 @@ describe('snapshotLiveBlock', () => {
     expect(html).not.toContain('<button');
   });
 
+  it('drops handler-only controls and the attributes that announce a control (#2604)', () => {
+    const themed = document.createElement('div');
+    themed.setAttribute('data-theme', 'light');
+    themed.innerHTML = `
+      <div class="kb-board">
+        <h2 class="kb-col-header" data-draggable=""><span>active</span><span>1</span><button class="kb-col-menu-btn" data-export-omit aria-haspopup="menu" aria-expanded="false">⋯</button></h2>
+        <button class="kb-card" aria-pressed="false" tabindex="0" data-note-path="p/Shed.md">Garden Shed</button>
+      </div>`;
+    document.body.appendChild(themed);
+    const html = snapshotLiveBlock(themed);
+    expect(html).toContain('<h2 class="kb-col-header"><span>active</span><span>1</span></h2>');
+    expect(html).toContain('<a class="kb-card" data-note-link="p/Shed.md">Garden Shed</a>');
+    for (const gone of ['kb-col-menu-btn', 'data-export-omit', 'aria-haspopup', 'aria-expanded', 'aria-pressed', 'data-draggable', 'tabindex']) expect(html).not.toContain(gone);
+  });
+
   it('leaves the live DOM untouched (it snapshots a clone)', () => {
     const themed = setup();
     snapshotLiveBlock(themed);

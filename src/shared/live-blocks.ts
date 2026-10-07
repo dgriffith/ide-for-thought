@@ -30,3 +30,8 @@ export const LIVE_BLOCK_CLASS = 'minerva-live-block';
  *  (value: the note's thoughtbase-relative path). The export resolves it
  *  through its link policy — an `href`, or no link at all. */
 export const NOTE_LINK_ATTR = 'data-note-link';
+
+/** Marks an element a static copy must drop entirely — a control that only
+ *  means something with its handler (a Kanban column's `⋯` menu, #2604). The
+ *  snapshot removes it, so a control mounted by mistake can't reach a page. */
+export const EXPORT_OMIT_ATTR = 'data-export-omit';

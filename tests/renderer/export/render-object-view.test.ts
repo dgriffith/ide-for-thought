@@ -78,6 +78,36 @@ describe('renderObjectViewForExport', () => {
     expect(html).not.toContain('data-draggable');
   });
 
+  it('draws a kanban board in export mode: wrapped columns, linked cards, nothing interactive (#2604)', async () => {
+    const PROJECT = {
+      id: 'project', label: 'Project', classLocalName: 'Project', icon: '🚀', source: 'stock' as const,
+      properties: [{ name: 'status', type: 'enum' as const, options: ['active', 'paused', 'done', 'abandoned'] }, { name: 'owner', type: 'text' as const, label: 'Owner' }],
+    };
+    instancesMock.mockResolvedValue({ type: PROJECT, instances: [
+      { path: 'p/Shed.md', title: 'Garden Shed', values: { status: 'active', owner: 'Ana' }, cover: null },
+      { path: 'p/Tax.md', title: 'Tax Return', values: { status: 'done', owner: 'Bo' }, cover: null },
+      { path: 'p/Loose.md', title: 'Loose End', values: {}, cover: null },
+    ] });
+    const html = await renderObjectViewForExport(JSON.stringify({ typeId: 'project', layout: 'kanban', columns: ['owner'] }));
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const board = doc.querySelector('.kb-board')!;
+    // Export mode: the class whose rules wrap the columns into a grid.
+    expect(board.classList.contains('kb-export')).toBe(true);
+    // Every column keeps its header and count — the empty ones too (Show empty columns defaults on).
+    const cols = [...board.querySelectorAll('.kb-column')];
+    expect(cols.map((c) => c.querySelector('.kb-col-label')?.textContent)).toEqual(['active', 'paused', 'done', 'abandoned', 'No value']);
+    expect(cols.map((c) => c.querySelector('.kb-col-count')?.textContent)).toEqual(['1', '0', '1', '0', '1']);
+    // Every card is shown, as a link main resolves under the export's policy.
+    const cards = [...board.querySelectorAll('.kb-card')];
+    expect(cards.map((c) => [c.tagName, c.getAttribute('data-note-link'), c.querySelector('.kb-card-name')?.textContent])).toEqual([
+      ['A', 'p/Shed.md', 'Garden Shed'], ['A', 'p/Tax.md', 'Tax Return'], ['A', 'p/Loose.md', 'Loose End'],
+    ]);
+    expect(html).toContain('Ana'); // the view's visible property
+    // Nothing interactive survives: no controls, no focus stops, no drag or menu affordances.
+    expect(board.querySelectorAll('button, input, select, [role="menu"], [tabindex]')).toHaveLength(0);
+    for (const attr of ['aria-pressed', 'aria-haspopup', 'data-draggable', 'data-export-omit', 'kb-col-menu-btn']) expect(html).not.toContain(attr);
+  });
+
   it('honours the saved sort, as the preview does', async () => {
     const html = await renderObjectViewForExport(JSON.stringify({ typeId: 'place', layout: 'table', sortColumn: '__title', sortDir: 'desc' }));
     expect(html.indexOf('Széchenyi Baths')).toBeLessThan(html.indexOf('Kampa Museum'));

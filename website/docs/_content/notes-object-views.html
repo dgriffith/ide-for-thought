@@ -1,10 +1,10 @@
 ---
 title: Minerva — Docs — Object views
-description: Put a live list, table, gallery, or map of your typed notes inside any note, kept current as those notes change.
+description: Put a live list, table, gallery, map or Kanban board of your typed notes inside any note, kept current as those notes change.
 ---
 
     <h1>Object views</h1>
-    <p class="lede">A note can hold a live view of your <a href="notes-typed-notes.html">typed notes</a> — the same list, table, gallery or map you get when you open a type from the <a href="left-sidebar-objects.html">Objects panel</a>. It shows the notes as they are now, every time you open it, so a page about a trip can carry a map of every place you've noted for it without you keeping a list up to date.</p>
+    <p class="lede">A note can hold a live view of your <a href="notes-typed-notes.html">typed notes</a> — the same list, table, gallery, map or board you get when you open a type from the <a href="left-sidebar-objects.html">Objects panel</a>. It shows the notes as they are now, every time you open it, so a page about a trip can carry a map of every place you've noted for it without you keeping a list up to date.</p>
 
     <h2 id="adding">Adding a view to a note</h2>
     <p>Start from the view itself: open a type from the Objects panel (or <b>View Objects</b> on a folder), then arrange it the way you want — pick a layout, sort it, choose columns, add filters. Then use one of the two buttons in its header:</p>
@@ -42,9 +42,28 @@ description: Put a live list, table, gallery, or map of your typed notes inside 
 
     <p>A view sits in a box 360 pixels tall. To make it taller or shorter, drag the handle on its bottom edge, or click into the view and press <kbd>Alt</kbd>+<kbd>↓</kbd> / <kbd>Alt</kbd>+<kbd>↑</kbd>; <kbd>Alt</kbd>+<kbd>0</kbd> or a double-click on the handle puts it back. The new size is written into the note as a <code>"height"</code> line in the block, so <kbd>⌘Z</kbd> undoes it like any other edit.</p>
 
+    <h2 id="kanban">A board in a note</h2>
+    <p>A <a href="left-sidebar-objects.html#kanban">Kanban board</a> goes into a note the same way, and takes its arrangement with it: which field makes the columns, the order you dragged them into, and whether empty columns show. A Project board grouped by status, with <i>done</i> moved in front of <i>active</i> and empty columns hidden, looks like this:</p>
+
+<pre><code>```object-view
+{
+  "typeId": "project",
+  "layout": "kanban",
+  "groupBy": "status",
+  "columnOrder": [
+    "done",
+    "active"
+  ],
+  "showEmptyColumns": false
+}
+```</code></pre>
+
+    <p><code>"groupBy"</code> names the field; without it, the board uses the type's first choice field. <code>"columnOrder"</code> puts the columns it lists first, in that order, and any it leaves out follow in their usual order; <code>""</code> stands for <b>No value</b>. <code>"showEmptyColumns"</code> appears only when it's turned off. Each line is written only when it differs from the default, so a board you haven't rearranged is just its type and layout.</p>
+    <p>In the note, the board is for looking at. Its columns, counts and cards are the live ones, and clicking a card opens that note, but cards don't drag and have no <b>Move to ▸</b>, and the column headers have no menus. To move a card, open the type's board itself.</p>
+
     <h2 id="kept-current">It stays current</h2>
     <p>Add a place, fill in a location, or change a field, and the view in your note shows it the next time you look. Renaming or moving a folder doesn't break a view that was limited to it — the view follows the folder to its new name.</p>
 
     <h2 id="exports">In exports and on the web</h2>
-    <p>When you export a note as a web page or PDF, or publish it as part of a website, its views appear as they do in the preview — a table is a table, a gallery is cards. A map becomes a still picture framed just as the preview frames it, at the height you gave it, with the map's credit line beneath. If the map can't be drawn — say you're offline when you export — the places are listed as a table instead, so the page never shows an empty box.</p>
+    <p>When you export a note as a web page or PDF, or publish it as part of a website, its views appear as they do in the preview — a table is a table, a gallery is cards, and a board is a read-only board, its columns wrapping onto the page and each card a link to its note. A map becomes a still picture framed just as the preview frames it, at the height you gave it, with the map's credit line beneath. If the map can't be drawn — say you're offline when you export — the places are listed as a table instead, so the page never shows an empty box.</p>
     <p>A Markdown export keeps the view as the text you'd see in the editor.</p>
