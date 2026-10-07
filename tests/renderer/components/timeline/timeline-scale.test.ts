@@ -153,13 +153,50 @@ describe('axisTicks', () => {
 
   it('labels through Intl: BC years with an era, five-digit years whole', () => {
     const bc = labels(Y(-100), Y(100)).ticks.map((t) => t.label);
-    // Ticks fall on astronomical round years: -100 is 101 BC, 0 is 1 BC.
-    expect(bc).toContain('101 BC');
-    expect(bc).toContain('1 BC');
     expect(bc).toContain('20 AD');
     expect(bc.join(' ')).not.toMatch(/-00/);
     const far = labels(Y(12000), Y(12100)).ticks.map((t) => t.label);
     expect(far).toContain('12050');
+  });
+
+  // #2698: d3 steps on round astronomical years (0 is 1 BC, −100 is 101 BC).
+  // BC ticks must land on round historical years instead, with AD 1 as the boundary.
+  const yearsOf = (start: number, end: number, width = 1000) => labels(start, end, width).ticks.map((t) => t.label);
+  const roundBC = (l: string, every: number) => {
+    const m = /^(\d+) BC$/.exec(l);
+    return !m || Number(m[1]) % every === 0;
+  };
+
+  it('puts BC ticks on round historical years across the era boundary (#2698)', () => {
+    const t = yearsOf(Y(-100), Y(100));
+    expect(t).toContain('100 BC');
+    expect(t).toContain('1 AD');
+    expect(t).not.toContain('101 BC');
+    expect(t).not.toContain('1 BC');
+    expect(t.every((l) => roundBC(l, 20))).toBe(true);
+    // AD ticks are unchanged: round multiples.
+    expect(t.filter((l) => / AD$/.test(l) && l !== '1 AD').every((l) => Number(l.split(' ')[0]) % 20 === 0)).toBe(true);
+    // In time order.
+    const ts = labels(Y(-100), Y(100)).ticks.map((x) => x.t);
+    expect([...ts].sort((a, b) => a - b)).toEqual(ts);
+  });
+
+  it('puts ticks on round historical years for a wholly BCE range, and in deep time (#2698)', () => {
+    const classical = yearsOf(Y(-500), Y(-100));
+    expect(classical.length).toBeGreaterThan(3);
+    expect(classical.every((l) => / BC$/.test(l))).toBe(true);
+    expect(classical.every((l) => roundBC(l, 50))).toBe(true);
+    expect(classical).toContain('500 BC');
+    const deep = yearsOf(Y(-90000), Y(-10000));
+    expect(deep.length).toBeGreaterThan(3);
+    expect(deep.every((l) => roundBC(l, 1000))).toBe(true); // no "80001 BC"
+  });
+
+  it('leaves single-year and AD-only axes as d3 ticks them (#2698)', () => {
+    // Every year: consecutive years read consecutively either way.
+    expect(yearsOf(Y(-5), Y(5), 1500)).toContain('1 BC');
+    // AD-only: unchanged round years, no era.
+    expect(yearsOf(Y(1000), Y(2000))).toContain('1500');
   });
 
   it('ticks the whole drawable range', () => {

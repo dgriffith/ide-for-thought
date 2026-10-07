@@ -156,6 +156,27 @@ function turnsOver(t: number, unit: TickUnit): boolean {
 }
 
 /**
+ * Year ticks every `every` years, on round *historical* years (#2698).
+ * `utcTicks` steps on round astronomical years, where year 0 is 1 BC and −100
+ * is 101 BC, so a BC axis read "101 BC · 1 BC · AD 100". Here BC ticks fall on
+ * astronomical 1 − k·every, so they read "every BC, 2·every BC, …"; AD ticks stay
+ * on multiples of `every`; and AD 1 is the boundary tick, so the axis reads
+ * "20 BC · 10 BC · AD 1 · AD 10 · AD 20".
+ */
+function historicalYearTicks(d: Domain, every: number): number[] {
+  const y0 = civilYear(d.start);
+  const y1 = civilYear(d.end);
+  const years: number[] = [];
+  // BC: astronomical 1 − k·every, k ≥ 1, within [y0, y1].
+  for (let k = Math.max(1, Math.ceil((1 - y1) / every)); 1 - k * every >= y0; k++) years.push(1 - k * every);
+  years.reverse();
+  if (y0 <= 1 && 1 <= y1) years.push(1);
+  // AD: multiples of `every`, k ≥ 1.
+  for (let k = Math.max(1, Math.ceil(y0 / every)); k * every <= y1; k++) years.push(k * every);
+  return years.map((y) => civilMs(y, 0, 1)).filter((t) => t >= d.start && t <= d.end);
+}
+
+/**
  * Ticks for a view `width` px wide: about one per `spacing` px, from
  * `utcTicks`, labelled for their unit — days → months → years (decades and
  * centuries are years stepping by 10 or 100). The first tick, and each where
@@ -164,10 +185,14 @@ function turnsOver(t: number, unit: TickUnit): boolean {
 export function axisTicks(d: Domain, width: number, opts: { spacing?: number; locale?: string } = {}): { unit: TickUnit; ticks: Tick[] } {
   const count = Math.max(2, Math.floor(width / (opts.spacing ?? 100)));
   const dates = utcTicks(new Date(d.start), new Date(d.end), count);
-  const ts = dates.map((x) => x.getTime()).filter((t) => Number.isFinite(t));
+  let ts = dates.map((x) => x.getTime()).filter((t) => Number.isFinite(t));
   const step = ts.length > 1 ? ts[1]! - ts[0]! : d.end - d.start;
   const unit = tickUnit(step);
   const era = civilYear(d.start) <= 0;
+  if (unit === 'year' && era && ts.length > 1) {
+    const every = civilYear(ts[1]!) - civilYear(ts[0]!);
+    if (every >= 2) ts = historicalYearTicks(d, every);
+  }
   return {
     unit,
     ticks: ts.map((t, i) => ({
