@@ -11,6 +11,7 @@
 import { escapeHtml, escapeAttr } from './text';
 import type { NoteTypedProperties } from '../../../shared/objects/type-def';
 import { selectCardFields } from '../../../shared/objects/card';
+import { displayPropertyValue } from '../../../shared/objects/property-display';
 import { safeCssColor } from '../../../shared/css-color';
 import type { QuoteMeta } from './cite-meta';
 
@@ -38,11 +39,13 @@ export function buildObjectCardHtml(rb: NoteTypedProperties, opts: { title: stri
     ? `<span class="oc-cover"><img src="${escapeAttr(cover)}" alt="" loading="lazy" /></span>`
     : `<span class="oc-cover oc-cover-icon"${color ? ` style="color:${escapeAttr(color)}"` : ''}>${escapeHtml(icon)}</span>`;
 
+  // A link value reads as its note's name, plain text as written (#2612).
+  const typeOf = new Map(rb.properties.map((p) => [p.name, p.type]));
   const chips = fields
     .filter((f) => f.value !== null && f.value !== '')
     .map(
       (f) =>
-        `<span class="oc-field"><span class="oc-flabel">${escapeHtml(f.label)}</span><span class="oc-fval">${escapeHtml(f.value!)}</span></span>`,
+        `<span class="oc-field"><span class="oc-flabel">${escapeHtml(f.label)}</span><span class="oc-fval">${escapeHtml(displayPropertyValue({ type: typeOf.get(f.name) ?? 'text' }, f.value))}</span></span>`,
     )
     .join('');
 

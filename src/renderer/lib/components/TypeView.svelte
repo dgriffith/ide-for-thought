@@ -29,6 +29,7 @@
   import { boardColumns, groupByForSpec, moveColumn, resolveGroupBy } from '../../../shared/objects/kanban';
   import { objectTypesStore } from '../stores/object-types.svelte';
   import { effectivePropertyDefs } from '../../../shared/objects/inheritance';
+  import { displayPropertyValue } from '../../../shared/objects/property-display';
   import { logger } from '../../../shared/logger';
   import { createTypeViewSelection } from './type-view-selection.svelte';
   import TypeViewRowMenu from './TypeViewRowMenu.svelte';
@@ -141,14 +142,9 @@
     onStateChange({ columns: next.length === all.length ? null : next });
   }
 
-  function display(prop: PropertyDef, value: string | null): string {
-    if (value === null || value === '') return '—';
-    if (prop.type === 'link-to-type') {
-      const tail = value.split(/[/#]/).pop() ?? value;
-      try { return decodeURIComponent(tail); } catch { return tail; }
-    }
-    return value;
-  }
+  // A link shows its note's name; plain text on a link property (an unlinked
+  // meeting attendee, #2612) shows as written.
+  const display = displayPropertyValue;
 
   function summary(inst: TypeInstanceRow): string {
     for (const col of allColumns) {

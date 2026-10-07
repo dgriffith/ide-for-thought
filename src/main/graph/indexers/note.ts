@@ -28,6 +28,7 @@ import {
   linkPredicate, dateLit,
 } from '../state';
 import type { PropertyDef } from '../../../shared/objects/type-def';
+import { effectivePropertyDefs, type TypeLike as PropertyTypeLike } from '../../../shared/objects/inheritance';
 
 import {
   fileMtimeIso, injectPrefixes,
@@ -208,12 +209,20 @@ function indexNoteDomainType(
   const fmType = parsed.frontmatter.type;
   if (fmType === undefined) return undefined;
   let declaredProps: Map<string, PropertyDef> | undefined;
+  let byId: ReadonlyMap<string, PropertyTypeLike> | undefined;
   for (const typeId of flattenFrontmatterStrings(fmType)) {
     const def = state.typeCatalog.types.find((t) => t.id === typeId.trim().toLowerCase());
     if (!def) continue;
     store.add(subject, RDF('type'), TYPES(def.classLocalName), graph);
     declaredProps ??= new Map();
-    for (const p of def.properties) if (!declaredProps.has(p.name)) declaredProps.set(p.name, p);
+    // Effective properties — inherited ones too (#1587), the child overriding
+    // by name — the same list the read-back and the type view project through
+    // (`note-properties.ts`). Own-only here indexed an inherited property under
+    // its frontmatter key while the views read it under its declared
+    // predicate, so a Meeting's inherited link-to-Person `attendees` (#2612)
+    // was written where nothing looked for it.
+    byId ??= new Map(state.typeCatalog.types.map((t) => [t.id, t]));
+    for (const p of effectivePropertyDefs(def.id, byId)) if (!declaredProps.has(p.name)) declaredProps.set(p.name, p);
   }
   return declaredProps;
 }
