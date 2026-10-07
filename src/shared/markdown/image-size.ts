@@ -23,6 +23,7 @@
  * wider than the column at column width — neither rewrites the stored value.
  */
 import type { MarkdownIt, Token } from 'markdown-it';
+import { editNoteText } from '../frontmatter-block';
 
 export const IMAGE_MIN_PX = 16;
 export const IMAGE_MAX_PX = 4096;
@@ -192,8 +193,15 @@ export function findImageLabels(text: string): LabelSpan[] {
  * `|400x300`), `null` removes it (a reset). Returns the new content, or null
  * when the image isn't where `ref` says — the note changed under the gesture —
  * so the caller writes nothing rather than resizing the wrong image.
+ *
+ * `ref` comes from markdown-it, which reads the note as LF; the edit runs on
+ * the same LF text and is mapped back, so a CRLF note stays CRLF (#2690).
  */
 export function applyImageSize(content: string, ref: ImageSourceRef, size: ImageSize | null): string | null {
+  return editNoteText(content, (text) => applyImageSizeToText(text, ref, size));
+}
+
+function applyImageSizeToText(content: string, ref: ImageSourceRef, size: ImageSize | null): string | null {
   const lines = content.split('\n');
   if (ref.line < 1 || ref.endLine < ref.line || ref.endLine > lines.length) return null;
   const blockStart = lines.slice(0, ref.line - 1).reduce((n, l) => n + l.length + 1, 0);

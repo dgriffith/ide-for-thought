@@ -16,6 +16,8 @@
  * Each match returns a human-readable reason that lands in the preview's
  * "excluded" audit — no silent drops.
  */
+import { findFrontmatter } from '../../shared/frontmatter-block';
+import { stripFrontmatter } from '../../shared/frontmatter-strip';
 
 /** Result of checking a single note against the exclusion rules. */
 export interface ExclusionCheck {
@@ -79,8 +81,9 @@ function privateFolderMatch(relativePath: string): string {
  * malformed YAML elsewhere in the frontmatter.
  */
 function extractFrontmatterRaw(content: string): string | null {
-  const m = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-  return m ? m[1]! : null;
+  // The shared boundary (#2690), so the privacy check sees frontmatter exactly
+  // where the graph does — a byte-order mark before it included.
+  return findFrontmatter(content)?.yaml ?? null;
 }
 
 /** Match `private: true` (any whitespace, case-insensitive on `true`). */
@@ -130,6 +133,6 @@ function hasPrivateTag(frontmatter: string): boolean {
 export function hasInlinePrivateTag(content: string): boolean {
   // Strip frontmatter before scanning the body to avoid matching inside
   // commented-out YAML examples.
-  const body = content.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '');
+  const body = stripFrontmatter(content);
   return /(^|[\s(])#private(\b|$)/m.test(body);
 }

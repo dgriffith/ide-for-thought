@@ -19,6 +19,17 @@ You summarize the note.
 {{/if}}`;
 
 describe('parseSkill — valid', () => {
+  // A user skill saved on Windows (#2690): the LF-only frontmatter match used
+  // to reject it as "missing YAML frontmatter".
+  it('parses a CRLF skill (and one behind a byte-order mark) exactly as its LF twin', () => {
+    const lf = parseSkill(VALID, 'user', 'user/summarize.md');
+    const crlf = parseSkill(VALID.replace(/\n/g, '\r\n'), 'user', 'user/summarize.md');
+    const bom = parseSkill(`\uFEFF${VALID.replace(/\n/g, '\r\n')}`, 'user', 'user/summarize.md');
+    expect(crlf.errors).toEqual([]);
+    expect(crlf).toEqual(lf);
+    expect(bom).toEqual(lf);
+  });
+
   it('parses a complete skill and derives fields', () => {
     const { skill, errors } = parseSkill(VALID, 'stock', 'stock/summarize.md');
     expect(errors).toEqual([]);

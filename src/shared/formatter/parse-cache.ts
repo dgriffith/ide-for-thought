@@ -13,6 +13,7 @@
  */
 
 import type { ParseCache, Range } from './types';
+import { findFrontmatter as findFrontmatterBlock } from '../frontmatter-block';
 
 export function buildParseCache(content: string): ParseCache {
   const frontmatterRange = findFrontmatter(content);
@@ -55,10 +56,12 @@ export function buildParseCache(content: string): ParseCache {
 
 // ── Frontmatter ──────────────────────────────────────────────────────────
 
+/** The shared boundary (#2690), so the formatter's frontmatter is the block
+ *  the graph and the preview read. `formatContent` hands rules LF text with no
+ *  byte-order mark, but a rule called directly may see either. */
 function findFrontmatter(content: string): Range | null {
-  const m = content.match(/^---\r?\n[\s\S]*?\r?\n---(\r?\n|$)/);
-  if (!m || m.index !== 0) return null;
-  return { start: 0, end: m[0].length };
+  const block = findFrontmatterBlock(content);
+  return block ? { start: block.start, end: block.end } : null;
 }
 
 // ── Fenced code blocks ───────────────────────────────────────────────────

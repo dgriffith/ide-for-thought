@@ -6,22 +6,20 @@
  * with a hand-rolled line regex. Pure: `yaml` and string work only, no Node
  * builtins, so the renderer can share it too.
  *
- * The block boundary is `FRONTMATTER_RE` below, LF-only, unchanged from the
- * graph parser: a CRLF note's frontmatter has always indexed as none. That is
- * a known gap, deliberately not widened here — changing it changes what every
- * CRLF note puts in the graph. `stripFrontmatter` (frontmatter-strip.ts) is
- * the CRLF-aware boundary for removing the block.
+ * The block boundary is `findFrontmatter` (frontmatter-block.ts), shared with
+ * `stripFrontmatter` and every other reader. It accepts `\r\n` line endings
+ * and a leading byte-order mark (#2690); a CRLF note's frontmatter used to
+ * index as none here while the preview and publish read it.
  */
 import YAML from 'yaml';
 import { ownRecord } from './own-record';
+import { findFrontmatter } from './frontmatter-block';
 
 /** A frontmatter value after YAML parsing — preserves type info the indexer needs. */
 export type FrontmatterScalar = string | number | boolean | Date | null;
 /** A nested YAML mapping. The indexer materialises it as a blank node. */
 export interface FrontmatterMap { [key: string]: FrontmatterValue }
 export type FrontmatterValue = FrontmatterScalar | FrontmatterValue[] | FrontmatterMap;
-
-const FRONTMATTER_RE = /^---\n([\s\S]*?)\n---/;
 
 /**
  * The note's frontmatter as a NULL-PROTOTYPE record (as is every nested map).
@@ -34,10 +32,10 @@ const FRONTMATTER_RE = /^---\n([\s\S]*?)\n---/;
  * records (e.g. `mapFrontmatterKey`) still go through `getOwn`.
  */
 export function parseFrontmatter(content: string): Record<string, FrontmatterValue> {
-  const match = content.match(FRONTMATTER_RE);
-  if (!match) return ownRecord([]);
+  const block = findFrontmatter(content);
+  if (!block) return ownRecord([]);
 
-  const raw = parseYamlOrEmpty(match[1]!);
+  const raw = parseYamlOrEmpty(block.yaml);
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return ownRecord([]);
   return sanitizedEntries(raw as Record<string, unknown>, 0);
 }

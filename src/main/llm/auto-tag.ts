@@ -2,6 +2,7 @@ import * as notebaseFs from '../notebase/fs';
 import { parseMarkdown } from '../graph/parser';
 import * as graph from '../graph/index';
 import { projectContext } from '../project-context-types';
+import { stripFrontmatter } from '../../shared/frontmatter-strip';
 import { complete } from './index';
 import { getSettings } from './settings';
 import { proposeWrite, approveProposal } from './approval';
@@ -41,7 +42,7 @@ export async function runAutoTag(
       }
     }
 
-    const noteBody = content.replace(/^---\n[\s\S]*?\n---\n?/, '');
+    const noteBody = stripFrontmatter(content);
     const prompt = buildAutoTagPrompt({
       noteTitle: parsed.title ?? '',
       noteBody,

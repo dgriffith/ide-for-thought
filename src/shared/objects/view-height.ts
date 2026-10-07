@@ -10,6 +10,8 @@
  * one clamp.
  */
 
+import { editNoteText } from '../frontmatter-block';
+
 export const OBJECT_VIEW_DEFAULT_HEIGHT = 360;
 export const OBJECT_VIEW_MIN_HEIGHT = 120;
 export const OBJECT_VIEW_MAX_HEIGHT = 2000;
@@ -98,9 +100,14 @@ function sameJson(text: string, want: Record<string, unknown>): boolean {
 /**
  * Rewrite the height of the ```object-view fence that opens on `fenceLine`
  * (1-based, in the full content — a fence's `data-fence-line`). Null when that
- * line isn't an object-view fence any more, or its spec isn't JSON.
+ * line isn't an object-view fence any more, or its spec isn't JSON. A CRLF
+ * note stays CRLF: the spec is edited as LF and mapped back (#2690).
  */
 export function applyObjectViewHeight(content: string, fenceLine: number, height: number | null): string | null {
+  return editNoteText(content, (text) => applyObjectViewHeightToText(text, fenceLine, height));
+}
+
+function applyObjectViewHeightToText(content: string, fenceLine: number, height: number | null): string | null {
   const lines = content.split('\n');
   const open = lines[fenceLine - 1];
   if (open === undefined) return null;

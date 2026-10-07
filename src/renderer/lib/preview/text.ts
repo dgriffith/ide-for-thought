@@ -11,9 +11,19 @@
  */
 export { escapeHtml, escapeAttr } from '../../../shared/text-escape';
 export { stripFrontmatter } from '../../../shared/frontmatter-strip';
+import { findFrontmatter } from '../../../shared/frontmatter-block';
 
+/**
+ * Lines the frontmatter block (and its closing line break) occupies — the
+ * offset between a preview line and the editor line. Uses the shared boundary
+ * `stripFrontmatter` strips (#2690). It used to be LF-only, so for a CRLF
+ * note the preview stripped the block but counted 0 lines for it, and every
+ * line reference after it (image resize, scroll sync) was off by the block.
+ */
 export function countFrontmatterLines(text: string): number {
-  const m = text.match(/^---\n[\s\S]*?\n---\n?/);
-  if (!m) return 0;
-  return (m[0].match(/\n/g) ?? []).length;
+  const block = findFrontmatter(text);
+  if (!block) return 0;
+  let n = 0;
+  for (let i = text.indexOf('\n'); i !== -1 && i < block.end; i = text.indexOf('\n', i + 1)) n++;
+  return n;
 }

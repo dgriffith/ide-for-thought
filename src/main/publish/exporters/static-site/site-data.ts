@@ -12,6 +12,7 @@
  */
 
 import { extractWikiLinkTargets } from '../../tree-resolver';
+import { stripFrontmatter } from '../../../../shared/frontmatter-strip';
 import { scanCitations } from '../../../../shared/scan-citations';
 import type { ExportPlanFile } from '../../types';
 import type { CitationAssets } from '../../csl';
@@ -146,7 +147,7 @@ function extractTags(note: ExportPlanFile): string[] {
  * search snippet reads like prose.
  */
 function extractSnippet(content: string): string {
-  let body = content.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '');
+  let body = stripFrontmatter(content);
   body = body.replace(/```[\s\S]*?```/g, ' ');
   body = body.replace(/^#+\s+/gm, '');
   body = body.replace(/\[\[[^\]]*\]\]/g, ' ');

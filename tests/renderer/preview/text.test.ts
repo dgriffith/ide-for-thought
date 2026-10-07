@@ -43,4 +43,12 @@ describe('countFrontmatterLines', () => {
   it('returns 0 when there is no frontmatter', () => {
     expect(countFrontmatterLines('# Heading\nbody')).toBe(0);
   });
+  // The preview strips a CRLF block (stripFrontmatter is CRLF-aware) but this
+  // used to count 0 lines for it, shifting every line reference after it —
+  // the image-resize ref among them (#2690).
+  it('counts a CRLF block, and one behind a byte-order mark, as the same lines', () => {
+    const text = '---\r\ntitle: X\r\ntags: [a]\r\n---\r\nbody';
+    expect(countFrontmatterLines(text)).toBe(4);
+    expect(countFrontmatterLines(`\uFEFF${text}`)).toBe(4);
+  });
 });

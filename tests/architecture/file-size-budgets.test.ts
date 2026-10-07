@@ -93,7 +93,7 @@ const BUDGETS: Record<string, number> = {
   // documentation fix — Keyboard Shortcuts derives from this template.
   'src/main/menu.ts': 985,
   'src/renderer/lib/components/Sidebar.svelte': 982, // -10: root menu items moved to NotesRootMenu.svelte
-  'src/renderer/lib/app/refactor-ops.svelte.ts': 864, // -17: syncOpenTabsToDisk moved to stores/open-tab-sync.ts, shared with the Kanban move (#2603); +21: Add/Remove Property route a typed selection to the bulk editor, whose body lives in bulk-property-ops.ts (#2431); +4: Label Version / history accept the thoughtbase root
+  'src/renderer/lib/app/refactor-ops.svelte.ts': 865, // -17: syncOpenTabsToDisk moved to stores/open-tab-sync.ts, shared with the Kanban move (#2603); +21: Add/Remove Property route a typed selection to the bulk editor, whose body lives in bulk-property-ops.ts (#2431); +4: Label Version / history accept the thoughtbase root; +1: the auto-link body strip uses the shared stripFrontmatter (#2690)
   // Raised again in #2208: the staleness check became two queries (sort a
   // two-variable projection, then fetch details for the survivors) plus the
   // GROUP BY/MIN that stops a note with two dc:modified values being reported
@@ -128,7 +128,7 @@ const BUDGETS: Record<string, number> = {
   // instead of a static import, so the 107MB native module leaves the
   // pre-window boot path. The extra lines are the lazy resolution and the
   // comment saying why the import looks indirect.
-  'src/main/sources/tables.ts': 881,  // #2448/#2452: runNoteQuery / runAgentQuery + checkRegisteredSql sit beside runQuery (they need the connection state)
+  'src/main/sources/tables.ts': 882,  // #2448/#2452: runNoteQuery / runAgentQuery + checkRegisteredSql sit beside runQuery (they need the connection state); +1: the companion-note override reads frontmatter through the shared findFrontmatter (#2690)
   // #2220 (601 → 633): the search callback grew a match cap, a generation
   // guard that drops superseded responses, and a truncation-aware status line.
   // Raised rather than extracted on purpose — all 32 lines are the one

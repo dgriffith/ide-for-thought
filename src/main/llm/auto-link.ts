@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import * as notebaseFs from '../notebase/fs';
 import { isIgnoredEntry } from '../../shared/ignored-dirs';
+import { stripFrontmatter } from '../../shared/frontmatter-strip';
 import { parseMarkdown } from '../graph/parser';
 import * as graph from '../graph/index';
 import { projectContext } from '../project-context-types';
@@ -54,7 +55,7 @@ export async function listAutoLinkCandidates(
         typeof parsed.frontmatter.description === 'string'
           ? parsed.frontmatter.description
           : undefined;
-      const body = raw.replace(/^---\n[\s\S]*?\n---\n?/, '');
+      const body = stripFrontmatter(raw);
       candidates.push({
         relativePath: rel,
         title,
@@ -102,7 +103,7 @@ export async function suggestLinksTo(
   return graph.withLLMContext(async () => {
     const activeContent = await notebaseFs.readFile(rootPath, activeRelPath);
     const parsed = parseMarkdown(activeContent);
-    const activeBody = activeContent.replace(/^---\n[\s\S]*?\n---\n?/, '');
+    const activeBody = stripFrontmatter(activeContent);
     const activeTitle = parsed.title || activeRelPath.replace(/\.md$/i, '').split('/').pop() || activeRelPath;
 
     const candidates = await listAutoLinkCandidates(rootPath, activeRelPath);
@@ -276,7 +277,7 @@ async function suggestLinksInboundInner(
 ): Promise<AutoLinkInboundResult> {
   const activeContent = await notebaseFs.readFile(rootPath, activeRelPath);
   const parsedActive = parseMarkdown(activeContent);
-  const activeBody = activeContent.replace(/^---\n[\s\S]*?\n---\n?/, '');
+  const activeBody = stripFrontmatter(activeContent);
   const activeTitle = parsedActive.title
     || activeRelPath.replace(/\.md$/i, '').split('/').pop()
     || activeRelPath;
@@ -296,7 +297,7 @@ async function suggestLinksInboundInner(
     try {
       const raw = await notebaseFs.readFile(rootPath, rel);
       const p = parseMarkdown(raw);
-      const body = raw.replace(/^---\n[\s\S]*?\n---\n?/, '');
+      const body = stripFrontmatter(raw);
       const title = p.title || rel.replace(/\.md$/i, '').split('/').pop() || rel;
       candidates.push({ relativePath: rel, title, body });
     } catch { /* unreadable source — skip */ }

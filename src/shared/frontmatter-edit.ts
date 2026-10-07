@@ -7,8 +7,7 @@
  */
 import YAML from 'yaml';
 import { ownRecord } from './own-record';
-
-const FRONTMATTER_RE = /^---\n([\s\S]*?)\n---\n?/;
+import { editNoteText, findFrontmatter } from './frontmatter-block';
 
 /** Display string for a scalar YAML value (Date → `YYYY-MM-DD`); non-scalars → ''. */
 function toDisplay(v: unknown): string {
@@ -23,11 +22,11 @@ function toDisplay(v: unknown): string {
  *  record (keys are user text — a `__proto__:` key must survive, and an absent
  *  `constructor` must read as undefined); read by key through `getOwn`. */
 export function getFrontmatterValues(content: string): Record<string, string> {
-  const m = content.match(FRONTMATTER_RE);
-  if (!m) return ownRecord([]);
+  const block = findFrontmatter(content);
+  if (!block) return ownRecord([]);
   let parsed: unknown;
   try {
-    parsed = YAML.parse(m[1]!);
+    parsed = YAML.parse(block.yaml);
   } catch {
     return ownRecord([]);
   }
@@ -40,11 +39,16 @@ export function getFrontmatterValues(content: string): Record<string, string> {
  * / null value keeps the key present but empty (`key:`) — matching the scaffold,
  * so a form field the user clears doesn't drop out of the schema. Refuses to
  * touch malformed frontmatter (returns content unchanged) so a WIP isn't lost.
+ * Keeps the note's line endings and byte-order mark (#2690).
  */
 export function setFrontmatterProperty(content: string, key: string, value: string | number | null): string {
+  return editNoteText(content, (text) => setInText(text, key, value));
+}
+
+function setInText(content: string, key: string, value: string | number | null): string {
   const clear = value === '' || value === null;
-  const m = content.match(FRONTMATTER_RE);
-  if (!m) {
+  const block = findFrontmatter(content);
+  if (!block) {
     if (clear) return content; // nothing to clear
     const doc = new YAML.Document({});
     doc.set(key, value);
@@ -52,7 +56,7 @@ export function setFrontmatterProperty(content: string, key: string, value: stri
   }
   let doc: YAML.Document.Parsed;
   try {
-    doc = YAML.parseDocument(m[1]!);
+    doc = YAML.parseDocument(block.yaml);
     if (doc.errors.length > 0) return content;
   } catch {
     return content;
@@ -60,7 +64,7 @@ export function setFrontmatterProperty(content: string, key: string, value: stri
   if (clear) doc.delete(key);
   else doc.set(key, value);
 
-  const body = content.slice(m[0].length);
+  const body = content.slice(block.end);
   // A cleared last key would leave an empty `---\n\n---` block — drop it instead.
   if (YAML.isMap(doc.contents) && doc.contents.items.length === 0) return body;
 

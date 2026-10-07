@@ -20,6 +20,7 @@ import type { RefactorSettings } from './settings';
 import { DEFAULT_REFACTOR_SETTINGS } from './settings';
 import { renderTemplate } from './tokens';
 import { noteTitle } from '../../../shared/note-title';
+import { findFrontmatter } from '../../../shared/frontmatter-block';
 
 export interface ExtractPlan {
   /** Relative path of the new note, including `.md`. */
@@ -194,9 +195,9 @@ function buildFrontmatter(title: string, sourceRelativePath: string, today: stri
 
 /** Strip a frontmatter block from the top of content. Returns `null` if none. */
 function splitFrontmatter(content: string): { frontmatter: string | null; body: string } {
-  const m = content.match(/^(---\n[\s\S]*?\n---\n?)/);
-  if (!m) return { frontmatter: null, body: content };
-  return { frontmatter: m[1]!, body: content.slice(m[1]!.length) };
+  const block = findFrontmatter(content);
+  if (!block) return { frontmatter: null, body: content };
+  return { frontmatter: content.slice(0, block.end), body: content.slice(block.end) };
 }
 
 /**

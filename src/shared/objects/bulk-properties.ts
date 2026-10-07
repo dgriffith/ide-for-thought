@@ -17,6 +17,7 @@
  */
 import YAML from 'yaml';
 import { applyFrontmatterMutation, detectShape, keyToString, parseFrontmatter, type ValueShape } from '../refactor/frontmatter-rows';
+import { editNote } from '../frontmatter-block';
 import type { PropertyDef, TypeInfo } from './type-def';
 
 /** One selected note, as the model builder needs it. */
@@ -357,8 +358,16 @@ function serializePair(pair: YAML.Pair): string {
  * on keys the user never touched). An edit set that changes nothing returns
  * the input unchanged (`changed: false`), so a note that already had every
  * value is never rewritten.
+ *
+ * The spans and splices below assume LF text with no byte-order mark;
+ * `editNote` hands them that and maps the result back, so a CRLF note stays
+ * CRLF and its untouched lines stay byte-identical (#2690).
  */
 export function applyBulkEdits(content: string, edits: readonly BulkEdit[]): ApplyBulkResult | null {
+  return editNote(content, (text) => applyBulkEditsToText(text, edits));
+}
+
+function applyBulkEditsToText(content: string, edits: readonly BulkEdit[]): ApplyBulkResult | null {
   const parsed = parseFrontmatter(content);
   if (!parsed.ok) return null;
 

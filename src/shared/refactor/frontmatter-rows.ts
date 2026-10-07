@@ -9,6 +9,7 @@
  * it complements.
  */
 import YAML from 'yaml';
+import { editNoteText, findFrontmatter } from '../frontmatter-block';
 
 export type ValueShape =
   | { kind: 'string'; value: string }
@@ -27,9 +28,10 @@ export interface Row {
 export interface ParseResult {
   ok: true;
   rows: Row[];
-  /** Raw frontmatter block (between `---` fences, exclusive). */
+  /** The YAML between the `---` fences (exclusive), `\r\n` folded to `\n`. */
   body: string;
-  /** Index in `content` where the frontmatter block begins (`---\n`). */
+  /** Index in `content` where the frontmatter block begins (`---\n`): 1 after
+   *  a byte-order mark, else 0. */
   blockStart: number;
   /** Index in `content` where the frontmatter block ends (after the closing `---\n`). */
   blockEnd: number;
@@ -111,13 +113,18 @@ export function detectShape(value: unknown): ValueShape {
   return { kind: 'yaml', raw: YAML.stringify(value).trimEnd() };
 }
 
+/**
+ * The note's frontmatter as rows. The block boundary is the shared
+ * `findFrontmatter` (#2690), so the panel sees frontmatter exactly where the
+ * graph and the preview do — CRLF and a byte-order mark included.
+ */
 export function parseFrontmatter(text: string): ParseResult | ParseError | NoFrontmatter {
-  const m = text.match(/^---\r?\n([\s\S]*?)\r?\n---(\r?\n|$)/);
-  if (!m) {
+  const block = findFrontmatter(text);
+  if (!block) {
     return { ok: true, rows: [], body: '', blockStart: 0, blockEnd: 0, none: true };
   }
-  const body = m[1]!;
-  const blockEnd = m[0].length;
+  const body = block.yaml;
+  const blockEnd = block.end;
   let doc: YAML.Document.Parsed;
   try {
     doc = YAML.parseDocument(body);
@@ -137,7 +144,7 @@ export function parseFrontmatter(text: string): ParseResult | ParseError | NoFro
     const value = pair.value;
     out.push({ key, shape: detectShape(value) });
   }
-  return { ok: true, rows: out, body, blockStart: 0, blockEnd };
+  return { ok: true, rows: out, body, blockStart: block.start, blockEnd };
 }
 
 /**
@@ -146,12 +153,17 @@ export function parseFrontmatter(text: string): ParseResult | ParseError | NoFro
  * fails we return null rather than overwrite the user's work-in-progress. Three
  * cases: no frontmatter yet (build a fresh block), a deletion that empties the
  * map (drop the whole block, since `---\n\n---` reads as malformed), and the
- * normal splice-by-offset rewrite that preserves the note body.
+ * normal splice-by-offset rewrite that preserves the note body. The note's
+ * line endings and byte-order mark are kept (#2690).
  */
 export function applyFrontmatterMutation(
   content: string,
   fn: (doc: YAML.Document) => void,
 ): string | null {
+  return editNoteText(content, (text) => mutateText(text, fn));
+}
+
+function mutateText(content: string, fn: (doc: YAML.Document) => void): string | null {
   const parsed = parseFrontmatter(content);
   if (!parsed.ok) return null;
   if ('none' in parsed) {
