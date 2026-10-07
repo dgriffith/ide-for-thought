@@ -9,14 +9,19 @@
  *   doesn't take in `tripod/`.
  * - `filters`: AND across filters. A *values* filter keeps a note whose value
  *   is one of the listed values (text / enum / link properties); a *range*
- *   filter keeps a value within [min, max] (number: numerically; date: by ISO
- *   order — `2026-05` ≤ `2026-05-14` ≤ `2026-06`). A note that leaves the
- *   property empty never passes a filter on it.
+ *   filter keeps a value within [min, max] — a number numerically, a `date` or
+ *   `datetime` by span (#2613): the value's span starts within
+ *   [span(min).start, span(max).end), so a bound covers its whole precision
+ *   (`max: 2026-05` keeps all of May) and signed years and mixed offsets order
+ *   by time, not by string. A note that leaves the property empty never passes
+ *   a filter on it.
  *
  * Values are the instances' lexical strings — the same ones the graph
  * returns — so a saved filter means the same thing on every machine.
  */
 import type { PropertyType, TypeInstanceRow } from './type-def';
+import type { SpanOptions } from './date-precision';
+import { dateValueInRange, isDateType } from './date-values';
 
 export interface ValuesFilter { property: string; values: string[] }
 export interface RangeFilter { property: string; min?: string | null; max?: string | null }
@@ -41,7 +46,7 @@ export function inFolder(path: string, folder: string | null | undefined): boole
   return f === null || path.startsWith(`${f}/`);
 }
 
-function inRange(value: string, f: RangeFilter, type: PropertyType | undefined): boolean {
+function inRange(value: string, f: RangeFilter, type: PropertyType | undefined, opts: SpanOptions): boolean {
   const min = f.min ?? null;
   const max = f.max ?? null;
   if (type === 'number') {
@@ -51,18 +56,32 @@ function inRange(value: string, f: RangeFilter, type: PropertyType | undefined):
     if (max !== null && max !== '' && v > Number(max)) return false;
     return true;
   }
-  // Dates (and anything else ranged): ISO strings order lexically. A bound like
-  // `2026-05` includes every day of May at the top end, so compare the max
-  // against the value truncated to the bound's precision.
+  // Dates compare as spans (see the header). For four-digit calendar values
+  // that is exactly the lexical rule below (pinned in date-precision.test.ts).
+  if (isDateType(type)) {
+    const bySpan = dateValueInRange(value, min, max, opts);
+    if (bySpan !== null) return bySpan;
+  }
+  // Anything else ranged, or a date value / bound that isn't a date (no span
+  // to compare): ISO strings order lexically. A bound like `2026-05` includes
+  // every day of May at the top end, so compare the max against the value
+  // truncated to the bound's precision.
   if (min !== null && min !== '' && value < min) return false;
   if (max !== null && max !== '' && value.slice(0, max.length) > max) return false;
   return true;
 }
 
-export function matchesFilter(inst: TypeInstanceRow, f: ViewFilter, type: PropertyType | undefined): boolean {
+/** `opts` fixes the viewer's zone for a value with an offset (tests); the
+ *  runtime's zone by default. */
+export function matchesFilter(
+  inst: TypeInstanceRow,
+  f: ViewFilter,
+  type: PropertyType | undefined,
+  opts: SpanOptions = {},
+): boolean {
   const value = inst.values[f.property];
   if (value === null || value === undefined || value === '') return false;
-  return isValuesFilter(f) ? f.values.includes(value) : inRange(value, f, type);
+  return isValuesFilter(f) ? f.values.includes(value) : inRange(value, f, type, opts);
 }
 
 /** The instances a view with this scope shows, in their original order. */

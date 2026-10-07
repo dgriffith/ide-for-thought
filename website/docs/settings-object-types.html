@@ -133,7 +133,7 @@
       </div>
       <div class="row">
         <div class="k">Fields</div>
-        <div class="v">The properties notes of this type are expected to have. Each one has a name and a kind — text, number, date, a fixed list of choices (<em>enum</em>), a link to another note (<em>link-to-type</em>), or a location (<em>geo</em>). Add, remove, and reorder them; the order is the order they appear in on a note.</div>
+        <div class="v">The properties notes of this type are expected to have. Each one has a name and a kind — text, number, date, a date and time (<em>datetime</em>), a fixed list of choices (<em>enum</em>), a link to another note (<em>link-to-type</em>), a location (<em>geo</em>), or a yes/no checkbox (<em>boolean</em>). Add, remove, and reorder them; the order is the order they appear in on a note.</div>
       </div>
       <div class="row">
         <div class="k">Card</div>
@@ -165,6 +165,10 @@
       <div class="row">
         <div class="k">text, number, date</div>
         <div class="v">A text box, a number box, or a date picker.</div>
+      </div>
+      <div class="row">
+        <div class="k">datetime</div>
+        <div class="v">A date with a time of day, so events on the same day can be put in order. Type it as <code>2026-10-05T14:30</code> (seconds are optional), or use the ▾ button beside the field to pick one. It can also hold just a date, a month or a year — <code>2026-10-05</code>, <code>2026-10</code>, <code>1969</code> — which then means that whole stretch of time, so changing a date field to datetime never breaks a note. A time is read as local time wherever the note is opened; add an offset (<code>2026-10-05T14:30+02:00</code>, or <code>Z</code> for UTC) to pin it to a time zone. Views show it in your own date format, with the time only when there is one. The stock Event type's <em>date</em> and <em>end</em> are datetime fields.</div>
       </div>
       <div class="row">
         <div class="k">enum</div>

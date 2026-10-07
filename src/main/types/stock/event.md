@@ -4,9 +4,9 @@ icon: 📅
 color: "#fab387"
 properties:
   - name: date
-    type: date
+    type: datetime
   - name: end
-    type: date
+    type: datetime
   - name: location
     type: link-to-type
     targetType: place

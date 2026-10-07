@@ -9,13 +9,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent, cleanup, waitFor, screen } from '@testing-library/svelte';
 
-const { instancesMock, listMock, noteTypeMapMock } = vi.hoisted(() => ({
-  instancesMock: vi.fn(),
+const { instancesMock, listMock, noteTypeMapMock, exportCsvMock } = vi.hoisted(() => ({
+  instancesMock: vi.fn(), exportCsvMock: vi.fn(),
   // The per-row type icon reads the store's note→type map (see the subclass test).
   listMock: vi.fn(), noteTypeMapMock: vi.fn(),
 }));
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({
-  api: { types: { instances: instancesMock, list: listMock, noteTypeMap: noteTypeMapMock } },
+  api: { types: { instances: instancesMock, list: listMock, noteTypeMap: noteTypeMapMock }, export: { csv: exportCsvMock } },
 }));
 // #2066: TypeViewMap's own mount logic is covered by TypeViewMap.test.ts —
 // here it's a stub, so switching into the "Map" layout in these tests never
@@ -596,5 +596,52 @@ describe('timeline layout before #2608 draws it (#2607)', () => {
     expect(spec).toMatchObject({ typeId: 'book', layout: 'table', from: null, to: null });
     expect(md).not.toContain('timeline');
     expect(md).not.toContain('1960');
+  });
+});
+
+/** `datetime` in a view (#2613): display, sort, CSV. */
+describe('TypeView — datetime values', () => {
+  const EVENT = {
+    id: 'event', label: 'Event', classLocalName: 'Event', icon: '📅', source: 'stock' as const,
+    properties: [{ name: 'date', type: 'datetime' as const, label: 'Date' }],
+  };
+  const EVENTS = [
+    { path: 'talk.md', title: 'Talk', values: { date: '2026-10-05T14:30:00' }, cover: null },
+    { path: 'ides.md', title: 'Ides', values: { date: '-0043-03-15' }, cover: null },
+    { path: 'standup.md', title: 'Standup', values: { date: '2026-10-05T09:00:00' }, cover: null },
+    { path: 'year.md', title: 'Next year', values: { date: '12026' }, cover: null },
+    { path: 'tbd.md', title: 'Someday', values: { date: null }, cover: null },
+  ];
+  const titles = (c: HTMLElement) => [...c.querySelectorAll('tbody .tv-cell-title-inner > span:last-child')].map((e) => e.textContent);
+  const cell = (c: HTMLElement, title: string) =>
+    [...c.querySelectorAll('tbody tr')].find((tr) => tr.textContent?.includes(title))!.querySelectorAll('td')[1]!.textContent;
+  const fmt = (o: Intl.DateTimeFormatOptions, iso: string) => new Intl.DateTimeFormat(undefined, { timeZone: 'UTC', ...o }).format(new Date(iso));
+
+  beforeEach(() => { instancesMock.mockResolvedValue({ type: EVENT, instances: EVENTS }); });
+
+  it('shows a datetime locale-formatted, with the time only when it has one, and BCE with an era', async () => {
+    const { container } = render(TypeView, props({ typeId: 'event', layout: 'table' }));
+    await waitFor(() => expect(screen.getByText('Talk')).toBeTruthy());
+    expect(cell(container, 'Talk')).toBe(fmt({ year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }, '2026-10-05T14:30:00Z'));
+    const ides = cell(container, 'Ides');
+    expect(ides).not.toMatch(/:/); // no time written, none shown
+    expect(ides).toBe(new Intl.DateTimeFormat(undefined, { timeZone: 'UTC', year: 'numeric', month: 'short', day: 'numeric', era: 'short' })
+      .format(new Date(Date.UTC(2000, 2, 15)).setUTCFullYear(-43)));
+    expect(cell(container, 'Someday')).toBe('—');
+  });
+
+  it('sorts by parsed time, not by string, with empties last', async () => {
+    const { container } = render(TypeView, props({ typeId: 'event', layout: 'table', sortColumn: 'date', sortDir: 'asc' }));
+    await waitFor(() => expect(screen.getByText('Talk')).toBeTruthy());
+    expect(titles(container)).toEqual(['Ides', 'Standup', 'Talk', 'Next year', 'Someday']);
+  });
+
+  it('exports the view as CSV, in the view\'s order, with ISO values', async () => {
+    render(TypeView, props({ typeId: 'event', layout: 'table', sortColumn: 'date', sortDir: 'desc' }));
+    await waitFor(() => expect(screen.getByText('Talk')).toBeTruthy());
+    await fireEvent.click(screen.getByRole('button', { name: 'Export CSV' }));
+    expect(exportCsvMock).toHaveBeenCalledWith(
+      'Title,Date\nNext year,12026\nTalk,2026-10-05T14:30:00\nStandup,2026-10-05T09:00:00\nIdes,-0043-03-15\nSomeday,',
+    );
   });
 });

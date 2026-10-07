@@ -216,6 +216,7 @@ export function scalarEditFor(def: PropertyDef, raw: string): BulkEdit | null {
     case 'boolean':
       return { op: 'set', key: def.name, value: /^(true|yes|on|1)$/i.test(text) };
     case 'date':
+    case 'datetime': // as written: a partial `1969` stays `1969` (#2613)
       return { op: 'set', key: def.name, value: text };
     default:
       return { op: 'set', key: def.name, value: raw };

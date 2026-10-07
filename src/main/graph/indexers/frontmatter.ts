@@ -19,6 +19,7 @@ import {
 } from '../state';
 import type { PropertyDef, PropertyType } from '../../../shared/objects/type-def';
 import { resolveLinkTarget, type LinkResolveCtx } from '../index-helpers';
+import { xsdDateLiteral } from '../../../shared/objects/date-values';
 
 // A non-null leaf scalar — excludes lists AND nested maps (maps materialise as
 // blank nodes in emitFrontmatterValue, never as a single edge).
@@ -165,10 +166,11 @@ export function declaredPropertyPredicate(
  *  so type prefixes and anchors are honoured, not swept into the target. */
 const WHOLE_WIKILINK_RE = /^\[\[([^\]\n]+?)\]\]$/;
 
-/** ISO date / datetime / year-month / year shapes used to type frontmatter scalars (#1608). */
+/** ISO date / datetime / year shapes used to type UNDECLARED frontmatter
+ *  scalars by their shape (#1608). A declared `date` / `datetime` goes through
+ *  `xsdDateLiteral` instead (#2613). */
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const ISO_DATETIME_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
-const YEAR_MONTH_RE = /^\d{4}-\d{2}$/;
 const YEAR_RE = /^\d{4}$/;
 
 /** A frontmatter edge's object term — a resolved link node or a literal. */
@@ -265,7 +267,8 @@ function frontmatterValueToEdge(
  * Coerce a frontmatter value to the datatype its type DECLARES (#1063), rather
  * than guessing from the value's shape. `text`/`enum` are always plain strings
  * (so an isbn `978…` or a title `2020` isn't mis-typed as a number/year);
- * `number` rescues numeric strings; `date` accepts the ISO shapes; `link-to-type`
+ * `number` rescues numeric strings; `date`/`datetime` take what `date-precision`
+ * reads (gYear / gYearMonth / date / dateTime by precision); `link-to-type`
  * resolves a whole-value wiki-link to its target (edge-labeling is #1073), else a
  * string. Anything that can't be coerced falls back to a plain string literal.
  */
@@ -294,14 +297,20 @@ function coerceDeclared(
       }
       return asString();
     }
-    case 'date': {
-      if (value instanceof Date) return plain($rdf.lit(str.slice(0, 10), undefined, XSD('date')));
-      const s = str.trim();
-      if (ISO_DATE_RE.test(s)) return plain($rdf.lit(s, undefined, XSD('date')));
-      if (ISO_DATETIME_RE.test(s)) return plain($rdf.lit(s, undefined, XSD('dateTime')));
-      if (YEAR_MONTH_RE.test(s)) return plain($rdf.lit(s, undefined, XSD('gYearMonth')));
-      if (YEAR_RE.test(s)) return plain($rdf.lit(s, undefined, XSD('gYear')));
-      return asString();
+    case 'date':
+    case 'datetime': {
+      // A YAML 1.1 timestamp the parser already made a Date: a `date` keeps
+      // its day, a `datetime` the instant.
+      if (value instanceof Date) {
+        return declaredType === 'date'
+          ? plain($rdf.lit(str.slice(0, 10), undefined, XSD('date')))
+          : plain($rdf.lit(str, undefined, XSD('dateTime')));
+      }
+      // Both date types read through the one parser (#2611, #2613): any year
+      // it reads, signed or past 9999, is typed, with the XSD lexical form;
+      // a value it can't read stays a plain string.
+      const lit = xsdDateLiteral(str);
+      return lit ? plain($rdf.lit(lit.lexical, undefined, XSD(lit.datatype))) : asString();
     }
     case 'boolean': {
       // A checkbox (#2431): a real YAML boolean, or the words true/false.

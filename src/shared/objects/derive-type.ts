@@ -8,6 +8,7 @@
  * so new instances start from a clean scaffold, not one note's prose.
  */
 import type { PropertyDef, PropertyType } from './type-def';
+import { isClockPrecision, parseDateValue } from './date-precision';
 
 /** Reserved frontmatter keys that are never modeled as type properties. */
 const RESERVED = new Set(['title', 'tags', 'type', 'aliases', 'publish']);
@@ -19,6 +20,9 @@ export function inferPropertyType(value: string): PropertyType {
   if (/^\[\[.*\]\]$/.test(v)) return 'link-to-type';
   if (/^(true|false)$/.test(v)) return 'boolean';
   if (/^-?\d+(\.\d+)?$/.test(v)) return 'number';
+  // A value with a clock time is a `datetime` (#2613); a calendar date a `date`.
+  const parsed = parseDateValue(v);
+  if (parsed && isClockPrecision(parsed.precision)) return 'datetime';
   if (/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?/.test(v)) return 'date';
   return 'text';
 }

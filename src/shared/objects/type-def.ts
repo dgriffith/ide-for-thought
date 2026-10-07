@@ -14,9 +14,15 @@
 /** The MVP five property types (decision 4), plus `geo` (#2064/#2065 design
  *  spike): a location stored as a plain `"<lat>,<lng>"` string — no
  *  geocoding, no structured sub-fields, deferred per that decision doc —
- *  and `boolean` (#2431): a checkbox, stored as a real YAML `true`/`false`.
+ *  `boolean` (#2431): a checkbox, stored as a real YAML `true`/`false` —
+ *  and `datetime` (#2613): an ISO 8601 date and time (`2026-10-05T14:30`,
+ *  seconds and a `Z`/`±HH:MM` offset optional). A `datetime` also accepts a
+ *  date-only or partial value (`2026-10-05`, `2026-10`, `1969`), meaning that
+ *  whole span, so switching a property from `date` to `datetime` never
+ *  invalidates a note. Without an offset a time is floating local time. Both
+ *  date types read through `date-precision.ts`; see `date-values.ts`.
  *  Deferred still: computed, multi-value, units. */
-export const PROPERTY_TYPES = ['text', 'date', 'number', 'enum', 'link-to-type', 'geo', 'boolean'] as const;
+export const PROPERTY_TYPES = ['text', 'date', 'datetime', 'number', 'enum', 'link-to-type', 'geo', 'boolean'] as const;
 export type PropertyType = (typeof PROPERTY_TYPES)[number];
 
 export interface PropertyDef {

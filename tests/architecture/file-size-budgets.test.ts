@@ -63,7 +63,7 @@ const THRESHOLD = 600;
  * taking the same commands out of a menu file that was executing them inline.
  */
 const BUDGETS: Record<string, number> = {
-  'src/renderer/lib/components/TypeView.svelte': 604, // +4 past the 600 threshold: the timeline range prop, and the layout a timeline spec reads back as for its type (#2607). #2608 draws the timeline in its own component, as Kanban did.
+  'src/renderer/lib/components/TypeView.svelte': 608, // +4: the Export CSV button and its handler, and sort through comparePropertyValues (#2613); +4 past the 600 threshold: the timeline range prop, and the layout a timeline spec reads back as for its type (#2607). #2608 draws the timeline in its own component, as Kanban did.
   // +1 for #2256: toggleCommandPalette on the ipc-wiring ctx.
   'src/renderer/App.svelte': 1850, // +3: a view's timeline range passed to the view tab, and Save as note's layout and range judged against the type (#2607); +2: a kanban view's column order and Show empty columns passed to the view tab and Save as note (#2614); +3: a kanban view's groupBy passed to the view tab and Save as note, checked against the type (#2601); +1: the preview's resize handles write through onApplyEdit (#2666); +2: type views hand their multi-selection to the bulk property editor (#2431); +2: a map view's style passed to the view tab and Save as note (#2665); +4: folder/filters passed to the view tab and Save as note (#2531); +1: the folder chip widens a scoped view (#2532); +3: switching to a view tab records it in back/forward history
   // +32 for #2210 §3b: the shared wiki-link index and the comment explaining

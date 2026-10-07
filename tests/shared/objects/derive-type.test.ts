@@ -10,7 +10,10 @@ describe('inferPropertyType', () => {
     expect(inferPropertyType('42')).toBe('number');
     expect(inferPropertyType('3.14')).toBe('number');
     expect(inferPropertyType('2020-06-01')).toBe('date');
-    expect(inferPropertyType('2020-06-01T09:00')).toBe('date');
+    // A clock time makes it a datetime (#2613); a calendar date stays a date.
+    expect(inferPropertyType('2020-06-01T09:00')).toBe('datetime');
+    expect(inferPropertyType('2020-06-01T09:00:30+02:00')).toBe('datetime');
+    expect(inferPropertyType('2020-06')).toBe('text'); // too ambiguous to guess
     expect(inferPropertyType('Frank Herbert')).toBe('text');
     expect(inferPropertyType('true')).toBe('boolean');
     expect(inferPropertyType('false')).toBe('boolean');
