@@ -275,4 +275,15 @@ describe('object views on the back/forward stack', () => {
     await view.handleNavBack();
     expect(h.editor.openTypeView).toHaveBeenCalledWith('project', { ...boardView, folder: null });
   });
+
+  it('a timeline view records its range, and Back to it closed reopens the same stretch (#2607)', async () => {
+    const timelineView = { layout: 'timeline', sortColumn: null, sortDir: 'asc', columns: null, filters: [], mapStyle: 'auto', groupBy: null, columnOrder: [], showEmptyColumns: true, from: '1960', to: '1975' };
+    h.editor.activeTab = { type: 'type-view', typeId: 'event', folder: null, ...timelineView };
+    await view.handleFileSelect('e.md');
+    const recorded = h.nav.record.mock.calls[0]![0] as { view: Record<string, unknown> };
+    expect(recorded.view).toStrictEqual(timelineView);
+    h.nav.goBack.mockReturnValue(recorded);
+    await view.handleNavBack();
+    expect(h.editor.openTypeView).toHaveBeenCalledWith('event', { ...timelineView, folder: null });
+  });
 });

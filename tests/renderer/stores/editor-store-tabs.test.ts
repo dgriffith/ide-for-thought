@@ -794,6 +794,24 @@ describe('persistTabs — structured-clone safety', () => {
     expect(tabs).toHaveLength(1);
     expect(tabs[0]).toMatchObject({ columnOrder: ['paused'], showEmptyColumns: false });
   });
+  it('a timeline range set from the view persists on the tab, and fit all is omitted (#2607)', () => {
+    editor.openTypeView('ranged-event', { layout: 'timeline' });
+    const tab = () => editor.groups.flatMap((g) => g.tabs).find((t) => t.type === 'type-view' && t.typeId === 'ranged-event');
+    expect(tab()).toMatchObject({ layout: 'timeline', from: null, to: null });
+    const saved = () => (h.tabsSave.mock.calls.at(-1)![0] as LayoutSession).groups.flatMap((g) => g.tabs).find((t) => t.type === 'type-view' && t.typeId === 'ranged-event');
+    editor.persistTabs();
+    expect(saved()).not.toHaveProperty('from');
+    editor.setTypeViewState('ranged-event', null, { from: '1960', to: '1975' });
+    editor.persistTabs();
+    expect(saved()).toMatchObject({ layout: 'timeline', from: '1960', to: '1975' });
+  });
+  it('reopening a timeline with an explicit range re-applies it to the open tab (#2607)', () => {
+    editor.openTypeView('reranged-event', { layout: 'timeline' });
+    editor.openTypeView('reranged-event', { from: '-0043', to: '0014' });
+    const tabs = editor.groups.flatMap((g) => g.tabs).filter((t) => t.type === 'type-view' && t.typeId === 'reranged-event');
+    expect(tabs).toHaveLength(1);
+    expect(tabs[0]).toMatchObject({ from: '-0043', to: '0014' });
+  });
 });
 
 describe('type-view tabs are a type AND a folder (#2531)', () => {

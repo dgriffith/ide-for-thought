@@ -24,6 +24,7 @@
   import { objectTypesStore } from './lib/stores/object-types.svelte';
   import { suggestViewNoteName } from '../shared/objects/view-note';
   import { groupByForType } from '../shared/objects/kanban';
+  import { timelineSpecForType } from '../shared/objects/timeline';
   import { getSourceDataStore } from './lib/stores/source-data.svelte';
   import { createNoteOps, type NoteOpsCtx } from './lib/app/note-ops';
   import { deleteAsset } from './lib/app/asset-ops';
@@ -399,11 +400,12 @@
    *  button only flashes "Saved" on a real save. */
   async function handleSaveView(tab: TypeViewTab): Promise<boolean> {
     const label = objectTypesStore.types.find((t) => t.id === tab.typeId)?.label ?? tab.typeId;
-    const name = await showPrompt('Save view as a note:', suggestViewNoteName(label, tab.layout));
+    const timeline = timelineSpecForType(tab, tab.typeId, objectTypesStore.types); // non-Event `timeline` → default (#2607)
+    const name = await showPrompt('Save view as a note:', suggestViewNoteName(label, timeline.layout));
     if (!name?.trim()) return false;
     await saveViewAsNote(name, {
       typeId: tab.typeId,
-      layout: tab.layout,
+      ...timeline,
       sortColumn: tab.sortColumn,
       sortDir: tab.sortDir,
       columns: tab.columns,
@@ -1422,6 +1424,7 @@
                     mapStyle={active.mapStyle}
                     groupBy={active.groupBy}
                     columnOrder={active.columnOrder} showEmptyColumns={active.showEmptyColumns}
+                    from={active.from} to={active.to}
                     revision={graphRevision}
                     onStateChange={(patch) => editor.setTypeViewState(active.typeId, active.folder, patch)}
                     onClearFolder={() => editor.rescopeTypeView(active.typeId, active.folder, null)}

@@ -38,9 +38,13 @@ export interface ViewNoteSpec {
   columnOrder?: readonly string[] | undefined;
   /** Kanban's Show empty columns (#2614); written only when off. */
   showEmptyColumns?: boolean | undefined;
+  /** Timeline's visible range (#2607); each edge written only when set —
+   *  both absent means fit all events. */
+  from?: string | null | undefined;
+  to?: string | null | undefined;
 }
 
-const LAYOUT_NAMES: Record<ViewLayout, string> = { list: 'list', table: 'table', gallery: 'gallery', map: 'map', kanban: 'board' };
+const LAYOUT_NAMES: Record<ViewLayout, string> = { list: 'list', table: 'table', gallery: 'gallery', map: 'map', kanban: 'board', timeline: 'timeline' };
 
 /** "Restaurant map", "Museum table" — the prompt's starting value. */
 export function suggestViewNoteName(typeLabel: string, layout: ViewLayout): string {
@@ -67,6 +71,8 @@ export function buildViewEmbed(spec: ViewNoteSpec): string {
   if (spec.groupBy) body.groupBy = spec.groupBy;
   if (spec.columnOrder && spec.columnOrder.length > 0) body.columnOrder = [...spec.columnOrder];
   if (spec.showEmptyColumns === false) body.showEmptyColumns = false;
+  if (spec.from) body.from = spec.from;
+  if (spec.to) body.to = spec.to;
   const height = viewHeightField(spec.height);
   if (height !== undefined) body.height = height;
   return `\`\`\`object-view\n${JSON.stringify(body, null, 2)}\n\`\`\`\n`;

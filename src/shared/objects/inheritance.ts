@@ -69,3 +69,24 @@ export function toTypeInfoWithInheritance(t: TypeDef, byId: ReadonlyMap<string, 
     effectivePropertyNames: effectivePropertyDefs(t.id, byId).map((p) => p.name),
   };
 }
+
+/**
+ * Is `typeId` the type `ancestorId` or one of its descendants (#2607)? Walks
+ * `parent` through `byId` with the same cycle-safe walk as
+ * `effectivePropertyDefs`, so a subtype of a subtype counts. False for a type
+ * `byId` doesn't have, and for a chain that breaks before reaching it.
+ */
+export function inheritsFrom(
+  typeId: string,
+  ancestorId: string,
+  byId: ReadonlyMap<string, Pick<TypeLike, 'id' | 'parent'>>,
+): boolean {
+  const visited = new Set<string>();
+  let cur = byId.get(typeId);
+  while (cur && !visited.has(cur.id)) {
+    if (cur.id === ancestorId) return true;
+    visited.add(cur.id);
+    cur = cur.parent ? byId.get(cur.parent) : undefined;
+  }
+  return false;
+}

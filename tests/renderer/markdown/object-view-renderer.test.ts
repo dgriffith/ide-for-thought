@@ -74,12 +74,14 @@ describe('parseObjectViewSpec (#2067)', () => {
       groupBy: null,
       columnOrder: [],
       showEmptyColumns: true,
+      from: null,
+      to: null,
     });
   });
 
   it('carries through explicit sort/columns', () => {
     expect(parseObjectViewSpec('{"typeId":"book","layout":"table","sortColumn":"author","sortDir":"desc","columns":["author"]}'))
-      .toEqual({ typeId: 'book', layout: 'table', sortColumn: 'author', sortDir: 'desc', columns: ['author'], folder: null, filters: [], mapStyle: 'auto', height: 360, groupBy: null, columnOrder: [], showEmptyColumns: true });
+      .toEqual({ typeId: 'book', layout: 'table', sortColumn: 'author', sortDir: 'desc', columns: ['author'], folder: null, filters: [], mapStyle: 'auto', height: 360, groupBy: null, columnOrder: [], showEmptyColumns: true, from: null, to: null });
   });
 
   it('reads columnOrder and showEmptyColumns, dropping invalid shapes rather than throwing (#2614)', () => {
@@ -98,6 +100,23 @@ describe('parseObjectViewSpec (#2067)', () => {
     expect(parseObjectViewSpec('{"typeId":"project","layout":"kanban"}').groupBy).toBeNull();
     expect(parseObjectViewSpec('{"typeId":"project","layout":"kanban","groupBy":7}').groupBy).toBeNull();
     expect(parseObjectViewSpec('{"typeId":"project","layout":"kanban","groupBy":""}').groupBy).toBeNull();
+  });
+
+  it('accepts the timeline layout and reads from/to, dropping invalid values rather than throwing (#2607)', () => {
+    const spec = (extra: string) => parseObjectViewSpec(`{"typeId":"event","layout":"timeline"${extra}}`);
+    expect(spec('')).toMatchObject({ layout: 'timeline', from: null, to: null });
+    expect(spec(',"from":"1960","to":"1975"')).toMatchObject({ from: '1960', to: '1975' });
+    expect(spec(',"from":"1969-07-20","to":"1969-07-24"')).toMatchObject({ from: '1969-07-20', to: '1969-07-24' });
+    expect(spec(',"from":"-0043","to":"0014"')).toMatchObject({ from: '-0043', to: '0014' }); // 44 BCE to AD 14
+    expect(spec(',"from":1960,"to":1975')).toMatchObject({ from: '1960', to: '1975' }); // a number, as written
+    // An invalid edge goes on its own; a `to` before `from` drops both (fit all).
+    expect(spec(',"from":"someday","to":"1975"')).toMatchObject({ from: null, to: '1975' });
+    expect(spec(',"from":"1960","to":{"y":1975}')).toMatchObject({ from: '1960', to: null });
+    expect(spec(',"from":"1975","to":"1960"')).toMatchObject({ from: null, to: null });
+    // A clock value waits for `datetime` (#2613).
+    expect(spec(',"from":"1969-07-20T20:17"')).toMatchObject({ from: null });
+    // The type isn't known to the parser, so any type's timeline is kept as written.
+    expect(parseObjectViewSpec('{"typeId":"book","layout":"timeline","from":"1960"}')).toMatchObject({ layout: 'timeline', from: '1960' });
   });
 
   it('reads mapStyle: light/dark kept, anything else auto (#2665)', () => {

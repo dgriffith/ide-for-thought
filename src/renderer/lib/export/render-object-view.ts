@@ -76,6 +76,8 @@ export async function renderObjectViewForExport(source: string): Promise<string>
           groupBy: spec.groupBy,
           columnOrder: spec.columnOrder,
           showEmptyColumns: spec.showEmptyColumns,
+          from: spec.from,
+          to: spec.to,
           revision: 0,
           chromeless: true,
           onStateChange: () => {},

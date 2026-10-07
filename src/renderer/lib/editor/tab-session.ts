@@ -11,6 +11,7 @@
 import { normalizeFolder, parseViewFilters } from '../../../shared/objects/view-spec';
 import { parseMapStyle } from '../../../shared/objects/map-style';
 import { parseColumnOrder, parseGroupBy, parseShowEmptyColumns } from '../../../shared/objects/kanban';
+import { parseTimelineRange } from '../../../shared/objects/timeline';
 import type {
   TabSession, SavedTab, SavedGroup, LayoutSession,
 } from '../../../shared/types';
@@ -51,6 +52,8 @@ export function toSavedTab(t: Tab): SavedTab {
       ...(t.groupBy ? { groupBy: t.groupBy } : {}),
       ...(t.columnOrder.length > 0 ? { columnOrder: [...t.columnOrder] } : {}),
       ...(t.showEmptyColumns ? {} : { showEmptyColumns: false }),
+      ...(t.from !== null ? { from: t.from } : {}),
+      ...(t.to !== null ? { to: t.to } : {}),
     };
   } else {
     return {
@@ -134,6 +137,7 @@ export async function reconstructTab(saved: SavedTab, nextQueryId: () => string)
       groupBy: parseGroupBy(saved.groupBy),
       columnOrder: parseColumnOrder(saved.columnOrder),
       showEmptyColumns: parseShowEmptyColumns(saved.showEmptyColumns),
+      ...parseTimelineRange(saved.from, saved.to),
     };
   } else {
     return { type: 'source', sourceId: saved.sourceId, highlightExcerptId: saved.highlightExcerptId };
