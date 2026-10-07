@@ -435,7 +435,7 @@
   .tl-event { cursor: pointer; outline: none; }
   .tl-ring { fill: none; stroke: var(--text); stroke-width: 2; visibility: hidden; }
   .tl-event:focus-visible .tl-ring, .tl-event:hover .tl-ring { visibility: visible; }
-  .tl-bar { fill: var(--accent); }
+  .tl-bar:not(.tl-bar-approx) { fill: var(--accent); }
   .tl-bar-approx { stroke: var(--accent); stroke-width: 1; stroke-dasharray: 3 2; }
   .tl-hatch-bg { fill: var(--bg); }
   .tl-hatch-line { stroke: var(--accent); stroke-width: 2; }

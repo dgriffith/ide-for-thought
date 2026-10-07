@@ -9,10 +9,10 @@ import { test, expect } from './helpers/test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import type { Page } from '@playwright/test';
 import { closeMinerva, launchMinerva, projectRoot } from './helpers/launch';
+import { domainOf, openEventTimeline, seedNotes, type SeedNotes } from './helpers/timeline';
 
-const NOTES: Record<string, string> = {
+const NOTES: SeedNotes = {
   'events/Moon landing.md': '---\ntype: event\ndate: 1969-07-20\n---\n# Moon landing\n',
   'events/Apollo 11.md': '---\ntype: event\ndate: 1969-07-16\nend: 1969-07-24\n---\n# Apollo 11\n',
   'events/Woodstock.md': '---\ntype: event\ndate: 1969-08\n---\n# Woodstock\n',
@@ -20,37 +20,17 @@ const NOTES: Record<string, string> = {
   'meetings/Splashdown debrief.md': '---\ntype: meeting\ndate: 1969-07-25\n---\n# Splashdown debrief\n',
 };
 
-async function domainOf(win: Page): Promise<{ start: number; end: number }> {
-  const plot = win.locator('.tl-plot');
-  return {
-    start: Number(await plot.getAttribute('data-domain-start')),
-    end: Number(await plot.getAttribute('data-domain-end')),
-  };
-}
-
 test('an Event timeline: draw, zoom, keyboard, open, and the range round-trips (#2608)', async () => {
   const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-timeline-userdata-'));
   const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-timeline-project-'));
   fs.cpSync(path.join(projectRoot, 'tests', 'fixtures', 'sample-project'), projectDir, { recursive: true });
-  for (const [rel, text] of Object.entries(NOTES)) {
-    fs.mkdirSync(path.dirname(path.join(projectDir, rel)), { recursive: true });
-    fs.writeFileSync(path.join(projectDir, rel), text);
-  }
+  seedNotes(projectDir, NOTES);
   fs.writeFileSync(path.join(userDataDir, 'session.json'), JSON.stringify([{ x: 80, y: 80, width: 1400, height: 900, rootPath: projectDir }]));
   const app = await launchMinerva({ userDataDir, env: { MINERVA_E2E: '1' } });
   try {
     const win = await app.firstWindow({ timeout: 20_000 });
     await expect(win.getByRole('button', { name: 'Open Thoughtbase' })).toHaveCount(0, { timeout: 25_000 });
-    const events = win.locator('.tl-plot [data-timeline-event]');
-    const eventFor = (title: string) => win.locator(`.tl-plot [data-timeline-event][aria-label^="${title},"]`);
-
-    await test.step('open the Event view as a timeline', async () => {
-      await win.locator('.panel-tab[title="Objects"]').first().click();
-      await win.getByRole('button', { name: 'Open Event view' }).click({ force: true });
-      await win.getByRole('tab', { name: 'Timeline' }).click();
-      await expect(win.getByRole('tab', { name: 'Timeline' })).toHaveAttribute('aria-selected', 'true');
-      await expect(events).toHaveCount(4, { timeout: 15_000 });
-    });
+    const { events, eventFor } = await test.step('open the Event view as a timeline', () => openEventTimeline(win, 4));
 
     await test.step('points, a span, a partial date, the Meeting, and the Undated tray', async () => {
       await expect(eventFor('Moon landing')).toHaveAttribute('aria-label', /^Moon landing, (20 Jul 1969|Jul 20, 1969)$/);
