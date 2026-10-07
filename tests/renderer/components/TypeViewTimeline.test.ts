@@ -5,7 +5,7 @@
  * hatched spans, lanes for overlaps, the Undated tray, every keyboard binding
  * on a single roving tab stop, zoom/pan/Fit writing `from`/`to` back (Fit
  * bounded by a range filter), a backwards `end` flagged on the hover card,
- * the list alternative, and the read-only embed.
+ * the list alternative, the read-only embed, and export mode (#2609).
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, fireEvent, cleanup, screen, within, waitFor } from '@testing-library/svelte';
@@ -14,6 +14,21 @@ import TypeViewTimeline from '../../../src/renderer/lib/components/TypeViewTimel
 import { civilMs } from '../../../src/shared/objects/date-precision';
 import { timelineDomain } from '../../../src/shared/objects/timeline';
 import type { TypeInstanceRow } from '../../../src/shared/objects/type-def';
+import { silenceLogTags } from '../../helpers/quiet-logs';
+
+const exportFails = vi.hoisted(() => ({ on: false }));
+// Lets one test make the export drawing throw, to see the fallback list.
+vi.mock('../../../src/renderer/lib/components/timeline/timeline-export', async (orig) => {
+  const real = await orig<typeof import('../../../src/renderer/lib/components/timeline/timeline-export')>();
+  return {
+    ...real,
+    planTimelineExport: (...args: Parameters<typeof real.planTimelineExport>) => {
+      if (exportFails.on) throw new Error('layout exploded');
+      return real.planTimelineExport(...args);
+    },
+  };
+});
+silenceLogTags('objects');
 
 const EVENT = {
   id: 'event', label: 'Event', classLocalName: 'Event', icon: '📅', source: 'stock' as const,
@@ -390,11 +405,100 @@ describe('read-only (an embed) and export', () => {
     expect(onStateChange).not.toHaveBeenCalled();
   });
 
-  it('export mode draws with no controls, tab stops or card', () => {
-    const { container } = setup({ exportMode: true });
+});
+
+describe('export mode (#2609)', () => {
+  const titles = (els: Iterable<Element>) => [...els].map((e) => e.querySelector('.tl-list-title')?.textContent);
+
+  it('draws one fixed-width picture: no controls, tab stops, hover ring or card; every event linked by its note path', async () => {
+    const { container, event, plot } = setup({ exportMode: true });
     expect(container.querySelector('.tl-toolbar')).toBeNull();
-    expect(container.querySelectorAll('[data-timeline-event]').length).toBe(5);
-    expect(container.querySelector('[data-timeline-event][tabindex]')).toBeNull();
+    expect(container.querySelector('button.tl-btn')).toBeNull();
+    expect(plot().getAttribute('width')).toBe('760');
+    expect(plot().getAttribute('viewBox')).toBe(`0 0 760 ${plot().getAttribute('height')}`);
+    expect(container.querySelector('.tl-axis')!.getAttribute('viewBox')).toBe('0 0 760 28');
+    const events = [...container.querySelectorAll<SVGGElement>('[data-timeline-event]')];
+    expect(events.map((g) => g.dataset['notePath']).sort()).toEqual(['apollo.md', 'decade.md', 'moon.md', 'typo.md', 'woodstock.md']);
+    for (const g of events) {
+      expect(g.hasAttribute('tabindex')).toBe(false);
+      // A link only once main gives it an href: under inline-title it is plain text.
+      expect(g.hasAttribute('role')).toBe(false);
+      expect(g.getAttribute('aria-label')).toBeTruthy();
+    }
+    expect(container.querySelector('.tl-ring')).toBeNull();
+    await fireEvent.pointerEnter(event('moon.md'));
+    expect(container.querySelector('[role="tooltip"]')).toBeNull();
+  });
+
+  it('lists every event in range after the drawing, in time order, with dates, approximate and a flagged end', () => {
+    const { container } = setup({ exportMode: true });
+    const rows = container.querySelectorAll('.tl-export-events .tl-export-row');
+    expect(titles(rows)).toEqual(['The sixties', 'Apollo 11', 'Moon landing', 'Woodstock', 'Typo']);
+    for (const r of rows) expect(r.querySelector('[data-note-path]')).toBe(r.querySelector('.tl-list-title'));
+    const text = (t: string) => [...rows].find((r) => r.textContent.includes(t))!.textContent.replace(/\s+/g, ' ');
+    expect(text('Woodstock')).toContain('(approximate)');
+    expect(text('Moon landing')).toContain('1969');
+    expect(text('Moon landing')).not.toContain('approximate');
+    expect(text('Typo')).toContain('End date ignored');
+    expect(container.querySelector('.tl-export-events h3')!.textContent).toMatch(/Dated\s*5/);
+  });
+
+  it('says what the hatch means when an approximate event is drawn, and not otherwise', () => {
+    const { container } = setup({ exportMode: true });
+    const legend = container.querySelector('.tl-legend')!;
+    expect(legend.textContent).toContain('approximate');
+    expect(legend.querySelector('rect')!.getAttribute('fill')).toBe(`url(#${container.querySelector('pattern')!.id})`);
+    cleanup();
+    const { container: exact } = setup({ exportMode: true, instances: EVENTS.slice(0, 2) });
+    expect(exact.querySelector('.tl-legend')).toBeNull();
+  });
+
+  it('draws the spec range only: events outside it are neither drawn nor listed, and are counted', () => {
+    const { container } = setup({ exportMode: true, from: '1969-07-01', to: '1969-07-31' });
+    expect([...container.querySelectorAll<SVGGElement>('[data-timeline-event]')].map((g) => g.dataset['notePath']).sort()).toEqual(['apollo.md', 'decade.md', 'moon.md']);
+    expect(titles(container.querySelectorAll('.tl-export-row'))).toEqual(['The sixties', 'Apollo 11', 'Moon landing']);
+    expect(container.querySelector('.tl-outside')!.textContent).toBe('2 more fall outside this range.');
+  });
+
+  it('caps the drawing at 30 lanes and names the rest in a "+N more" note; they are still listed', () => {
+    const many = Array.from({ length: 33 }, (_, i) => row(`w${i}.md`, `Week ${String(i).padStart(2, '0')}`, '1969-07-16', '1969-07-24'));
+    const { container, plot } = setup({ exportMode: true, instances: many });
+    expect(plot().dataset['lanes']).toBe('30');
+    expect(container.querySelectorAll('[data-timeline-event]')).toHaveLength(30);
+    expect(container.querySelector('.tl-more')!.textContent).toBe('+3 more not drawn (past 30 lanes): Week 30, Week 31, Week 32.');
+    expect(container.querySelectorAll('.tl-export-row')).toHaveLength(33);
+  });
+
+  it('exports the Undated tray as a short list', () => {
+    const { container } = setup({ exportMode: true });
+    const undated = container.querySelector('.tl-undated')!;
+    expect([...undated.querySelectorAll('[data-note-path]')].map((e) => e.getAttribute('data-note-path'))).toEqual(['someday.md', 'bad.md']);
+    expect(undated.textContent).toContain('No date');
+  });
+
+  it('with nothing dated: says so, and the Undated list is the export', () => {
+    const { container } = setup({ exportMode: true, instances: EVENTS.slice(5) });
+    expect(container.querySelector('.tl-plot')).toBeNull();
+    expect(container.querySelector('.tl-empty')!.textContent).toContain('has a date yet');
+    expect(container.querySelectorAll('.tl-undated [data-note-path]')).toHaveLength(2);
+  });
+
+  it('when the drawing fails, falls back to the dated list — never a blank or the raw spec', () => {
+    exportFails.on = true;
+    try {
+      const { container } = setup({ exportMode: true });
+      expect(container.querySelector('.tl-plot')).toBeNull();
+      expect(container.querySelector('.tl-fallback')!.textContent).toContain("couldn't be drawn");
+      expect(titles(container.querySelectorAll('.tl-export-row'))).toEqual(['The sixties', 'Apollo 11', 'Moon landing', 'Woodstock', 'Typo']);
+      expect(container.querySelectorAll('.tl-undated [data-note-path]')).toHaveLength(2);
+    } finally {
+      exportFails.on = false;
+    }
+  });
+
+  it('the live view has no export list or notes', () => {
+    const { container } = setup();
+    expect(container.querySelector('.tl-export-events, .tl-export-note')).toBeNull();
   });
 });
 

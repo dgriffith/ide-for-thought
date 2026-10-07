@@ -17,6 +17,10 @@
  * A Kanban board (#2604) is drawn in its export mode: its columns wrap onto
  * further rows within the block's width instead of scrolling sideways.
  *
+ * A Timeline (#2609) is drawn in its export mode: SVG of the spec's range at
+ * the block's width, each event a link, at most 30 lanes ("+N more"), then a
+ * dated list and the Undated tray — or the list alone when it can't be drawn.
+ *
  * A map (#2511) is the exception to snapshotting the DOM: it's the preview's
  * own `TypeViewMap` in export mode, in the embed's frame (its spec `height`,
  * 360px by default — #2666), flattened to
@@ -85,7 +89,7 @@ export async function renderObjectViewForExport(source: string): Promise<string>
           onLoaded: () => resolve(),
           // A board wraps its columns within the page (#2604).
           ...(spec.layout === 'kanban' ? { kanbanExport: true } : {}),
-          // A timeline draws without controls or tab stops; #2609 makes it a real export.
+          // A timeline draws one static SVG picture of its range, then its dated list (#2609).
           ...(spec.layout === 'timeline' ? { timelineExport: true } : {}),
           ...(spec.layout === 'map' ? { mapExport: { onCaptured: (c: MapCapture) => resolveCapture(c) } } : {}),
         },

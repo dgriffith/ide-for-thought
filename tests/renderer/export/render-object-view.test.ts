@@ -82,6 +82,44 @@ describe('renderObjectViewForExport', () => {
     expect(place).toContain('data-note-link="places/Kampa.md"');
   });
 
+  it('draws a timeline in export mode: the range at 760px, every event a link, the dated and Undated lists after it, nothing interactive (#2609)', async () => {
+    const EVENT = {
+      id: 'event', label: 'Event', classLocalName: 'Event', icon: '📅', source: 'stock' as const,
+      properties: [{ name: 'date', type: 'datetime' as const }, { name: 'end', type: 'datetime' as const }],
+    };
+    listMock.mockResolvedValue({ types: [TYPE, EVENT], errors: [] });
+    instancesMock.mockResolvedValue({ type: EVENT, instances: [
+      { path: 'e/Moon.md', title: 'Moon landing', values: { date: '1969-07-20', end: null }, cover: null },
+      { path: 'e/Apollo.md', title: 'Apollo 11', values: { date: '1969-07-16', end: '1969-07-24' }, cover: null },
+      { path: 'e/Woodstock.md', title: 'Woodstock', values: { date: '1969-08', end: null }, cover: null },
+      { path: 'e/Standup.md', title: 'Standup', values: { date: '1969-07-21T09:30', end: null }, cover: null },
+      { path: 'e/War.md', title: 'Thirty Years War', values: { date: '1618', end: '1648' }, cover: null },
+      { path: 'e/Someday.md', title: 'Someday', values: { date: null, end: null }, cover: null },
+    ] });
+    const html = await renderObjectViewForExport(JSON.stringify({ typeId: 'event', layout: 'timeline', from: '1969-07', to: '1969-08' }));
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const plot = doc.querySelector('.tl-export .tl-plot')!;
+    expect(plot.getAttribute('width')).toBe('760');
+    // Each drawn event is a link main resolves; the out-of-range war isn't drawn.
+    const drawn = [...plot.querySelectorAll('[data-timeline-event]')];
+    expect(drawn.every((a) => a.tagName.toLowerCase() === 'a')).toBe(true);
+    expect(drawn.map((a) => a.getAttribute('data-note-link')).sort()).toEqual(['e/Apollo.md', 'e/Moon.md', 'e/Standup.md', 'e/Woodstock.md']);
+    expect(drawn.find((a) => a.getAttribute('data-note-link') === 'e/Moon.md')!.getAttribute('aria-label')).toMatch(/^Moon landing, /);
+    // The hatch travels with the drawing, and its legend says what it means.
+    expect(plot.querySelector('pattern')).not.toBeNull();
+    expect(doc.querySelector('.tl-legend')!.textContent).toContain('approximate');
+    expect(doc.querySelector('.tl-outside')!.textContent).toBe('1 more falls outside this range.');
+    // The dated list, then the Undated one: linked titles.
+    expect([...doc.querySelectorAll('.tl-export-row a[data-note-link]')].map((a) => a.textContent)).toEqual(['Apollo 11', 'Moon landing', 'Standup', 'Woodstock']);
+    expect(doc.querySelector('.tl-undated a[data-note-link="e/Someday.md"]')).not.toBeNull();
+    // Nothing interactive, and never the spec.
+    for (const sel of ['button', 'input', 'select', '[tabindex]', '[role="link"]', '[aria-pressed]', '[data-export-omit]', '.tl-toolbar', '.tl-ring', '[role="tooltip"]']) {
+      expect(doc.querySelector(sel), sel).toBeNull();
+    }
+    expect(html).not.toContain('&quot;typeId&quot;');
+    expect(html).not.toContain('"typeId"');
+  });
+
   it('a kanban export honours the column order and Show empty columns, read-only (#2614)', async () => {
     const PROJECT = {
       id: 'project', label: 'Project', classLocalName: 'Project', icon: '🚀', source: 'stock' as const,
