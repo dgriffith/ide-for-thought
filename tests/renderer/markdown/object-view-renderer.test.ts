@@ -133,6 +133,43 @@ describe('hydrateObjectViewBlocks (#2067)', () => {
     expect(block.querySelector('.tv-header')).toBeNull();
   });
 
+  it('a kanban embed is a read-only board: no drag, no Move to, no column menu, no pickers (#2604)', async () => {
+    const PROJECT = {
+      id: 'project', label: 'Project', classLocalName: 'Project', icon: '🚀', source: 'stock' as const,
+      properties: [{ name: 'status', type: 'enum' as const, options: ['active', 'done'] }],
+    };
+    instancesMock.mockResolvedValue({ type: PROJECT, instances: [
+      { path: 'p/Shed.md', title: 'Garden Shed', values: { status: 'active' }, cover: null },
+    ] });
+    const root = previewWith('{"typeId":"project","layout":"kanban","groupBy":"status"}');
+    const onOpenNote = vi.fn();
+    hydrateObjectViewBlocks(root, deps({ onOpenNote }));
+    const block = root.querySelector('.object-view-block')!;
+    await waitFor(() => expect(block.querySelector('.kb-card')).not.toBeNull());
+
+    // The preview's board scrolls; only an export wraps it.
+    expect(block.querySelector('.kb-board')!.classList.contains('kb-export')).toBe(false);
+    // No toolbar (Group by picker, Show empty columns), no column menu, no draggable header.
+    expect(block.querySelector('.tv-header')).toBeNull();
+    expect(block.querySelector('.kb-col-menu-btn')).toBeNull();
+    expect(block.querySelector('[data-draggable]')).toBeNull();
+    const card = block.querySelector<HTMLElement>('.kb-card')!;
+    expect(card.hasAttribute('aria-pressed')).toBe(false); // nothing to select
+    // Right-click and Shift+F10 open no Move to menu.
+    card.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+    card.dispatchEvent(new KeyboardEvent('keydown', { key: 'F10', shiftKey: true, bubbles: true }));
+    await Promise.resolve();
+    expect(document.querySelector('.tv-menu')).toBeNull();
+    // A pointer drag starts nothing.
+    card.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, clientX: 5, clientY: 5, pointerId: 1, isPrimary: true }));
+    window.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, clientX: 80, clientY: 80, pointerId: 1, isPrimary: true }));
+    expect(document.querySelector('[data-kanban-ghost], [data-dragging]')).toBeNull();
+    window.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, clientX: 80, clientY: 80, pointerId: 1, isPrimary: true }));
+    // A click still opens the note.
+    card.click();
+    expect(onOpenNote).toHaveBeenCalledWith('p/Shed.md');
+  });
+
   it('opens a note via the provided onOpenNote when a row is clicked', async () => {
     const root = previewWith('{"typeId":"book","layout":"list"}');
     const onOpenNote = vi.fn();
