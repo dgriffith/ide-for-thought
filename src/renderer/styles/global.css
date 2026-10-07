@@ -145,8 +145,11 @@
   --rust:          oklch(0.500 0.140 38);
   --iris:          oklch(0.450 0.110 280);
   /* Contrast theme keeps a dark title bar over a light body: the --titlebar-*
-     surfaces (CSV headers, tool panel header, mermaid) and the app bar at the
-     top of the window (--appbar-*, TitleBar.svelte) are all this #3a3a4a. */
+     surfaces (CSV headers, tool panel header, the fenced-block toolbar) and the
+     app bar at the top of the window (--appbar-*, TitleBar.svelte) are all
+     this #3a3a4a. Mermaid diagrams themselves are NOT: their clusters and
+     tertiary fills use --bg-elev, because mermaid draws body text on them
+     (#2688). */
   --bg-titlebar:           #3a3a4a;
   --titlebar-text:         #ffffff;
   --titlebar-text-muted:   #cdd6f4;
