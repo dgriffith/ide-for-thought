@@ -130,6 +130,38 @@ export const FM_COMMENT_NOTE = {
 } as const;
 
 /** Size of the `huge-single-line` note's one line (bytes, ASCII). */
+/**
+ * The `crlf-frontmatter` note (#2690): Windows line endings throughout, with a
+ * frontmatter block carrying every kind of field the graph reads from one —
+ * `title:`, `type:`, `tags:`, `aliases:` and a typed property. The graph's
+ * parse used to be LF-only, so all of it was dropped and the note was titled
+ * by its body H1.
+ */
+export const CRLF_FM_NOTE = {
+  rel: path.join('encoding', 'crlf.md'),
+  content: [
+    '---',
+    'title: Crlf Frontmatter Title',
+    'type: book',
+    'tags: [crlftag, windows-notes]',
+    'aliases: [Crlf Alias]',
+    'rating: 4',
+    '---',
+    '# Crlf Heading',
+    '',
+    'crlfmarker',
+    '',
+  ].join('\r\n'),
+  title: 'Crlf Frontmatter Title',
+  type: 'book',
+  tags: ['crlftag', 'windows-notes'],
+  alias: 'Crlf Alias',
+  rating: '4',
+} as const;
+
+/** The `utf8-bom` note's frontmatter title: the block sits behind the mark. */
+export const BOM_FM_TITLE = 'Bom Frontmatter Title';
+
 export const HUGE_LINE_BYTES = 3 * 1024 * 1024;
 
 /** Filesystem facts discovered while building, for platform-dependent asserts. */
@@ -293,7 +325,7 @@ export function buildHostileThoughtbase(root: string, opts: BuildOptions): Hosti
     const rel = path.join('encoding', 'bom.md');
     write(rel, Buffer.concat([
       Buffer.from([0xef, 0xbb, 0xbf]),
-      Buffer.from('---\ntitle: Bom Frontmatter Title\n---\n# Bom Heading\n\nbommarker\n'),
+      Buffer.from(`---\ntitle: ${BOM_FM_TITLE}\n---\n# Bom Heading\n\nbommarker\n`),
     ]), 'bommarker');
     record('utf8-bom', rel);
   }
@@ -313,8 +345,8 @@ export function buildHostileThoughtbase(root: string, opts: BuildOptions): Hosti
     record('nul-bytes', rel);
   }
   if (features.has('crlf-frontmatter')) {
-    const rel = path.join('encoding', 'crlf.md');
-    write(rel, '---\r\ntitle: Crlf Frontmatter Title\r\n---\r\n# Crlf Heading\r\n\r\ncrlfmarker\r\n', 'crlfmarker');
+    const rel = CRLF_FM_NOTE.rel;
+    write(rel, CRLF_FM_NOTE.content, 'crlfmarker');
     record('crlf-frontmatter', rel);
   }
 

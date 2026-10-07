@@ -14,6 +14,7 @@ import {
 import type { RefactorSettings } from './settings';
 import { DEFAULT_REFACTOR_SETTINGS } from './settings';
 import { noteTitle } from '../../../shared/note-title';
+import { findFrontmatter } from '../../../shared/frontmatter-block';
 
 export interface SplitByHeadingPlan {
   /** Files to write (order doesn't matter; caller writes each). */
@@ -62,9 +63,9 @@ function buildFrontmatter(title: string, sourceRelativePath: string, today: stri
 }
 
 function splitFrontmatter(content: string): { frontmatter: string; body: string; bodyOffset: number } {
-  const m = content.match(/^(---\n[\s\S]*?\n---\n?)/);
-  if (!m) return { frontmatter: '', body: content, bodyOffset: 0 };
-  return { frontmatter: m[1]!, body: content.slice(m[1]!.length), bodyOffset: m[1]!.length };
+  const block = findFrontmatter(content);
+  if (!block) return { frontmatter: '', body: content, bodyOffset: 0 };
+  return { frontmatter: content.slice(0, block.end), body: content.slice(block.end), bodyOffset: block.end };
 }
 
 /** Find every line that looks like an ATX heading of the given level, outside fenced code blocks. */

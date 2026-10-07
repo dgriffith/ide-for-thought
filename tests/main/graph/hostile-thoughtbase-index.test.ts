@@ -34,6 +34,8 @@ import {
   CONTROL_NOTES,
   OUTSIDE_SECRET,
   FM_COMMENT_NOTE,
+  CRLF_FM_NOTE,
+  BOM_FM_TITLE,
   posix,
   type HostileFeature,
 } from '../../helpers/hostile-thoughtbase';
@@ -132,6 +134,32 @@ describe('graph indexAllNotes on a hostile note tree (#2372)', () => {
       SELECT ?t WHERE { ?n minerva:relativePath "${posix(FM_COMMENT_NOTE.rel)}" ; dc:title ?t . }
     `);
     expect((results as Array<{ t: string }>).map((r) => r.t)).toEqual([FM_COMMENT_NOTE.title]);
+  });
+
+  it('reads every frontmatter field of a CRLF note: title, type, tags, aliases, typed property (#2690)', async () => {
+    await indexAllNotes(ctx);
+    const rel = posix(CRLF_FM_NOTE.rel);
+    const { results } = await queryGraph(ctx, `
+      SELECT ?t ?typeId ?tag ?alias ?rating WHERE {
+        ?n minerva:relativePath "${rel}" ; dc:title ?t ; a ?c ; minerva:hasAlias ?alias ;
+           minerva:hasTag/minerva:tagName ?tag ; minerva:meta-rating ?rating .
+        ?c minerva:typeId ?typeId .
+      }
+    `);
+    const rows = results as Array<Record<string, string>>;
+    const distinct = (k: string) => [...new Set(rows.map((r) => r[k]))].sort();
+    expect(distinct('t')).toEqual([CRLF_FM_NOTE.title]);
+    expect(distinct('typeId')).toEqual([CRLF_FM_NOTE.type]);
+    expect(distinct('tag')).toEqual([...CRLF_FM_NOTE.tags].sort());
+    expect(distinct('alias')).toEqual([CRLF_FM_NOTE.alias]);
+    expect(distinct('rating')).toEqual([CRLF_FM_NOTE.rating]);
+  });
+
+  it('reads the frontmatter title of a note behind a UTF-8 byte-order mark (#2690)', async () => {
+    await indexAllNotes(ctx);
+    const rel = posix(tb.manifest.paths['utf8-bom']![0]);
+    const { results } = await queryGraph(ctx, `SELECT ?t WHERE { ?n minerva:relativePath "${rel}" ; dc:title ?t . }`);
+    expect((results as Array<{ t: string }>).map((r) => r.t)).toEqual([BOM_FM_TITLE]);
   });
 
   it('keeps the body text that follows invalid UTF-8 bytes', async () => {

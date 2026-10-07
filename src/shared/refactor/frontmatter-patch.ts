@@ -1,5 +1,6 @@
 import YAML from 'yaml';
 import { ownRecord } from '../own-record';
+import { editNote, findFrontmatter } from '../frontmatter-block';
 
 /**
  * Patch a note's YAML frontmatter with a shallow key/value merge.
@@ -20,9 +21,9 @@ import { ownRecord } from '../own-record';
  *  - Malformed YAML in the existing block is treated as "no frontmatter"
  *    rather than thrown — overwriting a broken block with valid YAML is
  *    a recoverable outcome; failing the whole tool call isn't.
+ *  - The note's line endings and byte-order mark are kept (#2690): a CRLF
+ *    note comes back CRLF.
  */
-
-const FRONTMATTER_RE = /^---\n([\s\S]*?)\n---\n?/;
 
 /** Scalar | array of scalars | nested object | null. Mirrors what
  *  `YAML.stringify` round-trips cleanly. The LLM's tool input is
@@ -50,11 +51,15 @@ export interface PatchResult {
 }
 
 export function patchFrontmatterProperties(content: string, patch: PropertyPatch): PatchResult {
-  const match = content.match(FRONTMATTER_RE);
+  return editNote(content, (text) => patchText(text, patch));
+}
+
+function patchText(content: string, patch: PropertyPatch): PatchResult {
+  const match = findFrontmatter(content);
   let fm: Record<string, unknown> = ownRecord([]);
   if (match) {
     try {
-      const parsed: unknown = YAML.parse(match[1]!);
+      const parsed: unknown = YAML.parse(match.yaml);
       if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
         // Null-prototype copy: `key in fm`, `fm[key]` and `fm[key] = v` below
         // take user-text keys, which on a `{}` would see `Object.prototype`
@@ -87,7 +92,7 @@ export function patchFrontmatterProperties(content: string, patch: PropertyPatch
     return { content, changedKeys: [], deletedKeys: [] };
   }
 
-  const body = match ? content.slice(match[0].length) : content;
+  const body = match ? content.slice(match.end) : content;
   if (Object.keys(fm).length === 0) {
     // Frontmatter ended up empty — drop the block entirely. Same logic
     // as removeTagsFromContent, so a note that gets all properties
@@ -112,10 +117,10 @@ export function patchFrontmatterProperties(content: string, patch: PropertyPatch
  * `set_properties` accepts.
  */
 export function readFrontmatterProperties(content: string): Record<string, unknown> {
-  const match = content.match(FRONTMATTER_RE);
+  const match = findFrontmatter(content);
   if (!match) return {};
   try {
-    const parsed: unknown = YAML.parse(match[1]!);
+    const parsed: unknown = YAML.parse(match.yaml);
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
       return ownRecord(Object.entries(parsed));
     }

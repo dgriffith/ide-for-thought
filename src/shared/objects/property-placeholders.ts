@@ -21,6 +21,7 @@
  * Pure and Node-free (`src/shared` is lint-enforced pure).
  */
 import { parseFrontmatter, type Row } from '../refactor/frontmatter-rows';
+import { editNote } from '../frontmatter-block';
 
 /** Placeholder names `substituteTemplate` owns. A bare `{{date}}` is the date,
  *  not a `date` property — use `{{prop:date}}` for that. */
@@ -123,8 +124,16 @@ export function fillNotePlaceholders(content: string, propertyNames: Iterable<st
   return fillNoteWithReport(content, propertyNames).content;
 }
 
-/** `fillNotePlaceholders`, also naming the properties it filled. */
+/** `fillNotePlaceholders`, also naming the properties it filled. Keeps the
+ *  note's line endings (#2690): a filled value that spans lines takes them. */
 export function fillNoteWithReport(
+  content: string,
+  propertyNames: Iterable<string>,
+): { content: string; filled: string[] } {
+  return editNote(content, (text) => fillTextWithReport(text, propertyNames));
+}
+
+function fillTextWithReport(
   content: string,
   propertyNames: Iterable<string>,
 ): { content: string; filled: string[] } {

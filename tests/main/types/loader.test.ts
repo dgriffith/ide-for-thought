@@ -157,6 +157,14 @@ describe('parseType (#1062)', () => {
     expect(r.errors.some((e) => /isn't a CSS colour/.test(e))).toBe(true);
   });
 
+  it('parses a CRLF type file exactly as its LF twin, template body included (#2690)', () => {
+    // A type file from a Windows machine, travelling with the thoughtbase.
+    const lfType = `---\nlabel: Thing\nproperties:\n  - name: due\n    type: date\n---\n## Template\n\nbody\n`;
+    const lf = parseType(lfType, 'user', '/x/t.md');
+    expect(lf.type?.properties.map((p) => p.name)).toEqual(['due']);
+    expect(parseType(lfType.replace(/\n/g, '\r\n'), 'user', '/x/t.md')).toEqual(lf);
+  });
+
   it('rejects a def with no label', () => {
     const r = parseType(`---\nicon: 📦\n---\n`, 'user', '/x/nolabel.md');
     expect(r.type).toBeUndefined();

@@ -6,6 +6,7 @@
  */
 import YAML from 'yaml';
 import { slugifyId as slugify } from '../../shared/slug';
+import { findFrontmatter, normalizeNoteText } from '../../shared/frontmatter-block';
 import { safeCssColor } from '../../shared/css-color';
 import {
   PROPERTY_TYPES,
@@ -16,8 +17,6 @@ import {
   type TypeDef,
   type TypeSource,
 } from '../../shared/objects/type-def';
-
-const FRONTMATTER_RE = /^---\n([\s\S]*?)\n---\n?/;
 
 export interface ParseTypeResult {
   type?: TypeDef;
@@ -104,16 +103,19 @@ function normalizeCard(raw: unknown, properties: PropertyDef[], errors: string[]
  * Parse one type-definition file. `source` tags provenance; `filePath` is the
  * absolute path (user) or glob key (stock) for error reporting.
  */
-export function parseType(content: string, source: TypeSource, filePath: string): ParseTypeResult {
+export function parseType(raw: string, source: TypeSource, filePath: string): ParseTypeResult {
   const errors: string[] = [];
-  const m = content.match(FRONTMATTER_RE);
-  if (!m) {
+  // A type file travels with a shared thoughtbase, so it may be CRLF or carry
+  // a byte-order mark; read it as LF so the template body has no `\r` (#2690).
+  const content = normalizeNoteText(raw);
+  const block = findFrontmatter(content);
+  if (!block) {
     return { errors: ['missing YAML frontmatter (`---` block)'], label: filePath };
   }
 
   let fm: Record<string, unknown>;
   try {
-    const parsed = YAML.parse(m[1]!) as unknown;
+    const parsed = YAML.parse(block.yaml) as unknown;
     if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
       return { errors: ['frontmatter must be a mapping'], label: filePath };
     }
@@ -130,7 +132,7 @@ export function parseType(content: string, source: TypeSource, filePath: string)
   if (!id) errors.push('could not derive an id (needs `id` or `label`)');
 
   const properties = normalizeProperties(fm.properties, errors);
-  const template = content.slice(m[0].length).trim() || undefined;
+  const template = content.slice(block.end).trim() || undefined;
 
   // Hard errors (no id/label) reject the type; soft errors (a bad property) are
   // reported but the type still loads (house UX: no hand-holding).

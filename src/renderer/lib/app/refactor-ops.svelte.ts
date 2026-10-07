@@ -40,6 +40,7 @@ import {
 import { expandSelectionToNoteFiles, expandSelectionToNotes, resolveSelectionTargets } from '../sidebar-tree-utils';
 import { getMultiFileHistoryStore } from '../stores/multi-file-history.svelte';
 import { isNotePath } from '../../../shared/note-extensions';
+import { stripFrontmatter } from '../../../shared/frontmatter-strip';
 import { ENTRYPOINT_TAG } from '../../../shared/entrypoint';
 import { CONFIRM_KEYS } from '../confirm-keys';
 import { createBulkPropertyOps } from './bulk-property-ops';
@@ -191,7 +192,7 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
       }
       // Snapshot the current body (sans frontmatter) for context snippets in the dialog.
       const raw = await api.notebase.readFile(relativePath);
-      const activeBody = raw.replace(/^---\n[\s\S]*?\n---\n?/, '');
+      const activeBody = stripFrontmatter(raw);
       flow.setAutoLinkReview({ relativePath, suggestions, activeBody });
     } catch (err) {
       if (await ctx.maybeHandleMissingApiKey(err)) return;

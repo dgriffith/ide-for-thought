@@ -20,6 +20,8 @@ import {
   CONTROL_NOTES,
   OUTSIDE_SECRET,
   FM_COMMENT_NOTE,
+  CRLF_FM_NOTE,
+  BOM_FM_TITLE,
   posix,
   type HostileFeature,
 } from '../../helpers/hostile-thoughtbase';
@@ -112,6 +114,20 @@ describe('search indexAllNotes on a hostile thoughtbase (#2372)', () => {
     await indexAllNotes(ctx);
     const results = await search(ctx, 'fmcommentmarker');
     expect(results.map((r) => [r.relativePath, r.title])).toEqual([[posix(FM_COMMENT_NOTE.rel), FM_COMMENT_NOTE.title]]);
+  });
+
+  it('titles a CRLF note from its frontmatter title:, not its body H1 (#2690)', async () => {
+    await indexAllNotes(ctx);
+    const results = await search(ctx, 'crlfmarker');
+    expect(results.map((r) => [r.relativePath, r.title])).toEqual([[posix(CRLF_FM_NOTE.rel), CRLF_FM_NOTE.title]]);
+  });
+
+  it('titles a note behind a UTF-8 byte-order mark from its frontmatter title: (#2690)', async () => {
+    await indexAllNotes(ctx);
+    const rel = posix(tb.manifest.paths['utf8-bom']![0]);
+    // Search is fuzzy (`bommarker` also finds the alias-bomb note), so pick by path.
+    const results = (await search(ctx, 'bommarker')).filter((r) => r.relativePath === rel);
+    expect(results.map((r) => r.title)).toEqual([BOM_FM_TITLE]);
   });
 
   it('decodes invalid UTF-8 lossily (U+FFFD) rather than dropping the rest of the note', async () => {

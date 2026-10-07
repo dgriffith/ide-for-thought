@@ -158,7 +158,7 @@ const SWALLOW_BASELINE: Record<string, number> = {
   'src/main/privileged-sites.ts': 1,
   'src/main/publish/csl/user-assets.ts': 2,
   'src/main/publish/exporters/static-site/search-script.ts': 1,
-  'src/main/publish/pipeline.ts': 2,
+  'src/main/publish/pipeline.ts': 1,
   'src/main/saved-queries.ts': 1,
   'src/main/search/minisearch-provider.ts': 1,
   'src/main/secret-storage.ts': 1,

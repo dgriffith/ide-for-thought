@@ -17,8 +17,11 @@ describe('line-break-at-document-end (#158)', () => {
     expect(formatContent('hello\n', enabled)).toBe('hello\n');
   });
 
-  it('preserves a trailing-newline after normalising \\r\\n terminators', () => {
-    expect(formatContent('hello\r\n\r\n', enabled)).toBe('hello\n');
+  // A CRLF note keeps its line ending (#2690): the engine runs rules on LF
+  // text and maps the result back, so the one terminator left is `\r\n`. This
+  // used to come back as `hello\n`, an LF ending on a CRLF note.
+  it('collapses trailing \\r\\n terminators to one, keeping CRLF', () => {
+    expect(formatContent('hello\r\n\r\n', enabled)).toBe('hello\r\n');
   });
 
   it('leaves empty content empty', () => {

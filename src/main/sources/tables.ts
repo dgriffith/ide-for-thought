@@ -16,6 +16,7 @@ import type { ProjectContext } from '../project-context-types';
 import { createProjectStore } from '../project-store';
 import { loadCsvSchema, buildReadCsvSql } from './csv-schema';
 import { logger } from '../../shared/logger';
+import { findFrontmatter } from '../../shared/frontmatter-block';
 import { lockToDirectories } from './duckdb-lockdown';
 import { createCsvSniffer, type CsvSniffer } from './csv-sniffer';
 import { guardSql, type SqlGuardAudience, type SqlGuardVerdict } from './llm-sql-guard';
@@ -267,10 +268,10 @@ async function readCompanionOverride(rootPath: string, relativePath: string): Pr
   } catch {
     return null;
   }
-  const m = content.match(/^---\n([\s\S]*?)\n---/);
-  if (!m) return null;
+  const block = findFrontmatter(content);
+  if (!block) return null;
   try {
-    const fm = YAML.parse(m[1]!) as Record<string, unknown> | null;
+    const fm = YAML.parse(block.yaml) as Record<string, unknown> | null;
     const raw = fm?.table_name;
     if (typeof raw === 'string' && raw.trim().length > 0) {
       // Run the user-supplied override through the same sanitizer so a

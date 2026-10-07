@@ -1,6 +1,6 @@
 import YAML from 'yaml';
+import { editNote, findFrontmatter } from '../frontmatter-block';
 
-const FRONTMATTER_RE = /^---\n([\s\S]*?)\n---\n?/;
 const KEBAB_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 export interface BuildAutoTagPromptArgs {
@@ -102,10 +102,10 @@ export interface MergeResult {
  * only offers tags actually present on the selected notes).
  */
 export function extractTagsFromContent(content: string): string[] {
-  const match = content.match(FRONTMATTER_RE);
+  const match = findFrontmatter(content);
   if (!match) return [];
   let parsed: unknown;
-  try { parsed = YAML.parse(match[1]!); } catch { return []; }
+  try { parsed = YAML.parse(match.yaml); } catch { return []; }
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return [];
   const fm = parsed as Record<string, unknown>;
   if (!Array.isArray(fm.tags)) return [];
@@ -123,13 +123,18 @@ export interface RemoveResult {
  * Removes `tagsToRemove` from the note's frontmatter `tags:` array,
  * case-insensitively. Leaves the rest of the frontmatter untouched.
  * If `tags` becomes empty, the key is dropped (rather than left as
- * `tags: []`, which is noise in the indexer and on disk).
+ * `tags: []`, which is noise in the indexer and on disk). Keeps the note's
+ * line endings and byte-order mark (#2690).
  */
 export function removeTagsFromContent(content: string, tagsToRemove: string[]): RemoveResult {
-  const match = content.match(FRONTMATTER_RE);
+  return editNote(content, (text) => removeTagsFromText(text, tagsToRemove));
+}
+
+function removeTagsFromText(content: string, tagsToRemove: string[]): RemoveResult {
+  const match = findFrontmatter(content);
   if (!match) return { content, removedTags: [] };
   let parsed: unknown;
-  try { parsed = YAML.parse(match[1]!); } catch { return { content, removedTags: [] }; }
+  try { parsed = YAML.parse(match.yaml); } catch { return { content, removedTags: [] }; }
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
     return { content, removedTags: [] };
   }
@@ -154,7 +159,7 @@ export function removeTagsFromContent(content: string, tagsToRemove: string[]): 
 
   // If the frontmatter ends up empty (no remaining keys) drop the
   // block entirely \u2014 same rationale as dropping an empty `tags:` key.
-  const body = content.slice(match[0].length);
+  const body = content.slice(match.end);
   if (Object.keys(fm).length === 0) {
     return { content: body.replace(/^\n+/, ''), removedTags };
   }
@@ -167,15 +172,20 @@ export function removeTagsFromContent(content: string, tagsToRemove: string[]): 
 /**
  * Merges `newTags` into the note\u2019s frontmatter `tags:` array. Skips tags
  * that are already present (case-insensitive). Creates a frontmatter block
- * when the note has none.
+ * when the note has none. Keeps the note's line endings and byte-order mark
+ * (#2690).
  */
 export function mergeTagsIntoContent(content: string, newTags: string[]): MergeResult {
-  const match = content.match(FRONTMATTER_RE);
+  return editNote(content, (text) => mergeTagsIntoText(text, newTags));
+}
+
+function mergeTagsIntoText(content: string, newTags: string[]): MergeResult {
+  const match = findFrontmatter(content);
   const existing: string[] = [];
   let fm: Record<string, unknown> = {};
   if (match) {
     try {
-      const parsed: unknown = YAML.parse(match[1]!);
+      const parsed: unknown = YAML.parse(match.yaml);
       if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
         fm = parsed as Record<string, unknown>;
       }
@@ -200,7 +210,7 @@ export function mergeTagsIntoContent(content: string, newTags: string[]): MergeR
   fm.tags = [...existing, ...addedTags];
   const yamlBlock = YAML.stringify(fm).trimEnd();
   const rendered = `---\n${yamlBlock}\n---\n`;
-  const body = match ? content.slice(match[0].length) : content;
+  const body = match ? content.slice(match.end) : content;
   const separator = body.startsWith('\n') || body === '' ? '' : '\n';
   return { content: rendered + separator + body, addedTags };
 }

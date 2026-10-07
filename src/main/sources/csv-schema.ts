@@ -33,6 +33,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import YAML from 'yaml';
 import { logger } from '../../shared/logger';
+import { findFrontmatter } from '../../shared/frontmatter-block';
 
 export interface CsvSchema {
   /** Column name → DuckDB type literal (e.g. "VARCHAR", "DATE",
@@ -84,11 +85,11 @@ async function readCompanionSchema(
   } catch {
     return null;
   }
-  const m = content.match(/^---\n([\s\S]*?)\n---/);
-  if (!m) return null;
+  const block = findFrontmatter(content);
+  if (!block) return null;
   let fm: unknown;
   try {
-    fm = YAML.parse(m[1]!);
+    fm = YAML.parse(block.yaml);
   } catch {
     return null;
   }

@@ -55,6 +55,27 @@ describe('resolvePlan (#246)', () => {
     expect(titleByPath.get('c-from-stem.md')).toBe('c-from-stem');
   });
 
+  // The private CRLF-tolerant parse here was retired for the graph's shared
+  // reader (#2690); a CRLF note must still export exactly as its LF twin, and
+  // `private: true` in a CRLF block must still exclude it.
+  it('reads a CRLF note\'s frontmatter exactly as its LF twin\'s (#2690)', async () => {
+    const lf = '---\ntitle: Twin Title\ntags: [a, b]\ndate: 2026-01-02\n---\n\n# Different H1\n';
+    await fsp.writeFile(path.join(root, 'lf.md'), lf, 'utf-8');
+    await fsp.writeFile(path.join(root, 'crlf.md'), lf.replace(/\n/g, '\r\n'), 'utf-8');
+    await fsp.writeFile(path.join(root, 'bom.md'), `\uFEFF${lf.replace(/\n/g, '\r\n')}`, 'utf-8');
+    await fsp.writeFile(path.join(root, 'secret.md'), '---\r\nprivate: true\r\n---\r\n# Secret\r\n', 'utf-8');
+
+    const plan = await resolvePlan(root, { kind: 'project' });
+    const byPath = new Map(plan.inputs.map((f) => [f.relativePath, f]));
+    expect(byPath.get('lf.md')?.title).toBe('Twin Title');
+    for (const rel of ['crlf.md', 'bom.md']) {
+      expect(byPath.get(rel)?.title).toBe('Twin Title');
+      expect({ ...byPath.get(rel)?.frontmatter }).toEqual({ ...byPath.get('lf.md')?.frontmatter });
+    }
+    expect({ ...byPath.get('crlf.md')?.frontmatter }.tags).toEqual(['a', 'b']);
+    expect(plan.excluded.map((e) => e.relativePath)).toEqual(['secret.md']);
+  });
+
   it('ignores hidden and node_modules directories', async () => {
     await fsp.mkdir(path.join(root, '.obsidian'), { recursive: true });
     await fsp.mkdir(path.join(root, 'node_modules/sub'), { recursive: true });

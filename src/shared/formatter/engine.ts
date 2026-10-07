@@ -13,6 +13,7 @@ import { HOUSE_STYLE_RULE_IDS } from './house-style';
 import { PASTE_SAFE_RULE_IDS } from './paste-safe';
 import { CATEGORY_ORDER, getRule, listAllRules } from './registry';
 import { readFrontmatterKey } from './rules/yaml/helpers';
+import { editNoteText, normalizeNoteText } from '../frontmatter-block';
 import type { EnabledRule, FormatContext, FormatterRule } from './types';
 
 export interface FormatSettings {
@@ -42,7 +43,8 @@ export function isRuleEnabled(settings: FormatSettings, ruleId: string): boolean
  * missing frontmatter, or any other value formats as normal.
  */
 export function isFormatOptedOut(content: string): boolean {
-  return readFrontmatterKey(content, buildParseCache(content), 'format') === false;
+  const text = normalizeNoteText(content);
+  return readFrontmatterKey(text, buildParseCache(text), 'format') === false;
 }
 
 export const DEFAULT_FORMAT_SETTINGS: FormatSettings = {
@@ -53,8 +55,21 @@ export const DEFAULT_FORMAT_SETTINGS: FormatSettings = {
 /**
  * Apply enabled rules to `content`. Returns the rewritten string; equal to
  * `content` when no enabled rule matched.
+ *
+ * Rules are written against LF text. They get it: a CRLF note is folded to
+ * LF (and a byte-order mark set aside) before they run, and what they changed
+ * is mapped back, so a CRLF note stays CRLF instead of gaining `\n` lines
+ * where a rule rewrote it (#2690).
  */
 export function formatContent(
+  content: string,
+  settings: FormatSettings,
+  ctx?: FormatContext,
+): string {
+  return editNoteText(content, (text) => formatText(text, settings, ctx));
+}
+
+function formatText(
   content: string,
   settings: FormatSettings,
   ctx?: FormatContext,

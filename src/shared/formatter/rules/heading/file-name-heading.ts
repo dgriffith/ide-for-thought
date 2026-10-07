@@ -1,4 +1,5 @@
 import { registerRule } from '../../registry';
+import { findFrontmatter } from '../../../frontmatter-block';
 
 type Mode = 'off' | 'insert-if-missing' | 'replace-h1';
 
@@ -69,6 +70,5 @@ function findFirstH1(content: string): { lineStart: number; lineEnd: number } | 
 }
 
 function findFrontmatterEnd(content: string): number {
-  const match = content.match(/^---\r?\n[\s\S]*?\r?\n---(\r?\n|$)/);
-  return match ? match[0].length : 0;
+  return findFrontmatter(content)?.end ?? 0;
 }

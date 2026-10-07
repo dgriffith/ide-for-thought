@@ -15,10 +15,10 @@
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import YAML from 'yaml';
 import { checkExclusion } from './exclusion';
 import { isIgnoredEntry } from '../../shared/ignored-dirs';
 import { noteTitle } from '../../shared/note-title';
+import { parseFrontmatter } from '../../shared/frontmatter-parse';
 import { resolveTree, extractWikiLinkTargets } from './tree-resolver';
 import { wikiLinkTargets } from '../graph/index';
 import { projectContext } from '../project-context-types';
@@ -296,22 +296,14 @@ function parseHeader(relativePath: string, content: string): {
   frontmatter: Record<string, unknown>;
   title: string;
 } {
-  const fm = extractFrontmatter(content);
+  // The shared frontmatter reader (#2690) — the graph's — so an export reads a
+  // note's frontmatter exactly as the graph does, CRLF included. It replaced a
+  // private CRLF-tolerant parse here that disagreed with the graph about CRLF.
+  const fm = parseFrontmatter(content);
   // Frontmatter title, else the first body H1 (#2683), else the filename stem.
-  // `fm` is this module's own CRLF-tolerant parse, handed in so it's read once.
+  // `fm` is handed in so it's read once.
   const title = noteTitle(content, fm);
   if (title) return { frontmatter: fm, title };
   const stem = (relativePath.split('/').pop() ?? relativePath).replace(/\.md$/i, '');
   return { frontmatter: fm, title: stem };
-}
-
-function extractFrontmatter(content: string): Record<string, unknown> {
-  const m = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-  if (!m) return {};
-  try {
-    const parsed: unknown = YAML.parse(m[1]!);
-    return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {};
-  } catch {
-    return {};
-  }
 }

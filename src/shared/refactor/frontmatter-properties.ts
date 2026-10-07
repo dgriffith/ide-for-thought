@@ -12,6 +12,7 @@
  */
 import YAML from 'yaml';
 import { ownRecord } from '../own-record';
+import { editNote, findFrontmatter, type FrontmatterBlock } from '../frontmatter-block';
 
 /*
  * Every parsed map is copied into a null-prototype record (`ownRecord`) before
@@ -19,15 +20,15 @@ import { ownRecord } from '../own-record';
  * `key in fm` / `fm[key]` would see `constructor`, `toString`, … as present,
  * and `fm['__proto__'] = v` would hit the prototype setter instead of adding
  * the key. `YAML.stringify` serialises a null-prototype record as usual.
+ *
+ * The writers keep the note's line endings and byte-order mark (#2690).
  */
 
-const FRONTMATTER_RE = /^---\n([\s\S]*?)\n---\n?/;
-
-function parseFrontmatterObject(content: string): { fm: Record<string, unknown>; match: RegExpMatchArray } | null {
-  const match = content.match(FRONTMATTER_RE);
+function parseFrontmatterObject(content: string): { fm: Record<string, unknown>; match: FrontmatterBlock } | null {
+  const match = findFrontmatter(content);
   if (!match) return null;
   let parsed: unknown;
-  try { parsed = YAML.parse(match[1]!); } catch { return null; }
+  try { parsed = YAML.parse(match.yaml); } catch { return null; }
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
   return { fm: ownRecord(Object.entries(parsed)), match };
 }
@@ -57,11 +58,15 @@ export interface SetPropertyResult {
  * boolean. No-op when the key already holds the same value.
  */
 export function setPropertyInContent(content: string, key: string, value: unknown): SetPropertyResult {
-  const match = content.match(FRONTMATTER_RE);
+  return editNote(content, (text) => setPropertyInText(text, key, value));
+}
+
+function setPropertyInText(content: string, key: string, value: unknown): SetPropertyResult {
+  const match = findFrontmatter(content);
   let fm: Record<string, unknown> = ownRecord([]);
   if (match) {
     try {
-      const parsed: unknown = YAML.parse(match[1]!);
+      const parsed: unknown = YAML.parse(match.yaml);
       if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
         fm = ownRecord(Object.entries(parsed));
       }
@@ -71,7 +76,7 @@ export function setPropertyInContent(content: string, key: string, value: unknow
   fm[key] = value;
   const yamlBlock = YAML.stringify(fm).trimEnd();
   const rendered = `---\n${yamlBlock}\n---\n`;
-  const body = match ? content.slice(match[0].length) : content;
+  const body = match ? content.slice(match.end) : content;
   const separator = body.startsWith('\n') || body === '' ? '' : '\n';
   return { content: rendered + separator + body, changed: true };
 }
@@ -88,12 +93,16 @@ export interface RemovePropertyResult {
  * key isn't present.
  */
 export function removePropertyFromContent(content: string, key: string): RemovePropertyResult {
+  return editNote(content, (text) => removePropertyFromText(text, key));
+}
+
+function removePropertyFromText(content: string, key: string): RemovePropertyResult {
   const parsed = parseFrontmatterObject(content);
   if (!parsed) return { content, removed: false };
   const { fm, match } = parsed;
   if (!(key in fm)) return { content, removed: false };
   delete fm[key];
-  const body = content.slice(match[0].length);
+  const body = content.slice(match.end);
   if (Object.keys(fm).length === 0) {
     return { content: body.replace(/^\n+/, ''), removed: true };
   }

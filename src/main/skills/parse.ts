@@ -15,8 +15,7 @@ import {
 } from '../../shared/skills/types';
 import { validateTemplate } from './template';
 import { slugifyId as slugify } from '../../shared/slug';
-
-const FRONTMATTER_RE = /^---\n([\s\S]*?)\n---\n?/;
+import { findFrontmatter, normalizeNoteText } from '../../shared/frontmatter-block';
 
 const CONTEXT_REQUIREMENTS: readonly ContextRequirement[] = [
   'selectedText', 'fullNote', 'relatedNotes', 'taggedNotes', 'claimUnderCursor', 'selectionRange',
@@ -104,19 +103,22 @@ function normalizeStringArray(raw: unknown, field: string, allowed: readonly str
   return out;
 }
 
-export function parseSkill(content: string, source: SkillSource, filePath: string): ParseResult {
+export function parseSkill(raw: string, source: SkillSource, filePath: string): ParseResult {
   const errors: string[] = [];
+  // A user skill written on Windows may be CRLF or carry a byte-order mark;
+  // read it as LF so the template body has no `\r` (#2690).
+  const content = normalizeNoteText(raw);
   const fallbackLabel = filePath.replace(/\/SKILL\.md$/i, '').split('/').pop() || filePath;
 
-  const m = FRONTMATTER_RE.exec(content);
-  if (!m) {
+  const block = findFrontmatter(content);
+  if (!block) {
     return { errors: ['missing YAML frontmatter (file must start with `---`)'], label: fallbackLabel };
   }
-  const body = content.slice(m[0].length).trim();
+  const body = content.slice(block.end).trim();
 
   let fm: Record<string, unknown>;
   try {
-    const parsed: unknown = YAML.parse(m[1]!); // capture group present when the regex matches
+    const parsed: unknown = YAML.parse(block.yaml);
     if (typeof parsed !== 'object' || parsed === null) {
       return { errors: ['frontmatter is not a YAML mapping'], label: fallbackLabel };
     }
