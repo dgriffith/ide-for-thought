@@ -11,48 +11,35 @@ import os from 'node:os';
 import path from 'node:path';
 import { closeMinerva, launchMinerva, projectRoot } from './helpers/launch';
 import { expectAnnounced, recordAnnouncements } from './helpers/announcements';
+import { dragCardToColumn, openProjectBoard, seedProjects } from './helpers/kanban';
 
-const noteText = (title: string, status: string) =>
+const noteText = (title: string, status: string | null) =>
   `---\ntype: project\nstatus: ${status}\nowner: Ann  # keep this comment\n---\n# ${title}\n\nBody text.\n`;
 
 test('a Project card moves between columns by pointer drag and by keyboard, and writes status (#2603)', async () => {
   const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-kanban-move-userdata-'));
   const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-kanban-move-project-'));
   fs.cpSync(path.join(projectRoot, 'tests', 'fixtures', 'sample-project'), projectDir, { recursive: true });
-  const fileOf = (title: string) => path.join(projectDir, 'projects', `${title}.md`);
-  fs.mkdirSync(path.join(projectDir, 'projects'), { recursive: true });
-  for (const [title, status] of [['Garden Shed', 'active'], ['Novel Draft', 'active'], ['Tax Return', 'done']] as const) {
-    fs.writeFileSync(fileOf(title), noteText(title, status));
-  }
+  const fileOf = seedProjects(projectDir, [['Garden Shed', 'active'], ['Novel Draft', 'active'], ['Tax Return', 'done']], noteText);
   fs.writeFileSync(path.join(userDataDir, 'session.json'), JSON.stringify([{ x: 80, y: 80, width: 1400, height: 900, rootPath: projectDir }]));
   const app = await launchMinerva({ userDataDir, env: { MINERVA_E2E: '1' } });
   try {
     const win = await app.firstWindow({ timeout: 20_000 });
     await expect(win.getByRole('button', { name: 'Open Thoughtbase' })).toHaveCount(0, { timeout: 25_000 });
-    const board = win.locator('.kb-board');
-    const cardFor = (title: string) => board.locator('[data-kanban-card]', { hasText: title });
-    const inColumn = (value: string, title: string) =>
-      board.locator(`section.kb-column[data-column-value="${value}"] [data-kanban-card]`, { hasText: title });
     const statusOf = (title: string) => /^status: (.*)$/m.exec(fs.readFileSync(fileOf(title), 'utf8'))?.[1];
 
-    await test.step('open the Project view as a board', async () => {
-      await win.locator('.panel-tab[title="Objects"]').first().click();
-      await win.getByRole('button', { name: 'Open Project view' }).click({ force: true });
-      await win.getByRole('tab', { name: 'Kanban' }).click();
-      await expect(board.locator('[data-kanban-card]')).toHaveCount(3, { timeout: 15_000 });
+    const kb = await test.step('open the Project view as a board', async () => {
+      const b = await openProjectBoard(win, 3);
       await recordAnnouncements(win);
+      return b;
     });
+    const { board, cardFor, inColumn } = kb;
 
     await test.step('pointer: drag Garden Shed from active onto done', async () => {
-      const from = await cardFor('Garden Shed').boundingBox();
-      const to = await board.locator('section.kb-column[data-column-value="done"]').boundingBox();
-      if (!from || !to) throw new Error('no layout for the card or the column');
-      await win.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
-      await win.mouse.down();
-      await win.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 12 });
-      // The column under the pointer is marked as the drop target.
-      await expect(board.locator('section.kb-column[data-drop-target]')).toHaveAttribute('data-column-value', 'done');
-      await win.mouse.up();
+      await dragCardToColumn(win, kb, 'Garden Shed', 'done', async () => {
+        // The column under the pointer is marked as the drop target.
+        await expect(board.locator('section.kb-column[data-drop-target]')).toHaveAttribute('data-column-value', 'done');
+      });
 
       await expect.poll(() => statusOf('Garden Shed'), { timeout: 10_000 }).toBe('done');
       expect(fs.readFileSync(fileOf('Garden Shed'), 'utf8')).toBe(noteText('Garden Shed', 'done'));
