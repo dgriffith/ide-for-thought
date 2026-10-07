@@ -19,7 +19,8 @@
  */
 import { dateRange, type CivilSpan, type EndIssue } from '../../../../shared/objects/date-precision';
 import type { TypeInstanceRow } from '../../../../shared/objects/type-def';
-import { formatCivil, formatCivilRange, isPartial } from './timeline-format';
+import { formatDateValue } from '../../../../shared/objects/date-values';
+import { isPartial } from './timeline-format';
 import { DRAWABLE_END, DRAWABLE_START, type Domain } from './timeline-scale';
 
 /** The Event type's properties a timeline reads (stock `event.md`; Meeting inherits them). */
@@ -49,9 +50,9 @@ export interface TimelineEvent {
   /** Any of the drawing is uncertain (a partial date). */
   approx: boolean;
   segments: Segment[];
-  /** "20 July 1969", "16–24 July 1969" (formatted on first read). */
+  /** "Jul 20, 1969", "Jul 16, 1969 – Jul 24, 1969" (en-US, `formatDateValue`; formatted on first read). */
   readonly dateText: string;
-  /** What the event is called to a screen reader: "Moon landing, 20 July 1969". */
+  /** What the event is called to a screen reader: "Moon landing, Jul 20, 1969". */
   readonly label: string;
   /** Why a written `end` was set aside, for the hover card; null when it wasn't. */
   endNote: string | null;
@@ -101,6 +102,7 @@ export function buildTimelineModel(
 ): TimelineModel {
   const dateProp = opts.dateProperty ?? DATE_PROPERTY;
   const endProp = opts.endProperty ?? END_PROPERTY;
+  const fmt = opts.locale ? { locale: opts.locale } : {};
   const dated: TimelineEvent[] = [];
   const undated: UndatedEvent[] = [];
   let lo = Infinity;
@@ -132,9 +134,10 @@ export function buildTimelineModel(
       approx: segments.some((s) => s.approx),
       segments,
       get dateText() {
-        return (dateText ??= endSpan
-          ? formatCivilRange(startSpan.start, startSpan.precision, endSpan.start, endSpan.precision, opts.locale)
-          : formatCivil(startSpan.start, startSpan.precision, opts.locale));
+        // The app's one date formatter (`date-values.ts`, #2613): each value at its own precision.
+        return (dateText ??= endSpan && rawEnd
+          ? `${formatDateValue(rawDate!, fmt)} – ${formatDateValue(rawEnd, fmt)}`
+          : formatDateValue(rawDate!, fmt));
       },
       get label() { return `${inst.title}, ${this.dateText}${endNote ? ' (end date ignored)' : ''}`; },
       endNote,

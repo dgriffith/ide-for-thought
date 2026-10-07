@@ -1,7 +1,7 @@
 /**
- * How the Timeline (#2608) writes a date for a person: an event's spoken
- * label ("Moon landing, 20 July 1969"), its hover card, and the axis's tick
- * labels.
+ * How the Timeline's axis (#2608) labels its ticks. (An event's own dates —
+ * its spoken label, hover card and list row — go through the app's one value
+ * formatter, `shared/objects/date-values.ts`'s `formatDateValue`.)
  *
  * Every value is a civil-axis ms (`shared/objects/date-precision.ts`), so it is
  * formatted with `Intl.DateTimeFormat` in `timeZone: 'UTC'` — the civil axis's
@@ -13,18 +13,6 @@
  * `locale` is the viewer's (undefined) in the app; tests pin one.
  */
 import type { DatePrecision } from '../../../../shared/objects/date-precision';
-
-/** Which fields a precision writes. */
-function fieldsFor(precision: DatePrecision): Intl.DateTimeFormatOptions {
-  switch (precision) {
-    case 'year': return { year: 'numeric' };
-    case 'month': return { year: 'numeric', month: 'long' };
-    case 'day': return { year: 'numeric', month: 'long', day: 'numeric' };
-    case 'minute': return { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
-    case 'second': return { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' };
-    case 'millisecond': return { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 };
-  }
-}
 
 /** The (proleptic, astronomical) year of a civil ms. */
 export function civilYear(ms: number): number {
@@ -40,34 +28,6 @@ function formatter(locale: string | undefined, opts: Intl.DateTimeFormatOptions)
     formatters.set(key, f);
   }
   return f;
-}
-
-/** One value at its precision: "1969", "July 1969", "20 July 1969", "20 July 1969 at 20:17", "44 BC". */
-export function formatCivil(ms: number, precision: DatePrecision, locale?: string): string {
-  const era = civilYear(ms) <= 0 ? { era: 'short' as const } : {};
-  return formatter(locale, { ...fieldsFor(precision), ...era }).format(new Date(ms));
-}
-
-/**
- * A range for a person: "16–24 July 1969", "1618 – 1648", "20 July 1969,
- * 14:00 – 16:00". `start` is the start value's span start; `last` is where the
- * range's written end is — its span start at calendar precision (the end is
- * inclusive of that whole span) or the instant itself at clock precision.
- * Same precision both sides → `formatRange`, which drops what they share.
- */
-export function formatCivilRange(
-  start: number, startPrecision: DatePrecision,
-  last: number, lastPrecision: DatePrecision,
-  locale?: string,
-): string {
-  const era = civilYear(start) <= 0 || civilYear(last) <= 0 ? { era: 'short' as const } : {};
-  if (startPrecision === lastPrecision) {
-    const f = formatter(locale, { ...fieldsFor(startPrecision), ...era });
-    return f.formatRange(new Date(start), new Date(last));
-  }
-  const a = formatter(locale, { ...fieldsFor(startPrecision), ...era }).format(new Date(start));
-  const b = formatter(locale, { ...fieldsFor(lastPrecision), ...era }).format(new Date(last));
-  return `${a} – ${b}`;
 }
 
 /** The coarsest unit an axis's ticks step by. */

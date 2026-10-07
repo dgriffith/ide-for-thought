@@ -28,7 +28,8 @@
    *   order, panning to keep the focused one in view; Shift+←/→ pan;
    *   Home/End go to the first and last event; Enter opens; +/− zoom about the
    *   focused event. Each event is `role="link"` named like "Moon landing,
-   *   20 July 1969"; a bar's name includes its end.
+   *   Jul 20, 1969" (`formatDateValue`, the app's one date formatter); a bar's
+   *   name includes its end.
    * - **The list alternative is a toggle**, not a visually hidden copy: the
    *   **List** button swaps the drawing for an ordered list of the same events
    *   in the same order with the same names and dates (the Undated tray is

@@ -53,7 +53,7 @@ test('an Event timeline: draw, zoom, keyboard, open, and the range round-trips (
     });
 
     await test.step('points, a span, a partial date, the Meeting, and the Undated tray', async () => {
-      await expect(eventFor('Moon landing')).toHaveAttribute('aria-label', /Moon landing, 20 July 1969|Moon landing, July 20, 1969/);
+      await expect(eventFor('Moon landing')).toHaveAttribute('aria-label', /^Moon landing, (20 Jul 1969|Jul 20, 1969)$/);
       await expect(eventFor('Splashdown debrief')).toHaveCount(1); // a Meeting is an Event
       await expect(eventFor('Woodstock')).toHaveClass(/approx/);
       await expect(win.locator('.tl-undated')).toContainText('Someday');

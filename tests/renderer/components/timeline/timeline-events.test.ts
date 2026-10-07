@@ -9,29 +9,12 @@ import { describe, it, expect } from 'vitest';
 import { civilMs, dateSpan } from '../../../../src/shared/objects/date-precision';
 import { buildTimelineModel, segmentsOf } from '../../../../src/renderer/lib/components/timeline/timeline-events';
 import { cullToView, labelWidth, layoutTimeline, MARKER_PX, shortLabel, MAX_LABEL_CHARS, timeOrder, trailingLabelRoom } from '../../../../src/renderer/lib/components/timeline/timeline-layout';
-import { formatCivil, formatCivilRange } from '../../../../src/renderer/lib/components/timeline/timeline-format';
 
 const row = (path: string, title: string, date: string | null, end: string | null = null) =>
   ({ path, title, values: { date, end }, cover: null });
 /** `Intl` spaces a range with thin spaces; compare with plain ones. */
 const norm = (s: string) => s.replace(/\s/g, ' ');
 const build = (rows: ReturnType<typeof row>[]) => buildTimelineModel(rows, { locale: 'en-GB' });
-
-describe('formatCivil / formatCivilRange', () => {
-  it('writes a value at its precision, with an era only for years ≤ 0', () => {
-    expect(formatCivil(civilMs(1969, 6, 20), 'day', 'en-GB')).toBe('20 July 1969');
-    expect(formatCivil(civilMs(1969, 6, 1), 'month', 'en-GB')).toBe('July 1969');
-    expect(formatCivil(civilMs(-43, 0, 1), 'year', 'en-GB')).toBe('44 BC');
-    expect(formatCivil(civilMs(12026, 0, 1), 'year', 'en-GB')).toBe('12026');
-    expect(formatCivil(civilMs(1969, 6, 20, 20, 17), 'minute', 'en-GB')).toBe('20 July 1969 at 20:17');
-  });
-
-  it('writes a range compactly when both ends share a precision', () => {
-    expect(norm(formatCivilRange(civilMs(1969, 6, 16), 'day', civilMs(1969, 6, 24), 'day', 'en-GB'))).toBe('16 – 24 July 1969');
-    expect(norm(formatCivilRange(civilMs(1618, 0, 1), 'year', civilMs(1648, 0, 1), 'year', 'en-GB'))).toBe('1618 – 1648');
-    expect(norm(formatCivilRange(civilMs(1969, 6, 20), 'day', civilMs(1970, 0, 1), 'year', 'en-GB'))).toBe('20 July 1969 – 1970');
-  });
-});
 
 describe('buildTimelineModel', () => {
   const m = build([
@@ -48,8 +31,11 @@ describe('buildTimelineModel', () => {
   const ev = (k: string) => m.dated.find((e) => e.key === k)!;
 
   it('names each event and its dates, a bar\'s with its end', () => {
-    expect(ev('moon.md').label).toBe('Moon landing, 20 July 1969');
-    expect(norm(ev('apollo.md').label)).toBe('Apollo 11, 16 – 24 July 1969');
+    // Through the app's one value formatter (`formatDateValue`), each value at its precision.
+    expect(ev('moon.md').label).toBe('Moon landing, 20 Jul 1969');
+    expect(norm(ev('apollo.md').label)).toBe('Apollo 11, 16 Jul 1969 – 24 Jul 1969');
+    expect(ev('war.md').dateText).toBe('1618 – 1648');
+    expect(ev('woodstock.md').dateText).toBe('Aug 1969');
     expect(ev('moon.md').ranged).toBe(false);
     expect(ev('apollo.md').ranged).toBe(true);
     expect(ev('apollo.md').end).toBe(civilMs(1969, 6, 25)); // an end day is inclusive
@@ -88,14 +74,16 @@ describe('buildTimelineModel', () => {
     expect(build([row('x.md', 'x', null)]).extent).toBeNull();
   });
 
-  it('orders a day\'s clock times within it, from `datetime` values', () => {
+  it('orders a day\'s clock times within it, from `datetime` values (as written, and as the graph reads them back)', () => {
     const day = build([
-      row('b.md', 'Lunch', '2026-10-05T12:30'),
+      row('b.md', 'Lunch', '2026-10-05T12:30:00'), // xsd:dateTime read-back adds seconds (#2613)
       row('a.md', 'Standup', '2026-10-05T09:00', '2026-10-05T09:15'),
       row('c.md', 'All day', '2026-10-05'),
     ]);
     expect(timeOrder(day.dated)).toEqual(['c.md', 'a.md', 'b.md']);
-    expect(day.dated.find((e) => e.key === 'a.md')!.end).toBe(civilMs(2026, 9, 5, 9, 15));
+    const standup = day.dated.find((e) => e.key === 'a.md')!;
+    expect(standup.end).toBe(civilMs(2026, 9, 5, 9, 15)); // a clock end is the instant
+    expect(standup.dateText).toBe('5 Oct 2026, 9:00 – 5 Oct 2026, 9:15');
   });
 });
 

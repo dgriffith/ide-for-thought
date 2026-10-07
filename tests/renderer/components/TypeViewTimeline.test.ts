@@ -18,8 +18,9 @@ import type { TypeInstanceRow } from '../../../src/shared/objects/type-def';
 const EVENT = {
   id: 'event', label: 'Event', classLocalName: 'Event', icon: '📅', source: 'stock' as const,
   properties: [
-    { name: 'date', type: 'date' as const },
-    { name: 'end', type: 'date' as const },
+    // Stock Event's dates are `datetime` since #2613.
+    { name: 'date', type: 'datetime' as const },
+    { name: 'end', type: 'datetime' as const },
     { name: 'location', type: 'text' as const, label: 'Location' },
   ],
 };
@@ -78,8 +79,8 @@ describe('drawing', () => {
   it('names each event for a screen reader, with its dates', () => {
     const { event } = setup();
     expect(event('moon.md').getAttribute('role')).toBe('link');
-    expect(event('moon.md').getAttribute('aria-label')).toBe('Moon landing, 20 July 1969');
-    expect(event('apollo.md').getAttribute('aria-label')!.replace(/\s/g, ' ')).toBe('Apollo 11, 16 – 24 July 1969');
+    expect(event('moon.md').getAttribute('aria-label')).toBe('Moon landing, 20 Jul 1969');
+    expect(event('apollo.md').getAttribute('aria-label')!.replace(/\s/g, ' ')).toBe('Apollo 11, 16 Jul 1969 – 24 Jul 1969');
   });
 
   it('draws a partial date as its precision span, hatched with a dashed outline', () => {
@@ -112,6 +113,37 @@ describe('drawing', () => {
   });
 });
 
+describe('datetime values (#2613)', () => {
+  // Two meetings on one day, as the graph reads `datetime` values back (with seconds).
+  const DAY = [
+    row('standup.md', 'Standup', '2026-10-05T09:00:00', '2026-10-05T09:15:00'),
+    row('review.md', 'Review', '2026-10-05T14:30:00', '2026-10-05T16:00:00'),
+  ];
+
+  it('orders two events on the same day by their times, and steps through them that way', async () => {
+    const { event } = setup({ instances: [...DAY].reverse() });
+    expect(event('standup.md').getAttribute('tabindex')).toBe('0');
+    event('standup.md').focus();
+    await fireEvent.keyDown(event('standup.md'), { key: 'ArrowRight' });
+    await waitFor(() => expect(document.activeElement).toBe(event('review.md')));
+  });
+
+  it('zoomed into the day, each is a bar at its own hours, and a zoom writes minute-precision from/to', async () => {
+    vi.useFakeTimers();
+    const { event, domain, onStateChange } = setup({ instances: DAY, from: '2026-10-05T08:00', to: '2026-10-05T18:00' });
+    expect(domain()).toEqual({ start: civilMs(2026, 9, 5, 8), end: civilMs(2026, 9, 5, 18) });
+    expect(event('standup.md').dataset['kind']).toBe('bar');
+    expect(event('review.md').dataset['kind']).toBe('bar');
+    const x = (p: string) => Number(event(p).querySelector('rect.tl-bar')!.getAttribute('x'));
+    expect(x('review.md')).toBeGreaterThan(x('standup.md'));
+    await fireEvent.keyDown(event('standup.md'), { key: '+' });
+    vi.advanceTimersByTime(400);
+    const written = onStateChange.mock.calls[0]![0] as { from: string; to: string };
+    expect(written.from).toMatch(/^2026-10-05T\d\d:\d\d$/);
+    expect(written.to).toMatch(/^2026-10-05T\d\d:\d\d$/);
+  });
+});
+
 describe('Undated tray', () => {
   it('lists the events with no readable date, with why, and opens one on click', async () => {
     const { container, onOpenNote, event } = setup();
@@ -139,7 +171,7 @@ describe('opening and the hover card', () => {
     await fireEvent.pointerEnter(event('moon.md'));
     const card = screen.getByRole('tooltip');
     expect(card.textContent).toContain('Moon landing');
-    expect(card.textContent).toContain('20 July 1969');
+    expect(card.textContent).toContain('20 Jul 1969');
     expect(card.textContent).toContain('Sea of Tranquility');
     await fireEvent.pointerLeave(event('moon.md'));
     expect(screen.queryByRole('tooltip')).toBeNull();
