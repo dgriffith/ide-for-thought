@@ -716,6 +716,11 @@
         background: var(--bg);
     }
 
+/* The toolbar is a --bg-titlebar surface, so everything drawn on it reads from
+   the paired --titlebar-* set, never a body token (#2679). In dark and light
+   each --titlebar-* resolves to its body twin, so those themes are unchanged;
+   in the contrast theme the bar is dark (#3a3a4a) over a light body, and a
+   body token there is dark-on-dark — same class as the app bar (#2378, #2426). */
 .preview .fence-toolbar {
         display: flex;
         align-items: center;
@@ -727,7 +732,7 @@
     }
 
 .preview .fence-lang {
-        color: var(--text-muted);
+        color: var(--titlebar-text-muted);
         text-transform: uppercase;
         letter-spacing: 0.05em;
         font-family: var(--font-mono, monospace);
@@ -739,7 +744,7 @@
 .preview .fence-collapse-btn {
         border: 1px solid transparent;
         background: transparent;
-        color: var(--text-muted);
+        color: var(--titlebar-text-muted);
         padding: 0 6px;
         height: 20px;
         border-radius: 3px;
@@ -751,8 +756,8 @@
 .preview .fence-run-btn:hover:not([disabled]),
 .preview .fence-refresh-btn:hover,
 .preview .fence-collapse-btn:hover {
-        background: var(--bg-button);
-        color: var(--text);
+        background: var(--titlebar-button);
+        color: var(--titlebar-text);
         border-color: var(--border);
     }
 

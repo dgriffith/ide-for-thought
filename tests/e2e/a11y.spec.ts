@@ -16,7 +16,8 @@
  *  - **Surfaces** (#2375 added the last five): welcome screen, workspace shell
  *    + editor, source viewer, PDF viewer, proposals panel, conversation panel,
  *    Settings dialog (every section), Query panel (with results), neighborhood
- *    graph, and the `:::argument` map.
+ *    graph, the `:::argument` map, and the preview's fenced-block toolbars
+ *    (#2679).
  *  - **Themes** (#2378): every shipped theme — dark, light, contrast. The theme
  *    tokens are the thing most likely to regress contrast, and each theme pairs
  *    them differently (the contrast theme's `--bg-titlebar` is dark over a
@@ -346,6 +347,39 @@ for (const theme of THEMES) {
         await expect(win.locator('.kb-board [data-kanban-card]')).toHaveCount(3, { timeout: 15_000 });
         await win.locator('.kb-board [data-kanban-card]').first().focus();
         await expectNoSerious(win, 'Kanban board', theme);
+      });
+    });
+
+    test('fenced-block toolbars in the preview', async () => {
+      // Every fence kind that draws a `.fence-toolbar` (#2679): runnable code,
+      // mermaid, and an object-view embed. In the contrast theme the toolbar is
+      // the dark --bg-titlebar bar, so its label and buttons must read from the
+      // --titlebar-* set — a body token there is dark-on-dark.
+      await withApp({
+        theme,
+        withProject: true,
+        extraFiles: {
+          'projects/Garden Shed.md': '---\ntype: project\nstatus: active\n---\n# Garden Shed\n',
+          'Fence Host.md': [
+            '# Fence Host', '',
+            '```python', 'print("hello")', '```', '',
+            '```mermaid', 'graph TD', '  A --> B', '```', '',
+            '```object-view', '{"typeId":"project","layout":"table"}', '```', '',
+          ].join('\n'),
+        },
+      }, async ({ win }) => {
+        await win.locator('[data-relative-path="Fence Host.md"]').first().click();
+        await expect(win.locator('.cm-content')).toBeVisible({ timeout: 10_000 });
+        await win.getByRole('button', { name: 'Preview', exact: true }).click();
+        const toolbars = win.locator('.preview .fence-toolbar');
+        await expect(toolbars).toHaveCount(3, { timeout: 10_000 });
+        await expect(win.locator('.preview .mermaid-block[data-mermaid-rendered] svg')).toBeVisible({ timeout: 15_000 });
+        await expect(win.locator('.preview .object-view-block[data-object-view-rendered="ok"]')).toBeVisible({ timeout: 15_000 });
+        await expectNoSerious(win, 'fenced-block toolbars', theme);
+
+        // The hover state paints its own chip on the bar.
+        await toolbars.first().locator('.fence-collapse-btn').hover();
+        await expectNoSerious(win, 'fenced-block toolbars (button hover)', theme, '.preview .fence-toolbar');
       });
     });
 

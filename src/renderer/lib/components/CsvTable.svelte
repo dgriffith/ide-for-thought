@@ -142,7 +142,7 @@
     background: var(--bg-titlebar);
     border-top: 1px solid var(--border);
     font-size: 11px;
-    color: var(--text-muted);
+    color: var(--titlebar-text-muted);
     text-align: center;
     flex-shrink: 0;
   }
