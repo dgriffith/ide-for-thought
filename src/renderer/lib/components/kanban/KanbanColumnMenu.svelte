@@ -94,6 +94,7 @@
   bind:this={button}
   type="button"
   class="kb-col-menu-btn"
+  data-export-omit
   tabindex="-1"
   aria-label="{label} column actions"
   aria-haspopup="menu"
@@ -106,7 +107,7 @@
 >⋯</button>
 {#if open}
   <!-- svelte-ignore a11y_interactive_supports_focus -->
-  <div class="kb-col-menu" role="menu" tabindex="-1" aria-label="{label} column" bind:this={menu} style="top:{pos.top}px; right:{pos.right}px" onkeydown={onMenuKeydown}>
+  <div class="kb-col-menu" role="menu" data-export-omit tabindex="-1" aria-label="{label} column" bind:this={menu} style="top:{pos.top}px; right:{pos.right}px" onkeydown={onMenuKeydown}>
     {#each items as item (item.id)}
       <button
         type="button"

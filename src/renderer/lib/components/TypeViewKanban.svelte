@@ -29,6 +29,14 @@
    *   column left / right* (`KanbanColumnMenu.svelte`; ↑ from a column's first
    *   card reaches it). Both hand `onMoveColumn` a (key, target, side) triple;
    *   without `onMoveColumn` (an embed, an export) the header is inert.
+   * - **Export mode** (#2604, `exportMode`): the board an export snapshots
+   *   (`renderObjectViewForExport`). A page is 760px wide and a PDF can't
+   *   scroll, so the columns WRAP onto further rows (a grid) instead of
+   *   scrolling sideways; headers don't stick; a long column label or field
+   *   value wraps rather than truncating, since nobody can hover it; cards
+   *   take no tab stop and avoid splitting across a printed page. Moves and
+   *   column moves are already off (no `onMove` / `onMoveColumn`); the
+   *   snapshot links each card by its `data-note-path`.
    */
   import { tick, untrack } from 'svelte';
   import TypeIcon from './TypeIcon.svelte';
@@ -66,8 +74,10 @@
     /** Reorder columns (#2614): move `key` to `side` of the visible column
      *  `target`. Absent → the columns can't be moved. */
     onMoveColumn?: (key: string, target: string, side: DropSide) => void;
+    /** Draw for an export snapshot (#2604): wrapped columns, nothing to focus. */
+    exportMode?: boolean;
   }
-  let { type, properties, group, columns, visible, display, rowType, isSelected, selectable, onCardClick, onCardContextMenu, onMove, onUndoMove, onMoveColumn }: Props = $props();
+  let { type, properties, group, columns, visible, display, rowType, isSelected, selectable, onCardClick, onCardContextMenu, onMove, onUndoMove, onMoveColumn, exportMode = false }: Props = $props();
 
   const byName = $derived(new Map(properties.map((p) => [p.name, p] as const)));
   function fieldsFor(inst: TypeInstanceRow) {
@@ -180,7 +190,7 @@
   <p class="kb-empty">This type has no choice property to group by.</p>
 {:else}
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="kb-board" bind:this={board} onkeydown={onKeydown} data-group-by={group.name} use:cardDrag={{ enabled: !!onMove, onDrop: (p, t) => onMove?.(p, t) }}>
+  <div class="kb-board" class:kb-export={exportMode} bind:this={board} onkeydown={onKeydown} data-group-by={group.name} use:cardDrag={{ enabled: !!onMove, onDrop: (p, t) => onMove?.(p, t) }}>
     {#each columns as col, ci (columnKey(col))}
       <section class="kb-column" data-column-value={col.value ?? ''} data-column-kind={col.kind}>
         <h2 class="kb-col-header" use:columnDrag={{ key: orderKey(col), enabled: !!onMoveColumn, onDrop: (_k, t, side) => moveColumn(col, t, side, false) }}>
@@ -197,7 +207,7 @@
                 class="kb-card"
                 class:selected={isSelected(inst.path)}
                 aria-pressed={selectable ? isSelected(inst.path) : undefined}
-                tabindex={inst.path === tabStop ? 0 : -1}
+                tabindex={exportMode ? undefined : inst.path === tabStop ? 0 : -1}
                 data-kanban-card
                 data-note-path={inst.path}
                 title={inst.path}
@@ -321,4 +331,22 @@
   .kb-fields { display: flex; flex-direction: column; gap: 2px; }
   .kb-field { font-size: 11px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .kb-flabel { font-weight: 600; }
+
+  /* Export mode (#2604): the columns wrap within the page — equal widths on
+     every row, as many as fit (three across the 760px export block or a
+     72ch export page, reflowing to a printed page) — and everything shows in full. */
+  .kb-board.kb-export {
+    flex: none;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    align-items: start;
+    overflow: visible;
+  }
+  .kb-export .kb-column { min-width: 0; }
+  .kb-export .kb-col-header { position: static; break-after: avoid; }
+  .kb-export .kb-col-label { white-space: normal; overflow-wrap: anywhere; }
+  .kb-export .kb-field { white-space: normal; overflow-wrap: anywhere; }
+  .kb-export .kb-card { cursor: auto; break-inside: avoid; }
+  /* A card the export's link policy left unlinked is plain text: no hover. */
+  .kb-export .kb-card:not([href]):hover { border-color: var(--border); }
 </style>
