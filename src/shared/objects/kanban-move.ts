@@ -13,6 +13,10 @@
  *   put a card, and a values filter that hides a column doesn't make it less
  *   real), any off-list value the board shows, and **No value**.
  * - **`groupValueOf`** reads the field back, for the undo check.
+ * - **`setFieldValues`** is the same write for several fields in ONE edit — a
+ *   Calendar reschedule (#2703) sets an event's start and end together, so
+ *   they land in one save, one Local History revision and one undo entry.
+ *   `setGroupValue` is its one-field case.
  */
 import { applyBulkEdits, scalarTextOf } from './bulk-properties';
 import { parseFrontmatter } from '../refactor/frontmatter-rows';
@@ -34,7 +38,23 @@ export interface MoveTarget {
  * YAML.
  */
 export function setGroupValue(content: string, property: string, value: string | null): { content: string; changed: boolean } | null {
-  return applyBulkEdits(content, [value === null ? { op: 'clear', key: property } : { op: 'set', key: property, value }]);
+  return setFieldValues(content, [{ key: property, value }]);
+}
+
+/** One field to set (`value` null = remove the key). */
+export interface FieldValue {
+  key: string;
+  value: string | null;
+}
+
+/**
+ * Set every field in `fields` in one edit, as `setGroupValue` sets one: only
+ * those keys' lines change, an existing scalar keeps its quoting (so an
+ * unquoted `date: 2026-10-05` stays unquoted), CRLF and a byte-order mark are
+ * kept. Null when the frontmatter doesn't parse.
+ */
+export function setFieldValues(content: string, fields: readonly FieldValue[]): { content: string; changed: boolean } | null {
+  return applyBulkEdits(content, fields.map((f) => (f.value === null ? { op: 'clear' as const, key: f.key } : { op: 'set' as const, key: f.key, value: f.value })));
 }
 
 /**

@@ -51,14 +51,21 @@
    *   grid is what the reader came for, and a band above it could push the
    *   month onto a second page. The week start and week numbers are the
    *   per-machine settings, as in the preview the author exported from.
-   * - **Reschedule** (#2703) attaches to the bars and chips: each carries
-   *   `data-note-path` and its row/columns (`data-row`, `data-start-col`), and
-   *   the day under a pointer is `data-day` on its cell.
+   * - **Reschedule** (#2703; not read-only, not export): drag an event onto
+   *   another day (`calendar/event-drag.ts`, pointer events) and the whole
+   *   event moves by drop day − grab day, whichever segment was grabbed; or,
+   *   from the day's list, Shift+F10 / ContextMenu → *Move to date…*, which
+   *   puts the grid in "choose a day" mode (`CalendarMoveBar`: Enter or a
+   *   click on a day moves it there, a typed date works too, Escape cancels).
+   *   The write is the `kanban-moves` store's `rescheduleEvent` (start and end
+   *   in one save, `date-shift.ts`'s rule); ⌘Z here undoes the calendar's
+   *   last move. An event whose start or end is only a month or year doesn't
+   *   move: a drag or the menu says why.
    */
   import { tick, untrack } from 'svelte';
   import type { PropertyDef, TypeInfo, TypeInstanceRow } from '../../../shared/objects/type-def';
   import {
-    addDays, addMonths, addMonthsClamped, formatMonthAnchor, layoutMonth, monthOf, monthWeeks, overflowRow,
+    addDays, addMonths, addMonthsClamped, coveredDays, formatMonthAnchor, layoutMonth, monthOf, monthWeeks, overflowRow,
     parseMonthAnchor, rowWeekNumber, weekEdge, type CalendarMonth, type PlacedSegment, type Weekday,
   } from '../../../shared/objects/calendar-grid';
   import { civilMs } from '../../../shared/objects/date-precision';
@@ -70,6 +77,10 @@
   import { timelineProperties, type TimelineEvent } from './timeline/timeline-events';
   import { buildCalendarModel, dayEvents, dayName, monthTitle, pageBands, pageItems, timeOf, weekdayNames, writtenAs, yearName } from './calendar/calendar-model';
   import { getCalendarSettings } from '../stores/settings-calendar.svelte';
+  import { announce } from '../stores/announcer.svelte';
+  import { eventDrag } from './calendar/event-drag';
+  import CalendarMoveBar from './calendar/CalendarMoveBar.svelte';
+  import { createReschedule } from './calendar/reschedule-controller.svelte';
 
   interface Props {
     type: TypeInfo;
@@ -191,7 +202,7 @@
   }
 
   function onGridKeydown(e: KeyboardEvent): void {
-    if (e.metaKey || e.ctrlKey || e.altKey || exportMode) return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
     const from = tabDay;
     let to: number;
     let turn: 'off-grid' | 'other-month' = 'off-grid';
@@ -207,7 +218,13 @@
       case 'Enter':
       case ' ':
         e.preventDefault();
-        openList(from);
+        if (move.moving) move.confirm(from);
+        else openList(from);
+        return;
+      case 'Escape':
+        if (!move.moving) return;
+        e.preventDefault();
+        move.cancel(true);
         return;
       default: return;
     }
@@ -219,7 +236,6 @@
   let listDay = $state<number | null>(null);
   let listAnchor = $state<HTMLElement | null>(null);
   function openList(day: number): void {
-    if (exportMode) return;
     const cell = grid?.querySelector<HTMLElement>(`[data-day="${day}"]`) ?? null;
     if (!cell) return;
     hover.close();
@@ -252,9 +268,17 @@
   }
   /** A bar's span in columns, for its width. */
   const spanOf = (s: PlacedSegment) => s.endCol - s.startCol;
+
+  // ── Reschedule (#2703, `calendar/reschedule-controller.svelte.ts`) ───
+  const move = createReschedule({
+    model: () => model, dates: () => dates, locale: () => locale, interactive: () => interactive,
+    focusDay: (day) => void focusDay(day, 'other-month'), closeList: () => closeList(false),
+  });
+  const moveBarId = `${uid}-move`;
 </script>
 
-<div class="cal" class:cal-export={exportMode}>
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div class="cal" class:cal-export={exportMode} onkeydown={move.onKeydown} onfocusout={move.onFocusout}>
   <div class="cal-toolbar">
     <h2 class="cal-title" id="{uid}-title">{title}</h2>
     {#if !exportMode}
@@ -266,6 +290,16 @@
     {/if}
   </div>
 
+  {#if move.moving}
+    <CalendarMoveBar
+      title={move.moving.title}
+      id={moveBarId}
+      onTyped={move.confirm}
+      onInvalid={(t) => announce(`${t.trim() === '' ? 'Nothing typed' : `“${t.trim()}” isn’t a day`}: type a date like 2026-10-12.`)}
+      onCancel={() => move.cancel(true)}
+    />
+  {/if}
+
   <div class="cal-main">
     {#if exportMode}
     <CalendarExportGrid grid={model.grid} {page} weekStart={firstDay} {weekNumbers} {locale} />
@@ -276,11 +310,20 @@
       bind:this={grid}
       class="cal-grid"
       class:cal-wk-on={weekNumbers}
+      class:cal-choosing={move.moving !== null}
       role="grid"
       aria-labelledby="{uid}-title"
       data-month={formatMonthAnchor(page)}
       data-week-start={firstDay}
       onkeydown={onGridKeydown}
+      use:eventDrag={{
+        enabled: interactive && move.moving === null,
+        refusal: move.refusalOf,
+        coverage: (key) => { const ev = model.byKey.get(key); return ev ? coveredDays(ev) : null; },
+        onDragStart: () => { hover.close(); if (listDay !== null) closeList(false); },
+        onDrop: move.move,
+        onRefused: (_key, text) => announce(text),
+      }}
     >
       <div class="cal-row cal-head" role="row">
         {#if weekNumbers}<div class="cal-wk cal-wk-head" role="columnheader" aria-label="Week number"><span aria-hidden="true">Wk</span></div>{/if}
@@ -308,11 +351,12 @@
               class:cal-out={!day.inMonth}
               class:cal-today={isToday}
               role="gridcell"
-              tabindex={exportMode ? undefined : day.start === tabDay ? 0 : -1}
+              tabindex={day.start === tabDay ? 0 : -1}
               aria-label="{dayName(day.start, locale)}, {n === 0 ? 'no events' : n === 1 ? '1 event' : `${n} events`}"
               aria-current={isToday ? 'date' : undefined}
+              aria-describedby={move.moving && day.start === tabDay ? moveBarId : undefined}
               data-day={day.start}
-              onclick={() => { if (!exportMode) { focusedDay = day.start; } }}
+              onclick={() => { if (move.moving) move.confirm(day.start); else { focusedDay = day.start; } }}
               onfocus={() => (focusedDay = day.start)}
             >
               <span class="cal-num" aria-hidden="true">{day.day}</span>
@@ -329,6 +373,8 @@
                   class:cal-cont-before={s.continuesBefore}
                   class:cal-cont-after={s.continuesAfter}
                   class:cal-approx={s.uncertainFromCol !== null}
+                  class:cal-fixed={!interactive || move.refusalOf(s.key) !== null}
+                  data-moving={move.moving?.key === s.key || undefined}
                   tabindex="-1"
                   style:top="{DAY_PX + s.slot * SLOT_PX}px"
                   style:--span={span}
@@ -402,6 +448,7 @@
       {cardKey}
       onOpen={(key) => { closeList(false); onOpenNote(key); }}
       onClose={closeList}
+      menu={interactive ? { refusal: move.refusalOf, onMoveToDate: move.start } : null}
     />
   {/if}
 
@@ -541,6 +588,14 @@
   .cal-time { font-variant-numeric: tabular-nums; font-weight: 600; background: var(--bg-button); padding: 0 2px; border-radius: 2px; }
   .cal-mark { font-weight: 700; background: var(--bg-button); padding: 0 1px; border-radius: 2px; }
   .cal-mark-after { margin-left: auto; padding-left: 2px; background: var(--bg-button); }
+  /* Reschedule (#2703): the drop preview, the event being dragged or moved, and "choose a day". */
+  .cal-ev:not(.cal-fixed) { cursor: grab; }
+  .cal-day:global([data-drop-target]) { background: color-mix(in oklch, var(--accent) 16%, var(--bg)); box-shadow: inset 0 0 0 1px var(--accent); }
+  .cal-ev:global([data-dragging]) { opacity: 0.45; }
+  .cal-ev[data-moving] { outline: 2px dashed var(--accent); outline-offset: 1px; }
+  .cal-choosing .cal-ev, .cal-choosing .cal-more { pointer-events: none; }
+  .cal-choosing .cal-day { cursor: pointer; }
+  .cal-choosing .cal-day:focus { box-shadow: inset 0 0 0 2px var(--accent); }
   .cal-more {
     position: absolute;
     left: 2px;
