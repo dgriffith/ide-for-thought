@@ -129,7 +129,7 @@
 
     <h2 id="map">The map</h2>
     <p>A location is written as latitude, then longitude, separated by a comma — <code>50.087, 14.421</code> is the middle of Prague. Each note with a location gets a pin; a note with the field empty, or with something that isn't a location, simply isn't on the map. The map frames itself to fit all the pins.</p>
-    <p>Each pin takes the colour of the note's own type, so on a Place map a restaurant and a hotel look different at a glance. Hover a pin to see the note's title, and click it to open the note.</p>
+    <p>Each pin takes the colour of the note's own type, so on a Place map a restaurant and a hotel look different at a glance. Hover a pin to see a preview of the note, the same one a link to it shows: its title, its opening lines and the type's card fields. Click a pin to open the note.</p>
     <p>The <b>Auto</b>, <b>Light</b> and <b>Dark</b> buttons at the map's top left choose its look. <i>Auto</i> follows Minerva's appearance; <i>Light</i> or <i>Dark</i> keeps that map light or dark whatever the appearance, so you can have a light street map in a dark window. The map changes at once and keeps its pins and where you were looking. The choice belongs to the view: it is kept with the tab, and <b>Save as note</b> and <b>Copy as markdown</b> carry it into the note. A map embedded in a note shows the saved look without the buttons.</p>
 
     <figure class="shot-img"><img src="img/left-sidebar-objects-map.png" alt="The same Place view on its Map tab: a map of central Prague with six pins — sights in the Place colour and two restaurants in the Restaurant colour, since each pin takes its own note's type colour." loading="lazy" /><figcaption>Screenshot — the Place map, filtered to Prague; restaurants are pinned in their own colour</figcaption></figure>
@@ -142,7 +142,7 @@
     <h2 id="kanban">The Kanban board</h2>
     <p>A board lays a type's notes out in columns by one of its choice fields — a field with a fixed list of choices, an <em>enum</em> in <a href="settings-object-types.html">Settings → Object Types</a>: one column per choice, one card per note. Project's <i>status</i> makes columns for <i>active</i>, <i>paused</i>, <i>done</i> and <i>abandoned</i>, so a board of your projects needs no setup. If the type has more than one choice field, <b>Group by</b> in the view's header picks which one makes the columns.</p>
     <p>The columns come in the order the type lists its choices, each headed with how many cards it holds. An empty column stays on the board, since it's still somewhere to put a card. A note whose field holds something that isn't one of the choices — <code>status: blocked</code>, typed by hand — gets a column of its own after the type's choices, rather than being hidden. Notes that leave the field empty gather in <b>No value</b>, at the end, which appears only when some note has no value.</p>
-    <p>A card shows the note's icon, its title and the view's visible fields, leaving out the one the columns already show. Within a column, cards follow the view's sort. A filter on the grouping field limits the board to the columns you ticked; a filter on any other field leaves the columns alone and just thins the cards. Click a card to open its note.</p>
+    <p>A card shows the note's icon, its title and the view's visible fields, leaving out the one the columns already show. Within a column, cards follow the view's sort. A filter on the grouping field limits the board to the columns you ticked; a filter on any other field leaves the columns alone and just thins the cards. Click a card to open its note. Rest the pointer on a card, or move to it with the keyboard, and a preview shows the note's title and the opening of the note, as when you hover a link to it, with the card's fields underneath. <kbd>Esc</kbd> closes it.</p>
 
     <figure class="shot-img"><img src="img/left-sidebar-objects-kanban.png" alt="A Project view on its Kanban tab: columns headed active (2), paused (1), done (2), abandoned (1) and No value (1), each holding cards with a project's title and the date it started." loading="lazy" /><figcaption>Screenshot — a board of trip projects, grouped by status</figcaption></figure>
 
@@ -197,10 +197,10 @@
 
     <h3>Points and bars</h3>
     <p>An event with only a <i>date</i> takes up the time its date names: a day, if you gave a day. An event with an <i>end</i> as well runs from its date to its end. How each one is drawn depends on how far you've zoomed in. Anything too short to see at the current zoom is a point, and anything wider is a bar, with its title inside the bar when it fits and beside it when it doesn't. A day-long event is a point when you're looking at a century and a bar when you're looking at a week. A time of day (<code>2026-10-05T14:30</code>) is a moment, so it stays a point.</p>
-    <p>Hover over an event, or move to it with the keyboard, and a card shows its fields and its dates. Click it to open the note.</p>
+    <p>Hover over an event, or move to it with the keyboard, and a preview shows the note's title and its opening lines, as when you hover a link to it, with the event's dates and its fields. <kbd>Esc</kbd> closes it. Click an event to open the note.</p>
 
     <h3>Dates that aren't exact</h3>
-    <p>A date can be as coarse as you know it. <code>1969</code> means the whole of 1969 and <code>1969-07</code> the whole of July, so the event covers that stretch, drawn hatched with a dashed outline to show it's approximate. The hover card says so, and a screen reader reads it out with the event. If an event has an exact start and an approximate end, only the end's stretch is hatched.</p>
+    <p>A date can be as coarse as you know it. <code>1969</code> means the whole of 1969 and <code>1969-07</code> the whole of July, so the event covers that stretch, drawn hatched with a dashed outline to show it's approximate. The hover preview says so, and a screen reader reads it out with the event. If an event has an exact start and an approximate end, only the end's stretch is hatched.</p>
     <p>Years before 1 CE are written with a minus sign, counting the way astronomers do: <code>0000</code> is 1 BC and <code>-0043</code> is 44 BC. That's one less than the BC number, because there's no year zero in BC counting. The timeline shows them as BC, in its axis labels too, so <code>-0043-03-15</code> reads <i>Mar 15, 44 BC</i>. It can draw any year from 99,999 BCE to 99,999 CE.</p>
     <p>Event's <i>date</i> and <i>end</i> are <a href="settings-object-types.html#field-kinds">datetime</a> fields, so they can carry a time of day as well. That's what puts two events on the same day in order: a 9:00 meeting is drawn before a 14:30 one, and the keyboard reaches them in that order. A date with no time covers the whole day.</p>
 
@@ -209,7 +209,7 @@
 
     <h3>The Undated tray</h3>
     <p>Events the timeline can't place are listed in the <b>Undated</b> tray under it, each with the reason: <i>No date</i>, a date that couldn't be read (<code>1969-02-30</code>), or one outside the years it can draw. Nothing is left out without a word, and clicking one opens it so you can fix it.</p>
-    <p>An <i>end</i> that comes before its <i>date</i>, or that isn't a date at all, doesn't send the event to the tray. The event is drawn at its start as if it had no end, and its hover card flags the end that was ignored.</p>
+    <p>An <i>end</i> that comes before its <i>date</i>, or that isn't a date at all, doesn't send the event to the tray. The event is drawn at its start as if it had no end, and its hover preview flags the end that was ignored.</p>
 
     <h3>Zooming and panning</h3>
     <p>The timeline opens fitted to all its dated events. Scroll or pinch to zoom in or out around the pointer. Drag, scroll sideways, or hold <kbd>⇧</kbd> while scrolling to pan. The <b>−</b> and <b>+</b> buttons above the drawing zoom around the middle, and <b>Fit</b> shows every dated event again. If the view has a range filter on <i>date</i>, Fit stays within it. Finishing a drag never opens the event under it. The axis labels follow the zoom, from years down to hours and minutes.</p>
@@ -221,7 +221,7 @@
     <div class="deflist">
       <div class="row">
         <div class="k"><kbd>←</kbd> <kbd>→</kbd></div>
-        <div class="v">The previous or next event in time order, panning to keep it in view. Its card shows as it would on hover.</div>
+        <div class="v">The previous or next event in time order, panning to keep it in view. Its preview shows as it would on hover.</div>
       </div>
       <div class="row">
         <div class="k"><kbd>⇧</kbd><kbd>←</kbd> <kbd>⇧</kbd><kbd>→</kbd></div>

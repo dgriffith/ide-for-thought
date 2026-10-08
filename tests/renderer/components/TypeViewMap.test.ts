@@ -97,10 +97,11 @@ describe('TypeViewMap (#2066)', () => {
     ]);
   });
 
-  it('sets each marker\'s native title attribute to the instance title, for a hover tooltip', async () => {
+  it('names each marker by its instance title, with no native title tooltip (#2710: the shared hover preview replaced it)', async () => {
     render(TypeViewMap, { instances: INSTANCES, locationProperty: 'location', onOpenNote: vi.fn() });
     await waitFor(() => expect(markerInstances.length).toBe(2));
-    expect(markerInstances.map((m) => m.getElement().title)).toEqual(['San Francisco', 'New York']);
+    expect(markerInstances.map((m) => m.getElement().getAttribute('aria-label'))).toEqual(['San Francisco', 'New York']);
+    expect(markerInstances.map((m) => m.getElement().title)).toEqual(['', '']);
   });
 
   it('clicking a marker opens its note', async () => {

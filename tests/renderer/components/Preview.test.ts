@@ -117,6 +117,43 @@ describe('Preview (render/smoke)', () => {
     expect(p.onNavigate).toHaveBeenCalledWith('Some Note');
   });
 
+  it('hovering a wiki-link shows the shared note hover preview (#1132, #2710)', async () => {
+    h.api.notebase.readFile.mockResolvedValue('---\ntitle: Some Note\n---\n# Some Note\n\nIts opening line.');
+    const p = props({ content: 'See [[Some Note]] for details.\n', getNotePaths: () => ['Some Note.md'] });
+    const { container } = render(Preview, p);
+    const link = container.querySelector<HTMLElement>('a.wiki-link')!;
+    await fireEvent.mouseOver(link);
+    const tip = await screen.findByRole('tooltip', {}, { timeout: 2000 });
+    await waitFor(() => expect(tip.querySelector('.nhp-snippet:not(.nhp-loading)')?.textContent).toBe('Its opening line.'));
+    expect(tip.querySelector('.nhp-title-text')!.textContent).toBe('Some Note');
+    expect(link.getAttribute('aria-describedby')).toBe(tip.id);
+    await fireEvent.mouseOut(link, { relatedTarget: document.body });
+    await waitFor(() => expect(screen.queryByRole('tooltip')).toBeNull());
+    expect(link.hasAttribute('aria-describedby')).toBe(false);
+  });
+
+  it('a typed link target adds its card fields; a broken one offers Create Note (#1446)', async () => {
+    h.api.notebase.readFile.mockResolvedValue('# Book\n\nAbout the book.');
+    h.api.types.noteProperties.mockResolvedValue({
+      type: { id: 'book', label: 'Book', classLocalName: 'Book', icon: '📖', source: 'stock', properties: [], card: ['author'] },
+      properties: [{ name: 'author', type: 'text', label: 'Author', value: 'Ann' }],
+    });
+    const onCreateNoteFromReference = vi.fn();
+    const p = props({ content: '[[Book]] and [[Ghost]]\n', getNotePaths: () => ['Book.md'], onCreateNoteFromReference });
+    const { container } = render(Preview, p);
+    const [book, ghost] = container.querySelectorAll<HTMLElement>('a.wiki-link');
+    await fireEvent.mouseOver(book!);
+    const tip = await screen.findByRole('tooltip', {}, { timeout: 2000 });
+    await waitFor(() => expect(tip.querySelector('.nhp-fields')?.textContent).toContain('Ann'));
+    await fireEvent.mouseOut(book!, { relatedTarget: document.body });
+    await waitFor(() => expect(screen.queryByRole('tooltip')).toBeNull());
+    await fireEvent.mouseOver(ghost!);
+    const fix = await screen.findByRole('button', { name: 'Create Note From Reference' }, { timeout: 2000 });
+    expect(screen.getByRole('tooltip').textContent).toContain('“Ghost” not found');
+    await fireEvent.click(fix);
+    expect(onCreateNoteFromReference).toHaveBeenCalledWith('Ghost');
+  });
+
   it('routes a tag click through onTagSelect with the tag name', async () => {
     const p = props({ content: 'Filed under #research today.\n' });
     const { container } = render(Preview, p);

@@ -17,7 +17,8 @@
  *    + editor, source viewer, PDF viewer, proposals panel, conversation panel,
  *    Settings dialog (every section), Query panel (with results), neighborhood
  *    graph, the `:::argument` map, the preview's fenced-block toolbars
- *    (#2679), the Kanban board and the Timeline (#2608).
+ *    (#2679), the Kanban board and the Timeline (#2608) — each with its
+ *    shared hover preview open (#2710).
  *  - **Themes** (#2378): every shipped theme — dark, light, contrast. The theme
  *    tokens are the thing most likely to regress contrast, and each theme pairs
  *    them differently (the contrast theme's `--bg-titlebar` is dark over a
@@ -346,7 +347,10 @@ for (const theme of THEMES) {
         await win.getByRole('button', { name: 'Open Project view' }).click({ force: true });
         await win.getByRole('tab', { name: 'Kanban' }).click();
         await expect(win.locator('.kb-board [data-kanban-card]')).toHaveCount(3, { timeout: 15_000 });
+        // Focus opens the card's hover preview (#2710), so it's scanned too.
         await win.locator('.kb-board [data-kanban-card]').first().focus();
+        await expect(win.getByRole('tooltip')).toBeVisible();
+        await expect(win.locator('.note-hover-preview .nhp-snippet:not(.nhp-loading)')).toHaveCount(1, { timeout: 5_000 });
         await expectNoSerious(win, 'Kanban board', theme);
       });
     });
@@ -371,6 +375,7 @@ for (const theme of THEMES) {
         const { eventFor } = await openEventTimeline(win, 5);
         await eventFor('Typo').focus();
         await expect(win.getByRole('tooltip')).toBeVisible();
+        await expect(win.locator('.note-hover-preview .nhp-snippet:not(.nhp-loading)')).toHaveCount(1, { timeout: 5_000 });
         await expectNoSerious(win, 'Timeline', theme);
         await win.getByRole('button', { name: 'List' }).click();
         await expect(win.locator('.tl-list')).toBeVisible();
