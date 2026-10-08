@@ -170,6 +170,14 @@ function lineEnd(doc: string, from: number): number {
   return i === -1 ? doc.length : i;
 }
 
+/** Elapsed recording time as `m:ss`, or `h:mm:ss` from an hour. */
+export function formatElapsed(totalSec: number): string {
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = String(totalSec % 60).padStart(2, '0');
+  return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`;
+}
+
 /** Join per-segment transcripts: one paragraph per non-empty segment. */
 export function joinSegments(texts: string[]): string {
   return texts.map((t) => t.trim()).filter(Boolean).join('\n\n');

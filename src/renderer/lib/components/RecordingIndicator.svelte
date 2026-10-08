@@ -12,18 +12,13 @@
   import Icon from './Icon.svelte';
   import { getAudioRecordingStore } from '../voice/audio-recording.svelte';
   import { getVoiceStore } from '../voice/voice.svelte';
+  import { formatElapsed } from '../voice/recording-text';
 
   const rec = getAudioRecordingStore();
   const voice = getVoiceStore();
 
   const visible = $derived(rec.status !== 'idle' || !!rec.transcription || !!rec.error);
 
-  function clock(total: number): string {
-    const h = Math.floor(total / 3600);
-    const m = Math.floor((total % 3600) / 60);
-    const s = String(total % 60).padStart(2, '0');
-    return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`;
-  }
 
   function onKeydown(e: KeyboardEvent) {
     if (!visible || e.key !== 'Escape') return;
@@ -51,7 +46,7 @@
     {:else if rec.recording}
       <span class="dot pulse"></span>
       <span class="label">Recording</span>
-      <span class="time">{clock(rec.elapsedSec)}</span>
+      <span class="time">{formatElapsed(rec.elapsedSec)}</span>
       <span class="hint">esc cancel</span>
       <button class="pill-btn primary" onclick={() => void rec.stop()}>Stop</button>
       <button class="pill-btn" onclick={() => rec.cancel()}>Cancel</button>
