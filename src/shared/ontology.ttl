@@ -35,6 +35,10 @@ minerva:PythonModule a owl:Class ;
     rdfs:label "Python module" ;
     rdfs:comment "A `.py` file in the notebase, importable from ```python cells via the kernel's sys.path (which is rooted at the project root)." .
 
+minerva:AudioRecording a owl:Class ;
+    rdfs:label "Audio recording" ;
+    rdfs:comment "An audio file embedded in a note as `![](…)` — typically one Minerva recorded into `assets/recordings/` (#2428, #2730). Its IRI is the file's note IRI, so an embed and a wiki-link to the file meet at one node." .
+
 # ── Object Properties ──────────────────────────────────────────────────────
 
 minerva:containsNote a owl:ObjectProperty ;
@@ -135,6 +139,30 @@ minerva:hasTag a owl:ObjectProperty ;
     rdfs:range minerva:Tag .
 
 # ── Datatype Properties ────────────────────────────────────────────────────
+
+minerva:embeds a owl:ObjectProperty ;
+    rdfs:label "embeds" ;
+    rdfs:comment "Relates a note to an audio recording it embeds with `![](…)`." ;
+    rdfs:domain minerva:Note ;
+    rdfs:range minerva:AudioRecording .
+
+minerva:recordedAt a owl:DatatypeProperty ;
+    rdfs:label "recorded at" ;
+    rdfs:comment "When a recording was started, in local time without a zone, from the date-and-time name Minerva gives the files it records." ;
+    rdfs:domain minerva:AudioRecording ;
+    rdfs:range xsd:dateTime .
+
+minerva:durationSeconds a owl:DatatypeProperty ;
+    rdfs:label "duration (seconds)" ;
+    rdfs:comment "Length of a recording in seconds, read from its WebM header." ;
+    rdfs:domain minerva:AudioRecording ;
+    rdfs:range xsd:decimal .
+
+minerva:hasTranscript a owl:DatatypeProperty ;
+    rdfs:label "has transcript" ;
+    rdfs:comment "True when a `> [!transcript]` callout follows the recording's embed in a note. Absent, not false, when there is none." ;
+    rdfs:domain minerva:AudioRecording ;
+    rdfs:range xsd:boolean .
 
 minerva:relativePath a owl:DatatypeProperty ;
     rdfs:label "relative path" ;

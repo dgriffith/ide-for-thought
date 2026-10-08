@@ -5,11 +5,20 @@
  * `audio-recording.svelte.ts` applies the results to a live editor or a file.
  */
 
-import { mediaKind } from '../../../shared/media';
+import {
+  RECORDINGS_DIR,
+  TRANSCRIPT_HEADER,
+  audioEmbedsIn,
+  type AudioEmbed,
+} from '../../../shared/audio-embeds';
 
-/** Thoughtbase folder recordings are saved under. Visible, not under
- *  `.minerva/`: a recording is the user's file, like a note. */
-export const RECORDINGS_DIR = 'assets/recordings';
+export {
+  RECORDINGS_DIR,
+  audioEmbedsIn,
+  decodeTarget,
+  transcriptAfter,
+  type AudioEmbed,
+} from '../../../shared/audio-embeds';
 
 /** File extension for a MediaRecorder MIME type. WebM gets `.weba` so it's
  *  classified as audio (`shared/media.ts`), not video. */
@@ -50,38 +59,6 @@ export function embedInsertion(doc: string, pos: number, embed: string): { at: n
   };
 }
 
-// `![alt](target)` or `![alt](target "title")`. Image embeds can't nest, so
-// a flat pattern is enough; the target is everything up to whitespace or `)`.
-const EMBED_RE = /!\[[^\]\n]*\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"\n]*")?\s*\)/g;
-
-export interface AudioEmbed {
-  /** The embed's target exactly as written (note-relative). */
-  target: string;
-  /** Offset just past the embed's closing `)`. */
-  end: number;
-}
-
-/** Every audio embed in `text`, in order. Offsets are relative to `text`. */
-export function audioEmbedsIn(text: string): AudioEmbed[] {
-  const out: AudioEmbed[] = [];
-  for (const m of text.matchAll(EMBED_RE)) {
-    const target = m[1]!;
-    if (mediaKind(decodeTarget(target)) === 'audio') {
-      out.push({ target, end: m.index + m[0].length });
-    }
-  }
-  return out;
-}
-
-/** A link target with `%20`-style escapes undone (left as-is if malformed). */
-export function decodeTarget(target: string): string {
-  try {
-    return decodeURI(target);
-  } catch {
-    return target;
-  }
-}
-
 /**
  * The audio embed on the line containing `pos`, or null. With more than one
  * on the line, the first whose span reaches `pos`, else the line's first.
@@ -120,9 +97,6 @@ export function transcriptCallout(transcript: string): string {
   return [TRANSCRIPT_HEADER, ...body].join('\n');
 }
 
-const TRANSCRIPT_HEADER = '> [!transcript]- Transcript';
-const TRANSCRIPT_HEADER_RE = /^>\s*\[!transcript\]/i;
-
 /**
  * The change that puts `transcript`, as a callout, just below the embed that
  * ends at `embedEnd`: after the rest of the embed's line, set off by a blank
@@ -140,34 +114,6 @@ export function transcriptInsertion(
   const rest = doc.slice(at);
   const tail = rest === '' ? '\n' : rest === '\n' || rest.startsWith('\n\n') ? '' : '\n';
   return { at, insert: `\n\n${transcriptCallout(transcript)}${tail}` };
-}
-
-/**
- * The transcript callout belonging to the embed that ends at `embedEnd`: the
- * first non-blank line after the embed's line must open it. Returns its span
- * (`end` excludes the trailing newline), or null if the embed has none.
- */
-export function transcriptAfter(doc: string, embedEnd: number): { start: number; end: number } | null {
-  const nl = doc.indexOf('\n', embedEnd);
-  if (nl === -1) return null;
-  let start = nl + 1;
-  while (start < doc.length && doc[start] === '\n') start++;
-  const firstEnd = lineEnd(doc, start);
-  if (!TRANSCRIPT_HEADER_RE.test(doc.slice(start, firstEnd))) return null;
-  // The callout runs while lines keep their `>` prefix.
-  let end = firstEnd;
-  while (end < doc.length) {
-    const next = end + 1;
-    const nextEnd = lineEnd(doc, next);
-    if (!doc.slice(next, nextEnd).startsWith('>')) break;
-    end = nextEnd;
-  }
-  return { start, end };
-}
-
-function lineEnd(doc: string, from: number): number {
-  const i = doc.indexOf('\n', from);
-  return i === -1 ? doc.length : i;
 }
 
 /** Elapsed recording time as `m:ss`, or `h:mm:ss` from an hour. */

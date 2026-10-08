@@ -37,6 +37,7 @@ import {
 } from '../index-helpers';
 import { indexTurtleFile, indexCsvFile, indexPythonFile } from './note-files';
 import { indexTable } from './tables';
+import { indexNoteRecordings } from './recordings';
 
 // `findNotesLinkingToAnchorImpl` is a queries-layer helper; detectHeadingRename
 // (an indexer-only helper below) reuses it.
@@ -360,6 +361,7 @@ async function indexNoteImpl(
   // build one for this standalone single-note reindex (#1473).
   const linkCtx = opts.linkCtx ?? buildLinkResolveCtx(state);
   indexNoteWikiLinks(state, subject, graph, parsed, linkCtx);
+  indexNoteRecordings(state, subject, graph, relativePath, content);
 
   // Frontmatter → triples. `title` (already used as the note title) and
   // `tags` (handled above) are skipped here so they don't double-emit.
