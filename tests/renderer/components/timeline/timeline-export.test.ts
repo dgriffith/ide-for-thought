@@ -10,6 +10,8 @@ import { EXPORT_MAX_LANES, planTimelineExport } from '../../../../src/renderer/l
 
 const row = (path: string, title: string, date: string | null, end: string | null = null) =>
   ({ path, title, values: { date, end }, cover: null });
+/** Event's start and end (`timelineProperties` for a view dated by `date`). */
+const EVENT = { dateProperty: 'date', endProperty: 'end' };
 const range = (from: number, to: number) => ({ start: civilMs(from, 0, 1), end: civilMs(to, 0, 1) });
 
 describe('planTimelineExport', () => {
@@ -18,7 +20,7 @@ describe('planTimelineExport', () => {
       row('moon.md', 'Moon landing', '1969-07-20'),
       row('war.md', 'Thirty Years War', '1618', '1648'),
       row('decade.md', 'The sixties', '1960', '1969'),
-    ], { locale: 'en-GB' });
+    ], { ...EVENT, locale: 'en-GB' });
     const plan = planTimelineExport(m.dated, range(1965, 1975), 760);
     expect(plan.drawn.map((e) => e.key).sort()).toEqual(['decade.md', 'moon.md']);
     expect(plan.listed.map((e) => e.key)).toEqual(['decade.md', 'moon.md']); // time order
@@ -30,7 +32,7 @@ describe('planTimelineExport', () => {
   it(`caps the drawing at ${EXPORT_MAX_LANES} lanes; the rest are overflow, in time order, and still listed`, () => {
     // 35 events over the same week: one lane each.
     const rows = Array.from({ length: 35 }, (_, i) => row(`e${String(i).padStart(2, '0')}.md`, `E${String(i).padStart(2, '0')}`, '1969-07-16', '1969-07-24'));
-    const m = buildTimelineModel(rows, { locale: 'en-GB' });
+    const m = buildTimelineModel(rows, { ...EVENT, locale: 'en-GB' });
     const plan = planTimelineExport(m.dated, { start: civilMs(1969, 6, 1), end: civilMs(1969, 7, 1) }, 760);
     expect(plan.layout.laneCount).toBe(35);
     expect(plan.laneCount).toBe(EXPORT_MAX_LANES);
@@ -41,7 +43,7 @@ describe('planTimelineExport', () => {
   });
 
   it('throws on a range it cannot draw, so the caller lists instead', () => {
-    const m = buildTimelineModel([row('moon.md', 'Moon landing', '1969-07-20')]);
+    const m = buildTimelineModel([row('moon.md', 'Moon landing', '1969-07-20')], EVENT);
     expect(() => planTimelineExport(m.dated, { start: 5, end: 5 }, 760)).toThrow();
     expect(() => planTimelineExport(m.dated, range(1960, 1970), 0)).toThrow();
   });

@@ -1,6 +1,6 @@
 /**
- * Shared steps for the Timeline specs (#2608, #2610): seed Event notes, open
- * the stock Event view on its Timeline tab, find events in the drawing, and
+ * Shared steps for the Timeline specs (#2608, #2610, #2715): seed notes, open
+ * the stock Event view (or any dated type's) on its Timeline tab, find events in the drawing, and
  * read the visible range the drawing reports.
  *
  * Events are found by their accessible name, which starts with the title
@@ -57,8 +57,15 @@ export async function domainWidth(win: Page): Promise<number> {
 
 /** From the Objects panel, open the Event view on its Timeline tab and wait for `drawn` dated events. */
 export async function openEventTimeline(win: Page, drawn: number): Promise<Timeline> {
+  return openTypeTimeline(win, 'Event', drawn);
+}
+
+/** From the Objects panel, open a type's view (by its label) on its Timeline
+ *  tab — any type with a date property offers one (#2715) — and wait for
+ *  `drawn` dated events. */
+export async function openTypeTimeline(win: Page, label: string, drawn: number): Promise<Timeline> {
   await win.locator('.panel-tab[title="Objects"]').first().click();
-  await win.getByRole('button', { name: 'Open Event view' }).click({ force: true });
+  await win.getByRole('button', { name: `Open ${label} view` }).click({ force: true });
   await win.getByRole('tab', { name: 'Timeline' }).click();
   await expect(win.getByRole('tab', { name: 'Timeline' })).toHaveAttribute('aria-selected', 'true');
   const t = timelineOf(win);

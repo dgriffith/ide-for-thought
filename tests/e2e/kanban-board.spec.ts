@@ -9,7 +9,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { closeMinerva, launchMinerva, projectRoot } from './helpers/launch';
-import { openProjectBoard, seedProjects, type SeedProject } from './helpers/kanban';
+import { focusLastLayoutTab, openProjectBoard, seedProjects, type SeedProject } from './helpers/kanban';
 
 const PROJECTS: SeedProject[] = [
   ['Garden Shed', 'active'],
@@ -45,8 +45,8 @@ test('a Project board: columns by status, cards, and keyboard navigation to open
     });
 
     await test.step('keyboard: Tab onto the board, arrows across it, Enter opens the card', async () => {
-      // The board is one tab stop, right after the layout switcher.
-      await win.getByRole('tab', { name: 'Kanban' }).focus();
+      // The board is one tab stop, right after the layout switcher's last tab.
+      await focusLastLayoutTab(win);
       await win.keyboard.press('Tab');
       await expect(cardFor('Garden Shed')).toBeFocused();
       await win.keyboard.press('ArrowDown');

@@ -1,11 +1,15 @@
 /**
- * The Timeline's events (#2608): each instance's `date` / `end` read once per
+ * The Timeline's events (#2608): each instance's start / end read once per
  * data revision into civil-axis spans (`dateRange`, the spike's Decision 2),
- * or set aside for the Undated tray with a reason. Pure, so it tests without
+ * or set aside for the Undated tray with a reason. Which properties those are
+ * comes from the view's *Date by* (#2715, `date-by.ts`): the start is
+ * `resolveDateBy`'s property, and the end is `endPropertyFor`'s — Event's
+ * `end` only when the view is dated by `date`, else none, so every other
+ * *Date by* draws points (or precision spans for partial dates). Pure, so it tests without
  * a DOM, and kept out of the zoom path: at 10,000 events this read is the
  * expensive part (the spike measured ~23 ms), so a zoom or pan never repeats it.
  *
- * - **No `date`** → Undated, "No date". An unreadable one → Undated, saying
+ * - **No start date** → Undated, "No date". An unreadable one → Undated, saying
  *   what couldn't be read. One the timeline can't draw (outside years
  *   −99,999..99,999) → Undated, "outside the timeline's range". Nothing is
  *   silently dropped.
@@ -18,14 +22,11 @@
  *   what lies between is certain. A full date or a clock time is certain.
  */
 import { dateRange, type CivilSpan, type EndIssue } from '../../../../shared/objects/date-precision';
-import type { TypeInstanceRow } from '../../../../shared/objects/type-def';
+import type { PropertyDef, TypeInstanceRow } from '../../../../shared/objects/type-def';
+import { DATE_PROPERTY, endPropertyFor, resolveDateBy } from '../../../../shared/objects/date-by';
 import { formatDateValue } from '../../../../shared/objects/date-values';
 import { isPartial } from './timeline-format';
 import { DRAWABLE_END, DRAWABLE_START, type Domain } from './timeline-scale';
-
-/** The Event type's properties a timeline reads (stock `event.md`; Meeting inherits them). */
-export const DATE_PROPERTY = 'date';
-export const END_PROPERTY = 'end';
 
 /** A stretch of an event's drawing: `approx` ones are hatched. */
 export interface Segment {
@@ -95,13 +96,31 @@ function text(v: string | null | undefined): string | null {
   return v === null || v === undefined || v.trim() === '' ? null : v.trim();
 }
 
+/** Which properties a timeline reads: the start (the view's *Date by*) and
+ *  the end, null for none (`timelineProperties`). */
+export interface TimelineProperties {
+  dateProperty: string;
+  endProperty: string | null;
+}
+
+/**
+ * The properties a view dated by `dateBy` reads, over the type's effective
+ * `properties` (see the header). A type with no date property at all (a
+ * spec judged before its type loaded) falls back to Event's `date`, so its
+ * notes go to the Undated tray rather than nowhere.
+ */
+export function timelineProperties(dateBy: string | null, properties: readonly PropertyDef[]): TimelineProperties {
+  const start = resolveDateBy(dateBy, properties);
+  return { dateProperty: start?.name ?? DATE_PROPERTY, endProperty: endPropertyFor(start, properties)?.name ?? null };
+}
+
 /** Read every instance once (see the header). `locale` is the viewer's in the app. */
 export function buildTimelineModel(
   instances: readonly TypeInstanceRow[],
-  opts: { dateProperty?: string; endProperty?: string; locale?: string } = {},
+  opts: TimelineProperties & { locale?: string },
 ): TimelineModel {
-  const dateProp = opts.dateProperty ?? DATE_PROPERTY;
-  const endProp = opts.endProperty ?? END_PROPERTY;
+  const dateProp = opts.dateProperty;
+  const endProp = opts.endProperty;
   const fmt = opts.locale ? { locale: opts.locale } : {};
   const dated: TimelineEvent[] = [];
   const undated: UndatedEvent[] = [];
@@ -109,7 +128,7 @@ export function buildTimelineModel(
   let hi = -Infinity;
   for (const inst of instances) {
     const rawDate = text(inst.values[dateProp]);
-    const rawEnd = text(inst.values[endProp]);
+    const rawEnd = endProp === null ? null : text(inst.values[endProp]);
     const r = dateRange(rawDate, rawEnd);
     if (!r.ok) {
       undated.push({

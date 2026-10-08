@@ -1,15 +1,17 @@
 <script lang="ts">
   /**
-   * The Timeline layout of a type view (#2608, epic #2606): Event notes (and
-   * any subtype — Meeting, a user's Conference) on a horizontal time axis.
+   * The Timeline layout of a type view (#2608, epic #2606): the notes of any
+   * type with a date property (#2715) on a horizontal time axis, placed by the
+   * view's *Date by* (`dateBy`; Event's `date` by default).
    * `TypeView` scopes and filters the instances; this draws them. The design
    * is the spike's (`docs/vision/objects-expansion.md`, "Timeline").
    *
    * - **Our own SVG.** One `<g>` per event; the axis is `timeline-scale.ts`'s
    *   one-line linear map over civil-axis ms, ticked by `d3-time` and
    *   labelled by `Intl` (`timeline-format.ts`), so `-0043` reads "44 BC".
-   * - **Events.** `timeline-events.ts` reads each `date` / `end` once per data
-   *   revision: with an `end` a bar, without one a point; a partial date is its
+   * - **Events.** `timeline-events.ts` reads each start / end once per data
+   *   revision (`timelineProperties`: the *Date by* property, and Event's `end`
+   *   only when dated by `date`): with an `end` a bar, without one a point; a partial date is its
    *   whole precision span, hatched with a dashed outline (it prints) — never
    *   `--accent-dim`. A backwards or unreadable `end` leaves the event at its
    *   start and the hover preview says so. Undated events go to the **Undated**
@@ -18,7 +20,8 @@
    *   (`timeline-layout.ts`): recomputed on zoom, never on pan.
    * - **Zoom and pan.** Wheel/pinch zooms about the pointer, drag pans
    *   (`timeline-gestures.ts`, pointer events), the toolbar has −/+/**Fit**.
-   *   Fit shows every dated event, bounded by a date range filter on `date`.
+   *   Fit shows every dated event, bounded by a date range filter on the
+   *   *Date by* property.
    *   The visible range goes back through `onStateChange` as `from` / `to`
    *   (`timelineRangeFromDomain`) once a gesture settles, not per frame, and
    *   Fit writes fit-all (no range). Our own write echoing back as props is
@@ -76,7 +79,7 @@
   import type { PropertyDef, TypeInfo, TypeInstanceRow } from '../../../shared/objects/type-def';
   import NoteHoverPreview from './NoteHoverPreview.svelte';
   import { createNoteHover } from './note-hover/note-hover.svelte';
-  import { buildTimelineModel, DATE_PROPERTY, END_PROPERTY, type TimelineEvent } from './timeline/timeline-events';
+  import { buildTimelineModel, timelineProperties, type TimelineEvent } from './timeline/timeline-events';
   import { axisTicks, clampDomain, fitDomain, panDomain, panToShow, PAN_STEP, resolveDomain, xOf, zoomDomain, ZOOM_STEP, type Domain } from './timeline/timeline-scale';
   import { BAR_PX, cullToView, LANE_PX, labelWidth, layoutTimeline, timeOrder, trailingLabelRoom, VIRTUALIZE_ABOVE } from './timeline/timeline-layout';
   import { timelineGestures } from './timeline/timeline-gestures';
@@ -88,10 +91,12 @@
     properties: PropertyDef[];
     /** The view's instances, scoped and filtered. */
     instances: TypeInstanceRow[];
-    /** The view's filters — a range filter on `date` bounds Fit. */
+    /** The view's filters — a range filter on the Date by property bounds Fit. */
     filters: ViewFilter[];
     from: string | null;
     to: string | null;
+    /** The view's Date by (#2715; null = the default, `date-by.ts`). */
+    dateBy?: string | null;
     display: (prop: PropertyDef, value: string | null) => string;
     rowType: (inst: TypeInstanceRow) => TypeInfo | null;
     onOpenNote: (path: string) => void;
@@ -103,7 +108,7 @@
     /** Formatting locale; the viewer's when absent. */
     locale?: string;
   }
-  let { type, properties, instances, filters, from, to, display, rowType, onOpenNote, onStateChange, readOnly = false, exportMode = false, locale }: Props = $props();
+  let { type, properties, instances, filters, from, to, dateBy = null, display, rowType, onOpenNote, onStateChange, readOnly = false, exportMode = false, locale }: Props = $props();
 
   const uid = $props.id();
   const AXIS_PX = 28;
@@ -112,13 +117,14 @@
   const FALLBACK_WIDTH = 760;
   const interactive = $derived(!readOnly && !exportMode);
 
-  const model = $derived(buildTimelineModel(instances, locale ? { locale } : {}));
+  const dates = $derived(timelineProperties(dateBy, properties));
+  const model = $derived(buildTimelineModel(instances, locale ? { ...dates, locale } : dates));
   const byKey = $derived(new Map(model.dated.map((ev) => [ev.key, ev] as const)));
   const order = $derived(timeOrder(model.dated));
 
-  /** A range filter on `date` (#2533, span comparison): its window bounds Fit. */
+  /** A range filter on the Date by property (#2533, span comparison): its window bounds Fit. */
   const bound = $derived.by(() => {
-    const f = filters.find((x) => !isValuesFilter(x) && x.property === DATE_PROPERTY);
+    const f = filters.find((x) => !isValuesFilter(x) && x.property === dates.dateProperty);
     if (!f || isValuesFilter(f)) return { start: null, end: null };
     return { start: dateSpan(f.min ?? null)?.start ?? null, end: dateSpan(f.max ?? null)?.end ?? null };
   });
@@ -465,7 +471,7 @@
     <NoteHoverPreview
       id={cardId}
       {hover}
-      instance={cardEvent ? { type, properties, inst: cardEvent.inst, display, rowType: rowType(cardEvent.inst), omit: [DATE_PROPERTY, END_PROPERTY] } : null}
+      instance={cardEvent ? { type, properties, inst: cardEvent.inst, display, rowType: rowType(cardEvent.inst), omit: [dates.dateProperty, ...(dates.endProperty ? [dates.endProperty] : [])] } : null}
       extra={cardEvent ? cardLines : undefined}
     />
   {/if}
@@ -489,7 +495,7 @@
 
 {#snippet cardLines()}
   {#if cardEvent}
-    <!-- The dates head the preview, so `date` / `end` aren't repeated as fields. -->
+    <!-- The dates head the preview, so the Date by property (and Event's `end`) aren't repeated as fields (#2715). -->
     <span class="tl-card-date">{cardEvent.dateText}{#if cardEvent.approx}<span class="tl-card-approx"> · approximate</span>{/if}</span>
     {#if cardEvent.endNote}<span class="tl-card-flag" data-end-issue>⚠ {cardEvent.endNote}</span>{/if}
   {/if}

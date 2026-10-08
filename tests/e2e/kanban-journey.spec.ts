@@ -20,7 +20,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { closeMinerva, launchMinerva, projectRoot } from './helpers/launch';
 import { expectAnnounced, recordAnnouncements } from './helpers/announcements';
-import { dragCardToColumn, openProjectBoard, projectNote, seedProjects, type SeedProject } from './helpers/kanban';
+import { focusLastLayoutTab, dragCardToColumn, openProjectBoard, projectNote, seedProjects, type SeedProject } from './helpers/kanban';
 
 const PROJECTS: SeedProject[] = [
   ['Garden Shed', 'active'],
@@ -78,7 +78,7 @@ test('the Kanban journey: a Project board, a card moved by pointer and by keyboa
     await test.step('keyboard only: Novel Draft from active to paused, and the file says so', async () => {
       // The board is one tab stop after the layout switcher; it is still on
       // the card just dragged (focus follows the note, not the position).
-      await win.getByRole('tab', { name: 'Kanban' }).focus();
+      await focusLastLayoutTab(win);
       await win.keyboard.press('Tab');
       await expect(inColumn('done', 'Garden Shed')).toBeFocused();
       await win.keyboard.press('ArrowLeft');

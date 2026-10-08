@@ -519,7 +519,7 @@ describe('multi-select + Edit properties (#2431)', () => {
   });
 });
 
-describe('timeline layout (#2607, #2608)', () => {
+describe('timeline layout (#2607, #2608, #2715)', () => {
   const EVENT = {
     id: 'event', label: 'Event', classLocalName: 'Event', icon: '📅', source: 'stock' as const,
     properties: [
@@ -530,6 +530,24 @@ describe('timeline layout (#2607, #2608)', () => {
   };
   const CONFERENCE = { id: 'conference', label: 'Conference', classLocalName: 'Conference', icon: '🎤', parent: 'event', source: 'user' as const, properties: [] };
   const MEETING = { id: 'meeting', label: 'Meeting', classLocalName: 'Meeting', icon: '🗓️', parent: 'event', source: 'stock' as const, properties: [{ name: 'organizer', type: 'text' as const }] };
+  // A dated type that isn't Event: Timeline is offered by having a date property, not by ancestry (#2715).
+  const ALBUM = {
+    id: 'album', label: 'Album', classLocalName: 'Album', icon: '💿', source: 'user' as const,
+    properties: [{ name: 'artist', type: 'text' as const }, { name: 'published', type: 'date' as const }],
+  };
+  const ALBUMS = [
+    { path: 'abbey.md', title: 'Abbey Road', values: { artist: 'The Beatles', published: '1969-09-26' }, cover: null },
+    { path: 'kind.md', title: 'Kind of Blue', values: { artist: 'Miles Davis', published: '1959' }, cover: null },
+  ];
+  // An Event subtype with a second date property: two Date by choices (`end` isn't one beside `date`).
+  const EXPEDITION = {
+    id: 'expedition', label: 'Expedition', classLocalName: 'Expedition', icon: '🧭', parent: 'event', source: 'user' as const,
+    properties: [{ name: 'announced', type: 'date' as const }],
+  };
+  const TRIPS = [
+    { path: 'apollo.md', title: 'Apollo 11', values: { date: '1969-07-16', end: '1969-07-24', announced: '1969-01-09', location: null }, cover: null },
+    { path: 'kon.md', title: 'Kon-Tiki', values: { date: '1947-04-28', end: '1947-08-07', announced: '1946-11-01', location: null }, cover: null },
+  ];
   const EVENTS = [
     { path: 'moon.md', title: 'Moon landing', values: { date: '1969-07-20', end: null, location: null }, cover: null },
     { path: 'war.md', title: 'Thirty Years War', values: { date: '1618', end: '1648', location: null }, cover: null },
@@ -538,7 +556,7 @@ describe('timeline layout (#2607, #2608)', () => {
   beforeEach(async () => {
     writeText = vi.fn();
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
-    await seedTypes({}, [TYPE, EVENT, CONFERENCE, MEETING]);
+    await seedTypes({}, [TYPE, EVENT, CONFERENCE, MEETING, ALBUM, EXPEDITION]);
   });
   const copied = async () => {
     await fireEvent.click(screen.getByText('Copy as markdown'));
@@ -547,8 +565,11 @@ describe('timeline layout (#2607, #2608)', () => {
   };
   const drawn = (root: HTMLElement) => [...root.querySelectorAll<SVGGElement>('[data-timeline-event]')].map((e) => e.dataset['notePath']);
   const tabs = () => screen.getAllByRole('tab').map((t) => t.textContent);
+  /** Each drawn event's accessible name: a bar's carries its end ("… – …"), a point's doesn't. */
+  const names = (root: HTMLElement) => [...root.querySelectorAll<SVGGElement>('[data-timeline-event]')].map((e) => e.getAttribute('aria-label'));
+  const dateBy = () => screen.queryByRole<HTMLSelectElement>('combobox', { name: 'Date by' });
 
-  it('the switcher offers Timeline for Event and its subtypes only', async () => {
+  it('the switcher offers Timeline for any type with a date property, own or inherited', async () => {
     instancesMock.mockResolvedValue({ type: EVENT, instances: EVENTS });
     render(TypeView, props({ typeId: 'event', layout: 'list' }));
     await screen.findByText('Moon landing');
@@ -564,10 +585,68 @@ describe('timeline layout (#2607, #2608)', () => {
     await screen.findByText('Moon landing');
     expect(tabs()).toContain('Timeline');
     cleanup();
+    instancesMock.mockResolvedValue({ type: ALBUM, instances: ALBUMS });
+    render(TypeView, props({ typeId: 'album', layout: 'list' }));
+    await screen.findByText('Abbey Road');
+    expect(tabs()).toContain('Timeline');
+    cleanup();
+    // This test's Book has no date property.
     instancesMock.mockResolvedValue({ type: TYPE, instances: INSTANCES });
     render(TypeView, props({ typeId: 'book', layout: 'list' }));
     await screen.findByText('Dune');
     expect(tabs()).not.toContain('Timeline');
+  });
+
+  it('a type dated by `published` draws points placed by it, with no Date by picker (one choice)', async () => {
+    instancesMock.mockResolvedValue({ type: ALBUM, instances: ALBUMS });
+    const { container } = render(TypeView, props({ typeId: 'album', layout: 'timeline' }));
+    await waitFor(() => expect(drawn(container).sort()).toEqual(['abbey.md', 'kind.md']));
+    expect(names(container)).toEqual(expect.arrayContaining(['Abbey Road, Sep 26, 1969', 'Kind of Blue, 1959']));
+    expect(dateBy()).toBeNull();
+  });
+
+  it('an Event timeline still draws bars from date/end, and offers no Date by (`end` is not a choice)', async () => {
+    instancesMock.mockResolvedValue({ type: EVENT, instances: EVENTS });
+    const { container } = render(TypeView, props({ typeId: 'event', layout: 'timeline', from: '1600', to: '1975' }));
+    await waitFor(() => expect(drawn(container)).toEqual(['moon.md', 'war.md']));
+    expect(names(container).find((n) => n!.startsWith('Thirty Years War'))).toBe('Thirty Years War, 1618 – 1648');
+    expect(dateBy()).toBeNull();
+  });
+
+  it('Date by shows on a timeline only when there is more than one date property, and a pick writes dateBy', async () => {
+    instancesMock.mockResolvedValue({ type: EXPEDITION, instances: TRIPS });
+    const onStateChange = vi.fn();
+    render(TypeView, props({ typeId: 'expedition', layout: 'list', onStateChange }));
+    await screen.findByText('Apollo 11');
+    expect(dateBy()).toBeNull(); // not on another layout
+    cleanup();
+    render(TypeView, props({ typeId: 'expedition', layout: 'timeline', onStateChange }));
+    await waitFor(() => expect(dateBy()).toBeTruthy());
+    expect([...dateBy()!.options].map((o) => o.value)).toEqual(['date', 'announced']);
+    expect(dateBy()!.value).toBe('date'); // the default
+    await fireEvent.change(dateBy()!, { target: { value: 'announced' } });
+    expect(onStateChange).toHaveBeenCalledWith({ dateBy: 'announced' });
+  });
+
+  it('an Event timeline dated by another date property draws points by it, not bars', async () => {
+    instancesMock.mockResolvedValue({ type: EXPEDITION, instances: TRIPS });
+    const { container } = render(TypeView, props({ typeId: 'expedition', layout: 'timeline', dateBy: 'announced' }));
+    await waitFor(() => expect(drawn(container).sort()).toEqual(['apollo.md', 'kon.md']));
+    expect(names(container).sort()).toEqual(['Apollo 11, Jan 9, 1969', 'Kon-Tiki, Nov 1, 1946']);
+    expect(dateBy()!.value).toBe('announced');
+  });
+
+  it('Copy as markdown keeps a timeline\'s valid dateBy and drops an invalid one', async () => {
+    instancesMock.mockResolvedValue({ type: EXPEDITION, instances: TRIPS });
+    render(TypeView, props({ typeId: 'expedition', layout: 'timeline', dateBy: 'announced' }));
+    await screen.findByText('Copy as markdown');
+    expect((await copied()).spec).toMatchObject({ typeId: 'expedition', layout: 'timeline', dateBy: 'announced' });
+    cleanup();
+    const { container } = render(TypeView, props({ typeId: 'expedition', layout: 'timeline', dateBy: 'end' }));
+    await waitFor(() => expect(drawn(container)).toHaveLength(2)); // judged once the type has loaded
+    const { md, spec } = await copied();
+    expect(md).not.toContain('"dateBy"');
+    expect(spec).toMatchObject({ layout: 'timeline', dateBy: null });
   });
 
   it('picking Timeline asks the host for it', async () => {
@@ -622,7 +701,7 @@ describe('timeline layout (#2607, #2608)', () => {
     expect((await copied()).spec).toMatchObject({ typeId: 'conference', layout: 'timeline', from: '1960', to: null });
   });
 
-  it('a timeline spec for a non-Event type reads back as the default layout, without an error', async () => {
+  it('a timeline spec for a dateless type reads back as the default layout, without an error', async () => {
     const { container } = render(TypeView, props({ typeId: 'book', layout: 'timeline', from: '1960', to: '1975' }));
     await screen.findByText('Dune');
     expect(container.querySelector('.tv-table')).toBeTruthy();
@@ -658,11 +737,11 @@ describe('calendar layout before #2702 draws it (#2701)', () => {
   };
   const listTitles = (root: HTMLElement) => [...root.querySelectorAll('.tv-list-title')].map((e) => e.textContent);
 
-  it('is not in the layout switcher yet, even for a type with a date property', async () => {
+  it('is not in the layout switcher yet, even for a type with a date property (Timeline is, #2715)', async () => {
     instancesMock.mockResolvedValue({ type: JOURNAL, instances: ENTRIES });
     render(TypeView, props({ typeId: 'journal', layout: 'list' }));
     await screen.findByText('Spring issue');
-    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['List', 'Table', 'Gallery']);
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['List', 'Table', 'Gallery', 'Timeline']);
     expect(screen.queryByText('Date by')).toBeNull();
   });
 

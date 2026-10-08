@@ -11,7 +11,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { closeMinerva, launchMinerva, projectRoot } from './helpers/launch';
 import { expectAnnounced, recordAnnouncements } from './helpers/announcements';
-import { dragCardToColumn, openProjectBoard, seedProjects } from './helpers/kanban';
+import { focusLastLayoutTab, dragCardToColumn, openProjectBoard, seedProjects } from './helpers/kanban';
 
 const noteText = (title: string, status: string | null) =>
   `---\ntype: project\nstatus: ${status}\nowner: Ann  # keep this comment\n---\n# ${title}\n\nBody text.\n`;
@@ -51,7 +51,7 @@ test('a Project card moves between columns by pointer drag and by keyboard, and 
     });
 
     await test.step('keyboard only: Shift+F10 → Move to → done, focus stays on the card', async () => {
-      await win.getByRole('tab', { name: 'Kanban' }).focus();
+      await focusLastLayoutTab(win);
       await win.keyboard.press('Tab');
       // The tab stop is still the card just dragged, now in done.
       await expect(inColumn('done', 'Garden Shed')).toBeFocused();

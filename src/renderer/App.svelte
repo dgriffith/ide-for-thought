@@ -401,7 +401,7 @@
    *  button only flashes "Saved" on a real save. */
   async function handleSaveView(tab: TypeViewTab): Promise<boolean> {
     const label = objectTypesStore.types.find((t) => t.id === tab.typeId)?.label ?? tab.typeId;
-    const timeline = timelineSpecForType(tab, tab.typeId, objectTypesStore.types); // non-Event `timeline` → default (#2607)
+    const timeline = timelineSpecForType(tab, tab.typeId, objectTypesStore.types); // dateless `timeline` → default; dateBy checked (#2607, #2715)
     const calendar = calendarSpecForType({ ...tab, layout: timeline.layout }, tab.typeId, objectTypesStore.types); // dateless `calendar` → default; dateBy checked (#2701)
     const name = await showPrompt('Save view as a note:', suggestViewNoteName(label, calendar.layout));
     if (!name?.trim()) return false;

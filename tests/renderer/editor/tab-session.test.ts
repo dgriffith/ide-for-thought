@@ -153,6 +153,20 @@ describe('type-view calendar month and dateBy (#2701)', () => {
   });
 });
 
+describe('type-view timeline dateBy (#2715)', () => {
+  const view = (dateBy: string | null): Tab => ({
+    type: 'type-view', typeId: 'book', layout: 'timeline', sortColumn: null, sortDir: 'asc', columns: null, folder: null, filters: [], mapStyle: 'auto', groupBy: null, columnOrder: [], showEmptyColumns: true, from: '1960', to: null, month: null, dateBy,
+  });
+
+  it('omits the default, keeps a choice, and restores both — the one dateBy Calendar shares', async () => {
+    expect(toSavedTab(view(null))).not.toHaveProperty('dateBy');
+    expect(toSavedTab(view('published'))).toMatchObject({ layout: 'timeline', from: '1960', dateBy: 'published' });
+    for (const dateBy of [null, 'published']) {
+      expect(await reconstructTab(toSavedTab(view(dateBy)), () => 'q')).toEqual(view(dateBy));
+    }
+  });
+});
+
 describe('toSavedTab', () => {
   it('drops runtime-only note fields not meant for the saved shape', () => {
     const withHistory: NoteTab = { ...noteTab, historyJson: { fake: true }, cursorOffset: 5 };
