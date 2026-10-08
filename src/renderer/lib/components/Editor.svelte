@@ -742,7 +742,7 @@
     onClose={closeMenu}
     onDictate={() => void toggleEditorDictation(view)}
     onRecordAudio={() => void recordings.start(() => view)}
-    onTranscribeRecording={recordings.transcribeActionAt(() => view, contextMenu.docPos)}
+    recordingAction={recordings.recordingMenuItemAt(() => view, contextMenu.docPos, menuOps.invokeTool)}
   />
 {/if}
 

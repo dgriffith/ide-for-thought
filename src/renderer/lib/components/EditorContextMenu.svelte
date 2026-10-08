@@ -53,9 +53,9 @@
     onDictate: () => void;
     /** Start an audio recording embedded at the cursor (#2428). */
     onRecordAudio: () => void;
-    /** Transcribe the recording on the clicked line — only supplied when that
-     *  line holds an audio embed (#2428). */
-    onTranscribeRecording?: (() => void) | undefined;
+    /** Transcribe (or, once transcribed, Summarize) the recording on the
+     *  clicked line — only supplied when that line holds one (#2428, #2729). */
+    recordingAction?: { label: string; run: () => void } | undefined;
   }
 
   let {
@@ -74,7 +74,7 @@
     onClose,
     onDictate,
     onRecordAudio,
-    onTranscribeRecording,
+    recordingAction,
   }: Props = $props();
 </script>
 
@@ -297,8 +297,8 @@
     <button onclick={() => onMenuAction(onDictate)}>Dictate…</button>
   {/if}
   <button onclick={() => onMenuAction(onRecordAudio)}>Record Audio…</button>
-  {#if onTranscribeRecording}
-    <button onclick={() => onMenuAction(onTranscribeRecording)}>Transcribe Recording</button>
+  {#if recordingAction}
+    <button onclick={() => onMenuAction(recordingAction.run)}>{recordingAction.label}</button>
   {/if}
   <button onclick={() => onMenuAction(() => ops.bookmark?.())}>Bookmark This Note</button>
   {#if ops.bookmarkSection}

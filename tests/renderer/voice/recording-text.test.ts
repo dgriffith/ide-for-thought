@@ -8,6 +8,8 @@ import {
   audioEmbedOnLine,
   findAudioEmbed,
   transcriptInsertion,
+  transcriptCallout,
+  transcriptAfter,
   joinSegments,
 } from '../../../src/renderer/lib/voice/recording-text';
 
@@ -87,27 +89,58 @@ describe('finding audio embeds', () => {
   });
 });
 
+describe('transcriptCallout', () => {
+  it('wraps paragraphs in a default-collapsed transcript callout', () => {
+    expect(transcriptCallout('First part.\n\nSecond part.')).toBe(
+      '> [!transcript]- Transcript\n> First part.\n>\n> Second part.',
+    );
+  });
+});
+
 describe('transcriptInsertion', () => {
-  it('adds the transcript as a paragraph below the embed, before the next block', () => {
+  const T = '> [!transcript]- Transcript\n> Hi.';
+
+  it('adds the transcript callout below the embed, before the next block', () => {
     const doc = 'intro\n![](a.weba)\nnext line';
     const e = findAudioEmbed(doc, 'a.weba')!;
-    expect(apply(doc, transcriptInsertion(doc, e.end, 'Hello there.')))
-      .toBe('intro\n![](a.weba)\n\nHello there.\n\nnext line');
+    expect(apply(doc, transcriptInsertion(doc, e.end, 'Hi.')))
+      .toBe(`intro\n![](a.weba)\n\n${T}\n\nnext line`);
   });
 
   it('keeps an existing blank line rather than doubling it', () => {
     const doc = '![](a.weba)\n\nnext';
-    expect(apply(doc, transcriptInsertion(doc, 11, 'T'))).toBe('![](a.weba)\n\nT\n\nnext');
+    expect(apply(doc, transcriptInsertion(doc, 11, 'Hi.'))).toBe(`![](a.weba)\n\n${T}\n\nnext`);
   });
 
   it('ends the document with one newline', () => {
-    expect(apply('![](a.weba)', transcriptInsertion('![](a.weba)', 11, 'T'))).toBe('![](a.weba)\n\nT\n');
-    expect(apply('![](a.weba)\n', transcriptInsertion('![](a.weba)\n', 11, 'T'))).toBe('![](a.weba)\n\nT\n');
+    expect(apply('![](a.weba)', transcriptInsertion('![](a.weba)', 11, 'Hi.'))).toBe(`![](a.weba)\n\n${T}\n`);
+    expect(apply('![](a.weba)\n', transcriptInsertion('![](a.weba)\n', 11, 'Hi.'))).toBe(`![](a.weba)\n\n${T}\n`);
   });
 
   it('goes after any text that shares the embed line', () => {
     const doc = '![](a.weba) — standup';
-    expect(apply(doc, transcriptInsertion(doc, 11, 'T'))).toBe('![](a.weba) — standup\n\nT\n');
+    expect(apply(doc, transcriptInsertion(doc, 11, 'Hi.'))).toBe(`![](a.weba) — standup\n\n${T}\n`);
+  });
+});
+
+describe('transcriptAfter', () => {
+  it('finds the transcript callout written for an embed, and its whole span', () => {
+    const doc = '![](a.weba)';
+    const withT = apply(doc, transcriptInsertion(doc, 11, 'One.\n\nTwo.')) + '\nAfter';
+    const span = transcriptAfter(withT, 11)!;
+    expect(withT.slice(span.start, span.end)).toBe('> [!transcript]- Transcript\n> One.\n>\n> Two.');
+  });
+
+  it('ends the span where the `>` lines stop', () => {
+    const doc = '![](a.weba)\n\n> [!transcript]- Transcript\n> Hi.\n\n> unrelated quote';
+    const span = transcriptAfter(doc, 11)!;
+    expect(doc.slice(span.start, span.end)).toBe('> [!transcript]- Transcript\n> Hi.');
+  });
+
+  it('is null when the next block is not a transcript', () => {
+    expect(transcriptAfter('![](a.weba)\n\nJust text', 11)).toBeNull();
+    expect(transcriptAfter('![](a.weba)\n\n> [!summary] Summary\n> S', 11)).toBeNull();
+    expect(transcriptAfter('![](a.weba)', 11)).toBeNull();
   });
 });
 

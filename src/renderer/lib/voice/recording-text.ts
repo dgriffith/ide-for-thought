@@ -104,9 +104,29 @@ export function findAudioEmbed(doc: string, target: string): AudioEmbed | null {
 }
 
 /**
- * The change that puts `transcript` as its own paragraph(s) just below the
- * embed that ends at `embedEnd`: after the rest of the embed's line, set off
- * by a blank line on each side.
+ * A transcript as a default-collapsed callout (#2729):
+ *
+ *   > [!transcript]- Transcript
+ *   > First paragraph.
+ *   >
+ *   > Second paragraph.
+ *
+ * Collapsed, so an hour of text doesn't push the rest of the note away; and
+ * marked, so the summarize action and the graph can tell where it starts and
+ * ends. The text is still plain markdown, so it stays editable and searchable.
+ */
+export function transcriptCallout(transcript: string): string {
+  const body = transcript.split('\n').map((line) => (line.trim() ? `> ${line}` : '>'));
+  return [TRANSCRIPT_HEADER, ...body].join('\n');
+}
+
+const TRANSCRIPT_HEADER = '> [!transcript]- Transcript';
+const TRANSCRIPT_HEADER_RE = /^>\s*\[!transcript\]/i;
+
+/**
+ * The change that puts `transcript`, as a callout, just below the embed that
+ * ends at `embedEnd`: after the rest of the embed's line, set off by a blank
+ * line on each side.
  */
 export function transcriptInsertion(
   doc: string,
@@ -119,7 +139,35 @@ export function transcriptInsertion(
   // before whatever follows, and end the doc with a single newline.
   const rest = doc.slice(at);
   const tail = rest === '' ? '\n' : rest === '\n' || rest.startsWith('\n\n') ? '' : '\n';
-  return { at, insert: `\n\n${transcript}${tail}` };
+  return { at, insert: `\n\n${transcriptCallout(transcript)}${tail}` };
+}
+
+/**
+ * The transcript callout belonging to the embed that ends at `embedEnd`: the
+ * first non-blank line after the embed's line must open it. Returns its span
+ * (`end` excludes the trailing newline), or null if the embed has none.
+ */
+export function transcriptAfter(doc: string, embedEnd: number): { start: number; end: number } | null {
+  const nl = doc.indexOf('\n', embedEnd);
+  if (nl === -1) return null;
+  let start = nl + 1;
+  while (start < doc.length && doc[start] === '\n') start++;
+  const firstEnd = lineEnd(doc, start);
+  if (!TRANSCRIPT_HEADER_RE.test(doc.slice(start, firstEnd))) return null;
+  // The callout runs while lines keep their `>` prefix.
+  let end = firstEnd;
+  while (end < doc.length) {
+    const next = end + 1;
+    const nextEnd = lineEnd(doc, next);
+    if (!doc.slice(next, nextEnd).startsWith('>')) break;
+    end = nextEnd;
+  }
+  return { start, end };
+}
+
+function lineEnd(doc: string, from: number): number {
+  const i = doc.indexOf('\n', from);
+  return i === -1 ? doc.length : i;
 }
 
 /** Join per-segment transcripts: one paragraph per non-empty segment. */

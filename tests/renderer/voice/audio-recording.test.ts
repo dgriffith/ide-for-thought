@@ -74,7 +74,8 @@ function fakeView(doc: string, cursor: number) {
       get doc() { return { toString: () => view.doc }; },
       get selection() { return { main: { head: view.cursor } }; },
     },
-    dispatch: vi.fn((tr: { changes: { from: number; insert: string } }) => {
+    dispatch: vi.fn((tr: { changes?: { from: number; insert: string } }) => {
+      if (!tr.changes) return; // a selection-only transaction
       view.doc = view.doc.slice(0, tr.changes.from) + tr.changes.insert + view.doc.slice(tr.changes.from);
     }),
   };
@@ -205,7 +206,8 @@ describe('transcribing a recording', () => {
     const lengths = h.transcriber.transcribe.mock.calls.map(([pcm]) => pcm.length);
     expect(lengths.reduce((a, b) => a + b, 0)).toBe(16_000 * 300);
     expect(view.doc).toBe(
-      `Standup\n![](../assets/recordings/r.weba)\n\nsegment of ${lengths[0]}\n\nsegment of ${lengths[1]}\n\nAfter`,
+      'Standup\n![](../assets/recordings/r.weba)\n\n> [!transcript]- Transcript\n'
+      + `> segment of ${lengths[0]}\n>\n> segment of ${lengths[1]}\n\nAfter`,
     );
     expect(rec.transcription).toBeNull();
   });
@@ -221,7 +223,7 @@ describe('transcribing a recording', () => {
     });
 
     await rec.transcribeAtCursor(() => view as never);
-    expect(view.doc).toBe('New first line\nStandup\n![](../assets/recordings/r.weba)\n\nhello\n\nAfter');
+    expect(view.doc).toBe('New first line\nStandup\n![](../assets/recordings/r.weba)\n\n> [!transcript]- Transcript\n> hello\n\nAfter');
   });
 
   it('says what to do when the cursor is not on a recording', async () => {
@@ -242,11 +244,52 @@ describe('transcribing a recording', () => {
     expect(rec.error).toMatch(/No speech/);
   });
 
+  it('refuses a second transcript for the same recording', async () => {
+    openNote('a.md');
+    const transcribed = 'Standup\n![](r.weba)\n\n> [!transcript]- Transcript\n> hi';
+    await rec.transcribeAtCursor(() => fakeView(transcribed, 10) as never);
+    expect(h.api.notebase.readBinary).not.toHaveBeenCalled();
+    expect(rec.error).toMatch(/already has a transcript/);
+  });
+
   it('offers the context-menu action only on a line with an audio embed', () => {
     const view = fakeView(doc, 0);
     expect(rec.transcribeActionAt(() => view as never, doc.indexOf('![]'))).toBeTypeOf('function');
     expect(rec.transcribeActionAt(() => view as never, 0)).toBeUndefined();
     expect(rec.transcribeActionAt(() => view as never, null)).toBeUndefined();
     expect(rec.transcribeActionAt(() => null, 10)).toBeUndefined();
+  });
+});
+
+describe('summarizing a recording (#2729)', () => {
+  const transcribed = 'Standup\n![](r.weba)\n\n> [!transcript]- Transcript\n> We agreed to ship.\n\nAfter';
+  const embedLine = transcribed.indexOf('![]');
+
+  it('selects the embed and its transcript, then runs the summarize skill', () => {
+    const view = fakeView(transcribed, 0);
+    const invokeTool = vi.fn();
+    const action = rec.summarizeActionAt(() => view as never, invokeTool, embedLine + 3)!;
+    action();
+    const sel = (view.dispatch.mock.calls[0]![0] as unknown as { selection: { anchor: number; head: number } }).selection;
+    expect(transcribed.slice(sel.anchor, sel.head)).toBe('![](r.weba)\n\n> [!transcript]- Transcript\n> We agreed to ship.');
+    expect(invokeTool).toHaveBeenCalledWith('analysis.summarize-recording');
+  });
+
+  it('offers Transcribe until there is a transcript, then Summarize', () => {
+    const invokeTool = vi.fn();
+    const bare = fakeView('![](r.weba)', 0);
+    expect(rec.recordingMenuItemAt(() => bare as never, 2, invokeTool)?.label).toBe('Transcribe Recording');
+    const done = fakeView(transcribed, 0);
+    expect(rec.recordingMenuItemAt(() => done as never, embedLine, invokeTool)?.label).toBe('Summarize Recording…');
+    expect(rec.recordingMenuItemAt(() => done as never, 0, invokeTool)).toBeUndefined();
+  });
+
+  it('from the palette, says to transcribe first when there is no transcript', () => {
+    const invokeTool = vi.fn();
+    rec.summarizeAtCursor(() => fakeView('![](r.weba)', 3) as never, invokeTool);
+    expect(invokeTool).not.toHaveBeenCalled();
+    expect(rec.error).toMatch(/Transcribe that recording first/);
+    rec.summarizeAtCursor(() => fakeView('plain', 1) as never, invokeTool);
+    expect(rec.error).toMatch(/Put the cursor on the line with an audio recording to summarize/);
   });
 });

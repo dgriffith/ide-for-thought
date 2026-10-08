@@ -11,10 +11,10 @@ export const EXPORT_CALLOUT_CSS = `
 details.callout > summary.callout-title { cursor: pointer; }
 .callout-content > :first-child { margin-top: 0; }
 .callout-content > :last-child { margin-bottom: 0; }
-.callout-info, .callout-bug, .callout-example, .callout-abstract { --callout-color: #6c5cb8; }
+.callout-info, .callout-bug, .callout-example, .callout-abstract, .callout-summary { --callout-color: #6c5cb8; }
 .callout-tip, .callout-success { --callout-color: #4f7a5a; }
 .callout-warning, .callout-failure, .callout-danger { --callout-color: #b4532a; }
-.callout-quote { --callout-color: #777; }
+.callout-quote, .callout-transcript { --callout-color: #777; }
 .callout-card { --callout-color: #a07a16; }
 .note-tag { display: inline-block; padding: 0 0.4em; border-radius: 999px; background: #efe9dc; color: #6b5a3a; font-size: 0.9em; text-decoration: none; }
 a.note-tag:hover { text-decoration: underline; }
