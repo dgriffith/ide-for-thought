@@ -1,10 +1,10 @@
 ---
 title: Minerva — Docs — Object views
-description: Put a live list, table, gallery, map, Kanban board or timeline of your typed notes inside any note, kept current as those notes change.
+description: Put a live list, table, gallery, map, Kanban board, timeline or calendar of your typed notes inside any note, kept current as those notes change.
 ---
 
     <h1>Object views</h1>
-    <p class="lede">A note can hold a live view of your <a href="notes-typed-notes.html">typed notes</a> — the same list, table, gallery, map, board or timeline you get when you open a type from the <a href="left-sidebar-objects.html">Objects panel</a>. It shows the notes as they are now, every time you open it, so a page about a trip can carry a map of every place you've noted for it without you keeping a list up to date.</p>
+    <p class="lede">A note can hold a live view of your <a href="notes-typed-notes.html">typed notes</a> — the same list, table, gallery, map, board, timeline or calendar you get when you open a type from the <a href="left-sidebar-objects.html">Objects panel</a>. It shows the notes as they are now, every time you open it, so a page about a trip can carry a map of every place you've noted for it without you keeping a list up to date.</p>
 
     <h2 id="adding">Adding a view to a note</h2>
     <p>Start from the view itself: open a type from the Objects panel (or <b>View Objects</b> on a folder), then arrange it the way you want — pick a layout, sort it, choose columns, add filters. Then use one of the two buttons in its header:</p>
@@ -89,9 +89,33 @@ description: Put a live list, table, gallery, map, Kanban board or timeline of y
     <p>Leave <code>"dateBy"</code> out and the timeline uses the type's first choice: <i>date</i> if it has one, otherwise its first date field. That's what a timeline saves when you haven't picked a field. A <code>"dateBy"</code> that doesn't name one of the type's date fields, including Event's <i>end</i>, is ignored the same way. Only an Event dated by its <i>date</i> draws bars from its <i>end</i>; by any other field, each note is a point.</p>
     <p>In the note, the timeline is for looking at. It shows the saved range without the <b>−</b>, <b>+</b> and <b>Fit</b> buttons, and scrolling or dragging doesn't move it. The keyboard still steps from event to event, <kbd>⏎</kbd> and a click still open them, and <b>List</b> still swaps in the list. To look at a different stretch of time, open the type's timeline, zoom it there, and save it again.</p>
 
+    <h2 id="calendar">A calendar in a note</h2>
+    <p>A <a href="left-sidebar-objects.html#calendar">calendar</a> goes into a note with the month it was showing, as a <code>"month"</code>, and its <a href="left-sidebar-objects.html#date-by">Date by</a> choice, if it has one, as <code>"dateBy"</code>. A calendar of Events for December 2026 looks like this:</p>
+
+<pre><code>```object-view
+{
+  "typeId": "event",
+  "layout": "calendar",
+  "month": "2026-12"
+}
+```</code></pre>
+
+    <p><code>"month"</code> is a year and a month, written the way a date is, so <code>-0043-03</code> is March 44 BC. Leave it out and the calendar opens on the current month, whenever the note is read; that's what a calendar saves when you've pressed <b>Today</b>. Anything that isn't a month, such as a whole date or just a year, is ignored the same way. <code>"dateBy"</code> works as it does for a <a href="#timeline">timeline</a>: the name of the date field that places the notes, left out for the type's first choice. A Books calendar for June 1925 by when they were published looks like this:</p>
+
+<pre><code>```object-view
+{
+  "typeId": "book",
+  "layout": "calendar",
+  "month": "1925-06",
+  "dateBy": "published"
+}
+```</code></pre>
+
+    <p>In the note, the calendar is for looking at. The <b>‹</b>, <b>Today</b> and <b>›</b> buttons still page through the months, and the keyboard still moves from day to day and opens a day's list, but paging changes only what you see, not the <code>"month"</code> in the note. Clicking an event opens it. Events don't drag and have no <b>Move to date…</b>, and <kbd>⌘</kbd><kbd>Z</kbd> undoes nothing there; open the type's calendar to reschedule. To save a different month, page to it there and save again.</p>
+
     <h2 id="kept-current">It stays current</h2>
     <p>Add a place, fill in a location, or change a field, and the view in your note shows it the next time you look. Renaming or moving a folder doesn't break a view that was limited to it — the view follows the folder to its new name.</p>
 
     <h2 id="exports">In exports and on the web</h2>
-    <p>When you export a note as a web page or PDF, or publish it as part of a website, its views appear as they do in the preview — a table is a table, a gallery is cards, a board is a read-only board, its columns wrapping onto the page and each card a link to its note, and a timeline is a still drawing of its saved range, each event a link to its note and approximate dates marked as such. The timeline's undated events are listed after it, and a very crowded one shows its first 30 lanes and a note of how many more there are. A map becomes a still picture framed just as the preview frames it, at the height you gave it, with the map's credit line beneath. If the map can't be drawn — say you're offline when you export — the places are listed as a table instead, so the page never shows an empty box.</p>
+    <p>When you export a note as a web page or PDF, or publish it as part of a website, its views appear as they do in the preview — a table is a table, a gallery is cards, a board is a read-only board, its columns wrapping onto the page and each card a link to its note, a timeline is a still drawing of its saved range, each event a link to its note and approximate dates marked as such, and a calendar is a still grid of its saved month. The timeline's undated events are listed after it, and a very crowded one shows its first 30 lanes and a note of how many more there are. A calendar lists every event in its day, however many there are, so a busy day makes a taller row rather than a <b>+N more</b> nobody can click, and each event links to its note. Its bands and Undated list follow the grid, approximate days are hatched with a key, and its weeks start on the day your own settings say. A map becomes a still picture framed just as the preview frames it, at the height you gave it, with the map's credit line beneath. If the map can't be drawn — say you're offline when you export — the places are listed as a table instead, so the page never shows an empty box.</p>
     <p>A Markdown export keeps the view as the text you'd see in the editor.</p>
