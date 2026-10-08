@@ -24,7 +24,7 @@
 import { tagPageFilename } from '../../../../shared/markdown/note-tags-plugin';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import type { Exporter, ExportOutput, ExportPlanFile } from '../../types';
+import type { Exporter, ExportOutput, ExportPlan, ExportPlanFile } from '../../types';
 import { loadSiteConfig, type SiteConfig } from './site-config';
 import { buildSiteIndex, noteUrl, sourceUrl, collectCitedSources } from './site-data';
 import { extractPublish } from './publish-meta';
@@ -42,6 +42,9 @@ import { resolveAnnotatedReading } from '../annotated-reading/resolve';
 import { STATIC_SITE_STYLE } from './style';
 import { SITE_SEARCH_SCRIPT } from './search-script';
 import { createRendererSessions } from '../../csl';
+import { buildLinkResolverContext } from '../../link-resolver';
+import { buildLinkPreviews, linkPreviewsScript, LINK_PREVIEWS_FILE, LINK_PREVIEW_SCRIPT_FILE } from '../../link-previews';
+import { LINK_PREVIEW_SCRIPT, LINK_PREVIEW_STYLE } from '../../link-preview-script';
 
 export const staticSiteExporter: Exporter = {
   id: 'static-site',
@@ -60,6 +63,13 @@ export const staticSiteExporter: Exporter = {
     if (notes.length === 0) {
       return { files: [], summary: 'Nothing to export — every note was filtered out by site-config.' };
     }
+    // Pages render against the PUBLISHED set (#2710): a note the site config
+    // filtered out is not linked (a link to it is broken, not a 404), not
+    // transcluded, and not previewed — exactly like a note the pipeline
+    // excluded. Rendering against `plan.inputs` used to link it to a page the
+    // site never wrote, and inline its text through `![[…]]`.
+    const published = new Set(notes.map((n) => n.relativePath));
+    const sitePlan: ExportPlan = { ...plan, inputs: plan.inputs.filter((f) => f.kind !== 'note' || published.has(f.relativePath)) };
 
     const index = buildSiteIndex(notes);
     // Structure sidebar (#1133): built from the EXPORTED note set (post-filter),
@@ -110,7 +120,7 @@ export const staticSiteExporter: Exporter = {
     for (const note of notes) {
       const renderer = sessions.next() ?? null;
       const rootRel = relativeToRoot(note.relativePath);
-      const html = await renderNotePage({ note, plan, config, index, rootRelative: rootRel, renderer, nav });
+      const html = await renderNotePage({ note, plan: sitePlan, config, index, rootRelative: rootRel, renderer, nav });
       files.push({ path: noteUrl(note.relativePath), contents: html });
       for (const cssPath of extractPublish(note).cssPaths) {
         if (copiedCss.has(cssPath)) continue;
@@ -147,7 +157,7 @@ export const staticSiteExporter: Exporter = {
       const renderer = sessions.next() ?? null;
       const html = await renderNotePage({
         note: landingNote,
-        plan,
+        plan: sitePlan,
         config,
         index,
         rootRelative: '',
@@ -222,7 +232,19 @@ export const staticSiteExporter: Exporter = {
       contents: JSON.stringify(index.searchRecords),
     });
     files.push({ path: 'search.js', contents: SITE_SEARCH_SCRIPT });
-    files.push({ path: 'style.css', contents: STATIC_SITE_STYLE });
+    files.push({ path: 'style.css', contents: `${STATIC_SITE_STYLE}${LINK_PREVIEW_STYLE}` });
+
+    // Link-hover previews (#2710): one data file for the whole site, keyed by
+    // page, built from the PUBLISHED notes only — a note the pipeline excluded
+    // or the site config filtered has no entry, so its text can't leak here.
+    // `preview.js` (linked from every page) loads it on the first hover/focus.
+    const previews = buildLinkPreviews({
+      published: notes,
+      pageFor: noteUrl,
+      resolveTarget: buildLinkResolverContext(sitePlan).resolveTarget,
+    });
+    files.push({ path: LINK_PREVIEWS_FILE, contents: linkPreviewsScript(previews) });
+    files.push({ path: LINK_PREVIEW_SCRIPT_FILE, contents: LINK_PREVIEW_SCRIPT });
 
     const dropped = allNotes.length - notes.length + plan.excluded.length;
     const noteCount = `${notes.length} note${notes.length === 1 ? '' : 's'}`;
