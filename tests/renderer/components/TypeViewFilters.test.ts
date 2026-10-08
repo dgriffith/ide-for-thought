@@ -94,3 +94,51 @@ describe('TypeViewFilters — dismissal', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 });
+
+describe('the Type filter (#2716)', () => {
+  const SUBTYPES = [
+    { id: 'museum', label: 'Museum', icon: '🏛', depth: 0, count: 1 },
+    { id: 'restaurant', label: 'Restaurant', depth: 0, count: 3 },
+    { id: 'pizzeria', label: 'Pizzeria', depth: 1, count: 1 },
+  ];
+  function mountTyped(filters: ViewFilter[] = [], subtypes = SUBTYPES, properties = PROPS) {
+    const onChange = vi.fn();
+    render(TypeViewFilters, { properties, instances: INSTANCES, filters, display, onChange, subtypes });
+    return onChange;
+  }
+
+  it('is offered first only when the type has subtypes', async () => {
+    mountTyped();
+    await fireEvent.click(screen.getByRole('button', { name: 'Filter ▾' }));
+    expect(within(screen.getByRole('dialog', { name: 'Filter by property' })).getAllByRole('button').map((b) => b.textContent.trim()))
+      .toEqual(['Type', 'City', 'Rating', 'Visited']);
+    cleanup();
+    mountTyped([], []);
+    await fireEvent.click(screen.getByRole('button', { name: 'Filter ▾' }));
+    expect(within(screen.getByRole('dialog', { name: 'Filter by property' })).queryByRole('button', { name: 'Type' })).toBeNull();
+  });
+
+  it('shows the tree indented by depth, with counts, and ticks into a values filter on `type`', async () => {
+    const onChange = mountTyped([{ property: 'city', values: ['Prague'] }]);
+    await fireEvent.click(screen.getByRole('button', { name: 'Filter ▾' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Type' }));
+    const labels = screen.getAllByRole('checkbox').map((c) => c.closest('label')!);
+    expect(labels.map((l) => l.textContent.replace(/\s+/g, ' ').trim())).toEqual(['🏛 Museum1', 'Restaurant3', 'Pizzeria1']);
+    expect(labels.map((l) => l.style.paddingLeft)).toEqual(['4px', '4px', '20px']);
+    await fireEvent.click(screen.getByRole('checkbox', { name: /Pizzeria/ }));
+    await fireEvent.click(screen.getByRole('checkbox', { name: /Museum/ }));
+    expect(onChange).toHaveBeenLastCalledWith([{ property: 'city', values: ['Prague'] }, { property: 'type', values: ['museum'] }]);
+  });
+
+  it('chips it by label, and removes it', async () => {
+    const onChange = mountTyped([{ property: 'type', values: ['restaurant', 'museum'] }]);
+    await fireEvent.click(screen.getByRole('button', { name: 'Remove filter Type: Restaurant, Museum' }));
+    expect(onChange).toHaveBeenLastCalledWith([]);
+  });
+
+  it('never offers a declared property named `type` as a plain values filter', async () => {
+    mountTyped([], [], [...PROPS, { name: 'type', type: 'text', label: 'Kind' }]);
+    await fireEvent.click(screen.getByRole('button', { name: 'Filter ▾' }));
+    expect(within(screen.getByRole('dialog', { name: 'Filter by property' })).queryByRole('button', { name: 'Kind' })).toBeNull();
+  });
+});

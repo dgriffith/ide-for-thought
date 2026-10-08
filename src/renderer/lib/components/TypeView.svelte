@@ -26,7 +26,8 @@
   import TypeViewFilters from './TypeViewFilters.svelte';
   import type { MapExportHooks } from '../map/map-export';
   import type { MapStyle } from '../../../shared/objects/map-style';
-  import { applyViewSpec, type ViewFilter } from '../../../shared/objects/view-spec';
+  import { applyViewSpec, isTypeFilter, resolveTypeFilter, type TypeLookup, type ViewFilter } from '../../../shared/objects/view-spec';
+  import { subtypeChoices } from '../../../shared/objects/type-filter';
   import { buildViewEmbed } from '../../../shared/objects/view-note';
   import { comparePropertyValues, viewToCsv } from '../../../shared/objects/view-values';
   import { boardColumns, groupByForSpec, moveColumn, resolveGroupBy } from '../../../shared/objects/kanban';
@@ -109,6 +110,8 @@
 
   async function load(): Promise<void> {
     loading = untrack(() => type?.id !== typeId); // a refresh keeps the view (and a board's focus) up
+    // A Type filter (#2716) is matched against the catalog — an export must not snapshot before it's known.
+    if (!objectTypesStore.loaded && untrack(() => filters.some(isTypeFilter))) await objectTypesStore.refresh();
     const result = await api.types.instances(typeId);
     type = result.type;
     instances = result.instances;
@@ -184,15 +187,19 @@
 
   /** What this view shows (#2531): the type's instances in `folder`, through
    *  `filters` — the one rule the panel, embeds and exports share. */
-  const scoped = $derived<TypeInstanceRow[]>(applyViewSpec(
-    instances,
-    { folder, filters },
-    Object.fromEntries(allColumns.map((c) => [c.name, c.type])),
-  ));
+  const propertyTypes = $derived(Object.fromEntries(allColumns.map((c) => [c.name, c.type])));
+  // The Type filter (#2716, `view-spec.ts`): the catalog and each note's own
+  // type once the store has them; stale ids dropped, choices counted in scope.
+  const typeLookup = $derived<TypeLookup | null>(catalog && objectTypesStore.loaded
+    ? { byId: new Map(catalog.map((t) => [t.id, t] as const)), typeOf: (p) => objectTypesStore.typeForNote(p)?.id } : null);
+  const viewFilters = $derived(resolveTypeFilter(filters, typeId, typeLookup?.byId ?? null));
+  const subtypes = $derived(typeLookup && catalog && !chromeless
+    ? subtypeChoices(typeId, catalog, applyViewSpec(instances, { folder, filters: viewFilters.filter((f) => !isTypeFilter(f)) }, propertyTypes), typeLookup.typeOf) : []);
+  const scoped = $derived<TypeInstanceRow[]>(applyViewSpec(instances, { folder, filters: viewFilters }, propertyTypes, typeLookup));
 
   function emptyScopedMessage(label: string): string {
     const what = label.toLowerCase();
-    if (filters.length > 0) return folder ? `No ${what} in ${folder} match these filters.` : `No ${what} match these filters.`;
+    if (viewFilters.length > 0) return folder ? `No ${what} in ${folder} match these filters.` : `No ${what} match these filters.`;
     return `No ${what} in ${folder}.`;
   }
 
@@ -230,7 +237,7 @@
    */
   async function copyAsMarkdown(): Promise<void> {
     // A `groupBy` the type no longer has as an enum is dropped, not copied.
-    const md = buildViewEmbed({ typeId, ...timelineSpec, ...calendarSpec, sortColumn, sortDir, columns, folder, filters, mapStyle, groupBy: groupByForSpec(groupBy, type ? allColumns : null), columnOrder, showEmptyColumns });
+    const md = buildViewEmbed({ typeId, ...timelineSpec, ...calendarSpec, sortColumn, sortDir, columns, folder, filters: viewFilters, mapStyle, groupBy: groupByForSpec(groupBy, type ? allColumns : null), columnOrder, showEmptyColumns });
     try {
       await navigator.clipboard.writeText(md);
       markdownCopied = true;
@@ -289,7 +296,7 @@
   // Kanban (#2602): the grouping enum, then the columns — sorted cards, the
   // values filter on that property narrowing the columns (`boardColumns`).
   const groupProp = $derived(resolveGroupBy(groupBy, allColumns));
-  const board = $derived(groupProp ? boardColumns(sorted, groupProp, filters, { columnOrder, showEmptyColumns }) : []);
+  const board = $derived(groupProp ? boardColumns(sorted, groupProp, viewFilters, { columnOrder, showEmptyColumns }) : []);
   function moveTo(paths: string[], target: MoveTarget): void {
     sel.closeMenu();
     const cards = paths.map((p) => ({ path: p, title: instances.find((i) => i.path === p)?.title ?? p }));
@@ -313,7 +320,7 @@
           <button type="button" class="tv-chip-x" aria-label="Show {type?.label ?? typeId} from the whole thoughtbase" onclick={onClearFolder}>✕</button>
         </span>
       {/if}
-      <TypeViewFilters properties={allColumns} instances={inFolderOnly} {filters} {display} onChange={(next) => onStateChange({ filters: next })} />
+      <TypeViewFilters properties={allColumns} instances={inFolderOnly} filters={viewFilters} {subtypes} {display} onChange={(next) => onStateChange({ filters: next })} />
 
       <div class="tv-actions">
         {#if selectable && sel.selectedPaths.length > 0}
@@ -355,7 +362,7 @@
   {:else if scoped.length === 0}
     <p class="tv-empty">{emptyScopedMessage(type.label)}</p>
   {:else if shown === 'timeline'}
-    <TypeViewTimeline {type} properties={allColumns} instances={scoped} {filters} from={timelineSpec.from} to={timelineSpec.to} dateBy={timelineSpec.dateBy} {display} {rowType} {onOpenNote} onStateChange={(p) => onStateChange(p)} readOnly={chromeless} exportMode={timelineExport} />
+    <TypeViewTimeline {type} properties={allColumns} instances={scoped} filters={viewFilters} from={timelineSpec.from} to={timelineSpec.to} dateBy={timelineSpec.dateBy} {display} {rowType} {onOpenNote} onStateChange={(p) => onStateChange(p)} readOnly={chromeless} exportMode={timelineExport} />
   {:else if shown === 'calendar'}
     <TypeViewCalendar {type} properties={allColumns} instances={scoped} month={calendarSpec.month} dateBy={calendarSpec.dateBy} {display} {rowType} {onOpenNote} onStateChange={(p) => onStateChange(p)} readOnly={chromeless} exportMode={calendarExport} />
   {:else if shown === 'list'}
