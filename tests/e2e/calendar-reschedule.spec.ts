@@ -17,10 +17,10 @@ import path from 'node:path';
 import { closeMinerva, launchMinerva, projectRoot } from './helpers/launch';
 import { seedNotes } from './helpers/timeline';
 import { expectAnnounced, recordAnnouncements } from './helpers/announcements';
-import { openTypeCalendar, shownMonth, thisMonth, ymd } from './helpers/calendar';
+import { addMonth, dragEventToDay, openTypeCalendar, shownMonth, startMoveToDate, thisMonth, ymd } from './helpers/calendar';
 
 const NOW = thisMonth();
-const NEXT = NOW.month === 12 ? { year: NOW.year + 1, month: 1 } : { year: NOW.year, month: NOW.month + 1 };
+const NEXT = addMonth(NOW, 1);
 
 const offsite = (from: number, to: number) => `---\ntype: event\ndate: ${ymd(NOW, from)}\nend: "${ymd(NOW, to)}" # quoted, with a comment\nplace: Lakeside\n---\n# Offsite\n\nAgenda below.\n`;
 const standup = (d: string) => `---\ntype: event\ndate: ${d}T09:30:15\n---\n# Standup\n`;
@@ -52,17 +52,11 @@ test('Calendar events reschedule by pointer drag, by keyboard and by a typed dat
     });
 
     await test.step('pointer: drag the Offsite bar a week later; date and end both move', async () => {
-      const bar = cal.eventFor('Offsite').first();
-      const from = await bar.boundingBox();
-      const to = await cal.day(NOW.year, NOW.month, 17).boundingBox();
-      if (!from || !to) throw new Error('no layout for the Offsite bar or the 17th');
       // Press on the bar inside its first day (the grab day), drop on the 17th.
-      await win.mouse.move(from.x + 12, from.y + from.height / 2);
-      await win.mouse.down();
-      await win.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 12 });
-      // The drop preview: the three days the event will cover.
-      await expect(cal.grid.locator('[data-drop-target]')).toHaveCount(3);
-      await win.mouse.up();
+      await dragEventToDay(win, cal, 'Offsite', NOW, 17, async () => {
+        // The drop preview: the three days the event will cover.
+        await expect(cal.grid.locator('[data-drop-target]')).toHaveCount(3);
+      });
 
       await expect.poll(() => read('Offsite'), { timeout: 10_000 }).toBe(offsite(17, 19));
       await expect(cal.day(NOW.year, NOW.month, 17).locator('[data-calendar-event]')).toHaveCount(1, { timeout: 10_000 });
@@ -74,15 +68,8 @@ test('Calendar events reschedule by pointer drag, by keyboard and by a typed dat
     });
 
     await test.step('keyboard only: Enter on the day → Shift+F10 → Move to date… → ↓ → Enter', async () => {
-      await cal.day(NOW.year, NOW.month, 6).focus();
-      await win.keyboard.press('Enter');
-      await expect(cal.dayList).toBeVisible();
-      await expect(cal.dayList.locator('[data-day-event][data-note-path$="Standup.md"]')).toBeFocused();
-      await win.keyboard.press('Shift+F10');
-      await expect(win.getByRole('menuitem', { name: 'Move to date…' })).toBeFocused();
-      await win.keyboard.press('Enter');
+      await startMoveToDate(win, cal, NOW, 6, 'Standup.md');
       // Choosing a day: focus on the event's day, the move bar says what's happening.
-      await expect(cal.day(NOW.year, NOW.month, 6)).toBeFocused();
       await expect(win.locator('[data-calendar-move-bar]')).toContainText('Moving Standup');
       await win.keyboard.press('ArrowDown');
       await expect(cal.day(NOW.year, NOW.month, 13)).toBeFocused();
@@ -95,12 +82,7 @@ test('Calendar events reschedule by pointer drag, by keyboard and by a typed dat
     });
 
     await test.step('typed date: Kickoff (BOM + CRLF) to the 3rd of next month; the page follows', async () => {
-      await cal.day(NOW.year, NOW.month, 8).focus();
-      await win.keyboard.press('Enter');
-      await expect(cal.dayList.locator('[data-day-event][data-note-path$="Kickoff.md"]')).toBeFocused();
-      await win.keyboard.press('Shift+F10');
-      await win.keyboard.press('Enter');
-      await expect(cal.day(NOW.year, NOW.month, 8)).toBeFocused();
+      await startMoveToDate(win, cal, NOW, 8, 'Kickoff.md');
       await win.getByRole('textbox', { name: 'Date to move Kickoff to' }).fill(ymd(NEXT, 3));
       await win.keyboard.press('Enter');
 
@@ -122,16 +104,10 @@ test('Calendar events reschedule by pointer drag, by keyboard and by a typed dat
     await test.step('an event whose end is only a month refuses to drag, and says why', async () => {
       await win.getByRole('button', { name: 'Today' }).click();
       await expect.poll(() => shownMonth(win)).toBe(ymd(NOW));
-      const bar = cal.eventFor('Launch').first();
-      await expect(bar).toBeVisible({ timeout: 10_000 });
-      const from = await bar.boundingBox();
-      const to = await cal.day(NOW.year, NOW.month, 13).boundingBox();
-      if (!from || !to) throw new Error('no layout for the Launch bar');
-      await win.mouse.move(from.x + 12, from.y + from.height / 2);
-      await win.mouse.down();
-      await win.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 8 });
-      await expect(win.locator('[data-calendar-ghost]')).toHaveCount(0);
-      await win.mouse.up();
+      await expect(cal.eventFor('Launch').first()).toBeVisible({ timeout: 10_000 });
+      await dragEventToDay(win, cal, 'Launch', NOW, 13, async () => {
+        await expect(win.locator('[data-calendar-ghost]')).toHaveCount(0);
+      });
       await expectAnnounced(win, `Launch ends ${ymd(NEXT)}, which has no day to move; open it to edit.`);
       expect(read('Launch')).toBe(LAUNCH);
       await expect(win.locator('.tab', { hasText: 'Launch' })).toHaveCount(0);

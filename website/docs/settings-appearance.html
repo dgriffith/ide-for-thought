@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Settings: Appearance</title>
-<meta name="description" content="The Appearance tab in Settings: pick a theme and choose the font your notes are written and read in." />
+<meta name="description" content="The Appearance tab in Settings: pick a theme, choose the font your notes are written and read in, and set how a calendar lays out its weeks." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -95,7 +95,7 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="settings.html">Settings</a><span class="sep">/</span>Appearance</p>
 
     <h1>Appearance</h1>
-    <p class="lede">This tab holds two choices: the theme the whole app wears, and the font your notes are written and read in. Both take effect the moment you change them.</p>
+    <p class="lede">This tab holds the theme the whole app wears, the font your notes are written and read in, and how a calendar lays out its weeks. Each takes effect the moment you change it.</p>
 
     <h2 id="theme">Theme</h2>
     <p>The <b>Theme</b> dropdown lets you pick Dark, Light, High Contrast, or System (which follows your computer's own light-or-dark setting). You can also switch themes from the status bar or with <kbd>⌘</kbd><kbd>⇧</kbd><kbd>T</kbd>. For a closer look at each theme, see the <a href="viewing-options-themes.html">Themes</a> page.</p>
@@ -138,6 +138,22 @@
       <img src="img/settings-appearance.png" alt="The Appearance tab in Settings, with the Theme dropdown at the top and the Content font dropdown below it, its list of font choices open." loading="lazy" />
       <figcaption>The Appearance tab</figcaption>
     </figure>
+
+    <h2 id="calendar">Calendar weeks</h2>
+    <p>Two settings at the bottom of the tab shape every <a href="left-sidebar-objects.html#calendar">calendar</a> view:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Week starts on</div>
+        <div class="v">The day in a calendar's first column. <i>Automatic</i>, the setting you start with, follows your computer's region and names the day it picked, as in <i>Automatic (Monday)</i>. Choose Monday, Sunday or Saturday to set it yourself.</div>
+      </div>
+      <div class="row">
+        <div class="k">Show week numbers</div>
+        <div class="v">Adds a column of ISO 8601 week numbers beside each week, where week 1 is the week holding the year's first Thursday. Off to start with.</div>
+      </div>
+    </div>
+
+    <p>Both belong to this computer, not to a thoughtbase, so they apply to every thoughtbase you open here, and someone else opening the same thoughtbase keeps their own. A calendar you export follows them too, so a web page or PDF has its weeks laid out as they were in the preview you exported from.</p>
 
     <div class="pager">
       <a class="prev" href="settings-editor.html">

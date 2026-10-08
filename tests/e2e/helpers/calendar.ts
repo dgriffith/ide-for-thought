@@ -1,7 +1,9 @@
 /**
- * Shared steps for the Calendar specs (#2702): open a dated type's view on its
- * Calendar tab, find a day cell and an event in the grid, and say which month
- * the grid shows.
+ * Shared steps for the Calendar specs (#2702, #2703, #2705): open a dated
+ * type's view on its Calendar tab, find a day cell and an event in the grid,
+ * say which month the grid shows, and reschedule an event — by dragging it
+ * onto a day with the pointer, or from the keyboard through the day's list
+ * and *Move to date…*.
  *
  * A day cell is found by `data-day` (its civil-axis ms, `date-precision.ts`),
  * an event by its accessible name, which starts with its title. Specs build
@@ -13,6 +15,12 @@ import { expect, type Locator, type Page } from '@playwright/test';
 /** The current month, as the renderer judges it: local year and 1–12. */
 export function thisMonth(now = new Date()): { year: number; month: number } {
   return { year: now.getFullYear(), month: now.getMonth() + 1 };
+}
+
+/** The month `n` months after `m` (before, for a negative `n`). */
+export function addMonth(m: { year: number; month: number }, n: number): { year: number; month: number } {
+  const i = m.year * 12 + (m.month - 1) + n;
+  return { year: Math.floor(i / 12), month: (((i % 12) + 12) % 12) + 1 };
 }
 
 /** `2026-10`, `2026-10-05`: a month, or a day in it. */
@@ -66,4 +74,57 @@ export async function openTypeCalendar(win: Page, label: string): Promise<Calend
   const c = calendarOf(win);
   await expect(c.grid).toBeVisible({ timeout: 15_000 });
   return c;
+}
+
+/**
+ * Drag the event titled `title` onto a day of month `m` with the pointer.
+ * The press lands 12px into the event's FIRST segment, which is inside its
+ * first day, so that day is the grab day and the event moves by
+ * `day − its first day` (#2703). The move is stepped: a drag starts after 5px
+ * of travel (`event-drag.ts`, pointer events, not HTML5 drag-and-drop).
+ * `whileOver` runs with the pointer held over the day, before the drop — for
+ * asserting the drop preview or its absence.
+ */
+export async function dragEventToDay(
+  win: Page,
+  cal: Calendar,
+  title: string,
+  m: { year: number; month: number },
+  day: number,
+  whileOver?: () => Promise<void>,
+): Promise<void> {
+  const from = await cal.eventFor(title).first().boundingBox();
+  const to = await cal.day(m.year, m.month, day).boundingBox();
+  if (!from || !to) throw new Error(`no layout for the ${title} event or day ${day}`);
+  await win.mouse.move(from.x + 12, from.y + from.height / 2);
+  await win.mouse.down();
+  await win.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 12 });
+  await whileOver?.();
+  await win.mouse.up();
+}
+
+/**
+ * Keyboard only, put the grid into "choose a day" mode for one event: focus
+ * its day, Enter for the day's list (focus lands on the event, the day's only
+ * one), Shift+F10 for its menu, Enter on *Move to date…*. Focus is then back
+ * on the event's day; the arrows move it, Enter moves the event there, and
+ * the move bar's text field takes a typed date (#2703).
+ *
+ * `noteFile` is the end of the event's note path (`Standup.md`).
+ */
+export async function startMoveToDate(
+  win: Page,
+  cal: Calendar,
+  m: { year: number; month: number },
+  day: number,
+  noteFile: string,
+): Promise<void> {
+  await cal.day(m.year, m.month, day).focus();
+  await win.keyboard.press('Enter');
+  await expect(cal.dayList).toBeVisible();
+  await expect(cal.dayList.locator(`[data-day-event][data-note-path$="${noteFile}"]`)).toBeFocused();
+  await win.keyboard.press('Shift+F10');
+  await expect(win.getByRole('menuitem', { name: 'Move to date…' })).toBeFocused();
+  await win.keyboard.press('Enter');
+  await expect(cal.day(m.year, m.month, day)).toBeFocused();
 }

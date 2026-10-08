@@ -16,11 +16,11 @@ import path from 'node:path';
 import type { Page } from '@playwright/test';
 import { closeMinerva, launchMinerva, projectRoot } from './helpers/launch';
 import { seedNotes, type SeedNotes } from './helpers/timeline';
-import { calendarOf, civilDay, openTypeCalendar, shownMonth, thisMonth, ymd } from './helpers/calendar';
+import { addMonth, calendarOf, civilDay, openTypeCalendar, shownMonth, thisMonth, ymd } from './helpers/calendar';
 
 const NOW = thisMonth();
-const NEXT = NOW.month === 12 ? { year: NOW.year + 1, month: 1 } : { year: NOW.year, month: NOW.month + 1 };
-const PREV = NOW.month === 1 ? { year: NOW.year - 1, month: 12 } : { year: NOW.year, month: NOW.month - 1 };
+const NEXT = addMonth(NOW, 1);
+const PREV = addMonth(NOW, -1);
 const BUSY_DAY = 20;
 const BUSY = Array.from({ length: 8 }, (_, i) => `Busy ${i + 1}`);
 
