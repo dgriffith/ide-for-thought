@@ -46,6 +46,7 @@
   import { exportStyleUrl, mapStyleUrl, resolveMapStyle } from '../map/maplibre-style';
   import { MAP_STYLES, type MapStyle } from '../../../shared/objects/map-style';
   import { MAP_EXPORT_ERROR_GRACE_MS, MAP_EXPORT_PIXEL_RATIO, MAP_EXPORT_TIMEOUT_MS, MAP_TILES_FAILED, attributionText, compositeMap, parseLatLng, type MapExportHooks, type MapPlace } from '../map/map-export';
+  import { EMOJI_PIN_HEIGHT, EMOJI_PIN_OFFSET, createEmojiPinElement } from '../map/emoji-pin';
   import { objectTypesStore } from '../stores/object-types.svelte';
   import type { PropertyDef, TypeInfo, TypeInstanceRow } from '../../../shared/objects/type-def';
   import NoteHoverPreview from './NoteHoverPreview.svelte';
@@ -104,6 +105,8 @@
   let ready = $state(false);
   let map: maplibregl.Map | null = null;
   let gl: MapLibreModule | null = null;
+  /** Framing margin on every side; the top adds the tallest pin's height (see fitBounds). */
+  const FIT_PAD = 48;
   let markers: maplibregl.Marker[] = [];
   /** The style URL the map was built with or last switched to — so the live
    *  switch below only calls `setStyle` on a real change. */
@@ -126,8 +129,14 @@
       const parsed = parseLatLng(inst.values[locationProperty] ?? null);
       if (!parsed) continue;
       const [lat, lng] = parsed;
-      const color = objectTypesStore.typeForNote(inst.path)?.color;
-      const marker = new gl.Marker(color ? { color } : undefined).setLngLat([lng, lat]).addTo(map);
+      const type = objectTypesStore.typeForNote(inst.path);
+      const color = type?.color;
+      // A type with an icon gets it in the pin's head (#2711); one without
+      // keeps MapLibre's stock pin, exactly as before.
+      const marker = (type?.icon
+        ? new gl.Marker({ element: createEmojiPinElement(type.icon, color, inst.title), anchor: 'bottom', offset: EMOJI_PIN_OFFSET })
+        : new gl.Marker(color ? { color } : undefined)
+      ).setLngLat([lng, lat]).addTo(map);
       const pin = marker.getElement();
       pin.style.cursor = 'pointer';
       pin.setAttribute('aria-label', inst.title);
@@ -149,7 +158,12 @@
     // stale internal size skews fitBounds' math.
     map.resize();
     if (!bounds.isEmpty()) {
-      map.fitBounds(bounds, { padding: 48, maxZoom: 14, animate: false });
+      // Pins draw UP from their coordinate (the tip sits on it), and the style
+      // switch / zoom controls occupy the top band. A uniform 48px let the top
+      // pin's head reach into that band, under the Auto/Light/Dark switch, where
+      // it couldn't be clicked (#2711's taller emoji pin made it certain). Leave
+      // room at the top for the tallest pin plus the control band.
+      map.fitBounds(bounds, { padding: { top: FIT_PAD + EMOJI_PIN_HEIGHT, right: FIT_PAD, bottom: FIT_PAD, left: FIT_PAD }, maxZoom: 14, animate: false });
     } else {
       // No located instances — a reasonable default view rather than an
       // arbitrary/empty-looking one.

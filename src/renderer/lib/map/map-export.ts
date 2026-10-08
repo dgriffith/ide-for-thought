@@ -7,6 +7,8 @@
  * places as a table instead — never a blank box.
  */
 
+import { EMOJI_PIN_HEIGHT, GLYPH_FILL, EMOJI_PIN_SCALE, EMOJI_PIN_WIDTH, PIN_DISC_CY, PIN_ICON_FONT_FAMILY, PIN_ICON_SIZE, PIN_TIP_Y, PIN_VIEW_H, PIN_VIEW_W, STOCK_PIN_COLOR, pinSvgMarkup } from './emoji-pin';
+
 /** A located instance: what a marker shows, and what the fallback lists. */
 export interface MapPlace {
   path: string;
@@ -67,16 +69,20 @@ function decodeEntities(s: string): string {
 }
 
 /** What compositing needs from a marker: its element (an SVG pin) and where
- *  its anchor (the pin's tip) sits on the map, in CSS pixels. */
+ *  its coordinate sits on the map, in CSS pixels. */
 export interface PinToDraw {
   element: HTMLElement;
   point: { x: number; y: number };
 }
 
 /**
- * Flatten the map canvas plus its pins into one PNG data URL. Each pin is the
- * marker's own SVG (so its colour matches the preview), drawn with its tip on
- * the projected coordinate — MapLibre's default marker is bottom-anchored.
+ * Flatten the map canvas plus its pins into one PNG data URL, each pin with
+ * its tip on the projected coordinate. A stock pin is the marker's own SVG
+ * (so its colour matches the preview). An icon pin (#2711) is redrawn from
+ * its `data-pin-*`: the teardrop and disc as SVG, then the icon with canvas
+ * `fillText` — Chromium draws colour emoji there, at the output's own scale,
+ * and a glyph that didn't draw can be detected (`iconDrawable`). When the icon
+ * can't be drawn, the pin is the plain coloured one — never a blank head.
  */
 export async function compositeMap(canvas: HTMLCanvasElement, pins: PinToDraw[], cssWidth: number, cssHeight: number): Promise<string> {
   const scale = canvas.width / cssWidth;
@@ -87,20 +93,97 @@ export async function compositeMap(canvas: HTMLCanvasElement, pins: PinToDraw[],
   if (!ctx) throw new Error('no 2D canvas available to compose the map');
   ctx.drawImage(canvas, 0, 0);
   for (const pin of pins) {
+    const icon = pin.element.dataset.pinIcon;
+    if (icon) {
+      const w = EMOJI_PIN_WIDTH;
+      const h = EMOJI_PIN_HEIGHT;
+      const left = pin.point.x - w / 2;
+      const top = pin.point.y - h * (PIN_TIP_Y / PIN_VIEW_H);
+      const fontPx = PIN_ICON_SIZE * EMOJI_PIN_SCALE * scale;
+      const drawable = iconDrawable(icon, fontPx);
+      const img = await loadSvgMarkup(pinSvgMarkup(pin.element.dataset.pinColor || STOCK_PIN_COLOR, drawable ? 'disc' : 'plain'));
+      ctx.drawImage(img, left * scale, top * scale, w * scale, h * scale);
+      if (drawable) {
+        ctx.font = `${fontPx}px ${PIN_ICON_FONT_FAMILY}`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = GLYPH_FILL;
+        ctx.fillText(icon, pin.point.x * scale, (top + h * (PIN_DISC_CY / PIN_VIEW_H)) * scale);
+      }
+      continue;
+    }
     const svg = pin.element.querySelector('svg');
     if (!svg) continue;
-    const w = Number(svg.getAttribute('width')) || 27;
-    const h = Number(svg.getAttribute('height')) || 41;
+    const w = parseFloat(svg.getAttribute('width') ?? '') || PIN_VIEW_W;
+    const h = parseFloat(svg.getAttribute('height') ?? '') || PIN_VIEW_H;
     const img = await loadSvg(svg);
-    ctx.drawImage(img, (pin.point.x - w / 2) * scale, (pin.point.y - h) * scale, w * scale, h * scale);
+    // The stock marker's tip is PIN_TIP_Y down its viewBox, not its bottom
+    // edge (the shadow hangs below it).
+    ctx.drawImage(img, (pin.point.x - w / 2) * scale, (pin.point.y - h * (PIN_TIP_Y / PIN_VIEW_H)) * scale, w * scale, h * scale);
   }
   return out.toDataURL('image/png');
+}
+
+/** A codepoint no font has — what the platform draws for a missing glyph. */
+const MISSING_GLYPH = '\u{10FFFD}';
+const drawableCache = new Map<string, boolean>();
+
+/**
+ * Whether `icon` really draws on a canvas here: some ink, and not the same
+ * pixels as a glyph no font has (the platform's "missing" box). A colour emoji
+ * font is the system's on Windows/Linux (#2197/#2200), so this is a question
+ * about the machine, asked once per icon and size.
+ */
+export function iconDrawable(icon: string, fontPx: number): boolean {
+  const key = `${fontPx}\u0000${icon}`;
+  const known = drawableCache.get(key);
+  if (known !== undefined) return known;
+  let result: boolean;
+  try {
+    const a = glyphPixels(icon, fontPx);
+    const missing = glyphPixels(MISSING_GLYPH, fontPx);
+    result = a !== null && a.some((v, i) => i % 4 === 3 && v > 0) && !samePixels(a, missing);
+  } catch {
+    result = false;
+  }
+  drawableCache.set(key, result);
+  return result;
+}
+
+/** Test-only: forget what `iconDrawable` learned. */
+export function _clearIconDrawableCacheForTests(): void {
+  drawableCache.clear();
+}
+
+function glyphPixels(text: string, fontPx: number): Uint8ClampedArray | null {
+  const size = Math.ceil(fontPx * 2);
+  const c = document.createElement('canvas');
+  c.width = size;
+  c.height = size;
+  const ctx = c.getContext('2d');
+  if (!ctx) return null;
+  ctx.font = `${fontPx}px ${PIN_ICON_FONT_FAMILY}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = GLYPH_FILL;
+  ctx.fillText(text, size / 2, size / 2);
+  return ctx.getImageData(0, 0, size, size).data;
+}
+
+function samePixels(a: Uint8ClampedArray, b: Uint8ClampedArray | null): boolean {
+  if (!b || a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
 }
 
 function loadSvg(svg: SVGElement): Promise<HTMLImageElement> {
   const clone = svg.cloneNode(true) as SVGElement;
   if (!clone.getAttribute('xmlns')) clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-  const src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(new XMLSerializer().serializeToString(clone))}`;
+  return loadSvgMarkup(new XMLSerializer().serializeToString(clone));
+}
+
+function loadSvgMarkup(markup: string): Promise<HTMLImageElement> {
+  const src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(markup)}`;
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);
