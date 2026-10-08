@@ -11,10 +11,20 @@
    * press outside, or focus leaving it, closes it where focus already is.
    * Each event shows the shared hover preview on focus and on hover, as in the
    * grid.
+   *
+   * **The event's menu** (#2703; absent read-only): Shift+F10 or the
+   * ContextMenu key on an event — or a right-click — opens a small
+   * `role="menu"` under it with *Move to date…* and *Open*, the Kanban card
+   * menu's keys. ↑/↓ move, Enter activates, Escape closes it back onto the
+   * event. An event that can't be rescheduled (a start or end that is only a
+   * month or year) keeps *Move to date…* but disabled, with the reason under
+   * it.
    */
   import { tick } from 'svelte';
   import type { TimelineEvent } from '../timeline/timeline-events';
   import type { NoteHover } from '../note-hover/note-hover.svelte';
+  import { cardMoveKey } from '../kanban/card-drag';
+  import type { DayListMenu } from './reschedule';
 
   interface Props {
     /** "Tuesday, 6 October 2026". */
@@ -30,8 +40,11 @@
     cardKey: string | null;
     onOpen: (key: string) => void;
     onClose: (returnFocus: boolean) => void;
+    /** The event menu; absent (read-only) → no menu. */
+    menu?: DayListMenu | null;
   }
-  let { label, events, anchor, timeOf, hover, cardId, cardKey, onOpen, onClose }: Props = $props();
+  let { label, events, anchor, timeOf, hover, cardId, cardKey, onOpen, onClose, menu = null }: Props = $props();
+  const uid = $props.id();
 
   let el = $state<HTMLDivElement>();
   let pos = $state<{ left: number; top: number } | null>(null);
@@ -72,7 +85,48 @@
     return [...(el?.querySelectorAll<HTMLElement>('[data-day-event]') ?? [])];
   }
 
+  // ── The event menu ────────────────────────────────────────────────────
+  let menuKey = $state<string | null>(null);
+  const menuRefusal = $derived(menuKey !== null && menu ? menu.refusal(menuKey) : null);
+  function openMenu(key: string): void {
+    if (!menu) return;
+    hover.close();
+    menuKey = key;
+    void tick().then(() => el?.querySelector<HTMLElement>('[data-calendar-event-menu] [role="menuitem"]')?.focus());
+  }
+  function closeMenu(): void {
+    const key = menuKey;
+    menuKey = null;
+    if (key !== null) void tick().then(() => items().find((i) => i.dataset['notePath'] === key)?.focus());
+  }
+  function onMenuKeydown(e: KeyboardEvent): void {
+    const entries = [...(el?.querySelectorAll<HTMLElement>('[data-calendar-event-menu] [role="menuitem"]') ?? [])];
+    const i = entries.indexOf(document.activeElement as HTMLElement);
+    let next: HTMLElement | undefined;
+    if (e.key === 'Escape' || e.key === 'Tab') { e.preventDefault(); e.stopPropagation(); closeMenu(); return; }
+    if (e.key === 'ArrowDown') next = entries[(i + 1) % entries.length];
+    else if (e.key === 'ArrowUp') next = entries[(i - 1 + entries.length) % entries.length];
+    else if (e.key === 'Home') next = entries[0];
+    else if (e.key === 'End') next = entries[entries.length - 1];
+    else return;
+    e.preventDefault();
+    e.stopPropagation();
+    next?.focus();
+  }
+  function moveToDate(key: string): void {
+    // A refused event's menu stays open: the reason is already shown, and spoken again.
+    if (menu?.refusal(key) === null) menuKey = null;
+    menu?.onMoveToDate(key);
+  }
+
   function onKeydown(e: KeyboardEvent): void {
+    const item = (e.target as HTMLElement | null)?.closest<HTMLElement>('[data-day-event]');
+    if (menu && item && cardMoveKey(e) === 'menu') {
+      e.preventDefault();
+      e.stopPropagation();
+      openMenu(item.dataset['notePath'] ?? '');
+      return;
+    }
     if (e.key === 'Escape') {
       e.preventDefault();
       e.stopPropagation();
@@ -133,7 +187,10 @@
             data-note-path={ev.key}
             aria-label={ev.label}
             aria-describedby={cardKey === ev.key ? cardId : undefined}
+            aria-haspopup={menu ? 'menu' : undefined}
+            aria-expanded={menu ? menuKey === ev.key : undefined}
             onclick={() => onOpen(ev.key)}
+            oncontextmenu={menu ? (e) => { e.preventDefault(); openMenu(ev.key); } : undefined}
             onfocus={(e) => hover.focus({ key: ev.key, target: ev.key, anchor: e.currentTarget, fallbackTitle: ev.title })}
             onblur={() => hover.blur(ev.key)}
             onpointerenter={(e) => hover.pointerEnter({ key: ev.key, target: ev.key, anchor: e.currentTarget, fallbackTitle: ev.title })}
@@ -143,6 +200,21 @@
             <span class="cal-pop-name">{ev.title}</span>
             <span class="cal-pop-date">{ev.dateText}{ev.approx ? ' (approximate)' : ''}</span>
           </button>
+          {#if menuKey === ev.key}
+            <div class="cal-menu" role="menu" tabindex="-1" aria-label={ev.title} data-calendar-event-menu onkeydown={onMenuKeydown}>
+              <button
+                type="button"
+                class="cal-menu-item"
+                role="menuitem"
+                data-menu-move
+                aria-disabled={menuRefusal ? 'true' : undefined}
+                aria-describedby={menuRefusal ? `${uid}-refusal` : undefined}
+                onclick={() => moveToDate(ev.key)}
+              >Move to date…</button>
+              {#if menuRefusal}<p class="cal-menu-note" id="{uid}-refusal" data-menu-refusal>{menuRefusal}</p>{/if}
+              <button type="button" class="cal-menu-item" role="menuitem" data-menu-open onclick={() => { menuKey = null; onOpen(ev.key); }}>Open</button>
+            </div>
+          {/if}
         </li>
       {/each}
     </ul>
@@ -202,4 +274,28 @@
   .cal-pop-time { grid-row: span 2; font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap; padding-top: 1px; }
   .cal-pop-name { font-size: 12.5px; font-weight: 500; overflow-wrap: anywhere; }
   .cal-pop-date { font-size: 11px; }
+  .cal-menu {
+    display: flex;
+    flex-direction: column;
+    margin: 2px 0 4px 12px;
+    padding: 3px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-button);
+    color: var(--text);
+  }
+  .cal-menu-item {
+    padding: 4px 8px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 12px;
+    text-align: left;
+    cursor: pointer;
+  }
+  .cal-menu-item:hover, .cal-menu-item:focus-visible { background: color-mix(in oklch, var(--text) 10%, transparent); outline: none; }
+  .cal-menu-item[aria-disabled='true'] { cursor: default; font-style: italic; }
+  .cal-menu-note { margin: 0 8px 4px; font-size: 11px; color: var(--text); }
 </style>
