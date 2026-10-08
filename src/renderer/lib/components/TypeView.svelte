@@ -91,7 +91,7 @@
     showEmptyColumns?: boolean;
     /** Kanban only: draw the board for an export (#2604) — its columns wrap. */
     kanbanExport?: boolean;
-    timelineExport?: boolean; // Timeline only: draw for an export, #2609's hook (`TypeViewTimeline`).
+    timelineExport?: boolean; calendarExport?: boolean; // Timeline / Calendar only: draw for an export (#2609 `TypeViewTimeline`, #2704 `TypeViewCalendar`).
     /** Timeline's visible range (#2607, `timeline.ts`); null on both = fit all. */
     from?: string | null; to?: string | null;
     /** Calendar's month page and the date property notes are placed by (#2701, `calendar.ts`); null = this month, the default. */
@@ -100,7 +100,7 @@
      *  export) → rows don't multi-select; a click just opens the note. */
     onEditProperties?: (paths: string[]) => void;
   }
-  let { typeId, layout, sortColumn, sortDir, columns, revision, onStateChange, onOpenNote, onSaveView, chromeless = false, onLoaded, mapExport, folder = null, filters = [], onClearFolder, mapStyle = 'auto', groupBy = null, columnOrder = [], showEmptyColumns = true, kanbanExport = false, timelineExport = false, from = null, to = null, month = null, dateBy = null, onEditProperties }: Props = $props();
+  let { typeId, layout, sortColumn, sortDir, columns, revision, onStateChange, onOpenNote, onSaveView, chromeless = false, onLoaded, mapExport, folder = null, filters = [], onClearFolder, mapStyle = 'auto', groupBy = null, columnOrder = [], showEmptyColumns = true, kanbanExport = false, timelineExport = false, calendarExport = false, from = null, to = null, month = null, dateBy = null, onEditProperties }: Props = $props();
 
   let type = $state<TypeInfo | null>(null);
   let instances = $state<TypeInstanceRow[]>([]);
@@ -357,7 +357,7 @@
   {:else if shown === 'timeline'}
     <TypeViewTimeline {type} properties={allColumns} instances={scoped} {filters} from={timelineSpec.from} to={timelineSpec.to} dateBy={timelineSpec.dateBy} {display} {rowType} {onOpenNote} onStateChange={(p) => onStateChange(p)} readOnly={chromeless} exportMode={timelineExport} />
   {:else if shown === 'calendar'}
-    <TypeViewCalendar {type} properties={allColumns} instances={scoped} month={calendarSpec.month} dateBy={calendarSpec.dateBy} {display} {rowType} {onOpenNote} onStateChange={(p) => onStateChange(p)} readOnly={chromeless} />
+    <TypeViewCalendar {type} properties={allColumns} instances={scoped} month={calendarSpec.month} dateBy={calendarSpec.dateBy} {display} {rowType} {onOpenNote} onStateChange={(p) => onStateChange(p)} readOnly={chromeless} exportMode={calendarExport} />
   {:else if shown === 'list'}
     <div class="tv-list">
       {#each scoped as inst (inst.path)}

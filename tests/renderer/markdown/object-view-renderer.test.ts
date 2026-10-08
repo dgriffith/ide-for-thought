@@ -242,6 +242,36 @@ describe('hydrateObjectViewBlocks (#2067)', () => {
     expect(onOpenNote).toHaveBeenCalledWith('e/Moon.md');
   });
 
+  it('a calendar embed is a read-only grid that still pages months, not export mode; opening still works (#2702, pinned by #2704)', async () => {
+    const EVENT = {
+      id: 'event', label: 'Event', classLocalName: 'Event', icon: '📅', source: 'stock' as const,
+      properties: [{ name: 'date', type: 'datetime' as const }, { name: 'end', type: 'datetime' as const }],
+    };
+    listMock.mockResolvedValue({ types: [TYPE, EVENT], errors: [] });
+    await objectTypesStore.refresh();
+    instancesMock.mockResolvedValue({ type: EVENT, instances: [
+      { path: 'e/Moon.md', title: 'Moon landing', values: { date: '1969-07-20', end: null }, cover: null },
+    ] });
+    const spec = '{"typeId":"event","layout":"calendar","month":"1969-07"}';
+    const root = previewWith(spec);
+    const onOpenNote = vi.fn();
+    hydrateObjectViewBlocks(root, deps({ onOpenNote }));
+    const block = root.querySelector('.object-view-block')!;
+    await waitFor(() => expect(block.querySelector('[data-calendar-event]')).not.toBeNull());
+
+    expect(block.querySelector('.cal')!.classList.contains('cal-export')).toBe(false);
+    expect(block.querySelector('[role="grid"]')).not.toBeNull();
+    expect(block.querySelector('.calx')).toBeNull();
+    expect(block.querySelector('.cal-title')!.textContent).toMatch(/July 1969/);
+    // Paging changes what is shown, not the note.
+    block.querySelector<HTMLButtonElement>('button[aria-label="Next month"]')!.click();
+    await waitFor(() => expect(block.querySelector('.cal-title')!.textContent).toMatch(/August 1969/));
+    block.querySelector<HTMLButtonElement>('button[aria-label="Previous month"]')!.click();
+    await waitFor(() => expect(block.querySelector('.cal-title')!.textContent).toMatch(/July 1969/));
+    block.querySelector<HTMLElement>('[data-calendar-event][data-note-path="e/Moon.md"]')!.click();
+    expect(onOpenNote).toHaveBeenCalledWith('e/Moon.md');
+  });
+
   it('opens a note via the provided onOpenNote when a row is clicked', async () => {
     const root = previewWith('{"typeId":"book","layout":"list"}');
     const onOpenNote = vi.fn();

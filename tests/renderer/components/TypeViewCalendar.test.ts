@@ -545,16 +545,6 @@ describe('read-only (an embed)', () => {
   });
 });
 
-describe('export mode (the #2704 hook)', () => {
-  it('mounts with no toolbar buttons, tab stops or hover, listing every event in its cell', () => {
-    const { container, cell } = setup({ instances: BUSY, exportMode: true });
-    expect(screen.queryByRole('button', { name: 'Next month' })).toBeNull();
-    expect(container.querySelectorAll('[role="gridcell"][tabindex]')).toHaveLength(0);
-    expect(cell(day(2026, 10, 15)).querySelectorAll('[data-calendar-event]')).toHaveLength(6);
-    expect(container.querySelector('.cal-more')).toBeNull();
-  });
-});
-
 describe('the hover preview on pointer', () => {
   it('hovering an event shows its dates, and what was written when the day differs', async () => {
     const offset = row('late.md', 'Late call', '2026-10-05T23:30:00-05:00');

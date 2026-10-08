@@ -15,6 +15,10 @@
  * And a Timeline of Events, one of them a Meeting (#2609, #2612): drawn as
  * SVG in export mode, every event in the drawing and in the dated list after
  * it, and its spec never left behind.
+ *
+ * And a Calendar of the same Events (#2704): the spec's month as a static
+ * table, every event in its day's cell, the bar included, and its spec never
+ * left behind.
  */
 import { test, expect } from './helpers/test';
 import fs from 'node:fs';
@@ -61,6 +65,7 @@ function seed(dir: string): void {
     '```object-view', '{"typeId":"spot","layout":"map","height":240}', '```', '',
     '```object-view', '{"typeId":"project","layout":"kanban","groupBy":"status"}', '```', '',
     '```object-view', '{"typeId":"event","layout":"timeline"}', '```', '',
+    '```object-view', '{"typeId":"event","layout":"calendar","month":"1969-07"}', '```', '',
     '![shot|200](pic.png)', '',
     '```mermaid', 'graph TD; A[Start] --> B[Finish]', '```', '',
     ':::query-list', 'SELECT ?title ?path WHERE { ?note minerva:hasTag ?t . ?t minerva:tagName "museum" . ?note dc:title ?title . ?note minerva:relativePath ?path . }', ':::', '',
@@ -99,7 +104,7 @@ test('a note with every live kind exports each one rendered, no raw source left 
     });
 
     await test.step('every kind rendered', async () => {
-      expect(html.match(/class="minerva-live-block"/g)?.length, 'object view, map, board, timeline, mermaid, query, argument map, output').toBe(8);
+      expect(html.match(/class="minerva-live-block"/g)?.length, 'object view, map, board, timeline, calendar, mermaid, query, argument map, output').toBe(9);
       expect(html).toContain('Kampa Museum'); // the view's row, and the query's result
       expect(html).toMatch(/<svg[^>]*id="mermaid-export-/); // mermaid
       expect(html).toContain('Cited Evidence'); // the argument map's node
@@ -115,6 +120,13 @@ test('a note with every live kind exports each one rendered, no raw source left 
         expect(drawing, `${title} drawn`).toContain(title);
         expect(html, `${title} listed`).toMatch(new RegExp(`class="tl-list-title[^"]*">${title}<`));
       }
+      // The Calendar, in export mode: July 1969 as a static table, each event in its cell (Apollo 11 as a bar).
+      expect(html).toMatch(/class="cal[^"]*\bcal-export\b/);
+      expect(html).toMatch(/<div role="table" class="calx\b[^"]*" aria-label="July 1969"/);
+      for (const title of ['Moon landing', 'Apollo 11', 'Splashdown debrief']) {
+        expect(html, `${title} in its cell`).toMatch(new RegExp(`class="calx-title[^"]*">${title}<`));
+      }
+      expect(html).not.toContain('role="grid"');
       expect(html).toContain('compute-output-text'); // the saved output
       expect(html).toMatch(/<img[^>]+src="data:image\/svg\+xml/); // the vega-lite chart
       expect(html).toContain('youtube'); // the linked thumbnail
@@ -131,7 +143,7 @@ test('a note with every live kind exports each one rendered, no raw source left 
     });
 
     await test.step('no raw source survives', async () => {
-      for (const marker of ['```', ':::query', ':::argument', '[!note]', '[!card]', '&quot;typeId&quot;', '&quot;kanban&quot;', '&quot;timeline&quot;', '|200', '{&quot;type&quot;:&quot;text&quot;', 'graph TD;', HIDDEN_CANARY]) {
+      for (const marker of ['```', ':::query', ':::argument', '[!note]', '[!card]', '&quot;typeId&quot;', '&quot;kanban&quot;', '&quot;timeline&quot;', '&quot;calendar&quot;', '|200', '{&quot;type&quot;:&quot;text&quot;', 'graph TD;', HIDDEN_CANARY]) {
         expect(html, `raw "${marker}" in the export`).not.toContain(marker);
       }
       expect(html).not.toContain('couldn&#39;t be rendered for export');
