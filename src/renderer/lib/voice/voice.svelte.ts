@@ -7,7 +7,7 @@
  * when the user picks a different model in settings.
  */
 
-import { startRecording, durationSeconds, type RecordingSession } from './recorder';
+import { startRecording, durationSeconds, micErrorMessage, type RecordingSession } from './recorder';
 import { createTranscriber, type Transcriber } from './transcriber';
 import { voiceSettings } from './voice-settings.svelte';
 import { logger } from '../../../shared/logger';
@@ -28,6 +28,15 @@ let session: RecordingSession | null = null;
 let transcriber: Transcriber | null = null;
 let transcriberModel = '';
 let unsubProgress: (() => void) | null = null;
+
+/**
+ * The one Whisper transcriber, for the configured model. Dictation and
+ * recording transcription (#2428) share it, so the model is downloaded and
+ * held in memory once; its download progress shows in `modelProgress`.
+ */
+export function sharedTranscriber(): Transcriber {
+  return ensureTranscriber();
+}
 
 function ensureTranscriber(): Transcriber {
   if (transcriber && transcriberModel === voiceSettings.model) return transcriber;
@@ -97,13 +106,6 @@ function cancel(): void {
   session?.cancel();
   session = null;
   if (status !== 'transcribing') status = 'idle';
-}
-
-function micErrorMessage(e: unknown): string {
-  const name = e instanceof DOMException ? e.name : '';
-  if (name === 'NotAllowedError') return 'Microphone access was denied.';
-  if (name === 'NotFoundError') return 'No microphone was found.';
-  return e instanceof Error ? e.message : 'Could not start recording.';
 }
 
 export function getVoiceStore() {

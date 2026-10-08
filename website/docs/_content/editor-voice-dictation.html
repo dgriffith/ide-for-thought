@@ -34,6 +34,26 @@ description: Speak into a note and Minerva types it out for you, right where you
     <h2 id="accuracy">Speed vs. accuracy</h2>
     <p>In Settings you can choose how carefully Minerva listens. A lighter option is fastest but a little rougher; a heavier one is more accurate but takes longer. The middle option is a good default for most people.</p>
 
+    <h2 id="recordings">Recording audio</h2>
+    <p>Dictation keeps only the words. To keep the audio itself — a meeting, a voice memo, an idea you talked through — make a recording instead. It's saved as a file in your thoughtbase and embedded in your note as a player, and nothing is transcribed unless you ask.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Start and stop</div>
+        <div class="v">Choose <b>File → New Audio Recording</b>, search the command palette for <b>New Audio Recording</b>, or right-click in the editor and choose <b>Record Audio…</b>. A pill at the bottom of the window shows the elapsed time with <b>Stop</b> and <b>Cancel</b>; <kbd>Esc</kbd> cancels without saving.</div>
+      </div>
+      <div class="row">
+        <div class="k">Where it goes</div>
+        <div class="v">The audio is saved under <code>assets/recordings/</code>, named for the date and time you started. It's embedded at your cursor in the note you were in. If no note was open, Minerva makes a new note for it.</div>
+      </div>
+      <div class="row">
+        <div class="k">Transcribe</div>
+        <div class="v">Right-click the line with the recording and choose <b>Transcribe Recording</b>, or put your cursor on it and run <b>Transcribe Audio Recording</b> from the command palette. The transcript appears beneath the recording as ordinary text you can edit and search. Long recordings are worked through a couple of minutes at a time, and the pill shows how far along it is.</div>
+      </div>
+    </div>
+
+    <p>Transcription uses the same on-device speech model as dictation, so your recordings never leave your computer.</p>
+
     <figure class="shot-img">
       <img src="img/editor-voice-dictation.png" alt="A note being written by voice: the cursor sits in the text, and a floating pill at the bottom of the window shows a pulsing &quot;Listening…&quot; indicator with Insert and Cancel buttons." loading="lazy" />
       <figcaption>Dictating into a note</figcaption>

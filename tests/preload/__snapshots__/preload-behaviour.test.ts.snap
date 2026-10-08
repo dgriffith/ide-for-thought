@@ -178,6 +178,7 @@ exports[`preload behaviour: surface-wide invariants (#2367) > the full method â†
   "menu.onInstallTutorial": "on menu:installTutorial",
   "menu.onNavBack": "on menu:navBack",
   "menu.onNavForward": "on menu:navForward",
+  "menu.onNewAudioRecording": "on menu:newAudioRecording",
   "menu.onNewConversation": "on menu:newConversation",
   "menu.onNewNote": "on menu:newNote",
   "menu.onNewProject": "on menu:newProject",

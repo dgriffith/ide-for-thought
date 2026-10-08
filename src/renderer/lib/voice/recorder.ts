@@ -18,6 +18,9 @@ import { TARGET_SAMPLE_RATE, toMono16k } from './pcm';
 export interface RecordingSession {
   /** Stop capture, release the mic, and resolve with 16 kHz mono samples. */
   stop(): Promise<Float32Array>;
+  /** Stop capture, release the mic, and resolve with the encoded audio itself
+   *  — what a saved recording keeps (#2428). Empty if nothing was captured. */
+  stopBlob(): Promise<Blob>;
   /** Abandon capture without producing samples (release the mic). */
   cancel(): void;
 }
@@ -34,10 +37,19 @@ function preferredMimeType(): string | undefined {
 }
 
 async function decodeToSamples(blob: Blob): Promise<Float32Array> {
-  const bytes = await blob.arrayBuffer();
+  return decodeAudioFile(await blob.arrayBuffer());
+}
+
+/**
+ * Decode an encoded audio file (WebM/Opus, MP3, WAV, …) to Whisper-ready
+ * 16 kHz mono samples. The context runs at 16 kHz, so `decodeAudioData`
+ * resamples as it decodes: a 30-minute recording comes back as ~115 MB of
+ * samples, not the ~345 MB it would be at the mic's 48 kHz (#2428).
+ */
+export async function decodeAudioFile(bytes: ArrayBuffer): Promise<Float32Array> {
   // A fresh context per clip; closed in `finally` so we don't leak the (small,
   // but capped) pool of hardware audio contexts across many dictations.
-  const ctx = new AudioContext();
+  const ctx = new AudioContext({ sampleRate: TARGET_SAMPLE_RATE });
   try {
     const audio = await ctx.decodeAudioData(bytes);
     const channels: Float32Array[] = [];
@@ -72,26 +84,28 @@ export async function startRecording(): Promise<RecordingSession> {
     for (const track of stream.getTracks()) track.stop();
   };
 
+  function stopBlob(): Promise<Blob> {
+    return new Promise<Blob>((resolve, reject) => {
+      recorder.onstop = () => {
+        releaseMic();
+        resolve(new Blob(chunks, { type: mimeType ?? recorder.mimeType }));
+      };
+      try {
+        recorder.stop();
+      } catch (err) {
+        releaseMic();
+        reject(err instanceof Error ? err : new Error(String(err)));
+      }
+    });
+  }
+
   return {
-    stop() {
-      return new Promise<Float32Array>((resolve, reject) => {
-        recorder.onstop = () => {
-          releaseMic();
-          const blob = new Blob(chunks, { type: mimeType ?? recorder.mimeType });
-          if (blob.size === 0) {
-            resolve(new Float32Array(0));
-            return;
-          }
-          decodeToSamples(blob).then(resolve, reject);
-        };
-        try {
-          recorder.stop();
-        } catch (err) {
-          releaseMic();
-          reject(err instanceof Error ? err : new Error(String(err)));
-        }
-      });
+    async stop() {
+      const blob = await stopBlob();
+      if (blob.size === 0) return new Float32Array(0);
+      return decodeToSamples(blob);
     },
+    stopBlob,
     cancel() {
       try {
         recorder.onstop = null;
@@ -102,6 +116,14 @@ export async function startRecording(): Promise<RecordingSession> {
       releaseMic();
     },
   };
+}
+
+/** A user-facing message for a failed `startRecording`. */
+export function micErrorMessage(e: unknown): string {
+  const name = e instanceof DOMException ? e.name : '';
+  if (name === 'NotAllowedError') return 'Microphone access was denied.';
+  if (name === 'NotFoundError') return 'No microphone was found.';
+  return e instanceof Error ? e.message : 'Could not start recording.';
 }
 
 /** Seconds of audio a sample buffer represents, for UI/empty-clip checks. */

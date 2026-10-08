@@ -15,7 +15,7 @@ import { buildCommandRegistry, type CommandDeps } from '../../../src/renderer/li
 function makeDeps(overrides: Partial<CommandDeps> = {}): CommandDeps {
   const actionNames = [
     'newNote', 'save', 'openProject', 'newProject', 'closeProject', 'editThoughtbaseGuide', 'print',
-    'saveAsTemplate', 'insertTemplate', 'dictate', 'find', 'findReplace', 'findInNotes',
+    'saveAsTemplate', 'insertTemplate', 'dictate', 'recordAudio', 'transcribeRecording', 'find', 'findReplace', 'findInNotes',
     'replaceInNotes', 'gotoLine', 'sortLines', 'toggleSidebar', 'toggleRightSidebar',
     'togglePreview', 'toggleConversations', 'newConversation', 'setTheme', 'fontIncrease', 'fontDecrease',
     'fontReset', 'quickOpen', 'navBack', 'navForward', 'renameActive', 'moveActive',
@@ -42,7 +42,7 @@ describe('buildCommandRegistry', () => {
     expect(ids).toEqual([
       'file.newNote', 'file.save', 'file.openProject', 'file.newProject',
       'file.closeProject', 'file.editThoughtbaseGuide', 'file.print', 'file.saveAsTemplate', 'edit.insertTemplate',
-      'edit.dictate',
+      'edit.dictate', 'file.newAudioRecording', 'edit.transcribeRecording',
       'edit.find', 'edit.findReplace', 'edit.findInNotes', 'edit.replaceInNotes',
       'edit.gotoLine', 'edit.sortLines', 'view.toggleSidebar', 'view.toggleRightSidebar',
       'view.togglePreview', 'view.toggleConversations',
@@ -113,6 +113,7 @@ describe('buildCommandRegistry', () => {
       'file.editThoughtbaseGuide': 'editThoughtbaseGuide',
       'file.print': 'print', 'file.saveAsTemplate': 'saveAsTemplate',
       'edit.insertTemplate': 'insertTemplate', 'edit.dictate': 'dictate', 'edit.find': 'find',
+      'file.newAudioRecording': 'recordAudio', 'edit.transcribeRecording': 'transcribeRecording',
       'edit.findReplace': 'findReplace', 'edit.findInNotes': 'findInNotes',
       'edit.replaceInNotes': 'replaceInNotes', 'edit.gotoLine': 'gotoLine',
       'edit.sortLines': 'sortLines', 'view.toggleSidebar': 'toggleSidebar',

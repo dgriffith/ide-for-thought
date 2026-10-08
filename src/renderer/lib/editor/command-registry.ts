@@ -7,11 +7,25 @@ import {
   insertTable, insertHorizontalRule, insertFootnote, insertLink, insertImage, insertWikiLink,
 } from './formatting';
 import { toggleEditorDictation } from './dictation';
+import { getAudioRecordingStore } from '../voice/audio-recording.svelte';
 
 /** Voice dictation toggle (#voice). Fires the async start/stop+insert against
  *  the focused view; returns true so the key isn't typed into the doc. */
 const dictate: Command = (view) => {
   void toggleEditorDictation(view);
+  return true;
+};
+
+/** Start / stop an audio recording that's saved into the thoughtbase and
+ *  embedded at the cursor (#2428). */
+const recordAudio: Command = (view) => {
+  void getAudioRecordingStore().toggle(() => view);
+  return true;
+};
+
+/** Transcribe the audio recording embedded on the cursor's line (#2428). */
+const transcribeRecording: Command = (view) => {
+  void getAudioRecordingStore().transcribeAtCursor(() => view);
   return true;
 };
 
@@ -67,6 +81,8 @@ export const COMMAND_REGISTRY: CommandEntry[] = [
 
   // Voice
   { id: 'editor.dictate', label: 'Dictate (Voice to Text)', defaultKey: 'Mod-Shift-v', command: dictate },
+  { id: 'editor.recordAudio', label: 'Record Audio', defaultKey: '', command: recordAudio },
+  { id: 'editor.transcribeRecording', label: 'Transcribe Recording', defaultKey: '', command: transcribeRecording },
 
   // Insert
   { id: 'editor.insertLink', label: 'Insert Link', defaultKey: 'Mod-k', command: insertLink },

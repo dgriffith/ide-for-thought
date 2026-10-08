@@ -9,7 +9,7 @@ describe('mediaKind', () => {
     }
   });
   it('classifies audio extensions', () => {
-    for (const f of ['voice.mp3', 'note.m4a', 'r.WAV', 's.flac', 't.ogg', 'u.opus']) {
+    for (const f of ['voice.mp3', 'note.m4a', 'r.WAV', 's.flac', 't.ogg', 'u.opus', 'rec.weba']) {
       expect(mediaKind(f)).toBe('audio');
     }
   });
@@ -26,6 +26,8 @@ describe('mediaMime', () => {
     expect(mediaMime('a.webm')).toBe('video/webm');
     expect(mediaMime('a.mp3')).toBe('audio/mpeg');
     expect(mediaMime('a.wav')).toBe('audio/wav');
+    // Minerva's own recordings (#2428): WebM container, but audio.
+    expect(mediaMime('a.weba')).toBe('audio/webm');
   });
   it('falls back for unknown', () => {
     expect(mediaMime('a.xyz')).toBe('application/octet-stream');

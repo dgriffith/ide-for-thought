@@ -19,6 +19,7 @@
     type UploadResult,
   } from '../editor/image-upload';
   import { toggleEditorDictation } from '../editor/dictation';
+  import { getAudioRecordingStore } from '../voice/audio-recording.svelte';
   import type { LinkRange } from '../editor/link-decorations';
   import { brokenNoteLinkAt } from '../editor/broken-link-decorations';
   import { type RunAllRef } from '../editor/compute-cells';
@@ -217,6 +218,7 @@
   let ignoreNextUpdate = false;
   let contextMenu = $state<EditorContextMenuState | null>(null);
   let contextMenuEl = $state<HTMLDivElement | undefined>();
+  const recordings = getAudioRecordingStore();
   // Alt-Enter quick-fix popup (#1446 Phase 2): position + the fixes to offer.
   let quickFix = $state<{ x: number; y: number; fixes: QuickFix[] } | null>(null);
   // Separate from the main context menu: right-click anywhere in the
@@ -739,6 +741,8 @@
     onMenuAction={handleMenuAction}
     onClose={closeMenu}
     onDictate={() => void toggleEditorDictation(view)}
+    onRecordAudio={() => void recordings.start(() => view)}
+    onTranscribeRecording={recordings.transcribeActionAt(() => view, contextMenu.docPos)}
   />
 {/if}
 

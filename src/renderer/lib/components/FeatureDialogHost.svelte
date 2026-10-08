@@ -46,6 +46,7 @@
   import DialogHost from './DialogHost.svelte';
   import MultiFileHistoryDialog from './MultiFileHistoryDialog.svelte';
   import DictationIndicator from './DictationIndicator.svelte';
+  import RecordingIndicator from './RecordingIndicator.svelte';
   import Toasts from './Toasts.svelte';
   import LiveAnnouncer from './LiveAnnouncer.svelte';
   import BusyOverlay from './BusyOverlay.svelte';
@@ -275,6 +276,7 @@
   />
 {/if}
 <DictationIndicator />
+<RecordingIndicator />
 <Toasts />
 <LiveAnnouncer />
 {#if featureDialogs.about}

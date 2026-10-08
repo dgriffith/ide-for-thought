@@ -582,6 +582,7 @@ const api = {
   },
   menu: {
     onNewNote: (cb: () => void) => subscribe(Channels.MENU_NEW_NOTE, cb),
+    onNewAudioRecording: (cb: () => void) => subscribe(Channels.MENU_NEW_AUDIO_RECORDING, cb),
     onEditThoughtbaseDoc: (cb: () => void) => subscribe(Channels.MENU_EDIT_THOUGHTBASE_DOC, cb),
     onThoughtbaseProperties: (cb: () => void) => subscribe(Channels.MENU_THOUGHTBASE_PROPERTIES, cb),
     onSave: (cb: () => void) => subscribe(Channels.MENU_SAVE, cb),
