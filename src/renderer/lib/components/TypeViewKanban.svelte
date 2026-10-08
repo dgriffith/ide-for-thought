@@ -37,9 +37,15 @@
    *   take no tab stop and avoid splitting across a printed page. Moves and
    *   column moves are already off (no `onMove` / `onMoveColumn`); the
    *   snapshot links each card by its `data-note-path`.
+   * - **Hover preview** (#2710): hovering a card, or focusing it, shows the
+   *   shared `NoteHoverPreview` — the title and snippet a `[[link]]` to the
+   *   note shows, with the card's fields under it. It replaced the native
+   *   `title` tooltip, which showed the file path. Not in an export.
    */
   import { tick, untrack } from 'svelte';
   import TypeIcon from './TypeIcon.svelte';
+  import NoteHoverPreview from './NoteHoverPreview.svelte';
+  import { createNoteHover } from './note-hover/note-hover.svelte';
   import { cardDrag, cardMoveKey, openCardMenu } from './kanban/card-drag';
   import { getKanbanMoveStore } from '../stores/kanban-moves.svelte';
   import type { MoveTarget } from '../../../shared/objects/kanban-move';
@@ -93,6 +99,20 @@
   function countLabel(n: number): string {
     return `${n} ${n === 1 ? 'card' : 'cards'}`;
   }
+
+  const uid = $props.id();
+  const hover = createNoteHover();
+  const hoverId = `${uid}-preview`;
+  const hoverInst = $derived.by<TypeInstanceRow | null>(() => {
+    const key = hover.current?.key;
+    if (!key) return null;
+    for (const col of columns) {
+      const hit = col.instances.find((i) => i.path === key);
+      if (hit) return hit;
+    }
+    return null;
+  });
+  const subjectFor = (inst: TypeInstanceRow, anchor: Element) => ({ key: inst.path, target: inst.path, anchor, fallbackTitle: inst.title });
 
   let board = $state<HTMLDivElement>();
   /** The card in the tab order (roving tabindex), by note path. */
@@ -210,10 +230,13 @@
                 tabindex={exportMode ? undefined : inst.path === tabStop ? 0 : -1}
                 data-kanban-card
                 data-note-path={inst.path}
-                title={inst.path}
+                aria-describedby={!exportMode && hover.current?.key === inst.path ? hoverId : undefined}
                 onclick={(e) => onCardClick(e, inst.path)}
                 oncontextmenu={(e) => onCardContextMenu(e, inst.path)}
-                onfocus={() => (focusedPath = inst.path)}
+                onfocus={(e) => { focusedPath = inst.path; if (!exportMode) hover.focus(subjectFor(inst, e.currentTarget)); }}
+                onblur={() => hover.blur(inst.path)}
+                onpointerenter={(e) => { if (!exportMode) hover.pointerEnter(subjectFor(inst, e.currentTarget)); }}
+                onpointerleave={() => hover.pointerLeave(inst.path)}
               >
                 <span class="kb-card-title">
                   {#if rt}<TypeIcon type={rt} size={13} />{/if}
@@ -234,6 +257,13 @@
       </section>
     {/each}
   </div>
+  {#if !exportMode}
+    <NoteHoverPreview
+      id={hoverId}
+      {hover}
+      instance={hoverInst ? { type, properties, inst: hoverInst, display, rowType: rowType(hoverInst), visible, omit: group ? [group.name] : [] } : null}
+    />
+  {/if}
 {/if}
 
 <style>

@@ -10,9 +10,20 @@
    * Read-only, like every other layout here (list/table/gallery all just open the
    * note on click) — clicking a marker opens its note, nothing more. No shared
    * selection/highlight state exists anywhere in this multi-view today (verified
-   * before building this), so this doesn't invent one either. Each marker's
-   * native `title` attribute is set to the instance's title, so hovering shows
-   * the OS/browser's own tooltip — no custom popup UI to build or maintain.
+   * before building this), so this doesn't invent one either.
+   *
+   * **Hovering a pin shows the shared `NoteHoverPreview`** (#2710): the title
+   * and snippet a `[[link]]` to the note shows, with the type's card fields
+   * under it, exactly as on a Kanban card or a timeline event. This REVERSES
+   * the original decision recorded here (#2066), which was to set each pin's
+   * native `title` and let the OS draw the tooltip, "no custom popup UI to
+   * build or maintain": that reasoning held while every view's hover was its
+   * own, and stopped holding once there was one shared preview to reuse — the
+   * native tooltip was then the odd one out, showing a title and nothing else.
+   * The pin keeps its enlarged hit target (the `::before` below), and its
+   * accessible name is the instance's title (MapLibre's default is "Map
+   * marker"). Pins take no tab stop, as before; the preview is pointer-only
+   * here. An export mounts no preview.
    *
    * The tile style is the view's `mapStyle` (#2665): `light` / `dark` pin
    * OpenFreeMap's named style, `auto` follows the app theme (`styleUrlForTheme`,
@@ -36,7 +47,9 @@
   import { MAP_STYLES, type MapStyle } from '../../../shared/objects/map-style';
   import { MAP_EXPORT_ERROR_GRACE_MS, MAP_EXPORT_PIXEL_RATIO, MAP_EXPORT_TIMEOUT_MS, MAP_TILES_FAILED, attributionText, compositeMap, parseLatLng, type MapExportHooks, type MapPlace } from '../map/map-export';
   import { objectTypesStore } from '../stores/object-types.svelte';
-  import type { TypeInstanceRow } from '../../../shared/objects/type-def';
+  import type { PropertyDef, TypeInfo, TypeInstanceRow } from '../../../shared/objects/type-def';
+  import NoteHoverPreview from './NoteHoverPreview.svelte';
+  import { createNoteHover } from './note-hover/note-hover.svelte';
 
   type MapLibreModule = typeof maplibregl;
 
@@ -56,8 +69,23 @@
      *  Absent (a note embed, an export) → no control, as embeds have no
      *  filter controls either (#2534). */
     onMapStyleChange?: (style: MapStyle) => void;
+    /** The view's type and properties, for the hover preview's properties
+     *  strip (#2710); without them the preview shows the title and snippet. */
+    type?: TypeInfo;
+    properties?: readonly PropertyDef[];
+    display?: (prop: PropertyDef, value: string | null) => string;
   }
-  let { instances, locationProperty, onOpenNote, exportHooks, mapStyle = 'auto', onMapStyleChange }: Props = $props();
+  let { instances, locationProperty, onOpenNote, exportHooks, mapStyle = 'auto', onMapStyleChange, type, properties, display }: Props = $props();
+
+  const uid = $props.id();
+  const hover = createNoteHover();
+  const hoverId = `${uid}-preview`;
+  /** Each pin's element by note path — for `aria-describedby`. */
+  let pinElements = new Map<string, HTMLElement>();
+  const hoverInst = $derived.by(() => {
+    const key = hover.current?.key;
+    return key ? instances.find((i) => i.path === key) ?? null : null;
+  });
 
   const STYLE_LABELS: Record<MapStyle, string> = { auto: 'Auto', light: 'Light', dark: 'Dark' };
   const STYLE_TITLES: Record<MapStyle, string> = {
@@ -92,6 +120,7 @@
     if (!gl || !map) return;
     for (const marker of markers) marker.remove();
     markers = [];
+    pinElements = new Map();
     const bounds = new gl.LngLatBounds();
     for (const inst of instances) {
       const parsed = parseLatLng(inst.values[locationProperty] ?? null);
@@ -99,9 +128,16 @@
       const [lat, lng] = parsed;
       const color = objectTypesStore.typeForNote(inst.path)?.color;
       const marker = new gl.Marker(color ? { color } : undefined).setLngLat([lng, lat]).addTo(map);
-      marker.getElement().style.cursor = 'pointer';
-      marker.getElement().title = inst.title;
-      marker.getElement().addEventListener('click', () => onOpenNote(inst.path));
+      const pin = marker.getElement();
+      pin.style.cursor = 'pointer';
+      pin.setAttribute('aria-label', inst.title);
+      pin.addEventListener('click', () => onOpenNote(inst.path));
+      if (!exportHooks) {
+        const subject = { key: inst.path, target: inst.path, anchor: pin, fallbackTitle: inst.title };
+        pin.addEventListener('pointerenter', () => hover.pointerEnter(subject));
+        pin.addEventListener('pointerleave', () => hover.pointerLeave(inst.path));
+        pinElements.set(inst.path, pin);
+      }
       markers.push(marker);
       bounds.extend([lng, lat]);
     }
@@ -256,6 +292,15 @@
     ready;
     syncMarkers();
   });
+
+  // The hovered pin names its preview (#2710).
+  $effect(() => {
+    const key = hover.current?.key;
+    for (const [path, pin] of pinElements) {
+      if (path === key) pin.setAttribute('aria-describedby', hoverId);
+      else pin.removeAttribute('aria-describedby');
+    }
+  });
 </script>
 
 <div class="type-view-map-wrap" class:dark-tiles={resolvedStyle === 'dark'}>
@@ -273,6 +318,13 @@
         >{STYLE_LABELS[s]}</button>
       {/each}
     </div>
+  {/if}
+  {#if !exportHooks}
+    <NoteHoverPreview
+      id={hoverId}
+      {hover}
+      instance={hoverInst && type && properties ? { type, properties, inst: hoverInst, rowType: objectTypesStore.typeForNote(hoverInst.path), ...(display ? { display } : {}) } : null}
+    />
   {/if}
 </div>
 
