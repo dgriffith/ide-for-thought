@@ -42,9 +42,15 @@
    *   lines and the type's card fields.
    * - **Read-only** (an embed, `readOnly`): paging still works — it changes
    *   what is shown, not the note — but nothing is written back.
-   * - **Export** (`exportMode`) is #2704's. The hook is here, as Kanban's and
-   *   Timeline's: no toolbar, tab stops, hover or popover, and every event
-   *   listed in its cell (capacity unbounded, rows as tall as they need).
+   * - **Export** (`exportMode`, #2704): the page's month as a static grid
+   *   (`CalendarExportGrid`, in place of the interactive one) with every
+   *   event listed in its day's cell — "+N more" can't open on paper. No
+   *   navigation, tab stops, hover or popover; every event, band entry and
+   *   Undated row a link through `data-note-path`; a legend when anything is
+   *   hatched. The bands and the Undated tray follow the grid: in print the
+   *   grid is what the reader came for, and a band above it could push the
+   *   month onto a second page. The week start and week numbers are the
+   *   per-machine settings, as in the preview the author exported from.
    * - **Reschedule** (#2703) attaches to the bars and chips: each carries
    *   `data-note-path` and its row/columns (`data-row`, `data-start-col`), and
    *   the day under a pointer is `data-day` on its cell.
@@ -59,6 +65,7 @@
   import NoteHoverPreview from './NoteHoverPreview.svelte';
   import CalendarDayList from './calendar/CalendarDayList.svelte';
   import CalendarBands from './calendar/CalendarBands.svelte';
+  import CalendarExportGrid from './calendar/CalendarExportGrid.svelte';
   import { createNoteHover } from './note-hover/note-hover.svelte';
   import { timelineProperties, type TimelineEvent } from './timeline/timeline-events';
   import { buildCalendarModel, dayEvents, dayName, monthTitle, pageBands, pageItems, timeOf, weekdayNames, writtenAs, yearName } from './calendar/calendar-model';
@@ -139,7 +146,6 @@
   // ── Capacity, measured per row ────────────────────────────────────────
   let rowHeights = $state<number[]>([]);
   function capacityOf(row: number): number {
-    if (exportMode) return Infinity;
     const h = rowHeights[row] ?? 0;
     if (h <= 0) return FALLBACK_CAPACITY;
     return Math.max(MIN_CAPACITY, Math.floor((h - DAY_PX - PAD_PX) / SLOT_PX));
@@ -261,6 +267,9 @@
   </div>
 
   <div class="cal-main">
+    {#if exportMode}
+    <CalendarExportGrid grid={model.grid} {page} weekStart={firstDay} {weekNumbers} {locale} />
+    {:else}
     <!-- The days are the tab stops (a roving tabindex), not the grid itself. -->
     <!-- svelte-ignore a11y_interactive_supports_focus -->
     <div
@@ -285,7 +294,6 @@
           class="cal-row cal-week"
           role="row"
           use:measureRow={r}
-          style:min-height={exportMode ? `${DAY_PX + Math.max(1, view?.slotCount ?? 0) * SLOT_PX + PAD_PX}px` : undefined}
         >
           {#if weekNumbers}
             {@const wk = rowWeekNumber(week)}
@@ -359,6 +367,7 @@
         </div>
       {/each}
     </div>
+    {/if}
 
     <CalendarBands
       bands={[{ id: 'year', head: `${yearName(page.year, locale)} · no month`, entries: bands.year }, { id: 'month', head: `${title} · no day`, entries: bands.month }]}
@@ -576,9 +585,7 @@
   .cal-undated-title { font-size: 13px; font-weight: 500; }
   .cal-undated-reason { font-size: 11.5px; color: var(--text-muted); }
 
-  /* Export (#2704 builds on this): a page doesn't scroll, so the grid takes its full height. */
-  .cal-export .cal-grid { overflow: visible; }
-  .cal-export .cal-week { flex: none; break-inside: avoid; }
+  /* Export (#2704): nothing scrolls on a page; the grid is `CalendarExportGrid`'s. */
   .cal-export .cal-undated { max-height: none; overflow: visible; }
-  .cal-export .cal-ev { cursor: default; }
+  .cal-export .cal-undated-row { cursor: default; }
 </style>

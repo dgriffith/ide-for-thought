@@ -21,6 +21,10 @@
  * the block's width, each event a link, at most 30 lanes ("+N more"), then a
  * dated list and the Undated tray — or the list alone when it can't be drawn.
  *
+ * A Calendar (#2704) is drawn in its export mode: the spec's month (or the
+ * current one) as a static grid, every event listed and linked in its day's
+ * cell, then its month and year bands and the Undated tray.
+ *
  * A map (#2511) is the exception to snapshotting the DOM: it's the preview's
  * own `TypeViewMap` in export mode, in the embed's frame (its spec `height`,
  * 360px by default — #2666), flattened to
@@ -93,6 +97,8 @@ export async function renderObjectViewForExport(source: string): Promise<string>
           ...(spec.layout === 'kanban' ? { kanbanExport: true } : {}),
           // A timeline draws one static SVG picture of its range, then its dated list (#2609).
           ...(spec.layout === 'timeline' ? { timelineExport: true } : {}),
+          // A calendar draws its month statically, every event in its day's cell (#2704).
+          ...(spec.layout === 'calendar' ? { calendarExport: true } : {}),
           ...(spec.layout === 'map' ? { mapExport: { onCaptured: (c: MapCapture) => resolveCapture(c) } } : {}),
         },
       });

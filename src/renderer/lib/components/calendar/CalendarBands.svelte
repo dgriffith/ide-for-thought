@@ -9,7 +9,8 @@
    *
    * Ordinary buttons, one tab stop each, AFTER the grid in tab order (the
    * vision doc's keyboard model) though shown above it (`order: -1` in the
-   * calendar's column). Focus and hover show the shared hover preview.
+   * calendar's column). Focus and hover show the shared hover preview. In an
+   * export (#2704) they follow the grid on the page too, as links.
    */
   import type { BandEntry } from './calendar-model';
   import type { NoteHover } from '../note-hover/note-hover.svelte';
@@ -70,7 +71,8 @@
 <style>
   /* Above the grid on the page, after it for the keyboard. */
   .cal-bands { order: -1; flex-shrink: 0; max-height: 30%; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; padding: 0 12px 6px; }
-  .cal-bands-export { max-height: none; overflow: visible; }
+  .cal-bands-export { order: 0; max-height: none; overflow: visible; padding-top: 8px; }
+  .cal-bands-export .cal-chip { cursor: default; }
   .cal-band { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
   .cal-band-head { margin: 0; font-size: 11.5px; font-weight: 600; color: var(--text); white-space: nowrap; }
   .cal-band-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; }

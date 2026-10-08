@@ -82,7 +82,7 @@ describe('renderObjectViewForExport', () => {
     expect(place).toContain('data-note-link="places/Kampa.md"');
   });
 
-  it('a calendar spec exports without crashing: a dated type as its month grid, linked (#2702; #2704 owns the real export), a dateless one as its default layout (#2701)', async () => {
+  it('a calendar spec exports its month grid placed by dateBy, linked (#2702, #2704), a dateless type as its default layout (#2701)', async () => {
     const JOURNAL = {
       id: 'journal', label: 'Journal', classLocalName: 'Journal', icon: '📓', source: 'user' as const,
       properties: [{ name: 'published', type: 'date' as const }],
@@ -92,13 +92,54 @@ describe('renderObjectViewForExport', () => {
       { path: 'j/Spring.md', title: 'Spring issue', values: { published: '2026-03-01' }, cover: null },
     ] });
     const html = await renderObjectViewForExport(JSON.stringify({ typeId: 'journal', layout: 'calendar', month: '2026-03', dateBy: 'published' }));
-    expect(html).toContain('cal-grid');
+    expect(html).toContain('cal-export');
     expect(html).toContain('March 2026');
     expect(html).toContain('data-note-link="j/Spring.md"');
     instancesMock.mockResolvedValue({ type: TYPE, instances: INSTANCES });
     const place = await renderObjectViewForExport(JSON.stringify({ typeId: 'place', layout: 'calendar', month: '2026-03' }));
     expect(place).toContain('tv-table');
     expect(place).toContain('data-note-link="places/Kampa.md"');
+  });
+
+  it('draws a calendar in export mode: the spec\'s month, every event a link in its day\'s cell, the bands and Undated tray after it, nothing interactive (#2704)', async () => {
+    const EVENT = {
+      id: 'event', label: 'Event', classLocalName: 'Event', icon: '📅', source: 'stock' as const,
+      properties: [{ name: 'date', type: 'datetime' as const }, { name: 'end', type: 'datetime' as const }],
+    };
+    const busy = Array.from({ length: 8 }, (_, i) => ({ path: `e/Busy ${i}.md`, title: `Busy ${i}`, values: { date: `1969-07-21T${String(9 + i).padStart(2, '0')}:00`, end: null }, cover: null }));
+    listMock.mockResolvedValue({ types: [TYPE, EVENT], errors: [] });
+    instancesMock.mockResolvedValue({ type: EVENT, instances: [
+      { path: 'e/Moon.md', title: 'Moon landing', values: { date: '1969-07-20', end: null }, cover: null },
+      { path: 'e/Apollo.md', title: 'Apollo 11', values: { date: '1969-07-16', end: '1969-07-24' }, cover: null },
+      { path: 'e/Summer.md', title: 'Summer camp', values: { date: '1969-07-28', end: '1969-08' }, cover: null },
+      { path: 'e/Heatwave.md', title: 'Heatwave', values: { date: '1969-07', end: null }, cover: null },
+      { path: 'e/Year.md', title: 'Year of the Moon', values: { date: '1969', end: null }, cover: null },
+      { path: 'e/Someday.md', title: 'Someday', values: { date: null, end: null }, cover: null },
+      ...busy,
+    ] });
+    const html = await renderObjectViewForExport(JSON.stringify({ typeId: 'event', layout: 'calendar', month: '1969-07' }));
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const table = doc.querySelector('.cal-export [role="table"]')!;
+    expect(table.getAttribute('aria-label')).toBe('July 1969');
+    // Every event of a busy day is in its cell, each a link main resolves; no "+N more".
+    const busyCell = [...table.querySelectorAll('[role="cell"]')].find((c) => c.querySelector('a[data-note-link="e/Busy 0.md"]'))!;
+    expect([...busyCell.querySelectorAll('a[data-note-link^="e/Busy"]')]).toHaveLength(8);
+    expect(doc.querySelector('.cal-more')).toBeNull();
+    const linked = new Set([...doc.querySelectorAll('a[data-note-link]')].map((a) => a.getAttribute('data-note-link')));
+    for (const p of ['e/Moon.md', 'e/Apollo.md', 'e/Summer.md', 'e/Heatwave.md', 'e/Year.md', 'e/Someday.md', ...busy.map((b) => b.path)]) expect(linked.has(p), p).toBe(true);
+    // A hatched bar, and the legend that explains it.
+    expect(doc.querySelector('a[data-note-link="e/Summer.md"] .calx-hatch')).not.toBeNull();
+    expect(doc.querySelector('.calx-legend')!.textContent).toContain('approximate');
+    // The bands and the tray follow the grid in the page.
+    const after = (a: Element, b: Element) => (a.compareDocumentPosition(b) & 4) !== 0;
+    expect(after(table, doc.querySelector('[data-band="month"]')!)).toBe(true);
+    expect(after(doc.querySelector('[data-band="month"]')!, doc.querySelector('.cal-undated')!)).toBe(true);
+    // Nothing interactive, and never the spec.
+    for (const sel of ['button', 'input', 'select', '[tabindex]', '[role="grid"]', '[role="gridcell"]', '[aria-current]', '[role="tooltip"]', '[role="dialog"]', '.cal-nav']) {
+      expect(doc.querySelector(sel), sel).toBeNull();
+    }
+    expect(html).not.toContain('&quot;typeId&quot;');
+    expect(html).not.toContain('"typeId"');
   });
 
   it('draws a timeline in export mode: the range at 760px, every event a link, the dated and Undated lists after it, nothing interactive (#2609)', async () => {
