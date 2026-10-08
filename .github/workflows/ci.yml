@@ -58,9 +58,14 @@ jobs:
   lint-and-test:
     runs-on: macos-latest
     # Lint + the plain suite only; the instrumented run is the `coverage` job
-    # below. Longest recent PR run of this shape was 731s (2026-09-27), 61% of
-    # 20 minutes. (It was 30 while this job also ran `pnpm coverage` on main.)
-    timeout-minutes: 20
+    # below. Longest run of this shape was 731s on 2026-09-27; by 2026-10-07 the
+    # suite had grown past 12,000 tests and main's runs took 8-19 min, one was
+    # cancelled at the 20-minute limit, and a PR run's lint step alone took
+    # 7 min on a slow runner. 30 gives a slow runner headroom again. If runs
+    # keep climbing toward it, split lint and the suite into parallel jobs
+    # rather than raising this again. (It was 30 before, while this job also
+    # ran `pnpm coverage` on main.)
+    timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
