@@ -26,7 +26,7 @@
   import { canShowKanban, enumProperties, resolveGroupBy } from '../../../shared/objects/kanban';
   import type { PropertyDef } from '../../../shared/objects/type-def';
 
-  type Layout = 'list' | 'table' | 'gallery' | 'map' | 'kanban' | 'timeline';
+  type Layout = 'list' | 'table' | 'gallery' | 'map' | 'kanban' | 'timeline' | 'calendar';
 
   interface Props {
     layout: Layout;
@@ -49,6 +49,10 @@
     ...(properties.some((p) => p.type === 'geo') ? [{ id: 'map' as const, label: 'Map' }] : []),
     ...(canShowKanban(properties) ? [{ id: 'kanban' as const, label: 'Kanban' }] : []),
     ...(timeline ? [{ id: 'timeline' as const, label: 'Timeline' }] : []),
+    // Calendar joins here with the month grid (#2702), gated on `canShowCalendar`
+    // (a date or datetime property, `shared/objects/calendar.ts`) with a Date by
+    // picker beside it when `dateByChoices` offers more than one (#2701). Until
+    // then a spec that already says `calendar` shows the list, and no tab is selected.
   ]);
   const groupChoices = $derived(enumProperties(properties));
   const grouped = $derived(resolveGroupBy(groupBy, properties));

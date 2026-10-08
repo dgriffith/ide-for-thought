@@ -82,6 +82,24 @@ describe('renderObjectViewForExport', () => {
     expect(place).toContain('data-note-link="places/Kampa.md"');
   });
 
+  it('a calendar spec exports without crashing until #2702 draws it: a dated type as the interim list, a dateless one as its default layout (#2701)', async () => {
+    const JOURNAL = {
+      id: 'journal', label: 'Journal', classLocalName: 'Journal', icon: '📓', source: 'user' as const,
+      properties: [{ name: 'published', type: 'date' as const }],
+    };
+    listMock.mockResolvedValue({ types: [TYPE, JOURNAL], errors: [] });
+    instancesMock.mockResolvedValue({ type: JOURNAL, instances: [
+      { path: 'j/Spring.md', title: 'Spring issue', values: { published: '2026-03-01' }, cover: null },
+    ] });
+    const html = await renderObjectViewForExport(JSON.stringify({ typeId: 'journal', layout: 'calendar', month: '2026-03', dateBy: 'published' }));
+    expect(html).toContain('tv-list');
+    expect(html).toContain('data-note-link="j/Spring.md"');
+    instancesMock.mockResolvedValue({ type: TYPE, instances: INSTANCES });
+    const place = await renderObjectViewForExport(JSON.stringify({ typeId: 'place', layout: 'calendar', month: '2026-03' }));
+    expect(place).toContain('tv-table');
+    expect(place).toContain('data-note-link="places/Kampa.md"');
+  });
+
   it('draws a timeline in export mode: the range at 760px, every event a link, the dated and Undated lists after it, nothing interactive (#2609)', async () => {
     const EVENT = {
       id: 'event', label: 'Event', classLocalName: 'Event', icon: '📅', source: 'stock' as const,

@@ -191,8 +191,8 @@ export function createNavView(ctx: NavViewCtx) {
     } else if (activeTab.type === 'query') {
       nav.record({ type: 'query', tabId: activeTab.id });
     } else if (activeTab.type === 'type-view') {
-      const { typeId, folder, layout, sortColumn, sortDir, columns, filters, mapStyle, groupBy, columnOrder, showEmptyColumns, from, to } = activeTab;
-      nav.record({ type: 'type-view', typeId, folder, view: { layout, sortColumn, sortDir, columns: columns ? [...columns] : null, filters: [...filters], mapStyle, groupBy, columnOrder: [...columnOrder], showEmptyColumns, from, to } });
+      const { typeId, folder, layout, sortColumn, sortDir, columns, filters, mapStyle, groupBy, columnOrder, showEmptyColumns, from, to, month, dateBy } = activeTab;
+      nav.record({ type: 'type-view', typeId, folder, view: { layout, sortColumn, sortDir, columns: columns ? [...columns] : null, filters: [...filters], mapStyle, groupBy, columnOrder: [...columnOrder], showEmptyColumns, from, to, month, dateBy } });
     }
   }
 

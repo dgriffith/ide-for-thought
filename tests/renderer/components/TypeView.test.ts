@@ -267,7 +267,7 @@ describe('TypeView (#1070)', () => {
       await fireEvent.click(await screen.findByText('Copy as markdown'));
       expect(writeText).toHaveBeenCalledWith(buildViewEmbed(spec));
       expect(buildViewNoteContent('Books', spec)).toContain(writeText.mock.calls[0]![0] as string);
-      expect(copiedSpec()).toEqual({ ...spec, filters: [{ property: 'rating', min: '4', max: null }], mapStyle: 'auto', height: 360, groupBy: null, columnOrder: [], showEmptyColumns: true, from: null, to: null }); // the parser's normal form
+      expect(copiedSpec()).toEqual({ ...spec, filters: [{ property: 'rating', min: '4', max: null }], mapStyle: 'auto', height: 360, groupBy: null, columnOrder: [], showEmptyColumns: true, from: null, to: null, month: null, dateBy: null }); // the parser's normal form
     });
 
     it('a map copies as a map — not a list (the report)', async () => {
@@ -631,6 +631,93 @@ describe('timeline layout (#2607, #2608)', () => {
     expect(spec).toMatchObject({ typeId: 'book', layout: 'table', from: null, to: null });
     expect(md).not.toContain('timeline');
     expect(md).not.toContain('1960');
+  });
+});
+
+describe('calendar layout before #2702 draws it (#2701)', () => {
+  // A dated type that isn't Event: Calendar is offered by having a date property, not by ancestry.
+  const JOURNAL = {
+    id: 'journal', label: 'Journal', classLocalName: 'Journal', icon: '📓', source: 'user' as const,
+    properties: [{ name: 'published', type: 'date' as const }, { name: 'revised', type: 'datetime' as const }, { name: 'editor', type: 'text' as const }],
+  };
+  const DIARY = { id: 'diary', label: 'Diary', classLocalName: 'Diary', icon: '📔', parent: 'journal', source: 'user' as const, properties: [] };
+  const ENTRIES = [
+    { path: 'j1.md', title: 'Spring issue', values: { published: '2026-03-01', revised: null, editor: 'Ann' }, cover: null },
+    { path: 'j2.md', title: 'Autumn issue', values: { published: '2026-10-01', revised: null, editor: 'Bo' }, cover: null },
+  ];
+  let writeText: ReturnType<typeof vi.fn>;
+  beforeEach(async () => {
+    writeText = vi.fn();
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    await seedTypes({}, [TYPE, JOURNAL, DIARY]);
+  });
+  const copied = async () => {
+    await fireEvent.click(screen.getByText('Copy as markdown'));
+    const md = writeText.mock.calls.at(-1)![0] as string;
+    return { md, spec: parseObjectViewSpec(md.replace(/^```object-view\n/, '').replace(/\n```\n$/, '')) };
+  };
+  const listTitles = (root: HTMLElement) => [...root.querySelectorAll('.tv-list-title')].map((e) => e.textContent);
+
+  it('is not in the layout switcher yet, even for a type with a date property', async () => {
+    instancesMock.mockResolvedValue({ type: JOURNAL, instances: ENTRIES });
+    render(TypeView, props({ typeId: 'journal', layout: 'list' }));
+    await screen.findByText('Spring issue');
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['List', 'Table', 'Gallery']);
+    expect(screen.queryByText('Date by')).toBeNull();
+  });
+
+  it('a spec that already says calendar shows the list, in the panel and in an embed, with no tab selected', async () => {
+    instancesMock.mockResolvedValue({ type: JOURNAL, instances: ENTRIES });
+    const panel = render(TypeView, props({ typeId: 'journal', layout: 'calendar', month: '2026-10', dateBy: 'revised' }));
+    await screen.findByText('Spring issue');
+    expect(listTitles(panel.container)).toEqual(['Spring issue', 'Autumn issue']);
+    expect(screen.getAllByRole('tab').every((t) => t.getAttribute('aria-selected') === 'false')).toBe(true);
+    cleanup();
+    const embed = render(TypeView, props({ typeId: 'journal', layout: 'calendar', chromeless: true }));
+    await screen.findByText('Spring issue');
+    expect(listTitles(embed.container)).toEqual(['Spring issue', 'Autumn issue']);
+  });
+
+  it('Copy as markdown keeps the calendar, its month and dateBy, and omits the defaults', async () => {
+    instancesMock.mockResolvedValue({ type: JOURNAL, instances: ENTRIES });
+    render(TypeView, props({ typeId: 'journal', layout: 'calendar', month: '-0043-03', dateBy: 'revised' }));
+    await screen.findByText('Spring issue');
+    expect((await copied()).spec).toMatchObject({ typeId: 'journal', layout: 'calendar', month: '-0043-03', dateBy: 'revised' });
+    cleanup();
+    render(TypeView, props({ typeId: 'journal', layout: 'calendar' }));
+    await screen.findByText('Spring issue');
+    const { md, spec } = await copied();
+    expect(md).not.toContain('"month"');
+    expect(md).not.toContain('"dateBy"');
+    expect(spec).toMatchObject({ layout: 'calendar', month: null, dateBy: null });
+  });
+
+  it('a dateBy that is not a date property of the type is dropped from the copy', async () => {
+    instancesMock.mockResolvedValue({ type: JOURNAL, instances: ENTRIES });
+    render(TypeView, props({ typeId: 'journal', layout: 'calendar', month: '2026-10', dateBy: 'editor' }));
+    await screen.findByText('Spring issue');
+    const { md, spec } = await copied();
+    expect(spec).toMatchObject({ layout: 'calendar', month: '2026-10', dateBy: null });
+    expect(md).not.toContain('editor');
+  });
+
+  it('a user subtype that inherits its date keeps its calendar and an inherited dateBy', async () => {
+    instancesMock.mockResolvedValue({ type: DIARY, instances: ENTRIES });
+    const { container } = render(TypeView, props({ typeId: 'diary', layout: 'calendar', month: '2026-10', dateBy: 'published' }));
+    await screen.findByText('Spring issue');
+    expect(listTitles(container)).toEqual(['Spring issue', 'Autumn issue']);
+    expect((await copied()).spec).toMatchObject({ typeId: 'diary', layout: 'calendar', month: '2026-10', dateBy: 'published' });
+  });
+
+  it('a calendar spec for a type with no date property reads back as the default layout, without an error', async () => {
+    const { container } = render(TypeView, props({ typeId: 'book', layout: 'calendar', month: '2026-10', dateBy: 'author' }));
+    await screen.findByText('Dune');
+    expect(container.querySelector('.tv-table')).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Table' }).getAttribute('aria-selected')).toBe('true');
+    const { md, spec } = await copied();
+    expect(spec).toMatchObject({ typeId: 'book', layout: 'table', month: null, dateBy: null });
+    expect(md).not.toContain('calendar');
+    expect(md).not.toContain('2026-10');
   });
 });
 

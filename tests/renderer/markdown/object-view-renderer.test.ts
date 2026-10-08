@@ -76,12 +76,14 @@ describe('parseObjectViewSpec (#2067)', () => {
       showEmptyColumns: true,
       from: null,
       to: null,
+      month: null,
+      dateBy: null,
     });
   });
 
   it('carries through explicit sort/columns', () => {
     expect(parseObjectViewSpec('{"typeId":"book","layout":"table","sortColumn":"author","sortDir":"desc","columns":["author"]}'))
-      .toEqual({ typeId: 'book', layout: 'table', sortColumn: 'author', sortDir: 'desc', columns: ['author'], folder: null, filters: [], mapStyle: 'auto', height: 360, groupBy: null, columnOrder: [], showEmptyColumns: true, from: null, to: null });
+      .toEqual({ typeId: 'book', layout: 'table', sortColumn: 'author', sortDir: 'desc', columns: ['author'], folder: null, filters: [], mapStyle: 'auto', height: 360, groupBy: null, columnOrder: [], showEmptyColumns: true, from: null, to: null, month: null, dateBy: null });
   });
 
   it('reads columnOrder and showEmptyColumns, dropping invalid shapes rather than throwing (#2614)', () => {
@@ -117,6 +119,22 @@ describe('parseObjectViewSpec (#2067)', () => {
     expect(spec(',"from":"1969-07-20T20:17"')).toMatchObject({ from: '1969-07-20T20:17' });
     // The type isn't known to the parser, so any type's timeline is kept as written.
     expect(parseObjectViewSpec('{"typeId":"book","layout":"timeline","from":"1960"}')).toMatchObject({ layout: 'timeline', from: '1960' });
+  });
+
+  it('accepts the calendar layout and reads month/dateBy, dropping invalid values rather than throwing (#2701)', () => {
+    const spec = (extra: string) => parseObjectViewSpec(`{"typeId":"book","layout":"calendar"${extra}}`);
+    expect(spec('')).toMatchObject({ layout: 'calendar', month: null, dateBy: null });
+    expect(spec(',"month":"2026-10","dateBy":"published"')).toMatchObject({ month: '2026-10', dateBy: 'published' });
+    expect(spec(',"month":"-0043-03"')).toMatchObject({ month: '-0043-03' }); // March 44 BCE
+    // Anything but a month is dropped on its own: a day, a year, a number, junk.
+    for (const bad of ['"2026-10-07"', '"2026"', '202610', '"soon"', '{"y":2026}']) {
+      expect(spec(`,"month":${bad},"dateBy":"published"`)).toMatchObject({ month: null, dateBy: 'published' });
+    }
+    expect(spec(',"dateBy":""')).toMatchObject({ dateBy: null });
+    expect(spec(',"dateBy":7')).toMatchObject({ dateBy: null });
+    // The type isn't known to the parser, so any dateBy string, and any type's calendar, is kept as written.
+    expect(parseObjectViewSpec('{"typeId":"place","layout":"calendar","dateBy":"name"}')).toMatchObject({ layout: 'calendar', dateBy: 'name' });
+    expect(() => parseObjectViewSpec('{"typeId":"book","layout":"agenda"}')).toThrow(/"calendar"/);
   });
 
   it('reads mapStyle: light/dark kept, anything else auto (#2665)', () => {

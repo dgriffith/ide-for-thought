@@ -82,6 +82,8 @@ export async function renderObjectViewForExport(source: string): Promise<string>
           showEmptyColumns: spec.showEmptyColumns,
           from: spec.from,
           to: spec.to,
+          month: spec.month,
+          dateBy: spec.dateBy,
           revision: 0,
           chromeless: true,
           onStateChange: () => {},
