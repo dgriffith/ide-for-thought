@@ -287,6 +287,35 @@ test('capture the docs screenshots', async () => {
       await win.waitForTimeout(600);
       await shotUnion(win, ['.type-view'], 'left-sidebar-objects-timeline.png', { bottomOf: '.tl-undated', pad: 24 });
     });
+
+    await test.step('Objects: the same events as a calendar', async () => {
+      // The timeline's events again, on the Calendar tab: the month-only
+      // festival in the month band, timed events in their days, the trip's
+      // stretches as bars across the week rows, the undated one in the tray.
+      // The timeline shrank the window; give the grid its height back.
+      await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.setSize(1440, 900); });
+      await win.getByRole('tab', { name: 'Calendar' }).click();
+      const grid = win.locator('.cal-grid[role="grid"]');
+      await expect(grid).toBeVisible({ timeout: 15_000 });
+      // The view opens on the current month: page to the trip's, April 2026.
+      // Months counted from year 0, so a step is ±1 and back to `YYYY-MM` is exact.
+      const toIndex = (ym: string) => { const [y, m] = ym.split('-').map(Number); return y! * 12 + m! - 1; };
+      const toYm = (i: number) => `${Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, '0')}`;
+      const target = toIndex('2026-04');
+      let shown = toIndex((await grid.getAttribute('data-month')) ?? '');
+      while (shown !== target) {
+        const step = shown > target ? -1 : 1;
+        await win.getByRole('button', { name: step < 0 ? 'Previous month' : 'Next month' }).click();
+        shown += step;
+        await expect(grid).toHaveAttribute('data-month', toYm(shown));
+      }
+      await expect(grid.locator('[data-calendar-event][aria-label^="Four days in Prague,"]').first()).toBeVisible();
+      // Keep the pointer off the grid, so no hover preview is in the shot.
+      await win.mouse.move(2, 2);
+      await expect(win.locator('.note-hover-preview')).toHaveCount(0, { timeout: 5_000 });
+      await win.waitForTimeout(600);
+      await shotUnion(win, ['.type-view'], 'left-sidebar-objects-calendar.png', { bottomOf: '.cal-undated', pad: 24 });
+    });
   } finally {
     await closeMinerva(app);
     for (const d of [userDataDir, projectDir]) fs.rmSync(d, { recursive: true, force: true });
