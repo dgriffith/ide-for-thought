@@ -6,14 +6,19 @@
    * - text / enum / link → tick values present in the view's folder scope
    *   (offered from the unfiltered set, so ticking one doesn't hide the
    *   others), with counts;
-   * - number / date → a min / max range.
+   * - number / date → a min / max range;
+   * - Type (#2716) → the view type's subtypes as an indented tree, with
+   *   counts — offered only when the type has a subtype. Stored as a values
+   *   filter on the reserved key `type`, matched hierarchically
+   *   (`view-spec.ts`).
    *
    * Changes apply as you make them (the view refilters live). Only the panel
    * mounts this: an embed or export shows the filtered objects, no controls.
    */
   import { tick } from 'svelte';
   import type { PropertyDef, TypeInstanceRow } from '../../../shared/objects/type-def';
-  import { isValuesFilter, type ViewFilter } from '../../../shared/objects/view-spec';
+  import { isValuesFilter, TYPE_FILTER_KEY, type ViewFilter } from '../../../shared/objects/view-spec';
+  import type { SubtypeChoice } from '../../../shared/objects/type-filter';
   import { isDateType } from '../../../shared/objects/date-values';
 
   interface Props {
@@ -25,10 +30,14 @@
     /** How the view shows a value (a link's target by name, etc.). */
     display: (prop: PropertyDef, value: string | null) => string;
     onChange: (filters: ViewFilter[]) => void;
+    /** The view type's subtypes with counts (#2716); empty → no Type filter. */
+    subtypes?: SubtypeChoice[];
   }
-  let { properties, instances, filters, display, onChange }: Props = $props();
+  let { properties, instances, filters, display, onChange, subtypes = [] }: Props = $props();
 
-  const filterable = $derived(properties.filter((p) => p.type !== 'geo'));
+  // `type` is the reserved subtype key, never a property's (#2716).
+  const filterable = $derived(properties.filter((p) => p.type !== 'geo' && p.name !== TYPE_FILTER_KEY));
+  const typeLabel = (id: string) => subtypes.find((t) => t.id === id)?.label ?? id;
   const isRange = (p: PropertyDef) => p.type === 'number' || isDateType(p.type);
   /** What a bound looks like: a date may be as coarse as a year (`1969`). */
   const boundPlaceholder = (p: PropertyDef) => (p.type === 'date' ? 'YYYY-MM-DD' : p.type === 'datetime' ? 'YYYY-MM-DDTHH:mm' : '');
@@ -88,7 +97,7 @@
   function valueSummary(f: ViewFilter): string {
     const prop = filterable.find((p) => p.name === f.property);
     if (isValuesFilter(f)) {
-      const shown = f.values.map((v) => (prop ? display(prop, v) : v));
+      const shown = f.values.map((v) => (f.property === TYPE_FILTER_KEY ? typeLabel(v) : prop ? display(prop, v) : v));
       return shown.length > 2 ? `${shown.slice(0, 2).join(', ')} +${shown.length - 2}` : shown.join(', ');
     }
     const min = f.min ?? null;
@@ -101,7 +110,8 @@
   /** "City: Prague, Brno" — a chip, and its remove button's label. */
   function chipText(f: ViewFilter): string {
     const prop = filterable.find((p) => p.name === f.property);
-    return `${prop?.label ?? f.property}: ${valueSummary(f)}`;
+    const name = f.property === TYPE_FILTER_KEY ? 'Type' : prop?.label ?? f.property;
+    return `${name}: ${valueSummary(f)}`;
   }
 
   async function openAt(name: string | null): Promise<void> {
@@ -116,7 +126,7 @@
   }
 </script>
 
-{#if filterable.length > 0}
+{#if filterable.length > 0 || subtypes.length > 0}
   <div class="tv-filters" bind:this={rootEl}>
     {#each filters as f (f.property)}
       <span class="tv-filter-chip">
@@ -129,8 +139,31 @@
       {#if open}
         <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
         <div class="tv-filter-popover" role="dialog" aria-label="Filter by property" tabindex="-1" bind:this={popoverEl} onkeydown={onKeydown}>
-          {#if !editingProp}
+          {#if editing === TYPE_FILTER_KEY && subtypes.length > 0}
+            {@const f = current(TYPE_FILTER_KEY)}
+            <div class="tv-filter-head">
+              <button type="button" class="tv-filter-back" aria-label="All properties" onclick={() => openAt(null)}>‹</button>
+              <span>Type</span>
+              {#if f}<button type="button" class="tv-filter-clear" onclick={() => replace(TYPE_FILTER_KEY, null)}>Clear</button>{/if}
+            </div>
+            <ul class="tv-filter-values" aria-label="Subtypes">
+              {#each subtypes as t (t.id)}
+                <li><label style="padding-left: {4 + t.depth * 16}px">
+                  <input type="checkbox" checked={!!f && isValuesFilter(f) && f.values.includes(t.id)} onchange={() => toggleValue(TYPE_FILTER_KEY, t.id)} />
+                  {#if t.icon}<span class="tv-filter-icon" aria-hidden="true">{t.icon}</span>{/if}
+                  <span class="tv-filter-value">{t.label}</span><span class="tv-filter-count">{t.count}</span>
+                </label></li>
+              {/each}
+            </ul>
+          {:else if !editingProp}
             <ul class="tv-filter-props">
+              {#if subtypes.length > 0}
+                {@const f = current(TYPE_FILTER_KEY)}
+                <li><button type="button" onclick={() => openAt(TYPE_FILTER_KEY)}>
+                  <span>Type</span>
+                  {#if f}<span class="tv-filter-active">{valueSummary(f)}</span>{/if}
+                </button></li>
+              {/if}
               {#each filterable as p (p.name)}
                 {@const f = current(p.name)}
                 <li><button type="button" onclick={() => openAt(p.name)}>
@@ -201,6 +234,7 @@
   .tv-filter-back:hover, .tv-filter-clear:hover { color: var(--text); }
   .tv-filter-values label { display: flex; align-items: center; gap: 6px; padding: 3px 4px; border-radius: 4px; font-size: 12px; color: var(--text); cursor: pointer; }
   .tv-filter-values label:hover { background: color-mix(in oklch, var(--text) 5%, transparent); }
+  .tv-filter-icon { font-size: 12px; line-height: 1; }
   .tv-filter-count { margin-left: auto; color: var(--text-muted); font-variant-numeric: tabular-nums; }
   .tv-filter-range { display: flex; gap: 8px; padding: 2px; }
   .tv-filter-range label { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--text-muted); }

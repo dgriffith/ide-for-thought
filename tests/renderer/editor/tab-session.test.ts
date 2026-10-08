@@ -55,6 +55,17 @@ describe('type-view map style (#2665)', () => {
   });
 });
 
+describe('type-view Type filter (#2716)', () => {
+  it('round-trips a values filter on the reserved `type` key, and drops a ranged one', async () => {
+    const view: Tab = {
+      type: 'type-view', typeId: 'place', layout: 'map', sortColumn: null, sortDir: 'asc', columns: null, folder: null, filters: [{ property: 'type', values: ['restaurant'] }, { property: 'city', values: ['Prague'] }], mapStyle: 'auto', groupBy: null, columnOrder: [], showEmptyColumns: true, from: null, to: null, month: null, dateBy: null,
+    };
+    expect(await reconstructTab(JSON.parse(JSON.stringify(toSavedTab(view))) as SavedTab, () => 'q')).toEqual(view);
+    const ranged = { type: 'type-view', typeId: 'place', filters: [{ property: 'type', min: 'a' }] } as unknown as SavedTab;
+    expect(await reconstructTab(ranged, () => 'q')).toMatchObject({ filters: [] });
+  });
+});
+
 describe('type-view kanban groupBy (#2601)', () => {
   const view = (groupBy: string | null): Tab => ({
     type: 'type-view', typeId: 'project', layout: 'kanban', sortColumn: null, sortDir: 'asc', columns: null, folder: null, filters: [], mapStyle: 'auto', groupBy, columnOrder: [], showEmptyColumns: true, from: null, to: null, month: null, dateBy: null,

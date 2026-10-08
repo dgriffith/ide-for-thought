@@ -290,3 +290,17 @@ describe('renderLiveBlock', () => {
     expect(r.ok).toBe(false);
   });
 });
+
+describe('a Type-filtered embed exports only the chosen subtypes (#2716)', () => {
+  it('waits for the catalog, then keeps Restaurants and their Pizzerias and drops Museums and plain Places', async () => {
+    const sub = (id: string, label: string, parent: string) => ({ id, label, classLocalName: label, source: 'user' as const, parent, properties: [] });
+    listMock.mockResolvedValue({ types: [TYPE, sub('restaurant', 'Restaurant', 'place'), sub('pizzeria', 'Pizzeria', 'restaurant'), sub('museum', 'Museum', 'place')], errors: [] });
+    noteTypeMapMock.mockResolvedValue({ 'p/Bistro.md': 'restaurant', 'p/Luigi.md': 'pizzeria', 'p/Louvre.md': 'museum', 'p/Park.md': 'place' });
+    instancesMock.mockResolvedValue({ type: TYPE, instances: ['Bistro', 'Luigi', 'Louvre', 'Park'].map((n) => ({ path: `p/${n}.md`, title: n, values: { city: 'Paris' }, cover: null })) });
+    const html = await renderObjectViewForExport(JSON.stringify({ typeId: 'place', layout: 'list', filters: [{ property: 'type', values: ['restaurant'] }] }));
+    expect(html).toContain('data-note-link="p/Bistro.md"');
+    expect(html).toContain('data-note-link="p/Luigi.md"');
+    expect(html).not.toContain('p/Louvre.md');
+    expect(html).not.toContain('p/Park.md');
+  });
+});
