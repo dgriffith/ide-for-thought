@@ -20,6 +20,7 @@ import { renderFootnotesSection } from '../note-html';
 import { extractPublish, type PublishMeta } from './publish-meta';
 import { type SidebarNode, subtreeContains } from './sidebar';
 import { escapeHtmlFull as escapeHtml, escapeHtmlFull as escapeAttr } from '../../../../shared/text-escape';
+import { LINK_PREVIEW_SCRIPT_FILE } from '../../link-previews';
 
 export interface RenderPageInput {
   note: ExportPlanFile;
@@ -359,6 +360,7 @@ ${bodyHtml}
 </main>
 </div>
 <script src="${rootRelative}search.js" defer></script>
+<script src="${rootRelative}${LINK_PREVIEW_SCRIPT_FILE}" defer></script>
 </body>
 </html>`;
 }

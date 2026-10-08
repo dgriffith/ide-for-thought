@@ -28,6 +28,9 @@ import { bodyHasKatex, getKatexStyle } from '../note-html/katex-css';
 import type { Exporter, ExportOutput, ExportPlan, ExportPlanFile } from '../../types';
 import { createRendererSessions } from '../../csl';
 import { escapeHtmlFull as escapeHtml, escapeHtmlFull as escapeAttr } from '../../../../shared/text-escape';
+import { buildLinkResolverContext } from '../../link-resolver';
+import { buildLinkPreviews, linkPreviewsScript, LINK_PREVIEWS_FILE, LINK_PREVIEW_SCRIPT_FILE } from '../../link-previews';
+import { LINK_PREVIEW_SCRIPT, LINK_PREVIEW_STYLE } from '../../link-preview-script';
 
 export const treeHtmlExporter: Exporter = {
   id: 'tree-html',
@@ -82,6 +85,7 @@ export const treeHtmlExporter: Exporter = {
         body,
         stylesheetHref: `${rootRel}style.css`,
         sidebarHtml: renderSidebar(notes, rootNote, note.relativePath, rootRel),
+        scriptSrcs: [`${rootRel}${LINK_PREVIEW_SCRIPT_FILE}`],
       });
       files.push({
         path: outputPathFor(note, rootNote),
@@ -125,8 +129,18 @@ export const treeHtmlExporter: Exporter = {
         : '';
       files.push({
         path: 'style.css',
-        contents: `${NOTE_HTML_STYLE}\n${BUNDLE_NAV_STYLE}${katexSection}`,
+        contents: `${NOTE_HTML_STYLE}\n${BUNDLE_NAV_STYLE}${LINK_PREVIEW_STYLE}${katexSection}`,
       });
+      // Link-hover previews (#2710), as on the static site: one data file for
+      // the bundle, from the notes the bundle publishes and nothing else.
+      // A bundle always follows links, so its links have something to preview.
+      const previews = buildLinkPreviews({
+        published: notes,
+        pageFor: (p) => p.replace(/\.md$/i, '.html'),
+        resolveTarget: buildLinkResolverContext(bundlePlan).resolveTarget,
+      });
+      files.push({ path: LINK_PREVIEWS_FILE, contents: linkPreviewsScript(previews) });
+      files.push({ path: LINK_PREVIEW_SCRIPT_FILE, contents: LINK_PREVIEW_SCRIPT });
     }
 
     const excluded = plan.excluded.length;

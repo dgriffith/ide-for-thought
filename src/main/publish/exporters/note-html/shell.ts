@@ -29,6 +29,12 @@ export interface HtmlShellInput {
    * serif fallback.
    */
   inlineMathFonts?: boolean;
+  /**
+   * External scripts, loaded `defer` at the end of `<body>`. The tree-html
+   * bundle passes its link-preview script (#2710); a single-note export
+   * passes none and stays script-free.
+   */
+  scriptSrcs?: string[];
 }
 
 export function wrapHtml(input: HtmlShellInput): string {
@@ -47,6 +53,7 @@ export function wrapHtml(input: HtmlShellInput): string {
     : `<style>${NOTE_HTML_STYLE}</style>${katexInline}`;
   const articleClass = input.sidebarHtml ? 'minerva-export with-sidebar' : 'minerva-export';
   const sidebarPrefix = input.sidebarHtml ? `<aside class="bundle-nav">${input.sidebarHtml}</aside>` : '';
+  const scripts = (input.scriptSrcs ?? []).map((src) => `\n  <script src="${escapeHtml(src)}" defer></script>`).join('');
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -64,7 +71,7 @@ ${input.body}
     <footer class="export-meta">
       <p>Exported from Minerva on ${escapeHtml(generatedAt)}.</p>
     </footer>
-  </article>
+  </article>${scripts}
 </body>
 </html>
 `;
