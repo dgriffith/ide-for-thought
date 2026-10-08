@@ -15,7 +15,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const h = vi.hoisted(() => {
   const MENU_CHANNELS = [
-    'onNewNote', 'onEditThoughtbaseDoc', 'onThoughtbaseProperties', 'onSave', 'onSaveAsTemplate', 'onSaveAsObjectType', 'onInsertTemplate',
+    'onNewNote', 'onNewAudioRecording', 'onEditThoughtbaseDoc', 'onThoughtbaseProperties', 'onSave', 'onSaveAsTemplate', 'onSaveAsObjectType', 'onInsertTemplate',
     'onCycleTheme', 'onSetTheme', 'onFontIncrease', 'onFontDecrease', 'onFontReset',
     'onToggleSidebar', 'onToggleRightSidebar', 'onToggleConversations', 'onNewConversation',
     'onTogglePreview', 'onSplitRight', 'onSplitDown', 'onFocusNextGroup', 'onFocusPrevGroup',
@@ -92,8 +92,9 @@ const h = vi.hoisted(() => {
   };
   const dialog = { showConfirm: vi.fn().mockResolvedValue(false) };
   const announce = vi.fn();
+  const recordings = { toggle: vi.fn() };
 
-  return { MENU_CHANNELS, captured, api, notebase, editor, busy, toasts, toolPanel, conversations, bookmarks, dialog, announce };
+  return { MENU_CHANNELS, captured, api, notebase, editor, busy, toasts, toolPanel, conversations, bookmarks, dialog, announce, recordings };
 });
 
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({ api: h.api }));
@@ -106,6 +107,7 @@ vi.mock('../../../src/renderer/lib/stores/conversations.svelte', () => ({ getCon
 vi.mock('../../../src/renderer/lib/stores/bookmarks.svelte', () => ({ getBookmarksStore: () => h.bookmarks }));
 vi.mock('../../../src/renderer/lib/stores/dialogs.svelte', () => ({ getDialogStore: () => h.dialog }));
 vi.mock('../../../src/renderer/lib/stores/announcer.svelte', () => ({ announce: h.announce }));
+vi.mock('../../../src/renderer/lib/voice/audio-recording.svelte', () => ({ getAudioRecordingStore: () => h.recordings }));
 vi.mock('../../../src/renderer/lib/stores/settings-formatter.svelte', () => ({ loadFormatSettings: vi.fn().mockResolvedValue(undefined) }));
 vi.mock('../../../src/renderer/lib/tools/tool-registry', () => ({ registerSkillInfos: vi.fn() }));
 vi.mock('../../../src/shared/skills/menu-config', () => ({ applyMenuConfig: vi.fn(() => []) }));
@@ -250,6 +252,15 @@ describe('menu bindings dispatch to the right action (no arg / no guard)', () =>
 });
 
 describe('menu bindings backed by stores / api (not ctx)', () => {
+  it('onNewAudioRecording toggles a recording against the focused pane view (#2428)', () => {
+    const view = { id: 'focused' };
+    editorComponent.getView.mockReturnValueOnce(view as never);
+    fire('onNewAudioRecording');
+    expect(h.recordings.toggle).toHaveBeenCalledTimes(1);
+    const getter = h.recordings.toggle.mock.calls[0]![0] as () => unknown;
+    expect(getter()).toBe(view);
+  });
+
   it('onSplitRight / onSplitDown split the active group', () => {
     fire('onSplitRight');
     expect(h.editor.splitGroup).toHaveBeenCalledWith('g1', 'horizontal');

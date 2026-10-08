@@ -21,7 +21,8 @@ const h = vi.hoisted(() => {
   const nav = { canGoBack: false, canGoForward: false };
   const conversations = { toggle: vi.fn() };
   const toggleEditorDictation = vi.fn();
-  return { notebase, editor, nav, conversations, toggleEditorDictation };
+  const recordings = { toggle: vi.fn(), transcribeAtCursor: vi.fn() };
+  return { notebase, editor, nav, conversations, toggleEditorDictation, recordings };
 });
 
 vi.mock('../../../src/renderer/lib/stores/notebase.svelte', () => ({ getNotebaseStore: () => h.notebase }));
@@ -29,6 +30,7 @@ vi.mock('../../../src/renderer/lib/stores/editor.svelte', () => ({ getEditorStor
 vi.mock('../../../src/renderer/lib/stores/navigation.svelte', () => ({ getNavigationStore: () => h.nav }));
 vi.mock('../../../src/renderer/lib/stores/conversations.svelte', () => ({ getConversationsStore: () => h.conversations }));
 vi.mock('../../../src/renderer/lib/editor/dictation', () => ({ toggleEditorDictation: h.toggleEditorDictation }));
+vi.mock('../../../src/renderer/lib/voice/audio-recording.svelte', () => ({ getAudioRecordingStore: () => h.recordings }));
 
 import { createCommandKeymap, type CommandKeymapCtx } from '../../../src/renderer/lib/app/command-keymap';
 
@@ -145,6 +147,17 @@ describe('editor-ref driven commands', () => {
     commandDeps.dictate();
     expect(built.editorComponent.getView).toHaveBeenCalled();
     expect(h.toggleEditorDictation).toHaveBeenCalledWith(null);
+  });
+
+  it('record / transcribe resolve the focused pane view when they run (#2428)', () => {
+    const view = { id: 'focused' };
+    built.editorComponent.getView.mockReturnValue(view as never);
+    commandDeps.recordAudio();
+    commandDeps.transcribeRecording();
+    const recordGetter = h.recordings.toggle.mock.calls[0]![0] as () => unknown;
+    const transcribeGetter = h.recordings.transcribeAtCursor.mock.calls[0]![0] as () => unknown;
+    expect(recordGetter()).toBe(view);
+    expect(transcribeGetter()).toBe(view);
   });
 
   it('find / findReplace / sortLines reach the editor component', () => {

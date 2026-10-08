@@ -40,6 +40,10 @@ export interface CommandDeps {
   // ── Edit ──
   insertTemplate(): void;
   dictate(): void;
+  /** Start / stop an audio recording saved into the thoughtbase (#2428). */
+  recordAudio(): void;
+  /** Transcribe the audio recording on the cursor's line (#2428). */
+  transcribeRecording(): void;
   find(): void;
   findReplace(): void;
   findInNotes(): void;
@@ -126,6 +130,10 @@ export function buildCommandRegistry(deps: CommandDeps): Command[] {
     { id: 'edit.dictate', title: 'Dictate (Voice to Text)', category: 'Edit',
       keybinding: formatAccelerator('CmdOrCtrl+Shift+V'),
       enabled: hasActiveNoteTab, run: () => deps.dictate() },
+    { id: 'file.newAudioRecording', title: 'New Audio Recording (Start / Stop)', category: 'File',
+      keybinding: null, enabled: hasProject, run: () => deps.recordAudio() },
+    { id: 'edit.transcribeRecording', title: 'Transcribe Audio Recording', category: 'Edit',
+      keybinding: null, enabled: hasActiveNoteTab, run: () => deps.transcribeRecording() },
     // ── Edit / search ──
     { id: 'edit.find', title: 'Find', category: 'Edit',
       keybinding: formatAccelerator('CmdOrCtrl+F'),

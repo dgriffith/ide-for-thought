@@ -28,6 +28,7 @@ import { tick } from 'svelte';
 import { api } from '../ipc/client';
 import { getNotebaseStore } from '../stores/notebase.svelte';
 import { getEditorStore } from '../stores/editor.svelte';
+import { getAudioRecordingStore } from '../voice/audio-recording.svelte';
 import { getBusyStore } from '../stores/busy.svelte';
 import { getToolPanelStore } from '../stores/tool-panel.svelte';
 import { getConversationsStore } from '../stores/conversations.svelte';
@@ -337,6 +338,9 @@ export function registerAppIpc(ctx: IpcWiringCtx): void {
 
   // Listen for menu events from main process
   api.menu.onNewNote(() => ctx.newNote());
+  api.menu.onNewAudioRecording(() => {
+    void getAudioRecordingStore().toggle(() => ctx.getEditorComponent()?.getView());
+  });
   api.menu.onEditThoughtbaseDoc(() => { void ctx.editThoughtbaseGuide(); });
   api.menu.onThoughtbaseProperties(() => { ctx.openThoughtbaseProperties(); });
   api.menu.onSave(() => ctx.save());

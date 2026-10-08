@@ -25,6 +25,9 @@ const AUDIO: Record<string, string> = {
   flac: 'audio/flac',
   aac: 'audio/aac',
   opus: 'audio/ogg',
+  // Opus-in-WebM audio. Minerva's own recordings (#2428) are saved as `.weba`,
+  // because a `.webm` reads as video above and would render as a video box.
+  weba: 'audio/webm',
 };
 
 function extOf(rel: string): string {

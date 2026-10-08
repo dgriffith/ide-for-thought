@@ -51,6 +51,11 @@
     onClose: () => void;
     /** Toggle editor dictation (needs the view, so the parent supplies it). */
     onDictate: () => void;
+    /** Start an audio recording embedded at the cursor (#2428). */
+    onRecordAudio: () => void;
+    /** Transcribe the recording on the clicked line — only supplied when that
+     *  line holds an audio embed (#2428). */
+    onTranscribeRecording?: (() => void) | undefined;
   }
 
   let {
@@ -68,6 +73,8 @@
     onMenuAction,
     onClose,
     onDictate,
+    onRecordAudio,
+    onTranscribeRecording,
   }: Props = $props();
 </script>
 
@@ -288,6 +295,10 @@
   <button onclick={() => onMenuAction(() => ops.openConversation?.())}>Ask About This...</button>
   {#if voiceSettings.enabled}
     <button onclick={() => onMenuAction(onDictate)}>Dictate…</button>
+  {/if}
+  <button onclick={() => onMenuAction(onRecordAudio)}>Record Audio…</button>
+  {#if onTranscribeRecording}
+    <button onclick={() => onMenuAction(onTranscribeRecording)}>Transcribe Recording</button>
   {/if}
   <button onclick={() => onMenuAction(() => ops.bookmark?.())}>Bookmark This Note</button>
   {#if ops.bookmarkSection}

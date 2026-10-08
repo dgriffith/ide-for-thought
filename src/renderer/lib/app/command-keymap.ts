@@ -23,6 +23,7 @@ import { getEditorStore } from '../stores/editor.svelte';
 import { getNavigationStore } from '../stores/navigation.svelte';
 import { getConversationsStore } from '../stores/conversations.svelte';
 import { toggleEditorDictation } from '../editor/dictation';
+import { getAudioRecordingStore } from '../voice/audio-recording.svelte';
 import type { EditorView } from '@codemirror/view';
 import type { ThemeMode } from '../theme';
 import type { CommandDeps } from '../command-palette/registry';
@@ -113,6 +114,8 @@ export function createCommandKeymap(ctx: CommandKeymapCtx): {
   const editor = getEditorStore();
   const nav = getNavigationStore();
   const conversationsStore = getConversationsStore();
+  const recordings = getAudioRecordingStore();
+  const focusedView = () => ctx.getEditorComponent()?.getView() ?? null;
 
   const commandDeps: CommandDeps = {
     hasProject: () => !!notebase.meta,
@@ -130,6 +133,8 @@ export function createCommandKeymap(ctx: CommandKeymapCtx): {
     saveAsTemplate: ctx.saveAsTemplate,
     insertTemplate: ctx.insertTemplate,
     dictate: () => { void toggleEditorDictation(ctx.getEditorComponent()?.getView() ?? null); },
+    recordAudio: () => { void recordings.toggle(focusedView); },
+    transcribeRecording: () => { void recordings.transcribeAtCursor(focusedView); },
     find: () => ctx.getEditorComponent()?.openFind(),
     findReplace: () => ctx.getEditorComponent()?.openFindReplace(),
     findInNotes: () => ctx.setFindInNotesMode('find'),

@@ -218,6 +218,9 @@ export const Channels = {
   MENU_OPEN_IN_DEFAULT: 'menu:openInDefault',
   MENU_OPEN_IN_TERMINAL: 'menu:openInTerminal',
   MENU_NEW_NOTE: 'menu:newNote',
+  /** File → "New Audio Recording" — renderer starts (or stops) a recording
+   *  that's saved into the thoughtbase and embedded in a note (#2428). */
+  MENU_NEW_AUDIO_RECORDING: 'menu:newAudioRecording',
   MENU_EDIT_THOUGHTBASE_DOC: 'menu:editThoughtbaseDoc',
   /** File → "Thoughtbase Properties…" — renderer opens the rename / base-IRI dialog (#1443). */
   MENU_THOUGHTBASE_PROPERTIES: 'menu:thoughtbaseProperties',

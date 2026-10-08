@@ -675,6 +675,7 @@ export const MENU_COMMANDS = [
   'installTutorial',
   'navBack',
   'navForward',
+  'newAudioRecording',
   'newConversation',
   'newNote',
   'newProject',

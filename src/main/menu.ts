@@ -271,6 +271,11 @@ function buildFileMenu(gate: Gate, isMac: boolean): Electron.MenuItemConstructor
         click: () => send(Channels.MENU_NEW_NOTE),
       }),
       gate({
+        label: 'New Audio Recording',
+        toolTip: 'Record from the microphone into a file in the thoughtbase, embedded in the open note. Choose it again to stop.',
+        click: () => send(Channels.MENU_NEW_AUDIO_RECORDING),
+      }),
+      gate({
         label: 'Save',
         accelerator: 'CmdOrCtrl+S',
         click: () => send(Channels.MENU_SAVE),

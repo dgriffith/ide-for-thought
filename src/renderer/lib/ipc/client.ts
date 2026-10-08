@@ -993,6 +993,8 @@ export interface SkillsApi {
 
 export interface MenuApi {
   onNewNote(cb: () => void): () => void;
+  /** File → New Audio Recording (#2428): start, or stop, a recording. */
+  onNewAudioRecording(cb: () => void): () => void;
   onEditThoughtbaseDoc(cb: () => void): () => void;
   onThoughtbaseProperties(cb: () => void): () => void;
   onSave(cb: () => void): () => void;
