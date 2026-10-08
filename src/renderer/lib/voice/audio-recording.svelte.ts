@@ -38,6 +38,7 @@ import {
 } from './recording-text';
 import { relativeAssetPathForNote } from '../editor/image-upload';
 import { resolveRelativeImagePath } from '../preview/image-paths';
+import { withWebmDuration } from '../../../shared/webm-duration';
 import { logger } from '../../../shared/logger';
 
 export type RecordingStatus = 'idle' | 'starting' | 'recording' | 'saving';
@@ -110,6 +111,9 @@ async function stop(): Promise<void> {
   const s = session;
   session = null;
   stopTicker();
+  // Measured at the press, not after the encoder flushes: this is the length
+  // written into the file's header so the player can show it and seek (#2728).
+  const durationMs = Date.now() - startedAt.getTime();
   status = 'saving';
   try {
     const blob = await s.stopBlob();
@@ -117,9 +121,13 @@ async function stop(): Promise<void> {
       status = 'idle';
       return;
     }
-    const assetPath = await freeRecordingPath(startedAt, recordingExtension(blob.type));
+    const ext = recordingExtension(blob.type);
+    const assetPath = await freeRecordingPath(startedAt, ext);
+    let bytes: Uint8Array = new Uint8Array(await blob.arrayBuffer());
+    // Returns the bytes untouched if it can't patch them safely.
+    if (ext === 'weba') bytes = withWebmDuration(bytes, durationMs);
     try {
-      await getNotebaseStore().writeBinary(assetPath, new Uint8Array(await blob.arrayBuffer()));
+      await getNotebaseStore().writeBinary(assetPath, bytes);
     } catch (e) {
       logger('voice').error('saving recording failed:', e);
       error = `Couldn't save the recording: ${messageOf(e)}`;

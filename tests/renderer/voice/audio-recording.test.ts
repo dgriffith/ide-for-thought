@@ -61,6 +61,8 @@ vi.mock('../../../src/renderer/lib/voice/voice.svelte', () => ({
 
 import { getAudioRecordingStore } from '../../../src/renderer/lib/voice/audio-recording.svelte';
 import { silenceLogTags } from '../../helpers/quiet-logs';
+import { mediaRecorderFile } from '../../helpers/webm-fixture';
+import { readWebmDuration } from '../../../src/shared/webm-duration';
 
 // The refusal and failure paths log under `voice` by design.
 silenceLogTags('voice');
@@ -118,6 +120,17 @@ describe('recording into a note', () => {
     expect(view.doc).toBe('Notes:\n![](../assets/recordings/2026-10-08-1432.weba)');
     expect(rec.status).toBe('idle');
     expect(rec.error).toBeNull();
+  });
+
+  it('writes the recorded length into the saved WebM so the player can seek (#2728)', async () => {
+    openNote('a.md');
+    h.session.stopBlob.mockResolvedValueOnce(new Blob([mediaRecorderFile() as BlobPart], { type: 'audio/webm;codecs=opus' }));
+    await rec.start(() => fakeView('', 0) as never);
+    vi.advanceTimersByTime(42_000);
+    await rec.stop();
+
+    const saved = h.binaries.get('assets/recordings/2026-10-08-1432.weba')!;
+    expect(readWebmDuration(saved)).toBeCloseTo(42_000, 6);
   });
 
   it('does not overwrite an earlier recording from the same minute', async () => {
