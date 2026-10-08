@@ -17,7 +17,7 @@
  *    + editor, source viewer, PDF viewer, proposals panel, conversation panel,
  *    Settings dialog (every section), Query panel (with results), neighborhood
  *    graph, the `:::argument` map, the preview's fenced-block toolbars
- *    (#2679), the Kanban board and the Timeline (#2608) — each with its
+ *    (#2679), the Kanban board, the Timeline (#2608) and the Calendar (#2702) — each with its
  *    shared hover preview open (#2710).
  *  - **Themes** (#2378): every shipped theme — dark, light, contrast. The theme
  *    tokens are the thing most likely to regress contrast, and each theme pairs
@@ -36,6 +36,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import { closeMinerva, launchMinerva, projectRoot, seedProposal } from './helpers/launch';
 import { openEventTimeline } from './helpers/timeline';
+import { openTypeCalendar, thisMonth, ymd } from './helpers/calendar';
 import { runAxe, formatViolations, seriousOrWorse } from '../helpers/axe-playwright';
 
 /** Every theme a user can pick (THEME_MODES minus `system`, which resolves to
@@ -380,6 +381,41 @@ for (const theme of THEMES) {
         await win.getByRole('button', { name: 'List' }).click();
         await expect(win.locator('.tl-list')).toBeVisible();
         await expectNoSerious(win, 'Timeline list', theme);
+      });
+    });
+
+    test('Calendar', async () => {
+      // Stock Event as a month grid (#2702), built around the current month (a
+      // view with no stored month opens on it): a single day, a timed event, a
+      // multi-day bar with a coarser end (hatched), a day full enough for
+      // "+N more", a month-only date in the month band, a year-only one in the
+      // year band, and an undated note. Scanned with the grid's tab stop
+      // focused, then with a day's list open and an event's preview showing.
+      const m = thisMonth();
+      await withApp({
+        theme,
+        withProject: true,
+        extraFiles: {
+          'events/Kickoff.md': `---\ntype: event\ndate: ${ymd(m, 5)}\n---\n# Kickoff\n`,
+          'events/Standup.md': `---\ntype: event\ndate: ${ymd(m, 6)}T09:00\n---\n# Standup\n`,
+          'events/Offsite.md': `---\ntype: event\ndate: ${ymd(m, 22)}\nend: ${ymd(m.month === 12 ? { year: m.year + 1, month: 1 } : { year: m.year, month: m.month + 1 })}\n---\n# Offsite\n`,
+          'events/Harvest.md': `---\ntype: event\ndate: ${ymd(m)}\n---\n# Harvest\n`,
+          'events/The year.md': `---\ntype: event\ndate: ${m.year}\n---\n# The year\n`,
+          'events/Someday.md': '---\ntype: event\n---\n# Someday\n',
+          ...Object.fromEntries([1, 2, 3, 4, 5, 6, 7].map((i) => [`events/Busy ${i}.md`, `---\ntype: event\ndate: ${ymd(m, 14)}T0${i}:00\n---\n# Busy ${i}\n`])),
+        },
+      }, async ({ win }) => {
+        const cal = await openTypeCalendar(win, 'Event');
+        await expect(cal.eventFor('Kickoff')).toHaveCount(1, { timeout: 15_000 });
+        await expect(win.locator('.cal-more').first()).toBeVisible();
+        await cal.tabStop.focus();
+        await expectNoSerious(win, 'Calendar', theme);
+        await cal.day(m.year, m.month, 14).focus();
+        await win.keyboard.press('Enter');
+        await expect(cal.dayList).toBeVisible();
+        await expect(win.getByRole('tooltip')).toBeVisible();
+        await expect(win.locator('.note-hover-preview .nhp-snippet:not(.nhp-loading)')).toHaveCount(1, { timeout: 5_000 });
+        await expectNoSerious(win, 'Calendar day list', theme);
       });
     });
 

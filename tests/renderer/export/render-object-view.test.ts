@@ -10,7 +10,7 @@ const { instancesMock, listMock, noteTypeMapMock } = vi.hoisted(() => ({
   instancesMock: vi.fn(), listMock: vi.fn(), noteTypeMapMock: vi.fn(),
 }));
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({
-  api: { types: { instances: instancesMock, list: listMock, noteTypeMap: noteTypeMapMock } },
+  api: { types: { instances: instancesMock, list: listMock, noteTypeMap: noteTypeMapMock }, app: { getSystemLocale: async () => 'en-GB' } },
 }));
 vi.mock('../../../src/renderer/lib/map/load-maplibre', () => ({ loadMapLibre: vi.fn(() => new Promise(() => {})) }));
 
@@ -82,7 +82,7 @@ describe('renderObjectViewForExport', () => {
     expect(place).toContain('data-note-link="places/Kampa.md"');
   });
 
-  it('a calendar spec exports without crashing until #2702 draws it: a dated type as the interim list, a dateless one as its default layout (#2701)', async () => {
+  it('a calendar spec exports without crashing: a dated type as its month grid, linked (#2702; #2704 owns the real export), a dateless one as its default layout (#2701)', async () => {
     const JOURNAL = {
       id: 'journal', label: 'Journal', classLocalName: 'Journal', icon: '📓', source: 'user' as const,
       properties: [{ name: 'published', type: 'date' as const }],
@@ -92,7 +92,8 @@ describe('renderObjectViewForExport', () => {
       { path: 'j/Spring.md', title: 'Spring issue', values: { published: '2026-03-01' }, cover: null },
     ] });
     const html = await renderObjectViewForExport(JSON.stringify({ typeId: 'journal', layout: 'calendar', month: '2026-03', dateBy: 'published' }));
-    expect(html).toContain('tv-list');
+    expect(html).toContain('cal-grid');
+    expect(html).toContain('March 2026');
     expect(html).toContain('data-note-link="j/Spring.md"');
     instancesMock.mockResolvedValue({ type: TYPE, instances: INSTANCES });
     const place = await renderObjectViewForExport(JSON.stringify({ typeId: 'place', layout: 'calendar', month: '2026-03' }));

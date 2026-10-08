@@ -254,6 +254,7 @@ const api = {
   app: {
     getInfo: () => invoke(Channels.APP_GET_INFO),
     getShortcuts: () => invoke(Channels.APP_GET_SHORTCUTS),
+    getSystemLocale: () => invoke(Channels.APP_GET_SYSTEM_LOCALE),
   },
   images: {
     // Cached-or-fetched bytes+mime for an external image URL (offline cache, #...).

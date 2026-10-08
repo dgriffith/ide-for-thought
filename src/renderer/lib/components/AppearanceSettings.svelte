@@ -4,6 +4,8 @@
    * content font, editor font size, and window zoom. All apply LIVE (not on
    * Done): theme/font via the $effects below, font-size/zoom via the host
    * callbacks. Self-contained bar the two App-level apply hooks it takes as props.
+   * The Calendar's week start and week numbers (#2702) are here too: per
+   * machine, like the rest, through `settings-calendar.svelte.ts`.
    */
   import { onMount } from 'svelte';
   import { api } from '../ipc/client';
@@ -12,6 +14,11 @@
   import { isFontInstalled } from '../appearance/font-detect';
   import { clampFontSize, parseStoredFontSize, MIN_FONT, MAX_FONT, DEFAULT_FONT } from '../editor/font-size';
   import { setZoom, getStoredZoom, MIN_ZOOM, MAX_ZOOM } from '../appearance/zoom';
+  import { getCalendarSettings } from '../stores/settings-calendar.svelte';
+  import type { WeekStartSetting } from '../../../shared/objects/week-start';
+
+  const calendar = getCalendarSettings();
+  const WEEKDAY_NAMES = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
   let { onApplyFontSize, onThemeChanged }: {
     onApplyFontSize: (px: number) => void;
@@ -134,6 +141,25 @@
           Also adjustable with <kbd>⌘+</kbd> / <kbd>⌘-</kbd> / <kbd>⌘0</kbd>.
         </p>
       </div>
+      <div class="field">
+        <label for="calendar-week-start">Week starts on</label>
+        <select id="calendar-week-start" value={calendar.weekStartSetting} onchange={(e) => calendar.setWeekStart(e.currentTarget.value as WeekStartSetting)}>
+          <option value="auto">Automatic ({WEEKDAY_NAMES[calendar.automaticWeekStart]})</option>
+          <option value="monday">Monday</option>
+          <option value="sunday">Sunday</option>
+          <option value="saturday">Saturday</option>
+        </select>
+        <p class="hint">
+          The first column of a Calendar view. Automatic follows your system's region.
+        </p>
+      </div>
+      <div class="field">
+        <label class="check">
+          <input type="checkbox" checked={calendar.showWeekNumbers} onchange={(e) => calendar.setShowWeekNumbers(e.currentTarget.checked)} />
+          Show week numbers
+        </label>
+        <p class="hint">ISO 8601 week numbers beside each week of a Calendar view.</p>
+      </div>
 
 </div>
 
@@ -152,6 +178,8 @@
     font-size: 12px;
     font-family: inherit;
   }
+  .check { display: flex; align-items: center; gap: 6px; }
+  .check input { margin: 0; accent-color: var(--accent); }
   .field select:focus {
     outline: none;
     border-color: var(--accent);

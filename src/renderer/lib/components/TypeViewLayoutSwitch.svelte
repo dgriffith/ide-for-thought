@@ -24,13 +24,15 @@
    * **Show empty columns** (#2614) sits beside it on every board (default on,
    * since an empty column is still a drop target).
    *
+   * - **Calendar** under the same rule (`canShowCalendar`, #2702).
+   *
    * The **Date by** picker is the same control with the same rule, over
    * `date-by.ts`'s choices: the type's date and datetime properties (less
    * Event's `end` beside `date`), shown only when there is more than one. The
    * selected value is `resolveDateBy` — the view's `dateBy`, else the default
    * (`date`, else the first). A pick writes `dateBy` through `onStateChange`.
-   * It is ONE spec field shared with Calendar, so #2702 adds `calendar` to
-   * `DATED_LAYOUTS` and gets this picker as it is.
+   * It is ONE spec field shared by Timeline and Calendar (both in
+   * `DATED_LAYOUTS`), so a view switched between the two keeps its property.
    */
   import { canShowKanban, enumProperties, resolveGroupBy } from '../../../shared/objects/kanban';
   import { dateByChoices, resolveDateBy } from '../../../shared/objects/date-by';
@@ -44,6 +46,8 @@
     properties: PropertyDef[];
     /** The type has a date property (`canShowTimeline`). */
     timeline?: boolean;
+    /** The type has a date property (`canShowCalendar`, #2702). */
+    calendar?: boolean;
     /** The view's `groupBy` (null = the first enum). */
     groupBy: string | null;
     /** The view's `dateBy` (null = the default date property). */
@@ -52,10 +56,10 @@
     showEmptyColumns: boolean;
     onStateChange: (patch: { layout?: Layout; groupBy?: string | null; columnOrder?: string[]; showEmptyColumns?: boolean; dateBy?: string | null }) => void;
   }
-  let { layout, properties, timeline = false, groupBy, dateBy = null, showEmptyColumns, onStateChange }: Props = $props();
+  let { layout, properties, timeline = false, calendar = false, groupBy, dateBy = null, showEmptyColumns, onStateChange }: Props = $props();
 
   /** The layouts that place notes by a date property, and so show Date by. */
-  const DATED_LAYOUTS: ReadonlySet<Layout> = new Set(['timeline']);
+  const DATED_LAYOUTS: ReadonlySet<Layout> = new Set(['timeline', 'calendar']);
 
   const LAYOUTS = $derived<{ id: Layout; label: string }[]>([
     { id: 'list', label: 'List' },
@@ -64,10 +68,7 @@
     ...(properties.some((p) => p.type === 'geo') ? [{ id: 'map' as const, label: 'Map' }] : []),
     ...(canShowKanban(properties) ? [{ id: 'kanban' as const, label: 'Kanban' }] : []),
     ...(timeline ? [{ id: 'timeline' as const, label: 'Timeline' }] : []),
-    // Calendar joins here with the month grid (#2702), gated on `canShowCalendar`
-    // (the same rule as `timeline` above), and joins `DATED_LAYOUTS` to get the
-    // Date by picker below. Until then a spec that already says `calendar` shows
-    // the list, and no tab is selected.
+    ...(calendar ? [{ id: 'calendar' as const, label: 'Calendar' }] : []),
   ]);
   const groupChoices = $derived(enumProperties(properties));
   const grouped = $derived(resolveGroupBy(groupBy, properties));

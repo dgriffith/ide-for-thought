@@ -4,7 +4,7 @@
    * Multi-view over all instances of a typed-object type (#1070) — the same
    * typed notes rendered as a list, a table (declared properties as columns), a
    * gallery of cards keyed off a designated cover property, a map (#2066) or a
-   * Kanban board grouped by an enum property (#2602). "Switch the view,
+   * Kanban board grouped by an enum property (#2602), a timeline (#2608) or a month calendar (#2702). "Switch the view,
    * same data": every projection reads the one `api.types.instances(typeId)`
    * result, so toggling never re-queries the instance set.
    *
@@ -21,6 +21,7 @@
   import TypeViewMap from './TypeViewMap.svelte';
   import TypeViewKanban from './TypeViewKanban.svelte';
   import TypeViewTimeline from './TypeViewTimeline.svelte';
+  import TypeViewCalendar from './TypeViewCalendar.svelte';
   import TypeViewLayoutSwitch from './TypeViewLayoutSwitch.svelte';
   import TypeViewFilters from './TypeViewFilters.svelte';
   import type { MapExportHooks } from '../map/map-export';
@@ -30,7 +31,7 @@
   import { comparePropertyValues, viewToCsv } from '../../../shared/objects/view-values';
   import { boardColumns, groupByForSpec, moveColumn, resolveGroupBy } from '../../../shared/objects/kanban';
   import { canShowTimeline, timelineSpecForType } from '../../../shared/objects/timeline';
-  import { calendarSpecForType } from '../../../shared/objects/calendar';
+  import { calendarSpecForType, canShowCalendar } from '../../../shared/objects/calendar';
   import { objectTypesStore } from '../stores/object-types.svelte';
   import { effectivePropertyDefs } from '../../../shared/objects/inheritance';
   import { displayPropertyValue } from '../../../shared/objects/property-display';
@@ -340,7 +341,7 @@
         {#if onSaveView}
           <button class="tv-btn" onclick={handleSaveViewClick} title="Save this view as a note, with the view embedded live">{viewSaved ? 'Saved' : 'Save as note'}</button>
         {/if}
-        <TypeViewLayoutSwitch layout={shown} properties={allColumns} timeline={canShowTimeline(typeId, catalog ?? objectTypesStore.types)} {groupBy} dateBy={timelineSpec.dateBy} {showEmptyColumns} {onStateChange} />
+        <TypeViewLayoutSwitch layout={shown} properties={allColumns} timeline={canShowTimeline(typeId, catalog ?? objectTypesStore.types)} calendar={canShowCalendar(typeId, catalog ?? objectTypesStore.types)} {groupBy} dateBy={timelineSpec.dateBy} {showEmptyColumns} {onStateChange} />
       </div>
     </header>
   {/if}
@@ -355,8 +356,9 @@
     <p class="tv-empty">{emptyScopedMessage(type.label)}</p>
   {:else if shown === 'timeline'}
     <TypeViewTimeline {type} properties={allColumns} instances={scoped} {filters} from={timelineSpec.from} to={timelineSpec.to} dateBy={timelineSpec.dateBy} {display} {rowType} {onOpenNote} onStateChange={(p) => onStateChange(p)} readOnly={chromeless} exportMode={timelineExport} />
-  {:else if shown === 'list' || shown === 'calendar'}
-    <!-- #2702 draws the month grid; until then a `calendar` spec (a type with a date property) shows the list. -->
+  {:else if shown === 'calendar'}
+    <TypeViewCalendar {type} properties={allColumns} instances={scoped} month={calendarSpec.month} dateBy={calendarSpec.dateBy} {display} {rowType} {onOpenNote} onStateChange={(p) => onStateChange(p)} readOnly={chromeless} />
+  {:else if shown === 'list'}
     <div class="tv-list">
       {#each scoped as inst (inst.path)}
         {@const rt = rowType(inst)}
