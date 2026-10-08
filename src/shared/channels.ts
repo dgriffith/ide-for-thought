@@ -753,6 +753,8 @@ export const Channels = {
   // Renderer → main (for menu-triggered main-process actions)
   APP_GET_INFO: 'app:getInfo',
   APP_GET_SHORTCUTS: 'app:getShortcuts',
+  /** The OS locale with its region (`app.getSystemLocale()`) — the Calendar's Automatic week start (#2702). */
+  APP_GET_SYSTEM_LOCALE: 'app:getSystemLocale',
   EXPORT_CSV: 'export:csv',
   SHELL_REVEAL_FILE: 'shell:revealFile',
   SHELL_OPEN_IN_DEFAULT: 'shell:openInDefault',

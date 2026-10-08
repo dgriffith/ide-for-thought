@@ -49,7 +49,7 @@ vi.mock('electron', () => ({
     handle: (channel: string, fn: Handler) => { handlers.set(channel, fn); },
     on: (channel: string, fn: Handler) => { listeners.set(channel, fn); },
   },
-  app: { getName: () => 'Minerva', getVersion: () => '2.0.0-test' },
+  app: { getName: () => 'Minerva', getVersion: () => '2.0.0-test', getSystemLocale: () => 'en-DE' },
   BrowserWindow: { fromWebContents: (...a: unknown[]) => h.fromWebContents(...a) },
 }));
 
@@ -327,6 +327,10 @@ describe('register-app (#1840)', () => {
   it('exposes the menu shortcut reference', () => {
     h.getMenuShortcuts.mockReturnValue([{ label: 'Save', accelerator: 'CmdOrCtrl+S' }]);
     expect(call(Channels.APP_GET_SHORTCUTS)).toEqual([{ label: 'Save', accelerator: 'CmdOrCtrl+S' }]);
+  });
+
+  it('answers the OS locale with its region, for the Calendar week start (#2702)', () => {
+    expect(call(Channels.APP_GET_SYSTEM_LOCALE)).toBe('en-DE');
   });
 
   it('records the theme the renderer reports, for the native View menu', () => {

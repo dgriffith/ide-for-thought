@@ -15,7 +15,7 @@ const { instancesMock, listMock, noteTypeMapMock, exportCsvMock } = vi.hoisted((
   listMock: vi.fn(), noteTypeMapMock: vi.fn(),
 }));
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({
-  api: { types: { instances: instancesMock, list: listMock, noteTypeMap: noteTypeMapMock }, export: { csv: exportCsvMock } },
+  api: { types: { instances: instancesMock, list: listMock, noteTypeMap: noteTypeMapMock }, export: { csv: exportCsvMock }, app: { getSystemLocale: async () => 'en-GB' } },
 }));
 // #2066: TypeViewMap's own mount logic is covered by TypeViewMap.test.ts —
 // here it's a stub, so switching into the "Map" layout in these tests never
@@ -573,7 +573,7 @@ describe('timeline layout (#2607, #2608, #2715)', () => {
     instancesMock.mockResolvedValue({ type: EVENT, instances: EVENTS });
     render(TypeView, props({ typeId: 'event', layout: 'list' }));
     await screen.findByText('Moon landing');
-    expect(tabs()).toEqual(['List', 'Table', 'Gallery', 'Timeline']);
+    expect(tabs()).toEqual(['List', 'Table', 'Gallery', 'Timeline', 'Calendar']);
     cleanup();
     instancesMock.mockResolvedValue({ type: MEETING, instances: EVENTS });
     render(TypeView, props({ typeId: 'meeting', layout: 'list' }));
@@ -713,7 +713,7 @@ describe('timeline layout (#2607, #2608, #2715)', () => {
   });
 });
 
-describe('calendar layout before #2702 draws it (#2701)', () => {
+describe('calendar layout (#2701, #2702)', () => {
   // A dated type that isn't Event: Calendar is offered by having a date property, not by ancestry.
   const JOURNAL = {
     id: 'journal', label: 'Journal', classLocalName: 'Journal', icon: '📓', source: 'user' as const,
@@ -735,36 +735,54 @@ describe('calendar layout before #2702 draws it (#2701)', () => {
     const md = writeText.mock.calls.at(-1)![0] as string;
     return { md, spec: parseObjectViewSpec(md.replace(/^```object-view\n/, '').replace(/\n```\n$/, '')) };
   };
-  const listTitles = (root: HTMLElement) => [...root.querySelectorAll('.tv-list-title')].map((e) => e.textContent);
+  const drawn = (root: HTMLElement) => [...root.querySelectorAll<HTMLElement>('[data-calendar-event]')].map((e) => e.dataset['notePath']);
 
-  it('is not in the layout switcher yet, even for a type with a date property (Timeline is, #2715)', async () => {
+  it('the switcher offers Calendar only for a type with a date property, with Date by when there is a choice', async () => {
     instancesMock.mockResolvedValue({ type: JOURNAL, instances: ENTRIES });
-    render(TypeView, props({ typeId: 'journal', layout: 'list' }));
+    const onStateChange = vi.fn();
+    render(TypeView, props({ typeId: 'journal', layout: 'list', onStateChange }));
     await screen.findByText('Spring issue');
-    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['List', 'Table', 'Gallery', 'Timeline']);
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['List', 'Table', 'Gallery', 'Timeline', 'Calendar']);
     expect(screen.queryByText('Date by')).toBeNull();
+    await fireEvent.click(screen.getByRole('tab', { name: 'Calendar' }));
+    expect(onStateChange).toHaveBeenCalledWith({ layout: 'calendar' });
+    cleanup();
+    instancesMock.mockResolvedValue({ type: TYPE, instances: INSTANCES });
+    render(TypeView, props({ typeId: 'book', layout: 'list' }));
+    await screen.findByText('Dune');
+    expect(screen.queryByRole('tab', { name: 'Calendar' })).toBeNull();
   });
 
-  it('a spec that already says calendar shows the list, in the panel and in an embed, with no tab selected', async () => {
+  it('draws the month grid, placed by Date by, and writes the page back through onStateChange', async () => {
     instancesMock.mockResolvedValue({ type: JOURNAL, instances: ENTRIES });
-    const panel = render(TypeView, props({ typeId: 'journal', layout: 'calendar', month: '2026-10', dateBy: 'revised' }));
-    await screen.findByText('Spring issue');
-    expect(listTitles(panel.container)).toEqual(['Spring issue', 'Autumn issue']);
-    expect(screen.getAllByRole('tab').every((t) => t.getAttribute('aria-selected') === 'false')).toBe(true);
-    cleanup();
-    const embed = render(TypeView, props({ typeId: 'journal', layout: 'calendar', chromeless: true }));
-    await screen.findByText('Spring issue');
-    expect(listTitles(embed.container)).toEqual(['Spring issue', 'Autumn issue']);
+    const onStateChange = vi.fn();
+    const { container } = render(TypeView, props({ typeId: 'journal', layout: 'calendar', month: '2026-10', onStateChange }));
+    await waitFor(() => expect(container.querySelector('[role="grid"]')).toBeTruthy());
+    expect(screen.getByRole('tab', { name: 'Calendar' }).getAttribute('aria-selected')).toBe('true');
+    expect(drawn(container)).toEqual(['j2.md']);
+    expect(screen.getByRole('combobox', { name: 'Date by' })).toBeTruthy(); // published and revised
+    await fireEvent.click(screen.getByRole('button', { name: 'Previous month' }));
+    expect(onStateChange).toHaveBeenCalledWith({ month: '2026-09' });
+  });
+
+  it('an embed is read-only: it pages, but writes nothing back', async () => {
+    instancesMock.mockResolvedValue({ type: JOURNAL, instances: ENTRIES });
+    const onStateChange = vi.fn();
+    const { container } = render(TypeView, props({ typeId: 'journal', layout: 'calendar', month: '2026-03', chromeless: true, onStateChange }));
+    await waitFor(() => expect(drawn(container)).toEqual(['j1.md']));
+    await fireEvent.click(screen.getByRole('button', { name: 'Next month' }));
+    expect(container.querySelector('.cal-title')!.textContent).toBe('April 2026');
+    expect(onStateChange).not.toHaveBeenCalled();
   });
 
   it('Copy as markdown keeps the calendar, its month and dateBy, and omits the defaults', async () => {
     instancesMock.mockResolvedValue({ type: JOURNAL, instances: ENTRIES });
     render(TypeView, props({ typeId: 'journal', layout: 'calendar', month: '-0043-03', dateBy: 'revised' }));
-    await screen.findByText('Spring issue');
+    await screen.findByRole('grid');
     expect((await copied()).spec).toMatchObject({ typeId: 'journal', layout: 'calendar', month: '-0043-03', dateBy: 'revised' });
     cleanup();
     render(TypeView, props({ typeId: 'journal', layout: 'calendar' }));
-    await screen.findByText('Spring issue');
+    await screen.findByRole('grid');
     const { md, spec } = await copied();
     expect(md).not.toContain('"month"');
     expect(md).not.toContain('"dateBy"');
@@ -774,7 +792,7 @@ describe('calendar layout before #2702 draws it (#2701)', () => {
   it('a dateBy that is not a date property of the type is dropped from the copy', async () => {
     instancesMock.mockResolvedValue({ type: JOURNAL, instances: ENTRIES });
     render(TypeView, props({ typeId: 'journal', layout: 'calendar', month: '2026-10', dateBy: 'editor' }));
-    await screen.findByText('Spring issue');
+    await screen.findByRole('grid');
     const { md, spec } = await copied();
     expect(spec).toMatchObject({ layout: 'calendar', month: '2026-10', dateBy: null });
     expect(md).not.toContain('editor');
@@ -783,8 +801,7 @@ describe('calendar layout before #2702 draws it (#2701)', () => {
   it('a user subtype that inherits its date keeps its calendar and an inherited dateBy', async () => {
     instancesMock.mockResolvedValue({ type: DIARY, instances: ENTRIES });
     const { container } = render(TypeView, props({ typeId: 'diary', layout: 'calendar', month: '2026-10', dateBy: 'published' }));
-    await screen.findByText('Spring issue');
-    expect(listTitles(container)).toEqual(['Spring issue', 'Autumn issue']);
+    await waitFor(() => expect(drawn(container)).toEqual(['j2.md']));
     expect((await copied()).spec).toMatchObject({ typeId: 'diary', layout: 'calendar', month: '2026-10', dateBy: 'published' });
   });
 

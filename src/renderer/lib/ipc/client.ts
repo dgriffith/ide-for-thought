@@ -627,6 +627,8 @@ export interface ShortcutGroup {
 export interface AppApi {
   getInfo(): Promise<AppInfo>;
   getShortcuts(): Promise<ShortcutGroup[]>;
+  /** The OS locale WITH its region (`en-DE`; `navigator.language` has none) — the Calendar's Automatic week start (#2702). */
+  getSystemLocale(): Promise<string>;
 }
 
 export interface ImagesApi {

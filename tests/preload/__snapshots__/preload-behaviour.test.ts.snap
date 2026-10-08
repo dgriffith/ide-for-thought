@@ -4,6 +4,7 @@ exports[`preload behaviour: surface-wide invariants (#2367) > the full method â†
 {
   "app.getInfo": "invoke app:getInfo",
   "app.getShortcuts": "invoke app:getShortcuts",
+  "app.getSystemLocale": "invoke app:getSystemLocale",
   "bibliography.generate": "invoke bibliography:generate",
   "bibliography.getStyle": "invoke bibliography:getStyle",
   "bibliography.listStyles": "invoke bibliography:listStyles",

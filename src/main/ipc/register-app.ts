@@ -36,6 +36,10 @@ export function registerApp(): void {
   // Keyboard-shortcut reference for the Help menu (#804).
   handle(Channels.APP_GET_SHORTCUTS, () => getMenuShortcuts());
 
+  // The OS locale with its region, for the Calendar's Automatic week start
+  // (#2702): the renderer's `navigator.language` is the language alone.
+  handle(Channels.APP_GET_SYSTEM_LOCALE, () => app.getSystemLocale());
+
   // The renderer owns the theme (localStorage); it reports changes so the
   // native View → Theme submenu can show the active radio (#1139).
   ipcMain.on(Channels.MENU_REPORT_THEME, (e, mode: ThemeMode) => {
