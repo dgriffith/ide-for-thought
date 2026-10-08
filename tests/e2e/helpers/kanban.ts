@@ -81,3 +81,15 @@ export async function dragCardToColumn(
   await whileOver?.();
   await win.mouse.up();
 }
+
+/**
+ * Put focus on the view's last layout tab, so the next Tab lands on the board.
+ * Every layout tab is its own tab stop and the board's single tab stop comes
+ * right after the switcher. Which layouts a type offers changes, though:
+ * Project gained Timeline once Timeline was offered for any dated type
+ * (#2715), and gains Calendar next (#2702). So focus the LAST tab, never one
+ * by name.
+ */
+export async function focusLastLayoutTab(win: Page): Promise<void> {
+  await win.getByRole('tablist', { name: 'View' }).getByRole('tab').last().focus();
+}

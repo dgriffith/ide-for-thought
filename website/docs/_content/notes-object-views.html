@@ -74,6 +74,19 @@ description: Put a live list, table, gallery, map, Kanban board or timeline of y
 ```</code></pre>
 
     <p>Both are dates written the way an event's are, at whatever precision suits: a year (<code>1960</code>), a month (<code>1975-06</code>), a day (<code>1969-07-20</code>), or a time (<code>1969-07-20T14:05</code>) for a view zoomed in to hours. Years before 1 CE take a minus sign, so <code>-0099</code> is 100 BC. <code>"from"</code> starts at the beginning of what it names and <code>"to"</code> runs to the end of it, so <code>"to": "0014"</code> takes in all of AD 14. A <code>"to"</code> with a time is that moment. Leave out both and the timeline fits itself to its events, which is what a timeline you haven't zoomed saves. Leave out one and that side fits to the events. A <code>"to"</code> that comes before the <code>"from"</code> is ignored along with it, and the timeline fits all its events.</p>
+    <p>A timeline of a type with more than one date field also carries its <a href="left-sidebar-objects.html#date-by">Date by</a> choice, as <code>"dateBy"</code>: the name of the field it places notes by. A timeline of Books by when they were published, in the 1960s, looks like this:</p>
+
+<pre><code>```object-view
+{
+  "typeId": "book",
+  "layout": "timeline",
+  "from": "1960",
+  "to": "1969",
+  "dateBy": "published"
+}
+```</code></pre>
+
+    <p>Leave <code>"dateBy"</code> out and the timeline uses the type's first choice: <i>date</i> if it has one, otherwise its first date field. That's what a timeline saves when you haven't picked a field. A <code>"dateBy"</code> that doesn't name one of the type's date fields, including Event's <i>end</i>, is ignored the same way. Only an Event dated by its <i>date</i> draws bars from its <i>end</i>; by any other field, each note is a point.</p>
     <p>In the note, the timeline is for looking at. It shows the saved range without the <b>−</b>, <b>+</b> and <b>Fit</b> buttons, and scrolling or dragging doesn't move it. The keyboard still steps from event to event, <kbd>⏎</kbd> and a click still open them, and <b>List</b> still swaps in the list. To look at a different stretch of time, open the type's timeline, zoom it there, and save it again.</p>
 
     <h2 id="kept-current">It stays current</h2>

@@ -7,14 +7,17 @@
  */
 import { describe, it, expect } from 'vitest';
 import { civilMs, dateSpan } from '../../../../src/shared/objects/date-precision';
-import { buildTimelineModel, segmentsOf } from '../../../../src/renderer/lib/components/timeline/timeline-events';
+import type { PropertyDef } from '../../../../src/shared/objects/type-def';
+import { buildTimelineModel, segmentsOf, timelineProperties } from '../../../../src/renderer/lib/components/timeline/timeline-events';
 import { cullToView, labelWidth, layoutTimeline, MARKER_PX, shortLabel, MAX_LABEL_CHARS, timeOrder, trailingLabelRoom } from '../../../../src/renderer/lib/components/timeline/timeline-layout';
 
 const row = (path: string, title: string, date: string | null, end: string | null = null) =>
   ({ path, title, values: { date, end }, cover: null });
 /** `Intl` spaces a range with thin spaces; compare with plain ones. */
 const norm = (s: string) => s.replace(/\s/g, ' ');
-const build = (rows: ReturnType<typeof row>[]) => buildTimelineModel(rows, { locale: 'en-GB' });
+/** Event's start and end (`timelineProperties` for a view dated by `date`). */
+const EVENT = { dateProperty: 'date', endProperty: 'end' };
+const build = (rows: ReturnType<typeof row>[]) => buildTimelineModel(rows, { ...EVENT, locale: 'en-GB' });
 
 describe('buildTimelineModel', () => {
   const m = build([
@@ -84,6 +87,47 @@ describe('buildTimelineModel', () => {
     const standup = day.dated.find((e) => e.key === 'a.md')!;
     expect(standup.end).toBe(civilMs(2026, 9, 5, 9, 15)); // a clock end is the instant
     expect(standup.dateText).toBe('5 Oct 2026, 9:00 – 5 Oct 2026, 9:15');
+  });
+});
+
+describe('Date by: which properties a timeline reads (#2715)', () => {
+  const p = (name: string, type: PropertyDef['type']): PropertyDef => ({ name, type });
+  const EVENT_PROPS = [p('date', 'datetime'), p('end', 'datetime'), p('location', 'text'), p('recorded', 'date')];
+  const BOOK_PROPS = [p('author', 'text'), p('published', 'date')];
+  const inst = (path: string, values: Record<string, string | null>) => ({ path, title: path.replace('.md', ''), values, cover: null });
+
+  it('Event dated by `date` (the default) reads `end`: a bar', () => {
+    expect(timelineProperties(null, EVENT_PROPS)).toEqual({ dateProperty: 'date', endProperty: 'end' });
+    expect(timelineProperties('date', EVENT_PROPS)).toEqual({ dateProperty: 'date', endProperty: 'end' });
+    const m = buildTimelineModel([inst('apollo.md', { date: '1969-07-16', end: '1969-07-24' })], { ...timelineProperties(null, EVENT_PROPS), locale: 'en-GB' });
+    expect(m.dated[0]).toMatchObject({ ranged: true, start: civilMs(1969, 6, 16), end: civilMs(1969, 6, 25) });
+  });
+
+  it('Event dated by another date property reads no end: points, whatever `end` says', () => {
+    expect(timelineProperties('recorded', EVENT_PROPS)).toEqual({ dateProperty: 'recorded', endProperty: null });
+    const m = buildTimelineModel(
+      [inst('apollo.md', { date: '1969-07-16', end: '1969-07-24', recorded: '1970-01-02' })],
+      { ...timelineProperties('recorded', EVENT_PROPS), locale: 'en-GB' },
+    );
+    expect(m.dated[0]).toMatchObject({ ranged: false, endSpan: null, start: civilMs(1970, 0, 2), end: civilMs(1970, 0, 3), endNote: null });
+  });
+
+  it('Book is placed by `published` — points, and a partial date its precision span', () => {
+    expect(timelineProperties(null, BOOK_PROPS)).toEqual({ dateProperty: 'published', endProperty: null });
+    const m = buildTimelineModel(
+      [inst('dune.md', { published: '1965-08-01' }), inst('gatsby.md', { published: '1925' }), inst('draft.md', { published: null })],
+      { ...timelineProperties(null, BOOK_PROPS), locale: 'en-GB' },
+    );
+    const byKey = new Map(m.dated.map((e) => [e.key, e] as const));
+    expect(byKey.get('dune.md')).toMatchObject({ ranged: false, approx: false, start: civilMs(1965, 7, 1) });
+    expect(byKey.get('gatsby.md')).toMatchObject({ ranged: false, approx: true, start: civilMs(1925, 0, 1), end: civilMs(1926, 0, 1) });
+    expect(m.undated.map((u) => [u.key, u.reason])).toEqual([['draft.md', 'missing']]);
+  });
+
+  it('an invalid dateBy falls back to the default; a type with no date reads Event\'s `date`', () => {
+    expect(timelineProperties('author', BOOK_PROPS)).toEqual({ dateProperty: 'published', endProperty: null });
+    expect(timelineProperties('end', EVENT_PROPS)).toEqual({ dateProperty: 'date', endProperty: 'end' });
+    expect(timelineProperties(null, [p('serves', 'number')])).toEqual({ dateProperty: 'date', endProperty: null });
   });
 });
 

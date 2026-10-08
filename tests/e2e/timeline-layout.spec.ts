@@ -3,14 +3,15 @@
  * point, a span, a partial date, an undated event and a Meeting (an Event
  * subtype, #2612) — zoom it, step through it by keyboard, open an event with
  * Enter, and check the visible range round-trips through `from`/`to` when the
- * layout is switched away and back.
+ * layout is switched away and back. And a type that isn't an Event — Book —
+ * as a timeline placed by its `published` date (#2715).
  */
 import { test, expect } from './helpers/test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { closeMinerva, launchMinerva, projectRoot } from './helpers/launch';
-import { domainOf, openEventTimeline, seedNotes, type SeedNotes } from './helpers/timeline';
+import { domainOf, openEventTimeline, openTypeTimeline, seedNotes, type SeedNotes } from './helpers/timeline';
 
 const NOTES: SeedNotes = {
   'events/Moon landing.md': '---\ntype: event\ndate: 1969-07-20\n---\n# Moon landing\n',
@@ -103,6 +104,50 @@ test('an Event timeline: draw, zoom, keyboard, open, and the range round-trips (
       const d = await domainOf(win);
       expect(d.start).toBeLessThan(Date.UTC(1969, 6, 16));
       expect(d.end).toBeGreaterThan(Date.UTC(1969, 8, 1));
+    });
+  } finally {
+    await closeMinerva(app);
+    for (const d of [userDataDir, projectDir]) fs.rmSync(d, { recursive: true, force: true });
+  }
+});
+
+const BOOKS: SeedNotes = {
+  'books/The Great Gatsby.md': '---\ntype: book\nauthor: F. Scott Fitzgerald\npublished: 1925\n---\n# The Great Gatsby\n',
+  'books/Dune.md': '---\ntype: book\nauthor: Frank Herbert\npublished: 1965-08-01\n---\n# Dune\n',
+  'books/Neuromancer.md': '---\ntype: book\nauthor: William Gibson\npublished: 1984-07-01\n---\n# Neuromancer\n',
+  'books/Unwritten.md': '---\ntype: book\nauthor: Nobody\n---\n# Unwritten\n',
+};
+
+test('a Book timeline: points placed by `published`, with no Date by picker (one date property) (#2715)', async () => {
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-timeline-books-userdata-'));
+  const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-timeline-books-project-'));
+  fs.cpSync(path.join(projectRoot, 'tests', 'fixtures', 'sample-project'), projectDir, { recursive: true });
+  seedNotes(projectDir, BOOKS);
+  fs.writeFileSync(path.join(userDataDir, 'session.json'), JSON.stringify([{ x: 80, y: 80, width: 1400, height: 900, rootPath: projectDir }]));
+  const app = await launchMinerva({ userDataDir, env: { MINERVA_E2E: '1' } });
+  try {
+    const win = await app.firstWindow({ timeout: 20_000 });
+    await expect(win.getByRole('button', { name: 'Open Thoughtbase' })).toHaveCount(0, { timeout: 25_000 });
+    const { events, eventFor } = await test.step('open the Book view as a timeline', () => openTypeTimeline(win, 'Book', 3));
+
+    await test.step('each book is a point named and placed by its `published` date', async () => {
+      await expect(eventFor('Dune')).toHaveAttribute('aria-label', /^Dune, (1 Aug 1965|Aug 1, 1965)$/);
+      await expect(eventFor('The Great Gatsby')).toHaveAttribute('aria-label', /^The Great Gatsby, 1925$/);
+      await expect(eventFor('The Great Gatsby')).toHaveClass(/approx/); // a year alone is approximate
+      // No book has an end: a day is a point, and 1925 is the year's stretch, hatched — never a dated range.
+      await expect(eventFor('Dune')).toHaveAttribute('data-kind', 'point');
+      await expect(eventFor('Neuromancer')).toHaveAttribute('data-kind', 'point');
+      for (const name of await events.evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')))) expect(name).not.toContain('–');
+      const x = async (title: string) => (await eventFor(title).boundingBox())!.x;
+      const [gatsby, dune, neuromancer] = [await x('The Great Gatsby'), await x('Dune'), await x('Neuromancer')];
+      expect(gatsby).toBeLessThan(dune);
+      expect(dune).toBeLessThan(neuromancer);
+      // Fit spans the published dates: 1925 through 1984.
+      const d = await domainOf(win);
+      expect(d.start).toBeLessThanOrEqual(Date.UTC(1925, 0, 1));
+      expect(d.end).toBeGreaterThanOrEqual(Date.UTC(1984, 6, 2));
+      await expect(win.locator('.tl-undated')).toContainText('Unwritten');
+      await expect(win.getByRole('combobox', { name: 'Date by' })).toHaveCount(0);
     });
   } finally {
     await closeMinerva(app);

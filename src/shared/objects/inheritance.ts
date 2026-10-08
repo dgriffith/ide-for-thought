@@ -90,3 +90,28 @@ export function inheritsFrom(
   }
   return false;
 }
+
+/**
+ * `typeId`'s effective properties when the catalog SETTLES them, else null:
+ * `types` null, a catalog without `typeId`, or a `parent` chain that leaves
+ * the catalog before it ends (a subtype whose ancestors haven't loaded yet).
+ * A cycle settles them — `effectivePropertyDefs` stops there too. What a view
+ * spec's judgements (`timelineSpecForType`, `calendarSpecForType`) read, so a
+ * half-loaded catalog keeps a spec as written instead of judging it (#2701,
+ * #2715).
+ */
+export function settledPropertyDefs(typeId: string, types: readonly TypeLike[] | null): PropertyDef[] | null {
+  if (types === null) return null;
+  const byId = new Map(types.map((t) => [t.id, t] as const));
+  const visited = new Set<string>();
+  let cur = byId.get(typeId);
+  if (!cur) return null;
+  while (!visited.has(cur.id)) {
+    visited.add(cur.id);
+    if (!cur.parent) break;
+    const next = byId.get(cur.parent);
+    if (!next) return null; // the chain leaves the catalog: not known yet
+    cur = next;
+  }
+  return effectivePropertyDefs(typeId, byId);
+}

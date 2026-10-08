@@ -1,16 +1,23 @@
 /**
  * The Timeline layout's view-spec model (#2607, epic #2606): which types may
- * show it, and the visible range it pins. Pure, so the panel, an embed and
- * every export (all `TypeView`) read a spec the same way. Nothing here draws;
- * #2608 does, from `timelineDomain`.
+ * show it, the visible range it pins, and the date property it places notes
+ * by. Pure, so the panel, an embed and every export (all `TypeView`) read a
+ * spec the same way. Nothing here draws; #2608 does, from `timelineDomain`.
  *
- * - **Event types only.** `timeline` is offered for Event and any type that
- *   inherits from it, however deep (`canShowTimeline`). A spec that names
- *   `timeline` for another type reads back as the default layout wherever the
- *   type is known (`timelineSpecForType`), never as an error. Where it isn't
- *   known yet (the type, or one of its ancestors, isn't in the catalog), the
- *   spec is kept as written and judged when the view is drawn — the split
- *   `groupByForSpec` uses.
+ * - **Any type with a date** (#2715, the Calendar design's Decision 1).
+ *   `timeline` is offered for a type with a `date` or `datetime` property,
+ *   own or inherited (`canShowTimeline` — the same rule as `canShowCalendar`,
+ *   `date-by.ts`'s `hasDateProperty`). It used to be Event and its subtypes
+ *   only. A spec that names `timeline` for another type reads back as the
+ *   default layout wherever the type is known (`timelineSpecForType`), never
+ *   as an error. Where it isn't known yet (the type, or one of its ancestors,
+ *   isn't in the catalog), the spec is kept as written and judged when the
+ *   view is drawn — the split `groupByForSpec` uses.
+ * - **`dateBy`** is `date-by.ts`'s field, the ONE Calendar reads too, so a
+ *   view switched between the two keeps its choice. Validated against the
+ *   type's date properties here, where the type is known (`dateByForSpec`).
+ *   Only Event's `date` / `end` pair draws bars (`endPropertyFor`, Decision
+ *   2); any other *Date by* draws points, or precision spans for partial dates.
  * - **`from` / `to`** are date values in the spike's grammar
  *   (`date-precision.ts`): `"1960"`, `"1975-06"`, `"1969-07-20"`, `"-0043"`.
  *   The visible domain is `dateRange(from, to)`: from the start of `from`'s
@@ -31,11 +38,9 @@
  *     per the spike — not swapped, and not half-kept.
  */
 import type { ViewLayout } from '../types';
-import { inheritsFrom, type TypeLike } from './inheritance';
+import { settledPropertyDefs, type TypeLike } from './inheritance';
+import { dateByForSpec, dateProperties, hasDateProperty } from './date-by';
 import { civilMs, dateRange, dateSpan, isClockPrecision, parseDateValue } from './date-precision';
-
-/** The stock Event type's id — the root of every type a timeline can show. */
-export const EVENT_TYPE_ID = 'event';
 
 /** A type view's default layout (`openTypeView`, a restored tab without one). */
 export const DEFAULT_VIEW_LAYOUT: ViewLayout = 'table';
@@ -49,12 +54,11 @@ export interface TimelineRange {
 /** Fit all events: the default, omitted when serialised. */
 export const FIT_ALL: TimelineRange = Object.freeze({ from: null, to: null });
 
-type TypeRef = Pick<TypeLike, 'id' | 'parent'>;
-
-/** May the view of `typeId` show a Timeline? Event, or any descendant of it
- *  through `parent` in the catalog `types`. */
-export function canShowTimeline(typeId: string, types: readonly TypeRef[]): boolean {
-  return inheritsFrom(typeId, EVENT_TYPE_ID, new Map(types.map((t) => [t.id, t] as const)));
+/** May the view of `typeId` show a Timeline? It has a date or datetime
+ *  property, own or inherited through `parent` in the catalog `types` — the
+ *  same rule as `canShowCalendar` (#2715). False for a type the catalog lacks. */
+export function canShowTimeline(typeId: string, types: readonly TypeLike[]): boolean {
+  return hasDateProperty(typeId, types);
 }
 
 /** One edge from untrusted JSON: a date value at any precision, as written
@@ -152,46 +156,38 @@ export function timelineRangeFromDomain(start: number, end: number): TimelineRan
   return { from: formatMinute(Math.floor(start / MINUTE_MS) * MINUTE_MS), to: formatMinute(Math.ceil(end / MINUTE_MS) * MINUTE_MS) };
 }
 
-/** The timeline fields of a view spec. */
+/** The timeline fields of a view spec. `dateBy` is shared with Calendar. */
 export interface TimelineSpecFields {
   layout: ViewLayout;
   from: string | null;
   to: string | null;
+  dateBy: string | null;
 }
 
 /**
- * The layout and range a spec carries for `typeId`, judged against the
- * catalog: a `timeline` layout for a type that isn't Event or a descendant
- * reads back as `DEFAULT_VIEW_LAYOUT`, and its range is dropped (it means
- * nothing to another layout). Where the schema isn't known here, the spec is
- * kept as written: `types` null, a catalog without `typeId`, or a `parent`
- * chain that leaves the catalog before it ends — a subtype whose ancestors
- * haven't loaded yet must not lose its timeline to a half-loaded catalog.
+ * The layout, range and date property a spec carries for `typeId`, judged
+ * against the catalog:
+ * - a type with no date property: a `timeline` layout reads back as
+ *   `DEFAULT_VIEW_LAYOUT`, and the range and `dateBy` are dropped (they mean
+ *   nothing without a date);
+ * - a type with one: the range is kept under any layout, and a `dateBy` that
+ *   isn't one of its date choices is dropped (`dateByForSpec`) — a text
+ *   property, a renamed one, or Event's `end`.
+ *
+ * Where the schema isn't known here, the spec is kept as written: `types`
+ * null, a catalog without `typeId`, or a `parent` chain that leaves the
+ * catalog before it ends — a subtype whose ancestors haven't loaded yet must
+ * not lose its timeline, or an inherited `dateBy`, to a half-loaded catalog.
  */
 export function timelineSpecForType(
   spec: TimelineSpecFields,
   typeId: string,
-  types: readonly TypeRef[] | null,
+  types: readonly TypeLike[] | null,
 ): TimelineSpecFields {
-  if (types === null || !isKnownNonEvent(typeId, new Map(types.map((t) => [t.id, t] as const)))) {
-    return { layout: spec.layout, from: spec.from, to: spec.to };
+  const props = settledPropertyDefs(typeId, types);
+  if (props === null) return { layout: spec.layout, from: spec.from, to: spec.to, dateBy: spec.dateBy };
+  if (dateProperties(props).length === 0) {
+    return { layout: spec.layout === 'timeline' ? DEFAULT_VIEW_LAYOUT : spec.layout, from: null, to: null, dateBy: null };
   }
-  return { layout: spec.layout === 'timeline' ? DEFAULT_VIEW_LAYOUT : spec.layout, from: null, to: null };
-}
-
-/** Does the catalog settle that `typeId` is not Event or a descendant — its
- *  whole `parent` chain present, ending at a root (or a cycle) without Event? */
-function isKnownNonEvent(typeId: string, byId: ReadonlyMap<string, TypeRef>): boolean {
-  const visited = new Set<string>();
-  let cur = byId.get(typeId);
-  if (!cur) return false;
-  while (!visited.has(cur.id)) {
-    if (cur.id === EVENT_TYPE_ID) return false;
-    visited.add(cur.id);
-    if (!cur.parent) return true;
-    const next = byId.get(cur.parent);
-    if (!next) return false; // the chain leaves the catalog: not known yet
-    cur = next;
-  }
-  return true; // a cycle without Event
+  return { layout: spec.layout, from: spec.from, to: spec.to, dateBy: dateByForSpec(spec.dateBy, props) };
 }

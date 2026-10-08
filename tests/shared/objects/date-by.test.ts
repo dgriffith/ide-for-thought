@@ -1,14 +1,15 @@
 /**
- * *Date by* (#2701): the shared view-spec field Calendar reads now and
- * Timeline adopts next (#2715) — its choices, default, untrusted parse,
+ * *Date by* (#2701): the ONE view-spec field Calendar and Timeline (#2715)
+ * both read — its choices, default, untrusted parse,
  * validation against the type, and Event's end convention (Decisions 1 and 2
  * of the design story #2700).
  */
 import { describe, it, expect } from 'vitest';
 import {
-  dateByChoices, dateByForSpec, dateProperties, defaultDateBy, endPropertyFor, isDateProperty, parseDateBy, resolveDateBy,
+  dateByChoices, dateByForSpec, dateProperties, defaultDateBy, endPropertyFor, hasDateProperty, isDateProperty, parseDateBy, resolveDateBy,
 } from '../../../src/shared/objects/date-by';
 import type { PropertyDef } from '../../../src/shared/objects/type-def';
+import { settledPropertyDefs } from '../../../src/shared/objects/inheritance';
 
 const p = (name: string, type: PropertyDef['type']): PropertyDef => ({ name, type });
 const EVENT = [p('date', 'datetime'), p('end', 'datetime'), p('location', 'link-to-type')];
@@ -97,5 +98,29 @@ describe('endPropertyFor (#2701, Decision 2)', () => {
     expect(endPropertyFor(resolveDateBy(null, TRIP), TRIP)).toBeNull(); // `returns` is not an end
     expect(endPropertyFor(resolveDateBy('started', ENDS_ONLY), ENDS_ONLY)).toBeNull();
     expect(endPropertyFor(null, EVENT)).toBeNull();
+  });
+});
+
+describe('hasDateProperty and settledPropertyDefs: the one rule behind canShowCalendar and canShowTimeline (#2715)', () => {
+  const TYPES = [
+    { id: 'book', properties: BOOK },
+    { id: 'novel', parent: 'book', properties: [] },
+    { id: 'recipe', properties: RECIPE },
+    { id: 'orphan', parent: 'missing', properties: [p('when', 'date')] },
+  ];
+
+  it('is true for an own or inherited date property, false for none and for a type the catalog lacks', () => {
+    expect(hasDateProperty('book', TYPES)).toBe(true);
+    expect(hasDateProperty('novel', TYPES)).toBe(true);
+    expect(hasDateProperty('recipe', TYPES)).toBe(false);
+    expect(hasDateProperty('ghost', TYPES)).toBe(false);
+    expect(hasDateProperty('orphan', TYPES)).toBe(true); // its own date, whatever its parent turns out to be
+  });
+
+  it('settles the effective properties only when the whole chain is in the catalog', () => {
+    expect(names(settledPropertyDefs('novel', TYPES)!)).toEqual(['author', 'published', 'rating']);
+    expect(settledPropertyDefs('orphan', TYPES)).toBeNull();
+    expect(settledPropertyDefs('ghost', TYPES)).toBeNull();
+    expect(settledPropertyDefs('book', null)).toBeNull();
   });
 });

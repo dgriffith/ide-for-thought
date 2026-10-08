@@ -12,7 +12,7 @@ description: The Objects panel — your project browsed by kind rather than by f
     <p>Click a type to expand it and see its notes; click again to collapse. Clicking a note opens it in the editor. Each note carries its own icon, which matters when a type has more specific kinds beneath it — a Book that's really a Novel shows the Novel icon while still being counted as a Book.</p>
 
     <h2 id="views">Opening a type as a collection</h2>
-    <p>The ⤢ button on a type row opens all of its notes in the main area, where they're more than a list. There are three ways to look at the same set, plus a map for a type with a location, a board for a type with a choice field, and a timeline for events:</p>
+    <p>The ⤢ button on a type row opens all of its notes in the main area, where they're more than a list. There are three ways to look at the same set, plus a map for a type with a location, a board for a type with a choice field, and a timeline for a type with a date:</p>
 
     <div class="deflist">
       <div class="row">
@@ -37,7 +37,7 @@ description: The Objects panel — your project browsed by kind rather than by f
       </div>
       <div class="row">
         <div class="k">Timeline</div>
-        <div class="v">Events along a line of time: a point for a moment, a bar for a stretch, zoomable from millennia down to minutes. Offered for Event and every kind of event beneath it — Meeting is one, so your meetings are on it too. See <a href="#timeline">The timeline</a> below.</div>
+        <div class="v">Notes along a line of time: a point for a moment, a bar for an event's stretch, zoomable from millennia down to minutes. Offered for any type with a date field: Event and Meeting, and Books and Articles by when they were published, Projects by when they started, Ideas by when they came up and Claims by their <i>As of</i> date. See <a href="#timeline">The timeline</a> below.</div>
       </div>
     </div>
 
@@ -109,9 +109,14 @@ description: The Objects panel — your project browsed by kind rather than by f
     <p>Group by, the column order and Show empty columns belong to the view, like its sort and filters. They're kept with the tab, and <a href="#saved-views">Save as note</a> (Minerva suggests a name like <i>Project board</i>) and <b>Copy as markdown</b> carry them into the note. A board in a note is for looking at: its cards open their notes, but they don't drag and have no <b>Move to ▸</b>, and the headers have no menus. A web page or PDF exported from the note, and a published site, show the same board read-only, its columns wrapping onto the page and each card a link to its note. <a href="notes-object-views.html#kanban">Object views</a> shows what a saved board looks like in the editor.</p>
 
     <h2 id="timeline">The timeline</h2>
-    <p>A timeline puts a type's notes on a line of time, read from each note's <i>date</i> and, if it has one, its <i>end</i>. It's offered for the stock Event type and any type whose parent is Event, however far down: Minerva's own Meeting is a kind of Event, so a timeline of Events has your meetings on it, and a Meeting view can be a timeline of its own. A type you've made with Event as its parent — a Conference, say — gets one too.</p>
+    <p>A timeline puts a type's notes on a line of time. It's offered for any type with a <a href="settings-object-types.html#field-kinds">date or datetime</a> field, its own or one it inherits from its parent. Of the stock types, that's Event and Meeting (by <i>date</i>), Book and Article (by <i>published</i>), Project (by <i>started</i>), Idea (by <i>created</i>) and Claim (by <i>As of</i>). Minerva's own Meeting is a kind of Event, so a timeline of Events has your meetings on it, and a Meeting view can be a timeline of its own. A type you've made with a date field, or with a dated type as its parent, gets one too.</p>
+    <p>Event notes are read from their <i>date</i> and, if they have one, their <i>end</i>. Every other type is placed by its date field, one point per note — or, for a date like <code>1925</code>, the stretch it names.</p>
 
     <figure class="shot-img"><img src="img/left-sidebar-objects-timeline.png" alt="An Event view on its Timeline tab, fitted to April 2026, with the −, +, Fit and List buttons above a date axis. A bar with a dashed outline runs across the whole month for a spring festival dated only to April. Below it, in lanes so nothing overlaps: points for a packing call, a castle tour and a dinner, each at its time of day; bars for four days in Prague, the night train to Budapest, three days in Budapest and a day at the baths. Under the drawing, the Undated tray lists one trip with no date yet." loading="lazy" /><figcaption>Screenshot — a trip's events on a timeline, with one still undated</figcaption></figure>
+
+    <h3 id="date-by">Date by</h3>
+    <p>A type with more than one date field, such as a Trip with <i>departs</i> and <i>returns</i>, has a <b>Date by</b> picker beside the layout buttons, and the timeline places each note by the field you pick. A type with one date field has no picker. The first choice is <i>date</i> if the type has one, and otherwise its first date field. Event's <i>end</i> isn't offered on its own, because it ends the <i>date</i> range rather than starting one.</p>
+    <p>Only an Event's <i>date</i> and <i>end</i> draw bars. If you date an Event view by another field, or date any other type, every note is a point at that date, or the stretch an approximate date names, whatever its <i>end</i> says. Date by belongs to the view, like its range: it's kept with the tab and saved with the view.</p>
 
     <h3>Points and bars</h3>
     <p>An event with only a <i>date</i> takes up the time its date names: a day, if you gave a day. An event with an <i>end</i> as well runs from its date to its end. How each one is drawn depends on how far you've zoomed in. Anything too short to see at the current zoom is a point, and anything wider is a bar, with its title inside the bar when it fits and beside it when it doesn't. A day-long event is a point when you're looking at a century and a bar when you're looking at a week. A time of day (<code>2026-10-05T14:30</code>) is a moment, so it stays a point.</p>
@@ -130,7 +135,7 @@ description: The Objects panel — your project browsed by kind rather than by f
     <p>An <i>end</i> that comes before its <i>date</i>, or that isn't a date at all, doesn't send the event to the tray. The event is drawn at its start as if it had no end, and its hover preview flags the end that was ignored.</p>
 
     <h3>Zooming and panning</h3>
-    <p>The timeline opens fitted to all its dated events. Scroll or pinch to zoom in or out around the pointer. Drag, scroll sideways, or hold <kbd>⇧</kbd> while scrolling to pan. The <b>−</b> and <b>+</b> buttons above the drawing zoom around the middle, and <b>Fit</b> shows every dated event again. If the view has a range filter on <i>date</i>, Fit stays within it. Finishing a drag never opens the event under it. The axis labels follow the zoom, from years down to hours and minutes.</p>
+    <p>The timeline opens fitted to all its dated events. Scroll or pinch to zoom in or out around the pointer. Drag, scroll sideways, or hold <kbd>⇧</kbd> while scrolling to pan. The <b>−</b> and <b>+</b> buttons above the drawing zoom around the middle, and <b>Fit</b> shows every dated event again. If the view has a range filter on the field it's dated by, Fit stays within it. Finishing a drag never opens the event under it. The axis labels follow the zoom, from years down to hours and minutes.</p>
     <p>The range you're looking at belongs to the view. It's kept with the tab, so switching to the table and back, or going <a href="navigation-back-forward.html">Back</a> to it, brings you to the same stretch of time.</p>
 
     <h3>By keyboard</h3>
@@ -165,7 +170,7 @@ description: The Objects panel — your project browsed by kind rather than by f
     <p>The <b>List</b> button beside the zoom buttons swaps the drawing for a list of the same events, in the same order, with the same dates, each marked <i>(approximate)</i> where it is and with any ignored end noted. It's there for anyone who'd rather read than look, whether you use a screen reader or just want the dates in a column. Press <b>List</b> again to get the drawing back. The Undated tray is under both.</p>
 
     <h3>Saving a timeline</h3>
-    <p>The visible range goes with the view: <a href="#saved-views">Save as note</a> (Minerva suggests <i>Event timeline</i>) and <b>Copy as markdown</b> keep it as a <code>from</code> and <code>to</code>, so the note shows the same stretch of time. A timeline still fitted to its events saves no range and fits itself whenever it's shown. A timeline in a note can be stepped through and opened, but not zoomed or panned. A web page or PDF exported from the note, and a published site, show a still timeline of the saved range, with each event a link to its note, approximate dates marked as approximate, and the undated events listed after it. A very crowded timeline is drawn with its first 30 lanes and a note of how many more events there are. <a href="notes-object-views.html#timeline">Object views</a> shows what a saved timeline looks like in the editor.</p>
+    <p>The visible range goes with the view: <a href="#saved-views">Save as note</a> (Minerva suggests <i>Event timeline</i>) and <b>Copy as markdown</b> keep it as a <code>from</code> and <code>to</code>, so the note shows the same stretch of time, and a Date by choice as <code>dateBy</code>. A timeline still fitted to its events saves no range and fits itself whenever it's shown. A timeline in a note can be stepped through and opened, but not zoomed or panned. A web page or PDF exported from the note, and a published site, show a still timeline of the saved range, dated by the same field, with each event a link to its note, approximate dates marked as approximate, and the undated events listed after it. A very crowded timeline is drawn with its first 30 lanes and a note of how many more events there are. <a href="notes-object-views.html#timeline">Object views</a> shows what a saved timeline looks like in the editor.</p>
 
     <div class="box">
       <span class="label">Timeline, not Calendar</span>

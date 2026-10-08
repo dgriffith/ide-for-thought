@@ -134,10 +134,10 @@
         )
       : [],
   );
-  // A `timeline` spec for a non-Event type (#2607), or a `calendar` one for a type with no
-  // date property (#2701), reads back as the default layout; kept as written until the type loads.
+  // A `timeline` (#2607, #2715) or `calendar` (#2701) spec for a type with no
+  // date property reads back as the default layout; kept as written until the type loads.
   const catalog = $derived(type ? [...objectTypesStore.types, type] : null);
-  const timelineSpec = $derived(timelineSpecForType({ layout, from, to }, typeId, catalog));
+  const timelineSpec = $derived(timelineSpecForType({ layout, from, to, dateBy }, typeId, catalog));
   const calendarSpec = $derived(calendarSpecForType({ layout: timelineSpec.layout, month, dateBy }, typeId, catalog));
   const shown = $derived<Layout>(calendarSpec.layout);
   // Visible columns (table): null on the tab means "all". Order follows the
@@ -340,7 +340,7 @@
         {#if onSaveView}
           <button class="tv-btn" onclick={handleSaveViewClick} title="Save this view as a note, with the view embedded live">{viewSaved ? 'Saved' : 'Save as note'}</button>
         {/if}
-        <TypeViewLayoutSwitch layout={shown} properties={allColumns} timeline={canShowTimeline(typeId, type ? [...objectTypesStore.types, type] : objectTypesStore.types)} {groupBy} {showEmptyColumns} {onStateChange} />
+        <TypeViewLayoutSwitch layout={shown} properties={allColumns} timeline={canShowTimeline(typeId, catalog ?? objectTypesStore.types)} {groupBy} dateBy={timelineSpec.dateBy} {showEmptyColumns} {onStateChange} />
       </div>
     </header>
   {/if}
@@ -354,7 +354,7 @@
   {:else if scoped.length === 0}
     <p class="tv-empty">{emptyScopedMessage(type.label)}</p>
   {:else if shown === 'timeline'}
-    <TypeViewTimeline {type} properties={allColumns} instances={scoped} {filters} from={timelineSpec.from} to={timelineSpec.to} {display} {rowType} {onOpenNote} onStateChange={(p) => onStateChange(p)} readOnly={chromeless} exportMode={timelineExport} />
+    <TypeViewTimeline {type} properties={allColumns} instances={scoped} {filters} from={timelineSpec.from} to={timelineSpec.to} dateBy={timelineSpec.dateBy} {display} {rowType} {onOpenNote} onStateChange={(p) => onStateChange(p)} readOnly={chromeless} exportMode={timelineExport} />
   {:else if shown === 'list' || shown === 'calendar'}
     <!-- #2702 draws the month grid; until then a `calendar` spec (a type with a date property) shows the list. -->
     <div class="tv-list">

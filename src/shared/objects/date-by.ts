@@ -11,7 +11,8 @@
  *   convention `end` is the END of the `date` range, not a start of its own.
  * - **Default** (`defaultDateBy`): the property named `date` when it is a
  *   choice, else the first choice. A type with no choice has no date to place
- *   its notes by, so no Calendar (`calendar.ts`'s `canShowCalendar`).
+ *   its notes by, so no Calendar and no Timeline (`hasDateProperty`, behind
+ *   both `canShowCalendar` and `canShowTimeline`).
  * - **The picker** appears only when there is a choice to make
  *   (`dateByChoices(…).length > 1`), as Group by does.
  * - **Validation** follows `groupBy`'s split. Untrusted JSON (a session file,
@@ -26,6 +27,7 @@
  *   named `end` when the view is dated by `date` (`endPropertyFor`).
  */
 import type { PropertyDef } from './type-def';
+import { effectivePropertyDefs, type TypeLike } from './inheritance';
 
 /** The Event convention's start and end property names (Decision 2). */
 export const DATE_PROPERTY = 'date';
@@ -40,6 +42,15 @@ export function isDateProperty(p: Pick<PropertyDef, 'type'>): boolean {
  *  its EFFECTIVE properties, so an inherited one counts. */
 export function dateProperties(props: readonly PropertyDef[]): PropertyDef[] {
   return props.filter(isDateProperty);
+}
+
+/** Can `typeId`'s notes be placed in time — does it have a date or datetime
+ *  property, own or inherited through `parent` in the catalog `types`? False
+ *  for a type the catalog lacks. The one rule behind `canShowCalendar` and
+ *  `canShowTimeline` (Decision 1). */
+export function hasDateProperty(typeId: string, types: readonly TypeLike[]): boolean {
+  const byId = new Map(types.map((t) => [t.id, t] as const));
+  return byId.has(typeId) && dateProperties(effectivePropertyDefs(typeId, byId)).length > 0;
 }
 
 /** The properties *Date by* offers: every date property, less `end` when the

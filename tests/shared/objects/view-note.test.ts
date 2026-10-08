@@ -84,6 +84,15 @@ describe('view notes', () => {
     expect(parseObjectViewSpec(fenceBody(buildViewEmbed({ ...timeline, from: '-0043' })))).toMatchObject({ from: '-0043', to: null });
   });
 
+  it('carry a timeline dateBy through with its range, omitting it at the default (#2715)', () => {
+    const timeline = { typeId: 'book', layout: 'timeline' as const, sortColumn: null, sortDir: 'asc' as const, columns: null };
+    expect(JSON.parse(fenceBody(buildViewNoteContent('Books', { ...timeline, from: null, to: null, dateBy: null })))).toEqual({ typeId: 'book', layout: 'timeline' });
+    const body = fenceBody(buildViewNoteContent('Books', { ...timeline, from: '1960', to: null, dateBy: 'published' }));
+    expect(JSON.parse(body)).toEqual({ typeId: 'book', layout: 'timeline', from: '1960', dateBy: 'published' });
+    expect(parseObjectViewSpec(body)).toMatchObject({ layout: 'timeline', from: '1960', to: null, dateBy: 'published' });
+    expect(parseObjectViewSpec(fenceBody(buildViewEmbed({ ...timeline, dateBy: 'published' })))).toMatchObject({ layout: 'timeline', dateBy: 'published' });
+  });
+
   it('carry a calendar month and dateBy through, omitting them at their defaults (#2701)', () => {
     const calendar = { typeId: 'book', layout: 'calendar' as const, sortColumn: null, sortDir: 'asc' as const, columns: null };
     expect(JSON.parse(fenceBody(buildViewNoteContent('Books', { ...calendar, month: null, dateBy: null })))).toEqual({ typeId: 'book', layout: 'calendar' });

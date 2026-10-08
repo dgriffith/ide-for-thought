@@ -138,6 +138,39 @@ describe('renderObjectViewForExport', () => {
     expect(html).not.toContain('"typeId"');
   });
 
+  it('a timeline export honours dateBy: placed by the chosen property, and only Event\'s date/end pair makes a bar (#2715)', async () => {
+    const JOURNAL = {
+      id: 'journal', label: 'Journal', classLocalName: 'Journal', icon: '📓', source: 'user' as const,
+      properties: [{ name: 'published', type: 'date' as const }, { name: 'revised', type: 'date' as const }],
+    };
+    listMock.mockResolvedValue({ types: [TYPE, JOURNAL], errors: [] });
+    instancesMock.mockResolvedValue({ type: JOURNAL, instances: [
+      { path: 'j/Spring.md', title: 'Spring issue', values: { published: '2026-03-01', revised: '1999-05-02' }, cover: null },
+      { path: 'j/Autumn.md', title: 'Autumn issue', values: { published: '2026-10-01', revised: '1998-01-15' }, cover: null },
+    ] });
+    // The range covers the `revised` dates and none of the `published` ones.
+    const html = await renderObjectViewForExport(JSON.stringify({ typeId: 'journal', layout: 'timeline', from: '1998', to: '1999', dateBy: 'revised' }));
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const labels = [...doc.querySelectorAll('.tl-plot [data-timeline-event]')].map((a) => a.getAttribute('aria-label'));
+    expect(labels.sort()).toEqual(['Autumn issue, Jan 15, 1998', 'Spring issue, May 2, 1999']);
+    expect([...doc.querySelectorAll('.tl-export-row a[data-note-link]')].map((a) => a.textContent)).toEqual(['Autumn issue', 'Spring issue']);
+    expect(doc.querySelector('.tl-outside')).toBeNull();
+
+    // An Event subtype dated by its other date property: points, though `end` is written.
+    const EVENT = {
+      id: 'event', label: 'Event', classLocalName: 'Event', icon: '📅', source: 'stock' as const,
+      properties: [{ name: 'date', type: 'date' as const }, { name: 'end', type: 'date' as const }, { name: 'announced', type: 'date' as const }],
+    };
+    listMock.mockResolvedValue({ types: [TYPE, EVENT], errors: [] });
+    instancesMock.mockResolvedValue({ type: EVENT, instances: [
+      { path: 'e/Apollo.md', title: 'Apollo 11', values: { date: '1969-07-16', end: '1969-07-24', announced: '1969-01-09' }, cover: null },
+    ] });
+    const byAnnounced = new DOMParser().parseFromString(await renderObjectViewForExport(JSON.stringify({ typeId: 'event', layout: 'timeline', dateBy: 'announced' })), 'text/html');
+    expect(byAnnounced.querySelector('[data-timeline-event]')!.getAttribute('aria-label')).toBe('Apollo 11, Jan 9, 1969');
+    const byDate = new DOMParser().parseFromString(await renderObjectViewForExport(JSON.stringify({ typeId: 'event', layout: 'timeline' })), 'text/html');
+    expect(byDate.querySelector('[data-timeline-event]')!.getAttribute('aria-label')).toMatch(/^Apollo 11, Jul 16, 1969 – Jul 24, 1969$/);
+  });
+
   it('a kanban export honours the column order and Show empty columns, read-only (#2614)', async () => {
     const PROJECT = {
       id: 'project', label: 'Project', classLocalName: 'Project', icon: '🚀', source: 'stock' as const,
