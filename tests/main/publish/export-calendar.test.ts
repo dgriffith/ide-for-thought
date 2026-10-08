@@ -15,6 +15,9 @@
  *   plain text under `inline-title`;
  * - publishing (git, S3) ships a page carrying the calendar and working event
  *   links, checked on the published page itself, not the exporter's string;
+ * - the static site and tree HTML give calendar events #2721's link previews
+ *   (`previews.js` has an entry for each event's page, and the real
+ *   `preview.js` shows it on focus and hover) with no calendar-specific markup;
  * - the markdown family (clean markdown, passthrough, tree markdown, Pandoc)
  *   keeps the fence verbatim, by #2508's decision: portable source.
  */
@@ -23,6 +26,8 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import vm from 'node:vm';
+import { JSDOM, VirtualConsole } from 'jsdom';
 import type { S3Client } from '@aws-sdk/client-s3';
 import JSZip from 'jszip';
 
@@ -77,6 +82,7 @@ import { publishToS3 } from '../../../src/main/publish/publish-to-s3';
 import { _setRemoteApprovalsPathForTests, approveRemote } from '../../../src/main/publish/remote-approvals';
 import type { Exporter, LinkPolicy } from '../../../src/main/publish/types';
 import type { LiveBlockRenderer } from '../../../src/main/publish/live-blocks';
+import { LINK_PREVIEWS_GLOBAL, type LinkPreviewMap } from '../../../src/main/publish/link-previews';
 
 const FENCE = '```object-view\n{"typeId":"event","layout":"calendar","month":"1969-07"}\n```';
 /** Events in the cells, one of them a Meeting (an Event subtype since #2612). */
@@ -116,7 +122,7 @@ async function exportFile(exporter: Exporter, kind: 'single-note' | 'project', p
   const out = await runExporter(exporter, plan);
   const file = out.files.find((f) => pick(f.path));
   expect(file, out.files.map((f) => f.path).join(', ')).toBeDefined();
-  return { file: file!, files: out.files.map((f) => f.path) };
+  return { file: file!, files: out.files.map((f) => f.path), outFiles: out.files };
 }
 
 /** Each event's href — in the cells, or in the band — resolved against the page's folder. */
@@ -169,6 +175,62 @@ describe('a Calendar in the HTML exports (#2704)', () => {
     expect(html).not.toMatch(/<a class="(calx-ev|cal-chip)"[^>]*href=/);
     expect(html).toContain('<a class="calx-ev" data-calendar-event=""><span class="calx-title">Moon landing</span></a>');
   });
+});
+
+describe('a Calendar on a published page gets #2721\'s link previews (#2704)', () => {
+  // `preview.js` previews any `<a href>` in the page body whose target has an
+  // entry in `previews.js`; calendar events are ordinary links, so they need
+  // no markup of their own. Pinned on the real files, with the real script.
+  for (const [name, exporter] of [['static site', staticSiteExporter], ['tree HTML', treeHtmlExporter]] as const) {
+    it(`${name}: every calendar event and band entry has a preview, and the page script shows it`, async () => {
+      const { file, outFiles } = await exportFile(exporter, 'project', (p) => p === 'year.html');
+      const html = String(file.contents);
+      expect(html).toContain('<script src="preview.js" defer></script>');
+      const js = outFiles.find((f) => f.path === 'previews.js');
+      expect(js, 'previews.js written').toBeDefined();
+      const sandbox: Record<string, unknown> = {};
+      vm.runInNewContext(String(js!.contents), { window: sandbox });
+      const map = sandbox[LINK_PREVIEWS_GLOBAL] as LinkPreviewMap;
+      const targets = [...eventTargets(html, 'calx-ev', '.'), ...eventTargets(html, 'cal-chip', '.')];
+      expect(targets).toHaveLength(4);
+      for (const t of targets) expect(map[t], `preview for ${t}`).toBeDefined();
+      expect(map['events/Moon landing.html']!.t).toBe('Moon landing');
+
+      const outDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-export-calendar-out-'));
+      try {
+        for (const f of outFiles) {
+          fs.mkdirSync(path.dirname(path.join(outDir, f.path)), { recursive: true });
+          fs.writeFileSync(path.join(outDir, f.path), f.contents);
+        }
+        const dom = await JSDOM.fromFile(path.join(outDir, 'year.html'), { runScripts: 'dangerously', resources: 'usable', virtualConsole: new VirtualConsole() });
+        try {
+          const { window } = dom;
+          await new Promise<void>((resolve) => { window.addEventListener('load', () => resolve()); });
+          const doc = window.document;
+          for (const [sel, title] of [['a.calx-ev[href="events/Moon%20landing.html"]', 'Moon landing'], ['a.cal-chip[href="events/Heatwave.html"]', 'Heatwave']] as const) {
+            const link = doc.querySelector(sel) as HTMLAnchorElement | null;
+            expect(link, sel).toBeTruthy();
+            expect(link!.closest('main, article'), 'inside the page body the script watches').toBeTruthy();
+            // Keyboard focus for the first (opens at once), hover for the second (after its delay).
+            if (title === 'Moon landing') link!.focus();
+            else link!.dispatchEvent(new window.MouseEvent('pointerover', { bubbles: true }));
+            const until = Date.now() + 2000;
+            let tip: Element | null = null;
+            while (!(tip = doc.querySelector('#minerva-link-preview:not([hidden])')) && Date.now() < until) await new Promise((r) => setTimeout(r, 10));
+            expect(tip, `preview shown for ${title}`).toBeTruthy();
+            expect(tip!.querySelector('.mlp-title')!.textContent).toBe(title);
+            doc.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+            expect(tip!.hasAttribute('hidden')).toBe(true);
+            link!.blur();
+          }
+        } finally {
+          dom.window.close();
+        }
+      } finally {
+        fs.rmSync(outDir, { recursive: true, force: true });
+      }
+    });
+  }
 });
 
 describe('a Calendar in a published site (#2704)', () => {
