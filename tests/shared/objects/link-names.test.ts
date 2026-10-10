@@ -83,7 +83,8 @@ describe('planLinkNames', () => {
     const block = planLinkNames(meeting('attendees:\n  - Alice\n  - Zed'), 'attendees', match)!;
     expect(block.content).toBe(meeting('attendees:\n  - "[[Alice]]"\n  - Zed'));
     const flow = planLinkNames(meeting('attendees: [Alice, Zed]'), 'attendees', match)!;
-    expect(flow.content).toBe(meeting('attendees: [ "[[Alice]]", Zed ]'));
+    // The flow list stays unpadded, as written — not yaml's default `[ … ]` (#2737).
+    expect(flow.content).toBe(meeting('attendees: ["[[Alice]]", Zed]'));
   });
 
   it('leaves an already-linked value alone, and links the names beside it', () => {

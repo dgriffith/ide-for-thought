@@ -10,6 +10,7 @@
  */
 import YAML from 'yaml';
 import { editNoteText, findFrontmatter } from '../frontmatter-block';
+import { spliceFrontmatter } from './frontmatter-splice';
 
 export type ValueShape =
   | { kind: 'string'; value: string }
@@ -153,8 +154,9 @@ export function parseFrontmatter(text: string): ParseResult | ParseError | NoFro
  * fails we return null rather than overwrite the user's work-in-progress. Three
  * cases: no frontmatter yet (build a fresh block), a deletion that empties the
  * map (drop the whole block, since `---\n\n---` reads as malformed), and the
- * normal splice-by-offset rewrite that preserves the note body. The note's
- * line endings and byte-order mark are kept (#2690).
+ * normal case, where only the keys whose value changed are rewritten and every
+ * other line keeps its text (`spliceFrontmatter`, #2737). The note's line
+ * endings and byte-order mark are kept (#2690).
  */
 export function applyFrontmatterMutation(
   content: string,
@@ -164,30 +166,7 @@ export function applyFrontmatterMutation(
 }
 
 function mutateText(content: string, fn: (doc: YAML.Document) => void): string | null {
-  const parsed = parseFrontmatter(content);
-  if (!parsed.ok) return null;
-  if ('none' in parsed) {
-    const doc = new YAML.Document({});
-    fn(doc);
-    const yaml = doc.toString().trimEnd();
-    return `---\n${yaml}\n---\n${content}`;
-  }
-  let doc: YAML.Document.Parsed;
-  try {
-    doc = YAML.parseDocument(parsed.body);
-    if (doc.errors.length > 0) return null;
-  } catch {
-    return null;
-  }
-  fn(doc);
-  let serialised = doc.toString();
-  if (serialised.endsWith('\n')) serialised = serialised.slice(0, -1);
-  // If the deletion left the map empty, drop the entire block — an empty
-  // `---\n\n---` block reads as malformed YAML to readers.
-  if (YAML.isMap(doc.contents) && doc.contents.items.length === 0) {
-    return content.slice(parsed.blockEnd);
-  }
-  return content.slice(0, parsed.blockStart) +
-    `---\n${serialised}\n---\n` +
-    content.slice(parsed.blockEnd);
+  // Only the keys whose value changed are rewritten; the rest keep their
+  // source text byte for byte (#2737).
+  return spliceFrontmatter(content, fn)?.content ?? null;
 }

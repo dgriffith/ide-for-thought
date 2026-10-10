@@ -1,4 +1,5 @@
 import YAML from 'yaml';
+import { spliceFrontmatter } from './frontmatter-splice';
 import { ownRecord } from '../own-record';
 import { editNote, findFrontmatter } from '../frontmatter-block';
 
@@ -55,59 +56,27 @@ export function patchFrontmatterProperties(content: string, patch: PropertyPatch
 }
 
 function patchText(content: string, patch: PropertyPatch): PatchResult {
-  const match = findFrontmatter(content);
-  let fm: Record<string, unknown> = ownRecord([]);
-  if (match) {
-    try {
-      const parsed: unknown = YAML.parse(match.yaml);
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        // Null-prototype copy: `key in fm`, `fm[key]` and `fm[key] = v` below
-        // take user-text keys, which on a `{}` would see `Object.prototype`
-        // members or hit the `__proto__` setter.
-        fm = ownRecord(Object.entries(parsed));
-      }
-    } catch {
-      // Malformed frontmatter — treat as empty so the patch produces a
-      // valid block. The user's broken YAML is replaced, not preserved.
-    }
-  }
-
-  const changedKeys: string[] = [];
   const deletedKeys: string[] = [];
-  for (const [key, value] of Object.entries(patch)) {
-    if (value === null) {
-      if (key in fm) {
-        delete fm[key];
-        changedKeys.push(key);
-        deletedKeys.push(key);
+  const result = spliceFrontmatter(content, (doc) => {
+    for (const [key, value] of Object.entries(patch)) {
+      if (value === null) {
+        if (doc.has(key)) {
+          doc.delete(key);
+          deletedKeys.push(key);
+        }
+        continue;
       }
-      continue;
+      // Setting an equal value is harmless: the splice compares values and
+      // leaves an unchanged key's text alone. A scalar is set in place, so a
+      // quoted `'draft'` stays quoted when it becomes `'active'` (#2737).
+      doc.set(key, typeof value === 'object' ? doc.createNode(value) : value);
     }
-    if (deepEqual(fm[key], value)) continue;
-    fm[key] = value;
-    changedKeys.push(key);
-  }
-
-  if (changedKeys.length === 0) {
-    return { content, changedKeys: [], deletedKeys: [] };
-  }
-
-  const body = match ? content.slice(match.end) : content;
-  if (Object.keys(fm).length === 0) {
-    // Frontmatter ended up empty — drop the block entirely. Same logic
-    // as removeTagsFromContent, so a note that gets all properties
-    // cleared doesn't end up with a vestigial `---\n---` header.
-    return {
-      content: body.replace(/^\n+/, ''),
-      changedKeys,
-      deletedKeys,
-    };
-  }
-
-  const yamlBlock = YAML.stringify(fm).trimEnd();
-  const rendered = `---\n${yamlBlock}\n---\n`;
-  const separator = body.startsWith('\n') || body === '' ? '' : '\n';
-  return { content: rendered + separator + body, changedKeys, deletedKeys };
+  }, { onMalformed: 'replace', blankLineAfterNewBlock: true, trimBodyOnDrop: true })!;
+  // Report in the patch's own order, as before.
+  const changed = new Set(result.changedKeys);
+  const changedKeys = Object.keys(patch).filter((k) => changed.has(k));
+  if (changedKeys.length === 0) return { content, changedKeys: [], deletedKeys: [] };
+  return { content: result.content, changedKeys, deletedKeys };
 }
 
 /**
@@ -128,38 +97,4 @@ export function readFrontmatterProperties(content: string): Record<string, unkno
     /* malformed — treat as empty */
   }
   return {};
-}
-
-/**
- * Deep-equality on the JSON-shaped values frontmatter holds. Avoids
- * `JSON.stringify` because object-key order would produce false
- * inequalities. Pulled out to a helper so the patch's "did this key
- * actually change?" check is consistent across cases (scalar swap,
- * array reorder, nested mapping update).
- */
-function deepEqual(a: unknown, b: unknown): boolean {
-  if (a === b) return true;
-  if (a == null || b == null) return a === b;
-  if (typeof a !== typeof b) return false;
-  if (Array.isArray(a)) {
-    if (!Array.isArray(b) || a.length !== b.length) return false;
-    for (let i = 0; i < a.length; i++) {
-      if (!deepEqual(a[i], b[i])) return false;
-    }
-    return true;
-  }
-  if (typeof a === 'object') {
-    if (typeof b !== 'object' || b === null || Array.isArray(b)) return false;
-    const ao = a as Record<string, unknown>;
-    const bo = b as Record<string, unknown>;
-    const ak = Object.keys(ao);
-    const bk = Object.keys(bo);
-    if (ak.length !== bk.length) return false;
-    for (const k of ak) {
-      if (!(k in bo)) return false;
-      if (!deepEqual(ao[k], bo[k])) return false;
-    }
-    return true;
-  }
-  return false;
 }
