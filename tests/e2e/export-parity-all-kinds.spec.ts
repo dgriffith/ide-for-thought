@@ -14,7 +14,9 @@
  *
  * And a Timeline of Events, one of them a Meeting (#2609, #2612): drawn as
  * SVG in export mode, every event in the drawing and in the dated list after
- * it, and its spec never left behind.
+ * it, and its spec never left behind. It is sized wider than the column
+ * (#2709): framed to break out on a screen — measured in a real window on the
+ * static site — and drawn to the printable width in a PDF.
  *
  * And a Calendar of the same Events (#2704): the spec's month as a static
  * table, every event in its day's cell, the bar included, and its spec never
@@ -61,10 +63,11 @@ function seed(dir: string): void {
   write('notes/Cited Evidence.md', `---\ntitle: Cited Evidence\nsupports: ${noteUri('notes/The Claim.md')}\n---\n\n# Cited Evidence\n`);
   write('Everything.md', [
     '# Everything', '',
+    'Plain text keeps its reading width.', '',
     '```object-view', '{"typeId":"place","layout":"list"}', '```', '',
     '```object-view', '{"typeId":"spot","layout":"map","height":240}', '```', '',
     '```object-view', '{"typeId":"project","layout":"kanban","groupBy":"status"}', '```', '',
-    '```object-view', '{"typeId":"event","layout":"timeline"}', '```', '',
+    '```object-view', '{"typeId":"event","layout":"timeline","width":1400}', '```', '',
     '```object-view', '{"typeId":"event","layout":"calendar","month":"1969-07"}', '```', '',
     '![shot|200](pic.png)', '',
     '```mermaid', 'graph TD; A[Start] --> B[Finish]', '```', '',
@@ -83,6 +86,8 @@ test('a note with every live kind exports each one rendered, no raw source left 
   const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-export-parity-userdata-'));
   const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-export-parity-project-'));
   const outDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-export-parity-out-'));
+  const siteDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-export-parity-site-'));
+  const pdfDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-export-parity-pdf-'));
   fs.cpSync(path.join(projectRoot, 'tests', 'fixtures', 'sample-project'), projectDir, { recursive: true });
   seed(projectDir);
   fs.writeFileSync(path.join(userDataDir, 'session.json'), JSON.stringify([{ x: 80, y: 80, width: 1300, height: 1000, rootPath: projectDir }]));
@@ -140,6 +145,51 @@ test('a note with every live kind exports each one rendered, no raw source left 
       expect(html).toMatch(/<img src="data:image\/png;base64,[A-Za-z0-9+/=]{200,}" width="758" height="238"/);
       expect(html).toContain('<img src="pic.png" alt="shot" width="200">');
       expect(html).not.toContain('shot|200');
+      // The timeline's width (#2709): a frame that breaks out of the column.
+      expect(html).toContain('<div class="minerva-live-frame" data-breakout="1" style="width:min(1400px, max(100%, calc((100cqw + 100%) / 2 - 32px)));margin:1em 0">');
+    });
+
+    await test.step('static site: the wide timeline breaks out of the article, the text doesn\'t, and the page never scrolls sideways (#2709)', async () => {
+      await win.evaluate(async (dir) => (window as unknown as {
+        api: { publish: { runExport(a: unknown): Promise<unknown> } };
+      }).api.publish.runExport({ exporterId: 'static-site', input: { kind: 'project' }, outputDir: dir }), siteDir);
+      const measure = (width: number) => app.evaluate(async ({ BrowserWindow }, { file, width }) => {
+        const w = new BrowserWindow({ show: false, width, height: 900 });
+        try {
+          await w.loadFile(file);
+          return await w.webContents.executeJavaScript(`(() => {
+            const frame = document.querySelector('.minerva-live-frame').getBoundingClientRect();
+            const p = [...document.querySelectorAll('article p')].find((el) => el.textContent === 'Plain text keeps its reading width.').getBoundingClientRect();
+            const de = document.documentElement;
+            return { frame: Math.round(frame.width), frameLeft: Math.round(frame.left), frameRight: Math.round(frame.right),
+              text: Math.round(p.width), textLeft: Math.round(p.left), viewport: de.clientWidth, pageScrolls: de.scrollWidth > de.clientWidth };
+          })()`) as { frame: number; frameLeft: number; frameRight: number; text: number; textLeft: number; viewport: number; pageScrolls: boolean };
+        } finally {
+          w.destroy();
+        }
+      }, { file: path.join(siteDir, 'Everything.html'), width });
+      // A wide window: past the text, left-aligned with it, short of the window's edge.
+      const wide = await measure(1900);
+      expect(wide.frame, JSON.stringify(wide)).toBeGreaterThan(wide.text + 200);
+      expect(wide.frameLeft).toBe(wide.textLeft);
+      expect(wide.frameRight).toBeLessThanOrEqual(wide.viewport - 32);
+      expect(wide.pageScrolls).toBe(false);
+      // A window with no room beside the text: as wide as the text, scrolling itself.
+      const narrow = await measure(1000);
+      expect(narrow.frame, JSON.stringify(narrow)).toBe(narrow.text);
+      expect(narrow.pageScrolls).toBe(false);
+    });
+
+    await test.step('note PDF: the wide timeline is drawn to the printable width (#2709)', async () => {
+      const res = await win.evaluate(async (dir) => (window as unknown as {
+        api: { publish: { runExport(a: unknown): Promise<{ writtenPaths: string[] } | null> } };
+      }).api.publish.runExport({
+        exporterId: 'note-pdf', input: { kind: 'single-note', relativePath: 'Everything.md' }, outputDir: dir, linkPolicy: 'inline-title',
+      }), pdfDir);
+      const pdf = res!.writtenPaths.find((p) => p.endsWith('.pdf'))!;
+      const abs = path.isAbsolute(pdf) ? pdf : path.join(pdfDir, pdf);
+      expect(fs.statSync(abs).size).toBeGreaterThan(5_000);
+      fs.copyFileSync(abs, 'test-results/export-parity-all-kinds.pdf');
     });
 
     await test.step('no raw source survives', async () => {
@@ -150,6 +200,6 @@ test('a note with every live kind exports each one rendered, no raw source left 
     });
   } finally {
     await closeMinerva(app);
-    for (const d of [userDataDir, projectDir, outDir]) fs.rmSync(d, { recursive: true, force: true });
+    for (const d of [userDataDir, projectDir, outDir, siteDir, pdfDir]) fs.rmSync(d, { recursive: true, force: true });
   }
 });

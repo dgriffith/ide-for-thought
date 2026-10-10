@@ -132,6 +132,82 @@ describe('Preview resize handles (#2666)', () => {
     expect(view!.state.doc.toString()).toBe('# P\n\n```object-view\n{"typeId":"place","layout":"list"}\n```\n');
   });
 
+  describe('object-view width (#2709)', () => {
+    const board = '# Board\n\n```object-view\n{"typeId":"task","layout":"kanban"}\n```\n';
+    const widthHandle = (c: HTMLElement) => c.querySelector<HTMLElement>('.fence-object-view [data-resize-axis="width"]')!;
+
+    it('a drag on the right edge writes `width` into the spec, undoably', async () => {
+      const { container } = setup(board);
+      const handle = widthHandle(container);
+      expect(handle.getAttribute('aria-orientation')).toBe('horizontal');
+      expect(handle.getAttribute('aria-valuetext')).toBe('column width');
+      // Unmeasurable under happy-dom: the drag starts from the 704px column.
+      await drag(handle, 400, 0);
+      expect(view!.state.doc.toString()).toBe('# Board\n\n```object-view\n{"typeId":"task","layout":"kanban","width":1104}\n```\n');
+      expect(h.announce).toHaveBeenCalledWith('View width 1104 pixels');
+      undo(view!);
+      expect(view!.state.doc.toString()).toBe(board);
+    });
+
+    it('renders a stored width on the fence, as `--view-width` the CSS reads', () => {
+      const { container } = setup('# B\n\n```object-view\n{"typeId":"task","layout":"kanban","width":1200}\n```\n');
+      const frame = container.querySelector<HTMLElement>('.fence-object-view')!;
+      expect(frame.getAttribute('data-view-width')).toBe('1200');
+      expect(widthHandle(container).getAttribute('aria-valuenow')).toBe('1200');
+    });
+
+    it('double-click resets to the column — the field is removed', async () => {
+      const { container } = setup('# B\n\n```object-view\n{"typeId":"task","layout":"kanban","width":1200}\n```\n');
+      await fireEvent.dblClick(widthHandle(container));
+      expect(view!.state.doc.toString()).toBe('# B\n\n```object-view\n{"typeId":"task","layout":"kanban"}\n```\n');
+      expect(h.announce).toHaveBeenCalledWith('View width reset to the column');
+    });
+
+    it('Alt+←/→ step the width and Alt+↑/↓ the height; Alt+0 on a handle resets only its own', async () => {
+      const note = '# B\n\n```object-view\n{"typeId":"task","layout":"kanban","width":1000,"height":500}\n```\n';
+      const { container, onApplyEdit, rerender } = setup(note);
+      // The app feeds each edit back as the Preview's content; do the same.
+      const feedBack = () => rerender({ content: view!.state.doc.toString() });
+      const handle = widthHandle(container);
+      handle.focus();
+      await fireEvent.keyDown(handle, { key: 'ArrowLeft', altKey: true });
+      expect(h.announce).toHaveBeenLastCalledWith('View width 960 pixels');
+      await waitFor(() => expect(onApplyEdit).toHaveBeenCalledTimes(1), { timeout: KEYBOARD_COMMIT_DELAY_MS * 4 });
+      expect(view!.state.doc.toString()).toContain('"width":960,"height":500');
+      await feedBack();
+
+      await fireEvent.keyDown(widthHandle(container), { key: 'ArrowDown', altKey: true });
+      expect(h.announce).toHaveBeenLastCalledWith('View height 540 pixels');
+      await waitFor(() => expect(onApplyEdit).toHaveBeenCalledTimes(2), { timeout: KEYBOARD_COMMIT_DELAY_MS * 4 });
+      expect(view!.state.doc.toString()).toContain('"width":960,"height":540');
+      await feedBack();
+
+      await fireEvent.keyDown(widthHandle(container), { key: '0', altKey: true });
+      expect(view!.state.doc.toString()).toContain('{"typeId":"task","layout":"kanban","height":540}');
+    });
+
+    it('plain arrows on the width handle step the width, as a slider\'s should', async () => {
+      const { container, onApplyEdit } = setup('# B\n\n```object-view\n{"typeId":"task","layout":"kanban","width":1000}\n```\n');
+      const handle = widthHandle(container);
+      handle.focus();
+      await fireEvent.keyDown(handle, { key: 'ArrowUp' });
+      expect(h.announce).toHaveBeenLastCalledWith('View width 960 pixels');
+      await waitFor(() => expect(onApplyEdit).toHaveBeenCalledTimes(1), { timeout: KEYBOARD_COMMIT_DELAY_MS * 4 });
+    });
+
+    it('Alt+0 away from a handle resets both dimensions in one edit', async () => {
+      const note = '# B\n\n```object-view\n{"typeId":"task","layout":"kanban","width":1000,"height":500}\n```\n';
+      const { container, onApplyEdit } = setup(note);
+      const toolbar = container.querySelector<HTMLElement>('.fence-object-view .fence-collapse-btn')!;
+      toolbar.focus();
+      await fireEvent.keyDown(toolbar, { key: '0', altKey: true });
+      expect(onApplyEdit).toHaveBeenCalledTimes(1);
+      expect(view!.state.doc.toString()).toContain('{"typeId":"task","layout":"kanban"}');
+      undo(view!);
+      expect(view!.state.doc.toString()).toBe(note);
+    });
+  });
+
   it('offers no handles when the host can\'t write the size back', () => {
     const { container } = render(Preview, { content: imageNote, notePath: 'notes/n.md' });
     expect(container.querySelector('[data-resize-handle]')).toBeNull();

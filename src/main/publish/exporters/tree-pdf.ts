@@ -50,7 +50,8 @@ export async function buildTreePdfHtml(plan: ExportPlan): Promise<BuildTreePdfHt
 
   // Force follow-to-file so the cite rule and wiki-link rule emit
   // anchor tags. We then post-process those into in-document `#anchors`.
-  const chapterPlan: ExportPlan = { ...plan, linkPolicy: 'follow-to-file' };
+  // `paged`: a wide object view is drawn to the printable width (#2709).
+  const chapterPlan: ExportPlan = { ...plan, linkPolicy: 'follow-to-file', paged: true };
 
   // One compiled engine for the whole document, a fresh session per chapter (#2408).
   const sessions = createRendererSessions(chapterPlan.citations);

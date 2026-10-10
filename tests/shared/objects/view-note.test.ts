@@ -30,19 +30,19 @@ describe('view notes', () => {
   it('embed the view so the preview renders exactly what was saved', () => {
     const content = buildViewNoteContent('Restaurants by rating', spec);
     expect(content.startsWith('# Restaurants by rating\n')).toBe(true);
-    expect(parseObjectViewSpec(fenceBody(content))).toEqual({ ...spec, folder: null, filters: [], mapStyle: 'auto', height: 360, groupBy: null, columnOrder: [], showEmptyColumns: true, from: null, to: null, month: null, dateBy: null });
+    expect(parseObjectViewSpec(fenceBody(content))).toEqual({ ...spec, folder: null, filters: [], mapStyle: 'auto', height: 360, width: null, groupBy: null, columnOrder: [], showEmptyColumns: true, from: null, to: null, month: null, dateBy: null });
   });
 
   it('leave defaults out of the block, and read back as the same defaults', () => {
     const plain = { typeId: 'place', layout: 'map' as const, sortColumn: null, sortDir: 'asc' as const, columns: null };
     const body = fenceBody(buildViewNoteContent('Places', plain));
     expect(JSON.parse(body)).toEqual({ typeId: 'place', layout: 'map' });
-    expect(parseObjectViewSpec(body)).toEqual({ ...plain, folder: null, filters: [], mapStyle: 'auto', height: 360, groupBy: null, columnOrder: [], showEmptyColumns: true, from: null, to: null, month: null, dateBy: null });
+    expect(parseObjectViewSpec(body)).toEqual({ ...plain, folder: null, filters: [], mapStyle: 'auto', height: 360, width: null, groupBy: null, columnOrder: [], showEmptyColumns: true, from: null, to: null, month: null, dateBy: null });
   });
 
   it('carry a folder scope and filters through to the embed parser (#2531)', () => {
     const scoped = { ...spec, folder: 'trip/prague', filters: [{ property: 'city', values: ['Prague'] }, { property: 'rating', min: '4', max: null }] };
-    expect(parseObjectViewSpec(fenceBody(buildViewNoteContent('Prague places', scoped)))).toEqual({ ...scoped, mapStyle: 'auto', height: 360, groupBy: null, columnOrder: [], showEmptyColumns: true, from: null, to: null, month: null, dateBy: null });
+    expect(parseObjectViewSpec(fenceBody(buildViewNoteContent('Prague places', scoped)))).toEqual({ ...scoped, mapStyle: 'auto', height: 360, width: null, groupBy: null, columnOrder: [], showEmptyColumns: true, from: null, to: null, month: null, dateBy: null });
   });
 
   it('omit an auto map style, and keep an explicit light or dark one (#2665)', () => {
@@ -52,7 +52,7 @@ describe('view notes', () => {
     for (const mapStyle of ['light', 'dark'] as const) {
       const body = fenceBody(buildViewNoteContent('Places', { ...map, mapStyle }));
       expect(JSON.parse(body)).toEqual({ typeId: 'place', layout: 'map', mapStyle });
-      expect(parseObjectViewSpec(body)).toEqual({ ...map, folder: null, filters: [], mapStyle, height: 360, groupBy: null, columnOrder: [], showEmptyColumns: true, from: null, to: null, month: null, dateBy: null });
+      expect(parseObjectViewSpec(body)).toEqual({ ...map, folder: null, filters: [], mapStyle, height: 360, width: null, groupBy: null, columnOrder: [], showEmptyColumns: true, from: null, to: null, month: null, dateBy: null });
     }
   });
 
@@ -61,7 +61,7 @@ describe('view notes', () => {
     expect(JSON.parse(fenceBody(buildViewNoteContent('Projects', { ...board, groupBy: null })))).toEqual({ typeId: 'project', layout: 'kanban' });
     const body = fenceBody(buildViewNoteContent('Projects', { ...board, groupBy: 'status' }));
     expect(JSON.parse(body)).toEqual({ typeId: 'project', layout: 'kanban', groupBy: 'status' });
-    expect(parseObjectViewSpec(body)).toEqual({ ...board, folder: null, filters: [], mapStyle: 'auto', height: 360, groupBy: 'status', columnOrder: [], showEmptyColumns: true, from: null, to: null, month: null, dateBy: null });
+    expect(parseObjectViewSpec(body)).toEqual({ ...board, folder: null, filters: [], mapStyle: 'auto', height: 360, width: null, groupBy: 'status', columnOrder: [], showEmptyColumns: true, from: null, to: null, month: null, dateBy: null });
   });
 
   it('carry a kanban column order and Show empty columns through, omitting the defaults (#2614)', () => {
@@ -69,7 +69,7 @@ describe('view notes', () => {
     expect(JSON.parse(fenceBody(buildViewNoteContent('Projects', { ...board, columnOrder: [], showEmptyColumns: true })))).toEqual({ typeId: 'project', layout: 'kanban' });
     const body = fenceBody(buildViewNoteContent('Projects', { ...board, columnOrder: ['done', '', 'active'], showEmptyColumns: false }));
     expect(JSON.parse(body)).toEqual({ typeId: 'project', layout: 'kanban', columnOrder: ['done', '', 'active'], showEmptyColumns: false });
-    expect(parseObjectViewSpec(body)).toEqual({ ...board, folder: null, filters: [], mapStyle: 'auto', height: 360, groupBy: null, columnOrder: ['done', '', 'active'], showEmptyColumns: false, from: null, to: null, month: null, dateBy: null });
+    expect(parseObjectViewSpec(body)).toEqual({ ...board, folder: null, filters: [], mapStyle: 'auto', height: 360, width: null, groupBy: null, columnOrder: ['done', '', 'active'], showEmptyColumns: false, from: null, to: null, month: null, dateBy: null });
     // Copy as markdown is the same block, so the same round trip.
     expect(parseObjectViewSpec(fenceBody(buildViewEmbed({ ...board, columnOrder: ['paused'] }))).columnOrder).toEqual(['paused']);
   });
@@ -79,7 +79,7 @@ describe('view notes', () => {
     expect(JSON.parse(fenceBody(buildViewNoteContent('Events', { ...timeline, from: null, to: null })))).toEqual({ typeId: 'event', layout: 'timeline' });
     const body = fenceBody(buildViewNoteContent('Events', { ...timeline, from: '1960', to: '1975-06' }));
     expect(JSON.parse(body)).toEqual({ typeId: 'event', layout: 'timeline', from: '1960', to: '1975-06' });
-    expect(parseObjectViewSpec(body)).toEqual({ ...timeline, folder: null, filters: [], mapStyle: 'auto', height: 360, groupBy: null, columnOrder: [], showEmptyColumns: true, from: '1960', to: '1975-06', month: null, dateBy: null });
+    expect(parseObjectViewSpec(body)).toEqual({ ...timeline, folder: null, filters: [], mapStyle: 'auto', height: 360, width: null, groupBy: null, columnOrder: [], showEmptyColumns: true, from: '1960', to: '1975-06', month: null, dateBy: null });
     // One edge alone, and a BCE one, survive Copy as markdown's bare block too.
     expect(parseObjectViewSpec(fenceBody(buildViewEmbed({ ...timeline, from: '-0043' })))).toMatchObject({ from: '-0043', to: null });
   });
@@ -98,7 +98,7 @@ describe('view notes', () => {
     expect(JSON.parse(fenceBody(buildViewNoteContent('Books', { ...calendar, month: null, dateBy: null })))).toEqual({ typeId: 'book', layout: 'calendar' });
     const body = fenceBody(buildViewNoteContent('Books', { ...calendar, month: '2026-10', dateBy: 'published' }));
     expect(JSON.parse(body)).toEqual({ typeId: 'book', layout: 'calendar', month: '2026-10', dateBy: 'published' });
-    expect(parseObjectViewSpec(body)).toEqual({ ...calendar, folder: null, filters: [], mapStyle: 'auto', height: 360, groupBy: null, columnOrder: [], showEmptyColumns: true, from: null, to: null, month: '2026-10', dateBy: 'published' });
+    expect(parseObjectViewSpec(body)).toEqual({ ...calendar, folder: null, filters: [], mapStyle: 'auto', height: 360, width: null, groupBy: null, columnOrder: [], showEmptyColumns: true, from: null, to: null, month: '2026-10', dateBy: 'published' });
     // A BCE month survives Copy as markdown's bare block too.
     expect(parseObjectViewSpec(fenceBody(buildViewEmbed({ ...calendar, month: '-0043-03' })))).toMatchObject({ month: '-0043-03', dateBy: null });
   });

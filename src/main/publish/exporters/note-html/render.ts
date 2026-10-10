@@ -58,7 +58,7 @@ export async function renderNoteBody(
   // #2510 — live blocks (object views) are rendered by the window that asked
   // for the export, with the preview's own components, and spliced back in
   // after markdown rendering; here they become placeholder paragraphs.
-  const live = extractLiveBlocks(transcluded, file.relativePath);
+  const live = extractLiveBlocks(transcluded, file.relativePath, { paged: plan.paged });
   const liveResults = await renderLiveBlocks(live.blocks, plan.renderLiveBlocks);
   const inlined = live.markdown;
   // #831 — pre-render ```vega-lite / ```vega fences to static SVG images
