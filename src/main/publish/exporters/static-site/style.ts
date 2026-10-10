@@ -19,6 +19,7 @@
  */
 
 import { EXPORT_CALLOUT_CSS } from '../callout-style';
+import { LIVE_FRAME_CLASS } from '../../../../shared/live-blocks';
 
 export const STATIC_SITE_STYLE = `
 :root {
@@ -156,6 +157,13 @@ nav.site-nav input.site-search {
 @media (max-width: 720px) {
   .page { grid-template-columns: 1fr; }
 }
+/* An object view sized wider than the article (#2709) breaks out of it to the
+   right. The frame around the page is the size container its width is
+   measured against (the column beside the structure sidebar, not the whole
+   window), and a page holding one moves its per-note sidebar below the
+   article so there's nothing beside the article to cover. */
+.page-frame { container-type: inline-size; min-width: 0; }
+.page:has(.${LIVE_FRAME_CLASS}[data-breakout]) { grid-template-columns: minmax(0, 1fr); }
 @media (max-width: 640px) {
   /* Only on genuinely narrow screens does the sidebar fold to a toggle, so the
      note stays readable; typical windows keep the two-column reading layout. */

@@ -25,6 +25,14 @@
  * current one) as a static grid, every event listed and linked in its day's
  * cell, then its month and year bands and the Undated tray.
  *
+ * A spec `width` (#2709) is honoured: the block is drawn at that width and
+ * framed (`frameForWidth`) so a page shows it the way the preview does —
+ * narrower than the column, or breaking out of it to the right, up to the
+ * window less a gutter, scrolling sideways past that rather than the page. A
+ * paged export (PDF) can't break out: the block is drawn at most
+ * `EXPORT_BLOCK_WIDTH_PX` wide, where a timeline scales down and a board
+ * wraps its columns, as they already do at the default width.
+ *
  * A map (#2511) is the exception to snapshotting the DOM: it's the preview's
  * own `TypeViewMap` in export mode, in the embed's frame (its spec `height`,
  * 360px by default — #2666), flattened to
@@ -34,7 +42,7 @@ import { mount, tick, unmount } from 'svelte';
 import TypeView from '../components/TypeView.svelte';
 import { parseObjectViewSpec } from '../markdown/object-view-renderer';
 import { snapshotLiveBlock } from './live-block-snapshot';
-import { LIVE_BLOCK_CLASS, NOTE_LINK_ATTR } from '../../../shared/live-blocks';
+import { LIVE_BLOCK_CLASS, LIVE_FRAME_CLASS, NOTE_LINK_ATTR } from '../../../shared/live-blocks';
 import { MAP_EXPORT_TIMEOUT_MS, mapCaptureHtml, type MapCapture } from '../map/map-export';
 
 /** Wide enough for a table's columns; a gallery reflows to it. */
@@ -44,12 +52,42 @@ export const OBJECT_VIEW_LOAD_TIMEOUT_MS = 20_000;
 
 /** Throws (with a reader-facing message) when the spec is bad or the view
  *  doesn't load in time; the caller turns that into the block's error. */
-export async function renderObjectViewForExport(source: string): Promise<string> {
+export async function renderObjectViewForExport(source: string, opts: { paged?: boolean } = {}): Promise<string> {
   const spec = parseObjectViewSpec(source);
+  const width = spec.width === null ? null : opts.paged ? Math.min(spec.width, EXPORT_BLOCK_WIDTH_PX) : spec.width;
+  const html = await renderAtWidth(spec, width ?? EXPORT_BLOCK_WIDTH_PX);
+  return width === null ? html : frameForWidth(html, width, { paged: opts.paged === true });
+}
 
+/** Gutter kept between a breaking-out block and the window's edge. */
+const EXPORT_GUTTER_PX = 32;
+
+/**
+ * Size a rendered block to its spec width. Left-aligned with the text, like
+ * the preview; when wider than the column it reaches right, to at most the
+ * window's width less a gutter — `(100cqw + 100%) / 2` is the column's right
+ * edge plus the room beside it in a page whose article is centred, and `cqw`
+ * is the viewport's unless the page names a container (the static site's
+ * `.page-frame`, beside its structure sidebar). Self-contained, so every HTML
+ * export lays it out alike; a paged one only ever narrows it.
+ */
+export function frameForWidth(html: string, width: number, opts: { paged: boolean }): string {
+  // Never less than the column itself: on a page with no room beside the
+  // article, a wide block is as wide as the text and scrolls.
+  const room = opts.paged ? '100%' : `max(100%, calc((100cqw + 100%) / 2 - ${EXPORT_GUTTER_PX}px))`;
+  const css = `.${LIVE_FRAME_CLASS}{max-width:none;overflow-x:auto}`
+    + `.${LIVE_FRAME_CLASS}>.${LIVE_BLOCK_CLASS}{margin:0}`;
+  // Wider than the default block: the static site makes room for it (its
+  // per-note sidebar moves below the article — static-site/style.ts).
+  const breakout = !opts.paged && width > EXPORT_BLOCK_WIDTH_PX ? ' data-breakout="1"' : '';
+  return `<div class="${LIVE_FRAME_CLASS}"${breakout} style="width:min(${width}px, ${room});margin:1em 0">`
+    + `<style>${css}</style>${html}</div>`;
+}
+
+async function renderAtWidth(spec: ReturnType<typeof parseObjectViewSpec>, widthPx: number): Promise<string> {
   const host = document.createElement('div');
   host.setAttribute('aria-hidden', 'true');
-  host.style.cssText = `position:fixed;left:-100000px;top:0;width:${EXPORT_BLOCK_WIDTH_PX}px;pointer-events:none;`;
+  host.style.cssText = `position:fixed;left:-100000px;top:0;width:${widthPx}px;pointer-events:none;`;
   const themed = document.createElement('div');
   themed.setAttribute('data-theme', 'light');
   const block = document.createElement('div');

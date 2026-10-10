@@ -16,7 +16,7 @@
     import { QUERY_PREFIXES } from '../preview/query-prefixes';
     import { chartPaletteFrom } from '../charts/theme-palette';
     import {sanitizeNoteHtml} from '../preview/sanitize-note-html';
-    import {installEmbedResize, restoreResizeFocus} from '../preview/embed-resize';
+    import {installEmbedResize, observePreviewRoom, restoreResizeFocus} from '../preview/embed-resize';
     import {api} from '../ipc/client';
     import {clampSubmenu} from '../utils/menuClamp';
     import {type ChartHandle} from '../charts';
@@ -595,6 +595,9 @@
         });
     });
 
+    // How far a wide object-view embed may reach (#2709).
+    $effect(() => previewEl ? observePreviewRoom(previewEl) : undefined);
+
     // Resize handles on images and object-view embeds (#2666): the write goes
     // to the host as an ordinary edit of the note's source.
     $effect(() => {
@@ -1063,14 +1066,17 @@
 {/if}
 
 <style>
+    /* The scroller spans the whole pane; the reading column is still 800px
+       (704px of text), held by the right padding rather than a max-width, so
+       an embed given a wider `width` (#2709) can extend into the room to its
+       right without the text following it. */
     .preview {
         flex: 1;
-        padding: 24px 48px;
+        padding: 24px max(48px, calc(100% - 752px)) 24px 48px;
         overflow-y: auto;
         font-size: 15px;
         line-height: 1.7;
         color: var(--text);
-        max-width: 800px;
         font-family: var(--content-font-family, inherit);
         position: relative;
     }

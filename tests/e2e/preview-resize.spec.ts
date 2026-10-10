@@ -93,7 +93,7 @@ test('preview resize handles write the size into the note, undoably (#2666)', as
       // Upward: the handle sits near the window's bottom edge, and a drag
       // past the viewport isn't delivered to the page.
       await changingPreview(win, preview, async () => {
-        await dragHandle(win, preview.locator('.fence-object-view [data-resize-handle]'), 0, -100);
+        await dragHandle(win, preview.locator('.fence-object-view [data-resize-axis="height"]'), 0, -100);
         await expect(source).toContainText('"height":260');
       });
       await expect.poll(() => block.evaluate((el) => Math.round(el.getBoundingClientRect().height))).toBe(260);
@@ -110,6 +110,95 @@ test('preview resize handles write the size into the note, undoably (#2666)', as
       await expect.poll(() => win.evaluate(() => document.activeElement?.hasAttribute('data-resize-handle') ?? false)).toBe(true);
       await win.keyboard.press('Alt+0');
       await expect(source).toContainText('![shot](pic.png)');
+    });
+  } finally {
+    await closeMinerva(app);
+    for (const d of [userDataDir, projectDir]) fs.rmSync(d, { recursive: true, force: true });
+  }
+});
+
+test('an object view drags wider than the reading column, and the text stays put (#2709)', async () => {
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-e2e-resize-width-userdata-'));
+  const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-e2e-resize-width-project-'));
+  fs.cpSync(path.join(projectRoot, 'tests', 'fixtures', 'sample-project'), projectDir, { recursive: true });
+  seed(projectDir);
+  fs.writeFileSync(path.join(projectDir, 'Wide.md'), '# Wide\n\nSome text that should keep its reading width however wide the view beside it grows.\n\n```object-view\n{"typeId":"place","layout":"list"}\n```\n');
+  // Smaller than the viewport the test emulates, as on a CI runner.
+  fs.writeFileSync(path.join(userDataDir, 'session.json'), JSON.stringify([{ x: 40, y: 40, width: 1000, height: 760, rootPath: projectDir }]));
+  const app = await launchMinerva({ userDataDir, env: { MINERVA_E2E: '1' } });
+  try {
+    const win = await app.firstWindow({ timeout: 20_000 });
+    // A CI runner's display is ~1024px wide and the window is clamped to it,
+    // leaving no room beside the column — so the page's viewport is emulated.
+    await win.setViewportSize({ width: 1700, height: 950 });
+    const row = win.locator('[data-relative-path="Wide.md"]').first();
+    await expect(row).toBeVisible({ timeout: 25_000 });
+    await row.click();
+    await win.getByRole('button', { name: 'Preview', exact: true }).click();
+    const preview = win.locator('.preview').first();
+    const fence = preview.locator('.fence-object-view');
+    await expect(fence.locator('.object-view-block[data-object-view-rendered="ok"]')).toContainText('Kampa Museum', { timeout: 10_000 });
+    const widthOf = (l: Locator) => l.evaluate((el) => Math.round(el.getBoundingClientRect().width));
+    const leftOf = (l: Locator) => l.evaluate((el) => Math.round(el.getBoundingClientRect().left));
+    const para = preview.locator('p').first();
+    const column = await widthOf(para);
+    expect(column).toBeLessThanOrEqual(704);
+    expect(await widthOf(fence)).toBe(column);
+
+    await test.step('drag the right edge out past the column', async () => {
+      await fence.hover();
+      await changingPreview(win, preview, async () => {
+        await dragHandle(win, fence.locator('[data-resize-axis="width"]'), 400, 0);
+        await expect(fence).toHaveAttribute('data-view-width', String(column + 400), { timeout: 10_000 });
+      });
+      await expect.poll(() => widthOf(fence)).toBe(column + 400);
+      // Left-aligned with the text, and the text keeps its width.
+      expect(await leftOf(fence)).toBe(await leftOf(para));
+      expect(await widthOf(para)).toBe(column);
+      // The pane doesn't scroll sideways.
+      expect(await preview.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+    });
+
+    await test.step('a drag past the pane stops at its edge, less the gutter', async () => {
+      const note = path.join(projectDir, 'Wide.md');
+      await expect.poll(() => fs.readFileSync(note, 'utf-8'), { timeout: 10_000 }).toContain(`"width":${column + 400}`);
+      const room = await preview.evaluate((el) => parseFloat(el.style.getPropertyValue('--preview-room')));
+      expect(room).toBeGreaterThan(column + 400);
+      const handle = fence.locator('[data-resize-axis="width"]');
+      await fence.hover();
+      const box = (await handle.boundingBox())!;
+      const viewport = await win.evaluate(() => window.innerWidth);
+      await changingPreview(win, preview, async () => {
+        // To the window's edge: a drag past it isn't delivered to the page.
+        await dragHandle(win, handle, viewport - 4 - (box.x + box.width / 2), 0);
+        await expect(fence).toHaveAttribute('data-view-width', String(room), { timeout: 10_000 });
+      });
+      await expect.poll(() => widthOf(fence)).toBe(room);
+      expect(await preview.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+    });
+
+    await test.step('in a narrower window it draws at the room there is, and the note keeps its width', async () => {
+      const note = path.join(projectDir, 'Wide.md');
+      await expect.poll(() => fs.readFileSync(note, 'utf-8'), { timeout: 10_000 }).toMatch(/"width":\d+/);
+      const stored = fs.readFileSync(note, 'utf-8');
+      await win.setViewportSize({ width: 1300, height: 950 });
+      await expect.poll(async () => {
+        const room = await preview.evaluate((el) => parseFloat(el.style.getPropertyValue('--preview-room')));
+        return (await widthOf(fence)) === room && room < Number(/"width":(\d+)/.exec(stored)![1]);
+      }, { timeout: 10_000 }).toBe(true);
+      expect(await preview.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+      expect(fs.readFileSync(note, 'utf-8')).toBe(stored);
+    });
+
+    await test.step('Alt+0 on the handle puts it back to the column', async () => {
+      const handle = fence.locator('[data-resize-axis="width"]');
+      await handle.focus();
+      await changingPreview(win, preview, async () => {
+        await win.keyboard.press('Alt+0');
+        await expect(fence).not.toHaveAttribute('data-view-width', /.*/, { timeout: 10_000 });
+      });
+      await expect.poll(() => widthOf(fence)).toBe(column);
+      await expect.poll(() => win.evaluate(() => document.activeElement?.getAttribute('data-resize-axis') ?? null)).toBe('width');
     });
   } finally {
     await closeMinerva(app);

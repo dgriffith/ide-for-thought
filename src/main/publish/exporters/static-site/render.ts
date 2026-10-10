@@ -355,9 +355,11 @@ function shell(input: ShellInput): string {
 <input type="checkbox" id="site-sidebar-toggle" class="sidebar-toggle-cb" hidden>
 <div class="site-layout">
 ${sidebar}
+<div class="page-frame">
 <main class="page">
 ${bodyHtml}
 </main>
+</div>
 </div>
 <script src="${rootRelative}search.js" defer></script>
 <script src="${rootRelative}${LINK_PREVIEW_SCRIPT_FILE}" defer></script>

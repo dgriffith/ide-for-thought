@@ -71,6 +71,7 @@ describe('parseObjectViewSpec (#2067)', () => {
       filters: [],
       mapStyle: 'auto',
       height: 360,
+      width: null,
       groupBy: null,
       columnOrder: [],
       showEmptyColumns: true,
@@ -83,7 +84,7 @@ describe('parseObjectViewSpec (#2067)', () => {
 
   it('carries through explicit sort/columns', () => {
     expect(parseObjectViewSpec('{"typeId":"book","layout":"table","sortColumn":"author","sortDir":"desc","columns":["author"]}'))
-      .toEqual({ typeId: 'book', layout: 'table', sortColumn: 'author', sortDir: 'desc', columns: ['author'], folder: null, filters: [], mapStyle: 'auto', height: 360, groupBy: null, columnOrder: [], showEmptyColumns: true, from: null, to: null, month: null, dateBy: null });
+      .toEqual({ typeId: 'book', layout: 'table', sortColumn: 'author', sortDir: 'desc', columns: ['author'], folder: null, filters: [], mapStyle: 'auto', height: 360, width: null, groupBy: null, columnOrder: [], showEmptyColumns: true, from: null, to: null, month: null, dateBy: null });
   });
 
   it('reads columnOrder and showEmptyColumns, dropping invalid shapes rather than throwing (#2614)', () => {

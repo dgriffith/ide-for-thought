@@ -18,17 +18,21 @@ import { RUNNABLE_LANGUAGE_SET } from '../../../shared/compute/fences';
 import { renderYouTubeFence } from './youtube-embed';
 import { findSourceFenceBefore, renderComputeOutput } from '../preview/compute-output-render';
 import type { PreviewMarkdownDeps } from '../preview/markdown-deps';
-import { RESIZE_KEY_ATTR, RESIZE_KIND_ATTR, objectViewResizeHandle } from '../preview/embed-resize-markup';
+import { RESIZE_KEY_ATTR, RESIZE_KIND_ATTR, objectViewResizeHandle, objectViewWidthHandle } from '../preview/embed-resize-markup';
 import { OBJECT_VIEW_DEFAULT_HEIGHT, parseViewHeight } from '../../../shared/objects/view-height';
+import { parseViewWidth } from '../../../shared/objects/view-width';
 
-/** An object-view spec's height, or the default when the spec isn't JSON
- *  (the hydrator reports that error; the height doesn't matter then). */
-function specHeight(raw: string): number {
+/** An object-view spec's frame — its height, and its width when it has one
+ *  (#2709) — or the defaults when the spec isn't JSON (the hydrator reports
+ *  that error; the size doesn't matter then). */
+function specFrame(raw: string): { height: number; width: number | null } {
     try {
         const spec: unknown = JSON.parse(raw);
-        return spec && typeof spec === 'object' ? parseViewHeight((spec as { height?: unknown }).height) : OBJECT_VIEW_DEFAULT_HEIGHT;
+        if (!spec || typeof spec !== 'object') return { height: OBJECT_VIEW_DEFAULT_HEIGHT, width: null };
+        const { height, width } = spec as { height?: unknown; width?: unknown };
+        return { height: parseViewHeight(height), width: parseViewWidth(width) };
     } catch {
-        return OBJECT_VIEW_DEFAULT_HEIGHT;
+        return { height: OBJECT_VIEW_DEFAULT_HEIGHT, width: null };
     }
 }
 
@@ -121,23 +125,26 @@ export function installFences(md: MarkdownIt, deps: PreviewMarkdownDeps): void {
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;');
-        // The embed's height (#2666): the hydrator sizes the mounted box from
-        // `data-view-height`, and the bottom-edge handle (when the host can
-        // write a new size back) drags it.
-        const height = specHeight(tok.content ?? '');
-        const block = `<div class="object-view-block" data-object-view-pending="1" data-view-height="${height}">${escaped}</div>`;
+        // The embed's frame. Height (#2666): the hydrator sizes the mounted box
+        // from `data-view-height`, and the bottom-edge handle (when the host can
+        // write a new size back) drags it. Width (#2709): `data-view-width` on
+        // the outermost element, which the hydrator sizes — past the reading
+        // column when it's wider — and the right-edge handle drags.
+        const { height, width } = specFrame(tok.content ?? '');
+        const widthAttr = width !== null ? ` data-view-width="${width}"` : '';
         if (openingLine !== null) {
+            const block = `<div class="object-view-block" data-object-view-pending="1" data-view-height="${height}">${escaped}</div>`;
             const isCollapsed = deps.collapsedFences.has(openingLine);
             const canResize = !!deps.getCanResize?.() && deps.getRenderPathOverride() === null;
             const resizeAttrs = canResize ? ` ${RESIZE_KIND_ATTR}="object-view" ${RESIZE_KEY_ATTR}="object-view:${openingLine}"` : '';
-            return `<div class="fence-block fence-object-view${isCollapsed ? ' fence-collapsed' : ''}" data-fence-line="${openingLine}"${resizeAttrs}>`
+            return `<div class="fence-block fence-object-view${isCollapsed ? ' fence-collapsed' : ''}" data-fence-line="${openingLine}"${widthAttr}${resizeAttrs}>`
                 + `<div class="fence-toolbar"><span class="fence-lang">object-view</span>`
                 + `<button class="fence-collapse-btn" data-fence-action="collapse" type="button" title="Collapse / expand">${isCollapsed ? '▸' : '▾'}</button>`
                 + `</div>`
-                + `<div class="fence-body">${block}${canResize ? objectViewResizeHandle(height) : ''}</div>`
+                + `<div class="fence-body">${block}${canResize ? objectViewResizeHandle(height) + objectViewWidthHandle(width) : ''}</div>`
                 + `</div>\n`;
         }
-        return `${block}\n`;
+        return `<div class="object-view-block" data-object-view-pending="1" data-view-height="${height}"${widthAttr}>${escaped}</div>\n`;
     }
 
     // A `youtube` fence renders a click-to-open poster card (#904) — thumbnail

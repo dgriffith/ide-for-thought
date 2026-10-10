@@ -41,7 +41,7 @@ const scanner = new MarkdownIt();
  * the rewritten markdown and one request per block, in document order. Hidden
  * fences are not live blocks — the renderer drops them.
  */
-export function extractLiveBlocks(markdown: string, notePath: string): { markdown: string; blocks: LiveBlockRequest[] } {
+export function extractLiveBlocks(markdown: string, notePath: string, opts: { paged?: boolean | undefined } = {}): { markdown: string; blocks: LiveBlockRequest[] } {
   const lines = markdown.split('\n');
   const found: Array<{ start: number; end: number; kind: LiveBlockKind; source: string }> = [];
   const code: Array<[number, number]> = [];
@@ -59,7 +59,9 @@ export function extractLiveBlocks(markdown: string, notePath: string): { markdow
   found.push(...findDirectives(lines, code));
   if (found.length === 0) return { markdown, blocks: [] };
   found.sort((a, b) => a.start - b.start);
-  const blocks: LiveBlockRequest[] = found.map((f, i) => ({ id: placeholder(i), kind: f.kind, source: f.source, notePath }));
+  const blocks: LiveBlockRequest[] = found.map((f, i) => ({
+    id: placeholder(i), kind: f.kind, source: f.source, notePath, ...(opts.paged ? { paged: true } : {}),
+  }));
   // Bottom-up, so earlier line numbers stay valid.
   for (let i = found.length - 1; i >= 0; i--) {
     const f = found[i]!;

@@ -12,15 +12,22 @@
 import { escapeAttr } from './text';
 import { IMAGE_MAX_PX, IMAGE_MIN_PX, type ImageSourceRef } from '../../../shared/markdown/image-size';
 import { OBJECT_VIEW_MAX_HEIGHT, OBJECT_VIEW_MIN_HEIGHT } from '../../../shared/objects/view-height';
+import { OBJECT_VIEW_MAX_WIDTH, OBJECT_VIEW_MIN_WIDTH } from '../../../shared/objects/view-width';
 
 export const RESIZE_KIND_ATTR = 'data-resize-kind';
 export const RESIZE_KEY_ATTR = 'data-resize-key';
 export const RESIZE_HANDLE_ATTR = 'data-resize-handle';
 export const IMAGE_REF_ATTR = 'data-image-ref';
+/** Which dimension a handle sets: `width` or `height`. */
+export const RESIZE_AXIS_ATTR = 'data-resize-axis';
 
-function handle(label: string, orientation: 'horizontal' | 'vertical', min: number, max: number, now: number | null): string {
-  const value = now !== null ? ` aria-valuenow="${now}" aria-valuetext="${now} pixels"` : ' aria-valuetext="natural size"';
-  return `<span class="resize-handle resize-handle-${orientation === 'horizontal' ? 'corner' : 'bottom'}" ${RESIZE_HANDLE_ATTR}="1"`
+type Placement = 'corner' | 'bottom' | 'right';
+
+function handle(label: string, placement: Placement, min: number, max: number, now: number | null, unset = 'natural size'): string {
+  const axis = placement === 'bottom' ? 'height' : 'width';
+  const orientation = axis === 'width' ? 'horizontal' : 'vertical';
+  const value = now !== null ? ` aria-valuenow="${now}" aria-valuetext="${now} pixels"` : ` aria-valuetext="${unset}"`;
+  return `<span class="resize-handle resize-handle-${placement}" ${RESIZE_HANDLE_ATTR}="1" ${RESIZE_AXIS_ATTR}="${axis}"`
     + ` role="slider" tabindex="0" aria-label="${label}" aria-orientation="${orientation}"`
     + ` aria-valuemin="${min}" aria-valuemax="${max}"${value}`
     + ` title="Drag to resize · Alt+arrows · double-click to reset"></span>`;
@@ -31,11 +38,17 @@ export function imageResizeFrame(img: string, ref: ImageSourceRef, width: number
   return `<span class="resizable-image" ${RESIZE_KIND_ATTR}="image" ${RESIZE_KEY_ATTR}="image:${ref.line}:${ref.index}"`
     + ` ${IMAGE_REF_ATTR}="${escapeAttr(JSON.stringify(ref))}">`
     + img
-    + handle('Image width', 'horizontal', IMAGE_MIN_PX, IMAGE_MAX_PX, width)
+    + handle('Image width', 'corner', IMAGE_MIN_PX, IMAGE_MAX_PX, width)
     + `</span>`;
 }
 
 /** The bottom-edge handle under an object-view embed; sets its height. */
 export function objectViewResizeHandle(height: number): string {
-  return handle('View height', 'vertical', OBJECT_VIEW_MIN_HEIGHT, OBJECT_VIEW_MAX_HEIGHT, height);
+  return handle('View height', 'bottom', OBJECT_VIEW_MIN_HEIGHT, OBJECT_VIEW_MAX_HEIGHT, height);
+}
+
+/** The right-edge handle beside an object-view embed; sets its width (#2709),
+ *  which may take it past the reading column. Null = fills the column. */
+export function objectViewWidthHandle(width: number | null): string {
+  return handle('View width', 'right', OBJECT_VIEW_MIN_WIDTH, OBJECT_VIEW_MAX_WIDTH, width, 'column width');
 }

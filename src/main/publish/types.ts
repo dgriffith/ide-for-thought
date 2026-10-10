@@ -124,6 +124,12 @@ export interface ExportPlan {
    */
   renderLiveBlocks?: LiveBlockRenderer | undefined;
   /**
+   * The HTML is bound for a page (PDF), not a screen (#2709): set by the PDF
+   * exporters, so a live block sized wider than the printable width is drawn
+   * to fit it instead of breaking out of the column.
+   */
+  paged?: boolean | undefined;
+  /**
    * Every note a wiki-link can name, and the alias map — what the app
    * resolves links against (#2518). Set by `resolvePlan` from the graph;
    * absent → resolution falls back to the exported notes and their aliases.
