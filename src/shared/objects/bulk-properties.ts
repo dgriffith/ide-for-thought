@@ -16,8 +16,9 @@
  *     value.
  */
 import YAML from 'yaml';
-import { applyFrontmatterMutation, detectShape, keyToString, parseFrontmatter, type ValueShape } from '../refactor/frontmatter-rows';
+import { detectShape, parseFrontmatter, type ValueShape } from '../refactor/frontmatter-rows';
 import { editNote } from '../frontmatter-block';
+import { spliceFrontmatter } from '../refactor/frontmatter-splice';
 import type { PropertyDef, TypeInfo } from './type-def';
 
 /** One selected note, as the model builder needs it. */
@@ -305,115 +306,28 @@ export interface ApplyBulkResult {
   changed: boolean;
 }
 
-/** Offset of the start of the line holding `i`. */
-function lineStart(text: string, i: number): number {
-  return text.lastIndexOf('\n', Math.max(0, i - 1)) + 1;
-}
-/** Offset just past the newline ending the line holding `i` (or the text end). */
-function lineEnd(text: string, i: number): number {
-  const nl = text.indexOf('\n', i);
-  return nl === -1 ? text.length : nl + 1;
-}
-
-/**
- * Each top-level pair's source span, whole lines: from its key's line to the
- * end of the line its value ends on. Comment lines between pairs belong to no
- * span, so they stay exactly where they are.
- */
-function pairSpans(body: string, map: YAML.YAMLMap): Map<string, [number, number]> {
-  const spans = new Map<string, [number, number]>();
-  for (const pair of map.items) {
-    const key = keyToString(pair.key);
-    const keyRange = YAML.isNode(pair.key) ? pair.key.range : undefined;
-    if (key === null || !keyRange) continue;
-    const valueRange = YAML.isNode(pair.value) ? pair.value.range : undefined;
-    const end = Math.max(keyRange[1], valueRange ? valueRange[1] : 0);
-    spans.set(key, [lineStart(body, keyRange[0]), lineEnd(body, Math.max(keyRange[0], end - 1))]);
-  }
-  return spans;
-}
-
-/** One pair, serialized on its own — without the comment lines above it,
- *  which stay put in the source rather than being re-emitted. */
-function serializePair(pair: YAML.Pair): string {
-  const key = YAML.isNode(pair.key) ? pair.key : null;
-  const saved = key?.commentBefore;
-  if (key) delete key.commentBefore;
-  const doc = new YAML.Document();
-  const map = new YAML.YAMLMap();
-  map.items.push(pair);
-  doc.contents = map;
-  const out = doc.toString();
-  if (key && saved !== undefined) key.commentBefore = saved;
-  return out.endsWith('\n') ? out : `${out}\n`;
-}
-
 /**
  * Apply `edits` to one note. `null` when its frontmatter doesn't parse — the
  * caller reports it rather than overwriting the user's YAML.
  *
- * Only the touched keys' lines are rewritten: the new pair is spliced over the
- * old one's source span, so every untouched key, comment and spacing quirk is
- * byte-identical afterwards (re-serializing the whole block, as the
- * Properties panel does for one note, would normalize `a:   b` and `[x, y]`
- * on keys the user never touched). An edit set that changes nothing returns
- * the input unchanged (`changed: false`), so a note that already had every
- * value is never rewritten.
+ * Only the touched keys' lines are rewritten (`spliceFrontmatter`, which grew
+ * out of this function and now serves every frontmatter writer, #2737), so
+ * every untouched key, comment and spacing quirk is byte-identical afterwards.
+ * An edit set that changes nothing returns the input unchanged
+ * (`changed: false`), so a note that already had every value is never
+ * rewritten.
  *
- * The spans and splices below assume LF text with no byte-order mark;
- * `editNote` hands them that and maps the result back, so a CRLF note stays
- * CRLF and its untouched lines stay byte-identical (#2690).
+ * `editNote` hands the splice LF text with no byte-order mark and maps the
+ * result back, so a CRLF note stays CRLF (#2690).
  */
 export function applyBulkEdits(content: string, edits: readonly BulkEdit[]): ApplyBulkResult | null {
   return editNote(content, (text) => applyBulkEditsToText(text, edits));
 }
 
 function applyBulkEditsToText(content: string, edits: readonly BulkEdit[]): ApplyBulkResult | null {
-  const parsed = parseFrontmatter(content);
-  if (!parsed.ok) return null;
-
-  if ('none' in parsed) {
-    // No block yet: build one from whatever the edits set.
-    let touched = false;
-    const next = applyFrontmatterMutation(content, (doc) => {
-      for (const e of edits) if (applyOne(doc, e)) touched = true;
-    });
-    if (next === null || !touched) return { content, changed: false };
-    return { content: next, changed: true };
-  }
-
-  const body = parsed.body;
-  const doc = YAML.parseDocument(body);
-  if (doc.errors.length > 0 || !YAML.isMap(doc.contents)) return null;
-  const map = doc.contents;
-  const spans = pairSpans(body, map);
-
-  const touchedKeys = new Set<string>();
-  for (const e of edits) if (applyOne(doc, e)) touchedKeys.add(e.key);
-  if (touchedKeys.size === 0) return { content, changed: false };
-
-  // Every key gone → drop the whole block (an empty `---\n---` reads as malformed).
-  if (map.items.length === 0) {
-    return { content: content.slice(parsed.blockEnd), changed: true };
-  }
-
-  const splices: { start: number; end: number; text: string }[] = [];
-  let appended = '';
-  for (const key of touchedKeys) {
-    const pair = map.items.find((p) => keyToString(p.key) === key);
-    const span = spans.get(key);
-    const text = pair ? serializePair(pair) : '';
-    if (span) splices.push({ start: span[0], end: span[1], text });
-    else appended += text;
-  }
-  let nextBody = body;
-  for (const s of splices.sort((a, b) => b.start - a.start)) {
-    nextBody = nextBody.slice(0, s.start) + s.text + nextBody.slice(s.end);
-  }
-  if (appended) nextBody = `${nextBody.replace(/\n?$/, '\n')}${appended}`;
-  nextBody = nextBody.replace(/\n$/, '');
-
-  const bodyStart = content.indexOf('\n') + 1;
-  const next = content.slice(0, bodyStart) + nextBody + content.slice(bodyStart + body.length);
-  return next === content ? { content, changed: false } : { content: next, changed: true };
+  const result = spliceFrontmatter(content, (doc) => {
+    for (const e of edits) applyOne(doc, e);
+  });
+  if (!result) return null;
+  return result.changedKeys.length > 0 ? { content: result.content, changed: true } : { content, changed: false };
 }

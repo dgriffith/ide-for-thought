@@ -1,4 +1,5 @@
 import YAML from 'yaml';
+import { spliceFrontmatter } from './frontmatter-splice';
 import { editNote, findFrontmatter } from '../frontmatter-block';
 
 const KEBAB_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -131,42 +132,25 @@ export function removeTagsFromContent(content: string, tagsToRemove: string[]): 
 }
 
 function removeTagsFromText(content: string, tagsToRemove: string[]): RemoveResult {
-  const match = findFrontmatter(content);
-  if (!match) return { content, removedTags: [] };
-  let parsed: unknown;
-  try { parsed = YAML.parse(match.yaml); } catch { return { content, removedTags: [] }; }
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    return { content, removedTags: [] };
-  }
-  const fm = parsed as Record<string, unknown>;
-  if (!Array.isArray(fm.tags)) return { content, removedTags: [] };
-
   const removeSet = new Set(tagsToRemove.map((t) => t.toLowerCase()));
   const removedTags: string[] = [];
-  const keptTags: unknown[] = [];
-  for (const t of fm.tags) {
-    if (typeof t !== 'string') { keptTags.push(t); continue; }
-    if (removeSet.has(t.toLowerCase())) {
-      removedTags.push(t);
-    } else {
-      keptTags.push(t);
-    }
-  }
-  if (removedTags.length === 0) return { content, removedTags: [] };
-
-  if (keptTags.length === 0) delete fm.tags;
-  else fm.tags = keptTags;
-
-  // If the frontmatter ends up empty (no remaining keys) drop the
-  // block entirely \u2014 same rationale as dropping an empty `tags:` key.
-  const body = content.slice(match.end);
-  if (Object.keys(fm).length === 0) {
-    return { content: body.replace(/^\n+/, ''), removedTags };
-  }
-  const yamlBlock = YAML.stringify(fm).trimEnd();
-  const rendered = `---\n${yamlBlock}\n---\n`;
-  const separator = body.startsWith('\n') || body === '' ? '' : '\n';
-  return { content: rendered + separator + body, removedTags };
+  const result = spliceFrontmatter(content, (doc) => {
+    const tags = doc.get('tags', true);
+    if (!YAML.isSeq(tags)) return;
+    // Filter the list in place, so a flow `[a, b]` stays flow (#2737).
+    tags.items = tags.items.filter((item) => {
+      const v: unknown = YAML.isScalar(item) ? item.value : item;
+      if (typeof v === 'string' && removeSet.has(v.toLowerCase())) {
+        removedTags.push(v);
+        return false;
+      }
+      return true;
+    });
+    // An emptied `tags:` goes; an emptied block goes too (`trimBodyOnDrop`).
+    if (tags.items.length === 0) doc.delete('tags');
+  }, { trimBodyOnDrop: true });
+  if (!result || removedTags.length === 0) return { content, removedTags: [] };
+  return { content: result.content, removedTags };
 }
 
 /**
@@ -180,37 +164,28 @@ export function mergeTagsIntoContent(content: string, newTags: string[]): MergeR
 }
 
 function mergeTagsIntoText(content: string, newTags: string[]): MergeResult {
-  const match = findFrontmatter(content);
-  const existing: string[] = [];
-  let fm: Record<string, unknown> = {};
-  if (match) {
-    try {
-      const parsed: unknown = YAML.parse(match.yaml);
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        fm = parsed as Record<string, unknown>;
-      }
-    } catch { /* malformed frontmatter \u2014 overwrite */ }
-    if (Array.isArray(fm.tags)) {
-      for (const t of fm.tags) {
-        if (typeof t === 'string') existing.push(t);
+  const addedTags: string[] = [];
+  const result = spliceFrontmatter(content, (doc) => {
+    const tags = doc.get('tags', true);
+    const existing: string[] = [];
+    if (YAML.isSeq(tags)) {
+      for (const item of tags.items) {
+        const v: unknown = YAML.isScalar(item) ? item.value : item;
+        if (typeof v === 'string') existing.push(v);
       }
     }
-  }
-
-  const existingLower = new Set(existing.map((t) => t.toLowerCase()));
-  const addedTags: string[] = [];
-  for (const t of newTags) {
-    const lower = t.toLowerCase();
-    if (existingLower.has(lower)) continue;
-    existingLower.add(lower);
-    addedTags.push(t);
-  }
+    const seen = new Set(existing.map((t) => t.toLowerCase()));
+    for (const t of newTags) {
+      if (seen.has(t.toLowerCase())) continue;
+      seen.add(t.toLowerCase());
+      addedTags.push(t);
+    }
+    if (addedTags.length === 0) return;
+    // Append to the existing list node, keeping its style (#2737); a missing
+    // or non-list `tags:` becomes a list of the strings it had plus the new.
+    if (YAML.isSeq(tags)) for (const t of addedTags) tags.add(doc.createNode(t));
+    else doc.set('tags', [...existing, ...addedTags]);
+  }, { onMalformed: 'replace', blankLineAfterNewBlock: true })!;
   if (addedTags.length === 0) return { content, addedTags: [] };
-
-  fm.tags = [...existing, ...addedTags];
-  const yamlBlock = YAML.stringify(fm).trimEnd();
-  const rendered = `---\n${yamlBlock}\n---\n`;
-  const body = match ? content.slice(match.end) : content;
-  const separator = body.startsWith('\n') || body === '' ? '' : '\n';
-  return { content: rendered + separator + body, addedTags };
+  return { content: result.content, addedTags };
 }
