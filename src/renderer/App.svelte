@@ -53,6 +53,7 @@
   import { formatAccelerator } from './lib/command-palette/format-accelerator';
   import { toggleEditorDictation } from './lib/editor/dictation';
   import { getVoiceStore } from './lib/voice/voice.svelte';
+  import { getAudioRecordingStore } from './lib/voice/audio-recording.svelte';
   import { handleKeydown } from './lib/keymap/handle-keydown';
   import { setFrontmatterProperty } from '../shared/frontmatter-edit';
   import ToolPanel from './lib/components/ToolPanel.svelte';
@@ -1502,6 +1503,7 @@
             onToggleDictation={() => { void toggleEditorDictation(editorComponent?.getView() ?? null); }}
             dictationActive={voice.surface === 'editor' && voice.busy}
             dictationDisabled={editor.viewMode === 'preview'}
+            onToggleRecording={() => { void getAudioRecordingStore().toggle(() => editorComponent?.getView()); }}
           />
         {/if}
         <!-- ToolPanel is mounted for ANY active tab, not just notes (#1514):

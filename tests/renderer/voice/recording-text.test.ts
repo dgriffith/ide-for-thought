@@ -11,6 +11,7 @@ import {
   transcriptCallout,
   transcriptAfter,
   joinSegments,
+  formatElapsed,
 } from '../../../src/renderer/lib/voice/recording-text';
 
 function apply(doc: string, change: { at: number; insert: string }): string {
@@ -148,5 +149,14 @@ describe('joinSegments', () => {
   it('makes one paragraph per segment and drops empty ones', () => {
     expect(joinSegments([' one. ', '', 'two.'])).toBe('one.\n\ntwo.');
     expect(joinSegments([])).toBe('');
+  });
+});
+
+describe('formatElapsed', () => {
+  it('shows m:ss under an hour and h:mm:ss from an hour', () => {
+    expect(formatElapsed(0)).toBe('0:00');
+    expect(formatElapsed(134)).toBe('2:14');
+    expect(formatElapsed(3599)).toBe('59:59');
+    expect(formatElapsed(3600 + 65)).toBe('1:01:05');
   });
 });

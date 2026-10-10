@@ -3,6 +3,8 @@
   import Icon from './Icon.svelte';
   import { THEME_MODES, type ThemeMode } from '../theme';
   import { installDismissOnClickOutside } from '../dismiss-menu';
+  import { getAudioRecordingStore } from '../voice/audio-recording.svelte';
+  import { formatElapsed } from '../voice/recording-text';
 
   interface Props {
     cursor: CursorInfo;
@@ -42,6 +44,10 @@
     onToggleDictation: () => void;
     /** True while dictation is capturing for the editor; highlights the mic. */
     dictationActive?: boolean;
+    /** Start / stop an audio recording into the active note (#2732) — same
+     *  action as File → New Audio Recording. The host supplies it because the
+     *  recording needs the focused editor to embed at its cursor. */
+    onToggleRecording: () => void;
     /** True when the pane shows preview only (no editor to dictate into) — the
      *  mic greys out. */
     dictationDisabled?: boolean;
@@ -53,8 +59,12 @@
     isDirty = false, hasActiveNote = false,
     onGotoLine, onSelectTheme, onShowInspections, onShowBacklinks, onShowProposals,
     backfill = null,
-    onToggleDictation, dictationActive = false, dictationDisabled = false,
+    onToggleDictation, dictationActive = false, dictationDisabled = false, onToggleRecording,
   }: Props = $props();
+
+  // Read directly (reads are allowed in components): the button's state and
+  // timer are the recording store's, not something the host should thread in.
+  const recordings = getAudioRecordingStore();
 
   let themeMenuOpen = $state(false);
   let themeMenuEl = $state<HTMLDivElement>();
@@ -117,6 +127,22 @@
         : dictationActive ? 'Stop dictation (Cmd+Shift+V)' : 'Dictate — voice to text (Cmd+Shift+V)'}
     >
       <Icon name="mic" size={12} />
+    </button>
+    <button
+      class="status-item clickable mic record"
+      class:active={recordings.recording}
+      onclick={onToggleRecording}
+      disabled={recordings.status === 'starting' || recordings.status === 'saving'}
+      aria-pressed={recordings.recording}
+      aria-label={recordings.recording ? 'Stop recording' : 'Record audio'}
+      title={recordings.recording
+        ? 'Stop recording and add it to the note'
+        : 'Record audio into this note — saved as a file you can transcribe later'}
+    >
+      <Icon name={recordings.recording ? 'stop' : 'record'} size={12} />
+      {#if recordings.recording}
+        <span class="nums">{formatElapsed(recordings.elapsedSec)}</span>
+      {/if}
     </button>
     <span class="rule" aria-hidden="true"></span>
     {#if backfill}
@@ -250,6 +276,10 @@
   }
   .status-item.clickable.mic:disabled:hover {
     color: var(--text-faint);
+  }
+  /* Record (#2732): the elapsed time sits beside the stop square. */
+  .status-item.clickable.record {
+    gap: 4px;
   }
 
   /* Mono cells get tabular-nums so digit columns line up — L47 · C23,

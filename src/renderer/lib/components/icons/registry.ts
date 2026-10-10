@@ -124,6 +124,9 @@ export const ICONS = {
     '<rect x="6" y="2.5" width="4" height="7" rx="2"/>' +
     '<path d="M4 7.5a4 4 0 0 0 8 0"/>' +
     '<path d="M8 11.5V13.5M6 13.5h4"/>',
+  // Audio recording (#2732): start (a ringed dot) and stop (a square).
+  record: '<circle cx="8" cy="8" r="5"/><circle cx="8" cy="8" r="2.75" fill="currentColor" stroke="none"/>',
+  stop: '<rect x="4.5" y="4.5" width="7" height="7" rx="1.5" fill="currentColor" stroke="none"/>',
 
   // ── Note types (sidebar + New Note picker) ───────────────────────
   // `notes` (page-with-fold) is the markdown default; `tables` (grid)
