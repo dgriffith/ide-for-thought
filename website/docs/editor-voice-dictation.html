@@ -139,6 +139,20 @@
 
     <p>Transcription uses the same on-device speech model as dictation, so your recordings never leave your computer.</p>
 
+    <p>Recordings are part of your knowledge graph too: each one knows which notes embed it, when it was recorded, how long it is, and whether it has a transcript. A <a href="notes-query.html">query cell</a> like this lists the ones still waiting to be transcribed:</p>
+
+<pre><code>:::query-table
+title: Recordings without a transcript
+---
+SELECT ?recording ?recordedAt ?note WHERE {
+  ?n minerva:embeds ?r ; minerva:relativePath ?note .
+  ?r a minerva:AudioRecording ; minerva:relativePath ?recording .
+  OPTIONAL { ?r minerva:recordedAt ?recordedAt }
+  FILTER NOT EXISTS { ?r minerva:hasTranscript true }
+}
+ORDER BY DESC(?recordedAt)
+:::</code></pre>
+
     <figure class="shot-img">
       <img src="img/editor-voice-dictation.png" alt="A note being written by voice: the cursor sits in the text, and a floating pill at the bottom of the window shows a pulsing &quot;Listening…&quot; indicator with Insert and Cancel buttons." loading="lazy" />
       <figcaption>Dictating into a note</figcaption>
