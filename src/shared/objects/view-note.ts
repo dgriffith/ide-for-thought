@@ -16,6 +16,7 @@ import type { ViewLayout } from '../types';
 import type { ViewFilter } from './view-spec';
 import type { MapStyle } from './map-style';
 import { viewHeightField } from './view-height';
+import { viewWidthField } from './view-width';
 
 export interface ViewNoteSpec {
   typeId: string;
@@ -30,6 +31,9 @@ export interface ViewNoteSpec {
   mapStyle?: MapStyle | undefined;
   /** The embed's height in px (#2666); written only when it isn't the default. */
   height?: number | null | undefined;
+  /** The embed's width in px (#2709); written only when set — absent means it
+   *  fills the reading column. */
+  width?: number | null | undefined;
   /** Kanban's grouping enum property (#2601); written only when chosen — absent
    *  means the type's first enum property. */
   groupBy?: string | null | undefined;
@@ -83,6 +87,8 @@ export function buildViewEmbed(spec: ViewNoteSpec): string {
   if (spec.dateBy) body.dateBy = spec.dateBy;
   const height = viewHeightField(spec.height);
   if (height !== undefined) body.height = height;
+  const width = viewWidthField(spec.width);
+  if (width !== undefined) body.width = width;
   return `\`\`\`object-view\n${JSON.stringify(body, null, 2)}\n\`\`\`\n`;
 }
 

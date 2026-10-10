@@ -45,6 +45,8 @@ export const notePdfExporter: Exporter = {
       ...plan,
       inputs: [note],
       assetPolicy: 'inline-base64',
+      // A wide object view is drawn to the printable width (#2709).
+      paged: true,
     });
     const htmlFile = htmlOutput.files[0];
     if (!htmlFile || typeof htmlFile.contents !== 'string') {

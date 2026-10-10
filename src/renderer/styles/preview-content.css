@@ -897,8 +897,36 @@
         border-radius: 3px;
         cursor: ns-resize;
     }
-.preview .object-view-block:not([data-object-view-rendered="ok"]) + .resize-handle {
+.preview .resize-handle-right {
+        top: 50%;
+        right: 3px;
+        width: 6px;
+        height: 48px;
+        margin-top: -24px;
+        border-radius: 3px;
+        cursor: ew-resize;
+    }
+.preview .object-view-block:not([data-object-view-rendered="ok"]) ~ .resize-handle {
         display: none;
+    }
+
+/* An object-view embed with a `width` (#2709). The column holds the text at
+   its reading width through `.preview`'s right padding, so a wider embed
+   extends right into that padding, left-aligned with the text; at the top
+   level it may reach the pane's right edge less a gutter (`--preview-room`,
+   measured by Preview.svelte), and inside a list or quote only its container.
+   A stored width wider than that draws at the room there is — the note isn't
+   rewritten. The width is set through the CSSOM (`--view-width`), not a
+   style attribute. The negative right margin ends the embed's margin box at
+   the column's edge: Chromium adds a scroller's end padding after its widest
+   child's margin box, so without it a wide embed scrolled the pane sideways. */
+.preview [data-view-width] {
+        width: min(var(--view-width, 100%), 100%);
+    }
+.preview > [data-view-width] {
+        --view-drawn: min(var(--view-width, 100%), var(--preview-room, 100%));
+        width: var(--view-drawn);
+        margin-right: calc(100% - var(--view-drawn));
     }
 .preview .resizable-image:hover > .resize-handle,
 .preview .fence-object-view:hover .resize-handle,

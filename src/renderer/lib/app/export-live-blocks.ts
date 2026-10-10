@@ -19,7 +19,7 @@ export async function renderLiveBlock(block: LiveBlockRequest): Promise<LiveBloc
   try {
     switch (block.kind) {
       case 'object-view':
-        return { id: block.id, ok: true, html: await renderObjectViewForExport(block.source) };
+        return { id: block.id, ok: true, html: await renderObjectViewForExport(block.source, { paged: block.paged === true }) };
       case 'mermaid':
         return { id: block.id, ok: true, html: await renderMermaidForExport(block.source) };
       case 'argument':

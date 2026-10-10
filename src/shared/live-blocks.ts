@@ -15,6 +15,9 @@ export interface LiveBlockRequest {
   source: string;
   /** The note the block sits in (thoughtbase-relative). */
   notePath: string;
+  /** The export is paged (PDF, #2709): the printable width is a hard limit,
+   *  so a block wider than `EXPORT_BLOCK_WIDTH_PX` is drawn at that width. */
+  paged?: boolean;
 }
 
 /** A rendered block is self-contained static HTML (its own scoped <style>);
@@ -25,6 +28,9 @@ export type LiveBlockResult =
 
 /** Class on every rendered block's wrapper; the block's CSS is scoped under it. */
 export const LIVE_BLOCK_CLASS = 'minerva-live-block';
+
+/** Class of the frame around a block whose spec sets a `width` (#2709). */
+export const LIVE_FRAME_CLASS = 'minerva-live-frame';
 
 /** Attribute a rendered block puts on each element that should link to a note
  *  (value: the note's thoughtbase-relative path). The export resolves it

@@ -87,6 +87,7 @@ import { parseTimelineRange } from '../../../shared/objects/timeline';
 import { parseCalendarMonth } from '../../../shared/objects/calendar';
 import { parseDateBy } from '../../../shared/objects/date-by';
 import { parseViewHeight } from '../../../shared/objects/view-height';
+import { parseViewWidth } from '../../../shared/objects/view-width';
 import { blockCacheFor, blockKey, createContentWrapper, HYDRATED_CONTENT_CLASS } from './hydrated-block-cache';
 import { reactiveProps } from './mounted-props.svelte';
 
@@ -108,6 +109,9 @@ export interface ObjectViewSpec {
   /** The embed's height in px (#2666) — `OBJECT_VIEW_DEFAULT_HEIGHT` when the
    *  spec omits it. */
   height: number;
+  /** The embed's width in px (#2709); null when the spec omits it — the embed
+   *  fills the reading column. */
+  width: number | null;
   /** Kanban's grouping enum property (#2601); absent → the type's first enum.
    *  Only its shape is checked here — `TypeView` checks it against the type. */
   groupBy: string | null;
@@ -154,6 +158,7 @@ export function parseObjectViewSpec(raw: string): ObjectViewSpec {
     filters: parseViewFilters(spec.filters),
     mapStyle: parseMapStyle(spec.mapStyle),
     height: parseViewHeight(spec.height),
+    width: parseViewWidth(spec.width),
     groupBy: parseGroupBy(spec.groupBy),
     columnOrder: parseColumnOrder(spec.columnOrder),
     showEmptyColumns: parseShowEmptyColumns(spec.showEmptyColumns),
@@ -219,10 +224,12 @@ export function hydrateObjectViewBlocks(root: HTMLElement, deps: ObjectViewDeps)
   const counts = new Map<string, number>();
   for (const el of blocks) {
     const raw = (el.textContent ?? '').trim();
-    // Keyed on the spec WITHOUT its height (#2666): a resize only reframes the
-    // view, so the live mount is moved into the new placeholder, not rebuilt.
-    const key = blockKey(counts, specKeyWithoutHeight(raw));
+    // Keyed on the spec WITHOUT its frame (#2666, #2709): a resize only
+    // reframes the view, so the live mount is moved into the new placeholder,
+    // not rebuilt.
+    const key = blockKey(counts, specKeyWithoutFrame(raw));
     el.removeAttribute('data-object-view-pending');
+    applyViewWidth(el);
 
     const cached = cache.take(root, key);
     if (cached) {
@@ -317,12 +324,21 @@ function applyViewHeight(el: HTMLElement): void {
   if (Number.isFinite(h) && h > 0) el.style.height = `${h}px`;
 }
 
-/** The block-cache key for a spec: the text, minus any `height`. */
-function specKeyWithoutHeight(raw: string): string {
+/** Size an embed to its spec's `width` (#2709), on the outermost element the
+ *  fence rendered (its toolbar comes along). The CSS decides how far past the
+ *  reading column that may reach — `preview-content.css`. */
+function applyViewWidth(el: HTMLElement): void {
+  const frame = el.closest<HTMLElement>('[data-view-width]');
+  const w = Number(frame?.dataset.viewWidth);
+  if (frame && Number.isFinite(w) && w > 0) frame.style.setProperty('--view-width', `${w}px`);
+}
+
+/** The block-cache key for a spec: the text, minus its `height` and `width`. */
+function specKeyWithoutFrame(raw: string): string {
   try {
     const spec: unknown = JSON.parse(raw);
     if (!spec || typeof spec !== 'object' || Array.isArray(spec)) return raw;
-    const { height: _height, ...rest } = spec as Record<string, unknown>;
+    const { height: _height, width: _width, ...rest } = spec as Record<string, unknown>;
     return JSON.stringify(rest);
   } catch {
     return raw;
