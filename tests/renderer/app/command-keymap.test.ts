@@ -21,7 +21,7 @@ const h = vi.hoisted(() => {
   const nav = { canGoBack: false, canGoForward: false };
   const conversations = { toggle: vi.fn() };
   const toggleEditorDictation = vi.fn();
-  const recordings = { toggle: vi.fn(), transcribeAtCursor: vi.fn() };
+  const recordings = { toggle: vi.fn(), transcribeAtCursor: vi.fn(), summarizeAtCursor: vi.fn() };
   return { notebase, editor, nav, conversations, toggleEditorDictation, recordings };
 });
 
@@ -54,7 +54,7 @@ function makeCtx() {
     ingestUrl: vi.fn(), ingestIdentifier: vi.fn(), ingestFile: vi.fn(), ingestBulk: vi.fn(),
     importBibtex: vi.fn(), importZoteroRdf: vi.fn(), navBack: vi.fn(), navForward: vi.fn(),
     rename: vi.fn(), move: vi.fn(), copy: vi.fn(), autoTag: vi.fn(), autoLink: vi.fn(),
-    autoLinkInbound: vi.fn(), decompose: vi.fn(),
+    autoLinkInbound: vi.fn(), decompose: vi.fn(), invokeTool: vi.fn(),
     selectTheme: vi.fn(), cycleTheme: vi.fn(), cycleViewMode: vi.fn(),
     refreshSourcesCache: vi.fn(), refreshSavedQueriesCache: vi.fn(),
     setFindInNotesMode: vi.fn(), setShowGotoLine: vi.fn(), setShowGotoNote: vi.fn(),
@@ -158,6 +158,13 @@ describe('editor-ref driven commands', () => {
     const transcribeGetter = h.recordings.transcribeAtCursor.mock.calls[0]![0] as () => unknown;
     expect(recordGetter()).toBe(view);
     expect(transcribeGetter()).toBe(view);
+  });
+
+  it('summarize hands the recordings store the skill runner from ctx (#2729)', () => {
+    commandDeps.summarizeRecording();
+    const [, invoke] = h.recordings.summarizeAtCursor.mock.calls[0]! as [unknown, (id: string) => void];
+    invoke('x');
+    expect(built.spies.invokeTool).toHaveBeenCalledWith('x');
   });
 
   it('find / findReplace / sortLines reach the editor component', () => {

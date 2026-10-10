@@ -44,6 +44,9 @@ export interface CommandDeps {
   recordAudio(): void;
   /** Transcribe the audio recording on the cursor's line (#2428). */
   transcribeRecording(): void;
+  /** Summarize the transcribed recording on the cursor's line, via an
+   *  approval-gated skill (#2729). */
+  summarizeRecording(): void;
   find(): void;
   findReplace(): void;
   findInNotes(): void;
@@ -134,6 +137,8 @@ export function buildCommandRegistry(deps: CommandDeps): Command[] {
       keybinding: null, enabled: hasProject, run: () => deps.recordAudio() },
     { id: 'edit.transcribeRecording', title: 'Transcribe Audio Recording', category: 'Edit',
       keybinding: null, enabled: hasActiveNoteTab, run: () => deps.transcribeRecording() },
+    { id: 'edit.summarizeRecording', title: 'Summarize Audio Recording…', category: 'Edit',
+      keybinding: null, enabled: hasActiveNoteTab, run: () => deps.summarizeRecording() },
     // ── Edit / search ──
     { id: 'edit.find', title: 'Find', category: 'Edit',
       keybinding: formatAccelerator('CmdOrCtrl+F'),

@@ -52,6 +52,10 @@ const TITLE_DEFAULTS: Record<string, string> = {
   abstract: 'Abstract',
   todo: 'Todo',
   card: 'Card',
+  // Audio recordings (#2729): the transcript under an embedded recording,
+  // and the LLM summary filed (through approval) above it.
+  transcript: 'Transcript',
+  summary: 'Summary',
 };
 
 const KNOWN_TYPES = new Set(Object.keys(TITLE_DEFAULTS));

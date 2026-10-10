@@ -79,6 +79,8 @@ export interface CommandKeymapCtx {
   autoLink: (path: string) => void;
   autoLinkInbound: (path: string) => void;
   decompose: (path: string) => void;
+  /** Run a skill by id, gathering context from the focused editor. */
+  invokeTool: (toolId: string) => void;
 
   // Theme — the label + surface re-tint stay in App.
   selectTheme: (mode: ThemeMode) => void;
@@ -135,6 +137,7 @@ export function createCommandKeymap(ctx: CommandKeymapCtx): {
     dictate: () => { void toggleEditorDictation(ctx.getEditorComponent()?.getView() ?? null); },
     recordAudio: () => { void recordings.toggle(focusedView); },
     transcribeRecording: () => { void recordings.transcribeAtCursor(focusedView); },
+    summarizeRecording: () => { recordings.summarizeAtCursor(focusedView, ctx.invokeTool); },
     find: () => ctx.getEditorComponent()?.openFind(),
     findReplace: () => ctx.getEditorComponent()?.openFindReplace(),
     findInNotes: () => ctx.setFindInNotesMode('find'),

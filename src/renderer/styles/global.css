@@ -347,6 +347,8 @@ details.callout[open] > summary.callout-title::after {
 .callout-abstract { --callout-color: var(--iris); }
 .callout-todo     { --callout-color: var(--accent); }
 .callout-card     { --callout-color: var(--gold, var(--accent)); }
+.callout-transcript { --callout-color: var(--text-muted); }
+.callout-summary  { --callout-color: var(--iris); }
 .callout-unknown  { --callout-color: var(--accent); }
 
 .callout-note .callout-icon::before     { content: '\270E'; }
@@ -363,6 +365,8 @@ details.callout[open] > summary.callout-title::after {
 .callout-abstract .callout-icon::before { content: '\2630'; }
 .callout-todo .callout-icon::before     { content: '\2610'; }
 .callout-card .callout-icon::before     { content: '\2706'; }
+.callout-transcript .callout-icon::before { content: '\266A'; }
+.callout-summary .callout-icon::before  { content: '\2630'; }
 .callout-unknown .callout-icon::before  { content: '\25CF'; }
 
 /* Flashcard callout (#851). The `---` divider inside the body renders as an

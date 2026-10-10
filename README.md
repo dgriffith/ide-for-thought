@@ -70,7 +70,7 @@ the AI work from your real notes instead of guessing.
 
 ### Tools for Thought — skills
 
-56 **skills**: structured thinking operations you invoke from the
+57 **skills**: structured thinking operations you invoke from the
 Learning, Research, and Analysis menus — *Explain Like I'm…*, *Check Facts*,
 *Extract Key Claims*, *Steelman*, *Double Crux*, *Murphyjitsu*, and many more.
 Each runs a careful prompt over your note and returns something you review.

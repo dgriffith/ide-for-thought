@@ -570,6 +570,7 @@
     autoLink: (p) => { void handleAutoLink(p); },
     autoLinkInbound: (p) => { void handleAutoLinkInbound(p); },
     decompose: (p) => { void handleDecompose(p); },
+    invokeTool: (id) => { void handleToolInvoke(id); },
     selectTheme: (mode) => handleSelectTheme(mode),
     cycleTheme: () => handleCycleTheme(),
     getThemeLabel: () => themeLabel,

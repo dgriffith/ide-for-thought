@@ -33,6 +33,7 @@ import {
   audioEmbedOnLine,
   findAudioEmbed,
   transcriptInsertion,
+  transcriptAfter,
   joinSegments,
   decodeTarget,
 } from './recording-text';
@@ -235,6 +236,10 @@ async function transcribeAtCursor(viewGetter: ViewGetter, pos?: number): Promise
     error = 'Put the cursor on the line with an audio recording to transcribe it.';
     return;
   }
+  if (transcriptAfter(view.state.doc.toString(), embed.end)) {
+    error = 'That recording already has a transcript. Delete it to transcribe again.';
+    return;
+  }
   await transcribe(notePath, embed.target, viewGetter);
 }
 
@@ -246,8 +251,72 @@ async function transcribeAtCursor(viewGetter: ViewGetter, pos?: number): Promise
  */
 function transcribeActionAt(viewGetter: ViewGetter, pos: number | null): (() => void) | undefined {
   const view = viewGetter();
-  if (!view || pos === null || !audioEmbedOnLine(view.state.doc.toString(), pos)) return undefined;
+  if (!view || pos === null) return undefined;
+  const doc = view.state.doc.toString();
+  const embed = audioEmbedOnLine(doc, pos);
+  // Offered once: a recording that has a transcript offers Summarize instead.
+  if (!embed || transcriptAfter(doc, embed.end)) return undefined;
   return () => void transcribeAtCursor(viewGetter, pos);
+}
+
+/** The stock skill that summarizes a transcript (`skills/stock/summarize-recording.md`). */
+export const SUMMARIZE_RECORDING_SKILL = 'analysis.summarize-recording';
+
+/**
+ * The Summarize Recording action for the recording on the line at `pos` (the
+ * cursor's line when omitted), or undefined when that line has no recording
+ * with a transcript. Running it selects the embed and its transcript, which
+ * the skill reads as its selection, then hands off to `invokeTool`. The skill
+ * opens a conversation whose only write is a `propose_note_edits` draft, so
+ * the summary goes through the approval engine like any other LLM edit (#2729).
+ */
+function summarizeActionAt(
+  viewGetter: ViewGetter,
+  invokeTool: ((toolId: string) => void) | undefined,
+  pos?: number | null,
+): (() => void) | undefined {
+  const view = viewGetter();
+  if (!view || !invokeTool || pos === null) return undefined;
+  const doc = view.state.doc.toString();
+  const at = pos ?? view.state.selection.main.head;
+  const embed = audioEmbedOnLine(doc, at);
+  const transcript = embed ? transcriptAfter(doc, embed.end) : null;
+  if (!transcript) return undefined;
+  const lineStart = doc.lastIndexOf('\n', at - 1) + 1;
+  return () => {
+    view.dispatch({ selection: { anchor: lineStart, head: transcript.end }, scrollIntoView: true });
+    invokeTool(SUMMARIZE_RECORDING_SKILL);
+  };
+}
+
+/** One context-menu item for the recording on the clicked line: Transcribe
+ *  until it has a transcript, Summarize after. Undefined off a recording. */
+function recordingMenuItemAt(
+  viewGetter: ViewGetter,
+  pos: number | null,
+  invokeTool: ((toolId: string) => void) | undefined,
+): { label: string; run: () => void } | undefined {
+  const transcribeRun = transcribeActionAt(viewGetter, pos);
+  if (transcribeRun) return { label: 'Transcribe Recording', run: transcribeRun };
+  const summarizeRun = summarizeActionAt(viewGetter, invokeTool, pos);
+  if (summarizeRun) return { label: 'Summarize Recording…', run: summarizeRun };
+  return undefined;
+}
+
+/** Palette form of `summarizeActionAt`: acts on the cursor's line, or says
+ *  what's missing. */
+function summarizeAtCursor(viewGetter: ViewGetter, invokeTool: (toolId: string) => void): void {
+  const view = viewGetter();
+  if (!view) return;
+  const action = summarizeActionAt(viewGetter, invokeTool);
+  if (action) {
+    action();
+    return;
+  }
+  const embed = audioEmbedOnLine(view.state.doc.toString(), view.state.selection.main.head);
+  error = embed
+    ? 'Transcribe that recording first, then summarize it.'
+    : 'Put the cursor on the line with an audio recording to summarize it.';
 }
 
 /**
@@ -325,6 +394,9 @@ export function getAudioRecordingStore() {
     transcribe,
     transcribeAtCursor,
     transcribeActionAt,
+    summarizeActionAt,
+    summarizeAtCursor,
+    recordingMenuItemAt,
     clearError() {
       error = null;
     },

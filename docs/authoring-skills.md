@@ -438,7 +438,7 @@ all through the approval engine.
 <a name="grouping"></a>
 ## Grouping (thematic sub-menus)
 
-A menu with many skills gets hard to scan (the stock **Analysis** menu has 29).
+A menu with many skills gets hard to scan (the stock **Analysis** menu has 30).
 Give related skills the same `group:` and the menu renders them as nested
 submenus — e.g. `Analysis ▸ Planning ▸ Murphyjitsu`. The stock Analysis skills
 are grouped Data / Diagnostic / Disagreement / Generation / Motivation /
