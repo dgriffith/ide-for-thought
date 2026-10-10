@@ -34,8 +34,9 @@
  * CSP string and routing decisions without pulling in `electron`.
  */
 
-import { app, session, shell, type Session, type WebContents } from 'electron';
+import { app, desktopCapturer, session, shell, type Session, type WebContents } from 'electron';
 import { buildCsp, externalNavTarget, isOwnOrigin, isRendererEntry } from './security-helpers';
+import { rendererEntryUrl } from './renderer-entry';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
 
@@ -117,6 +118,43 @@ export function installPermissions(): void {
   session.defaultSession.setPermissionCheckHandler((_wc, permission, requestingOrigin) => {
     return OWN_ORIGIN_PERMISSIONS.has(permission) && ownOrigin(requestingOrigin);
   });
+
+  installDisplayMediaHandler(session.defaultSession);
+}
+
+/**
+ * `getDisplayMedia` for meeting recordings (#2731): system audio, as loopback.
+ *
+ * The renderer asks for audio plus a token 4×4 video track (a 0×0 one comes
+ * back silent on Electron 40+), stops the video at once, and mixes the audio
+ * with the mic. On macOS 14.2+ Chromium captures the audio through Apple's
+ * CoreAudio process tap, gated by the "System Audio Recording" permission
+ * and the `NSAudioCaptureUsageDescription` Info.plist string.
+ *
+ * Granted only to a top frame showing the renderer's own page — the same
+ * test the navigation guard (#2552) and IPC sender guard (#2553) apply — and
+ * only when audio was asked for. Anything else gets `null`, which rejects
+ * `getDisplayMedia` with an AbortError. Every other session denies it
+ * outright (`denyAllPermissions`).
+ */
+export function installDisplayMediaHandler(sess: Session): void {
+  sess.setDisplayMediaRequestHandler((request, callback) => {
+    const frame = request.frame;
+    const trusted = !!frame && frame.parent === null
+      && isRendererEntry(frame.url, rendererEntryUrl(), MAIN_WINDOW_VITE_DEV_SERVER_URL);
+    if (!trusted || !request.audioRequested) {
+      callback(null as unknown as Electron.Streams);
+      return;
+    }
+    desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 0, height: 0 } }).then(
+      (sources) => {
+        const screen = sources[0];
+        if (!screen) callback(null as unknown as Electron.Streams);
+        else callback({ video: screen, audio: 'loopback' });
+      },
+      () => callback(null as unknown as Electron.Streams),
+    );
+  });
 }
 
 // ── Deny by default (#2559) ────────────────────────────────────────────────
@@ -142,6 +180,8 @@ function isHttps(url: string): boolean {
 export function denyAllPermissions(sess: Session): void {
   sess.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
   sess.setPermissionCheckHandler(() => false);
+  // getDisplayMedia goes through its own handler, not the permission ones (#2731).
+  sess.setDisplayMediaRequestHandler((_request, callback) => callback(null as unknown as Electron.Streams));
 }
 
 /**

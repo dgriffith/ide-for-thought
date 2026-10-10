@@ -9,6 +9,7 @@ const h = vi.hoisted(() => {
   const files = new Map<string, string>();
   const binaries = new Map<string, Uint8Array>();
   const api = {
+    app: { supportsSystemAudio: vi.fn(async () => true) },
     notebase: {
       fileExists: vi.fn(async (p: string) => files.has(p) || binaries.has(p)),
       readFile: vi.fn(async (p: string) => {
@@ -36,7 +37,7 @@ const h = vi.hoisted(() => {
     openFile: vi.fn(async () => {}),
     reloadTabFromDisk: vi.fn(async () => {}),
   };
-  const session = { stopBlob: vi.fn(), stop: vi.fn(), cancel: vi.fn() };
+  const session = { stopBlob: vi.fn(), stop: vi.fn(), cancel: vi.fn(), heardSystemAudio: vi.fn((): boolean | null => null) };
   const recorder = {
     startRecording: vi.fn(async () => session),
     decodeAudioFile: vi.fn(async (): Promise<Float32Array> => new Float32Array(0)),
@@ -91,9 +92,13 @@ function openNote(path: string | null): void {
   h.editor.activeNoteTab = path ? { relativePath: path } : null;
 }
 
-async function recordOnce(view: ReturnType<typeof fakeView> | null, blob = new Blob(['opus'], { type: 'audio/webm;codecs=opus' })) {
+async function recordOnce(
+  view: ReturnType<typeof fakeView> | null,
+  blob = new Blob(['opus'], { type: 'audio/webm;codecs=opus' }),
+  opts: { systemAudio?: boolean } = {},
+) {
   h.session.stopBlob.mockResolvedValueOnce(blob);
-  await rec.start(() => view as never);
+  await rec.start(() => view as never, opts);
   await rec.stop();
 }
 
@@ -304,5 +309,40 @@ describe('summarizing a recording (#2729)', () => {
     expect(rec.error).toMatch(/Transcribe that recording first/);
     rec.summarizeAtCursor(() => fakeView('plain', 1) as never, invokeTool);
     expect(rec.error).toMatch(/Put the cursor on the line with an audio recording to summarize/);
+  });
+});
+
+describe('meeting recordings: mic + system audio (#2731)', () => {
+  it('asks the recorder for system audio and labels the recording a meeting', async () => {
+    openNote('a.md');
+    await rec.start(() => null, { systemAudio: true });
+    expect(h.recorder.startRecording).toHaveBeenCalledWith({ systemAudio: true });
+    expect(rec.meeting).toBe(true);
+    rec.cancel();
+  });
+
+  it('refuses before touching the mic where the OS cannot capture system audio', async () => {
+    h.api.app.supportsSystemAudio.mockResolvedValueOnce(false);
+    await rec.start(() => null, { systemAudio: true });
+    expect(h.recorder.startRecording).not.toHaveBeenCalled();
+    expect(rec.error).toMatch(/macOS 14\.2/);
+  });
+
+  it('keeps the recording but says so when no system audio ever came through', async () => {
+    openNote('a.md');
+    h.session.heardSystemAudio.mockReturnValueOnce(false);
+    await recordOnce(fakeView('', 0), undefined, { systemAudio: true });
+    expect(h.binaries.has('assets/recordings/2026-10-08-1432.weba')).toBe(true);
+    expect(rec.error).toMatch(/no system audio came through/);
+  });
+
+  it('is quiet when system audio was heard, and a plain recording never checks', async () => {
+    openNote('a.md');
+    h.session.heardSystemAudio.mockReturnValueOnce(true);
+    await recordOnce(fakeView('', 0), undefined, { systemAudio: true });
+    expect(rec.error).toBeNull();
+    await recordOnce(fakeView('', 0));
+    expect(rec.error).toBeNull();
+    expect(rec.meeting).toBe(false);
   });
 });

@@ -47,6 +47,8 @@ export interface CommandDeps {
   /** Summarize the transcribed recording on the cursor's line, via an
    *  approval-gated skill (#2729). */
   summarizeRecording(): void;
+  /** Start / stop a recording of the mic plus system audio — a call (#2731). */
+  recordMeeting(): void;
   find(): void;
   findReplace(): void;
   findInNotes(): void;
@@ -137,6 +139,8 @@ export function buildCommandRegistry(deps: CommandDeps): Command[] {
       keybinding: null, enabled: hasProject, run: () => deps.recordAudio() },
     { id: 'edit.transcribeRecording', title: 'Transcribe Audio Recording', category: 'Edit',
       keybinding: null, enabled: hasActiveNoteTab, run: () => deps.transcribeRecording() },
+    { id: 'file.newMeetingRecording', title: 'New Meeting Recording (Mic + System Audio, Start / Stop)', category: 'File',
+      keybinding: null, enabled: hasProject, run: () => deps.recordMeeting() },
     { id: 'edit.summarizeRecording', title: 'Summarize Audio Recording…', category: 'Edit',
       keybinding: null, enabled: hasActiveNoteTab, run: () => deps.summarizeRecording() },
     // ── Edit / search ──

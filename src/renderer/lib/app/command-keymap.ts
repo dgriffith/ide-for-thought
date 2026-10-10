@@ -138,6 +138,7 @@ export function createCommandKeymap(ctx: CommandKeymapCtx): {
     recordAudio: () => { void recordings.toggle(focusedView); },
     transcribeRecording: () => { void recordings.transcribeAtCursor(focusedView); },
     summarizeRecording: () => { recordings.summarizeAtCursor(focusedView, ctx.invokeTool); },
+    recordMeeting: () => { void recordings.toggle(focusedView, { systemAudio: true }); },
     find: () => ctx.getEditorComponent()?.openFind(),
     findReplace: () => ctx.getEditorComponent()?.openFindReplace(),
     findInNotes: () => ctx.setFindInNotesMode('find'),

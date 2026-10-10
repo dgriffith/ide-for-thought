@@ -324,6 +324,7 @@ export interface ChannelMap {
   'app:getInfo': () => { name: string; version: string; commit: string; buildDate: string; electron: string; chrome: string; node: string };
   'app:getShortcuts': () => Array<{ menu: string; items: Array<{ label: string; keys: string }> }>;
   'app:getSystemLocale': () => string;
+  'app:supportsSystemAudio': () => boolean;
 
   // External-file drag-drop import + bulk ingest (#259, #2087)
   'files:dropImport': (targetFolder: string, entries: DropImportEntry[]) => DropImportResult;

@@ -45,7 +45,7 @@
       <span class="label">Starting recording…</span>
     {:else if rec.recording}
       <span class="dot pulse"></span>
-      <span class="label">Recording</span>
+      <span class="label">{rec.meeting ? 'Recording meeting' : 'Recording'}</span>
       <span class="time">{formatElapsed(rec.elapsedSec)}</span>
       <span class="hint">esc cancel</span>
       <button class="pill-btn primary" onclick={() => void rec.stop()}>Stop</button>

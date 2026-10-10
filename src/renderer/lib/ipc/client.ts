@@ -629,6 +629,8 @@ export interface AppApi {
   getShortcuts(): Promise<ShortcutGroup[]>;
   /** The OS locale WITH its region (`en-DE`; `navigator.language` has none) — the Calendar's Automatic week start (#2702). */
   getSystemLocale(): Promise<string>;
+  /** Whether this OS can record system audio for a meeting recording (#2731). */
+  supportsSystemAudio(): Promise<boolean>;
 }
 
 export interface ImagesApi {

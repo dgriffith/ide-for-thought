@@ -255,6 +255,7 @@ const api = {
     getInfo: () => invoke(Channels.APP_GET_INFO),
     getShortcuts: () => invoke(Channels.APP_GET_SHORTCUTS),
     getSystemLocale: () => invoke(Channels.APP_GET_SYSTEM_LOCALE),
+    supportsSystemAudio: () => invoke(Channels.APP_SUPPORTS_SYSTEM_AUDIO),
   },
   images: {
     // Cached-or-fetched bytes+mime for an external image URL (offline cache, #...).
