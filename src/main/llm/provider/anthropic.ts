@@ -86,13 +86,71 @@ function buildWebTools(web: WebToolSettings): Anthropic.Messages.ToolUnion[] {
   return [webSearch, webFetch];
 }
 
+/**
+ * Server-side context editing for the conversation loop (#2499). Within one
+ * tool-using turn every tool result stays in context for every later request:
+ * a research turn (several searches, fetched pages, then `propose_notes`)
+ * re-read 627k tokens across its requests while its saved history was ~15k
+ * characters. Past the trigger, the API clears older tool results — server
+ * tools' (`web_search`, `web_fetch`, code execution) and ours alike — and
+ * leaves a placeholder saying so.
+ *
+ * Server-side on purpose, not by editing `history`: the loop is append-only
+ * (#2488). The API edits its own copy before the model reads it, so the
+ * conversation as sent is unchanged — the prompt cache prefix up to the edit
+ * point survives, and thinking blocks bound to the conversation stay valid.
+ *
+ * - `trigger` — the documented default. Below it nothing is cleared, so short
+ *   turns are byte-for-byte what they were.
+ * - `clear_at_least` — each clear invalidates the cache after the edit point
+ *   and pays a cache write, so a clear has to free enough to be worth that.
+ * - `keep` — the most recent tool uses stay readable, enough for the model to
+ *   finish working from the pages it just fetched.
+ * - `clear_tool_inputs: false` — the model keeps seeing every call it made.
+ *   #2024 stubbed a proposal call's input, and the model read its own
+ *   successful call as a failure and filed it five times.
+ * - `exclude_tools` — the loop's pinned tools (proposals, `ask_user`): their
+ *   results are small, and they are how the model knows what's already done.
+ */
+export const CONTEXT_MANAGEMENT_BETA = 'context-management-2025-06-27';
+export const CONTEXT_EDIT_TRIGGER_TOKENS = 100_000;
+export const CONTEXT_EDIT_CLEAR_AT_LEAST_TOKENS = 30_000;
+export const CONTEXT_EDIT_KEEP_TOOL_USES = 4;
+
+export function contextManagementFor(pinned: readonly string[]): Anthropic.Beta.Messages.BetaContextManagementConfig {
+  return {
+    edits: [{
+      type: 'clear_tool_uses_20250919',
+      trigger: { type: 'input_tokens', value: CONTEXT_EDIT_TRIGGER_TOKENS },
+      clear_at_least: { type: 'input_tokens', value: CONTEXT_EDIT_CLEAR_AT_LEAST_TOKENS },
+      keep: { type: 'tool_uses', value: CONTEXT_EDIT_KEEP_TOOL_USES },
+      clear_tool_inputs: false,
+      ...(pinned.length > 0 ? { exclude_tools: [...pinned] } : {}),
+    }],
+  };
+}
+
+/** What the API's context editing cleared from one request, if anything. */
+function clearedContextOf(
+  response: Anthropic.Beta.Messages.BetaContextManagementResponse | null | undefined,
+): { toolUses: number; inputTokens: number } | undefined {
+  let toolUses = 0;
+  let inputTokens = 0;
+  for (const edit of response?.applied_edits ?? []) {
+    if (edit.type !== 'clear_tool_uses_20250919') continue;
+    toolUses += edit.cleared_tool_uses;
+    inputTokens += edit.cleared_input_tokens;
+  }
+  return toolUses > 0 || inputTokens > 0 ? { toolUses, inputTokens } : undefined;
+}
+
 function emptyUsage(): TurnUsage {
   return { inputTokens: 0, outputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0 };
 }
 
 /** Fold one API response's `usage` into a running total, kept distinct by token
  *  kind (plain vs cache-read vs cache-write) so #821 can price each separately. */
-function foldUsage(acc: TurnUsage, usage: Anthropic.Usage | undefined): TurnUsage {
+function foldUsage(acc: TurnUsage, usage: Anthropic.Usage | Anthropic.Beta.Messages.BetaUsage | undefined): TurnUsage {
   if (!usage) return acc;
   acc.inputTokens += usage.input_tokens ?? 0;
   acc.outputTokens += usage.output_tokens ?? 0;
@@ -101,14 +159,16 @@ function foldUsage(acc: TurnUsage, usage: Anthropic.Usage | undefined): TurnUsag
   return acc;
 }
 
-function extractText(content: Anthropic.ContentBlock[]): string {
+type AnyContentBlock = Anthropic.ContentBlock | Anthropic.Beta.Messages.BetaContentBlock;
+
+function extractText(content: AnyContentBlock[]): string {
   return content
-    .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+    .filter((b): b is Anthropic.TextBlock | Anthropic.Beta.Messages.BetaTextBlock => b.type === 'text')
     .map((b) => b.text)
     .join('');
 }
 
-function collectCitations(content: Anthropic.ContentBlock[]): Citation[] {
+function collectCitations(content: AnyContentBlock[]): Citation[] {
   const acc = new Map<string, Citation>();
   for (const block of content) {
     if (block.type !== 'text' || !block.citations) continue;
@@ -124,7 +184,7 @@ function collectCitations(content: Anthropic.ContentBlock[]): Citation[] {
   return [...acc.values()];
 }
 
-function mapStopReason(reason: Anthropic.Message['stop_reason']): StopReason {
+function mapStopReason(reason: Anthropic.Message['stop_reason'] | Anthropic.Beta.Messages.BetaMessage['stop_reason']): StopReason {
   if (reason === 'pause_turn') return 'pause';
   if (reason === 'tool_use') return 'tool_use';
   if (reason === 'max_tokens') return 'max_tokens';
@@ -162,25 +222,46 @@ export class AnthropicProvider implements LLMProvider {
     return tools;
   }
 
-  async runTurn(req: TurnRequest, hooks: TurnHooks): Promise<TurnResult> {
+  /**
+   * Everything a conversation request carries except the per-call knobs
+   * (`max_tokens`, `container`) — shared by `runTurn` and `countContextTokens`,
+   * so a count measures exactly the request that would be sent.
+   *
+   * The beta endpoint, for `context_management` (#2499); otherwise the same
+   * shape as the GA one.
+   */
+  private turnParams(req: TurnRequest) {
     // Tools render before system, so this one marker caches BOTH — the tool
     // schemas and the system prompt — as a single prefix.
     const system: Anthropic.TextBlockParam[] = [
       { type: 'text', text: req.system, cache_control: { type: 'ephemeral' } },
     ];
-    const streamParams: Anthropic.MessageStreamParams = {
+    return {
       model: req.model,
-      max_tokens: req.maxTokens,
       system,
       tools: this.buildTools(req.tools, req.web),
       // Rolling breakpoints on the history tail so each loop iteration reads
       // the transcript the previous one wrote instead of re-paying for it.
       messages: withHistoryCacheBreakpoints(req.history as unknown as Anthropic.MessageParam[]),
       ...outputConfigFor(req.effort),
+      betas: [CONTEXT_MANAGEMENT_BETA],
+      context_management: contextManagementFor(req.pinnedToolResults ?? []),
+    };
+  }
+
+  async countContextTokens(req: TurnRequest): Promise<number> {
+    const counted = await this.client.beta.messages.countTokens(this.turnParams(req), { signal: req.signal });
+    return counted.input_tokens;
+  }
+
+  async runTurn(req: TurnRequest, hooks: TurnHooks): Promise<TurnResult> {
+    const streamParams: Parameters<Anthropic['beta']['messages']['stream']>[0] = {
+      ...this.turnParams(req),
+      max_tokens: req.maxTokens,
     };
     if (req.containerId) streamParams.container = req.containerId;
 
-    const stream = this.client.messages.stream(streamParams, { signal: req.signal });
+    const stream = this.client.beta.messages.stream(streamParams, { signal: req.signal });
 
     // Fire onToolCallStart the moment the model finishes a tool-use block, so the
     // indicator streams *during* the wait for our executor / the server tool.
@@ -204,6 +285,10 @@ export class AnthropicProvider implements LLMProvider {
         + `write=${u?.cache_creation_input_tokens ?? 0} uncached=${u?.input_tokens ?? 0}`,
       );
     }
+    const clearedContext = clearedContextOf(message.context_management);
+    if (clearedContext) {
+      logger('llm').info(`context editing cleared ${clearedContext.toolUses} tool uses (${clearedContext.inputTokens} tokens)`);
+    }
 
     // Fallback for any tool-use block the streaming event missed (SDK drift),
     // so the indicator still appears exactly once.
@@ -217,7 +302,7 @@ export class AnthropicProvider implements LLMProvider {
     }
 
     const toolCalls = message.content
-      .filter((b): b is Anthropic.ToolUseBlock => b.type === 'tool_use')
+      .filter((b): b is Anthropic.Beta.Messages.BetaToolUseBlock => b.type === 'tool_use')
       .map((b) => ({ id: b.id, name: b.name, input: b.input }));
 
     return {
@@ -229,6 +314,7 @@ export class AnthropicProvider implements LLMProvider {
       stopReason: mapStopReason(message.stop_reason),
       ...(message.container?.id ? { containerId: message.container.id } : {}),
       ...(message.container?.expires_at ? { containerExpiresAt: message.container.expires_at } : {}),
+      ...(clearedContext ? { clearedContext } : {}),
     };
   }
 

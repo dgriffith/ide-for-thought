@@ -16,8 +16,9 @@ import path from 'node:path';
 import type Anthropic from '@anthropic-ai/sdk';
 import { useTempDir } from '../../helpers/temp-project';
 
-const { streamMock, getSettingsMock } = vi.hoisted(() => ({
+const { streamMock, countTokensMock, getSettingsMock } = vi.hoisted(() => ({
   streamMock: vi.fn(),
+  countTokensMock: vi.fn(),
   getSettingsMock: vi.fn(),
 }));
 
@@ -28,6 +29,8 @@ vi.mock('@anthropic-ai/sdk', () => {
   return {
     default: class MockAnthropic {
       messages = { stream: streamMock };
+      // The conversation loop streams through the beta endpoint (#2499).
+      beta = { messages: { stream: streamMock, countTokens: countTokensMock } };
     },
   };
 });
@@ -104,6 +107,28 @@ function toolUseMessageWithUsage(
   return { ...toolUseMessage(name, input, id), usage: usage as unknown as Anthropic.Usage };
 }
 
+/**
+ * Every request begins with exactly the request before it. The prompt-cache
+ * marker moves to the newest message each request (and turns a plain-string
+ * message into one text block to carry it); the API doesn't count
+ * cache_control placement as a history edit, so neither do we. Everything else
+ * must be byte-identical.
+ */
+function expectAppendOnly(snapshots: Anthropic.MessageParam[][]): void {
+  const normalized = (messages: Anthropic.MessageParam[]) => JSON.stringify(messages.map((m) => ({
+    role: m.role,
+    content: typeof m.content === 'string'
+      ? [{ type: 'text', text: m.content }]
+      : m.content.map((b) => {
+        const { cache_control: _cc, ...rest } = b as unknown as Record<string, unknown>;
+        return rest;
+      }),
+  })));
+  for (let i = 1; i < snapshots.length; i++) {
+    expect(normalized(snapshots[i]!.slice(0, snapshots[i - 1]!.length))).toBe(normalized(snapshots[i - 1]!));
+  }
+}
+
 // Expected: these tests drive failure paths the code logs (#2390).
 silenceLogTags('conversation');
 
@@ -114,6 +139,7 @@ describe('completeWithTools() dispatch loop (#342)', () => {
   beforeEach(async () => {
     root = project.root;
     streamMock.mockReset();
+    countTokensMock.mockReset();
     getSettingsMock.mockReset();
     getSettingsMock.mockResolvedValue({
       providers: { anthropic: { apiKey: 'fake' } },
@@ -353,22 +379,7 @@ describe('completeWithTools() dispatch loop (#342)', () => {
 
     expect(drafts).toHaveLength(2);
     expect(snapshots).toHaveLength(3);
-    // The prompt-cache marker moves to the newest message each request (and
-    // turns a plain-string message into one text block to carry it); the API
-    // doesn't count cache_control placement as a history edit, so neither do
-    // we. Everything else must be byte-identical.
-    const normalized = (messages: Anthropic.MessageParam[]) => JSON.stringify(messages.map((m) => ({
-      role: m.role,
-      content: typeof m.content === 'string'
-        ? [{ type: 'text', text: m.content }]
-        : m.content.map((b) => {
-          const { cache_control: _cc, ...rest } = b as unknown as Record<string, unknown>;
-          return rest;
-        }),
-    })));
-    for (let i = 1; i < snapshots.length; i++) {
-      expect(normalized(snapshots[i].slice(0, snapshots[i - 1].length))).toBe(normalized(snapshots[i - 1]));
-    }
+    expectAppendOnly(snapshots);
     // And the model still sees what it actually sent.
     const block = (snapshots[1][1].content as Anthropic.ToolUseBlockParam[])[0];
     expect(block.input).toEqual(bundleInput);
@@ -430,6 +441,119 @@ describe('completeWithTools() dispatch loop (#342)', () => {
     const tools = (streamMock.mock.calls[0]![0] as { tools: Array<Record<string, unknown>> }).tools;
     expect(tools.find((t) => t.type === 'web_fetch_20260209')).toMatchObject({ max_content_tokens: 10_000, max_uses: 5 });
     expect(tools.find((t) => t.type === 'web_search_20260209')).toMatchObject({ max_uses: 8 });
+  });
+
+  it('asks the API to clear older tool results — never their inputs, never the pinned tools (#2499)', async () => {
+    setupStreamWith([textMessage('ok')]);
+    await completeWithTools({
+      system: 'sys', messages: [{ role: 'user', content: 'research' }], toolContext: { rootPath: root },
+      web: { enabled: true },
+    });
+    const req = streamMock.mock.calls[0]![0] as {
+      betas: string[];
+      tools: Array<{ name: string }>;
+      context_management: { edits: Array<Record<string, unknown>> };
+    };
+    expect(req.betas).toContain('context-management-2025-06-27');
+    const [edit, ...rest] = req.context_management.edits;
+    expect(rest).toEqual([]);
+    expect(edit).toMatchObject({
+      type: 'clear_tool_uses_20250919',
+      trigger: { type: 'input_tokens', value: 100_000 },
+      clear_at_least: { type: 'input_tokens', value: 30_000 },
+      keep: { type: 'tool_uses', value: 4 },
+      clear_tool_inputs: false,
+    });
+    // Every proposal tool and ask_user is pinned; the bulky read tools and the
+    // server web tools are what gets cleared.
+    const pinned = edit!.exclude_tools as string[];
+    const names = req.tools.map((t) => t.name);
+    expect(pinned).toContain('propose_notes');
+    expect(pinned).toContain('propose_sources');
+    expect(pinned).toEqual(names.filter((n) => n.startsWith('propose_') || n === 'set_properties' || n === 'ask_user'));
+    for (const cleared of ['read_note', 'search_notes', 'web_search', 'web_fetch']) expect(pinned).not.toContain(cleared);
+  });
+
+  it('a long research turn finishes under the guard once the API clears old results, the history still append-only (#2499)', async () => {
+    // Six reads, each request ~100k larger than the last if nothing were
+    // cleared: the fifth would pass the 500k guard. With context editing the
+    // API reports what it actually sent the model — the cleared size — and
+    // the guard reads that.
+    for (let n = 1; n <= 6; n++) await fsp.writeFile(path.join(root, `museum-${n}.md`), `# Museum ${n}\n`, 'utf-8');
+    const read = (n: number, inputTokens: number, cleared: number) => ({
+      ...toolUseMessageWithUsage('read_note', { relative_path: `museum-${n}.md` }, `tu-${n}`, {
+        input_tokens: 2_000, output_tokens: 10, cache_creation_input_tokens: 8_000, cache_read_input_tokens: inputTokens - 10_000,
+      }),
+      context_management: cleared > 0 ? { applied_edits: [{ type: 'clear_tool_uses_20250919', cleared_tool_uses: 3, cleared_input_tokens: cleared }] } : null,
+    }) as unknown as Anthropic.Message;
+    const snapshots = setupStreamWith([
+      read(1, 60_000, 0), read(2, 110_000, 0), read(3, 120_000, 90_000),
+      read(4, 125_000, 190_000), read(5, 130_000, 290_000), read(6, 135_000, 390_000),
+      textMessage('Filed the museum notes.'),
+    ]);
+
+    const result = await completeWithTools({
+      system: 'sys', messages: [{ role: 'user', content: 'research Prague museums' }], toolContext: { rootPath: root },
+      model: 'claude-opus-5-5',
+    });
+
+    expect(result.text).toContain('Filed the museum notes.');
+    expect(result.text).not.toContain('more content than fits');
+    expect(streamMock).toHaveBeenCalledTimes(7);
+    // Clearing is the API's: what we send only ever grows by appending.
+    expectAppendOnly(snapshots);
+  });
+
+  describe('a server-side tool loop\'s summed usage (#2499)', () => {
+    // Measured: a museum-research request ran 36 searches, fetches and filter
+    // steps server-side and reported 916k cache-read tokens — the SUM over its
+    // steps, not its context. Read as the context size, the guard stopped the
+    // turn right after the model filed its notes. Over the ceiling, the loop
+    // now counts the next request before giving up.
+    const research = () => toolUseMessageWithUsage('read_note', { relative_path: 'missing.md' }, 'tu-1', {
+      input_tokens: 50, output_tokens: 19_000, cache_creation_input_tokens: 29_000, cache_read_input_tokens: 916_000,
+    });
+    const run = () => completeWithTools({
+      system: 'sys', messages: [{ role: 'user', content: 'research' }], toolContext: { rootPath: root }, model: 'claude-opus-5',
+    });
+
+    it('goes on when the exact count of the next request is under the ceiling', async () => {
+      setupStreamWith([research(), textMessage('Filed six museum notes.')]);
+      countTokensMock.mockResolvedValue({ input_tokens: 62_000, context_management: null });
+      const result = await run();
+      expect(result.text).toContain('Filed six museum notes.');
+      expect(result.text).not.toContain('more content than fits');
+      // Pricing still sees every step.
+      expect(result.usage.cacheReadTokens).toBe(916_000);
+      // It counted the request it was about to send — clearing included.
+      expect(countTokensMock).toHaveBeenCalledTimes(1);
+      const counted = countTokensMock.mock.calls[0]![0] as { messages: unknown[]; context_management: unknown; betas: string[] };
+      expect(counted.messages).toHaveLength(3);
+      expect(counted.context_management).toMatchObject({ edits: [{ type: 'clear_tool_uses_20250919' }] });
+      expect(counted.betas).toContain('context-management-2025-06-27');
+    });
+
+    it('stops when the exact count is over too', async () => {
+      setupStreamWith([research(), textMessage('should never be reached')]);
+      countTokensMock.mockResolvedValue({ input_tokens: 520_000, context_management: null });
+      const result = await run();
+      expect(streamMock).toHaveBeenCalledTimes(1);
+      expect(result.text).toContain('more content than fits in one exchange');
+    });
+
+    it('stops, as before, when the count itself fails', async () => {
+      setupStreamWith([research(), textMessage('should never be reached')]);
+      countTokensMock.mockRejectedValue(new Error('rate limited'));
+      const result = await run();
+      expect(streamMock).toHaveBeenCalledTimes(1);
+      expect(result.text).toContain('more content than fits in one exchange');
+    });
+
+    it('never counts a turn whose usage is under the ceiling', async () => {
+      setupStreamWith([textMessage('Short answer.')]);
+      await run();
+      expect(countTokensMock).not.toHaveBeenCalled();
+    });
   });
 
   it('sizes the guard to the model: a 1M model goes on past 190k, Haiku (200k) stops there', async () => {

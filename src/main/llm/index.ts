@@ -2,8 +2,10 @@ import { getProvider } from './provider';
 import { turnContextCeiling } from '../../shared/tools/models';
 import type {
   ChatMessage,
+  LLMProvider,
   ProviderMessage,
   ProviderToolResult,
+  TurnRequest,
   WebToolSettings,
 } from './provider/types';
 import {
@@ -348,6 +350,7 @@ export async function completeWithTools(
   // Client-side tools only; server-side web tools are added inside the provider
   // from `web`. History is opaque to this loop — the provider owns its shape.
   const tools = await buildConversationTools({ extraTools: options.extraTools });
+  const pinnedToolResults = tools.map((t) => t.name).filter(isPinnedToolResult);
   const history: ProviderMessage[] = provider.ingestHistory(options.messages);
 
   const textPieces: string[] = [];
@@ -382,7 +385,12 @@ export async function completeWithTools(
   // explains. Each iteration's OWN usage (not the cumulative `usage` above,
   // which sums across iterations for pricing per #820) approximates the
   // context size that request just sent, since every iteration resends the
-  // whole growing history. The ceiling follows the MODEL's window
+  // whole growing history — but only approximates it from above: a request
+  // that ran a server-side tool loop reports usage summed over its internal
+  // steps, so a research request whose context stayed small can read as
+  // 900k (#2499). Over the ceiling, the loop therefore asks the provider to
+  // count the request it is about to send, and stops only if that is over
+  // too. The ceiling follows the MODEL's window
   // (`turnContextCeiling`): 90% of it, capped at 500k — 180k on a 200k model as
   // before, but no longer 180k on the 1M-window models most conversations now
   // run on, which stopped web-research turns at under a fifth of their window.
@@ -403,11 +411,26 @@ export async function completeWithTools(
       `iter=${iteration} container=${containerId ?? 'null'} historyLength=${history.length}`,
     );
 
+    const turnRequest: TurnRequest = {
+      model,
+      system: options.system,
+      history,
+      tools,
+      web,
+      effort,
+      maxTokens: 64000,
+      containerId,
+      pinnedToolResults,
+      signal: callbacks?.signal,
+    };
+
     // Bail before spending a request on a history that's already too big
-    // (#2025) — checked against the PRIOR iteration's own usage, since that's
-    // the closest available reading of how big the request we're about to send
-    // actually is.
-    if (lastIterationContextTokens >= MAX_ITERATION_CONTEXT_TOKENS) {
+    // (#2025) — checked against the PRIOR iteration's own usage, and when that
+    // reads as over, against an exact count of this request (#2499).
+    if (
+      lastIterationContextTokens >= MAX_ITERATION_CONTEXT_TOKENS
+      && await exactContextTokens(provider, turnRequest) >= MAX_ITERATION_CONTEXT_TOKENS
+    ) {
       logger('conversation').warn(
         `stopping before iter=${iteration}: prior iteration's context reached ${lastIterationContextTokens} tokens`,
       );
@@ -422,17 +445,7 @@ export async function completeWithTools(
     // A tool that throws is a tool bug, and dressing it up as "the provider
     // returned an unexpected error" would be a confident lie (#1804).
     const turn = await withProviderErrors(providerId, () => provider.runTurn(
-      {
-        model,
-        system: options.system,
-        history,
-        tools,
-        web,
-        effort,
-        maxTokens: 64000,
-        containerId,
-        signal: callbacks?.signal,
-      },
+      turnRequest,
       {
         onTextDelta: callbacks ? (delta) => callbacks.onChunk(delta) : undefined,
         onToolCallStart,
@@ -509,7 +522,9 @@ export async function completeWithTools(
     // (2026-10-01). Editing an earlier message also breaks the prompt cache
     // from that point on, and on models that bind thinking blocks to the
     // conversation (Opus 5.5, Fable 5.1) it can invalidate them. The context
-    // ceiling is guarded by MAX_ITERATION_CONTEXT_TOKENS above instead.
+    // ceiling is guarded by MAX_ITERATION_CONTEXT_TOKENS above, and the
+    // provider may clear older tool results on its side (#2499), which isn't
+    // an edit of what we send.
     history.push(provider.toolResultMessage(toolResults));
 
     // Track runs of all-error iterations and bail out of a wedged retry loop.
@@ -533,6 +548,34 @@ export async function completeWithTools(
     ...(containerId ? { containerId } : {}),
     ...(containerExpiresAt ? { containerExpiresAt } : {}),
   };
+}
+
+/**
+ * The exact size of the request about to be sent, when the provider can count
+ * it (#2499); otherwise — no counting endpoint, or the count itself failed —
+ * `Infinity`, so the guard falls back to the usage reading that sent it here.
+ */
+async function exactContextTokens(provider: LLMProvider, req: TurnRequest): Promise<number> {
+  if (!provider.countContextTokens) return Infinity;
+  try {
+    const n = await provider.countContextTokens(req);
+    logger('conversation').info(`usage read as over the turn ceiling; counted the next request at ${n} tokens`);
+    return n;
+  } catch (err) {
+    logger('conversation').warn('could not count the next request; going by usage', err);
+    return Infinity;
+  }
+}
+
+/**
+ * Tools whose results stay in context for the whole turn even when the
+ * provider clears older ones (#2499): every proposal tool, `set_properties`
+ * (also a proposal) and `ask_user`. Their results are short, and they are the
+ * model's only record of what it already filed or what the user answered —
+ * cleared, the model can't tell a filed proposal from one it never made.
+ */
+export function isPinnedToolResult(name: string): boolean {
+  return name.startsWith('propose_') || name === 'set_properties' || name === 'ask_user';
 }
 
 function emptyUsage(): TurnUsage {
