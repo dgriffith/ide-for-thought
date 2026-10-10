@@ -123,10 +123,14 @@ test('an object view drags wider than the reading column, and the text stays put
   fs.cpSync(path.join(projectRoot, 'tests', 'fixtures', 'sample-project'), projectDir, { recursive: true });
   seed(projectDir);
   fs.writeFileSync(path.join(projectDir, 'Wide.md'), '# Wide\n\nSome text that should keep its reading width however wide the view beside it grows.\n\n```object-view\n{"typeId":"place","layout":"list"}\n```\n');
-  fs.writeFileSync(path.join(userDataDir, 'session.json'), JSON.stringify([{ x: 40, y: 40, width: 1700, height: 950, rootPath: projectDir }]));
+  // Smaller than the viewport the test emulates, as on a CI runner.
+  fs.writeFileSync(path.join(userDataDir, 'session.json'), JSON.stringify([{ x: 40, y: 40, width: 1000, height: 760, rootPath: projectDir }]));
   const app = await launchMinerva({ userDataDir, env: { MINERVA_E2E: '1' } });
   try {
     const win = await app.firstWindow({ timeout: 20_000 });
+    // A CI runner's display is ~1024px wide and the window is clamped to it,
+    // leaving no room beside the column — so the page's viewport is emulated.
+    await win.setViewportSize({ width: 1700, height: 950 });
     const row = win.locator('[data-relative-path="Wide.md"]').first();
     await expect(row).toBeVisible({ timeout: 25_000 });
     await row.click();
@@ -177,7 +181,7 @@ test('an object view drags wider than the reading column, and the text stays put
       const note = path.join(projectDir, 'Wide.md');
       await expect.poll(() => fs.readFileSync(note, 'utf-8'), { timeout: 10_000 }).toMatch(/"width":\d+/);
       const stored = fs.readFileSync(note, 'utf-8');
-      await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.setSize(1300, 950); });
+      await win.setViewportSize({ width: 1300, height: 950 });
       await expect.poll(async () => {
         const room = await preview.evaluate((el) => parseFloat(el.style.getPropertyValue('--preview-room')));
         return (await widthOf(fence)) === room && room < Number(/"width":(\d+)/.exec(stored)![1]);

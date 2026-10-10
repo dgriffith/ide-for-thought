@@ -153,10 +153,16 @@ test('a note with every live kind exports each one rendered, no raw source left 
       await win.evaluate(async (dir) => (window as unknown as {
         api: { publish: { runExport(a: unknown): Promise<unknown> } };
       }).api.publish.runExport({ exporterId: 'static-site', input: { kind: 'project' }, outputDir: dir }), siteDir);
-      const measure = (width: number) => app.evaluate(async ({ BrowserWindow }, { file, width }) => {
-        const w = new BrowserWindow({ show: false, width, height: 900 });
+      // A CI runner's display is ~1024px wide and a window is clamped to it,
+      // so a wide page is a window at half zoom: 1000 device px, ~2000 CSS px.
+      const measure = (zoomFactor: number) => app.evaluate(async ({ BrowserWindow }, { file, zoomFactor }) => {
+        const w = new BrowserWindow({ show: false, width: 1000, height: 800 });
         try {
           await w.loadFile(file);
+          // Set after loading, every time: Electron shares a zoom level across
+          // an origin's pages, so one window's zoom would carry to the next.
+          w.webContents.setZoomFactor(zoomFactor);
+          await w.webContents.executeJavaScript('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))');
           return await w.webContents.executeJavaScript(`(() => {
             const frame = document.querySelector('.minerva-live-frame').getBoundingClientRect();
             const p = [...document.querySelectorAll('article p')].find((el) => el.textContent === 'Plain text keeps its reading width.').getBoundingClientRect();
@@ -167,15 +173,15 @@ test('a note with every live kind exports each one rendered, no raw source left 
         } finally {
           w.destroy();
         }
-      }, { file: path.join(siteDir, 'Everything.html'), width });
+      }, { file: path.join(siteDir, 'Everything.html'), zoomFactor });
       // A wide window: past the text, left-aligned with it, short of the window's edge.
-      const wide = await measure(1900);
+      const wide = await measure(0.5);
       expect(wide.frame, JSON.stringify(wide)).toBeGreaterThan(wide.text + 200);
       expect(wide.frameLeft).toBe(wide.textLeft);
       expect(wide.frameRight).toBeLessThanOrEqual(wide.viewport - 32);
       expect(wide.pageScrolls).toBe(false);
       // A window with no room beside the text: as wide as the text, scrolling itself.
-      const narrow = await measure(1000);
+      const narrow = await measure(1);
       expect(narrow.frame, JSON.stringify(narrow)).toBe(narrow.text);
       expect(narrow.pageScrolls).toBe(false);
     });
