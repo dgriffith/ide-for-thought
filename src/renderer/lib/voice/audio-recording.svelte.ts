@@ -60,6 +60,8 @@ let error = $state<string | null>(null);
 let transcription = $state<{ target: string; done: number; total: number } | null>(null);
 
 let session: RecordingSession | null = null;
+/** The current recording also captures system audio (#2731). */
+let meeting = $state(false);
 let ticker: ReturnType<typeof setInterval> | null = null;
 /** The note that was active when recording started — where the embed goes. */
 let startNote: string | null = null;
@@ -71,13 +73,19 @@ function stopTicker(): void {
   ticker = null;
 }
 
-/** Start recording from the default microphone. */
-async function start(viewGetter: ViewGetter): Promise<void> {
+/** Start recording from the default microphone — with `systemAudio`, a
+ *  meeting recording that also captures what the computer plays (#2731). */
+async function start(viewGetter: ViewGetter, opts: { systemAudio?: boolean } = {}): Promise<void> {
   if (status !== 'idle') return;
   if (getVoiceStore().busy) {
     error = 'Finish dictating before starting a recording.';
     return;
   }
+  if (opts.systemAudio && !(await api.app.supportsSystemAudio())) {
+    error = 'Meeting recordings need macOS 14.2 or later.';
+    return;
+  }
+  meeting = !!opts.systemAudio;
   const editor = getEditorStore();
   getView = viewGetter;
   startNote = editor.activeNoteTab ? editor.activeFilePath : null;
@@ -85,7 +93,7 @@ async function start(viewGetter: ViewGetter): Promise<void> {
   status = 'starting';
   let started: RecordingSession;
   try {
-    started = await startRecording();
+    started = await startRecording({ systemAudio: meeting });
   } catch (e) {
     logger('voice').error('recording start failed:', e);
     error = micErrorMessage(e);
@@ -139,6 +147,13 @@ async function stop(): Promise<void> {
     } catch (e) {
       logger('voice').error('embedding recording failed:', e);
       error = `Saved the recording as ${assetPath}, but couldn't add it to the note: ${messageOf(e)}`;
+      return;
+    }
+    // A missing macOS permission doesn't fail the capture; it records silence
+    // where the call should be. Say so rather than let it pass as a success.
+    if (s.heardSystemAudio() === false) {
+      error = 'The recording was saved, but no system audio came through. If a call was playing, '
+        + 'allow Minerva under System Settings › Privacy & Security › Screen & System Audio Recording.';
     }
   } catch (e) {
     logger('voice').error('stopping recording failed:', e);
@@ -157,9 +172,9 @@ function cancel(): void {
 }
 
 /** Start if idle, stop if recording — one command for the palette and menu. */
-async function toggle(viewGetter: ViewGetter): Promise<void> {
+async function toggle(viewGetter: ViewGetter, opts: { systemAudio?: boolean } = {}): Promise<void> {
   if (status === 'recording') await stop();
-  else await start(viewGetter);
+  else await start(viewGetter, opts);
 }
 
 /** `recordingPath` for `at`, suffixed past any file already there. */
@@ -374,6 +389,9 @@ export function getAudioRecordingStore() {
   return {
     get status() {
       return status;
+    },
+    get meeting() {
+      return meeting;
     },
     get recording() {
       return status === 'recording';

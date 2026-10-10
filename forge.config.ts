@@ -182,12 +182,15 @@ const config: ForgeConfig = {
     // `.icns` on macOS and `.ico` on Windows. Linux has no embedded app icon,
     // so the window/taskbar icon is set at runtime from resources/icons.
     icon: path.resolve(process.cwd(), 'assets', 'Minerva'),
-    // macOS shows this string in the system microphone-permission prompt the
-    // first time dictation (#voice) calls getUserMedia. Without it, the
-    // hardened-runtime app is denied the mic outright.
+    // macOS shows these strings in its permission prompts. Without the mic
+    // one, the hardened-runtime app is denied the mic outright (dictation,
+    // recordings). Without the audio-capture one, a meeting recording's
+    // system audio (#2731) comes back as a silent stream with no error.
     extendInfo: {
       NSMicrophoneUsageDescription:
-        'Minerva uses the microphone for on-device voice dictation. Audio is transcribed locally and never leaves your computer.',
+        'Minerva uses the microphone for voice dictation and audio recordings. Audio stays on your computer and is transcribed locally.',
+      NSAudioCaptureUsageDescription:
+        'Minerva records the sound your Mac plays — the other side of a call — into meeting recordings in your notes. It stays on your computer.',
     },
     // Stage `resources/python/minerva_kernel.py` (and anything else
     // we drop under `resources/`) next to the main bundle in the

@@ -69,7 +69,7 @@ const OWNER_PATHS = [
  */
 const READ_ALLOWLIST = new Set<string>([
   // app / shell / view / export — OS + window reads and stateless side-effects
-  'getInfo', 'getShortcuts', 'getSystemLocale', 'openExternal', 'openInDefault', 'openInTerminal',
+  'getInfo', 'getShortcuts', 'getSystemLocale', 'supportsSystemAudio', 'openExternal', 'openInDefault', 'openInTerminal',
   'revealFile', 'revealFolder', 'revealAuditLog', 'csv', 'getZoomFactor',
   // inspection settings: reading which checks run changes nothing (#1792);
   // the write is denylisted and goes through the settings store.

@@ -65,6 +65,12 @@ upgrade copies the old `file://` origin's entries across once
   doesn't need `file://` access, and must not ask for it.
 - **A permission** is granted in `security.ts`'s default-session handler to
   `app://minerva` only. Any other session denies it.
+- **Screen or system-audio capture** (`getDisplayMedia`) doesn't go through
+  the permission handlers; it has its own, `installDisplayMediaHandler`
+  (#2731). It grants loopback audio only to a top frame showing the renderer
+  entry, and only when audio was asked for; `denyAllPermissions` denies it in
+  every other session. On macOS it also needs `NSAudioCaptureUsageDescription`
+  in `forge.config.ts`'s `extendInfo`, or the stream is silently empty.
 
 ## The shared-thoughtbase question
 

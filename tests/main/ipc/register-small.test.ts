@@ -333,6 +333,12 @@ describe('register-app (#1840)', () => {
     expect(call(Channels.APP_GET_SYSTEM_LOCALE)).toBe('en-DE');
   });
 
+  it('answers whether this OS can record system audio, for meeting recordings (#2731)', () => {
+    // The rule itself is security-helpers' supportsSystemAudioCapture; here,
+    // only that the channel answers it for the running platform.
+    expect(typeof call(Channels.APP_SUPPORTS_SYSTEM_AUDIO)).toBe('boolean');
+  });
+
   it('records the theme the renderer reports, for the native View menu', () => {
     send(Channels.MENU_REPORT_THEME, {}, 'dark');
     expect(h.setMenuThemeMode).toHaveBeenCalledWith('dark');

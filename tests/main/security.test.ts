@@ -19,6 +19,8 @@ const cap = vi.hoisted(() => ({
   openExternal: [] as string[],
   appListeners: new Map<string, (...a: unknown[]) => void>(),
   partitions: new Map<string, { id: string }>(),
+  displayMedia: null as null | ((request: unknown, cb: (streams: unknown) => void) => void),
+  screenSources: [{ id: 'screen:1:0', name: 'Entire Screen' }] as Array<{ id: string; name: string }>,
 }));
 
 vi.mock('electron', () => ({
@@ -34,8 +36,10 @@ vi.mock('electron', () => ({
       },
       setPermissionRequestHandler: (fn: typeof cap.permissionRequest) => { cap.permissionRequest = fn; },
       setPermissionCheckHandler: (fn: typeof cap.permissionCheck) => { cap.permissionCheck = fn; },
+      setDisplayMediaRequestHandler: (fn: typeof cap.displayMedia) => { cap.displayMedia = fn; },
     },
   },
+  desktopCapturer: { getSources: () => Promise.resolve(cap.screenSources) },
   shell: { openExternal: (url: string) => { cap.openExternal.push(url); return Promise.resolve(); } },
 }));
 
@@ -105,6 +109,42 @@ describe('installPermissions (#1001, clipboard grant #2068)', () => {
     expect(check(null, 'media', 'https://evil.example')).toBe(false);
     expect(check(null, 'clipboard-sanitized-write', 'app://minerva')).toBe(true);
     expect(check(null, 'notifications', 'app://minerva')).toBe(false);
+  });
+});
+
+describe('display media for meeting recordings (#2731)', () => {
+  const ENTRY = 'app://minerva/index.html';
+  const frame = (url: string, top = true) => ({ url, parent: top ? null : { url: ENTRY } });
+
+  async function answer(request: Record<string, unknown>): Promise<unknown> {
+    installPermissions();
+    return new Promise((resolve) => cap.displayMedia!(request, resolve));
+  }
+
+  it('grants the renderer page system audio as loopback, with a screen as the required video', async () => {
+    expect(await answer({ frame: frame(ENTRY), audioRequested: true, videoRequested: true }))
+      .toEqual({ video: cap.screenSources[0], audio: 'loopback' });
+  });
+
+  it('denies a subframe, a foreign or local page, no frame, or a video-only request', async () => {
+    const denied = [
+      { frame: frame(ENTRY, false), audioRequested: true },
+      { frame: frame('https://evil.example/'), audioRequested: true },
+      { frame: frame('file:///tmp/x.html'), audioRequested: true },
+      { frame: null, audioRequested: true },
+      { frame: frame(ENTRY), audioRequested: false, videoRequested: true },
+    ];
+    for (const request of denied) expect(await answer(request), JSON.stringify(request)).toBeNull();
+  });
+
+  it('denies when there is no screen to pair the audio with', async () => {
+    const saved = cap.screenSources;
+    cap.screenSources = [];
+    try {
+      expect(await answer({ frame: frame(ENTRY), audioRequested: true })).toBeNull();
+    } finally {
+      cap.screenSources = saved;
+    }
   });
 });
 
@@ -267,6 +307,8 @@ describe('deny-by-default guards on every webContents and session (#2559)', () =
         check: null as null | ((...a: unknown[]) => boolean),
         setPermissionRequestHandler(fn: never) { this.request = fn; },
         setPermissionCheckHandler(fn: never) { this.check = fn; },
+        displayMedia: null as null | ((r: unknown, cb: (s: unknown) => void) => void),
+        setDisplayMediaRequestHandler(fn: never) { this.displayMedia = fn; },
       };
       cap.appListeners.get('session-created')!(sess);
       for (const permission of ['media', 'geolocation', 'notifications', 'clipboard-sanitized-write', 'midi']) {
@@ -283,8 +325,14 @@ describe('deny-by-default guards on every webContents and session (#2559)', () =
     const sess = {
       setPermissionRequestHandler: () => calls.push('request'),
       setPermissionCheckHandler: () => calls.push('check'),
+      setDisplayMediaRequestHandler: (fn: (r: unknown, cb: (s: unknown) => void) => void) => {
+        calls.push('displayMedia');
+        let streams: unknown = 'unset';
+        fn({ audioRequested: true }, (s) => { streams = s; });
+        expect(streams).toBeNull(); // every other session denies getDisplayMedia (#2731)
+      },
     } as unknown as import('electron').Session;
     denyAllPermissions(sess);
-    expect(calls).toEqual(['request', 'check']);
+    expect(calls).toEqual(['request', 'check', 'displayMedia']);
   });
 });

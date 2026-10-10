@@ -23,6 +23,12 @@ const recordAudio: Command = (view) => {
   return true;
 };
 
+/** Start / stop a meeting recording: the mic plus system audio (#2731). */
+const recordMeeting: Command = (view) => {
+  void getAudioRecordingStore().toggle(() => view, { systemAudio: true });
+  return true;
+};
+
 /** Transcribe the audio recording embedded on the cursor's line (#2428). */
 const transcribeRecording: Command = (view) => {
   void getAudioRecordingStore().transcribeAtCursor(() => view);
@@ -82,6 +88,7 @@ export const COMMAND_REGISTRY: CommandEntry[] = [
   // Voice
   { id: 'editor.dictate', label: 'Dictate (Voice to Text)', defaultKey: 'Mod-Shift-v', command: dictate },
   { id: 'editor.recordAudio', label: 'Record Audio', defaultKey: '', command: recordAudio },
+  { id: 'editor.recordMeeting', label: 'Record Meeting (Mic + System Audio)', defaultKey: '', command: recordMeeting },
   { id: 'editor.transcribeRecording', label: 'Transcribe Recording', defaultKey: '', command: transcribeRecording },
 
   // Insert

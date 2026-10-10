@@ -153,3 +153,18 @@ export function externalNavTarget(url: string): { kind: 'external'; url: string 
   }
   return { kind: 'drop' };
 }
+
+/**
+ * Whether this OS can record system audio for a meeting recording (#2731):
+ * Electron grants it as `getDisplayMedia` loopback audio. On macOS that runs
+ * on Apple's CoreAudio process tap, which needs macOS 14.2 (Darwin 23.2);
+ * earlier versions would fall back to the screen-recording path or give
+ * nothing. Windows supports loopback natively; Linux doesn't.
+ * `osRelease` is `os.release()` (the kernel version, `23.2.0` on 14.2).
+ */
+export function supportsSystemAudioCapture(platform: string, osRelease: string): boolean {
+  if (platform === 'win32') return true;
+  if (platform !== 'darwin') return false;
+  const [major = 0, minor = 0] = osRelease.split('.').map((n) => Number.parseInt(n, 10) || 0);
+  return major > 23 || (major === 23 && minor >= 2);
+}
