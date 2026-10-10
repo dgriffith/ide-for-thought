@@ -69,7 +69,7 @@ const OWNER_PATHS = [
  */
 const READ_ALLOWLIST = new Set<string>([
   // app / shell / view / export — OS + window reads and stateless side-effects
-  'getInfo', 'getShortcuts', 'getSystemLocale', 'openExternal', 'openInDefault', 'openInTerminal',
+  'getInfo', 'getShortcuts', 'getSystemLocale', 'supportsSystemAudio', 'openExternal', 'openInDefault', 'openInTerminal',
   'revealFile', 'revealFolder', 'revealAuditLog', 'csv', 'getZoomFactor',
   // plugins.reveal (#2634): opens a plugin's folder in the file manager.
   'reveal',

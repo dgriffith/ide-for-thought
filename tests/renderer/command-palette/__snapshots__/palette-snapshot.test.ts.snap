@@ -27,6 +27,7 @@ edit.insertTemplate | Insert Template… | Edit | - | enabled
 edit.dictate | Dictate (Voice to Text) | Edit | ⌘ ⇧ V | enabled
 file.newAudioRecording | New Audio Recording (Start / Stop) | File | - | enabled
 edit.transcribeRecording | Transcribe Audio Recording | Edit | - | enabled
+file.newMeetingRecording | New Meeting Recording (Mic + System Audio, Start / Stop) | File | - | enabled
 edit.summarizeRecording | Summarize Audio Recording… | Edit | - | enabled
 edit.find | Find | Edit | ⌘ F | enabled
 edit.findReplace | Find and Replace | Edit | ⌘ H | enabled
@@ -87,6 +88,7 @@ edit.insertTemplate | Insert Template… | Edit | - | disabled
 edit.dictate | Dictate (Voice to Text) | Edit | ⌘ ⇧ V | disabled
 file.newAudioRecording | New Audio Recording (Start / Stop) | File | - | disabled
 edit.transcribeRecording | Transcribe Audio Recording | Edit | - | disabled
+file.newMeetingRecording | New Meeting Recording (Mic + System Audio, Start / Stop) | File | - | disabled
 edit.summarizeRecording | Summarize Audio Recording… | Edit | - | disabled
 edit.find | Find | Edit | ⌘ F | disabled
 edit.findReplace | Find and Replace | Edit | ⌘ H | disabled

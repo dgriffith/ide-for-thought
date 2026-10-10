@@ -67,6 +67,12 @@ upgrade copies the old `file://` origin's entries across once
 - **A permission** is granted in `security.ts`'s default-session handler to
   `app://minerva` only, judged by the requesting frame's URL (#2824). Any
   other session denies it.
+- **Screen or system-audio capture** (`getDisplayMedia`) doesn't go through
+  the permission handlers; it has its own, `installDisplayMediaHandler`
+  (#2731). It grants loopback audio only to a top frame showing the renderer
+  entry, and only when audio was asked for; `denyAllPermissions` denies it in
+  every other session. On macOS it also needs `NSAudioCaptureUsageDescription`
+  in `forge.config.ts`'s `extendInfo`, or the stream is silently empty.
 - **A plugin's worker host** (#2830) is an unattached `WebContentsView` with
   the hardened preferences, on the plugin's origin, showing only Minerva's
   host page. It's the one page besides the renderer with a preload, and that

@@ -33,7 +33,7 @@ describe('buildCommandRegistry', () => {
     expect(ids).toEqual([
       'file.newNote', 'file.save', 'file.openProject', 'file.newProject',
       'file.closeProject', 'file.editThoughtbaseGuide', 'file.print', 'file.saveAsTemplate', 'edit.insertTemplate',
-      'edit.dictate', 'file.newAudioRecording', 'edit.transcribeRecording', 'edit.summarizeRecording',
+      'edit.dictate', 'file.newAudioRecording', 'edit.transcribeRecording', 'file.newMeetingRecording', 'edit.summarizeRecording',
       'edit.find', 'edit.findReplace', 'edit.findInNotes', 'edit.replaceInNotes',
       'edit.gotoLine', 'edit.sortLines', 'view.toggleSidebar', 'view.toggleRightSidebar',
       'view.togglePreview', 'view.toggleConversations',
