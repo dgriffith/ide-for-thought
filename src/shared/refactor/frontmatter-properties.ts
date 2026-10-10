@@ -13,15 +13,22 @@
 import YAML from 'yaml';
 import { ownRecord } from '../own-record';
 import { editNote, findFrontmatter, type FrontmatterBlock } from '../frontmatter-block';
+import { spliceFrontmatter, type SpliceOptions } from './frontmatter-splice';
+
+/** Writers that create or replace a block: a new block is set off from the
+ *  body by a blank line, and an unparseable one is overwritten (#2737). */
+const NEW_BLOCK: SpliceOptions = { onMalformed: 'replace', blankLineAfterNewBlock: true };
 
 /*
  * Every parsed map is copied into a null-prototype record (`ownRecord`) before
  * it is read or written by key: keys are user text, so on an ordinary object
  * `key in fm` / `fm[key]` would see `constructor`, `toString`, … as present,
  * and `fm['__proto__'] = v` would hit the prototype setter instead of adding
- * the key. `YAML.stringify` serialises a null-prototype record as usual.
+ * the key.
  *
- * The writers keep the note's line endings and byte-order mark (#2690).
+ * The writers edit through `spliceFrontmatter`, so only the key they touch is
+ * rewritten (#2737), and keep the note's line endings and byte-order mark
+ * (#2690).
  */
 
 function parseFrontmatterObject(content: string): { fm: Record<string, unknown>; match: FrontmatterBlock } | null {
@@ -62,23 +69,9 @@ export function setPropertyInContent(content: string, key: string, value: unknow
 }
 
 function setPropertyInText(content: string, key: string, value: unknown): SetPropertyResult {
-  const match = findFrontmatter(content);
-  let fm: Record<string, unknown> = ownRecord([]);
-  if (match) {
-    try {
-      const parsed: unknown = YAML.parse(match.yaml);
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        fm = ownRecord(Object.entries(parsed));
-      }
-    } catch { /* malformed frontmatter — overwrite */ }
-  }
-  if (fm[key] === value) return { content, changed: false };
-  fm[key] = value;
-  const yamlBlock = YAML.stringify(fm).trimEnd();
-  const rendered = `---\n${yamlBlock}\n---\n`;
-  const body = match ? content.slice(match.end) : content;
-  const separator = body.startsWith('\n') || body === '' ? '' : '\n';
-  return { content: rendered + separator + body, changed: true };
+  // Only `key`'s lines change; malformed frontmatter is replaced, as before.
+  const result = spliceFrontmatter(content, (doc) => { doc.set(key, value); }, NEW_BLOCK)!;
+  return { content: result.content, changed: result.changedKeys.length > 0 };
 }
 
 export interface RemovePropertyResult {
@@ -97,17 +90,7 @@ export function removePropertyFromContent(content: string, key: string): RemoveP
 }
 
 function removePropertyFromText(content: string, key: string): RemovePropertyResult {
-  const parsed = parseFrontmatterObject(content);
-  if (!parsed) return { content, removed: false };
-  const { fm, match } = parsed;
-  if (!(key in fm)) return { content, removed: false };
-  delete fm[key];
-  const body = content.slice(match.end);
-  if (Object.keys(fm).length === 0) {
-    return { content: body.replace(/^\n+/, ''), removed: true };
-  }
-  const yamlBlock = YAML.stringify(fm).trimEnd();
-  const rendered = `---\n${yamlBlock}\n---\n`;
-  const separator = body.startsWith('\n') || body === '' ? '' : '\n';
-  return { content: rendered + separator + body, removed: true };
+  const result = spliceFrontmatter(content, (doc) => { doc.delete(key); }, { trimBodyOnDrop: true });
+  if (!result || result.changedKeys.length === 0) return { content, removed: false };
+  return { content: result.content, removed: true };
 }

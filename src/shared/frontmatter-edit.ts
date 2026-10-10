@@ -8,6 +8,7 @@
 import YAML from 'yaml';
 import { ownRecord } from './own-record';
 import { editNoteText, findFrontmatter } from './frontmatter-block';
+import { spliceFrontmatter } from './refactor/frontmatter-splice';
 
 /** Display string for a scalar YAML value (Date → `YYYY-MM-DD`); non-scalars → ''. */
 function toDisplay(v: unknown): string {
@@ -47,28 +48,11 @@ export function setFrontmatterProperty(content: string, key: string, value: stri
 
 function setInText(content: string, key: string, value: string | number | null): string {
   const clear = value === '' || value === null;
-  const block = findFrontmatter(content);
-  if (!block) {
-    if (clear) return content; // nothing to clear
-    const doc = new YAML.Document({});
-    doc.set(key, value);
-    return `---\n${doc.toString().trimEnd()}\n---\n${content}`;
-  }
-  let doc: YAML.Document.Parsed;
-  try {
-    doc = YAML.parseDocument(block.yaml);
-    if (doc.errors.length > 0) return content;
-  } catch {
-    return content;
-  }
-  if (clear) doc.delete(key);
-  else doc.set(key, value);
-
-  const body = content.slice(block.end);
-  // A cleared last key would leave an empty `---\n\n---` block — drop it instead.
-  if (YAML.isMap(doc.contents) && doc.contents.items.length === 0) return body;
-
-  let serialised = doc.toString();
-  if (serialised.endsWith('\n')) serialised = serialised.slice(0, -1);
-  return `---\n${serialised}\n---\n${body}`;
+  // Only `key`'s lines are rewritten; every other key keeps its text (#2737).
+  // A cleared last key drops the block rather than leave an empty one.
+  const result = spliceFrontmatter(content, (doc) => {
+    if (clear) doc.delete(key);
+    else doc.set(key, value);
+  });
+  return result?.content ?? content;
 }
