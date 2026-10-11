@@ -135,11 +135,19 @@
   const today = todayCivil();
   /** A page turned here, ahead of (or, read-only, instead of) the `month` prop. */
   let override = $state<CalendarMonth | null>(null);
+  // The `month` prop by VALUE. The host passes it out of a derived spec object
+  // that a refresh rebuilds, and Svelte tracks a prop through its source — so
+  // read directly, every graph change looked like a new month: it reset a
+  // turned page and closed the day's list from under the user (focus fell to
+  // <body>). A primitive derived only notifies when the string changes.
+  const monthProp = $derived(month);
   // A `month` that arrives as props (our own write echoing back, a restored
   // tab, Back) is the page from then on.
-  $effect(() => { void month; untrack(() => { override = null; }); });
-  const page = $derived<CalendarMonth>(override ?? parseMonthAnchor(month) ?? monthOf(today));
+  $effect(() => { void monthProp; untrack(() => { override = null; }); });
+  const page = $derived<CalendarMonth>(override ?? parseMonthAnchor(monthProp) ?? monthOf(today));
   const pageKey = (m: CalendarMonth) => m.year * 12 + m.month;
+  /** The page as a number, so effects run on a page TURN, not a re-derived object. */
+  const pageNumber = $derived(pageKey(page));
 
   function goTo(m: CalendarMonth, opts: { current?: boolean } = {}): void {
     override = m;
@@ -249,8 +257,8 @@
     listAnchor = null;
     if (returnFocus && day !== null) void tick().then(() => grid?.querySelector<HTMLElement>(`[data-day="${day}"]`)?.focus());
   }
-  // A page turn closes it.
-  $effect(() => { void page; untrack(() => { if (listDay !== null) closeList(false); }); });
+  // A page turn closes it — a turn, not a refresh re-deriving the same page.
+  $effect(() => { void pageNumber; untrack(() => { if (listDay !== null) closeList(false); }); });
 
   // ── Hover preview ─────────────────────────────────────────────────────
   const hover = createNoteHover();
