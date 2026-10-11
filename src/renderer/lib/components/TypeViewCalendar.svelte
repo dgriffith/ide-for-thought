@@ -135,11 +135,15 @@
   const today = todayCivil();
   /** A page turned here, ahead of (or, read-only, instead of) the `month` prop. */
   let override = $state<CalendarMonth | null>(null);
-  // A `month` that arrives as props (our own write echoing back, a restored
+  // `month` by value: it comes out of a spec object every refresh rebuilds, so
+  // read directly, each graph change looked like a new month (page reset, day
+  // list closed). A month that does arrive (our write echoing back, a restored
   // tab, Back) is the page from then on.
-  $effect(() => { void month; untrack(() => { override = null; }); });
-  const page = $derived<CalendarMonth>(override ?? parseMonthAnchor(month) ?? monthOf(today));
+  const monthProp = $derived(month);
+  $effect(() => { void monthProp; untrack(() => { override = null; }); });
+  const page = $derived<CalendarMonth>(override ?? parseMonthAnchor(monthProp) ?? monthOf(today));
   const pageKey = (m: CalendarMonth) => m.year * 12 + m.month;
+  const pageNumber = $derived(pageKey(page)); // a turn, not a re-derived object
 
   function goTo(m: CalendarMonth, opts: { current?: boolean } = {}): void {
     override = m;
@@ -249,8 +253,8 @@
     listAnchor = null;
     if (returnFocus && day !== null) void tick().then(() => grid?.querySelector<HTMLElement>(`[data-day="${day}"]`)?.focus());
   }
-  // A page turn closes it.
-  $effect(() => { void page; untrack(() => { if (listDay !== null) closeList(false); }); });
+  // A page turn closes it — a turn, not a refresh re-deriving the same page.
+  $effect(() => { void pageNumber; untrack(() => { if (listDay !== null) closeList(false); }); });
 
   // ── Hover preview ─────────────────────────────────────────────────────
   const hover = createNoteHover();
