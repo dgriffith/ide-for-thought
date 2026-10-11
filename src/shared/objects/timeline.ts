@@ -38,12 +38,12 @@
  *     per the spike — not swapped, and not half-kept.
  */
 import type { ViewLayout } from '../types';
+import { DEFAULT_VIEW_LAYOUT } from './view-layouts';
 import { settledPropertyDefs, type TypeLike } from './inheritance';
 import { dateByForSpec, dateProperties, hasDateProperty } from './date-by';
 import { civilMs, dateRange, dateSpan, isClockPrecision, parseDateValue } from './date-precision';
 
 /** A type view's default layout (`openTypeView`, a restored tab without one). */
-export const DEFAULT_VIEW_LAYOUT: ViewLayout = 'table';
 
 /** A timeline's visible range; null on a side = fit that side to the events. */
 export interface TimelineRange {

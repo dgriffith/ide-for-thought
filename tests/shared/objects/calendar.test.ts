@@ -8,7 +8,7 @@ import { describe, it, expect } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { calendarSpecForType, canShowCalendar, parseCalendarMonth } from '../../../src/shared/objects/calendar';
-import { DEFAULT_VIEW_LAYOUT } from '../../../src/shared/objects/timeline';
+import { DEFAULT_VIEW_LAYOUT } from '../../../src/shared/objects/view-layouts';
 import { parseType } from '../../../src/main/types/parse';
 import type { PropertyDef, TypeDef } from '../../../src/shared/objects/type-def';
 

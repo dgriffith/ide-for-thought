@@ -13,6 +13,7 @@
  * write lives in `renderer/lib/app/note-ops.ts`.
  */
 import type { ViewLayout } from '../types';
+import { layoutDef } from './view-layouts';
 import type { ViewFilter } from './view-spec';
 import type { MapStyle } from './map-style';
 import { viewHeightField } from './view-height';
@@ -54,11 +55,10 @@ export interface ViewNoteSpec {
   dateBy?: string | null | undefined;
 }
 
-const LAYOUT_NAMES: Record<ViewLayout, string> = { list: 'list', table: 'table', gallery: 'gallery', map: 'map', kanban: 'board', timeline: 'timeline', calendar: 'calendar' };
 
 /** "Restaurant map", "Museum table" — the prompt's starting value. */
 export function suggestViewNoteName(typeLabel: string, layout: ViewLayout): string {
-  return `${typeLabel.trim() || 'Objects'} ${LAYOUT_NAMES[layout]}`;
+  return `${typeLabel.trim() || 'Objects'} ${layoutDef(layout).noteName}`;
 }
 
 /**

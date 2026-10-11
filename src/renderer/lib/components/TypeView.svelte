@@ -31,8 +31,9 @@
   import { buildViewEmbed } from '../../../shared/objects/view-note';
   import { comparePropertyValues, viewToCsv } from '../../../shared/objects/view-values';
   import { boardColumns, groupByForSpec, moveColumn, resolveGroupBy } from '../../../shared/objects/kanban';
-  import { canShowTimeline, timelineSpecForType } from '../../../shared/objects/timeline';
-  import { calendarSpecForType, canShowCalendar } from '../../../shared/objects/calendar';
+  import { timelineSpecForType } from '../../../shared/objects/timeline';
+  import { calendarSpecForType } from '../../../shared/objects/calendar';
+  import { layoutsFor, type ViewLayout } from '../../../shared/objects/view-layouts';
   import { objectTypesStore } from '../stores/object-types.svelte';
   import { effectivePropertyDefs } from '../../../shared/objects/inheritance';
   import { displayPropertyValue } from '../../../shared/objects/property-display';
@@ -43,7 +44,7 @@
   import { moveTargets, sharedColumnValue, type MoveTarget } from '../../../shared/objects/kanban-move';
   import type { PropertyDef, TypeInfo, TypeInstanceRow } from '../../../shared/objects/type-def';
 
-  type Layout = 'list' | 'table' | 'gallery' | 'map' | 'kanban' | 'timeline' | 'calendar';
+  type Layout = ViewLayout;
   interface StatePatch { layout?: Layout; sortColumn?: string | null; sortDir?: 'asc' | 'desc'; columns?: string[] | null; folder?: string | null; filters?: ViewFilter[]; mapStyle?: MapStyle; groupBy?: string | null; columnOrder?: string[]; showEmptyColumns?: boolean; from?: string | null; to?: string | null; month?: string | null; dateBy?: string | null }
 
   interface Props {
@@ -144,6 +145,8 @@
   const timelineSpec = $derived(timelineSpecForType({ layout, from, to, dateBy }, typeId, catalog));
   const calendarSpec = $derived(calendarSpecForType({ layout: timelineSpec.layout, month, dateBy }, typeId, catalog));
   const shown = $derived<Layout>(calendarSpec.layout);
+  // The layouts this type can show, from the registry (#2623).
+  const available = $derived(layoutsFor({ typeId, properties: allColumns, catalog: catalog ?? objectTypesStore.types }));
   // Visible columns (table): null on the tab means "all". Order follows the
   // type's declared order regardless of the saved set.
   const visibleColumns = $derived<PropertyDef[]>(
@@ -348,7 +351,7 @@
         {#if onSaveView}
           <button class="tv-btn" onclick={handleSaveViewClick} title="Save this view as a note, with the view embedded live">{viewSaved ? 'Saved' : 'Save as note'}</button>
         {/if}
-        <TypeViewLayoutSwitch layout={shown} properties={allColumns} timeline={canShowTimeline(typeId, catalog ?? objectTypesStore.types)} calendar={canShowCalendar(typeId, catalog ?? objectTypesStore.types)} {groupBy} dateBy={timelineSpec.dateBy} {showEmptyColumns} {onStateChange} />
+        <TypeViewLayoutSwitch layout={shown} layouts={available} properties={allColumns} {groupBy} dateBy={timelineSpec.dateBy} {showEmptyColumns} {onStateChange} />
       </div>
     </header>
   {/if}
