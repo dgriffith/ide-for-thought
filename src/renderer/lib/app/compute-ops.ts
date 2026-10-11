@@ -20,13 +20,11 @@
  */
 
 import { api } from '../ipc/client';
-import { RUNNABLE_LANGUAGE_SET } from '../../../shared/compute/fences';
+// Which languages need consent comes from the shared language list (#2630),
+// aliases included, so `py` / `python3` can't slip past a gate on `python`.
+import { TRUST_GATED_LANGUAGES } from '../../../shared/compute/fences';
 import type { CellResult } from '../../../shared/compute/types';
 
-/** The languages the compute shell can execute — every one runs with real
- *  capability, so each is gated. Reuses the executor registry's set so aliases
- *  (`py` / `python3`) can't slip past. */
-const TRUST_GATED_LANGUAGES = RUNNABLE_LANGUAGE_SET;
 
 export type ComputeConsentChoice = 'cell' | 'project' | 'cancel';
 
