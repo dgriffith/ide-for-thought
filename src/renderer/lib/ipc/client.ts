@@ -343,15 +343,9 @@ export interface ExportPreviewPlan {
 
 export type ExportInputKind = 'single-note' | 'folder' | 'project' | 'tree' | 'source';
 
-/** Format family metadata for the format-first export menu (#: export-menu-redesign). */
-export type ExportGroupId =
-  | 'markdown' | 'html' | 'pdf' | 'site' | 'annotated' | 'anki' | 'bibtex' | 'pandoc';
-export interface ExportGroupMeta {
-  id: ExportGroupId;
-  label: string;
-  category: 'document' | 'publication' | 'citation';
-  order: number;
-}
+/** Format family metadata for the format-first export menu — the shared list (#2630). */
+export type { ExportGroupId, ExportGroupMeta } from '../../../shared/export-groups';
+import type { ExportGroupMeta } from '../../../shared/export-groups';
 
 /** One registered exporter, as surfaced to the menu + export dialog. */
 export interface ExporterInfo {

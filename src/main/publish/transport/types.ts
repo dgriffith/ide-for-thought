@@ -14,7 +14,9 @@
 import type { PublishTarget } from '../../project-config';
 import type { PublishOptions, PublishResult } from '../publish-to-git';
 
-export type PublishTargetKind = 'git' | 's3';
+/** A target's kind — derived from the configured target types (#2630), so a
+ *  new kind of target needs a transport (the registry's table is keyed by it). */
+export type PublishTargetKind = NonNullable<PublishTarget['kind']>;
 
 export interface PublishTransport {
   /** The target kind this transport handles. */

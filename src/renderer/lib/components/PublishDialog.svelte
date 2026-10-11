@@ -33,7 +33,7 @@
   let outcome = $state<{ targetId: string; dryRun: boolean; res: PublishGitResponse } | null>(null);
 
   // ── Add-target form ─────────────────────────────────────────────────────
-  let fKind = $state<'git' | 's3'>('git');
+  let fKind = $state<NonNullable<PublishTarget['kind']>>('git');
   let fLabel = $state('');
   let fExporter = $state('static-site');
   let fSubdir = $state('.');

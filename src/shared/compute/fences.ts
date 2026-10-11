@@ -16,21 +16,37 @@
  */
 
 /**
- * Fence languages the compute shell can execute — the single source of truth
- * for "which fences get a run affordance", shared by the editor gutter, the
- * preview run buttons, the Recompute-all button's visibility check, and the
- * cell-output scanners. `py` / `python3` are aliases the backend maps to the
- * Python executor.
- *
- * Must stay in sync with the executors registered in
- * `main/compute/executors/index.ts`; `tests/main/compute/registry.test.ts`
- * asserts the two match so this list can't silently drift from what the
- * backend can actually run.
+ * The languages the compute shell can execute (#2630, epic #2622) — the ONE
+ * list. Each names its fence aliases (the info strings users actually type;
+ * markdown-it hands them over verbatim) and whether running it needs the
+ * user's consent. Main's executor table is keyed by these ids
+ * (`main/compute/executors/index.ts`, a `Record<ComputeLanguage, …>`), so a
+ * language here without an executor doesn't compile; everything else —
+ * which fences get a run affordance, which are trust-gated — is derived.
  */
-export const RUNNABLE_LANGUAGES = ['sparql', 'sql', 'python', 'py', 'python3'] as const;
+export const COMPUTE_LANGUAGES = [
+  { id: 'sparql', aliases: [], trustGated: true },
+  { id: 'sql', aliases: [], trustGated: true },
+  { id: 'python', aliases: ['py', 'python3'], trustGated: true },
+] as const satisfies ReadonlyArray<{ id: string; aliases: readonly string[]; trustGated: boolean }>;
+
+export type ComputeLanguage = (typeof COMPUTE_LANGUAGES)[number]['id'];
+
+/**
+ * Fence languages the compute shell can execute — every language and alias,
+ * lowercase. The editor gutter, the preview run buttons, the Recompute-all
+ * check and the cell-output scanners all read it.
+ */
+export const RUNNABLE_LANGUAGES: readonly string[] = COMPUTE_LANGUAGES.flatMap((l) => [l.id, ...l.aliases]);
 
 /** Lower-cased set form for `findRunnableFences` and membership checks. */
 export const RUNNABLE_LANGUAGE_SET: ReadonlySet<string> = new Set(RUNNABLE_LANGUAGES);
+
+/** The fence languages that run only with the user's consent (aliases
+ *  included, so `py` can't slip past a gate on `python`). */
+export const TRUST_GATED_LANGUAGES: ReadonlySet<string> = new Set(
+  COMPUTE_LANGUAGES.filter((l) => l.trustGated).flatMap((l) => [l.id, ...l.aliases]),
+);
 
 export interface FenceRange {
   /** Byte offset where the opening triple-backtick line begins. */
