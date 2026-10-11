@@ -40,6 +40,7 @@
  */
 import { mount, tick, unmount } from 'svelte';
 import TypeView from '../components/TypeView.svelte';
+import { LAYOUT_RENDERERS } from '../components/type-view/layout-renderers';
 import { parseObjectViewSpec } from '../markdown/object-view-renderer';
 import { snapshotLiveBlock } from './live-block-snapshot';
 import { LIVE_BLOCK_CLASS, LIVE_FRAME_CLASS, NOTE_LINK_ATTR } from '../../../shared/live-blocks';
@@ -93,9 +94,10 @@ async function renderAtWidth(spec: ReturnType<typeof parseObjectViewSpec>, width
   const block = document.createElement('div');
   block.className = 'object-view-block';
   block.setAttribute('data-object-view-rendered', 'ok');
-  // Every row — see the file header. A map needs a real height: the embed's
-  // own (`height` in its spec, #2666 — the 360px default when it has none).
-  block.style.height = spec.layout === 'map' ? `${spec.height}px` : 'auto';
+  // Every row — see the file header. A layout that needs a real height to draw
+  // into (a map) gets the embed's own (`height` in its spec, #2666 — the 360px
+  // default when it has none); the registry says which (#2623).
+  block.style.height = LAYOUT_RENDERERS[spec.layout].fixedExportHeight ? `${spec.height}px` : 'auto';
   themed.appendChild(block);
   host.appendChild(themed);
   document.body.appendChild(host);
@@ -131,13 +133,12 @@ async function renderAtWidth(spec: ReturnType<typeof parseObjectViewSpec>, width
           onStateChange: () => {},
           onOpenNote: () => {},
           onLoaded: () => resolve(),
-          // A board wraps its columns within the page (#2604).
-          ...(spec.layout === 'kanban' ? { kanbanExport: true } : {}),
-          // A timeline draws one static SVG picture of its range, then its dated list (#2609).
-          ...(spec.layout === 'timeline' ? { timelineExport: true } : {}),
-          // A calendar draws its month statically, every event in its day's cell (#2704).
-          ...(spec.layout === 'calendar' ? { calendarExport: true } : {}),
-          ...(spec.layout === 'map' ? { mapExport: { onCaptured: (c: MapCapture) => resolveCapture(c) } } : {}),
+          // Every layout draws for the page: a board wraps its columns (#2604),
+          // a timeline is one static SVG of its range then its dated list
+          // (#2609), a calendar its month with every event in its day (#2704).
+          exportMode: true,
+          // Only a mounted map uses this — it hands back its capture.
+          mapExport: { onCaptured: (c: MapCapture) => resolveCapture(c) },
         },
       });
     });
@@ -145,7 +146,7 @@ async function renderAtWidth(spec: ReturnType<typeof parseObjectViewSpec>, width
     await tick();
     // A map layout that actually mounted a map waits for its capture; one that
     // didn't (no location property, no instances) is ordinary DOM.
-    if (spec.layout === 'map' && block.querySelector('.type-view-map')) {
+    if (block.querySelector('.type-view-map')) {
       const capture = await Promise.race([
         captured,
         new Promise<never>((_, reject) => {

@@ -17,11 +17,6 @@
    * to the host's bulk editor (#2431) — the view itself still writes nothing.
    */
   import { api } from '../ipc/client';
-  import TypeIcon from './TypeIcon.svelte';
-  import TypeViewMap from './TypeViewMap.svelte';
-  import TypeViewKanban from './TypeViewKanban.svelte';
-  import TypeViewTimeline from './TypeViewTimeline.svelte';
-  import TypeViewCalendar from './TypeViewCalendar.svelte';
   import TypeViewLayoutSwitch from './TypeViewLayoutSwitch.svelte';
   import TypeViewFilters from './TypeViewFilters.svelte';
   import type { MapExportHooks } from '../map/map-export';
@@ -34,6 +29,8 @@
   import { timelineSpecForType } from '../../../shared/objects/timeline';
   import { calendarSpecForType } from '../../../shared/objects/calendar';
   import { layoutsFor, type ViewLayout } from '../../../shared/objects/view-layouts';
+  import { LAYOUT_RENDERERS, layoutOrder } from './type-view/layout-renderers';
+  import type { LayoutView, ViewStatePatch } from './type-view/layout-view';
   import { objectTypesStore } from '../stores/object-types.svelte';
   import { effectivePropertyDefs } from '../../../shared/objects/inheritance';
   import { displayPropertyValue } from '../../../shared/objects/property-display';
@@ -45,7 +42,7 @@
   import type { PropertyDef, TypeInfo, TypeInstanceRow } from '../../../shared/objects/type-def';
 
   type Layout = ViewLayout;
-  interface StatePatch { layout?: Layout; sortColumn?: string | null; sortDir?: 'asc' | 'desc'; columns?: string[] | null; folder?: string | null; filters?: ViewFilter[]; mapStyle?: MapStyle; groupBy?: string | null; columnOrder?: string[]; showEmptyColumns?: boolean; from?: string | null; to?: string | null; month?: string | null; dateBy?: string | null }
+  type StatePatch = ViewStatePatch;
 
   interface Props {
     typeId: string;
@@ -91,9 +88,9 @@
     /** Kanban's column order and Show empty columns (#2614, `kanban.ts`). */
     columnOrder?: string[];
     showEmptyColumns?: boolean;
-    /** Kanban only: draw the board for an export (#2604) — its columns wrap. */
-    kanbanExport?: boolean;
-    timelineExport?: boolean; calendarExport?: boolean; // Timeline / Calendar only: draw for an export (#2609 `TypeViewTimeline`, #2704 `TypeViewCalendar`).
+    /** Draw for an export snapshot: a board wraps its columns (#2604), a
+     *  timeline (#2609) and a calendar (#2704) draw statically. */
+    exportMode?: boolean;
     /** Timeline's visible range (#2607, `timeline.ts`); null on both = fit all. */
     from?: string | null; to?: string | null;
     /** Calendar's month page and the date property notes are placed by (#2701, `calendar.ts`); null = this month, the default. */
@@ -102,7 +99,7 @@
      *  export) → rows don't multi-select; a click just opens the note. */
     onEditProperties?: (paths: string[]) => void;
   }
-  let { typeId, layout, sortColumn, sortDir, columns, revision, onStateChange, onOpenNote, onSaveView, chromeless = false, onLoaded, mapExport, folder = null, filters = [], onClearFolder, mapStyle = 'auto', groupBy = null, columnOrder = [], showEmptyColumns = true, kanbanExport = false, timelineExport = false, calendarExport = false, from = null, to = null, month = null, dateBy = null, onEditProperties }: Props = $props();
+  let { typeId, layout, sortColumn, sortDir, columns, revision, onStateChange, onOpenNote, onSaveView, chromeless = false, onLoaded, mapExport, folder = null, filters = [], onClearFolder, mapStyle = 'auto', groupBy = null, columnOrder = [], showEmptyColumns = true, exportMode = false, from = null, to = null, month = null, dateBy = null, onEditProperties }: Props = $props();
 
   let type = $state<TypeInfo | null>(null);
   let instances = $state<TypeInstanceRow[]>([]);
@@ -250,10 +247,9 @@
     }
   }
 
-  /** Export CSV (#2613): this view's rows and columns, ISO values. A stateless OS side-effect. */
+  /** Export CSV (#2613): this view's rows, in the order its layout draws them, and columns; ISO values. A stateless OS side-effect. */
   function exportCsv(): void {
-    const rows = layout === 'table' ? sorted : layout === 'kanban' ? board.flatMap((c) => c.instances) : scoped;
-    void api.export.csv(viewToCsv(visibleColumns, rows));
+    void api.export.csv(viewToCsv(visibleColumns, layoutOrder(shown, view)));
   }
 
   /** Save-view confirmation (#1072) — same "flash the button label" pattern
@@ -274,15 +270,11 @@
   // Multi-select (#2431): ⌘/⇧-click, ⌘A, Escape, right-click — the sidebar's semantics.
   const selectable = $derived(!!onEditProperties && !chromeless);
   const sel = createTypeViewSelection({
-    order: () => (shown === 'kanban' ? board.flatMap((c) => c.instances) : shown === 'table' ? sorted : scoped).map((i) => i.path),
+    order: () => layoutOrder(shown, view).map((i) => i.path),
     enabled: () => selectable,
     onOpen: (p) => onOpenNote(p),
     onEdit: (paths) => onEditProperties?.(paths),
   });
-
-  function isImageUrl(v: string | null): v is string {
-    return !!v && /^https?:\/\//i.test(v);
-  }
 
   /**
    * The icon for one row. This view is subclass-aware (#1587) — a Book view
@@ -308,6 +300,47 @@
   function onMoveColumn(key: string, target: string, side: 'before' | 'after'): void {
     if (groupProp) onStateChange({ columnOrder: moveColumn(instances, groupProp, columnOrder, key, target, side) });
   }
+
+  // What every layout is drawn from (#2623) — one object of getters, so its
+  // identity never changes and a layout re-renders only on what it reads
+  // (see `type-view/layout-view.ts`). `type` is non-null wherever a layout
+  // is drawn: the template shows a message instead while it's missing.
+  const view: LayoutView = {
+    get type() { return type!; },
+    get properties() { return allColumns; },
+    get visibleColumns() { return visibleColumns; },
+    get visible() { return columns; },
+    get instances() { return scoped; },
+    get sorted() { return sorted; },
+    get sortColumn() { return sortColumn; },
+    get sortDir() { return sortDir; },
+    toggleSort,
+    get filters() { return viewFilters; },
+    display,
+    rowType,
+    summary,
+    get selectable() { return selectable; },
+    isSelected: (p) => sel.has(p),
+    onRowClick: (e, p) => sel.click(e, p),
+    onRowContextMenu: (e, p) => sel.contextMenu(e, p),
+    onOpenNote: (p) => onOpenNote(p),
+    onStateChange: (p) => onStateChange(p),
+    get readOnly() { return chromeless; },
+    get exportMode() { return exportMode; },
+    get locationProperty() { return locationProperty; },
+    get mapStyle() { return mapStyle; },
+    get mapExport() { return mapExport; },
+    get group() { return groupProp; },
+    get board() { return board; },
+    get onMoveCard() { return selectable ? (p: string, t: MoveTarget) => moveTo([p], t) : undefined; },
+    get onUndoMove() { return selectable ? () => void moves.undoLastMove() : undefined; },
+    get onMoveColumn() { return chromeless ? undefined : onMoveColumn; },
+    get from() { return timelineSpec.from; },
+    get to() { return timelineSpec.to; },
+    get month() { return calendarSpec.month; },
+    get dateBy() { return calendarSpec.dateBy; },
+  };
+  const renderer = $derived(LAYOUT_RENDERERS[shown]);
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -331,7 +364,7 @@
             Edit properties ({sel.selectedPaths.length})
           </button>
         {/if}
-        {#if shown === 'table' && allColumns.length > 0}
+        {#if renderer.columnPicker && allColumns.length > 0}
           <div class="tv-columns">
             <button class="tv-btn" aria-expanded={columnsMenuOpen} onclick={() => (columnsMenuOpen = !columnsMenuOpen)}>Columns ▾</button>
             {#if columnsMenuOpen}
@@ -364,107 +397,14 @@
     <p class="tv-empty">No {type.label.toLowerCase()} instances yet.</p>
   {:else if scoped.length === 0}
     <p class="tv-empty">{emptyScopedMessage(type.label)}</p>
-  {:else if shown === 'timeline'}
-    <TypeViewTimeline {type} properties={allColumns} instances={scoped} filters={viewFilters} from={timelineSpec.from} to={timelineSpec.to} dateBy={timelineSpec.dateBy} {display} {rowType} {onOpenNote} onStateChange={(p) => onStateChange(p)} readOnly={chromeless} exportMode={timelineExport} />
-  {:else if shown === 'calendar'}
-    <TypeViewCalendar {type} properties={allColumns} instances={scoped} month={calendarSpec.month} dateBy={calendarSpec.dateBy} {display} {rowType} {onOpenNote} onStateChange={(p) => onStateChange(p)} readOnly={chromeless} exportMode={calendarExport} />
-  {:else if shown === 'list'}
-    <div class="tv-list">
-      {#each scoped as inst (inst.path)}
-        {@const rt = rowType(inst)}
-        <button class="tv-list-row" class:selected={sel.has(inst.path)} aria-pressed={selectable ? sel.has(inst.path) : undefined} onclick={(e) => sel.click(e, inst.path)} oncontextmenu={(e) => sel.contextMenu(e, inst.path)} title={inst.path} data-note-path={inst.path}>
-          {#if rt}<span class="tv-list-icon"><TypeIcon type={rt} size={14} /></span>{/if}
-          <span class="tv-list-body">
-            <span class="tv-list-title">{inst.title}</span>
-            {#if summary(inst)}<span class="tv-list-summary">{summary(inst)}</span>{/if}
-          </span>
-        </button>
-      {/each}
-    </div>
-  {:else if shown === 'table'}
-    <div class="tv-table-scroll">
-      <table class="tv-table">
-        <thead>
-          <tr>
-            <th
-              class="sortable"
-              class:sorted={sortColumn === '__title'}
-              aria-sort={sortColumn === '__title' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-              onclick={() => toggleSort('__title')}
-            >Title{#if sortColumn === '__title'}<span class="arrow">{sortDir === 'asc' ? '▲' : '▼'}</span>{/if}</th>
-            {#each visibleColumns as col (col.name)}
-              <th
-                class="sortable"
-                class:sorted={sortColumn === col.name}
-                aria-sort={sortColumn === col.name ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                onclick={() => toggleSort(col.name)}
-              >{col.label ?? col.name}{#if sortColumn === col.name}<span class="arrow">{sortDir === 'asc' ? '▲' : '▼'}</span>{/if}</th>
-            {/each}
-          </tr>
-        </thead>
-        <tbody>
-          {#each sorted as inst (inst.path)}
-            {@const rt = rowType(inst)}
-            <tr class:selected={sel.has(inst.path)} data-selected={sel.has(inst.path) || undefined} onclick={(e) => sel.click(e, inst.path)} oncontextmenu={(e) => sel.contextMenu(e, inst.path)} title={inst.path} data-note-path={inst.path}>
-              <td class="tv-cell-title">
-                <span class="tv-cell-title-inner">
-                  {#if rt}<TypeIcon type={rt} size={13} />{/if}
-                  <span>{inst.title}</span>
-                </span>
-              </td>
-              {#each visibleColumns as col (col.name)}
-                <td>{display(col, inst.values[col.name] ?? null)}</td>
-              {/each}
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-    </div>
-  {:else if shown === 'gallery'}
-    <div class="tv-gallery">
-      {#each scoped as inst (inst.path)}
-        {@const rt = rowType(inst)}
-        <button class="tv-card" class:selected={sel.has(inst.path)} aria-pressed={selectable ? sel.has(inst.path) : undefined} onclick={(e) => sel.click(e, inst.path)} oncontextmenu={(e) => sel.contextMenu(e, inst.path)} title={inst.path} data-note-path={inst.path}>
-          <div class="tv-card-cover">
-            {#if isImageUrl(inst.cover)}
-              <img src={inst.cover} alt="" loading="lazy" />
-            {:else}
-              <span class="tv-card-icon" style={rt?.color ? `color:${rt.color}` : undefined}>{rt?.icon ?? '◆'}</span>
-            {/if}
-          </div>
-          <span class="tv-card-title">{inst.title}</span>
-          {#if summary(inst)}<span class="tv-card-summary">{summary(inst)}</span>{/if}
-        </button>
-      {/each}
-    </div>
-  {:else if shown === 'kanban'}
-    <TypeViewKanban
-      {type} properties={allColumns} group={groupProp} columns={board} visible={columns} {display} {rowType} {selectable}
-      isSelected={sel.has} onCardClick={sel.click} onCardContextMenu={sel.contextMenu}
-      onMove={selectable ? (p, t) => moveTo([p], t) : undefined} onUndoMove={selectable ? () => void moves.undoLastMove() : undefined}
-      {...(chromeless ? {} : { onMoveColumn })}
-      exportMode={kanbanExport}
-    />
-  {:else if locationProperty}
-    <TypeViewMap
-      instances={scoped}
-      {locationProperty}
-      {onOpenNote}
-      {mapStyle} {type} properties={allColumns} {display}
-      {...(mapExport ? { exportHooks: mapExport } : {})}
-      {...(chromeless || mapExport ? {} : { onMapStyleChange: (next: MapStyle) => onStateChange({ mapStyle: next }) })}
-    />
   {:else}
-    <!-- A saved/persisted tab claims layout: 'map' but the type no longer has
-         a geo property (e.g. edited after the view was saved) — fall back to
-         a message rather than mounting a map with nothing to plot. -->
-    <p class="tv-empty">This type has no location property.</p>
-  {/if}
+    <renderer.component {view} />
+{/if}
 
   {#if sel.menu}
     <TypeViewRowMenu
       x={sel.menu.x} y={sel.menu.y} count={sel.selectedPaths.length} onEdit={sel.editSelected} onClose={sel.closeMenu}
-      {...(shown === 'kanban' && groupProp ? { moveTargets: moveTargets(groupProp, board), moveFrom: sharedColumnValue(board, sel.selectedPaths), onMove: (t: MoveTarget) => moveTo(sel.selectedPaths, t) } : {})}
+      {...(renderer.rowMenuMove && groupProp ? { moveTargets: moveTargets(groupProp, board), moveFrom: sharedColumnValue(board, sel.selectedPaths), onMove: (t: MoveTarget) => moveTo(sel.selectedPaths, t) } : {})}
     />
   {/if}
 </div>
@@ -526,101 +466,9 @@
     border-radius: 4px;
   }
   .tv-columns-menu label:hover { background: color-mix(in oklch, var(--text) 5%, transparent); }
-  .tv-empty { padding: 24px 16px; color: var(--text-faint); font-size: 13px; }
+  /* :global — a layout's own fallback message (MapLayout's) wears it too. */
+  .type-view :global(.tv-empty) { padding: 24px 16px; color: var(--text-faint); font-size: 13px; }
 
-  /* List */
-  .tv-list { overflow-y: auto; padding: 6px; }
-  /* Icon in a left gutter, title/summary stacked beside it. `align-items:
-     start` keeps the icon on the title's line rather than centred against a
-     two-line row. */
-  .tv-list-row {
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    width: 100%;
-    padding: 8px 10px;
-    border: none;
-    border-radius: 6px;
-    background: transparent;
-    color: var(--text);
-    font-family: inherit;
-    cursor: pointer;
-    text-align: left;
-  }
-  .tv-list-row:hover { background: color-mix(in oklch, var(--text) 4%, transparent); }
-  /* Match the title's line box so the icon centres on the first line. */
-  .tv-list-icon { display: flex; align-items: center; height: 19px; flex-shrink: 0; }
-  .tv-list-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
-  .tv-list-title { font-size: 13.5px; font-weight: 500; }
-  .tv-list-summary { font-size: 11.5px; color: var(--text-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-  /* Table */
-  .tv-table-scroll { overflow: auto; padding: 4px; }
-  .tv-table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
-  .tv-table th, .tv-table td {
-    text-align: left;
-    padding: 6px 10px;
-    border-bottom: 1px solid var(--border);
-    white-space: nowrap;
-  }
-  .tv-table th {
-    position: sticky;
-    top: 0;
-    background: var(--bg);
-    color: var(--text-muted);
-    font-weight: 600;
-    user-select: none;
-  }
-  .tv-table th.sortable { cursor: pointer; }
-  .tv-table th.sortable:hover { color: var(--text); }
-  .tv-table th.sorted { color: var(--text); }
-  .arrow { margin-left: 4px; font-size: 8px; }
-  .tv-table tbody tr { cursor: pointer; }
-  .tv-table tbody tr:hover { background: color-mix(in oklch, var(--text) 4%, transparent); }
-  .tv-cell-title { font-weight: 500; color: var(--text); }
-  .tv-cell-title-inner { display: flex; align-items: center; gap: 7px; }
-
-  /* Gallery */
-  .tv-gallery {
-    overflow-y: auto;
-    padding: 12px;
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 12px;
-    align-content: start;
-  }
-  .tv-card {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 0 0 8px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--bg-button);
-    color: var(--text);
-    font-family: inherit;
-    cursor: pointer;
-    text-align: left;
-    overflow: hidden;
-  }
-  .tv-card:hover { border-color: var(--accent); }
-  .tv-card-cover {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    aspect-ratio: 3 / 2;
-    background: color-mix(in oklch, var(--text) 5%, transparent);
-    overflow: hidden;
-  }
-  .tv-card-cover img { width: 100%; height: 100%; object-fit: cover; }
-  .tv-card-icon { font-size: 32px; opacity: 0.5; }
-  .tv-card-title { font-size: 12.5px; font-weight: 500; padding: 0 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .tv-card-summary { font-size: 11px; color: var(--text-faint); padding: 0 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  /* Multi-selection (#2431): an accent wash, same as the sidebar's. */
-  .tv-list-row.selected,
-  .tv-table tbody tr.selected,
-  .tv-card.selected { background: color-mix(in oklch, var(--accent) 16%, transparent); }
-  .tv-card.selected { border-color: var(--accent); }
   .tv-edit { color: var(--text); border-color: var(--accent); }
   /* Folder scope chip (#2532). */
   .tv-chip { display: inline-flex; align-items: center; gap: 4px; padding: 1px 4px 1px 8px; border-radius: 999px; background: var(--bg-button); color: var(--text-muted); font-size: 11.5px; white-space: nowrap; }

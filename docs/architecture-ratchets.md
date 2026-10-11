@@ -211,12 +211,18 @@ reason. Don't just add it to `PARITY` to go green.
 that had to agree by hand: two union types, a tab type, two components' local
 unions, the embed parser's set and Save as note's name record. The test fails
 on any line outside the registry that lists three or more layout ids, whether
-as a union, an array, a set or a record keyed by them. A single comparison
-(`shown === 'kanban'`) is dispatch, not a copy, and is allowed. It also
+as a union, an array, a set or a record keyed by them. It also fails on
+dispatch: comparing a layout (`shown`, anything named `…layout`) against an id,
+as `TypeView`'s `{#if}` chain and the export flags used to. What a layout *is*
+belongs on its shared entry (`dated`, `grouped`). How it's *drawn* (component,
+row order, Columns picker, row-menu move, export height) belongs on its entry
+in `type-view/layout-renderers.ts`, an exhaustive `Record` and the one other
+file allowed to name the ids. It also
 requires every view-spec field to be classified as common or owned by a layout
 (`specFields`), and every owned field to be real. **When it fires:** derive the
 list (`ViewLayout`, `VIEW_LAYOUTS`, `layoutsFor`, `isViewLayout`, `layoutDef`)
-instead of writing it out. For a new spec field, add it to `COMMON_SPEC_FIELDS`
+instead of writing it out, and move a per-layout branch onto the layout's
+registry entry. For a new spec field, add it to `COMMON_SPEC_FIELDS`
 or to the `specFields` of the layout that reads it.
 
 ---

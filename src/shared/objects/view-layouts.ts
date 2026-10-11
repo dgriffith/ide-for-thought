@@ -39,6 +39,8 @@ export interface ViewLayoutDef {
   appliesTo: (ctx: LayoutContext) => boolean;
   /** Places notes by a date property, so the view shows the Date by picker. */
   dated: boolean;
+  /** Groups notes by an enum property, so the view shows Group by. */
+  grouped: boolean;
   /** The view-spec fields only this layout reads (`dateBy` belongs to every
    *  dated layout). Everything else in a spec is `COMMON_SPEC_FIELDS`. */
   specFields: readonly string[];
@@ -48,17 +50,17 @@ const always = (): boolean => true;
 const datedRule = (ctx: LayoutContext): boolean => hasDateProperty(ctx.typeId, ctx.catalog);
 
 export const VIEW_LAYOUTS = [
-  { id: 'list', label: 'List', noteName: 'list', appliesTo: always, dated: false, specFields: [] },
-  { id: 'table', label: 'Table', noteName: 'table', appliesTo: always, dated: false, specFields: [] },
-  { id: 'gallery', label: 'Gallery', noteName: 'gallery', appliesTo: always, dated: false, specFields: [] },
+  { id: 'list', label: 'List', noteName: 'list', appliesTo: always, dated: false, grouped: false, specFields: [] },
+  { id: 'table', label: 'Table', noteName: 'table', appliesTo: always, dated: false, grouped: false, specFields: [] },
+  { id: 'gallery', label: 'Gallery', noteName: 'gallery', appliesTo: always, dated: false, grouped: false, specFields: [] },
   // A location-shaped property (#2066) — not offered for Book/Person/etc.
-  { id: 'map', label: 'Map', noteName: 'map', appliesTo: (ctx) => ctx.properties.some((p) => p.type === 'geo'), dated: false, specFields: ['mapStyle'] },
+  { id: 'map', label: 'Map', noteName: 'map', appliesTo: (ctx) => ctx.properties.some((p) => p.type === 'geo'), dated: false, grouped: false, specFields: ['mapStyle'] },
   // A board's columns are an enum's options (#2601).
-  { id: 'kanban', label: 'Kanban', noteName: 'board', appliesTo: (ctx) => canShowKanban(ctx.properties), dated: false, specFields: ['groupBy', 'columnOrder', 'showEmptyColumns'] },
+  { id: 'kanban', label: 'Kanban', noteName: 'board', appliesTo: (ctx) => canShowKanban(ctx.properties), dated: false, grouped: true, specFields: ['groupBy', 'columnOrder', 'showEmptyColumns'] },
   // A date or datetime property, own or inherited (#2715).
-  { id: 'timeline', label: 'Timeline', noteName: 'timeline', appliesTo: datedRule, dated: true, specFields: ['from', 'to', 'dateBy'] },
+  { id: 'timeline', label: 'Timeline', noteName: 'timeline', appliesTo: datedRule, dated: true, grouped: false, specFields: ['from', 'to', 'dateBy'] },
   // The same rule as Timeline (#2702).
-  { id: 'calendar', label: 'Calendar', noteName: 'calendar', appliesTo: datedRule, dated: true, specFields: ['month', 'dateBy'] },
+  { id: 'calendar', label: 'Calendar', noteName: 'calendar', appliesTo: datedRule, dated: true, grouped: false, specFields: ['month', 'dateBy'] },
 ] as const satisfies readonly ViewLayoutDef[];
 
 /** A layout id — derived from the registry, so adding one is one entry. */
