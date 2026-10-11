@@ -96,6 +96,7 @@ import {
   broadcastProposalsChanged,
   broadcastHistoryChanged,
   broadcastInspectionsChanged,
+  broadcastGraphChanged,
   broadcastSourcesChanged,
   broadcastExcerptsChanged,
   broadcastCollectionsChanged,
@@ -378,6 +379,11 @@ describe('broadcasts — fan out to every window on the project', () => {
   it('broadcastInspectionsChanged is a bare signal', () => {
     broadcastInspectionsChanged('/vault');
     expect(win.webContents.send).toHaveBeenCalledWith(Channels.INSPECTIONS_CHANGED);
+  });
+
+  it('broadcastGraphChanged is a bare signal (#2742)', () => {
+    broadcastGraphChanged('/vault');
+    expect(win.webContents.send).toHaveBeenCalledWith(Channels.GRAPH_CHANGED);
   });
 
   // #1916: register-sources.ts used to broadcast SOURCES_CHANGED / EXCERPTS_CHANGED

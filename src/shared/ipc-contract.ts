@@ -740,6 +740,8 @@ export interface EventMap extends MenuCommandEventMap {
   'proposals:changed': () => void;
   /** A health-check run finished; the cached inspection list moved (#1795). */
   'inspections:changed': () => void;
+  /** The project's graph changed — any note indexed or removed (#2742). */
+  'graph:changed': () => void;
   /** A note's revisions changed — the note path, or null when a prune sweep
    *  touched many (#1834). */
   'history:changed': (relPath: string | null) => void;

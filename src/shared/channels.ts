@@ -652,6 +652,9 @@ export const Channels = {
   INSPECTIONS_SET_SETTINGS: 'inspections:setSettings',
   /** Broadcast: the cached inspection results changed (a run finished). */
   INSPECTIONS_CHANGED: 'inspections:changed',
+  /** Broadcast: the project's graph changed — any note indexed or removed, by
+   *  any write path (#2742). Coalesced; a signal, not a payload. */
+  GRAPH_CHANGED: 'graph:changed',
 
   // Bookmarks
   BOOKMARKS_LOAD: 'bookmarks:load',

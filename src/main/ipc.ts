@@ -26,7 +26,8 @@ import { registerMaintenance } from './ipc/register-maintenance';
 import { onProposalsChanged } from './llm/proposal-events';
 import { onInspectionsChanged } from './graph/inspection-events';
 import { onHistoryChanged } from './history';
-import { broadcastProposalsChanged, broadcastInspectionsChanged, broadcastHistoryChanged } from './ipc/helpers';
+import { broadcastProposalsChanged, broadcastInspectionsChanged, broadcastHistoryChanged, broadcastGraphChanged } from './ipc/helpers';
+import { coalesceGraphChanged } from './ipc/graph-changed-broadcast';
 import { updateDockBadge } from './project-context';
 
 export function registerIpcHandlers(): void {
@@ -50,6 +51,11 @@ export function registerIpcHandlers(): void {
   onHistoryChanged((rootPath, relPath) => {
     broadcastHistoryChanged(rootPath, relPath);
   });
+
+  // And for the graph itself (#2742): object views re-project on this, so a
+  // note created, an approved proposal or an external edit shows up in them
+  // without an editor save — coalesced, since indexing emits once per note.
+  coalesceGraphChanged(broadcastGraphChanged);
 
   registerNotebase();
   registerLinks();

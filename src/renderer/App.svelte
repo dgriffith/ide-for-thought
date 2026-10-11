@@ -22,6 +22,7 @@
   import { getNotebaseStore } from './lib/stores/notebase.svelte';
   import { getEditorStore, type TypeViewTab } from './lib/stores/editor.svelte';
   import { objectTypesStore } from './lib/stores/object-types.svelte';
+  import { getGraphRevisionStore } from './lib/stores/graph-revision.svelte';
   import { suggestViewNoteName } from '../shared/objects/view-note';
   import { groupByForType } from '../shared/objects/kanban';
   import { timelineSpecForType } from '../shared/objects/timeline';
@@ -233,9 +234,10 @@
   // the focused pane; anything that must reach EVERY pane uses the helpers in
   // ./lib/app/tab-views, which also records why this is slots, not the Tab union.
   const tabViews = $state<TabViews>(createTabViews());
-  // Bumped on save / auto-save so an open neighborhood graph re-fetches when
-  // links change (#847 live-update).
-  let graphRevision = $state(0);
+  // Moves whenever the graph changes, by any write path, so open views and the
+  // neighborhood graph re-fetch (#847, #2742) — main says so; see the store.
+  const graphRevisionStore = getGraphRevisionStore();
+  const graphRevision = $derived(graphRevisionStore.revision);
   const editorComponent = $derived(tabViews.editor[editor.activeGroupId]);
   const queryPanelComponent = $derived(tabViews.query[editor.activeGroupId]);
   const neighborhoodGraphComponent = $derived(tabViews.graph[editor.activeGroupId]);
@@ -619,7 +621,6 @@
     sidebar?.refreshTags();
     sidebar?.refreshObjects();
     rightSidebar?.refresh();
-    graphRevision++;
     void refreshBacklinkCount();
     void refreshAliasMap();
   }
@@ -763,7 +764,7 @@
     getSidebar: () => sidebar,
     getEditorComponent: () => editorComponent,
     maybeHandleMissingApiKey: (err) => maybeHandleMissingApiKey(err),
-    onBulkPropertiesWritten: () => { graphRevision++; sidebar?.refreshObjects?.(); rightSidebar?.refresh(); },
+    onBulkPropertiesWritten: () => { sidebar?.refreshObjects?.(); rightSidebar?.refresh(); },
   };
   const {
     handleExtractSelection, handleSplitByHeading, handleSplitHere,
@@ -902,7 +903,6 @@
       getPreviewComponent: () => previewComponent,
       getSidebar: () => sidebar,
       getRightSidebar: () => rightSidebar,
-      bumpGraphRevision: () => { graphRevision++; },
       getEditorFontSize: () => editorFontSize,
       setEditorFontSize: (n) => { editorFontSize = n; },
       toggleSidebar: () => { sidebarVisible = !sidebarVisible; },
