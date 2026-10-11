@@ -1,93 +1,16 @@
 <script lang="ts">
-  import OutlinePanel from './right-sidebar/OutlinePanel.svelte';
-  import HeadingGraphPanel from './right-sidebar/HeadingGraphPanel.svelte';
-  import FootnotesPanel from './right-sidebar/FootnotesPanel.svelte';
-  import PropertiesPanel from './right-sidebar/PropertiesPanel.svelte';
-  import HistoryPanel from './right-sidebar/HistoryPanel.svelte';
-  import LinkListPanel from './right-sidebar/LinkListPanel.svelte';
-  import RelatedPanel from './right-sidebar/RelatedPanel.svelte';
-  import TagsPanel from './right-sidebar/TagsPanel.svelte';
-  import BookmarksPanel from './right-sidebar/BookmarksPanel.svelte';
-  import InspectionsPanel from './right-sidebar/InspectionsPanel.svelte';
-  import TablesPanel from './right-sidebar/TablesPanel.svelte';
-  import CitationsPanel from './right-sidebar/CitationsPanel.svelte';
+  import { RIGHT_PANELS, RIGHT_PANEL_GROUPS, type RightPanel, type RightPanelGroupId, type RightPanelHost, type RightPanelId } from './right-sidebar/panels';
   import Icon from './Icon.svelte';
-  import type { IconName } from './icons/registry';
   import type { InspectionFix } from '../../../shared/types';
 
-  type PanelType =
-    | 'outline' | 'headingGraph' | 'footnotes' | 'properties' | 'history' | 'outgoing' | 'backlinks' | 'related' | 'tags' | 'tables' | 'citations'
-    | 'bookmarks' | 'inspections';
+  // The panels are a registry (#2626): `right-sidebar/panels.ts`.
+  type PanelType = RightPanelId;
+  type PanelGroupId = RightPanelGroupId;
 
-  type PanelGroupId = 'note' | 'links' | 'activity';
-
-  interface PanelDef {
-    id: PanelType;
-    label: string;
-    icon: IconName;
-  }
-  interface GroupDef {
-    id: PanelGroupId;
-    label: string;
-    items: ReadonlyArray<PanelDef>;
-  }
-
-  /**
-   * Eleven panels collapsed into three semantic groups per
-   * IMPLEMENTATION.md §6.1. `activePanel` is unchanged externally — the
-   * status bar's onShowBacklinks etc. still calls `showPanel(panel)`
-   * and `activeGroup` is derived from the chosen panel.
-   */
-  const GROUPS: ReadonlyArray<GroupDef> = [
-    {
-      id: 'note',
-      label: 'Note',
-      items: [
-        { id: 'outline',    label: 'Outline',    icon: 'outline' },
-        { id: 'headingGraph', label: 'Heading Map', icon: 'graph' },
-        { id: 'properties', label: 'Properties', icon: 'properties' },
-        { id: 'footnotes',  label: 'Footnotes',  icon: 'footnotes' },
-        { id: 'history',    label: 'History',    icon: 'history' },
-        // Tags and Tables describe what's *inside* the active note's
-        // content, not how it connects to other notes — they sit
-        // alongside Outline / Properties under Note rather than
-        // sharing space with Outgoing / Backlinks under Links.
-        { id: 'tags',       label: 'Tags',       icon: 'tags' },
-        { id: 'tables',     label: 'Tables',     icon: 'tables' },
-      ],
-    },
-    {
-      id: 'links',
-      label: 'Links',
-      items: [
-        { id: 'outgoing',  label: 'Outgoing',  icon: 'outgoing' },
-        { id: 'backlinks', label: 'Backlinks', icon: 'backlinks' },
-        { id: 'related',   label: 'Related',   icon: 'sparkle' },
-        { id: 'citations', label: 'Citations', icon: 'citations' },
-        { id: 'bookmarks', label: 'Bookmarks', icon: 'bookmark' },
-      ],
-    },
-    // Activity group (#1527 retired it; #1446 restores it): proposals live in
-    // the always-available left sidebar (#1523), so Inspections is the sole
-    // member for now.
-    {
-      id: 'activity',
-      label: 'Activity',
-      items: [
-        { id: 'inspections', label: 'Inspections', icon: 'inspections' },
-      ],
-    },
-  ];
-
-  /** Reverse lookup: panel → its parent group. Built once at module
-   *  init so click handlers don't reduce on every render. */
-  const PANEL_TO_GROUP: ReadonlyMap<PanelType, PanelGroupId> = new Map(
-    GROUPS.flatMap((g) => g.items.map((i) => [i.id, g.id] as const)),
-  );
-
-  const PANEL_DEFS: ReadonlyMap<PanelType, PanelDef> = new Map(
-    GROUPS.flatMap((g) => g.items.map((i) => [i.id, i] as const)),
-  );
+  /** The groups, each with its panels in registry order. */
+  const GROUPS = RIGHT_PANEL_GROUPS.map((g) => ({ ...g, items: RIGHT_PANELS.filter((p) => p.group === g.id) }));
+  type GroupDef = (typeof GROUPS)[number];
+  const PANEL_DEFS: ReadonlyMap<PanelType, RightPanel> = new Map(RIGHT_PANELS.map((p) => [p.id, p] as const));
 
   interface Props {
     activeFilePath: string | null;
@@ -129,19 +52,42 @@
   const noteTitle = $derived(
     activeFilePath ? (activeFilePath.split('/').pop() ?? activeFilePath).replace(/\.md$/i, '') : 'Note',
   );
-  let headingGraphPanel = $state<HeadingGraphPanel>();
+  /** The mounted panel, for the one with a method to call (the Heading Map's `updateTheme`). */
+  let panelInstance = $state<Record<string, unknown>>();
 
   /** Re-skin the graph panel on theme switch (called from App.svelte). The
    *  cytoscape graph re-styles live; other panels are plain DOM. */
   export function updateTheme(): void {
-    headingGraphPanel?.updateTheme();
+    const instance = panelInstance as { updateTheme?: () => void } | undefined;
+    instance?.updateTheme?.();
   }
+
+  /** What every panel is drawn from — getters over this sidebar's props, so a
+   *  panel's `props(host)` reads them live (`right-sidebar/panels.ts`). */
+  const host: RightPanelHost = {
+    get activeFilePath() { return activeFilePath; },
+    get content() { return content; },
+    get revision() { return revision; },
+    get noteTitle() { return noteTitle; },
+    get indexing() { return indexing; },
+    get onFileSelect() { return onFileSelect; },
+    get onNavigate() { return onNavigate; },
+    get onOpenAtOffset() { return onOpenAtOffset; },
+    get onScrollToLine() { return onScrollToLine; },
+    get onOpenConversation() { return onOpenConversation; },
+    get onApplyInspectionFix() { return onApplyInspectionFix; },
+    get onOpenQuery() { return onOpenQuery; },
+    get onOpenSource() { return onOpenSource; },
+    get onOpenExcerpt() { return onOpenExcerpt; },
+    get onContentChange() { return onContentChange; },
+    get onOpenGraph() { return onOpenGraph; },
+  };
 
   /** Group is derived from the active panel — keeps `showPanel(p)` as
    *  the single way to switch the right sidebar's state. Clicking a
    *  group label sets `activePanel` to its first item, which flows back
    *  into `activeGroup` through this derivation. */
-  const activeGroup = $derived(PANEL_TO_GROUP.get(activePanel) ?? 'note');
+  const activeGroup = $derived<PanelGroupId>(PANEL_DEFS.get(activePanel)?.group ?? 'note');
   const activeGroupDef = $derived(GROUPS.find((g) => g.id === activeGroup) ?? GROUPS[0]!);
   const activePanelDef = $derived(PANEL_DEFS.get(activePanel));
 
@@ -241,38 +187,12 @@
   {/if}
 
   <div class="panel-content">
-    {#if activePanel === 'outline'}
-      <OutlinePanel {content} {onScrollToLine} />
-    {:else if activePanel === 'headingGraph'}
-      <HeadingGraphPanel bind:this={headingGraphPanel} {content} title={noteTitle} {onScrollToLine} />
-    {:else if activePanel === 'footnotes'}
-      <FootnotesPanel {content} {onScrollToLine} />
-    {:else if activePanel === 'properties'}
-      {#if onContentChange}
-        <PropertiesPanel {content} {onContentChange} {activeFilePath} {revision} {...(onNavigate !== undefined ? { onNavigate } : {})} />
+    {#if activePanelDef}
+      {#if activePanelDef.available?.(host) ?? true}
+        <activePanelDef.component bind:this={panelInstance} {...activePanelDef.props(host)} />
       {:else}
-        <div class="panel-disabled">No active note.</div>
+        <div class="panel-disabled">{activePanelDef.unavailableText ?? ''}</div>
       {/if}
-    {:else if activePanel === 'history'}
-      <!-- No `revision` prop and no mutation callbacks: the panel reads the
-           history store, which owns the `history:changed` subscription. -->
-      <HistoryPanel {activeFilePath} {content} />
-    {:else if activePanel === 'outgoing'}
-      <LinkListPanel direction="outgoing" {activeFilePath} {revision} {onFileSelect} {...(onOpenGraph !== undefined ? { onOpenGraph } : {})} />
-    {:else if activePanel === 'backlinks'}
-      <LinkListPanel direction="backlinks" {activeFilePath} {revision} {onFileSelect} {...(onOpenGraph !== undefined ? { onOpenGraph } : {})} />
-    {:else if activePanel === 'related'}
-      <RelatedPanel {activeFilePath} {revision} {indexing} {onFileSelect} {...(onNavigate !== undefined ? { onNavigate } : {})} onOpenSource={onOpenSource} onOpenExcerpt={onOpenExcerpt} />
-    {:else if activePanel === 'tags'}
-      <TagsPanel {content} {onFileSelect} onSourceSelect={onOpenSource} />
-    {:else if activePanel === 'tables'}
-      <TablesPanel {activeFilePath} {content} {revision} {onOpenQuery} />
-    {:else if activePanel === 'citations'}
-      <CitationsPanel {activeFilePath} {content} {revision} {onOpenSource} {onOpenExcerpt} />
-    {:else if activePanel === 'bookmarks'}
-      <BookmarksPanel {activeFilePath} {onFileSelect} {...(onNavigate !== undefined ? { onNavigate } : {})} {...(onOpenAtOffset !== undefined ? { onOpenAtOffset } : {})} />
-    {:else if activePanel === 'inspections'}
-      <InspectionsPanel {revision} {activeFilePath} {...(onOpenConversation !== undefined ? { onOpenConversation } : {})} {...(onApplyInspectionFix !== undefined ? { onApplyFix: onApplyInspectionFix } : {})} />
     {/if}
   </div>
 </aside>

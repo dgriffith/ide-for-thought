@@ -28,7 +28,7 @@ what to do about it. `architecture-ratchets-doc.test.ts` keeps the two sides in
 step — a new test in `tests/architecture/` with no entry here fails, and an
 entry here naming a test that no longer exists fails too (#2262).
 
-Written up as of 2026-10-11, 50 tests.
+Written up as of 2026-10-11, 51 tests.
 
 ---
 
@@ -222,6 +222,18 @@ Stale entries fail too.
 - **A new plugin, query type or hydration pass shipped preview-only:** render
   it for exports, or classify it as a gap with an issue or a decision with a
   reason. Don't just add it to `PARITY` to go green.
+
+### `panel-registries.test.ts`
+
+**Panel shells iterate their registry** (#2626, epic #2622). The right
+sidebar's panels are `right-sidebar/panels.ts`, and the Settings dialog's
+sections are `settings/sections.ts`. Each entry carries id, label, icon or
+sub, group, component and `props(host)`, typed against the component. A
+section that binds dialog state goes through a small adapter in `settings/`.
+The shells used to name every panel twice: once in a table, once in an
+`{#if active === '…'}` chain. The test fails on any comparison of the shell's
+active id to a literal. **When it fires:** add the panel to its registry, and
+give it an adapter if it needs a `bind:`.
 
 ### `view-layout-registry.test.ts`
 

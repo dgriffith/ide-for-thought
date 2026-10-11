@@ -30,7 +30,8 @@ import { deflistRow, pasteStub } from '../helpers/paste-stub';
 
 const TYPES = 'src/shared/mcp-servers.ts';
 const PANEL = 'src/renderer/lib/components/McpServersSettings.svelte';
-const DIALOG = 'src/renderer/lib/components/SettingsDialog.svelte';
+// The settings tabs are a registry (#2626).
+const DIALOG = 'src/renderer/lib/components/settings/sections.ts';
 const DOC = 'website/docs/_content/settings-mcp-servers.html';
 const SETTINGS_DOC = 'website/docs/_content/settings.html';
 const CONNECTING_DOC = 'website/docs/_content/connecting-mcp.html';

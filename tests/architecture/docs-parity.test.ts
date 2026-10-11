@@ -55,7 +55,7 @@ const README = 'README.md';
 const FEATURES = 'website/features.html';
 const AUTHORING = 'docs/authoring-skills.md';
 const SETTINGS_DOC = 'website/docs/_content/settings.html';
-const SETTINGS_DIALOG = 'src/renderer/lib/components/SettingsDialog.svelte';
+const SETTINGS_SECTIONS = 'src/renderer/lib/components/settings/sections.ts';
 const STOCK_DIR = 'src/main/skills/stock';
 const DOCS_DIR = 'website/docs';
 
@@ -109,14 +109,14 @@ function stockSkills(): StockSkill[] {
 }
 
 /**
- * The settings tabs, read out of `SETTINGS_GROUPS` in the dialog. Regex rather
- * than import because the list lives inside a `.svelte` component's `<script>`;
- * the `id:`/`label:` pair is quoted there and unquoted in the `TabDef`
- * interface above it, which is what keeps the type declaration out of the match.
+ * The settings tabs, read out of the section registry (#2626). Regex rather
+ * than import because the registry imports every section's `.svelte`
+ * component; anchoring on `section({` keeps the group entries — the same
+ * `id:`/`label:` shape — out of the match.
  */
 function settingsTabs(): Array<{ id: string; label: string }> {
-  const src = read(SETTINGS_DIALOG);
-  return [...src.matchAll(/\{\s*id:\s*'([A-Za-z]+)',\s*label:\s*'([^']+)'/g)]
+  const src = read(SETTINGS_SECTIONS);
+  return [...src.matchAll(/section\(\{\s*id:\s*'([A-Za-z]+)',\s*label:\s*'([^']+)'/g)]
     .map((m) => ({ id: m[1]!, label: m[2]! }));
 }
 
@@ -138,7 +138,7 @@ describe('anti-vacuity: the code side is really being read (#2261)', () => {
       'stock skill(s) whose frontmatter this test could not read — the name/menu regexes ' +
         'have fallen behind the file format, and every count below is now wrong:',
     ).toEqual([]);
-    expect(TABS.length, `no settings tabs parsed out of ${SETTINGS_DIALOG}`).toBeGreaterThan(10);
+    expect(TABS.length, `no settings tabs parsed out of ${SETTINGS_SECTIONS}`).toBeGreaterThan(10);
     expect(DOC_PAGES.length, `no generated pages found in ${DOCS_DIR}`).toBeGreaterThan(50);
     // Anchors: one of each shape, so a regex that matched the wrong thing shows up.
     expect(LINK_TYPES.map((t) => t.name)).toContain('supersedes');

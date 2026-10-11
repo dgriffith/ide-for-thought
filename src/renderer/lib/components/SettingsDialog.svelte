@@ -5,29 +5,11 @@
   import { plainSnapshot } from '../ipc/plain-snapshot';
   import type { LLMSettingsUpdate } from '../../../shared/tools/types';
   import { getSettingsStore } from '../stores/settings.svelte';
-  import BehaviorsSettings from './BehaviorsSettings.svelte';
-  import InspectionsSettings from './InspectionsSettings.svelte';
-  import EditorSettingsPanel from './EditorSettings.svelte';
-  import AppearanceSettings from './AppearanceSettings.svelte';
-  import WebSettings from './WebSettings.svelte';
-  import FormatterSettings from './FormatterSettings.svelte';
-  import ClipperSettings from './ClipperSettings.svelte';
-  import SourcesSettings from './SourcesSettings.svelte';
-  import NotesSettings from './NotesSettings.svelte';
-  import ComputeSettings from './ComputeSettings.svelte';
-  import VersioningSettings from './VersioningSettings.svelte';
-  import SkillsSettings from './SkillsSettings.svelte';
-  import McpServersSettings from './McpServersSettings.svelte';
-  import ObjectTypesSettings from './ObjectTypesSettings.svelte';
-  import BibliographySettings from './BibliographySettings.svelte';
-  import AiSettings from './AiSettings.svelte';
+  import { SETTINGS_GROUPS, SETTINGS_SECTIONS, type ProviderInput, type SettingsHost, type SettingsTabId } from './settings/sections';
   import { DEFAULT_MODEL } from '../../../shared/tools/models';
   import { PROVIDERS, PROVIDER_IDS, type ProviderId } from '../../../shared/tools/providers';
   import type { ProviderConfigView, ProviderCredentialsUpdate, CustomModel } from '../../../shared/tools/types';
   import { logger } from '../../../shared/logger';
-
-  /** Per-provider input state; matches AiSettings's structural shape. */
-  interface ProviderInput { key: string; baseURL: string; clear: boolean }
 
   /** Fresh, empty per-provider input state (BYOM #1498). */
   function emptyProviderInputs(): Record<ProviderId, ProviderInput> {
@@ -51,72 +33,10 @@
 
   let { onApplyEditor, onApplyFontSize, onThemeChanged, onClose, initialTab }: Props = $props();
 
-  type TabId = 'editor' | 'appearance' | 'behaviors' | 'notes' | 'versioning' | 'formatter' | 'objectTypes' | 'inspections' | 'web' | 'sources' | 'clipper' | 'bibliography' | 'compute' | 'ai' | 'skills' | 'mcpServers';
-
-  /** Restructure per IMPLEMENTATION.md §10.4 — 10 flat tabs become 4
-   *  semantic groups. Group labels render in mono-uppercase above each
-   *  cluster in the sidebar. Sub-lines describe what each tab covers. */
-  interface TabDef {
-    id: TabId;
-    label: string;
-    sub: string;
-  }
-  interface GroupDef {
-    label: string;
-    items: ReadonlyArray<TabDef>;
-  }
-  const SETTINGS_GROUPS: ReadonlyArray<GroupDef> = [
-    {
-      label: 'Workspace',
-      items: [
-        { id: 'editor',     label: 'Editor',     sub: 'Tab size · word wrap · line numbers' },
-        { id: 'appearance', label: 'Appearance', sub: 'Theme · font · density' },
-        { id: 'behaviors',  label: 'Behaviors',  sub: 'Confirm dialogs · sidebar' },
-      ],
-    },
-    {
-      label: 'Authoring',
-      items: [
-        { id: 'notes',        label: 'Notes',        sub: 'Refactoring · excerpt destinations' },
-        { id: 'versioning',   label: 'Versioning',   sub: 'History retention · size limits' },
-        { id: 'formatter',    label: 'Formatter',    sub: 'House style · format rules' },
-        { id: 'objectTypes',  label: 'Object Types', sub: 'Create · delete · duplicate types' },
-        { id: 'inspections',  label: 'Inspections',  sub: 'Which health checks run · thresholds' },
-        { id: 'bibliography', label: 'Bibliography', sub: 'Citation style · locale' },
-      ],
-    },
-    {
-      label: 'Ingest & compute',
-      items: [
-        { id: 'web',     label: 'Web',     sub: 'Default ingest rules' },
-        { id: 'sources', label: 'Sources', sub: 'Identifier lookups · privileged logins' },
-        { id: 'clipper', label: 'Browser Clipper', sub: 'Enable · pairing code · status' },
-        { id: 'compute', label: 'Compute', sub: 'Python interpreter · trust' },
-      ],
-    },
-    {
-      label: 'AI',
-      items: [
-        { id: 'ai', label: 'AI', sub: 'Models · provider keys · voice' },
-        { id: 'skills', label: 'Skills', sub: 'Conversation skills · import' },
-        { id: 'mcpServers', label: 'MCP Servers', sub: 'Connect external tool servers' },
-      ],
-    },
-  ];
-
-  /** Reverse lookup: tab → its containing group label. Used for the
-   *  body-section eyebrow above each panel's content. */
-  const TAB_TO_GROUP: ReadonlyMap<TabId, string> = new Map(
-    SETTINGS_GROUPS.flatMap((g) => g.items.map((t) => [t.id, g.label] as const)),
-  );
-  const TAB_DEFS: ReadonlyMap<TabId, TabDef> = new Map(
-    SETTINGS_GROUPS.flatMap((g) => g.items.map((t) => [t.id, t] as const)),
-  );
-
-  // sidebar / breadcrumbs / conversations toggles + the confirm-suppression list
-  // now live in BehaviorsSettings.svelte (self-contained, per-change).
-  // Refactor destination/templates + excerpt-note folder now live in
-  // NotesSettings.svelte (self-contained, per-change).
+  // The sections are a registry (#2626): `settings/sections.ts`.
+  type TabId = SettingsTabId;
+  const SECTION_BY_ID = new Map(SETTINGS_SECTIONS.map((t) => [t.id, t] as const));
+  const GROUP_LABEL = new Map(SETTINGS_GROUPS.map((g) => [g.id, g.label] as const));
 
   const settings = getSettingsStore();
   // Intentional one-time seed from `initialTab`; dialog is short-lived and keyed.
@@ -149,6 +69,28 @@
   let customModels = $state<CustomModel[]>([]);
 
   let toolModelOverrides = $state<Record<string, string>>({});
+
+  /** What every section is drawn from: the state Done saves, read and written
+   *  through these properties (`settings/sections.ts`). */
+  const host: SettingsHost = {
+    get editor() { return editor; }, set editor(v) { editor = v; },
+    get webEnabled() { return webEnabled; }, set webEnabled(v) { webEnabled = v; },
+    get allowedDomainsText() { return allowedDomainsText; }, set allowedDomainsText(v) { allowedDomainsText = v; },
+    get blockedDomainsText() { return blockedDomainsText; }, set blockedDomainsText(v) { blockedDomainsText = v; },
+    get importUpstreamTags() { return importUpstreamTags; }, set importUpstreamTags(v) { importUpstreamTags = v; },
+    get toolModelOverrides() { return toolModelOverrides; }, set toolModelOverrides(v) { toolModelOverrides = v; },
+    get model() { return model; }, set model(v) { model = v; },
+    get effort() { return effort; }, set effort(v) { effort = v; },
+    get autoTitle() { return autoTitle; }, set autoTitle(v) { autoTitle = v; },
+    get providerInputs() { return providerInputs; }, set providerInputs(v) { providerInputs = v; },
+    get customModels() { return customModels; }, set customModels(v) { customModels = v; },
+    get providerViews() { return providerViews; },
+    get secureStorageAvailable() { return secureStorageAvailable; },
+    get secureStorageReason() { return secureStorageReason; },
+    get onApplyFontSize() { return onApplyFontSize; },
+    get onThemeChanged() { return onThemeChanged; },
+  };
+  const activeSection = $derived(SECTION_BY_ID.get(activeTab));
 
   // Compute (#374): the Python-interpreter panel now lives in
   // ComputeSettings.svelte (self-contained).
@@ -263,10 +205,10 @@
     </header>
     <div class="body">
       <nav class="tabs" aria-label="Settings sections">
-        {#each SETTINGS_GROUPS as group}
+        {#each SETTINGS_GROUPS as group (group.id)}
           <div class="tab-group">
             <div class="tab-group-label">{group.label}</div>
-            {#each group.items as tab (tab.id)}
+            {#each SETTINGS_SECTIONS.filter((t) => t.group === group.id) as tab (tab.id)}
               <button
                 class="tab"
                 class:active={activeTab === tab.id}
@@ -280,71 +222,13 @@
         {/each}
       </nav>
       <section class="panel">
-        {#if TAB_DEFS.get(activeTab)}
-          {@const def = TAB_DEFS.get(activeTab)!}
+        {#if activeSection}
           <div class="panel-header">
-            <div class="panel-eyebrow">{TAB_TO_GROUP.get(activeTab) ?? ''}</div>
-            <h3 class="panel-title">{def.label}</h3>
-            <p class="panel-sub">{def.sub}</p>
+            <div class="panel-eyebrow">{GROUP_LABEL.get(activeSection.group) ?? ''}</div>
+            <h3 class="panel-title">{activeSection.label}</h3>
+            <p class="panel-sub">{activeSection.sub}</p>
           </div>
-        {/if}
-        {#if activeTab === 'editor'}
-          <EditorSettingsPanel bind:editor />
-
-        {:else if activeTab === 'appearance'}
-          <AppearanceSettings {onApplyFontSize} {onThemeChanged} />
-
-        {:else if activeTab === 'behaviors'}
-          <BehaviorsSettings />
-
-        {:else if activeTab === 'inspections'}
-          <InspectionsSettings />
-
-        {:else if activeTab === 'versioning'}
-          <VersioningSettings />
-
-        {:else if activeTab === 'notes'}
-          <NotesSettings />
-
-        {:else if activeTab === 'formatter'}
-          <FormatterSettings />
-
-        {:else if activeTab === 'web'}
-          <WebSettings bind:webEnabled bind:allowedDomainsText bind:blockedDomainsText />
-
-        {:else if activeTab === 'sources'}
-          <SourcesSettings bind:importUpstreamTags />
-
-        {:else if activeTab === 'clipper'}
-          <ClipperSettings />
-
-        {:else if activeTab === 'objectTypes'}
-          <ObjectTypesSettings />
-
-        {:else if activeTab === 'bibliography'}
-          <BibliographySettings />
-
-        {:else if activeTab === 'skills'}
-          <SkillsSettings bind:toolModelOverrides defaultModel={model} {customModels} />
-
-        {:else if activeTab === 'mcpServers'}
-          <McpServersSettings />
-
-        {:else if activeTab === 'compute'}
-          <ComputeSettings />
-
-        {:else if activeTab === 'ai'}
-          <AiSettings
-            bind:model
-            bind:effort
-            bind:autoTitle
-            bind:providerInputs
-            bind:customModels
-            {providerViews}
-            {secureStorageAvailable}
-            {secureStorageReason}
-            onCheckConnection={(providerId, candidateKey, baseURL) => api.tools.checkConnection(providerId, candidateKey, baseURL)}
-          />
+          <activeSection.component {...activeSection.props(host)} />
         {/if}
       </section>
     </div>
