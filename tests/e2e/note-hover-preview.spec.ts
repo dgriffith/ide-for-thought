@@ -9,6 +9,10 @@
  * of #2680 (`changingPreview` in preview-resize.spec.ts) can't arise: the
  * Preview pane is only hovered.
  *
+ * Every pointer hover goes through `hoverUntil` (#2719): a lone synthetic
+ * hover sometimes doesn't take under load, and the fix is another hover, not
+ * a longer wait.
+ *
  * Map tiles are served by the test (offline), as in map-style-per-view.spec.ts;
  * the pins are DOM markers, so they're hoverable whatever the tiles do.
  */
@@ -19,6 +23,7 @@ import path from 'node:path';
 import { closeMinerva, launchMinerva, projectRoot } from './helpers/launch';
 import { openEventTimeline, seedNotes } from './helpers/timeline';
 import { openProjectBoard } from './helpers/kanban';
+import { hoverUntil } from './helpers/hover';
 
 const STYLE = {
   version: 8,
@@ -72,9 +77,9 @@ test('map, Kanban and timeline hovers show the same preview as a link to the not
       await row.click();
       await expect(win.locator('.cm-content')).toContainText('Kampa Museum', { timeout: 10_000 });
       for (const t of TARGETS) {
-        await win.locator('.cm-content .cm-clickable-link', { hasText: t }).first().hover();
         const pop = win.locator('.cm-link-preview:not(.loading)');
-        await expect(pop.locator('.title')).toHaveText(t, { timeout: 5_000 });
+        await hoverUntil(win, win.locator('.cm-content .cm-clickable-link', { hasText: t }).first(), pop.locator('.title'));
+        await expect(pop.locator('.title')).toHaveText(t);
         expected.set(t, { title: (await pop.locator('.title').textContent())!, snippet: (await pop.locator('.body').textContent())! });
         await win.mouse.move(2, 2);
         await expect(win.locator('.cm-link-preview')).toHaveCount(0, { timeout: 5_000 });
@@ -86,7 +91,7 @@ test('map, Kanban and timeline hovers show the same preview as a link to the not
       await win.getByRole('button', { name: 'Preview', exact: true }).click();
       for (const t of TARGETS) {
         const link = win.locator(`.preview .wiki-link[data-target="${t}"]`);
-        await link.hover();
+        await hoverUntil(win, link, win.locator('.note-hover-preview'));
         expect(await sharedPreview(win)).toEqual(expected.get(t));
         await expect(link).toHaveAttribute('aria-describedby', /.+/);
         await pointerAway(win);
@@ -95,7 +100,7 @@ test('map, Kanban and timeline hovers show the same preview as a link to the not
 
     await test.step('Kanban: hover a card', async () => {
       const { cardFor } = await openProjectBoard(win, 1);
-      await cardFor('Garden Shed').hover();
+      await hoverUntil(win, cardFor('Garden Shed'), win.locator('.note-hover-preview'));
       expect(await sharedPreview(win)).toEqual(expected.get('Garden Shed'));
       const id = await win.locator('.note-hover-preview').getAttribute('id');
       await expect(cardFor('Garden Shed')).toHaveAttribute('aria-describedby', id!);
@@ -121,7 +126,7 @@ test('map, Kanban and timeline hovers show the same preview as a link to the not
       const pin = win.locator('.type-view-map .maplibregl-marker[aria-label="Kampa Museum"]');
       await expect(pin).toHaveCount(1, { timeout: 15_000 });
       await expect(pin).not.toHaveAttribute('title', /.*/);
-      await pin.hover();
+      await hoverUntil(win, pin, win.locator('.note-hover-preview'));
       expect(await sharedPreview(win)).toEqual(expected.get('Kampa Museum'));
       await pointerAway(win);
     });
