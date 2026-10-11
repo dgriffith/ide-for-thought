@@ -94,6 +94,15 @@ export interface TurnRequest {
   maxTokens: number;
   /** Code-execution sandbox id to echo back when the history references one. */
   containerId?: string | null | undefined;
+  /**
+   * Tools whose results must stay in the model's context for the whole turn
+   * (#2499). A provider that can drop older tool results to keep a long
+   * tool-using turn small (Anthropic's server-side context editing) leaves
+   * these alone; a provider that can't ignores the field. The loop pins the
+   * tools whose result is the model's record of what it already filed or what
+   * the user answered.
+   */
+  pinnedToolResults?: readonly string[] | undefined;
   signal?: AbortSignal | undefined;
 }
 
@@ -121,6 +130,9 @@ export interface TurnResult {
   stopReason: StopReason;
   containerId?: string | undefined;
   containerExpiresAt?: string | undefined;
+  /** Older tool results the provider dropped from this request's context
+   *  (#2499), when it did; absent when nothing was cleared. */
+  clearedContext?: { toolUses: number; inputTokens: number } | undefined;
 }
 
 export interface CompletionRequest {
@@ -153,6 +165,15 @@ export interface LLMProvider {
   toolResultMessage(results: ProviderToolResult[]): ProviderMessage;
   /** Run ONE streaming model call, returning a neutral structured result. */
   runTurn(req: TurnRequest, hooks: TurnHooks): Promise<TurnResult>;
+  /**
+   * The exact size, in input tokens, of the request `runTurn(req)` would send
+   * — after anything the provider would clear from it (#2499). Optional: the
+   * loop asks only when the previous request's usage reads as over its
+   * ceiling, because a request that ran a server-side tool loop reports usage
+   * summed over every internal step, not the size of its context. A provider
+   * without a counting endpoint leaves it out, and the loop goes by usage.
+   */
+  countContextTokens?(req: TurnRequest): Promise<number>;
   /** Single-shot completion; streams via `onDelta` when provided. */
   complete(
     req: CompletionRequest,

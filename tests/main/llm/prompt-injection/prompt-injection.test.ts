@@ -75,6 +75,8 @@ const { streamMock, getSettingsMock, fakeMcp } = vi.hoisted(() => ({
 vi.mock('@anthropic-ai/sdk', () => ({
   default: class MockAnthropic {
     messages = { stream: streamMock };
+    // The conversation loop streams through the beta endpoint (#2499).
+    beta = { messages: { stream: streamMock } };
   },
 }));
 vi.mock('../../../../src/main/llm/settings', () => ({ getSettings: getSettingsMock }));
