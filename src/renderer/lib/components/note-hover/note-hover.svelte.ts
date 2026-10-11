@@ -92,7 +92,14 @@ export function createNoteHover(opts: { openDelayMs?: number; closeGraceMs?: num
       }, openDelay);
     },
     pointerLeave(key) {
-      if (pending?.key === key) cancelOpen();
+      if (pending?.key === key) {
+        cancelOpen();
+        // Entering this item cancelled the close of the preview still showing
+        // (so it stays up while this one's delay runs, with no gap between
+        // cards). Leaving before it opened must put that close back, or the
+        // old preview stays up with the pointer nowhere near it (#2719).
+        if (hovered && !overPreview) scheduleClose();
+      }
       if (hovered?.key === key) scheduleClose();
     },
     focus(subject) { focused = subject; },

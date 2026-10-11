@@ -67,6 +67,42 @@ describe('createNoteHover (#2710)', () => {
     expect(h.current).toBeNull();
   });
 
+  it('crossing onto another item and off it again before it opens closes the first preview (#2719)', () => {
+    // Hover A; leave it (its close is scheduled) and, inside the grace, cross
+    // B without resting. Entering B cancelled A's close; leaving B cancelled
+    // B's open — and nothing put A's close back, so A's preview stayed up with
+    // the pointer nowhere near it, until some other hover replaced it.
+    vi.useFakeTimers();
+    const h = createNoteHover();
+    h.pointerEnter(subject('a'));
+    vi.advanceTimersByTime(NOTE_HOVER_OPEN_DELAY_MS);
+    expect(h.current?.key).toBe('a');
+    h.pointerLeave('a');
+    vi.advanceTimersByTime(50);
+    h.pointerEnter(subject('b'));
+    vi.advanceTimersByTime(50);
+    h.pointerLeave('b');
+    vi.advanceTimersByTime(NOTE_HOVER_CLOSE_GRACE_MS + NOTE_HOVER_OPEN_DELAY_MS);
+    expect(h.current).toBeNull();
+  });
+
+  it('resting on the next item still hands straight over, with no gap (#2719)', () => {
+    vi.useFakeTimers();
+    const h = createNoteHover();
+    h.pointerEnter(subject('a'));
+    vi.advanceTimersByTime(NOTE_HOVER_OPEN_DELAY_MS);
+    h.pointerLeave('a');
+    h.pointerEnter(subject('b'));
+    // A stays up while B's delay runs (no flicker to nothing between cards)…
+    vi.advanceTimersByTime(NOTE_HOVER_OPEN_DELAY_MS - 1);
+    expect(h.current?.key).toBe('a');
+    // …and B replaces it when it opens.
+    vi.advanceTimersByTime(1);
+    expect(h.current?.key).toBe('b');
+    vi.advanceTimersByTime(5000);
+    expect(h.current?.key).toBe('b');
+  });
+
   it('close (Escape) clears hover, focus and a pending open', () => {
     vi.useFakeTimers();
     const h = createNoteHover();
