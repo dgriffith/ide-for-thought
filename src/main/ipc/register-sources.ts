@@ -10,6 +10,7 @@ import { ingestUrl } from '../sources/ingest';
 import { ingestIdentifier } from '../sources/ingest-identifier';
 import { finishPdfOcrIngest, readOriginalPdf } from '../sources/ingest-pdf';
 import { ingestFile } from '../sources/ingest-file';
+import { ingestibleFileExtensions } from '../sources/ingestors';
 import { dropImport, type DropImportEntry } from '../notebase/drop-import';
 import { enumerateFolderTree } from '../notebase/folder-walk';
 import { deleteSource } from '../sources/delete-source';
@@ -154,7 +155,8 @@ export function registerSources(): void {
     const result = await dialog.showOpenDialog(win, {
       properties: ['openFile'],
       filters: [
-        { name: 'Documents', extensions: ['pdf', 'html', 'htm', 'md', 'markdown', 'txt', 'text'] },
+        // The file types an ingestor is registered for (#2629).
+        { name: 'Documents', extensions: ingestibleFileExtensions() },
         { name: 'All Files', extensions: ['*'] },
       ],
       title: 'Ingest File as Source',

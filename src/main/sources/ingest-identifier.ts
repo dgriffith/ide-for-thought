@@ -13,15 +13,13 @@
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { canonicalSourceId, normalizeDoi, normalizeArxivId, normalizePubmedId } from './source-id';
+import { canonicalSourceId } from './source-id';
 import { mergeMetaTtl } from './source-merge';
 import type { ArticleMetadata } from './api-adapters/types';
-import { fetchCrossrefMetadata } from './api-adapters/crossref';
-import { fetchArxivMetadata } from './api-adapters/arxiv';
-import { fetchPubmedMetadata } from './api-adapters/pubmed';
 import { safeFetch } from '../safe-fetch';
+import { IDENTIFIER_KINDS, identifierKindDef, type IdentifierKind } from './identifier-kinds';
 
-export type IdentifierKind = 'doi' | 'arxiv' | 'pubmed';
+export type { IdentifierKind };
 
 export interface DetectedIdentifier {
   kind: IdentifierKind;
@@ -51,18 +49,17 @@ export interface IdentifierIngestOptions {
 }
 
 /**
- * Detect which kind of identifier the user typed. Order matters: DOI
+ * Detect which kind of identifier the user typed, in `IDENTIFIER_KINDS`' order
+ * (#2629). Order matters: DOI
  * before arXiv before PubMed, so an arXiv-id-shaped string doesn't get
  * mis-matched as a PubMed numeric id and so a DOI-shaped string wins over
  * ambiguous cases.
  */
 export function detectIdentifier(raw: string): DetectedIdentifier | null {
-  const doi = normalizeDoi(raw);
-  if (doi) return { kind: 'doi', value: doi };
-  const arxiv = normalizeArxivId(raw);
-  if (arxiv) return { kind: 'arxiv', value: arxiv };
-  const pubmed = normalizePubmedId(raw);
-  if (pubmed) return { kind: 'pubmed', value: pubmed };
+  for (const k of IDENTIFIER_KINDS) {
+    const value = k.normalize(raw);
+    if (value) return { kind: k.kind, value };
+  }
   return null;
 }
 
@@ -171,11 +168,7 @@ async function fetchMetadataFor(
   identifier: DetectedIdentifier,
   fetchImpl: typeof fetch,
 ): Promise<ArticleMetadata> {
-  switch (identifier.kind) {
-    case 'doi': return fetchCrossrefMetadata(identifier.value, fetchImpl);
-    case 'arxiv': return fetchArxivMetadata(identifier.value, fetchImpl);
-    case 'pubmed': return fetchPubmedMetadata(identifier.value, fetchImpl);
-  }
+  return identifierKindDef(identifier.kind).fetchMetadata(identifier.value, fetchImpl);
 }
 
 async function fetchPdfBytes(url: string, fetchImpl: typeof fetch): Promise<Uint8Array> {
