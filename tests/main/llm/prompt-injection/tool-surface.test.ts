@@ -7,9 +7,11 @@
  * compromised model. This is the static half, so the next tool can't quietly
  * change the answer:
  *
- *   1. Every dispatchable tool is classified. The list fails CLOSED: a new
- *      tool must be put in a class here, which is the moment to ask whether it
- *      reads, drafts, or does something neither of those covers.
+ *   1. Every dispatchable tool is classified. Since #2628 the class is part of
+ *      registering a tool (`tools/registry.ts`, `tool-registry.ts`): a tool
+ *      can't register without one, which is the moment to ask whether it
+ *      reads, drafts, or does something neither of those covers. This reads
+ *      the classes from the registry.
  *   2. No module under `src/main/llm/tools/` — nor the two helpers that file
  *      proposals on a tool's behalf — takes anything but listing / stat from
  *      Node's `fs`, calls a filesystem or notebase write, approves or applies a proposal, or enters the approval engine's
@@ -18,66 +20,26 @@
  *      one mutation allowed, and only in those helpers.
  *   3. Every tool parameter shaped like a path is classified, and its tool
  *      calls the agent-path guard (`tools/agent-path.ts`) — so no path an
- *      agent chose reaches `.minerva/` (#2453). Fails closed both ways.
+ *      agent chose reaches `.minerva/` (#2453). The guard is declared at
+ *      registration, which refuses a path parameter without one (and a guard
+ *      without a path); this checks the declared site really calls it.
  */
 import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
-import { NOTEBASE_TOOL_REGISTRY } from '../../../../src/main/llm/tools/registry';
-import { askUser } from '../../../../src/main/llm/tools/ask-user';
-import type { ToolSpec } from '../../../../src/main/llm/provider/types';
+import { TOOL_REGISTRATIONS } from '../../../../src/main/llm/tools/registry';
+import { defineToolRegistry, pathParams, type ToolClass } from '../../../../src/main/llm/tools/tool-registry';
+import { readNote } from '../../../../src/main/llm/tools/read-note';
+import { searchNotes } from '../../../../src/main/llm/tools/search-notes';
 
 const REPO = path.resolve(__dirname, '..', '..', '..', '..');
 const TOOLS_DIR = path.join(REPO, 'src', 'main', 'llm', 'tools');
 /** Helpers a tool calls to file PENDING proposals (propose_note_types, propose_object_type). */
 const PROPOSAL_HELPERS = ['src/main/llm/infer-types.ts', 'src/main/llm/object-types.ts'];
 
-type ToolClass =
-  /** Reads the thoughtbase, the graph, the tables or the docs. */
-  | 'read'
-  /** Emits a draft for the review card, or files a PENDING proposal. */
-  | 'propose'
-  /** Calls a user-configured third-party MCP server (no confirmation gate, by design — #2028). */
-  | 'external'
-  /** Runs a stock/user skill as a sub-prompt; its output is drafts. */
-  | 'skill'
-  /** Round-trips a question to the user. */
-  | 'interactive';
-
-const CLASSIFIED: Record<string, ToolClass> = {
-  search_notes: 'read',
-  grep_notes: 'read',
-  read_note: 'read',
-  read_source: 'read',
-  search_related: 'read',
-  search_help: 'read',
-  query_graph: 'read',
-  list_notes: 'read',
-  list_object_types: 'read',
-  describe_graph_schema: 'read',
-  describe_tables: 'read',
-  query_sql: 'read',
-  fetch_properties: 'read',
-  propose_note_rename: 'propose',
-  propose_note_move: 'propose',
-  propose_reorganization: 'propose',
-  propose_note_delete: 'propose',
-  propose_folder_move: 'propose',
-  propose_folder_delete: 'propose',
-  propose_note_body: 'propose',
-  propose_note_edits: 'propose',
-  propose_notes: 'propose',
-  propose_sources: 'propose',
-  set_properties: 'propose',
-  propose_source_properties: 'propose',
-  propose_note_types: 'propose',
-  propose_object_type: 'propose',
-  propose_claims: 'propose',
-  propose_compute: 'propose',
-  mcp_call: 'external',
-  run_skill: 'skill',
-  ask_user: 'interactive',
-};
+const CLASSIFIED: Record<string, ToolClass> = Object.fromEntries(
+  Object.entries(TOOL_REGISTRATIONS).map(([name, r]) => [name, r.class]),
+);
 
 /** What a tool may take from Node's `fs`: listing and stat-ing, never writing. */
 const FS_READ_ONLY = new Set(['readdir', 'readFile', 'stat', 'lstat', 'realpath', 'access', 'Dirent', 'Stats']);
@@ -89,59 +51,10 @@ const FORBIDDEN: Array<[RegExp, string]> = [
   [/\b(writeJsonFileAtomic\w*|saveType|ingestIdentifier|ingestUrl|ingestPdf\w*)\s*\(/, 'writes a store or ingests directly'],
 ];
 
-const ALL_TOOLS: Record<string, ToolSpec> = {
-  ...Object.fromEntries(Object.entries(NOTEBASE_TOOL_REGISTRY).map(([n, t]) => [n, t.definition])),
-  ask_user: askUser.definition,
-};
-
-/** A parameter name that holds a thoughtbase path, or an id spliced into one. */
-const PATH_SHAPED = /(path|paths|folder|folders|dir|file|files)$|^newName$|source_?id$/i;
-
-/** Every path-shaped property name anywhere in a JSON schema (nested objects
- *  and array items included), as a dotted trail. */
-function pathParams(schema: unknown, trail = ''): string[] {
-  if (!schema || typeof schema !== 'object') return [];
-  const s = schema as { properties?: Record<string, unknown>; items?: unknown };
-  const out: string[] = [];
-  for (const [k, v] of Object.entries(s.properties ?? {})) {
-    const here = trail ? `${trail}.${k}` : k;
-    if (PATH_SHAPED.test(k)) out.push(here);
-    out.push(...pathParams(v, here));
-  }
-  if (s.items) out.push(...pathParams(s.items, `${trail}[]`));
-  return out;
-}
-
-/**
- * Tools that take a path-shaped argument, the guard each calls, and the file
- * that calls it. `agentPath` = `assertAgentPath` (no hidden / ignored segment,
- * as spelled or after symlinks, inside the root); `bareSourceId` = one
- * segment, never a path, for an id Minerva splices into
- * `.minerva/sources/<id>/…` itself. No tool here is "by design" exempt:
- * `search_related`'s lookup is index-only, and it is guarded anyway.
- */
-const PATH_GUARDED: Record<string, { guard: 'agentPath' | 'bareSourceId'; site: string }> = {
-  read_note: { guard: 'agentPath', site: 'read-note.ts' },
-  fetch_properties: { guard: 'agentPath', site: 'fetch-properties.ts' },
-  search_related: { guard: 'agentPath', site: 'search-related.ts' },
-  run_skill: { guard: 'agentPath', site: 'run-skill.ts' },
-  propose_note_body: { guard: 'agentPath', site: 'propose-note-body.ts' },
-  // Shares `readNoteForEdit` with propose_note_body, which is where the guard is.
-  propose_note_edits: { guard: 'agentPath', site: 'propose-note-body.ts' },
-  propose_notes: { guard: 'agentPath', site: 'propose-notes.ts' },
-  propose_note_delete: { guard: 'agentPath', site: 'propose-note-delete.ts' },
-  set_properties: { guard: 'agentPath', site: 'set-properties.ts' },
-  propose_note_types: { guard: 'agentPath', site: 'propose-note-types.ts' },
-  // move + rename share `runProposeRefactorBatch`, which checks both endpoints.
-  propose_note_move: { guard: 'agentPath', site: '_shared.ts' },
-  propose_note_rename: { guard: 'agentPath', site: '_shared.ts' },
-  propose_reorganization: { guard: 'agentPath', site: 'propose-reorganization.ts' },
-  propose_folder_move: { guard: 'agentPath', site: 'propose-folder-move.ts' },
-  propose_folder_delete: { guard: 'agentPath', site: 'propose-folder-delete.ts' },
-  read_source: { guard: 'bareSourceId', site: 'read-source.ts' },
-  propose_claims: { guard: 'bareSourceId', site: 'propose-claims.ts' },
-  propose_source_properties: { guard: 'bareSourceId', site: 'propose-source-properties.ts' },
-};
+/** Each path-taking tool's declared guard, from its registration. */
+const PATH_GUARDED = Object.fromEntries(
+  Object.entries(TOOL_REGISTRATIONS).flatMap(([name, r]) => (r.pathGuard ? [[name, r.pathGuard] as const] : [])),
+);
 
 function toolSourceFiles(): string[] {
   return fs
@@ -151,9 +64,16 @@ function toolSourceFiles(): string[] {
 }
 
 describe('LLM tool surface: read, draft or propose — nothing else (#2373)', () => {
-  it('every dispatchable tool is classified (fails closed on a new one)', () => {
-    const names = [...Object.keys(NOTEBASE_TOOL_REGISTRY), 'ask_user'].sort();
-    expect(names).toEqual(Object.keys(CLASSIFIED).sort());
+  it('every registered tool has a class from the closed set', () => {
+    const CLASSES: readonly ToolClass[] = ['read', 'propose', 'external', 'skill', 'interactive'];
+    expect(Object.keys(CLASSIFIED).length).toBeGreaterThan(30);
+    expect(Object.entries(CLASSIFIED).filter(([, c]) => !CLASSES.includes(c))).toEqual([]);
+  });
+
+  it('registration refuses a path parameter without a guard, a guard without a path, and a duplicate', () => {
+    expect(() => defineToolRegistry([{ tool: readNote, class: 'read' }])).toThrow(/takes a path .* no pathGuard/);
+    expect(() => defineToolRegistry([{ tool: searchNotes, class: 'read', pathGuard: { guard: 'agentPath', site: 'x.ts' } }])).toThrow(/takes no path-shaped parameter/);
+    expect(() => defineToolRegistry([{ tool: searchNotes, class: 'read' }, { tool: searchNotes, class: 'read' }])).toThrow(/registered twice/);
   });
 
   it('no tool can approve: nothing in the surface is named like an approval', () => {
@@ -185,7 +105,7 @@ describe('LLM tool surface: read, draft or propose — nothing else (#2373)', ()
   // through `tools/agent-path.ts`. The runtime proof is `agent-paths.test.ts`.
   it('every path-shaped tool parameter is classified, and none is unclassified', () => {
     const withPaths = Object.fromEntries(
-      Object.entries(ALL_TOOLS).map(([name, def]) => [name, pathParams(def.input_schema)]).filter(([, ps]) => ps.length > 0),
+      Object.entries(TOOL_REGISTRATIONS).map(([name, r]) => [name, pathParams(r.tool.definition.input_schema)]).filter(([, ps]) => ps.length > 0),
     );
     expect(Object.keys(withPaths).sort()).toEqual(Object.keys(PATH_GUARDED).sort());
   });

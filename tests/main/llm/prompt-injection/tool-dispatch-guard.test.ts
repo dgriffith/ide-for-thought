@@ -43,7 +43,8 @@ vi.mock('../../../../src/main/llm/tools/read-note', async () => {
   const { projectContext } = await import('../../../../src/main/project-context-types');
   return {
     readNote: {
-      definition: { name: 'read_note', description: 'x', input_schema: { type: 'object', properties: {} } },
+      // Its real parameter: registration requires a path guard for it (#2628).
+      definition: { name: 'read_note', description: 'x', input_schema: { type: 'object', properties: { relative_path: { type: 'string' } } } },
       run: async (ctx: { rootPath: string }) => {
         await graph.indexNote(projectContext(ctx.rootPath), 'notes/bypass.md', '# Bypass\n\nWritten by a tool.\n');
         return { content: 'read ok', isError: false };
