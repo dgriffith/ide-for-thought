@@ -1,16 +1,81 @@
 /**
- * Live blocks in exports (#2508): the protocol between the export pipeline
- * (main) and the window that renders them with the preview's own components
- * (#2510). Pure types + constants, shared by both processes.
+ * Live blocks (#2508, #2624): the things a note's preview renders live, and
+ * the protocol between the export pipeline (main) and the window that renders
+ * them with the preview's own components (#2510). Pure types + constants,
+ * shared by both processes.
+ *
+ * `LIVE_BLOCKS` is the ONE list of kinds. Each side keeps its half in a map
+ * keyed by kind, so a kind registered here without a half there doesn't
+ * compile:
+ *
+ * - the preview: fence renderers (`markdown/fence-plugin.ts`), directive
+ *   rules (`preview/markdown-config.ts`), the card pass (`Preview.svelte`);
+ * - an export: the window's renderers (`app/export-live-blocks.ts`) for a
+ *   `window` kind, a main-process transform (`publish/live-blocks.ts`'s
+ *   `MAIN_TRANSFORMS`) for a `main` kind.
+ *
+ * Built-ins register here; plugins will contribute through the same list
+ * (#2615).
  */
 
-/** Block kinds the export asks a window to render. Grows per #2508 child. */
-export type LiveBlockKind = 'object-view' | 'query' | 'mermaid' | 'argument' | 'output' | 'card';
+/** How a block is written in a note. */
+export type LiveBlockSyntax =
+  /** A fenced code block in one of these languages (lowercased). */
+  | { fence: readonly string[] }
+  /** A `:::` directive: an opening line matching `opener` (after up to three
+   *  spaces of indent), closed by the first line that is `:::`. */
+  | { directive: RegExp }
+  /** A top-level paragraph that is one plain `[[link]]` (or `[[quote::id]]`)
+   *  and nothing else, which the preview may draw as a card (#1071). */
+  | { cardLink: true };
+
+export interface LiveBlockDef {
+  kind: string;
+  syntax: LiveBlockSyntax;
+  /** How an export answers it: rendered by the window with the preview's
+   *  own components (`window`), or transformed in main (`main`). */
+  export: 'window' | 'main';
+}
+
+export const LIVE_BLOCKS = [
+  { kind: 'object-view', syntax: { fence: ['object-view'] }, export: 'window' },
+  { kind: 'mermaid', syntax: { fence: ['mermaid'] }, export: 'window' },
+  { kind: 'output', syntax: { fence: ['output'] }, export: 'window' },
+  { kind: 'query', syntax: { directive: /^:::query-(\w+)\s*$/ }, export: 'window' },
+  { kind: 'argument', syntax: { directive: /^:::argument\s*$/ }, export: 'window' },
+  { kind: 'card', syntax: { cardLink: true }, export: 'window' },
+  // A chart, drawn to SVG in main (#831).
+  { kind: 'vega', syntax: { fence: ['vega', 'vega-lite'] }, export: 'main' },
+  // A linked thumbnail (#904).
+  { kind: 'youtube', syntax: { fence: ['youtube'] }, export: 'main' },
+] as const satisfies readonly LiveBlockDef[];
+
+type Def = (typeof LIVE_BLOCKS)[number];
+/** Every live-block kind. */
+export type LiveBlockKind = Def['kind'];
+/** Kinds an export asks a window to render. */
+export type WindowBlockKind = Extract<Def, { export: 'window' }>['kind'];
+/** Kinds an export transforms in main. */
+export type MainBlockKind = Extract<Def, { export: 'main' }>['kind'];
+/** Kinds written as a fence / a directive / a lone link. */
+export type FenceBlockKind = Extract<Def, { syntax: { fence: readonly string[] } }>['kind'];
+export type DirectiveBlockKind = Extract<Def, { syntax: { directive: RegExp } }>['kind'];
+export type CardBlockKind = Extract<Def, { syntax: { cardLink: true } }>['kind'];
+
+/** Fence language → its kind, for every fenced live block. */
+export const LIVE_FENCE_LANGS: ReadonlyMap<string, FenceBlockKind> = new Map(
+  LIVE_BLOCKS.flatMap((d) => ('fence' in d.syntax ? d.syntax.fence.map((lang) => [lang, d.kind as FenceBlockKind] as const) : [])),
+);
+
+/** The directive kinds with their opening-line patterns. */
+export const LIVE_DIRECTIVE_OPENERS: ReadonlyArray<readonly [DirectiveBlockKind, RegExp]> = LIVE_BLOCKS.flatMap(
+  (d) => ('directive' in d.syntax ? [[d.kind as DirectiveBlockKind, d.syntax.directive] as const] : []),
+);
 
 export interface LiveBlockRequest {
   /** Unique within one request batch. */
   id: string;
-  kind: LiveBlockKind;
+  kind: WindowBlockKind;
   /** The block's own text — the fence body, exactly as the preview reads it. */
   source: string;
   /** The note the block sits in (thoughtbase-relative). */

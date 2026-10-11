@@ -19,7 +19,7 @@ import type { MarkdownIt as MarkdownItInstance } from 'markdown-it';
 import footnote from 'markdown-it-footnote';
 import hljs from 'highlight.js';
 import { buildLinkResolverContext, encodeLinkDestination, type LinkResolverContext } from '../../link-resolver';
-import { extractLiveBlocks, renderLiveBlocks, spliceLiveBlocks } from '../../live-blocks';
+import { applyMainTransforms, extractLiveBlocks, renderLiveBlocks, spliceLiveBlocks } from '../../live-blocks';
 import { installMath } from '../../../../shared/markdown/math-plugin';
 import { installCallouts } from '../../../../shared/markdown/callout-plugin';
 import { installAnchors } from '../../../../shared/markdown/anchor-plugin';
@@ -28,8 +28,6 @@ import { installHighlight } from '../../../../shared/markdown/highlight-plugin';
 import { installImageSize } from '../../../../shared/markdown/image-size';
 import { slugify } from '../../../../shared/slug';
 import { installNoteTags, noteTagChipHtml } from '../../../../shared/markdown/note-tags-plugin';
-import { renderVegaBlocks } from '../../vega-render';
-import { renderYouTubeBlocks } from '../../youtube-render';
 import { resolveTransclusions } from '../../transclusion-resolve';
 import { linkifyLocalMedia } from '../../media-export';
 import type { ExportPlanFile, ExportPlan } from '../../types';
@@ -61,17 +59,14 @@ export async function renderNoteBody(
   const live = extractLiveBlocks(transcluded, file.relativePath, { paged: plan.paged });
   const liveResults = await renderLiveBlocks(live.blocks, plan.renderLiveBlocks);
   const inlined = live.markdown;
-  // #831 — pre-render ```vega-lite / ```vega fences to static SVG images
-  // before markdown rendering (md.render is sync; vega's toSVG is async).
-  // The result is `<img>` markdown, so it survives the `html: false` instance.
-  const withCharts = await renderVegaBlocks(inlined, { rootPath: plan.rootPath });
-  // #904 — degrade `youtube` fences to a linked thumbnail (an `<img>` in a
-  // link, so it survives `html: false`). Sync; order vs. Vega is irrelevant —
-  // the two operate on disjoint fence languages.
-  const withYouTube = renderYouTubeBlocks(withCharts);
+  // The `main` live-block kinds (#2624), each a markdown transform before
+  // rendering: ```vega / ```vega-lite → a static SVG image (#831; async,
+  // vega's toSVG is), ```youtube → a linked thumbnail (#904). Both produce
+  // `<img>` markdown, so they survive the `html: false` instance.
+  const withMainBlocks = await applyMainTransforms(inlined, { rootPath: plan.rootPath });
   // #908 — degrade local audio/video image-refs to links (inlining media into a
   // single-file export isn't sensible; keep the reference).
-  const bodyMarkdown = linkifyLocalMedia(withYouTube);
+  const bodyMarkdown = linkifyLocalMedia(withMainBlocks);
   const linkCtx = buildLinkResolverContext(plan);
   const fromDir = file.relativePath ? path.posix.dirname(file.relativePath) : null;
   // A link the window didn't make a card of (an untyped note, or no window at

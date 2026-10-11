@@ -16,7 +16,6 @@ import MarkdownIt from 'markdown-it';
 // paths don't resolve through `@types/markdown-it`'s `export = X` shape under
 // isolatedModules, but type-only imports don't ship to the bundler.
 import type { Token, MarkdownIt as MarkdownItInstance } from 'markdown-it';
-import type { StateBlock } from 'markdown-it';
 import mdFootnote from 'markdown-it-footnote';
 import { installMath } from '../../../shared/markdown/math-plugin';
 import { installDoiAutolink } from '../../../shared/markdown/doi-plugin';
@@ -26,7 +25,7 @@ import { installWikiLinks, installNoteTags, installTransclusions } from '../mark
 import { installAnchors } from '../../../shared/markdown/anchor-plugin';
 import { installFences } from '../markdown/fence-plugin';
 import { escapeAttr } from './text';
-import { splitQueryDirective, queryBlockPlaceholderHtml } from './query-directive';
+import { installLiveDirectives } from './live-directives';
 import { resolveRelativeImagePath } from './image-paths';
 import { mediaKind } from '../../../shared/media';
 import { appImageMark } from './app-image-mark';
@@ -151,120 +150,9 @@ export function createPreviewMarkdown(deps: PreviewMarkdownDeps): MarkdownItInst
     // toolbar, default code-block wrap) — see fence-plugin.ts.
     installFences(md, deps);
 
-    // Query directive plugin: :::query-list ... :::
-    md.block.ruler.before('fence', 'query_directive', (state: StateBlock, startLine: number, endLine: number, silent: boolean) => {
-        const startPos = state.bMarks[startLine]! + state.tShift[startLine]!;
-        const startMax = state.eMarks[startLine];
-        const lineText = state.src.slice(startPos, startMax);
-
-        // Match opening :::query-TYPE
-        const openMatch = lineText.match(/^:::query-(\w+)\s*$/);
-        if (!openMatch) return false;
-        if (silent) return true;
-
-        const directiveType = openMatch[1]; // 'list', etc.
-
-        // Find closing :::
-        let nextLine = startLine + 1;
-        let found = false;
-        while (nextLine < endLine) {
-            const pos = state.bMarks[nextLine]! + state.tShift[nextLine]!;
-            const max = state.eMarks[nextLine];
-            const line = state.src.slice(pos, max).trim();
-            if (line === ':::') {
-                found = true;
-                break;
-            }
-            nextLine++;
-        }
-        if (!found) return false;
-
-        // Extract body between the fences
-        const contentStart = state.bMarks[startLine + 1];
-        const contentEnd = state.bMarks[nextLine];
-        const body = state.src.slice(contentStart, contentEnd).trim();
-
-        // Config above a `---`, query below — shared with the export renderer (#2512).
-        const {query, config} = splitQueryDirective(body);
-
-        const token = state.push('query_directive', 'div', 0);
-        token.content = query;
-        token.meta = {type: directiveType, config};
-        token.map = [startLine, nextLine + 1];
-        state.line = nextLine + 1;
-        return true;
-    });
-
-    md.renderer.rules.query_directive = (tokens: Token[], idx: number) => {
-        const query = tokens[idx]!.content;
-        const {type, config} = tokens[idx]!.meta as { type: string; config: Record<string, unknown> };
-        return queryBlockPlaceholderHtml(type, query, config);
-    };
-
-    // Argument-map directive (#907): :::argument ... :::. Same config/body
-    // split as query_directive (key: value lines above an optional `---`,
-    // the focus wiki-link below) but its own rule/token/renderer — the data
-    // shape (a graph neighborhood) doesn't fit the `query-*` family, and the
-    // hydrator mounts a real component rather than building an HTML string
-    // (see argument-map-renderer.ts).
-    md.block.ruler.before('fence', 'argument_directive', (state: StateBlock, startLine: number, endLine: number, silent: boolean) => {
-        const startPos = state.bMarks[startLine]! + state.tShift[startLine]!;
-        const startMax = state.eMarks[startLine];
-        const lineText = state.src.slice(startPos, startMax);
-
-        if (!/^:::argument\s*$/.test(lineText)) return false;
-        if (silent) return true;
-
-        let nextLine = startLine + 1;
-        let found = false;
-        while (nextLine < endLine) {
-            const pos = state.bMarks[nextLine]! + state.tShift[nextLine]!;
-            const max = state.eMarks[nextLine];
-            const line = state.src.slice(pos, max).trim();
-            if (line === ':::') {
-                found = true;
-                break;
-            }
-            nextLine++;
-        }
-        if (!found) return false;
-
-        const contentStart = state.bMarks[startLine + 1];
-        const contentEnd = state.bMarks[nextLine];
-        const body = state.src.slice(contentStart, contentEnd).trim();
-
-        const sepIdx = body.indexOf('\n---\n');
-        const config: Record<string, string> = {};
-        let focusBody: string;
-        if (sepIdx >= 0) {
-            const configBlock = body.slice(0, sepIdx).trim();
-            focusBody = body.slice(sepIdx + 5).trim();
-            for (const line of configBlock.split('\n')) {
-                const colonIdx = line.indexOf(':');
-                if (colonIdx > 0) {
-                    const key = line.slice(0, colonIdx).trim();
-                    const value = line.slice(colonIdx + 1).trim();
-                    if (key && value) config[key] = value;
-                }
-            }
-        } else {
-            focusBody = body;
-        }
-
-        const token = state.push('argument_directive', 'div', 0);
-        token.content = focusBody;
-        token.meta = {config};
-        token.map = [startLine, nextLine + 1];
-        state.line = nextLine + 1;
-        return true;
-    });
-
-    md.renderer.rules.argument_directive = (tokens: Token[], idx: number) => {
-        const focus = tokens[idx]!.content;
-        const {config} = tokens[idx]!.meta as { config: Record<string, unknown> };
-        const configJson = Object.keys(config).length > 0 ? escapeAttr(JSON.stringify(config)) : '';
-        return `<div class="argument-map-block" data-focus="${escapeAttr(focus)}"${configJson ? ` data-config="${configJson}"` : ''}></div>`;
-    };
+    // `:::` directive live blocks — `:::query-*`, `:::argument` — from the
+    // live-block registry (#2624); see live-directives.ts.
+    installLiveDirectives(md);
 
     return md;
 }

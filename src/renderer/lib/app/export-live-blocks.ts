@@ -7,7 +7,7 @@
  * a one-line note in its place — and never stops the others.
  */
 import { api } from '../ipc/client';
-import type { LiveBlockRequest, LiveBlockResult } from '../../../shared/live-blocks';
+import type { LiveBlockRequest, LiveBlockResult, WindowBlockKind } from '../../../shared/live-blocks';
 import { renderObjectViewForExport } from '../export/render-object-view';
 import { renderQueryBlockForExport } from '../export/render-query-block';
 import { renderMermaidForExport } from '../export/render-mermaid';
@@ -15,22 +15,24 @@ import { renderArgumentMapForExport } from '../export/render-argument-map';
 import { renderOutputForExport } from '../export/render-output';
 import { renderCardForExport } from '../export/render-card';
 
+/**
+ * The export half of each `window` live-block kind (#2624): its HTML, drawn
+ * with the preview's own components. Keyed by kind, so a `window` kind
+ * registered in `shared/live-blocks.ts` without a renderer here doesn't
+ * compile.
+ */
+export const WINDOW_RENDERERS: Record<WindowBlockKind, (block: LiveBlockRequest) => string | Promise<string>> = {
+  'object-view': (b) => renderObjectViewForExport(b.source, { paged: b.paged === true }),
+  mermaid: (b) => renderMermaidForExport(b.source),
+  argument: (b) => renderArgumentMapForExport(b.source),
+  output: (b) => renderOutputForExport(b.source),
+  card: (b) => renderCardForExport(b.source),
+  query: (b) => renderQueryBlockForExport(b.source, b.notePath),
+};
+
 export async function renderLiveBlock(block: LiveBlockRequest): Promise<LiveBlockResult> {
   try {
-    switch (block.kind) {
-      case 'object-view':
-        return { id: block.id, ok: true, html: await renderObjectViewForExport(block.source, { paged: block.paged === true }) };
-      case 'mermaid':
-        return { id: block.id, ok: true, html: await renderMermaidForExport(block.source) };
-      case 'argument':
-        return { id: block.id, ok: true, html: await renderArgumentMapForExport(block.source) };
-      case 'output':
-        return { id: block.id, ok: true, html: renderOutputForExport(block.source) };
-      case 'card':
-        return { id: block.id, ok: true, html: await renderCardForExport(block.source) };
-      case 'query':
-        return { id: block.id, ok: true, html: await renderQueryBlockForExport(block.source, block.notePath) };
-    }
+    return { id: block.id, ok: true, html: await WINDOW_RENDERERS[block.kind](block) };
   } catch (err) {
     return { id: block.id, ok: false, error: err instanceof Error ? err.message : String(err) };
   }

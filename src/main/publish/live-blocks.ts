@@ -23,13 +23,48 @@
 import MarkdownIt from 'markdown-it';
 import type { Token } from 'markdown-it';
 import { parseFenceInfo } from '../../shared/markdown/fence-info';
-import { NOTE_LINK_ATTR, type LiveBlockKind, type LiveBlockRequest, type LiveBlockResult } from '../../shared/live-blocks';
+import {
+  LIVE_BLOCKS, LIVE_DIRECTIVE_OPENERS, LIVE_FENCE_LANGS, NOTE_LINK_ATTR,
+  type CardBlockKind, type MainBlockKind, type LiveBlockRequest, type LiveBlockResult, type WindowBlockKind,
+} from '../../shared/live-blocks';
+import { renderVegaBlocks } from './vega-render';
+import { renderYouTubeBlocks } from './youtube-render';
 import { escapeHtmlFull as escapeHtml, escapeHtmlFull as escapeAttr } from '../../shared/text-escape';
 
 export type LiveBlockRenderer = (blocks: LiveBlockRequest[]) => Promise<LiveBlockResult[]>;
 
-/** Fence languages rendered as live blocks, and their kind. */
-export const LIVE_FENCES: Readonly<Record<string, LiveBlockKind>> = { 'object-view': 'object-view', mermaid: 'mermaid', output: 'output' };
+const WINDOW_KINDS: ReadonlySet<string> = new Set(LIVE_BLOCKS.filter((d) => d.export === 'window').map((d) => d.kind));
+const isWindowKind = (k: string): k is WindowBlockKind => WINDOW_KINDS.has(k);
+
+/** Fence languages an export asks the window to render, and their kind —
+ *  derived from the registry (`shared/live-blocks.ts`, #2624). */
+export const LIVE_FENCES: Readonly<Record<string, WindowBlockKind>> = Object.fromEntries(
+  [...LIVE_FENCE_LANGS].filter(([, kind]) => isWindowKind(kind)),
+) as Record<string, WindowBlockKind>;
+
+/**
+ * The export half of each `main` kind (#2624): a transform of the note's
+ * markdown, run in registry order. Keyed by kind, so a `main` kind registered
+ * without one doesn't compile.
+ */
+export const MAIN_TRANSFORMS: Record<MainBlockKind, (markdown: string, ctx: { rootPath?: string | undefined }) => string | Promise<string>> = {
+  // ```vega / ```vega-lite → a static SVG image (#831). Async: vega's toSVG is.
+  vega: (md, ctx) => renderVegaBlocks(md, { rootPath: ctx.rootPath }),
+  // ```youtube → a linked thumbnail (#904).
+  youtube: (md) => renderYouTubeBlocks(md),
+};
+
+/** Run every `main` kind's transform over `markdown`, in registry order. */
+export async function applyMainTransforms(markdown: string, ctx: { rootPath?: string | undefined }): Promise<string> {
+  let out = markdown;
+  for (const d of LIVE_BLOCKS) {
+    if (d.export === 'main') out = await MAIN_TRANSFORMS[d.kind](out, ctx);
+  }
+  return out;
+}
+
+/** The kind a lone-link paragraph is extracted as. */
+const CARD_KIND: CardBlockKind = LIVE_BLOCKS.find((d) => 'cardLink' in d.syntax)!.kind as CardBlockKind;
 
 /** Letters and digits only: no markdown syntax can reach into it. */
 const placeholder = (n: number): string => `MINERVALIVEBLOCK${n}Z`;
@@ -43,7 +78,7 @@ const scanner = new MarkdownIt();
  */
 export function extractLiveBlocks(markdown: string, notePath: string, opts: { paged?: boolean | undefined } = {}): { markdown: string; blocks: LiveBlockRequest[] } {
   const lines = markdown.split('\n');
-  const found: Array<{ start: number; end: number; kind: LiveBlockKind; source: string }> = [];
+  const found: Array<{ start: number; end: number; kind: WindowBlockKind; source: string }> = [];
   const code: Array<[number, number]> = [];
   const tokens = scanner.parse(markdown, {});
   found.push(...findLinkCards(tokens));
@@ -81,22 +116,22 @@ const CARD_LINK = /^\[\[(?:quote::)?(?![a-z][\w-]*::)[^[\]\n]+\]\]$/;
  * window decides whether it really is a card (an untyped note isn't); when it
  * isn't, the export renders the paragraph as an ordinary link.
  */
-function findLinkCards(tokens: Token[]): Array<{ start: number; end: number; kind: LiveBlockKind; source: string }> {
-  const out: Array<{ start: number; end: number; kind: LiveBlockKind; source: string }> = [];
+function findLinkCards(tokens: Token[]): Array<{ start: number; end: number; kind: WindowBlockKind; source: string }> {
+  const out: Array<{ start: number; end: number; kind: WindowBlockKind; source: string }> = [];
   tokens.forEach((tok, i) => {
     if (tok.type !== 'paragraph_open' || tok.level !== 0 || !tok.map) return;
     const inline = tokens[i + 1];
     if (!inline || inline.type !== 'inline' || !CARD_LINK.test(inline.content.trim())) return;
-    out.push({ start: tok.map[0], end: tok.map[1], kind: 'card', source: inline.content.trim() });
+    out.push({ start: tok.map[0], end: tok.map[1], kind: CARD_KIND, source: inline.content.trim() });
   });
   return out;
 }
 
-/** Directive opening lines rendered as live blocks, and their kind. */
-export const LIVE_DIRECTIVES: ReadonlyArray<[RegExp, LiveBlockKind]> = [
-  [/^\s{0,3}:::query-\w+\s*$/, 'query'],
-  [/^\s{0,3}:::argument\s*$/, 'argument'],
-];
+/** Directive opening lines rendered as live blocks, and their kind — the
+ *  registry's openers, allowing up to three spaces of indent as markdown does. */
+export const LIVE_DIRECTIVES: ReadonlyArray<[RegExp, WindowBlockKind]> = LIVE_DIRECTIVE_OPENERS
+  .filter(([kind]) => isWindowKind(kind))
+  .map(([kind, opener]) => [new RegExp(`^\\s{0,3}${opener.source.replace(/^\^/, '')}`), kind as WindowBlockKind]);
 
 /**
  * `:::query-TYPE` (#2512) and `:::argument` (#2514) directives, by the
@@ -105,9 +140,9 @@ export const LIVE_DIRECTIVES: ReadonlyArray<[RegExp, LiveBlockKind]> = [
  * indented) it's code, not a directive. The source sent to the window is the
  * whole directive, which the preview's own parser reads back.
  */
-function findDirectives(lines: string[], code: Array<[number, number]>): Array<{ start: number; end: number; kind: LiveBlockKind; source: string }> {
+function findDirectives(lines: string[], code: Array<[number, number]>): Array<{ start: number; end: number; kind: WindowBlockKind; source: string }> {
   const inCode = (i: number) => code.some(([s, e]) => i >= s && i < e);
-  const out: Array<{ start: number; end: number; kind: LiveBlockKind; source: string }> = [];
+  const out: Array<{ start: number; end: number; kind: WindowBlockKind; source: string }> = [];
   for (let i = 0; i < lines.length; i++) {
     const kind = inCode(i) ? undefined : LIVE_DIRECTIVES.find(([re]) => re.test(lines[i]!))?.[1];
     if (!kind) continue;

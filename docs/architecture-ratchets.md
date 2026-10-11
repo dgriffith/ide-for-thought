@@ -188,21 +188,40 @@ per-instance one-liners local), or make the copies diverge on purpose.
 #2508). Views, query blocks, mermaid, argument maps and saved cell outputs had
 all exported as their raw source for as long as they'd existed, and hidden
 fences were published verbatim, because nothing connected the preview's
-live-rendering list to the export pipeline. The test reads the preview's own
-inventories out of its source: the `fenceRenderers` table, the hidden-fence
-rule, the `:::` directive rules, the query-block types, the markdown plugins
-`createPreviewMarkdown` installs and the `hydrate*` passes `Preview.svelte`
-runs. Each must be classified in `PARITY` as a **handler**, whose `holds()`
-checks the export side for real (a `LIVE_FENCES`/`LIVE_DIRECTIVES` entry, a
-renderer `case`, an installed plugin, a behavioural check on the vega/YouTube
-degrades); a **gap**, naming its open issue; or a **decision**, saying why the
-export deliberately differs (a flashcard shows its answer; local media
-becomes a link). Stale entries fail too. **When it fires:** a new fence
-renderer, directive, query type, plugin or hydration pass shipped preview-only.
-Render it for exports (the live-block machinery in
-`src/main/publish/live-blocks.ts` and `src/renderer/lib/export/` is built for
-exactly this), or classify it as a gap with an issue or a decision with a
-reason. Don't just add it to `PARITY` to go green.
+live-rendering list to the export pipeline.
+
+**Live-block kinds** (fences, `:::` directives, lone-link cards) are one list
+since #2624: `LIVE_BLOCKS` in `src/shared/live-blocks.ts`, each kind with its
+syntax and how an export answers it (`window`: drawn by the window with the
+preview's own components; `main`: a main-process transform). Every side keeps
+its half in a map typed by kind, so a kind without both halves **doesn't
+compile**:
+- the preview's fence renderers, directive rules and card pass;
+- the window's `WINDOW_RENDERERS`;
+- main's `MAIN_TRANSFORMS`.
+
+The test checks those maps stay typed by kind, that every window kind is
+extracted by its own syntax, and that every main kind's transform works (a
+probe per kind).
+
+For the rest of the preview's live rendering (the hidden-fence rule, the
+query-block types, the markdown plugins `createPreviewMarkdown` installs, and
+the `hydrate*` passes `Preview.svelte` runs), it reads the inventories out of
+the source. Each must be classified in `PARITY` as one of:
+- a **handler**, whose `holds()` checks the export side for real;
+- a **gap**, naming its open issue;
+- a **decision**, saying why the export deliberately differs (a flashcard
+  shows its answer; local media becomes a link).
+
+Stale entries fail too.
+
+**When it fires:**
+- **A new live-block kind:** register it in `LIVE_BLOCKS`, and the compiler
+  names each half it still needs. A new main kind also needs a probe in the
+  test.
+- **A new plugin, query type or hydration pass shipped preview-only:** render
+  it for exports, or classify it as a gap with an issue or a decision with a
+  reason. Don't just add it to `PARITY` to go green.
 
 ### `view-layout-registry.test.ts`
 
