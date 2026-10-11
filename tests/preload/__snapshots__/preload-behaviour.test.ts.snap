@@ -111,6 +111,7 @@ exports[`preload behaviour: surface-wide invariants (#2367) > the full method â†
   "graph.groundCheck": "invoke graph:groundCheck",
   "graph.inspectionSettings": "invoke inspections:getSettings",
   "graph.inspections": "invoke inspections:list",
+  "graph.onChanged": "on graph:changed",
   "graph.onInspectionsChanged": "on inspections:changed",
   "graph.query": "invoke graph:query",
   "graph.runInspections": "invoke inspections:run",

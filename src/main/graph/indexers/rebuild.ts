@@ -31,6 +31,7 @@ import {
 
 import { loadTypeCatalog } from '../../types/loader';
 import { materializeTypeClasses } from './type-classes';
+import { emitGraphChanged } from '../graph-events';
 
 import { buildLinkResolveCtx, ensureFolder } from '../index-helpers';
 import { walkAndIndexExcerpts } from './excerpt';
@@ -57,6 +58,8 @@ export async function reloadTypeCatalog(ctx: ProjectContext): Promise<void> {
   if (!state) return;
   state.typeCatalog = await loadTypeCatalog(state.rootPath);
   materializeTypeClasses(state.store, state.typeCatalog);
+  // A new, renamed or deleted type changes what views of it show (#2742).
+  emitGraphChanged(ctx.rootPath);
 }
 
 export function addOntologyToStore(state: GraphState): void {

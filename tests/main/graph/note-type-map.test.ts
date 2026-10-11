@@ -9,6 +9,7 @@ import path from 'node:path';
 import { indexAllNotes, getNoteTypeMap, reloadTypeCatalog } from '../../../src/main/graph/index';
 import { type ProjectContext } from '../../../src/main/project-context-types';
 import { useGraphProject } from '../../helpers/temp-project';
+import { onGraphChanged } from '../../../src/main/graph/graph-events';
 
 let root: string;
 let ctx: ProjectContext;
@@ -76,5 +77,19 @@ describe('note→type map', () => {
     writeNote('Dune.md', `---\ntitle: Dune\n---\n`);
     await indexAllNotes(ctx);
     expect((await getNoteTypeMap(ctx))['Dune.md']).toBeUndefined();
+  });
+
+  it('reloading the type catalog tells the graph\'s subscribers (#2742)', async () => {
+    // A new or renamed type changes what views of it show, so open views must
+    // hear about it the same way they hear about a note write.
+    await indexAllNotes(ctx);
+    const seen: string[] = [];
+    const off = onGraphChanged((r) => seen.push(r));
+    try {
+      await reloadTypeCatalog(ctx);
+    } finally {
+      off();
+    }
+    expect(seen).toEqual([root]);
   });
 });

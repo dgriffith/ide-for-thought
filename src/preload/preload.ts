@@ -144,6 +144,7 @@ const api = {
     setInspectionSettings: (settings: Parameters<ChannelMap['inspections:setSettings']>[0]) =>
       invoke(Channels.INSPECTIONS_SET_SETTINGS, settings),
     onInspectionsChanged: (cb: () => void) => subscribe(Channels.INSPECTIONS_CHANGED, cb),
+    onChanged: (cb: () => void) => subscribe(Channels.GRAPH_CHANGED, cb),
     export: () => invoke(Channels.GRAPH_EXPORT),
     sourceDetail: (sourceId: string) => invoke(Channels.GRAPH_SOURCE_DETAIL, sourceId),
     excerptSource: (excerptId: string) => invoke(Channels.GRAPH_EXCERPT_SOURCE, excerptId),

@@ -125,7 +125,7 @@ const rightSidebar = { refresh: vi.fn() };
 
 function makeCtx(): { ctx: IpcWiringCtx; spies: Record<string, ReturnType<typeof vi.fn>> } {
   const names = [
-    'bumpGraphRevision', 'setEditorFontSize', 'toggleSidebar', 'toggleRightSidebar',
+    'setEditorFontSize', 'toggleSidebar', 'toggleRightSidebar',
     'setShowGotoLine', 'setShowGotoNote', 'setShowEditSavedQueries', 'setShowAbout',
     'setShowShortcuts', 'setShowSettings', 'toggleCommandPalette', 'setPublishDialogOpen', 'setFindInNotesMode',
     'setExportDialogGroup', 'setEmbeddingProgress', 'refreshSavedQueriesCache', 'refreshBacklinkCount',
@@ -579,12 +579,13 @@ describe('non-menu event handlers (continued)', () => {
 });
 
 describe('lifecycle hooks', () => {
-  it('wires editor.onAutoSaved to refresh + bump revision', () => {
+  it('wires editor.onAutoSaved to refresh the panels', () => {
+    // No graph-revision bump: the save indexes, and main's graph:changed event
+    // moves the revision for every write path alike (#2742).
     expect(h.editor.onAutoSaved).toBeTypeOf('function');
     h.editor.onAutoSaved!();
     expect(sidebar.refreshTags).toHaveBeenCalled();
     expect(rightSidebar.refresh).toHaveBeenCalled();
-    expect(spies.bumpGraphRevision).toHaveBeenCalled();
     expect(spies.refreshBacklinkCount).toHaveBeenCalled();
   });
 

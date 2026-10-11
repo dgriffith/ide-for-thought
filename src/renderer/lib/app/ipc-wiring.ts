@@ -77,7 +77,6 @@ export interface IpcWiringCtx {
   getRightSidebar: () => { refresh(): void } | undefined;
 
   // UI-chrome `$state` mutators.
-  bumpGraphRevision: () => void;
   getEditorFontSize: () => number;
   setEditorFontSize: (n: number) => void;
   toggleSidebar: () => void;
@@ -207,7 +206,6 @@ export function registerAppIpc(ctx: IpcWiringCtx): void {
     ctx.getSidebar()?.refreshTags();
     ctx.getSidebar()?.refreshObjects?.();
     ctx.getRightSidebar()?.refresh();
-    ctx.bumpGraphRevision();
     ctx.refreshBacklinkCount();
     void ctx.refreshAliasMap();
   };

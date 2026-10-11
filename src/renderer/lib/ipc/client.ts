@@ -154,6 +154,9 @@ export interface GraphApi {
   /** Fires when a health-check run finishes — including the automatic ones, so
    *  a panel showing results can refresh instead of going stale (#1795). */
   onInspectionsChanged(cb: () => void): () => void;
+  /** Fires when the project's graph changes — a note indexed or removed by any
+   *  write path, coalesced (#2742). Subscribe in a store (`graph-revision`). */
+  onChanged(cb: () => void): () => void;
   export(): Promise<void>;
   /** `null` means exactly one thing: the graph has no such source. Rejects if
    *  no project is open (#1841). */

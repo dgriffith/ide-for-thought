@@ -198,6 +198,19 @@ export function broadcastHistoryChanged(rootPath: string, relPath: string | null
 
 /** Broadcast that `rootPath`'s inspection results changed (#1795) — checks now
  *  re-run on their own, so the panel can't assume it caused every change. */
+/**
+ * Broadcast that `rootPath`'s graph changed (#2742). Fired via the
+ * Electron-free `onGraphChanged` subscription (wired once in `ipc.ts`), so a
+ * view re-projects after ANY write — a new note, an approved proposal, an
+ * external edit — not only after an editor save, which was the one path the
+ * renderer used to count.
+ */
+export function broadcastGraphChanged(rootPath: string): void {
+  for (const targetWin of windowsForProject(rootPath)) {
+    broadcast(targetWin, Channels.GRAPH_CHANGED);
+  }
+}
+
 export function broadcastInspectionsChanged(rootPath: string): void {
   for (const targetWin of windowsForProject(rootPath)) {
     broadcast(targetWin, Channels.INSPECTIONS_CHANGED);
