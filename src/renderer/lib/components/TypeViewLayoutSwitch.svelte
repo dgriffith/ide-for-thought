@@ -68,7 +68,7 @@
   </label>
 {/if}
 
-{#if layout === 'kanban' && groupChoices.length > 1 && grouped}
+{#if layoutDef(layout).grouped && groupChoices.length > 1 && grouped}
   <label class="tv-groupby">
     Group by
     <select value={grouped.name} onchange={(e) => onStateChange({ groupBy: e.currentTarget.value, columnOrder: [] })}>
@@ -78,7 +78,7 @@
     </select>
   </label>
 {/if}
-{#if layout === 'kanban' && grouped}
+{#if layoutDef(layout).grouped && grouped}
   <label class="tv-groupby">
     <input type="checkbox" checked={showEmptyColumns} onchange={(e) => onStateChange({ showEmptyColumns: e.currentTarget.checked })} />
     Show empty columns

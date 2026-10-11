@@ -38,7 +38,7 @@
  *     per the spike — not swapped, and not half-kept.
  */
 import type { ViewLayout } from '../types';
-import { DEFAULT_VIEW_LAYOUT } from './view-layouts';
+import { DEFAULT_VIEW_LAYOUT, layoutDef } from './view-layouts';
 import { settledPropertyDefs, type TypeLike } from './inheritance';
 import { dateByForSpec, dateProperties, hasDateProperty } from './date-by';
 import { civilMs, dateRange, dateSpan, isClockPrecision, parseDateValue } from './date-precision';
@@ -167,8 +167,8 @@ export interface TimelineSpecFields {
 /**
  * The layout, range and date property a spec carries for `typeId`, judged
  * against the catalog:
- * - a type with no date property: a `timeline` layout reads back as
- *   `DEFAULT_VIEW_LAYOUT`, and the range and `dateBy` are dropped (they mean
+ * - a type with no date property: a dated layout (Timeline, Calendar —
+ *   `dated` in the registry) reads back as `DEFAULT_VIEW_LAYOUT`, and the range and `dateBy` are dropped (they mean
  *   nothing without a date);
  * - a type with one: the range is kept under any layout, and a `dateBy` that
  *   isn't one of its date choices is dropped (`dateByForSpec`) — a text
@@ -187,7 +187,7 @@ export function timelineSpecForType(
   const props = settledPropertyDefs(typeId, types);
   if (props === null) return { layout: spec.layout, from: spec.from, to: spec.to, dateBy: spec.dateBy };
   if (dateProperties(props).length === 0) {
-    return { layout: spec.layout === 'timeline' ? DEFAULT_VIEW_LAYOUT : spec.layout, from: null, to: null, dateBy: null };
+    return { layout: layoutDef(spec.layout).dated ? DEFAULT_VIEW_LAYOUT : spec.layout, from: null, to: null, dateBy: null };
   }
   return { layout: spec.layout, from: spec.from, to: spec.to, dateBy: dateByForSpec(spec.dateBy, props) };
 }

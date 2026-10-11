@@ -26,7 +26,7 @@ import type { ViewLayout } from '../types';
 import { settledPropertyDefs, type TypeLike } from './inheritance';
 import { dateByForSpec, dateProperties, hasDateProperty } from './date-by';
 import { formatMonthAnchor, parseMonthAnchor } from './calendar-grid';
-import { DEFAULT_VIEW_LAYOUT } from './view-layouts';
+import { DEFAULT_VIEW_LAYOUT, layoutDef } from './view-layouts';
 
 /** May the view of `typeId` show a Calendar? It has a date or datetime
  *  property, own or inherited through `parent` in the catalog `types`. False
@@ -54,8 +54,8 @@ export interface CalendarSpecFields {
 /**
  * The layout, month and date property a spec carries for `typeId`, judged
  * against the catalog:
- * - a type with no date property: a `calendar` layout reads back as
- *   `DEFAULT_VIEW_LAYOUT`, and `month` and `dateBy` are dropped (they mean
+ * - a type with no date property: a dated layout (Timeline, Calendar —
+ *   `dated` in the registry) reads back as `DEFAULT_VIEW_LAYOUT`, and `month` and `dateBy` are dropped (they mean
  *   nothing without a date);
  * - a type with one: the month is kept under any layout, so switching back to
  *   Calendar keeps the page, and a `dateBy` that isn't one of its date choices
@@ -74,7 +74,7 @@ export function calendarSpecForType(
   const props = settledPropertyDefs(typeId, types);
   if (props === null) return { layout: spec.layout, month: spec.month, dateBy: spec.dateBy };
   if (dateProperties(props).length === 0) {
-    return { layout: spec.layout === 'calendar' ? DEFAULT_VIEW_LAYOUT : spec.layout, month: null, dateBy: null };
+    return { layout: layoutDef(spec.layout).dated ? DEFAULT_VIEW_LAYOUT : spec.layout, month: null, dateBy: null };
   }
   return { layout: spec.layout, month: spec.month, dateBy: dateByForSpec(spec.dateBy, props) };
 }
