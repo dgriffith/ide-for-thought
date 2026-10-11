@@ -14,6 +14,7 @@
 import type { MarkdownIt, Token } from 'markdown-it';
 import { detectDataSource } from '../../../shared/vega/data-binding';
 import { parseFenceInfo } from '../../../shared/markdown/fence-info';
+import { LIVE_FENCE_LANGS, type FenceBlockKind } from '../../../shared/live-blocks';
 import { RUNNABLE_LANGUAGE_SET } from '../../../shared/compute/fences';
 import { renderYouTubeFence } from './youtube-embed';
 import { findSourceFenceBefore, renderComputeOutput } from '../preview/compute-output-render';
@@ -189,14 +190,20 @@ export function installFences(md: MarkdownIt, deps: PreviewMarkdownDeps): void {
         return rendered;
     }
 
-    const fenceRenderers: Record<string, (args: FenceRenderArgs) => string> = {
+    // The preview half of each fenced live block (#2624), keyed by kind: a
+    // fence kind registered in `shared/live-blocks.ts` without a renderer here
+    // doesn't compile. Its languages are the registry's (vega and vega-lite
+    // are one kind).
+    const fenceKindRenderers: Record<FenceBlockKind, (args: FenceRenderArgs) => string> = {
         output: renderOutputFence,
         mermaid: renderMermaidFence,
         vega: renderVegaFence,
-        'vega-lite': renderVegaFence,
         youtube: renderYouTubeFenceCard,
         'object-view': renderObjectViewFence,
     };
+    const fenceRenderers: Record<string, (args: FenceRenderArgs) => string> = Object.fromEntries(
+        [...LIVE_FENCE_LANGS].map(([lang, kind]) => [lang, fenceKindRenderers[kind]]),
+    );
 
     const defaultFence = md.renderer.rules.fence;
     md.renderer.rules.fence = (tokens, idx, options, env, self) => {

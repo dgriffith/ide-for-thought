@@ -39,7 +39,8 @@
         outputToMarkdownClipboard
     } from '../preview/compute-output-render';
     import { applyCslMarkers, resolveCiteQuoteLabels, type CitationRenderDeps } from '../preview/citation-render';
-    import { hydrateTypedCards, type TypedCardDeps } from '../preview/typed-link-render';
+    import { type TypedCardDeps } from '../preview/typed-link-render';
+    import { CARD_PREVIEWS } from '../preview/card-previews';
     import { markBrokenWikiLinks } from '../preview/broken-links';
     import { buildWikiLinkIndex, resolveWikiLinkTargetWithIndex } from '../../../shared/wiki-link-resolver';
     import type { NoteTypedProperties } from '../../../shared/objects/type-def';
@@ -568,7 +569,7 @@
             // Type-keyed cards (#1071) — a block-level `[[TypedNote]]` or
             // `[[quote::id]]` becomes a card keyed off its type. Lazy + cached;
             // untyped/inline links are untouched.
-            void hydrateTypedCards(typedCardDeps());
+            for (const cardPass of Object.values(CARD_PREVIEWS)) void cardPass(typedCardDeps());
             // Mermaid hydration (#467) — lazy-loads the library on first use,
             // replaces .mermaid-block placeholders with rendered SVG, surfaces
             // parse errors inline.
