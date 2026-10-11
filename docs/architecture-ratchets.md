@@ -225,9 +225,11 @@ Stale entries fail too.
 
 ### `panel-registries.test.ts`
 
-**Panel shells iterate their registry** (#2626, epic #2622). The right
-sidebar's panels are `right-sidebar/panels.ts`, and the Settings dialog's
-sections are `settings/sections.ts`. Each entry carries id, label, icon or
+**Panel shells iterate their registry** (#2626, epic #2622). The left
+sidebar's panels are `sidebar/panels.ts` (the Notes tree is
+`sidebar/NotesPanel.svelte`), the right sidebar's are
+`right-sidebar/panels.ts`, and the Settings dialog's sections are
+`settings/sections.ts`. Each entry carries id, label, icon or
 sub, group, component and `props(host)`, typed against the component. A
 section that binds dialog state goes through a small adapter in `settings/`.
 The shells used to name every panel twice: once in a table, once in an

@@ -1,6 +1,7 @@
 /**
- * Panel shells iterate their registry (#2626, epic #2622). The right sidebar
- * (`right-sidebar/panels.ts`) and the Settings dialog (`settings/sections.ts`)
+ * Panel shells iterate their registry (#2626, epic #2622). The left sidebar
+ * (`sidebar/panels.ts`), the right sidebar (`right-sidebar/panels.ts`) and the
+ * Settings dialog (`settings/sections.ts`)
  * used to name every panel in an `{#if active === '…'}` chain beside a table of
  * the same ids; a panel is now one registry entry, and the shell draws
  * whichever is active. This keeps a hand-written branch from coming back: a
@@ -12,6 +13,7 @@ import path from 'node:path';
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const SHELLS: Array<[shell: string, activeVar: string, registry: string]> = [
+  ['src/renderer/lib/components/Sidebar.svelte', 'activePanel', 'src/renderer/lib/components/sidebar/panels.ts'],
   ['src/renderer/lib/components/RightSidebar.svelte', 'activePanel', 'src/renderer/lib/components/right-sidebar/panels.ts'],
   ['src/renderer/lib/components/SettingsDialog.svelte', 'activeTab', 'src/renderer/lib/components/settings/sections.ts'],
 ];

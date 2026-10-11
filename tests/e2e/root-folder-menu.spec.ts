@@ -30,7 +30,7 @@ test('the root folder\'s menu has Copy Path, Open In, View Objects and history',
     const win = await app.firstWindow({ timeout: 20_000 });
     await expect(win.getByRole('button', { name: 'Open Thoughtbase' })).toHaveCount(0, { timeout: 25_000 });
     const rootRow = win.locator('.tree-item.root-item');
-    const menu = win.locator('.sidebar > .context-menu');
+    const menu = win.locator('.sidebar .context-menu');
 
     await test.step('right-click the root: the folder actions are there', async () => {
       await rootRow.click({ button: 'right' });

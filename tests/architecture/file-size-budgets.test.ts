@@ -93,7 +93,7 @@ const BUDGETS: Record<string, number> = {
   // Command Palette item, whose comment explains that adding the item IS the
   // documentation fix — Keyboard Shortcuts derives from this template.
   'src/main/menu.ts': 990, // +5: File → New Audio Recording (#2428)
-  'src/renderer/lib/components/Sidebar.svelte': 982, // -10: root menu items moved to NotesRootMenu.svelte
+  'src/renderer/lib/components/sidebar/NotesPanel.svelte': 635, // the Notes tree, extracted from Sidebar.svelte (982 → 360) when the left sidebar became a panel registry (#2626)
   'src/renderer/lib/app/refactor-ops.svelte.ts': 865, // -17: syncOpenTabsToDisk moved to stores/open-tab-sync.ts, shared with the Kanban move (#2603); +21: Add/Remove Property route a typed selection to the bulk editor, whose body lives in bulk-property-ops.ts (#2431); +4: Label Version / history accept the thoughtbase root; +1: the auto-link body strip uses the shared stripFrontmatter (#2690)
   // Raised again in #2208: the staleness check became two queries (sort a
   // two-variable projection, then fetch details for the survivors) plus the
