@@ -4,15 +4,10 @@
    * (#2602), and on a timeline its **Date by** picker (#2715). Split out of `TypeView.svelte` with the Kanban layout, so
    * the board's toolbar control didn't push that file past its size budget.
    *
-   * Which layouts are offered depends on the type's (effective) properties:
-   * - **Map** only for a type with a location-shaped (`geo`) property (#2066) —
-   *   not a menu item that's always present but broken for Book/Person/etc.
-   * - **Kanban** only for a type with an enum property (`canShowKanban`,
-   *   #2601), since a board's columns are an enum's options.
-   * - **Timeline** only for a type with a `date` or `datetime` property, own
-   *   or inherited (`canShowTimeline`, `shared/objects/timeline.ts`, #2715 —
-   *   the same rule as `canShowCalendar`). The host judges it, since it needs
-   *   the type catalog, not just the properties.
+   * Which layouts are offered is the host's call, from the layout registry
+   * (`layoutsFor`, `shared/objects/view-layouts.ts`, #2623): Map needs a `geo`
+   * property, Kanban an enum, Timeline and Calendar a date or datetime one.
+   * This only draws them, with the registry's labels.
    *
    * The Group by picker lists the type's enum properties and appears only when
    * there is a choice to make (more than one). A pick goes through
@@ -24,30 +19,27 @@
    * **Show empty columns** (#2614) sits beside it on every board (default on,
    * since an empty column is still a drop target).
    *
-   * - **Calendar** under the same rule (`canShowCalendar`, #2702).
-   *
    * The **Date by** picker is the same control with the same rule, over
    * `date-by.ts`'s choices: the type's date and datetime properties (less
    * Event's `end` beside `date`), shown only when there is more than one. The
    * selected value is `resolveDateBy` — the view's `dateBy`, else the default
    * (`date`, else the first). A pick writes `dateBy` through `onStateChange`.
-   * It is ONE spec field shared by Timeline and Calendar (both in
-   * `DATED_LAYOUTS`), so a view switched between the two keeps its property.
+   * It is ONE spec field shared by the dated layouts (Timeline and Calendar,
+   * `dated` in the registry), so a view switched between them keeps it.
    */
-  import { canShowKanban, enumProperties, resolveGroupBy } from '../../../shared/objects/kanban';
+  import { enumProperties, resolveGroupBy } from '../../../shared/objects/kanban';
   import { dateByChoices, resolveDateBy } from '../../../shared/objects/date-by';
   import type { PropertyDef } from '../../../shared/objects/type-def';
+  import { layoutDef, type ViewLayout } from '../../../shared/objects/view-layouts';
 
-  type Layout = 'list' | 'table' | 'gallery' | 'map' | 'kanban' | 'timeline' | 'calendar';
+  type Layout = ViewLayout;
 
   interface Props {
     layout: Layout;
+    /** The layouts this type can show, in order (`layoutsFor`). */
+    layouts: readonly Layout[];
     /** The type's effective properties. */
     properties: PropertyDef[];
-    /** The type has a date property (`canShowTimeline`). */
-    timeline?: boolean;
-    /** The type has a date property (`canShowCalendar`, #2702). */
-    calendar?: boolean;
     /** The view's `groupBy` (null = the first enum). */
     groupBy: string | null;
     /** The view's `dateBy` (null = the default date property). */
@@ -56,27 +48,16 @@
     showEmptyColumns: boolean;
     onStateChange: (patch: { layout?: Layout; groupBy?: string | null; columnOrder?: string[]; showEmptyColumns?: boolean; dateBy?: string | null }) => void;
   }
-  let { layout, properties, timeline = false, calendar = false, groupBy, dateBy = null, showEmptyColumns, onStateChange }: Props = $props();
+  let { layout, layouts, properties, groupBy, dateBy = null, showEmptyColumns, onStateChange }: Props = $props();
 
-  /** The layouts that place notes by a date property, and so show Date by. */
-  const DATED_LAYOUTS: ReadonlySet<Layout> = new Set(['timeline', 'calendar']);
-
-  const LAYOUTS = $derived<{ id: Layout; label: string }[]>([
-    { id: 'list', label: 'List' },
-    { id: 'table', label: 'Table' },
-    { id: 'gallery', label: 'Gallery' },
-    ...(properties.some((p) => p.type === 'geo') ? [{ id: 'map' as const, label: 'Map' }] : []),
-    ...(canShowKanban(properties) ? [{ id: 'kanban' as const, label: 'Kanban' }] : []),
-    ...(timeline ? [{ id: 'timeline' as const, label: 'Timeline' }] : []),
-    ...(calendar ? [{ id: 'calendar' as const, label: 'Calendar' }] : []),
-  ]);
+  const LAYOUTS = $derived(layouts.map((id) => ({ id, label: layoutDef(id).label })));
   const groupChoices = $derived(enumProperties(properties));
   const grouped = $derived(resolveGroupBy(groupBy, properties));
   const dateChoices = $derived(dateByChoices(properties));
   const dated = $derived(resolveDateBy(dateBy, properties));
 </script>
 
-{#if DATED_LAYOUTS.has(layout) && dateChoices.length > 1 && dated}
+{#if layoutDef(layout).dated && dateChoices.length > 1 && dated}
   <label class="tv-groupby">
     Date by
     <select value={dated.name} onchange={(e) => onStateChange({ dateBy: e.currentTarget.value })}>

@@ -79,6 +79,7 @@
 import { mount, unmount } from 'svelte';
 import TypeView from '../components/TypeView.svelte';
 import type { ViewLayout } from '../../../shared/types';
+import { isViewLayout, layoutIdList } from '../../../shared/objects/view-layouts';
 import { normalizeFolder, parseViewFilters, type ViewFilter } from '../../../shared/objects/view-spec';
 import { escapeHtml } from '../../../shared/text-escape';
 import { parseMapStyle, type MapStyle } from '../../../shared/objects/map-style';
@@ -132,7 +133,6 @@ export interface ObjectViewSpec {
   dateBy: string | null;
 }
 
-const LAYOUTS: ReadonlySet<ViewLayout> = new Set(['list', 'table', 'gallery', 'map', 'kanban', 'timeline', 'calendar']);
 
 export function parseObjectViewSpec(raw: string): ObjectViewSpec {
   const parsed: unknown = JSON.parse(raw);
@@ -143,12 +143,12 @@ export function parseObjectViewSpec(raw: string): ObjectViewSpec {
   if (typeof spec.typeId !== 'string' || !spec.typeId) {
     throw new Error('"typeId" is required and must be a non-empty string');
   }
-  if (typeof spec.layout !== 'string' || !LAYOUTS.has(spec.layout as ViewLayout)) {
-    throw new Error('"layout" must be one of "list", "table", "gallery", "map", "kanban", "timeline", "calendar"');
+  if (!isViewLayout(spec.layout)) {
+    throw new Error(`"layout" must be one of ${layoutIdList()}`);
   }
   return {
     typeId: spec.typeId,
-    layout: spec.layout as ViewLayout,
+    layout: spec.layout,
     sortColumn: typeof spec.sortColumn === 'string' ? spec.sortColumn : null,
     sortDir: spec.sortDir === 'desc' ? 'desc' : 'asc',
     columns: Array.isArray(spec.columns)

@@ -26,7 +26,7 @@ import type { ViewLayout } from '../types';
 import { settledPropertyDefs, type TypeLike } from './inheritance';
 import { dateByForSpec, dateProperties, hasDateProperty } from './date-by';
 import { formatMonthAnchor, parseMonthAnchor } from './calendar-grid';
-import { DEFAULT_VIEW_LAYOUT } from './timeline';
+import { DEFAULT_VIEW_LAYOUT } from './view-layouts';
 
 /** May the view of `typeId` show a Calendar? It has a date or datetime
  *  property, own or inherited through `parent` in the catalog `types`. False

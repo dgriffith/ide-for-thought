@@ -1,5 +1,6 @@
 import type { ViewFilter } from '../../../shared/objects/view-spec';
 import type { MapStyle } from '../../../shared/objects/map-style';
+import type { ViewLayout } from '../../../shared/objects/view-layouts';
 /**
  * Tab/editor-group type definitions, extracted from `stores/editor.svelte.ts`
  * (#1919) so `editor/tab-session.ts` (the pure session-serialization module)
@@ -82,7 +83,7 @@ export interface UnsupportedTab {
 }
 
 /** Multi-view over all instances of a typed-object type (#1070). */
-export type TypeViewLayout = 'list' | 'table' | 'gallery' | 'map' | 'kanban' | 'timeline' | 'calendar';
+export type TypeViewLayout = ViewLayout;
 /** The view's mutable projection state — layout + sort + visible columns.
  *  Carried on the tab (persisted across sessions) and captured into a saved
  *  view (#1072). */

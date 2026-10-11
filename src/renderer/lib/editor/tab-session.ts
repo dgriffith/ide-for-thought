@@ -23,6 +23,7 @@ import {
   isNote, isQuery, isPdf, isGraph, isTypeView, isUnsupported,
 } from './tab-types';
 import { extensionOf } from '../../../shared/file-capability';
+import { DEFAULT_VIEW_LAYOUT } from '../../../shared/objects/view-layouts';
 import { api } from '../ipc/client';
 
 export function toSavedTab(t: Tab): SavedTab {
@@ -131,7 +132,7 @@ export async function reconstructTab(saved: SavedTab, nextQueryId: () => string)
     return {
       type: 'type-view',
       typeId: saved.typeId,
-      layout: saved.layout ?? 'table',
+      layout: saved.layout ?? DEFAULT_VIEW_LAYOUT,
       sortColumn: saved.sortColumn ?? null,
       sortDir: saved.sortDir ?? 'asc',
       columns: saved.columns ?? null,

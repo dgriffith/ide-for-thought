@@ -28,7 +28,7 @@ what to do about it. `architecture-ratchets-doc.test.ts` keeps the two sides in
 step — a new test in `tests/architecture/` with no entry here fails, and an
 entry here naming a test that no longer exists fails too (#2262).
 
-Written up as of 2026-10-04, 49 tests.
+Written up as of 2026-10-11, 50 tests.
 
 ---
 
@@ -203,6 +203,21 @@ Render it for exports (the live-block machinery in
 `src/main/publish/live-blocks.ts` and `src/renderer/lib/export/` is built for
 exactly this), or classify it as a gap with an issue or a decision with a
 reason. Don't just add it to `PARITY` to go green.
+
+### `view-layout-registry.test.ts`
+
+**View layouts have one registry** (#2623, epic #2622):
+`src/shared/objects/view-layouts.ts`. A layout used to be named in seven places
+that had to agree by hand: two union types, a tab type, two components' local
+unions, the embed parser's set and Save as note's name record. The test fails
+on any line outside the registry that lists three or more layout ids, whether
+as a union, an array, a set or a record keyed by them. A single comparison
+(`shown === 'kanban'`) is dispatch, not a copy, and is allowed. It also
+requires every view-spec field to be classified as common or owned by a layout
+(`specFields`), and every owned field to be real. **When it fires:** derive the
+list (`ViewLayout`, `VIEW_LAYOUTS`, `layoutsFor`, `isViewLayout`, `layoutDef`)
+instead of writing it out. For a new spec field, add it to `COMMON_SPEC_FIELDS`
+or to the `specFields` of the layout that reads it.
 
 ---
 

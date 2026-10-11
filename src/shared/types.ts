@@ -1,3 +1,4 @@
+import type { ViewLayout } from './objects/view-layouts';
 /**
  * A deterministic quick-fix an inspection can carry so the Inspections panel
  * can apply it directly instead of routing to an LLM conversation (#1446).
@@ -160,8 +161,8 @@ export interface SavedQuery {
 }
 
 /** A type view's layout (#1070) — the type-view tab and the ```object-view
- *  note embed (#2067) share it. */
-export type ViewLayout = 'list' | 'table' | 'gallery' | 'map' | 'kanban' | 'timeline' | 'calendar';
+ *  note embed (#2067) share it. Derived from the layout registry (#2623). */
+export type { ViewLayout };
 
 export interface OutgoingLink {
   target: string;
@@ -310,7 +311,7 @@ export interface SavedTypeViewTab {
   /** The type whose instances the multi-view shows (#1070). */
   typeId: string;
   /** Chosen projection (list/table/gallery/map/kanban/timeline/calendar); restored on reload. */
-  layout?: 'list' | 'table' | 'gallery' | 'map' | 'kanban' | 'timeline' | 'calendar';
+  layout?: ViewLayout;
   /** Sort + visible columns, restored on reload (#1072). */
   sortColumn?: string | null;
   sortDir?: 'asc' | 'desc';

@@ -8,9 +8,10 @@ import { describe, it, expect } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  canShowTimeline, DEFAULT_VIEW_LAYOUT, FIT_ALL, isFitAll, parseTimelineEdge, parseTimelineRange,
+  canShowTimeline, FIT_ALL, isFitAll, parseTimelineEdge, parseTimelineRange,
   timelineDomain, timelineRangeFromDomain, timelineSpecForType,
 } from '../../../src/shared/objects/timeline';
+import { DEFAULT_VIEW_LAYOUT } from '../../../src/shared/objects/view-layouts';
 import { canShowCalendar } from '../../../src/shared/objects/calendar';
 import { inheritsFrom } from '../../../src/shared/objects/inheritance';
 import { civilMs } from '../../../src/shared/objects/date-precision';

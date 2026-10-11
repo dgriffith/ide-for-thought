@@ -19,6 +19,7 @@ import {
 import { buildSession, normalizeSession, resolveRestoredSession } from '../editor/tab-session';
 import { logger } from '../../../shared/logger';
 import { withSqlAccessHint } from '../../../shared/sql-access-hint';
+import { DEFAULT_VIEW_LAYOUT } from '../../../shared/objects/view-layouts';
 
 // ── Tab types ───────────────────────────────────────────────────────────────
 // Moved to ../editor/tab-types.ts (#1919) so the session-serialization module
@@ -315,7 +316,7 @@ function buildEditorStore() {
   function openTypeView(typeId: string, opts?: Partial<TypeViewState> & { groupId?: string }) {
     const folder = normalizeFolder(opts?.folder);
     const state: TypeViewState = {
-      layout: opts?.layout ?? 'table',
+      layout: opts?.layout ?? DEFAULT_VIEW_LAYOUT,
       sortColumn: opts?.sortColumn ?? null,
       sortDir: opts?.sortDir ?? 'asc',
       columns: opts?.columns ?? null,
