@@ -35,59 +35,68 @@ import { proposeClaims } from './propose-claims';
 import { proposeCompute } from './propose-compute';
 import { askUser } from './ask-user';
 import { rethrowIfTrustGuard } from '../../graph/index';
+import { defineToolRegistry, type ToolRegistration } from './tool-registry';
 
 /**
- * The default notebase toolset, in registration order. Order is preserved in
- * `NOTEBASE_TOOLS` below (some callers/tests depend on it).
+ * Every LLM tool, in registration order (#2628) — the order the default
+ * toolset is offered in (`NOTEBASE_TOOLS`; some callers/tests depend on it).
+ * Each registers with its class and, for a path-shaped parameter, its guard;
+ * `defineToolRegistry` refuses one that doesn't (see `tool-registry.ts`).
  */
-const DEFAULT_TOOLS: NotebaseTool[] = [
-  searchNotes,
-  grepNotes,
-  readNote,
-  readSource,
-  searchRelated,
-  searchHelp,
-  queryGraph,
-  listNotes,
-  listObjectTypes,
-  proposeNoteRename,
-  proposeNoteMove,
-  proposeReorganization,
-  proposeNoteDelete,
-  proposeFolderMove,
-  proposeFolderDelete,
-  proposeNoteBody,
-  proposeNoteEdits,
-  proposeNotes,
-  describeGraphSchema,
-  describeTables,
-  querySql,
-  proposeSources,
-  fetchProperties,
-  setProperties,
-  proposeSourceProperties,
-  proposeNoteTypes,
-  proposeObjectType,
-  proposeClaims,
-  proposeCompute,
-  mcpCall,
-  runSkill,
-];
+const TOOLS = defineToolRegistry([
+  { tool: searchNotes, class: 'read' },
+  { tool: grepNotes, class: 'read' },
+  { tool: readNote, class: 'read', pathGuard: { guard: 'agentPath', site: 'read-note.ts' } },
+  { tool: readSource, class: 'read', pathGuard: { guard: 'bareSourceId', site: 'read-source.ts' } },
+  // Its lookup is index-only, and it's guarded anyway.
+  { tool: searchRelated, class: 'read', pathGuard: { guard: 'agentPath', site: 'search-related.ts' } },
+  { tool: searchHelp, class: 'read' },
+  { tool: queryGraph, class: 'read' },
+  { tool: listNotes, class: 'read' },
+  { tool: listObjectTypes, class: 'read' },
+  // move + rename share `runProposeRefactorBatch`, which checks both endpoints.
+  { tool: proposeNoteRename, class: 'propose', pathGuard: { guard: 'agentPath', site: '_shared.ts' } },
+  { tool: proposeNoteMove, class: 'propose', pathGuard: { guard: 'agentPath', site: '_shared.ts' } },
+  { tool: proposeReorganization, class: 'propose', pathGuard: { guard: 'agentPath', site: 'propose-reorganization.ts' } },
+  { tool: proposeNoteDelete, class: 'propose', pathGuard: { guard: 'agentPath', site: 'propose-note-delete.ts' } },
+  { tool: proposeFolderMove, class: 'propose', pathGuard: { guard: 'agentPath', site: 'propose-folder-move.ts' } },
+  { tool: proposeFolderDelete, class: 'propose', pathGuard: { guard: 'agentPath', site: 'propose-folder-delete.ts' } },
+  { tool: proposeNoteBody, class: 'propose', pathGuard: { guard: 'agentPath', site: 'propose-note-body.ts' } },
+  // Shares `readNoteForEdit` with propose_note_body, which is where the guard is.
+  { tool: proposeNoteEdits, class: 'propose', pathGuard: { guard: 'agentPath', site: 'propose-note-body.ts' } },
+  { tool: proposeNotes, class: 'propose', pathGuard: { guard: 'agentPath', site: 'propose-notes.ts' } },
+  { tool: describeGraphSchema, class: 'read' },
+  { tool: describeTables, class: 'read' },
+  { tool: querySql, class: 'read' },
+  { tool: proposeSources, class: 'propose' },
+  { tool: fetchProperties, class: 'read', pathGuard: { guard: 'agentPath', site: 'fetch-properties.ts' } },
+  { tool: setProperties, class: 'propose', pathGuard: { guard: 'agentPath', site: 'set-properties.ts' } },
+  { tool: proposeSourceProperties, class: 'propose', pathGuard: { guard: 'bareSourceId', site: 'propose-source-properties.ts' } },
+  { tool: proposeNoteTypes, class: 'propose', pathGuard: { guard: 'agentPath', site: 'propose-note-types.ts' } },
+  { tool: proposeObjectType, class: 'propose' },
+  { tool: proposeClaims, class: 'propose', pathGuard: { guard: 'bareSourceId', site: 'propose-claims.ts' } },
+  { tool: proposeCompute, class: 'propose' },
+  { tool: mcpCall, class: 'external' },
+  { tool: runSkill, class: 'skill', pathGuard: { guard: 'agentPath', site: 'run-skill.ts' } },
+  // Template-scoped: offered only to a skill that `requiresTools: [ask_user]`.
+  { tool: askUser, class: 'interactive', templateOnly: true },
+]);
 
-export const NOTEBASE_TOOL_REGISTRY: Record<string, NotebaseTool> = Object.fromEntries(
-  DEFAULT_TOOLS.map((t) => [t.definition.name, t]),
+/** Every registered tool's registration, by name — what the tool-surface
+ *  test reads classes and path guards from. */
+export const TOOL_REGISTRATIONS: Readonly<Record<string, ToolRegistration>> = Object.fromEntries(
+  TOOLS.map((r) => [r.tool.definition.name, r]),
 );
 
-export const NOTEBASE_TOOLS: ToolSpec[] = DEFAULT_TOOLS.map((t) => t.definition);
+/** The default toolset (everything not template-only), by name. */
+export const NOTEBASE_TOOL_REGISTRY: Record<string, NotebaseTool> = Object.fromEntries(
+  TOOLS.filter((r) => !r.templateOnly).map((r) => [r.tool.definition.name, r.tool]),
+);
 
-/**
- * Dispatch table for `executeNotebaseTool`. Same as the default registry plus
- * the template-scoped `ask_user`, which is not in `NOTEBASE_TOOLS`.
- */
-const DISPATCH: Record<string, NotebaseTool> = {
-  ...NOTEBASE_TOOL_REGISTRY,
-  [askUser.definition.name]: askUser,
-};
+export const NOTEBASE_TOOLS: ToolSpec[] = TOOLS.filter((r) => !r.templateOnly).map((r) => r.tool.definition);
+
+/** Dispatch table for `executeNotebaseTool`: every registered tool. */
+const DISPATCH: Record<string, NotebaseTool> = Object.fromEntries(TOOLS.map((r) => [r.tool.definition.name, r.tool]));
 
 const TEMPLATE_TOOL_REGISTRY: Record<ConversationToolKey, ToolSpec> = {
   ask_user: askUser.definition,

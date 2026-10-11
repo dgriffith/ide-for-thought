@@ -1781,9 +1781,11 @@ touch the tool surface:
   into an error `tool_result`.
 - **`queryGraph` is read-only.** Comunica's read-only flag refuses SPARQL
   Update, and `SERVICE`/`LOAD` make no network request.
-- **A new tool must be classified** in `tool-surface.test.ts`, which fails
-  closed and statically bars tool modules from fs writes, approvals and
-  trusted context.
+- **A new tool registers with its class** (read / propose / external /
+  skill / interactive) in `llm/tools/registry.ts` (#2628), and with a
+  `pathGuard` if any parameter names a path; `defineToolRegistry` refuses one
+  without. `tool-surface.test.ts` reads the classes from there and statically
+  bars tool modules from fs writes, approvals and trusted context.
 - **No path an agent chose reaches `.minerva/`** (#2453). `assertSafePath`
   is containment only, and `.minerva/` (transcripts, `secrets.json`,
   `config.json`, the proposal store, types, templates) is inside the root,
@@ -1801,9 +1803,9 @@ touch the tool surface:
   `propose_note`) use the same function. Under the tools, the approval
   engine's `assertPayloadPaths` refuses such a target at `proposeWrite` AND
   again in `applyBundle`, so a pending proposal filed before the check can't
-  write Minerva's state on Approve. `tool-surface.test.ts` fails closed on
-  any tool parameter whose name is path-shaped and isn't classified to a
-  guard its module calls; `agent-paths.test.ts` drives every guarded tool
+  write Minerva's state on Approve. Registration refuses a tool with a
+  path-shaped parameter and no `pathGuard`, and `tool-surface.test.ts` checks
+  the declared site really calls the guard; `agent-paths.test.ts` drives every guarded tool
   through the loop with each spelling and three canaries.
 - **`mcp_call` reaches only advertised tools** of configured, connected
   servers, **and a tool not marked `readOnlyHint: true` waits for the user**
