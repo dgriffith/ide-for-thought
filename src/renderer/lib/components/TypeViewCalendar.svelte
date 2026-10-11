@@ -135,19 +135,15 @@
   const today = todayCivil();
   /** A page turned here, ahead of (or, read-only, instead of) the `month` prop. */
   let override = $state<CalendarMonth | null>(null);
-  // The `month` prop by VALUE. The host passes it out of a derived spec object
-  // that a refresh rebuilds, and Svelte tracks a prop through its source — so
-  // read directly, every graph change looked like a new month: it reset a
-  // turned page and closed the day's list from under the user (focus fell to
-  // <body>). A primitive derived only notifies when the string changes.
-  const monthProp = $derived(month);
-  // A `month` that arrives as props (our own write echoing back, a restored
+  // `month` by value: it comes out of a spec object every refresh rebuilds, so
+  // read directly, each graph change looked like a new month (page reset, day
+  // list closed). A month that does arrive (our write echoing back, a restored
   // tab, Back) is the page from then on.
+  const monthProp = $derived(month);
   $effect(() => { void monthProp; untrack(() => { override = null; }); });
   const page = $derived<CalendarMonth>(override ?? parseMonthAnchor(monthProp) ?? monthOf(today));
   const pageKey = (m: CalendarMonth) => m.year * 12 + m.month;
-  /** The page as a number, so effects run on a page TURN, not a re-derived object. */
-  const pageNumber = $derived(pageKey(page));
+  const pageNumber = $derived(pageKey(page)); // a turn, not a re-derived object
 
   function goTo(m: CalendarMonth, opts: { current?: boolean } = {}): void {
     override = m;
