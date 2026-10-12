@@ -66,6 +66,9 @@ export {
   indexExcerpt, removeExcerpt, excerptIdsForSource, parseExcerptIdFromPath,
 } from './indexers/excerpt';
 import { addOntologyToStore } from './indexers';
+import { EXTENSIONS_GRAPH } from './indexers/extensions';
+import { rematerializeExtensionCatalog } from './extension-catalog';
+export { setExtensionContributions } from './extension-catalog';
 
 /** Tear down a project's graph state. Called by ProjectContext on last release. */
 export function disposeProject(ctx: ProjectContext): void {
@@ -226,6 +229,9 @@ export async function initGraph(ctx: ProjectContext, opts?: InitGraphOptions): P
   addOntologyToStore(state);
 
   setState(ctx, state);
+  // The extension catalog (#2618): its points now, its contributions when the
+  // composition root reports them.
+  rematerializeExtensionCatalog(ctx);
 }
 
 // ── Persistence & Export ────────────────────────────────────────────────────
@@ -365,6 +371,8 @@ export function serializeUserGraph(ctx: ProjectContext): string {
   const ontologyGraphs = new Set(
     state.ontologyStatements.map((st) => st.graph?.value ?? ''),
   );
+  // The extension catalog is derived and partly per machine — never persisted (#2618).
+  ontologyGraphs.add(EXTENSIONS_GRAPH.value);
 
   // NOT `$rdf.graph()`: an IndexedFormula maintains four indices per `add`,
   // which at 3,000 notes costs about as much as the strip this replaces. This

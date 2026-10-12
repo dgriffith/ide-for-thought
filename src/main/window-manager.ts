@@ -14,7 +14,7 @@ import * as tables from './sources/tables';
 import { addRecentProject } from './recent-projects';
 import { invalidateMenuInputCaches } from './menu-input-caches';
 import { saveSession, type WindowState } from './session';
-import { acquireProject, releaseProject } from './project-context';
+import { acquireProject, releaseProject, refreshOpenExtensionCatalogs } from './project-context';
 import { runBackfill } from './embeddings/backfill';
 import { installNavigationGuards, HARDENED_WEB_PREFERENCES } from './security';
 import { rendererEntryUrl } from './renderer-entry';
@@ -232,6 +232,8 @@ export function createWindow(opts?: { x?: number; y?: number; width?: number; he
     // user selects or deselects text) now costs no file I/O at all (#2221).
     invalidateMenuInputCaches();
     menuRebuilder?.();
+    // The same moment re-reads what's installed in each extension point (#2618).
+    refreshOpenExtensionCatalogs();
   });
 
   return win;

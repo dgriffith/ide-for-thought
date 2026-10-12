@@ -13,6 +13,7 @@
 import { coalescedRun } from '../shared/coalesced-run';
 import { app } from 'electron';
 import * as graph from './graph/index';
+import { refreshExtensionContributions } from './extension-contributions';
 import * as search from './search/index';
 import { listProposals } from './llm/approval';
 import * as tables from './sources/tables';
@@ -46,6 +47,19 @@ const projects = new Map<string, ProjectRecord>();
 /** Test/diagnostic visibility — number of windows holding `rootPath` open. */
 export function refCountFor(rootPath: string): number {
   return projects.get(rootPath)?.acquirers.size ?? 0;
+}
+
+/**
+ * Re-read every open project's installed contributions (#2618). Called when a
+ * window regains focus; a project whose contributions haven't changed costs
+ * the reads and nothing else.
+ */
+export function refreshOpenExtensionCatalogs(): void {
+  for (const rec of projects.values()) {
+    void rec.initPromise
+      .then(() => refreshExtensionContributions(rec.ctx))
+      .catch((err) => { logger('project-context').warn(`extension catalog refresh failed for ${rec.rootPath}:`, err); });
+  }
 }
 
 /** Test/diagnostic visibility — every project currently held open. */
@@ -102,6 +116,11 @@ export async function acquireProject(rootPath: string, winId: number): Promise<P
       // namespace). Also self-heals stale relative-path triples from
       // before #350.
       await conversation.reindexAllConversations(rootPath);
+      // What's installed in each extension point, into the graph (#2618).
+      // Fire-and-forget: the catalog is a description, not something open waits on.
+      void refreshExtensionContributions(ctx).catch((err) => {
+        logger('project-context').warn(`extension catalog refresh failed for ${rootPath}:`, err);
+      });
       // Health checks run once at open, then a periodic timer takes over.
       // Fire-and-forget — no need to block project init on the result. Both
       // paths read the user's inspection settings (#1792 follow-up): without

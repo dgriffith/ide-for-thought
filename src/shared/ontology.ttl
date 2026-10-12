@@ -4,6 +4,7 @@
 @prefix xsd:     <http://www.w3.org/2001/XMLSchema#> .
 @prefix dc:      <http://purl.org/dc/terms/> .
 @prefix minerva: <https://minerva.dev/ontology#> .
+@prefix prov:    <http://www.w3.org/ns/prov#> .
 
 # ── Ontology ────────────────────────────────────────────────────────────────
 
@@ -284,6 +285,68 @@ minerva:typeColor a owl:DatatypeProperty ;
     rdfs:label "type colour" ;
     rdfs:comment "Accent colour the UI uses for instances of this object type." ;
     rdfs:range xsd:string .
+
+# ── Extension points (#2618, epic #2616) ──────────────────────────────────
+# The seams Minerva can be extended through, and what is installed in each.
+# Materialised from `shared/extensions/points.ts` and the installed
+# contributions into their own named graph, never persisted to graph.ttl —
+# some contributions are per machine, and the catalog is rebuilt each time.
+
+minerva:ExtensionPoint a owl:Class ;
+    rdfs:label "Extension point" ;
+    rdfs:comment "A seam something can be added to Minerva through: skills, object types, saved queries, MCP servers, view layouts…" .
+
+minerva:Contribution a owl:Class ;
+    rdfs:label "Contribution" ;
+    rdfs:comment "One thing added through an extension point — a skill, a type, a saved query — attributed (prov:wasAttributedTo) to whoever supplied it." .
+
+minerva:Plugin a owl:Class ;
+    rdfs:subClassOf prov:Agent ;
+    rdfs:label "Plugin" ;
+    rdfs:comment "A declarative plugin bundle installed on this machine (#2631). A contribution it supplies is attributed to it." .
+
+minerva:contributesTo a owl:ObjectProperty ;
+    rdfs:label "contributes to" ;
+    rdfs:comment "The extension point a contribution was added through." ;
+    rdfs:domain minerva:Contribution ;
+    rdfs:range minerva:ExtensionPoint .
+
+minerva:rung a owl:DatatypeProperty ;
+    rdfs:label "rung" ;
+    rdfs:comment "Where an extension point sits on the ladder, cheapest first: setting, skill, object-type, query-view, plugin, mcp, source." ;
+    rdfs:domain minerva:ExtensionPoint ;
+    rdfs:range xsd:string .
+
+minerva:loadPath a owl:DatatypeProperty ;
+    rdfs:label "load path" ;
+    rdfs:comment "How a new contribution is picked up: hot, reload-command, restart, or rebuild (a source seam)." ;
+    rdfs:domain minerva:ExtensionPoint ;
+    rdfs:range xsd:string .
+
+minerva:acceptsSource a owl:DatatypeProperty ;
+    rdfs:label "accepts source" ;
+    rdfs:comment "Where an extension point takes contributions from: stock, user, thoughtbase, plugin." ;
+    rdfs:domain minerva:ExtensionPoint ;
+    rdfs:range xsd:string .
+
+minerva:contractFormat a owl:DatatypeProperty ;
+    rdfs:label "contract format" ;
+    rdfs:comment "The file format one contribution takes, for a seam that is open to contributions." ;
+    rdfs:domain minerva:ExtensionPoint ;
+    rdfs:range xsd:string .
+
+minerva:contributionLocation a owl:DatatypeProperty ;
+    rdfs:label "contribution location" ;
+    rdfs:comment "Where a contribution goes (an extension point) or lives (a contribution)." ;
+    rdfs:range xsd:string .
+
+minerva:stock a prov:Agent ;
+    rdfs:label "Minerva (stock)" ;
+    rdfs:comment "Minerva itself: what ships with the app." .
+
+minerva:localUser a prov:Agent ;
+    rdfs:label "This machine's user" ;
+    rdfs:comment "Whoever put a contribution in this machine's own folders (~/.minerva, the app's user data). A thoughtbase's own contributions are attributed to its minerva:Project instead." .
 
 # ── Reused Vocabulary ──────────────────────────────────────────────────────
 #
