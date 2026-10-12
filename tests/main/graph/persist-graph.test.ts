@@ -29,6 +29,7 @@ import {
   indexNote,
 } from '../../../src/main/graph/index';
 import { getState, buildN3Store } from '../../../src/main/graph/state';
+import { EXTENSIONS_GRAPH } from '../../../src/main/graph/indexers/extensions';
 import { type ProjectContext } from '../../../src/main/project-context-types';
 import { useGraphProject } from '../../helpers/temp-project';
 
@@ -109,9 +110,14 @@ describe('persistGraph writes only the user graph (#2209)', () => {
     const state = getState(ctx)!;
     const { store, ontologyStatements } = state;
 
+    // The extension catalog (#2618) is excluded the same way: derived, partly
+    // per machine, and never persisted.
+    const catalog = store.statementsMatching(null, null, null, EXTENSIONS_GRAPH).slice();
+    for (const st of catalog) store.remove(st);
     for (const st of ontologyStatements) store.removeMatches(st.subject, st.predicate, st.object);
     const oldWay = $rdf.serialize(null, store, 'urn:x-minerva:void', 'text/turtle') ?? '';
     for (const st of ontologyStatements) store.add(st.subject, st.predicate, st.object, st.graph);
+    for (const st of catalog) store.add(st.subject, st.predicate, st.object, st.graph);
 
     expect(serializeUserGraph(ctx)).toBe(oldWay);
   });

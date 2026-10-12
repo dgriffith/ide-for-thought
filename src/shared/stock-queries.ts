@@ -318,6 +318,43 @@ SELECT ?conversation ?status ?startedAt ?triggerTitle WHERE {
 ORDER BY DESC(?startedAt)`,
   },
 
+  // ── Extension points (#2618) ─────────────────────────────────────────────
+  // The catalog of seams and what's installed in each, materialised from
+  // shared/extensions/points.ts (never persisted to graph.ttl).
+  {
+    name: 'Extensions: open to contributions',
+    description: 'Extension points that take a declarative contribution — everything below an MCP server or a source change on the ladder — with what is installed in each',
+    language: 'sparql',
+    query: `${PREFIXES}
+SELECT ?point ?label ?rung ?loadPath (COUNT(?contribution) AS ?installed) WHERE {
+  ?p rdf:type minerva:ExtensionPoint ;
+     dc:identifier ?point ;
+     rdfs:label ?label ;
+     minerva:rung ?rung ;
+     minerva:loadPath ?loadPath .
+  FILTER(?rung NOT IN ("mcp", "source"))
+  OPTIONAL { ?contribution minerva:contributesTo ?p }
+}
+GROUP BY ?point ?label ?rung ?loadPath
+ORDER BY ?rung ?point`,
+  },
+  {
+    name: 'Extensions: what a contributor added',
+    description: 'Every contribution attributed to one supplier (edit the agent: minerva:stock, minerva:localUser, a plugin, or this thoughtbase\'s project)',
+    language: 'sparql',
+    query: `${PREFIXES}PREFIX prov: <http://www.w3.org/ns/prov#>
+# Edit the agent below
+SELECT ?point ?contribution ?label WHERE {
+  ?c rdf:type minerva:Contribution ;
+     prov:wasAttributedTo minerva:stock ;
+     minerva:contributesTo ?p ;
+     dc:identifier ?contribution ;
+     rdfs:label ?label .
+  ?p dc:identifier ?point .
+}
+ORDER BY ?point ?label`,
+  },
+
   // ── SQL (DuckDB) ──────────────────────────────────────────────────────────
 
   {

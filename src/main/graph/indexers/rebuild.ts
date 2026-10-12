@@ -31,6 +31,7 @@ import {
 
 import { loadTypeCatalog } from '../../types/loader';
 import { materializeTypeClasses } from './type-classes';
+import { rematerializeExtensionCatalog } from '../extension-catalog';
 import { emitGraphChanged } from '../graph-events';
 
 import { buildLinkResolveCtx, ensureFolder } from '../index-helpers';
@@ -199,6 +200,8 @@ export async function indexAllNotes(ctx: ProjectContext, opts?: IndexAllNotesOpt
   // knows the classes exist. Reloaded on every full rebuild.
   state.typeCatalog = await loadTypeCatalog(rootPath);
   materializeTypeClasses(state.store, state.typeCatalog);
+  // The extension catalog lives in the store too, so the reset dropped it (#2618).
+  rematerializeExtensionCatalog(ctx);
 
   // Two-pass build (#469): the first walk just reads frontmatter
   // aliases so the alias map is fully populated before any link gets
