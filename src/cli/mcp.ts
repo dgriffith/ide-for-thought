@@ -28,6 +28,7 @@ import { createRoutedEngine } from './routed-engine';
 import { jsonStringify } from './json';
 import { projectContext } from '../main/project-context-types';
 import { logger } from '../shared/logger';
+import * as extensionPoints from '../shared/extensions/describe';
 
 /** Protocol version we speak. We echo the client's requested version when it
  *  sends one (lenient), falling back to this. */
@@ -75,12 +76,30 @@ interface McpTool {
 
 const str = (v: unknown): string => (typeof v === 'string' ? v : '');
 const num = (v: unknown): number | undefined => (typeof v === 'number' ? v : undefined);
+/** A shared `{ ok, … }` answer as an ExecResult: the whole answer is the data. */
+const asExec = (r: ({ ok: true } & object) | { ok: false; error: string }): ExecResult =>
+  (r.ok ? { ok: true, data: r } : { ok: false, error: r.error });
 
 /** The exposed tools, one per Engine method. Names + schemas are what an
  *  external agent sees; results are grounded JSON so the agent can attribute.
  *  `docs/cli.md` lists them, and `tests/architecture/cli-docs-parity.test.ts`
  *  fails when a tool is added here without being documented there. */
 export const MCP_TOOLS: McpTool[] = [
+  // The extension-point catalog (#2619): the same descriptions and JSON the
+  // in-app model gets, from shared/extensions/describe.ts. No engine needed.
+  {
+    name: 'list_extension_points',
+    description: extensionPoints.LIST_EXTENSION_POINTS_DESCRIPTION,
+    inputSchema: extensionPoints.LIST_EXTENSION_POINTS_SCHEMA,
+    run: (_engine, args) =>
+      Promise.resolve(asExec(extensionPoints.listExtensionPoints({ ...(str(args.rung) ? { rung: str(args.rung) } : {}), openOnly: args.open_only === true }))),
+  },
+  {
+    name: 'describe_extension_point',
+    description: extensionPoints.DESCRIBE_EXTENSION_POINT_DESCRIPTION,
+    inputSchema: extensionPoints.DESCRIBE_EXTENSION_POINT_SCHEMA,
+    run: (_engine, args) => Promise.resolve(asExec(extensionPoints.describeExtensionPoint(str(args.id).trim()))),
+  },
   {
     name: 'query_graph',
     description:

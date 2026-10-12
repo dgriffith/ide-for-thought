@@ -63,6 +63,14 @@ export function formatToolCall(name: string, input: unknown): string {
       const id = pickString(i, 'source_id');
       return id ? `📚 Reading source **${truncate(id, MAX_SNIPPET)}**` : '📚 Reading a source';
     }
+    case 'list_extension_points': {
+      const rung = pickString(i, 'rung');
+      return rung ? `🧭 Listing the **${truncate(rung, MAX_SNIPPET)}** extension points` : '🧭 Listing Minerva\'s extension points';
+    }
+    case 'describe_extension_point': {
+      const id = pickString(i, 'id');
+      return id ? `🧭 Reading the **${truncate(id, MAX_SNIPPET)}** extension point` : '🧭 Reading an extension point';
+    }
     case 'list_object_types': {
       const id = pickString(i, 'type_id');
       return id ? `🧩 Checking the **${truncate(id, MAX_SNIPPET)}** object type` : '🧩 Checking your object types';

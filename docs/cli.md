@@ -155,6 +155,15 @@ Tools: `query_graph`, `sql_query`, `search_notes`, `grep_notes`,
 slice — see *Context handoff*), and `propose_note` (files a pending proposal
 stamped `mcp:<client-name>` — see *Proposing* above).
 
+`list_extension_points` and `describe_extension_point` read Minerva's
+extension-point catalog (#2619), which lists every seam something can be added
+through. Each entry gives its rung on the ladder (setting → skill → object-type →
+query-view → plugin → mcp → source), the contract a contribution must meet,
+how it's loaded, and links to its docs, an example and its test. The in-app
+conversation model has the same two tools, with the same descriptions and the
+same JSON, so an agent asking "how would I add X to Minerva?" gets the same
+answer either way.
+
 The MCP tools run what an external agent chose, and that agent reads note text a
 shared thoughtbase could plant instructions in, so two of them are narrower than
 their CLI counterparts (#2452). `sql_query` reads only the tables and views

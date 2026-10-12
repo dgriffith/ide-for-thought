@@ -13,6 +13,7 @@ import { searchHelp } from './search-help';
 import { queryGraph } from './query-graph';
 import { listNotes } from './list-notes';
 import { listObjectTypes } from './list-object-types';
+import { listExtensionPoints, describeExtensionPoint } from './extension-points';
 import { proposeNoteRename } from './propose-note-rename';
 import { proposeNoteMove } from './propose-note-move';
 import { proposeReorganization } from './propose-reorganization';
@@ -54,6 +55,9 @@ const TOOLS = defineToolRegistry([
   { tool: queryGraph, class: 'read' },
   { tool: listNotes, class: 'read' },
   { tool: listObjectTypes, class: 'read' },
+  // The extension-point catalog (#2619): static, no thoughtbase reads.
+  { tool: listExtensionPoints, class: 'read' },
+  { tool: describeExtensionPoint, class: 'read' },
   // move + rename share `runProposeRefactorBatch`, which checks both endpoints.
   { tool: proposeNoteRename, class: 'propose', pathGuard: { guard: 'agentPath', site: '_shared.ts' } },
   { tool: proposeNoteMove, class: 'propose', pathGuard: { guard: 'agentPath', site: '_shared.ts' } },

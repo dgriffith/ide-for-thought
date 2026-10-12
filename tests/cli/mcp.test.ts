@@ -59,7 +59,8 @@ describe('handleMcpMessage — handshake & discovery', () => {
     const r = await handleMcpMessage({ jsonrpc: '2.0', id: 2, method: 'tools/list' }, engine());
     const tools = (r?.result as { tools: { name: string; inputSchema: unknown }[] }).tools;
     expect(tools.map((t) => t.name).sort()).toEqual(
-      ['gather_context', 'grep_notes', 'propose_note', 'query_graph', 'read_note', 'search_notes', 'semantic_search', 'sql_query'],
+      ['describe_extension_point', 'gather_context', 'grep_notes', 'list_extension_points', 'propose_note', 'query_graph',
+        'read_note', 'search_notes', 'semantic_search', 'sql_query'],
     );
     for (const t of tools) expect(t.inputSchema).toHaveProperty('type', 'object');
   });
@@ -205,9 +206,12 @@ describe('handleMcpMessage — propose_note (write through the gate)', () => {
 
 describe('MCP_TOOLS metadata', () => {
   it('every tool marks its required inputs', () => {
+    // Tools whose every argument is an optional filter (#2619); each still
+    // says so, with an explicit `required: []`.
+    const FILTERS_ONLY = new Set(['list_extension_points']);
     for (const t of MCP_TOOLS) {
-      expect(Array.isArray(t.inputSchema.required)).toBe(true);
-      expect(t.inputSchema.required!.length).toBeGreaterThan(0);
+      expect(Array.isArray(t.inputSchema.required), t.name).toBe(true);
+      if (!FILTERS_ONLY.has(t.name)) expect(t.inputSchema.required!.length, t.name).toBeGreaterThan(0);
     }
   });
 });
