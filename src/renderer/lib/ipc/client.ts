@@ -10,6 +10,7 @@ import type { GraphQueryResult } from '../../../shared/graph-query';
 import type { TagMergePreview, TagMergeResult } from '../../../shared/refactor/merge-tag';
 import type { MaintenanceProgress } from '../../../shared/maintenance';
 import type { ThemeMode } from '../../../shared/theme';
+import type { CommandId } from '../../../shared/commands';
 import type { BatchRevertResult, HistorySettings, LabelNotesResult, RevisionMeta, SelectionRoot, UnifiedTimelineEntry } from '../../../shared/history';
 import type { PreloadApi } from '../../../preload/preload';
 
@@ -989,81 +990,15 @@ export interface SkillsApi {
 }
 
 export interface MenuApi {
-  onNewNote(cb: () => void): () => void;
-  /** File → New Audio Recording (#2428): start, or stop, a recording. */
-  onNewAudioRecording(cb: () => void): () => void;
-  onEditThoughtbaseDoc(cb: () => void): () => void;
-  onThoughtbaseProperties(cb: () => void): () => void;
-  onSave(cb: () => void): () => void;
-  onSaveAsTemplate(cb: () => void): () => void;
-  onSaveAsObjectType(cb: () => void): () => void;
-  onInsertTemplate(cb: () => void): () => void;
-  onToggleSidebar(cb: () => void): () => void;
-  onTogglePreview(cb: () => void): () => void;
-  onQuickOpen(cb: () => void): () => void;
-  onCycleTheme(cb: () => void): () => void;
   onSetTheme(cb: (mode: ThemeMode) => void): () => void;
   reportTheme(mode: ThemeMode): void;
   reportEditorState(state: MenuEditorState): void;
-  onSplitRight(cb: () => void): () => void;
-  onSplitDown(cb: () => void): () => void;
-  onFocusNextGroup(cb: () => void): () => void;
-  onFocusPrevGroup(cb: () => void): () => void;
-  onCloseGroup(cb: () => void): () => void;
-  onFontIncrease(cb: () => void): () => void;
-  onFontDecrease(cb: () => void): () => void;
-  onFontReset(cb: () => void): () => void;
-  onToggleRightSidebar(cb: () => void): () => void;
-  onToggleConversations(cb: () => void): () => void;
-  onNewConversation(cb: () => void): () => void;
-  onNavBack(cb: () => void): () => void;
-  onNavForward(cb: () => void): () => void;
-  onGotoLine(cb: () => void): () => void;
-  onFind(cb: () => void): () => void;
-  onFindReplace(cb: () => void): () => void;
-  onFindInNotes(cb: () => void): () => void;
-  onReplaceInNotes(cb: () => void): () => void;
-  onNewQuery(cb: () => void): () => void;
   onOpenStockQuery(cb: (payload: { query: string; language: 'sparql' | 'sql' }) => void): () => void;
-  onEditSavedQueries(cb: () => void): () => void;
-  onSortLines(cb: () => void): () => void;
-  onOpenSettings(cb: () => void): () => void;
-  /** View -> Command Palette (#2256). Same toggle the Cmd+K binding drives. */
-  onCommandPalette(cb: () => void): () => void;
-  onPrint(cb: () => void): () => void;
-  onAbout(cb: () => void): () => void;
-  onShortcuts(cb: () => void): () => void;
-  /** File ▸ Open In ▸ Reveal in Finder (#2411). */
-  onRevealFile(cb: () => void): () => void;
-  onOpenInDefault(cb: () => void): () => void;
-  onOpenInTerminal(cb: () => void): () => void;
-  onOpenProject(cb: () => void): () => void;
-  onNewProject(cb: () => void): () => void;
-  onInstallTutorial(cb: () => void): () => void;
   onOpenRecentProject(cb: (path: string) => void): () => void;
-  onCloseProject(cb: () => void): () => void;
-  onClearRecent(cb: () => void): () => void;
   onProjectOpened(cb: (meta: { rootPath: string; name: string }) => void): () => void;
-  onRefactorRename(cb: () => void): () => void;
-  onRefactorMove(cb: () => void): () => void;
-  onRefactorCopy(cb: () => void): () => void;
-  onRefactorExtract(cb: () => void): () => void;
-  onRefactorSplitHere(cb: () => void): () => void;
-  onRefactorSplitByHeading(cb: () => void): () => void;
-  onRefactorAutoTag(cb: () => void): () => void;
-  onRefactorAutoLink(cb: () => void): () => void;
-  onRefactorAutoLinkInbound(cb: () => void): () => void;
-  onRefactorDecompose(cb: () => void): () => void;
-  onFormat(cb: () => void): () => void;
-  onBibliography(cb: () => void): () => void;
-  onIngestUrl(cb: () => void): () => void;
-  onIngestIdentifier(cb: () => void): () => void;
-  onIngestFile(cb: () => void): () => void;
-  onIngestBulk(cb: () => void): () => void;
+  /** A menu item ran a registered command (#2625). */
+  onCommand(cb: (id: CommandId) => void): () => void;
   onExport(cb: (exporterId: string) => void): () => void;
-  onPublish(cb: () => void): () => void;
-  onImportBibtex(cb: () => void): () => void;
-  onImportZoteroRdf(cb: () => void): () => void;
 }
 
 /**

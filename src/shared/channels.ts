@@ -200,42 +200,13 @@ export const Channels = {
   TEMPLATES_GET: 'templates:get',
   TEMPLATES_SAVE_AS: 'templates:saveAs',
 
-  // Menu → renderer events (main sends, renderer listens)
-  // Project / file menu actions (#673)
-  MENU_OPEN_PROJECT: 'menu:openProject',
-  MENU_NEW_PROJECT: 'menu:newProject',
-  MENU_INSTALL_TUTORIAL: 'menu:installTutorial',
+  // Menu → renderer events (main sends, renderer listens) that carry a payload;
+  // every other menu item is a command, sent as MENU_COMMAND.
   MENU_OPEN_RECENT_PROJECT: 'menu:openRecentProject',
-  MENU_CLOSE_PROJECT: 'menu:closeProject',
-  MENU_CLEAR_RECENT: 'menu:clearRecent',
-  MENU_PRINT: 'menu:print',
-  MENU_ABOUT: 'menu:about',
-  MENU_SHORTCUTS: 'menu:shortcuts',
-  /** File ▸ Open In ▸ Reveal in Finder — renderer reveals the active note (#2411).
-   *  Deliberately NOT `shell:revealFile`: that string is the invoke channel
-   *  behind `api.shell.revealFile`, and sharing it hid a dead menu item. */
-  MENU_REVEAL_FILE: 'menu:revealFile',
-  MENU_OPEN_IN_DEFAULT: 'menu:openInDefault',
-  MENU_OPEN_IN_TERMINAL: 'menu:openInTerminal',
-  MENU_NEW_NOTE: 'menu:newNote',
-  /** File → "New Audio Recording" — renderer starts (or stops) a recording
-   *  that's saved into the thoughtbase and embedded in a note (#2428). */
-  MENU_NEW_AUDIO_RECORDING: 'menu:newAudioRecording',
-  MENU_EDIT_THOUGHTBASE_DOC: 'menu:editThoughtbaseDoc',
-  /** File → "Thoughtbase Properties…" — renderer opens the rename / base-IRI dialog (#1443). */
-  MENU_THOUGHTBASE_PROPERTIES: 'menu:thoughtbaseProperties',
-  MENU_SAVE_AS_TEMPLATE: 'menu:saveAsTemplate',
-  MENU_SAVE_AS_OBJECT_TYPE: 'menu:saveAsObjectType',
-  MENU_INSERT_TEMPLATE: 'menu:insertTemplate',
-  MENU_SAVE: 'menu:save',
-  MENU_TOGGLE_SIDEBAR: 'menu:toggleSidebar',
-  MENU_TOGGLE_PREVIEW: 'menu:togglePreview',
-  MENU_TOGGLE_RIGHT_SIDEBAR: 'menu:toggleRightSidebar',
-  MENU_TOGGLE_CONVERSATIONS: 'menu:toggleConversations',
-  MENU_NEW_CONVERSATION: 'menu:newConversation',
-  MENU_CYCLE_THEME: 'menu:cycleTheme',
   // Direct theme selection from the native View → Theme submenu (#1139).
   MENU_SET_THEME: 'menu:setTheme',
+  /** Every other menu item: run a command from `shared/commands.ts` by id (#2625). */
+  MENU_COMMAND: 'menu:command',
   // Renderer → main: report the current theme so the menu's radio reflects it.
   MENU_REPORT_THEME: 'menu:reportTheme',
   // Preload → main, synchronous, once per page load: the renderer's
@@ -244,48 +215,6 @@ export const Channels = {
   // Renderer → main: report editor gating state (is a note active, is there a
   // selection) so the native menu can gray out note/selection-only items.
   MENU_REPORT_EDITOR_STATE: 'menu:reportEditorState',
-  // Editor split — focus & pane commands (#814)
-  MENU_SPLIT_RIGHT: 'menu:splitRight',
-  MENU_SPLIT_DOWN: 'menu:splitDown',
-  MENU_FOCUS_NEXT_GROUP: 'menu:focusNextGroup',
-  MENU_FOCUS_PREV_GROUP: 'menu:focusPrevGroup',
-  MENU_CLOSE_GROUP: 'menu:closeGroup',
-  MENU_FONT_INCREASE: 'menu:fontIncrease',
-  MENU_FONT_DECREASE: 'menu:fontDecrease',
-  MENU_FONT_RESET: 'menu:fontReset',
-  MENU_QUICK_OPEN: 'menu:quickOpen',
-  MENU_NAV_BACK: 'menu:navBack',
-  MENU_NAV_FORWARD: 'menu:navForward',
-  MENU_GOTO_LINE: 'menu:gotoLine',
-  MENU_FIND: 'menu:find',
-  MENU_FIND_REPLACE: 'menu:findReplace',
-  MENU_FIND_IN_NOTES: 'menu:findInNotes',
-  MENU_REPLACE_IN_NOTES: 'menu:replaceInNotes',
-  MENU_SORT_LINES: 'menu:sortLines',
-  MENU_OPEN_SETTINGS: 'menu:openSettings',
-  MENU_COMMAND_PALETTE: 'menu:commandPalette',
-
-  // Refactor menu (issue #172) — title-bar menu commands dispatched to the renderer.
-  MENU_REFACTOR_RENAME: 'menu:refactor:rename',
-  MENU_REFACTOR_MOVE: 'menu:refactor:move',
-  MENU_REFACTOR_COPY: 'menu:refactor:copy',
-  MENU_REFACTOR_EXTRACT: 'menu:refactor:extract',
-  MENU_REFACTOR_SPLIT_HERE: 'menu:refactor:splitHere',
-  MENU_REFACTOR_SPLIT_BY_HEADING: 'menu:refactor:splitByHeading',
-  MENU_REFACTOR_AUTOTAG: 'menu:refactor:autotag',
-  MENU_REFACTOR_AUTOLINK: 'menu:refactor:autolink',
-  MENU_REFACTOR_AUTOLINK_INBOUND: 'menu:refactor:autolinkInbound',
-  MENU_REFACTOR_DECOMPOSE: 'menu:refactor:decompose',
-
-  // Formatter menu (issue #153)
-  /** Selection-driven Format command. Runs on whatever is selected in
-   *  the left sidebar (files + folders), falling back to the active
-   *  note when nothing is selected. Replaces the old three-variant
-   *  set (Format Current Note / Format Folder / Format All). */
-  MENU_FORMAT: 'menu:format',
-
-  /** Insert/Update Bibliography menu trigger (#113). */
-  MENU_BIBLIOGRAPHY: 'menu:bibliography',
 
   /** Generate (or remove, when there are no remaining citations) the
    *  References section for a note. Returns the rendered entries count
@@ -367,19 +296,6 @@ export const Channels = {
   SOURCES_CREATE_EXCERPT: 'sources:createExcerpt',
   /** Broadcast from main when an excerpt is added/updated/removed so source tabs refresh. */
   EXCERPTS_CHANGED: 'excerpts:changed',
-  /** Menu → "Ingest URL…" — prompts the renderer for a URL and calls SOURCES_INGEST_URL. */
-  MENU_INGEST_URL: 'menu:ingestUrl',
-  /** Menu → "Ingest identifier…" — prompts the renderer for a DOI/arXiv/PMID. */
-  MENU_INGEST_IDENTIFIER: 'menu:ingestIdentifier',
-  /** Menu → "Ingest File as Source…" — opens a file picker in main and ingests it. */
-  MENU_INGEST_FILE: 'menu:ingestFile',
-  /** Menu → "Ingest Zip or Folder as Sources…" — opens a file-or-folder
-   *  picker in main and bulk-ingests it (#2087). */
-  MENU_INGEST_BULK: 'menu:ingestBulk',
-  /** Menu → "Import BibTeX…" — opens a .bib picker and imports each entry as a Source. */
-  MENU_IMPORT_BIBTEX: 'menu:importBibtex',
-  /** Menu → "Import Zotero RDF…" — opens a .rdf picker; lifts attached PDFs when present. */
-  MENU_IMPORT_ZOTERO_RDF: 'menu:importZoteroRdf',
   /** List every indexed source, for the sidebar Sources panel. */
   SOURCES_LIST_ALL: 'sources:listAll',
   /** Delete a source + cascade-delete its excerpts. */
@@ -495,9 +411,7 @@ export const Channels = {
   FORMATTER_SAVE_SETTINGS: 'formatter:saveSettings',
 
   // Graph
-  MENU_NEW_QUERY: 'menu:newQuery',
   MENU_OPEN_STOCK_QUERY: 'menu:openStockQuery',
-  MENU_EDIT_SAVED_QUERIES: 'menu:editSavedQueries',
 
   // Tools for Thought
   TOOL_INVOKE: 'tool:invoke',
@@ -753,8 +667,6 @@ export const Channels = {
   PUBLISH_CHECK_GITHUB: 'publish:checkGitHub',
   /** Menu → "Export…" — opens the preview dialog for a specific exporter id (payload). */
   MENU_EXPORT: 'menu:export',
-  /** Menu → "Publish to Web…" — opens the git-publish dialog (#254). */
-  MENU_PUBLISH: 'menu:publish',
 
   // Renderer → main (for menu-triggered main-process actions)
   APP_GET_INFO: 'app:getInfo',

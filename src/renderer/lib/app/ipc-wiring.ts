@@ -28,10 +28,8 @@ import { tick } from 'svelte';
 import { api } from '../ipc/client';
 import { getNotebaseStore } from '../stores/notebase.svelte';
 import { getEditorStore } from '../stores/editor.svelte';
-import { getAudioRecordingStore } from '../voice/audio-recording.svelte';
 import { getBusyStore } from '../stores/busy.svelte';
 import { getToolPanelStore } from '../stores/tool-panel.svelte';
-import { getConversationsStore } from '../stores/conversations.svelte';
 import { getBookmarksStore } from '../stores/bookmarks.svelte';
 import { getDialogStore } from '../stores/dialogs.svelte';
 import { getToastStore } from '../stores/toasts.svelte';
@@ -44,6 +42,7 @@ import { applyMenuConfig } from '../../../shared/skills/menu-config';
 import { logger } from '../../../shared/logger';
 import type { EditorView } from '@codemirror/view';
 import type { ThemeMode } from '../theme';
+import type { CommandId } from '../../../shared/commands';
 
 /** Focused-pane editor methods the wiring drives (font, find, sort, and the
  *  beforeunload state capture). */
@@ -67,6 +66,8 @@ interface SidebarRef {
 }
 
 export interface IpcWiringCtx {
+  /** Run a registered command — what a `menu:command` item asks for (#2625). */
+  runCommand: (id: CommandId) => void;
   // Component refs (App-owned; resolve at callback time).
   getEditorComponent: () => EditorRef | undefined;
   getEditorComponents: () => Record<string, { restorePosition(offset: number, scrollTop?: number): void } | undefined>;
@@ -77,20 +78,6 @@ export interface IpcWiringCtx {
   getRightSidebar: () => { refresh(): void } | undefined;
 
   // UI-chrome `$state` mutators.
-  getEditorFontSize: () => number;
-  setEditorFontSize: (n: number) => void;
-  toggleSidebar: () => void;
-  toggleRightSidebar: () => void;
-  setShowGotoLine: (v: boolean) => void;
-  setShowGotoNote: (v: boolean) => void;
-  setShowEditSavedQueries: (v: boolean) => void;
-  setShowAbout: (v: boolean) => void;
-  setShowShortcuts: (v: boolean) => void;
-  setShowSettings: (v: boolean) => void;
-  /** Toggle the command palette — the same action Cmd+K performs (#2256). */
-  toggleCommandPalette: () => void;
-  setPublishDialogOpen: (v: boolean) => void;
-  setFindInNotesMode: (m: 'find' | 'replace') => void;
   setExportDialogGroup: (g: string) => void;
   setEmbeddingProgress: (p: { done: number; total: number } | null) => void;
 
@@ -98,47 +85,13 @@ export interface IpcWiringCtx {
   // awaited by the project-open flow return promises so that ordering is kept.
   refreshSourcesCache: () => Promise<void>;
   refreshAliasMap: () => Promise<void>;
-  refreshSavedQueriesCache: () => void;
   refreshBacklinkCount: () => void;
 
   // Ops handlers + App-local flows (fire-and-forget; some return promises).
-  newNote: () => void;
-  editThoughtbaseGuide: () => void;
-  openThoughtbaseProperties: () => void;
-  save: () => void;
-  saveAsTemplate: () => void;
-  saveNoteAsObjectType: () => void;
-  insertTemplate: () => void;
-  cycleTheme: () => void;
   selectTheme: (mode: ThemeMode) => void;
-  openThoughtbase: () => void;
-  newThoughtbase: () => void;
-  installTutorial: () => void;
   showProposals: () => void;
   openRecentThoughtbase: (rootPath: string) => void;
-  navBack: () => void;
-  navForward: () => void;
-  rename: (path: string) => void;
-  move: (path: string) => void;
-  copy: (path: string) => void;
-  extractSelection: () => void;
-  splitHere: () => void;
-  splitByHeading: () => void;
-  autoTag: (path: string) => void;
-  autoLink: (path: string) => void;
-  autoLinkInbound: (path: string) => void;
-  decompose: (path: string) => void;
-  format: () => void;
-  bibliography: () => void;
-  ingestUrl: () => void;
-  ingestIdentifier: () => void;
-  ingestFile: () => void;
-  ingestBulk: () => void;
-  importBibtex: () => void;
-  importZoteroRdf: () => void;
   toolInvoke: (toolId: string) => void;
-  newConversation: () => void;
-  cycleViewMode: () => void;
   maybeShowOnboarding: () => Promise<void>;
   maybeOpenEntrypoints: () => Promise<void>;
 }
@@ -183,7 +136,6 @@ export function registerAppIpc(ctx: IpcWiringCtx): void {
   const editor = getEditorStore();
   const busy = getBusyStore();
   const toolPanel = getToolPanelStore();
-  const conversationsStore = getConversationsStore();
   const bookmarkStore = getBookmarksStore();
   const { showConfirm } = getDialogStore();
 
@@ -334,99 +286,15 @@ export function registerAppIpc(ctx: IpcWiringCtx): void {
     );
   });
 
-  // Listen for menu events from main process
-  api.menu.onNewNote(() => ctx.newNote());
-  api.menu.onNewAudioRecording(() => {
-    void getAudioRecordingStore().toggle(() => ctx.getEditorComponent()?.getView());
-  });
-  api.menu.onEditThoughtbaseDoc(() => { void ctx.editThoughtbaseGuide(); });
-  api.menu.onThoughtbaseProperties(() => { ctx.openThoughtbaseProperties(); });
-  api.menu.onSave(() => ctx.save());
-  api.menu.onSaveAsTemplate(() => { void ctx.saveAsTemplate(); });
-  api.menu.onSaveAsObjectType(() => { void ctx.saveNoteAsObjectType(); });
-  api.menu.onInsertTemplate(() => { void ctx.insertTemplate(); });
-  api.menu.onCycleTheme(() => ctx.cycleTheme());
+  // Menu events from the main process. Every argument-free menu item is a
+  // command (#2625), run from the same action table as the palette.
+  api.menu.onCommand((id) => ctx.runCommand(id));
   api.menu.onSetTheme((mode) => ctx.selectTheme(mode));
-  api.menu.onFontIncrease(() => { const ec = ctx.getEditorComponent(); ec?.changeFontSize(1); ctx.setEditorFontSize(ec?.currentFontSize() ?? ctx.getEditorFontSize()); });
-  api.menu.onFontDecrease(() => { const ec = ctx.getEditorComponent(); ec?.changeFontSize(-1); ctx.setEditorFontSize(ec?.currentFontSize() ?? ctx.getEditorFontSize()); });
-  api.menu.onFontReset(() => { ctx.getEditorComponent()?.resetFontSize(); ctx.setEditorFontSize(14); });
-  api.menu.onToggleSidebar(() => { ctx.toggleSidebar(); });
-  api.menu.onToggleRightSidebar(() => { ctx.toggleRightSidebar(); });
-  api.menu.onToggleConversations(() => conversationsStore.toggle());
-  api.menu.onNewConversation(() => { void ctx.newConversation(); });
-  api.menu.onTogglePreview(() => ctx.cycleViewMode());
-  // Editor split — pane focus & layout commands (#814).
-  api.menu.onSplitRight(() => editor.splitGroup(editor.activeGroupId, 'horizontal'));
-  api.menu.onSplitDown(() => editor.splitGroup(editor.activeGroupId, 'vertical'));
-  api.menu.onFocusNextGroup(() => editor.focusNextGroup());
-  api.menu.onFocusPrevGroup(() => editor.focusPreviousGroup());
-  api.menu.onCloseGroup(() => editor.closeActiveGroup());
-  api.menu.onOpenProject(() => ctx.openThoughtbase());
-  api.menu.onNewProject(() => ctx.newThoughtbase());
-  api.menu.onInstallTutorial(() => ctx.installTutorial());
   // Native proposal-arrival notification clicked → surface the Proposals panel (#1541).
   api.proposals.onShowRequested(() => ctx.showProposals());
   api.menu.onOpenRecentProject((p) => ctx.openRecentThoughtbase(p));
-  api.menu.onCloseProject(() => {
-    notebase.close();
-    editor.clear();
-  });
-  api.menu.onClearRecent(() => api.notebase.clearRecent());
-  api.menu.onNavBack(() => ctx.navBack());
-  api.menu.onNavForward(() => ctx.navForward());
-  api.menu.onGotoLine(() => { if (editor.activeTab) ctx.setShowGotoLine(true); });
-  api.menu.onQuickOpen(() => {
-    // Lazily refresh the palette's source + query backing data so
-    // its scope chip counts are fresh when the user opens it.
-    void ctx.refreshSourcesCache();
-    ctx.refreshSavedQueriesCache();
-    ctx.setShowGotoNote(true);
-  });
-  api.menu.onNewQuery(() => editor.openQuery());
   api.menu.onOpenStockQuery(({ query, language }) => editor.openQuery(query, language));
-  api.menu.onEditSavedQueries(() => { ctx.setShowEditSavedQueries(true); });
-  api.menu.onSortLines(() => ctx.getEditorComponent()?.runSortLines());
-  api.menu.onFind(() => ctx.getEditorComponent()?.openFind());
-  api.menu.onFindReplace(() => ctx.getEditorComponent()?.openFindReplace());
-  api.menu.onFindInNotes(() => { ctx.setFindInNotesMode('find'); });
-  api.menu.onReplaceInNotes(() => { ctx.setFindInNotesMode('replace'); });
-  api.menu.onPrint(() => window.print());
-  api.menu.onAbout(() => { ctx.setShowAbout(true); });
-  api.menu.onShortcuts(() => { ctx.setShowShortcuts(true); });
-  // No active file → nothing to reveal; a silent no-op, like Open in Default App.
-  api.menu.onRevealFile(() => { if (editor.activeFilePath) void api.shell.revealFile(editor.activeFilePath); });
-  api.menu.onOpenInDefault(() => { if (editor.activeFilePath) void api.shell.openInDefault(editor.activeFilePath); });
-  api.menu.onOpenInTerminal(() => { void api.shell.openInTerminal(editor.activeFilePath ?? undefined); });
-  api.menu.onOpenSettings(() => { ctx.setShowSettings(true); });
-  api.menu.onCommandPalette(() => { ctx.toggleCommandPalette(); });
-
-  // Refactor menu (issue #172)
-  api.menu.onRefactorRename(() => { if (editor.activeFilePath) ctx.rename(editor.activeFilePath); });
-  api.menu.onRefactorMove(() => { if (editor.activeFilePath) ctx.move(editor.activeFilePath); });
-  api.menu.onRefactorCopy(() => { if (editor.activeFilePath) ctx.copy(editor.activeFilePath); });
-  api.menu.onRefactorExtract(() => ctx.extractSelection());
-  api.menu.onRefactorSplitHere(() => ctx.splitHere());
-  api.menu.onRefactorSplitByHeading(() => ctx.splitByHeading());
-  api.menu.onRefactorAutoTag(() => { if (editor.activeFilePath) ctx.autoTag(editor.activeFilePath); });
-  api.menu.onRefactorAutoLink(() => { if (editor.activeFilePath) ctx.autoLink(editor.activeFilePath); });
-  api.menu.onRefactorAutoLinkInbound(() => { if (editor.activeFilePath) ctx.autoLinkInbound(editor.activeFilePath); });
-  api.menu.onRefactorDecompose(() => { if (editor.activeFilePath) ctx.decompose(editor.activeFilePath); });
-
-  // Format menu (issue #153)
-  api.menu.onFormat(() => ctx.format());
-
-  // Insert/Update Bibliography (#113)
-  api.menu.onBibliography(() => { void ctx.bibliography(); });
-
-  // Ingest URL (#93)
-  api.menu.onIngestUrl(() => ctx.ingestUrl());
-  api.menu.onIngestIdentifier(() => ctx.ingestIdentifier());
-  api.menu.onIngestFile(() => ctx.ingestFile());
-  api.menu.onIngestBulk(() => ctx.ingestBulk());
-  api.menu.onImportBibtex(() => ctx.importBibtex());
-  api.menu.onImportZoteroRdf(() => ctx.importZoteroRdf());
   api.menu.onExport((groupId) => { ctx.setExportDialogGroup(groupId); });
-  api.menu.onPublish(() => { ctx.setPublishDialogOpen(true); });
 
   // Progress updates during a bulk import — rewrites the busy-overlay
   // label in place so the user sees running counts on large imports.

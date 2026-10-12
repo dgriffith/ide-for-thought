@@ -27,9 +27,9 @@ import { closeMinerva, launchMinerva, projectRoot } from './helpers/launch';
 
 /** The app-level polite live region (LiveAnnouncer.svelte). */
 const LIVE_REGION = '[data-testid="live-announcer-polite"]';
-/** Mirrors `MENU_NEW_CONVERSATION` in src/shared/channels.ts (hardcoded so the
- *  spec doesn't import app modules into the Playwright node context). */
-const MENU_NEW_CONVERSATION = 'menu:newConversation';
+/** Learning ▸ Ask a Question's command id in src/shared/commands.ts (hardcoded
+ *  so the spec doesn't import app modules into the Playwright node context). */
+const ASK_A_QUESTION = 'learning.askQuestion';
 const MODEL_ID = 'e2e-stub-model';
 
 /** Streamed as this many separate SSE deltas — enough that a per-token
@@ -114,10 +114,10 @@ test('conversation: a streamed reply is announced once, on completion, not per t
         .observe(el, { childList: true, characterData: true, subtree: true });
     });
 
-    // File ▸ New Conversation, exactly as the menu delivers it.
-    await app.evaluate(({ BrowserWindow }, channel) => {
-      BrowserWindow.getAllWindows()[0]!.webContents.send(channel);
-    }, MENU_NEW_CONVERSATION);
+    // Learning ▸ Ask a Question, exactly as the menu delivers it.
+    await app.evaluate(({ BrowserWindow }, id) => {
+      BrowserWindow.getAllWindows()[0]!.webContents.send('menu:command', id);
+    }, ASK_A_QUESTION);
     const composer = win.getByPlaceholder('Ask anything, or type / for skills…');
     await expect(composer).toBeVisible({ timeout: 10_000 });
     await composer.fill('What is the answer?');

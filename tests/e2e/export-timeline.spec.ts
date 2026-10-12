@@ -75,7 +75,7 @@ test('a Timeline exports as a static, linked picture of its range, with its list
 
     await test.step('open the note: the preview embed is a read-only timeline', async () => {
       await note.click();
-      await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.webContents.send('menu:togglePreview'); });
+      await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.webContents.send('menu:command', 'view.togglePreview'); });
       const embed = win.locator('.preview .object-view-block');
       await expect(embed.locator('[data-timeline-event]').first()).toBeVisible({ timeout: 15_000 });
       await expect(embed.locator('.tl-toolbar button')).toHaveText(['List']);

@@ -125,7 +125,8 @@ test('capture the docs screenshots', async () => {
   fs.writeFileSync(path.join(userDataDir, 'session.json'), JSON.stringify([{ x: 40, y: 40, width: 1440, height: 900, rootPath: root }]));
 
   const app = await launchMinerva({ userDataDir, env: { MINERVA_E2E: '1' } });
-  const send = (ch: string) => app.evaluate(({ BrowserWindow }, c) => { BrowserWindow.getAllWindows()[0]!.webContents.send(c); }, ch);
+  // Run a menu command by id, as the menu bar does (#2625).
+  const send = (id: string) => app.evaluate(({ BrowserWindow }, c) => { BrowserWindow.getAllWindows()[0]!.webContents.send(c); }, id);
   try {
     const win = await app.firstWindow({ timeout: 20_000 });
     await expect(win.getByRole('button', { name: 'Open Thoughtbase' })).toHaveCount(0, { timeout: 25_000 });
@@ -199,7 +200,7 @@ test('capture the docs screenshots', async () => {
       await row('trip/prague').click();
       await row('trip/prague/Charles Bridge.md').click();
       const props = win.locator('.right-sidebar');
-      if (!(await props.isVisible())) await send('menu:toggleRightSidebar');
+      if (!(await props.isVisible())) await send('view.toggleRightSidebar');
       await win.locator('.right-sidebar').getByRole('button', { name: /Properties/ }).first().click();
       await win.waitForTimeout(600);
       await shot(win, '.right-sidebar', 'right-sidebar-properties.png');
@@ -221,7 +222,7 @@ test('capture the docs screenshots', async () => {
     });
 
     await test.step('Settings: Versioning, the type editor, MCP Servers', async () => {
-      await send('menu:openSettings');
+      await send('app.settings');
       const settings = win.getByRole('dialog', { name: 'Settings' });
       await expect(settings).toBeVisible();
       await settings.getByRole('button', { name: /^Versioning/ }).click();
@@ -260,7 +261,7 @@ test('capture the docs screenshots', async () => {
       // Hide the sidebar so all five columns fit, and stop below the
       // tallest column (the first, with two cards) rather than the board's
       // full height.
-      await send('menu:toggleSidebar');
+      await send('view.toggleSidebar');
       await win.waitForTimeout(400);
       await shotUnion(win, ['.type-view'], 'left-sidebar-objects-kanban.png', { bottomOf: '.kb-column', pad: 24 });
     });
@@ -274,12 +275,12 @@ test('capture the docs screenshots', async () => {
       }
       // The board's step hid the sidebar: show it to reach the Objects panel,
       // then hide it again so the drawing has the window's width.
-      await send('menu:toggleSidebar');
+      await send('view.toggleSidebar');
       await win.locator('.panel-tab[title="Objects"]').first().click();
       await win.getByRole('button', { name: 'Open Event view' }).click({ force: true });
       await win.getByRole('tab', { name: 'Timeline' }).click();
       await expect(win.locator('.tl-plot [data-timeline-event]')).toHaveCount(EVENTS.filter((e) => e[3]).length, { timeout: 15_000 });
-      await send('menu:toggleSidebar');
+      await send('view.toggleSidebar');
       // The drawing fills the view's height and the Undated tray sits at the
       // bottom, so a shorter window keeps the tray in sight of the events
       // rather than a screen's worth of empty lanes below them.

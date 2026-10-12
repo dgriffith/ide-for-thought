@@ -57,7 +57,7 @@ test('mermaid diagrams export as inline SVG with every label intact (#2513)', as
     const preview = await test.step('open the note in the preview', async () => {
       await win.locator('[data-relative-path="trip"]').first().click();
       await win.locator('[data-relative-path="trip/plan.md"]').first().click();
-      await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.webContents.send('menu:togglePreview'); });
+      await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.webContents.send('menu:command', 'view.togglePreview'); });
       await expect(win.locator('.preview .mermaid-block svg')).toHaveCount(1, { timeout: 20_000 });
       await expect(win.locator('.preview .mermaid-error')).toHaveCount(1, { timeout: 20_000 });
       return diagrams(win, '.preview');

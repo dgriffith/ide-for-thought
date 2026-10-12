@@ -26,7 +26,9 @@ import { toggleEditorDictation } from '../editor/dictation';
 import { getAudioRecordingStore } from '../voice/audio-recording.svelte';
 import type { EditorView } from '@codemirror/view';
 import type { ThemeMode } from '../theme';
-import type { CommandDeps } from '../command-palette/registry';
+import type { PaletteState } from '../command-palette/registry';
+import type { CommandId } from '../../../shared/commands';
+import { api } from '../ipc/client';
 import type { KeymapDeps } from '../keymap/handle-keydown';
 
 /** Minimal structural view of the focused pane's Editor instance — only the
@@ -51,6 +53,8 @@ export interface CommandKeymapCtx {
   openProject: () => void;
   newProject: () => void;
   editThoughtbaseGuide: () => void;
+  openThoughtbaseProperties: () => void;
+  installTutorial: () => void;
   saveAsTemplate: () => void;
   insertTemplate: () => void;
   extractSelection: () => void;
@@ -103,13 +107,17 @@ export interface CommandKeymapCtx {
   toggleQuickOpen: () => void;
   setShowEditSavedQueries: (v: boolean) => void;
   setShowSettings: (v: boolean) => void;
+  setShowAbout: (v: boolean) => void;
+  setShowShortcuts: (v: boolean) => void;
+  setPublishDialogOpen: (v: boolean) => void;
   toggleSidebar: () => void;
   toggleRightSidebar: () => void;
   toggleCommandPalette: () => void;
 }
 
 export function createCommandKeymap(ctx: CommandKeymapCtx): {
-  commandDeps: CommandDeps;
+  paletteState: PaletteState;
+  commandActions: Record<CommandId, () => void>;
   keymapDeps: KeymapDeps;
 } {
   const notebase = getNotebaseStore();
@@ -119,79 +127,119 @@ export function createCommandKeymap(ctx: CommandKeymapCtx): {
   const recordings = getAudioRecordingStore();
   const focusedView = () => ctx.getEditorComponent()?.getView() ?? null;
 
-  const commandDeps: CommandDeps = {
+  const paletteState: PaletteState = {
     hasProject: () => !!notebase.meta,
     hasNote: () => !!editor.activeFilePath,
     hasActiveNoteTab: () => editor.activeTab?.type === 'note',
     canGoBack: () => nav.canGoBack,
     canGoForward: () => nav.canGoForward,
-    newNote: ctx.newNote,
-    save: ctx.save,
-    openProject: ctx.openProject,
-    newProject: ctx.newProject,
-    closeProject: () => { notebase.close(); editor.clear(); },
-    editThoughtbaseGuide: ctx.editThoughtbaseGuide,
-    print: () => window.print(),
-    saveAsTemplate: ctx.saveAsTemplate,
-    insertTemplate: ctx.insertTemplate,
-    dictate: () => { void toggleEditorDictation(ctx.getEditorComponent()?.getView() ?? null); },
-    recordAudio: () => { void recordings.toggle(focusedView); },
-    transcribeRecording: () => { void recordings.transcribeAtCursor(focusedView); },
-    summarizeRecording: () => { recordings.summarizeAtCursor(focusedView, ctx.invokeTool); },
-    find: () => ctx.getEditorComponent()?.openFind(),
-    findReplace: () => ctx.getEditorComponent()?.openFindReplace(),
-    findInNotes: () => ctx.setFindInNotesMode('find'),
-    replaceInNotes: () => ctx.setFindInNotesMode('replace'),
-    gotoLine: () => ctx.setShowGotoLine(true),
-    sortLines: () => ctx.getEditorComponent()?.runSortLines(),
-    toggleSidebar: ctx.toggleSidebar,
-    toggleRightSidebar: ctx.toggleRightSidebar,
-    togglePreview: ctx.cycleViewMode,
-    toggleConversations: () => conversationsStore.toggle(),
-    newConversation: ctx.newConversation,
-    setTheme: (mode) => ctx.selectTheme(mode),
     currentTheme: () => ctx.getThemeLabel(),
-    fontIncrease: () => {
-      const ec = ctx.getEditorComponent();
-      ec?.changeFontSize(1);
-      ctx.setEditorFontSize(ec?.currentFontSize() ?? ctx.getEditorFontSize());
-    },
-    fontDecrease: () => {
-      const ec = ctx.getEditorComponent();
-      ec?.changeFontSize(-1);
-      ctx.setEditorFontSize(ec?.currentFontSize() ?? ctx.getEditorFontSize());
-    },
-    fontReset: () => { ctx.getEditorComponent()?.resetFontSize(); ctx.setEditorFontSize(14); },
-    quickOpen: () => {
+  };
+
+  /** Run `fn` on the active note's path, if there is one. */
+  const onActive = (fn: (path: string) => void) => () => { if (editor.activeFilePath) fn(editor.activeFilePath); };
+  const fontStep = (delta: number) => () => {
+    const ec = ctx.getEditorComponent();
+    ec?.changeFontSize(delta);
+    ctx.setEditorFontSize(ec?.currentFontSize() ?? ctx.getEditorFontSize());
+  };
+  const theme = (mode: ThemeMode) => () => ctx.selectTheme(mode);
+
+  // What each command does (#2625) — the one place, whichever surface runs it:
+  // the menu bar (`menu:command`) or the palette. Keyed by `CommandId`, so a
+  // command declared in `shared/commands.ts` without an action here doesn't
+  // compile.
+  const commandActions: Record<CommandId, () => void> = {
+    // ── File ──
+    'file.newNote': ctx.newNote,
+    'file.save': ctx.save,
+    'file.openProject': ctx.openProject,
+    'file.newProject': ctx.newProject,
+    'file.closeProject': () => { notebase.close(); editor.clear(); },
+    'file.editThoughtbaseGuide': ctx.editThoughtbaseGuide,
+    'file.print': () => window.print(),
+    'file.saveAsTemplate': ctx.saveAsTemplate,
+    'edit.insertTemplate': ctx.insertTemplate,
+    'edit.dictate': () => { void toggleEditorDictation(ctx.getEditorComponent()?.getView() ?? null); },
+    'file.newAudioRecording': () => { void recordings.toggle(focusedView); },
+    'edit.transcribeRecording': () => { void recordings.transcribeAtCursor(focusedView); },
+    'edit.summarizeRecording': () => { recordings.summarizeAtCursor(focusedView, ctx.invokeTool); },
+    'file.clearRecent': () => { void api.notebase.clearRecent(); },
+    'file.thoughtbaseProperties': ctx.openThoughtbaseProperties,
+    // No active file → nothing to reveal; a silent no-op.
+    'file.revealFile': onActive((p) => { void api.shell.revealFile(p); }),
+    'file.openInDefault': onActive((p) => { void api.shell.openInDefault(p); }),
+    'file.openInTerminal': () => { void api.shell.openInTerminal(editor.activeFilePath ?? undefined); },
+    // ── Edit ──
+    'edit.find': () => ctx.getEditorComponent()?.openFind(),
+    'edit.findReplace': () => ctx.getEditorComponent()?.openFindReplace(),
+    'edit.findInNotes': () => ctx.setFindInNotesMode('find'),
+    'edit.replaceInNotes': () => ctx.setFindInNotesMode('replace'),
+    'edit.gotoLine': () => { if (editor.activeTab) ctx.setShowGotoLine(true); },
+    'edit.sortLines': () => ctx.getEditorComponent()?.runSortLines(),
+    // ── View ──
+    'view.commandPalette': ctx.toggleCommandPalette,
+    'view.toggleSidebar': ctx.toggleSidebar,
+    'view.toggleRightSidebar': ctx.toggleRightSidebar,
+    'view.togglePreview': ctx.cycleViewMode,
+    'view.toggleConversations': () => conversationsStore.toggle(),
+    'view.theme.dark': theme('dark'),
+    'view.theme.light': theme('light'),
+    'view.theme.contrast': theme('contrast'),
+    'view.theme.system': theme('system'),
+    'view.cycleTheme': ctx.cycleTheme,
+    'view.fontIncrease': fontStep(1),
+    'view.fontDecrease': fontStep(-1),
+    'view.fontReset': () => { ctx.getEditorComponent()?.resetFontSize(); ctx.setEditorFontSize(14); },
+    // Editor split — pane focus & layout (#814).
+    'view.splitRight': () => editor.splitGroup(editor.activeGroupId, 'horizontal'),
+    'view.splitDown': () => editor.splitGroup(editor.activeGroupId, 'vertical'),
+    'view.focusNextGroup': () => editor.focusNextGroup(),
+    'view.focusPrevGroup': () => editor.focusPreviousGroup(),
+    'view.closeGroup': () => editor.closeActiveGroup(),
+    // ── Learning ──
+    'learning.askQuestion': ctx.newConversation,
+    // ── Navigate ──
+    'nav.quickOpen': () => {
+      // Refresh the palette's source + query backing data so its scope chip
+      // counts are fresh when it opens.
       ctx.refreshSourcesCache();
       ctx.refreshSavedQueriesCache();
       ctx.setShowGotoNote(true);
     },
-    navBack: ctx.navBack,
-    navForward: ctx.navForward,
-    renameActive: () => { if (editor.activeFilePath) ctx.rename(editor.activeFilePath); },
-    moveActive: () => { if (editor.activeFilePath) ctx.move(editor.activeFilePath); },
-    copyActive: () => { if (editor.activeFilePath) ctx.copy(editor.activeFilePath); },
-    extractSelection: ctx.extractSelection,
-    splitHere: ctx.splitHere,
-    splitByHeading: ctx.splitByHeading,
-    autoTagActive: () => { if (editor.activeFilePath) ctx.autoTag(editor.activeFilePath); },
-    promoteToType: () => ctx.promoteToType(),
-    saveNoteAsObjectType: () => ctx.saveNoteAsObjectType(),
-    autoLinkActive: () => { if (editor.activeFilePath) ctx.autoLink(editor.activeFilePath); },
-    autoLinkInboundActive: () => { if (editor.activeFilePath) ctx.autoLinkInbound(editor.activeFilePath); },
-    decomposeActive: () => { if (editor.activeFilePath) ctx.decompose(editor.activeFilePath); },
-    format: ctx.format,
-    ingestUrl: ctx.ingestUrl,
-    ingestIdentifier: ctx.ingestIdentifier,
-    ingestFile: ctx.ingestFile,
-    ingestBulk: ctx.ingestBulk,
-    importBibtex: ctx.importBibtex,
-    importZoteroRdf: ctx.importZoteroRdf,
-    bibliography: ctx.bibliography,
-    newQuery: () => editor.openQuery(),
-    editSavedQueries: () => ctx.setShowEditSavedQueries(true),
-    openSettings: () => ctx.setShowSettings(true),
+    'nav.back': ctx.navBack,
+    'nav.forward': ctx.navForward,
+    // ── Refactor ──
+    'refactor.rename': onActive(ctx.rename),
+    'refactor.move': onActive(ctx.move),
+    'refactor.copy': onActive(ctx.copy),
+    'refactor.extract': ctx.extractSelection,
+    'refactor.splitHere': ctx.splitHere,
+    'refactor.splitByHeading': ctx.splitByHeading,
+    'refactor.autoTag': onActive(ctx.autoTag),
+    'objects.promoteToType': () => ctx.promoteToType(),
+    'objects.saveAsObjectType': () => ctx.saveNoteAsObjectType(),
+    'refactor.autoLink': onActive(ctx.autoLink),
+    'refactor.autoLinkInbound': onActive(ctx.autoLinkInbound),
+    'refactor.decompose': onActive(ctx.decompose),
+    'refactor.format': ctx.format,
+    // ── Research ──
+    'research.ingestUrl': ctx.ingestUrl,
+    'research.ingestIdentifier': ctx.ingestIdentifier,
+    'research.ingestFile': ctx.ingestFile,
+    'research.ingestBulk': ctx.ingestBulk,
+    'research.importBibtex': ctx.importBibtex,
+    'research.importZoteroRdf': ctx.importZoteroRdf,
+    'research.bibliography': ctx.bibliography,
+    // ── Query / Export ──
+    'query.new': () => editor.openQuery(),
+    'query.editSaved': () => ctx.setShowEditSavedQueries(true),
+    'export.publish': () => ctx.setPublishDialogOpen(true),
+    // ── App ──
+    'app.settings': () => ctx.setShowSettings(true),
+    'app.about': () => ctx.setShowAbout(true),
+    'app.shortcuts': () => ctx.setShowShortcuts(true),
+    'app.installTutorial': ctx.installTutorial,
   };
 
   const keymapDeps: KeymapDeps = {
@@ -212,5 +260,5 @@ export function createCommandKeymap(ctx: CommandKeymapCtx): {
     openConversation: ctx.openConversation,
   };
 
-  return { commandDeps, keymapDeps };
+  return { paletteState, commandActions, keymapDeps };
 }

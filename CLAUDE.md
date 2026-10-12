@@ -406,7 +406,12 @@ channel's didn't.
 
 So a menu item does exactly one of:
 
-- **`send()` a channel** to the renderer (most of them);
+- **`send()` a channel** to the renderer (most of them). An item with no
+  payload is a registered command (#2625): declared once in
+  `src/shared/commands.ts`, placed with `command(id)`, sent as
+  `menu:command`, and run from the same action table as the palette
+  (`renderer/lib/app/command-keymap.ts`). `command-registry.test.ts` fails
+  on an argument-free `send()` in `menu.ts`;
 - **call a window/app-lifecycle function** — `createWindow`, `printToPDF`,
   `checkForUpdatesNow`, `shell.openExternal`, `installMinervaCommand`. These are
   genuinely window-scoped or stateless OS side-effects with no sensible IPC
@@ -1247,7 +1252,7 @@ untested ones sit in a `KNOWN_UNTESTED` list that may only shrink.
 
 ### The architecture ratchets are inventoried in `docs/architecture-ratchets.md` (#2262)
 
-`tests/architecture/` holds **51** tests that check the shape of the codebase
+`tests/architecture/` holds **52** tests that check the shape of the codebase
 rather than the behavior of any feature — the package-cycle check, the file-size
 budgets, the anti-pattern ratchets, the dialog-adoption ratchet, the two
 temp-project-fixture ratchets, the CI-workflow checks, and so on. Most of them

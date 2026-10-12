@@ -153,10 +153,10 @@ async function openFirstNote(win: Page): Promise<void> {
 }
 
 /** Send a native-menu command to the renderer, the way menu.ts does. */
-async function sendMenu(app: ElectronApplication, channel: string): Promise<void> {
-  await app.evaluate(({ BrowserWindow }, ch) => {
-    BrowserWindow.getAllWindows()[0]?.webContents.send(ch);
-  }, channel);
+async function sendMenu(app: ElectronApplication, commandId: string): Promise<void> {
+  await app.evaluate(({ BrowserWindow }, id) => {
+    BrowserWindow.getAllWindows()[0]?.webContents.send('menu:command', id);
+  }, commandId);
 }
 
 /**
@@ -285,7 +285,7 @@ for (const theme of THEMES) {
 
     test('Settings dialog (every section)', async () => {
       await withApp({ theme, withProject: true }, async ({ app, win }) => {
-        await sendMenu(app, 'menu:openSettings');
+        await sendMenu(app, 'app.settings');
         const dialog = win.getByRole('dialog', { name: 'Settings' });
         await expect(dialog).toBeVisible({ timeout: 10_000 });
         const tabs = dialog.locator('nav.tabs button.tab');
@@ -305,7 +305,7 @@ for (const theme of THEMES) {
 
     test('Query panel (with results)', async () => {
       await withApp({ theme, withProject: true }, async ({ app, win }) => {
-        await sendMenu(app, 'menu:newQuery');
+        await sendMenu(app, 'query.new');
         await expect(win.locator('.query-panel')).toBeVisible({ timeout: 10_000 });
         await expect(win.locator('.query-panel .cm-content')).toBeVisible({ timeout: 10_000 });
         await expectNoSerious(win, 'Query panel (empty)', theme);

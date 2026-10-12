@@ -79,6 +79,7 @@ import type { SkillCatalogInfo } from './skills/types';
 import type { TypeCatalogInfo, NoteTypedProperties, TypeInstancesResult, PropertyDef } from './objects/type-def';
 import type { ProviderId } from './tools/providers';
 import type { MenuConfig } from './skills/menu-config';
+import type { CommandId } from './commands';
 import type {
   SourceMetadata,
   CollectionsFile,
@@ -86,6 +87,7 @@ import type {
   SmartCollection,
   SmartCollectionPredicate,
   ReadStatus,
+  MenuEditorState,
 } from './types';
 import type { ParsedReference } from './mine-references';
 import type { ResolveCandidate } from './resolve-stub';
@@ -636,91 +638,7 @@ export interface ChannelMap {
  * legacy `subscribeIpc` forwarder and will move here next.
  */
 
-/**
- * Zero-arg native-menu command names (#2106) — every `menu:*` channel whose
- * payload is `void`. This is the single source of truth: `setTheme`,
- * `openStockQuery`, `export`, and `openRecentProject` carry an argument and
- * stay hand-typed directly on `EventMap`, but every zero-arg command lives
- * here once, and the corresponding `EventMap['menu:*']` entries are derived
- * from it below (`MenuCommandEventMap`) instead of hand-typed one by one, so
- * the tuple and the type can no longer drift apart.
- */
-export const MENU_COMMANDS = [
-  'about',
-  'bibliography',
-  'clearRecent',
-  'closeGroup',
-  'closeProject',
-  'commandPalette',
-  'cycleTheme',
-  'editSavedQueries',
-  'editThoughtbaseDoc',
-  'find',
-  'findInNotes',
-  'findReplace',
-  'focusNextGroup',
-  'focusPrevGroup',
-  'fontDecrease',
-  'fontIncrease',
-  'fontReset',
-  'format',
-  'gotoLine',
-  'importBibtex',
-  'importZoteroRdf',
-  'ingestBulk',
-  'ingestFile',
-  'ingestIdentifier',
-  'ingestUrl',
-  'insertTemplate',
-  'installTutorial',
-  'navBack',
-  'navForward',
-  'newAudioRecording',
-  'newConversation',
-  'newNote',
-  'newProject',
-  'newQuery',
-  'openInDefault',
-  'openInTerminal',
-  'openProject',
-  'openSettings',
-  'print',
-  'publish',
-  'quickOpen',
-  'refactor:autolink',
-  'refactor:autolinkInbound',
-  'refactor:autotag',
-  'refactor:copy',
-  'refactor:decompose',
-  'refactor:extract',
-  'refactor:move',
-  'refactor:rename',
-  'refactor:splitByHeading',
-  'refactor:splitHere',
-  'replaceInNotes',
-  'revealFile',
-  'reportEditorState',
-  'reportTheme',
-  'save',
-  'saveAsObjectType',
-  'saveAsTemplate',
-  'shortcuts',
-  'sortLines',
-  'splitDown',
-  'splitRight',
-  'thoughtbaseProperties',
-  'toggleConversations',
-  'togglePreview',
-  'toggleRightSidebar',
-  'toggleSidebar',
-] as const;
-
-/** `EventMap['menu:*']` entries for every zero-arg command in `MENU_COMMANDS`. */
-type MenuCommandEventMap = {
-  [K in (typeof MENU_COMMANDS)[number] as `menu:${K}`]: () => void;
-};
-
-export interface EventMap extends MenuCommandEventMap {
+export interface EventMap {
   'project:opened': (meta: { rootPath: string; name: string }) => void;
   'notebase:fileChanged': (path: string) => void;
   'notebase:fileCreated': (path: string) => void;
@@ -766,9 +684,14 @@ export interface EventMap extends MenuCommandEventMap {
   'conversation:mcpConfirm': (req: McpConfirmRequest) => void;
   'tool:stream': (chunk: string) => void;
   'tool:invoke': (toolId: string) => void;
-  // Native-menu command channels (#1633) — payloaded here; the ~63 zero-arg
-  // `menu:*` commands are derived from `MENU_COMMANDS` above (#2106).
+  // Native-menu channels (#1633). Every argument-free menu item is a command,
+  // sent as `menu:command` with its id (#2625); these four carry a payload.
   'menu:setTheme': (mode: ThemeMode) => void;
+  /** Run a registered command (#2625) — what every other menu item sends. */
+  'menu:command': (id: CommandId) => void;
+  // Renderer → main reports the menu's radio and gating read.
+  'menu:reportTheme': (mode: ThemeMode) => void;
+  'menu:reportEditorState': (state: MenuEditorState) => void;
   'menu:openStockQuery': (payload: { query: string; language: 'sparql' | 'sql' }) => void;
   'menu:export': (exporterId: string) => void;
   'menu:openRecentProject': (path: string) => void;

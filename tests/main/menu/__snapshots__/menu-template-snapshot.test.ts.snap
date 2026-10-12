@@ -2,11 +2,11 @@
 
 exports[`the menu bar (#2625) > with a thoughtbase open, a note active and text selected 1`] = `
 "Minerva
-  About Minerva → send menu:about
+  About Minerva → send menu:command ["app.about"]
   ---
   Check for Updates… → checkForUpdatesNow
   ---
-  Preferences… [Cmd+,] → send menu:openSettings
+  Preferences… [Cmd+,] → send menu:command ["app.settings"]
   ---
   (role services)
   ---
@@ -16,38 +16,38 @@ exports[`the menu bar (#2625) > with a thoughtbase open, a note active and text 
   ---
   (role quit)
 File
-  New Thoughtbase… → send menu:newProject
-  Open Thoughtbase… [CmdOrCtrl+O] → send menu:openProject
+  New Thoughtbase… → send menu:command ["file.newProject"]
+  Open Thoughtbase… [CmdOrCtrl+O] → send menu:command ["file.openProject"]
   Recent Thoughtbases
     alpha → send menu:openRecentProject ["/projects/alpha"]
     ---
-    Clear Recent Thoughtbases → send menu:clearRecent
-  Close Thoughtbase [CmdOrCtrl+Shift+W] → send menu:closeProject
-  Edit Thoughtbase Guide… → send menu:editThoughtbaseDoc
-  Thoughtbase Properties… → send menu:thoughtbaseProperties
+    Clear Recent Thoughtbases → send menu:command ["file.clearRecent"]
+  Close Thoughtbase [CmdOrCtrl+Shift+W] → send menu:command ["file.closeProject"]
+  Edit Thoughtbase Guide… → send menu:command ["file.editThoughtbaseGuide"]
+  Thoughtbase Properties… → send menu:command ["file.thoughtbaseProperties"]
   ---
-  New Note [CmdOrCtrl+N] → send menu:newNote
-  New Audio Recording → send menu:newAudioRecording
-  Save [CmdOrCtrl+S] → send menu:save
-  Save as Template… → send menu:saveAsTemplate
-  Save Note as Object Type… → send menu:saveAsObjectType
+  New Note [CmdOrCtrl+N] → send menu:command ["file.newNote"]
+  New Audio Recording → send menu:command ["file.newAudioRecording"]
+  Save [CmdOrCtrl+S] → send menu:command ["file.save"]
+  Save as Template… → send menu:command ["file.saveAsTemplate"]
+  Save Note as Object Type… → send menu:command ["objects.saveAsObjectType"]
   ---
-  Ingest URL as Source… [CmdOrCtrl+Shift+I] → send menu:ingestUrl
-  Ingest Identifier… [CmdOrCtrl+Shift+D] → send menu:ingestIdentifier
-  Ingest File as Source… → send menu:ingestFile
-  Ingest Zip or Folder as Sources… → send menu:ingestBulk
-  Import BibTeX… → send menu:importBibtex
-  Import Zotero RDF… → send menu:importZoteroRdf
+  Ingest URL as Source… [CmdOrCtrl+Shift+I] → send menu:command ["research.ingestUrl"]
+  Ingest Identifier… [CmdOrCtrl+Shift+D] → send menu:command ["research.ingestIdentifier"]
+  Ingest File as Source… → send menu:command ["research.ingestFile"]
+  Ingest Zip or Folder as Sources… → send menu:command ["research.ingestBulk"]
+  Import BibTeX… → send menu:command ["research.importBibtex"]
+  Import Zotero RDF… → send menu:command ["research.importZoteroRdf"]
   ---
   New Window [CmdOrCtrl+Shift+N] → createWindow
   ---
-  Print… → send menu:print
+  Print… → send menu:command ["file.print"]
   Print to PDF… → showSaveDialog
   ---
   Open In
-    Reveal in Finder [CmdOrCtrl+Shift+R] → send menu:revealFile
-    Open in Default App → send menu:openInDefault
-    Open in Terminal → send menu:openInTerminal
+    Reveal in Finder [CmdOrCtrl+Shift+R] → send menu:command ["file.revealFile"]
+    Open in Default App → send menu:command ["file.openInDefault"]
+    Open in Terminal → send menu:command ["file.openInTerminal"]
   ---
   Rebuild All Indexes → rebuildAllIndexes
   Rebuild Semantic Index → rebuildSemanticIndex
@@ -64,69 +64,69 @@ Edit
   (role paste)
   (role selectAll)
   ---
-  Find [CmdOrCtrl+F] → send menu:find
-  Find and Replace [CmdOrCtrl+H] → send menu:findReplace
-  Find in Notes… [CmdOrCtrl+Shift+F] → send menu:findInNotes
-  Replace in Notes… [CmdOrCtrl+Shift+H] → send menu:replaceInNotes
+  Find [CmdOrCtrl+F] → send menu:command ["edit.find"]
+  Find and Replace [CmdOrCtrl+H] → send menu:command ["edit.findReplace"]
+  Find in Notes… [CmdOrCtrl+Shift+F] → send menu:command ["edit.findInNotes"]
+  Replace in Notes… [CmdOrCtrl+Shift+H] → send menu:command ["edit.replaceInNotes"]
   ---
-  Insert Template… → send menu:insertTemplate
+  Insert Template… → send menu:command ["edit.insertTemplate"]
   ---
-  Sort Lines → send menu:sortLines
+  Sort Lines → send menu:command ["edit.sortLines"]
 View
-  Command Palette [CmdOrCtrl+K] → send menu:commandPalette
+  Command Palette [CmdOrCtrl+K] → send menu:command ["view.commandPalette"]
   ---
-  Toggle Left Sidebar [CmdOrCtrl+B] → send menu:toggleSidebar
-  Toggle Right Sidebar [CmdOrCtrl+Shift+B] → send menu:toggleRightSidebar
-  Toggle Conversations [CmdOrCtrl+Shift+K] → send menu:toggleConversations
-  Cycle Preview Mode [CmdOrCtrl+Shift+P] → send menu:togglePreview
+  Toggle Left Sidebar [CmdOrCtrl+B] → send menu:command ["view.toggleSidebar"]
+  Toggle Right Sidebar [CmdOrCtrl+Shift+B] → send menu:command ["view.toggleRightSidebar"]
+  Toggle Conversations [CmdOrCtrl+Shift+K] → send menu:command ["view.toggleConversations"]
+  Cycle Preview Mode [CmdOrCtrl+Shift+P] → send menu:command ["view.togglePreview"]
   ---
-  Split Editor Right [CmdOrCtrl+\\] → send menu:splitRight
-  Split Editor Down [CmdOrCtrl+Shift+\\] → send menu:splitDown
-  Focus Next Group [CmdOrCtrl+Alt+Right] → send menu:focusNextGroup
-  Focus Previous Group [CmdOrCtrl+Alt+Left] → send menu:focusPrevGroup
-  Close Group [CmdOrCtrl+Shift+W] → send menu:closeGroup
+  Split Editor Right [CmdOrCtrl+\\] → send menu:command ["view.splitRight"]
+  Split Editor Down [CmdOrCtrl+Shift+\\] → send menu:command ["view.splitDown"]
+  Focus Next Group [CmdOrCtrl+Alt+Right] → send menu:command ["view.focusNextGroup"]
+  Focus Previous Group [CmdOrCtrl+Alt+Left] → send menu:command ["view.focusPrevGroup"]
+  Close Group [CmdOrCtrl+Shift+W] → send menu:command ["view.closeGroup"]
   ---
   Theme
     Dark radio checked → send menu:setTheme ["dark"]
     Light radio → send menu:setTheme ["light"]
     High Contrast radio → send menu:setTheme ["contrast"]
     System radio → send menu:setTheme ["system"]
-  Cycle Theme [CmdOrCtrl+Shift+T] → send menu:cycleTheme
+  Cycle Theme [CmdOrCtrl+Shift+T] → send menu:command ["view.cycleTheme"]
   ---
   Actual Size role=resetZoom
   (role zoomIn)
   (role zoomOut)
   ---
-  Increase Editor Font Size [CmdOrCtrl+Shift+=] → send menu:fontIncrease
-  Decrease Editor Font Size [CmdOrCtrl+Shift+-] → send menu:fontDecrease
-  Reset Editor Font Size → send menu:fontReset
+  Increase Editor Font Size [CmdOrCtrl+Shift+=] → send menu:command ["view.fontIncrease"]
+  Decrease Editor Font Size [CmdOrCtrl+Shift+-] → send menu:command ["view.fontDecrease"]
+  Reset Editor Font Size → send menu:command ["view.fontReset"]
   ---
   Developer Tools role=toggleDevTools
 Navigate
-  Back [CmdOrCtrl+[] → send menu:navBack
-  Forward [CmdOrCtrl+]] → send menu:navForward
+  Back [CmdOrCtrl+[] → send menu:command ["nav.back"]
+  Forward [CmdOrCtrl+]] → send menu:command ["nav.forward"]
   ---
-  Quick Open [CmdOrCtrl+P] → send menu:quickOpen
-  Go to Line [CmdOrCtrl+G] → send menu:gotoLine
+  Quick Open [CmdOrCtrl+P] → send menu:command ["nav.quickOpen"]
+  Go to Line [CmdOrCtrl+G] → send menu:command ["edit.gotoLine"]
 Refactor
-  Rename… → send menu:refactor:rename
-  Move… → send menu:refactor:move
-  Copy… → send menu:refactor:copy
+  Rename… → send menu:command ["refactor.rename"]
+  Move… → send menu:command ["refactor.move"]
+  Copy… → send menu:command ["refactor.copy"]
   ---
-  Extract Selection to New Note → send menu:refactor:extract
-  Split Note Here → send menu:refactor:splitHere
-  Split by Heading… → send menu:refactor:splitByHeading
+  Extract Selection to New Note → send menu:command ["refactor.extract"]
+  Split Note Here → send menu:command ["refactor.splitHere"]
+  Split by Heading… → send menu:command ["refactor.splitByHeading"]
   ---
-  Auto-tag → send menu:refactor:autotag
-  Auto-link outbound… → send menu:refactor:autolink
-  Auto-link inbound… → send menu:refactor:autolinkInbound
-  Decompose Note… → send menu:refactor:decompose
+  Auto-tag → send menu:command ["refactor.autoTag"]
+  Auto-link outbound… → send menu:command ["refactor.autoLink"]
+  Auto-link inbound… → send menu:command ["refactor.autoLinkInbound"]
+  Decompose Note… → send menu:command ["refactor.decompose"]
   ---
-  Format → send menu:format
+  Format → send menu:command ["refactor.format"]
   ---
-  Insert/Update Bibliography → send menu:bibliography
+  Insert/Update Bibliography → send menu:command ["research.bibliography"]
 Learning
-  Ask a Question → send menu:newConversation
+  Ask a Question → send menu:command ["learning.askQuestion"]
   ---
   Snapshot Ask → send tool:invoke ["snap.ask"]
 Research
@@ -135,7 +135,7 @@ Research
 Analysis
   Snapshot Selection → send tool:invoke ["snap.selection"]
 Query
-  New Query [CmdOrCtrl+Shift+Q] → send menu:newQuery
+  New Query [CmdOrCtrl+Shift+Q] → send menu:command ["query.new"]
   ---
   Stock Queries
     SPARQL
@@ -169,7 +169,7 @@ Query
     (role undefined)
       Open questions → send menu:openStockQuery [{"query":"SELECT 1","language":"sparql"}]
     ---
-    Edit Saved Queries… → send menu:editSavedQueries
+    Edit Saved Queries… → send menu:command ["query.editSaved"]
   ---
   Export Knowledge Graph… → showSaveDialog
 Export
@@ -177,7 +177,7 @@ Export
   ---
   Static Site… → send menu:export ["site"]
   ---
-  Publish to Web… → send menu:publish
+  Publish to Web… → send menu:command ["export.publish"]
 Window
   (role minimize)
   (role zoom)
@@ -185,9 +185,9 @@ Window
   (role front)
   ---
 Help role=help
-  Install Tutorial Thoughtbase… → send menu:installTutorial
+  Install Tutorial Thoughtbase… → send menu:command ["app.installTutorial"]
   ---
-  Keyboard Shortcuts… [CmdOrCtrl+/] → send menu:shortcuts
+  Keyboard Shortcuts… [CmdOrCtrl+/] → send menu:command ["app.shortcuts"]
   ---
   Documentation → openExternal https://dgriffith.github.io/minerva/docs/
   Report an Issue… → openExternal https://github.com/dgriffith/ide-for-thought/issues/new/choose
@@ -197,11 +197,11 @@ Help role=help
 
 exports[`the menu bar (#2625) > with no thoughtbase open 1`] = `
 "Minerva
-  About Minerva → send menu:about
+  About Minerva → send menu:command ["app.about"]
   ---
   Check for Updates… → checkForUpdatesNow
   ---
-  Preferences… [Cmd+,] → send menu:openSettings
+  Preferences… [Cmd+,] → send menu:command ["app.settings"]
   ---
   (role services)
   ---
@@ -211,38 +211,38 @@ exports[`the menu bar (#2625) > with no thoughtbase open 1`] = `
   ---
   (role quit)
 File
-  New Thoughtbase… → send menu:newProject
-  Open Thoughtbase… [CmdOrCtrl+O] → send menu:openProject
+  New Thoughtbase… → send menu:command ["file.newProject"]
+  Open Thoughtbase… [CmdOrCtrl+O] → send menu:command ["file.openProject"]
   Recent Thoughtbases
     alpha → send menu:openRecentProject ["/projects/alpha"]
     ---
-    Clear Recent Thoughtbases → send menu:clearRecent
-  Close Thoughtbase [CmdOrCtrl+Shift+W] disabled → send menu:closeProject
-  Edit Thoughtbase Guide… disabled → send menu:editThoughtbaseDoc
-  Thoughtbase Properties… disabled → send menu:thoughtbaseProperties
+    Clear Recent Thoughtbases → send menu:command ["file.clearRecent"]
+  Close Thoughtbase [CmdOrCtrl+Shift+W] disabled → send menu:command ["file.closeProject"]
+  Edit Thoughtbase Guide… disabled → send menu:command ["file.editThoughtbaseGuide"]
+  Thoughtbase Properties… disabled → send menu:command ["file.thoughtbaseProperties"]
   ---
-  New Note [CmdOrCtrl+N] disabled → send menu:newNote
-  New Audio Recording disabled → send menu:newAudioRecording
-  Save [CmdOrCtrl+S] disabled → send menu:save
-  Save as Template… disabled → send menu:saveAsTemplate
-  Save Note as Object Type… disabled → send menu:saveAsObjectType
+  New Note [CmdOrCtrl+N] disabled → send menu:command ["file.newNote"]
+  New Audio Recording disabled → send menu:command ["file.newAudioRecording"]
+  Save [CmdOrCtrl+S] disabled → send menu:command ["file.save"]
+  Save as Template… disabled → send menu:command ["file.saveAsTemplate"]
+  Save Note as Object Type… disabled → send menu:command ["objects.saveAsObjectType"]
   ---
-  Ingest URL as Source… [CmdOrCtrl+Shift+I] disabled → send menu:ingestUrl
-  Ingest Identifier… [CmdOrCtrl+Shift+D] disabled → send menu:ingestIdentifier
-  Ingest File as Source… disabled → send menu:ingestFile
-  Ingest Zip or Folder as Sources… disabled → send menu:ingestBulk
-  Import BibTeX… disabled → send menu:importBibtex
-  Import Zotero RDF… disabled → send menu:importZoteroRdf
+  Ingest URL as Source… [CmdOrCtrl+Shift+I] disabled → send menu:command ["research.ingestUrl"]
+  Ingest Identifier… [CmdOrCtrl+Shift+D] disabled → send menu:command ["research.ingestIdentifier"]
+  Ingest File as Source… disabled → send menu:command ["research.ingestFile"]
+  Ingest Zip or Folder as Sources… disabled → send menu:command ["research.ingestBulk"]
+  Import BibTeX… disabled → send menu:command ["research.importBibtex"]
+  Import Zotero RDF… disabled → send menu:command ["research.importZoteroRdf"]
   ---
   New Window [CmdOrCtrl+Shift+N] → createWindow
   ---
-  Print… disabled → send menu:print
+  Print… disabled → send menu:command ["file.print"]
   Print to PDF… disabled → showSaveDialog
   ---
   Open In
-    Reveal in Finder [CmdOrCtrl+Shift+R] disabled → send menu:revealFile
-    Open in Default App disabled → send menu:openInDefault
-    Open in Terminal disabled → send menu:openInTerminal
+    Reveal in Finder [CmdOrCtrl+Shift+R] disabled → send menu:command ["file.revealFile"]
+    Open in Default App disabled → send menu:command ["file.openInDefault"]
+    Open in Terminal disabled → send menu:command ["file.openInTerminal"]
   ---
   Rebuild All Indexes disabled → (no effect)
   Rebuild Semantic Index disabled → (no effect)
@@ -259,69 +259,69 @@ Edit
   (role paste)
   (role selectAll)
   ---
-  Find [CmdOrCtrl+F] disabled → send menu:find
-  Find and Replace [CmdOrCtrl+H] disabled → send menu:findReplace
-  Find in Notes… [CmdOrCtrl+Shift+F] disabled → send menu:findInNotes
-  Replace in Notes… [CmdOrCtrl+Shift+H] disabled → send menu:replaceInNotes
+  Find [CmdOrCtrl+F] disabled → send menu:command ["edit.find"]
+  Find and Replace [CmdOrCtrl+H] disabled → send menu:command ["edit.findReplace"]
+  Find in Notes… [CmdOrCtrl+Shift+F] disabled → send menu:command ["edit.findInNotes"]
+  Replace in Notes… [CmdOrCtrl+Shift+H] disabled → send menu:command ["edit.replaceInNotes"]
   ---
-  Insert Template… disabled → send menu:insertTemplate
+  Insert Template… disabled → send menu:command ["edit.insertTemplate"]
   ---
-  Sort Lines disabled → send menu:sortLines
+  Sort Lines disabled → send menu:command ["edit.sortLines"]
 View
-  Command Palette [CmdOrCtrl+K] disabled → send menu:commandPalette
+  Command Palette [CmdOrCtrl+K] disabled → send menu:command ["view.commandPalette"]
   ---
-  Toggle Left Sidebar [CmdOrCtrl+B] disabled → send menu:toggleSidebar
-  Toggle Right Sidebar [CmdOrCtrl+Shift+B] disabled → send menu:toggleRightSidebar
-  Toggle Conversations [CmdOrCtrl+Shift+K] disabled → send menu:toggleConversations
-  Cycle Preview Mode [CmdOrCtrl+Shift+P] disabled → send menu:togglePreview
+  Toggle Left Sidebar [CmdOrCtrl+B] disabled → send menu:command ["view.toggleSidebar"]
+  Toggle Right Sidebar [CmdOrCtrl+Shift+B] disabled → send menu:command ["view.toggleRightSidebar"]
+  Toggle Conversations [CmdOrCtrl+Shift+K] disabled → send menu:command ["view.toggleConversations"]
+  Cycle Preview Mode [CmdOrCtrl+Shift+P] disabled → send menu:command ["view.togglePreview"]
   ---
-  Split Editor Right [CmdOrCtrl+\\] disabled → send menu:splitRight
-  Split Editor Down [CmdOrCtrl+Shift+\\] disabled → send menu:splitDown
-  Focus Next Group [CmdOrCtrl+Alt+Right] disabled → send menu:focusNextGroup
-  Focus Previous Group [CmdOrCtrl+Alt+Left] disabled → send menu:focusPrevGroup
-  Close Group [CmdOrCtrl+Shift+W] disabled → send menu:closeGroup
+  Split Editor Right [CmdOrCtrl+\\] disabled → send menu:command ["view.splitRight"]
+  Split Editor Down [CmdOrCtrl+Shift+\\] disabled → send menu:command ["view.splitDown"]
+  Focus Next Group [CmdOrCtrl+Alt+Right] disabled → send menu:command ["view.focusNextGroup"]
+  Focus Previous Group [CmdOrCtrl+Alt+Left] disabled → send menu:command ["view.focusPrevGroup"]
+  Close Group [CmdOrCtrl+Shift+W] disabled → send menu:command ["view.closeGroup"]
   ---
   Theme
     Dark radio checked → send menu:setTheme ["dark"]
     Light radio → send menu:setTheme ["light"]
     High Contrast radio → send menu:setTheme ["contrast"]
     System radio → send menu:setTheme ["system"]
-  Cycle Theme [CmdOrCtrl+Shift+T] → send menu:cycleTheme
+  Cycle Theme [CmdOrCtrl+Shift+T] → send menu:command ["view.cycleTheme"]
   ---
   Actual Size role=resetZoom
   (role zoomIn)
   (role zoomOut)
   ---
-  Increase Editor Font Size [CmdOrCtrl+Shift+=] disabled → send menu:fontIncrease
-  Decrease Editor Font Size [CmdOrCtrl+Shift+-] disabled → send menu:fontDecrease
-  Reset Editor Font Size disabled → send menu:fontReset
+  Increase Editor Font Size [CmdOrCtrl+Shift+=] disabled → send menu:command ["view.fontIncrease"]
+  Decrease Editor Font Size [CmdOrCtrl+Shift+-] disabled → send menu:command ["view.fontDecrease"]
+  Reset Editor Font Size disabled → send menu:command ["view.fontReset"]
   ---
   Developer Tools role=toggleDevTools
 Navigate
-  Back [CmdOrCtrl+[] disabled → send menu:navBack
-  Forward [CmdOrCtrl+]] disabled → send menu:navForward
+  Back [CmdOrCtrl+[] disabled → send menu:command ["nav.back"]
+  Forward [CmdOrCtrl+]] disabled → send menu:command ["nav.forward"]
   ---
-  Quick Open [CmdOrCtrl+P] disabled → send menu:quickOpen
-  Go to Line [CmdOrCtrl+G] disabled → send menu:gotoLine
+  Quick Open [CmdOrCtrl+P] disabled → send menu:command ["nav.quickOpen"]
+  Go to Line [CmdOrCtrl+G] disabled → send menu:command ["edit.gotoLine"]
 Refactor
-  Rename… disabled → send menu:refactor:rename
-  Move… disabled → send menu:refactor:move
-  Copy… disabled → send menu:refactor:copy
+  Rename… disabled → send menu:command ["refactor.rename"]
+  Move… disabled → send menu:command ["refactor.move"]
+  Copy… disabled → send menu:command ["refactor.copy"]
   ---
-  Extract Selection to New Note disabled → send menu:refactor:extract
-  Split Note Here disabled → send menu:refactor:splitHere
-  Split by Heading… disabled → send menu:refactor:splitByHeading
+  Extract Selection to New Note disabled → send menu:command ["refactor.extract"]
+  Split Note Here disabled → send menu:command ["refactor.splitHere"]
+  Split by Heading… disabled → send menu:command ["refactor.splitByHeading"]
   ---
-  Auto-tag disabled → send menu:refactor:autotag
-  Auto-link outbound… disabled → send menu:refactor:autolink
-  Auto-link inbound… disabled → send menu:refactor:autolinkInbound
-  Decompose Note… disabled → send menu:refactor:decompose
+  Auto-tag disabled → send menu:command ["refactor.autoTag"]
+  Auto-link outbound… disabled → send menu:command ["refactor.autoLink"]
+  Auto-link inbound… disabled → send menu:command ["refactor.autoLinkInbound"]
+  Decompose Note… disabled → send menu:command ["refactor.decompose"]
   ---
-  Format disabled → send menu:format
+  Format disabled → send menu:command ["refactor.format"]
   ---
-  Insert/Update Bibliography disabled → send menu:bibliography
+  Insert/Update Bibliography disabled → send menu:command ["research.bibliography"]
 Learning
-  Ask a Question disabled → send menu:newConversation
+  Ask a Question disabled → send menu:command ["learning.askQuestion"]
   ---
   Snapshot Ask disabled → send tool:invoke ["snap.ask"]
 Research
@@ -330,7 +330,7 @@ Research
 Analysis
   Snapshot Selection disabled → send tool:invoke ["snap.selection"]
 Query
-  New Query [CmdOrCtrl+Shift+Q] disabled → send menu:newQuery
+  New Query [CmdOrCtrl+Shift+Q] disabled → send menu:command ["query.new"]
   ---
   Stock Queries disabled
     SPARQL
@@ -364,7 +364,7 @@ Query
     (role undefined)
       Open questions → send menu:openStockQuery [{"query":"SELECT 1","language":"sparql"}]
     ---
-    Edit Saved Queries… → send menu:editSavedQueries
+    Edit Saved Queries… → send menu:command ["query.editSaved"]
   ---
   Export Knowledge Graph… disabled → (no effect)
 Export
@@ -372,7 +372,7 @@ Export
   ---
   Static Site… disabled → send menu:export ["site"]
   ---
-  Publish to Web… disabled → send menu:publish
+  Publish to Web… disabled → send menu:command ["export.publish"]
 Window
   (role minimize)
   (role zoom)
@@ -380,9 +380,9 @@ Window
   (role front)
   ---
 Help role=help
-  Install Tutorial Thoughtbase… → send menu:installTutorial
+  Install Tutorial Thoughtbase… → send menu:command ["app.installTutorial"]
   ---
-  Keyboard Shortcuts… [CmdOrCtrl+/] → send menu:shortcuts
+  Keyboard Shortcuts… [CmdOrCtrl+/] → send menu:command ["app.shortcuts"]
   ---
   Documentation → openExternal https://dgriffith.github.io/minerva/docs/
   Report an Issue… → openExternal https://github.com/dgriffith/ide-for-thought/issues/new/choose

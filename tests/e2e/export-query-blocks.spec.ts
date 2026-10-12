@@ -58,7 +58,7 @@ test('query blocks export with the rows the preview shows, and charts as images 
     const preview = await test.step('open the note in the preview', async () => {
       await win.locator('[data-relative-path="trip"]').first().click();
       await win.locator('[data-relative-path="trip/plan.md"]').first().click();
-      await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.webContents.send('menu:togglePreview'); });
+      await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.webContents.send('menu:command', 'view.togglePreview'); });
       await expect(win.locator('.preview .query-result-list a').first()).toBeVisible({ timeout: 15_000 });
       await expect(win.locator('.preview .query-block canvas')).toHaveCount(1, { timeout: 15_000 });
       await expect.poll(async () => (await blockLinks(win, '.preview')).length, { timeout: 15_000 }).toBe(4);

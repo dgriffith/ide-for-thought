@@ -2,11 +2,11 @@
  * @vitest-environment jsdom
  *
  * Transposition guard for the main↔renderer event wiring extracted from
- * App.svelte (#1084). Because the `api.menu.on*` callbacks are untyped
- * `() => void`, a mis-wired binding (onSave firing newNote, say) would compile
- * cleanly and only break at runtime. This test captures every registration and
- * invokes each callback, asserting it dispatches to the expected action — so a
- * transposed binding fails here instead of silently in production.
+ * App.svelte (#1084). This test captures every registration and invokes each
+ * callback, asserting it dispatches to the expected action — so a transposed
+ * binding fails here instead of silently in production. The menu's commands
+ * all arrive as one `onCommand(id)` since #2625; what each one does is
+ * command-keymap.test.ts's subject.
  *
  * Mocks the singleton stores the module pulls internally and the api client;
  * every `api.*.on*` records its callback so the test can fire it.
@@ -14,20 +14,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const h = vi.hoisted(() => {
+  // Every argument-free menu item arrives as `onCommand` with a command id
+  // (#2625); its action table is tested in command-keymap.test.ts.
   const MENU_CHANNELS = [
-    'onNewNote', 'onNewAudioRecording', 'onEditThoughtbaseDoc', 'onThoughtbaseProperties', 'onSave', 'onSaveAsTemplate', 'onSaveAsObjectType', 'onInsertTemplate',
-    'onCycleTheme', 'onSetTheme', 'onFontIncrease', 'onFontDecrease', 'onFontReset',
-    'onToggleSidebar', 'onToggleRightSidebar', 'onToggleConversations', 'onNewConversation',
-    'onTogglePreview', 'onSplitRight', 'onSplitDown', 'onFocusNextGroup', 'onFocusPrevGroup',
-    'onCloseGroup', 'onOpenProject', 'onNewProject', 'onInstallTutorial', 'onOpenRecentProject', 'onCloseProject',
-    'onClearRecent', 'onNavBack', 'onNavForward', 'onGotoLine', 'onQuickOpen', 'onNewQuery',
-    'onOpenStockQuery', 'onEditSavedQueries', 'onSortLines', 'onFind', 'onFindReplace',
-    'onFindInNotes', 'onReplaceInNotes', 'onPrint', 'onAbout', 'onShortcuts', 'onRevealFile', 'onOpenInDefault',
-    'onOpenInTerminal', 'onOpenSettings', 'onCommandPalette', 'onRefactorRename', 'onRefactorMove', 'onRefactorCopy',
-    'onRefactorExtract', 'onRefactorSplitHere', 'onRefactorSplitByHeading', 'onRefactorAutoTag',
-    'onRefactorAutoLink', 'onRefactorAutoLinkInbound', 'onRefactorDecompose', 'onFormat',
-    'onBibliography', 'onIngestUrl', 'onIngestIdentifier', 'onIngestFile', 'onIngestBulk', 'onImportBibtex',
-    'onImportZoteroRdf', 'onExport', 'onPublish', 'onProjectOpened',
+    'onCommand', 'onSetTheme', 'onOpenRecentProject', 'onOpenStockQuery', 'onExport', 'onProjectOpened',
   ];
 
   const captured: Record<string, (...a: unknown[]) => unknown> = {};
@@ -125,16 +115,8 @@ const rightSidebar = { refresh: vi.fn() };
 
 function makeCtx(): { ctx: IpcWiringCtx; spies: Record<string, ReturnType<typeof vi.fn>> } {
   const names = [
-    'setEditorFontSize', 'toggleSidebar', 'toggleRightSidebar',
-    'setShowGotoLine', 'setShowGotoNote', 'setShowEditSavedQueries', 'setShowAbout',
-    'setShowShortcuts', 'setShowSettings', 'toggleCommandPalette', 'setPublishDialogOpen', 'setFindInNotesMode',
-    'setExportDialogGroup', 'setEmbeddingProgress', 'refreshSavedQueriesCache', 'refreshBacklinkCount',
-    'newNote', 'editThoughtbaseGuide', 'openThoughtbaseProperties', 'save', 'saveAsTemplate', 'saveNoteAsObjectType', 'insertTemplate', 'cycleTheme',
-    'selectTheme', 'openThoughtbase', 'newThoughtbase', 'installTutorial', 'showProposals', 'openRecentThoughtbase', 'navBack',
-    'navForward', 'rename', 'move', 'copy', 'extractSelection', 'splitHere', 'splitByHeading',
-    'autoTag', 'autoLink', 'autoLinkInbound', 'decompose', 'format', 'bibliography', 'ingestUrl',
-    'ingestIdentifier', 'ingestFile', 'ingestBulk', 'importBibtex', 'importZoteroRdf', 'toolInvoke',
-    'newConversation', 'cycleViewMode',
+    'runCommand', 'setExportDialogGroup', 'setEmbeddingProgress', 'refreshBacklinkCount',
+    'selectTheme', 'showProposals', 'openRecentThoughtbase', 'toolInvoke',
   ];
   const spies: Record<string, ReturnType<typeof vi.fn>> = {};
   for (const n of names) spies[n] = vi.fn();
@@ -144,7 +126,6 @@ function makeCtx(): { ctx: IpcWiringCtx; spies: Record<string, ReturnType<typeof
     getPreviewComponent: () => previewComponent,
     getSidebar: () => sidebar,
     getRightSidebar: () => rightSidebar,
-    getEditorFontSize: () => 14,
     refreshSourcesCache: vi.fn().mockResolvedValue(undefined),
     refreshAliasMap: vi.fn().mockResolvedValue(undefined),
     maybeShowOnboarding: vi.fn().mockResolvedValue(undefined),
@@ -196,109 +177,10 @@ describe('every registration is wired', () => {
   });
 });
 
-describe('menu bindings dispatch to the right action (no arg / no guard)', () => {
-  // channel -> ctx spy name. Guards behavior is verified separately below.
-  const table: Array<[string, string]> = [
-    ['onNewNote', 'newNote'],
-    ['onEditThoughtbaseDoc', 'editThoughtbaseGuide'],
-    ['onThoughtbaseProperties', 'openThoughtbaseProperties'],
-    ['onSave', 'save'],
-    ['onSaveAsTemplate', 'saveAsTemplate'],
-    ['onSaveAsObjectType', 'saveNoteAsObjectType'],
-    ['onInsertTemplate', 'insertTemplate'],
-    ['onCycleTheme', 'cycleTheme'],
-    ['onNewConversation', 'newConversation'],
-    ['onTogglePreview', 'cycleViewMode'],
-    ['onOpenProject', 'openThoughtbase'],
-    ['onNewProject', 'newThoughtbase'],
-    ['onInstallTutorial', 'installTutorial'],
-    ['onNavBack', 'navBack'],
-    ['onNavForward', 'navForward'],
-    ['onEditSavedQueries', 'setShowEditSavedQueries'],
-    ['onFindInNotes', 'setFindInNotesMode'],
-    ['onReplaceInNotes', 'setFindInNotesMode'],
-    ['onAbout', 'setShowAbout'],
-    ['onShortcuts', 'setShowShortcuts'],
-    ['onOpenSettings', 'setShowSettings'],
-    // #2256 — the palette's menu item dispatches the same toggle as Cmd+K.
-    ['onCommandPalette', 'toggleCommandPalette'],
-    ['onToggleSidebar', 'toggleSidebar'],
-    ['onToggleRightSidebar', 'toggleRightSidebar'],
-    ['onQuickOpen', 'setShowGotoNote'],
-    ['onRefactorExtract', 'extractSelection'],
-    ['onRefactorSplitHere', 'splitHere'],
-    ['onRefactorSplitByHeading', 'splitByHeading'],
-    ['onFormat', 'format'],
-    ['onBibliography', 'bibliography'],
-    ['onIngestUrl', 'ingestUrl'],
-    ['onIngestIdentifier', 'ingestIdentifier'],
-    ['onIngestFile', 'ingestFile'],
-    ['onIngestBulk', 'ingestBulk'],
-    ['onImportBibtex', 'importBibtex'],
-    ['onImportZoteroRdf', 'importZoteroRdf'],
-    ['onPublish', 'setPublishDialogOpen'],
-  ];
-  it.each(table)('%s -> ctx.%s', (channel, spyName) => {
-    fire(channel);
-    expect(spies[spyName]).toHaveBeenCalledTimes(1);
-  });
-
-  it('onFindInNotes / onReplaceInNotes pass the mode', () => {
-    fire('onFindInNotes');
-    expect(spies.setFindInNotesMode).toHaveBeenCalledWith('find');
-    fire('onReplaceInNotes');
-    expect(spies.setFindInNotesMode).toHaveBeenCalledWith('replace');
-  });
-});
-
-describe('menu bindings backed by stores / api (not ctx)', () => {
-  it('onNewAudioRecording toggles a recording against the focused pane view (#2428)', () => {
-    const view = { id: 'focused' };
-    editorComponent.getView.mockReturnValueOnce(view as never);
-    fire('onNewAudioRecording');
-    expect(h.recordings.toggle).toHaveBeenCalledTimes(1);
-    const getter = h.recordings.toggle.mock.calls[0]![0] as () => unknown;
-    expect(getter()).toBe(view);
-  });
-
-  it('onSplitRight / onSplitDown split the active group', () => {
-    fire('onSplitRight');
-    expect(h.editor.splitGroup).toHaveBeenCalledWith('g1', 'horizontal');
-    fire('onSplitDown');
-    expect(h.editor.splitGroup).toHaveBeenCalledWith('g1', 'vertical');
-  });
-
-  it('onCloseProject closes notebase and clears editor', () => {
-    fire('onCloseProject');
-    expect(h.notebase.close).toHaveBeenCalled();
-    expect(h.editor.clear).toHaveBeenCalled();
-  });
-
-  it('onClearRecent / onNewQuery / onPrint reach api / store / window', () => {
-    fire('onClearRecent');
-    expect(h.api.notebase.clearRecent).toHaveBeenCalled();
-    fire('onNewQuery');
-    expect(h.editor.openQuery).toHaveBeenCalled();
-    fire('onPrint');
-    expect(window.print).toHaveBeenCalled();
-  });
-
-  it('onSortLines / onFind / onFindReplace reach the editor component', () => {
-    fire('onSortLines');
-    fire('onFind');
-    fire('onFindReplace');
-    expect(editorComponent.runSortLines).toHaveBeenCalled();
-    expect(editorComponent.openFind).toHaveBeenCalled();
-    expect(editorComponent.openFindReplace).toHaveBeenCalled();
-  });
-
-  it('font commands drive the editor and mirror the size back', () => {
-    fire('onFontIncrease');
-    expect(editorComponent.changeFontSize).toHaveBeenCalledWith(1);
-    expect(spies.setEditorFontSize).toHaveBeenCalledWith(18);
-    fire('onFontReset');
-    expect(editorComponent.resetFontSize).toHaveBeenCalled();
-    expect(spies.setEditorFontSize).toHaveBeenCalledWith(14);
+describe('menu events', () => {
+  it('onCommand runs the command by id (#2625)', () => {
+    fire('onCommand', 'file.newNote');
+    expect(spies.runCommand).toHaveBeenCalledExactlyOnceWith('file.newNote');
   });
 });
 
@@ -318,51 +200,6 @@ describe('arg-bearing menu bindings forward their payload', () => {
   it('onExport -> setExportDialogGroup(group)', () => {
     fire('onExport', 'pdf');
     expect(spies.setExportDialogGroup).toHaveBeenCalledWith('pdf');
-  });
-});
-
-describe('active-note guards', () => {
-  it('onRefactorRename dispatches only with an active file, and passes it', () => {
-    fire('onRefactorRename');
-    expect(spies.rename).not.toHaveBeenCalled();
-    h.editor.activeFilePath = 'notes/x.md';
-    fire('onRefactorRename');
-    expect(spies.rename).toHaveBeenCalledWith('notes/x.md');
-  });
-
-  it('onRefactorDecompose / AutoLinkInbound guard the same way', () => {
-    h.editor.activeFilePath = 'y.md';
-    fire('onRefactorDecompose');
-    fire('onRefactorAutoLinkInbound');
-    expect(spies.decompose).toHaveBeenCalledWith('y.md');
-    expect(spies.autoLinkInbound).toHaveBeenCalledWith('y.md');
-  });
-
-  it('onGotoLine opens the dialog only when a tab is active', () => {
-    fire('onGotoLine');
-    expect(spies.setShowGotoLine).not.toHaveBeenCalled();
-    h.editor.activeTab = { type: 'note' };
-    fire('onGotoLine');
-    expect(spies.setShowGotoLine).toHaveBeenCalledWith(true);
-  });
-
-  it('onOpenInDefault needs an active file; onOpenInTerminal always fires', () => {
-    fire('onOpenInDefault');
-    expect(h.api.shell.openInDefault).not.toHaveBeenCalled();
-    fire('onOpenInTerminal');
-    expect(h.api.shell.openInTerminal).toHaveBeenCalledWith(undefined);
-    h.editor.activeFilePath = 'a.md';
-    fire('onOpenInDefault');
-    expect(h.api.shell.openInDefault).toHaveBeenCalledWith('a.md');
-  });
-
-  it('onRevealFile reveals the active note, and is a silent no-op without one (#2411)', () => {
-    fire('onRevealFile');
-    expect(h.api.shell.revealFile).not.toHaveBeenCalled();
-    h.editor.activeFilePath = 'notes/b.md';
-    fire('onRevealFile');
-    expect(h.api.shell.revealFile).toHaveBeenCalledTimes(1);
-    expect(h.api.shell.revealFile).toHaveBeenCalledWith('notes/b.md');
   });
 });
 

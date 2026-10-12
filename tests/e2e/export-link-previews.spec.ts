@@ -66,7 +66,7 @@ test('a published page previews its links as the app does, on hover and on keybo
     const expected = new Map<string, Shown>();
     await test.step('the app: the Preview pane\'s link hover, the reference', async () => {
       await row.click();
-      await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.webContents.send('menu:togglePreview'); });
+      await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.webContents.send('menu:command', 'view.togglePreview'); });
       for (const t of TARGETS) {
         const link = win.locator(`.preview .wiki-link[data-target="${t}"]`);
         await expect(link).toBeVisible({ timeout: 15_000 });

@@ -69,7 +69,7 @@ test('object views export with the rows, order and columns the preview shows (#2
     const preview = await test.step('open the note in the preview', async () => {
       await win.locator('[data-relative-path="trip"]').first().click();
       await win.locator('[data-relative-path="trip/plan.md"]').first().click();
-      await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.webContents.send('menu:togglePreview'); });
+      await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.webContents.send('menu:command', 'view.togglePreview'); });
       await expect(win.locator('.preview .tv-list-title').first()).toBeVisible({ timeout: 15_000 });
       await expect(win.locator('.preview .tv-table tbody tr')).toHaveCount(PLACES.length, { timeout: 15_000 });
       return rowTitles(win, '.preview');
