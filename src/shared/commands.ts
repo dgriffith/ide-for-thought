@@ -12,6 +12,11 @@
  *   command declared here without an action doesn't compile, and the menu and
  *   the palette can't run different code for the same command.
  *
+ * - The window keymap (`renderer/lib/keymap/handle-keydown.ts`) binds rows of
+ *   command ids; each row's key is the command's `key` here.
+ * - The editor's CodeMirror keymap binds every `editor` command's key, and
+ *   the editor's right-click menu runs the same commands.
+ *
  * Plain data, no Electron and no DOM: both processes import it. A plugin's
  * commands (#2615) will register here.
  */
@@ -49,6 +54,12 @@ export interface CommandDef {
   key?: string;
   /** Listed in the command palette, enabled `when`. */
   palette?: { when: PaletteWhen };
+  /**
+   * A CodeMirror command, run on the focused editor (#2625): what the editor's
+   * keymap binds, and what the editor's right-click menu runs. `key` is
+   * CodeMirror syntax (`Mod-b`); a user's override keys on the command's id.
+   */
+  editor?: { key?: string };
   /** How the command looks as a menu item, wherever `menu.ts` places it. */
   menu?: {
     label?: string;
@@ -149,9 +160,59 @@ export const COMMANDS = [
   { id: 'view.closeGroup', title: 'Close Group', category: 'View', key: 'CmdOrCtrl+Shift+W', menu: { gate: { editor: true } } },
   { id: 'view.cycleTheme', title: 'Cycle Theme', category: 'View', key: 'CmdOrCtrl+Shift+T', menu: { gate: false } },
   { id: 'export.publish', title: 'Publish to Web…', category: 'Export', menu: {} },
+
+  // ── Window keymap only (`renderer/lib/keymap/handle-keydown.ts`) ──
+  { id: 'view.closeTab', title: 'Close Tab', category: 'View', key: 'CmdOrCtrl+W' },
+  { id: 'learning.openConversation', title: 'Open Conversation', category: 'Learning', key: 'CmdOrCtrl+Shift+I' },
+
+  // ── Editor (CodeMirror) commands ──
+  // Text
+  { id: 'editor.toggleCase', title: 'Toggle Case', category: 'Editor', editor: { key: 'Mod-Shift-u' } },
+  { id: 'editor.joinLines', title: 'Join Lines', category: 'Editor', editor: { key: 'Ctrl-Shift-j' } },
+  { id: 'editor.duplicateLine', title: 'Duplicate Line', category: 'Editor', editor: { key: 'Mod-d' } },
+  { id: 'editor.sortLines', title: 'Sort Lines', category: 'Editor', editor: {} },
+  // Selection
+  { id: 'editor.extendSelection', title: 'Extend Selection', category: 'Editor', editor: { key: 'Alt-ArrowUp' } },
+  { id: 'editor.shrinkSelection', title: 'Shrink Selection', category: 'Editor', editor: { key: 'Alt-ArrowDown' } },
+  // Accessibility — releases Tab so keyboard users can move focus out of the
+  // editor now that Tab indents. CodeMirror's default is `Ctrl-m`, but its
+  // `mac: 'Shift-Alt-m'` override can never fire: Option composes characters on
+  // macOS, so the browser reports "Â" rather than "m". `Ctrl-m` everywhere is a
+  // no-op off macOS (defaultKeymap already binds it) and fixes it on macOS.
+  { id: 'editor.toggleTabFocusMode', title: 'Toggle Tab Moves Focus', category: 'Editor', editor: { key: 'Ctrl-m' } },
+  // Inline formatting
+  { id: 'editor.toggleBold', title: 'Bold', category: 'Editor', editor: { key: 'Mod-b' } },
+  { id: 'editor.toggleItalic', title: 'Italic', category: 'Editor', editor: { key: 'Mod-i' } },
+  { id: 'editor.toggleCode', title: 'Code', category: 'Editor', editor: { key: 'Mod-e' } },
+  { id: 'editor.toggleStrikethrough', title: 'Strikethrough', category: 'Editor', editor: { key: 'Mod-Shift-x' } },
+  // `Mod-Shift-h` would collide with the menu's "Replace in Notes…"
+  // accelerator (matches VS Code's Replace-in-Files). Y → yellow, the
+  // default highlight color, gives the shortcut a mnemonic anchor.
+  { id: 'editor.toggleHighlight', title: 'Highlight (cycle color)', category: 'Editor', editor: { key: 'Mod-Shift-y' } },
+  // Paragraph
+  { id: 'editor.toggleH1', title: 'Heading 1', category: 'Editor', editor: {} },
+  { id: 'editor.toggleH2', title: 'Heading 2', category: 'Editor', editor: {} },
+  { id: 'editor.toggleH3', title: 'Heading 3', category: 'Editor', editor: {} },
+  { id: 'editor.toggleQuote', title: 'Quote', category: 'Editor', editor: {} },
+  { id: 'editor.toggleBulletList', title: 'Bulleted List', category: 'Editor', editor: {} },
+  { id: 'editor.toggleNumberedList', title: 'Numbered List', category: 'Editor', editor: {} },
+  { id: 'editor.toggleTaskList', title: 'Task List', category: 'Editor', editor: {} },
+  // Voice
+  { id: 'editor.dictate', title: 'Dictate (Voice to Text)', category: 'Editor', editor: { key: 'Mod-Shift-v' } },
+  { id: 'editor.recordAudio', title: 'Record Audio', category: 'Editor', editor: {} },
+  { id: 'editor.transcribeRecording', title: 'Transcribe Recording', category: 'Editor', editor: {} },
+  // Insert
+  { id: 'editor.insertLink', title: 'Insert Link', category: 'Editor', editor: { key: 'Mod-k' } },
+  { id: 'editor.insertWikiLink', title: 'Insert Wiki Link', category: 'Editor', editor: {} },
+  { id: 'editor.insertImage', title: 'Insert Image', category: 'Editor', editor: {} },
+  { id: 'editor.insertTable', title: 'Insert Table', category: 'Editor', editor: {} },
+  { id: 'editor.insertHorizontalRule', title: 'Insert Horizontal Rule', category: 'Editor', editor: {} },
+  { id: 'editor.insertFootnote', title: 'Insert Footnote', category: 'Editor', editor: {} },
 ] as const satisfies readonly CommandDef[];
 
 export type CommandId = (typeof COMMANDS)[number]['id'];
+/** The CodeMirror commands — run on the focused editor. */
+export type EditorCommandId = Extract<(typeof COMMANDS)[number], { editor: object }>['id'];
 /** The commands that can be placed in a menu. */
 export type MenuCommandId = Extract<(typeof COMMANDS)[number], { menu: object }>['id'];
 

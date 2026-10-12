@@ -27,7 +27,8 @@ import { getAudioRecordingStore } from '../voice/audio-recording.svelte';
 import type { EditorView } from '@codemirror/view';
 import type { ThemeMode } from '../theme';
 import type { PaletteState } from '../command-palette/registry';
-import type { CommandId } from '../../../shared/commands';
+import type { CommandId, EditorCommandId } from '../../../shared/commands';
+import { EDITOR_COMMANDS } from '../editor/command-registry';
 import { api } from '../ipc/client';
 import type { KeymapDeps } from '../keymap/handle-keydown';
 
@@ -103,7 +104,6 @@ export interface CommandKeymapCtx {
   // UI chrome / dialog visibility (App `$state`).
   setFindInNotesMode: (mode: 'find' | 'replace') => void;
   setShowGotoLine: (v: boolean) => void;
-  setShowGotoNote: (v: boolean) => void;
   toggleQuickOpen: () => void;
   setShowEditSavedQueries: (v: boolean) => void;
   setShowSettings: (v: boolean) => void;
@@ -144,6 +144,13 @@ export function createCommandKeymap(ctx: CommandKeymapCtx): {
     ctx.setEditorFontSize(ec?.currentFontSize() ?? ctx.getEditorFontSize());
   };
   const theme = (mode: ThemeMode) => () => ctx.selectTheme(mode);
+
+  const editorActions = Object.fromEntries(
+    (Object.entries(EDITOR_COMMANDS) as Array<[EditorCommandId, (v: EditorView) => boolean]>).map(([id, run]) => [id, () => {
+      const view = focusedView();
+      if (view) run(view);
+    }]),
+  ) as Record<EditorCommandId, () => void>;
 
   // What each command does (#2625) — the one place, whichever surface runs it:
   // the menu bar (`menu:command`) or the palette. Keyed by `CommandId`, so a
@@ -202,10 +209,10 @@ export function createCommandKeymap(ctx: CommandKeymapCtx): {
     // ── Navigate ──
     'nav.quickOpen': () => {
       // Refresh the palette's source + query backing data so its scope chip
-      // counts are fresh when it opens.
+      // counts are fresh when it opens. Toggles, as ⌘P always has.
       ctx.refreshSourcesCache();
       ctx.refreshSavedQueriesCache();
-      ctx.setShowGotoNote(true);
+      ctx.toggleQuickOpen();
     },
     'nav.back': ctx.navBack,
     'nav.forward': ctx.navForward,
@@ -240,24 +247,18 @@ export function createCommandKeymap(ctx: CommandKeymapCtx): {
     'app.about': () => ctx.setShowAbout(true),
     'app.shortcuts': () => ctx.setShowShortcuts(true),
     'app.installTutorial': ctx.installTutorial,
+    // ── Window keymap only ──
+    'view.closeTab': () => { editor.closeTab(editor.activeIndex); },
+    'learning.openConversation': ctx.openConversation,
+    // ── Editor commands, run on the focused pane's editor ──
+    ...editorActions,
   };
 
   const keymapDeps: KeymapDeps = {
+    run: (id) => commandActions[id](),
     hasProject: () => !!notebase.meta,
     hasActiveTab: () => !!editor.activeTab,
     hasActiveIndex: () => editor.activeIndex >= 0,
-    toggleCommandPalette: ctx.toggleCommandPalette,
-    navBack: ctx.navBack,
-    navForward: ctx.navForward,
-    cyclePreview: ctx.cycleViewMode,
-    toggleRightSidebar: ctx.toggleRightSidebar,
-    cycleTheme: ctx.cycleTheme,
-    newNote: ctx.newNote,
-    closeActiveTab: () => { editor.closeTab(editor.activeIndex); },
-    toggleQuickOpen: ctx.toggleQuickOpen,
-    openGotoLine: () => ctx.setShowGotoLine(true),
-    newQuery: () => editor.openQuery(),
-    openConversation: ctx.openConversation,
   };
 
   return { paletteState, commandActions, keymapDeps };

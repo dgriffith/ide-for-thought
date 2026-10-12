@@ -11,13 +11,13 @@
   import { api } from '../ipc/client';
   import { voiceSettings } from '../voice/voice-settings.svelte';
   import {
-    toggleBold, toggleItalic, toggleCode, toggleStrikethrough, toggleHighlight,
-    toggleH1, toggleH2, toggleH3, toggleQuote, toggleBulletList, toggleNumberedList,
-    insertTable, insertHorizontalRule, insertFootnote, insertLink, insertImage,
-    insertWikiLink, insertTypedLinks, insertCallouts, insertCardCallout,
+    insertTypedLinks, insertCallouts, insertCardCallout,
     insertSparqlQuery, insertSqlQuery, insertPythonScript, insertMermaidDiagram,
     insertYouTubeEmbed, vegaLiteInserts,
   } from '../editor/formatting';
+  // The formatting items run the registered editor commands (#2625) — the
+  // same ones the editor's keymap binds; the inserts below have no command.
+  import { EDITOR_COMMANDS } from '../editor/command-registry';
   import { toolRequiresSelection, type ThinkingToolInfo } from '../../../shared/tools/types';
   import type { LinkRange } from '../editor/link-decorations';
   import type {
@@ -115,18 +115,18 @@
   <div class="submenu-item" onmouseenter={onAdjustSubmenu}>
     <span class="submenu-trigger">Highlight<Icon name="chevronRight" size={10} /></span>
     <div class="submenu">
-      <button onclick={() => onRunCmd(toggleHighlight)}>Colored Highlight</button>
-      <button onclick={() => onRunCmd(toggleBold)}>Bold</button>
-      <button onclick={() => onRunCmd(toggleItalic)}>Italic</button>
-      <button onclick={() => onRunCmd(toggleCode)}>Code</button>
-      <button onclick={() => onRunCmd(toggleStrikethrough)}>Strikethrough</button>
+      <button onclick={() => onRunCmd(EDITOR_COMMANDS['editor.toggleHighlight'])}>Colored Highlight</button>
+      <button onclick={() => onRunCmd(EDITOR_COMMANDS['editor.toggleBold'])}>Bold</button>
+      <button onclick={() => onRunCmd(EDITOR_COMMANDS['editor.toggleItalic'])}>Italic</button>
+      <button onclick={() => onRunCmd(EDITOR_COMMANDS['editor.toggleCode'])}>Code</button>
+      <button onclick={() => onRunCmd(EDITOR_COMMANDS['editor.toggleStrikethrough'])}>Strikethrough</button>
     </div>
   </div>
   <div class="submenu-item" onmouseenter={onAdjustSubmenu}>
     <span class="submenu-trigger">Link<Icon name="chevronRight" size={10} /></span>
     <div class="submenu">
-      <button onclick={() => onRunCmd(insertWikiLink)}>Wiki Link</button>
-      <button onclick={() => onRunCmd(insertLink)}>URL Link</button>
+      <button onclick={() => onRunCmd(EDITOR_COMMANDS['editor.insertWikiLink'])}>Wiki Link</button>
+      <button onclick={() => onRunCmd(EDITOR_COMMANDS['editor.insertLink'])}>URL Link</button>
       <div class="submenu-item" onmouseenter={onAdjustSubmenu}>
         <span class="submenu-trigger">Typed Link...<Icon name="chevronRight" size={10} /></span>
         <div class="submenu">
@@ -139,17 +139,17 @@
         </div>
       </div>
       <div class="submenu-separator"></div>
-      <button onclick={() => onRunCmd(insertFootnote)}>Footnote</button>
+      <button onclick={() => onRunCmd(EDITOR_COMMANDS['editor.insertFootnote'])}>Footnote</button>
     </div>
   </div>
   <div class="submenu-item" onmouseenter={onAdjustSubmenu}>
     <span class="submenu-trigger">Paragraph<Icon name="chevronRight" size={10} /></span>
     <div class="submenu">
-      <button onclick={() => onRunCmd(toggleH1)}>Heading 1</button>
-      <button onclick={() => onRunCmd(toggleH2)}>Heading 2</button>
-      <button onclick={() => onRunCmd(toggleH3)}>Heading 3</button>
+      <button onclick={() => onRunCmd(EDITOR_COMMANDS['editor.toggleH1'])}>Heading 1</button>
+      <button onclick={() => onRunCmd(EDITOR_COMMANDS['editor.toggleH2'])}>Heading 2</button>
+      <button onclick={() => onRunCmd(EDITOR_COMMANDS['editor.toggleH3'])}>Heading 3</button>
       <div class="submenu-separator"></div>
-      <button onclick={() => onRunCmd(toggleQuote)}>Quote</button>
+      <button onclick={() => onRunCmd(EDITOR_COMMANDS['editor.toggleQuote'])}>Quote</button>
       <div class="submenu-item" onmouseenter={onAdjustSubmenu}>
         <span class="submenu-trigger">Callout...<Icon name="chevronRight" size={10} /></span>
         <div class="submenu">
@@ -158,16 +158,16 @@
           {/each}
         </div>
       </div>
-      <button onclick={() => onRunCmd(insertHorizontalRule)}>Horizontal Rule</button>
+      <button onclick={() => onRunCmd(EDITOR_COMMANDS['editor.insertHorizontalRule'])}>Horizontal Rule</button>
     </div>
   </div>
   <div class="submenu-item" onmouseenter={onAdjustSubmenu}>
     <span class="submenu-trigger">Elements<Icon name="chevronRight" size={10} /></span>
     <div class="submenu">
-      <button onclick={() => onRunCmd(insertTable)}>Table</button>
-      <button onclick={() => onRunCmd(insertImage)}>Image</button>
-      <button onclick={() => onRunCmd(toggleBulletList)}>Bulleted List</button>
-      <button onclick={() => onRunCmd(toggleNumberedList)}>Numbered List</button>
+      <button onclick={() => onRunCmd(EDITOR_COMMANDS['editor.insertTable'])}>Table</button>
+      <button onclick={() => onRunCmd(EDITOR_COMMANDS['editor.insertImage'])}>Image</button>
+      <button onclick={() => onRunCmd(EDITOR_COMMANDS['editor.toggleBulletList'])}>Bulleted List</button>
+      <button onclick={() => onRunCmd(EDITOR_COMMANDS['editor.toggleNumberedList'])}>Numbered List</button>
       <div class="submenu-separator"></div>
       <div class="submenu-item" onmouseenter={onAdjustSubmenu}>
         <span class="submenu-trigger">Query...<Icon name="chevronRight" size={10} /></span>

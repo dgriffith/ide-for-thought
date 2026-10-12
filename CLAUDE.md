@@ -410,8 +410,10 @@ So a menu item does exactly one of:
   payload is a registered command (#2625): declared once in
   `src/shared/commands.ts`, placed with `command(id)`, sent as
   `menu:command`, and run from the same action table as the palette
-  (`renderer/lib/app/command-keymap.ts`). `command-registry.test.ts` fails
-  on an argument-free `send()` in `menu.ts`;
+  (`renderer/lib/app/command-keymap.ts`), which also serves the window
+  keymap and the editor's CodeMirror commands. `command-registry.test.ts`
+  fails on an argument-free `send()` in `menu.ts`, and on two commands
+  sharing a key;
 - **call a window/app-lifecycle function** — `createWindow`, `printToPDF`,
   `checkForUpdatesNow`, `shell.openExternal`, `installMinervaCommand`. These are
   genuinely window-scoped or stateless OS side-effects with no sensible IPC

@@ -42,6 +42,12 @@ vi.mock('../../../src/renderer/lib/stores/conversations.svelte', () => ({ getCon
 vi.mock('../../../src/renderer/lib/editor/dictation', () => ({ toggleEditorDictation: h.toggleEditorDictation }));
 vi.mock('../../../src/renderer/lib/voice/audio-recording.svelte', () => ({ getAudioRecordingStore: () => h.recordings }));
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({ api: h.api }));
+// Every editor command as a spy, so its action's dispatch can be observed.
+vi.mock('../../../src/renderer/lib/editor/command-registry', async () => {
+  const { COMMANDS } = await vi.importActual<typeof import('../../../src/shared/commands')>('../../../src/shared/commands');
+  return { EDITOR_COMMANDS: Object.fromEntries(COMMANDS.filter((c) => 'editor' in c).map((c) => [c.id, vi.fn(() => true)])) };
+});
+import { EDITOR_COMMANDS } from '../../../src/renderer/lib/editor/command-registry';
 
 import { createCommandKeymap, type CommandKeymapCtx } from '../../../src/renderer/lib/app/command-keymap';
 
@@ -70,7 +76,7 @@ function makeCtx() {
     autoLinkInbound: vi.fn(), decompose: vi.fn(), invokeTool: vi.fn(),
     selectTheme: vi.fn(), cycleTheme: vi.fn(), cycleViewMode: vi.fn(),
     refreshSourcesCache: vi.fn(), refreshSavedQueriesCache: vi.fn(),
-    setFindInNotesMode: vi.fn(), setShowGotoLine: vi.fn(), setShowGotoNote: vi.fn(),
+    setFindInNotesMode: vi.fn(), setShowGotoLine: vi.fn(),
     toggleQuickOpen: vi.fn(), setShowEditSavedQueries: vi.fn(), setShowSettings: vi.fn(),
     toggleSidebar: vi.fn(), toggleRightSidebar: vi.fn(), toggleCommandPalette: vi.fn(),
     setEditorFontSize: vi.fn((n: number) => { editorFontSize = n; }),
@@ -204,11 +210,11 @@ describe('editor-ref driven commands', () => {
 });
 
 describe('UI-chrome commands', () => {
-  it('quickOpen refreshes the palette caches and opens goto-note', () => {
+  it('quickOpen refreshes the palette caches and toggles goto-note', () => {
     commandActions['nav.quickOpen']();
     expect(built.spies.refreshSourcesCache).toHaveBeenCalled();
     expect(built.spies.refreshSavedQueriesCache).toHaveBeenCalled();
-    expect(built.spies.setShowGotoNote).toHaveBeenCalledWith(true);
+    expect(built.spies.toggleQuickOpen).toHaveBeenCalledTimes(1);
   });
 
   it('findInNotes / replaceInNotes set the mode', () => {
@@ -311,19 +317,12 @@ describe('commands backed by stores / api', () => {
 });
 
 describe('keymapDeps', () => {
-  it('closeActiveTab closes the active index', () => {
+  it('runs commands from the action table', () => {
     h.editor.activeIndex = 3;
-    keymapDeps.closeActiveTab();
+    keymapDeps.run('view.closeTab');
     expect(h.editor.closeTab).toHaveBeenCalledWith(3);
-  });
-
-  it('shares wiring with the command table (navBack, toggleQuickOpen, cyclePreview)', () => {
-    keymapDeps.navBack();
-    keymapDeps.toggleQuickOpen();
-    keymapDeps.cyclePreview();
+    keymapDeps.run('nav.back');
     expect(built.spies.navBack).toHaveBeenCalled();
-    expect(built.spies.toggleQuickOpen).toHaveBeenCalled();
-    expect(built.spies.cycleViewMode).toHaveBeenCalled();
   });
 
   it('hasActiveIndex reflects the editor store', () => {
@@ -331,5 +330,18 @@ describe('keymapDeps', () => {
     expect(keymapDeps.hasActiveIndex()).toBe(false);
     h.editor.activeIndex = 0;
     expect(keymapDeps.hasActiveIndex()).toBe(true);
+  });
+});
+
+describe('editor commands run on the focused pane (#2625)', () => {
+  it('runs the CodeMirror command against the focused view, and is a no-op without one', () => {
+    const bold = EDITOR_COMMANDS['editor.toggleBold'] as unknown as ReturnType<typeof vi.fn>;
+    const view = { id: 'v' };
+    built.editorComponent.getView.mockReturnValue(view as never);
+    commandActions['editor.toggleBold']();
+    expect(bold).toHaveBeenCalledExactlyOnceWith(view);
+    built.editorComponent.getView.mockReturnValue(undefined);
+    commandActions['editor.toggleBold']();
+    expect(bold).toHaveBeenCalledTimes(1);
   });
 });
