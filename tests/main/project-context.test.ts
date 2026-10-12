@@ -10,6 +10,7 @@ import {
   refCountFor,
   activeProjects,
   getProjectContext,
+  refreshOpenExtensionCatalogs,
 } from '../../src/main/project-context';
 import { queryGraph } from '../../src/main/graph/index';
 
@@ -92,5 +93,47 @@ describe('project-context lifecycle (#333)', () => {
     expect(refCountFor(root)).toBe(1);
     await releaseProject(root, 1);
     expect(refCountFor(root)).toBe(0);
+  });
+});
+
+describe('project-context: the extension catalog (#2618)', () => {
+  let root: string;
+  beforeEach(() => { root = mkTempProject(); });
+  afterEach(async () => {
+    for (const r of [...activeProjects()]) await releaseProject(r, 1);
+    await fsp.rm(root, { recursive: true, force: true });
+  });
+
+  /** Object-type contributions recorded in the graph, by id. */
+  async function typeContributions(): Promise<string[]> {
+    const r = await queryGraph(getProjectContext(root)!, `
+      SELECT ?id WHERE {
+        ?c a minerva:Contribution ; minerva:contributesTo ?p ; dc:identifier ?id .
+        ?p dc:identifier "object-types" .
+      }`);
+    return (r.results as Array<{ id: string }>).map((x) => x.id);
+  }
+
+  /** The refresh is fire-and-forget; wait for it to land. */
+  async function until(check: () => Promise<boolean>): Promise<void> {
+    for (let i = 0; i < 100; i++) {
+      if (await check()) return;
+      await new Promise((r) => setTimeout(r, 20));
+    }
+    throw new Error('timed out waiting for the extension catalog');
+  }
+
+  it('opening a project records what is installed', async () => {
+    await acquireProject(root, 1);
+    await until(async () => (await typeContributions()).includes('place'));
+  });
+
+  it('a refresh picks up a contribution added since', async () => {
+    await acquireProject(root, 1);
+    await until(async () => (await typeContributions()).includes('place'));
+    await fsp.mkdir(path.join(root, '.minerva', 'types'), { recursive: true });
+    await fsp.writeFile(path.join(root, '.minerva', 'types', 'recipe.md'), '---\nlabel: Recipe\nproperties:\n  - name: serves\n    type: number\n---\n');
+    refreshOpenExtensionCatalogs();
+    await until(async () => (await typeContributions()).includes('recipe'));
   });
 });
