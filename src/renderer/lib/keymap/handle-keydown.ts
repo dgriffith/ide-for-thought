@@ -1,96 +1,66 @@
 /**
- * Global keyboard shortcuts (#463 / extracted from App.svelte in #670).
+ * Global keyboard shortcuts (#463; extracted from App.svelte in #670; on the
+ * command registry since #2625).
  *
- * `handleKeydown(e, deps)` is the window-level keymap, moved out of App.svelte
- * as a pure function of an injected `KeymapDeps`. It runs at event time (not
- * reactively), so the predicates read current state when a key is pressed.
- * Keeping it dependency-injected makes the key→action dispatch unit-testable
- * without mounting the app — part of the App.svelte decomposition safety net.
+ * The window-level keymap is a list of command ids (`KEYMAP`). Each row's key
+ * is that command's declared `key` in `shared/commands.ts` — the same one its
+ * menu item shows — and running it calls the shared action table, so this
+ * keymap can't bind a different key, or do a different thing, than the menu
+ * and the palette.
  *
- * Behaviour preserved verbatim, including which combos guard on state before
- * calling `preventDefault()` (so an unhandled combo with no project open still
- * falls through to the browser / editor).
+ * Some rows guard on state before claiming the key: with the guard unmet the
+ * event isn't `preventDefault`ed, so it falls through to the browser or the
+ * editor (⌘G with no tab open, ⌘K with no thoughtbase).
  */
+import { commandDef, type CommandId } from '../../../shared/commands';
+
 export interface KeymapDeps {
+  /** Run a registered command. */
+  run: (id: CommandId) => void;
   hasProject: () => boolean;
   hasActiveTab: () => boolean;
   hasActiveIndex: () => boolean;
-  toggleCommandPalette: () => void;
-  navBack: () => void;
-  navForward: () => void;
-  cyclePreview: () => void;
-  toggleRightSidebar: () => void;
-  cycleTheme: () => void;
-  newNote: () => void;
-  closeActiveTab: () => void;
-  toggleQuickOpen: () => void;
-  openGotoLine: () => void;
-  newQuery: () => void;
-  openConversation: () => void;
+}
+
+type Guard = 'hasProject' | 'hasActiveTab' | 'hasActiveIndex';
+
+/** The window's shortcuts, in match order. */
+export const KEYMAP: ReadonlyArray<{ command: CommandId; when?: Guard }> = [
+  // ⌘K opens the command palette (#463) — the Linear / VS Code convention,
+  // since ⌘⇧P cycles the view mode and ⌘P is quick-open.
+  { command: 'view.commandPalette', when: 'hasProject' },
+  { command: 'nav.back' },
+  { command: 'nav.forward' },
+  { command: 'view.togglePreview' },
+  { command: 'view.toggleRightSidebar' },
+  { command: 'view.cycleTheme' },
+  { command: 'file.newNote' },
+  { command: 'view.closeTab', when: 'hasActiveIndex' },
+  { command: 'nav.quickOpen', when: 'hasProject' },
+  { command: 'edit.gotoLine', when: 'hasActiveTab' },
+  { command: 'query.new', when: 'hasProject' },
+  { command: 'learning.openConversation' },
+];
+
+/** Does `e` press `accelerator` (`CmdOrCtrl+Shift+P`)? `CmdOrCtrl` is either
+ *  ⌘ or Ctrl; Shift and Alt must match exactly. */
+export function matchesAccelerator(e: KeyboardEvent, accelerator: string): boolean {
+  const parts = accelerator.split('+');
+  const key = parts.pop()!.toLowerCase();
+  const mods = new Set(parts);
+  if (mods.has('CmdOrCtrl') && !(e.metaKey || e.ctrlKey)) return false;
+  if (mods.has('Shift') !== e.shiftKey) return false;
+  if (mods.has('Alt') !== e.altKey) return false;
+  return e.key.toLowerCase() === key;
 }
 
 export function handleKeydown(e: KeyboardEvent, deps: KeymapDeps): void {
-  const mod = e.metaKey || e.ctrlKey;
-  // ⌘K (or Ctrl+K) opens the command palette (#463). ⌘⇧P is already bound to
-  // cycle view mode, so we use the Linear / VS Code convention instead of
-  // Obsidian's ⌘P (which is our quick-open).
-  if (mod && !e.shiftKey && !e.altKey && e.key === 'k') {
-    if (deps.hasProject()) {
-      e.preventDefault();
-      deps.toggleCommandPalette();
-      return;
-    }
-  }
-  if (mod && e.key === '[') {
+  for (const row of KEYMAP) {
+    const key = commandDef(row.command).key;
+    if (!key || !matchesAccelerator(e, key)) continue;
+    if (row.when && !deps[row.when]()) return;
     e.preventDefault();
-    deps.navBack();
-  }
-  if (mod && e.key === ']') {
-    e.preventDefault();
-    deps.navForward();
-  }
-  if (mod && e.shiftKey && e.key === 'p') {
-    e.preventDefault();
-    deps.cyclePreview();
-  }
-  if (mod && e.shiftKey && e.key === 'b') {
-    e.preventDefault();
-    deps.toggleRightSidebar();
-  }
-  if (mod && e.shiftKey && e.key === 't') {
-    e.preventDefault();
-    deps.cycleTheme();
-  }
-  if (mod && e.key === 'n') {
-    e.preventDefault();
-    deps.newNote();
-  }
-  if (mod && !e.shiftKey && e.key === 'w') {
-    if (deps.hasActiveIndex()) {
-      e.preventDefault();
-      deps.closeActiveTab();
-    }
-  }
-  if (mod && !e.shiftKey && e.key === 'p') {
-    if (deps.hasProject()) {
-      e.preventDefault();
-      deps.toggleQuickOpen();
-    }
-  }
-  if (mod && !e.shiftKey && e.key === 'g') {
-    if (deps.hasActiveTab()) {
-      e.preventDefault();
-      deps.openGotoLine();
-    }
-  }
-  if (mod && e.shiftKey && e.key === 'q') {
-    if (deps.hasProject()) {
-      e.preventDefault();
-      deps.newQuery();
-    }
-  }
-  if (mod && e.shiftKey && e.key === 'i') {
-    e.preventDefault();
-    deps.openConversation();
+    deps.run(row.command);
+    return;
   }
 }

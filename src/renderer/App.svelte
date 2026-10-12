@@ -586,7 +586,6 @@
     setEditorFontSize: (n) => { editorFontSize = n; },
     setFindInNotesMode: (mode) => { featureDialogs.setFindInNotes(mode); },
     setShowGotoLine: (v) => { featureDialogs.setGotoLine(v); },
-    setShowGotoNote: (v) => { featureDialogs.setGotoNote(v); },
     toggleQuickOpen: () => { featureDialogs.toggleGotoNote(); },
     setShowEditSavedQueries: (v) => { featureDialogs.setEditSavedQueries(v); },
     setShowSettings: (v) => { v ? featureDialogs.openSettings() : featureDialogs.closeSettings(); },

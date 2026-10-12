@@ -15,7 +15,8 @@
  * which is why the existing Extend/Shrink Selection bindings are unaffected.
  */
 import { describe, it, expect, beforeEach } from 'vitest';
-import { COMMAND_REGISTRY, resolveKeyBindings, saveOverrides } from '../../src/renderer/lib/editor/command-registry';
+import { COMMAND_REGISTRY, EDITOR_COMMANDS, resolveKeyBindings, saveOverrides } from '../../src/renderer/lib/editor/command-registry';
+import { COMMANDS } from '../../src/shared/commands';
 
 // Clean in-memory localStorage — the renderer harness only sets up a partial
 // stub (same approach as editor-settings.test.ts).
@@ -37,6 +38,12 @@ installFakeLocalStorage();
 
 describe('editor command registry', () => {
   beforeEach(() => localStorage.clear());
+
+  it('is the editor commands declared in shared/commands.ts, each implemented (#2625)', () => {
+    const declared = COMMANDS.filter((c) => 'editor' in c).map((c) => c.id);
+    expect(COMMAND_REGISTRY.map((e) => e.id)).toEqual(declared);
+    expect(Object.keys(EDITOR_COMMANDS).sort()).toEqual([...declared].sort());
+  });
 
   it('binds a default key to something', () => {
     // A guard over an empty registry would pass vacuously.

@@ -1,4 +1,5 @@
 import type { Command } from '@codemirror/view';
+import { COMMANDS, type EditorCommandId } from '../../../shared/commands';
 import { toggleTabFocusMode } from '@codemirror/commands';
 import { toggleCase, joinLines, duplicateLine, sortLines, extendSelection, shrinkSelection } from './commands';
 import {
@@ -30,68 +31,55 @@ const transcribeRecording: Command = (view) => {
 };
 
 export interface CommandEntry {
-  id: string;
+  id: EditorCommandId;
   label: string;
   defaultKey: string;
   command: Command;
 }
 
-/** Central registry of all editor commands with default key bindings */
-export const COMMAND_REGISTRY: CommandEntry[] = [
-  // Text manipulation
-  { id: 'editor.toggleCase', label: 'Toggle Case', defaultKey: 'Mod-Shift-u', command: toggleCase },
-  { id: 'editor.joinLines', label: 'Join Lines', defaultKey: 'Ctrl-Shift-j', command: joinLines },
-  { id: 'editor.duplicateLine', label: 'Duplicate Line', defaultKey: 'Mod-d', command: duplicateLine },
-  { id: 'editor.sortLines', label: 'Sort Lines', defaultKey: '', command: sortLines },
+/**
+ * What each editor command does (#2625). The commands themselves — id, label,
+ * default key — are declared in `shared/commands.ts`; this is their CodeMirror
+ * half, keyed by `EditorCommandId`, so a declared editor command with no
+ * implementation doesn't compile.
+ */
+export const EDITOR_COMMANDS: Record<EditorCommandId, Command> = {
+  'editor.toggleCase': toggleCase,
+  'editor.joinLines': joinLines,
+  'editor.duplicateLine': duplicateLine,
+  'editor.sortLines': sortLines,
+  'editor.extendSelection': extendSelection,
+  'editor.shrinkSelection': shrinkSelection,
+  'editor.toggleTabFocusMode': toggleTabFocusMode,
+  'editor.toggleBold': toggleBold,
+  'editor.toggleItalic': toggleItalic,
+  'editor.toggleCode': toggleCode,
+  'editor.toggleStrikethrough': toggleStrikethrough,
+  'editor.toggleHighlight': toggleHighlight,
+  'editor.toggleH1': toggleH1,
+  'editor.toggleH2': toggleH2,
+  'editor.toggleH3': toggleH3,
+  'editor.toggleQuote': toggleQuote,
+  'editor.toggleBulletList': toggleBulletList,
+  'editor.toggleNumberedList': toggleNumberedList,
+  'editor.toggleTaskList': toggleTaskList,
+  'editor.dictate': dictate,
+  'editor.recordAudio': recordAudio,
+  'editor.transcribeRecording': transcribeRecording,
+  'editor.insertLink': insertLink,
+  'editor.insertWikiLink': insertWikiLink,
+  'editor.insertImage': insertImage,
+  'editor.insertTable': insertTable,
+  'editor.insertHorizontalRule': insertHorizontalRule,
+  'editor.insertFootnote': insertFootnote,
+};
 
-  // Selection
-  { id: 'editor.extendSelection', label: 'Extend Selection', defaultKey: 'Alt-ArrowUp', command: extendSelection },
-  { id: 'editor.shrinkSelection', label: 'Shrink Selection', defaultKey: 'Alt-ArrowDown', command: shrinkSelection },
-
-  // Accessibility — releases Tab so keyboard users can move focus out of the
-  // editor now that Tab indents. CodeMirror's default is `Ctrl-m`, but its
-  // `mac: 'Shift-Alt-m'` override can never fire: Option composes characters on
-  // macOS, so the browser reports "Â" rather than "m". `Ctrl-m` everywhere is a
-  // no-op off macOS (defaultKeymap already binds it) and fixes it on macOS.
-  {
-    id: 'editor.toggleTabFocusMode',
-    label: 'Toggle Tab Moves Focus',
-    defaultKey: 'Ctrl-m',
-    command: toggleTabFocusMode,
-  },
-
-  // Inline formatting
-  { id: 'editor.toggleBold', label: 'Bold', defaultKey: 'Mod-b', command: toggleBold },
-  { id: 'editor.toggleItalic', label: 'Italic', defaultKey: 'Mod-i', command: toggleItalic },
-  { id: 'editor.toggleCode', label: 'Code', defaultKey: 'Mod-e', command: toggleCode },
-  { id: 'editor.toggleStrikethrough', label: 'Strikethrough', defaultKey: 'Mod-Shift-x', command: toggleStrikethrough },
-  // `Mod-Shift-h` would collide with the menu's "Replace in Notes…"
-  // accelerator (matches VS Code's Replace-in-Files). Y → yellow, the
-  // default highlight color, gives the shortcut a mnemonic anchor.
-  { id: 'editor.toggleHighlight', label: 'Highlight (cycle color)', defaultKey: 'Mod-Shift-y', command: toggleHighlight },
-
-  // Paragraph
-  { id: 'editor.toggleH1', label: 'Heading 1', defaultKey: '', command: toggleH1 },
-  { id: 'editor.toggleH2', label: 'Heading 2', defaultKey: '', command: toggleH2 },
-  { id: 'editor.toggleH3', label: 'Heading 3', defaultKey: '', command: toggleH3 },
-  { id: 'editor.toggleQuote', label: 'Quote', defaultKey: '', command: toggleQuote },
-  { id: 'editor.toggleBulletList', label: 'Bulleted List', defaultKey: '', command: toggleBulletList },
-  { id: 'editor.toggleNumberedList', label: 'Numbered List', defaultKey: '', command: toggleNumberedList },
-  { id: 'editor.toggleTaskList', label: 'Task List', defaultKey: '', command: toggleTaskList },
-
-  // Voice
-  { id: 'editor.dictate', label: 'Dictate (Voice to Text)', defaultKey: 'Mod-Shift-v', command: dictate },
-  { id: 'editor.recordAudio', label: 'Record Audio', defaultKey: '', command: recordAudio },
-  { id: 'editor.transcribeRecording', label: 'Transcribe Recording', defaultKey: '', command: transcribeRecording },
-
-  // Insert
-  { id: 'editor.insertLink', label: 'Insert Link', defaultKey: 'Mod-k', command: insertLink },
-  { id: 'editor.insertWikiLink', label: 'Insert Wiki Link', defaultKey: '', command: insertWikiLink },
-  { id: 'editor.insertImage', label: 'Insert Image', defaultKey: '', command: insertImage },
-  { id: 'editor.insertTable', label: 'Insert Table', defaultKey: '', command: insertTable },
-  { id: 'editor.insertHorizontalRule', label: 'Insert Horizontal Rule', defaultKey: '', command: insertHorizontalRule },
-  { id: 'editor.insertFootnote', label: 'Insert Footnote', defaultKey: '', command: insertFootnote },
-];
+/** Every editor command with its default key, in declared order. */
+export const COMMAND_REGISTRY: CommandEntry[] = COMMANDS.flatMap((def): CommandEntry[] =>
+  'editor' in def
+    ? [{ id: def.id, label: def.title, defaultKey: ('key' in def.editor ? def.editor.key : '') ?? '', command: EDITOR_COMMANDS[def.id] }]
+    : [],
+);
 
 export interface KeyBindingOverride {
   key: string;
@@ -116,7 +104,7 @@ export function saveOverrides(overrides: KeyBindingOverride[]): void {
 export function resolveKeyBindings(): { key: string; command: Command }[] {
   const overrides = getOverrides();
   const overrideMap = new Map(overrides.map((o) => [o.command, o.key]));
-  const commandMap = new Map(COMMAND_REGISTRY.map((c) => [c.id, c.command]));
+  const commandMap = new Map<string, Command>(COMMAND_REGISTRY.map((c) => [c.id, c.command]));
 
   const bindings: { key: string; command: Command }[] = [];
 

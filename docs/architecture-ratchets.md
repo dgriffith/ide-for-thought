@@ -227,16 +227,29 @@ Stale entries fail too.
 
 **Commands come from one registry** (#2625, epic #2622):
 `src/shared/commands.ts`. Each command is declared once, with its id, title,
-category, key, palette enablement, and menu label, tooltip and gate. The menu
-bar places it with `command(id)`, and a click sends `menu:command` with the
-id. The palette lists every entry that has `palette`. The renderer runs both
-from one `Record<CommandId, …>` in `app/command-keymap.ts`. Before this, a
-command was a palette row, a dependency field, a menu item, a channel, a
-preload method, a client signature and a wiring line, and the palette and
-menu could disagree. The types hold most of it. The test holds the rest: no
-argument-free `send()` in `menu.ts`, and every command with a `menu` shape
-placed somewhere. **When it fires:** declare the command and place it with
-`command(id)`. Or, if nothing places it any more, drop its `menu` entry.
+category and key. Depending on where it's used, it also declares palette
+enablement, a menu label, tooltip and gate, or a CodeMirror `editor.key`.
+Every surface places commands by id and runs them from one
+`Record<CommandId, …>` in `app/command-keymap.ts`:
+
+- the menu bar, with `command(id)`, sent as `menu:command`;
+- the palette;
+- the window keymap's `KEYMAP` rows in `keymap/handle-keydown.ts`;
+- the editor's CodeMirror keymap, plus the formatting items of its
+  right-click menu, through `EDITOR_COMMANDS`.
+
+The types hold most of this. The test holds the rest: no argument-free
+`send()` in `menu.ts`; every command with a `menu` shape placed somewhere;
+every keymap row's command declaring a key; and **no two commands sharing a
+key**. It compares menu, window and editor keys in one namespace, so
+`Mod-k` and `CmdOrCtrl+K` count as the same key. Five clashes predate the
+registry, and the test lists them as `KNOWN_KEY_CLASHES` (#2758); that list
+may only shrink.
+
+**When it fires:**
+- a bare `send()` → declare the command and place it with `command(id)`;
+- an unplaced `menu` entry → place it, or drop the entry;
+- a new clash → pick a free key.
 
 ### `panel-registries.test.ts`
 
