@@ -66,6 +66,10 @@ export interface InspectionDef {
   /** One line, in the user's terms — what the check looks for and why. */
   description: string;
   group: InspectionGroup;
+  /** Every finding of this type has this severity. */
+  severity: InspectionSeverity;
+  /** Further types the check emits that this one switch covers. */
+  alsoEmits?: readonly string[];
   /** Off in the settings list until the argument map is a user-facing feature. */
   hidden?: boolean;
 }
@@ -77,16 +81,18 @@ export const INSPECTION_GROUP_LABELS: Record<InspectionGroup, string> = {
   arguments: 'Arguments',
 };
 
-export const INSPECTIONS: readonly InspectionDef[] = [
+export const INSPECTIONS = [
   // ── Notes ────────────────────────────────────────────────────────────────
   {
     type: 'stale_note',
+    severity: 'info',
     label: 'Stale notes',
     description: "Notes you haven't touched in a while, in case they've quietly gone out of date.",
     group: 'notes',
   },
   {
     type: 'unreferenced_image',
+    severity: 'info',
     label: 'Unreferenced images',
     description: 'Pasted or dropped images nothing currently links to, current or in your history.',
     group: 'notes',
@@ -95,18 +101,21 @@ export const INSPECTIONS: readonly InspectionDef[] = [
   // ── Links ────────────────────────────────────────────────────────────────
   {
     type: 'broken_note_link',
+    severity: 'warning',
     label: 'Broken note links',
     description: 'Wiki-links pointing at a note that doesn\'t exist — usually a rename or a typo.',
     group: 'links',
   },
   {
     type: 'broken_anchor_link',
+    severity: 'warning',
     label: 'Broken heading links',
     description: 'Links to a specific heading or block that has since been renamed or removed.',
     group: 'links',
   },
   {
     type: 'broken_cite_quote',
+    severity: 'warning',
     label: 'Broken citations and quotes',
     description: 'A cite or quote link whose source or excerpt is no longer in the thoughtbase.',
     group: 'links',
@@ -115,30 +124,37 @@ export const INSPECTIONS: readonly InspectionDef[] = [
   // ── Sources ──────────────────────────────────────────────────────────────
   {
     type: 'source_missing_metadata',
+    severity: 'info',
     label: 'Sources missing details',
     description: 'Sources with no author, title, or date — the fields a citation needs.',
     group: 'sources',
   },
   {
     type: 'invalid_doi',
+    severity: 'warning',
     label: 'Malformed DOIs',
     description: "A DOI that isn't shaped like one, so it won't resolve or look up.",
     group: 'sources',
   },
   {
     type: 'source_duplicate_doi',
+    severity: 'warning',
+    // Same finding by address rather than DOI; one switch covers both.
+    alsoEmits: ['source_duplicate_uri'],
     label: 'Duplicate sources',
     description: 'Two sources with the same DOI or address — likely the same thing ingested twice.',
     group: 'sources',
   },
   {
     type: 'source_cited_unread',
+    severity: 'info',
     label: 'Cited but unread',
     description: "Sources you've cited without marking them read.",
     group: 'sources',
   },
   {
     type: 'stub_aged',
+    severity: 'info',
     label: 'Long-unresolved stubs',
     description: 'Source stubs that have sat unfilled for a while.',
     group: 'sources',
@@ -147,6 +163,7 @@ export const INSPECTIONS: readonly InspectionDef[] = [
   // ── Arguments (hidden — see the module comment) ───────────────────────────
   {
     type: 'unsupported_claim',
+    severity: 'warning',
     label: 'Unsupported claims',
     description: 'Claims with nothing offered in support of them.',
     group: 'arguments',
@@ -154,6 +171,7 @@ export const INSPECTIONS: readonly InspectionDef[] = [
   },
   {
     type: 'missing_warrant',
+    severity: 'warning',
     label: 'Missing warrants',
     description: "Grounds that don't say why they support the claim.",
     group: 'arguments',
@@ -161,6 +179,7 @@ export const INSPECTIONS: readonly InspectionDef[] = [
   },
   {
     type: 'missing_backing',
+    severity: 'info',
     label: 'Missing backing',
     description: 'Warrants with nothing standing behind them.',
     group: 'arguments',
@@ -168,16 +187,20 @@ export const INSPECTIONS: readonly InspectionDef[] = [
   },
   {
     type: 'contradiction',
+    severity: 'concern',
     label: 'Contradictions',
     description: 'Claims recorded as contradicting each other.',
     group: 'arguments',
     hidden: true,
   },
-] as const;
+] as const satisfies readonly InspectionDef[];
+
+/** A catalog entry's type — what the settings switch, and a check's `emits`, name. */
+export type InspectionType = (typeof INSPECTIONS)[number]['type'];
 
 /** The checks the settings panel offers — everything not withheld. */
 export function visibleInspections(): InspectionDef[] {
-  return INSPECTIONS.filter((i) => !i.hidden);
+  return (INSPECTIONS as readonly InspectionDef[]).filter((i) => !i.hidden);
 }
 
 /**
@@ -185,9 +208,9 @@ export function visibleInspections(): InspectionDef[] {
  * finding and one user-facing switch; the engine emits both types, so the
  * toggle has to cover the pair.
  */
-const TYPE_ALIASES: Record<string, string> = {
-  source_duplicate_uri: 'source_duplicate_doi',
-};
+const TYPE_ALIASES: Record<string, string> = Object.fromEntries(
+  (INSPECTIONS as readonly InspectionDef[]).flatMap((d) => (d.alsoEmits ?? []).map((e) => [e, d.type])),
+);
 
 /** Which catalog entry an emitted inspection belongs to. */
 export function catalogTypeFor(emittedType: string): string {
@@ -222,7 +245,7 @@ export const DEFAULT_INSPECTION_SETTINGS: InspectionSettings = {
  * moment someone renamed one.
  */
 export function isInspectionEnabled(type: string, settings: InspectionSettings): boolean {
-  const def = INSPECTIONS.find((i) => i.type === type);
+  const def = (INSPECTIONS as readonly InspectionDef[]).find((i) => i.type === type);
   if (def?.hidden) return true;
   return !settings.disabled.includes(type);
 }
