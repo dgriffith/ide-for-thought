@@ -19,6 +19,7 @@ import {
   exportKnowledgeGraph,
 } from './maintenance-commands';
 import { STOCK_QUERIES } from '../shared/stock-queries';
+import { commandDef, type MenuCommandId } from '../shared/commands';
 import { installMinervaCommand } from './cli-install';
 import { listSavedQueries } from './saved-queries';
 import * as publish from './publish';
@@ -87,6 +88,32 @@ interface GateReq {
  *  case); pass a `GateReq` to also require a note and/or selection. */
 type Gate = <T extends Electron.MenuItemConstructorOptions>(item: T, req?: GateReq) => T;
 
+/**
+ * A command from the registry (`shared/commands.ts`, #2625), as a menu item:
+ * its label, accelerator, tooltip and gate come from the declaration, and a
+ * click sends `menu:command` with its id for the renderer to run. `over`
+ * adjusts the item for one placement (Preferences' platform accelerator).
+ * A command gated on a thoughtbase needs the `gate` of the menu it's in.
+ */
+function command(
+  id: MenuCommandId,
+  gate?: Gate,
+  over: Partial<Electron.MenuItemConstructorOptions> = {},
+): Electron.MenuItemConstructorOptions {
+  const def = commandDef(id);
+  const menu = def.menu ?? {};
+  const item: Electron.MenuItemConstructorOptions = {
+    label: menu.label ?? def.title,
+    ...(def.key ? { accelerator: def.key } : {}),
+    ...(menu.toolTip ? { toolTip: menu.toolTip } : {}),
+    click: () => send(Channels.MENU_COMMAND, id),
+    ...over,
+  };
+  if (menu.gate === false) return item;
+  if (!gate) throw new Error(`menu command ${id} needs a thoughtbase gate`);
+  return gate(item, menu.gate);
+}
+
 export function rebuildMenu(): Electron.MenuItemConstructorOptions[] {
   const isMac = process.platform === 'darwin';
   // Enablement gate: most editor / ingest / graph operations require an
@@ -143,7 +170,7 @@ function buildAppMenu(isMac: boolean): Electron.MenuItemConstructorOptions[] {
     {
       label: 'Minerva',
       submenu: [
-        { label: 'About Minerva', click: () => send(Channels.MENU_ABOUT) },
+        command('app.about'),
         { type: 'separator' as const },
         {
           // "Checking…" (disabled) while a check is in flight (#963).
@@ -156,11 +183,7 @@ function buildAppMenu(isMac: boolean): Electron.MenuItemConstructorOptions[] {
           ? [{ label: 'Restart to Install Update', click: () => quitAndInstallUpdate() }]
           : []),
         { type: 'separator' as const },
-        {
-          label: 'Preferences…',
-          accelerator: 'Cmd+,',
-          click: () => send(Channels.MENU_OPEN_SETTINGS),
-        },
+        command('app.settings', undefined, { accelerator: 'Cmd+,' }),
         { type: 'separator' as const },
         { role: 'services' as const },
         { type: 'separator' as const },
@@ -197,10 +220,7 @@ function buildRecentSubmenu(): Electron.MenuItemConstructorOptions[] {
           },
         })),
         { type: 'separator' as const },
-        {
-          label: 'Clear Recent Thoughtbases',
-          click: () => send(Channels.MENU_CLEAR_RECENT),
-        },
+        command('file.clearRecent'),
       ]
     : [{ label: 'No Recent Thoughtbases', enabled: false }];
 }
@@ -234,89 +254,32 @@ function buildFileMenu(gate: Gate, isMac: boolean): Electron.MenuItemConstructor
     submenu: [
       // Thoughtbase lifecycle first — the user's mental model is
       // "open my thoughtbase" before "do anything in it".
-      {
-        label: 'New Thoughtbase…',
-        click: () => send(Channels.MENU_NEW_PROJECT),
-      },
-      {
-        label: 'Open Thoughtbase…',
-        accelerator: 'CmdOrCtrl+O',
-        click: () => send(Channels.MENU_OPEN_PROJECT),
-      },
+      command('file.newProject', gate),
+      command('file.openProject', gate),
       {
         label: 'Recent Thoughtbases',
         submenu: buildRecentSubmenu(),
       },
-      gate({
-        label: 'Close Thoughtbase',
-        accelerator: 'CmdOrCtrl+Shift+W',
-        click: () => send(Channels.MENU_CLOSE_PROJECT),
-      }),
-      gate({
-        label: 'Edit Thoughtbase Guide…',
-        toolTip: 'Open thoughtbase.md — the plain-English guide (structure, intent, conventions) shown to the assistant at the start of every conversation. Created from a template if it doesn\'t exist yet.',
-        click: () => send(Channels.MENU_EDIT_THOUGHTBASE_DOC),
-      }),
-      gate({
-        label: 'Thoughtbase Properties…',
-        toolTip: 'Rename the thoughtbase and (advanced) set its knowledge-graph base IRI.',
-        click: () => send(Channels.MENU_THOUGHTBASE_PROPERTIES),
-      }),
+      command('file.closeProject', gate),
+      command('file.editThoughtbaseGuide', gate),
+      command('file.thoughtbaseProperties', gate),
       { type: 'separator' },
 
       // Everyday note actions.
-      gate({
-        label: 'New Note',
-        accelerator: 'CmdOrCtrl+N',
-        click: () => send(Channels.MENU_NEW_NOTE),
-      }),
-      gate({
-        label: 'New Audio Recording',
-        toolTip: 'Record from the microphone into a file in the thoughtbase, embedded in the open note. Choose it again to stop.',
-        click: () => send(Channels.MENU_NEW_AUDIO_RECORDING),
-      }),
-      gate({
-        label: 'Save',
-        accelerator: 'CmdOrCtrl+S',
-        click: () => send(Channels.MENU_SAVE),
-      }, { note: true }),
-      gate({
-        label: 'Save as Template…',
-        click: () => send(Channels.MENU_SAVE_AS_TEMPLATE),
-      }, { note: true }),
-      gate({
-        label: 'Save Note as Object Type…',
-        click: () => send(Channels.MENU_SAVE_AS_OBJECT_TYPE),
-      }, { note: true }),
+      command('file.newNote', gate),
+      command('file.newAudioRecording', gate),
+      command('file.save', gate),
+      command('file.saveAsTemplate', gate),
+      command('objects.saveAsObjectType', gate),
       { type: 'separator' },
 
       // Ingest / Import — bringing external things in.
-      gate({
-        label: 'Ingest URL as Source…',
-        accelerator: 'CmdOrCtrl+Shift+I',
-        click: () => send(Channels.MENU_INGEST_URL),
-      }),
-      gate({
-        label: 'Ingest Identifier…',
-        accelerator: 'CmdOrCtrl+Shift+D',
-        click: () => send(Channels.MENU_INGEST_IDENTIFIER),
-      }),
-      gate({
-        label: 'Ingest File as Source…',
-        click: () => send(Channels.MENU_INGEST_FILE),
-      }),
-      gate({
-        label: 'Ingest Zip or Folder as Sources…',
-        click: () => send(Channels.MENU_INGEST_BULK),
-      }),
-      gate({
-        label: 'Import BibTeX…',
-        click: () => send(Channels.MENU_IMPORT_BIBTEX),
-      }),
-      gate({
-        label: 'Import Zotero RDF…',
-        click: () => send(Channels.MENU_IMPORT_ZOTERO_RDF),
-      }),
+      command('research.ingestUrl', gate),
+      command('research.ingestIdentifier', gate),
+      command('research.ingestFile', gate),
+      command('research.ingestBulk', gate),
+      command('research.importBibtex', gate),
+      command('research.importZoteroRdf', gate),
       { type: 'separator' },
 
       // Windowing primitive — explicit blank new window, less common.
@@ -330,10 +293,7 @@ function buildFileMenu(gate: Gate, isMac: boolean): Electron.MenuItemConstructor
       // Print / quick-PDF of the current view. Distinct from Export ▸ PDF,
       // which runs the note through the real publish pipeline; these two are
       // the "just capture what's on screen" escape hatches (named to say so).
-      gate({
-        label: 'Print…',
-        click: () => send(Channels.MENU_PRINT),
-      }, { note: true }),
+      command('file.print', gate),
       gate({
         label: 'Print to PDF…',
         click: printFocusedWindowToPdf,
@@ -342,19 +302,9 @@ function buildFileMenu(gate: Gate, isMac: boolean): Electron.MenuItemConstructor
       {
         label: 'Open In',
         submenu: [
-          gate({
-            label: 'Reveal in Finder',
-            accelerator: 'CmdOrCtrl+Shift+R',
-            click: () => send(Channels.MENU_REVEAL_FILE),
-          }, { note: true }),
-          gate({
-            label: 'Open in Default App',
-            click: () => send(Channels.MENU_OPEN_IN_DEFAULT),
-          }, { note: true }),
-          gate({
-            label: 'Open in Terminal',
-            click: () => send(Channels.MENU_OPEN_IN_TERMINAL),
-          }),
+          command('file.revealFile', gate),
+          command('file.openInDefault', gate),
+          command('file.openInTerminal', gate),
         ],
       },
       { type: 'separator' },
@@ -431,44 +381,18 @@ function buildEditMenu(gate: Gate, isMac: boolean): Electron.MenuItemConstructor
       { role: 'paste' },
       { role: 'selectAll' },
       { type: 'separator' },
-      gate({
-        label: 'Find',
-        accelerator: 'CmdOrCtrl+F',
-        click: () => send(Channels.MENU_FIND),
-      }, { note: true }),
-      gate({
-        label: 'Find and Replace',
-        accelerator: 'CmdOrCtrl+H',
-        click: () => send(Channels.MENU_FIND_REPLACE),
-      }, { note: true }),
-      gate({
-        label: 'Find in Notes…',
-        accelerator: 'CmdOrCtrl+Shift+F',
-        click: () => send(Channels.MENU_FIND_IN_NOTES),
-      }),
-      gate({
-        label: 'Replace in Notes…',
-        accelerator: 'CmdOrCtrl+Shift+H',
-        click: () => send(Channels.MENU_REPLACE_IN_NOTES),
-      }),
+      command('edit.find', gate),
+      command('edit.findReplace', gate),
+      command('edit.findInNotes', gate),
+      command('edit.replaceInNotes', gate),
       { type: 'separator' },
-      gate({
-        label: 'Insert Template…',
-        click: () => send(Channels.MENU_INSERT_TEMPLATE),
-      }, { note: true }),
+      command('edit.insertTemplate', gate),
       { type: 'separator' },
-      gate({
-        label: 'Sort Lines',
-        click: () => send(Channels.MENU_SORT_LINES),
-      }, { note: true }),
+      command('edit.sortLines', gate),
       ...(!isMac
         ? [
             { type: 'separator' as const },
-            {
-              label: 'Preferences…',
-              accelerator: 'Ctrl+,',
-              click: () => send(Channels.MENU_OPEN_SETTINGS),
-            },
+            command('app.settings', gate, { accelerator: 'Ctrl+,' }),
           ]
         : []),
     ],
@@ -488,60 +412,20 @@ function buildViewMenu(gate: Gate, isMac: boolean): Electron.MenuItemConstructor
       // know about, so the palette was discoverable only from the docs site —
       // which the Help menu itself could not correctly reach either (#2254).
       // Adding the item is the whole fix: the dialog picks it up for free.
-      gate({
-        label: 'Command Palette',
-        accelerator: 'CmdOrCtrl+K',
-        click: () => send(Channels.MENU_COMMAND_PALETTE),
-      }),
+      command('view.commandPalette', gate),
       { type: 'separator' as const },
-      gate({
-        label: 'Toggle Left Sidebar',
-        accelerator: 'CmdOrCtrl+B',
-        click: () => send(Channels.MENU_TOGGLE_SIDEBAR),
-      }),
-      gate({
-        label: 'Toggle Right Sidebar',
-        accelerator: 'CmdOrCtrl+Shift+B',
-        click: () => send(Channels.MENU_TOGGLE_RIGHT_SIDEBAR),
-      }),
-      gate({
-        label: 'Toggle Conversations',
-        accelerator: 'CmdOrCtrl+Shift+K',
-        click: () => send(Channels.MENU_TOGGLE_CONVERSATIONS),
-      }),
+      command('view.toggleSidebar', gate),
+      command('view.toggleRightSidebar', gate),
+      command('view.toggleConversations', gate),
       // "New Conversation" moved to Learning ▸ "Ask a Question" (buildToolMenus).
-      gate({
-        label: 'Cycle Preview Mode',
-        accelerator: 'CmdOrCtrl+Shift+P',
-        click: () => send(Channels.MENU_TOGGLE_PREVIEW),
-      }, { note: true }),
+      command('view.togglePreview', gate),
       { type: 'separator' },
       // Editor split — pane focus & layout commands (#814).
-      gate({
-        label: 'Split Editor Right',
-        accelerator: 'CmdOrCtrl+\\',
-        click: () => send(Channels.MENU_SPLIT_RIGHT),
-      }),
-      gate({
-        label: 'Split Editor Down',
-        accelerator: 'CmdOrCtrl+Shift+\\',
-        click: () => send(Channels.MENU_SPLIT_DOWN),
-      }),
-      gate({
-        label: 'Focus Next Group',
-        accelerator: 'CmdOrCtrl+Alt+Right',
-        click: () => send(Channels.MENU_FOCUS_NEXT_GROUP),
-      }, { editor: true }),
-      gate({
-        label: 'Focus Previous Group',
-        accelerator: 'CmdOrCtrl+Alt+Left',
-        click: () => send(Channels.MENU_FOCUS_PREV_GROUP),
-      }, { editor: true }),
-      gate({
-        label: 'Close Group',
-        accelerator: 'CmdOrCtrl+Shift+W',
-        click: () => send(Channels.MENU_CLOSE_GROUP),
-      }, { editor: true }),
+      command('view.splitRight', gate),
+      command('view.splitDown', gate),
+      command('view.focusNextGroup', gate),
+      command('view.focusPrevGroup', gate),
+      command('view.closeGroup', gate),
       { type: 'separator' },
       {
         label: 'Theme',
@@ -552,32 +436,15 @@ function buildViewMenu(gate: Gate, isMac: boolean): Electron.MenuItemConstructor
           click: () => send(Channels.MENU_SET_THEME, m.value),
         })),
       },
-      {
-        // ⌘⇧T keeps cycling for power users; the submenu above is for
-        // direct selection (#1139).
-        label: 'Cycle Theme',
-        accelerator: 'CmdOrCtrl+Shift+T',
-        click: () => send(Channels.MENU_CYCLE_THEME),
-      },
+      command('view.cycleTheme', gate),
       { type: 'separator' },
       { role: 'resetZoom', label: 'Actual Size' },
       { role: 'zoomIn' },
       { role: 'zoomOut' },
       { type: 'separator' },
-      gate({
-        label: 'Increase Editor Font Size',
-        accelerator: 'CmdOrCtrl+Shift+=',
-        click: () => send(Channels.MENU_FONT_INCREASE),
-      }),
-      gate({
-        label: 'Decrease Editor Font Size',
-        accelerator: 'CmdOrCtrl+Shift+-',
-        click: () => send(Channels.MENU_FONT_DECREASE),
-      }),
-      gate({
-        label: 'Reset Editor Font Size',
-        click: () => send(Channels.MENU_FONT_RESET),
-      }),
+      command('view.fontIncrease', gate),
+      command('view.fontDecrease', gate),
+      command('view.fontReset', gate),
       { type: 'separator' },
       // macOS auto-injects its own "Enter/Exit Full Screen" item into the
       // View menu, so adding `togglefullscreen` here produced a duplicate.
@@ -595,27 +462,11 @@ function buildNavigateMenu(gate: Gate): Electron.MenuItemConstructorOptions {
   return {
     label: 'Navigate',
     submenu: [
-      gate({
-        label: 'Back',
-        accelerator: 'CmdOrCtrl+[',
-        click: () => send(Channels.MENU_NAV_BACK),
-      }),
-      gate({
-        label: 'Forward',
-        accelerator: 'CmdOrCtrl+]',
-        click: () => send(Channels.MENU_NAV_FORWARD),
-      }),
+      command('nav.back', gate),
+      command('nav.forward', gate),
       { type: 'separator' },
-      gate({
-        label: 'Quick Open',
-        accelerator: 'CmdOrCtrl+P',
-        click: () => send(Channels.MENU_QUICK_OPEN),
-      }),
-      gate({
-        label: 'Go to Line',
-        accelerator: 'CmdOrCtrl+G',
-        click: () => send(Channels.MENU_GOTO_LINE),
-      }, { note: true }),
+      command('nav.quickOpen', gate),
+      command('edit.gotoLine', gate),
     ],
   };
 }
@@ -625,32 +476,24 @@ function buildRefactorMenu(gate: Gate): Electron.MenuItemConstructorOptions {
   return {
     label: 'Refactor',
     submenu: [
-      gate({ label: 'Rename…', click: () => send(Channels.MENU_REFACTOR_RENAME) }, { note: true }),
-      gate({ label: 'Move…', click: () => send(Channels.MENU_REFACTOR_MOVE) }, { note: true }),
-      gate({ label: 'Copy…', click: () => send(Channels.MENU_REFACTOR_COPY) }, { note: true }),
+      command('refactor.rename', gate),
+      command('refactor.move', gate),
+      command('refactor.copy', gate),
       { type: 'separator' },
-      gate({ label: 'Extract Selection to New Note', click: () => send(Channels.MENU_REFACTOR_EXTRACT) }, { note: true, selection: true }),
-      gate({ label: 'Split Note Here', click: () => send(Channels.MENU_REFACTOR_SPLIT_HERE) }, { note: true }),
-      gate({ label: 'Split by Heading…', click: () => send(Channels.MENU_REFACTOR_SPLIT_BY_HEADING) }, { note: true }),
+      command('refactor.extract', gate),
+      command('refactor.splitHere', gate),
+      command('refactor.splitByHeading', gate),
       { type: 'separator' },
-      gate({ label: 'Auto-tag', click: () => send(Channels.MENU_REFACTOR_AUTOTAG) }, { note: true }),
-      gate({ label: 'Auto-link outbound…', click: () => send(Channels.MENU_REFACTOR_AUTOLINK) }, { note: true }),
-      gate({ label: 'Auto-link inbound…', click: () => send(Channels.MENU_REFACTOR_AUTOLINK_INBOUND) }, { note: true }),
-      gate({ label: 'Decompose Note…', click: () => send(Channels.MENU_REFACTOR_DECOMPOSE) }, { note: true }),
+      command('refactor.autoTag', gate),
+      command('refactor.autoLink', gate),
+      command('refactor.autoLinkInbound', gate),
+      command('refactor.decompose', gate),
       { type: 'separator' },
       // Deterministic markdown normalisation (issue #152 epic). Nested
       // under Refactor so the title bar stays lean.
-      gate({
-        label: 'Format',
-        toolTip: 'Format the active note, or every note in the left-sidebar selection (use ⌘-click / shift-click to multi-select, ⌘-A to select all).',
-        click: () => send(Channels.MENU_FORMAT),
-      }),
+      command('refactor.format', gate),
       { type: 'separator' },
-      gate({
-        label: 'Insert/Update Bibliography',
-        toolTip: 'Render a References section listing every source the active note cites, in the project’s configured CSL style.',
-        click: () => send(Channels.MENU_BIBLIOGRAPHY),
-      }, { note: true }),
+      command('research.bibliography', gate),
     ],
   };
 }
@@ -699,7 +542,7 @@ function buildToolMenus(gate: Gate): Electron.MenuItemConstructorOptions[] {
       // like the rest of the project-only items.
       const submenu = id === 'learning'
         ? [
-            gate({ label: 'Ask a Question', click: () => send(Channels.MENU_NEW_CONVERSATION) }),
+            command('learning.askQuestion', gate),
             { type: 'separator' as const },
             ...toolItems,
           ]
@@ -716,11 +559,7 @@ function buildQueryMenu(gate: Gate): Electron.MenuItemConstructorOptions {
   return {
     label: 'Query',
     submenu: [
-      gate({
-        label: 'New Query',
-        accelerator: 'CmdOrCtrl+Shift+Q',
-        click: () => send(Channels.MENU_NEW_QUERY),
-      }),
+      command('query.new', gate),
       { type: 'separator' },
       gate({
         label: 'Stock Queries',
@@ -785,10 +624,7 @@ function buildQueryMenu(gate: Gate): Electron.MenuItemConstructorOptions {
             items.push(...renderScope(project.length > 0 ? project : global));
           }
           items.push({ type: 'separator' });
-          items.push({
-            label: 'Edit Saved Queries…',
-            click: () => send(Channels.MENU_EDIT_SAVED_QUERIES),
-          });
+          items.push(command('query.editSaved', gate));
           return items;
         })(),
       }),
@@ -850,10 +686,7 @@ function buildExportMenu(gate: Gate): Electron.MenuItemConstructorOptions {
       // Publish → git remote (#254): Export writes to a folder; Publish
       // pushes an exporter's output to a configured remote (GitHub Pages, …).
       items.push({ type: 'separator' });
-      items.push(gate({
-        label: 'Publish to Web…',
-        click: () => send(Channels.MENU_PUBLISH),
-      }));
+      items.push(command('export.publish', gate));
       return items;
     })(),
   };
@@ -900,16 +733,9 @@ function buildHelpMenu(isMac: boolean): Electron.MenuItemConstructorOptions {
     submenu: [
       // A guided, hands-on thoughtbase that teaches Minerva by being Minerva
       // (#1544, epic #1518). Reachable any time, not just at first run.
-      {
-        label: 'Install Tutorial Thoughtbase…',
-        click: () => send(Channels.MENU_INSTALL_TUTORIAL),
-      },
+      command('app.installTutorial'),
       { type: 'separator' },
-      {
-        label: 'Keyboard Shortcuts…',
-        accelerator: 'CmdOrCtrl+/',
-        click: () => send(Channels.MENU_SHORTCUTS),
-      },
+      command('app.shortcuts'),
       { type: 'separator' },
       {
         label: 'Documentation',
@@ -936,7 +762,7 @@ function buildHelpMenu(isMac: boolean): Electron.MenuItemConstructorOptions {
         ? []
         : [
             { type: 'separator' as const },
-            { label: 'About Minerva', click: () => send(Channels.MENU_ABOUT) },
+            command('app.about'),
           ]),
     ],
   };

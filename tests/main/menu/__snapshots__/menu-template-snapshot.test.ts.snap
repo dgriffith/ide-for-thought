@@ -1,0 +1,391 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`the menu bar (#2625) > with a thoughtbase open, a note active and text selected 1`] = `
+"Minerva
+  About Minerva → send menu:command ["app.about"]
+  ---
+  Check for Updates… → checkForUpdatesNow
+  ---
+  Preferences… [Cmd+,] → send menu:command ["app.settings"]
+  ---
+  (role services)
+  ---
+  (role hide)
+  (role hideOthers)
+  (role unhide)
+  ---
+  (role quit)
+File
+  New Thoughtbase… → send menu:command ["file.newProject"]
+  Open Thoughtbase… [CmdOrCtrl+O] → send menu:command ["file.openProject"]
+  Recent Thoughtbases
+    alpha → send menu:openRecentProject ["/projects/alpha"]
+    ---
+    Clear Recent Thoughtbases → send menu:command ["file.clearRecent"]
+  Close Thoughtbase [CmdOrCtrl+Shift+W] → send menu:command ["file.closeProject"]
+  Edit Thoughtbase Guide… → send menu:command ["file.editThoughtbaseGuide"]
+  Thoughtbase Properties… → send menu:command ["file.thoughtbaseProperties"]
+  ---
+  New Note [CmdOrCtrl+N] → send menu:command ["file.newNote"]
+  New Audio Recording → send menu:command ["file.newAudioRecording"]
+  Save [CmdOrCtrl+S] → send menu:command ["file.save"]
+  Save as Template… → send menu:command ["file.saveAsTemplate"]
+  Save Note as Object Type… → send menu:command ["objects.saveAsObjectType"]
+  ---
+  Ingest URL as Source… [CmdOrCtrl+Shift+I] → send menu:command ["research.ingestUrl"]
+  Ingest Identifier… [CmdOrCtrl+Shift+D] → send menu:command ["research.ingestIdentifier"]
+  Ingest File as Source… → send menu:command ["research.ingestFile"]
+  Ingest Zip or Folder as Sources… → send menu:command ["research.ingestBulk"]
+  Import BibTeX… → send menu:command ["research.importBibtex"]
+  Import Zotero RDF… → send menu:command ["research.importZoteroRdf"]
+  ---
+  New Window [CmdOrCtrl+Shift+N] → createWindow
+  ---
+  Print… → send menu:command ["file.print"]
+  Print to PDF… → showSaveDialog
+  ---
+  Open In
+    Reveal in Finder [CmdOrCtrl+Shift+R] → send menu:command ["file.revealFile"]
+    Open in Default App → send menu:command ["file.openInDefault"]
+    Open in Terminal → send menu:command ["file.openInTerminal"]
+  ---
+  Rebuild All Indexes → rebuildAllIndexes
+  Rebuild Semantic Index → rebuildSemanticIndex
+  Interrupt Cell → interruptCell
+  Restart Python Kernel → restartKernel
+  ---
+  (role close)
+Edit
+  (role undo)
+  (role redo)
+  ---
+  (role cut)
+  (role copy)
+  (role paste)
+  (role selectAll)
+  ---
+  Find [CmdOrCtrl+F] → send menu:command ["edit.find"]
+  Find and Replace [CmdOrCtrl+H] → send menu:command ["edit.findReplace"]
+  Find in Notes… [CmdOrCtrl+Shift+F] → send menu:command ["edit.findInNotes"]
+  Replace in Notes… [CmdOrCtrl+Shift+H] → send menu:command ["edit.replaceInNotes"]
+  ---
+  Insert Template… → send menu:command ["edit.insertTemplate"]
+  ---
+  Sort Lines → send menu:command ["edit.sortLines"]
+View
+  Command Palette [CmdOrCtrl+K] → send menu:command ["view.commandPalette"]
+  ---
+  Toggle Left Sidebar [CmdOrCtrl+B] → send menu:command ["view.toggleSidebar"]
+  Toggle Right Sidebar [CmdOrCtrl+Shift+B] → send menu:command ["view.toggleRightSidebar"]
+  Toggle Conversations [CmdOrCtrl+Shift+K] → send menu:command ["view.toggleConversations"]
+  Cycle Preview Mode [CmdOrCtrl+Shift+P] → send menu:command ["view.togglePreview"]
+  ---
+  Split Editor Right [CmdOrCtrl+\\] → send menu:command ["view.splitRight"]
+  Split Editor Down [CmdOrCtrl+Shift+\\] → send menu:command ["view.splitDown"]
+  Focus Next Group [CmdOrCtrl+Alt+Right] → send menu:command ["view.focusNextGroup"]
+  Focus Previous Group [CmdOrCtrl+Alt+Left] → send menu:command ["view.focusPrevGroup"]
+  Close Group [CmdOrCtrl+Shift+W] → send menu:command ["view.closeGroup"]
+  ---
+  Theme
+    Dark radio checked → send menu:setTheme ["dark"]
+    Light radio → send menu:setTheme ["light"]
+    High Contrast radio → send menu:setTheme ["contrast"]
+    System radio → send menu:setTheme ["system"]
+  Cycle Theme [CmdOrCtrl+Shift+T] → send menu:command ["view.cycleTheme"]
+  ---
+  Actual Size role=resetZoom
+  (role zoomIn)
+  (role zoomOut)
+  ---
+  Increase Editor Font Size [CmdOrCtrl+Shift+=] → send menu:command ["view.fontIncrease"]
+  Decrease Editor Font Size [CmdOrCtrl+Shift+-] → send menu:command ["view.fontDecrease"]
+  Reset Editor Font Size → send menu:command ["view.fontReset"]
+  ---
+  Developer Tools role=toggleDevTools
+Navigate
+  Back [CmdOrCtrl+[] → send menu:command ["nav.back"]
+  Forward [CmdOrCtrl+]] → send menu:command ["nav.forward"]
+  ---
+  Quick Open [CmdOrCtrl+P] → send menu:command ["nav.quickOpen"]
+  Go to Line [CmdOrCtrl+G] → send menu:command ["edit.gotoLine"]
+Refactor
+  Rename… → send menu:command ["refactor.rename"]
+  Move… → send menu:command ["refactor.move"]
+  Copy… → send menu:command ["refactor.copy"]
+  ---
+  Extract Selection to New Note → send menu:command ["refactor.extract"]
+  Split Note Here → send menu:command ["refactor.splitHere"]
+  Split by Heading… → send menu:command ["refactor.splitByHeading"]
+  ---
+  Auto-tag → send menu:command ["refactor.autoTag"]
+  Auto-link outbound… → send menu:command ["refactor.autoLink"]
+  Auto-link inbound… → send menu:command ["refactor.autoLinkInbound"]
+  Decompose Note… → send menu:command ["refactor.decompose"]
+  ---
+  Format → send menu:command ["refactor.format"]
+  ---
+  Insert/Update Bibliography → send menu:command ["research.bibliography"]
+Learning
+  Ask a Question → send menu:command ["learning.askQuestion"]
+  ---
+  Snapshot Ask → send tool:invoke ["snap.ask"]
+Research
+  Reading
+    Snapshot Grouped → send tool:invoke ["snap.grouped"]
+Analysis
+  Snapshot Selection → send tool:invoke ["snap.selection"]
+Query
+  New Query [CmdOrCtrl+Shift+Q] → send menu:command ["query.new"]
+  ---
+  Stock Queries
+    SPARQL
+      All notes with tags → send menu:openStockQuery [{"query":"PREFIX minerva: <https://minerva.dev/ontology#>\\nPREFIX dc: <http://purl.org/dc/terms/>\\nPREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\\nPREFIX thought: <https://minerva.dev/ontology/thought#>\\n\\nSELECT ?title ?tag WHERE {\\n  ?note rdf:type minerva:Note .\\n  ?note dc:title ?title .\\n  ?note minerva:hasTag ?tagNode .\\n  ?tagNode minerva:tagName ?tag .\\n}\\nORDER BY ?title ?tag","language":"sparql"}]
+      Backlinks to note → send menu:openStockQuery [{"query":"PREFIX minerva: <https://minerva.dev/ontology#>\\nPREFIX dc: <http://purl.org/dc/terms/>\\nPREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\\nPREFIX thought: <https://minerva.dev/ontology/thought#>\\n\\n# Edit the target note path below\\nSELECT DISTINCT ?title ?path WHERE {\\n  ?source rdf:type minerva:Note .\\n  ?source dc:title ?title .\\n  ?source minerva:relativePath ?path .\\n  ?source ?linkPred ?target .\\n  ?linkPred rdfs:subPropertyOf* minerva:linksTo .\\n  ?target minerva:relativePath \\"YOUR_NOTE.md\\" .\\n}\\nORDER BY ?title","language":"sparql"}]
+      Orphan notes → send menu:openStockQuery [{"query":"PREFIX minerva: <https://minerva.dev/ontology#>\\nPREFIX dc: <http://purl.org/dc/terms/>\\nPREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\\nPREFIX thought: <https://minerva.dev/ontology/thought#>\\n\\nSELECT ?title ?path WHERE {\\n  ?note rdf:type minerva:Note .\\n  ?note dc:title ?title .\\n  ?note minerva:relativePath ?path .\\n  FILTER NOT EXISTS { ?note ?outPred ?any . ?outPred rdfs:subPropertyOf* minerva:linksTo . }\\n  FILTER NOT EXISTS { ?other ?inPred ?note . ?inPred rdfs:subPropertyOf* minerva:linksTo . }\\n}\\nORDER BY ?title","language":"sparql"}]
+      Most-linked notes → send menu:openStockQuery [{"query":"PREFIX minerva: <https://minerva.dev/ontology#>\\nPREFIX dc: <http://purl.org/dc/terms/>\\nPREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\\nPREFIX thought: <https://minerva.dev/ontology/thought#>\\n\\nSELECT ?title ?path (COUNT(DISTINCT ?source) AS ?incomingLinks) WHERE {\\n  ?note rdf:type minerva:Note .\\n  ?note dc:title ?title .\\n  ?note minerva:relativePath ?path .\\n  ?source ?linkPred ?note .\\n  ?linkPred rdfs:subPropertyOf* minerva:linksTo .\\n}\\nGROUP BY ?note ?title ?path\\nORDER BY DESC(?incomingLinks)","language":"sparql"}]
+      Recently modified → send menu:openStockQuery [{"query":"PREFIX minerva: <https://minerva.dev/ontology#>\\nPREFIX dc: <http://purl.org/dc/terms/>\\nPREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\\nPREFIX thought: <https://minerva.dev/ontology/thought#>\\n\\nSELECT ?title ?path ?modified WHERE {\\n  ?note rdf:type minerva:Note .\\n  ?note dc:title ?title .\\n  ?note minerva:relativePath ?path .\\n  ?note dc:modified ?modified .\\n}\\nORDER BY DESC(?modified)","language":"sparql"}]
+      All tags with counts → send menu:openStockQuery [{"query":"PREFIX minerva: <https://minerva.dev/ontology#>\\nPREFIX dc: <http://purl.org/dc/terms/>\\nPREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\\nPREFIX thought: <https://minerva.dev/ontology/thought#>\\n\\nSELECT ?tag (COUNT(?note) AS ?count) WHERE {\\n  ?tagNode rdf:type minerva:Tag .\\n  ?tagNode minerva:tagName ?tag .\\n  ?note minerva:hasTag ?tagNode .\\n}\\nGROUP BY ?tagNode ?tag\\nORDER BY DESC(?count)","language":"sparql"}]
+      Notes in folder → send menu:openStockQuery [{"query":"PREFIX minerva: <https://minerva.dev/ontology#>\\nPREFIX dc: <http://purl.org/dc/terms/>\\nPREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\\nPREFIX thought: <https://minerva.dev/ontology/thought#>\\n\\n# Edit the folder path below\\nSELECT ?title ?path WHERE {\\n  ?note rdf:type minerva:Note .\\n  ?note dc:title ?title .\\n  ?note minerva:relativePath ?path .\\n  ?note minerva:inFolder ?folder .\\n  ?folder minerva:relativePath \\"YOUR_FOLDER\\" .\\n}\\nORDER BY ?title","language":"sparql"}]
+      Typed outgoing links → send menu:openStockQuery [{"query":"PREFIX minerva: <https://minerva.dev/ontology#>\\nPREFIX dc: <http://purl.org/dc/terms/>\\nPREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\\nPREFIX thought: <https://minerva.dev/ontology/thought#>\\n\\nSELECT ?sourceTitle ?linkType ?targetTitle WHERE {\\n  ?source rdf:type minerva:Note .\\n  ?source dc:title ?sourceTitle .\\n  ?source ?predicate ?target .\\n  ?target rdf:type minerva:Note .\\n  ?target dc:title ?targetTitle .\\n  ?predicate rdfs:subPropertyOf minerva:linksTo .\\n  BIND(REPLACE(STR(?predicate), \\"https://minerva.dev/ontology#\\", \\"\\") AS ?linkType)\\n}\\nORDER BY ?sourceTitle ?linkType","language":"sparql"}]
+      Typed backlinks → send menu:openStockQuery [{"query":"PREFIX minerva: <https://minerva.dev/ontology#>\\nPREFIX dc: <http://purl.org/dc/terms/>\\nPREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\\nPREFIX thought: <https://minerva.dev/ontology/thought#>\\n\\nSELECT ?targetTitle ?linkType ?sourceTitle WHERE {\\n  ?source rdf:type minerva:Note .\\n  ?source dc:title ?sourceTitle .\\n  ?source ?predicate ?target .\\n  ?target rdf:type minerva:Note .\\n  ?target dc:title ?targetTitle .\\n  ?predicate rdfs:subPropertyOf minerva:linksTo .\\n  BIND(REPLACE(STR(?predicate), \\"https://minerva.dev/ontology#\\", \\"\\") AS ?linkType)\\n}\\nORDER BY ?targetTitle ?linkType","language":"sparql"}]
+      All sources with authors and year → send menu:openStockQuery [{"query":"PREFIX minerva: <https://minerva.dev/ontology#>\\nPREFIX dc: <http://purl.org/dc/terms/>\\nPREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\\nPREFIX thought: <https://minerva.dev/ontology/thought#>\\n\\nSELECT ?sourceId ?title ?creator ?year WHERE {\\n  ?src minerva:sourceId ?sourceId .\\n  OPTIONAL { ?src dc:title ?title }\\n  OPTIONAL { ?src dc:creator ?creator }\\n  OPTIONAL { ?src dc:issued ?issued . BIND(SUBSTR(STR(?issued), 1, 4) AS ?year) }\\n}\\nORDER BY ?sourceId","language":"sparql"}]
+      Most-cited sources → send menu:openStockQuery [{"query":"PREFIX minerva: <https://minerva.dev/ontology#>\\nPREFIX dc: <http://purl.org/dc/terms/>\\nPREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\\nPREFIX thought: <https://minerva.dev/ontology/thought#>\\n\\nSELECT ?sourceId ?title (COUNT(DISTINCT ?note) AS ?citations) WHERE {\\n  ?src minerva:sourceId ?sourceId .\\n  OPTIONAL { ?src dc:title ?title }\\n  {\\n    ?note thought:cites ?src .\\n  } UNION {\\n    ?note thought:quotes ?excerpt .\\n    ?excerpt thought:fromSource ?src .\\n  }\\n}\\nGROUP BY ?src ?sourceId ?title\\nORDER BY DESC(?citations)","language":"sparql"}]
+      Sources cited by N or more notes → send menu:openStockQuery [{"query":"PREFIX minerva: <https://minerva.dev/ontology#>\\nPREFIX dc: <http://purl.org/dc/terms/>\\nPREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\\nPREFIX thought: <https://minerva.dev/ontology/thought#>\\n\\n# Edit MIN_COUNT to change the threshold.\\nSELECT ?sourceId ?title (COUNT(DISTINCT ?note) AS ?citations) WHERE {\\n  ?src minerva:sourceId ?sourceId .\\n  OPTIONAL { ?src dc:title ?title }\\n  {\\n    ?note thought:cites ?src .\\n  } UNION {\\n    ?note thought:quotes ?excerpt .\\n    ?excerpt thought:fromSource ?src .\\n  }\\n}\\nGROUP BY ?src ?sourceId ?title\\nHAVING (COUNT(DISTINCT ?note) >= 2)\\nORDER BY DESC(?citations)","language":"sparql"}]
+      Most-quoted sources → send menu:openStockQuery [{"query":"PREFIX minerva: <https://minerva.dev/ontology#>\\nPREFIX dc: <http://purl.org/dc/terms/>\\nPREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\\nPREFIX thought: <https://minerva.dev/ontology/thought#>\\n\\nSELECT ?sourceId ?title (COUNT(?excerpt) AS ?excerptCount) WHERE {\\n  ?src minerva:sourceId ?sourceId .\\n  OPTIONAL { ?src dc:title ?title }\\n  ?excerpt thought:fromSource ?src .\\n}\\nGROUP BY ?src ?sourceId ?title\\nORDER BY DESC(?excerptCount)","language":"sparql"}]
+      Sources missing metadata → send menu:openStockQuery [{"query":"PREFIX minerva: <https://minerva.dev/ontology#>\\nPREFIX dc: <http://purl.org/dc/terms/>\\nPREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\\nPREFIX thought: <https://minerva.dev/ontology/thought#>\\n\\nSELECT ?sourceId ?title ?creator WHERE {\\n  ?src minerva:sourceId ?sourceId .\\n  OPTIONAL { ?src dc:title ?title }\\n  OPTIONAL { ?src dc:creator ?creator }\\n  FILTER(!BOUND(?title) || !BOUND(?creator))\\n}\\nORDER BY ?sourceId","language":"sparql"}]
+      Pending proposals → send menu:openStockQuery [{"query":"PREFIX minerva: <https://minerva.dev/ontology#>\\nPREFIX dc: <http://purl.org/dc/terms/>\\nPREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\\nPREFIX thought: <https://minerva.dev/ontology/thought#>\\n\\nSELECT ?proposal ?note ?operationType ?proposedBy ?proposedAt WHERE {\\n  ?proposal rdf:type thought:Proposal .\\n  ?proposal thought:proposalStatus thought:pending .\\n  ?proposal thought:operationType ?operationType .\\n  ?proposal thought:proposedBy ?proposedBy .\\n  ?proposal thought:proposedAt ?proposedAt .\\n  OPTIONAL { ?proposal thought:proposalNote ?note }\\n}\\nORDER BY ?proposedAt","language":"sparql"}]
+      Contributions by agent → send menu:openStockQuery [{"query":"PREFIX minerva: <https://minerva.dev/ontology#>\\nPREFIX dc: <http://purl.org/dc/terms/>\\nPREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\\nPREFIX thought: <https://minerva.dev/ontology/thought#>\\n\\nSELECT ?proposedBy ?status (COUNT(?proposal) AS ?count) WHERE {\\n  ?proposal rdf:type thought:Proposal .\\n  ?proposal thought:proposedBy ?proposedBy .\\n  ?proposal thought:proposalStatus ?status .\\n}\\nGROUP BY ?proposedBy ?status\\nORDER BY ?proposedBy ?status","language":"sparql"}]
+      Provenance history for note → send menu:openStockQuery [{"query":"PREFIX minerva: <https://minerva.dev/ontology#>\\nPREFIX dc: <http://purl.org/dc/terms/>\\nPREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\\nPREFIX thought: <https://minerva.dev/ontology/thought#>\\n\\n# Edit the target note path below.\\nSELECT ?operationType ?note ?status ?proposedBy ?proposedAt ?statusChangedAt ?conversation WHERE {\\n  ?target minerva:relativePath \\"YOUR_NOTE.md\\" .\\n  ?proposal rdf:type thought:Proposal .\\n  ?proposal thought:affectsNode ?target .\\n  ?proposal thought:operationType ?operationType .\\n  ?proposal thought:proposedBy ?proposedBy .\\n  ?proposal thought:proposedAt ?proposedAt .\\n  ?proposal thought:proposalStatus ?statusNode .\\n  BIND(REPLACE(STR(?statusNode), \\"https://minerva.dev/ontology/thought#\\", \\"\\") AS ?status)\\n  OPTIONAL { ?proposal thought:proposalNote ?note }\\n  OPTIONAL { ?proposal thought:statusChangedAt ?statusChangedAt }\\n  OPTIONAL { ?proposal thought:conversationRef ?conversation }\\n}\\nORDER BY ?proposedAt","language":"sparql"}]
+      Recently decided proposals → send menu:openStockQuery [{"query":"PREFIX minerva: <https://minerva.dev/ontology#>\\nPREFIX dc: <http://purl.org/dc/terms/>\\nPREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\\nPREFIX thought: <https://minerva.dev/ontology/thought#>\\n\\nSELECT ?operationType ?note ?affectsPath ?status ?proposedBy ?statusChangedAt WHERE {\\n  ?proposal rdf:type thought:Proposal .\\n  ?proposal thought:proposalStatus ?statusNode .\\n  FILTER(?statusNode != thought:pending)\\n  BIND(REPLACE(STR(?statusNode), \\"https://minerva.dev/ontology/thought#\\", \\"\\") AS ?status)\\n  ?proposal thought:operationType ?operationType .\\n  ?proposal thought:proposedBy ?proposedBy .\\n  ?proposal thought:statusChangedAt ?statusChangedAt .\\n  OPTIONAL { ?proposal thought:proposalNote ?note }\\n  OPTIONAL { ?proposal thought:affectsNode ?affects . ?affects minerva:relativePath ?affectsPath }\\n}\\nORDER BY DESC(?statusChangedAt)","language":"sparql"}]
+      Conversation history → send menu:openStockQuery [{"query":"PREFIX minerva: <https://minerva.dev/ontology#>\\nPREFIX dc: <http://purl.org/dc/terms/>\\nPREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\\nPREFIX thought: <https://minerva.dev/ontology/thought#>\\n\\nSELECT ?conversation ?status ?startedAt ?triggerTitle WHERE {\\n  ?conversation rdf:type thought:Conversation .\\n  ?conversation thought:conversationStatus ?statusNode .\\n  ?statusNode rdfs:label ?status .\\n  ?conversation thought:startedAt ?startedAt .\\n  OPTIONAL {\\n    ?conversation thought:trigger ?trigger .\\n    ?trigger dc:title ?triggerTitle .\\n  }\\n}\\nORDER BY DESC(?startedAt)","language":"sparql"}]
+    SQL
+      All tables → send menu:openStockQuery [{"query":"SELECT table_name\\nFROM information_schema.tables\\nWHERE table_schema = 'main'\\nORDER BY table_name;","language":"sql"}]
+      Describe schema → send menu:openStockQuery [{"query":"-- Replace YOUR_TABLE with a name from the Tables panel.\\nDESCRIBE YOUR_TABLE;","language":"sql"}]
+      Summarize (per-column stats) → send menu:openStockQuery [{"query":"-- Replace YOUR_TABLE with a name from the Tables panel.\\nSUMMARIZE YOUR_TABLE;","language":"sql"}]
+      Null rate per column → send menu:openStockQuery [{"query":"-- Replace YOUR_TABLE with a name from the Tables panel.\\nSELECT column_name, null_percentage\\nFROM (SUMMARIZE YOUR_TABLE)\\nORDER BY null_percentage DESC;","language":"sql"}]
+      Top values for a column → send menu:openStockQuery [{"query":"-- Replace YOUR_TABLE and YOUR_COLUMN.\\nSELECT YOUR_COLUMN, COUNT(*) AS n\\nFROM YOUR_TABLE\\nGROUP BY YOUR_COLUMN\\nORDER BY n DESC\\nLIMIT 20;","language":"sql"}]
+      Rows per month → send menu:openStockQuery [{"query":"-- Replace YOUR_TABLE and YOUR_DATE_COLUMN.\\nSELECT\\n  date_trunc('month', YOUR_DATE_COLUMN) AS month,\\n  COUNT(*) AS rows\\nFROM YOUR_TABLE\\nGROUP BY month\\nORDER BY month;","language":"sql"}]
+  Saved Queries
+    (role undefined)
+      Open questions → send menu:openStockQuery [{"query":"SELECT 1","language":"sparql"}]
+    ---
+    Edit Saved Queries… → send menu:command ["query.editSaved"]
+  ---
+  Export Knowledge Graph… → showSaveDialog
+Export
+  PDF… → send menu:export ["pdf"]
+  ---
+  Static Site… → send menu:export ["site"]
+  ---
+  Publish to Web… → send menu:command ["export.publish"]
+Window
+  (role minimize)
+  (role zoom)
+  ---
+  (role front)
+  ---
+Help role=help
+  Install Tutorial Thoughtbase… → send menu:command ["app.installTutorial"]
+  ---
+  Keyboard Shortcuts… [CmdOrCtrl+/] → send menu:command ["app.shortcuts"]
+  ---
+  Documentation → openExternal https://dgriffith.github.io/minerva/docs/
+  Report an Issue… → openExternal https://github.com/dgriffith/ide-for-thought/issues/new/choose
+  ---
+  Install ‘minerva’ Command in PATH… → installMinervaCommand"
+`;
+
+exports[`the menu bar (#2625) > with no thoughtbase open 1`] = `
+"Minerva
+  About Minerva → send menu:command ["app.about"]
+  ---
+  Check for Updates… → checkForUpdatesNow
+  ---
+  Preferences… [Cmd+,] → send menu:command ["app.settings"]
+  ---
+  (role services)
+  ---
+  (role hide)
+  (role hideOthers)
+  (role unhide)
+  ---
+  (role quit)
+File
+  New Thoughtbase… → send menu:command ["file.newProject"]
+  Open Thoughtbase… [CmdOrCtrl+O] → send menu:command ["file.openProject"]
+  Recent Thoughtbases
+    alpha → send menu:openRecentProject ["/projects/alpha"]
+    ---
+    Clear Recent Thoughtbases → send menu:command ["file.clearRecent"]
+  Close Thoughtbase [CmdOrCtrl+Shift+W] disabled → send menu:command ["file.closeProject"]
+  Edit Thoughtbase Guide… disabled → send menu:command ["file.editThoughtbaseGuide"]
+  Thoughtbase Properties… disabled → send menu:command ["file.thoughtbaseProperties"]
+  ---
+  New Note [CmdOrCtrl+N] disabled → send menu:command ["file.newNote"]
+  New Audio Recording disabled → send menu:command ["file.newAudioRecording"]
+  Save [CmdOrCtrl+S] disabled → send menu:command ["file.save"]
+  Save as Template… disabled → send menu:command ["file.saveAsTemplate"]
+  Save Note as Object Type… disabled → send menu:command ["objects.saveAsObjectType"]
+  ---
+  Ingest URL as Source… [CmdOrCtrl+Shift+I] disabled → send menu:command ["research.ingestUrl"]
+  Ingest Identifier… [CmdOrCtrl+Shift+D] disabled → send menu:command ["research.ingestIdentifier"]
+  Ingest File as Source… disabled → send menu:command ["research.ingestFile"]
+  Ingest Zip or Folder as Sources… disabled → send menu:command ["research.ingestBulk"]
+  Import BibTeX… disabled → send menu:command ["research.importBibtex"]
+  Import Zotero RDF… disabled → send menu:command ["research.importZoteroRdf"]
+  ---
+  New Window [CmdOrCtrl+Shift+N] → createWindow
+  ---
+  Print… disabled → send menu:command ["file.print"]
+  Print to PDF… disabled → showSaveDialog
+  ---
+  Open In
+    Reveal in Finder [CmdOrCtrl+Shift+R] disabled → send menu:command ["file.revealFile"]
+    Open in Default App disabled → send menu:command ["file.openInDefault"]
+    Open in Terminal disabled → send menu:command ["file.openInTerminal"]
+  ---
+  Rebuild All Indexes disabled → (no effect)
+  Rebuild Semantic Index disabled → (no effect)
+  Interrupt Cell disabled → (no effect)
+  Restart Python Kernel disabled → (no effect)
+  ---
+  (role close)
+Edit
+  (role undo)
+  (role redo)
+  ---
+  (role cut)
+  (role copy)
+  (role paste)
+  (role selectAll)
+  ---
+  Find [CmdOrCtrl+F] disabled → send menu:command ["edit.find"]
+  Find and Replace [CmdOrCtrl+H] disabled → send menu:command ["edit.findReplace"]
+  Find in Notes… [CmdOrCtrl+Shift+F] disabled → send menu:command ["edit.findInNotes"]
+  Replace in Notes… [CmdOrCtrl+Shift+H] disabled → send menu:command ["edit.replaceInNotes"]
+  ---
+  Insert Template… disabled → send menu:command ["edit.insertTemplate"]
+  ---
+  Sort Lines disabled → send menu:command ["edit.sortLines"]
+View
+  Command Palette [CmdOrCtrl+K] disabled → send menu:command ["view.commandPalette"]
+  ---
+  Toggle Left Sidebar [CmdOrCtrl+B] disabled → send menu:command ["view.toggleSidebar"]
+  Toggle Right Sidebar [CmdOrCtrl+Shift+B] disabled → send menu:command ["view.toggleRightSidebar"]
+  Toggle Conversations [CmdOrCtrl+Shift+K] disabled → send menu:command ["view.toggleConversations"]
+  Cycle Preview Mode [CmdOrCtrl+Shift+P] disabled → send menu:command ["view.togglePreview"]
+  ---
+  Split Editor Right [CmdOrCtrl+\\] disabled → send menu:command ["view.splitRight"]
+  Split Editor Down [CmdOrCtrl+Shift+\\] disabled → send menu:command ["view.splitDown"]
+  Focus Next Group [CmdOrCtrl+Alt+Right] disabled → send menu:command ["view.focusNextGroup"]
+  Focus Previous Group [CmdOrCtrl+Alt+Left] disabled → send menu:command ["view.focusPrevGroup"]
+  Close Group [CmdOrCtrl+Shift+W] disabled → send menu:command ["view.closeGroup"]
+  ---
+  Theme
+    Dark radio checked → send menu:setTheme ["dark"]
+    Light radio → send menu:setTheme ["light"]
+    High Contrast radio → send menu:setTheme ["contrast"]
+    System radio → send menu:setTheme ["system"]
+  Cycle Theme [CmdOrCtrl+Shift+T] → send menu:command ["view.cycleTheme"]
+  ---
+  Actual Size role=resetZoom
+  (role zoomIn)
+  (role zoomOut)
+  ---
+  Increase Editor Font Size [CmdOrCtrl+Shift+=] disabled → send menu:command ["view.fontIncrease"]
+  Decrease Editor Font Size [CmdOrCtrl+Shift+-] disabled → send menu:command ["view.fontDecrease"]
+  Reset Editor Font Size disabled → send menu:command ["view.fontReset"]
+  ---
+  Developer Tools role=toggleDevTools
+Navigate
+  Back [CmdOrCtrl+[] disabled → send menu:command ["nav.back"]
+  Forward [CmdOrCtrl+]] disabled → send menu:command ["nav.forward"]
+  ---
+  Quick Open [CmdOrCtrl+P] disabled → send menu:command ["nav.quickOpen"]
+  Go to Line [CmdOrCtrl+G] disabled → send menu:command ["edit.gotoLine"]
+Refactor
+  Rename… disabled → send menu:command ["refactor.rename"]
+  Move… disabled → send menu:command ["refactor.move"]
+  Copy… disabled → send menu:command ["refactor.copy"]
+  ---
+  Extract Selection to New Note disabled → send menu:command ["refactor.extract"]
+  Split Note Here disabled → send menu:command ["refactor.splitHere"]
+  Split by Heading… disabled → send menu:command ["refactor.splitByHeading"]
+  ---
+  Auto-tag disabled → send menu:command ["refactor.autoTag"]
+  Auto-link outbound… disabled → send menu:command ["refactor.autoLink"]
+  Auto-link inbound… disabled → send menu:command ["refactor.autoLinkInbound"]
+  Decompose Note… disabled → send menu:command ["refactor.decompose"]
+  ---
+  Format disabled → send menu:command ["refactor.format"]
+  ---
+  Insert/Update Bibliography disabled → send menu:command ["research.bibliography"]
+Learning
+  Ask a Question disabled → send menu:command ["learning.askQuestion"]
+  ---
+  Snapshot Ask disabled → send tool:invoke ["snap.ask"]
+Research
+  Reading
+    Snapshot Grouped disabled → send tool:invoke ["snap.grouped"]
+Analysis
+  Snapshot Selection disabled → send tool:invoke ["snap.selection"]
+Query
+  New Query [CmdOrCtrl+Shift+Q] disabled → send menu:command ["query.new"]
+  ---
+  Stock Queries disabled
+    SPARQL
+      All notes with tags → send menu:openStockQuery [{"query":"PREFIX minerva: <https://minerva.dev/ontology#>\\nPREFIX dc: <http://purl.org/dc/terms/>\\nPREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\\nPREFIX thought: <https://minerva.dev/ontology/thought#>\\n\\nSELECT ?title ?tag WHERE {\\n  ?note rdf:type minerva:Note .\\n  ?note dc:title ?title .\\n  ?note minerva:hasTag ?tagNode .\\n  ?tagNode minerva:tagName ?tag .\\n}\\nORDER BY ?title ?tag","language":"sparql"}]
+      Backlinks to note → send menu:openStockQuery [{"query":"PREFIX minerva: <https://minerva.dev/ontology#>\\nPREFIX dc: <http://purl.org/dc/terms/>\\nPREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\\nPREFIX thought: <https://minerva.dev/ontology/thought#>\\n\\n# Edit the target note path below\\nSELECT DISTINCT ?title ?path WHERE {\\n  ?source rdf:type minerva:Note .\\n  ?source dc:title ?title .\\n  ?source minerva:relativePath ?path .\\n  ?source ?linkPred ?target .\\n  ?linkPred rdfs:subPropertyOf* minerva:linksTo .\\n  ?target minerva:relativePath \\"YOUR_NOTE.md\\" .\\n}\\nORDER BY ?title","language":"sparql"}]
+      Orphan notes → send menu:openStockQuery [{"query":"PREFIX minerva: <https://minerva.dev/ontology#>\\nPREFIX dc: <http://purl.org/dc/terms/>\\nPREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\\nPREFIX thought: <https://minerva.dev/ontology/thought#>\\n\\nSELECT ?title ?path WHERE {\\n  ?note rdf:type minerva:Note .\\n  ?note dc:title ?title .\\n  ?note minerva:relativePath ?path .\\n  FILTER NOT EXISTS { ?note ?outPred ?any . ?outPred rdfs:subPropertyOf* minerva:linksTo . }\\n  FILTER NOT EXISTS { ?other ?inPred ?note . ?inPred rdfs:subPropertyOf* minerva:linksTo . }\\n}\\nORDER BY ?title","language":"sparql"}]
+      Most-linked notes → send menu:openStockQuery [{"query":"PREFIX minerva: <https://minerva.dev/ontology#>\\nPREFIX dc: <http://purl.org/dc/terms/>\\nPREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\\nPREFIX thought: <https://minerva.dev/ontology/thought#>\\n\\nSELECT ?title ?path (COUNT(DISTINCT ?source) AS ?incomingLinks) WHERE {\\n  ?note rdf:type minerva:Note .\\n  ?note dc:title ?title .\\n  ?note minerva:relativePath ?path .\\n  ?source ?linkPred ?note .\\n  ?linkPred rdfs:subPropertyOf* minerva:linksTo .\\n}\\nGROUP BY ?note ?title ?path\\nORDER BY DESC(?incomingLinks)","language":"sparql"}]
+      Recently modified → send menu:openStockQuery [{"query":"PREFIX minerva: <https://minerva.dev/ontology#>\\nPREFIX dc: <http://purl.org/dc/terms/>\\nPREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\\nPREFIX thought: <https://minerva.dev/ontology/thought#>\\n\\nSELECT ?title ?path ?modified WHERE {\\n  ?note rdf:type minerva:Note .\\n  ?note dc:title ?title .\\n  ?note minerva:relativePath ?path .\\n  ?note dc:modified ?modified .\\n}\\nORDER BY DESC(?modified)","language":"sparql"}]
+      All tags with counts → send menu:openStockQuery [{"query":"PREFIX minerva: <https://minerva.dev/ontology#>\\nPREFIX dc: <http://purl.org/dc/terms/>\\nPREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\\nPREFIX thought: <https://minerva.dev/ontology/thought#>\\n\\nSELECT ?tag (COUNT(?note) AS ?count) WHERE {\\n  ?tagNode rdf:type minerva:Tag .\\n  ?tagNode minerva:tagName ?tag .\\n  ?note minerva:hasTag ?tagNode .\\n}\\nGROUP BY ?tagNode ?tag\\nORDER BY DESC(?count)","language":"sparql"}]
+      Notes in folder → send menu:openStockQuery [{"query":"PREFIX minerva: <https://minerva.dev/ontology#>\\nPREFIX dc: <http://purl.org/dc/terms/>\\nPREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\\nPREFIX thought: <https://minerva.dev/ontology/thought#>\\n\\n# Edit the folder path below\\nSELECT ?title ?path WHERE {\\n  ?note rdf:type minerva:Note .\\n  ?note dc:title ?title .\\n  ?note minerva:relativePath ?path .\\n  ?note minerva:inFolder ?folder .\\n  ?folder minerva:relativePath \\"YOUR_FOLDER\\" .\\n}\\nORDER BY ?title","language":"sparql"}]
+      Typed outgoing links → send menu:openStockQuery [{"query":"PREFIX minerva: <https://minerva.dev/ontology#>\\nPREFIX dc: <http://purl.org/dc/terms/>\\nPREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\\nPREFIX thought: <https://minerva.dev/ontology/thought#>\\n\\nSELECT ?sourceTitle ?linkType ?targetTitle WHERE {\\n  ?source rdf:type minerva:Note .\\n  ?source dc:title ?sourceTitle .\\n  ?source ?predicate ?target .\\n  ?target rdf:type minerva:Note .\\n  ?target dc:title ?targetTitle .\\n  ?predicate rdfs:subPropertyOf minerva:linksTo .\\n  BIND(REPLACE(STR(?predicate), \\"https://minerva.dev/ontology#\\", \\"\\") AS ?linkType)\\n}\\nORDER BY ?sourceTitle ?linkType","language":"sparql"}]
+      Typed backlinks → send menu:openStockQuery [{"query":"PREFIX minerva: <https://minerva.dev/ontology#>\\nPREFIX dc: <http://purl.org/dc/terms/>\\nPREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\\nPREFIX thought: <https://minerva.dev/ontology/thought#>\\n\\nSELECT ?targetTitle ?linkType ?sourceTitle WHERE {\\n  ?source rdf:type minerva:Note .\\n  ?source dc:title ?sourceTitle .\\n  ?source ?predicate ?target .\\n  ?target rdf:type minerva:Note .\\n  ?target dc:title ?targetTitle .\\n  ?predicate rdfs:subPropertyOf minerva:linksTo .\\n  BIND(REPLACE(STR(?predicate), \\"https://minerva.dev/ontology#\\", \\"\\") AS ?linkType)\\n}\\nORDER BY ?targetTitle ?linkType","language":"sparql"}]
+      All sources with authors and year → send menu:openStockQuery [{"query":"PREFIX minerva: <https://minerva.dev/ontology#>\\nPREFIX dc: <http://purl.org/dc/terms/>\\nPREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\\nPREFIX thought: <https://minerva.dev/ontology/thought#>\\n\\nSELECT ?sourceId ?title ?creator ?year WHERE {\\n  ?src minerva:sourceId ?sourceId .\\n  OPTIONAL { ?src dc:title ?title }\\n  OPTIONAL { ?src dc:creator ?creator }\\n  OPTIONAL { ?src dc:issued ?issued . BIND(SUBSTR(STR(?issued), 1, 4) AS ?year) }\\n}\\nORDER BY ?sourceId","language":"sparql"}]
+      Most-cited sources → send menu:openStockQuery [{"query":"PREFIX minerva: <https://minerva.dev/ontology#>\\nPREFIX dc: <http://purl.org/dc/terms/>\\nPREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\\nPREFIX thought: <https://minerva.dev/ontology/thought#>\\n\\nSELECT ?sourceId ?title (COUNT(DISTINCT ?note) AS ?citations) WHERE {\\n  ?src minerva:sourceId ?sourceId .\\n  OPTIONAL { ?src dc:title ?title }\\n  {\\n    ?note thought:cites ?src .\\n  } UNION {\\n    ?note thought:quotes ?excerpt .\\n    ?excerpt thought:fromSource ?src .\\n  }\\n}\\nGROUP BY ?src ?sourceId ?title\\nORDER BY DESC(?citations)","language":"sparql"}]
+      Sources cited by N or more notes → send menu:openStockQuery [{"query":"PREFIX minerva: <https://minerva.dev/ontology#>\\nPREFIX dc: <http://purl.org/dc/terms/>\\nPREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\\nPREFIX thought: <https://minerva.dev/ontology/thought#>\\n\\n# Edit MIN_COUNT to change the threshold.\\nSELECT ?sourceId ?title (COUNT(DISTINCT ?note) AS ?citations) WHERE {\\n  ?src minerva:sourceId ?sourceId .\\n  OPTIONAL { ?src dc:title ?title }\\n  {\\n    ?note thought:cites ?src .\\n  } UNION {\\n    ?note thought:quotes ?excerpt .\\n    ?excerpt thought:fromSource ?src .\\n  }\\n}\\nGROUP BY ?src ?sourceId ?title\\nHAVING (COUNT(DISTINCT ?note) >= 2)\\nORDER BY DESC(?citations)","language":"sparql"}]
+      Most-quoted sources → send menu:openStockQuery [{"query":"PREFIX minerva: <https://minerva.dev/ontology#>\\nPREFIX dc: <http://purl.org/dc/terms/>\\nPREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\\nPREFIX thought: <https://minerva.dev/ontology/thought#>\\n\\nSELECT ?sourceId ?title (COUNT(?excerpt) AS ?excerptCount) WHERE {\\n  ?src minerva:sourceId ?sourceId .\\n  OPTIONAL { ?src dc:title ?title }\\n  ?excerpt thought:fromSource ?src .\\n}\\nGROUP BY ?src ?sourceId ?title\\nORDER BY DESC(?excerptCount)","language":"sparql"}]
+      Sources missing metadata → send menu:openStockQuery [{"query":"PREFIX minerva: <https://minerva.dev/ontology#>\\nPREFIX dc: <http://purl.org/dc/terms/>\\nPREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\\nPREFIX thought: <https://minerva.dev/ontology/thought#>\\n\\nSELECT ?sourceId ?title ?creator WHERE {\\n  ?src minerva:sourceId ?sourceId .\\n  OPTIONAL { ?src dc:title ?title }\\n  OPTIONAL { ?src dc:creator ?creator }\\n  FILTER(!BOUND(?title) || !BOUND(?creator))\\n}\\nORDER BY ?sourceId","language":"sparql"}]
+      Pending proposals → send menu:openStockQuery [{"query":"PREFIX minerva: <https://minerva.dev/ontology#>\\nPREFIX dc: <http://purl.org/dc/terms/>\\nPREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\\nPREFIX thought: <https://minerva.dev/ontology/thought#>\\n\\nSELECT ?proposal ?note ?operationType ?proposedBy ?proposedAt WHERE {\\n  ?proposal rdf:type thought:Proposal .\\n  ?proposal thought:proposalStatus thought:pending .\\n  ?proposal thought:operationType ?operationType .\\n  ?proposal thought:proposedBy ?proposedBy .\\n  ?proposal thought:proposedAt ?proposedAt .\\n  OPTIONAL { ?proposal thought:proposalNote ?note }\\n}\\nORDER BY ?proposedAt","language":"sparql"}]
+      Contributions by agent → send menu:openStockQuery [{"query":"PREFIX minerva: <https://minerva.dev/ontology#>\\nPREFIX dc: <http://purl.org/dc/terms/>\\nPREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\\nPREFIX thought: <https://minerva.dev/ontology/thought#>\\n\\nSELECT ?proposedBy ?status (COUNT(?proposal) AS ?count) WHERE {\\n  ?proposal rdf:type thought:Proposal .\\n  ?proposal thought:proposedBy ?proposedBy .\\n  ?proposal thought:proposalStatus ?status .\\n}\\nGROUP BY ?proposedBy ?status\\nORDER BY ?proposedBy ?status","language":"sparql"}]
+      Provenance history for note → send menu:openStockQuery [{"query":"PREFIX minerva: <https://minerva.dev/ontology#>\\nPREFIX dc: <http://purl.org/dc/terms/>\\nPREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\\nPREFIX thought: <https://minerva.dev/ontology/thought#>\\n\\n# Edit the target note path below.\\nSELECT ?operationType ?note ?status ?proposedBy ?proposedAt ?statusChangedAt ?conversation WHERE {\\n  ?target minerva:relativePath \\"YOUR_NOTE.md\\" .\\n  ?proposal rdf:type thought:Proposal .\\n  ?proposal thought:affectsNode ?target .\\n  ?proposal thought:operationType ?operationType .\\n  ?proposal thought:proposedBy ?proposedBy .\\n  ?proposal thought:proposedAt ?proposedAt .\\n  ?proposal thought:proposalStatus ?statusNode .\\n  BIND(REPLACE(STR(?statusNode), \\"https://minerva.dev/ontology/thought#\\", \\"\\") AS ?status)\\n  OPTIONAL { ?proposal thought:proposalNote ?note }\\n  OPTIONAL { ?proposal thought:statusChangedAt ?statusChangedAt }\\n  OPTIONAL { ?proposal thought:conversationRef ?conversation }\\n}\\nORDER BY ?proposedAt","language":"sparql"}]
+      Recently decided proposals → send menu:openStockQuery [{"query":"PREFIX minerva: <https://minerva.dev/ontology#>\\nPREFIX dc: <http://purl.org/dc/terms/>\\nPREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\\nPREFIX thought: <https://minerva.dev/ontology/thought#>\\n\\nSELECT ?operationType ?note ?affectsPath ?status ?proposedBy ?statusChangedAt WHERE {\\n  ?proposal rdf:type thought:Proposal .\\n  ?proposal thought:proposalStatus ?statusNode .\\n  FILTER(?statusNode != thought:pending)\\n  BIND(REPLACE(STR(?statusNode), \\"https://minerva.dev/ontology/thought#\\", \\"\\") AS ?status)\\n  ?proposal thought:operationType ?operationType .\\n  ?proposal thought:proposedBy ?proposedBy .\\n  ?proposal thought:statusChangedAt ?statusChangedAt .\\n  OPTIONAL { ?proposal thought:proposalNote ?note }\\n  OPTIONAL { ?proposal thought:affectsNode ?affects . ?affects minerva:relativePath ?affectsPath }\\n}\\nORDER BY DESC(?statusChangedAt)","language":"sparql"}]
+      Conversation history → send menu:openStockQuery [{"query":"PREFIX minerva: <https://minerva.dev/ontology#>\\nPREFIX dc: <http://purl.org/dc/terms/>\\nPREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\\nPREFIX thought: <https://minerva.dev/ontology/thought#>\\n\\nSELECT ?conversation ?status ?startedAt ?triggerTitle WHERE {\\n  ?conversation rdf:type thought:Conversation .\\n  ?conversation thought:conversationStatus ?statusNode .\\n  ?statusNode rdfs:label ?status .\\n  ?conversation thought:startedAt ?startedAt .\\n  OPTIONAL {\\n    ?conversation thought:trigger ?trigger .\\n    ?trigger dc:title ?triggerTitle .\\n  }\\n}\\nORDER BY DESC(?startedAt)","language":"sparql"}]
+    SQL
+      All tables → send menu:openStockQuery [{"query":"SELECT table_name\\nFROM information_schema.tables\\nWHERE table_schema = 'main'\\nORDER BY table_name;","language":"sql"}]
+      Describe schema → send menu:openStockQuery [{"query":"-- Replace YOUR_TABLE with a name from the Tables panel.\\nDESCRIBE YOUR_TABLE;","language":"sql"}]
+      Summarize (per-column stats) → send menu:openStockQuery [{"query":"-- Replace YOUR_TABLE with a name from the Tables panel.\\nSUMMARIZE YOUR_TABLE;","language":"sql"}]
+      Null rate per column → send menu:openStockQuery [{"query":"-- Replace YOUR_TABLE with a name from the Tables panel.\\nSELECT column_name, null_percentage\\nFROM (SUMMARIZE YOUR_TABLE)\\nORDER BY null_percentage DESC;","language":"sql"}]
+      Top values for a column → send menu:openStockQuery [{"query":"-- Replace YOUR_TABLE and YOUR_COLUMN.\\nSELECT YOUR_COLUMN, COUNT(*) AS n\\nFROM YOUR_TABLE\\nGROUP BY YOUR_COLUMN\\nORDER BY n DESC\\nLIMIT 20;","language":"sql"}]
+      Rows per month → send menu:openStockQuery [{"query":"-- Replace YOUR_TABLE and YOUR_DATE_COLUMN.\\nSELECT\\n  date_trunc('month', YOUR_DATE_COLUMN) AS month,\\n  COUNT(*) AS rows\\nFROM YOUR_TABLE\\nGROUP BY month\\nORDER BY month;","language":"sql"}]
+  Saved Queries disabled
+    (role undefined)
+      Open questions → send menu:openStockQuery [{"query":"SELECT 1","language":"sparql"}]
+    ---
+    Edit Saved Queries… → send menu:command ["query.editSaved"]
+  ---
+  Export Knowledge Graph… disabled → (no effect)
+Export
+  PDF… disabled → send menu:export ["pdf"]
+  ---
+  Static Site… disabled → send menu:export ["site"]
+  ---
+  Publish to Web… disabled → send menu:command ["export.publish"]
+Window
+  (role minimize)
+  (role zoom)
+  ---
+  (role front)
+  ---
+Help role=help
+  Install Tutorial Thoughtbase… → send menu:command ["app.installTutorial"]
+  ---
+  Keyboard Shortcuts… [CmdOrCtrl+/] → send menu:command ["app.shortcuts"]
+  ---
+  Documentation → openExternal https://dgriffith.github.io/minerva/docs/
+  Report an Issue… → openExternal https://github.com/dgriffith/ide-for-thought/issues/new/choose
+  ---
+  Install ‘minerva’ Command in PATH… → installMinervaCommand"
+`;

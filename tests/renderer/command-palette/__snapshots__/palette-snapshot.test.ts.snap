@@ -1,0 +1,121 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`the command palette (#2625) > with a thoughtbase, a note tab and history both ways 1`] = `
+"file.newNote | New Note | File | ⌘ N | enabled
+file.save | Save | File | ⌘ S | enabled
+file.openProject | Open Thoughtbase… | File | ⌘ O | enabled
+file.newProject | New Thoughtbase… | File | - | enabled
+file.closeProject | Close Thoughtbase | File | ⌘ ⇧ W | enabled
+file.editThoughtbaseGuide | Edit Thoughtbase Guide… | File | - | enabled
+file.print | Print… | File | - | enabled
+file.saveAsTemplate | Save as Template… | File | - | enabled
+edit.insertTemplate | Insert Template… | Edit | - | enabled
+edit.dictate | Dictate (Voice to Text) | Edit | ⌘ ⇧ V | enabled
+file.newAudioRecording | New Audio Recording (Start / Stop) | File | - | enabled
+edit.transcribeRecording | Transcribe Audio Recording | Edit | - | enabled
+edit.summarizeRecording | Summarize Audio Recording… | Edit | - | enabled
+edit.find | Find | Edit | ⌘ F | enabled
+edit.findReplace | Find and Replace | Edit | ⌘ H | enabled
+edit.findInNotes | Find in Notes… | Edit | ⌘ ⇧ F | enabled
+edit.replaceInNotes | Replace in Notes… | Edit | ⌘ ⇧ H | enabled
+edit.gotoLine | Go to Line… | Edit | ⌘ G | enabled
+edit.sortLines | Sort Lines | Edit | - | enabled
+view.toggleSidebar | Toggle Left Sidebar | View | ⌘ B | enabled
+view.toggleRightSidebar | Toggle Right Sidebar | View | ⌘ ⇧ B | enabled
+view.togglePreview | Toggle Preview Mode | View | ⌘ ⇧ P | enabled
+view.toggleConversations | Toggle Conversations | View | ⌘ ⇧ K | enabled
+view.theme.dark | Theme: Dark (current) | View | - | enabled
+view.theme.light | Theme: Light | View | - | enabled
+view.theme.contrast | Theme: High Contrast | View | - | enabled
+view.theme.system | Theme: System | View | - | enabled
+view.fontIncrease | Increase Font Size | View | ⌘ ⇧ = | enabled
+view.fontDecrease | Decrease Font Size | View | ⌘ ⇧ - | enabled
+view.fontReset | Reset Font Size | View | - | enabled
+learning.askQuestion | Ask a Question | Learning | - | enabled
+nav.quickOpen | Go to… | Navigate | ⌘ P | enabled
+nav.back | Navigate Back | Navigate | ⌘ [ | enabled
+nav.forward | Navigate Forward | Navigate | ⌘ ] | enabled
+refactor.rename | Rename Note… | Refactor | - | enabled
+refactor.move | Move Note… | Refactor | - | enabled
+refactor.copy | Copy Note… | Refactor | - | enabled
+refactor.extract | Extract Selection to New Note | Refactor | - | enabled
+refactor.splitHere | Split Here | Refactor | - | enabled
+refactor.splitByHeading | Split by Heading… | Refactor | - | enabled
+refactor.autoTag | Auto-tag Note | Refactor | - | enabled
+objects.promoteToType | Treat This Note as a Type… | Refactor | - | enabled
+objects.saveAsObjectType | Save Note as Object Type… | File | - | enabled
+refactor.autoLink | Auto-link Outbound | Refactor | - | enabled
+refactor.autoLinkInbound | Auto-link Inbound | Refactor | - | enabled
+refactor.decompose | Decompose into Claims | Refactor | - | enabled
+refactor.format | Format | Refactor | - | enabled
+research.ingestUrl | Ingest URL as Source… | Research | ⌘ ⇧ I | enabled
+research.ingestIdentifier | Ingest Identifier… | Research | ⌘ ⇧ D | enabled
+research.ingestFile | Ingest File as Source… | Research | - | enabled
+research.ingestBulk | Ingest Zip or Folder as Sources… | Research | - | enabled
+research.importBibtex | Import BibTeX… | Research | - | enabled
+research.importZoteroRdf | Import Zotero RDF… | Research | - | enabled
+research.bibliography | Insert/Update Bibliography | Research | - | enabled
+query.new | New Query | Query | ⌘ ⇧ Q | enabled
+query.editSaved | Edit Saved Queries… | Query | - | enabled
+app.settings | Settings… | App | ⌘ , | enabled"
+`;
+
+exports[`the command palette (#2625) > with nothing open 1`] = `
+"file.newNote | New Note | File | ⌘ N | disabled
+file.save | Save | File | ⌘ S | disabled
+file.openProject | Open Thoughtbase… | File | ⌘ O | enabled
+file.newProject | New Thoughtbase… | File | - | enabled
+file.closeProject | Close Thoughtbase | File | ⌘ ⇧ W | disabled
+file.editThoughtbaseGuide | Edit Thoughtbase Guide… | File | - | disabled
+file.print | Print… | File | - | disabled
+file.saveAsTemplate | Save as Template… | File | - | disabled
+edit.insertTemplate | Insert Template… | Edit | - | disabled
+edit.dictate | Dictate (Voice to Text) | Edit | ⌘ ⇧ V | disabled
+file.newAudioRecording | New Audio Recording (Start / Stop) | File | - | disabled
+edit.transcribeRecording | Transcribe Audio Recording | Edit | - | disabled
+edit.summarizeRecording | Summarize Audio Recording… | Edit | - | disabled
+edit.find | Find | Edit | ⌘ F | disabled
+edit.findReplace | Find and Replace | Edit | ⌘ H | disabled
+edit.findInNotes | Find in Notes… | Edit | ⌘ ⇧ F | disabled
+edit.replaceInNotes | Replace in Notes… | Edit | ⌘ ⇧ H | disabled
+edit.gotoLine | Go to Line… | Edit | ⌘ G | disabled
+edit.sortLines | Sort Lines | Edit | - | disabled
+view.toggleSidebar | Toggle Left Sidebar | View | ⌘ B | enabled
+view.toggleRightSidebar | Toggle Right Sidebar | View | ⌘ ⇧ B | enabled
+view.togglePreview | Toggle Preview Mode | View | ⌘ ⇧ P | disabled
+view.toggleConversations | Toggle Conversations | View | ⌘ ⇧ K | enabled
+view.theme.dark | Theme: Dark (current) | View | - | enabled
+view.theme.light | Theme: Light | View | - | enabled
+view.theme.contrast | Theme: High Contrast | View | - | enabled
+view.theme.system | Theme: System | View | - | enabled
+view.fontIncrease | Increase Font Size | View | ⌘ ⇧ = | enabled
+view.fontDecrease | Decrease Font Size | View | ⌘ ⇧ - | enabled
+view.fontReset | Reset Font Size | View | - | enabled
+learning.askQuestion | Ask a Question | Learning | - | disabled
+nav.quickOpen | Go to… | Navigate | ⌘ P | disabled
+nav.back | Navigate Back | Navigate | ⌘ [ | disabled
+nav.forward | Navigate Forward | Navigate | ⌘ ] | disabled
+refactor.rename | Rename Note… | Refactor | - | disabled
+refactor.move | Move Note… | Refactor | - | disabled
+refactor.copy | Copy Note… | Refactor | - | disabled
+refactor.extract | Extract Selection to New Note | Refactor | - | disabled
+refactor.splitHere | Split Here | Refactor | - | disabled
+refactor.splitByHeading | Split by Heading… | Refactor | - | disabled
+refactor.autoTag | Auto-tag Note | Refactor | - | disabled
+objects.promoteToType | Treat This Note as a Type… | Refactor | - | disabled
+objects.saveAsObjectType | Save Note as Object Type… | File | - | disabled
+refactor.autoLink | Auto-link Outbound | Refactor | - | disabled
+refactor.autoLinkInbound | Auto-link Inbound | Refactor | - | disabled
+refactor.decompose | Decompose into Claims | Refactor | - | disabled
+refactor.format | Format | Refactor | - | disabled
+research.ingestUrl | Ingest URL as Source… | Research | ⌘ ⇧ I | disabled
+research.ingestIdentifier | Ingest Identifier… | Research | ⌘ ⇧ D | disabled
+research.ingestFile | Ingest File as Source… | Research | - | disabled
+research.ingestBulk | Ingest Zip or Folder as Sources… | Research | - | disabled
+research.importBibtex | Import BibTeX… | Research | - | disabled
+research.importZoteroRdf | Import Zotero RDF… | Research | - | disabled
+research.bibliography | Insert/Update Bibliography | Research | - | disabled
+query.new | New Query | Query | ⌘ ⇧ Q | disabled
+query.editSaved | Edit Saved Queries… | Query | - | disabled
+app.settings | Settings… | App | ⌘ , | enabled"
+`;

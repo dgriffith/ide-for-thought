@@ -53,7 +53,7 @@ test('argument maps export with the preview\'s focus and nodes, diagram as SVG, 
 
     const preview = await test.step('open the note in the preview', async () => {
       await win.locator('[data-relative-path="Host.md"]').first().click();
-      await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.webContents.send('menu:togglePreview'); });
+      await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.webContents.send('menu:command', 'view.togglePreview'); });
       await expect(win.locator('.preview .argument-outline .node-link').first()).toBeVisible({ timeout: 20_000 });
       await expect(win.locator('.preview .argument-map svg')).toHaveCount(1, { timeout: 20_000 });
       return maps(win, '.preview');

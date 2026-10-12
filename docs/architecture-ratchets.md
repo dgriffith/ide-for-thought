@@ -28,7 +28,7 @@ what to do about it. `architecture-ratchets-doc.test.ts` keeps the two sides in
 step — a new test in `tests/architecture/` with no entry here fails, and an
 entry here naming a test that no longer exists fails too (#2262).
 
-Written up as of 2026-10-11, 51 tests.
+Written up as of 2026-10-12, 52 tests.
 
 ---
 
@@ -222,6 +222,21 @@ Stale entries fail too.
 - **A new plugin, query type or hydration pass shipped preview-only:** render
   it for exports, or classify it as a gap with an issue or a decision with a
   reason. Don't just add it to `PARITY` to go green.
+
+### `command-registry.test.ts`
+
+**Commands come from one registry** (#2625, epic #2622):
+`src/shared/commands.ts`. Each command is declared once, with its id, title,
+category, key, palette enablement, and menu label, tooltip and gate. The menu
+bar places it with `command(id)`, and a click sends `menu:command` with the
+id. The palette lists every entry that has `palette`. The renderer runs both
+from one `Record<CommandId, …>` in `app/command-keymap.ts`. Before this, a
+command was a palette row, a dependency field, a menu item, a channel, a
+preload method, a client signature and a wiring line, and the palette and
+menu could disagree. The types hold most of it. The test holds the rest: no
+argument-free `send()` in `menu.ts`, and every command with a `menu` shape
+placed somewhere. **When it fires:** declare the command and place it with
+`command(id)`. Or, if nothing places it any more, drop its `menu` entry.
 
 ### `panel-registries.test.ts`
 

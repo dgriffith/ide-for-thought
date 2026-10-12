@@ -98,13 +98,22 @@ describe('the Help menu points at the user manual (#2254)', () => {
 });
 
 describe('the Command Palette is a real menu item (#2256)', () => {
+  // Since #2625 the item is the registered command `view.commandPalette`:
+  // menu.ts places it by id, and its label and key live in shared/commands.ts.
+  const commandsSource = () => fs.readFileSync(path.join(ROOT, 'src', 'shared', 'commands.ts'), 'utf-8');
+  const declaration = () => {
+    const src = commandsSource();
+    const idx = src.indexOf("id: 'view.commandPalette'");
+    return idx < 0 ? '' : src.slice(idx, src.indexOf('\n', idx));
+  };
+
   it('appears in the menu template', () => {
     // Help → Keyboard Shortcuts derives its contents from the menu template
     // rather than restating them, so a binding with no menu item is invisible
     // to it. Adding the item IS the documentation fix — which only works while
     // the item exists.
-    const source = menuSource();
-    expect(source, 'no Command Palette menu item (#2256)').toContain("label: 'Command Palette'");
+    expect(declaration(), 'no Command Palette command (#2256)').toContain("title: 'Command Palette'");
+    expect(menuSource(), 'the menu no longer places it (#2256)').toContain("command('view.commandPalette'");
   });
 
   it('carries the accelerator the renderer actually binds', () => {
@@ -112,23 +121,20 @@ describe('the Command Palette is a real menu item (#2256)', () => {
     // the accelerator here is the one users are told about. If it disagreed
     // with the renderer's keymap, the dialog would confidently teach the wrong
     // key — worse than the silence it replaced.
-    const source = menuSource();
-    const idx = source.indexOf("label: 'Command Palette'");
-    const near = source.slice(idx, idx + 200);
-    expect(near).toMatch(/accelerator: 'CmdOrCtrl\+K'/);
+    expect(declaration()).toMatch(/key: 'CmdOrCtrl\+K'/);
 
     const keymap = fs.readFileSync(
       path.join(ROOT, 'src', 'renderer', 'lib', 'app', 'command-keymap.ts'), 'utf-8');
-    expect(keymap, 'the renderer no longer binds the palette').toContain('toggleCommandPalette');
+    expect(keymap, 'the renderer no longer binds the palette').toContain("'view.commandPalette': ctx.toggleCommandPalette");
   });
 
   it('dispatches a channel rather than doing work inline', () => {
     // CLAUDE.md #2233: a menu item sends a channel, calls a window/app
     // lifecycle function, or calls a maintenance command — it does not execute
     // inline. Pinned because inline execution is exactly what made menu.ts a
-    // second, unreviewed command surface.
+    // second, unreviewed command surface. A placed command sends MENU_COMMAND.
     const source = menuSource();
-    const idx = source.indexOf("label: 'Command Palette'");
-    expect(source.slice(idx, idx + 200)).toContain('send(Channels.MENU_COMMAND_PALETTE)');
+    const helper = source.slice(source.indexOf('function command('), source.indexOf('export function rebuildMenu'));
+    expect(helper).toContain('click: () => send(Channels.MENU_COMMAND, id)');
   });
 });

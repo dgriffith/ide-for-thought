@@ -41,7 +41,6 @@
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { Channels } from '../../src/shared/channels';
-import { MENU_COMMANDS } from '../../src/shared/ipc-contract';
 
 const h = vi.hoisted(() => ({ exposed: {} }));
 
@@ -84,10 +83,7 @@ function interfaceKeys(name: string): Set<string> {
 
 const CHANNEL_VALUES = new Set<string>(Object.values(Channels));
 const CHANNEL_MAP_KEYS = interfaceKeys('ChannelMap');
-const EVENT_MAP_KEYS = new Set<string>([
-  ...interfaceKeys('EventMap'),
-  ...MENU_COMMANDS.map((c) => `menu:${c}`),
-]);
+const EVENT_MAP_KEYS = new Set<string>(interfaceKeys('EventMap'));
 
 // ── Documented exceptions ────────────────────────────────────────────────────
 

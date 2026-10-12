@@ -49,7 +49,7 @@ test('OCR of a scanned PDF works offline, with no CDN request (#2564)', async ()
     }, FIXTURE);
 
     await app.evaluate(({ BrowserWindow }) => {
-      BrowserWindow.getAllWindows()[0]!.webContents.send('menu:ingestFile');
+      BrowserWindow.getAllWindows()[0]!.webContents.send('menu:command', 'research.ingestFile');
     });
 
     await expect(win.getByText(/Run OCR on/)).toBeVisible({ timeout: 20_000 });

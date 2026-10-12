@@ -32,7 +32,7 @@ test('map pin → note → Back returns to the map, Forward to the note', async 
   seed(projectDir);
   fs.writeFileSync(path.join(userDataDir, 'session.json'), JSON.stringify([{ x: 80, y: 80, width: 1300, height: 900, rootPath: projectDir }]));
   const app = await launchMinerva({ userDataDir, env: { MINERVA_E2E: '1' } });
-  const menu = (channel: string) => app.evaluate(({ BrowserWindow }, ch) => { BrowserWindow.getAllWindows()[0]!.webContents.send(ch); }, channel);
+  const menu = (id: string) => app.evaluate(({ BrowserWindow }, c) => { BrowserWindow.getAllWindows()[0]!.webContents.send('menu:command', c); }, id);
   try {
     const win = await app.firstWindow({ timeout: 20_000 });
     await win.route(`${STYLE_URL}**`, (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(STYLE) }));
@@ -54,14 +54,14 @@ test('map pin → note → Back returns to the map, Forward to the note', async 
     const noteTitle = (await activeTab.textContent())!.includes('Kampa') ? 'Kampa Museum' : 'Széchenyi Baths';
 
     await test.step('Back: the map again, still a map', async () => {
-      await menu('menu:navBack');
+      await menu('nav.back');
       await expect(activeTab).toContainText('Place', { timeout: 10_000 });
       await expect(win.getByRole('tab', { name: 'Map' })).toHaveAttribute('aria-selected', 'true');
       await expect(markers).toHaveCount(2, { timeout: 15_000 });
     });
 
     await test.step('Forward: the note again', async () => {
-      await menu('menu:navForward');
+      await menu('nav.forward');
       await expect(activeTab).toContainText(noteTitle, { timeout: 10_000 });
     });
   } finally {

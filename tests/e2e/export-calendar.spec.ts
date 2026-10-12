@@ -80,7 +80,7 @@ test('a Calendar exports as a static, linked month grid, every event in its cell
 
     await test.step('open the note: the preview embed is a read-only grid that pages months', async () => {
       await note.click();
-      await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.webContents.send('menu:togglePreview'); });
+      await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.webContents.send('menu:command', 'view.togglePreview'); });
       const embed = win.locator('.preview .object-view-block');
       await expect(embed.locator('[data-calendar-event]').first()).toBeVisible({ timeout: 15_000 });
       await expect(embed.locator('[role="grid"]')).toHaveCount(1);

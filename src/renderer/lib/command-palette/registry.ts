@@ -1,251 +1,57 @@
 /**
- * Command-palette registry (#463, extracted from App.svelte in #670).
+ * The command palette's list (#463; on the command registry since #2625).
  *
- * `buildCommandRegistry(deps)` is a pure mapping from injected dependencies
- * to the `Command[]` the palette (and, later, a custom-keybinding UI) draws
- * from. App.svelte calls it inside a `$derived`, so the `enabled` predicates
- * are passed as GETTER FUNCTIONS rather than plain booleans — the derived
- * re-tracks them on each recompute, keeping the palette from ever offering an
- * action that would silently no-op. The `run` callbacks fire later, on user
- * action, so they're plain thunks.
+ * Every command in `shared/commands.ts` with a `palette` entry, in declared
+ * order: its title, category and shortcut come from the declaration, its
+ * enablement from `PaletteState`, and running it calls `run(id)` — the same
+ * action table (`app/command-keymap.ts`) the menu bar's `menu:command` runs,
+ * so the two surfaces can't do different things for one command.
  *
- * Keeping this a pure function of `deps` (no store/component imports) makes the
- * command set and its dispatch unit-testable without mounting the app — the
- * safety net the #670 decomposition is built against.
- *
- * Adding a command: append a row here and a matching field to `CommandDeps`.
- * The Electron menu still lives in `src/main/menu.ts`.
+ * App.svelte calls this inside a `$derived`, so the predicates are GETTER
+ * FUNCTIONS, re-read on each recompute — the palette never offers an action
+ * that would silently no-op.
  */
 import type { Command } from './types';
 import { formatAccelerator } from './format-accelerator';
-import { THEME_MODES, type ThemeMode } from '../theme';
+import { COMMANDS, type CommandId, type PaletteWhen } from '../../../shared/commands';
+import type { ThemeMode } from '../theme';
 
-/** Dependencies the command registry needs from the host component. */
-export interface CommandDeps {
-  // ── reactive state predicates (read inside App's $derived) ──
+/** What the palette's enablement and the current-theme mark read. */
+export interface PaletteState {
   hasProject(): boolean;
+  /** A file is open in the active tab. */
   hasNote(): boolean;
+  /** The active tab is a note. */
   hasActiveNoteTab(): boolean;
   canGoBack(): boolean;
   canGoForward(): boolean;
-  // ── File ──
-  newNote(): void;
-  save(): void;
-  openProject(): void;
-  newProject(): void;
-  closeProject(): void;
-  editThoughtbaseGuide(): void;
-  print(): void;
-  saveAsTemplate(): void;
-  // ── Edit ──
-  insertTemplate(): void;
-  dictate(): void;
-  /** Start / stop an audio recording saved into the thoughtbase (#2428). */
-  recordAudio(): void;
-  /** Transcribe the audio recording on the cursor's line (#2428). */
-  transcribeRecording(): void;
-  /** Summarize the transcribed recording on the cursor's line, via an
-   *  approval-gated skill (#2729). */
-  summarizeRecording(): void;
-  find(): void;
-  findReplace(): void;
-  findInNotes(): void;
-  replaceInNotes(): void;
-  gotoLine(): void;
-  sortLines(): void;
-  // ── View ──
-  toggleSidebar(): void;
-  toggleRightSidebar(): void;
-  togglePreview(): void;
-  toggleConversations(): void;
-  newConversation(): void;
-  /** Directly select a theme (#1139). One palette entry per mode. */
-  setTheme(mode: ThemeMode): void;
-  /** Current mode, so the active entry can be marked. Read at build time,
-   *  so it must be a getter for the palette's `$derived` to re-track it. */
   currentTheme(): ThemeMode;
-  fontIncrease(): void;
-  fontDecrease(): void;
-  fontReset(): void;
-  // ── Navigate ──
-  quickOpen(): void;
-  navBack(): void;
-  navForward(): void;
-  // ── Refactor (operate on the active note) ──
-  renameActive(): void;
-  moveActive(): void;
-  copyActive(): void;
-  extractSelection(): void;
-  splitHere(): void;
-  splitByHeading(): void;
-  autoTagActive(): void;
-  promoteToType(): void;
-  saveNoteAsObjectType(): void;
-  autoLinkActive(): void;
-  autoLinkInboundActive(): void;
-  decomposeActive(): void;
-  format(): void;
-  // ── Research ──
-  ingestUrl(): void;
-  ingestIdentifier(): void;
-  ingestFile(): void;
-  ingestBulk(): void;
-  importBibtex(): void;
-  importZoteroRdf(): void;
-  bibliography(): void;
-  // ── Query ──
-  newQuery(): void;
-  editSavedQueries(): void;
-  // ── App ──
-  openSettings(): void;
 }
 
-export function buildCommandRegistry(deps: CommandDeps): Command[] {
-  const hasProject = deps.hasProject();
-  const hasNote = deps.hasNote();
-  const hasActiveNoteTab = deps.hasActiveNoteTab();
-  return [
-    // ── File ──
-    { id: 'file.newNote', title: 'New Note', category: 'File',
-      keybinding: formatAccelerator('CmdOrCtrl+N'),
-      enabled: hasProject, run: () => deps.newNote() },
-    { id: 'file.save', title: 'Save', category: 'File',
-      keybinding: formatAccelerator('CmdOrCtrl+S'),
-      enabled: hasNote, run: () => deps.save() },
-    { id: 'file.openProject', title: 'Open Thoughtbase…', category: 'File',
-      keybinding: formatAccelerator('CmdOrCtrl+O'),
-      enabled: true, run: () => deps.openProject() },
-    { id: 'file.newProject', title: 'New Thoughtbase…', category: 'File',
-      keybinding: null, enabled: true, run: () => deps.newProject() },
-    { id: 'file.closeProject', title: 'Close Thoughtbase', category: 'File',
-      keybinding: formatAccelerator('CmdOrCtrl+Shift+W'),
-      enabled: hasProject, run: () => deps.closeProject() },
-    { id: 'file.editThoughtbaseGuide', title: 'Edit Thoughtbase Guide…', category: 'File',
-      keybinding: null, enabled: hasProject, run: () => deps.editThoughtbaseGuide() },
-    { id: 'file.print', title: 'Print…', category: 'File',
-      keybinding: null, enabled: hasNote, run: () => deps.print() },
-    { id: 'file.saveAsTemplate', title: 'Save as Template…', category: 'File',
-      keybinding: null, enabled: hasActiveNoteTab,
-      run: () => deps.saveAsTemplate() },
-    { id: 'edit.insertTemplate', title: 'Insert Template…', category: 'Edit',
-      keybinding: null, enabled: hasActiveNoteTab,
-      run: () => deps.insertTemplate() },
-    { id: 'edit.dictate', title: 'Dictate (Voice to Text)', category: 'Edit',
-      keybinding: formatAccelerator('CmdOrCtrl+Shift+V'),
-      enabled: hasActiveNoteTab, run: () => deps.dictate() },
-    { id: 'file.newAudioRecording', title: 'New Audio Recording (Start / Stop)', category: 'File',
-      keybinding: null, enabled: hasProject, run: () => deps.recordAudio() },
-    { id: 'edit.transcribeRecording', title: 'Transcribe Audio Recording', category: 'Edit',
-      keybinding: null, enabled: hasActiveNoteTab, run: () => deps.transcribeRecording() },
-    { id: 'edit.summarizeRecording', title: 'Summarize Audio Recording…', category: 'Edit',
-      keybinding: null, enabled: hasActiveNoteTab, run: () => deps.summarizeRecording() },
-    // ── Edit / search ──
-    { id: 'edit.find', title: 'Find', category: 'Edit',
-      keybinding: formatAccelerator('CmdOrCtrl+F'),
-      enabled: hasNote, run: () => deps.find() },
-    { id: 'edit.findReplace', title: 'Find and Replace', category: 'Edit',
-      keybinding: formatAccelerator('CmdOrCtrl+H'),
-      enabled: hasNote, run: () => deps.findReplace() },
-    { id: 'edit.findInNotes', title: 'Find in Notes…', category: 'Edit',
-      keybinding: formatAccelerator('CmdOrCtrl+Shift+F'),
-      enabled: hasProject, run: () => deps.findInNotes() },
-    { id: 'edit.replaceInNotes', title: 'Replace in Notes…', category: 'Edit',
-      keybinding: formatAccelerator('CmdOrCtrl+Shift+H'),
-      enabled: hasProject, run: () => deps.replaceInNotes() },
-    { id: 'edit.gotoLine', title: 'Go to Line…', category: 'Edit',
-      keybinding: null, enabled: hasNote, run: () => deps.gotoLine() },
-    { id: 'edit.sortLines', title: 'Sort Lines', category: 'Edit',
-      keybinding: null, enabled: hasNote, run: () => deps.sortLines() },
-    // ── View ──
-    { id: 'view.toggleSidebar', title: 'Toggle Left Sidebar', category: 'View',
-      keybinding: null, enabled: true, run: () => deps.toggleSidebar() },
-    { id: 'view.toggleRightSidebar', title: 'Toggle Right Sidebar', category: 'View',
-      keybinding: null, enabled: true, run: () => deps.toggleRightSidebar() },
-    { id: 'view.togglePreview', title: 'Toggle Preview Mode', category: 'View',
-      keybinding: null, enabled: hasNote, run: () => deps.togglePreview() },
-    { id: 'view.toggleConversations', title: 'Toggle Conversations', category: 'View',
-      keybinding: null, enabled: true, run: () => deps.toggleConversations() },
-    // One directly-selectable entry per theme, so each is searchable and a
-    // click jumps straight to it (#1139). The active mode is marked.
-    ...THEME_MODES.map((m) => ({
-      id: `view.theme.${m.value}`,
-      title: `Theme: ${m.label}${deps.currentTheme() === m.value ? ' (current)' : ''}`,
-      category: 'View',
-      keybinding: null,
-      enabled: true,
-      run: () => deps.setTheme(m.value),
-    })),
-    { id: 'view.fontIncrease', title: 'Increase Font Size', category: 'View',
-      keybinding: null, enabled: true, run: () => deps.fontIncrease() },
-    { id: 'view.fontDecrease', title: 'Decrease Font Size', category: 'View',
-      keybinding: null, enabled: true, run: () => deps.fontDecrease() },
-    { id: 'view.fontReset', title: 'Reset Font Size', category: 'View',
-      keybinding: null, enabled: true, run: () => deps.fontReset() },
-    // ── Learning ── (opens a plain conversation; the Learning menu's "Ask a Question")
-    { id: 'learning.askQuestion', title: 'Ask a Question', category: 'Learning',
-      keybinding: null, enabled: hasProject, run: () => deps.newConversation() },
-    // ── Navigate ──
-    { id: 'nav.quickOpen', title: 'Go to…', category: 'Navigate',
-      keybinding: formatAccelerator('CmdOrCtrl+P'),
-      enabled: hasProject, run: () => deps.quickOpen() },
-    { id: 'nav.back', title: 'Navigate Back', category: 'Navigate',
-      keybinding: formatAccelerator('CmdOrCtrl+['),
-      enabled: deps.canGoBack(), run: () => deps.navBack() },
-    { id: 'nav.forward', title: 'Navigate Forward', category: 'Navigate',
-      keybinding: formatAccelerator('CmdOrCtrl+]'),
-      enabled: deps.canGoForward(), run: () => deps.navForward() },
-    // ── Refactor ──
-    { id: 'refactor.rename', title: 'Rename Note…', category: 'Refactor',
-      keybinding: null, enabled: hasNote, run: () => deps.renameActive() },
-    { id: 'refactor.move', title: 'Move Note…', category: 'Refactor',
-      keybinding: null, enabled: hasNote, run: () => deps.moveActive() },
-    { id: 'refactor.copy', title: 'Copy Note…', category: 'Refactor',
-      keybinding: null, enabled: hasNote, run: () => deps.copyActive() },
-    { id: 'refactor.extract', title: 'Extract Selection to New Note', category: 'Refactor',
-      keybinding: null, enabled: hasActiveNoteTab, run: () => deps.extractSelection() },
-    { id: 'refactor.splitHere', title: 'Split Here', category: 'Refactor',
-      keybinding: null, enabled: hasActiveNoteTab, run: () => deps.splitHere() },
-    { id: 'refactor.splitByHeading', title: 'Split by Heading…', category: 'Refactor',
-      keybinding: null, enabled: hasActiveNoteTab, run: () => deps.splitByHeading() },
-    { id: 'refactor.autoTag', title: 'Auto-tag Note', category: 'Refactor',
-      keybinding: null, enabled: hasNote, run: () => deps.autoTagActive() },
-    { id: 'objects.promoteToType', title: 'Treat This Note as a Type…', category: 'Refactor',
-      keybinding: null, enabled: hasActiveNoteTab, run: () => deps.promoteToType() },
-    { id: 'objects.saveAsObjectType', title: 'Save Note as Object Type…', category: 'File',
-      keybinding: null, enabled: hasActiveNoteTab, run: () => deps.saveNoteAsObjectType() },
-    { id: 'refactor.autoLink', title: 'Auto-link Outbound', category: 'Refactor',
-      keybinding: null, enabled: hasNote, run: () => deps.autoLinkActive() },
-    { id: 'refactor.autoLinkInbound', title: 'Auto-link Inbound', category: 'Refactor',
-      keybinding: null, enabled: hasNote, run: () => deps.autoLinkInboundActive() },
-    { id: 'refactor.decompose', title: 'Decompose into Claims', category: 'Refactor',
-      keybinding: null, enabled: hasNote, run: () => deps.decomposeActive() },
-    { id: 'refactor.format', title: 'Format', category: 'Refactor',
-      keybinding: null, enabled: hasNote, run: () => deps.format() },
-    // ── Research ──
-    { id: 'research.ingestUrl', title: 'Ingest URL as Source…', category: 'Research',
-      keybinding: formatAccelerator('CmdOrCtrl+Shift+I'),
-      enabled: hasProject, run: () => deps.ingestUrl() },
-    { id: 'research.ingestIdentifier', title: 'Ingest Identifier…', category: 'Research',
-      keybinding: formatAccelerator('CmdOrCtrl+Shift+D'),
-      enabled: hasProject, run: () => deps.ingestIdentifier() },
-    { id: 'research.ingestFile', title: 'Ingest File as Source…', category: 'Research',
-      keybinding: null, enabled: hasProject, run: () => deps.ingestFile() },
-    { id: 'research.ingestBulk', title: 'Ingest Zip or Folder as Sources…', category: 'Research',
-      keybinding: null, enabled: hasProject, run: () => deps.ingestBulk() },
-    { id: 'research.importBibtex', title: 'Import BibTeX…', category: 'Research',
-      keybinding: null, enabled: hasProject, run: () => deps.importBibtex() },
-    { id: 'research.importZoteroRdf', title: 'Import Zotero RDF…', category: 'Research',
-      keybinding: null, enabled: hasProject, run: () => deps.importZoteroRdf() },
-    { id: 'research.bibliography', title: 'Insert/Update Bibliography', category: 'Research',
-      keybinding: null, enabled: hasNote, run: () => deps.bibliography() },
-    // ── Query ──
-    { id: 'query.new', title: 'New Query', category: 'Query',
-      keybinding: null, enabled: hasProject, run: () => deps.newQuery() },
-    { id: 'query.editSaved', title: 'Edit Saved Queries…', category: 'Query',
-      keybinding: null, enabled: hasProject, run: () => deps.editSavedQueries() },
-    // ── Settings / app ──
-    { id: 'app.settings', title: 'Settings…', category: 'App',
-      keybinding: formatAccelerator('CmdOrCtrl+,'),
-      enabled: true, run: () => deps.openSettings() },
-  ];
+function enabled(when: PaletteWhen, state: PaletteState): boolean {
+  switch (when) {
+    case 'always': return true;
+    case 'project': return state.hasProject();
+    case 'note': return state.hasNote();
+    case 'noteTab': return state.hasActiveNoteTab();
+    case 'canGoBack': return state.canGoBack();
+    case 'canGoForward': return state.canGoForward();
+  }
+}
+
+export function buildCommandRegistry(state: PaletteState, run: (id: CommandId) => void): Command[] {
+  const currentThemeId = `view.theme.${state.currentTheme()}`;
+  const out: Command[] = [];
+  for (const def of COMMANDS) {
+    if (!('palette' in def)) continue;
+    out.push({
+      id: def.id,
+      title: def.id === currentThemeId ? `${def.title} (current)` : def.title,
+      category: def.category,
+      keybinding: 'key' in def ? formatAccelerator(def.key) : null,
+      enabled: enabled(def.palette.when, state),
+      run: () => run(def.id),
+    });
+  }
+  return out;
 }

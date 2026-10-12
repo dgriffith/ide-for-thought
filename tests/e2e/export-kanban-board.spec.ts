@@ -86,7 +86,7 @@ test('a Kanban board exports as the preview shows it: wrapped, read-only, linked
 
     const preview = await test.step('open the note: the preview embed is a read-only board', async () => {
       await win.locator('[data-relative-path="Board.md"]').first().click();
-      await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.webContents.send('menu:togglePreview'); });
+      await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.webContents.send('menu:command', 'view.togglePreview'); });
       await expect(win.locator('.preview .kb-card')).toHaveCount(5, { timeout: 15_000 });
       const embed = win.locator('.preview .object-view-block');
       await expect(embed.locator('.kb-col-menu-btn, [data-draggable], .tv-header, [aria-pressed]')).toHaveCount(0);

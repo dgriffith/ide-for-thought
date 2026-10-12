@@ -1,44 +1,33 @@
 /**
- * Command-palette registry (#463 / extracted in #670).
+ * Command-palette registry (#463 / extracted in #670; on the command registry
+ * since #2625).
  *
- * This is the behavioral safety net for the App.svelte decomposition: it
- * pins the command set, the `enabled` predicate wiring, and — crucially —
- * that each command's `run()` dispatches to the right injected dependency.
- * A future refactor that re-points a command at the wrong handler, drops a
- * command, or breaks an `enabled` predicate fails here.
+ * Pins the command set, its order, and the `enabled` predicate wiring. What a
+ * command DOES is the shared action table's, tested in command-keymap.test.ts;
+ * the palette's part is to run the right id.
  */
-import { describe, it, expect, vi } from 'vitest';
-import { buildCommandRegistry, type CommandDeps } from '../../../src/renderer/lib/command-palette/registry';
+import { describe, it, expect } from 'vitest';
+import { buildCommandRegistry, type PaletteState } from '../../../src/renderer/lib/command-palette/registry';
 
-// Every CommandDeps method, as a spy. Predicates default to true so every
-// command is enabled unless a test overrides them.
-function makeDeps(overrides: Partial<CommandDeps> = {}): CommandDeps {
-  const actionNames = [
-    'newNote', 'save', 'openProject', 'newProject', 'closeProject', 'editThoughtbaseGuide', 'print',
-    'saveAsTemplate', 'insertTemplate', 'dictate', 'recordAudio', 'transcribeRecording', 'summarizeRecording', 'find', 'findReplace', 'findInNotes',
-    'replaceInNotes', 'gotoLine', 'sortLines', 'toggleSidebar', 'toggleRightSidebar',
-    'togglePreview', 'toggleConversations', 'newConversation', 'setTheme', 'fontIncrease', 'fontDecrease',
-    'fontReset', 'quickOpen', 'navBack', 'navForward', 'renameActive', 'moveActive',
-    'copyActive', 'extractSelection', 'splitHere', 'splitByHeading', 'autoTagActive', 'promoteToType', 'saveNoteAsObjectType',
-    'autoLinkActive', 'autoLinkInboundActive', 'decomposeActive', 'format', 'ingestUrl',
-    'ingestIdentifier', 'ingestFile', 'ingestBulk', 'importBibtex', 'importZoteroRdf', 'bibliography',
-    'newQuery', 'editSavedQueries', 'openSettings',
-  ] as const;
-  const deps = {
+// Every predicate true unless a test overrides it.
+function makeState(overrides: Partial<PaletteState> = {}): PaletteState {
+  return {
     hasProject: () => true,
     hasNote: () => true,
     hasActiveNoteTab: () => true,
     canGoBack: () => true,
     canGoForward: () => true,
     currentTheme: () => 'dark',
-  } as Record<string, unknown>;
-  for (const name of actionNames) deps[name] = vi.fn();
-  return { ...deps, ...overrides } as CommandDeps;
+    ...overrides,
+  };
 }
+
+const build = (overrides: Partial<PaletteState> = {}, run: (id: string) => void = () => {}) =>
+  buildCommandRegistry(makeState(overrides), run);
 
 describe('buildCommandRegistry', () => {
   it('returns the full command set with stable ids', () => {
-    const ids = buildCommandRegistry(makeDeps()).map((c) => c.id);
+    const ids = build().map((c) => c.id);
     expect(ids).toEqual([
       'file.newNote', 'file.save', 'file.openProject', 'file.newProject',
       'file.closeProject', 'file.editThoughtbaseGuide', 'file.print', 'file.saveAsTemplate', 'edit.insertTemplate',
@@ -59,14 +48,14 @@ describe('buildCommandRegistry', () => {
   });
 
   it('every command has a category and a run thunk', () => {
-    for (const cmd of buildCommandRegistry(makeDeps())) {
+    for (const cmd of build()) {
       expect(cmd.category).toBeTruthy();
       expect(typeof cmd.run).toBe('function');
     }
   });
 
   it('gates project-scoped commands on hasProject()', () => {
-    const cmds = buildCommandRegistry(makeDeps({ hasProject: () => false }));
+    const cmds = build({ hasProject: () => false });
     const byId = (id: string) => cmds.find((c) => c.id === id)!;
     expect(byId('file.newNote').enabled).toBe(false);
     expect(byId('edit.findInNotes').enabled).toBe(false);
@@ -80,7 +69,7 @@ describe('buildCommandRegistry', () => {
   });
 
   it('gates note-scoped commands on hasNote()', () => {
-    const cmds = buildCommandRegistry(makeDeps({ hasNote: () => false }));
+    const cmds = build({ hasNote: () => false });
     const byId = (id: string) => cmds.find((c) => c.id === id)!;
     expect(byId('file.save').enabled).toBe(false);
     expect(byId('edit.find').enabled).toBe(false);
@@ -90,7 +79,7 @@ describe('buildCommandRegistry', () => {
   });
 
   it('gates active-note-tab commands on hasActiveNoteTab()', () => {
-    const cmds = buildCommandRegistry(makeDeps({ hasActiveNoteTab: () => false }));
+    const cmds = build({ hasActiveNoteTab: () => false });
     const byId = (id: string) => cmds.find((c) => c.id === id)!;
     expect(byId('file.saveAsTemplate').enabled).toBe(false);
     expect(byId('edit.insertTemplate').enabled).toBe(false);
@@ -100,70 +89,34 @@ describe('buildCommandRegistry', () => {
   });
 
   it('gates nav commands on canGoBack()/canGoForward()', () => {
-    const cmds = buildCommandRegistry(makeDeps({ canGoBack: () => false, canGoForward: () => true }));
+    const cmds = build({ canGoBack: () => false, canGoForward: () => true });
     expect(cmds.find((c) => c.id === 'nav.back')!.enabled).toBe(false);
     expect(cmds.find((c) => c.id === 'nav.forward')!.enabled).toBe(true);
   });
 
-  it('dispatches each command run() to its corresponding dependency', () => {
-    // Map of command id → the dep method it must call.
-    const wiring: Record<string, keyof CommandDeps> = {
-      'file.newNote': 'newNote', 'file.save': 'save', 'file.openProject': 'openProject',
-      'file.newProject': 'newProject', 'file.closeProject': 'closeProject',
-      'file.editThoughtbaseGuide': 'editThoughtbaseGuide',
-      'file.print': 'print', 'file.saveAsTemplate': 'saveAsTemplate',
-      'edit.insertTemplate': 'insertTemplate', 'edit.dictate': 'dictate', 'edit.find': 'find',
-      'file.newAudioRecording': 'recordAudio', 'edit.transcribeRecording': 'transcribeRecording',
-      'edit.summarizeRecording': 'summarizeRecording',
-      'edit.findReplace': 'findReplace', 'edit.findInNotes': 'findInNotes',
-      'edit.replaceInNotes': 'replaceInNotes', 'edit.gotoLine': 'gotoLine',
-      'edit.sortLines': 'sortLines', 'view.toggleSidebar': 'toggleSidebar',
-      'view.toggleRightSidebar': 'toggleRightSidebar', 'view.togglePreview': 'togglePreview',
-      'view.toggleConversations': 'toggleConversations', 'learning.askQuestion': 'newConversation',
-      // view.theme.* all dispatch to setTheme with distinct args — asserted
-      // separately below, so they're excluded from the 1:1 run loop.
-      'view.theme.dark': 'setTheme', 'view.theme.light': 'setTheme',
-      'view.theme.contrast': 'setTheme', 'view.theme.system': 'setTheme',
-      'view.fontIncrease': 'fontIncrease', 'view.fontDecrease': 'fontDecrease',
-      'view.fontReset': 'fontReset', 'nav.quickOpen': 'quickOpen', 'nav.back': 'navBack',
-      'nav.forward': 'navForward', 'refactor.rename': 'renameActive',
-      'refactor.move': 'moveActive', 'refactor.copy': 'copyActive',
-      'refactor.extract': 'extractSelection', 'refactor.splitHere': 'splitHere',
-      'refactor.splitByHeading': 'splitByHeading', 'refactor.autoTag': 'autoTagActive', 'objects.promoteToType': 'promoteToType', 'objects.saveAsObjectType': 'saveNoteAsObjectType',
-      'refactor.autoLink': 'autoLinkActive', 'refactor.autoLinkInbound': 'autoLinkInboundActive',
-      'refactor.decompose': 'decomposeActive', 'refactor.format': 'format',
-      'research.ingestUrl': 'ingestUrl', 'research.ingestIdentifier': 'ingestIdentifier',
-      'research.ingestFile': 'ingestFile', 'research.ingestBulk': 'ingestBulk', 'research.importBibtex': 'importBibtex',
-      'research.importZoteroRdf': 'importZoteroRdf', 'research.bibliography': 'bibliography',
-      'query.new': 'newQuery', 'query.editSaved': 'editSavedQueries',
-      'app.settings': 'openSettings',
-    };
-    const deps = makeDeps();
-    const cmds = buildCommandRegistry(deps);
-    // Every command must appear in the wiring map (catches a new command
-    // that forgot a dispatch assertion).
-    expect(new Set(cmds.map((c) => c.id))).toEqual(new Set(Object.keys(wiring)));
-    for (const cmd of cmds) {
-      // Theme entries share one dep (setTheme) with distinct args; covered below.
-      if (cmd.id.startsWith('view.theme.')) continue;
-      cmd.run();
-      const depMethod = deps[wiring[cmd.id]] as ReturnType<typeof vi.fn>;
-      expect(depMethod, `command ${cmd.id} should call deps.${wiring[cmd.id]}`).toHaveBeenCalledTimes(1);
+  it('runs a command by its id — the action table is shared with the menu bar (#2625)', () => {
+    const ran: string[] = [];
+    const cmds = build({}, (id) => ran.push(id));
+    cmds.find((c) => c.id === 'refactor.rename')!.run();
+    cmds.find((c) => c.id === 'view.theme.light')!.run();
+    expect(ran).toEqual(['refactor.rename', 'view.theme.light']);
+  });
+
+  it('shows the shortcut each command is bound to', () => {
+    const byId = (id: string) => build().find((c) => c.id === id)!;
+    expect(byId('view.toggleSidebar').keybinding).not.toBeNull();
+    expect(byId('file.newProject').keybinding).toBeNull();
+  });
+
+  it('lists no menu-only command', () => {
+    const ids = new Set(build().map((c) => c.id));
+    for (const id of ['view.splitRight', 'app.about', 'file.revealFile', 'view.commandPalette']) {
+      expect(ids.has(id), id).toBe(false);
     }
   });
 
-  it('each theme command selects its own mode via setTheme (#1139)', () => {
-    const deps = makeDeps();
-    const cmds = buildCommandRegistry(deps);
-    const byId = (id: string) => cmds.find((c) => c.id === id)!;
-    byId('view.theme.light').run();
-    byId('view.theme.system').run();
-    expect(deps.setTheme).toHaveBeenNthCalledWith(1, 'light');
-    expect(deps.setTheme).toHaveBeenNthCalledWith(2, 'system');
-  });
-
   it('marks the current theme in the entry title', () => {
-    const cmds = buildCommandRegistry(makeDeps({ currentTheme: () => 'contrast' }));
+    const cmds = build({ currentTheme: () => 'contrast' });
     const byId = (id: string) => cmds.find((c) => c.id === id)!;
     expect(byId('view.theme.contrast').title).toBe('Theme: High Contrast (current)');
     expect(byId('view.theme.dark').title).toBe('Theme: Dark');

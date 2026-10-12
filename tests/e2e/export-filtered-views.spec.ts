@@ -71,7 +71,7 @@ test('filtered and folder-scoped views embed and export with no controls (#2534)
 
     const preview = await test.step('the preview shows the filtered map and the folder\'s table', async () => {
       await win.locator('[data-relative-path="plan.md"]').first().click();
-      await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.webContents.send('menu:togglePreview'); });
+      await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.webContents.send('menu:command', 'view.togglePreview'); });
       await expect(win.locator('.preview .type-view-map .maplibregl-marker')).toHaveCount(2, { timeout: 20_000 });
       await expect(win.locator('.preview .tv-table tbody tr')).toHaveCount(2, { timeout: 15_000 });
       expect(await controlsUnder(win, '.preview')).toBe(0);
