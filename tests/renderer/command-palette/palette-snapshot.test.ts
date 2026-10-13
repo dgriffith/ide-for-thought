@@ -8,6 +8,17 @@
  */
 import { describe, it, expect } from 'vitest';
 import { buildCommandRegistry, type PaletteState } from '../../../src/renderer/lib/command-palette/registry';
+import type { ThinkingToolInfo } from '../../../src/shared/tools/types';
+
+/** A spread of skills: each menu, a group, a note- and a selection-needer, and a
+ *  source-scoped one the palette leaves out (#2766). */
+const SKILLS = [
+  { id: 'ask', name: 'Ask Anything', category: 'learning', context: [], requiresSelection: false },
+  { id: 'steelman', name: 'Steelman', category: 'analysis', context: ['fullNote'], requiresSelection: false },
+  { id: 'explain', name: 'Explain Selection', category: 'learning', group: 'Reading', context: ['selection'], requiresSelection: true },
+  { id: 'cite', name: 'Find Sources', category: 'research', context: [], requiresSelection: false },
+  { id: 'summarize-source', name: 'Summarize Source', category: 'research', scope: 'source', context: [], requiresSelection: false },
+] as unknown as ThinkingToolInfo[];
 
 function state(open: boolean): PaletteState {
   return {
@@ -16,6 +27,7 @@ function state(open: boolean): PaletteState {
     hasActiveNoteTab: () => open,
     canGoBack: () => open,
     canGoForward: () => open,
+    hasSelection: () => open,
     currentTheme: () => 'dark',
   };
 }
@@ -26,7 +38,19 @@ function describePalette(open: boolean): string {
   ).join('\n');
 }
 
+function describeSkills(open: boolean): string {
+  return buildCommandRegistry(state(open), () => {}, SKILLS, () => {})
+    .filter((c) => c.id.startsWith('skill:'))
+    .map((c) => `${c.id} | ${c.title} | ${c.category} | ${c.enabled ? 'enabled' : 'disabled'}`)
+    .join('\n');
+}
+
 describe('the command palette (#2625)', () => {
+  it('lists skills after the commands, in menu-bar order (#2766)', () => {
+    expect(describeSkills(false)).toMatchSnapshot();
+    expect(describeSkills(true)).toMatchSnapshot();
+  });
+
   it('with nothing open', () => {
     expect(describePalette(false)).toMatchSnapshot();
   });

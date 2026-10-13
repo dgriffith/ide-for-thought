@@ -84,6 +84,7 @@ function makeCtx() {
   const ctx: CommandKeymapCtx = {
     getEditorComponent: () => editorComponent,
     getThemeLabel: () => 'dark',
+    hasSelection: () => false,
     getEditorFontSize: () => editorFontSize,
     ...spies,
   };

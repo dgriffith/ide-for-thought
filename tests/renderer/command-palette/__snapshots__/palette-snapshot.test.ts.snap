@@ -1,5 +1,19 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`the command palette (#2625) > lists skills after the commands, in menu-bar order (#2766) 1`] = `
+"skill:ask | Ask Anything | Learning | disabled
+skill:explain | Explain Selection | Learning › Reading | disabled
+skill:cite | Find Sources | Research | disabled
+skill:steelman | Steelman | Analysis | disabled"
+`;
+
+exports[`the command palette (#2625) > lists skills after the commands, in menu-bar order (#2766) 2`] = `
+"skill:ask | Ask Anything | Learning | enabled
+skill:explain | Explain Selection | Learning › Reading | enabled
+skill:cite | Find Sources | Research | enabled
+skill:steelman | Steelman | Analysis | enabled"
+`;
+
 exports[`the command palette (#2625) > with a thoughtbase, a note tab and history both ways 1`] = `
 "file.newNote | New Note | File | ⌘ N | enabled
 file.save | Save | File | ⌘ S | enabled

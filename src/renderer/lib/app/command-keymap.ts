@@ -91,6 +91,8 @@ export interface CommandKeymapCtx {
   selectTheme: (mode: ThemeMode) => void;
   cycleTheme: () => void;
   getThemeLabel: () => ThemeMode;
+  /** The focused editor has a non-empty text selection (App's cursor info). */
+  hasSelection: () => boolean;
 
   // View-mode cycle + the palette's backing caches.
   cycleViewMode: () => void;
@@ -133,6 +135,7 @@ export function createCommandKeymap(ctx: CommandKeymapCtx): {
     hasActiveNoteTab: () => editor.activeTab?.type === 'note',
     canGoBack: () => nav.canGoBack,
     canGoForward: () => nav.canGoForward,
+    hasSelection: () => editor.activeTab?.type === 'note' && ctx.hasSelection(),
     currentTheme: () => ctx.getThemeLabel(),
   };
 

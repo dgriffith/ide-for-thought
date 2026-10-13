@@ -8,6 +8,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { buildCommandRegistry, type PaletteState } from '../../../src/renderer/lib/command-palette/registry';
+import type { ThinkingToolInfo } from '../../../src/shared/tools/types';
 
 // Every predicate true unless a test overrides it.
 function makeState(overrides: Partial<PaletteState> = {}): PaletteState {
@@ -17,6 +18,7 @@ function makeState(overrides: Partial<PaletteState> = {}): PaletteState {
     hasActiveNoteTab: () => true,
     canGoBack: () => true,
     canGoForward: () => true,
+    hasSelection: () => true,
     currentTheme: () => 'dark',
     ...overrides,
   };
@@ -120,5 +122,42 @@ describe('buildCommandRegistry', () => {
     const byId = (id: string) => cmds.find((c) => c.id === id)!;
     expect(byId('view.theme.contrast').title).toBe('Theme: High Contrast (current)');
     expect(byId('view.theme.dark').title).toBe('Theme: Dark');
+  });
+
+  describe('skills (#2766)', () => {
+    const skill = (o: Partial<ThinkingToolInfo>) => ({ context: [], requiresSelection: false, category: 'learning', ...o }) as ThinkingToolInfo;
+    const SKILLS = [
+      skill({ id: 'a', name: 'Analyse', category: 'analysis' }),
+      skill({ id: 'n', name: 'Note Skill', category: 'research', context: ['fullNote'] }),
+      skill({ id: 's', name: 'Selection Skill', requiresSelection: true }),
+      skill({ id: 'src', name: 'Source Skill', category: 'research', scope: 'source' }),
+    ];
+    const skills = (overrides: Partial<PaletteState> = {}) =>
+      buildCommandRegistry(makeState(overrides), () => {}, SKILLS, () => {}).filter((c) => c.id.startsWith('skill:'));
+
+    it('come after the commands, Learning → Research → Analysis, and leave source-scoped ones out', () => {
+      expect(skills().map((c) => c.id)).toEqual(['skill:s', 'skill:n', 'skill:a']);
+      const all = buildCommandRegistry(makeState(), () => {}, SKILLS, () => {});
+      expect(all.findIndex((c) => c.id.startsWith('skill:'))).toBe(all.length - 3);
+    });
+
+    it('are enabled exactly when their menu item is', () => {
+      const byId = (cmds: ReturnType<typeof skills>) => Object.fromEntries(cmds.map((c) => [c.id, c.enabled]));
+      expect(byId(skills({ hasProject: () => false }))).toEqual({ 'skill:s': false, 'skill:n': false, 'skill:a': false });
+      expect(byId(skills({ hasActiveNoteTab: () => false, hasSelection: () => false }))).toEqual({ 'skill:s': false, 'skill:n': false, 'skill:a': true });
+      expect(byId(skills({ hasSelection: () => false }))).toEqual({ 'skill:s': false, 'skill:n': true, 'skill:a': true });
+    });
+
+    it('run the skill by its own id', () => {
+      const ran: string[] = [];
+      const cmds = buildCommandRegistry(makeState(), () => {}, SKILLS, (id) => ran.push(id));
+      cmds.find((c) => c.id === 'skill:n')!.run();
+      expect(ran).toEqual(['n']);
+    });
+
+    it('show their group in the category', () => {
+      const grouped = buildCommandRegistry(makeState(), () => {}, [skill({ id: 'g', name: 'G', group: 'Reading' })], () => {});
+      expect(grouped.find((c) => c.id === 'skill:g')?.category).toBe('Learning › Reading');
+    });
   });
 });
