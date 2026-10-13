@@ -19,6 +19,8 @@
     "query_graph",
     "list_notes",
     "list_object_types",
+    "list_extension_points",
+    "describe_extension_point",
     "propose_note_rename",
     "propose_note_move",
     "propose_reorganization",

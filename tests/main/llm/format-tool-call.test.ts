@@ -60,6 +60,11 @@ describe('formatToolCall', () => {
   it('describes Minerva\'s own tools in English (the other line that prompted this)', () => {
     expect(formatToolCall('list_object_types', { type_id: 'museum' })).toBe('🧩 Checking the **museum** object type');
     expect(formatToolCall('list_object_types', {})).toBe('🧩 Checking your object types');
+    // The extension-point catalog (#2619).
+    expect(formatToolCall('list_extension_points', { rung: 'skill' })).toBe('🧭 Listing the **skill** extension points');
+    expect(formatToolCall('list_extension_points', {})).toBe("🧭 Listing Minerva's extension points");
+    expect(formatToolCall('describe_extension_point', { id: 'object-types' })).toBe('🧭 Reading the **object-types** extension point');
+    expect(formatToolCall('describe_extension_point', {})).toBe('🧭 Reading an extension point');
     expect(formatToolCall('fetch_properties', { relative_path: 'locations/museums/Kampa.md' }))
       .toBe('🏷️ Checking the properties of **locations/museums/Kampa.md**');
     expect(formatToolCall('list_notes', {})).toBe('🗂️ Looking over your notes');
