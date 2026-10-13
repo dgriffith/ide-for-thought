@@ -70,4 +70,14 @@ describe('type-instances projection (#1070)', () => {
     expect(byTitle.get('Widget')!.values.maker).toBe('Acme');
     expect(byTitle.get('Gizmo')!.cover).toBeNull(); // no cover value → gallery falls back
   });
+
+  it('carries each instance\'s tags, frontmatter and inline (#2768)', async () => {
+    writeNote('Dune.md', `---\ntitle: Dune\ntype: book\ntags: [scifi, to-read]\n---\nA classic. #favourite/all-time\n`);
+    writeNote('Plain.md', `---\ntitle: Plain\ntype: book\n---\n`);
+    await indexAllNotes(ctx);
+    const res = await getTypeInstances(ctx, 'book');
+    const by = Object.fromEntries(res.instances.map((i) => [i.path, i.tags]));
+    expect(by['Dune.md']).toEqual(['favourite/all-time', 'scifi', 'to-read']);
+    expect(by['Plain.md']).toEqual([]);
+  });
 });
