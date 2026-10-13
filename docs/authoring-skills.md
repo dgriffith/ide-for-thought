@@ -7,6 +7,10 @@ is, where it goes, what context it needs) plus a markdown body (the prompt). The
 body is a small template language, so one file can adapt to whether a note is
 open, what the user selected, or which option they picked — no code.
 
+A skill is one rung of a ladder of ways to extend Minerva, cheapest first;
+[`extension-points.md`](extension-points.md) lists every seam and what each
+takes, so check there whether a setting or an object type would do first.
+
 Skills are loaded at app startup and recompiled into the same tool registry the
 menu bar, command palette, slash commands, and conversation engine all read
 from. Stock skills ship with Minerva; your own live in `~/.minerva/skills/` and

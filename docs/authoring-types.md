@@ -6,6 +6,10 @@ its frontmatter; the type then drives the property form, the gallery/table
 views, the link cards, and — the part this document exists for — what the note
 becomes in the knowledge graph.
 
+An object type is one rung of a ladder of ways to extend Minerva, cheapest
+first; [`extension-points.md`](extension-points.md) lists every seam and what
+each takes.
+
 A type is a markdown file: YAML frontmatter (the schema) plus an optional
 markdown body (a template inserted into new instances). That is the whole
 format. You can author one by hand, check it into git, and it travels with the

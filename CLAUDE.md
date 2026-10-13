@@ -1564,6 +1564,24 @@ uses — normal for vocabulary users author by hand), or whether a term's
 `rdfs:domain`/`rdfs:range` match how the code *uses* it — only that the
 ontology does not contradict itself.
 
+### Extension points (#2616)
+
+Every seam something can be added to Minerva through is declared once in
+`src/shared/extensions/points.ts`: its rung on the ladder (setting → skill →
+object-type → query-view → plugin → mcp → source, cheapest first), its
+contract, load path, sources, and docs / example / test links. Everything else
+is built from that file, so none of it can disagree with the code:
+- **[`docs/extension-points.md`](docs/extension-points.md)** is generated from
+  it. Change the catalog, then run
+  `pnpm test tests/shared/extensions/doc.test.ts -u`.
+- **The graph** holds the same catalog (`minerva:ExtensionPoint` /
+  `minerva:Contribution`, never persisted, #2618).
+- **The `list_extension_points` / `describe_extension_point` tools** serve it
+  in the app and over `minerva mcp` (#2619).
+
+A seam that only built-ins can extend is declared with `rung: 'source'` and
+its registry.
+
 ### Tools for Thought (Skills)
 
 The Learning / Research / Analysis menus are populated by **skills** — markdown

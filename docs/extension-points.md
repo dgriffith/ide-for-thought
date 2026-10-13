@@ -1,0 +1,299 @@
+# Extension points
+
+<!-- Generated from src/shared/extensions/points.ts by src/shared/extensions/doc.ts — do not edit.
+     Change the catalog, then: pnpm test tests/shared/extensions/doc.test.ts -u -->
+
+Every seam something can be added to Minerva through: what a contribution looks like, which rung
+of the ladder it sits on, how it is picked up, and where its docs, an example and its test live.
+The same catalog is in the knowledge graph (`minerva:ExtensionPoint`, with what is installed in
+each as `minerva:Contribution`) and behind the `list_extension_points` / `describe_extension_point`
+tools, in the app and over `minerva mcp`.
+
+## The ladder
+
+Reach for the lowest rung that does the job — declarative before code.
+
+1. **setting** — A switch or value in Settings, or a file Settings imports.
+2. **skill** — A markdown skill: a prompt template that becomes a menu item and, optionally, a slash command.
+3. **object-type** — A markdown object type: a note type with properties, a form and views.
+4. **query-view** — A saved query or a note template.
+5. **plugin** — A declarative plugin bundle (#2631) — none loads yet.
+6. **mcp** — An MCP server: code, out of process, capability-scoped and approval-gated.
+7. **source** — A change to Minerva itself.
+
+## At a glance
+
+| Extension point | Rung | Picked up | From |
+|---|---|---|---|
+| [Citation styles and locales](#csl-styles--citation-styles-and-locales) | setting | hot | stock, thoughtbase |
+| [Skills](#skills--skills) | skill | reload-command | stock, user |
+| [Object types](#object-types--object-types) | object-type | hot | stock, thoughtbase |
+| [Saved queries](#saved-queries--saved-queries) | query-view | hot | stock, user, thoughtbase |
+| [Note templates](#note-templates--note-templates) | query-view | hot | stock, thoughtbase |
+| [MCP servers (Minerva as client)](#mcp-servers--mcp-servers-minerva-as-client) | mcp | hot | user |
+| [View layouts](#view-layouts--view-layouts) | source | rebuild | stock |
+| [Property types](#property-types--property-types) | source | rebuild | stock |
+| [Live blocks](#live-blocks--live-blocks) | source | rebuild | stock |
+| [Commands](#commands--commands) | source | rebuild | stock |
+| [Left sidebar panels](#left-sidebar-panels--left-sidebar-panels) | source | rebuild | stock |
+| [Right sidebar panels](#right-sidebar-panels--right-sidebar-panels) | source | rebuild | stock |
+| [Settings sections](#settings-sections--settings-sections) | source | rebuild | stock |
+| [Inspections](#inspections--inspections) | source | rebuild | stock |
+| [LLM tools](#llm-tools--llm-tools) | source | rebuild | stock |
+| [Source ingestors](#ingestors--source-ingestors) | source | rebuild | stock |
+| [Compute languages](#compute-languages--compute-languages) | source | rebuild | stock |
+| [Exporters](#exporters--exporters) | source | rebuild | stock |
+| [Publish targets](#publish-targets--publish-targets) | source | rebuild | stock |
+| [MCP tools (Minerva as server)](#mcp-tools--mcp-tools-minerva-as-server) | source | rebuild | stock |
+| [Themes](#themes--themes) | source | rebuild | stock |
+| [Ontology](#ontology--ontology) | source | rebuild | stock |
+
+## `csl-styles` — Citation styles and locales
+
+A CSL style or locale file, used when rendering citations and bibliographies. Imported from Settings → Bibliography.
+
+- **Rung:** setting
+- **Picked up:** at once, or on its next read (`hot`)
+- **Contributions from:** stock, thoughtbase
+- **Goes in:** &lt;thoughtbase>/.minerva/csl-styles/, &lt;thoughtbase>/.minerva/csl-locales/
+- **Contract:** CSL 1.0 XML (.csl style, .xml locale), checked by [`src/main/publish/csl/user-assets.ts`](../src/main/publish/csl/user-assets.ts) (`isValidCslStyle`)
+- **Docs:** [`website/docs/_content/settings-bibliography.html`](../website/docs/_content/settings-bibliography.html)
+- **Test:** [`tests/main/publish/user-csl-assets.test.ts`](../tests/main/publish/user-csl-assets.test.ts)
+
+## `skills` — Skills
+
+A thinking tool: a prompt template with parameters that becomes a Learning / Research / Analysis menu item and, optionally, a slash command. Its writes are proposals.
+
+- **Rung:** skill
+- **Picked up:** after an explicit reload (`reload-command`)
+- **Contributions from:** stock, user
+- **Goes in:** ~/.minerva/skills/
+- **Contract:** Markdown with YAML frontmatter (a bare .md, or a folder with SKILL.md), checked by [`src/main/skills/parse.ts`](../src/main/skills/parse.ts) (`parseSkill`)
+- **Docs:** [`docs/authoring-skills.md`](authoring-skills.md)
+- **Example:** [`src/main/skills/stock/propose-source-summary.md`](../src/main/skills/stock/propose-source-summary.md)
+- **Test:** [`tests/main/skills-parse.test.ts`](../tests/main/skills-parse.test.ts)
+
+## `object-types` — Object types
+
+A note type: its properties, its form, the views of its instances, and the graph class its notes assert.
+
+- **Rung:** object-type
+- **Picked up:** at once, or on its next read (`hot`)
+- **Contributions from:** stock, thoughtbase
+- **Goes in:** &lt;thoughtbase>/.minerva/types/
+- **Contract:** Markdown with YAML frontmatter, one type per file, checked by [`src/main/types/parse.ts`](../src/main/types/parse.ts) (`parseType`)
+- **Docs:** [`docs/authoring-types.md`](authoring-types.md)
+- **Example:** [`src/main/types/stock/place.md`](../src/main/types/stock/place.md)
+- **Test:** [`tests/main/types/loader.test.ts`](../tests/main/types/loader.test.ts)
+
+## `saved-queries` — Saved queries
+
+A SPARQL or SQL query, listed under Query ▸ Saved Queries and runnable in the Query panel.
+
+- **Rung:** query-view
+- **Picked up:** at once, or on its next read (`hot`)
+- **Contributions from:** stock, user, thoughtbase
+- **Goes in:** ~/.minerva/queries/, &lt;thoughtbase>/.minerva/queries/
+- **Contract:** .rq (SPARQL) or .sql, with optional comment front matter, checked by [`src/main/saved-queries.ts`](../src/main/saved-queries.ts) (`parseQueryContent`)
+- **Docs:** [`website/docs/_content/query-menu-panel.html`](../website/docs/_content/query-menu-panel.html)
+- **Example:** [`src/shared/stock-queries.ts`](../src/shared/stock-queries.ts)
+- **Test:** [`tests/main/saved-queries.test.ts`](../tests/main/saved-queries.test.ts)
+
+## `note-templates` — Note templates
+
+A note body to start from, offered by the New Note dialog and by Insert Template….
+
+- **Rung:** query-view
+- **Picked up:** at once, or on its next read (`hot`)
+- **Contributions from:** stock, thoughtbase
+- **Goes in:** &lt;thoughtbase>/.minerva/templates/
+- **Contract:** Markdown, one template per file, checked by [`src/main/notebase/templates.ts`](../src/main/notebase/templates.ts) (`listTemplates`)
+- **Example:** [`src/main/notebase/templates.ts`](../src/main/notebase/templates.ts)
+
+## `mcp-servers` — MCP servers (Minerva as client)
+
+An MCP server whose tools the conversation model may call through mcp_call. Code runs out of process; a tool not marked read-only waits for the user.
+
+- **Rung:** mcp
+- **Picked up:** at once, or on its next read (`hot`)
+- **Contributions from:** user
+- **Goes in:** the app's user-data folder (mcp-servers.json), edited in Settings → MCP Servers
+- **Contract:** A server entry: stdio command + args + env, or an HTTP URL, checked by [`src/main/mcp-servers/config-store.ts`](../src/main/mcp-servers/config-store.ts) (`decodeServer`)
+- **Docs:** [`website/docs/_content/settings-mcp-servers.html`](../website/docs/_content/settings-mcp-servers.html)
+- **Test:** [`tests/main/mcp-servers/config-store.test.ts`](../tests/main/mcp-servers/config-store.test.ts)
+
+## `view-layouts` — View layouts
+
+A way to draw a type's instances: list, table, gallery, map, kanban, timeline, calendar.
+
+- **Rung:** source
+- **Picked up:** only in a rebuilt app (`rebuild`)
+- **Contributions from:** stock
+- **Contract:** none yet — built-ins register in [`src/shared/objects/view-layouts.ts`](../src/shared/objects/view-layouts.ts) (`VIEW_LAYOUTS`); nothing outside the source can add one until plugins load (#2631)
+- **Made a registry by:** #2623
+- **Test:** [`tests/architecture/view-layout-registry.test.ts`](../tests/architecture/view-layout-registry.test.ts)
+
+## `property-types` — Property types
+
+A kind of value an object type's property can hold: text, date, number, enum, link, geo….
+
+- **Rung:** source
+- **Picked up:** only in a rebuilt app (`rebuild`)
+- **Contributions from:** stock
+- **Contract:** none yet — built-ins register in [`src/shared/objects/type-def.ts`](../src/shared/objects/type-def.ts) (`PROPERTY_TYPES`); nothing outside the source can add one until plugins load (#2631)
+- **Docs:** [`docs/authoring-types.md`](authoring-types.md)
+- **Test:** [`tests/main/types/loader.test.ts`](../tests/main/types/loader.test.ts)
+
+## `live-blocks` — Live blocks
+
+A block that renders from data — a query result, a chart, an embedded view — in the preview and in every export.
+
+- **Rung:** source
+- **Picked up:** only in a rebuilt app (`rebuild`)
+- **Contributions from:** stock
+- **Contract:** none yet — built-ins register in [`src/shared/live-blocks.ts`](../src/shared/live-blocks.ts) (`LIVE_BLOCKS`); nothing outside the source can add one until plugins load (#2631)
+- **Made a registry by:** #2624
+- **Test:** [`tests/architecture/export-live-block-parity.test.ts`](../tests/architecture/export-live-block-parity.test.ts)
+
+## `commands` — Commands
+
+An action placed by id in the menu bar, the palette, the window keymap or the editor keymap.
+
+- **Rung:** source
+- **Picked up:** only in a rebuilt app (`rebuild`)
+- **Contributions from:** stock
+- **Contract:** none yet — built-ins register in [`src/shared/commands.ts`](../src/shared/commands.ts) (`COMMANDS`); nothing outside the source can add one until plugins load (#2631)
+- **Made a registry by:** #2625
+- **Test:** [`tests/architecture/command-registry.test.ts`](../tests/architecture/command-registry.test.ts)
+
+## `left-sidebar-panels` — Left sidebar panels
+
+A panel in the left sidebar's rail: Notes, Sources, Tags, Tables, Objects….
+
+- **Rung:** source
+- **Picked up:** only in a rebuilt app (`rebuild`)
+- **Contributions from:** stock
+- **Contract:** none yet — built-ins register in [`src/renderer/lib/components/sidebar/panels.ts`](../src/renderer/lib/components/sidebar/panels.ts) (`LEFT_PANELS`); nothing outside the source can add one until plugins load (#2631)
+- **Made a registry by:** #2626
+- **Test:** [`tests/architecture/panel-registries.test.ts`](../tests/architecture/panel-registries.test.ts)
+
+## `right-sidebar-panels` — Right sidebar panels
+
+A panel about the active note: outline, properties, links, citations, inspections….
+
+- **Rung:** source
+- **Picked up:** only in a rebuilt app (`rebuild`)
+- **Contributions from:** stock
+- **Contract:** none yet — built-ins register in [`src/renderer/lib/components/right-sidebar/panels.ts`](../src/renderer/lib/components/right-sidebar/panels.ts) (`RIGHT_PANELS`); nothing outside the source can add one until plugins load (#2631)
+- **Made a registry by:** #2626
+- **Test:** [`tests/architecture/panel-registries.test.ts`](../tests/architecture/panel-registries.test.ts)
+
+## `settings-sections` — Settings sections
+
+A section of the Settings dialog.
+
+- **Rung:** source
+- **Picked up:** only in a rebuilt app (`rebuild`)
+- **Contributions from:** stock
+- **Contract:** none yet — built-ins register in [`src/renderer/lib/components/settings/sections.ts`](../src/renderer/lib/components/settings/sections.ts) (`SETTINGS_SECTIONS`); nothing outside the source can add one until plugins load (#2631)
+- **Made a registry by:** #2626
+- **Test:** [`tests/architecture/panel-registries.test.ts`](../tests/architecture/panel-registries.test.ts)
+
+## `inspections` — Inspections
+
+A health check over the graph whose findings show in the Inspections panel. A check can already be a SPARQL query plus a message template — the form a plugin will contribute.
+
+- **Rung:** source
+- **Picked up:** only in a rebuilt app (`rebuild`)
+- **Contributions from:** stock
+- **Contract:** none yet — built-ins register in [`src/main/graph/inspection-checks.ts`](../src/main/graph/inspection-checks.ts) (`INSPECTION_CHECKS`); nothing outside the source can add one until plugins load (#2631)
+- **Made a registry by:** #2627
+- **Test:** [`tests/shared/inspections-catalog.test.ts`](../tests/shared/inspections-catalog.test.ts)
+
+## `llm-tools` — LLM tools
+
+A tool the conversation model can call, registered with its class (read / propose / external / skill / interactive) and any path guard. A skill or an MCP server is usually the right rung instead.
+
+- **Rung:** source
+- **Picked up:** only in a rebuilt app (`rebuild`)
+- **Contributions from:** stock
+- **Contract:** none yet — built-ins register in [`src/main/llm/tools/registry.ts`](../src/main/llm/tools/registry.ts) (`TOOL_REGISTRATIONS`); nothing outside the source can add one until plugins load (#2631)
+- **Made a registry by:** #2628
+- **Test:** [`tests/main/llm/prompt-injection/tool-surface.test.ts`](../tests/main/llm/prompt-injection/tool-surface.test.ts)
+
+## `ingestors` — Source ingestors
+
+A way a Source comes in: a file type, a bibliographic identifier, or a web page.
+
+- **Rung:** source
+- **Picked up:** only in a rebuilt app (`rebuild`)
+- **Contributions from:** stock
+- **Contract:** none yet — built-ins register in [`src/main/sources/ingestors.ts`](../src/main/sources/ingestors.ts) (`INGESTORS`); nothing outside the source can add one until plugins load (#2631)
+- **Made a registry by:** #2629
+- **Test:** [`tests/main/sources/ingestors.test.ts`](../tests/main/sources/ingestors.test.ts)
+
+## `compute-languages` — Compute languages
+
+A language a runnable cell can be written in, and the executor that runs it.
+
+- **Rung:** source
+- **Picked up:** only in a rebuilt app (`rebuild`)
+- **Contributions from:** stock
+- **Contract:** none yet — built-ins register in [`src/main/compute/executors/index.ts`](../src/main/compute/executors/index.ts) (`BUILTIN_EXECUTORS`); nothing outside the source can add one until plugins load (#2631)
+- **Made a registry by:** #2630
+- **Test:** [`tests/shared/compute/fences.test.ts`](../tests/shared/compute/fences.test.ts)
+
+## `exporters` — Exporters
+
+An export format — markdown, HTML, PDF, a static site, a bibliography…—offered under Export.
+
+- **Rung:** source
+- **Picked up:** only in a rebuilt app (`rebuild`)
+- **Contributions from:** stock
+- **Contract:** none yet — built-ins register in [`src/main/publish/registry.ts`](../src/main/publish/registry.ts) (`registerExporter`); nothing outside the source can add one until plugins load (#2631)
+- **Made a registry by:** #2630
+- **Docs:** [`docs/publishing.md`](publishing.md)
+- **Test:** [`tests/main/publish/registry.test.ts`](../tests/main/publish/registry.test.ts)
+
+## `publish-targets` — Publish targets
+
+Somewhere an export can be pushed: a git remote, an S3 bucket.
+
+- **Rung:** source
+- **Picked up:** only in a rebuilt app (`rebuild`)
+- **Contributions from:** stock
+- **Contract:** none yet — built-ins register in [`src/main/publish/transport/registry.ts`](../src/main/publish/transport/registry.ts) (`BUILTIN_TRANSPORTS`); nothing outside the source can add one until plugins load (#2631)
+- **Made a registry by:** #2630
+- **Docs:** [`docs/publishing.md`](publishing.md)
+- **Test:** [`tests/main/publish/publish-transport.test.ts`](../tests/main/publish/publish-transport.test.ts)
+
+## `mcp-tools` — MCP tools (Minerva as server)
+
+A tool `minerva mcp` offers an external agent. Reads are guarded like the in-app model's; writes are proposals.
+
+- **Rung:** source
+- **Picked up:** only in a rebuilt app (`rebuild`)
+- **Contributions from:** stock
+- **Contract:** none yet — built-ins register in [`src/cli/mcp.ts`](../src/cli/mcp.ts) (`MCP_TOOLS`); nothing outside the source can add one until plugins load (#2631)
+- **Docs:** [`docs/cli.md`](cli.md)
+- **Test:** [`tests/cli/mcp.test.ts`](../tests/cli/mcp.test.ts)
+
+## `themes` — Themes
+
+A colour theme: dark, light, high contrast, or following the system.
+
+- **Rung:** source
+- **Picked up:** only in a rebuilt app (`rebuild`)
+- **Contributions from:** stock
+- **Contract:** none yet — built-ins register in [`src/shared/theme.ts`](../src/shared/theme.ts) (`THEME_MODES`); nothing outside the source can add one until plugins load (#2631)
+
+## `ontology` — Ontology
+
+The `minerva:` and `thought:` vocabularies the graph is written in. A note can still assert its own triples in an embedded Turtle block, and an object type can bridge to an outside class.
+
+- **Rung:** source
+- **Picked up:** only in a rebuilt app (`rebuild`)
+- **Contributions from:** stock
+- **Contract:** none yet — built-ins register in [`src/shared/ontology.ttl`](../src/shared/ontology.ttl); nothing outside the source can add one until plugins load (#2631)
+- **Docs:** [`docs/thought-ontology.md`](thought-ontology.md)
+- **Test:** [`tests/architecture/ontology-terms.test.ts`](../tests/architecture/ontology-terms.test.ts)

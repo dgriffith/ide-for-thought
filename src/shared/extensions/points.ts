@@ -39,6 +39,17 @@ export const RUNGS = [
 ] as const;
 export type Rung = (typeof RUNGS)[number];
 
+/** Each rung in a sentence — the ladder as the docs page (#2620) states it. */
+export const RUNG_DESCRIPTIONS: Record<Rung, string> = {
+  setting: 'A switch or value in Settings, or a file Settings imports.',
+  skill: 'A markdown skill: a prompt template that becomes a menu item and, optionally, a slash command.',
+  'object-type': 'A markdown object type: a note type with properties, a form and views.',
+  'query-view': 'A saved query or a note template.',
+  plugin: 'A declarative plugin bundle (#2631) — none loads yet.',
+  mcp: 'An MCP server: code, out of process, capability-scoped and approval-gated.',
+  source: 'A change to Minerva itself.',
+};
+
 /** How a new contribution is picked up. */
 export type LoadPath =
   /** At once, or on its next read — nothing to do. */
