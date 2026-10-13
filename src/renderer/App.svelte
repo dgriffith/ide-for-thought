@@ -50,6 +50,7 @@
   import type { MenuEditorState, InspectionFix } from '../shared/types';
   import type { Command } from './lib/command-palette/types';
   import { buildCommandRegistry } from './lib/command-palette/registry';
+  import { getAllToolInfos } from './lib/tools/tool-registry';
   import { createCommandKeymap, type CommandKeymapCtx } from './lib/app/command-keymap';
   import { formatAccelerator } from './lib/command-palette/format-accelerator';
   import { toggleEditorDictation } from './lib/editor/dictation';
@@ -579,6 +580,7 @@
     selectTheme: (mode) => handleSelectTheme(mode),
     cycleTheme: () => handleCycleTheme(),
     getThemeLabel: () => themeLabel,
+    hasSelection: () => cursorInfo.selectionLength > 0,
     cycleViewMode: () => cycleViewMode(),
     refreshSourcesCache: () => { void refreshSourcesCache(); },
     refreshSavedQueriesCache: () => { void refreshSavedQueriesCache(); },
@@ -597,7 +599,8 @@
     toggleCommandPalette: () => { featureDialogs.toggleCommandPalette(); },
   } satisfies CommandKeymapCtx);
   const commands = $derived<Command[]>(
-    featureDialogs.commandPalette ? buildCommandRegistry(paletteState, (id) => commandActions[id]()) : [],
+    // Skills too (#2766), read fresh on each open; the registry has the menu config applied.
+    featureDialogs.commandPalette ? buildCommandRegistry(paletteState, (id) => commandActions[id](), getAllToolInfos(), (id) => { void handleToolInvoke(id); }) : [],
   );
   /** When non-null, the merge-target picker is shown. Holds the source
    *  note path; the picker filters the source out of its candidates. */
