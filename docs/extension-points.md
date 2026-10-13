@@ -13,7 +13,7 @@ tools, in the app and over `minerva mcp`.
 
 Reach for the lowest rung that does the job — declarative before code.
 
-1. **setting** — A switch or value in Settings, or a file Settings imports.
+1. **setting** — A switch or value in Settings, or a configuration file Minerva reads (a CSL style, a site stylesheet).
 2. **skill** — A markdown skill: a prompt template that becomes a menu item and, optionally, a slash command.
 3. **object-type** — A markdown object type: a note type with properties, a form and views.
 4. **query-view** — A saved query or a note template.
@@ -26,6 +26,7 @@ Reach for the lowest rung that does the job — declarative before code.
 | Extension point | Rung | Picked up | From |
 |---|---|---|---|
 | [Citation styles and locales](#csl-styles--citation-styles-and-locales) | setting | hot | stock, thoughtbase |
+| [Static site stylesheet](#static-site-css--static-site-stylesheet) | setting | hot | thoughtbase |
 | [Skills](#skills--skills) | skill | reload-command | stock, user |
 | [Object types](#object-types--object-types) | object-type | hot | stock, thoughtbase |
 | [Saved queries](#saved-queries--saved-queries) | query-view | hot | stock, user, thoughtbase |
@@ -60,6 +61,18 @@ A CSL style or locale file, used when rendering citations and bibliographies. Im
 - **Docs:** [`website/docs/_content/settings-bibliography.html`](../website/docs/_content/settings-bibliography.html)
 - **Test:** [`tests/main/publish/user-csl-assets.test.ts`](../tests/main/publish/user-csl-assets.test.ts)
 
+## `static-site-css` — Static site stylesheet
+
+CSS linked after the static site's default stylesheet, so a few `:root { --accent: … }` lines restyle every published page.
+
+- **Rung:** setting
+- **Picked up:** at once, or on its next read (`hot`)
+- **Contributions from:** thoughtbase
+- **Goes in:** &lt;thoughtbase>/.minerva/site.css
+- **Contract:** CSS, one file, checked by [`src/main/publish/exporters/static-site/index.ts`](../src/main/publish/exporters/static-site/index.ts)
+- **Docs:** [`docs/publishing.md`](publishing.md)
+- **Test:** [`tests/main/publish/static-site.test.ts`](../tests/main/publish/static-site.test.ts)
+
 ## `skills` — Skills
 
 A thinking tool: a prompt template with parameters that becomes a Learning / Research / Analysis menu item and, optionally, a slash command. Its writes are proposals.
@@ -69,6 +82,7 @@ A thinking tool: a prompt template with parameters that becomes a Learning / Res
 - **Contributions from:** stock, user
 - **Goes in:** ~/.minerva/skills/
 - **Contract:** Markdown with YAML frontmatter (a bare .md, or a folder with SKILL.md), checked by [`src/main/skills/parse.ts`](../src/main/skills/parse.ts) (`parseSkill`)
+- **Registers in:** [`src/shared/tools/registry.ts`](../src/shared/tools/registry.ts) (`registerTool`), [`src/renderer/lib/tools/tool-registry.ts`](../src/renderer/lib/tools/tool-registry.ts) (`registerSkillInfos`)
 - **Docs:** [`docs/authoring-skills.md`](authoring-skills.md)
 - **Example:** [`src/main/skills/stock/propose-source-summary.md`](../src/main/skills/stock/propose-source-summary.md)
 - **Test:** [`tests/main/skills-parse.test.ts`](../tests/main/skills-parse.test.ts)
@@ -93,7 +107,7 @@ A SPARQL or SQL query, listed under Query ▸ Saved Queries and runnable in the 
 - **Rung:** query-view
 - **Picked up:** at once, or on its next read (`hot`)
 - **Contributions from:** stock, user, thoughtbase
-- **Goes in:** ~/.minerva/queries/, &lt;thoughtbase>/.minerva/queries/
+- **Goes in:** the app's user-data folder (queries/), &lt;thoughtbase>/.minerva/queries/
 - **Contract:** .rq (SPARQL) or .sql, with optional comment front matter, checked by [`src/main/saved-queries.ts`](../src/main/saved-queries.ts) (`parseQueryContent`)
 - **Docs:** [`website/docs/_content/query-menu-panel.html`](../website/docs/_content/query-menu-panel.html)
 - **Example:** [`src/shared/stock-queries.ts`](../src/shared/stock-queries.ts)
@@ -117,7 +131,7 @@ An MCP server whose tools the conversation model may call through mcp_call. Code
 - **Rung:** mcp
 - **Picked up:** at once, or on its next read (`hot`)
 - **Contributions from:** user
-- **Goes in:** the app's user-data folder (mcp-servers.json), edited in Settings → MCP Servers
+- **Goes in:** ~/.minerva/mcp-servers.json, edited in Settings → MCP Servers
 - **Contract:** A server entry: stdio command + args + env, or an HTTP URL, checked by [`src/main/mcp-servers/config-store.ts`](../src/main/mcp-servers/config-store.ts) (`decodeServer`)
 - **Docs:** [`website/docs/_content/settings-mcp-servers.html`](../website/docs/_content/settings-mcp-servers.html)
 - **Test:** [`tests/main/mcp-servers/config-store.test.ts`](../tests/main/mcp-servers/config-store.test.ts)
@@ -240,6 +254,7 @@ A language a runnable cell can be written in, and the executor that runs it.
 - **Picked up:** only in a rebuilt app (`rebuild`)
 - **Contributions from:** stock
 - **Contract:** none yet — built-ins register in [`src/main/compute/executors/index.ts`](../src/main/compute/executors/index.ts) (`BUILTIN_EXECUTORS`); nothing outside the source can add one until plugins load (#2631)
+- **Registers in:** [`src/main/compute/registry.ts`](../src/main/compute/registry.ts) (`registerExecutor`)
 - **Made a registry by:** #2630
 - **Test:** [`tests/shared/compute/fences.test.ts`](../tests/shared/compute/fences.test.ts)
 

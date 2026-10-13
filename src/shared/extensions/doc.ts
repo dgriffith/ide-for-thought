@@ -39,6 +39,9 @@ function section(p: ExtensionPoint): string {
   } else {
     lines.push(`- **Contract:** none yet — built-ins register in ${at}; nothing outside the source can add one until plugins load (#2631)`);
   }
+  if (p.registries?.length) {
+    lines.push(`- **Registers in:** ${p.registries.map((r) => `${link(r.file)}${r.symbol ? ` (\`${r.symbol}\`)` : ''}`).join(', ')}`);
+  }
   if (p.story !== undefined) lines.push(`- **Made a registry by:** #${p.story}`);
   if (p.docs) lines.push(`- **Docs:** ${link(p.docs)}`);
   if (p.example) lines.push(`- **Example:** ${link(p.example)}`);
