@@ -194,6 +194,8 @@ export interface TypeInstanceRow {
   values: Record<string, string | null>;
   /** The designated cover property's value, or null — for the gallery (#1070). */
   cover: string | null;
+  /** The note's tags, frontmatter and inline, as written (#2768). Absent → none known. */
+  tags?: readonly string[];
 }
 
 /** A type plus all its instances, for the list/table/gallery multi-view (#1070). */

@@ -137,6 +137,23 @@ export async function getTypeInstances(
      } ORDER BY LCASE(?title) ?path`,
   );
 
+  // Each instance's tags (#2768), in a query of their own rather than a join in
+  // the one above, which would multiply its rows by every tag a note carries.
+  const { results: tagRows } = await queryGraphRows(
+    ctx,
+    `SELECT ?path ?tag WHERE {
+       ?n a/rdfs:subClassOf* types:${def.classLocalName} ; minerva:relativePath ?path ; minerva:hasTag ?t .
+       ?t minerva:tagName ?tag .
+     }`,
+  );
+  const tagsByPath = new Map<string, Set<string>>();
+  for (const r of tagRows as Array<Record<string, string | undefined>>) {
+    if (!r.path || !r.tag) continue;
+    const set = tagsByPath.get(r.path) ?? new Set<string>();
+    set.add(r.tag);
+    tagsByPath.set(r.path, set);
+  }
+
   const seen = new Set<string>();
   const instances: TypeInstanceRow[] = [];
   for (const raw of results as Array<Record<string, string | undefined>>) {
@@ -150,6 +167,7 @@ export async function getTypeInstances(
       title: raw.title ?? (path.replace(/\.md$/i, '').split('/').pop() ?? path),
       values,
       cover: def.cover ? values[def.cover] ?? null : null,
+      tags: [...(tagsByPath.get(path) ?? [])].sort((a, b) => a.localeCompare(b)),
     });
   }
 

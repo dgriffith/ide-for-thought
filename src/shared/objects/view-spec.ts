@@ -29,13 +29,27 @@
  * can't yet tell a Restaurant from a Museum never shows the unfiltered set as
  * if it were filtered. `resolveTypeFilter` drops stale ids once the catalog is
  * known.
+ *
+ * The reserved key `tags` (#2768) is a values filter over the note's tags —
+ * frontmatter `tags:` and inline `#tags`, the set `minerva:hasTag` holds.
+ * A tag covers itself and every tag nested under it (`ml` → `ml/nlp`), the way
+ * the Tags panel reads the hierarchy, compared case-insensitively without the
+ * `#`. `match` says how the listed tags combine: `any` (the default), `all`, or
+ * `none` — `none: [archived]` hides `archived/2025` too.
  */
 import type { PropertyType, TypeInstanceRow } from './type-def';
 import type { SpanOptions } from './date-precision';
 import { dateValueInRange, isDateType } from './date-values';
 import { inheritsFrom, type TypeLike } from './inheritance';
 
-export interface ValuesFilter { property: string; values: string[] }
+export interface ValuesFilter {
+  property: string;
+  values: string[];
+  /** The reserved `tags` key only (#2768): how the listed tags combine. Default `any`. */
+  match?: TagMatch;
+}
+export type TagMatch = 'any' | 'all' | 'none';
+export const TAG_MATCHES: readonly TagMatch[] = ['any', 'all', 'none'];
 export interface RangeFilter { property: string; min?: string | null; max?: string | null }
 export type ViewFilter = ValuesFilter | RangeFilter;
 
@@ -49,6 +63,30 @@ export const isValuesFilter = (f: ViewFilter): f is ValuesFilter => Array.isArra
 /** The reserved filter key for a subtype filter (#2716). */
 export const TYPE_FILTER_KEY = 'type';
 export const isTypeFilter = (f: ViewFilter): boolean => f.property === TYPE_FILTER_KEY;
+
+/** The reserved filter key for a tags filter (#2768). */
+export const TAGS_FILTER_KEY = 'tags';
+export const isTagsFilter = (f: ViewFilter): boolean => f.property === TAGS_FILTER_KEY;
+
+/** A tag compared as tags are elsewhere: no leading `#`, case-insensitive. */
+export const normalizeTag = (tag: string): string => tag.trim().replace(/^#/, '').toLowerCase();
+
+/** Does `tag` carry `wanted` — itself, or a tag nested under it (`ml` → `ml/nlp`)? */
+export function tagCovers(wanted: string, tag: string): boolean {
+  const w = normalizeTag(wanted);
+  const t = normalizeTag(tag);
+  return w !== '' && (t === w || t.startsWith(`${w}/`));
+}
+
+/** Does a note with `tags` pass a tags filter? */
+export function matchesTags(tags: readonly string[], f: ValuesFilter): boolean {
+  const has = (wanted: string) => tags.some((t) => tagCovers(wanted, t));
+  switch (f.match ?? 'any') {
+    case 'all': return f.values.every(has);
+    case 'none': return !f.values.some(has);
+    case 'any': return f.values.some(has);
+  }
+}
 
 /** What a type filter needs: the catalog, and each note's own (exact) type. */
 export interface TypeLookup {
@@ -129,6 +167,7 @@ export function matchesFilter(
   opts: SpanOptions = {},
   types: TypeLookup | null = null,
 ): boolean {
+  if (isTagsFilter(f)) return isValuesFilter(f) && matchesTags(inst.tags ?? [], f);
   if (isTypeFilter(f)) {
     if (!types || !isValuesFilter(f)) return false;
     const own = types.typeOf(inst.path);
@@ -164,12 +203,18 @@ export function parseViewFilters(raw: unknown): ViewFilter[] {
     if (typeof o.property !== 'string' || !o.property) continue;
     if (Array.isArray(o.values)) {
       const values = o.values.filter((v): v is string => typeof v === 'string');
-      if (values.length > 0) out.push({ property: o.property, values });
+      if (values.length === 0) continue;
+      // A tags filter carries how its tags combine (#2768); `any` is the default, so it's left out.
+      const match = o.property === TAGS_FILTER_KEY && TAG_MATCHES.includes(o.match as TagMatch) && o.match !== 'any'
+        ? { match: o.match as TagMatch } : {};
+      out.push({ property: o.property, values, ...match });
     } else {
       const min = typeof o.min === 'string' && o.min !== '' ? o.min : null;
       const max = typeof o.max === 'string' && o.max !== '' ? o.max : null;
-      // The reserved `type` key is a values filter only (#2716).
-      if ((min !== null || max !== null) && o.property !== TYPE_FILTER_KEY) out.push({ property: o.property, min, max });
+      // The reserved `type` and `tags` keys are values filters only (#2716, #2768).
+      if ((min !== null || max !== null) && o.property !== TYPE_FILTER_KEY && o.property !== TAGS_FILTER_KEY) {
+        out.push({ property: o.property, min, max });
+      }
     }
   }
   return out;

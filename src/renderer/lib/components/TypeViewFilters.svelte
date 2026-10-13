@@ -11,13 +11,16 @@
    *   counts — offered only when the type has a subtype. Stored as a values
    *   filter on the reserved key `type`, matched hierarchically
    *   (`view-spec.ts`).
+   * - Tags (#2768) → the tags the view's notes carry, with counts, and whether
+   *   a note needs any, all or none of the ticked ones. Stored on the reserved
+   *   key `tags`; a tag also matches the tags nested under it.
    *
    * Changes apply as you make them (the view refilters live). Only the panel
    * mounts this: an embed or export shows the filtered objects, no controls.
    */
   import { tick } from 'svelte';
   import type { PropertyDef, TypeInstanceRow } from '../../../shared/objects/type-def';
-  import { isValuesFilter, TYPE_FILTER_KEY, type ViewFilter } from '../../../shared/objects/view-spec';
+  import { isValuesFilter, normalizeTag, TAGS_FILTER_KEY, TAG_MATCHES, TYPE_FILTER_KEY, type TagMatch, type ViewFilter } from '../../../shared/objects/view-spec';
   import type { SubtypeChoice } from '../../../shared/objects/type-filter';
   import { isDateType } from '../../../shared/objects/date-values';
 
@@ -35,8 +38,25 @@
   }
   let { properties, instances, filters, display, onChange, subtypes = [] }: Props = $props();
 
-  // `type` is the reserved subtype key, never a property's (#2716).
-  const filterable = $derived(properties.filter((p) => p.type !== 'geo' && p.name !== TYPE_FILTER_KEY));
+  // `type` and `tags` are reserved keys, never a property's (#2716, #2768).
+  const filterable = $derived(properties.filter((p) => p.type !== 'geo' && p.name !== TYPE_FILTER_KEY && p.name !== TAGS_FILTER_KEY));
+
+  /** Each tag the view's notes carry, as first written, with how many carry it. */
+  const presentTags = $derived.by(() => {
+    const byKey = new Map<string, { tag: string; count: number }>();
+    for (const inst of instances) {
+      for (const tag of new Set((inst.tags ?? []).map(normalizeTag))) {
+        const seen = byKey.get(tag);
+        if (seen) seen.count++;
+        else byKey.set(tag, { tag: (inst.tags ?? []).find((t) => normalizeTag(t) === tag) ?? tag, count: 1 });
+      }
+    }
+    return [...byKey.values()].sort((a, b) => a.tag.localeCompare(b.tag));
+  });
+  const MATCH_LABELS: Record<TagMatch, string> = { any: 'Any', all: 'All', none: 'None' };
+  /** How tags combine before any is ticked — taken up by the first one. */
+  let pendingMatch = $state<TagMatch>('any');
+  const offersTags = $derived(presentTags.length > 0 || filters.some((f) => f.property === TAGS_FILTER_KEY));
   const typeLabel = (id: string) => subtypes.find((t) => t.id === id)?.label ?? id;
   const isRange = (p: PropertyDef) => p.type === 'number' || isDateType(p.type);
   /** What a bound looks like: a date may be as coarse as a year (`1969`). */
@@ -83,7 +103,18 @@
     const f = current(name);
     const values = new Set(f && isValuesFilter(f) ? f.values : []);
     if (values.has(value)) values.delete(value); else values.add(value);
-    replace(name, values.size > 0 ? { property: name, values: [...values] } : null);
+    // A tags filter keeps how its tags combine as they're ticked and unticked.
+    const kept = f && isValuesFilter(f) ? f.match : name === TAGS_FILTER_KEY ? pendingMatch : undefined;
+    const match = kept && kept !== 'any' ? { match: kept } : {};
+    replace(name, values.size > 0 ? { property: name, values: [...values], ...match } : null);
+  }
+
+  function setMatch(match: TagMatch): void {
+    pendingMatch = match;
+    const f = current(TAGS_FILTER_KEY);
+    if (!f || !isValuesFilter(f)) return;
+    const { match: _old, ...rest } = f;
+    replace(TAGS_FILTER_KEY, match === 'any' ? rest : { ...rest, match });
   }
 
   function setBound(name: string, bound: 'min' | 'max', raw: string): void {
@@ -110,6 +141,10 @@
   /** "City: Prague, Brno" — a chip, and its remove button's label. */
   function chipText(f: ViewFilter): string {
     const prop = filterable.find((p) => p.name === f.property);
+    if (f.property === TAGS_FILTER_KEY) {
+      const match = isValuesFilter(f) && f.match && f.match !== 'any' ? ` (${f.match})` : '';
+      return `Tags${match}: ${valueSummary(f)}`;
+    }
     const name = f.property === TYPE_FILTER_KEY ? 'Type' : prop?.label ?? f.property;
     return `${name}: ${valueSummary(f)}`;
   }
@@ -126,7 +161,7 @@
   }
 </script>
 
-{#if filterable.length > 0 || subtypes.length > 0}
+{#if filterable.length > 0 || subtypes.length > 0 || offersTags}
   <div class="tv-filters" bind:this={rootEl}>
     {#each filters as f (f.property)}
       <span class="tv-filter-chip">
@@ -155,12 +190,44 @@
                 </label></li>
               {/each}
             </ul>
+          {:else if editing === TAGS_FILTER_KEY}
+            {@const f = current(TAGS_FILTER_KEY)}
+            {@const match = f && isValuesFilter(f) ? f.match ?? 'any' : pendingMatch}
+            <div class="tv-filter-head">
+              <button type="button" class="tv-filter-back" aria-label="All properties" onclick={() => openAt(null)}>‹</button>
+              <span>Tags</span>
+              {#if f}<button type="button" class="tv-filter-clear" onclick={() => replace(TAGS_FILTER_KEY, null)}>Clear</button>{/if}
+            </div>
+            <div class="tv-filter-match" role="radiogroup" aria-label="A note needs">
+              {#each TAG_MATCHES as m (m)}
+                <label><input type="radio" name="tv-tag-match" checked={match === m} onchange={() => setMatch(m)} />{MATCH_LABELS[m]}</label>
+              {/each}
+            </div>
+            {#if presentTags.length === 0}
+              <p class="tv-filter-empty">No tags in this view.</p>
+            {:else}
+              <ul class="tv-filter-values" aria-label="Tags">
+                {#each presentTags as t (t.tag)}
+                  <li><label>
+                    <input type="checkbox" checked={!!f && isValuesFilter(f) && f.values.some((v) => normalizeTag(v) === normalizeTag(t.tag))} onchange={() => toggleValue(TAGS_FILTER_KEY, t.tag)} />
+                    <span class="tv-filter-value">#{t.tag.replace(/^#/, '')}</span><span class="tv-filter-count">{t.count}</span>
+                  </label></li>
+                {/each}
+              </ul>
+            {/if}
           {:else if !editingProp}
             <ul class="tv-filter-props">
               {#if subtypes.length > 0}
                 {@const f = current(TYPE_FILTER_KEY)}
                 <li><button type="button" onclick={() => openAt(TYPE_FILTER_KEY)}>
                   <span>Type</span>
+                  {#if f}<span class="tv-filter-active">{valueSummary(f)}</span>{/if}
+                </button></li>
+              {/if}
+              {#if offersTags}
+                {@const f = current(TAGS_FILTER_KEY)}
+                <li><button type="button" onclick={() => openAt(TAGS_FILTER_KEY)}>
+                  <span>Tags</span>
                   {#if f}<span class="tv-filter-active">{valueSummary(f)}</span>{/if}
                 </button></li>
               {/if}
@@ -237,6 +304,8 @@
   .tv-filter-icon { font-size: 12px; line-height: 1; }
   .tv-filter-count { margin-left: auto; color: var(--text-muted); font-variant-numeric: tabular-nums; }
   .tv-filter-range { display: flex; gap: 8px; padding: 2px; }
+  .tv-filter-match { display: flex; gap: 10px; padding: 0 4px 6px; font-size: 12px; color: var(--text-muted); }
+  .tv-filter-match label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
   .tv-filter-range label { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--text-muted); }
   .tv-filter-range input { width: 100px; padding: 3px 6px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg-inset); color: var(--text); font: inherit; font-size: 12px; }
   .tv-filter-empty { margin: 4px; font-size: 12px; color: var(--text-muted); }

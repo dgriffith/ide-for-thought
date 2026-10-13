@@ -142,3 +142,44 @@ describe('the Type filter (#2716)', () => {
     expect(within(screen.getByRole('dialog', { name: 'Filter by property' })).queryByRole('button', { name: 'Kind' })).toBeNull();
   });
 });
+
+describe('the Tags filter (#2768)', () => {
+  const tagged = (path: string, tags: string[]): TypeInstanceRow => ({ path, title: path, values: { city: null, rating: null, visited: null, location: null }, cover: null, tags });
+  const TAGGED = [tagged('a.md', ['active', 'ml/nlp']), tagged('b.md', ['Active']), tagged('c.md', ['archived'])];
+  function mountTagged(filters: ViewFilter[] = []) {
+    const onChange = vi.fn();
+    render(TypeViewFilters, { properties: PROPS, instances: TAGGED, filters, display, onChange });
+    return onChange;
+  }
+
+  it('offers the tags present, folded by case, with counts', async () => {
+    mountTagged();
+    await fireEvent.click(screen.getByRole('button', { name: 'Filter ▾' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Tags' }));
+    const labels = within(screen.getByRole('list', { name: 'Tags' })).getAllByRole('checkbox')
+      .map((c) => c.closest('label')!.textContent.replace(/\s+/g, ' ').trim());
+    expect(labels).toEqual(['#active2', '#archived1', '#ml/nlp1']);
+  });
+
+  it('ticking a tag filters; the match chosen first is kept', async () => {
+    const onChange = mountTagged();
+    await fireEvent.click(screen.getByRole('button', { name: 'Filter ▾' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Tags' }));
+    await fireEvent.click(screen.getByRole('radio', { name: 'None' }));
+    await fireEvent.click(screen.getByRole('checkbox', { name: /archived/ }));
+    expect(onChange).toHaveBeenLastCalledWith([{ property: 'tags', values: ['archived'], match: 'none' }]);
+  });
+
+  it('switching the match keeps the tags; any is stored as the default', async () => {
+    const onChange = mountTagged([{ property: 'tags', values: ['active'], match: 'all' }]);
+    await fireEvent.click(screen.getByRole('button', { name: 'Tags (all): active' }));
+    await fireEvent.click(screen.getByRole('radio', { name: 'Any' }));
+    expect(onChange).toHaveBeenLastCalledWith([{ property: 'tags', values: ['active'] }]);
+  });
+
+  it('is not offered when no note in the view has a tag', async () => {
+    mount();
+    await fireEvent.click(screen.getByRole('button', { name: 'Filter ▾' }));
+    expect(screen.queryByRole('button', { name: 'Tags' })).toBeNull();
+  });
+});
