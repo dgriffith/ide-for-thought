@@ -1254,7 +1254,7 @@ untested ones sit in a `KNOWN_UNTESTED` list that may only shrink.
 
 ### The architecture ratchets are inventoried in `docs/architecture-ratchets.md` (#2262)
 
-`tests/architecture/` holds **52** tests that check the shape of the codebase
+`tests/architecture/` holds **53** tests that check the shape of the codebase
 rather than the behavior of any feature — the package-cycle check, the file-size
 budgets, the anti-pattern ratchets, the dialog-adoption ratchet, the two
 temp-project-fixture ratchets, the CI-workflow checks, and so on. Most of them
@@ -1580,7 +1580,9 @@ is built from that file, so none of it can disagree with the code:
   in the app and over `minerva mcp` (#2619).
 
 A seam that only built-ins can extend is declared with `rung: 'source'` and
-its registry.
+its registry. **A new registry or `.minerva/` contribution folder must be
+declared**: `tests/architecture/extension-points-declared.test.ts` fails
+otherwise (#2621).
 
 ### Tools for Thought (Skills)
 

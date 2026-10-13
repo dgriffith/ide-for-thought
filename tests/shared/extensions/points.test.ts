@@ -44,10 +44,9 @@ describe('extension points', () => {
     }
   });
 
-  it('every contract points at a file that declares its symbol', () => {
+  it('every contract and registry points at a file that declares its symbol', () => {
     const broken: string[] = [];
-    for (const p of POINTS) {
-      const { file, symbol } = p.contract.at;
+    for (const p of POINTS) for (const { file, symbol } of [p.contract.at, ...(p.registries ?? [])]) {
       if (!exists(file)) { broken.push(`${p.id}: ${file} is missing`); continue; }
       if (!symbol) continue;
       const src = fs.readFileSync(path.join(ROOT, file), 'utf-8');

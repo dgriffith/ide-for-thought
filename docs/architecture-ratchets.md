@@ -28,7 +28,7 @@ what to do about it. `architecture-ratchets-doc.test.ts` keeps the two sides in
 step — a new test in `tests/architecture/` with no entry here fails, and an
 entry here naming a test that no longer exists fails too (#2262).
 
-Written up as of 2026-10-12, 52 tests.
+Written up as of 2026-10-13, 53 tests.
 
 ---
 
@@ -250,6 +250,30 @@ may only shrink.
 - a bare `send()` → declare the command and place it with `command(id)`;
 - an unplaced `menu` entry → place it, or drop the entry;
 - a new clash → pick a free key.
+
+### `extension-points-declared.test.ts`
+
+**A new seam must be declared in the extension-point catalog** (#2621, epic
+#2616). `src/shared/extensions/points.ts` is what the docs page, the graph and
+the agents' tools are built from. A seam left out of it is a way to extend
+Minerva that nobody can find without reading the source. The test scans `src/`
+for two shapes:
+
+- **Registries:** an exported `register*` that writes a module-level `Map`.
+  It must be named by a point's contract or `registries`.
+- **`.minerva/` children the code reads**, in the thoughtbase or the home
+  directory. Each must be a point's `location`, or be listed in `NOT_A_SEAM`
+  with its reason (the graph, the indexes, transcripts, settings files, the
+  user's sources and assets).
+
+`KNOWN_UNDECLARED` is shrink-only and starts empty. The test also fails on a
+stale exemption.
+
+**When it fires:**
+- For a new contribution folder or registry, declare its point. A seam only
+  built-ins use is declared as `rung: 'source'`. Then regenerate
+  `docs/extension-points.md`.
+- For new app state, add it to `NOT_A_SEAM` with the reason.
 
 ### `panel-registries.test.ts`
 

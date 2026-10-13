@@ -22,7 +22,7 @@
  * the lowest rung that solves it — declarative before code.
  */
 export const RUNGS = [
-  /** A switch or value in Settings, or a file Settings imports. */
+  /** A switch or value in Settings, or a configuration file Minerva reads. */
   'setting',
   /** A markdown skill: a prompt template that becomes a menu item and a slash command. */
   'skill',
@@ -41,7 +41,7 @@ export type Rung = (typeof RUNGS)[number];
 
 /** Each rung in a sentence — the ladder as the docs page (#2620) states it. */
 export const RUNG_DESCRIPTIONS: Record<Rung, string> = {
-  setting: 'A switch or value in Settings, or a file Settings imports.',
+  setting: 'A switch or value in Settings, or a configuration file Minerva reads (a CSL style, a site stylesheet).',
   skill: 'A markdown skill: a prompt template that becomes a menu item and, optionally, a slash command.',
   'object-type': 'A markdown object type: a note type with properties, a form and views.',
   'query-view': 'A saved query or a note template.',
@@ -106,10 +106,16 @@ export interface ExtensionPoint {
   harness?: string;
   /** For a `source` seam: the registries-epic story that made it a registry (#2622). */
   story?: number;
+  /**
+   * Further registries this seam's contributions land in, beyond its contract
+   * — skills compile into the tool registry, executors register by language.
+   * `extension-points-declared.test.ts` matches registries it finds to these.
+   */
+  registries?: readonly CodeRef[];
 }
 
 /** A seam built-ins register through and nothing else can yet. */
-const sourceSeam = (at: CodeRef, extra: { story?: number; harness?: string; docs?: string } = {}) => ({
+const sourceSeam = (at: CodeRef, extra: { story?: number; harness?: string; docs?: string; registries?: readonly CodeRef[] } = {}) => ({
   rung: 'source' as const,
   contract: { kind: 'registry' as const, at },
   loadPath: 'rebuild' as const,
@@ -132,6 +138,19 @@ export const EXTENSION_POINTS = [
     harness: 'tests/main/publish/user-csl-assets.test.ts',
   },
 
+  {
+    id: 'static-site-css',
+    label: 'Static site stylesheet',
+    description: 'CSS linked after the static site\'s default stylesheet, so a few `:root { --accent: … }` lines restyle every published page.',
+    rung: 'setting',
+    contract: { kind: 'parser', format: 'CSS, one file', at: { file: 'src/main/publish/exporters/static-site/index.ts' } },
+    loadPath: 'hot',
+    sources: ['thoughtbase'],
+    location: '<thoughtbase>/.minerva/site.css',
+    docs: 'docs/publishing.md',
+    harness: 'tests/main/publish/static-site.test.ts',
+  },
+
   // ── Skills ───────────────────────────────────────────────────────────────
   {
     id: 'skills',
@@ -145,6 +164,11 @@ export const EXTENSION_POINTS = [
     docs: 'docs/authoring-skills.md',
     example: 'src/main/skills/stock/propose-source-summary.md',
     harness: 'tests/main/skills-parse.test.ts',
+    // A loaded skill compiles into the tool registry, in main and in the renderer's copy.
+    registries: [
+      { file: 'src/shared/tools/registry.ts', symbol: 'registerTool' },
+      { file: 'src/renderer/lib/tools/tool-registry.ts', symbol: 'registerSkillInfos' },
+    ],
   },
 
   // ── Object types ─────────────────────────────────────────────────────────
@@ -171,7 +195,7 @@ export const EXTENSION_POINTS = [
     contract: { kind: 'parser', format: '.rq (SPARQL) or .sql, with optional comment front matter', at: { file: 'src/main/saved-queries.ts', symbol: 'parseQueryContent' } },
     loadPath: 'hot',
     sources: ['stock', 'user', 'thoughtbase'],
-    location: '~/.minerva/queries/, <thoughtbase>/.minerva/queries/',
+    location: 'the app\'s user-data folder (queries/), <thoughtbase>/.minerva/queries/',
     docs: 'website/docs/_content/query-menu-panel.html',
     example: 'src/shared/stock-queries.ts',
     harness: 'tests/main/saved-queries.test.ts',
@@ -197,7 +221,7 @@ export const EXTENSION_POINTS = [
     contract: { kind: 'parser', format: 'A server entry: stdio command + args + env, or an HTTP URL', at: { file: 'src/main/mcp-servers/config-store.ts', symbol: 'decodeServer' } },
     loadPath: 'hot',
     sources: ['user'],
-    location: 'the app\'s user-data folder (mcp-servers.json), edited in Settings → MCP Servers',
+    location: '~/.minerva/mcp-servers.json, edited in Settings → MCP Servers',
     docs: 'website/docs/_content/settings-mcp-servers.html',
     harness: 'tests/main/mcp-servers/config-store.test.ts',
   },
@@ -267,7 +291,7 @@ export const EXTENSION_POINTS = [
     id: 'compute-languages',
     label: 'Compute languages',
     description: 'A language a runnable cell can be written in, and the executor that runs it.',
-    ...sourceSeam({ file: 'src/main/compute/executors/index.ts', symbol: 'BUILTIN_EXECUTORS' }, { story: 2630, harness: 'tests/shared/compute/fences.test.ts' }),
+    ...sourceSeam({ file: 'src/main/compute/executors/index.ts', symbol: 'BUILTIN_EXECUTORS' }, { story: 2630, harness: 'tests/shared/compute/fences.test.ts', registries: [{ file: 'src/main/compute/registry.ts', symbol: 'registerExecutor' }] }),
   },
   {
     id: 'exporters',

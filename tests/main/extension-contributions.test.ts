@@ -38,6 +38,9 @@ vi.mock('../../src/main/mcp-servers/config-store', () => ({
   },
 }));
 
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { gatherContributions } from '../../src/main/extension-contributions';
 
 describe('gatherContributions (#2618)', () => {
@@ -63,6 +66,19 @@ describe('gatherContributions (#2618)', () => {
     const text = JSON.stringify(await gatherContributions('/tb'));
     expect(text).not.toContain('secret-cmd');
     expect(text).not.toContain('hunter2');
+  });
+
+  it('lists a static-site stylesheet only when the thoughtbase has one', async () => {
+    const tb = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-site-css-'));
+    try {
+      expect((await gatherContributions(tb)).some((c) => c.point === 'static-site-css')).toBe(false);
+      fs.mkdirSync(path.join(tb, '.minerva'));
+      fs.writeFileSync(path.join(tb, '.minerva', 'site.css'), ':root { --accent: teal; }');
+      expect((await gatherContributions(tb)).find((c) => c.point === 'static-site-css'))
+        .toMatchObject({ id: 'site.css', source: 'thoughtbase' });
+    } finally {
+      fs.rmSync(tb, { recursive: true, force: true });
+    }
   });
 
   it('omits only the source that failed', async () => {

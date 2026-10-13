@@ -15,6 +15,7 @@
  * not blank the skills.
  */
 import path from 'node:path';
+import fs from 'node:fs/promises';
 import os from 'node:os';
 import type { ProjectContext } from './project-context-types';
 import type { Contribution } from '../shared/extensions/contributions';
@@ -56,6 +57,14 @@ const READERS: Record<string, Reader> = {
     return Object.entries(labels).map(([id, label]) => ({
       point: 'csl-styles', id, label, source: userIds.has(id) ? 'thoughtbase' : 'stock',
     }));
+  },
+  staticSiteCss: async (rootPath) => {
+    try {
+      await fs.access(path.join(rootPath, '.minerva', 'site.css'));
+    } catch {
+      return []; // none — the site keeps its default style
+    }
+    return [{ point: 'static-site-css', id: 'site.css', label: 'site.css', source: 'thoughtbase', location: '.minerva/site.css' }];
   },
   // Name and id only — never the command, args, env or URL.
   mcpServers: async () => (await getStoredServers()).map((s) => ({
