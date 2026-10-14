@@ -858,3 +858,64 @@ describe('handleFormat', () => {
     expect(msg).toContain('fmt error');
   });
 });
+
+describe('note actions on explicit targets (#2772)', () => {
+  // The sidebar has a DIFFERENT selection throughout: an explicit list must win,
+  // since a view acts on its own rows, not on whatever the sidebar has selected.
+  beforeEach(() => { sidebar.getSelectionPaths.mockReturnValue(['elsewhere.md']); });
+  afterEach(() => { sidebar.getSelectionPaths.mockReturnValue([]); });
+  const written = () => h.api.notebase.writeFile.mock.calls.map((c) => c[0] as string).sort();
+
+  it('addTagToNotes tags exactly the given notes, de-duplicated, markdown only', async () => {
+    h.api.tags.list.mockResolvedValue([]);
+    h.dialog.showPrompt.mockResolvedValue('active');
+    h.api.notebase.readFile.mockResolvedValue('body');
+    await ops.addTagToNotes(['a.md', 'b.md', 'a.md', 'data.csv']);
+    expect(h.dialog.showPrompt.mock.calls[0]![0]).toBe('Add tag to 2 notes:');
+    expect(written()).toEqual(['a.md', 'b.md']);
+    expect(sidebar.refreshTags).toHaveBeenCalled();
+  });
+
+  it('removeTagFromNotes offers the given notes\' tags and removes from them only', async () => {
+    h.api.notebase.readFile.mockImplementation(async (p: string) => (p === 'a.md' ? '---\ntags: [old, keep]\n---\n' : '---\ntags: [old]\n---\n'));
+    h.dialog.showPrompt.mockResolvedValue('old');
+    await ops.removeTagFromNotes(['a.md', 'b.md']);
+    expect(h.dialog.showPrompt.mock.calls[0]![1]).toEqual({ suggestions: ['keep', 'old'] });
+    expect(written()).toEqual(['a.md', 'b.md']);
+  });
+
+  it('addPropertyToNotes sets the property on exactly the given notes', async () => {
+    h.api.graph.frontmatterKeys.mockResolvedValue([]);
+    h.dialog.showAddPropertyDialog.mockResolvedValue({ name: 'status', value: 'done' });
+    h.api.notebase.readFile.mockResolvedValue('body');
+    await ops.addPropertyToNotes(['a.md', 'b.md']);
+    expect(h.dialog.showAddPropertyDialog).toHaveBeenCalledWith('Add property to 2 notes', []);
+    expect(written()).toEqual(['a.md', 'b.md']);
+  });
+
+  it('removePropertyFromNotes removes it from exactly the given notes', async () => {
+    h.api.notebase.readFile.mockResolvedValue('---\nstatus: done\n---\nbody');
+    h.dialog.showPrompt.mockResolvedValue('status');
+    await ops.removePropertyFromNotes(['a.md']);
+    expect(written()).toEqual(['a.md']);
+  });
+
+  it('an empty or non-markdown list gets the "no .md files" notice and writes nothing', async () => {
+    await ops.addTagToNotes([]);
+    await ops.removePropertyFromNotes(['data.csv']);
+    expect(h.dialog.showConfirm).toHaveBeenCalledTimes(2);
+    expect(h.api.notebase.writeFile).not.toHaveBeenCalled();
+  });
+
+  it('a typed list goes to the type-aware panel, as a typed sidebar selection does', async () => {
+    h.noteTypes['a.md'] = { id: 'task', label: 'Task', classLocalName: 'Task', source: 'user', properties: [{ name: 'done', type: 'boolean' }] };
+    try {
+      h.dialog.showBulkPropertiesDialog.mockResolvedValue(null);
+      await ops.addPropertyToNotes(['a.md']);
+      expect(h.dialog.showBulkPropertiesDialog).toHaveBeenCalled();
+      expect(h.dialog.showAddPropertyDialog).not.toHaveBeenCalled();
+    } finally {
+      delete h.noteTypes['a.md'];
+    }
+  });
+});
