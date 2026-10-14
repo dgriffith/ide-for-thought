@@ -47,6 +47,7 @@ import { createBulkPropertyOps } from './bulk-property-ops';
 import { syncOpenTabsToDisk as syncOpenTabs } from '../stores/open-tab-sync';
 import type { AutoLinkSuggestion } from '../../../shared/refactor/auto-link';
 import type { AutoLinkInboundSuggestion } from '../../../shared/refactor/auto-link-inbound';
+import type { TypeViewNoteActions } from '../components/type-view/note-actions';
 
 interface EditorRef {
   getSelectionRange: () => { from: number; to: number } | null | undefined;
@@ -395,7 +396,7 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
   }
 
   /** Remove Tag on explicit notes — see `markdownTargets`. */
-  async function removeTagFromNotes(paths: readonly string[]) {
+  async function removeTagFromNotes(paths: readonly string[], opts: { tag?: string } = {}) {
     if (!notebase.meta) return;
     const targets = markdownTargets(paths);
     if (targets.length === 0) {
@@ -431,7 +432,8 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
       return;
     }
     const suggestions = [...tagSet].sort();
-    const raw = await showPrompt(
+    // A view's Remove Tag ▸ submenu has already chosen the tag (#2773).
+    const raw = opts.tag ?? await showPrompt(
       `Remove tag from ${targets.length} note${targets.length === 1 ? '' : 's'}:`,
       { suggestions },
     );
@@ -576,9 +578,10 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
 
   /** "Edit properties…" for an explicit set of notes — a type view's
    *  multi-selection (#2431). */
-  async function handleEditProperties(paths: string[]): Promise<void> {
+  /** `only` narrows the panel to one property — a view's Set Property ▸ (#2773). */
+  async function handleEditProperties(paths: string[], only?: string): Promise<void> {
     if (!notebase.meta) return;
-    await bulkProperties.editProperties(paths);
+    await bulkProperties.editProperties(paths, only !== undefined ? { only } : {});
   }
 
   async function reportBulkTagSummary(
@@ -662,15 +665,16 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
   }
 
   /** Remove a property on explicit notes — see `markdownTargets`. */
-  async function removePropertyFromNotes(paths: readonly string[]) {
+  async function removePropertyFromNotes(paths: readonly string[], opts: { key?: string } = {}) {
     if (!notebase.meta) return;
     const targets = markdownTargets(paths);
     if (targets.length === 0) {
       await showConfirm('The selection contains no .md files to edit.', CONFIRM_KEYS.bulkTagNoSelection, 'OK');
       return;
     }
-    // Same panel (#2431): every field can be cleared, other keys removed.
-    if (await bulkProperties.isTypedSelection(targets)) { await bulkProperties.editProperties(targets); return; }
+    // Same panel (#2431): every field can be cleared, other keys removed — unless
+    // a view's Clear Property ▸ submenu has already named the key (#2773).
+    if (opts.key === undefined && await bulkProperties.isTypedSelection(targets)) { await bulkProperties.editProperties(targets); return; }
 
     const keySet = new Set<string>();
     const readFailures: OperationFailure[] = [];
@@ -693,7 +697,7 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
       return;
     }
     const noun = `${targets.length} note${targets.length === 1 ? '' : 's'}`;
-    const rawKey = await showPrompt(`Remove property from ${noun}:`, { suggestions: [...keySet].sort() });
+    const rawKey = opts.key ?? await showPrompt(`Remove property from ${noun}:`, { suggestions: [...keySet].sort() });
     if (!rawKey) return;
     const key = rawKey.trim();
     if (!key) return;
@@ -887,11 +891,19 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
     }
   }
 
+  /** What a type view's row menu runs for its selection (#2773). */
+  const viewNoteActions: TypeViewNoteActions = {
+    editProperties: (paths, only) => { void handleEditProperties(paths, only); },
+    addTag: (paths) => { void addTagToNotes(paths); },
+    removeTag: (paths, tag) => { void removeTagFromNotes(paths, { tag }); },
+    clearProperty: (paths, name) => { void removePropertyFromNotes(paths, { key: name }); },
+  };
+
   return {
     handleExtractSelection, handleSplitByHeading, handleSplitHere,
     handleAutoLink, handleAutoLinkInbound, handleAutoLinkInboundApply, handleAutoLinkApply,
     handleAddTag, handleRemoveTag, handleAddProperty, handleRemoveProperty, handleEditProperties, handleToggleEntrypoint,
-    addTagToNotes, removeTagFromNotes, addPropertyToNotes, removePropertyFromNotes,
+    addTagToNotes, removeTagFromNotes, addPropertyToNotes, removePropertyFromNotes, viewNoteActions,
     handleLabelVersion, handleViewHistory,
     handleFormat, handleBibliography, handleAutoTag, handleAutoTagApply,
   };

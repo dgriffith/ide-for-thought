@@ -131,6 +131,17 @@
 
     <p>Switching between layouts doesn't re-fetch anything; it's the same set of notes shown different ways. Clicking any row, card or pin opens that note — and <a href="navigation-back-forward.html">Back</a> brings you to the view again, just as you left it.</p>
 
+    <h2 id="changing-notes">Changing notes from a view</h2>
+    <p>You can retag notes and change their fields without leaving the view. Select a note by <kbd>⌘</kbd>-clicking it (<kbd>Ctrl</kbd>-click on Windows and Linux), select a run of notes with <kbd>⇧</kbd>-click, or press <kbd>⌘</kbd><kbd>A</kbd> for all of them; <kbd>Esc</kbd> clears the selection. A plain click still opens the note. Then right-click one of them (or press <kbd>⇧</kbd><kbd>F10</kbd>) for the menu, which acts on everything selected:</p>
+    <ul>
+      <li><b>Add Tag…</b> asks for a tag, suggesting ones already in use, and adds it to each note.</li>
+      <li><b>Remove Tag ▸</b> lists the tags the selected notes carry, with how many have each, and removes the one you pick.</li>
+      <li><b>Set Property ▸</b> lists the type's fields; picking one opens just that field's editor — a date, a choice, a link to another note — and sets it on every selected note.</li>
+      <li><b>Clear Property ▸</b> lists the fields the selected notes have filled in, with how many have each, and empties the one you pick.</li>
+      <li><b>Edit Properties…</b> opens every field at once.</li>
+    </ul>
+    <p>The view updates as soon as the notes do. These are ordinary edits to your notes, so <a href="right-sidebar-history.html">local history</a> keeps the earlier versions. A view inside a note, or exported, is for looking at and doesn't have this menu.</p>
+
     <h2 id="map">The map</h2>
     <p>A location is written as latitude, then longitude, separated by a comma — <code>50.087, 14.421</code> is the middle of Prague. Each note with a location gets a pin; a note with the field empty, or with something that isn't a location, simply isn't on the map. The map frames itself to fit all the pins.</p>
     <p>Each pin takes the colour of the note's own type, so on a Place map a restaurant and a hotel look different at a glance. Hover a pin to see a preview of the note, the same one a link to it shows: its title, its opening lines and the type's card fields. Click a pin to open the note.</p>

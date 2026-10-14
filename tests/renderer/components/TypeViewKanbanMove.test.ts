@@ -23,6 +23,11 @@ vi.mock('../../../src/renderer/lib/stores/kanban-moves.svelte', () => ({
 import TypeView from '../../../src/renderer/lib/components/TypeView.svelte';
 import { objectTypesStore } from '../../../src/renderer/lib/stores/object-types.svelte';
 
+/** The host's note actions (#2773), with `editProperties` the spy a test watches. */
+function actions(editProperties: ReturnType<typeof vi.fn> = vi.fn()) {
+  return { editProperties, addTag: vi.fn(), removeTag: vi.fn(), clearProperty: vi.fn() };
+}
+
 const PROJECT = {
   id: 'project', label: 'Project', classLocalName: 'Project', icon: '🚀', source: 'stock' as const,
   properties: [{ name: 'status', type: 'enum' as const, options: ['active', 'paused', 'done', 'abandoned'] }],
@@ -33,7 +38,7 @@ const ROWS = [row('a.md', 'Alpha', 'active'), row('c.md', 'Charlie', 'active'), 
 function props(over: Record<string, unknown> = {}) {
   return {
     typeId: 'project', layout: 'kanban' as const, sortColumn: null, sortDir: 'asc' as const, columns: null,
-    revision: 0, onStateChange: vi.fn(), onOpenNote: vi.fn(), onEditProperties: vi.fn(), ...over,
+    revision: 0, onStateChange: vi.fn(), onOpenNote: vi.fn(), noteActions: actions(), ...over,
   };
 }
 const card = (c: HTMLElement, path: string) => c.querySelector<HTMLElement>(`[data-kanban-card][data-note-path="${path}"]`)!;
@@ -186,7 +191,7 @@ describe('Kanban: pointer drag (#2603)', () => {
   });
 
   it('an embedded board (no host editor) neither drags nor offers Move to', async () => {
-    const { container } = render(TypeView, props({ onEditProperties: undefined, chromeless: true }));
+    const { container } = render(TypeView, props({ noteActions: undefined, chromeless: true }));
     await screen.findByText('Alpha');
     await drag(container, card(container, 'a.md'), column(container, 'done'));
     expect(column(container, 'done').hasAttribute('data-drop-target')).toBe(false);

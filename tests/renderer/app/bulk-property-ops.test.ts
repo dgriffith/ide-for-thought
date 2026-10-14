@@ -106,6 +106,24 @@ describe('editProperties', () => {
   });
 });
 
+describe('editProperties: one property (#2773)', () => {
+  const fieldsShown = () => (h.dialog.showBulkPropertiesDialog.mock.calls[0]![0] as { fields: Array<{ name: string }>; otherKeys: unknown[] });
+
+  it('shows just that property — the same widget, nothing else on the panel', async () => {
+    h.dialog.showBulkPropertiesDialog.mockResolvedValue([{ op: 'set', key: 'due', value: '2027-01-01' }]);
+    await ops.editProperties(['a.md', 'c.md'], { only: 'due' });
+    expect(fieldsShown().fields.map((f) => f.name)).toEqual(['due']);
+    expect(fieldsShown().otherKeys).toEqual([]);
+    expect(h.files['c.md']).toContain('due: 2027-01-01');
+  });
+
+  it('falls back to the full panel for a property it can\'t offer', async () => {
+    h.dialog.showBulkPropertiesDialog.mockResolvedValue(null);
+    await ops.editProperties(['a.md'], { only: 'no-such-property' });
+    expect(fieldsShown().fields.map((f) => f.name)).toEqual(['due', 'done', 'title', 'aliases', 'tags']);
+  });
+});
+
 describe('isTypedSelection', () => {
   silenceLogTags('objects');
   it('is true only when every note has a type', async () => {
