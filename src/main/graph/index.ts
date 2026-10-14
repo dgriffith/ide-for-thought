@@ -66,9 +66,14 @@ export {
   indexExcerpt, removeExcerpt, excerptIdsForSource, parseExcerptIdFromPath,
 } from './indexers/excerpt';
 import { addOntologyToStore } from './indexers';
+import { applyVocabularies, loadVocabularies } from './user-ontology';
 import { EXTENSIONS_GRAPH } from './indexers/extensions';
 import { rematerializeExtensionCatalog } from './extension-catalog';
 export { setExtensionContributions } from './extension-catalog';
+// A thoughtbase's own vocabularies (#2788): Settings → Ontology and the schema tool.
+export {
+  syncVocabularies, previewVocabularyImport, commitVocabularyImport, removeVocabulary, vocabulariesForSchema,
+} from './user-ontology';
 
 /** Tear down a project's graph state. Called by ProjectContext on last release. */
 export function disposeProject(ctx: ProjectContext): void {
@@ -227,6 +232,8 @@ export async function initGraph(ctx: ProjectContext, opts?: InitGraphOptions): P
   // before re-adding, which self-heals graph.ttl files written by older
   // versions that persisted the ontology alongside the user's data.
   addOntologyToStore(state);
+  // The thoughtbase's own vocabularies, beside the built-in ones (#2788).
+  applyVocabularies(ctx, state, await loadVocabularies(rootPath));
 
   setState(ctx, state);
   // The extension catalog (#2618): its points now, its contributions when the

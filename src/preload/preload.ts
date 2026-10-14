@@ -578,6 +578,12 @@ const api = {
     removeStyle: (id: string) => invoke(Channels.CSL_REMOVE_STYLE, id),
     removeLocale: (id: string) => invoke(Channels.CSL_REMOVE_LOCALE, id),
   },
+  ontology: {
+    list: () => invoke(Channels.ONTOLOGY_LIST),
+    pickImport: () => invoke(Channels.ONTOLOGY_PICK_IMPORT),
+    import: (id: string) => invoke(Channels.ONTOLOGY_IMPORT, id),
+    remove: (file: string) => invoke(Channels.ONTOLOGY_REMOVE, file),
+  },
   citations: {
     renderInline: (refs: { kind: 'cite' | 'quote'; id: string }[]) =>
       invoke(Channels.CITATION_RENDER_INLINE, refs),

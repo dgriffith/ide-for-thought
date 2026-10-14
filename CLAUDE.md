@@ -1504,6 +1504,13 @@ the package holds the store to pass on.
 - Reached without hand-authoring Turtle via the Claim / Glossary Term stock
   object types (`externalClass:` bridges a `types:` class to a `thought:` one)
   — format reference in `docs/authoring-types.md` (#2265), also parity-tested
+- A thoughtbase can import its own vocabularies (Settings → Ontology, #2788):
+  `.minerva/ontology/*.ttl`, checked whole by `graph/user-ontology-check.ts`
+  (no built-in term, no rebound standard prefix, no contradiction) and loaded
+  into per-file named graphs `persistGraph` skips. Their prefixes join
+  `injectSparqlPrefixes`, and `describe_graph_schema` hands them to the model
+  delimited as thoughtbase content, never as authoritative. See
+  `docs/thought-ontology.md` → *Your own vocabularies*
 
 #### Two representations of one claim, and the fragments that know both (#2230)
 

@@ -14,6 +14,8 @@ import {
   RDF,
   STANDARD_PREFIXES,
 } from '../state';
+import { vocabularyPrefixes, vocabularyTerms } from '../user-ontology';
+import type { VocabularyPrefix } from '../../../shared/ontology-vocabularies';
 import { unwrapGraphQuery, type GraphQueryResult, type GraphQueryRows } from '../../../shared/graph-query';
 
 /**
@@ -39,7 +41,11 @@ function declaredSparqlPrefixes(sparql: string): Set<string> {
   return names;
 }
 
-export function injectSparqlPrefixes(sparql: string): string {
+export function injectSparqlPrefixes(
+  sparql: string,
+  /** A thoughtbase's own vocabularies' prefixes (#2788), after the standard ones. */
+  extra: readonly VocabularyPrefix[] = [],
+): string {
   // Only inject prefixes the user hasn't already declared: a duplicate
   // declaration is an evaluator error. The keyword is case-insensitive and
   // spacing varies (`Prefix  x:`), which a naive includes("PREFIX x:") missed.
@@ -53,6 +59,13 @@ export function injectSparqlPrefixes(sparql: string): string {
   const declared = declaredSparqlPrefixes(sparql);
   const lines: string[] = [];
   for (const [prefix, iri] of STANDARD_PREFIXES) {
+    if (!declared.has(prefix)) {
+      lines.push(`PREFIX ${prefix}: <${iri}>`);
+    }
+  }
+  // Checked on load to be a valid name and an IRI that can't end the `<…>`
+  // early (`user-ontology-check.ts`), and never a standard name.
+  for (const { prefix, iri } of extra) {
     if (!declared.has(prefix)) {
       lines.push(`PREFIX ${prefix}: <${iri}>`);
     }
@@ -81,7 +94,11 @@ export interface GraphSchema {
  * IRI. Safe to call often — cheap walk over the store.
  */
 export function schemaForCompletion(ctx: ProjectContext): GraphSchema {
-  const prefixes = STANDARD_PREFIXES.map(([prefix, iri]) => ({ prefix, iri }));
+  const prefixes = [
+    ...STANDARD_PREFIXES.map(([prefix, iri]) => ({ prefix, iri })),
+    // A thoughtbase's own vocabularies (#2788).
+    ...vocabularyPrefixes(ctx),
+  ];
   const state = getState(ctx);
   if (!state) return { prefixes, predicates: [], classes: [] };
   const { store } = state;
@@ -96,6 +113,10 @@ export function schemaForCompletion(ctx: ProjectContext): GraphSchema {
       classIris.add(st.object.value);
     }
   }
+  // What a thoughtbase's vocabularies declare, used yet or not (#2788).
+  const declared = vocabularyTerms(ctx);
+  for (const t of declared.properties) predicateIris.add(t.iri);
+  for (const t of declared.classes) classIris.add(t.iri);
 
   function toEntry(iri: string): SchemaEntry {
     for (const { prefix, iri: base } of prefixes) {
@@ -155,7 +176,7 @@ export async function queryGraph(
     // Build the mirror if cold, yielding so a large rebuild doesn't jank the
     // main thread (#1115). Warm queries return the live mirror with no yield.
     const n3Store = await ensureN3Cache(state);
-    const prefixed = injectSparqlPrefixes(sparql);
+    const prefixed = injectSparqlPrefixes(sparql, vocabularyPrefixes(ctx));
 
     // Use the full query() API (not queryBindings) so we can read the result
     // metadata: the SELECT projection — in order, including variables that end
