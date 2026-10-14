@@ -48,6 +48,8 @@ const h = vi.hoisted(() => {
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({ api: h.api }));
 vi.mock('../../../src/renderer/lib/stores/notebase.svelte', () => ({ getNotebaseStore: () => h.notebase }));
 vi.mock('../../../src/renderer/lib/stores/editor.svelte', () => ({ getEditorStore: () => h.editor }));
+const { announceMock } = vi.hoisted(() => ({ announceMock: vi.fn() }));
+vi.mock('../../../src/renderer/lib/stores/announcer.svelte', () => ({ announce: announceMock }));
 vi.mock('../../../src/renderer/lib/stores/dialogs.svelte', () => ({ getDialogStore: () => h.dialog }));
 vi.mock('../../../src/renderer/lib/stores/object-types.svelte', () => ({
   objectTypesStore: {
@@ -952,5 +954,41 @@ describe('note actions with the choice already made (#2773)', () => {
     } finally {
       delete h.noteTypes['a.md'];
     }
+  });
+});
+
+describe('a view\'s actions are quiet: announced, not a dialog (#2776)', () => {
+  it('a success is announced and shows no dialog', async () => {
+    h.api.tags.list.mockResolvedValue([]);
+    h.dialog.showPrompt.mockResolvedValue('active');
+    h.api.notebase.readFile.mockResolvedValue('body');
+    await ops.addTagToNotes(['a.md', 'b.md'], { quiet: true });
+    expect(announceMock).toHaveBeenCalledWith('Tagged 2 of 2 notes with "active".');
+    expect(h.dialog.showConfirm).not.toHaveBeenCalled();
+  });
+
+  it('a failure still gets the dialog, so it can\'t go unseen', async () => {
+    h.api.notebase.readFile.mockImplementation(async (p: string) => {
+      if (p === 'b.md') throw new Error('EACCES');
+      return '---\nstatus: done\n---\n';
+    });
+    await ops.removePropertyFromNotes(['a.md', 'b.md'], { key: 'status', quiet: true });
+    expect(announceMock).not.toHaveBeenCalled();
+    expect(h.dialog.showConfirm.mock.calls.at(-1)?.[0]).toContain('EACCES');
+  });
+
+  it('the sidebar\'s own actions keep their summary dialog', async () => {
+    h.dialog.showPrompt.mockResolvedValue('old');
+    h.api.notebase.readFile.mockResolvedValue('---\ntags: [old]\n---\n');
+    await ops.handleRemoveTag('note.md', false);
+    expect(announceMock).not.toHaveBeenCalled();
+    expect(h.dialog.showConfirm).toHaveBeenCalled();
+  });
+
+  it('viewNoteActions runs quietly', async () => {
+    h.api.notebase.readFile.mockResolvedValue('---\ntags: [old]\n---\n');
+    ops.viewNoteActions.removeTag(['a.md'], 'old');
+    await vi.waitFor(() => expect(announceMock).toHaveBeenCalledWith('Untagged 1 of 1 note with "old".'));
+    expect(h.dialog.showConfirm).not.toHaveBeenCalled();
   });
 });

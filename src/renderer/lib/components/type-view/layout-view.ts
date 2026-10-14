@@ -63,6 +63,9 @@ export interface LayoutView {
 
   /** Rows multi-select (#2431) — false in an embed or export. */
   selectable: boolean;
+  /** A row or card has a menu — the panel, or an embed with note actions —
+   *  so it takes focus and the menu key (#2776). */
+  rowMenu: boolean;
   isSelected: (path: string) => boolean;
   onRowClick: (e: MouseEvent, path: string) => void;
   onRowContextMenu: (e: MouseEvent, path: string) => void;

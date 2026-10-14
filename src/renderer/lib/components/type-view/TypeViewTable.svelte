@@ -5,6 +5,22 @@
 
   let { view }: { view: LayoutView } = $props();
   const ariaSort = (col: string) => (view.sortColumn === col ? (view.sortDir === 'asc' ? 'ascending' : 'descending') : 'none');
+  import { isMenuKey, openMenuAt } from './note-actions';
+
+  /** A focused row: Enter opens its note, the menu key opens its menu (#2776). */
+  function rowKey(e: KeyboardEvent, path: string): void {
+    if (!view.rowMenu || e.target !== e.currentTarget) return;
+    if (isMenuKey(e)) { e.preventDefault(); openMenuAt(e.currentTarget as HTMLElement); }
+    else if (e.key === 'Enter') { e.preventDefault(); view.onOpenNote(path); }
+  }
+  /** A focused note name in a cell (#2775): Enter, Space or the menu key open ITS menu. */
+  function refKey(e: KeyboardEvent): void {
+    if (!isMenuKey(e) && e.key !== 'Enter' && e.key !== ' ') return;
+    e.preventDefault();
+    e.stopPropagation();
+    openMenuAt(e.currentTarget as HTMLElement);
+  }
+
 </script>
 
 <div class="tv-table-scroll">
@@ -30,7 +46,8 @@
     <tbody>
       {#each view.sorted as inst (inst.path)}
         {@const rt = view.rowType(inst)}
-        <tr class:selected={view.isSelected(inst.path)} data-selected={view.isSelected(inst.path) || undefined} onclick={(e) => view.onRowClick(e, inst.path)} oncontextmenu={(e) => view.onRowContextMenu(e, inst.path)} title={inst.path} data-note-path={inst.path}>
+        <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -- a row takes focus for its menu and Enter (#2776) -->
+        <tr class:selected={view.isSelected(inst.path)} data-selected={view.isSelected(inst.path) || undefined} onclick={(e) => view.onRowClick(e, inst.path)} oncontextmenu={(e) => view.onRowContextMenu(e, inst.path)} title={inst.path} data-note-path={inst.path} tabindex={view.rowMenu ? 0 : undefined} onkeydown={(e) => rowKey(e, inst.path)}>
           <td class="tv-cell-title">
             <span class="tv-cell-title-inner">
               {#if rt}<TypeIcon type={rt} size={13} />{/if}
@@ -40,8 +57,7 @@
           {#each view.visibleColumns as col (col.name)}
             {@const value = inst.values[col.name] ?? null}
             {@const ref = view.refPath(col, value)}
-            <!-- svelte-ignore a11y_no_static_element_interactions -- keyboard access is #2776 -->
-            <td>{#if ref}<span class="tv-ref" data-ref-path={ref} oncontextmenu={(e) => view.onRefContextMenu(e, ref, view.display(col, value))}>{view.display(col, value)}</span>{:else}{view.display(col, value)}{/if}</td>
+            <td>{#if ref}<span class="tv-ref" role="button" tabindex="0" aria-haspopup="menu" data-ref-path={ref} oncontextmenu={(e) => view.onRefContextMenu(e, ref, view.display(col, value))} onkeydown={refKey}>{view.display(col, value)}</span>{:else}{view.display(col, value)}{/if}</td>
           {/each}
         </tr>
       {/each}

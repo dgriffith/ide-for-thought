@@ -17,6 +17,7 @@ import { objectTypesStore } from '../stores/object-types.svelte';
 import { effectivePropertyDefs } from '../../../shared/objects/inheritance';
 import { applyBulkEdits, buildBulkFieldModel, type BulkNoteInput } from '../../../shared/objects/bulk-properties';
 import { logger } from '../../../shared/logger';
+import { announce } from '../stores/announcer.svelte';
 import { CONFIRM_KEYS } from '../confirm-keys';
 import type { OperationFailure } from './text-helpers';
 import type { TypeInfo } from '../../../shared/objects/type-def';
@@ -110,7 +111,10 @@ export function createBulkPropertyOps(deps: BulkPropertyOpsDeps) {
     if (changed.length > 0) deps.onWritten?.();
     await deps.syncOpenTabsToDisk(changed);
     // The table already shows the result; a summary is only worth a dialog
-    // when something didn't land.
+    // when something didn't land. A success is still announced (#2776).
+    if (failures.length === 0 && changed.length > 0) {
+      announce(`Updated ${changed.length} note${changed.length === 1 ? '' : 's'}.`);
+    }
     if (failures.length > 0) {
       const total = targets.length;
       await deps.reportBulkSummary(

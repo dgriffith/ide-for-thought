@@ -358,6 +358,7 @@
     rowType,
     summary,
     get selectable() { return selectable; },
+    get rowMenu() { return selectable || menuOnly; },
     isSelected: (p) => sel.has(p),
     onRowClick: (e, p) => sel.click(e, p),
     onRowContextMenu: (e, p) => sel.contextMenu(e, p),

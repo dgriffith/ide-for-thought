@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { isMenuKey, openMenuAt } from './note-actions';
   /** The Gallery layout (#1070): a card per note, its cover property's image or its type's icon. */
   import type { LayoutView } from './layout-view';
 
@@ -12,7 +13,7 @@
   {#each view.instances as inst (inst.path)}
     {@const rt = view.rowType(inst)}
     {@const summary = view.summary(inst)}
-    <button class="tv-card" class:selected={view.isSelected(inst.path)} aria-pressed={view.selectable ? view.isSelected(inst.path) : undefined} onclick={(e) => view.onRowClick(e, inst.path)} oncontextmenu={(e) => view.onRowContextMenu(e, inst.path)} title={inst.path} data-note-path={inst.path}>
+    <button class="tv-card" class:selected={view.isSelected(inst.path)} aria-pressed={view.selectable ? view.isSelected(inst.path) : undefined} onclick={(e) => view.onRowClick(e, inst.path)} oncontextmenu={(e) => view.onRowContextMenu(e, inst.path)} title={inst.path} onkeydown={(e) => { if (view.rowMenu && isMenuKey(e)) { e.preventDefault(); openMenuAt(e.currentTarget); } }} data-note-path={inst.path}>
       <div class="tv-card-cover">
         {#if isImageUrl(inst.cover)}
           <img src={inst.cover} alt="" loading="lazy" />

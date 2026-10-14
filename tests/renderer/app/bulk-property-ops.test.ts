@@ -23,6 +23,8 @@ const h = vi.hoisted(() => ({
 }));
 
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({ api: h.api }));
+const { announceMock } = vi.hoisted(() => ({ announceMock: vi.fn() }));
+vi.mock('../../../src/renderer/lib/stores/announcer.svelte', () => ({ announce: announceMock }));
 vi.mock('../../../src/renderer/lib/stores/dialogs.svelte', () => ({ getDialogStore: () => h.dialog }));
 vi.mock('../../../src/renderer/lib/stores/object-types.svelte', () => ({
   objectTypesStore: {
@@ -76,6 +78,7 @@ describe('editProperties', () => {
     expect(deps.syncOpenTabsToDisk).toHaveBeenCalledWith(['a.md', 'c.md']);
     expect(deps.onWritten).toHaveBeenCalledTimes(1);
     expect(deps.reportBulkSummary).not.toHaveBeenCalled();
+    expect(announceMock).toHaveBeenCalledWith('Updated 2 notes.'); // #2776
   });
 
   it('reports per-item failures and still writes the rest', async () => {
