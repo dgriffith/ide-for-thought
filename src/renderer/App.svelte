@@ -1301,7 +1301,7 @@
                         getNotePaths={() => flattenNotePaths(notebase.files)}
                         getAliases={() => aliasEntries}
                         revision={graphRevision}
-                        onNavigate={handleNavigate}
+                        onNavigate={handleNavigate} noteActions={viewNoteActions}
                         onCreateNoteFromReference={(target) => void createNoteFromReference(noteTargetPathBeside(note.relativePath, target))}
                         onTagSelect={handleTagSelect}
                         onOpenSource={handleOpenSource}

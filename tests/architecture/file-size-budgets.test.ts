@@ -73,7 +73,7 @@ const BUDGETS: Record<string, number> = {
   // +2 for #2210 §3c: `revision` threaded to `hydrateVegaBlocks` so a chart's
   // backing query is keyed per graph revision rather than re-run per render
   // tick, plus the comment saying why the argument is there.
-  'src/renderer/lib/components/Preview.svelte': 1355, // +1: the card pass comes from the live-block registry (#2624); +6: the column is held by padding so a wide object view can break out, and the room it may take is observed (#2709) — the observer is preview/embed-resize.ts; // −45: a wiki-link's hover is the shared NoteHoverPreview, which owns its delay, grace and broken-link state (#2710); +9: charts take the theme's palette, and re-theme on a theme switch (#2522); +17: the onApplyEdit prop and installing the resize controller (#2666) — the controller itself is preview/embed-resize.ts
+  'src/renderer/lib/components/Preview.svelte': 1358, // +3: the noteActions prop threaded to embedded views (#2774); +1: the card pass comes from the live-block registry (#2624); +6: the column is held by padding so a wide object view can break out, and the room it may take is observed (#2709) — the observer is preview/embed-resize.ts; // −45: a wiki-link's hover is the shared NoteHoverPreview, which owns its delay, grace and broken-link state (#2710); +9: charts take the theme's palette, and re-theme on a theme switch (#2522); +17: the onApplyEdit prop and installing the resize controller (#2666) — the controller itself is preview/embed-resize.ts
   'src/renderer/lib/components/SourceDetail.svelte': 1346,
   'src/renderer/lib/components/SourcesPanel.svelte': 789,
   // Three changes stacked here: #2218 (PythonSettings doc + type), #2222
