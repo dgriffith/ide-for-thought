@@ -25,6 +25,7 @@
  */
 import type { Action } from 'svelte/action';
 import { targetOfColumn, type MoveTarget } from '../../../../shared/objects/kanban-move';
+import { isMenuKey, openMenuAt } from '../type-view/note-actions';
 
 export const DRAG_THRESHOLD_PX = 5;
 /** How close to the board's edge (px) the pointer must be to scroll it. */
@@ -198,16 +199,10 @@ export const cardDrag: Action<HTMLElement, CardDragOptions> = (board, initial) =
 
 /** What a keydown on a card asks of the move feature, if anything. */
 export function cardMoveKey(e: KeyboardEvent): 'menu' | 'undo' | null {
-  if (e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey)) return 'menu';
+  if (isMenuKey(e)) return 'menu';
   if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'z') return 'undo';
   return null;
 }
 
-/** Open a card's context menu from the keyboard: the same `contextmenu` event
- *  a right-click sends, placed at the card, so it takes the same route. */
-export function openCardMenu(card: HTMLElement): void {
-  const r = card.getBoundingClientRect();
-  card.dispatchEvent(new MouseEvent('contextmenu', {
-    bubbles: true, cancelable: true, clientX: r.left + Math.min(24, r.width / 2), clientY: r.bottom - 4,
-  }));
-}
+/** Open a card's context menu from the keyboard — `openMenuAt` (#2776). */
+export const openCardMenu = openMenuAt;

@@ -47,6 +47,7 @@
   import NoteHoverPreview from './NoteHoverPreview.svelte';
   import { createNoteHover } from './note-hover/note-hover.svelte';
   import { cardDrag, cardMoveKey, openCardMenu } from './kanban/card-drag';
+  import { isMenuKey, openMenuAt } from './type-view/note-actions';
   import { getKanbanMoveStore } from '../stores/kanban-moves.svelte';
   import type { MoveTarget } from '../../../shared/objects/kanban-move';
   import KanbanColumnMenu from './kanban/KanbanColumnMenu.svelte';
@@ -91,6 +92,14 @@
   const byName = $derived(new Map(properties.map((p) => [p.name, p] as const)));
   function fieldsFor(inst: TypeInstanceRow) {
     return selectInstanceCardFields(type, properties, inst, { visible, omit: group ? [group.name] : [] });
+  }
+  /** A focused note name on a card (#2775): Enter, Space or the menu key open
+   *  ITS menu, not the card's (#2776). */
+  function refKey(e: KeyboardEvent): void {
+    if (!isMenuKey(e) && e.key !== 'Enter' && e.key !== ' ') return;
+    e.preventDefault();
+    e.stopPropagation();
+    openMenuAt(e.currentTarget as HTMLElement);
   }
   /** The note a link field names, when the host maps it (#2775). */
   function fieldRef(name: string, value: string | null | undefined): string | null {
@@ -190,7 +199,10 @@
 
   function onKeydown(e: KeyboardEvent): void {
     const card = (e.target as HTMLElement | null)?.closest<HTMLElement>('[data-kanban-card]');
-    const moveKey = onMove ? cardMoveKey(e) : null;
+    // The menu key works on any card with a menu (#2776) — an embed's note
+    // actions too; Undo only where cards move.
+    const key = cardMoveKey(e);
+    const moveKey = key === 'menu' || (key === 'undo' && onMove) ? key : null;
     if (moveKey) {
       e.preventDefault();
       if (moveKey === 'undo') onUndoMove?.();
@@ -253,7 +265,7 @@
                 {#if fields.length > 0}
                   <span class="kb-fields">
                     {#each fields as f (f.name)}
-                      <span class="kb-field"><span class="kb-flabel">{f.label}</span> {#if fieldRef(f.name, f.value) && onRefContextMenu}<!-- svelte-ignore a11y_no_static_element_interactions -- keyboard access is #2776 --><span class="kb-fval tv-ref" data-ref-path={fieldRef(f.name, f.value)} oncontextmenu={(e) => onRefContextMenu(e, fieldRef(f.name, f.value)!, fieldText(f.name, f.value ?? ''))}>{fieldText(f.name, f.value ?? '')}</span>{:else}<span class="kb-fval">{fieldText(f.name, f.value ?? '')}</span>{/if}</span>
+                      <span class="kb-field"><span class="kb-flabel">{f.label}</span> {#if fieldRef(f.name, f.value) && onRefContextMenu}<span class="kb-fval tv-ref" role="button" tabindex="0" aria-haspopup="menu" onkeydown={refKey} data-ref-path={fieldRef(f.name, f.value)} oncontextmenu={(e) => onRefContextMenu(e, fieldRef(f.name, f.value)!, fieldText(f.name, f.value ?? ''))}>{fieldText(f.name, f.value ?? '')}</span>{:else}<span class="kb-fval">{fieldText(f.name, f.value ?? '')}</span>{/if}</span>
                     {/each}
                   </span>
                 {/if}

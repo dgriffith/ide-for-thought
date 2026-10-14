@@ -100,3 +100,71 @@ describe('a note named inside a view (#2775)', () => {
     expect(document.querySelector('.tv-ref')).toBeNull();
   });
 });
+
+describe('keyboard access (#2776)', () => {
+  const key = (el: Element, init: KeyboardEventInit) => fireEvent.keyDown(el, init);
+
+  it('a row takes focus when it has a menu; Shift+F10 opens it, Enter opens the note', async () => {
+    const onOpenNote = vi.fn();
+    render(TypeView, props({ noteActions: actions(), onOpenNote }));
+    await waitFor(() => expect(screen.getByText('Analytical Engine')).toBeTruthy());
+    const row = screen.getByText('Analytical Engine').closest('tr')!;
+    expect(row.getAttribute('tabindex')).toBe('0');
+    await key(row, { key: 'F10', shiftKey: true });
+    expect(screen.getByRole('menu')).toBeTruthy();
+    expect(screen.getByRole('menuitem', { name: /Set Property/ })).toBeTruthy(); // the row's own menu
+    await key(screen.getByRole('menu'), { key: 'Escape' });
+    await key(row, { key: 'Enter' });
+    expect(onOpenNote).toHaveBeenCalledWith('Engine.md');
+  });
+
+  it('the ContextMenu key works too', async () => {
+    render(TypeView, props({ noteActions: actions() }));
+    await waitFor(() => expect(screen.getByText('Analytical Engine')).toBeTruthy());
+    await key(screen.getByText('Analytical Engine').closest('tr')!, { key: 'ContextMenu' });
+    expect(screen.getByRole('menu')).toBeTruthy();
+  });
+
+  it('a note named in a cell is its own stop: Enter or Shift+F10 opens ITS menu, not the row\'s', async () => {
+    render(TypeView, props({ noteActions: actions() }));
+    await waitFor(() => expect(screen.getByText('Ada Lovelace')).toBeTruthy());
+    const ref = screen.getByRole('button', { name: 'Ada Lovelace' });
+    expect(ref.getAttribute('aria-haspopup')).toBe('menu');
+    await key(ref, { key: 'Enter' });
+    expect(screen.getByRole('menu').textContent).toContain('Ada Lovelace');
+    expect(screen.queryByRole('menuitem', { name: /Set Property/ })).toBeNull();
+  });
+
+  it('in an embed (chromeless) the rows still take the menu key', async () => {
+    render(TypeView, props({ noteActions: actions(), chromeless: true }));
+    await waitFor(() => expect(screen.getByText('Analytical Engine')).toBeTruthy());
+    const row = screen.getByText('Analytical Engine').closest('tr')!;
+    expect(row.getAttribute('tabindex')).toBe('0');
+    await key(row, { key: 'F10', shiftKey: true });
+    expect(screen.getByRole('menuitem', { name: /Add Tag/ })).toBeTruthy();
+  });
+
+  it('with no menu (an export) rows aren\'t tab stops and the key does nothing', async () => {
+    render(TypeView, props());
+    await waitFor(() => expect(screen.getByText('Analytical Engine')).toBeTruthy());
+    const row = screen.getByText('Analytical Engine').closest('tr')!;
+    expect(row.hasAttribute('tabindex')).toBe(false);
+    await key(row, { key: 'F10', shiftKey: true });
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
+  it('a gallery card opens its menu from the keyboard', async () => {
+    render(TypeView, props({ layout: 'gallery', noteActions: actions() }));
+    await waitFor(() => expect(screen.getByText('Analytical Engine')).toBeTruthy());
+    await key(screen.getByText('Analytical Engine').closest('button')!, { key: 'F10', shiftKey: true });
+    expect(screen.getByRole('menu')).toBeTruthy();
+  });
+
+  it('an embedded board\'s card opens the note actions from the keyboard (no Move to)', async () => {
+    render(TypeView, props({ layout: 'kanban', groupBy: 'status', noteActions: actions(), chromeless: true }));
+    await waitFor(() => expect(document.querySelector('.kb-card')).not.toBeNull());
+    await key(document.querySelector('.kb-card')!, { key: 'F10', shiftKey: true });
+    expect(screen.getByRole('menuitem', { name: /Add Tag/ })).toBeTruthy();
+    expect(screen.queryByRole('menuitem', { name: /^Move to/ })).toBeNull();
+  });
+});

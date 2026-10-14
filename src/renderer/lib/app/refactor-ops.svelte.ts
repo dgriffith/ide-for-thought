@@ -48,6 +48,7 @@ import { syncOpenTabsToDisk as syncOpenTabs } from '../stores/open-tab-sync';
 import type { AutoLinkSuggestion } from '../../../shared/refactor/auto-link';
 import type { AutoLinkInboundSuggestion } from '../../../shared/refactor/auto-link-inbound';
 import type { TypeViewNoteActions } from '../components/type-view/note-actions';
+import { announce } from '../stores/announcer.svelte';
 
 interface EditorRef {
   getSelectionRange: () => { from: number; to: number } | null | undefined;
@@ -336,7 +337,7 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
   }
 
   /** Add Tag on explicit notes — see `markdownTargets`. */
-  async function addTagToNotes(paths: readonly string[]) {
+  async function addTagToNotes(paths: readonly string[], opts: { quiet?: boolean } = {}) {
     if (!notebase.meta) return;
     const targets = markdownTargets(paths);
     if (targets.length === 0) {
@@ -382,7 +383,7 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
 
     ctx.getSidebar()?.refreshTags();
     await syncOpenTabsToDisk(changedPaths);
-    await reportBulkTagSummary('Add', tag, targets.length, changedPaths.length, failures);
+    await reportBulkTagSummary('Add', tag, targets.length, changedPaths.length, failures, opts.quiet);
   }
 
   /**
@@ -396,7 +397,7 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
   }
 
   /** Remove Tag on explicit notes — see `markdownTargets`. */
-  async function removeTagFromNotes(paths: readonly string[], opts: { tag?: string } = {}) {
+  async function removeTagFromNotes(paths: readonly string[], opts: { tag?: string; quiet?: boolean } = {}) {
     if (!notebase.meta) return;
     const targets = markdownTargets(paths);
     if (targets.length === 0) {
@@ -461,7 +462,7 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
 
     ctx.getSidebar()?.refreshTags();
     await syncOpenTabsToDisk(changedPaths);
-    await reportBulkTagSummary('Remove', tag, targets.length, changedPaths.length, failures);
+    await reportBulkTagSummary('Remove', tag, targets.length, changedPaths.length, failures, opts.quiet);
   }
 
   /**
@@ -562,7 +563,17 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
   /** Show a bulk-op result dialog: the primary summary line, plus a capped
    *  "Failed (N)" list when any note errored. Shared by the tag + property
    *  reporters (#1604). */
-  async function reportBulkSummary(primary: string, failures: OperationFailure[], confirmKey: string): Promise<void> {
+  /**
+   * The result of a bulk tag / property action. `quiet` (a view's menu, #2776):
+   * a success is announced in the live region rather than shown in a dialog,
+   * so a view stays out of the way and a screen reader still hears what
+   * changed; a failure still gets the dialog, so it can't go unseen.
+   */
+  async function reportBulkSummary(primary: string, failures: OperationFailure[], confirmKey: string, quiet = false): Promise<void> {
+    if (quiet && failures.length === 0) {
+      announce(primary.charAt(0).toUpperCase() + primary.slice(1));
+      return;
+    }
     let msg = primary;
     if (failures.length > 0) {
       msg += `\n\nFailed (${failures.length}):\n${formatCappedList(failures, (f) => `• ${f.path}: ${f.error}`)}`;
@@ -590,11 +601,12 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
     total: number,
     changed: number,
     failures: OperationFailure[],
+    quiet = false,
   ): Promise<void> {
     const verb = op === 'Add' ? 'tagged' : 'untagged';
     await reportBulkSummary(
       `${verb} ${changed} of ${total} note${total === 1 ? '' : 's'} with "${tag}".`,
-      failures, CONFIRM_KEYS.bulkTagComplete,
+      failures, CONFIRM_KEYS.bulkTagComplete, quiet,
     );
   }
 
@@ -609,7 +621,7 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
   }
 
   /** Add (or set) a property on explicit notes — see `markdownTargets`. */
-  async function addPropertyToNotes(paths: readonly string[]) {
+  async function addPropertyToNotes(paths: readonly string[], opts: { quiet?: boolean } = {}) {
     if (!notebase.meta) return;
     const targets = markdownTargets(paths);
     if (targets.length === 0) {
@@ -652,7 +664,7 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
     }
 
     await syncOpenTabsToDisk(changedPaths);
-    await reportBulkPropertySummary('Add', key, targets.length, changedPaths.length, failures);
+    await reportBulkPropertySummary('Add', key, targets.length, changedPaths.length, failures, opts.quiet);
   }
 
   /**
@@ -665,7 +677,7 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
   }
 
   /** Remove a property on explicit notes — see `markdownTargets`. */
-  async function removePropertyFromNotes(paths: readonly string[], opts: { key?: string } = {}) {
+  async function removePropertyFromNotes(paths: readonly string[], opts: { key?: string; quiet?: boolean } = {}) {
     if (!notebase.meta) return;
     const targets = markdownTargets(paths);
     if (targets.length === 0) {
@@ -718,7 +730,7 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
     }
 
     await syncOpenTabsToDisk(changedPaths);
-    await reportBulkPropertySummary('Remove', key, targets.length, changedPaths.length, failures);
+    await reportBulkPropertySummary('Remove', key, targets.length, changedPaths.length, failures, opts.quiet);
   }
 
   async function reportBulkPropertySummary(
@@ -727,11 +739,12 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
     total: number,
     changed: number,
     failures: OperationFailure[],
+    quiet = false,
   ): Promise<void> {
     const verb = op === 'Add' ? 'set' : 'removed';
     await reportBulkSummary(
       `${verb} "${key}" on ${changed} of ${total} note${total === 1 ? '' : 's'}.`,
-      failures, CONFIRM_KEYS.bulkPropertyComplete,
+      failures, CONFIRM_KEYS.bulkPropertyComplete, quiet,
     );
   }
 
@@ -894,9 +907,10 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
   /** What a type view's row menu runs for its selection (#2773). */
   const viewNoteActions: TypeViewNoteActions = {
     editProperties: (paths, only) => { void handleEditProperties(paths, only); },
-    addTag: (paths) => { void addTagToNotes(paths); },
-    removeTag: (paths, tag) => { void removeTagFromNotes(paths, tag !== undefined ? { tag } : {}); },
-    clearProperty: (paths, name) => { void removePropertyFromNotes(paths, { key: name }); },
+    // `quiet`: a success is announced, not a dialog (#2776).
+    addTag: (paths) => { void addTagToNotes(paths, { quiet: true }); },
+    removeTag: (paths, tag) => { void removeTagFromNotes(paths, { quiet: true, ...(tag !== undefined ? { tag } : {}) }); },
+    clearProperty: (paths, name) => { void removePropertyFromNotes(paths, { key: name, quiet: true }); },
   };
 
   return {

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { isMenuKey, openMenuAt } from './note-actions';
   /** The List layout (#1070): one row per note, its type's icon, title and summary. */
   import TypeIcon from '../TypeIcon.svelte';
   import type { LayoutView } from './layout-view';
@@ -10,7 +11,7 @@
   {#each view.instances as inst (inst.path)}
     {@const rt = view.rowType(inst)}
     {@const summary = view.summary(inst)}
-    <button class="tv-list-row" class:selected={view.isSelected(inst.path)} aria-pressed={view.selectable ? view.isSelected(inst.path) : undefined} onclick={(e) => view.onRowClick(e, inst.path)} oncontextmenu={(e) => view.onRowContextMenu(e, inst.path)} title={inst.path} data-note-path={inst.path}>
+    <button class="tv-list-row" class:selected={view.isSelected(inst.path)} aria-pressed={view.selectable ? view.isSelected(inst.path) : undefined} onclick={(e) => view.onRowClick(e, inst.path)} oncontextmenu={(e) => view.onRowContextMenu(e, inst.path)} title={inst.path} onkeydown={(e) => { if (view.rowMenu && isMenuKey(e)) { e.preventDefault(); openMenuAt(e.currentTarget); } }} data-note-path={inst.path}>
       {#if rt}<span class="tv-list-icon"><TypeIcon type={rt} size={14} /></span>{/if}
       <span class="tv-list-body">
         <span class="tv-list-title">{inst.title}</span>
