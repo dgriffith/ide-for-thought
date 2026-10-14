@@ -919,3 +919,38 @@ describe('note actions on explicit targets (#2772)', () => {
     }
   });
 });
+
+describe('note actions with the choice already made (#2773)', () => {
+  it('removeTagFromNotes with a tag removes it without prompting', async () => {
+    h.api.notebase.readFile.mockResolvedValue('---\ntags: [old, keep]\n---\n');
+    await ops.removeTagFromNotes(['a.md'], { tag: 'old' });
+    expect(h.dialog.showPrompt).not.toHaveBeenCalled();
+    expect(h.api.notebase.writeFile.mock.calls[0]![1]).not.toContain('old');
+  });
+
+  it('removePropertyFromNotes with a key clears it without prompting — typed notes too', async () => {
+    h.noteTypes['a.md'] = { id: 'task', label: 'Task', classLocalName: 'Task', source: 'user', properties: [{ name: 'done', type: 'boolean' }] };
+    try {
+      h.api.notebase.readFile.mockResolvedValue('---\ntype: task\ndone: true\n---\n');
+      await ops.removePropertyFromNotes(['a.md'], { key: 'done' });
+      expect(h.dialog.showPrompt).not.toHaveBeenCalled();
+      expect(h.dialog.showBulkPropertiesDialog).not.toHaveBeenCalled();
+      expect(h.api.notebase.writeFile.mock.calls[0]![1]).not.toContain('done:');
+    } finally {
+      delete h.noteTypes['a.md'];
+    }
+  });
+
+  it('handleEditProperties passes one property through to the panel', async () => {
+    h.noteTypes['a.md'] = { id: 'task', label: 'Task', classLocalName: 'Task', source: 'user', properties: [{ name: 'done', type: 'boolean' }] };
+    try {
+      h.api.notebase.readFile.mockResolvedValue('---\ntype: task\n---\n');
+      h.dialog.showBulkPropertiesDialog.mockResolvedValue(null);
+      await ops.handleEditProperties(['a.md'], 'done');
+      const model = h.dialog.showBulkPropertiesDialog.mock.calls[0]![0] as { fields: Array<{ name: string }> };
+      expect(model.fields.map((f) => f.name)).toEqual(['done']);
+    } finally {
+      delete h.noteTypes['a.md'];
+    }
+  });
+});

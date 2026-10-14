@@ -53,8 +53,13 @@ export function createBulkPropertyOps(deps: BulkPropertyOpsDeps) {
     return effectivePropertyDefs(type.id, byId);
   }
 
-  /** Open the bulk editor for `paths` and write what the user changed. */
-  async function editProperties(paths: string[]): Promise<void> {
+  /**
+   * Open the bulk editor for `paths` and write what the user changed. `only`
+   * shows just that one property (a view's Set Property ▸, #2773) — the same
+   * widget, nothing else on the panel. A property the panel can't offer for
+   * this selection (types with no shared schema) falls back to the full panel.
+   */
+  async function editProperties(paths: string[], opts: { only?: string } = {}): Promise<void> {
     const targets = [...new Set(paths)].filter((p) => p.endsWith('.md'));
     if (targets.length === 0) {
       await dialogs.showConfirm('The selection contains no .md files to edit.', CONFIRM_KEYS.bulkTagNoSelection, 'OK');
@@ -80,7 +85,9 @@ export function createBulkPropertyOps(deps: BulkPropertyOpsDeps) {
     try { tagVocab = (await api.tags.list()).map((t) => t.tag); }
     catch { /* autocomplete is a nicety */ }
 
-    const model = buildBulkFieldModel(notes, defsFor);
+    const full = buildBulkFieldModel(notes, defsFor);
+    const one = opts.only !== undefined ? full.fields.filter((f) => f.name === opts.only) : [];
+    const model = one.length > 0 ? { ...full, fields: one, otherKeys: [] } : full;
     const edits = await dialogs.showBulkPropertiesDialog(model, tagVocab);
     if (!edits || edits.length === 0) return;
 

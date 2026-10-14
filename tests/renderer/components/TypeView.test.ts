@@ -7,7 +7,7 @@
  * never re-queries.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, fireEvent, cleanup, waitFor, screen } from '@testing-library/svelte';
+import { render, within, fireEvent, cleanup, waitFor, screen } from '@testing-library/svelte';
 
 const { instancesMock, listMock, noteTypeMapMock, exportCsvMock } = vi.hoisted(() => ({
   instancesMock: vi.fn(), exportCsvMock: vi.fn(),
@@ -28,6 +28,11 @@ import TypeView from '../../../src/renderer/lib/components/TypeView.svelte';
 import { objectTypesStore } from '../../../src/renderer/lib/stores/object-types.svelte';
 import { buildViewEmbed, buildViewNoteContent } from '../../../src/shared/objects/view-note';
 import { parseObjectViewSpec } from '../../../src/renderer/lib/markdown/object-view-renderer';
+
+/** The host's note actions (#2773), with `editProperties` the spy a test watches. */
+function actions(editProperties: ReturnType<typeof vi.fn> = vi.fn()) {
+  return { editProperties, addTag: vi.fn(), removeTag: vi.fn(), clearProperty: vi.fn() };
+}
 
 const TYPE = {
   id: 'book',
@@ -466,7 +471,7 @@ describe('multi-select + Edit properties (#2431)', () => {
   it('⌘-click toggles rows without opening; the header button edits exactly the selection', async () => {
     const onOpenNote = vi.fn();
     const onEditProperties = vi.fn();
-    render(TypeView, props({ layout: 'table', onOpenNote, onEditProperties }));
+    render(TypeView, props({ layout: 'table', onOpenNote, noteActions: actions(onEditProperties) }));
     await waitFor(() => expect(screen.getByText('Dune')).toBeTruthy());
     await fireEvent.click(row('Dune'), { metaKey: true });
     await fireEvent.click(row('Snow Crash'), { ctrlKey: true });
@@ -479,7 +484,7 @@ describe('multi-select + Edit properties (#2431)', () => {
 
   it('⇧-click selects the on-screen range from the anchor', async () => {
     const onEditProperties = vi.fn();
-    render(TypeView, props({ layout: 'table', onEditProperties }));
+    render(TypeView, props({ layout: 'table', noteActions: actions(onEditProperties) }));
     await waitFor(() => expect(screen.getByText('Dune')).toBeTruthy());
     await fireEvent.click(row('Dune'), { metaKey: true });
     await fireEvent.click(row('Snow Crash'), { shiftKey: true });
@@ -489,7 +494,7 @@ describe('multi-select + Edit properties (#2431)', () => {
 
   it('a plain click still opens the note; ⌘A selects all; Escape clears', async () => {
     const onOpenNote = vi.fn();
-    render(TypeView, props({ layout: 'list', onOpenNote, onEditProperties: vi.fn() }));
+    render(TypeView, props({ layout: 'list', onOpenNote, noteActions: actions() }));
     await waitFor(() => expect(screen.getByText('Dune')).toBeTruthy());
     await fireEvent.click(screen.getByText('Dune'));
     expect(onOpenNote).toHaveBeenCalledWith('Dune.md');
@@ -502,7 +507,7 @@ describe('multi-select + Edit properties (#2431)', () => {
 
   it('right-click offers Edit Properties for the row (gallery)', async () => {
     const onEditProperties = vi.fn();
-    render(TypeView, props({ layout: 'gallery', onEditProperties }));
+    render(TypeView, props({ layout: 'gallery', noteActions: actions(onEditProperties) }));
     await waitFor(() => expect(screen.getByText('Neuromancer')).toBeTruthy());
     await fireEvent.contextMenu(screen.getByText('Neuromancer'));
     await fireEvent.click(screen.getByRole('menuitem', { name: /Edit Properties/ }));
@@ -861,5 +866,77 @@ describe('TypeView — datetime values', () => {
     expect(exportCsvMock).toHaveBeenCalledWith(
       'Title,Date\nNext year,12026\nTalk,2026-10-05T14:30:00\nStandup,2026-10-05T09:00:00\nIdes,-0043-03-15\nSomeday,',
     );
+  });
+});
+
+describe('row menu: tags and properties (#2773)', () => {
+  const TAGGED = [
+    { path: 'Dune.md', title: 'Dune', values: { author: 'Frank Herbert', rating: '5' }, cover: null, tags: ['scifi', 'classic'] },
+    { path: 'Neuro.md', title: 'Neuromancer', values: { author: 'William Gibson', rating: null }, cover: null, tags: ['SciFi'] },
+  ];
+  beforeEach(() => { instancesMock.mockResolvedValue({ type: TYPE, instances: TAGGED }); });
+  const row = (title: string) => screen.getByText(title).closest('tr')!;
+  async function openMenuOnBoth(acts: ReturnType<typeof actions>) {
+    render(TypeView, props({ layout: 'table', noteActions: acts }));
+    await waitFor(() => expect(screen.getByText('Dune')).toBeTruthy());
+    await fireEvent.click(row('Dune'), { metaKey: true });
+    await fireEvent.click(row('Neuromancer'), { metaKey: true });
+    await fireEvent.contextMenu(row('Neuromancer'));
+  }
+  const subItems = (name: string) =>
+    within(screen.getByRole('menu', { name })).getAllByRole('menuitem').map((b) => b.textContent.replace(/\s+/g, ' ').trim());
+
+  it('Add Tag… hands the whole selection to the host', async () => {
+    const acts = actions();
+    await openMenuOnBoth(acts);
+    await fireEvent.click(screen.getByRole('menuitem', { name: /Add Tag…/ }));
+    expect(acts.addTag).toHaveBeenCalledWith(['Dune.md', 'Neuro.md']);
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
+  it('Remove Tag ▸ lists the selection\'s tags, folded by case, with counts, and removes the one picked', async () => {
+    const acts = actions();
+    await openMenuOnBoth(acts);
+    await fireEvent.click(screen.getByRole('menuitem', { name: /Remove Tag/ }));
+    expect(subItems('Remove Tag')).toEqual(['#classic1', '#scifi2']);
+    await fireEvent.click(within(screen.getByRole('menu', { name: 'Remove Tag' })).getByRole('menuitem', { name: /#scifi/ }));
+    expect(acts.removeTag).toHaveBeenCalledWith(['Dune.md', 'Neuro.md'], 'scifi');
+  });
+
+  it('Set Property ▸ lists the type\'s properties and opens the panel on the one picked', async () => {
+    const acts = actions();
+    await openMenuOnBoth(acts);
+    await fireEvent.click(screen.getByRole('menuitem', { name: /Set Property/ }));
+    expect(subItems('Set Property')).toEqual(['Author', 'Rating']);
+    await fireEvent.click(within(screen.getByRole('menu', { name: 'Set Property' })).getByRole('menuitem', { name: 'Rating' }));
+    expect(acts.editProperties).toHaveBeenCalledWith(['Dune.md', 'Neuro.md'], 'rating');
+  });
+
+  it('Clear Property ▸ lists only what the selection has set, with counts', async () => {
+    const acts = actions();
+    await openMenuOnBoth(acts);
+    await fireEvent.click(screen.getByRole('menuitem', { name: /Clear Property/ }));
+    expect(subItems('Clear Property')).toEqual(['Author2', 'Rating1']);
+    await fireEvent.click(within(screen.getByRole('menu', { name: 'Clear Property' })).getByRole('menuitem', { name: /Author/ }));
+    expect(acts.clearProperty).toHaveBeenCalledWith(['Dune.md', 'Neuro.md'], 'author');
+  });
+
+  it('opens a submenu with → and closes it with ←, focus following', async () => {
+    await openMenuOnBoth(actions());
+    const trigger = screen.getByRole('menuitem', { name: /Remove Tag/ });
+    trigger.focus();
+    await fireEvent.keyDown(trigger, { key: 'ArrowRight' });
+    await waitFor(() => expect(document.activeElement?.textContent).toContain('#classic'));
+    await fireEvent.keyDown(document.activeElement!, { key: 'ArrowLeft' });
+    expect(screen.queryByRole('menu', { name: 'Remove Tag' })).toBeNull();
+    expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: /Remove Tag/ }));
+  });
+
+  it('Remove Tag is disabled when nothing selected has a tag', async () => {
+    instancesMock.mockResolvedValue({ type: TYPE, instances: INSTANCES });
+    render(TypeView, props({ layout: 'table', noteActions: actions() }));
+    await waitFor(() => expect(screen.getByText('Dune')).toBeTruthy());
+    await fireEvent.contextMenu(screen.getByText('Dune').closest('tr')!);
+    expect(screen.getByRole<HTMLButtonElement>('menuitem', { name: /Remove Tag/ }).disabled).toBe(true);
   });
 });
