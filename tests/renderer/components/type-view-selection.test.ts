@@ -91,3 +91,27 @@ describe('the panel keeps its multi-select', () => {
     expect(sel.selectedPaths).toEqual(['a.md', 'b.md']);
   });
 });
+
+describe('a menu for a note named inside a row (#2775)', () => {
+  it('targets that note and leaves the row selection exactly as it was', () => {
+    const { sel, onEdit } = make('panel');
+    sel.click(mouse({ metaKey: true }), 'a.md');
+    const e = mouse();
+    sel.contextMenuFor(e, 'people/Ada.md');
+    expect(e.defaultPrevented).toBe(true);
+    expect(sel.menu).toEqual({ x: 10, y: 20, target: 'people/Ada.md' });
+    expect(sel.selectedPaths).toEqual(['a.md']);
+    sel.editSelected();
+    expect(onEdit).toHaveBeenCalledWith(['people/Ada.md']);
+    expect(sel.selectedPaths).toEqual(['a.md']);
+  });
+
+  it('works in an embed too, and does nothing in an export', () => {
+    const embed = make('menuOnly');
+    embed.sel.contextMenuFor(mouse(), 'people/Ada.md');
+    expect(embed.sel.menu?.target).toBe('people/Ada.md');
+    const off = make('off');
+    off.sel.contextMenuFor(mouse(), 'people/Ada.md');
+    expect(off.sel.menu).toBeNull();
+  });
+});

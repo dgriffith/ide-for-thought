@@ -11,7 +11,8 @@ export interface TypeViewNoteActions {
   /** The bulk property panel; `only` narrows it to one property (Set Property ▸). */
   editProperties: (paths: string[], only?: string) => void;
   addTag: (paths: string[]) => void;
-  removeTag: (paths: string[], tag: string) => void;
+  /** No `tag` → prompt with the notes' own tags (a referenced note, #2775). */
+  removeTag: (paths: string[], tag?: string) => void;
   clearProperty: (paths: string[], name: string) => void;
 }
 

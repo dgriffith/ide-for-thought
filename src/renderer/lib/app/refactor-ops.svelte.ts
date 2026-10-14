@@ -895,7 +895,7 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
   const viewNoteActions: TypeViewNoteActions = {
     editProperties: (paths, only) => { void handleEditProperties(paths, only); },
     addTag: (paths) => { void addTagToNotes(paths); },
-    removeTag: (paths, tag) => { void removeTagFromNotes(paths, { tag }); },
+    removeTag: (paths, tag) => { void removeTagFromNotes(paths, tag !== undefined ? { tag } : {}); },
     clearProperty: (paths, name) => { void removePropertyFromNotes(paths, { key: name }); },
   };
 
