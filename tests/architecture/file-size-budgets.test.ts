@@ -94,7 +94,7 @@ const BUDGETS: Record<string, number> = {
   // documentation fix — Keyboard Shortcuts derives from this template.
   'src/main/menu.ts': 816, // +5: File → New Audio Recording (#2428); −174: menu commands moved onto the command registry (#2625)
   'src/renderer/lib/components/sidebar/NotesPanel.svelte': 635, // the Notes tree, extracted from Sidebar.svelte (982 → 360) when the left sidebar became a panel registry (#2626)
-  'src/renderer/lib/app/refactor-ops.svelte.ts': 865, // -17: syncOpenTabsToDisk moved to stores/open-tab-sync.ts, shared with the Kanban move (#2603); +21: Add/Remove Property route a typed selection to the bulk editor, whose body lives in bulk-property-ops.ts (#2431); +4: Label Version / history accept the thoughtbase root; +1: the auto-link body strip uses the shared stripFrontmatter (#2690)
+  'src/renderer/lib/app/refactor-ops.svelte.ts': 898, // +33: the tag and property actions split into explicit-target functions the sidebar and views share (#2772) — a seam to extract into its own module once views call them (#2773); -17: syncOpenTabsToDisk moved to stores/open-tab-sync.ts, shared with the Kanban move (#2603); +21: Add/Remove Property route a typed selection to the bulk editor, whose body lives in bulk-property-ops.ts (#2431); +4: Label Version / history accept the thoughtbase root; +1: the auto-link body strip uses the shared stripFrontmatter (#2690)
   // Raised again in #2208: the staleness check became two queries (sort a
   // two-variable projection, then fetch details for the survivors) plus the
   // GROUP BY/MIN that stops a note with two dc:modified values being reported

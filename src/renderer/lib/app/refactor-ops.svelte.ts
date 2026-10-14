@@ -312,6 +312,18 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
   }
 
   /**
+   * The tag and property actions take an explicit list of notes (#2772):
+   * `addTagToNotes`, `removeTagFromNotes`, `addPropertyToNotes`,
+   * `removePropertyFromNotes`. A view's menu calls them for its own rows; each
+   * sidebar `handle*` below resolves the sidebar's selection and calls the same
+   * function, so both run the same prompts, writes and failure reporting. This
+   * narrows a caller's paths to the markdown notes those writes edit, once each.
+   */
+  function markdownTargets(paths: readonly string[]): string[] {
+    return [...new Set(paths)].filter((p) => p.endsWith('.md'));
+  }
+
+  /**
    * Bulk Add Tag. Prompts for a tag name (autocompleted from the
    * thoughtbase vocabulary) and appends it to every .md in the
    * selection. Per-note: noop if the tag is already present
@@ -319,9 +331,14 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
    * collected into a summary instead of aborting.
    */
   async function handleAddTag(targetPath?: string, targetIsDir?: boolean, opts?: { targetOnly?: boolean }) {
+    await addTagToNotes(bulkTagTargets(targetPath, targetIsDir, opts?.targetOnly) ?? []);
+  }
+
+  /** Add Tag on explicit notes — see `markdownTargets`. */
+  async function addTagToNotes(paths: readonly string[]) {
     if (!notebase.meta) return;
-    const targets = bulkTagTargets(targetPath, targetIsDir, opts?.targetOnly);
-    if (targets === null || targets.length === 0) {
+    const targets = markdownTargets(paths);
+    if (targets.length === 0) {
       await showConfirm(
         'The selection contains no .md files to tag.',
         CONFIRM_KEYS.bulkTagNoSelection,
@@ -374,9 +391,14 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
    * case-insensitive.
    */
   async function handleRemoveTag(targetPath?: string, targetIsDir?: boolean, opts?: { targetOnly?: boolean }) {
+    await removeTagFromNotes(bulkTagTargets(targetPath, targetIsDir, opts?.targetOnly) ?? []);
+  }
+
+  /** Remove Tag on explicit notes — see `markdownTargets`. */
+  async function removeTagFromNotes(paths: readonly string[]) {
     if (!notebase.meta) return;
-    const targets = bulkTagTargets(targetPath, targetIsDir, opts?.targetOnly);
-    if (targets === null || targets.length === 0) {
+    const targets = markdownTargets(paths);
+    if (targets.length === 0) {
       await showConfirm(
         'The selection contains no .md files to tag.',
         CONFIRM_KEYS.bulkTagNoSelection,
@@ -580,9 +602,14 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
    * `key: value` into each note. `tags` is routed to Add Tag instead.
    */
   async function handleAddProperty(targetPath?: string, targetIsDir?: boolean, opts?: { targetOnly?: boolean }) {
+    await addPropertyToNotes(bulkTagTargets(targetPath, targetIsDir, opts?.targetOnly) ?? []);
+  }
+
+  /** Add (or set) a property on explicit notes — see `markdownTargets`. */
+  async function addPropertyToNotes(paths: readonly string[]) {
     if (!notebase.meta) return;
-    const targets = bulkTagTargets(targetPath, targetIsDir, opts?.targetOnly);
-    if (targets === null || targets.length === 0) {
+    const targets = markdownTargets(paths);
+    if (targets.length === 0) {
       await showConfirm('The selection contains no .md files to edit.', CONFIRM_KEYS.bulkTagNoSelection, 'OK');
       return;
     }
@@ -631,9 +658,14 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
    * something removable.
    */
   async function handleRemoveProperty(targetPath?: string, targetIsDir?: boolean, opts?: { targetOnly?: boolean }) {
+    await removePropertyFromNotes(bulkTagTargets(targetPath, targetIsDir, opts?.targetOnly) ?? []);
+  }
+
+  /** Remove a property on explicit notes — see `markdownTargets`. */
+  async function removePropertyFromNotes(paths: readonly string[]) {
     if (!notebase.meta) return;
-    const targets = bulkTagTargets(targetPath, targetIsDir, opts?.targetOnly);
-    if (targets === null || targets.length === 0) {
+    const targets = markdownTargets(paths);
+    if (targets.length === 0) {
       await showConfirm('The selection contains no .md files to edit.', CONFIRM_KEYS.bulkTagNoSelection, 'OK');
       return;
     }
@@ -859,6 +891,7 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
     handleExtractSelection, handleSplitByHeading, handleSplitHere,
     handleAutoLink, handleAutoLinkInbound, handleAutoLinkInboundApply, handleAutoLinkApply,
     handleAddTag, handleRemoveTag, handleAddProperty, handleRemoveProperty, handleEditProperties, handleToggleEntrypoint,
+    addTagToNotes, removeTagFromNotes, addPropertyToNotes, removePropertyFromNotes,
     handleLabelVersion, handleViewHistory,
     handleFormat, handleBibliography, handleAutoTag, handleAutoTagApply,
   };
