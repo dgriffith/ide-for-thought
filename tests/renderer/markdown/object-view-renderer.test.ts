@@ -171,6 +171,53 @@ describe('hydrateObjectViewBlocks (#2067)', () => {
     expect(block.querySelector('.tv-header')).toBeNull();
   });
 
+  describe('note actions in an embed (#2774)', () => {
+    const actions = () => ({ editProperties: vi.fn(), addTag: vi.fn(), removeTag: vi.fn(), clearProperty: vi.fn() });
+    const TWO = [
+      { path: 'Dune.md', title: 'Dune', values: { author: 'Frank Herbert' }, cover: null, tags: ['scifi'] },
+      { path: 'Snow.md', title: 'Snow Crash', values: { author: null }, cover: null, tags: [] },
+    ];
+
+    it('right-clicking a row opens the menu for that note, and acts on it alone', async () => {
+      instancesMock.mockResolvedValue({ type: TYPE, instances: TWO });
+      const noteActions = actions();
+      const onOpenNote = vi.fn();
+      const root = previewWith('{"typeId":"book","layout":"table"}');
+      hydrateObjectViewBlocks(root, deps({ onOpenNote, noteActions }));
+      const block = root.querySelector('.object-view-block')!;
+      await waitFor(() => expect(block.textContent).toContain('Dune'));
+      const row = [...block.querySelectorAll('tr')].find((r) => r.textContent.includes('Dune'))!;
+      row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 5, clientY: 5 }));
+      await waitFor(() => expect(document.querySelector('.tv-menu')).not.toBeNull());
+      const item = (label: RegExp) => [...document.querySelectorAll<HTMLButtonElement>('.tv-menu [role="menuitem"]')].find((b) => label.test(b.textContent))!;
+      expect(item(/Move to/)).toBeUndefined();
+      item(/Add Tag/).click();
+      expect(noteActions.addTag).toHaveBeenCalledWith(['Dune.md']);
+      await waitFor(() => expect(document.querySelector('.tv-menu')).toBeNull());
+      // A click still opens the note, and selects nothing.
+      row.click();
+      expect(onOpenNote).toHaveBeenCalledWith('Dune.md');
+      expect(row.classList.contains('selected')).toBe(false);
+    });
+
+    it('an embedded board offers the note actions but no Move to (#2604)', async () => {
+      const PROJECT = {
+        id: 'project', label: 'Project', classLocalName: 'Project', icon: '🚀', source: 'stock' as const,
+        properties: [{ name: 'status', type: 'enum' as const, options: ['active', 'done'] }],
+      };
+      instancesMock.mockResolvedValue({ type: PROJECT, instances: [{ path: 'p/Shed.md', title: 'Garden Shed', values: { status: 'active' }, cover: null }] });
+      const root = previewWith('{"typeId":"project","layout":"kanban","groupBy":"status"}');
+      hydrateObjectViewBlocks(root, deps({ noteActions: actions() }));
+      const block = root.querySelector('.object-view-block')!;
+      await waitFor(() => expect(block.querySelector('.kb-card')).not.toBeNull());
+      block.querySelector('.kb-card')!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+      await waitFor(() => expect(document.querySelector('.tv-menu')).not.toBeNull());
+      const labels = [...document.querySelectorAll('.tv-menu > [role="menuitem"]')].map((b) => b.textContent.trim());
+      expect(labels.some((l) => l.startsWith('Move to'))).toBe(false);
+      expect(labels.some((l) => l.startsWith('Add Tag'))).toBe(true);
+    });
+  });
+
   it('a kanban embed is a read-only board: no drag, no Move to, no column menu, no pickers (#2604)', async () => {
     const PROJECT = {
       id: 'project', label: 'Project', classLocalName: 'Project', icon: '🚀', source: 'stock' as const,

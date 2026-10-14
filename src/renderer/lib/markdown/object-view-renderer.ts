@@ -91,6 +91,7 @@ import { parseViewHeight } from '../../../shared/objects/view-height';
 import { parseViewWidth } from '../../../shared/objects/view-width';
 import { blockCacheFor, blockKey, createContentWrapper, HYDRATED_CONTENT_CLASS } from './hydrated-block-cache';
 import { reactiveProps } from './mounted-props.svelte';
+import type { TypeViewNoteActions } from '../components/type-view/note-actions';
 
 /** Cache slot for mounted object-view wrappers — see `hydrated-block-cache.ts`. */
 const SLOT = 'object-view';
@@ -173,6 +174,9 @@ export interface ObjectViewDeps {
    *  `TypeView` so it re-projects while already mounted (#1070). */
   revision: number;
   onOpenNote: (relativePath: string) => void;
+  /** The note actions (#2774): right-click a row or card for the menu. Absent
+   *  (an export) → the embed is for looking at only. */
+  noteActions?: TypeViewNoteActions | undefined;
 }
 
 /** The props a mounted `TypeView` embed is driven through, kept reactive. */
@@ -196,6 +200,7 @@ type ViewProps = {
   chromeless: boolean;
   onStateChange: () => void;
   onOpenNote: (relativePath: string) => void;
+  noteActions?: TypeViewNoteActions | undefined;
 };
 
 /** Per-wrapper handle for a live mount, so a re-adopted one can be refreshed. */
@@ -290,6 +295,7 @@ export function hydrateObjectViewBlocks(root: HTMLElement, deps: ObjectViewDeps)
       // rewriting the note's fence text.
       onStateChange: () => {},
       onOpenNote: deps.onOpenNote,
+      ...(deps.noteActions ? { noteActions: deps.noteActions } : {}),
     });
     const instance = mount(TypeView, { target: wrapper, props });
     mountedProps.set(wrapper, props);

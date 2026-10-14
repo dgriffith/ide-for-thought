@@ -271,9 +271,13 @@
 
   // Multi-select (#2431): ⌘/⇧-click, ⌘A, Escape, right-click — the sidebar's semantics.
   const selectable = $derived(!!noteActions && !chromeless);
+  // An embed with note actions (#2774): the menu for one note, no multi-select —
+  // and no Move to ▸, since an embedded board stays read-only (#2604).
+  const menuOnly = $derived(!!noteActions && chromeless && !exportMode);
   const sel = createTypeViewSelection({
     order: () => layoutOrder(shown, view).map((i) => i.path),
     enabled: () => selectable,
+    menuOnly: () => menuOnly,
     onOpen: (p) => onOpenNote(p),
     onEdit: (paths) => noteActions?.editProperties(paths),
   });
@@ -422,7 +426,7 @@
     <TypeViewRowMenu
       x={sel.menu.x} y={sel.menu.y} count={sel.selectedPaths.length} onEdit={sel.editSelected} onClose={sel.closeMenu}
       {...(noteActions ? noteMenu(noteActions, sel.selectedPaths) : {})}
-      {...(renderer.rowMenuMove && groupProp ? { moveTargets: moveTargets(groupProp, board), moveFrom: sharedColumnValue(board, sel.selectedPaths), onMove: (t: MoveTarget) => moveTo(sel.selectedPaths, t) } : {})}
+      {...(renderer.rowMenuMove && groupProp && selectable ? { moveTargets: moveTargets(groupProp, board), moveFrom: sharedColumnValue(board, sel.selectedPaths), onMove: (t: MoveTarget) => moveTo(sel.selectedPaths, t) } : {})}
     />
   {/if}
 </div>

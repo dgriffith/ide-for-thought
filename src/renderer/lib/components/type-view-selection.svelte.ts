@@ -13,6 +13,11 @@ export interface TypeViewSelectionOptions {
   order: () => string[];
   /** False for an embed / export: clicks just open the note. */
   enabled: () => boolean;
+  /**
+   * An embed with note actions (#2774): no multi-select, but right-click opens
+   * the menu for the one note under the pointer. Closing the menu lets go of it.
+   */
+  menuOnly?: () => boolean;
   onOpen: (path: string) => void;
   onEdit: (paths: string[]) => void;
 }
@@ -31,19 +36,32 @@ export function createTypeViewSelection(opts: TypeViewSelectionOptions) {
     opts.onOpen(path);
   }
 
+  const menuOnly = () => !opts.enabled() && (opts.menuOnly?.() ?? false);
+
   function contextMenu(e: MouseEvent, path: string): void {
-    if (!opts.enabled()) return;
+    if (!opts.enabled() && !menuOnly()) return;
     e.preventDefault();
-    if (!selection.has(path)) selection.setSingle(path);
+    // A menu-only embed acts on exactly the note right-clicked.
+    if (menuOnly() || !selection.has(path)) selection.setSingle(path);
     menu = { x: e.clientX, y: e.clientY };
   }
 
-  function editSelected(): void {
+  function closeMenu(): void {
     menu = null;
-    if (selectedPaths.length > 0) opts.onEdit(selectedPaths);
+    if (menuOnly()) selection.clear();
+  }
+
+  function editSelected(): void {
+    const paths = selectedPaths;
+    closeMenu();
+    if (paths.length > 0) opts.onEdit(paths);
   }
 
   function keydown(e: KeyboardEvent): void {
+    if (menuOnly()) {
+      if (e.key === 'Escape' && menu) closeMenu();
+      return;
+    }
     if (!opts.enabled()) return;
     const t = e.target as HTMLElement | null;
     if (t && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
@@ -64,6 +82,6 @@ export function createTypeViewSelection(opts: TypeViewSelectionOptions) {
     contextMenu,
     keydown,
     editSelected,
-    closeMenu: () => { menu = null; },
+    closeMenu,
   };
 }

@@ -90,8 +90,13 @@ test('a Kanban board exports as the preview shows it: wrapped, read-only, linked
       await expect(win.locator('.preview .kb-card')).toHaveCount(5, { timeout: 15_000 });
       const embed = win.locator('.preview .object-view-block');
       await expect(embed.locator('.kb-col-menu-btn, [data-draggable], .tv-header, [aria-pressed]')).toHaveCount(0);
+      // Right-click offers the note actions for that card (#2774), but never
+      // Move to: an embedded board stays read-only (#2604).
       await embed.locator('.kb-card').first().click({ button: 'right' });
-      await expect(win.locator('.tv-menu')).toHaveCount(0); // no Move to
+      await expect(win.getByRole('menuitem', { name: /^Add Tag/ })).toBeVisible();
+      await expect(win.getByRole('menuitem', { name: /^Move to/ })).toHaveCount(0);
+      await win.keyboard.press('Escape');
+      await expect(win.locator('.tv-menu')).toHaveCount(0);
       await win.locator('.preview').screenshot({ path: 'test-results/export-kanban-preview.png' });
       return readBoard(win, '.preview .object-view-block');
     });
