@@ -74,6 +74,9 @@
     selectable: boolean;
     onCardClick: (e: MouseEvent, path: string) => void;
     onCardContextMenu: (e: MouseEvent, path: string) => void;
+    /** A note a card's link field names, and its own menu (#2775). Absent → plain text. */
+    refPath?: ((prop: PropertyDef, value: string | null) => string | null) | undefined;
+    onRefContextMenu?: ((e: MouseEvent, path: string, label: string) => void) | undefined;
     /** Move a card to a column (#2603); absent → cards don't move (an embed). */
     onMove?: ((path: string, target: MoveTarget) => void) | undefined;
     onUndoMove?: (() => void) | undefined;
@@ -83,11 +86,16 @@
     /** Draw for an export snapshot (#2604): wrapped columns, nothing to focus. */
     exportMode?: boolean;
   }
-  let { type, properties, group, columns, visible, display, rowType, isSelected, selectable, onCardClick, onCardContextMenu, onMove, onUndoMove, onMoveColumn, exportMode = false }: Props = $props();
+  let { type, properties, group, columns, visible, display, rowType, isSelected, selectable, onCardClick, onCardContextMenu, refPath, onRefContextMenu, onMove, onUndoMove, onMoveColumn, exportMode = false }: Props = $props();
 
   const byName = $derived(new Map(properties.map((p) => [p.name, p] as const)));
   function fieldsFor(inst: TypeInstanceRow) {
     return selectInstanceCardFields(type, properties, inst, { visible, omit: group ? [group.name] : [] });
+  }
+  /** The note a link field names, when the host maps it (#2775). */
+  function fieldRef(name: string, value: string | null | undefined): string | null {
+    const prop = byName.get(name);
+    return prop && refPath ? refPath(prop, value ?? null) : null;
   }
   function fieldText(name: string, value: string): string {
     const prop = byName.get(name);
@@ -245,7 +253,7 @@
                 {#if fields.length > 0}
                   <span class="kb-fields">
                     {#each fields as f (f.name)}
-                      <span class="kb-field"><span class="kb-flabel">{f.label}</span> <span class="kb-fval">{fieldText(f.name, f.value ?? '')}</span></span>
+                      <span class="kb-field"><span class="kb-flabel">{f.label}</span> {#if fieldRef(f.name, f.value) && onRefContextMenu}<!-- svelte-ignore a11y_no_static_element_interactions -- keyboard access is #2776 --><span class="kb-fval tv-ref" data-ref-path={fieldRef(f.name, f.value)} oncontextmenu={(e) => onRefContextMenu(e, fieldRef(f.name, f.value)!, fieldText(f.name, f.value ?? ''))}>{fieldText(f.name, f.value ?? '')}</span>{:else}<span class="kb-fval">{fieldText(f.name, f.value ?? '')}</span>{/if}</span>
                     {/each}
                   </span>
                 {/if}
@@ -359,6 +367,7 @@
   .kb-card.selected { background: color-mix(in oklch, var(--accent) 16%, var(--bg-button)); border-color: var(--accent); }
   .kb-card-title { display: flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 500; min-width: 0; overflow-wrap: anywhere; }
   .kb-fields { display: flex; flex-direction: column; gap: 2px; }
+  .tv-ref { text-decoration: underline dotted color-mix(in oklch, var(--text) 35%, transparent); text-underline-offset: 2px; }
   .kb-field { font-size: 11px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .kb-flabel { font-weight: 600; }
 

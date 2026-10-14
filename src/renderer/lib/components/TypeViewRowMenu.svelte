@@ -9,6 +9,10 @@
    *   (#2773) — when the host supplies them;
    * - **Edit Properties…**, the whole bulk panel.
    *
+   * For a note named inside a row (#2775) the host passes a `heading` (that
+   * note's name, shown first) and the prompt-based Add Tag… / Remove Tag…
+   * / Edit Properties…, since the view doesn't hold that note's tags or fields.
+   *
    * Keyboard: the menu takes focus when it opens (so Shift+F10 on a card lands
    * in it), ↑/↓ move between items, → or Enter opens a submenu, ← closes it,
    * and Escape closes the menu. Focus goes back to whatever had it before.
@@ -30,6 +34,10 @@
     onMove?: ((target: MoveTarget) => void) | undefined;
     /** Note actions (#2773). Absent → the items aren't offered. */
     onAddTag?: (() => void) | undefined;
+    /** A note named inside a row (#2775): the note the menu acts on, shown first. */
+    heading?: string | undefined;
+    /** Remove Tag… with a prompt — for a note whose tags the view doesn't hold. */
+    onRemoveTagPrompt?: (() => void) | undefined;
     removeTags?: MenuChoice[] | undefined;
     onRemoveTag?: ((tag: string) => void) | undefined;
     setProperties?: MenuChoice[] | undefined;
@@ -39,7 +47,7 @@
   }
   let {
     x, y, count, onEdit, onClose, moveTargets, moveFrom, onMove,
-    onAddTag, removeTags = [], onRemoveTag, setProperties = [], onSetProperty, clearProperties = [], onClearProperty,
+    onAddTag, heading, onRemoveTagPrompt, removeTags = [], onRemoveTag, setProperties = [], onSetProperty, clearProperties = [], onClearProperty,
   }: Props = $props();
 
   type Sub = 'move' | 'removeTag' | 'setProperty' | 'clearProperty';
@@ -131,8 +139,14 @@
     {/if}
     <div class="tv-menu-sep" role="separator"></div>
   {/if}
+  {#if heading}
+    <div class="tv-menu-heading">{heading}</div>
+  {/if}
   {#if onAddTag}
     <button role="menuitem" onclick={onAddTag}>Add Tag…{notes}</button>
+  {/if}
+  {#if onRemoveTagPrompt}
+    <button role="menuitem" onclick={onRemoveTagPrompt}>Remove Tag…</button>
   {/if}
   {#if onRemoveTag}
     {@render subTrigger('removeTag', 'Remove Tag', removeTags.length === 0)}
@@ -184,5 +198,6 @@
   .tv-menu-arrow { margin-left: auto; padding-left: 12px; color: var(--text-muted); }
   .tv-menu-novalue { font-style: italic; }
   .tv-menu-count { margin-left: auto; padding-left: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .tv-menu-heading { padding: 4px 8px 6px; font-size: 11.5px; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--border); margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 260px; }
   .tv-menu-sep { height: 1px; margin: 4px 2px; background: var(--border); }
 </style>

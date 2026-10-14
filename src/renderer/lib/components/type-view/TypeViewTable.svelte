@@ -38,7 +38,10 @@
             </span>
           </td>
           {#each view.visibleColumns as col (col.name)}
-            <td>{view.display(col, inst.values[col.name] ?? null)}</td>
+            {@const value = inst.values[col.name] ?? null}
+            {@const ref = view.refPath(col, value)}
+            <!-- svelte-ignore a11y_no_static_element_interactions -- keyboard access is #2776 -->
+            <td>{#if ref}<span class="tv-ref" data-ref-path={ref} oncontextmenu={(e) => view.onRefContextMenu(e, ref, view.display(col, value))}>{view.display(col, value)}</span>{:else}{view.display(col, value)}{/if}</td>
           {/each}
         </tr>
       {/each}
@@ -73,4 +76,6 @@
   .tv-cell-title-inner { display: flex; align-items: center; gap: 7px; }
   /* Multi-selection (#2431): an accent wash, same as the sidebar's. */
   .tv-table tbody tr.selected { background: color-mix(in oklch, var(--accent) 16%, transparent); }
+  /* A note named in a cell (#2775): its own right-click menu. */
+  .tv-ref { text-decoration: underline dotted color-mix(in oklch, var(--text) 35%, transparent); text-underline-offset: 2px; }
 </style>
