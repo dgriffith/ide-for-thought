@@ -4,9 +4,9 @@
  * Turtle files imported in Settings → Ontology live in
  * `<thoughtbase>/.minerva/ontology/`. Each is checked whole
  * (`user-ontology-check.ts`) and, if accepted, loaded into the store in a named
- * graph of its own — `urn:x-minerva:ontology:<file>` — and listed in
- * `ontologyStatements`, so `serializeUserGraph` leaves it out of `graph.ttl`
- * exactly as it leaves out the bundled ontology. From there:
+ * graph of its own — `urn:x-minerva:ontology:<file>` — which
+ * `serializeUserGraph` leaves out of `graph.ttl` (`isVocabularyGraph`), as it
+ * leaves out the bundled ontology. From there:
  *
  * - its prefixes join every query's prologue (`injectSparqlPrefixes`) and the
  *   editor's completion, with its classes and properties
@@ -47,6 +47,11 @@ export const MAX_TOTAL_VOCABULARY_BYTES = 4 * 1024 * 1024;
 
 /** The named graph each accepted file loads into. */
 const GRAPH_PREFIX = 'urn:x-minerva:ontology:';
+
+/** Whether a graph holds an imported vocabulary — never persisted to `graph.ttl`. */
+export function isVocabularyGraph(iri: string): boolean {
+  return iri.startsWith(GRAPH_PREFIX);
+}
 
 interface AcceptedFile { file: string; text: string; checked: CheckedVocabulary }
 
@@ -164,10 +169,21 @@ function toStatement(q: Quad, graph: $rdf.NamedNode): $rdf.Statement {
  */
 export function applyVocabularies(ctx: ProjectContext, state: GraphState, loaded: LoadedVocabularies): void {
   const previous = vocabularyStore.get(ctx);
+  // The common case — no vocabularies, before or now — leaves the graph
+  // state exactly as it was without this feature. A first version rebuilt
+  // `state.ontologyStatements` and recorded a slot here, and the 5,000-note
+  // save bench (#2386) ran 2-3.5x slower on CI's macOS runners in all four of
+  // its runs. No vocabulary code runs during a save; locally it showed only
+  // under a squeezed collector (`--single-threaded-gc
+  // --max-semi-space-size=1`), as a process-wide slow mode with double the GC
+  // time. Doing nothing here when there is nothing to load is what's left.
+  if (loaded.statuses.length === 0 && (previous?.graphs.length ?? 0) === 0) {
+    if (previous) Object.assign(previous, { loaded: EMPTY, digest: digestOf(EMPTY) });
+    return;
+  }
   for (const g of previous?.graphs ?? []) {
     state.store.removeMatches(undefined, undefined, undefined, $rdf.sym(g));
   }
-  const added: $rdf.Statement[] = [];
   const graphs: string[] = [];
   for (const { file, checked } of loaded.accepted) {
     const graph = $rdf.sym(GRAPH_PREFIX + encodeURIComponent(file));
@@ -175,13 +191,10 @@ export function applyVocabularies(ctx: ProjectContext, state: GraphState, loaded
     for (const q of checked.quads) {
       const st = toStatement(q, graph);
       state.store.add(st.subject, st.predicate, st.object, st.graph);
-      added.push(st);
     }
   }
-  // `serializeUserGraph` skips every graph `ontologyStatements` occupies.
-  state.ontologyStatements = state.ontologyStatements
-    .filter((st) => !(st.graph?.value ?? '').startsWith(GRAPH_PREFIX))
-    .concat(added);
+  // Not appended to `state.ontologyStatements`, which stays the bundled
+  // ontology alone: `serializeUserGraph` skips these graphs by IRI instead.
   vocabularyStore.set(ctx, { loaded, digest: digestOf(loaded), graphs, pending: previous?.pending ?? null });
 }
 
@@ -194,7 +207,8 @@ export async function syncVocabularies(ctx: ProjectContext): Promise<VocabularyS
   const loaded = await loadVocabularies(ctx.rootPath);
   const state = getState(ctx);
   if (!state) return loaded.statuses;
-  if (vocabularyStore.get(ctx)?.digest !== digestOf(loaded)) {
+  // No slot yet means nothing was ever loaded: the same as an empty folder.
+  if ((vocabularyStore.get(ctx)?.digest ?? digestOf(EMPTY)) !== digestOf(loaded)) {
     applyVocabularies(ctx, state, loaded);
     emitGraphChanged(ctx.rootPath);
   }
