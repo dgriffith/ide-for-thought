@@ -237,6 +237,15 @@ export const Channels = {
   CSL_REMOVE_STYLE: 'csl:removeStyle',
   CSL_REMOVE_LOCALE: 'csl:removeLocale',
 
+  /** The thoughtbase's own vocabularies (#2788), as checked; reloads the graph's if the folder changed. */
+  ONTOLOGY_LIST: 'ontology:list',
+  /** Native picker for a .ttl; checks it and holds it for ONTOLOGY_IMPORT. Writes nothing. */
+  ONTOLOGY_PICK_IMPORT: 'ontology:pickImport',
+  /** Save the previewed vocabulary into .minerva/ontology/ and load it. */
+  ONTOLOGY_IMPORT: 'ontology:import',
+  /** Delete one vocabulary and take its terms out of the graph. */
+  ONTOLOGY_REMOVE: 'ontology:remove',
+
   /**
    * Render a batch of inline citations through citeproc using the
    * project's configured CSL style (#110). Input is the cite/quote

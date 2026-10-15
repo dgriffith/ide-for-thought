@@ -776,7 +776,7 @@
   const {
     handleExtractSelection, handleSplitByHeading, handleSplitHere,
     handleAutoLink, handleAutoLinkInbound, handleAutoLinkInboundApply, handleAutoLinkApply,
-    handleAddTag, handleRemoveTag, handleAddProperty, handleRemoveProperty, handleEditProperties, handleToggleEntrypoint,
+    handleAddTag, handleRemoveTag, handleAddProperty, handleRemoveProperty, handleToggleEntrypoint, viewNoteActions,
     handleLabelVersion, handleViewHistory,
     handleFormat, handleBibliography, handleAutoTag, handleAutoTagApply,
   } = createRefactorOps(refactorOpsCtx);
@@ -1301,7 +1301,7 @@
                         getNotePaths={() => flattenNotePaths(notebase.files)}
                         getAliases={() => aliasEntries}
                         revision={graphRevision}
-                        onNavigate={handleNavigate}
+                        onNavigate={handleNavigate} noteActions={viewNoteActions}
                         onCreateNoteFromReference={(target) => void createNoteFromReference(noteTargetPathBeside(note.relativePath, target))}
                         onTagSelect={handleTagSelect}
                         onOpenSource={handleOpenSource}
@@ -1394,7 +1394,7 @@
                     onStateChange={(patch) => editor.setTypeViewState(active.typeId, active.folder, patch)}
                     onClearFolder={() => editor.rescopeTypeView(active.typeId, active.folder, null)}
                     onOpenNote={(p) => handleFileSelect(p)}
-                    onEditProperties={(paths) => void handleEditProperties(paths)}
+                    noteActions={viewNoteActions}
                     {...(notebase.meta ? { onSaveView: () => handleSaveView(active) } : {})}
                   />
                 {/key}

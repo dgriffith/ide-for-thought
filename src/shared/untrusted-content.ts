@@ -57,7 +57,9 @@ export type UntrustedKind =
   | 'source-title'
   | 'thoughtbase-conventions'
   /** A conversation's opening exchange, read to title it. */
-  | 'conversation-excerpt';
+  | 'conversation-excerpt'
+  /** A vocabulary the thoughtbase imported (#2788), in `describe_graph_schema`. */
+  | 'ontology';
 
 /** Kinds whose value is prose/markup, rendered on their own lines inside the
  *  tag; the rest are short scalars rendered inline. */
@@ -68,6 +70,7 @@ const BLOCK_KINDS: ReadonlySet<UntrustedKind> = new Set<UntrustedKind>([
   'source',
   'thoughtbase-conventions',
   'conversation-excerpt',
+  'ontology',
 ]);
 
 // A `<` or a fullwidth / small-form lookalike: the candidates for neutralizing.

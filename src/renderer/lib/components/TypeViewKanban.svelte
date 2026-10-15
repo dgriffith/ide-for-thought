@@ -47,6 +47,7 @@
   import NoteHoverPreview from './NoteHoverPreview.svelte';
   import { createNoteHover } from './note-hover/note-hover.svelte';
   import { cardDrag, cardMoveKey, openCardMenu } from './kanban/card-drag';
+  import { isMenuKey, openMenuAt } from './type-view/note-actions';
   import { getKanbanMoveStore } from '../stores/kanban-moves.svelte';
   import type { MoveTarget } from '../../../shared/objects/kanban-move';
   import KanbanColumnMenu from './kanban/KanbanColumnMenu.svelte';
@@ -74,6 +75,9 @@
     selectable: boolean;
     onCardClick: (e: MouseEvent, path: string) => void;
     onCardContextMenu: (e: MouseEvent, path: string) => void;
+    /** A note a card's link field names, and its own menu (#2775). Absent → plain text. */
+    refPath?: ((prop: PropertyDef, value: string | null) => string | null) | undefined;
+    onRefContextMenu?: ((e: MouseEvent, path: string, label: string) => void) | undefined;
     /** Move a card to a column (#2603); absent → cards don't move (an embed). */
     onMove?: ((path: string, target: MoveTarget) => void) | undefined;
     onUndoMove?: (() => void) | undefined;
@@ -83,11 +87,24 @@
     /** Draw for an export snapshot (#2604): wrapped columns, nothing to focus. */
     exportMode?: boolean;
   }
-  let { type, properties, group, columns, visible, display, rowType, isSelected, selectable, onCardClick, onCardContextMenu, onMove, onUndoMove, onMoveColumn, exportMode = false }: Props = $props();
+  let { type, properties, group, columns, visible, display, rowType, isSelected, selectable, onCardClick, onCardContextMenu, refPath, onRefContextMenu, onMove, onUndoMove, onMoveColumn, exportMode = false }: Props = $props();
 
   const byName = $derived(new Map(properties.map((p) => [p.name, p] as const)));
   function fieldsFor(inst: TypeInstanceRow) {
     return selectInstanceCardFields(type, properties, inst, { visible, omit: group ? [group.name] : [] });
+  }
+  /** A focused note name on a card (#2775): Enter, Space or the menu key open
+   *  ITS menu, not the card's (#2776). */
+  function refKey(e: KeyboardEvent): void {
+    if (!isMenuKey(e) && e.key !== 'Enter' && e.key !== ' ') return;
+    e.preventDefault();
+    e.stopPropagation();
+    openMenuAt(e.currentTarget as HTMLElement);
+  }
+  /** The note a link field names, when the host maps it (#2775). */
+  function fieldRef(name: string, value: string | null | undefined): string | null {
+    const prop = byName.get(name);
+    return prop && refPath ? refPath(prop, value ?? null) : null;
   }
   function fieldText(name: string, value: string): string {
     const prop = byName.get(name);
@@ -182,7 +199,10 @@
 
   function onKeydown(e: KeyboardEvent): void {
     const card = (e.target as HTMLElement | null)?.closest<HTMLElement>('[data-kanban-card]');
-    const moveKey = onMove ? cardMoveKey(e) : null;
+    // The menu key works on any card with a menu (#2776) — an embed's note
+    // actions too; Undo only where cards move.
+    const key = cardMoveKey(e);
+    const moveKey = key === 'menu' || (key === 'undo' && onMove) ? key : null;
     if (moveKey) {
       e.preventDefault();
       if (moveKey === 'undo') onUndoMove?.();
@@ -245,7 +265,7 @@
                 {#if fields.length > 0}
                   <span class="kb-fields">
                     {#each fields as f (f.name)}
-                      <span class="kb-field"><span class="kb-flabel">{f.label}</span> <span class="kb-fval">{fieldText(f.name, f.value ?? '')}</span></span>
+                      <span class="kb-field"><span class="kb-flabel">{f.label}</span> {#if fieldRef(f.name, f.value) && onRefContextMenu}<span class="kb-fval tv-ref" role="button" tabindex="0" aria-haspopup="menu" onkeydown={refKey} data-ref-path={fieldRef(f.name, f.value)} oncontextmenu={(e) => onRefContextMenu(e, fieldRef(f.name, f.value)!, fieldText(f.name, f.value ?? ''))}>{fieldText(f.name, f.value ?? '')}</span>{:else}<span class="kb-fval">{fieldText(f.name, f.value ?? '')}</span>{/if}</span>
                     {/each}
                   </span>
                 {/if}
@@ -359,6 +379,7 @@
   .kb-card.selected { background: color-mix(in oklch, var(--accent) 16%, var(--bg-button)); border-color: var(--accent); }
   .kb-card-title { display: flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 500; min-width: 0; overflow-wrap: anywhere; }
   .kb-fields { display: flex; flex-direction: column; gap: 2px; }
+  .tv-ref { text-decoration: underline dotted color-mix(in oklch, var(--text) 35%, transparent); text-underline-offset: 2px; }
   .kb-field { font-size: 11px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .kb-flabel { font-weight: 600; }
 

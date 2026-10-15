@@ -19,6 +19,10 @@
   import { api } from '../ipc/client';
   import TypeViewLayoutSwitch from './TypeViewLayoutSwitch.svelte';
   import TypeViewFilters from './TypeViewFilters.svelte';
+  import { selectionSetProperties, selectionTags, type TypeViewNoteActions } from './type-view/note-actions';
+  import { notePathForIri } from '../../../shared/objects/note-iri';
+  import { getNotebaseStore } from '../stores/notebase.svelte';
+  import { flattenNotePaths } from '../app/text-helpers';
   import type { MapExportHooks } from '../map/map-export';
   import type { MapStyle } from '../../../shared/objects/map-style';
   import { applyViewSpec, isTypeFilter, resolveTypeFilter, type TypeLookup, type ViewFilter } from '../../../shared/objects/view-spec';
@@ -95,11 +99,12 @@
     from?: string | null; to?: string | null;
     /** Calendar's month page and the date property notes are placed by (#2701, `calendar.ts`); null = this month, the default. */
     month?: string | null; dateBy?: string | null;
-    /** Bulk-edit the selected notes' properties (#2431). Absent (an embed, an
-     *  export) → rows don't multi-select; a click just opens the note. */
-    onEditProperties?: (paths: string[]) => void;
+    /** The note actions for selected rows (#2431, #2773): the bulk property
+     *  panel, tags and properties. Absent (an embed, an export) → rows don't
+     *  multi-select; a click just opens the note. */
+    noteActions?: TypeViewNoteActions | undefined;
   }
-  let { typeId, layout, sortColumn, sortDir, columns, revision, onStateChange, onOpenNote, onSaveView, chromeless = false, onLoaded, mapExport, folder = null, filters = [], onClearFolder, mapStyle = 'auto', groupBy = null, columnOrder = [], showEmptyColumns = true, exportMode = false, from = null, to = null, month = null, dateBy = null, onEditProperties }: Props = $props();
+  let { typeId, layout, sortColumn, sortDir, columns, revision, onStateChange, onOpenNote, onSaveView, chromeless = false, onLoaded, mapExport, folder = null, filters = [], onClearFolder, mapStyle = 'auto', groupBy = null, columnOrder = [], showEmptyColumns = true, exportMode = false, from = null, to = null, month = null, dateBy = null, noteActions }: Props = $props();
 
   let type = $state<TypeInfo | null>(null);
   let instances = $state<TypeInstanceRow[]>([]);
@@ -268,13 +273,46 @@
   }
 
   // Multi-select (#2431): ⌘/⇧-click, ⌘A, Escape, right-click — the sidebar's semantics.
-  const selectable = $derived(!!onEditProperties && !chromeless);
+  const selectable = $derived(!!noteActions && !chromeless);
+  const notebase = getNotebaseStore();
+  // Notes a link value can name (#2775), to map its IRI back to a path.
+  const knownNotePaths = $derived(new Set(flattenNotePaths(notebase.files)));
+  let refLabel = $state('');
+  // An embed with note actions (#2774): the menu for one note, no multi-select —
+  // and no Move to ▸, since an embedded board stays read-only (#2604).
+  const menuOnly = $derived(!!noteActions && chromeless && !exportMode);
   const sel = createTypeViewSelection({
     order: () => layoutOrder(shown, view).map((i) => i.path),
     enabled: () => selectable,
+    menuOnly: () => menuOnly,
     onOpen: (p) => onOpenNote(p),
-    onEdit: (paths) => onEditProperties?.(paths),
+    onEdit: (paths) => noteActions?.editProperties(paths),
   });
+
+  /** The row menu's note actions (#2773): each closes the menu, then hands the
+   *  selection to the host, which owns the writes. */
+  function noteMenu(actions: TypeViewNoteActions, paths: string[]) {
+    const run = (fn: () => void) => { sel.closeMenu(); fn(); };
+    const target = sel.menu?.target;
+    // A note named inside a row (#2775): prompt-based actions, since the view
+    // doesn't hold that note's tags or fields — the panel covers set and clear.
+    if (target) {
+      return {
+        heading: refLabel,
+        onAddTag: () => run(() => actions.addTag([target])),
+        onRemoveTagPrompt: () => run(() => actions.removeTag([target])),
+      };
+    }
+    return {
+      onAddTag: () => run(() => actions.addTag(paths)),
+      removeTags: selectionTags(instances, paths),
+      onRemoveTag: (tag: string) => run(() => actions.removeTag(paths, tag)),
+      setProperties: allColumns.map((p) => ({ key: p.name, label: p.label ?? p.name, count: 0 })),
+      onSetProperty: (name: string) => run(() => actions.editProperties(paths, name)),
+      clearProperties: selectionSetProperties(instances, paths, allColumns),
+      onClearProperty: (name: string) => run(() => actions.clearProperty(paths, name)),
+    };
+  }
 
   /**
    * The icon for one row. This view is subclass-aware (#1587) — a Book view
@@ -320,9 +358,12 @@
     rowType,
     summary,
     get selectable() { return selectable; },
+    get rowMenu() { return selectable || menuOnly; },
     isSelected: (p) => sel.has(p),
     onRowClick: (e, p) => sel.click(e, p),
     onRowContextMenu: (e, p) => sel.contextMenu(e, p),
+    refPath: (prop, value) => (noteActions && prop.type === 'link-to-type' && value ? notePathForIri(value, knownNotePaths) : null),
+    onRefContextMenu: (e, p, label) => { refLabel = label; sel.contextMenuFor(e, p); },
     onOpenNote: (p) => onOpenNote(p),
     onStateChange: (p) => onStateChange(p),
     get readOnly() { return chromeless; },
@@ -403,8 +444,9 @@
 
   {#if sel.menu}
     <TypeViewRowMenu
-      x={sel.menu.x} y={sel.menu.y} count={sel.selectedPaths.length} onEdit={sel.editSelected} onClose={sel.closeMenu}
-      {...(renderer.rowMenuMove && groupProp ? { moveTargets: moveTargets(groupProp, board), moveFrom: sharedColumnValue(board, sel.selectedPaths), onMove: (t: MoveTarget) => moveTo(sel.selectedPaths, t) } : {})}
+      x={sel.menu.x} y={sel.menu.y} count={sel.menu.target ? 1 : sel.selectedPaths.length} onEdit={sel.editSelected} onClose={sel.closeMenu}
+      {...(noteActions ? noteMenu(noteActions, sel.selectedPaths) : {})}
+      {...(renderer.rowMenuMove && groupProp && selectable && !sel.menu.target ? { moveTargets: moveTargets(groupProp, board), moveFrom: sharedColumnValue(board, sel.selectedPaths), onMove: (t: MoveTarget) => moveTo(sel.selectedPaths, t) } : {})}
     />
   {/if}
 </div>

@@ -8,6 +8,7 @@
     import {hydrateMermaidBlocks, invalidateMermaidTheme} from '../markdown/mermaid-renderer';
     import {hydrateVegaBlocks, invalidateVegaTheme} from '../markdown/vega-renderer';
     import {hydrateObjectViewBlocks} from '../markdown/object-view-renderer';
+    import type { TypeViewNoteActions } from './type-view/note-actions';
     import {hydrateArgumentMapBlocks, type ArgumentMapDeps} from '../markdown/argument-map-renderer';
     import {hydrateCardCallouts} from '../markdown/card-callout';
     import {disposeCaches as disposeHydratedBlockCaches} from '../markdown/hydrated-block-cache';
@@ -77,6 +78,8 @@
          *  teardown (view-mode switch, tab close, window close). */
         onScrollPositionSave?: (notePath: string, scrollTop: number) => void;
         onNavigate: (target: string) => void;
+        /** Tag and property actions for an embedded view's rows (#2774). */
+        noteActions?: TypeViewNoteActions | undefined;
         /** Broken-link hover quick-fix (#1446): create the missing note the
          *  hovered `[[link]]` points at. Mirrors the editor's hover lightbulb. */
         onCreateNoteFromReference?: (target: string) => void;
@@ -163,7 +166,7 @@
         notePath = null,
         previewScrollTop,
         onScrollPositionSave,
-        onNavigate,
+        onNavigate, noteActions,
         onCreateNoteFromReference,
         onTagSelect,
         onOpenSource,
@@ -585,7 +588,7 @@
             // `onNavigate` resolves an exact relative path via
             // `resolveWikiLinkTarget`'s step-1 exact-match case, so no
             // separate "open by path" hook is needed.
-            if (previewEl) hydrateObjectViewBlocks(previewEl, { revision, onOpenNote: onNavigate });
+            if (previewEl) hydrateObjectViewBlocks(previewEl, { revision, onOpenNote: onNavigate, noteActions });
             // Argument-map embed hydration (#907) — mounts a live ArgumentMap
             // into each `.argument-map-block` placeholder.
             if (previewEl) hydrateArgumentMapBlocks(previewEl, argumentMapDeps());

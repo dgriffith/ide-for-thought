@@ -105,6 +105,7 @@ import type { ConversationClaimsDraft, FileClaimsDraftResult } from './conversat
 import type { RunComputeDraftInput, RunComputeDraftResult, InsertComputeDraftInput, InsertComputeDraftResult } from './conversation-compute-drafts';
 import type { ConversationRefactorDraft, ConversationReorgDraft, ConversationDeleteDraft } from './conversation-refactor-drafts';
 import type { ConversationNoteBodyDraft, FileNoteBodyDraftResult } from './conversation-note-body-drafts';
+import type { VocabularyImportPreview, VocabularyStatus } from './ontology-vocabularies';
 
 // `HeadingRenameCandidate` is part of the notebase wire contract (the
 // NOTEBASE_HEADING_RENAME_SUGGESTED event payload) but isn't an
@@ -456,6 +457,13 @@ export interface ChannelMap {
   'csl:importLocale': () => { id: string; filePath: string } | null;
   'csl:removeStyle': (id: string) => void;
   'csl:removeLocale': (id: string) => void;
+
+  // A thoughtbase's own vocabularies (#2788)
+  'ontology:list': () => VocabularyStatus[];
+  /** `null`: the picker was cancelled. */
+  'ontology:pickImport': () => VocabularyImportPreview | null;
+  'ontology:import': (id: string) => VocabularyStatus[];
+  'ontology:remove': (file: string) => VocabularyStatus[];
 
   // Inline citation rendering
   'citation:renderInline': (refs: Array<{ kind: 'cite' | 'quote'; id: string }>) => { markers: string[]; bibliography: string[] | null; missing: string[]; styleId: string };

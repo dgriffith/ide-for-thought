@@ -347,6 +347,7 @@ export type ExportInputKind = 'single-note' | 'folder' | 'project' | 'tree' | 's
 /** Format family metadata for the format-first export menu — the shared list (#2630). */
 export type { ExportGroupId, ExportGroupMeta } from '../../../shared/export-groups';
 import type { ExportGroupMeta } from '../../../shared/export-groups';
+import type { VocabularyImportPreview, VocabularyStatus } from '../../../shared/ontology-vocabularies';
 
 /** One registered exporter, as surfaced to the menu + export dialog. */
 export interface ExporterInfo {
@@ -1059,6 +1060,7 @@ export interface IdeApi {
   sites: SitesApi;
   bibliography: BibliographyApi;
   csl: CslApi;
+  ontology: OntologyApi;
   citations: CitationsApi;
   menu: MenuApi;
 }
@@ -1106,6 +1108,21 @@ export interface CslApi {
   importLocale(): Promise<{ id: string; filePath: string } | null>;
   removeStyle(id: string): Promise<void>;
   removeLocale(id: string): Promise<void>;
+}
+
+/**
+ * A thoughtbase's own vocabularies (#2788): Turtle files in
+ * `.minerva/ontology/`, loaded beside the built-in ontology. Each call answers
+ * with the folder as checked.
+ */
+export interface OntologyApi {
+  /** Re-reads the folder, reloading the graph's vocabularies if it changed. `[]` with no thoughtbase open. */
+  list(): Promise<VocabularyStatus[]>;
+  /** Pick a .ttl and check it; nothing is saved. `null` when the picker is cancelled. */
+  pickImport(): Promise<VocabularyImportPreview | null>;
+  /** Save the previewed file and load it. Throws if it would now be refused. */
+  import(id: string): Promise<VocabularyStatus[]>;
+  remove(file: string): Promise<VocabularyStatus[]>;
 }
 
 

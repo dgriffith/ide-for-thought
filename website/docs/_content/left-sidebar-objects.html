@@ -49,6 +49,19 @@ description: The Objects panel — your project browsed by kind rather than by f
 
     <p>Switching between layouts doesn't re-fetch anything; it's the same set of notes shown different ways. Clicking any row, card or pin opens that note — and <a href="navigation-back-forward.html">Back</a> brings you to the view again, just as you left it.</p>
 
+    <h2 id="changing-notes">Changing notes from a view</h2>
+    <p>You can retag notes and change their fields without leaving the view. Select a note by <kbd>⌘</kbd>-clicking it (<kbd>Ctrl</kbd>-click on Windows and Linux), select a run of notes with <kbd>⇧</kbd>-click, or press <kbd>⌘</kbd><kbd>A</kbd> for all of them; <kbd>Esc</kbd> clears the selection. A plain click still opens the note. Then right-click one of them (or press <kbd>⇧</kbd><kbd>F10</kbd>) for the menu, which acts on everything selected:</p>
+    <ul>
+      <li><b>Add Tag…</b> asks for a tag, suggesting ones already in use, and adds it to each note.</li>
+      <li><b>Remove Tag ▸</b> lists the tags the selected notes carry, with how many have each, and removes the one you pick.</li>
+      <li><b>Set Property ▸</b> lists the type's fields; picking one opens just that field's editor — a date, a choice, a link to another note — and sets it on every selected note.</li>
+      <li><b>Clear Property ▸</b> lists the fields the selected notes have filled in, with how many have each, and empties the one you pick.</li>
+      <li><b>Edit Properties…</b> opens every field at once.</li>
+    </ul>
+    <p>A field that links to another note — a project's owner, say — shows that note's name with a dotted underline, in a table or on a board's card. Right-click the name for a menu that acts on <i>that</i> note, not the row it's in: its first line names the note, then <b>Add Tag…</b>, <b>Remove Tag…</b> (offering the tags that note has) and <b>Edit Properties…</b> for its own fields. Your selection of rows stays as it was.</p>
+    <p>All of it works from the keyboard. Tab to a row or card (in a table, each row is a stop; <kbd>↵</kbd> opens the note) and press <kbd>⇧</kbd><kbd>F10</kbd> or the menu key for its menu, then use the arrow keys and <kbd>↵</kbd>. A note named in a field is a stop of its own: <kbd>↵</kbd>, <kbd>Space</kbd> or <kbd>⇧</kbd><kbd>F10</kbd> there opens that note's menu. When a change is made, a screen reader hears what changed (for example <i>Tagged 3 of 3 notes with "active"</i>) instead of a dialog appearing; a dialog appears only if some notes couldn't be changed, listing which and why.</p>
+    <p>The view updates as soon as the notes do. These are ordinary edits to your notes, so <a href="right-sidebar-history.html">local history</a> keeps the earlier versions. A view inside a note has the same menu for one note at a time: right-click a row or card there, and it acts on just that note (a board in a note still doesn't move cards). An exported view is for looking at and has no menu.</p>
+
     <h2 id="map">The map</h2>
     <p>A location is written as latitude, then longitude, separated by a comma — <code>50.087, 14.421</code> is the middle of Prague. Each note with a location gets a pin; a note with the field empty, or with something that isn't a location, simply isn't on the map. The map frames itself to fit all the pins.</p>
     <p>Each pin takes the colour of the note's own type, so on a Place map a restaurant and a hotel look different at a glance. Hover a pin to see a preview of the note, the same one a link to it shows: its title, its opening lines and the type's card fields. Click a pin to open the note.</p>

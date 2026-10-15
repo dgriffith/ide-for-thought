@@ -23,6 +23,8 @@ const h = vi.hoisted(() => ({
 }));
 
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({ api: h.api }));
+const { announceMock } = vi.hoisted(() => ({ announceMock: vi.fn() }));
+vi.mock('../../../src/renderer/lib/stores/announcer.svelte', () => ({ announce: announceMock }));
 vi.mock('../../../src/renderer/lib/stores/dialogs.svelte', () => ({ getDialogStore: () => h.dialog }));
 vi.mock('../../../src/renderer/lib/stores/object-types.svelte', () => ({
   objectTypesStore: {
@@ -76,6 +78,7 @@ describe('editProperties', () => {
     expect(deps.syncOpenTabsToDisk).toHaveBeenCalledWith(['a.md', 'c.md']);
     expect(deps.onWritten).toHaveBeenCalledTimes(1);
     expect(deps.reportBulkSummary).not.toHaveBeenCalled();
+    expect(announceMock).toHaveBeenCalledWith('Updated 2 notes.'); // #2776
   });
 
   it('reports per-item failures and still writes the rest', async () => {
@@ -103,6 +106,24 @@ describe('editProperties', () => {
     await ops.editProperties(['data.csv']);
     expect(h.dialog.showConfirm).toHaveBeenCalled();
     expect(h.dialog.showBulkPropertiesDialog).not.toHaveBeenCalled();
+  });
+});
+
+describe('editProperties: one property (#2773)', () => {
+  const fieldsShown = () => (h.dialog.showBulkPropertiesDialog.mock.calls[0]![0] as { fields: Array<{ name: string }>; otherKeys: unknown[] });
+
+  it('shows just that property — the same widget, nothing else on the panel', async () => {
+    h.dialog.showBulkPropertiesDialog.mockResolvedValue([{ op: 'set', key: 'due', value: '2027-01-01' }]);
+    await ops.editProperties(['a.md', 'c.md'], { only: 'due' });
+    expect(fieldsShown().fields.map((f) => f.name)).toEqual(['due']);
+    expect(fieldsShown().otherKeys).toEqual([]);
+    expect(h.files['c.md']).toContain('due: 2027-01-01');
+  });
+
+  it('falls back to the full panel for a property it can\'t offer', async () => {
+    h.dialog.showBulkPropertiesDialog.mockResolvedValue(null);
+    await ops.editProperties(['a.md'], { only: 'no-such-property' });
+    expect(fieldsShown().fields.map((f) => f.name)).toEqual(['due', 'done', 'title', 'aliases', 'tags']);
   });
 });
 

@@ -46,6 +46,7 @@ import { indexNote, isAliasNameValid, rebuildAliasMap } from './note';
 import ONTOLOGY_TTL from '../../../shared/ontology.ttl?raw';
 import THOUGHT_ONTOLOGY_TTL from '../../../shared/ontology-thought.ttl?raw';
 import { clearNoteCaches } from '../note-caches';
+import { applyVocabularies, loadVocabularies } from '../user-ontology';
 import { clearNoteIndex, registerNotePath, setNoteAliases } from '../note-index';
 
 /**
@@ -185,6 +186,8 @@ export async function indexAllNotes(ctx: ProjectContext, opts?: IndexAllNotesOpt
   resetN3Mirror(state);
   invalidate(state);
   addOntologyToStore(state);
+  // Re-read, so a vocabulary edited outside the app is picked up (#2788).
+  applyVocabularies(ctx, state, await loadVocabularies(state.rootPath));
   clearNoteIndex(ctx);
   // The derived per-note caches (#2234) are re-populated by the walk below, so
   // a from-scratch rebuild has to drop them too — otherwise a note deleted

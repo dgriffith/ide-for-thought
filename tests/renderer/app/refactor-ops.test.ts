@@ -48,6 +48,8 @@ const h = vi.hoisted(() => {
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({ api: h.api }));
 vi.mock('../../../src/renderer/lib/stores/notebase.svelte', () => ({ getNotebaseStore: () => h.notebase }));
 vi.mock('../../../src/renderer/lib/stores/editor.svelte', () => ({ getEditorStore: () => h.editor }));
+const { announceMock } = vi.hoisted(() => ({ announceMock: vi.fn() }));
+vi.mock('../../../src/renderer/lib/stores/announcer.svelte', () => ({ announce: announceMock }));
 vi.mock('../../../src/renderer/lib/stores/dialogs.svelte', () => ({ getDialogStore: () => h.dialog }));
 vi.mock('../../../src/renderer/lib/stores/object-types.svelte', () => ({
   objectTypesStore: {
@@ -856,5 +858,137 @@ describe('handleFormat', () => {
     const msg = h.dialog.showConfirm.mock.calls.at(-1)?.[0] as string;
     expect(msg).toContain('Formatting failed');
     expect(msg).toContain('fmt error');
+  });
+});
+
+describe('note actions on explicit targets (#2772)', () => {
+  // The sidebar has a DIFFERENT selection throughout: an explicit list must win,
+  // since a view acts on its own rows, not on whatever the sidebar has selected.
+  beforeEach(() => { sidebar.getSelectionPaths.mockReturnValue(['elsewhere.md']); });
+  afterEach(() => { sidebar.getSelectionPaths.mockReturnValue([]); });
+  const written = () => h.api.notebase.writeFile.mock.calls.map((c) => c[0] as string).sort();
+
+  it('addTagToNotes tags exactly the given notes, de-duplicated, markdown only', async () => {
+    h.api.tags.list.mockResolvedValue([]);
+    h.dialog.showPrompt.mockResolvedValue('active');
+    h.api.notebase.readFile.mockResolvedValue('body');
+    await ops.addTagToNotes(['a.md', 'b.md', 'a.md', 'data.csv']);
+    expect(h.dialog.showPrompt.mock.calls[0]![0]).toBe('Add tag to 2 notes:');
+    expect(written()).toEqual(['a.md', 'b.md']);
+    expect(sidebar.refreshTags).toHaveBeenCalled();
+  });
+
+  it('removeTagFromNotes offers the given notes\' tags and removes from them only', async () => {
+    h.api.notebase.readFile.mockImplementation(async (p: string) => (p === 'a.md' ? '---\ntags: [old, keep]\n---\n' : '---\ntags: [old]\n---\n'));
+    h.dialog.showPrompt.mockResolvedValue('old');
+    await ops.removeTagFromNotes(['a.md', 'b.md']);
+    expect(h.dialog.showPrompt.mock.calls[0]![1]).toEqual({ suggestions: ['keep', 'old'] });
+    expect(written()).toEqual(['a.md', 'b.md']);
+  });
+
+  it('addPropertyToNotes sets the property on exactly the given notes', async () => {
+    h.api.graph.frontmatterKeys.mockResolvedValue([]);
+    h.dialog.showAddPropertyDialog.mockResolvedValue({ name: 'status', value: 'done' });
+    h.api.notebase.readFile.mockResolvedValue('body');
+    await ops.addPropertyToNotes(['a.md', 'b.md']);
+    expect(h.dialog.showAddPropertyDialog).toHaveBeenCalledWith('Add property to 2 notes', []);
+    expect(written()).toEqual(['a.md', 'b.md']);
+  });
+
+  it('removePropertyFromNotes removes it from exactly the given notes', async () => {
+    h.api.notebase.readFile.mockResolvedValue('---\nstatus: done\n---\nbody');
+    h.dialog.showPrompt.mockResolvedValue('status');
+    await ops.removePropertyFromNotes(['a.md']);
+    expect(written()).toEqual(['a.md']);
+  });
+
+  it('an empty or non-markdown list gets the "no .md files" notice and writes nothing', async () => {
+    await ops.addTagToNotes([]);
+    await ops.removePropertyFromNotes(['data.csv']);
+    expect(h.dialog.showConfirm).toHaveBeenCalledTimes(2);
+    expect(h.api.notebase.writeFile).not.toHaveBeenCalled();
+  });
+
+  it('a typed list goes to the type-aware panel, as a typed sidebar selection does', async () => {
+    h.noteTypes['a.md'] = { id: 'task', label: 'Task', classLocalName: 'Task', source: 'user', properties: [{ name: 'done', type: 'boolean' }] };
+    try {
+      h.dialog.showBulkPropertiesDialog.mockResolvedValue(null);
+      await ops.addPropertyToNotes(['a.md']);
+      expect(h.dialog.showBulkPropertiesDialog).toHaveBeenCalled();
+      expect(h.dialog.showAddPropertyDialog).not.toHaveBeenCalled();
+    } finally {
+      delete h.noteTypes['a.md'];
+    }
+  });
+});
+
+describe('note actions with the choice already made (#2773)', () => {
+  it('removeTagFromNotes with a tag removes it without prompting', async () => {
+    h.api.notebase.readFile.mockResolvedValue('---\ntags: [old, keep]\n---\n');
+    await ops.removeTagFromNotes(['a.md'], { tag: 'old' });
+    expect(h.dialog.showPrompt).not.toHaveBeenCalled();
+    expect(h.api.notebase.writeFile.mock.calls[0]![1]).not.toContain('old');
+  });
+
+  it('removePropertyFromNotes with a key clears it without prompting — typed notes too', async () => {
+    h.noteTypes['a.md'] = { id: 'task', label: 'Task', classLocalName: 'Task', source: 'user', properties: [{ name: 'done', type: 'boolean' }] };
+    try {
+      h.api.notebase.readFile.mockResolvedValue('---\ntype: task\ndone: true\n---\n');
+      await ops.removePropertyFromNotes(['a.md'], { key: 'done' });
+      expect(h.dialog.showPrompt).not.toHaveBeenCalled();
+      expect(h.dialog.showBulkPropertiesDialog).not.toHaveBeenCalled();
+      expect(h.api.notebase.writeFile.mock.calls[0]![1]).not.toContain('done:');
+    } finally {
+      delete h.noteTypes['a.md'];
+    }
+  });
+
+  it('handleEditProperties passes one property through to the panel', async () => {
+    h.noteTypes['a.md'] = { id: 'task', label: 'Task', classLocalName: 'Task', source: 'user', properties: [{ name: 'done', type: 'boolean' }] };
+    try {
+      h.api.notebase.readFile.mockResolvedValue('---\ntype: task\n---\n');
+      h.dialog.showBulkPropertiesDialog.mockResolvedValue(null);
+      await ops.handleEditProperties(['a.md'], 'done');
+      const model = h.dialog.showBulkPropertiesDialog.mock.calls[0]![0] as { fields: Array<{ name: string }> };
+      expect(model.fields.map((f) => f.name)).toEqual(['done']);
+    } finally {
+      delete h.noteTypes['a.md'];
+    }
+  });
+});
+
+describe('a view\'s actions are quiet: announced, not a dialog (#2776)', () => {
+  it('a success is announced and shows no dialog', async () => {
+    h.api.tags.list.mockResolvedValue([]);
+    h.dialog.showPrompt.mockResolvedValue('active');
+    h.api.notebase.readFile.mockResolvedValue('body');
+    await ops.addTagToNotes(['a.md', 'b.md'], { quiet: true });
+    expect(announceMock).toHaveBeenCalledWith('Tagged 2 of 2 notes with "active".');
+    expect(h.dialog.showConfirm).not.toHaveBeenCalled();
+  });
+
+  it('a failure still gets the dialog, so it can\'t go unseen', async () => {
+    h.api.notebase.readFile.mockImplementation(async (p: string) => {
+      if (p === 'b.md') throw new Error('EACCES');
+      return '---\nstatus: done\n---\n';
+    });
+    await ops.removePropertyFromNotes(['a.md', 'b.md'], { key: 'status', quiet: true });
+    expect(announceMock).not.toHaveBeenCalled();
+    expect(h.dialog.showConfirm.mock.calls.at(-1)?.[0]).toContain('EACCES');
+  });
+
+  it('the sidebar\'s own actions keep their summary dialog', async () => {
+    h.dialog.showPrompt.mockResolvedValue('old');
+    h.api.notebase.readFile.mockResolvedValue('---\ntags: [old]\n---\n');
+    await ops.handleRemoveTag('note.md', false);
+    expect(announceMock).not.toHaveBeenCalled();
+    expect(h.dialog.showConfirm).toHaveBeenCalled();
+  });
+
+  it('viewNoteActions runs quietly', async () => {
+    h.api.notebase.readFile.mockResolvedValue('---\ntags: [old]\n---\n');
+    ops.viewNoteActions.removeTag(['a.md'], 'old');
+    await vi.waitFor(() => expect(announceMock).toHaveBeenCalledWith('Untagged 1 of 1 note with "old".'));
+    expect(h.dialog.showConfirm).not.toHaveBeenCalled();
   });
 });

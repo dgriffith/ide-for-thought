@@ -13,13 +13,20 @@ export interface TypeViewSelectionOptions {
   order: () => string[];
   /** False for an embed / export: clicks just open the note. */
   enabled: () => boolean;
+  /**
+   * An embed with note actions (#2774): no multi-select, but right-click opens
+   * the menu for the one note under the pointer. Closing the menu lets go of it.
+   */
+  menuOnly?: () => boolean;
   onOpen: (path: string) => void;
   onEdit: (paths: string[]) => void;
 }
 
 export function createTypeViewSelection(opts: TypeViewSelectionOptions) {
   const selection = createPathSelection();
-  let menu = $state<{ x: number; y: number } | null>(null);
+  /** `target`: the menu acts on that one note, not the selection — a note
+   *  named inside a row (#2775). */
+  let menu = $state<{ x: number; y: number; target?: string } | null>(null);
   /** The selection, restricted to rows still on screen (a filter may hide some). */
   const selectedPaths = $derived(opts.order().filter((p) => selection.has(p)));
 
@@ -31,19 +38,42 @@ export function createTypeViewSelection(opts: TypeViewSelectionOptions) {
     opts.onOpen(path);
   }
 
+  const menuOnly = () => !opts.enabled() && (opts.menuOnly?.() ?? false);
+
   function contextMenu(e: MouseEvent, path: string): void {
-    if (!opts.enabled()) return;
+    if (!opts.enabled() && !menuOnly()) return;
     e.preventDefault();
-    if (!selection.has(path)) selection.setSingle(path);
+    // A menu-only embed acts on exactly the note right-clicked.
+    if (menuOnly() || !selection.has(path)) selection.setSingle(path);
     menu = { x: e.clientX, y: e.clientY };
   }
 
-  function editSelected(): void {
+  /** Right-click a note named inside a row (#2775): the menu for THAT note.
+   *  The rows' selection is left exactly as it was. */
+  function contextMenuFor(e: MouseEvent, path: string): void {
+    if (!opts.enabled() && !menuOnly()) return;
+    e.preventDefault();
+    e.stopPropagation(); // not the row's own menu as well
+    menu = { x: e.clientX, y: e.clientY, target: path };
+  }
+
+  function closeMenu(): void {
+    const wasTarget = !!menu?.target;
     menu = null;
-    if (selectedPaths.length > 0) opts.onEdit(selectedPaths);
+    if (menuOnly() && !wasTarget) selection.clear();
+  }
+
+  function editSelected(): void {
+    const paths = menu?.target ? [menu.target] : selectedPaths;
+    closeMenu();
+    if (paths.length > 0) opts.onEdit(paths);
   }
 
   function keydown(e: KeyboardEvent): void {
+    if (menuOnly()) {
+      if (e.key === 'Escape' && menu) closeMenu();
+      return;
+    }
     if (!opts.enabled()) return;
     const t = e.target as HTMLElement | null;
     if (t && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
@@ -62,8 +92,9 @@ export function createTypeViewSelection(opts: TypeViewSelectionOptions) {
     has: (path: string) => selection.has(path),
     click,
     contextMenu,
+    contextMenuFor,
     keydown,
     editSelected,
-    closeMenu: () => { menu = null; },
+    closeMenu,
   };
 }
