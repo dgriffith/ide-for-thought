@@ -25,14 +25,27 @@ import type {
   PluginPackage,
   PluginScan,
 } from '../../shared/plugins/format';
-import { readPluginPackages } from './package';
+import { pluginsDir, readPluginPackages } from './package';
+import { loadPluginRecords, recordFor, type PluginRecord } from './state';
 
 const EMPTY: PluginScan = { plugins: [], errors: [] };
+
+/**
+ * Everything installed, enabled or not, with its record (#2634) — what
+ * Settings → Plugins shows. The seams read {@link getPluginScan}, which is
+ * the enabled ones only.
+ */
+export interface PluginInventory {
+  installed: Array<{ plugin: PluginPackage; record: PluginRecord }>;
+  /** Folders refused whole (#2632). */
+  errors: PluginScan['errors'];
+}
+const EMPTY_INVENTORY: PluginInventory = { installed: [], errors: [] };
 
 let config: { appVersion: string; dir?: string } | null = null;
 // The PROMISE is cached, as `getSkillCatalog` does, so two seams loading at
 // once share one scan.
-let cached: Promise<PluginScan> | null = null;
+let cached: Promise<PluginInventory> | null = null;
 // The last scan that finished, for the one synchronous reader (saved queries,
 // which the menu lists on every rebuild), and a counter it keys its memo on.
 let loaded: PluginScan = EMPTY;
@@ -67,33 +80,58 @@ export function pluginScanVersion(): number {
   return version;
 }
 
-/** The installed plugins, read once. Empty unless `enablePlugins` ran. */
-export function getPluginScan(): Promise<PluginScan> {
-  if (!config) return Promise.resolve(EMPTY);
+/** Everything installed, with its record. Empty unless `enablePlugins` ran. */
+export function getPluginInventory(): Promise<PluginInventory> {
+  if (!config) return Promise.resolve(EMPTY_INVENTORY);
   cached ??= scan(config);
   return cached;
 }
 
-/** Read `~/.minerva/plugins/` again — after an install or removal (#2634). */
+/** The enabled plugins — what the seams load. Empty unless `enablePlugins` ran. */
+export async function getPluginScan(): Promise<PluginScan> {
+  return enabledOnly(await getPluginInventory());
+}
+
+/** Read `~/.minerva/plugins/` and `plugins.json` again — after an install,
+ *  removal, toggle or outside edit (#2634). */
 export function reloadPluginScan(): Promise<PluginScan> {
   cached = null;
   return getPluginScan();
 }
 
-async function scan(cfg: { appVersion: string; dir?: string }): Promise<PluginScan> {
+/** The app version plugins are checked against (their `minerva` range). */
+export function pluginsAppVersion(): string {
+  return config?.appVersion ?? '0.0.0';
+}
+
+/** The plugins folder in use: the configured one, or `~/.minerva/plugins/`. */
+export function activePluginsDir(): string {
+  return config?.dir ?? pluginsDir();
+}
+
+function enabledOnly(inv: PluginInventory): PluginScan {
+  return { plugins: inv.installed.filter((i) => i.record.enabled).map((i) => i.plugin), errors: inv.errors };
+}
+
+async function scan(cfg: { appVersion: string; dir?: string }): Promise<PluginInventory> {
   try {
-    const result = await readPluginPackages(cfg.appVersion, cfg.dir);
+    const dir = cfg.dir ?? pluginsDir();
+    const [result, records] = await Promise.all([readPluginPackages(cfg.appVersion, dir), loadPluginRecords(dir)]);
     for (const e of result.errors) {
       logger('plugins').warn(`plugin ${e.label} not loaded:`, e.problems.join(' '));
     }
-    loaded = result;
+    const inventory: PluginInventory = {
+      installed: result.plugins.map((plugin) => ({ plugin, record: recordFor(records, plugin.manifest.id) })),
+      errors: result.errors,
+    };
+    loaded = enabledOnly(inventory);
     version += 1;
-    return result;
+    return inventory;
   } catch (e) {
     // An unreadable plugins folder costs the plugins, never the skills or
     // types that asked for them.
     logger('plugins').error('could not read the plugins folder:', e);
-    return EMPTY;
+    return EMPTY_INVENTORY;
   }
 }
 

@@ -1,0 +1,40 @@
+---
+title: Minerva — Docs — Settings: Plugins
+description: The Plugins tab in Settings — install a plugin from a folder, turn plugins on and off, and remove them, all without restarting.
+---
+
+    <h1>Plugins</h1>
+    <p class="lede">The Plugins tab in <b>Settings</b> is where you add things to Minerva in one bundle: a plugin can bring skills, object types, saved queries, note templates and citation styles together. Plugins live on this computer, in <code>~/.minerva/plugins/</code>, and every change here takes effect straight away, in every open window. You never need to restart.</p>
+
+    <h2 id="settings">What you can do</h2>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Install from folder</div>
+        <div class="v">Choose <b>Install from folder…</b> and pick the plugin's folder. Minerva checks the whole plugin first and copies it in only if everything in it is usable; if not, it tells you every problem, and nothing is installed. The folder you picked is left where it was. If a plugin with the same name is already installed, Minerva asks before replacing it.</div>
+      </div>
+      <div class="row">
+        <div class="k">Turn a plugin on or off</div>
+        <div class="v">The checkbox beside each plugin turns it on or off. Turned off, its skills, types, queries, templates and styles disappear, but it stays installed, ready to turn back on.</div>
+      </div>
+      <div class="row">
+        <div class="k">See what it adds</div>
+        <div class="v">Each plugin is listed with its version and what it contributes, such as <i>2 skills · 1 type</i>. A plugin folder that can't be used is listed as <b>Not loaded</b>, with the reasons beneath it.</div>
+      </div>
+      <div class="row">
+        <div class="k">Remove a plugin</div>
+        <div class="v"><b>Remove</b> deletes the plugin from the plugins folder, after asking. Everything it added goes with it, including what it put in the knowledge graph.</div>
+      </div>
+      <div class="row">
+        <div class="k">Show the folder</div>
+        <div class="v"><b>Show folder</b> shows a plugin's folder in your file manager, and <b>Show plugins folder</b> shows the folder they all live in.</div>
+      </div>
+    </div>
+
+    <h2 id="changes">Changes made outside Minerva</h2>
+    <p>Minerva watches the plugins folder. If you (or an assistant writing a plugin for you) add, edit or remove a plugin there directly, the change applies by itself a moment later, just as it would from this tab.</p>
+
+    <div class="box">
+      <span class="label">Plugins add things; they don't run code</span>
+      <p>Everything a plugin contributes is something Minerva already knows how to read: a skill, a type definition, a query, a template, a citation style. A plugin can't replace what ships with Minerva or what you've made yourself, and anything the AI does with a plugin's skills still comes to you as a proposal to approve.</p>
+    </div>

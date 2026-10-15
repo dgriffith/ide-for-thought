@@ -106,6 +106,7 @@ import type { RunComputeDraftInput, RunComputeDraftResult, InsertComputeDraftInp
 import type { ConversationRefactorDraft, ConversationReorgDraft, ConversationDeleteDraft } from './conversation-refactor-drafts';
 import type { ConversationNoteBodyDraft, FileNoteBodyDraftResult } from './conversation-note-body-drafts';
 import type { VocabularyImportPreview, VocabularyStatus } from './ontology-vocabularies';
+import type { PluginList } from './plugins/format';
 
 // `HeadingRenameCandidate` is part of the notebase wire contract (the
 // NOTEBASE_HEADING_RENAME_SUGGESTED event payload) but isn't an
@@ -465,6 +466,14 @@ export interface ChannelMap {
   'ontology:import': (id: string) => VocabularyStatus[];
   'ontology:remove': (file: string) => VocabularyStatus[];
 
+  // Plugins (#2634)
+  'plugins:list': () => PluginList;
+  'plugins:setEnabled': (id: string, enabled: boolean) => PluginList;
+  'plugins:remove': (id: string) => PluginList;
+  /** `null`: the picker, or the Replace? question, was cancelled. */
+  'plugins:installFolder': () => { id: string; name: string } | null;
+  'plugins:reveal': (id?: string) => void;
+
   // Inline citation rendering
   'citation:renderInline': (refs: Array<{ kind: 'cite' | 'quote'; id: string }>) => { markers: string[]; bibliography: string[] | null; missing: string[]; styleId: string };
 
@@ -664,6 +673,8 @@ export interface EventMap {
   'tables:changed': () => void;
   'tables:nameCollision': (collision: CsvTableCollision) => void;
   'proposals:changed': () => void;
+  /** Plugins changed and have been applied (#2634). */
+  'plugins:changed': () => void;
   /** A health-check run finished; the cached inspection list moved (#1795). */
   'inspections:changed': () => void;
   /** The project's graph changed — any note indexed or removed (#2742). */

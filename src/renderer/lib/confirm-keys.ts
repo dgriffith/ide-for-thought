@@ -9,6 +9,8 @@
  */
 
 export const CONFIRM_KEYS = {
+  /** Removing a plugin deletes its folder in ~/.minerva/plugins/ (#2634). */
+  pluginRemove: 'plugin-remove',
   delete: 'confirm-delete',
   /** Restoring a note to a history revision — non-destructive (the restore is
    *  itself a new revision), so the confirm is dismissable. (#1158) */
@@ -130,6 +132,12 @@ export interface ConfirmRegistryEntry {
 }
 
 export const CONFIRM_REGISTRY: ConfirmRegistryEntry[] = [
+  {
+    key: CONFIRM_KEYS.pluginRemove,
+    title: 'Remove a plugin',
+    description:
+      'Prompt before removing a plugin from Settings → Plugins, which deletes its folder in ~/.minerva/plugins/ (the folder it was installed from is kept).',
+  },
   {
     key: CONFIRM_KEYS.delete,
     title: 'Delete file or folder',

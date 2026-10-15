@@ -327,6 +327,10 @@
               "label": "Appearance"
             },
             {
+              "href": "settings-plugins.html",
+              "label": "Plugins"
+            },
+            {
               "href": "settings-behaviors.html",
               "label": "Behaviors"
             },

@@ -350,6 +350,7 @@ export type ExportInputKind = 'single-note' | 'folder' | 'project' | 'tree' | 's
 export type { ExportGroupId, ExportGroupMeta } from '../../../shared/export-groups';
 import type { ExportGroupMeta } from '../../../shared/export-groups';
 import type { VocabularyImportPreview, VocabularyStatus } from '../../../shared/ontology-vocabularies';
+import type { PluginList } from '../../../shared/plugins/format';
 
 /** One registered exporter, as surfaced to the menu + export dialog. */
 export interface ExporterInfo {
@@ -1063,6 +1064,7 @@ export interface IdeApi {
   bibliography: BibliographyApi;
   csl: CslApi;
   ontology: OntologyApi;
+  plugins: PluginsApi;
   citations: CitationsApi;
   menu: MenuApi;
 }
@@ -1111,6 +1113,23 @@ export interface CslApi {
   importLocale(): Promise<{ id: string; filePath: string } | null>;
   removeStyle(id: string): Promise<void>;
   removeLocale(id: string): Promise<void>;
+}
+
+/**
+ * Installed plugins (#2634). Each change is applied to the whole app before
+ * it resolves, and answers with the new list.
+ */
+export interface PluginsApi {
+  list(): Promise<PluginList>;
+  setEnabled(id: string, enabled: boolean): Promise<PluginList>;
+  /** Deletes the plugin's folder (or only the link, if it is one). */
+  remove(id: string): Promise<PluginList>;
+  /** Native folder picker, then copy it in. `null` when the picker or the Replace? question is cancelled. */
+  installFolder(): Promise<{ id: string; name: string } | null>;
+  /** Show a plugin's folder, or the plugins folder, in the file manager. */
+  reveal(id?: string): Promise<void>;
+  /** Plugins changed (here or outside the app) and have been applied. */
+  onChanged(cb: () => void): () => void;
 }
 
 /**

@@ -1,0 +1,105 @@
+/**
+ * `~/.minerva/plugins.json` (#2634): what this machine knows about each
+ * installed plugin beyond its folder — whether it's enabled, and where it was
+ * installed from. Per machine, like the plugins themselves.
+ *
+ * A plugin folder with no record (dropped in by hand, or by an agent) is
+ * enabled; disabling one writes a record. Removing a plugin removes its
+ * record. A record without a folder is ignored and dropped on the next write.
+ *
+ * Read leniently to display (a corrupt file reads as "no records", reported),
+ * strictly to change (#2416): a mutation on a corrupt file is refused and the
+ * file left as it is, and mutations run under the file lock so two at once
+ * can't drop each other's change.
+ */
+import path from 'node:path';
+import {
+  asBool,
+  asRecord,
+  asString,
+  loadConfigFile,
+  loadConfigFileStrict,
+  requireRecord,
+} from '../config/config-store';
+import { writeJsonFileAtomic } from '../config/json-file';
+import { withFileLock } from '../config/file-lock';
+
+/** Where a plugin came from, as recorded at install. */
+export type PluginSource =
+  | { kind: 'folder'; path: string }
+  /** No install record — it was put in `~/.minerva/plugins/` by hand. */
+  | { kind: 'manual' };
+
+export interface PluginRecord {
+  enabled: boolean;
+  source: PluginSource;
+  /** ISO time of the install, when Minerva installed it. */
+  installedAt?: string;
+}
+
+export type PluginRecords = Record<string, PluginRecord>;
+
+/** The records file sits beside the plugins folder: `~/.minerva/plugins.json`
+ *  for `~/.minerva/plugins/` — so a test's temporary folder brings its own. */
+export function pluginsStateFile(pluginsDir: string): string {
+  return path.join(path.dirname(pluginsDir), 'plugins.json');
+}
+
+function decodeSource(raw: unknown): PluginSource {
+  const r = asRecord(raw);
+  if (r.kind === 'folder' && typeof r.path === 'string') return { kind: 'folder', path: r.path };
+  return { kind: 'manual' };
+}
+
+function decodeRecord(raw: unknown): PluginRecord {
+  const r = asRecord(raw);
+  const installedAt = asString(r.installedAt, '');
+  return {
+    enabled: asBool(r.enabled, true),
+    source: decodeSource(r.source),
+    ...(installedAt ? { installedAt } : {}),
+  };
+}
+
+function decodeLenient(raw: unknown): PluginRecords {
+  const out: PluginRecords = {};
+  for (const [id, rec] of Object.entries(asRecord(asRecord(raw).plugins))) out[id] = decodeRecord(rec);
+  return out;
+}
+
+function decodeStrict(raw: unknown): PluginRecords {
+  const top = requireRecord(raw, 'plugins.json');
+  const out: PluginRecords = {};
+  for (const [id, rec] of Object.entries(requireRecord(top.plugins ?? {}, 'plugins.json "plugins"'))) out[id] = decodeRecord(rec);
+  return out;
+}
+
+/** The records, for display and for deciding what loads. */
+export function loadPluginRecords(pluginsDir: string): Promise<PluginRecords> {
+  return loadConfigFile(() => pluginsStateFile(pluginsDir), decodeLenient, {});
+}
+
+/** The record for `id`: its own, or the default for a folder with none. */
+export function recordFor(records: PluginRecords, id: string): PluginRecord {
+  return Object.hasOwn(records, id) ? records[id]! : { enabled: true, source: { kind: 'manual' } };
+}
+
+/**
+ * Change the records: read strictly, apply `fn`, write atomically, all under
+ * the file lock. `keep` is the set of installed ids; a record for anything
+ * else is dropped.
+ */
+export function updatePluginRecords(
+  pluginsDir: string,
+  fn: (records: PluginRecords) => void,
+  keep?: ReadonlySet<string>,
+): Promise<PluginRecords> {
+  const abs = pluginsStateFile(pluginsDir);
+  return withFileLock(abs, async () => {
+    const records = await loadConfigFileStrict(abs, decodeStrict, {});
+    fn(records);
+    if (keep) for (const id of Object.keys(records)) if (!keep.has(id)) delete records[id];
+    await writeJsonFileAtomic(abs, { plugins: records }, { trailingNewline: true });
+    return records;
+  });
+}
