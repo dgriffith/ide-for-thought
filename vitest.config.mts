@@ -369,6 +369,15 @@ export default defineConfig({
         // pipeline (parse → loader → compile → register) plus the non-executing
         // template language; `stock/*.md` are prompt bodies, not code, and
         // aren't in the `include` set.
+        // plugins ~94.0 L / 94.1 F / 92.3 S / 82.1 B. The plugin package format
+        // (#2632): manifest validation and the containment checks on every
+        // contributed path. Two files, so ~8 points of headroom.
+        'src/main/plugins/**': {
+          lines: 86,
+          functions: 86,
+          statements: 84,
+          branches: 74,
+        },
         'src/main/skills/**': {
           lines: 83,
           functions: 74,
