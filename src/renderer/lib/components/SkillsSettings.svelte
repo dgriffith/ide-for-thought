@@ -314,7 +314,8 @@
                 onchange={() => toggleSkillEnabled(s)}
               />
               <span class="skill-name">{s.name}</span>
-              <span class="skill-src" class:user={s.source === 'user'}>{s.source}</span>
+              <span class="skill-src" class:user={s.source === 'user'}
+                title={s.plugin ? `From the ${s.plugin.name} plugin, ${s.plugin.version}` : undefined}>{s.source === 'plugin' ? (s.plugin?.name ?? 'plugin') : s.source}</span>
               <div class="skill-controls">
                 <button
                   class="reorder-btn"

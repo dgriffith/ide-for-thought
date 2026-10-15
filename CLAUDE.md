@@ -1596,7 +1596,11 @@ plus files the existing seams already parse. Never code, and never inside a
 thoughtbase. The format is `shared/plugins/format.ts` (`PLUGIN_CONTRIBUTION_POINTS`
 says which points accept them, and fails closed) and `main/plugins/` checks
 it; [`docs/authoring-plugins.md`](docs/authoring-plugins.md) has a worked
-example that its test holds to the fixture.
+example that its test holds to the fixture. `main/plugins/registry.ts` is the
+scan the seams read: empty until `main.ts` calls `enablePlugins`, so tests, the
+CLI and the eval goldens never see a developer's installed plugins. A
+contribution keeps its own id (the plugin is provenance); it can't shadow a
+stock or user one, and types go stock < plugin < thoughtbase (#2633).
 
 ### Tools for Thought (Skills)
 

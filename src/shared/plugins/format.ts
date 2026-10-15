@@ -38,6 +38,13 @@ export const PLUGIN_CONTRIBUTION_POINTS = {
 
 export type PluginContributionPoint = keyof typeof PLUGIN_CONTRIBUTION_POINTS;
 
+/** The plugin a contribution came from (#2633): its provenance, carried on the skill or type. */
+export interface PluginOrigin {
+  id: string;
+  name: string;
+  version: string;
+}
+
 /** `plugin.json`, as validated. */
 export interface PluginManifest {
   /** Lowercase letters, digits and single dashes; the folder's name. It namespaces every contribution. */

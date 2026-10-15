@@ -194,7 +194,14 @@
 <div class="overlay" onkeydown={overlayKey} onmousedown={(e) => { if (e.target === e.currentTarget) onClose(); }} role="presentation">
   <div class="dialog" role="dialog" aria-modal="true" aria-label="Edit object type">
     <h3 class="title">{initial?.id ? 'Edit' : 'New'} object type</h3>
-    {#if seed?.stockOrigin === 'stock'}
+    {#if seed?.stockOrigin === 'plugin'}
+      <!-- As for a stock type: the plugin's file isn't this thoughtbase's to edit (#2633). -->
+      <p class="fork-note">
+        <strong>{seed.label}</strong> comes from the {seed.pluginName} plugin. Saving keeps a customized
+        copy in this thoughtbase — the plugin's definition stays available to revert to. Its name is
+        fixed; duplicate it instead to make one of your own.
+      </p>
+    {:else if seed?.stockOrigin === 'stock'}
       <!-- "Edit" on a stock type reads as editing the bundle; say what it
            actually does before the user commits to it. -->
       <p class="fork-note">

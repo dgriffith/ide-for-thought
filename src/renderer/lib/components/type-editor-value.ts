@@ -31,7 +31,9 @@ export interface TypeEditorInitial {
    * refuses to rename one, so letting the dialog change its label anyway just
    * contradicted itself.
    */
-  stockOrigin?: 'stock' | 'customized';
+  stockOrigin?: 'stock' | 'plugin' | 'customized';
+  /** With `stockOrigin: 'plugin'`: the plugin the type comes from (#2633). */
+  pluginName?: string;
 }
 
 /** A type's optional carry-over fields (icon / color / cover / card / parent /

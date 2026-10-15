@@ -13,4 +13,6 @@ export interface Contribution {
   source: ContributionSource;
   /** Where it lives, when it's a file. */
   location?: string;
+  /** The plugin that supplied it, when `source` is `'plugin'` (#2633). */
+  plugin?: { id: string; name: string; version: string };
 }

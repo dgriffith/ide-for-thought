@@ -69,6 +69,8 @@ import {
   type TypeLoadError,
 } from '../../shared/objects/type-def';
 import { parseType, type ParseTypeResult } from './parse';
+import type { PluginScan } from '../../shared/plugins/format';
+import { contributionsTo, getPluginScan } from '../plugins/registry';
 
 // Stock types inlined into the main bundle at build time (query:'?raw').
 const STOCK_RAW = import.meta.glob('./stock/*.md', {
@@ -164,16 +166,49 @@ async function loadUser(dir: string): Promise<{ types: TypeDef[]; errors: TypeLo
 }
 
 /**
- * Build the per-project type catalog. Stock loads first and wins id collisions;
- * a user type colliding with stock (or an earlier user type) is rejected with an
- * error. `rootPath` locates the in-tree user types.
+ * Plugin types (#2633): each contributed `.md`, parsed as `source: 'plugin'`
+ * and stamped with its plugin. Read fresh each load (a plugin's files are
+ * few, and #2634 replaces them without a restart).
  */
-export async function loadTypeCatalog(rootPath: string): Promise<TypeCatalog> {
+async function loadPlugins(scan: PluginScan): Promise<{ types: TypeDef[]; errors: TypeLoadError[] }> {
+  const types: TypeDef[] = [];
+  const errors: TypeLoadError[] = [];
+  for (const { plugin, contribution } of contributionsTo(scan, 'object-types')) {
+    const origin = { id: plugin.manifest.id, name: plugin.manifest.name, version: plugin.manifest.version };
+    const filePath = contribution.absolutePath;
+    let content: string;
+    try {
+      content = await fs.readFile(filePath, 'utf-8');
+    } catch (e) {
+      errors.push({ source: 'plugin', filePath, label: `${origin.id}: ${contribution.path}`, message: `couldn't be read (${(e as NodeJS.ErrnoException).code ?? 'error'})` });
+      continue;
+    }
+    const r = parseType(content, 'plugin', filePath);
+    if (r.type) types.push({ ...r.type, plugin: origin });
+    else for (const message of r.errors) errors.push({ source: 'plugin', filePath, label: `${origin.id}: ${r.label}`, message });
+  }
+  return { types, errors };
+}
+
+/**
+ * Build the per-project type catalog: stock < plugin < thoughtbase (#2633).
+ * - Stock loads first; a duplicate stock id is an error.
+ * - A plugin type can't replace a stock one, and the second plugin to claim
+ *   an id is refused, naming the first — reported against that plugin.
+ * - A thoughtbase's own `.minerva/types/` file overrides a stock or plugin
+ *   type of the same id (`overridesStock`, with `plugin` saying whose), the
+ *   bundled or plugin definition staying underneath to revert to; two user
+ *   files claiming one id is an error.
+ * `rootPath` locates the in-tree user types. `plugins` defaults to the running
+ * app's scan, which is empty outside the app (tests, the CLI).
+ */
+export async function loadTypeCatalog(rootPath: string, plugins?: PluginScan): Promise<TypeCatalog> {
   const stock = loadStock();
+  const fromPlugins = await loadPlugins(plugins ?? await getPluginScan());
   const user = await loadUser(userTypesDir(rootPath));
 
   const byId = new Map<string, TypeDef>();
-  const errors: TypeLoadError[] = [...stock.errors, ...user.errors];
+  const errors: TypeLoadError[] = [...stock.errors, ...fromPlugins.errors, ...user.errors];
 
   for (const t of stock.types) {
     if (byId.has(t.id)) {
@@ -182,12 +217,21 @@ export async function loadTypeCatalog(rootPath: string): Promise<TypeCatalog> {
     }
     byId.set(t.id, t);
   }
+  for (const t of fromPlugins.types) {
+    const existing = byId.get(t.id);
+    if (existing) {
+      const holder = existing.source === 'plugin' ? `the ${existing.plugin!.id} plugin's type` : 'a stock type';
+      errors.push({ source: 'plugin', filePath: t.filePath, label: `${t.plugin!.id}: ${t.label}`, message: `id "${t.id}" is already ${holder}; a plugin can't replace it` });
+      continue;
+    }
+    byId.set(t.id, t);
+  }
   for (const t of user.types) {
     const existing = byId.get(t.id);
-    if (existing && existing.source === 'stock') {
-      // A local customization of a stock type — the in-tree file wins, and the
-      // stock definition stays available underneath to revert to.
-      byId.set(t.id, { ...t, overridesStock: true });
+    if (existing && (existing.source === 'stock' || existing.source === 'plugin')) {
+      // A local customization of a stock or plugin type — the in-tree file
+      // wins, and the other definition stays available underneath to revert to.
+      byId.set(t.id, { ...t, overridesStock: true, ...(existing.plugin ? { plugin: existing.plugin } : {}) });
       continue;
     }
     if (existing) {

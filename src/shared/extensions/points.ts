@@ -30,7 +30,7 @@ export const RUNGS = [
   'object-type',
   /** A saved query or a note template. */
   'query-view',
-  /** A declarative plugin bundle (#2631) — none loads yet. */
+  /** A declarative plugin bundle (#2631) in `~/.minerva/plugins/`. */
   'plugin',
   /** An MCP server: code, out of process, capability-scoped and approval-gated. */
   'mcp',
@@ -45,7 +45,7 @@ export const RUNG_DESCRIPTIONS: Record<Rung, string> = {
   skill: 'A markdown skill: a prompt template that becomes a menu item and, optionally, a slash command.',
   'object-type': 'A markdown object type: a note type with properties, a form and views.',
   'query-view': 'A saved query or a note template.',
-  plugin: 'A declarative plugin bundle (#2631): its format is docs/authoring-plugins.md; nothing loads one yet.',
+  plugin: 'A declarative plugin bundle (#2631) in ~/.minerva/plugins/: docs/authoring-plugins.md.',
   mcp: 'An MCP server: code, out of process, capability-scoped and approval-gated.',
   source: 'A change to Minerva itself.',
 };
@@ -173,8 +173,8 @@ export const EXTENSION_POINTS = [
     rung: 'skill',
     contract: { kind: 'parser', format: 'Markdown with YAML frontmatter (a bare .md, or a folder with SKILL.md)', at: { file: 'src/main/skills/parse.ts', symbol: 'parseSkill' } },
     loadPath: 'reload-command',
-    sources: ['stock', 'user'],
-    location: '~/.minerva/skills/',
+    sources: ['stock', 'user', 'plugin'],
+    location: '~/.minerva/skills/, or a plugin\'s skills/ (#2633)',
     docs: 'docs/authoring-skills.md',
     example: 'src/main/skills/stock/propose-source-summary.md',
     harness: 'tests/main/skills-parse.test.ts',
@@ -193,8 +193,8 @@ export const EXTENSION_POINTS = [
     rung: 'object-type',
     contract: { kind: 'parser', format: 'Markdown with YAML frontmatter, one type per file', at: { file: 'src/main/types/parse.ts', symbol: 'parseType' } },
     loadPath: 'hot',
-    sources: ['stock', 'thoughtbase'],
-    location: '<thoughtbase>/.minerva/types/',
+    sources: ['stock', 'plugin', 'thoughtbase'],
+    location: '<thoughtbase>/.minerva/types/, or a plugin\'s types/ (#2633)',
     docs: 'docs/authoring-types.md',
     example: 'src/main/types/stock/place.md',
     harness: 'tests/main/types/loader.test.ts',

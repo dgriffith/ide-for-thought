@@ -23,7 +23,7 @@
 import * as $rdf from 'rdflib';
 import { DC, MINERVA, PROV, RDF, RDFS, XSD, projectUri, type GraphState } from '../state';
 import { withTrustedContext } from '../write-guard';
-import { EXTENSION_POINTS, type ContributionSource, type ExtensionPoint } from '../../../shared/extensions/points';
+import { EXTENSION_POINTS, type ExtensionPoint } from '../../../shared/extensions/points';
 import type { Contribution } from '../../../shared/extensions/contributions';
 
 /** The named graph the catalog lives in — never written to `graph.ttl`. */
@@ -33,13 +33,17 @@ export const extensionPointIri = (id: string) => $rdf.sym(`urn:x-minerva:extensi
 const contributionIri = (point: string, id: string) =>
   $rdf.sym(`urn:x-minerva:contribution:${encodeURIComponent(point)}:${encodeURIComponent(id)}`);
 
-function agentFor(state: GraphState, source: ContributionSource) {
-  switch (source) {
+/** A plugin, as an agent: one IRI per plugin id (#2633). */
+export const pluginIri = (id: string) => $rdf.sym(`urn:x-minerva:plugin:${encodeURIComponent(id)}`);
+
+function agentFor(state: GraphState, c: Contribution) {
+  switch (c.source) {
     case 'stock': return MINERVA('stock');
     case 'user': return MINERVA('localUser');
     case 'thoughtbase': return projectUri(state);
-    // No plugin loads yet (#2631); its contributions will carry the plugin's own IRI.
-    case 'plugin': return MINERVA('Plugin');
+    // A plugin is described once, below; a contribution without one (none
+    // should exist) falls back to the class.
+    case 'plugin': return c.plugin ? pluginIri(c.plugin.id) : MINERVA('Plugin');
   }
 }
 
@@ -70,13 +74,22 @@ export function materializeExtensionCatalog(
     }
 
     const at = $rdf.lit(now.toISOString(), undefined, XSD('dateTime'));
+    // Each supplying plugin, once: its name, and `plugin:<id>@<version>` —
+    // the provenance its contributions carry.
+    const plugins = new Map(contributions.flatMap((c) => (c.plugin ? [[c.plugin.id, c.plugin] as const] : [])));
+    for (const plugin of plugins.values()) {
+      const iri = pluginIri(plugin.id);
+      store.add(iri, RDF('type'), MINERVA('Plugin'), g);
+      store.add(iri, RDFS('label'), $rdf.lit(plugin.name), g);
+      store.add(iri, DC('identifier'), $rdf.lit(`plugin:${plugin.id}@${plugin.version}`), g);
+    }
     for (const c of contributions) {
       const iri = contributionIri(c.point, c.id);
       store.add(iri, RDF('type'), MINERVA('Contribution'), g);
       store.add(iri, MINERVA('contributesTo'), extensionPointIri(c.point), g);
       store.add(iri, DC('identifier'), $rdf.lit(c.id), g);
       store.add(iri, RDFS('label'), $rdf.lit(c.label), g);
-      store.add(iri, PROV('wasAttributedTo'), agentFor(state, c.source), g);
+      store.add(iri, PROV('wasAttributedTo'), agentFor(state, c), g);
       store.add(iri, PROV('generatedAtTime'), at, g);
       if (c.location) store.add(iri, MINERVA('contributionLocation'), $rdf.lit(c.location), g);
     }

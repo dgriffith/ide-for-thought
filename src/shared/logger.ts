@@ -42,6 +42,7 @@ export const LOG_TAGS = [
   'merge',
   'objects',
   'onboarding',
+  'plugins',
   'preview',
   'privileged-sites',
   'project-context',

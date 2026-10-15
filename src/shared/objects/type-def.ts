@@ -11,6 +11,8 @@
  * `.minerva/types/*.md`; stock types are bundled.
  */
 
+import type { PluginOrigin } from '../plugins/format';
+
 /** The MVP five property types (decision 4), plus `geo` (#2064/#2065 design
  *  spike): a location stored as a plain `"<lat>,<lng>"` string — no
  *  geocoding, no structured sub-fields, deferred per that decision doc —
@@ -43,7 +45,7 @@ export interface PropertyDef {
   predicate?: string | undefined;
 }
 
-export type TypeSource = 'stock' | 'user';
+export type TypeSource = 'stock' | 'user' | 'plugin';
 
 /** A fully-loaded type definition (main process). */
 export interface TypeDef {
@@ -73,10 +75,14 @@ export interface TypeDef {
    *  Minerva's own `types:` namespace. */
   externalClass?: string | undefined;
   source: TypeSource;
-  /** True when this is a stock type the thoughtbase has locally customized —
-   *  `source` is `'user'` (the in-tree file is what loaded), but a stock
-   *  definition of the same id exists to revert to. Drives the "customized"
-   *  badge and the Revert action; a plain user type has no stock fallback. */
+  /** The plugin it came from (#2633) — on a plugin type, and on a thoughtbase
+   *  type that overrides one. */
+  plugin?: PluginOrigin | undefined;
+  /** True when this is a stock or plugin type the thoughtbase has locally
+   *  customized — `source` is `'user'` (the in-tree file is what loaded), but
+   *  a bundled or plugin definition of the same id exists to revert to
+   *  (`plugin` says which, when it's a plugin's). Drives the "customized"
+   *  badge and the Revert action; a plain user type has no fallback. */
   overridesStock?: boolean | undefined;
   /** Absolute path for user types; the glob key for stock types. */
   filePath: string;
@@ -115,7 +121,9 @@ export interface TypeInfo {
    *  `{{name}}` placeholders may refer to. Set only where the catalog is known. */
   effectivePropertyNames?: string[] | undefined;
   source: TypeSource;
-  /** See `TypeDef.overridesStock` — a locally customized stock type. */
+  /** See `TypeDef.plugin`. */
+  plugin?: PluginOrigin | undefined;
+  /** See `TypeDef.overridesStock` — a locally customized stock or plugin type. */
   overridesStock?: boolean | undefined;
 }
 
@@ -154,6 +162,7 @@ export function toTypeInfo(t: TypeDef): TypeInfo {
     parent: t.parent,
     externalClass: t.externalClass,
     source: t.source,
+    plugin: t.plugin,
     overridesStock: t.overridesStock,
   };
 }

@@ -140,6 +140,17 @@ describe('SkillsSettings (#672)', () => {
     await waitFor(() => expect(removeMock).toHaveBeenCalledWith('u1'));
   });
 
+  it('a plugin skill shows its plugin, and can\'t be removed from here (#2633)', async () => {
+    listMock.mockResolvedValue(catalog([skill({
+      id: 'reading-list.reading-summary', name: 'Reading Summary', menu: 'Learning', source: 'plugin',
+      plugin: { id: 'reading-list', name: 'Reading List', version: '1.0.0' },
+    })]));
+    const { findByText, getByText, queryByText } = render(SkillsSettings, {});
+    await findByText('Reading Summary');
+    expect(getByText('Reading List').getAttribute('title')).toBe('From the Reading List plugin, 1.0.0');
+    expect(queryByText('Remove')).toBeNull();
+  });
+
   it('Reload calls api.skills.reload', async () => {
     listMock.mockResolvedValue(catalog([]));
     reloadMock.mockResolvedValue(catalog([]));

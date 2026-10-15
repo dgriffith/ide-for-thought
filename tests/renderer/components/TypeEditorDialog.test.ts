@@ -181,6 +181,17 @@ describe('TypeEditorDialog — stock types keep their name', () => {
     expect(screen.getByText(/name is fixed/)).toBeTruthy();
   });
 
+  it('a plugin\'s type forks the same way, naming its plugin (#2633)', async () => {
+    render(TypeEditorDialog, {
+      initial: { id: 'book-note', label: 'Book Note', properties: [], stockOrigin: 'plugin', pluginName: 'Reading List' },
+      onSaved: vi.fn(), onClose: vi.fn(),
+    });
+    expect((screen.getByDisplayValue('Book Note')).readOnly).toBe(true);
+    expect(screen.getByText(/comes from the Reading List plugin/)).toBeTruthy();
+    expect(screen.getByText(/the plugin's definition stays available to revert to/)).toBeTruthy();
+    expect(screen.queryByText(/is a stock type/)).toBeNull();
+  });
+
   it('locks the Name on an already-customized stock type too', async () => {
     // It's still stock-derived — the local copy doesn't make the name yours.
     render(TypeEditorDialog, {

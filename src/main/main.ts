@@ -23,6 +23,7 @@ import { sweepStaleRpcSockets } from './compute/rpc-server';
 import { stopClipperServer } from './clipper/lifecycle';
 import { disposeSharedEmbedder } from './embeddings/shared-embedder';
 import { registerSkillsAtStartup } from './skills/register';
+import { enablePlugins } from './plugins/registry';
 import { initAutoUpdate, setUpdateStateListener } from './auto-update';
 import { installE2EHooks } from './e2e-hooks';
 import { logger } from '../shared/logger';
@@ -122,6 +123,9 @@ function startApp(): void {
     // `buildMenu` below — so no window is ever on screen without its full menu.
     // Failure to load a skill is isolated per-file inside the loader; a total
     // failure here shouldn't block startup.
+    // Installed plugins (#2633): configuration only — the folder is read on the
+    // skill and type catalogs' first loads, never in front of the window.
+    enablePlugins({ appVersion: app.getVersion() });
     const skillsRegistered = registerSkillsAtStartup()
       .catch((err) => logger('skills').warn('startup load failed:', err));
 

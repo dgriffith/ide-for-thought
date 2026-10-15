@@ -17,7 +17,7 @@ Reach for the lowest rung that does the job — declarative before code.
 2. **skill** — A markdown skill: a prompt template that becomes a menu item and, optionally, a slash command.
 3. **object-type** — A markdown object type: a note type with properties, a form and views.
 4. **query-view** — A saved query or a note template.
-5. **plugin** — A declarative plugin bundle (#2631): its format is docs/authoring-plugins.md; nothing loads one yet.
+5. **plugin** — A declarative plugin bundle (#2631) in ~/.minerva/plugins/: docs/authoring-plugins.md.
 6. **mcp** — An MCP server: code, out of process, capability-scoped and approval-gated.
 7. **source** — A change to Minerva itself.
 
@@ -28,8 +28,8 @@ Reach for the lowest rung that does the job — declarative before code.
 | [Citation styles and locales](#csl-styles--citation-styles-and-locales) | setting | hot | stock, thoughtbase |
 | [Static site stylesheet](#static-site-css--static-site-stylesheet) | setting | hot | thoughtbase |
 | [Ontology](#ontology--ontology) | setting | hot | stock, thoughtbase |
-| [Skills](#skills--skills) | skill | reload-command | stock, user |
-| [Object types](#object-types--object-types) | object-type | hot | stock, thoughtbase |
+| [Skills](#skills--skills) | skill | reload-command | stock, user, plugin |
+| [Object types](#object-types--object-types) | object-type | hot | stock, plugin, thoughtbase |
 | [Saved queries](#saved-queries--saved-queries) | query-view | hot | stock, user, thoughtbase |
 | [Note templates](#note-templates--note-templates) | query-view | hot | stock, thoughtbase |
 | [MCP servers (Minerva as client)](#mcp-servers--mcp-servers-minerva-as-client) | mcp | hot | user |
@@ -92,8 +92,8 @@ A thinking tool: a prompt template with parameters that becomes a Learning / Res
 
 - **Rung:** skill
 - **Picked up:** after an explicit reload (`reload-command`)
-- **Contributions from:** stock, user
-- **Goes in:** ~/.minerva/skills/
+- **Contributions from:** stock, user, plugin
+- **Goes in:** ~/.minerva/skills/, or a plugin's skills/ (#2633)
 - **Contract:** Markdown with YAML frontmatter (a bare .md, or a folder with SKILL.md), checked by [`src/main/skills/parse.ts`](../src/main/skills/parse.ts) (`parseSkill`)
 - **Registers in:** [`src/shared/tools/registry.ts`](../src/shared/tools/registry.ts) (`registerTool`), [`src/renderer/lib/tools/tool-registry.ts`](../src/renderer/lib/tools/tool-registry.ts) (`registerSkillInfos`)
 - **Docs:** [`docs/authoring-skills.md`](authoring-skills.md)
@@ -106,8 +106,8 @@ A note type: its properties, its form, the views of its instances, and the graph
 
 - **Rung:** object-type
 - **Picked up:** at once, or on its next read (`hot`)
-- **Contributions from:** stock, thoughtbase
-- **Goes in:** &lt;thoughtbase>/.minerva/types/
+- **Contributions from:** stock, plugin, thoughtbase
+- **Goes in:** &lt;thoughtbase>/.minerva/types/, or a plugin's types/ (#2633)
 - **Contract:** Markdown with YAML frontmatter, one type per file, checked by [`src/main/types/parse.ts`](../src/main/types/parse.ts) (`parseType`)
 - **Docs:** [`docs/authoring-types.md`](authoring-types.md)
 - **Example:** [`src/main/types/stock/place.md`](../src/main/types/stock/place.md)

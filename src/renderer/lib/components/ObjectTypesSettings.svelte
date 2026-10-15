@@ -35,8 +35,10 @@
       ...optionalTypeFields(t),
       // Stock-derived either way: 'stock' forks on save, 'customized' already
       // has its local copy. Both keep the stock name.
+      // A plugin's type forks the same way (#2633).
       ...(t.overridesStock ? { stockOrigin: 'customized' as const }
-        : t.source === 'stock' ? { stockOrigin: 'stock' as const } : {}),
+        : t.source === 'stock' ? { stockOrigin: 'stock' as const }
+        : t.source === 'plugin' ? { stockOrigin: 'plugin' as const, pluginName: t.plugin?.name ?? 'an unnamed' } : {}),
     };
     editorOpen = true;
   }
@@ -178,8 +180,9 @@
                customized, and a wholly user-authored type. Editing a stock type
                writes a local copy that shadows the bundle; Revert deletes that
                copy and the bundled definition takes over again. -->
-          <span class="type-src" class:user={t.source === 'user' && !t.overridesStock} class:custom={t.overridesStock}>
-            {t.overridesStock ? 'customized' : t.source}
+          <span class="type-src" class:user={t.source === 'user' && !t.overridesStock} class:custom={t.overridesStock}
+            title={t.plugin ? `From the ${t.plugin.name} plugin, ${t.plugin.version}` : undefined}>
+            {t.overridesStock ? 'customized' : t.source === 'plugin' ? (t.plugin?.name ?? 'plugin') : t.source}
           </span>
           <span class="type-actions">
             <button class="link-btn" disabled={busy} onclick={() => openEdit(t)}>Edit</button>

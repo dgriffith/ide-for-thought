@@ -167,3 +167,31 @@ describe('ObjectTypesSettings (#1584)', () => {
     expect(renameMock).not.toHaveBeenCalled();
   });
 });
+
+describe('ObjectTypesSettings — plugin types (#2633)', () => {
+  const NOTE = {
+    id: 'book-note', label: 'Book Note', classLocalName: 'BookNote', source: 'plugin', properties: [],
+    plugin: { id: 'reading-list', name: 'Reading List', version: '1.0.0' },
+  };
+
+  it('shows the plugin\'s name, and offers Edit + Duplicate but not Rename or Delete', async () => {
+    listMock.mockResolvedValue({ types: [NOTE], errors: [] });
+    render(ObjectTypesSettings);
+    await waitFor(() => expect(screen.getByText('Book Note')).toBeTruthy());
+    const badge = within(row('Book Note')).getByText('Reading List');
+    expect(badge.getAttribute('title')).toBe('From the Reading List plugin, 1.0.0');
+    expect(within(row('Book Note')).getByText('Edit')).toBeTruthy();
+    expect(within(row('Book Note')).getByText('Duplicate')).toBeTruthy();
+    expect(within(row('Book Note')).queryByText('Rename')).toBeNull();
+    expect(within(row('Book Note')).queryByText('Delete')).toBeNull();
+  });
+
+  it('a thoughtbase copy of a plugin type reads customized, with Revert', async () => {
+    listMock.mockResolvedValue({ types: [{ ...NOTE, source: 'user', overridesStock: true }], errors: [] });
+    render(ObjectTypesSettings);
+    await waitFor(() => expect(screen.getByText('Book Note')).toBeTruthy());
+    expect(within(row('Book Note')).getByText('customized')).toBeTruthy();
+    expect(within(row('Book Note')).getByText('Revert')).toBeTruthy();
+  });
+});
+
