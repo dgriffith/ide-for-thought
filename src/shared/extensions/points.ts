@@ -45,7 +45,7 @@ export const RUNG_DESCRIPTIONS: Record<Rung, string> = {
   skill: 'A markdown skill: a prompt template that becomes a menu item and, optionally, a slash command.',
   'object-type': 'A markdown object type: a note type with properties, a form and views.',
   'query-view': 'A saved query or a note template.',
-  plugin: 'A declarative plugin bundle (#2631) — none loads yet.',
+  plugin: 'A declarative plugin bundle (#2631): its format is docs/authoring-plugins.md; nothing loads one yet.',
   mcp: 'An MCP server: code, out of process, capability-scoped and approval-gated.',
   source: 'A change to Minerva itself.',
 };

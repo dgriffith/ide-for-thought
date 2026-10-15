@@ -1,0 +1,10 @@
+# @name Unread books
+# @order 1
+
+SELECT ?note ?title WHERE {
+  ?note a types:BookNote ;
+        dc:title ?title .
+  OPTIONAL { ?note minerva:meta-status ?status }
+  FILTER(!BOUND(?status) || ?status = "unread")
+}
+ORDER BY ?title

@@ -48,6 +48,7 @@ const NOT_A_SEAM: Record<string, string> = {
   sources: 'ingested sources — the user\'s data',
   excerpts: 'excerpts of sources — the user\'s data',
   assets: 'pasted and dropped images — the user\'s data',
+  plugins: 'plugin packages (#2631) — each one\'s contributions are declared under their own points',
   __eval_stock_only__: 'the skill-eval harness\'s empty user-skills folder (src/cli/eval.ts)',
 };
 

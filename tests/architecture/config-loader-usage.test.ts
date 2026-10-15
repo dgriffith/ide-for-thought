@@ -98,6 +98,9 @@ const BASELINE: Record<string, string> = {
   // saveSettings writes over a silently-emptied `{}` and erases every key.
   'src/main/llm/settings.ts': 'must throw on corruption for read-modify-write (#2356, the #1891 clobber shape for API keys) — incompatible with loadConfigFile\'s never-throw contract',
   'src/main/skills/menu-config-store.ts': 'CLAUDE.md-tracked hand-rolled config (menu-config-store)',
+  // #2632: a plugin's manifest is a package format, not settings. A bad one must
+  // be reported (with every problem) and the plugin refused, never defaulted.
+  'src/main/plugins/package.ts': 'plugin.json is a package manifest, refused whole when invalid — defaulting it would load a plugin nobody described',
   // Not config in the #1640 sense: read-only helper, or a cache/log/per-item
   // data file where "corrupt → report + default" isn't the right model.
   // Moved from `ipc/` in #2283 — deliberately next to `config-store.ts`, because

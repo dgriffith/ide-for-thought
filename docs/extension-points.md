@@ -17,7 +17,7 @@ Reach for the lowest rung that does the job — declarative before code.
 2. **skill** — A markdown skill: a prompt template that becomes a menu item and, optionally, a slash command.
 3. **object-type** — A markdown object type: a note type with properties, a form and views.
 4. **query-view** — A saved query or a note template.
-5. **plugin** — A declarative plugin bundle (#2631) — none loads yet.
+5. **plugin** — A declarative plugin bundle (#2631): its format is docs/authoring-plugins.md; nothing loads one yet.
 6. **mcp** — An MCP server: code, out of process, capability-scoped and approval-gated.
 7. **source** — A change to Minerva itself.
 

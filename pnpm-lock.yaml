@@ -243,6 +243,9 @@ importers:
       rdflib:
         specifier: ^2.4.1
         version: 2.4.1(encoding@0.1.13)
+      semver:
+        specifier: ^7.8.5
+        version: 7.8.5
       sql-formatter:
         specifier: ^15.9.0
         version: 15.9.0
@@ -325,6 +328,9 @@ importers:
       '@types/n3':
         specifier: ^1.26.4
         version: 1.26.4
+      '@types/semver':
+        specifier: ^7.7.1
+        version: 7.7.1
       '@types/turndown':
         specifier: ^5.0.6
         version: 5.0.6

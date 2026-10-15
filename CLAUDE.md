@@ -1591,6 +1591,13 @@ its registry. **A new registry or `.minerva/` contribution folder must be
 declared**: `tests/architecture/extension-points-declared.test.ts` fails
 otherwise (#2621).
 
+**Plugins (#2631)** are folders in `~/.minerva/plugins/<id>/`: a `plugin.json`
+plus files the existing seams already parse. Never code, and never inside a
+thoughtbase. The format is `shared/plugins/format.ts` (`PLUGIN_CONTRIBUTION_POINTS`
+says which points accept them, and fails closed) and `main/plugins/` checks
+it; [`docs/authoring-plugins.md`](docs/authoring-plugins.md) has a worked
+example that its test holds to the fixture.
+
 ### Tools for Thought (Skills)
 
 The Learning / Research / Analysis menus are populated by **skills** — markdown
