@@ -247,6 +247,14 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
     "pickImport",
     "remove",
   ],
+  "plugins": [
+    "installFolder",
+    "list",
+    "onChanged",
+    "remove",
+    "reveal",
+    "setEnabled",
+  ],
   "proposals": [
     "approve",
     "detail",

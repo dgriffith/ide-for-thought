@@ -71,6 +71,8 @@ const READ_ALLOWLIST = new Set<string>([
   // app / shell / view / export — OS + window reads and stateless side-effects
   'getInfo', 'getShortcuts', 'getSystemLocale', 'openExternal', 'openInDefault', 'openInTerminal',
   'revealFile', 'revealFolder', 'revealAuditLog', 'csv', 'getZoomFactor',
+  // plugins.reveal (#2634): opens a plugin's folder in the file manager.
+  'reveal',
   // inspection settings: reading which checks run changes nothing (#1792);
   // the write is denylisted and goes through the settings store.
   'inspectionSettings',

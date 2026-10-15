@@ -205,6 +205,9 @@ const SWALLOW_EXPR = /\.catch\(\s*\(\)\s*=>/g;
  * not a verdict. Fix individual sites as separate follow-up work.
  */
 const SWALLOW_EXPR_BASELINE: Record<string, number> = {
+  // #2634: the apply queue's own tail — the caller of each run gets its
+  // rejection; the queue only needs to go on.
+  'src/main/plugins-apply.ts': 1,
   'src/main/compute/python-kernel.ts': 2,
   'src/main/embeddings/vector-store.ts': 1,
   'src/main/git/publish-git.ts': 3,

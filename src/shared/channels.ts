@@ -246,6 +246,17 @@ export const Channels = {
   /** Delete one vocabulary and take its terms out of the graph. */
   ONTOLOGY_REMOVE: 'ontology:remove',
 
+  /** Installed plugins, enabled or not, and refused ones (#2634). */
+  PLUGINS_LIST: 'plugins:list',
+  PLUGINS_SET_ENABLED: 'plugins:setEnabled',
+  PLUGINS_REMOVE: 'plugins:remove',
+  /** Native picker for a plugin folder, then install it (copied). */
+  PLUGINS_INSTALL_FOLDER: 'plugins:installFolder',
+  /** Open a plugin's folder (or the plugins folder) in the OS file manager. */
+  PLUGINS_REVEAL: 'plugins:reveal',
+  /** main → renderer: plugins changed and have been applied; refresh. */
+  PLUGINS_CHANGED: 'plugins:changed',
+
   /**
    * Render a batch of inline citations through citeproc using the
    * project's configured CSL style (#110). Input is the cite/quote

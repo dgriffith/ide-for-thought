@@ -28,6 +28,7 @@ import McpServersSettings from '../McpServersSettings.svelte';
 import ObjectTypesSettings from '../ObjectTypesSettings.svelte';
 import BibliographySettings from '../BibliographySettings.svelte';
 import OntologySettings from '../OntologySettings.svelte';
+import PluginsSettings from '../PluginsSettings.svelte';
 import EditorSection from './EditorSection.svelte';
 import WebSection from './WebSection.svelte';
 import SourcesSection from './SourcesSection.svelte';
@@ -108,6 +109,7 @@ export const SETTINGS_SECTIONS = [
   section({ id: 'ai', label: 'AI', sub: 'Models · provider keys · voice', group: 'ai', component: AiSection, props: withHost }),
   section({ id: 'skills', label: 'Skills', sub: 'Conversation skills · import', group: 'ai', component: SkillsSection, props: withHost }),
   section({ id: 'mcpServers', label: 'MCP Servers', sub: 'Connect external tool servers', group: 'ai', component: McpServersSettings, props: none }),
+  section({ id: 'plugins', label: 'Plugins', sub: 'Install · turn on and off · remove', group: 'workspace', component: PluginsSettings, props: none }),
 ];
 
 export type SettingsTabId = (typeof SETTINGS_SECTIONS)[number]['id'];

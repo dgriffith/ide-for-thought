@@ -12,7 +12,9 @@ import {
   _disablePluginsForTests,
   contributionsTo,
   enablePlugins,
+  getPluginInventory,
   getPluginScan,
+  loadedPluginScan,
   reloadPluginScan,
 } from '../../../src/main/plugins/registry';
 import { silenceLogTags } from '../../helpers/quiet-logs';
@@ -22,10 +24,12 @@ silenceLogTags('plugins');
 const FIXTURES = path.resolve(__dirname, '..', '..', 'fixtures', 'plugins');
 let dir: string;
 
-beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-plugin-registry-')); });
+// The records file sits beside the plugins folder, so the folder is one level
+// down: its plugins.json must be this test's, not the shared temp dir's.
+beforeEach(() => { dir = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-plugin-registry-')), 'plugins'); fs.mkdirSync(dir); });
 afterEach(() => {
   _disablePluginsForTests();
-  fs.rmSync(dir, { recursive: true, force: true });
+  fs.rmSync(path.dirname(dir), { recursive: true, force: true });
 });
 
 describe('plugin registry (#2633)', () => {
@@ -35,9 +39,9 @@ describe('plugin registry (#2633)', () => {
 
   it('reads the folder once, and shares the scan', async () => {
     enablePlugins({ appVersion: '4.0.0', dir: FIXTURES });
-    const a = getPluginScan();
-    expect(getPluginScan()).toBe(a);
-    expect((await a).plugins.map((p) => p.manifest.id)).toEqual(['reading-list']);
+    const a = getPluginInventory();
+    expect(getPluginInventory()).toBe(a);
+    expect((await getPluginScan()).plugins.map((p) => p.manifest.id)).toEqual(['reading-list']);
   });
 
   it('reload reads it again', async () => {
@@ -65,5 +69,15 @@ describe('plugin registry (#2633)', () => {
     expect(contributionsTo(scan, 'object-types').map(({ plugin, contribution }) => [plugin.manifest.id, contribution.path]))
       .toEqual([['reading-list', 'types/book-note.md']]);
     expect(contributionsTo(scan, 'csl-styles')).toEqual([]);
+  });
+
+  it('a disabled plugin is in the inventory but not in what the seams load (#2634)', async () => {
+    fs.cpSync(path.join(FIXTURES, 'reading-list'), path.join(dir, 'reading-list'), { recursive: true });
+    fs.writeFileSync(path.join(path.dirname(dir), 'plugins.json'), JSON.stringify({ plugins: { 'reading-list': { enabled: false, source: { kind: 'manual' } } } }));
+    enablePlugins({ appVersion: '4.0.0', dir });
+    const inv = await getPluginInventory();
+    expect(inv.installed.map((i) => [i.plugin.manifest.id, i.record.enabled])).toEqual([['reading-list', false]]);
+    expect((await getPluginScan()).plugins).toEqual([]);
+    expect(loadedPluginScan().plugins).toEqual([]);
   });
 });

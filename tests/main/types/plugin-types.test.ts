@@ -18,12 +18,14 @@ import { writePlugin, typeFile } from '../../helpers/plugins';
 let pluginsDir: string;
 let root: string;
 beforeEach(() => {
-  pluginsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-plugin-types-'));
+  // One level down, so its plugins.json (beside it) is this test's own.
+  pluginsDir = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-plugin-types-')), 'plugins');
+  fs.mkdirSync(pluginsDir);
   root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-plugin-types-tb-'));
 });
 afterEach(() => {
   _disablePluginsForTests();
-  for (const d of [pluginsDir, root]) fs.rmSync(d, { recursive: true, force: true });
+  for (const d of [path.dirname(pluginsDir), root]) fs.rmSync(d, { recursive: true, force: true });
 });
 
 const catalog = async () => loadTypeCatalog(root, await readPluginPackages('4.0.0', pluginsDir));

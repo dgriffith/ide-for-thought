@@ -68,6 +68,7 @@ const EVENT_CHANNELS = new Set<string>([
   // renderer-facing `window.api` method, so ChannelMap has nothing to type.
   Channels.STORAGE_LEGACY_ORIGIN_ENTRIES,
   Channels.NOTEBASE_FILE_CHANGED,
+  Channels.PLUGINS_CHANGED,
   Channels.NOTEBASE_FILE_CREATED,
   Channels.NOTEBASE_FILE_DELETED,
   Channels.NOTEBASE_RENAMED,

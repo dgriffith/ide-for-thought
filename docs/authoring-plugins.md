@@ -10,8 +10,9 @@ type or query isn't enough, and for an MCP server only when something has to
 > **Status (#2631).** Minerva reads and checks the plugin format (#2632), and
 > loads everything a plugin can contribute today (#2633): skills, object
 > types, saved queries, note templates, and citation styles and locales.
-> Installing, enabling and removing without a restart is #2634; until then, a
-> plugin added or changed is picked up the next time Minerva starts.
+> **Settings → Plugins** installs one from a folder, turns plugins on and off
+> and removes them, all without a restart (#2634); installing from a zip or a
+> git URL is next.
 
 Plugins are **declarative**. Every file a plugin contributes is data: a
 Markdown skill, a type definition, a SPARQL query. Minerva never loads code
@@ -36,6 +37,33 @@ someone else chose, travelling with a shared folder.
 
 The folder may be a link to where you're writing the plugin, so you can work
 on it in place. Everything is then contained in the link's *target*.
+
+## Installing and managing
+
+**Settings → Plugins** lists what's installed (on or off, its version, what
+it contributes) and the folders that were refused, with why.
+
+- **Install from folder…** copies the folder into `~/.minerva/plugins/<id>/`
+  under the id its `plugin.json` declares. The copy is checked whole first: a
+  plugin that would be refused is reported, every problem at once, and
+  nothing is installed. A folder holding a link is refused (a copied link would
+  point back to where it came from). Installing over a plugin of the same id
+  asks before replacing it, and the old copy goes only once the new one
+  passes.
+- **Turning a plugin off** keeps it installed; everything it contributes
+  disappears until it's turned back on.
+- **Remove** deletes its folder (only the link, if it's a link to a folder you
+  work on).
+- **No restart, ever.** Each change re-registers skills, rebuilds the menus,
+  drops the template and citation caches, re-indexes each open thoughtbase
+  when a plugin's object types changed (so a removed type leaves nothing in
+  the graph), and refreshes every window.
+- **Edits outside the app apply too.** Minerva watches `~/.minerva/plugins/`,
+  so adding, editing or deleting a plugin there — by hand, or by an agent
+  writing one — applies a moment later.
+
+What's on and where each came from is kept in `~/.minerva/plugins.json`. A
+plugin with no entry there (one put in the folder by hand) is on.
 
 ## `plugin.json`
 

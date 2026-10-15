@@ -100,6 +100,9 @@ const BASELINE: Record<string, string> = {
   'src/main/skills/menu-config-store.ts': 'CLAUDE.md-tracked hand-rolled config (menu-config-store)',
   // #2632: a plugin's manifest is a package format, not settings. A bad one must
   // be reported (with every problem) and the plugin refused, never defaulted.
+  // #2634: reads only the `id` from a folder about to be installed, which is
+  // then checked whole by the package reader.
+  'src/main/plugins/lifecycle.ts': 'reads a plugin.json\'s id to stage an install; the copy is then checked whole (#2632)',
   'src/main/plugins/package.ts': 'plugin.json is a package manifest, refused whole when invalid — defaulting it would load a plugin nobody described',
   // Not config in the #1640 sense: read-only helper, or a cache/log/per-item
   // data file where "corrupt → report + default" isn't the right model.

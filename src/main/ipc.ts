@@ -24,6 +24,7 @@ import { registerMcpServers } from './ipc/register-mcp-servers';
 import { registerApp } from './ipc/register-app';
 import { registerMaintenance } from './ipc/register-maintenance';
 import { registerOntology } from './ipc/register-ontology';
+import { registerPlugins } from './ipc/register-plugins';
 import { onProposalsChanged } from './llm/proposal-events';
 import { onInspectionsChanged } from './graph/inspection-events';
 import { onHistoryChanged } from './history';
@@ -69,6 +70,7 @@ export function registerIpcHandlers(): void {
   registerSites();
   registerBibliography();
   registerOntology();
+  registerPlugins();
   registerTools();
   registerTypes();
   registerRefactor();

@@ -99,3 +99,27 @@ export interface PluginScan {
   plugins: PluginPackage[];
   errors: PluginLoadError[];
 }
+
+/** One installed plugin, as Settings → Plugins shows it (#2634). */
+export interface PluginSummary {
+  id: string;
+  name: string;
+  version: string;
+  description: string;
+  author?: string;
+  license?: string;
+  enabled: boolean;
+  /** Where it was installed from: a folder, or by hand into the plugins folder. */
+  source: { kind: 'folder'; path: string } | { kind: 'manual' };
+  installedAt?: string;
+  /** How many contributions to each point. */
+  contributes: Partial<Record<PluginContributionPoint, number>>;
+}
+
+export interface PluginList {
+  installed: PluginSummary[];
+  /** Folders refused whole, with every problem (#2632). */
+  errors: PluginLoadError[];
+  /** The plugins folder. */
+  folder: string;
+}

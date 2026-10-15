@@ -1602,7 +1602,10 @@ CLI and the eval goldens never see a developer's installed plugins. A
 contribution keeps its own id (the plugin is provenance); it can't shadow a
 stock or user one, and types and CSL go stock < plugin < thoughtbase (#2633).
 Plugin saved queries are read-only: the `QUERIES_*` mutators act only inside
-the two queries folders (`assertMutableQueryPath`).
+the two queries folders (`assertMutableQueryPath`). Installing, toggling and
+removing (#2634) go through `plugins-apply.ts`'s `changePlugins`, which
+re-applies the change to every seam and window with no restart; a watcher on
+the plugins folder does the same for an outside edit.
 
 ### Tools for Thought (Skills)
 

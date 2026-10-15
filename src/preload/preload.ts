@@ -578,6 +578,14 @@ const api = {
     removeStyle: (id: string) => invoke(Channels.CSL_REMOVE_STYLE, id),
     removeLocale: (id: string) => invoke(Channels.CSL_REMOVE_LOCALE, id),
   },
+  plugins: {
+    list: () => invoke(Channels.PLUGINS_LIST),
+    setEnabled: (id: string, enabled: boolean) => invoke(Channels.PLUGINS_SET_ENABLED, id, enabled),
+    remove: (id: string) => invoke(Channels.PLUGINS_REMOVE, id),
+    installFolder: () => invoke(Channels.PLUGINS_INSTALL_FOLDER),
+    reveal: (id?: string) => invoke(Channels.PLUGINS_REVEAL, id),
+    onChanged: (cb: () => void) => subscribe(Channels.PLUGINS_CHANGED, cb),
+  },
   ontology: {
     list: () => invoke(Channels.ONTOLOGY_LIST),
     pickImport: () => invoke(Channels.ONTOLOGY_PICK_IMPORT),
