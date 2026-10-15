@@ -32,13 +32,16 @@ import { logger } from '../shared/logger';
 type Reader = (rootPath: string) => Promise<Contribution[]>;
 
 const READERS: Record<string, Reader> = {
-  skills: async () => (await getSkillCatalog()).skills.map((s) => ({
-    point: 'skills', id: s.id, label: s.name, source: s.source === 'stock' ? 'stock' : 'user',
+  skills: async () => (await getSkillCatalog()).skills.map((s): Contribution => ({
+    point: 'skills', id: s.id, label: s.name, source: s.source,
+    ...(s.source === 'plugin' && s.plugin ? { plugin: s.plugin } : {}),
   })),
-  objectTypes: async (rootPath) => (await loadTypeCatalog(rootPath)).types.map((t) => ({
+  objectTypes: async (rootPath) => (await loadTypeCatalog(rootPath)).types.map((t): Contribution => ({
     point: 'object-types', id: t.id, label: t.label,
-    // A user type is the thoughtbase's own `.minerva/types/` file.
-    source: t.source === 'stock' ? 'stock' : 'thoughtbase',
+    // A user type is the thoughtbase's own `.minerva/types/` file — even one
+    // overriding a plugin's type, which is then the thoughtbase's.
+    source: t.source === 'user' ? 'thoughtbase' : t.source,
+    ...(t.source === 'plugin' && t.plugin ? { plugin: t.plugin } : {}),
   })),
   savedQueries: (rootPath) => Promise.resolve([
     ...STOCK_QUERIES.map((q): Contribution => ({ point: 'saved-queries', id: `stock:${q.name}`, label: q.name, source: 'stock' })),

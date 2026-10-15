@@ -54,8 +54,12 @@ export function categoryToMenu(category: ToolCategory): SkillMenu {
   return (category.charAt(0).toUpperCase() + category.slice(1)) as SkillMenu;
 }
 
-/** Where a skill was loaded from. User skills can only add, never shadow stock. */
-export type SkillSource = 'stock' | 'user';
+/** Where a skill was loaded from. User and plugin skills can only add, never
+ *  shadow stock — and a plugin can't shadow a user skill either (#2633). */
+export type SkillSource = 'stock' | 'user' | 'plugin';
+
+import type { PluginOrigin } from '../plugins/format';
+export type { PluginOrigin };
 
 /**
  * A validated, loaded skill. `body` and `firstMessage` are template strings
@@ -92,6 +96,8 @@ export interface SkillDef {
   /** Prompt body (template) — system prompt or one-shot prompt. */
   body: string;
   source: SkillSource;
+  /** Set when `source` is `'plugin'`. */
+  plugin?: PluginOrigin | undefined;
   /** Absolute path for user skills; the glob key for stock skills. */
   filePath: string;
 }
@@ -116,6 +122,8 @@ export interface SkillInfo {
   /** See SkillDef.requiresNote. */
   requiresNote?: boolean | undefined;
   source: SkillSource;
+  /** Set when `source` is `'plugin'`. */
+  plugin?: PluginOrigin | undefined;
 }
 
 export interface SkillLoadError {
@@ -158,5 +166,6 @@ export function toSkillInfo(s: SkillDef): SkillInfo {
     requiresSelection: s.requiresSelection,
     requiresNote: s.requiresNote,
     source: s.source,
+    plugin: s.plugin,
   };
 }

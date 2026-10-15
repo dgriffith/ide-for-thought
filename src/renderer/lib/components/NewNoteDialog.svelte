@@ -154,7 +154,7 @@
                 role="radio"
                 aria-checked={active}
                 onclick={() => pickType(t)}
-                title={t.source === 'user' ? 'Your type' : 'Built-in type'}
+                title={t.source === 'user' ? 'Your type' : t.source === 'plugin' ? `From the ${t.plugin?.name ?? ''} plugin` : 'Built-in type'}
               >
                 <span class="type-emoji" style={t.color ? `color:${t.color}` : undefined}>{t.icon ?? '◆'}</span>
                 <span class="type-text">

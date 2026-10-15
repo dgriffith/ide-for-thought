@@ -7,11 +7,11 @@ add to a machine and remove again. It is the **plugin** rung of the ladder in
 type or query isn't enough, and for an MCP server only when something has to
 *run*.
 
-> **Status (#2631).** This page describes the plugin *format*, which Minerva
-> reads and checks (#2632). Loading a plugin's contributions into the app is
-> the loader's job (#2633), and installing, enabling and removing without a
-> restart is #2634. Until those land, a plugin folder is checked but nothing
-> in it is used.
+> **Status (#2631).** Minerva reads and checks the plugin format (#2632), and
+> loads a plugin's **skills** and **object types** at startup (#2633). Saved
+> queries, note templates and citation styles load next (the rest of #2633).
+> Installing, enabling and removing without a restart is #2634; until then, a
+> plugin added or changed is picked up the next time Minerva starts.
 
 Plugins are **declarative**. Every file a plugin contributes is data: a
 Markdown skill, a type definition, a SPARQL query. Minerva never loads code
@@ -70,6 +70,29 @@ to the plugin folder, one contribution per entry:
 Inspections, commands, live blocks, views, themes and MCP servers open to
 plugins as their stories land (#2637, #2645). Until then, naming one in
 `contributes` refuses the plugin.
+
+## How contributions load
+
+Minerva reads `~/.minerva/plugins/` once, the first time a skill or type
+catalog loads, never in front of the window. Then:
+
+- **A contribution keeps its own id.** A plugin's type `book-note` is
+  `book-note`: notes say `type: book-note`, and its class is `types:BookNote`.
+  The plugin is the contribution's provenance: `plugin:<id>@<version>` in the
+  graph's extension catalog, and its name beside the contribution in Settings.
+- **A plugin can't shadow anything.** A skill or type whose id is already a
+  stock or user one is refused, and so is the second plugin to claim an id
+  (refused against that plugin, naming the first). A plugin skill can't take
+  a slash command that's already in use either.
+- **Types: stock < plugin < thoughtbase.** A thoughtbase's own
+  `.minerva/types/` file of the same id overrides a plugin's type, the same
+  way it overrides a stock type. In Settings → Object Types, editing a
+  plugin's type saves that customized copy, and **Revert** goes back to the
+  plugin's. A plugin type can extend a stock type (`parent: book`), and a
+  thoughtbase type can extend a plugin's.
+- **One bad file costs only itself.** A skill or type that doesn't parse is
+  reported against its plugin, in the same list as any other skill or type
+  problem, and the plugin's other contributions still load.
 
 ## What makes a plugin refused
 

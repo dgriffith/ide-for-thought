@@ -24,6 +24,8 @@ import {
   type SkillLoadError,
 } from '../../shared/skills/types';
 import { parseSkill } from './parse';
+import type { PluginScan } from '../../shared/plugins/format';
+import { contributionsTo, getPluginScan } from '../plugins/registry';
 
 // Embedded stock skills. Empty until phases 4–6 migrate the hardcoded tools.
 const STOCK_RAW = import.meta.glob('./stock/*.md', {
@@ -89,13 +91,49 @@ async function loadUser(dir: string): Promise<{ skills: SkillDef[]; errors: Skil
 }
 
 /**
+ * Plugin skills (#2633): each contributed `.md`, or a skill folder's
+ * `SKILL.md`, parsed as `source: 'plugin'` and stamped with its plugin.
+ */
+async function loadPlugins(scan: PluginScan): Promise<{ skills: SkillDef[]; errors: SkillLoadError[] }> {
+  const skills: SkillDef[] = [];
+  const errors: SkillLoadError[] = [];
+  for (const { plugin, contribution } of contributionsTo(scan, 'skills')) {
+    const filePath = contribution.kind === 'folder'
+      ? path.join(contribution.absolutePath, 'SKILL.md')
+      : contribution.absolutePath;
+    const origin = { id: plugin.manifest.id, name: plugin.manifest.name, version: plugin.manifest.version };
+    let content: string;
+    try {
+      content = await fs.readFile(filePath, 'utf-8');
+    } catch (e) {
+      // Checked when the plugin was read; gone or unreadable since. This skill
+      // only — never the catalog.
+      errors.push({ source: 'plugin', filePath, label: `${origin.id}: ${contribution.path}`, message: `couldn't be read (${(e as NodeJS.ErrnoException).code ?? 'error'})` });
+      continue;
+    }
+    const r = parseSkill(content, 'plugin', filePath);
+    if (r.skill) skills.push({ ...r.skill, plugin: origin });
+    else for (const message of r.errors) errors.push({ source: 'plugin', filePath, label: `${origin.id}: ${r.label}`, message });
+  }
+  return { skills, errors };
+}
+
+/**
  * Build the catalog. Stock loads first and wins id collisions; a user skill
  * colliding with stock (or an earlier user skill) is rejected with an error.
- * `dir` is injectable for tests; defaults to `~/.minerva/skills/`.
+ * Plugin skills load last and can't shadow either (#2633): one whose id — or
+ * slash command — is taken is refused, against its plugin. `dir` is
+ * injectable for tests; defaults to `~/.minerva/skills/`. `plugins` is the
+ * running app's scan; the default is none, so tests and the eval harness see
+ * only stock and user skills.
  */
-export async function loadSkillCatalog(dir: string = userSkillsDir()): Promise<SkillCatalog> {
+export async function loadSkillCatalog(
+  dir: string = userSkillsDir(),
+  plugins: PluginScan = { plugins: [], errors: [] },
+): Promise<SkillCatalog> {
   const stock = loadStock();
   const user = await loadUser(dir);
+  const fromPlugins = await loadPlugins(plugins);
 
   const byId = new Map<string, SkillDef>();
   const errors: SkillLoadError[] = [...stock.errors, ...user.errors];
@@ -118,6 +156,25 @@ export async function loadSkillCatalog(dir: string = userSkillsDir()): Promise<S
     }
     byId.set(s.id, s);
   }
+  errors.push(...fromPlugins.errors);
+  const slashOwner = new Map<string, SkillDef>();
+  for (const s of byId.values()) if (s.slashCommand) slashOwner.set(s.slashCommand, s);
+  for (const s of fromPlugins.skills) {
+    const label = `${s.plugin!.id}: ${s.name}`;
+    const existing = byId.get(s.id);
+    if (existing) {
+      const holder = existing.source === 'plugin' ? `the ${existing.plugin!.id} plugin's skill` : `a ${existing.source} skill`;
+      errors.push({ source: 'plugin', filePath: s.filePath, label, message: `id "${s.id}" is already ${holder}; a plugin can't replace it` });
+      continue;
+    }
+    const slashTaken = s.slashCommand ? slashOwner.get(s.slashCommand) : undefined;
+    if (slashTaken) {
+      errors.push({ source: 'plugin', filePath: s.filePath, label, message: `slash command ${s.slashCommand} is already "${slashTaken.name}"'s; a plugin can't take it` });
+      continue;
+    }
+    byId.set(s.id, s);
+    if (s.slashCommand) slashOwner.set(s.slashCommand, s);
+  }
 
   return { skills: [...byId.values()], errors };
 }
@@ -133,13 +190,18 @@ export async function loadSkillCatalog(dir: string = userSkillsDir()): Promise<S
 // `cached` that was only assigned on success.
 let cached: Promise<SkillCatalog> | null = null;
 
+/** The app's catalog: stock, the user's, and installed plugins' (#2633). */
+function loadAppCatalog(): Promise<SkillCatalog> {
+  return getPluginScan().then((scan) => loadSkillCatalog(userSkillsDir(), scan));
+}
+
 export function getSkillCatalog(): Promise<SkillCatalog> {
-  cached ??= trackLoad(loadSkillCatalog());
+  cached ??= trackLoad(loadAppCatalog());
   return cached;
 }
 
 export function reloadSkillCatalog(): Promise<SkillCatalog> {
-  cached = trackLoad(loadSkillCatalog());
+  cached = trackLoad(loadAppCatalog());
   return cached;
 }
 
