@@ -1,6 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { app } from 'electron';
+import type { PluginOrigin } from '../shared/plugins/format';
+import { contributionsTo, loadedPluginScan, pluginScanVersion } from './plugins/registry';
+import { logger } from '../shared/logger';
 
 export type QueryLanguage = 'sparql' | 'sql';
 
@@ -10,7 +13,10 @@ export interface SavedQuery {
   description: string;
   query: string;
   language: QueryLanguage;
-  scope: 'project' | 'global';
+  /** `plugin`: from an installed plugin (#2633) — read-only here. */
+  scope: 'project' | 'global' | 'plugin';
+  /** Set when `scope` is `'plugin'`. */
+  plugin?: PluginOrigin;
   filePath: string;  // absolute path for deletion
   /** #315 — null = ungrouped. */
   group: string | null;
@@ -48,7 +54,7 @@ function languageFromPath(filePath: string): QueryLanguage {
 export function parseQueryContent(
   content: string,
   id: string,
-  scope: 'project' | 'global',
+  scope: SavedQuery['scope'],
   language: QueryLanguage,
 ): Omit<SavedQuery, 'filePath'> {
   let name = id;
@@ -77,7 +83,7 @@ export function parseQueryContent(
   return { id, name, description, query, language, scope, group, order };
 }
 
-function parseQueryFile(filePath: string, scope: 'project' | 'global'): SavedQuery {
+function parseQueryFile(filePath: string, scope: SavedQuery['scope']): SavedQuery {
   const content = fs.readFileSync(filePath, 'utf-8');
   const ext = path.extname(filePath);
   const id = path.basename(filePath, ext);
@@ -112,6 +118,41 @@ export function serializeQuery(
 
 export function sanitizeFilename(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
+}
+
+/**
+ * Installed plugins' queries (#2633), from the last finished plugin scan —
+ * read synchronously, like the rest of this listing. One that can't be read
+ * costs only itself.
+ */
+function listPluginQueries(): SavedQuery[] {
+  const out: SavedQuery[] = [];
+  for (const { plugin, contribution } of contributionsTo(loadedPluginScan(), 'saved-queries')) {
+    const origin = { id: plugin.manifest.id, name: plugin.manifest.name, version: plugin.manifest.version };
+    try {
+      out.push({ ...parseQueryFile(contribution.absolutePath, 'plugin'), plugin: origin });
+    } catch (e) {
+      logger('plugins').warn(`${origin.id}: query ${contribution.path} couldn't be read:`, e);
+    }
+  }
+  return out;
+}
+
+/**
+ * Throw unless `filePath` is a saved query this app may change: a `.rq` or
+ * `.sql` directly inside the global queries folder or this thoughtbase's
+ * `.minerva/queries/`. The mutators below act on a path the renderer sends;
+ * without this, any path could be rewritten or deleted — and since #2633 the
+ * listing hands out paths inside plugin folders, which are never edited here.
+ */
+export function assertMutableQueryPath(filePath: string, rootPath: string | null): void {
+  const resolved = path.resolve(filePath);
+  const dir = path.dirname(resolved);
+  const allowed = [globalQueriesDir(), ...(rootPath ? [projectQueriesDir(rootPath)] : [])].map((d) => path.resolve(d));
+  const ext = path.extname(resolved).toLowerCase();
+  if (!allowed.includes(dir) || (ext !== '.rq' && ext !== '.sql')) {
+    throw new Error(`Not a saved query this app can change: ${filePath}`);
+  }
 }
 
 function listDir(dir: string, scope: 'project' | 'global'): SavedQuery[] {
@@ -197,14 +238,15 @@ export function invalidateSavedQueriesCache(): void {
 // ── Public API ──────────────────────────────────────────────────────────────
 
 export function listSavedQueries(rootPath: string | null): SavedQuery[] {
-  const key = rootPath ?? '';
+  // A plugin scan that finishes after a listing was memoized changes the key.
+  const key = `${rootPath ?? ''}\u0000${pluginScanVersion()}`;
   // Hand back a copy: callers filter/sort the result (menu.ts does both), and
   // a caller that sorted the cached array in place would silently reorder
   // every later reader's list.
   if (listingCache && listingCache.key === key) return [...listingCache.value];
   const global = listDir(globalQueriesDir(), 'global').sort(compareQueries);
   const project = rootPath ? listDir(projectQueriesDir(rootPath), 'project').sort(compareQueries) : [];
-  const value = [...project, ...global];
+  const value = [...project, ...global, ...listPluginQueries().sort(compareQueries)];
   listingCache = { key, value };
   return [...value];
 }

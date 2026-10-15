@@ -591,8 +591,17 @@ function buildQueryMenu(gate: Gate): Electron.MenuItemConstructorOptions {
           if (saved.length === 0) {
             return [{ label: 'No Saved Queries', enabled: false }];
           }
-          const project = saved.filter((q) => q.scope === 'project');
-          const global = saved.filter((q) => q.scope === 'global');
+          // Thoughtbase, Global, then one section per plugin (#2633), by name.
+          const sections: Array<{ label: string; queries: typeof saved }> = [
+            { label: 'Thoughtbase', queries: saved.filter((q) => q.scope === 'project') },
+            { label: 'Global', queries: saved.filter((q) => q.scope === 'global') },
+          ];
+          const byPlugin = new Map<string, typeof saved>();
+          for (const q of saved) {
+            if (q.scope !== 'plugin' || !q.plugin) continue;
+            byPlugin.set(q.plugin.name, [...(byPlugin.get(q.plugin.name) ?? []), q]);
+          }
+          for (const [label, queries] of [...byPlugin].sort(([a], [b]) => a.localeCompare(b))) sections.push({ label, queries });
           const mkEntry = (q: typeof saved[number]) => ({
             label: q.name,
             click: () => send(Channels.MENU_OPEN_STOCK_QUERY, { query: q.query, language: q.language }),
@@ -613,15 +622,14 @@ function buildQueryMenu(gate: Gate): Electron.MenuItemConstructorOptions {
             return out;
           }
           const items: Electron.MenuItemConstructorOptions[] = [];
-          // When both scopes are populated, nest under Thoughtbase ▸ /
-          // Global ▸ submenus (mirrors the Stock Queries pattern).
-          // When only one scope has entries, list flat — a one-branch
-          // tree is noise.
-          if (project.length > 0 && global.length > 0) {
-            items.push({ label: 'Thoughtbase', submenu: renderScope(project) });
-            items.push({ label: 'Global', submenu: renderScope(global) });
+          // When more than one section is populated, nest each under its own
+          // submenu (mirrors the Stock Queries pattern). When only one has
+          // entries, list flat — a one-branch tree is noise.
+          const populated = sections.filter((s) => s.queries.length > 0);
+          if (populated.length > 1) {
+            for (const s of populated) items.push({ label: s.label, submenu: renderScope(s.queries) });
           } else {
-            items.push(...renderScope(project.length > 0 ? project : global));
+            items.push(...renderScope(populated[0]?.queries ?? []));
           }
           items.push({ type: 'separator' });
           items.push(command('query.editSaved', gate));

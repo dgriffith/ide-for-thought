@@ -45,6 +45,7 @@ const h = vi.hoisted(() => {
     moveQueryScope: vi.fn(),
     setQueryGroup: vi.fn(),
     setQueryOrder: vi.fn(),
+    assertMutableQueryPath: vi.fn(),
     rebuildMenu: vi.fn(),
     search: vi.fn(),
   };
@@ -69,6 +70,7 @@ vi.mock('../../../src/main/saved-queries', () => ({
   moveQueryScope: h.logged('moveQueryScope', h.moveQueryScope),
   setQueryGroup: h.logged('setQueryGroup', h.setQueryGroup),
   setQueryOrder: h.logged('setQueryOrder', h.setQueryOrder),
+  assertMutableQueryPath: h.assertMutableQueryPath,
 }));
 vi.mock('../../../src/main/menu', () => ({
   rebuildMenu: (...a: unknown[]) => { h.order.push('rebuildMenu'); return h.rebuildMenu(...a); },
@@ -261,5 +263,31 @@ describe('SEARCH_QUERY', () => {
     const noProject = await call(Channels.SEARCH_QUERY, 'zzzz');
 
     expect(noProject).toEqual(noMatches);
+  });
+});
+
+describe('the query mutators are guarded (#2633)', () => {
+  const REFUSED = new Error('Not a saved query this app can change: /plugins/x/queries/q.rq');
+
+  it('each one checks the path against the open thoughtbase before touching it', () => {
+    h.renameQuery.mockReturnValue('/q/b2.rq');
+    h.moveQueryScope.mockReturnValue('/q/c2.rq');
+    call(Channels.QUERIES_DELETE, '/q/a.rq');
+    call(Channels.QUERIES_RENAME, '/q/b.rq', 'B');
+    call(Channels.QUERIES_MOVE, '/q/c.rq', 'global');
+    call(Channels.QUERIES_SET_GROUP, '/q/d.rq', 'g');
+    call(Channels.QUERIES_SET_ORDER, [{ filePath: '/q/e.rq', order: 1 }, { filePath: '/q/f.rq', order: 2 }]);
+    expect(h.assertMutableQueryPath.mock.calls).toEqual(
+      ['/q/a.rq', '/q/b.rq', '/q/c.rq', '/q/d.rq', '/q/e.rq', '/q/f.rq'].map((p) => [p, ROOT]),
+    );
+  });
+
+  it('a refused path changes nothing and rebuilds nothing', () => {
+    h.assertMutableQueryPath.mockImplementation(() => { throw REFUSED; });
+    expect(() => call(Channels.QUERIES_DELETE, '/plugins/x/queries/q.rq')).toThrow(REFUSED);
+    expect(() => call(Channels.QUERIES_SET_ORDER, [{ filePath: '/plugins/x/queries/q.rq', order: 1 }])).toThrow(REFUSED);
+    expect(h.deleteQuery).not.toHaveBeenCalled();
+    expect(h.setQueryOrder).not.toHaveBeenCalled();
+    expect(h.rebuildMenu).not.toHaveBeenCalled();
   });
 });

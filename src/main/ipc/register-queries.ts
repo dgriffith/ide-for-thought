@@ -29,12 +29,16 @@ export function registerQueries(): void {
     return result;
   });
 
-  handle(Channels.QUERIES_DELETE, (_e, filePath: string) => {
+  // Each mutator acts only on a query in the global or this thoughtbase's
+  // queries folder — never a plugin's, never an arbitrary path.
+  handle(Channels.QUERIES_DELETE, (e, filePath: string) => {
+    savedQueries.assertMutableQueryPath(filePath, rootPathFromEvent(e));
     savedQueries.deleteQuery(filePath);
     rebuildMenu();
   });
 
-  handle(Channels.QUERIES_RENAME, (_e, filePath: string, newName: string) => {
+  handle(Channels.QUERIES_RENAME, (e, filePath: string, newName: string) => {
+    savedQueries.assertMutableQueryPath(filePath, rootPathFromEvent(e));
     const newPath = savedQueries.renameQuery(filePath, newName);
     rebuildMenu();
     return newPath;
@@ -42,17 +46,21 @@ export function registerQueries(): void {
 
   handle(Channels.QUERIES_MOVE, (e, filePath: string, newScope: string) => {
     const rootPath = rootPathFromEvent(e);
+    savedQueries.assertMutableQueryPath(filePath, rootPath);
     const newPath = savedQueries.moveQueryScope(filePath, newScope as 'project' | 'global', rootPath);
     rebuildMenu();
     return newPath;
   });
 
-  handle(Channels.QUERIES_SET_GROUP, (_e, filePath: string, group: string | null) => {
+  handle(Channels.QUERIES_SET_GROUP, (e, filePath: string, group: string | null) => {
+    savedQueries.assertMutableQueryPath(filePath, rootPathFromEvent(e));
     savedQueries.setQueryGroup(filePath, group);
     rebuildMenu();
   });
 
-  handle(Channels.QUERIES_SET_ORDER, (_e, entries: Array<{ filePath: string; order: number | null }>) => {
+  handle(Channels.QUERIES_SET_ORDER, (e, entries: Array<{ filePath: string; order: number | null }>) => {
+    const rootPath = rootPathFromEvent(e);
+    for (const entry of entries) savedQueries.assertMutableQueryPath(entry.filePath, rootPath);
     savedQueries.setQueryOrder(entries);
     rebuildMenu();
   });

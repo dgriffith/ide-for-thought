@@ -206,6 +206,7 @@
                     onclick={() => { templateFilename = t.filename; inputEl?.focus(); }}
                   >
                     <span class="template-name">{t.name}</span>
+                    {#if t.plugin}<span class="template-hint">{t.plugin.name}</span>{/if}
                   </button>
                 {/each}
               </div>

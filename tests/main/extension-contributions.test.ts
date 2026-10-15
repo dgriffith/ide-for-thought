@@ -29,7 +29,7 @@ vi.mock('../../src/main/saved-queries', () => ({
 }));
 vi.mock('../../src/main/notebase/templates', () => ({ listTemplates: async () => [{ name: 'Daily', filename: 'Daily.md' }] }));
 vi.mock('../../src/main/publish/csl/user-assets', () => ({
-  getMergedStyles: async () => ({ labels: { apa: 'APA', mine: 'Mine' }, userIds: new Set(['mine']) }),
+  getMergedStyles: async () => ({ labels: { apa: 'APA', mine: 'Mine' }, userIds: new Set(['mine']), pluginIds: new Map() }),
 }));
 vi.mock('../../src/main/mcp-servers/config-store', () => ({
   getStoredServers: async () => {

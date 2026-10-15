@@ -33,6 +33,10 @@ let config: { appVersion: string; dir?: string } | null = null;
 // The PROMISE is cached, as `getSkillCatalog` does, so two seams loading at
 // once share one scan.
 let cached: Promise<PluginScan> | null = null;
+// The last scan that finished, for the one synchronous reader (saved queries,
+// which the menu lists on every rebuild), and a counter it keys its memo on.
+let loaded: PluginScan = EMPTY;
+let version = 0;
 
 /** Turn plugin loading on, for the running app. `dir` is for tests. */
 export function enablePlugins(opts: { appVersion: string; dir?: string }): void {
@@ -44,6 +48,23 @@ export function enablePlugins(opts: { appVersion: string; dir?: string }): void 
 export function _disablePluginsForTests(): void {
   config = null;
   cached = null;
+  loaded = EMPTY;
+  version += 1;
+}
+
+/**
+ * The last finished scan, synchronously — empty before the first one lands.
+ * For a reader that can't await (`listSavedQueries`, on the menu's hot
+ * path); it keys its memo on {@link pluginScanVersion}, so a scan that
+ * finishes later is picked up on the next read.
+ */
+export function loadedPluginScan(): PluginScan {
+  return config ? loaded : EMPTY;
+}
+
+/** Bumped each time a scan finishes. */
+export function pluginScanVersion(): number {
+  return version;
 }
 
 /** The installed plugins, read once. Empty unless `enablePlugins` ran. */
@@ -65,6 +86,8 @@ async function scan(cfg: { appVersion: string; dir?: string }): Promise<PluginSc
     for (const e of result.errors) {
       logger('plugins').warn(`plugin ${e.label} not loaded:`, e.problems.join(' '));
     }
+    loaded = result;
+    version += 1;
     return result;
   } catch (e) {
     // An unreadable plugins folder costs the plugins, never the skills or

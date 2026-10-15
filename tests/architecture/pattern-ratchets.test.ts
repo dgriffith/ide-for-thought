@@ -154,7 +154,6 @@ const SWALLOW_BASELINE: Record<string, number> = {
   'src/main/llm/thoughtbase-doc.ts': 1,
   'src/main/main.ts': 1,
   'src/main/notebase/fs.ts': 1,
-  'src/main/notebase/templates.ts': 1,
   'src/main/privileged-sites.ts': 1,
   'src/main/publish/csl/user-assets.ts': 2,
   'src/main/publish/exporters/static-site/search-script.ts': 1,

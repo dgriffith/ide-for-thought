@@ -1600,7 +1600,9 @@ example that its test holds to the fixture. `main/plugins/registry.ts` is the
 scan the seams read: empty until `main.ts` calls `enablePlugins`, so tests, the
 CLI and the eval goldens never see a developer's installed plugins. A
 contribution keeps its own id (the plugin is provenance); it can't shadow a
-stock or user one, and types go stock < plugin < thoughtbase (#2633).
+stock or user one, and types and CSL go stock < plugin < thoughtbase (#2633).
+Plugin saved queries are read-only: the `QUERIES_*` mutators act only inside
+the two queries folders (`assertMutableQueryPath`).
 
 ### Tools for Thought (Skills)
 
