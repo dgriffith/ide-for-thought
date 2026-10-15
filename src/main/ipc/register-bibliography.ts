@@ -53,11 +53,15 @@ export function registerBibliography(): void {
     const merged = rootPath
       ? await getMergedStyles(rootPath)
       : await getMergedStyles('');
-    return Object.keys(merged.styles).map((id) => ({
-      id,
-      label: merged.labels[id] ?? id,
-      isUser: merged.userIds.has(id),
-    }));
+    return Object.keys(merged.styles).map((id) => {
+      const plugin = merged.pluginIds.get(id)?.name;
+      return {
+        id,
+        label: merged.labels[id] ?? id,
+        isUser: merged.userIds.has(id),
+        ...(plugin !== undefined ? { plugin } : {}),
+      };
+    });
   });
   handle(Channels.BIBLIOGRAPHY_GET_STYLE, withRootPathOr(DEFAULT_STYLE, (rootPath) => {
     return getBibliographyStyleId(rootPath) ?? DEFAULT_STYLE;

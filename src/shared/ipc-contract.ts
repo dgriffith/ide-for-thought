@@ -186,7 +186,7 @@ export interface ChannelMap {
   'tags:merge': (from: string, to: string) => TagMergeResult;
 
   // Templates
-  'templates:list': () => { name: string; filename: string }[];
+  'templates:list': () => { name: string; filename: string; plugin?: { id: string; name: string; version: string } }[];
   'templates:get': (filename: string) => string | null;
   'templates:saveAs': (name: string, content: string) => { name: string; filename: string };
 
@@ -445,7 +445,7 @@ export interface ChannelMap {
     | { status: 'needs-confirm'; derivedPath: string; cellId: string; existingContent: string; pendingContent: string };
 
   // Bibliography (#113)
-  'bibliography:listStyles': () => Array<{ id: string; label: string; isUser?: boolean }>;
+  'bibliography:listStyles': () => Array<{ id: string; label: string; isUser?: boolean; plugin?: string }>;
   'bibliography:getStyle': () => string;
   'bibliography:setStyle': (styleId: string) => void;
   'bibliography:generate': (relativePath: string) => { entriesCount: number; missingIds: string[]; changed: boolean; styleId: string };

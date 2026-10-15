@@ -14,6 +14,9 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { BUNDLED_STYLES, BUNDLED_STYLE_LABELS, BUNDLED_LOCALES } from './assets';
+import type { PluginOrigin } from '../../../shared/plugins/format';
+import { contributionsTo, getPluginScan } from '../../plugins/registry';
+import { logger } from '../../../shared/logger';
 
 export const USER_STYLES_DIR = '.minerva/csl-styles';
 export const USER_LOCALES_DIR = '.minerva/csl-locales';
@@ -87,7 +90,35 @@ export async function loadUserLocales(rootPath: string): Promise<UserLocaleEntry
 }
 
 /**
- * Merged style registry: bundled + user, user wins on id collision.
+ * Installed plugins' citation styles and locales (#2633): a `.csl` is a
+ * style, a `.xml` a locale, ids from the filename as for imported ones. A
+ * plugin can't replace a bundled one, and the second plugin to claim an id is
+ * skipped — both logged against the plugin. A file that isn't valid CSL is
+ * skipped the same way.
+ */
+async function loadPluginCsl(kind: 'style' | 'locale', bundled: Readonly<Record<string, string>>): Promise<Array<{ id: string; label: string; xml: string; plugin: PluginOrigin }>> {
+  const out = new Map<string, { id: string; label: string; xml: string; plugin: PluginOrigin }>();
+  for (const { plugin, contribution } of contributionsTo(await getPluginScan(), 'csl-styles')) {
+    const file = path.basename(contribution.absolutePath);
+    const isStyle = file.toLowerCase().endsWith('.csl');
+    if (isStyle !== (kind === 'style')) continue;
+    const id = isStyle ? deriveStyleId(file) : deriveLocaleId(file);
+    const origin = { id: plugin.manifest.id, name: plugin.manifest.name, version: plugin.manifest.version };
+    const skip = (why: string) => logger('plugins').warn(`${origin.id}: CSL ${kind} ${contribution.path} skipped: ${why}`);
+    if (Object.hasOwn(bundled, id)) { skip(`"${id}" is a bundled ${kind}; a plugin can't replace it`); continue; }
+    const holder = out.get(id);
+    if (holder) { skip(`"${id}" is already the ${holder.plugin.id} plugin's`); continue; }
+    let xml: string;
+    try { xml = await fs.readFile(contribution.absolutePath, 'utf-8'); } catch (e) { skip(`couldn't be read (${(e as NodeJS.ErrnoException).code ?? 'error'})`); continue; }
+    if (!(isStyle ? isValidCslStyle(xml) : isValidCslLocale(xml))) { skip(`it isn't a valid CSL ${kind}`); continue; }
+    out.set(id, { id, label: (isStyle ? extractStyleTitle(xml) : null) ?? id, xml, plugin: origin });
+  }
+  return [...out.values()];
+}
+
+/**
+ * Merged style registry: bundled < plugin < thoughtbase (#2633) — an
+ * imported style wins on id collision, as it always has over bundled.
  * Returns both the raw XML map (for citeproc-js) and a labels map
  * (for UI pickers).
  */
@@ -95,16 +126,25 @@ export async function getMergedStyles(rootPath: string): Promise<{
   styles: Record<string, string>;
   labels: Record<string, string>;
   userIds: Set<string>;
+  /** The styles an installed plugin supplies (and the thoughtbase hasn't replaced). */
+  pluginIds: Map<string, PluginOrigin>;
 }> {
   const styles: Record<string, string> = { ...BUNDLED_STYLES };
   const labels: Record<string, string> = { ...BUNDLED_STYLE_LABELS };
   const userIds = new Set<string>();
+  const pluginIds = new Map<string, PluginOrigin>();
+  for (const entry of await loadPluginCsl('style', BUNDLED_STYLES)) {
+    styles[entry.id] = entry.xml;
+    labels[entry.id] = entry.label;
+    pluginIds.set(entry.id, entry.plugin);
+  }
   for (const entry of await loadUserStyles(rootPath)) {
+    pluginIds.delete(entry.id);
     styles[entry.id] = entry.xml;
     labels[entry.id] = entry.label;
     userIds.add(entry.id);
   }
-  return { styles, labels, userIds };
+  return { styles, labels, userIds, pluginIds };
 }
 
 export async function getMergedLocales(rootPath: string): Promise<{
@@ -113,6 +153,7 @@ export async function getMergedLocales(rootPath: string): Promise<{
 }> {
   const locales: Record<string, string> = { ...BUNDLED_LOCALES };
   const userIds = new Set<string>();
+  for (const entry of await loadPluginCsl('locale', BUNDLED_LOCALES)) locales[entry.id] = entry.xml;
   for (const entry of await loadUserLocales(rootPath)) {
     locales[entry.id] = entry.xml;
     userIds.add(entry.id);

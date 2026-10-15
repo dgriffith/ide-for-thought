@@ -138,6 +138,7 @@ beforeEach(() => {
     styles: { apa: '<x/>', ieee: '<x/>' },
     labels: { apa: 'APA', ieee: 'IEEE' },
     userIds: new Set<string>(),
+    pluginIds: new Map(),
   });
   h.loadUserStyles.mockResolvedValue([]);
   h.loadUserLocales.mockResolvedValue([]);
@@ -223,6 +224,7 @@ describe('register-bibliography — style selection', () => {
       styles: { apa: '<x/>', 'house-style': '<x/>' },
       labels: { apa: 'APA', 'house-style': 'House Style' },
       userIds: new Set(['house-style']),
+      pluginIds: new Map(),
     });
 
     await expect(callAsync(Channels.BIBLIOGRAPHY_LIST_STYLES)).resolves.toEqual([
@@ -232,8 +234,20 @@ describe('register-bibliography — style selection', () => {
     expect(h.getMergedStyles).toHaveBeenCalledWith(ROOT);
   });
 
+  it('BIBLIOGRAPHY_LIST_STYLES names the plugin a style came from (#2633)', async () => {
+    h.getMergedStyles.mockResolvedValue({
+      styles: { 'lab-house': '<x/>' },
+      labels: { 'lab-house': 'Lab House Style' },
+      userIds: new Set(),
+      pluginIds: new Map([['lab-house', { id: 'a-lab', name: 'Lab', version: '1.0.0' }]]),
+    });
+    await expect(callAsync(Channels.BIBLIOGRAPHY_LIST_STYLES)).resolves.toEqual([
+      { id: 'lab-house', label: 'Lab House Style', isUser: false, plugin: 'Lab' },
+    ]);
+  });
+
   it('BIBLIOGRAPHY_LIST_STYLES falls back to the id for a style with no title', async () => {
-    h.getMergedStyles.mockResolvedValue({ styles: { odd: '<x/>' }, labels: {}, userIds: new Set(['odd']) });
+    h.getMergedStyles.mockResolvedValue({ styles: { odd: '<x/>' }, labels: {}, userIds: new Set(['odd']), pluginIds: new Map() });
     await expect(callAsync(Channels.BIBLIOGRAPHY_LIST_STYLES))
       .resolves.toEqual([{ id: 'odd', label: 'odd', isUser: true }]);
   });

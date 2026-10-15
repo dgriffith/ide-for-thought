@@ -151,7 +151,10 @@ export interface SavedQuery {
   description: string;
   query: string;
   language: 'sparql' | 'sql';
-  scope: 'project' | 'global';
+  /** `plugin`: from an installed plugin (#2633) — read-only. */
+  scope: 'project' | 'global' | 'plugin';
+  /** Set when `scope` is `'plugin'`. */
+  plugin?: { id: string; name: string; version: string };
   filePath: string;
   /** Optional grouping label inside a scope (#315). Null = ungrouped. */
   group: string | null;

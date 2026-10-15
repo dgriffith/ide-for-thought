@@ -271,8 +271,10 @@ export interface TagsApi {
 export interface TemplateInfo {
   /** Template name without the `.md` extension — what the user sees. */
   name: string;
-  /** Filename on disk (`<name>.md`). */
+  /** Filename on disk (`<name>.md`); unique in a listing. */
   filename: string;
+  /** Set for an installed plugin's template (#2633). */
+  plugin?: { id: string; name: string; version: string };
 }
 
 export interface TemplatesApi {
@@ -1084,7 +1086,8 @@ export interface SitesApi {
 
 export interface BibliographyApi {
   /** List bundled + user-imported styles. `isUser` flags entries from `.minerva/csl-styles/` so the UI can render them differently. */
-  listStyles(): Promise<{ id: string; label: string; isUser?: boolean }[]>;
+  /** `plugin`: the name of the installed plugin that supplies it (#2633). */
+  listStyles(): Promise<{ id: string; label: string; isUser?: boolean; plugin?: string }[]>;
   getStyle(): Promise<string>;
   setStyle(styleId: string): Promise<void>;
   generate(relativePath: string): Promise<{

@@ -10,7 +10,6 @@
  * components) after each mutation, so this store is the single write path.
  */
 import { api } from '../ipc/client';
-import type { SavedQuery } from '../../../shared/types';
 
 export const savedQueriesStore = {
   /** Rename a saved query; resolves to its (possibly new) file path. */
@@ -22,7 +21,7 @@ export const savedQueriesStore = {
     return api.queries.delete(filePath);
   },
   /** Move a saved query between the project and global scopes; resolves to its new path. */
-  move(filePath: string, newScope: SavedQuery['scope']): Promise<string> {
+  move(filePath: string, newScope: 'project' | 'global'): Promise<string> {
     return api.queries.move(filePath, newScope);
   },
   /** Set (or clear, with null) a saved query's group. */

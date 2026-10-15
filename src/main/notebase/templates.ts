@@ -14,6 +14,9 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import * as notebaseFs from './fs';
+import type { PluginOrigin } from '../../shared/plugins/format';
+import { contributionsTo, getPluginScan } from '../plugins/registry';
+import { logger } from '../../shared/logger';
 
 const TEMPLATES_DIR = '.minerva/templates';
 
@@ -77,8 +80,35 @@ status: proposed
 export interface TemplateInfo {
   /** Template name as the user sees it (the filename without \`.md\`). */
   name: string;
-  /** Filename on disk including the `.md` extension. */
+  /** Filename on disk including the `.md` extension. Unique in a listing:
+   *  it's how `readTemplate` finds the body. */
   filename: string;
+  /** Set for an installed plugin's template (#2633). */
+  plugin?: PluginOrigin;
+}
+
+/**
+ * Installed plugins' templates (#2633), by filename. A thoughtbase template
+ * of the same name hides a plugin's (the thoughtbase's own file wins, as it
+ * does for types); a second plugin's template of a name already taken is
+ * skipped, and logged against that plugin. So a filename stays unique across
+ * the merged listing, and `readTemplate` needs nothing more than it.
+ */
+async function pluginTemplates(taken: ReadonlySet<string>): Promise<Map<string, { info: TemplateInfo; absolutePath: string }>> {
+  const out = new Map<string, { info: TemplateInfo; absolutePath: string }>();
+  for (const { plugin, contribution } of contributionsTo(await getPluginScan(), 'note-templates')) {
+    const filename = path.basename(contribution.absolutePath);
+    const key = filename.toLowerCase();
+    if (taken.has(key)) continue;
+    const holder = out.get(key);
+    if (holder) {
+      logger('plugins').warn(`${plugin.manifest.id}: template "${filename}" is already the ${holder.info.plugin?.id} plugin's; skipped`);
+      continue;
+    }
+    const origin = { id: plugin.manifest.id, name: plugin.manifest.name, version: plugin.manifest.version };
+    out.set(key, { info: { name: filename.slice(0, -3), filename, plugin: origin }, absolutePath: contribution.absolutePath });
+  }
+  return out;
 }
 
 function templatesDirAbs(rootPath: string): string {
@@ -105,15 +135,19 @@ export async function ensureSeeded(rootPath: string): Promise<void> {
   }
 }
 
-/** List the .md files in the templates folder. Returns an empty list
- *  if the folder doesn't exist (a user could have deleted it). */
+/** List the .md files in the templates folder, then installed plugins'
+ *  (#2633). A missing folder (a user could have deleted it) lists none of
+ *  the thoughtbase's; any other read error throws rather than reading as
+ *  "no templates". */
 export async function listTemplates(rootPath: string): Promise<TemplateInfo[]> {
   const dir = templatesDirAbs(rootPath);
   let entries: string[];
   try {
     entries = await fs.readdir(dir);
-  } catch {
-    return [];
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException).code;
+    if (code !== 'ENOENT' && code !== 'ENOTDIR') throw e;
+    entries = []; // no folder — a plugin's templates may still be listed
   }
   const out: TemplateInfo[] = [];
   for (const entry of entries) {
@@ -127,6 +161,8 @@ export async function listTemplates(rootPath: string): Promise<TemplateInfo[]> {
       filename: entry,
     });
   }
+  const taken = new Set(out.map((t) => t.filename.toLowerCase()));
+  for (const { info } of (await pluginTemplates(taken)).values()) out.push(info);
   out.sort((a, b) => a.name.localeCompare(b.name));
   return out;
 }
@@ -138,7 +174,15 @@ export async function readTemplate(rootPath: string, filename: string): Promise<
   if (!filename.toLowerCase().endsWith('.md') || filename.includes('/') || filename.includes('\\')) {
     throw new Error(`Invalid template filename: ${filename}`);
   }
-  return await notebaseFs.readFile(rootPath, `${TEMPLATES_DIR}/${filename}`);
+  try {
+    return await notebaseFs.readFile(rootPath, `${TEMPLATES_DIR}/${filename}`);
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e;
+    // Not the thoughtbase's: an installed plugin's, by the same unique name.
+    const fromPlugin = (await pluginTemplates(new Set())).get(filename.toLowerCase());
+    if (!fromPlugin) throw e;
+    return await fs.readFile(fromPlugin.absolutePath, 'utf-8');
+  }
 }
 
 /**

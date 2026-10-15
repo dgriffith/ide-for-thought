@@ -47,19 +47,21 @@ const READERS: Record<string, Reader> = {
     ...STOCK_QUERIES.map((q): Contribution => ({ point: 'saved-queries', id: `stock:${q.name}`, label: q.name, source: 'stock' })),
     ...listSavedQueries(rootPath).map((q): Contribution => ({
       point: 'saved-queries', id: q.id, label: q.name,
-      source: q.scope === 'global' ? 'user' : 'thoughtbase',
+      source: q.scope === 'global' ? 'user' : q.scope === 'plugin' ? 'plugin' : 'thoughtbase',
       location: displayPath(rootPath, q.filePath),
+      ...(q.plugin ? { plugin: q.plugin } : {}),
     })),
   ]),
-  templates: async (rootPath) => (await listTemplates(rootPath)).map((t) => ({
-    point: 'note-templates', id: t.filename, label: t.name, source: 'thoughtbase',
-    location: `.minerva/templates/${t.filename}`,
-  })),
+  templates: async (rootPath) => (await listTemplates(rootPath)).map((t): Contribution => (t.plugin
+    ? { point: 'note-templates', id: t.filename, label: t.name, source: 'plugin', plugin: t.plugin }
+    : { point: 'note-templates', id: t.filename, label: t.name, source: 'thoughtbase', location: `.minerva/templates/${t.filename}` })),
   csl: async (rootPath) => {
-    const { labels, userIds } = await getMergedStyles(rootPath);
-    return Object.entries(labels).map(([id, label]) => ({
-      point: 'csl-styles', id, label, source: userIds.has(id) ? 'thoughtbase' : 'stock',
-    }));
+    const { labels, userIds, pluginIds } = await getMergedStyles(rootPath);
+    return Object.entries(labels).map(([id, label]): Contribution => {
+      const plugin = pluginIds.get(id);
+      if (plugin) return { point: 'csl-styles', id, label, source: 'plugin', plugin };
+      return { point: 'csl-styles', id, label, source: userIds.has(id) ? 'thoughtbase' : 'stock' };
+    });
   },
   staticSiteCss: async (rootPath) => {
     try {

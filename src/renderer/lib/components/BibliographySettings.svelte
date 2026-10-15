@@ -14,7 +14,7 @@
 
   const settings = getSettingsStore();
 
-  let bibliographyStyles = $state<{ id: string; label: string; isUser?: boolean }[]>([]);
+  let bibliographyStyles = $state<{ id: string; label: string; isUser?: boolean; plugin?: string }[]>([]);
   let bibliographyStyleId = $state('apa');
   let userStyles = $state<{ id: string; label: string; filePath: string }[]>([]);
   let userLocales = $state<{ id: string; filePath: string }[]>([]);
@@ -105,7 +105,7 @@
   >
     {#each bibliographyStyles as style (style.id)}
       <option value={style.id}>
-        {style.label}{style.isUser ? ' (imported)' : ''}
+        {style.label}{style.isUser ? ' (imported)' : style.plugin ? ` (${style.plugin})` : ''}
       </option>
     {/each}
   </select>

@@ -8,8 +8,8 @@ type or query isn't enough, and for an MCP server only when something has to
 *run*.
 
 > **Status (#2631).** Minerva reads and checks the plugin format (#2632), and
-> loads a plugin's **skills** and **object types** at startup (#2633). Saved
-> queries, note templates and citation styles load next (the rest of #2633).
+> loads everything a plugin can contribute today (#2633): skills, object
+> types, saved queries, note templates, and citation styles and locales.
 > Installing, enabling and removing without a restart is #2634; until then, a
 > plugin added or changed is picked up the next time Minerva starts.
 
@@ -90,6 +90,17 @@ catalog loads, never in front of the window. Then:
   plugin's type saves that customized copy, and **Revert** goes back to the
   plugin's. A plugin type can extend a stock type (`parent: book`), and a
   thoughtbase type can extend a plugin's.
+- **Saved queries** are listed under **Query ▸ Saved Queries** in a section
+  named for the plugin, and run like any other. They're read-only: Edit Saved
+  Queries doesn't show them, and nothing in the app will rename, move or
+  delete a plugin's file.
+- **Note templates** appear in New Note and Insert Template, with the
+  plugin's name beside them. A thoughtbase template of the same name wins,
+  and the second plugin to use a name is skipped.
+- **Citation styles and locales: bundled < plugin < thoughtbase**, as for
+  types. A plugin's style can't replace a bundled one, the thoughtbase's own
+  imported style of the same id wins, and Settings → Bibliography names the
+  plugin a style came from. A file that isn't valid CSL is skipped.
 - **One bad file costs only itself.** A skill or type that doesn't parse is
   reported against its plugin, in the same list as any other skill or type
   problem, and the plugin's other contributions still load.

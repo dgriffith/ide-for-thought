@@ -83,7 +83,7 @@ const BUDGETS: Record<string, number> = {
   // predicted this: the IPC-surface files are budgeted and grow one line per
   // channel by construction, so a bump here is the expected remedy, not a
   // smell.
-  'src/renderer/lib/ipc/client.ts': 1357, // +17: Settings → Ontology's four channels (#2788)
+  'src/renderer/lib/ipc/client.ts': 1360, // +17: Settings → Ontology's four channels (#2788); +3: a template's / CSL style's plugin (#2633)
   'src/renderer/lib/stores/conversations.svelte.ts': 1276, // +4: carry a skill's user-turn material through open + /clear (#2438); +39: mcp_call confirmation card state, beside ask_user's (#2439); +26: turn start/settle screen-reader announcements (#2374); +28: conversation titles — rename, the titleChanged subscription, keepKnownTitle for the post-send reload race; +2: typing during a reply (#1744) — /clear refuses mid-turn, a restored message keeps the draft; +11: turnStartedAt for the turn-status clock (set at the three turn starts, cleared at the three settles); +2: approve comments name the broadcast that really happens (#2541)
   'src/renderer/lib/components/Editor.svelte': 858, // +4: Record Audio / Transcribe Recording context-menu wiring (#2428)
   'src/renderer/lib/stores/editor.svelte.ts': 965, // +1: DEFAULT_VIEW_LAYOUT from the view-layout registry (#2623); +1: type-view tabs carry a timeline range (#2607); +2: type-view tabs carry a kanban column order and Show empty columns (#2614); +1: type-view tabs carry a kanban groupBy (#2601); +1: type-view tabs carry a map style (#2665); +5: type-view tabs keyed by type + folder (#2531); +23: rescopeTypeView — widen a folder-scoped view, merging into an open one (#2532); +17: folder renames move scoped view tabs, beside applyRenameTransitions (#2535)
@@ -92,7 +92,7 @@ const BUDGETS: Record<string, number> = {
   // repo's dev-docs folder and how the parity test keeps it honest) and the
   // Command Palette item, whose comment explains that adding the item IS the
   // documentation fix — Keyboard Shortcuts derives from this template.
-  'src/main/menu.ts': 816, // +5: File → New Audio Recording (#2428); −174: menu commands moved onto the command registry (#2625)
+  'src/main/menu.ts': 824, // +5: File → New Audio Recording (#2428); −174: menu commands moved onto the command registry (#2625); +8: a Saved Queries section per plugin (#2633)
   'src/renderer/lib/components/sidebar/NotesPanel.svelte': 635, // the Notes tree, extracted from Sidebar.svelte (982 → 360) when the left sidebar became a panel registry (#2626)
   'src/renderer/lib/app/refactor-ops.svelte.ts': 654, // −270: the tag and property actions moved to note-action-ops.svelte.ts (#2783), which the sidebar and every view share
   // Raised again in #2208: the staleness check became two queries (sort a

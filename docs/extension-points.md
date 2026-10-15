@@ -25,13 +25,13 @@ Reach for the lowest rung that does the job — declarative before code.
 
 | Extension point | Rung | Picked up | From |
 |---|---|---|---|
-| [Citation styles and locales](#csl-styles--citation-styles-and-locales) | setting | hot | stock, thoughtbase |
+| [Citation styles and locales](#csl-styles--citation-styles-and-locales) | setting | hot | stock, plugin, thoughtbase |
 | [Static site stylesheet](#static-site-css--static-site-stylesheet) | setting | hot | thoughtbase |
 | [Ontology](#ontology--ontology) | setting | hot | stock, thoughtbase |
 | [Skills](#skills--skills) | skill | reload-command | stock, user, plugin |
 | [Object types](#object-types--object-types) | object-type | hot | stock, plugin, thoughtbase |
-| [Saved queries](#saved-queries--saved-queries) | query-view | hot | stock, user, thoughtbase |
-| [Note templates](#note-templates--note-templates) | query-view | hot | stock, thoughtbase |
+| [Saved queries](#saved-queries--saved-queries) | query-view | hot | stock, user, plugin, thoughtbase |
+| [Note templates](#note-templates--note-templates) | query-view | hot | stock, plugin, thoughtbase |
 | [MCP servers (Minerva as client)](#mcp-servers--mcp-servers-minerva-as-client) | mcp | hot | user |
 | [View layouts](#view-layouts--view-layouts) | source | rebuild | stock |
 | [Property types](#property-types--property-types) | source | rebuild | stock |
@@ -55,8 +55,8 @@ A CSL style or locale file, used when rendering citations and bibliographies. Im
 
 - **Rung:** setting
 - **Picked up:** at once, or on its next read (`hot`)
-- **Contributions from:** stock, thoughtbase
-- **Goes in:** &lt;thoughtbase>/.minerva/csl-styles/, &lt;thoughtbase>/.minerva/csl-locales/
+- **Contributions from:** stock, plugin, thoughtbase
+- **Goes in:** &lt;thoughtbase>/.minerva/csl-styles/, &lt;thoughtbase>/.minerva/csl-locales/, or a plugin's csl/ (#2633)
 - **Contract:** CSL 1.0 XML (.csl style, .xml locale), checked by [`src/main/publish/csl/user-assets.ts`](../src/main/publish/csl/user-assets.ts) (`isValidCslStyle`)
 - **Docs:** [`website/docs/_content/settings-bibliography.html`](../website/docs/_content/settings-bibliography.html)
 - **Test:** [`tests/main/publish/user-csl-assets.test.ts`](../tests/main/publish/user-csl-assets.test.ts)
@@ -119,8 +119,8 @@ A SPARQL or SQL query, listed under Query ▸ Saved Queries and runnable in the 
 
 - **Rung:** query-view
 - **Picked up:** at once, or on its next read (`hot`)
-- **Contributions from:** stock, user, thoughtbase
-- **Goes in:** the app's user-data folder (queries/), &lt;thoughtbase>/.minerva/queries/
+- **Contributions from:** stock, user, plugin, thoughtbase
+- **Goes in:** the app's user-data folder (queries/), &lt;thoughtbase>/.minerva/queries/, or a plugin's queries/ (#2633)
 - **Contract:** .rq (SPARQL) or .sql, with optional comment front matter, checked by [`src/main/saved-queries.ts`](../src/main/saved-queries.ts) (`parseQueryContent`)
 - **Docs:** [`website/docs/_content/query-menu-panel.html`](../website/docs/_content/query-menu-panel.html)
 - **Example:** [`src/shared/stock-queries.ts`](../src/shared/stock-queries.ts)
@@ -132,8 +132,8 @@ A note body to start from, offered by the New Note dialog and by Insert Template
 
 - **Rung:** query-view
 - **Picked up:** at once, or on its next read (`hot`)
-- **Contributions from:** stock, thoughtbase
-- **Goes in:** &lt;thoughtbase>/.minerva/templates/
+- **Contributions from:** stock, plugin, thoughtbase
+- **Goes in:** &lt;thoughtbase>/.minerva/templates/, or a plugin's templates/ (#2633)
 - **Contract:** Markdown, one template per file, checked by [`src/main/notebase/templates.ts`](../src/main/notebase/templates.ts) (`listTemplates`)
 - **Example:** [`src/main/notebase/templates.ts`](../src/main/notebase/templates.ts)
 
