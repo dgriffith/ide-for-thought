@@ -66,9 +66,14 @@ export {
   indexExcerpt, removeExcerpt, excerptIdsForSource, parseExcerptIdFromPath,
 } from './indexers/excerpt';
 import { addOntologyToStore } from './indexers';
+import { applyVocabularies, isVocabularyGraph, loadVocabularies } from './user-ontology';
 import { EXTENSIONS_GRAPH } from './indexers/extensions';
 import { rematerializeExtensionCatalog } from './extension-catalog';
 export { setExtensionContributions } from './extension-catalog';
+// A thoughtbase's own vocabularies (#2788): Settings → Ontology and the schema tool.
+export {
+  syncVocabularies, previewVocabularyImport, commitVocabularyImport, removeVocabulary, vocabulariesForSchema,
+} from './user-ontology';
 
 /** Tear down a project's graph state. Called by ProjectContext on last release. */
 export function disposeProject(ctx: ProjectContext): void {
@@ -227,6 +232,8 @@ export async function initGraph(ctx: ProjectContext, opts?: InitGraphOptions): P
   // before re-adding, which self-heals graph.ttl files written by older
   // versions that persisted the ontology alongside the user's data.
   addOntologyToStore(state);
+  // The thoughtbase's own vocabularies, beside the built-in ones (#2788).
+  applyVocabularies(ctx, state, await loadVocabularies(rootPath));
 
   setState(ctx, state);
   // The extension catalog (#2618): its points now, its contributions when the
@@ -373,14 +380,16 @@ export function serializeUserGraph(ctx: ProjectContext): string {
   );
   // The extension catalog is derived and partly per machine — never persisted (#2618).
   ontologyGraphs.add(EXTENSIONS_GRAPH.value);
+  // Nor is an imported vocabulary: it lives in `.minerva/ontology/` (#2788).
 
   // NOT `$rdf.graph()`: an IndexedFormula maintains four indices per `add`,
   // which at 3,000 notes costs about as much as the strip this replaces. This
   // object is written once and read once, so it needs no indices at all.
   const userOnly = new $rdf.Formula();
-  userOnly.statements = state.store.statements.filter(
-    (st) => !ontologyGraphs.has(st.graph?.value ?? ''),
-  );
+  userOnly.statements = state.store.statements.filter((st) => {
+    const g = st.graph?.value ?? '';
+    return !ontologyGraphs.has(g) && !isVocabularyGraph(g);
+  });
   // No prefix bindings to carry across: `store.namespaces` is empty here (the
   // parse paths never populate it), and the serializer derives its own from
   // the statements — which is why the output below is byte-identical to what

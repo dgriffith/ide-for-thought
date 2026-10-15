@@ -27,6 +27,7 @@ import VersioningSettings from '../VersioningSettings.svelte';
 import McpServersSettings from '../McpServersSettings.svelte';
 import ObjectTypesSettings from '../ObjectTypesSettings.svelte';
 import BibliographySettings from '../BibliographySettings.svelte';
+import OntologySettings from '../OntologySettings.svelte';
 import EditorSection from './EditorSection.svelte';
 import WebSection from './WebSection.svelte';
 import SourcesSection from './SourcesSection.svelte';
@@ -99,6 +100,7 @@ export const SETTINGS_SECTIONS = [
   section({ id: 'objectTypes', label: 'Object Types', sub: 'Create · delete · duplicate types', group: 'authoring', component: ObjectTypesSettings, props: none }),
   section({ id: 'inspections', label: 'Inspections', sub: 'Which health checks run · thresholds', group: 'authoring', component: InspectionsSettings, props: none }),
   section({ id: 'bibliography', label: 'Bibliography', sub: 'Citation style · locale', group: 'authoring', component: BibliographySettings, props: none }),
+  section({ id: 'ontology', label: 'Ontology', sub: 'Import vocabularies · prefixes', group: 'authoring', component: OntologySettings, props: none }),
   section({ id: 'web', label: 'Web', sub: 'Default ingest rules', group: 'ingest', component: WebSection, props: withHost }),
   section({ id: 'sources', label: 'Sources', sub: 'Identifier lookups · privileged logins', group: 'ingest', component: SourcesSection, props: withHost }),
   section({ id: 'clipper', label: 'Browser Clipper', sub: 'Enable · pairing code · status', group: 'ingest', component: ClipperSettings, props: none }),

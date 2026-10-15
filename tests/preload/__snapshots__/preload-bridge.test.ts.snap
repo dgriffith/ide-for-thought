@@ -241,6 +241,12 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
     "writeBinary",
     "writeFile",
   ],
+  "ontology": [
+    "import",
+    "list",
+    "pickImport",
+    "remove",
+  ],
   "proposals": [
     "approve",
     "detail",

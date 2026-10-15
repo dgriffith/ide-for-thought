@@ -55,6 +55,7 @@ Lives inside each thoughtbase root and travels **with** it. `.minerva/` carries 
 | `config.json` | Thoughtbase config: display name, base IRI, and publish targets' **non-secret** fields. Travels with the thoughtbase. |
 | `secrets.json` | **Encrypted per-publish-target credentials** — gitignored, never committed. |
 | `types/*.md` | User-authored object types (per-thoughtbase vocabulary). |
+| `ontology/*.ttl` | Imported vocabularies (Settings → Ontology, #2788): loaded beside the built-in ontology, never into `graph.ttl`. |
 | `collections.json` | Collections + smart collections. |
 | `conversations/` | Conversation transcripts. |
 | `excerpts/*.ttl` | Anchored source excerpts. |

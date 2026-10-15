@@ -355,6 +355,10 @@
               "label": "Bibliography"
             },
             {
+              "href": "settings-ontology.html",
+              "label": "Ontology"
+            },
+            {
               "href": "settings-web.html",
               "label": "Web"
             },

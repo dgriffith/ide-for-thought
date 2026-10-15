@@ -151,6 +151,20 @@ export const EXTENSION_POINTS = [
     harness: 'tests/main/publish/static-site.test.ts',
   },
 
+  {
+    id: 'ontology',
+    label: 'Ontology',
+    description: 'A vocabulary — classes, properties and prefixes — added beside the built-in `minerva:` and `thought:` ones. Imported from Settings → Ontology; its prefixes work in every query, and its terms show in completion and in the schema the model reads. It can add terms, not change Minerva\'s.',
+    rung: 'setting',
+    contract: { kind: 'parser', format: 'Turtle (.ttl), refused whole if it describes a built-in term, rebinds a standard prefix or contradicts itself or another vocabulary', at: { file: 'src/main/graph/user-ontology-check.ts', symbol: 'checkVocabulary' } },
+    loadPath: 'hot',
+    sources: ['stock', 'thoughtbase'],
+    location: '<thoughtbase>/.minerva/ontology/',
+    docs: 'docs/thought-ontology.md',
+    example: 'tests/main/graph/user-ontology.test.ts',
+    harness: 'tests/main/graph/user-ontology-check.test.ts',
+  },
+
   // ── Skills ───────────────────────────────────────────────────────────────
   {
     id: 'skills',
@@ -316,12 +330,6 @@ export const EXTENSION_POINTS = [
     label: 'Themes',
     description: 'A colour theme: dark, light, high contrast, or following the system.',
     ...sourceSeam({ file: 'src/shared/theme.ts', symbol: 'THEME_MODES' }),
-  },
-  {
-    id: 'ontology',
-    label: 'Ontology',
-    description: 'The `minerva:` and `thought:` vocabularies the graph is written in. A note can still assert its own triples in an embedded Turtle block, and an object type can bridge to an outside class.',
-    ...sourceSeam({ file: 'src/shared/ontology.ttl' }, { docs: 'docs/thought-ontology.md', harness: 'tests/architecture/ontology-terms.test.ts' }),
   },
 ] as const satisfies readonly ExtensionPoint[];
 

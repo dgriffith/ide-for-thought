@@ -27,6 +27,7 @@ Reach for the lowest rung that does the job — declarative before code.
 |---|---|---|---|
 | [Citation styles and locales](#csl-styles--citation-styles-and-locales) | setting | hot | stock, thoughtbase |
 | [Static site stylesheet](#static-site-css--static-site-stylesheet) | setting | hot | thoughtbase |
+| [Ontology](#ontology--ontology) | setting | hot | stock, thoughtbase |
 | [Skills](#skills--skills) | skill | reload-command | stock, user |
 | [Object types](#object-types--object-types) | object-type | hot | stock, thoughtbase |
 | [Saved queries](#saved-queries--saved-queries) | query-view | hot | stock, user, thoughtbase |
@@ -47,7 +48,6 @@ Reach for the lowest rung that does the job — declarative before code.
 | [Publish targets](#publish-targets--publish-targets) | source | rebuild | stock |
 | [MCP tools (Minerva as server)](#mcp-tools--mcp-tools-minerva-as-server) | source | rebuild | stock |
 | [Themes](#themes--themes) | source | rebuild | stock |
-| [Ontology](#ontology--ontology) | source | rebuild | stock |
 
 ## `csl-styles` — Citation styles and locales
 
@@ -72,6 +72,19 @@ CSS linked after the static site's default stylesheet, so a few `:root { --accen
 - **Contract:** CSS, one file, checked by [`src/main/publish/exporters/static-site/index.ts`](../src/main/publish/exporters/static-site/index.ts)
 - **Docs:** [`docs/publishing.md`](publishing.md)
 - **Test:** [`tests/main/publish/static-site.test.ts`](../tests/main/publish/static-site.test.ts)
+
+## `ontology` — Ontology
+
+A vocabulary — classes, properties and prefixes — added beside the built-in `minerva:` and `thought:` ones. Imported from Settings → Ontology; its prefixes work in every query, and its terms show in completion and in the schema the model reads. It can add terms, not change Minerva's.
+
+- **Rung:** setting
+- **Picked up:** at once, or on its next read (`hot`)
+- **Contributions from:** stock, thoughtbase
+- **Goes in:** &lt;thoughtbase>/.minerva/ontology/
+- **Contract:** Turtle (.ttl), refused whole if it describes a built-in term, rebinds a standard prefix or contradicts itself or another vocabulary, checked by [`src/main/graph/user-ontology-check.ts`](../src/main/graph/user-ontology-check.ts) (`checkVocabulary`)
+- **Docs:** [`docs/thought-ontology.md`](thought-ontology.md)
+- **Example:** [`tests/main/graph/user-ontology.test.ts`](../tests/main/graph/user-ontology.test.ts)
+- **Test:** [`tests/main/graph/user-ontology-check.test.ts`](../tests/main/graph/user-ontology-check.test.ts)
 
 ## `skills` — Skills
 
@@ -301,14 +314,3 @@ A colour theme: dark, light, high contrast, or following the system.
 - **Picked up:** only in a rebuilt app (`rebuild`)
 - **Contributions from:** stock
 - **Contract:** none yet — built-ins register in [`src/shared/theme.ts`](../src/shared/theme.ts) (`THEME_MODES`); nothing outside the source can add one until plugins load (#2631)
-
-## `ontology` — Ontology
-
-The `minerva:` and `thought:` vocabularies the graph is written in. A note can still assert its own triples in an embedded Turtle block, and an object type can bridge to an outside class.
-
-- **Rung:** source
-- **Picked up:** only in a rebuilt app (`rebuild`)
-- **Contributions from:** stock
-- **Contract:** none yet — built-ins register in [`src/shared/ontology.ttl`](../src/shared/ontology.ttl); nothing outside the source can add one until plugins load (#2631)
-- **Docs:** [`docs/thought-ontology.md`](thought-ontology.md)
-- **Test:** [`tests/architecture/ontology-terms.test.ts`](../tests/architecture/ontology-terms.test.ts)

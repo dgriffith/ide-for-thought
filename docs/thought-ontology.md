@@ -490,6 +490,65 @@ to users.
 
 ---
 
+## Your own vocabularies
+
+A thoughtbase can add terms of its own beside these (#2788). **Settings →
+Ontology → Import Turtle…** takes a `.ttl` file (a lab's schema, say, or a
+published vocabulary) and shows what it declares before anything is saved: its
+prefixes, its classes and properties with their labels, and anything refused
+and why. An accepted file is copied unchanged into
+`<thoughtbase>/.minerva/ontology/`, and from then on:
+
+- **its `@prefix` lines work in every query** without a `PREFIX` line, like
+  the standard fifteen (an empty `:` prefix is the exception: it isn't added);
+- **its classes and properties are offered by SPARQL completion**, used yet or
+  not;
+- **`describe_graph_schema` includes it**, after the built-in ontology and
+  delimited as thoughtbase content (below);
+- **it never reaches `graph.ttl`.** It loads into a named graph of its own,
+  `urn:x-minerva:ontology:<file>`, which `persistGraph` skips the way it skips
+  the bundled ontology. It is read at project open and on every rebuild, and
+  Settings → Ontology re-reads the folder when it opens, so a file edited
+  outside the app is picked up there.
+
+It travels with the thoughtbase, so a query that uses its prefix works
+wherever the thoughtbase is opened. Remove takes the file and its terms out.
+
+**A vocabulary can add terms, not change Minerva's.** A file is accepted whole
+or refused whole, and refused when it:
+
+- describes a built-in term: anything in `minerva:`, `thought:` or `types:`, or
+  a term the bundled files annotate (the Dublin Core, BIBO and schema.org terms
+  counted below). *Naming* one is fine; `rdfs:subClassOf thought:Claim` is how
+  a vocabulary builds on this one;
+- binds a standard prefix name to a different IRI. A user `skos:` pointing
+  elsewhere would silently change every query that uses it (cf. #2388). Binding
+  the same IRI is fine;
+- contradicts itself or another imported vocabulary: a term with two
+  `rdfs:range`s or `rdfs:domain`s, or two `rdfs:label`s or `rdfs:comment`s in
+  the same language (labels in different languages are fine), or one prefix
+  name bound to two IRIs. This is the rule `ontology-terms.test.ts` applies to
+  the built-ins;
+- isn't Turtle, uses a relative IRI, or binds a prefix to an IRI a query
+  couldn't hold;
+- is over 1 MB, or would take the thoughtbase's vocabularies past 4 MB.
+
+A file that arrives with a shared thoughtbase, or is edited on disk, gets the
+same checks when it loads. A refused one is skipped and listed in Settings with
+its problems; it never half-loads and never stops the graph loading. The rules
+are `src/main/graph/user-ontology-check.ts`; loading is
+`src/main/graph/user-ontology.ts`.
+
+**It is data, not instructions.** Someone else may have written the file, and
+its labels and comments reach the model. So `describe_graph_schema` calls only
+the built-in part authoritative, and hands each imported file over inside a
+`<thoughtbase-content kind="ontology">` delimiter, with any spoofed delimiter
+in it neutralized, as skill context is (#2438).
+`tests/main/llm/prompt-injection/ontology-schema.test.ts` drives a hostile
+thoughtbase through it.
+
+---
+
 ## What is enforced, and what isn't
 
 **The ontology is executable, not decorative.**
@@ -500,8 +559,9 @@ of them declares. Adding a predicate to the code means adding it to the ontology
 in the same PR.
 
 This matters more than tidiness, because `describe_graph_schema` hands both
-files to the model **verbatim** and tells it "the returned text is
-authoritative" before it writes SPARQL. Nothing checked that claim until #2230,
+files to the model **verbatim** and tells it they are authoritative before it
+writes SPARQL. (A thoughtbase's own vocabularies follow them, delimited and not
+called authoritative; see above.) Nothing checked that claim until #2230,
 and at that point `ontology.ttl` had been shipping *unparseable* (a stray `;x`)
 for an unknown length of time, with ~17 load-bearing predicates undeclared —
 and `describe_graph_schema`'s own tool description was advertising a
