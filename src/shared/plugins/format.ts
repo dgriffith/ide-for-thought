@@ -120,6 +120,27 @@ export interface PluginSummary {
   contributes: Partial<Record<PluginContributionPoint, number>>;
 }
 
+/**
+ * A plugin the open thoughtbase recommends that isn't in use here (#2635).
+ * Every field but `status` is the thoughtbase's own text, checked for shape
+ * only — shown, never acted on without the user.
+ */
+export interface PluginRecommendation {
+  id: string;
+  /** What the thoughtbase calls it. */
+  name?: string;
+  /** Why the thoughtbase recommends it, in its own words. */
+  reason?: string;
+  /** Where to get it, as written. */
+  source?: string;
+  /** `source`, when it's a git URL Minerva can install from. */
+  installUrl?: string;
+  /** Object types it provides, by the thoughtbase's account. */
+  types: string[];
+  /** Not installed, or installed and turned off. */
+  status: 'missing' | 'disabled';
+}
+
 export interface PluginList {
   installed: PluginSummary[];
   /** Folders refused whole, with every problem (#2632). */

@@ -1,6 +1,7 @@
 <script lang="ts">
   import TitleBar from './lib/components/TitleBar.svelte';
   import TabBar from './lib/components/TabBar.svelte';
+  import PluginRecommendations from './lib/components/PluginRecommendations.svelte';
   import Sidebar from './lib/components/Sidebar.svelte';
   import Editor from './lib/components/Editor.svelte';
   import SplitContainer from './lib/components/SplitContainer.svelte';
@@ -1518,6 +1519,7 @@
         onCreateNoteFromConversation={handleCreateNoteFromConversation}
         onInvokeSkill={(id) => { void handleToolInvoke(id); }}
       />
+      <PluginRecommendations rootPath={notebase.meta.rootPath} />
     {/key}
   {/if}
 

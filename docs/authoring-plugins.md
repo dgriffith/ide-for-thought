@@ -31,8 +31,9 @@ outside the app and behind the same approval gates as any other MCP server.
 ```
 
 Plugins are **per machine**. A thoughtbase can recommend a plugin by id
-(#2635) but never carries one: a plugin inside a thoughtbase would be content
-someone else chose, travelling with a shared folder.
+(see [below](#recommending-plugins-from-a-thoughtbase)) but never carries one:
+a plugin inside a thoughtbase would be content someone else chose, travelling
+with a shared folder.
 
 The folder may be a link to where you're writing the plugin, so you can work
 on it in place. Everything is then contained in the link's *target*.
@@ -81,6 +82,46 @@ it contributes) and the folders that were refused, with why.
 
 What's on and where each came from is kept in `~/.minerva/plugins.json`. A
 plugin with no entry there (one put in the folder by hand) is on.
+
+## Recommending plugins from a thoughtbase
+
+A thoughtbase that relies on a plugin (its notes use the plugin's types, say)
+can list it in `.minerva/config.json` (#2635):
+
+```json
+{
+  "recommendedPlugins": [
+    {
+      "id": "reading-list",
+      "name": "Reading List",
+      "source": "https://github.com/ada/reading-list#v1.0.0",
+      "reason": "Book notes use its Book Note type.",
+      "types": ["book-note"]
+    }
+  ]
+}
+```
+
+Only `id` is required. `source` with a git URL gets an **Install** button;
+any other address (a web page, say) is shown for the reader to follow.
+`types` names the object types the plugin provides, so a note using one can
+say exactly which plugin it needs.
+
+Opening the thoughtbase shows one card listing the recommended plugins that
+aren't in use on this machine, with **Install**, or **Turn on** for one that's
+installed but off. **Not now** hides it until the thoughtbase is next opened;
+**Don't show again** remembers that for this thoughtbase on this machine.
+Settings → Plugins lists the recommendations either way.
+
+A note whose `type:` isn't defined here (because its plugin is missing) is
+not an error. The Properties panel shows the type's id with a hint naming the
+recommended plugin that provides it, and nothing in the note is rewritten.
+
+**A recommendation is only text.** The config file travels with a shared
+thoughtbase, so its list is someone else's: entries are checked for shape,
+capped at 20, and only ever shown. Nothing installs, turns on or downloads
+until you press the button, and Install goes through exactly the checks of a
+URL you typed yourself. The rules are `src/main/plugins/recommendations.ts`.
 
 ## `plugin.json`
 

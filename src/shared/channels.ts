@@ -256,6 +256,8 @@ export const Channels = {
   PLUGINS_INSTALL_ZIP: 'plugins:installZip',
   /** Fetch a plugin from a public git URL (`url#ref` pins one), then install it. */
   PLUGINS_INSTALL_GIT: 'plugins:installGit',
+  /** The open thoughtbase's recommended plugins that aren't in use here (#2635). Read only. */
+  PLUGINS_RECOMMENDATIONS: 'plugins:recommendations',
   /** Open a plugin's folder (or the plugins folder) in the OS file manager. */
   PLUGINS_REVEAL: 'plugins:reveal',
   /** main → renderer: plugins changed and have been applied; refresh. */

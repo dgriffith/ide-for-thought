@@ -26,7 +26,7 @@ import type { TypeEditorInitial } from '../components/type-editor-value';
 import type { SafeDeleteBlocker } from '../../../shared/types';
 
 /** Which Settings tab to land on. `undefined` = the dialog's own default. */
-export type SettingsTab = 'ai' | undefined;
+export type SettingsTab = 'ai' | 'plugins' | undefined;
 
 /** Open Type-editor state (#1585): what to pre-fill, and which note gets
  *  promoted to the new type once it saves. */

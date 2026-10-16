@@ -205,6 +205,7 @@ exports[`preload behaviour: surface-wide invariants (#2367) > the full method â†
   "plugins.installZip": "invoke plugins:installZip",
   "plugins.list": "invoke plugins:list",
   "plugins.onChanged": "on plugins:changed",
+  "plugins.recommendations": "invoke plugins:recommendations",
   "plugins.remove": "invoke plugins:remove",
   "plugins.reveal": "invoke plugins:reveal",
   "plugins.setEnabled": "invoke plugins:setEnabled",

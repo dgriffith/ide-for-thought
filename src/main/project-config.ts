@@ -44,6 +44,12 @@ export interface ProjectConfigShape {
      *  Empty string means the project root. */
     noteFolder?: string;
   };
+  /**
+   * Plugins this thoughtbase recommends (#2635): `[{ id, source?, name?,
+   * reason?, types? }]`. Someone else's text, decoded leniently by
+   * `plugins/recommendations.ts` and only ever shown.
+   */
+  recommendedPlugins?: unknown;
   /** Git-push publish destinations (#254). */
   publish?: {
     targets?: PublishTarget[];

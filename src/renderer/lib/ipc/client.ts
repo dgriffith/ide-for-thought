@@ -350,7 +350,7 @@ export type ExportInputKind = 'single-note' | 'folder' | 'project' | 'tree' | 's
 export type { ExportGroupId, ExportGroupMeta } from '../../../shared/export-groups';
 import type { ExportGroupMeta } from '../../../shared/export-groups';
 import type { VocabularyImportPreview, VocabularyStatus } from '../../../shared/ontology-vocabularies';
-import type { PluginList } from '../../../shared/plugins/format';
+import type { PluginList, PluginRecommendation } from '../../../shared/plugins/format';
 
 /** One registered exporter, as surfaced to the menu + export dialog. */
 export interface ExporterInfo {
@@ -1130,6 +1130,8 @@ export interface PluginsApi {
   installZip(): Promise<{ id: string; name: string } | null>;
   /** Fetch from a public git URL (`url#tag`, `#branch` or `#commit` pins one), then install. `null` when Replace? is cancelled. */
   installGit(spec: string): Promise<{ id: string; name: string } | null>;
+  /** The open thoughtbase's recommended plugins not in use on this machine. Describes only; installs nothing. */
+  recommendations(): Promise<PluginRecommendation[]>;
   /** Show a plugin's folder, or the plugins folder, in the file manager. */
   reveal(id?: string): Promise<void>;
   /** Plugins changed (here or outside the app) and have been applied. */
