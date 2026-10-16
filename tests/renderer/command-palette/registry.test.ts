@@ -160,4 +160,15 @@ describe('buildCommandRegistry', () => {
       expect(grouped.find((c) => c.id === 'skill:g')?.category).toBe('Learning › Reading');
     });
   });
+
+  it('lists each plugin theme after the commands, marks the current one, and picks it (#2787)', () => {
+    const picked: string[] = [];
+    const themes = [{ mode: 'plugin:solarized/solarized-dark' as const, label: 'Solarized Dark', plugin: 'Solarized' }];
+    const cmds = buildCommandRegistry(makeState({ currentTheme: () => 'plugin:solarized/solarized-dark' }), () => {}, [], () => {}, themes, (m) => picked.push(m));
+    const entry = cmds.find((c) => c.id === 'theme:plugin:solarized/solarized-dark')!;
+    expect(entry).toMatchObject({ title: 'Theme: Solarized Dark (Solarized) (current)', category: 'View', enabled: true });
+    entry.run();
+    expect(picked).toEqual(['plugin:solarized/solarized-dark']);
+    expect(cmds.find((c) => c.id === 'view.theme.dark')!.title).toBe('Theme: Dark');
+  });
 });
