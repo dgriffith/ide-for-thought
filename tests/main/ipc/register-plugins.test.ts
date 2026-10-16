@@ -18,6 +18,7 @@ const h = vi.hoisted(() => ({
   setPluginEnabled: vi.fn(),
   removePlugin: vi.fn(),
   installPluginFromFolder: vi.fn(),
+  installPluginFromZip: vi.fn(),
   changed: [] as string[],
 }));
 
@@ -51,6 +52,7 @@ vi.mock('../../../src/main/plugins/lifecycle', async (orig) => ({
   setPluginEnabled: h.setPluginEnabled,
   removePlugin: h.removePlugin,
   installPluginFromFolder: h.installPluginFromFolder,
+  installPluginFromZip: h.installPluginFromZip,
 }));
 vi.mock('../../../src/main/plugins-apply', () => ({
   changePlugins: async <T>(op: () => Promise<T>) => { const r = await op(); h.changed.push('applied'); return r; },
@@ -102,7 +104,7 @@ describe('register-plugins (#2634)', () => {
     h.showOpenDialog.mockResolvedValue({ canceled: false, filePaths: ['/work/lab'] });
     h.installPluginFromFolder.mockResolvedValue({ manifest: { id: 'lab', name: 'Lab' } });
     expect(await call(Channels.PLUGINS_INSTALL_FOLDER)).toEqual({ id: 'lab', name: 'Lab' });
-    expect(h.installPluginFromFolder).toHaveBeenCalledWith('/home/u/.minerva/plugins', '/work/lab', '4.0.0');
+    expect(h.installPluginFromFolder).toHaveBeenCalledWith('/home/u/.minerva/plugins', '/work/lab', '4.0.0', { replace: false });
     expect(h.changed).toEqual(['applied']);
   });
 
@@ -116,6 +118,23 @@ describe('register-plugins (#2634)', () => {
     h.installPluginFromFolder.mockRejectedValueOnce(new PluginExistsError('lab'));
     h.showMessageBox.mockResolvedValueOnce({ response: 1 });
     expect(await call(Channels.PLUGINS_INSTALL_FOLDER)).toBeNull();
+  });
+
+  it('install from a zip: a .zip picker, then the archive is installed and applied', async () => {
+    h.showOpenDialog.mockResolvedValue({ canceled: false, filePaths: ['/dl/lab.zip'] });
+    h.installPluginFromZip.mockResolvedValue({ manifest: { id: 'lab', name: 'Lab' } });
+    expect(await call(Channels.PLUGINS_INSTALL_ZIP)).toEqual({ id: 'lab', name: 'Lab' });
+    expect(h.showOpenDialog).toHaveBeenCalledWith({ id: 1 }, expect.objectContaining({ properties: ['openFile'], filters: [{ name: 'Zip archive', extensions: ['zip'] }] }));
+    expect(h.installPluginFromZip).toHaveBeenCalledWith('/home/u/.minerva/plugins', '/dl/lab.zip', '4.0.0', { replace: false });
+    expect(h.changed).toEqual(['applied']);
+  });
+
+  it('install from a zip over an installed id asks Replace? too', async () => {
+    h.showOpenDialog.mockResolvedValue({ canceled: false, filePaths: ['/dl/lab.zip'] });
+    h.installPluginFromZip.mockRejectedValueOnce(new PluginExistsError('lab')).mockResolvedValueOnce({ manifest: { id: 'lab', name: 'Lab' } });
+    h.showMessageBox.mockResolvedValueOnce({ response: 0 });
+    expect(await call(Channels.PLUGINS_INSTALL_ZIP)).toEqual({ id: 'lab', name: 'Lab' });
+    expect(h.installPluginFromZip).toHaveBeenLastCalledWith('/home/u/.minerva/plugins', '/dl/lab.zip', '4.0.0', { replace: true });
   });
 
   it('install refused: the problems reach the renderer', async () => {

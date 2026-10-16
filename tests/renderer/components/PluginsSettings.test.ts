@@ -10,7 +10,7 @@ import { render, fireEvent, cleanup, waitFor } from '@testing-library/svelte';
 import type { PluginList } from '../../../src/shared/plugins/format';
 
 const h = vi.hoisted(() => ({
-  list: vi.fn(), setEnabled: vi.fn(), remove: vi.fn(), installFolder: vi.fn(), reveal: vi.fn(),
+  list: vi.fn(), setEnabled: vi.fn(), remove: vi.fn(), installFolder: vi.fn(), installZip: vi.fn(), reveal: vi.fn(),
   changed: null as null | (() => void),
   skillsList: vi.fn(), registerSkillInfos: vi.fn(), typesRefresh: vi.fn(), showConfirm: vi.fn(),
 }));
@@ -18,7 +18,7 @@ const h = vi.hoisted(() => ({
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({
   api: {
     plugins: {
-      list: h.list, setEnabled: h.setEnabled, remove: h.remove, installFolder: h.installFolder, reveal: h.reveal,
+      list: h.list, setEnabled: h.setEnabled, remove: h.remove, installFolder: h.installFolder, installZip: h.installZip, reveal: h.reveal,
       onChanged: (cb: () => void) => { h.changed = cb; return () => undefined; },
     },
     skills: { list: h.skillsList },
@@ -84,6 +84,14 @@ describe('PluginsSettings (#2634)', () => {
     const { findByText } = render(PluginsSettings);
     await fireEvent.click(await findByText('Install from folder…'));
     await waitFor(() => expect(h.installFolder).toHaveBeenCalled());
+    await waitFor(() => expect(h.list).toHaveBeenCalledTimes(2));
+  });
+
+  it('Install from zip… installs, and the list follows', async () => {
+    h.installZip.mockResolvedValue({ id: 'lab', name: 'Lab Tools' });
+    const { findByText } = render(PluginsSettings);
+    await fireEvent.click(await findByText('Install from zip…'));
+    await waitFor(() => expect(h.installZip).toHaveBeenCalled());
     await waitFor(() => expect(h.list).toHaveBeenCalledTimes(2));
   });
 

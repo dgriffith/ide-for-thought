@@ -1126,6 +1126,8 @@ export interface PluginsApi {
   remove(id: string): Promise<PluginList>;
   /** Native folder picker, then copy it in. `null` when the picker or the Replace? question is cancelled. */
   installFolder(): Promise<{ id: string; name: string } | null>;
+  /** Native file picker for a `.zip`, unpacked safely then installed. `null` when cancelled. */
+  installZip(): Promise<{ id: string; name: string } | null>;
   /** Show a plugin's folder, or the plugins folder, in the file manager. */
   reveal(id?: string): Promise<void>;
   /** Plugins changed (here or outside the app) and have been applied. */

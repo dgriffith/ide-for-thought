@@ -1,6 +1,6 @@
 ---
 title: Minerva — Docs — Settings: Plugins
-description: The Plugins tab in Settings — install a plugin from a folder, turn plugins on and off, and remove them, all without restarting.
+description: The Plugins tab in Settings — install a plugin from a folder or a zip, turn plugins on and off, and remove them, all without restarting.
 ---
 
     <h1>Plugins</h1>
@@ -12,6 +12,10 @@ description: The Plugins tab in Settings — install a plugin from a folder, tur
       <div class="row">
         <div class="k">Install from folder</div>
         <div class="v">Choose <b>Install from folder…</b> and pick the plugin's folder. Minerva checks the whole plugin first and copies it in only if everything in it is usable; if not, it tells you every problem, and nothing is installed. The folder you picked is left where it was. If a plugin with the same name is already installed, Minerva asks before replacing it.</div>
+      </div>
+      <div class="row">
+        <div class="k">Install from zip</div>
+        <div class="v">Choose <b>Install from zip…</b> and pick a <code>.zip</code> of the plugin, such as one downloaded from GitHub with <b>Download ZIP</b>. Minerva unpacks it safely and checks it the same way. An archive that tries to put files outside the plugin's own folder, holds links, or is far too big for a plugin is refused, and nothing is installed.</div>
       </div>
       <div class="row">
         <div class="k">Turn a plugin on or off</div>

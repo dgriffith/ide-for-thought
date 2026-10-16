@@ -109,8 +109,8 @@ export interface PluginSummary {
   author?: string;
   license?: string;
   enabled: boolean;
-  /** Where it was installed from: a folder, or by hand into the plugins folder. */
-  source: { kind: 'folder'; path: string } | { kind: 'manual' };
+  /** Where it was installed from: a folder, an archive, or by hand into the plugins folder. */
+  source: { kind: 'folder'; path: string } | { kind: 'zip'; name: string; sha256: string } | { kind: 'manual' };
   installedAt?: string;
   /** How many contributions to each point. */
   contributes: Partial<Record<PluginContributionPoint, number>>;

@@ -10,8 +10,8 @@ type or query isn't enough, and for an MCP server only when something has to
 > **Status (#2631).** Minerva reads and checks the plugin format (#2632), and
 > loads everything a plugin can contribute today (#2633): skills, object
 > types, saved queries, note templates, and citation styles and locales.
-> **Settings → Plugins** installs one from a folder, turns plugins on and off
-> and removes them, all without a restart (#2634); installing from a zip or a
+> **Settings → Plugins** installs one from a folder or a zip, turns plugins on
+> and off and removes them, all without a restart (#2634); installing from a
 > git URL is next.
 
 Plugins are **declarative**. Every file a plugin contributes is data: a
@@ -50,6 +50,15 @@ it contributes) and the folders that were refused, with why.
   point back to where it came from). Installing over a plugin of the same id
   asks before replacing it, and the old copy goes only once the new one
   passes.
+- **Install from zip…** unpacks a `.zip` the same way. The plugin can be at
+  the archive's top, or in a single folder at its top (what GitHub's
+  "Download ZIP" makes). The archive is someone else's file, so it's refused
+  whole if any entry would land outside the plugin's folder (an absolute
+  path, a `..`, a backslash), if it holds a link, or if it's too big: over
+  25 MB as an archive, 2,000 entries, 10 MB for one unpacked file or 50 MB in
+  all. Sizes are checked before anything is decompressed, and an entry that
+  unpacks to more than it declared is stopped. macOS's `__MACOSX/` and
+  `.DS_Store` debris is skipped. The archive's name and SHA-256 are recorded.
 - **Turning a plugin off** keeps it installed; everything it contributes
   disappears until it's turned back on.
 - **Remove** deletes its folder (only the link, if it's a link to a folder you

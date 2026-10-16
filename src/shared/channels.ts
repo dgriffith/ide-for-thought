@@ -252,6 +252,8 @@ export const Channels = {
   PLUGINS_REMOVE: 'plugins:remove',
   /** Native picker for a plugin folder, then install it (copied). */
   PLUGINS_INSTALL_FOLDER: 'plugins:installFolder',
+  /** Native picker for a plugin `.zip`, then unpack it safely and install it. */
+  PLUGINS_INSTALL_ZIP: 'plugins:installZip',
   /** Open a plugin's folder (or the plugins folder) in the OS file manager. */
   PLUGINS_REVEAL: 'plugins:reveal',
   /** main → renderer: plugins changed and have been applied; refresh. */
