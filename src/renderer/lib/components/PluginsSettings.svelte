@@ -103,6 +103,29 @@
     </ul>
   {/if}
 
+  {#if plugins.recommendations.length > 0}
+    <span class="field-label recs-label">Recommended by this thoughtbase</span>
+    <ul class="plugin-list" aria-label="Recommended by this thoughtbase">
+      {#each plugins.recommendations as r (r.id)}
+        <li class="off">
+          <div class="plugin-row">
+            <span class="plugin-name">{r.name ?? r.id}</span>
+            <span class="plugin-contributes">{r.status === 'disabled' ? 'Installed, turned off' : 'Not installed'}</span>
+            <span class="plugin-actions">
+              {#if r.status === 'disabled'}
+                <button class="link-btn" disabled={plugins.busy} onclick={() => { void plugins.setEnabled(r.id, true); }} aria-label={`Turn on ${r.name ?? r.id}`}>Turn on</button>
+              {:else if r.installUrl}
+                <button class="link-btn" disabled={plugins.busy} onclick={() => { void plugins.installGit(r.installUrl!); }} aria-label={`Install ${r.name ?? r.id}`}>Install</button>
+              {/if}
+            </span>
+          </div>
+          {#if r.reason}<p class="plugin-desc">{r.reason}</p>{/if}
+          {#if r.source && r.status === 'missing'}<p class="plugin-source">{r.installUrl ? 'From' : 'Get it from'} {r.source}</p>{/if}
+        </li>
+      {/each}
+    </ul>
+  {/if}
+
   <div class="actions">
     <button class="action-btn" disabled={plugins.busy} onclick={() => { void plugins.installFolder(); }}>Install from folder…</button>
     <button class="action-btn" disabled={plugins.busy} onclick={() => { void plugins.installZip(); }}>Install from zip…</button>
@@ -130,6 +153,7 @@
   .plugin-desc { margin: 2px 0 0 24px; color: var(--text-muted); font-size: 11px; line-height: 1.45; }
   .plugin-source { margin: 1px 0 0 24px; color: var(--text-muted); font-size: 11px; overflow-wrap: anywhere; }
   .problems { margin: 4px 0 2px 0; padding-left: 18px; color: var(--text); font-size: 11px; line-height: 1.45; }
+  .recs-label { display: block; margin-top: 8px; }
   .actions { display: flex; flex-wrap: wrap; gap: 8px; }
   .action-btn { padding: 4px 12px; border: 1px solid var(--border); border-radius: 3px; background: var(--bg-button); color: var(--text); font-size: 12px; cursor: pointer; }
   .action-btn:hover:not(:disabled) { background: var(--bg-button-hover); }

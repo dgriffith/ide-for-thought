@@ -22,6 +22,7 @@
   import { getNotebaseStore } from '../../stores/notebase.svelte';
   import { getDialogStore } from '../../stores/dialogs.svelte';
   import { objectTypesStore } from '../../stores/object-types.svelte';
+  import UnknownTypeHead from './UnknownTypeHead.svelte';
   import AutocompleteDropdown from './AutocompleteDropdown.svelte';
   import Icon from '../Icon.svelte';
   import { resolveWikiLinkTarget } from '../../wiki-link-resolver';
@@ -616,7 +617,9 @@
          note got?". Keys are labels, not inputs: renaming one here would
          detach this note from the schema with nothing to show for it. Rename
          in the type editor instead. -->
-    {#if schema.type}
+    {#if !schema.type}
+      <UnknownTypeHead typeShape={rowByKey.get('type')?.shape} />
+    {:else}
       <div class="type-head">
         <TypeIcon type={schema.type} size={14} />
         <span class="type-head-label">{schema.type.label}</span>

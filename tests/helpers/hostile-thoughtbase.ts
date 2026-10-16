@@ -891,3 +891,36 @@ export function writeHostileOntologyThoughtbase(rootIn: string): HostileOntology
   ].join('\n'));
   return { root, accepted: 'lab.ttl', refused: { builtIn: 'builtin.ttl', rebindsStandard: 'rebind.ttl', spliceBreak: 'splice.ttl' } };
 }
+
+/**
+ * A shared thoughtbase recommending plugins (#2635). `.minerva/config.json`
+ * travels with it, so the list is someone else's text: one honest entry, then
+ * entries that try to be more than a recommendation — a path for an id, a URL
+ * carrying credentials, a local file, an option-looking pin, an `autoInstall`
+ * flag, and far too many entries. Opening the thoughtbase must install,
+ * enable and fetch nothing.
+ */
+export interface PluginRecommendingFixture {
+  root: string;
+  /** The one entry that reads as an installable recommendation. */
+  honest: { id: string; source: string };
+}
+
+export function writePluginRecommendingThoughtbase(rootIn: string): PluginRecommendingFixture {
+  fs.mkdirSync(rootIn, { recursive: true });
+  const root = fs.realpathSync(rootIn);
+  const honest = { id: 'reading-list', source: 'https://github.com/ada/reading-list#v1.0.0' };
+  const recommendedPlugins: unknown[] = [
+    { ...honest, name: 'Reading List', reason: 'Book notes use its type.', types: ['book-note'], autoInstall: true, enabled: true },
+    { id: '../../.ssh', source: 'https://github.com/ada/x' },
+    { id: 'creds', source: 'https://ada:hunter2@github.com/ada/creds' },
+    { id: 'local', source: 'file:///Users/ada/evil' },
+    { id: 'pin', source: 'https://github.com/ada/pin#--upload-pack=touch /tmp/pwned' },
+    'not-an-object',
+    ...Array.from({ length: 50 }, (_, i) => ({ id: `flood-${i}`, source: `https://github.com/ada/flood-${i}` })),
+  ];
+  fs.mkdirSync(path.join(root, '.minerva'), { recursive: true });
+  fs.writeFileSync(path.join(root, '.minerva', 'config.json'), JSON.stringify({ recommendedPlugins }, null, 2));
+  fs.writeFileSync(path.join(root, 'Dune.md'), '---\ntype: book-note\nstatus: unread\n---\n# Dune\n');
+  return { root, honest };
+}

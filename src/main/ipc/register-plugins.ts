@@ -10,13 +10,14 @@
  */
 import { dialog, shell, type BrowserWindow } from 'electron';
 import { Channels } from '../../shared/channels';
-import type { PluginList, PluginPackage, PluginSummary } from '../../shared/plugins/format';
+import type { PluginList, PluginPackage, PluginRecommendation, PluginSummary } from '../../shared/plugins/format';
 import { activePluginsDir, getPluginInventory, pluginsAppVersion } from '../plugins/registry';
 import { installPluginFromFolder, installPluginFromGit, installPluginFromZip, removePlugin, setPluginEnabled, type ReplacePolicy } from '../plugins/lifecycle';
 import { PLUGIN_ID } from '../plugins/manifest';
 import { changePlugins } from '../plugins-apply';
 import { handle } from './typed-ipc';
-import { winFromEvent } from './helpers';
+import { winFromEvent, withRootPathOr } from './helpers';
+import { pluginRecommendations } from '../plugins/recommendations';
 import path from 'node:path';
 
 export async function pluginList(): Promise<PluginList> {
@@ -107,6 +108,11 @@ export function registerPlugins(): void {
     if (typeof spec !== 'string') throw new Error('Give the plugin\'s git URL.');
     return installAsking(winFromEvent(e), (replace) => installPluginFromGit(activePluginsDir(), spec, pluginsAppVersion(), { replace }));
   });
+
+  // What the open thoughtbase recommends (#2635). Describes only: an Install
+  // button sends the source back through `plugins:installGit`, when the user
+  // presses it.
+  handle(Channels.PLUGINS_RECOMMENDATIONS, withRootPathOr(Promise.resolve<PluginRecommendation[]>([]), (rootPath) => pluginRecommendations(rootPath)));
 
   // Show a plugin's folder, or the plugins folder, in the OS file manager.
   // `showItemInFolder`, never `openPath`: a "plugin folder" that's really a

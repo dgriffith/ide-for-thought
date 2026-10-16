@@ -28,7 +28,13 @@ vi.mock('electron', () => ({
   dialog: { showOpenDialog: h.showOpenDialog, showMessageBox: h.showMessageBox },
   shell: { showItemInFolder: h.showItemInFolder },
 }));
-vi.mock('../../../src/main/ipc/helpers', () => ({ winFromEvent: () => ({ id: 1 }) }));
+vi.mock('../../../src/main/ipc/helpers', () => ({
+  winFromEvent: () => ({ id: 1 }),
+  withRootPathOr: (_fallback: unknown, fn: (root: string, ...a: unknown[]) => unknown) => (_e: unknown, ...a: unknown[]) => fn('/tb', ...a),
+}));
+vi.mock('../../../src/main/plugins/recommendations', () => ({
+  pluginRecommendations: async (root: string) => [{ id: 'lab', types: [], status: 'missing', root }],
+}));
 vi.mock('../../../src/main/plugins/registry', () => ({
   activePluginsDir: () => '/home/u/.minerva/plugins',
   pluginsAppVersion: () => '4.0.0',
@@ -168,5 +174,11 @@ describe('register-plugins (#2634)', () => {
     await call(Channels.PLUGINS_REVEAL, 'lab');
     expect(h.showItemInFolder.mock.calls).toEqual([['/home/u/.minerva/plugins'], ['/home/u/.minerva/plugins/lab']]);
     await expect(call(Channels.PLUGINS_REVEAL, '../../etc')).rejects.toThrow(/isn't a plugin id/);
+  });
+
+  it('recommendations reads the window\'s thoughtbase, and changes nothing (#2635)', async () => {
+    expect(await call(Channels.PLUGINS_RECOMMENDATIONS)).toEqual([{ id: 'lab', types: [], status: 'missing', root: '/tb' }]);
+    expect(h.changed).toEqual([]);
+    expect(h.installPluginFromGit).not.toHaveBeenCalled();
   });
 });
