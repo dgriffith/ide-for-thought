@@ -8,8 +8,10 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 import {
   installPluginFromFolder,
+  installPluginFromZip,
   PluginExistsError,
   removePlugin,
   setPluginEnabled,
@@ -17,6 +19,7 @@ import {
 import { loadPluginRecords, pluginsStateFile } from '../../../src/main/plugins/state';
 import { readPluginPackages } from '../../../src/main/plugins/package';
 import { writePlugin, typeFile } from '../../helpers/plugins';
+import { buildZip } from '../../helpers/zip';
 import { silenceLogTags } from '../../helpers/quiet-logs';
 
 silenceLogTags('config');
@@ -130,5 +133,50 @@ describe('setPluginEnabled and removePlugin (#2634)', () => {
     await expect(setPluginEnabled(dir, 'manual', false)).rejects.toThrow();
     expect(fs.readFileSync(pluginsStateFile(dir), 'utf-8')).toBe('{ not json');
     expect(await loadPluginRecords(dir)).toEqual({}); // display reads it as no records
+  });
+});
+
+describe('installPluginFromZip (#2634)', () => {
+  const manifest = (id = 'lab') => JSON.stringify({ id, name: 'Lab', version: '1.0.0', minerva: '>=3.0.0', description: 'd', contributes: { 'object-types': ['types/sample.md'] } });
+  const zip = (entries: Parameters<typeof buildZip>[0], name = 'lab.zip') => {
+    const p = path.join(src, name);
+    fs.writeFileSync(p, buildZip(entries));
+    return p;
+  };
+
+  it('installs a plugin from GitHub\'s "Download ZIP" shape, recording the archive and its SHA-256', async () => {
+    const p = zip([
+      { name: 'lab-main/plugin.json', data: manifest() },
+      { name: 'lab-main/types/sample.md', data: typeFile('Sample'), method: 'deflate' },
+    ]);
+    const plugin = await installPluginFromZip(dir, p, APP);
+    expect(plugin.root).toBe(path.join(dir, 'lab'));
+    expect(fs.readFileSync(path.join(dir, 'lab', 'types', 'sample.md'), 'utf-8')).toContain('Sample');
+    const sha256 = createHash('sha256').update(fs.readFileSync(p)).digest('hex');
+    expect((await loadPluginRecords(dir)).lab).toMatchObject({ enabled: true, source: { kind: 'zip', name: 'lab.zip', sha256 } });
+    expect(leftovers()).toEqual([]);
+  });
+
+  it('an unsafe archive, or a plugin that would be refused, installs nothing and leaves nothing', async () => {
+    await expect(installPluginFromZip(dir, zip([
+      { name: 'plugin.json', data: manifest() },
+      { name: '../../escape.md', data: 'pwned' },
+    ]), APP)).rejects.toThrow();
+    await expect(installPluginFromZip(dir, zip([
+      { name: 'plugin.json', data: manifest() },
+      { name: 'types/sample.md', symlink: '/etc/passwd' },
+    ]), APP)).rejects.toThrow(/is a link/);
+    await expect(installPluginFromZip(dir, zip([{ name: 'plugin.json', data: manifest() }]), APP))
+      .rejects.toThrow(/It can't be installed: .*types\/sample\.md.*doesn't exist/);
+    expect(fs.readdirSync(dir)).toEqual([]);
+    expect(fs.existsSync(path.join(tmp, 'escape.md'))).toBe(false);
+  });
+
+  it('won\'t install over a plugin without replace', async () => {
+    const p = zip([{ name: 'plugin.json', data: manifest() }, { name: 'types/sample.md', data: typeFile('Sample') }]);
+    await installPluginFromZip(dir, p, APP);
+    await expect(installPluginFromZip(dir, p, APP)).rejects.toBeInstanceOf(PluginExistsError);
+    await installPluginFromZip(dir, p, APP, { replace: true });
+    expect(leftovers()).toEqual([]);
   });
 });

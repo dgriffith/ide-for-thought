@@ -3,15 +3,15 @@
  * folder, open the folder. Each change goes through `changePlugins`, which
  * applies it to the whole app — no restart — and answers with the new list.
  *
- * Install picks the folder with a native dialog in main, and asks a native
- * "Replace?" there too when a plugin of that id is installed, so the renderer
- * never names a path main will copy from.
+ * Install picks the folder or the `.zip` with a native dialog in main, and
+ * asks a native "Replace?" there too when a plugin of that id is installed,
+ * so the renderer never names a path main will copy from or unpack.
  */
-import { dialog, shell } from 'electron';
+import { dialog, shell, type BrowserWindow } from 'electron';
 import { Channels } from '../../shared/channels';
-import type { PluginList, PluginSummary } from '../../shared/plugins/format';
+import type { PluginList, PluginPackage, PluginSummary } from '../../shared/plugins/format';
 import { activePluginsDir, getPluginInventory, pluginsAppVersion } from '../plugins/registry';
-import { installPluginFromFolder, PluginExistsError, removePlugin, setPluginEnabled } from '../plugins/lifecycle';
+import { installPluginFromFolder, installPluginFromZip, PluginExistsError, removePlugin, setPluginEnabled } from '../plugins/lifecycle';
 import { PLUGIN_ID } from '../plugins/manifest';
 import { changePlugins } from '../plugins-apply';
 import { handle } from './typed-ipc';
@@ -40,6 +40,34 @@ export async function pluginList(): Promise<PluginList> {
   };
 }
 
+/**
+ * Install, applied app-wide; when a plugin of that id is installed, ask a
+ * native "Replace?" and install again only on Replace.
+ */
+async function installAsking(
+  win: BrowserWindow,
+  install: (replace: boolean) => Promise<PluginPackage>,
+): Promise<{ id: string; name: string } | null> {
+  const installed = await changePlugins(async () => {
+    try {
+      return await install(false);
+    } catch (err) {
+      if (!(err instanceof PluginExistsError)) throw err;
+      const { response } = await dialog.showMessageBox(win, {
+        type: 'question',
+        message: `A plugin "${err.id}" is already installed.`,
+        detail: 'Replace it with this one?',
+        buttons: ['Replace', 'Cancel'],
+        defaultId: 0,
+        cancelId: 1,
+      });
+      if (response !== 0) return null;
+      return install(true);
+    }
+  });
+  return installed ? { id: installed.manifest.id, name: installed.manifest.name } : null;
+}
+
 export function registerPlugins(): void {
   handle(Channels.PLUGINS_LIST, () => pluginList());
 
@@ -56,31 +84,26 @@ export function registerPlugins(): void {
   handle(Channels.PLUGINS_INSTALL_FOLDER, async (e) => {
     const win = winFromEvent(e);
     const picked = await dialog.showOpenDialog(win, {
-      title: 'Install a plugin',
+      title: 'Install a plugin from a folder',
       buttonLabel: 'Install',
       properties: ['openDirectory'],
     });
     if (picked.canceled || picked.filePaths.length === 0) return null;
     const source = picked.filePaths[0]!;
-    const dir = activePluginsDir();
-    const installed = await changePlugins(async () => {
-      try {
-        return await installPluginFromFolder(dir, source, pluginsAppVersion());
-      } catch (err) {
-        if (!(err instanceof PluginExistsError)) throw err;
-        const { response } = await dialog.showMessageBox(win, {
-          type: 'question',
-          message: `A plugin "${err.id}" is already installed.`,
-          detail: 'Replace it with the one in this folder?',
-          buttons: ['Replace', 'Cancel'],
-          defaultId: 0,
-          cancelId: 1,
-        });
-        if (response !== 0) return null;
-        return installPluginFromFolder(dir, source, pluginsAppVersion(), { replace: true });
-      }
+    return installAsking(win, (replace) => installPluginFromFolder(activePluginsDir(), source, pluginsAppVersion(), { replace }));
+  });
+
+  handle(Channels.PLUGINS_INSTALL_ZIP, async (e) => {
+    const win = winFromEvent(e);
+    const picked = await dialog.showOpenDialog(win, {
+      title: 'Install a plugin from a zip',
+      buttonLabel: 'Install',
+      properties: ['openFile'],
+      filters: [{ name: 'Zip archive', extensions: ['zip'] }],
     });
-    return installed ? { id: installed.manifest.id, name: installed.manifest.name } : null;
+    if (picked.canceled || picked.filePaths.length === 0) return null;
+    const archive = picked.filePaths[0]!;
+    return installAsking(win, (replace) => installPluginFromZip(activePluginsDir(), archive, pluginsAppVersion(), { replace }));
   });
 
   // Show a plugin's folder, or the plugins folder, in the OS file manager.

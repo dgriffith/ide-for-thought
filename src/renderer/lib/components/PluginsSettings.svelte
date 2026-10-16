@@ -88,6 +88,7 @@
 
   <div class="actions">
     <button class="action-btn" disabled={plugins.busy} onclick={() => { void plugins.installFolder(); }}>Install from folder…</button>
+    <button class="action-btn" disabled={plugins.busy} onclick={() => { void plugins.installZip(); }}>Install from zip…</button>
     <button class="action-btn" onclick={() => { void plugins.reveal(); }}>Show plugins folder</button>
   </div>
 

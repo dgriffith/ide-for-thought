@@ -26,14 +26,16 @@ describe('watchPluginsDir (#2634)', () => {
   it('creates the folder, and a burst of changes is one call', async () => {
     const dir = path.join(tmp, 'plugins');
     const onChange = vi.fn();
-    stop = watchPluginsDir(dir, onChange, 50);
+    // A debounce with room to spare: under a loaded test run, FSEvents can
+    // spread one burst's events further apart than a tight one tolerates.
+    stop = watchPluginsDir(dir, onChange, 200);
     expect(fs.existsSync(dir)).toBe(true);
     await settle(PLUGINS_WATCH_WARMUP_MS + 50);
     fs.mkdirSync(path.join(dir, 'lab'));
     fs.writeFileSync(path.join(dir, 'lab', 'plugin.json'), '{}');
     fs.writeFileSync(path.join(dir, 'lab', 'a.md'), 'x');
-    await vi.waitFor(() => expect(onChange).toHaveBeenCalledTimes(1), { timeout: 2000 });
-    await settle(150);
+    await vi.waitFor(() => expect(onChange).toHaveBeenCalledTimes(1), { timeout: 3000 });
+    await settle(400);
     expect(onChange).toHaveBeenCalledTimes(1);
   });
 

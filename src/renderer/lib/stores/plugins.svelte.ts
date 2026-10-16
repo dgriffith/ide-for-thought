@@ -57,6 +57,15 @@ api?.plugins?.onChanged?.(() => {
   void refreshContributions();
 });
 
+async function install(pick: () => Promise<{ id: string; name: string } | null>): Promise<{ id: string; name: string } | null> {
+  let installed: { id: string; name: string } | null = null;
+  await run(async () => {
+    installed = await pick();
+    list = await api.plugins.list();
+  });
+  return installed;
+}
+
 export function getPluginsStore() {
   return {
     get list() { return list; },
@@ -66,14 +75,9 @@ export function getPluginsStore() {
     setEnabled: (id: string, enabled: boolean) => run(async () => { list = await api.plugins.setEnabled(id, enabled); }),
     remove: (id: string) => run(async () => { list = await api.plugins.remove(id); }),
     /** Pick a folder and install it. Resolves with what was installed, or null. */
-    installFolder: async (): Promise<{ id: string; name: string } | null> => {
-      let installed: { id: string; name: string } | null = null;
-      await run(async () => {
-        installed = await api.plugins.installFolder();
-        list = await api.plugins.list();
-      });
-      return installed;
-    },
+    installFolder: () => install(() => api.plugins.installFolder()),
+    /** Pick a `.zip` and install it. Resolves with what was installed, or null. */
+    installZip: () => install(() => api.plugins.installZip()),
     reveal: (id?: string) => run(() => api.plugins.reveal(id)),
   };
 }
