@@ -14,7 +14,7 @@
  * surrounding note.
  */
 
-import { getEffectiveTheme, getThemeMode } from '../theme';
+import { getAppliedThemeKey, getThemeMode } from '../theme';
 import { normalizeColor } from '../utils/oklch';
 import { sanitizeDiagramSvg } from './sanitize-diagram-svg';
 import { escapeHtml } from '../../../shared/text-escape';
@@ -43,7 +43,7 @@ async function loadMermaid(): Promise<MermaidApi> {
 }
 
 function ensureInitialized(api: MermaidApi, fontFamily: string): void {
-  const key = `${getEffectiveTheme(getThemeMode())}|${fontFamily}`;
+  const key = `${getAppliedThemeKey(getThemeMode())}|${fontFamily}`;
   if (initializedFor === key) return;
   initializeWith(api, readThemeTokens(document.documentElement), fontFamily);
   initializedFor = key;

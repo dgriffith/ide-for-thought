@@ -95,7 +95,7 @@ import type { Conversation, ConversationCreateOptions, ConversationMessage, Cont
 import type { PrivilegedSite } from './privileged-sites';
 import type { ConversationToolKey, AskUserRequest, McpConfirmRequest } from './conversation-tools';
 import type { ConversationDraftBase } from './conversation-draft-base';
-import type { ThemeMode } from './theme';
+import type { PluginThemeList, ThemeMode } from './theme';
 import type { Effort } from './tools/effort';
 import type { ConversationDraft, FileDraftResult } from './conversation-drafts';
 import type { ConversationSourceDraft, FileSourceDraftResult } from './conversation-source-drafts';
@@ -478,6 +478,7 @@ export interface ChannelMap {
   'plugins:installGit': (spec: string) => { id: string; name: string } | null;
   /** `[]` with no thoughtbase open, the same as one recommending nothing. */
   'plugins:recommendations': () => PluginRecommendation[];
+  'plugins:themes': () => PluginThemeList;
   'plugins:settings': (id: string) => PluginSettingsView;
   'plugins:setSettings': (id: string, patch: PluginSettingsPatch) => PluginSettingsView;
   'plugins:reveal': (id?: string) => void;

@@ -32,6 +32,7 @@ Reach for the lowest rung that does the job — declarative before code.
 | [Object types](#object-types--object-types) | object-type | hot | stock, plugin, thoughtbase |
 | [Saved queries](#saved-queries--saved-queries) | query-view | hot | stock, user, plugin, thoughtbase |
 | [Note templates](#note-templates--note-templates) | query-view | hot | stock, plugin, thoughtbase |
+| [Themes](#themes--themes) | plugin | hot | stock, plugin |
 | [MCP servers (Minerva as client)](#mcp-servers--mcp-servers-minerva-as-client) | mcp | hot | user |
 | [View layouts](#view-layouts--view-layouts) | source | rebuild | stock |
 | [Property types](#property-types--property-types) | source | rebuild | stock |
@@ -47,7 +48,6 @@ Reach for the lowest rung that does the job — declarative before code.
 | [Exporters](#exporters--exporters) | source | rebuild | stock |
 | [Publish targets](#publish-targets--publish-targets) | source | rebuild | stock |
 | [MCP tools (Minerva as server)](#mcp-tools--mcp-tools-minerva-as-server) | source | rebuild | stock |
-| [Themes](#themes--themes) | source | rebuild | stock |
 
 ## `csl-styles` — Citation styles and locales
 
@@ -136,6 +136,20 @@ A note body to start from, offered by the New Note dialog and by Insert Template
 - **Goes in:** &lt;thoughtbase>/.minerva/templates/, or a plugin's templates/ (#2633)
 - **Contract:** Markdown, one template per file, checked by [`src/main/notebase/templates.ts`](../src/main/notebase/templates.ts) (`listTemplates`)
 - **Example:** [`src/main/notebase/templates.ts`](../src/main/notebase/templates.ts)
+
+## `themes` — Themes
+
+A colour theme: colours over the dark or light theme, listed after Dark, Light, High Contrast and System in every theme picker. Tokens only — it recolours Minerva, it can't restyle it.
+
+- **Rung:** plugin
+- **Picked up:** at once, or on its next read (`hot`)
+- **Contributions from:** stock, plugin
+- **Goes in:** a plugin's themes/ (#2787)
+- **Contract:** JSON: { label, base: "dark" | "light", tokens: { "--token": colour } }, tokens from the built-in themes only, checked by [`src/main/plugins/themes.ts`](../src/main/plugins/themes.ts) (`parseThemeFile`)
+- **Registers in:** [`src/shared/theme.ts`](../src/shared/theme.ts) (`THEME_MODES`)
+- **Docs:** [`docs/authoring-plugins.md`](authoring-plugins.md)
+- **Example:** [`tests/fixtures/plugins/solarized/themes/solarized-dark.json`](../tests/fixtures/plugins/solarized/themes/solarized-dark.json)
+- **Test:** [`tests/main/plugins/themes.test.ts`](../tests/main/plugins/themes.test.ts)
 
 ## `mcp-servers` — MCP servers (Minerva as client)
 
@@ -305,12 +319,3 @@ A tool `minerva mcp` offers an external agent. Reads are guarded like the in-app
 - **Contract:** none yet — built-ins register in [`src/cli/mcp.ts`](../src/cli/mcp.ts) (`MCP_TOOLS`); nothing outside the source can add one until plugins load (#2631)
 - **Docs:** [`docs/cli.md`](cli.md)
 - **Test:** [`tests/cli/mcp.test.ts`](../tests/cli/mcp.test.ts)
-
-## `themes` — Themes
-
-A colour theme: dark, light, high contrast, or following the system.
-
-- **Rung:** source
-- **Picked up:** only in a rebuilt app (`rebuild`)
-- **Contributions from:** stock
-- **Contract:** none yet — built-ins register in [`src/shared/theme.ts`](../src/shared/theme.ts) (`THEME_MODES`); nothing outside the source can add one until plugins load (#2631)

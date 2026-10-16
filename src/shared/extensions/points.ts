@@ -226,6 +226,22 @@ export const EXTENSION_POINTS = [
     example: 'src/main/notebase/templates.ts',
   },
 
+  // ── Plugins only ─────────────────────────────────────────────────────────
+  {
+    id: 'themes',
+    label: 'Themes',
+    description: 'A colour theme: colours over the dark or light theme, listed after Dark, Light, High Contrast and System in every theme picker. Tokens only — it recolours Minerva, it can\'t restyle it.',
+    rung: 'plugin',
+    contract: { kind: 'parser', format: 'JSON: { label, base: "dark" | "light", tokens: { "--token": colour } }, tokens from the built-in themes only', at: { file: 'src/main/plugins/themes.ts', symbol: 'parseThemeFile' } },
+    loadPath: 'hot',
+    sources: ['stock', 'plugin'],
+    location: 'a plugin\'s themes/ (#2787)',
+    docs: 'docs/authoring-plugins.md',
+    example: 'tests/fixtures/plugins/solarized/themes/solarized-dark.json',
+    harness: 'tests/main/plugins/themes.test.ts',
+    registries: [{ file: 'src/shared/theme.ts', symbol: 'THEME_MODES' }],
+  },
+
   // ── MCP ──────────────────────────────────────────────────────────────────
   {
     id: 'mcp-servers',
@@ -324,12 +340,6 @@ export const EXTENSION_POINTS = [
     label: 'MCP tools (Minerva as server)',
     description: 'A tool `minerva mcp` offers an external agent. Reads are guarded like the in-app model\'s; writes are proposals.',
     ...sourceSeam({ file: 'src/cli/mcp.ts', symbol: 'MCP_TOOLS' }, { docs: 'docs/cli.md', harness: 'tests/cli/mcp.test.ts' }),
-  },
-  {
-    id: 'themes',
-    label: 'Themes',
-    description: 'A colour theme: dark, light, high contrast, or following the system.',
-    ...sourceSeam({ file: 'src/shared/theme.ts', symbol: 'THEME_MODES' }),
   },
 ] as const satisfies readonly ExtensionPoint[];
 

@@ -12,6 +12,7 @@ import { dialog, shell, type BrowserWindow } from 'electron';
 import { Channels } from '../../shared/channels';
 import type { PluginList, PluginManifest, PluginPackage, PluginRecommendation, PluginSettingsPatch, PluginSettingsView, PluginSummary } from '../../shared/plugins/format';
 import { readPluginSettings, savePluginSettings } from '../plugins/settings';
+import { pluginThemes } from '../plugins/themes';
 import { secretStorageStatus } from '../secret-storage';
 import { activePluginsDir, getPluginInventory, pluginsAppVersion } from '../plugins/registry';
 import { installPluginFromFolder, installPluginFromGit, installPluginFromZip, removePlugin, setPluginEnabled, type ReplacePolicy } from '../plugins/lifecycle';
@@ -127,6 +128,9 @@ export function registerPlugins(): void {
   // button sends the source back through `plugins:installGit`, when the user
   // presses it.
   handle(Channels.PLUGINS_RECOMMENDATIONS, withRootPathOr(Promise.resolve<PluginRecommendation[]>([]), (rootPath) => pluginRecommendations(rootPath)));
+
+  // The enabled plugins' colour themes (#2787), checked in main.
+  handle(Channels.PLUGINS_THEMES, () => pluginThemes());
 
   // A plugin's settings (#2636), per machine. A secret's value never comes
   // back to the renderer, only whether one is set.

@@ -36,7 +36,7 @@
  * re-skins existing charts.
  */
 
-import { getEffectiveTheme, getThemeMode } from '../theme';
+import { getAppliedThemeKey, getThemeMode } from '../theme';
 import { api } from '../ipc/client';
 import {
   detectDataSource,
@@ -60,7 +60,7 @@ let embedPromise: Promise<VegaEmbed> | null = null;
 
 /** Cached theme config, keyed by the mode it was built for (mirrors mermaid's
  *  `initializedFor`) so steady-state re-renders don't recompute. */
-let configCache: { mode: 'dark' | 'light' | 'contrast'; config: Record<string, unknown> } | null = null;
+let configCache: { mode: string; config: Record<string, unknown> } | null = null;
 
 /** Live Vega views, so we can `finalize()` (free listeners / timers) before a
  *  block is re-rendered on a theme switch. */
@@ -105,7 +105,9 @@ function readThemeTokens(): {
  * merges per-spec encodings over `config`. Cached per theme mode.
  */
 function buildThemeConfig(): Record<string, unknown> {
-  const mode = getEffectiveTheme(getThemeMode());
+  // Keyed by the applied theme, not dark/light: two plugin themes on one
+  // base have different colours (#2787).
+  const mode = getAppliedThemeKey(getThemeMode());
   if (configCache && configCache.mode === mode) return configCache.config;
   const t = readThemeTokens();
   const config: Record<string, unknown> = {

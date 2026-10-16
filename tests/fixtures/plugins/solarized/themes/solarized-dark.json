@@ -1,0 +1,21 @@
+{
+  "label": "Solarized Dark",
+  "base": "dark",
+  "tokens": {
+    "--bg": "#002b36",
+    "--bg-elev": "#073642",
+    "--bg-elev-2": "#0d4351",
+    "--bg-inset": "#00212b",
+    "--text": "#eee8d5",
+    "--text-muted": "#93a1a1",
+    "--text-faint": "#839496",
+    "--border": "#0f4a59",
+    "--border-strong": "#2a5f6c",
+    "--accent": "#b58900",
+    "--accent-dim": "#8a6a00",
+    "--accent-ink": "#002b36",
+    "--sage": "#859900",
+    "--rust": "#cb4b16",
+    "--iris": "#6c71c4"
+  }
+}

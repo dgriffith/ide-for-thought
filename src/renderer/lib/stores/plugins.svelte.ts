@@ -14,6 +14,7 @@ import type { PluginList, PluginRecommendation, PluginSettingsPatch, PluginSetti
 import { applyMenuConfig } from '../../../shared/skills/menu-config';
 import { registerSkillInfos } from '../tools/tool-registry';
 import { objectTypesStore } from './object-types.svelte';
+import { pluginThemesStore } from './plugin-themes.svelte';
 import { logger } from '../../../shared/logger';
 
 const EMPTY: PluginList = { installed: [], errors: [], folder: '' };
@@ -80,6 +81,7 @@ async function refreshContributions(): Promise<void> {
     logger('plugins').warn('re-registering skills after a plugin change failed:', e);
   }
   await objectTypesStore.refresh().catch((e: unknown) => logger('plugins').warn('refreshing object types after a plugin change failed:', e));
+  await pluginThemesStore.refresh();
 }
 
 async function refresh(): Promise<void> {

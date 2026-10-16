@@ -30,6 +30,7 @@ vi.mock('mermaid', () => ({ default: { initialize, render } }));
 vi.mock('../../../src/renderer/lib/theme', () => ({
   getThemeMode: () => 'dark',
   getEffectiveTheme: () => 'dark',
+  getAppliedThemeKey: () => 'dark',
 }));
 
 import { renderMermaidSvgForExport } from '../../../src/renderer/lib/markdown/mermaid-renderer';
@@ -60,7 +61,7 @@ function resolve(tokens: Record<string, string>): Record<string, string> {
 const dark = themeTokens(':root');
 const THEMES: Record<string, Record<string, string>> = {
   dark: resolve(dark),
-  light: resolve({ ...dark, ...themeTokens('[data-theme="light"]') }),
+  light: resolve({ ...dark, ...themeTokens('[data-theme-base="light"]') }),
   contrast: resolve({ ...dark, ...themeTokens('[data-theme="contrast"]') }),
 };
 

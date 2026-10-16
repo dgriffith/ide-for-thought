@@ -21,7 +21,7 @@ export const PLUGIN_MANIFEST = 'plugin.json';
  * what one contribution is. Fail closed — a `contributes` key not listed here
  * refuses the plugin, so a point opens to plugins only when its story adds it
  * (#2637: inspections #2642, commands #2643, live blocks #2641, views #2640,
- * themes #2787, MCP servers #2645).
+ * MCP servers #2645).
  */
 export const PLUGIN_CONTRIBUTION_POINTS = {
   'skills': {
@@ -34,6 +34,8 @@ export const PLUGIN_CONTRIBUTION_POINTS = {
   'saved-queries': { folder: 'queries', extensions: ['.rq', '.sql'] },
   'note-templates': { folder: 'templates', extensions: ['.md'] },
   'csl-styles': { folder: 'csl', extensions: ['.csl', '.xml'] },
+  /** A colour theme: `{ label, base, tokens }` (#2787). */
+  'themes': { folder: 'themes', extensions: ['.json'] },
 } as const satisfies Record<string, { folder: string; extensions: readonly string[]; folderEntry?: string }>;
 
 export type PluginContributionPoint = keyof typeof PLUGIN_CONTRIBUTION_POINTS;

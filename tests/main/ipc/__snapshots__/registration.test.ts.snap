@@ -181,6 +181,7 @@ exports[`IPC registration contract (#997) > matches the known set of registered 
   "plugins:setEnabled",
   "plugins:setSettings",
   "plugins:settings",
+  "plugins:themes",
   "proposal:approve",
   "proposal:detail",
   "proposal:expire",

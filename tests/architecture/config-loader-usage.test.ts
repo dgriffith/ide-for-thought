@@ -82,6 +82,9 @@ function candidates(): string[] {
 const BASELINE: Record<string, string> = {
   // The shared loader itself — reads + JSON.parses by definition.
   'src/main/config/config-store.ts': 'the shared loader — this is its implementation',
+  // #2787: a plugin's theme files — contributed content checked whole, where a
+  // bad file is refused and reported by name, never read as defaults.
+  'src/main/plugins/themes.ts': 'plugin theme files (themes/*.json), contributed content validated and refused per file, not config',
   // #2564: parses the JSON a hidden window's executeJavaScript returns (the old
   // file:// origin's localStorage, read once) and scans leveldb .log bytes for
   // a marker string. Neither is a config file; its own marker is only written.

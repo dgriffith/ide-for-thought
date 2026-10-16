@@ -1,7 +1,8 @@
 <script lang="ts">
   import type { CursorInfo } from './Editor.svelte';
   import Icon from './Icon.svelte';
-  import { THEME_MODES, type ThemeMode } from '../theme';
+  import type { ThemeMode } from '../theme';
+  import { pluginThemesStore } from '../stores/plugin-themes.svelte';
   import { installDismissOnClickOutside } from '../dismiss-menu';
   import { getAudioRecordingStore } from '../voice/audio-recording.svelte';
   import { formatElapsed } from '../voice/recording-text';
@@ -88,8 +89,6 @@
     }
   });
 
-  const themeLabels: Record<ThemeMode, string> =
-    Object.fromEntries(THEME_MODES.map((m) => [m.value, m.label])) as Record<ThemeMode, string>;
 </script>
 
 <div class="status-bar">
@@ -190,7 +189,7 @@
         title="Theme — click to pick (Cmd+Shift+T cycles)"
         aria-haspopup="menu"
         aria-expanded={themeMenuOpen}
-      >{themeLabels[theme]}</button>
+      >{pluginThemesStore.labelFor(theme)}</button>
       {#if themeMenuOpen}
         <div
           class="theme-menu"
@@ -199,11 +198,13 @@
           bind:this={themeMenuEl}
           onkeydown={(e) => { if (e.key === 'Escape') { themeMenuOpen = false; } }}
         >
-          {#each THEME_MODES as mode (mode.value)}
+          {#each pluginThemesStore.options as mode, i (mode.value)}
+            {#if mode.plugin && !pluginThemesStore.options[i - 1]?.plugin}<div class="theme-menu-sep" role="separator"></div>{/if}
             <button
               role="menuitemradio"
               aria-checked={theme === mode.value}
               class="theme-menu-item"
+              title={mode.plugin ? `From the ${mode.plugin} plugin` : undefined}
               onclick={() => pickTheme(mode.value)}
             >
               <span class="check">{#if theme === mode.value}<Icon name="check" size={11} color="var(--accent)" />{/if}</span>
@@ -318,6 +319,7 @@
     display: flex;
     flex-direction: column;
   }
+  .theme-menu-sep { height: 1px; margin: 4px 0; background: var(--border); }
   .theme-menu-item {
     display: flex;
     align-items: center;

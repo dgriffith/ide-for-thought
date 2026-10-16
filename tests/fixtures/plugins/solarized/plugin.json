@@ -1,0 +1,11 @@
+{
+  "id": "solarized",
+  "name": "Solarized",
+  "version": "1.0.0",
+  "minerva": ">=3.0.0",
+  "description": "Ethan Schoonover's Solarized palette, dark and light.",
+  "license": "MIT",
+  "contributes": {
+    "themes": ["themes/solarized-dark.json", "themes/solarized-light.json"]
+  }
+}

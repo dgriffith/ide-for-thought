@@ -1,0 +1,21 @@
+{
+  "label": "Solarized Light",
+  "base": "light",
+  "tokens": {
+    "--bg": "#fdf6e3",
+    "--bg-elev": "#eee8d5",
+    "--bg-elev-2": "#e4ddc8",
+    "--bg-inset": "#fffbf0",
+    "--text": "#073642",
+    "--text-muted": "#4f6168",
+    "--text-faint": "#56676d",
+    "--border": "#d9d2bd",
+    "--border-strong": "#c3bba3",
+    "--accent": "#8a5d00",
+    "--accent-dim": "#b58900",
+    "--accent-ink": "#fdf6e3",
+    "--sage": "#5f6e00",
+    "--rust": "#a63a0c",
+    "--iris": "#4f54a8"
+  }
+}

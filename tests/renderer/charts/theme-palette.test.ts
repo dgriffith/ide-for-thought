@@ -55,7 +55,7 @@ describe('chart text contrast in every theme (#2522)', () => {
   const dark = themeTokens(':root');
   const themes: Record<string, Record<string, string>> = {
     dark,
-    light: { ...dark, ...themeTokens('[data-theme="light"]') },
+    light: { ...dark, ...themeTokens('[data-theme-base="light"]') },
     contrast: { ...dark, ...themeTokens('[data-theme="contrast"]') },
   };
   for (const [name, t] of Object.entries(themes)) {
@@ -67,7 +67,7 @@ describe('chart text contrast in every theme (#2522)', () => {
   }
 
   it('…which the old hard-coded title colour did not, in the light theme (the bug)', () => {
-    const light = { ...themes.dark, ...themeTokens('[data-theme="light"]') };
+    const light = { ...themes.dark, ...themeTokens('[data-theme-base="light"]') };
     expect(contrast('#cdd6f4', normalizeColor(light['--bg']!))).toBeLessThan(4.5);
   });
 });

@@ -9,7 +9,7 @@ import type { Proposal, ProposalApproveResult, ProposalRejectResult } from '../.
 import type { GraphQueryResult } from '../../../shared/graph-query';
 import type { TagMergePreview, TagMergeResult } from '../../../shared/refactor/merge-tag';
 import type { MaintenanceProgress } from '../../../shared/maintenance';
-import type { ThemeMode } from '../../../shared/theme';
+import type { PluginThemeList, ThemeMode } from '../../../shared/theme';
 import type { CommandId } from '../../../shared/commands';
 import type { BatchRevertResult, HistorySettings, LabelNotesResult, RevisionMeta, SelectionRoot, UnifiedTimelineEntry } from '../../../shared/history';
 import type { PreloadApi } from '../../../preload/preload';
@@ -1132,6 +1132,8 @@ export interface PluginsApi {
   installGit(spec: string): Promise<{ id: string; name: string } | null>;
   /** The open thoughtbase's recommended plugins not in use on this machine. Describes only; installs nothing. */
   recommendations(): Promise<PluginRecommendation[]>;
+  /** The enabled plugins' colour themes, checked against the theme tokens, and the files refused (#2787). */
+  themes(): Promise<PluginThemeList>;
   /** A plugin's settings fields and values. A secret's value never comes back, only whether it's set. */
   settings(id: string): Promise<PluginSettingsView>;
   /** Save settings; rejects with every problem when a value doesn't fit. A secret: string sets, `null` clears, absent keeps. */

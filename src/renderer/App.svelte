@@ -23,6 +23,7 @@
   import { getNotebaseStore } from './lib/stores/notebase.svelte';
   import { getEditorStore, type TypeViewTab } from './lib/stores/editor.svelte';
   import { objectTypesStore } from './lib/stores/object-types.svelte';
+  import { pluginThemesStore } from './lib/stores/plugin-themes.svelte';
   import { getGraphRevisionStore } from './lib/stores/graph-revision.svelte';
   import { suggestViewNoteName } from '../shared/objects/view-note';
   import { groupByForType } from '../shared/objects/kanban';
@@ -601,7 +602,8 @@
   } satisfies CommandKeymapCtx);
   const commands = $derived<Command[]>(
     // Skills too (#2766), read fresh on each open; the registry has the menu config applied.
-    featureDialogs.commandPalette ? buildCommandRegistry(paletteState, (id) => commandActions[id](), getAllToolInfos(), (id) => { void handleToolInvoke(id); }) : [],
+    featureDialogs.commandPalette ? buildCommandRegistry(paletteState, (id) => commandActions[id](), getAllToolInfos(), (id) => { void handleToolInvoke(id); },
+      pluginThemesStore.themes.map((t) => ({ mode: t.mode, label: t.label, plugin: t.plugin.name })), handleSelectTheme) : [],
   );
   /** When non-null, the merge-target picker is shown. Holds the source
    *  note path; the picker filters the source out of its candidates. */
@@ -891,6 +893,10 @@
 
   onMount(() => {
     initTheme();
+    // Plugins' themes (#2787): load them, and re-tint every surface whenever a
+    // plugin change re-applies the theme.
+    void pluginThemesStore.refresh();
+    pluginThemesStore.onApplied(() => { updateThemeAll(tabViews); rightSidebar?.updateTheme(); });
     // Tell main the current theme so the native View → Theme radio starts
     // in sync with what the renderer loaded from localStorage (#1139).
     api.menu.reportTheme(themeLabel);
@@ -1020,6 +1026,7 @@
     },
     onThemeChanged: () => {
       themeLabel = getThemeMode();
+      api.menu.reportTheme(themeLabel);
       // Every mounted pane, not just the focused group's — the old four named
       // `?.updateTheme()` calls all resolved to the active group, so a split
       // pane on another group kept the old theme until it remounted (#2236).

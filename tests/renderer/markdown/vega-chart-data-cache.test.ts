@@ -36,6 +36,7 @@ vi.mock('../../../src/renderer/lib/ipc/client', () => ({
 }));
 vi.mock('../../../src/renderer/lib/theme', () => ({
   getEffectiveTheme: () => 'dark',
+  getAppliedThemeKey: () => 'dark',
   getThemeMode: () => 'dark',
 }));
 

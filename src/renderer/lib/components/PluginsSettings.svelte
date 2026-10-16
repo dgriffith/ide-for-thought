@@ -25,6 +25,7 @@
     'saved-queries': ['query', 'queries'],
     'note-templates': ['template', 'templates'],
     'csl-styles': ['citation style', 'citation styles'],
+    'themes': ['theme', 'themes'],
   };
 
   function contributes(p: PluginSummary): string {
