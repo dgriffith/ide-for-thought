@@ -584,6 +584,7 @@ const api = {
     remove: (id: string) => invoke(Channels.PLUGINS_REMOVE, id),
     installFolder: () => invoke(Channels.PLUGINS_INSTALL_FOLDER),
     installZip: () => invoke(Channels.PLUGINS_INSTALL_ZIP),
+    installGit: (spec: string) => invoke(Channels.PLUGINS_INSTALL_GIT, spec),
     reveal: (id?: string) => invoke(Channels.PLUGINS_REVEAL, id),
     onChanged: (cb: () => void) => subscribe(Channels.PLUGINS_CHANGED, cb),
   },

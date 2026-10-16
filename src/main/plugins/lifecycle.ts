@@ -12,6 +12,8 @@
  *   link would point back into wherever it was installed from.
  * - **Install from a zip** unpacks it into the same staging (`zip.ts` refuses
  *   an unsafe archive) and installs what's there the same way.
+ * - **Install from a git URL** fetches it into the staging and checks out
+ *   the commit there (`git.ts`, same rules), then the same again.
  * - **Remove** deletes the plugin's folder — or, when the folder is a link
  *   (an author working in place), only the link, never what it points to —
  *   and its record.
@@ -24,6 +26,15 @@ import { PLUGIN_ID } from './manifest';
 import { readPluginPackage } from './package';
 import { updatePluginRecords, type PluginSource } from './state';
 import { pluginRootIn, unpackPluginZip } from './zip';
+import { checkoutPluginTree, fetchPluginRepo, parseGitPluginSpec } from './git';
+
+/**
+ * Installing over a plugin of the same id: `true` replaces it, a function is
+ * asked (with the id) once the new one's id is known, and anything else
+ * throws `PluginExistsError`. Asking mid-install, rather than throwing and
+ * starting again, means a git install doesn't clone twice to replace.
+ */
+export type ReplacePolicy = boolean | ((id: string) => Promise<boolean>);
 
 /** Thrown when installing over a plugin that's already there without `replace`. */
 export class PluginExistsError extends Error {
@@ -46,6 +57,13 @@ async function exists(p: string): Promise<boolean> {
     if ((e as NodeJS.ErrnoException).code === 'ENOENT') return false;
     throw e;
   }
+}
+
+/** May a plugin `id` go in? False when the policy asked and was declined. */
+async function mayInstall(dir: string, id: string, replace: ReplacePolicy | undefined): Promise<boolean> {
+  if (!(await exists(path.join(dir, id))) || replace === true) return true;
+  if (typeof replace === 'function') return replace(id);
+  throw new PluginExistsError(id);
 }
 
 /** Turn a plugin on or off. It stays installed either way. */
@@ -154,16 +172,16 @@ async function withStaging<T>(dir: string, fn: (staging: string) => Promise<T>):
 }
 
 /**
- * Copy the plugin in `source` into `dir`, checked whole first. Throws
- * `PluginExistsError` when one of that id is installed and `replace` isn't
- * set; throws with every problem when the plugin would be refused.
+ * Copy the plugin in `source` into `dir`, checked whole first. Over an
+ * installed id, `replace` decides (`ReplacePolicy`); null when it declined.
+ * Throws with every problem when the plugin would be refused.
  */
 export async function installPluginFromFolder(
   dir: string,
   source: string,
   appVersion: string,
-  opts: { replace?: boolean } = {},
-): Promise<PluginPackage> {
+  opts: { replace?: ReplacePolicy } = {},
+): Promise<PluginPackage | null> {
   const src = await fs.realpath(source);
   if (!(await fs.stat(src)).isDirectory()) throw new Error('Choose the plugin\'s folder.');
   if (path.resolve(src).startsWith(path.resolve(dir) + path.sep)) {
@@ -172,7 +190,7 @@ export async function installPluginFromFolder(
   const id = await claimedId(src);
   const link = await findLink(src);
   if (link) throw new Error(`It holds a link (${path.relative(src, link)}); a plugin is copied without links, so it can't be installed.`);
-  if (!opts.replace && (await exists(path.join(dir, id)))) throw new PluginExistsError(id);
+  if (!(await mayInstall(dir, id, opts.replace))) return null;
 
   return withStaging(dir, async (staging) => {
     const staged = path.join(staging, id);
@@ -191,8 +209,8 @@ export async function installPluginFromZip(
   dir: string,
   zipPath: string,
   appVersion: string,
-  opts: { replace?: boolean } = {},
-): Promise<PluginPackage> {
+  opts: { replace?: ReplacePolicy } = {},
+): Promise<PluginPackage | null> {
   return withStaging(dir, async (staging) => {
     const unpacked = path.join(staging, 'unpacked');
     // Unpacking checks the archive's size first, so the hash below never
@@ -201,9 +219,37 @@ export async function installPluginFromZip(
     const sha256 = createHash('sha256').update(await fs.readFile(zipPath)).digest('hex');
     const root = await pluginRootIn(unpacked);
     const id = await claimedId(root);
-    if (!opts.replace && (await exists(path.join(dir, id)))) throw new PluginExistsError(id);
+    if (!(await mayInstall(dir, id, opts.replace))) return null;
     const staged = path.join(staging, id);
     await fs.rename(root, staged);
     return finishInstall(dir, staging, staged, id, { kind: 'zip', name: path.basename(zipPath), sha256 }, appVersion);
+  });
+}
+
+/**
+ * Fetch the plugin at a git URL (`https://…/repo[#tag-branch-or-commit]`,
+ * #2634) and install it, checked whole first — the repository safely
+ * (`git.ts`: public, bounded, plain files only), then the plugin (#2632).
+ * Records the URL, the pin and the commit installed. `fetch` is for tests.
+ */
+export async function installPluginFromGit(
+  dir: string,
+  spec: string,
+  appVersion: string,
+  opts: { replace?: ReplacePolicy; fetch?: typeof fetchPluginRepo } = {},
+): Promise<PluginPackage | null> {
+  const parsed = parseGitPluginSpec(spec);
+  return withStaging(dir, async (staging) => {
+    const repo = path.join(staging, 'repo');
+    const tree = path.join(staging, 'tree');
+    const commit = await (opts.fetch ?? fetchPluginRepo)(parsed, repo);
+    await checkoutPluginTree(repo, commit, tree);
+    const root = await pluginRootIn(tree);
+    const id = await claimedId(root);
+    if (!(await mayInstall(dir, id, opts.replace))) return null;
+    const staged = path.join(staging, id);
+    await fs.rename(root, staged);
+    const source: PluginSource = { kind: 'git', url: parsed.url, ...(parsed.ref ? { ref: parsed.ref } : {}), commit };
+    return finishInstall(dir, staging, staged, id, source, appVersion);
   });
 }

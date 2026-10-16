@@ -1,6 +1,6 @@
 ---
 title: Minerva — Docs — Settings: Plugins
-description: The Plugins tab in Settings — install a plugin from a folder or a zip, turn plugins on and off, and remove them, all without restarting.
+description: The Plugins tab in Settings — install a plugin from a folder, a zip or a git URL, turn plugins on and off, and remove them, all without restarting.
 ---
 
     <h1>Plugins</h1>
@@ -16,6 +16,10 @@ description: The Plugins tab in Settings — install a plugin from a folder or a
       <div class="row">
         <div class="k">Install from zip</div>
         <div class="v">Choose <b>Install from zip…</b> and pick a <code>.zip</code> of the plugin, such as one downloaded from GitHub with <b>Download ZIP</b>. Minerva unpacks it safely and checks it the same way. An archive that tries to put files outside the plugin's own folder, holds links, or is far too big for a plugin is refused, and nothing is installed.</div>
+      </div>
+      <div class="row">
+        <div class="k">Install from a git URL</div>
+        <div class="v">Choose <b>Install from git URL…</b> and paste the address of a public repository, such as <code>https://github.com/you/lab</code>. Add <code>#v1.2.0</code>, a branch name or a commit after a <code>#</code> to install that version; without one you get the latest on the default branch. Minerva never signs in to fetch a plugin, so for a private repository download a zip instead. Each plugin shows where it came from, and for a git URL, the commit installed. To update, install from the same URL again.</div>
       </div>
       <div class="row">
         <div class="k">Turn a plugin on or off</div>

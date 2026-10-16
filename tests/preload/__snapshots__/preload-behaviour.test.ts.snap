@@ -201,6 +201,7 @@ exports[`preload behaviour: surface-wide invariants (#2367) > the full method â†
   "ontology.pickImport": "invoke ontology:pickImport",
   "ontology.remove": "invoke ontology:remove",
   "plugins.installFolder": "invoke plugins:installFolder",
+  "plugins.installGit": "invoke plugins:installGit",
   "plugins.installZip": "invoke plugins:installZip",
   "plugins.list": "invoke plugins:list",
   "plugins.onChanged": "on plugins:changed",

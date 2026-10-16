@@ -29,6 +29,22 @@
       .join(' · ');
   }
 
+  /** Where it came from, in a line. */
+  function source(p: PluginSummary): string {
+    const src = p.source;
+    switch (src.kind) {
+      case 'folder': return `From ${src.path}`;
+      case 'zip': return `From ${src.name}`;
+      case 'git': return `From ${src.url}${src.ref ? ` #${src.ref}` : ''} at ${src.commit.slice(0, 7)}`;
+      case 'manual': return 'Put in the plugins folder by hand';
+    }
+  }
+
+  async function installGit(): Promise<void> {
+    const spec = await dialogs.showPrompt('Git URL of a public repository (add #tag, #branch or #commit to pin a version):');
+    if (spec?.trim()) await plugins.installGit(spec.trim());
+  }
+
   async function remove(p: PluginSummary): Promise<void> {
     const ok = await dialogs.showConfirm(
       `Remove ${p.name}? Its folder in the plugins folder is deleted${p.source.kind === 'folder' ? ' (the folder you installed it from is kept)' : ''}.`,
@@ -70,6 +86,7 @@
             </span>
           </div>
           <p class="plugin-desc">{p.description}{p.author ? ` — ${p.author}` : ''}</p>
+          <p class="plugin-source">{source(p)}</p>
         </li>
       {/each}
       {#each plugins.list.errors as e (e.folder)}
@@ -89,6 +106,7 @@
   <div class="actions">
     <button class="action-btn" disabled={plugins.busy} onclick={() => { void plugins.installFolder(); }}>Install from folder…</button>
     <button class="action-btn" disabled={plugins.busy} onclick={() => { void plugins.installZip(); }}>Install from zip…</button>
+    <button class="action-btn" disabled={plugins.busy} onclick={() => { void installGit(); }}>Install from git URL…</button>
     <button class="action-btn" onclick={() => { void plugins.reveal(); }}>Show plugins folder</button>
   </div>
 
@@ -110,8 +128,9 @@
   .plugin-contributes { flex: 1; }
   .plugin-actions { display: flex; gap: 10px; }
   .plugin-desc { margin: 2px 0 0 24px; color: var(--text-muted); font-size: 11px; line-height: 1.45; }
+  .plugin-source { margin: 1px 0 0 24px; color: var(--text-muted); font-size: 11px; overflow-wrap: anywhere; }
   .problems { margin: 4px 0 2px 0; padding-left: 18px; color: var(--text); font-size: 11px; line-height: 1.45; }
-  .actions { display: flex; gap: 8px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; }
   .action-btn { padding: 4px 12px; border: 1px solid var(--border); border-radius: 3px; background: var(--bg-button); color: var(--text); font-size: 12px; cursor: pointer; }
   .action-btn:hover:not(:disabled) { background: var(--bg-button-hover); }
   .action-btn:disabled { opacity: 0.5; cursor: not-allowed; }

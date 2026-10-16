@@ -29,6 +29,8 @@ export type PluginSource =
   | { kind: 'folder'; path: string }
   /** Unpacked from an archive: its file name, and its SHA-256. */
   | { kind: 'zip'; name: string; sha256: string }
+  /** Fetched from a git URL, at an optional pin; the commit installed. */
+  | { kind: 'git'; url: string; ref?: string; commit: string }
   /** No install record — it was put in `~/.minerva/plugins/` by hand. */
   | { kind: 'manual' };
 
@@ -50,6 +52,9 @@ export function pluginsStateFile(pluginsDir: string): string {
 function decodeSource(raw: unknown): PluginSource {
   const r = asRecord(raw);
   if (r.kind === 'folder' && typeof r.path === 'string') return { kind: 'folder', path: r.path };
+  if (r.kind === 'git' && typeof r.url === 'string' && typeof r.commit === 'string') {
+    return { kind: 'git', url: r.url, ...(typeof r.ref === 'string' ? { ref: r.ref } : {}), commit: r.commit };
+  }
   if (r.kind === 'zip' && typeof r.name === 'string' && typeof r.sha256 === 'string') return { kind: 'zip', name: r.name, sha256: r.sha256 };
   return { kind: 'manual' };
 }
