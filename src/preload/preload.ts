@@ -587,6 +587,7 @@ const api = {
     installZip: () => invoke(Channels.PLUGINS_INSTALL_ZIP),
     installGit: (spec: string) => invoke(Channels.PLUGINS_INSTALL_GIT, spec),
     recommendations: () => invoke(Channels.PLUGINS_RECOMMENDATIONS),
+    themes: () => invoke(Channels.PLUGINS_THEMES),
     settings: (id: string) => invoke(Channels.PLUGINS_SETTINGS, id),
     setSettings: (id: string, patch: PluginSettingsPatch) => invoke(Channels.PLUGINS_SET_SETTINGS, id, patch),
     reveal: (id?: string) => invoke(Channels.PLUGINS_REVEAL, id),

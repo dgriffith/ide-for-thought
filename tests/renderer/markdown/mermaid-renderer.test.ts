@@ -26,6 +26,7 @@ vi.mock('mermaid', () => ({ default: { initialize, render } }));
 vi.mock('../../../src/renderer/lib/theme', () => ({
   getThemeMode: () => 'dark',
   getEffectiveTheme: () => 'dark',
+  getAppliedThemeKey: () => 'dark',
 }));
 
 import { hydrateMermaidBlocks, invalidateMermaidTheme } from '../../../src/renderer/lib/markdown/mermaid-renderer';

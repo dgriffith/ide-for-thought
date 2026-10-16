@@ -97,7 +97,10 @@
   --scrim-blur: none;
 }
 
-[data-theme="light"] {
+/* A plugin theme on a light base (#2787) carries data-theme-base="light" and
+   inherits these, then its own block (theme.ts) overrides what it sets. */
+[data-theme="light"],
+[data-theme-base="light"] {
   --bg:           oklch(0.965 0.012 85);
   --bg-elev:      oklch(0.935 0.014 85);
   --bg-elev-2:    oklch(0.900 0.018 85);
@@ -264,7 +267,8 @@ body {
   :root {
     --border: #585b70;
   }
-  [data-theme="light"] {
+  [data-theme="light"],
+  [data-theme-base="light"] {
     --border: #7c7f93;
   }
 }

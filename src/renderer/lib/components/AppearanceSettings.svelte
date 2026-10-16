@@ -9,7 +9,8 @@
    */
   import { onMount } from 'svelte';
   import { api } from '../ipc/client';
-  import { getThemeMode, setThemeMode, THEME_MODES, type ThemeMode } from '../theme';
+  import { getThemeMode, setThemeMode, type ThemeMode } from '../theme';
+  import { pluginThemesStore } from '../stores/plugin-themes.svelte';
   import { getFontFamily, setFontFamily, FONT_FAMILY_PRESETS, type FontFamilyPreset } from '../appearance/settings';
   import { isFontInstalled } from '../appearance/font-detect';
   import { clampFontSize, parseStoredFontSize, MIN_FONT, MAX_FONT, DEFAULT_FONT } from '../editor/font-size';
@@ -76,13 +77,27 @@
       <div class="field">
         <label for="theme">Theme</label>
         <select id="theme" bind:value={theme}>
-          {#each THEME_MODES as opt}
+          {#each pluginThemesStore.options.filter((o) => !o.plugin) as opt (opt.value)}
             <option value={opt.value}>{opt.label}</option>
           {/each}
+          {#if pluginThemesStore.themes.length > 0}
+            <optgroup label="From plugins">
+              {#each pluginThemesStore.options.filter((o) => o.plugin) as opt (opt.value)}
+                <option value={opt.value}>{opt.label} ({opt.plugin})</option>
+              {/each}
+            </optgroup>
+          {/if}
         </select>
         <p class="hint">
           You can also cycle themes from the status bar or with <kbd>⌘⇧T</kbd>.
+          Plugins can add themes; turning a plugin off while its theme is in use switches to System until it's back.
         </p>
+        {#each pluginThemesStore.themes.filter((t) => t.mode === theme && t.warnings.length > 0) as t (t.mode)}
+          <p class="hint" data-testid="theme-contrast-warning">Contrast: {t.warnings.join('; ')}.</p>
+        {/each}
+        {#each pluginThemesStore.problems as p (p.plugin + p.file)}
+          <p class="hint" data-testid="theme-problem">The {p.plugin} plugin's {p.file} can't be used: {p.problem}.</p>
+        {/each}
       </div>
       <div class="field">
         <label for="font-family">Content font</label>

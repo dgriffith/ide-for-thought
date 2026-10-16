@@ -4,7 +4,8 @@ import { formatAccelerator, collectAcceleratorsByMenu } from './menu/accelerator
 import { Channels } from '../shared/channels';
 import { broadcast } from './ipc/broadcast';
 import type { EventMap } from '../shared/ipc-contract';
-import { THEME_MODES, type ThemeMode } from '../shared/theme';
+import { THEME_MODES, isThemeMode, type ThemeMode } from '../shared/theme';
+import { pluginThemes } from './plugins/themes';
 import { getRecentProjects } from './recent-projects';
 import { resolveDisplayName } from './project-config';
 import { createWindow, openProjectInWindow, getRootPath, broadcastBackfillProgress, broadcastMaintenanceProgress } from './window-manager';
@@ -46,7 +47,7 @@ let currentThemeMode: ThemeMode = 'dark';
 
 /** Renderer → main: record the active theme and refresh the menu's radio. */
 export function setMenuThemeMode(mode: ThemeMode): void {
-  if (mode === currentThemeMode) return;
+  if (!isThemeMode(mode) || mode === currentThemeMode) return;
   currentThemeMode = mode;
   rebuildMenu();
 }
@@ -429,7 +430,12 @@ function buildViewMenu(gate: Gate, isMac: boolean): Electron.MenuItemConstructor
       { type: 'separator' },
       {
         label: 'Theme',
-        submenu: THEME_MODES.map((m) => ({
+        // The built-ins, then each enabled plugin's themes (#2787), which
+        // come and go with the plugin: changePlugins rebuilds the menu.
+        submenu: [
+          ...THEME_MODES.map(({ value, label }) => ({ value: value, label })),
+          ...pluginThemes().themes.map((t) => ({ value: t.mode, label: `${t.label} (${t.plugin.name})` })),
+        ].map((m) => ({
           label: m.label,
           type: 'radio' as const,
           checked: currentThemeMode === m.value,

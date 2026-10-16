@@ -70,11 +70,32 @@ function enabled(when: PaletteWhen, state: PaletteState): boolean {
   }
 }
 
+/** One entry per plugin theme (#2787), after the built-in theme commands' section. */
+function pluginThemeCommands(state: PaletteState, themes: readonly PaletteTheme[], selectTheme: (mode: ThemeMode) => void): Command[] {
+  return themes.map((t) => ({
+    id: `theme:${t.mode}`,
+    title: `Theme: ${t.label} (${t.plugin})${state.currentTheme() === t.mode ? ' (current)' : ''}`,
+    category: 'View',
+    keybinding: null,
+    enabled: true,
+    run: () => selectTheme(t.mode),
+  }));
+}
+
+/** A plugin theme, as the palette lists it. */
+export interface PaletteTheme {
+  mode: ThemeMode;
+  label: string;
+  plugin: string;
+}
+
 export function buildCommandRegistry(
   state: PaletteState,
   run: (id: CommandId) => void,
   skills: readonly ThinkingToolInfo[] = [],
   runSkill: (id: string) => void = () => {},
+  themes: readonly PaletteTheme[] = [],
+  selectTheme: (mode: ThemeMode) => void = () => {},
 ): Command[] {
   const currentThemeId = `view.theme.${state.currentTheme()}`;
   const out: Command[] = [];
@@ -89,5 +110,5 @@ export function buildCommandRegistry(
       run: () => run(def.id),
     });
   }
-  return [...out, ...skillCommands(state, skills, runSkill)];
+  return [...out, ...pluginThemeCommands(state, themes, selectTheme), ...skillCommands(state, skills, runSkill)];
 }

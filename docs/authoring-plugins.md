@@ -28,6 +28,7 @@ outside the app and behind the same approval gates as any other MCP server.
   queries/     saved queries (.rq, .sql)
   templates/   note templates (.md)
   csl/         citation styles and locales (.csl, .xml)
+  themes/      colour themes (.json)
 ```
 
 Plugins are **per machine**. A thoughtbase can recommend a plugin by id
@@ -153,8 +154,9 @@ to the plugin folder, one contribution per entry:
 | `saved-queries` | `queries/` | a `.rq` (SPARQL) or `.sql` query |
 | `note-templates` | `templates/` | a `.md` template |
 | `csl-styles` | `csl/` | a `.csl` style or `.xml` locale |
+| `themes` | `themes/` | a `.json` colour theme ([themes](#themes)) |
 
-Inspections, commands, live blocks, views, themes and MCP servers open to
+Inspections, commands, live blocks, views and MCP servers open to
 plugins as their stories land (#2637, #2645). Until then, naming one in
 `contributes` refuses the plugin.
 
@@ -191,6 +193,44 @@ catalog loads, never in front of the window. Then:
 - **One bad file costs only itself.** A skill or type that doesn't parse is
   reported against its plugin, in the same list as any other skill or type
   problem, and the plugin's other contributions still load.
+
+## Themes
+
+A plugin's `themes/<id>.json` adds a colour theme (#2787). It's listed after
+Dark, Light, High Contrast and System in every theme picker: the status bar,
+Settings → Appearance, the command palette and View → Theme.
+
+```json
+{
+  "label": "Solarized Dark",
+  "base": "dark",
+  "tokens": { "--bg": "#002b36", "--text": "#eee8d5", "--accent": "#b58900" }
+}
+```
+
+- **`base` is required**, `dark` or `light`. Every token the theme leaves out
+  comes from its base, and charts, diagrams and maps that pick dark or light
+  colours use the base.
+- **Tokens only, from the built-in themes' own list**
+  (`src/shared/theme-tokens.ts`: `--bg`, `--text`, `--accent`, the
+  `--titlebar-*` and `--appbar-*` sets, the highlight colours and so on). An
+  unknown token refuses the file, naming it. A theme recolours Minerva; it
+  can't change type, layout or what's shown.
+- **Values are colours**: `#hex`, `rgb()`, `hsl()`, `oklch()` and the like,
+  a colour name, or `var(--token)` to reuse another. No `url()`, no
+  `@import`, nothing that isn't a colour.
+- **Contrast is checked, not enforced.** Text/background pairs the app uses
+  that fall below WCAG AA's 4.5:1 are listed under the Theme setting while
+  the theme is chosen. Watch `--titlebar-text` on `--bg-titlebar`: they
+  follow `--text` and `--bg-elev` unless you set them.
+- A file that breaks a rule is refused on its own, and Settings → Appearance
+  says why; the plugin's other themes still load.
+- **Turning the plugin off** while its theme is in use switches to System
+  without forgetting the choice. Turning it back on brings the theme back.
+- `cycleTheme` (<kbd>⌘⇧T</kbd>) cycles the built-ins only.
+
+[`tests/fixtures/plugins/solarized/`](../tests/fixtures/plugins/solarized/)
+is a worked example: Solarized Dark and Light.
 
 ## Settings
 

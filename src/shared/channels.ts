@@ -256,6 +256,8 @@ export const Channels = {
   PLUGINS_INSTALL_ZIP: 'plugins:installZip',
   /** Fetch a plugin from a public git URL (`url#ref` pins one), then install it. */
   PLUGINS_INSTALL_GIT: 'plugins:installGit',
+  /** The enabled plugins' colour themes, checked, and the files refused (#2787). */
+  PLUGINS_THEMES: 'plugins:themes',
   /** The open thoughtbase's recommended plugins that aren't in use here (#2635). Read only. */
   PLUGINS_RECOMMENDATIONS: 'plugins:recommendations',
   /** A plugin's settings: its fields and values, never a secret's value (#2636). */

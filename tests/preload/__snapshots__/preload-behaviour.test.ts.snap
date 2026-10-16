@@ -211,6 +211,7 @@ exports[`preload behaviour: surface-wide invariants (#2367) > the full method â†
   "plugins.setEnabled": "invoke plugins:setEnabled",
   "plugins.setSettings": "invoke plugins:setSettings",
   "plugins.settings": "invoke plugins:settings",
+  "plugins.themes": "invoke plugins:themes",
   "proposals.approve": "invoke proposal:approve",
   "proposals.detail": "invoke proposal:detail",
   "proposals.expire": "invoke proposal:expire",
