@@ -1,0 +1,10 @@
+# @name Quick recipes
+# @order 1
+
+SELECT ?note ?title ?minutes WHERE {
+  ?note a types:Recipe ;
+        dc:title ?title ;
+        minerva:meta-minutes ?minutes .
+  FILTER(?minutes <= 30)
+}
+ORDER BY ?minutes ?title
