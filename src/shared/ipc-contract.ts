@@ -474,6 +474,8 @@ export interface ChannelMap {
   'plugins:installFolder': () => { id: string; name: string } | null;
   /** `null`: the picker, or the Replace? question, was cancelled. */
   'plugins:installZip': () => { id: string; name: string } | null;
+  /** `null`: the Replace? question was cancelled. */
+  'plugins:installGit': (spec: string) => { id: string; name: string } | null;
   'plugins:reveal': (id?: string) => void;
 
   // Inline citation rendering

@@ -11,6 +11,7 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 import {
   installPluginFromFolder,
+  installPluginFromGit,
   installPluginFromZip,
   PluginExistsError,
   removePlugin,
@@ -20,6 +21,7 @@ import { loadPluginRecords, pluginsStateFile } from '../../../src/main/plugins/s
 import { readPluginPackages } from '../../../src/main/plugins/package';
 import { writePlugin, typeFile } from '../../helpers/plugins';
 import { buildZip } from '../../helpers/zip';
+import { buildRepo, type RepoNode } from '../../helpers/git-repo';
 import { silenceLogTags } from '../../helpers/quiet-logs';
 
 silenceLogTags('config');
@@ -48,8 +50,8 @@ describe('installPluginFromFolder (#2634)', () => {
   it('copies the plugin in under its id, checked, and records where it came from', async () => {
     const from = source('downloads');
     const plugin = await installPluginFromFolder(dir, from, APP);
-    expect(plugin.manifest.id).toBe('lab');
-    expect(plugin.root).toBe(path.join(dir, 'lab'));
+    expect(plugin!.manifest.id).toBe('lab');
+    expect(plugin!.root).toBe(path.join(dir, 'lab'));
     expect(fs.existsSync(path.join(from, 'plugin.json'))).toBe(true); // a copy, not a move
     expect(await installed()).toEqual(['lab']);
     expect((await loadPluginRecords(dir)).lab).toMatchObject({ enabled: true, source: { kind: 'folder', path: from }, installedAt: expect.any(String) });
@@ -150,7 +152,7 @@ describe('installPluginFromZip (#2634)', () => {
       { name: 'lab-main/types/sample.md', data: typeFile('Sample'), method: 'deflate' },
     ]);
     const plugin = await installPluginFromZip(dir, p, APP);
-    expect(plugin.root).toBe(path.join(dir, 'lab'));
+    expect(plugin!.root).toBe(path.join(dir, 'lab'));
     expect(fs.readFileSync(path.join(dir, 'lab', 'types', 'sample.md'), 'utf-8')).toContain('Sample');
     const sha256 = createHash('sha256').update(fs.readFileSync(p)).digest('hex');
     expect((await loadPluginRecords(dir)).lab).toMatchObject({ enabled: true, source: { kind: 'zip', name: 'lab.zip', sha256 } });
@@ -177,6 +179,59 @@ describe('installPluginFromZip (#2634)', () => {
     await installPluginFromZip(dir, p, APP);
     await expect(installPluginFromZip(dir, p, APP)).rejects.toBeInstanceOf(PluginExistsError);
     await installPluginFromZip(dir, p, APP, { replace: true });
+    expect(leftovers()).toEqual([]);
+  });
+});
+
+describe('installPluginFromGit (#2634)', () => {
+  const manifest = JSON.stringify({ id: 'lab', name: 'Lab', version: '1.0.0', minerva: '>=3.0.0', description: 'd', contributes: { 'object-types': ['types/sample.md'] } });
+  /** A fetch that "clones" `tree` locally, recording what it was asked for. */
+  const fetching = (tree: { [name: string]: RepoNode }, asked: unknown[] = []) =>
+    async (spec: unknown, repoDir: string) => {
+      asked.push(spec);
+      return (await buildRepo(repoDir, tree))[1];
+    };
+  const honest = { 'plugin.json': manifest, types: { 'sample.md': typeFile('Sample') } };
+
+  it('installs the checked-out commit, recording the URL, the pin and the commit', async () => {
+    const asked: unknown[] = [];
+    const plugin = await installPluginFromGit(dir, 'git@github.com:ada/lab.git#v1.0.0', APP, { fetch: fetching(honest, asked) });
+    expect(plugin!.root).toBe(path.join(dir, 'lab'));
+    expect(asked).toEqual([{ url: 'https://github.com/ada/lab.git', ref: 'v1.0.0' }]);
+    const record = (await loadPluginRecords(dir)).lab!;
+    expect(record).toMatchObject({ enabled: true, source: { kind: 'git', url: 'https://github.com/ada/lab.git', ref: 'v1.0.0', commit: expect.stringMatching(/^[0-9a-f]{40}$/) } });
+    expect(fs.existsSync(path.join(dir, 'lab', '.git'))).toBe(false); // the plugin, not the repository
+    expect(leftovers()).toEqual([]);
+  });
+
+  it('a bad URL fetches nothing; an unsafe or refused repository installs nothing and leaves nothing', async () => {
+    const asked: unknown[] = [];
+    await expect(installPluginFromGit(dir, 'file:///Users/ada/lab', APP, { fetch: fetching(honest, asked) })).rejects.toThrow(/https:\/\/ only/);
+    expect(asked).toEqual([]);
+    await expect(installPluginFromGit(dir, 'https://github.com/ada/lab', APP, {
+      fetch: fetching({ ...honest, types: { 'sample.md': { link: '/etc/passwd' } } }),
+    })).rejects.toThrow(/is a link/);
+    await expect(installPluginFromGit(dir, 'https://github.com/ada/lab', APP, { fetch: fetching({ 'plugin.json': manifest }) }))
+      .rejects.toThrow(/It can't be installed: .*types\/sample\.md.*doesn't exist/);
+    expect(fs.readdirSync(dir)).toEqual([]);
+  });
+
+  it('over an installed id, asks once — declined keeps the old one, accepted replaces it', async () => {
+    await installPluginFromGit(dir, 'https://github.com/ada/lab#v1', APP, { fetch: fetching(honest) });
+    const asked: string[] = [];
+    const v2 = { ...honest, types: { 'sample.md': typeFile('Newer') } };
+    expect(await installPluginFromGit(dir, 'https://github.com/ada/lab#v2', APP, {
+      fetch: fetching(v2), replace: async (id) => { asked.push(id); return false; },
+    })).toBeNull();
+    expect(fs.readFileSync(path.join(dir, 'lab', 'types', 'sample.md'), 'utf-8')).toContain('Sample');
+    expect((await loadPluginRecords(dir)).lab!.source).toMatchObject({ ref: 'v1' });
+
+    await installPluginFromGit(dir, 'https://github.com/ada/lab#v2', APP, {
+      fetch: fetching(v2), replace: async (id) => { asked.push(id); return true; },
+    });
+    expect(asked).toEqual(['lab', 'lab']);
+    expect(fs.readFileSync(path.join(dir, 'lab', 'types', 'sample.md'), 'utf-8')).toContain('Newer');
+    expect((await loadPluginRecords(dir)).lab!.source).toMatchObject({ ref: 'v2' });
     expect(leftovers()).toEqual([]);
   });
 });

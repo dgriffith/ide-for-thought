@@ -254,6 +254,8 @@ export const Channels = {
   PLUGINS_INSTALL_FOLDER: 'plugins:installFolder',
   /** Native picker for a plugin `.zip`, then unpack it safely and install it. */
   PLUGINS_INSTALL_ZIP: 'plugins:installZip',
+  /** Fetch a plugin from a public git URL (`url#ref` pins one), then install it. */
+  PLUGINS_INSTALL_GIT: 'plugins:installGit',
   /** Open a plugin's folder (or the plugins folder) in the OS file manager. */
   PLUGINS_REVEAL: 'plugins:reveal',
   /** main → renderer: plugins changed and have been applied; refresh. */

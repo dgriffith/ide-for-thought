@@ -10,9 +10,8 @@ type or query isn't enough, and for an MCP server only when something has to
 > **Status (#2631).** Minerva reads and checks the plugin format (#2632), and
 > loads everything a plugin can contribute today (#2633): skills, object
 > types, saved queries, note templates, and citation styles and locales.
-> **Settings → Plugins** installs one from a folder or a zip, turns plugins on
-> and off and removes them, all without a restart (#2634); installing from a
-> git URL is next.
+> **Settings → Plugins** installs one from a folder, a zip or a git URL, turns
+> plugins on and off and removes them, all without a restart (#2634).
 
 Plugins are **declarative**. Every file a plugin contributes is data: a
 Markdown skill, a type definition, a SPARQL query. Minerva never loads code
@@ -59,6 +58,15 @@ it contributes) and the folders that were refused, with why.
   all. Sizes are checked before anything is decompressed, and an entry that
   unpacks to more than it declared is stopped. macOS's `__MACOSX/` and
   `.DS_Store` debris is skipped. The archive's name and SHA-256 are recorded.
+- **Install from git URL…** fetches a public repository over HTTPS
+  (`https://github.com/you/lab`, or `git@github.com:you/lab.git`, which is
+  read as the same thing). Add `#v1.2.0`, `#some-branch` or `#<commit>` to pin
+  a version; without one it takes the default branch. No credentials are ever
+  sent, so a private repository has to come in as a zip. The download is
+  capped at 25 MB and two minutes, and the commit is checked out under the
+  zip's rules — no links, no submodules, the same size limits — then checked
+  and installed like the others. The URL, the pin and the commit installed are
+  recorded; reinstalling from the URL is how you update.
 - **Turning a plugin off** keeps it installed; everything it contributes
   disappears until it's turned back on.
 - **Remove** deletes its folder (only the link, if it's a link to a folder you

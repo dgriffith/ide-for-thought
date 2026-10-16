@@ -10,15 +10,15 @@ import { render, fireEvent, cleanup, waitFor } from '@testing-library/svelte';
 import type { PluginList } from '../../../src/shared/plugins/format';
 
 const h = vi.hoisted(() => ({
-  list: vi.fn(), setEnabled: vi.fn(), remove: vi.fn(), installFolder: vi.fn(), installZip: vi.fn(), reveal: vi.fn(),
+  list: vi.fn(), setEnabled: vi.fn(), remove: vi.fn(), installFolder: vi.fn(), installZip: vi.fn(), installGit: vi.fn(), reveal: vi.fn(),
   changed: null as null | (() => void),
-  skillsList: vi.fn(), registerSkillInfos: vi.fn(), typesRefresh: vi.fn(), showConfirm: vi.fn(),
+  skillsList: vi.fn(), registerSkillInfos: vi.fn(), typesRefresh: vi.fn(), showConfirm: vi.fn(), showPrompt: vi.fn(),
 }));
 
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({
   api: {
     plugins: {
-      list: h.list, setEnabled: h.setEnabled, remove: h.remove, installFolder: h.installFolder, installZip: h.installZip, reveal: h.reveal,
+      list: h.list, setEnabled: h.setEnabled, remove: h.remove, installFolder: h.installFolder, installZip: h.installZip, installGit: h.installGit, reveal: h.reveal,
       onChanged: (cb: () => void) => { h.changed = cb; return () => undefined; },
     },
     skills: { list: h.skillsList },
@@ -26,7 +26,7 @@ vi.mock('../../../src/renderer/lib/ipc/client', () => ({
 }));
 vi.mock('../../../src/renderer/lib/tools/tool-registry', () => ({ registerSkillInfos: h.registerSkillInfos }));
 vi.mock('../../../src/renderer/lib/stores/object-types.svelte', () => ({ objectTypesStore: { refresh: h.typesRefresh } }));
-vi.mock('../../../src/renderer/lib/stores/dialogs.svelte', () => ({ getDialogStore: () => ({ showConfirm: h.showConfirm }) }));
+vi.mock('../../../src/renderer/lib/stores/dialogs.svelte', () => ({ getDialogStore: () => ({ showConfirm: h.showConfirm, showPrompt: h.showPrompt }) }));
 
 import PluginsSettings from '../../../src/renderer/lib/components/PluginsSettings.svelte';
 
@@ -57,6 +57,23 @@ describe('PluginsSettings (#2634)', () => {
     expect(getByText('2 skills · 1 type')).toBeTruthy();
     expect(getByText('For the lab — Ada')).toBeTruthy();
     expect(getByText('It has no plugin.json.')).toBeTruthy();
+    expect(getByText('From /work/lab')).toBeTruthy();
+  });
+
+  it('says where each plugin came from: a zip, a git URL at its commit, or by hand', async () => {
+    const base = LIST.installed[0]!;
+    h.list.mockResolvedValue({
+      ...LIST,
+      installed: [
+        { ...base, id: 'a', name: 'A', source: { kind: 'zip', name: 'a.zip', sha256: 'f'.repeat(64) } },
+        { ...base, id: 'b', name: 'B', source: { kind: 'git', url: 'https://github.com/ada/b', ref: 'v2.0.0', commit: '7fd1a60b01f91b314f59955a4e4d4e80d8edf11d' } },
+        { ...base, id: 'c', name: 'C', source: { kind: 'manual' } },
+      ],
+    });
+    const { findByText } = render(PluginsSettings);
+    await findByText('From a.zip');
+    await findByText('From https://github.com/ada/b #v2.0.0 at 7fd1a60');
+    await findByText('Put in the plugins folder by hand');
   });
 
   it('the toggle turns a plugin off', async () => {
@@ -93,6 +110,18 @@ describe('PluginsSettings (#2634)', () => {
     await fireEvent.click(await findByText('Install from zip…'));
     await waitFor(() => expect(h.installZip).toHaveBeenCalled());
     await waitFor(() => expect(h.list).toHaveBeenCalledTimes(2));
+  });
+
+  it('Install from git URL… asks for the URL, installs it; a cancelled prompt does nothing', async () => {
+    h.showPrompt.mockResolvedValueOnce('  https://github.com/ada/lab#v1.0.0 ').mockResolvedValueOnce(null);
+    h.installGit.mockResolvedValue({ id: 'lab', name: 'Lab Tools' });
+    const { findByText } = render(PluginsSettings);
+    const button = await findByText('Install from git URL…');
+    await fireEvent.click(button);
+    await waitFor(() => expect(h.installGit).toHaveBeenCalledWith('https://github.com/ada/lab#v1.0.0'));
+    await fireEvent.click(button);
+    await waitFor(() => expect(h.showPrompt).toHaveBeenCalledTimes(2));
+    expect(h.installGit).toHaveBeenCalledTimes(1);
   });
 
   it('a refused install shows why', async () => {

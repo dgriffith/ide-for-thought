@@ -39,8 +39,11 @@ export const ZIP_LIMITS = {
 const S_IFMT = 0o170000;
 const S_IFLNK = 0o120000;
 
-/** Why `name` can't be unpacked, or null. */
-function unsafeName(name: string): string | null {
+/**
+ * Why an archive entry's `name` (`/`-separated, relative) can't be written,
+ * or null. Shared with the git checkout (`git.ts`).
+ */
+export function unsafeName(name: string): string | null {
   if (name.includes('\0')) return 'has a NUL character';
   if (name.includes('\\')) return 'uses a backslash';
   if (name.startsWith('/') || /^[A-Za-z]:/.test(name)) return 'is an absolute path';

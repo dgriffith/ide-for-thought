@@ -19,6 +19,7 @@ const h = vi.hoisted(() => ({
   removePlugin: vi.fn(),
   installPluginFromFolder: vi.fn(),
   installPluginFromZip: vi.fn(),
+  installPluginFromGit: vi.fn(),
   changed: [] as string[],
 }));
 
@@ -47,12 +48,12 @@ vi.mock('../../../src/main/plugins/registry', () => ({
     errors: [{ folder: 'broken', label: 'broken', problems: ['It has no plugin.json.'] }],
   }),
 }));
-vi.mock('../../../src/main/plugins/lifecycle', async (orig) => ({
-  PluginExistsError: (await orig<typeof import('../../../src/main/plugins/lifecycle')>()).PluginExistsError,
+vi.mock('../../../src/main/plugins/lifecycle', () => ({
   setPluginEnabled: h.setPluginEnabled,
   removePlugin: h.removePlugin,
   installPluginFromFolder: h.installPluginFromFolder,
   installPluginFromZip: h.installPluginFromZip,
+  installPluginFromGit: h.installPluginFromGit,
 }));
 vi.mock('../../../src/main/plugins-apply', () => ({
   changePlugins: async <T>(op: () => Promise<T>) => { const r = await op(); h.changed.push('applied'); return r; },
@@ -60,10 +61,16 @@ vi.mock('../../../src/main/plugins-apply', () => ({
 
 import { registerPlugins } from '../../../src/main/ipc/register-plugins';
 import { Channels } from '../../../src/shared/channels';
-import { PluginExistsError } from '../../../src/main/plugins/lifecycle';
+import type { ReplacePolicy } from '../../../src/main/plugins/lifecycle';
 
 registerPlugins();
 const call = async <T>(channel: string, ...args: unknown[]): Promise<T> => await (h.handlers.get(channel)!({}, ...args) as Promise<T>);
+
+/** An install that finds "lab" already there, and asks its replace policy. */
+const overInstalled = async (...args: unknown[]) => {
+  const { replace } = args[3] as { replace: ReplacePolicy };
+  return typeof replace === 'function' && (await replace('lab')) ? { manifest: { id: 'lab', name: 'Lab' } } : null;
+};
 
 const LIST = {
   installed: [{
@@ -104,18 +111,18 @@ describe('register-plugins (#2634)', () => {
     h.showOpenDialog.mockResolvedValue({ canceled: false, filePaths: ['/work/lab'] });
     h.installPluginFromFolder.mockResolvedValue({ manifest: { id: 'lab', name: 'Lab' } });
     expect(await call(Channels.PLUGINS_INSTALL_FOLDER)).toEqual({ id: 'lab', name: 'Lab' });
-    expect(h.installPluginFromFolder).toHaveBeenCalledWith('/home/u/.minerva/plugins', '/work/lab', '4.0.0', { replace: false });
+    expect(h.installPluginFromFolder).toHaveBeenCalledWith('/home/u/.minerva/plugins', '/work/lab', '4.0.0', { replace: expect.any(Function) });
     expect(h.changed).toEqual(['applied']);
   });
 
   it('install over an installed id asks Replace? natively — Replace replaces, Cancel is null', async () => {
     h.showOpenDialog.mockResolvedValue({ canceled: false, filePaths: ['/work/lab'] });
-    h.installPluginFromFolder.mockRejectedValueOnce(new PluginExistsError('lab')).mockResolvedValueOnce({ manifest: { id: 'lab', name: 'Lab' } });
+    h.installPluginFromFolder.mockImplementation(overInstalled);
     h.showMessageBox.mockResolvedValueOnce({ response: 0 });
     expect(await call(Channels.PLUGINS_INSTALL_FOLDER)).toEqual({ id: 'lab', name: 'Lab' });
-    expect(h.installPluginFromFolder).toHaveBeenLastCalledWith('/home/u/.minerva/plugins', '/work/lab', '4.0.0', { replace: true });
+    expect(h.showMessageBox).toHaveBeenCalledWith({ id: 1 }, expect.objectContaining({ message: 'A plugin "lab" is already installed.' }));
+    expect(h.installPluginFromFolder).toHaveBeenCalledTimes(1); // asked mid-install, not installed twice
 
-    h.installPluginFromFolder.mockRejectedValueOnce(new PluginExistsError('lab'));
     h.showMessageBox.mockResolvedValueOnce({ response: 1 });
     expect(await call(Channels.PLUGINS_INSTALL_FOLDER)).toBeNull();
   });
@@ -125,16 +132,29 @@ describe('register-plugins (#2634)', () => {
     h.installPluginFromZip.mockResolvedValue({ manifest: { id: 'lab', name: 'Lab' } });
     expect(await call(Channels.PLUGINS_INSTALL_ZIP)).toEqual({ id: 'lab', name: 'Lab' });
     expect(h.showOpenDialog).toHaveBeenCalledWith({ id: 1 }, expect.objectContaining({ properties: ['openFile'], filters: [{ name: 'Zip archive', extensions: ['zip'] }] }));
-    expect(h.installPluginFromZip).toHaveBeenCalledWith('/home/u/.minerva/plugins', '/dl/lab.zip', '4.0.0', { replace: false });
+    expect(h.installPluginFromZip).toHaveBeenCalledWith('/home/u/.minerva/plugins', '/dl/lab.zip', '4.0.0', { replace: expect.any(Function) });
     expect(h.changed).toEqual(['applied']);
   });
 
   it('install from a zip over an installed id asks Replace? too', async () => {
     h.showOpenDialog.mockResolvedValue({ canceled: false, filePaths: ['/dl/lab.zip'] });
-    h.installPluginFromZip.mockRejectedValueOnce(new PluginExistsError('lab')).mockResolvedValueOnce({ manifest: { id: 'lab', name: 'Lab' } });
+    h.installPluginFromZip.mockImplementation(overInstalled);
     h.showMessageBox.mockResolvedValueOnce({ response: 0 });
     expect(await call(Channels.PLUGINS_INSTALL_ZIP)).toEqual({ id: 'lab', name: 'Lab' });
-    expect(h.installPluginFromZip).toHaveBeenLastCalledWith('/home/u/.minerva/plugins', '/dl/lab.zip', '4.0.0', { replace: true });
+    expect(h.installPluginFromZip).toHaveBeenCalledTimes(1);
+  });
+
+  it('install from a git URL: the typed URL goes to main\'s installer, applied; Replace? asked once', async () => {
+    h.installPluginFromGit.mockResolvedValueOnce({ manifest: { id: 'lab', name: 'Lab' } });
+    expect(await call(Channels.PLUGINS_INSTALL_GIT, 'https://github.com/ada/lab#v1.0.0')).toEqual({ id: 'lab', name: 'Lab' });
+    expect(h.installPluginFromGit).toHaveBeenCalledWith('/home/u/.minerva/plugins', 'https://github.com/ada/lab#v1.0.0', '4.0.0', { replace: expect.any(Function) });
+    expect(h.changed).toEqual(['applied']);
+
+    h.installPluginFromGit.mockImplementation(overInstalled);
+    h.showMessageBox.mockResolvedValueOnce({ response: 1 });
+    expect(await call(Channels.PLUGINS_INSTALL_GIT, 'https://github.com/ada/lab')).toBeNull();
+    expect(h.installPluginFromGit).toHaveBeenCalledTimes(2); // fetched once per install, never again to replace
+    await expect(call(Channels.PLUGINS_INSTALL_GIT, 42)).rejects.toThrow(/git URL/);
   });
 
   it('install refused: the problems reach the renderer', async () => {

@@ -78,6 +78,8 @@ export function getPluginsStore() {
     installFolder: () => install(() => api.plugins.installFolder()),
     /** Pick a `.zip` and install it. Resolves with what was installed, or null. */
     installZip: () => install(() => api.plugins.installZip()),
+    /** Fetch from a git URL and install it. Resolves with what was installed, or null. */
+    installGit: (spec: string) => install(() => api.plugins.installGit(spec)),
     reveal: (id?: string) => run(() => api.plugins.reveal(id)),
   };
 }
