@@ -11,6 +11,7 @@ importLegacyOriginStorage(
 import type { SearchInNotesOptions, ReplaceInNotesOptions, MenuEditorState, BookmarkNode, LayoutSession, NeighborhoodOptions } from '../shared/types';
 import type { ThemeMode } from '../shared/theme';
 import type { CommandId } from '../shared/commands';
+import type { PluginSettingsPatch } from '../shared/plugins/format';
 import type { ChannelMap, EventMap } from '../shared/ipc-contract';
 import type { ConversationDraftBase } from '../shared/conversation-draft-base';
 import type { AskUserRequest, McpConfirmRequest } from '../shared/conversation-tools';
@@ -586,6 +587,8 @@ const api = {
     installZip: () => invoke(Channels.PLUGINS_INSTALL_ZIP),
     installGit: (spec: string) => invoke(Channels.PLUGINS_INSTALL_GIT, spec),
     recommendations: () => invoke(Channels.PLUGINS_RECOMMENDATIONS),
+    settings: (id: string) => invoke(Channels.PLUGINS_SETTINGS, id),
+    setSettings: (id: string, patch: PluginSettingsPatch) => invoke(Channels.PLUGINS_SET_SETTINGS, id, patch),
     reveal: (id?: string) => invoke(Channels.PLUGINS_REVEAL, id),
     onChanged: (cb: () => void) => subscribe(Channels.PLUGINS_CHANGED, cb),
   },

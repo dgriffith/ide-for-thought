@@ -64,9 +64,23 @@ export interface SkillRenderContext {
    *  `.title` / `.content` companions are note text, so all three are
    *  untrusted; every other `param.*` is typed or picked by the user. */
   noteParams?: readonly string[];
+  /** A plugin skill's plugin (#2636): its non-secret settings, as text. */
+  plugin?: { settings: Record<string, string> } | null;
 }
 
-export function toRenderContext(tc: ToolContext, noteParams: readonly string[] = []): SkillRenderContext {
+/** What a template may read from its plugin's settings (#2636). */
+export interface TemplatePluginSettings {
+  /** Non-secret setting keys. */
+  readable: ReadonlySet<string>;
+  /** Secret keys: named so a template using one is told why it can't. */
+  secret: ReadonlySet<string>;
+}
+
+export function toRenderContext(
+  tc: ToolContext,
+  noteParams: readonly string[] = [],
+  plugin: SkillRenderContext['plugin'] = null,
+): SkillRenderContext {
   return {
     selection: tc.selectedText ?? '',
     note: tc.fullNoteContent
@@ -92,6 +106,7 @@ export function toRenderContext(tc: ToolContext, noteParams: readonly string[] =
       : null,
     param: tc.parameterValues ?? {},
     noteParams,
+    plugin,
   };
 }
 
@@ -332,6 +347,12 @@ function resolve(path: string, ctx: SkillRenderContext): string | object | null 
     const k = path.slice(6);
     return ctx.param[k] ?? '';
   }
+  // Values the user set on this machine (#2636): trusted, like a typed
+  // parameter. A secret is never in here, so it can't be rendered.
+  if (path.startsWith(PLUGIN_SETTINGS)) {
+    const k = path.slice(PLUGIN_SETTINGS.length);
+    return Object.hasOwn(ctx.plugin?.settings ?? {}, k) ? ctx.plugin!.settings[k]! : '';
+  }
   return undefined;
 }
 
@@ -461,9 +482,22 @@ const KNOWN_VAR_PATHS = new Set([
   'source', 'source.id', 'source.title', 'source.body',
 ]);
 
+const PLUGIN_SETTINGS = 'plugin.settings.';
+
 function isKnownPath(path: string): boolean {
   if (KNOWN_VAR_PATHS.has(path)) return true;
+  if (path.startsWith(PLUGIN_SETTINGS)) return path.length > PLUGIN_SETTINGS.length;
   return path.startsWith('param.') && path.length > 'param.'.length;
+}
+
+/** The problem with `{{plugin.settings.<key>}}` in this skill, if any (#2636). */
+function pluginSettingProblem(path: string, settings: TemplatePluginSettings | undefined): string | null {
+  if (!path.startsWith(PLUGIN_SETTINGS)) return null;
+  const key = path.slice(PLUGIN_SETTINGS.length);
+  if (!settings) return `"${path}": only a plugin's skills can read plugin settings`;
+  if (settings.secret.has(key)) return `"${path}" is a secret; a skill can't read a secret`;
+  if (!settings.readable.has(key)) return `"${path}": the plugin declares no setting "${key}"`;
+  return null;
 }
 
 /**
@@ -472,7 +506,7 @@ function isKnownPath(path: string): boolean {
  * like `{{note.body}}` or `{{x | blockqote}}` that lenient rendering would
  * silently swallow. Returns a list of human-readable problems (empty = valid).
  */
-export function validateTemplate(template: string): string[] {
+export function validateTemplate(template: string, pluginSettings?: TemplatePluginSettings): string[] {
   const errors: string[] = [];
   let tokens: Token[];
   try {
@@ -483,6 +517,10 @@ export function validateTemplate(template: string): string[] {
     return errors;
   }
   for (const tk of tokens) {
+    if (tk.t === 'var' || tk.t === 'if') {
+      const problem = pluginSettingProblem(tk.path, pluginSettings);
+      if (problem) errors.push(problem);
+    }
     if (tk.t === 'var') {
       if (!isKnownPath(tk.path)) errors.push(`unknown variable "${tk.path}"`);
       for (const f of tk.filters) {

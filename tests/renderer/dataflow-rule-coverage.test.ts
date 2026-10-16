@@ -73,6 +73,8 @@ const READ_ALLOWLIST = new Set<string>([
   'revealFile', 'revealFolder', 'revealAuditLog', 'csv', 'getZoomFactor',
   // plugins.reveal (#2634): opens a plugin's folder in the file manager.
   'reveal',
+  // plugins.settings (#2636): a plugin's settings fields and values, never a secret's.
+  'settings',
   // inspection settings: reading which checks run changes nothing (#1792);
   // the write is denylisted and goes through the settings store.
   'inspectionSettings',

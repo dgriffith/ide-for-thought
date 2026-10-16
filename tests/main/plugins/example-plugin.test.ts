@@ -46,7 +46,7 @@ describe('the authoring-plugins example (#2632)', () => {
   });
 
   it('its skill and its type parse', () => {
-    const skill = parseSkill(read('skills/reading-summary.md'), 'user', 'skills/reading-summary.md');
+    const skill = parseSkill(read('skills/reading-summary.md'), 'plugin', 'skills/reading-summary.md', { readable: new Set(['summaryLength']), secret: new Set() });
     expect(skill.errors).toEqual([]);
     expect(skill.skill?.name).toBe('Reading Summary');
     const type = parseType(read('types/book-note.md'), 'user', 'book-note.md');

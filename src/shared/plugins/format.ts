@@ -60,7 +60,49 @@ export interface PluginManifest {
   license?: string;
   /** Catalog id → the files it contributes there, relative to the plugin folder. */
   contributes: Partial<Record<PluginContributionPoint, string[]>>;
+  /** What the user can set for it on this machine (#2636), in manifest order. */
+  settings?: PluginSetting[];
 }
+
+/**
+ * One setting a plugin declares (#2636): a JSON Schema subset — `string`,
+ * `number`, `boolean`, a string `enum`, and `secret` — normalized from
+ * `plugin.json`'s `settings` object. Values are per machine, never in a
+ * thoughtbase; a `secret` is stored encrypted and never leaves main.
+ */
+export type PluginSetting =
+  | (PluginSettingBase & { kind: 'string'; default?: string })
+  | (PluginSettingBase & { kind: 'number'; default?: number; minimum?: number; maximum?: number })
+  | (PluginSettingBase & { kind: 'boolean'; default?: boolean })
+  | (PluginSettingBase & { kind: 'enum'; options: string[]; default?: string })
+  | (PluginSettingBase & { kind: 'secret' });
+
+interface PluginSettingBase {
+  /** Letters, digits and `_`; a skill reads it as `{{plugin.settings.<key>}}`. */
+  key: string;
+  title: string;
+  description?: string;
+}
+
+export type PluginSettingValue = string | number | boolean;
+
+/** A plugin's settings as Settings → Plugins shows them: never a secret's value. */
+export interface PluginSettingsView {
+  fields: PluginSetting[];
+  /** Each non-secret field's value: the saved one, else its default. Absent when neither. */
+  values: Record<string, PluginSettingValue>;
+  /** Each secret field: whether a value is saved. */
+  secretsSet: Record<string, boolean>;
+  /** Whether a secret saved now is encrypted by the OS key store (#2569). Set by the IPC handler. */
+  secretsEncrypted?: boolean;
+}
+
+/**
+ * A change from the form. A non-secret key set to `null` goes back to its
+ * default; a secret is write-only — a string sets it, `null` clears it, and
+ * leaving it out keeps it.
+ */
+export type PluginSettingsPatch = Record<string, PluginSettingValue | null>;
 
 /** One contributed file (or skill folder), checked to sit inside the plugin. */
 export interface PluginContribution {
@@ -118,6 +160,8 @@ export interface PluginSummary {
   installedAt?: string;
   /** How many contributions to each point. */
   contributes: Partial<Record<PluginContributionPoint, number>>;
+  /** How many settings it declares (#2636); absent when none. */
+  settings?: number;
 }
 
 /**

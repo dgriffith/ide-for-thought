@@ -11,7 +11,20 @@
 import type { ThinkingToolDef, ToolContext } from '../../shared/tools/types';
 import { menuToCategory, type SkillDef } from '../../shared/skills/types';
 import type { ConversationToolKey } from '../../shared/conversation-tools';
-import { renderTemplateDiagnostic, toRenderContext } from './template';
+import { renderTemplateDiagnostic, toRenderContext, type SkillRenderContext } from './template';
+import { activePluginsDir, loadedPluginScan } from '../plugins/registry';
+import { pluginSettingsForTemplates } from '../plugins/settings';
+
+/**
+ * A plugin skill's `{{plugin.settings.*}}` (#2636), read at each render so a
+ * change in Settings applies to the next run. Null for any other skill, and
+ * for a plugin that's since been turned off or removed.
+ */
+function pluginContext(skill: SkillDef): SkillRenderContext['plugin'] {
+  if (!skill.plugin) return null;
+  const plugin = loadedPluginScan().plugins.find((p) => p.manifest.id === skill.plugin!.id);
+  return plugin ? { settings: pluginSettingsForTemplates(activePluginsDir(), plugin.manifest) } : null;
+}
 
 const CONVERSATION_TOOL_KEYS: readonly ConversationToolKey[] = ['ask_user'];
 
@@ -19,7 +32,7 @@ export function compileSkill(skill: SkillDef): ThinkingToolDef {
   // `note`-type params carry a thoughtbase path + note text (#2438).
   const noteParams = skill.parameters.filter((p) => p.type === 'note').map((p) => p.id);
   const renderBoth = (template: string, ctx: ToolContext) =>
-    renderTemplateDiagnostic(template, toRenderContext(ctx, noteParams));
+    renderTemplateDiagnostic(template, toRenderContext(ctx, noteParams, pluginContext(skill)));
   const render = (template: string, ctx: ToolContext): string => renderBoth(template, ctx).text;
   // The first user turn's material: every {{#context}} block of the body, then
   // of firstMessage (plus anything auto-routed out of either).

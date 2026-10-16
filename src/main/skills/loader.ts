@@ -111,7 +111,11 @@ async function loadPlugins(scan: PluginScan): Promise<{ skills: SkillDef[]; erro
       errors.push({ source: 'plugin', filePath, label: `${origin.id}: ${contribution.path}`, message: `couldn't be read (${(e as NodeJS.ErrnoException).code ?? 'error'})` });
       continue;
     }
-    const r = parseSkill(content, 'plugin', filePath);
+    const fields = plugin.manifest.settings ?? [];
+    const r = parseSkill(content, 'plugin', filePath, {
+      readable: new Set(fields.filter((f) => f.kind !== 'secret').map((f) => f.key)),
+      secret: new Set(fields.filter((f) => f.kind === 'secret').map((f) => f.key)),
+    });
     if (r.skill) skills.push({ ...r.skill, plugin: origin });
     else for (const message of r.errors) errors.push({ source: 'plugin', filePath, label: `${origin.id}: ${r.label}`, message });
   }

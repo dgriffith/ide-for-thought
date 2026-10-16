@@ -10,5 +10,13 @@
     "object-types": ["types/book-note.md"],
     "saved-queries": ["queries/unread-books.rq"],
     "skills": ["skills/reading-summary.md"]
+  },
+  "settings": {
+    "summaryLength": {
+      "type": "string",
+      "title": "Summary length",
+      "enum": ["short", "long"],
+      "default": "short"
+    }
   }
 }

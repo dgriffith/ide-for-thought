@@ -10,7 +10,9 @@
  */
 import { dialog, shell, type BrowserWindow } from 'electron';
 import { Channels } from '../../shared/channels';
-import type { PluginList, PluginPackage, PluginRecommendation, PluginSummary } from '../../shared/plugins/format';
+import type { PluginList, PluginManifest, PluginPackage, PluginRecommendation, PluginSettingsPatch, PluginSettingsView, PluginSummary } from '../../shared/plugins/format';
+import { readPluginSettings, savePluginSettings } from '../plugins/settings';
+import { secretStorageStatus } from '../secret-storage';
 import { activePluginsDir, getPluginInventory, pluginsAppVersion } from '../plugins/registry';
 import { installPluginFromFolder, installPluginFromGit, installPluginFromZip, removePlugin, setPluginEnabled, type ReplacePolicy } from '../plugins/lifecycle';
 import { PLUGIN_ID } from '../plugins/manifest';
@@ -35,6 +37,7 @@ export async function pluginList(): Promise<PluginList> {
         source: record.source,
         ...(record.installedAt ? { installedAt: record.installedAt } : {}),
         contributes,
+        ...(m.settings?.length ? { settings: m.settings.length } : {}),
       };
     }),
     errors: inv.errors,
@@ -63,6 +66,17 @@ async function installAsking(
   }));
   return installed ? { id: installed.manifest.id, name: installed.manifest.name } : null;
 }
+
+/** An installed plugin's manifest, on or off. */
+async function installedManifest(id: unknown): Promise<PluginManifest> {
+  if (typeof id !== 'string' || !PLUGIN_ID.test(id)) throw new Error(`"${String(id)}" isn't a plugin id.`);
+  const found = (await getPluginInventory()).installed.find((i) => i.plugin.manifest.id === id);
+  if (!found) throw new Error(`No plugin "${id}" is installed.`);
+  return found.plugin.manifest;
+}
+
+const withStorage = (view: PluginSettingsView): PluginSettingsView =>
+  view.fields.some((f) => f.kind === 'secret') ? { ...view, secretsEncrypted: secretStorageStatus().encrypted } : view;
 
 export function registerPlugins(): void {
   handle(Channels.PLUGINS_LIST, () => pluginList());
@@ -113,6 +127,16 @@ export function registerPlugins(): void {
   // button sends the source back through `plugins:installGit`, when the user
   // presses it.
   handle(Channels.PLUGINS_RECOMMENDATIONS, withRootPathOr(Promise.resolve<PluginRecommendation[]>([]), (rootPath) => pluginRecommendations(rootPath)));
+
+  // A plugin's settings (#2636), per machine. A secret's value never comes
+  // back to the renderer, only whether one is set.
+  handle(Channels.PLUGINS_SETTINGS, async (_e, id: string) =>
+    withStorage(await readPluginSettings(activePluginsDir(), await installedManifest(id))));
+
+  handle(Channels.PLUGINS_SET_SETTINGS, async (_e, id: string, patch: PluginSettingsPatch) => {
+    if (patch === null || typeof patch !== 'object' || Array.isArray(patch)) throw new Error('Settings must be an object of setting → value.');
+    return withStorage(await savePluginSettings(activePluginsDir(), await installedManifest(id), patch));
+  });
 
   // Show a plugin's folder, or the plugins folder, in the OS file manager.
   // `showItemInFolder`, never `openPath`: a "plugin folder" that's really a

@@ -20,6 +20,7 @@ const SECRET_STORE_WRITERS: Record<string, string> = {
   'mcp-client/oauth/token-store.ts': 'userData/mcp-oauth-tokens.json',
   'llm/settings.ts': 'userData/llm-settings.json (provider API keys)',
   'clipper/clipper-config.ts': 'userData/clipper-config.json (shared secret)',
+  'plugins/settings.ts': '~/.minerva/plugin-settings.json (plugin secrets)',
 };
 
 describe('credential stores are written 0600 (#2562)', () => {

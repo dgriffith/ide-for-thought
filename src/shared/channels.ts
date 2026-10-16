@@ -258,6 +258,10 @@ export const Channels = {
   PLUGINS_INSTALL_GIT: 'plugins:installGit',
   /** The open thoughtbase's recommended plugins that aren't in use here (#2635). Read only. */
   PLUGINS_RECOMMENDATIONS: 'plugins:recommendations',
+  /** A plugin's settings: its fields and values, never a secret's value (#2636). */
+  PLUGINS_SETTINGS: 'plugins:settings',
+  /** Save a plugin's settings; a secret is write-only (#2636). */
+  PLUGINS_SET_SETTINGS: 'plugins:setSettings',
   /** Open a plugin's folder (or the plugins folder) in the OS file manager. */
   PLUGINS_REVEAL: 'plugins:reveal',
   /** main → renderer: plugins changed and have been applied; refresh. */

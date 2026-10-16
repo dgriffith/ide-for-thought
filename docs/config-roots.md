@@ -42,6 +42,7 @@ User-global extensions that travel across machines only if the user copies them.
 |---|---|
 | `skills/` | User-authored skills (`*.md` or a folder with `SKILL.md`). Additive over stock. |
 | `plugins.json` | Per plugin (#2634): whether it's on, where it was installed from, and when. A plugin with no entry is on. |
+| `plugin-settings.json` | Each plugin's settings values (#2636), as its `plugin.json` declares them. Per machine only. **`secret` values are encrypted** at rest and the file is written 0600; removing a plugin removes its values. |
 | `plugins/<id>/` | Plugin packages (#2631): a `plugin.json` manifest plus the files it contributes. Per machine only; a thoughtbase never carries one. Format: [`authoring-plugins.md`](authoring-plugins.md). |
 | `menu-config.json` | Learning/Research/Analysis menu enable · reassign · order (per machine). |
 | `mcp-servers.json` | Configured MCP servers (#2031): stdio command/args/env, or a remote URL, plus name and enable flag. Global, not per-thoughtbase — matches `mcp-oauth-tokens.json`'s own precedent. **stdio `env` values are encrypted** at rest (they're where a server's API key goes, #2562); a legacy plaintext file still loads and is re-encrypted. OAuth tokens stay in `userData/mcp-oauth-tokens.json`. |
@@ -91,6 +92,7 @@ Secrets live in:
 - `userData/clipper-config.json` — the clipper shared secret
 - `userData/mcp-oauth-tokens.json` — MCP server OAuth access/refresh tokens
 - `~/.minerva/mcp-servers.json` — stdio servers' `env` values (#2562)
+- `~/.minerva/plugin-settings.json` — plugins' `secret` settings (#2636)
 - `<thoughtbase>/.minerva/secrets.json` — publish-target credentials
 
 Each of these files is also written **owner-only (0600)** — `SECRET_FILE_MODE`
