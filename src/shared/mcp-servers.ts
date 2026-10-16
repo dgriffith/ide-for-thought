@@ -80,3 +80,27 @@ export interface McpServerStatus extends StoredMcpServerConfig {
 export type McpCallDecision =
   | { allow: true; remember: boolean }
   | { allow: false; reason: 'denied' | 'cancelled' | 'no-ui' };
+
+/**
+ * How far a conversation reaches into MCP (#2649): server name → the tools it
+ * may call there, or `null` for all of that server's tools. A conversation
+ * started from a plugin skill that declares `tools: [mcp:…]` gets one, so it
+ * sees and calls only its own plugin's servers. Absent: every connected
+ * server, as in any other conversation.
+ */
+export type McpScope = Record<string, string[] | null>;
+
+export function inMcpScope(scope: McpScope | undefined, server: string, tool: string): boolean {
+  if (!scope) return true;
+  if (!Object.hasOwn(scope, server)) return false;
+  const tools = scope[server];
+  return tools === null || tools === undefined || tools.includes(tool);
+}
+
+/** The servers, and their tools, a conversation with this scope may see. */
+export function withinMcpScope(scope: McpScope | undefined, servers: McpServerStatus[]): McpServerStatus[] {
+  if (!scope) return servers;
+  return servers
+    .filter((s) => Object.hasOwn(scope, s.name))
+    .map((s) => ({ ...s, tools: s.tools.filter((t) => inMcpScope(scope, s.name, t.name)) }));
+}

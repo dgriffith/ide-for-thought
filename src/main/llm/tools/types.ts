@@ -22,6 +22,12 @@ export interface ToolContext {
    * that don't draft.
    */
   conversationId?: string;
+  /**
+   * The MCP servers / tools this conversation may reach (#2649), from the
+   * conversation main stored. `mcp_call`'s catalog shows only these, and a
+   * call outside them is refused before it reaches the server.
+   */
+  mcpScope?: import('../../../shared/mcp-servers').McpScope;
 }
 
 /**

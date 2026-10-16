@@ -235,6 +235,24 @@ It runs out of process, and only once the user turns it on.
 - Turning the plugin off or removing it stops the server; removing it also
   forgets the approval.
 
+**A plugin's skills can use its own server's tools** (#2649). Name them in
+the skill's `tools:`, by the server's key in `mcpServers`:
+
+```yaml
+tools: [mcp:words/count_words]   # one tool
+tools: [mcp:words]               # every tool the server offers
+```
+
+The conversation the skill opens then reaches **only** those: `mcp_call`'s
+catalog lists them alone, and a call to anything else, another server or
+another of this server's tools, is refused before it's sent. The scope is
+worked out in main from the skill and kept with the conversation, so it
+survives a reload. Every other conversation still sees every running server.
+The usual gates hold inside the scope: a tool not marked read-only asks
+first, and the server must be switched on. Only a plugin's skills can name
+`mcp:` tools, and only servers their own plugin ships; anything else refuses
+the skill. The Word Tools example's `skills/word-count.md` does this.
+
 [`tests/fixtures/plugins/word-tools/`](../tests/fixtures/plugins/word-tools/)
 is a worked example: a dependency-free Node server with a read-only tool and
 one that asks first, and a secret setting passed in as its environment.

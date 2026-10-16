@@ -1,4 +1,5 @@
 import type { NotebaseTool, ToolCallbacks, ToolContext } from './types';
+import { inMcpScope } from '../../../shared/mcp-servers';
 import { callServerTool } from '../../mcp-servers/registry';
 import type { McpContentBlock } from '../../mcp-client';
 import type { McpServerStatus } from '../../../shared/mcp-servers';
@@ -68,12 +69,22 @@ function declinedMessage(where: string, reason: 'denied' | 'cancelled' | 'no-ui'
 }
 
 async function runMcpCall(
-  _ctx: ToolContext,
+  ctx: ToolContext,
   input: unknown,
   callbacks: ToolCallbacks,
 ): Promise<{ content: string; isError: boolean }> {
   const parsed = parseInput(input);
   if ('error' in parsed) return { content: parsed.error, isError: true };
+  // A plugin skill's conversation reaches only its own plugin's servers
+  // (#2649). The catalog already shows only those; this refuses the rest,
+  // since the server and tool names are the model's free text.
+  if (!inMcpScope(ctx.mcpScope, parsed.server, parsed.tool)) {
+    const allowed = Object.entries(ctx.mcpScope ?? {}).map(([s, tools]) => (tools ? tools.map((t) => `${s}/${t}`).join(', ') : `${s}/*`)).join(', ');
+    return {
+      content: `mcp_call refused ${parsed.server}/${parsed.tool}: this conversation came from a skill that can use only ${allowed}. Nothing was sent.`,
+      isError: true,
+    };
+  }
   try {
     const outcome = await callServerTool(parsed.server, parsed.tool, parsed.args, callbacks.confirmMcpCall ?? null);
     if (outcome.kind === 'declined') {

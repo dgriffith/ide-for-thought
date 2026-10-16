@@ -12,6 +12,8 @@ import type { ThinkingToolDef, ToolContext } from '../../shared/tools/types';
 import { menuToCategory, type SkillDef } from '../../shared/skills/types';
 import type { ConversationToolKey } from '../../shared/conversation-tools';
 import { renderTemplateDiagnostic, toRenderContext, type SkillRenderContext } from './template';
+import { MCP_TOOL_ENTRY } from './parse';
+import type { McpScope } from '../../shared/mcp-servers';
 import { activePluginsDir, loadedPluginScan } from '../plugins/registry';
 import { pluginSettingsForTemplates } from '../plugins/settings';
 
@@ -79,5 +81,28 @@ export function compileSkill(skill: SkillDef): ThinkingToolDef {
   if (skill.slashCommand) def.slashCommand = skill.slashCommand;
   if (skill.outputNotePrefix) def.outputNotePrefix = skill.outputNotePrefix;
   if (requiresTools.length > 0) def.requiresTools = requiresTools;
+  const mcpScope = scopeOf(skill);
+  if (mcpScope) def.mcpScope = mcpScope;
   return def;
+}
+
+/**
+ * A plugin skill's `tools: [mcp:<key>]` / `[mcp:<key>/<tool>]` (#2649), as the
+ * scope its conversation runs in: its own plugin's servers, by the name the
+ * registry gives them (`<plugin>.<key>`), all tools or just those named.
+ * Parsing already refused an `mcp:` entry anywhere else.
+ */
+function scopeOf(skill: SkillDef): McpScope | null {
+  if (!skill.plugin) return null;
+  const scope: McpScope = {};
+  for (const entry of skill.tools) {
+    const m = MCP_TOOL_ENTRY.exec(entry);
+    if (!m) continue;
+    const server = `${skill.plugin.id}.${m[1]}`;
+    const tool = m[2];
+    const current = scope[server];
+    if (current === null) continue; // already the whole server
+    scope[server] = tool === undefined ? null : [...new Set([...(current ?? []), tool])];
+  }
+  return Object.keys(scope).length > 0 ? scope : null;
 }

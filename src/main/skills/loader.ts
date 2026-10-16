@@ -115,7 +115,7 @@ async function loadPlugins(scan: PluginScan): Promise<{ skills: SkillDef[]; erro
     const r = parseSkill(content, 'plugin', filePath, {
       readable: new Set(fields.filter((f) => f.kind !== 'secret').map((f) => f.key)),
       secret: new Set(fields.filter((f) => f.kind === 'secret').map((f) => f.key)),
-    });
+    }, new Set((plugin.manifest.mcpServers ?? []).map((s) => s.key)));
     if (r.skill) skills.push({ ...r.skill, plugin: origin });
     else for (const message of r.errors) errors.push({ source: 'plugin', filePath, label: `${origin.id}: ${r.label}`, message });
   }

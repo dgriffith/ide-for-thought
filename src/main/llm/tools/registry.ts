@@ -1,4 +1,5 @@
 import type { ConversationToolKey } from '../../../shared/conversation-tools';
+import { withinMcpScope, type McpScope } from '../../../shared/mcp-servers';
 import type { ToolSpec } from '../provider/types';
 import type { NotebaseTool, ToolContext, ToolCallbacks, ToolResult } from './types';
 import { listServerStatuses } from '../../mcp-servers/registry';
@@ -109,6 +110,8 @@ const TEMPLATE_TOOL_REGISTRY: Record<ConversationToolKey, ToolSpec> = {
 export interface ConversationToolOptions {
   /** Template-scoped tools to add on top of the default set. */
   extraTools?: ConversationToolKey[] | undefined;
+  /** A plugin skill's conversation sees only its own servers' tools (#2649). */
+  mcpScope?: McpScope | undefined;
 }
 
 /**
@@ -139,7 +142,7 @@ export async function buildConversationTools(opts: ConversationToolOptions): Pro
   // it's cloned rather than mutating the shared NOTEBASE_TOOLS entry.
   const mcpIndex = tools.findIndex((t) => t.name === mcpCall.definition.name);
   if (mcpIndex !== -1) {
-    const servers = await listServerStatuses();
+    const servers = withinMcpScope(opts.mcpScope, await listServerStatuses());
     const catalog = describeMcpCatalog(servers);
     if (catalog) {
       tools[mcpIndex] = { ...mcpCall.definition, description: mcpCall.definition.description + catalog };

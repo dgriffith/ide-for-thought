@@ -172,7 +172,9 @@ export function registerConversation(): void {
             convId,
             {
               system: effectiveSystem,
-              toolContext: { rootPath, conversationId: convId },
+              // The MCP reach main stored for this conversation (#2649), never
+              // the renderer's say.
+              toolContext: { rootPath, conversationId: convId, ...(conv.mcpScope ? { mcpScope: conv.mcpScope } : {}) },
               model: conv.model,
               effort: conv.effort,
               extraTools,

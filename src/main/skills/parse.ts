@@ -103,11 +103,23 @@ function normalizeStringArray(raw: unknown, field: string, allowed: readonly str
   return out;
 }
 
+/** `mcp:<server key>` or `mcp:<server key>/<tool>` in a plugin skill's `tools:` (#2649). */
+export const MCP_TOOL_ENTRY = /^mcp:([A-Za-z0-9][A-Za-z0-9_-]*)(?:\/([^\s/]+))?$/;
+
 /**
  * @param pluginSettings for a plugin's skill, what its templates may read as
  *   `{{plugin.settings.<key>}}` (#2636); any other skill may read none.
+ * @param pluginServers for a plugin's skill, the keys of the MCP servers its
+ *   plugin ships, which its `tools:` may name as `mcp:<key>` (#2649); any
+ *   other skill may name none.
  */
-export function parseSkill(raw: string, source: SkillSource, filePath: string, pluginSettings?: TemplatePluginSettings): ParseResult {
+export function parseSkill(
+  raw: string,
+  source: SkillSource,
+  filePath: string,
+  pluginSettings?: TemplatePluginSettings,
+  pluginServers?: ReadonlySet<string>,
+): ParseResult {
   const errors: string[] = [];
   // A user skill written on Windows may be CRLF or carry a byte-order mark;
   // read it as LF so the template body has no `\r` (#2690).
@@ -157,6 +169,13 @@ export function parseSkill(raw: string, source: SkillSource, filePath: string, p
   const context = normalizeStringArray(fm.context, 'context', CONTEXT_REQUIREMENTS, errors) as ContextRequirement[];
   const parameters = normalizeParameters(fm.parameters, errors);
   const tools = normalizeStringArray(fm.tools, 'tools', null, errors);
+  for (const entry of tools) {
+    if (!entry.startsWith('mcp:')) continue;
+    const m = MCP_TOOL_ENTRY.exec(entry);
+    if (!m) errors.push(`tools: "${entry}" must be mcp:<server> or mcp:<server>/<tool>`);
+    else if (!pluginServers) errors.push(`tools: "${entry}": only a plugin's skills can name MCP tools, and only its own plugin's`);
+    else if (!pluginServers.has(m[1]!)) errors.push(`tools: "${entry}": the plugin ships no MCP server "${m[1]}"`);
+  }
   const web = fm.web === undefined ? false : Boolean(fm.web);
   const model = asString(fm.model);
   const requiresSelection = Boolean(fm.requiresSelection);
