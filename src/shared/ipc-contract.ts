@@ -106,7 +106,7 @@ import type { RunComputeDraftInput, RunComputeDraftResult, InsertComputeDraftInp
 import type { ConversationRefactorDraft, ConversationReorgDraft, ConversationDeleteDraft } from './conversation-refactor-drafts';
 import type { ConversationNoteBodyDraft, FileNoteBodyDraftResult } from './conversation-note-body-drafts';
 import type { VocabularyImportPreview, VocabularyStatus } from './ontology-vocabularies';
-import type { PluginList, PluginRecommendation } from './plugins/format';
+import type { PluginList, PluginRecommendation, PluginSettingsPatch, PluginSettingsView } from './plugins/format';
 
 // `HeadingRenameCandidate` is part of the notebase wire contract (the
 // NOTEBASE_HEADING_RENAME_SUGGESTED event payload) but isn't an
@@ -478,6 +478,8 @@ export interface ChannelMap {
   'plugins:installGit': (spec: string) => { id: string; name: string } | null;
   /** `[]` with no thoughtbase open, the same as one recommending nothing. */
   'plugins:recommendations': () => PluginRecommendation[];
+  'plugins:settings': (id: string) => PluginSettingsView;
+  'plugins:setSettings': (id: string, patch: PluginSettingsPatch) => PluginSettingsView;
   'plugins:reveal': (id?: string) => void;
 
   // Inline citation rendering

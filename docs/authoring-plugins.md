@@ -135,6 +135,7 @@ URL you typed yourself. The rules are `src/main/plugins/recommendations.ts`.
 | `author` | no | Who wrote it. |
 | `license` | no | An SPDX identifier (`MIT`, `Apache-2.0`). |
 | `contributes` | yes | Extension point → the files it adds there. At least one. |
+| `settings` | no | What the user can set for it on this machine; see [Settings](#settings). |
 | `$schema` | no | Ignored; there for editors. |
 
 Any other field is refused, so a misspelt `contributes` can't silently
@@ -190,6 +191,48 @@ catalog loads, never in front of the window. Then:
 - **One bad file costs only itself.** A skill or type that doesn't parse is
   reported against its plugin, in the same list as any other skill or type
   problem, and the plugin's other contributions still load.
+
+## Settings
+
+A plugin can declare settings (#2636), and Settings → Plugins shows a form
+for them under the plugin's **Settings** button. `settings` maps a name
+(letters, digits and `_`, starting with a letter) to a JSON Schema subset:
+
+```jsonc
+"settings": {
+  "summaryLength": { "type": "string", "enum": ["short", "long"], "default": "short" },
+  "maxItems":      { "type": "number", "minimum": 1, "maximum": 50, "default": 10 },
+  "includeQuotes": { "type": "boolean", "default": true },
+  "citationNote":  { "type": "string", "title": "Note to add", "description": "Appended to each summary." },
+  "apiToken":      { "type": "secret", "title": "API token" }
+}
+```
+
+| Keyword | For | What it does |
+|---|---|---|
+| `type` | all | `string`, `number`, `boolean`, or `secret` (Minerva's one addition: a string kept encrypted). |
+| `title` | all | The field's label, at most 80 characters. Without one, the name is turned into words (`maxItems` → "Max items"). |
+| `description` | all | A line of help under the field, at most 500 characters. |
+| `default` | all but `secret` | The value until the user sets one; it must fit the field. |
+| `enum` | `string` | 1 to 50 different choices, shown as a menu. |
+| `minimum`, `maximum` | `number` | The range the form accepts. |
+
+Anything else (an unknown keyword, a default that doesn't fit, more than 32
+settings) refuses the plugin, like any other manifest problem.
+
+- **Values are per machine**, in `~/.minerva/plugin-settings.json`, never in
+  a thoughtbase. Removing a plugin removes its values.
+- **A skill reads a setting** as `{{plugin.settings.<name>}}`, the saved
+  value or else the default, so a change applies to the next run. Only the
+  plugin's own skills can, and naming a setting the manifest doesn't declare
+  refuses the skill.
+- **A secret is write-only.** It's stored encrypted with the system key
+  store, and Settings shows only whether one is saved. No template can read
+  it: a skill naming one is refused, so a secret can't reach a prompt. On a
+  machine with no key store it's still saved, as plain text in a file only
+  your account can read, and the form says so. Secrets are for the plugin
+  MCP servers to come (#2645), which will receive them as environment
+  variables.
 
 ## What makes a plugin refused
 
@@ -247,6 +290,14 @@ reading-list/
     "object-types": ["types/book-note.md"],
     "saved-queries": ["queries/unread-books.rq"],
     "skills": ["skills/reading-summary.md"]
+  },
+  "settings": {
+    "summaryLength": {
+      "type": "string",
+      "title": "Summary length",
+      "enum": ["short", "long"],
+      "default": "short"
+    }
   }
 }
 ```
@@ -290,5 +341,6 @@ SELECT ?note ?title WHERE {
 ORDER BY ?title
 ```
 
-`skills/reading-summary.md` is a skill like any in `~/.minerva/skills/`; see
-the fixture for its body.
+`skills/reading-summary.md` is a skill like any in `~/.minerva/skills/`,
+except that it reads the plugin's `summaryLength` setting as
+`{{plugin.settings.summaryLength}}`; see the fixture for its body.

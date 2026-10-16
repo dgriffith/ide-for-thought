@@ -8,12 +8,16 @@
   import { getPluginsStore } from '../stores/plugins.svelte';
   import { getDialogStore } from '../stores/dialogs.svelte';
   import { CONFIRM_KEYS } from '../confirm-keys';
+  import PluginSettingsForm from './PluginSettingsForm.svelte';
   import type { PluginContributionPoint, PluginSummary } from '../../../shared/plugins/format';
 
   const plugins = getPluginsStore();
   const dialogs = getDialogStore();
 
   onMount(() => { void plugins.refresh(); });
+
+  // The plugin whose settings form is open (#2636): one at a time.
+  let settingsOpen = $state<string | null>(null);
 
   const NOUNS: Record<PluginContributionPoint, [string, string]> = {
     'skills': ['skill', 'skills'],
@@ -81,12 +85,16 @@
             <span class="plugin-version">{p.version}</span>
             <span class="plugin-contributes">{contributes(p)}</span>
             <span class="plugin-actions">
+              {#if p.settings}
+                <button class="link-btn" aria-expanded={settingsOpen === p.id} onclick={() => { settingsOpen = settingsOpen === p.id ? null : p.id; }}>Settings</button>
+              {/if}
               <button class="link-btn" onclick={() => { void plugins.reveal(p.id); }}>Show folder</button>
               <button class="link-btn" disabled={plugins.busy} onclick={() => { void remove(p); }} aria-label={`Remove ${p.name}`}>Remove</button>
             </span>
           </div>
           <p class="plugin-desc">{p.description}{p.author ? ` — ${p.author}` : ''}</p>
           <p class="plugin-source">{source(p)}</p>
+          {#if settingsOpen === p.id}<PluginSettingsForm id={p.id} name={p.name} />{/if}
         </li>
       {/each}
       {#each plugins.list.errors as e (e.folder)}

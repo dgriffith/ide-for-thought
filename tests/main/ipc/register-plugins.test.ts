@@ -20,6 +20,9 @@ const h = vi.hoisted(() => ({
   installPluginFromFolder: vi.fn(),
   installPluginFromZip: vi.fn(),
   installPluginFromGit: vi.fn(),
+  readPluginSettings: vi.fn(),
+  savePluginSettings: vi.fn(),
+  encrypted: true,
   changed: [] as string[],
 }));
 
@@ -32,6 +35,13 @@ vi.mock('../../../src/main/ipc/helpers', () => ({
   winFromEvent: () => ({ id: 1 }),
   withRootPathOr: (_fallback: unknown, fn: (root: string, ...a: unknown[]) => unknown) => (_e: unknown, ...a: unknown[]) => fn('/tb', ...a),
 }));
+vi.mock('../../../src/main/plugins/settings', () => ({
+  readPluginSettings: h.readPluginSettings,
+  savePluginSettings: h.savePluginSettings,
+}));
+vi.mock('../../../src/main/secret-storage', () => ({
+  secretStorageStatus: () => ({ encrypted: h.encrypted, reason: h.encrypted ? 'os-keystore' : 'no-keystore' }),
+}));
 vi.mock('../../../src/main/plugins/recommendations', () => ({
   pluginRecommendations: async (root: string) => [{ id: 'lab', types: [], status: 'missing', root }],
 }));
@@ -41,7 +51,7 @@ vi.mock('../../../src/main/plugins/registry', () => ({
   getPluginInventory: async () => ({
     installed: [{
       plugin: {
-        manifest: { id: 'lab', name: 'Lab', version: '1.0.0', minerva: '>=4', description: 'Lab tools', author: 'Ada', contributes: {} },
+        manifest: { id: 'lab', name: 'Lab', version: '1.0.0', minerva: '>=4', description: 'Lab tools', author: 'Ada', contributes: {}, settings: [{ key: 'token', title: 'Token', kind: 'secret' }] },
         root: '/home/u/.minerva/plugins/lab', provenance: 'plugin:lab@1.0.0',
         contributions: [
           { point: 'skills', path: 'skills/a.md', absolutePath: '', kind: 'file' },
@@ -82,7 +92,7 @@ const LIST = {
   installed: [{
     id: 'lab', name: 'Lab', version: '1.0.0', description: 'Lab tools', author: 'Ada', enabled: false,
     source: { kind: 'folder', path: '/work/lab' }, installedAt: '2026-10-15T00:00:00Z',
-    contributes: { skills: 2, 'object-types': 1 },
+    contributes: { skills: 2, 'object-types': 1 }, settings: 1,
   }],
   errors: [{ folder: 'broken', label: 'broken', problems: ['It has no plugin.json.'] }],
   folder: '/home/u/.minerva/plugins',
@@ -180,5 +190,31 @@ describe('register-plugins (#2634)', () => {
     expect(await call(Channels.PLUGINS_RECOMMENDATIONS)).toEqual([{ id: 'lab', types: [], status: 'missing', root: '/tb' }]);
     expect(h.changed).toEqual([]);
     expect(h.installPluginFromGit).not.toHaveBeenCalled();
+  });
+
+  it('settings: an installed plugin\'s view, with whether secrets would be encrypted (#2636)', async () => {
+    const secretField = { key: 'token', title: 'Token', kind: 'secret' };
+    h.readPluginSettings.mockResolvedValue({ fields: [secretField], values: {}, secretsSet: { token: true } });
+    expect(await call(Channels.PLUGINS_SETTINGS, 'lab')).toEqual({ fields: [secretField], values: {}, secretsSet: { token: true }, secretsEncrypted: true });
+    expect(h.readPluginSettings.mock.calls[0]![0]).toBe('/home/u/.minerva/plugins');
+    expect(h.readPluginSettings.mock.calls[0]![1]).toMatchObject({ id: 'lab' });
+
+    h.encrypted = false;
+    h.savePluginSettings.mockResolvedValue({ fields: [secretField], values: {}, secretsSet: { token: false } });
+    expect(await call(Channels.PLUGINS_SET_SETTINGS, 'lab', { token: null })).toMatchObject({ secretsEncrypted: false });
+    expect(h.savePluginSettings.mock.calls[0]![2]).toEqual({ token: null });
+    h.encrypted = true;
+
+    // No secret fields: nothing to say about storage.
+    h.readPluginSettings.mockResolvedValue({ fields: [], values: {}, secretsSet: {} });
+    expect(await call(Channels.PLUGINS_SETTINGS, 'lab')).toEqual({ fields: [], values: {}, secretsSet: {} });
+  });
+
+  it('settings refuses an id that isn\'t installed, or a malformed patch', async () => {
+    await expect(call(Channels.PLUGINS_SETTINGS, '../../etc')).rejects.toThrow(/isn't a plugin id/);
+    await expect(call(Channels.PLUGINS_SETTINGS, 'other')).rejects.toThrow(/No plugin "other" is installed/);
+    await expect(call(Channels.PLUGINS_SET_SETTINGS, 'lab', ['x'])).rejects.toThrow(/must be an object/);
+    await expect(call(Channels.PLUGINS_SET_SETTINGS, 'lab', null)).rejects.toThrow(/must be an object/);
+    expect(h.savePluginSettings).not.toHaveBeenCalled();
   });
 });

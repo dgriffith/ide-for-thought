@@ -10,7 +10,7 @@
  * window without a restart.
  */
 import { api } from '../ipc/client';
-import type { PluginList, PluginRecommendation } from '../../../shared/plugins/format';
+import type { PluginList, PluginRecommendation, PluginSettingsPatch, PluginSettingsView } from '../../../shared/plugins/format';
 import { applyMenuConfig } from '../../../shared/skills/menu-config';
 import { registerSkillInfos } from '../tools/tool-registry';
 import { objectTypesStore } from './object-types.svelte';
@@ -119,6 +119,8 @@ export function getPluginsStore() {
     /** Fetch from a git URL and install it. Resolves with what was installed, or null. */
     installGit: (spec: string) => install(() => api.plugins.installGit(spec)),
     reveal: (id?: string) => run(() => api.plugins.reveal(id)),
+    /** Save a plugin's settings (#2636). Rejects with every problem, so the form can show them beside it. */
+    saveSettings: (id: string, patch: PluginSettingsPatch): Promise<PluginSettingsView> => api.plugins.setSettings(id, patch),
 
     /** Every recommendation not in use here, dismissed or not (the type hint reads these). */
     get recommendations() { return recommendations; },

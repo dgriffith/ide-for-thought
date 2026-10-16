@@ -13,7 +13,7 @@ import {
   type SkillMenu,
   type SkillSource,
 } from '../../shared/skills/types';
-import { validateTemplate } from './template';
+import { validateTemplate, type TemplatePluginSettings } from './template';
 import { slugifyId as slugify } from '../../shared/slug';
 import { findFrontmatter, normalizeNoteText } from '../../shared/frontmatter-block';
 
@@ -103,7 +103,11 @@ function normalizeStringArray(raw: unknown, field: string, allowed: readonly str
   return out;
 }
 
-export function parseSkill(raw: string, source: SkillSource, filePath: string): ParseResult {
+/**
+ * @param pluginSettings for a plugin's skill, what its templates may read as
+ *   `{{plugin.settings.<key>}}` (#2636); any other skill may read none.
+ */
+export function parseSkill(raw: string, source: SkillSource, filePath: string, pluginSettings?: TemplatePluginSettings): ParseResult {
   const errors: string[] = [];
   // A user skill written on Windows may be CRLF or carry a byte-order mark;
   // read it as LF so the template body has no `\r` (#2690).
@@ -175,9 +179,9 @@ export function parseSkill(raw: string, source: SkillSource, filePath: string): 
   if (slashCommand && !slashCommand.startsWith('/')) slashCommand = `/${slashCommand}`;
 
   // Template validation (context-independent): catch typos / unbalanced blocks.
-  for (const err of validateTemplate(body)) errors.push(`body: ${err}`);
+  for (const err of validateTemplate(body, pluginSettings)) errors.push(`body: ${err}`);
   if (firstMessage) {
-    for (const err of validateTemplate(firstMessage)) errors.push(`firstMessage: ${err}`);
+    for (const err of validateTemplate(firstMessage, pluginSettings)) errors.push(`firstMessage: ${err}`);
   }
 
   if (errors.length > 0) return { errors, label };

@@ -132,7 +132,7 @@ describe('renderTemplateDiagnostic', () => {
 describe('toRenderContext', () => {
   it('maps ToolContext, nulling absent note/claim/source', () => {
     const tc: ToolContext = { selectedText: 's', parameterValues: { a: '1' } };
-    expect(toRenderContext(tc)).toEqual({ selection: 's', note: null, claim: null, source: null, param: { a: '1' }, noteParams: [] });
+    expect(toRenderContext(tc)).toEqual({ selection: 's', note: null, claim: null, source: null, param: { a: '1' }, noteParams: [], plugin: null });
   });
 
   it('builds note/claim slots when present', () => {

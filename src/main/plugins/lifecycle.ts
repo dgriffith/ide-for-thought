@@ -25,6 +25,7 @@ import { PLUGIN_MANIFEST, type PluginPackage } from '../../shared/plugins/format
 import { PLUGIN_ID } from './manifest';
 import { readPluginPackage } from './package';
 import { updatePluginRecords, type PluginSource } from './state';
+import { removePluginSettings } from './settings';
 import { pluginRootIn, unpackPluginZip } from './zip';
 import { checkoutPluginTree, fetchPluginRepo, parseGitPluginSpec } from './git';
 
@@ -87,6 +88,7 @@ export async function removePlugin(dir: string, id: string): Promise<void> {
   if (st?.isSymbolicLink()) await fs.unlink(folder);
   else if (st) await fs.rm(folder, { recursive: true, force: true });
   await updatePluginRecords(dir, (records) => { delete records[id]; });
+  await removePluginSettings(dir, id);
 }
 
 /** The first link under `dir`, if any. */

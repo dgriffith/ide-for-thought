@@ -13,12 +13,13 @@ import {
   type PluginContributionPoint,
   type PluginManifest,
 } from '../../shared/plugins/format';
+import { validatePluginSettings } from './settings-schema';
 
 /** Lowercase letters and digits in dash-separated words: `reading-list`, `lab2`. */
 export const PLUGIN_ID = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 export const MAX_PLUGIN_ID = 64;
 
-const KNOWN_KEYS = new Set(['$schema', 'id', 'name', 'version', 'minerva', 'description', 'author', 'license', 'contributes']);
+const KNOWN_KEYS = new Set(['$schema', 'id', 'name', 'version', 'minerva', 'description', 'author', 'license', 'contributes', 'settings']);
 
 export type ManifestResult =
   | { ok: true; manifest: PluginManifest }
@@ -106,6 +107,8 @@ export function validatePluginManifest(raw: unknown, ctx: ManifestContext): Mani
     if (Object.keys(rawContributes).length === 0) problems.push('"contributes" is empty; a plugin must contribute something.');
   }
 
+  const settings = raw.settings === undefined ? undefined : validatePluginSettings(raw.settings, problems);
+
   if (problems.length > 0) return { ok: false, problems };
   return {
     ok: true,
@@ -114,6 +117,7 @@ export function validatePluginManifest(raw: unknown, ctx: ManifestContext): Mani
       ...(author !== undefined ? { author } : {}),
       ...(license !== undefined ? { license } : {}),
       contributes,
+      ...(settings !== undefined && settings.length > 0 ? { settings } : {}),
     },
   };
 }
