@@ -22,7 +22,7 @@ import { Channels } from '../../src/shared/channels';
 const IPC_DIR = path.join(__dirname, '..', '..', 'src', 'main', 'ipc');
 
 /** Calls that run, or set up running, code or a program. */
-const CODE_EXEC_SINKS = /\b(grantConsent|setPythonSettings|probePythonInterpreter|addServer|updateServer|connectServer|setServerEnabled|runComputeCell|spawn|execFile|execFileSync|exec|openPath)\s*\(/;
+const CODE_EXEC_SINKS = /\b(grantConsent|setPythonSettings|probePythonInterpreter|addServer|updateServer|connectServer|setServerEnabled|reconcilePluginServers|changePlugins|runComputeCell|spawn|execFile|execFileSync|exec|openPath)\s*\(/;
 
 /** What counts as "asked main's native dialog". */
 const CONFIRMS = /\b(confirmNative|interpreterApproved|confirmStdioServer)\s*\(/;
@@ -30,8 +30,14 @@ const CONFIRMS = /\b(confirmNative|interpreterApproved|confirmStdioServer)\s*\(/
 const EXEMPT: Record<string, string> = {
   [Channels.COMPUTE_RUN_CELL]: 'runs only code with recorded consent (computeConsentGuard) — consent is granted only via COMPUTE_REQUEST_CONSENT',
   [Channels.CONVERSATION_RUN_COMPUTE_DRAFT]: 'same consent guard as COMPUTE_RUN_CELL',
-  [Channels.MCP_SERVERS_CONNECT]: 'connects a stored server — every stdio command got into the store through a confirmed ADD/UPDATE (or the user\'s own ~/.minerva file)',
-  [Channels.MCP_SERVERS_SET_ENABLED]: 'enabling connects a stored server — same as MCP_SERVERS_CONNECT',
+  [Channels.MCP_SERVERS_CONNECT]: 'connects a stored server — every stdio command got into the store through a confirmed ADD/UPDATE (or the user\'s own ~/.minerva file); a plugin\'s server only once approved through SET_ENABLED\'s confirm (#2646)',
+  [Channels.MCP_SERVERS_SET_ENABLED]: 'enabling connects a stored server — same as MCP_SERVERS_CONNECT; a plugin\'s server, which never went through ADD, is confirmed natively here before it is approved (#2646)',
+  [Channels.PLUGINS_SET_ENABLED]: 'applying a plugin change starts only plugin MCP servers whose exact declaration and version the user approved through the native confirm of MCP_SERVERS_SET_ENABLED (#2646); a new version or declaration is off until approved again',
+  [Channels.PLUGINS_REMOVE]: 'removing a plugin only stops its MCP servers (#2646)',
+  [Channels.PLUGINS_INSTALL_FOLDER]: 'an install writes a fresh plugin record with no approvals, so its MCP servers stay off until approved (#2646)',
+  [Channels.PLUGINS_INSTALL_ZIP]: 'same as PLUGINS_INSTALL_FOLDER',
+  [Channels.PLUGINS_INSTALL_GIT]: 'same as PLUGINS_INSTALL_FOLDER',
+  [Channels.PLUGINS_SET_SETTINGS]: 'restarts an approved plugin MCP server with the values the user just typed; approval is keyed on the declaration, not the values (#2646)',
   [Channels.SHELL_OPEN_IN_TERMINAL]: 'opens the user\'s terminal at a FOLDER (a file\'s containing folder) — never hands it a file, which Terminal would run',
 };
 

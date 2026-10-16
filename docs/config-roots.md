@@ -41,7 +41,7 @@ User-global extensions that travel across machines only if the user copies them.
 | Path | Holds |
 |---|---|
 | `skills/` | User-authored skills (`*.md` or a folder with `SKILL.md`). Additive over stock. |
-| `plugins.json` | Per plugin (#2634): whether it's on, where it was installed from, and when. A plugin with no entry is on. |
+| `plugins.json` | Per plugin (#2634): whether it's on, where it was installed from, and when, and which of its MCP servers the user approved, by the identity approved (#2646). A plugin with no entry is on. |
 | `plugin-settings.json` | Each plugin's settings values (#2636), as its `plugin.json` declares them. Per machine only. **`secret` values are encrypted** at rest and the file is written 0600; removing a plugin removes its values. |
 | `plugins/<id>/` | Plugin packages (#2631): a `plugin.json` manifest plus the files it contributes. Per machine only; a thoughtbase never carries one. Format: [`authoring-plugins.md`](authoring-plugins.md). |
 | `menu-config.json` | Learning/Research/Analysis menu enable · reassign · order (per machine). |

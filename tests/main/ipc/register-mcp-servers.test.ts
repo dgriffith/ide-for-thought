@@ -81,6 +81,7 @@ describe('registerMcpServers', () => {
   });
 
   it('MCP_SERVERS_SET_ENABLED delegates to setServerEnabled(id, enabled)', async () => {
+    registryMock.listServerStatuses.mockResolvedValue([]);
     registryMock.setServerEnabled.mockResolvedValue(['the-list']);
     const h = handlers.get(Channels.MCP_SERVERS_SET_ENABLED)!;
     await expect(h({}, 'id-1', true)).resolves.toEqual(['the-list']);
@@ -143,5 +144,42 @@ describe('stdio servers need main\'s native confirm (#2568)', () => {
     const changed = { ...stdio, command: '/tmp/evil' };
     await expect(handlers.get(Channels.MCP_SERVERS_UPDATE)!({}, 'a', { descriptor: changed })).resolves.toEqual(['unchanged']);
     expect(registryMock.updateServer).toHaveBeenCalledTimes(1); // only the rename
+  });
+
+  describe('a plugin\'s server (#2646)', () => {
+    const pluginServer = (enabled: boolean) => ({
+      id: 'plugin:word-tools/words', name: 'word-tools.words', enabled, status: 'disconnected', tools: [],
+      descriptor: { kind: 'stdio', command: 'node', args: ['/p/word-tools/server/index.js'], cwd: '/p/word-tools', env: { TOKEN: 'tok-123' } },
+      plugin: { id: 'word-tools', name: 'Word Tools', version: '1.0.0', title: 'Word counting', identity: 'h' },
+    });
+
+    it('turning it on asks natively, naming the plugin, its version and the program — never env values', async () => {
+      registryMock.listServerStatuses.mockResolvedValue([pluginServer(false)]);
+      registryMock.setServerEnabled.mockResolvedValue(['on']);
+      await expect(handlers.get(Channels.MCP_SERVERS_SET_ENABLED)!({}, 'plugin:word-tools/words', true)).resolves.toEqual(['on']);
+      const opts = dialogMock.showMessageBox.mock.calls[0]![0] as { message: string; detail: string };
+      expect(opts.message).toBe('Let the Word Tools plugin run "word-tools.words" as an MCP server?');
+      expect(opts.detail).toContain('node /p/word-tools/server/index.js');
+      expect(opts.detail).toContain('in /p/word-tools');
+      expect(opts.detail).toContain('with environment: TOKEN');
+      expect(opts.detail).toContain('From Word Tools 1.0.0. A new version asks again.');
+      expect(opts.detail).not.toContain('tok-123');
+      expect(registryMock.setServerEnabled).toHaveBeenCalledWith('plugin:word-tools/words', true);
+    });
+
+    it('declined, it stays off', async () => {
+      registryMock.listServerStatuses.mockResolvedValue([pluginServer(false)]);
+      dialogMock.showMessageBox.mockResolvedValue({ response: 1, checkboxChecked: false });
+      await handlers.get(Channels.MCP_SERVERS_SET_ENABLED)!({}, 'plugin:word-tools/words', true);
+      expect(registryMock.setServerEnabled).not.toHaveBeenCalled();
+    });
+
+    it('turning it off, or a user server on, never asks', async () => {
+      registryMock.listServerStatuses.mockResolvedValue([pluginServer(true), { id: 'u1', name: 'mine', enabled: false, descriptor: { kind: 'stdio', command: 'x' } }]);
+      await handlers.get(Channels.MCP_SERVERS_SET_ENABLED)!({}, 'plugin:word-tools/words', false);
+      await handlers.get(Channels.MCP_SERVERS_SET_ENABLED)!({}, 'u1', true);
+      expect(dialogMock.showMessageBox).not.toHaveBeenCalled();
+      expect(registryMock.setServerEnabled.mock.calls).toEqual([['plugin:word-tools/words', false], ['u1', true]]);
+    });
   });
 });

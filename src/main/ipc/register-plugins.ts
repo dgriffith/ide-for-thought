@@ -13,6 +13,7 @@ import { Channels } from '../../shared/channels';
 import type { PluginList, PluginManifest, PluginPackage, PluginRecommendation, PluginSettingsPatch, PluginSettingsView, PluginSummary } from '../../shared/plugins/format';
 import { readPluginSettings, savePluginSettings } from '../plugins/settings';
 import { pluginThemes } from '../plugins/themes';
+import { reconcilePluginServers } from '../mcp-servers/registry';
 import { secretStorageStatus } from '../secret-storage';
 import { activePluginsDir, getPluginInventory, pluginsAppVersion } from '../plugins/registry';
 import { installPluginFromFolder, installPluginFromGit, installPluginFromZip, removePlugin, setPluginEnabled, type ReplacePolicy } from '../plugins/lifecycle';
@@ -39,6 +40,7 @@ export async function pluginList(): Promise<PluginList> {
         ...(record.installedAt ? { installedAt: record.installedAt } : {}),
         contributes,
         ...(m.settings?.length ? { settings: m.settings.length } : {}),
+        ...(m.mcpServers?.length ? { mcpServers: m.mcpServers.length } : {}),
       };
     }),
     errors: inv.errors,
@@ -139,7 +141,10 @@ export function registerPlugins(): void {
 
   handle(Channels.PLUGINS_SET_SETTINGS, async (_e, id: string, patch: PluginSettingsPatch) => {
     if (patch === null || typeof patch !== 'object' || Array.isArray(patch)) throw new Error('Settings must be an object of setting → value.');
-    return withStorage(await savePluginSettings(activePluginsDir(), await installedManifest(id), patch));
+    const view = withStorage(await savePluginSettings(activePluginsDir(), await installedManifest(id), patch));
+    // Its MCP servers get the new values: a running one restarts (#2646).
+    await reconcilePluginServers();
+    return view;
   });
 
   // Show a plugin's folder, or the plugins folder, in the OS file manager.

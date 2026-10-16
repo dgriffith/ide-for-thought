@@ -295,21 +295,28 @@
               type="checkbox"
               class="mcp-toggle"
               checked={s.enabled}
-              title={s.enabled ? 'Enabled — click to disable' : 'Disabled — click to enable'}
+              title={s.enabled ? 'Enabled — click to disable' : s.plugin ? 'Off — click to run it; Minerva shows you the program first' : 'Disabled — click to enable'}
+              aria-label={`${s.enabled ? 'Turn off' : 'Turn on'} ${s.name}`}
               disabled={busy}
               onchange={(e) => { void toggleEnabled(s.id, e.currentTarget.checked); }}
             />
             <span class="mcp-name">{s.name}</span>
             <span class="mcp-kind">{s.descriptor.kind}</span>
+            {#if s.plugin}<span class="mcp-kind" title={`Ships with the ${s.plugin.name} plugin, ${s.plugin.version}`}>{s.plugin.name} plugin</span>{/if}
             <span class="mcp-status">{statusLabel(s.status)}</span>
             <div class="mcp-controls">
               {#if s.enabled && s.status !== 'connected' && s.status !== 'connecting'}
                 <button class="link-btn" onclick={() => { void connectRow(s.id); }} disabled={busy}>Connect</button>
               {/if}
-              <button class="link-btn" onclick={() => openEditForm(s)} disabled={busy}>Edit</button>
-              <button class="link-btn" onclick={() => { void removeServerRow(s.id); }} disabled={busy}>Remove</button>
+              {#if !s.plugin}
+                <button class="link-btn" onclick={() => openEditForm(s)} disabled={busy}>Edit</button>
+                <button class="link-btn" onclick={() => { void removeServerRow(s.id); }} disabled={busy}>Remove</button>
+              {/if}
             </div>
           </div>
+          {#if s.plugin && !s.enabled}
+            <span class="mcp-desc">{s.plugin.title}. Ships with the {s.plugin.name} plugin; it runs only once you turn it on, and a new version of the plugin is off until you turn it on again.</span>
+          {/if}
           {#if s.error}
             <span class="mcp-desc mcp-row-error">{s.error}</span>
           {/if}

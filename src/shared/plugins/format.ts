@@ -64,7 +64,38 @@ export interface PluginManifest {
   contributes: Partial<Record<PluginContributionPoint, string[]>>;
   /** What the user can set for it on this machine (#2636), in manifest order. */
   settings?: PluginSetting[];
+  /** MCP servers it ships (#2646), in manifest order: code, run only once the user approves each. */
+  mcpServers?: PluginMcpServer[];
 }
+
+/**
+ * A stdio MCP server a plugin ships (#2646), as `plugin.json` declares it:
+ *
+ * ```json
+ * "mcpServers": {
+ *   "lookup": { "title": "Lookup", "command": "node", "args": ["server/index.js"],
+ *               "env": { "API_TOKEN": "${settings.apiToken}" } }
+ * }
+ * ```
+ *
+ * The program is inside the plugin folder: `command` is a file there, or an
+ * interpreter (`node`, `python3`, `python`) whose first argument is. It runs
+ * in the plugin folder, with the allowlisted environment (#2560) plus `env`,
+ * whose values may name the plugin's settings — secrets included.
+ */
+export interface PluginMcpServer {
+  /** Letters, digits, `-` and `_`. The server is `<plugin id>.<key>` to the model and in Settings. */
+  key: string;
+  title: string;
+  /** A path inside the plugin folder (`bin/server`), or one of `PLUGIN_MCP_INTERPRETERS`. */
+  command: string;
+  args: string[];
+  /** Name → value; `${settings.<key>}` is replaced with that setting's value. */
+  env: Record<string, string>;
+}
+
+/** The interpreters a plugin server may name instead of a file of its own; its first argument is then the script. */
+export const PLUGIN_MCP_INTERPRETERS = ['node', 'python3', 'python'] as const;
 
 /**
  * One setting a plugin declares (#2636): a JSON Schema subset — `string`,
@@ -164,6 +195,8 @@ export interface PluginSummary {
   contributes: Partial<Record<PluginContributionPoint, number>>;
   /** How many settings it declares (#2636); absent when none. */
   settings?: number;
+  /** How many MCP servers it ships (#2646); absent when none. */
+  mcpServers?: number;
 }
 
 /**

@@ -26,6 +26,7 @@ import { logger } from '../shared/logger';
 import type { PluginScan } from '../shared/plugins/format';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { reconcilePluginServers } from './mcp-servers/registry';
 import { contributionsTo, getPluginInventory, getPluginScan, reloadPluginScan } from './plugins/registry';
 import { watchPluginsDir } from './plugins/watch';
 import { reloadAndRegisterSkills } from './skills/register';
@@ -85,6 +86,8 @@ async function fingerprint(): Promise<string> {
   const lines: string[] = [];
   for (const { plugin, record } of inv.installed) {
     lines.push(`${plugin.manifest.id}@${plugin.manifest.version} ${record.enabled ? 'on' : 'off'}`);
+    // Servers are declared in plugin.json itself, not in contributed files.
+    if (plugin.manifest.mcpServers) lines.push(`  mcp ${JSON.stringify(plugin.manifest.mcpServers)}`);
     for (const c of plugin.contributions) {
       let stamp = 'missing';
       try {
@@ -107,6 +110,9 @@ async function apply(): Promise<void> {
   const typesChanged = typesFingerprint(after) !== before;
 
   await reloadAndRegisterSkills();
+  // A removed, turned-off or changed plugin's MCP servers stop; an approved
+  // one whose plugin came back starts (#2646).
+  await reconcilePluginServers();
   invalidateSavedQueriesCache();
   rebuildMenu();
 

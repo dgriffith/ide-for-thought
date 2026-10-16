@@ -23,6 +23,7 @@ const h = vi.hoisted(() => ({
   readPluginSettings: vi.fn(),
   savePluginSettings: vi.fn(),
   encrypted: true,
+  reconcile: vi.fn(),
   changed: [] as string[],
 }));
 
@@ -35,6 +36,7 @@ vi.mock('../../../src/main/ipc/helpers', () => ({
   winFromEvent: () => ({ id: 1 }),
   withRootPathOr: (_fallback: unknown, fn: (root: string, ...a: unknown[]) => unknown) => (_e: unknown, ...a: unknown[]) => fn('/tb', ...a),
 }));
+vi.mock('../../../src/main/mcp-servers/registry', () => ({ reconcilePluginServers: h.reconcile }));
 vi.mock('../../../src/main/plugins/settings', () => ({
   readPluginSettings: h.readPluginSettings,
   savePluginSettings: h.savePluginSettings,
@@ -203,6 +205,8 @@ describe('register-plugins (#2634)', () => {
     h.savePluginSettings.mockResolvedValue({ fields: [secretField], values: {}, secretsSet: { token: false } });
     expect(await call(Channels.PLUGINS_SET_SETTINGS, 'lab', { token: null })).toMatchObject({ secretsEncrypted: false });
     expect(h.savePluginSettings.mock.calls[0]![2]).toEqual({ token: null });
+    // A plugin's MCP servers get the new values (#2646).
+    expect(h.reconcile).toHaveBeenCalledTimes(1);
     h.encrypted = true;
 
     // No secret fields: nothing to say about storage.

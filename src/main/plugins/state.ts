@@ -39,6 +39,13 @@ export interface PluginRecord {
   source: PluginSource;
   /** ISO time of the install, when Minerva installed it. */
   installedAt?: string;
+  /**
+   * The MCP servers the user approved (#2646): server key → the identity
+   * approved (declaration + plugin version). A server runs only while its
+   * identity still matches. A reinstall writes a fresh record, so new code is
+   * approved again.
+   */
+  mcpApproved?: Record<string, string>;
 }
 
 export type PluginRecords = Record<string, PluginRecord>;
@@ -62,10 +69,15 @@ function decodeSource(raw: unknown): PluginSource {
 function decodeRecord(raw: unknown): PluginRecord {
   const r = asRecord(raw);
   const installedAt = asString(r.installedAt, '');
+  const approved: Record<string, string> = {};
+  for (const [key, identity] of Object.entries(asRecord(r.mcpApproved))) {
+    if (typeof identity === 'string' && identity) approved[key] = identity;
+  }
   return {
     enabled: asBool(r.enabled, true),
     source: decodeSource(r.source),
     ...(installedAt ? { installedAt } : {}),
+    ...(Object.keys(approved).length > 0 ? { mcpApproved: approved } : {}),
   };
 }
 

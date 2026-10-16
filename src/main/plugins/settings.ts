@@ -24,7 +24,7 @@ import type {
 import { asRecord, loadConfigFile, loadConfigFileStrict, loadConfigFileSync, requireRecord } from '../config/config-store';
 import { SECRET_FILE_MODE, writeJsonFileAtomic } from '../config/json-file';
 import { withFileLock } from '../config/file-lock';
-import { encryptSecret } from '../secret-storage';
+import { decryptSecret, encryptSecret } from '../secret-storage';
 import { checkSettingValue } from './settings-schema';
 
 type Stored = Record<string, Record<string, PluginSettingValue>>;
@@ -147,3 +147,19 @@ export function pluginSettingsForTemplates(pluginsDir: string, manifest: PluginM
   return Object.fromEntries(Object.entries(values).map(([k, v]) => [k, String(v)]));
 }
 
+/**
+ * Every value a plugin's MCP server receives (#2646), secrets decrypted: the
+ * one place a secret leaves this file. Main only — it goes into a server's
+ * environment, never a template or the renderer.
+ */
+export function pluginSettingsForServer(pluginsDir: string, manifest: PluginManifest): Record<string, string> {
+  const fields = manifest.settings ?? [];
+  if (fields.length === 0) return {};
+  const saved = loadConfigFileSync(() => pluginSettingsFile(pluginsDir), decodeLenient, {})[manifest.id] ?? {};
+  const out: Record<string, string> = Object.fromEntries(Object.entries(viewOf(fields, saved).values).map(([k, v]) => [k, String(v)]));
+  for (const f of fields) {
+    const v = saved[f.key];
+    if (f.kind === 'secret' && typeof v === 'string') out[f.key] = decryptSecret(v);
+  }
+  return out;
+}

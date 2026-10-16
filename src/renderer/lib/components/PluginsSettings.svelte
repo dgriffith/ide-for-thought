@@ -29,9 +29,11 @@
   };
 
   function contributes(p: PluginSummary): string {
-    return (Object.entries(p.contributes) as [PluginContributionPoint, number][])
-      .map(([point, n]) => `${n} ${NOUNS[point][n === 1 ? 0 : 1]}`)
-      .join(' · ');
+    const parts = (Object.entries(p.contributes) as [PluginContributionPoint, number][])
+      .map(([point, n]) => `${n} ${NOUNS[point][n === 1 ? 0 : 1]}`);
+    // Its servers are listed, and turned on, in Settings → MCP Servers (#2646).
+    if (p.mcpServers) parts.push(`${p.mcpServers} MCP ${p.mcpServers === 1 ? 'server' : 'servers'}`);
+    return parts.join(' · ');
   }
 
   /** Where it came from, in a line. */
