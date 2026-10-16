@@ -1,0 +1,24 @@
+{
+  "id": "word-tools",
+  "name": "Word Tools",
+  "version": "1.0.0",
+  "minerva": ">=3.0.0",
+  "description": "An MCP server that counts words, and reports whether its API token is set.",
+  "license": "MIT",
+  "contributes": {},
+  "settings": {
+    "apiToken": { "type": "secret", "title": "API token" },
+    "greeting": { "type": "string", "default": "Hello" }
+  },
+  "mcpServers": {
+    "words": {
+      "title": "Word counting",
+      "command": "node",
+      "args": ["server/index.js"],
+      "env": {
+        "WORD_TOOLS_TOKEN": "${settings.apiToken}",
+        "WORD_TOOLS_GREETING": "${settings.greeting}"
+      }
+    }
+  }
+}

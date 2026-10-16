@@ -54,7 +54,19 @@ export function registerMcpServers(): void {
 
   handle(Channels.MCP_SERVERS_REMOVE, (_e, id) => removeServer(id));
 
-  handle(Channels.MCP_SERVERS_SET_ENABLED, (_e, id, enabled) => setServerEnabled(id, enabled));
+  // A plugin's server (#2646) never went through ADD, so turning it on is
+  // where main asks, showing the exact program — the plugin, its version,
+  // and what it runs. Declined → it stays off. Turning one off never asks.
+  handle(Channels.MCP_SERVERS_SET_ENABLED, async (e, id, enabled) => {
+    if (enabled === true) {
+      const server = (await listServerStatuses()).find((s) => s.id === id);
+      if (server?.plugin && !server.enabled && server.descriptor.kind === 'stdio'
+        && !(await confirmStdioServer(winFromEvent(e), server.name, server.descriptor, server.plugin))) {
+        return listServerStatuses();
+      }
+    }
+    return setServerEnabled(id, enabled === true);
+  });
 
   handle(Channels.MCP_SERVERS_CONNECT, (_e, id) => connectServer(id));
 
@@ -72,6 +84,7 @@ async function confirmStdioServer(
   win: BrowserWindow | null,
   name: string,
   d: Extract<McpServerDescriptor, { kind: 'stdio' }>,
+  plugin?: { name: string; version: string },
 ): Promise<boolean> {
   const lines = [
     [d.command, ...(d.args ?? [])].map(displayArg).join(' '),
@@ -80,8 +93,11 @@ async function confirmStdioServer(
     ...(d.env && Object.keys(d.env).length > 0 ? [`with environment: ${Object.keys(d.env).join(', ')}`] : []),
   ];
   const answer = await confirmNative(win, {
-    message: `Let Minerva run "${name}" as an MCP server?`,
-    detail: `It starts this program on your machine, with your permissions:\n\n${lines.join('\n')}`,
+    message: plugin
+      ? `Let the ${plugin.name} plugin run "${name}" as an MCP server?`
+      : `Let Minerva run "${name}" as an MCP server?`,
+    detail: `It starts this program on your machine, with your permissions:\n\n${lines.join('\n')}`
+      + (plugin ? `\n\nFrom ${plugin.name} ${plugin.version}. A new version asks again.` : ''),
     confirmLabel: 'Allow',
   });
   return answer.confirmed;

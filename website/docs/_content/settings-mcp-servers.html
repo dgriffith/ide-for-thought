@@ -21,6 +21,10 @@ description: The MCP Servers tab in Settings — connect Minerva to third-party 
     <p>Servers are saved in <code>~/.minerva/mcp-servers.json</code> in your home folder — environment variables included. The values you put under <b>Environment</b> are encrypted with your system keychain before they're saved, and the file is readable only by your user account. A remote server's sign-in tokens are kept separately, also encrypted, in Minerva's application data folder.</p>
     <p>The name is how the assistant refers to the server, so keep it short and distinct — two servers sharing a name can't be told apart. A server you've just added starts <b>switched off</b>: nothing is launched or contacted until you turn it on.</p>
 
+    <h2 id="plugins">Servers that come with a plugin</h2>
+    <p>A <a href="settings-plugins.html">plugin</a> can ship its own MCP server. It's listed here with the plugin's name beside it, and it starts <b>switched off</b>: installing a plugin never runs anything. When you switch it on, Minerva shows you the exact program it's about to run, which plugin and version it comes from, and the names of the environment variables it gets, and asks you to allow it. The plugin's settings, an API token for example, are passed to the server; you set them in <b>Settings → Plugins</b>, and changing one restarts the server without asking again.</p>
+    <p>A new version of the plugin is a new program, so its server switches off until you allow it again, and any tool you'd told not to ask about asks again. You can't edit or remove a plugin's server here: turn the plugin off, or remove it, in <b>Settings → Plugins</b>, and its server stops.</p>
+
     <h2 id="status">What the status says</h2>
     <div class="deflist">
       <div class="row">

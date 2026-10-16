@@ -33,7 +33,7 @@ Reach for the lowest rung that does the job — declarative before code.
 | [Saved queries](#saved-queries--saved-queries) | query-view | hot | stock, user, plugin, thoughtbase |
 | [Note templates](#note-templates--note-templates) | query-view | hot | stock, plugin, thoughtbase |
 | [Themes](#themes--themes) | plugin | hot | stock, plugin |
-| [MCP servers (Minerva as client)](#mcp-servers--mcp-servers-minerva-as-client) | mcp | hot | user |
+| [MCP servers (Minerva as client)](#mcp-servers--mcp-servers-minerva-as-client) | mcp | hot | user, plugin |
 | [View layouts](#view-layouts--view-layouts) | source | rebuild | stock |
 | [Property types](#property-types--property-types) | source | rebuild | stock |
 | [Live blocks](#live-blocks--live-blocks) | source | rebuild | stock |
@@ -157,8 +157,8 @@ An MCP server whose tools the conversation model may call through mcp_call. Code
 
 - **Rung:** mcp
 - **Picked up:** at once, or on its next read (`hot`)
-- **Contributions from:** user
-- **Goes in:** ~/.minerva/mcp-servers.json, edited in Settings → MCP Servers
+- **Contributions from:** user, plugin
+- **Goes in:** ~/.minerva/mcp-servers.json, edited in Settings → MCP Servers; or a plugin's mcpServers, run once the user turns each on (#2646)
 - **Contract:** A server entry: stdio command + args + env, or an HTTP URL, checked by [`src/main/mcp-servers/config-store.ts`](../src/main/mcp-servers/config-store.ts) (`decodeServer`)
 - **Docs:** [`website/docs/_content/settings-mcp-servers.html`](../website/docs/_content/settings-mcp-servers.html)
 - **Test:** [`tests/main/mcp-servers/config-store.test.ts`](../tests/main/mcp-servers/config-store.test.ts)

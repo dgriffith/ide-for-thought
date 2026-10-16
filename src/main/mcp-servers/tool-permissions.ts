@@ -98,6 +98,18 @@ export function serverIdentity(descriptor: McpServerDescriptor): string {
   return createHash('sha256').update(JSON.stringify(canonical)).digest('hex');
 }
 
+/**
+ * A plugin server's identity (#2646): its declaration, with settings left as
+ * `${settings.*}`, and the plugin's version — so a new version is a new
+ * server, to approve and to grant tools again, while a changed setting isn't.
+ */
+export function pluginServerIdentity(provenance: string, declared: McpServerDescriptor): string {
+  return createHash('sha256').update(JSON.stringify(['plugin', provenance, serverIdentity(declared)])).digest('hex');
+}
+
+/** What a grant is keyed on: a server's descriptor, or an identity already computed. */
+const identityOf = (server: McpServerDescriptor | string): string => (typeof server === 'string' ? server : serverIdentity(server));
+
 function decode(raw: unknown): PermissionsFile {
   const list = requireRecord(raw, 'mcp-tool-permissions.json').allowed;
   if (list !== undefined && !Array.isArray(list)) throw new Error('"allowed" is not an array');
@@ -129,14 +141,14 @@ function write(data: PermissionsFile): void {
 }
 
 /** Has the user chosen "Don't ask again" for this tool on this exact server config? */
-export function isToolAllowed(descriptor: McpServerDescriptor, toolName: string): boolean {
-  const server = serverIdentity(descriptor);
+export function isToolAllowed(descriptor: McpServerDescriptor | string, toolName: string): boolean {
+  const server = identityOf(descriptor);
   return readLenient().allowed.some((a) => a.server === server && a.tool === toolName);
 }
 
 /** Record "Don't ask again" for one tool on one server identity. Idempotent. */
-export function allowTool(descriptor: McpServerDescriptor, serverName: string, toolName: string): void {
-  const server = serverIdentity(descriptor);
+export function allowTool(descriptor: McpServerDescriptor | string, serverName: string, toolName: string): void {
+  const server = identityOf(descriptor);
   const data = readForWrite();
   if (data.allowed.some((a) => a.server === server && a.tool === toolName)) return;
   data.allowed.push({ server, tool: toolName, serverName, grantedAt: new Date().toISOString() });

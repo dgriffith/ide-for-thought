@@ -27,10 +27,12 @@ import {
   type PluginContribution,
   type PluginContributionPoint,
   type PluginLoadError,
+  type PluginMcpServer,
   type PluginPackage,
   type PluginScan,
 } from '../../shared/plugins/format';
 import { validatePluginManifest } from './manifest';
+import { isInterpreter, pluginRelativePath } from './mcp-schema';
 
 /** Where plugins live: per machine, never in a thoughtbase (#2615). */
 export function pluginsDir(): string {
@@ -103,12 +105,38 @@ export async function readPluginPackage(folderPath: string, appVersion: string):
       contributions.push(result);
     }
   }
+  for (const server of manifest.mcpServers ?? []) {
+    const problem = await checkMcpProgram(root, server);
+    if (problem) problems.push(problem);
+  }
   if (problems.length > 0) return fail(problems, label);
 
   return {
     ok: true,
     plugin: { manifest, root, contributions, provenance: `plugin:${manifest.id}@${manifest.version}` },
   };
+}
+
+/**
+ * A plugin server's program (#2646) is a file inside the plugin folder, links
+ * followed: the `command` itself, or an interpreter's script. Anything else
+ * would make the plugin a way to run something it doesn't carry.
+ */
+async function checkMcpProgram(root: string, server: PluginMcpServer): Promise<string | null> {
+  const written = isInterpreter(server.command) ? server.args[0]! : server.command;
+  const where = `"mcpServers.${server.key}": "${written}"`;
+  const rel = pluginRelativePath(written);
+  if (rel === null) return `${where} must be a relative path inside the plugin folder.`;
+  let real: string;
+  try {
+    real = await fs.realpath(path.join(root, ...rel.split('/')));
+  } catch (e) {
+    if (!isFsError(e)) throw e;
+    return e.code === 'ENOENT' ? `${where} doesn't exist.` : `${where} couldn't be read (${e.code ?? 'error'}).`;
+  }
+  if (!isContainedPath(root, real)) return `${where} leaves the plugin folder.`;
+  if (!(await isFile(real))) return `${where} isn't a file.`;
+  return null;
 }
 
 /** One contributed path, checked; a string is the problem. */

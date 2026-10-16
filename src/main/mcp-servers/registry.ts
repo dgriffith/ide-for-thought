@@ -31,7 +31,8 @@ import type {
   McpToolDescriptor,
   StoredMcpServerConfig,
 } from '../../shared/mcp-servers';
-import { allowTool, isToolAllowed, serverIdentity } from './tool-permissions';
+import { allowTool, isToolAllowed, pluginServerIdentity, serverIdentity } from './tool-permissions';
+import { isPluginServerId, pluginServerDecls, setPluginServerApproval } from '../plugins/mcp-servers';
 import {
   addStoredServer,
   getStoredServers,
@@ -42,6 +43,8 @@ import {
 } from './config-store';
 
 interface LiveEntry {
+  /** What it was started as — a plugin server whose settings change since reconnects (#2646). */
+  startedAs?: string;
   client: McpClient | null;
   status: McpServerConnectionStatus;
   error?: string;
@@ -55,20 +58,66 @@ function errorMessage(err: unknown): string {
 }
 
 async function connectOne(cfg: StoredMcpServerConfig, opts: { interactive: boolean }): Promise<void> {
-  live.set(cfg.id, { client: null, status: 'connecting', tools: [] });
+  const startedAs = serverIdentity(cfg.descriptor);
+  live.set(cfg.id, { startedAs, client: null, status: 'connecting', tools: [] });
   try {
     const client = cfg.descriptor.kind === 'stdio'
       ? await connectMcpServer(cfg.descriptor)
       : await connectMcpServerWithOAuth(cfg.descriptor, { interactive: opts.interactive });
     const tools = await client.listTools();
-    live.set(cfg.id, { client, status: 'connected', tools });
+    live.set(cfg.id, { startedAs, client, status: 'connected', tools });
   } catch (err) {
     if (err instanceof McpInteractiveAuthRequiredError) {
-      live.set(cfg.id, { client: null, status: 'needs-auth', tools: [] });
+      live.set(cfg.id, { startedAs, client: null, status: 'needs-auth', tools: [] });
     } else {
-      live.set(cfg.id, { client: null, status: 'error', error: errorMessage(err), tools: [] });
+      live.set(cfg.id, { startedAs, client: null, status: 'error', error: errorMessage(err), tools: [] });
     }
   }
+}
+
+/**
+ * The servers enabled plugins ship (#2646), shaped like stored ones. One is
+ * enabled only while the user's approval matches its identity now — a new
+ * plugin version or a changed declaration is off until approved again.
+ */
+async function pluginServers(): Promise<StoredMcpServerConfig[]> {
+  return (await pluginServerDecls()).map((d) => {
+    const identity = pluginServerIdentity(d.provenance, d.declared);
+    return {
+      id: d.id,
+      name: d.name,
+      enabled: d.approved === identity,
+      descriptor: d.resolved,
+      plugin: { ...d.plugin, title: d.title, identity },
+    };
+  });
+}
+
+/** Every server: the user's, then the plugins'. */
+async function allServers(): Promise<StoredMcpServerConfig[]> {
+  return [...await getStoredServers(), ...await pluginServers()];
+}
+
+function refusePluginServer(id: string, what: string): void {
+  if (isPluginServerId(id)) throw new Error(`This server comes with a plugin, so it can't be ${what} here; turn the plugin off or remove it in Settings → Plugins.`);
+}
+
+/**
+ * Bring plugin servers in line with the plugins (#2646), after any plugin
+ * change: one whose plugin is gone, turned off, or no longer approved is
+ * disconnected; one whose settings changed is restarted with them; one newly
+ * approved and not running is started. Never asks — approval is a separate,
+ * confirmed step — and never throws.
+ */
+export async function reconcilePluginServers(): Promise<void> {
+  const want = new Map((await pluginServers()).filter((s) => s.enabled).map((s) => [s.id, s]));
+  for (const [id, entry] of [...live]) {
+    if (!isPluginServerId(id)) continue;
+    const cfg = want.get(id);
+    if (!cfg) await disconnectOne(id);
+    else if (entry.startedAs !== serverIdentity(cfg.descriptor)) await disconnectOne(id);
+  }
+  await Promise.allSettled([...want.values()].filter((s) => !live.has(s.id)).map((s) => connectOne(s, { interactive: false })));
 }
 
 async function disconnectOne(id: string): Promise<void> {
@@ -82,7 +131,7 @@ async function disconnectOne(id: string): Promise<void> {
 }
 
 export async function listServerStatuses(): Promise<McpServerStatus[]> {
-  const configs = await getStoredServers();
+  const configs = await allServers();
   return configs.map((cfg) => {
     const entry = live.get(cfg.id);
     return {
@@ -95,7 +144,7 @@ export async function listServerStatuses(): Promise<McpServerStatus[]> {
 }
 
 async function requireStoredServer(id: string): Promise<StoredMcpServerConfig> {
-  const cfg = (await getStoredServers()).find((s) => s.id === id);
+  const cfg = (await allServers()).find((s) => s.id === id);
   if (!cfg) throw new Error(`no such MCP server: ${id}`);
   return cfg;
 }
@@ -106,6 +155,7 @@ export async function addServer(name: string, descriptor: StoredMcpServerConfig[
 }
 
 export async function updateServer(id: string, patch: StoredMcpServerPatch): Promise<McpServerStatus[]> {
+  refusePluginServer(id, 'edited');
   // The settings form sends the connection details with every save, so
   // "a descriptor arrived" doesn't mean "it changed" — compare. A save that
   // only renames (or re-saves the same details) leaves the connection alone;
@@ -124,13 +174,21 @@ export async function updateServer(id: string, patch: StoredMcpServerPatch): Pro
 }
 
 export async function removeServer(id: string): Promise<McpServerStatus[]> {
+  refusePluginServer(id, 'removed');
   await disconnectOne(id);
   await removeStoredServer(id);
   return listServerStatuses();
 }
 
 export async function setServerEnabled(id: string, enabled: boolean): Promise<McpServerStatus[]> {
-  await setStoredServerEnabled(id, enabled);
+  if (isPluginServerId(id)) {
+    // A plugin server's "on" is the user's approval of exactly this
+    // declaration and version (#2646). The IPC handler has asked natively.
+    const cfg = await requireStoredServer(id);
+    await setPluginServerApproval(id, enabled ? cfg.plugin!.identity : null);
+  } else {
+    await setStoredServerEnabled(id, enabled);
+  }
   if (enabled) {
     // Best-effort, non-interactive: a remote server with no valid stored
     // token lands on 'needs-auth' rather than popping a browser — the user
@@ -145,14 +203,18 @@ export async function setServerEnabled(id: string, enabled: boolean): Promise<Mc
 /** The only path allowed to pop a browser tab — call only in direct response
  *  to the user clicking Connect. */
 export async function connectServer(id: string): Promise<McpServerStatus[]> {
-  await connectOne(await requireStoredServer(id), { interactive: true });
+  const cfg = await requireStoredServer(id);
+  // A plugin's server runs only once approved, through setServerEnabled's
+  // confirmed path — Connect is no way around that (#2646).
+  if (cfg.plugin && !cfg.enabled) throw new Error(`Turn "${cfg.name}" on first; Minerva asks before running a plugin's server.`);
+  await connectOne(cfg, { interactive: true });
   return listServerStatuses();
 }
 
 /** Startup hook (`main.ts`): best-effort, non-interactive connect for every
  *  enabled server. Never throws — a single bad server can't block the rest. */
 export async function connectAllEnabledServers(): Promise<void> {
-  const configs = (await getStoredServers()).filter((s) => s.enabled);
+  const configs = (await allServers()).filter((s) => s.enabled);
   await Promise.allSettled(configs.map((cfg) => connectOne(cfg, { interactive: false })));
 }
 
@@ -232,7 +294,7 @@ export async function callServerTool(
   args: Record<string, unknown>,
   confirm: McpCallConfirmer | null,
 ): Promise<McpCallOutcome> {
-  const configs = await getStoredServers();
+  const configs = await allServers();
   const matches = configs.filter((c) => c.name === serverName);
   if (matches.length > 1) {
     throw new Error(`Multiple MCP servers are named "${serverName}"; rename one to disambiguate.`);
@@ -265,7 +327,10 @@ export async function callServerTool(
       return { kind: 'declined', reason: 'no-ui' };
     }
     let remember = false;
-    if (isToolAllowed(match.descriptor, toolName)) {
+    // A plugin server's grants are keyed on its declaration and version, not
+    // the resolved env, so a new token keeps them and a new version doesn't.
+    const grantKey = match.plugin?.identity ?? match.descriptor;
+    if (isToolAllowed(grantKey, toolName)) {
       audit.info(`allowed ${where} (remembered: don't ask again)`);
     } else {
       let decision: McpCallDecision;
@@ -292,7 +357,7 @@ export async function callServerTool(
     }
     if (remember) {
       try {
-        allowTool(match.descriptor, serverName, toolName);
+        allowTool(grantKey, serverName, toolName);
       } catch (err) {
         // The user said yes to THIS call. Failing to remember it only means
         // they'll be asked again next time; it is not a reason to refuse.

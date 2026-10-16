@@ -135,7 +135,8 @@ URL you typed yourself. The rules are `src/main/plugins/recommendations.ts`.
 | `description` | yes | One or two sentences, at most 500 characters. |
 | `author` | no | Who wrote it. |
 | `license` | no | An SPDX identifier (`MIT`, `Apache-2.0`). |
-| `contributes` | yes | Extension point → the files it adds there. At least one. |
+| `contributes` | yes | Extension point → the files it adds there. At least one, unless the plugin ships an MCP server. |
+| `mcpServers` | no | MCP servers it ships; see [MCP servers](#mcp-servers). |
 | `settings` | no | What the user can set for it on this machine; see [Settings](#settings). |
 | `$schema` | no | Ignored; there for editors. |
 
@@ -156,8 +157,8 @@ to the plugin folder, one contribution per entry:
 | `csl-styles` | `csl/` | a `.csl` style or `.xml` locale |
 | `themes` | `themes/` | a `.json` colour theme ([themes](#themes)) |
 
-Inspections, commands, live blocks, views and MCP servers open to
-plugins as their stories land (#2637, #2645). Until then, naming one in
+Inspections, commands, live blocks and views open to plugins as their
+stories land (#2637). Until then, naming one in
 `contributes` refuses the plugin.
 
 ## How contributions load
@@ -193,6 +194,50 @@ catalog loads, never in front of the window. Then:
 - **One bad file costs only itself.** A skill or type that doesn't parse is
   reported against its plugin, in the same list as any other skill or type
   problem, and the plugin's other contributions still load.
+
+## MCP servers
+
+A plugin can ship code as an MCP server (#2646), declared in `plugin.json`.
+It runs out of process, and only once the user turns it on.
+
+```json
+"mcpServers": {
+  "words": {
+    "title": "Word counting",
+    "command": "node",
+    "args": ["server/index.js"],
+    "env": { "WORD_TOOLS_TOKEN": "${settings.apiToken}" }
+  }
+}
+```
+
+- **The program is the plugin's own.** `command` is a file inside the plugin
+  folder (`bin/server`), or `node`, `python3` or `python` with the script, a
+  file inside the folder, as the first argument. Links are followed and must
+  stay inside; a path may not start with `-`. Anything else refuses the
+  plugin.
+- **It runs in the plugin folder**, with only the few variables any program
+  needs (`PATH`, `HOME`, locale) plus `env`. An `env` value can name the
+  plugin's [settings](#settings) as `${settings.<key>}`, secrets included:
+  this is where a secret goes, and the only place.
+- **Nothing runs until the user says so.** The server is listed in
+  Settings → MCP Servers as `<plugin id>.<key>`, switched off. Switching it
+  on shows main's own dialog, which the app's window can't draw or answer,
+  with the exact program, the plugin and version, and the env names (never
+  values). The approval is kept per machine in `~/.minerva/plugins.json`.
+- **A new version is a new server.** The approval is for that declaration
+  and that plugin version: an update, or an edited `mcpServers`, switches it
+  off until approved again, and the "don't ask again" choices for its tools
+  start over. A changed setting only restarts it with the new values.
+- **Its tools are like any MCP server's.** The assistant reaches them through
+  `mcp_call`; a tool not marked `readOnlyHint: true` asks in the conversation
+  first, and is refused where there's no one to ask.
+- Turning the plugin off or removing it stops the server; removing it also
+  forgets the approval.
+
+[`tests/fixtures/plugins/word-tools/`](../tests/fixtures/plugins/word-tools/)
+is a worked example: a dependency-free Node server with a read-only tool and
+one that asks first, and a secret setting passed in as its environment.
 
 ## Themes
 

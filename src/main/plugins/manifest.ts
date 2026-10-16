@@ -14,12 +14,13 @@ import {
   type PluginManifest,
 } from '../../shared/plugins/format';
 import { validatePluginSettings } from './settings-schema';
+import { validatePluginMcpServers } from './mcp-schema';
 
 /** Lowercase letters and digits in dash-separated words: `reading-list`, `lab2`. */
 export const PLUGIN_ID = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 export const MAX_PLUGIN_ID = 64;
 
-const KNOWN_KEYS = new Set(['$schema', 'id', 'name', 'version', 'minerva', 'description', 'author', 'license', 'contributes', 'settings']);
+const KNOWN_KEYS = new Set(['$schema', 'id', 'name', 'version', 'minerva', 'description', 'author', 'license', 'contributes', 'settings', 'mcpServers']);
 
 export type ManifestResult =
   | { ok: true; manifest: PluginManifest }
@@ -87,8 +88,10 @@ export function validatePluginManifest(raw: unknown, ctx: ManifestContext): Mani
 
   const contributes: Partial<Record<PluginContributionPoint, string[]>> = {};
   const rawContributes = raw.contributes;
+  // A plugin that only ships an MCP server (#2646) contributes no files.
+  const shipsServers = isRecord(raw.mcpServers) && Object.keys(raw.mcpServers).length > 0;
   if (rawContributes === undefined) {
-    problems.push('"contributes" is required.');
+    if (!shipsServers) problems.push('"contributes" is required.');
   } else if (!isRecord(rawContributes)) {
     problems.push('"contributes" must be an object of extension point → files.');
   } else {
@@ -104,10 +107,11 @@ export function validatePluginManifest(raw: unknown, ctx: ManifestContext): Mani
       }
       contributes[point as PluginContributionPoint] = files as string[];
     }
-    if (Object.keys(rawContributes).length === 0) problems.push('"contributes" is empty; a plugin must contribute something.');
+    if (Object.keys(rawContributes).length === 0 && !shipsServers) problems.push('"contributes" is empty; a plugin must contribute something.');
   }
 
   const settings = raw.settings === undefined ? undefined : validatePluginSettings(raw.settings, problems);
+  const mcpServers = raw.mcpServers === undefined ? undefined : validatePluginMcpServers(raw.mcpServers, settings ?? [], problems);
 
   if (problems.length > 0) return { ok: false, problems };
   return {
@@ -118,6 +122,7 @@ export function validatePluginManifest(raw: unknown, ctx: ManifestContext): Mani
       ...(license !== undefined ? { license } : {}),
       contributes,
       ...(settings !== undefined && settings.length > 0 ? { settings } : {}),
+      ...(mcpServers !== undefined && mcpServers.length > 0 ? { mcpServers } : {}),
     },
   };
 }

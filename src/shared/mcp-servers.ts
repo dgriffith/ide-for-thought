@@ -49,6 +49,13 @@ export interface StoredMcpServerConfig {
   name: string;
   enabled: boolean;
   descriptor: McpServerDescriptor;
+  /**
+   * Set for a server a plugin ships (#2646). It isn't in the file: it comes
+   * and goes with the plugin, can't be edited or removed here, and is on only
+   * while the user's approval matches `identity` (declaration + plugin
+   * version), which also keys "don't ask again" for its tools.
+   */
+  plugin?: { id: string; name: string; version: string; title: string; identity: string };
 }
 
 /** What the renderer gets back from the list read and from every mutation —
