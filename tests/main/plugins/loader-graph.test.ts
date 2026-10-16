@@ -57,7 +57,7 @@ describe('an installed plugin, end to end (#2633)', () => {
         ?p dc:identifier ?point .
         ?a a minerva:Plugin ; rdfs:label ?plugin ; dc:identifier ?provenance .
       } ORDER BY ?point`);
-    expect(rows.results).toEqual([
+    expect(rows.results.filter((r) => r.plugin === 'Reading List')).toEqual([
       { point: 'object-types', id: 'book-note', plugin: 'Reading List', provenance: 'plugin:reading-list@1.0.0' },
       { point: 'skills', id: 'reading-list.reading-summary', plugin: 'Reading List', provenance: 'plugin:reading-list@1.0.0' },
     ]);

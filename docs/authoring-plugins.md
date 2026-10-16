@@ -344,3 +344,19 @@ ORDER BY ?title
 `skills/reading-summary.md` is a skill like any in `~/.minerva/skills/`,
 except that it reads the plugin's `summaryLength` setting as
 `{{plugin.settings.summaryLength}}`; see the fixture for its body.
+
+## Another example: a cookbook
+
+[`tests/fixtures/plugins/cookbook/`](../tests/fixtures/plugins/cookbook/)
+fills four seams from files alone, and
+`tests/main/plugins/cookbook-example.test.ts` installs it and checks each one:
+
+- `types/recipe.md`: a **Recipe** type, so a note with `type: recipe` is
+  typed in any thoughtbase on the machine, with nothing in `.minerva/types/`.
+- `skills/find-variations.md`: a **research** skill, listed under
+  Research ▸ Cooking and as `/variations`. Like any skill, the note it reads
+  goes into the user's message, never the instructions.
+- `queries/quick-recipes.rq`: **Quick recipes**, the recipes of 30 minutes or
+  less, under Query ▸ Saved Queries in the plugin's section.
+- `templates/Recipe.md`: a **Recipe** note template, in New Note and Insert
+  Template.

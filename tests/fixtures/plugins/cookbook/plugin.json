@@ -1,0 +1,15 @@
+{
+  "id": "cookbook",
+  "name": "Cookbook",
+  "version": "1.0.0",
+  "minerva": ">=3.0.0",
+  "description": "A Recipe type, a query for the quick ones, a recipe note template, and a research skill that finds a recipe's variations.",
+  "author": "Ada Example",
+  "license": "MIT",
+  "contributes": {
+    "object-types": ["types/recipe.md"],
+    "saved-queries": ["queries/quick-recipes.rq"],
+    "note-templates": ["templates/Recipe.md"],
+    "skills": ["skills/find-variations.md"]
+  }
+}

@@ -41,7 +41,7 @@ describe('plugin registry (#2633)', () => {
     enablePlugins({ appVersion: '4.0.0', dir: FIXTURES });
     const a = getPluginInventory();
     expect(getPluginInventory()).toBe(a);
-    expect((await getPluginScan()).plugins.map((p) => p.manifest.id)).toEqual(['reading-list']);
+    expect((await getPluginScan()).plugins.map((p) => p.manifest.id)).toEqual(['cookbook', 'reading-list']);
   });
 
   it('reload reads it again', async () => {
@@ -67,7 +67,7 @@ describe('plugin registry (#2633)', () => {
     enablePlugins({ appVersion: '4.0.0', dir: FIXTURES });
     const scan = await getPluginScan();
     expect(contributionsTo(scan, 'object-types').map(({ plugin, contribution }) => [plugin.manifest.id, contribution.path]))
-      .toEqual([['reading-list', 'types/book-note.md']]);
+      .toEqual([['cookbook', 'types/recipe.md'], ['reading-list', 'types/book-note.md']]);
     expect(contributionsTo(scan, 'csl-styles')).toEqual([]);
   });
 
