@@ -96,7 +96,7 @@ palette, and the editor right-click menu (because it requests `fullNote`).
 | `scope` | `note` \| `source` | `note` | Where the skill is invoked and what it operates on. `note` (default) surfaces in the menus + editor right-click and acts on the active note. `source` surfaces in the **Source viewer's Tools menu** and receives the active source's body/metadata. See [Source-scoped skills](#source-scoped-skills). |
 | `context` | string list | `[]` | What to gather before running. See [Context](#context). |
 | `parameters` | list | `[]` | Upfront form fields. See [Parameters](#parameters). |
-| `tools` | string list | default set | Conversation tools to advertise: `ask_user`, and in a plugin's skill its own plugin's MCP tools as `mcp:<server>` or `mcp:<server>/<tool>` (#2649; see [authoring plugins](authoring-plugins.md#mcp-servers)). |
+| `tools` | string list | default set | Conversation tools to advertise: `ask_user`, `offer_extension_draft` (show a drafted skill or plugin as a card the user saves, #2652; see [extending Minerva](extending-minerva.md)), and in a plugin's skill its own plugin's MCP tools as `mcp:<server>` or `mcp:<server>/<tool>` (#2649; see [authoring plugins](authoring-plugins.md#mcp-servers)). |
 | `web` | boolean | `false` | Whether `web_search` / `web_fetch` are on by default (the global web setting still gates). |
 | `model` | string | global default | Preferred model, e.g. `claude-opus-4-8` for deep reasoning, `claude-sonnet-4-6` otherwise. User and global settings win over this hint. |
 | `slashCommand` | string | — | A `/command` alias. A leading `/` is added if you omit it. |
@@ -442,7 +442,7 @@ all through the approval engine.
 <a name="grouping"></a>
 ## Grouping (thematic sub-menus)
 
-A menu with many skills gets hard to scan (the stock **Analysis** menu has 30).
+A menu with many skills gets hard to scan (the stock **Analysis** menu has 31).
 Give related skills the same `group:` and the menu renders them as nested
 submenus — e.g. `Analysis ▸ Planning ▸ Murphyjitsu`. The stock Analysis skills
 are grouped Data / Diagnostic / Disagreement / Generation / Motivation /

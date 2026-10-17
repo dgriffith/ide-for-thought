@@ -31,10 +31,13 @@ export type ToolClass =
  * - `agentPath`: `assertAgentPath` — no hidden or ignored segment, as spelled
  *   or after following symlinks, inside the root;
  * - `bareSourceId`: one segment, never a path, for an id Minerva splices into
- *   `.minerva/sources/<id>/…` itself.
+ *   `.minerva/sources/<id>/…` itself;
+ * - `draftPath`: a path inside a drafted skill or plugin (#2652), never the
+ *   thoughtbase: `draftPathProblem`, via `checkExtensionDraft`. Main writes
+ *   it only under a folder the user chose, or a scratch one.
  */
 export interface ToolPathGuard {
-  guard: 'agentPath' | 'bareSourceId';
+  guard: 'agentPath' | 'bareSourceId' | 'draftPath';
   site: string;
 }
 

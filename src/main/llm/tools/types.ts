@@ -1,3 +1,5 @@
+import type { CheckedExtensionDraft } from '../../extensions/draft-check';
+import type { ExtensionDraftOutcome } from '../../../shared/extensions/drafts';
 import type { ToolSpec } from '../provider/types';
 import type { ConversationDraft } from '../../../shared/conversation-drafts';
 import type { ConversationSourceDraft } from '../../../shared/conversation-source-drafts';
@@ -76,6 +78,10 @@ export interface ToolCallbacks {
   /** The `mcp_call` write-confirmation card (#2439). Absent means there is no
    *  conversation UI to ask in, and a non-read-only MCP call is refused. */
   confirmMcpCall?: McpCallConfirmer;
+  /** The drafted-extension card (#2652): shows a checked skill or plugin and
+   *  resolves with what the user did with it. Absent means there's no
+   *  conversation UI to show it in. */
+  offerExtensionDraft?: (draft: CheckedExtensionDraft) => Promise<ExtensionDraftOutcome>;
 }
 
 export interface ToolResult {

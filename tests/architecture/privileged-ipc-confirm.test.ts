@@ -37,6 +37,7 @@ const EXEMPT: Record<string, string> = {
   [Channels.PLUGINS_INSTALL_FOLDER]: 'an install writes a fresh plugin record with no approvals, so its MCP servers stay off until approved (#2646)',
   [Channels.PLUGINS_INSTALL_ZIP]: 'same as PLUGINS_INSTALL_FOLDER',
   [Channels.PLUGINS_INSTALL_GIT]: 'same as PLUGINS_INSTALL_FOLDER',
+  [Channels.CONVERSATION_EXTENSION_DRAFT_ACTION]: 'installing a drafted plugin is PLUGINS_INSTALL_FOLDER from main\'s own copy of the draft (#2652): a fresh record with no approvals, so its MCP servers stay off until approved',
   [Channels.PLUGINS_SET_SETTINGS]: 'restarts an approved plugin MCP server with the values the user just typed; approval is keyed on the declaration, not the values (#2646)',
   [Channels.SHELL_OPEN_IN_TERMINAL]: 'opens the user\'s terminal at a FOLDER (a file\'s containing folder) — never hands it a file, which Terminal would run',
 };

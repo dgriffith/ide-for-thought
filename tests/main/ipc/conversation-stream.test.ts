@@ -24,6 +24,7 @@ import {
   type PendingAskUser,
   type PendingMcpConfirm,
 } from '../../../src/main/ipc/conversation-stream';
+import { pendingExtensionDrafts } from '../../../src/main/ipc/extension-draft-offers';
 
 function makeWin(destroyed = false) {
   const listeners = new Map<string, Set<() => void>>();
@@ -279,5 +280,63 @@ describe('mcp_call confirmation card (#2439)', () => {
     const { callbacks, pendingMcp } = buildWithConfirm(win);
     await expect(callbacks.confirmMcpCall!(PROMPT)).resolves.toEqual({ allow: false, reason: 'no-ui' });
     expect(pendingMcp.size).toBe(0);
+  });
+});
+
+describe('drafted-extension card (#2652)', () => {
+  const DRAFT = {
+    kind: 'plugin' as const, id: 'lab', name: 'Lab', summary: 'Adds a lab.',
+    files: [{ path: 'plugin.json', content: '{}' }], mcpServers: ['words'],
+  };
+  const buildOffer = (win: ReturnType<typeof makeWin>, controller = new AbortController()) => ({
+    controller,
+    ...buildStreamCallbacks(win as never, 'conv-1', controller.signal, new Map() as PendingAskUser),
+  });
+
+  afterEach(() => { pendingExtensionDrafts.clear(); });
+
+  it('sends the checked draft as a card, after the lead-in, and keeps main\'s copy', () => {
+    const win = makeWin();
+    const { callbacks } = buildOffer(win);
+    callbacks.onChunk('Here it is: ');
+    void callbacks.offerExtensionDraft!(DRAFT);
+    const calls = win.webContents.send.mock.calls;
+    expect(calls.map((c) => c[0])).toEqual([Channels.CONVERSATION_STREAM, Channels.CONVERSATION_EXTENSION_DRAFT]);
+    expect(calls[1]![1]).toEqual({ ...DRAFT, conversationId: 'conv-1', offerId: expect.any(String) });
+    const [offerId, entry] = [...pendingExtensionDrafts][0]!;
+    expect(offerId).toBe((calls[1]![1] as { offerId: string }).offerId);
+    expect(entry).toMatchObject({ winId: 1, draft: DRAFT });
+  });
+
+  it('resolves with what the user did, once, and cleans up', async () => {
+    const win = makeWin();
+    const { callbacks } = buildOffer(win);
+    const p = callbacks.offerExtensionDraft!(DRAFT);
+    const [, entry] = [...pendingExtensionDrafts][0]!;
+    entry.settle({ kind: 'saved', where: '/x' });
+    entry.settle({ kind: 'dismissed' });
+    await expect(p).resolves.toEqual({ kind: 'saved', where: '/x' });
+    expect(pendingExtensionDrafts.size).toBe(0);
+    expect(win.listenerCount('closed')).toBe(0);
+  });
+
+  it('a stopped turn or a closed window settles it; a stopped or destroyed one never shows it', async () => {
+    const stopped = buildOffer(makeWin());
+    const p1 = stopped.callbacks.offerExtensionDraft!(DRAFT);
+    stopped.controller.abort();
+    await expect(p1).resolves.toEqual({ kind: 'cancelled' });
+
+    const win = makeWin();
+    const p2 = buildOffer(win).callbacks.offerExtensionDraft!(DRAFT);
+    win.emit('closed');
+    await expect(p2).resolves.toEqual({ kind: 'no-ui' });
+
+    const already = new AbortController();
+    already.abort();
+    await expect(buildOffer(makeWin(), already).callbacks.offerExtensionDraft!(DRAFT)).resolves.toEqual({ kind: 'cancelled' });
+    const gone = makeWin(true);
+    await expect(buildOffer(gone).callbacks.offerExtensionDraft!(DRAFT)).resolves.toEqual({ kind: 'no-ui' });
+    expect(gone.webContents.send).not.toHaveBeenCalled();
+    expect(pendingExtensionDrafts.size).toBe(0);
   });
 });

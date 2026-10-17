@@ -712,6 +712,10 @@ export interface ConversationsApi {
   onMcpConfirm(cb: (req: import('../../../shared/conversation-tools').McpConfirmRequest) => void): () => void;
   /** Answer a pending MCP confirmation card. `remember` = "Don't ask again for this tool". */
   mcpConfirmReply(requestId: string, allow: boolean, remember: boolean): Promise<void>;
+  /** A drafted skill or plugin to show as a card (#2652). */
+  onExtensionDraft(cb: (offer: import('../../../shared/extensions/drafts').ExtensionDraftOffer) => void): () => void;
+  /** Save, save to a folder, or dismiss a drafted extension. Main writes, from its own copy. */
+  extensionDraftAction(offerId: string, action: import('../../../shared/extensions/drafts').ExtensionDraftAction): Promise<import('../../../shared/extensions/drafts').ExtensionDraftActionResult>;
   onStream(cb: (chunk: string) => void): () => void;
   cancel(): Promise<void>;
   setModel(conversationId: string, model: string | undefined): Promise<Conversation>;

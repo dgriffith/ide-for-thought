@@ -26,6 +26,9 @@ import type { StreamCallbacks } from '../llm/container-recovery';
 import type { McpCallDecision } from '../../shared/mcp-servers';
 import type { McpCallConfirmPrompt } from '../mcp-servers/registry';
 import { broadcast } from './broadcast';
+import type { ExtensionDraftOutcome } from '../../shared/extensions/drafts';
+import type { CheckedExtensionDraft } from '../extensions/draft-check';
+import { pendingExtensionDrafts } from './extension-draft-offers';
 
 /** Pending `ask_user` prompts keyed by question id, owned by the registrar so
  *  aborting a send can reject every question that window is waiting on. */
@@ -221,6 +224,37 @@ export function buildStreamCallbacks(
         signal.addEventListener('abort', onAbort);
         win.once('closed', onClosed);
         broadcast(win, Channels.CONVERSATION_MCP_CONFIRM, { requestId, conversationId: convId, ...prompt });
+      });
+    },
+    offerExtensionDraft: (draft: CheckedExtensionDraft) => {
+      // The drafted-extension card (#2652), shaped like the confirm card above:
+      // one exit however it ends, and nothing outlives it.
+      flush();
+      if (signal.aborted) return Promise.resolve<ExtensionDraftOutcome>({ kind: 'cancelled' });
+      if (win.isDestroyed()) return Promise.resolve<ExtensionDraftOutcome>({ kind: 'no-ui' });
+      const offerId = randomUUID();
+      return new Promise<ExtensionDraftOutcome>((resolve) => {
+        const settle = (outcome: ExtensionDraftOutcome): void => {
+          if (!pendingExtensionDrafts.delete(offerId)) return;
+          signal.removeEventListener('abort', onAbort);
+          win.removeListener('closed', onClosed);
+          resolve(outcome);
+        };
+        const onAbort = (): void => settle({ kind: 'cancelled' });
+        const onClosed = (): void => settle({ kind: 'no-ui' });
+        pendingExtensionDrafts.set(offerId, { winId: win.id, draft, settle });
+        signal.addEventListener('abort', onAbort);
+        win.once('closed', onClosed);
+        broadcast(win, Channels.CONVERSATION_EXTENSION_DRAFT, {
+          offerId,
+          conversationId: convId,
+          kind: draft.kind,
+          id: draft.id,
+          name: draft.name,
+          summary: draft.summary,
+          files: draft.files,
+          ...(draft.mcpServers ? { mcpServers: draft.mcpServers } : {}),
+        });
       });
     },
     signal,

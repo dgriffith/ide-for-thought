@@ -591,6 +591,10 @@ export const Channels = {
   CONVERSATION_MCP_CONFIRM: 'conversation:mcpConfirm',
   /** renderer → main: Allow / Deny (+ "Don't ask again") for a pending card. */
   CONVERSATION_MCP_CONFIRM_REPLY: 'conversation:mcpConfirmReply',
+  /** main → renderer: a drafted skill or plugin to show as a card (#2652). */
+  CONVERSATION_EXTENSION_DRAFT: 'conversation:extensionDraft',
+  /** renderer → main: what the user did with it (save, save to folder, dismiss); main does the writing. */
+  CONVERSATION_EXTENSION_DRAFT_ACTION: 'conversation:extensionDraftAction',
   GRAPH_GROUND_CHECK: 'graph:groundCheck',
   INSPECTIONS_LIST: 'inspections:list',
   INSPECTIONS_RUN: 'inspections:run',

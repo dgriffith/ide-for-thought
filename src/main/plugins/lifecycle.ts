@@ -14,6 +14,8 @@
  *   an unsafe archive) and installs what's there the same way.
  * - **Install from a git URL** fetches it into the staging and checks out
  *   the commit there (`git.ts`, same rules), then the same again.
+ * - **Install from a draft** (#2652) writes the files a conversation drafted
+ *   into the same staging and installs them the same way.
  * - **Remove** deletes the plugin's folder — or, when the folder is a link
  *   (an author working in place), only the link, never what it points to —
  *   and its record.
@@ -23,6 +25,7 @@ import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { PLUGIN_MANIFEST, type PluginPackage } from '../../shared/plugins/format';
 import { PLUGIN_ID } from './manifest';
+import { writeDraftFiles } from './draft-files';
 import { readPluginPackage } from './package';
 import { updatePluginRecords, type PluginSource } from './state';
 import { removePluginSettings } from './settings';
@@ -198,6 +201,29 @@ export async function installPluginFromFolder(
     const staged = path.join(staging, id);
     await fs.cp(src, staged, { recursive: true, errorOnExist: true });
     return finishInstall(dir, staging, staged, id, { kind: 'folder', path: src }, appVersion);
+  });
+}
+
+/**
+ * Install the plugin a conversation drafted (#2652): its files written into
+ * the staging, then checked whole and installed like a folder. The paths were
+ * checked when the draft was made (`draftPathProblem`) and are checked again
+ * here, so nothing is written outside the staged folder.
+ */
+export async function installPluginFromDraft(
+  dir: string,
+  files: readonly { path: string; content: string }[],
+  appVersion: string,
+  opts: { replace?: ReplacePolicy } = {},
+): Promise<PluginPackage | null> {
+  return withStaging(dir, async (staging) => {
+    const written = path.join(staging, 'draft');
+    await writeDraftFiles(written, files);
+    const id = await claimedId(written);
+    if (!(await mayInstall(dir, id, opts.replace))) return null;
+    const staged = path.join(staging, id);
+    await fs.rename(written, staged);
+    return finishInstall(dir, staging, staged, id, { kind: 'draft' }, appVersion);
   });
 }
 

@@ -7,6 +7,10 @@
  * asks a native "Replace?" there too when a plugin of that id is installed,
  * so the renderer never names a path main will copy from or unpack. A git
  * install takes the URL the user typed.
+ *
+ * It also answers a drafted extension's card (#2652): the user saves a skill
+ * the assistant drafted, installs a drafted plugin, or saves either to a
+ * folder. Main writes the copy it kept when the tool ran.
  */
 import { dialog, shell, type BrowserWindow } from 'electron';
 import { Channels } from '../../shared/channels';
@@ -16,7 +20,12 @@ import { pluginThemes } from '../plugins/themes';
 import { reconcilePluginServers } from '../mcp-servers/registry';
 import { secretStorageStatus } from '../secret-storage';
 import { activePluginsDir, getPluginInventory, pluginsAppVersion } from '../plugins/registry';
-import { installPluginFromFolder, installPluginFromGit, installPluginFromZip, removePlugin, setPluginEnabled, type ReplacePolicy } from '../plugins/lifecycle';
+import { installPluginFromDraft, installPluginFromFolder, installPluginFromGit, installPluginFromZip, removePlugin, setPluginEnabled, type ReplacePolicy } from '../plugins/lifecycle';
+import type { ExtensionDraftAction, ExtensionDraftActionResult } from '../../shared/extensions/drafts';
+import { saveDraftToFolder, saveSkillDraft } from '../extensions/draft-apply';
+import { reloadAndRegisterSkills } from '../skills/register';
+import { rebuildMenu } from '../menu';
+import { pendingExtensionDrafts } from './extension-draft-offers';
 import { PLUGIN_ID } from '../plugins/manifest';
 import { changePlugins } from '../plugins-apply';
 import { handle } from './typed-ipc';
@@ -124,6 +133,48 @@ export function registerPlugins(): void {
   handle(Channels.PLUGINS_INSTALL_GIT, async (e, spec: string) => {
     if (typeof spec !== 'string') throw new Error('Give the plugin\'s git URL.');
     return installAsking(winFromEvent(e), (replace) => installPluginFromGit(activePluginsDir(), spec, pluginsAppVersion(), { replace }));
+  });
+
+  // A drafted extension's card (#2652). Only the window shown the card may
+  // act on it, and only on main's copy of the draft. A failed or cancelled
+  // save leaves the card waiting, so the user can try the other way.
+  handle(Channels.CONVERSATION_EXTENSION_DRAFT_ACTION, async (e, offerId: string, action: ExtensionDraftAction): Promise<ExtensionDraftActionResult> => {
+    const win = winFromEvent(e);
+    const pending = pendingExtensionDrafts.get(offerId);
+    if (!pending || pending.winId !== win.id) return { ok: false, error: 'This draft is no longer waiting for an answer.' };
+    const { draft } = pending;
+    try {
+      if (action === 'save' && draft.kind === 'skill') {
+        const where = await saveSkillDraft(draft);
+        await reloadAndRegisterSkills();
+        rebuildMenu();
+        pending.settle({ kind: 'saved', where });
+        return { ok: true, action, where };
+      }
+      if (action === 'save') {
+        // Installed like any plugin: checked whole, its MCP servers off.
+        const installed = await installAsking(win, (replace) => installPluginFromDraft(activePluginsDir(), draft.files, pluginsAppVersion(), { replace }));
+        if (!installed) return { ok: false, cancelled: true };
+        const where = path.join(activePluginsDir(), installed.id);
+        pending.settle({ kind: 'saved', where });
+        return { ok: true, action, where };
+      }
+      if (action === 'save-folder') {
+        const picked = await dialog.showOpenDialog(win, {
+          title: draft.kind === 'plugin' ? `Save the ${draft.name} plugin's folder in…` : `Save the ${draft.name} skill in…`,
+          buttonLabel: 'Save Here',
+          properties: ['openDirectory', 'createDirectory'],
+        });
+        if (picked.canceled || picked.filePaths.length === 0) return { ok: false, cancelled: true };
+        const where = await saveDraftToFolder(draft, picked.filePaths[0]!);
+        pending.settle({ kind: 'saved-folder', where });
+        return { ok: true, action, where };
+      }
+      pending.settle({ kind: 'dismissed' });
+      return { ok: true, action: 'dismiss' };
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    }
   });
 
   // What the open thoughtbase recommends (#2635). Describes only: an Install

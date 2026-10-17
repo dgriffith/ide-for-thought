@@ -36,6 +36,7 @@ import { proposeObjectType } from './propose-object-type';
 import { proposeClaims } from './propose-claims';
 import { proposeCompute } from './propose-compute';
 import { askUser } from './ask-user';
+import { offerExtensionDraft } from './offer-extension-draft';
 import { rethrowIfTrustGuard } from '../../graph/index';
 import { defineToolRegistry, type ToolRegistration } from './tool-registry';
 
@@ -85,6 +86,8 @@ const TOOLS = defineToolRegistry([
   { tool: runSkill, class: 'skill', pathGuard: { guard: 'agentPath', site: 'run-skill.ts' } },
   // Template-scoped: offered only to a skill that `requiresTools: [ask_user]`.
   { tool: askUser, class: 'interactive', templateOnly: true },
+  // Template-scoped too (#2652): shows a drafted skill or plugin, writes nothing.
+  { tool: offerExtensionDraft, class: 'interactive', templateOnly: true, pathGuard: { guard: 'draftPath', site: 'offer-extension-draft.ts' } },
 ]);
 
 /** Every registered tool's registration, by name — what the tool-surface
@@ -105,6 +108,7 @@ const DISPATCH: Record<string, NotebaseTool> = Object.fromEntries(TOOLS.map((r) 
 
 const TEMPLATE_TOOL_REGISTRY: Record<ConversationToolKey, ToolSpec> = {
   ask_user: askUser.definition,
+  offer_extension_draft: offerExtensionDraft.definition,
 };
 
 export interface ConversationToolOptions {

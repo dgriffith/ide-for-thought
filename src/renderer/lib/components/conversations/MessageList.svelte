@@ -4,6 +4,8 @@
   import StreamingMessageBody from './StreamingMessageBody.svelte';
   import DraftCards from './DraftCards.svelte';
   import McpConfirmCard from './McpConfirmCard.svelte';
+  import ExtensionDraftCard from './ExtensionDraftCard.svelte';
+  import { extensionDraftsStore } from '../../stores/extension-drafts.svelte';
   import { getConversationsStore, type TabRuntime } from '../../stores/conversations.svelte';
   import { getEditorStore } from '../../stores/editor.svelte';
   import { getNotebaseStore } from '../../stores/notebase.svelte';
@@ -296,6 +298,18 @@
       <McpConfirmCard
         request={confirm}
         onAnswer={(allow, remember) => void store.answerMcpConfirm(tab.id, allow, remember)}
+      />
+    {/key}
+  {/if}
+
+  {#if extensionDraftsStore.offerFor(tab.id)}
+    {@const offer = extensionDraftsStore.offerFor(tab.id)!}
+    {#key offer.offerId}
+      <ExtensionDraftCard
+        {offer}
+        problem={extensionDraftsStore.problemFor(tab.id)}
+        busy={extensionDraftsStore.busyFor(tab.id)}
+        onAct={(action) => void extensionDraftsStore.act(tab.id, action)}
       />
     {/key}
   {/if}

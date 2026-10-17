@@ -132,6 +132,8 @@ export interface StreamCallbacks {
    * refused ("no conversation UI to ask in") rather than run.
    */
   confirmMcpCall?: McpCallConfirmer;
+  /** The drafted-extension card (#2652); without it the tool reports no UI. */
+  offerExtensionDraft?: ToolCallbacks['offerExtensionDraft'];
 }
 
 /** The conversation callbacks that pass through to tool execution. When a tool
@@ -141,7 +143,7 @@ export interface StreamCallbacks {
 export const TOOL_CALLBACK_KEYS = [
   'onDraft', 'onSourceDraft', 'onPropertyDraft', 'onSourcePropertyDraft',
   'onClaimsDraft', 'onComputeDraft', 'onRefactorDraft', 'onReorgDraft', 'onDeleteDraft', 'onNoteBodyDraft', 'askUser',
-  'confirmMcpCall',
+  'confirmMcpCall', 'offerExtensionDraft',
 ] as const satisfies readonly (keyof ToolCallbacks)[];
 
 // Completeness guard (#1003). `satisfies` above rejects a stale/typo'd key; this
@@ -570,12 +572,12 @@ async function exactContextTokens(provider: LLMProvider, req: TurnRequest): Prom
 /**
  * Tools whose results stay in context for the whole turn even when the
  * provider clears older ones (#2499): every proposal tool, `set_properties`
- * (also a proposal) and `ask_user`. Their results are short, and they are the
+ * (also a proposal), `ask_user` and `offer_extension_draft`. Their results are short, and they are the
  * model's only record of what it already filed or what the user answered —
  * cleared, the model can't tell a filed proposal from one it never made.
  */
 export function isPinnedToolResult(name: string): boolean {
-  return name.startsWith('propose_') || name === 'set_properties' || name === 'ask_user';
+  return name.startsWith('propose_') || name === 'set_properties' || name === 'ask_user' || name === 'offer_extension_draft';
 }
 
 function emptyUsage(): TurnUsage {

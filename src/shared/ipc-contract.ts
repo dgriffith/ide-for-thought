@@ -94,6 +94,7 @@ import type { ResolveCandidate } from './resolve-stub';
 import type { Conversation, ConversationCreateOptions, ConversationMessage, ContextBundle, ConversationsUIState, CompactResult } from './conversation';
 import type { PrivilegedSite } from './privileged-sites';
 import type { ConversationToolKey, AskUserRequest, McpConfirmRequest } from './conversation-tools';
+import type { ExtensionDraftAction, ExtensionDraftActionResult, ExtensionDraftOffer } from './extensions/drafts';
 import type { ConversationDraftBase } from './conversation-draft-base';
 import type { PluginThemeList, ThemeMode } from './theme';
 import type { Effort } from './tools/effort';
@@ -630,6 +631,7 @@ export interface ChannelMap {
   'conversation:uiStateSave': (state: ConversationsUIState) => void;
   'conversation:askUserReply': (questionId: string, answer: string) => void;
   'conversation:mcpConfirmReply': (requestId: string, allow: boolean, remember: boolean) => void;
+  'conversation:extensionDraftAction': (offerId: string, action: ExtensionDraftAction) => ExtensionDraftActionResult;
   'conversation:setModel': (conversationId: string, model: string | undefined) => Conversation;
   'conversation:setEffort': (conversationId: string, effort: Effort | undefined) => Conversation;
   'conversation:setTitle': (conversationId: string, title: string | null) => Conversation;
@@ -710,6 +712,7 @@ export interface EventMap {
   'conversation:titleChanged': (change: { conversationId: string; title: string }) => void;
   'publish:renderLiveBlocks': (request: { requestId: string; blocks: LiveBlockRequest[] }) => void;
   'conversation:mcpConfirm': (req: McpConfirmRequest) => void;
+  'conversation:extensionDraft': (offer: ExtensionDraftOffer) => void;
   'tool:stream': (chunk: string) => void;
   'tool:invoke': (toolId: string) => void;
   // Native-menu channels (#1633). Every argument-free menu item is a command,
