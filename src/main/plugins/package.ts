@@ -42,6 +42,17 @@ export function pluginsDir(): string {
 /** `plugin.json` is small; anything bigger isn't a manifest. */
 export const MAX_MANIFEST_BYTES = 64 * 1024;
 
+/**
+ * The most one contributed file may hold (#2655). Every seam reads its files
+ * whole into memory, some on every catalog load, so an unbounded file is an
+ * unbounded read each time; a 20 MB skill parsed without complaint. The
+ * largest stock contribution is a few KB.
+ */
+export const MAX_CONTRIBUTION_BYTES = 1024 * 1024;
+
+const tooBig = (where: string, bytes: number) =>
+  `${where} is ${(bytes / (1024 * 1024)).toFixed(1)} MB; a contributed file may be at most ${MAX_CONTRIBUTION_BYTES / (1024 * 1024)} MB.`;
+
 function isFsError(e: unknown): e is NodeJS.ErrnoException {
   return typeof e === 'object' && e !== null && 'code' in e;
 }
@@ -170,6 +181,7 @@ async function checkContribution(root: string, point: PluginContributionPoint, w
     if (!(spec.extensions as readonly string[]).includes(ext)) {
       return `${where} must be a ${spec.extensions.join(' or ')} file.`;
     }
+    if (st.size > MAX_CONTRIBUTION_BYTES) return tooBig(where, st.size);
     return { point, path: rel, absolutePath: abs, kind: 'file' };
   }
 
@@ -177,6 +189,8 @@ async function checkContribution(root: string, point: PluginContributionPoint, w
     const entry = 'folderEntry' in spec ? spec.folderEntry : undefined;
     if (!entry) return `${where} is a folder; list its files one by one.`;
     if (!(await isFile(path.join(abs, entry)))) return `${where} is a folder without a ${entry}.`;
+    const entrySize = (await fs.stat(path.join(abs, entry))).size;
+    if (entrySize > MAX_CONTRIBUTION_BYTES) return tooBig(`${where}'s ${entry}`, entrySize);
     const escape = await findEscapingLink(root, abs);
     if (escape) return `${where} holds a link that leaves the plugin folder: ${path.relative(root, escape)}.`;
     return { point, path: rel, absolutePath: abs, kind: 'folder' };

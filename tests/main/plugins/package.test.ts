@@ -9,7 +9,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { readPluginPackage, readPluginPackages, MAX_MANIFEST_BYTES } from '../../../src/main/plugins/package';
+import { readPluginPackage, readPluginPackages, MAX_CONTRIBUTION_BYTES, MAX_MANIFEST_BYTES } from '../../../src/main/plugins/package';
 import type { PluginLoadError } from '../../../src/shared/plugins/format';
 
 const APP = '4.1.0';
@@ -69,6 +69,19 @@ describe('readPluginPackage (#2632)', () => {
     const r = await readPluginPackage(root, APP);
     expect(r.ok).toBe(false);
     expect(!r.ok && r.error).toMatchObject({ folder: 'lab', label: 'lab@1.0.0', problems: [expect.stringContaining('"inspections"')] });
+  });
+
+  it('refuses a contributed file over the size cap, a skill folder\'s SKILL.md included (#2655)', async () => {
+    const big = 'x'.repeat(MAX_CONTRIBUTION_BYTES + 1);
+    const root = plugin('lab', { skills: ['skills/big.md', 'skills/folder'] }, {
+      'skills/big.md': big,
+      'skills/folder/SKILL.md': big,
+    });
+    const found = (await problems(root)).join('\n');
+    expect(found).toMatch(/"skills\/big\.md" \(skills\) is 1\.0 MB; a contributed file may be at most 1 MB/);
+    expect(found).toMatch(/"skills\/folder" \(skills\)'s SKILL\.md is 1\.0 MB/);
+    const ok = plugin('lab2', { skills: ['skills/edge.md'] }, { 'skills/edge.md': 'x'.repeat(MAX_CONTRIBUTION_BYTES) });
+    expect(await problems(ok)).toEqual([]);
   });
 
   it('refuses a missing, unreadable-as-JSON, oversized or linked manifest', async () => {
