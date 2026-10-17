@@ -214,6 +214,12 @@ export interface ThinkingToolDef extends ThinkingToolMeta {
    * Mirrors the same field on `ConversationTemplate` (#514).
    */
   requiresTools?: import('../conversation-tools').ConversationToolKey[];
+  /**
+   * A plugin skill's MCP reach (#2649), from its `tools: [mcp:…]`: its
+   * conversation sees and calls only these servers / tools. Main-only — main
+   * reads it from the skill when the conversation is created.
+   */
+  mcpScope?: import('../mcp-servers').McpScope;
 }
 
 /**

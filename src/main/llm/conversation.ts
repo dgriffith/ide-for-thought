@@ -8,6 +8,7 @@ import { loadConfigFile, asRecord, asBool, asFiniteNumber } from '../config/conf
 import { withFileLock } from '../config/file-lock';
 import { writeJsonFileAtomic } from '../config/json-file';
 import { logger } from '../../shared/logger';
+import { getToolDef } from '../../shared/tools/registry';
 import type {
   Conversation,
   ConversationCreateOptions,
@@ -123,7 +124,13 @@ export async function create(
   if (options?.skillContext) conv.skillContext = options.skillContext;
   if (options?.model) conv.model = options.model;
   if (options?.webEnabled !== undefined) conv.webEnabled = options.webEnabled;
-  if (options?.skill) conv.skill = options.skill;
+  if (options?.skill) {
+    conv.skill = options.skill;
+    // A plugin skill's MCP reach (#2649), read from the skill itself in main:
+    // the renderer names the skill, it doesn't choose the scope.
+    const scope = getToolDef(options.skill.id)?.mcpScope;
+    if (scope) conv.mcpScope = scope;
+  }
 
   await persist(rootPath, conv);
   writeConversationToGraph(rootPath, conv);

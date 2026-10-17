@@ -3,9 +3,11 @@
   "name": "Word Tools",
   "version": "1.0.0",
   "minerva": ">=3.0.0",
-  "description": "An MCP server that counts words, and reports whether its API token is set.",
+  "description": "An MCP server that counts words, and reports whether its API token is set, with a skill that uses it.",
   "license": "MIT",
-  "contributes": {},
+  "contributes": {
+    "skills": ["skills/word-count.md"]
+  },
   "settings": {
     "apiToken": { "type": "secret", "title": "API token" },
     "greeting": { "type": "string", "default": "Hello" }

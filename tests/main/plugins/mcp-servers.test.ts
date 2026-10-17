@@ -43,6 +43,10 @@ import {
   updateServer,
 } from '../../../src/main/mcp-servers/registry';
 import { allowTool, configureMcpToolPermissionsPath, isToolAllowed } from '../../../src/main/mcp-servers/tool-permissions';
+import { getPluginScan } from '../../../src/main/plugins/registry';
+import { loadSkillCatalog } from '../../../src/main/skills/loader';
+import { compileSkill } from '../../../src/main/skills/compile';
+import { buildConversationTools, executeNotebaseTool } from '../../../src/main/llm/tools/registry';
 import { shutdownAllMcpClients } from '../../../src/main/mcp-client';
 
 silenceLogTags('plugins', 'secrets', 'mcp-confirm', 'mcp-servers');
@@ -211,5 +215,42 @@ describe('the Word Tools plugin\'s server, end to end (#2646)', () => {
     await setServerEnabled(ID, false);
     expect(await status()).toMatchObject({ enabled: false, status: 'disconnected' });
     expect((await loadPluginRecords(dir))['word-tools']?.mcpApproved).toBeUndefined();
+  });
+
+  describe('a plugin skill calls its own server\'s tools (#2649)', () => {
+    const scopeOfSkill = async () => {
+      const cat = await loadSkillCatalog(path.join(tmp, 'no-user-skills'), await getPluginScan());
+      expect(cat.errors).toEqual([]);
+      return compileSkill(cat.skills.find((s) => s.id === 'word-tools.word-count')!).mcpScope;
+    };
+
+    it('its tools: [mcp:words/count_words] scopes its conversation to that one tool', async () => {
+      expect(await scopeOfSkill()).toEqual({ 'word-tools.words': ['count_words'] });
+    });
+
+    it('the conversation\'s catalog lists only that tool; a normal conversation\'s lists them all', async () => {
+      await setServerEnabled(ID, true);
+      const mcpCallDescription = async (mcpScope?: Record<string, string[] | null>) =>
+        (await buildConversationTools({ mcpScope })).find((t) => t.name === 'mcp_call')?.description ?? '';
+      const scoped = await mcpCallDescription(await scopeOfSkill());
+      expect(scoped).toContain('word-tools.words/count_words');
+      expect(scoped).not.toContain('word-tools.words/greet');
+      const everything = await mcpCallDescription();
+      expect(everything).toContain('word-tools.words/greet');
+      // Scoped to a server that isn't running: no mcp_call at all.
+      expect((await buildConversationTools({ mcpScope: { 'other.server': null } })).some((t) => t.name === 'mcp_call')).toBe(false);
+    });
+
+    it('a call outside the scope is refused before it reaches the server; inside, the gates still hold', async () => {
+      await setServerEnabled(ID, true);
+      const ctx = { rootPath: tmp, mcpScope: (await scopeOfSkill())! };
+      const confirmMcpCall = vi.fn(async () => ({ allow: true as const, remember: false }));
+      const outside = await executeNotebaseTool(ctx, 'mcp_call', { server: 'word-tools.words', tool: 'greet', args: { name: 'Ada' } }, { confirmMcpCall });
+      expect(outside).toMatchObject({ isError: true });
+      expect(outside.content).toMatch(/refused word-tools\.words\/greet: .* only word-tools\.words\/count_words\. Nothing was sent/);
+      expect(confirmMcpCall).not.toHaveBeenCalled();
+      const inside = await executeNotebaseTool(ctx, 'mcp_call', { server: 'word-tools.words', tool: 'count_words', args: { text: 'a b c d' } });
+      expect(inside).toMatchObject({ content: '4', isError: false });
+    });
   });
 });

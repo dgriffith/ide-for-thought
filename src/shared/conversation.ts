@@ -173,6 +173,12 @@ export interface Conversation {
    */
   skill?: ConversationSkill;
   /**
+   * The MCP servers / tools this conversation may reach (#2649), set by main
+   * at creation from a plugin skill's `tools: [mcp:…]`. Absent: every
+   * connected server. Never taken from the renderer, which could only widen it.
+   */
+  mcpScope?: import('./mcp-servers').McpScope;
+  /**
    * Code-execution sandbox id returned by Anthropic when the model used a
    * `code_execution` server-side tool (which is how `web_search_20260209`
    * and `web_fetch_20260209` are wrapped). Every subsequent request whose

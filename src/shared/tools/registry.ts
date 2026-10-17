@@ -114,6 +114,7 @@ function toInfo(tool: ThinkingToolMeta): ThinkingToolInfo {
     buildFirstMessage: _f,
     buildUserContext: _u,
     requiresTools: _r,
+    mcpScope: _m,
     ...info
   } = tool as ThinkingToolDef;
   return info;
