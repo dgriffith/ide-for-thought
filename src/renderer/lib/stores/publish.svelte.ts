@@ -8,6 +8,11 @@
  * passthroughs; the dialogs keep their own view state.
  */
 import { api } from '../ipc/client';
+import { DEFAULT_PDF_PROFILE, isPdfProfile, type PdfProfile } from '../../../shared/export-pdf-profiles';
+
+// A PDF's style profile (#2429), remembered per thoughtbase on this machine:
+// a preference for how you like your exports, not something to share.
+const profileKey = (root: string) => `export-pdf-profile:${root}`;
 
 export function getPublishStore() {
   return {
@@ -18,5 +23,17 @@ export function getPublishStore() {
     upsertTarget: (target: Parameters<typeof api.publish.upsertTarget>[0]) =>
       api.publish.upsertTarget(target),
     removeTarget: (id: string) => api.publish.removeTarget(id),
+    /** The PDF style profile last used in this thoughtbase, or Notes. */
+    pdfProfileFor(root: string): PdfProfile {
+      try {
+        const saved = localStorage.getItem(profileKey(root));
+        return isPdfProfile(saved) ? saved : DEFAULT_PDF_PROFILE;
+      } catch {
+        return DEFAULT_PDF_PROFILE; // storage unavailable: the default, every time
+      }
+    },
+    rememberPdfProfile(root: string, profile: PdfProfile): void {
+      try { localStorage.setItem(profileKey(root), profile); } catch { /* storage unavailable: not remembered */ }
+    },
   };
 }

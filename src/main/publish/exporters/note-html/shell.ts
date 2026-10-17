@@ -35,6 +35,9 @@ export interface HtmlShellInput {
    * passes none and stays script-free.
    */
   scriptSrcs?: string[];
+  /** A PDF style profile's stylesheet and body class (#2429), after the base style. */
+  profileStyle?: string;
+  profileClass?: string;
 }
 
 export function wrapHtml(input: HtmlShellInput): string {
@@ -51,7 +54,8 @@ export function wrapHtml(input: HtmlShellInput): string {
   const styleBlock = input.stylesheetHref
     ? `<link rel="stylesheet" href="${escapeHtml(input.stylesheetHref)}">`
     : `<style>${NOTE_HTML_STYLE}</style>${katexInline}`;
-  const articleClass = input.sidebarHtml ? 'minerva-export with-sidebar' : 'minerva-export';
+  const profileBlock = input.profileStyle ? `<style>${input.profileStyle}</style>` : '';
+  const articleClass = [input.sidebarHtml ? 'minerva-export with-sidebar' : 'minerva-export', input.profileClass].filter(Boolean).join(' ');
   const sidebarPrefix = input.sidebarHtml ? `<aside class="bundle-nav">${input.sidebarHtml}</aside>` : '';
   const scripts = (input.scriptSrcs ?? []).map((src) => `\n  <script src="${escapeHtml(src)}" defer></script>`).join('');
   return `<!DOCTYPE html>
@@ -62,7 +66,7 @@ export function wrapHtml(input: HtmlShellInput): string {
   <title>${title}</title>
   <meta name="generator" content="Minerva">
   <meta name="minerva-export-version" content="1">
-  ${styleBlock}
+  ${styleBlock}${profileBlock}
 </head>
 <body class="${articleClass}">
   ${sidebarPrefix}

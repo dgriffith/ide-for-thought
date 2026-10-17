@@ -21,6 +21,7 @@ import { renderFootnotesSection } from './note-html';
 import { resolveRenderOptions, toPrintToPdfArgs } from './note-pdf/options';
 import { renderPdfFromHtml } from './note-pdf/electron-render';
 import { NOTE_HTML_STYLE } from './note-html/style';
+import { applyPdfProfile } from '../pdf-profiles';
 import type { Exporter, ExportOutput, ExportPlan, ExportPlanFile } from '../types';
 import { escapeHtml, escapeRegex } from '../../../shared/text-escape';
 import { slugifyId } from '../../../shared/slug';
@@ -94,21 +95,29 @@ export async function buildTreePdfHtml(plan: ExportPlan): Promise<BuildTreePdfHt
   <ol>${tocItems.join('')}</ol>
 </nav>`;
 
-  const chaptersHtml = chapters.map((c, idx) => (
-    `<section class="tree-pdf-chapter" id="${anchorFor(c.note, rootNote)}">
+  // A style profile (#2429) lays out each chapter; the tree keeps its own
+  // title page and contents, so no chapter gets a title block.
+  const profile = plan.pdfProfile ?? 'notes';
+  let profileStyle = '';
+  let profileClass = '';
+  const chaptersHtml = chapters.map((c, idx) => {
+    const laid = applyPdfProfile(profile, { title: c.note.title, frontmatter: c.note.frontmatter, body: c.html, titleBlock: false });
+    profileStyle = laid.style;
+    profileClass = laid.bodyClass;
+    return `<section class="tree-pdf-chapter" id="${anchorFor(c.note, rootNote)}">
   <header class="chapter-header"><span class="chapter-num">Chapter ${idx + 1}</span></header>
-  ${c.html}
-</section>`
-  )).join('\n');
+  ${laid.body}
+</section>`;
+  }).join('\n');
 
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <title>${escapeHtml(documentTitle)}</title>
-  <style>${NOTE_HTML_STYLE}${TREE_PDF_EXTRA_STYLE}</style>
+  <style>${NOTE_HTML_STYLE}${TREE_PDF_EXTRA_STYLE}${profileStyle}</style>
 </head>
-<body>
+<body${profileClass ? ` class="${profileClass}"` : ''}>
 <article>
 <section class="tree-pdf-title-page">
   <h1 class="document-title">${escapeHtml(documentTitle)}</h1>

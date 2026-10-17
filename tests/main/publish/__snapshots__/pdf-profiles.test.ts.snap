@@ -1,0 +1,709 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`through the exporters (#2429) > academic: the golden HTML, links and bibliography included 1`] = `
+"<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>On Growth</title>
+  <meta name="generator" content="Minerva">
+  <meta name="minerva-export-version" content="1">
+  <style>
+:root {
+  --fg: #1a1a1a;
+  --fg-muted: #4a4a4a;
+  --bg: #fcfcfc;
+  --accent: #0066cc;
+  --border: #e1e1e1;
+  --code-bg: #f5f5f5;
+  --code-border: #e5e5e5;
+  --quote-border: #d0d0d0;
+}
+* { box-sizing: border-box; }
+html { font-size: 16px; }
+body {
+  margin: 0;
+  padding: 48px 16px 96px;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+article { max-width: 72ch; margin: 0 auto; }
+h1, h2, h3, h4, h5, h6 {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  line-height: 1.25;
+  font-weight: 600;
+  margin: 2em 0 0.6em;
+}
+h1 { font-size: 2em; margin-top: 0; }
+h2 { font-size: 1.45em; border-bottom: 1px solid var(--border); padding-bottom: 0.2em; }
+h3 { font-size: 1.2em; }
+h4, h5, h6 { font-size: 1em; }
+p { margin: 0 0 1em; }
+a { color: var(--accent); text-decoration: underline; text-decoration-thickness: 0.06em; text-underline-offset: 0.15em; }
+a:hover { text-decoration-thickness: 0.12em; }
+strong { font-weight: 600; }
+em { font-style: italic; }
+.wikilink-unresolved { color: var(--fg-muted); font-style: italic; }
+blockquote {
+  margin: 1em 0;
+  padding: 0.3em 1.2em;
+  border-left: 3px solid var(--quote-border);
+  color: var(--fg-muted);
+}
+ul, ol { margin: 0 0 1em; padding-left: 1.5em; }
+li > p { margin: 0 0 0.4em; }
+hr { border: none; border-top: 1px solid var(--border); margin: 2em 0; }
+img { max-width: 100%; height: auto; display: block; margin: 1em auto; }
+code {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.9em;
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: 3px;
+  padding: 0.1em 0.4em;
+}
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: 4px;
+  padding: 0.8em 1em;
+  overflow-x: auto;
+  line-height: 1.5;
+}
+pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.9em;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1em 0;
+  font-size: 0.95em;
+}
+th, td { padding: 0.4em 0.8em; border: 1px solid var(--border); text-align: left; vertical-align: top; }
+th { background: var(--code-bg); font-weight: 600; }
+.footnote-ref {
+  font-size: 0.75em;
+  vertical-align: super;
+  line-height: 0;
+  margin-left: 0.1em;
+}
+.footnote-ref a { text-decoration: none; }
+.footnote-back {
+  margin-left: 0.4em;
+  text-decoration: none;
+  color: var(--accent);
+  font-size: 0.85em;
+}
+.footnote-back:hover { text-decoration: underline; }
+.footnotes {
+  margin-top: 3em;
+  padding-top: 1em;
+  border-top: 1px solid var(--border);
+  font-size: 0.9em;
+  color: var(--fg-muted);
+}
+.footnotes h2 {
+  border-bottom: none;
+  margin: 0 0 0.6em;
+  font-size: 1.15em;
+  color: var(--fg);
+}
+.footnotes ol { padding-left: 2em; }
+.footnotes li { margin-bottom: 0.4em; }
+.references {
+  margin-top: 3em;
+  padding-top: 1em;
+  border-top: 1px solid var(--border);
+  font-size: 0.95em;
+}
+.references h2 {
+  border-bottom: none;
+  margin: 0 0 0.6em;
+  font-size: 1.15em;
+}
+.references ol { padding-left: 1.5em; }
+.references li { margin-bottom: 0.6em; }
+.export-meta {
+  margin-top: 3em;
+  padding-top: 1em;
+  border-top: 1px solid var(--border);
+  color: var(--fg-muted);
+  font-size: 0.8em;
+  text-align: right;
+}
+/* Tree-html bundle: per-note "References →" footer link to references.html (#300). */
+.bundle-refs-link {
+  margin-top: 2em;
+  padding-top: 0.6em;
+  border-top: 1px solid var(--border);
+  font-size: 0.9em;
+  text-align: right;
+}
+.bundle-refs-link a { color: var(--accent); text-decoration: none; }
+.bundle-refs-link a:hover { text-decoration: underline; }
+
+/* highlight.js token styling — minimal light theme so code fences
+ * render readably without pulling an external stylesheet. */
+.hljs-comment, .hljs-quote { color: #7a8288; font-style: italic; }
+.hljs-keyword, .hljs-selector-tag, .hljs-addition { color: #8959a8; }
+.hljs-number, .hljs-literal, .hljs-variable, .hljs-template-variable, .hljs-tag .hljs-attr { color: #f5871f; }
+.hljs-string, .hljs-doctag, .hljs-link, .hljs-attribute { color: #718c00; }
+.hljs-title, .hljs-section, .hljs-name, .hljs-selector-id, .hljs-selector-class { color: #4271ae; }
+.hljs-type, .hljs-class .hljs-title { color: #c82829; }
+.hljs-symbol, .hljs-bullet, .hljs-built_in, .hljs-builtin-name { color: #3e999f; }
+.hljs-meta { color: #7a8288; }
+.hljs-deletion { color: #c82829; }
+
+@media print {
+  body { padding: 0; background: #fff; }
+  article { max-width: none; }
+  a { color: var(--fg); text-decoration: none; }
+  h1, h2, h3 { page-break-after: avoid; }
+  pre, blockquote, table, img { page-break-inside: avoid; }
+  .export-meta { display: none; }
+}
+
+.callout { --callout-color: #8a5a1c; margin: 1em 0; padding: 0.6em 0.9em; border-left: 3px solid var(--callout-color); border-radius: 4px; background: color-mix(in srgb, var(--callout-color) 7%, transparent); page-break-inside: avoid; }
+.callout-title { font-weight: 600; color: var(--callout-color); margin-bottom: 0.3em; }
+details.callout > summary.callout-title { cursor: pointer; }
+.callout-content > :first-child { margin-top: 0; }
+.callout-content > :last-child { margin-bottom: 0; }
+.callout-info, .callout-bug, .callout-example, .callout-abstract, .callout-summary { --callout-color: #6c5cb8; }
+.callout-tip, .callout-success { --callout-color: #4f7a5a; }
+.callout-warning, .callout-failure, .callout-danger { --callout-color: #b4532a; }
+.callout-quote, .callout-transcript { --callout-color: #777; }
+.callout-card { --callout-color: #a07a16; }
+.note-tag { display: inline-block; padding: 0 0.4em; border-radius: 999px; background: #efe9dc; color: #6b5a3a; font-size: 0.9em; text-decoration: none; }
+a.note-tag:hover { text-decoration: underline; }
+mark.hl { background: #fbe9a6; color: inherit; padding: 0 0.1em; border-radius: 2px; }
+mark.hl-yellow { background: #fbe9a6; }
+mark.hl-green { background: #cfe8cf; }
+mark.hl-blue { background: #cfe0f5; }
+mark.hl-pink { background: #f6d3e0; }
+mark.hl-orange { background: #f8dcc0; }
+</style><style>
+.doc-body h1, .doc-body h2, .doc-body h3, .doc-body h4 { break-after: avoid; page-break-after: avoid; }
+.doc-body p, .doc-body li { orphans: 3; widows: 3; }
+.doc-body figure, .doc-body img, .doc-body pre, .doc-body blockquote, .doc-body .callout { break-inside: avoid; page-break-inside: avoid; }
+.doc-body table { break-inside: auto; }
+.doc-body tr, .doc-body thead { break-inside: avoid; page-break-inside: avoid; }
+.doc-body thead { display: table-header-group; }
+.doc-title-block { text-align: center; margin: 0 0 2.4em; }
+.doc-title-block .doc-title { font-family: inherit; border-bottom: none; margin: 0 0 0.3em; }
+.doc-title-block .doc-meta { margin: 0; color: #555; font-style: italic; }
+.export-meta { display: none; }
+
+body.profile-academic {
+  font-family: "Times New Roman", Times, "Iowan Old Style", Georgia, serif;
+  font-size: 9.5pt;
+  line-height: 1.4;
+}
+.profile-academic article { max-width: none; }
+.profile-academic h1, .profile-academic h2, .profile-academic h3, .profile-academic h4 { font-family: inherit; }
+.profile-academic .doc-title-block { margin-bottom: 1.6em; }
+.profile-academic .doc-title-block .doc-title { font-size: 1.7em; }
+.profile-academic .doc-abstract { max-width: 80%; margin: 1.2em auto 0; text-align: justify; font-size: 0.95em; }
+.profile-academic .doc-abstract h2 { font-size: 1em; text-transform: uppercase; letter-spacing: 0.06em; border-bottom: none; text-align: center; margin: 0 0 0.4em; }
+.profile-academic .doc-body { column-count: 2; column-gap: 1.8em; text-align: justify; hyphens: auto; counter-reset: sec; }
+.profile-academic .doc-body h1, .profile-academic .doc-body h2 { font-size: 1.15em; border-bottom: none; margin: 1.2em 0 0.4em; counter-increment: sec; counter-reset: sub; }
+.profile-academic .doc-body h3 { font-size: 1em; counter-increment: sub; }
+.profile-academic .doc-body h1::before, .profile-academic .doc-body h2::before { content: counter(sec) ". "; }
+.profile-academic .doc-body h3::before { content: counter(sec) "." counter(sub) " "; }
+.profile-academic .doc-body .references h2::before, .profile-academic .doc-body .footnotes h2::before { content: none; }
+.profile-academic .doc-body .references, .profile-academic .doc-body .footnotes { column-span: all; text-align: left; }
+.profile-academic .doc-body img, .profile-academic .doc-body table, .profile-academic .doc-body pre { max-width: 100%; }
+.profile-academic .doc-body pre { font-size: 0.85em; white-space: pre-wrap; }
+</style>
+</head>
+<body class="minerva-export profile-academic">
+  
+  <article>
+<header class="doc-title-block">
+  <h1 class="doc-title">On Growth</h1>
+  <p class="doc-meta">Ada Lovelace · 2026-05-01</p>
+  <section class="doc-abstract"><h2>Abstract</h2><p>Trees grow, as (Smith, 2020) showed.</p></section>
+</header>
+<div class="doc-body">
+
+<h2 id="method">Method</h2>
+<p>We watched <em>other</em>.</p>
+
+<section class="references">
+<h2>References</h2>
+<ol>
+<li>  <div class="csl-entry">Smith, J. (2020). <i>On the Growth of Things</i>.</div>
+</li>
+</ol>
+</section>
+</div>
+    <footer class="export-meta">
+      <p>Exported from Minerva on <time>.</p>
+    </footer>
+  </article>
+</body>
+</html>
+"
+`;
+
+exports[`through the exporters (#2429) > essay: the golden HTML, links and bibliography included 1`] = `
+"<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>On Growth</title>
+  <meta name="generator" content="Minerva">
+  <meta name="minerva-export-version" content="1">
+  <style>
+:root {
+  --fg: #1a1a1a;
+  --fg-muted: #4a4a4a;
+  --bg: #fcfcfc;
+  --accent: #0066cc;
+  --border: #e1e1e1;
+  --code-bg: #f5f5f5;
+  --code-border: #e5e5e5;
+  --quote-border: #d0d0d0;
+}
+* { box-sizing: border-box; }
+html { font-size: 16px; }
+body {
+  margin: 0;
+  padding: 48px 16px 96px;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+article { max-width: 72ch; margin: 0 auto; }
+h1, h2, h3, h4, h5, h6 {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  line-height: 1.25;
+  font-weight: 600;
+  margin: 2em 0 0.6em;
+}
+h1 { font-size: 2em; margin-top: 0; }
+h2 { font-size: 1.45em; border-bottom: 1px solid var(--border); padding-bottom: 0.2em; }
+h3 { font-size: 1.2em; }
+h4, h5, h6 { font-size: 1em; }
+p { margin: 0 0 1em; }
+a { color: var(--accent); text-decoration: underline; text-decoration-thickness: 0.06em; text-underline-offset: 0.15em; }
+a:hover { text-decoration-thickness: 0.12em; }
+strong { font-weight: 600; }
+em { font-style: italic; }
+.wikilink-unresolved { color: var(--fg-muted); font-style: italic; }
+blockquote {
+  margin: 1em 0;
+  padding: 0.3em 1.2em;
+  border-left: 3px solid var(--quote-border);
+  color: var(--fg-muted);
+}
+ul, ol { margin: 0 0 1em; padding-left: 1.5em; }
+li > p { margin: 0 0 0.4em; }
+hr { border: none; border-top: 1px solid var(--border); margin: 2em 0; }
+img { max-width: 100%; height: auto; display: block; margin: 1em auto; }
+code {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.9em;
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: 3px;
+  padding: 0.1em 0.4em;
+}
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: 4px;
+  padding: 0.8em 1em;
+  overflow-x: auto;
+  line-height: 1.5;
+}
+pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.9em;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1em 0;
+  font-size: 0.95em;
+}
+th, td { padding: 0.4em 0.8em; border: 1px solid var(--border); text-align: left; vertical-align: top; }
+th { background: var(--code-bg); font-weight: 600; }
+.footnote-ref {
+  font-size: 0.75em;
+  vertical-align: super;
+  line-height: 0;
+  margin-left: 0.1em;
+}
+.footnote-ref a { text-decoration: none; }
+.footnote-back {
+  margin-left: 0.4em;
+  text-decoration: none;
+  color: var(--accent);
+  font-size: 0.85em;
+}
+.footnote-back:hover { text-decoration: underline; }
+.footnotes {
+  margin-top: 3em;
+  padding-top: 1em;
+  border-top: 1px solid var(--border);
+  font-size: 0.9em;
+  color: var(--fg-muted);
+}
+.footnotes h2 {
+  border-bottom: none;
+  margin: 0 0 0.6em;
+  font-size: 1.15em;
+  color: var(--fg);
+}
+.footnotes ol { padding-left: 2em; }
+.footnotes li { margin-bottom: 0.4em; }
+.references {
+  margin-top: 3em;
+  padding-top: 1em;
+  border-top: 1px solid var(--border);
+  font-size: 0.95em;
+}
+.references h2 {
+  border-bottom: none;
+  margin: 0 0 0.6em;
+  font-size: 1.15em;
+}
+.references ol { padding-left: 1.5em; }
+.references li { margin-bottom: 0.6em; }
+.export-meta {
+  margin-top: 3em;
+  padding-top: 1em;
+  border-top: 1px solid var(--border);
+  color: var(--fg-muted);
+  font-size: 0.8em;
+  text-align: right;
+}
+/* Tree-html bundle: per-note "References →" footer link to references.html (#300). */
+.bundle-refs-link {
+  margin-top: 2em;
+  padding-top: 0.6em;
+  border-top: 1px solid var(--border);
+  font-size: 0.9em;
+  text-align: right;
+}
+.bundle-refs-link a { color: var(--accent); text-decoration: none; }
+.bundle-refs-link a:hover { text-decoration: underline; }
+
+/* highlight.js token styling — minimal light theme so code fences
+ * render readably without pulling an external stylesheet. */
+.hljs-comment, .hljs-quote { color: #7a8288; font-style: italic; }
+.hljs-keyword, .hljs-selector-tag, .hljs-addition { color: #8959a8; }
+.hljs-number, .hljs-literal, .hljs-variable, .hljs-template-variable, .hljs-tag .hljs-attr { color: #f5871f; }
+.hljs-string, .hljs-doctag, .hljs-link, .hljs-attribute { color: #718c00; }
+.hljs-title, .hljs-section, .hljs-name, .hljs-selector-id, .hljs-selector-class { color: #4271ae; }
+.hljs-type, .hljs-class .hljs-title { color: #c82829; }
+.hljs-symbol, .hljs-bullet, .hljs-built_in, .hljs-builtin-name { color: #3e999f; }
+.hljs-meta { color: #7a8288; }
+.hljs-deletion { color: #c82829; }
+
+@media print {
+  body { padding: 0; background: #fff; }
+  article { max-width: none; }
+  a { color: var(--fg); text-decoration: none; }
+  h1, h2, h3 { page-break-after: avoid; }
+  pre, blockquote, table, img { page-break-inside: avoid; }
+  .export-meta { display: none; }
+}
+
+.callout { --callout-color: #8a5a1c; margin: 1em 0; padding: 0.6em 0.9em; border-left: 3px solid var(--callout-color); border-radius: 4px; background: color-mix(in srgb, var(--callout-color) 7%, transparent); page-break-inside: avoid; }
+.callout-title { font-weight: 600; color: var(--callout-color); margin-bottom: 0.3em; }
+details.callout > summary.callout-title { cursor: pointer; }
+.callout-content > :first-child { margin-top: 0; }
+.callout-content > :last-child { margin-bottom: 0; }
+.callout-info, .callout-bug, .callout-example, .callout-abstract, .callout-summary { --callout-color: #6c5cb8; }
+.callout-tip, .callout-success { --callout-color: #4f7a5a; }
+.callout-warning, .callout-failure, .callout-danger { --callout-color: #b4532a; }
+.callout-quote, .callout-transcript { --callout-color: #777; }
+.callout-card { --callout-color: #a07a16; }
+.note-tag { display: inline-block; padding: 0 0.4em; border-radius: 999px; background: #efe9dc; color: #6b5a3a; font-size: 0.9em; text-decoration: none; }
+a.note-tag:hover { text-decoration: underline; }
+mark.hl { background: #fbe9a6; color: inherit; padding: 0 0.1em; border-radius: 2px; }
+mark.hl-yellow { background: #fbe9a6; }
+mark.hl-green { background: #cfe8cf; }
+mark.hl-blue { background: #cfe0f5; }
+mark.hl-pink { background: #f6d3e0; }
+mark.hl-orange { background: #f8dcc0; }
+</style><style>
+.doc-body h1, .doc-body h2, .doc-body h3, .doc-body h4 { break-after: avoid; page-break-after: avoid; }
+.doc-body p, .doc-body li { orphans: 3; widows: 3; }
+.doc-body figure, .doc-body img, .doc-body pre, .doc-body blockquote, .doc-body .callout { break-inside: avoid; page-break-inside: avoid; }
+.doc-body table { break-inside: auto; }
+.doc-body tr, .doc-body thead { break-inside: avoid; page-break-inside: avoid; }
+.doc-body thead { display: table-header-group; }
+.doc-title-block { text-align: center; margin: 0 0 2.4em; }
+.doc-title-block .doc-title { font-family: inherit; border-bottom: none; margin: 0 0 0.3em; }
+.doc-title-block .doc-meta { margin: 0; color: #555; font-style: italic; }
+.export-meta { display: none; }
+
+body.profile-essay {
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  font-size: 11.5pt;
+  line-height: 1.55;
+}
+.profile-essay article { max-width: 65ch; }
+.profile-essay h1, .profile-essay h2, .profile-essay h3, .profile-essay h4 { font-family: inherit; }
+.profile-essay .doc-body h2 { border-bottom: none; font-size: 1.3em; margin-top: 1.8em; }
+.profile-essay .doc-title-block .doc-title { font-size: 2.1em; font-weight: normal; }
+.profile-essay .doc-body img { max-width: 100%; max-height: 60vh; object-fit: contain; }
+.profile-essay .doc-body p { hyphens: auto; }
+</style>
+</head>
+<body class="minerva-export profile-essay">
+  
+  <article>
+<header class="doc-title-block">
+  <h1 class="doc-title">On Growth</h1>
+  <p class="doc-meta">Ada Lovelace · 2026-05-01</p>
+</header>
+<div class="doc-body">
+<p>Trees grow, as (Smith, 2020) showed.</p>
+<h2 id="method">Method</h2>
+<p>We watched <em>other</em>.</p>
+
+<section class="references">
+<h2>References</h2>
+<ol>
+<li>  <div class="csl-entry">Smith, J. (2020). <i>On the Growth of Things</i>.</div>
+</li>
+</ol>
+</section>
+</div>
+    <footer class="export-meta">
+      <p>Exported from Minerva on <time>.</p>
+    </footer>
+  </article>
+</body>
+</html>
+"
+`;
+
+exports[`through the exporters (#2429) > notes: the golden HTML, links and bibliography included 1`] = `
+"<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>On Growth</title>
+  <meta name="generator" content="Minerva">
+  <meta name="minerva-export-version" content="1">
+  <style>
+:root {
+  --fg: #1a1a1a;
+  --fg-muted: #4a4a4a;
+  --bg: #fcfcfc;
+  --accent: #0066cc;
+  --border: #e1e1e1;
+  --code-bg: #f5f5f5;
+  --code-border: #e5e5e5;
+  --quote-border: #d0d0d0;
+}
+* { box-sizing: border-box; }
+html { font-size: 16px; }
+body {
+  margin: 0;
+  padding: 48px 16px 96px;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+article { max-width: 72ch; margin: 0 auto; }
+h1, h2, h3, h4, h5, h6 {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  line-height: 1.25;
+  font-weight: 600;
+  margin: 2em 0 0.6em;
+}
+h1 { font-size: 2em; margin-top: 0; }
+h2 { font-size: 1.45em; border-bottom: 1px solid var(--border); padding-bottom: 0.2em; }
+h3 { font-size: 1.2em; }
+h4, h5, h6 { font-size: 1em; }
+p { margin: 0 0 1em; }
+a { color: var(--accent); text-decoration: underline; text-decoration-thickness: 0.06em; text-underline-offset: 0.15em; }
+a:hover { text-decoration-thickness: 0.12em; }
+strong { font-weight: 600; }
+em { font-style: italic; }
+.wikilink-unresolved { color: var(--fg-muted); font-style: italic; }
+blockquote {
+  margin: 1em 0;
+  padding: 0.3em 1.2em;
+  border-left: 3px solid var(--quote-border);
+  color: var(--fg-muted);
+}
+ul, ol { margin: 0 0 1em; padding-left: 1.5em; }
+li > p { margin: 0 0 0.4em; }
+hr { border: none; border-top: 1px solid var(--border); margin: 2em 0; }
+img { max-width: 100%; height: auto; display: block; margin: 1em auto; }
+code {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.9em;
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: 3px;
+  padding: 0.1em 0.4em;
+}
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: 4px;
+  padding: 0.8em 1em;
+  overflow-x: auto;
+  line-height: 1.5;
+}
+pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.9em;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1em 0;
+  font-size: 0.95em;
+}
+th, td { padding: 0.4em 0.8em; border: 1px solid var(--border); text-align: left; vertical-align: top; }
+th { background: var(--code-bg); font-weight: 600; }
+.footnote-ref {
+  font-size: 0.75em;
+  vertical-align: super;
+  line-height: 0;
+  margin-left: 0.1em;
+}
+.footnote-ref a { text-decoration: none; }
+.footnote-back {
+  margin-left: 0.4em;
+  text-decoration: none;
+  color: var(--accent);
+  font-size: 0.85em;
+}
+.footnote-back:hover { text-decoration: underline; }
+.footnotes {
+  margin-top: 3em;
+  padding-top: 1em;
+  border-top: 1px solid var(--border);
+  font-size: 0.9em;
+  color: var(--fg-muted);
+}
+.footnotes h2 {
+  border-bottom: none;
+  margin: 0 0 0.6em;
+  font-size: 1.15em;
+  color: var(--fg);
+}
+.footnotes ol { padding-left: 2em; }
+.footnotes li { margin-bottom: 0.4em; }
+.references {
+  margin-top: 3em;
+  padding-top: 1em;
+  border-top: 1px solid var(--border);
+  font-size: 0.95em;
+}
+.references h2 {
+  border-bottom: none;
+  margin: 0 0 0.6em;
+  font-size: 1.15em;
+}
+.references ol { padding-left: 1.5em; }
+.references li { margin-bottom: 0.6em; }
+.export-meta {
+  margin-top: 3em;
+  padding-top: 1em;
+  border-top: 1px solid var(--border);
+  color: var(--fg-muted);
+  font-size: 0.8em;
+  text-align: right;
+}
+/* Tree-html bundle: per-note "References →" footer link to references.html (#300). */
+.bundle-refs-link {
+  margin-top: 2em;
+  padding-top: 0.6em;
+  border-top: 1px solid var(--border);
+  font-size: 0.9em;
+  text-align: right;
+}
+.bundle-refs-link a { color: var(--accent); text-decoration: none; }
+.bundle-refs-link a:hover { text-decoration: underline; }
+
+/* highlight.js token styling — minimal light theme so code fences
+ * render readably without pulling an external stylesheet. */
+.hljs-comment, .hljs-quote { color: #7a8288; font-style: italic; }
+.hljs-keyword, .hljs-selector-tag, .hljs-addition { color: #8959a8; }
+.hljs-number, .hljs-literal, .hljs-variable, .hljs-template-variable, .hljs-tag .hljs-attr { color: #f5871f; }
+.hljs-string, .hljs-doctag, .hljs-link, .hljs-attribute { color: #718c00; }
+.hljs-title, .hljs-section, .hljs-name, .hljs-selector-id, .hljs-selector-class { color: #4271ae; }
+.hljs-type, .hljs-class .hljs-title { color: #c82829; }
+.hljs-symbol, .hljs-bullet, .hljs-built_in, .hljs-builtin-name { color: #3e999f; }
+.hljs-meta { color: #7a8288; }
+.hljs-deletion { color: #c82829; }
+
+@media print {
+  body { padding: 0; background: #fff; }
+  article { max-width: none; }
+  a { color: var(--fg); text-decoration: none; }
+  h1, h2, h3 { page-break-after: avoid; }
+  pre, blockquote, table, img { page-break-inside: avoid; }
+  .export-meta { display: none; }
+}
+
+.callout { --callout-color: #8a5a1c; margin: 1em 0; padding: 0.6em 0.9em; border-left: 3px solid var(--callout-color); border-radius: 4px; background: color-mix(in srgb, var(--callout-color) 7%, transparent); page-break-inside: avoid; }
+.callout-title { font-weight: 600; color: var(--callout-color); margin-bottom: 0.3em; }
+details.callout > summary.callout-title { cursor: pointer; }
+.callout-content > :first-child { margin-top: 0; }
+.callout-content > :last-child { margin-bottom: 0; }
+.callout-info, .callout-bug, .callout-example, .callout-abstract, .callout-summary { --callout-color: #6c5cb8; }
+.callout-tip, .callout-success { --callout-color: #4f7a5a; }
+.callout-warning, .callout-failure, .callout-danger { --callout-color: #b4532a; }
+.callout-quote, .callout-transcript { --callout-color: #777; }
+.callout-card { --callout-color: #a07a16; }
+.note-tag { display: inline-block; padding: 0 0.4em; border-radius: 999px; background: #efe9dc; color: #6b5a3a; font-size: 0.9em; text-decoration: none; }
+a.note-tag:hover { text-decoration: underline; }
+mark.hl { background: #fbe9a6; color: inherit; padding: 0 0.1em; border-radius: 2px; }
+mark.hl-yellow { background: #fbe9a6; }
+mark.hl-green { background: #cfe8cf; }
+mark.hl-blue { background: #cfe0f5; }
+mark.hl-pink { background: #f6d3e0; }
+mark.hl-orange { background: #f8dcc0; }
+</style>
+</head>
+<body class="minerva-export">
+  
+  <article>
+<h1 id="on-growth">On Growth</h1>
+<p>Trees grow, as (Smith, 2020) showed.</p>
+<h2 id="method">Method</h2>
+<p>We watched <em>other</em>.</p>
+
+<section class="references">
+<h2>References</h2>
+<ol>
+<li>  <div class="csl-entry">Smith, J. (2020). <i>On the Growth of Things</i>.</div>
+</li>
+</ol>
+</section>
+    <footer class="export-meta">
+      <p>Exported from Minerva on <time>.</p>
+    </footer>
+  </article>
+</body>
+</html>
+"
+`;

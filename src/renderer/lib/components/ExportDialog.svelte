@@ -11,6 +11,8 @@
   import { getPublishStore } from '../stores/publish.svelte';
   import type { ExportPreviewPlan, ExporterInfo } from '../ipc/client';
   import Dialog from './ui/Dialog.svelte';
+  import PdfProfileField from './PdfProfileField.svelte';
+  import { getNotebaseStore } from '../stores/notebase.svelte';
 
   const publish = getPublishStore();
 
@@ -46,6 +48,9 @@
   let linkPolicy = $state<LinkPolicy>('inline-title');
   let citationStyle = $state<string>('apa');
   let citationLocale = $state<string>('en-US');
+  // A PDF's style profile (#2429), remembered per thoughtbase.
+  const root = getNotebaseStore().meta?.rootPath ?? '';
+  let pdfProfile = $state(publish.pdfProfileFor(root));
   let plan = $state<ExportPreviewPlan | null>(null);
   let loading = $state(false);
   let exporting = $state(false);
@@ -187,7 +192,9 @@
         citationLocale,
         forceInclude: [...overrides],
         forceExclude: [...deselections],
+        ...(group === 'pdf' ? { pdfProfile } : {}),
       });
+      if (group === 'pdf') publish.rememberPdfProfile(root, pdfProfile);
       if (result === null) return; // user cancelled the directory picker
       onExported(result);
     } catch (e) {
@@ -279,6 +286,8 @@
         </div>
       </div>
     {/if}
+
+    {#if group === 'pdf'}<PdfProfileField bind:value={pdfProfile} />{/if}
 
     <div class="option-row">
       <label for="link-policy">Link handling</label>

@@ -380,6 +380,7 @@ export interface ChannelMap {
     citationLocale?: string;
     forceInclude?: string[];
     forceExclude?: string[];
+    pdfProfile?: string;
   }) => { filesWritten: number; summary: string; outputDir: string; writtenPaths: string[] } | null;
   'publish:liveBlocksRendered': (requestId: string, results: LiveBlockResult[]) => void;
   'publish:listTargets': () => PublishTarget[];

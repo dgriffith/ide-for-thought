@@ -130,6 +130,11 @@ export interface ExportPlan {
    */
   paged?: boolean | undefined;
   /**
+   * How a PDF is typeset (#2429): set by `runExport` from the dialog's choice,
+   * applied by note-html when `paged` and by the tree PDF. Absent → Notes.
+   */
+  pdfProfile?: import('../../shared/export-pdf-profiles').PdfProfile | undefined;
+  /**
    * Every note a wiki-link can name, and the alias map — what the app
    * resolves links against (#2518). Set by `resolvePlan` from the graph;
    * absent → resolution falls back to the exported notes and their aliases.

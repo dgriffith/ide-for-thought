@@ -15,6 +15,7 @@ import { getExporter } from './registry';
 import { resolvePlan, runExporter } from './pipeline';
 import type { ExportInput, LinkPolicy, AssetPolicy } from './types';
 import type { LiveBlockRenderer } from './live-blocks';
+import { isPdfProfile } from '../../shared/export-pdf-profiles';
 
 export interface RunExportInput {
   exporterId: string;
@@ -37,6 +38,8 @@ export interface RunExportInput {
    * dialog's Including list (#293). Force-excluded from the export.
    */
   forceExclude?: string[];
+  /** A PDF exporter's style profile (#2429); others ignore it. Absent or unknown → Notes. */
+  pdfProfile?: string;
 }
 
 export interface RunExportResult {
@@ -79,6 +82,7 @@ export async function runExport(
     outputDir: args.outputDir,
   });
   plan.renderLiveBlocks = deps.renderLiveBlocks;
+  if (isPdfProfile(args.pdfProfile)) plan.pdfProfile = args.pdfProfile;
   const output = await runExporter(exporter, plan);
 
   const absOutputDir = path.resolve(args.outputDir);
