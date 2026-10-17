@@ -48,6 +48,7 @@ import { emitGraphChanged } from '../graph-events';
 import { rethrowIfTrustGuard } from '../write-guard';
 import { getHeadings, setHeadings, setFrontmatterKeys, forgetNote } from '../note-caches';
 import { registerNotePath, setNoteAliases, forgetNotePath, rebuildAliasMap } from '../note-index';
+import { vocabularyPrefixes } from '../user-ontology';
 
 /**
  * Aliases that contain wiki-link metacharacters can't be expressed as
@@ -365,6 +366,8 @@ async function indexNoteImpl(
 
   // Frontmatter → triples. `title` (already used as the note title) and
   // `tags` (handled above) are skipped here so they don't double-emit.
+  // A declared property's `predicate:` may name an imported vocabulary's term (#2792).
+  const prefixes = vocabularyPrefixes(ctx);
   for (const [key, value] of Object.entries(parsed.frontmatter)) {
     // `title`/`tags` handled above; `publish` is a nested block of static-site
     // publishing directives (#1136) — a publication concern, kept out of the
@@ -375,7 +378,7 @@ async function indexNoteImpl(
     // else stays a scalar edge under the key's predicate. A declared property's
     // type drives datatype coercion (#1063).
     const declaredProp = declaredProps?.get(key);
-    emitFrontmatterValue(state, store, subject, declaredPropertyPredicate(key, declaredProp), value, graph, linkCtx, 0, declaredProp?.type);
+    emitFrontmatterValue(state, store, subject, declaredPropertyPredicate(key, declaredProp, prefixes), value, graph, linkCtx, 0, declaredProp?.type);
   }
 
   // Embedded turtle blocks — parse into the note's named graph

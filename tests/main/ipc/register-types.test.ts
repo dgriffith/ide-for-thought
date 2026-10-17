@@ -44,6 +44,7 @@ const h = vi.hoisted(() => ({
   getNoteTypedProperties: vi.fn(),
   getTypeInstances: vi.fn(),
   getNoteTypeMap: vi.fn(),
+  typeMappingProblems: vi.fn((): unknown[] => []),
   reloadTypeCatalog: vi.fn(),
   /** Call-order log — the catalog reload has to follow the write. */
   order: [] as string[],
@@ -79,6 +80,7 @@ vi.mock('../../../src/main/graph/index', () => ({
   getNoteTypedProperties: h.getNoteTypedProperties,
   getTypeInstances: h.getTypeInstances,
   getNoteTypeMap: h.getNoteTypeMap,
+  typeMappingProblems: (...a: unknown[]) => h.typeMappingProblems(...a),
   reloadTypeCatalog: (...a: unknown[]) => { h.order.push('reloadTypeCatalog'); return h.reloadTypeCatalog(...a); },
 }));
 vi.mock('../../../src/main/project-context-types', () => ({
@@ -124,6 +126,16 @@ describe('the reads answer an empty project and no project identically', () => {
     expect(withoutProject).toEqual(withProject);
     expect(withoutProject).toEqual({ types: [], errors: [] });
     expect(h.loadTypeCatalog).toHaveBeenCalledTimes(1); // never reached without a project
+  });
+
+  it('TYPES_LIST: a mapping onto a prefix nobody declares joins the catalog\'s errors (#2792)', async () => {
+    const problem = { source: 'user', filePath: '/tb/.minerva/types/s.md', label: 'Specimen', message: 'externalClass "lab:Sample": …' };
+    const catalog = { types: [], errors: [{ source: 'user', filePath: '/tb/.minerva/types/bad.md', label: 'bad', message: 'invalid YAML' }] };
+    h.loadTypeCatalog.mockResolvedValue(catalog);
+    h.typeMappingProblems.mockReturnValueOnce([problem]);
+    const r = await call(Channels.TYPES_LIST) as { errors: unknown[] };
+    expect(r.errors).toEqual([...catalog.errors, problem]);
+    expect(h.typeMappingProblems).toHaveBeenCalledWith(expect.objectContaining({ rootPath: expect.any(String) }), catalog);
   });
 
   it('TYPES_NOTE_PROPERTIES: an untyped note and no project both answer `{ type: null, properties: [] }`', async () => {

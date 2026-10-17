@@ -23,10 +23,11 @@
  * rebuild, so they never go stale.
  */
 import * as $rdf from 'rdflib';
-import { MINERVA, RDF, RDFS, TYPES, resolveStandardCurie } from '../state';
+import { MINERVA, RDF, RDFS, TYPES, resolveCurie } from '../state';
 import type { TypeCatalog } from '../../../shared/objects/type-def';
 
-export function materializeTypeClasses(store: $rdf.IndexedFormula, catalog: TypeCatalog): void {
+/** `prefixes`: the thoughtbase's imported vocabularies', so an `externalClass` may name their terms (#2792). */
+export function materializeTypeClasses(store: $rdf.IndexedFormula, catalog: TypeCatalog, prefixes: readonly { prefix: string; iri: string }[] = []): void {
   const byId = new Map(catalog.types.map((t) => [t.id, t]));
   for (const t of catalog.types) {
     const cls = TYPES(t.classLocalName);
@@ -52,7 +53,7 @@ export function materializeTypeClasses(store: $rdf.IndexedFormula, catalog: Type
     // way). A class can carry both a Minerva `parent` and an `externalClass`
     // at once — multiple `subClassOf` values on one class is standard RDF.
     if (t.externalClass) {
-      const external = resolveStandardCurie(t.externalClass);
+      const external = resolveCurie(t.externalClass, prefixes);
       if (external) store.add(cls, RDFS('subClassOf'), external);
     }
   }

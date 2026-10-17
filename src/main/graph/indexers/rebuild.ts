@@ -46,7 +46,7 @@ import { indexNote, isAliasNameValid, rebuildAliasMap } from './note';
 import ONTOLOGY_TTL from '../../../shared/ontology.ttl?raw';
 import THOUGHT_ONTOLOGY_TTL from '../../../shared/ontology-thought.ttl?raw';
 import { clearNoteCaches } from '../note-caches';
-import { applyVocabularies, loadVocabularies } from '../user-ontology';
+import { applyVocabularies, loadVocabularies, vocabularyPrefixes } from '../user-ontology';
 import { clearNoteIndex, registerNotePath, setNoteAliases } from '../note-index';
 
 /**
@@ -59,7 +59,7 @@ export async function reloadTypeCatalog(ctx: ProjectContext): Promise<void> {
   const state = getState(ctx);
   if (!state) return;
   state.typeCatalog = await loadTypeCatalog(state.rootPath);
-  materializeTypeClasses(state.store, state.typeCatalog);
+  materializeTypeClasses(state.store, state.typeCatalog, vocabularyPrefixes(ctx));
   // A new, renamed or deleted type changes what views of it show (#2742).
   emitGraphChanged(ctx.rootPath);
 }
@@ -202,7 +202,7 @@ export async function indexAllNotes(ctx: ProjectContext, opts?: IndexAllNotesOpt
   // `type:` frontmatter can resolve to a registered class below and the graph
   // knows the classes exist. Reloaded on every full rebuild.
   state.typeCatalog = await loadTypeCatalog(rootPath);
-  materializeTypeClasses(state.store, state.typeCatalog);
+  materializeTypeClasses(state.store, state.typeCatalog, vocabularyPrefixes(ctx));
   // The extension catalog lives in the store too, so the reset dropped it (#2618).
   rematerializeExtensionCatalog(ctx);
 
