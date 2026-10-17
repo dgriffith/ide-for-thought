@@ -5,11 +5,11 @@ epic (#1145 → #1149). It reuses the exact `ctx`-based core the app uses (that
 core is Electron-free), so an external agent or a shell script can query your
 knowledge graph and notes without the app running.
 
-> **Status: read + propose.** Eleven commands — `query`, `sql`, `search`, `grep`,
+> **Status: read + propose.** Twelve commands — `query`, `sql`, `search`, `grep`,
 > `semantic`, `read`, `context`, `propose-note`, `mcp` (a stdio MCP server
 > exposing the rest to agent clients), `eval` (a development harness for
-> skill prompts), and `plugin new` (a starting point for a plugin with an MCP
-> server). Proposals go through the approval gate — they never touch the
+> skill prompts), `plugin new` (a starting point for a plugin with an MCP
+> server) and `plugin check` (put a plugin through what Minerva does with it). Proposals go through the approval gate — they never touch the
 > vault until a human approves them in Minerva.
 
 ## Build & run
@@ -37,12 +37,13 @@ repo's `node_modules` at runtime — no separate install.
 | `propose-note <path>` | File a new note (body on **stdin**) as a pending proposal (`--by <id>`) | `{ status, proposalUri, … }` |
 | `mcp` | Start a stdio MCP server exposing the read + propose tools — see *MCP server* | JSON-RPC 2.0 on stdio |
 | `eval <case-dir>…` | Package a skill's prompt exactly as Minerva does, into each case's `output/` (`--all`, `--live`) — see *Skill eval* | `[{ case, skill, model, outputMode }]` |
+| `plugin check <folder>` | Check a plugin: manifest, install, each contribution loaded and run against fixture thoughtbases (a hostile one too), its MCP servers (`--run-servers`), and a clean removal (`--thoughtbase <path>`…) — see *Plugin check* | `{ folder, plugin, ok, items[] }`; exit 1 on a failure |
 | `plugin new <id>` | Make a plugin folder with a working stdio MCP server, a skill that uses it and a test (`--mcp node\|python`, `--name`, `--dir`) — see *Plugin scaffold* | `{ folder, files, next }` |
 
 Global options: `--project <path>` (thoughtbase root, default: cwd), `--limit <n>`,
 `--help`. Per-command flags: `--regex` / `--case-sensitive` (`grep`), `--by <id>`
 (`propose-note`), `--all` / `--live` (`eval`), `--mcp` / `--name` / `--dir`
-(`plugin new`). `minerva --help` prints the same
+(`plugin new`), `--thoughtbase` / `--run-servers` (`plugin check`). `minerva --help` prints the same
 surface from the `HELP` block in `src/cli/run.ts`, which is the source of truth
 for this table.
 
@@ -243,6 +244,25 @@ it into `~/.minerva/plugins/<id>`), then switch its server on in Settings → MC
 Servers. The templates are `src/main/plugins/scaffold-templates/`, bundled into
 the CLI; `tests/main/plugins/scaffold.test.ts` installs each one, connects to its
 server with Minerva's own MCP client and runs its test.
+
+## Plugin check
+
+`minerva plugin check <folder> [--thoughtbase <path>]… [--run-servers]` (#2654)
+puts a plugin through what Minerva would do with it, in a scratch folder, and
+reports each part as `pass`, `warn`, `fail` or `skip`, by stage:
+
+| Stage | What's checked |
+|---|---|
+| `package` | the manifest and the whole-folder check Settings → Plugins runs, then a real install into a scratch plugins folder (a link inside it fails here) |
+| `contributions` | each file is in its registry (skills, types, saved queries, templates, CSL, themes) with this plugin as its source, or the registry's reason it isn't |
+| `thoughtbases` | against a tidy and a hostile fixture thoughtbase, and a copy of each `--thoughtbase`: every skill renders for every note with the note's text only in the user turn; every type indexes and types a note that uses it; every saved query runs, and an SQL one reading past the registered tables is a `warn` (#2442) |
+| `mcp` | with `--run-servers`, each server started and its tools listed, read-only or asking first. Without it, `skip`: starting one runs the plugin's code |
+| `uninstall` | removing it leaves nothing in any registry, the graph, the MCP list, the plugins folder or its settings |
+
+It writes nothing in `~/.minerva/`, and a thoughtbase you name is only copied.
+The exit code is 1 when any item fails. Minerva's CI runs it over every worked
+example in `tests/fixtures/plugins/` and over fresh scaffolds
+(`tests/main/plugin-check/examples.test.ts`).
 
 ## Exit codes
 

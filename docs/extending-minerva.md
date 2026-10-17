@@ -72,6 +72,10 @@ the window.
   `--mcp python`) makes a plugin with a working server, a skill scoped to its
   tools and a test; see [the CLI](cli.md#plugin-scaffold).
 
+Before you install one, `minerva plugin check <folder>` puts it through what
+Minerva does with it and says what would fail; see
+[the CLI](cli.md#plugin-check).
+
 Whichever way you go, the same rules hold. A plugin can't shadow a built-in or
 one of your own. Nothing runs code inside Minerva. Anything the assistant
 writes to your notes is a proposal you approve.

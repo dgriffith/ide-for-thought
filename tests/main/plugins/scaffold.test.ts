@@ -172,7 +172,7 @@ describe('minerva plugin new (#2650)', () => {
   });
 
   it.each([
-    [['plugin'], /the only subcommand is/],
+    [['plugin'], /the subcommands are/],
     [['plugin', 'new'], /pass one plugin id/],
     [['plugin', 'new', 'a', 'b', '--mcp', 'node'], /pass one plugin id/],
     [['plugin', 'new', 'a'], /--mcp must be node or python/],

@@ -417,6 +417,15 @@ export default defineConfig({
           statements: 85,
           branches: 77,
         },
+        // plugin-check ~94.8 L / 81.6 F / 86.5 S / 63.9 B: `minerva plugin
+        // check` (#2654). Most uncovered branches are the "couldn't read it"
+        // arms of the residue scan. Two files, so ~8 points of headroom.
+        'src/main/plugin-check/**': {
+          lines: 86,
+          functions: 72,
+          statements: 78,
+          branches: 55,
+        },
         // extensions ~99.1 L / 100 F / 98.5 S / 90.2 B (#2652): checking a
         // drafted skill or plugin, and saving it once the user says so. Two
         // files, so ~8 points of headroom.

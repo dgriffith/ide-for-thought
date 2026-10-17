@@ -57,12 +57,20 @@ export function enablePlugins(opts: { appVersion: string; dir?: string }): void 
   cached = null;
 }
 
-/** Back to no plugins — tests only. */
-export function _disablePluginsForTests(): void {
+/** Back to no plugins: `minerva plugin check` when it's done (#2654), and tests. */
+export function disablePlugins(): void {
   config = null;
   cached = null;
   loaded = EMPTY;
   version += 1;
+}
+
+/** Back to no plugins — tests only. */
+export const _disablePluginsForTests = disablePlugins;
+
+/** Whether plugin loading is on: in the running app, or during a check. */
+export function pluginsEnabled(): boolean {
+  return config !== null;
 }
 
 /**
