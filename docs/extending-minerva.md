@@ -19,7 +19,7 @@ need:
 | **query view** | A saved SPARQL or SQL query, or a note template | You want to see or start something the same way each time |
 | **plugin** | A folder bundling any of the above, per machine ([authoring plugins](authoring-plugins.md)) | Several pieces belong together, or you want them in every thoughtbase |
 | **mcp** | An MCP server a plugin ships: code, out of process | It needs code: an outside API, a file format, a real computation |
-| **source** | Changing Minerva itself | Nothing above can reach it |
+| **source** | Changing Minerva itself, or forking it ([forking](forking.md)) | Nothing above can reach it |
 
 Most requests stop at a skill or a type. Code is the second-to-last rung, not
 the first.
