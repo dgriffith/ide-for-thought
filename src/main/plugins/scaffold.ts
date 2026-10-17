@@ -17,6 +17,7 @@ import path from 'node:path';
 import { PLUGIN_MANIFEST } from '../../shared/plugins/format';
 import semver from 'semver';
 import { validatePluginManifest } from './manifest';
+import { writeDraftFiles } from './draft-files';
 
 export const SCAFFOLD_RUNTIMES = ['node', 'python'] as const;
 export type ScaffoldRuntime = (typeof SCAFFOLD_RUNTIMES)[number];
@@ -111,15 +112,10 @@ export async function writeScaffold(parent: string, opts: ScaffoldOptions): Prom
   const folder = path.join(parent, opts.id);
   await fs.mkdir(parent, { recursive: true });
   try {
-    await fs.mkdir(folder, { recursive: false });
+    await writeDraftFiles(folder, [...files].map(([p, content]) => ({ path: p, content })));
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code === 'EEXIST') throw new ScaffoldRefusal(`${folder} already exists; pick another id or folder.`, { cause: e });
     throw e;
-  }
-  for (const [rel, text] of files) {
-    const target = path.join(folder, ...rel.split('/'));
-    await fs.mkdir(path.dirname(target), { recursive: true });
-    await fs.writeFile(target, text, { flag: 'wx' });
   }
   return { folder, files: [...files.keys()] };
 }

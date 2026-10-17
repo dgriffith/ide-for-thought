@@ -28,7 +28,7 @@ function pluginContext(skill: SkillDef): SkillRenderContext['plugin'] {
   return plugin ? { settings: pluginSettingsForTemplates(activePluginsDir(), plugin.manifest) } : null;
 }
 
-const CONVERSATION_TOOL_KEYS: readonly ConversationToolKey[] = ['ask_user'];
+const CONVERSATION_TOOL_KEYS: readonly ConversationToolKey[] = ['ask_user', 'offer_extension_draft'];
 
 export function compileSkill(skill: SkillDef): ThinkingToolDef {
   // `note`-type params carry a thoughtbase path + note text (#2438).
@@ -49,7 +49,7 @@ export function compileSkill(skill: SkillDef): ThinkingToolDef {
   };
 
   // `tools:` is, for now, the set of opt-in conversation tools the skill wants
-  // on top of the default set (only `ask_user` exists today). Unknown entries
+  // on top of the default set (`ask_user`, `offer_extension_draft`). Unknown entries
   // are dropped — full per-skill tool restriction is a later concern, and the
   // non-regression default (omit = full default set) holds.
   const requiresTools = skill.tools.filter(

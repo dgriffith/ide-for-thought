@@ -417,6 +417,15 @@ export default defineConfig({
           statements: 85,
           branches: 77,
         },
+        // extensions ~99.1 L / 100 F / 98.5 S / 90.2 B (#2652): checking a
+        // drafted skill or plugin, and saving it once the user says so. Two
+        // files, so ~8 points of headroom.
+        'src/main/extensions/**': {
+          lines: 91,
+          functions: 92,
+          statements: 90,
+          branches: 82,
+        },
         // mcp-servers ~98 L / 94.6 F / 96.6 S / 90.2 B (the registry + config
         // store behind the MCP client above).
         'src/main/mcp-servers/**': {

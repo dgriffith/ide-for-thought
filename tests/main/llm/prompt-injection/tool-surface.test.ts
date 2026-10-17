@@ -114,6 +114,13 @@ describe('LLM tool surface: read, draft or propose — nothing else (#2373)', ()
     const src = fs.readFileSync(path.join(TOOLS_DIR, site), 'utf-8')
       .replace(/\/\*[\s\S]*?\*\//g, '')
       .replace(/^\s*\/\/.*$/gm, '');
+    if (guard === 'draftPath') {
+      // A drafted extension's own paths (#2652): checked by draft-check, which
+      // must run every one through draftPathProblem.
+      expect(src).toMatch(/\bcheckExtensionDraft\s*\(/);
+      expect(fs.readFileSync(path.join(REPO, 'src/main/extensions/draft-check.ts'), 'utf-8')).toMatch(/\bdraftPathProblem\(file\.path\)/);
+      return;
+    }
     const calls = guard === 'agentPath' ? /\bagentPath(Problem)?\s*\(/ : /\bbareSourceId\s*\(/;
     expect(src).toMatch(/from '\.\/agent-path'/);
     expect(src).toMatch(calls);

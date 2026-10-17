@@ -44,6 +44,7 @@
       case 'zip': return `From ${src.name}`;
       case 'git': return `From ${src.url}${src.ref ? ` #${src.ref}` : ''} at ${src.commit.slice(0, 7)}`;
       case 'manual': return 'Put in the plugins folder by hand';
+      case 'draft': return 'Drafted in a conversation';
     }
   }
 

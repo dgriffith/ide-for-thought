@@ -125,13 +125,13 @@ describe('formatToolCall', () => {
   });
 
   it('gives every tool the model can call a sentence of its own, never the name-based fallback', () => {
-    const names = [...Object.keys(NOTEBASE_TOOL_REGISTRY), 'ask_user', 'web_search', 'web_fetch', 'code_execution'];
+    const names = [...Object.keys(NOTEBASE_TOOL_REGISTRY), 'ask_user', 'offer_extension_draft', 'web_search', 'web_fetch', 'code_execution'];
     const fallingBack = names.filter((n) => formatToolCall(n, {}) === `⚙️ ${humanizeToolName(n)}`);
     expect(fallingBack, 'add a case to formatToolCall for each').toEqual([]);
   });
 
   it('never shows a snake_case tool name, a brace or a backtick, for any tool', () => {
-    const names = [...Object.keys(NOTEBASE_TOOL_REGISTRY), 'ask_user', 'code_execution'];
+    const names = [...Object.keys(NOTEBASE_TOOL_REGISTRY), 'ask_user', 'offer_extension_draft', 'code_execution'];
     for (const n of names) {
       const line = formatToolCall(n, { code: 'print(1)', sparql: 'SELECT ?s {}', sql: 'SELECT 1' });
       expect(line, n).not.toMatch(/[a-z]+_[a-z]+|[{}`]/);

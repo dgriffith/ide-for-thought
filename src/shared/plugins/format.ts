@@ -184,12 +184,13 @@ export interface PluginSummary {
   author?: string;
   license?: string;
   enabled: boolean;
-  /** Where it was installed from: a folder, an archive, a git URL, or by hand into the plugins folder. */
+  /** Where it was installed from: a folder, an archive, a git URL, by hand into the plugins folder, or a draft from a conversation (#2652). */
   source:
     | { kind: 'folder'; path: string }
     | { kind: 'zip'; name: string; sha256: string }
     | { kind: 'git'; url: string; ref?: string; commit: string }
-    | { kind: 'manual' };
+    | { kind: 'manual' }
+    | { kind: 'draft' };
   installedAt?: string;
   /** How many contributions to each point. */
   contributes: Partial<Record<PluginContributionPoint, number>>;

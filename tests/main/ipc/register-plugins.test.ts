@@ -20,6 +20,11 @@ const h = vi.hoisted(() => ({
   installPluginFromFolder: vi.fn(),
   installPluginFromZip: vi.fn(),
   installPluginFromGit: vi.fn(),
+  installPluginFromDraft: vi.fn(),
+  saveSkillDraft: vi.fn(),
+  saveDraftToFolder: vi.fn(),
+  reloadSkills: vi.fn(),
+  rebuildMenu: vi.fn(),
   readPluginSettings: vi.fn(),
   savePluginSettings: vi.fn(),
   encrypted: true,
@@ -72,7 +77,11 @@ vi.mock('../../../src/main/plugins/lifecycle', () => ({
   installPluginFromFolder: h.installPluginFromFolder,
   installPluginFromZip: h.installPluginFromZip,
   installPluginFromGit: h.installPluginFromGit,
+  installPluginFromDraft: h.installPluginFromDraft,
 }));
+vi.mock('../../../src/main/extensions/draft-apply', () => ({ saveSkillDraft: h.saveSkillDraft, saveDraftToFolder: h.saveDraftToFolder }));
+vi.mock('../../../src/main/skills/register', () => ({ reloadAndRegisterSkills: h.reloadSkills }));
+vi.mock('../../../src/main/menu', () => ({ rebuildMenu: h.rebuildMenu }));
 vi.mock('../../../src/main/plugins-apply', () => ({
   changePlugins: async <T>(op: () => Promise<T>) => { const r = await op(); h.changed.push('applied'); return r; },
 }));
@@ -80,6 +89,8 @@ vi.mock('../../../src/main/plugins-apply', () => ({
 import { registerPlugins } from '../../../src/main/ipc/register-plugins';
 import { Channels } from '../../../src/shared/channels';
 import type { ReplacePolicy } from '../../../src/main/plugins/lifecycle';
+import { pendingExtensionDrafts } from '../../../src/main/ipc/extension-draft-offers';
+import type { ExtensionDraftOutcome } from '../../../src/shared/extensions/drafts';
 
 registerPlugins();
 const call = async <T>(channel: string, ...args: unknown[]): Promise<T> => await (h.handlers.get(channel)!({}, ...args) as Promise<T>);
@@ -220,5 +231,73 @@ describe('register-plugins (#2634)', () => {
     await expect(call(Channels.PLUGINS_SET_SETTINGS, 'lab', ['x'])).rejects.toThrow(/must be an object/);
     await expect(call(Channels.PLUGINS_SET_SETTINGS, 'lab', null)).rejects.toThrow(/must be an object/);
     expect(h.savePluginSettings).not.toHaveBeenCalled();
+  });
+});
+
+describe('a drafted extension\'s card (#2652)', () => {
+  const SKILL = { kind: 'skill' as const, id: 'my.weekly', name: 'Weekly', summary: 's', files: [{ path: 'weekly.md', content: '---' }] };
+  const PLUGIN = { kind: 'plugin' as const, id: 'lab', name: 'Lab', summary: 's', files: [{ path: 'plugin.json', content: '{}' }] };
+  let settled: ExtensionDraftOutcome[];
+  const offer = (draft: typeof SKILL | typeof PLUGIN, winId = 1) => {
+    pendingExtensionDrafts.set('o1', { winId, draft, settle: (o) => { settled.push(o); pendingExtensionDrafts.delete('o1'); } });
+  };
+  beforeEach(() => { settled = []; pendingExtensionDrafts.clear(); });
+
+  it('answers only the window that was shown it, and only while it waits', async () => {
+    expect(await call(Channels.CONVERSATION_EXTENSION_DRAFT_ACTION, 'nope', 'save')).toEqual({ ok: false, error: 'This draft is no longer waiting for an answer.' });
+    offer(SKILL, 2);
+    expect(await call(Channels.CONVERSATION_EXTENSION_DRAFT_ACTION, 'o1', 'save')).toMatchObject({ ok: false });
+    expect(h.saveSkillDraft).not.toHaveBeenCalled();
+    expect(settled).toEqual([]);
+  });
+
+  it('saves a skill from main\'s copy, then reloads the skills and the menu', async () => {
+    offer(SKILL);
+    h.saveSkillDraft.mockResolvedValue('/home/u/.minerva/skills/weekly.md');
+    expect(await call(Channels.CONVERSATION_EXTENSION_DRAFT_ACTION, 'o1', 'save')).toEqual({ ok: true, action: 'save', where: '/home/u/.minerva/skills/weekly.md' });
+    expect(h.saveSkillDraft).toHaveBeenCalledWith(SKILL);
+    expect(h.reloadSkills).toHaveBeenCalled();
+    expect(h.rebuildMenu).toHaveBeenCalled();
+    expect(settled).toEqual([{ kind: 'saved', where: '/home/u/.minerva/skills/weekly.md' }]);
+  });
+
+  it('installs a plugin app-wide, asking natively before replacing one', async () => {
+    offer(PLUGIN);
+    h.installPluginFromDraft.mockImplementation(overInstalled);
+    h.showMessageBox.mockResolvedValue({ response: 0 });
+    expect(await call(Channels.CONVERSATION_EXTENSION_DRAFT_ACTION, 'o1', 'save')).toEqual({ ok: true, action: 'save', where: '/home/u/.minerva/plugins/lab' });
+    expect(h.installPluginFromDraft).toHaveBeenCalledWith('/home/u/.minerva/plugins', PLUGIN.files, '4.0.0', expect.anything());
+    expect(h.changed).toEqual(['applied']);
+    expect(settled).toEqual([{ kind: 'saved', where: '/home/u/.minerva/plugins/lab' }]);
+  });
+
+  it('a declined replace, a cancelled picker or a failed save keeps the card waiting', async () => {
+    offer(PLUGIN);
+    h.installPluginFromDraft.mockImplementation(overInstalled);
+    h.showMessageBox.mockResolvedValue({ response: 1 });
+    expect(await call(Channels.CONVERSATION_EXTENSION_DRAFT_ACTION, 'o1', 'save')).toEqual({ ok: false, cancelled: true });
+    h.showOpenDialog.mockResolvedValue({ canceled: true, filePaths: [] });
+    expect(await call(Channels.CONVERSATION_EXTENSION_DRAFT_ACTION, 'o1', 'save-folder')).toEqual({ ok: false, cancelled: true });
+    h.installPluginFromDraft.mockRejectedValue(new Error('It can\'t be installed: nope'));
+    expect(await call(Channels.CONVERSATION_EXTENSION_DRAFT_ACTION, 'o1', 'save')).toEqual({ ok: false, error: 'It can\'t be installed: nope' });
+    expect(settled).toEqual([]);
+    expect(pendingExtensionDrafts.has('o1')).toBe(true);
+  });
+
+  it('saves into the folder the user picks', async () => {
+    offer(PLUGIN);
+    h.showOpenDialog.mockResolvedValue({ canceled: false, filePaths: ['/work'] });
+    h.saveDraftToFolder.mockResolvedValue('/work/lab');
+    expect(await call(Channels.CONVERSATION_EXTENSION_DRAFT_ACTION, 'o1', 'save-folder')).toEqual({ ok: true, action: 'save-folder', where: '/work/lab' });
+    expect(h.saveDraftToFolder).toHaveBeenCalledWith(PLUGIN, '/work');
+    expect(settled).toEqual([{ kind: 'saved-folder', where: '/work/lab' }]);
+  });
+
+  it('anything else is Not now: nothing is written', async () => {
+    offer(SKILL);
+    expect(await call(Channels.CONVERSATION_EXTENSION_DRAFT_ACTION, 'o1', 'rm -rf')).toEqual({ ok: true, action: 'dismiss' });
+    expect(settled).toEqual([{ kind: 'dismissed' }]);
+    expect(h.saveSkillDraft).not.toHaveBeenCalled();
+    expect(h.installPluginFromDraft).not.toHaveBeenCalled();
   });
 });

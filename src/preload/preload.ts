@@ -15,6 +15,7 @@ import type { PluginSettingsPatch } from '../shared/plugins/format';
 import type { ChannelMap, EventMap } from '../shared/ipc-contract';
 import type { ConversationDraftBase } from '../shared/conversation-draft-base';
 import type { AskUserRequest, McpConfirmRequest } from '../shared/conversation-tools';
+import type { ExtensionDraftAction, ExtensionDraftOffer } from '../shared/extensions/drafts';
 import type { McpServerDescriptor } from '../shared/mcp-servers';
 
 /**
@@ -306,6 +307,8 @@ const api = {
     onMcpConfirm: (cb: (req: McpConfirmRequest) => void) => subscribe(Channels.CONVERSATION_MCP_CONFIRM, cb),
     mcpConfirmReply: (requestId: string, allow: boolean, remember: boolean) =>
       invoke(Channels.CONVERSATION_MCP_CONFIRM_REPLY, requestId, allow, remember),
+    onExtensionDraft: (cb: (offer: ExtensionDraftOffer) => void) => subscribe(Channels.CONVERSATION_EXTENSION_DRAFT, cb),
+    extensionDraftAction: (offerId: string, action: ExtensionDraftAction) => invoke(Channels.CONVERSATION_EXTENSION_DRAFT_ACTION, offerId, action),
     onStream: (cb: (chunk: string) => void) => subscribe(Channels.CONVERSATION_STREAM, cb),
     cancel: () => invoke(Channels.CONVERSATION_CANCEL),
     onDraft: (cb: (draft: ConversationDraftBase) => void) => subscribe(Channels.CONVERSATION_DRAFT, cb),

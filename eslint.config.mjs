@@ -59,7 +59,10 @@ const DATAFLOW_MUTATION_METHODS =
   // mcp_call confirmation (#2439): answering the card authorizes a call, and
   // resetting forgets every "Don't ask again" grant; the card's event lives in
   // the conversations store.
-  'mcpConfirmReply|onMcpConfirm|resetAllowedTools';
+  'mcpConfirmReply|onMcpConfirm|resetAllowedTools|' +
+  // A drafted extension's card (#2652): acting on it saves a skill or
+  // installs a plugin; its event lives in the extension-drafts store.
+  'extensionDraftAction|onExtensionDraft';
 
 const DATAFLOW_MESSAGE =
   'Renderer data-flow rule (#1086): components must not call mutating/subscribing `api.*` methods directly. ' +

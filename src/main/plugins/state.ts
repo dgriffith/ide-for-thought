@@ -32,7 +32,9 @@ export type PluginSource =
   /** Fetched from a git URL, at an optional pin; the commit installed. */
   | { kind: 'git'; url: string; ref?: string; commit: string }
   /** No install record — it was put in `~/.minerva/plugins/` by hand. */
-  | { kind: 'manual' };
+  | { kind: 'manual' }
+  /** Drafted by the assistant in a conversation, and installed from its card (#2652). */
+  | { kind: 'draft' };
 
 export interface PluginRecord {
   enabled: boolean;
@@ -63,6 +65,7 @@ function decodeSource(raw: unknown): PluginSource {
     return { kind: 'git', url: r.url, ...(typeof r.ref === 'string' ? { ref: r.ref } : {}), commit: r.commit };
   }
   if (r.kind === 'zip' && typeof r.name === 'string' && typeof r.sha256 === 'string') return { kind: 'zip', name: r.name, sha256: r.sha256 };
+  if (r.kind === 'draft') return { kind: 'draft' };
   return { kind: 'manual' };
 }
 

@@ -17,7 +17,7 @@
  * propose_notes/describe/web_*) is always available; anything in
  * this enum is opt-in per tool.
  */
-export type ConversationToolKey = 'ask_user';
+export type ConversationToolKey = 'ask_user' | 'offer_extension_draft';
 
 /**
  * Payload for the inline ask_user prompt. Sent main → renderer when the

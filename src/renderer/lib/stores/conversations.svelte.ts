@@ -3,6 +3,7 @@ import { plainSnapshot } from '../ipc/plain-snapshot';
 import { getConversationsSettings } from '../conversations/settings';
 import { ensureComputeConsent } from '../app/compute-ops';
 import { announce } from './announcer.svelte';
+import { extensionDraftsStore } from './extension-drafts.svelte';
 import { logger } from '../../../shared/logger';
 import type {
   Conversation,
@@ -519,6 +520,7 @@ async function closeTab(id: string): Promise<void> {
   // A card the user can no longer see is a Deny, not a hang.
   const pendingConfirm = tabs[idx]!.pendingMcpConfirm;
   if (pendingConfirm) void answerMcpConfirm(id, false, false);
+  extensionDraftsStore.dismissFor(id);
   try {
     await api.conversations.archive(id);
   } catch {
@@ -570,6 +572,7 @@ async function send(content: string, currentNotePath?: string): Promise<void> {
     tab.turnStartedAt = null;
     tab.streamedChunks = '';
     tab.pendingMcpConfirm = null;
+    extensionDraftsStore.clearFor(tab.id);
   }
 }
 
@@ -601,6 +604,7 @@ async function retryLastTurn(tabId: string, currentNotePath?: string): Promise<v
     tab.turnStartedAt = null;
     tab.streamedChunks = '';
     tab.pendingMcpConfirm = null;
+    extensionDraftsStore.clearFor(tab.id);
   }
 }
 
