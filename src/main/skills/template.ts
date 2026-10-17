@@ -247,9 +247,18 @@ type Node =
   | { t: 'if'; neg: boolean; path: string; then: Node[]; else: Node[] }
   | { t: 'ctx'; body: Node[] };
 
+/**
+ * How deep `{{#if}}` blocks may nest (#2655). The parser and renderer recurse
+ * once per level, so without a bound a template a few thousand levels deep
+ * overflowed the stack: a RangeError, not a parse error, and one that took
+ * the skill catalog's load down with it. Real skills nest two or three.
+ */
+export const MAX_TEMPLATE_DEPTH = 32;
+
 function parse(tokens: Token[]): Node[] {
   let pos = 0;
   let inContext = false;
+  let depth = 0;
 
   function parseSeq(stopOnElse: boolean): Node[] {
     const nodes: Node[] = [];
@@ -277,6 +286,7 @@ function parse(tokens: Token[]): Node[] {
         continue;
       }
       if (tk.t === 'if') {
+        if (++depth > MAX_TEMPLATE_DEPTH) throw new Error(`Template: {{#if}} blocks nest more than ${MAX_TEMPLATE_DEPTH} deep`);
         pos++; // consume the if
         const thenNodes = parseSeq(true);
         let elseNodes: Node[] = [];
@@ -294,6 +304,7 @@ function parse(tokens: Token[]): Node[] {
           );
         }
         pos++; // consume endif
+        depth--;
         nodes.push({ t: 'if', neg: tk.neg, path: tk.path, then: thenNodes, else: elseNodes });
         continue;
       }

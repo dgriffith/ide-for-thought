@@ -149,7 +149,7 @@ Pipe a value through a transform with `|`:
 {{#if note}} … {{else}} … {{/if}}
 ```
 
-Blocks nest, and `!` negates: `{{#if !selection}}…{{/if}}`. Truthiness: an
+Blocks nest (at most 32 deep, #2655), and `!` negates: `{{#if !selection}}…{{/if}}`. Truthiness: an
 object slot (`note`, `claim`) is truthy when present; a string slot
 (`selection`, `param.x`) is truthy when non-empty. A block tag alone on its line
 consumes the whole line, so `{{#if note}}` on its own line leaves no blank gap

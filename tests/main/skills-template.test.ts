@@ -5,6 +5,7 @@ import {
   toRenderContext,
   untrustedKind,
   validateTemplate,
+  MAX_TEMPLATE_DEPTH,
   type SkillRenderContext,
 } from '../../src/main/skills/template';
 import type { ToolContext } from '../../src/shared/tools/types';
@@ -343,5 +344,14 @@ describe('{{#context}} — thoughtbase material goes to the user turn (#2438)', 
       .toEqual(['Template: {{#context}} blocks do not nest']);
     expect(validateTemplate('{{#if note}}{{#context}}x{{/if}}{{/context}}')[0]).toMatch(/opened outside its \{\{#context\}\}/);
     expect(validateTemplate('{{#context}}{{#if note}}x{{/context}}{{/if}}')[0]).toMatch(/closes before/);
+  });
+});
+
+describe('nesting is bounded (#2655)', () => {
+  const nested = (n: number) => `${'{{#if note}}'.repeat(n)}x${'{{/if}}'.repeat(n)}`;
+  it(`allows ${MAX_TEMPLATE_DEPTH} levels, and refuses one more with a parse error, not a stack overflow`, () => {
+    expect(validateTemplate(nested(MAX_TEMPLATE_DEPTH))).toEqual([]);
+    expect(validateTemplate(nested(MAX_TEMPLATE_DEPTH + 1))).toEqual([`Template: {{#if}} blocks nest more than ${MAX_TEMPLATE_DEPTH} deep`]);
+    expect(validateTemplate(nested(20_000))).toEqual([`Template: {{#if}} blocks nest more than ${MAX_TEMPLATE_DEPTH} deep`]);
   });
 });

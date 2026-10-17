@@ -171,6 +171,28 @@ loaded and run against a tidy and a hostile thoughtbase, its MCP servers (with
 behind. Add `--thoughtbase <path>` to check against your own (a copy). See
 [the CLI](cli.md#plugin-check) for the stages.
 
+## What Minerva refuses, and what it contains
+
+`tests/helpers/hostile-plugins.ts` is a corpus of plugins that misbehave
+(#2655), each with a test, in the spirit of the hostile thoughtbase and the
+prompt-injection corpus. `PLUGIN_CORPUS` there is the table:
+
+- **Refused, whole:** a path that climbs out of the plugin; a contributed file
+  that links outside it; a contributed file over 1 MB; a template nesting
+  `{{#if}}` more than 32 deep.
+- **Refused, that contribution:** a type with a stock type's id; the second
+  plugin to claim an id another plugin has.
+- **Contained:** a skill whose body is a prompt injection still gets the note's
+  text only in the user turn, delimited; a template's `<script>`, `<style>` and
+  event handlers are stripped like any note's; SQL reading `.minerva/` is
+  refused wherever it runs unasked (a template's query block, a chart), and
+  flagged by `plugin check`; a thoughtbase recommending plugins installs,
+  enables and fetches nothing; with no system key store, a secret is kept in an
+  owner-only file and Settings says it isn't encrypted.
+- **Residual, documented:** an MCP server whose tool claims `readOnlyHint` but
+  writes runs that tool without asking, once the user has turned the server
+  on. Turning it on always asks first, natively.
+
 ## How contributions load
 
 Minerva reads `~/.minerva/plugins/` once, the first time a skill or type
@@ -373,6 +395,7 @@ A plugin is refused when:
   - isn't relative, uses `\`, or contains `..` or an empty segment;
   - isn't inside its point's folder (a type in `skills/`, say);
   - doesn't exist, or has the wrong extension;
+  - is over 1 MB (a skill folder's `SKILL.md` too);
   - leaves the plugin folder once links are followed;
   - is a folder anywhere but `skills/`, or a skill folder without `SKILL.md`
     or holding a link that leaves the plugin;
