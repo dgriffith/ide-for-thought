@@ -121,7 +121,7 @@ A SPARQL or SQL query, listed under Query ▸ Saved Queries and runnable in the 
 - **Picked up:** at once, or on its next read (`hot`)
 - **Contributions from:** stock, user, plugin, thoughtbase
 - **Goes in:** the app's user-data folder (queries/), &lt;thoughtbase>/.minerva/queries/, or a plugin's queries/ (#2633)
-- **Contract:** .rq (SPARQL) or .sql, with optional comment front matter, checked by [`src/main/saved-queries.ts`](../src/main/saved-queries.ts) (`parseQueryContent`)
+- **Contract:** .rq (SPARQL) or .sql, with optional comment front matter, checked by [`src/main/saved-query-files.ts`](../src/main/saved-query-files.ts) (`parseQueryContent`)
 - **Docs:** [`website/docs/_content/query-menu-panel.html`](../website/docs/_content/query-menu-panel.html)
 - **Example:** [`src/shared/stock-queries.ts`](../src/shared/stock-queries.ts)
 - **Test:** [`tests/main/saved-queries.test.ts`](../tests/main/saved-queries.test.ts)
