@@ -83,7 +83,7 @@ const BUDGETS: Record<string, number> = {
   // predicted this: the IPC-surface files are budgeted and grow one line per
   // channel by construction, so a bump here is the expected remedy, not a
   // smell.
-  'src/renderer/lib/ipc/client.ts': 1395, // +17: Settings → Ontology's four channels (#2788); +3: a template's / CSL style's plugin (#2633); +19: Settings → Plugins' channels (#2634); +2: install from a zip (#2634); +2: install from a git URL (#2634); +2: recommended plugins (#2635); +4: plugin settings (#2636); +2: plugin themes (#2787); +4: a drafted extension's card (#2652)
+  'src/renderer/lib/ipc/client.ts': 1397, // +17: Settings → Ontology's four channels (#2788); +3: a template's / CSL style's plugin (#2633); +19: Settings → Plugins' channels (#2634); +2: install from a zip (#2634); +2: install from a git URL (#2634); +2: recommended plugins (#2635); +4: plugin settings (#2636); +2: plugin themes (#2787); +4: a drafted extension's card (#2652); +2: a PDF export's style profile (#2429)
   'src/renderer/lib/stores/conversations.svelte.ts': 1280, // +4: carry a skill's user-turn material through open + /clear (#2438); +39: mcp_call confirmation card state, beside ask_user's (#2439); +26: turn start/settle screen-reader announcements (#2374); +28: conversation titles — rename, the titleChanged subscription, keepKnownTitle for the post-send reload race; +2: typing during a reply (#1744) — /clear refuses mid-turn, a restored message keeps the draft; +11: turnStartedAt for the turn-status clock (set at the three turn starts, cleared at the three settles); +2: approve comments name the broadcast that really happens (#2541); +4: clear / dismiss a drafted extension's card with its turn and tab (#2652)
   'src/renderer/lib/components/Editor.svelte': 858, // +4: Record Audio / Transcribe Recording context-menu wiring (#2428)
   'src/renderer/lib/stores/editor.svelte.ts': 965, // +1: DEFAULT_VIEW_LAYOUT from the view-layout registry (#2623); +1: type-view tabs carry a timeline range (#2607); +2: type-view tabs carry a kanban column order and Show empty columns (#2614); +1: type-view tabs carry a kanban groupBy (#2601); +1: type-view tabs carry a map style (#2665); +5: type-view tabs keyed by type + folder (#2531); +23: rescopeTypeView — widen a folder-scoped view, merging into an open one (#2532); +17: folder renames move scoped view tabs, beside applyRenameTransitions (#2535)
@@ -109,13 +109,13 @@ const BUDGETS: Record<string, number> = {
   // the state from there is a genuine cycle, and `no-cycles.test.ts` follows
   // type-only imports. Below 826 now, so the two raises are more than repaid.
   'src/main/graph/inspection-checks.ts': 624, // the checks + their registry, split out of health-checks.ts (836 → 234) when checks became a registry (#2627)
-  'src/renderer/lib/components/ExportDialog.svelte': 712,
+  'src/renderer/lib/components/ExportDialog.svelte': 721, // +9: the PDF style profile picker, remembered per thoughtbase; its field is PdfProfileField.svelte (#2429)
   'src/renderer/lib/components/ProposalsPanel.svelte': 628, // +12: announce approve/reject outcomes (#2374); +2: bare-key guard (#2377)
   'src/renderer/lib/components/QueryPanel.svelte': 766, // +7: CM content a11y attrs + AA placeholder (#2375)
   // +17 (#2491): the property card's "Also fills {{name}} in the note's body" line, its helper and style.
   'src/renderer/lib/components/conversations/DraftCards.svelte': 775,
   // +1 for #2256: the MENU_COMMAND_PALETTE channel / its MENU_COMMANDS entry.
-  'src/shared/ipc-contract.ts': 756, // +8: Settings → Ontology's four channels (#2788); +11: Settings → Plugins' channels (#2634); +2: install from a zip (#2634); +2: install from a git URL (#2634); +2: recommended plugins (#2635); +2: plugin settings (#2636); +1: plugin themes (#2787); +3: a drafted extension's card (#2652)
+  'src/shared/ipc-contract.ts': 757, // +8: Settings → Ontology's four channels (#2788); +11: Settings → Plugins' channels (#2634); +2: install from a zip (#2634); +2: install from a git URL (#2634); +2: recommended plugins (#2635); +2: plugin settings (#2636); +1: plugin themes (#2787); +3: a drafted extension's card (#2652); +1: a PDF export's style profile (#2429)
   // +1 for #2256: the MENU_COMMAND_PALETTE channel / its MENU_COMMANDS entry.
   'src/shared/channels.ts': 729, // +9: Settings → Ontology's four channels (#2788); +11: Settings → Plugins' channels (#2634); +2: install from a zip (#2634); +2: install from a git URL (#2634); +2: recommended plugins (#2635); +4: plugin settings (#2636); +2: plugin themes (#2787); +4: a drafted extension's card (#2652)
   // +5 (#2494): both typed-note creation paths read the type's effective (inherited) template.

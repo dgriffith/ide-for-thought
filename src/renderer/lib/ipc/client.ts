@@ -374,6 +374,8 @@ export interface RunExportInput {
   linkPolicy?: 'drop' | 'inline-title' | 'follow-to-file';
   citationStyle?: string;
   citationLocale?: string;
+  /** A PDF exporter's style profile (#2429): notes / essay / academic. */
+  pdfProfile?: string;
   /** Manual per-export exclusion overrides — relative paths to force-include (#283). */
   forceInclude?: string[];
   /** Manual per-export deselection — relative paths to force-exclude (#293). */

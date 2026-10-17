@@ -11,6 +11,7 @@ import { renderNoteBody, inlineImages } from './render';
 import { wrapHtml } from './shell';
 import type { Exporter, ExportOutput } from '../../types';
 import { createRendererSessions, type CitationRenderer } from '../../csl';
+import { applyPdfProfile } from '../../pdf-profiles';
 
 /**
  * Render the collected footnote bodies for note-class styles as a
@@ -87,8 +88,16 @@ export const noteHtmlExporter: Exporter = {
       const renderer = sessions.next();
       const rawBody = await renderNoteBody(f, plan, renderer);
       const withReferences = renderer ? appendCitationsTail(rawBody, renderer) : rawBody;
-      const body = await inlineImages(withReferences, f, rootPath, plan.assetPolicy);
-      const html = wrapHtml({ title: f.title, body });
+      const inlined = await inlineImages(withReferences, f, rootPath, plan.assetPolicy);
+      // A PDF's style profile (#2429), only when the HTML is bound for a page.
+      const profiled = plan.paged && plan.pdfProfile
+        ? applyPdfProfile(plan.pdfProfile, { title: f.title, frontmatter: f.frontmatter, body: inlined })
+        : null;
+      const html = wrapHtml({
+        title: f.title,
+        body: profiled?.body ?? inlined,
+        ...(profiled?.style ? { profileStyle: profiled.style, profileClass: profiled.bodyClass } : {}),
+      });
       files.push({
         path: flatten ? basenameHtml(f.relativePath) : f.relativePath.replace(/\.md$/i, '.html'),
         contents: html,
