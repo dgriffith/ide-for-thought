@@ -31,6 +31,7 @@ import { jsonStringify } from './json';
 import { runMcpServer } from './mcp';
 import { bundledResourcesRoot } from '../main/bundled-resources';
 import { runEval } from './eval';
+import { isScaffoldRuntime, SCAFFOLD_RUNTIMES, ScaffoldRefusal, writeScaffold } from '../main/plugins/scaffold';
 
 export interface CliResult {
   stdout: string;
@@ -71,6 +72,10 @@ Commands:
                         overwrite each case's output/. Deterministic (no LLM
                         call) unless --live. Diff the output to review
                         prompt/context changes (#1522).        [--all] [--live]
+  plugin new <id>       Make a plugin folder <id>/ with a working stdio MCP
+                        server (a read-only tool, one that asks first), a
+                        skill that uses it and a test (#2650).
+                        --mcp node|python  [--name <name>] [--dir <folder>]
 
 Options:
   --project <path>      Thoughtbase root (default: current directory).
@@ -81,6 +86,9 @@ Options:
   --all                 eval: run every case under tests/skills-eval/.
   --live                eval: make a real model call, capturing response.md +
                         drafts.json. Opt-in; needs a provider key in the env.
+  --mcp <runtime>       plugin new: the server's language, node or python.
+  --name <name>         plugin new: the name Settings shows (default: from the id).
+  --dir <folder>        plugin new: where to make it (default: current directory).
   --help, -h            Show this help.
 
 Results are JSON on stdout, grounded with node IRIs / note paths so the output
@@ -97,6 +105,9 @@ interface ParsedArgs {
   caseSensitive: boolean;
   all: boolean;
   live: boolean;
+  mcp: string | undefined;
+  name: string | undefined;
+  dir: string | undefined;
   help: boolean;
 }
 
@@ -112,6 +123,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
   let caseSensitive = false;
   let all = false;
   let live = false;
+  let mcp: string | undefined;
+  let name: string | undefined;
+  let dir: string | undefined;
   let help = false;
 
   for (let i = 0; i < argv.length; i++) {
@@ -138,12 +152,22 @@ export function parseArgs(argv: string[]): ParsedArgs {
       all = true;
     } else if (arg === '--live') {
       live = true;
+    } else if (arg === '--mcp' || arg === '--name' || arg === '--dir') {
+      const value = argv[++i];
+      if (arg === '--mcp') mcp = value;
+      else if (arg === '--name') name = value;
+      else dir = value;
+    } else if (/^--(mcp|name|dir)=/.test(arg)) {
+      const [flag, ...value] = arg.slice(2).split('=');
+      if (flag === 'mcp') mcp = value.join('=');
+      else if (flag === 'name') name = value.join('=');
+      else dir = value.join('=');
     } else {
       positionals.push(arg);
     }
   }
 
-  return { command: positionals.shift(), positionals, project, limit, by, regex, caseSensitive, all, live, help };
+  return { command: positionals.shift(), positionals, project, limit, by, regex, caseSensitive, all, live, mcp, name, dir, help };
 }
 
 function json(value: unknown): string {
@@ -201,6 +225,37 @@ function format(result: ExecResult, errorPrefix: string): CliResult {
     : { stdout: '', stderr: `${errorPrefix}: ${result.error}\n`, code: 1 };
 }
 
+/** `minerva plugin new <id> --mcp node|python` (#2650). */
+async function runPluginCommand(args: ParsedArgs, cwd: string): Promise<CliResult> {
+  const [sub, id, ...extra] = args.positionals;
+  if (sub !== 'new') throw new UsageError('plugin: the only subcommand is `plugin new <id> --mcp node|python`.');
+  if (!id || extra.length > 0) throw new UsageError('plugin new: pass one plugin id, like `minerva plugin new my-tools --mcp node`.');
+  if (!args.mcp || !isScaffoldRuntime(args.mcp)) {
+    throw new UsageError(`plugin new: --mcp must be ${SCAFFOLD_RUNTIMES.join(' or ')}. (A plugin without code needs no scaffold; see docs/authoring-plugins.md.)`);
+  }
+  const parent = path.resolve(cwd, expandHome(args.dir ?? '.'));
+  let made: { folder: string; files: string[] };
+  try {
+    made = await writeScaffold(parent, { id, runtime: args.mcp, name: args.name });
+  } catch (e) {
+    if (e instanceof ScaffoldRefusal) throw new UsageError(`plugin new: ${e.message}`, { cause: e });
+    throw e;
+  }
+  const test = args.mcp === 'node' ? 'npm test' : 'python3 -m unittest';
+  return {
+    stdout: json({
+      folder: made.folder,
+      files: made.files,
+      next: [
+        `cd ${made.folder} && ${test}`,
+        'Settings → Plugins → Install from folder…, then switch on its server in Settings → MCP Servers.',
+      ],
+    }),
+    stderr: '',
+    code: 0,
+  };
+}
+
 /**
  * Run one CLI invocation. Never throws for expected conditions — usage problems
  * return code 2, core errors code 1, success code 0 — so the executable entry is
@@ -241,6 +296,9 @@ export async function runCli(argv: string[], opts: RunOptions): Promise<CliResul
         code: results.some((r) => (r.security?.breaches.length ?? 0) > 0) ? 1 : 0,
       };
     }
+
+    // `plugin new` makes a folder; it needs no thoughtbase.
+    if (args.command === 'plugin') return await runPluginCommand(args, opts.cwd);
 
     const root = await resolveProjectRoot(args.project, opts.cwd);
 

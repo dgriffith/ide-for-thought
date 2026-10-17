@@ -90,6 +90,10 @@ export default tseslint.config(
       // The fixture project is a hand-authored Minerva thoughtbase, not
       // app source — linting its bundled TS / JS dust isn't useful.
       'tests/fixtures/**',
+      // The `minerva plugin new` templates (#2650): plain Node CommonJS and
+      // Python written into a new plugin, in no tsconfig. Their own stdio
+      // tests run in tests/main/plugins/scaffold.test.ts.
+      'src/main/plugins/scaffold-templates/**',
       // The eslint config itself isn't covered by the TS project, so the
       // type-aware parser would error trying to load it. Linting our own
       // config is low value anyway. Same for svelte.config.mjs.
