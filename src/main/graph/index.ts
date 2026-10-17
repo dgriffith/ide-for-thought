@@ -71,9 +71,9 @@ import { EXTENSIONS_GRAPH } from './indexers/extensions';
 import { rematerializeExtensionCatalog } from './extension-catalog';
 export { setExtensionContributions } from './extension-catalog';
 // A thoughtbase's own vocabularies (#2788): Settings → Ontology and the schema tool.
-export {
-  syncVocabularies, previewVocabularyImport, commitVocabularyImport, removeVocabulary, vocabulariesForSchema,
-} from './user-ontology';
+export { previewVocabularyImport, vocabulariesForSchema } from './user-ontology';
+// The three that change the prefix set reindex when a type maps onto it (#2792).
+export { syncVocabularies, commitVocabularyImport, removeVocabulary, typeMappingProblems } from './type-mappings';
 
 /** Tear down a project's graph state. Called by ProjectContext on last release. */
 export function disposeProject(ctx: ProjectContext): void {

@@ -15,7 +15,7 @@ import { parseWikiInner } from '../../../shared/wiki-link';
 import {
   type GraphState,
   MINERVA, DC, XSD, BIBO, SCHEMA, PROV, THOUGHT, TYPES,
-  sourceUri, linkPredicate, resolveStandardCurie,
+  sourceUri, linkPredicate, resolveCurie,
 } from '../state';
 import type { PropertyDef, PropertyType } from '../../../shared/objects/type-def';
 import { resolveLinkTarget, type LinkResolveCtx } from '../index-helpers';
@@ -153,9 +153,11 @@ export function resolveFrontmatterPredicate(key: string) {
 export function declaredPropertyPredicate(
   name: string,
   pd?: Pick<PropertyDef, 'type' | 'predicate'>,
+  /** The thoughtbase's imported vocabularies' prefixes (#2792); write and read sides pass the same. */
+  prefixes: readonly { prefix: string; iri: string }[] = [],
 ) {
   if (pd?.predicate) {
-    const external = resolveStandardCurie(pd.predicate);
+    const external = resolveCurie(pd.predicate, prefixes);
     if (external) return external;
   }
   return pd?.type === 'link-to-type' ? TYPES(name) : resolveFrontmatterPredicate(name);

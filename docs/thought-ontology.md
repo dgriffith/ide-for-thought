@@ -505,6 +505,10 @@ and why. An accepted file is copied unchanged into
   not;
 - **`describe_graph_schema` includes it**, after the built-in ontology and
   delimited as thoughtbase content (below);
+- **object types can map onto its terms** (#2792): a type's `externalClass:`
+  and a property's `predicate:` may use its prefix, and importing or removing
+  the file reindexes so the mapping follows (see
+  [authoring types](authoring-types.md#external-vocabulary));
 - **it never reaches `graph.ttl`.** It loads into a named graph of its own,
   `urn:x-minerva:ontology:<file>`, which `persistGraph` skips the way it skips
   the bundled ontology. It is read at project open and on every rebuild, and
