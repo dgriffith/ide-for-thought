@@ -14,6 +14,7 @@ import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import semver from 'semver';
 import {
+  SCAFFOLD_KIND_POINTS,
   SCAFFOLD_MINERVA_RANGE,
   SCAFFOLD_RUNTIMES,
   scaffoldPluginFiles,
@@ -39,6 +40,9 @@ import { loadSkillCatalog } from '../../../src/main/skills/loader';
 import { compileSkill } from '../../../src/main/skills/compile';
 import { shutdownAllMcpClients } from '../../../src/main/mcp-client';
 import { runCli } from '../../../src/cli/run';
+import { PLUGIN_CONTRIBUTION_POINTS } from '../../../src/shared/plugins/format';
+import { CitationRenderer } from '../../../src/main/publish/csl/renderer';
+import { BUNDLED_LOCALES } from '../../../src/main/publish/csl/assets';
 
 silenceLogTags('plugins', 'secrets', 'mcp-servers', 'mcp-confirm');
 
@@ -175,8 +179,11 @@ describe('minerva plugin new (#2650)', () => {
     [['plugin'], /the subcommands are/],
     [['plugin', 'new'], /pass one plugin id/],
     [['plugin', 'new', 'a', 'b', '--mcp', 'node'], /pass one plugin id/],
-    [['plugin', 'new', 'a'], /--mcp must be node or python/],
+    [['plugin', 'new', 'a'], /--kind must be skill, type, query, template, csl, theme, mcp \(or pass --mcp node\|python\)/],
+    [['plugin', 'new', 'a', '--kind', 'widget'], /--kind must be skill, type/],
     [['plugin', 'new', 'a', '--mcp', 'ruby'], /--mcp must be node or python/],
+    [['plugin', 'new', 'a', '--kind', 'mcp'], /--mcp must be node or python/],
+    [['plugin', 'new', 'a', '--kind', 'skill', '--mcp', 'node'], /--mcp is for --kind mcp, not skill/],
     [['plugin', 'new', 'Bad_Id', '--mcp', 'node'], /"id" must be lowercase/],
   ])('%j is a usage error', async (argv, msg) => {
     const r = await cli(...argv);
@@ -196,5 +203,53 @@ describe('minerva plugin new (#2650)', () => {
     const r = await cli('plugin', 'new', 'taken', '--mcp', 'node');
     expect(r.code).toBe(2);
     expect(r.stderr).toMatch(/already exists/);
+  });
+});
+
+describe('a declarative kind (#2653)', () => {
+  it('every point a plugin can contribute to has a kind: a new point fails here until it does', () => {
+    expect(Object.values(SCAFFOLD_KIND_POINTS).map((k) => k.point).sort()).toEqual(Object.keys(PLUGIN_CONTRIBUTION_POINTS).sort());
+  });
+
+  it.each([
+    ['skill', ['README.md', 'plugin.json', 'skills/three-points.md'], { skills: ['skills/three-points.md'] }],
+    ['type', ['README.md', 'plugin.json', 'types/my-tools-entry.md'], { 'object-types': ['types/my-tools-entry.md'] }],
+    ['query', ['README.md', 'plugin.json', 'queries/tagged-notes.rq'], { 'saved-queries': ['queries/tagged-notes.rq'] }],
+    ['template', ['README.md', 'plugin.json', 'templates/my-tools-note.md'], { 'note-templates': ['templates/my-tools-note.md'] }],
+    ['csl', ['README.md', 'csl/my-tools.csl', 'plugin.json'], { 'csl-styles': ['csl/my-tools.csl'] }],
+    ['theme', ['README.md', 'plugin.json', 'themes/my-tools-dark.json'], { themes: ['themes/my-tools-dark.json'] }],
+  ] as const)('%s: one contribution, listed in the manifest', (kind, files, contributes) => {
+    const made = scaffoldPluginFiles({ id: 'my-tools', kind });
+    expect([...made.keys()]).toEqual(files);
+    for (const text of made.values()) expect(text).not.toMatch(/__PLUGIN_(ID|NAME)__/);
+    expect(JSON.parse(made.get('plugin.json')!)).toMatchObject({ id: 'my-tools', contributes });
+  });
+
+  it('escapes the name where it lands in JSON or XML', () => {
+    const name = 'Ada\'s "<Tools>" & co';
+    expect(JSON.parse(scaffoldPluginFiles({ id: 'q', kind: 'theme', name }).get('themes/q-dark.json')!).label).toBe(`${name} Dark`);
+    expect(scaffoldPluginFiles({ id: 'q', kind: 'csl', name }).get('csl/q.csl')).toContain('<title>Ada\'s &quot;&lt;Tools&gt;&quot; &amp; co (author-date)</title>');
+  });
+
+  it('a language is only for mcp, and mcp needs one', () => {
+    expect(() => scaffoldPluginFiles({ id: 'q', kind: 'mcp' })).toThrow(/needs a language/);
+    expect(() => scaffoldPluginFiles({ id: 'q', kind: 'skill', runtime: 'node' })).toThrow(/only for an MCP plugin/);
+  });
+
+  it('the CLI makes one, and says to check it', async () => {
+    const r = await runCli(['plugin', 'new', 'my-tools', '--kind=type'], { cwd: tmp });
+    expect(r.code).toBe(0);
+    const out = JSON.parse(r.stdout);
+    expect(out.files).toContain('types/my-tools-entry.md');
+    expect(out.next[0]).toBe(`minerva plugin check ${path.join(tmp, 'my-tools')}`);
+  });
+
+  it('the CSL style renders a citation and a bibliography', () => {
+    const style = scaffoldPluginFiles({ id: 'q', kind: 'csl' }).get('csl/q.csl')!;
+    const renderer = new CitationRenderer(style, BUNDLED_LOCALES['en-US']!, new Map([
+      ['a', { id: 'a', type: 'book', title: 'A Book', author: [{ family: 'Lovelace', given: 'Ada' }], issued: { 'date-parts': [[1843]] }, publisher: 'Taylor' }],
+    ]), { outputFormat: 'text' });
+    expect(renderer.renderCitation('a')).toBe('(Lovelace, 1843)');
+    expect(JSON.stringify(renderer.renderBibliography())).toMatch(/Lovelace, A\. 1843\. .*A Book.*Taylor/);
   });
 });

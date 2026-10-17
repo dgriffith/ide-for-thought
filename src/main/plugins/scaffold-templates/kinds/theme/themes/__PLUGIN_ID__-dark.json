@@ -1,0 +1,13 @@
+{
+  "label": "__PLUGIN_NAME__ Dark",
+  "base": "dark",
+  "tokens": {
+    "--bg": "#1b1d23",
+    "--bg-elev": "#23262e",
+    "--text": "#e6e1d6",
+    "--text-muted": "#b0aa9f",
+    "--accent": "#d9a441",
+    "--accent-ink": "#1b1d23",
+    "--border": "#343844"
+  }
+}

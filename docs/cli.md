@@ -8,8 +8,8 @@ knowledge graph and notes without the app running.
 > **Status: read + propose.** Twelve commands — `query`, `sql`, `search`, `grep`,
 > `semantic`, `read`, `context`, `propose-note`, `mcp` (a stdio MCP server
 > exposing the rest to agent clients), `eval` (a development harness for
-> skill prompts), `plugin new` (a starting point for a plugin with an MCP
-> server) and `plugin check` (put a plugin through what Minerva does with it). Proposals go through the approval gate — they never touch the
+> skill prompts), `plugin new` (a starting point for a plugin of any
+> kind, an MCP server included) and `plugin check` (put a plugin through what Minerva does with it). Proposals go through the approval gate — they never touch the
 > vault until a human approves them in Minerva.
 
 ## Build & run
@@ -38,12 +38,12 @@ repo's `node_modules` at runtime — no separate install.
 | `mcp` | Start a stdio MCP server exposing the read + propose tools — see *MCP server* | JSON-RPC 2.0 on stdio |
 | `eval <case-dir>…` | Package a skill's prompt exactly as Minerva does, into each case's `output/` (`--all`, `--live`) — see *Skill eval* | `[{ case, skill, model, outputMode }]` |
 | `plugin check <folder>` | Check a plugin: manifest, install, each contribution loaded and run against fixture thoughtbases (a hostile one too), its MCP servers (`--run-servers`), and a clean removal (`--thoughtbase <path>`…) — see *Plugin check* | `{ folder, plugin, ok, items[] }`; exit 1 on a failure |
-| `plugin new <id>` | Make a plugin folder with a working stdio MCP server, a skill that uses it and a test (`--mcp node\|python`, `--name`, `--dir`) — see *Plugin scaffold* | `{ folder, files, next }` |
+| `plugin new <id>` | Make a plugin folder with one working contribution (`--kind skill\|type\|query\|template\|csl\|theme`), or a stdio MCP server, a skill that uses it and a test (`--mcp node\|python`); `--name`, `--dir` — see *Plugin scaffold* | `{ folder, files, next }` |
 
 Global options: `--project <path>` (thoughtbase root, default: cwd), `--limit <n>`,
 `--help`. Per-command flags: `--regex` / `--case-sensitive` (`grep`), `--by <id>`
 (`propose-note`), `--all` / `--live` (`eval`), `--mcp` / `--name` / `--dir`
-(`plugin new`), `--thoughtbase` / `--run-servers` (`plugin check`). `minerva --help` prints the same
+/ `--kind` (`plugin new`), `--thoughtbase` / `--run-servers` (`plugin check`). `minerva --help` prints the same
 surface from the `HELP` block in `src/cli/run.ts`, which is the source of truth
 for this table.
 
@@ -224,9 +224,27 @@ usage and timing. Opt-in, and it needs a provider key in the environment.
 
 ## Plugin scaffold
 
-`minerva plugin new <id> --mcp node|python [--name <name>] [--dir <folder>]`
-(#2650) makes `<folder>/<id>/` (the current directory by default), a plugin
-that uses every part of the MCP tier ([authoring plugins](authoring-plugins.md#mcp-servers)):
+`minerva plugin new <id> --kind <kind> [--name <name>] [--dir <folder>]`
+(#2653) makes `<folder>/<id>/` (the current directory by default): a
+`plugin.json`, a README, and one working contribution of the kind.
+
+| `--kind` | Contributes | The file |
+|---|---|---|
+| `skill` | `skills` | `skills/three-points.md`, a conversation skill that sums a note up, its note text in a context block |
+| `type` | `object-types` | `types/<id>-entry.md`, a type with a status, a due date and notes |
+| `query` | `saved-queries` | `queries/tagged-notes.rq`, SPARQL listing notes and their tags |
+| `template` | `note-templates` | `templates/<id>-note.md` |
+| `csl` | `csl-styles` | `csl/<id>.csl`, an author-date style |
+| `theme` | `themes` | `themes/<id>-dark.json`, a dark theme |
+| `mcp` | an MCP server | see below; takes `--mcp node\|python` |
+
+Every point a plugin can contribute to has a kind, and a new point fails
+`scaffold.test.ts` until it gets one. Each kind's output passes
+`minerva plugin check` as written, which CI holds
+(`tests/main/plugin-check/examples.test.ts`).
+
+`minerva plugin new <id> --mcp node|python` (#2650; `--kind mcp` is implied)
+makes a plugin that uses every part of the MCP tier ([authoring plugins](authoring-plugins.md#mcp-servers)):
 
 - `plugin.json`, declaring a `memoFile` setting and a `memos` server that runs
   `node server/index.js` or `python3 server/server.py`, with the setting passed

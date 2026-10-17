@@ -37,7 +37,7 @@ Each rung up costs the user more to understand, review and maintain. Most "can M
    - **An object type for this thoughtbase:** call `list_object_types`, then `propose_object_type` once. It's filed as a proposal for the Proposals panel.
    - **A saved query:** give the SPARQL (or SQL) in your reply and tell them to save it from the Query panel. If it should travel with other pieces, put it in a plugin instead.
    - **A skill:** draft one markdown file and call `offer_extension_draft` with `kind: "skill"`.
-   - **A plugin** (several pieces together, or anything for every thoughtbase on this machine): draft the folder and call `offer_extension_draft` with `kind: "plugin"`.
+   - **A plugin** (several pieces together, or anything for every thoughtbase on this machine): draft the folder and call `offer_extension_draft` with `kind: "plugin"`. If they'd rather build it themselves, `minerva plugin new <id> --kind skill` (or `type`, `query`, `template`, `csl`, `theme`) makes a working one to start from, and `minerva plugin check <folder>` checks it.
    - **An MCP server:** only when code is truly needed. Draft it inside a plugin (a dependency-free Node or Python stdio server), or tell them `minerva plugin new <id> --mcp node` (or `--mcp python`) makes a working one to start from. Say plainly that a server runs only once they switch it on in Settings → MCP Servers, which asks first.
 
 5. **After the card, stop.** Report in one sentence what they chose (the tool tells you). Don't claim anything exists until the tool says it was saved or installed.

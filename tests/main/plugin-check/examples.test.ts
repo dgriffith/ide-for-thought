@@ -12,7 +12,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { checkPlugin } from '../../../src/main/plugin-check/check';
-import { writeScaffold } from '../../../src/main/plugins/scaffold';
+import { SCAFFOLD_KIND_POINTS, writeScaffold } from '../../../src/main/plugins/scaffold';
 import { ALL_HOSTILE_FEATURES, buildHostileThoughtbase, restoreHostilePermissions, type HostileManifest } from '../../helpers/hostile-thoughtbase';
 import { silenceLogTags } from '../../helpers/quiet-logs';
 
@@ -54,5 +54,12 @@ describe('every worked-example plugin passes plugin check (#2654)', () => {
       ['tool memos/list_memos', 'read-only'],
       ['tool memos/add_memo', 'asks the user before each call'],
     ]);
+  }, 120_000);
+
+  it.each(Object.keys(SCAFFOLD_KIND_POINTS) as (keyof typeof SCAFFOLD_KIND_POINTS)[])('and so does a fresh %s scaffold, its contribution loaded and run (#2653)', async (kind) => {
+    const { folder } = await writeScaffold(path.join(tmp, `kind-${kind}`), { id: `kind-${kind}`, kind });
+    const r = await checkPlugin(folder, { appVersion: APP_VERSION, thoughtbases: [hostile.root], scratchParent: tmp });
+    expect(failures(r)).toEqual([]);
+    expect(r.items.filter((i) => i.stage === 'contributions').map((i) => i.status)).toEqual(['pass']);
   }, 120_000);
 });

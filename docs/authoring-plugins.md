@@ -162,6 +162,13 @@ Inspections, commands, live blocks and views open to plugins as their
 stories land (#2637). Until then, naming one in
 `contributes` refuses the plugin.
 
+## Starting one
+
+`minerva plugin new <id> --kind <kind>` makes a plugin folder with one working
+contribution to start from (#2653): `skill`, `type`, `query`, `template`, `csl`
+or `theme`, or `--mcp node|python` for an MCP server. What it writes passes
+`minerva plugin check` as is. See [the CLI](cli.md#plugin-scaffold).
+
 ## Checking a plugin
 
 `minerva plugin check <folder>` puts it through what Minerva does with it
