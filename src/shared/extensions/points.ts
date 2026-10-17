@@ -206,7 +206,7 @@ export const EXTENSION_POINTS = [
     label: 'Saved queries',
     description: 'A SPARQL or SQL query, listed under Query ▸ Saved Queries and runnable in the Query panel.',
     rung: 'query-view',
-    contract: { kind: 'parser', format: '.rq (SPARQL) or .sql, with optional comment front matter', at: { file: 'src/main/saved-queries.ts', symbol: 'parseQueryContent' } },
+    contract: { kind: 'parser', format: '.rq (SPARQL) or .sql, with optional comment front matter', at: { file: 'src/main/saved-query-files.ts', symbol: 'parseQueryContent' } },
     loadPath: 'hot',
     sources: ['stock', 'user', 'plugin', 'thoughtbase'],
     location: 'the app\'s user-data folder (queries/), <thoughtbase>/.minerva/queries/, or a plugin\'s queries/ (#2633)',

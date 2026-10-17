@@ -162,6 +162,15 @@ Inspections, commands, live blocks and views open to plugins as their
 stories land (#2637). Until then, naming one in
 `contributes` refuses the plugin.
 
+## Checking a plugin
+
+`minerva plugin check <folder>` puts it through what Minerva does with it
+before anyone installs it (#2654): the manifest, an install, each contribution
+loaded and run against a tidy and a hostile thoughtbase, its MCP servers (with
+`--run-servers`, which runs them) and a removal that must leave nothing
+behind. Add `--thoughtbase <path>` to check against your own (a copy). See
+[the CLI](cli.md#plugin-check) for the stages.
+
 ## How contributions load
 
 Minerva reads `~/.minerva/plugins/` once, the first time a skill or type

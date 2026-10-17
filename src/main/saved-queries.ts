@@ -1,28 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { app } from 'electron';
-import type { PluginOrigin } from '../shared/plugins/format';
-import { contributionsTo, loadedPluginScan, pluginScanVersion } from './plugins/registry';
-import { logger } from '../shared/logger';
+import { pluginScanVersion } from './plugins/registry';
+import { languageFromPath, listPluginQueries, parseQueryContent, parseQueryFile, type QueryLanguage, type SavedQuery } from './saved-query-files';
 
-export type QueryLanguage = 'sparql' | 'sql';
-
-export interface SavedQuery {
-  id: string;       // filename without extension
-  name: string;
-  description: string;
-  query: string;
-  language: QueryLanguage;
-  /** `plugin`: from an installed plugin (#2633) — read-only here. */
-  scope: 'project' | 'global' | 'plugin';
-  /** Set when `scope` is `'plugin'`. */
-  plugin?: PluginOrigin;
-  filePath: string;  // absolute path for deletion
-  /** #315 — null = ungrouped. */
-  group: string | null;
-  /** #315 — null = no explicit position; falls to alphabetical by name. */
-  order: number | null;
-}
+export { listPluginQueries, parseQueryContent, type QueryLanguage, type SavedQuery } from './saved-query-files';
 
 function globalQueriesDir(): string {
   return path.join(app.getPath('userData'), 'queries');
@@ -46,49 +28,6 @@ function extensionFor(language: QueryLanguage): '.rq' | '.sql' {
   return language === 'sql' ? '.sql' : '.rq';
 }
 
-function languageFromPath(filePath: string): QueryLanguage {
-  return filePath.endsWith('.sql') ? 'sql' : 'sparql';
-}
-
-/** Parse query content string into metadata + body (pure, no I/O) */
-export function parseQueryContent(
-  content: string,
-  id: string,
-  scope: SavedQuery['scope'],
-  language: QueryLanguage,
-): Omit<SavedQuery, 'filePath'> {
-  let name = id;
-  let description = '';
-  let group: string | null = null;
-  let order: number | null = null;
-
-  const nameMatch = content.match(/^#\s*@name\s+(.+)$/m);
-  if (nameMatch) name = nameMatch[1]!.trim();
-  const descMatch = content.match(/^#\s*@description\s+(.+)$/m);
-  if (descMatch) description = descMatch[1]!.trim();
-  const groupMatch = content.match(/^#\s*@group\s+(.+)$/m);
-  if (groupMatch) {
-    const g = groupMatch[1]!.trim();
-    if (g) group = g;
-  }
-  const orderMatch = content.match(/^#\s*@order\s+(-?\d+)$/m);
-  if (orderMatch) order = parseInt(orderMatch[1]!, 10);
-
-  const query = content
-    .split('\n')
-    .filter((line) => !line.match(/^#\s*@(name|description|group|order)\s/))
-    .join('\n')
-    .trim();
-
-  return { id, name, description, query, language, scope, group, order };
-}
-
-function parseQueryFile(filePath: string, scope: SavedQuery['scope']): SavedQuery {
-  const content = fs.readFileSync(filePath, 'utf-8');
-  const ext = path.extname(filePath);
-  const id = path.basename(filePath, ext);
-  return { ...parseQueryContent(content, id, scope, languageFromPath(filePath)), filePath };
-}
 
 export interface SerializeArgs {
   name: string;
@@ -120,23 +59,6 @@ export function sanitizeFilename(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
 }
 
-/**
- * Installed plugins' queries (#2633), from the last finished plugin scan —
- * read synchronously, like the rest of this listing. One that can't be read
- * costs only itself.
- */
-function listPluginQueries(): SavedQuery[] {
-  const out: SavedQuery[] = [];
-  for (const { plugin, contribution } of contributionsTo(loadedPluginScan(), 'saved-queries')) {
-    const origin = { id: plugin.manifest.id, name: plugin.manifest.name, version: plugin.manifest.version };
-    try {
-      out.push({ ...parseQueryFile(contribution.absolutePath, 'plugin'), plugin: origin });
-    } catch (e) {
-      logger('plugins').warn(`${origin.id}: query ${contribution.path} couldn't be read:`, e);
-    }
-  }
-  return out;
-}
 
 /**
  * Throw unless `filePath` is a saved query this app may change: a `.rq` or

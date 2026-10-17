@@ -85,6 +85,7 @@ const BASELINE: Record<string, string> = {
   // #2787: a plugin's theme files — contributed content checked whole, where a
   // bad file is refused and reported by name, never read as defaults.
   'src/main/plugins/themes.ts': 'plugin theme files (themes/*.json), contributed content validated and refused per file, not config',
+  'src/main/plugin-check/check.ts': 'plugin check (#2654) reads a SCRATCH plugins folder\'s records and settings files raw after removing the plugin, to see what is left on disk — a residue probe, not a config reader',
   // #2564: parses the JSON a hidden window's executeJavaScript returns (the old
   // file:// origin's localStorage, read once) and scans leveldb .log bytes for
   // a marker string. Neither is a config file; its own marker is only written.

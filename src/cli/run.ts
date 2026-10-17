@@ -32,6 +32,12 @@ import { runMcpServer } from './mcp';
 import { bundledResourcesRoot } from '../main/bundled-resources';
 import { runEval } from './eval';
 import { isScaffoldRuntime, SCAFFOLD_RUNTIMES, ScaffoldRefusal, writeScaffold } from '../main/plugins/scaffold';
+import { checkPlugin } from '../main/plugin-check/check';
+import { setTagLevel } from '../shared/logger';
+
+/** The app's version, defined at build time (`vite.cli.config.mts`). */
+declare const __APP_VERSION__: string;
+const BUILD_VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '0.0.0';
 
 export interface CliResult {
   stdout: string;
@@ -47,6 +53,9 @@ export interface RunOptions {
   /** Note content piped on stdin — how `propose-note` receives the body (the
    *  executable entry reads it; kept as data so `runCli` stays process-free). */
   stdin?: string | undefined;
+  /** The Minerva version `plugin check` checks a plugin's range against. Defaults
+   *  to the build's (`__APP_VERSION__`); tests, which have no build, pass it. */
+  appVersion?: string | undefined;
 }
 
 export const HELP = `minerva — headless access to a Minerva thoughtbase (#1149)
@@ -76,6 +85,12 @@ Commands:
                         server (a read-only tool, one that asks first), a
                         skill that uses it and a test (#2650).
                         --mcp node|python  [--name <name>] [--dir <folder>]
+  plugin check <folder> Put a plugin through what Minerva does with it: the
+                        manifest, an install, each contribution loaded and run
+                        against fixture thoughtbases (a hostile one too), its
+                        MCP servers, and a removal that must leave nothing
+                        behind (#2654). Exit 1 if anything fails.
+                        [--thoughtbase <path>]… [--run-servers]
 
 Options:
   --project <path>      Thoughtbase root (default: current directory).
@@ -89,6 +104,10 @@ Options:
   --mcp <runtime>       plugin new: the server's language, node or python.
   --name <name>         plugin new: the name Settings shows (default: from the id).
   --dir <folder>        plugin new: where to make it (default: current directory).
+  --thoughtbase <path>  plugin check: also check against this thoughtbase (a
+                        copy; repeatable).
+  --run-servers         plugin check: start its MCP servers and list their
+                        tools. This runs the plugin's code.
   --help, -h            Show this help.
 
 Results are JSON on stdout, grounded with node IRIs / note paths so the output
@@ -108,6 +127,8 @@ interface ParsedArgs {
   mcp: string | undefined;
   name: string | undefined;
   dir: string | undefined;
+  thoughtbases: string[];
+  runServers: boolean;
   help: boolean;
 }
 
@@ -126,6 +147,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
   let mcp: string | undefined;
   let name: string | undefined;
   let dir: string | undefined;
+  const thoughtbases: string[] = [];
+  let runServers = false;
   let help = false;
 
   for (let i = 0; i < argv.length; i++) {
@@ -152,6 +175,13 @@ export function parseArgs(argv: string[]): ParsedArgs {
       all = true;
     } else if (arg === '--live') {
       live = true;
+    } else if (arg === '--thoughtbase') {
+      const value = argv[++i];
+      if (value !== undefined) thoughtbases.push(value);
+    } else if (arg.startsWith('--thoughtbase=')) {
+      thoughtbases.push(arg.slice('--thoughtbase='.length));
+    } else if (arg === '--run-servers') {
+      runServers = true;
     } else if (arg === '--mcp' || arg === '--name' || arg === '--dir') {
       const value = argv[++i];
       if (arg === '--mcp') mcp = value;
@@ -167,7 +197,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     }
   }
 
-  return { command: positionals.shift(), positionals, project, limit, by, regex, caseSensitive, all, live, mcp, name, dir, help };
+  return { command: positionals.shift(), positionals, project, limit, by, regex, caseSensitive, all, live, mcp, name, dir, thoughtbases, runServers, help };
 }
 
 function json(value: unknown): string {
@@ -225,10 +255,23 @@ function format(result: ExecResult, errorPrefix: string): CliResult {
     : { stdout: '', stderr: `${errorPrefix}: ${result.error}\n`, code: 1 };
 }
 
-/** `minerva plugin new <id> --mcp node|python` (#2650). */
-async function runPluginCommand(args: ParsedArgs, cwd: string): Promise<CliResult> {
+/** `minerva plugin new <id> --mcp node|python` (#2650), `minerva plugin check <folder>` (#2654). */
+async function runPluginCommand(args: ParsedArgs, cwd: string, appVersion: string): Promise<CliResult> {
   const [sub, id, ...extra] = args.positionals;
-  if (sub !== 'new') throw new UsageError('plugin: the only subcommand is `plugin new <id> --mcp node|python`.');
+  if (sub === 'check') {
+    if (!id || extra.length > 0) throw new UsageError('plugin check: pass one plugin folder, like `minerva plugin check ./my-tools`.');
+    // The hostile fixture is built to make Minerva's own seams complain (a
+    // corrupt config, a link out of the root): expected, and the report says
+    // what matters. The process ends with the check, so nothing is restored.
+    for (const tag of ['config', 'graph', 'tables', 'plugins'] as const) setTagLevel(tag, 'silent');
+    const report = await checkPlugin(path.resolve(cwd, expandHome(id)), {
+      appVersion,
+      thoughtbases: args.thoughtbases.map((t) => path.resolve(cwd, expandHome(t))),
+      runServers: args.runServers,
+    });
+    return { stdout: json(report), stderr: '', code: report.ok ? 0 : 1 };
+  }
+  if (sub !== 'new') throw new UsageError('plugin: the subcommands are `plugin new <id> --mcp node|python` and `plugin check <folder>`.');
   if (!id || extra.length > 0) throw new UsageError('plugin new: pass one plugin id, like `minerva plugin new my-tools --mcp node`.');
   if (!args.mcp || !isScaffoldRuntime(args.mcp)) {
     throw new UsageError(`plugin new: --mcp must be ${SCAFFOLD_RUNTIMES.join(' or ')}. (A plugin without code needs no scaffold; see docs/authoring-plugins.md.)`);
@@ -298,7 +341,7 @@ export async function runCli(argv: string[], opts: RunOptions): Promise<CliResul
     }
 
     // `plugin new` makes a folder; it needs no thoughtbase.
-    if (args.command === 'plugin') return await runPluginCommand(args, opts.cwd);
+    if (args.command === 'plugin') return await runPluginCommand(args, opts.cwd, opts.appVersion ?? BUILD_VERSION);
 
     const root = await resolveProjectRoot(args.project, opts.cwd);
 
