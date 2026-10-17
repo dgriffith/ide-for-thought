@@ -5,10 +5,11 @@ epic (#1145 → #1149). It reuses the exact `ctx`-based core the app uses (that
 core is Electron-free), so an external agent or a shell script can query your
 knowledge graph and notes without the app running.
 
-> **Status: read + propose.** Ten commands — `query`, `sql`, `search`, `grep`,
+> **Status: read + propose.** Eleven commands — `query`, `sql`, `search`, `grep`,
 > `semantic`, `read`, `context`, `propose-note`, `mcp` (a stdio MCP server
-> exposing the rest to agent clients), and `eval` (a development harness for
-> skill prompts). Proposals go through the approval gate — they never touch the
+> exposing the rest to agent clients), `eval` (a development harness for
+> skill prompts), and `plugin new` (a starting point for a plugin with an MCP
+> server). Proposals go through the approval gate — they never touch the
 > vault until a human approves them in Minerva.
 
 ## Build & run
@@ -36,10 +37,12 @@ repo's `node_modules` at runtime — no separate install.
 | `propose-note <path>` | File a new note (body on **stdin**) as a pending proposal (`--by <id>`) | `{ status, proposalUri, … }` |
 | `mcp` | Start a stdio MCP server exposing the read + propose tools — see *MCP server* | JSON-RPC 2.0 on stdio |
 | `eval <case-dir>…` | Package a skill's prompt exactly as Minerva does, into each case's `output/` (`--all`, `--live`) — see *Skill eval* | `[{ case, skill, model, outputMode }]` |
+| `plugin new <id>` | Make a plugin folder with a working stdio MCP server, a skill that uses it and a test (`--mcp node\|python`, `--name`, `--dir`) — see *Plugin scaffold* | `{ folder, files, next }` |
 
 Global options: `--project <path>` (thoughtbase root, default: cwd), `--limit <n>`,
 `--help`. Per-command flags: `--regex` / `--case-sensitive` (`grep`), `--by <id>`
-(`propose-note`), `--all` / `--live` (`eval`). `minerva --help` prints the same
+(`propose-note`), `--all` / `--live` (`eval`), `--mcp` / `--name` / `--dir`
+(`plugin new`). `minerva --help` prints the same
 surface from the `HELP` block in `src/cli/run.ts`, which is the source of truth
 for this table.
 
@@ -217,6 +220,29 @@ pnpm cli eval --all                    # regenerate every case's output/, then d
 `--live` additionally makes a real model call, writing `response.md` and
 `drafts.json` alongside the deterministic pair and enriching `meta.json` with
 usage and timing. Opt-in, and it needs a provider key in the environment.
+
+## Plugin scaffold
+
+`minerva plugin new <id> --mcp node|python [--name <name>] [--dir <folder>]`
+(#2650) makes `<folder>/<id>/` (the current directory by default), a plugin
+that uses every part of the MCP tier ([authoring plugins](authoring-plugins.md#mcp-servers)):
+
+- `plugin.json`, declaring a `memoFile` setting and a `memos` server that runs
+  `node server/index.js` or `python3 server/server.py`, with the setting passed
+  in as `MEMO_FILE`;
+- the server, with no dependencies: `list_memos`, marked read-only, and
+  `add_memo`, which writes, so Minerva asks before each call;
+- `skills/memos.md`, a skill whose conversation can reach only that server's
+  tools (`tools: [mcp:memos]`);
+- a test that drives the server over stdio: `npm test` (`node:test`) or
+  `python3 -m unittest`.
+
+It refuses an id the manifest would refuse, and a folder that already exists.
+Install the result from Settings → Plugins → **Install from folder…** (or link
+it into `~/.minerva/plugins/<id>`), then switch its server on in Settings → MCP
+Servers. The templates are `src/main/plugins/scaffold-templates/`, bundled into
+the CLI; `tests/main/plugins/scaffold.test.ts` installs each one, connects to its
+server with Minerva's own MCP client and runs its test.
 
 ## Exit codes
 

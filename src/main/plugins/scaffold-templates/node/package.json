@@ -1,0 +1,9 @@
+{
+  "name": "__PLUGIN_ID__",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A Minerva plugin. Minerva reads plugin.json, not this file; it's here for npm test.",
+  "scripts": {
+    "test": "node --test"
+  }
+}

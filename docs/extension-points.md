@@ -161,6 +161,7 @@ An MCP server whose tools the conversation model may call through mcp_call. Code
 - **Goes in:** ~/.minerva/mcp-servers.json, edited in Settings → MCP Servers; or a plugin's mcpServers, run once the user turns each on (#2646)
 - **Contract:** A server entry: stdio command + args + env, or an HTTP URL, checked by [`src/main/mcp-servers/config-store.ts`](../src/main/mcp-servers/config-store.ts) (`decodeServer`)
 - **Docs:** [`website/docs/_content/settings-mcp-servers.html`](../website/docs/_content/settings-mcp-servers.html)
+- **Example:** [`src/main/plugins/scaffold-templates/`](../src/main/plugins/scaffold-templates/)
 - **Test:** [`tests/main/mcp-servers/config-store.test.ts`](../tests/main/mcp-servers/config-store.test.ts)
 
 ## `view-layouts` — View layouts

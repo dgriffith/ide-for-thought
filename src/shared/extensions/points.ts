@@ -253,6 +253,7 @@ export const EXTENSION_POINTS = [
     sources: ['user', 'plugin'],
     location: '~/.minerva/mcp-servers.json, edited in Settings → MCP Servers; or a plugin\'s mcpServers, run once the user turns each on (#2646)',
     docs: 'website/docs/_content/settings-mcp-servers.html',
+    example: 'src/main/plugins/scaffold-templates/',
     harness: 'tests/main/mcp-servers/config-store.test.ts',
   },
 

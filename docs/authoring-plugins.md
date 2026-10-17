@@ -257,6 +257,13 @@ the skill. The Word Tools example's `skills/word-count.md` does this.
 is a worked example: a dependency-free Node server with a read-only tool and
 one that asks first, and a secret setting passed in as its environment.
 
+**To start one of your own**, `minerva plugin new <id> --mcp node` (or
+`--mcp python`) makes `<id>/` with all of this wired up (#2650): a
+dependency-free server with a read-only tool and one that asks first, a
+setting passed in as its environment, a skill scoped to its tools, and a test
+that drives the server over stdio (`npm test` or `python3 -m unittest`). See
+[the CLI](cli.md#plugin-scaffold).
+
 ## Themes
 
 A plugin's `themes/<id>.json` adds a colour theme (#2787). It's listed after
