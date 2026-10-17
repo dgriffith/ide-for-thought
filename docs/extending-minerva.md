@@ -68,6 +68,8 @@ the window.
   Object Types; see [authoring types](authoring-types.md).
 - **A plugin**: a folder with a `plugin.json`, installed from Settings →
   Plugins; see [authoring plugins](authoring-plugins.md).
+- **A plugin to start from**: `minerva plugin new <id> --kind <kind>` makes
+  one with a working skill, type, query, template, citation style or theme.
 - **An MCP server**: `minerva plugin new <id> --mcp node` (or
   `--mcp python`) makes a plugin with a working server, a skill scoped to its
   tools and a test; see [the CLI](cli.md#plugin-scaffold).

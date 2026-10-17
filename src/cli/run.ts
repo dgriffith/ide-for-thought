@@ -31,7 +31,7 @@ import { jsonStringify } from './json';
 import { runMcpServer } from './mcp';
 import { bundledResourcesRoot } from '../main/bundled-resources';
 import { runEval } from './eval';
-import { isScaffoldRuntime, SCAFFOLD_RUNTIMES, ScaffoldRefusal, writeScaffold } from '../main/plugins/scaffold';
+import { isScaffoldKind, isScaffoldRuntime, SCAFFOLD_KINDS, SCAFFOLD_RUNTIMES, ScaffoldRefusal, writeScaffold } from '../main/plugins/scaffold';
 import { checkPlugin } from '../main/plugin-check/check';
 import { setTagLevel } from '../shared/logger';
 
@@ -81,10 +81,12 @@ Commands:
                         overwrite each case's output/. Deterministic (no LLM
                         call) unless --live. Diff the output to review
                         prompt/context changes (#1522).        [--all] [--live]
-  plugin new <id>       Make a plugin folder <id>/ with a working stdio MCP
-                        server (a read-only tool, one that asks first), a
+  plugin new <id>       Make a plugin folder <id>/ with one working
+                        contribution of a kind (#2653): a skill, type, query,
+                        template, CSL style or theme; or with --mcp, a stdio
+                        MCP server (a read-only tool, one that asks first), a
                         skill that uses it and a test (#2650).
-                        --mcp node|python  [--name <name>] [--dir <folder>]
+                        --kind <kind> | --mcp node|python  [--name <name>] [--dir <folder>]
   plugin check <folder> Put a plugin through what Minerva does with it: the
                         manifest, an install, each contribution loaded and run
                         against fixture thoughtbases (a hostile one too), its
@@ -101,7 +103,8 @@ Options:
   --all                 eval: run every case under tests/skills-eval/.
   --live                eval: make a real model call, capturing response.md +
                         drafts.json. Opt-in; needs a provider key in the env.
-  --mcp <runtime>       plugin new: the server's language, node or python.
+  --kind <kind>         plugin new: skill, type, query, template, csl, theme or mcp.
+  --mcp <runtime>       plugin new: an MCP server, in node or python.
   --name <name>         plugin new: the name Settings shows (default: from the id).
   --dir <folder>        plugin new: where to make it (default: current directory).
   --thoughtbase <path>  plugin check: also check against this thoughtbase (a
@@ -125,6 +128,7 @@ interface ParsedArgs {
   all: boolean;
   live: boolean;
   mcp: string | undefined;
+  kind: string | undefined;
   name: string | undefined;
   dir: string | undefined;
   thoughtbases: string[];
@@ -145,6 +149,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
   let all = false;
   let live = false;
   let mcp: string | undefined;
+  let kind: string | undefined;
   let name: string | undefined;
   let dir: string | undefined;
   const thoughtbases: string[] = [];
@@ -182,14 +187,16 @@ export function parseArgs(argv: string[]): ParsedArgs {
       thoughtbases.push(arg.slice('--thoughtbase='.length));
     } else if (arg === '--run-servers') {
       runServers = true;
-    } else if (arg === '--mcp' || arg === '--name' || arg === '--dir') {
+    } else if (arg === '--mcp' || arg === '--name' || arg === '--dir' || arg === '--kind') {
       const value = argv[++i];
       if (arg === '--mcp') mcp = value;
+      else if (arg === '--kind') kind = value;
       else if (arg === '--name') name = value;
       else dir = value;
-    } else if (/^--(mcp|name|dir)=/.test(arg)) {
+    } else if (/^--(mcp|name|dir|kind)=/.test(arg)) {
       const [flag, ...value] = arg.slice(2).split('=');
       if (flag === 'mcp') mcp = value.join('=');
+      else if (flag === 'kind') kind = value.join('=');
       else if (flag === 'name') name = value.join('=');
       else dir = value.join('=');
     } else {
@@ -197,7 +204,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     }
   }
 
-  return { command: positionals.shift(), positionals, project, limit, by, regex, caseSensitive, all, live, mcp, name, dir, thoughtbases, runServers, help };
+  return { command: positionals.shift(), positionals, project, limit, by, regex, caseSensitive, all, live, mcp, kind, name, dir, thoughtbases, runServers, help };
 }
 
 function json(value: unknown): string {
@@ -255,7 +262,7 @@ function format(result: ExecResult, errorPrefix: string): CliResult {
     : { stdout: '', stderr: `${errorPrefix}: ${result.error}\n`, code: 1 };
 }
 
-/** `minerva plugin new <id> --mcp node|python` (#2650), `minerva plugin check <folder>` (#2654). */
+/** `minerva plugin new <id> --kind <kind>` (#2653) or `--mcp node|python` (#2650), `minerva plugin check <folder>` (#2654). */
 async function runPluginCommand(args: ParsedArgs, cwd: string, appVersion: string): Promise<CliResult> {
   const [sub, id, ...extra] = args.positionals;
   if (sub === 'check') {
@@ -271,29 +278,31 @@ async function runPluginCommand(args: ParsedArgs, cwd: string, appVersion: strin
     });
     return { stdout: json(report), stderr: '', code: report.ok ? 0 : 1 };
   }
-  if (sub !== 'new') throw new UsageError('plugin: the subcommands are `plugin new <id> --mcp node|python` and `plugin check <folder>`.');
-  if (!id || extra.length > 0) throw new UsageError('plugin new: pass one plugin id, like `minerva plugin new my-tools --mcp node`.');
-  if (!args.mcp || !isScaffoldRuntime(args.mcp)) {
-    throw new UsageError(`plugin new: --mcp must be ${SCAFFOLD_RUNTIMES.join(' or ')}. (A plugin without code needs no scaffold; see docs/authoring-plugins.md.)`);
+  if (sub !== 'new') throw new UsageError('plugin: the subcommands are `plugin new <id> --kind <kind>` and `plugin check <folder>`.');
+  if (!id || extra.length > 0) throw new UsageError('plugin new: pass one plugin id, like `minerva plugin new my-tools --kind skill`.');
+  const kind: string = args.kind ?? (args.mcp !== undefined ? 'mcp' : '');
+  if (!isScaffoldKind(kind)) {
+    throw new UsageError(`plugin new: --kind must be ${SCAFFOLD_KINDS.join(', ')}${args.kind === undefined ? ' (or pass --mcp node|python)' : ''}.`);
   }
+  if (kind === 'mcp' && (!args.mcp || !isScaffoldRuntime(args.mcp))) {
+    throw new UsageError(`plugin new: --mcp must be ${SCAFFOLD_RUNTIMES.join(' or ')}.`);
+  }
+  if (kind !== 'mcp' && args.mcp !== undefined) throw new UsageError(`plugin new: --mcp is for --kind mcp, not ${kind}.`);
+  const runtime = kind === 'mcp' && args.mcp && isScaffoldRuntime(args.mcp) ? args.mcp : undefined;
   const parent = path.resolve(cwd, expandHome(args.dir ?? '.'));
   let made: { folder: string; files: string[] };
   try {
-    made = await writeScaffold(parent, { id, runtime: args.mcp, name: args.name });
+    made = await writeScaffold(parent, { id, kind: kind, runtime, name: args.name });
   } catch (e) {
     if (e instanceof ScaffoldRefusal) throw new UsageError(`plugin new: ${e.message}`, { cause: e });
     throw e;
   }
-  const test = args.mcp === 'node' ? 'npm test' : 'python3 -m unittest';
+  const next = runtime
+    ? [`cd ${made.folder} && ${runtime === 'node' ? 'npm test' : 'python3 -m unittest'}`, `minerva plugin check ${made.folder} --run-servers`,
+        'Settings → Plugins → Install from folder…, then switch on its server in Settings → MCP Servers.']
+    : [`minerva plugin check ${made.folder}`, 'Settings → Plugins → Install from folder…'];
   return {
-    stdout: json({
-      folder: made.folder,
-      files: made.files,
-      next: [
-        `cd ${made.folder} && ${test}`,
-        'Settings → Plugins → Install from folder…, then switch on its server in Settings → MCP Servers.',
-      ],
-    }),
+    stdout: json({ folder: made.folder, files: made.files, next }),
     stderr: '',
     code: 0,
   };

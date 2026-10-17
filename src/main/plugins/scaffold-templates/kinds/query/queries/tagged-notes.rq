@@ -1,0 +1,10 @@
+# @name Notes and their tags
+# @description Every note with at least one tag, and each tag it has.
+
+SELECT ?note ?title ?tag WHERE {
+  ?note a minerva:Note ;
+        dc:title ?title ;
+        minerva:hasTag ?tagNode .
+  ?tagNode minerva:tagName ?tag .
+}
+ORDER BY ?title ?tag
