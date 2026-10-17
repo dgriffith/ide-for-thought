@@ -54,7 +54,11 @@ export function calendarOf(win: Page): Calendar {
     grid,
     title: win.locator('.cal-title'),
     day: (y, m, d) => grid.locator(`[role="gridcell"][data-day="${civilDay(y, m, d)}"]`),
-    eventFor: (title) => grid.locator(`[data-calendar-event][aria-label^="${title},"]`),
+    // By its visible title: an event is named by what it shows (#2790), its
+    // full date being its description.
+    eventFor: (title) => grid.locator('[data-calendar-event]').filter({
+      has: win.locator('.cal-ev-title', { hasText: new RegExp(`^${title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`) }),
+    }),
     tabStop: grid.locator('[role="gridcell"][tabindex="0"]'),
     dayList: win.getByRole('dialog').and(win.locator('[data-calendar-day-list]')),
   };

@@ -82,6 +82,28 @@ function setup(over: Record<string, unknown> = {}) {
 beforeEach(() => { settings.weekStart = 1; settings.showWeekNumbers = false; });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
+
+/**
+ * A day cell is named from its content (#2790): a visually hidden day label,
+ * then what it shows. This reads that label, and a node's text as a screen
+ * reader would get it: no aria-hidden parts, the hidden label kept.
+ */
+const dayLabel = (cell: HTMLElement) => cell.querySelector(':scope > .visually-hidden')!.textContent;
+function spokenText(el: Element): string {
+  return rawText(el).replace(/\s+/g, ' ').trim();
+}
+function rawText(el: Element): string {
+  let out = '';
+  for (const n of el.childNodes) {
+    if (n.nodeType === Node.TEXT_NODE) out += n.textContent;
+    else if (n instanceof HTMLElement && n.getAttribute('aria-hidden') !== 'true') out += rawText(n);
+  }
+  return out;
+}
+/** An element's description: the text of what its aria-describedby names. */
+const described = (el: HTMLElement) => (el.getAttribute('aria-describedby') ?? '').split(/\s+/).filter(Boolean)
+  .map((id) => document.getElementById(id)?.textContent ?? '').join(' ');
+
 describe('the month grid', () => {
   it('is a labelled grid with the weekday headers and the month\'s rows', () => {
     const { grid, q, container } = setup();
@@ -106,11 +128,14 @@ describe('the month grid', () => {
     expect(cell(day(2026, 11, 1)).classList.contains('cal-out')).toBe(true);
   });
 
-  it('names each day with its event count', () => {
+  it('names each day from its content: the day and its count first, then what it shows (#2790)', () => {
     const { cell } = setup();
-    expect(cell(day(2026, 10, 6)).getAttribute('aria-label')).toBe('Tuesday, 6 October 2026, 1 event');
-    expect(cell(day(2026, 10, 12)).getAttribute('aria-label')).toBe('Monday, 12 October 2026, 1 event');
-    expect(cell(day(2026, 10, 2)).getAttribute('aria-label')).toBe('Friday, 2 October 2026, no events');
+    expect(dayLabel(cell(day(2026, 10, 6)))).toBe('Tuesday, 6 October 2026, 1 event:');
+    expect(dayLabel(cell(day(2026, 10, 12)))).toBe('Monday, 12 October 2026, 1 event:');
+    expect(dayLabel(cell(day(2026, 10, 2)))).toBe('Friday, 2 October 2026, no events');
+    // No aria-label to diverge from what's on screen (WCAG 2.5.3).
+    expect(cell(day(2026, 10, 6)).hasAttribute('aria-label')).toBe(false);
+    expect(spokenText(cell(day(2026, 10, 6)))).toBe('Tuesday, 6 October 2026, 1 event: Dentist');
   });
 
   it('marks today with aria-current and a ring, and makes it the tab stop', () => {
@@ -194,7 +219,10 @@ describe('events', () => {
     expect(segs('dentist.md')).toHaveLength(1);
     expect(cell(day(2026, 10, 6)).contains(s!)).toBe(true);
     expect(s!.classList.contains('cal-bar')).toBe(false);
-    expect(s!.getAttribute('aria-label')).toBe('Dentist, 6 Oct 2026');
+    // Named by what it shows, described by its full date (#2790).
+    expect(s!.hasAttribute('aria-label')).toBe(false);
+    expect(spokenText(s!)).toBe('Dentist');
+    expect(described(s!)).toBe('Dentist, 6 Oct 2026');
   });
 
   it('a datetime shows its local time', () => {
@@ -335,7 +363,7 @@ describe('overflow: "+N more" and the day\'s list', () => {
     const c = cell(day(2026, 10, 15));
     expect(c.querySelectorAll('[data-calendar-event]')).toHaveLength(3);
     expect(c.querySelector('.cal-more')!.textContent).toBe('+3 more');
-    expect(c.getAttribute('aria-label')).toBe('Thursday, 15 October 2026, 6 events');
+    expect(dayLabel(c)).toBe('Thursday, 15 October 2026, 6 events:');
     expect(container.querySelectorAll('.cal-more')).toHaveLength(1);
   });
 

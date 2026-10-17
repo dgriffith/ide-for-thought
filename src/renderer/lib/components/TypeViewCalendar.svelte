@@ -270,6 +270,14 @@
   function eventFor(key: string): TimelineEvent {
     return model.byKey.get(key)!;
   }
+  // An event's button is named by what it shows (its time and title), so a
+  // speech user says what they see (WCAG 2.5.3, #2790); its full date and
+  // time are its description, kept out of the day cell's name.
+  // Only the events drawn on this page: a description of next month's events
+  // would reach an export of this one.
+  const drawnKeys = $derived([...new Set(drawn.flatMap((d) => d.visible.map((s) => s.key)))]);
+  const eventDescIds = $derived(new Map(drawnKeys.map((k, i) => [k, `${uid}-ev-${i}`])));
+  const eventDescId = (key: string) => eventDescIds.get(key) ?? '';
   /** A bar's span in columns, for its width. */
   const spanOf = (s: PlacedSegment) => s.endCol - s.startCol;
 
@@ -356,13 +364,16 @@
               class:cal-today={isToday}
               role="gridcell"
               tabindex={day.start === tabDay ? 0 : -1}
-              aria-label="{dayName(day.start, locale)}, {n === 0 ? 'no events' : n === 1 ? '1 event' : `${n} events`}"
               aria-current={isToday ? 'date' : undefined}
               aria-describedby={move.moving && day.start === tabDay ? moveBarId : undefined}
               data-day={day.start}
               onclick={() => { if (move.moving) move.confirm(day.start); else { focusedDay = day.start; } }}
               onfocus={() => (focusedDay = day.start)}
             >
+              <!-- Named from its content (WCAG 2.5.3, #2790): the day first, then
+                   what the cell shows, so the visible text is in the name. It
+                   reads no more than the cell shows: past that, "+N more". -->
+              <span class="visually-hidden">{dayName(day.start, locale)}, {n === 0 ? 'no events' : n === 1 ? '1 event' : `${n} events`}{n > 0 ? ':' : ''}</span>
               <span class="cal-num" aria-hidden="true">{day.day}</span>
               {#each startingAt(r, c) as s (s.key)}
                 {@const ev = eventFor(s.key)}
@@ -389,8 +400,7 @@
                   data-start-col={s.startCol}
                   data-end-col={s.endCol}
                   data-slot={s.slot}
-                  aria-label={ev.label}
-                  aria-describedby={cardKey === s.key ? cardId : undefined}
+                  aria-describedby={[eventDescId(s.key), cardKey === s.key ? cardId : null].filter(Boolean).join(' ')}
                   onclick={(e) => { e.stopPropagation(); onOpenNote(s.key); }}
                   onpointerenter={(e) => hoverIn(ev, e.currentTarget)}
                   onpointerleave={() => hover.pointerLeave(s.key)}
@@ -418,6 +428,12 @@
       {/each}
     </div>
     {/if}
+
+    <div hidden>
+      {#each drawnKeys as key (key)}
+        <span id={eventDescId(key)}>{eventFor(key).label}</span>
+      {/each}
+    </div>
 
     <CalendarBands
       bands={[{ id: 'year', head: `${yearName(page.year, locale)} · no month`, entries: bands.year }, { id: 'month', head: `${title} · no day`, entries: bands.month }]}
