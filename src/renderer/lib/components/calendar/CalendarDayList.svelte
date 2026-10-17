@@ -176,17 +176,18 @@
     <p class="cal-pop-empty">No events.</p>
   {:else}
     <ul class="cal-pop-list">
-      {#each events as ev (ev.key)}
+      {#each events as ev, i (ev.key)}
         {@const time = timeOf(ev)}
         <li>
+          <!-- Named by what it shows, described by its full date (WCAG 2.5.3, #2790). -->
+          <span id="{uid}-desc-{i}" hidden>{ev.label}</span>
           <button
             type="button"
             class="cal-pop-item"
             class:approx={ev.approx}
             data-day-event
             data-note-path={ev.key}
-            aria-label={ev.label}
-            aria-describedby={cardKey === ev.key ? cardId : undefined}
+            aria-describedby={[`${uid}-desc-${i}`, cardKey === ev.key ? cardId : null].filter(Boolean).join(' ')}
             aria-haspopup={menu ? 'menu' : undefined}
             aria-expanded={menu ? menuKey === ev.key : undefined}
             onclick={() => onOpen(ev.key)}
