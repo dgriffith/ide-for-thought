@@ -304,9 +304,11 @@ Instead of the frontmatter-key fallback, this property's value is indexed under
 
 ### Recognized prefixes
 
-Both keys resolve against one list (`STANDARD_PREFIXES` in
-`src/main/graph/state.ts`) — the same prefixes auto-injected into every SPARQL
-query:
+Both keys resolve against the standard prefixes (`STANDARD_PREFIXES` in
+`src/main/graph/state.ts`, the same ones auto-injected into every SPARQL
+query) **and the prefixes of the thoughtbase's own vocabularies** (#2792), so
+with a lab's vocabulary imported in Settings → Ontology, `externalClass:
+lab:Sample` and `predicate: lab:collectedOn` apply like any standard term:
 
 | Prefix | IRI |
 |---|---|
@@ -326,15 +328,20 @@ query:
 | `skos` | `http://www.w3.org/2004/02/skos/core#` |
 | `foaf` | `http://xmlns.com/foaf/0.1/` |
 
-An **unrecognized prefix is silently ignored** — that one mapping just doesn't
-apply, and indexing continues. There is no way to declare your own prefix in a
-type file today. If you need one, add it to `STANDARD_PREFIXES`; it is a single
-list read by both the CURIE resolver and the query prefix injection, so adding
-an entry there makes the prefix usable in types *and* in SPARQL at once.
+To use a prefix of your own, import the vocabulary that declares it
+(Settings → Ontology; see [your own vocabularies](thought-ontology.md#your-own-vocabularies)).
+Importing or removing one reindexes the thoughtbase when a type maps onto it,
+so the mapping follows straight away. A standard name always wins: a
+vocabulary can't rebind one.
 
-Note what this means for a typo: `foaf:Persn` and `faof:Person` both fail
-silently and identically. Nothing validates the local name against the remote
-vocabulary — the prefix is expanded and the IRI is minted, whatever it says.
+A **prefix that's neither standard nor imported** doesn't apply, and indexing
+continues, but it's no longer silent: Settings → Object Types lists it with
+the type's other problems, naming the prefix.
+
+Note what this means for a typo: `faof:Person` is reported, because `faof:`
+is nobody's prefix, but `foaf:Persn` isn't. Nothing validates the local name
+against the vocabulary — the prefix is expanded and the IRI is minted,
+whatever it says.
 
 ## Inheritance
 

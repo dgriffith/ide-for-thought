@@ -47,7 +47,9 @@ export function registerTypes(): void {
       // Inherited views (effective default body, effective property names) need
       // the whole catalog, so they're resolved here rather than per type (#2494).
       const byId = new Map(catalog.types.map((t) => [t.id, t]));
-      return { types: catalog.types.map((t) => toTypeInfoWithInheritance(t, byId)), errors: catalog.errors };
+      // A mapping onto a prefix nobody declares is reported, not silently dropped (#2792).
+      const errors = [...catalog.errors, ...graph.typeMappingProblems(projectContext(rootPath), catalog)];
+      return { types: catalog.types.map((t) => toTypeInfoWithInheritance(t, byId)), errors };
     }),
   );
 

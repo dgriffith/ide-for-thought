@@ -228,17 +228,18 @@ export const STANDARD_PREFIXES: [string, string][] = [
  * FIRST `:` only (an IRI's local part may itself contain colons). Returns
  * `undefined` for an unrecognized prefix or malformed input rather than
  * throwing — a bad CURIE in a type definition means that one mapping just
- * doesn't apply, not an indexing failure.
+ * doesn't apply, not an indexing failure. `extra` adds the prefixes of the
+ * thoughtbase's imported vocabularies (#2792); standard names win, and #2788
+ * refuses a vocabulary that rebinds one.
  */
-export function resolveStandardCurie(curie: string): $rdf.NamedNode | undefined {
+export function resolveCurie(curie: string, extra: readonly { prefix: string; iri: string }[] = []): $rdf.NamedNode | undefined {
   const i = curie.indexOf(':');
   if (i <= 0) return undefined;
   const prefix = curie.slice(0, i);
   const local = curie.slice(i + 1);
   if (!local) return undefined;
-  const entry = STANDARD_PREFIXES.find(([p]) => p === prefix);
-  if (!entry) return undefined;
-  return $rdf.sym(entry[1] + local);
+  const iri = STANDARD_PREFIXES.find(([p]) => p === prefix)?.[1] ?? extra.find((e) => e.prefix === prefix)?.iri;
+  return iri === undefined ? undefined : $rdf.sym(iri + local);
 }
 
 // ── Per-project state (#333) ────────────────────────────────────────────────

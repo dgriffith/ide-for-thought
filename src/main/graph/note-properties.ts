@@ -20,6 +20,7 @@ import {
   type TypeInstancesResult,
   type TypeInstanceRow,
 } from '../../shared/objects/type-def';
+import { vocabularyPrefixes } from './user-ontology';
 
 /** The project's types keyed by id — for resolving inheritance chains (#1587). */
 function typeCatalogById(state: GraphState): ReadonlyMap<string, TypeDef> {
@@ -61,7 +62,7 @@ export async function getNoteTypedProperties(
     label: pd.label,
     options: pd.options,
     targetType: pd.targetType,
-    value: byPredicate.get(declaredPropertyPredicate(pd.name, pd).value) ?? null,
+    value: byPredicate.get(declaredPropertyPredicate(pd.name, pd, vocabularyPrefixes(ctx)).value) ?? null,
   }));
 
   return { type: toTypeInfoWithInheritance(def, typeCatalogById(state)), properties };
@@ -119,7 +120,7 @@ export async function getTypeInstances(
   const cols = effectivePropertyDefs(def.id, typeCatalogById(state)).map((pd, i) => ({
     pd,
     alias: `c${i}`,
-    predicate: declaredPropertyPredicate(pd.name, pd).value,
+    predicate: declaredPropertyPredicate(pd.name, pd, vocabularyPrefixes(ctx)).value,
   }));
   const optionals = cols
     .map((c) => `OPTIONAL { ?n <${c.predicate}> ?${c.alias} }`)
