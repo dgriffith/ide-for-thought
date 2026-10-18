@@ -2,10 +2,11 @@
 
 **Status:** Accepted, and **Phases 1 and 2 have shipped** — network containment
 in [#1421] and filesystem containment in [#1422], both in
-`src/main/compute/sandbox.ts`. Phase 3 (the hardening list below) is not built
-and has no issue; [#1329], the parent, stays open for it. Read the phasing
-section as a record of what was decided, with the first two thirds of it now
-describing code rather than a plan.
+`src/main/compute/sandbox.ts`. [#1329], the parent, is closed. Phase 3 (the
+hardening list below) is **deferred until one of its triggers fires**, and this
+document is its record: [#1423] tracked it, and was closed in favour of this
+section. Read the phasing section as a record of what was decided, with the
+first two thirds of it describing code rather than a plan.
 
 Scopes [#1329] (Security L1 — "Python compute is full-privilege RCE by design").
 macOS-only, matching the ship target. Builds on the defense-in-depth already
@@ -138,13 +139,31 @@ breakage risk. It is the first PR.
   `~/.gnupg`, login keychains, browser profiles → blocks the "read secrets →
   exfiltrate" chain even if network were later enabled.
 
-### Phase 3 — hardening (optional, higher breakage / larger effort)
+### Phase 3 — hardening (deferred: higher breakage, larger effort)
 
 - Tighten reads toward an allow-list (interpreter prefix + project only);
   minimize `mach-lookup`. Requires templating the interpreter's `sys.path`; must
   be validated across venv / Homebrew / pyenv.
 - Evaluate the **XPC-helper** rearchitecture if `sandbox-exec` deprecation
   becomes real or MAS distribution is pursued.
+
+**Why it waits.** Phases 1 and 2 already give the headline guarantees: no
+network unless allowed, no shell-out escape (child processes inherit the
+profile), writes only to the project and temp, and the well-known secret
+locations unreadable. Phase 3 is diminishing returns at rising maintenance cost
+(an allow-list breaks with every interpreter layout; `mach-lookup` minimization
+risks CoreFoundation and matplotlib backends).
+
+**What would start it** — either of:
+
+1. **`sandbox-exec` is removed or stops working** in a macOS release. Compute
+   then refuses to run (fail-closed, below), and the XPC helper becomes the
+   way forward rather than an option.
+2. **Mac App Store / App Sandbox distribution is pursued**, which makes
+   spawning `sandbox-exec` unavailable.
+
+A security finding that the denylist misses a read worth blocking is a reason
+to widen the Phase 2 denylist, not to start Phase 3.
 
 ## Robustness & failure modes — **fail-closed** (decided)
 
@@ -203,8 +222,8 @@ macOS-only integration tests (skip on non-darwin CI, mirroring
   fail-closed on macOS + macOS integration tests.
 - **P2** ([#1422], shipped) — filesystem containment (`file-write*` to
   project/tmp only; `file-read*` sensitive denylist).
-- **P3** (deferred, no issue filed) — allow-list hardening / `mach-lookup`
-  minimization; XPC helper evaluation.
+- **P3** (deferred; [#1423] closed in favour of the Phase 3 section above) —
+  allow-list hardening / `mach-lookup` minimization; XPC helper evaluation.
 
 [#1329]: https://github.com/dgriffith/ide-for-thought/issues/1329
 [#1411]: https://github.com/dgriffith/ide-for-thought/issues/1411
@@ -213,5 +232,6 @@ macOS-only integration tests (skip on non-darwin CI, mirroring
 [#1418]: https://github.com/dgriffith/ide-for-thought/issues/1418
 [#1419]: https://github.com/dgriffith/ide-for-thought/issues/1419
 [#1420]: https://github.com/dgriffith/ide-for-thought/issues/1420
+[#1423]: https://github.com/dgriffith/ide-for-thought/issues/1423
 [#1421]: https://github.com/dgriffith/ide-for-thought/issues/1421
 [#1422]: https://github.com/dgriffith/ide-for-thought/issues/1422
