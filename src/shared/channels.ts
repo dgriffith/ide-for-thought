@@ -28,6 +28,13 @@ export const Channels = {
   /** Cached-or-fetched bytes for an external `![](https://…)` image, so notes
    *  with remote images render offline once viewed. */
   IMAGES_CACHE_EXTERNAL: 'images:cacheExternal',
+  /** The open thoughtbase's remote-image policy (#1332). */
+  IMAGES_REMOTE_POLICY: 'images:remotePolicy',
+  IMAGES_ALLOW_REMOTE_HOST: 'images:allowRemoteHost',
+  IMAGES_SET_REMOTE_MODE: 'images:setRemoteMode',
+  IMAGES_RESET_REMOTE_POLICY: 'images:resetRemotePolicy',
+  /** main → renderer: a thoughtbase's remote-image policy changed. */
+  IMAGES_REMOTE_POLICY_CHANGED: 'images:remotePolicyChanged',
   /** Cheap existence check — used by the upload path to dedupe
    *  content-hashed assets (#455). */
   NOTEBASE_FILE_EXISTS: 'notebase:fileExists',

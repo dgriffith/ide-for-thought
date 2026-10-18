@@ -45,7 +45,12 @@ function mimePath(rootPath: string, url: string): string {
  * non-http(s) URL, a non-image response, an oversized image, or any network
  * failure — the renderer keeps the remote `<img>` src as the fallback.
  */
-export async function getOrFetchRemoteImage(rootPath: string, url: string): Promise<RemoteImage | null> {
+export async function getOrFetchRemoteImage(
+  rootPath: string,
+  url: string,
+  /** `false`: the cached copy or nothing; no request (#1332, the remote-image policy). */
+  opts: { fetch?: boolean } = {},
+): Promise<RemoteImage | null> {
   let parsed: URL;
   try {
     parsed = new URL(url);
@@ -66,8 +71,9 @@ export async function getOrFetchRemoteImage(rootPath: string, url: string): Prom
     ]);
     return { bytes: new Uint8Array(bytes), mime: mime.trim() || 'application/octet-stream' };
   } catch {
-    // Not cached yet — fall through to the network.
+    // Not cached yet — fall through to the network, if that's allowed.
   }
+  if (opts.fetch === false) return null;
 
   try {
     // safeFetch (#2566): no private/loopback destination, re-checked on every

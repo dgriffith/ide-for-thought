@@ -13,6 +13,7 @@ import type { NoteTypedProperties } from '../../../shared/objects/type-def';
 import { selectCardFields } from '../../../shared/objects/card';
 import { displayPropertyValue } from '../../../shared/objects/property-display';
 import { safeCssColor } from '../../../shared/css-color';
+import { appImageMark } from './app-image-mark';
 import type { QuoteMeta } from './cite-meta';
 
 /** An http(s) cover value renders as an <img>; anything else falls back to the
@@ -36,7 +37,8 @@ export function buildObjectCardHtml(rb: NoteTypedProperties, opts: { title: stri
   const color = safeCssColor(type.color);
 
   const coverHtml = isImageUrl(cover)
-    ? `<span class="oc-cover"><img src="${escapeAttr(cover)}" alt="" loading="lazy" /></span>`
+    // No `src`: drawn by the remote-image pass, if this thoughtbase may (#1332).
+    ? `<span class="oc-cover"><img class="remote-image"${appImageMark()} data-remote-src="${escapeAttr(cover)}" alt="" loading="lazy" /></span>`
     : `<span class="oc-cover oc-cover-icon"${color ? ` style="color:${escapeAttr(color)}"` : ''}>${escapeHtml(icon)}</span>`;
 
   // A link value reads as its note's name, plain text as written (#2612), a

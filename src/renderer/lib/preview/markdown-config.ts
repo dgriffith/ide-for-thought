@@ -107,12 +107,12 @@ export function createPreviewMarkdown(deps: PreviewMarkdownDeps): MarkdownItInst
         const title = titleIdx >= 0 ? ` title="${escapeAttr(tok.attrs![titleIdx]![1] as string)}"` : '';
         const size = sizeAttrs(tok);
         if (/^https?:/i.test(src) || src.startsWith('//')) {
-            // External network image — emit a cacheable placeholder. The remote
-            // `src` is the immediate/offline-uncached fallback; the post-render
-            // pass swaps in a locally-cached copy so it survives offline once
-            // viewed (#...).
+            // External network image: no `src`, so rendering fetches nothing.
+            // The post-render pass asks main for it, which answers with the
+            // bytes when this thoughtbase may load it, or names the host for a
+            // placeholder when it may not (#1332, `remote-images.ts`).
             const url = src.startsWith('//') ? `https:${src}` : src;
-            return resizable(tok, `<img class="remote-image"${appImageMark()} data-remote-src="${escapeAttr(url)}" src="${escapeAttr(src)}" alt="${escapeAttr(alt)}"${title}${size} loading="lazy" />`);
+            return resizable(tok, `<img class="remote-image"${appImageMark()} data-remote-src="${escapeAttr(url)}" alt="${escapeAttr(alt)}"${title}${size} loading="lazy" />`);
         }
         const rel = resolveRelativeImagePath(src, deps.getRenderPathOverride() ?? deps.getNotePath());
         // Local audio/video (#908): emit a player placeholder hydrated to a blob URL

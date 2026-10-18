@@ -13,7 +13,12 @@ import { api } from '../ipc/client';
 import { unwrapGraphQuery } from '../../../shared/graph-query';
 import type { NoteTypedProperties } from '../../../shared/objects/type-def';
 import type { QuoteMeta } from './cite-meta';
+import { gateRemoteImages } from './remote-images';
 import { buildObjectCardHtml, buildExcerptCardHtml, isBlockLevelLink } from './typed-card';
+
+
+/** url → data URL of a card cover, kept across re-renders. */
+const coverCache = new Map<string, string>();
 
 export interface TypedCardDeps {
   previewEl: HTMLElement | null;
@@ -93,6 +98,8 @@ export async function hydrateTypedCards(deps: TypedCardDeps): Promise<void> {
     a.dataset.typedCard = '1';
     a.classList.add('object-card');
     a.innerHTML = buildObjectCardHtml(rb, { title: (a.textContent ?? target).trim() });
+    // Its cover is a remote image: drawn only if this thoughtbase may (#1332).
+    void gateRemoteImages(a, coverCache);
   }
 
   // Excerpt cards — block-level `[[quote::id]]` links.

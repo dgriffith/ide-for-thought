@@ -567,6 +567,44 @@
         font-style: italic;
     }
 
+/* A remote image this thoughtbase doesn't load yet (#1332): its host, and two
+   ways to load it. No danger styling: it's a choice, not a warning. */
+.preview .remote-image-blocked {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 8px;
+        margin: 0.6em 0;
+        padding: 8px 10px;
+        border: 1px dashed var(--border);
+        border-radius: 6px;
+        background: var(--bg-button);
+        color: var(--text-muted);
+        font-size: 12px;
+    }
+
+.preview .remote-image-blocked .rib-text { flex: 1 1 100%; }
+
+.preview .remote-image-blocked button {
+        padding: 3px 10px;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        background: var(--bg);
+        color: var(--text);
+        font-size: 12px;
+        cursor: pointer;
+    }
+
+.preview .remote-image-blocked button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* An allowed remote image that couldn't be had (offline, not an image). */
+.preview img.remote-image-unavailable {
+        min-width: 80px;
+        min-height: 40px;
+        outline: 1px dashed var(--border);
+        background: var(--bg-button);
+    }
+
 /* Local audio/video players (#908). */
 .preview video.local-media {
         max-width: 100%;

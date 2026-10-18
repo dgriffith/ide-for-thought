@@ -94,6 +94,7 @@ import type { ResolveCandidate } from './resolve-stub';
 import type { Conversation, ConversationCreateOptions, ConversationMessage, ContextBundle, ConversationsUIState, CompactResult } from './conversation';
 import type { PrivilegedSite } from './privileged-sites';
 import type { ConversationToolKey, AskUserRequest, McpConfirmRequest } from './conversation-tools';
+import type { RemoteImageMode, RemoteImagePolicy, RemoteImageResult } from './remote-images';
 import type { ExtensionDraftAction, ExtensionDraftActionResult, ExtensionDraftOffer } from './extensions/drafts';
 import type { ConversationDraftBase } from './conversation-draft-base';
 import type { PluginThemeList, ThemeMode } from './theme';
@@ -154,7 +155,11 @@ export interface ChannelMap {
   'notebase:readFile': (relativePath: string) => string;
   'notebase:readBinary': (relativePath: string) => Uint8Array;
   'notebase:writeBinary': (relativePath: string, bytes: Uint8Array) => void;
-  'images:cacheExternal': (url: string) => { bytes: Uint8Array; mime: string } | null;
+  'images:cacheExternal': (url: string) => RemoteImageResult;
+  'images:remotePolicy': () => RemoteImagePolicy;
+  'images:allowRemoteHost': (host: string) => RemoteImagePolicy;
+  'images:setRemoteMode': (mode: RemoteImageMode) => RemoteImagePolicy;
+  'images:resetRemotePolicy': () => RemoteImagePolicy;
   'youtube:thumbnail': (id: string) => Uint8Array | null;
   'notebase:fileExists': (relativePath: string) => boolean;
   'notebase:writeFile': (relativePath: string, content: string) => void;
@@ -714,6 +719,7 @@ export interface EventMap {
   'publish:renderLiveBlocks': (request: { requestId: string; blocks: LiveBlockRequest[] }) => void;
   'conversation:mcpConfirm': (req: McpConfirmRequest) => void;
   'conversation:extensionDraft': (offer: ExtensionDraftOffer) => void;
+  'images:remotePolicyChanged': (change: { rootPath: string; policy: RemoteImagePolicy }) => void;
   'tool:stream': (chunk: string) => void;
   'tool:invoke': (toolId: string) => void;
   // Native-menu channels (#1633). Every argument-free menu item is a command,

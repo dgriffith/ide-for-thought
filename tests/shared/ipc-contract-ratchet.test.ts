@@ -71,6 +71,8 @@ const EVENT_CHANNELS = new Set<string>([
   Channels.PLUGINS_CHANGED,
   // main → renderer: a drafted extension's card (#2652).
   Channels.CONVERSATION_EXTENSION_DRAFT,
+  // main → renderer: a thoughtbase's remote-image policy changed (#1332).
+  Channels.IMAGES_REMOTE_POLICY_CHANGED,
   Channels.NOTEBASE_FILE_CREATED,
   Channels.NOTEBASE_FILE_DELETED,
   Channels.NOTEBASE_RENAMED,

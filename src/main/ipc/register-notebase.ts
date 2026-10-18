@@ -9,7 +9,6 @@ import { renameWithLinkRewrites } from '../notebase/rename';
 import { mergeNotes, previewMergeNotes } from '../notebase/merge';
 import { renameAnchor } from '../notebase/rename-anchor';
 import { renameSource, renameExcerpt } from '../notebase/rename-source-excerpt';
-import { getOrFetchRemoteImage } from '../images/remote-image-cache';
 import { resolveDisplayName, setDisplayName, getDisplayName, readProjectConfig } from '../project-config';
 import { getOrFetchThumbnail } from '../youtube/thumbnail-cache';
 import { projectContext } from '../project-context-types';
@@ -36,6 +35,7 @@ import {
   broadcastRewritten,
   hooks,
 } from './helpers';
+import { setRemoteImageMode } from '../images/remote-image-policy';
 
 /**
  * The find-in-notes scan currently running for each window, so the next query
@@ -61,6 +61,21 @@ async function promptTutorialDestination(win: Electron.BrowserWindow): Promise<s
     properties: ['createDirectory'],
   });
   return result.canceled || !result.filePath ? null : result.filePath;
+}
+
+/**
+ * A thoughtbase created here, into an empty folder, is the user's own, so its
+ * remote images load without asking (#1332). A "new" thoughtbase over a folder
+ * that already has notes in it may be anyone's, and asks like any other.
+ */
+async function trustImagesIfFresh(rootPath: string): Promise<void> {
+  let entries: string[];
+  try {
+    entries = await fs.readdir(rootPath);
+  } catch {
+    return;
+  }
+  if (entries.every((name) => name.startsWith('.'))) setRemoteImageMode(rootPath, 'allow');
 }
 
 export function registerNotebase(): void {
@@ -89,6 +104,7 @@ export function registerNotebase(): void {
     if (result.canceled || result.filePaths.length === 0) return null;
 
     const rootPath = result.filePaths[0]!;
+    await trustImagesIfFresh(rootPath);
     const win = winFromEvent(e);
     await openProjectInWindow(win, rootPath);
     return { rootPath, name: resolveDisplayName(rootPath) };
@@ -103,6 +119,7 @@ export function registerNotebase(): void {
     if (!dest) return null;
 
     const rootPath = await installTutorialThoughtbase(dest);
+    setRemoteImageMode(rootPath, 'allow'); // ours, bundled with the app (#1332)
     await openProjectInWindow(win, rootPath);
     return { rootPath, name: resolveDisplayName(rootPath) };
   });
@@ -115,6 +132,7 @@ export function registerNotebase(): void {
     if (!dest) return null;
 
     const rootPath = await installTutorialThoughtbase(dest);
+    setRemoteImageMode(rootPath, 'allow'); // ours, bundled with the app (#1332)
     const freshWin = createWindow();
     freshWin.webContents.once('did-finish-load', async () => {
       await openProjectInWindow(freshWin, rootPath);
@@ -162,6 +180,7 @@ export function registerNotebase(): void {
     });
     if (result.canceled || result.filePaths.length === 0) return null;
     const rootPath = result.filePaths[0]!;
+    await trustImagesIfFresh(rootPath);
     const freshWin = createWindow();
     freshWin.webContents.once('did-finish-load', async () => {
       await openProjectInWindow(freshWin, rootPath);
@@ -218,11 +237,8 @@ export function registerNotebase(): void {
     getOrFetchThumbnail(rootPath, id),
   ));
 
-  // Offline cache for external `![](https://…)` images (#...) — cached-or-fetched
-  // bytes + mime, or null when unavailable (offline + uncached / not an image).
-  handle(Channels.IMAGES_CACHE_EXTERNAL, withRootPath(async (rootPath, url: string) =>
-    getOrFetchRemoteImage(rootPath, url),
-  ));
+  // External `![](https://…)` images, with the remote-image policy (#1332):
+  // `register-images.ts`.
 
   // `false` means exactly one thing now: no such file (#1862). It used to mean
   // that OR "no project open", so a caller checking before a write couldn't

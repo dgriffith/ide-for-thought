@@ -73,7 +73,7 @@ const BUDGETS: Record<string, number> = {
   // +2 for #2210 §3c: `revision` threaded to `hydrateVegaBlocks` so a chart's
   // backing query is keyed per graph revision rather than re-run per render
   // tick, plus the comment saying why the argument is there.
-  'src/renderer/lib/components/Preview.svelte': 1358, // +3: the noteActions prop threaded to embedded views (#2774); +1: the card pass comes from the live-block registry (#2624); +6: the column is held by padding so a wide object view can break out, and the room it may take is observed (#2709) — the observer is preview/embed-resize.ts; // −45: a wiki-link's hover is the shared NoteHoverPreview, which owns its delay, grace and broken-link state (#2710); +9: charts take the theme's palette, and re-theme on a theme switch (#2522); +17: the onApplyEdit prop and installing the resize controller (#2666) — the controller itself is preview/embed-resize.ts
+  'src/renderer/lib/components/Preview.svelte': 1362, // +3: the noteActions prop threaded to embedded views (#2774); +1: the card pass comes from the live-block registry (#2624); +6: the column is held by padding so a wide object view can break out, and the room it may take is observed (#2709) — the observer is preview/embed-resize.ts; // −45: a wiki-link's hover is the shared NoteHoverPreview, which owns its delay, grace and broken-link state (#2710); +9: charts take the theme's palette, and re-theme on a theme switch (#2522); +17: the onApplyEdit prop and installing the resize controller (#2666) — the controller itself is preview/embed-resize.ts; +4: re-draw remote images when the policy changes (#1332)
   'src/renderer/lib/components/SourceDetail.svelte': 1346,
   'src/renderer/lib/components/SourcesPanel.svelte': 789,
   // Three changes stacked here: #2218 (PythonSettings doc + type), #2222
@@ -83,7 +83,7 @@ const BUDGETS: Record<string, number> = {
   // predicted this: the IPC-surface files are budgeted and grow one line per
   // channel by construction, so a bump here is the expected remedy, not a
   // smell.
-  'src/renderer/lib/ipc/client.ts': 1397, // +17: Settings → Ontology's four channels (#2788); +3: a template's / CSL style's plugin (#2633); +19: Settings → Plugins' channels (#2634); +2: install from a zip (#2634); +2: install from a git URL (#2634); +2: recommended plugins (#2635); +4: plugin settings (#2636); +2: plugin themes (#2787); +4: a drafted extension's card (#2652); +2: a PDF export's style profile (#2429)
+  'src/renderer/lib/ipc/client.ts': 1403, // +17: Settings → Ontology's four channels (#2788); +3: a template's / CSL style's plugin (#2633); +19: Settings → Plugins' channels (#2634); +2: install from a zip (#2634); +2: install from a git URL (#2634); +2: recommended plugins (#2635); +4: plugin settings (#2636); +2: plugin themes (#2787); +4: a drafted extension's card (#2652); +2: a PDF export's style profile (#2429); +6: the remote-image policy's channels (#1332)
   'src/renderer/lib/stores/conversations.svelte.ts': 1280, // +4: carry a skill's user-turn material through open + /clear (#2438); +39: mcp_call confirmation card state, beside ask_user's (#2439); +26: turn start/settle screen-reader announcements (#2374); +28: conversation titles — rename, the titleChanged subscription, keepKnownTitle for the post-send reload race; +2: typing during a reply (#1744) — /clear refuses mid-turn, a restored message keeps the draft; +11: turnStartedAt for the turn-status clock (set at the three turn starts, cleared at the three settles); +2: approve comments name the broadcast that really happens (#2541); +4: clear / dismiss a drafted extension's card with its turn and tab (#2652)
   'src/renderer/lib/components/Editor.svelte': 858, // +4: Record Audio / Transcribe Recording context-menu wiring (#2428)
   'src/renderer/lib/stores/editor.svelte.ts': 965, // +1: DEFAULT_VIEW_LAYOUT from the view-layout registry (#2623); +1: type-view tabs carry a timeline range (#2607); +2: type-view tabs carry a kanban column order and Show empty columns (#2614); +1: type-view tabs carry a kanban groupBy (#2601); +1: type-view tabs carry a map style (#2665); +5: type-view tabs keyed by type + folder (#2531); +23: rescopeTypeView — widen a folder-scoped view, merging into an open one (#2532); +17: folder renames move scoped view tabs, beside applyRenameTransitions (#2535)
@@ -115,9 +115,9 @@ const BUDGETS: Record<string, number> = {
   // +17 (#2491): the property card's "Also fills {{name}} in the note's body" line, its helper and style.
   'src/renderer/lib/components/conversations/DraftCards.svelte': 775,
   // +1 for #2256: the MENU_COMMAND_PALETTE channel / its MENU_COMMANDS entry.
-  'src/shared/ipc-contract.ts': 757, // +8: Settings → Ontology's four channels (#2788); +11: Settings → Plugins' channels (#2634); +2: install from a zip (#2634); +2: install from a git URL (#2634); +2: recommended plugins (#2635); +2: plugin settings (#2636); +1: plugin themes (#2787); +3: a drafted extension's card (#2652); +1: a PDF export's style profile (#2429)
+  'src/shared/ipc-contract.ts': 763, // +8: Settings → Ontology's four channels (#2788); +11: Settings → Plugins' channels (#2634); +2: install from a zip (#2634); +2: install from a git URL (#2634); +2: recommended plugins (#2635); +2: plugin settings (#2636); +1: plugin themes (#2787); +3: a drafted extension's card (#2652); +1: a PDF export's style profile (#2429); +6: the remote-image policy's channels (#1332)
   // +1 for #2256: the MENU_COMMAND_PALETTE channel / its MENU_COMMANDS entry.
-  'src/shared/channels.ts': 729, // +9: Settings → Ontology's four channels (#2788); +11: Settings → Plugins' channels (#2634); +2: install from a zip (#2634); +2: install from a git URL (#2634); +2: recommended plugins (#2635); +4: plugin settings (#2636); +2: plugin themes (#2787); +4: a drafted extension's card (#2652)
+  'src/shared/channels.ts': 736, // +9: Settings → Ontology's four channels (#2788); +11: Settings → Plugins' channels (#2634); +2: install from a zip (#2634); +2: install from a git URL (#2634); +2: recommended plugins (#2635); +4: plugin settings (#2636); +2: plugin themes (#2787); +4: a drafted extension's card (#2652); +7: the remote-image policy's channels (#1332)
   // +5 (#2494): both typed-note creation paths read the type's effective (inherited) template.
   'src/renderer/lib/app/note-ops.ts': 707, // +15: saveViewAsNote — "Save as note" writes a note with a live object-view embed (#2507)
   'src/renderer/lib/editor/formatting.ts': 668,
@@ -140,7 +140,7 @@ const BUDGETS: Record<string, number> = {
   // ~250-line `<style>` block, not the logic.
   'src/renderer/lib/components/FindInNotesDialog.svelte': 633,
   // +1 for #2256: onCommandPalette passthrough.
-  'src/preload/preload.ts': 630, // +6: Settings → Ontology's four channels (#2788); +8: Settings → Plugins' channels (#2634); +1: install from a zip (#2634); +1: install from a git URL (#2634); +1: recommended plugins (#2635); +3: plugin settings, and its patch type (#2636); +1: plugin themes (#2787); +3: a drafted extension's card (#2652)
+  'src/preload/preload.ts': 636, // +6: Settings → Ontology's four channels (#2788); +8: Settings → Plugins' channels (#2634); +1: install from a zip (#2634); +1: install from a git URL (#2634); +1: recommended plugins (#2635); +3: plugin settings, and its patch type (#2636); +1: plugin themes (#2787); +3: a drafted extension's card (#2652); +6: the remote-image policy's channels (#1332)
   'src/main/ipc/register-conversation-drafts.ts': 579, // +2: approved drafts broadcast their moves + rewrites (#2541)
   // New entry in #2218, which took this file from 538 over the threshold.
   // The seam this check asks about was taken first: the deadline POLICY —

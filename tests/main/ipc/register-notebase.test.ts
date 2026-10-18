@@ -27,6 +27,8 @@
  * handler picked — throw vs fallback — which is exactly what #1631 governs.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { SearchSupersededError } from '../../../src/main/notebase/search-in-notes';
 
@@ -78,6 +80,7 @@ const h = vi.hoisted(() => {
     // offline caches
     getOrFetchThumbnail: vi.fn(),
     getOrFetchRemoteImage: vi.fn(),
+    setRemoteImageMode: vi.fn(),
     // project config
     resolveDisplayName: vi.fn(),
     setDisplayName: vi.fn(),
@@ -114,7 +117,10 @@ vi.mock('electron', () => ({
   dialog: { showOpenDialog: h.showOpenDialog, showSaveDialog: h.showSaveDialog },
 }));
 
-vi.mock('node:fs/promises', () => ({ default: { stat: h.stat }, stat: h.stat }));
+vi.mock('node:fs/promises', async (importOriginal) => {
+  const real = await importOriginal<typeof import('node:fs/promises')>();
+  return { default: { stat: h.stat, readdir: real.readdir }, stat: h.stat, readdir: real.readdir };
+});
 
 /**
  * Which window the next invoke appears to come from. Null means `h.win` — the
@@ -185,7 +191,8 @@ vi.mock('../../../src/main/notebase/search-in-notes', async () => {
   };
 });
 vi.mock('../../../src/main/notebase/write-pipeline', () => ({ writeAndReindex: h.writeAndReindex }));
-vi.mock('../../../src/main/images/remote-image-cache', () => ({ getOrFetchRemoteImage: h.getOrFetchRemoteImage }));
+// IMAGES_CACHE_EXTERNAL lives in register-images.ts now (#1332), tested there.
+vi.mock('../../../src/main/images/remote-image-policy', () => ({ setRemoteImageMode: h.setRemoteImageMode }));
 vi.mock('../../../src/main/youtube/thumbnail-cache', () => ({ getOrFetchThumbnail: h.getOrFetchThumbnail }));
 vi.mock('../../../src/main/project-config', () => ({
   resolveDisplayName: h.resolveDisplayName,
@@ -264,7 +271,6 @@ describe('register-notebase — the #1631 project guard', () => {
     [Channels.NOTEBASE_SET_ONBOARDING_DISMISSED, [true]],
     [Channels.FILES_DROP_IMPORT, ['dir', ['/tmp/x.pdf']]],
     [Channels.YOUTUBE_THUMBNAIL, ['vid']],
-    [Channels.IMAGES_CACHE_EXTERNAL, ['https://x/y.png']],
   ];
 
   it.each(throwers)('%s throws with no project open', (channel, args) => {
@@ -794,6 +800,25 @@ describe('register-notebase — project lifecycle', () => {
     expect(h.openProjectInWindow).toHaveBeenCalledWith(h.win, '/new');
   });
 
+  it('a new thoughtbase made in an empty folder loads remote images; one over existing notes asks (#1332)', async () => {
+    const fresh = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-new-tb-'));
+    const used = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-used-tb-'));
+    fs.writeFileSync(path.join(fresh, '.DS_Store'), '');
+    fs.writeFileSync(path.join(used, 'theirs.md'), '# Theirs\n');
+    try {
+      h.showOpenDialog.mockResolvedValue({ canceled: false, filePaths: [fresh] });
+      await call(Channels.NOTEBASE_NEW_PROJECT);
+      expect(h.setRemoteImageMode).toHaveBeenCalledWith(fresh, 'allow');
+      h.setRemoteImageMode.mockClear();
+      h.showOpenDialog.mockResolvedValue({ canceled: false, filePaths: [used] });
+      await call(Channels.NOTEBASE_NEW_PROJECT);
+      expect(h.setRemoteImageMode).not.toHaveBeenCalled();
+    } finally {
+      fs.rmSync(fresh, { recursive: true, force: true });
+      fs.rmSync(used, { recursive: true, force: true });
+    }
+  });
+
   it('NOTEBASE_CLOSE releases the project held by the invoking window', () => {
     expect(call(Channels.NOTEBASE_CLOSE)).toBeNull();
     expect(h.closeProjectInWindow).toHaveBeenCalledWith(h.win.id);
@@ -903,10 +928,4 @@ describe('register-notebase — offline caches', () => {
     expect(h.getOrFetchThumbnail).toHaveBeenCalledWith(ROOT, 'abc123');
   });
 
-  it('IMAGES_CACHE_EXTERNAL hands back the cached bytes + mime', async () => {
-    h.getOrFetchRemoteImage.mockResolvedValue({ bytes: new Uint8Array([1]), mime: 'image/png' });
-    await expect(call(Channels.IMAGES_CACHE_EXTERNAL, 'https://x/y.png')).resolves.toEqual({
-      bytes: new Uint8Array([1]), mime: 'image/png',
-    });
-  });
 });

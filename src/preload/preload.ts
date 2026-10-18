@@ -16,6 +16,7 @@ import type { ChannelMap, EventMap } from '../shared/ipc-contract';
 import type { ConversationDraftBase } from '../shared/conversation-draft-base';
 import type { AskUserRequest, McpConfirmRequest } from '../shared/conversation-tools';
 import type { ExtensionDraftAction, ExtensionDraftOffer } from '../shared/extensions/drafts';
+import type { RemoteImagePolicy } from '../shared/remote-images';
 import type { McpServerDescriptor } from '../shared/mcp-servers';
 
 /**
@@ -263,6 +264,11 @@ const api = {
   images: {
     // Cached-or-fetched bytes+mime for an external image URL (offline cache, #...).
     cacheExternal: (url: string) => invoke(Channels.IMAGES_CACHE_EXTERNAL, url),
+    remotePolicy: () => invoke(Channels.IMAGES_REMOTE_POLICY),
+    allowRemoteHost: (host: string) => invoke(Channels.IMAGES_ALLOW_REMOTE_HOST, host),
+    setRemoteMode: (mode: Parameters<ChannelMap['images:setRemoteMode']>[0]) => invoke(Channels.IMAGES_SET_REMOTE_MODE, mode),
+    resetRemotePolicy: () => invoke(Channels.IMAGES_RESET_REMOTE_POLICY),
+    onRemotePolicyChanged: (cb: (change: { rootPath: string; policy: RemoteImagePolicy }) => void) => subscribe(Channels.IMAGES_REMOTE_POLICY_CHANGED, cb),
   },
   youtube: {
     // Cached-or-fetched poster bytes for a video id (offline cache, #...).

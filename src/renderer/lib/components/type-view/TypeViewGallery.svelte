@@ -1,5 +1,6 @@
 <script lang="ts">
   import { isMenuKey, openMenuAt } from './note-actions';
+  import RemoteCover from './RemoteCover.svelte';
   /** The Gallery layout (#1070): a card per note, its cover property's image or its type's icon. */
   import type { LayoutView } from './layout-view';
 
@@ -15,10 +16,11 @@
     {@const summary = view.summary(inst)}
     <button class="tv-card" class:selected={view.isSelected(inst.path)} aria-pressed={view.selectable ? view.isSelected(inst.path) : undefined} onclick={(e) => view.onRowClick(e, inst.path)} oncontextmenu={(e) => view.onRowContextMenu(e, inst.path)} title={inst.path} onkeydown={(e) => { if (view.rowMenu && isMenuKey(e)) { e.preventDefault(); openMenuAt(e.currentTarget); } }} data-note-path={inst.path}>
       <div class="tv-card-cover">
+        {#snippet icon()}<span class="tv-card-icon" style={rt?.color ? `color:${rt.color}` : undefined}>{rt?.icon ?? '◆'}</span>{/snippet}
         {#if isImageUrl(inst.cover)}
-          <img src={inst.cover} alt="" loading="lazy" />
+          <RemoteCover url={inst.cover} fallback={icon} />
         {:else}
-          <span class="tv-card-icon" style={rt?.color ? `color:${rt.color}` : undefined}>{rt?.icon ?? '◆'}</span>
+          {@render icon()}
         {/if}
       </div>
       <span class="tv-card-title">{inst.title}</span>

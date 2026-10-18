@@ -573,6 +573,7 @@ export function useHostileThoughtbase(
 // ── A shared note that tries to restyle the app (#2557) ────────────────────
 // Lives in `hostile-content.ts` (no vitest import) so the e2e suite can use it.
 export { STYLE_REDRESS_MARKER, STYLE_REDRESS_NOTE, writeStyleRedressNote } from './hostile-content';
+export { BEACON_HOST, BEACON_URL, CACHED_IMAGE_URL, writeRemoteBeaconNote } from './hostile-content';
 
 // ── A shared note whose embedded SQL tries to read `.minerva/` (#2448) ─────
 

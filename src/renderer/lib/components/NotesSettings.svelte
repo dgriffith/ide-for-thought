@@ -7,6 +7,7 @@
    * destination folder (async-loaded on mount, saved through the settings
    * store). Self-contained: no props, mirrors the sibling tab pattern.
    */
+  import RemoteImagesSettings from './RemoteImagesSettings.svelte';
   import { onMount } from 'svelte';
   import { api } from '../ipc/client';
   import { getSettingsStore } from '../stores/settings.svelte';
@@ -181,6 +182,8 @@
       Stored per-project in <code>.minerva/config.json</code>.
     </p>
   </div>
+
+  <RemoteImagesSettings />
 </div>
 
 <style>

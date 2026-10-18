@@ -124,7 +124,11 @@ describe('sanitizeNoteHtml — preserves the app image feature (token-marked ima
 
   it('end to end: the real markdown image rule and youtube fence keep their images', () => {
     const md = createPreviewMarkdown(makeDeps());
-    expect(imgSrc(sanitizeNoteHtml(md.render('![a](https://ex.com/a.png)')))).toBe('https://ex.com/a.png');
+    // A markdown remote image has no src until main draws it (#1332); what must
+    // survive sanitising is the app's mark and the URL it'll be drawn from.
+    const out = sanitizeNoteHtml(md.render('![a](https://ex.com/a.png)'));
+    expect(out).toContain('data-remote-src="https://ex.com/a.png"');
+    expect(imgSrc(out)).toBeNull();
   });
 });
 
