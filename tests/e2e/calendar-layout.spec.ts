@@ -140,7 +140,7 @@ test('an Event calendar: grid, paging, keyboard, the day\'s list, open, and `mon
     });
 
     await test.step('`month` round-trips: page, switch the layout away and back', async () => {
-      await win.locator('.tab', { hasText: 'Event' }).first().click();
+      await win.locator('.tab-switch[title="Type: event"]').click(); // the view's tab, not a note named like it (#2748)
       await expect(cal.grid).toBeVisible({ timeout: 10_000 });
       await win.getByRole('button', { name: 'Next month' }).click();
       await expect.poll(() => shownMonth(win)).toBe(ymd(NEXT));

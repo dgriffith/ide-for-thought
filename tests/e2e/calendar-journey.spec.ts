@@ -94,7 +94,7 @@ test('the Calendar journey: Events as a month, paged, opened, rescheduled by poi
       await expect(preview.locator('.nhp-snippet:not(.nhp-loading)')).toContainText('The project starts.', { timeout: 5_000 });
       await cal.eventFor('Kickoff').click();
       await expect(win.locator('.tab.active')).toContainText('Kickoff', { timeout: 10_000 });
-      await win.locator('.tab', { hasText: 'Event' }).first().click();
+      await win.locator('.tab-switch[title="Type: event"]').click(); // the view's tab, not a note named like it (#2748)
       await expect(cal.grid).toBeVisible({ timeout: 10_000 });
       expect(await shownMonth(win)).toBe(ymd(NOW));
     });
