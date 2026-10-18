@@ -193,7 +193,8 @@ describe('image rule', () => {
   it('upgrades a protocol-relative // source to https for the remote copy', () => {
     const html = render('![](//cdn.test/a.png)');
     expect(html).toContain('data-remote-src="https://cdn.test/a.png"');
-    expect(html).toContain('src="//cdn.test/a.png"');
+    // No src: rendering fetches nothing; main draws it, if this thoughtbase may (#1332).
+    expect(html).not.toMatch(/\ssrc=/);
   });
 
   it('emits a <video> player for a local video path', () => {

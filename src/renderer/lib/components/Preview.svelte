@@ -1,6 +1,7 @@
 <script lang="ts">
     import {onDestroy, untrack} from 'svelte';
     import Icon from './Icon.svelte';
+    import { remoteImagesStore } from '../stores/remote-images.svelte';
     import {installDismissOnClickOutside} from '../dismiss-menu';
     import '../../styles/hljs-minerva.css';
     import '../../styles/preview-content.css';
@@ -519,6 +520,9 @@
         citeDeps,
         getTransclusionIndex: () => wikiLinkIndex,
     };
+    // The remote-image policy changed, here or in another window (#1332):
+    // draw what may now load, and put up placeholders for what may not.
+    $effect(() => { void remoteImagesStore.version; untrack(() => { void hydrateRemoteImages(hydrateCtx); }); });
 
     // Drop cached transclusion bodies whenever the graph changes (perf #1114).
     // `revision` bumps on any note save/index — including an embedded note — so

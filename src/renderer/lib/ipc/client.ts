@@ -638,7 +638,13 @@ export interface AppApi {
 export interface ImagesApi {
   /** Cached-or-fetched bytes + mime for an external image URL, or null when
    *  unavailable (offline + not yet cached, non-image, or oversized). */
-  cacheExternal(url: string): Promise<{ bytes: Uint8Array; mime: string } | null>;
+  /** A remote image's bytes, if this thoughtbase may load it (#1332): `blocked` names its host. */
+  cacheExternal(url: string): Promise<import('../../../shared/remote-images').RemoteImageResult>;
+  remotePolicy(): Promise<import('../../../shared/remote-images').RemoteImagePolicy>;
+  allowRemoteHost(host: string): Promise<import('../../../shared/remote-images').RemoteImagePolicy>;
+  setRemoteMode(mode: import('../../../shared/remote-images').RemoteImageMode): Promise<import('../../../shared/remote-images').RemoteImagePolicy>;
+  resetRemotePolicy(): Promise<import('../../../shared/remote-images').RemoteImagePolicy>;
+  onRemotePolicyChanged(cb: (change: { rootPath: string; policy: import('../../../shared/remote-images').RemoteImagePolicy }) => void): () => void;
 }
 
 export interface YoutubeApi {

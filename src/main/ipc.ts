@@ -31,6 +31,7 @@ import { onHistoryChanged } from './history';
 import { broadcastProposalsChanged, broadcastInspectionsChanged, broadcastHistoryChanged, broadcastGraphChanged } from './ipc/helpers';
 import { coalesceGraphChanged } from './ipc/graph-changed-broadcast';
 import { updateDockBadge } from './project-context';
+import { registerImages } from './ipc/register-images';
 
 export function registerIpcHandlers(): void {
   // Turn Electron-free proposal-lifecycle events (fired by the shared approval
@@ -84,6 +85,7 @@ export function registerIpcHandlers(): void {
   registerHistory();
   registerClipper();
   registerMcpServers();
+  registerImages();
   registerApp();
   registerMaintenance();
 }

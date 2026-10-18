@@ -261,7 +261,7 @@ describe('hydrateRemoteImages', () => {
   });
 
   it('caches a fetched asset as a data URL (with explicit mime)', async () => {
-    h.api.images.cacheExternal.mockResolvedValueOnce({ bytes: new Uint8Array([1]), mime: 'image/webp' });
+    h.api.images.cacheExternal.mockResolvedValueOnce({ status: 'image', bytes: new Uint8Array([1]), mime: 'image/webp' });
     const root = div('<img class="remote-image" data-remote-src="https://x/b.webp">');
     const ctx = makeCtx(root);
     await hydrateRemoteImages(ctx);
@@ -271,17 +271,18 @@ describe('hydrateRemoteImages', () => {
   });
 
   it('falls back to octet-stream when the asset omits a mime, ArrayBuffer bytes', async () => {
-    h.api.images.cacheExternal.mockResolvedValueOnce({ bytes: new Uint8Array([2, 2]).buffer, mime: '' });
+    h.api.images.cacheExternal.mockResolvedValueOnce({ status: 'image', bytes: new Uint8Array([2, 2]).buffer, mime: '' });
     const root = div('<img class="remote-image" data-remote-src="https://x/c">');
     await hydrateRemoteImages(makeCtx(root));
     expect(root.querySelector('img')!.getAttribute('src')!.startsWith('data:application/octet-stream;base64,')).toBe(true);
   });
 
-  it('keeps the remote fallback when the cache returns null', async () => {
-    h.api.images.cacheExternal.mockResolvedValueOnce(null);
-    const root = div('<img class="remote-image" data-remote-src="https://x/d.png" src="https://x/d.png">');
+  it('marks an allowed image that couldn\'t be had, and puts no URL in it', async () => {
+    h.api.images.cacheExternal.mockResolvedValueOnce({ status: 'unavailable' });
+    const root = div('<img class="remote-image" data-remote-src="https://x/d.png">');
     await hydrateRemoteImages(makeCtx(root));
-    expect(root.querySelector('img')!.getAttribute('src')).toBe('https://x/d.png');
+    expect(root.querySelector('img')!.classList.contains('remote-image-unavailable')).toBe(true);
+    expect(root.querySelector('img')!.getAttribute('src')).toBeNull();
   });
 
   it('swallows a fetch error (leaves the element untouched)', async () => {

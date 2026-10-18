@@ -62,7 +62,10 @@ const DATAFLOW_MUTATION_METHODS =
   'mcpConfirmReply|onMcpConfirm|resetAllowedTools|' +
   // A drafted extension's card (#2652): acting on it saves a skill or
   // installs a plugin; its event lives in the extension-drafts store.
-  'extensionDraftAction|onExtensionDraft';
+  'extensionDraftAction|onExtensionDraft|' +
+  // The remote-image policy (#1332): allowing a host, the mode, a reset, and
+  // its change event live in the remote-images store.
+  'allowRemoteHost|setRemoteMode|resetRemotePolicy|onRemotePolicyChanged';
 
 const DATAFLOW_MESSAGE =
   'Renderer data-flow rule (#1086): components must not call mutating/subscribing `api.*` methods directly. ' +

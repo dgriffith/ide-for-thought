@@ -44,7 +44,9 @@ describe('isImageUrl', () => {
 describe('buildObjectCardHtml (#1071)', () => {
   it('renders a cover image + title + selected field chips', () => {
     const html = buildObjectCardHtml(book({ cover: 'https://x/dune.png', author: 'Herbert', rating: '5' }), { title: 'Dune' });
-    expect(html).toContain('<img src="https://x/dune.png"');
+    // Drawn by the remote-image pass, if this thoughtbase may (#1332): no src.
+    expect(html).toContain('data-remote-src="https://x/dune.png"');
+    expect(html).not.toMatch(/<img[^>]*\ssrc=/);
     expect(html).toContain('oc-title');
     expect(html).toContain('Dune');
     expect(html).toContain('Author');

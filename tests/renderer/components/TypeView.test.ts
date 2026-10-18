@@ -15,7 +15,11 @@ const { instancesMock, listMock, noteTypeMapMock, exportCsvMock } = vi.hoisted((
   listMock: vi.fn(), noteTypeMapMock: vi.fn(),
 }));
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({
-  api: { types: { instances: instancesMock, list: listMock, noteTypeMap: noteTypeMapMock }, export: { csv: exportCsvMock }, app: { getSystemLocale: async () => 'en-GB' } },
+  api: {
+    types: { instances: instancesMock, list: listMock, noteTypeMap: noteTypeMapMock }, export: { csv: exportCsvMock }, app: { getSystemLocale: async () => 'en-GB' },
+    // A cover is drawn from main's answer, never its URL (#1332).
+    images: { cacheExternal: async () => ({ status: 'image', bytes: new Uint8Array([1, 2, 3]), mime: 'image/png' }) },
+  },
 }));
 // #2066: TypeViewMap's own mount logic is covered by TypeViewMap.test.ts —
 // here it's a stub, so switching into the "Map" layout in these tests never
@@ -173,8 +177,7 @@ describe('TypeView (#1070)', () => {
     });
     const { container } = render(TypeView, props({ layout: 'gallery' }));
     await waitFor(() => expect(screen.getByText('Widget')).toBeTruthy());
-    const img = container.querySelector('img');
-    expect(img?.getAttribute('src')).toBe('https://example.com/w.png');
+    await waitFor(() => expect(container.querySelector('img')?.getAttribute('src')).toBe('data:image/png;base64,AQID'));
     expect(container.querySelectorAll('img')).toHaveLength(1); // Gizmo falls back to an icon, no img
   });
 
