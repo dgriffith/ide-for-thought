@@ -16,6 +16,7 @@ import { test, expect, type Page } from './helpers/test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { hoverUntil } from './helpers/hover';
 import { closeMinerva, launchMinerva, projectRoot } from './helpers/launch';
 import { seedNotes } from './helpers/timeline';
 
@@ -70,8 +71,9 @@ test('a published page previews its links as the app does, on hover and on keybo
       for (const t of TARGETS) {
         const link = win.locator(`.preview .wiki-link[data-target="${t}"]`);
         await expect(link).toBeVisible({ timeout: 15_000 });
-        await link.hover();
         const tip = win.locator('.note-hover-preview');
+        // A lone synthetic hover sometimes doesn't take (#2719, #2755).
+        await hoverUntil(win, link, tip);
         await expect(tip.locator('.nhp-snippet:not(.nhp-loading)')).toHaveCount(1, { timeout: 5_000 });
         expected.set(t, {
           title: (await tip.locator('.nhp-title-text').textContent()) ?? '',
@@ -108,6 +110,8 @@ test('a published page previews its links as the app does, on hover and on keybo
       const link = page.locator('article p a', { hasText: 'Garden Shed' });
       await link.hover();
       await expect(tip).toBeHidden(); // not yet: 250ms
+      // Then until it shows: a lone synthetic hover sometimes doesn't take (#2755).
+      await hoverUntil(page, link, tip);
       expect(await sitePreview(page)).toEqual(expected.get('Garden Shed'));
       await expect(link).toHaveAttribute('aria-describedby', 'minerva-link-preview');
       await page.screenshot({ path: 'test-results/export-link-previews-hover.png' });
@@ -119,7 +123,7 @@ test('a published page previews its links as the app does, on hover and on keybo
     await test.step('hover a Kanban card in the published board: the same preview', async () => {
       const card = page.locator('.minerva-live-block a[href]', { hasText: 'Garden Shed' }).first();
       await expect(card).toBeVisible();
-      await card.hover();
+      await hoverUntil(page, card, tip);
       expect(await sitePreview(page)).toEqual(expected.get('Garden Shed'));
       await page.mouse.move(2, 400);
       await expect(tip).toBeHidden({ timeout: 5_000 });
