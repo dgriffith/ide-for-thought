@@ -45,6 +45,13 @@ on it in place. Everything is then contained in the link's *target*.
 **Settings → Plugins** lists what's installed (on or off, its version, what
 it contributes) and the folders that were refused, with why.
 
+Installing a plugin trusts its author the way [installing a
+skill](authoring-skills.md#installing-a-skill-someone-else-wrote) does: its
+skills' bodies become instructions to the model. It runs no code inside
+Minerva, and an MCP server it ships stays off until you approve it (see
+[MCP servers](#mcp-servers)). `minerva plugin check <folder>` puts it through
+what Minerva does with it before you install it.
+
 - **Install from folder…** copies the folder into `~/.minerva/plugins/<id>/`
   under the id its `plugin.json` declares. The copy is checked whole first: a
   plugin that would be refused is reported, every problem at once, and
