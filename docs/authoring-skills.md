@@ -36,6 +36,33 @@ hit **Reload** in the same panel (no restart needed).
 The stock skills double as reference examples — copy one out of the app's
 `stock/` directory, change the `id`/`name`, and tweak from there.
 
+### Installing a skill someone else wrote
+
+A skill's body is its author's instructions to the model: for a conversation
+skill it is the **system prompt**, the channel the model takes its orders
+from (see [The body is a template](#the-body-is-a-template)). So installing a
+skill, whether by **Import skill…**, in a plugin or from the **Extend
+Minerva** card, means trusting whoever wrote it to steer the assistant. Read
+it first, as you would a script. It's plain markdown.
+
+What a skill **can't** do, however it's written (#1333):
+
+- **Run code.** The template language has no loops or expressions, and a
+  skill only ever produces a prompt.
+- **Change anything you didn't approve.** Its conversation can only file
+  proposals, which you review; an MCP tool that isn't read-only asks you
+  first, every call (#2439).
+- **Smuggle your notes into its orders.** Note, selection, claim and source
+  text always reaches the model in the user turn, wrapped as material, never
+  in the system prompt, whatever the body does (#2438).
+- **Pretend to be built in.** Settings → Skills shows each skill's source:
+  stock, yours, or the plugin and version it came with. A user or plugin
+  skill can't take a stock skill's id.
+
+What it **can** do is what its instructions ask: steer what the model looks
+at, writes and proposes, as a careless or hostile prompt would. That's the
+part to read for.
+
 ## Quickstart
 
 Drop this in `~/.minerva/skills/devils-advocate.md` and hit Reload:
