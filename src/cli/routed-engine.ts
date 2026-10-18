@@ -66,7 +66,7 @@ function isPidAlive(pid: number): boolean {
  * clean 200, or `null` on any transport-level failure (connection refused, non-
  * 200, unparseable body) so the caller falls back to the direct path.
  */
-function callApp(
+export function callApp(
   advert: RuntimeAdvert,
   rootPath: string,
   op: SubstrateOp,
@@ -99,6 +99,11 @@ function callApp(
       },
     );
     req.on('error', () => resolve(null)); // connection refused → app gone since advert
+    // The app answers an oversized body (413) and drops the connection while
+    // this is still writing it. The write's EPIPE can land on the socket after
+    // the request has let go of it, where nothing listens and it would crash
+    // the CLI instead of falling back (#2786). The request already resolved.
+    req.on('socket', (socket) => socket.on('error', () => undefined));
     req.write(payload);
     req.end();
   });

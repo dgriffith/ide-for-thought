@@ -15,7 +15,7 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import { createRoutedEngine } from '../../../src/cli/routed-engine';
+import { callApp, createRoutedEngine } from '../../../src/cli/routed-engine';
 import * as appServer from '../../../src/main/substrate/app-server';
 import * as graph from '../../../src/main/graph/index';
 import * as store from '../../../src/main/embeddings/vector-store';
@@ -93,6 +93,29 @@ describe('route-through-app (#1524)', () => {
     expect(ttl).toContain('Proposal');
     expect(ttl).toMatch(/pending/);
   });
+
+  it('a body the app refuses as too large falls back to direct, and never crashes the CLI (#2786)', async () => {
+    const vault = mkVault('oversized');
+    const ctx = projectContext(vault);
+    await graph.initGraph(ctx);
+    await appServer.registerProject(ctx);
+    cleanups.push(() => appServer.unregisterProject(vault));
+    const advert = JSON.parse(fs.readFileSync(path.join(vault, '.minerva', RUNTIME_FILE), 'utf-8')) as { port: number; token: string };
+
+    // The app answers 413 and drops the connection while the CLI is still
+    // writing; that write's late EPIPE used to escape as an unhandled error,
+    // about one request in twelve at this size. Vitest fails the run on one,
+    // which is what holds this: each call must also come back null (→ direct).
+    const big = 'x'.repeat(3 * 1024 * 1024);
+    for (let i = 0; i < 200; i++) {
+      expect(await callApp(advert as never, vault, 'proposeNote', { content: big })).toBeNull();
+    }
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    // And end to end: the CLI files the big note directly instead.
+    const r = await createRoutedEngine(ctx).proposeNote({ relativePath: 'notes/big.md', content: `# Big\n\n${'word '.repeat(300_000)}`, proposedBy: 'cli' });
+    expect(r.ok).toBe(true);
+  }, 120_000);
 
   it('routes semantic to the app while it holds the file-backed DuckDB open (closes #1272)', async () => {
     const vault = mkVault('semantic');
