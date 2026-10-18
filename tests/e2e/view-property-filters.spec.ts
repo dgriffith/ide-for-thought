@@ -69,7 +69,10 @@ test('a map filtered to Prague shows only Prague; Save as note keeps the filter 
     });
 
     await test.step('the chip removes the filter', async () => {
-      await win.locator('.tab', { hasText: 'Place' }).first().click();
+      // The view's tab, by its title: "Place" alone also matches the saved
+      // note's tab, "Place map", and either can come first (#2748).
+      await win.locator('.tab-switch[title="Type: place"]').click();
+      await expect(win.locator('.tv-count')).toHaveText('2 of 3');
       await win.getByRole('button', { name: 'Remove filter City: Prague' }).click();
       await expect(win.locator('.type-view-map .maplibregl-marker')).toHaveCount(3);
     });

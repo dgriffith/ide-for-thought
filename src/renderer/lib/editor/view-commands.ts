@@ -163,6 +163,18 @@ export function gotoOffset(ops: ViewCommandOps, offset: number): void {
   view.focus();
 }
 
+/**
+ * Focus the editor, unless the keyboard is in a dialog (#2754). Restoring a
+ * note's caret runs late, after the session restore's tabs have mounted, and
+ * the user may have opened a dialog in the meantime (⌘N during startup):
+ * taking focus from it would send their typing into the note.
+ */
+export function focusUnlessInDialog(view: EditorView): void {
+  const active = typeof document === 'undefined' ? null : document.activeElement;
+  if (active && active !== document.body && active.closest('[role="dialog"], [role="alertdialog"], dialog')) return;
+  view.focus();
+}
+
 export function restorePosition(ops: ViewCommandOps, offset: number, scrollTop?: number): void {
   const view = ops.getView();
   if (!view) return;
@@ -176,5 +188,5 @@ export function restorePosition(ops: ViewCommandOps, offset: number, scrollTop?:
       effects: EditorView.scrollIntoView(clamped, { y: 'center' }),
     });
   }
-  view.focus();
+  focusUnlessInDialog(view);
 }

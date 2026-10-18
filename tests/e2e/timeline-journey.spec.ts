@@ -95,7 +95,7 @@ test('the Timeline journey: Events as a timeline, zoomed and stepped by keyboard
     });
 
     await test.step('come back: still zoomed, still showing 1969', async () => {
-      await win.locator('.tab', { hasText: 'Event' }).first().click();
+      await win.locator('.tab-switch[title="Type: event"]').click(); // the view's tab, not a note named like it (#2748)
       await expect(events.first()).toBeVisible({ timeout: 10_000 });
       const d = await domainOf(win);
       expect(d.end - d.start).toBeLessThan(fitWidth);

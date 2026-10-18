@@ -32,6 +32,9 @@ function post(port: number, body: string | Buffer, headers: Record<string, strin
       if (e.code === 'EPIPE' || e.code === 'ECONNRESET') resolve({ status: -1, body: '' });
       else reject(e);
     });
+    // ...and that write's EPIPE can reach the socket after the request has let
+    // go of it, unhandled: the flake in #2786. The request is answered by then.
+    req.on('socket', (socket) => socket.on('error', () => undefined));
     req.end(body);
   });
 }
