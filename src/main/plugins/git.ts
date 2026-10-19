@@ -83,11 +83,18 @@ export function boundedHttp(base: HttpClient, maxBytes: number, abort: AbortCont
   return {
     overrun: () => overrun,
     async request(req: GitHttpRequest) {
-      const res = await base.request({ ...req, signal: abort.signal });
+      // The timeout is enforced here rather than trusted to the transport: one
+      // that ignores `signal`, or is handed it after it already fired, would
+      // otherwise wait forever.
+      const res = await untilAborted(base.request({ ...req, signal: abort.signal }), abort.signal);
       const body = res.body;
       if (!body) return res;
       async function* counted(): AsyncIterableIterator<Uint8Array> {
-        for await (const chunk of body!) {
+        const chunks = body![Symbol.asyncIterator]();
+        for (;;) {
+          const next = await untilAborted(chunks.next(), abort.signal);
+          if (next.done) return;
+          const chunk = next.value;
           received += chunk.byteLength;
           if (received > maxBytes) {
             overrun ??= new Error(`The repository is over ${Math.round(maxBytes / 1024 / 1024)} MB to download, more than a plugin may be.`);
@@ -100,6 +107,22 @@ export function boundedHttp(base: HttpClient, maxBytes: number, abort: AbortCont
       return { ...res, body: counted() };
     },
   };
+}
+
+/** `work`, or a rejection as soon as `signal` aborts, including if it already has. */
+function untilAborted<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) {
+    work.catch(() => {}); // settles unobserved
+    return Promise.reject(new Error('aborted'));
+  }
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(new Error('aborted'));
+    signal.addEventListener('abort', onAbort, { once: true });
+    work.then(
+      (v) => { signal.removeEventListener('abort', onAbort); resolve(v); },
+      (e: unknown) => { signal.removeEventListener('abort', onAbort); reject(e instanceof Error ? e : new Error(String(e))); },
+    );
+  });
 }
 
 /**
