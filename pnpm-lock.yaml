@@ -175,8 +175,8 @@ importers:
         specifier: ^0.6.0
         version: 0.6.0
       '@retorquere/bibtex-parser':
-        specifier: ^11.0.0
-        version: 11.0.0
+        specifier: ^12.1.9
+        version: 12.1.9
       '@types/markdown-it-footnote':
         specifier: ^3.0.4
         version: 3.0.4
@@ -2491,8 +2491,8 @@ packages:
   '@rdfjs/types@2.0.1':
     resolution: {integrity: sha512-uyAzpugX7KekAXAHq26m3JlUIZJOC0uSBhpnefGV5i15bevDyyejoB7I+9MKeUrzXD8OOUI3+4FeV1wwQr5ihA==}
 
-  '@retorquere/bibtex-parser@11.0.0':
-    resolution: {integrity: sha512-8R6nkZajW0tfW+bOAQ50s2NxKhN9RA/GFXH1L39OpLK3c0ewW6fbZzYfDpi2gZjP3B0XPIdJJLjcjncft/PgIQ==}
+  '@retorquere/bibtex-parser@12.1.9':
+    resolution: {integrity: sha512-zr3g5RYpGgXwYqMomZ+DI1b6sC4DiG5mPuAbgb65KWqhZeUOqssHNzy+Hc2DtRv929dLZn6JoL5Tig4MJJTUcg==}
 
   '@rolldown/binding-android-arm-eabi@1.2.13':
     resolution: {integrity: sha512-Vu/NICrgdRvUOeaJZIyB2FP63s6fO/4ud5l8dXmxDx9yDyn+mN0y+gsvsVviSli+T361Aqo0h46EuMoobrwawA==}
@@ -5744,8 +5744,8 @@ packages:
     resolution: {integrity: sha512-u4UB2/IrKdU6lFxumHmmo1a3fCQO5tzQllRorfoRS63txhrB7xTpSn1PftwC4qEHkOaqP95fCWW4lJzwErwzhQ==}
     engines: {node: '>=22.19.0'}
 
-  unicode2latex@7.0.35:
-    resolution: {integrity: sha512-MeIzmlykRkSuc+AsDDH17Iii4dEzCGRg5AnZ5XsVPLNRaD7cSti5LzUo4oNWaUtqmryGFqzPKY2QPO33IRwMtw==}
+  unicode2latex@7.0.37:
+    resolution: {integrity: sha512-UehOCnIAyUJAunsavlzAwmTFqfR6eqm0wbVOX99tEH2g3lThSV9BesLGi7BfrXqLHttwjVIpETCXz4lxAXX+ag==}
 
   unified@10.1.2:
     resolution: {integrity: sha512-pUSWAi/RAnVy1Pif2kAoeWNBa3JVrx0MId2LASj8G+7AiHWoKZNTomq6LG326T68U7/e263X6fTdcXIy7XnF7Q==}
@@ -10435,7 +10435,7 @@ snapshots:
     dependencies:
       '@types/node': 26.4.0
 
-  '@retorquere/bibtex-parser@11.0.0':
+  '@retorquere/bibtex-parser@12.1.9':
     dependencies:
       '@unified-latex/unified-latex-util-pegjs': 1.8.4
       '@unified-latex/unified-latex-util-print-raw': 1.8.4
@@ -10445,7 +10445,7 @@ snapshots:
       lodash.merge: 4.6.2
       moo: 0.5.3
       nearley: 2.20.1
-      unicode2latex: 7.0.35
+      unicode2latex: 7.0.37
       wink-eng-lite-web-model: 1.8.1
       wink-nlp: 2.4.0
 
@@ -14054,7 +14054,7 @@ snapshots:
 
   undici@8.11.2: {}
 
-  unicode2latex@7.0.35:
+  unicode2latex@7.0.37:
     dependencies:
       '@pomgui/deep': 3.0.4
       just-permutations: 2.2.1
