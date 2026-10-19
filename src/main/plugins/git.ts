@@ -109,15 +109,17 @@ export function boundedHttp(base: HttpClient, maxBytes: number, abort: AbortCont
   };
 }
 
-/** `work`, or a rejection as soon as `signal` aborts, including if it already has. */
+/**
+ * `work`, or a rejection as soon as `signal` aborts, including if it already
+ * has. `work`'s own outcome is always observed (a later settle is a no-op on
+ * an already-rejected promise), so an abandoned request can't surface as an
+ * unhandled rejection.
+ */
 function untilAborted<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
-  if (signal.aborted) {
-    work.catch(() => {}); // settles unobserved
-    return Promise.reject(new Error('aborted'));
-  }
   return new Promise<T>((resolve, reject) => {
     const onAbort = () => reject(new Error('aborted'));
-    signal.addEventListener('abort', onAbort, { once: true });
+    if (signal.aborted) onAbort();
+    else signal.addEventListener('abort', onAbort, { once: true });
     work.then(
       (v) => { signal.removeEventListener('abort', onAbort); resolve(v); },
       (e: unknown) => { signal.removeEventListener('abort', onAbort); reject(e instanceof Error ? e : new Error(String(e))); },
