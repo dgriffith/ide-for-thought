@@ -28,6 +28,7 @@ Reach for the lowest rung that does the job — declarative before code.
 | [Citation styles and locales](#csl-styles--citation-styles-and-locales) | setting | hot | stock, plugin, thoughtbase |
 | [Static site stylesheet](#static-site-css--static-site-stylesheet) | setting | hot | thoughtbase |
 | [Ontology](#ontology--ontology) | setting | hot | stock, thoughtbase |
+| [Thoughtbase guide](#thoughtbase-guide--thoughtbase-guide) | setting | hot | thoughtbase |
 | [Skills](#skills--skills) | skill | reload-command | stock, user, plugin |
 | [Object types](#object-types--object-types) | object-type | hot | stock, plugin, thoughtbase |
 | [Saved queries](#saved-queries--saved-queries) | query-view | hot | stock, user, plugin, thoughtbase |
@@ -85,6 +86,18 @@ A vocabulary — classes, properties and prefixes — added beside the built-in 
 - **Docs:** [`docs/thought-ontology.md`](thought-ontology.md)
 - **Example:** [`tests/main/graph/user-ontology.test.ts`](../tests/main/graph/user-ontology.test.ts)
 - **Test:** [`tests/main/graph/user-ontology-check.test.ts`](../tests/main/graph/user-ontology-check.test.ts)
+
+## `thoughtbase-guide` — Thoughtbase guide
+
+A plain-English guide to one thoughtbase — its purpose, folders, naming, tags, how notes are written and how the user likes answers — shown to the assistant at the start of every conversation there. The cheapest way to change how the assistant works in one thoughtbase. Conventions only: it can't override safety rules or approval.
+
+- **Rung:** setting
+- **Picked up:** at once, or on its next read (`hot`)
+- **Contributions from:** thoughtbase
+- **Goes in:** &lt;thoughtbase>/thoughtbase.md (File → Edit Thoughtbase Guide…)
+- **Contract:** Markdown, free-form, read fresh on every conversation turn, checked by [`src/main/llm/thoughtbase-doc.ts`](../src/main/llm/thoughtbase-doc.ts) (`readThoughtbaseDoc`)
+- **Docs:** [`website/docs/_content/thoughtbase-operations.html`](../website/docs/_content/thoughtbase-operations.html)
+- **Test:** [`tests/main/llm/thoughtbase-doc.test.ts`](../tests/main/llm/thoughtbase-doc.test.ts)
 
 ## `skills` — Skills
 
