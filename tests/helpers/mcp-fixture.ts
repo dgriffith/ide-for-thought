@@ -8,14 +8,22 @@
  * `tests/main/mcp-client/mcp-fixture-gate.test.ts` hard-asserts the fixture
  * is available there (#2365).
  *
- * Verified (by hand, before writing the transport) to speak the LEGACY era
- * on both `stdio` and `streamableHttp` transports — exactly the real-world
- * shape essentially every published MCP server speaks today.
+ * **Pinned, because the era is a property of the version.** Up to 1.0.0 it
+ * speaks the LEGACY era on both `stdio` and `streamableHttp`, the shape most
+ * published MCP servers speak. 2.0.0 (2026-10-19) answers `server/discover`
+ * over stdio, i.e. MODERN. The name used to be unversioned, so `npx` took
+ * whatever was latest and the legacy suites failed on every run the morning
+ * 2.0.0 shipped, with nothing in this repo changed. Bump either pin
+ * deliberately, after checking which era the new version speaks.
  */
 import { execSync } from 'node:child_process';
 import { describe } from 'vitest';
 
-export const MCP_FIXTURE_PACKAGE = '@modelcontextprotocol/server-everything';
+/** The legacy-era fixture. */
+export const MCP_FIXTURE_PACKAGE = '@modelcontextprotocol/server-everything@1.0.0';
+
+/** The modern-era fixture: the first real server we can test that path against. */
+export const MCP_MODERN_FIXTURE_PACKAGE = '@modelcontextprotocol/server-everything@2.0.0';
 
 /** `--help` isn't a recognized transport name, so the launcher exits 1 after
  *  printing its usage banner — that banner (not the exit code) is the
