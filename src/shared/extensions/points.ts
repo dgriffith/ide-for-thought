@@ -67,7 +67,7 @@ export type ContributionSource =
   | 'stock'
   /** Per machine: `~/.minerva/…` or the app's user-data folder. */
   | 'user'
-  /** Inside the thoughtbase: `<thoughtbase>/.minerva/…`. */
+  /** Inside the thoughtbase: `<thoughtbase>/.minerva/…`, or `thoughtbase.md` at its root. */
   | 'thoughtbase'
   /** A plugin (#2631). */
   | 'plugin';
@@ -163,6 +163,19 @@ export const EXTENSION_POINTS = [
     docs: 'docs/thought-ontology.md',
     example: 'tests/main/graph/user-ontology.test.ts',
     harness: 'tests/main/graph/user-ontology-check.test.ts',
+  },
+
+  {
+    id: 'thoughtbase-guide',
+    label: 'Thoughtbase guide',
+    description: 'A plain-English guide to one thoughtbase — its purpose, folders, naming, tags, how notes are written and how the user likes answers — shown to the assistant at the start of every conversation there. The cheapest way to change how the assistant works in one thoughtbase. Conventions only: it can\'t override safety rules or approval.',
+    rung: 'setting',
+    contract: { kind: 'parser', format: 'Markdown, free-form, read fresh on every conversation turn', at: { file: 'src/main/llm/thoughtbase-doc.ts', symbol: 'readThoughtbaseDoc' } },
+    loadPath: 'hot',
+    sources: ['thoughtbase'],
+    location: '<thoughtbase>/thoughtbase.md (File → Edit Thoughtbase Guide…)',
+    docs: 'website/docs/_content/thoughtbase-operations.html',
+    harness: 'tests/main/llm/thoughtbase-doc.test.ts',
   },
 
   // ── Skills ───────────────────────────────────────────────────────────────
