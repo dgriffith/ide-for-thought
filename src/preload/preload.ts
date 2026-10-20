@@ -13,6 +13,15 @@ import type { ThemeMode } from '../shared/theme';
 import type { CommandId } from '../shared/commands';
 import type { PluginSettingsPatch } from '../shared/plugins/format';
 import type { ChannelMap, EventMap } from '../shared/ipc-contract';
+import { PLUGIN_SESSION_PORT_MESSAGE } from '../shared/plugins/session';
+
+// A plugin session's port (#2825) can't cross `contextBridge`, so it is posted
+// into the page: to this window, from this window, on its own origin. The
+// renderer's `plugin-sessions` store takes it only when `event.source` is the
+// window itself, so a plugin frame can't post a port of its own in its place.
+ipcRenderer.on(Channels.PLUGINS_SESSION_PORT, (e, msg: { sessionId: string; pluginId: string }) => {
+  window.postMessage({ type: PLUGIN_SESSION_PORT_MESSAGE, sessionId: msg.sessionId, pluginId: msg.pluginId }, window.location.origin, e.ports);
+});
 import type { ConversationDraftBase } from '../shared/conversation-draft-base';
 import type { AskUserRequest, McpConfirmRequest } from '../shared/conversation-tools';
 import type { ExtensionDraftAction, ExtensionDraftOffer } from '../shared/extensions/drafts';
@@ -601,6 +610,10 @@ const api = {
     setSettings: (id: string, patch: PluginSettingsPatch) => invoke(Channels.PLUGINS_SET_SETTINGS, id, patch),
     reveal: (id?: string) => invoke(Channels.PLUGINS_REVEAL, id),
     onChanged: (cb: () => void) => subscribe(Channels.PLUGINS_CHANGED, cb),
+    openSession: (pluginId: string, scope: string[]) => invoke(Channels.PLUGINS_OPEN_SESSION, pluginId, scope),
+    setSessionScope: (sessionId: string, scope: string[]) => invoke(Channels.PLUGINS_SET_SESSION_SCOPE, sessionId, scope),
+    closeSession: (sessionId: string) => invoke(Channels.PLUGINS_CLOSE_SESSION, sessionId),
+    onIntent: (cb: EventMap['plugins:intent']) => subscribe(Channels.PLUGINS_INTENT, cb),
   },
   ontology: {
     list: () => invoke(Channels.ONTOLOGY_LIST),

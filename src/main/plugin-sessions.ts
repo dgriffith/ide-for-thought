@@ -1,0 +1,131 @@
+/**
+ * Plugin sessions, wired to the running app (#2825). The broker
+ * (`plugins/broker.ts`) holds the rules; this is the composition root that
+ * gives it real I/O and real ports.
+ *
+ * Opening one: the window's renderer (the trusted host) asks for a session
+ * for a plugin and the notes its view was given. Main checks the plugin is
+ * enabled code, makes a `MessageChannelMain`, keeps one end for the broker
+ * and posts the other to the window, whose preload passes it into the page;
+ * the page transfers it to the plugin's frame on that plugin's exact origin.
+ * The plugin frame has no preload of its own, so main can't hand it over
+ * directly.
+ *
+ * A session belongs to one window and one thoughtbase. Before every call the
+ * broker asks `stillValid`: the plugin still enabled code at the same
+ * version, and the window still on the thoughtbase the session was opened
+ * for. It also closes with the window.
+ */
+import { BrowserWindow, clipboard, MessageChannelMain, type MessagePortMain } from 'electron';
+import { randomUUID } from 'node:crypto';
+import { Channels } from '../shared/channels';
+import { logger } from '../shared/logger';
+import { createPluginSession, type BrokerDeps, type BrokerPort, type PluginSession } from './plugins/broker';
+import { codePluginIdentity } from './plugins/code-plugins';
+import { getRootPath } from './window-manager';
+import { hooks } from './ipc/helpers';
+import { writeAndReindex } from './notebase/write-pipeline';
+import * as notebaseFs from './notebase/fs';
+import { runWithHistorySource } from './history';
+import { queryGraph } from './graph';
+import { runPluginQuery } from './sources/tables';
+import { projectContext } from './project-context-types';
+import { agentPathRefusal, type AgentPathRefusal } from './path-containment';
+
+const REFUSAL_WORDS: Record<AgentPathRefusal, string> = {
+  hidden: "it is in a hidden folder or Minerva's own data",
+  outside: 'it is outside the thoughtbase',
+  root: 'it is the thoughtbase itself',
+};
+
+interface Entry { session: PluginSession; windowId: number; pluginId: string }
+const sessions = new Map<string, Entry>();
+
+function portFor(port: MessagePortMain): BrokerPort {
+  return {
+    send: (text) => port.postMessage(text),
+    onMessage: (fn) => { port.on('message', (e) => fn(e.data)); port.start(); },
+    onClose: (fn) => port.on('close', fn),
+    close: () => port.close(),
+  };
+}
+
+function depsFor(win: BrowserWindow, sessionId: string, pluginId: string): BrokerDeps {
+  return {
+    readNote: (root, rel) => notebaseFs.readFile(root, rel),
+    noteExists: (root, rel) => notebaseFs.fileExists(root, rel),
+    writeNote: async (root, rel, content, source) => {
+      await runWithHistorySource(source, () => writeAndReindex(root, rel, content, hooks));
+    },
+    queryGraph: (root, sparql) => queryGraph(projectContext(root), sparql),
+    querySql: (root, sql) => runPluginQuery(projectContext(root), sql),
+    pathRefusal: (root, rel) => {
+      const why = agentPathRefusal(root, rel);
+      return why ? REFUSAL_WORDS[why] : null;
+    },
+    intent: (intent) => {
+      if (!win.isDestroyed()) win.webContents.send(Channels.PLUGINS_INTENT, { sessionId, pluginId, intent });
+    },
+    copyText: (text) => { void clipboard.writeText(text); },
+  };
+}
+
+/** Open a session for `pluginId` in `win`, given `scope`; the port follows on `PLUGINS_SESSION_PORT`. */
+export function openPluginSession(win: BrowserWindow, pluginId: string, scope: readonly string[]): { sessionId: string } {
+  const identity = codePluginIdentity(pluginId);
+  if (!identity) throw new Error(`"${pluginId}" is not an enabled plugin with code.`);
+  const rootPath = getRootPath(win.id);
+  if (!rootPath) throw new Error('A plugin session needs an open thoughtbase.');
+
+  const sessionId = randomUUID();
+  const { port1, port2 } = new MessageChannelMain();
+  const session = createPluginSession({
+    identity,
+    rootPath,
+    scope,
+    port: portFor(port1),
+    deps: depsFor(win, sessionId, pluginId),
+    stillValid: () => {
+      const now = codePluginIdentity(pluginId);
+      if (!now) return `${identity.name} has been turned off.`;
+      if (now.version !== identity.version) return `${identity.name} was updated; open it again.`;
+      if (win.isDestroyed() || getRootPath(win.id) !== rootPath) return 'The thoughtbase this view belonged to was closed.';
+      return null;
+    },
+  });
+  sessions.set(sessionId, { session, windowId: win.id, pluginId });
+  session.onClose(() => sessions.delete(sessionId));
+  win.once('closed', () => session.close());
+  win.webContents.postMessage(Channels.PLUGINS_SESSION_PORT, { sessionId, pluginId }, [port2]);
+  logger('plugins').info(`plugin ${pluginId}: session opened with ${session.scope().length} note(s) in scope`);
+  return { sessionId };
+}
+
+function entryFor(win: BrowserWindow, sessionId: string): Entry | null {
+  const entry = sessions.get(sessionId);
+  return entry && entry.windowId === win.id ? entry : null;
+}
+
+/** Replace a session's scope. A session of another window is not this window's to change. */
+export function setPluginSessionScope(win: BrowserWindow, sessionId: string, scope: readonly string[]): void {
+  const entry = entryFor(win, sessionId);
+  if (!entry) throw new Error('No such plugin session in this window.');
+  entry.session.setScope(scope);
+}
+
+/** Close a session; closing one that has already ended is fine. */
+export function closePluginSession(win: BrowserWindow, sessionId: string): void {
+  entryFor(win, sessionId)?.session.close();
+}
+
+/** Close every session whose plugin is no longer enabled code — after a plugin change. */
+export function closeStalePluginSessions(): void {
+  for (const { session, pluginId } of [...sessions.values()]) {
+    if (!codePluginIdentity(pluginId)) session.close();
+  }
+}
+
+/** Open sessions, for tests. */
+export function _pluginSessionCountForTests(): number {
+  return sessions.size;
+}

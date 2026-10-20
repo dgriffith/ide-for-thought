@@ -65,7 +65,7 @@ const THRESHOLD = 600;
 const BUDGETS: Record<string, number> = {
   'src/renderer/lib/components/TypeViewCalendar.svelte': 666, // +16: each day named from its content and each event by what it shows, described by its full date from the page's hidden list (WCAG 2.5.3, #2790); +4: `month` read by value and the page-turn effect keyed on the page number, so a graph refresh doesn't close the day list (#2742 follow-up); +6: #2704's export branch (`{#if exportMode}` → CalendarExportGrid) and its doc paragraph, merged with this; +40 past the 600 threshold (#2703): reschedule's wiring — the drag action, the choose-a-day mode on the grid's Enter/Escape/click, the move bar, the event menu's hooks, ⌘Z, and their styles. The logic lives beside it in calendar/ (event-drag.ts, reschedule-controller.svelte.ts, reschedule.ts, CalendarMoveBar.svelte); what's left is template and CSS that has to sit on the grid's own elements.
   // +1 for #2256: toggleCommandPalette on the ipc-wiring ctx.
-  'src/renderer/App.svelte': 1825, // +3: skills in the command palette — the tool-registry import, hasSelection for the gate, and the palette's skill list (#2766); +2: status-bar Record button's toggle + its import (#2732); +1: invokeTool into the command ctx for Summarize Recording (#2729); +2: a view's calendar month and dateBy passed to the view tab, and Save as note's layout and dateBy judged against the type (#2701); +3: a view's timeline range passed to the view tab, and Save as note's layout and range judged against the type (#2607); +2: a kanban view's column order and Show empty columns passed to the view tab and Save as note (#2614); +3: a kanban view's groupBy passed to the view tab and Save as note, checked against the type (#2601); +1: the preview's resize handles write through onApplyEdit (#2666); +2: type views hand their multi-selection to the bulk property editor (#2431); +2: a map view's style passed to the view tab and Save as note (#2665); +4: folder/filters passed to the view tab and Save as note (#2531); +1: the folder chip widens a scoped view (#2532); +3: switching to a view tab records it in back/forward history; −41: menu commands moved onto the command registry (#2625); +2: the recommended-plugins card, keyed on the thoughtbase (#2635); +7: plugin themes — loaded at mount, surfaces re-tinted on a plugin change, the palette entries, and Settings now reports the theme to the menu (#2787)
+  'src/renderer/App.svelte': 1828, // +3: wires a plugin's ui.openNote (#2825)
   // +32 for #2210 §3b: the shared wiki-link index and the comment explaining
   // why one index is safe for all three resolvers. Net code is SHORTER (two
   // duplicated file-array builds removed); the growth is the reasoning, which
@@ -83,7 +83,7 @@ const BUDGETS: Record<string, number> = {
   // predicted this: the IPC-surface files are budgeted and grow one line per
   // channel by construction, so a bump here is the expected remedy, not a
   // smell.
-  'src/renderer/lib/ipc/client.ts': 1403, // +17: Settings → Ontology's four channels (#2788); +3: a template's / CSL style's plugin (#2633); +19: Settings → Plugins' channels (#2634); +2: install from a zip (#2634); +2: install from a git URL (#2634); +2: recommended plugins (#2635); +4: plugin settings (#2636); +2: plugin themes (#2787); +4: a drafted extension's card (#2652); +2: a PDF export's style profile (#2429); +6: the remote-image policy's channels (#1332)
+  'src/renderer/lib/ipc/client.ts': 1411, // +8: plugin session methods (#2825)
   'src/renderer/lib/stores/conversations.svelte.ts': 1280, // +4: carry a skill's user-turn material through open + /clear (#2438); +39: mcp_call confirmation card state, beside ask_user's (#2439); +26: turn start/settle screen-reader announcements (#2374); +28: conversation titles — rename, the titleChanged subscription, keepKnownTitle for the post-send reload race; +2: typing during a reply (#1744) — /clear refuses mid-turn, a restored message keeps the draft; +11: turnStartedAt for the turn-status clock (set at the three turn starts, cleared at the three settles); +2: approve comments name the broadcast that really happens (#2541); +4: clear / dismiss a drafted extension's card with its turn and tab (#2652)
   'src/renderer/lib/components/Editor.svelte': 858, // +4: Record Audio / Transcribe Recording context-menu wiring (#2428)
   'src/renderer/lib/stores/editor.svelte.ts': 965, // +1: DEFAULT_VIEW_LAYOUT from the view-layout registry (#2623); +1: type-view tabs carry a timeline range (#2607); +2: type-view tabs carry a kanban column order and Show empty columns (#2614); +1: type-view tabs carry a kanban groupBy (#2601); +1: type-view tabs carry a map style (#2665); +5: type-view tabs keyed by type + folder (#2531); +23: rescopeTypeView — widen a folder-scoped view, merging into an open one (#2532); +17: folder renames move scoped view tabs, beside applyRenameTransitions (#2535)
@@ -115,9 +115,9 @@ const BUDGETS: Record<string, number> = {
   // +17 (#2491): the property card's "Also fills {{name}} in the note's body" line, its helper and style.
   'src/renderer/lib/components/conversations/DraftCards.svelte': 775,
   // +1 for #2256: the MENU_COMMAND_PALETTE channel / its MENU_COMMANDS entry.
-  'src/shared/ipc-contract.ts': 763, // +8: Settings → Ontology's four channels (#2788); +11: Settings → Plugins' channels (#2634); +2: install from a zip (#2634); +2: install from a git URL (#2634); +2: recommended plugins (#2635); +2: plugin settings (#2636); +1: plugin themes (#2787); +3: a drafted extension's card (#2652); +1: a PDF export's style profile (#2429); +6: the remote-image policy's channels (#1332)
+  'src/shared/ipc-contract.ts': 768, // +5: plugin-session contract entries (#2825)
   // +1 for #2256: the MENU_COMMAND_PALETTE channel / its MENU_COMMANDS entry.
-  'src/shared/channels.ts': 736, // +9: Settings → Ontology's four channels (#2788); +11: Settings → Plugins' channels (#2634); +2: install from a zip (#2634); +2: install from a git URL (#2634); +2: recommended plugins (#2635); +4: plugin settings (#2636); +2: plugin themes (#2787); +4: a drafted extension's card (#2652); +7: the remote-image policy's channels (#1332)
+  'src/shared/channels.ts': 746, // +10: five plugin-session channels (#2825)
   // +5 (#2494): both typed-note creation paths read the type's effective (inherited) template.
   'src/renderer/lib/app/note-ops.ts': 707, // +15: saveViewAsNote — "Save as note" writes a note with a live object-view embed (#2507)
   'src/renderer/lib/editor/formatting.ts': 668,
@@ -129,7 +129,7 @@ const BUDGETS: Record<string, number> = {
   // instead of a static import, so the 107MB native module leaves the
   // pre-window boot path. The extra lines are the lazy resolution and the
   // comment saying why the import looks indirect.
-  'src/main/sources/tables.ts': 882,  // #2448/#2452: runNoteQuery / runAgentQuery + checkRegisteredSql sit beside runQuery (they need the connection state); +1: the companion-note override reads frontmatter through the shared findFrontmatter (#2690)
+  'src/main/sources/tables.ts': 891, // +9: runPluginQuery, the plugin SQL audience (#2825)
   // #2220 (601 → 633): the search callback grew a match cap, a generation
   // guard that drops superseded responses, and a truncation-aware status line.
   // Raised rather than extracted on purpose — all 32 lines are the one
@@ -140,7 +140,7 @@ const BUDGETS: Record<string, number> = {
   // ~250-line `<style>` block, not the logic.
   'src/renderer/lib/components/FindInNotesDialog.svelte': 633,
   // +1 for #2256: onCommandPalette passthrough.
-  'src/preload/preload.ts': 636, // +6: Settings → Ontology's four channels (#2788); +8: Settings → Plugins' channels (#2634); +1: install from a zip (#2634); +1: install from a git URL (#2634); +1: recommended plugins (#2635); +3: plugin settings, and its patch type (#2636); +1: plugin themes (#2787); +3: a drafted extension's card (#2652); +6: the remote-image policy's channels (#1332)
+  'src/preload/preload.ts': 649, // +13: plugin session methods + the port relay (#2825)
   'src/main/ipc/register-conversation-drafts.ts': 579, // +2: approved drafts broadcast their moves + rewrites (#2541)
   // New entry in #2218, which took this file from 538 over the threshold.
   // The seam this check asks about was taken first: the deadline POLICY —

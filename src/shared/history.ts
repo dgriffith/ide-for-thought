@@ -12,7 +12,8 @@ import { describeProposer } from './provenance';
  *  at this moment — no `.snap` file, no `hash`, nothing to diff or restore
  *  from directly; it exists so a later "as of T" query across a set of notes
  *  can tell "didn't exist yet" apart from "existed, then was removed". */
-export type RevisionOrigin = 'edit' | 'restore' | 'proposal' | 'delete';
+/** `plugin`: a write by plugin code (#2825), its cause naming `plugin:<id>@<version>`. */
+export type RevisionOrigin = 'edit' | 'restore' | 'proposal' | 'delete' | 'plugin';
 
 export interface RevisionMeta {
   /** Epoch millis the revision was captured (also its stable id). */
@@ -181,6 +182,7 @@ export function describeRevisionCause(rev: Pick<RevisionMeta, 'origin' | 'cause'
   if (rev.origin === 'restore') return 'Restored';
   if (rev.origin === 'proposal') return 'Minerva AI';
   if (rev.origin === 'delete') return 'Deleted';
+  if (rev.origin === 'plugin') return 'Plugin';
   return 'Edit';
 }
 

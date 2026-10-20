@@ -69,6 +69,10 @@ const EVENT_CHANNELS = new Set<string>([
   Channels.STORAGE_LEGACY_ORIGIN_ENTRIES,
   Channels.NOTEBASE_FILE_CHANGED,
   Channels.PLUGINS_CHANGED,
+  // main → renderer, carrying a MessagePort that the preload posts into the page (#2825).
+  Channels.PLUGINS_SESSION_PORT,
+  // main → renderer: a plugin's ui intent (#2825).
+  Channels.PLUGINS_INTENT,
   // main → renderer: a drafted extension's card (#2652).
   Channels.CONVERSATION_EXTENSION_DRAFT,
   // main → renderer: a thoughtbase's remote-image policy changed (#1332).

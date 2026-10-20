@@ -22,6 +22,8 @@ import { proposeWrite, type ProposedWrite } from './llm/approval';
 import { ingestHtmlString } from './sources/ingest';
 import { reindexSource } from './sources/source-meta-write';
 import { _servePluginFrameForE2E } from './plugins/frame-files';
+import { _registerCodePluginForE2E } from './plugins/code-plugins';
+import type { PluginCapability } from '../shared/plugins/capabilities';
 
 export interface E2EHooks {
   /** File a fixed pending proposal into the focused window's project.
@@ -37,7 +39,7 @@ export interface E2EHooks {
   /** Serve `root` as plugin `id`'s frame at `minerva-plugin://<id>/` (#2824).
    *  No installed plugin can declare `ui` yet, so this is how the plugin-frame
    *  spec puts a hostile page in front of the real protocol and guards. */
-  servePluginFrame(id: string, root: string): void;
+  servePluginFrame(id: string, root: string, capabilities?: PluginCapability[]): void;
 }
 
 /** The distinctive triple the seeded proposal adds on approval. */
@@ -101,8 +103,10 @@ export function installE2EHooks(): void {
       await reindexSource(rootPath, result.sourceId);
       return { sourceId: result.sourceId, title: result.title };
     },
-    servePluginFrame(id, root) {
+    servePluginFrame(id, root, capabilities = []) {
       _servePluginFrameForE2E(id, root);
+      // …and treat it as enabled code with these capabilities, for the broker (#2825).
+      _registerCodePluginForE2E({ id, name: 'Hostile fixture', version: '0.0.1', capabilities });
     },
   };
   (globalThis as typeof globalThis & { __minervaE2E?: E2EHooks }).__minervaE2E = hooks;

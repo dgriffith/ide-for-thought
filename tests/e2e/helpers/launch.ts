@@ -511,18 +511,18 @@ export async function ingestSource(app: ElectronApplication): Promise<{ sourceId
 }
 
 /** Serve `root` as plugin `id`'s frame (src/main/e2e-hooks.ts, #2824). */
-export async function servePluginFrame(app: ElectronApplication, id: string, root: string): Promise<void> {
+export async function servePluginFrame(app: ElectronApplication, id: string, root: string, capabilities: string[] = []): Promise<void> {
   return test.step('serve plugin frame (main-process hook)', () =>
     withinBound(
       'servePluginFrame (app.evaluate in the main process)',
       SEED_BOUND_MS,
       app.evaluate((_electron, a) => {
         const g = globalThis as typeof globalThis & {
-          __minervaE2E?: { servePluginFrame(id: string, root: string): void };
+          __minervaE2E?: { servePluginFrame(id: string, root: string, capabilities: string[]): void };
         };
         if (!g.__minervaE2E) throw new Error('e2e hook missing — MINERVA_E2E not set?');
-        g.__minervaE2E.servePluginFrame(a.id, a.root);
-      }, { id, root }),
+        g.__minervaE2E.servePluginFrame(a.id, a.root, a.capabilities);
+      }, { id, root, capabilities }),
       () => probeApp(app),
     ));
 }

@@ -36,6 +36,7 @@ import { activeProjects, getProjectContext, refreshOpenExtensionCatalogs } from 
 import { indexAllNotes } from './graph';
 import { invalidateCitationAssets } from './citations/assets-cache';
 import { syncCorePlugins } from './core-plugins';
+import { closeStalePluginSessions } from './plugin-sessions';
 import { readCorePluginStates } from './plugins/core';
 
 /** What the plugins' object types are, as a string: compared before and after. */
@@ -117,9 +118,9 @@ async function apply(): Promise<void> {
   // what the steps below read.
   syncCorePlugins();
   await reloadAndRegisterSkills();
-  // A removed, turned-off or changed plugin's MCP servers stop; an approved
-  // one whose plugin came back starts (#2646).
+  // A gone or changed plugin's MCP servers stop and a returning approved one starts (#2646); its views' sessions close (#2825).
   await reconcilePluginServers();
+  closeStalePluginSessions();
   invalidateSavedQueriesCache();
   rebuildMenu();
 

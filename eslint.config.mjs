@@ -65,7 +65,10 @@ const DATAFLOW_MUTATION_METHODS =
   'extensionDraftAction|onExtensionDraft|' +
   // The remote-image policy (#1332): allowing a host, the mode, a reset, and
   // its change event live in the remote-images store.
-  'allowRemoteHost|setRemoteMode|resetRemotePolicy|onRemotePolicyChanged';
+  'allowRemoteHost|setRemoteMode|resetRemotePolicy|onRemotePolicyChanged|' +
+  // Plugin sessions (#2825): opening, rescoping and closing one, and its
+  // intent event, live in the plugin-sessions store.
+  'openSession|setSessionScope|closeSession|onIntent';
 
 const DATAFLOW_MESSAGE =
   'Renderer data-flow rule (#1086): components must not call mutating/subscribing `api.*` methods directly. ' +

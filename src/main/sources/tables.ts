@@ -233,6 +233,15 @@ export function runAgentQuery(ctx: ProjectContext, sql: string): Promise<QueryRe
   return runGuardedQuery(ctx, sql, 'agent');
 }
 
+/**
+ * Run SQL plugin code sent through the broker (#2825): the same allowlist,
+ * worded for a plugin author. Plugin code renders thoughtbase content and so
+ * is as steerable as the model; it never gets the full connection.
+ */
+export function runPluginQuery(ctx: ProjectContext, sql: string): Promise<QueryResult> {
+  return runGuardedQuery(ctx, sql, 'plugin');
+}
+
 async function runGuardedQuery(ctx: ProjectContext, sql: string, audience: SqlGuardAudience): Promise<QueryResult> {
   const verdict = await checkRegisteredSql(ctx, sql, audience);
   if (!verdict.ok) return { ok: false, error: verdict.reason };

@@ -32,6 +32,9 @@ const h = vi.hoisted(() => ({
   encrypted: true,
   reconcile: vi.fn(),
   changed: [] as string[],
+  openSession: vi.fn(),
+  setSessionScope: vi.fn(),
+  closeSession: vi.fn(),
 }));
 
 vi.mock('electron', () => ({
@@ -91,6 +94,12 @@ vi.mock('../../../src/main/plugins/core', async (importOriginal) => ({
 }));
 vi.mock('../../../src/main/plugins-apply', () => ({
   changePlugins: async <T>(op: () => Promise<T>) => { const r = await op(); h.changed.push('applied'); return r; },
+}));
+
+vi.mock('../../../src/main/plugin-sessions', () => ({
+  openPluginSession: h.openSession,
+  setPluginSessionScope: h.setSessionScope,
+  closePluginSession: h.closeSession,
 }));
 
 import { registerPlugins } from '../../../src/main/ipc/register-plugins';
@@ -369,5 +378,23 @@ describe('a drafted extension\'s card (#2652)', () => {
     expect(settled).toEqual([{ kind: 'dismissed' }]);
     expect(h.saveSkillDraft).not.toHaveBeenCalled();
     expect(h.installPluginFromDraft).not.toHaveBeenCalled();
+  });
+});
+
+describe('plugin sessions (#2825)', () => {
+  it('opens, rescopes and closes a session for the calling window, passing only strings as scope', async () => {
+    h.openSession.mockReturnValue({ sessionId: 's1' });
+    expect(await call(Channels.PLUGINS_OPEN_SESSION, 'board', ['a.md', 7, null, 'b.md'])).toEqual({ sessionId: 's1' });
+    expect(h.openSession).toHaveBeenCalledWith({ id: 1 }, 'board', ['a.md', 'b.md']);
+    await call(Channels.PLUGINS_SET_SESSION_SCOPE, 's1', 'not-a-list');
+    expect(h.setSessionScope).toHaveBeenCalledWith({ id: 1 }, 's1', []);
+    await call(Channels.PLUGINS_CLOSE_SESSION, 's1');
+    expect(h.closeSession).toHaveBeenCalledWith({ id: 1 }, 's1');
+  });
+
+  it('refuses an id that is not a plugin id before opening anything', async () => {
+    h.openSession.mockClear();
+    await expect(call(Channels.PLUGINS_OPEN_SESSION, '../evil', [])).rejects.toThrow("isn't a plugin id");
+    expect(h.openSession).not.toHaveBeenCalled();
   });
 });

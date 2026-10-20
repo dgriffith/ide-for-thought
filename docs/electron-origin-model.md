@@ -74,6 +74,12 @@ upgrade copies the old `file://` origin's entries across once
   - **`protocol.handle` responses pass through `onHeadersReceived`.**
     `installCsp` rewrites the CSP there, so a scheme with its own CSP needs
     the exception `minerva-plugin:` has.
+  - **A session's port reaches a frame only through the page** (#2825): main
+    posts it to the window, the preload posts it into the page, and the page
+    transfers it on the plugin's exact origin. The page takes it only when
+    `event.source` is the window itself, so a frame can't post a port of its
+    own in its place. Everything the plugin can then do is the broker's
+    method table (`shared/plugins/api.ts`).
   - **The main window's `window.open` handler can't see which frame opened a
     popup** (Electron passes none, and the referrer can be empty), and it
     sends http(s) to the OS browser. An unsandboxed plugin frame's popup was

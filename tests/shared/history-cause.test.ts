@@ -60,4 +60,9 @@ describe('describeRevisionCause', () => {
   it('names a delete marker "Deleted" (#2089)', () => {
     expect(describeRevisionCause({ origin: 'delete' })).toBe('Deleted');
   });
+
+  it('names a plugin write by its cause, or "Plugin" without one (#2825)', () => {
+    expect(describeRevisionCause({ origin: 'plugin', cause: 'Kanban (plugin:kanban@1.0.0)' })).toBe('Kanban (plugin:kanban@1.0.0)');
+    expect(describeRevisionCause({ origin: 'plugin' })).toBe('Plugin');
+  });
 });

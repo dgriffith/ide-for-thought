@@ -1743,7 +1743,13 @@ origin.
   sandbox), with no preload and no navigation. `protocol.handle` responses
   DO pass through `installCsp`'s `onHeadersReceived`, and the main window's
   `window.open` handler can't tell which frame opened a popup — see the
-  origin model doc before relying on either.
+  origin model doc before relying on either. What plugin code can DO is the
+  broker's (#2825): `shared/plugins/api.ts` is the method table, each method
+  names one capability, `main/plugins/broker.ts` checks capability then
+  scope (the notes the host gave the session, never `.minerva/`) before
+  anything runs, and every write is history origin `plugin`. A new method
+  goes in the table, never as a side channel; none reaches the approval
+  engine (`broker.test.ts` pins it), and `llm.propose` waits on #2858.
 
 ### Code Review Checklist for LLM/Graph PRs
 

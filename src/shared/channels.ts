@@ -275,6 +275,16 @@ export const Channels = {
   PLUGINS_REVEAL: 'plugins:reveal',
   /** main → renderer: plugins changed and have been applied; refresh. */
   PLUGINS_CHANGED: 'plugins:changed',
+  /** Open a plugin session for a view's frame (#2825); its port follows on PLUGINS_SESSION_PORT. */
+  PLUGINS_OPEN_SESSION: 'plugins:openSession',
+  /** Replace the notes a plugin session was given (#2825). */
+  PLUGINS_SET_SESSION_SCOPE: 'plugins:setSessionScope',
+  /** Close a plugin session (#2825). */
+  PLUGINS_CLOSE_SESSION: 'plugins:closeSession',
+  /** main → renderer, with a MessagePort: a session's port, for the preload to pass into the page (#2825). */
+  PLUGINS_SESSION_PORT: 'plugins:sessionPort',
+  /** main → renderer: a plugin asked the window to do something (#2825). */
+  PLUGINS_INTENT: 'plugins:intent',
 
   /**
    * Render a batch of inline citations through citeproc using the
