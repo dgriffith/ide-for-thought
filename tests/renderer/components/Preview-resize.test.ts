@@ -22,6 +22,10 @@ const h = vi.hoisted(() => ({
   announce: vi.fn(),
 }));
 
+// Which compute languages can run (#2822): all of them, for a preview test.
+vi.mock('../../../src/renderer/lib/stores/compute-languages.svelte', () => ({
+  computeLanguagesStore: { isRunnable: () => true, isTurnedOff: () => false, version: null },
+}));
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({ api: h.api }));
 vi.mock('../../../src/renderer/lib/tools/tool-registry', () => ({ getToolInfosByCategory: () => [] }));
 vi.mock('../../../src/renderer/lib/stores/announcer.svelte', () => ({ announce: h.announce }));

@@ -73,7 +73,7 @@ const BUDGETS: Record<string, number> = {
   // +2 for #2210 §3c: `revision` threaded to `hydrateVegaBlocks` so a chart's
   // backing query is keyed per graph revision rather than re-run per render
   // tick, plus the comment saying why the argument is there.
-  'src/renderer/lib/components/Preview.svelte': 1362, // +3: the noteActions prop threaded to embedded views (#2774); +1: the card pass comes from the live-block registry (#2624); +6: the column is held by padding so a wide object view can break out, and the room it may take is observed (#2709) — the observer is preview/embed-resize.ts; // −45: a wiki-link's hover is the shared NoteHoverPreview, which owns its delay, grace and broken-link state (#2710); +9: charts take the theme's palette, and re-theme on a theme switch (#2522); +17: the onApplyEdit prop and installing the resize controller (#2666) — the controller itself is preview/embed-resize.ts; +4: re-draw remote images when the policy changes (#1332)
+  'src/renderer/lib/components/Preview.svelte': 1372, // +3: the noteActions prop threaded to embedded views (#2774); +1: the card pass comes from the live-block registry (#2624); +6: the column is held by padding so a wide object view can break out, and the room it may take is observed (#2709) — the observer is preview/embed-resize.ts; // −45: a wiki-link's hover is the shared NoteHoverPreview, which owns its delay, grace and broken-link state (#2710); +9: charts take the theme's palette, and re-theme on a theme switch (#2522); +17: the onApplyEdit prop and installing the resize controller (#2666) — the controller itself is preview/embed-resize.ts; +4: re-draw remote images when the policy changes (#1332); +10: re-render when Python is turned on or off, so its cells gain or lose their ▶ (#2822)
   'src/renderer/lib/components/SourceDetail.svelte': 1346,
   'src/renderer/lib/components/SourcesPanel.svelte': 789,
   // Three changes stacked here: #2218 (PythonSettings doc + type), #2222
@@ -92,7 +92,7 @@ const BUDGETS: Record<string, number> = {
   // repo's dev-docs folder and how the parity test keeps it honest) and the
   // Command Palette item, whose comment explains that adding the item IS the
   // documentation fix — Keyboard Shortcuts derives from this template.
-  'src/main/menu.ts': 830, // +5: File → New Audio Recording (#2428); −174: menu commands moved onto the command registry (#2625); +8: a Saved Queries section per plugin (#2633); +6: plugin themes in View → Theme (#2787)
+  'src/main/menu.ts': 833, // +5: File → New Audio Recording (#2428); −174: menu commands moved onto the command registry (#2625); +8: a Saved Queries section per plugin (#2633); +6: plugin themes in View → Theme (#2787); +3: Python's kernel items only while the built-in Python plugin is on (#2822)
   'src/renderer/lib/components/sidebar/NotesPanel.svelte': 635, // the Notes tree, extracted from Sidebar.svelte (982 → 360) when the left sidebar became a panel registry (#2626)
   'src/renderer/lib/app/refactor-ops.svelte.ts': 654, // −270: the tag and property actions moved to note-action-ops.svelte.ts (#2783), which the sidebar and every view share
   // Raised again in #2208: the staleness check became two queries (sort a

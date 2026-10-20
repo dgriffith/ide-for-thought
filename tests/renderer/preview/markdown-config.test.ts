@@ -322,6 +322,25 @@ describe('fence dispatcher — youtube', () => {
   });
 });
 
+describe('fence dispatcher — a language turned off on this machine (#2822)', () => {
+  const pythonOff = { getCanRun: () => true, isRunnable: (l: string) => !['python', 'py', 'python3'].includes(l) };
+
+  it('renders a Python fence as plain code with one quiet line, and no ▶', () => {
+    const html = render('```python\nprint(1)\n```\n', pythonOff);
+    expect(html).not.toContain('fence-runnable');
+    expect(html).not.toContain('fence-run-btn');
+    expect(html).toContain('<div class="code-block" data-language="python">');
+    expect(html).toContain('<p class="fence-off-note">Python cells are turned off on this machine. Turn on Python in Settings → Plugins to run this one.</p>');
+  });
+
+  it('an alias is off with it, and SQL still runs', () => {
+    expect(render('```py\nx\n```\n', pythonOff)).toContain('fence-off-note');
+    const sql = render('```sql\nSELECT 1\n```\n', pythonOff);
+    expect(sql).toContain('fence-runnable');
+    expect(sql).toContain('fence-run-btn');
+  });
+});
+
 describe('fence dispatcher — runnable fences', () => {
   it('renders a runnable python fence without a ▶ button when canRun is false', () => {
     const html = render('```python\nprint(1)\n```');

@@ -21,4 +21,7 @@ export interface PreviewMarkdownDeps {
      *  i.e. the host wired `onApplyEdit`, so a new size can be written back
      *  into the note. Absent → no handles (a read-only preview). */
     getCanResize?: () => boolean;
+    /** Whether a compute language can run on this machine now (#2822): Python
+     *  is a built-in plugin that can be off. Absent → every runnable one can. */
+    isRunnable?: (language: string) => boolean;
 }

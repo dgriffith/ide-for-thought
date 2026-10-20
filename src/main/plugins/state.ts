@@ -19,10 +19,11 @@ import {
   asString,
   loadConfigFile,
   loadConfigFileStrict,
+  loadConfigFileStrictSync,
   loadConfigFileSync,
   requireRecord,
 } from '../config/config-store';
-import { writeJsonFileAtomic } from '../config/json-file';
+import { writeJsonFileAtomic, writeJsonFileAtomicSync } from '../config/json-file';
 import { withFileLock } from '../config/file-lock';
 
 /** Where a plugin came from, as recorded at install. */
@@ -139,4 +140,17 @@ export function updatePluginRecords(
     await writeJsonFileAtomic(abs, { plugins: records }, { trailingNewline: true });
     return records;
   });
+}
+
+/**
+ * {@link updatePluginRecords}, synchronously: for the one write that runs at
+ * startup before any window (a built-in plugin's one-time default, #2822).
+ * No lock: nothing else writes the file that early, and a sync
+ * read-modify-write can't interleave with itself.
+ */
+export function updatePluginRecordsSync(pluginsDir: string, fn: (records: PluginRecords) => void): void {
+  const abs = pluginsStateFile(pluginsDir);
+  const records = loadConfigFileStrictSync(abs, decodeStrict, {});
+  fn(records);
+  writeJsonFileAtomicSync(abs, { plugins: records }, { trailingNewline: true });
 }

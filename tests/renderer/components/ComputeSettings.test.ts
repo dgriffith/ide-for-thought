@@ -24,6 +24,12 @@ const {
   revealAuditLogMock: vi.fn(),
 }));
 
+// Whether the built-in Python plugin is on (#2822). On unless a test says not.
+const lang = vi.hoisted(() => ({ pythonOn: true }));
+vi.mock('../../../src/renderer/lib/stores/compute-languages.svelte', () => ({
+  computeLanguagesStore: { isRunnable: (l: string) => l !== 'python' || lang.pythonOn },
+}));
+
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({
   api: {
     compute: {
@@ -49,9 +55,23 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  lang.pythonOn = true;
   cleanup();
   [getPythonSettingsMock, probePythonMock, browsePythonMock, setPythonSettingsMock,
     restartKernelMock, listConsentMock, revokeConsentMock, revealAuditLogMock].forEach((m) => m.mockReset());
+});
+
+describe('ComputeSettings with Python turned off (#2822)', () => {
+  it('shows one line instead of the Python fields, and asks main for none of them', async () => {
+    lang.pythonOn = false;
+    const { findByText, queryByLabelText } = render(ComputeSettings, {});
+    expect(await findByText(/Python cells are turned off on this machine/)).toBeTruthy();
+    expect(queryByLabelText('Python interpreter')).toBeNull();
+    expect(getPythonSettingsMock).not.toHaveBeenCalled();
+    expect(probePythonMock).not.toHaveBeenCalled();
+    // Consent is every language's, so it's still there.
+    expect(listConsentMock).toHaveBeenCalled();
+  });
 });
 
 describe('ComputeSettings (#672)', () => {

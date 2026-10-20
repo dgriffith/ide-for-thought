@@ -16,16 +16,32 @@
  * line from `plugins-apply.ts`.
  */
 import { logger } from '../shared/logger';
-import { corePlugins, readCorePluginStates } from './plugins/core';
+import { adoptCorePluginState, corePlugins, hasCorePluginRecord, readCorePluginStates } from './plugins/core';
 import { activePluginsDir } from './plugins/registry';
+import { registerPythonCompute } from './ipc/register-compute';
+import { pythonSettingsSaved } from './compute/python-settings';
+import { anyComputeConsentRecorded } from './compute/consent';
+import { markCorePluginActive } from './core-plugins-active';
 
 /** Wire a core plugin up; the result takes it down again. */
 export type CorePluginActivation = () => () => void;
 
-/** What each core plugin does when it's on, by id. None yet (#2822, #2828). */
-const CORE_PLUGIN_ACTIVATIONS: Readonly<Record<string, CorePluginActivation>> = {};
+/** What each core plugin does when it's on, by id. */
+const CORE_PLUGIN_ACTIVATIONS: Readonly<Record<string, CorePluginActivation>> = {
+  python: registerPythonCompute,
+};
+
+/**
+ * A core plugin that's off by default but was part of Minerva before it
+ * became a plugin: on a machine that shows it was used, and that has never
+ * switched it, it's recorded on, once, so an upgrade breaks nothing (#2822).
+ */
+const KEEP_ON_IF_USED: Readonly<Record<string, () => boolean>> = {
+  python: () => pythonSettingsSaved() || anyComputeConsentRecorded(),
+};
 
 let activations: Readonly<Record<string, CorePluginActivation>> = CORE_PLUGIN_ACTIVATIONS;
+let keepOnIfUsed: Readonly<Record<string, () => boolean>> = KEEP_ON_IF_USED;
 const active = new Map<string, () => void>();
 
 function activate(id: string): void {
@@ -33,6 +49,7 @@ function activate(id: string): void {
   if (!run || active.has(id)) return;
   try {
     active.set(id, run());
+    markCorePluginActive(id, true);
   } catch (e) {
     // A core plugin that can't start costs that plugin, never the app.
     logger('plugins').error(`core plugin ${id} failed to start:`, e);
@@ -43,6 +60,7 @@ function deactivate(id: string): void {
   const stop = active.get(id);
   if (!stop) return;
   active.delete(id);
+  markCorePluginActive(id, false);
   try {
     stop();
   } catch (e) {
@@ -60,19 +78,34 @@ export function syncCorePlugins(): void {
   }
 }
 
-/** At startup, before any window: wire up the core plugins that are on. */
-export const startCorePlugins = syncCorePlugins;
-
-/** The core plugins wired up right now. */
-export function activeCorePlugins(): string[] {
-  return [...active.keys()];
+/**
+ * At startup, before any window: settle the one-time defaults of plugins
+ * that used to be part of Minerva, then wire up the core plugins that are on.
+ */
+export function startCorePlugins(): void {
+  const dir = activePluginsDir();
+  for (const [id, used] of Object.entries(keepOnIfUsed)) {
+    try {
+      if (!hasCorePluginRecord(dir, id) && used()) adoptCorePluginState(dir, id, true);
+    } catch (e) {
+      // An unreadable plugins.json keeps its default; it's reported where it's read.
+      logger('plugins').warn(`couldn't settle core plugin ${id}'s first state:`, e);
+    }
+  }
+  syncCorePlugins();
 }
+
+export { activeCorePlugins, isCorePluginActive } from './core-plugins-active';
 
 /**
  * Replace the activations; `null` puts the real ones back, after taking down
  * whatever is wired up. Tests only.
  */
-export function _setCoreActivationsForTests(next: Readonly<Record<string, CorePluginActivation>> | null): void {
+export function _setCoreActivationsForTests(
+  next: Readonly<Record<string, CorePluginActivation>> | null,
+  keepOn: Readonly<Record<string, () => boolean>> | null = {},
+): void {
   for (const id of [...active.keys()]) deactivate(id);
   activations = next ?? CORE_PLUGIN_ACTIVATIONS;
+  keepOnIfUsed = next === null ? KEEP_ON_IF_USED : (keepOn ?? KEEP_ON_IF_USED);
 }

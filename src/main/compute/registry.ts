@@ -13,6 +13,12 @@
 
 export type { CellOutput, CellResult } from '../../shared/compute/types';
 import type { CellResult } from '../../shared/compute/types';
+import { COMPUTE_LANGUAGES } from '../../shared/compute/fences';
+
+/** Python's fence names, aliases included, for the "turned off" message (#2822). */
+const PYTHON_FENCES: ReadonlySet<string> = new Set(
+  COMPUTE_LANGUAGES.filter((l) => l.id === 'python').flatMap((l) => [l.id, ...l.aliases]),
+);
 
 export interface ExecutorContext {
   /** Absolute path to the project root, so executors can read/write files. */
@@ -32,6 +38,11 @@ const executors = new Map<string, ExecutorFn>();
  */
 export function registerExecutor(language: string, fn: ExecutorFn): void {
   executors.set(language.toLowerCase(), fn);
+}
+
+/** Remove `language`'s executor: how a core plugin that's turned off stops (#2822). */
+export function unregisterExecutor(language: string): void {
+  executors.delete(language.toLowerCase());
 }
 
 /** Whether `language` has a registered executor. */
@@ -58,6 +69,11 @@ export async function runCell(
   const key = language.toLowerCase();
   const fn = executors.get(key);
   if (!fn) {
+    // Python is a built-in plugin, off unless turned on (#2822): say so, rather
+    // than read as a bug.
+    if (PYTHON_FENCES.has(key)) {
+      return { ok: false, error: 'Python cells are turned off on this machine. Turn on Python in Settings → Plugins to run them.' };
+    }
     return { ok: false, error: `No executor registered for language "${language}"` };
   }
   try {

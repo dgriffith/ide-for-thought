@@ -7,6 +7,7 @@
    * The dialog just mounts it for the "compute" tab.
    */
   import { onMount } from 'svelte';
+  import { computeLanguagesStore } from '../stores/compute-languages.svelte';
   import { api } from '../ipc/client';
   import type { ComputeConsentSummary, PythonProbeResult } from '../../../shared/compute/types';
   import { DEFAULT_CELL_TIMEOUT_SECONDS, normalizeCellTimeoutSeconds } from '../../../shared/compute/types';
@@ -154,135 +155,155 @@
     }
   }
 
-  onMount(() => {
+  // Python is a built-in plugin (#2822). Off, its channels don't exist, so
+  // its settings aren't asked for; turned on while open, they load then.
+  const pythonOn = $derived(computeLanguagesStore.isRunnable('python'));
+  let pythonLoaded = false;
+  $effect(() => {
+    if (!pythonOn || pythonLoaded) return;
+    pythonLoaded = true;
     void loadComputeSettings();
+  });
+
+  onMount(() => {
     void loadConsent();
   });
 </script>
 
-<div class="field">
-  <label for="python-path">Python interpreter</label>
-  <p class="hint">
-    Path to the Python executable Minerva should use for cell
-    execution. Leave empty to fall back to the
-    <code>MINERVA_PYTHON</code> environment variable, then to
-    <code>python3</code> on <code>$PATH</code>. Stored
-    per-machine — different projects on this machine share the
-    same interpreter.
-  </p>
-  <div class="path-row">
-    <input
-      id="python-path"
-      type="text"
-      bind:value={pythonPathInput}
-      placeholder="/Users/you/.minerva-venv/bin/python"
-      spellcheck="false"
-      autocomplete="off"
-      autocapitalize="off"
-    />
-    <button
-      class="action-btn"
-      onclick={() => { void browsePythonInterpreter(); }}
-      disabled={pythonProbing}
-    >
-      Browse…
-    </button>
-    <button
-      class="action-btn"
-      onclick={() => { void refreshPythonProbe(); }}
-      disabled={pythonProbing}
-      title="Test the interpreter — runs `python --version`"
-    >
-      {pythonProbing ? 'Probing…' : 'Probe'}
-    </button>
-  </div>
+{#if pythonOn}
+  <div class="field">
+    <label for="python-path">Python interpreter</label>
+    <p class="hint">
+      Path to the Python executable Minerva should use for cell
+      execution. Leave empty to fall back to the
+      <code>MINERVA_PYTHON</code> environment variable, then to
+      <code>python3</code> on <code>$PATH</code>. Stored
+      per-machine — different projects on this machine share the
+      same interpreter.
+    </p>
+    <div class="path-row">
+      <input
+        id="python-path"
+        type="text"
+        bind:value={pythonPathInput}
+        placeholder="/Users/you/.minerva-venv/bin/python"
+        spellcheck="false"
+        autocomplete="off"
+        autocapitalize="off"
+      />
+      <button
+        class="action-btn"
+        onclick={() => { void browsePythonInterpreter(); }}
+        disabled={pythonProbing}
+      >
+        Browse…
+      </button>
+      <button
+        class="action-btn"
+        onclick={() => { void refreshPythonProbe(); }}
+        disabled={pythonProbing}
+        title="Test the interpreter — runs `python --version`"
+      >
+        {pythonProbing ? 'Probing…' : 'Probe'}
+      </button>
+    </div>
 
-  {#if pythonProbe}
-    <div class="probe-result" class:probe-ok={pythonProbe.ok} class:probe-error={!pythonProbe.ok}>
-      {#if pythonProbe.ok}
-        <strong>{pythonProbe.version}</strong>
-        <span class="probe-path">at <code>{pythonProbe.path}</code></span>
-      {:else}
-        <strong>Couldn't run interpreter:</strong>
-        <span class="probe-path">{pythonProbe.error}</span>
+    {#if pythonProbe}
+      <div class="probe-result" class:probe-ok={pythonProbe.ok} class:probe-error={!pythonProbe.ok}>
+        {#if pythonProbe.ok}
+          <strong>{pythonProbe.version}</strong>
+          <span class="probe-path">at <code>{pythonProbe.path}</code></span>
+        {:else}
+          <strong>Couldn't run interpreter:</strong>
+          <span class="probe-path">{pythonProbe.error}</span>
+        {/if}
+      </div>
+    {/if}
+
+    <div class="action-row">
+      <button
+        class="action-btn primary"
+        onclick={() => { void savePythonPath(); }}
+        disabled={pythonProbing || pythonPathInput.trim() === pythonPathSaved}
+      >
+        Save
+      </button>
+      <button
+        class="action-btn"
+        onclick={() => { void restartPythonKernelFromSettings(); }}
+        title="Apply the new interpreter to a fresh kernel — wipes namespace state"
+      >
+        Save &amp; Restart Kernel
+      </button>
+      {#if pythonPathSaved}
+        <button
+          class="link-btn"
+          onclick={() => { pythonPathInput = ''; void savePythonPath(); }}
+        >
+          Clear override
+        </button>
       {/if}
     </div>
-  {/if}
 
-  <div class="action-row">
-    <button
-      class="action-btn primary"
-      onclick={() => { void savePythonPath(); }}
-      disabled={pythonProbing || pythonPathInput.trim() === pythonPathSaved}
-    >
-      Save
-    </button>
-    <button
-      class="action-btn"
-      onclick={() => { void restartPythonKernelFromSettings(); }}
-      title="Apply the new interpreter to a fresh kernel — wipes namespace state"
-    >
-      Save &amp; Restart Kernel
-    </button>
-    {#if pythonPathSaved}
-      <button
-        class="link-btn"
-        onclick={() => { pythonPathInput = ''; void savePythonPath(); }}
-      >
-        Clear override
-      </button>
-    {/if}
+    <p class="hint">
+      Tip: a venv at <code>~/.minerva-venv/bin/python</code> with
+      <code>pandas</code>, <code>matplotlib</code>, and
+      <code>pillow</code> installed gives you the full rich-output
+      pipeline. After changing the interpreter, click
+      <em>Save &amp; Restart Kernel</em> so the next cell runs
+      against the new env.
+    </p>
   </div>
 
-  <p class="hint">
-    Tip: a venv at <code>~/.minerva-venv/bin/python</code> with
-    <code>pandas</code>, <code>matplotlib</code>, and
-    <code>pillow</code> installed gives you the full rich-output
-    pipeline. After changing the interpreter, click
-    <em>Save &amp; Restart Kernel</em> so the next cell runs
-    against the new env.
-  </p>
-</div>
-
-<div class="field toggle-field">
-  <label class="toggle-row">
-    <Toggle bind:checked={allowNetwork} onchange={() => { void saveNetworkSetting(); }} />
-    <span>Allow network access for Python cells</span>
-  </label>
-  <p class="hint">
-    Off by default. The kernel blocks outbound connections
-    (<code>requests</code>, <code>urllib</code>,
-    <code>pandas.read_csv(url)</code>, raw sockets) to everything but
-    <code>localhost</code>, so a cell can't quietly send your data
-    elsewhere — the scariest thing an unreviewed cell could do. Turn this
-    on only if you trust the code you run to reach the network. Takes
-    effect when the kernel next starts; use
-    <em>Save &amp; Restart Kernel</em> above to apply now.
-  </p>
-</div>
-
-<div class="field">
-  <label for="cell-timeout">Cell execution limit</label>
-  <div class="timeout-row">
-    <input
-      id="cell-timeout"
-      type="number"
-      min="0"
-      step="10"
-      bind:value={cellTimeoutSeconds}
-      onchange={() => { void saveCellTimeout(); }}
-    />
-    <span class="unit">seconds</span>
+  <div class="field toggle-field">
+    <label class="toggle-row">
+      <Toggle bind:checked={allowNetwork} onchange={() => { void saveNetworkSetting(); }} />
+      <span>Allow network access for Python cells</span>
+    </label>
+    <p class="hint">
+      Off by default. The kernel blocks outbound connections
+      (<code>requests</code>, <code>urllib</code>,
+      <code>pandas.read_csv(url)</code>, raw sockets) to everything but
+      <code>localhost</code>, so a cell can't quietly send your data
+      elsewhere — the scariest thing an unreviewed cell could do. Turn this
+      on only if you trust the code you run to reach the network. Takes
+      effect when the kernel next starts; use
+      <em>Save &amp; Restart Kernel</em> above to apply now.
+    </p>
   </div>
-  <p class="hint">
-    A cell that runs longer than this is interrupted, exactly as
-    <em>Interrupt Cell</em> does. One Python process serves
-    every notebook in a thoughtbase and runs one cell at a time, so a cell
-    that never finishes — <code>while True</code>, a request to a host that
-    never answers — holds up every cell you run afterwards, in any note. Set
-    <code>0</code> for no limit. Applies to your next run; no restart needed.
-  </p>
-</div>
+
+  <div class="field">
+    <label for="cell-timeout">Cell execution limit</label>
+    <div class="timeout-row">
+      <input
+        id="cell-timeout"
+        type="number"
+        min="0"
+        step="10"
+        bind:value={cellTimeoutSeconds}
+        onchange={() => { void saveCellTimeout(); }}
+      />
+      <span class="unit">seconds</span>
+    </div>
+    <p class="hint">
+      A cell that runs longer than this is interrupted, exactly as
+      <em>Interrupt Cell</em> does. One Python process serves
+      every notebook in a thoughtbase and runs one cell at a time, so a cell
+      that never finishes — <code>while True</code>, a request to a host that
+      never answers — holds up every cell you run afterwards, in any note. Set
+      <code>0</code> for no limit. Applies to your next run; no restart needed.
+    </p>
+  </div>
+{:else}
+  <div class="field">
+    <span class="field-label">Python</span>
+    <p class="hint">
+      Python cells are turned off on this machine. Turn on <strong>Python</strong> in
+      Settings → Plugins to choose an interpreter and run them. SQL and SPARQL cells
+      run either way.
+    </p>
+  </div>
+{/if}
 
 <div class="field trust-field">
   <div class="field-heading" id="trust-heading">Trusted thoughtbases</div>

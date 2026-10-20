@@ -109,11 +109,19 @@ import { TRUST_GUARD_MARKER } from '../../../../src/main/graph/write-guard';
 import * as tables from '../../../../src/main/sources/tables';
 import { ingestPdfBuffer } from '../../../../src/main/sources/ingest-pdf';
 import { scoreInjectionTranscript } from '../../../../src/cli/eval-injection';
+import { registerPythonExecutor } from '../../../../src/main/compute/executors';
 
 // ── the local "attacker.invalid" ────────────────────────────────────────────
 let listener: http.Server;
 let listenerUrl = '';
 let listenerHits = 0;
+
+// The corpus's propose_compute case drafts a Python cell, so the built-in
+// Python plugin is on here (#2822). Off, that draft is refused outright, which
+// propose-compute-tool.test.ts pins.
+let pythonOff: () => void = () => undefined;
+beforeAll(() => { pythonOff = registerPythonExecutor(); });
+afterAll(() => { pythonOff(); });
 
 beforeAll(async () => {
   listener = http.createServer((_req, res) => {

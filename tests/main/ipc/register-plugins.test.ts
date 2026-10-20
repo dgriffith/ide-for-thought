@@ -110,7 +110,12 @@ const overInstalled = async (...args: unknown[]) => {
 };
 
 const LIST = {
-  core: [],
+  // The built-in plugins as shipped (#2820): Python, off on a new install (#2822).
+  core: [{
+    id: 'python', name: 'Python', version: '1.0.0',
+    description: 'Run Python code cells in notes, in an interpreter you choose: pandas, numpy, matplotlib and anything else you install.',
+    enabled: false, source: { kind: 'core' }, contributes: {}, capabilities: ['process'],
+  }],
   installed: [{
     id: 'lab', name: 'Lab', version: '1.0.0', description: 'Lab tools', author: 'Ada', enabled: false,
     source: { kind: 'folder', path: '/work/lab' }, installedAt: '2026-10-15T00:00:00Z',

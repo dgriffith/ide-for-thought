@@ -533,6 +533,7 @@ exports[`help-docs corpus staleness (#1288) > chunk ids freshly extracted from w
   "settings-ontology.html#settings",
   "settings-ontology.html#using",
   "settings-plugins.html",
+  "settings-plugins.html#built-in",
   "settings-plugins.html#changes",
   "settings-plugins.html#settings",
   "settings-plugins.html#settings",

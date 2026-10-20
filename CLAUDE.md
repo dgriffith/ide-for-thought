@@ -1623,6 +1623,15 @@ teardown; `startCorePlugins` runs it synchronously before any window and
 `syncCorePlugins` (from `plugins-apply.ts`) on a toggle. **Off means not wired
 up**: `handle()` returns a remover, so a core plugin's channels don't exist
 while it's off. A feature moved into one asserts that in its tests.
+**Python is the first (#2822)**, off on a new install: `registerPythonCompute`
+(`ipc/register-compute.ts`) is its activation — the executor and aliases, the
+six `compute:*Python*` channels — and its teardown shuts every kernel down.
+Off, `propose_compute` refuses a Python draft, the preview renders a Python
+fence as plain code with one line, Recompute all skips it (the renderer reads
+`stores/compute-languages.svelte.ts`), and the menu drops the kernel items
+(`core-plugins-active.ts`). A machine with Python settings or any recorded
+compute consent keeps it on, once (`KEEP_ON_IF_USED`). A test that runs Python
+turns it on (`registerPythonExecutor()` / `registerPythonCompute()`).
 
 ### Tools for Thought (Skills)
 

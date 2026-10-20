@@ -59,6 +59,9 @@ const h = vi.hoisted(() => {
     // compute/python-kernel
     restartKernel: vi.fn(),
     interruptKernel: vi.fn(),
+    shutdownAllKernels: vi.fn(async () => undefined),
+    // compute/executors: the Python executor's switch (#2822)
+    pythonExecutorOff: vi.fn(),
     // compute/python-settings
     getPythonSettings: vi.fn(),
     setPythonSettings: vi.fn(),
@@ -70,7 +73,10 @@ const h = vi.hoisted(() => {
 });
 
 vi.mock('electron', () => ({
-  ipcMain: { handle: (channel: string, fn: Handler) => { h.handlers.set(channel, fn); } },
+  ipcMain: {
+    handle: (channel: string, fn: Handler) => { h.handlers.set(channel, fn); },
+    removeHandler: (channel: string) => { h.handlers.delete(channel); },
+  },
   dialog: { showOpenDialog: h.showOpenDialog, showMessageBox: h.showMessageBox },
   shell: { showItemInFolder: h.showItemInFolder },
   // The REAL consent store reads this to find `compute-consent.json`.
@@ -108,7 +114,9 @@ vi.mock('../../../src/main/compute/audit', () => ({
 vi.mock('../../../src/main/compute/python-kernel', () => ({
   restartKernel: h.restartKernel,
   interruptKernel: h.interruptKernel,
+  shutdownAllKernels: h.shutdownAllKernels,
 }));
+vi.mock('../../../src/main/compute/executors', () => ({ registerPythonExecutor: () => h.pythonExecutorOff }));
 vi.mock('../../../src/main/compute/python-settings', () => ({
   getPythonSettings: h.getPythonSettings,
   setPythonSettings: h.setPythonSettings,
@@ -120,12 +128,20 @@ vi.mock('../../../src/main/compute/save-cell-output', () => ({ saveCellOutput: h
 // graph on import. Nothing here calls them; the stub just keeps the graph out.
 vi.mock('../../../src/main/graph/index', () => ({}));
 
-import { registerCompute, _resetApprovedInterpretersForTests } from '../../../src/main/ipc/register-compute';
+import { registerCompute, registerPythonCompute, _resetApprovedInterpretersForTests } from '../../../src/main/ipc/register-compute';
 import { cellHash, grantConsent } from '../../../src/main/compute/consent';
 import { Channels } from '../../../src/shared/channels';
 import { DEFAULT_CELL_TIMEOUT_SECONDS } from '../../../src/shared/compute/types';
 
 registerCompute();
+// What's there before the built-in Python plugin is turned on (#2822).
+const PYTHON_CHANNELS = [
+  Channels.COMPUTE_RESTART_PYTHON_KERNEL, Channels.COMPUTE_INTERRUPT_PYTHON, Channels.COMPUTE_GET_PYTHON_SETTINGS,
+  Channels.COMPUTE_SET_PYTHON_SETTINGS, Channels.COMPUTE_PROBE_PYTHON, Channels.COMPUTE_BROWSE_PYTHON,
+];
+const pythonBeforePlugin = PYTHON_CHANNELS.filter((c) => h.handlers.has(c));
+// The rest of this file tests Python's handlers, so the plugin is on.
+let pythonOff = registerPythonCompute();
 h.userData.dir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-compute-'));
 
 const call = (channel: string, ...args: unknown[]) => h.handlers.get(channel)!({}, ...args);
@@ -583,5 +599,26 @@ describe('Python interpreter — main confirms the program it will run (#2568)',
     await call(Channels.COMPUTE_SET_PYTHON_SETTINGS, { pythonPath: '/opt/py', allowNetwork: false, cellTimeoutSeconds: 60 });
     expect(h.showMessageBox).toHaveBeenCalledTimes(2); // the declined probe + the confirmed one; Save asked nothing
     expect(h.setPythonSettings).toHaveBeenLastCalledWith({ pythonPath: '/opt/py', allowNetwork: false, cellTimeoutSeconds: 60 });
+  });
+});
+
+describe('the built-in Python plugin\'s wiring (#2822)', () => {
+  it('Python\'s channels exist only while the plugin is on', () => {
+    expect(pythonBeforePlugin).toEqual([]);
+    for (const c of PYTHON_CHANNELS) expect(h.handlers.has(c), c).toBe(true);
+  });
+
+  it('turned off, its channels are gone, its executor is removed and every kernel is shut down', () => {
+    pythonOff();
+    try {
+      for (const c of PYTHON_CHANNELS) expect(h.handlers.has(c), c).toBe(false);
+      expect(h.pythonExecutorOff).toHaveBeenCalledTimes(1);
+      expect(h.shutdownAllKernels).toHaveBeenCalledTimes(1);
+      // What isn't Python stays: running cells (SQL, SPARQL) and consent.
+      expect(h.handlers.has(Channels.COMPUTE_RUN_CELL)).toBe(true);
+      expect(h.handlers.has(Channels.COMPUTE_REQUEST_CONSENT)).toBe(true);
+    } finally {
+      pythonOff = registerPythonCompute();
+    }
   });
 });

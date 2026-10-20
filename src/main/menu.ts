@@ -6,6 +6,7 @@ import { broadcast } from './ipc/broadcast';
 import type { EventMap } from '../shared/ipc-contract';
 import { THEME_MODES, isThemeMode, type ThemeMode } from '../shared/theme';
 import { pluginThemes } from './plugins/themes';
+import { isCorePluginActive } from './core-plugins-active';
 import { getRecentProjects } from './recent-projects';
 import { resolveDisplayName } from './project-config';
 import { createWindow, openProjectInWindow, getRootPath, broadcastBackfillProgress, broadcastMaintenanceProgress } from './window-manager';
@@ -331,7 +332,9 @@ function buildFileMenu(gate: Gate, isMac: boolean): Electron.MenuItemConstructor
           );
         }),
       }),
-      gate({
+      // Python's two items exist only while the built-in Python plugin is on
+      // (#2822); a toggle rebuilds the menu (`plugins-apply.ts`).
+      ...(isCorePluginActive('python') ? [gate({
         label: 'Interrupt Cell',
         // No default accelerator (#372). Cmd+. (the Jupyter
         // standard) collides with macOS Zoom In on this app's View
@@ -347,7 +350,7 @@ function buildFileMenu(gate: Gate, isMac: boolean): Electron.MenuItemConstructor
         click: () => withFocusedProject(async (_win, rootPath) => {
           await restartKernel(rootPath, (p) => broadcastMaintenanceProgress(rootPath, p));
         }),
-      }),
+      })] : []),
       { type: 'separator' },
       isMac ? { role: 'close' } : { role: 'quit' },
     ],
