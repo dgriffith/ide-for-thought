@@ -29,9 +29,13 @@
     scope: string[];
     /** The frame's accessible name. */
     title: string;
+    /** Connected: what a layout host (`PluginLayout`) builds on (#2828). */
+    onConnected?: (connection: PluginFrameConnection) => void;
+    /** The plugin asked to change its view's spec (#2828). */
+    onViewState?: (patch: Record<string, unknown>) => void;
   }
 
-  let { pluginId, entry = 'index.html', scope, title }: Props = $props();
+  let { pluginId, entry = 'index.html', scope, title, onConnected, onViewState }: Props = $props();
 
   let host: HTMLDivElement;
   // Inside the {#if}, so bound reactively.
@@ -60,9 +64,13 @@
   async function onLoad(): Promise<void> {
     if (connection || !frame) return;
     try {
-      connection = await connectPluginFrame(frame, pluginId, [...scope], { releaseFocus: () => host.focus() });
+      connection = await connectPluginFrame(frame, pluginId, [...scope], {
+        releaseFocus: () => host.focus(),
+        setViewState: (patch) => onViewState?.(patch),
+      });
       lastScope = JSON.stringify(scope);
       sendTheme();
+      onConnected?.(connection);
     } catch (e) {
       failed = e instanceof Error ? e.message : String(e);
     }

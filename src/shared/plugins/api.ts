@@ -28,7 +28,7 @@ import type { PluginCapability } from './capabilities';
  * The API's semver version (#2826), its own and not the app's: the host sends
  * it with the port, and a plugin's `code.api` range must accept it.
  */
-export const PLUGIN_API_VERSION = '1.1.0';
+export const PLUGIN_API_VERSION = '1.2.0';
 
 export const PLUGIN_METHODS = {
   'notes.list': { capability: 'notes:read', describes: 'The notes this view or call was given.' },
@@ -45,6 +45,7 @@ export const PLUGIN_METHODS = {
   'ui.showMenu': { capability: 'ui', describes: 'Show a context menu at the pointer, drawn by Minerva; answers the chosen item.' },
   'ui.releaseFocus': { capability: 'ui', describes: 'Give keyboard focus back to Minerva (what Escape does by default).' },
   'ui.forwardKey': { capability: 'ui', describes: "Pass on a shortcut the view didn't handle; Minerva runs it if it is one a plugin view may." },
+  'view.setState': { capability: 'ui', describes: "Change the view's own settings (a board's column order); only the layout's own fields." },
   'llm.propose': { capability: 'llm:propose', describes: 'Ask the assistant for changes. Not available yet (#2858).' },
 } as const satisfies Record<string, { capability: PluginCapability; describes: string }>;
 
@@ -70,6 +71,7 @@ export interface PluginMethodParams {
   'ui.showMenu': { items: PluginMenuItem[] };
   'ui.releaseFocus': Record<string, never>;
   'ui.forwardKey': { key: string; meta?: boolean; ctrl?: boolean; alt?: boolean; shift?: boolean };
+  'view.setState': { patch: Record<string, unknown> };
   'llm.propose': Record<string, unknown>;
 }
 
@@ -92,6 +94,7 @@ export interface PluginMethodResults {
   'ui.showMenu': { id: string | null };
   'ui.releaseFocus': Record<string, never>;
   'ui.forwardKey': Record<string, never>;
+  'view.setState': Record<string, never>;
   'llm.propose': never;
 }
 
@@ -104,11 +107,41 @@ export interface PluginMethodResults {
  * - `drop`: the user dropped notes on the view. A drop is the user's gesture,
  *   so the notes join the session's scope before the event is sent; `x`/`y`
  *   are in the frame's own coordinates.
+ * - `view` (#2828): a type view's state, for a plugin that draws a layout —
+ *   sent on connect and whenever it changes. Its `instances` are the
+ *   session's scope.
  */
 export interface PluginEvents {
   theme: { mode: string; vars: Record<string, string> };
   drop: { paths: string[]; x: number; y: number };
+  view: PluginViewState;
 }
+
+/** A type view, as a plugin drawing one of its layouts sees it (#2828). */
+export type PluginViewState = {
+  layout: string;
+  type: { id: string; label: string; icon?: string; color?: string };
+  /** The type's effective properties, in declared order. */
+  properties: PluginViewProperty[];
+  /** The view's visible property names; null = all. */
+  visible: string[] | null;
+  /** The notes the view shows, filtered, in the view's sort order. */
+  instances: PluginViewInstance[];
+  sortColumn: string | null;
+  sortDir: 'asc' | 'desc';
+  /** The layout's own spec fields (a board's `groupBy`, `columnOrder`, …). */
+  spec: Record<string, unknown>;
+  /** An embed or export: nothing that writes the spec or a note. */
+  readOnly: boolean;
+  /** Drawing for an export snapshot. */
+  exportMode: boolean;
+};
+
+/** One of a type's properties. */
+export type PluginViewProperty = { name: string; type: string; label?: string; options?: string[] };
+
+/** One note in a view: its declared property values, null where unset. */
+export type PluginViewInstance = { path: string; title: string; values: Record<string, string | null>; tags?: string[] };
 
 export type PluginEventName = keyof PluginEvents;
 

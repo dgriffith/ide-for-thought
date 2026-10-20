@@ -24,7 +24,7 @@ import { api } from '../ipc/client';
 import { announce } from './announcer.svelte';
 import { logger } from '../../../shared/logger';
 import { pluginFrameOrigin } from '../../../shared/plugins/frame';
-import { PLUGIN_API_VERSION, PLUGIN_PORT_MESSAGE } from '../../../shared/plugins/api';
+import { PLUGIN_API_VERSION, PLUGIN_PORT_MESSAGE, type PluginViewState } from '../../../shared/plugins/api';
 import { PLUGIN_SESSION_PORT_MESSAGE, type PluginIntent, type PluginIntentEvent } from '../../../shared/plugins/session';
 import { COMMANDS, type CommandId } from '../../../shared/commands';
 import { matchesAccelerator } from '../keymap/handle-keydown';
@@ -40,6 +40,8 @@ export interface PluginFrameConnection {
   sendTheme(mode: string, vars: Record<string, string>): Promise<void>;
   /** The user dropped notes on the view, at `x`/`y` in the frame's coordinates; they join its scope. */
   drop(paths: string[], x: number, y: number): Promise<void>;
+  /** A type view's state (#2828); its instances become the session's scope. */
+  sendView(state: PluginViewState): Promise<void>;
   close(): Promise<void>;
 }
 
@@ -47,6 +49,8 @@ export interface PluginFrameConnection {
 export interface PluginFrameHost {
   /** Take keyboard focus back from the frame (Escape inside it). */
   releaseFocus(): void;
+  /** A layout plugin changing its view's spec (#2828). */
+  setViewState?(patch: Record<string, unknown>): void;
 }
 
 /** What the app does for every plugin view. */
@@ -96,6 +100,9 @@ function onIntent({ sessionId, pluginId, intent }: PluginIntentEvent): void {
       return;
     case 'releaseFocus':
       hosts.get(sessionId)?.releaseFocus();
+      return;
+    case 'setViewState':
+      hosts.get(sessionId)?.setViewState?.(intent.patch);
       return;
     case 'key': {
       const id = forwardableCommand(intent);
@@ -165,6 +172,7 @@ export async function connectPluginFrame(
     setScope: (paths) => api.plugins.setSessionScope(sessionId, [...paths]),
     sendTheme: (mode, vars) => api.plugins.sendSessionEvent(sessionId, { kind: 'theme', mode, vars }),
     drop: (paths, x, y) => api.plugins.sendSessionEvent(sessionId, { kind: 'drop', paths: [...paths], x, y }),
+    sendView: (state) => api.plugins.sendSessionEvent(sessionId, { kind: 'view', state }),
     close: () => {
       hosts.delete(sessionId);
       return api.plugins.closeSession(sessionId);

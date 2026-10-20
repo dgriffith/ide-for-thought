@@ -27,6 +27,9 @@ export interface LayoutContext {
   properties: readonly PropertyDef[];
   /** The type catalog, for rules that walk the inheritance chain. */
   catalog: readonly TypeLike[];
+  /** Whether a built-in plugin is on (#2828). A layout one provides is offered
+   *  only while it is; absent → every plugin counts as on. */
+  pluginOn?: (id: string) => boolean;
 }
 
 export interface ViewLayoutDef {
@@ -44,6 +47,12 @@ export interface ViewLayoutDef {
   /** The view-spec fields only this layout reads (`dateBy` belongs to every
    *  dated layout). Everything else in a spec is `COMMON_SPEC_FIELDS`. */
   specFields: readonly string[];
+  /**
+   * The built-in plugin that draws it (#2828), in a plugin frame. Its rule and
+   * spec fields stay here, so a saved view keeps its layout while the plugin
+   * is off; it just isn't offered, and a view saved with it shows the table.
+   */
+  plugin?: string;
 }
 
 const always = (): boolean => true;
@@ -85,9 +94,22 @@ export function layoutDef(id: ViewLayout): ViewLayoutDef {
   return BY_ID.get(id)!;
 }
 
+/** The built-in plugin a layout is drawn by, if any (#2828). */
+export function layoutPlugin(id: ViewLayout): string | null {
+  return layoutDef(id).plugin ?? null;
+}
+
+/** Whether `id` can be drawn now: its plugin, if it has one, is on. */
+export function layoutAvailable(id: ViewLayout, pluginOn: ((plugin: string) => boolean) | undefined): boolean {
+  const plugin = layoutPlugin(id);
+  return plugin === null || (pluginOn?.(plugin) ?? true);
+}
+
 /** The layouts a view of this type may show, in the switcher's order. */
-export function layoutsFor(ctx: LayoutContext): ViewLayout[] {
-  return VIEW_LAYOUTS.filter((l) => l.appliesTo(ctx)).map((l) => l.id);
+export function layoutsFor(ctx: LayoutContext, layouts: readonly ViewLayoutDef[] = VIEW_LAYOUTS): ViewLayout[] {
+  return layouts
+    .filter((l) => l.appliesTo(ctx) && (!l.plugin || (ctx.pluginOn?.(l.plugin) ?? true)))
+    .map((l) => l.id as ViewLayout);
 }
 
 /** `"list", "table", …` — for messages that list the valid ids. */

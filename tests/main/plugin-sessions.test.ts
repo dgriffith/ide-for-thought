@@ -255,3 +255,32 @@ describe('the ui kit, wired (#2827)', () => {
     w.closeWindow();
   });
 });
+
+describe('the View API, wired (#2828)', () => {
+  const state = (paths: string[]) => ({
+    layout: 'kanban', type: { id: 'task', label: 'Task' }, properties: [], visible: null,
+    instances: paths.map((p) => ({ path: p, title: p, values: {} })),
+    sortColumn: null, sortDir: 'asc' as const, spec: {}, readOnly: false, exportMode: false,
+  });
+
+  it("a view event scopes the session to exactly the view's notes, and leaves out a refused one", async () => {
+    const w = fakeWindow(1);
+    const { sessionId } = openPluginSession(w.win, 'board', ['old.md']);
+    const port = w.posted[0]!.ports[0]!;
+    const events: Array<{ event: string; data: { instances: Array<{ path: string }> } }> = [];
+    port.on('message', (e: { data: string }) => { const m = JSON.parse(e.data); if (m.event) events.push(m); });
+    const call = pluginEnd(port);
+    sendPluginSessionEvent(w.win, sessionId, { kind: 'view', state: state(['a.md', '.minerva/secrets.json', 'b.md']) });
+    await vi.waitFor(() => expect(events).toHaveLength(1));
+    expect(events[0]!.data.instances.map((i) => i.path)).toEqual(['a.md', 'b.md']);
+    expect((await call('notes.list')).result).toEqual({ paths: ['a.md', 'b.md'] });
+    w.closeWindow();
+  });
+
+  it('refuses a view event with no instances', () => {
+    const w = fakeWindow(1);
+    const { sessionId } = openPluginSession(w.win, 'board', []);
+    expect(() => sendPluginSessionEvent(w.win, sessionId, { kind: 'view', state: {} as never })).toThrow('carries a view state');
+    w.closeWindow();
+  });
+});

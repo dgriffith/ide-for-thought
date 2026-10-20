@@ -271,6 +271,22 @@ declares `process`, **off by default** on new installs.
   executor is a declared program speaking the kernel protocol. A third-party
   R or Julia plugin is the same thing through the same gate.
 
+### The View API (#2828)
+
+A layout a built-in plugin draws keeps its entry in the layout registry
+(`shared/objects/view-layouts.ts`) — its rule for which types may show it,
+and its spec fields — with `plugin: '<id>'`. That keeps a saved view valid
+while the plugin is off: it isn't offered, and a view saved with it shows the
+table, with one line saying which plugin to turn on.
+
+`PluginLayout.svelte` hosts it: `TypeView` draws it like any layout, with the
+one `view`. It sends the plugin a `view` event — the type, its properties,
+the visible ones, the notes in the view's order, the sort, the layout's own
+spec fields, `readOnly` and `exportMode` — on connect and on every change.
+Main makes those notes the session's scope, exactly, before passing it on.
+The plugin's `view.setState({ patch })` comes back as `view.onStateChange`,
+keeping only the layout's own spec fields, and nothing in an embed or export.
+
 ### Kanban, timeline and calendar, on by default
 
 **Decision:** the three `view-layouts` beyond list, table, gallery and map

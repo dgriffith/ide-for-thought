@@ -377,3 +377,20 @@ describe('scope admission is cheap; access is checked in full (#2827)', () => {
     expect(JSON.stringify(r)).not.toContain('outside!');
   });
 });
+
+describe('the View API (#2828)', () => {
+  it("passes view.setState on as an intent, for the host to keep only the layout's fields", async () => {
+    const s = open();
+    await s.call('view.setState', { patch: { columnOrder: ['done', 'todo'] } });
+    expect(s.intents).toEqual([{ kind: 'setViewState', patch: { columnOrder: ['done', 'todo'] } }]);
+  });
+
+  it('refuses a patch that is not an object, or too big, and without ui', async () => {
+    const s = open();
+    expect((await s.call('view.setState', { patch: ['x'] })).error?.code).toBe('bad-request');
+    expect((await s.call('view.setState', { patch: Object.fromEntries(Array.from({ length: 33 }, (_, i) => [`k${i}`, i])) })).error?.code).toBe('bad-request');
+    const t = open({ capabilities: ['notes:read'] });
+    expect((await t.call('view.setState', { patch: {} })).error?.code).toBe('capability');
+    expect(s.intents).toEqual([]);
+  });
+});

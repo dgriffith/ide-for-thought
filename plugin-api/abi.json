@@ -1,5 +1,5 @@
 {
-  "version": "1.1.0",
+  "version": "1.2.0",
   "errorCodes": [
     "bad-request",
     "busy",
@@ -11,7 +11,10 @@
     "unknown-method"
   ],
   "types": {
-    "PluginMenuItem": "{ id: string; label: string; enabled?: boolean } | { separator: true }"
+    "PluginMenuItem": "{ id: string; label: string; enabled?: boolean } | { separator: true }",
+    "PluginViewInstance": "{ path: string; title: string; values: Record<string, string | null>; tags?: string[] }",
+    "PluginViewProperty": "{ name: string; type: string; label?: string; options?: string[] }",
+    "PluginViewState": "{ layout: string; type: { id: string; label: string; icon?: string; color?: string }; /** The type's effective properties, in declared order. */ properties: PluginViewProperty[]; /** The view's visible property names; null = all. */ visible: string[] | null; /** The notes the view shows, filtered, in the view's sort order. */ instances: PluginViewInstance[]; sortColumn: string | null; sortDir: 'asc' | 'desc'; /** The layout's own spec fields (a board's `groupBy`, `columnOrder`, …). */ spec: Record<string, unknown>; /** An embed or export: nothing that writes the spec or a note. */ readOnly: boolean; /** Drawing for an export snapshot. */ exportMode: boolean; }"
   },
   "events": {
     "drop": {
@@ -46,6 +49,9 @@
           "type": "Record<string, string>"
         }
       ]
+    },
+    "view": {
+      "text": "PluginViewState"
     }
   },
   "methods": {
@@ -361,6 +367,21 @@
             "type": "string | null"
           }
         ]
+      }
+    },
+    "view.setState": {
+      "capability": "ui",
+      "params": {
+        "members": [
+          {
+            "name": "patch",
+            "optional": false,
+            "type": "Record<string, unknown>"
+          }
+        ]
+      },
+      "result": {
+        "text": "Record<string, never>"
       }
     }
   }
