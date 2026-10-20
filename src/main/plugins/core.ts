@@ -1,0 +1,95 @@
+/**
+ * Core plugins (#2820, epic #2819): plugins that ship inside the signed app
+ * and can be switched off on this machine, like Obsidian's core plugins.
+ *
+ * A core plugin is held to the same `plugin.json` format as any other, and
+ * checked by the same validator. Minerva's signature vouches for it, so it
+ * needs no install approval, and it can't be removed, only turned off. Its
+ * state is a record in `plugins.json` beside the installed plugins' records
+ * (`source: { kind: 'core' }`); a core plugin with no record has its
+ * default state.
+ *
+ * Its wiring (IPC handlers, registry entries, processes) is the app's own
+ * code, activated by the composition root (`core-plugins.ts`) only while the
+ * plugin is on. Off means not wired up, not hidden. That's why this module
+ * says what core plugins exist and whether each is on, and nothing about what
+ * they do: `plugins/` importing the subsystems it switches would make a
+ * package cycle of every one of them.
+ *
+ * A core plugin's id is reserved: a folder in `~/.minerva/plugins/` claiming
+ * one is refused, so a third-party plugin can't stand in for a built-in one.
+ */
+import type { PluginManifest } from '../../shared/plugins/format';
+import { validatePluginManifest } from './manifest';
+import { loadPluginRecordsSync, updatePluginRecords, type PluginRecords } from './state';
+
+export interface CorePluginDefinition {
+  /** Its `plugin.json`, as written. */
+  manifest: Record<string, unknown>;
+  /** On or off on a machine that has never switched it. */
+  defaultEnabled: boolean;
+}
+
+export interface CorePlugin {
+  manifest: PluginManifest;
+  defaultEnabled: boolean;
+}
+
+/**
+ * The core plugins, in the order Settings lists them. None yet: Python
+ * (#2822) and kanban (#2828) are the first to move here.
+ */
+const CORE_PLUGIN_DEFINITIONS: readonly CorePluginDefinition[] = [];
+
+let definitions: readonly CorePluginDefinition[] = CORE_PLUGIN_DEFINITIONS;
+let validated: CorePlugin[] | null = null;
+
+/**
+ * The core plugins, checked. A core manifest that doesn't validate is a bug
+ * in this build, not a user's problem to read about, so it throws.
+ */
+export function corePlugins(): readonly CorePlugin[] {
+  validated ??= definitions.map((def) => {
+    const id = typeof def.manifest.id === 'string' ? def.manifest.id : '';
+    const checked = validatePluginManifest(def.manifest, { folder: id, appVersion: '0.0.0', core: true });
+    if (!checked.ok) throw new Error(`Core plugin "${id}" has an invalid manifest: ${checked.problems.join(' ')}`);
+    return { manifest: checked.manifest, defaultEnabled: def.defaultEnabled };
+  });
+  return validated;
+}
+
+/** The core plugin with this id, if there is one. */
+export function corePlugin(id: string): CorePlugin | undefined {
+  return corePlugins().find((p) => p.manifest.id === id);
+}
+
+/** Whether `id` belongs to a core plugin, and so can't be installed. */
+export function isCorePluginId(id: string): boolean {
+  return corePlugin(id) !== undefined;
+}
+
+/** Whether a core plugin is on, given the records: its own, or its default. */
+export function corePluginEnabled(records: PluginRecords, plugin: CorePlugin): boolean {
+  const record = Object.hasOwn(records, plugin.manifest.id) ? records[plugin.manifest.id] : undefined;
+  return record?.source.kind === 'core' ? record.enabled : plugin.defaultEnabled;
+}
+
+/** Every core plugin's state on this machine, read synchronously (startup). */
+export function readCorePluginStates(pluginsDir: string): Map<string, boolean> {
+  const records = loadPluginRecordsSync(pluginsDir);
+  return new Map(corePlugins().map((p) => [p.manifest.id, corePluginEnabled(records, p)]));
+}
+
+/** Switch a core plugin on or off on this machine. */
+export async function setCorePluginEnabled(pluginsDir: string, id: string, enabled: boolean): Promise<void> {
+  if (!isCorePluginId(id)) throw new Error(`No core plugin "${id}".`);
+  await updatePluginRecords(pluginsDir, (records) => {
+    records[id] = { enabled, source: { kind: 'core' } };
+  });
+}
+
+/** Replace the core plugins; `null` puts the real ones back. Tests only. */
+export function _setCorePluginsForTests(defs: readonly CorePluginDefinition[] | null): void {
+  definitions = defs ?? CORE_PLUGIN_DEFINITIONS;
+  validated = null;
+}

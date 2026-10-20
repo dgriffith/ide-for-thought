@@ -31,6 +31,7 @@ vi.mock('../../../src/renderer/lib/stores/dialogs.svelte', () => ({ getDialogSto
 import PluginsSettings from '../../../src/renderer/lib/components/PluginsSettings.svelte';
 
 const LIST: PluginList = {
+  core: [],
   installed: [{
     id: 'lab', name: 'Lab Tools', version: '1.2.0', description: 'For the lab', author: 'Ada', enabled: true,
     source: { kind: 'folder', path: '/work/lab' }, contributes: { skills: 2, 'object-types': 1 },
@@ -137,5 +138,28 @@ describe('PluginsSettings (#2634)', () => {
     h.changed!();
     await waitFor(() => expect(h.registerSkillInfos).toHaveBeenCalled());
     expect(h.typesRefresh).toHaveBeenCalled();
+  });
+
+  it('lists built-in plugins on their own, with a toggle and no Remove or folder (#2820)', async () => {
+    const python = {
+      id: 'python', name: 'Python cells', version: '1.0.0', description: 'Run Python in a note.', enabled: false,
+      source: { kind: 'core' as const }, contributes: {},
+    };
+    h.list.mockResolvedValue({ ...LIST, core: [python] });
+    h.setEnabled.mockResolvedValue({ ...LIST, core: [{ ...python, enabled: true }] });
+    const { findByRole, getByRole, queryByRole } = render(PluginsSettings);
+    const builtIn = await findByRole('list', { name: 'Built-in plugins' });
+    expect(builtIn.textContent).toContain('Python cells');
+    expect(builtIn.textContent).toContain('Run Python in a note.');
+    expect(queryByRole('button', { name: 'Remove Python cells' })).toBeNull();
+    expect(getByRole('list', { name: 'Installed plugins' }).textContent).not.toContain('Python cells');
+    await fireEvent.click(getByRole('checkbox', { name: 'Turn on Python cells' }));
+    expect(h.setEnabled).toHaveBeenCalledWith('python', true);
+  });
+
+  it('shows no built-in section while there are none', async () => {
+    const { findByText, queryByRole } = render(PluginsSettings);
+    await findByText('Lab Tools');
+    expect(queryByRole('list', { name: 'Built-in plugins' })).toBeNull();
   });
 });

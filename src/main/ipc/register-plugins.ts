@@ -31,11 +31,19 @@ import { changePlugins } from '../plugins-apply';
 import { handle } from './typed-ipc';
 import { winFromEvent, withRootPathOr } from './helpers';
 import { pluginRecommendations } from '../plugins/recommendations';
+import { corePluginEnabled, corePlugins, isCorePluginId, setCorePluginEnabled } from '../plugins/core';
+import { loadPluginRecords } from '../plugins/state';
 import path from 'node:path';
 
 export async function pluginList(): Promise<PluginList> {
-  const inv = await getPluginInventory();
+  const [inv, records] = await Promise.all([getPluginInventory(), loadPluginRecords(activePluginsDir())]);
   return {
+    core: corePlugins().map(({ manifest: m, defaultEnabled }): PluginSummary => ({
+      id: m.id, name: m.name, version: m.version, description: m.description,
+      enabled: corePluginEnabled(records, { manifest: m, defaultEnabled }),
+      source: { kind: 'core' },
+      contributes: {},
+    })),
     installed: inv.installed.map(({ plugin, record }): PluginSummary => {
       const contributes: PluginSummary['contributes'] = {};
       for (const c of plugin.contributions) contributes[c.point] = (contributes[c.point] ?? 0) + 1;
@@ -94,11 +102,13 @@ export function registerPlugins(): void {
   handle(Channels.PLUGINS_LIST, () => pluginList());
 
   handle(Channels.PLUGINS_SET_ENABLED, async (_e, id: string, enabled: boolean) => {
-    await changePlugins(() => setPluginEnabled(activePluginsDir(), id, enabled === true));
+    const set = isCorePluginId(id) ? setCorePluginEnabled : setPluginEnabled;
+    await changePlugins(() => set(activePluginsDir(), id, enabled === true));
     return pluginList();
   });
 
   handle(Channels.PLUGINS_REMOVE, async (_e, id: string) => {
+    if (isCorePluginId(id)) throw new Error(`"${id}" is built into Minerva; it can be turned off, not removed.`);
     await changePlugins(() => removePlugin(activePluginsDir(), id));
     return pluginList();
   });
@@ -204,6 +214,7 @@ export function registerPlugins(): void {
   handle(Channels.PLUGINS_REVEAL, (_e, id?: string) => {
     const dir = activePluginsDir();
     if (id !== undefined && !PLUGIN_ID.test(id)) throw new Error(`"${id}" isn't a plugin id.`);
+    if (id !== undefined && isCorePluginId(id)) throw new Error(`"${id}" is built into Minerva; it has no folder.`);
     shell.showItemInFolder(id === undefined ? dir : path.join(dir, id));
   });
 }

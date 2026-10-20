@@ -46,9 +46,9 @@ const nextRoot = () => `/tb/${++root}`;
 beforeEach(() => {
   vi.clearAllMocks();
   h.recommendations.mockResolvedValue(RECS);
-  h.list.mockResolvedValue({ installed: [], errors: [], folder: '/p' });
+  h.list.mockResolvedValue({ core: [], installed: [], errors: [], folder: '/p' });
   h.installGit.mockResolvedValue({ id: 'reading-list', name: 'Reading List' });
-  h.setEnabled.mockResolvedValue({ installed: [], errors: [], folder: '/p' });
+  h.setEnabled.mockResolvedValue({ core: [], installed: [], errors: [], folder: '/p' });
   localStorage.clear();
 });
 afterEach(() => cleanup());

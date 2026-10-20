@@ -45,6 +45,7 @@
       case 'git': return `From ${src.url}${src.ref ? ` #${src.ref}` : ''} at ${src.commit.slice(0, 7)}`;
       case 'manual': return 'Put in the plugins folder by hand';
       case 'draft': return 'Drafted in a conversation';
+      case 'core': return 'Built into Minerva';
     }
   }
 
@@ -64,7 +65,32 @@
 </script>
 
 <div class="field">
-  <span class="field-label">Installed plugins</span>
+  {#if plugins.list.core.length > 0}
+    <span class="field-label">Built in</span>
+    <p class="hint">
+      Parts of Minerva you can turn off on this machine. Turned off, a built-in plugin
+      isn't hidden: it isn't running at all.
+    </p>
+    <ul class="plugin-list" aria-label="Built-in plugins">
+      {#each plugins.list.core as p (p.id)}
+        <li class:off={!p.enabled}>
+          <div class="plugin-row">
+            <input
+              type="checkbox"
+              checked={p.enabled}
+              disabled={plugins.busy}
+              aria-label={`${p.enabled ? 'Turn off' : 'Turn on'} ${p.name}`}
+              onchange={(e) => { void plugins.setEnabled(p.id, e.currentTarget.checked); }}
+            />
+            <span class="plugin-name">{p.name}</span>
+          </div>
+          <p class="plugin-desc">{p.description}</p>
+        </li>
+      {/each}
+    </ul>
+  {/if}
+
+  <span class="field-label" class:installed-label={plugins.list.core.length > 0}>Installed plugins</span>
   <p class="hint">
     A plugin adds skills, object types, saved queries, note templates or citation styles,
     and lives in <code>~/.minerva/plugins/</code> on this machine. Turning one off or
@@ -165,7 +191,7 @@
   .plugin-desc { margin: 2px 0 0 24px; color: var(--text-muted); font-size: 11px; line-height: 1.45; }
   .plugin-source { margin: 1px 0 0 24px; color: var(--text-muted); font-size: 11px; overflow-wrap: anywhere; }
   .problems { margin: 4px 0 2px 0; padding-left: 18px; color: var(--text); font-size: 11px; line-height: 1.45; }
-  .recs-label { display: block; margin-top: 8px; }
+  .recs-label, .installed-label { display: block; margin-top: 8px; }
   .actions { display: flex; flex-wrap: wrap; gap: 8px; }
   .action-btn { padding: 4px 12px; border: 1px solid var(--border); border-radius: 3px; background: var(--bg-button); color: var(--text); font-size: 12px; cursor: pointer; }
   .action-btn:hover:not(:disabled) { background: var(--bg-button-hover); }
