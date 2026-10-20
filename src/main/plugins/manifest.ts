@@ -31,6 +31,13 @@ export interface ManifestContext {
   folder: string;
   /** The running app's version, checked against `minerva`. */
   appVersion: string;
+  /**
+   * A core plugin (#2820): one that ships inside the app, so its `minerva`
+   * range isn't checked (it is this build), and it may contribute nothing
+   * declared, because its wiring is the app's own code until plugin code
+   * (#2823) gives it a `code` section to declare.
+   */
+  core?: boolean;
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -81,7 +88,7 @@ export function validatePluginManifest(raw: unknown, ctx: ManifestContext): Mani
   if (minerva !== undefined) {
     if (semver.validRange(minerva) === null) {
       problems.push(`"minerva" must be a semver range like ">=4.0.0"; got "${minerva}".`);
-    } else if (!semver.satisfies(ctx.appVersion, minerva, { includePrerelease: true })) {
+    } else if (!ctx.core && !semver.satisfies(ctx.appVersion, minerva, { includePrerelease: true })) {
       problems.push(`It needs Minerva ${minerva}; this is ${ctx.appVersion}.`);
     }
   }
@@ -90,8 +97,9 @@ export function validatePluginManifest(raw: unknown, ctx: ManifestContext): Mani
   const rawContributes = raw.contributes;
   // A plugin that only ships an MCP server (#2646) contributes no files.
   const shipsServers = isRecord(raw.mcpServers) && Object.keys(raw.mcpServers).length > 0;
+  const mayBeEmpty = shipsServers || ctx.core === true;
   if (rawContributes === undefined) {
-    if (!shipsServers) problems.push('"contributes" is required.');
+    if (!mayBeEmpty) problems.push('"contributes" is required.');
   } else if (!isRecord(rawContributes)) {
     problems.push('"contributes" must be an object of extension point → files.');
   } else {
@@ -107,7 +115,7 @@ export function validatePluginManifest(raw: unknown, ctx: ManifestContext): Mani
       }
       contributes[point as PluginContributionPoint] = files as string[];
     }
-    if (Object.keys(rawContributes).length === 0 && !shipsServers) problems.push('"contributes" is empty; a plugin must contribute something.');
+    if (Object.keys(rawContributes).length === 0 && !mayBeEmpty) problems.push('"contributes" is empty; a plugin must contribute something.');
   }
 
   const settings = raw.settings === undefined ? undefined : validatePluginSettings(raw.settings, problems);

@@ -19,6 +19,7 @@ import {
   asString,
   loadConfigFile,
   loadConfigFileStrict,
+  loadConfigFileSync,
   requireRecord,
 } from '../config/config-store';
 import { writeJsonFileAtomic } from '../config/json-file';
@@ -34,7 +35,9 @@ export type PluginSource =
   /** No install record — it was put in `~/.minerva/plugins/` by hand. */
   | { kind: 'manual' }
   /** Drafted by the assistant in a conversation, and installed from its card (#2652). */
-  | { kind: 'draft' };
+  | { kind: 'draft' }
+  /** Built into Minerva (#2820): only whether it's on is recorded. */
+  | { kind: 'core' };
 
 export interface PluginRecord {
   enabled: boolean;
@@ -66,6 +69,7 @@ function decodeSource(raw: unknown): PluginSource {
   }
   if (r.kind === 'zip' && typeof r.name === 'string' && typeof r.sha256 === 'string') return { kind: 'zip', name: r.name, sha256: r.sha256 };
   if (r.kind === 'draft') return { kind: 'draft' };
+  if (r.kind === 'core') return { kind: 'core' };
   return { kind: 'manual' };
 }
 
@@ -100,6 +104,16 @@ function decodeStrict(raw: unknown): PluginRecords {
 /** The records, for display and for deciding what loads. */
 export function loadPluginRecords(pluginsDir: string): Promise<PluginRecords> {
   return loadConfigFile(() => pluginsStateFile(pluginsDir), decodeLenient, {});
+}
+
+/**
+ * The records, synchronously: for the one reader that runs at startup before
+ * any window, deciding which core plugins to wire up (#2820). The file is a
+ * few hundred bytes, and an `await` there would stand in front of the window
+ * (#2223).
+ */
+export function loadPluginRecordsSync(pluginsDir: string): PluginRecords {
+  return loadConfigFileSync(() => pluginsStateFile(pluginsDir), decodeLenient, {});
 }
 
 /** The record for `id`: its own, or the default for a folder with none. */

@@ -190,7 +190,8 @@ export interface PluginSummary {
     | { kind: 'zip'; name: string; sha256: string }
     | { kind: 'git'; url: string; ref?: string; commit: string }
     | { kind: 'manual' }
-    | { kind: 'draft' };
+    | { kind: 'draft' }
+    | { kind: 'core' };
   installedAt?: string;
   /** How many contributions to each point. */
   contributes: Partial<Record<PluginContributionPoint, number>>;
@@ -222,6 +223,8 @@ export interface PluginRecommendation {
 }
 
 export interface PluginList {
+  /** Built into Minerva (#2820): turned on or off, never installed or removed. */
+  core: PluginSummary[];
   installed: PluginSummary[];
   /** Folders refused whole, with every problem (#2632). */
   errors: PluginLoadError[];

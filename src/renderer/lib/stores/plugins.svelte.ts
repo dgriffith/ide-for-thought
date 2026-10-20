@@ -17,7 +17,7 @@ import { objectTypesStore } from './object-types.svelte';
 import { pluginThemesStore } from './plugin-themes.svelte';
 import { logger } from '../../../shared/logger';
 
-const EMPTY: PluginList = { installed: [], errors: [], folder: '' };
+const EMPTY: PluginList = { core: [], installed: [], errors: [], folder: '' };
 
 let list = $state<PluginList>(EMPTY);
 let error = $state<string | null>(null);

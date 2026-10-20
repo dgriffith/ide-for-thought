@@ -108,6 +108,7 @@ describe('PluginSettingsForm (#2636)', () => {
 
   it('opens from a plugin\'s Settings button, for a plugin that has settings', async () => {
     const LIST: PluginList = {
+      core: [],
       installed: [
         { id: 'lab', name: 'Lab', version: '1.0.0', description: 'd', enabled: true, source: { kind: 'manual' }, contributes: { skills: 1 }, settings: 5 },
         { id: 'plain', name: 'Plain', version: '1.0.0', description: 'd', enabled: true, source: { kind: 'manual' }, contributes: { skills: 1 } },

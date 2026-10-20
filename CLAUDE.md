@@ -1613,6 +1613,15 @@ the two queries folders (`assertMutableQueryPath`). Installing, toggling and
 removing (#2634) go through `plugins-apply.ts`'s `changePlugins`, which
 re-applies the change to every seam and window with no restart; a watcher on
 the plugins folder does the same for an outside edit.
+**Core plugins (#2820)** ship inside the app: a manifest in
+`main/plugins/core.ts` (same validator, no version check, may contribute
+nothing), on or off by a `{ kind: 'core' }` record in `plugins.json` or its
+default, with the id reserved. What one *does* is an activation in the
+composition root's `core-plugins.ts` that wires it up and returns its
+teardown; `startCorePlugins` runs it synchronously before any window and
+`syncCorePlugins` (from `plugins-apply.ts`) on a toggle. **Off means not wired
+up**: `handle()` returns a remover, so a core plugin's channels don't exist
+while it's off. A feature moved into one asserts that in its tests.
 
 ### Tools for Thought (Skills)
 

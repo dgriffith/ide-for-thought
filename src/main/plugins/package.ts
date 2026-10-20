@@ -32,6 +32,7 @@ import {
   type PluginScan,
 } from '../../shared/plugins/format';
 import { validatePluginManifest } from './manifest';
+import { isCorePluginId } from './core';
 import { isInterpreter, pluginRelativePath } from './mcp-schema';
 
 /** Where plugins live: per machine, never in a thoughtbase (#2615). */
@@ -98,6 +99,10 @@ export async function readPluginPackage(folderPath: string, appVersion: string):
     : folder;
   if (!checked.ok) return fail(checked.problems, label);
   const { manifest } = checked;
+  // A built-in plugin's id is reserved (#2820): nothing installed may stand in for it.
+  if (isCorePluginId(manifest.id)) {
+    return fail([`"${manifest.id}" is the id of a plugin built into Minerva; turn that one on or off in Settings → Plugins instead.`], label);
+  }
 
   // ── Its contributions ─────────────────────────────────────────────────────
   const problems: string[] = [];

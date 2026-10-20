@@ -27,7 +27,7 @@ import type { PluginScan } from '../shared/plugins/format';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { reconcilePluginServers } from './mcp-servers/registry';
-import { contributionsTo, getPluginInventory, getPluginScan, reloadPluginScan } from './plugins/registry';
+import { activePluginsDir, contributionsTo, getPluginInventory, getPluginScan, reloadPluginScan } from './plugins/registry';
 import { watchPluginsDir } from './plugins/watch';
 import { reloadAndRegisterSkills } from './skills/register';
 import { invalidateSavedQueriesCache } from './saved-queries';
@@ -35,6 +35,8 @@ import { rebuildMenu } from './menu';
 import { activeProjects, getProjectContext, refreshOpenExtensionCatalogs } from './project-context';
 import { indexAllNotes } from './graph';
 import { invalidateCitationAssets } from './citations/assets-cache';
+import { syncCorePlugins } from './core-plugins';
+import { readCorePluginStates } from './plugins/core';
 
 /** What the plugins' object types are, as a string: compared before and after. */
 function typesFingerprint(scan: PluginScan): string {
@@ -84,6 +86,8 @@ export function startPluginsWatcher(dir: string): () => void {
 async function fingerprint(): Promise<string> {
   const inv = await getPluginInventory();
   const lines: string[] = [];
+  // A core plugin's toggle is a change too, though no folder moved (#2820).
+  for (const [id, on] of readCorePluginStates(activePluginsDir())) lines.push(`core ${id} ${on ? 'on' : 'off'}`);
   for (const { plugin, record } of inv.installed) {
     lines.push(`${plugin.manifest.id}@${plugin.manifest.version} ${record.enabled ? 'on' : 'off'}`);
     // Servers are declared in plugin.json itself, not in contributed files.
@@ -109,6 +113,9 @@ async function apply(): Promise<void> {
   lastApplied = now;
   const typesChanged = typesFingerprint(after) !== before;
 
+  // Core plugins first: what one wires up (a registry entry, a handler) may be
+  // what the steps below read.
+  syncCorePlugins();
   await reloadAndRegisterSkills();
   // A removed, turned-off or changed plugin's MCP servers stop; an approved
   // one whose plugin came back starts (#2646).

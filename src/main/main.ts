@@ -25,6 +25,7 @@ import { disposeSharedEmbedder } from './embeddings/shared-embedder';
 import { registerSkillsAtStartup } from './skills/register';
 import { activePluginsDir, enablePlugins } from './plugins/registry';
 import { startPluginsWatcher } from './plugins-apply';
+import { startCorePlugins } from './core-plugins';
 import { initAutoUpdate, setUpdateStateListener } from './auto-update';
 import { installE2EHooks } from './e2e-hooks';
 import { logger } from '../shared/logger';
@@ -127,6 +128,9 @@ function startApp(): void {
     // Installed plugins (#2633): configuration only — the folder is read on the
     // skill and type catalogs' first loads, never in front of the window.
     enablePlugins({ appVersion: app.getVersion() });
+    // Core plugins that are on (#2820), wired up synchronously so a handler a
+    // window may call exists before the window does.
+    startCorePlugins();
     // An outside change to ~/.minerva/plugins/ applies without a restart (#2634).
     startPluginsWatcher(activePluginsDir());
     const skillsRegistered = registerSkillsAtStartup()

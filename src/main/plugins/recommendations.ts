@@ -14,7 +14,8 @@ import type { PluginRecommendation } from '../../shared/plugins/format';
 import { readProjectConfig } from '../project-config';
 import { parseGitPluginSpec } from './git';
 import { MAX_PLUGIN_ID, PLUGIN_ID } from './manifest';
-import { getPluginInventory } from './registry';
+import { activePluginsDir, getPluginInventory } from './registry';
+import { readCorePluginStates } from './core';
 
 /** Enough for any honest thoughtbase; a list past it is cut, not refused. */
 export const RECOMMENDATION_LIMITS = { entries: 20, name: 80, source: 2048, reason: 200, types: 50 } as const;
@@ -80,6 +81,8 @@ export async function pluginRecommendations(rootPath: string): Promise<PluginRec
   if (declared.length === 0) return [];
   const inv = await getPluginInventory();
   const installed = new Map(inv.installed.map(({ plugin, record }) => [plugin.manifest.id, record.enabled]));
+  // A built-in plugin is always installed; only whether it's on varies (#2820).
+  for (const [id, on] of readCorePluginStates(activePluginsDir())) installed.set(id, on);
   const out: PluginRecommendation[] = [];
   for (const d of declared) {
     const enabled = installed.get(d.id);

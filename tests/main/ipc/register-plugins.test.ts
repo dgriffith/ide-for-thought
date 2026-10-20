@@ -6,7 +6,7 @@
  * the folder and asks Replace? natively in main; reveal takes only a plugin
  * id, never a path.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 type Handler = (event: unknown, ...args: unknown[]) => unknown;
 
@@ -16,6 +16,7 @@ const h = vi.hoisted(() => ({
   showMessageBox: vi.fn(),
   showItemInFolder: vi.fn(),
   setPluginEnabled: vi.fn(),
+  setCorePluginEnabled: vi.fn(),
   removePlugin: vi.fn(),
   installPluginFromFolder: vi.fn(),
   installPluginFromZip: vi.fn(),
@@ -82,11 +83,16 @@ vi.mock('../../../src/main/plugins/lifecycle', () => ({
 vi.mock('../../../src/main/extensions/draft-apply', () => ({ saveSkillDraft: h.saveSkillDraft, saveDraftToFolder: h.saveDraftToFolder }));
 vi.mock('../../../src/main/skills/register', () => ({ reloadAndRegisterSkills: h.reloadSkills }));
 vi.mock('../../../src/main/menu', () => ({ rebuildMenu: h.rebuildMenu }));
+vi.mock('../../../src/main/plugins/core', async (importOriginal) => ({
+  ...await importOriginal<typeof import('../../../src/main/plugins/core')>(),
+  setCorePluginEnabled: h.setCorePluginEnabled,
+}));
 vi.mock('../../../src/main/plugins-apply', () => ({
   changePlugins: async <T>(op: () => Promise<T>) => { const r = await op(); h.changed.push('applied'); return r; },
 }));
 
 import { registerPlugins } from '../../../src/main/ipc/register-plugins';
+import { _setCorePluginsForTests } from '../../../src/main/plugins/core';
 import { Channels } from '../../../src/shared/channels';
 import type { ReplacePolicy } from '../../../src/main/plugins/lifecycle';
 import { pendingExtensionDrafts } from '../../../src/main/ipc/extension-draft-offers';
@@ -102,6 +108,7 @@ const overInstalled = async (...args: unknown[]) => {
 };
 
 const LIST = {
+  core: [],
   installed: [{
     id: 'lab', name: 'Lab', version: '1.0.0', description: 'Lab tools', author: 'Ada', enabled: false,
     source: { kind: 'folder', path: '/work/lab' }, installedAt: '2026-10-15T00:00:00Z',
@@ -231,6 +238,34 @@ describe('register-plugins (#2634)', () => {
     await expect(call(Channels.PLUGINS_SET_SETTINGS, 'lab', ['x'])).rejects.toThrow(/must be an object/);
     await expect(call(Channels.PLUGINS_SET_SETTINGS, 'lab', null)).rejects.toThrow(/must be an object/);
     expect(h.savePluginSettings).not.toHaveBeenCalled();
+  });
+});
+
+describe('core plugins (#2820)', () => {
+  const CORE = { id: 'python', name: 'Python cells', version: '1.0.0', minerva: '>=4.0.0', description: 'Run Python in a note.', contributes: {} };
+  beforeEach(() => { _setCorePluginsForTests([{ manifest: CORE, defaultEnabled: false }]); });
+  afterEach(() => { _setCorePluginsForTests(null); });
+
+  it('are listed apart from installed plugins, at their default state, built in', async () => {
+    const list = await call<{ core: unknown[] }>(Channels.PLUGINS_LIST);
+    expect(list.core).toEqual([{
+      id: 'python', name: 'Python cells', version: '1.0.0', description: 'Run Python in a note.',
+      enabled: false, source: { kind: 'core' }, contributes: {},
+    }]);
+  });
+
+  it('a toggle goes to the core setter, applied app-wide; the installed-plugin setter is not touched', async () => {
+    await call(Channels.PLUGINS_SET_ENABLED, 'python', true);
+    expect(h.setCorePluginEnabled).toHaveBeenCalledWith('/home/u/.minerva/plugins', 'python', true);
+    expect(h.setPluginEnabled).not.toHaveBeenCalled();
+    expect(h.changed).toEqual(['applied']);
+  });
+
+  it('can\'t be removed or revealed: they have no folder', async () => {
+    await expect(call(Channels.PLUGINS_REMOVE, 'python')).rejects.toThrow(/built into Minerva; it can be turned off, not removed/);
+    expect(h.removePlugin).not.toHaveBeenCalled();
+    await expect(call(Channels.PLUGINS_REVEAL, 'python')).rejects.toThrow(/built into Minerva; it has no folder/);
+    expect(h.showItemInFolder).not.toHaveBeenCalled();
   });
 });
 

@@ -92,6 +92,24 @@ what Minerva does with it before you install it.
 What's on and where each came from is kept in `~/.minerva/plugins.json`. A
 plugin with no entry there (one put in the folder by hand) is on.
 
+## Built-in plugins
+
+Some of Minerva itself is packaged as plugins that ship inside the app
+(#2820). Settings → Plugins lists them under **Built in**, each with an on/off
+switch. They can't be removed, and installing doesn't apply to them: the
+app's signature vouches for them, so there is nothing to approve.
+
+- **Off means not running.** A built-in plugin that's off registers nothing:
+  no handlers the window could call, no registry entries, no processes.
+- **Per machine.** Whether one is on is recorded in `~/.minerva/plugins.json`,
+  beside your installed plugins; with no record it has its default.
+- **Its id is reserved.** A folder in `~/.minerva/plugins/` claiming a
+  built-in plugin's id is refused, so nothing installed can stand in for one.
+- A thoughtbase can [recommend](#recommending-plugins-from-a-thoughtbase) a
+  built-in plugin by id like any other, and that still turns nothing on.
+
+How it works: [`docs/plugin-code.md`](plugin-code.md) → *Core plugins*.
+
 ## Recommending plugins from a thoughtbase
 
 A thoughtbase that relies on a plugin (its notes use the plugin's types, say)
@@ -405,6 +423,7 @@ A plugin is refused when:
 - `version` isn't semver, `minerva` isn't a range, or this Minerva is outside
   that range;
 - `contributes` is empty, or names a point plugins can't contribute to yet;
+- its `id` is a [built-in plugin's](#built-in-plugins);
 - a contributed path:
   - isn't relative, uses `\`, or contains `..` or an empty segment;
   - isn't inside its point's folder (a type in `skills/`, say);
