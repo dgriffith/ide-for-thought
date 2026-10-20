@@ -266,6 +266,7 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
     "recommendations",
     "remove",
     "reveal",
+    "sendSessionEvent",
     "setEnabled",
     "setSessionScope",
     "setSettings",

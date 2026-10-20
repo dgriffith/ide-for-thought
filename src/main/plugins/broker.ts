@@ -34,7 +34,12 @@ import {
   PLUGIN_MESSAGE_LIMIT_BYTES,
   PLUGIN_METHODS,
   PLUGIN_QUERY_ROW_LIMIT,
+  PLUGIN_MENU_MAX_ITEMS,
+  PLUGIN_MENU_MAX_LABEL,
   type PluginErrorCode,
+  type PluginEventName,
+  type PluginEvents,
+  type PluginMenuItem,
   type PluginMethod,
   type PluginResponse,
 } from '../../shared/plugins/api';
@@ -70,10 +75,14 @@ export interface BrokerDeps {
   queryGraph(rootPath: string, sparql: string): Promise<GraphQueryResult>;
   /** SQL through the registered-relations allowlist, worded for a plugin. */
   querySql(rootPath: string, sql: string): Promise<{ ok: true; columns: string[]; rows: Record<string, unknown>[] } | { ok: false; error: string }>;
-  /** Null when `rel` is a path a plugin may name; otherwise why not. */
+  /** Null when `rel` is a path a plugin may name; otherwise why not. Run on every call that uses one. */
   pathRefusal(rootPath: string, rel: string): string | null;
+  /** The same, without touching the file system: what admits a path to the scope. */
+  scopeRefusal(rel: string): string | null;
   intent(intent: PluginIntent): void;
   copyText(text: string): void;
+  /** Draw a native context menu at the pointer; the chosen item's id, or null. */
+  showMenu(items: PluginMenuItem[]): Promise<string | null>;
 }
 
 export interface PluginSessionOptions {
@@ -90,6 +99,10 @@ export interface PluginSession {
   /** Replace the notes this session was given. */
   setScope(paths: readonly string[]): void;
   scope(): readonly string[];
+  /** Add notes the user gave the view (a drop, #2827); refused paths are left out. */
+  addToScope(paths: readonly string[]): string[];
+  /** Tell the plugin something (#2827): `{ event, data }` on the port. */
+  emit<E extends PluginEventName>(event: E, data: PluginEvents[E]): void;
   close(): void;
   readonly closed: boolean;
   onClose(fn: () => void): void;
@@ -117,6 +130,21 @@ function normalizeRel(p: string): string {
 }
 
 // ── params ──────────────────────────────────────────────────────────────────
+
+/** A context menu as asked for: items with an id and a label, or separators, within limits. */
+function menuItems(raw: unknown): PluginMenuItem[] {
+  if (!Array.isArray(raw) || raw.length === 0) throw new Refusal('bad-request', '"items" must be a non-empty list.');
+  if (raw.length > PLUGIN_MENU_MAX_ITEMS) throw new Refusal('bad-request', `A menu holds at most ${PLUGIN_MENU_MAX_ITEMS} items.`);
+  return raw.map((item: unknown, i) => {
+    if (item === null || typeof item !== 'object') throw new Refusal('bad-request', `items[${i}] must be an object.`);
+    const r = item as Record<string, unknown>;
+    if (r.separator === true) return { separator: true as const };
+    if (typeof r.id !== 'string' || r.id.length === 0) throw new Refusal('bad-request', `items[${i}].id must be a string.`);
+    if (typeof r.label !== 'string' || r.label.trim() === '') throw new Refusal('bad-request', `items[${i}].label must be a string.`);
+    if (r.label.length > PLUGIN_MENU_MAX_LABEL) throw new Refusal('bad-request', `items[${i}].label is over ${PLUGIN_MENU_MAX_LABEL} characters.`);
+    return { id: r.id, label: r.label, ...(r.enabled === false ? { enabled: false } : {}) };
+  });
+}
 
 function asParams(raw: unknown): Record<string, unknown> {
   if (raw === undefined) return {};
@@ -148,20 +176,24 @@ export function createPluginSession(opts: PluginSessionOptions): PluginSession {
   let closed = false;
   const closeListeners: Array<() => void> = [];
 
-  const setScope = (paths: readonly string[]) => {
-    const next = new Set<string>();
+  /** The paths a plugin may be given, normalized; the rest logged and dropped. */
+  const admissible = (paths: readonly string[]): string[] => {
+    const out: string[] = [];
     for (const p of paths) {
       if (typeof p !== 'string') continue;
       const rel = normalizeRel(p);
-      const why = deps.pathRefusal(rootPath, rel);
+      // Cheap here, on purpose: a big view's scope is thousands of paths, and
+      // `scoped()` runs the full check (links included) on every call anyway.
+      const why = deps.scopeRefusal(rel);
       if (why) {
         log.warn(`plugin ${identity.id}: left ${JSON.stringify(p)} out of its scope: ${why}`);
         continue;
       }
-      next.add(rel);
+      out.push(rel);
     }
-    scope = next;
+    return out;
   };
+  const setScope = (paths: readonly string[]) => { scope = new Set(admissible(paths)); };
   setScope(opts.scope);
 
   const close = () => {
@@ -257,6 +289,21 @@ export function createPluginSession(opts: PluginSessionOptions): PluginSession {
       case 'ui.copyText':
         deps.copyText(stringParam(params, 'text'));
         return {};
+      case 'ui.revealNote':
+        deps.intent({ kind: 'revealNote', path: scoped(stringParam(params, 'path')) });
+        return {};
+      case 'ui.showMenu':
+        return { id: await deps.showMenu(menuItems(params.items)) };
+      case 'ui.releaseFocus':
+        deps.intent({ kind: 'releaseFocus' });
+        return {};
+      case 'ui.forwardKey': {
+        const flag = (k: string) => params[k] === true;
+        const key = stringParam(params, 'key');
+        if (key.length === 0 || key.length > 32) throw new Refusal('bad-request', '"key" must be a key name, like "k".');
+        deps.intent({ kind: 'key', key, meta: flag('meta'), ctrl: flag('ctrl'), alt: flag('alt'), shift: flag('shift') });
+        return {};
+      }
       case 'llm.propose':
         throw new Refusal('unavailable', 'llm.propose is not available yet (#2858).');
     }
@@ -314,12 +361,28 @@ export function createPluginSession(opts: PluginSessionOptions): PluginSession {
     }
   };
 
+  const emit = <E extends PluginEventName>(event: E, data: PluginEvents[E]) => {
+    if (closed) return;
+    const text = stringify({ event, data });
+    if (byteLength(text) > PLUGIN_MESSAGE_LIMIT_BYTES) {
+      log.warn(`plugin ${identity.id}: a ${event} event was over the size limit and wasn't sent`);
+      return;
+    }
+    port.send(text);
+  };
+
   port.onMessage((data) => { void handle(data); });
   port.onClose(close);
 
   return {
     setScope,
     scope: () => [...scope].sort(),
+    addToScope: (paths) => {
+      const added = [...new Set(admissible(paths))];
+      for (const rel of added) scope.add(rel);
+      return added;
+    },
+    emit,
     close,
     get closed() { return closed; },
     onClose: (fn) => { if (closed) fn(); else closeListeners.push(fn); },

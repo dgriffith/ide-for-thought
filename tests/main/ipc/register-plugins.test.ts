@@ -35,6 +35,7 @@ const h = vi.hoisted(() => ({
   openSession: vi.fn(),
   setSessionScope: vi.fn(),
   closeSession: vi.fn(),
+  sessionEvent: vi.fn(),
 }));
 
 vi.mock('electron', () => ({
@@ -100,6 +101,7 @@ vi.mock('../../../src/main/plugin-sessions', () => ({
   openPluginSession: h.openSession,
   setPluginSessionScope: h.setSessionScope,
   closePluginSession: h.closeSession,
+  sendPluginSessionEvent: h.sessionEvent,
 }));
 
 import { registerPlugins } from '../../../src/main/ipc/register-plugins';
@@ -396,5 +398,15 @@ describe('plugin sessions (#2825)', () => {
     h.openSession.mockClear();
     await expect(call(Channels.PLUGINS_OPEN_SESSION, '../evil', [])).rejects.toThrow("isn't a plugin id");
     expect(h.openSession).not.toHaveBeenCalled();
+  });
+});
+
+describe('plugin session events (#2827)', () => {
+  it('passes a theme or a drop on, and refuses anything else', async () => {
+    const drop = { kind: 'drop', paths: ['a.md'], x: 1, y: 2 };
+    await call(Channels.PLUGINS_SESSION_EVENT, 's1', drop);
+    expect(h.sessionEvent).toHaveBeenCalledWith({ id: 1 }, 's1', drop);
+    await expect(call(Channels.PLUGINS_SESSION_EVENT, 's1', { kind: 'approve' })).rejects.toThrow('a theme or a drop');
+    await expect(call(Channels.PLUGINS_SESSION_EVENT, 's1', null)).rejects.toThrow('a theme or a drop');
   });
 });

@@ -28,7 +28,8 @@ import { rebuildMenu } from '../menu';
 import { pendingExtensionDrafts } from './extension-draft-offers';
 import { PLUGIN_ID } from '../plugins/manifest';
 import { changePlugins } from '../plugins-apply';
-import { closePluginSession, openPluginSession, setPluginSessionScope } from '../plugin-sessions';
+import { closePluginSession, openPluginSession, sendPluginSessionEvent, setPluginSessionScope } from '../plugin-sessions';
+import type { PluginHostEvent } from '../../shared/plugins/session';
 import { handle } from './typed-ipc';
 import { winFromEvent, withRootPathOr } from './helpers';
 import { pluginRecommendations } from '../plugins/recommendations';
@@ -254,6 +255,12 @@ export function registerPlugins(): void {
   });
   handle(Channels.PLUGINS_CLOSE_SESSION, (e, sessionId: string) => {
     closePluginSession(winFromEvent(e), String(sessionId));
+  });
+  handle(Channels.PLUGINS_SESSION_EVENT, (e, sessionId: string, event: PluginHostEvent) => {
+    if (event === null || typeof event !== 'object' || (event.kind !== 'theme' && event.kind !== 'drop')) {
+      throw new Error('A plugin session event is a theme or a drop.');
+    }
+    sendPluginSessionEvent(winFromEvent(e), String(sessionId), event);
   });
 }
 

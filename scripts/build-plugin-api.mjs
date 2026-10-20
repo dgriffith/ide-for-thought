@@ -6,11 +6,12 @@
  *   node scripts/build-plugin-api.mjs          # regenerate
  *   node scripts/build-plugin-api.mjs --check  # exit 1 if the committed files are stale
  *
- * Refuses to write when the change breaks the committed ABI without a major
+ * Refuses to write when the change breaks main's ABI snapshot without a major
  * bump of PLUGIN_API_VERSION, or adds to it without a minor one. Bump the
  * version in api.ts and run it again; there is no override.
  * `tests/architecture/plugin-api-abi.test.ts` holds the same rules offline.
  */
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -42,9 +43,25 @@ if (process.argv.includes('--check')) {
   process.exit(0);
 }
 
-const abiFile = path.join(OUT, 'abi.json');
-if (fs.existsSync(abiFile)) {
-  const rule = versionProblems(JSON.parse(fs.readFileSync(abiFile, 'utf8')), abiOf(api));
+/**
+ * The snapshot this branch is changing: `main`'s, at the merge base — not the
+ * working tree's, so regenerating twice on one branch doesn't ask for a
+ * second bump. Falls back to the file on disk when git can't say.
+ */
+function baselineAbi() {
+  const abiFile = path.join(OUT, 'abi.json');
+  try {
+    const opts = { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] };
+    const base = execFileSync('git', ['merge-base', 'HEAD', 'origin/main'], opts).trim();
+    return JSON.parse(execFileSync('git', ['show', `${base}:plugin-api/abi.json`], opts));
+  } catch {
+    return fs.existsSync(abiFile) ? JSON.parse(fs.readFileSync(abiFile, 'utf8')) : null;
+  }
+}
+
+const baseline = baselineAbi();
+if (baseline) {
+  const rule = versionProblems(baseline, abiOf(api));
   if (rule.length > 0) {
     console.error(`✗ ${rule.join('\n')}`);
     process.exit(1);

@@ -1757,7 +1757,14 @@ origin.
   without a major bump of `PLUGIN_API_VERSION` (its own semver, not the
   app's) and an addition without a minor one. A plugin declares the range it
   needs as `code.api`. A fork's methods are `<slug>:<name>`, outside the
-  snapshot.
+  snapshot. **A plugin view is hosted by `PluginFrame.svelte` (#2827)**,
+  which sends theme tokens, takes focus back on Escape and turns note drops
+  into scope; a forwarded shortcut runs only a command marked
+  `fromPluginViews` in `shared/commands.ts` (pinned by
+  `tests/shared/commands-from-plugin-views.test.ts`) — a plugin can fake a
+  keystroke, so never one that changes a note. A path enters a session's
+  scope by `lexicalAgentPathRefusal` (no fs: 5,000 `realpath`s cost 200ms of
+  main's thread) and is checked in full on every use.
 
 ### Code Review Checklist for LLM/Graph PRs
 

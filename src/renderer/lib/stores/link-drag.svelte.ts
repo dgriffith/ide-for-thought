@@ -55,8 +55,24 @@ function onUp(e: PointerEvent): void {
   if (!item) return; // never passed the threshold → treat as a plain click
   const view = viewAt(e.clientX, e.clientY);
   const pos = view?.posAtCoords({ x: e.clientX, y: e.clientY });
-  if (view && pos != null) insertWikiLinkAtPos(view, pos, wikiLinkForItem(item));
+  if (view && pos != null) {
+    insertWikiLinkAtPos(view, pos, wikiLinkForItem(item));
+    return;
+  }
+  // Not over an editor: a plugin view (#2827) takes a dropped note. Its frame
+  // ignores the pointer while a drag is on (`body.link-dragging`), so the
+  // point lands on its host, which carries `data-note-drop-target`.
+  const target = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null)?.closest<HTMLElement>('[data-note-drop-target]');
+  if (target && item.kind === 'note') {
+    target.dispatchEvent(new CustomEvent<NoteDropDetail>(NOTE_DROP_EVENT, {
+      detail: { paths: [item.path], clientX: e.clientX, clientY: e.clientY },
+    }));
+  }
 }
+
+/** The event a note drop target receives when a pointer drag ends on it (#2827). */
+export const NOTE_DROP_EVENT = 'minerva-note-drop';
+export interface NoteDropDetail { paths: string[]; clientX: number; clientY: number }
 
 function onKey(e: KeyboardEvent): void {
   if (e.key === 'Escape') { teardown(); reset(); }

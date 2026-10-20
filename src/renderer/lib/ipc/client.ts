@@ -1,5 +1,5 @@
 import type { NoteFile, NotebaseMeta, TagInfo, TaggedNote, TaggedSource, SavedQuery, SearchResult, OutgoingLink, Backlink, TabSession, LayoutSession, BookmarkNode, SourceDetail, SearchInNotesOptions, SearchInNotesResult, ReplaceInNotesOptions, ReplaceInNotesResult, HeadingRenameCandidate, MenuEditorState } from '../../../shared/types';
-import type { PluginIntentEvent } from '../../../shared/plugins/session';
+import type { PluginHostEvent, PluginIntentEvent } from '../../../shared/plugins/session';
 import type { LiveBlockRequest, LiveBlockResult } from '../../../shared/live-blocks';
 import type { Conversation, ConversationCreateOptions, ContextBundle, ConversationMessage } from '../../../shared/conversation';
 import type { ToolExecutionRequest, ToolExecutionResult, ConversationToolPayload } from '../../../shared/tools/types';
@@ -1160,6 +1160,8 @@ export interface PluginsApi {
   /** Replace the notes a session was given. */
   setSessionScope(sessionId: string, scope: string[]): Promise<void>;
   closeSession(sessionId: string): Promise<void>;
+  /** Pass on what the host saw — the theme, a drop of notes, which joins the session's scope (#2827). */
+  sendSessionEvent(sessionId: string, event: PluginHostEvent): Promise<void>;
   /** A plugin asked this window to do something (`ui` capability). */
   onIntent(cb: (event: PluginIntentEvent) => void): () => void;
 }

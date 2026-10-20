@@ -22,6 +22,9 @@ export const CORE_METHOD = /^[a-z]+\.[a-z][A-Za-z]*$/;
 /** A fork's methods are `<slug>:<name>` (#2826), outside the ABI snapshot. */
 export const EXTENSION_METHOD = /^[a-z][a-z0-9-]*:[a-z][A-Za-z.]*$/;
 
+/** Types the generator writes itself; any other type alias in api.ts is a support type. */
+const SURFACE_TYPES = new Set(['PluginErrorCode', 'PluginMethod', 'PluginEventName', 'PluginResponse']);
+
 function unwrap(node) {
   while (node && (ts.isAsExpression(node) || ts.isSatisfiesExpression(node) || ts.isParenthesizedExpression(node))) node = node.expression;
   return node;
@@ -50,7 +53,7 @@ function shapeOf(typeNode, sf) {
 /** Read the API's surface out of `api.ts`'s source. */
 export function readApiSource(source, fileName = 'api.ts') {
   const sf = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true);
-  const out = { version: null, portMessage: null, methods: {}, params: {}, results: {}, errorCodes: [] };
+  const out = { version: null, portMessage: null, methods: {}, params: {}, results: {}, events: {}, types: {}, errorCodes: [] };
   const typeText = {};
   for (const st of sf.statements) {
     if (ts.isVariableStatement(st)) {
@@ -72,8 +75,8 @@ export function readApiSource(source, fileName = 'api.ts') {
         }
       }
     }
-    if (ts.isInterfaceDeclaration(st) && (st.name.text === 'PluginMethodParams' || st.name.text === 'PluginMethodResults')) {
-      const into = st.name.text === 'PluginMethodParams' ? out.params : out.results;
+    if (ts.isInterfaceDeclaration(st) && ['PluginMethodParams', 'PluginMethodResults', 'PluginEvents'].includes(st.name.text)) {
+      const into = { PluginMethodParams: out.params, PluginMethodResults: out.results, PluginEvents: out.events }[st.name.text];
       for (const m of st.members) {
         if (!ts.isPropertySignature(m) || !m.type) continue;
         into[propName(m, sf)] = shapeOf(m.type, sf);
@@ -82,6 +85,10 @@ export function readApiSource(source, fileName = 'api.ts') {
     }
     if (ts.isTypeAliasDeclaration(st) && st.name.text === 'PluginErrorCode' && ts.isUnionTypeNode(st.type)) {
       out.errorCodes = st.type.types.map((t) => (ts.isLiteralTypeNode(t) && ts.isStringLiteral(t.literal) ? t.literal.text : t.getText(sf)));
+    } else if (ts.isTypeAliasDeclaration(st) && !SURFACE_TYPES.has(st.name.text)) {
+      // A type the shapes refer to (PluginMenuItem): copied into the .d.ts,
+      // and into the ABI as text, so a change to it is a change to the API.
+      out.types[st.name.text] = st.type.getText(sf).replace(/\s+/g, ' ');
     }
   }
   out.typeText = typeText;
@@ -112,7 +119,9 @@ export function abiOf(api) {
   for (const name of Object.keys(api.methods).filter((m) => CORE_METHOD.test(m)).sort()) {
     methods[name] = { capability: api.methods[name].capability, params: api.params[name], result: api.results[name] };
   }
-  return { version: api.version, errorCodes: [...api.errorCodes].sort(), methods };
+  const events = Object.fromEntries(Object.keys(api.events).sort().map((e) => [e, api.events[e]]));
+  const types = Object.fromEntries(Object.keys(api.types).sort().map((t) => [t, api.types[t]]));
+  return { version: api.version, errorCodes: [...api.errorCodes].sort(), types, events, methods };
 }
 
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -137,6 +146,20 @@ export function compareAbi(prev, next) {
     compareShape(`${name} result`, was.result, now.result, 'result', breaking, additions);
   }
   for (const name of Object.keys(next.methods)) if (!prev.methods[name]) additions.push(`${name} added`);
+  // Events are read by the plugin, like a result: a field removed or retyped breaks it.
+  for (const [name, was] of Object.entries(prev.events ?? {})) {
+    const now = (next.events ?? {})[name];
+    if (!now) breaking.push(`event ${name} removed`);
+    else compareShape(`event ${name}`, was, now, 'result', breaking, additions);
+  }
+  for (const name of Object.keys(next.events ?? {})) if (!(prev.events ?? {})[name]) additions.push(`event ${name} added`);
+  // A support type is compared as text: any change to one already used is breaking.
+  for (const [name, text] of Object.entries(prev.types ?? {})) {
+    const now = (next.types ?? {})[name];
+    if (now === undefined) breaking.push(`type ${name} removed`);
+    else if (now !== text) breaking.push(`type ${name} changed from ${text} to ${now}`);
+  }
+  for (const name of Object.keys(next.types ?? {})) if (!(prev.types ?? {})[name]) additions.push(`type ${name} added`);
   return { breaking, additions };
 }
 
@@ -223,6 +246,12 @@ export class PluginApiError extends Error {
  * Wait for Minerva to hand this frame its session, then answer with the API.
  * The port is taken only from the parent window, which the frame's CSP
  * (\`frame-ancestors\`) already limits to Minerva itself.
+ *
+ * By default (#2827) the runtime also: sets the app's theme tokens on this
+ * frame's \`:root\` as they arrive (\`theme: false\` to do it yourself); gives
+ * focus back to Minerva on an Escape nothing here handled; and passes on a
+ * ⌘/Ctrl shortcut nothing here handled (\`keyboard: false\` for neither).
+ * Both need the \`ui\` capability; without it they quietly do nothing.
  */
 export function connect(options = {}) {
   const timeoutMs = options.timeoutMs ?? 10000;
@@ -235,18 +264,25 @@ export function connect(options = {}) {
       if (e.source !== window.parent || !e.data || e.data.type !== PORT_MESSAGE || !e.ports[0]) return;
       window.removeEventListener('message', onMessage);
       clearTimeout(timer);
-      resolve(client(e.ports[0], String(e.data.apiVersion)));
+      resolve(client(e.ports[0], String(e.data.apiVersion), options));
     }
     window.addEventListener('message', onMessage);
   });
 }
 
-function client(port, hostVersion) {
+function client(port, hostVersion, options) {
   let nextId = 1;
   const pending = new Map();
+  const listeners = new Map();
   port.onmessage = (m) => {
     let reply;
     try { reply = JSON.parse(m.data); } catch { return; }
+    if (typeof reply.event === 'string') {
+      for (const fn of listeners.get(reply.event) ?? []) {
+        try { fn(reply.data); } catch (err) { setTimeout(() => { throw err; }); }
+      }
+      return;
+    }
     const waiter = pending.get(reply.id);
     if (!waiter) return;
     pending.delete(reply.id);
@@ -258,15 +294,38 @@ function client(port, hostVersion) {
     pending.set(id, { resolve, reject });
     port.postMessage(JSON.stringify({ id, method, params: params ?? {} }));
   });
+  const quiet = (p) => { p.catch(() => {}); };
+  const onKeydown = (e) => {
+    if (e.defaultPrevented) return;
+    if (e.key === 'Escape' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      quiet(call('ui.releaseFocus', {}));
+    } else if ((e.metaKey || e.ctrlKey) && e.key.length > 0 && !['Meta', 'Control', 'Shift', 'Alt'].includes(e.key)) {
+      quiet(call('ui.forwardKey', { key: e.key, meta: e.metaKey, ctrl: e.ctrlKey, alt: e.altKey, shift: e.shiftKey }));
+    }
+  };
   const api = {
     apiVersion: hostVersion,
     call,
+    on(event, fn) {
+      if (!listeners.has(event)) listeners.set(event, new Set());
+      listeners.get(event).add(fn);
+      return () => { listeners.get(event)?.delete(fn); };
+    },
     close() {
+      window.removeEventListener('keydown', onKeydown);
       port.close();
       for (const w of pending.values()) w.reject(new PluginApiError('unavailable', 'The session was closed.'));
       pending.clear();
     },
   };
+  if (options.theme !== false) {
+    api.on('theme', ({ mode, vars }) => {
+      const root = document.documentElement;
+      for (const [name, value] of Object.entries(vars)) root.style.setProperty(name, value);
+      root.dataset.minervaTheme = mode;
+    });
+  }
+  if (options.keyboard !== false) window.addEventListener('keydown', onKeydown);
   for (const name of METHODS) {
     const parts = name.includes(':') ? ['extensions', name] : name.split('.');
     let at = api;
@@ -315,6 +374,13 @@ ${shapes('PluginMethodResults')}
 
 export type PluginMethod = keyof PluginMethodParams;
 
+${Object.entries(api.types).map(([name, text]) => `export type ${name} = ${text};`).join('\n')}
+
+/** What Minerva tells the plugin without being asked. */
+export interface PluginEvents {
+${Object.keys(api.events).sort().map((e) => `  ${JSON.stringify(e)}: ${api.typeText[`PluginEvents:${e}`]};`).join('\n')}
+}
+
 /** Why a call failed; see \`PluginApiError\`. */
 export type PluginErrorCode = ${api.errorCodes.map((c) => JSON.stringify(c)).join(' | ')};
 
@@ -329,13 +395,19 @@ export interface MinervaPlugin {
   /** The plugin API version of the Minerva running this frame. */
   readonly apiVersion: string;
   call<M extends PluginMethod>(method: M, params: PluginMethodParams[M]): Promise<PluginMethodResults[M]>;
+  /** Listen for an event; answers a function that stops listening. */
+  on<E extends keyof PluginEvents>(event: E, listener: (data: PluginEvents[E]) => void): () => void;
   /** End the session; calls still waiting reject with \`unavailable\`. */
   close(): void;
 ${render(tree, 2)}
 }
 
-/** Wait for Minerva to hand this frame its session (default 10s). */
-export declare function connect(options?: { timeoutMs?: number }): Promise<MinervaPlugin>;
+/**
+ * Wait for Minerva to hand this frame its session (default 10s). \`theme: false\`
+ * leaves the theme tokens to you; \`keyboard: false\` turns off Escape giving
+ * focus back and unhandled shortcuts being passed on.
+ */
+export declare function connect(options?: { timeoutMs?: number; theme?: boolean; keyboard?: boolean }): Promise<MinervaPlugin>;
 `;
 }
 

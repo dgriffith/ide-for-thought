@@ -10,6 +10,7 @@ const h = vi.hoisted(() => ({
   openSession: vi.fn(),
   closeSession: vi.fn(async () => {}),
   setSessionScope: vi.fn(async () => {}),
+  sendSessionEvent: vi.fn(async () => {}),
   intent: null as null | ((e: unknown) => void),
   announce: vi.fn(),
 }));
@@ -19,15 +20,16 @@ vi.mock('../../../src/renderer/lib/ipc/client', () => ({
       openSession: h.openSession,
       closeSession: h.closeSession,
       setSessionScope: h.setSessionScope,
+      sendSessionEvent: h.sendSessionEvent,
       onIntent: (cb: (e: unknown) => void) => { h.intent = cb; return () => {}; },
     },
   },
 }));
 vi.mock('../../../src/renderer/lib/stores/announcer.svelte', () => ({ announce: h.announce }));
 
-import { connectPluginFrame, setPluginNoteOpener } from '../../../src/renderer/lib/stores/plugin-sessions.svelte';
+import { connectPluginFrame, forwardableCommand, setPluginAppOps } from '../../../src/renderer/lib/stores/plugin-sessions.svelte';
 import { PLUGIN_SESSION_PORT_MESSAGE } from '../../../src/shared/plugins/session';
-import { PLUGIN_PORT_MESSAGE } from '../../../src/shared/plugins/api';
+import { PLUGIN_API_VERSION, PLUGIN_PORT_MESSAGE } from '../../../src/shared/plugins/api';
 
 function fakeFrame() {
   const postMessage = vi.fn();
@@ -55,7 +57,7 @@ describe('connectPluginFrame (#2825)', () => {
     expect(conn.sessionId).toBe('s1');
     expect(postMessage).toHaveBeenCalledTimes(1);
     const [msg, origin, ports] = postMessage.mock.calls[0]!;
-    expect(msg).toEqual({ type: PLUGIN_PORT_MESSAGE, apiVersion: '1.0.0' });
+    expect(msg).toEqual({ type: PLUGIN_PORT_MESSAGE, apiVersion: PLUGIN_API_VERSION });
     expect(origin).toBe('minerva-plugin://board');
     expect(ports).toHaveLength(1);
     await conn.setScope(['b.md']);
@@ -92,15 +94,57 @@ describe('connectPluginFrame (#2825)', () => {
   });
 });
 
-describe('intents (#2825)', () => {
-  it('announces, and opens a note through the opener App gives it', async () => {
+describe('intents (#2825, #2827)', () => {
+  const ops = { openNote: vi.fn(), revealNote: vi.fn(), runCommand: vi.fn() };
+  setPluginAppOps(ops);
+  const key = (k: string, mods: { meta?: boolean; shift?: boolean; alt?: boolean } = {}) =>
+    ({ kind: 'key' as const, key: k, meta: !!mods.meta, ctrl: false, alt: !!mods.alt, shift: !!mods.shift });
+
+  it('announces, opens and reveals through the app', async () => {
     h.openSession.mockImplementation(async () => { queueMicrotask(() => deliverPort('s3')); return { sessionId: 's3' }; });
     await connectPluginFrame(fakeFrame().frame, 'board', []);
-    const open = vi.fn();
-    setPluginNoteOpener(open);
     h.intent!({ sessionId: 's3', pluginId: 'board', intent: { kind: 'announce', text: 'Moved' } });
     h.intent!({ sessionId: 's3', pluginId: 'board', intent: { kind: 'openNote', path: 'a.md' } });
+    h.intent!({ sessionId: 's3', pluginId: 'board', intent: { kind: 'revealNote', path: 'b.md' } });
     expect(h.announce).toHaveBeenCalledWith('Moved');
-    expect(open).toHaveBeenCalledWith('a.md');
+    expect(ops.openNote).toHaveBeenCalledWith('a.md');
+    expect(ops.revealNote).toHaveBeenCalledWith('b.md');
+  });
+
+  it('gives focus back to the host of the frame that asked, and no other', async () => {
+    const first = vi.fn();
+    const second = vi.fn();
+    h.openSession.mockImplementation(async () => { queueMicrotask(() => deliverPort('f1')); return { sessionId: 'f1' }; });
+    await connectPluginFrame(fakeFrame().frame, 'board', [], { releaseFocus: first });
+    h.openSession.mockImplementation(async () => { queueMicrotask(() => deliverPort('f2')); return { sessionId: 'f2' }; });
+    const conn = await connectPluginFrame(fakeFrame().frame, 'board', [], { releaseFocus: second });
+    h.intent!({ sessionId: 'f2', pluginId: 'board', intent: { kind: 'releaseFocus' } });
+    expect(second).toHaveBeenCalledTimes(1);
+    expect(first).not.toHaveBeenCalled();
+    await conn.close();
+    h.intent!({ sessionId: 'f2', pluginId: 'board', intent: { kind: 'releaseFocus' } });
+    expect(second).toHaveBeenCalledTimes(1);
+  });
+
+  it('runs a forwarded shortcut only for a command a plugin view may run', () => {
+    expect(forwardableCommand(key('k', { meta: true }))).toBe('view.commandPalette');
+    expect(forwardableCommand(key('p', { meta: true }))).toBe('nav.quickOpen');
+    // ⌘N makes a note and ⌘S saves: not for a plugin's fake keystroke.
+    expect(forwardableCommand(key('n', { meta: true }))).toBeNull();
+    expect(forwardableCommand(key('s', { meta: true }))).toBeNull();
+    h.intent!({ sessionId: 's3', pluginId: 'board', intent: key('k', { meta: true }) });
+    h.intent!({ sessionId: 's3', pluginId: 'board', intent: key('n', { meta: true }) });
+    expect(ops.runCommand.mock.calls).toEqual([['view.commandPalette']]);
+  });
+
+  it('sends the theme and a drop as session events', async () => {
+    h.openSession.mockImplementation(async () => { queueMicrotask(() => deliverPort('s4')); return { sessionId: 's4' }; });
+    const conn = await connectPluginFrame(fakeFrame().frame, 'board', []);
+    await conn.sendTheme('light', { '--bg': '#fff' });
+    await conn.drop(['a.md'], 4, 5);
+    expect(h.sendSessionEvent.mock.calls).toEqual([
+      ['s4', { kind: 'theme', mode: 'light', vars: { '--bg': '#fff' } }],
+      ['s4', { kind: 'drop', paths: ['a.md'], x: 4, y: 5 }],
+    ]);
   });
 });

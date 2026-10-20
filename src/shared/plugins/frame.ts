@@ -12,6 +12,8 @@
  * both read it.
  */
 
+import { THEME_TOKENS } from '../theme-tokens';
+
 /** The scheme every plugin frame is served on. */
 export const PLUGIN_SCHEME = 'minerva-plugin';
 
@@ -44,3 +46,11 @@ export function isPluginFrameUrl(url: string): boolean {
  * forgot the attribute would still be held.
  */
 export const PLUGIN_FRAME_SANDBOX = 'allow-scripts allow-same-origin';
+
+/**
+ * The custom properties a plugin frame is given (#2827): every colour token a
+ * theme sets, plus the font families. The families name the app's bundled web
+ * fonts first; those live on `app://`, which a plugin frame's `font-src 'self'`
+ * can't load, so a frame falls through the same list to the system fonts.
+ */
+export const PLUGIN_THEME_TOKENS: readonly string[] = [...THEME_TOKENS, '--font-sans', '--font-display', '--font-mono'];

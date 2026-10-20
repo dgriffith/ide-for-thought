@@ -281,6 +281,8 @@ export const Channels = {
   PLUGINS_SET_SESSION_SCOPE: 'plugins:setSessionScope',
   /** Close a plugin session (#2825). */
   PLUGINS_CLOSE_SESSION: 'plugins:closeSession',
+  /** Tell a session's plugin what its host saw: the theme, a drop (#2827). */
+  PLUGINS_SESSION_EVENT: 'plugins:sessionEvent',
   /** main → renderer, with a MessagePort: a session's port, for the preload to pass into the page (#2825). */
   PLUGINS_SESSION_PORT: 'plugins:sessionPort',
   /** main → renderer: a plugin asked the window to do something (#2825). */

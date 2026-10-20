@@ -18,6 +18,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
 import { closeMinerva, launchMinerva, projectRoot, servePluginFrame } from './helpers/launch';
+import { PLUGIN_API_VERSION } from '../../src/shared/plugins/api';
 
 const FIXTURE = path.join(projectRoot, 'tests', 'fixtures', 'hostile-plugins', 'frame');
 const ORIGIN = 'minerva-plugin://hostile';
@@ -64,7 +65,7 @@ async function connect(app: ElectronApplication, win: Page, pluginDir: string) {
   });
 
   // The host's half: open a session, take the port from THIS window only, hand it to the frame.
-  const relayed = await win.evaluate(async ([origin, scope]) => {
+  const relayed = await win.evaluate(async ([origin, scope, apiVersion]) => {
     const w = window as unknown as { api: { plugins: { openSession(id: string, s: string[]): Promise<{ sessionId: string }> } } };
     let foreign = 0;
     const port = await new Promise<MessagePort>((resolve, reject) => {
@@ -80,14 +81,14 @@ async function connect(app: ElectronApplication, win: Page, pluginDir: string) {
       void w.api.plugins.openSession('hostile', scope);
     });
     const frameEl = document.getElementById('e2e-plugin') as HTMLIFrameElement;
-    frameEl.contentWindow!.postMessage({ type: 'minerva.plugin-port', apiVersion: '1.0.0' }, origin, [port]);
+    frameEl.contentWindow!.postMessage({ type: 'minerva.plugin-port', apiVersion }, origin, [port]);
     return { foreign };
-  }, [ORIGIN, [IN_SCOPE]] as const);
+  }, [ORIGIN, [IN_SCOPE], PLUGIN_API_VERSION] as const);
   expect(relayed.foreign).toBe(0);
   expect(await frame.evaluate(async () => {
     const m = await (window as unknown as { minerva: Promise<{ apiVersion: string }> }).minerva;
     return m.apiVersion;
-  })).toBe('1.0.0');
+  })).toBe(PLUGIN_API_VERSION);
   const call = (method: string, params?: unknown) =>
     frame.evaluate(async ([m, p]) => {
       const minerva = await (window as unknown as { minerva: Promise<{ call(m: string, p: unknown): Promise<unknown> }> }).minerva;

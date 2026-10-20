@@ -33,6 +33,7 @@ function fakeDeps(notes: Record<string, string> = {}) {
   const writes: Array<{ rel: string; content: string; source: RevisionSource }> = [];
   const intents: unknown[] = [];
   const copied: string[] = [];
+  const menus: unknown[] = [];
   const deps: BrokerDeps = {
     readNote: async (_root, rel) => {
       if (!(rel in notes)) throw new Error(`ENOENT: no such file, open '/Users/someone/tb/${rel}'`);
@@ -42,11 +43,13 @@ function fakeDeps(notes: Record<string, string> = {}) {
     writeNote: async (_root, rel, content, source) => { notes[rel] = content; writes.push({ rel, content, source }); },
     queryGraph: async () => ({ ok: true, columns: ['s'], results: [{ s: 'x' }] }),
     querySql: async () => ({ ok: true, columns: ['n'], rows: [{ n: 1n }, { n: 2n ** 60n }] }),
-    pathRefusal: (_root, rel) => (rel.startsWith('.') || rel.includes('/.') ? 'it is in a hidden folder' : null),
+    pathRefusal: (_root, rel) => (rel.startsWith('.') || rel.includes('/.') || rel.startsWith('linked/') ? 'it is in a hidden folder' : null),
+    scopeRefusal: (rel) => (rel.startsWith('.') || rel.includes('/.') ? 'it is in a hidden folder' : null),
     intent: (i) => { intents.push(i); },
     copyText: (t) => { copied.push(t); },
+    showMenu: async (items) => { menus.push(items); return 'second'; },
   };
-  return { deps, notes, writes, intents, copied };
+  return { deps, notes, writes, intents, copied, menus };
 }
 
 /** A reply's result, loosely: each test reads the fields its method answers with. */
@@ -293,5 +296,84 @@ describe('nothing reaches the approval engine (#2825)', () => {
 
   it('the API has no proposal method but the refused llm.propose', () => {
     expect(Object.keys(PLUGIN_METHODS).filter((m) => /propos|approv|reject|expire/i.test(m))).toEqual(['llm.propose']);
+  });
+});
+
+describe('the ui kit (#2827)', () => {
+  it('reveals only a note it was given', async () => {
+    const s = open({ scope: ['a.md'] });
+    await s.call('ui.revealNote', { path: 'a.md' });
+    expect((await s.call('ui.revealNote', { path: 'b.md' })).error?.code).toBe('scope');
+    expect(s.intents).toEqual([{ kind: 'revealNote', path: 'a.md' }]);
+  });
+
+  it('shows a menu Minerva draws, and answers the chosen id', async () => {
+    const s = open();
+    const r = await s.call('ui.showMenu', { items: [{ id: 'first', label: 'Move to Done' }, { separator: true }, { id: 'second', label: 'Open', enabled: false }] });
+    expect(r.result).toEqual({ id: 'second' });
+    expect(s.menus).toEqual([[{ id: 'first', label: 'Move to Done' }, { separator: true }, { id: 'second', label: 'Open', enabled: false }]]);
+  });
+
+  it('refuses a menu that is empty, too long, or has items without an id or label', async () => {
+    const s = open();
+    for (const items of [[], 'x', Array.from({ length: 51 }, (_, i) => ({ id: `${i}`, label: 'x' })),
+      [{ label: 'no id' }], [{ id: 'x', label: '  ' }], [{ id: 'x', label: 'y'.repeat(121) }], [null]]) {
+      expect((await s.call('ui.showMenu', { items })).error?.code, JSON.stringify(items).slice(0, 40)).toBe('bad-request');
+    }
+    expect(s.menus).toEqual([]);
+  });
+
+  it('passes on releaseFocus and a forwarded key as intents, for the host to decide', async () => {
+    const s = open();
+    await s.call('ui.releaseFocus');
+    await s.call('ui.forwardKey', { key: 'k', meta: true, shift: 'yes' });
+    expect(s.intents).toEqual([
+      { kind: 'releaseFocus' },
+      { kind: 'key', key: 'k', meta: true, ctrl: false, alt: false, shift: false },
+    ]);
+    expect((await s.call('ui.forwardKey', { key: '' })).error?.code).toBe('bad-request');
+    expect((await s.call('ui.forwardKey', { key: 'x'.repeat(33) })).error?.code).toBe('bad-request');
+  });
+
+  it('none of them without the ui capability', async () => {
+    const s = open({ capabilities: ['notes:read'] });
+    for (const m of ['ui.revealNote', 'ui.showMenu', 'ui.releaseFocus', 'ui.forwardKey']) {
+      expect((await s.call(m, { path: 'a.md', items: [{ id: 'a', label: 'b' }], key: 'k' })).error?.code, m).toBe('capability');
+    }
+    expect(s.menus).toEqual([]);
+    expect(s.intents).toEqual([]);
+  });
+});
+
+describe('events and drops (#2827)', () => {
+  it('emits an event on the port as { event, data }', () => {
+    const s = open();
+    s.session.emit('theme', { mode: 'light', vars: { '--bg': '#fff' } });
+    expect(s.sent).toEqual([{ event: 'theme', data: { mode: 'light', vars: { '--bg': '#fff' } } }]);
+  });
+
+  it('sends nothing once closed, or over the size limit', () => {
+    const s = open();
+    s.session.emit('theme', { mode: 'x', vars: { '--bg': 'y'.repeat(PLUGIN_MESSAGE_LIMIT_BYTES) } });
+    s.session.close();
+    s.session.emit('theme', { mode: 'x', vars: {} });
+    expect(s.sent).toEqual([]);
+  });
+
+  it('a drop adds what a plugin may be given to its scope, and nothing else', async () => {
+    const s = open({ scope: ['a.md'] });
+    expect(s.session.addToScope(['b.md', '.minerva/secrets.json', './b.md'])).toEqual(['b.md']);
+    expect((await s.call('notes.list')).result).toEqual({ paths: ['a.md', 'b.md'] });
+    expect((await s.call('notes.read', { path: '.minerva/secrets.json' })).error?.code).toBe('scope');
+  });
+});
+
+describe('scope admission is cheap; access is checked in full (#2827)', () => {
+  it('a path that only the full check refuses (a link out) is admitted, then refused on use', async () => {
+    const s = open({ scope: ['linked/escape.md'], notes: { 'linked/escape.md': 'outside!' } });
+    expect((await s.call('notes.list')).result).toEqual({ paths: ['linked/escape.md'] });
+    const r = await s.call('notes.read', { path: 'linked/escape.md' });
+    expect(r.error?.code).toBe('scope');
+    expect(JSON.stringify(r)).not.toContain('outside!');
   });
 });
