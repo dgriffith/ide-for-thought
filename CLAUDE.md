@@ -1156,7 +1156,14 @@ gated `app.isReady()` with Electron's own readiness (`session.defaultSession`
 throws until then). Ready with the gate still closed 2s later means the
 release was lost: it calls `__playwright_run()` itself and records
 `ready-gate-repaired`, which the flake report raises as a `::warning`. Not
-natively ready after 30s is a real startup hang and fails, saying so.
+natively ready after 45s is a real startup hang and fails, saying so.
+**Slow native readiness passes, loudly (#2848).** About one CI run in three
+has a launch whose native `ready` arrives ~30-31s late (five of five measured
+landed within a second of 31s): a fixed wait in native startup, before any of
+our code runs, which the old 30s limit failed just before it ended. A launch
+still not natively ready at 10s is sampled *then* (the teardown sample comes
+after `ready` and shows nothing), and if it becomes ready it passes with a
+`slow-native-ready` annotation and a `::warning`, the stacks attached.
 `tests/e2e/ready-gate.spec.ts` loses the first release on purpose
 (`tests/e2e/fixtures/lose-first-ready-release.cjs`) and checks the repair.
 

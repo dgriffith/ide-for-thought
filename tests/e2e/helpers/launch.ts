@@ -203,10 +203,22 @@ export async function launchMinerva(opts: LaunchOptions): Promise<ElectronApplic
 //  - native never ready: Electron itself didn't start. That's a real hang, so
 //    fail, naming it, rather than repairing anything.
 // Measured normal: the gate is already open, or opens within ~1s of launch.
+//
+// Slow native readiness (#2848). On CI about one run in three has a launch
+// whose native `ready` arrives ~30-31s late. In five of five measured, every
+// one landed within a second of 31s, so it's a fixed wait in native startup,
+// not a hang. The old 30s limit failed each one just before it ended. So:
+//  - still not natively ready at SLOW_NATIVE_SAMPLE_MS: sample the process
+//    then, while it's waiting (the teardown sample was taken after `ready`
+//    and showed an idle run loop, which named nothing);
+//  - ready later than that: pass, recording `slow-native-ready` with the time
+//    and the sample, which the flake report raises as a ::warning;
+//  - not ready by NATIVE_READY_LIMIT_MS: a real hang, fail as before.
 
 const READY_POLL_MS = 250;
 const GATE_GRACE_MS = 2_000;
-const NATIVE_READY_LIMIT_MS = 30_000;
+const SLOW_NATIVE_SAMPLE_MS = 10_000;
+const NATIVE_READY_LIMIT_MS = 45_000;
 
 interface ReadyState { gated: boolean; native: boolean; hasRun: boolean }
 
@@ -230,12 +242,25 @@ async function readyState(app: ElectronApplication): Promise<ReadyState> {
 async function releaseReadyGate(app: ElectronApplication): Promise<void> {
   const start = Date.now();
   let nativeSince: number | null = null;
+  let slowSample: string | null = null;
+  // Once, on the first poll that finds Electron natively ready.
+  const reachedNative = (now: number) => {
+    if (nativeSince !== null) return;
+    nativeSince = now;
+    if (slowSample === null) return;
+    const note = `Electron took ${((now - start) / 1000).toFixed(1)}s to become natively ready (normal: ~1s); ${slowSample}`;
+    console.warn(`[e2e] ⚠ ${note}`);
+    annotate('slow-native-ready', note);
+  };
   for (;;) {
     const s = await readyState(app);
-    if (s.gated) return;
     const now = Date.now();
+    if (s.gated) {
+      reachedNative(now);
+      return;
+    }
     if (s.native) {
-      nativeSince ??= now;
+      reachedNative(now);
       if (now - nativeSince >= GATE_GRACE_MS && s.hasRun) {
         const note = `Electron was ready but Playwright's ready release never landed; called __playwright_run() after ${((now - start) / 1000).toFixed(1)}s`;
         console.warn(`[e2e] ⚠ ${note}`);
@@ -244,7 +269,12 @@ async function releaseReadyGate(app: ElectronApplication): Promise<void> {
         return;
       }
     } else if (now - start >= NATIVE_READY_LIMIT_MS) {
-      throw new Error(`Electron never became ready within ${NATIVE_READY_LIMIT_MS / 1000}s of launch (native app.isReady() still false). A real startup hang, not Playwright's ready gate (#2595).`);
+      throw new Error(`Electron never became ready within ${NATIVE_READY_LIMIT_MS / 1000}s of launch (native app.isReady() still false). A real startup hang, not Playwright's ready gate (#2595).` +
+        (slowSample ? ` ${slowSample}` : ''));
+    } else if (slowSample === null && now - start >= SLOW_NATIVE_SAMPLE_MS) {
+      // While it's still waiting: this stack is the one that names the wait.
+      const state = await captureProcessState(app.process(), 'slow-native-ready');
+      slowSample = `sampled at ${((now - start) / 1000).toFixed(1)}s, not yet ready: ${state || 'no process state'}`;
     }
     await new Promise((r) => setTimeout(r, READY_POLL_MS));
   }
