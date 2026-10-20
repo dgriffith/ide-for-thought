@@ -88,3 +88,28 @@ describe('PLUGIN_CONTRIBUTION_POINTS (#2632)', () => {
     expect(new Set(folders).size).toBe(folders.length);
   });
 });
+
+describe('the code section (#2823)', () => {
+  const CORE = { ...CTX, core: true };
+
+  it('a built-in plugin declares what its code does, from the closed list', () => {
+    const r = validatePluginManifest({ ...GOOD, code: { capabilities: ['process', 'notes:read'] } }, CORE);
+    expect(r).toEqual({ ok: true, manifest: { ...GOOD, code: { capabilities: ['process', 'notes:read'] } } });
+  });
+
+  it('an installed plugin can\'t have one yet, and is pointed at MCP', () => {
+    expect(problemsOf({ ...GOOD, code: { capabilities: ['ui'] } })).toEqual([
+      '"code" is only for plugins built into Minerva for now. A plugin you install can\'t run code inside Minerva yet; ship the code as an MCP server instead ("mcpServers").',
+    ]);
+  });
+
+  it('fails closed: an unknown capability, a repeat, an unknown key, or nothing listed', () => {
+    expect(problemsOf({ ...GOOD, code: { capabilities: ['network', 'ui', 'ui'], view: 'view.js' } }, CORE)).toEqual([
+      'Unknown field "code.view".',
+      '"code.capabilities" names "network", which isn\'t a capability; they are notes:read, graph:query, ui, notes:write-properties, notes:write, llm:propose, process.',
+      '"code.capabilities" lists "ui" twice.',
+    ]);
+    expect(problemsOf({ ...GOOD, code: { capabilities: [] } }, CORE)).toEqual(['"code.capabilities" must be a non-empty list of what the code does.']);
+    expect(problemsOf({ ...GOOD, code: 'yes' }, CORE)).toEqual(['"code" must be an object.']);
+  });
+});

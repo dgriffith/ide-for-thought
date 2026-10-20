@@ -10,7 +10,12 @@
  * This module is the contract both processes and the docs share; reading and
  * checking a package is `src/main/plugins/`. Loading contributions into their
  * registries is the loader's job (#2633).
+ *
+ * Plugins built into Minerva (#2820) may also declare a `code` section: what
+ * their code inside the app does, as capabilities (#2823). Installed plugins
+ * can't yet (#2833).
  */
+import type { PluginCapability } from './capabilities';
 
 /** The manifest's file name, at the plugin folder's root. */
 export const PLUGIN_MANIFEST = 'plugin.json';
@@ -66,6 +71,14 @@ export interface PluginManifest {
   settings?: PluginSetting[];
   /** MCP servers it ships (#2646), in manifest order: code, run only once the user approves each. */
   mcpServers?: PluginMcpServer[];
+  /** What its code inside Minerva does (#2823). Built-in plugins only, until #2833. */
+  code?: PluginCode;
+}
+
+/** A plugin's `code` section (#2823). */
+export interface PluginCode {
+  /** What the code may do, from `PLUGIN_CAPABILITIES`; the host refuses the rest. */
+  capabilities: PluginCapability[];
 }
 
 /**
@@ -199,6 +212,8 @@ export interface PluginSummary {
   settings?: number;
   /** How many MCP servers it ships (#2646); absent when none. */
   mcpServers?: number;
+  /** What its code may do (#2823); absent when it has none. */
+  capabilities?: PluginCapability[];
 }
 
 /**

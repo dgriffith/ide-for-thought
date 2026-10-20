@@ -10,6 +10,7 @@
   import { CONFIRM_KEYS } from '../confirm-keys';
   import PluginSettingsForm from './PluginSettingsForm.svelte';
   import type { PluginContributionPoint, PluginSummary } from '../../../shared/plugins/format';
+  import { describeCapabilities } from '../../../shared/plugins/capabilities';
 
   const plugins = getPluginsStore();
   const dialogs = getDialogStore();
@@ -85,6 +86,7 @@
             <span class="plugin-name">{p.name}</span>
           </div>
           <p class="plugin-desc">{p.description}</p>
+          {#if p.capabilities?.length}<p class="plugin-source">{describeCapabilities(p.capabilities)}</p>{/if}
         </li>
       {/each}
     </ul>

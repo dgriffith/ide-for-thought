@@ -143,7 +143,7 @@ describe('PluginsSettings (#2634)', () => {
   it('lists built-in plugins on their own, with a toggle and no Remove or folder (#2820)', async () => {
     const python = {
       id: 'python', name: 'Python cells', version: '1.0.0', description: 'Run Python in a note.', enabled: false,
-      source: { kind: 'core' as const }, contributes: {},
+      source: { kind: 'core' as const }, contributes: {}, capabilities: ['process' as const],
     };
     h.list.mockResolvedValue({ ...LIST, core: [python] });
     h.setEnabled.mockResolvedValue({ ...LIST, core: [{ ...python, enabled: true }] });
@@ -151,6 +151,7 @@ describe('PluginsSettings (#2634)', () => {
     const builtIn = await findByRole('list', { name: 'Built-in plugins' });
     expect(builtIn.textContent).toContain('Python cells');
     expect(builtIn.textContent).toContain('Run Python in a note.');
+    expect(builtIn.textContent).toContain('It can run a program on this machine.');
     expect(queryByRole('button', { name: 'Remove Python cells' })).toBeNull();
     expect(getByRole('list', { name: 'Installed plugins' }).textContent).not.toContain('Python cells');
     await fireEvent.click(getByRole('checkbox', { name: 'Turn on Python cells' }));
