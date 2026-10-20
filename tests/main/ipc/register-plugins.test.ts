@@ -17,6 +17,7 @@ const h = vi.hoisted(() => ({
   showItemInFolder: vi.fn(),
   setPluginEnabled: vi.fn(),
   setCorePluginEnabled: vi.fn(),
+  confirmNative: vi.fn(),
   removePlugin: vi.fn(),
   installPluginFromFolder: vi.fn(),
   installPluginFromZip: vi.fn(),
@@ -83,6 +84,7 @@ vi.mock('../../../src/main/plugins/lifecycle', () => ({
 vi.mock('../../../src/main/extensions/draft-apply', () => ({ saveSkillDraft: h.saveSkillDraft, saveDraftToFolder: h.saveDraftToFolder }));
 vi.mock('../../../src/main/skills/register', () => ({ reloadAndRegisterSkills: h.reloadSkills }));
 vi.mock('../../../src/main/menu', () => ({ rebuildMenu: h.rebuildMenu }));
+vi.mock('../../../src/main/native-confirm', () => ({ confirmNative: h.confirmNative }));
 vi.mock('../../../src/main/plugins/core', async (importOriginal) => ({
   ...await importOriginal<typeof import('../../../src/main/plugins/core')>(),
   setCorePluginEnabled: h.setCorePluginEnabled,
@@ -255,10 +257,38 @@ describe('core plugins (#2820)', () => {
   });
 
   it('a toggle goes to the core setter, applied app-wide; the installed-plugin setter is not touched', async () => {
+    h.confirmNative.mockResolvedValue({ confirmed: true, checked: false });
     await call(Channels.PLUGINS_SET_ENABLED, 'python', true);
     expect(h.setCorePluginEnabled).toHaveBeenCalledWith('/home/u/.minerva/plugins', 'python', true);
     expect(h.setPluginEnabled).not.toHaveBeenCalled();
     expect(h.changed).toEqual(['applied']);
+  });
+
+  it('turning on one whose code runs programs asks natively first, saying what it can do (#2821)', async () => {
+    h.confirmNative.mockResolvedValue({ confirmed: true, checked: false });
+    await call(Channels.PLUGINS_SET_ENABLED, 'python', true);
+    expect(h.confirmNative).toHaveBeenCalledWith({ id: 1 }, expect.objectContaining({
+      message: 'Turn on Python cells?',
+      confirmLabel: 'Turn On',
+      detail: expect.stringContaining('Run Python in a note.\n\nIt can run a program on this machine.'),
+    }));
+    expect(h.setCorePluginEnabled).toHaveBeenCalledWith('/home/u/.minerva/plugins', 'python', true);
+  });
+
+  it('declined, nothing changes, and the list comes back as it was (#2821)', async () => {
+    h.confirmNative.mockResolvedValue({ confirmed: false, checked: false });
+    const list = await call<{ core: Array<{ enabled: boolean }> }>(Channels.PLUGINS_SET_ENABLED, 'python', true);
+    expect(h.setCorePluginEnabled).not.toHaveBeenCalled();
+    expect(h.changed).toEqual([]);
+    expect(list.core[0]!.enabled).toBe(false);
+  });
+
+  it('turning one off, or on when its code runs no programs, asks nothing (#2821)', async () => {
+    await call(Channels.PLUGINS_SET_ENABLED, 'python', false);
+    _setCorePluginsForTests([{ manifest: { ...CORE, id: 'kanban', code: { capabilities: ['notes:read'] } }, defaultEnabled: false }]);
+    await call(Channels.PLUGINS_SET_ENABLED, 'kanban', true);
+    expect(h.confirmNative).not.toHaveBeenCalled();
+    expect(h.setCorePluginEnabled).toHaveBeenCalledTimes(2);
   });
 
   it('can\'t be removed or revealed: they have no folder', async () => {
