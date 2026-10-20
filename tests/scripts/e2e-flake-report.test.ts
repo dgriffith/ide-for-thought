@@ -245,6 +245,25 @@ describe('collectAttemptDiagnostics (#2458)', () => {
   });
 });
 
+describe('evaluateFlakeBudget — slow native ready (#2848)', () => {
+  const NOTE = 'Electron took 31.2s to become natively ready (normal: ~1s); sampled at 10.0s, not yet ready: process 1 has 2 child process(es)';
+  const json: PlaywrightReport = {
+    suites: [{ title: 'ocr-offline.spec.ts', specs: [spec('ocr', [{ status: 'passed', retry: 0, annotations: [{ type: 'slow-native-ready', description: NOTE }] }])] }],
+  };
+
+  it('a passing attempt that waited is listed and raised, but is not a flake', () => {
+    const r = evaluateFlakeBudget(json, 1);
+    expect(r.ok).toBe(true);
+    expect(r.flakyCount).toBe(0);
+    expect(r.slowLaunches).toEqual([`ocr-offline.spec.ts › ocr — ${NOTE}`]);
+    expect(r.verdict).toContain("⚠ 1 launch(es) waited for Electron's native ready and passed");
+  });
+
+  it('a clean run reports none', () => {
+    expect(evaluateFlakeBudget(report({ flaky: 0 }), 1).slowLaunches).toEqual([]);
+  });
+});
+
 describe('evaluateFlakeBudget — repaired ready gates (#2595)', () => {
   const NOTE = "Electron was ready but Playwright's ready release never landed; called __playwright_run() after 2.1s";
   const json: PlaywrightReport = {
