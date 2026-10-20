@@ -4,6 +4,7 @@
  */
 
 import { APP_ORIGIN } from './app-protocol-paths';
+import { isPluginFrameUrl, PLUGIN_SCHEME } from '../shared/plugins/frame';
 
 export interface CspOptions {
   /** When set, dev-mode loosenings (Vite origin + ws) are added. */
@@ -81,7 +82,10 @@ export function buildCsp(opts: CspOptions = {}): string {
     // separately, by its `sandbox` attribute (no allow-same-origin) and a
     // `csp` attribute the embedder imposes on it (see HtmlPreview.svelte) —
     // this directive only gates whether the *frame itself* may exist here.
-    'frame-src': ["'self'"],
+    // `minerva-plugin:` for plugin views (#2824): each plugin's frame is on
+    // its own origin, out of process, under a CSP of its own
+    // (`plugins/frame-files.ts`); which ids are served is decided in main.
+    'frame-src': ["'self'", `${PLUGIN_SCHEME}:`],
     // Defense in depth: prevent the renderer from being framed.
     'frame-ancestors': ["'none'"],
     // Anchor `<base href="…">` tag injection can't repoint relative URLs.
@@ -152,4 +156,28 @@ export function externalNavTarget(url: string): { kind: 'external'; url: string 
     return { kind: 'external', url };
   }
   return { kind: 'drop' };
+}
+
+/**
+ * Whether a subframe may navigate to `url`, given the origin of the frame
+ * that started it (`null` when the browser did) — #2824. The main frame is
+ * `isRendererEntry`'s question, not this one.
+ *
+ * - A plugin frame navigates nothing: not itself, not a sibling, not its
+ *   parent. What it shows is what the app loaded into it.
+ * - Only the app's own page may point a frame at a plugin's origin, so a
+ *   note's HTML preview can't embed one.
+ * - Everything else keeps the behaviour it had.
+ */
+export function subframeNavigationAllowed(url: string, initiatorOrigin: string | null, devServerOrigin?: string): boolean {
+  if (initiatorOrigin && isPluginFrameUrl(initiatorOrigin)) return false;
+  if (isPluginFrameUrl(url)) return !!initiatorOrigin && isOwnOrigin(initiatorOrigin, devServerOrigin);
+  return true;
+}
+
+/** Whether a navigation or popup started in a plugin frame (#2824), which
+ *  must never be handed to the OS browser: that would be a network request
+ *  its `connect-src 'none'` exists to refuse. */
+export function startedInPluginFrame(initiatorOrUrl: string | null | undefined): boolean {
+  return !!initiatorOrUrl && isPluginFrameUrl(initiatorOrUrl);
 }

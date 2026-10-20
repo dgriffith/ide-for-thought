@@ -13,8 +13,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 type HeadersCb = (r: { responseHeaders: Record<string, string[] | string> }) => void;
 const cap = vi.hoisted(() => ({
-  onHeaders: null as null | ((details: { responseHeaders: Record<string, string[]> }, cb: HeadersCb) => void),
-  permissionRequest: null as null | ((wc: { getURL(): string | undefined } | null, permission: string, cb: (granted: boolean) => void) => void),
+  onHeaders: null as null | ((details: { url?: string; responseHeaders: Record<string, string[]> }, cb: HeadersCb) => void),
+  permissionRequest: null as null | ((
+    wc: { getURL(): string | undefined } | null,
+    permission: string,
+    cb: (granted: boolean) => void,
+    details: { requestingUrl: string; isMainFrame: boolean },
+  ) => void),
   permissionCheck: null as null | ((wc: unknown, permission: string, origin: string) => boolean),
   openExternal: [] as string[],
   appListeners: new Map<string, (...a: unknown[]) => void>(),
@@ -76,6 +81,17 @@ describe('installCsp (#1001)', () => {
     // Existing headers are preserved, not clobbered.
     expect(out?.responseHeaders['x-existing']).toEqual(['1']);
   });
+
+  it('leaves a plugin frame\'s own CSP alone (#2824) — protocol.handle responses pass through this hook', () => {
+    installCsp();
+    const own = "default-src 'none'; connect-src 'none'; frame-ancestors app://minerva";
+    let out: { responseHeaders?: Record<string, string[] | string> } | undefined;
+    cap.onHeaders!({ url: 'minerva-plugin://hostile/index.html', responseHeaders: { 'Content-Security-Policy': [own] } }, (r) => { out = r; });
+    expect(out).toEqual({}); // no responseHeaders: the plugin response's own stand
+
+    cap.onHeaders!({ url: 'app://minerva/index.html', responseHeaders: {} }, (r) => { out = r; });
+    expect((out?.responseHeaders['Content-Security-Policy'] as string[])[0]).toContain("frame-ancestors 'none'");
+  });
 });
 
 describe('installPermissions (#1001, clipboard grant #2068)', () => {
@@ -85,7 +101,7 @@ describe('installPermissions (#1001, clipboard grant #2068)', () => {
 
     const grant = (url: string | undefined, permission: string) => {
       let granted: boolean | undefined;
-      req({ getURL: () => url }, permission, (g) => { granted = g; });
+      req({ getURL: () => url }, permission, (g) => { granted = g; }, { requestingUrl: url ?? '', isMainFrame: true });
       return granted;
     };
 
@@ -96,6 +112,19 @@ describe('installPermissions (#1001, clipboard grant #2068)', () => {
     expect(grant('app://minerva/index.html', 'geolocation')).toBe(false); // neither media nor clipboard
     expect(grant(undefined, 'media')).toBe(false);                // no URL
     expect(grant('file:///tmp/x.html', 'media')).toBe(false);     // any local file: not us (#2564)
+  });
+
+  it('judges the REQUESTING frame, not the window (#2824): a plugin frame in the main window gets nothing', () => {
+    installPermissions();
+    const mainWindow = { getURL: () => 'app://minerva/index.html' };
+    for (const permission of ['media', 'clipboard-sanitized-write', 'clipboard-read', 'notifications']) {
+      let granted: boolean | undefined;
+      cap.permissionRequest!(mainWindow, permission, (g) => { granted = g; }, {
+        requestingUrl: 'minerva-plugin://hostile/index.html', isMainFrame: false,
+      });
+      expect(granted, permission).toBe(false);
+    }
+    expect(cap.permissionCheck!(null, 'media', 'minerva-plugin://hostile')).toBe(false);
   });
 
   it('check handler mirrors the request handler', () => {
@@ -122,7 +151,7 @@ describe('installNavigationGuards (#1001)', () => {
     return {
       wc,
       windowOpen: (url: string) => openHandler({ url }),
-      willNavigate: (event: { preventDefault(): void }, url: string) =>
+      willNavigate: (event: { preventDefault(): void; initiator?: { origin: string } | null }, url: string) =>
         listeners.get('will-navigate')?.(event, url),
     };
   }
@@ -167,6 +196,24 @@ describe('installNavigationGuards (#1001)', () => {
       h.willNavigate({ preventDefault: () => { prevented = true; } }, url);
       expect(prevented, url).toBe(true);
     }
+    expect(cap.openExternal).toEqual([]);
+  });
+});
+
+describe('installNavigationGuards refuses a plugin frame\'s top navigation (#2824)', () => {
+  it('prevents it and never hands it to the OS browser, even for http(s)', () => {
+    const listeners = new Map<string, (...a: unknown[]) => void>();
+    const wc = {
+      setWindowOpenHandler: () => {},
+      on: (event: string, fn: (...a: unknown[]) => void) => { listeners.set(event, fn); },
+    } as unknown as import('electron').WebContents;
+    installNavigationGuards(wc, 'app://minerva/index.html');
+    let prevented = false;
+    listeners.get('will-navigate')!(
+      { preventDefault: () => { prevented = true; }, initiator: { origin: 'minerva-plugin://hostile' } },
+      'https://example.com/leak?secret=1',
+    );
+    expect(prevented).toBe(true);
     expect(cap.openExternal).toEqual([]);
   });
 });
@@ -221,6 +268,34 @@ describe('deny-by-default guards on every webContents and session (#2559)', () =
     expect(h.fire('will-navigate', 'https://example.com/')).toBe(true);
     expect(h.fire('will-navigate', 'file:///tmp/x.html')).toBe(true);
     expect(h.fire('will-attach-webview')).toBe(true);
+  });
+
+  it('every webContents refuses a plugin frame\'s own navigation, and a non-app page framing a plugin (#2824)', () => {
+    const listeners = new Map<string, Listener[]>();
+    const wc = {
+      session: { id: 'default-ish' },
+      setWindowOpenHandler: () => {},
+      on: (event: string, fn: Listener) => { listeners.set(event, [...(listeners.get(event) ?? []), fn]); },
+    } as unknown as import('electron').WebContents;
+    created(wc);
+    const frameNav = (url: string, initiator: string | null, extra: { isMainFrame?: boolean; isSameDocument?: boolean } = {}) => {
+      let prevented = false;
+      const event = {
+        url, isMainFrame: false, isSameDocument: false, ...extra,
+        initiator: initiator === null ? null : { origin: initiator },
+        preventDefault: () => { prevented = true; },
+      };
+      for (const fn of listeners.get('will-frame-navigate') ?? []) fn(event);
+      return prevented;
+    };
+    const PLUGIN = 'minerva-plugin://hostile';
+    expect(frameNav(`${PLUGIN}/index.html`, 'app://minerva')).toBe(false);      // the app frames it
+    expect(frameNav(`${PLUGIN}/other.html`, PLUGIN)).toBe(true);               // it navigates itself
+    expect(frameNav('https://example.com/', PLUGIN)).toBe(true);               // or anywhere
+    expect(frameNav(`${PLUGIN}/index.html`, 'null')).toBe(true);               // a note's HTML preview frames it
+    expect(frameNav(`${PLUGIN}/index.html`, null)).toBe(true);                 // nobody we know of did
+    expect(frameNav(`${PLUGIN}/index.html#x`, PLUGIN, { isSameDocument: true })).toBe(false); // no new document
+    expect(frameNav('https://example.com/', PLUGIN, { isMainFrame: true })).toBe(false);     // will-navigate's call
   });
 
   it('the main window opts in: its own guard decides, the default stands down', () => {

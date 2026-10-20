@@ -1737,6 +1737,13 @@ origin.
   surface owes.
 - [ ] **Can this IPC end in code running on the machine?** Then main asks
   with its own native dialog (see *Dialogs*), not a renderer confirm.
+- [ ] **Does this frame a plugin, or add a scheme?** A plugin's view runs on
+  `minerva-plugin://<id>/` (#2824): framed with `PLUGIN_FRAME_SANDBOX`, under
+  its own response CSP (`plugins/frame-files.ts`, which also imposes the
+  sandbox), with no preload and no navigation. `protocol.handle` responses
+  DO pass through `installCsp`'s `onHeadersReceived`, and the main window's
+  `window.open` handler can't tell which frame opened a popup — see the
+  origin model doc before relying on either.
 
 ### Code Review Checklist for LLM/Graph PRs
 

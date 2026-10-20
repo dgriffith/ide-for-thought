@@ -35,7 +35,10 @@
  */
 
 import { app, session, shell, type Session, type WebContents } from 'electron';
-import { buildCsp, externalNavTarget, isOwnOrigin, isRendererEntry } from './security-helpers';
+import {
+  buildCsp, externalNavTarget, isOwnOrigin, isRendererEntry, startedInPluginFrame, subframeNavigationAllowed,
+} from './security-helpers';
+import { isPluginFrameUrl } from '../shared/plugins/frame';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
 
@@ -63,12 +66,17 @@ export function rendererCsp(): string {
   return buildCsp({ devServerOrigin: MAIN_WINDOW_VITE_DEV_SERVER_URL });
 }
 
-/** Install the CSP for every response served to the default session. (The
- *  `app://` handler also sets it on its own responses, which don't pass
- *  through webRequest — see app-protocol.ts.) */
+/** Install the CSP for every response served to the default session — except
+ *  a plugin frame's, which carries its own stricter one (#2824). `protocol.handle`
+ *  responses DO pass through this hook: without the exception, a plugin page
+ *  arrived under the app's `frame-ancestors 'none'` and couldn't be framed. */
 export function installCsp(): void {
   const csp = rendererCsp();
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    if (isPluginFrameUrl(details.url)) {
+      callback({}); // no responseHeaders: the response's own stand
+      return;
+    }
     callback({
       responseHeaders: {
         ...details.responseHeaders,
@@ -106,8 +114,12 @@ export function installPermissions(): void {
   const ownOrigin = (url: string | undefined): boolean =>
     !!url && isOwnOrigin(url, MAIN_WINDOW_VITE_DEV_SERVER_URL);
 
-  session.defaultSession.setPermissionRequestHandler((wc, permission, callback) => {
-    if (OWN_ORIGIN_PERMISSIONS.has(permission) && ownOrigin(wc?.getURL())) {
+  // Judged by the REQUESTING frame's URL, not the window's (#2824): a frame
+  // inside the main window reports the main window as `wc`, so `wc.getURL()`
+  // would grant a plugin frame the app's microphone. (Permissions Policy also
+  // blocks undelegated cross-origin frames; this doesn't rely on it.)
+  session.defaultSession.setPermissionRequestHandler((_wc, permission, callback, details) => {
+    if (OWN_ORIGIN_PERMISSIONS.has(permission) && ownOrigin(details.requestingUrl)) {
       callback(true);
       return;
     }
@@ -174,6 +186,15 @@ export function applyDefaultWebContentsGuards(wc: WebContents): void {
   wc.on('will-attach-webview', (event) => {
     event.preventDefault();
   });
+
+  // Subframes (#2824): a plugin frame navigates nothing, and only the app's
+  // own page may point a frame at a plugin. The main frame is will-navigate's.
+  wc.on('will-frame-navigate', (event) => {
+    if (event.isMainFrame || event.isSameDocument) return;
+    if (!subframeNavigationAllowed(event.url, event.initiator?.origin ?? null, MAIN_WINDOW_VITE_DEV_SERVER_URL)) {
+      event.preventDefault();
+    }
+  });
 }
 
 /**
@@ -208,6 +229,9 @@ export function installNavigationGuards(webContents: WebContents, entryUrl: stri
   // Replaces the default-deny window-open handler, and tells the default
   // will-navigate guard to stand down: the listener below decides.
   navigationOptIn.add(webContents);
+  // A plugin frame can't reach this (#2824): its response CSP sandboxes it
+  // without `allow-popups`. This handler can't tell which frame opened a
+  // popup — Electron passes no frame, and the referrer arrived empty.
   webContents.setWindowOpenHandler(({ url }) => {
     const route = externalNavTarget(url);
     if (route.kind === 'external') {
@@ -218,6 +242,12 @@ export function installNavigationGuards(webContents: WebContents, entryUrl: stri
   });
 
   webContents.on('will-navigate', (event, url) => {
+    // A plugin frame taking over the top page is refused, and not diverted
+    // to the OS browser either (#2824).
+    if (startedInPluginFrame(event.initiator?.origin)) {
+      event.preventDefault();
+      return;
+    }
     if (isRendererEntry(url, entryUrl, MAIN_WINDOW_VITE_DEV_SERVER_URL)) return;
     event.preventDefault();
     const route = externalNavTarget(url);
