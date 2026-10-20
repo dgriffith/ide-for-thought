@@ -219,8 +219,8 @@ export async function readPdfMeta(bytes: Uint8Array): Promise<PdfMeta> {
 
   // DOI sometimes shows up in the Custom dictionary — arXiv and a few
   // publishers populate it; cross-reference it into meta.ttl when present.
-  const custom = (rec.Custom as Record<string, unknown> | undefined) ?? undefined;
-  const doi = typeof custom?.DOI === 'string' ? normalizeEmbeddedDoi(custom.DOI) : null;
+  const customDoi = customInfoField(rec.Custom, 'DOI');
+  const doi = typeof customDoi === 'string' ? normalizeEmbeddedDoi(customDoi) : null;
 
   return {
     title: titleRaw || null,
@@ -248,6 +248,17 @@ function splitAuthors(raw: string): string[] {
  * `YYYY-MM-DD` prefix so meta.ttl gets a usable xsd:date; anything we
  * can't parse returns null and the field is omitted.
  */
+/**
+ * One entry of the /Info `Custom` dictionary. unpdf 1.8 hands it over as a
+ * plain object; 1.9's pdf.js hands over a `Map`, on which `custom.DOI` reads
+ * as `undefined` and the DOI was silently dropped. Read either.
+ */
+export function customInfoField(custom: unknown, key: string): unknown {
+  if (custom instanceof Map) return custom.get(key);
+  if (custom !== null && typeof custom === 'object') return (custom as Record<string, unknown>)[key];
+  return undefined;
+}
+
 export function parsePdfDate(raw: string): string | null {
   if (!raw) return null;
   const m = raw.match(/^D?:?(\d{4})(\d{2})?(\d{2})?/);

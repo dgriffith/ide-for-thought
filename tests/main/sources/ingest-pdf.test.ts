@@ -11,6 +11,7 @@ import {
   buildBodyMarkdown,
   buildMetaTtl,
   parsePdfDate,
+  customInfoField,
 } from '../../../src/main/sources/ingest-pdf';
 
 function mkTempProject(): string {
@@ -153,6 +154,24 @@ describe('readPdfMeta', () => {
     expect(meta.title).toBeTruthy();
     expect(meta.creators.length).toBeGreaterThan(1);
     expect(meta.doi).toBe('10.48550/arxiv.2604.18522');
+  });
+});
+
+describe('customInfoField', () => {
+  // unpdf 1.8 gives /Info Custom as a plain object, 1.9 as a Map; a DOI read
+  // off only one shape vanished silently on the bump (#2841).
+  it('reads an entry from either shape unpdf has handed over', () => {
+    const doi = 'https://doi.org/10.48550/arXiv.2604.18522';
+    expect(customInfoField({ DOI: doi }, 'DOI')).toBe(doi);
+    expect(customInfoField(new Map([['DOI', doi]]), 'DOI')).toBe(doi);
+  });
+
+  it('is undefined for a missing entry or no dictionary', () => {
+    expect(customInfoField(new Map(), 'DOI')).toBeUndefined();
+    expect(customInfoField({}, 'DOI')).toBeUndefined();
+    expect(customInfoField(undefined, 'DOI')).toBeUndefined();
+    expect(customInfoField(null, 'DOI')).toBeUndefined();
+    expect(customInfoField('DOI', 'DOI')).toBeUndefined();
   });
 });
 
