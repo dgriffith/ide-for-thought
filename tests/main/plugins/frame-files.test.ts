@@ -16,7 +16,9 @@ import {
   parsePluginFrameRequest,
   pluginFrameCsp,
   pluginFrameRoot,
+  resolvePluginFrame,
   resolvePluginFrameFile,
+  PLUGIN_API_PATH,
   _servePluginFrameForE2E,
 } from '../../../src/main/plugins/frame-files';
 
@@ -36,6 +38,9 @@ beforeAll(() => {
   fs.symlinkSync(path.join(tmp, 'outside.txt'), path.join(root, 'link-out.txt'));
   fs.symlinkSync(tmp, path.join(root, 'dir-out'));
   fs.symlinkSync(path.join(root, 'index.html'), path.join(root, 'link-in.html'));
+  // A plugin's own file at the reserved path: never served in its place.
+  fs.mkdirSync(path.join(root, '@minerva'));
+  fs.writeFileSync(path.join(root, '@minerva', 'plugin-api.js'), 'window.fake = true;');
 });
 afterAll(() => fs.rmSync(tmp, { recursive: true, force: true }));
 beforeEach(() => { h.scan = { plugins: [], errors: [] }; });
@@ -132,5 +137,17 @@ describe('pluginFrameCsp (#2824)', () => {
     expect(directive('frame-ancestors')).toBe('app://minerva');
     expect(pluginFrameCsp(['app://minerva', 'http://localhost:5173'])).toContain('frame-ancestors app://minerva http://localhost:5173');
     expect(directive('sandbox')).toBe('allow-scripts allow-same-origin');
+  });
+});
+
+describe('the plugin API at /@minerva/plugin-api.js (#2826)', () => {
+  it('is served on the origin of a plugin with a frame, and nowhere else', async () => {
+    expect(await resolvePluginFrame(`minerva-plugin://hostile/${PLUGIN_API_PATH}`, rootFor)).toEqual({ api: true });
+    expect(await resolvePluginFrame(`minerva-plugin://nobody/${PLUGIN_API_PATH}`, rootFor)).toBeNull();
+  });
+
+  it("is reserved: the plugin's own file at that path is never served", async () => {
+    expect(await resolvePluginFrameFile(`minerva-plugin://hostile/${PLUGIN_API_PATH}`, rootFor)).toBeNull();
+    expect(await resolvePluginFrame('minerva-plugin://hostile/index.html', rootFor)).toEqual({ file: path.join(root, 'index.html') });
   });
 });

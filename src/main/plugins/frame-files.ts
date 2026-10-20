@@ -65,13 +65,30 @@ export function parsePluginFrameRequest(requestUrl: string): { id: string; rel: 
 }
 
 /**
+ * The plugin API (#2826), served on every plugin frame's own origin so a
+ * plugin imports `/@minerva/plugin-api.js` and always gets the version of the
+ * Minerva running it. Reserved: a plugin's own file at this path is never
+ * served.
+ */
+export const PLUGIN_API_PATH = '@minerva/plugin-api.js';
+
+/** What a request is: the plugin API, a file in the folder, or nothing (a 404). */
+export async function resolvePluginFrame(requestUrl: string, rootFor: PluginFrameRootLookup): Promise<{ api: true } | { file: string } | null> {
+  const req = parsePluginFrameRequest(requestUrl);
+  if (!req) return null;
+  if (req.rel === PLUGIN_API_PATH) return (await rootFor(req.id)) ? { api: true } : null;
+  const file = await resolvePluginFrameFile(requestUrl, rootFor);
+  return file ? { file } : null;
+}
+
+/**
  * The file to serve for `requestUrl`, or null for a 404. The containment
  * check is on REAL paths, so a link inside the folder that points out of it
  * is refused, the same rule the plugin check applies at install (#2632).
  */
 export async function resolvePluginFrameFile(requestUrl: string, rootFor: PluginFrameRootLookup): Promise<string | null> {
   const req = parsePluginFrameRequest(requestUrl);
-  if (!req) return null;
+  if (!req || req.rel === PLUGIN_API_PATH) return null;
   const root = await rootFor(req.id);
   if (!root) return null;
   let realRoot: string;

@@ -158,6 +158,10 @@ app is a fork with its own version numbers.
   `"requires": ["<slug>:<point>"]`. Upstream refuses a plugin requiring an
   extension it doesn't have, naming it, the same fail-closed rule as an
   unknown contribution point.
+- **Plugin code's API has its own version** (#2826): `PLUGIN_API_VERSION`,
+  which a plugin's `code.api` range is checked against. A fork's added
+  methods are named `<slug>:<method>`, matching its `pluginApiExtensions`
+  entries, and stay out of upstream's ABI snapshot (`plugin-api/abi.json`).
 - `minerva plugin check` takes the version to check against from the build
   running it, so a fork's CLI checks plugins against the fork.
 

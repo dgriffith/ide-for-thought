@@ -93,8 +93,8 @@ describe('the code section (#2823)', () => {
   const CORE = { ...CTX, core: true };
 
   it('a built-in plugin declares what its code does, from the closed list', () => {
-    const r = validatePluginManifest({ ...GOOD, code: { capabilities: ['process', 'notes:read'] } }, CORE);
-    expect(r).toEqual({ ok: true, manifest: { ...GOOD, code: { capabilities: ['process', 'notes:read'] } } });
+    const r = validatePluginManifest({ ...GOOD, code: { capabilities: ['process', 'notes:read'], api: '^1.0.0' } }, CORE);
+    expect(r).toEqual({ ok: true, manifest: { ...GOOD, code: { capabilities: ['process', 'notes:read'], api: '^1.0.0' } } });
   });
 
   it('an installed plugin can\'t have one yet, and is pointed at MCP', () => {
@@ -104,12 +104,34 @@ describe('the code section (#2823)', () => {
   });
 
   it('fails closed: an unknown capability, a repeat, an unknown key, or nothing listed', () => {
-    expect(problemsOf({ ...GOOD, code: { capabilities: ['network', 'ui', 'ui'], view: 'view.js' } }, CORE)).toEqual([
+    expect(problemsOf({ ...GOOD, code: { capabilities: ['network', 'ui', 'ui'], view: 'view.js', api: '^1.0.0' } }, CORE)).toEqual([
       'Unknown field "code.view".',
       '"code.capabilities" names "network", which isn\'t a capability; they are notes:read, graph:query, ui, notes:write-properties, notes:write, llm:propose, process.',
       '"code.capabilities" lists "ui" twice.',
     ]);
     expect(problemsOf({ ...GOOD, code: { capabilities: [] } }, CORE)).toEqual(['"code.capabilities" must be a non-empty list of what the code does.']);
     expect(problemsOf({ ...GOOD, code: 'yes' }, CORE)).toEqual(['"code" must be an object.']);
+  });
+});
+
+describe('code.api: the plugin API versions the code was written for (#2826)', () => {
+  const CORE = { ...CTX, core: true };
+
+  it('is required when the code uses the API, and not for a program alone', () => {
+    expect(problemsOf({ ...GOOD, code: { capabilities: ['notes:read'] } }, CORE)).toEqual([
+      '"code.api" must say which plugin API versions the code was written for, like "^1.0.0".',
+    ]);
+    expect(problemsOf({ ...GOOD, code: { capabilities: ['process'] } }, CORE)).toEqual([]);
+  });
+
+  it('is a semver range, checked against the plugin API — never the app version', () => {
+    expect(problemsOf({ ...GOOD, code: { capabilities: ['ui'], api: 'latest' } }, CORE)).toEqual([
+      '"code.api" must be a semver range like "^1.0.0"; got "latest".',
+    ]);
+    expect(problemsOf({ ...GOOD, code: { capabilities: ['ui'], api: '^2.0.0' } }, CORE)).toEqual([
+      '"code.api" asks for plugin API ^2.0.0; this Minerva has 1.0.0.',
+    ]);
+    // The app is 4.x in CTX; a plugin written for API 1 still loads.
+    expect(problemsOf({ ...GOOD, code: { capabilities: ['ui'], api: '>=1.0.0 <2' } }, CORE)).toEqual([]);
   });
 });

@@ -28,7 +28,7 @@ what to do about it. `architecture-ratchets-doc.test.ts` keeps the two sides in
 step — a new test in `tests/architecture/` with no entry here fails, and an
 entry here naming a test that no longer exists fails too (#2262).
 
-Written up as of 2026-10-13, 53 tests.
+Written up as of 2026-10-13, 54 tests.
 
 ---
 
@@ -100,6 +100,21 @@ allocate a slot (`store.get(ctx)?.x ?? []`, not create-on-demand), and check
 detaches state deliberately.
 
 ---
+
+### `plugin-api-abi.test.ts`
+
+**The plugin API package is exactly what `src/shared/plugins/api.ts` makes**
+(#2826). `plugin-api/` — the runtime served to plugin frames at
+`/@minerva/plugin-api.js`, its `.d.ts`, and `abi.json` — is generated from the
+table the broker enforces, so the package plugins import can't drift from
+what the host checks. It also fails when api.ts is malformed (a method that is
+neither `<area>.<name>` nor a fork's `<slug>:<name>`, or one missing its
+params or result), when the snapshot's version isn't `PLUGIN_API_VERSION`, or
+when `plugin-protocol.ts` stops serving the generated file. **When it fires:**
+run `node scripts/build-plugin-api.mjs` and read the diff. The script refuses
+a breaking change without a major bump and an addition without a minor one
+(those rules are tested in `tests/scripts/plugin-api-gen.test.ts`); bump the
+version in api.ts, don't edit the generated files.
 
 ## Renderer data flow and UI
 

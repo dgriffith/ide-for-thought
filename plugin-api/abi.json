@@ -1,0 +1,249 @@
+{
+  "version": "1.0.0",
+  "errorCodes": [
+    "bad-request",
+    "busy",
+    "capability",
+    "failed",
+    "scope",
+    "too-large",
+    "unavailable",
+    "unknown-method"
+  ],
+  "methods": {
+    "graph.query": {
+      "capability": "graph:query",
+      "params": {
+        "members": [
+          {
+            "name": "sparql",
+            "optional": false,
+            "type": "string"
+          }
+        ]
+      },
+      "result": {
+        "members": [
+          {
+            "name": "columns",
+            "optional": false,
+            "type": "string[]"
+          },
+          {
+            "name": "rows",
+            "optional": false,
+            "type": "unknown[]"
+          },
+          {
+            "name": "truncated",
+            "optional": false,
+            "type": "boolean"
+          }
+        ]
+      }
+    },
+    "llm.propose": {
+      "capability": "llm:propose",
+      "params": {
+        "text": "Record<string, unknown>"
+      },
+      "result": {
+        "text": "never"
+      }
+    },
+    "notes.create": {
+      "capability": "notes:write",
+      "params": {
+        "members": [
+          {
+            "name": "content",
+            "optional": false,
+            "type": "string"
+          },
+          {
+            "name": "path",
+            "optional": false,
+            "type": "string"
+          }
+        ]
+      },
+      "result": {
+        "members": [
+          {
+            "name": "path",
+            "optional": false,
+            "type": "string"
+          }
+        ]
+      }
+    },
+    "notes.list": {
+      "capability": "notes:read",
+      "params": {
+        "text": "Record<string, never>"
+      },
+      "result": {
+        "members": [
+          {
+            "name": "paths",
+            "optional": false,
+            "type": "string[]"
+          }
+        ]
+      }
+    },
+    "notes.read": {
+      "capability": "notes:read",
+      "params": {
+        "members": [
+          {
+            "name": "path",
+            "optional": false,
+            "type": "string"
+          }
+        ]
+      },
+      "result": {
+        "members": [
+          {
+            "name": "content",
+            "optional": false,
+            "type": "string"
+          },
+          {
+            "name": "path",
+            "optional": false,
+            "type": "string"
+          },
+          {
+            "name": "properties",
+            "optional": false,
+            "type": "Record<string, unknown>"
+          }
+        ]
+      }
+    },
+    "notes.setProperties": {
+      "capability": "notes:write-properties",
+      "params": {
+        "members": [
+          {
+            "name": "path",
+            "optional": false,
+            "type": "string"
+          },
+          {
+            "name": "properties",
+            "optional": false,
+            "type": "Record<string, unknown>"
+          }
+        ]
+      },
+      "result": {
+        "members": [
+          {
+            "name": "changed",
+            "optional": false,
+            "type": "string[]"
+          }
+        ]
+      }
+    },
+    "notes.write": {
+      "capability": "notes:write",
+      "params": {
+        "members": [
+          {
+            "name": "content",
+            "optional": false,
+            "type": "string"
+          },
+          {
+            "name": "path",
+            "optional": false,
+            "type": "string"
+          }
+        ]
+      },
+      "result": {
+        "text": "Record<string, never>"
+      }
+    },
+    "tables.query": {
+      "capability": "graph:query",
+      "params": {
+        "members": [
+          {
+            "name": "sql",
+            "optional": false,
+            "type": "string"
+          }
+        ]
+      },
+      "result": {
+        "members": [
+          {
+            "name": "columns",
+            "optional": false,
+            "type": "string[]"
+          },
+          {
+            "name": "rows",
+            "optional": false,
+            "type": "Record<string, unknown>[]"
+          },
+          {
+            "name": "truncated",
+            "optional": false,
+            "type": "boolean"
+          }
+        ]
+      }
+    },
+    "ui.announce": {
+      "capability": "ui",
+      "params": {
+        "members": [
+          {
+            "name": "text",
+            "optional": false,
+            "type": "string"
+          }
+        ]
+      },
+      "result": {
+        "text": "Record<string, never>"
+      }
+    },
+    "ui.copyText": {
+      "capability": "ui",
+      "params": {
+        "members": [
+          {
+            "name": "text",
+            "optional": false,
+            "type": "string"
+          }
+        ]
+      },
+      "result": {
+        "text": "Record<string, never>"
+      }
+    },
+    "ui.openNote": {
+      "capability": "ui",
+      "params": {
+        "members": [
+          {
+            "name": "path",
+            "optional": false,
+            "type": "string"
+          }
+        ]
+      },
+      "result": {
+        "text": "Record<string, never>"
+      }
+    }
+  }
+}

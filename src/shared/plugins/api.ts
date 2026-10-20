@@ -11,16 +11,24 @@
  * Every method names the ONE capability it needs. The broker
  * (`main/plugins/broker.ts`) refuses a call whose capability the plugin didn't
  * declare, naming it. This table is the single source the broker checks
- * against, and what the typed package and ABI snapshot are built from (#2826),
- * so the two can't drift.
+ * against, and what the typed package and ABI snapshot in `plugin-api/` are
+ * generated from (#2826), so the two can't drift: after changing anything
+ * here, run `node scripts/build-plugin-api.mjs`. A breaking change needs a
+ * major bump of {@link PLUGIN_API_VERSION}, an addition a minor one.
+ *
+ * Core methods are `<area>.<name>`. A fork's are `<slug>:<name>` (its
+ * `pluginApiExtensions`, docs/forking.md), outside the ABI snapshot.
  *
  * Text, not structured clone, on purpose: a size limit means something, and a
  * plugin can't transfer a port, a blob or a cyclic object into main.
  */
 import type { PluginCapability } from './capabilities';
 
-/** The API's version, which the host announces when it hands over the port. */
-export const PLUGIN_API_VERSION = 1;
+/**
+ * The API's semver version (#2826), its own and not the app's: the host sends
+ * it with the port, and a plugin's `code.api` range must accept it.
+ */
+export const PLUGIN_API_VERSION = '1.0.0';
 
 export const PLUGIN_METHODS = {
   'notes.list': { capability: 'notes:read', describes: 'The notes this view or call was given.' },

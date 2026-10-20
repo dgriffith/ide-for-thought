@@ -8,14 +8,27 @@
 import { protocol } from 'electron';
 import { PLUGIN_SCHEME } from '../shared/plugins/frame';
 import { fileResponse } from './app-protocol';
-import { pluginFrameCsp, pluginFrameRoot, resolvePluginFrameFile, type PluginFrameRootLookup } from './plugins/frame-files';
+import { pluginFrameCsp, pluginFrameRoot, resolvePluginFrame, type PluginFrameRootLookup } from './plugins/frame-files';
+// The plugin API runtime, generated from shared/plugins/api.ts (#2826) and
+// inlined at build time.
+import PLUGIN_API_JS from '../../plugin-api/index.js?raw';
 
 /** Install the handler. `embedderOrigins` are who may frame a plugin: the app's origin (and the dev server's). */
 export function installPluginProtocol(embedderOrigins: readonly string[], rootFor: PluginFrameRootLookup = pluginFrameRoot): void {
   const csp = pluginFrameCsp(embedderOrigins);
   protocol.handle(PLUGIN_SCHEME, async (request) => {
-    const file = await resolvePluginFrameFile(request.url, rootFor);
-    if (!file) return new Response('Not found', { status: 404, headers: { 'Content-Security-Policy': csp } });
-    return fileResponse(file, csp);
+    const found = await resolvePluginFrame(request.url, rootFor);
+    if (!found) return new Response('Not found', { status: 404, headers: { 'Content-Security-Policy': csp } });
+    if ('api' in found) {
+      return new Response(PLUGIN_API_JS, {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/javascript; charset=utf-8',
+          'Content-Security-Policy': csp,
+          'X-Content-Type-Options': 'nosniff',
+        },
+      });
+    }
+    return fileResponse(found.file, csp);
   });
 }

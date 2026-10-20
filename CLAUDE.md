@@ -1262,7 +1262,7 @@ untested ones sit in a `KNOWN_UNTESTED` list that may only shrink.
 
 ### The architecture ratchets are inventoried in `docs/architecture-ratchets.md` (#2262)
 
-`tests/architecture/` holds **53** tests that check the shape of the codebase
+`tests/architecture/` holds **54** tests that check the shape of the codebase
 rather than the behavior of any feature — the package-cycle check, the file-size
 budgets, the anti-pattern ratchets, the dialog-adoption ratchet, the two
 temp-project-fixture ratchets, the CI-workflow checks, and so on. Most of them
@@ -1750,6 +1750,14 @@ origin.
   anything runs, and every write is history origin `plugin`. A new method
   goes in the table, never as a side channel; none reaches the approval
   engine (`broker.test.ts` pins it), and `llm.propose` waits on #2858.
+  **The table is an ABI (#2826):** `plugin-api/` (the runtime Minerva serves
+  at `/@minerva/plugin-api.js` in every plugin frame, its `.d.ts`, and
+  `abi.json`) is generated from it — after changing `api.ts`, run
+  `node scripts/build-plugin-api.mjs`, which refuses a breaking change
+  without a major bump of `PLUGIN_API_VERSION` (its own semver, not the
+  app's) and an addition without a minor one. A plugin declares the range it
+  needs as `code.api`. A fork's methods are `<slug>:<name>`, outside the
+  snapshot.
 
 ### Code Review Checklist for LLM/Graph PRs
 
