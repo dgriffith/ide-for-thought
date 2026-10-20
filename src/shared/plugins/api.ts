@@ -28,7 +28,7 @@ import type { PluginCapability } from './capabilities';
  * The API's semver version (#2826), its own and not the app's: the host sends
  * it with the port, and a plugin's `code.api` range must accept it.
  */
-export const PLUGIN_API_VERSION = '1.0.0';
+export const PLUGIN_API_VERSION = '1.1.0';
 
 export const PLUGIN_METHODS = {
   'notes.list': { capability: 'notes:read', describes: 'The notes this view or call was given.' },
@@ -41,6 +41,10 @@ export const PLUGIN_METHODS = {
   'ui.openNote': { capability: 'ui', describes: 'Open a note it was given.' },
   'ui.announce': { capability: 'ui', describes: 'Make an announcement for screen readers.' },
   'ui.copyText': { capability: 'ui', describes: 'Copy text to the clipboard.' },
+  'ui.revealNote': { capability: 'ui', describes: 'Reveal a note it was given in the sidebar.' },
+  'ui.showMenu': { capability: 'ui', describes: 'Show a context menu at the pointer, drawn by Minerva; answers the chosen item.' },
+  'ui.releaseFocus': { capability: 'ui', describes: 'Give keyboard focus back to Minerva (what Escape does by default).' },
+  'ui.forwardKey': { capability: 'ui', describes: "Pass on a shortcut the view didn't handle; Minerva runs it if it is one a plugin view may." },
   'llm.propose': { capability: 'llm:propose', describes: 'Ask the assistant for changes. Not available yet (#2858).' },
 } as const satisfies Record<string, { capability: PluginCapability; describes: string }>;
 
@@ -62,8 +66,15 @@ export interface PluginMethodParams {
   'ui.openNote': { path: string };
   'ui.announce': { text: string };
   'ui.copyText': { text: string };
+  'ui.revealNote': { path: string };
+  'ui.showMenu': { items: PluginMenuItem[] };
+  'ui.releaseFocus': Record<string, never>;
+  'ui.forwardKey': { key: string; meta?: boolean; ctrl?: boolean; alt?: boolean; shift?: boolean };
   'llm.propose': Record<string, unknown>;
 }
+
+/** One row of a plugin's context menu: an item it can be answered with, or a separator. */
+export type PluginMenuItem = { id: string; label: string; enabled?: boolean } | { separator: true };
 
 /** What each method answers. */
 export interface PluginMethodResults {
@@ -77,8 +88,33 @@ export interface PluginMethodResults {
   'ui.openNote': Record<string, never>;
   'ui.announce': Record<string, never>;
   'ui.copyText': Record<string, never>;
+  'ui.revealNote': Record<string, never>;
+  'ui.showMenu': { id: string | null };
+  'ui.releaseFocus': Record<string, never>;
+  'ui.forwardKey': Record<string, never>;
   'llm.propose': never;
 }
+
+/**
+ * What Minerva tells a plugin without being asked (#2827): an event message
+ * `{ "event": "<name>", "data": … }` on the same port. The runtime's
+ * `minerva.on(name, fn)` delivers them.
+ * - `theme`: the app's theme tokens, sent on connect and on every change; the
+ *   runtime sets them on the frame's `:root` unless told not to.
+ * - `drop`: the user dropped notes on the view. A drop is the user's gesture,
+ *   so the notes join the session's scope before the event is sent; `x`/`y`
+ *   are in the frame's own coordinates.
+ */
+export interface PluginEvents {
+  theme: { mode: string; vars: Record<string, string> };
+  drop: { paths: string[]; x: number; y: number };
+}
+
+export type PluginEventName = keyof PluginEvents;
+
+/** A context menu's limits. */
+export const PLUGIN_MENU_MAX_ITEMS = 50;
+export const PLUGIN_MENU_MAX_LABEL = 120;
 
 /**
  * Why a call failed. A plugin branches on these, so they are part of the API:

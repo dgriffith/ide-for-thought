@@ -20,6 +20,8 @@ const h = vi.hoisted(() => ({
   roots: new Map<number, string>(),
   written: [] as Array<{ rel: string; source: unknown }>,
   copied: [] as string[],
+  menus: [] as string[][],
+  pick: null as string | null,
 }));
 
 vi.mock('electron', () => ({
@@ -29,6 +31,15 @@ vi.mock('electron', () => ({
     constructor() { this.port1.other = this.port2; this.port2.other = this.port1; }
   },
   clipboard: { writeText: (t: string) => { h.copied.push(t); } },
+  Menu: {
+    buildFromTemplate: (template: Array<{ label?: string; click?: () => void; type?: string; enabled?: boolean }>) => ({
+      popup: ({ callback }: { callback: () => void }) => {
+        h.menus.push(template.map((t) => (t.type === 'separator' ? '---' : `${t.label}${t.enabled === false ? ' (off)' : ''}`)));
+        template.find((t) => t.label === h.pick)?.click?.();
+        callback();
+      },
+    }),
+  },
   BrowserWindow: class {},
 }));
 vi.mock('../../src/main/plugins/code-plugins', () => ({ codePluginIdentity: () => h.identity }));
@@ -50,12 +61,14 @@ vi.mock('../../src/main/sources/tables', () => ({ runPluginQuery: async () => ({
 vi.mock('../../src/main/project-context-types', () => ({ projectContext: (root: string) => ({ rootPath: root }) }));
 vi.mock('../../src/main/path-containment', () => ({
   agentPathRefusal: (_root: string, rel: string) => (rel.startsWith('.minerva') ? 'hidden' : null),
+  lexicalAgentPathRefusal: (rel: string) => (rel.startsWith('.minerva') ? 'hidden' : null),
 }));
 
 import {
   closePluginSession,
   closeStalePluginSessions,
   openPluginSession,
+  sendPluginSessionEvent,
   setPluginSessionScope,
   _pluginSessionCountForTests,
 } from '../../src/main/plugin-sessions';
@@ -185,6 +198,60 @@ describe('a session belongs to its window (#2825)', () => {
     expect((await call('notes.list')).result).toEqual({ paths: ['b.md'] });
     closePluginSession(w.win, sessionId);
     expect(w.posted[0]!.ports[0]!.closed).toBe(true);
+    w.closeWindow();
+  });
+});
+
+describe('the ui kit, wired (#2827)', () => {
+  it('draws the plugin\'s menu natively and answers the clicked item, or null when dismissed', async () => {
+    const w = fakeWindow(1);
+    openPluginSession(w.win, 'board', []);
+    const call = pluginEnd(w.posted[0]!.ports[0]!);
+    const items = [{ id: 'done', label: 'Move to Done' }, { separator: true }, { id: 'open', label: 'Open', enabled: false }];
+    h.pick = 'Move to Done';
+    expect((await call('ui.showMenu', { items })).result).toEqual({ id: 'done' });
+    h.pick = null;
+    expect((await call('ui.showMenu', { items })).result).toEqual({ id: null });
+    expect(h.menus[0]).toEqual(['Move to Done', '---', 'Open (off)']);
+    w.closeWindow();
+  });
+
+  it('passes only the theme tokens on, as short strings', async () => {
+    const w = fakeWindow(1);
+    const { sessionId } = openPluginSession(w.win, 'board', []);
+    const port = w.posted[0]!.ports[0]!;
+    const got: unknown[] = [];
+    port.on('message', (e: { data: string }) => got.push(JSON.parse(e.data)));
+    sendPluginSessionEvent(w.win, sessionId, {
+      kind: 'theme', mode: 'contrast',
+      vars: { '--bg': '#000', '--font-sans': 'Inter, sans-serif', '--evil': 'x', '--text': 'y'.repeat(201) },
+    });
+    await vi.waitFor(() => expect(got).toHaveLength(1));
+    expect(got[0]).toEqual({ event: 'theme', data: { mode: 'contrast', vars: { '--bg': '#000', '--font-sans': 'Inter, sans-serif' } } });
+    w.closeWindow();
+  });
+
+  it('a drop joins the scope first, so the plugin can read what it was handed', async () => {
+    const w = fakeWindow(1);
+    const { sessionId } = openPluginSession(w.win, 'board', []);
+    const port = w.posted[0]!.ports[0]!;
+    const events: unknown[] = [];
+    port.on('message', (e: { data: string }) => { const m = JSON.parse(e.data); if (m.event) events.push(m); });
+    const call = pluginEnd(port);
+    sendPluginSessionEvent(w.win, sessionId, { kind: 'drop', paths: ['b.md', '.minerva/secrets.json'], x: 10, y: 20 });
+    await vi.waitFor(() => expect(events).toHaveLength(1));
+    expect(events[0]).toEqual({ event: 'drop', data: { paths: ['b.md'], x: 10, y: 20 } });
+    expect((await call('notes.list')).result).toEqual({ paths: ['b.md'] });
+    // A drop of nothing it may have sends nothing.
+    sendPluginSessionEvent(w.win, sessionId, { kind: 'drop', paths: ['.minerva/config.json'], x: 0, y: 0 });
+    expect(events).toHaveLength(1);
+    w.closeWindow();
+  });
+
+  it('another window cannot send events to a session', () => {
+    const w = fakeWindow(1);
+    const { sessionId } = openPluginSession(w.win, 'board', []);
+    expect(() => sendPluginSessionEvent(fakeWindow(2).win, sessionId, { kind: 'drop', paths: ['a.md'], x: 0, y: 0 })).toThrow('No such plugin session');
     w.closeWindow();
   });
 });

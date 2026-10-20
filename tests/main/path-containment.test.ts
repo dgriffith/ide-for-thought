@@ -6,7 +6,7 @@
  * `assertBareId` — at the unit level; its tool-level proof is
  * `tests/main/llm/prompt-injection/agent-paths.test.ts`.
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, afterAll } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -17,8 +17,7 @@ import {
   agentPathRefusal,
   assertAgentPath,
   assertBareId,
-  AgentPathRefusedError,
-} from '../../src/main/path-containment';
+  AgentPathRefusedError, lexicalAgentPathRefusal } from '../../src/main/path-containment';
 import { listFiles } from '../../src/main/notebase/fs';
 
 let base: string;
@@ -207,5 +206,28 @@ describe('assertBareId', () => {
   });
   it.each(['', '.', '..', '../conversations', 'a/b', 'a\\b', 'x..y', 'a\0b'])('%j is refused', (id) => {
     expect(() => assertBareId(id, 'source_id')).toThrow(/Invalid source_id/);
+  });
+});
+
+describe('lexicalAgentPathRefusal (#2827)', () => {
+  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-lexical-')));
+  afterAll(() => fs.rmSync(root, { recursive: true, force: true }));
+
+  it.each([
+    '.minerva/secrets.json', 'notes/.git/config', 'node_modules/x.md', '.MINERVA/config.json',
+    '../outside.md', 'notes/../../outside.md', '/etc/hosts', '.', 'notes/..',
+  ])('refuses %s as the full check does, without the file system', (rel) => {
+    expect(lexicalAgentPathRefusal(rel)).not.toBeNull();
+    expect(lexicalAgentPathRefusal(rel)).toBe(agentPathRefusal(root, rel));
+  });
+
+  it('refuses a backslash escape and a NUL by spelling', () => {
+    expect(lexicalAgentPathRefusal('..\\outside.md')).not.toBeNull();
+    expect(lexicalAgentPathRefusal('a\0.md')).toBe('outside');
+  });
+
+  it('allows an ordinary note — the full check still runs when it is used', () => {
+    expect(lexicalAgentPathRefusal('notes/a.md')).toBeNull();
+    expect(lexicalAgentPathRefusal('./notes/a b.md')).toBeNull();
   });
 });

@@ -671,6 +671,15 @@ export default defineConfig({
           statements: 92,
           branches: 88,
         },
+        // plugin-sessions.ts 94 L / 88 F / 92 S / 82 B (#2825, #2827). The
+        // composition root for plugin sessions: where a plugin's port, its
+        // writes and its host events reach the app — a trust boundary.
+        'src/main/plugin-sessions.ts': {
+          lines: 85,
+          functions: 78,
+          statements: 83,
+          branches: 72,
+        },
         // path-containment.ts ~95 L / 100 F / 94 S / 93 B (#2398). The
         // thoughtbase containment guard (moved out of notebase/fs.ts so the
         // graph/search/embeddings walkers can share it) — a trust boundary,

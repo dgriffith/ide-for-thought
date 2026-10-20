@@ -5,6 +5,7 @@
  * closed on unknown fields and on points plugins can't contribute to yet.
  */
 import { describe, it, expect } from 'vitest';
+import { PLUGIN_API_VERSION } from '../../../src/shared/plugins/api';
 import { validatePluginManifest, PLUGIN_ID } from '../../../src/main/plugins/manifest';
 import { PLUGIN_CONTRIBUTION_POINTS } from '../../../src/shared/plugins/format';
 import { EXTENSION_POINTS } from '../../../src/shared/extensions/points';
@@ -119,17 +120,17 @@ describe('code.api: the plugin API versions the code was written for (#2826)', (
 
   it('is required when the code uses the API, and not for a program alone', () => {
     expect(problemsOf({ ...GOOD, code: { capabilities: ['notes:read'] } }, CORE)).toEqual([
-      '"code.api" must say which plugin API versions the code was written for, like "^1.0.0".',
+      `"code.api" must say which plugin API versions the code was written for, like "^${PLUGIN_API_VERSION}".`,
     ]);
     expect(problemsOf({ ...GOOD, code: { capabilities: ['process'] } }, CORE)).toEqual([]);
   });
 
   it('is a semver range, checked against the plugin API — never the app version', () => {
     expect(problemsOf({ ...GOOD, code: { capabilities: ['ui'], api: 'latest' } }, CORE)).toEqual([
-      '"code.api" must be a semver range like "^1.0.0"; got "latest".',
+      `"code.api" must be a semver range like "^${PLUGIN_API_VERSION}"; got "latest".`,
     ]);
     expect(problemsOf({ ...GOOD, code: { capabilities: ['ui'], api: '^2.0.0' } }, CORE)).toEqual([
-      '"code.api" asks for plugin API ^2.0.0; this Minerva has 1.0.0.',
+      `"code.api" asks for plugin API ^2.0.0; this Minerva has ${PLUGIN_API_VERSION}.`,
     ]);
     // The app is 4.x in CTX; a plugin written for API 1 still loads.
     expect(problemsOf({ ...GOOD, code: { capabilities: ['ui'], api: '>=1.0.0 <2' } }, CORE)).toEqual([]);

@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "1.1.0",
   "errorCodes": [
     "bad-request",
     "busy",
@@ -10,6 +10,44 @@
     "unavailable",
     "unknown-method"
   ],
+  "types": {
+    "PluginMenuItem": "{ id: string; label: string; enabled?: boolean } | { separator: true }"
+  },
+  "events": {
+    "drop": {
+      "members": [
+        {
+          "name": "paths",
+          "optional": false,
+          "type": "string[]"
+        },
+        {
+          "name": "x",
+          "optional": false,
+          "type": "number"
+        },
+        {
+          "name": "y",
+          "optional": false,
+          "type": "number"
+        }
+      ]
+    },
+    "theme": {
+      "members": [
+        {
+          "name": "mode",
+          "optional": false,
+          "type": "string"
+        },
+        {
+          "name": "vars",
+          "optional": false,
+          "type": "Record<string, string>"
+        }
+      ]
+    }
+  },
   "methods": {
     "graph.query": {
       "capability": "graph:query",
@@ -230,6 +268,41 @@
         "text": "Record<string, never>"
       }
     },
+    "ui.forwardKey": {
+      "capability": "ui",
+      "params": {
+        "members": [
+          {
+            "name": "alt",
+            "optional": true,
+            "type": "boolean"
+          },
+          {
+            "name": "ctrl",
+            "optional": true,
+            "type": "boolean"
+          },
+          {
+            "name": "key",
+            "optional": false,
+            "type": "string"
+          },
+          {
+            "name": "meta",
+            "optional": true,
+            "type": "boolean"
+          },
+          {
+            "name": "shift",
+            "optional": true,
+            "type": "boolean"
+          }
+        ]
+      },
+      "result": {
+        "text": "Record<string, never>"
+      }
+    },
     "ui.openNote": {
       "capability": "ui",
       "params": {
@@ -243,6 +316,51 @@
       },
       "result": {
         "text": "Record<string, never>"
+      }
+    },
+    "ui.releaseFocus": {
+      "capability": "ui",
+      "params": {
+        "text": "Record<string, never>"
+      },
+      "result": {
+        "text": "Record<string, never>"
+      }
+    },
+    "ui.revealNote": {
+      "capability": "ui",
+      "params": {
+        "members": [
+          {
+            "name": "path",
+            "optional": false,
+            "type": "string"
+          }
+        ]
+      },
+      "result": {
+        "text": "Record<string, never>"
+      }
+    },
+    "ui.showMenu": {
+      "capability": "ui",
+      "params": {
+        "members": [
+          {
+            "name": "items",
+            "optional": false,
+            "type": "PluginMenuItem[]"
+          }
+        ]
+      },
+      "result": {
+        "members": [
+          {
+            "name": "id",
+            "optional": false,
+            "type": "string | null"
+          }
+        ]
       }
     }
   }

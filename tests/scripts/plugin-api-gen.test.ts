@@ -108,3 +108,38 @@ describe('checkApi (#2826)', () => {
     ]);
   });
 });
+
+describe('events and support types in the ABI (#2827)', () => {
+  const withEvents = (): Abi => ({
+    ...base(),
+    types: { PluginMenuItem: '{ id: string; label: string } | { separator: true }' },
+    events: { drop: { members: [field('paths', 'string[]'), field('x', 'number'), field('y', 'number')] } },
+  });
+
+  it('an event or a type removed, an event field removed or retyped, a type changed: breaking', () => {
+    const cases: Array<(a: Abi) => void> = [
+      (a) => { a.events = {}; },
+      (a) => { a.types = {}; },
+      (a) => { a.events!.drop = { members: [field('paths', 'string[]'), field('x', 'number')] }; },
+      (a) => { a.events!.drop = { members: [field('paths', 'string'), field('x', 'number'), field('y', 'number')] }; },
+      (a) => { a.types!.PluginMenuItem = '{ id: string }'; },
+    ];
+    for (const change of cases) {
+      const next = withEvents();
+      change(next);
+      expect(compareAbi(withEvents(), next).breaking).toHaveLength(1);
+    }
+  });
+
+  it('an event, an event field or a type added: an addition', () => {
+    const next = withEvents();
+    next.events!.theme = { members: [field('mode', 'string')] };
+    next.events!.drop!.members!.push(field('effect', 'string'));
+    next.types!.Other = 'string';
+    expect(compareAbi(withEvents(), next)).toEqual({ breaking: [], additions: [expect.any(String), expect.any(String), expect.any(String)] });
+  });
+
+  it('a snapshot from before events existed reads as having none', () => {
+    expect(compareAbi(base(), withEvents()).breaking).toEqual([]);
+  });
+});

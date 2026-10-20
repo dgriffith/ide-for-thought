@@ -492,6 +492,7 @@ export interface ChannelMap {
   'plugins:openSession': (pluginId: string, scope: string[]) => { sessionId: string };
   'plugins:setSessionScope': (sessionId: string, scope: string[]) => void;
   'plugins:closeSession': (sessionId: string) => void;
+  'plugins:sessionEvent': (sessionId: string, event: import('./plugins/session').PluginHostEvent) => void;
 
   // Inline citation rendering
   'citation:renderInline': (refs: Array<{ kind: 'cite' | 'quote'; id: string }>) => { markers: string[]; bibliography: string[] | null; missing: string[]; styleId: string };

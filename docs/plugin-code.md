@@ -314,6 +314,36 @@ half, and it is real work:
 - **Data.** Note sets are copied into the frame. Fine for a kanban board;
   to be measured for a graph view of 5,000 notes.
 
+**As built (#2827).** Everything crosses the one session port, so it is
+capability-checked (`ui`) and logged; the host sends events the other way
+(`{ "event", "data" }`, `minerva.on(…)`). `PluginFrame.svelte` is the one host.
+
+- **Theme**: the colour tokens and the three font families, sent on connect
+  and on every change; the runtime sets them on the frame's `:root`. The
+  bundled web fonts live on `app://`, which the frame's `font-src 'self'`
+  can't load, so a frame falls through the family list to the system fonts.
+- **Focus**: Tab crosses the frame natively. An unhandled Escape calls
+  `ui.releaseFocus`, and focus goes to the host.
+- **Keyboard**: an unhandled ⌘/Ctrl shortcut is forwarded and runs only a
+  command marked `fromPluginViews` (palette, quick open, back/forward,
+  sidebars, tabs, find in notes, shortcuts). A plugin can fake a keystroke,
+  so nothing that changes a note is on the list. Commands with a native menu
+  item already fire inside a frame on macOS, before the page sees the key.
+- **Menus**: `ui.showMenu` — a native menu at the pointer, answering the
+  chosen id. It can't trigger app actions.
+- **Drops**: while any drag is on, plugin frames ignore the pointer; the host
+  catches a note dropped from the file tree (HTML5) or a panel (pointer
+  drag), adds it to the session's scope — the drop is the user's gesture —
+  and sends `drop` in the frame's coordinates.
+- **Data, measured** in the real app over the real port
+  (`tests/e2e/plugin-note-copy.measure.spec.ts`, opt-in), ~2 KB notes read 16
+  at a time: **500 notes in 70–96 ms, 5,000 in 0.7–0.9 s** (0.14–0.19 ms
+  each), opening a 5,000-note session in ~32 ms. Measuring found the session
+  open at 203 ms, all of it synchronous `realpath` on main's thread for the
+  scope; admission is now lexical, and every use still runs the full check.
+  A batched `notes.readMany` is the next step if a view needs faster than
+  that.
+
 ## Conformance
 
 `plugin check` (#2654) and the hostile-plugin corpus (#2655) grow to cover

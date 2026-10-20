@@ -382,6 +382,23 @@ export function agentPathRefusal(rootPath: string, relativePath: string): AgentP
 }
 
 /**
+ * The part of {@link agentPathRefusal} that needs no file system (#2827): a
+ * hidden segment, a path leaving the root by spelling, or the root itself.
+ * For admitting a path to a plugin session's scope, where a 5,000-note view
+ * paid ~200ms of synchronous `realpath` on main's thread. Never on its own
+ * for access: every call that USES a scoped path runs the full check, which
+ * also follows links.
+ */
+export function lexicalAgentPathRefusal(relativePath: string): AgentPathRefusal | null {
+  if (hasHiddenSegment(relativePath)) return 'hidden';
+  if (relativePath.includes('\0') || path.isAbsolute(relativePath)) return 'outside';
+  const normal = path.posix.normalize(relativePath.replace(/\\/g, '/'));
+  if (normal === '..' || normal.startsWith('../')) return 'outside';
+  if (normal === '.' || normal === '' || normal === './') return 'root';
+  return null;
+}
+
+/**
  * Throwing form of {@link agentPathRefusal}: returns the absolute path
  * (`assertSafePath`'s answer) or throws {@link AgentPathRefusedError}. An
  * empty or non-string path is refused as `outside`.

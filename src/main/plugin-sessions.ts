@@ -16,10 +16,12 @@
  * version, and the window still on the thoughtbase the session was opened
  * for. It also closes with the window.
  */
-import { BrowserWindow, clipboard, MessageChannelMain, type MessagePortMain } from 'electron';
+import { BrowserWindow, clipboard, Menu, MessageChannelMain, type MessagePortMain } from 'electron';
 import { randomUUID } from 'node:crypto';
 import { Channels } from '../shared/channels';
 import { logger } from '../shared/logger';
+import { PLUGIN_THEME_TOKENS } from '../shared/plugins/frame';
+import type { PluginHostEvent } from '../shared/plugins/session';
 import { createPluginSession, type BrokerDeps, type BrokerPort, type PluginSession } from './plugins/broker';
 import { codePluginIdentity } from './plugins/code-plugins';
 import { getRootPath } from './window-manager';
@@ -30,7 +32,7 @@ import { runWithHistorySource } from './history';
 import { queryGraph } from './graph';
 import { runPluginQuery } from './sources/tables';
 import { projectContext } from './project-context-types';
-import { agentPathRefusal, type AgentPathRefusal } from './path-containment';
+import { agentPathRefusal, lexicalAgentPathRefusal, type AgentPathRefusal } from './path-containment';
 
 const REFUSAL_WORDS: Record<AgentPathRefusal, string> = {
   hidden: "it is in a hidden folder or Minerva's own data",
@@ -63,11 +65,45 @@ function depsFor(win: BrowserWindow, sessionId: string, pluginId: string): Broke
       const why = agentPathRefusal(root, rel);
       return why ? REFUSAL_WORDS[why] : null;
     },
+    scopeRefusal: (rel) => {
+      const why = lexicalAgentPathRefusal(rel);
+      return why ? REFUSAL_WORDS[why] : null;
+    },
     intent: (intent) => {
       if (!win.isDestroyed()) win.webContents.send(Channels.PLUGINS_INTENT, { sessionId, pluginId, intent });
     },
     copyText: (text) => { void clipboard.writeText(text); },
+    showMenu: (items) => new Promise((resolve) => {
+      if (win.isDestroyed()) { resolve(null); return; }
+      let chosen: string | null = null;
+      const menu = Menu.buildFromTemplate(items.map((item) => ('separator' in item
+        ? { type: 'separator' as const }
+        : { label: item.label, enabled: item.enabled !== false, click: () => { chosen = item.id; } })));
+      // `callback` runs when the menu closes, after any click.
+      menu.popup({ window: win, callback: () => resolve(chosen) });
+    }),
   };
+}
+
+/** Tell a session's plugin something its host saw (#2827): the theme, or a drop. */
+export function sendPluginSessionEvent(win: BrowserWindow, sessionId: string, event: PluginHostEvent): void {
+  const entry = entryFor(win, sessionId);
+  if (!entry) throw new Error('No such plugin session in this window.');
+  if (event.kind === 'theme') {
+    // Only the declared tokens, as short strings: a theme event can't carry anything else.
+    const given: Record<string, unknown> = event.vars !== null && typeof event.vars === 'object' ? event.vars : {};
+    const vars: Record<string, string> = {};
+    for (const token of PLUGIN_THEME_TOKENS) {
+      const value = given[token];
+      if (typeof value === 'string' && value.length <= 200) vars[token] = value;
+    }
+    entry.session.emit('theme', { mode: String(event.mode).slice(0, 40), vars });
+    return;
+  }
+  // A drop is the user's gesture: the notes join the scope before the plugin hears of them.
+  const paths = entry.session.addToScope(Array.isArray(event.paths) ? event.paths.slice(0, 500) : []);
+  if (paths.length === 0) return;
+  entry.session.emit('drop', { paths, x: Number(event.x) || 0, y: Number(event.y) || 0 });
 }
 
 /** Open a session for `pluginId` in `win`, given `scope`; the port follows on `PLUGINS_SESSION_PORT`. */
