@@ -6,7 +6,8 @@ import { handle } from './typed-ipc';
 import { runCell as runComputeCell, registeredLanguages as computeLanguages } from '../compute/registry';
 import { computeConsentGuard, consentStatus, grantConsent, listConsent, revokeConsent } from '../compute/consent';
 import { recordExecution, auditLogPath } from '../compute/audit';
-import { restartKernel as restartPythonKernel, interruptKernel as interruptPythonKernel } from '../compute/python-kernel';
+import { restartKernel as restartPythonKernel, interruptKernel as interruptPythonKernel, shutdownAllKernels } from '../compute/python-kernel';
+import { registerPythonExecutor } from '../compute/executors';
 import {
   getPythonSettings,
   setPythonSettings,
@@ -64,56 +65,6 @@ export function registerCompute(): void {
 
   handle(Channels.COMPUTE_LANGUAGES, () => computeLanguages());
 
-  handle(Channels.COMPUTE_RESTART_PYTHON_KERNEL, withRootPath(async (rootPath) => {
-    await restartPythonKernel(rootPath);
-  }));
-
-  handle(Channels.COMPUTE_INTERRUPT_PYTHON, withRootPathOr<[], import('../compute/python-kernel').InterruptResult>({ ok: false, reason: 'no-kernel' }, (rootPath) =>
-    interruptPythonKernel(rootPath)));
-
-  handle(Channels.COMPUTE_GET_PYTHON_SETTINGS, async () => {
-    return await getPythonSettings();
-  });
-
-  handle(Channels.COMPUTE_SET_PYTHON_SETTINGS, async (e, settings: PythonSettings) => {
-    const requested = typeof settings?.pythonPath === 'string' ? settings.pythonPath.trim() : '';
-    const current = (await getPythonSettings()).pythonPath;
-    // A new interpreter is the program every Python cell will run (#2568):
-    // main confirms it unless the user picked it in the native file picker or
-    // already confirmed it. Declined → the other fields save, the path doesn't.
-    const pythonPath = requested === current || (await interpreterApproved(e, requested, 'save')) ? requested : current;
-    await setPythonSettings({
-      pythonPath,
-      allowNetwork: settings?.allowNetwork === true,
-      // Re-validated main-side rather than trusted from the renderer, like
-      // the two fields above — the payload crossing IPC is `unknown` in
-      // practice and this handler is the boundary (#2218).
-      //
-      // An ABSENT field falls back to the default, not to 0, matching the
-      // decoder in `python-settings.ts`. The two disagree in the one
-      // direction that matters: `normalizeCellTimeoutSeconds(undefined)` is
-      // 0, i.e. NO LIMIT — so a truncated or older payload would silently
-      // switch off the very protection this channel is writing, and nothing
-      // would report it.
-      cellTimeoutSeconds: settings?.cellTimeoutSeconds === undefined
-        ? DEFAULT_CELL_TIMEOUT_SECONDS
-        : normalizeCellTimeoutSeconds(settings.cellTimeoutSeconds),
-    });
-  });
-
-  handle(Channels.COMPUTE_PROBE_PYTHON, async (e, candidate?: string) => {
-    // Empty `candidate` → probe the same interpreter the resolver
-    // would pick right now (override → env var → python3). That's
-    // the "active" interpreter the Settings status line surfaces.
-    const typed = candidate?.trim() ?? '';
-    if (typed && typed !== (await getPythonSettings()).pythonPath && !(await interpreterApproved(e, typed, 'probe'))) {
-      // Probing RUNS `<path> --version` (#2568); without a yes, nothing runs.
-      return { ok: false as const, path: typed, error: 'Not checked — running it was cancelled.' };
-    }
-    const target = typed || await resolvePythonInterpreter();
-    return await probePythonInterpreter(target);
-  });
-
   // Content-addressed compute consent (#1412). Status distinguishes an already
   // eyes-on-code'd cell (`cell`) from blanket project trust (`blanket`) so the
   // conversation path can force review even under blanket trust.
@@ -168,7 +119,72 @@ export function registerCompute(): void {
     shell.showItemInFolder(p);
   });
 
-  handle(Channels.COMPUTE_BROWSE_PYTHON, async (e) => {
+  handle(Channels.COMPUTE_SAVE_CELL_OUTPUT, withRootPath(async (rootPath, input: SaveCellOutputInput) => {
+    return await saveCellOutput(rootPath, input);
+  }));
+}
+
+/**
+ * Python cells, wired up (#2822): what the built-in Python plugin is. Its
+ * executor (and the `py` / `python3` aliases), its settings, interpreter
+ * probe and picker, and kernel restart / interrupt, registered only while the
+ * plugin is on (`core-plugins.ts`). The result takes all of it down again and
+ * shuts down every running kernel, so off means none of it exists: a
+ * renderer finds no handler to call, and no kernel is left running.
+ */
+export function registerPythonCompute(): () => void {
+  const off: Array<() => void> = [registerPythonExecutor()];
+  off.push(handle(Channels.COMPUTE_RESTART_PYTHON_KERNEL, withRootPath(async (rootPath) => {
+    await restartPythonKernel(rootPath);
+  })));
+
+  off.push(handle(Channels.COMPUTE_INTERRUPT_PYTHON, withRootPathOr<[], import('../compute/python-kernel').InterruptResult>({ ok: false, reason: 'no-kernel' }, (rootPath) =>
+    interruptPythonKernel(rootPath))));
+
+  off.push(handle(Channels.COMPUTE_GET_PYTHON_SETTINGS, async () => {
+    return await getPythonSettings();
+  }));
+
+  off.push(handle(Channels.COMPUTE_SET_PYTHON_SETTINGS, async (e, settings: PythonSettings) => {
+    const requested = typeof settings?.pythonPath === 'string' ? settings.pythonPath.trim() : '';
+    const current = (await getPythonSettings()).pythonPath;
+    // A new interpreter is the program every Python cell will run (#2568):
+    // main confirms it unless the user picked it in the native file picker or
+    // already confirmed it. Declined → the other fields save, the path doesn't.
+    const pythonPath = requested === current || (await interpreterApproved(e, requested, 'save')) ? requested : current;
+    await setPythonSettings({
+      pythonPath,
+      allowNetwork: settings?.allowNetwork === true,
+      // Re-validated main-side rather than trusted from the renderer, like
+      // the two fields above — the payload crossing IPC is `unknown` in
+      // practice and this handler is the boundary (#2218).
+      //
+      // An ABSENT field falls back to the default, not to 0, matching the
+      // decoder in `python-settings.ts`. The two disagree in the one
+      // direction that matters: `normalizeCellTimeoutSeconds(undefined)` is
+      // 0, i.e. NO LIMIT — so a truncated or older payload would silently
+      // switch off the very protection this channel is writing, and nothing
+      // would report it.
+      cellTimeoutSeconds: settings?.cellTimeoutSeconds === undefined
+        ? DEFAULT_CELL_TIMEOUT_SECONDS
+        : normalizeCellTimeoutSeconds(settings.cellTimeoutSeconds),
+    });
+  }));
+
+  off.push(handle(Channels.COMPUTE_PROBE_PYTHON, async (e, candidate?: string) => {
+    // Empty `candidate` → probe the same interpreter the resolver
+    // would pick right now (override → env var → python3). That's
+    // the "active" interpreter the Settings status line surfaces.
+    const typed = candidate?.trim() ?? '';
+    if (typed && typed !== (await getPythonSettings()).pythonPath && !(await interpreterApproved(e, typed, 'probe'))) {
+      // Probing RUNS `<path> --version` (#2568); without a yes, nothing runs.
+      return { ok: false as const, path: typed, error: 'Not checked — running it was cancelled.' };
+    }
+    const target = typed || await resolvePythonInterpreter();
+    return await probePythonInterpreter(target);
+  }));
+
+  off.push(handle(Channels.COMPUTE_BROWSE_PYTHON, async (e) => {
     const win = winFromEvent(e);
     const result = await dialog.showOpenDialog(win, {
       title: 'Choose Python interpreter',
@@ -185,9 +201,10 @@ export function registerCompute(): void {
     // when it's then probed or saved (#2568).
     if (picked) approvedInterpreters.add(picked);
     return picked;
-  });
-
-  handle(Channels.COMPUTE_SAVE_CELL_OUTPUT, withRootPath(async (rootPath, input: SaveCellOutputInput) => {
-    return await saveCellOutput(rootPath, input);
   }));
+
+  return () => {
+    for (const stop of off.reverse()) stop();
+    shutdownAllKernels().catch((e: unknown) => logger('compute').warn('stopping Python kernels when Python was turned off failed:', e));
+  };
 }

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { scanComputeSafety } from '../../../shared/compute/safety';
+import { hasExecutor } from '../../compute/registry';
 import type {
   ConversationComputeDraft,
   ProposeComputeInput,
@@ -78,6 +79,11 @@ function parseProposeComputeInput(input: unknown): ProposeComputeInput | { error
   const language = obj.language;
   if (language !== 'sparql' && language !== 'sql' && language !== 'python') {
     return { error: '`language` must be one of "sparql", "sql", "python".' };
+  }
+  // Python is a built-in plugin, off unless the user turned it on (#2822).
+  // Off, a Python cell is never drafted, so nothing can put one up for review.
+  if (language === 'python' && !hasExecutor('python')) {
+    return { error: 'Python cells are turned off on this machine, so a Python cell can\'t be proposed. Propose a sparql or sql cell instead, or tell the user Python can be turned on in Settings → Plugins.' };
   }
   const code = typeof obj.code === 'string' ? obj.code : '';
   if (!code.trim()) {

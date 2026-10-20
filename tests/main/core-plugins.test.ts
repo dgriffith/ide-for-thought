@@ -23,7 +23,7 @@ vi.mock('electron', () => ({
 }));
 
 import { _setCoreActivationsForTests, activeCorePlugins, startCorePlugins, syncCorePlugins } from '../../src/main/core-plugins';
-import { _setCorePluginsForTests, setCorePluginEnabled } from '../../src/main/plugins/core';
+import { _setCorePluginsForTests, readCorePluginStates, setCorePluginEnabled } from '../../src/main/plugins/core';
 import { _disablePluginsForTests, enablePlugins } from '../../src/main/plugins/registry';
 import { handle } from '../../src/main/ipc/typed-ipc';
 import { Channels } from '../../src/shared/channels';
@@ -112,5 +112,32 @@ describe('core plugin wiring (#2820)', () => {
       expect(() => syncCorePlugins()).not.toThrow();
       expect(activeCorePlugins()).toEqual([]);
     });
+  });
+});
+
+describe('a plugin that used to be part of Minerva keeps going for people who used it (#2822)', () => {
+  const withHistory = (used: boolean) => _setCoreActivationsForTests(
+    { python: () => () => { stops.push('python'); }, kanban: () => () => undefined },
+    { python: () => used },
+  );
+
+  it('on a machine that used it and never switched it, it\'s recorded on, once, and wired up', () => {
+    withHistory(true);
+    startCorePlugins();
+    expect(activeCorePlugins().sort()).toEqual(['kanban', 'python']);
+    expect(readCorePluginStates(pluginsDir).get('python')).toBe(true);
+  });
+
+  it('on a machine that never used it, it stays at its default: off', () => {
+    withHistory(false);
+    startCorePlugins();
+    expect(activeCorePlugins()).toEqual(['kanban']);
+  });
+
+  it('a machine that switched it off keeps it off, used or not', async () => {
+    await setCorePluginEnabled(pluginsDir, 'python', false);
+    withHistory(true);
+    startCorePlugins();
+    expect(activeCorePlugins()).toEqual(['kanban']);
   });
 });

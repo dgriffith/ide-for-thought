@@ -117,6 +117,12 @@ export interface ComputeCellsOptions {
   /** Allow-list of fence languages that show the run affordance. */
   runnableLanguages?: Iterable<string>;
   /**
+   * Whether a language can run right now, asked each time (#2822): Python is
+   * a built-in plugin that can be off, and Recompute all mustn't write an
+   * error into every Python cell when it is. Absent → the allow-list alone.
+   */
+  isRunnable?: (language: string) => boolean;
+  /**
    * Optional handle populated with the batch runner so the host can
    * trigger "Recompute all" from a toolbar/menu.
    */
@@ -124,9 +130,10 @@ export interface ComputeCellsOptions {
 }
 
 export function computeCellsExtension(opts: ComputeCellsOptions): Extension {
-  const allowed = new Set<string>(
+  const listed = new Set<string>(
     [...(opts.runnableLanguages ?? RUNNABLE_LANGUAGES)].map((s) => s.toLowerCase()),
   );
+  const allowed = { has: (lang: string) => listed.has(lang) && (opts.isRunnable?.(lang) ?? true) };
 
   /**
    * Run a single fence and write its output block. Returns the result so
@@ -257,7 +264,7 @@ interface FenceEntry {
   flagTitle: string | null | undefined;
 }
 
-function indexFences(doc: string, allowed: ReadonlySet<string>): Map<number, FenceEntry> {
+function indexFences(doc: string, allowed: { has(language: string): boolean }): Map<number, FenceEntry> {
   const index = new Map<number, FenceEntry>();
   for (const fence of findRunnableFences(doc, allowed)) {
     index.set(fence.startOffset, { fence, flagTitle: undefined });

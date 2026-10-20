@@ -423,7 +423,9 @@ for (const theme of THEMES) {
       // Every fence kind that draws a `.fence-toolbar` (#2679): runnable code,
       // mermaid, and an object-view embed. In the contrast theme the toolbar is
       // the dark --bg-titlebar bar, so its label and buttons must read from the
-      // --titlebar-* set — a body token there is dark-on-dark.
+      // --titlebar-* set — a body token there is dark-on-dark. The runnable one
+      // is SQL: Python is off on a new install (#2822), so its fence draws no
+      // toolbar — just the code and the turned-off note, scanned here too.
       await withApp({
         theme,
         withProject: true,
@@ -431,6 +433,7 @@ for (const theme of THEMES) {
           'projects/Garden Shed.md': '---\ntype: project\nstatus: active\n---\n# Garden Shed\n',
           'Fence Host.md': [
             '# Fence Host', '',
+            '```sql', 'SELECT 1', '```', '',
             '```python', 'print("hello")', '```', '',
             '```mermaid', 'graph TD', '  A --> B', '```', '',
             '```object-view', '{"typeId":"project","layout":"table"}', '```', '',
@@ -442,6 +445,7 @@ for (const theme of THEMES) {
         await win.getByRole('button', { name: 'Preview', exact: true }).click();
         const toolbars = win.locator('.preview .fence-toolbar');
         await expect(toolbars).toHaveCount(3, { timeout: 10_000 });
+        await expect(win.locator('.preview .fence-off-note')).toBeVisible();
         await expect(win.locator('.preview .mermaid-block[data-mermaid-rendered] svg')).toBeVisible({ timeout: 15_000 });
         await expect(win.locator('.preview .object-view-block[data-object-view-rendered="ok"]')).toBeVisible({ timeout: 15_000 });
         await expectNoSerious(win, 'fenced-block toolbars', theme);

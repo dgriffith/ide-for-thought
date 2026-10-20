@@ -11,6 +11,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {
   _setCorePluginsForTests,
+  adoptCorePluginState,
   corePlugins,
   isCorePluginId,
   readCorePluginStates,
@@ -88,5 +89,22 @@ describe('core plugins (#2820)', () => {
         '"python" is the id of a plugin built into Minerva; turn that one on or off in Settings → Plugins instead.',
       ]);
     }
+  });
+});
+
+describe('the built-in plugins as shipped', () => {
+  beforeEach(() => { _setCorePluginsForTests(null); });
+
+  it('Python validates, declares that it runs programs, and is off on a new install (#2822)', () => {
+    const python = corePlugins().find((p) => p.manifest.id === 'python');
+    expect(python?.defaultEnabled).toBe(false);
+    expect(python?.manifest.code).toEqual({ capabilities: ['process'] });
+    expect(readCorePluginStates(pluginsDir).get('python')).toBe(false);
+  });
+
+  it('adopting a first state writes only where nothing was ever recorded', () => {
+    expect(adoptCorePluginState(pluginsDir, 'python', true)).toBe(true);
+    expect(adoptCorePluginState(pluginsDir, 'python', false)).toBe(false);
+    expect(readCorePluginStates(pluginsDir).get('python')).toBe(true);
   });
 });

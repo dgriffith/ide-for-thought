@@ -979,3 +979,11 @@
 .preview [data-resize-kind].resizing {
         user-select: none;
     }
+
+/* A Python cell while Python is turned off on this machine (#2822): plain
+   code, then one quiet line. No warning colour; it's a setting, not a fault. */
+.preview .fence-off-note {
+        margin: -4px 0 12px 0;
+        font-size: 11px;
+        color: var(--text-muted);
+    }

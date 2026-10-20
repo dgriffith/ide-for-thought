@@ -21,7 +21,7 @@
  */
 import type { PluginManifest } from '../../shared/plugins/format';
 import { validatePluginManifest } from './manifest';
-import { loadPluginRecordsSync, updatePluginRecords, type PluginRecords } from './state';
+import { loadPluginRecordsSync, updatePluginRecords, updatePluginRecordsSync, type PluginRecords } from './state';
 
 export interface CorePluginDefinition {
   /** Its `plugin.json`, as written. */
@@ -35,11 +35,24 @@ export interface CorePlugin {
   defaultEnabled: boolean;
 }
 
-/**
- * The core plugins, in the order Settings lists them. None yet: Python
- * (#2822) and kanban (#2828) are the first to move here.
- */
-const CORE_PLUGIN_DEFINITIONS: readonly CorePluginDefinition[] = [];
+/** The core plugins, in the order Settings lists them. */
+const CORE_PLUGIN_DEFINITIONS: readonly CorePluginDefinition[] = [
+  {
+    // Python cells (#2822): the one compute language that runs arbitrary code,
+    // so it's off on a new install. SQL and SPARQL cells are read-only and
+    // stay part of Minerva itself.
+    manifest: {
+      id: 'python',
+      name: 'Python',
+      version: '1.0.0',
+      minerva: '>=4.0.0',
+      description: 'Run Python code cells in notes, in an interpreter you choose: pandas, numpy, matplotlib and anything else you install.',
+      contributes: {},
+      code: { capabilities: ['process'] },
+    },
+    defaultEnabled: false,
+  },
+];
 
 let definitions: readonly CorePluginDefinition[] = CORE_PLUGIN_DEFINITIONS;
 let validated: CorePlugin[] | null = null;
@@ -78,6 +91,29 @@ export function corePluginEnabled(records: PluginRecords, plugin: CorePlugin): b
 export function readCorePluginStates(pluginsDir: string): Map<string, boolean> {
   const records = loadPluginRecordsSync(pluginsDir);
   return new Map(corePlugins().map((p) => [p.manifest.id, corePluginEnabled(records, p)]));
+}
+
+/**
+ * Record a core plugin as on or off, but only on a machine that has never
+ * switched it: a one-time decision made at startup, synchronously (#2822).
+ * Returns whether it wrote. A record already there, however it got there,
+ * stands.
+ */
+export function adoptCorePluginState(pluginsDir: string, id: string, enabled: boolean): boolean {
+  if (!isCorePluginId(id)) throw new Error(`No core plugin "${id}".`);
+  let wrote = false;
+  updatePluginRecordsSync(pluginsDir, (records) => {
+    if (records[id]?.source.kind === 'core') return;
+    records[id] = { enabled, source: { kind: 'core' } };
+    wrote = true;
+  });
+  return wrote;
+}
+
+/** Whether this machine has ever switched a core plugin (has its record). */
+export function hasCorePluginRecord(pluginsDir: string, id: string): boolean {
+  const records = loadPluginRecordsSync(pluginsDir);
+  return Object.hasOwn(records, id) && records[id]!.source.kind === 'core';
 }
 
 /** Switch a core plugin on or off on this machine. */

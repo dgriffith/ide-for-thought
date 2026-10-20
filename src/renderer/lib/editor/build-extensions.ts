@@ -26,6 +26,7 @@ import { formatPaste } from './paste-format';
 import { getFormatSettings } from '../stores/settings-formatter.svelte';
 import { buildParseCache } from '../../../shared/formatter/parse-cache';
 import { findFrontmatterFoldRange } from './frontmatter';
+import { computeLanguagesStore } from '../stores/compute-languages.svelte';
 
 export interface BuildExtensionsOptions {
   plainTextOnce: boolean;
@@ -131,6 +132,8 @@ export function buildExtensions(opts: BuildExtensionsOptions): Extension[] {
         // leaves state in a shared kernel, so it's a mutation, and the caller
         // that owns the consent gate should be the one to make it.
         runCell: (language, code) => onRunCell(language, code, filePath),
+        // Python can be switched off (#2822): Recompute all skips its cells then.
+        isRunnable: (language) => computeLanguagesStore.isRunnable(language),
         runAllRef,
       }),
       footnotePreview(),

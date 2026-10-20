@@ -95,6 +95,8 @@ async function describeMenu(template: Item[], depth = 0): Promise<string[]> {
   return out;
 }
 
+import { markCorePluginActive } from '../../../src/main/core-plugins-active';
+
 describe('the menu bar (#2625)', () => {
   const platform = process.platform;
   beforeAll(() => {
@@ -116,5 +118,17 @@ describe('the menu bar (#2625)', () => {
     h.rootPath = '/projects/alpha';
     setMenuEditorState(1, { hasEditor: true, hasNote: true, hasSelection: true });
     expect((await describeMenu(rebuildMenu())).join('\n')).toMatchSnapshot();
+  });
+
+  it('Python\'s kernel items are there only while the built-in Python plugin is on (#2822)', async () => {
+    h.rootPath = '/projects/alpha';
+    const items = async () => (await describeMenu(rebuildMenu())).filter((l) => /Interrupt Cell|Restart Python Kernel/.test(l));
+    expect(await items()).toEqual([]);
+    markCorePluginActive('python', true);
+    try {
+      expect(await items()).toEqual(['  Interrupt Cell → interruptCell', '  Restart Python Kernel → restartKernel']);
+    } finally {
+      markCorePluginActive('python', false);
+    }
   });
 });

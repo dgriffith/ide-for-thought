@@ -6,13 +6,37 @@
  * (`scanComputeSafety`), and emits a ConversationComputeDraft for inline
  * review — the user clicks Run/Insert/Discard.
  */
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
+import { registerPythonExecutor } from '../../../src/main/compute/executors';
 import { executeNotebaseTool, NOTEBASE_TOOLS, type ToolContext } from '../../../src/main/llm/tools';
 import type { ConversationComputeDraft } from '../../../src/shared/conversation-compute-drafts';
 
 const baseCtx: ToolContext = { rootPath: '/tmp/never-touched', conversationId: 'conv-test' };
 
 describe('propose_compute tool execution', () => {
+  // With the built-in Python plugin on (#2822); the case below turns it off.
+  let pythonOff: () => void = () => undefined;
+  beforeAll(() => { pythonOff = registerPythonExecutor(); });
+  afterAll(() => { pythonOff(); });
+
+  it('with Python turned off, a Python cell isn\'t drafted at all (#2822)', async () => {
+    pythonOff();
+    try {
+      const onComputeDraft = vi.fn();
+      const out = await executeNotebaseTool(
+        baseCtx,
+        'propose_compute',
+        { language: 'python', code: 'print(1)', rationale: 'x' },
+        { onComputeDraft },
+      );
+      expect(out.isError).toBe(true);
+      expect(out.content).toContain('Python cells are turned off on this machine');
+      expect(onComputeDraft).not.toHaveBeenCalled();
+    } finally {
+      pythonOff = registerPythonExecutor();
+    }
+  });
+
   it('emits a compute draft with no safety flags for benign SPARQL', async () => {
     const onComputeDraft = vi.fn();
     const out = await executeNotebaseTool(

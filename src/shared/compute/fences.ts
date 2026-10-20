@@ -64,7 +64,8 @@ export interface FenceRange {
  */
 export function findRunnableFences(
   doc: string,
-  allowed: ReadonlySet<string>,
+  /** A set, or any live check: the editor's follows whether Python is on (#2822). */
+  allowed: { has(language: string): boolean },
 ): Array<FenceRange & { openingLine: number; closingLine: number }> {
   const out: Array<FenceRange & { openingLine: number; closingLine: number }> = [];
   const lines = doc.split('\n');

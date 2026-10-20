@@ -178,6 +178,11 @@ export function installFences(md: MarkdownIt, deps: PreviewMarkdownDeps): void {
             + `</div>\n`;
     }
 
+    function renderTurnedOffFence(args: FenceRenderArgs): string {
+        return renderDefaultFence(args).replace(/\n$/, '')
+            + '<p class="fence-off-note">Python cells are turned off on this machine. Turn on Python in Settings → Plugins to run this one.</p>\n';
+    }
+
     function renderDefaultFence(args: FenceRenderArgs): string {
         const { info, renderDefault } = args;
         const rendered = renderDefault();
@@ -238,6 +243,9 @@ export function installFences(md: MarkdownIt, deps: PreviewMarkdownDeps): void {
         // source line is known; otherwise they fall through to the default
         // code-block wrapper.
         if (RUNNABLE_LANGUAGE_SET.has(info) && openingLine !== null) {
+            // A language switched off on this machine (Python, #2822) is plain
+            // code with one quiet line, not a cell with a ▶ that can't run.
+            if (deps.isRunnable && !deps.isRunnable(info)) return renderTurnedOffFence(args);
             return renderRunnableFence(args, openingLine);
         }
         return renderDefaultFence(args);

@@ -20,6 +20,7 @@
 
 import { app } from 'electron';
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { loadConfigFile, asString, asFiniteNumber, asRecord } from '../config/config-store';
 import { writeJsonFileAtomic } from '../config/json-file';
@@ -48,6 +49,15 @@ const DEFAULT_SETTINGS: PythonSettings = {
 
 function settingsPath(): string {
   return path.join(app.getPath('userData'), 'python-settings.json');
+}
+
+/**
+ * Whether Python settings were ever saved on this machine: one of the signs
+ * that someone here used Python cells before Python became a built-in plugin
+ * that's off by default (#2822), and so keeps it on.
+ */
+export function pythonSettingsSaved(): boolean {
+  return existsSync(settingsPath());
 }
 
 export async function getPythonSettings(): Promise<PythonSettings> {

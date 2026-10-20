@@ -51,8 +51,6 @@ File
   ---
   Rebuild All Indexes → rebuildAllIndexes
   Rebuild Semantic Index → rebuildSemanticIndex
-  Interrupt Cell → interruptCell
-  Restart Python Kernel → restartKernel
   ---
   (role close)
 Edit
@@ -248,8 +246,6 @@ File
   ---
   Rebuild All Indexes disabled → (no effect)
   Rebuild Semantic Index disabled → (no effect)
-  Interrupt Cell disabled → (no effect)
-  Restart Python Kernel disabled → (no effect)
   ---
   (role close)
 Edit

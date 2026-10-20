@@ -6,7 +6,7 @@ import {
   runCell,
   _clearRegistry,
 } from '../../../src/main/compute/registry';
-import { registerBuiltinExecutors } from '../../../src/main/compute/executors';
+import { registerBuiltinExecutors, registerPythonExecutor } from '../../../src/main/compute/executors';
 import { RUNNABLE_LANGUAGES, TRUST_GATED_LANGUAGES } from '../../../src/shared/compute/fences';
 
 describe('compute registry (#238)', () => {
@@ -61,13 +61,28 @@ describe('compute registry (#238)', () => {
     expect(result.ok && result.output.type === 'text' && result.output.value).toBe('v2');
   });
 
-  it('builtin registrations match the shared RUNNABLE_LANGUAGES list, aliases included', () => {
+  it('builtin registrations plus the Python plugin\'s match the shared RUNNABLE_LANGUAGES list, aliases included', () => {
     // The renderer decides which fences show a run affordance from
     // RUNNABLE_LANGUAGES; both now derive from COMPUTE_LANGUAGES (#2630), and
     // the executor table is keyed by it — this pins that every alias
     // registers too, so a fence never shows a ▶ the backend can't run.
+    // Python is a built-in plugin (#2822): app-ready registers the rest, and
+    // turning the plugin on registers Python and its aliases.
     registerBuiltinExecutors();
+    expect(registeredLanguages()).toEqual(['sparql', 'sql']);
+    const off = registerPythonExecutor();
     expect(registeredLanguages()).toEqual([...RUNNABLE_LANGUAGES].sort());
+    off();
+    expect(registeredLanguages()).toEqual(['sparql', 'sql']);
+  });
+
+  it('a Python cell with the plugin off says it\'s turned off, not that something is broken (#2822)', async () => {
+    _clearRegistry();
+    for (const lang of ['python', 'py', 'python3']) {
+      expect(await runCell(lang, 'print(1)', { rootPath: '/tmp' })).toEqual({
+        ok: false, error: 'Python cells are turned off on this machine. Turn on Python in Settings → Plugins to run them.',
+      });
+    }
   });
 
   it('every runnable language and alias is trust-gated — `py` can\'t slip past a gate on `python`', () => {
