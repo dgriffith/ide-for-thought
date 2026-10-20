@@ -172,6 +172,12 @@ Never available, to any plugin: the network (that's MCP), secrets, `fs`,
 `require`, `window.api`, the DOM outside its own frame, and the approval
 engine.
 
+The broker (#2825) is `main/plugins/broker.ts`, its method table
+`shared/plugins/api.ts`. Each method names one capability; a call is refused
+unless the plugin declared it, then unless every note it names is in the
+session's scope, before anything runs. Messages are JSON text, 1 MiB each
+way, 16 calls in flight. `llm:propose` is declared but refused until #2858.
+
 ### Writes
 
 The Trust Principle is about **LLM-originated** writes, and they stay

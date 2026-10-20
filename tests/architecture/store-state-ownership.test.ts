@@ -40,6 +40,8 @@ const STORES_DIR = 'src/renderer/lib/stores';
 const ZERO_STATE_STORE_BASELINE: Record<string, string> = {
   [`${STORES_DIR}/link-suggestions.svelte.ts`]:
     'Single-method forward to api.refactor.applySuggestedLink; callers refetch on the NOTEBASE_REWRITTEN broadcast rather than reading anything back here.',
+  [`${STORES_DIR}/plugin-sessions.svelte.ts`]:
+    'Plumbing, not UI state: it opens a plugin session and moves its MessagePort into the frame (#2825). What a session holds lives in main; the plugin view owns its own state.',
   [`${STORES_DIR}/publish.svelte.ts`]:
     'Export/git-publish/target actions; ExportDialog and PublishDialog keep their own view state and read exporter/target metadata directly.',
   [`${STORES_DIR}/review.svelte.ts`]:

@@ -27,7 +27,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {
-  initTablesDb, disposeProject, runQuery, runNoteQuery, registerCsv,
+  initTablesDb, disposeProject, runQuery, runNoteQuery, runPluginQuery, registerCsv,
 } from '../../../src/main/sources/tables';
 import { projectContext } from '../../../src/main/project-context-types';
 import { noteHtmlExporter } from '../../../src/main/publish/exporters/note-html';
@@ -183,5 +183,24 @@ describe('what the user runs keeps full in-root access (#2448)', () => {
     const r = await executeSql(`SELECT count(*) AS n FROM read_csv('${inRoot()}')`, { rootPath: fx.root });
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.output).toMatchObject({ type: 'table', columns: ['n'], rows: [[3]] });
+  });
+});
+
+describe("a plugin's SQL gets the same allowlist, in its own words (#2825)", () => {
+  it.each([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15])('spelling #%i', async (i) => {
+    const [name, sql] = fx.spellings[i]!;
+    const r = await runPluginQuery(ctx, sql);
+    expect(r.ok, `expected refusal for ${name}: ${sql}`).toBe(false);
+    if (!r.ok) {
+      for (const c of CANARIES) expect(r.error).not.toContain(c);
+      expect(r.error).toContain("A plugin's tables.query can only read the tables and views");
+      expect(r.error).toContain('Registered tables and views: "sales"');
+      expect(r.error).not.toContain('describe_tables');
+    }
+  });
+
+  it('reads a registered table by name', async () => {
+    const r = await runPluginQuery(ctx, 'SELECT count(*) AS n FROM sales');
+    expect(r.ok).toBe(true);
   });
 });

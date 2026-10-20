@@ -71,13 +71,14 @@
  * and `agent` speaks to an external MCP client, which has neither Minerva's
  * Tables panel nor its `describe_tables` tool — only `sql_query` itself.
  */
-export type SqlGuardAudience = 'model' | 'note' | 'agent';
+export type SqlGuardAudience = 'model' | 'note' | 'agent' | 'plugin';
 
 /** How a refusal names the thing that may not call a function. */
 const SUBJECT: Record<SqlGuardAudience, string> = {
   model: 'query_sql',
   note: 'charts and query blocks in notes',
   agent: 'sql_query',
+  plugin: "a plugin's tables.query",
 };
 
 /** One row of the live catalog (`duckdb_tables()` ∪ `duckdb_views()`). */
@@ -365,6 +366,15 @@ function refusalMessage(audience: SqlGuardAudience, reason: string, catalog: rea
       'duckdb_tables() / duckdb_columns() catalog functions; it cannot read files by path. ' +
       describeRegistered(catalog) +
       ' Query one by name; run "SHOW TABLES" or "DESCRIBE <table>" through sql_query for their columns.'
+    );
+  }
+  if (audience === 'plugin') {
+    return (
+      `Refused: ${reason}. A plugin's tables.query can only read the tables and views Minerva registered ` +
+      '(CSV files and captioned markdown tables), plus range() / generate_series() / unnest() and the ' +
+      'duckdb_tables() / duckdb_columns() catalog functions; it cannot read files. ' +
+      describeRegistered(catalog) +
+      ' Query one by name; "DESCRIBE <table>" through tables.query gives its columns.'
     );
   }
   if (audience === 'note') {

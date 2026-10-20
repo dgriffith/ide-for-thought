@@ -28,6 +28,7 @@ import { rebuildMenu } from '../menu';
 import { pendingExtensionDrafts } from './extension-draft-offers';
 import { PLUGIN_ID } from '../plugins/manifest';
 import { changePlugins } from '../plugins-apply';
+import { closePluginSession, openPluginSession, setPluginSessionScope } from '../plugin-sessions';
 import { handle } from './typed-ipc';
 import { winFromEvent, withRootPathOr } from './helpers';
 import { pluginRecommendations } from '../plugins/recommendations';
@@ -241,4 +242,22 @@ export function registerPlugins(): void {
     if (id !== undefined && isCorePluginId(id)) throw new Error(`"${id}" is built into Minerva; it has no folder.`);
     shell.showItemInFolder(id === undefined ? dir : path.join(dir, id));
   });
+
+  // Plugin sessions (#2825): the host (this window) opens one for a plugin
+  // frame and the notes its view was given; `plugin-sessions.ts` holds them.
+  handle(Channels.PLUGINS_OPEN_SESSION, (e, pluginId: string, scope: string[]) => {
+    if (typeof pluginId !== 'string' || !PLUGIN_ID.test(pluginId)) throw new Error(`"${String(pluginId)}" isn't a plugin id.`);
+    return openPluginSession(winFromEvent(e), pluginId, stringList(scope));
+  });
+  handle(Channels.PLUGINS_SET_SESSION_SCOPE, (e, sessionId: string, scope: string[]) => {
+    setPluginSessionScope(winFromEvent(e), String(sessionId), stringList(scope));
+  });
+  handle(Channels.PLUGINS_CLOSE_SESSION, (e, sessionId: string) => {
+    closePluginSession(winFromEvent(e), String(sessionId));
+  });
+}
+
+/** A scope as sent: an array of strings, anything else dropped. */
+function stringList(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
 }

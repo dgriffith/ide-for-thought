@@ -21,6 +21,7 @@
   import SourceDetail from './lib/components/SourceDetail.svelte';
   import { onMount } from 'svelte';
   import { getNotebaseStore } from './lib/stores/notebase.svelte';
+  import { setPluginNoteOpener } from './lib/stores/plugin-sessions.svelte';
   import { getEditorStore, type TypeViewTab } from './lib/stores/editor.svelte';
   import { objectTypesStore } from './lib/stores/object-types.svelte';
   import { pluginThemesStore } from './lib/stores/plugin-themes.svelte';
@@ -813,6 +814,8 @@
     getToolPanelComponent: () => toolPanelComponent,
     openFileSelect: (p) => { void handleFileSelect(p); },
   } satisfies ConversationOpsCtx);
+  // A plugin view's `ui.openNote` (#2825) opens a note the way a click does.
+  setPluginNoteOpener((p) => { void handleFileSelect(p); });
 
   // Project / thoughtbase-lifecycle handler cluster (#1084): the new-thoughtbase
   // onboarding journey, the welcome-note seed, the thoughtbase-guide opener, and

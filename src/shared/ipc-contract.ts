@@ -489,6 +489,9 @@ export interface ChannelMap {
   'plugins:settings': (id: string) => PluginSettingsView;
   'plugins:setSettings': (id: string, patch: PluginSettingsPatch) => PluginSettingsView;
   'plugins:reveal': (id?: string) => void;
+  'plugins:openSession': (pluginId: string, scope: string[]) => { sessionId: string };
+  'plugins:setSessionScope': (sessionId: string, scope: string[]) => void;
+  'plugins:closeSession': (sessionId: string) => void;
 
   // Inline citation rendering
   'citation:renderInline': (refs: Array<{ kind: 'cite' | 'quote'; id: string }>) => { markers: string[]; bibliography: string[] | null; missing: string[]; styleId: string };
@@ -692,6 +695,8 @@ export interface EventMap {
   'proposals:changed': () => void;
   /** Plugins changed and have been applied (#2634). */
   'plugins:changed': () => void;
+  /** A plugin asked its window to do something (#2825). */
+  'plugins:intent': (event: import('./plugins/session').PluginIntentEvent) => void;
   /** A health-check run finished; the cached inspection list moved (#1795). */
   'inspections:changed': () => void;
   /** The project's graph changed — any note indexed or removed (#2742). */
