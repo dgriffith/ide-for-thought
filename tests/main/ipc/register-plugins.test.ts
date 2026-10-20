@@ -299,7 +299,7 @@ describe('core plugins (#2820)', () => {
 
   it('turning one off, or on when its code runs no programs, asks nothing (#2821)', async () => {
     await call(Channels.PLUGINS_SET_ENABLED, 'python', false);
-    _setCorePluginsForTests([{ manifest: { ...CORE, id: 'kanban', code: { capabilities: ['notes:read'] } }, defaultEnabled: false }]);
+    _setCorePluginsForTests([{ manifest: { ...CORE, id: 'kanban', code: { capabilities: ['notes:read'], api: '^1.0.0' } }, defaultEnabled: false }]);
     await call(Channels.PLUGINS_SET_ENABLED, 'kanban', true);
     expect(h.confirmNative).not.toHaveBeenCalled();
     expect(h.setCorePluginEnabled).toHaveBeenCalledTimes(2);

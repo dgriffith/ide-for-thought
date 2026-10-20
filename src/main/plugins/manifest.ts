@@ -8,6 +8,7 @@
  * `contributes` key that isn't a point plugins can contribute to yet.
  */
 import semver from 'semver';
+import { PLUGIN_API_VERSION } from '../../shared/plugins/api';
 import {
   PLUGIN_CONTRIBUTION_POINTS,
   type PluginCode,
@@ -24,7 +25,7 @@ export const MAX_PLUGIN_ID = 64;
 
 const KNOWN_KEYS = new Set(['$schema', 'id', 'name', 'version', 'minerva', 'description', 'author', 'license', 'contributes', 'settings', 'mcpServers', 'code']);
 /** What a `code` section may hold (#2823). Entry points join it with the frame (#2824) and the worker host (#2830). */
-const CODE_KEYS = new Set(['capabilities']);
+const CODE_KEYS = new Set(['capabilities', 'api']);
 
 export type ManifestResult =
   | { ok: true; manifest: PluginManifest }
@@ -174,5 +175,20 @@ function validateCode(raw: unknown, ctx: ManifestContext, problems: string[]): P
       out.push(c);
     }
   }
-  return { capabilities: out };
+  // The plugin API's own version (#2826), not the app's.
+  const api = raw.api;
+  if (api === undefined) {
+    if (out.some((c) => c !== 'process')) {
+      problems.push(`"code.api" must say which plugin API versions the code was written for, like "^${PLUGIN_API_VERSION}".`);
+    }
+    return { capabilities: out };
+  }
+  if (typeof api !== 'string' || semver.validRange(api) === null) {
+    problems.push(`"code.api" must be a semver range like "^${PLUGIN_API_VERSION}"; got ${JSON.stringify(api)}.`);
+    return { capabilities: out };
+  }
+  if (!semver.satisfies(PLUGIN_API_VERSION, api)) {
+    problems.push(`"code.api" asks for plugin API ${api}; this Minerva has ${PLUGIN_API_VERSION}.`);
+  }
+  return { capabilities: out, api };
 }

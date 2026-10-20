@@ -334,14 +334,23 @@ code:
 
 ## Forks and the ABI
 
-**Decision:** with code, the plugin API becomes an ABI, and `pluginApi`
-(`docs/forking.md`) is its semver version. A breaking change bumps the major
-and keeps the old shape for one major. The API ships as a typed package that
-plugins import, generated from the same source as the host's checks.
+**Decision:** with code, the plugin API becomes an ABI with a semver version
+of its own, `PLUGIN_API_VERSION` (#2826) — not the app's version, which moves
+every release while the ABI rarely does. A breaking change bumps the major
+and keeps the old shape for one major. A plugin declares the range it was
+written for as `code.api` (`"^1.0.0"`), and is refused, with the reason, when
+the host's version isn't in it.
+
+The API ships as a package generated from the same table the broker checks
+(`src/shared/plugins/api.ts` → `plugin-api/`): a runtime Minerva serves at
+`/@minerva/plugin-api.js` inside every plugin frame, so it always matches the
+host; its `.d.ts`; and `abi.json`, the snapshot
+`scripts/build-plugin-api.mjs` compares each change against.
 
 A fork that changes the API says so with `pluginApiExtensions`, as forking.md
-already decides. Forks then carry the ABI the way they carry the on-disk
-formats.
+already decides. Its methods are named `<slug>:<name>` and sit outside the
+snapshot; declaring and requiring them waits on forking.md's follow-up (item
+5). Forks then carry the ABI the way they carry the on-disk formats.
 
 ## What stays MCP
 

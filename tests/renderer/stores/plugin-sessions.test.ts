@@ -55,7 +55,7 @@ describe('connectPluginFrame (#2825)', () => {
     expect(conn.sessionId).toBe('s1');
     expect(postMessage).toHaveBeenCalledTimes(1);
     const [msg, origin, ports] = postMessage.mock.calls[0]!;
-    expect(msg).toEqual({ type: PLUGIN_PORT_MESSAGE, apiVersion: 1 });
+    expect(msg).toEqual({ type: PLUGIN_PORT_MESSAGE, apiVersion: '1.0.0' });
     expect(origin).toBe('minerva-plugin://board');
     expect(ports).toHaveLength(1);
     await conn.setScope(['b.md']);

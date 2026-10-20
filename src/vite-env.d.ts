@@ -44,3 +44,10 @@ interface ImportMeta {
     options?: { query?: string; import?: string; eager?: boolean },
   ): Record<string, unknown>;
 }
+
+// Vite's `?raw` for the generated plugin API runtime (#2826), which
+// `plugin-protocol.ts` serves to plugin frames as text.
+declare module '*.js?raw' {
+  const content: string;
+  export default content;
+}

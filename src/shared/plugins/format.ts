@@ -79,6 +79,12 @@ export interface PluginManifest {
 export interface PluginCode {
   /** What the code may do, from `PLUGIN_CAPABILITIES`; the host refuses the rest. */
   capabilities: PluginCapability[];
+  /**
+   * The plugin API versions the code was written for, a semver range like
+   * `"^1.0.0"` (#2826) — checked against `PLUGIN_API_VERSION`, never the app's
+   * version. Required when the code uses the API (any capability but `process`).
+   */
+  api?: string;
 }
 
 /**

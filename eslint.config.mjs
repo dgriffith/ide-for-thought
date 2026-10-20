@@ -91,6 +91,9 @@ export default tseslint.config(
       // A `-r` preload shim the e2e ready-gate spec hands to Electron's Node
       // (#2595). Plain CommonJS in no tsconfig, loaded by Electron, not by us.
       'tests/e2e/fixtures/*.cjs',
+      // Generated from src/shared/plugins/api.ts (#2826); plugin-api-abi.test.ts
+      // checks it matches, and it is served to plugin frames as written.
+      'plugin-api/**',
       'dist/**',
       'out/**',
       'coverage/**',

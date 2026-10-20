@@ -9,7 +9,9 @@
  * in a real Electron, which is what proves the preload's message satisfies it.
  *
  * The fixture declares `notes:read`, `graph:query` and
- * `notes:write-properties`, and nothing else.
+ * `notes:write-properties`, and nothing else. Its calls go through the plugin
+ * API package exactly as a plugin imports it: `/@minerva/plugin-api.js`,
+ * served by Minerva on the plugin's own origin (#2826).
  */
 import { test, expect, type Page, type ElectronApplication } from './helpers/test';
 import path from 'node:path';
@@ -55,6 +57,11 @@ async function connect(app: ElectronApplication, win: Page, pluginDir: string) {
   await expect.poll(() => win.frames().some((fr) => fr.url().endsWith('?session')), { timeout: 10_000 }).toBe(true);
   const frame = win.frames().find((fr) => fr.url().endsWith('?session'))!;
   await frame.waitForFunction(() => (window as unknown as { scriptRan?: boolean }).scriptRan === true);
+  // The plugin's half: import the served package and wait to be connected.
+  await frame.evaluate(() => {
+    const w = window as unknown as { minerva: Promise<unknown> };
+    w.minerva = import('/@minerva/plugin-api.js').then((m: { connect(): Promise<unknown> }) => m.connect());
+  });
 
   // The host's half: open a session, take the port from THIS window only, hand it to the frame.
   const relayed = await win.evaluate(async ([origin, scope]) => {
@@ -73,13 +80,25 @@ async function connect(app: ElectronApplication, win: Page, pluginDir: string) {
       void w.api.plugins.openSession('hostile', scope);
     });
     const frameEl = document.getElementById('e2e-plugin') as HTMLIFrameElement;
-    frameEl.contentWindow!.postMessage({ type: 'minerva.plugin-port', apiVersion: 1 }, origin, [port]);
+    frameEl.contentWindow!.postMessage({ type: 'minerva.plugin-port', apiVersion: '1.0.0' }, origin, [port]);
     return { foreign };
   }, [ORIGIN, [IN_SCOPE]] as const);
   expect(relayed.foreign).toBe(0);
-  await frame.waitForFunction(() => !!(window as unknown as { pluginPort?: unknown }).pluginPort, null, { timeout: 5000 });
+  expect(await frame.evaluate(async () => {
+    const m = await (window as unknown as { minerva: Promise<{ apiVersion: string }> }).minerva;
+    return m.apiVersion;
+  })).toBe('1.0.0');
   const call = (method: string, params?: unknown) =>
-    frame.evaluate(([m, p]) => (window as unknown as { callMinerva(m: string, p: unknown): Promise<unknown> }).callMinerva(m, p), [method, params] as const) as Promise<Reply>;
+    frame.evaluate(async ([m, p]) => {
+      const minerva = await (window as unknown as { minerva: Promise<{ call(m: string, p: unknown): Promise<unknown> }> }).minerva;
+      try {
+        return { result: await minerva.call(m, p) };
+      } catch (e) {
+        const err = e as { name: string; code: string; message: string };
+        if (err.name !== 'PluginApiError') throw e;
+        return { error: { code: err.code, message: err.message } };
+      }
+    }, [method, params] as const) as Promise<Reply>;
   return { frame, call };
 }
 
