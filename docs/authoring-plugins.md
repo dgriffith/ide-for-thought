@@ -105,6 +105,9 @@ app's signature vouches for them, so there is nothing to approve.
   beside your installed plugins; with no record it has its default.
 - **Its id is reserved.** A folder in `~/.minerva/plugins/` claiming a
   built-in plugin's id is refused, so nothing installed can stand in for one.
+- **One that can run programs asks first.** Turning on a plugin whose code
+  declares the `process` capability shows Minerva's own dialog, which the app's
+  window can't draw or answer, saying what it can do (#2821).
 - A thoughtbase can [recommend](#recommending-plugins-from-a-thoughtbase) a
   built-in plugin by id like any other, and that still turns nothing on.
 

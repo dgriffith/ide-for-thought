@@ -31,7 +31,9 @@ import { changePlugins } from '../plugins-apply';
 import { handle } from './typed-ipc';
 import { winFromEvent, withRootPathOr } from './helpers';
 import { pluginRecommendations } from '../plugins/recommendations';
-import { corePluginEnabled, corePlugins, isCorePluginId, setCorePluginEnabled } from '../plugins/core';
+import { corePlugin, corePluginEnabled, corePlugins, isCorePluginId, setCorePluginEnabled } from '../plugins/core';
+import { confirmNative } from '../native-confirm';
+import { describeCapabilities } from '../../shared/plugins/capabilities';
 import { loadPluginRecords } from '../plugins/state';
 import path from 'node:path';
 
@@ -88,6 +90,21 @@ async function installAsking(
   return installed ? { id: installed.manifest.id, name: installed.manifest.name } : null;
 }
 
+/**
+ * Turning on a plugin whose code declares `process` (#2821): asked natively,
+ * saying what it can do. A plugin without it isn't asked.
+ */
+async function mayRunPrograms(win: BrowserWindow, manifest: PluginManifest): Promise<boolean> {
+  const caps = manifest.code?.capabilities ?? [];
+  if (!caps.includes('process')) return true;
+  const { confirmed } = await confirmNative(win, {
+    message: `Turn on ${manifest.name}?`,
+    detail: `${manifest.description}\n\n${describeCapabilities(caps)} It runs programs only when you ask it to, and you can turn it off again in Settings → Plugins.`,
+    confirmLabel: 'Turn On',
+  });
+  return confirmed;
+}
+
 /** An installed plugin's manifest, on or off. */
 async function installedManifest(id: unknown): Promise<PluginManifest> {
   if (typeof id !== 'string' || !PLUGIN_ID.test(id)) throw new Error(`"${String(id)}" isn't a plugin id.`);
@@ -102,9 +119,15 @@ const withStorage = (view: PluginSettingsView): PluginSettingsView =>
 export function registerPlugins(): void {
   handle(Channels.PLUGINS_LIST, () => pluginList());
 
-  handle(Channels.PLUGINS_SET_ENABLED, async (_e, id: string, enabled: boolean) => {
-    const set = isCorePluginId(id) ? setCorePluginEnabled : setPluginEnabled;
-    await changePlugins(() => set(activePluginsDir(), id, enabled === true));
+  handle(Channels.PLUGINS_SET_ENABLED, async (e, id: string, enabled: boolean) => {
+    const on = enabled === true;
+    // A plugin whose code can run a program asks with main's own dialog
+    // before it's turned on (#2821), built-in or not: the renderer can't draw
+    // or answer it. Only built-in plugins can declare code yet (#2833).
+    const core = corePlugin(id);
+    if (on && core && !(await mayRunPrograms(winFromEvent(e), core.manifest))) return pluginList();
+    const set = core ? setCorePluginEnabled : setPluginEnabled;
+    await changePlugins(() => set(activePluginsDir(), id, on));
     return pluginList();
   });
 

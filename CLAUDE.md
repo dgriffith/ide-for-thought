@@ -303,7 +303,8 @@ This is a **professional tool**. Design accordingly:
 - **A confirm that guards code execution is not one of these (#2568).**
   Anything a compromised renderer could click through itself — compute
   consent, a new Python interpreter, a stdio MCP server's command, opening a
-  launchable file — is asked by main with `confirmNative`
+  launchable file, turning on a plugin whose code declares `process` (#2821)
+  — is asked by main with `confirmNative`
   (`src/main/native-confirm.ts`), a native dialog the renderer can't draw or
   answer. The channel goes in `src/main/ipc/privileged-channels.ts`, and
   `tests/architecture/privileged-ipc-confirm.test.ts` fails on a handler that
