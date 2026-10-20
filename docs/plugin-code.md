@@ -109,6 +109,12 @@ folder (or from `app.asar` for a core plugin).
 - **No navigation.** The frame can't navigate itself or the top frame, open
   windows or attach a `<webview>` (#2559's defaults, plus a
   `will-frame-navigate` check).
+- **Sandboxed by its own response**, not only by the host's `sandbox`
+  attribute: the frame CSP carries a `sandbox` directive (#2824). The main
+  window's popup handler can't tell which frame opened a popup and sends
+  http(s) to the OS browser, so an unsandboxed frame's `window.open` would
+  be a network request around `connect-src 'none'`. That was measured, then
+  closed.
 
 **Why a frame and not a `WebContentsView`:** a view sits *in* the layout (a
 kanban board in a tab, a block in the preview), and a frame lays out with the

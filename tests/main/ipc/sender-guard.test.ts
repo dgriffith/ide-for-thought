@@ -52,6 +52,11 @@ describe('isTrustedIpcSender (#2553)', () => {
     expect(isTrustedIpcSender(event(ENTRY, { subframe: true }) as never)).toBe(false);
   });
 
+  it('refuses a plugin frame (#2824), as a subframe and even as a main frame', () => {
+    expect(isTrustedIpcSender(event('minerva-plugin://hostile/index.html', { subframe: true }) as never)).toBe(false);
+    expect(isTrustedIpcSender(event('minerva-plugin://hostile/index.html') as never)).toBe(false);
+  });
+
   it('refuses a destroyed or navigated-away frame (senderFrame null)', () => {
     expect(isTrustedIpcSender(event(null) as never)).toBe(false);
   });

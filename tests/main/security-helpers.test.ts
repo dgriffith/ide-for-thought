@@ -5,7 +5,9 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { buildCsp, isOwnOrigin, isRendererEntry, externalNavTarget } from '../../src/main/security-helpers';
+import {
+  buildCsp, isOwnOrigin, isRendererEntry, externalNavTarget, startedInPluginFrame, subframeNavigationAllowed,
+} from '../../src/main/security-helpers';
 
 describe('buildCsp (#339)', () => {
   it('production CSP: strict default-src self, no external script-src, no inline script', () => {
@@ -64,10 +66,17 @@ describe('buildCsp (#339)', () => {
     expect(csp).toMatch(/form-action 'none'/);
   });
 
-  it("frame-src is 'self' only (#1535) — same-document srcdoc iframes, no external frame targets", () => {
+  it("frame-src is 'self' plus plugin frames (#1535, #2824) — srcdoc iframes and minerva-plugin:, no external frame targets", () => {
     const csp = buildCsp();
     const frameSrc = csp.match(/frame-src ([^;]+)/)![1];
-    expect(frameSrc).toBe("'self'");
+    expect(frameSrc).toBe("'self' minerva-plugin:");
+  });
+
+  it("'self' still means only the app: no plugin scheme in script-src, connect-src or default-src (#2824)", () => {
+    const csp = buildCsp();
+    for (const d of ['default-src', 'script-src', 'connect-src', 'worker-src']) {
+      expect(csp.match(new RegExp(`${d} ([^;]+)`))![1], d).not.toContain('minerva-plugin');
+    }
   });
 
   it('dev mode adds the Vite origin to script-src and connect-src + ws to connect-src', () => {
@@ -189,5 +198,38 @@ describe('isRendererEntry with the app:// entry (#2564)', () => {
     expect(isRendererEntry('app://evil/index.html', ENTRY)).toBe(false);
     expect(isRendererEntry('file:///tmp/index.html', ENTRY)).toBe(false);
     expect(isRendererEntry('https://minerva/index.html', ENTRY)).toBe(false);
+  });
+});
+
+describe('subframeNavigationAllowed (#2824)', () => {
+  const PLUGIN = 'minerva-plugin://hostile';
+  it('a plugin frame navigates nothing: itself, a sibling, another plugin or the web', () => {
+    for (const url of [`${PLUGIN}/other.html`, 'minerva-plugin://other/index.html', 'app://minerva/index.html', 'https://example.com/']) {
+      expect(subframeNavigationAllowed(url, PLUGIN), url).toBe(false);
+    }
+  });
+
+  it('only the app\'s own page may point a frame at a plugin', () => {
+    expect(subframeNavigationAllowed(`${PLUGIN}/index.html`, 'app://minerva')).toBe(true);
+    expect(subframeNavigationAllowed(`${PLUGIN}/index.html`, 'http://localhost:5173', 'http://localhost:5173/')).toBe(true);
+    // A note's HTML preview (an opaque srcdoc origin), the web, a local file, the browser itself.
+    for (const init of ['null', 'https://evil.example', 'file://', null]) {
+      expect(subframeNavigationAllowed(`${PLUGIN}/index.html`, init), String(init)).toBe(false);
+    }
+  });
+
+  it('leaves every other subframe navigation as it was', () => {
+    expect(subframeNavigationAllowed('about:srcdoc', 'app://minerva')).toBe(true);
+    expect(subframeNavigationAllowed('https://www.youtube-nocookie.com/embed/x', 'app://minerva')).toBe(true);
+  });
+});
+
+describe('startedInPluginFrame (#2824)', () => {
+  it('names plugin origins and URLs, nothing else', () => {
+    expect(startedInPluginFrame('minerva-plugin://hostile')).toBe(true);
+    expect(startedInPluginFrame('minerva-plugin://hostile/index.html')).toBe(true);
+    for (const v of ['app://minerva', 'https://example.com', 'null', '', null, undefined]) {
+      expect(startedInPluginFrame(v), String(v)).toBe(false);
+    }
   });
 });

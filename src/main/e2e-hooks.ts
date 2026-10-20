@@ -21,6 +21,7 @@ import { projectContext } from './project-context-types';
 import { proposeWrite, type ProposedWrite } from './llm/approval';
 import { ingestHtmlString } from './sources/ingest';
 import { reindexSource } from './sources/source-meta-write';
+import { _servePluginFrameForE2E } from './plugins/frame-files';
 
 export interface E2EHooks {
   /** File a fixed pending proposal into the focused window's project.
@@ -33,6 +34,10 @@ export interface E2EHooks {
    *  offline, so the source-ingestion e2e journey doesn't depend on the network.
    *  Returns the persisted source's id + title. */
   ingestSource(): Promise<{ sourceId: string; title: string }>;
+  /** Serve `root` as plugin `id`'s frame at `minerva-plugin://<id>/` (#2824).
+   *  No installed plugin can declare `ui` yet, so this is how the plugin-frame
+   *  spec puts a hostile page in front of the real protocol and guards. */
+  servePluginFrame(id: string, root: string): void;
 }
 
 /** The distinctive triple the seeded proposal adds on approval. */
@@ -95,6 +100,9 @@ export function installE2EHooks(): void {
       // sees it. Sources index via graph.indexSource, not the note indexer.
       await reindexSource(rootPath, result.sourceId);
       return { sourceId: result.sourceId, title: result.title };
+    },
+    servePluginFrame(id, root) {
+      _servePluginFrameForE2E(id, root);
     },
   };
   (globalThis as typeof globalThis & { __minervaE2E?: E2EHooks }).__minervaE2E = hooks;

@@ -13,7 +13,9 @@ import { registerBuiltinExecutors } from './compute/executors';
 import { registerBuiltinExporters } from './publish';
 import { installCsp, installGlobalWebContentsGuards, installPermissions, rendererCsp } from './security';
 import { installAppProtocol, registerAppScheme } from './app-protocol';
-import { rendererRoot } from './renderer-entry';
+import { installPluginProtocol } from './plugin-protocol';
+import { APP_ORIGIN } from './app-protocol-paths';
+import { devServerOrigin, rendererRoot } from './renderer-entry';
 import { registerLegacyStorageMigration } from './legacy-storage-migration';
 import { flushAllProjects } from './project-context';
 import { shutdownAllKernels } from './compute/python-kernel';
@@ -88,6 +90,9 @@ function startApp(): void {
     // the window loads the Vite server instead; serving the bundle too is
     // harmless.
     installAppProtocol(rendererRoot(), rendererCsp());
+    // Plugin frames (#2824), embeddable by the renderer's origin only.
+    const dev = devServerOrigin();
+    installPluginProtocol([APP_ORIGIN, ...(dev ? [new URL(dev).origin] : [])]);
     registerLegacyStorageMigration();
     boot('csp installed');
     registerIpcHandlers();

@@ -42,6 +42,7 @@ The fixes are layered on purpose. Each holds even if another is bypassed.
 | The renderer refuses first | #2554 | A capturing click/auxclick guard cancels any link that isn't http(s), `mailto:` or a same-document fragment. Unaccepted file drops are cancelled, and `navigateOnDragDrop: false` is pinned in `HARDENED_WEB_PREFERENCES`. | `tests/renderer/app/navigation-guard.test.ts`, `tests/e2e/navigation-guard.spec.ts` |
 | Deny by default, everywhere | #2559 | `web-contents-created` / `session-created` guards: every webContents starts unable to open windows, navigate or attach a `<webview>`, and every non-default session denies every permission. A window opts in explicitly. | `tests/main/security.test.ts`, `tests/architecture/webcontents-deny-by-default.test.ts` |
 | The renderer isn't on `file://` at all | #2564 | The renderer is served from the privileged `app://minerva` scheme (`src/main/app-protocol.ts`), which reads the bundle with main's asar-aware `fs`. CSP `'self'` now means the bundle. Permission checks match `app://minerva`, not `file://`. The `GrantFileProtocolExtraPrivileges` fuse is **off**, so `file://` has Chrome's default powers only. | `tests/main/app-protocol-paths.test.ts`, `tests/architecture/electron-fuses.test.ts` |
+| Plugin views get an origin of their own | #2824 | A plugin's UI is a frame on `minerva-plugin://<id>/` (`src/main/plugin-protocol.ts`), served from its folder only for an enabled plugin that declares `ui` (`plugins/frame-files.ts`; real paths, so a link out of the folder is a 404). Its response carries its own CSP: scripts from its origin, `connect-src 'none'`, no frames, `frame-ancestors` the app only, and a `sandbox` directive, so it is sandboxed however it's framed. It has no preload; the sender guard refuses it; permissions are judged by the requesting frame's URL, not the window's; `will-frame-navigate` refuses its navigations and any page but the app's framing one; `will-navigate` refuses its top navigation without diverting it. The app's `frame-src` gains `minerva-plugin:`, and `'self'` still means only `app://minerva`. | `tests/main/plugins/frame-files.test.ts`, `tests/main/security.test.ts`, `tests/e2e/plugin-frame.spec.ts` (a hostile fixture, framed bare and sandboxed) |
 | Code execution needs main's own confirm | #2568 | IPC that can end in code running (compute consent, a new Python interpreter, a stdio MCP server's command, opening a launchable file, turning on a plugin whose code can run programs, #2821) asks a native dialog the renderer can't draw or answer. | `tests/architecture/privileged-ipc-confirm.test.ts` |
 
 `localStorage` moved origin with the renderer. The first launch after the
@@ -64,7 +65,20 @@ upgrade copies the old `file://` origin's entries across once
 - **A new asset the renderer fetches** is served by the `app://` handler. It
   doesn't need `file://` access, and must not ask for it.
 - **A permission** is granted in `security.ts`'s default-session handler to
-  `app://minerva` only. Any other session denies it.
+  `app://minerva` only, judged by the requesting frame's URL (#2824). Any
+  other session denies it.
+- **A plugin frame** is framed with `PLUGIN_FRAME_SANDBOX`
+  (`src/shared/plugins/frame.ts`) and talks to the app only over the port the
+  host hands it (#2825). Two things found building it (#2824), worth knowing
+  for any new frame or scheme:
+  - **`protocol.handle` responses pass through `onHeadersReceived`.**
+    `installCsp` rewrites the CSP there, so a scheme with its own CSP needs
+    the exception `minerva-plugin:` has.
+  - **The main window's `window.open` handler can't see which frame opened a
+    popup** (Electron passes none, and the referrer can be empty), and it
+    sends http(s) to the OS browser. An unsandboxed plugin frame's popup was
+    measured reaching `shell.openExternal`. What holds is the `sandbox`
+    directive in the frame's own CSP, which refuses the popup in Chromium.
 
 ## The shared-thoughtbase question
 

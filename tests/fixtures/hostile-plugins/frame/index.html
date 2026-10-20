@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>hostile plugin frame</title>
+  <!-- Inline script: refused by the frame CSP (script-src 'self'). -->
+  <script>window.inlineRan = true;</script>
+  <script src="app.js"></script>
+</head>
+<body>
+  <p id="ready">hostile frame</p>
+  <button id="top-nav">take over the top page</button>
+  <button id="self-nav">navigate this frame</button>
+  <button id="popup">open a window</button>
+</body>
+</html>
