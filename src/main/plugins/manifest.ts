@@ -10,9 +10,11 @@
 import semver from 'semver';
 import {
   PLUGIN_CONTRIBUTION_POINTS,
+  type PluginCode,
   type PluginContributionPoint,
   type PluginManifest,
 } from '../../shared/plugins/format';
+import { isPluginCapability, PLUGIN_CAPABILITIES, type PluginCapability } from '../../shared/plugins/capabilities';
 import { validatePluginSettings } from './settings-schema';
 import { validatePluginMcpServers } from './mcp-schema';
 
@@ -20,7 +22,9 @@ import { validatePluginMcpServers } from './mcp-schema';
 export const PLUGIN_ID = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 export const MAX_PLUGIN_ID = 64;
 
-const KNOWN_KEYS = new Set(['$schema', 'id', 'name', 'version', 'minerva', 'description', 'author', 'license', 'contributes', 'settings', 'mcpServers']);
+const KNOWN_KEYS = new Set(['$schema', 'id', 'name', 'version', 'minerva', 'description', 'author', 'license', 'contributes', 'settings', 'mcpServers', 'code']);
+/** What a `code` section may hold (#2823). Entry points join it with the frame (#2824) and the worker host (#2830). */
+const CODE_KEYS = new Set(['capabilities']);
 
 export type ManifestResult =
   | { ok: true; manifest: PluginManifest }
@@ -120,6 +124,7 @@ export function validatePluginManifest(raw: unknown, ctx: ManifestContext): Mani
 
   const settings = raw.settings === undefined ? undefined : validatePluginSettings(raw.settings, problems);
   const mcpServers = raw.mcpServers === undefined ? undefined : validatePluginMcpServers(raw.mcpServers, settings ?? [], problems);
+  const code = raw.code === undefined ? undefined : validateCode(raw.code, ctx, problems);
 
   if (problems.length > 0) return { ok: false, problems };
   return {
@@ -131,6 +136,43 @@ export function validatePluginManifest(raw: unknown, ctx: ManifestContext): Mani
       contributes,
       ...(settings !== undefined && settings.length > 0 ? { settings } : {}),
       ...(mcpServers !== undefined && mcpServers.length > 0 ? { mcpServers } : {}),
+      ...(code !== undefined ? { code } : {}),
     },
   };
+}
+
+/**
+ * `code` (#2823): the capabilities the plugin's code uses, from a closed list.
+ * Only a plugin built into Minerva may have one until plugin code opens to
+ * installed plugins (#2833); code an installed plugin needs ships as an MCP
+ * server, out of process.
+ */
+function validateCode(raw: unknown, ctx: ManifestContext, problems: string[]): PluginCode | undefined {
+  if (!ctx.core) {
+    problems.push('"code" is only for plugins built into Minerva for now. A plugin you install can\'t run code inside Minerva yet; ship the code as an MCP server instead ("mcpServers").');
+    return undefined;
+  }
+  if (!isRecord(raw)) {
+    problems.push('"code" must be an object.');
+    return undefined;
+  }
+  for (const key of Object.keys(raw)) {
+    if (!CODE_KEYS.has(key)) problems.push(`Unknown field "code.${key}".`);
+  }
+  const caps = raw.capabilities;
+  if (!Array.isArray(caps) || caps.length === 0) {
+    problems.push('"code.capabilities" must be a non-empty list of what the code does.');
+    return undefined;
+  }
+  const out: PluginCapability[] = [];
+  for (const c of caps) {
+    if (typeof c !== 'string' || !isPluginCapability(c)) {
+      problems.push(`"code.capabilities" names "${String(c)}", which isn't a capability; they are ${Object.keys(PLUGIN_CAPABILITIES).join(', ')}.`);
+    } else if (out.includes(c)) {
+      problems.push(`"code.capabilities" lists "${c}" twice.`);
+    } else {
+      out.push(c);
+    }
+  }
+  return { capabilities: out };
 }

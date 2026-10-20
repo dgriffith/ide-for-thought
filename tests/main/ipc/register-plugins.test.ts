@@ -242,7 +242,7 @@ describe('register-plugins (#2634)', () => {
 });
 
 describe('core plugins (#2820)', () => {
-  const CORE = { id: 'python', name: 'Python cells', version: '1.0.0', minerva: '>=4.0.0', description: 'Run Python in a note.', contributes: {} };
+  const CORE = { id: 'python', name: 'Python cells', version: '1.0.0', minerva: '>=4.0.0', description: 'Run Python in a note.', contributes: {}, code: { capabilities: ['process'] } };
   beforeEach(() => { _setCorePluginsForTests([{ manifest: CORE, defaultEnabled: false }]); });
   afterEach(() => { _setCorePluginsForTests(null); });
 
@@ -250,7 +250,7 @@ describe('core plugins (#2820)', () => {
     const list = await call<{ core: unknown[] }>(Channels.PLUGINS_LIST);
     expect(list.core).toEqual([{
       id: 'python', name: 'Python cells', version: '1.0.0', description: 'Run Python in a note.',
-      enabled: false, source: { kind: 'core' }, contributes: {},
+      enabled: false, source: { kind: 'core' }, contributes: {}, capabilities: ['process'],
     }]);
   });
 

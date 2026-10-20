@@ -164,6 +164,7 @@ URL you typed yourself. The rules are `src/main/plugins/recommendations.ts`.
 | `contributes` | yes | Extension point → the files it adds there. At least one, unless the plugin ships an MCP server. |
 | `mcpServers` | no | MCP servers it ships; see [MCP servers](#mcp-servers). |
 | `settings` | no | What the user can set for it on this machine; see [Settings](#settings). |
+| `code` | no | What its code inside Minerva does, as `capabilities` from a closed list (#2823). **Only [built-in plugins](#built-in-plugins) may have one for now**; an installed plugin's code ships as an [MCP server](#mcp-servers). |
 | `$schema` | no | Ignored; there for editors. |
 
 Any other field is refused, so a misspelt `contributes` can't silently
@@ -424,6 +425,7 @@ A plugin is refused when:
   that range;
 - `contributes` is empty, or names a point plugins can't contribute to yet;
 - its `id` is a [built-in plugin's](#built-in-plugins);
+- it has a `code` section, which only built-in plugins may have for now;
 - a contributed path:
   - isn't relative, uses `\`, or contains `..` or an empty segment;
   - isn't inside its point's folder (a type in `skills/`, say);

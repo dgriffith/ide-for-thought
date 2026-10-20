@@ -43,6 +43,7 @@ export async function pluginList(): Promise<PluginList> {
       enabled: corePluginEnabled(records, { manifest: m, defaultEnabled }),
       source: { kind: 'core' },
       contributes: {},
+      ...(m.code ? { capabilities: m.code.capabilities } : {}),
     })),
     installed: inv.installed.map(({ plugin, record }): PluginSummary => {
       const contributes: PluginSummary['contributes'] = {};
