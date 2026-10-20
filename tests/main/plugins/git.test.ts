@@ -72,6 +72,27 @@ describe('fetchPluginRepo (#2634)', () => {
     }));
     await expect(fetchPluginRepo(spec, path.join(tmp, 'repo'), http, { ...LIMITS, timeoutMs: 30 })).rejects.toThrow(/took more than 0 seconds/);
   });
+
+  // The test above used to hang on a loaded CI runner: the timer fired before
+  // the request started, so its abort listener never ran. A timeout of 0
+  // makes that ordering certain, and a transport that ignores the signal
+  // proves the timeout doesn't depend on it.
+  it('stops a fetch whose transport ignores the signal, even once it has already fired', async () => {
+    const http = transport(() => new Promise(() => {}));
+    await expect(fetchPluginRepo(spec, path.join(tmp, 'repo'), http, { ...LIMITS, timeoutMs: 0 })).rejects.toThrow(/took more than 0 seconds/);
+    await expect(fetchPluginRepo(spec, path.join(tmp, 'repo2'), http, { ...LIMITS, timeoutMs: 30 })).rejects.toThrow(/took more than 0 seconds/);
+  });
+
+  it('stops a body that stalls between chunks', async () => {
+    const http = transport(async (req) => ({
+      url: req.url, method: req.method, statusCode: 200, statusMessage: 'OK',
+      headers: { 'content-type': 'application/x-git-upload-pack-advertisement' },
+      // A pkt-line header promising 30 bytes, then half of them: the reader
+      // has to wait for the rest, which never comes.
+      body: (async function* () { yield new TextEncoder().encode('001e# service='); await new Promise(() => {}); })(),
+    }));
+    await expect(fetchPluginRepo(spec, path.join(tmp, 'repo'), http, { ...LIMITS, timeoutMs: 30 })).rejects.toThrow(/took more than 0 seconds/);
+  });
 });
 
 describe('checkoutPluginTree (#2634)', () => {
