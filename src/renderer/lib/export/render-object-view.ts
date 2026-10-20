@@ -33,6 +33,11 @@
  * `EXPORT_BLOCK_WIDTH_PX` wide, where a timeline scales down and a board
  * wraps its columns, as they already do at the default width.
  *
+ * A layout a plugin draws (#2828) is snapshotted like any other — but only
+ * once the plugin has answered with its export HTML and `PluginLayout` has
+ * drawn it, sanitized, in the frame's place (`pluginExport.onRendered`). A
+ * plugin that doesn't answer in time fails the block, as a slow view does.
+ *
  * A map (#2511) is the exception to snapshotting the DOM: it's the preview's
  * own `TypeViewMap` in export mode, in the embed's frame (its spec `height`,
  * 360px by default — #2666), flattened to
@@ -107,6 +112,11 @@ async function renderAtWidth(spec: ReturnType<typeof parseObjectViewSpec>, width
   let mapTimer: ReturnType<typeof setTimeout> | undefined;
   let resolveCapture!: (c: MapCapture) => void;
   const captured = new Promise<MapCapture>((resolve) => { resolveCapture = resolve; });
+  let pluginTimer: ReturnType<typeof setTimeout> | undefined;
+  // Resolves null once drawn, or with why it couldn't be — never rejects, so
+  // it needs no handler when the layout isn't a plugin's and nothing awaits it.
+  let pluginSettle!: (failure: string | null) => void;
+  const pluginDrawn = new Promise<string | null>((resolve) => { pluginSettle = resolve; });
   try {
     const loaded = new Promise<void>((resolve, reject) => {
       timer = setTimeout(() => reject(new Error('the view took too long to load')), OBJECT_VIEW_LOAD_TIMEOUT_MS);
@@ -139,6 +149,8 @@ async function renderAtWidth(spec: ReturnType<typeof parseObjectViewSpec>, width
           exportMode: true,
           // Only a mounted map uses this — it hands back its capture.
           mapExport: { onCaptured: (c: MapCapture) => resolveCapture(c) },
+          // Only a plugin-drawn layout uses this (#2828).
+          pluginExport: { onRendered: () => pluginSettle(null), onFailed: (reason: string) => pluginSettle(reason) },
         },
       });
     });
@@ -155,10 +167,21 @@ async function renderAtWidth(spec: ReturnType<typeof parseObjectViewSpec>, width
       ]);
       return mapCaptureHtml(capture, LIVE_BLOCK_CLASS, NOTE_LINK_ATTR);
     }
+    if (block.querySelector('[data-plugin-layout]')) {
+      const failure = await Promise.race([
+        pluginDrawn,
+        new Promise<never>((_, reject) => {
+          pluginTimer = setTimeout(() => reject(new Error('the plugin view took too long to draw')), OBJECT_VIEW_LOAD_TIMEOUT_MS);
+        }),
+      ]);
+      if (failure !== null) throw new Error(`the plugin view couldn't be drawn: ${failure}`);
+      await tick();
+    }
     return snapshotLiveBlock(themed);
   } finally {
     clearTimeout(timer);
     clearTimeout(mapTimer);
+    clearTimeout(pluginTimer);
     if (instance) void unmount(instance);
     host.remove();
   }

@@ -23,6 +23,9 @@ const RENDERER = path.join(__dirname, '..', '..', 'src', 'renderer');
 
 /** `file → { expression → why it is safe }`. */
 const REVIEWED_SINKS: Record<string, Record<string, string>> = {
+  'lib/components/plugins/PluginLayout.svelte': {
+    exported: "a plugin layout's export HTML (#2828), through sanitizePluginExportHtml (DOMPurify, static-only, no URLs)",
+  },
   'lib/components/Icon.svelte': {
     path: 'static SVG path data from the bundled icon table',
   },

@@ -28,7 +28,7 @@ import type { PluginCapability } from './capabilities';
  * The API's semver version (#2826), its own and not the app's: the host sends
  * it with the port, and a plugin's `code.api` range must accept it.
  */
-export const PLUGIN_API_VERSION = '1.2.0';
+export const PLUGIN_API_VERSION = '1.3.0';
 
 export const PLUGIN_METHODS = {
   'notes.list': { capability: 'notes:read', describes: 'The notes this view or call was given.' },
@@ -46,6 +46,10 @@ export const PLUGIN_METHODS = {
   'ui.releaseFocus': { capability: 'ui', describes: 'Give keyboard focus back to Minerva (what Escape does by default).' },
   'ui.forwardKey': { capability: 'ui', describes: "Pass on a shortcut the view didn't handle; Minerva runs it if it is one a plugin view may." },
   'view.setState': { capability: 'ui', describes: "Change the view's own settings (a board's column order); only the layout's own fields." },
+  'ui.showNoteMenu': { capability: 'ui', describes: "Show Minerva's own menu for notes it was given, at a point in the frame; the user picks, Minerva acts." },
+  'ui.previewNote': { capability: 'ui', describes: "Show Minerva's hover preview of a note it was given, beside a box in the frame." },
+  'ui.hidePreview': { capability: 'ui', describes: 'Let the hover preview of a note go.' },
+  'view.provideExport': { capability: 'ui', describes: "Answer an export request: the view as static HTML, inline styles only; Minerva sanitizes it." },
   'llm.propose': { capability: 'llm:propose', describes: 'Ask the assistant for changes. Not available yet (#2858).' },
 } as const satisfies Record<string, { capability: PluginCapability; describes: string }>;
 
@@ -72,6 +76,10 @@ export interface PluginMethodParams {
   'ui.releaseFocus': Record<string, never>;
   'ui.forwardKey': { key: string; meta?: boolean; ctrl?: boolean; alt?: boolean; shift?: boolean };
   'view.setState': { patch: Record<string, unknown> };
+  'ui.showNoteMenu': { paths: string[]; x: number; y: number };
+  'ui.previewNote': { path: string; x: number; y: number; width: number; height: number; via?: 'pointer' | 'focus' };
+  'ui.hidePreview': { path: string; via?: 'pointer' | 'focus' };
+  'view.provideExport': { requestId: string; html: string };
   'llm.propose': Record<string, unknown>;
 }
 
@@ -95,6 +103,10 @@ export interface PluginMethodResults {
   'ui.releaseFocus': Record<string, never>;
   'ui.forwardKey': Record<string, never>;
   'view.setState': Record<string, never>;
+  'ui.showNoteMenu': Record<string, never>;
+  'ui.previewNote': Record<string, never>;
+  'ui.hidePreview': Record<string, never>;
+  'view.provideExport': Record<string, never>;
   'llm.propose': never;
 }
 
@@ -110,11 +122,14 @@ export interface PluginMethodResults {
  * - `view` (#2828): a type view's state, for a plugin that draws a layout —
  *   sent on connect and whenever it changes. Its `instances` are the
  *   session's scope.
+ * - `export` (#2828): draw the view for an export (`view.exportMode`) and
+ *   answer with `view.provideExport({ requestId, html })`.
  */
 export interface PluginEvents {
   theme: { mode: string; vars: Record<string, string> };
   drop: { paths: string[]; x: number; y: number };
   view: PluginViewState;
+  export: { requestId: string };
 }
 
 /** A type view, as a plugin drawing one of its layouts sees it (#2828). */
@@ -144,6 +159,9 @@ export type PluginViewProperty = { name: string; type: string; label?: string; o
 export type PluginViewInstance = { path: string; title: string; values: Record<string, string | null>; tags?: string[] };
 
 export type PluginEventName = keyof PluginEvents;
+
+/** The most notes one `ui.showNoteMenu` may name. */
+export const PLUGIN_NOTE_MENU_MAX_PATHS = 500;
 
 /** A context menu's limits. */
 export const PLUGIN_MENU_MAX_ITEMS = 50;

@@ -17,10 +17,19 @@ const h = vi.hoisted(() => ({
     drop: ReturnType<typeof vi.fn>;
     close: ReturnType<typeof vi.fn>;
   },
-  host: null as null | { releaseFocus(): void },
+  host: null as null | {
+    releaseFocus(): void;
+    showNoteMenu?(paths: string[], x: number, y: number): void;
+    previewNote?(path: string, rect: { x: number; y: number; width: number; height: number }, via: 'pointer' | 'focus'): void;
+    hidePreview?(path: string, via: 'pointer' | 'focus'): void;
+  },
   connect: vi.fn(),
 }));
 vi.mock('../../../src/renderer/lib/stores/plugin-sessions.svelte', () => ({ connectPluginFrame: h.connect }));
+// The hover preview reads the note through the app's fetcher: a fixed one here.
+vi.mock('../../../src/renderer/lib/components/note-hover/app-fetcher', () => ({
+  appNotePreviewFetcher: () => async (target: string) => ({ path: target, title: `Title of ${target}`, snippet: 'Some text.' }),
+}));
 
 import PluginFrame from '../../../src/renderer/lib/components/plugins/PluginFrame.svelte';
 import { NOTE_DROP_EVENT } from '../../../src/renderer/lib/stores/link-drag.svelte';
@@ -118,5 +127,44 @@ describe('PluginFrame (#2827)', () => {
     const failed = render(PluginFrame, { pluginId: 'kanban', scope: [], title: 'Kanban board' });
     await fireEvent.load(failed.container.querySelector('iframe')!);
     await waitFor(() => expect(failed.container.textContent).toContain("This view couldn't start"));
+  });
+});
+
+describe('the kit gaps, hosted (#2828, part B)', () => {
+  it("draws the app's hover preview against the box the plugin names, and lets it go", async () => {
+    const { container } = await mounted();
+    h.host!.previewNote!('a.md', { x: 12, y: 30, width: 200, height: 40 }, 'focus');
+    const anchor = container.querySelector<HTMLElement>('.plugin-hover-anchor')!;
+    await waitFor(() => expect(anchor.getAttribute('aria-describedby')).toBeTruthy());
+    expect([anchor.style.left, anchor.style.top, anchor.style.width, anchor.style.height]).toEqual(['12px', '30px', '200px', '40px']);
+    // The preview portals into document.body, out of any clipping ancestor.
+    await waitFor(() => expect(document.body.textContent).toContain('Title of a.md'));
+    h.host!.hidePreview!('a.md', 'focus');
+    await waitFor(() => expect(anchor.getAttribute('aria-describedby')).toBeNull());
+  });
+
+  it("turns the plugin's menu point into the window's for the layout host", async () => {
+    const onNoteMenu = vi.fn();
+    const r = render(PluginFrame, { pluginId: 'kanban', scope: [], title: 'Kanban board', onNoteMenu });
+    const frame = r.container.querySelector('iframe')!;
+    frame.getBoundingClientRect = () => ({ left: 100, top: 50, right: 500, bottom: 450, width: 400, height: 400, x: 100, y: 50, toJSON: () => ({}) });
+    await fireEvent.load(frame);
+    await waitFor(() => expect(h.connect).toHaveBeenCalled());
+    h.host!.showNoteMenu!(['a.md', 'b.md'], 30, 40);
+    expect(onNoteMenu).toHaveBeenCalledWith(['a.md', 'b.md'], 130, 90);
+  });
+
+  it('reads the theme from its own host, so an export block gets its light tokens', async () => {
+    document.documentElement.setAttribute('data-theme', 'dark');
+    const wrap = document.createElement('div');
+    wrap.setAttribute('data-theme', 'light');
+    wrap.style.setProperty('--bg', '#ffffff');
+    document.body.append(wrap);
+    const r = render(PluginFrame, { target: wrap, props: { pluginId: 'kanban', scope: [], title: 'Kanban board' } });
+    await fireEvent.load(r.container.querySelector('iframe')!);
+    await waitFor(() => expect(h.connection!.sendTheme).toHaveBeenCalled());
+    expect(h.connection!.sendTheme.mock.calls[0]![0]).toBe('light');
+    expect(h.connection!.sendTheme.mock.calls[0]![1]).toMatchObject({ '--bg': '#ffffff' });
+    wrap.remove();
   });
 });

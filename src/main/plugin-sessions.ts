@@ -100,6 +100,10 @@ export function sendPluginSessionEvent(win: BrowserWindow, sessionId: string, ev
     entry.session.emit('theme', { mode: String(event.mode).slice(0, 40), vars });
     return;
   }
+  if (event.kind === 'exportRequest') {
+    entry.session.emit('export', { requestId: String(event.requestId).slice(0, 64) });
+    return;
+  }
   if (event.kind === 'view') {
     // The view's notes are what the session may reach: the host scopes it to
     // exactly the instances it sends, and a refused path is left out of both.

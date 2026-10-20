@@ -148,6 +148,23 @@ describe('intents (#2825, #2827)', () => {
     expect(h.sendSessionEvent).toHaveBeenLastCalledWith('v1', { kind: 'view', state });
   });
 
+  it("routes the note menu, previews and the export answer to the frame's host, and asks for an export", async () => {
+    const host = { releaseFocus: vi.fn(), showNoteMenu: vi.fn(), previewNote: vi.fn(), hidePreview: vi.fn(), exportHtml: vi.fn() };
+    h.openSession.mockImplementation(async () => { queueMicrotask(() => deliverPort('k1')); return { sessionId: 'k1' }; });
+    const conn = await connectPluginFrame(fakeFrame().frame, 'kanban', [], host);
+    const send = (intent: unknown) => h.intent!({ sessionId: 'k1', pluginId: 'kanban', intent });
+    send({ kind: 'showNoteMenu', paths: ['a.md'], x: 3, y: 4 });
+    send({ kind: 'previewNote', path: 'a.md', rect: { x: 1, y: 2, width: 3, height: 4 }, via: 'pointer' });
+    send({ kind: 'hidePreview', path: 'a.md', via: 'pointer' });
+    send({ kind: 'exportHtml', requestId: 'r', html: '<p>x</p>' });
+    expect(host.showNoteMenu).toHaveBeenCalledWith(['a.md'], 3, 4);
+    expect(host.previewNote).toHaveBeenCalledWith('a.md', { x: 1, y: 2, width: 3, height: 4 }, 'pointer');
+    expect(host.hidePreview).toHaveBeenCalledWith('a.md', 'pointer');
+    expect(host.exportHtml).toHaveBeenCalledWith('r', '<p>x</p>');
+    await conn.requestExport('r2');
+    expect(h.sendSessionEvent).toHaveBeenLastCalledWith('k1', { kind: 'exportRequest', requestId: 'r2' });
+  });
+
   it('sends the theme and a drop as session events', async () => {
     h.openSession.mockImplementation(async () => { queueMicrotask(() => deliverPort('s4')); return { sessionId: 's4' }; });
     const conn = await connectPluginFrame(fakeFrame().frame, 'board', []);

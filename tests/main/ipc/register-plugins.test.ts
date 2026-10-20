@@ -406,8 +406,10 @@ describe('plugin session events (#2827)', () => {
     const drop = { kind: 'drop', paths: ['a.md'], x: 1, y: 2 };
     await call(Channels.PLUGINS_SESSION_EVENT, 's1', drop);
     expect(h.sessionEvent).toHaveBeenCalledWith({ id: 1 }, 's1', drop);
-    await expect(call(Channels.PLUGINS_SESSION_EVENT, 's1', { kind: 'approve' })).rejects.toThrow('a theme, a drop or a view');
-    await expect(call(Channels.PLUGINS_SESSION_EVENT, 's1', null)).rejects.toThrow('a theme, a drop or a view');
+    await expect(call(Channels.PLUGINS_SESSION_EVENT, 's1', { kind: 'approve' })).rejects.toThrow('a theme, a drop, a view or an export request');
+    await expect(call(Channels.PLUGINS_SESSION_EVENT, 's1', null)).rejects.toThrow('a theme, a drop, a view or an export request');
+    await call(Channels.PLUGINS_SESSION_EVENT, 's1', { kind: 'exportRequest', requestId: 'r' });
+    expect(h.sessionEvent).toHaveBeenLastCalledWith({ id: 1 }, 's1', { kind: 'exportRequest', requestId: 'r' });
     await call(Channels.PLUGINS_SESSION_EVENT, 's1', { kind: 'view', state: {} });
     expect(h.sessionEvent).toHaveBeenLastCalledWith({ id: 1 }, 's1', { kind: 'view', state: {} });
   });

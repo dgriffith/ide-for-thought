@@ -1768,7 +1768,10 @@ origin.
   plugin draws** keeps its registry entry with `plugin: '<id>'` (#2828) and is
   hosted by `PluginLayout.svelte` (the View API: a `view` event out,
   `view.setState` back, only the layout's own spec fields); with the plugin
-  off it isn't offered and a saved view shows the table.
+  off it isn't offered and a saved view shows the table. Its note menu is the
+  view's own (`ui.showNoteMenu`), its previews the app's, and its export is
+  plugin HTML through `sanitizePluginExportHtml` — no URL survives it, since
+  the markup is mounted in the app's renderer while it's snapshotted.
 
 ### Code Review Checklist for LLM/Graph PRs
 

@@ -287,6 +287,23 @@ Main makes those notes the session's scope, exactly, before passing it on.
 The plugin's `view.setState({ patch })` comes back as `view.onStateChange`,
 keeping only the layout's own spec fields, and nothing in an embed or export.
 
+What a layout needs that the kit didn't have (part B):
+
+- **The app's own note menu**: `ui.showNoteMenu({ paths, x, y })` opens the
+  view's row menu — Set Property, tags, Move to — for notes the session was
+  given, at that point. The plugin can open it; only the user picks, and the
+  app runs the action with its own confirmations.
+- **Hover previews**: `ui.previewNote({ path, x, y, width, height, via })`
+  shows the app's `NoteHoverPreview` against that box, with the app's delay
+  and grace; `ui.hidePreview` lets it go.
+- **Export**: in `exportMode`, the host sends an `export` event and the
+  plugin answers `view.provideExport({ requestId, html })`. The HTML is
+  **static, inline-styled and URL-free** — `sanitizePluginExportHtml` drops
+  scripts, handlers, `<style>`, controls, frames, images and every URL
+  (`url(…)` in a style too), and keeps `data-note-path`, which the snapshot
+  turns into note links. It is drawn in the frame's place, with the export
+  theme's tokens inline, and that is what the export snapshots.
+
 ### Kanban, timeline and calendar, on by default
 
 **Decision:** the three `view-layouts` beyond list, table, gallery and map

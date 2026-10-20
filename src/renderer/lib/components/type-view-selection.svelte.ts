@@ -57,6 +57,21 @@ export function createTypeViewSelection(opts: TypeViewSelectionOptions) {
     menu = { x: e.clientX, y: e.clientY, target: path };
   }
 
+  /**
+   * The row menu for `paths`, at a point in the window — what a plugin drawing
+   * the layout asks for (#2828), with the same rules as a right-click: none in
+   * an embed without note actions, and one note at most in a menu-only embed.
+   */
+  function openMenuFor(paths: readonly string[], x: number, y: number): void {
+    if ((!opts.enabled() && !menuOnly()) || paths.length === 0) return;
+    if (menuOnly() || paths.length === 1) selection.setSingle(paths[0]!);
+    else {
+      selection.clear();
+      for (const p of paths) selection.toggle(p);
+    }
+    menu = { x, y };
+  }
+
   function closeMenu(): void {
     const wasTarget = !!menu?.target;
     menu = null;
@@ -93,6 +108,7 @@ export function createTypeViewSelection(opts: TypeViewSelectionOptions) {
     click,
     contextMenu,
     contextMenuFor,
+    openMenuFor,
     keydown,
     editSelected,
     closeMenu,

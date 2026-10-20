@@ -35,7 +35,7 @@
   import { DEFAULT_VIEW_LAYOUT, layoutAvailable, layoutDef, layoutPlugin, layoutsFor, type ViewLayout } from '../../../shared/objects/view-layouts';
   import { corePluginsStore } from '../stores/core-plugins.svelte';
   import { LAYOUT_RENDERERS, layoutOrder } from './type-view/layout-renderers';
-  import type { LayoutView, ViewStatePatch } from './type-view/layout-view';
+  import type { LayoutView, PluginExportHooks, ViewStatePatch } from './type-view/layout-view';
   import { objectTypesStore } from '../stores/object-types.svelte';
   import { effectivePropertyDefs } from '../../../shared/objects/inheritance';
   import { displayPropertyValue } from '../../../shared/objects/property-display';
@@ -84,6 +84,8 @@
     onClearFolder?: () => void;
     /** Map layout only: render for an export and hand back a capture (#2511). */
     mapExport?: MapExportHooks;
+    /** A plugin-drawn layout: render for an export and say when it has (#2828). */
+    pluginExport?: PluginExportHooks;
     /** Map layout's tile style (#2665); `auto` follows the app theme. The
      *  panel shows a control to change it; an embed or export doesn't. */
     mapStyle?: MapStyle;
@@ -105,7 +107,7 @@
      *  multi-select; a click just opens the note. */
     noteActions?: TypeViewNoteActions | undefined;
   }
-  let { typeId, layout, sortColumn, sortDir, columns, revision, onStateChange, onOpenNote, onSaveView, chromeless = false, onLoaded, mapExport, folder = null, filters = [], onClearFolder, mapStyle = 'auto', groupBy = null, columnOrder = [], showEmptyColumns = true, exportMode = false, from = null, to = null, month = null, dateBy = null, noteActions }: Props = $props();
+  let { typeId, layout, sortColumn, sortDir, columns, revision, onStateChange, onOpenNote, onSaveView, chromeless = false, onLoaded, mapExport, pluginExport, folder = null, filters = [], onClearFolder, mapStyle = 'auto', groupBy = null, columnOrder = [], showEmptyColumns = true, exportMode = false, from = null, to = null, month = null, dateBy = null, noteActions }: Props = $props();
 
   let type = $state<TypeInfo | null>(null);
   let instances = $state<TypeInstanceRow[]>([]);
@@ -369,6 +371,7 @@
     onRowContextMenu: (e, p) => sel.contextMenu(e, p),
     refPath: (prop, value) => (noteActions && prop.type === 'link-to-type' && value ? notePathForIri(value, knownNotePaths) : null),
     onRefContextMenu: (e, p, label) => { refLabel = label; sel.contextMenuFor(e, p); },
+    openRowMenu: (paths, x, y) => sel.openMenuFor(paths, x, y),
     onOpenNote: (p) => onOpenNote(p),
     onStateChange: (p) => onStateChange(p),
     get readOnly() { return chromeless; },
@@ -376,6 +379,7 @@
     get locationProperty() { return locationProperty; },
     get mapStyle() { return mapStyle; },
     get mapExport() { return mapExport; },
+    get pluginExport() { return pluginExport; },
     get group() { return groupProp; },
     get board() { return board; },
     get onMoveCard() { return selectable ? (p: string, t: MoveTarget) => moveTo([p], t) : undefined; },
