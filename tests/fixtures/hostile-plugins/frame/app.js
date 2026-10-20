@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
 let nextId = 1;
 const pending = new Map();
 window.addEventListener('message', (e) => {
-  if (e.origin !== 'app://minerva' || e.data?.type !== 'minerva:plugin-port' || !e.ports[0]) return;
+  if (e.origin !== 'app://minerva' || e.data?.type !== 'minerva.plugin-port' || !e.ports[0]) return;
   window.pluginPort = e.ports[0];
   window.pluginPort.onmessage = (m) => {
     const reply = JSON.parse(m.data);

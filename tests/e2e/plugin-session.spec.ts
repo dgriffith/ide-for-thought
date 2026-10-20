@@ -63,7 +63,7 @@ async function connect(app: ElectronApplication, win: Page, pluginDir: string) {
     const port = await new Promise<MessagePort>((resolve, reject) => {
       const onMessage = (e: MessageEvent) => {
         const data = e.data as { type?: string } | null;
-        if (data?.type !== 'minerva:plugin-session-port') return;
+        if (data?.type !== 'minerva.plugin-session-port') return;
         if (e.source !== window || e.origin !== window.location.origin || !e.ports[0]) { foreign += 1; return; }
         window.removeEventListener('message', onMessage);
         resolve(e.ports[0]);
@@ -73,7 +73,7 @@ async function connect(app: ElectronApplication, win: Page, pluginDir: string) {
       void w.api.plugins.openSession('hostile', scope);
     });
     const frameEl = document.getElementById('e2e-plugin') as HTMLIFrameElement;
-    frameEl.contentWindow!.postMessage({ type: 'minerva:plugin-port', apiVersion: 1 }, origin, [port]);
+    frameEl.contentWindow!.postMessage({ type: 'minerva.plugin-port', apiVersion: 1 }, origin, [port]);
     return { foreign };
   }, [ORIGIN, [IN_SCOPE]] as const);
   expect(relayed.foreign).toBe(0);

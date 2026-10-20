@@ -15,4 +15,4 @@ export interface PluginIntentEvent {
 }
 
 /** The window message the preload posts a session's port with (`event.ports[0]`). */
-export const PLUGIN_SESSION_PORT_MESSAGE = 'minerva:plugin-session-port';
+export const PLUGIN_SESSION_PORT_MESSAGE = 'minerva.plugin-session-port';

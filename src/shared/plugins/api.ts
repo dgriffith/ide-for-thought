@@ -104,4 +104,4 @@ export const PLUGIN_MAX_IN_FLIGHT = 16;
 export const PLUGIN_QUERY_ROW_LIMIT = 5000;
 
 /** The window message that carries a session's port into a plugin frame. */
-export const PLUGIN_PORT_MESSAGE = 'minerva:plugin-port';
+export const PLUGIN_PORT_MESSAGE = 'minerva.plugin-port';
