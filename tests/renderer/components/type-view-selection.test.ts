@@ -115,3 +115,31 @@ describe('a menu for a note named inside a row (#2775)', () => {
     expect(off.sel.menu).toBeNull();
   });
 });
+
+describe('openMenuFor — a plugin layout asking for the row menu (#2828)', () => {
+  it('in a panel, selects exactly those notes and opens the menu at the point', () => {
+    const { sel } = make('panel');
+    sel.openMenuFor(['b.md', 'c.md'], 40, 60);
+    expect(sel.selectedPaths).toEqual(['b.md', 'c.md']);
+    expect(sel.menu).toEqual({ x: 40, y: 60 });
+    sel.openMenuFor(['a.md'], 1, 2);
+    expect(sel.selectedPaths).toEqual(['a.md']);
+  });
+
+  it('in a menu-only embed, the first note only; with no menu at all, nothing', () => {
+    const embed = make('menuOnly');
+    embed.sel.openMenuFor(['b.md', 'c.md'], 5, 5);
+    expect(embed.sel.selectedPaths).toEqual(['b.md']);
+    expect(embed.sel.menu).toEqual({ x: 5, y: 5 });
+    const off = make('off');
+    off.sel.openMenuFor(['a.md'], 5, 5);
+    expect(off.sel.menu).toBeNull();
+    expect(off.sel.selectedPaths).toEqual([]);
+  });
+
+  it('opens nothing for no notes', () => {
+    const { sel } = make('panel');
+    sel.openMenuFor([], 1, 1);
+    expect(sel.menu).toBeNull();
+  });
+});

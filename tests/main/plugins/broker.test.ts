@@ -394,3 +394,46 @@ describe('the View API (#2828)', () => {
     expect(s.intents).toEqual([]);
   });
 });
+
+describe('the kit gaps for layouts (#2828, part B)', () => {
+  it("asks for the app's note menu for notes it was given only, each once", async () => {
+    const s = open({ scope: ['a.md', 'b.md'] });
+    await s.call('ui.showNoteMenu', { paths: ['a.md', './a.md', 'b.md'], x: 10, y: 20 });
+    expect(s.intents).toEqual([{ kind: 'showNoteMenu', paths: ['a.md', 'b.md'], x: 10, y: 20 }]);
+    expect((await s.call('ui.showNoteMenu', { paths: ['a.md', 'c.md'], x: 0, y: 0 })).error?.code).toBe('scope');
+    for (const bad of [{ paths: [], x: 0, y: 0 }, { paths: ['a.md'], x: 'left', y: 0 }, { paths: [7], x: 0, y: 0 },
+      { paths: Array.from({ length: 501 }, () => 'a.md'), x: 0, y: 0 }]) {
+      expect((await s.call('ui.showNoteMenu', bad)).error?.code).toBe('bad-request');
+    }
+    expect(s.intents).toHaveLength(1);
+  });
+
+  it('previews a note it was given, beside a box, by pointer or by focus, and lets it go', async () => {
+    const s = open({ scope: ['a.md'] });
+    await s.call('ui.previewNote', { path: 'a.md', x: 1, y: 2, width: 30, height: 40 });
+    await s.call('ui.previewNote', { path: 'a.md', x: 1, y: 2, width: 30, height: 40, via: 'focus' });
+    await s.call('ui.hidePreview', { path: 'a.md', via: 'focus' });
+    expect(s.intents).toEqual([
+      { kind: 'previewNote', path: 'a.md', rect: { x: 1, y: 2, width: 30, height: 40 }, via: 'pointer' },
+      { kind: 'previewNote', path: 'a.md', rect: { x: 1, y: 2, width: 30, height: 40 }, via: 'focus' },
+      { kind: 'hidePreview', path: 'a.md', via: 'focus' },
+    ]);
+    expect((await s.call('ui.previewNote', { path: 'b.md', x: 0, y: 0, width: 1, height: 1 })).error?.code).toBe('scope');
+    expect((await s.call('ui.previewNote', { path: 'a.md', x: 0, y: 0, width: 1, height: 1, via: 'keyboard' })).error?.code).toBe('bad-request');
+  });
+
+  it('passes an export answer on, unsanitized — the host sanitizes it', async () => {
+    const s = open();
+    await s.call('view.provideExport', { requestId: 'r1', html: '<p onclick="x()">board</p>' });
+    expect(s.intents).toEqual([{ kind: 'exportHtml', requestId: 'r1', html: '<p onclick="x()">board</p>' }]);
+    expect((await s.call('view.provideExport', { requestId: '', html: '' })).error?.code).toBe('bad-request');
+    expect((await s.call('view.provideExport', { requestId: 'x'.repeat(65), html: '' })).error?.code).toBe('bad-request');
+  });
+
+  it('none of them without the ui capability', async () => {
+    const s = open({ capabilities: ['notes:read'] });
+    for (const m of ['ui.showNoteMenu', 'ui.previewNote', 'ui.hidePreview', 'view.provideExport']) {
+      expect((await s.call(m, { paths: ['a.md'], path: 'a.md', x: 0, y: 0, width: 1, height: 1, requestId: 'r', html: '' })).error?.code, m).toBe('capability');
+    }
+  });
+});

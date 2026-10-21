@@ -12,7 +12,12 @@
    * - **drops**: while any drag is on, the frame ignores the pointer, so a
    *   note dragged from the sidebar (HTML5) or a panel (pointer, `link-drag`)
    *   lands here, and is sent to the plugin — joining its scope — in the
-   *   frame's own coordinates.
+   *   frame's own coordinates;
+   * - **hover previews** (#2828): the app's own `NoteHoverPreview`, placed
+   *   against an anchor over the box the plugin names, with the app's open
+   *   delay and close grace;
+   * - **the note menu** (#2828): the point the plugin names, in window
+   *   coordinates, for the layout host to open the app's own row menu at.
    */
   import { onDestroy } from 'svelte';
   import { PLUGIN_FRAME_SANDBOX, PLUGIN_THEME_TOKENS, pluginFrameOrigin } from '../../../../shared/plugins/frame';
@@ -20,6 +25,9 @@
   import { NOTE_DROP_EVENT, type NoteDropDetail } from '../../stores/link-drag.svelte';
   import { DRAG_MIME_NOTE } from '../../editor/drag-link';
   import { logger } from '../../../../shared/logger';
+  import NoteHoverPreview from '../NoteHoverPreview.svelte';
+  import { createNoteHover } from '../note-hover/note-hover.svelte';
+  import type { HoverInstance } from '../note-hover/hover-instance';
 
   interface Props {
     pluginId: string;
@@ -33,9 +41,23 @@
     onConnected?: (connection: PluginFrameConnection) => void;
     /** The plugin asked to change its view's spec (#2828). */
     onViewState?: (patch: Record<string, unknown>) => void;
+    /** The app's note menu for these notes at a point in the window (#2828). */
+    onNoteMenu?: (paths: string[], clientX: number, clientY: number) => void;
+    /** The plugin's answer to an export request, unsanitized (#2828). */
+    onExportHtml?: (requestId: string, html: string) => void;
+    /** The properties strip of a note's hover preview, where the host knows its type (#2828). */
+    hoverInstance?: (path: string) => HoverInstance | null;
   }
 
-  let { pluginId, entry = 'index.html', scope, title, onConnected, onViewState }: Props = $props();
+  let { pluginId, entry = 'index.html', scope, title, onConnected, onViewState, onNoteMenu, onExportHtml, hoverInstance }: Props = $props();
+
+  // Hover previews: the app's own, against an anchor over the plugin's box.
+  const hover = createNoteHover();
+  const uid = $props.id();
+  const hoverId = `${uid}-preview`;
+  let anchor: HTMLDivElement;
+  let anchorBox = $state<{ x: number; y: number; width: number; height: number } | null>(null);
+  const hoverInst = $derived(hover.current && hoverInstance ? hoverInstance(hover.current.key) : null);
 
   let host: HTMLDivElement;
   // Inside the {#if}, so bound reactively.
@@ -45,15 +67,23 @@
   let dragging = $state(false);
   let lastScope = '';
 
-  /** The app's theme tokens as they are now. */
+  /** The theme tokens as they reach this host — its own, so an export's
+   *  `data-theme="light"` block gives a light board even in a dark app. */
   function currentTheme(): { mode: string; vars: Record<string, string> } {
-    const style = getComputedStyle(document.documentElement);
+    const style = getComputedStyle(host);
     const vars: Record<string, string> = {};
     for (const token of PLUGIN_THEME_TOKENS) {
       const value = style.getPropertyValue(token).trim();
       if (value) vars[token] = value;
     }
-    return { mode: document.documentElement.dataset.theme ?? 'dark', vars };
+    const themed = host.closest<HTMLElement>('[data-theme]');
+    return { mode: themed?.dataset.theme ?? 'dark', vars };
+  }
+
+  /** A point in the frame, in the window's coordinates. */
+  function toWindow(x: number, y: number): { x: number; y: number } {
+    const rect = (frame ?? host).getBoundingClientRect();
+    return { x: rect.left + x, y: rect.top + y };
   }
 
   function sendTheme(): void {
@@ -67,6 +97,21 @@
       connection = await connectPluginFrame(frame, pluginId, [...scope], {
         releaseFocus: () => host.focus(),
         setViewState: (patch) => onViewState?.(patch),
+        showNoteMenu: (paths, x, y) => {
+          const at = toWindow(x, y);
+          onNoteMenu?.(paths, at.x, at.y);
+        },
+        previewNote: (path, rect, via) => {
+          anchorBox = rect;
+          const subject = { key: path, target: path, anchor };
+          if (via === 'focus') hover.focus(subject);
+          else hover.pointerEnter(subject);
+        },
+        hidePreview: (path, via) => {
+          if (via === 'focus') hover.blur(path);
+          else hover.pointerLeave(path);
+        },
+        exportHtml: (requestId, html) => onExportHtml?.(requestId, html),
       });
       lastScope = JSON.stringify(scope);
       sendTheme();
@@ -160,6 +205,14 @@
       onload={() => { void onLoad(); }}
     ></iframe>
   {/if}
+  <!-- Where the plugin's box is, for the hover preview to sit against. -->
+  <div
+    class="plugin-hover-anchor"
+    bind:this={anchor}
+    aria-describedby={hover.current ? hoverId : undefined}
+    style={anchorBox ? `left:${anchorBox.x}px;top:${anchorBox.y}px;width:${anchorBox.width}px;height:${anchorBox.height}px` : ''}
+  ></div>
+  <NoteHoverPreview id={hoverId} {hover} instance={hoverInst} />
 </div>
 
 <style>
@@ -183,6 +236,10 @@
   /* While a drag is on, the drop lands on this host, not inside the frame. */
   .plugin-frame.dragging iframe,
   :global(body.link-dragging) .plugin-frame iframe {
+    pointer-events: none;
+  }
+  .plugin-hover-anchor {
+    position: absolute;
     pointer-events: none;
   }
   .plugin-frame-failed {

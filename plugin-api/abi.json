@@ -1,5 +1,5 @@
 {
-  "version": "1.2.0",
+  "version": "1.3.0",
   "errorCodes": [
     "bad-request",
     "busy",
@@ -33,6 +33,15 @@
           "name": "y",
           "optional": false,
           "type": "number"
+        }
+      ]
+    },
+    "export": {
+      "members": [
+        {
+          "name": "requestId",
+          "optional": false,
+          "type": "string"
         }
       ]
     },
@@ -309,6 +318,26 @@
         "text": "Record<string, never>"
       }
     },
+    "ui.hidePreview": {
+      "capability": "ui",
+      "params": {
+        "members": [
+          {
+            "name": "path",
+            "optional": false,
+            "type": "string"
+          },
+          {
+            "name": "via",
+            "optional": true,
+            "type": "'pointer' | 'focus'"
+          }
+        ]
+      },
+      "result": {
+        "text": "Record<string, never>"
+      }
+    },
     "ui.openNote": {
       "capability": "ui",
       "params": {
@@ -317,6 +346,46 @@
             "name": "path",
             "optional": false,
             "type": "string"
+          }
+        ]
+      },
+      "result": {
+        "text": "Record<string, never>"
+      }
+    },
+    "ui.previewNote": {
+      "capability": "ui",
+      "params": {
+        "members": [
+          {
+            "name": "height",
+            "optional": false,
+            "type": "number"
+          },
+          {
+            "name": "path",
+            "optional": false,
+            "type": "string"
+          },
+          {
+            "name": "via",
+            "optional": true,
+            "type": "'pointer' | 'focus'"
+          },
+          {
+            "name": "width",
+            "optional": false,
+            "type": "number"
+          },
+          {
+            "name": "x",
+            "optional": false,
+            "type": "number"
+          },
+          {
+            "name": "y",
+            "optional": false,
+            "type": "number"
           }
         ]
       },
@@ -367,6 +436,51 @@
             "type": "string | null"
           }
         ]
+      }
+    },
+    "ui.showNoteMenu": {
+      "capability": "ui",
+      "params": {
+        "members": [
+          {
+            "name": "paths",
+            "optional": false,
+            "type": "string[]"
+          },
+          {
+            "name": "x",
+            "optional": false,
+            "type": "number"
+          },
+          {
+            "name": "y",
+            "optional": false,
+            "type": "number"
+          }
+        ]
+      },
+      "result": {
+        "text": "Record<string, never>"
+      }
+    },
+    "view.provideExport": {
+      "capability": "ui",
+      "params": {
+        "members": [
+          {
+            "name": "html",
+            "optional": false,
+            "type": "string"
+          },
+          {
+            "name": "requestId",
+            "optional": false,
+            "type": "string"
+          }
+        ]
+      },
+      "result": {
+        "text": "Record<string, never>"
       }
     },
     "view.setState": {

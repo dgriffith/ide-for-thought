@@ -35,6 +35,7 @@ import {
   PLUGIN_METHODS,
   PLUGIN_QUERY_ROW_LIMIT,
   PLUGIN_MENU_MAX_ITEMS,
+  PLUGIN_NOTE_MENU_MAX_PATHS,
   PLUGIN_MENU_MAX_LABEL,
   type PluginErrorCode,
   type PluginEventName,
@@ -155,6 +156,18 @@ function asParams(raw: unknown): Record<string, unknown> {
 function stringParam(params: Record<string, unknown>, key: string): string {
   const v = params[key];
   if (typeof v !== 'string') throw new Refusal('bad-request', `"${key}" must be a string.`);
+  return v;
+}
+
+function numberParam(params: Record<string, unknown>, key: string): number {
+  const v = params[key];
+  if (typeof v !== 'number' || !Number.isFinite(v)) throw new Refusal('bad-request', `"${key}" must be a number.`);
+  return v;
+}
+
+function viaParam(params: Record<string, unknown>): 'pointer' | 'focus' {
+  const v = params.via ?? 'pointer';
+  if (v !== 'pointer' && v !== 'focus') throw new Refusal('bad-request', '"via" is "pointer" or "focus".');
   return v;
 }
 
@@ -308,6 +321,32 @@ export function createPluginSession(opts: PluginSessionOptions): PluginSession {
         const patch = recordParam(params, 'patch');
         if (Object.keys(patch).length > 32) throw new Refusal('bad-request', 'A view state patch holds at most 32 fields.');
         deps.intent({ kind: 'setViewState', patch });
+        return {};
+      }
+      case 'ui.showNoteMenu': {
+        const raw = params.paths;
+        if (!Array.isArray(raw) || raw.length === 0) throw new Refusal('bad-request', '"paths" must be a non-empty list.');
+        if (raw.length > PLUGIN_NOTE_MENU_MAX_PATHS) throw new Refusal('bad-request', `A note menu names at most ${PLUGIN_NOTE_MENU_MAX_PATHS} notes.`);
+        const paths = [...new Set(raw.map((p, i) => {
+          if (typeof p !== 'string') throw new Refusal('bad-request', `paths[${i}] must be a string.`);
+          return scoped(p);
+        }))];
+        deps.intent({ kind: 'showNoteMenu', paths, x: numberParam(params, 'x'), y: numberParam(params, 'y') });
+        return {};
+      }
+      case 'ui.previewNote': {
+        const path = scoped(stringParam(params, 'path'));
+        const rect = { x: numberParam(params, 'x'), y: numberParam(params, 'y'), width: numberParam(params, 'width'), height: numberParam(params, 'height') };
+        deps.intent({ kind: 'previewNote', path, rect, via: viaParam(params) });
+        return {};
+      }
+      case 'ui.hidePreview':
+        deps.intent({ kind: 'hidePreview', path: normalizeRel(stringParam(params, 'path')), via: viaParam(params) });
+        return {};
+      case 'view.provideExport': {
+        const requestId = stringParam(params, 'requestId');
+        if (requestId.length === 0 || requestId.length > 64) throw new Refusal('bad-request', '"requestId" must be the id the export event carried.');
+        deps.intent({ kind: 'exportHtml', requestId, html: stringParam(params, 'html') });
         return {};
       }
       case 'llm.propose':

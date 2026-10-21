@@ -284,3 +284,15 @@ describe('the View API, wired (#2828)', () => {
     w.closeWindow();
   });
 });
+
+describe('export requests (#2828, part B)', () => {
+  it("asks the plugin for its export, under the host's request id", async () => {
+    const w = fakeWindow(1);
+    const { sessionId } = openPluginSession(w.win, 'board', []);
+    const events: unknown[] = [];
+    w.posted[0]!.ports[0]!.on('message', (e: { data: string }) => { const m = JSON.parse(e.data); if (m.event) events.push(m); });
+    sendPluginSessionEvent(w.win, sessionId, { kind: 'exportRequest', requestId: 'req-1' });
+    await vi.waitFor(() => expect(events).toEqual([{ event: 'export', data: { requestId: 'req-1' } }]));
+    w.closeWindow();
+  });
+});

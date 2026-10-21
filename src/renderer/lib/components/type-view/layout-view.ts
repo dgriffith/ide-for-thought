@@ -19,6 +19,14 @@ import type { DropSide } from '../kanban/column-drag';
 import type { ViewLayout } from '../../../../shared/objects/view-layouts';
 import type { PropertyDef, TypeInfo, TypeInstanceRow } from '../../../../shared/objects/type-def';
 
+/** What an export gives a plugin-drawn layout (#2828). */
+export interface PluginExportHooks {
+  /** The plugin's sanitized export is in the DOM: snapshot it now. */
+  onRendered: () => void;
+  /** It couldn't be drawn; the export says so in its place. */
+  onFailed: (reason: string) => void;
+}
+
 /** A change to the view's spec — what the tab (or nothing, in an embed) keeps. */
 export interface ViewStatePatch {
   layout?: ViewLayout;
@@ -73,6 +81,9 @@ export interface LayoutView {
   refPath: (prop: PropertyDef, value: string | null) => string | null;
   /** Right-click that named note: the menu for it, not for the row. */
   onRefContextMenu: (e: MouseEvent, path: string, label: string) => void;
+  /** The row menu for these notes at a point in the window — a plugin layout's
+   *  `ui.showNoteMenu` (#2828). */
+  openRowMenu: (paths: readonly string[], clientX: number, clientY: number) => void;
 
   onOpenNote: (path: string) => void;
   onStateChange: (patch: ViewStatePatch) => void;
@@ -80,6 +91,8 @@ export interface LayoutView {
   readOnly: boolean;
   /** Drawing for an export snapshot. */
   exportMode: boolean;
+  /** A plugin layout tells the export it has drawn (#2828), as a map hands back its capture. */
+  pluginExport: PluginExportHooks | undefined;
 
   // ── What a particular layout reads ──
   /** Map: the type's location property, null when it has none. */

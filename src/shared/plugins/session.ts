@@ -15,14 +15,23 @@ export type PluginIntent =
   /** A shortcut the view didn't handle; the host runs it only if it may (#2827). */
   | { kind: 'key'; key: string; meta: boolean; ctrl: boolean; alt: boolean; shift: boolean }
   /** Change the view's own spec (#2828); the host keeps only its layout's fields. */
-  | { kind: 'setViewState'; patch: Record<string, unknown> };
+  | { kind: 'setViewState'; patch: Record<string, unknown> }
+  /** The app's own note menu, for notes the session was given, at a point in the frame (#2828). */
+  | { kind: 'showNoteMenu'; paths: string[]; x: number; y: number }
+  /** The app's hover preview, beside a box in the frame (#2828). */
+  | { kind: 'previewNote'; path: string; rect: { x: number; y: number; width: number; height: number }; via: 'pointer' | 'focus' }
+  | { kind: 'hidePreview'; path: string; via: 'pointer' | 'focus' }
+  /** The plugin's answer to an export request: unsanitized HTML — the host sanitizes it (#2828). */
+  | { kind: 'exportHtml'; requestId: string; html: string };
 
 /** What the host tells main to pass on to a session's plugin (#2827). */
 export type PluginHostEvent =
   | { kind: 'theme'; mode: string; vars: Record<string, string> }
   | { kind: 'drop'; paths: string[]; x: number; y: number }
   /** A type view's state, for a plugin drawing its layout (#2828). */
-  | { kind: 'view'; state: PluginViewState };
+  | { kind: 'view'; state: PluginViewState }
+  /** Ask the plugin to draw its view for an export (#2828). */
+  | { kind: 'exportRequest'; requestId: string };
 
 export interface PluginIntentEvent {
   sessionId: string;

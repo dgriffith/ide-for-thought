@@ -42,6 +42,8 @@ export interface PluginFrameConnection {
   drop(paths: string[], x: number, y: number): Promise<void>;
   /** A type view's state (#2828); its instances become the session's scope. */
   sendView(state: PluginViewState): Promise<void>;
+  /** Ask the plugin for its export HTML (#2828); the answer comes to the host's `exportHtml`. */
+  requestExport(requestId: string): Promise<void>;
   close(): Promise<void>;
 }
 
@@ -51,6 +53,13 @@ export interface PluginFrameHost {
   releaseFocus(): void;
   /** A layout plugin changing its view's spec (#2828). */
   setViewState?(patch: Record<string, unknown>): void;
+  /** The app's note menu for these notes, at a point in the FRAME's coordinates (#2828). */
+  showNoteMenu?(paths: string[], x: number, y: number): void;
+  /** The app's hover preview beside a box in the frame, and letting it go (#2828). */
+  previewNote?(path: string, rect: { x: number; y: number; width: number; height: number }, via: 'pointer' | 'focus'): void;
+  hidePreview?(path: string, via: 'pointer' | 'focus'): void;
+  /** The plugin's answer to an export request — unsanitized (#2828). */
+  exportHtml?(requestId: string, html: string): void;
 }
 
 /** What the app does for every plugin view. */
@@ -103,6 +112,18 @@ function onIntent({ sessionId, pluginId, intent }: PluginIntentEvent): void {
       return;
     case 'setViewState':
       hosts.get(sessionId)?.setViewState?.(intent.patch);
+      return;
+    case 'showNoteMenu':
+      hosts.get(sessionId)?.showNoteMenu?.(intent.paths, intent.x, intent.y);
+      return;
+    case 'previewNote':
+      hosts.get(sessionId)?.previewNote?.(intent.path, intent.rect, intent.via);
+      return;
+    case 'hidePreview':
+      hosts.get(sessionId)?.hidePreview?.(intent.path, intent.via);
+      return;
+    case 'exportHtml':
+      hosts.get(sessionId)?.exportHtml?.(intent.requestId, intent.html);
       return;
     case 'key': {
       const id = forwardableCommand(intent);
@@ -173,6 +194,7 @@ export async function connectPluginFrame(
     sendTheme: (mode, vars) => api.plugins.sendSessionEvent(sessionId, { kind: 'theme', mode, vars }),
     drop: (paths, x, y) => api.plugins.sendSessionEvent(sessionId, { kind: 'drop', paths: [...paths], x, y }),
     sendView: (state) => api.plugins.sendSessionEvent(sessionId, { kind: 'view', state }),
+    requestExport: (requestId) => api.plugins.sendSessionEvent(sessionId, { kind: 'exportRequest', requestId }),
     close: () => {
       hosts.delete(sessionId);
       return api.plugins.closeSession(sessionId);

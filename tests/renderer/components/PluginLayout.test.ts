@@ -10,8 +10,13 @@ import { render, fireEvent, waitFor, cleanup } from '@testing-library/svelte';
 
 const h = vi.hoisted(() => ({
   connect: vi.fn(),
-  host: null as null | { setViewState?(p: Record<string, unknown>): void },
+  host: null as null | {
+    setViewState?(p: Record<string, unknown>): void;
+    showNoteMenu?(paths: string[], x: number, y: number): void;
+    exportHtml?(requestId: string, html: string): void;
+  },
   sendView: vi.fn(async () => {}),
+  requestExport: vi.fn(async () => {}),
 }));
 vi.mock('../../../src/renderer/lib/stores/plugin-sessions.svelte', () => ({ connectPluginFrame: h.connect }));
 
@@ -27,17 +32,19 @@ function fakeView(over: Partial<LayoutView> = {}): LayoutView {
     type: { id: 'task', label: 'Task', classLocalName: 'Task', properties: [], icon: '✅' },
     properties: [{ name: 'status', type: 'enum', options: ['todo', 'done'] }],
     visible: null, instances: rows, sorted: [rows[1]!, rows[0]!], sortColumn: 'title', sortDir: 'desc',
-    readOnly: false, exportMode: false, onStateChange: vi.fn(),
+    readOnly: false, exportMode: false, onStateChange: vi.fn(), openRowMenu: vi.fn(),
+    display: (_p: unknown, v: string | null) => v ?? '', rowType: () => null, pluginExport: undefined,
     ...over,
   } as unknown as LayoutView;
 }
 
 beforeEach(() => {
   h.sendView.mockClear();
+  h.requestExport.mockClear();
   h.connect.mockReset();
   h.connect.mockImplementation(async (_f: unknown, _id: string, _s: string[], host: typeof h.host) => {
     h.host = host;
-    return { sessionId: 's', setScope: vi.fn(async () => {}), sendTheme: vi.fn(async () => {}), drop: vi.fn(), sendView: h.sendView, close: vi.fn(async () => {}) };
+    return { sessionId: 's', setScope: vi.fn(async () => {}), sendTheme: vi.fn(async () => {}), drop: vi.fn(), sendView: h.sendView, requestExport: h.requestExport, close: vi.fn(async () => {}) };
   });
 });
 afterEach(() => cleanup());
@@ -94,5 +101,41 @@ describe('PluginLayout (#2828)', () => {
     const { view } = await mounted(fakeView({ readOnly: true }));
     h.host!.setViewState!({ columnOrder: ['done'] });
     expect(view.onStateChange).not.toHaveBeenCalled();
+  });
+});
+
+describe('the kit gaps, for a layout (#2828, part B)', () => {
+  it("opens the view's own row menu for the notes the plugin names", async () => {
+    const { view, container } = await mounted();
+    container.querySelector('iframe')!.getBoundingClientRect = () => ({ left: 10, top: 20, right: 0, bottom: 0, width: 0, height: 0, x: 10, y: 20, toJSON: () => ({}) });
+    h.host!.showNoteMenu!(['a.md'], 5, 6);
+    expect(view.openRowMenu).toHaveBeenCalledWith(['a.md'], 15, 26);
+  });
+
+  it('asks for the export after sending the view, and draws the answer sanitized, then says so', async () => {
+    const onRendered = vi.fn();
+    const view = fakeView({ exportMode: true, readOnly: true, pluginExport: { onRendered, onFailed: vi.fn() } });
+    const { container } = await mounted(view);
+    await waitFor(() => expect(h.requestExport).toHaveBeenCalledTimes(1));
+    const requestId = h.requestExport.mock.calls[0]![0] as string;
+    expect(h.sendView.mock.invocationCallOrder[0]).toBeLessThan(h.requestExport.mock.invocationCallOrder[0]!);
+
+    h.host!.exportHtml!('not-the-request', '<p>wrong</p>');
+    expect(container.textContent).not.toContain('wrong');
+
+    h.host!.exportHtml!(requestId, '<section style="color: var(--text)"><h3>Done</h3><p data-note-path="a.md" onclick="steal()">Alpha</p>'
+      + '<img src="https://evil/beacon.png"><script>steal()</script></section>');
+    await waitFor(() => expect(onRendered).toHaveBeenCalledTimes(1));
+    const out = container.querySelector<HTMLElement>('.plugin-export')!;
+    expect(out).not.toBeNull();
+    expect(container.querySelector('iframe')).toBeNull();
+    expect(out.innerHTML).toContain('data-note-path="a.md"');
+    expect(out.innerHTML).not.toMatch(/onclick|<img|<script|evil/);
+  });
+
+  it('asks for nothing when it is not an export', async () => {
+    await mounted();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(h.requestExport).not.toHaveBeenCalled();
   });
 });
