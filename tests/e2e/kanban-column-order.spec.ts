@@ -30,7 +30,7 @@ test('Kanban columns: drag a header to reorder, the order stays with the view, a
   try {
     const win = await app.firstWindow({ timeout: 20_000 });
     await expect(win.getByRole('button', { name: 'Open Thoughtbase' })).toHaveCount(0, { timeout: 25_000 });
-    const { board, column } = await test.step('open the Project view as a board', async () => {
+    const { board, column, frame } = await test.step('open the Project view as a board', async () => {
       const b = await openProjectBoard(win, PROJECTS.length);
       await expect(b.board.locator('.kb-col-label')).toHaveText(['active', 'paused', 'done', 'abandoned', 'No value']);
       return b;
@@ -66,7 +66,8 @@ test('Kanban columns: drag a header to reorder, the order stays with the view, a
       const menuButton = column('done').getByRole('button', { name: 'done column actions' });
       await expect(menuButton).toBeFocused();
       await win.keyboard.press('Enter');
-      const menu = win.getByRole('menu', { name: 'done column' });
+      // The column menu is the board's own, in the Kanban plugin's frame (#2828).
+      const menu = frame.getByRole('menu', { name: 'done column' });
       await expect(menu).toBeVisible();
       // done is first: Move column left is offered but disabled, so focus starts on right.
       await expect(menu.getByRole('menuitem', { name: 'Move column left' })).toHaveAttribute('aria-disabled', 'true');

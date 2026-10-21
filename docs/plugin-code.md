@@ -334,6 +334,30 @@ rather than toys, and moving them means the people who know the code find the
 API's gaps rather than third-party authors. A graph or mindmap view is then the
 first view *nobody* wrote as core, which is the real parity test.
 
+**Kanban is done (#2828).** The board lives in `plugins/kanban/` — its own
+source root, built by `vite.core-plugins.config.mts` into
+`.vite/core-plugins/kanban/` and served on `minerva-plugin://kanban/` — and
+`view-layouts.ts`'s kanban entry names `plugin: 'kanban'`, so turned off it
+falls back to the table. Two things it settled for the next two:
+
+- **Moves are the host's, on the plugin's request** (`view.moveCard`,
+  `view.undoMove`, `view.moveColumn`, API 1.5.0). The plugin draws and drags;
+  TypeView runs the existing `kanban-moves` store, so undo, the announcement
+  and the Local History entry are one implementation. A write made for a
+  plugin carries a history cause (`NOTEBASE_WRITE_FILE`'s `opts.cause`):
+  *Moved by Kanban*. Timeline and calendar reschedules should do the same
+  rather than reach for `notes.writeProperties` themselves.
+- **The host's popups stay the host's.** The note menu (`ui.showNoteMenu`,
+  with `target` for a note a card's field names) and the hover preview are
+  drawn by the app; the preview's text is mirrored back as a `preview` event
+  so the card inside the frame can be described by it.
+
+Tests split the same way: the board in `tests/plugins/kanban/`, the host side
+through `tests/renderer/components/kanban-host.ts` (read the `view` state sent,
+act as the plugin through the registered callbacks; `kanbanLoopback` answers
+an export with the plugin's real board), and the e2e specs reach into the
+frame.
+
 ### Other candidates
 
 The test is which features reach a privileged sink or hold a credential:

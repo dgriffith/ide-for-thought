@@ -99,11 +99,15 @@ test('map, Kanban and timeline hovers show the same preview as a link to the not
     });
 
     await test.step('Kanban: hover a card', async () => {
-      const { cardFor } = await openProjectBoard(win, 1);
+      const { cardFor, frame } = await openProjectBoard(win, 1);
       await hoverUntil(win, cardFor('Garden Shed'), win.locator('.note-hover-preview'));
       expect(await sharedPreview(win)).toEqual(expected.get('Garden Shed'));
-      const id = await win.locator('.note-hover-preview').getAttribute('id');
-      await expect(cardFor('Garden Shed')).toHaveAttribute('aria-describedby', id!);
+      // The board is the Kanban plugin's, in its frame (#2828): the card's
+      // description can't name the app's tooltip across the frame, so the
+      // plugin mirrors the tooltip's text into a description of its own.
+      await expect(cardFor('Garden Shed')).toHaveAttribute('aria-describedby', 'kb-card-description');
+      const tooltipText = (await win.locator('.note-hover-preview').textContent() ?? '').replace(/\s+/g, ' ').trim();
+      await expect(frame.locator('#kb-card-description')).toHaveText(tooltipText);
       await expect(cardFor('Garden Shed')).not.toHaveAttribute('title', /.*/);
       await pointerAway(win);
     });

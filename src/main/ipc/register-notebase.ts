@@ -1,5 +1,6 @@
 import { dialog } from 'electron';
 import { markPathMovedAway } from '../notebase/path-dedup';
+import { runWithHistorySource } from '../history';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { Channels } from '../../shared/channels';
@@ -246,12 +247,15 @@ export function registerNotebase(): void {
   handle(Channels.NOTEBASE_FILE_EXISTS, withRootPath((rootPath, relativePath: string) =>
     notebaseFs.fileExists(rootPath, relativePath)));
 
-  handle(Channels.NOTEBASE_WRITE_FILE, withRootPath(async (rootPath, relativePath: string, content: string) => {
+  handle(Channels.NOTEBASE_WRITE_FILE, withRootPath(async (rootPath, relativePath: string, content: string, opts?: { cause?: string }) => {
     // Renderer-initiated save — it already has the content, so suppress
     // the rewritten broadcast (no need to tell the renderer it just wrote).
-    await writeAndReindex(rootPath, relativePath, content, hooks, {
-      suppressRewrittenBroadcast: true,
-    });
+    const save = () => writeAndReindex(rootPath, relativePath, content, hooks, { suppressRewrittenBroadcast: true });
+    // A cause names the save in Local History: a board move from a plugin
+    // view (#2828) reads "Moved by Kanban", not "Edit".
+    const cause = typeof opts?.cause === 'string' ? opts.cause.trim().slice(0, 120) : '';
+    if (cause) await runWithHistorySource({ origin: 'edit', cause }, save);
+    else await save();
   }));
 
   handle(Channels.NOTEBASE_CREATE_FILE, withRootPath(async (rootPath, relativePath: string) => {

@@ -1,17 +1,21 @@
 /**
- * @vitest-environment happy-dom
+ * @vitest-environment jsdom
  *
- * Moving a Kanban card (#2603), board side: *Move to ▸* in the card's menu
- * (right-click, or Shift+F10 from the keyboard), pointer drag onto a column,
- * ⌘Z, and an embed that moves nothing. The write is the `kanban-moves`
- * store's — mocked here; its own test covers it.
+ * Moving a Kanban card (#2603), the host's half. Since #2828 the board is
+ * the Kanban plugin's, and its moves are the host's (decision 2): the
+ * plugin's `ui.showNoteMenu` opens the app's own row menu with *Move to ▸*,
+ * its `view.moveCard` and `view.undoMove` run the `kanban-moves` store —
+ * mocked here; its own test covers it — and Local History says the move was
+ * the plugin's. The board's drags and keys are tests/plugins/kanban/.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent, cleanup, screen, within } from '@testing-library/svelte';
+import { kanbanHostState, openBoard } from './kanban-host';
 
 const h = vi.hoisted(() => ({
   instances: vi.fn(), list: vi.fn(), noteTypeMap: vi.fn(),
   moveCards: vi.fn(), undoLastMove: vi.fn(),
+  plugin: {} as import('./kanban-host').KanbanHostState,
 }));
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({
   api: { types: { instances: h.instances, list: h.list, noteTypeMap: h.noteTypeMap } },
@@ -19,13 +23,15 @@ vi.mock('../../../src/renderer/lib/ipc/client', () => ({
 vi.mock('../../../src/renderer/lib/stores/kanban-moves.svelte', () => ({
   getKanbanMoveStore: () => ({ revision: 0, lastMove: null, canUndo: true, moveCards: h.moveCards, undoLastMove: h.undoLastMove }),
 }));
+vi.mock('../../../src/renderer/lib/stores/plugin-sessions.svelte', () => ({ connectPluginFrame: (...a: unknown[]) => h.plugin.connect(...a) }));
+vi.mock('../../../src/renderer/lib/stores/core-plugins.svelte', () => ({ corePluginsStore: { isOn: () => true, name: () => 'Kanban' } }));
 
 import TypeView from '../../../src/renderer/lib/components/TypeView.svelte';
 import { objectTypesStore } from '../../../src/renderer/lib/stores/object-types.svelte';
 
-/** The host's note actions (#2773), with `editProperties` the spy a test watches. */
-function actions(editProperties: ReturnType<typeof vi.fn> = vi.fn()) {
-  return { editProperties, addTag: vi.fn(), removeTag: vi.fn(), clearProperty: vi.fn() };
+/** The host's note actions (#2773). */
+function actions() {
+  return { editProperties: vi.fn(), addTag: vi.fn(), removeTag: vi.fn(), clearProperty: vi.fn() };
 }
 
 const PROJECT = {
@@ -34,6 +40,7 @@ const PROJECT = {
 };
 const row = (path: string, title: string, status: string | null) => ({ path, title, values: { status }, cover: null });
 const ROWS = [row('a.md', 'Alpha', 'active'), row('c.md', 'Charlie', 'active'), row('b.md', 'Bravo', 'done')];
+const CAUSE = { cause: 'Moved by Kanban' };
 
 function props(over: Record<string, unknown> = {}) {
   return {
@@ -41,10 +48,9 @@ function props(over: Record<string, unknown> = {}) {
     revision: 0, onStateChange: vi.fn(), onOpenNote: vi.fn(), noteActions: actions(), ...over,
   };
 }
-const card = (c: HTMLElement, path: string) => c.querySelector<HTMLElement>(`[data-kanban-card][data-note-path="${path}"]`)!;
-const column = (c: HTMLElement, value: string) => c.querySelector<HTMLElement>(`section.kb-column[data-column-value="${value}"]`)!;
 
 beforeEach(async () => {
+  kanbanHostState(h.plugin);
   h.list.mockResolvedValue({ types: [PROJECT], errors: [] });
   h.noteTypeMap.mockResolvedValue({});
   await objectTypesStore.refresh();
@@ -54,68 +60,55 @@ beforeEach(async () => {
 });
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
-describe('Kanban: Move to ▸ (#2603)', () => {
-  it('the card menu lists every column plus No value; the current one is disabled; a pick moves the card', async () => {
-    render(TypeView, props());
-    await fireEvent.contextMenu(await screen.findByText('Alpha'));
-    await fireEvent.click(screen.getByRole('menuitem', { name: /Move to/ }));
-    const sub = screen.getByRole('menu', { name: 'Move to' });
-    const items = within(sub).getAllByRole('menuitem');
+const noTarget = { target: false, label: null };
+
+describe("Kanban: Move to ▸ in the app's row menu (#2603)", () => {
+  it('lists every column plus No value; the current one is disabled; a pick moves the card, as the plugin', async () => {
+    const { container } = render(TypeView, props());
+    const b = await openBoard(container, h.plugin);
+    b.host().showNoteMenu!(['a.md'], 10, 10, noTarget);
+    await fireEvent.click(await screen.findByRole('menuitem', { name: /Move to/ }));
+    const items = within(screen.getByRole('menu', { name: 'Move to' })).getAllByRole('menuitem');
     expect(items.map((i) => i.textContent)).toEqual(['active', 'paused', 'done', 'abandoned', 'No value']);
     expect((items[0] as HTMLButtonElement).disabled).toBe(true);
-
-    await fireEvent.click(within(sub).getByRole('menuitem', { name: 'done' }));
-    expect(h.moveCards).toHaveBeenCalledWith([{ path: 'a.md', title: 'Alpha' }], 'status', { value: 'done', label: 'done', kind: 'option' });
+    await fireEvent.click(within(screen.getByRole('menu', { name: 'Move to' })).getByRole('menuitem', { name: 'done' }));
+    expect(h.moveCards).toHaveBeenCalledWith([{ path: 'a.md', title: 'Alpha' }], 'status', { value: 'done', label: 'done', kind: 'option' }, CAUSE);
     expect(screen.queryByRole('menu')).toBeNull();
   });
 
-  it('moves the whole selection, and No value clears the field', async () => {
+  it('a menu for several notes moves them all, and No value clears the field', async () => {
     const { container } = render(TypeView, props());
-    await screen.findByText('Alpha');
-    await fireEvent.click(card(container, 'a.md'), { metaKey: true });
-    await fireEvent.click(card(container, 'b.md'), { metaKey: true });
-    await fireEvent.contextMenu(card(container, 'b.md'));
-    await fireEvent.click(screen.getByRole('menuitem', { name: /Move to \(2 cards\)/ }));
-    // Mixed columns: nothing is disabled.
+    const b = await openBoard(container, h.plugin);
+    b.host().showNoteMenu!(['a.md', 'b.md'], 10, 10, noTarget);
+    await fireEvent.click(await screen.findByRole('menuitem', { name: /Move to \(2 cards\)/ }));
     expect(within(screen.getByRole('menu', { name: 'Move to' })).getAllByRole('menuitem').every((i) => !(i as HTMLButtonElement).disabled)).toBe(true);
     await fireEvent.click(screen.getByRole('menuitem', { name: 'No value' }));
     expect(h.moveCards).toHaveBeenCalledWith(
-      [{ path: 'a.md', title: 'Alpha' }, { path: 'b.md', title: 'Bravo' }], 'status', { value: null, label: 'No value', kind: 'no-value' },
+      [{ path: 'a.md', title: 'Alpha' }, { path: 'b.md', title: 'Bravo' }], 'status', { value: null, label: 'No value', kind: 'no-value' }, CAUSE,
     );
   });
 
-  it('keyboard only: Shift+F10 opens the menu in focus, → opens Move to, Enter picks', async () => {
+  it('opens with Move to focused; → opens its submenu at the first enabled column; Enter picks', async () => {
     const { container } = render(TypeView, props());
-    await screen.findByText('Alpha');
-    card(container, 'a.md').focus();
-    await fireEvent.keyDown(card(container, 'a.md'), { key: 'F10', shiftKey: true });
-    const move = screen.getByRole('menuitem', { name: /Move to/ });
-    expect(document.activeElement).toBe(move);
+    const b = await openBoard(container, h.plugin);
+    b.host().showNoteMenu!(['a.md'], 10, 10, noTarget);
+    const move = await screen.findByRole('menuitem', { name: /Move to/ });
+    await vi.waitFor(() => expect(document.activeElement).toBe(move));
     await fireEvent.keyDown(move, { key: 'ArrowRight' });
     expect(move.getAttribute('aria-expanded')).toBe('true');
-    // The first enabled column (active is disabled — Alpha is in it).
     expect(document.activeElement?.textContent).toBe('paused');
     await fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' });
     expect(document.activeElement?.textContent).toBe('done');
-    await fireEvent.click(document.activeElement!); // Enter on a button is a click
-    expect(h.moveCards).toHaveBeenCalledWith([{ path: 'a.md', title: 'Alpha' }], 'status', expect.objectContaining({ value: 'done' }));
+    await fireEvent.click(document.activeElement!);
+    expect(h.moveCards).toHaveBeenCalledWith([{ path: 'a.md', title: 'Alpha' }], 'status', expect.objectContaining({ value: 'done' }), CAUSE);
   });
 
-  it('Escape closes the menu and gives focus back to the card', async () => {
+  it("a note a card's field names gets that note's menu, with no Move to", async () => {
     const { container } = render(TypeView, props());
-    await screen.findByText('Alpha');
-    card(container, 'a.md').focus();
-    await fireEvent.keyDown(card(container, 'a.md'), { key: 'ContextMenu' });
-    await fireEvent.keyDown(screen.getByRole('menuitem', { name: /Move to/ }), { key: 'Escape' });
-    expect(screen.queryByRole('menu')).toBeNull();
-    expect(document.activeElement).toBe(card(container, 'a.md'));
-  });
-
-  it('⌘Z on the board undoes the last move', async () => {
-    const { container } = render(TypeView, props());
-    await screen.findByText('Alpha');
-    await fireEvent.keyDown(card(container, 'c.md'), { key: 'z', metaKey: true });
-    expect(h.undoLastMove).toHaveBeenCalledOnce();
+    const b = await openBoard(container, h.plugin);
+    b.host().showNoteMenu!(['b.md'], 10, 10, { target: true, label: 'Bravo' });
+    expect(await screen.findByRole('menuitem', { name: /Add Tag/ })).toBeTruthy();
+    expect(screen.queryByRole('menuitem', { name: /Move to/ })).toBeNull();
   });
 
   it('a list or table row menu has no Move to', async () => {
@@ -126,78 +119,36 @@ describe('Kanban: Move to ▸ (#2603)', () => {
   });
 });
 
-describe('Kanban: pointer drag (#2603)', () => {
-  let hit: HTMLElement | null = null;
-  const realElementFromPoint = document.elementFromPoint;
-  beforeEach(() => { document.elementFromPoint = vi.fn(() => hit); });
-  afterEach(() => { document.elementFromPoint = realElementFromPoint; hit = null; });
-
-  async function drag(c: HTMLElement, from: HTMLElement, to: HTMLElement | null) {
-    await fireEvent.pointerDown(from, { button: 0, pointerId: 1, clientX: 10, clientY: 10 });
-    hit = to;
-    await fireEvent.pointerMove(window, { pointerId: 1, clientX: 40, clientY: 12 });
-    return {
-      drop: async () => {
-        await fireEvent.pointerUp(window, { pointerId: 1, clientX: 40, clientY: 12 });
-        await fireEvent.click(from);
-      },
-      board: c.querySelector<HTMLElement>('.kb-board')!,
-    };
-  }
-
-  it('dragging a card onto a column marks the target, then sets the property on drop — and doesn’t open the note', async () => {
-    const onOpenNote = vi.fn();
-    const { container } = render(TypeView, props({ onOpenNote }));
-    await screen.findByText('Alpha');
-    const done = column(container, 'done');
-    const d = await drag(container, card(container, 'a.md'), done);
-    expect(done.hasAttribute('data-drop-target')).toBe(true);
-    expect(card(container, 'a.md').hasAttribute('data-dragging')).toBe(true);
-    expect(document.querySelector('[data-kanban-ghost]')).not.toBeNull();
-
-    await d.drop();
-    expect(h.moveCards).toHaveBeenCalledWith([{ path: 'a.md', title: 'Alpha' }], 'status', { value: 'done', label: 'done', kind: 'option' });
-    expect(onOpenNote).not.toHaveBeenCalled();
-    expect(done.hasAttribute('data-drop-target')).toBe(false);
-    expect(document.querySelector('[data-kanban-ghost]')).toBeNull();
-  });
-
-  it('dropping back on its own column, or outside the board, moves nothing', async () => {
+describe("the plugin's moves are the host's (#2828, decision 2)", () => {
+  it('view.moveCard moves the card through the move store, and History says the plugin did', async () => {
     const { container } = render(TypeView, props());
-    await screen.findByText('Alpha');
-    const own = column(container, 'active');
-    let d = await drag(container, card(container, 'a.md'), own);
-    expect(own.hasAttribute('data-drop-target')).toBe(false);
-    await d.drop();
-    d = await drag(container, card(container, 'a.md'), null);
-    await d.drop();
-    expect(h.moveCards).not.toHaveBeenCalled();
+    const b = await openBoard(container, h.plugin);
+    b.host().moveCard!('c.md', { value: 'paused', label: 'paused', kind: 'option' });
+    expect(h.moveCards).toHaveBeenCalledWith([{ path: 'c.md', title: 'Charlie' }], 'status', { value: 'paused', label: 'paused', kind: 'option' }, CAUSE);
   });
 
-  it('a press without travel is a plain click (opens the note), and Escape cancels a drag', async () => {
-    const onOpenNote = vi.fn();
-    const { container } = render(TypeView, props({ onOpenNote }));
-    await screen.findByText('Alpha');
-    await fireEvent.pointerDown(card(container, 'a.md'), { button: 0, pointerId: 1, clientX: 10, clientY: 10 });
-    await fireEvent.pointerUp(window, { pointerId: 1, clientX: 11, clientY: 10 });
-    await fireEvent.click(card(container, 'a.md'));
-    expect(onOpenNote).toHaveBeenCalledWith('a.md');
-
-    await drag(container, card(container, 'c.md'), column(container, 'paused'));
-    await fireEvent.keyDown(window, { key: 'Escape' });
-    expect(column(container, 'paused').hasAttribute('data-drop-target')).toBe(false);
-    await fireEvent.pointerUp(window, { pointerId: 1, clientX: 40, clientY: 12 });
-    expect(h.moveCards).not.toHaveBeenCalled();
+  it('view.undoMove undoes the board\'s last move, as the plugin', async () => {
+    const { container } = render(TypeView, props());
+    const b = await openBoard(container, h.plugin);
+    b.host().undoMove!();
+    expect(h.undoLastMove).toHaveBeenCalledWith('board', CAUSE);
   });
 
-  it('an embedded board (no host editor) neither drags nor offers Move to', async () => {
+  it('the view tells the plugin whether there is a move to undo, and that its notes move', async () => {
+    const { container } = render(TypeView, props());
+    const b = await openBoard(container, h.plugin);
+    expect(b.state()).toMatchObject({ canUndoMove: true, movable: true });
+  });
+
+  it('an embedded board moves nothing and offers no Move to', async () => {
     const { container } = render(TypeView, props({ noteActions: undefined, chromeless: true }));
-    await screen.findByText('Alpha');
-    await drag(container, card(container, 'a.md'), column(container, 'done'));
-    expect(column(container, 'done').hasAttribute('data-drop-target')).toBe(false);
-    await fireEvent.contextMenu(card(container, 'a.md'));
-    expect(screen.queryByRole('menu')).toBeNull();
-    await fireEvent.keyDown(card(container, 'a.md'), { key: 'z', metaKey: true });
+    const b = await openBoard(container, h.plugin);
+    expect(b.state()).toMatchObject({ movable: false, rowMenu: false });
+    b.host().moveCard!('a.md', { value: 'done', label: 'done', kind: 'option' });
+    b.host().undoMove!();
+    b.host().showNoteMenu!(['a.md'], 10, 10, noTarget);
+    expect(h.moveCards).not.toHaveBeenCalled();
     expect(h.undoLastMove).not.toHaveBeenCalled();
+    expect(screen.queryByRole('menu')).toBeNull();
   });
 });

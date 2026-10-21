@@ -26,7 +26,7 @@
  */
 import type { Action } from 'svelte/action';
 import { DAY_MS } from '../../../../shared/time';
-import { DRAG_THRESHOLD_PX } from '../kanban/card-drag';
+import { DRAG_THRESHOLD_PX } from '../drag-keys';
 
 export interface EventDragOptions {
   /** False (an embed, an export): events don't drag. */

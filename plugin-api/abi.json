@@ -1,5 +1,5 @@
 {
-  "version": "1.4.0",
+  "version": "1.5.0",
   "errorCodes": [
     "bad-request",
     "busy",
@@ -12,11 +12,13 @@
   ],
   "types": {
     "PluginMenuItem": "{ id: string; label: string; enabled?: boolean } | { separator: true }",
+    "PluginMoveTarget": "{ value: string | null; label: string; kind: 'option' | 'off-list' | 'no-value' }",
     "PluginViewField": "{ name: string; label: string; text: string; ref?: string }",
+    "PluginViewGroup": "{ /** Its key in `columnOrder`: what `view.moveColumn` names. */ key: string; label: string; /** `option` — one of the property's options; `off-list` — a value it doesn't declare; `no-value` — empty. */ kind: 'option' | 'off-list' | 'no-value'; /** The value its notes hold; null for No value. */ value: string | null; /** Its notes, in the view's order. */ paths: string[]; }",
     "PluginViewIcon": "{ glyph: string; color?: string; label: string }",
     "PluginViewInstance": "{ path: string; title: string; values: Record<string, string | null>; tags?: string[]; fields: PluginViewField[]; icon?: PluginViewIcon; }",
     "PluginViewProperty": "{ name: string; type: string; label?: string; options?: string[] }",
-    "PluginViewState": "{ layout: string; type: { id: string; label: string; icon?: string; color?: string }; /** The type's effective properties, in declared order. */ properties: PluginViewProperty[]; /** The view's visible property names; null = all. */ visible: string[] | null; /** The notes the view shows, filtered, in the view's sort order. */ instances: PluginViewInstance[]; sortColumn: string | null; sortDir: 'asc' | 'desc'; /** The layout's own spec fields (a board's `groupBy`, `columnOrder`, …). */ spec: Record<string, unknown>; /** An embed or export: nothing that writes the spec or a note. */ readOnly: boolean; /** Drawing for an export snapshot. */ exportMode: boolean; /** The notes selected in the view (#2828) — the host's selection, drawn by the plugin. */ selected: string[]; /** The view multi-selects (the panel); false in an embed or export. */ selectable: boolean; /** A note has a menu (`ui.showNoteMenu`), so it takes focus and the menu key. */ rowMenu: boolean; }"
+    "PluginViewState": "{ layout: string; type: { id: string; label: string; icon?: string; color?: string }; /** The type's effective properties, in declared order. */ properties: PluginViewProperty[]; /** The view's visible property names; null = all. */ visible: string[] | null; /** The notes the view shows, filtered, in the view's sort order. */ instances: PluginViewInstance[]; sortColumn: string | null; sortDir: 'asc' | 'desc'; /** The layout's own spec fields (a board's `groupBy`, `columnOrder`, …). */ spec: Record<string, unknown>; /** An embed or export: nothing that writes the spec or a note. */ readOnly: boolean; /** Drawing for an export snapshot. */ exportMode: boolean; /** The notes selected in the view (#2828) — the host's selection, drawn by the plugin. */ selected: string[]; /** The view multi-selects (the panel); false in an embed or export. */ selectable: boolean; /** A note has a menu (`ui.showNoteMenu`), so it takes focus and the menu key. */ rowMenu: boolean; /** A grouped layout (a board, #2828): the grouping property, null when the type has none. */ groupProperty: string | null; /** …and its groups, in order — Minerva's, with the view's filters and column order applied. */ groups: PluginViewGroup[]; /** The notes can be moved between groups (`view.moveCard`) and the order changed (`view.moveColumn`). */ movable: boolean; /** There is a move to undo (`view.undoMove`). */ canUndoMove: boolean; /** The last move or undo that wrote something, so a moved card can keep focus. */ lastMove: { seq: number; paths: string[] } | null; }"
   },
   "events": {
     "drop": {
@@ -42,6 +44,20 @@
       "members": [
         {
           "name": "requestId",
+          "optional": false,
+          "type": "string"
+        }
+      ]
+    },
+    "preview": {
+      "members": [
+        {
+          "name": "description",
+          "optional": false,
+          "type": "string | null"
+        },
+        {
+          "name": "path",
           "optional": false,
           "type": "string"
         }
@@ -445,9 +461,19 @@
       "params": {
         "members": [
           {
+            "name": "label",
+            "optional": true,
+            "type": "string"
+          },
+          {
             "name": "paths",
             "optional": false,
             "type": "string[]"
+          },
+          {
+            "name": "target",
+            "optional": true,
+            "type": "boolean"
           },
           {
             "name": "x",
@@ -504,6 +530,51 @@
         "text": "Record<string, never>"
       }
     },
+    "view.moveCard": {
+      "capability": "notes:write-properties",
+      "params": {
+        "members": [
+          {
+            "name": "path",
+            "optional": false,
+            "type": "string"
+          },
+          {
+            "name": "target",
+            "optional": false,
+            "type": "PluginMoveTarget"
+          }
+        ]
+      },
+      "result": {
+        "text": "Record<string, never>"
+      }
+    },
+    "view.moveColumn": {
+      "capability": "ui",
+      "params": {
+        "members": [
+          {
+            "name": "key",
+            "optional": false,
+            "type": "string"
+          },
+          {
+            "name": "side",
+            "optional": false,
+            "type": "'before' | 'after'"
+          },
+          {
+            "name": "target",
+            "optional": false,
+            "type": "string"
+          }
+        ]
+      },
+      "result": {
+        "text": "Record<string, never>"
+      }
+    },
     "view.provideExport": {
       "capability": "ui",
       "params": {
@@ -543,6 +614,15 @@
             "type": "Record<string, unknown>"
           }
         ]
+      },
+      "result": {
+        "text": "Record<string, never>"
+      }
+    },
+    "view.undoMove": {
+      "capability": "notes:write-properties",
+      "params": {
+        "text": "Record<string, never>"
       },
       "result": {
         "text": "Record<string, never>"

@@ -1,5 +1,5 @@
 /**
- * @vitest-environment happy-dom
+ * @vitest-environment jsdom
  *
  * A note named inside a view (#2775): right-clicking a `link-to-type` value —
  * a Project's owner in a table cell, on a Kanban card — opens the note-actions
@@ -9,7 +9,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, within, fireEvent, cleanup, waitFor, screen } from '@testing-library/svelte';
 
-const h = vi.hoisted(() => ({ instances: vi.fn(), list: vi.fn(), noteTypeMap: vi.fn() }));
+const h = vi.hoisted(() => ({
+  instances: vi.fn(), list: vi.fn(), noteTypeMap: vi.fn(),
+  plugin: {} as import('./kanban-host').KanbanHostState,
+}));
+// The Kanban layout is drawn by its plugin (#2828): read what it is sent, act as it.
+vi.mock('../../../src/renderer/lib/stores/plugin-sessions.svelte', () => ({ connectPluginFrame: (...a: unknown[]) => h.plugin.connect(...a) }));
+vi.mock('../../../src/renderer/lib/stores/core-plugins.svelte', () => ({ corePluginsStore: { isOn: () => true, name: () => 'Kanban' } }));
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({
   api: { types: { instances: h.instances, list: h.list, noteTypeMap: h.noteTypeMap }, export: { csv: vi.fn() }, app: { getSystemLocale: async () => 'en-GB' } },
 }));
@@ -23,6 +29,7 @@ vi.mock('../../../src/renderer/lib/stores/notebase.svelte', () => ({
 }));
 
 import TypeView from '../../../src/renderer/lib/components/TypeView.svelte';
+import { kanbanHostState, openBoard } from './kanban-host';
 
 const BASE = 'https://project.minerva.dev/me/tb/';
 const PROJECT = {
@@ -43,6 +50,7 @@ const props = (over: Record<string, unknown> = {}) => ({
 });
 
 beforeEach(() => {
+  kanbanHostState(h.plugin);
   h.instances.mockResolvedValue({ type: PROJECT, instances: ROWS });
   h.list.mockResolvedValue({ types: [PROJECT], errors: [] });
   h.noteTypeMap.mockResolvedValue({});
@@ -85,12 +93,14 @@ describe('a note named inside a view (#2775)', () => {
     expect(screen.getByRole('menuitem', { name: /Set Property/ })).toBeTruthy();
   });
 
-  it('a Kanban card\'s linked field is a reference too', async () => {
-    const acts = actions();
-    render(TypeView, props({ layout: 'kanban', groupBy: 'status', noteActions: acts }));
-    await waitFor(() => expect(document.querySelector('.kb-card .tv-ref')).not.toBeNull());
-    await fireEvent.contextMenu(document.querySelector('.kb-card .tv-ref')!);
-    expect(screen.getByRole('menu').textContent).toContain('Ada Lovelace');
+  it("a Kanban card's linked field is a reference too: the plugin is told the note, and its menu is that note's", async () => {
+    const { container } = render(TypeView, props({ layout: 'kanban', groupBy: 'status', noteActions: actions() }));
+    const b = await openBoard(container, h.plugin);
+    const owner = b.state().instances.find((i) => i.path === 'Engine.md')!.fields.find((f) => f.name === 'owner')!;
+    expect(owner).toMatchObject({ text: 'Ada Lovelace', ref: 'people/Ada Lovelace.md' });
+    expect(h.plugin.connect.mock.calls.at(-1)![2]).toContain('people/Ada Lovelace.md');
+    b.host().showNoteMenu!([owner.ref!], 10, 10, { target: true, label: owner.text });
+    expect((await screen.findByRole('menu')).textContent).toContain('Ada Lovelace');
     expect(screen.queryByRole('menuitem', { name: /^Move to/ })).toBeNull();
   });
 
@@ -160,11 +170,12 @@ describe('keyboard access (#2776)', () => {
     expect(screen.getByRole('menu')).toBeTruthy();
   });
 
-  it('an embedded board\'s card opens the note actions from the keyboard (no Move to)', async () => {
-    render(TypeView, props({ layout: 'kanban', groupBy: 'status', noteActions: actions(), chromeless: true }));
-    await waitFor(() => expect(document.querySelector('.kb-card')).not.toBeNull());
-    await key(document.querySelector('.kb-card')!, { key: 'F10', shiftKey: true });
-    expect(screen.getByRole('menuitem', { name: /Add Tag/ })).toBeTruthy();
+  it("an embedded board's card has the note actions (no Move to) — the board's menu key asks for them", async () => {
+    const { container } = render(TypeView, props({ layout: 'kanban', groupBy: 'status', noteActions: actions(), chromeless: true }));
+    const b = await openBoard(container, h.plugin);
+    expect(b.state()).toMatchObject({ rowMenu: true, movable: false });
+    b.host().showNoteMenu!(['Engine.md'], 10, 10, { target: false, label: null });
+    expect(await screen.findByRole('menuitem', { name: /Add Tag/ })).toBeTruthy();
     expect(screen.queryByRole('menuitem', { name: /^Move to/ })).toBeNull();
   });
 });

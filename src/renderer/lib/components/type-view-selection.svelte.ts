@@ -72,6 +72,13 @@ export function createTypeViewSelection(opts: TypeViewSelectionOptions) {
     menu = { x, y };
   }
 
+  /** The menu for ONE note named inside a row, at a point — `contextMenuFor`
+   *  from a plugin layout (#2828): the rows' selection is left as it was. */
+  function openMenuForTarget(path: string, x: number, y: number): void {
+    if (!opts.enabled() && !menuOnly()) return;
+    menu = { x, y, target: path };
+  }
+
   /** ⌘A and Escape from a plugin layout (#2828), with the keydown's rules. */
   function selectAll(): void {
     if (opts.enabled() && !menuOnly()) selection.selectAll(opts.order());
@@ -118,6 +125,7 @@ export function createTypeViewSelection(opts: TypeViewSelectionOptions) {
     contextMenu,
     contextMenuFor,
     openMenuFor,
+    openMenuForTarget,
     selectAll,
     clear,
     keydown,

@@ -9,11 +9,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { waitFor } from '@testing-library/svelte';
 
-const { instancesMock, listMock, noteTypeMapMock } = vi.hoisted(() => ({
+const { instancesMock, listMock, noteTypeMapMock, plugin } = vi.hoisted(() => ({
+  plugin: {} as import('../components/kanban-host').KanbanHostState,
   instancesMock: vi.fn(),
   listMock: vi.fn(),
   noteTypeMapMock: vi.fn(),
 }));
+// A Kanban embed is the Kanban plugin's board (#2828): read what it's sent, act as it.
+vi.mock('../../../src/renderer/lib/stores/plugin-sessions.svelte', () => ({ connectPluginFrame: (...a: unknown[]) => plugin.connect(...a) }));
+vi.mock('../../../src/renderer/lib/stores/core-plugins.svelte', () => ({ corePluginsStore: { isOn: () => true, name: () => 'Kanban' } }));
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({
   api: { types: { instances: instancesMock, list: listMock, noteTypeMap: noteTypeMapMock } },
 }));
@@ -21,6 +25,13 @@ vi.mock('../../../src/renderer/lib/ipc/client', () => ({
 import { hydrateObjectViewBlocks, parseObjectViewSpec } from '../../../src/renderer/lib/markdown/object-view-renderer';
 import { objectTypesStore } from '../../../src/renderer/lib/stores/object-types.svelte';
 import { disposeCaches } from '../../../src/renderer/lib/markdown/hydrated-block-cache';
+import { autoLoadPluginFrames, kanbanHostState, type KanbanHostState } from '../components/kanban-host';
+
+/** Wait for an embed's Kanban frame to connect and send its view. */
+async function embeddedBoard(s: KanbanHostState) {
+  await waitFor(() => expect(s.sendView).toHaveBeenCalled());
+  return { state: () => s.sendView.mock.calls.at(-1)![0] as import('../../../src/shared/plugins/api').PluginViewState, host: () => s.host! };
+}
 
 const TYPE = {
   id: 'book',
@@ -206,15 +217,18 @@ describe('hydrateObjectViewBlocks (#2067)', () => {
         properties: [{ name: 'status', type: 'enum' as const, options: ['active', 'done'] }],
       };
       instancesMock.mockResolvedValue({ type: PROJECT, instances: [{ path: 'p/Shed.md', title: 'Garden Shed', values: { status: 'active' }, cover: null }] });
+      kanbanHostState(plugin);
+        const stop = autoLoadPluginFrames();
       const root = previewWith('{"typeId":"project","layout":"kanban","groupBy":"status"}');
       hydrateObjectViewBlocks(root, deps({ noteActions: actions() }));
-      const block = root.querySelector('.object-view-block')!;
-      await waitFor(() => expect(block.querySelector('.kb-card')).not.toBeNull());
-      block.querySelector('.kb-card')!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+      const board = await embeddedBoard(plugin);
+      expect(board.state()).toMatchObject({ rowMenu: true, movable: false });
+      board.host().showNoteMenu!(['p/Shed.md'], 5, 5, { target: false, label: null });
       await waitFor(() => expect(document.querySelector('.tv-menu')).not.toBeNull());
       const labels = [...document.querySelectorAll('.tv-menu > [role="menuitem"]')].map((b) => b.textContent.trim());
       expect(labels.some((l) => l.startsWith('Move to'))).toBe(false);
       expect(labels.some((l) => l.startsWith('Add Tag'))).toBe(true);
+      stop();
     });
   });
 
@@ -226,33 +240,26 @@ describe('hydrateObjectViewBlocks (#2067)', () => {
     instancesMock.mockResolvedValue({ type: PROJECT, instances: [
       { path: 'p/Shed.md', title: 'Garden Shed', values: { status: 'active' }, cover: null },
     ] });
+    kanbanHostState(plugin);
+    const stop = autoLoadPluginFrames();
     const root = previewWith('{"typeId":"project","layout":"kanban","groupBy":"status"}');
     const onOpenNote = vi.fn();
     hydrateObjectViewBlocks(root, deps({ onOpenNote }));
     const block = root.querySelector('.object-view-block')!;
-    await waitFor(() => expect(block.querySelector('.kb-card')).not.toBeNull());
-
-    // The preview's board scrolls; only an export wraps it.
-    expect(block.querySelector('.kb-board')!.classList.contains('kb-export')).toBe(false);
-    // No toolbar (Group by picker, Show empty columns), no column menu, no draggable header.
+    const board = await embeddedBoard(plugin);
+    // The preview's board scrolls; only an export wraps it. Read-only, nothing to select, move or menu.
+    expect(board.state()).toMatchObject({ exportMode: false, readOnly: true, selectable: false, movable: false, rowMenu: false });
+    // No toolbar (Group by picker, Show empty columns) around the plugin's frame.
     expect(block.querySelector('.tv-header')).toBeNull();
-    expect(block.querySelector('.kb-col-menu-btn')).toBeNull();
-    expect(block.querySelector('[data-draggable]')).toBeNull();
-    const card = block.querySelector<HTMLElement>('.kb-card')!;
-    expect(card.hasAttribute('aria-pressed')).toBe(false); // nothing to select
-    // Right-click and Shift+F10 open no Move to menu.
-    card.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
-    card.dispatchEvent(new KeyboardEvent('keydown', { key: 'F10', shiftKey: true, bubbles: true }));
+    // Whatever the plugin asks, an embed moves nothing and opens no menu.
+    board.host().moveCard!('p/Shed.md', { value: 'done', label: 'done', kind: 'option' });
+    board.host().showNoteMenu!(['p/Shed.md'], 5, 5, { target: false, label: null });
     await Promise.resolve();
     expect(document.querySelector('.tv-menu')).toBeNull();
-    // A pointer drag starts nothing.
-    card.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, clientX: 5, clientY: 5, pointerId: 1, isPrimary: true }));
-    window.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, clientX: 80, clientY: 80, pointerId: 1, isPrimary: true }));
-    expect(document.querySelector('[data-kanban-ghost], [data-dragging]')).toBeNull();
-    window.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, clientX: 80, clientY: 80, pointerId: 1, isPrimary: true }));
     // A click still opens the note.
-    card.click();
+    board.host().viewClick!('p/Shed.md', { meta: false, ctrl: false, shift: false });
     expect(onOpenNote).toHaveBeenCalledWith('p/Shed.md');
+    stop();
   });
 
   it('a timeline embed is read-only: no zoom/pan/Fit, a wheel moves nothing, not export mode; List and opening still work (#2608, pinned by #2609)', async () => {

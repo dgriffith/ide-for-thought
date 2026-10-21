@@ -67,8 +67,8 @@ const api = {
       invoke(Channels.NOTEBASE_WRITE_BINARY, relativePath, bytes),
     fileExists: (relativePath: string) =>
       invoke(Channels.NOTEBASE_FILE_EXISTS, relativePath),
-    writeFile: (relativePath: string, content: string) =>
-      invoke(Channels.NOTEBASE_WRITE_FILE, relativePath, content),
+    writeFile: (relativePath: string, content: string, opts?: { cause?: string }) =>
+      invoke(Channels.NOTEBASE_WRITE_FILE, relativePath, content, opts),
     createFile: (relativePath: string) =>
       invoke(Channels.NOTEBASE_CREATE_FILE, relativePath),
     deleteFile: (relativePath: string) =>

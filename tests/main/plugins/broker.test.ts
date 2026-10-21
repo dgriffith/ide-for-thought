@@ -399,7 +399,7 @@ describe('the kit gaps for layouts (#2828, part B)', () => {
   it("asks for the app's note menu for notes it was given only, each once", async () => {
     const s = open({ scope: ['a.md', 'b.md'] });
     await s.call('ui.showNoteMenu', { paths: ['a.md', './a.md', 'b.md'], x: 10, y: 20 });
-    expect(s.intents).toEqual([{ kind: 'showNoteMenu', paths: ['a.md', 'b.md'], x: 10, y: 20 }]);
+    expect(s.intents).toEqual([{ kind: 'showNoteMenu', paths: ['a.md', 'b.md'], x: 10, y: 20, target: false, label: null }]);
     expect((await s.call('ui.showNoteMenu', { paths: ['a.md', 'c.md'], x: 0, y: 0 })).error?.code).toBe('scope');
     for (const bad of [{ paths: [], x: 0, y: 0 }, { paths: ['a.md'], x: 'left', y: 0 }, { paths: [7], x: 0, y: 0 },
       { paths: Array.from({ length: 501 }, () => 'a.md'), x: 0, y: 0 }]) {

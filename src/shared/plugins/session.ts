@@ -3,7 +3,7 @@
  * The plugin itself never sees these; it speaks `api.ts` over its port.
  */
 
-import type { PluginViewState } from './api';
+import type { PluginMoveTarget, PluginViewState } from './api';
 
 /** Something a plugin asked its window to do (the `ui` capability). */
 export type PluginIntent =
@@ -17,7 +17,7 @@ export type PluginIntent =
   /** Change the view's own spec (#2828); the host keeps only its layout's fields. */
   | { kind: 'setViewState'; patch: Record<string, unknown> }
   /** The app's own note menu, for notes the session was given, at a point in the frame (#2828). */
-  | { kind: 'showNoteMenu'; paths: string[]; x: number; y: number }
+  | { kind: 'showNoteMenu'; paths: string[]; x: number; y: number; target: boolean; label: string | null }
   /** The app's hover preview, beside a box in the frame (#2828). */
   | { kind: 'previewNote'; path: string; rect: { x: number; y: number; width: number; height: number }; via: 'pointer' | 'focus' }
   | { kind: 'hidePreview'; path: string; via: 'pointer' | 'focus' }
@@ -26,7 +26,11 @@ export type PluginIntent =
   /** The view's own selection (#2828): a click on a note, ⌘A, Escape. */
   | { kind: 'viewClick'; path: string; meta: boolean; ctrl: boolean; shift: boolean }
   | { kind: 'selectAll' }
-  | { kind: 'clearSelection' };
+  | { kind: 'clearSelection' }
+  /** A board's moves (#2828, decision 2): the host moves, with its own undo. */
+  | { kind: 'moveCard'; path: string; target: PluginMoveTarget }
+  | { kind: 'undoMove' }
+  | { kind: 'moveColumn'; key: string; target: string; side: 'before' | 'after' };
 
 /** What the host tells main to pass on to a session's plugin (#2827). */
 export type PluginHostEvent =
@@ -35,7 +39,9 @@ export type PluginHostEvent =
   /** A type view's state, for a plugin drawing its layout (#2828). */
   | { kind: 'view'; state: PluginViewState }
   /** Ask the plugin to draw its view for an export (#2828). */
-  | { kind: 'exportRequest'; requestId: string };
+  | { kind: 'exportRequest'; requestId: string }
+  /** What the app's hover preview of a note says, or null when it goes (#2828). */
+  | { kind: 'preview'; path: string; description: string | null };
 
 export interface PluginIntentEvent {
   sessionId: string;

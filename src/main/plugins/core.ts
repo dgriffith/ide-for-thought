@@ -52,6 +52,22 @@ const CORE_PLUGIN_DEFINITIONS: readonly CorePluginDefinition[] = [
     },
     defaultEnabled: false,
   },
+  {
+    // The Kanban layout (#2828): the first view drawn by plugin code, in a
+    // plugin frame (`plugins/kanban/`), on the plugin API like any plugin.
+    // On by default: it was part of Minerva before, and it is safe — it reads
+    // the notes a view shows and moves them between columns, nothing else.
+    manifest: {
+      id: 'kanban',
+      name: 'Kanban',
+      version: '1.0.0',
+      minerva: '>=4.0.0',
+      description: 'Show a type view as a board: a column per option of a choice property, cards you drag between them.',
+      contributes: {},
+      code: { capabilities: ['notes:read', 'notes:write-properties', 'ui'], api: '^1.5.0' },
+    },
+    defaultEnabled: true,
+  },
 ];
 
 let definitions: readonly CorePluginDefinition[] = CORE_PLUGIN_DEFINITIONS;

@@ -1,5 +1,5 @@
 /**
- * @vitest-environment happy-dom
+ * @vitest-environment jsdom
  *
  * A layout a built-in plugin draws, with the plugin off (#2828): the view
  * shows the table with one quiet line, keeps its layout, and doesn't offer
@@ -7,7 +7,7 @@
  * part; here the registry is told it is.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, cleanup, screen, within } from '@testing-library/svelte';
+import { render, cleanup, screen, within, waitFor } from '@testing-library/svelte';
 
 const h = vi.hoisted(() => ({ on: false, instances: vi.fn(), list: vi.fn(), map: vi.fn() }));
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({
@@ -66,12 +66,12 @@ describe('a plugin-drawn layout with its plugin off (#2828)', () => {
     expect(within(switcher).queryByRole('tab', { name: 'Kanban' })).toBeNull();
   });
 
-  it('draws the layout, with no line, while the plugin is on', async () => {
+  it('draws the layout — the plugin\'s frame — with no line, while the plugin is on', async () => {
     h.on = true;
     const { container } = render(TypeView, props());
-    await screen.findByText('Alpha');
+    await waitFor(() => expect(container.querySelector('[data-plugin-layout="kanban"] iframe')).not.toBeNull());
     expect(container.querySelector('.tv-layout-off')).toBeNull();
-    expect(container.querySelector('.kb-column')).not.toBeNull();
+    expect(container.querySelector('table')).toBeNull();
     expect(within(screen.getByRole('tablist', { name: 'View' })).getByRole('tab', { name: 'Kanban' })).toBeTruthy();
   });
 });

@@ -77,15 +77,34 @@ async function scan(page: Page, context?: string): Promise<AxeViolation[]> {
       URL.revokeObjectURL(url);
     }
   }, AXE_SOURCE);
-  return page.evaluate(async (ctx) => {
-    // `axe` is defined on window by the injected UMD bundle.
-    const axe = (globalThis as unknown as { axe: { run: (c: unknown, o: unknown) => Promise<{ violations: AxeViolation[] }> } }).axe;
-    const results = await axe.run(ctx ?? document, {
-      // WCAG 2.0/2.1 A + AA — the level a professional tool should meet.
-      runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] },
-    });
-    return results.violations;
-  }, context);
+  const own = await page.evaluate(runInDocument, context ?? null);
+  // A whole-page scan reaches into plugin frames too (#2828): each is its own
+  // document, on its own origin, so it's scanned on its own and its findings
+  // are labelled with the frame. Its CSP (script-src 'self') refuses the blob
+  // URL above; a string `evaluate` runs through CDP, which CSP doesn't govern.
+  if (context) return own;
+  const inFrames: AxeViolation[] = [];
+  for (const frame of page.frames().filter((f) => f.url().startsWith('minerva-plugin:'))) {
+    await frame.evaluate(`if (!globalThis.axe) { ${AXE_SOURCE}\n }`);
+    const found = await frame.evaluate(runInDocument, null);
+    // Its origin, as text: Node's URL reports 'null' for a scheme it doesn't know.
+    const where = /^minerva-plugin:\/\/[^/]+/.exec(frame.url())?.[0] ?? frame.url();
+    inFrames.push(...found.map((v) => ({ ...v, nodes: v.nodes.map((n) => ({ ...n, target: [where, ...n.target] })) })));
+  }
+  return [...own, ...inFrames];
+}
+
+/** axe over `ctx` (a selector), or the whole document — run inside the page or frame. */
+async function runInDocument(ctx: string | null): Promise<AxeViolation[]> {
+  // `axe` is defined on window by the injected UMD bundle.
+  const axe = (globalThis as unknown as { axe: { run: (c: unknown, o: unknown) => Promise<{ violations: AxeViolation[] }> } }).axe;
+  const results = await axe.run(ctx ?? document, {
+    // WCAG 2.0/2.1 A + AA — the level a professional tool should meet.
+    runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] },
+    // A frame is scanned in its own right, below: not from its parent.
+    iframes: false,
+  });
+  return results.violations;
 }
 
 /** Human-readable violation dump for a failing assertion. */

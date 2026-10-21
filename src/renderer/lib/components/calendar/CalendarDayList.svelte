@@ -23,7 +23,7 @@
   import { tick } from 'svelte';
   import type { TimelineEvent } from '../timeline/timeline-events';
   import type { NoteHover } from '../note-hover/note-hover.svelte';
-  import { cardMoveKey } from '../kanban/card-drag';
+  import { cardMoveKey } from '../drag-keys';
   import type { DayListMenu } from './reschedule';
 
   interface Props {

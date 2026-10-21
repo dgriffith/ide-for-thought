@@ -337,10 +337,16 @@
   // values filter on that property narrowing the columns (`boardColumns`).
   const groupProp = $derived(resolveGroupBy(groupBy, allColumns));
   const board = $derived(groupProp ? boardColumns(sorted, groupProp, viewFilters, { columnOrder, showEmptyColumns }) : []);
+  // A board a plugin draws (#2828): its moves are the host's (decision 2), and
+  // Local History says which plugin they came from.
+  const moveCause = $derived.by(() => {
+    const plugin = layoutPlugin(shown);
+    return plugin ? `Moved by ${corePluginsStore.name(plugin)}` : undefined;
+  });
   function moveTo(paths: string[], target: MoveTarget): void {
     sel.closeMenu();
     const cards = paths.map((p) => ({ path: p, title: instances.find((i) => i.path === p)?.title ?? p }));
-    if (groupProp && cards.length > 0) void moves.moveCards(cards, groupProp.name, target);
+    if (groupProp && cards.length > 0) void moves.moveCards(cards, groupProp.name, target, moveCause ? { cause: moveCause } : {});
   }
   function onMoveColumn(key: string, target: string, side: 'before' | 'after'): void {
     if (groupProp) onStateChange({ columnOrder: moveColumn(instances, groupProp, columnOrder, key, target, side) });
@@ -371,13 +377,21 @@
     onRowContextMenu: (e, p) => sel.contextMenu(e, p),
     refPath: (prop, value) => (noteActions && prop.type === 'link-to-type' && value ? notePathForIri(value, knownNotePaths) : null),
     onRefContextMenu: (e, p, label) => { refLabel = label; sel.contextMenuFor(e, p); },
-    openRowMenu: (paths, x, y) => sel.openMenuFor(paths, x, y),
+    openRowMenu: (paths, x, y, opts) => {
+      if (opts?.target && paths[0]) {
+        refLabel = opts.label ?? '';
+        sel.openMenuForTarget(paths[0], x, y);
+      } else sel.openMenuFor(paths, x, y);
+    },
     selectAll: () => sel.selectAll(),
     clearSelection: () => sel.clear(),
     onOpenNote: (p) => onOpenNote(p),
     onStateChange: (p) => onStateChange(p),
     get readOnly() { return chromeless; },
     get exportMode() { return exportMode; },
+    get spec() {
+      return { groupBy: groupProp?.name ?? null, columnOrder, showEmptyColumns, mapStyle, from: timelineSpec.from, to: timelineSpec.to, month: calendarSpec.month, dateBy: calendarSpec.dateBy };
+    },
     get locationProperty() { return locationProperty; },
     get mapStyle() { return mapStyle; },
     get mapExport() { return mapExport; },
@@ -385,7 +399,9 @@
     get group() { return groupProp; },
     get board() { return board; },
     get onMoveCard() { return selectable ? (p: string, t: MoveTarget) => moveTo([p], t) : undefined; },
-    get onUndoMove() { return selectable ? () => void moves.undoLastMove() : undefined; },
+    get onUndoMove() { return selectable ? () => void moves.undoLastMove('board', moveCause ? { cause: moveCause } : {}) : undefined; },
+    get canUndoMove() { return moves.canUndo; },
+    get lastMove() { return moves.lastMove; },
     get onMoveColumn() { return chromeless ? undefined : onMoveColumn; },
     get from() { return timelineSpec.from; },
     get to() { return timelineSpec.to; },

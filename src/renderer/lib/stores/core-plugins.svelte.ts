@@ -15,6 +15,9 @@ let core = $state<ReadonlyMap<string, { name: string; enabled: boolean }> | null
 let started = false;
 
 async function refresh(): Promise<void> {
+  // A window with no plugins API at all is a partial test double: no answer,
+  // so every plugin counts as on. A real API that fails is reported below.
+  if (!api.plugins) return;
   try {
     const list = await api.plugins.list();
     core = new Map(list.core.map((p) => [p.id, { name: p.name, enabled: p.enabled }]));
@@ -26,8 +29,14 @@ async function refresh(): Promise<void> {
 function start(): void {
   if (started) return;
   started = true;
-  void refresh();
-  api.plugins.onChanged(() => { void refresh(); });
+  // Not knowing which plugins are on must never break the view asking: the
+  // answer stays "on" (see the header), and the failure is logged.
+  try {
+    void refresh();
+    api.plugins?.onChanged(() => { void refresh(); });
+  } catch (e) {
+    logger('plugins').warn('could not follow which built-in plugins are on:', e);
+  }
 }
 
 export const corePluginsStore = {

@@ -24,7 +24,6 @@
  * focus back on the moved column's header.
  */
 import { tick } from 'svelte';
-import { announce } from '../../stores/announcer.svelte';
 
 export type DropSide = 'before' | 'after';
 
@@ -196,14 +195,19 @@ function boardColumnsOf(board: HTMLElement): HTMLElement[] {
  * announce where the column now is and, for a keyboard move, focus its
  * header's menu button (a moved DOM node loses focus).
  */
-export async function afterColumnMove(getBoard: () => HTMLElement | undefined, key: string, label: string, opts: { focus: boolean }): Promise<void> {
+export async function afterColumnMove(
+  getBoard: () => HTMLElement | undefined,
+  key: string,
+  label: string,
+  opts: { focus: boolean; announce: (text: string) => void },
+): Promise<void> {
   await tick();
   const board = getBoard(); // read after the re-render, which may have replaced it
   if (!board) return;
   const cols = boardColumnsOf(board);
   const index = cols.findIndex((c) => columnKeyOf(c) === key);
   if (index === -1) return;
-  announce(`Moved ${label} column to position ${index + 1} of ${cols.length}`);
+  opts.announce(`Moved ${label} column to position ${index + 1} of ${cols.length}`);
   if (opts.focus) cols[index]!.querySelector<HTMLElement>(COLUMN_MENU_BUTTON)?.focus();
 }
 

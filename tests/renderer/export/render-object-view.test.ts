@@ -1,14 +1,19 @@
 /**
- * @vitest-environment happy-dom
+ * @vitest-environment jsdom
  *
  * An object view rendered for export (#2510) is the preview's own TypeView,
  * mounted off-screen, snapshotted once its rows are in, and torn down.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-const { instancesMock, listMock, noteTypeMapMock } = vi.hoisted(() => ({
+const { instancesMock, listMock, noteTypeMapMock, plugin } = vi.hoisted(() => ({
   instancesMock: vi.fn(), listMock: vi.fn(), noteTypeMapMock: vi.fn(),
+  plugin: {} as import('../components/kanban-host').KanbanHostState,
 }));
+// A Kanban export is the Kanban plugin's board (#2828): here, in loopback —
+// its real board, drawn for the export, answering through the real host.
+vi.mock('../../../src/renderer/lib/stores/plugin-sessions.svelte', () => ({ connectPluginFrame: (...a: unknown[]) => plugin.connect(...a) }));
+vi.mock('../../../src/renderer/lib/stores/core-plugins.svelte', () => ({ corePluginsStore: { isOn: () => true, name: () => 'Kanban' } }));
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({
   api: { types: { instances: instancesMock, list: listMock, noteTypeMap: noteTypeMapMock }, app: { getSystemLocale: async () => 'en-GB' } },
 }));
@@ -16,6 +21,15 @@ vi.mock('../../../src/renderer/lib/map/load-maplibre', () => ({ loadMapLibre: vi
 
 import { renderObjectViewForExport, OBJECT_VIEW_LOAD_TIMEOUT_MS } from '../../../src/renderer/lib/export/render-object-view';
 import { renderLiveBlock } from '../../../src/renderer/lib/app/export-live-blocks';
+import { autoLoadPluginFrames, kanbanLoopback } from '../components/kanban-host';
+
+let stopAutoLoad: () => void = () => {};
+
+// jsdom (which the Kanban plugin's export needs: happy-dom's sanitizer path
+// drops the board's root) has no ResizeObserver; the timeline measures with one.
+if (!('ResizeObserver' in globalThis)) {
+  vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
+}
 
 const TYPE = {
   id: 'place', label: 'Place', classLocalName: 'Place', icon: '📍', source: 'user' as const,
@@ -27,11 +41,14 @@ const INSTANCES = [
 ];
 
 beforeEach(() => {
+  kanbanLoopback(plugin);
+  stopAutoLoad = autoLoadPluginFrames();
   instancesMock.mockResolvedValue({ type: TYPE, instances: INSTANCES });
   listMock.mockResolvedValue({ types: [TYPE], errors: [] });
   noteTypeMapMock.mockResolvedValue({});
 });
-afterEach(() => { vi.useRealTimers(); document.body.innerHTML = ''; });
+afterEach(() => {
+  stopAutoLoad(); vi.useRealTimers(); document.body.innerHTML = ''; });
 
 describe('renderObjectViewForExport', () => {
   it.each(['list', 'table', 'gallery'] as const)('renders the %s layout with every row linked, light-themed', async (layout) => {
@@ -223,7 +240,8 @@ describe('renderObjectViewForExport', () => {
       { path: 'p/Tax.md', title: 'Tax Return', values: { status: 'done' }, cover: null },
     ] });
     const html = await renderObjectViewForExport(JSON.stringify({ typeId: 'project', layout: 'kanban', columnOrder: ['done'], showEmptyColumns: false }));
-    const order = [...html.matchAll(/data-column-value="([^"]*)"/g)].map((m) => m[1]);
+    // An export keeps no data-* but a card's note (#2828's sanitizer): read the labels.
+    const order = [...new DOMParser().parseFromString(html, 'text/html').querySelectorAll('.kb-col-label')].map((l) => l.textContent);
     expect(order).toEqual(['done', 'active']); // paused is empty, so hidden
     expect(html).not.toContain('kb-col-menu-btn');
     expect(html).not.toContain('data-draggable');

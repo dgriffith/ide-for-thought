@@ -5,10 +5,14 @@
  *
  * The drag is pointer events end to end (`card-drag.ts`), not HTML5
  * drag-and-drop — a drag starts after 5px of travel, so the move is stepped.
+ *
+ * The board is drawn by the built-in Kanban plugin in a plugin frame (#2828):
+ * `boardOf` reaches into it. Bounding boxes inside a frame come back in the
+ * window's coordinates, so pointer drags work as they did.
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { expect, type Locator, type Page } from '@playwright/test';
+import { expect, type FrameLocator, type Locator, type Page } from '@playwright/test';
 
 /** A project's title and its `status`, or null to leave `status` out. */
 export type SeedProject = [title: string, status: string | null];
@@ -30,6 +34,8 @@ export function seedProjects(
 }
 
 export interface Board {
+  /** The plugin frame the board is drawn in. */
+  frame: FrameLocator;
   board: Locator;
   /** A card by its title, wherever it is. */
   cardFor(title: string): Locator;
@@ -39,10 +45,13 @@ export interface Board {
   column(value: string): Locator;
 }
 
-export function boardOf(win: Page): Board {
-  const board = win.locator('.kb-board');
+/** The board in the `nth` Kanban frame on screen (the panel's first, then embeds). */
+export function boardOf(win: Page, nth = 0): Board {
+  const frame = win.locator('[data-plugin-layout="kanban"] iframe').nth(nth).contentFrame();
+  const board = frame.locator('.kb-board');
   const column = (value: string) => board.locator(`section.kb-column[data-column-value="${value}"]`);
   return {
+    frame,
     board,
     column,
     cardFor: (title) => board.locator('[data-kanban-card]', { hasText: title }),

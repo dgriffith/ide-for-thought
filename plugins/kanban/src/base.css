@@ -1,0 +1,8 @@
+/* The page the board is drawn on: Minerva's theme tokens arrive on :root. */
+html, body, #app { height: 100%; margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 13px;
+}

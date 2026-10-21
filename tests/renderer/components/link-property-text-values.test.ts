@@ -1,5 +1,5 @@
 /**
- * @vitest-environment happy-dom
+ * @vitest-environment jsdom
  *
  * A `link-to-type` property holding plain text renders as that text (#2612).
  *
@@ -16,9 +16,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, cleanup, waitFor, screen } from '@testing-library/svelte';
 
-const { instancesMock, listMock, noteTypeMapMock } = vi.hoisted(() => ({
+const { instancesMock, listMock, noteTypeMapMock, plugin } = vi.hoisted(() => ({
   instancesMock: vi.fn(), listMock: vi.fn(), noteTypeMapMock: vi.fn(),
+  plugin: {} as import('./kanban-host').KanbanHostState,
 }));
+// The Kanban layout is drawn by its plugin (#2828): read the cards it is sent.
+vi.mock('../../../src/renderer/lib/stores/plugin-sessions.svelte', () => ({ connectPluginFrame: (...a: unknown[]) => plugin.connect(...a) }));
+vi.mock('../../../src/renderer/lib/stores/core-plugins.svelte', () => ({ corePluginsStore: { isOn: () => true, name: () => 'Kanban' } }));
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({
   api: { types: { instances: instancesMock, list: listMock, noteTypeMap: noteTypeMapMock } },
 }));
@@ -27,6 +31,7 @@ vi.mock('../../../src/renderer/lib/map/load-maplibre', () => ({
 }));
 
 import TypeView from '../../../src/renderer/lib/components/TypeView.svelte';
+import { kanbanHostState, openBoard } from './kanban-host';
 import { objectTypesStore } from '../../../src/renderer/lib/stores/object-types.svelte';
 import { buildObjectCardHtml } from '../../../src/renderer/lib/preview/typed-card';
 import { displayPropertyValue } from '../../../src/shared/objects/property-display';
@@ -114,9 +119,10 @@ describe('TypeView shows plain-text link values as text (#2612)', () => {
   });
 
   it('kanban cards', async () => {
-    render(TypeView, props({ layout: 'kanban' }));
-    await waitFor(() => expect(screen.getByText('Standup')).toBeTruthy());
-    const vals = [...document.querySelectorAll('.kb-fval')].map((e) => e.textContent?.trim());
+    kanbanHostState(plugin);
+    const { container } = render(TypeView, props({ layout: 'kanban' }));
+    const b = await openBoard(container, plugin);
+    const vals = b.state().instances.flatMap((i) => i.fields.map((f) => f.text));
     expect(vals).toContain('Alice, Bob');
     expect(vals).toContain('Carol / Dan');
     expect(vals).toContain('Alice Smith');

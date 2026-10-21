@@ -24,8 +24,8 @@
  * "the context menu, from the keyboard"; ⌘Z (Ctrl+Z) undoes the last move.
  */
 import type { Action } from 'svelte/action';
-import { targetOfColumn, type MoveTarget } from '../../../../shared/objects/kanban-move';
-import { isMenuKey, openMenuAt } from '../type-view/note-actions';
+import { targetOfColumn, type MoveTarget } from '../../../src/shared/objects/kanban-move';
+import { isMenuKey, openMenuAt } from './keys';
 
 export const DRAG_THRESHOLD_PX = 5;
 /** How close to the board's edge (px) the pointer must be to scroll it. */

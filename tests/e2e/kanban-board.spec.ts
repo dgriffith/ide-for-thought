@@ -29,7 +29,7 @@ test('a Project board: columns by status, cards, and keyboard navigation to open
   try {
     const win = await app.firstWindow({ timeout: 20_000 });
     await expect(win.getByRole('button', { name: 'Open Thoughtbase' })).toHaveCount(0, { timeout: 25_000 });
-    const { board, cardFor } = await test.step('open the Project view as a board', async () => {
+    const { board, cardFor, frame } = await test.step('open the Project view as a board', async () => {
       const b = await openProjectBoard(win, PROJECTS.length);
       await expect(win.getByRole('tab', { name: 'Kanban' })).toHaveAttribute('aria-selected', 'true');
       return b;
@@ -38,8 +38,9 @@ test('a Project board: columns by status, cards, and keyboard navigation to open
     await test.step('columns: the status options in order, with counts, then No value', async () => {
       await expect(board.locator('.kb-col-label')).toHaveText(['active', 'paused', 'done', 'abandoned', 'No value']);
       await expect(board.locator('.kb-col-count')).toHaveText(['2', '1', '1', '0', '1']);
-      await expect(win.getByRole('list', { name: 'active, 2 cards' }).getByRole('listitem')).toHaveCount(2);
-      await expect(win.getByRole('list', { name: 'No value, 1 card' })).toContainText('Someday Boat');
+      // The board is the Kanban plugin's, in its frame (#2828).
+      await expect(frame.getByRole('list', { name: 'active, 2 cards' }).getByRole('listitem')).toHaveCount(2);
+      await expect(frame.getByRole('list', { name: 'No value, 1 card' })).toContainText('Someday Boat');
       // Project has one enum property, so there's nothing to pick.
       await expect(win.getByRole('combobox', { name: 'Group by' })).toHaveCount(0);
     });

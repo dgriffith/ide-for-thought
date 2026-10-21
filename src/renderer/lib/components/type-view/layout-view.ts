@@ -15,7 +15,8 @@ import type { MapStyle } from '../../../../shared/objects/map-style';
 import type { ViewFilter } from '../../../../shared/objects/view-spec';
 import type { KanbanColumn } from '../../../../shared/objects/kanban';
 import type { MoveTarget } from '../../../../shared/objects/kanban-move';
-import type { DropSide } from '../kanban/column-drag';
+/** Where a moved column lands beside another (#2614). */
+type DropSide = 'before' | 'after';
 import type { ViewLayout } from '../../../../shared/objects/view-layouts';
 import type { PropertyDef, TypeInfo, TypeInstanceRow } from '../../../../shared/objects/type-def';
 
@@ -83,7 +84,7 @@ export interface LayoutView {
   onRefContextMenu: (e: MouseEvent, path: string, label: string) => void;
   /** The row menu for these notes at a point in the window — a plugin layout's
    *  `ui.showNoteMenu` (#2828). */
-  openRowMenu: (paths: readonly string[], clientX: number, clientY: number) => void;
+  openRowMenu: (paths: readonly string[], clientX: number, clientY: number, opts?: { target?: boolean; label?: string | null }) => void;
   /** ⌘A and Escape from a plugin layout (#2828): the view's own selection. */
   selectAll: () => void;
   clearSelection: () => void;
@@ -94,6 +95,8 @@ export interface LayoutView {
   readOnly: boolean;
   /** Drawing for an export snapshot. */
   exportMode: boolean;
+  /** The view's spec fields as they are now — what a plugin layout is sent (#2828). */
+  spec: Record<string, unknown>;
   /** A plugin layout tells the export it has drawn (#2828), as a map hands back its capture. */
   pluginExport: PluginExportHooks | undefined;
 
@@ -107,6 +110,9 @@ export interface LayoutView {
   board: KanbanColumn[];
   onMoveCard: ((path: string, target: MoveTarget) => void) | undefined;
   onUndoMove: (() => void) | undefined;
+  /** A board move to undo (#2828), and the last move or undo that wrote, for focus. */
+  canUndoMove: boolean;
+  lastMove: { seq: number; paths: string[] } | null;
   onMoveColumn: ((key: string, target: string, side: DropSide) => void) | undefined;
   /** Timeline and Calendar: their spec, already judged against the type. */
   from: string | null;

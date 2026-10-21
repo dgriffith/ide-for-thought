@@ -100,6 +100,14 @@ export function sendPluginSessionEvent(win: BrowserWindow, sessionId: string, ev
     entry.session.emit('theme', { mode: String(event.mode).slice(0, 40), vars });
     return;
   }
+  if (event.kind === 'preview') {
+    // Only a note the session may reach, and a description's length of text.
+    const path = String(event.path);
+    if (!entry.session.scope().includes(path)) return;
+    const description = typeof event.description === 'string' ? event.description.slice(0, 2000) : null;
+    entry.session.emit('preview', { path, description });
+    return;
+  }
   if (event.kind === 'exportRequest') {
     entry.session.emit('export', { requestId: String(event.requestId).slice(0, 64) });
     return;
