@@ -2,9 +2,11 @@
   /**
    * The Timeline layout of a type view (#2608, epic #2606): the notes of any
    * type with a date property (#2715) on a horizontal time axis, placed by the
-   * view's *Date by* (`dateBy`; Event's `date` by default).
-   * `TypeView` scopes and filters the instances; this draws them. The design
-   * is the spike's (`docs/vision/objects-expansion.md`, "Timeline").
+   * view's *Date by* (`dateBy`; Event's `date` by default). Since #2829 it is
+   * the built-in Timeline plugin, in a plugin frame: Minerva scopes and
+   * filters the instances and sends them as the `view`; this draws them, and
+   * writes back only the view's range (`view.setState`). The design is the
+   * spike's (`docs/vision/objects-expansion.md`, "Timeline").
    *
    * - **Our own SVG.** One `<g>` per event; the axis is `timeline-scale.ts`'s
    *   one-line linear map over civil-axis ms, ticked by `d3-time` and
@@ -34,10 +36,12 @@
    *   Jul 20, 1969" (`formatDateValue`, the app's one date formatter); a bar's
    *   name includes its end.
    * - **Hover preview** (#2710): hovering or focusing an event shows the
-   *   shared `NoteHoverPreview` — the title and snippet a `[[link]]` to its
-   *   note shows — with the event's dates, "approximate" and a set-aside
-   *   `end` as extra lines, and the type's card fields under the snippet. It
-   *   replaced #2608's own `TimelineHoverCard`, so the app has one hover.
+   *   app's own preview (`ui.previewNote`) — the title and snippet a
+   *   `[[link]]` to its note shows — with the event's dates, "approximate"
+   *   and a set-aside `end` as extra lines, and the type's card fields under
+   *   the snippet, minus the dates. Its text comes back as a `preview` event,
+   *   which describes the event inside the frame. Escape closes it and keeps
+   *   focus where it is.
    * - **The list alternative is a toggle**, not a visually hidden copy: the
    *   **List** button swaps the drawing for an ordered list of the same events
    *   in the same order with the same names and dates (the Undated tray is
@@ -73,42 +77,43 @@
    *   line saying so — never the raw spec.
    */
   import { tick, untrack } from 'svelte';
-  import { dateSpan } from '../../../shared/objects/date-precision';
-  import { timelineDomain, timelineRangeFromDomain } from '../../../shared/objects/timeline';
-  import { isValuesFilter, type ViewFilter } from '../../../shared/objects/view-spec';
-  import type { PropertyDef, TypeInfo, TypeInstanceRow } from '../../../shared/objects/type-def';
-  import NoteHoverPreview from './NoteHoverPreview.svelte';
-  import { createNoteHover } from './note-hover/note-hover.svelte';
-  import { buildTimelineModel, timelineProperties, type TimelineEvent } from './timeline/timeline-events';
-  import { axisTicks, clampDomain, fitDomain, panDomain, panToShow, PAN_STEP, resolveDomain, xOf, zoomDomain, ZOOM_STEP, type Domain } from './timeline/timeline-scale';
-  import { BAR_PX, cullToView, LANE_PX, labelWidth, layoutTimeline, timeOrder, trailingLabelRoom, VIRTUALIZE_ABOVE } from './timeline/timeline-layout';
-  import { timelineGestures } from './timeline/timeline-gestures';
-  import { EXPORT_MAX_LANES, planTimelineExport, type TimelineExportPlan } from './timeline/timeline-export';
-  import { logger } from '../../../shared/logger';
+  import type { MinervaPlugin, PluginViewInstance, PluginViewState } from '/@minerva/plugin-api.js';
+  import { dateSpan } from '../../../src/shared/objects/date-precision';
+  import { timelineDomain, timelineRangeFromDomain } from '../../../src/shared/objects/timeline';
+  import type { PropertyDef } from '../../../src/shared/objects/type-def';
+  import { buildTimelineModel, timelineProperties, type TimelineEvent } from '../../../src/shared/timeline/timeline-events';
+  import { axisTicks, clampDomain, fitDomain, panDomain, panToShow, PAN_STEP, resolveDomain, xOf, zoomDomain, ZOOM_STEP, type Domain } from '../../../src/shared/timeline/timeline-scale';
+  import { BAR_PX, cullToView, LANE_PX, labelWidth, layoutTimeline, timeOrder, trailingLabelRoom, VIRTUALIZE_ABOVE } from './timeline-layout';
+  import { timelineGestures } from './timeline-gestures';
+  import { EXPORT_MAX_LANES, planTimelineExport, type TimelineExportPlan } from './timeline-export';
+  import { logger } from '../../../src/shared/logger';
 
   interface Props {
-    type: TypeInfo;
-    properties: PropertyDef[];
-    /** The view's instances, scoped and filtered. */
-    instances: TypeInstanceRow[];
-    /** The view's filters — a range filter on the Date by property bounds Fit. */
-    filters: ViewFilter[];
-    from: string | null;
-    to: string | null;
-    /** The view's Date by (#2715; null = the default, `date-by.ts`). */
-    dateBy?: string | null;
-    display: (prop: PropertyDef, value: string | null) => string;
-    rowType: (inst: TypeInstanceRow) => TypeInfo | null;
-    onOpenNote: (path: string) => void;
-    onStateChange: (patch: { from: string | null; to: string | null }) => void;
-    /** An embed: no zoom/pan, nothing written back. */
-    readOnly?: boolean;
-    /** Draw one static picture for an export (#2609; see the header). */
-    exportMode?: boolean;
+    minerva: MinervaPlugin;
+    view: PluginViewState;
     /** Formatting locale; the viewer's when absent. */
     locale?: string;
   }
-  let { type, properties, instances, filters, from, to, dateBy = null, display, rowType, onOpenNote, onStateChange, readOnly = false, exportMode = false, locale }: Props = $props();
+  let { minerva, view, locale }: Props = $props();
+
+  type Ev = TimelineEvent<PluginViewInstance>;
+  /** A call whose failure the user can't act on (the frame closing, say). */
+  const quietly = (p: Promise<unknown>) => { p.catch(() => {}); };
+
+  const type = $derived(view.type);
+  // The type's properties as Minerva declares them: the date helpers read a
+  // property's name and type, which the view's carry.
+  const properties = $derived(view.properties as unknown as PropertyDef[]);
+  const instances = $derived(view.instances);
+  const filters = $derived(view.filters);
+  const str = (v: unknown): string | null => (typeof v === 'string' && v !== '' ? v : null);
+  const from = $derived(str(view.spec['from']));
+  const to = $derived(str(view.spec['to']));
+  const dateBy = $derived(str(view.spec['dateBy']));
+  const readOnly = $derived(view.readOnly);
+  const exportMode = $derived(view.exportMode);
+  const onOpenNote = (path: string) => { flushCommit(); quietly(minerva.view.click({ path })); };
+  const onStateChange = (patch: { from: string | null; to: string | null }) => quietly(minerva.view.setState({ patch }));
 
   const uid = $props.id();
   const AXIS_PX = 28;
@@ -118,14 +123,14 @@
   const interactive = $derived(!readOnly && !exportMode);
 
   const dates = $derived(timelineProperties(dateBy, properties));
-  const model = $derived(buildTimelineModel(instances, locale ? { ...dates, locale } : dates));
+  const model = $derived(buildTimelineModel<PluginViewInstance>(instances, locale ? { ...dates, locale } : dates));
   const byKey = $derived(new Map(model.dated.map((ev) => [ev.key, ev] as const)));
   const order = $derived(timeOrder(model.dated));
 
   /** A range filter on the Date by property (#2533, span comparison): its window bounds Fit. */
   const bound = $derived.by(() => {
-    const f = filters.find((x) => !isValuesFilter(x) && x.property === dates.dateProperty);
-    if (!f || isValuesFilter(f)) return { start: null, end: null };
+    const f = filters.find((x) => !('values' in x) && x.property === dates.dateProperty);
+    if (!f || 'values' in f) return { start: null, end: null };
     return { start: dateSpan(f.min ?? null)?.start ?? null, end: dateSpan(f.max ?? null)?.end ?? null };
   });
   let measuredWidth = $state(0);
@@ -183,8 +188,24 @@
     clearTimeout(commitTimer);
     commitTimer = setTimeout(commitNow, ms);
   }
-  // A layout switch right after a zoom still keeps it.
-  $effect(() => () => { if (commitTimer !== undefined) { clearTimeout(commitTimer); commitNow(); } });
+  /** Write a range still waiting on its debounce now. */
+  function flushCommit(): void {
+    if (commitTimer !== undefined) { clearTimeout(commitTimer); commitNow(); }
+  }
+  // A layout switch or a note opened right after a zoom still keeps it. The
+  // frame is removed with nothing run in it, so the write can't wait for an
+  // unmount: it goes before opening a note, and when the frame loses focus or
+  // the pointer leaves it — the way to a tab, or to anything else in the app.
+  $effect(() => {
+    const flush = () => flushCommit();
+    window.addEventListener('blur', flush);
+    document.documentElement.addEventListener('pointerleave', flush);
+    return () => {
+      flush();
+      window.removeEventListener('blur', flush);
+      document.documentElement.removeEventListener('pointerleave', flush);
+    };
+  });
 
   function setDomain(d: Domain): void { domain = d; }
   function zoomBy(factor: number, anchor = 0.5): void {
@@ -203,7 +224,7 @@
   // Lanes depend on the scale alone — a pan keeps them (`timeline-layout.ts`).
   const pxPerMs = $derived(domain ? Number((width / (domain.end - domain.start)).toPrecision(12)) : 0);
   /** An export's drawing (`timeline-export.ts`); `ok: false` = it couldn't be drawn, so list instead. */
-  const exportPlan = $derived.by<{ ok: true; plan: TimelineExportPlan } | { ok: false } | null>(() => {
+  const exportPlan = $derived.by<{ ok: true; plan: TimelineExportPlan<Ev> } | { ok: false } | null>(() => {
     if (!exportMode || model.dated.length === 0) return null;
     try {
       // The range straight from the spec (the `domain` effect lands on the same one, a tick later).
@@ -217,7 +238,7 @@
   const laneCount = $derived(exportPlan?.ok ? exportPlan.plan.laneCount : layout.laneCount);
   const plotHeight = $derived(TOP_PX + Math.max(1, laneCount) * LANE_PX + 8);
   /** An export's dated list: what's in range, or every dated event when the drawing failed. */
-  const exportList = $derived<TimelineEvent[]>(!exportPlan ? [] : exportPlan.ok ? exportPlan.plan.listed : order.map((k) => byKey.get(k)!));
+  const exportList = $derived<Ev[]>(!exportPlan ? [] : exportPlan.ok ? exportPlan.plan.listed : order.map((k) => byKey.get(k)!));
   const ticks = $derived(domain ? axisTicks(domain, width, locale ? { locale } : {}) : { unit: 'year' as const, ticks: [] });
 
   let focusedKey = $state<string | null>(null);
@@ -229,7 +250,7 @@
     return inView ?? order[0] ?? null;
   });
 
-  const drawn = $derived.by<TimelineEvent[]>(() => {
+  const drawn = $derived.by<Ev[]>(() => {
     if (exportMode) return exportPlan?.ok ? exportPlan.plan.drawn : [];
     if (!domain || model.dated.length <= VIRTUALIZE_ABOVE) return model.dated;
     const firstLane = Math.floor((scrollTop - TOP_PX) / LANE_PX) - 10;
@@ -265,6 +286,9 @@
 
   function onKeydown(e: KeyboardEvent): void {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
+    // Escape closes the preview and leaves focus where it is; with none up,
+    // the plugin runtime gives focus back to Minerva.
+    if (e.key === 'Escape' && previewing) { e.preventDefault(); unpreviewAll(); return; }
     const key = (e.target as Element | null)?.closest<SVGGElement>('[data-timeline-event]')?.dataset['notePath'] ?? tabStop;
     if (!key) return;
     const i = order.indexOf(key);
@@ -292,15 +316,40 @@
     }
   }
 
-  // The hover preview (#2710): the shared `NoteHoverPreview`, the same one a
-  // `[[link]]` to the event's note shows, on hover or keyboard focus, with the
-  // event's dates, "approximate" and a set-aside `end` as its extra lines and
-  // the type's card fields as its properties strip. Never in an export.
-  const hover = createNoteHover();
-  const cardId = `${uid}-card`;
-  const cardKey = $derived(exportMode ? null : hover.current?.key ?? null);
-  const cardEvent = $derived(cardKey ? byKey.get(cardKey) ?? null : null);
-  const subjectFor = (ev: TimelineEvent, anchor: Element) => ({ key: ev.key, target: ev.key, anchor, fallbackTitle: ev.title });
+  // The hover preview (#2710): the app's own (`ui.previewNote`), the same one
+  // a `[[link]]` to the event's note shows, on hover or keyboard focus, with
+  // the event's dates, "approximate" and a set-aside `end` as its extra lines
+  // and the type's card fields as its properties strip — the dates head the
+  // preview, so the Date by property (and Event's `end`) aren't repeated as
+  // fields (#2715). Never in an export.
+  /** Which preview is up, and how it was asked for. */
+  let previewing = $state<{ path: string; via: 'pointer' | 'focus' } | null>(null);
+  /** The preview's text, from Minerva (`preview`): the event's description. */
+  let description = $state<{ path: string; text: string } | null>(null);
+  const descriptionId = 'tl-event-description';
+  const extraLines = (ev: Ev) => [`${ev.dateText}${ev.approx ? ' · approximate' : ''}`, ...(ev.endNote ? [`⚠ ${ev.endNote}`] : [])];
+  function preview(ev: Ev, el: Element, via: 'pointer' | 'focus'): void {
+    if (exportMode) return;
+    const r = el.getBoundingClientRect();
+    previewing = { path: ev.key, via };
+    const omit = [dates.dateProperty, ...(dates.endProperty ? [dates.endProperty] : [])];
+    quietly(minerva.ui.previewNote({ path: ev.key, x: r.left, y: r.top, width: r.width, height: r.height, via, extra: extraLines(ev), omit }));
+  }
+  function unpreview(path: string, via: 'pointer' | 'focus'): void {
+    if (exportMode) return;
+    if (previewing?.path === path && previewing.via === via) previewing = null;
+    quietly(minerva.ui.hidePreview({ path, via }));
+  }
+  function unpreviewAll(): void {
+    const p = previewing;
+    if (!p) return;
+    previewing = null;
+    quietly(minerva.ui.hidePreview({ path: p.path, via: 'pointer' }));
+    quietly(minerva.ui.hidePreview({ path: p.path, via: 'focus' }));
+  }
+  $effect(() => minerva.on('preview', ({ path, description: text }) => {
+    description = text === null ? (description?.path === path ? null : description) : { path, text };
+  }));
 
   let listMode = $state(false);
   const rangeLabel = $derived(`${type.label} timeline, ${order.length} dated ${order.length === 1 ? 'event' : 'events'}`);
@@ -394,17 +443,17 @@
               role={exportMode ? undefined : 'link'}
               tabindex={exportMode ? undefined : ev.key === tabStop ? 0 : -1}
               aria-label={ev.label}
-              aria-describedby={cardKey === ev.key ? cardId : undefined}
+              aria-describedby={description?.path === ev.key ? descriptionId : undefined}
               data-timeline-event
               data-note-path={ev.key}
               data-kind={p.point ? 'point' : 'bar'}
               data-lane={p.lane}
               data-end-issue={ev.endNote ? '' : undefined}
               onclick={() => onOpenNote(ev.key)}
-              onfocus={(e) => { focusedKey = ev.key; if (!exportMode) hover.focus(subjectFor(ev, e.currentTarget)); }}
-              onblur={() => hover.blur(ev.key)}
-              onpointerenter={(e) => { if (!exportMode) hover.pointerEnter(subjectFor(ev, e.currentTarget)); }}
-              onpointerleave={() => hover.pointerLeave(ev.key)}
+              onfocus={(e) => { focusedKey = ev.key; preview(ev, e.currentTarget, 'focus'); }}
+              onblur={() => unpreview(ev.key, 'focus')}
+              onpointerenter={(e) => preview(ev, e.currentTarget, 'pointer')}
+              onpointerleave={() => unpreview(ev.key, 'pointer')}
             >
               {#if p.point}
                 {#if !exportMode}<circle class="tl-ring" cx={clampX(x0)} cy={BAR_PX / 2} r="9" />{/if}
@@ -468,12 +517,8 @@
   {/if}
 
   {#if !exportMode}
-    <NoteHoverPreview
-      id={cardId}
-      {hover}
-      instance={cardEvent ? { type, properties, inst: cardEvent.inst, display, rowType: rowType(cardEvent.inst), omit: [dates.dateProperty, ...(dates.endProperty ? [dates.endProperty] : [])] } : null}
-      extra={cardEvent ? cardLines : undefined}
-    />
+    <!-- The app's preview is drawn outside this frame, where a description can't point; its text is mirrored here. -->
+    <p id={descriptionId} class="tl-description" hidden>{description?.text ?? ''}</p>
   {/if}
 
   {#if model.undated.length > 0}
@@ -482,24 +527,24 @@
       <ul class="tl-undated-list">
         {#each model.undated as u (u.key)}
           <li>
-            <button type="button" class="tl-undated-row" data-note-path={u.key} data-undated-reason={u.reason} onclick={() => onOpenNote(u.key)}>
-              <span class="tl-list-title">{u.title}</span>
-              <span class="tl-list-date">{u.reasonText}</span>
-            </button>
+            {#if exportMode}
+              <!-- An export is static: no button (the sanitizer keeps none); the note path becomes the link. -->
+              <div class="tl-undated-row" data-note-path={u.key}>
+                <span class="tl-list-title">{u.title}</span>
+                <span class="tl-list-date">{u.reasonText}</span>
+              </div>
+            {:else}
+              <button type="button" class="tl-undated-row" data-note-path={u.key} data-undated-reason={u.reason} onclick={() => onOpenNote(u.key)}>
+                <span class="tl-list-title">{u.title}</span>
+                <span class="tl-list-date">{u.reasonText}</span>
+              </button>
+            {/if}
           </li>
         {/each}
       </ul>
     </section>
   {/if}
 </div>
-
-{#snippet cardLines()}
-  {#if cardEvent}
-    <!-- The dates head the preview, so the Date by property (and Event's `end`) aren't repeated as fields (#2715). -->
-    <span class="tl-card-date">{cardEvent.dateText}{#if cardEvent.approx}<span class="tl-card-approx"> · approximate</span>{/if}</span>
-    {#if cardEvent.endNote}<span class="tl-card-flag" data-end-issue>⚠ {cardEvent.endNote}</span>{/if}
-  {/if}
-{/snippet}
 
 <style>
   .tl { flex: 1; min-height: 0; display: flex; flex-direction: column; font-family: var(--font-sans); }
@@ -539,8 +584,6 @@
   .tl-point.tl-approx-point { fill: var(--bg); stroke: var(--accent); stroke-width: 2; stroke-dasharray: 3 2; }
   .tl-label { fill: var(--text); font-size: 11px; pointer-events: none; }
   .tl-label-inside { fill: var(--accent-ink); }
-  .tl-card-approx { font-style: italic; }
-  .tl-card-flag { color: var(--text); font-weight: 600; }
   .tl-empty { padding: 24px 16px; color: var(--text-muted); font-size: 13px; }
 
   .tl-list { list-style: none; margin: 0; padding: 6px; overflow-y: auto; flex: 1; min-height: 0; }

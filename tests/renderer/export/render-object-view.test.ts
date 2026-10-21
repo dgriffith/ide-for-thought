@@ -6,9 +6,10 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-const { instancesMock, listMock, noteTypeMapMock, plugin } = vi.hoisted(() => ({
+const { instancesMock, listMock, noteTypeMapMock, plugin, timeline } = vi.hoisted(() => ({
   instancesMock: vi.fn(), listMock: vi.fn(), noteTypeMapMock: vi.fn(),
   plugin: {} as import('../components/kanban-host').KanbanHostState,
+  timeline: {} as import('../components/plugin-loopback').LoopbackState,
 }));
 // A Kanban export is the Kanban plugin's board (#2828): here, in loopback —
 // its real board, drawn for the export, answering through the real host.
@@ -22,6 +23,7 @@ vi.mock('../../../src/renderer/lib/map/load-maplibre', () => ({ loadMapLibre: vi
 import { renderObjectViewForExport, OBJECT_VIEW_LOAD_TIMEOUT_MS } from '../../../src/renderer/lib/export/render-object-view';
 import { renderLiveBlock } from '../../../src/renderer/lib/app/export-live-blocks';
 import { autoLoadPluginFrames, kanbanLoopback } from '../components/kanban-host';
+import { pluginLoopback } from '../components/plugin-loopback';
 
 let stopAutoLoad: () => void = () => {};
 
@@ -42,6 +44,10 @@ const INSTANCES = [
 
 beforeEach(() => {
   kanbanLoopback(plugin);
+  // A Timeline export is the Timeline plugin's (#2829): its real view, in loopback.
+  pluginLoopback(timeline, () => import('../../../plugins/timeline/src/App.svelte'));
+  const kanbanConnect = plugin.connect.getMockImplementation()!;
+  plugin.connect.mockImplementation((...a: unknown[]) => (a[1] === 'timeline' ? timeline.connect(...a) : kanbanConnect(...a)));
   stopAutoLoad = autoLoadPluginFrames();
   instancesMock.mockResolvedValue({ type: TYPE, instances: INSTANCES });
   listMock.mockResolvedValue({ types: [TYPE], errors: [] });
@@ -178,7 +184,8 @@ describe('renderObjectViewForExport', () => {
     const plot = doc.querySelector('.tl-export .tl-plot')!;
     expect(plot.getAttribute('width')).toBe('760');
     // Each drawn event is a link main resolves; the out-of-range war isn't drawn.
-    const drawn = [...plot.querySelectorAll('[data-timeline-event]')];
+    // (An export keeps no data-* but a note's, so the events go by their class.)
+    const drawn = [...plot.querySelectorAll('.tl-event')];
     expect(drawn.every((a) => a.tagName.toLowerCase() === 'a')).toBe(true);
     expect(drawn.map((a) => a.getAttribute('data-note-link')).sort()).toEqual(['e/Apollo.md', 'e/Moon.md', 'e/Standup.md', 'e/Woodstock.md']);
     expect(drawn.find((a) => a.getAttribute('data-note-link') === 'e/Moon.md')!.getAttribute('aria-label')).toMatch(/^Moon landing, /);
@@ -210,7 +217,7 @@ describe('renderObjectViewForExport', () => {
     // The range covers the `revised` dates and none of the `published` ones.
     const html = await renderObjectViewForExport(JSON.stringify({ typeId: 'journal', layout: 'timeline', from: '1998', to: '1999', dateBy: 'revised' }));
     const doc = new DOMParser().parseFromString(html, 'text/html');
-    const labels = [...doc.querySelectorAll('.tl-plot [data-timeline-event]')].map((a) => a.getAttribute('aria-label'));
+    const labels = [...doc.querySelectorAll('.tl-plot .tl-event')].map((a) => a.getAttribute('aria-label'));
     expect(labels.sort()).toEqual(['Autumn issue, Jan 15, 1998', 'Spring issue, May 2, 1999']);
     expect([...doc.querySelectorAll('.tl-export-row a[data-note-link]')].map((a) => a.textContent)).toEqual(['Autumn issue', 'Spring issue']);
     expect(doc.querySelector('.tl-outside')).toBeNull();
@@ -225,9 +232,9 @@ describe('renderObjectViewForExport', () => {
       { path: 'e/Apollo.md', title: 'Apollo 11', values: { date: '1969-07-16', end: '1969-07-24', announced: '1969-01-09' }, cover: null },
     ] });
     const byAnnounced = new DOMParser().parseFromString(await renderObjectViewForExport(JSON.stringify({ typeId: 'event', layout: 'timeline', dateBy: 'announced' })), 'text/html');
-    expect(byAnnounced.querySelector('[data-timeline-event]')!.getAttribute('aria-label')).toBe('Apollo 11, Jan 9, 1969');
+    expect(byAnnounced.querySelector('.tl-event')!.getAttribute('aria-label')).toBe('Apollo 11, Jan 9, 1969');
     const byDate = new DOMParser().parseFromString(await renderObjectViewForExport(JSON.stringify({ typeId: 'event', layout: 'timeline' })), 'text/html');
-    expect(byDate.querySelector('[data-timeline-event]')!.getAttribute('aria-label')).toMatch(/^Apollo 11, Jul 16, 1969 – Jul 24, 1969$/);
+    expect(byDate.querySelector('.tl-event')!.getAttribute('aria-label')).toMatch(/^Apollo 11, Jul 16, 1969 – Jul 24, 1969$/);
   });
 
   it('a kanban export honours the column order and Show empty columns, read-only (#2614)', async () => {

@@ -68,7 +68,7 @@ export const VIEW_LAYOUTS = [
   // Drawn by the built-in Kanban plugin (#2828), in a plugin frame.
   { id: 'kanban', label: 'Kanban', noteName: 'board', appliesTo: (ctx) => canShowKanban(ctx.properties), dated: false, grouped: true, specFields: ['groupBy', 'columnOrder', 'showEmptyColumns'], plugin: 'kanban' },
   // A date or datetime property, own or inherited (#2715).
-  { id: 'timeline', label: 'Timeline', noteName: 'timeline', appliesTo: datedRule, dated: true, grouped: false, specFields: ['from', 'to', 'dateBy'] },
+  { id: 'timeline', label: 'Timeline', noteName: 'timeline', appliesTo: datedRule, dated: true, grouped: false, specFields: ['from', 'to', 'dateBy'], plugin: 'timeline' },
   // The same rule as Timeline (#2702).
   { id: 'calendar', label: 'Calendar', noteName: 'calendar', appliesTo: datedRule, dated: true, grouped: false, specFields: ['month', 'dateBy'] },
 ] as const satisfies readonly ViewLayoutDef[];

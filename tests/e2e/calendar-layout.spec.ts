@@ -15,7 +15,7 @@ import os from 'node:os';
 import path from 'node:path';
 import type { Page } from '@playwright/test';
 import { closeMinerva, launchMinerva, projectRoot } from './helpers/launch';
-import { seedNotes, type SeedNotes } from './helpers/timeline';
+import { seedNotes, timelineOf, type SeedNotes } from './helpers/timeline';
 import { addMonth, calendarOf, civilDay, openTypeCalendar, shownMonth, thisMonth, ymd } from './helpers/calendar';
 
 const NOW = thisMonth();
@@ -150,7 +150,7 @@ test('an Event calendar: grid, paging, keyboard, the day\'s list, open, and `mon
       await expect(cal.grid).toBeVisible({ timeout: 10_000 });
       expect(await shownMonth(win)).toBe(ymd(NEXT));
       await win.getByRole('tab', { name: 'Timeline' }).click();
-      await expect(win.locator('.tl-plot')).toBeVisible({ timeout: 10_000 });
+      await expect(timelineOf(win).frame.locator('.tl-plot')).toBeVisible({ timeout: 10_000 });
       await win.getByRole('tab', { name: 'Calendar' }).click();
       await expect(cal.grid).toBeVisible({ timeout: 10_000 });
       expect(await shownMonth(win)).toBe(ymd(NEXT));

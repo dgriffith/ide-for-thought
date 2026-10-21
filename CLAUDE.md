@@ -1794,7 +1794,14 @@ origin.
   *Moved by Kanban*. Test the host side by reading the `view` state sent and
   calling the registered callbacks (`tests/renderer/components/kanban-host.ts`;
   the frame never loads in a DOM test, so use jsdom — happy-dom logs an error
-  per frame), and the board itself in `tests/plugins/kanban/`.
+  per frame), and the board itself in `tests/plugins/kanban/`. **Timeline is
+  the second (#2829)**, with `notes:read` + `ui` only — it writes nothing but
+  its range (`view.setState`). API 1.6.0 gave it the view's `filters` and
+  `ui.previewNote`'s `extra` lines and `omit`. A plugin can't run code when
+  its frame goes, so a debounced write is flushed before opening a note and
+  on blur / pointer-leave. Its model is `src/shared/timeline/` (the calendar
+  reads it); TypeView tests run its real `App.svelte` in loopback
+  (`tests/renderer/components/plugin-loopback.ts`).
 
 ### Code Review Checklist for LLM/Graph PRs
 

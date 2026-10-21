@@ -21,7 +21,7 @@
   import type { CalendarMonth, PlacedSegment, Weekday } from '../../../../shared/objects/calendar-grid';
   import { monthBounds, rangeMeets, rowWeekNumber, formatMonthAnchor } from '../../../../shared/objects/calendar-grid';
   import { logger } from '../../../../shared/logger';
-  import type { TimelineEvent } from '../timeline/timeline-events';
+  import type { TimelineEvent } from '../../../../shared/timeline/timeline-events';
   import { dayName, monthTitle, timeOf, weekdayNames } from './calendar-model';
   import { planCalendarExport, singleIsApprox, type CalendarExportPlan } from './calendar-export';
 

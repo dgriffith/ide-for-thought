@@ -21,10 +21,10 @@
  *   uncertain stretches are a partial start's span and a partial end's span;
  *   what lies between is certain. A full date or a clock time is certain.
  */
-import { dateRange, type CivilSpan, type EndIssue } from '../../../../shared/objects/date-precision';
-import type { PropertyDef, TypeInstanceRow } from '../../../../shared/objects/type-def';
-import { DATE_PROPERTY, endPropertyFor, resolveDateBy } from '../../../../shared/objects/date-by';
-import { formatDateValue } from '../../../../shared/objects/date-values';
+import { dateRange, type CivilSpan, type EndIssue } from '../objects/date-precision';
+import type { PropertyDef, TypeInstanceRow } from '../objects/type-def';
+import { DATE_PROPERTY, endPropertyFor, resolveDateBy } from '../objects/date-by';
+import { formatDateValue } from '../objects/date-values';
 import { isPartial } from './timeline-format';
 import { DRAWABLE_END, DRAWABLE_START, type Domain } from './timeline-scale';
 
@@ -35,10 +35,16 @@ export interface Segment {
   approx: boolean;
 }
 
-export interface TimelineEvent {
+/**
+ * What the model reads from a note: its path, title and property values. The
+ * app's rows and a plugin's view instances (#2829) both are one.
+ */
+export type TimelineInstance = Pick<TypeInstanceRow, 'path' | 'title' | 'values'>;
+
+export interface TimelineEvent<I extends TimelineInstance = TypeInstanceRow> {
   /** The note path — unique, the packer's final tie-break. */
   key: string;
-  inst: TypeInstanceRow;
+  inst: I;
   title: string;
   /** Civil ms, [start, end). */
   start: number;
@@ -61,18 +67,18 @@ export interface TimelineEvent {
 
 export type UndatedReason = 'missing' | 'invalid' | 'out-of-range';
 
-export interface UndatedEvent {
+export interface UndatedEvent<I extends TimelineInstance = TypeInstanceRow> {
   key: string;
-  inst: TypeInstanceRow;
+  inst: I;
   title: string;
   reason: UndatedReason;
   /** "No date", "Couldn't read the date '1969-02-30'", … */
   reasonText: string;
 }
 
-export interface TimelineModel {
-  dated: TimelineEvent[];
-  undated: UndatedEvent[];
+export interface TimelineModel<I extends TimelineInstance = TypeInstanceRow> {
+  dated: TimelineEvent<I>[];
+  undated: UndatedEvent<I>[];
   /** The dated events' extent, or null when none is dated. */
   extent: Domain | null;
 }
@@ -115,15 +121,15 @@ export function timelineProperties(dateBy: string | null, properties: readonly P
 }
 
 /** Read every instance once (see the header). `locale` is the viewer's in the app. */
-export function buildTimelineModel(
-  instances: readonly TypeInstanceRow[],
+export function buildTimelineModel<I extends TimelineInstance = TypeInstanceRow>(
+  instances: readonly I[],
   opts: TimelineProperties & { locale?: string },
-): TimelineModel {
+): TimelineModel<I> {
   const dateProp = opts.dateProperty;
   const endProp = opts.endProperty;
   const fmt = opts.locale ? { locale: opts.locale } : {};
-  const dated: TimelineEvent[] = [];
-  const undated: UndatedEvent[] = [];
+  const dated: TimelineEvent<I>[] = [];
+  const undated: UndatedEvent<I>[] = [];
   let lo = Infinity;
   let hi = -Infinity;
   for (const inst of instances) {

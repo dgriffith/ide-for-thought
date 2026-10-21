@@ -2,8 +2,8 @@
  * A Timeline on every export surface (#2609, epic #2606).
  *
  * The drawing itself is made by the window (`renderObjectViewForExport` →
- * `TypeViewTimeline` in export mode → `snapshotLiveBlock`; its own tests and
- * the e2e specs cover that). It is SVG, and each event is an `<a
+ * the Timeline plugin's view in export mode, sanitized by the host since #2829
+ * → `snapshotLiveBlock`; its own tests and the e2e specs cover that). It is SVG, and each event is an `<a
  * data-note-link>` *inside* the `<svg>` (the HTML parser puts it in the SVG
  * namespace, where `href` is a real link, and a PDF link annotation, per the
  * #2611 spike). This pins what main does with it on each surface:

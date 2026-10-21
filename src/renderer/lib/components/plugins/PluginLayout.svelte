@@ -18,7 +18,8 @@
   import type { LayoutView } from '../type-view/layout-view';
   import type { PluginFrameConnection } from '../../stores/plugin-sessions.svelte';
   import { layoutDef, type ViewLayout } from '../../../../shared/objects/view-layouts';
-  import type { PluginViewInstance, PluginViewState } from '../../../../shared/plugins/api';
+  import type { PluginViewFilter, PluginViewInstance, PluginViewState } from '../../../../shared/plugins/api';
+  import { isValuesFilter } from '../../../../shared/objects/view-spec';
   import { selectInstanceCardFields } from '../../../../shared/objects/card';
   import { columnKey } from '../../../../shared/objects/kanban';
   import type { TypeInstanceRow } from '../../../../shared/objects/type-def';
@@ -88,6 +89,9 @@
     sortColumn: view.sortColumn,
     sortDir: view.sortDir,
     spec: JSON.parse(JSON.stringify(spec)) as Record<string, unknown>,
+    filters: view.filters.map((f): PluginViewFilter => isValuesFilter(f)
+      ? { property: f.property, values: [...f.values], ...(f.match ? { match: f.match } : {}) }
+      : { property: f.property, min: f.min ?? null, max: f.max ?? null }),
     readOnly: view.readOnly,
     exportMode: view.exportMode,
     selected: view.sorted.filter((i) => view.isSelected(i.path)).map((i) => i.path),
@@ -130,11 +134,11 @@
   }
 
   /** The app's properties strip for a card's preview: the view's own row. */
-  function hoverInstance(path: string): HoverInstance | null {
+  function hoverInstance(path: string, also: readonly string[]): HoverInstance | null {
     const inst = view.instances.find((i) => i.path === path);
     if (!inst) return null;
     // As the card: a board's grouping property is its column, so the strip leaves it out.
-    return { type: view.type, properties: view.properties, inst, display: view.display, rowType: view.rowType(inst), visible: view.visible, omit };
+    return { type: view.type, properties: view.properties, inst, display: view.display, rowType: view.rowType(inst), visible: view.visible, omit: [...omit, ...also] };
   }
 
   /** Only this layout's own spec fields, and only where the view can be changed. */

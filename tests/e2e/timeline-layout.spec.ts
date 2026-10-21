@@ -31,31 +31,31 @@ test('an Event timeline: draw, zoom, keyboard, open, and the range round-trips (
   try {
     const win = await app.firstWindow({ timeout: 20_000 });
     await expect(win.getByRole('button', { name: 'Open Thoughtbase' })).toHaveCount(0, { timeout: 25_000 });
-    const { events, eventFor } = await test.step('open the Event view as a timeline', () => openEventTimeline(win, 4));
+    const { events, eventFor, frame: tl } = await test.step('open the Event view as a timeline', () => openEventTimeline(win, 4));
 
     await test.step('points, a span, a partial date, the Meeting, and the Undated tray', async () => {
       await expect(eventFor('Moon landing')).toHaveAttribute('aria-label', /^Moon landing, (20 Jul 1969|Jul 20, 1969)$/);
       await expect(eventFor('Splashdown debrief')).toHaveCount(1); // a Meeting is an Event
       await expect(eventFor('Woodstock')).toHaveClass(/approx/);
-      await expect(win.locator('.tl-undated')).toContainText('Someday');
-      await expect(win.locator('.tl-undated')).toContainText('No date');
+      await expect(tl.locator('.tl-undated')).toContainText('Someday');
+      await expect(tl.locator('.tl-undated')).toContainText('No date');
     });
 
     await test.step('zoom in with the wheel', async () => {
       const before = await domainOf(win);
-      const box = (await win.locator('.tl-viewport').boundingBox())!;
+      const box = (await tl.locator('.tl-viewport').boundingBox())!;
       await win.mouse.move(box.x + box.width / 2, box.y + 80);
       await win.mouse.wheel(0, -400);
       await expect.poll(async () => { const d = await domainOf(win); return d.end - d.start; }).toBeLessThan(before.end - before.start);
       const wheeled = await domainOf(win);
-      await win.getByRole('button', { name: 'Zoom in' }).click();
+      await tl.getByRole('button', { name: 'Zoom in' }).click();
       await expect.poll(async () => { const d = await domainOf(win); return d.end - d.start; }).toBeLessThan(wheeled.end - wheeled.start);
     });
 
     await test.step('step through by keyboard: one tab stop, ←/→, Home/End, Enter opens', async () => {
-      await win.getByRole('button', { name: 'List' }).focus();
+      await tl.getByRole('button', { name: 'List' }).focus();
       await win.keyboard.press('Tab');
-      const stop = win.locator('.tl-plot [data-timeline-event][tabindex="0"]');
+      const stop = tl.locator('.tl-plot [data-timeline-event][tabindex="0"]');
       await expect(stop).toHaveCount(1);
       await expect(stop).toBeFocused();
       await win.keyboard.press('Home');
@@ -83,7 +83,7 @@ test('an Event timeline: draw, zoom, keyboard, open, and the range round-trips (
       await expect(events.first()).toBeVisible({ timeout: 10_000 });
       const shown = await domainOf(win);
       await win.getByRole('tab', { name: 'List' }).click();
-      await expect(win.locator('.tl-plot')).toHaveCount(0);
+      await expect(win.locator('[data-plugin-layout="timeline"]')).toHaveCount(0);
       await win.getByRole('tab', { name: 'Timeline' }).click();
       await expect(events.first()).toBeVisible({ timeout: 10_000 });
       const back = await domainOf(win);
@@ -100,7 +100,7 @@ test('an Event timeline: draw, zoom, keyboard, open, and the range round-trips (
     });
 
     await test.step('Fit shows every dated event again', async () => {
-      await win.getByRole('button', { name: 'Fit' }).click();
+      await tl.getByRole('button', { name: 'Fit' }).click();
       const d = await domainOf(win);
       expect(d.start).toBeLessThan(Date.UTC(1969, 6, 16));
       expect(d.end).toBeGreaterThan(Date.UTC(1969, 8, 1));
@@ -128,7 +128,7 @@ test('a Book timeline: points placed by `published`, with no Date by picker (one
   try {
     const win = await app.firstWindow({ timeout: 20_000 });
     await expect(win.getByRole('button', { name: 'Open Thoughtbase' })).toHaveCount(0, { timeout: 25_000 });
-    const { events, eventFor } = await test.step('open the Book view as a timeline', () => openTypeTimeline(win, 'Book', 3));
+    const { events, eventFor, frame: tl } = await test.step('open the Book view as a timeline', () => openTypeTimeline(win, 'Book', 3));
 
     await test.step('each book is a point named and placed by its `published` date', async () => {
       await expect(eventFor('Dune')).toHaveAttribute('aria-label', /^Dune, (1 Aug 1965|Aug 1, 1965)$/);
@@ -146,7 +146,7 @@ test('a Book timeline: points placed by `published`, with no Date by picker (one
       const d = await domainOf(win);
       expect(d.start).toBeLessThanOrEqual(Date.UTC(1925, 0, 1));
       expect(d.end).toBeGreaterThanOrEqual(Date.UTC(1984, 6, 2));
-      await expect(win.locator('.tl-undated')).toContainText('Unwritten');
+      await expect(tl.locator('.tl-undated')).toContainText('Unwritten');
       await expect(win.getByRole('combobox', { name: 'Date by' })).toHaveCount(0);
     });
   } finally {

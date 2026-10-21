@@ -76,7 +76,8 @@ test('a Timeline exports as a static, linked picture of its range, with its list
     await test.step('open the note: the preview embed is a read-only timeline', async () => {
       await note.click();
       await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.webContents.send('menu:command', 'view.togglePreview'); });
-      const embed = win.locator('.preview .object-view-block');
+      // The embed is the Timeline plugin's, in its frame (#2829).
+      const embed = win.locator('.preview .object-view-block [data-plugin-layout="timeline"] iframe').contentFrame();
       await expect(embed.locator('[data-timeline-event]').first()).toBeVisible({ timeout: 15_000 });
       await expect(embed.locator('.tl-toolbar button')).toHaveText(['List']);
       await expect(embed.locator('.tl-export, .tl-pannable, .tl-export-events')).toHaveCount(0);
@@ -111,7 +112,8 @@ test('a Timeline exports as a static, linked picture of its range, with its list
         const ctx = document.createElement('canvas').getContext('2d', { willReadFrequently: true })!;
         const rgb = (c: string) => { ctx.clearRect(0, 0, 1, 1); ctx.fillStyle = c; ctx.fillRect(0, 0, 1, 1); const d = ctx.getImageData(0, 0, 1, 1).data; return `rgb(${d[0]}, ${d[1]}, ${d[2]})`; };
         const plot = q<SVGSVGElement>('.tl-plot')!;
-        const events = Array.from(plot.querySelectorAll('[data-timeline-event]'));
+        // An export keeps no data-* but a note's (#2829's sanitizer): events go by their class.
+        const events = Array.from(plot.querySelectorAll('.tl-event'));
         const block = plot.closest('.minerva-live-block')!;
         const approx = plot.querySelector('.tl-bar-approx')!;
         const solid = plot.querySelector('.tl-bar:not(.tl-bar-approx)');

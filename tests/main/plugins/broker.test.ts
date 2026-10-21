@@ -7,7 +7,7 @@ import { describe, it, expect, vi } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createPluginSession, type BrokerDeps, type BrokerPort, type PluginIdentity } from '../../../src/main/plugins/broker';
-import { PLUGIN_MAX_IN_FLIGHT, PLUGIN_MESSAGE_LIMIT_BYTES, PLUGIN_METHODS, PLUGIN_QUERY_ROW_LIMIT } from '../../../src/shared/plugins/api';
+import { PLUGIN_MAX_IN_FLIGHT, PLUGIN_MESSAGE_LIMIT_BYTES, PLUGIN_METHODS, PLUGIN_PREVIEW_MAX_EXTRA, PLUGIN_PREVIEW_MAX_EXTRA_CHARS, PLUGIN_QUERY_ROW_LIMIT } from '../../../src/shared/plugins/api';
 import type { RevisionSource } from '../../../src/shared/history';
 import type { PluginCapability } from '../../../src/shared/plugins/capabilities';
 import { silenceLogTags } from '../../helpers/quiet-logs';
@@ -414,12 +414,26 @@ describe('the kit gaps for layouts (#2828, part B)', () => {
     await s.call('ui.previewNote', { path: 'a.md', x: 1, y: 2, width: 30, height: 40, via: 'focus' });
     await s.call('ui.hidePreview', { path: 'a.md', via: 'focus' });
     expect(s.intents).toEqual([
-      { kind: 'previewNote', path: 'a.md', rect: { x: 1, y: 2, width: 30, height: 40 }, via: 'pointer' },
-      { kind: 'previewNote', path: 'a.md', rect: { x: 1, y: 2, width: 30, height: 40 }, via: 'focus' },
+      { kind: 'previewNote', path: 'a.md', rect: { x: 1, y: 2, width: 30, height: 40 }, via: 'pointer', extra: [], omit: [] },
+      { kind: 'previewNote', path: 'a.md', rect: { x: 1, y: 2, width: 30, height: 40 }, via: 'focus', extra: [], omit: [] },
       { kind: 'hidePreview', path: 'a.md', via: 'focus' },
     ]);
     expect((await s.call('ui.previewNote', { path: 'b.md', x: 0, y: 0, width: 1, height: 1 })).error?.code).toBe('scope');
     expect((await s.call('ui.previewNote', { path: 'a.md', x: 0, y: 0, width: 1, height: 1, via: 'keyboard' })).error?.code).toBe('bad-request');
+  });
+
+  it("carries a preview's extra lines and the fields it leaves out (#2829): plain text, bounded", async () => {
+    const s = open({ scope: ['a.md'] });
+    const box = { path: 'a.md', x: 0, y: 0, width: 1, height: 1 };
+    await s.call('ui.previewNote', { ...box, extra: ['Jul 20, 1969', 'x'.repeat(PLUGIN_PREVIEW_MAX_EXTRA_CHARS + 50)], omit: ['date', 'end'] });
+    expect(s.intents[0]).toMatchObject({ extra: ['Jul 20, 1969', 'x'.repeat(PLUGIN_PREVIEW_MAX_EXTRA_CHARS)], omit: ['date', 'end'] });
+    for (const bad of [
+      { extra: 'one line' }, { extra: [1] }, { omit: [null] },
+      { extra: Array.from({ length: PLUGIN_PREVIEW_MAX_EXTRA + 1 }, () => 'l') },
+    ]) {
+      expect((await s.call('ui.previewNote', { ...box, ...bad })).error?.code).toBe('bad-request');
+    }
+    expect(s.intents).toHaveLength(1);
   });
 
   it('passes an export answer on, unsanitized — the host sanitizes it', async () => {

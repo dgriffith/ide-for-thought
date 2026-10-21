@@ -22,7 +22,7 @@ import { announce } from '../../stores/announcer.svelte';
 import { cardMoveKey } from '../drag-keys';
 import { dayName, type CalendarModel } from './calendar-model';
 import { eventStartDay, refusalFor } from './reschedule';
-import type { TimelineProperties } from '../timeline/timeline-events';
+import type { TimelineProperties } from '../../../../shared/timeline/timeline-events';
 
 export interface RescheduleHost {
   model: () => CalendarModel;

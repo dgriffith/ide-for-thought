@@ -21,7 +21,7 @@
  * and its day list do: a bar always began no later than a single-day event
  * on the same day, and is longer.
  */
-import type { TimelineEvent } from '../timeline/timeline-events';
+import type { TimelineEvent } from '../../../../shared/timeline/timeline-events';
 import {
   coveredDays, layoutMonth, monthWeeks, uncertainFrom,
   type CalendarMonth, type GridWeek, type PlacedSegment, type Weekday,

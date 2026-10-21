@@ -345,8 +345,8 @@ falls back to the table. Two things it settled for the next two:
   TypeView runs the existing `kanban-moves` store, so undo, the announcement
   and the Local History entry are one implementation. A write made for a
   plugin carries a history cause (`NOTEBASE_WRITE_FILE`'s `opts.cause`):
-  *Moved by Kanban*. Timeline and calendar reschedules should do the same
-  rather than reach for `notes.writeProperties` themselves.
+  *Moved by Kanban*. Calendar reschedules should do the same rather than
+  reach for `notes.writeProperties` themselves.
 - **The host's popups stay the host's.** The note menu (`ui.showNoteMenu`,
   with `target` for a note a card's field names) and the hover preview are
   drawn by the app; the preview's text is mirrored back as a `preview` event
@@ -357,6 +357,33 @@ through `tests/renderer/components/kanban-host.ts` (read the `view` state sent,
 act as the plugin through the registered callbacks; `kanbanLoopback` answers
 an export with the plugin's real board), and the e2e specs reach into the
 frame.
+
+**Timeline is done (#2829)**, the same way (`plugins/timeline/`), with less:
+
+- **Least capability.** It writes no notes: zoom, pan and Fit change only
+  the view's range, through `view.setState`. So it holds `notes:read` and
+  `ui`, not `notes:write-properties`.
+- **API 1.6.0** adds the view's `filters` (a range filter on the *Date by*
+  property bounds Fit) and, on `ui.previewNote`, `extra` lines (the event's
+  dates, "approximate", an `end` it set aside) and `omit` (properties the
+  drawing already shows, left off the preview's field strip).
+- **Its export goes through the plugin** too: the SVG drawing and the dated
+  list, styles inlined, `data-note-path` for links, sanitized by the host —
+  which already admits SVG (no `use`, `image` or `foreignObject`). In export
+  mode nothing is a `<button>` (the sanitizer keeps none), so a row that must
+  stay a link is a plain element with its note path.
+- **A plugin can't run code when its frame is removed.** The old component
+  wrote a range still on its debounce when it unmounted; the plugin writes it
+  before opening a note, and when the frame loses focus or the pointer leaves
+  it.
+- **Shared modules.** The model (`timeline-events`, `-format`, `-scale`) is
+  in `src/shared/timeline/`, because the calendar reads it too; the drawing's
+  own modules (`-layout`, `-export`, `-gestures`) are the plugin's.
+
+Its TypeView-level tests run the plugin's real `App.svelte` in loopback
+(`tests/renderer/components/plugin-loopback.ts`): mounted beside the frame,
+sent each view, preview and export request the host sends, its calls routed
+to the host callbacks the broker's intents would reach.
 
 ### Other candidates
 

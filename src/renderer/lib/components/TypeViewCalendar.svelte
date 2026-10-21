@@ -74,7 +74,7 @@
   import CalendarBands from './calendar/CalendarBands.svelte';
   import CalendarExportGrid from './calendar/CalendarExportGrid.svelte';
   import { createNoteHover } from './note-hover/note-hover.svelte';
-  import { timelineProperties, type TimelineEvent } from './timeline/timeline-events';
+  import { timelineProperties, type TimelineEvent } from '../../../shared/timeline/timeline-events';
   import { buildCalendarModel, dayEvents, dayName, monthTitle, pageBands, pageItems, timeOf, weekdayNames, writtenAs, yearName } from './calendar/calendar-model';
   import { getCalendarSettings } from '../stores/settings-calendar.svelte';
   import { announce } from '../stores/announcer.svelte';

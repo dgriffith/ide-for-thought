@@ -6,10 +6,10 @@
  * keeps the tab stop.
  */
 import { describe, it, expect } from 'vitest';
-import { civilMs, dateSpan } from '../../../../src/shared/objects/date-precision';
-import type { PropertyDef } from '../../../../src/shared/objects/type-def';
-import { buildTimelineModel, segmentsOf, timelineProperties } from '../../../../src/renderer/lib/components/timeline/timeline-events';
-import { cullToView, labelWidth, layoutTimeline, MARKER_PX, shortLabel, MAX_LABEL_CHARS, timeOrder, trailingLabelRoom } from '../../../../src/renderer/lib/components/timeline/timeline-layout';
+import { civilMs, dateSpan } from '../../../src/shared/objects/date-precision';
+import type { PropertyDef } from '../../../src/shared/objects/type-def';
+import { buildTimelineModel, segmentsOf, timelineProperties } from '../../../src/shared/timeline/timeline-events';
+import { cullToView, labelWidth, layoutTimeline, MARKER_PX, shortLabel, MAX_LABEL_CHARS, timeOrder, trailingLabelRoom } from '../../../plugins/timeline/src/timeline-layout';
 
 const row = (path: string, title: string, date: string | null, end: string | null = null) =>
   ({ path, title, values: { date, end }, cover: null });

@@ -59,7 +59,7 @@ export interface PluginFrameHost {
    *  `target`: the menu for one note a card names, the selection left alone. */
   showNoteMenu?(paths: string[], x: number, y: number, opts: { target: boolean; label: string | null }): void;
   /** The app's hover preview beside a box in the frame, and letting it go (#2828). */
-  previewNote?(path: string, rect: { x: number; y: number; width: number; height: number }, via: 'pointer' | 'focus'): void;
+  previewNote?(path: string, rect: { x: number; y: number; width: number; height: number }, via: 'pointer' | 'focus', opts?: { extra: string[]; omit: string[] }): void;
   hidePreview?(path: string, via: 'pointer' | 'focus'): void;
   /** The plugin's answer to an export request — unsanitized (#2828). */
   exportHtml?(requestId: string, html: string): void;
@@ -128,7 +128,7 @@ function onIntent({ sessionId, pluginId, intent }: PluginIntentEvent): void {
       hosts.get(sessionId)?.showNoteMenu?.(intent.paths, intent.x, intent.y, { target: intent.target, label: intent.label });
       return;
     case 'previewNote':
-      hosts.get(sessionId)?.previewNote?.(intent.path, intent.rect, intent.via);
+      hosts.get(sessionId)?.previewNote?.(intent.path, intent.rect, intent.via, { extra: intent.extra, omit: intent.omit });
       return;
     case 'hidePreview':
       hosts.get(sessionId)?.hidePreview?.(intent.path, intent.via);
