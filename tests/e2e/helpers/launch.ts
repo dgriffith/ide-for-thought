@@ -157,6 +157,20 @@ export interface PackagedMinerva {
  */
 export function launchMinerva(opts: LaunchOptions & { executablePath: string }): Promise<PackagedMinerva>;
 export function launchMinerva(opts: LaunchOptions & { executablePath?: undefined }): Promise<ElectronApplication>;
+/**
+ * AppKit settings for one launch, as `-Key Value` arguments (its argument
+ * domain: nothing is written to the machine's defaults). Without them, an app
+ * of the same bundle killed or crashed earlier on the machine — the reaper
+ * SIGKILLs a wedged quit (#2458) — makes macOS ask, on a later launch, whether
+ * to reopen the windows it was restoring: `NSPersistentUIRestorer
+ * promptToIgnorePersistentStateWithCrashHistory` → `NSAlert runModal`, a modal
+ * on the main thread before Electron is ready. On a runner nobody answers it,
+ * so the launch fails "never became ready". Three tests in one CI run did,
+ * each sampled there (#2866's e2e). Minerva restores its own windows
+ * (session.json); AppKit's restoration is never wanted under test.
+ */
+export const APPKIT_LAUNCH_ARGS: readonly string[] = process.platform === 'darwin' ? ['-ApplePersistenceIgnoreState', 'YES'] : [];
+
 export async function launchMinerva(opts: LaunchOptions): Promise<ElectronApplication | PackagedMinerva> {
   const { userDataDir, executablePath, env = {}, args = [], nodeArgs = [], timeout = 60_000 } = opts;
   const userDataArg = `--user-data-dir=${userDataDir}`;
@@ -166,9 +180,9 @@ export async function launchMinerva(opts: LaunchOptions): Promise<ElectronApplic
   // the time went (#2458).
   const app = await test.step(executablePath ? 'launch Minerva (packaged)' : 'launch Minerva', () =>
     executablePath
-      ? launchPackaged(executablePath, [userDataArg, ...args], launchEnv, timeout)
+      ? launchPackaged(executablePath, [userDataArg, ...APPKIT_LAUNCH_ARGS, ...args], launchEnv, timeout)
       : electron.launch({
-        args: [...nodeArgs, projectRoot, userDataArg, ...args],
+        args: [...nodeArgs, projectRoot, userDataArg, ...APPKIT_LAUNCH_ARGS, ...args],
         cwd: projectRoot,
         timeout,
         env: launchEnv,

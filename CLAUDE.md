@@ -1165,6 +1165,15 @@ our code runs, which the old 30s limit failed just before it ended. A launch
 still not natively ready at 10s is sampled *then* (the teardown sample comes
 after `ready` and shows nothing), and if it becomes ready it passes with a
 `slow-native-ready` annotation and a `::warning`, the stacks attached.
+**AppKit's crash-restore prompt is kept out of launches.** A launch that
+"never became ready" in 45s was sampled inside `NSPersistentUIRestorer
+promptToIgnorePersistentStateWithCrashHistory` → `NSAlert runModal`: macOS
+asking whether to reopen the windows of a bundle that was killed earlier (the
+reaper SIGKILLs a wedged quit) — a modal before `ready`, unanswerable on a
+runner. Three tests in one CI run hit it. `launchMinerva` passes
+`APPKIT_LAUNCH_ARGS` (`-ApplePersistenceIgnoreState YES`, AppKit's argument
+domain, nothing written to the machine) on both launch paths; Minerva restores
+its own windows. Whether #2848's ~31s waits were the same prompt is unproven.
 `tests/e2e/ready-gate.spec.ts` loses the first release on purpose
 (`tests/e2e/fixtures/lose-first-ready-release.cjs`) and checks the repair.
 
