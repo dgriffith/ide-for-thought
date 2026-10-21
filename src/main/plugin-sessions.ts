@@ -100,6 +100,16 @@ export function sendPluginSessionEvent(win: BrowserWindow, sessionId: string, ev
     entry.session.emit('theme', { mode: String(event.mode).slice(0, 40), vars });
     return;
   }
+  if (event.kind === 'view') {
+    // The view's notes are what the session may reach: the host scopes it to
+    // exactly the instances it sends, and a refused path is left out of both.
+    const state = event.state;
+    if (state === null || typeof state !== 'object' || !Array.isArray(state.instances)) throw new Error('A view event carries a view state.');
+    entry.session.setScope(state.instances.map((i) => i.path));
+    const scope = new Set(entry.session.scope());
+    entry.session.emit('view', { ...state, instances: state.instances.filter((i) => scope.has(i.path)) });
+    return;
+  }
   // A drop is the user's gesture: the notes join the scope before the plugin hears of them.
   const paths = entry.session.addToScope(Array.isArray(event.paths) ? event.paths.slice(0, 500) : []);
   if (paths.length === 0) return;

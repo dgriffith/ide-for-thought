@@ -137,6 +137,17 @@ describe('intents (#2825, #2827)', () => {
     expect(ops.runCommand.mock.calls).toEqual([['view.commandPalette']]);
   });
 
+  it("routes view.setState to the frame's host, and sends a view state", async () => {
+    const setViewState = vi.fn();
+    h.openSession.mockImplementation(async () => { queueMicrotask(() => deliverPort('v1')); return { sessionId: 'v1' }; });
+    const conn = await connectPluginFrame(fakeFrame().frame, 'kanban', [], { releaseFocus: vi.fn(), setViewState });
+    h.intent!({ sessionId: 'v1', pluginId: 'kanban', intent: { kind: 'setViewState', patch: { columnOrder: ['b'] } } });
+    expect(setViewState).toHaveBeenCalledWith({ columnOrder: ['b'] });
+    const state = { layout: 'kanban' } as never;
+    await conn.sendView(state);
+    expect(h.sendSessionEvent).toHaveBeenLastCalledWith('v1', { kind: 'view', state });
+  });
+
   it('sends the theme and a drop as session events', async () => {
     h.openSession.mockImplementation(async () => { queueMicrotask(() => deliverPort('s4')); return { sessionId: 's4' }; });
     const conn = await connectPluginFrame(fakeFrame().frame, 'board', []);

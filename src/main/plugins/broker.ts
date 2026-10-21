@@ -304,6 +304,12 @@ export function createPluginSession(opts: PluginSessionOptions): PluginSession {
         deps.intent({ kind: 'key', key, meta: flag('meta'), ctrl: flag('ctrl'), alt: flag('alt'), shift: flag('shift') });
         return {};
       }
+      case 'view.setState': {
+        const patch = recordParam(params, 'patch');
+        if (Object.keys(patch).length > 32) throw new Refusal('bad-request', 'A view state patch holds at most 32 fields.');
+        deps.intent({ kind: 'setViewState', patch });
+        return {};
+      }
       case 'llm.propose':
         throw new Refusal('unavailable', 'llm.propose is not available yet (#2858).');
     }

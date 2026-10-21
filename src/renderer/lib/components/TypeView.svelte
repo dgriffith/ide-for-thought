@@ -32,7 +32,8 @@
   import { boardColumns, groupByForSpec, moveColumn, resolveGroupBy } from '../../../shared/objects/kanban';
   import { timelineSpecForType } from '../../../shared/objects/timeline';
   import { calendarSpecForType } from '../../../shared/objects/calendar';
-  import { layoutsFor, type ViewLayout } from '../../../shared/objects/view-layouts';
+  import { DEFAULT_VIEW_LAYOUT, layoutAvailable, layoutDef, layoutPlugin, layoutsFor, type ViewLayout } from '../../../shared/objects/view-layouts';
+  import { corePluginsStore } from '../stores/core-plugins.svelte';
   import { LAYOUT_RENDERERS, layoutOrder } from './type-view/layout-renderers';
   import type { LayoutView, ViewStatePatch } from './type-view/layout-view';
   import { objectTypesStore } from '../stores/object-types.svelte';
@@ -146,9 +147,13 @@
   const catalog = $derived(type ? [...objectTypesStore.types, type] : null);
   const timelineSpec = $derived(timelineSpecForType({ layout, from, to, dateBy }, typeId, catalog));
   const calendarSpec = $derived(calendarSpecForType({ layout: timelineSpec.layout, month, dateBy }, typeId, catalog));
-  const shown = $derived<Layout>(calendarSpec.layout);
+  // A layout a built-in plugin draws shows the table while the plugin is off
+  // (#2828); the view keeps its layout, so turning the plugin on brings it back.
+  const wanted = $derived<Layout>(calendarSpec.layout);
+  const offPlugin = $derived(layoutAvailable(wanted, (id) => corePluginsStore.isOn(id)) ? null : layoutPlugin(wanted));
+  const shown = $derived<Layout>(offPlugin ? DEFAULT_VIEW_LAYOUT : wanted);
   // The layouts this type can show, from the registry (#2623).
-  const available = $derived(layoutsFor({ typeId, properties: allColumns, catalog: catalog ?? objectTypesStore.types }));
+  const available = $derived(layoutsFor({ typeId, properties: allColumns, catalog: catalog ?? objectTypesStore.types, pluginOn: (id) => corePluginsStore.isOn(id) }));
   // Visible columns (table): null on the tab means "all". Order follows the
   // type's declared order regardless of the saved set.
   const visibleColumns = $derived<PropertyDef[]>(
@@ -439,6 +444,9 @@
   {:else if scoped.length === 0}
     <p class="tv-empty">{emptyScopedMessage(type.label)}</p>
   {:else}
+    {#if offPlugin}
+      <p class="tv-layout-off">{layoutDef(wanted).label} is turned off on this machine. Turn on {corePluginsStore.name(offPlugin)} in Settings → Plugins to see this view that way.</p>
+    {/if}
     <renderer.component {view} />
 {/if}
 
@@ -453,6 +461,7 @@
 
 <style>
   .type-view { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+  .tv-layout-off { margin: 8px 16px 0; color: var(--text-muted); font-size: 12px; }
   .tv-header {
     display: flex;
     align-items: center;

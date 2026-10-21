@@ -1764,7 +1764,11 @@ origin.
   `tests/shared/commands-from-plugin-views.test.ts`) — a plugin can fake a
   keystroke, so never one that changes a note. A path enters a session's
   scope by `lexicalAgentPathRefusal` (no fs: 5,000 `realpath`s cost 200ms of
-  main's thread) and is checked in full on every use.
+  main's thread) and is checked in full on every use. **A layout a built-in
+  plugin draws** keeps its registry entry with `plugin: '<id>'` (#2828) and is
+  hosted by `PluginLayout.svelte` (the View API: a `view` event out,
+  `view.setState` back, only the layout's own spec fields); with the plugin
+  off it isn't offered and a saved view shows the table.
 
 ### Code Review Checklist for LLM/Graph PRs
 

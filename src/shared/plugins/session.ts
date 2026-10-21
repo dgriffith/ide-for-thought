@@ -3,6 +3,8 @@
  * The plugin itself never sees these; it speaks `api.ts` over its port.
  */
 
+import type { PluginViewState } from './api';
+
 /** Something a plugin asked its window to do (the `ui` capability). */
 export type PluginIntent =
   | { kind: 'openNote'; path: string }
@@ -11,12 +13,16 @@ export type PluginIntent =
   /** Give focus back to the app: the host moves it to the frame's container (#2827). */
   | { kind: 'releaseFocus' }
   /** A shortcut the view didn't handle; the host runs it only if it may (#2827). */
-  | { kind: 'key'; key: string; meta: boolean; ctrl: boolean; alt: boolean; shift: boolean };
+  | { kind: 'key'; key: string; meta: boolean; ctrl: boolean; alt: boolean; shift: boolean }
+  /** Change the view's own spec (#2828); the host keeps only its layout's fields. */
+  | { kind: 'setViewState'; patch: Record<string, unknown> };
 
 /** What the host tells main to pass on to a session's plugin (#2827). */
 export type PluginHostEvent =
   | { kind: 'theme'; mode: string; vars: Record<string, string> }
-  | { kind: 'drop'; paths: string[]; x: number; y: number };
+  | { kind: 'drop'; paths: string[]; x: number; y: number }
+  /** A type view's state, for a plugin drawing its layout (#2828). */
+  | { kind: 'view'; state: PluginViewState };
 
 export interface PluginIntentEvent {
   sessionId: string;
