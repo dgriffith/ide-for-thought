@@ -669,6 +669,12 @@ skills, menu config, and `mcp-servers.json`, whose servers the app spawned
 (an `npx github:…` download per launch on the maintainer's machine). Every
 launch gets `minervaEnv(isolatedHome(userDataDir), …)`, and no spec may build
 an env from `scrubbedEnv()` directly.
+And it holds AppKit's window restoration off: both launch paths pass
+`APPKIT_LAUNCH_ARGS` (`-ApplePersistenceIgnoreState YES`, argument domain only).
+Without it, an earlier killed launch of the same bundle can make macOS show its
+"reopen windows?" crash prompt — a modal on the main thread before Electron is
+ready, which nobody on a runner answers. Three launches in one CI run hung
+there (#2866's e2e).
 **When it fires:** use the helper — `launchMinerva`, or `minervaEnv(home, …)`
 with a temp HOME for a process a spec spawns itself (`cli-packaged.spec.ts`).
 

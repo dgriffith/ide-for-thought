@@ -114,6 +114,14 @@ describe('e2e launch hygiene (#1928)', () => {
     expect(src.match(/userDataArg/g)?.length ?? 0).toBeGreaterThanOrEqual(3);
   });
 
+  it("every launch tells AppKit to ignore its saved window state, so a crash-restore prompt can't hold up ready", async () => {
+    const src = fs.readFileSync(HELPER, 'utf8');
+    // Both launch paths, dev and packaged, beside --user-data-dir.
+    expect(src.match(/userDataArg, \.\.\.APPKIT_LAUNCH_ARGS/g)?.length ?? 0).toBe(2);
+    const { APPKIT_LAUNCH_ARGS } = await import('../e2e/helpers/launch');
+    expect(APPKIT_LAUNCH_ARGS).toEqual(process.platform === 'darwin' ? ['-ApplePersistenceIgnoreState', 'YES'] : []);
+  });
+
   // #2466: scrubbing credentials still left the real HOME, so a local run read
   // the developer's ~/.minerva/ — user skills, menu config, and MCP servers the
   // app then spawned. CI's HOME is empty, so nothing there could notice.
