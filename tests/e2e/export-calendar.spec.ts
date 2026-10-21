@@ -81,7 +81,8 @@ test('a Calendar exports as a static, linked month grid, every event in its cell
     await test.step('open the note: the preview embed is a read-only grid that pages months', async () => {
       await note.click();
       await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.webContents.send('menu:command', 'view.togglePreview'); });
-      const embed = win.locator('.preview .object-view-block');
+      // The embed is the Calendar plugin's, in its frame (#2829).
+      const embed = win.locator('.preview .object-view-block [data-plugin-layout="calendar"] iframe').contentFrame();
       await expect(embed.locator('[data-calendar-event]').first()).toBeVisible({ timeout: 15_000 });
       await expect(embed.locator('[role="grid"]')).toHaveCount(1);
       await expect(embed.locator('.cal-export, .calx')).toHaveCount(0);
@@ -122,7 +123,9 @@ test('a Calendar exports as a static, linked month grid, every event in its cell
         const css = (el: Element) => getComputedStyle(el);
         const ctx = document.createElement('canvas').getContext('2d', { willReadFrequently: true })!;
         const rgb = (c: string) => { ctx.clearRect(0, 0, 1, 1); ctx.fillStyle = c; ctx.fillRect(0, 0, 1, 1); const d = ctx.getImageData(0, 0, 1, 1).data; return `rgb(${d[0]}, ${d[1]}, ${d[2]})`; };
+        // An export keeps no data-* but a note's (#2829's sanitizer): events and bands go by class and heading.
         const table = q<HTMLElement>('[role="table"]')!;
+        const band = (end: string) => Array.from(tree.querySelectorAll<HTMLElement>('.cal-band')).find((b) => b.querySelector('.cal-band-head')?.textContent?.endsWith(end))!;
         const block = table.closest('.minerva-live-block')!;
         const cellOf = (title: string) => Array.from(table.querySelectorAll<HTMLElement>('[role="cell"]')).find((c) => Array.from(c.querySelectorAll('.calx-title')).some((t) => t.textContent === title));
         const busy = cellOf('Briefing 1')!;
@@ -135,8 +138,8 @@ test('a Calendar exports as a static, linked month grid, every event in its cell
           width: table.getBoundingClientRect().width,
           overflowX: q<HTMLElement>('.cal')!.scrollWidth - q<HTMLElement>('.cal')!.clientWidth,
           title: q('.cal-title')!.textContent,
-          inGrid: Array.from(new Set(Array.from(table.querySelectorAll('[data-calendar-event] .calx-title')).map((t) => t.textContent))),
-          busyCount: busy.querySelectorAll('[data-calendar-event]').length,
+          inGrid: Array.from(new Set(Array.from(table.querySelectorAll(':is(.calx-bar, .calx-ev) .calx-title')).map((t) => t.textContent))),
+          busyCount: busy.querySelectorAll(':is(.calx-bar, .calx-ev)').length,
           busyInside: (() => { const c = busy.getBoundingClientRect(); return Array.from(busy.querySelectorAll('.calx-ev')).every((e) => { const b = e.getBoundingClientRect(); return b.top >= c.top - 0.5 && b.bottom <= c.bottom + 0.5; }); })(),
           more: tree.querySelectorAll('.cal-more').length,
           longWhole: longEl.querySelector('.calx-title')!.scrollWidth <= longEl.querySelector('.calx-title')!.clientWidth + 1 && longEl.getBoundingClientRect().height > 20,
@@ -145,7 +148,7 @@ test('a Calendar exports as a static, linked month grid, every event in its cell
           breakInside: weeks.map((w) => css(w).breakInside),
           hatch: table.querySelector('.calx-hatch') ? css(table.querySelector('.calx-hatch')!).backgroundImage : null,
           legend: q('.calx-legend')?.textContent?.trim() ?? null,
-          order: (() => { const yb = q('[data-band="year"]')!; const mb = q('[data-band="month"]')!; const u = q('.cal-undated')!; return after(table, yb) && after(yb, mb) && after(mb, u) && table.getBoundingClientRect().bottom <= yb.getBoundingClientRect().top; })(),
+          order: (() => { const yb = band('no month'); const mb = band('no day'); const u = q('.cal-undated')!; return after(table, yb) && after(yb, mb) && after(mb, u) && table.getBoundingClientRect().bottom <= yb.getBoundingClientRect().top; })(),
           bands: Array.from(tree.querySelectorAll('.cal-chip-title')).map((t) => t.textContent),
           undated: Array.from(tree.querySelectorAll('.cal-undated-title')).map((t) => t.textContent),
           // A border written as a shorthand holding var() comes back from the CSSOM empty, so check the bar's really paints.

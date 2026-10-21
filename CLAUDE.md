@@ -1801,7 +1801,13 @@ origin.
   its frame goes, so a debounced write is flushed before opening a note and
   on blur / pointer-leave. Its model is `src/shared/timeline/` (the calendar
   reads it); TypeView tests run its real `App.svelte` in loopback
-  (`tests/renderer/components/plugin-loopback.ts`).
+  (`tests/renderer/components/plugin-loopback.ts`). **Calendar is the third
+  (#2829)**: reschedules are the host's on request (`view.reschedule`, API
+  1.7.0; history cause *Moved by Calendar*), ⌘Z goes to the surface the
+  registry entry's `moves` names, and the view carries the viewer's `week`.
+  A plugin frame can't submit a `<form>` (no `allow-forms`) — act on Enter
+  and click — and an export inliner must not copy a computed height or an
+  `auto` margin, which are the frame's.
 
 ### Code Review Checklist for LLM/Graph PRs
 

@@ -130,7 +130,7 @@ test('a note with every live kind exports each one rendered, no raw source left 
       expect(html).toMatch(/class="cal[^"]*\bcal-export\b/);
       expect(html).toMatch(/<div role="table" class="calx\b[^"]*" aria-label="July 1969"/);
       for (const title of ['Moon landing', 'Apollo 11', 'Splashdown debrief']) {
-        expect(html, `${title} in its cell`).toMatch(new RegExp(`class="calx-title[^"]*">${title}<`));
+        expect(html, `${title} in its cell`).toMatch(new RegExp(`class="calx-title[^"]*"[^>]*>${title}<`));
       }
       expect(html).not.toContain('role="grid"');
       expect(html).toContain('compute-output-text'); // the saved output

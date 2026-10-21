@@ -18,11 +18,11 @@
    * - **A fallback.** When the grid can't be planned, the month's events are
    *   listed instead, in time order — never the raw spec.
    */
-  import type { CalendarMonth, PlacedSegment, Weekday } from '../../../../shared/objects/calendar-grid';
-  import { monthBounds, rangeMeets, rowWeekNumber, formatMonthAnchor } from '../../../../shared/objects/calendar-grid';
-  import { logger } from '../../../../shared/logger';
-  import type { TimelineEvent } from '../../../../shared/timeline/timeline-events';
-  import { dayName, monthTitle, timeOf, weekdayNames } from './calendar-model';
+  import type { CalendarMonth, PlacedSegment, Weekday } from '../../../src/shared/objects/calendar-grid';
+  import { monthBounds, rangeMeets, rowWeekNumber, formatMonthAnchor } from '../../../src/shared/objects/calendar-grid';
+  import { logger } from '../../../src/shared/logger';
+  import type { TimelineEvent } from '../../../src/shared/timeline/timeline-events';
+  import { dayName, monthTitle, timeOf, weekdayNames } from '../../../src/shared/calendar/calendar-model';
   import { planCalendarExport, singleIsApprox, type CalendarExportPlan } from './calendar-export';
 
   interface Props {

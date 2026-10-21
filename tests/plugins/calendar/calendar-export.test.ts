@@ -4,10 +4,10 @@
  * counts, and whether anything hatched is drawn (the legend).
  */
 import { describe, it, expect } from 'vitest';
-import { planCalendarExport, singleIsApprox } from '../../../../src/renderer/lib/components/calendar/calendar-export';
-import { buildCalendarModel } from '../../../../src/renderer/lib/components/calendar/calendar-model';
-import { civilMs } from '../../../../src/shared/objects/date-precision';
-import type { TypeInstanceRow } from '../../../../src/shared/objects/type-def';
+import { planCalendarExport, singleIsApprox } from '../../../plugins/calendar/src/calendar-export';
+import { buildCalendarModel } from '../../../src/shared/calendar/calendar-model';
+import { civilMs } from '../../../src/shared/objects/date-precision';
+import type { TypeInstanceRow } from '../../../src/shared/objects/type-def';
 
 const row = (path: string, title: string, date: string | null, end: string | null = null): TypeInstanceRow =>
   ({ path, title, values: { date, end }, cover: null });

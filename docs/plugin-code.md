@@ -380,6 +380,28 @@ frame.
   in `src/shared/timeline/`, because the calendar reads it too; the drawing's
   own modules (`-layout`, `-export`, `-gestures`) are the plugin's.
 
+**Calendar is done (#2829)** too (`plugins/calendar/`), and is the first to
+put both patterns together:
+
+- **Reschedules are the host's, on request** (API 1.7.0: `view.reschedule
+  {path, days}`, `notes:write-properties`): the plugin decides the day count
+  and the words it speaks itself (`ui.announce`); the type view runs the
+  move store's `rescheduleEvent` (`type-view/calendar-reschedule.ts`), with
+  *Moved by Calendar* as the history cause. ⌘Z is `view.undoMove`, which the
+  host sends to the surface the layout's registry entry names (`moves:
+  'board' | 'calendar'`), so a calendar never undoes a board's move.
+- **The viewer's week** (its first day, week numbers) is in the view as
+  `week`: "automatic" needs the OS region, which only main can read, so the
+  host resolves it.
+- **A sandboxed frame can't submit a form** (no `allow-forms`, by design): the
+  *Move to date…* bar acts on Enter and on its button's click instead.
+- **An export inliner must not copy what is the frame's**: a computed height
+  (rows clipped to the frame) or an `auto` margin (it computes to pixels). The
+  calendar's inliner puts the scaling rules back (`plugins/calendar/src/
+  inline-styles.ts`, pinned by its test).
+- `calendar-model` is in `src/shared/calendar/`: the host names the days in
+  its announcements with it.
+
 Its TypeView-level tests run the plugin's real `App.svelte` in loopback
 (`tests/renderer/components/plugin-loopback.ts`): mounted beside the frame,
 sent each view, preview and export request the host sends, its calls routed

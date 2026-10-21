@@ -12,19 +12,15 @@
  * 4 lines: 3 events and "+N more" on a full day.
  */
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
-import { render, fireEvent, cleanup, screen, waitFor } from '@testing-library/svelte';
+import { fireEvent, cleanup, screen, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
-import TypeViewCalendar from '../../../src/renderer/lib/components/TypeViewCalendar.svelte';
+import { renderCalendar, type CalendarProps } from './fixtures';
 import { civilMs } from '../../../src/shared/objects/date-precision';
+import type { Weekday } from '../../../src/shared/objects/calendar-grid';
 import type { TypeInstanceRow } from '../../../src/shared/objects/type-def';
 
-const settings = vi.hoisted(() => ({ weekStart: 1, showWeekNumbers: false }));
-vi.mock('../../../src/renderer/lib/stores/settings-calendar.svelte', () => ({
-  getCalendarSettings: () => ({
-    get weekStart() { return settings.weekStart; },
-    get showWeekNumbers() { return settings.showWeekNumbers; },
-  }),
-}));
+/** The viewer's settings, as Minerva sends them in `view.week` — what a case with no `weekStart` of its own gets. */
+const settings: { weekStart: Weekday; showWeekNumbers: boolean } = { weekStart: 1, showWeekNumbers: false };
 
 const EVENT = {
   id: 'event', label: 'Event', classLocalName: 'Event', icon: '📅', source: 'stock' as const,
@@ -55,22 +51,10 @@ const BUSY = ['a', 'b', 'c', 'd', 'e', 'f'].map((k, i) => row(`busy-${k}.md`, `B
 
 const day = (y: number, m: number, d: number) => civilMs(y, m - 1, d);
 
-function setup(over: Record<string, unknown> = {}) {
-  const onStateChange = vi.fn();
-  const onOpenNote = vi.fn();
-  const utils = render(TypeViewCalendar, {
-    type: EVENT,
-    properties: EVENT.properties,
-    instances: EVENTS,
-    month: '2026-10',
-    display: (_p: unknown, v: string | null) => v ?? '',
-    rowType: () => EVENT,
-    onOpenNote,
-    onStateChange,
-    locale: 'en-GB',
-    weekStart: 1,
-    ...over,
-  });
+function setup(over: Partial<CalendarProps> = {}) {
+  const p: CalendarProps = { type: EVENT, properties: EVENT.properties, instances: EVENTS, month: '2026-10', locale: 'en-GB', weekStart: 1, ...over };
+  const utils = renderCalendar({ ...p, weekStart: p.weekStart ?? settings.weekStart, showWeekNumbers: p.showWeekNumbers ?? settings.showWeekNumbers });
+  const { onStateChange, onOpenNote } = utils;
   const q = (sel: string) => utils.container.querySelector<HTMLElement>(sel);
   const cell = (ms: number) => q(`[role="gridcell"][data-day="${ms}"]`)!;
   const segs = (path: string) => [...utils.container.querySelectorAll<HTMLElement>(`[data-calendar-event][data-note-path="${path}"]`)];
@@ -521,14 +505,20 @@ describe('keyboard (the WAI-ARIA date grid)', () => {
     expect(dlg.textContent).toContain('No events.');
   });
 
-  it('focusing an event in the list shows the hover preview, with its dates', async () => {
-    const { cell } = setup();
+  // The preview is the app's (#2829): the calendar asks for it, its dates as
+  // the extra lines and the dates off the field strip, which the host draws
+  // (PluginFrame / PluginLayout tests), and describes the item with its text.
+  it("focusing an event in the list asks for the app's preview, with its dates; its text describes the event", async () => {
+    const { cell, api } = setup();
     cell(day(2026, 10, 6)).focus();
     await press('Enter');
-    const tip = await screen.findByRole('tooltip');
-    await waitFor(() => expect(tip.textContent).toContain('6 Oct 2026'));
-    expect(tip.textContent).toContain('Dentist');
-    expect(tip.textContent).toContain('High Street');
+    await waitFor(() => expect(api.of('ui.previewNote')).toEqual([expect.objectContaining({ path: 'dentist.md', via: 'focus', omit: ['date', 'end'] })]));
+    const ask = api.of('ui.previewNote')[0] as { extra: string[] };
+    expect(ask.extra[0]).toContain('6 Oct 2026');
+    api.emit('preview', { path: 'dentist.md', description: 'Dentist — High Street' });
+    await tick();
+    const ev = document.querySelector<HTMLElement>('[data-day-event][data-note-path="dentist.md"]')!;
+    expect(document.getElementById(ev.getAttribute('aria-describedby')!.split(' ').at(-1)!)!.textContent).toBe('Dentist — High Street');
   });
 });
 
@@ -576,13 +566,12 @@ describe('read-only (an embed)', () => {
 describe('the hover preview on pointer', () => {
   it('hovering an event shows its dates, and what was written when the day differs', async () => {
     const offset = row('late.md', 'Late call', '2026-10-05T23:30:00-05:00');
-    const { segs } = setup({ instances: [offset] });
+    const { segs, api } = setup({ instances: [offset] });
     await fireEvent.pointerEnter(segs('late.md')[0]!);
-    const tip = await screen.findByRole('tooltip');
-    await waitFor(() => expect(tip.textContent).toContain('Late call'));
+    const lines = (api.of('ui.previewNote')[0] as { extra: string[] }).extra;
     const shift = -new Date(Date.UTC(2026, 9, 6, 4, 30)).getTimezoneOffset();
     const localDay = new Date(Date.UTC(2026, 9, 6, 4, 30) + shift * 60_000).getUTCDate();
-    if (localDay !== 5) expect(tip.querySelector('[data-written-as]')!.textContent).toBe('Written as 2026-10-05T23:30:00-05:00');
-    else expect(tip.querySelector('[data-written-as]')).toBeNull();
+    if (localDay !== 5) expect(lines).toContain('Written as 2026-10-05T23:30:00-05:00');
+    else expect(lines.some((l) => l.startsWith('Written as'))).toBe(false);
   });
 });

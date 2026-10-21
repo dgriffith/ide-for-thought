@@ -4,9 +4,9 @@
  * "written as" for an offset value shown on another day (decision 7).
  */
 import { describe, it, expect } from 'vitest';
-import { buildCalendarModel, dayEvents, monthTitle, pageBands, timeOf, writtenAs, yearName } from '../../../../src/renderer/lib/components/calendar/calendar-model';
-import { civilMs } from '../../../../src/shared/objects/date-precision';
-import type { TypeInstanceRow } from '../../../../src/shared/objects/type-def';
+import { buildCalendarModel, dayEvents, monthTitle, pageBands, timeOf, writtenAs, yearName } from '../../../src/shared/calendar/calendar-model';
+import { civilMs } from '../../../src/shared/objects/date-precision';
+import type { TypeInstanceRow } from '../../../src/shared/objects/type-def';
 
 const row = (path: string, date: string | null, end: string | null = null): TypeInstanceRow =>
   ({ path, title: path.replace('.md', ''), values: { date, end }, cover: null });

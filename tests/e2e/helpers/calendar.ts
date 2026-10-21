@@ -10,7 +10,7 @@
  * their dates around the CURRENT month (`thisMonth`), because a view with no
  * stored `month` opens on it.
  */
-import { expect, type Locator, type Page } from '@playwright/test';
+import { expect, type FrameLocator, type Locator, type Page } from '@playwright/test';
 
 /** The current month, as the renderer judges it: local year and 1–12. */
 export function thisMonth(now = new Date()): { year: number; month: number } {
@@ -35,6 +35,13 @@ export function civilDay(year: number, month: number, day: number): number {
 }
 
 export interface Calendar {
+  /**
+   * The Calendar plugin's frame (#2829): the whole layout below the view's
+   * header — grid, toolbar, day list and its menu, move bar, bands, tray. The
+   * keyboard follows focus into it, and boxes inside it come back in the
+   * window's coordinates, so drags work as they did.
+   */
+  frame: FrameLocator;
   grid: Locator;
   /** The month heading the grid is labelled by ("October 2026"). */
   title: Locator;
@@ -48,19 +55,22 @@ export interface Calendar {
   dayList: Locator;
 }
 
-export function calendarOf(win: Page): Calendar {
-  const grid = win.locator('.cal-grid[role="grid"]');
+/** The `nth` calendar in the window (a tab's, or an embed's). */
+export function calendarOf(win: Page, nth = 0): Calendar {
+  const frame = win.locator('[data-plugin-layout="calendar"] iframe').nth(nth).contentFrame();
+  const grid = frame.locator('.cal-grid[role="grid"]');
   return {
+    frame,
     grid,
-    title: win.locator('.cal-title'),
+    title: frame.locator('.cal-title'),
     day: (y, m, d) => grid.locator(`[role="gridcell"][data-day="${civilDay(y, m, d)}"]`),
     // By its visible title: an event is named by what it shows (#2790), its
     // full date being its description.
     eventFor: (title) => grid.locator('[data-calendar-event]').filter({
-      has: win.locator('.cal-ev-title', { hasText: new RegExp(`^${title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`) }),
+      has: frame.locator('.cal-ev-title', { hasText: new RegExp(`^${title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`) }),
     }),
     tabStop: grid.locator('[role="gridcell"][tabindex="0"]'),
-    dayList: win.getByRole('dialog').and(win.locator('[data-calendar-day-list]')),
+    dayList: frame.getByRole('dialog').and(frame.locator('[data-calendar-day-list]')),
   };
 }
 
@@ -128,7 +138,7 @@ export async function startMoveToDate(
   await expect(cal.dayList).toBeVisible();
   await expect(cal.dayList.locator(`[data-day-event][data-note-path$="${noteFile}"]`)).toBeFocused();
   await win.keyboard.press('Shift+F10');
-  await expect(win.getByRole('menuitem', { name: 'Move to date…' })).toBeFocused();
+  await expect(cal.frame.getByRole('menuitem', { name: 'Move to date…' })).toBeFocused();
   await win.keyboard.press('Enter');
   await expect(cal.day(m.year, m.month, day)).toBeFocused();
 }

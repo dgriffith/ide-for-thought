@@ -83,6 +83,21 @@ const CORE_PLUGIN_DEFINITIONS: readonly CorePluginDefinition[] = [
     },
     defaultEnabled: true,
   },
+  {
+    // The Calendar layout (#2829), drawn the same way (`plugins/calendar/`).
+    // It reads the notes a view shows, and moves one to another day only by
+    // asking Minerva (`view.reschedule`), which writes its dates with undo.
+    manifest: {
+      id: 'calendar',
+      name: 'Calendar',
+      version: '1.0.0',
+      minerva: '>=4.0.0',
+      description: 'Show a type view as a month grid: each dated note on its day, dragged to another day to reschedule it.',
+      contributes: {},
+      code: { capabilities: ['notes:read', 'notes:write-properties', 'ui'], api: '^1.7.0' },
+    },
+    defaultEnabled: true,
+  },
 ];
 
 let definitions: readonly CorePluginDefinition[] = CORE_PLUGIN_DEFINITIONS;

@@ -122,7 +122,7 @@ const overInstalled = async (...args: unknown[]) => {
 
 const LIST = {
   // The built-in plugins as shipped (#2820): Python, off on a new install
-  // (#2822), and Kanban (#2828) and Timeline (#2829), on.
+  // (#2822), and Kanban (#2828), Timeline and Calendar (#2829), on.
   core: [{
     id: 'python', name: 'Python', version: '1.0.0',
     description: 'Run Python code cells in notes, in an interpreter you choose: pandas, numpy, matplotlib and anything else you install.',
@@ -135,6 +135,10 @@ const LIST = {
     id: 'timeline', name: 'Timeline', version: '1.0.0',
     description: 'Show a type view on a time axis: each dated note a point or a bar, zoomed and panned with the pointer or the keyboard.',
     enabled: true, source: { kind: 'core' }, contributes: {}, capabilities: ['notes:read', 'ui'],
+  }, {
+    id: 'calendar', name: 'Calendar', version: '1.0.0',
+    description: 'Show a type view as a month grid: each dated note on its day, dragged to another day to reschedule it.',
+    enabled: true, source: { kind: 'core' }, contributes: {}, capabilities: ['notes:read', 'notes:write-properties', 'ui'],
   }],
   installed: [{
     id: 'lab', name: 'Lab', version: '1.0.0', description: 'Lab tools', author: 'Ada', enabled: false,

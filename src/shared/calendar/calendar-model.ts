@@ -18,13 +18,13 @@
  *   every grid event covering that day, in the grid's stacking order (first
  *   day, then start time, then title), so it reads like the cell above it.
  */
-import type { TypeInstanceRow } from '../../../../shared/objects/type-def';
-import { buildTimelineModel, type TimelineEvent, type TimelineProperties, type UndatedEvent } from '../../../../shared/timeline/timeline-events';
+import type { TypeInstanceRow } from '../objects/type-def';
+import { buildTimelineModel, type TimelineEvent, type TimelineProperties, type UndatedEvent } from '../timeline/timeline-events';
 import {
   coveredDays, dayStart, monthBounds, placementOf, rangeMeets,
   type CalendarItem, type CalendarMonth, type GridWeek,
-} from '../../../../shared/objects/calendar-grid';
-import { civilMs, isClockPrecision, parseDateValue } from '../../../../shared/objects/date-precision';
+} from '../objects/calendar-grid';
+import { civilMs, isClockPrecision, parseDateValue } from '../objects/date-precision';
 
 export interface CalendarModel {
   /** Day or clock starts: drawn in the cells. */

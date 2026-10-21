@@ -6,10 +6,11 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-const { instancesMock, listMock, noteTypeMapMock, plugin, timeline } = vi.hoisted(() => ({
+const { instancesMock, listMock, noteTypeMapMock, plugin, timeline, calendar } = vi.hoisted(() => ({
   instancesMock: vi.fn(), listMock: vi.fn(), noteTypeMapMock: vi.fn(),
   plugin: {} as import('../components/kanban-host').KanbanHostState,
   timeline: {} as import('../components/plugin-loopback').LoopbackState,
+  calendar: {} as import('../components/plugin-loopback').LoopbackState,
 }));
 // A Kanban export is the Kanban plugin's board (#2828): here, in loopback —
 // its real board, drawn for the export, answering through the real host.
@@ -44,10 +45,11 @@ const INSTANCES = [
 
 beforeEach(() => {
   kanbanLoopback(plugin);
-  // A Timeline export is the Timeline plugin's (#2829): its real view, in loopback.
+  // A Timeline or Calendar export is that plugin's (#2829): its real view, in loopback.
   pluginLoopback(timeline, () => import('../../../plugins/timeline/src/App.svelte'));
+  pluginLoopback(calendar, () => import('../../../plugins/calendar/src/App.svelte'));
   const kanbanConnect = plugin.connect.getMockImplementation()!;
-  plugin.connect.mockImplementation((...a: unknown[]) => (a[1] === 'timeline' ? timeline.connect(...a) : kanbanConnect(...a)));
+  plugin.connect.mockImplementation((...a: unknown[]) => (a[1] === 'timeline' ? timeline.connect(...a) : a[1] === 'calendar' ? calendar.connect(...a) : kanbanConnect(...a)));
   stopAutoLoad = autoLoadPluginFrames();
   instancesMock.mockResolvedValue({ type: TYPE, instances: INSTANCES });
   listMock.mockResolvedValue({ types: [TYPE], errors: [] });
@@ -154,9 +156,11 @@ describe('renderObjectViewForExport', () => {
     expect(doc.querySelector('a[data-note-link="e/Summer.md"] .calx-hatch')).not.toBeNull();
     expect(doc.querySelector('.calx-legend')!.textContent).toContain('approximate');
     // The bands and the tray follow the grid in the page.
+    // (An export keeps no data-* but a note's, #2829's sanitizer: the month band goes by its heading.)
     const after = (a: Element, b: Element) => (a.compareDocumentPosition(b) & 4) !== 0;
-    expect(after(table, doc.querySelector('[data-band="month"]')!)).toBe(true);
-    expect(after(doc.querySelector('[data-band="month"]')!, doc.querySelector('.cal-undated')!)).toBe(true);
+    const monthBand = [...doc.querySelectorAll('.cal-band')].find((b) => b.querySelector('.cal-band-head')?.textContent?.includes('no day'))!;
+    expect(after(table, monthBand)).toBe(true);
+    expect(after(monthBand, doc.querySelector('.cal-undated')!)).toBe(true);
     // Nothing interactive, and never the spec.
     for (const sel of ['button', 'input', 'select', '[tabindex]', '[role="grid"]', '[role="gridcell"]', '[aria-current]', '[role="tooltip"]', '[role="dialog"]', '.cal-nav']) {
       expect(doc.querySelector(sel), sel).toBeNull();

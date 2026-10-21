@@ -13,6 +13,7 @@
 import type { MapExportHooks } from '../../map/map-export';
 import type { MapStyle } from '../../../../shared/objects/map-style';
 import type { ViewFilter } from '../../../../shared/objects/view-spec';
+import type { Weekday } from '../../../../shared/objects/calendar-grid';
 import type { KanbanColumn } from '../../../../shared/objects/kanban';
 import type { MoveTarget } from '../../../../shared/objects/kanban-move';
 /** Where a moved column lands beside another (#2614). */
@@ -110,10 +111,14 @@ export interface LayoutView {
   board: KanbanColumn[];
   onMoveCard: ((path: string, target: MoveTarget) => void) | undefined;
   onUndoMove: (() => void) | undefined;
-  /** A board move to undo (#2828), and the last move or undo that wrote, for focus. */
+  /** A move to undo on this layout's surface (a board's, or a calendar's, #2829), and the last move or undo that wrote, for focus. */
   canUndoMove: boolean;
   lastMove: { seq: number; paths: string[] } | null;
   onMoveColumn: ((key: string, target: string, side: DropSide) => void) | undefined;
+  /** Calendar (#2829): move a note's dates by whole days, with undo; absent in an embed or export. */
+  onReschedule: ((path: string, days: number) => void) | undefined;
+  /** The viewer's week, from their settings on this machine: its first day (ISO, 1 = Monday) and whether week numbers show. */
+  week: { start: Weekday; numbers: boolean };
   /** Timeline and Calendar: their spec, already judged against the type. */
   from: string | null;
   to: string | null;

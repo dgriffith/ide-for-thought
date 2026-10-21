@@ -8,6 +8,12 @@
    * for a day far off that would take many presses to reach. Its text is the
    * grid's description while choosing, so a screen reader hears the
    * instructions on entering the grid.
+   *
+   * In a plugin frame (#2829) a form can't submit: the frame's sandbox has no
+   * `allow-forms`, and a form is a navigation it shouldn't have. So the bar
+   * never relies on `submit` — Enter in the field and the Move button call
+   * the same handler (and Enter's default, an implicit submission, is
+   * prevented). It stays a `<form>` for its landmark and label.
    */
   import { parseTypedDay } from './reschedule';
 
@@ -25,8 +31,8 @@
   let typed = $state('');
   let invalid = $state(false);
 
-  function submit(e: SubmitEvent): void {
-    e.preventDefault();
+  function submit(e?: Event): void {
+    e?.preventDefault();
     const day = parseTypedDay(typed);
     invalid = day === null;
     if (day === null) onInvalid(typed);
@@ -54,8 +60,9 @@
     autocomplete="off"
     bind:value={typed}
     oninput={() => (invalid = false)}
+    onkeydown={(e) => { if (e.key === 'Enter' && !e.isComposing) submit(e); }}
   />
-  <button type="submit" class="cal-movebar-btn">Move</button>
+  <button type="button" class="cal-movebar-btn" onclick={() => submit()}>Move</button>
   <button type="button" class="cal-movebar-btn" onclick={onCancel}>Cancel</button>
 </form>
 

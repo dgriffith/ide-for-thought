@@ -28,7 +28,7 @@ import type { PluginCapability } from './capabilities';
  * The API's semver version (#2826), its own and not the app's: the host sends
  * it with the port, and a plugin's `code.api` range must accept it.
  */
-export const PLUGIN_API_VERSION = '1.6.0';
+export const PLUGIN_API_VERSION = '1.7.0';
 
 export const PLUGIN_METHODS = {
   'notes.list': { capability: 'notes:read', describes: 'The notes this view or call was given.' },
@@ -56,6 +56,7 @@ export const PLUGIN_METHODS = {
   'view.moveCard': { capability: 'notes:write-properties', describes: "Move a note to one of the view's groups: Minerva sets its grouping property, with undo." },
   'view.undoMove': { capability: 'notes:write-properties', describes: "Undo the view's last move (⌘Z on a board)." },
   'view.moveColumn': { capability: 'ui', describes: "Move one of the view's groups before or after another; the order stays with the view." },
+  'view.reschedule': { capability: 'notes:write-properties', describes: "Move a dated note by whole days: Minerva shifts its start and end, with undo (a calendar's drag)." },
   'llm.propose': { capability: 'llm:propose', describes: 'Ask the assistant for changes. Not available yet (#2858).' },
 } as const satisfies Record<string, { capability: PluginCapability; describes: string }>;
 
@@ -98,6 +99,8 @@ export interface PluginMethodParams {
   'view.moveCard': { path: string; target: PluginMoveTarget };
   'view.undoMove': Record<string, never>;
   'view.moveColumn': { key: string; target: string; side: 'before' | 'after' };
+  /** `days`: a whole number, not 0, at most PLUGIN_RESCHEDULE_MAX_DAYS either way. */
+  'view.reschedule': { path: string; days: number };
   'llm.propose': Record<string, unknown>;
 }
 
@@ -131,6 +134,7 @@ export interface PluginMethodResults {
   'view.moveCard': Record<string, never>;
   'view.undoMove': Record<string, never>;
   'view.moveColumn': Record<string, never>;
+  'view.reschedule': Record<string, never>;
   'llm.propose': never;
 }
 
@@ -176,6 +180,8 @@ export type PluginViewState = {
   spec: Record<string, unknown>;
   /** The view's filters, already applied to `instances` (#2829): a timeline's Fit stays inside a date range one. */
   filters: PluginViewFilter[];
+  /** The viewer's week (#2829), from their settings on this machine: what a calendar draws its rows by. */
+  week: PluginViewWeek;
   /** An embed or export: nothing that writes the spec or a note. */
   readOnly: boolean;
   /** Drawing for an export snapshot. */
@@ -205,6 +211,13 @@ export type PluginViewState = {
 export type PluginViewFilter =
   | { property: string; values: string[]; match?: 'any' | 'all' | 'none' }
   | { property: string; min: string | null; max: string | null };
+
+/**
+ * The viewer's week: the day it starts on, ISO (1 = Monday … 7 = Sunday) —
+ * "automatic" already resolved from their region — and whether week numbers
+ * show.
+ */
+export type PluginViewWeek = { start: 1 | 2 | 3 | 4 | 5 | 6 | 7; numbers: boolean };
 
 /** One group of a grouped view: a board's column. */
 export type PluginViewGroup = {
@@ -250,6 +263,9 @@ export type PluginEventName = keyof PluginEvents;
 
 /** The most notes one `ui.showNoteMenu` may name. */
 export const PLUGIN_NOTE_MENU_MAX_PATHS = 500;
+
+/** How far one `view.reschedule` may move a note, in days either way (about 270 years). */
+export const PLUGIN_RESCHEDULE_MAX_DAYS = 100_000;
 
 /** A preview's extra lines (`ui.previewNote`): how many, and how long. */
 export const PLUGIN_PREVIEW_MAX_EXTRA = 8;

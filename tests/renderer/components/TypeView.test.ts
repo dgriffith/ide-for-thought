@@ -590,6 +590,9 @@ describe('timeline layout (#2607, #2608, #2715)', () => {
 });
 
 describe('calendar layout (#2701, #2702)', () => {
+  // The cases that draw the calendar — the Calendar plugin's, since #2829 —
+  // are in TypeViewCalendarLayout.test.ts, on jsdom with the plugin in loopback.
+
   // A dated type that isn't Event: Calendar is offered by having a date property, not by ancestry.
   const JOURNAL = {
     id: 'journal', label: 'Journal', classLocalName: 'Journal', icon: '📓', source: 'user' as const,
@@ -611,7 +614,6 @@ describe('calendar layout (#2701, #2702)', () => {
     const md = writeText.mock.calls.at(-1)![0] as string;
     return { md, spec: parseObjectViewSpec(md.replace(/^```object-view\n/, '').replace(/\n```\n$/, '')) };
   };
-  const drawn = (root: HTMLElement) => [...root.querySelectorAll<HTMLElement>('[data-calendar-event]')].map((e) => e.dataset['notePath']);
 
   it('the switcher offers Calendar only for a type with a date property, with Date by when there is a choice', async () => {
     instancesMock.mockResolvedValue({ type: JOURNAL, instances: ENTRIES });
@@ -627,58 +629,6 @@ describe('calendar layout (#2701, #2702)', () => {
     render(TypeView, props({ typeId: 'book', layout: 'list' }));
     await screen.findByText('Dune');
     expect(screen.queryByRole('tab', { name: 'Calendar' })).toBeNull();
-  });
-
-  it('draws the month grid, placed by Date by, and writes the page back through onStateChange', async () => {
-    instancesMock.mockResolvedValue({ type: JOURNAL, instances: ENTRIES });
-    const onStateChange = vi.fn();
-    const { container } = render(TypeView, props({ typeId: 'journal', layout: 'calendar', month: '2026-10', onStateChange }));
-    await waitFor(() => expect(container.querySelector('[role="grid"]')).toBeTruthy());
-    expect(screen.getByRole('tab', { name: 'Calendar' }).getAttribute('aria-selected')).toBe('true');
-    expect(drawn(container)).toEqual(['j2.md']);
-    expect(screen.getByRole('combobox', { name: 'Date by' })).toBeTruthy(); // published and revised
-    await fireEvent.click(screen.getByRole('button', { name: 'Previous month' }));
-    expect(onStateChange).toHaveBeenCalledWith({ month: '2026-09' });
-  });
-
-  it('an embed is read-only: it pages, but writes nothing back', async () => {
-    instancesMock.mockResolvedValue({ type: JOURNAL, instances: ENTRIES });
-    const onStateChange = vi.fn();
-    const { container } = render(TypeView, props({ typeId: 'journal', layout: 'calendar', month: '2026-03', chromeless: true, onStateChange }));
-    await waitFor(() => expect(drawn(container)).toEqual(['j1.md']));
-    await fireEvent.click(screen.getByRole('button', { name: 'Next month' }));
-    expect(container.querySelector('.cal-title')!.textContent).toBe('April 2026');
-    expect(onStateChange).not.toHaveBeenCalled();
-  });
-
-  it('Copy as markdown keeps the calendar, its month and dateBy, and omits the defaults', async () => {
-    instancesMock.mockResolvedValue({ type: JOURNAL, instances: ENTRIES });
-    render(TypeView, props({ typeId: 'journal', layout: 'calendar', month: '-0043-03', dateBy: 'revised' }));
-    await screen.findByRole('grid');
-    expect((await copied()).spec).toMatchObject({ typeId: 'journal', layout: 'calendar', month: '-0043-03', dateBy: 'revised' });
-    cleanup();
-    render(TypeView, props({ typeId: 'journal', layout: 'calendar' }));
-    await screen.findByRole('grid');
-    const { md, spec } = await copied();
-    expect(md).not.toContain('"month"');
-    expect(md).not.toContain('"dateBy"');
-    expect(spec).toMatchObject({ layout: 'calendar', month: null, dateBy: null });
-  });
-
-  it('a dateBy that is not a date property of the type is dropped from the copy', async () => {
-    instancesMock.mockResolvedValue({ type: JOURNAL, instances: ENTRIES });
-    render(TypeView, props({ typeId: 'journal', layout: 'calendar', month: '2026-10', dateBy: 'editor' }));
-    await screen.findByRole('grid');
-    const { md, spec } = await copied();
-    expect(spec).toMatchObject({ layout: 'calendar', month: '2026-10', dateBy: null });
-    expect(md).not.toContain('editor');
-  });
-
-  it('a user subtype that inherits its date keeps its calendar and an inherited dateBy', async () => {
-    instancesMock.mockResolvedValue({ type: DIARY, instances: ENTRIES });
-    const { container } = render(TypeView, props({ typeId: 'diary', layout: 'calendar', month: '2026-10', dateBy: 'published' }));
-    await waitFor(() => expect(drawn(container)).toEqual(['j2.md']));
-    expect((await copied()).spec).toMatchObject({ typeId: 'diary', layout: 'calendar', month: '2026-10', dateBy: 'published' });
   });
 
   it('a calendar spec for a type with no date property reads back as the default layout, without an error', async () => {

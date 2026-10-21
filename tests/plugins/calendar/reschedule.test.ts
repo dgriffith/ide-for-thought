@@ -5,9 +5,9 @@
  * itself is `date-shift.ts`'s, tested there.
  */
 import { describe, it, expect } from 'vitest';
-import { eventStartDay, parseTypedDay, refusalFor, writtenDates } from '../../../../src/renderer/lib/components/calendar/reschedule';
-import { rescheduleRefusalText } from '../../../../src/shared/objects/reschedule-text';
-import { civilMs } from '../../../../src/shared/objects/date-precision';
+import { eventStartDay, parseTypedDay, refusalFor, writtenDates } from '../../../plugins/calendar/src/reschedule';
+import { rescheduleRefusalText } from '../../../src/shared/objects/reschedule-text';
+import { civilMs } from '../../../src/shared/objects/date-precision';
 
 const DATES = { dateProperty: 'date', endProperty: 'end' };
 const ev = (date: string | null, end: string | null = null, title = 'Trip') =>

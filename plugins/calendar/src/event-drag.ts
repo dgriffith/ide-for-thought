@@ -25,8 +25,8 @@
  *   the release doesn't open the note.
  */
 import type { Action } from 'svelte/action';
-import { DAY_MS } from '../../../../shared/time';
-import { DRAG_THRESHOLD_PX } from '../drag-keys';
+import { DAY_MS } from '../../../src/shared/time';
+import { DRAG_THRESHOLD_PX } from './drag-keys';
 
 export interface EventDragOptions {
   /** False (an embed, an export): events don't drag. */

@@ -67,6 +67,8 @@ export interface PluginFrameHost {
   moveCard?(path: string, target: PluginMoveTarget): void;
   undoMove?(): void;
   moveColumn?(key: string, target: string, side: 'before' | 'after'): void;
+  /** A calendar's reschedule (#2829): the host moves the note's dates by whole days, with its own undo. */
+  reschedule?(path: string, days: number): void;
   /** The view's own selection (#2828). */
   viewClick?(path: string, mods: { meta: boolean; ctrl: boolean; shift: boolean }): void;
   selectAll?(): void;
@@ -153,6 +155,9 @@ function onIntent({ sessionId, pluginId, intent }: PluginIntentEvent): void {
       return;
     case 'moveColumn':
       hosts.get(sessionId)?.moveColumn?.(intent.key, intent.target, intent.side);
+      return;
+    case 'reschedule':
+      hosts.get(sessionId)?.reschedule?.(intent.path, intent.days);
       return;
     case 'key': {
       const id = forwardableCommand(intent);
