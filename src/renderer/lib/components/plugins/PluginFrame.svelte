@@ -47,9 +47,13 @@
     onExportHtml?: (requestId: string, html: string) => void;
     /** The properties strip of a note's hover preview, where the host knows its type (#2828). */
     hoverInstance?: (path: string) => HoverInstance | null;
+    /** The view's own selection: a click on a note, ⌘A, Escape (#2828). */
+    onViewClick?: (path: string, mods: { meta: boolean; ctrl: boolean; shift: boolean }) => void;
+    onSelectAll?: () => void;
+    onClearSelection?: () => void;
   }
 
-  let { pluginId, entry = 'index.html', scope, title, onConnected, onViewState, onNoteMenu, onExportHtml, hoverInstance }: Props = $props();
+  let { pluginId, entry = 'index.html', scope, title, onConnected, onViewState, onNoteMenu, onExportHtml, hoverInstance, onViewClick, onSelectAll, onClearSelection }: Props = $props();
 
   // Hover previews: the app's own, against an anchor over the plugin's box.
   const hover = createNoteHover();
@@ -112,6 +116,9 @@
           else hover.pointerLeave(path);
         },
         exportHtml: (requestId, html) => onExportHtml?.(requestId, html),
+        viewClick: (path, mods) => onViewClick?.(path, mods),
+        selectAll: () => onSelectAll?.(),
+        clearSelection: () => onClearSelection?.(),
       });
       lastScope = JSON.stringify(scope);
       sendTheme();

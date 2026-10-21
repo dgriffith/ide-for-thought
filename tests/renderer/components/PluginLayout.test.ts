@@ -14,6 +14,9 @@ const h = vi.hoisted(() => ({
     setViewState?(p: Record<string, unknown>): void;
     showNoteMenu?(paths: string[], x: number, y: number): void;
     exportHtml?(requestId: string, html: string): void;
+    viewClick?(path: string, mods: { meta: boolean; ctrl: boolean; shift: boolean }): void;
+    selectAll?(): void;
+    clearSelection?(): void;
   },
   sendView: vi.fn(async () => {}),
   requestExport: vi.fn(async () => {}),
@@ -33,7 +36,9 @@ function fakeView(over: Partial<LayoutView> = {}): LayoutView {
     properties: [{ name: 'status', type: 'enum', options: ['todo', 'done'] }],
     visible: null, instances: rows, sorted: [rows[1]!, rows[0]!], sortColumn: 'title', sortDir: 'desc',
     readOnly: false, exportMode: false, onStateChange: vi.fn(), openRowMenu: vi.fn(),
-    display: (_p: unknown, v: string | null) => v ?? '', rowType: () => null, pluginExport: undefined,
+    display: (_p: unknown, v: string | null) => (v ? v.toUpperCase() : ''), rowType: () => null, pluginExport: undefined,
+    refPath: () => null, isSelected: (p: string) => p === 'a.md', selectable: true, rowMenu: true, group: null,
+    onRowClick: vi.fn(), selectAll: vi.fn(), clearSelection: vi.fn(),
     ...over,
   } as unknown as LayoutView;
 }
@@ -71,12 +76,13 @@ describe('PluginLayout (#2828)', () => {
       properties: [{ name: 'status', type: 'enum', options: ['todo', 'done'] }],
       visible: null,
       instances: [
-        { path: 'b.md', title: 'Bravo', values: { status: 'done' } },
-        { path: 'a.md', title: 'Alpha', values: { status: 'todo' }, tags: ['x'] },
+        { path: 'b.md', title: 'Bravo', values: { status: 'done' }, fields: [{ name: 'status', label: 'status', text: 'DONE' }] },
+        { path: 'a.md', title: 'Alpha', values: { status: 'todo' }, tags: ['x'], fields: [{ name: 'status', label: 'status', text: 'TODO' }] },
       ],
       sortColumn: 'title', sortDir: 'desc',
       spec: { groupBy: 'status', columnOrder: [] },
       readOnly: false, exportMode: false,
+      selected: ['a.md'], selectable: true, rowMenu: true,
     });
   });
 
@@ -137,5 +143,41 @@ describe('the kit gaps, for a layout (#2828, part B)', () => {
     await mounted();
     await new Promise((r) => setTimeout(r, 20));
     expect(h.requestExport).not.toHaveBeenCalled();
+  });
+});
+
+describe('prepared cards and the host\'s selection (#2828, C1)', () => {
+  const OWNER = { name: 'owner', type: 'link-to-type', label: 'Owner' };
+  const STATUS = { name: 'status', type: 'enum', options: ['todo', 'done'] };
+  const withLinks = () => fakeView({
+    properties: [STATUS, OWNER] as LayoutView['properties'],
+    group: STATUS as LayoutView['group'],
+    sorted: [{ path: 'a.md', title: 'Alpha', values: { status: 'todo', owner: 'Ann' }, cover: null }] as LayoutView['sorted'],
+    refPath: (p: { name: string }, v: string | null) => (p.name === 'owner' && v ? `people/${v.toLowerCase()}.md` : null),
+    rowType: () => ({ id: 'bug', label: 'Bug', classLocalName: 'Bug', properties: [], icon: '🐞', color: '#c00' }) as never,
+  });
+
+  it("draws the app's card: fields as display text, a board's grouping property left off, a link's note, its own icon", async () => {
+    await mounted(withLinks());
+    const inst = h.sendView.mock.calls.at(-1)![0].instances[0];
+    expect(inst.fields).toEqual([{ name: 'owner', label: 'Owner', text: 'ANN', ref: 'people/ann.md' }]);
+    expect(inst.icon).toEqual({ glyph: '🐞', label: 'Bug', color: '#c00' });
+  });
+
+  it('scopes the frame to the notes and the notes their links name', async () => {
+    await mounted(withLinks());
+    expect(h.connect.mock.calls.at(-1)![2]).toEqual(['a.md', 'people/ann.md']);
+  });
+
+  it("hands a click, ⌘A and Escape to the view's own selection", async () => {
+    const { view } = await mounted();
+    h.host!.viewClick!('a.md', { meta: true, ctrl: false, shift: false });
+    const [e, path] = (view.onRowClick as ReturnType<typeof vi.fn>).mock.calls[0]!;
+    expect(path).toBe('a.md');
+    expect((e as MouseEvent).metaKey).toBe(true);
+    h.host!.selectAll!();
+    h.host!.clearSelection!();
+    expect(view.selectAll).toHaveBeenCalledTimes(1);
+    expect(view.clearSelection).toHaveBeenCalledTimes(1);
   });
 });

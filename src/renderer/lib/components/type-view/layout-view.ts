@@ -84,6 +84,9 @@ export interface LayoutView {
   /** The row menu for these notes at a point in the window — a plugin layout's
    *  `ui.showNoteMenu` (#2828). */
   openRowMenu: (paths: readonly string[], clientX: number, clientY: number) => void;
+  /** ⌘A and Escape from a plugin layout (#2828): the view's own selection. */
+  selectAll: () => void;
+  clearSelection: () => void;
 
   onOpenNote: (path: string) => void;
   onStateChange: (patch: ViewStatePatch) => void;

@@ -9,8 +9,13 @@ import os from 'node:os';
 import path from 'node:path';
 import type { PluginPackage, PluginScan } from '../../../src/shared/plugins/format';
 
-const h = vi.hoisted((): { scan: PluginScan } => ({ scan: { plugins: [], errors: [] } }));
+const h = vi.hoisted((): { scan: PluginScan; core: Record<string, string[] | null> } => ({ scan: { plugins: [], errors: [] }, core: {} }));
 vi.mock('../../../src/main/plugins/registry', () => ({ getPluginScan: async () => h.scan }));
+// Built-in plugins (#2828): `core` maps an id to its capabilities while active (null: off).
+vi.mock('../../../src/main/plugins/core', () => ({ corePlugin: (id: string) => (id in h.core ? { manifest: { id } } : undefined) }));
+vi.mock('../../../src/main/plugins/code-plugins', () => ({
+  codePluginIdentity: (id: string) => (h.core[id] ? { id, name: id, version: '1.0.0', capabilities: h.core[id] } : null),
+}));
 
 import {
   parsePluginFrameRequest,
@@ -18,6 +23,7 @@ import {
   pluginFrameRoot,
   resolvePluginFrame,
   resolvePluginFrameFile,
+  setCorePluginViewsDir,
   PLUGIN_API_PATH,
   _servePluginFrameForE2E,
 } from '../../../src/main/plugins/frame-files';
@@ -43,7 +49,7 @@ beforeAll(() => {
   fs.writeFileSync(path.join(root, '@minerva', 'plugin-api.js'), 'window.fake = true;');
 });
 afterAll(() => fs.rmSync(tmp, { recursive: true, force: true }));
-beforeEach(() => { h.scan = { plugins: [], errors: [] }; });
+beforeEach(() => { h.scan = { plugins: [], errors: [] }; h.core = {}; });
 
 describe('parsePluginFrameRequest (#2824)', () => {
   it('names the plugin and the in-folder path; / is index.html; query and hash are ignored', () => {
@@ -149,5 +155,22 @@ describe('the plugin API at /@minerva/plugin-api.js (#2826)', () => {
   it("is reserved: the plugin's own file at that path is never served", async () => {
     expect(await resolvePluginFrameFile(`minerva-plugin://hostile/${PLUGIN_API_PATH}`, rootFor)).toBeNull();
     expect(await resolvePluginFrame('minerva-plugin://hostile/index.html', rootFor)).toEqual({ file: path.join(root, 'index.html') });
+  });
+});
+
+describe("a built-in plugin's view (#2828)", () => {
+  it('is served from the built views folder while the plugin is on and draws a view', async () => {
+    expect(await pluginFrameRoot('kanban')).toBeNull(); // not a built-in plugin here
+    h.core = { kanban: ['notes:read', 'ui'] };
+    expect(await pluginFrameRoot('kanban')).toBeNull(); // no folder set yet
+    setCorePluginViewsDir('/app/.vite/core-plugins');
+    expect(await pluginFrameRoot('kanban')).toBe(path.join('/app/.vite/core-plugins', 'kanban'));
+  });
+
+  it('is nothing while the plugin is off, or when it has no view (no ui)', async () => {
+    setCorePluginViewsDir('/app/.vite/core-plugins');
+    h.core = { kanban: null, python: ['process'] };
+    expect(await pluginFrameRoot('kanban')).toBeNull();
+    expect(await pluginFrameRoot('python')).toBeNull();
   });
 });

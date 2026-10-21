@@ -437,3 +437,20 @@ describe('the kit gaps for layouts (#2828, part B)', () => {
     }
   });
 });
+
+describe("the view's own selection (#2828, C1)", () => {
+  it('passes a click on a note it was given, ⌘A and Escape on as intents', async () => {
+    const s = open({ scope: ['a.md'] });
+    await s.call('view.click', { path: 'a.md', meta: true });
+    await s.call('view.click', { path: './a.md', shift: true, ctrl: 'yes' });
+    await s.call('view.selectAll');
+    await s.call('view.clearSelection');
+    expect(s.intents).toEqual([
+      { kind: 'viewClick', path: 'a.md', meta: true, ctrl: false, shift: false },
+      { kind: 'viewClick', path: 'a.md', meta: false, ctrl: false, shift: true },
+      { kind: 'selectAll' },
+      { kind: 'clearSelection' },
+    ]);
+    expect((await s.call('view.click', { path: 'b.md' })).error?.code).toBe('scope');
+  });
+});

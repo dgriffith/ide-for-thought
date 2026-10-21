@@ -18,7 +18,9 @@
   import type { LayoutView } from '../type-view/layout-view';
   import type { PluginFrameConnection } from '../../stores/plugin-sessions.svelte';
   import { layoutDef, type ViewLayout } from '../../../../shared/objects/view-layouts';
-  import type { PluginViewState } from '../../../../shared/plugins/api';
+  import type { PluginViewInstance, PluginViewState } from '../../../../shared/plugins/api';
+  import { selectInstanceCardFields } from '../../../../shared/objects/card';
+  import type { TypeInstanceRow } from '../../../../shared/objects/type-def';
   import { logger } from '../../../../shared/logger';
   import { tick } from 'svelte';
   import { PLUGIN_THEME_TOKENS } from '../../../../shared/plugins/frame';
@@ -42,7 +44,26 @@
   const requestId = crypto.randomUUID();
   let exported = $state<string | null>(null);
   let exportTokens = $state('');
-  const scope = $derived(view.sorted.map((i) => i.path));
+  // A board leaves its grouping property off its cards: the column says it.
+  const omit = $derived(layoutDef(layout).grouped && view.group ? [view.group.name] : []);
+
+  /** A note's card, as the app would draw it (#2828): fields as display text,
+   *  the note a link field names, and its own type's icon. */
+  function card(inst: TypeInstanceRow): Pick<PluginViewInstance, 'fields' | 'icon'> {
+    const byName = new Map(view.properties.map((p) => [p.name, p] as const));
+    const fields = selectInstanceCardFields(view.type, view.properties, inst, { visible: view.visible, omit }).map((f) => {
+      const prop = byName.get(f.name);
+      const ref = prop ? view.refPath(prop, f.value) : null;
+      return { name: f.name, label: f.label, text: prop ? view.display(prop, f.value) : f.value ?? '', ...(ref ? { ref } : {}) };
+    });
+    const rt = view.rowType(inst);
+    const icon = rt ? { glyph: rt.icon ?? '◆', label: rt.label, ...(rt.color ? { color: rt.color } : {}) } : undefined;
+    return { fields, ...(icon ? { icon } : {}) };
+  }
+
+  const cards = $derived(view.sorted.map((inst) => ({ inst, ...card(inst) })));
+  // The view's notes, and the notes their link fields name — for those notes' menus.
+  const scope = $derived([...new Set([...cards.map((c) => c.inst.path), ...cards.flatMap((c) => c.fields.flatMap((f) => (f.ref ? [f.ref] : [])))])]);
 
   /** The view as the plugin sees it: plain data, nothing reactive. */
   const viewState = $derived<PluginViewState>({
@@ -60,12 +81,17 @@
       ...(p.options ? { options: [...p.options] } : {}),
     })),
     visible: view.visible ? [...view.visible] : null,
-    instances: view.sorted.map((i) => ({ path: i.path, title: i.title, values: { ...i.values }, ...(i.tags ? { tags: [...i.tags] } : {}) })),
+    instances: cards.map(({ inst: i, fields, icon }) => ({
+      path: i.path, title: i.title, values: { ...i.values }, ...(i.tags ? { tags: [...i.tags] } : {}), fields, ...(icon ? { icon } : {}),
+    })),
     sortColumn: view.sortColumn,
     sortDir: view.sortDir,
     spec: JSON.parse(JSON.stringify(spec)) as Record<string, unknown>,
     readOnly: view.readOnly,
     exportMode: view.exportMode,
+    selected: view.sorted.filter((i) => view.isSelected(i.path)).map((i) => i.path),
+    selectable: view.selectable,
+    rowMenu: view.rowMenu,
   });
 
   $effect(() => {
@@ -127,6 +153,9 @@
       onNoteMenu={(paths, x, y) => view.openRowMenu(paths, x, y)}
       onExportHtml={(id, html) => { void onExportHtml(id, html); }}
       {hoverInstance}
+      onViewClick={(path, mods) => view.onRowClick(new MouseEvent('click', { metaKey: mods.meta, ctrlKey: mods.ctrl, shiftKey: mods.shift }), path)}
+      onSelectAll={() => view.selectAll()}
+      onClearSelection={() => view.clearSelection()}
     />
   </div>
 {/if}

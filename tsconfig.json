@@ -3,9 +3,11 @@
     "target": "ESNext",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    // All checked sources live under src/ (see `include`); pin rootDir so TS
-    // stops warning that it's inferring the common source directory.
-    "rootDir": "./src",
+    // Checked sources live under src/ and plugins/ (built-in plugin views,
+    // #2828); pin rootDir so TS stops warning that it's inferring it.
+    "rootDir": ".",
+    // A plugin view imports the API Minerva serves it; these are its types.
+    "paths": { "/@minerva/plugin-api.js": ["./plugin-api/index.d.ts"] },
     "strict": true,
     // Beyond `strict`: flag switch cases that fall through without an explicit
     // break/return/throw (#1007). Zero fallout at adoption time.
@@ -34,6 +36,6 @@
     "outDir": "dist",
     "declaration": true
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "plugins/**/*"],
   "exclude": ["node_modules", "dist", ".vite"]
 }

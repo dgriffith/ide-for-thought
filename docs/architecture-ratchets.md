@@ -28,7 +28,7 @@ what to do about it. `architecture-ratchets-doc.test.ts` keeps the two sides in
 step — a new test in `tests/architecture/` with no entry here fails, and an
 entry here naming a test that no longer exists fails too (#2262).
 
-Written up as of 2026-10-13, 54 tests.
+Written up as of 2026-10-13, 55 tests.
 
 ---
 
@@ -100,6 +100,17 @@ allocate a slot (`store.get(ctx)?.x ?? []`, not create-on-demand), and check
 detaches state deliberately.
 
 ---
+
+### `plugin-source-boundary.test.ts`
+
+**A built-in plugin's view reaches only what an installed plugin could**
+(#2828). Source in `plugins/<id>/` may import its own folder,
+`/@minerva/plugin-api.js` (the API Minerva serves, never bundled), pure
+modules from `src/shared/`, and npm packages — never `src/renderer/`,
+`src/main/`, another plugin's folder, Node or Electron. A built-in plugin that
+borrowed the app's stores would prove nothing about the API. **When it
+fires:** reach it through the plugin API instead; if the API can't do it, that
+is a gap to close in the API (`src/shared/plugins/api.ts`), for every plugin.
 
 ### `plugin-api-abi.test.ts`
 

@@ -6,15 +6,17 @@
  *
  * Only a plugin that is enabled AND declares the `ui` capability has a frame
  * root; every other id is a 404. Installed plugins can't declare `code` yet
- * (#2823, until #2833), and no built-in plugin ships view files yet, so in
- * the running app this serves nothing until kanban (#2828) brings the first.
- * Where a built-in plugin's files live inside the bundle is #2828's call.
+ * (#2823, until #2833). A built-in plugin's view is built from `plugins/<id>/`
+ * into `.vite/core-plugins/<id>/` (#2828) — inside app.asar when packaged —
+ * and served from there while the plugin is active.
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { hasIgnoredSegment } from '../../shared/ignored-dirs';
 import { PLUGIN_FRAME_SANDBOX, pluginIdOfUrl } from '../../shared/plugins/frame';
 import { getPluginScan } from './registry';
+import { corePlugin } from './core';
+import { codePluginIdentity } from './code-plugins';
 
 /** The folder plugin `id`'s frame is served from, or null if it has none. */
 export type PluginFrameRootLookup = (id: string) => Promise<string | null>;
@@ -29,10 +31,25 @@ export function _servePluginFrameForE2E(id: string, root: string): void {
   e2eRoots.set(id, root);
 }
 
+// Where built-in plugins' views were built to (#2828): set by main at startup.
+let coreViewsDir: string | null = null;
+
+/** Serve built-in plugins' views from `dir/<id>/` — `main.ts`, at startup. */
+export function setCorePluginViewsDir(dir: string): void {
+  coreViewsDir = dir;
+}
+
 /** The production lookup: an enabled plugin that declares `ui`. */
 export const pluginFrameRoot: PluginFrameRootLookup = async (id) => {
   const e2e = e2eRoots.get(id);
   if (e2e) return e2e;
+  if (corePlugin(id)) {
+    // Active, with a view: `codePluginIdentity` is null for a built-in plugin
+    // that is off, and its capabilities say whether it has a UI.
+    const identity = codePluginIdentity(id);
+    if (!coreViewsDir || !identity?.capabilities.includes('ui')) return null;
+    return path.join(coreViewsDir, id);
+  }
   const scan = await getPluginScan();
   const plugin = scan.plugins.find((p) => p.manifest.id === id);
   if (!plugin?.manifest.code?.capabilities.includes('ui')) return null;

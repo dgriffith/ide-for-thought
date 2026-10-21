@@ -349,6 +349,17 @@ export function createPluginSession(opts: PluginSessionOptions): PluginSession {
         deps.intent({ kind: 'exportHtml', requestId, html: stringParam(params, 'html') });
         return {};
       }
+      case 'view.click': {
+        const flag = (k: string) => params[k] === true;
+        deps.intent({ kind: 'viewClick', path: scoped(stringParam(params, 'path')), meta: flag('meta'), ctrl: flag('ctrl'), shift: flag('shift') });
+        return {};
+      }
+      case 'view.selectAll':
+        deps.intent({ kind: 'selectAll' });
+        return {};
+      case 'view.clearSelection':
+        deps.intent({ kind: 'clearSelection' });
+        return {};
       case 'llm.propose':
         throw new Refusal('unavailable', 'llm.propose is not available yet (#2858).');
     }

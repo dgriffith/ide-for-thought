@@ -22,7 +22,11 @@ export type PluginIntent =
   | { kind: 'previewNote'; path: string; rect: { x: number; y: number; width: number; height: number }; via: 'pointer' | 'focus' }
   | { kind: 'hidePreview'; path: string; via: 'pointer' | 'focus' }
   /** The plugin's answer to an export request: unsanitized HTML — the host sanitizes it (#2828). */
-  | { kind: 'exportHtml'; requestId: string; html: string };
+  | { kind: 'exportHtml'; requestId: string; html: string }
+  /** The view's own selection (#2828): a click on a note, ⌘A, Escape. */
+  | { kind: 'viewClick'; path: string; meta: boolean; ctrl: boolean; shift: boolean }
+  | { kind: 'selectAll' }
+  | { kind: 'clearSelection' };
 
 /** What the host tells main to pass on to a session's plugin (#2827). */
 export type PluginHostEvent =

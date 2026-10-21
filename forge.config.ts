@@ -117,6 +117,17 @@ function copyExternalDeps(buildPath: string): void {
 // the plugin's builds are done, and `vite.cli.config`'s `emptyOutDir:false` keeps
 // `main.cjs` intact. The build runs against the repo's node_modules (unaffected by
 // the app prune), and afterPrune is before signing, so the addition is signed.
+// Built-in plugins' views (#2828), built the same way and for the same reason
+// as cli.js above: their own Vite build, into `.vite/core-plugins/<id>/`,
+// copied in here so they land inside the signed app.asar and are served from
+// it at `minerva-plugin://<id>/` (src/main/plugins/frame-files.ts).
+function copyCorePluginViews(buildPath: string): void {
+  execFileSync('pnpm', ['core-plugins:build'], { stdio: 'inherit' });
+  const src = path.join(process.cwd(), '.vite', 'core-plugins');
+  if (!fs.existsSync(src)) throw new Error('[forge] core-plugins:build did not produce .vite/core-plugins');
+  fs.cpSync(src, path.join(buildPath, '.vite', 'core-plugins'), { recursive: true });
+}
+
 function copyCliBundle(buildPath: string): void {
   execFileSync('pnpm', ['cli:build'], { stdio: 'inherit' });
   const src = path.join(process.cwd(), '.vite', 'build', 'cli.js');
@@ -199,6 +210,7 @@ const config: ForgeConfig = {
       ({ buildPath }) => {
         copyExternalDeps(buildPath);
         copyCliBundle(buildPath);
+        copyCorePluginViews(buildPath);
       },
     ],
   },

@@ -14,6 +14,7 @@ import { registerBuiltinExporters } from './publish';
 import { installCsp, installGlobalWebContentsGuards, installPermissions, rendererCsp } from './security';
 import { installAppProtocol, registerAppScheme } from './app-protocol';
 import { installPluginProtocol } from './plugin-protocol';
+import { setCorePluginViewsDir } from './plugins/frame-files';
 import { APP_ORIGIN } from './app-protocol-paths';
 import { devServerOrigin, rendererRoot } from './renderer-entry';
 import { registerLegacyStorageMigration } from './legacy-storage-migration';
@@ -93,6 +94,9 @@ function startApp(): void {
     // Plugin frames (#2824), embeddable by the renderer's origin only.
     const dev = devServerOrigin();
     installPluginProtocol([APP_ORIGIN, ...(dev ? [new URL(dev).origin] : [])]);
+    // Built-in plugins' views (#2828): built by `pnpm core-plugins:build`, and
+    // inside app.asar when packaged — app.getAppPath() is the asar either way.
+    setCorePluginViewsDir(path.join(app.getAppPath(), '.vite', 'core-plugins'));
     registerLegacyStorageMigration();
     boot('csp installed');
     registerIpcHandlers();

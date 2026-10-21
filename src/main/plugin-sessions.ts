@@ -106,12 +106,19 @@ export function sendPluginSessionEvent(win: BrowserWindow, sessionId: string, ev
   }
   if (event.kind === 'view') {
     // The view's notes are what the session may reach: the host scopes it to
-    // exactly the instances it sends, and a refused path is left out of both.
+    // exactly the instances it sends, and the notes their link fields name
+    // (for those notes' menus, #2828); a refused path is left out of both.
     const state = event.state;
     if (state === null || typeof state !== 'object' || !Array.isArray(state.instances)) throw new Error('A view event carries a view state.');
-    entry.session.setScope(state.instances.map((i) => i.path));
+    const refs = state.instances.flatMap((i) => (Array.isArray(i.fields) ? i.fields.flatMap((f) => (typeof f.ref === 'string' ? [f.ref] : [])) : []));
+    entry.session.setScope([...state.instances.map((i) => i.path), ...refs]);
     const scope = new Set(entry.session.scope());
-    entry.session.emit('view', { ...state, instances: state.instances.filter((i) => scope.has(i.path)) });
+    entry.session.emit('view', {
+      ...state,
+      instances: state.instances
+        .filter((i) => scope.has(i.path))
+        .map((i) => ({ ...i, fields: (i.fields ?? []).map((f) => (f.ref && !scope.has(f.ref) ? { name: f.name, label: f.label, text: f.text } : f)) })),
+    });
     return;
   }
   // A drop is the user's gesture: the notes join the scope before the plugin hears of them.
