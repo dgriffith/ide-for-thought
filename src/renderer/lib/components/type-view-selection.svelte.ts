@@ -72,6 +72,15 @@ export function createTypeViewSelection(opts: TypeViewSelectionOptions) {
     menu = { x, y };
   }
 
+  /** ⌘A and Escape from a plugin layout (#2828), with the keydown's rules. */
+  function selectAll(): void {
+    if (opts.enabled() && !menuOnly()) selection.selectAll(opts.order());
+  }
+  function clear(): void {
+    menu = null;
+    selection.clear();
+  }
+
   function closeMenu(): void {
     const wasTarget = !!menu?.target;
     menu = null;
@@ -109,6 +118,8 @@ export function createTypeViewSelection(opts: TypeViewSelectionOptions) {
     contextMenu,
     contextMenuFor,
     openMenuFor,
+    selectAll,
+    clear,
     keydown,
     editSelected,
     closeMenu,

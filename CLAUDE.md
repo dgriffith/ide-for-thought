@@ -1262,7 +1262,7 @@ untested ones sit in a `KNOWN_UNTESTED` list that may only shrink.
 
 ### The architecture ratchets are inventoried in `docs/architecture-ratchets.md` (#2262)
 
-`tests/architecture/` holds **54** tests that check the shape of the codebase
+`tests/architecture/` holds **55** tests that check the shape of the codebase
 rather than the behavior of any feature — the package-cycle check, the file-size
 budgets, the anti-pattern ratchets, the dialog-adoption ratchet, the two
 temp-project-fixture ratchets, the CI-workflow checks, and so on. Most of them
@@ -1771,7 +1771,14 @@ origin.
   off it isn't offered and a saved view shows the table. Its note menu is the
   view's own (`ui.showNoteMenu`), its previews the app's, and its export is
   plugin HTML through `sanitizePluginExportHtml` — no URL survives it, since
-  the markup is mounted in the app's renderer while it's snapshotted.
+  the markup is mounted in the app's renderer while it's snapshotted. **A
+  built-in plugin's view lives in `plugins/<id>/`** with its own Vite build
+  (`pnpm core-plugins:build` → `.vite/core-plugins/<id>/`, packaged by
+  `afterPrune`), and may import only its folder, `/@minerva/plugin-api.js`,
+  `src/shared/` and npm packages (`plugin-source-boundary.test.ts`). The plugin
+  API generator compares object support types member by member, by direction:
+  a field added to what a plugin reads is an addition, a required field added
+  to what it sends is breaking.
 
 ### Code Review Checklist for LLM/Graph PRs
 

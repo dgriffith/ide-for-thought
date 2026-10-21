@@ -296,3 +296,24 @@ describe('export requests (#2828, part B)', () => {
     w.closeWindow();
   });
 });
+
+describe('a view event names linked notes too (#2828, C1)', () => {
+  it("scopes the session to the view's notes and the notes their link fields name; a refused link loses its ref", async () => {
+    const w = fakeWindow(1);
+    const { sessionId } = openPluginSession(w.win, 'board', []);
+    const port = w.posted[0]!.ports[0]!;
+    const events: Array<{ event: string; data: { instances: Array<{ path: string; fields: Array<{ ref?: string }> }> } }> = [];
+    port.on('message', (e: { data: string }) => { const m = JSON.parse(e.data); if (m.event) events.push(m); });
+    const call = pluginEnd(port);
+    const inst = (path: string, refs: string[]) => ({ path, title: path, values: {}, fields: refs.map((r) => ({ name: 'owner', label: 'Owner', text: r, ref: r })) });
+    sendPluginSessionEvent(w.win, sessionId, { kind: 'view', state: {
+      layout: 'kanban', type: { id: 't', label: 'T' }, properties: [], visible: null,
+      instances: [inst('a.md', ['people/ann.md', '.minerva/secrets.json'])],
+      sortColumn: null, sortDir: 'asc', spec: {}, readOnly: false, exportMode: false, selected: [], selectable: true, rowMenu: true,
+    } });
+    await vi.waitFor(() => expect(events).toHaveLength(1));
+    expect((await call('notes.list')).result).toEqual({ paths: ['a.md', 'people/ann.md'] });
+    expect(events[0]!.data.instances[0]!.fields.map((f) => f.ref)).toEqual(['people/ann.md', undefined]);
+    w.closeWindow();
+  });
+});

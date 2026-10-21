@@ -304,6 +304,24 @@ What a layout needs that the kit didn't have (part B):
   turns into note links. It is drawn in the frame's place, with the export
   theme's tokens inline, and that is what the export snapshots.
 
+**Built-in plugin views (#2828, C1).** A built-in plugin's view is source in
+`plugins/<id>/` — outside `src/`, with its own Vite build
+(`vite.core-plugins.config.mts`, `pnpm core-plugins:build`) into
+`.vite/core-plugins/<id>/`, copied into app.asar by `afterPrune` beside the
+CLI — and served at `minerva-plugin://<id>/` while the plugin is on. Not a
+Forge renderer entry: under `pnpm dev` that would come from the Vite dev
+server, which the frame's `script-src 'self'` can't load. The plugin API is
+external, the copy Minerva serves. `plugin-source-boundary.test.ts` holds the
+source to what an installed plugin could reach: its own folder, the API,
+`src/shared/` and npm packages.
+
+The `view` event carries each note's **card as the app would draw it** — its
+fields as display text, the note a link field names (which joins the scope,
+for that note's menu), its own type's icon — so a plugin never needs the type
+catalog or other notes' titles. **Selection stays the host's**: `view.click`,
+`view.selectAll` and `view.clearSelection` go through the view's own
+selection, and the state carries `selected`.
+
 ### Kanban, timeline and calendar, on by default
 
 **Decision:** the three `view-layouts` beyond list, table, gallery and map

@@ -372,6 +372,8 @@
     refPath: (prop, value) => (noteActions && prop.type === 'link-to-type' && value ? notePathForIri(value, knownNotePaths) : null),
     onRefContextMenu: (e, p, label) => { refLabel = label; sel.contextMenuFor(e, p); },
     openRowMenu: (paths, x, y) => sel.openMenuFor(paths, x, y),
+    selectAll: () => sel.selectAll(),
+    clearSelection: () => sel.clear(),
     onOpenNote: (p) => onOpenNote(p),
     onStateChange: (p) => onStateChange(p),
     get readOnly() { return chromeless; },

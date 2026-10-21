@@ -1,5 +1,5 @@
 {
-  "version": "1.3.0",
+  "version": "1.4.0",
   "errorCodes": [
     "bad-request",
     "busy",
@@ -12,9 +12,11 @@
   ],
   "types": {
     "PluginMenuItem": "{ id: string; label: string; enabled?: boolean } | { separator: true }",
-    "PluginViewInstance": "{ path: string; title: string; values: Record<string, string | null>; tags?: string[] }",
+    "PluginViewField": "{ name: string; label: string; text: string; ref?: string }",
+    "PluginViewIcon": "{ glyph: string; color?: string; label: string }",
+    "PluginViewInstance": "{ path: string; title: string; values: Record<string, string | null>; tags?: string[]; fields: PluginViewField[]; icon?: PluginViewIcon; }",
     "PluginViewProperty": "{ name: string; type: string; label?: string; options?: string[] }",
-    "PluginViewState": "{ layout: string; type: { id: string; label: string; icon?: string; color?: string }; /** The type's effective properties, in declared order. */ properties: PluginViewProperty[]; /** The view's visible property names; null = all. */ visible: string[] | null; /** The notes the view shows, filtered, in the view's sort order. */ instances: PluginViewInstance[]; sortColumn: string | null; sortDir: 'asc' | 'desc'; /** The layout's own spec fields (a board's `groupBy`, `columnOrder`, …). */ spec: Record<string, unknown>; /** An embed or export: nothing that writes the spec or a note. */ readOnly: boolean; /** Drawing for an export snapshot. */ exportMode: boolean; }"
+    "PluginViewState": "{ layout: string; type: { id: string; label: string; icon?: string; color?: string }; /** The type's effective properties, in declared order. */ properties: PluginViewProperty[]; /** The view's visible property names; null = all. */ visible: string[] | null; /** The notes the view shows, filtered, in the view's sort order. */ instances: PluginViewInstance[]; sortColumn: string | null; sortDir: 'asc' | 'desc'; /** The layout's own spec fields (a board's `groupBy`, `columnOrder`, …). */ spec: Record<string, unknown>; /** An embed or export: nothing that writes the spec or a note. */ readOnly: boolean; /** Drawing for an export snapshot. */ exportMode: boolean; /** The notes selected in the view (#2828) — the host's selection, drawn by the plugin. */ selected: string[]; /** The view multi-selects (the panel); false in an embed or export. */ selectable: boolean; /** A note has a menu (`ui.showNoteMenu`), so it takes focus and the menu key. */ rowMenu: boolean; }"
   },
   "events": {
     "drop": {
@@ -463,6 +465,45 @@
         "text": "Record<string, never>"
       }
     },
+    "view.clearSelection": {
+      "capability": "ui",
+      "params": {
+        "text": "Record<string, never>"
+      },
+      "result": {
+        "text": "Record<string, never>"
+      }
+    },
+    "view.click": {
+      "capability": "ui",
+      "params": {
+        "members": [
+          {
+            "name": "ctrl",
+            "optional": true,
+            "type": "boolean"
+          },
+          {
+            "name": "meta",
+            "optional": true,
+            "type": "boolean"
+          },
+          {
+            "name": "path",
+            "optional": false,
+            "type": "string"
+          },
+          {
+            "name": "shift",
+            "optional": true,
+            "type": "boolean"
+          }
+        ]
+      },
+      "result": {
+        "text": "Record<string, never>"
+      }
+    },
     "view.provideExport": {
       "capability": "ui",
       "params": {
@@ -478,6 +519,15 @@
             "type": "string"
           }
         ]
+      },
+      "result": {
+        "text": "Record<string, never>"
+      }
+    },
+    "view.selectAll": {
+      "capability": "ui",
+      "params": {
+        "text": "Record<string, never>"
       },
       "result": {
         "text": "Record<string, never>"

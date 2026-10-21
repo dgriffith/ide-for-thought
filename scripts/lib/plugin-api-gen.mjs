@@ -153,11 +153,29 @@ export function compareAbi(prev, next) {
     else compareShape(`event ${name}`, was, now, 'result', breaking, additions);
   }
   for (const name of Object.keys(next.events ?? {})) if (!(prev.events ?? {})[name]) additions.push(`event ${name} added`);
-  // A support type is compared as text: any change to one already used is breaking.
+  // A support type: an object type is compared member by member, by which
+  // way it travels — a plugin SENDS params (a new required member breaks it)
+  // and READS results and events (a new member doesn't). Anything else is
+  // compared as text, and any change to it is breaking.
+  const sides = typeSides(next);
   for (const [name, text] of Object.entries(prev.types ?? {})) {
     const now = (next.types ?? {})[name];
-    if (now === undefined) breaking.push(`type ${name} removed`);
-    else if (now !== text) breaking.push(`type ${name} changed from ${text} to ${now}`);
+    if (now === undefined) { breaking.push(`type ${name} removed`); continue; }
+    if (now === text) continue;
+    const was = parseTypeShape(text);
+    const is = parseTypeShape(now);
+    if (!was.members || !is.members) { breaking.push(`type ${name} changed from ${text} to ${now}`); continue; }
+    const b = new Set();
+    const a = new Set();
+    for (const side of sides.get(name) ?? ['params', 'result']) {
+      const bb = [];
+      const aa = [];
+      compareShape(`type ${name}`, was, is, side, bb, aa);
+      bb.forEach((x) => b.add(x));
+      aa.forEach((x) => a.add(x));
+    }
+    breaking.push(...b);
+    for (const x of a) if (!b.has(x)) additions.push(x);
   }
   for (const name of Object.keys(next.types ?? {})) if (!(prev.types ?? {})[name]) additions.push(`type ${name} added`);
   return { breaking, additions };
@@ -335,6 +353,44 @@ function client(port, hostVersion, options) {
   return api;
 }
 `;
+}
+
+/** A type's text as the ABI compares it: a type literal's members, else its text. */
+function parseTypeShape(text) {
+  const sf = ts.createSourceFile('t.ts', `type T = ${text};`, ts.ScriptTarget.Latest, true);
+  const alias = sf.statements.find(ts.isTypeAliasDeclaration);
+  return alias ? shapeOf(alias.type, sf) : { text };
+}
+
+/**
+ * Which way each support type travels: `params` when a method's params name
+ * it (directly or through another support type), `result` when a result or an
+ * event does. A type on both sides is held to both rules.
+ */
+function typeSides(abi) {
+  const names = Object.keys(abi.types ?? {});
+  const mentions = (value, name) => new RegExp(`\\b${name}\\b`).test(JSON.stringify(value));
+  const sides = new Map(names.map((n) => [n, new Set()]));
+  for (const n of names) {
+    for (const m of Object.values(abi.methods)) {
+      if (mentions(m.params, n)) sides.get(n).add('params');
+      if (mentions(m.result, n)) sides.get(n).add('result');
+    }
+    for (const e of Object.values(abi.events ?? {})) if (mentions(e, n)) sides.get(n).add('result');
+  }
+  // Through other support types, until nothing changes.
+  for (let changed = true; changed;) {
+    changed = false;
+    for (const outer of names) {
+      for (const inner of names) {
+        if (inner === outer || !mentions(abi.types[outer], inner)) continue;
+        for (const side of sides.get(outer)) {
+          if (!sides.get(inner).has(side)) { sides.get(inner).add(side); changed = true; }
+        }
+      }
+    }
+  }
+  return new Map([...sides].map(([n, set]) => [n, [...set]]));
 }
 
 /** The types for `index.js`. */

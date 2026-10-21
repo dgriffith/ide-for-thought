@@ -28,7 +28,7 @@ import type { PluginCapability } from './capabilities';
  * The API's semver version (#2826), its own and not the app's: the host sends
  * it with the port, and a plugin's `code.api` range must accept it.
  */
-export const PLUGIN_API_VERSION = '1.3.0';
+export const PLUGIN_API_VERSION = '1.4.0';
 
 export const PLUGIN_METHODS = {
   'notes.list': { capability: 'notes:read', describes: 'The notes this view or call was given.' },
@@ -50,6 +50,9 @@ export const PLUGIN_METHODS = {
   'ui.previewNote': { capability: 'ui', describes: "Show Minerva's hover preview of a note it was given, beside a box in the frame." },
   'ui.hidePreview': { capability: 'ui', describes: 'Let the hover preview of a note go.' },
   'view.provideExport': { capability: 'ui', describes: "Answer an export request: the view as static HTML, inline styles only; Minerva sanitizes it." },
+  'view.click': { capability: 'ui', describes: "Click a note in the view, as the view's own rows are: a plain click opens it, ⌘/⇧ select." },
+  'view.selectAll': { capability: 'ui', describes: "Select every note in the view (⌘A)." },
+  'view.clearSelection': { capability: 'ui', describes: "Clear the view's selection (Escape)." },
   'llm.propose': { capability: 'llm:propose', describes: 'Ask the assistant for changes. Not available yet (#2858).' },
 } as const satisfies Record<string, { capability: PluginCapability; describes: string }>;
 
@@ -80,6 +83,9 @@ export interface PluginMethodParams {
   'ui.previewNote': { path: string; x: number; y: number; width: number; height: number; via?: 'pointer' | 'focus' };
   'ui.hidePreview': { path: string; via?: 'pointer' | 'focus' };
   'view.provideExport': { requestId: string; html: string };
+  'view.click': { path: string; meta?: boolean; ctrl?: boolean; shift?: boolean };
+  'view.selectAll': Record<string, never>;
+  'view.clearSelection': Record<string, never>;
   'llm.propose': Record<string, unknown>;
 }
 
@@ -107,6 +113,9 @@ export interface PluginMethodResults {
   'ui.previewNote': Record<string, never>;
   'ui.hidePreview': Record<string, never>;
   'view.provideExport': Record<string, never>;
+  'view.click': Record<string, never>;
+  'view.selectAll': Record<string, never>;
+  'view.clearSelection': Record<string, never>;
   'llm.propose': never;
 }
 
@@ -150,13 +159,37 @@ export type PluginViewState = {
   readOnly: boolean;
   /** Drawing for an export snapshot. */
   exportMode: boolean;
+  /** The notes selected in the view (#2828) — the host's selection, drawn by the plugin. */
+  selected: string[];
+  /** The view multi-selects (the panel); false in an embed or export. */
+  selectable: boolean;
+  /** A note has a menu (`ui.showNoteMenu`), so it takes focus and the menu key. */
+  rowMenu: boolean;
 };
 
 /** One of a type's properties. */
 export type PluginViewProperty = { name: string; type: string; label?: string; options?: string[] };
 
-/** One note in a view: its declared property values, null where unset. */
-export type PluginViewInstance = { path: string; title: string; values: Record<string, string | null>; tags?: string[] };
+/**
+ * One note in a view: its declared property values (null where unset), and —
+ * prepared by Minerva (#2828), so a plugin draws what the app would — its card
+ * fields as display text, with the note a link field names, and its own type's
+ * icon (a subtype's, in a parent's view).
+ */
+export type PluginViewInstance = {
+  path: string;
+  title: string;
+  values: Record<string, string | null>;
+  tags?: string[];
+  fields: PluginViewField[];
+  icon?: PluginViewIcon;
+};
+
+/** One field on a note's card: as the app shows it, and the note a link names. */
+export type PluginViewField = { name: string; label: string; text: string; ref?: string };
+
+/** A type's icon: a glyph (an emoji, usually), its colour, and what it reads as. */
+export type PluginViewIcon = { glyph: string; color?: string; label: string };
 
 export type PluginEventName = keyof PluginEvents;
 

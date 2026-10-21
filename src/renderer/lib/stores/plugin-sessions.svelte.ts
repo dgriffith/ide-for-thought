@@ -60,6 +60,10 @@ export interface PluginFrameHost {
   hidePreview?(path: string, via: 'pointer' | 'focus'): void;
   /** The plugin's answer to an export request — unsanitized (#2828). */
   exportHtml?(requestId: string, html: string): void;
+  /** The view's own selection (#2828). */
+  viewClick?(path: string, mods: { meta: boolean; ctrl: boolean; shift: boolean }): void;
+  selectAll?(): void;
+  clearSelection?(): void;
 }
 
 /** What the app does for every plugin view. */
@@ -124,6 +128,15 @@ function onIntent({ sessionId, pluginId, intent }: PluginIntentEvent): void {
       return;
     case 'exportHtml':
       hosts.get(sessionId)?.exportHtml?.(intent.requestId, intent.html);
+      return;
+    case 'viewClick':
+      hosts.get(sessionId)?.viewClick?.(intent.path, { meta: intent.meta, ctrl: intent.ctrl, shift: intent.shift });
+      return;
+    case 'selectAll':
+      hosts.get(sessionId)?.selectAll?.();
+      return;
+    case 'clearSelection':
+      hosts.get(sessionId)?.clearSelection?.();
       return;
     case 'key': {
       const id = forwardableCommand(intent);

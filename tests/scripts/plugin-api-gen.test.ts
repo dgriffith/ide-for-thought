@@ -143,3 +143,35 @@ describe('events and support types in the ABI (#2827)', () => {
     expect(compareAbi(base(), withEvents()).breaking).toEqual([]);
   });
 });
+
+describe('support types are compared by the way they travel (#2828)', () => {
+  const abi = (stateType: string, itemType: string): Abi => ({
+    ...base(),
+    types: { PluginViewState: stateType, PluginMenuItem: itemType },
+    events: { view: { text: 'PluginViewState' } },
+    methods: {
+      ...base().methods,
+      'ui.showMenu': { capability: 'ui', params: { members: [field('items', 'PluginMenuItem[]')] }, result: { members: [] } },
+    },
+  });
+
+  it('a field added to a type the plugin reads (an event) is an addition', () => {
+    const r = compareAbi(abi('{ layout: string }', '{ id: string }'), abi('{ layout: string; selected: string[] }', '{ id: string }'));
+    expect(r).toEqual({ breaking: [], additions: ['type PluginViewState: "selected" added'] });
+  });
+
+  it('a field removed from a type the plugin reads is breaking', () => {
+    expect(compareAbi(abi('{ layout: string; selected: string[] }', '{ id: string }'), abi('{ layout: string }', '{ id: string }')).breaking)
+      .toEqual(['type PluginViewState: "selected" removed']);
+  });
+
+  it('a required field added to a type the plugin sends (params) is breaking; an optional one is not', () => {
+    expect(compareAbi(abi('{ layout: string }', '{ id: string }'), abi('{ layout: string }', '{ id: string; label: string }')).breaking)
+      .toEqual(['type PluginMenuItem: new required "label"']);
+    expect(compareAbi(abi('{ layout: string }', '{ id: string }'), abi('{ layout: string }', '{ id: string; label?: string }')).breaking).toEqual([]);
+  });
+
+  it('a type that is not an object is compared as text', () => {
+    expect(compareAbi(abi('{ layout: string }', 'string'), abi('{ layout: string }', 'number')).breaking).toHaveLength(1);
+  });
+});

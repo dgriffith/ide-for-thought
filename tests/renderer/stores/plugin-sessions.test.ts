@@ -165,6 +165,19 @@ describe('intents (#2825, #2827)', () => {
     expect(h.sendSessionEvent).toHaveBeenLastCalledWith('k1', { kind: 'exportRequest', requestId: 'r2' });
   });
 
+  it("routes the view's selection intents to the frame's host", async () => {
+    const host = { releaseFocus: vi.fn(), viewClick: vi.fn(), selectAll: vi.fn(), clearSelection: vi.fn() };
+    h.openSession.mockImplementation(async () => { queueMicrotask(() => deliverPort('sel')); return { sessionId: 'sel' }; });
+    await connectPluginFrame(fakeFrame().frame, 'kanban', [], host);
+    const send = (intent: unknown) => h.intent!({ sessionId: 'sel', pluginId: 'kanban', intent });
+    send({ kind: 'viewClick', path: 'a.md', meta: true, ctrl: false, shift: false });
+    send({ kind: 'selectAll' });
+    send({ kind: 'clearSelection' });
+    expect(host.viewClick).toHaveBeenCalledWith('a.md', { meta: true, ctrl: false, shift: false });
+    expect(host.selectAll).toHaveBeenCalledTimes(1);
+    expect(host.clearSelection).toHaveBeenCalledTimes(1);
+  });
+
   it('sends the theme and a drop as session events', async () => {
     h.openSession.mockImplementation(async () => { queueMicrotask(() => deliverPort('s4')); return { sessionId: 's4' }; });
     const conn = await connectPluginFrame(fakeFrame().frame, 'board', []);

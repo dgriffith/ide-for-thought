@@ -143,3 +143,23 @@ describe('openMenuFor — a plugin layout asking for the row menu (#2828)', () =
     expect(sel.menu).toBeNull();
   });
 });
+
+describe('selectAll / clear — ⌘A and Escape from a plugin layout (#2828)', () => {
+  it('selects every row in a panel, and clears selection and menu', () => {
+    const { sel } = make('panel');
+    sel.selectAll();
+    expect(sel.selectedPaths).toEqual(ORDER);
+    sel.openMenuFor(['a.md'], 1, 1);
+    sel.clear();
+    expect(sel.selectedPaths).toEqual([]);
+    expect(sel.menu).toBeNull();
+  });
+
+  it('selects nothing in an embed', () => {
+    for (const mode of ['menuOnly', 'off'] as const) {
+      const { sel } = make(mode);
+      sel.selectAll();
+      expect(sel.selectedPaths, mode).toEqual([]);
+    }
+  });
+});

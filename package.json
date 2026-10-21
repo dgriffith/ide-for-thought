@@ -18,7 +18,8 @@
   },
   "scripts": {
     "prepare": "git config core.hooksPath .githooks || true",
-    "dev": "electron-forge start",
+    "dev": "node scripts/build-core-plugins.mjs && electron-forge start",
+    "core-plugins:build": "node scripts/build-core-plugins.mjs",
     "cli:build": "vite build --config vite.cli.config.mts && chmod +x .vite/build/cli.js",
     "cli": "pnpm cli:build && node .vite/build/cli.js",
     "build": "electron-forge make",
