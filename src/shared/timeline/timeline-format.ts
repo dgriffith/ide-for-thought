@@ -12,7 +12,7 @@
  *
  * `locale` is the viewer's (undefined) in the app; tests pin one.
  */
-import type { DatePrecision } from '../../../../shared/objects/date-precision';
+import type { DatePrecision } from '../objects/date-precision';
 
 /** The (proleptic, astronomical) year of a civil ms. */
 export function civilYear(ms: number): number {

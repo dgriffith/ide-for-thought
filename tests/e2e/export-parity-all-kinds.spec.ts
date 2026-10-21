@@ -124,7 +124,7 @@ test('a note with every live kind exports each one rendered, no raw source left 
       const drawing = /<svg[^>]*class="tl-plot[\s\S]*?<\/svg>/.exec(html)?.[0] ?? '';
       for (const title of ['Moon landing', 'Apollo 11', 'Splashdown debrief']) {
         expect(drawing, `${title} drawn`).toContain(title);
-        expect(html, `${title} listed`).toMatch(new RegExp(`class="tl-list-title[^"]*">${title}<`));
+        expect(html, `${title} listed`).toMatch(new RegExp(`class="tl-list-title[^"]*"[^>]*>${title}<`));
       }
       // The Calendar, in export mode: July 1969 as a static table, each event in its cell (Apollo 11 as a bar).
       expect(html).toMatch(/class="cal[^"]*\bcal-export\b/);

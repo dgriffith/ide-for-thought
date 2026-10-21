@@ -1,16 +1,21 @@
 /**
  * @vitest-environment happy-dom
  *
- * The Timeline layout (#2608): points and bars, partial dates drawn as
- * hatched spans, lanes for overlaps, the Undated tray, every keyboard binding
- * on a single roving tab stop, zoom/pan/Fit writing `from`/`to` back (Fit
- * bounded by a range filter), a backwards `end` flagged on the hover card,
- * the list alternative, the read-only embed, and export mode (#2609).
+ * The Timeline layout (#2608), as the Timeline plugin draws it (#2829):
+ * points and bars, partial dates drawn as hatched spans, lanes for overlaps,
+ * the Undated tray, every keyboard binding on a single roving tab stop,
+ * zoom/pan/Fit writing `from`/`to` back through `view.setState` (Fit bounded
+ * by a range filter), the preview it asks the app for — a backwards `end`
+ * flagged on it — the list alternative, the read-only embed, and export
+ * mode (#2609). The view is built the way the host builds it, and the
+ * plugin API is a fake that records each call.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, fireEvent, cleanup, screen, within, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
-import TypeViewTimeline from '../../../src/renderer/lib/components/TypeViewTimeline.svelte';
+import Timeline from '../../../plugins/timeline/src/Timeline.svelte';
+import type { PluginViewState } from '../../../plugin-api/index';
+import { fakeMinerva } from '../kanban/fixtures';
 import { civilMs } from '../../../src/shared/objects/date-precision';
 import { timelineDomain } from '../../../src/shared/objects/timeline';
 import type { TypeInstanceRow } from '../../../src/shared/objects/type-def';
@@ -18,8 +23,8 @@ import { silenceLogTags } from '../../helpers/quiet-logs';
 
 const exportFails = vi.hoisted(() => ({ on: false }));
 // Lets one test make the export drawing throw, to see the fallback list.
-vi.mock('../../../src/renderer/lib/components/timeline/timeline-export', async (orig) => {
-  const real = await orig<typeof import('../../../src/renderer/lib/components/timeline/timeline-export')>();
+vi.mock('../../../plugins/timeline/src/timeline-export', async (orig) => {
+  const real = await orig<typeof import('../../../plugins/timeline/src/timeline-export')>();
   return {
     ...real,
     planTimelineExport: (...args: Parameters<typeof real.planTimelineExport>) => {
@@ -52,27 +57,51 @@ const EVENTS = [
   row('bad.md', 'Bad date', '1969-02-30'),
 ];
 
-function setup(over: Record<string, unknown> = {}) {
+type Over = {
+  instances?: TypeInstanceRow[];
+  properties?: typeof EVENT.properties;
+  filters?: PluginViewState['filters'];
+  from?: string | null;
+  to?: string | null;
+  dateBy?: string | null;
+  readOnly?: boolean;
+  exportMode?: boolean;
+};
+
+/** The view as Minerva sends it (`PluginLayout`): the spec's own fields, the filters, the instances. */
+function viewOf(o: Over): PluginViewState {
+  const properties = o.properties ?? EVENT.properties;
+  return {
+    layout: 'timeline',
+    type: { id: EVENT.id, label: EVENT.label, icon: EVENT.icon },
+    properties: properties.map((p) => ({ name: p.name, type: p.type, ...('label' in p && p.label ? { label: p.label } : {}) })),
+    visible: null,
+    instances: (o.instances ?? EVENTS).map((i) => ({ path: i.path, title: i.title, values: { ...i.values }, fields: [] })),
+    sortColumn: null, sortDir: 'asc',
+    spec: { from: o.from ?? null, to: o.to ?? null, dateBy: o.dateBy ?? null },
+    filters: o.filters ?? [],
+    readOnly: o.readOnly ?? false, exportMode: o.exportMode ?? false,
+    selected: [], selectable: false, rowMenu: false,
+    groupProperty: null, groups: [], movable: false, canUndoMove: false, lastMove: null,
+  };
+}
+
+function setup(over: Over = {}) {
+  const api = fakeMinerva();
+  // What the old component's callbacks were, read off the calls the plugin makes.
   const onStateChange = vi.fn();
   const onOpenNote = vi.fn();
-  const utils = render(TypeViewTimeline, {
-    type: EVENT,
-    properties: EVENT.properties,
-    instances: EVENTS,
-    filters: [],
-    from: null,
-    to: null,
-    display: (_p: unknown, v: string | null) => v ?? '',
-    rowType: () => EVENT,
-    onOpenNote,
-    onStateChange,
-    locale: 'en-GB',
-    ...over,
-  });
+  const m = api.minerva as unknown as { view: Record<string, (p: never) => Promise<unknown>> };
+  m.view['setState'] = vi.fn(async (p: { patch: Record<string, unknown> }) => { api.calls.push({ method: 'view.setState', params: p }); onStateChange(p.patch); return {}; });
+  m.view['click'] = vi.fn(async (p: { path: string }) => { api.calls.push({ method: 'view.click', params: p }); onOpenNote(p.path); return {}; });
+  let current: Over = { ...over };
+  const utils = render(Timeline, { minerva: api.minerva, view: viewOf(current), locale: 'en-GB' });
   const event = (path: string) => utils.container.querySelector<SVGGElement>(`[data-timeline-event][data-note-path="${path}"]`)!;
   const plot = () => utils.container.querySelector<SVGSVGElement>('.tl-plot')!;
   const domain = () => ({ start: Number(plot().dataset['domainStart']), end: Number(plot().dataset['domainEnd']) });
-  return { ...utils, onStateChange, onOpenNote, event, plot, domain };
+  /** A new view from Minerva, as the old component got new props. */
+  const rerender = async (patch: Over) => { current = { ...current, ...patch }; await utils.rerender({ view: viewOf(current) }); };
+  return { ...utils, rerender, api, onStateChange, onOpenNote, event, plot, domain };
 }
 
 afterEach(() => { cleanup(); vi.useRealTimers(); });
@@ -180,32 +209,38 @@ describe('opening and the hover card', () => {
     expect(onOpenNote).toHaveBeenCalledWith('moon.md');
   });
 
-  // The hover is the shared NoteHoverPreview (#2710): it opens after the
-  // link-hover delay and closes after a short grace, hence the waits.
-  it('hovering shows the preview: dates and the type\'s fields', async () => {
-    setup();
-    const { event } = { event: (p: string) => document.querySelector<SVGGElement>(`[data-note-path="${p}"]`)! };
+  // The preview is the app's own (#2710, #2829): the plugin asks for it,
+  // with the event's dates as extra lines, and the Date by and end left off
+  // its field strip, which the host draws (PluginFrame/PluginLayout tests).
+  const previews = (api: ReturnType<typeof fakeMinerva>) => api.of('ui.previewNote') as Array<{ path: string; via: string; extra: string[]; omit: string[] }>;
+
+  it("hovering asks for the app's preview: the dates as its lines, the dates off its fields; leaving lets it go", async () => {
+    const { event, api } = setup();
     await fireEvent.pointerEnter(event('moon.md'));
-    const card = await screen.findByRole('tooltip');
-    await waitFor(() => expect(card.textContent).toContain('20 Jul 1969'));
-    expect(card.textContent).toContain('Moon landing');
-    expect(card.textContent).toContain('Sea of Tranquility');
+    expect(previews(api)).toEqual([expect.objectContaining({ path: 'moon.md', via: 'pointer', omit: ['date', 'end'] })]);
+    expect(previews(api)[0]!.extra.join(' ')).toContain('20 Jul 1969');
     await fireEvent.pointerLeave(event('moon.md'));
-    await waitFor(() => expect(screen.queryByRole('tooltip')).toBeNull());
+    expect(api.of('ui.hidePreview')).toEqual([{ path: 'moon.md', via: 'pointer' }]);
   });
 
-  it('flags a backwards end on the card, and keeps the event at its start', async () => {
-    const { event } = setup();
+  it('flags a backwards end on the preview, and keeps the event at its start', async () => {
+    const { event, api } = setup();
     expect(event('typo.md').hasAttribute('data-end-issue')).toBe(true);
     expect(event('typo.md').getAttribute('aria-label')).toBe('Typo, 1 May 1972 (end date ignored)');
     await fireEvent.pointerEnter(event('typo.md'));
-    expect((await screen.findByRole('tooltip')).textContent).toContain('End date ignored: 1971-01-01 is before the start');
+    expect(previews(api)[0]!.extra.join(' ')).toContain('End date ignored: 1971-01-01 is before the start');
   });
 
-  it('a partial date says it is approximate on the card', async () => {
-    const { event } = setup();
+  it('a partial date says it is approximate on the preview', async () => {
+    const { event, api } = setup();
     await fireEvent.pointerEnter(event('woodstock.md'));
-    expect((await screen.findByRole('tooltip')).textContent).toContain('approximate');
+    expect(previews(api)[0]!.extra[0]).toContain('approximate');
+  });
+
+  it('nothing is previewed in an export', async () => {
+    const { event, api } = setup({ exportMode: true });
+    await fireEvent.pointerEnter(event('moon.md'));
+    expect(api.of('ui.previewNote')).toEqual([]);
   });
 });
 
@@ -241,12 +276,48 @@ describe('keyboard', () => {
     expect(onOpenNote).toHaveBeenCalledWith('typo.md');
   });
 
-  it('focusing an event by keyboard shows its card', async () => {
-    const { event } = setup();
+  it("focusing an event by keyboard asks for its preview, and the preview's text describes it", async () => {
+    const { event, api } = setup();
     event('typo.md').focus();
     await tick();
-    expect(screen.getByRole('tooltip').textContent).toContain('End date ignored');
-    expect(event('typo.md').getAttribute('aria-describedby')).toBe(screen.getByRole('tooltip').id);
+    expect(api.of('ui.previewNote')).toEqual([expect.objectContaining({ path: 'typo.md', via: 'focus' })]);
+    // The app's preview is outside the frame; Minerva sends its text back.
+    api.emit('preview', { path: 'typo.md', description: 'Typo — End date ignored' });
+    await tick();
+    const id = event('typo.md').getAttribute('aria-describedby')!;
+    expect(document.getElementById(id)!.textContent).toBe('Typo — End date ignored');
+    api.emit('preview', { path: 'typo.md', description: null });
+    await tick();
+    expect(event('typo.md').hasAttribute('aria-describedby')).toBe(false);
+  });
+
+  it('a zoom still waiting to be written goes before the note it opens, and when the frame loses focus (#2829)', async () => {
+    vi.useFakeTimers();
+    const { event, api } = setup({ from: '1960', to: '1979' });
+    event('moon.md').focus();
+    await fireEvent.keyDown(event('moon.md'), { key: '+' });
+    await fireEvent.keyDown(event('moon.md'), { key: 'Enter' });
+    // Opening a note can take the view away with nothing run in the frame: the range is written first.
+    expect(api.calls.map((c) => c.method).filter((m) => m === 'view.setState' || m === 'view.click')).toEqual(['view.setState', 'view.click']);
+    await fireEvent.keyDown(event('moon.md'), { key: '-' });
+    window.dispatchEvent(new Event('blur'));
+    expect(api.of('view.setState')).toHaveLength(2);
+    vi.advanceTimersByTime(1000);
+    expect(api.of('view.setState')).toHaveLength(2); // and not again when the debounce would have run
+  });
+
+  it('Escape closes the preview and keeps focus; with none up, it is left to the runtime', async () => {
+    const { event, api } = setup();
+    event('moon.md').focus();
+    await tick();
+    const first = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    event('moon.md').dispatchEvent(first);
+    expect(first.defaultPrevented).toBe(true);
+    expect(api.of('ui.hidePreview')).toEqual(expect.arrayContaining([{ path: 'moon.md', via: 'focus' }]));
+    expect(document.activeElement).toBe(event('moon.md'));
+    const second = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    event('moon.md').dispatchEvent(second);
+    expect(second.defaultPrevented).toBe(false); // the runtime gives focus back to Minerva
   });
 
   it('stepping to an event out of view pans to it', async () => {

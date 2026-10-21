@@ -19,7 +19,7 @@ export type PluginIntent =
   /** The app's own note menu, for notes the session was given, at a point in the frame (#2828). */
   | { kind: 'showNoteMenu'; paths: string[]; x: number; y: number; target: boolean; label: string | null }
   /** The app's hover preview, beside a box in the frame (#2828). */
-  | { kind: 'previewNote'; path: string; rect: { x: number; y: number; width: number; height: number }; via: 'pointer' | 'focus' }
+  | { kind: 'previewNote'; path: string; rect: { x: number; y: number; width: number; height: number }; via: 'pointer' | 'focus'; extra: string[]; omit: string[] }
   | { kind: 'hidePreview'; path: string; via: 'pointer' | 'focus' }
   /** The plugin's answer to an export request: unsanitized HTML — the host sanitizes it (#2828). */
   | { kind: 'exportHtml'; requestId: string; html: string }

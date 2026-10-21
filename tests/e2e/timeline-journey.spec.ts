@@ -50,7 +50,7 @@ test('the Timeline journey: Events as a timeline, zoomed and stepped by keyboard
     const win = await app.firstWindow({ timeout: 20_000 });
     await expect(win.getByRole('button', { name: 'Open Thoughtbase' })).toHaveCount(0, { timeout: 25_000 });
 
-    const { events, eventFor, undated } = await test.step('open Events as a timeline: every dated event drawn, the undated one in the tray', async () => {
+    const { events, eventFor, undated, frame: tl } = await test.step('open Events as a timeline: every dated event drawn, the undated one in the tray', async () => {
       const t = await openEventTimeline(win, IN_TIME_ORDER.length);
       await expect(t.eventFor('Ides of March')).toHaveAttribute('aria-label', /^Ides of March, (Mar 15, 44 BC|15 Mar 44 BC)$/);
       await expect(t.eventFor('Splashdown debrief')).toHaveCount(1); // a Meeting is an Event
@@ -62,9 +62,9 @@ test('the Timeline journey: Events as a timeline, zoomed and stepped by keyboard
     const fitWidth = await domainWidth(win);
 
     await test.step('zoom from the keyboard: + twice, − once', async () => {
-      await win.getByRole('button', { name: 'List' }).focus();
+      await tl.getByRole('button', { name: 'List' }).focus();
       await win.keyboard.press('Tab'); // the drawing is one tab stop
-      await expect(win.locator('.tl-plot [data-timeline-event][tabindex="0"]')).toBeFocused();
+      await expect(tl.locator('.tl-plot [data-timeline-event][tabindex="0"]')).toBeFocused();
       await win.keyboard.press('Home');
       await expect(eventFor('Ides of March')).toBeFocused();
       let before = await domainWidth(win);
@@ -104,11 +104,11 @@ test('the Timeline journey: Events as a timeline, zoomed and stepped by keyboard
     });
 
     await test.step('the List alternative, and back to the drawing', async () => {
-      const list = win.getByRole('button', { name: 'List' });
+      const list = tl.getByRole('button', { name: 'List' });
       await list.click();
       await expect(list).toHaveAttribute('aria-pressed', 'true');
-      await expect(win.locator('.tl-plot')).toHaveCount(0);
-      const rows = win.locator('.tl-list .tl-list-row');
+      await expect(tl.locator('.tl-plot')).toHaveCount(0);
+      const rows = tl.locator('.tl-list .tl-list-row');
       await expect(rows.locator('.tl-list-title')).toHaveText(IN_TIME_ORDER);
       await expect(rows.filter({ hasText: 'Ides of March' })).toContainText('44 BC');
       await expect(rows.filter({ hasText: 'Woodstock' })).toContainText('(approximate)');

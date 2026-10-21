@@ -154,11 +154,11 @@ describe('intents (#2825, #2827)', () => {
     const conn = await connectPluginFrame(fakeFrame().frame, 'kanban', [], host);
     const send = (intent: unknown) => h.intent!({ sessionId: 'k1', pluginId: 'kanban', intent });
     send({ kind: 'showNoteMenu', paths: ['a.md'], x: 3, y: 4, target: false, label: null });
-    send({ kind: 'previewNote', path: 'a.md', rect: { x: 1, y: 2, width: 3, height: 4 }, via: 'pointer' });
+    send({ kind: 'previewNote', path: 'a.md', rect: { x: 1, y: 2, width: 3, height: 4 }, via: 'pointer', extra: ['Jul 1'], omit: ['date'] });
     send({ kind: 'hidePreview', path: 'a.md', via: 'pointer' });
     send({ kind: 'exportHtml', requestId: 'r', html: '<p>x</p>' });
     expect(host.showNoteMenu).toHaveBeenCalledWith(['a.md'], 3, 4, { target: false, label: null });
-    expect(host.previewNote).toHaveBeenCalledWith('a.md', { x: 1, y: 2, width: 3, height: 4 }, 'pointer');
+    expect(host.previewNote).toHaveBeenCalledWith('a.md', { x: 1, y: 2, width: 3, height: 4 }, 'pointer', { extra: ['Jul 1'], omit: ['date'] });
     expect(host.hidePreview).toHaveBeenCalledWith('a.md', 'pointer');
     expect(host.exportHtml).toHaveBeenCalledWith('r', '<p>x</p>');
     await conn.requestExport('r2');

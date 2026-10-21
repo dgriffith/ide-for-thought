@@ -5,12 +5,12 @@
  * `Intl` labels — never d3-time-format's `%Y`.
  */
 import { describe, it, expect } from 'vitest';
-import { civilMs } from '../../../../src/shared/objects/date-precision';
-import { timelineDomain, timelineRangeFromDomain } from '../../../../src/shared/objects/timeline';
+import { civilMs } from '../../../src/shared/objects/date-precision';
+import { timelineDomain, timelineRangeFromDomain } from '../../../src/shared/objects/timeline';
 import {
   axisTicks, clampDomain, DRAWABLE_END, DRAWABLE_START, fitDomain, FIT_PADDING, MIN_DOMAIN_MS, panDomain, panToShow,
   resolveDomain, tickUnit, timeAt, xOf, zoomDomain,
-} from '../../../../src/renderer/lib/components/timeline/timeline-scale';
+} from '../../../src/shared/timeline/timeline-scale';
 
 const Y = (y: number) => civilMs(y, 0, 1);
 const DAY = 86_400_000;

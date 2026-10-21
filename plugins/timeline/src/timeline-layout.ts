@@ -21,8 +21,11 @@
  *   (`compareLaneItems` on start, end, title, key), so it doesn't move with
  *   the zoom: the same data always steps the same way.
  */
-import { compareLaneItems, packLanes } from '../../../../shared/objects/interval-lanes';
-import type { TimelineEvent } from './timeline-events';
+import { compareLaneItems, packLanes } from '../../../src/shared/objects/interval-lanes';
+import type { TimelineEvent, TimelineInstance } from '../../../src/shared/timeline/timeline-events';
+
+/** Any timeline event: these read only its key, span and label. */
+type AnyEvent = TimelineEvent<TimelineInstance>;
 
 /** A point marker's width, px — also the narrowest a bar draws before it is a point. */
 export const MARKER_PX = 12;
@@ -59,7 +62,7 @@ export function labelWidth(text: string): number {
 }
 
 /** Lanes and marks at `pxPerMs` (see the header). */
-export function layoutTimeline(events: readonly TimelineEvent[], pxPerMs: number): TimelineLayout {
+export function layoutTimeline(events: readonly AnyEvent[], pxPerMs: number): TimelineLayout {
   const half = MARKER_PX / 2;
   const meta = new Map<string, Omit<Placement, 'lane'>>();
   const items = events.map((ev) => {
@@ -87,7 +90,7 @@ export function layoutTimeline(events: readonly TimelineEvent[], pxPerMs: number
  * Room Fit leaves after the latest marks for their labels, px: the widest
  * label among the events ending in the last tenth of the extent (capped).
  */
-export function trailingLabelRoom(events: readonly TimelineEvent[], extentEnd: number, extentWidth: number): number {
+export function trailingLabelRoom(events: readonly AnyEvent[], extentEnd: number, extentWidth: number): number {
   let room = 0;
   for (const ev of events) {
     if (ev.end >= extentEnd - extentWidth / 10) room = Math.max(room, labelWidth(shortLabel(ev.title)));
@@ -96,7 +99,7 @@ export function trailingLabelRoom(events: readonly TimelineEvent[], extentEnd: n
 }
 
 /** The events' keys in keyboard (time) order. */
-export function timeOrder(events: readonly TimelineEvent[]): string[] {
+export function timeOrder(events: readonly AnyEvent[]): string[] {
   return [...events]
     .map((ev) => ({ key: ev.key, start: ev.start, end: ev.end, title: ev.title }))
     .sort(compareLaneItems)
@@ -113,13 +116,13 @@ export const VIRTUALIZE_ABOVE = 1000;
  * roving tab stop) wherever it is, so the timeline never loses its one tab
  * stop and the keyboard order stays whole.
  */
-export function cullToView(
-  events: readonly TimelineEvent[],
+export function cullToView<E extends AnyEvent>(
+  events: readonly E[],
   layout: TimelineLayout,
   view: { start: number; end: number },
   lanes: { first: number; last: number },
   keep: string | null,
-): TimelineEvent[] {
+): E[] {
   const over = (view.end - view.start) / 2;
   const lo = view.start - over;
   const hi = view.end + over;

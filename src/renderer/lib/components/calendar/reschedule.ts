@@ -8,7 +8,7 @@
 import { rescheduleRefusal, startDayOf } from '../../../../shared/objects/date-shift';
 import { rescheduleRefusalText } from '../../../../shared/objects/reschedule-text';
 import { civilMs, parseDateValue } from '../../../../shared/objects/date-precision';
-import type { TimelineEvent, TimelineProperties } from '../timeline/timeline-events';
+import type { TimelineEvent, TimelineProperties } from '../../../../shared/timeline/timeline-events';
 
 /** The day list's event-menu hooks (#2703). */
 export interface DayListMenu {

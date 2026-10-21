@@ -15,7 +15,7 @@
  * it.
  */
 import { utcTicks } from 'd3-time';
-import { civilMs } from '../../../../shared/objects/date-precision';
+import { civilMs } from '../objects/date-precision';
 import { civilYear, formatTick, type TickUnit } from './timeline-format';
 
 /** Where the timeline can draw: the start of year −99,999 to the end of 99,999. */

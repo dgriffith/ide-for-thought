@@ -376,13 +376,13 @@ for (const theme of THEMES) {
           'meetings/Debrief.md': '---\ntype: meeting\ndate: 1969-07-25\n---\n# Debrief\n',
         },
       }, async ({ win }) => {
-        const { eventFor } = await openEventTimeline(win, 5);
+        const { eventFor, frame: tl } = await openEventTimeline(win, 5);
         await eventFor('Typo').focus();
         await expect(win.getByRole('tooltip')).toBeVisible();
         await expect(win.locator('.note-hover-preview .nhp-snippet:not(.nhp-loading)')).toHaveCount(1, { timeout: 5_000 });
         await expectNoSerious(win, 'Timeline', theme);
-        await win.getByRole('button', { name: 'List' }).click();
-        await expect(win.locator('.tl-list')).toBeVisible();
+        await tl.getByRole('button', { name: 'List' }).click();
+        await expect(tl.locator('.tl-list')).toBeVisible();
         await expectNoSerious(win, 'Timeline list', theme);
       });
     });

@@ -51,7 +51,8 @@
     /** The plugin's answer to an export request, unsanitized (#2828). */
     onExportHtml?: (requestId: string, html: string) => void;
     /** The properties strip of a note's hover preview, where the host knows its type (#2828). */
-    hoverInstance?: (path: string) => HoverInstance | null;
+    /** The preview's field strip for a note; `omit` is what the plugin's drawing already shows. */
+    hoverInstance?: (path: string, omit: readonly string[]) => HoverInstance | null;
     /** The view's own selection: a click on a note, ⌘A, Escape (#2828). */
     onViewClick?: (path: string, mods: { meta: boolean; ctrl: boolean; shift: boolean }) => void;
     onSelectAll?: () => void;
@@ -86,7 +87,10 @@
   const hoverId = `${uid}-preview`;
   let anchor: HTMLDivElement;
   let anchorBox = $state<{ x: number; y: number; width: number; height: number } | null>(null);
-  const hoverInst = $derived(hover.current && hoverInstance ? hoverInstance(hover.current.key) : null);
+  // What the plugin asked the preview to add (its extra lines) and leave out, per note.
+  let previewAsk = $state<{ path: string; extra: string[]; omit: string[] } | null>(null);
+  const ask = $derived(hover.current && previewAsk?.path === hover.current.key ? previewAsk : null);
+  const hoverInst = $derived(hover.current && hoverInstance ? hoverInstance(hover.current.key, ask?.omit ?? []) : null);
 
   let host: HTMLDivElement;
   // Inside the {#if}, so bound reactively.
@@ -133,8 +137,9 @@
         moveCard: (path, target) => onMoveCard?.(path, target),
         undoMove: () => onUndoMove?.(),
         moveColumn: (key, target, side) => onMoveColumn?.(key, target, side),
-        previewNote: (path, rect, via) => {
+        previewNote: (path, rect, via, opts) => {
           anchorBox = rect;
+          previewAsk = { path, extra: opts?.extra ?? [], omit: opts?.omit ?? [] };
           const subject = { key: path, target: path, anchor };
           if (via === 'focus') hover.focus(subject);
           else { pointerPath = path; hover.pointerEnter(subject); }
@@ -272,8 +277,12 @@
     aria-describedby={hover.current ? hoverId : undefined}
     style={anchorBox ? `left:${anchorBox.x}px;top:${anchorBox.y}px;width:${anchorBox.width}px;height:${anchorBox.height}px` : ''}
   ></div>
-  <NoteHoverPreview id={hoverId} {hover} instance={hoverInst} />
+  <NoteHoverPreview id={hoverId} {hover} instance={hoverInst} extra={ask && ask.extra.length > 0 ? extraLines : undefined} />
 </div>
+
+{#snippet extraLines()}
+  {#each ask?.extra ?? [] as line, i (i)}<span>{line}</span>{/each}
+{/snippet}
 
 <style>
   .plugin-frame {

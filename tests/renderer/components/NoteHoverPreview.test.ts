@@ -12,7 +12,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, fireEvent, cleanup, screen, waitFor } from '@testing-library/svelte';
 import { makeNotePreviewFetcher, type NotePreviewDeps } from '../../../src/renderer/lib/editor/note-preview';
-import type { TypeInfo, TypeInstanceRow } from '../../../src/shared/objects/type-def';
+import type { TypeInfo } from '../../../src/shared/objects/type-def';
 
 const { NOTES, markerInstances, FakeMap, FakeMarker, FakeNavigationControl, FakeLngLatBounds } = vi.hoisted(() => {
   const NOTES: Record<string, string> = {
@@ -69,7 +69,6 @@ vi.mock('../../../src/renderer/lib/map/maplibre-style', () => ({
   exportStyleUrl: () => 'https://tiles.openfreemap.org/styles/liberty',
 }));
 
-import TypeViewTimeline from '../../../src/renderer/lib/components/TypeViewTimeline.svelte';
 import TypeViewMap from '../../../src/renderer/lib/components/TypeViewMap.svelte';
 
 /** What hovering `[[target]]` in a note shows. */
@@ -98,71 +97,11 @@ afterEach(() => { cleanup(); markerInstances.length = 0; });
 // checks the whole of it in the app.
 
 // ── Timeline ───────────────────────────────────────────────────────────────
-const EVENT: TypeInfo = {
-  id: 'event', label: 'Event', classLocalName: 'Event', icon: '📅', source: 'stock',
-  properties: [
-    { name: 'date', type: 'datetime' },
-    { name: 'end', type: 'datetime' },
-    { name: 'location', type: 'text', label: 'Location' },
-  ],
-};
-const erow = (path: string, title: string, date: string | null, end: string | null = null, location: string | null = null): TypeInstanceRow =>
-  ({ path, title, values: { date, end, location }, cover: null });
-
-function renderTimeline(over: Record<string, unknown> = {}) {
-  return render(TypeViewTimeline, {
-    type: EVENT, properties: EVENT.properties,
-    instances: [erow('events/moon.md', 'Moon landing', '1969-07-20', null, 'Sea of Tranquility'), erow('events/woodstock.md', 'Woodstock', '1969-08'), erow('events/typo.md', 'Typo', '1972-05-01', '1971-01-01')],
-    filters: [], from: null, to: null,
-    display: (_p: unknown, v: string | null) => v ?? '', rowType: () => EVENT,
-    onOpenNote: vi.fn(), onStateChange: vi.fn(), locale: 'en-GB',
-    ...over,
-  });
-}
-const tlEvent = (path: string) => document.querySelector<SVGGElement>(`[data-timeline-event][data-note-path="${path}"]`)!;
-
-describe('Timeline events (#2710)', () => {
-  it('hovering an event shows the note-link preview, its dates as extra lines, and its fields', async () => {
-    renderTimeline();
-    await fireEvent.pointerEnter(tlEvent('events/moon.md'));
-    const tip = await openPreview();
-    expectLinkContent(tip, await linkHover('events/moon'));
-    expect(tip.querySelector('.nhp-extra')!.textContent).toContain('20 Jul 1969');
-    expect(tip.querySelector('.nhp-fields')!.textContent).toContain('Sea of Tranquility');
-    // `date` / `end` head the preview; they aren't repeated as fields.
-    expect(tip.querySelector('.nhp-fields')!.textContent).not.toContain('1969-07-20');
-  });
-
-  it('focusing an event shows it, with "approximate" for a partial date', async () => {
-    renderTimeline();
-    tlEvent('events/woodstock.md').focus();
-    const tip = await openPreview();
-    expectLinkContent(tip, await linkHover('events/woodstock'));
-    expect(tip.querySelector('.nhp-extra')!.textContent).toContain('approximate');
-    expect(tlEvent('events/woodstock.md').getAttribute('aria-describedby')).toBe(tip.id);
-  });
-
-  it('keeps the ⚠ ignored-end flag, and Escape closes it', async () => {
-    renderTimeline();
-    tlEvent('events/typo.md').focus();
-    const tip = await openPreview();
-    expect(tip.querySelector('[data-end-issue]')!.textContent).toContain('⚠ End date ignored');
-    await fireEvent.keyDown(tlEvent('events/typo.md'), { key: 'Escape' });
-    await waitFor(() => expect(screen.queryByRole('tooltip')).toBeNull());
-    expect(document.activeElement).toBe(tlEvent('events/typo.md'));
-  });
-
-  it('a read-only embed has the hover too; an export has none', async () => {
-    renderTimeline({ readOnly: true });
-    await fireEvent.pointerEnter(tlEvent('events/moon.md'));
-    expectLinkContent(await openPreview(), await linkHover('events/moon'));
-    cleanup();
-    renderTimeline({ exportMode: true });
-    tlEvent('events/moon.md')?.dispatchEvent(new Event('pointerenter'));
-    await new Promise((r) => setTimeout(r, 400));
-    expect(document.querySelector('.note-hover-preview')).toBeNull();
-  });
-});
+// The Timeline is the Timeline plugin's since #2829, in its frame: it asks for
+// this preview with its dates as extra lines and its dates off the strip
+// (tests/plugins/timeline/Timeline.test.ts), PluginFrame draws the lines and
+// PluginLayout leaves those fields out (PluginLayout.test.ts), and
+// note-hover-preview.spec.ts checks the whole of it in the app.
 
 // ── Map ────────────────────────────────────────────────────────────────────
 const PLACE: TypeInfo = {

@@ -18,7 +18,8 @@
  *   every grid event covering that day, in the grid's stacking order (first
  *   day, then start time, then title), so it reads like the cell above it.
  */
-import { buildTimelineModel, type TimelineEvent, type TimelineProperties, type UndatedEvent } from '../timeline/timeline-events';
+import type { TypeInstanceRow } from '../../../../shared/objects/type-def';
+import { buildTimelineModel, type TimelineEvent, type TimelineProperties, type UndatedEvent } from '../../../../shared/timeline/timeline-events';
 import {
   coveredDays, dayStart, monthBounds, placementOf, rangeMeets,
   type CalendarItem, type CalendarMonth, type GridWeek,
@@ -38,7 +39,7 @@ export interface CalendarModel {
 
 /** Read every instance once (see the header). `locale` is the viewer's in the app. */
 export function buildCalendarModel(
-  instances: Parameters<typeof buildTimelineModel>[0],
+  instances: readonly TypeInstanceRow[],
   opts: TimelineProperties & { locale?: string },
 ): CalendarModel {
   const t = buildTimelineModel(instances, opts);

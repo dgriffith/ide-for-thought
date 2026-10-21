@@ -1,5 +1,5 @@
 /**
- * @vitest-environment happy-dom
+ * @vitest-environment jsdom
  *
  * Live Typed-Objects view embedded in a note (#2067). Hydration mounts a
  * real, chromeless `TypeView` into the placeholder — mocked here the same
@@ -16,16 +16,23 @@ const { instancesMock, listMock, noteTypeMapMock, plugin } = vi.hoisted(() => ({
   noteTypeMapMock: vi.fn(),
 }));
 // A Kanban embed is the Kanban plugin's board (#2828): read what it's sent, act as it.
+// (A Timeline embed runs the Timeline plugin in loopback instead, #2829.)
 vi.mock('../../../src/renderer/lib/stores/plugin-sessions.svelte', () => ({ connectPluginFrame: (...a: unknown[]) => plugin.connect(...a) }));
 vi.mock('../../../src/renderer/lib/stores/core-plugins.svelte', () => ({ corePluginsStore: { isOn: () => true, name: () => 'Kanban' } }));
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({
-  api: { types: { instances: instancesMock, list: listMock, noteTypeMap: noteTypeMapMock } },
+  api: { types: { instances: instancesMock, list: listMock, noteTypeMap: noteTypeMapMock }, app: { getSystemLocale: async () => 'en-GB' } },
 }));
 
 import { hydrateObjectViewBlocks, parseObjectViewSpec } from '../../../src/renderer/lib/markdown/object-view-renderer';
 import { objectTypesStore } from '../../../src/renderer/lib/stores/object-types.svelte';
 import { disposeCaches } from '../../../src/renderer/lib/markdown/hydrated-block-cache';
 import { autoLoadPluginFrames, kanbanHostState, type KanbanHostState } from '../components/kanban-host';
+import { pluginLoopback } from '../components/plugin-loopback';
+
+// jsdom has no ResizeObserver; the map and timeline measure with one.
+if (!('ResizeObserver' in globalThis)) {
+  vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
+}
 
 /** Wait for an embed's Kanban frame to connect and send its view. */
 async function embeddedBoard(s: KanbanHostState) {
@@ -273,11 +280,15 @@ describe('hydrateObjectViewBlocks (#2067)', () => {
       { path: 'e/Moon.md', title: 'Moon landing', values: { date: '1969-07-20', end: null }, cover: null },
       { path: 'e/Apollo.md', title: 'Apollo 11', values: { date: '1969-07-16', end: '1969-07-24' }, cover: null },
     ] });
+    // The Timeline plugin's real view (#2829), in loopback beside its frame.
+    pluginLoopback(plugin, () => import('../../../plugins/timeline/src/App.svelte'));
+    const stop = autoLoadPluginFrames();
     const root = previewWith('{"typeId":"event","layout":"timeline","from":"1969-07","to":"1969-07"}');
     const onOpenNote = vi.fn();
     hydrateObjectViewBlocks(root, deps({ onOpenNote }));
     const block = root.querySelector('.object-view-block')!;
     await waitFor(() => expect(block.querySelector('[data-timeline-event]')).not.toBeNull());
+    stop();
 
     expect(block.querySelector('.tl')!.classList.contains('tl-export')).toBe(false);
     expect(block.querySelector('.tv-header')).toBeNull();

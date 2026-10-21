@@ -4,9 +4,9 @@
  * every event in range listed in time order.
  */
 import { describe, it, expect } from 'vitest';
-import { civilMs } from '../../../../src/shared/objects/date-precision';
-import { buildTimelineModel } from '../../../../src/renderer/lib/components/timeline/timeline-events';
-import { EXPORT_MAX_LANES, planTimelineExport } from '../../../../src/renderer/lib/components/timeline/timeline-export';
+import { civilMs } from '../../../src/shared/objects/date-precision';
+import { buildTimelineModel } from '../../../src/shared/timeline/timeline-events';
+import { EXPORT_MAX_LANES, planTimelineExport } from '../../../plugins/timeline/src/timeline-export';
 
 const row = (path: string, title: string, date: string | null, end: string | null = null) =>
   ({ path, title, values: { date, end }, cover: null });

@@ -37,6 +37,8 @@ import {
   PLUGIN_MENU_MAX_ITEMS,
   PLUGIN_NOTE_MENU_MAX_PATHS,
   PLUGIN_MENU_MAX_LABEL,
+  PLUGIN_PREVIEW_MAX_EXTRA,
+  PLUGIN_PREVIEW_MAX_EXTRA_CHARS,
   type PluginErrorCode,
   type PluginEventName,
   type PluginEvents,
@@ -167,6 +169,18 @@ function moveTargetParam(raw: unknown): PluginMoveTarget {
   if (typeof t.label !== 'string') throw new Refusal('bad-request', '"target.label" must be a string.');
   if (t.kind === 'no-value' ? t.value !== null : typeof t.value !== 'string') throw new Refusal('bad-request', '"target.value" is the group\'s value, null only for No value.');
   return { value: t.value as string | null, label: t.label.slice(0, PLUGIN_MENU_MAX_LABEL), kind: t.kind };
+}
+
+/** An optional list of strings: at most `max` of them, each cut to `chars`. Absent → []. */
+function stringsParam(params: Record<string, unknown>, key: string, max: number, chars: number): string[] {
+  const raw = params[key];
+  if (raw === undefined) return [];
+  if (!Array.isArray(raw)) throw new Refusal('bad-request', `"${key}" must be a list of strings.`);
+  if (raw.length > max) throw new Refusal('bad-request', `"${key}" has at most ${max} entries.`);
+  return raw.map((v, i) => {
+    if (typeof v !== 'string') throw new Refusal('bad-request', `${key}[${i}] must be a string.`);
+    return v.slice(0, chars);
+  });
 }
 
 function numberParam(params: Record<string, unknown>, key: string): number {
@@ -350,7 +364,9 @@ export function createPluginSession(opts: PluginSessionOptions): PluginSession {
       case 'ui.previewNote': {
         const path = scoped(stringParam(params, 'path'));
         const rect = { x: numberParam(params, 'x'), y: numberParam(params, 'y'), width: numberParam(params, 'width'), height: numberParam(params, 'height') };
-        deps.intent({ kind: 'previewNote', path, rect, via: viaParam(params) });
+        const extra = stringsParam(params, 'extra', PLUGIN_PREVIEW_MAX_EXTRA, PLUGIN_PREVIEW_MAX_EXTRA_CHARS);
+        const omit = stringsParam(params, 'omit', PLUGIN_MENU_MAX_ITEMS, PLUGIN_MENU_MAX_LABEL);
+        deps.intent({ kind: 'previewNote', path, rect, via: viaParam(params), extra, omit });
         return {};
       }
       case 'ui.hidePreview':

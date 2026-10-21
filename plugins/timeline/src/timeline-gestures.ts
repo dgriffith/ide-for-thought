@@ -20,7 +20,7 @@
  * has settled (`onSettle`): drag on release, wheel after `WHEEL_SETTLE_MS`
  * of quiet — the host writes the range back then, not per frame.
  */
-import { panDomain, zoomDomain, type Domain } from './timeline-scale';
+import { panDomain, zoomDomain, type Domain } from '../../../src/shared/timeline/timeline-scale';
 
 export const DRAG_THRESHOLD_PX = 4;
 export const WHEEL_SETTLE_MS = 350;

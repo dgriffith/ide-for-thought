@@ -28,7 +28,7 @@ import type { PluginCapability } from './capabilities';
  * The API's semver version (#2826), its own and not the app's: the host sends
  * it with the port, and a plugin's `code.api` range must accept it.
  */
-export const PLUGIN_API_VERSION = '1.5.0';
+export const PLUGIN_API_VERSION = '1.6.0';
 
 export const PLUGIN_METHODS = {
   'notes.list': { capability: 'notes:read', describes: 'The notes this view or call was given.' },
@@ -83,7 +83,13 @@ export interface PluginMethodParams {
   'ui.forwardKey': { key: string; meta?: boolean; ctrl?: boolean; alt?: boolean; shift?: boolean };
   'view.setState': { patch: Record<string, unknown> };
   'ui.showNoteMenu': { paths: string[]; x: number; y: number; target?: boolean; label?: string };
-  'ui.previewNote': { path: string; x: number; y: number; width: number; height: number; via?: 'pointer' | 'focus' };
+  /**
+   * `extra`: plain lines the preview shows under the note's (a timeline's
+   * dates, say), at most PLUGIN_PREVIEW_MAX_EXTRA of PLUGIN_PREVIEW_MAX_EXTRA_CHARS.
+   * `omit`: properties left off the preview's field strip, because the
+   * drawing already shows them (#2829).
+   */
+  'ui.previewNote': { path: string; x: number; y: number; width: number; height: number; via?: 'pointer' | 'focus'; extra?: string[]; omit?: string[] };
   'ui.hidePreview': { path: string; via?: 'pointer' | 'focus' };
   'view.provideExport': { requestId: string; html: string };
   'view.click': { path: string; meta?: boolean; ctrl?: boolean; shift?: boolean };
@@ -168,6 +174,8 @@ export type PluginViewState = {
   sortDir: 'asc' | 'desc';
   /** The layout's own spec fields (a board's `groupBy`, `columnOrder`, …). */
   spec: Record<string, unknown>;
+  /** The view's filters, already applied to `instances` (#2829): a timeline's Fit stays inside a date range one. */
+  filters: PluginViewFilter[];
   /** An embed or export: nothing that writes the spec or a note. */
   readOnly: boolean;
   /** Drawing for an export snapshot. */
@@ -189,6 +197,14 @@ export type PluginViewState = {
   /** The last move or undo that wrote something, so a moved card can keep focus. */
   lastMove: { seq: number; paths: string[] } | null;
 };
+
+/**
+ * One of the view's filters: the values a property may hold (`tags` with how
+ * they combine), or a range on it — dates or numbers as the note writes them.
+ */
+export type PluginViewFilter =
+  | { property: string; values: string[]; match?: 'any' | 'all' | 'none' }
+  | { property: string; min: string | null; max: string | null };
 
 /** One group of a grouped view: a board's column. */
 export type PluginViewGroup = {
@@ -234,6 +250,10 @@ export type PluginEventName = keyof PluginEvents;
 
 /** The most notes one `ui.showNoteMenu` may name. */
 export const PLUGIN_NOTE_MENU_MAX_PATHS = 500;
+
+/** A preview's extra lines (`ui.previewNote`): how many, and how long. */
+export const PLUGIN_PREVIEW_MAX_EXTRA = 8;
+export const PLUGIN_PREVIEW_MAX_EXTRA_CHARS = 300;
 
 /** A context menu's limits. */
 export const PLUGIN_MENU_MAX_ITEMS = 50;

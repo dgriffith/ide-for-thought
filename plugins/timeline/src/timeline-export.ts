@@ -15,39 +15,39 @@
  *   see `TypeViewTimeline.svelte` for why a print reader gets the list as
  *   well as the linked drawing.
  */
-import type { TimelineEvent } from './timeline-events';
+import type { TimelineEvent, TimelineInstance } from '../../../src/shared/timeline/timeline-events';
 import { layoutTimeline, timeOrder, type TimelineLayout } from './timeline-layout';
-import type { Domain } from './timeline-scale';
+import type { Domain } from '../../../src/shared/timeline/timeline-scale';
 
 /** Lanes an exported timeline draws before the rest go to "+N more" (decision 5; tunable). */
 export const EXPORT_MAX_LANES = 30;
 
-export interface TimelineExportPlan {
+export interface TimelineExportPlan<E extends TimelineEvent<TimelineInstance> = TimelineEvent<TimelineInstance>> {
   /** Drawn: in range, and in a lane under the cap. */
-  drawn: TimelineEvent[];
+  drawn: E[];
   layout: TimelineLayout;
   /** Lanes the drawing takes (never more than the cap). */
   laneCount: number;
   /** In range but past the lane cap, in time order — the "+N more". */
-  overflow: TimelineEvent[];
+  overflow: E[];
   /** Every event in range, in time order — the list after the drawing. */
-  listed: TimelineEvent[];
+  listed: E[];
   /** Dated events wholly outside the range. */
   outside: number;
 }
 
-export function planTimelineExport(
-  dated: readonly TimelineEvent[],
+export function planTimelineExport<E extends TimelineEvent<TimelineInstance>>(
+  dated: readonly E[],
   domain: Domain,
   width: number,
   maxLanes = EXPORT_MAX_LANES,
-): TimelineExportPlan {
+): TimelineExportPlan<E> {
   if (!(domain.end > domain.start) || !(width > 0)) throw new Error(`can't draw the range ${domain.start}..${domain.end} at ${width}px`);
   const inRange = dated.filter((ev) => ev.end > domain.start && ev.start < domain.end);
   const layout = layoutTimeline(inRange, width / (domain.end - domain.start));
   const byKey = new Map(inRange.map((ev) => [ev.key, ev] as const));
   const listed = timeOrder(inRange).map((k) => byKey.get(k)!);
-  const lane = (ev: TimelineEvent) => layout.placements.get(ev.key)?.lane ?? 0;
+  const lane = (ev: E) => layout.placements.get(ev.key)?.lane ?? 0;
   return {
     drawn: inRange.filter((ev) => lane(ev) < maxLanes),
     layout,

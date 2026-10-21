@@ -58,23 +58,7 @@ export async function openBoard(container: HTMLElement, s: KanbanHostState) {
   };
 }
 
-/**
- * A plugin frame never loads in a DOM test (no page loading), so `load` is
- * fired as each one is added — for flows that mount a board themselves (an
- * export, an embed). Returns the stop.
- */
-export function autoLoadPluginFrames(): () => void {
-  const fire = (root: ParentNode) => {
-    for (const f of root.querySelectorAll<HTMLIFrameElement>('[data-plugin-layout] iframe:not([data-loaded])')) {
-      f.dataset['loaded'] = '1';
-      queueMicrotask(() => f.dispatchEvent(new Event('load')));
-    }
-  };
-  const watch = new MutationObserver(() => fire(document));
-  watch.observe(document.body, { childList: true, subtree: true });
-  fire(document);
-  return () => watch.disconnect();
-}
+export { autoLoadPluginFrames } from './plugin-loopback';
 
 /**
  * The Kanban plugin, in loopback: a fake session whose export request is

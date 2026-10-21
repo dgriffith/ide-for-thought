@@ -68,6 +68,21 @@ const CORE_PLUGIN_DEFINITIONS: readonly CorePluginDefinition[] = [
     },
     defaultEnabled: true,
   },
+  {
+    // The Timeline layout (#2829), drawn the same way (`plugins/timeline/`).
+    // It reads the notes a view shows and writes nothing to them: zooming
+    // and panning change only the view's own range, through `view.setState`.
+    manifest: {
+      id: 'timeline',
+      name: 'Timeline',
+      version: '1.0.0',
+      minerva: '>=4.0.0',
+      description: 'Show a type view on a time axis: each dated note a point or a bar, zoomed and panned with the pointer or the keyboard.',
+      contributes: {},
+      code: { capabilities: ['notes:read', 'ui'], api: '^1.6.0' },
+    },
+    defaultEnabled: true,
+  },
 ];
 
 let definitions: readonly CorePluginDefinition[] = CORE_PLUGIN_DEFINITIONS;

@@ -42,7 +42,7 @@ function fakeView(over: Partial<LayoutView> = {}): LayoutView {
     readOnly: false, exportMode: false, onStateChange: vi.fn(), openRowMenu: vi.fn(),
     display: (_p: unknown, v: string | null) => (v ? v.toUpperCase() : ''), rowType: () => null, pluginExport: undefined,
     refPath: () => null, isSelected: (p: string) => p === 'a.md', selectable: true, rowMenu: true, group: null,
-    spec: { groupBy: 'status', columnOrder: [], showEmptyColumns: true }, board: [], canUndoMove: false, lastMove: null,
+    spec: { groupBy: 'status', columnOrder: [], showEmptyColumns: true }, board: [], canUndoMove: false, lastMove: null, filters: [],
     onMoveCard: undefined, onUndoMove: undefined, onMoveColumn: undefined,
     onRowClick: vi.fn(), selectAll: vi.fn(), clearSelection: vi.fn(),
     ...over,
@@ -60,8 +60,8 @@ beforeEach(() => {
 });
 afterEach(() => cleanup());
 
-async function mounted(view = fakeView()) {
-  const r = render(PluginLayout, { view, layout: 'kanban', pluginId: 'kanban' });
+async function mounted(view = fakeView(), layout: 'kanban' | 'timeline' = 'kanban') {
+  const r = render(PluginLayout, { view, layout, pluginId: layout });
   await fireEvent.load(r.container.querySelector('iframe')!);
   await waitFor(() => expect(h.sendView).toHaveBeenCalled());
   return { ...r, view };
@@ -87,6 +87,7 @@ describe('PluginLayout (#2828)', () => {
       ],
       sortColumn: 'title', sortDir: 'desc',
       spec: { groupBy: 'status', columnOrder: [], showEmptyColumns: true },
+      filters: [],
       readOnly: false, exportMode: false,
       selected: ['a.md'], selectable: true, rowMenu: true,
       groupProperty: null, groups: [], movable: false, canUndoMove: false, lastMove: null,
@@ -208,5 +209,22 @@ describe("a card's hover preview (#2710, #2828)", () => {
     });
     expect(strip.textContent).toContain('Owner ANN'); // the fake view's display upper-cases
     expect(strip.textContent).not.toMatch(/todo/i);
+  });
+
+  it("draws the plugin's extra lines in the preview, and leaves off the fields it names (#2829)", async () => {
+    const DATE = { name: 'date', type: 'datetime' };
+    const PLACE = { name: 'place', type: 'text', label: 'Place' };
+    const rows = [{ path: 'a.md', title: 'Moon landing', values: { date: '1969-07-20', place: 'Sea of Tranquility' }, cover: null }];
+    await mounted(fakeView({ properties: [DATE, PLACE] as LayoutView['properties'], instances: rows, sorted: rows }), 'timeline');
+    (h.host as unknown as { previewNote(p: string, r: object, v: string, o: object): void })
+      .previewNote('a.md', { x: 0, y: 0, width: 10, height: 10 }, 'focus', { extra: ['20 Jul 1969 · approximate', '⚠ End date ignored'], omit: ['date'] });
+    const tip = await vi.waitFor(() => {
+      const el = document.querySelector('.note-hover-preview');
+      expect(el?.querySelector('.nhp-fields')).toBeTruthy();
+      return el!;
+    });
+    expect([...tip.querySelectorAll('.nhp-extra > span')].map((l) => l.textContent)).toEqual(['20 Jul 1969 · approximate', '⚠ End date ignored']);
+    expect(tip.querySelector('.nhp-fields')!.textContent).toContain('Place SEA OF TRANQUILITY');
+    expect(tip.querySelector('.nhp-fields')!.textContent).not.toContain('1969-07-20');
   });
 });
