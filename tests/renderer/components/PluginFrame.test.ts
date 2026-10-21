@@ -15,11 +15,12 @@ const h = vi.hoisted(() => ({
     setScope: ReturnType<typeof vi.fn>;
     sendTheme: ReturnType<typeof vi.fn>;
     drop: ReturnType<typeof vi.fn>;
+    sendPreview: ReturnType<typeof vi.fn>;
     close: ReturnType<typeof vi.fn>;
   },
   host: null as null | {
     releaseFocus(): void;
-    showNoteMenu?(paths: string[], x: number, y: number): void;
+    showNoteMenu?(paths: string[], x: number, y: number, opts: { target: boolean; label: string | null }): void;
     previewNote?(path: string, rect: { x: number; y: number; width: number; height: number }, via: 'pointer' | 'focus'): void;
     hidePreview?(path: string, via: 'pointer' | 'focus'): void;
   },
@@ -36,7 +37,7 @@ import { NOTE_DROP_EVENT } from '../../../src/renderer/lib/stores/link-drag.svel
 import { DRAG_MIME_NOTE } from '../../../src/renderer/lib/editor/drag-link';
 
 beforeEach(() => {
-  h.connection = { sessionId: 's1', setScope: vi.fn(async () => {}), sendTheme: vi.fn(async () => {}), drop: vi.fn(async () => {}), close: vi.fn(async () => {}) };
+  h.connection = { sessionId: 's1', setScope: vi.fn(async () => {}), sendTheme: vi.fn(async () => {}), drop: vi.fn(async () => {}), sendPreview: vi.fn(async () => {}), close: vi.fn(async () => {}) };
   h.connect.mockReset();
   h.connect.mockImplementation(async (_frame: unknown, _id: string, _scope: string[], host: { releaseFocus(): void }) => {
     h.host = host;
@@ -139,8 +140,32 @@ describe('the kit gaps, hosted (#2828, part B)', () => {
     expect([anchor.style.left, anchor.style.top, anchor.style.width, anchor.style.height]).toEqual(['12px', '30px', '200px', '40px']);
     // The preview portals into document.body, out of any clipping ancestor.
     await waitFor(() => expect(document.body.textContent).toContain('Title of a.md'));
+    // Its text goes back to the plugin, to describe the card inside the frame — and is withdrawn.
+    await waitFor(() => expect(h.connection!.sendPreview).toHaveBeenCalledWith('a.md', expect.stringContaining('Title of a.md')));
     h.host!.hidePreview!('a.md', 'focus');
     await waitFor(() => expect(anchor.getAttribute('aria-describedby')).toBeNull());
+    await waitFor(() => expect(h.connection!.sendPreview).toHaveBeenLastCalledWith('a.md', null));
+  });
+
+  it('a pointer preview goes when the pointer leaves the frame, even if the card never heard', async () => {
+    const { container } = await mounted();
+    h.host!.previewNote!('a.md', { x: 12, y: 30, width: 200, height: 40 }, 'pointer');
+    await waitFor(() => expect(document.body.textContent).toContain('Title of a.md'));
+    await fireEvent.pointerLeave(container.querySelector('iframe')!);
+    await waitFor(() => expect(document.querySelector('.note-hover-preview')).toBeNull(), { timeout: 3000 });
+  });
+
+  it("and when the window's own pointer moves off the frame — the out-of-process frame tells nobody it left", async () => {
+    const { container } = await mounted();
+    h.host!.previewNote!('a.md', { x: 12, y: 30, width: 200, height: 40 }, 'pointer');
+    await waitFor(() => expect(document.body.textContent).toContain('Title of a.md'));
+    // Over the frame itself, or the preview, it stays.
+    await fireEvent.pointerMove(container.querySelector('iframe')!);
+    await fireEvent.pointerMove(document.querySelector('.note-hover-preview')!);
+    await new Promise((r) => setTimeout(r, 400));
+    expect(document.querySelector('.note-hover-preview')).not.toBeNull();
+    await fireEvent.pointerMove(document.body);
+    await waitFor(() => expect(document.querySelector('.note-hover-preview')).toBeNull(), { timeout: 3000 });
   });
 
   it("turns the plugin's menu point into the window's for the layout host", async () => {
@@ -150,8 +175,8 @@ describe('the kit gaps, hosted (#2828, part B)', () => {
     frame.getBoundingClientRect = () => ({ left: 100, top: 50, right: 500, bottom: 450, width: 400, height: 400, x: 100, y: 50, toJSON: () => ({}) });
     await fireEvent.load(frame);
     await waitFor(() => expect(h.connect).toHaveBeenCalled());
-    h.host!.showNoteMenu!(['a.md', 'b.md'], 30, 40);
-    expect(onNoteMenu).toHaveBeenCalledWith(['a.md', 'b.md'], 130, 90);
+    h.host!.showNoteMenu!(['a.md', 'b.md'], 30, 40, { target: false, label: null });
+    expect(onNoteMenu).toHaveBeenCalledWith(['a.md', 'b.md'], 130, 90, { target: false, label: null });
   });
 
   it('reads the theme from its own host, so an export block gets its light tokens', async () => {

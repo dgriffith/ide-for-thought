@@ -5,7 +5,7 @@
  * and down through the lanes.
  *
  * Pointer events throughout, not HTML5 drag-and-drop, which suspends the
- * reactivity loop in macOS Electron (the same reason `kanban/card-drag.ts` is
+ * reactivity loop in macOS Electron (the same reason the Kanban plugin's `card-drag.ts` is
  * built this way). A drag starts after `DRAG_THRESHOLD_PX` of travel, so a
  * click on an event still opens it; the click that ends a real drag is
  * swallowed. The pointer is captured only once a drag starts — capturing on

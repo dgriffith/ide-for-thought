@@ -24,7 +24,7 @@ import { api } from '../ipc/client';
 import { announce } from './announcer.svelte';
 import { logger } from '../../../shared/logger';
 import { pluginFrameOrigin } from '../../../shared/plugins/frame';
-import { PLUGIN_API_VERSION, PLUGIN_PORT_MESSAGE, type PluginViewState } from '../../../shared/plugins/api';
+import { PLUGIN_API_VERSION, PLUGIN_PORT_MESSAGE, type PluginMoveTarget, type PluginViewState } from '../../../shared/plugins/api';
 import { PLUGIN_SESSION_PORT_MESSAGE, type PluginIntent, type PluginIntentEvent } from '../../../shared/plugins/session';
 import { COMMANDS, type CommandId } from '../../../shared/commands';
 import { matchesAccelerator } from '../keymap/handle-keydown';
@@ -44,6 +44,8 @@ export interface PluginFrameConnection {
   sendView(state: PluginViewState): Promise<void>;
   /** Ask the plugin for its export HTML (#2828); the answer comes to the host's `exportHtml`. */
   requestExport(requestId: string): Promise<void>;
+  /** What the app's preview of a note says, or null when it goes (#2828). */
+  sendPreview(path: string, description: string | null): Promise<void>;
   close(): Promise<void>;
 }
 
@@ -53,13 +55,18 @@ export interface PluginFrameHost {
   releaseFocus(): void;
   /** A layout plugin changing its view's spec (#2828). */
   setViewState?(patch: Record<string, unknown>): void;
-  /** The app's note menu for these notes, at a point in the FRAME's coordinates (#2828). */
-  showNoteMenu?(paths: string[], x: number, y: number): void;
+  /** The app's note menu for these notes, at a point in the FRAME's coordinates (#2828);
+   *  `target`: the menu for one note a card names, the selection left alone. */
+  showNoteMenu?(paths: string[], x: number, y: number, opts: { target: boolean; label: string | null }): void;
   /** The app's hover preview beside a box in the frame, and letting it go (#2828). */
   previewNote?(path: string, rect: { x: number; y: number; width: number; height: number }, via: 'pointer' | 'focus'): void;
   hidePreview?(path: string, via: 'pointer' | 'focus'): void;
   /** The plugin's answer to an export request — unsanitized (#2828). */
   exportHtml?(requestId: string, html: string): void;
+  /** A board's moves (#2828): the host moves, with its own undo. */
+  moveCard?(path: string, target: PluginMoveTarget): void;
+  undoMove?(): void;
+  moveColumn?(key: string, target: string, side: 'before' | 'after'): void;
   /** The view's own selection (#2828). */
   viewClick?(path: string, mods: { meta: boolean; ctrl: boolean; shift: boolean }): void;
   selectAll?(): void;
@@ -118,7 +125,7 @@ function onIntent({ sessionId, pluginId, intent }: PluginIntentEvent): void {
       hosts.get(sessionId)?.setViewState?.(intent.patch);
       return;
     case 'showNoteMenu':
-      hosts.get(sessionId)?.showNoteMenu?.(intent.paths, intent.x, intent.y);
+      hosts.get(sessionId)?.showNoteMenu?.(intent.paths, intent.x, intent.y, { target: intent.target, label: intent.label });
       return;
     case 'previewNote':
       hosts.get(sessionId)?.previewNote?.(intent.path, intent.rect, intent.via);
@@ -137,6 +144,15 @@ function onIntent({ sessionId, pluginId, intent }: PluginIntentEvent): void {
       return;
     case 'clearSelection':
       hosts.get(sessionId)?.clearSelection?.();
+      return;
+    case 'moveCard':
+      hosts.get(sessionId)?.moveCard?.(intent.path, intent.target);
+      return;
+    case 'undoMove':
+      hosts.get(sessionId)?.undoMove?.();
+      return;
+    case 'moveColumn':
+      hosts.get(sessionId)?.moveColumn?.(intent.key, intent.target, intent.side);
       return;
     case 'key': {
       const id = forwardableCommand(intent);
@@ -208,6 +224,7 @@ export async function connectPluginFrame(
     drop: (paths, x, y) => api.plugins.sendSessionEvent(sessionId, { kind: 'drop', paths: [...paths], x, y }),
     sendView: (state) => api.plugins.sendSessionEvent(sessionId, { kind: 'view', state }),
     requestExport: (requestId) => api.plugins.sendSessionEvent(sessionId, { kind: 'exportRequest', requestId }),
+    sendPreview: (path, description) => api.plugins.sendSessionEvent(sessionId, { kind: 'preview', path, description }),
     close: () => {
       hosts.delete(sessionId);
       return api.plugins.closeSession(sessionId);

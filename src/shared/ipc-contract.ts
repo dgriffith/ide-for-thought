@@ -162,7 +162,8 @@ export interface ChannelMap {
   'images:resetRemotePolicy': () => RemoteImagePolicy;
   'youtube:thumbnail': (id: string) => Uint8Array | null;
   'notebase:fileExists': (relativePath: string) => boolean;
-  'notebase:writeFile': (relativePath: string, content: string) => void;
+  /** `opts.cause` names what made the save in Local History (a board move from a plugin view, #2828). */
+  'notebase:writeFile': (relativePath: string, content: string, opts?: { cause?: string }) => void;
   'notebase:createFile': (relativePath: string) => void;
   'notebase:deleteFile': (relativePath: string) => void;
   'notebase:createFolder': (relativePath: string) => void;

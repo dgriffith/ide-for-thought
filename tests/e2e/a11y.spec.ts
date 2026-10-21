@@ -347,9 +347,12 @@ for (const theme of THEMES) {
         await win.locator('.panel-tab[title="Objects"]').first().click();
         await win.getByRole('button', { name: 'Open Project view' }).click({ force: true });
         await win.getByRole('tab', { name: 'Kanban' }).click();
-        await expect(win.locator('.kb-board [data-kanban-card]')).toHaveCount(3, { timeout: 15_000 });
+        // The board is the Kanban plugin's, in its frame (#2828); the scan
+        // below reaches into it.
+        const board = win.locator('[data-plugin-layout="kanban"] iframe').contentFrame().locator('.kb-board');
+        await expect(board.locator('[data-kanban-card]')).toHaveCount(3, { timeout: 15_000 });
         // Focus opens the card's hover preview (#2710), so it's scanned too.
-        await win.locator('.kb-board [data-kanban-card]').first().focus();
+        await board.locator('[data-kanban-card]').first().focus();
         await expect(win.getByRole('tooltip')).toBeVisible();
         await expect(win.locator('.note-hover-preview .nhp-snippet:not(.nhp-loading)')).toHaveCount(1, { timeout: 5_000 });
         await expectNoSerious(win, 'Kanban board', theme);

@@ -41,6 +41,7 @@ import {
   type PluginEventName,
   type PluginEvents,
   type PluginMenuItem,
+  type PluginMoveTarget,
   type PluginMethod,
   type PluginResponse,
 } from '../../shared/plugins/api';
@@ -157,6 +158,15 @@ function stringParam(params: Record<string, unknown>, key: string): string {
   const v = params[key];
   if (typeof v !== 'string') throw new Refusal('bad-request', `"${key}" must be a string.`);
   return v;
+}
+
+function moveTargetParam(raw: unknown): PluginMoveTarget {
+  if (raw === null || typeof raw !== 'object') throw new Refusal('bad-request', '"target" must be a group: { value, label, kind }.');
+  const t = raw as Record<string, unknown>;
+  if (t.kind !== 'option' && t.kind !== 'off-list' && t.kind !== 'no-value') throw new Refusal('bad-request', '"target.kind" is "option", "off-list" or "no-value".');
+  if (typeof t.label !== 'string') throw new Refusal('bad-request', '"target.label" must be a string.');
+  if (t.kind === 'no-value' ? t.value !== null : typeof t.value !== 'string') throw new Refusal('bad-request', '"target.value" is the group\'s value, null only for No value.');
+  return { value: t.value as string | null, label: t.label.slice(0, PLUGIN_MENU_MAX_LABEL), kind: t.kind };
 }
 
 function numberParam(params: Record<string, unknown>, key: string): number {
@@ -331,7 +341,10 @@ export function createPluginSession(opts: PluginSessionOptions): PluginSession {
           if (typeof p !== 'string') throw new Refusal('bad-request', `paths[${i}] must be a string.`);
           return scoped(p);
         }))];
-        deps.intent({ kind: 'showNoteMenu', paths, x: numberParam(params, 'x'), y: numberParam(params, 'y') });
+        const target = params.target === true;
+        if (target && paths.length !== 1) throw new Refusal('bad-request', 'A menu for a named note names exactly one note.');
+        const label = typeof params.label === 'string' ? params.label.slice(0, PLUGIN_MENU_MAX_LABEL) : null;
+        deps.intent({ kind: 'showNoteMenu', paths, x: numberParam(params, 'x'), y: numberParam(params, 'y'), target, label });
         return {};
       }
       case 'ui.previewNote': {
@@ -360,6 +373,20 @@ export function createPluginSession(opts: PluginSessionOptions): PluginSession {
       case 'view.clearSelection':
         deps.intent({ kind: 'clearSelection' });
         return {};
+      case 'view.moveCard': {
+        const path = scoped(stringParam(params, 'path'));
+        deps.intent({ kind: 'moveCard', path, target: moveTargetParam(params.target) });
+        return {};
+      }
+      case 'view.undoMove':
+        deps.intent({ kind: 'undoMove' });
+        return {};
+      case 'view.moveColumn': {
+        const side = params.side;
+        if (side !== 'before' && side !== 'after') throw new Refusal('bad-request', '"side" is "before" or "after".');
+        deps.intent({ kind: 'moveColumn', key: stringParam(params, 'key'), target: stringParam(params, 'target'), side });
+        return {};
+      }
       case 'llm.propose':
         throw new Refusal('unavailable', 'llm.propose is not available yet (#2858).');
     }

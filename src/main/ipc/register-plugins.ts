@@ -257,8 +257,8 @@ export function registerPlugins(): void {
     closePluginSession(winFromEvent(e), String(sessionId));
   });
   handle(Channels.PLUGINS_SESSION_EVENT, (e, sessionId: string, event: PluginHostEvent) => {
-    if (event === null || typeof event !== 'object' || !['theme', 'drop', 'view', 'exportRequest'].includes(event.kind)) {
-      throw new Error('A plugin session event is a theme, a drop, a view or an export request.');
+    if (event === null || typeof event !== 'object' || !['theme', 'drop', 'view', 'exportRequest', 'preview'].includes(event.kind)) {
+      throw new Error('A plugin session event is a theme, a drop, a view, an export request or a preview.');
     }
     sendPluginSessionEvent(winFromEvent(e), String(sessionId), event);
   });

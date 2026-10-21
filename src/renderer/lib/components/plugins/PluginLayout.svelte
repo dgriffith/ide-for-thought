@@ -20,6 +20,7 @@
   import { layoutDef, type ViewLayout } from '../../../../shared/objects/view-layouts';
   import type { PluginViewInstance, PluginViewState } from '../../../../shared/plugins/api';
   import { selectInstanceCardFields } from '../../../../shared/objects/card';
+  import { columnKey } from '../../../../shared/objects/kanban';
   import type { TypeInstanceRow } from '../../../../shared/objects/type-def';
   import { logger } from '../../../../shared/logger';
   import { tick } from 'svelte';
@@ -31,11 +32,11 @@
     view: LayoutView;
     layout: ViewLayout;
     pluginId: string;
-    /** The spec values this layout reads, as the view has them now. */
-    spec: Record<string, unknown>;
   }
 
-  let { view, layout, pluginId, spec }: Props = $props();
+  let { view, layout, pluginId }: Props = $props();
+  /** The layout's own spec fields, as the view has them now. */
+  const spec = $derived(Object.fromEntries(layoutDef(layout).specFields.map((k) => [k, view.spec[k] ?? null])));
 
   let connection = $state<PluginFrameConnection | null>(null);
   let wrapper = $state<HTMLDivElement | undefined>();
@@ -92,6 +93,11 @@
     selected: view.sorted.filter((i) => view.isSelected(i.path)).map((i) => i.path),
     selectable: view.selectable,
     rowMenu: view.rowMenu,
+    groupProperty: view.group?.name ?? null,
+    groups: view.board.map((col) => ({ key: columnKey(col), label: col.label, kind: col.kind, value: col.value, paths: col.instances.map((i) => i.path) })),
+    movable: !!view.onMoveCard,
+    canUndoMove: view.canUndoMove,
+    lastMove: view.lastMove ? { seq: view.lastMove.seq, paths: [...view.lastMove.paths] } : null,
   });
 
   $effect(() => {
@@ -127,7 +133,8 @@
   function hoverInstance(path: string): HoverInstance | null {
     const inst = view.instances.find((i) => i.path === path);
     if (!inst) return null;
-    return { type: view.type, properties: view.properties, inst, display: view.display, rowType: view.rowType(inst), visible: view.visible };
+    // As the card: a board's grouping property is its column, so the strip leaves it out.
+    return { type: view.type, properties: view.properties, inst, display: view.display, rowType: view.rowType(inst), visible: view.visible, omit };
   }
 
   /** Only this layout's own spec fields, and only where the view can be changed. */
@@ -150,7 +157,10 @@
       title={`${layoutDef(layout).label} of ${view.type.label}`}
       {onConnected}
       {onViewState}
-      onNoteMenu={(paths, x, y) => view.openRowMenu(paths, x, y)}
+      onNoteMenu={(paths, x, y, opts) => view.openRowMenu(paths, x, y, opts)}
+      onMoveCard={(path, target) => view.onMoveCard?.(path, target)}
+      onUndoMove={() => view.onUndoMove?.()}
+      onMoveColumn={(key, target, side) => view.onMoveColumn?.(key, target, side)}
       onExportHtml={(id, html) => { void onExportHtml(id, html); }}
       {hoverInstance}
       onViewClick={(path, mods) => view.onRowClick(new MouseEvent('click', { metaKey: mods.meta, ctrlKey: mods.ctrl, shiftKey: mods.shift }), path)}

@@ -19,7 +19,7 @@ import { addDays } from '../../../../shared/objects/calendar-grid';
 import { DAY_MS } from '../../../../shared/time';
 import { getKanbanMoveStore } from '../../stores/kanban-moves.svelte';
 import { announce } from '../../stores/announcer.svelte';
-import { cardMoveKey } from '../kanban/card-drag';
+import { cardMoveKey } from '../drag-keys';
 import { dayName, type CalendarModel } from './calendar-model';
 import { eventStartDay, refusalFor } from './reschedule';
 import type { TimelineProperties } from '../timeline/timeline-events';

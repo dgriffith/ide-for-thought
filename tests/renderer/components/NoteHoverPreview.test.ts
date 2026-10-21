@@ -69,10 +69,8 @@ vi.mock('../../../src/renderer/lib/map/maplibre-style', () => ({
   exportStyleUrl: () => 'https://tiles.openfreemap.org/styles/liberty',
 }));
 
-import TypeViewKanban from '../../../src/renderer/lib/components/TypeViewKanban.svelte';
 import TypeViewTimeline from '../../../src/renderer/lib/components/TypeViewTimeline.svelte';
 import TypeViewMap from '../../../src/renderer/lib/components/TypeViewMap.svelte';
-import { boardColumns } from '../../../src/shared/objects/kanban';
 
 /** What hovering `[[target]]` in a note shows. */
 async function linkHover(target: string): Promise<{ title: string; snippet: string }> {
@@ -94,79 +92,10 @@ function expectLinkContent(tip: HTMLElement, link: { title: string; snippet: str
 afterEach(() => { cleanup(); markerInstances.length = 0; });
 
 // ── Kanban ─────────────────────────────────────────────────────────────────
-const PROJECT: TypeInfo = {
-  id: 'project', label: 'Project', classLocalName: 'Project', icon: '🚀', source: 'stock',
-  properties: [
-    { name: 'status', type: 'enum', options: ['active', 'done'] },
-    { name: 'owner', type: 'text', label: 'Owner' },
-  ],
-};
-const prow = (path: string, title: string, values: Record<string, string | null>): TypeInstanceRow =>
-  ({ path, title, values: { status: null, owner: null, ...values }, cover: null });
-
-function renderKanban(over: Record<string, unknown> = {}) {
-  const instances = [prow('projects/alpha.md', 'Project Alpha', { status: 'active', owner: 'Ann' }), prow('projects/bravo.md', 'Bravo', { status: 'done' })];
-  const group = PROJECT.properties[0]!;
-  return render(TypeViewKanban, {
-    type: PROJECT, properties: PROJECT.properties, group,
-    columns: boardColumns(instances, group),
-    visible: null, display: (_p: unknown, v: string | null) => v ?? '', rowType: () => PROJECT,
-    isSelected: () => false, selectable: false, onCardClick: vi.fn(), onCardContextMenu: vi.fn(),
-    ...over,
-  });
-}
-const kanbanCard = (path: string) => document.querySelector<HTMLElement>(`[data-kanban-card][data-note-path="${path}"]`)!;
-
-describe('Kanban cards (#2710)', () => {
-  it('hovering a card shows the note-link preview, with the card fields as its strip; no native path tooltip', async () => {
-    renderKanban();
-    const card = kanbanCard('projects/alpha.md');
-    expect(card.hasAttribute('title')).toBe(false);
-    await fireEvent.pointerEnter(card);
-    const tip = await openPreview();
-    expectLinkContent(tip, await linkHover('projects/alpha'));
-    expect(tip.querySelector('.nhp-fields')!.textContent).toContain('Owner');
-    expect(tip.querySelector('.nhp-fields')!.textContent).toContain('Ann');
-    // The grouping property is the column, so it isn't repeated.
-    expect(tip.querySelector('.nhp-fields')!.textContent).not.toContain('active');
-    expect(card.getAttribute('aria-describedby')).toBe(tip.id);
-    await fireEvent.pointerLeave(card);
-    await waitFor(() => expect(screen.queryByRole('tooltip')).toBeNull());
-  });
-
-  it('keyboard focus shows it at once, without moving focus; Escape closes it', async () => {
-    renderKanban();
-    const card = kanbanCard('projects/bravo.md');
-    card.focus();
-    const tip = await openPreview();
-    expectLinkContent(tip, await linkHover('projects/bravo'));
-    expect(document.activeElement).toBe(card);
-    await fireEvent.keyDown(card, { key: 'Escape' });
-    await waitFor(() => expect(screen.queryByRole('tooltip')).toBeNull());
-    expect(card.hasAttribute('aria-describedby')).toBe(false);
-    expect(document.activeElement).toBe(card);
-  });
-
-  it('moving onto the preview keeps it open', async () => {
-    renderKanban();
-    const card = kanbanCard('projects/alpha.md');
-    await fireEvent.pointerEnter(card);
-    const tip = await openPreview();
-    await fireEvent.pointerLeave(card);
-    await fireEvent.pointerEnter(tip);
-    await new Promise((r) => setTimeout(r, 300));
-    expect(screen.getByRole('tooltip')).toBe(tip);
-    await fireEvent.pointerLeave(tip);
-    await waitFor(() => expect(screen.queryByRole('tooltip')).toBeNull());
-  });
-
-  it('an export mounts no preview', async () => {
-    renderKanban({ exportMode: true });
-    await fireEvent.pointerEnter(kanbanCard('projects/alpha.md'));
-    await new Promise((r) => setTimeout(r, 400));
-    expect(document.querySelector('[role="tooltip"], .note-hover-preview')).toBeNull();
-  });
-});
+// Kanban cards' previews (#2710) are the Kanban plugin's since #2828: its board asks for
+// them (tests/plugins/kanban/Board.test.ts), PluginFrame draws them (PluginFrame.test.ts),
+// PluginLayout fills their strip (PluginLayout.test.ts), and note-hover-preview.spec.ts
+// checks the whole of it in the app.
 
 // ── Timeline ───────────────────────────────────────────────────────────────
 const EVENT: TypeInfo = {

@@ -14,6 +14,7 @@
  * - **note PDF**: it prints (the PDF is kept in `test-results/` for review).
  */
 import { test, expect, type Page } from './helpers/test';
+import type { Frame } from '@playwright/test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -49,7 +50,7 @@ function seed(dir: string): void {
 
 type Column = { label: string; count: string; cards: string[] };
 /** Each column's label, count and card titles, in order, under a root (or its shadow root). */
-async function readBoard(scope: Page, rootSelector: string): Promise<Column[]> {
+async function readBoard(scope: Page | Frame, rootSelector: string): Promise<Column[]> {
   return scope.evaluate((sel) => {
     const root = document.querySelector(sel)!;
     const tree = (root as HTMLElement).shadowRoot ?? root;
@@ -87,18 +88,24 @@ test('a Kanban board exports as the preview shows it: wrapped, read-only, linked
     const preview = await test.step('open the note: the preview embed is a read-only board', async () => {
       await win.locator('[data-relative-path="Board.md"]').first().click();
       await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.webContents.send('menu:command', 'view.togglePreview'); });
-      await expect(win.locator('.preview .kb-card')).toHaveCount(5, { timeout: 15_000 });
+      // The board is the Kanban plugin's, in its frame inside the embed (#2828).
       const embed = win.locator('.preview .object-view-block');
-      await expect(embed.locator('.kb-col-menu-btn, [data-draggable], .tv-header, [aria-pressed]')).toHaveCount(0);
+      const board = embed.locator('[data-plugin-layout="kanban"] iframe').contentFrame();
+      await expect(board.locator('.kb-card')).toHaveCount(5, { timeout: 15_000 });
+      await expect(board.locator('.kb-col-menu-btn, [data-draggable], [aria-pressed]')).toHaveCount(0);
+      await expect(embed.locator('.tv-header')).toHaveCount(0);
       // Right-click offers the note actions for that card (#2774), but never
       // Move to: an embedded board stays read-only (#2604).
-      await embed.locator('.kb-card').first().click({ button: 'right' });
+      await board.locator('.kb-card').first().click({ button: 'right' });
       await expect(win.getByRole('menuitem', { name: /^Add Tag/ })).toBeVisible();
       await expect(win.getByRole('menuitem', { name: /^Move to/ })).toHaveCount(0);
       await win.keyboard.press('Escape');
       await expect(win.locator('.tv-menu')).toHaveCount(0);
       await win.locator('.preview').screenshot({ path: 'test-results/export-kanban-preview.png' });
-      return readBoard(win, '.preview .object-view-block');
+      const handle = await embed.locator('[data-plugin-layout="kanban"] iframe').elementHandle();
+      const frame = await handle?.contentFrame();
+      if (!frame) throw new Error('the embedded board has no frame');
+      return readBoard(frame, 'body');
     });
     // The board the spec describes: done first (columnOrder), the empty review
     // and dropped columns shown, No value last; the garden and out-of-folder tasks absent.

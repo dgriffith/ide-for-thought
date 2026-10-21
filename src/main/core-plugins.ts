@@ -29,6 +29,9 @@ export type CorePluginActivation = () => () => void;
 /** What each core plugin does when it's on, by id. */
 const CORE_PLUGIN_ACTIVATIONS: Readonly<Record<string, CorePluginActivation>> = {
   python: registerPythonCompute,
+  // Kanban (#2828) wires up nothing in main: its view is served from its built
+  // folder while it is active, which is what activating it marks.
+  kanban: () => () => {},
 };
 
 /**

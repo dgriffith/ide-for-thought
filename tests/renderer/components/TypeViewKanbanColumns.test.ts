@@ -1,34 +1,31 @@
 /**
- * @vitest-environment happy-dom
+ * @vitest-environment jsdom
  *
- * Reordering a Kanban board's columns and hiding empty ones (#2614), through
- * `TypeView`: the header menu's *Move column left / right* by keyboard (focus,
- * Escape, the live-region announcement), the order it writes, the board
- * drawing a `columnOrder`, the *Show empty columns* toggle, and a read-only
- * embed with neither. Pointer dragging is geometry, covered by
- * `kanban/column-drag.test.ts` and the e2e spec.
+ * Kanban column order and Show empty columns (#2614), the host's half: the
+ * order the view sends the plugin, the new order a plugin's
+ * `view.moveColumn` writes, the toggle, Copy as markdown, and an embed.
+ * The header menu and its keyboard are the board's
+ * (tests/plugins/kanban/Board.test.ts).
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, fireEvent, cleanup, screen, within } from '@testing-library/svelte';
+import { render, fireEvent, cleanup, screen } from '@testing-library/svelte';
+import { kanbanHostState, openBoard } from './kanban-host';
 
-const { instancesMock, listMock, noteTypeMapMock } = vi.hoisted(() => ({
+const { instancesMock, listMock, noteTypeMapMock, plugin } = vi.hoisted(() => ({
   instancesMock: vi.fn(), listMock: vi.fn(), noteTypeMapMock: vi.fn(),
+  plugin: {} as import('./kanban-host').KanbanHostState,
 }));
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({
   api: { types: { instances: instancesMock, list: listMock, noteTypeMap: noteTypeMapMock } },
 }));
+vi.mock('../../../src/renderer/lib/stores/plugin-sessions.svelte', () => ({ connectPluginFrame: (...a: unknown[]) => plugin.connect(...a) }));
+vi.mock('../../../src/renderer/lib/stores/core-plugins.svelte', () => ({ corePluginsStore: { isOn: () => true, name: () => 'Kanban' } }));
 
 import TypeView from '../../../src/renderer/lib/components/TypeView.svelte';
 import { objectTypesStore } from '../../../src/renderer/lib/stores/object-types.svelte';
-import { getAnnouncerStore } from '../../../src/renderer/lib/stores/announcer.svelte';
-import { reactiveProps } from '../../../src/renderer/lib/markdown/mounted-props.svelte';
 
 const PROJECT = {
-  id: 'project',
-  label: 'Project',
-  classLocalName: 'Project',
-  icon: '🚀',
-  source: 'stock' as const,
+  id: 'project', label: 'Project', classLocalName: 'Project', icon: '🚀', source: 'stock' as const,
   properties: [{ name: 'status', type: 'enum' as const, options: ['active', 'paused', 'done', 'abandoned'] }],
 };
 const row = (path: string, title: string, status: string | null) => ({ path, title, values: { status }, cover: null });
@@ -36,22 +33,13 @@ const INSTANCES = [row('a.md', 'Alpha', 'active'), row('b.md', 'Bravo', 'done'),
 
 function props(over: Record<string, unknown> = {}) {
   return {
-    typeId: 'project',
-    layout: 'kanban' as const,
-    sortColumn: null,
-    sortDir: 'asc' as const,
-    columns: null,
-    revision: 0,
-    onStateChange: vi.fn(),
-    onOpenNote: vi.fn(),
-    ...over,
+    typeId: 'project', layout: 'kanban' as const, sortColumn: null, sortDir: 'asc' as const, columns: null,
+    revision: 0, onStateChange: vi.fn(), onOpenNote: vi.fn(), ...over,
   };
 }
-const labels = (container: HTMLElement) => [...container.querySelectorAll('.kb-col-label')].map((l) => l.textContent);
-const menuButton = (container: HTMLElement, value: string) =>
-  container.querySelector<HTMLElement>(`.kb-column[data-column-value="${value}"] .kb-col-menu-btn`)!;
 
 beforeEach(async () => {
+  kanbanHostState(plugin);
   listMock.mockResolvedValue({ types: [PROJECT], errors: [] });
   noteTypeMapMock.mockResolvedValue({});
   await objectTypesStore.refresh();
@@ -59,116 +47,47 @@ beforeEach(async () => {
 });
 afterEach(() => { cleanup(); instancesMock.mockReset(); });
 
+const labels = (b: Awaited<ReturnType<typeof openBoard>>) => b.columns().map(([l]) => l);
+
 describe('Kanban column order (#2614)', () => {
-  it('draws the columns in the view\'s columnOrder, unlisted ones after in enum order', async () => {
+  it("sends the columns in the view's columnOrder, unlisted ones after in enum order", async () => {
     const { container } = render(TypeView, props({ columnOrder: ['done', 'abandoned'] }));
-    await screen.findByText('Alpha');
-    expect(labels(container)).toEqual(['done', 'abandoned', 'active', 'paused']);
+    expect(labels(await openBoard(container, plugin))).toEqual(['done', 'abandoned', 'active', 'paused']);
   });
 
-  it('each header has a menu button, reached by ↑ from the column\'s first card, and ←/→ walk the headers', async () => {
-    const { container } = render(TypeView, props());
-    await screen.findByText('Alpha');
-    const btn = menuButton(container, 'active');
-    expect(btn.getAttribute('aria-label')).toBe('active column actions');
-    expect(btn.getAttribute('aria-haspopup')).toBe('menu');
-    expect(btn.tabIndex).toBe(-1); // the board stays one tab stop
-    container.querySelector<HTMLElement>('[data-note-path="a.md"]')!.focus();
-    await fireEvent.keyDown(document.activeElement!, { key: 'ArrowUp' });
-    expect(document.activeElement).toBe(btn);
-    await fireEvent.keyDown(btn, { key: 'ArrowRight' });
-    expect(document.activeElement).toBe(menuButton(container, 'paused'));
-    await fireEvent.keyDown(document.activeElement!, { key: 'End' });
-    expect(document.activeElement).toBe(menuButton(container, 'abandoned')); // an empty column's header is reachable
-    await fireEvent.keyDown(document.activeElement!, { key: 'Home' });
-    expect(document.activeElement).toBe(btn);
-  });
-
-  it('the menu opens on the button, focuses its first item, and Escape closes it with focus back on the button', async () => {
-    const { container } = render(TypeView, props());
-    await screen.findByText('Alpha');
-    const btn = menuButton(container, 'done');
-    await fireEvent.click(btn);
-    const menu = await screen.findByRole('menu', { name: 'done column' });
-    expect(btn.getAttribute('aria-expanded')).toBe('true');
-    const items = within(menu).getAllByRole('menuitem');
-    expect(items.map((i) => i.textContent)).toEqual(['Move column left', 'Move column right']);
-    await vi.waitFor(() => expect(document.activeElement).toBe(items[0]));
-    await fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' });
-    expect(document.activeElement).toBe(items[1]);
-    await fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
-    expect(screen.queryByRole('menu')).toBeNull();
-    expect(document.activeElement).toBe(btn);
-  });
-
-  it('Move column left / right write the new order, and the moved column is announced and keeps focus', async () => {
-    // A host that lands each patch on the tab, as the editor store does: on
-    // fine-grained reactive props (testing-library's `rerender` replaces the
-    // whole props object, which reloads the view and re-creates the board).
-    const onStateChange = vi.fn((patch: Record<string, unknown>) => { Object.assign(host, patch); });
-    const host: Record<string, unknown> = reactiveProps(props({ onStateChange }));
-    const { container } = render(TypeView, { props: host as ReturnType<typeof props> });
-    await screen.findByText('Alpha');
-
-    await fireEvent.click(menuButton(container, 'done'));
-    await fireEvent.click(within(await screen.findByRole('menu')).getByRole('menuitem', { name: 'Move column left' }));
-    expect(onStateChange).toHaveBeenLastCalledWith({ columnOrder: ['active', 'done', 'paused', 'abandoned'] });
-    await vi.waitFor(() => expect(labels(container)).toEqual(['active', 'done', 'paused', 'abandoned']));
-    await vi.waitFor(() => expect(getAnnouncerStore().polite.trim()).toBe('Moved done column to position 2 of 4'));
-    expect(document.activeElement).toBe(menuButton(container, 'done'));
-
-    await fireEvent.click(menuButton(container, 'done'));
-    await fireEvent.click(within(await screen.findByRole('menu')).getByRole('menuitem', { name: 'Move column right' }));
-    // Back to the enum's own order: no order at all.
-    expect(onStateChange).toHaveBeenLastCalledWith({ columnOrder: [] });
-    await vi.waitFor(() => expect(labels(container)).toEqual(['active', 'paused', 'done', 'abandoned']));
-    await vi.waitFor(() => expect(getAnnouncerStore().polite.trim()).toBe('Moved done column to position 3 of 4'));
-  });
-
-  it('at the board\'s edge the move is offered but disabled, and does nothing', async () => {
+  it("a plugin's view.moveColumn writes the new order — and back to the enum's order is no order at all", async () => {
     const onStateChange = vi.fn();
     const { container } = render(TypeView, props({ onStateChange }));
-    await screen.findByText('Alpha');
-    await fireEvent.click(menuButton(container, 'active'));
-    const left = within(await screen.findByRole('menu')).getByRole('menuitem', { name: 'Move column left' });
-    expect(left.getAttribute('aria-disabled')).toBe('true');
-    await fireEvent.click(left);
-    expect(onStateChange).not.toHaveBeenCalled();
+    const b = await openBoard(container, plugin);
+    b.host().moveColumn!('done', 'active', 'before');
+    expect(onStateChange).toHaveBeenLastCalledWith({ columnOrder: ['done', 'active', 'paused', 'abandoned'] });
+    // done to just after paused: its own place in the enum, so no order at all.
+    b.host().moveColumn!('done', 'paused', 'after');
+    expect(onStateChange).toHaveBeenLastCalledWith({ columnOrder: [] });
   });
 
-  it('a right-click on a header opens the same menu', async () => {
-    const { container } = render(TypeView, props());
-    await screen.findByText('Alpha');
-    await fireEvent.contextMenu(container.querySelector('.kb-column[data-column-value="paused"] .kb-col-header')!);
-    expect(await screen.findByRole('menu', { name: 'paused column' })).toBeTruthy();
-  });
-
-  it('a move skips a column hidden by Show empty columns, which keeps its place', async () => {
+  it('an embed does not move columns', async () => {
     const onStateChange = vi.fn();
-    const { container } = render(TypeView, props({ onStateChange, showEmptyColumns: false }));
-    await screen.findByText('Alpha');
-    expect(labels(container)).toEqual(['active', 'paused', 'done']);
-    await fireEvent.click(menuButton(container, 'done'));
-    await fireEvent.click(within(await screen.findByRole('menu')).getByRole('menuitem', { name: 'Move column right' }));
-    expect(onStateChange).not.toHaveBeenCalled(); // done is the last visible column
-    await fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
+    const { container } = render(TypeView, props({ onStateChange, chromeless: true }));
+    const b = await openBoard(container, plugin);
+    b.host().moveColumn!('done', 'active', 'before');
+    expect(onStateChange).not.toHaveBeenCalled();
   });
 });
 
 describe('Show empty columns (#2614)', () => {
-  it('is on by default, beside the board\'s controls, and turning it off goes through onStateChange', async () => {
+  it("is on by default, beside the board's controls, and turning it off goes through onStateChange", async () => {
     const onStateChange = vi.fn();
     const { container, rerender } = render(TypeView, props({ onStateChange }));
-    await screen.findByText('Alpha');
-    const toggle = screen.getByRole('checkbox', { name: 'Show empty columns' });
-    expect((toggle as HTMLInputElement).checked).toBe(true);
-    expect(labels(container)).toContain('abandoned');
-
+    const b = await openBoard(container, plugin);
+    const toggle = screen.getByRole<HTMLInputElement>('checkbox', { name: 'Show empty columns' });
+    expect(toggle.checked).toBe(true);
+    expect(labels(b)).toContain('abandoned');
     await fireEvent.click(toggle);
     expect(onStateChange).toHaveBeenCalledWith({ showEmptyColumns: false });
     await rerender(props({ onStateChange, showEmptyColumns: false }));
-    await vi.waitFor(() => expect(labels(container)).toEqual(['active', 'paused', 'done']));
-    expect(screen.getByRole<HTMLInputElement>('checkbox', { name: 'Show empty columns' }).checked).toBe(false);
+    await vi.waitFor(() => expect(labels(b)).toEqual(['active', 'paused', 'done']));
+    expect(b.state().spec).toMatchObject({ showEmptyColumns: false });
   });
 
   it('is only on a board', async () => {
@@ -180,28 +99,65 @@ describe('Show empty columns (#2614)', () => {
   it('Copy as markdown carries both fields, and omits them at their defaults', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
-    const { unmount } = render(TypeView, props({ columnOrder: ['done', 'active'], showEmptyColumns: false }));
-    await screen.findByText('Alpha');
+    const first = render(TypeView, props({ columnOrder: ['done', 'active'], showEmptyColumns: false }));
+    await openBoard(first.container, plugin);
     await fireEvent.click(screen.getByRole('button', { name: 'Copy as markdown' }));
     await vi.waitFor(() => expect(writeText).toHaveBeenCalled());
     expect(writeText.mock.calls[0]![0]).toContain('"columnOrder": [\n    "done",\n    "active"\n  ]');
     expect(writeText.mock.calls[0]![0]).toContain('"showEmptyColumns": false');
-    unmount();
+    first.unmount();
 
-    render(TypeView, props());
-    await screen.findByText('Alpha');
+    kanbanHostState(plugin);
+    const second = render(TypeView, props());
+    await openBoard(second.container, plugin);
     await fireEvent.click(screen.getByRole('button', { name: 'Copy as markdown' }));
     await vi.waitFor(() => expect(writeText).toHaveBeenCalledTimes(2));
     expect(writeText.mock.calls[1]![0]).not.toMatch(/columnOrder|showEmptyColumns/);
   });
 });
 
+describe('Copy as markdown carries the grouping (#2601)', () => {
+  const TASK = {
+    id: 'task', label: 'Task', classLocalName: 'Task', source: 'stock' as const,
+    properties: [
+      { name: 'status', type: 'enum' as const, options: ['todo', 'done'] },
+      { name: 'priority', type: 'enum' as const, options: ['low', 'high'] },
+      { name: 'owner', type: 'text' as const },
+    ],
+  };
+  /** The spec in the copied ```object-view fence. */
+  const copiedSpec = (md: string) => JSON.parse(/```object-view\n([\s\S]*?)\n```/.exec(md)![1]!) as Record<string, unknown>;
+
+  it('copies groupBy when it is an enum of the type, and drops one that is not', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    listMock.mockResolvedValue({ types: [TASK], errors: [] });
+    await objectTypesStore.refresh();
+    instancesMock.mockResolvedValue({ type: TASK, instances: [{ path: 't.md', title: 'Write spec', values: { status: 'todo', priority: 'high', owner: 'Ann' }, cover: null }] });
+
+    const first = render(TypeView, props({ typeId: 'task', groupBy: 'priority' }));
+    await openBoard(first.container, plugin);
+    await fireEvent.click(screen.getByRole('button', { name: 'Copy as markdown' }));
+    await vi.waitFor(() => expect(writeText).toHaveBeenCalled());
+    expect(copiedSpec(writeText.mock.calls[0]![0] as string)).toMatchObject({ typeId: 'task', layout: 'kanban', groupBy: 'priority' });
+    first.unmount();
+
+    // `owner` is a text property, so it can't group a board: left out, which
+    // reads back as the default (the first enum).
+    kanbanHostState(plugin);
+    const second = render(TypeView, props({ typeId: 'task', groupBy: 'owner' }));
+    await openBoard(second.container, plugin);
+    await fireEvent.click(screen.getByRole('button', { name: 'Copy as markdown' }));
+    await vi.waitFor(() => expect(writeText).toHaveBeenCalledTimes(2));
+    expect(writeText.mock.calls[1]![0] as string).not.toContain('groupBy');
+  });
+});
+
 describe('a read-only board (an embed)', () => {
-  it('honours the order and the toggle, with no menu and no dragging', async () => {
+  it('honours the order and the toggle, and is read-only', async () => {
     const { container } = render(TypeView, props({ chromeless: true, columnOrder: ['paused'], showEmptyColumns: false }));
-    await screen.findByText('Alpha');
-    expect(labels(container)).toEqual(['paused', 'active', 'done']);
-    expect(container.querySelector('.kb-col-menu-btn')).toBeNull();
-    expect(container.querySelector('[data-draggable]')).toBeNull();
+    const b = await openBoard(container, plugin);
+    expect(labels(b)).toEqual(['paused', 'active', 'done']);
+    expect(b.state().readOnly).toBe(true);
   });
 });

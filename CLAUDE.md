@@ -1778,7 +1778,14 @@ origin.
   `src/shared/` and npm packages (`plugin-source-boundary.test.ts`). The plugin
   API generator compares object support types member by member, by direction:
   a field added to what a plugin reads is an addition, a required field added
-  to what it sends is breaking.
+  to what it sends is breaking. **Kanban is the first** (`plugins/kanban/`,
+  on by default): the plugin draws and drags, and asks — `view.moveCard` /
+  `undoMove` / `moveColumn` — while TypeView runs the `kanban-moves` store,
+  writing with `NOTEBASE_WRITE_FILE`'s `opts.cause` so Local History says
+  *Moved by Kanban*. Test the host side by reading the `view` state sent and
+  calling the registered callbacks (`tests/renderer/components/kanban-host.ts`;
+  the frame never loads in a DOM test, so use jsdom — happy-dom logs an error
+  per frame), and the board itself in `tests/plugins/kanban/`.
 
 ### Code Review Checklist for LLM/Graph PRs
 

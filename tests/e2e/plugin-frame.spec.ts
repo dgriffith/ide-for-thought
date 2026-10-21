@@ -25,6 +25,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import { closeMinerva, launchMinerva, projectRoot, servePluginFrame } from './helpers/launch';
 import { PLUGIN_FRAME_SANDBOX } from '../../src/shared/plugins/frame';
+import { runAxe, seriousOrWorse } from '../helpers/axe-playwright';
 
 const FIXTURE = path.join(projectRoot, 'tests', 'fixtures', 'hostile-plugins', 'frame');
 const ORIGIN = 'minerva-plugin://hostile';
@@ -210,6 +211,23 @@ test('only the app may frame a plugin: a note\'s HTML preview frame cannot (#282
     }, ORIGIN);
     await win.waitForTimeout(2000);
     expect(win.frames().some((fr) => fr.url().startsWith(ORIGIN))).toBe(false);
+  } finally {
+    await closeMinerva(app);
+    cleanup();
+  }
+});
+
+test("the a11y scan reaches into a plugin frame, and says which (#2828)", async () => {
+  const { app, pluginDir, cleanup } = await launch();
+  try {
+    const win = await app.firstWindow({ timeout: 20_000 });
+    await waitForWorkspace(win);
+    await servePluginFrame(app, 'hostile', pluginDir);
+    const { frame } = await frameFixture(win, 'sandboxed');
+    // A button with no name: a critical violation, only inside the frame.
+    await frame.evaluate(() => { const b = document.createElement('button'); b.id = 'nameless'; document.body.append(b); });
+    const found = seriousOrWorse(await runAxe(win)).filter((v) => v.id === 'button-name');
+    expect(found.flatMap((v) => v.nodes.map((n) => n.target))).toContainEqual([ORIGIN, '#nameless']);
   } finally {
     await closeMinerva(app);
     cleanup();

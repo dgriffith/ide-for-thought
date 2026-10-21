@@ -68,24 +68,6 @@ function props(over: Record<string, unknown> = {}) {
   };
 }
 
-/** A type with enum properties — what a Kanban board groups by (#2601). */
-const TASK = {
-  id: 'task',
-  label: 'Task',
-  classLocalName: 'Task',
-  icon: '☑',
-  source: 'user' as const,
-  properties: [
-    { name: 'owner', type: 'text' as const },
-    { name: 'status', type: 'enum' as const, options: ['todo', 'doing', 'done'] },
-    { name: 'priority', type: 'enum' as const, options: ['low', 'high'] },
-  ],
-};
-const TASK_INSTANCES = [
-  { path: 'a.md', title: 'Write spec', values: { owner: 'Ann', status: 'doing', priority: 'high' }, cover: null },
-  { path: 'b.md', title: 'Ship it', values: { owner: 'Bo', status: null, priority: null }, cover: null },
-];
-
 const NOVEL = { id: 'novel', label: 'Novel', classLocalName: 'Novel', icon: '📕', parent: 'book', source: 'user' as const, properties: [] };
 
 /** Seed the module-singleton note→type store used for per-row icons. */
@@ -305,22 +287,8 @@ describe('TypeView (#1070)', () => {
       }
     });
 
-    it('a kanban view copies its groupBy when it is an enum of the type, and drops one that is not (#2601)', async () => {
-      instancesMock.mockResolvedValue({ type: TASK, instances: TASK_INSTANCES });
-      render(TypeView, props({ typeId: 'task', layout: 'kanban', groupBy: 'priority' }));
-      await screen.findByText('Write spec');
-      await fireEvent.click(screen.getByText('Copy as markdown'));
-      expect(copiedSpec()).toMatchObject({ typeId: 'task', layout: 'kanban', groupBy: 'priority' });
-      cleanup();
-      writeText.mockClear();
-      // `owner` is a text property, so it can't group a board: left out, which
-      // reads back as the default (the first enum).
-      render(TypeView, props({ typeId: 'task', layout: 'kanban', groupBy: 'owner' }));
-      await screen.findByText('Write spec');
-      await fireEvent.click(screen.getByText('Copy as markdown'));
-      expect(writeText.mock.calls[0]![0] as string).not.toContain('groupBy');
-      expect(copiedSpec()).toMatchObject({ layout: 'kanban', groupBy: null });
-    });
+    // A kanban view's groupBy copy (#2601) is in TypeViewKanbanColumns.test.ts, beside the board's
+    // other Copy as markdown case: the board is the Kanban plugin's frame since #2828.
 
     it('is not offered in chromeless (inline-embed) mode', async () => {
       render(TypeView, props({ layout: 'list', chromeless: true }));

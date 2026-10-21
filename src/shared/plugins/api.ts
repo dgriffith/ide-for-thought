@@ -28,7 +28,7 @@ import type { PluginCapability } from './capabilities';
  * The API's semver version (#2826), its own and not the app's: the host sends
  * it with the port, and a plugin's `code.api` range must accept it.
  */
-export const PLUGIN_API_VERSION = '1.4.0';
+export const PLUGIN_API_VERSION = '1.5.0';
 
 export const PLUGIN_METHODS = {
   'notes.list': { capability: 'notes:read', describes: 'The notes this view or call was given.' },
@@ -53,6 +53,9 @@ export const PLUGIN_METHODS = {
   'view.click': { capability: 'ui', describes: "Click a note in the view, as the view's own rows are: a plain click opens it, ⌘/⇧ select." },
   'view.selectAll': { capability: 'ui', describes: "Select every note in the view (⌘A)." },
   'view.clearSelection': { capability: 'ui', describes: "Clear the view's selection (Escape)." },
+  'view.moveCard': { capability: 'notes:write-properties', describes: "Move a note to one of the view's groups: Minerva sets its grouping property, with undo." },
+  'view.undoMove': { capability: 'notes:write-properties', describes: "Undo the view's last move (⌘Z on a board)." },
+  'view.moveColumn': { capability: 'ui', describes: "Move one of the view's groups before or after another; the order stays with the view." },
   'llm.propose': { capability: 'llm:propose', describes: 'Ask the assistant for changes. Not available yet (#2858).' },
 } as const satisfies Record<string, { capability: PluginCapability; describes: string }>;
 
@@ -79,13 +82,16 @@ export interface PluginMethodParams {
   'ui.releaseFocus': Record<string, never>;
   'ui.forwardKey': { key: string; meta?: boolean; ctrl?: boolean; alt?: boolean; shift?: boolean };
   'view.setState': { patch: Record<string, unknown> };
-  'ui.showNoteMenu': { paths: string[]; x: number; y: number };
+  'ui.showNoteMenu': { paths: string[]; x: number; y: number; target?: boolean; label?: string };
   'ui.previewNote': { path: string; x: number; y: number; width: number; height: number; via?: 'pointer' | 'focus' };
   'ui.hidePreview': { path: string; via?: 'pointer' | 'focus' };
   'view.provideExport': { requestId: string; html: string };
   'view.click': { path: string; meta?: boolean; ctrl?: boolean; shift?: boolean };
   'view.selectAll': Record<string, never>;
   'view.clearSelection': Record<string, never>;
+  'view.moveCard': { path: string; target: PluginMoveTarget };
+  'view.undoMove': Record<string, never>;
+  'view.moveColumn': { key: string; target: string; side: 'before' | 'after' };
   'llm.propose': Record<string, unknown>;
 }
 
@@ -116,6 +122,9 @@ export interface PluginMethodResults {
   'view.click': Record<string, never>;
   'view.selectAll': Record<string, never>;
   'view.clearSelection': Record<string, never>;
+  'view.moveCard': Record<string, never>;
+  'view.undoMove': Record<string, never>;
+  'view.moveColumn': Record<string, never>;
   'llm.propose': never;
 }
 
@@ -133,12 +142,16 @@ export interface PluginMethodResults {
  *   session's scope.
  * - `export` (#2828): draw the view for an export (`view.exportMode`) and
  *   answer with `view.provideExport({ requestId, html })`.
+ * - `preview` (#2828): what Minerva's hover preview of a note says, while it
+ *   shows (null when it goes) — for the note's accessible description in the
+ *   frame, since `aria-describedby` can't reach the preview outside it.
  */
 export interface PluginEvents {
   theme: { mode: string; vars: Record<string, string> };
   drop: { paths: string[]; x: number; y: number };
   view: PluginViewState;
   export: { requestId: string };
+  preview: { path: string; description: string | null };
 }
 
 /** A type view, as a plugin drawing one of its layouts sees it (#2828). */
@@ -165,7 +178,33 @@ export type PluginViewState = {
   selectable: boolean;
   /** A note has a menu (`ui.showNoteMenu`), so it takes focus and the menu key. */
   rowMenu: boolean;
+  /** A grouped layout (a board, #2828): the grouping property, null when the type has none. */
+  groupProperty: string | null;
+  /** …and its groups, in order — Minerva's, with the view's filters and column order applied. */
+  groups: PluginViewGroup[];
+  /** The notes can be moved between groups (`view.moveCard`) and the order changed (`view.moveColumn`). */
+  movable: boolean;
+  /** There is a move to undo (`view.undoMove`). */
+  canUndoMove: boolean;
+  /** The last move or undo that wrote something, so a moved card can keep focus. */
+  lastMove: { seq: number; paths: string[] } | null;
 };
+
+/** One group of a grouped view: a board's column. */
+export type PluginViewGroup = {
+  /** Its key in `columnOrder`: what `view.moveColumn` names. */
+  key: string;
+  label: string;
+  /** `option` — one of the property's options; `off-list` — a value it doesn't declare; `no-value` — empty. */
+  kind: 'option' | 'off-list' | 'no-value';
+  /** The value its notes hold; null for No value. */
+  value: string | null;
+  /** Its notes, in the view's order. */
+  paths: string[];
+};
+
+/** Where `view.moveCard` moves a note: a group's value, label and kind. */
+export type PluginMoveTarget = { value: string | null; label: string; kind: 'option' | 'off-list' | 'no-value' };
 
 /** One of a type's properties. */
 export type PluginViewProperty = { name: string; type: string; label?: string; options?: string[] };

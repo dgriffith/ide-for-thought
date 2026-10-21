@@ -115,7 +115,8 @@ test('a note with every live kind exports each one rendered, no raw source left 
       expect(html).toContain('Cited Evidence'); // the argument map's node
       // The Kanban board, in export mode: its columns, and every card title.
       expect(html).toMatch(/class="kb-board[^"]*\bkb-export\b/);
-      expect([...html.matchAll(/class="kb-col-label[^"]*">([^<]+)</g)].map((m) => m[1])).toEqual(['active', 'paused', 'done', 'abandoned']);
+      // Its styles are inline since the Kanban plugin draws it (#2828, decision c).
+      expect([...html.matchAll(/class="kb-col-label[^"]*"[^>]*>([^<]+)</g)].map((m) => m[1])).toEqual(['active', 'paused', 'done', 'abandoned']);
       expect(html).toContain('Garden Shed');
       expect(html).toContain('Tax Return');
       // The Timeline, in export mode: an SVG drawing with every event in it, the Meeting included, then the dated list.

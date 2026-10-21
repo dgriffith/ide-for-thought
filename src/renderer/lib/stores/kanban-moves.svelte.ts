@@ -118,11 +118,11 @@ function reportFailures(verb: string, failures: { title: string; error: string }
  * to the moved note, null when it already said that, or throws a message for
  * the toast.
  */
-async function writeFields(card: MoveCard, before: string, plan: PlannedMove): Promise<MovedNote | null> {
+async function writeFields(card: MoveCard, before: string, plan: PlannedMove, cause?: string): Promise<MovedNote | null> {
   const result = setFieldValues(before, plan.fields);
   if (result === null) throw new Error(YAML_ERROR);
   if (!result.changed) return null;
-  await api.notebase.writeFile(card.path, result.content);
+  await api.notebase.writeFile(card.path, result.content, cause ? { cause } : undefined);
   return {
     path: card.path,
     title: card.title,
@@ -149,7 +149,7 @@ async function finishMove(surface: MoveSurface, moved: MovedNote[], spoken: stri
  * paths actually written (empty when every card was already there, or every
  * write failed).
  */
-async function moveCards(cards: readonly MoveCard[], property: string, target: MoveTarget): Promise<string[]> {
+async function moveCards(cards: readonly MoveCard[], property: string, target: MoveTarget, opts: { cause?: string } = {}): Promise<string[]> {
   const moved: MovedNote[] = [];
   const failures: { title: string; error: string }[] = [];
   for (const card of cards) {
@@ -158,7 +158,7 @@ async function moveCards(cards: readonly MoveCard[], property: string, target: M
       const note = await writeFields(card, before, {
         fields: [{ key: property, value: target.value }],
         backLabel: groupValueOf(before, property) ?? 'No value',
-      });
+      }, opts.cause);
       if (note) moved.push(note);
     } catch (err) {
       if (!(err instanceof Error && err.message === YAML_ERROR)) logger('objects').warn('kanban move failed for', card.path, err);
@@ -240,7 +240,7 @@ function undoneText(note: MovedNote, current: string): string | null {
  * Resolves to the paths written back; empty when there was nothing to undo or
  * every note had moved on.
  */
-async function undoLastMove(surface: MoveSurface = 'board'): Promise<string[]> {
+async function undoLastMove(surface: MoveSurface = 'board', opts: { cause?: string } = {}): Promise<string[]> {
   const at = undoStack.findLastIndex((r) => r.surface === surface);
   if (at === -1) { announce(`Nothing to undo on the ${surface}.`); return []; }
   const record = undoStack[at]!;
@@ -253,7 +253,7 @@ async function undoLastMove(surface: MoveSurface = 'board'): Promise<string[]> {
       const current = await api.notebase.readFile(note.path);
       const next = undoneText(note, current);
       if (next === null || next === current) { skipped.push(note); continue; }
-      await api.notebase.writeFile(note.path, next);
+      await api.notebase.writeFile(note.path, next, opts.cause ? { cause: opts.cause } : undefined);
       restored.push(note);
     } catch (err) {
       logger('objects').warn(`${surface === 'board' ? 'kanban' : 'calendar'} undo failed for`, note.path, err);

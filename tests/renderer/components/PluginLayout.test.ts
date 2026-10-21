@@ -12,7 +12,8 @@ const h = vi.hoisted(() => ({
   connect: vi.fn(),
   host: null as null | {
     setViewState?(p: Record<string, unknown>): void;
-    showNoteMenu?(paths: string[], x: number, y: number): void;
+    showNoteMenu?(paths: string[], x: number, y: number, opts: { target: boolean; label: string | null }): void;
+    previewNote?(path: string, rect: object, via: string): void;
     exportHtml?(requestId: string, html: string): void;
     viewClick?(path: string, mods: { meta: boolean; ctrl: boolean; shift: boolean }): void;
     selectAll?(): void;
@@ -22,6 +23,9 @@ const h = vi.hoisted(() => ({
   requestExport: vi.fn(async () => {}),
 }));
 vi.mock('../../../src/renderer/lib/stores/plugin-sessions.svelte', () => ({ connectPluginFrame: h.connect }));
+vi.mock('../../../src/renderer/lib/components/note-hover/app-fetcher', () => ({
+  appNotePreviewFetcher: () => async (target: string) => ({ path: target, title: `Title of ${target}`, snippet: 'Text.' }),
+}));
 
 import PluginLayout from '../../../src/renderer/lib/components/plugins/PluginLayout.svelte';
 import type { LayoutView } from '../../../src/renderer/lib/components/type-view/layout-view';
@@ -38,6 +42,8 @@ function fakeView(over: Partial<LayoutView> = {}): LayoutView {
     readOnly: false, exportMode: false, onStateChange: vi.fn(), openRowMenu: vi.fn(),
     display: (_p: unknown, v: string | null) => (v ? v.toUpperCase() : ''), rowType: () => null, pluginExport: undefined,
     refPath: () => null, isSelected: (p: string) => p === 'a.md', selectable: true, rowMenu: true, group: null,
+    spec: { groupBy: 'status', columnOrder: [], showEmptyColumns: true }, board: [], canUndoMove: false, lastMove: null,
+    onMoveCard: undefined, onUndoMove: undefined, onMoveColumn: undefined,
     onRowClick: vi.fn(), selectAll: vi.fn(), clearSelection: vi.fn(),
     ...over,
   } as unknown as LayoutView;
@@ -49,13 +55,13 @@ beforeEach(() => {
   h.connect.mockReset();
   h.connect.mockImplementation(async (_f: unknown, _id: string, _s: string[], host: typeof h.host) => {
     h.host = host;
-    return { sessionId: 's', setScope: vi.fn(async () => {}), sendTheme: vi.fn(async () => {}), drop: vi.fn(), sendView: h.sendView, requestExport: h.requestExport, close: vi.fn(async () => {}) };
+    return { sessionId: 's', setScope: vi.fn(async () => {}), sendTheme: vi.fn(async () => {}), drop: vi.fn(), sendView: h.sendView, requestExport: h.requestExport, sendPreview: vi.fn(async () => {}), close: vi.fn(async () => {}) };
   });
 });
 afterEach(() => cleanup());
 
 async function mounted(view = fakeView()) {
-  const r = render(PluginLayout, { view, layout: 'kanban', pluginId: 'kanban', spec: { groupBy: 'status', columnOrder: [] } });
+  const r = render(PluginLayout, { view, layout: 'kanban', pluginId: 'kanban' });
   await fireEvent.load(r.container.querySelector('iframe')!);
   await waitFor(() => expect(h.sendView).toHaveBeenCalled());
   return { ...r, view };
@@ -80,16 +86,17 @@ describe('PluginLayout (#2828)', () => {
         { path: 'a.md', title: 'Alpha', values: { status: 'todo' }, tags: ['x'], fields: [{ name: 'status', label: 'status', text: 'TODO' }] },
       ],
       sortColumn: 'title', sortDir: 'desc',
-      spec: { groupBy: 'status', columnOrder: [] },
+      spec: { groupBy: 'status', columnOrder: [], showEmptyColumns: true },
       readOnly: false, exportMode: false,
       selected: ['a.md'], selectable: true, rowMenu: true,
+      groupProperty: null, groups: [], movable: false, canUndoMove: false, lastMove: null,
     });
   });
 
   it('sends it again when the view changes', async () => {
     const r = await mounted();
     const calls = h.sendView.mock.calls.length;
-    await r.rerender({ view: fakeView({ sortDir: 'asc' }), layout: 'kanban', pluginId: 'kanban', spec: { groupBy: 'status', columnOrder: ['done'] } });
+    await r.rerender({ view: fakeView({ sortDir: 'asc', spec: { groupBy: 'status', columnOrder: ['done'] } }), layout: 'kanban', pluginId: 'kanban' });
     await waitFor(() => expect(h.sendView.mock.calls.length).toBeGreaterThan(calls));
     expect(h.sendView.mock.calls.at(-1)![0]).toMatchObject({ sortDir: 'asc', spec: { columnOrder: ['done'] } });
   });
@@ -114,8 +121,8 @@ describe('the kit gaps, for a layout (#2828, part B)', () => {
   it("opens the view's own row menu for the notes the plugin names", async () => {
     const { view, container } = await mounted();
     container.querySelector('iframe')!.getBoundingClientRect = () => ({ left: 10, top: 20, right: 0, bottom: 0, width: 0, height: 0, x: 10, y: 20, toJSON: () => ({}) });
-    h.host!.showNoteMenu!(['a.md'], 5, 6);
-    expect(view.openRowMenu).toHaveBeenCalledWith(['a.md'], 15, 26);
+    h.host!.showNoteMenu!(['a.md'], 5, 6, { target: false, label: null });
+    expect(view.openRowMenu).toHaveBeenCalledWith(['a.md'], 15, 26, { target: false, label: null });
   });
 
   it('asks for the export after sending the view, and draws the answer sanitized, then says so', async () => {
@@ -179,5 +186,27 @@ describe('prepared cards and the host\'s selection (#2828, C1)', () => {
     h.host!.clearSelection!();
     expect(view.selectAll).toHaveBeenCalledTimes(1);
     expect(view.clearSelection).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("a card's hover preview (#2710, #2828)", () => {
+  it("shows the card's fields in the preview's strip — a board's grouping property left out, as on the card", async () => {
+    const STATUS = { name: 'status', type: 'enum', options: ['todo', 'done'] };
+    const OWNER = { name: 'owner', type: 'text', label: 'Owner' };
+    const rows = [{ path: 'a.md', title: 'Alpha', values: { status: 'todo', owner: 'Ann' }, cover: null }];
+    await mounted(fakeView({
+      properties: [STATUS, OWNER] as LayoutView['properties'],
+      group: STATUS as LayoutView['group'],
+      instances: rows,
+      sorted: rows,
+    }));
+    (h.host as unknown as { previewNote(p: string, r: object, v: string): void }).previewNote('a.md', { x: 0, y: 0, width: 10, height: 10 }, 'focus');
+    const strip = await vi.waitFor(() => {
+      const el = document.querySelector('.note-hover-preview .nhp-fields');
+      expect(el).not.toBeNull();
+      return el!;
+    });
+    expect(strip.textContent).toContain('Owner ANN'); // the fake view's display upper-cases
+    expect(strip.textContent).not.toMatch(/todo/i);
   });
 });

@@ -4,7 +4,7 @@
  * anything is no drop.
  */
 import { describe, it, expect } from 'vitest';
-import { planColumnDrop } from '../../../../src/renderer/lib/components/kanban/column-drag';
+import { planColumnDrop } from '../../../plugins/kanban/src/column-drag';
 
 // Three 100px columns with 10px gaps: a [0,100], b [110,210], c [220,320].
 const rects = [

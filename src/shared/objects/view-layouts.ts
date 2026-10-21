@@ -65,7 +65,8 @@ export const VIEW_LAYOUTS = [
   // A location-shaped property (#2066) — not offered for Book/Person/etc.
   { id: 'map', label: 'Map', noteName: 'map', appliesTo: (ctx) => ctx.properties.some((p) => p.type === 'geo'), dated: false, grouped: false, specFields: ['mapStyle'] },
   // A board's columns are an enum's options (#2601).
-  { id: 'kanban', label: 'Kanban', noteName: 'board', appliesTo: (ctx) => canShowKanban(ctx.properties), dated: false, grouped: true, specFields: ['groupBy', 'columnOrder', 'showEmptyColumns'] },
+  // Drawn by the built-in Kanban plugin (#2828), in a plugin frame.
+  { id: 'kanban', label: 'Kanban', noteName: 'board', appliesTo: (ctx) => canShowKanban(ctx.properties), dated: false, grouped: true, specFields: ['groupBy', 'columnOrder', 'showEmptyColumns'], plugin: 'kanban' },
   // A date or datetime property, own or inherited (#2715).
   { id: 'timeline', label: 'Timeline', noteName: 'timeline', appliesTo: datedRule, dated: true, grouped: false, specFields: ['from', 'to', 'dateBy'] },
   // The same rule as Timeline (#2702).

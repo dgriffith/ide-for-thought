@@ -28,6 +28,7 @@
   import NoteHoverPreview from '../NoteHoverPreview.svelte';
   import { createNoteHover } from '../note-hover/note-hover.svelte';
   import type { HoverInstance } from '../note-hover/hover-instance';
+  import type { PluginMoveTarget } from '../../../../shared/plugins/api';
 
   interface Props {
     pluginId: string;
@@ -42,7 +43,11 @@
     /** The plugin asked to change its view's spec (#2828). */
     onViewState?: (patch: Record<string, unknown>) => void;
     /** The app's note menu for these notes at a point in the window (#2828). */
-    onNoteMenu?: (paths: string[], clientX: number, clientY: number) => void;
+    onNoteMenu?: (paths: string[], clientX: number, clientY: number, opts: { target: boolean; label: string | null }) => void;
+    /** A board's moves (#2828), the host's to make. */
+    onMoveCard?: (path: string, target: PluginMoveTarget) => void;
+    onUndoMove?: () => void;
+    onMoveColumn?: (key: string, target: string, side: 'before' | 'after') => void;
     /** The plugin's answer to an export request, unsanitized (#2828). */
     onExportHtml?: (requestId: string, html: string) => void;
     /** The properties strip of a note's hover preview, where the host knows its type (#2828). */
@@ -53,10 +58,30 @@
     onClearSelection?: () => void;
   }
 
-  let { pluginId, entry = 'index.html', scope, title, onConnected, onViewState, onNoteMenu, onExportHtml, hoverInstance, onViewClick, onSelectAll, onClearSelection }: Props = $props();
+  let { pluginId, entry = 'index.html', scope, title, onConnected, onViewState, onNoteMenu, onMoveCard, onUndoMove, onMoveColumn, onExportHtml, hoverInstance, onViewClick, onSelectAll, onClearSelection }: Props = $props();
 
   // Hover previews: the app's own, against an anchor over the plugin's box.
   const hover = createNoteHover();
+  // The note a pointer preview is up for. A pointer that leaves the frame
+  // doesn't reliably reach the card's pointerleave inside it — nor the
+  // iframe element's here, the frame being out of process — so the window's
+  // own pointer moving anywhere but the frame or the preview lets it go.
+  let pointerPath = $state<string | null>(null);
+  function onFrameLeave(): void {
+    if (pointerPath === null) return;
+    hover.pointerLeave(pointerPath);
+    pointerPath = null;
+  }
+  $effect(() => {
+    if (pointerPath === null) return;
+    const away = (e: PointerEvent) => {
+      const t = e.target as Node | null;
+      if (t && (t === frame || document.getElementById(hoverId)?.contains(t))) return;
+      onFrameLeave();
+    };
+    window.addEventListener('pointermove', away, true);
+    return () => window.removeEventListener('pointermove', away, true);
+  });
   const uid = $props.id();
   const hoverId = `${uid}-preview`;
   let anchor: HTMLDivElement;
@@ -101,19 +126,22 @@
       connection = await connectPluginFrame(frame, pluginId, [...scope], {
         releaseFocus: () => host.focus(),
         setViewState: (patch) => onViewState?.(patch),
-        showNoteMenu: (paths, x, y) => {
+        showNoteMenu: (paths, x, y, opts) => {
           const at = toWindow(x, y);
-          onNoteMenu?.(paths, at.x, at.y);
+          onNoteMenu?.(paths, at.x, at.y, opts);
         },
+        moveCard: (path, target) => onMoveCard?.(path, target),
+        undoMove: () => onUndoMove?.(),
+        moveColumn: (key, target, side) => onMoveColumn?.(key, target, side),
         previewNote: (path, rect, via) => {
           anchorBox = rect;
           const subject = { key: path, target: path, anchor };
           if (via === 'focus') hover.focus(subject);
-          else hover.pointerEnter(subject);
+          else { pointerPath = path; hover.pointerEnter(subject); }
         },
         hidePreview: (path, via) => {
           if (via === 'focus') hover.blur(path);
-          else hover.pointerLeave(path);
+          else { if (pointerPath === path) pointerPath = null; hover.pointerLeave(path); }
         },
         exportHtml: (requestId, html) => onExportHtml?.(requestId, html),
         viewClick: (path, mods) => onViewClick?.(path, mods),
@@ -132,6 +160,30 @@
   const observer = new MutationObserver(() => sendTheme());
   observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-theme-base', 'style'] });
   observer.observe(document.head, { childList: true, subtree: true, characterData: true });
+
+  // What the preview says, for the note's accessible description in the
+  // frame (#2828): `aria-describedby` can't reach this tooltip from inside it.
+  // Sent once the preview has its text, and null when it goes.
+  let described: string | null = null;
+  $effect(() => {
+    const key = hover.current?.key ?? null;
+    if (!key) {
+      if (described) { const was = described; described = null; void connection?.sendPreview(was, null); }
+      return;
+    }
+    const tooltip = document.getElementById(hoverId);
+    const send = () => {
+      const text = (document.getElementById(hoverId)?.textContent ?? '').replace(/\s+/g, ' ').trim();
+      if (!text) return;
+      described = key;
+      void connection?.sendPreview(key, text);
+    };
+    send();
+    const watch = new MutationObserver(send);
+    if (tooltip) watch.observe(tooltip, { childList: true, subtree: true, characterData: true });
+    else watch.observe(document.body, { childList: true });
+    return () => watch.disconnect();
+  });
 
   // A pointer drag (`link-drag`) ending here arrives as a custom event.
   $effect(() => {
@@ -210,6 +262,7 @@
       sandbox={PLUGIN_FRAME_SANDBOX}
       {title}
       onload={() => { void onLoad(); }}
+      onpointerleave={onFrameLeave}
     ></iframe>
   {/if}
   <!-- Where the plugin's box is, for the hover preview to sit against. -->

@@ -41,7 +41,8 @@ export interface NotebaseApi {
   writeBinary(relativePath: string, bytes: Uint8Array): Promise<void>;
   /** Cheap existence check — used to dedupe content-hashed assets (#455). */
   fileExists(relativePath: string): Promise<boolean>;
-  writeFile(relativePath: string, content: string): Promise<void>;
+  /** `opts.cause` names what made the save in Local History (#2828). */
+  writeFile(relativePath: string, content: string, opts?: { cause?: string }): Promise<void>;
   createFile(relativePath: string): Promise<void>;
   deleteFile(relativePath: string): Promise<void>;
   createFolder(relativePath: string): Promise<void>;

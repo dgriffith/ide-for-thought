@@ -2,8 +2,8 @@
  * A Kanban board on every export surface (#2604, epic #2600).
  *
  * The board itself is drawn by the window (`renderObjectViewForExport` →
- * `TypeViewKanban` in export mode → `snapshotLiveBlock`; its own tests and the
- * e2e specs cover that). This pins what main does with it on each surface:
+ * the Kanban plugin's board in export mode, its styles inline (#2828) →
+ * `snapshotLiveBlock`; its own tests and the e2e specs cover that). This pins what main does with it on each surface:
  *
  * - the HTML family (note HTML, tree HTML, static site — and the PDFs, which
  *   print note HTML's body) splices the window's board in where the fence was,

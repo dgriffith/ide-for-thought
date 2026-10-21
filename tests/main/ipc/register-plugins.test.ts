@@ -121,11 +121,16 @@ const overInstalled = async (...args: unknown[]) => {
 };
 
 const LIST = {
-  // The built-in plugins as shipped (#2820): Python, off on a new install (#2822).
+  // The built-in plugins as shipped (#2820): Python, off on a new install
+  // (#2822), and Kanban, on (#2828).
   core: [{
     id: 'python', name: 'Python', version: '1.0.0',
     description: 'Run Python code cells in notes, in an interpreter you choose: pandas, numpy, matplotlib and anything else you install.',
     enabled: false, source: { kind: 'core' }, contributes: {}, capabilities: ['process'],
+  }, {
+    id: 'kanban', name: 'Kanban', version: '1.0.0',
+    description: 'Show a type view as a board: a column per option of a choice property, cards you drag between them.',
+    enabled: true, source: { kind: 'core' }, contributes: {}, capabilities: ['notes:read', 'notes:write-properties', 'ui'],
   }],
   installed: [{
     id: 'lab', name: 'Lab', version: '1.0.0', description: 'Lab tools', author: 'Ada', enabled: false,
@@ -406,8 +411,8 @@ describe('plugin session events (#2827)', () => {
     const drop = { kind: 'drop', paths: ['a.md'], x: 1, y: 2 };
     await call(Channels.PLUGINS_SESSION_EVENT, 's1', drop);
     expect(h.sessionEvent).toHaveBeenCalledWith({ id: 1 }, 's1', drop);
-    await expect(call(Channels.PLUGINS_SESSION_EVENT, 's1', { kind: 'approve' })).rejects.toThrow('a theme, a drop, a view or an export request');
-    await expect(call(Channels.PLUGINS_SESSION_EVENT, 's1', null)).rejects.toThrow('a theme, a drop, a view or an export request');
+    await expect(call(Channels.PLUGINS_SESSION_EVENT, 's1', { kind: 'approve' })).rejects.toThrow('a theme, a drop, a view, an export request or a preview');
+    await expect(call(Channels.PLUGINS_SESSION_EVENT, 's1', null)).rejects.toThrow('a theme, a drop, a view, an export request or a preview');
     await call(Channels.PLUGINS_SESSION_EVENT, 's1', { kind: 'exportRequest', requestId: 'r' });
     expect(h.sessionEvent).toHaveBeenLastCalledWith({ id: 1 }, 's1', { kind: 'exportRequest', requestId: 'r' });
     await call(Channels.PLUGINS_SESSION_EVENT, 's1', { kind: 'view', state: {} });
