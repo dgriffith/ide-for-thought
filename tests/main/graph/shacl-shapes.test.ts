@@ -75,7 +75,7 @@ describe('parseShapesFile (#2642)', () => {
 
   it('refuses a bad severity, group or name', () => {
     expect(problems('ex:S a sh:NodeShape ; sh:targetNode ex:x ; sh:severity sh:Panic .')).toEqual(["S's sh:severity is <http://www.w3.org/ns/shacl#Panic>; use sh:Info, sh:Warning or sh:Violation"]);
-    expect(problems('ex:S a sh:NodeShape ; sh:targetNode ex:x ; minerva:inspectionGroup "everything" .')).toEqual(['S\'s minerva:inspectionGroup is "everything"; use notes, links, sources, arguments, plugins']);
+    expect(problems('ex:S a sh:NodeShape ; sh:targetNode ex:x ; minerva:inspectionGroup "everything" .')).toEqual(['S\'s minerva:inspectionGroup is "everything"; use notes, links, sources, arguments, plugins, thoughtbase']);
     expect(problems('<https://example.org/shapes#9lives> a sh:NodeShape ; sh:targetNode ex:x .')).toEqual(['the shape <https://example.org/shapes#9lives> needs a name of letters, digits, _ and -, starting with a letter']);
   });
 });

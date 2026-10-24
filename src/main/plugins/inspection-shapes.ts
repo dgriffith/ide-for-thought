@@ -16,6 +16,7 @@ import fs from 'node:fs';
 import { logger } from '../../shared/logger';
 import type { PluginInspectionDef } from '../../shared/inspections';
 import { MAX_SHAPES_FILE_BYTES, parseShapesFile } from '../graph/shacl/shapes';
+import { isStopped } from '../graph/shacl/run';
 import type { PluginShapesFile } from '../graph/health-check-state';
 import { contributionsTo, loadedPluginScan, pluginScanVersion } from './registry';
 
@@ -64,4 +65,11 @@ export function pluginInspections(): PluginInspections {
 /** The enabled plugins' shapes files: what a health-check sweep runs with theirs (`HealthCheckDeps.pluginShapes`). */
 export function pluginInspectionFiles(): PluginShapesFile[] {
   return pluginInspections().files;
+}
+
+/** The plugins' checks as Settings lists them: a check stopped for running too long (#2874) marked. */
+export function pluginInspectionChecks(): PluginInspectionDef[] {
+  const { files, catalog } = pluginInspections();
+  const stoppedTypes = new Set(files.flatMap(({ file }) => file.checks.filter((c) => isStopped(file, c.type)).map((c) => c.type)));
+  return catalog.map((c) => (stoppedTypes.has(c.type) ? { ...c, stopped: true } : c));
 }

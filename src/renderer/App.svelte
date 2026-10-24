@@ -1518,7 +1518,7 @@
           onNavigate={handleNavigate}
           onOpenAtOffset={handleOpenAtOffset}
           onScrollToLine={(line) => editorComponent?.gotoLineColumn(line, 1)}
-          onOpenConversation={(msg) => { void openConversationWithMessage(msg); }}
+          onOpenConversation={(msg, context) => { void openConversationWithMessage(msg, context); }}
           onApplyInspectionFix={applyInspectionFix}
           onOpenQuery={(sql) => editor.openQuery(sql, 'sql')}
           onOpenSource={handleOpenSource}

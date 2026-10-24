@@ -311,6 +311,8 @@ export interface ChannelMap {
   'inspections:getSettings': () => InspectionSettings;
   /** The enabled plugins' SHACL checks (#2642), for Settings to list beside the built-ins. */
   'inspections:pluginChecks': () => import('./inspections').PluginInspectionDef[];
+  /** The open thoughtbase's own SHACL checks and refused files (#2874); none with nothing open. */
+  'inspections:thoughtbaseChecks': () => import('./inspections').ThoughtbaseInspections;
   /** Persist + return the saved (sanitized) settings, so the caller renders what
    *  actually landed rather than what it asked for. */
   'inspections:setSettings': (settings: InspectionSettings) => InspectionSettings;

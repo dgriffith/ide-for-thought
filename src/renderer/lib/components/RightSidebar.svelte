@@ -31,7 +31,7 @@
     /** Open a note and jump to a character offset (line bookmarks, #756). */
     onOpenAtOffset?: (relativePath: string, offset: number) => void | Promise<void>;
     onScrollToLine: (line: number) => void;
-    onOpenConversation?: (message: string) => void;
+    onOpenConversation?: (message: string, context?: string) => void;
     /** Apply an inspection's deterministic quick-fix (#1446). Routed to the
      *  Inspections panel; App owns the store/ops mutation it triggers. Returns a
      *  promise so the panel can re-run the checks once the fix has applied. */

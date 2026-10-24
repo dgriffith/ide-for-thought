@@ -57,8 +57,8 @@ export interface Inspection {
   notePath?: string;
 }
 
-/** `plugins`: a plugin's SHACL check that names no group of its own (#2642). */
-export type InspectionGroup = 'notes' | 'links' | 'sources' | 'arguments' | 'plugins';
+/** `plugins` / `thoughtbase`: a plugin's (#2642) or the thoughtbase's own (#2874) SHACL check that names no group of its own. */
+export type InspectionGroup = 'notes' | 'links' | 'sources' | 'arguments' | 'plugins' | 'thoughtbase';
 
 export interface InspectionDef {
   /** Matches `Inspection.type` from the engine. */
@@ -78,8 +78,25 @@ export interface InspectionDef {
 /** A plugin's inspection type (#2642): `plugin:<plugin id>/<shape name>`. */
 export const PLUGIN_INSPECTION_TYPE = /^plugin:[a-z][a-z0-9]*(?:-[a-z0-9]+)*\/[A-Za-z][A-Za-z0-9_-]{0,63}$/;
 
+/** A thoughtbase's own inspection type (#2874): `thoughtbase:<shape name>`. */
+export const THOUGHTBASE_INSPECTION_TYPE = /^thoughtbase:[A-Za-z][A-Za-z0-9_-]{0,63}$/;
+
+/**
+ * A SHACL check's catalog entry beyond the built-ins (#2642, #2874).
+ * `stopped`: it ran past its time limit, so it's skipped until its file
+ * changes — the engine can't be cancelled, and a sweep after every save
+ * would otherwise start it again each time.
+ */
+export type ShapeInspectionDef = InspectionDef & { stopped?: boolean };
+
 /** A plugin's inspection (#2642): a SHACL shape's catalog entry, and whose it is. */
-export type PluginInspectionDef = InspectionDef & { plugin: { id: string; name: string } };
+export type PluginInspectionDef = ShapeInspectionDef & { plugin: { id: string; name: string } };
+
+/** A thoughtbase's own inspections (#2874), as Settings lists them: its checks, and the files it refused. */
+export interface ThoughtbaseInspections {
+  checks: ShapeInspectionDef[];
+  problems: Array<{ file: string; problem: string }>;
+}
 
 export const INSPECTION_GROUP_LABELS: Record<InspectionGroup, string> = {
   notes: 'Notes',
@@ -87,6 +104,7 @@ export const INSPECTION_GROUP_LABELS: Record<InspectionGroup, string> = {
   sources: 'Sources',
   arguments: 'Arguments',
   plugins: 'From plugins',
+  thoughtbase: 'From this thoughtbase',
 };
 
 export const INSPECTIONS = [

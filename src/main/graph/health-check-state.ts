@@ -47,6 +47,12 @@ export interface HealthCheckDeps {
    * which is what tests and the CLI want.
    */
   pluginShapes?: () => readonly PluginShapesFile[];
+  /**
+   * The thoughtbase's own SHACL checks (#2874), from its `.minerva/shapes/`.
+   * Injected for the same reason as the asset scanner: it reads the disk, and
+   * a sweep's tests run every check on one fake tick. Omitted, none.
+   */
+  thoughtbaseShapes?: (ctx: ProjectContext) => Promise<{ files: readonly PluginShapesFile[] }>;
 }
 
 /** One plugin's shapes file, read (#2642): its checks run with Minerva's. */

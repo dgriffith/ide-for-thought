@@ -57,8 +57,8 @@ describe('getInspectionSettings', () => {
   });
 
   it("keeps a plugin's check switched off, by its shape, whether or not the plugin is on now (#2642)", async () => {
-    write({ disabled: ['plugin:reading-list/FinishedWithoutDate', 'plugin:Bad Id/x', 'plugin:lab/'], staleDays: 30, stubDays: 30 });
-    expect((await getInspectionSettings()).disabled).toEqual(['plugin:reading-list/FinishedWithoutDate']);
+    write({ disabled: ['plugin:reading-list/FinishedWithoutDate', 'plugin:Bad Id/x', 'plugin:lab/', 'thoughtbase:NeedsAuthor', 'thoughtbase:9bad'], staleDays: 30, stubDays: 30 });
+    expect((await getInspectionSettings()).disabled).toEqual(['plugin:reading-list/FinishedWithoutDate', 'thoughtbase:NeedsAuthor']);
   });
 
   it('clamps thresholds a hand-edited file could otherwise make meaningless', async () => {

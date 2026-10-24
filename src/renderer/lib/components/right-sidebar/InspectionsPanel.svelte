@@ -10,6 +10,7 @@
   // 'info' | 'warning' | 'concern'.
   import type { Inspection } from '../../../../shared/inspections';
   import { logger } from '../../../../shared/logger';
+  import { wrapUntrusted } from '../../../../shared/untrusted-content';
 
   const review = getReviewStore();
   const inspectionsStore = getInspectionsStore();
@@ -19,7 +20,8 @@
     /** The active note's relative path. The panel scopes to inspections anchored
      *  to this note (#1446) — this is a note-context sidebar, not a project view. */
     activeFilePath: string | null;
-    onOpenConversation?: (message: string) => void;
+    /** `context`: thoughtbase material for the first turn, delimited (#2874). */
+    onOpenConversation?: (message: string, context?: string) => void;
     /** Apply an inspection's deterministic quick-fix (#1446). When present on a
      *  row, it's the primary action — conversation is only the fallback for
      *  inspections that carry no fix. Returns a promise so the panel can re-run
@@ -122,7 +124,11 @@
       return;
     }
     if (onOpenConversation) {
-      onOpenConversation(`I'd like to discuss this inspection: "${inspection.message}". ${inspection.suggestedAction ?? ''}`);
+      // The finding's words go to the model as material, not as the user's
+      // own (#2874): a shape a shared thoughtbase carries writes them, and a
+      // note's title appears in most. The user's turn just asks.
+      const finding = [inspection.message, inspection.suggestedAction ? `Suggested: ${inspection.suggestedAction}` : ''].filter(Boolean).join('\n');
+      onOpenConversation("I'd like to discuss this inspection.", wrapUntrusted('inspection', finding, { type: inspection.type, note: inspection.notePath }));
     }
   }
 </script>
