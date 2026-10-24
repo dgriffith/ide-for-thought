@@ -14,7 +14,9 @@ import { noteTargetPathBeside } from '../../shared/wiki-link-resolver';
 import { isA, labelOf, supportedBy, unsupported } from './argument-patterns';
 import { runSourceChecks } from './source-checks';
 import type { Inspection, InspectionSettings, InspectionType } from '../../shared/inspections';
-import { runSparqlCheck, type SparqlCheckDef } from './sparql-check';
+import { parseShapesFile, type ShapesFile } from './shacl/shapes';
+import { runShaclChecks } from './shacl/run';
+import STOCK_SHAPES_TTL from './shacl/stock-inspections.ttl?raw';
 
 // ── Named Constants ────────────────────────────────────────────────────────
 // (replacing magic numbers throughout the file for maintainability)
@@ -42,7 +44,7 @@ export interface CheckRun {
   settings: InspectionSettings;
   deps: HealthCheckDeps;
   /** Is this type switched on? */
-  on: (type: InspectionType) => boolean;
+  on: (type: string) => boolean;
 }
 
 /** A check written as code: it may emit several types (one scan, several findings). */
@@ -54,12 +56,33 @@ interface CodeCheck {
   run: (run: CheckRun) => Promise<Inspection[]>;
 }
 
-export type InspectionCheck = CodeCheck | SparqlCheckDef;
+/** A shapes file's checks (#2642): each `sh:NodeShape` with a target is one type. */
+export interface ShaclCheckEntry {
+  kind: 'shacl';
+  id: string;
+  file: ShapesFile;
+}
+
+export type InspectionCheck = CodeCheck | ShaclCheckEntry;
+
+/**
+ * Minerva's own shapes (`shacl/stock-inspections.ttl`), parsed on first use
+ * rather than when this module loads at startup. A stock shape that doesn't
+ * parse is a bug in this build.
+ */
+let stock: ShapesFile | null = null;
+function stockShapes(): ShapesFile {
+  if (stock) return stock;
+  const read = parseShapesFile(STOCK_SHAPES_TTL, { kind: 'stock' });
+  if (!read.ok) throw new Error(`Minerva's own inspection shapes don't load: ${read.problems.join('; ')}`);
+  stock = read.file;
+  return stock;
+}
 
 
-export const emitsOf = (check: InspectionCheck): readonly InspectionType[] =>
-  check.kind === 'sparql' ? [check.type] : check.emits;
-export const idOf = (check: InspectionCheck): string => (check.kind === 'sparql' ? check.type : check.id);
+export const emitsOf = (check: InspectionCheck): readonly string[] =>
+  check.kind === 'shacl' ? check.file.checks.map((c) => c.type) : check.emits;
+export const idOf = (check: InspectionCheck): string => check.id;
 
 /**
  * Every health check (#2627, epic #2622). The catalog in `shared/inspections.ts`
@@ -67,8 +90,9 @@ export const idOf = (check: InspectionCheck): string => (check.kind === 'sparql'
  * every catalog type is emitted by exactly one entry
  * (`inspections-catalog.test.ts`). Two kinds:
  *
- * - `sparql` — a query and a message template, each row a finding
- *   (`sparql-check.ts`). The form a plugin will contribute in (#2615).
+ * - `shacl` — a file of SHACL shapes (#2642), each `sh:NodeShape` with a
+ *   target one type, each result a finding (`shacl/`). The form a plugin
+ *   contributes a check in; Minerva's own are `shacl/stock-inspections.ttl`.
  * - `code` — anything a query can't say: thresholds from settings, a filesystem
  *   scan, link resolution against the note index, or one scan feeding several
  *   types.
@@ -77,22 +101,8 @@ export const idOf = (check: InspectionCheck): string => (check.kind === 'sparql'
  * the point of switching one off is not to pay for it.
  */
 export const INSPECTION_CHECKS: readonly InspectionCheck[] = [
-  {
-    kind: 'sparql',
-    type: 'unsupported_claim',
-    query: `
-      SELECT ?claim ?label ?notePath WHERE {
-        ${isA('claim', 'Claim')}
-        ${labelOf('claim', 'label')}
-        OPTIONAL { ?claim minerva:relativePath ?notePath }
-        ${unsupported('claim')}
-      }`,
-    subject: 'claim',
-    label: 'label',
-    notePath: 'notePath',
-    message: 'Claim "{{label}}" has no supporting evidence',
-    suggestedAction: 'Add grounds or evidence that supports this claim',
-  },
+  // Unsupported claims and contradictions: SHACL shapes (#2642).
+  { kind: 'shacl', id: 'stock_shapes', get file() { return stockShapes(); } },
   {
     kind: 'code',
     id: 'stale_note',
@@ -104,24 +114,6 @@ export const INSPECTION_CHECKS: readonly InspectionCheck[] = [
     id: 'evidence_gaps',
     emits: ['missing_warrant', 'missing_backing'],
     run: ({ ctx }) => checkEvidenceGaps(ctx),
-  },
-  {
-    kind: 'sparql',
-    type: 'contradiction',
-    query: `
-      SELECT ?a ?aLabel ?b ?bLabel ?notePath WHERE {
-        ?a thought:contradicts ?b .
-        ?a thought:hasStatus thought:established .
-        ?b thought:hasStatus thought:established .
-        ${labelOf('a')}
-        ${labelOf('b')}
-        OPTIONAL { ?a minerva:relativePath ?notePath }
-      }`,
-    subject: 'a',
-    label: 'aLabel',
-    notePath: 'notePath',
-    message: 'Established claim "{{aLabel}}" contradicts established claim "{{bLabel}}"',
-    suggestedAction: 'Review both claims — at least one needs to be revised or its status changed',
   },
   {
     // The five source checks share ONE scan of the source table rather than
@@ -159,9 +151,7 @@ export const INSPECTION_CHECKS: readonly InspectionCheck[] = [
 ];
 
 export function runCheck(check: InspectionCheck, run: CheckRun): Promise<Inspection[]> {
-  if (check.kind === 'sparql') {
-    return runSparqlCheck(check, async (q) => asRows(await queryGraphRows(run.ctx, q)));
-  }
+  if (check.kind === 'shacl') return runShaclChecks(run.ctx, [check.file], run.on);
   return check.run(run);
 }
 

@@ -1,0 +1,74 @@
+# Minerva's own declarative inspections (#2642): SHACL shapes, run by
+# `graph/shacl/run.ts` like any plugin's. Each check is a sh:NodeShape with a
+# target and a minerva:inspectionId — the catalog type in
+# `shared/inspections.ts`, whose label, description and group it must match
+# (`tests/main/graph/shacl-stock.test.ts`).
+
+@prefix sh:      <http://www.w3.org/ns/shacl#> .
+@prefix rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:     <http://www.w3.org/2001/XMLSchema#> .
+@prefix dc:      <http://purl.org/dc/terms/> .
+@prefix thought: <https://minerva.dev/ontology/thought#> .
+@prefix minerva: <https://minerva.dev/ontology#> .
+@prefix shapes:  <https://minerva.dev/shapes#> .
+
+# The prefixes the SPARQL below may use.
+shapes:
+  sh:declare [ sh:prefix "thought" ; sh:namespace "https://minerva.dev/ontology/thought#"^^xsd:anyURI ] ,
+             [ sh:prefix "dc" ; sh:namespace "http://purl.org/dc/terms/"^^xsd:anyURI ] .
+
+# A claim nothing supports. Either support predicate counts (frontmatter
+# `supports:` is thought:supports, a [[supports::…]] link minerva:supports),
+# and a typed Claim note is a thought:Claim through its class's
+# rdfs:subClassOf. A claim with no label is left alone, as the SPARQL check it
+# replaces left it: there is nothing to call it by.
+shapes:UnsupportedClaim
+  a sh:NodeShape ;
+  minerva:inspectionId "unsupported_claim" ;
+  minerva:inspectionGroup "arguments" ;
+  sh:name "Unsupported claims" ;
+  sh:description "Claims with nothing offered in support of them." ;
+  sh:severity sh:Warning ;
+  sh:targetClass thought:Claim ;
+  sh:message "Claim \"{$this}\" has no supporting evidence" ;
+  minerva:suggestedAction "Add grounds or evidence that supports this claim" ;
+  sh:or (
+    [ sh:path [ sh:inversePath thought:supports ] ; sh:minCount 1 ]
+    [ sh:path [ sh:inversePath minerva:supports ] ; sh:minCount 1 ]
+    [ sh:not [ sh:or (
+        [ sh:path thought:label ; sh:minCount 1 ]
+        [ sh:path dc:title ; sh:minCount 1 ]
+      ) ] ]
+  ) .
+
+# Two established claims recorded as contradicting each other, reported on
+# the first. Both must have a label, for the message to name them.
+shapes:Contradiction
+  a sh:NodeShape ;
+  minerva:inspectionId "contradiction" ;
+  minerva:inspectionGroup "arguments" ;
+  sh:name "Contradictions" ;
+  sh:description "Claims recorded as contradicting each other." ;
+  sh:severity sh:Violation ;
+  sh:targetSubjectsOf thought:contradicts ;
+  minerva:suggestedAction "Review both claims — at least one needs to be revised or its status changed" ;
+  sh:sparql [
+    sh:prefixes shapes: ;
+    sh:message "Established claim {?aLabel} contradicts established claim {?bLabel}" ;
+    sh:select """
+      SELECT $this ?aLabel ?bLabel WHERE {
+        $this thought:contradicts ?b .
+        $this thought:hasStatus thought:established .
+        ?b thought:hasStatus thought:established .
+        OPTIONAL { $this thought:label ?aThought }
+        OPTIONAL { $this dc:title ?aTitle }
+        BIND(COALESCE(?aThought, ?aTitle) AS ?aLabel)
+        FILTER(BOUND(?aLabel))
+        OPTIONAL { ?b thought:label ?bThought }
+        OPTIONAL { ?b dc:title ?bTitle }
+        BIND(COALESCE(?bThought, ?bTitle) AS ?bLabel)
+        FILTER(BOUND(?bLabel))
+      }
+    """ ;
+  ] .

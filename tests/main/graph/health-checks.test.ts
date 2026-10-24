@@ -33,6 +33,9 @@ import { type ProjectContext } from '../../../src/main/project-context-types';
 import { useGraphProject } from '../../helpers/temp-project';
 import { buildClaimNoteContent } from '../../../src/main/llm/claim-note';
 import { slugify } from '../../../src/shared/slug';
+import { parseShapesFile } from '../../../src/main/graph/shacl/shapes';
+import { silenceLogTags } from '../../helpers/quiet-logs';
+import { DEFAULT_INSPECTION_SETTINGS } from '../../../src/shared/inspections';
 
 describe('checkUnsupportedClaims', () => {
   const project = useGraphProject('minerva-health-checks-test-');
@@ -380,5 +383,30 @@ describe('typed claim notes — the shape the app itself files (#2230)', () => {
     const inspections = await runAllChecks(ctx);
     const found = inspections.find((i) => i.nodeUri === 'urn:claim:both');
     expect(found?.nodeLabel).toBe('Turtle label');
+  });
+});
+
+describe("a plugin's SHACL checks in the sweep (#2642)", () => {
+  silenceLogTags('graph');
+  const project = useGraphProject('minerva-health-checks-plugin-shapes-');
+
+  it("runs them with Minerva's, keeps their own severity, and honours their switch", async () => {
+    fs.mkdirSync(path.join(project.root, 'books'), { recursive: true });
+    fs.writeFileSync(path.join(project.root, 'books/Walden.md'), '---\ntype: book\ntitle: Walden\n---\n# Walden\n');
+    await indexAllNotes(project.ctx);
+    const read = parseShapesFile(`@prefix sh: <http://www.w3.org/ns/shacl#> . @prefix types: <https://minerva.dev/ontology/types#> . @prefix ex: <https://example.org/s#> .
+      ex:NeedsAuthor a sh:NodeShape ; sh:targetClass types:Book ; sh:severity sh:Info ; sh:message "{$this} has no author" ;
+        sh:property [ sh:path <http://purl.org/dc/terms/creator> ; sh:minCount 1 ] .`, { kind: 'plugin', id: 'lab', name: 'Lab' });
+    if (!read.ok) throw new Error(read.problems.join('\n'));
+    const deps = { pluginShapes: () => [{ id: 'plugin:lab/inspections/a.ttl', file: read.file }] };
+    const on = await runAllChecks(project.ctx, undefined, deps);
+    expect(on.filter((i) => i.type.startsWith('plugin:'))).toEqual([expect.objectContaining({ type: 'plugin:lab/NeedsAuthor', severity: 'info', message: 'Walden has no author' })]);
+    const off = await runAllChecks(project.ctx, { ...DEFAULT_INSPECTION_SETTINGS, disabled: ['plugin:lab/NeedsAuthor'] }, deps);
+    expect(off.filter((i) => i.type.startsWith('plugin:'))).toEqual([]);
+  });
+
+  it("a plugin layer that can't list its shapes costs only them", async () => {
+    const found = await runAllChecks(project.ctx, undefined, { pluginShapes: () => { throw new Error('scan broke'); } });
+    expect(Array.isArray(found)).toBe(true);
   });
 });

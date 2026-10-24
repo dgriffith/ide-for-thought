@@ -1,0 +1,19 @@
+@prefix sh:      <http://www.w3.org/ns/shacl#> .
+@prefix types:   <https://minerva.dev/ontology/types#> .
+@prefix minerva: <https://minerva.dev/ontology#> .
+@prefix reading: <https://example.org/reading-list/shapes#> .
+
+# A Book Note marked finished, with no date it was finished on.
+reading:FinishedWithoutDate
+  a sh:NodeShape ;
+  sh:name "Finished books without a date" ;
+  sh:description "Book notes marked finished that don't say when." ;
+  sh:severity sh:Info ;
+  minerva:inspectionGroup "notes" ;
+  sh:targetClass types:BookNote ;
+  sh:message "\"{$this}\" is finished but has no finished date" ;
+  minerva:suggestedAction "Set its finished property to the day you finished it" ;
+  sh:or (
+    [ sh:not [ sh:path minerva:meta-status ; sh:hasValue "finished" ] ]
+    [ sh:path minerva:meta-finished ; sh:minCount 1 ]
+  ) .

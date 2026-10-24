@@ -170,6 +170,27 @@ minerva:relativePath a owl:DatatypeProperty ;
     rdfs:comment "Path of the note or folder relative to the project root." ;
     rdfs:range xsd:string .
 
+# ── Inspections as SHACL shapes (#2642) ─────────────────────────────────────
+# What a sh:NodeShape says about itself as an inspection, where SHACL has no
+# term: its catalog id (Minerva's own shapes), its group in the Inspections
+# panel, and what to do about a finding. Annotations on a shapes graph, never
+# asserted in a thoughtbase's data.
+
+minerva:inspectionId a owl:AnnotationProperty ;
+    rdfs:label "inspection id" ;
+    rdfs:comment "The inspection type a built-in SHACL shape's findings carry (its catalog entry and settings switch)." ;
+    rdfs:range xsd:string .
+
+minerva:inspectionGroup a owl:AnnotationProperty ;
+    rdfs:label "inspection group" ;
+    rdfs:comment "The Inspections panel group a SHACL shape's findings show under: notes, links, sources, arguments or plugins." ;
+    rdfs:range xsd:string .
+
+minerva:suggestedAction a owl:AnnotationProperty ;
+    rdfs:label "suggested action" ;
+    rdfs:comment "What to do about a SHACL shape's finding, shown beside it; {$this} is the node's label." ;
+    rdfs:range xsd:string .
+
 minerva:filename a owl:DatatypeProperty ;
     rdfs:label "filename" ;
     rdfs:comment "Base filename of the note." ;

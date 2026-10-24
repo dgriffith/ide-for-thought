@@ -33,6 +33,7 @@ Reach for the lowest rung that does the job — declarative before code.
 | [Object types](#object-types--object-types) | object-type | hot | stock, plugin, thoughtbase |
 | [Saved queries](#saved-queries--saved-queries) | query-view | hot | stock, user, plugin, thoughtbase |
 | [Note templates](#note-templates--note-templates) | query-view | hot | stock, plugin, thoughtbase |
+| [Inspections](#inspections--inspections) | plugin | hot | stock, plugin |
 | [Themes](#themes--themes) | plugin | hot | stock, plugin |
 | [MCP servers (Minerva as client)](#mcp-servers--mcp-servers-minerva-as-client) | mcp | hot | user, plugin |
 | [View layouts](#view-layouts--view-layouts) | source | rebuild | stock |
@@ -42,7 +43,6 @@ Reach for the lowest rung that does the job — declarative before code.
 | [Left sidebar panels](#left-sidebar-panels--left-sidebar-panels) | source | rebuild | stock |
 | [Right sidebar panels](#right-sidebar-panels--right-sidebar-panels) | source | rebuild | stock |
 | [Settings sections](#settings-sections--settings-sections) | source | rebuild | stock |
-| [Inspections](#inspections--inspections) | source | rebuild | stock |
 | [LLM tools](#llm-tools--llm-tools) | source | rebuild | stock |
 | [Source ingestors](#ingestors--source-ingestors) | source | rebuild | stock |
 | [Compute languages](#compute-languages--compute-languages) | source | rebuild | stock |
@@ -150,6 +150,20 @@ A note body to start from, offered by the New Note dialog and by Insert Template
 - **Contract:** Markdown, one template per file, checked by [`src/main/notebase/templates.ts`](../src/main/notebase/templates.ts) (`listTemplates`)
 - **Example:** [`src/main/notebase/templates.ts`](../src/main/notebase/templates.ts)
 
+## `inspections` — Inspections
+
+A health check over the graph whose findings show in the Inspections panel: a SHACL shape — its target, its constraints, sh:severity and sh:message. Read-only: a shape can't change the graph or reach the network.
+
+- **Rung:** plugin
+- **Picked up:** at once, or on its next read (`hot`)
+- **Contributions from:** stock, plugin
+- **Goes in:** a plugin's inspections/ (#2642)
+- **Contract:** SHACL in Turtle: a sh:NodeShape with a target, sh:name, sh:description, sh:severity, sh:message, minerva:inspectionGroup and minerva:suggestedAction; any sh:select / sh:ask a SELECT / ASK, checked by [`src/main/graph/shacl/shapes.ts`](../src/main/graph/shacl/shapes.ts) (`parseShapesFile`)
+- **Registers in:** [`src/main/graph/inspection-checks.ts`](../src/main/graph/inspection-checks.ts) (`INSPECTION_CHECKS`)
+- **Docs:** [`docs/authoring-plugins.md`](authoring-plugins.md)
+- **Example:** [`tests/fixtures/plugins/reading-list/inspections/finished-books.ttl`](../tests/fixtures/plugins/reading-list/inspections/finished-books.ttl)
+- **Test:** [`tests/main/plugins/inspection-shapes.test.ts`](../tests/main/plugins/inspection-shapes.test.ts)
+
 ## `themes` — Themes
 
 A colour theme: colours over the dark or light theme, listed after Dark, Light, High Contrast and System in every theme picker. Tokens only — it recolours Minerva, it can't restyle it.
@@ -253,17 +267,6 @@ A section of the Settings dialog.
 - **Contract:** none yet — built-ins register in [`src/renderer/lib/components/settings/sections.ts`](../src/renderer/lib/components/settings/sections.ts) (`SETTINGS_SECTIONS`); nothing outside the source can add one until plugins load (#2631)
 - **Made a registry by:** #2626
 - **Test:** [`tests/architecture/panel-registries.test.ts`](../tests/architecture/panel-registries.test.ts)
-
-## `inspections` — Inspections
-
-A health check over the graph whose findings show in the Inspections panel. A check can already be a SPARQL query plus a message template — the form a plugin will contribute.
-
-- **Rung:** source
-- **Picked up:** only in a rebuilt app (`rebuild`)
-- **Contributions from:** stock
-- **Contract:** none yet — built-ins register in [`src/main/graph/inspection-checks.ts`](../src/main/graph/inspection-checks.ts) (`INSPECTION_CHECKS`); nothing outside the source can add one until plugins load (#2631)
-- **Made a registry by:** #2627
-- **Test:** [`tests/shared/inspections-catalog.test.ts`](../tests/shared/inspections-catalog.test.ts)
 
 ## `llm-tools` — LLM tools
 

@@ -154,6 +154,7 @@ const api = {
     inspections: () => invoke(Channels.INSPECTIONS_LIST),
     runInspections: () => invoke(Channels.INSPECTIONS_RUN),
     inspectionSettings: () => invoke(Channels.INSPECTIONS_GET_SETTINGS),
+    inspectionPluginChecks: () => invoke(Channels.INSPECTIONS_PLUGIN_CHECKS),
     setInspectionSettings: (settings: Parameters<ChannelMap['inspections:setSettings']>[0]) =>
       invoke(Channels.INSPECTIONS_SET_SETTINGS, settings),
     onInspectionsChanged: (cb: () => void) => subscribe(Channels.INSPECTIONS_CHANGED, cb),

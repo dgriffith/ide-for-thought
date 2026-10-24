@@ -57,8 +57,8 @@ describe('validatePluginManifest (#2632)', () => {
   });
 
   it('refuses a point plugins can\'t contribute to yet, naming the ones they can', () => {
-    expect(problemsOf({ ...GOOD, contributes: { inspections: ['inspections/x.json'] } })).toEqual([
-      `"contributes" names "inspections", which plugins can't contribute to; they can contribute to ${Object.keys(PLUGIN_CONTRIBUTION_POINTS).join(', ')}.`,
+    expect(problemsOf({ ...GOOD, contributes: { commands: ['commands/x.json'] } })).toEqual([
+      `"contributes" names "commands", which plugins can't contribute to; they can contribute to ${Object.keys(PLUGIN_CONTRIBUTION_POINTS).join(', ')}.`,
     ]);
     expect(problemsOf({ ...GOOD, contributes: { toString: ['x'] } })[0]).toMatch(/names "toString"/);
   });

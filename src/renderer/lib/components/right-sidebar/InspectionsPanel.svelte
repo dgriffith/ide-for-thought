@@ -49,7 +49,19 @@
     loading = false;
   }
 
-  onMount(() => { void refresh(); });
+  // A plugin's check (#2642) is grouped under its own label, not its type id.
+  let pluginLabels = $state<ReadonlyMap<string, string>>(new Map());
+  function typeLabel(type: string): string {
+    if (!type.startsWith('plugin:')) return type.replace(/_/g, ' ');
+    return pluginLabels.get(type) ?? type.replace(/^.*\//, '');
+  }
+
+  onMount(() => {
+    void refresh();
+    void api.graph.inspectionPluginChecks()
+      .then((checks) => { pluginLabels = new Map(checks.map((c) => [c.type, c.label])); })
+      .catch(() => { /* the shape's name stands in */ });
+  });
 
   $effect(() => { revision; void refresh(); });
 
@@ -156,7 +168,7 @@
     <div class="inspection-list">
       {#each byType() as [typeName, items]}
         <div class="severity-group">
-          <span class="group-label">{typeName.replace(/_/g, ' ')} ({items.length})</span>
+          <span class="group-label">{typeLabel(typeName)} ({items.length})</span>
           {#each items as insp}
             {@render row(insp)}
           {/each}

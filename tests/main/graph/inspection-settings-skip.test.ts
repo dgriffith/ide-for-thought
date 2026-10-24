@@ -40,6 +40,8 @@ import { DEFAULT_INSPECTION_SETTINGS } from '../../../src/shared/inspections';
 import { projectContext } from '../../../src/main/project-context-types';
 
 const ctx = projectContext('/fake-project');
+/** The always-on argument-map checks' queries on an empty graph: evidence gaps' two (#2642 made the other two SHACL). */
+const ARGUMENT_MAP_QUERIES = 2;
 
 const ALL_VISIBLE = [
   'stale_note', 'broken_note_link', 'broken_anchor_link', 'broken_cite_quote',
@@ -77,10 +79,12 @@ describe('runAllChecks — work avoided', () => {
 
     expect(remaining).toBeLessThan(all);
     // What's left is exactly the argument-map checks, which always run:
-    // unsupported claims (1 query) + evidence gaps (2: warrants, backing) +
-    // contradictions (1). Counted from the source rather than guessed — my
-    // first attempt at this assertion said 3 and the code was right.
-    expect(remaining).toBe(4);
+    // evidence gaps (2: warrants, backing). Unsupported claims and
+    // contradictions run too, but as SHACL shapes (#2642) they validate the
+    // N3 mirror rather than ask a query, and on an empty graph find nothing to
+    // label. Counted from the source rather than guessed — an earlier version
+    // of this assertion said 3 and the code was right.
+    expect(remaining).toBe(ARGUMENT_MAP_QUERIES);
   });
 });
 
@@ -110,7 +114,7 @@ describe('startPeriodicChecks', () => {
 
       expect(loadSettings).toHaveBeenCalled();
       // Only the always-on argument-map checks — the disabled ones were skipped.
-      expect(h.queryGraph.mock.calls.length).toBe(4);
+      expect(h.queryGraph.mock.calls.length).toBe(ARGUMENT_MAP_QUERIES);
     } finally {
       vi.useRealTimers();
     }
@@ -228,7 +232,7 @@ describe('armAutoChecks', () => {
       emitGraphChanged(ROOT);
       await vi.advanceTimersByTimeAsync(100);
 
-      expect(h.queryGraph.mock.calls.length).toBe(4); // the always-on ones only
+      expect(h.queryGraph.mock.calls.length).toBe(ARGUMENT_MAP_QUERIES); // the always-on ones only
     } finally {
       disarmAutoChecks(ctx);
       vi.useRealTimers();

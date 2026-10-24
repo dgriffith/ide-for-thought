@@ -3,13 +3,14 @@
   "name": "Reading List",
   "version": "1.0.0",
   "minerva": ">=3.0.0",
-  "description": "A Book Note type for what you're reading, a query for the unread ones, and a skill that writes a reading summary.",
+  "description": "A Book Note type for what you're reading, a query for the unread ones, a skill that writes a reading summary, and a check for finished books with no date.",
   "author": "Ada Example",
   "license": "MIT",
   "contributes": {
     "object-types": ["types/book-note.md"],
     "saved-queries": ["queries/unread-books.rq"],
-    "skills": ["skills/reading-summary.md"]
+    "skills": ["skills/reading-summary.md"],
+    "inspections": ["inspections/finished-books.ttl"]
   },
   "settings": {
     "summaryLength": {

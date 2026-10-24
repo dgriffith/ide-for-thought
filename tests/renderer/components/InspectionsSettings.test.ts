@@ -11,11 +11,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent, cleanup, waitFor } from '@testing-library/svelte';
 import { DEFAULT_INSPECTION_SETTINGS } from '../../../src/shared/inspections';
+import { silenceLogTags } from '../../helpers/quiet-logs';
 
 const api = vi.hoisted(() => ({
   graph: {
     inspectionSettings: vi.fn(async () => ({ disabled: [] as string[], staleDays: 30, stubDays: 30 })),
     setInspectionSettings: vi.fn(async (s: unknown) => s),
+    inspectionPluginChecks: vi.fn(async () => [] as unknown[]),
   },
 }));
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({ api }));
@@ -26,8 +28,30 @@ beforeEach(() => {
   vi.clearAllMocks();
   api.graph.inspectionSettings.mockResolvedValue({ ...DEFAULT_INSPECTION_SETTINGS });
   api.graph.setInspectionSettings.mockImplementation(async (s: unknown) => s);
+  api.graph.inspectionPluginChecks.mockResolvedValue([]);
 });
 afterEach(() => cleanup());
+
+describe("InspectionsSettings — plugins' checks (#2642)", () => {
+  silenceLogTags('settings');
+  const CHECK = { type: 'plugin:reading-list/FinishedWithoutDate', label: 'Finished books without a date', description: 'Book notes marked finished that don\'t say when.', group: 'notes', severity: 'info', plugin: { id: 'reading-list', name: 'Reading List' } };
+
+  it('lists them in their group, saying which plugin, and switches them like any check', async () => {
+    api.graph.inspectionPluginChecks.mockResolvedValue([CHECK]);
+    const view = render(InspectionsSettings);
+    const box = await view.findByLabelText('Finished books without a date');
+    expect(view.getByText("Book notes marked finished that don't say when. From Reading List.")).toBeTruthy();
+    await fireEvent.click(box);
+    await waitFor(() => expect(api.graph.setInspectionSettings).toHaveBeenCalled());
+    expect((api.graph.setInspectionSettings.mock.calls[0]![0] as { disabled: string[] }).disabled).toEqual(['plugin:reading-list/FinishedWithoutDate']);
+  });
+
+  it("still lists the built-ins when the plugins' can't be read", async () => {
+    api.graph.inspectionPluginChecks.mockRejectedValue(new Error('nope'));
+    const view = render(InspectionsSettings);
+    expect(await view.findByText('Stale notes')).toBeTruthy();
+  });
+});
 
 describe('InspectionsSettings', () => {
   it('lists the user-facing checks', async () => {

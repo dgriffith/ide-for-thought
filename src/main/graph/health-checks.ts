@@ -26,7 +26,6 @@ import {
   type InspectionSettings,
   type Inspection,
   type InspectionSeverity,
-  type InspectionType,
 } from '../../shared/inspections';
 import {
   INSPECTION_CHECKS,
@@ -34,6 +33,7 @@ import {
   idOf,
   runCheck,
   type CheckRun,
+  type InspectionCheck,
 } from './inspection-checks';
 // The registry lives with the checks (#2627); re-exported for callers of this module.
 export { INSPECTION_CHECKS };
@@ -78,7 +78,8 @@ async function isolated(name: string, run: () => Promise<Inspection[]>): Promise
 }
 
 const SEVERITY = new Map<string, InspectionSeverity>(INSPECTIONS.map((d) => [d.type, d.severity]));
-const severityOf = (type: string): InspectionSeverity => SEVERITY.get(catalogTypeFor(type)) ?? 'info';
+/** The catalog's severity for a type; a plugin's type (#2642) keeps its shape's. */
+const severityOf = (type: string, own: InspectionSeverity): InspectionSeverity => SEVERITY.get(catalogTypeFor(type)) ?? own;
 
 /**
  * Run every ENABLED check. `settings` comes from the per-machine inspection
@@ -102,18 +103,26 @@ export async function runAllChecks(
   if (state.running) return state.lastResults;
   state.running = true;
 
-  const on = (type: InspectionType) => isInspectionEnabled(type, settings);
+  const on = (type: string) => isInspectionEnabled(type, settings);
   const run: CheckRun = { ctx, settings, deps, on };
 
   try {
-    const results = await Promise.all(INSPECTION_CHECKS.map((check) => {
+    // Minerva's checks, then the plugins' shapes (#2642): a plugin whose
+    // shapes can't be read costs only them.
+    let pluginChecks: InspectionCheck[] = [];
+    try {
+      pluginChecks = (deps.pluginShapes?.() ?? []).map(({ id, file }) => ({ kind: 'shacl' as const, id, file }));
+    } catch (e) {
+      logger('graph').warn("couldn't read the plugins' inspection shapes:", e);
+    }
+    const results = await Promise.all([...INSPECTION_CHECKS, ...pluginChecks].map((check) => {
       const emits = emitsOf(check);
       if (!emits.some(on)) return Promise.resolve([]);
       return isolated(idOf(check), async () => {
         const found = await runCheck(check, run);
         // A check reports only the types it declares — the catalog's switches
         // and descriptions are keyed on them.
-        const stray = found.filter((i) => !emits.includes(catalogTypeFor(i.type) as InspectionType));
+        const stray = found.filter((i) => !emits.includes(catalogTypeFor(i.type)));
         if (stray.length > 0) {
           logger('graph').warn(`inspection '${idOf(check)}' emitted undeclared types; dropped:`, [...new Set(stray.map((i) => i.type))]);
         }
@@ -125,7 +134,7 @@ export async function runAllChecks(
     // Severity is the catalog's — one per type, whichever check found it.
     const flat = results.flat()
       .filter((i) => isInspectionEnabled(catalogTypeFor(i.type), settings))
-      .map((i) => ({ ...i, severity: severityOf(i.type) }));
+      .map((i) => ({ ...i, severity: severityOf(i.type, i.severity) }));
     state.lastResults = flat;
     // Tell anyone showing the results that they moved (#1795) — runs are no
     // longer only user-initiated, so the panel can't assume it caused them.

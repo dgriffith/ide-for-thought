@@ -581,8 +581,9 @@ and not to this file fails a test.
 - The reverse direction in `src/` (a declared term nothing writes). Normal for
   vocabulary users author by hand — see the defect taxonomy above.
 - Whether a term's `rdfs:domain` / `rdfs:range` match how the code uses it. Only
-  the name is checked. There is no SHACL layer and no reasoner; the store does
-  no entailment.
+  the name is checked. There is no reasoner; the store does no entailment.
+  SHACL shapes exist, but as inspections over a thoughtbase's data (#2642),
+  not as a check on the ontology itself.
 - Anything in `docs/` other than this file.
 
 ### Known warts

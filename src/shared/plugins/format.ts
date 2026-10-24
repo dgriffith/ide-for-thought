@@ -41,6 +41,8 @@ export const PLUGIN_CONTRIBUTION_POINTS = {
   'csl-styles': { folder: 'csl', extensions: ['.csl', '.xml'] },
   /** A colour theme: `{ label, base, tokens }` (#2787). */
   'themes': { folder: 'themes', extensions: ['.json'] },
+  /** Health checks, as SHACL shapes in Turtle (#2642). */
+  'inspections': { folder: 'inspections', extensions: ['.ttl'] },
 } as const satisfies Record<string, { folder: string; extensions: readonly string[]; folderEntry?: string }>;
 
 export type PluginContributionPoint = keyof typeof PLUGIN_CONTRIBUTION_POINTS;

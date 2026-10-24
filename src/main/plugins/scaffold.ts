@@ -37,6 +37,7 @@ export const SCAFFOLD_KIND_POINTS = {
   template: { point: 'note-templates', what: 'a note template' },
   csl: { point: 'csl-styles', what: 'an author-date citation style' },
   theme: { point: 'themes', what: 'a dark colour theme' },
+  inspection: { point: 'inspections', what: 'an inspection, as a SHACL shape, for notes with no tags' },
 } as const satisfies Record<string, { point: PluginContributionPoint; what: string }>;
 
 export const SCAFFOLD_KINDS = [...Object.keys(SCAFFOLD_KIND_POINTS) as (keyof typeof SCAFFOLD_KIND_POINTS)[], 'mcp'] as const;
@@ -164,6 +165,7 @@ const KIND_DOCS: Record<Exclude<ScaffoldKind, 'mcp'>, string> = {
   template: 'docs/authoring-plugins.md (note templates)',
   csl: 'docs/authoring-plugins.md (citation styles)',
   theme: 'docs/authoring-plugins.md (themes)',
+  inspection: 'docs/authoring-plugins.md (inspections)',
 };
 
 function kindReadme(kind: Exclude<ScaffoldKind, 'mcp'>, id: string, name: string, files: string[]): string {
