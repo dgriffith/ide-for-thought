@@ -67,6 +67,13 @@ type Answer =
 const liveFence = (lang: string) => (): boolean => LIVE_FENCES[lang] !== undefined;
 const liveDirective = (sample: string) => (): boolean => LIVE_DIRECTIVES.some(([re]) => re.test(sample));
 const exportInstalls = (name: string) => (): boolean => new RegExp(`\\b${name}\\(md\\b`).test(EXPORT_RENDER);
+/** A plugin's block (#2641), as an export extracts it for the window: a fence or directive some plugin draws. */
+const PROBE_BLOCKS = [
+  { pluginId: 'probe', blockId: 'fenced', title: 'Probe', fence: 'probe-fence' },
+  { pluginId: 'probe', blockId: 'directed', title: 'Probe', directive: 'probe-directive' },
+];
+const pluginBlockExtracted = (markdown: string, blockId: string) => (): boolean =>
+  extractLiveBlocks(markdown, 'n.md', { pluginBlocks: PROBE_BLOCKS }).blocks.some((b) => b.kind === 'plugin' && b.plugin?.blockId === blockId);
 const queryExecutor = (): boolean => QUERY_EXPORT.includes('executeQueryBlock(') && liveDirective(':::query-list')();
 
 const PARITY: Record<string, Answer> = {
@@ -91,11 +98,13 @@ const PARITY: Record<string, Answer> = {
   'plugin:installNoteTags': { handler: 'the shared tag rule: a chip, or a link to the static site\'s tag page (#2526)', holds: exportInstalls('installNoteTags') },
   'plugin:installFences': { decision: 'the fence table — its live-block fences come from the registry (#2624), checked below' },
   'plugin:installLiveDirectives': { decision: 'the registry\'s `:::` directive kinds (#2624), checked below' },
+  'plugin:installPluginDirectives': { handler: "a plugin's `:::` block, drawn static by its own frame (#2641)", holds: pluginBlockExtracted(':::probe-directive\nbody\n:::\n', 'directed') },
   // Post-render hydration passes
   'hydrate:hydrateMermaidBlocks': { handler: 'live block (#2513)', holds: liveFence('mermaid') },
   'hydrate:hydrateVegaBlocks': { handler: 'main-process SVG render (#831)', holds: () => hasVegaBlocks('```vega-lite\n{}\n```') },
   'hydrate:hydrateObjectViewBlocks': { handler: 'live block (#2510, #2511)', holds: liveFence('object-view') },
   'hydrate:hydrateArgumentMapBlocks': { handler: 'live block (#2514)', holds: liveDirective(':::argument') },
+  'hydrate:hydratePluginBlocks': { handler: "live block, drawn static by its plugin's frame (#2641)", holds: pluginBlockExtracted('```probe-fence\nbody\n```\n', 'fenced') },
   'hydrate:hydrateTransclusions': { handler: 'resolveTransclusions (#906)', holds: () => EXPORT_RENDER.includes('resolveTransclusions(') },
   'hydrate:hydrateLocalImages': { handler: 'the asset policy (inline-base64 / copy / keep-relative)', holds: () => EXPORT_RENDER.includes('export async function inlineImages') },
   'hydrate:hydrateYouTubeThumbnails': { handler: 'linked thumbnail (#904)', holds: () => !renderYouTubeBlocks('```youtube\nhttps://youtu.be/dQw4w9WgXcQ\n```\n').includes('```youtube') },
@@ -135,7 +144,8 @@ describe('export parity with the preview\'s live rendering (#2515)', () => {
       const s = d.syntax;
       const ok = 'fence' in s ? s.fence.every((lang) => LIVE_FENCES[lang] === d.kind)
         : 'directive' in s ? LIVE_DIRECTIVES.some(([, k]) => k === d.kind)
-          : extractLiveBlocks('A\n\n[[Some Note]]\n', 'n.md').blocks.some((b) => b.kind === d.kind);
+          : 'plugin' in s ? pluginBlockExtracted('```probe-fence\nx\n```\n', 'fenced')() && pluginBlockExtracted(':::probe-directive\nx\n:::\n', 'directed')()
+            : extractLiveBlocks('A\n\n[[Some Note]]\n', 'n.md').blocks.some((b) => b.kind === d.kind);
       if (!ok) missing.push(d.kind);
     }
     expect(missing).toEqual([]);

@@ -25,8 +25,7 @@
   import type { TypeInstanceRow } from '../../../../shared/objects/type-def';
   import { logger } from '../../../../shared/logger';
   import { tick } from 'svelte';
-  import { PLUGIN_THEME_TOKENS } from '../../../../shared/plugins/frame';
-  import { sanitizePluginExportHtml } from '../../plugins/sanitize-plugin-export';
+  import { pluginExportTokens, sanitizePluginExportHtml } from '../../plugins/sanitize-plugin-export';
   import type { HoverInstance } from '../note-hover/hover-instance';
 
   interface Props {
@@ -123,12 +122,7 @@
   async function onExportHtml(id: string, html: string): Promise<void> {
     if (!view.exportMode || id !== requestId || exported !== null) return;
     if (!wrapper) return;
-    const style = getComputedStyle(wrapper);
-    exportTokens = PLUGIN_THEME_TOKENS
-      .map((t) => [t, style.getPropertyValue(t).trim()] as const)
-      .filter(([, v]) => v !== '' && !/[;{}]|url\(/i.test(v))
-      .map(([t, v]) => `${t}:${v}`)
-      .join(';');
+    exportTokens = pluginExportTokens(wrapper);
     exported = sanitizePluginExportHtml(html);
     await tick();
     view.pluginExport?.onRendered();

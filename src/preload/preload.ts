@@ -13,7 +13,7 @@ import type { ThemeMode } from '../shared/theme';
 import type { CommandId } from '../shared/commands';
 import type { PluginSettingsPatch } from '../shared/plugins/format';
 import type { ChannelMap, EventMap } from '../shared/ipc-contract';
-import { PLUGIN_SESSION_PORT_MESSAGE, type PluginHostEvent } from '../shared/plugins/session';
+import { PLUGIN_SESSION_PORT_MESSAGE, type PluginHostEvent, type PluginSessionTarget } from '../shared/plugins/session';
 
 // A plugin session's port (#2825) can't cross `contextBridge`, so it is posted
 // into the page: to this window, from this window, on its own origin. The
@@ -610,7 +610,7 @@ const api = {
     setSettings: (id: string, patch: PluginSettingsPatch) => invoke(Channels.PLUGINS_SET_SETTINGS, id, patch),
     reveal: (id?: string) => invoke(Channels.PLUGINS_REVEAL, id),
     onChanged: (cb: () => void) => subscribe(Channels.PLUGINS_CHANGED, cb),
-    openSession: (pluginId: string, scope: string[], view?: string) => invoke(Channels.PLUGINS_OPEN_SESSION, pluginId, scope, view),
+    openSession: (pluginId: string, scope: string[], target?: PluginSessionTarget) => invoke(Channels.PLUGINS_OPEN_SESSION, pluginId, scope, target),
     setSessionScope: (sessionId: string, scope: string[]) => invoke(Channels.PLUGINS_SET_SESSION_SCOPE, sessionId, scope),
     closeSession: (sessionId: string) => invoke(Channels.PLUGINS_CLOSE_SESSION, sessionId),
     sendSessionEvent: (sessionId: string, event: PluginHostEvent) => invoke(Channels.PLUGINS_SESSION_EVENT, sessionId, event),

@@ -14,6 +14,7 @@ import { renderMermaidForExport } from '../export/render-mermaid';
 import { renderArgumentMapForExport } from '../export/render-argument-map';
 import { renderOutputForExport } from '../export/render-output';
 import { renderCardForExport } from '../export/render-card';
+import { renderPluginBlockForExport } from '../export/render-plugin-block';
 
 /**
  * The export half of each `window` live-block kind (#2624): its HTML, drawn
@@ -28,6 +29,8 @@ export const WINDOW_RENDERERS: Record<WindowBlockKind, (block: LiveBlockRequest)
   output: (b) => renderOutputForExport(b.source),
   card: (b) => renderCardForExport(b.source),
   query: (b) => renderQueryBlockForExport(b.source, b.notePath),
+  // A plugin's block (#2641), drawn static by its own frame.
+  plugin: (b) => renderPluginBlockForExport(b),
 };
 
 export async function renderLiveBlock(block: LiveBlockRequest): Promise<LiveBlockResult> {

@@ -10,7 +10,8 @@
  */
 import { api } from '../ipc/client';
 import { logger } from '../../../shared/logger';
-import type { PluginView, PluginViewPlace } from '../../../shared/plugins/format';
+import type { PluginBlock, PluginView, PluginViewPlace } from '../../../shared/plugins/format';
+import type { PluginBlockSyntax } from '../../../shared/live-blocks';
 
 /** A global view an enabled built-in plugin draws (#2640). */
 export interface ActivePluginView {
@@ -19,7 +20,7 @@ export interface ActivePluginView {
   view: PluginView;
 }
 
-let core = $state<ReadonlyMap<string, { name: string; enabled: boolean; views: readonly PluginView[] }> | null>(null);
+let core = $state<ReadonlyMap<string, { name: string; enabled: boolean; views: readonly PluginView[]; blocks: readonly PluginBlock[] }> | null>(null);
 let started = false;
 
 async function refresh(): Promise<void> {
@@ -28,7 +29,7 @@ async function refresh(): Promise<void> {
   if (!api.plugins) return;
   try {
     const list = await api.plugins.list();
-    core = new Map(list.core.map((p) => [p.id, { name: p.name, enabled: p.enabled, views: p.views ?? [] }]));
+    core = new Map(list.core.map((p) => [p.id, { name: p.name, enabled: p.enabled, views: p.views ?? [], blocks: p.blocks ?? [] }]));
   } catch (e) {
     logger('plugins').warn('could not read which built-in plugins are on:', e);
   }
@@ -78,6 +79,34 @@ export const corePluginsStore = {
     start();
     if (core === null) return [];
     return [...core].flatMap(([pluginId, p]) => (p.enabled ? p.views.map((view) => ({ pluginId, pluginName: p.name, view })) : []));
+  },
+  /**
+   * The live blocks the plugins that are on draw (#2641), as the preview
+   * resolves a fence or directive name against: the first plugin to claim a
+   * name keeps it, in Settings' order — the rule an export applies in main
+   * (`activePluginBlockSyntax`). None until the list has loaded. Reactive.
+   */
+  blockSyntax(): PluginBlockSyntax[] {
+    start();
+    if (core === null) return [];
+    const taken = new Set<string>();
+    const out: PluginBlockSyntax[] = [];
+    for (const [pluginId, p] of core) {
+      if (!p.enabled) continue;
+      for (const b of p.blocks) {
+        const key = b.fence !== undefined ? `fence:${b.fence}` : `directive:${b.directive}`;
+        if (taken.has(key)) continue;
+        taken.add(key);
+        out.push({ pluginId, blockId: b.id, title: b.title, ...(b.fence !== undefined ? { fence: b.fence } : { directive: b.directive! }) });
+      }
+    }
+    return out;
+  },
+  /** One live block's definition (#2641): its page, while its plugin is on. */
+  block(pluginId: string, blockId: string): PluginBlock | null {
+    start();
+    const p = core?.get(pluginId);
+    return p?.enabled ? p.blocks.find((b) => b.id === blockId) ?? null : null;
   },
   /** Its name, for "turn on X" — the id until the list has loaded. */
   name(id: string): string {

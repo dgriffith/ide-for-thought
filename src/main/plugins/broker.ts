@@ -40,6 +40,8 @@ import {
   PLUGIN_PREVIEW_MAX_EXTRA,
   PLUGIN_RESCHEDULE_MAX_DAYS,
   PLUGIN_PREVIEW_MAX_EXTRA_CHARS,
+  PLUGIN_BLOCK_MAX_HEIGHT,
+  PLUGIN_BLOCK_MIN_HEIGHT,
   type PluginErrorCode,
   type PluginEventName,
   type PluginEvents,
@@ -411,6 +413,11 @@ export function createPluginSession(opts: PluginSessionOptions): PluginSession {
           throw new Refusal('bad-request', `"days" is a whole number of days, not 0, at most ${PLUGIN_RESCHEDULE_MAX_DAYS} either way.`);
         }
         deps.intent({ kind: 'reschedule', path, days });
+        return {};
+      }
+      case 'view.setHeight': {
+        const height = Math.round(numberParam(params, 'height'));
+        deps.intent({ kind: 'setHeight', height: Math.min(PLUGIN_BLOCK_MAX_HEIGHT, Math.max(PLUGIN_BLOCK_MIN_HEIGHT, height)) });
         return {};
       }
       case 'llm.propose':

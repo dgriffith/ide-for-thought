@@ -1812,7 +1812,12 @@ origin.
   the plugin, and the notes it names are the session's whole scope (a
   `query` event, API 1.8.0; the renderer only asks for `refreshQuery`).
   `plugins/reading-queue/` is the worked example — see `docs/plugin-code.md`
-  → *Global views*.
+  → *Global views*. **A live block (#2641)** is a fence or `:::directive` in
+  `code.blocks`, drawn by the plugin's frame (`PluginBlock.svelte`, sized by
+  `view.setHeight`); it reaches its own note plus its declared query's notes,
+  and an HTML export draws it through the same frame in the export window
+  (the one `plugin` live-block kind). A name a built-in draws is refused —
+  see `docs/plugin-code.md` → *Live blocks*.
 
 ### Code Review Checklist for LLM/Graph PRs
 

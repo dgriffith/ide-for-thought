@@ -14,8 +14,10 @@
  *   `window` kind, a main-process transform (`publish/live-blocks.ts`'s
  *   `MAIN_TRANSFORMS`) for a `main` kind.
  *
- * Built-ins register here; plugins will contribute through the same list
- * (#2615).
+ * Built-ins register here. Plugins' blocks (#2641) are the one `plugin`
+ * kind: which fences and directives it covers is per machine (the plugins
+ * that are on), so each side resolves a name to a plugin's block at render
+ * time, the preview from its plugin list, an export from main's.
  */
 
 /** How a block is written in a note. */
@@ -27,7 +29,10 @@ export type LiveBlockSyntax =
   | { directive: RegExp }
   /** A top-level paragraph that is one plain `[[link]]` (or `[[quote::id]]`)
    *  and nothing else, which the preview may draw as a card (#1071). */
-  | { cardLink: true };
+  | { cardLink: true }
+  /** A fence or directive a plugin draws (#2641): whichever names the
+   *  plugins that are on declare (`PluginBlock`). */
+  | { plugin: true };
 
 export interface LiveBlockDef {
   kind: string;
@@ -48,6 +53,9 @@ export const LIVE_BLOCKS = [
   { kind: 'vega', syntax: { fence: ['vega', 'vega-lite'] }, export: 'main' },
   // A linked thumbnail (#904).
   { kind: 'youtube', syntax: { fence: ['youtube'] }, export: 'main' },
+  // A plugin's block (#2641), drawn in its frame; an export asks the window,
+  // where the frame draws it static.
+  { kind: 'plugin', syntax: { plugin: true }, export: 'window' },
 ] as const satisfies readonly LiveBlockDef[];
 
 type Def = (typeof LIVE_BLOCKS)[number];
@@ -83,6 +91,26 @@ export interface LiveBlockRequest {
   /** The export is paged (PDF, #2709): the printable width is a hard limit,
    *  so a block wider than `EXPORT_BLOCK_WIDTH_PX` is drawn at that width. */
   paged?: boolean;
+  /** A `plugin` block's (#2641): which plugin draws it, and which of its blocks. */
+  plugin?: { pluginId: string; blockId: string };
+}
+
+/** A plugin block's fence or directive, and who draws it (#2641) — what both
+ *  the preview and an export resolve a name against. */
+export interface PluginBlockSyntax {
+  pluginId: string;
+  blockId: string;
+  title: string;
+  /** The fence language it draws, or the directive name. */
+  fence?: string;
+  directive?: string;
+}
+
+/** A directive's opening line, `:::<name>` (up to three spaces of indent are
+ *  the caller's). `name` is validated as lowercase words and dashes, so it
+ *  needs no escaping. */
+export function pluginDirectiveOpener(name: string): RegExp {
+  return new RegExp(`^:::${name}\\s*$`);
 }
 
 /** A rendered block is self-contained static HTML (its own scoped <style>);

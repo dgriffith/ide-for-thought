@@ -103,17 +103,20 @@ const CORE_PLUGIN_DEFINITIONS: readonly CorePluginDefinition[] = [
     // panel fed by a query it declares (`plugins/reading-queue/public/queue.rq`).
     // It lists and opens the books and articles that query names, and marks
     // one read; it reads no note's text. Off by default: it adds a panel.
+    // And of a live block (#2641): a ```reading-queue fence draws the same
+    // queue in a note, in the preview and every export.
     manifest: {
       id: 'reading-queue',
       name: 'Reading Queue',
       version: '1.0.0',
       minerva: '>=4.0.0',
-      description: "A sidebar panel of the books and articles you're reading and those still to read, each marked read with one click.",
+      description: "A sidebar panel of the books and articles you're reading and those still to read, each marked read with one click — and a reading-queue block to put the same list in a note.",
       contributes: {},
       code: {
         capabilities: ['graph:query', 'notes:write-properties', 'ui'],
-        api: '^1.8.0',
+        api: '^1.9.0',
         views: [{ id: 'queue', title: 'Reading Queue', place: 'left-sidebar', entry: 'index.html', query: 'queue.rq', icon: 'bookmark' }],
+        blocks: [{ id: 'queue', title: 'Reading queue', fence: 'reading-queue', entry: 'index.html', query: 'queue.rq' }],
       },
     },
     defaultEnabled: false,

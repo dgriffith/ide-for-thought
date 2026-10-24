@@ -248,10 +248,10 @@ describe('the ui kit, wired (#2827)', () => {
     w.closeWindow();
   });
 
-  it('another window cannot send events to a session', () => {
+  it('another window cannot send events to a session', async () => {
     const w = fakeWindow(1);
     const { sessionId } = openPluginSession(w.win, 'board', []);
-    expect(() => sendPluginSessionEvent(fakeWindow(2).win, sessionId, { kind: 'drop', paths: ['a.md'], x: 0, y: 0 })).toThrow('No such plugin session');
+    await expect(sendPluginSessionEvent(fakeWindow(2).win, sessionId, { kind: 'drop', paths: ['a.md'], x: 0, y: 0 })).rejects.toThrow('No such plugin session');
     w.closeWindow();
   });
 });
@@ -277,10 +277,10 @@ describe('the View API, wired (#2828)', () => {
     w.closeWindow();
   });
 
-  it('refuses a view event with no instances', () => {
+  it('refuses a view event with no instances', async () => {
     const w = fakeWindow(1);
     const { sessionId } = openPluginSession(w.win, 'board', []);
-    expect(() => sendPluginSessionEvent(w.win, sessionId, { kind: 'view', state: {} as never })).toThrow('carries a view state');
+    await expect(sendPluginSessionEvent(w.win, sessionId, { kind: 'view', state: {} as never })).rejects.toThrow('carries a view state');
     w.closeWindow();
   });
 });

@@ -335,6 +335,16 @@ describe('the ui kit (#2827)', () => {
     expect((await s.call('ui.forwardKey', { key: 'x'.repeat(33) })).error?.code).toBe('bad-request');
   });
 
+  it("passes on a live block's height, clamped, and refuses one that isn't a number (#2641)", async () => {
+    const s = open();
+    await s.call('view.setHeight', { height: 212.4 });
+    await s.call('view.setHeight', { height: 3 });
+    await s.call('view.setHeight', { height: 1e9 });
+    expect(s.intents).toEqual([{ kind: 'setHeight', height: 212 }, { kind: 'setHeight', height: 24 }, { kind: 'setHeight', height: 4000 }]);
+    expect((await s.call('view.setHeight', { height: 'tall' })).error?.code).toBe('bad-request');
+    expect((await open({ capabilities: ['notes:read'] }).call('view.setHeight', { height: 100 })).error?.code).toBe('capability');
+  });
+
   it('none of them without the ui capability', async () => {
     const s = open({ capabilities: ['notes:read'] });
     for (const m of ['ui.revealNote', 'ui.showMenu', 'ui.releaseFocus', 'ui.forwardKey']) {

@@ -31,7 +31,21 @@ export type PluginIntent =
   | { kind: 'moveCard'; path: string; target: PluginMoveTarget }
   | { kind: 'undoMove' }
   | { kind: 'moveColumn'; key: string; target: string; side: 'before' | 'after' }
-  | { kind: 'reschedule'; path: string; days: number };
+  | { kind: 'reschedule'; path: string; days: number }
+  /** A live block's frame height (#2641), clamped by the broker. */
+  | { kind: 'setHeight'; height: number };
+
+/**
+ * What a session is opened for, beyond notes the host hands it (#2640,
+ * #2641): a global view, or a live block with the note it sits in and its
+ * text. Main decides the scope of either.
+ */
+export type PluginSessionTarget =
+  | { view: string }
+  | { block: string; notePath: string; source: string; exportMode?: boolean };
+
+/** The most text one live block may carry into its session (#2641). */
+export const PLUGIN_BLOCK_MAX_SOURCE = 256 * 1024;
 
 /** What the host tells main to pass on to a session's plugin (#2827). */
 export type PluginHostEvent =

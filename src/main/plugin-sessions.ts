@@ -18,6 +18,11 @@
  * asks for a re-run when the graph changes (`refreshQuery`); it never says
  * which notes.
  *
+ * A live block's session (#2641) is opened the same way, with the block, the
+ * note it sits in and its text: its scope is that note plus the notes its
+ * declared query (if any) names, and it hears of all three as a `block`
+ * event.
+ *
  * A session belongs to one window and one thoughtbase. Before every call the
  * broker asks `stillValid`: the plugin still enabled code at the same
  * version, and the window still on the thoughtbase the session was opened
@@ -30,10 +35,10 @@ import { Channels } from '../shared/channels';
 import { logger } from '../shared/logger';
 import { PLUGIN_THEME_TOKENS, pluginFrameOrigin } from '../shared/plugins/frame';
 import { PLUGIN_QUERY_ROW_LIMIT, type PluginQueryResults } from '../shared/plugins/api';
-import type { PluginView } from '../shared/plugins/format';
-import type { PluginHostEvent } from '../shared/plugins/session';
+import type { PluginBlock, PluginView } from '../shared/plugins/format';
+import type { PluginHostEvent, PluginSessionTarget } from '../shared/plugins/session';
 import { createPluginSession, type BrokerDeps, type BrokerPort, type PluginSession } from './plugins/broker';
-import { codePluginIdentity, codePluginViews } from './plugins/code-plugins';
+import { codePluginBlocks, codePluginIdentity, codePluginViews } from './plugins/code-plugins';
 import { pluginFrameRoot, resolvePluginFrameFile } from './plugins/frame-files';
 import { getRootPath } from './window-manager';
 import { hooks } from './ipc/helpers';
@@ -56,9 +61,18 @@ interface Entry {
   windowId: number;
   pluginId: string;
   rootPath: string;
-  /** A global view's session (#2640): the view, and the latest query run, so a slower earlier one can't land after it. */
-  view?: { def: PluginView; run: number };
+  /**
+   * A session Minerva feeds (#2640, #2641): a global view, or a live block
+   * with the note it sits in, its text and whether it draws for an export.
+   * `run` is the latest query run, so a slower earlier one can't land after it.
+   */
+  fed?: FedSession;
 }
+
+type FedSession =
+  | { kind: 'view'; def: PluginView; run: number }
+  | { kind: 'block'; def: PluginBlock; notePath: string; source: string; exportMode: boolean; run: number };
+
 const sessions = new Map<string, Entry>();
 
 function portFor(port: MessagePortMain): BrokerPort {
@@ -103,8 +117,12 @@ function depsFor(win: BrowserWindow, sessionId: string, pluginId: string): Broke
   };
 }
 
-/** Tell a session's plugin something its host saw (#2827): the theme, or a drop. */
-export function sendPluginSessionEvent(win: BrowserWindow, sessionId: string, event: PluginHostEvent): void {
+/**
+ * Tell a session's plugin something its host saw (#2827): the theme, or a
+ * drop. A `refreshQuery` answers once the plugin has been sent the results,
+ * so a host can ask for an export after it.
+ */
+export async function sendPluginSessionEvent(win: BrowserWindow, sessionId: string, event: PluginHostEvent): Promise<void> {
   const entry = entryFor(win, sessionId);
   if (!entry) throw new Error('No such plugin session in this window.');
   if (event.kind === 'theme') {
@@ -127,8 +145,8 @@ export function sendPluginSessionEvent(win: BrowserWindow, sessionId: string, ev
     return;
   }
   if (event.kind === 'refreshQuery') {
-    if (!entry.view) throw new Error('Only a global view runs a query of its own.');
-    void runViewQuery(entry);
+    if (!entry.fed) throw new Error('Only a global view or a live block runs a query of its own.');
+    await feed(entry);
     return;
   }
   if (event.kind === 'exportRequest') {
@@ -158,62 +176,81 @@ export function sendPluginSessionEvent(win: BrowserWindow, sessionId: string, ev
   entry.session.emit('drop', { paths, x: Number(event.x) || 0, y: Number(event.y) || 0 });
 }
 
-/** A global view's declared query, read from the plugin's own folder with the frame protocol's containment. */
-async function readViewQuery(pluginId: string, view: PluginView): Promise<string> {
-  const file = await resolvePluginFrameFile(`${pluginFrameOrigin(pluginId)}/${view.query}`, pluginFrameRoot);
-  if (!file) throw new Error(`The view's query, ${view.query}, isn't in the plugin.`);
+/** A view's or block's declared query, read from the plugin's own folder with the frame protocol's containment. */
+async function readDeclaredQuery(pluginId: string, query: string): Promise<string> {
+  const file = await resolvePluginFrameFile(`${pluginFrameOrigin(pluginId)}/${query}`, pluginFrameRoot);
+  if (!file) throw new Error(`The query ${query} isn't in the plugin.`);
   return fs.promises.readFile(file, 'utf8');
 }
 
-/**
- * Run a global view's query and send the results: the notes its rows name
- * become the session's scope first, so the plugin can open what it's shown
- * (#2640). A query that fails is the plugin's to show — an `error`, and an
- * empty scope.
- */
-async function runViewQuery(entry: Entry): Promise<void> {
-  const view = entry.view!;
-  const run = ++view.run;
-  let results: PluginQueryResults;
+/** Run a declared query: its rows, and the notes they name. A query that fails is the plugin's to show. */
+async function runDeclaredQuery(entry: Entry, query: string, fed: FedSession): Promise<PluginQueryResults> {
   try {
-    const sparql = await readViewQuery(entry.pluginId, view.def);
+    const sparql = await readDeclaredQuery(entry.pluginId, query);
     const ctx = projectContext(entry.rootPath);
     const result = await queryGraph(ctx, sparql);
-    if (!result.ok) {
-      results = { columns: [], rows: [], notes: {}, truncated: false, error: result.error };
-    } else {
-      const rows = result.results.slice(0, PLUGIN_QUERY_ROW_LIMIT).map((row) => {
-        const out: Record<string, string> = {};
-        if (row !== null && typeof row === 'object') {
-          for (const [k, v] of Object.entries(row)) if (v !== null && v !== undefined) out[k] = String(v);
-        }
-        return out;
-      });
-      const notes = notePathsForIris(ctx, rows.flatMap((r) => Object.values(r)));
-      results = { columns: result.columns, rows, notes: Object.fromEntries(notes), truncated: result.results.length > rows.length, error: null };
-    }
+    if (!result.ok) return { columns: [], rows: [], notes: {}, truncated: false, error: result.error };
+    const rows = result.results.slice(0, PLUGIN_QUERY_ROW_LIMIT).map((row) => {
+      const out: Record<string, string> = {};
+      if (row !== null && typeof row === 'object') {
+        for (const [k, v] of Object.entries(row)) if (v !== null && v !== undefined) out[k] = String(v);
+      }
+      return out;
+    });
+    const notes = notePathsForIris(ctx, rows.flatMap((r) => Object.values(r)));
+    return { columns: result.columns, rows, notes: Object.fromEntries(notes), truncated: result.results.length > rows.length, error: null };
   } catch (e) {
-    logger('plugins').warn(`plugin ${entry.pluginId}: view ${view.def.id}'s query failed:`, e);
-    results = { columns: [], rows: [], notes: {}, truncated: false, error: "The view's query couldn't run; the details are in Minerva's log." };
+    logger('plugins').warn(`plugin ${entry.pluginId}: ${fed.kind} ${fed.def.id}'s query failed:`, e);
+    return { columns: [], rows: [], notes: {}, truncated: false, error: `The ${fed.kind}'s query couldn't run; the details are in Minerva's log.` };
   }
-  if (run !== view.run || entry.session.closed) return;
-  entry.session.setScope(Object.values(results.notes));
+}
+
+/**
+ * Feed a session Minerva feeds: run its query, set its scope, then tell the
+ * plugin. A global view (#2640) is scoped to the notes its rows name and
+ * sent them as `query`; a live block (#2641) to its own note plus those, and
+ * sent its text, its note and the results as `block`.
+ */
+async function feed(entry: Entry): Promise<void> {
+  const fed = entry.fed!;
+  const run = ++fed.run;
+  const query = fed.def.query;
+  const results = query === undefined ? null : await runDeclaredQuery(entry, query, fed);
+  if (run !== fed.run || entry.session.closed) return;
+  entry.session.setScope([...(fed.kind === 'block' ? [fed.notePath] : []), ...Object.values(results?.notes ?? {})]);
   // A note the scope refused (a hidden folder) isn't the plugin's to name.
   const scope = new Set(entry.session.scope());
-  results.notes = Object.fromEntries(Object.entries(results.notes).filter(([, rel]) => scope.has(rel)));
-  entry.session.emit('query', results);
+  if (results) results.notes = Object.fromEntries(Object.entries(results.notes).filter(([, rel]) => scope.has(rel)));
+  if (fed.kind === 'view') {
+    entry.session.emit('query', results!);
+    return;
+  }
+  entry.session.emit('block', { block: fed.def.id, source: fed.source, notePath: fed.notePath, query: results, exportMode: fed.exportMode });
+}
+
+/** What a session is fed by, from what it was opened for; throws for a view or block the plugin doesn't declare. */
+function fedFor(pluginId: string, name: string, target: PluginSessionTarget | undefined): FedSession | undefined {
+  if (target === undefined) return undefined;
+  if ('view' in target) {
+    const def = codePluginViews(pluginId).find((v) => v.id === target.view);
+    if (!def) throw new Error(`${name} has no view "${target.view}".`);
+    return { kind: 'view', def, run: 0 };
+  }
+  const def = codePluginBlocks(pluginId).find((b) => b.id === target.block);
+  if (!def) throw new Error(`${name} has no block "${target.block}".`);
+  return { kind: 'block', def, notePath: target.notePath, source: target.source, exportMode: target.exportMode === true, run: 0 };
 }
 
 /**
  * Open a session for `pluginId` in `win`, given `scope` — or, for a global
- * view (#2640), `view`, whose query decides the scope and `scope` is ignored.
- * The port follows on `PLUGINS_SESSION_PORT`.
+ * view (#2640) or a live block (#2641), `target`, whose query (and note)
+ * decide the scope, and `scope` is ignored. The port follows on
+ * `PLUGINS_SESSION_PORT`.
  */
-export function openPluginSession(win: BrowserWindow, pluginId: string, scope: readonly string[], view?: string): { sessionId: string } {
+export function openPluginSession(win: BrowserWindow, pluginId: string, scope: readonly string[], target?: PluginSessionTarget): { sessionId: string } {
   const identity = codePluginIdentity(pluginId);
   if (!identity) throw new Error(`"${pluginId}" is not an enabled plugin with code.`);
-  const viewDef = view === undefined ? undefined : codePluginViews(pluginId).find((v) => v.id === view);
-  if (view !== undefined && !viewDef) throw new Error(`${identity.name} has no view "${view}".`);
+  const fed = fedFor(pluginId, identity.name, target);
   const rootPath = getRootPath(win.id);
   if (!rootPath) throw new Error('A plugin session needs an open thoughtbase.');
 
@@ -222,7 +259,7 @@ export function openPluginSession(win: BrowserWindow, pluginId: string, scope: r
   const session = createPluginSession({
     identity,
     rootPath,
-    scope: viewDef ? [] : scope,
+    scope: fed ? [] : scope,
     port: portFor(port1),
     deps: depsFor(win, sessionId, pluginId),
     stillValid: () => {
@@ -233,7 +270,7 @@ export function openPluginSession(win: BrowserWindow, pluginId: string, scope: r
       return null;
     },
   });
-  sessions.set(sessionId, { session, windowId: win.id, pluginId, rootPath, ...(viewDef ? { view: { def: viewDef, run: 0 } } : {}) });
+  sessions.set(sessionId, { session, windowId: win.id, pluginId, rootPath, ...(fed ? { fed } : {}) });
   session.onClose(() => sessions.delete(sessionId));
   win.once('closed', () => session.close());
   win.webContents.postMessage(Channels.PLUGINS_SESSION_PORT, { sessionId, pluginId }, [port2]);
@@ -250,7 +287,7 @@ function entryFor(win: BrowserWindow, sessionId: string): Entry | null {
 export function setPluginSessionScope(win: BrowserWindow, sessionId: string, scope: readonly string[]): void {
   const entry = entryFor(win, sessionId);
   if (!entry) throw new Error('No such plugin session in this window.');
-  if (entry.view) throw new Error("A global view's scope is its query's.");
+  if (entry.fed) throw new Error(`A ${entry.fed.kind === 'view' ? "global view's" : "live block's"} scope is Minerva's to set.`);
   entry.session.setScope(scope);
 }
 

@@ -67,8 +67,8 @@ describe('connectPluginFrame (#2825)', () => {
   it("opens a global view's session by its id, with no scope, and asks for its query again (#2640)", async () => {
     h.openSession.mockImplementation(async () => { queueMicrotask(() => deliverPort('gv')); return { sessionId: 'gv' }; });
     const { frame } = fakeFrame();
-    const conn = await connectPluginFrame(frame, 'reading-queue', ['ignored.md'], undefined, 'queue');
-    expect(h.openSession).toHaveBeenCalledWith('reading-queue', [], 'queue');
+    const conn = await connectPluginFrame(frame, 'reading-queue', ['ignored.md'], undefined, { view: 'queue' });
+    expect(h.openSession).toHaveBeenCalledWith('reading-queue', [], { view: 'queue' });
     await conn.refreshQuery();
     expect(h.sendSessionEvent).toHaveBeenCalledWith('gv', { kind: 'refreshQuery' });
   });

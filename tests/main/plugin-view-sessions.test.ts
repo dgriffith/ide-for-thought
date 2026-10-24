@@ -9,7 +9,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import type { PluginIdentity } from '../../src/main/plugins/broker';
-import type { PluginView } from '../../src/shared/plugins/format';
+import type { PluginBlock, PluginView } from '../../src/shared/plugins/format';
 import type { GraphQueryResult } from '../../src/shared/graph-query';
 import { silenceLogTags } from '../helpers/quiet-logs';
 
@@ -26,6 +26,7 @@ class FakePort extends EventEmitter {
 const h = vi.hoisted(() => ({
   identity: null as PluginIdentity | null,
   views: [] as PluginView[],
+  blocks: [] as PluginBlock[],
   folder: '',
   queries: [] as string[],
   answer: null as null | (() => Promise<GraphQueryResult>),
@@ -41,7 +42,7 @@ vi.mock('electron', () => ({
   Menu: { buildFromTemplate: () => ({ popup: () => {} }) },
   BrowserWindow: class {},
 }));
-vi.mock('../../src/main/plugins/code-plugins', () => ({ codePluginIdentity: () => h.identity, codePluginViews: () => h.views }));
+vi.mock('../../src/main/plugins/code-plugins', () => ({ codePluginIdentity: () => h.identity, codePluginViews: () => h.views, codePluginBlocks: () => h.blocks }));
 vi.mock('../../src/main/plugins/frame-files', () => ({
   pluginFrameRoot: async () => h.folder,
   // The real containment is `frame-files.test.ts`'s; here, a file in the folder or nothing.
@@ -112,6 +113,7 @@ function pluginEnd(port: FakePort) {
 beforeEach(() => {
   h.identity = QUEUE;
   h.views = [VIEW];
+  h.blocks = [];
   h.folder = tmp;
   h.queries = [];
   fs.writeFileSync(path.join(tmp, 'list.rq'), SPARQL);
@@ -125,7 +127,7 @@ beforeEach(() => {
 describe('a global view session (#2640)', () => {
   it("runs the view's own query and scopes the session to the notes it names, whatever scope was sent", async () => {
     const w = fakeWindow();
-    const { sessionId } = openPluginSession(w.win, 'queue', ['smuggled.md'], 'list');
+    const { sessionId } = openPluginSession(w.win, 'queue', ['smuggled.md'], { view: 'list' });
     const plugin = pluginEnd(w.posted[0]!.ports[0]!);
     expect((await plugin.call('notes.list')).result).toEqual({ paths: [] });
 
@@ -151,7 +153,7 @@ describe('a global view session (#2640)', () => {
 
   it('follows the graph: a re-run replaces the scope', async () => {
     const w = fakeWindow();
-    const { sessionId } = openPluginSession(w.win, 'queue', [], 'list');
+    const { sessionId } = openPluginSession(w.win, 'queue', [], { view: 'list' });
     const plugin = pluginEnd(w.posted[0]!.ports[0]!);
     sendPluginSessionEvent(w.win, sessionId, { kind: 'refreshQuery' });
     await vi.waitFor(() => expect(plugin.events('query')).toHaveLength(1));
@@ -164,7 +166,7 @@ describe('a global view session (#2640)', () => {
 
   it('drops a slower earlier run that answers after a later one', async () => {
     const w = fakeWindow();
-    const { sessionId } = openPluginSession(w.win, 'queue', [], 'list');
+    const { sessionId } = openPluginSession(w.win, 'queue', [], { view: 'list' });
     const plugin = pluginEnd(w.posted[0]!.ports[0]!);
     let release!: () => void;
     const gate = new Promise<void>((r) => { release = r; });
@@ -182,7 +184,7 @@ describe('a global view session (#2640)', () => {
 
   it("sends a failed query as the plugin's to show, with nothing in scope", async () => {
     const w = fakeWindow();
-    const { sessionId } = openPluginSession(w.win, 'queue', [], 'list');
+    const { sessionId } = openPluginSession(w.win, 'queue', [], { view: 'list' });
     const plugin = pluginEnd(w.posted[0]!.ports[0]!);
     h.answer = async () => ({ ok: false, error: 'Parse error on line 1' });
     sendPluginSessionEvent(w.win, sessionId, { kind: 'refreshQuery' });
@@ -193,7 +195,7 @@ describe('a global view session (#2640)', () => {
 
   it("says so, without main's paths, when the query file is missing", async () => {
     const w = fakeWindow();
-    const { sessionId } = openPluginSession(w.win, 'queue', [], 'list');
+    const { sessionId } = openPluginSession(w.win, 'queue', [], { view: 'list' });
     const plugin = pluginEnd(w.posted[0]!.ports[0]!);
     fs.rmSync(path.join(tmp, 'list.rq'));
     sendPluginSessionEvent(w.win, sessionId, { kind: 'refreshQuery' });
@@ -204,15 +206,60 @@ describe('a global view session (#2640)', () => {
   });
 
   it('refuses a view the plugin does not declare', () => {
-    expect(() => openPluginSession(fakeWindow().win, 'queue', [], 'other')).toThrow('Queue has no view "other"');
+    expect(() => openPluginSession(fakeWindow().win, 'queue', [], { view: 'other' })).toThrow('Queue has no view "other"');
   });
 
-  it("won't take a scope from the renderer, and only a view session runs a query", () => {
+  it("won't take a scope from the renderer, and only a view or block session runs a query", async () => {
     const w = fakeWindow();
-    const view = openPluginSession(w.win, 'queue', [], 'list');
-    expect(() => setPluginSessionScope(w.win, view.sessionId, ['a.md'])).toThrow("A global view's scope is its query's");
+    const view = openPluginSession(w.win, 'queue', [], { view: 'list' });
+    expect(() => setPluginSessionScope(w.win, view.sessionId, ['a.md'])).toThrow("A global view's scope is Minerva's to set");
     const plain = openPluginSession(w.win, 'queue', ['a.md']);
-    expect(() => sendPluginSessionEvent(w.win, plain.sessionId, { kind: 'refreshQuery' })).toThrow('Only a global view runs a query');
+    await expect(sendPluginSessionEvent(w.win, plain.sessionId, { kind: 'refreshQuery' })).rejects.toThrow('Only a global view or a live block runs a query');
+    w.close();
+  });
+});
+
+describe('a live block session (#2641)', () => {
+  const BLOCK: PluginBlock = { id: 'card', title: 'Card', fence: 'card', entry: 'index.html', query: 'list.rq' };
+  const BLOCK_NO_QUERY: PluginBlock = { id: 'card', title: 'Card', fence: 'card', entry: 'index.html' };
+
+  it('is scoped to the note it sits in plus the notes its query names, and hears all three as block', async () => {
+    h.blocks = [BLOCK];
+    const w = fakeWindow();
+    const { sessionId } = openPluginSession(w.win, 'queue', ['smuggled.md'], { block: 'card', notePath: 'notes/here.md', source: 'limit: 3\n', exportMode: true });
+    const plugin = pluginEnd(w.posted[0]!.ports[0]!);
+    expect((await plugin.call('notes.list')).result).toEqual({ paths: [] });
+    await sendPluginSessionEvent(w.win, sessionId, { kind: 'refreshQuery' });
+    // Awaited: the block is sent by the time the refresh answers, so an export request can follow it.
+    await vi.waitFor(() => expect(plugin.events('block')).toHaveLength(1));
+    expect(plugin.events('block')[0]).toEqual({
+      block: 'card', source: 'limit: 3\n', notePath: 'notes/here.md', exportMode: true,
+      query: expect.objectContaining({ notes: { 'https://tb/note/a.md': 'a.md' }, error: null }),
+    });
+    expect((await plugin.call('notes.list')).result).toEqual({ paths: ['a.md', 'notes/here.md'] });
+    expect(plugin.events('query')).toEqual([]);
+    w.close();
+  });
+
+  it('with no query of its own, it reaches only its note, and its query is null', async () => {
+    h.blocks = [BLOCK_NO_QUERY];
+    const w = fakeWindow();
+    const { sessionId } = openPluginSession(w.win, 'queue', [], { block: 'card', notePath: 'here.md', source: '' });
+    const plugin = pluginEnd(w.posted[0]!.ports[0]!);
+    await sendPluginSessionEvent(w.win, sessionId, { kind: 'refreshQuery' });
+    await vi.waitFor(() => expect(plugin.events('block')).toHaveLength(1));
+    expect(plugin.events('block')[0]).toEqual({ block: 'card', source: '', notePath: 'here.md', exportMode: false, query: null });
+    expect(h.queries).toEqual([]);
+    expect((await plugin.call('notes.list')).result).toEqual({ paths: ['here.md'] });
+    w.close();
+  });
+
+  it("refuses a block the plugin doesn't declare, and the renderer can't rescope one", () => {
+    h.blocks = [BLOCK];
+    const w = fakeWindow();
+    expect(() => openPluginSession(w.win, 'queue', [], { block: 'other', notePath: 'a.md', source: '' })).toThrow('Queue has no block "other"');
+    const { sessionId } = openPluginSession(w.win, 'queue', [], { block: 'card', notePath: 'a.md', source: '' });
+    expect(() => setPluginSessionScope(w.win, sessionId, ['b.md'])).toThrow("A live block's scope is Minerva's to set");
     w.close();
   });
 });
