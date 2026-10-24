@@ -34,7 +34,7 @@
 </script>
 
 <div class="plugin-panel">
-  <PluginFrame {pluginId} {entry} view={viewId} scope={[]} {title} onConnected={(c) => { connection = c; }} />
+  <PluginFrame {pluginId} {entry} target={{ view: viewId }} scope={[]} {title} onConnected={(c) => { connection = c; }} />
 </div>
 
 <style>

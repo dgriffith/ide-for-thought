@@ -29,7 +29,7 @@ import { pendingExtensionDrafts } from './extension-draft-offers';
 import { PLUGIN_ID } from '../plugins/manifest';
 import { changePlugins } from '../plugins-apply';
 import { closePluginSession, openPluginSession, sendPluginSessionEvent, setPluginSessionScope } from '../plugin-sessions';
-import type { PluginHostEvent } from '../../shared/plugins/session';
+import { PLUGIN_BLOCK_MAX_SOURCE, type PluginHostEvent, type PluginSessionTarget } from '../../shared/plugins/session';
 import { handle } from './typed-ipc';
 import { winFromEvent, withRootPathOr } from './helpers';
 import { pluginRecommendations } from '../plugins/recommendations';
@@ -49,6 +49,7 @@ export async function pluginList(): Promise<PluginList> {
       contributes: {},
       ...(m.code ? { capabilities: m.code.capabilities } : {}),
       ...(m.code?.views ? { views: m.code.views } : {}),
+      ...(m.code?.blocks ? { blocks: m.code.blocks } : {}),
     })),
     installed: inv.installed.map(({ plugin, record }): PluginSummary => {
       const contributes: PluginSummary['contributes'] = {};
@@ -248,10 +249,9 @@ export function registerPlugins(): void {
   // Plugin sessions (#2825): the host (this window) opens one for a plugin
   // frame and the notes its view was given — or, for a global view (#2640),
   // the view, whose query main runs; `plugin-sessions.ts` holds them.
-  handle(Channels.PLUGINS_OPEN_SESSION, (e, pluginId: string, scope: string[], view?: string) => {
+  handle(Channels.PLUGINS_OPEN_SESSION, (e, pluginId: string, scope: string[], target?: PluginSessionTarget) => {
     if (typeof pluginId !== 'string' || !PLUGIN_ID.test(pluginId)) throw new Error(`"${String(pluginId)}" isn't a plugin id.`);
-    if (view !== undefined && (typeof view !== 'string' || !PLUGIN_ID.test(view))) throw new Error(`"${String(view)}" isn't a view id.`);
-    return openPluginSession(winFromEvent(e), pluginId, stringList(scope), view);
+    return openPluginSession(winFromEvent(e), pluginId, stringList(scope), sessionTarget(target));
   });
   handle(Channels.PLUGINS_SET_SESSION_SCOPE, (e, sessionId: string, scope: string[]) => {
     setPluginSessionScope(winFromEvent(e), String(sessionId), stringList(scope));
@@ -259,12 +259,27 @@ export function registerPlugins(): void {
   handle(Channels.PLUGINS_CLOSE_SESSION, (e, sessionId: string) => {
     closePluginSession(winFromEvent(e), String(sessionId));
   });
-  handle(Channels.PLUGINS_SESSION_EVENT, (e, sessionId: string, event: PluginHostEvent) => {
+  handle(Channels.PLUGINS_SESSION_EVENT, async (e, sessionId: string, event: PluginHostEvent) => {
     if (event === null || typeof event !== 'object' || !['theme', 'drop', 'view', 'exportRequest', 'preview', 'refreshQuery'].includes(event.kind)) {
       throw new Error('A plugin session event is a theme, a drop, a view, an export request, a preview or a query refresh.');
     }
-    sendPluginSessionEvent(winFromEvent(e), String(sessionId), event);
+    await sendPluginSessionEvent(winFromEvent(e), String(sessionId), event);
   });
+}
+
+/** What a session is opened for, as sent: a view's id, or a block with its note and text (#2640, #2641). */
+function sessionTarget(raw: unknown): PluginSessionTarget | undefined {
+  if (raw === undefined || raw === null) return undefined;
+  if (typeof raw !== 'object' || Array.isArray(raw)) throw new Error('A session target is a view or a block.');
+  const t = raw as Record<string, unknown>;
+  if (t.view !== undefined) {
+    if (typeof t.view !== 'string' || !PLUGIN_ID.test(t.view)) throw new Error(`${JSON.stringify(t.view)} isn't a view id.`);
+    return { view: t.view };
+  }
+  if (typeof t.block !== 'string' || !PLUGIN_ID.test(t.block)) throw new Error(`${JSON.stringify(t.block)} isn't a block id.`);
+  if (typeof t.notePath !== 'string' || t.notePath.length === 0 || t.notePath.length > 1024) throw new Error("A block's note must be a path.");
+  if (typeof t.source !== 'string' || t.source.length > PLUGIN_BLOCK_MAX_SOURCE) throw new Error(`A block's text is at most ${PLUGIN_BLOCK_MAX_SOURCE} characters.`);
+  return { block: t.block, notePath: t.notePath, source: t.source, exportMode: t.exportMode === true };
 }
 
 /** A scope as sent: an array of strings, anything else dropped. */

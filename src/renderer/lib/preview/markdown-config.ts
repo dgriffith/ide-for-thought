@@ -26,6 +26,7 @@ import { installAnchors } from '../../../shared/markdown/anchor-plugin';
 import { installFences } from '../markdown/fence-plugin';
 import { escapeAttr } from './text';
 import { installLiveDirectives } from './live-directives';
+import { installPluginDirectives } from './plugin-blocks';
 import { resolveRelativeImagePath } from './image-paths';
 import { mediaKind } from '../../../shared/media';
 import { appImageMark } from './app-image-mark';
@@ -153,6 +154,8 @@ export function createPreviewMarkdown(deps: PreviewMarkdownDeps): MarkdownItInst
     // `:::` directive live blocks — `:::query-*`, `:::argument` — from the
     // live-block registry (#2624); see live-directives.ts.
     installLiveDirectives(md);
+    // …and those plugins draw (#2641), after the built-ins; see plugin-blocks.ts.
+    installPluginDirectives(md, deps);
 
     return md;
 }

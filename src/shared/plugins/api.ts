@@ -28,7 +28,7 @@ import type { PluginCapability } from './capabilities';
  * The API's semver version (#2826), its own and not the app's: the host sends
  * it with the port, and a plugin's `code.api` range must accept it.
  */
-export const PLUGIN_API_VERSION = '1.8.0';
+export const PLUGIN_API_VERSION = '1.9.0';
 
 export const PLUGIN_METHODS = {
   'notes.list': { capability: 'notes:read', describes: 'The notes this view or call was given.' },
@@ -57,6 +57,7 @@ export const PLUGIN_METHODS = {
   'view.undoMove': { capability: 'notes:write-properties', describes: "Undo the view's last move (⌘Z on a board)." },
   'view.moveColumn': { capability: 'ui', describes: "Move one of the view's groups before or after another; the order stays with the view." },
   'view.reschedule': { capability: 'notes:write-properties', describes: "Move a dated note by whole days: Minerva shifts its start and end, with undo (a calendar's drag)." },
+  'view.setHeight': { capability: 'ui', describes: "Say how tall a live block's frame should be, in CSS pixels; Minerva sizes it, within limits." },
   'llm.propose': { capability: 'llm:propose', describes: 'Ask the assistant for changes. Not available yet (#2858).' },
 } as const satisfies Record<string, { capability: PluginCapability; describes: string }>;
 
@@ -101,6 +102,8 @@ export interface PluginMethodParams {
   'view.moveColumn': { key: string; target: string; side: 'before' | 'after' };
   /** `days`: a whole number, not 0, at most PLUGIN_RESCHEDULE_MAX_DAYS either way. */
   'view.reschedule': { path: string; days: number };
+  /** `height`: CSS pixels, from PLUGIN_BLOCK_MIN_HEIGHT to PLUGIN_BLOCK_MAX_HEIGHT; outside it is clamped. */
+  'view.setHeight': { height: number };
   'llm.propose': Record<string, unknown>;
 }
 
@@ -135,6 +138,7 @@ export interface PluginMethodResults {
   'view.undoMove': Record<string, never>;
   'view.moveColumn': Record<string, never>;
   'view.reschedule': Record<string, never>;
+  'view.setHeight': Record<string, never>;
   'llm.propose': never;
 }
 
@@ -158,6 +162,10 @@ export interface PluginMethodResults {
  * - `query` (#2640): a global view's declared query, as Minerva ran it — sent
  *   on connect and whenever the graph changes. The notes its rows name are
  *   the session's scope.
+ * - `block` (#2641): a live block — its text, the note it sits in, its
+ *   declared query's results, and whether it's drawing for an export. Sent
+ *   on connect and whenever the graph changes; an export's `export` request
+ *   follows it.
  */
 export interface PluginEvents {
   theme: { mode: string; vars: Record<string, string> };
@@ -166,7 +174,25 @@ export interface PluginEvents {
   export: { requestId: string };
   preview: { path: string; description: string | null };
   query: PluginQueryResults;
+  block: PluginBlockState;
 }
+
+/**
+ * A live block, as the plugin drawing it sees it (#2641). Its scope is
+ * `notePath` plus the notes `query` names.
+ */
+export type PluginBlockState = {
+  /** Which of the plugin's blocks (its `code.blocks` id). */
+  block: string;
+  /** The block's own text: a fence's body, or a directive's lines between its opening and `:::`. */
+  source: string;
+  /** The note it sits in. */
+  notePath: string;
+  /** Its declared query, as Minerva ran it; null when it declares none. */
+  query: PluginQueryResults | null;
+  /** Drawing for an export: answer the `export` event with static HTML. */
+  exportMode: boolean;
+};
 
 /**
  * A global view's query, as Minerva ran it (#2640). `rows` are the SPARQL
@@ -282,6 +308,10 @@ export type PluginEventName = keyof PluginEvents;
 
 /** The most notes one `ui.showNoteMenu` may name. */
 export const PLUGIN_NOTE_MENU_MAX_PATHS = 500;
+
+/** A live block's frame height (`view.setHeight`), in CSS pixels. */
+export const PLUGIN_BLOCK_MIN_HEIGHT = 24;
+export const PLUGIN_BLOCK_MAX_HEIGHT = 4000;
 
 /** How far one `view.reschedule` may move a note, in days either way (about 270 years). */
 export const PLUGIN_RESCHEDULE_MAX_DAYS = 100_000;

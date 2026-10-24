@@ -87,6 +87,39 @@ export interface PluginCode {
   api?: string;
   /** Global views it draws (#2640): panels in a sidebar, each fed by a query it declares. */
   views?: PluginView[];
+  /** Live blocks it draws (#2641): a fence or a directive in a note, in the preview and every export. */
+  blocks?: PluginBlock[];
+}
+
+/**
+ * A live block (#2641): a fence (```` ```recipe-card ````) or a directive
+ * (`:::reading-list` … `:::`) in a note, drawn by the plugin's page in a frame
+ * in the preview, and for an export as static HTML it hands back (the
+ * `export` event, `view.provideExport`), which Minerva sanitizes.
+ *
+ * The page is given the block's own text and the note it sits in; its scope
+ * is that note, plus the notes its `query` names when it declares one —
+ * Minerva runs that query, as for a global view, so nothing a note says can
+ * widen what the block reaches.
+ *
+ * ```json
+ * "blocks": [{ "id": "queue", "title": "Reading queue", "fence": "reading-queue",
+ *              "entry": "index.html", "query": "queue.rq" }]
+ * ```
+ */
+export interface PluginBlock {
+  /** Lowercase letters and digits in dash-separated words, unique in the plugin. */
+  id: string;
+  /** What the block is, for the frame's accessible name. */
+  title: string;
+  /** The fence language it draws, or… */
+  fence?: string;
+  /** …the directive name (`:::<name>`); exactly one of the two. */
+  directive?: string;
+  /** The page to frame, in the plugin's folder: an `.html` file. */
+  entry: string;
+  /** A query in the plugin's folder (an `.rq` file) whose notes the block may also reach. */
+  query?: string;
 }
 
 /**
@@ -258,6 +291,8 @@ export interface PluginSummary {
   capabilities?: PluginCapability[];
   /** The global views it draws (#2640); absent when none. */
   views?: PluginView[];
+  /** The live blocks it draws (#2641); absent when none. */
+  blocks?: PluginBlock[];
 }
 
 /**

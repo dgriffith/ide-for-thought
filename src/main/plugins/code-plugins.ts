@@ -8,10 +8,11 @@
  * they are in the enabled scan, which can't hold code until #2833.
  */
 import { isCorePluginActive } from '../core-plugins-active';
-import { corePlugin } from './core';
+import { corePlugin, corePlugins } from './core';
 import { loadedPluginScan } from './registry';
 import type { PluginIdentity } from './broker';
-import type { PluginView } from '../../shared/plugins/format';
+import type { PluginBlock, PluginView } from '../../shared/plugins/format';
+import type { PluginBlockSyntax } from '../../shared/live-blocks';
 
 // The e2e harness's hostile fixture (`e2e-hooks.ts`, MINERVA_E2E only): no
 // installed plugin can declare code yet, so there is no other way to drive
@@ -43,4 +44,32 @@ export function codePluginViews(id: string): readonly PluginView[] {
   const core = corePlugin(id);
   const manifest = core ? core.manifest : loadedPluginScan().plugins.find((p) => p.manifest.id === id)?.manifest;
   return manifest?.code?.views ?? [];
+}
+
+/** The live blocks plugin `id` draws (#2641), while it is enabled code; [] otherwise. */
+export function codePluginBlocks(id: string): readonly PluginBlock[] {
+  if (!codePluginIdentity(id) || e2ePlugins.has(id)) return [];
+  const core = corePlugin(id);
+  const manifest = core ? core.manifest : loadedPluginScan().plugins.find((p) => p.manifest.id === id)?.manifest;
+  return manifest?.code?.blocks ?? [];
+}
+
+/**
+ * Every live block the enabled plugins draw (#2641), as an export resolves a
+ * fence or directive name against: the first plugin to claim a name keeps it,
+ * built-in plugins first, in Settings' order.
+ */
+export function activePluginBlockSyntax(): PluginBlockSyntax[] {
+  const ids = [...corePlugins().map((p) => p.manifest.id), ...loadedPluginScan().plugins.map((p) => p.manifest.id)];
+  const out: PluginBlockSyntax[] = [];
+  const taken = new Set<string>();
+  for (const pluginId of ids) {
+    for (const b of codePluginBlocks(pluginId)) {
+      const key = b.fence !== undefined ? `fence:${b.fence}` : `directive:${b.directive}`;
+      if (taken.has(key)) continue;
+      taken.add(key);
+      out.push({ pluginId, blockId: b.id, title: b.title, ...(b.fence !== undefined ? { fence: b.fence } : { directive: b.directive! }) });
+    }
+  }
+  return out;
 }

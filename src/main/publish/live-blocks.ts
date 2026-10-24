@@ -25,8 +25,10 @@ import type { Token } from 'markdown-it';
 import { parseFenceInfo } from '../../shared/markdown/fence-info';
 import {
   LIVE_BLOCKS, LIVE_DIRECTIVE_OPENERS, LIVE_FENCE_LANGS, NOTE_LINK_ATTR,
-  type CardBlockKind, type MainBlockKind, type LiveBlockRequest, type LiveBlockResult, type WindowBlockKind,
+  pluginDirectiveOpener,
+  type CardBlockKind, type MainBlockKind, type LiveBlockRequest, type LiveBlockResult, type PluginBlockSyntax, type WindowBlockKind,
 } from '../../shared/live-blocks';
+import { activePluginBlockSyntax } from '../plugins/code-plugins';
 import { renderVegaBlocks } from './vega-render';
 import { renderYouTubeBlocks } from './youtube-render';
 import { escapeHtmlFull as escapeHtml, escapeHtmlFull as escapeAttr } from '../../shared/text-escape';
@@ -76,9 +78,16 @@ const scanner = new MarkdownIt();
  * the rewritten markdown and one request per block, in document order. Hidden
  * fences are not live blocks — the renderer drops them.
  */
-export function extractLiveBlocks(markdown: string, notePath: string, opts: { paged?: boolean | undefined } = {}): { markdown: string; blocks: LiveBlockRequest[] } {
+export function extractLiveBlocks(
+  markdown: string,
+  notePath: string,
+  opts: { paged?: boolean | undefined; pluginBlocks?: readonly PluginBlockSyntax[] } = {},
+): { markdown: string; blocks: LiveBlockRequest[] } {
   const lines = markdown.split('\n');
-  const found: Array<{ start: number; end: number; kind: WindowBlockKind; source: string }> = [];
+  const found: Found[] = [];
+  // Plugins' blocks (#2641): the names the plugins on this machine draw.
+  const pluginBlocks = opts.pluginBlocks ?? activePluginBlockSyntax();
+  const pluginFences = new Map(pluginBlocks.flatMap((b) => (b.fence !== undefined ? [[b.fence, b] as const] : [])));
   const code: Array<[number, number]> = [];
   const tokens = scanner.parse(markdown, {});
   found.push(...findLinkCards(tokens));
@@ -87,15 +96,18 @@ export function extractLiveBlocks(markdown: string, notePath: string, opts: { pa
     code.push([tok.map[0], tok.map[1]]);
     if (tok.type !== 'fence') continue;
     const info = parseFenceInfo(tok.info);
+    if (info.hidden) continue;
     const kind = LIVE_FENCES[info.lang];
-    if (!kind || info.hidden) continue;
-    found.push({ start: tok.map[0], end: tok.map[1], kind, source: tok.content });
+    const plugin = kind ? undefined : pluginFences.get(info.lang);
+    if (kind) found.push({ start: tok.map[0], end: tok.map[1], kind, source: tok.content });
+    else if (plugin) found.push({ start: tok.map[0], end: tok.map[1], kind: 'plugin', source: tok.content, plugin });
   }
-  found.push(...findDirectives(lines, code));
+  found.push(...findDirectives(lines, code, pluginBlocks));
   if (found.length === 0) return { markdown, blocks: [] };
   found.sort((a, b) => a.start - b.start);
   const blocks: LiveBlockRequest[] = found.map((f, i) => ({
     id: placeholder(i), kind: f.kind, source: f.source, notePath, ...(opts.paged ? { paged: true } : {}),
+    ...(f.plugin ? { plugin: { pluginId: f.plugin.pluginId, blockId: f.plugin.blockId } } : {}),
   }));
   // Bottom-up, so earlier line numbers stay valid.
   for (let i = found.length - 1; i >= 0; i--) {
@@ -103,6 +115,15 @@ export function extractLiveBlocks(markdown: string, notePath: string, opts: { pa
     lines.splice(f.start, f.end - f.start, '', blocks[i]!.id, '');
   }
   return { markdown: lines.join('\n'), blocks };
+}
+
+/** A block found in a note: its lines, its kind and its text — and for a plugin's, whose. */
+interface Found {
+  start: number;
+  end: number;
+  kind: WindowBlockKind;
+  source: string;
+  plugin?: PluginBlockSyntax;
 }
 
 /** A paragraph that is one plain `[[link]]` or `[[quote::id]]` and nothing
@@ -140,18 +161,26 @@ export const LIVE_DIRECTIVES: ReadonlyArray<[RegExp, WindowBlockKind]> = LIVE_DI
  * indented) it's code, not a directive. The source sent to the window is the
  * whole directive, which the preview's own parser reads back.
  */
-function findDirectives(lines: string[], code: Array<[number, number]>): Array<{ start: number; end: number; kind: WindowBlockKind; source: string }> {
+function findDirectives(lines: string[], code: Array<[number, number]>, pluginBlocks: readonly PluginBlockSyntax[]): Found[] {
   const inCode = (i: number) => code.some(([s, e]) => i >= s && i < e);
-  const out: Array<{ start: number; end: number; kind: WindowBlockKind; source: string }> = [];
+  // A plugin's directive (#2641) — after the built-ins, which keep their names.
+  const pluginOpeners = pluginBlocks.flatMap((b) => (b.directive !== undefined
+    ? [[new RegExp(`^\\s{0,3}${pluginDirectiveOpener(b.directive).source.replace(/^\^/, '')}`), b] as const]
+    : []));
+  const out: Found[] = [];
   for (let i = 0; i < lines.length; i++) {
-    const kind = inCode(i) ? undefined : LIVE_DIRECTIVES.find(([re]) => re.test(lines[i]!))?.[1];
-    if (!kind) continue;
+    if (inCode(i)) continue;
+    const kind = LIVE_DIRECTIVES.find(([re]) => re.test(lines[i]!))?.[1];
+    const plugin = kind ? undefined : pluginOpeners.find(([re]) => re.test(lines[i]!))?.[1];
+    if (!kind && !plugin) continue;
     let close = -1;
     for (let j = i + 1; j < lines.length; j++) {
       if (lines[j]!.trim() === ':::') { close = j; break; }
     }
     if (close < 0) continue;
-    out.push({ start: i, end: close + 1, kind, source: lines.slice(i, close + 1).join('\n') });
+    if (kind) out.push({ start: i, end: close + 1, kind, source: lines.slice(i, close + 1).join('\n') });
+    // A plugin's block is given its body, as the preview gives it: the lines between the opener and `:::`.
+    else if (plugin) out.push({ start: i, end: close + 1, kind: 'plugin', source: lines.slice(i + 1, close).join('\n'), plugin });
     i = close;
   }
   return out;

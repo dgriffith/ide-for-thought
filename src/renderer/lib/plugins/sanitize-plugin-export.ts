@@ -19,6 +19,7 @@
  *   under the export's link policy. Every other `data-*` goes.
  */
 import DOMPurify from 'dompurify';
+import { PLUGIN_THEME_TOKENS } from '../../../shared/plugins/frame';
 
 const FORBID_TAGS = [
   'style', 'link', 'meta', 'base', 'script', 'noscript', 'template',
@@ -54,4 +55,19 @@ export function sanitizePluginExportHtml(html: string): string {
   } finally {
     DOMPurify.removeHook('afterSanitizeAttributes');
   }
+}
+
+/**
+ * The theme tokens as they reach `el`, as an inline style for a plugin's
+ * export (#2828, #2641): the export draws in the frame's place, outside it,
+ * so the tokens the frame was sent go inline beside it. A value that could
+ * end the declaration or load something is left out.
+ */
+export function pluginExportTokens(el: HTMLElement): string {
+  const style = getComputedStyle(el);
+  return PLUGIN_THEME_TOKENS
+    .map((t) => [t, style.getPropertyValue(t).trim()] as const)
+    .filter(([, v]) => v !== '' && !/[;{}]|url\(/i.test(v))
+    .map(([t, v]) => `${t}:${v}`)
+    .join(';');
 }

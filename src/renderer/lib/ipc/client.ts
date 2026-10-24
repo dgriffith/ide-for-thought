@@ -1,5 +1,5 @@
 import type { NoteFile, NotebaseMeta, TagInfo, TaggedNote, TaggedSource, SavedQuery, SearchResult, OutgoingLink, Backlink, TabSession, LayoutSession, BookmarkNode, SourceDetail, SearchInNotesOptions, SearchInNotesResult, ReplaceInNotesOptions, ReplaceInNotesResult, HeadingRenameCandidate, MenuEditorState } from '../../../shared/types';
-import type { PluginHostEvent, PluginIntentEvent } from '../../../shared/plugins/session';
+import type { PluginHostEvent, PluginIntentEvent, PluginSessionTarget } from '../../../shared/plugins/session';
 import type { LiveBlockRequest, LiveBlockResult } from '../../../shared/live-blocks';
 import type { Conversation, ConversationCreateOptions, ContextBundle, ConversationMessage } from '../../../shared/conversation';
 import type { ToolExecutionRequest, ToolExecutionResult, ConversationToolPayload } from '../../../shared/tools/types';
@@ -1156,8 +1156,8 @@ export interface PluginsApi {
   reveal(id?: string): Promise<void>;
   /** Plugins changed (here or outside the app) and have been applied. */
   onChanged(cb: () => void): () => void;
-  /** Open a session for a plugin's frame and the notes its view was given (#2825) — or, for a global view, its id: main runs the view's query and scopes the session to its notes (#2640). The port arrives as a window message; see `stores/plugin-sessions.svelte.ts`. */
-  openSession(pluginId: string, scope: string[], view?: string): Promise<{ sessionId: string }>;
+  /** Open a session for a plugin's frame and the notes its view was given (#2825) — or, for a global view or a live block, its `target`: main runs its query and decides its scope (#2640, #2641). The port arrives as a window message; see `stores/plugin-sessions.svelte.ts`. */
+  openSession(pluginId: string, scope: string[], target?: PluginSessionTarget): Promise<{ sessionId: string }>;
   /** Replace the notes a session was given. */
   setSessionScope(sessionId: string, scope: string[]): Promise<void>;
   closeSession(sessionId: string): Promise<void>;

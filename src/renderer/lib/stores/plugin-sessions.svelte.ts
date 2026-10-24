@@ -25,7 +25,7 @@ import { announce } from './announcer.svelte';
 import { logger } from '../../../shared/logger';
 import { pluginFrameOrigin } from '../../../shared/plugins/frame';
 import { PLUGIN_API_VERSION, PLUGIN_PORT_MESSAGE, type PluginMoveTarget, type PluginViewState } from '../../../shared/plugins/api';
-import { PLUGIN_SESSION_PORT_MESSAGE, type PluginIntent, type PluginIntentEvent } from '../../../shared/plugins/session';
+import { PLUGIN_SESSION_PORT_MESSAGE, type PluginIntent, type PluginIntentEvent, type PluginSessionTarget } from '../../../shared/plugins/session';
 import { COMMANDS, type CommandId } from '../../../shared/commands';
 import { matchesAccelerator } from '../keymap/handle-keydown';
 
@@ -46,7 +46,7 @@ export interface PluginFrameConnection {
   requestExport(requestId: string): Promise<void>;
   /** What the app's preview of a note says, or null when it goes (#2828). */
   sendPreview(path: string, description: string | null): Promise<void>;
-  /** A global view's (#2640): run its query again and send the plugin the results. */
+  /** A global view's or live block's (#2640, #2641): run its query again and send the plugin the results; resolves once they're sent. */
   refreshQuery(): Promise<void>;
   close(): Promise<void>;
 }
@@ -71,6 +71,8 @@ export interface PluginFrameHost {
   moveColumn?(key: string, target: string, side: 'before' | 'after'): void;
   /** A calendar's reschedule (#2829): the host moves the note's dates by whole days, with its own undo. */
   reschedule?(path: string, days: number): void;
+  /** A live block's frame height (#2641), already clamped. */
+  setHeight?(height: number): void;
   /** The view's own selection (#2828). */
   viewClick?(path: string, mods: { meta: boolean; ctrl: boolean; shift: boolean }): void;
   selectAll?(): void;
@@ -161,6 +163,9 @@ function onIntent({ sessionId, pluginId, intent }: PluginIntentEvent): void {
     case 'reschedule':
       hosts.get(sessionId)?.reschedule?.(intent.path, intent.days);
       return;
+    case 'setHeight':
+      hosts.get(sessionId)?.setHeight?.(intent.height);
+      return;
     case 'key': {
       const id = forwardableCommand(intent);
       if (!id) {
@@ -202,18 +207,18 @@ function portFor(sessionId: string): Promise<MessagePort> {
 
 /**
  * Give `frame` (already showing plugin `pluginId`'s page) a session over the
- * notes in `scope` — or, for a global view (#2640), over what the query of
- * `view` names, which main decides.
+ * notes in `scope` — or, for a global view or a live block (#2640, #2641),
+ * over what `openedFor` decides, which is main's.
  */
 export async function connectPluginFrame(
   frame: HTMLIFrameElement,
   pluginId: string,
   scope: string[],
   host?: PluginFrameHost,
-  view?: string,
+  openedFor?: PluginSessionTarget,
 ): Promise<PluginFrameConnection> {
   install();
-  const { sessionId } = await (view === undefined ? api.plugins.openSession(pluginId, scope) : api.plugins.openSession(pluginId, [], view));
+  const { sessionId } = await (openedFor === undefined ? api.plugins.openSession(pluginId, scope) : api.plugins.openSession(pluginId, [], openedFor));
   let port: MessagePort;
   try {
     port = await portFor(sessionId);

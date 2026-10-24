@@ -15,6 +15,7 @@ import type { MarkdownIt, Token } from 'markdown-it';
 import { detectDataSource } from '../../../shared/vega/data-binding';
 import { parseFenceInfo } from '../../../shared/markdown/fence-info';
 import { LIVE_FENCE_LANGS, type FenceBlockKind } from '../../../shared/live-blocks';
+import { pluginBlockPlaceholderHtml } from '../preview/plugin-blocks';
 import { RUNNABLE_LANGUAGE_SET } from '../../../shared/compute/fences';
 import { renderYouTubeFence } from './youtube-embed';
 import { findSourceFenceBefore, renderComputeOutput } from '../preview/compute-output-render';
@@ -238,6 +239,10 @@ export function installFences(md: MarkdownIt, deps: PreviewMarkdownDeps): void {
 
         const typeRenderer = fenceRenderers[info];
         if (typeRenderer) return typeRenderer(args);
+
+        // A fence a plugin draws (#2641): its frame, mounted by the post-render pass.
+        const pluginBlock = info ? deps.pluginBlock?.('fence', info) : null;
+        if (pluginBlock) return pluginBlockPlaceholderHtml(pluginBlock, tok.content ?? '', deps.getRenderPathOverride() ?? deps.getNotePath());
 
         // Runnable fences render a toolbar (▶ run + collapse) only when the
         // source line is known; otherwise they fall through to the default

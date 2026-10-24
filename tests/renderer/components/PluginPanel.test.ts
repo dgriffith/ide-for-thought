@@ -41,7 +41,7 @@ describe('PluginPanel (#2640)', () => {
     expect(frame.getAttribute('src')).toBe('minerva-plugin://reading-queue/index.html');
     expect(frame.getAttribute('title')).toBe('Reading Queue');
     await fireEvent.load(frame);
-    await waitFor(() => expect(h.connect).toHaveBeenCalledWith(frame, 'reading-queue', [], expect.any(Object), 'queue'));
+    await waitFor(() => expect(h.connect).toHaveBeenCalledWith(frame, 'reading-queue', [], expect.any(Object), { view: 'queue' }));
     await waitFor(() => expect(h.refreshQuery).toHaveBeenCalledTimes(1));
     h.graphChanged!();
     await waitFor(() => expect(h.refreshQuery).toHaveBeenCalledTimes(2));

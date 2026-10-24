@@ -142,9 +142,10 @@ const LIST = {
     enabled: true, source: { kind: 'core' }, contributes: {}, capabilities: ['notes:read', 'notes:write-properties', 'ui'],
   }, {
     id: 'reading-queue', name: 'Reading Queue', version: '1.0.0',
-    description: "A sidebar panel of the books and articles you're reading and those still to read, each marked read with one click.",
+    description: "A sidebar panel of the books and articles you're reading and those still to read, each marked read with one click — and a reading-queue block to put the same list in a note.",
     enabled: false, source: { kind: 'core' }, contributes: {}, capabilities: ['graph:query', 'notes:write-properties', 'ui'],
     views: [{ id: 'queue', title: 'Reading Queue', place: 'left-sidebar', entry: 'index.html', query: 'queue.rq', icon: 'bookmark' }],
+    blocks: [{ id: 'queue', title: 'Reading queue', fence: 'reading-queue', entry: 'index.html', query: 'queue.rq' }],
   }],
   installed: [{
     id: 'lab', name: 'Lab', version: '1.0.0', description: 'Lab tools', author: 'Ada', enabled: false,
@@ -422,9 +423,22 @@ describe('plugin sessions (#2825)', () => {
   it("opens a global view's session by the view's id, and refuses one that isn't an id (#2640)", async () => {
     h.openSession.mockClear();
     h.openSession.mockReturnValue({ sessionId: 'gv' });
-    expect(await call(Channels.PLUGINS_OPEN_SESSION, 'reading-queue', [], 'queue')).toEqual({ sessionId: 'gv' });
-    expect(h.openSession).toHaveBeenCalledWith({ id: 1 }, 'reading-queue', [], 'queue');
-    await expect(call(Channels.PLUGINS_OPEN_SESSION, 'reading-queue', [], '../q')).rejects.toThrow("isn't a view id");
+    expect(await call(Channels.PLUGINS_OPEN_SESSION, 'reading-queue', [], { view: 'queue' })).toEqual({ sessionId: 'gv' });
+    expect(h.openSession).toHaveBeenCalledWith({ id: 1 }, 'reading-queue', [], { view: 'queue' });
+    await expect(call(Channels.PLUGINS_OPEN_SESSION, 'reading-queue', [], { view: '../q' })).rejects.toThrow("isn't a view id");
+    expect(h.openSession).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens a live block's session with its note and text, checked for shape (#2641)", async () => {
+    h.openSession.mockClear();
+    h.openSession.mockReturnValue({ sessionId: 'lb' });
+    const block = { block: 'queue', notePath: 'n.md', source: 'limit: 2', exportMode: true };
+    expect(await call(Channels.PLUGINS_OPEN_SESSION, 'reading-queue', ['ignored.md'], block)).toEqual({ sessionId: 'lb' });
+    expect(h.openSession).toHaveBeenCalledWith({ id: 1 }, 'reading-queue', ['ignored.md'], block);
+    await expect(call(Channels.PLUGINS_OPEN_SESSION, 'reading-queue', [], { block: 'Bad', notePath: 'n.md', source: '' })).rejects.toThrow("isn't a block id");
+    await expect(call(Channels.PLUGINS_OPEN_SESSION, 'reading-queue', [], { block: 'queue', notePath: '', source: '' })).rejects.toThrow("A block's note must be a path");
+    await expect(call(Channels.PLUGINS_OPEN_SESSION, 'reading-queue', [], { block: 'queue', notePath: 'n.md', source: 'x'.repeat(300_000) })).rejects.toThrow("A block's text is at most");
+    await expect(call(Channels.PLUGINS_OPEN_SESSION, 'reading-queue', [], 'queue')).rejects.toThrow('A session target is a view or a block');
     expect(h.openSession).toHaveBeenCalledTimes(1);
   });
 });
