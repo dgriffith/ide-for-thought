@@ -45,12 +45,15 @@ overrides:
   tar: '>=7.5.21'
   # undici advisories published 2026-09-29 (GHSA-rfgv-xxqx-mfg5 WebSocket
   # subprotocol DoS, GHSA-w293-vg96-wgc3 BalancedPool TLS-validation bypass,
-  # GHSA-vp8m-p9jh-q5pm interceptor cache poisoning). Three edges on three
-  # majors, so three scoped overrides, each held inside its own major: a global
-  # `undici` key would drag the 6.x/7.x consumers onto 8.x (a real API break).
-  'openai>undici': '>=8.10.2 <9.0.0'
-  '@digitalbazaar/http-client>undici': '>=6.28.1 <7.0.0'
-  '@electron/get>undici': '>=7.29.1 <8.0.0' # dev only: Electron binary download
+  # GHSA-vp8m-p9jh-q5pm interceptor cache poisoning), and GHSA-xjj6-f33q-929c
+  # (unhandled error on excessive content-encodings, DoS; floors raised
+  # 2026-10-24). Four edges on three majors, so scoped overrides, each held
+  # inside its own major: a global `undici` key would drag the 6.x/7.x
+  # consumers onto 8.x (a real API break).
+  'openai>undici': '>=8.12.2 <9.0.0'
+  '@digitalbazaar/http-client>undici': '>=6.29.1 <7.0.0'
+  '@electron/get>undici': '>=7.30.1 <8.0.0' # dev only: Electron binary download
+  'node-gyp>undici': '>=6.29.1 <7.0.0' # dev only: @electron/rebuild's native-module rebuild
   # brace-expansion advisories (GHSA-6j4f-fj2g-mc7p parseCommaParts recursion,
   # GHSA-qhr7-859c-m2p7 nested-group recursion — both stack-exhaustion DoS).
   # Resolved on three majors (1.x/2.x/5.x via minimatch generations), so one
