@@ -155,3 +155,33 @@ describe('extractLiveBlocks — link cards (#2526)', () => {
     expect(kinds('[[cite::smith-2020]]\n\n[[supports::Claim]]\n\nSee [[Kampa Museum]] today.\n\n> [[Kampa Museum]]\n')).toEqual([]);
   });
 });
+
+describe('extractLiveBlocks — plugin blocks (#2641)', () => {
+  const PLUGIN_BLOCKS = [
+    { pluginId: 'reading-queue', blockId: 'queue', title: 'Reading queue', fence: 'reading-queue' },
+    { pluginId: 'lists', blockId: 'list', title: 'List', directive: 'reading-list' },
+  ];
+  const extract = (md: string) => extractLiveBlocks(md, 'n.md', { pluginBlocks: PLUGIN_BLOCKS });
+
+  it('extracts a fence or directive a plugin draws, naming who draws it, with the body the preview gives it', () => {
+    const md = '# A\n\n```reading-queue\nlimit: 3\n```\n\nText.\n\n:::reading-list\nfirst\nsecond\n:::\n';
+    const { markdown, blocks } = extract(md);
+    expect(blocks.map((b) => ({ kind: b.kind, source: b.source, plugin: b.plugin }))).toEqual([
+      { kind: 'plugin', source: 'limit: 3\n', plugin: { pluginId: 'reading-queue', blockId: 'queue' } },
+      { kind: 'plugin', source: 'first\nsecond', plugin: { pluginId: 'lists', blockId: 'list' } },
+    ]);
+    expect(markdown).not.toContain('reading-queue');
+    expect(markdown).toContain('Text.');
+  });
+
+  it("leaves a name no plugin on draws, a hidden fence, one in code, and an unclosed directive alone", () => {
+    const md = '```other-fence\nx\n```\n\n```reading-queue-hidden\nx\n```\n\n    :::reading-list\n\n:::reading-list\nnever closed\n';
+    expect(extract(md).blocks).toEqual([]);
+    expect(extractLiveBlocks('```reading-queue\nx\n```\n', 'n.md', { pluginBlocks: [] }).blocks).toEqual([]);
+  });
+
+  it("a built-in's name stays the built-in's", () => {
+    const { blocks } = extractLiveBlocks('```mermaid\ngraph TD\n```\n', 'n.md', { pluginBlocks: [{ pluginId: 'p', blockId: 'b', title: 'B', fence: 'mermaid' }] });
+    expect(blocks.map((b) => b.kind)).toEqual(['mermaid']);
+  });
+});

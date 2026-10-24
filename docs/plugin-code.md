@@ -456,6 +456,57 @@ for anything else it shows; that never widens the scope.
   by default): `public/queue.rq` is copied beside its page by the build, and
   `tests/main/plugins/reading-queue-query.test.ts` runs it against a real graph.
 
+### Live blocks (#2641)
+
+A fence (```recipe-card) or a `:::directive` in a note, drawn by a plugin's
+page in a frame — in the preview and in every HTML export. A plugin declares
+it in `code.blocks`, with exactly one of `fence` or `directive`, and
+optionally a query:
+
+```json
+"blocks": [{ "id": "queue", "title": "Reading queue", "fence": "reading-queue",
+             "entry": "index.html", "query": "queue.rq" }]
+```
+
+**Decision: an export draws the block through the plugin's frame, in the
+window that asked for the export** — the path a plugin layout already
+exports by (#2828). The block is a `window` live-block kind, `plugin`: the
+export window mounts `PluginBlock` in export mode, sends the plugin the
+block and then an `export` request, and draws its `view.provideExport`
+answer through `sanitizePluginExportHtml` in the frame's place, which is what
+the snapshot keeps. **Why not the issue's two options:** a pure
+`render(data) → HTML` contract and a headless host both need the worker host
+(#2830), and the first means a plugin writes its block twice. An export with
+no window (the CLI) degrades the block to a one-line note, as it does every
+`window` kind. Markdown exports keep the block verbatim.
+
+**Decision: a block reaches the note it sits in, plus the notes its declared
+query names.** Main runs that query, as for a global view; the block's own
+text can't widen what it reaches. The plugin hears it all as a `block` event
+(API 1.9.0): the block's text, the note, the query's results, and whether it
+draws for an export.
+
+- **Names.** A fence or directive name a built-in already draws (`mermaid`,
+  `:::argument`, `:::query-*`, a cell language like `python`) is refused by
+  the manifest check. Between plugins, the first to claim a name keeps it, in
+  Settings' order — the same rule in the preview (`corePluginsStore.blockSyntax`)
+  and in an export (`activePluginBlockSyntax`).
+- **One registry entry.** `LIVE_BLOCKS` holds one `plugin` kind whose syntax is
+  `{ plugin: true }`: which names it covers is per machine, so both sides
+  resolve a name to a plugin's block when a note renders. The preview
+  re-renders when a plugin is switched, as it does for Python.
+- **Height.** A block is inline in flowing text, so its frame is as tall as
+  the plugin asks (`view.setHeight`, clamped to 24–4000px); until it asks, 120px.
+- **Keeping the frame.** A block's frame lives across preview re-renders, by
+  the parking `hydrated-block-cache.ts` does before each `{@html}` swap
+  (wrinkle 5, #2871): editing the note around a block keeps its page; editing
+  the block's own text is a new block, with a new session.
+- **The Reading Queue is the worked example**: a ```reading-queue fence
+  draws the queue in a note (`limit: N` in its text), and answers an export
+  with the list as inline-styled HTML, each title a `data-note-path` link.
+  `export-parity-all-kinds` exports it beside every built-in kind, and
+  `plugin-live-block.spec.ts` drives it in the preview.
+
 ### Other candidates
 
 The test is which features reach a privileged sink or hold a credential:
@@ -573,7 +624,7 @@ is an MCP server, as in 4.0.
 | Story | Proposed |
 |---|---|
 | #2640 views | Rewritten around the view API, and built: sidebar panels and tabs (*Global views* above). |
-| #2641 live blocks | Rewrite around the view API. **Open:** blocks also render in exports, which run in main; an export would render the block in a headless plugin host. |
+| #2641 live blocks | Built: a fence or directive drawn by the plugin's frame, exported through the same frame in the export window (*Live blocks* above). |
 | #2642 inspections | Build as written (SPARQL). Code checks come later, through the worker host. |
 | #2643 commands | Rewrite: a command whose handler is in the plugin's worker, placed through the existing `COMMANDS` registry. |
 | #2647 ingestors | Rewrite: a parser in the worker, given the file's bytes. One that needs a native library stays MCP. |
@@ -592,8 +643,6 @@ is an MCP server, as in 4.0.
 
 ## Open questions
 
-- **Live blocks in exports**: a headless host per export, or a pure
-  `render(data) → HTML` contract for blocks that must export?
 - **Cost of a host per plugin.** A hidden sandboxed `WebContents` is tens of
   MB. Start lazily, stop when idle, or share one host between a user's own
   plugins?

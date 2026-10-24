@@ -1,3 +1,5 @@
+import type { PluginBlockSyntax } from '../../../shared/live-blocks';
+
 // The live component values `createPreviewMarkdown`'s renderer rules close
 // over. A leaf module (#1908) so both `markdown-config.ts` and the `install*`
 // plugins it composes (`fence-plugin.ts`) can depend on the type without
@@ -24,4 +26,7 @@ export interface PreviewMarkdownDeps {
     /** Whether a compute language can run on this machine now (#2822): Python
      *  is a built-in plugin that can be off. Absent → every runnable one can. */
     isRunnable?: (language: string) => boolean;
+    /** The plugin block a fence language or directive name is, while its
+     *  plugin is on (#2641); null when it is no plugin's. Absent → none. */
+    pluginBlock?: (kind: 'fence' | 'directive', name: string) => PluginBlockSyntax | null;
 }

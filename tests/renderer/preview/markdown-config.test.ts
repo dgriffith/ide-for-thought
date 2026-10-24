@@ -511,3 +511,42 @@ describe('tables & standard markdown', () => {
     expect(html).toContain('<td>1</td>');
   });
 });
+
+describe('createPreviewMarkdown — plugin blocks (#2641)', () => {
+  const BLOCKS = [
+    { pluginId: 'reading-queue', blockId: 'queue', title: 'Reading queue', fence: 'reading-queue' },
+    { pluginId: 'lists', blockId: 'list', title: 'List', directive: 'reading-list' },
+  ];
+  const pluginBlock: PreviewMarkdownDeps['pluginBlock'] = (kind, name) => BLOCKS.find((b) => b[kind] === name) ?? null;
+  const doc = (src: string, over: Partial<PreviewMarkdownDeps> = {}) => {
+    const el = document.createElement('div');
+    el.innerHTML = render(src, { pluginBlock, getNotePath: () => 'notes/here.md', ...over });
+    return el;
+  };
+
+  it('a fence a plugin draws is a placeholder naming it, its note and its text', () => {
+    const el = doc('```reading-queue\nlimit: <3>\n```\n').querySelector<HTMLElement>('.plugin-block')!;
+    expect(el.dataset).toMatchObject({ pluginBlockPending: '1', pluginId: 'reading-queue', blockId: 'queue', blockTitle: 'Reading queue', notePath: 'notes/here.md' });
+    expect(el.textContent).toBe('limit: <3>\n');
+  });
+
+  it('so is a directive, with the lines between its opener and :::', () => {
+    const el = doc('Before\n\n:::reading-list\nfirst\nsecond\n:::\n\nAfter\n');
+    const block = el.querySelector<HTMLElement>('.plugin-block')!;
+    expect(block.dataset.blockId).toBe('list');
+    expect(block.textContent).toBe('first\nsecond');
+    expect(el.textContent).toContain('After');
+  });
+
+  it("a name no plugin on draws is ordinary code or text, an unclosed directive isn't one, and a built-in stays the built-in", () => {
+    expect(doc('```reading-queue\nx\n```\n', { pluginBlock: () => null }).querySelector('.plugin-block')).toBeNull();
+    expect(doc(':::reading-list\nnever closed\n').querySelector('.plugin-block')).toBeNull();
+    expect(doc('```mermaid\ngraph TD\n```\n', { pluginBlock: () => BLOCKS[0]! }).querySelector('.plugin-block')).toBeNull();
+    expect(doc(':::argument\n[[A]]\n:::\n', { pluginBlock: () => BLOCKS[1]! }).querySelector('.plugin-block')).toBeNull();
+  });
+
+  it("a block in a transcluded note belongs to that note", () => {
+    const el = doc('```reading-queue\nx\n```\n', { getRenderPathOverride: () => 'other/embedded.md' }).querySelector<HTMLElement>('.plugin-block')!;
+    expect(el.dataset.notePath).toBe('other/embedded.md');
+  });
+});

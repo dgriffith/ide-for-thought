@@ -12,6 +12,7 @@ import { PLUGIN_API_VERSION } from '../../shared/plugins/api';
 import {
   PLUGIN_CONTRIBUTION_POINTS,
   PLUGIN_VIEW_PLACES,
+  type PluginBlock,
   type PluginCode,
   type PluginView,
   type PluginViewPlace,
@@ -21,6 +22,8 @@ import {
 import { isPluginCapability, PLUGIN_CAPABILITIES, type PluginCapability } from '../../shared/plugins/capabilities';
 import { validatePluginSettings } from './settings-schema';
 import { validatePluginMcpServers } from './mcp-schema';
+import { LIVE_DIRECTIVE_OPENERS, LIVE_FENCE_LANGS } from '../../shared/live-blocks';
+import { RUNNABLE_LANGUAGE_SET } from '../../shared/compute/fences';
 
 /** Lowercase letters and digits in dash-separated words: `reading-list`, `lab2`. */
 export const PLUGIN_ID = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
@@ -28,7 +31,12 @@ export const MAX_PLUGIN_ID = 64;
 
 const KNOWN_KEYS = new Set(['$schema', 'id', 'name', 'version', 'minerva', 'description', 'author', 'license', 'contributes', 'settings', 'mcpServers', 'code']);
 /** What a `code` section may hold (#2823). Entry points join it with the frame (#2824) and the worker host (#2830). */
-const CODE_KEYS = new Set(['capabilities', 'api', 'views']);
+const CODE_KEYS = new Set(['capabilities', 'api', 'views', 'blocks']);
+const BLOCK_KEYS = new Set(['id', 'title', 'fence', 'directive', 'entry', 'query']);
+/** Most live blocks one plugin may draw (#2641). */
+export const MAX_PLUGIN_BLOCKS = 16;
+/** A block's fence or directive name: lowercase, a letter first, dashes between words. */
+const BLOCK_NAME = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 const VIEW_KEYS = new Set(['id', 'title', 'place', 'entry', 'query', 'icon']);
 /** Most global views one plugin may draw (#2640). */
 export const MAX_PLUGIN_VIEWS = 8;
@@ -182,7 +190,11 @@ function validateCode(raw: unknown, ctx: ManifestContext, problems: string[]): P
     }
   }
   const views = raw.views === undefined ? undefined : validateViews(raw.views, out, problems);
-  const withViews = views !== undefined && views.length > 0 ? { views } : {};
+  const blocks = raw.blocks === undefined ? undefined : validateBlocks(raw.blocks, out, problems);
+  const withViews = {
+    ...(views !== undefined && views.length > 0 ? { views } : {}),
+    ...(blocks !== undefined && blocks.length > 0 ? { blocks } : {}),
+  };
   // The plugin API's own version (#2826), not the app's.
   const api = raw.api;
   if (api === undefined) {
@@ -272,6 +284,82 @@ function validateViews(raw: unknown, capabilities: readonly PluginCapability[], 
     out.push({
       id: id as string, title: (title as string).trim(), place: place as PluginViewPlace, entry: entry!, query: query!,
       ...(typeof icon === 'string' ? { icon } : {}),
+    });
+  });
+  return out;
+}
+
+/**
+ * Whether `name` belongs to Minerva already: a built-in live block's fence or
+ * directive, or a language a code cell runs. A plugin can't take one over, or
+ * every note's `mermaid` diagram or `python` cell would become its frame.
+ */
+function builtInBlockName(name: string): boolean {
+  if (LIVE_FENCE_LANGS.has(name) || RUNNABLE_LANGUAGE_SET.has(name)) return true;
+  return LIVE_DIRECTIVE_OPENERS.some(([, opener]) => opener.test(`:::${name}`));
+}
+
+/**
+ * `code.blocks` (#2641): live blocks, each a fence or a directive drawn by a
+ * page of the plugin's. A block is a frame, so it needs `ui`; one with a
+ * query needs `graph:query`, for what the query reads.
+ */
+function validateBlocks(raw: unknown, capabilities: readonly PluginCapability[], problems: string[]): PluginBlock[] | undefined {
+  if (!Array.isArray(raw) || raw.length === 0) {
+    problems.push('"code.blocks" must be a non-empty list of blocks.');
+    return undefined;
+  }
+  if (raw.length > MAX_PLUGIN_BLOCKS) problems.push(`"code.blocks" lists ${raw.length} blocks; at most ${MAX_PLUGIN_BLOCKS}.`);
+  if (!capabilities.includes('ui')) problems.push('"code.blocks" needs the "ui" capability: a block is a page Minerva frames.');
+  const out: PluginBlock[] = [];
+  const names = new Set<string>();
+  raw.forEach((b: unknown, i) => {
+    const at = `code.blocks[${i}]`;
+    if (!isRecord(b)) {
+      problems.push(`"${at}" must be an object.`);
+      return;
+    }
+    for (const key of Object.keys(b)) {
+      if (!BLOCK_KEYS.has(key)) problems.push(`Unknown field "${at}.${key}".`);
+    }
+    const before = problems.length;
+    const id = b.id;
+    if (typeof id !== 'string' || !PLUGIN_ID.test(id) || id.length > MAX_PLUGIN_ID) {
+      problems.push(`"${at}.id" must be lowercase letters and digits in dash-separated words, like "card".`);
+    } else if (out.some((o) => o.id === id)) {
+      problems.push(`"code.blocks" has two blocks with the id "${id}".`);
+    }
+    const title = b.title;
+    if (typeof title !== 'string' || title.trim() === '' || title.length > 60) {
+      problems.push(`"${at}.title" must be a name of at most 60 characters.`);
+    }
+    const hasFence = b.fence !== undefined;
+    const hasDirective = b.directive !== undefined;
+    if (hasFence === hasDirective) {
+      problems.push(`"${at}" must name exactly one of "fence" (a \`\`\`name block) and "directive" (a :::name block).`);
+    }
+    const which = hasFence ? 'fence' : 'directive';
+    const name = hasFence ? b.fence : b.directive;
+    if (hasFence !== hasDirective) {
+      if (typeof name !== 'string' || !BLOCK_NAME.test(name) || name.length > 40 || name.endsWith('-hidden')) {
+        problems.push(`"${at}.${which}" must be lowercase letters and digits in dash-separated words, like "recipe-card".`);
+      } else if (builtInBlockName(name)) {
+        problems.push(`"${at}.${which}" is "${name}", which Minerva draws itself; pick another name.`);
+      } else if (names.has(`${which}:${name}`)) {
+        problems.push(`"code.blocks" has two blocks drawing the ${which} "${name}".`);
+      } else {
+        names.add(`${which}:${name}`);
+      }
+    }
+    const entry = pluginFilePath(b.entry, `${at}.entry`, '.html', problems);
+    const query = b.query === undefined ? undefined : pluginFilePath(b.query, `${at}.query`, '.rq', problems);
+    if (b.query !== undefined && !capabilities.includes('graph:query')) {
+      problems.push(`"${at}.query" needs the "graph:query" capability: Minerva runs it for the block.`);
+    }
+    if (problems.length > before) return;
+    out.push({
+      id: id as string, title: (title as string).trim(), [which]: name as string, entry: entry!,
+      ...(query !== undefined ? { query } : {}),
     });
   });
   return out;

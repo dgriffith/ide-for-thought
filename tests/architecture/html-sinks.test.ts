@@ -26,6 +26,9 @@ const REVIEWED_SINKS: Record<string, Record<string, string>> = {
   'lib/components/plugins/PluginLayout.svelte': {
     exported: "a plugin layout's export HTML (#2828), through sanitizePluginExportHtml (DOMPurify, static-only, no URLs)",
   },
+  'lib/components/plugins/PluginBlock.svelte': {
+    exported: "a plugin live block's export HTML (#2641), through sanitizePluginExportHtml (DOMPurify, static-only, no URLs)",
+  },
   'lib/components/Icon.svelte': {
     path: 'static SVG path data from the bundled icon table',
   },

@@ -21,12 +21,16 @@
  * And a Calendar of the same Events (#2704): the spec's month as a static
  * table, every event in its day's cell, the bar included, and its spec never
  * left behind.
+ *
+ * And a plugin's live block (#2641): the Reading Queue's ```reading-queue
+ * fence, turned on for the test, drawn static by the plugin's own frame — the
+ * book its query names, linked to its note — and its fence never left behind.
  */
 import { test, expect } from './helpers/test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { closeMinerva, launchMinerva, projectRoot } from './helpers/launch';
+import { closeMinerva, isolatedHome, launchMinerva, projectRoot } from './helpers/launch';
 
 const BASE_URI = 'https://sample.minerva.dev/export-parity-e2e/';
 const noteUri = (rel: string) => `${BASE_URI}note/${rel.replace(/\.(md|ttl)$/, '').split('/').map(encodeURIComponent).join('/')}`;
@@ -58,6 +62,8 @@ function seed(dir: string): void {
   write('events/Moon landing.md', '---\ntype: event\ndate: 1969-07-20\n---\n# Moon landing\n');
   write('events/Apollo 11.md', '---\ntype: event\ndate: 1969-07-16\nend: 1969-07-24\n---\n# Apollo 11\n');
   write('meetings/Splashdown debrief.md', '---\ntype: meeting\ndate: 1969-07-25\n---\n# Splashdown debrief\n');
+  // A book still to read, for the Reading Queue's block (#2641).
+  write('books/Walden.md', '---\ntype: book\nstatus: to-read\nauthor: Henry David Thoreau\n---\n# Walden\n');
   fs.writeFileSync(path.join(dir, 'pic.png'), Buffer.from(PNG_BASE64, 'base64'));
   write('notes/The Claim.md', '---\ntitle: The Claim\n---\n\n# The Claim\n\n```turtle\nthis: a thought:Claim .\n```\n');
   write('notes/Cited Evidence.md', `---\ntitle: Cited Evidence\nsupports: ${noteUri('notes/The Claim.md')}\n---\n\n# Cited Evidence\n`);
@@ -76,6 +82,7 @@ function seed(dir: string): void {
     '```python', 'print(1 + 1)', '```', '', '```output', '{"type":"text","value":"2"}', '```', '',
     '```vega-lite', '{"data":{"values":[{"a":1},{"a":2}]},"mark":"bar","encoding":{"x":{"field":"a","type":"ordinal"},"y":{"field":"a","type":"quantitative"}}}', '```', '',
     '```youtube', 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', '```', '',
+    '```reading-queue', 'limit: 5', '```', '',
     '```turtle-hidden', `<${HIDDEN_CANARY}> <urn:p> "x" .`, '```', '',
     '> [!note] Heads up', '> Callouts render.', '',
     '> [!card] ^c1', '> Capital of Czechia?', '>', '> ---', '>', '> Prague', '',
@@ -91,6 +98,10 @@ test('a note with every live kind exports each one rendered, no raw source left 
   fs.cpSync(path.join(projectRoot, 'tests', 'fixtures', 'sample-project'), projectDir, { recursive: true });
   seed(projectDir);
   fs.writeFileSync(path.join(userDataDir, 'session.json'), JSON.stringify([{ x: 80, y: 80, width: 1300, height: 1000, rootPath: projectDir }]));
+  // The Reading Queue is off by default; its block needs it on (#2641).
+  const minervaHome = path.join(isolatedHome(userDataDir), '.minerva');
+  fs.mkdirSync(minervaHome, { recursive: true });
+  fs.writeFileSync(path.join(minervaHome, 'plugins.json'), JSON.stringify({ plugins: { 'reading-queue': { enabled: true, source: { kind: 'core' } } } }));
   const app = await launchMinerva({ userDataDir, env: { MINERVA_E2E: '1' } });
   try {
     const win = await app.firstWindow({ timeout: 20_000 });
@@ -109,7 +120,12 @@ test('a note with every live kind exports each one rendered, no raw source left 
     });
 
     await test.step('every kind rendered', async () => {
-      expect(html.match(/class="minerva-live-block"/g)?.length, 'object view, map, board, timeline, calendar, mermaid, query, argument map, output').toBe(9);
+      expect(html.match(/class="minerva-live-block"/g)?.length, 'object view, map, board, timeline, calendar, mermaid, query, argument map, output, plugin block').toBe(10);
+      // The Reading Queue's block (#2641): the book its query names, drawn by the plugin, linked to its note.
+      expect(html).toMatch(/data-plugin-block="reading-queue"/);
+      expect(html).toMatch(/<a[^>]*>Walden<\/a>/);
+      expect(html).not.toContain('```reading-queue');
+      expect(html).not.toContain('limit: 5');
       expect(html).toContain('Kampa Museum'); // the view's row, and the query's result
       expect(html).toMatch(/<svg[^>]*id="mermaid-export-/); // mermaid
       expect(html).toContain('Cited Evidence'); // the argument map's node

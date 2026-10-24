@@ -174,3 +174,53 @@ describe('code.views: global views (#2640)', () => {
     expect(problemsOf(code([]), CORE)).toEqual(['"code.views" must be a non-empty list of views.']);
   });
 });
+
+describe('code.blocks: live blocks (#2641)', () => {
+  const CORE = { ...CTX, core: true };
+  const BLOCK = { id: 'card', title: 'Recipe card', fence: 'recipe-card', entry: 'index.html' };
+  const code = (blocks: unknown, capabilities = ['ui']) => ({ ...GOOD, code: { capabilities, api: '^1.9.0', blocks } });
+
+  it('a block names its page and one fence or directive; a query is optional', () => {
+    expect(validatePluginManifest(code([BLOCK]), CORE)).toEqual({ ok: true, manifest: { ...GOOD, code: { capabilities: ['ui'], api: '^1.9.0', blocks: [BLOCK] } } });
+    const directive = { id: 'list', title: 'List', directive: 'reading-list', entry: 'list.html', query: 'q.rq' };
+    expect(problemsOf(code([directive], ['ui', 'graph:query']), CORE)).toEqual([]);
+  });
+
+  it('needs ui, and graph:query for a query', () => {
+    expect(problemsOf(code([{ ...BLOCK, query: 'q.rq' }], ['notes:read']), CORE)).toEqual([
+      '"code.blocks" needs the "ui" capability: a block is a page Minerva frames.',
+      '"code.blocks[0].query" needs the "graph:query" capability: Minerva runs it for the block.',
+    ]);
+  });
+
+  it("can't take a name Minerva draws itself — a built-in block, a directive, a cell language", () => {
+    expect(problemsOf(code([
+      { ...BLOCK, id: 'a', fence: 'mermaid' },
+      { ...BLOCK, id: 'b', fence: 'python' },
+      { id: 'c', title: 'C', directive: 'argument', entry: 'x.html' },
+      { id: 'd', title: 'D', directive: 'query-list', entry: 'x.html' },
+    ]), CORE)).toEqual([
+      '"code.blocks[0].fence" is "mermaid", which Minerva draws itself; pick another name.',
+      '"code.blocks[1].fence" is "python", which Minerva draws itself; pick another name.',
+      '"code.blocks[2].directive" is "argument", which Minerva draws itself; pick another name.',
+      '"code.blocks[3].directive" is "query-list", which Minerva draws itself; pick another name.',
+    ]);
+  });
+
+  it('refuses neither or both of fence and directive, a bad name, a -hidden name, and the same name twice', () => {
+    expect(problemsOf(code([
+      { id: 'a', title: 'A', entry: 'x.html' },
+      { ...BLOCK, id: 'b', directive: 'also' },
+      { ...BLOCK, id: 'c', fence: 'Not A Name' },
+      { ...BLOCK, id: 'd', fence: 'card-hidden' },
+      { ...BLOCK, id: 'e' },
+      { ...BLOCK, id: 'f' },
+    ]), CORE)).toEqual([
+      '"code.blocks[0]" must name exactly one of "fence" (a ```name block) and "directive" (a :::name block).',
+      '"code.blocks[1]" must name exactly one of "fence" (a ```name block) and "directive" (a :::name block).',
+      '"code.blocks[2].fence" must be lowercase letters and digits in dash-separated words, like "recipe-card".',
+      '"code.blocks[3].fence" must be lowercase letters and digits in dash-separated words, like "recipe-card".',
+      '"code.blocks" has two blocks drawing the fence "recipe-card".',
+    ]);
+  });
+});

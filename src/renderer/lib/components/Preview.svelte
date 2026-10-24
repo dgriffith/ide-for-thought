@@ -10,6 +10,8 @@
     import {hydrateMermaidBlocks, invalidateMermaidTheme} from '../markdown/mermaid-renderer';
     import {hydrateVegaBlocks, invalidateVegaTheme} from '../markdown/vega-renderer';
     import {hydrateObjectViewBlocks} from '../markdown/object-view-renderer';
+    import {hydratePluginBlocks} from '../markdown/plugin-block-renderer';
+    import {corePluginsStore} from '../stores/core-plugins.svelte';
     import type { TypeViewNoteActions } from './type-view/note-actions';
     import {hydrateArgumentMapBlocks, type ArgumentMapDeps} from '../markdown/argument-map-renderer';
     import {hydrateCardCallouts} from '../markdown/card-callout';
@@ -305,6 +307,8 @@
     // render (and cleared after) threads that context into the image rule below.
     let renderPathOverride: string | null = null;
 
+    // Plugins' live blocks (#2641), resolved by name as a note renders.
+    const pluginBlockSyntax = $derived(corePluginsStore.blockSyntax());
     const md = createPreviewMarkdown({
         collapsedFences,
         runningFences,
@@ -313,6 +317,7 @@
         getCanRun: () => !!(onRunCell && onApplyCellOutputEdit && notePath),
         getCanResize: () => !!(onApplyEdit && notePath),
         isRunnable: (language) => computeLanguagesStore.isRunnable(language),
+        pluginBlock: (kind, name) => pluginBlockSyntax.find((b) => b[kind] === name) ?? null,
     });
 
     /**
@@ -532,11 +537,13 @@
     // The remote-image policy changed, here or in another window (#1332):
     // draw what may now load, and put up placeholders for what may not.
     $effect(() => { void remoteImagesStore.version; untrack(() => { void hydrateRemoteImages(hydrateCtx); }); });
-    // Python turned on or off (#2822): its cells gain or lose their ▶ at once.
+    // Python turned on or off (#2822): its cells gain or lose their ▶ at once;
+    // a plugin turned on or off, its blocks (#2641).
     // The first read only subscribes; the render it would repeat already ran.
     let languagesSeen = false;
     $effect(() => {
         void computeLanguagesStore.version;
+        void pluginBlockSyntax;
         if (!languagesSeen) { languagesSeen = true; return; }
         untrack(() => { rendered = renderContent(content); });
     });
@@ -613,6 +620,8 @@
             // Argument-map embed hydration (#907) — mounts a live ArgumentMap
             // into each `.argument-map-block` placeholder.
             if (previewEl) hydrateArgumentMapBlocks(previewEl, argumentMapDeps());
+            // Plugins' live blocks (#2641) — the plugin's frame in each `.plugin-block`.
+            if (previewEl) hydratePluginBlocks(previewEl);
             // Flashcard polish: tuck each [!card]'s answer (the part after `---`)
             // behind a collapsed "Show answer" disclosure.
             if (previewEl) hydrateCardCallouts(previewEl, notePath);

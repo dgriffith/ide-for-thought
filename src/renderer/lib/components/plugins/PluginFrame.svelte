@@ -29,6 +29,7 @@
   import { createNoteHover } from '../note-hover/note-hover.svelte';
   import type { HoverInstance } from '../note-hover/hover-instance';
   import type { PluginMoveTarget } from '../../../../shared/plugins/api';
+  import type { PluginSessionTarget } from '../../../../shared/plugins/session';
 
   interface Props {
     pluginId: string;
@@ -36,8 +37,8 @@
     entry?: string;
     /** The notes this view is given. Ignored for a global view, whose query decides. */
     scope: string[];
-    /** A global view's id (#2640): main runs its query and scopes the session to it. */
-    view?: string;
+    /** A global view or a live block (#2640, #2641): main runs its query and decides its scope. */
+    target?: PluginSessionTarget;
     /** The frame's accessible name. */
     title: string;
     /** Connected: what a layout host (`PluginLayout`) builds on (#2828). */
@@ -60,9 +61,11 @@
     onViewClick?: (path: string, mods: { meta: boolean; ctrl: boolean; shift: boolean }) => void;
     onSelectAll?: () => void;
     onClearSelection?: () => void;
+    /** A live block asked for a height (#2641), already clamped. */
+    onSetHeight?: (height: number) => void;
   }
 
-  let { pluginId, entry = 'index.html', scope, view, title, onConnected, onViewState, onNoteMenu, onMoveCard, onUndoMove, onMoveColumn, onReschedule, onExportHtml, hoverInstance, onViewClick, onSelectAll, onClearSelection }: Props = $props();
+  let { pluginId, entry = 'index.html', scope, target, title, onSetHeight, onConnected, onViewState, onNoteMenu, onMoveCard, onUndoMove, onMoveColumn, onReschedule, onExportHtml, hoverInstance, onViewClick, onSelectAll, onClearSelection }: Props = $props();
 
   // Hover previews: the app's own, against an anchor over the plugin's box.
   const hover = createNoteHover();
@@ -166,7 +169,8 @@
         viewClick: (path, mods) => onViewClick?.(path, mods),
         selectAll: () => onSelectAll?.(),
         clearSelection: () => onClearSelection?.(),
-      }, view);
+        setHeight: (height) => onSetHeight?.(height),
+      }, target);
       if (load !== loads) {
         void next.close();
         return;

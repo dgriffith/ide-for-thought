@@ -11,7 +11,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { render, fireEvent, cleanup, screen, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import App from '../../../plugins/reading-queue/src/App.svelte';
-import { markReadPatch, queueItems } from '../../../plugins/reading-queue/src/queue';
+import { blockOptions, exportHtml, markReadPatch, queueItems } from '../../../plugins/reading-queue/src/queue';
 import type { PluginQueryResults } from '../../../plugin-api/index';
 import { fakeMinerva } from '../kanban/fixtures';
 
@@ -93,5 +93,51 @@ describe('the Reading Queue panel', () => {
     cleanup();
     await shown({ columns: [], rows: [], notes: {}, truncated: false, error: 'Parse error' });
     expect(screen.getByText("The queue's query failed: Parse error")).toBeTruthy();
+  });
+});
+
+describe('the Reading Queue as a block in a note (#2641)', () => {
+  const block = (source: string, exportMode = false) => ({ block: 'queue', source, notePath: 'n.md', query: RESULTS, exportMode });
+
+  it('takes limit: N from its text, and ignores anything else', () => {
+    expect(blockOptions('limit: 2\n')).toEqual({ limit: 2 });
+    expect(blockOptions('  limit:5  ')).toEqual({ limit: 5 });
+    expect(blockOptions('limit: 0\n')).toEqual({ limit: null });
+    expect(blockOptions('other: 1\nwords')).toEqual({ limit: null });
+  });
+
+  it('draws the queue from the block, to its limit, and asks for a frame as tall as the list', async () => {
+    const fake = fakeMinerva();
+    render(App, { props: { minerva: fake.minerva } });
+    await tick();
+    fake.emit('block', block('limit: 2'));
+    await tick();
+    expect(screen.getAllByRole('listitem').map((li) => li.querySelector('.title')?.textContent)).toEqual(['Now', 'Next']);
+    await waitFor(() => expect(fake.of('view.setHeight').length).toBeGreaterThan(0));
+    expect(fake.of('view.setHeight')[0]).toEqual({ height: expect.any(Number) });
+  });
+
+  it('answers an export with the list as static HTML, each title a link to its note', async () => {
+    const fake = fakeMinerva();
+    render(App, { props: { minerva: fake.minerva } });
+    await tick();
+    fake.emit('block', block('', true));
+    fake.emit('export', { requestId: 'r1' });
+    await waitFor(() => expect(fake.of('view.provideExport')).toHaveLength(1));
+    const { requestId, html } = fake.of('view.provideExport')[0] as { requestId: string; html: string };
+    expect(requestId).toBe('r1');
+    const el = document.createElement('div');
+    el.innerHTML = html;
+    expect([...el.querySelectorAll('[data-note-path]')].map((n) => [n.getAttribute('data-note-path'), n.textContent])).toEqual([
+      ['books/now.md', 'Now'], ['books/next.md', 'Next'], ['articles/art.md', 'Art'],
+    ]);
+    expect(html).not.toMatch(/<(script|style|button|img)/);
+  });
+
+  it('escapes what the notes say in its export', () => {
+    const html = exportHtml([{ path: 'a"b.md', title: '<b>x</b>', kind: 'book', reading: true, author: 'A & B' }]);
+    expect(html).toContain('data-note-path="a&quot;b.md"');
+    expect(html).toContain('&lt;b&gt;x&lt;/b&gt;');
+    expect(html).toContain('A &amp; B');
   });
 });

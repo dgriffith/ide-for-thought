@@ -4,19 +4,45 @@
    * A row opens its note, hovering or focusing it shows Minerva's preview,
    * and ✓ marks it read — the one write, on a note the query gave the view,
    * after which the graph changes and Minerva sends the queue again.
+   *
+   * The same page draws a ```reading-queue block in a note (#2641): Minerva
+   * sends it as `block`, with the query's results; it sizes its frame to the
+   * list, takes `limit: N` from the block's text, and answers an export with
+   * the list as static HTML.
    */
-  import type { MinervaPlugin, PluginQueryResults } from '/@minerva/plugin-api.js';
-  import { markReadPatch, queueItems, type QueueItem } from './queue';
+  import type { MinervaPlugin, PluginBlockState, PluginQueryResults } from '/@minerva/plugin-api.js';
+  import { blockOptions, exportHtml, markReadPatch, queueItems, type QueueItem } from './queue';
 
   interface Props { minerva: MinervaPlugin }
   let { minerva }: Props = $props();
 
   let results = $state<PluginQueryResults | null>(null);
-  const items = $derived(results ? queueItems(results) : []);
+  /** Drawing a block in a note, not the panel. */
+  let block = $state<PluginBlockState | null>(null);
+  const limit = $derived(block ? blockOptions(block.source).limit : null);
+  const items = $derived.by(() => {
+    const all = results ? queueItems(results) : [];
+    return limit === null ? all : all.slice(0, limit);
+  });
   const reading = $derived(items.filter((i) => i.reading));
   const next = $derived(items.filter((i) => !i.reading));
+  let content = $state<HTMLDivElement | undefined>();
 
   $effect(() => minerva.on('query', (r) => { results = r; }));
+  $effect(() => minerva.on('block', (b) => { block = b; results = b.query; }));
+  $effect(() => minerva.on('export', ({ requestId }) => {
+    void minerva.view.provideExport({ requestId, html: exportHtml(items) }).catch(() => undefined);
+  }));
+  // A block's frame is as tall as its list.
+  $effect(() => {
+    if (!block || !content) return;
+    const el = content;
+    const report = () => { void minerva.view.setHeight({ height: Math.ceil(el.scrollHeight) }).catch(() => undefined); };
+    const observer = new ResizeObserver(report);
+    observer.observe(el);
+    report();
+    return () => observer.disconnect();
+  });
 
   function preview(item: QueueItem, el: HTMLElement, via: 'pointer' | 'focus'): void {
     const box = el.getBoundingClientRect();
@@ -64,7 +90,7 @@
   {/if}
 {/snippet}
 
-<div class="queue">
+<div class="queue" class:in-note={block !== null} bind:this={content}>
   {#if results === null}
     <p class="quiet">Loading…</p>
   {:else if results.error}
@@ -80,6 +106,8 @@
 
 <style>
   .queue { padding: 4px 6px 12px; overflow-y: auto; height: 100%; box-sizing: border-box; }
+  /* In a note, the frame is sized to the list, so the list doesn't scroll. */
+  .queue.in-note { height: auto; overflow: visible; padding-bottom: 4px; }
   h2 {
     margin: 10px 6px 4px;
     font-size: 11px;

@@ -1,5 +1,5 @@
 {
-  "version": "1.8.0",
+  "version": "1.9.0",
   "errorCodes": [
     "bad-request",
     "busy",
@@ -11,6 +11,7 @@
     "unknown-method"
   ],
   "types": {
+    "PluginBlockState": "{ /** Which of the plugin's blocks (its `code.blocks` id). */ block: string; /** The block's own text: a fence's body, or a directive's lines between its opening and `:::`. */ source: string; /** The note it sits in. */ notePath: string; /** Its declared query, as Minerva ran it; null when it declares none. */ query: PluginQueryResults | null; /** Drawing for an export: answer the `export` event with static HTML. */ exportMode: boolean; }",
     "PluginMenuItem": "{ id: string; label: string; enabled?: boolean } | { separator: true }",
     "PluginMoveTarget": "{ value: string | null; label: string; kind: 'option' | 'off-list' | 'no-value' }",
     "PluginQueryResults": "{ columns: string[]; rows: Record<string, string>[]; notes: Record<string, string>; truncated: boolean; error: string | null; }",
@@ -24,6 +25,9 @@
     "PluginViewWeek": "{ start: 1 | 2 | 3 | 4 | 5 | 6 | 7; numbers: boolean }"
   },
   "events": {
+    "block": {
+      "text": "PluginBlockState"
+    },
     "drop": {
       "members": [
         {
@@ -635,6 +639,21 @@
       "capability": "ui",
       "params": {
         "text": "Record<string, never>"
+      },
+      "result": {
+        "text": "Record<string, never>"
+      }
+    },
+    "view.setHeight": {
+      "capability": "ui",
+      "params": {
+        "members": [
+          {
+            "name": "height",
+            "optional": false,
+            "type": "number"
+          }
+        ]
       },
       "result": {
         "text": "Record<string, never>"
