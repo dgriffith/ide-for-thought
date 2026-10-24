@@ -127,10 +127,20 @@
     void connection?.sendTheme(mode, vars).catch((e: unknown) => logger('plugins').warn(`plugin ${pluginId}: theme not sent:`, e));
   }
 
+  // Which load the current connection belongs to. A frame whose page loads
+  // again (moved in the DOM, or reloaded) has a new page that needs a port of
+  // its own: the old session is closed and a new one opened. A load that lands
+  // while an earlier connect is still in flight supersedes it.
+  let loads = 0;
+
   async function onLoad(): Promise<void> {
-    if (connection || !frame) return;
+    if (!frame) return;
+    const load = ++loads;
+    const stale = connection;
+    connection = null;
+    if (stale) void stale.close();
     try {
-      connection = await connectPluginFrame(frame, pluginId, [...scope], {
+      const next = await connectPluginFrame(frame, pluginId, [...scope], {
         releaseFocus: () => host.focus(),
         setViewState: (patch) => onViewState?.(patch),
         showNoteMenu: (paths, x, y, opts) => {
@@ -157,11 +167,16 @@
         selectAll: () => onSelectAll?.(),
         clearSelection: () => onClearSelection?.(),
       }, view);
+      if (load !== loads) {
+        void next.close();
+        return;
+      }
+      connection = next;
       lastScope = JSON.stringify(scope);
       sendTheme();
       onConnected?.(connection);
     } catch (e) {
-      failed = e instanceof Error ? e.message : String(e);
+      if (load === loads) failed = e instanceof Error ? e.message : String(e);
     }
   }
 

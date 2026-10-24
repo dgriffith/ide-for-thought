@@ -89,7 +89,7 @@ import { parseCalendarMonth } from '../../../shared/objects/calendar';
 import { parseDateBy } from '../../../shared/objects/date-by';
 import { parseViewHeight } from '../../../shared/objects/view-height';
 import { parseViewWidth } from '../../../shared/objects/view-width';
-import { blockCacheFor, blockKey, createContentWrapper, HYDRATED_CONTENT_CLASS } from './hydrated-block-cache';
+import { adoptWrapper, blockCacheFor, blockKey, createContentWrapper, HYDRATED_CONTENT_CLASS } from './hydrated-block-cache';
 import { reactiveProps } from './mounted-props.svelte';
 import type { TypeViewNoteActions } from '../components/type-view/note-actions';
 
@@ -239,7 +239,7 @@ export function hydrateObjectViewBlocks(root: HTMLElement, deps: ObjectViewDeps)
     const cached = cache.take(root, key);
     if (cached) {
       el.innerHTML = '';
-      el.appendChild(cached);
+      adoptWrapper(el, cached);
       // A preserved mount keeps the props object it was mounted with, so a
       // graph change reaches `TypeView`'s own `$effect` the same way a
       // re-mount used to.

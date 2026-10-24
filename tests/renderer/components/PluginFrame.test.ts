@@ -129,6 +129,37 @@ describe('PluginFrame (#2827)', () => {
     await fireEvent.load(failed.container.querySelector('iframe')!);
     await waitFor(() => expect(failed.container.textContent).toContain("This view couldn't start"));
   });
+
+  it('a page that loads again gets a session of its own, and the old one is closed', async () => {
+    const onConnected = vi.fn();
+    const first = { ...h.connection!, sessionId: 's1', close: vi.fn(async () => {}) };
+    const second = { ...h.connection!, sessionId: 's2', close: vi.fn(async () => {}) };
+    h.connect.mockResolvedValueOnce(first).mockResolvedValueOnce(second);
+    const r = render(PluginFrame, { pluginId: 'kanban', scope: ['a.md'], title: 'Kanban board', onConnected });
+    const frame = r.container.querySelector('iframe')!;
+    await fireEvent.load(frame);
+    await waitFor(() => expect(onConnected).toHaveBeenCalledWith(first));
+    // The frame moved in the DOM, or reloaded: its new page has no port.
+    await fireEvent.load(frame);
+    await waitFor(() => expect(onConnected).toHaveBeenCalledWith(second));
+    expect(first.close).toHaveBeenCalledTimes(1);
+    expect(second.close).not.toHaveBeenCalled();
+  });
+
+  it('a load that supersedes a connect still in flight closes the late one', async () => {
+    let release!: (c: unknown) => void;
+    const late = { ...h.connection!, sessionId: 'late', close: vi.fn(async () => {}) };
+    const onConnected = vi.fn();
+    h.connect.mockImplementationOnce(() => new Promise((r) => { release = r; })).mockResolvedValueOnce({ ...h.connection!, sessionId: 'now' });
+    const r = render(PluginFrame, { pluginId: 'kanban', scope: [], title: 'Kanban board', onConnected });
+    const frame = r.container.querySelector('iframe')!;
+    await fireEvent.load(frame);
+    await fireEvent.load(frame);
+    await waitFor(() => expect(onConnected).toHaveBeenCalledWith(expect.objectContaining({ sessionId: 'now' })));
+    release(late);
+    await waitFor(() => expect(late.close).toHaveBeenCalledTimes(1));
+    expect(onConnected).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('the kit gaps, hosted (#2828, part B)', () => {

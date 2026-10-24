@@ -18,7 +18,7 @@ import { getAppliedThemeKey, getThemeMode } from '../theme';
 import { normalizeColor } from '../utils/oklch';
 import { sanitizeDiagramSvg } from './sanitize-diagram-svg';
 import { escapeHtml } from '../../../shared/text-escape';
-import { blockCacheFor, blockKey, clearSlot, createContentWrapper } from './hydrated-block-cache';
+import { adoptWrapper, blockCacheFor, blockKey, clearSlot, createContentWrapper } from './hydrated-block-cache';
 
 /** Cache slot for rendered diagram wrappers — see `hydrated-block-cache.ts`. */
 const SLOT = 'mermaid';
@@ -215,7 +215,7 @@ export async function hydrateMermaidBlocks(root: HTMLElement): Promise<void> {
     if (!wrapper) return true;
     el.removeAttribute('data-mermaid-pending');
     el.innerHTML = '';
-    el.appendChild(wrapper);
+    adoptWrapper(el, wrapper);
     el.setAttribute('data-mermaid-rendered', wrapper.dataset.mermaidResult ?? 'ok');
     return false;
   });

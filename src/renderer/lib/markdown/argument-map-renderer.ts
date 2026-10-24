@@ -26,7 +26,7 @@
 import { mount, unmount } from 'svelte';
 import ArgumentMap from '../components/ArgumentMap.svelte';
 import { escapeHtml } from '../../../shared/text-escape';
-import { blockCacheFor, blockKey, createContentWrapper } from './hydrated-block-cache';
+import { adoptWrapper, blockCacheFor, blockKey, createContentWrapper } from './hydrated-block-cache';
 
 /** Cache slot for mounted argument-map wrappers — see `hydrated-block-cache.ts`. */
 const SLOT = 'argument-map';
@@ -66,7 +66,7 @@ export function hydrateArgumentMapBlocks(root: HTMLElement, deps: ArgumentMapDep
     const cached = cache.take(root, key);
     if (cached) {
       el.innerHTML = '';
-      el.appendChild(cached);
+      adoptWrapper(el, cached);
       el.setAttribute('data-argument-map-rendered', cached.dataset.argumentMapResult ?? 'ok');
       continue;
     }

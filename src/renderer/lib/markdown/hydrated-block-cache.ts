@@ -70,6 +70,19 @@
  *    `updateTheme()`'s re-hydrate — skips the block for free, which is what the
  *    guard was written for. It still cannot see across the swap; the cache
  *    lookup is what does that.
+ * 5. **Frames don't survive a detach.** "Moving a node preserves everything"
+ *    holds for listeners and mounted components, not for an `<iframe>`: one
+ *    that leaves the document unloads, and reloads when it's put back. By the
+ *    time a hydrator re-adopts a wrapper, `{@html}` has already detached it. So
+ *    a plugin view in an embed (a Kanban board, #2828) reloaded on every tick,
+ *    and its host, still holding the old session, never connected the new
+ *    page: an embed went blank after any edit to its note. So `Preview` calls
+ *    `parkHydratedBlocks(root)` BEFORE the swap (`$effect.pre`): every live
+ *    wrapper moves into a hidden holder that stays in the document, and
+ *    `adoptWrapper` moves it into its new placeholder. Both moves are
+ *    `Element.moveBefore`, which keeps an iframe's document alive where
+ *    `appendChild` (remove + insert) would not. Where `moveBefore` is missing
+ *    (a test DOM), `appendChild` does what it always did.
  *
  * ## Per root, not per module
  *
@@ -121,7 +134,17 @@ export class HydratedBlockCache {
     for (const [key, entry] of this.#entries) {
       if (root.contains(entry.wrapper)) continue;
       entry.destroy?.();
+      // A parked wrapper nobody re-adopted is still in the document: take it
+      // out, or a plugin frame in it would live on, unseen.
+      entry.wrapper.remove();
       this.#entries.delete(key);
+    }
+  }
+
+  /** Move every wrapper of this cache that is inside `root` into `holder` (wrinkle 5). */
+  park(root: HTMLElement, holder: HTMLElement): void {
+    for (const entry of this.#entries.values()) {
+      if (root.contains(entry.wrapper)) moveInto(holder, entry.wrapper);
     }
   }
 
@@ -138,6 +161,50 @@ export class HydratedBlockCache {
 
 /** Class on the wrapper each hydrator renders into; `display: contents`. */
 export const HYDRATED_CONTENT_CLASS = 'hydrated-block-content';
+
+/**
+ * Move `node` to the end of `parent`, keeping a frame inside it alive where the
+ * DOM allows (wrinkle 5): `moveBefore` between two places in the document,
+ * `appendChild` otherwise (a detached node, or a DOM without `moveBefore`).
+ */
+function moveInto(parent: HTMLElement, node: HTMLElement): void {
+  if (node.isConnected && parent.isConnected && typeof parent.moveBefore === 'function') {
+    try {
+      parent.moveBefore(node, null);
+      return;
+    } catch {
+      // A move the DOM refuses (across documents) falls back to a plain insert.
+    }
+  }
+  parent.appendChild(node);
+}
+
+/** Put a re-adopted wrapper into its new placeholder (wrinkle 5). */
+export function adoptWrapper(placeholder: HTMLElement, wrapper: HTMLElement): void {
+  moveInto(placeholder, wrapper);
+}
+
+const holders = new Map<HTMLElement, HTMLElement>();
+
+/**
+ * Before `{@html}` replaces `root`'s content, move every live wrapper under it
+ * into a hidden holder beside it, still in the document, so a frame inside
+ * one isn't unloaded (wrinkle 5). The next pass re-adopts them or sweeps them.
+ */
+export function parkHydratedBlocks(root: HTMLElement): void {
+  const slots = byRoot.get(root);
+  if (!slots || !root.parentElement) return;
+  let holder = holders.get(root);
+  if (!holder || holder.parentElement !== root.parentElement) {
+    holder?.remove();
+    holder = document.createElement('div');
+    holder.hidden = true;
+    holder.dataset.hydratedBlockParking = '';
+    root.parentElement.appendChild(holder);
+    holders.set(root, holder);
+  }
+  for (const cache of slots.values()) cache.park(root, holder);
+}
 
 /** A fresh wrapper for a hydrator to render into. */
 export function createContentWrapper(): HTMLElement {
@@ -174,6 +241,8 @@ export function clearSlot(slot: string): void {
  * and a mounted `TypeView` in `map` layout holds a live MapLibre GL context.
  */
 export function disposeCaches(root: HTMLElement): void {
+  holders.get(root)?.remove();
+  holders.delete(root);
   const slots = byRoot.get(root);
   if (!slots) return;
   for (const cache of slots.values()) cache.clear();
