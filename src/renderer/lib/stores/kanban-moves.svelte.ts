@@ -193,6 +193,7 @@ async function rescheduleEvent(
   fields: RescheduleFields,
   days: number,
   labels: { to: string; back: string },
+  opts: { cause?: string } = {},
 ): Promise<RescheduleOutcome> {
   let before: string;
   try {
@@ -217,7 +218,7 @@ async function rescheduleEvent(
   const planned: FieldValue[] = [{ key: fields.start, value: r.start }];
   if (fields.end !== null && r.end !== null) planned.push({ key: fields.end, value: r.end });
   try {
-    const note = await writeFields(event, before, { fields: planned, backLabel: labels.back });
+    const note = await writeFields(event, before, { fields: planned, backLabel: labels.back }, opts.cause);
     const paths = await finishMove('calendar', note ? [note] : [], `Moved ${event.title} to ${labels.to}.`);
     return paths.length > 0 ? { ok: true, paths } : { ok: false, refusal: null };
   } catch (err) {

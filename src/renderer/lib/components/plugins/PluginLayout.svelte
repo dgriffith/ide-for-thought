@@ -89,6 +89,7 @@
     sortColumn: view.sortColumn,
     sortDir: view.sortDir,
     spec: JSON.parse(JSON.stringify(spec)) as Record<string, unknown>,
+    week: { start: view.week.start, numbers: view.week.numbers },
     filters: view.filters.map((f): PluginViewFilter => isValuesFilter(f)
       ? { property: f.property, values: [...f.values], ...(f.match ? { match: f.match } : {}) }
       : { property: f.property, min: f.min ?? null, max: f.max ?? null }),
@@ -99,7 +100,7 @@
     rowMenu: view.rowMenu,
     groupProperty: view.group?.name ?? null,
     groups: view.board.map((col) => ({ key: columnKey(col), label: col.label, kind: col.kind, value: col.value, paths: col.instances.map((i) => i.path) })),
-    movable: !!view.onMoveCard,
+    movable: !!view.onMoveCard || !!view.onReschedule,
     canUndoMove: view.canUndoMove,
     lastMove: view.lastMove ? { seq: view.lastMove.seq, paths: [...view.lastMove.paths] } : null,
   });
@@ -165,6 +166,7 @@
       onMoveCard={(path, target) => view.onMoveCard?.(path, target)}
       onUndoMove={() => view.onUndoMove?.()}
       onMoveColumn={(key, target, side) => view.onMoveColumn?.(key, target, side)}
+      onReschedule={(path, days) => view.onReschedule?.(path, days)}
       onExportHtml={(id, html) => { void onExportHtml(id, html); }}
       {hoverInstance}
       onViewClick={(path, mods) => view.onRowClick(new MouseEvent('click', { metaKey: mods.meta, ctrlKey: mods.ctrl, shiftKey: mods.shift }), path)}

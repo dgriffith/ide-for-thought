@@ -12,22 +12,18 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
-import { render, cleanup, screen } from '@testing-library/svelte';
-import TypeViewCalendar from '../../../../src/renderer/lib/components/TypeViewCalendar.svelte';
-import { civilMs } from '../../../../src/shared/objects/date-precision';
-import type { TypeInstanceRow } from '../../../../src/shared/objects/type-def';
-import { silenceLogTags } from '../../../helpers/quiet-logs';
+import { cleanup, screen } from '@testing-library/svelte';
+import { renderCalendar, type CalendarProps } from './fixtures';
+import { civilMs } from '../../../src/shared/objects/date-precision';
+import type { Weekday } from '../../../src/shared/objects/calendar-grid';
+import type { TypeInstanceRow } from '../../../src/shared/objects/type-def';
+import { silenceLogTags } from '../../helpers/quiet-logs';
 
-const settings = vi.hoisted(() => ({ weekStart: 1, showWeekNumbers: false }));
-vi.mock('../../../../src/renderer/lib/stores/settings-calendar.svelte', () => ({
-  getCalendarSettings: () => ({
-    get weekStart() { return settings.weekStart; },
-    get showWeekNumbers() { return settings.showWeekNumbers; },
-  }),
-}));
+/** The viewer's settings, as Minerva sends them in `view.week` — what a case with no `weekStart` of its own gets. */
+const settings: { weekStart: Weekday; showWeekNumbers: boolean } = { weekStart: 1, showWeekNumbers: false };
 const planner = vi.hoisted(() => ({ fail: false }));
-vi.mock('../../../../src/renderer/lib/components/calendar/calendar-export', async (orig) => {
-  const real = await orig<typeof import('../../../../src/renderer/lib/components/calendar/calendar-export')>();
+vi.mock('../../../plugins/calendar/src/calendar-export', async (orig) => {
+  const real = await orig<typeof import('../../../plugins/calendar/src/calendar-export')>();
   return {
     ...real,
     planCalendarExport: (...args: Parameters<typeof real.planCalendarExport>) => {
@@ -63,21 +59,9 @@ const BUSY = Array.from({ length: 9 }, (_, i) => row(`busy-${i}.md`, `Busy ${i}`
 
 const day = (y: number, m: number, d: number) => civilMs(y, m - 1, d);
 
-function setup(over: Record<string, unknown> = {}) {
-  const utils = render(TypeViewCalendar, {
-    type: EVENT,
-    properties: EVENT.properties,
-    instances: EVENTS,
-    month: '2026-10',
-    display: (_p: unknown, v: string | null) => v ?? '',
-    rowType: () => EVENT,
-    onOpenNote: vi.fn(),
-    onStateChange: vi.fn(),
-    locale: 'en-GB',
-    weekStart: 1,
-    exportMode: true,
-    ...over,
-  });
+function setup(over: Partial<CalendarProps> = {}) {
+  const p: CalendarProps = { type: EVENT, properties: EVENT.properties, instances: EVENTS, month: '2026-10', locale: 'en-GB', weekStart: 1, exportMode: true, ...over };
+  const utils = renderCalendar({ ...p, weekStart: p.weekStart ?? settings.weekStart, showWeekNumbers: p.showWeekNumbers ?? settings.showWeekNumbers });
   const q = (sel: string) => utils.container.querySelector<HTMLElement>(sel);
   const cell = (ms: number) => q(`[role="cell"][data-day="${ms}"]`)!;
   const evs = (p: string) => [...utils.container.querySelectorAll<HTMLElement>(`[data-calendar-event][data-note-path="${p}"]`)];
@@ -197,12 +181,12 @@ describe('around the grid', () => {
   });
 
   it('the bands are laid out after the grid on the page too, not lifted above it', () => {
-    const css = fs.readFileSync(path.join(__dirname, '../../../../src/renderer/lib/components/calendar/CalendarBands.svelte'), 'utf-8');
+    const css = fs.readFileSync(path.join(__dirname, '../../../plugins/calendar/src/CalendarBands.svelte'), 'utf-8');
     expect(css).toMatch(/\.cal-bands-export\s*\{[^}]*order:\s*0/);
   });
 
   it('a week row never splits across a printed page', () => {
-    const css = fs.readFileSync(path.join(__dirname, '../../../../src/renderer/lib/components/calendar/CalendarExportGrid.svelte'), 'utf-8');
+    const css = fs.readFileSync(path.join(__dirname, '../../../plugins/calendar/src/CalendarExportGrid.svelte'), 'utf-8');
     expect(css).toMatch(/\.calx-week\s*\{[^}]*break-inside:\s*avoid/);
   });
 });

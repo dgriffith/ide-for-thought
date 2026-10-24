@@ -5,10 +5,10 @@
  * a DOM; the rule itself is `shared/objects/date-shift.ts`'s and the write is
  * the `kanban-moves` store's.
  */
-import { rescheduleRefusal, startDayOf } from '../../../../shared/objects/date-shift';
-import { rescheduleRefusalText } from '../../../../shared/objects/reschedule-text';
-import { civilMs, parseDateValue } from '../../../../shared/objects/date-precision';
-import type { TimelineEvent, TimelineProperties } from '../../../../shared/timeline/timeline-events';
+import { rescheduleRefusal, startDayOf } from '../../../src/shared/objects/date-shift';
+import { rescheduleRefusalText } from '../../../src/shared/objects/reschedule-text';
+import { civilMs, parseDateValue } from '../../../src/shared/objects/date-precision';
+import type { TimelineEvent, TimelineProperties } from '../../../src/shared/timeline/timeline-events';
 
 /** The day list's event-menu hooks (#2703). */
 export interface DayListMenu {

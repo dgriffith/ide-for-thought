@@ -42,7 +42,7 @@ function fakeView(over: Partial<LayoutView> = {}): LayoutView {
     readOnly: false, exportMode: false, onStateChange: vi.fn(), openRowMenu: vi.fn(),
     display: (_p: unknown, v: string | null) => (v ? v.toUpperCase() : ''), rowType: () => null, pluginExport: undefined,
     refPath: () => null, isSelected: (p: string) => p === 'a.md', selectable: true, rowMenu: true, group: null,
-    spec: { groupBy: 'status', columnOrder: [], showEmptyColumns: true }, board: [], canUndoMove: false, lastMove: null, filters: [],
+    spec: { groupBy: 'status', columnOrder: [], showEmptyColumns: true }, board: [], canUndoMove: false, lastMove: null, filters: [], week: { start: 1, numbers: false }, onReschedule: undefined,
     onMoveCard: undefined, onUndoMove: undefined, onMoveColumn: undefined,
     onRowClick: vi.fn(), selectAll: vi.fn(), clearSelection: vi.fn(),
     ...over,
@@ -88,6 +88,7 @@ describe('PluginLayout (#2828)', () => {
       sortColumn: 'title', sortDir: 'desc',
       spec: { groupBy: 'status', columnOrder: [], showEmptyColumns: true },
       filters: [],
+      week: { start: 1, numbers: false },
       readOnly: false, exportMode: false,
       selected: ['a.md'], selectable: true, rowMenu: true,
       groupProperty: null, groups: [], movable: false, canUndoMove: false, lastMove: null,
@@ -209,6 +210,14 @@ describe("a card's hover preview (#2710, #2828)", () => {
     });
     expect(strip.textContent).toContain('Owner ANN'); // the fake view's display upper-cases
     expect(strip.textContent).not.toMatch(/todo/i);
+  });
+
+  it("a calendar's reschedule goes to the view, and the view's week and movability go to the plugin (#2829)", async () => {
+    const onReschedule = vi.fn();
+    await mounted(fakeView({ onReschedule, week: { start: 7, numbers: true } }), 'timeline');
+    expect(h.sendView.mock.calls.at(-1)![0]).toMatchObject({ week: { start: 7, numbers: true }, movable: true });
+    (h.host as unknown as { reschedule(p: string, d: number): void }).reschedule('a.md', 3);
+    expect(onReschedule).toHaveBeenCalledWith('a.md', 3);
   });
 
   it("draws the plugin's extra lines in the preview, and leaves off the fields it names (#2829)", async () => {

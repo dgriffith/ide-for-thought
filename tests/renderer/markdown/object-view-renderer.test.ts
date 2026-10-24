@@ -318,6 +318,9 @@ describe('hydrateObjectViewBlocks (#2067)', () => {
     instancesMock.mockResolvedValue({ type: EVENT, instances: [
       { path: 'e/Moon.md', title: 'Moon landing', values: { date: '1969-07-20', end: null }, cover: null },
     ] });
+    // The Calendar plugin's real view (#2829), in loopback beside its frame.
+    pluginLoopback(plugin, () => import('../../../plugins/calendar/src/App.svelte'));
+    const stop = autoLoadPluginFrames();
     const spec = '{"typeId":"event","layout":"calendar","month":"1969-07"}';
     const root = previewWith(spec);
     const onOpenNote = vi.fn();
@@ -336,6 +339,7 @@ describe('hydrateObjectViewBlocks (#2067)', () => {
     await waitFor(() => expect(block.querySelector('.cal-title')!.textContent).toMatch(/July 1969/));
     block.querySelector<HTMLElement>('[data-calendar-event][data-note-path="e/Moon.md"]')!.click();
     expect(onOpenNote).toHaveBeenCalledWith('e/Moon.md');
+    stop();
   });
 
   it('opens a note via the provided onOpenNote when a row is clicked', async () => {

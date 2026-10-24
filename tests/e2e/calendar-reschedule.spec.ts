@@ -17,7 +17,7 @@ import path from 'node:path';
 import { closeMinerva, launchMinerva, projectRoot } from './helpers/launch';
 import { seedNotes } from './helpers/timeline';
 import { expectAnnounced, recordAnnouncements } from './helpers/announcements';
-import { addMonth, dragEventToDay, openTypeCalendar, shownMonth, startMoveToDate, thisMonth, ymd } from './helpers/calendar';
+import { addMonth, calendarOf, dragEventToDay, openTypeCalendar, shownMonth, startMoveToDate, thisMonth, ymd } from './helpers/calendar';
 
 const NOW = thisMonth();
 const NEXT = addMonth(NOW, 1);
@@ -61,7 +61,7 @@ test('Calendar events reschedule by pointer drag, by keyboard and by a typed dat
       await expect.poll(() => read('Offsite'), { timeout: 10_000 }).toBe(offsite(17, 19));
       await expect(cal.day(NOW.year, NOW.month, 17).locator('[data-calendar-event]')).toHaveCount(1, { timeout: 10_000 });
       await expect(cal.grid.locator('[data-drop-target]')).toHaveCount(0);
-      await expect(win.locator('[data-calendar-ghost]')).toHaveCount(0);
+      await expect(calendarOf(win).frame.locator('[data-calendar-ghost]')).toHaveCount(0);
       // A drop is not a click: the note did not open in a tab.
       await expect(win.locator('.tab', { hasText: 'Offsite' })).toHaveCount(0);
       await expectAnnounced(win, `Moved Offsite to`);
@@ -70,20 +70,20 @@ test('Calendar events reschedule by pointer drag, by keyboard and by a typed dat
     await test.step('keyboard only: Enter on the day → Shift+F10 → Move to date… → ↓ → Enter', async () => {
       await startMoveToDate(win, cal, NOW, 6, 'Standup.md');
       // Choosing a day: focus on the event's day, the move bar says what's happening.
-      await expect(win.locator('[data-calendar-move-bar]')).toContainText('Moving Standup');
+      await expect(calendarOf(win).frame.locator('[data-calendar-move-bar]')).toContainText('Moving Standup');
       await win.keyboard.press('ArrowDown');
       await expect(cal.day(NOW.year, NOW.month, 13)).toBeFocused();
       await win.keyboard.press('Enter');
 
       await expect.poll(() => read('Standup'), { timeout: 10_000 }).toBe(standup(ymd(NOW, 13)));
       await expect(cal.day(NOW.year, NOW.month, 13).locator('[data-calendar-event]')).toHaveCount(1, { timeout: 10_000 });
-      await expect(win.locator('[data-calendar-move-bar]')).toHaveCount(0);
+      await expect(calendarOf(win).frame.locator('[data-calendar-move-bar]')).toHaveCount(0);
       await expectAnnounced(win, 'Moved Standup to');
     });
 
     await test.step('typed date: Kickoff (BOM + CRLF) to the 3rd of next month; the page follows', async () => {
       await startMoveToDate(win, cal, NOW, 8, 'Kickoff.md');
-      await win.getByRole('textbox', { name: 'Date to move Kickoff to' }).fill(ymd(NEXT, 3));
+      await calendarOf(win).frame.getByRole('textbox', { name: 'Date to move Kickoff to' }).fill(ymd(NEXT, 3));
       await win.keyboard.press('Enter');
 
       await expect.poll(() => read('Kickoff'), { timeout: 10_000 }).toBe(kickoff(ymd(NEXT, 3)));
@@ -102,11 +102,11 @@ test('Calendar events reschedule by pointer drag, by keyboard and by a typed dat
     });
 
     await test.step('an event whose end is only a month refuses to drag, and says why', async () => {
-      await win.getByRole('button', { name: 'Today' }).click();
+      await calendarOf(win).frame.getByRole('button', { name: 'Today' }).click();
       await expect.poll(() => shownMonth(win)).toBe(ymd(NOW));
       await expect(cal.eventFor('Launch').first()).toBeVisible({ timeout: 10_000 });
       await dragEventToDay(win, cal, 'Launch', NOW, 13, async () => {
-        await expect(win.locator('[data-calendar-ghost]')).toHaveCount(0);
+        await expect(calendarOf(win).frame.locator('[data-calendar-ghost]')).toHaveCount(0);
       });
       await expectAnnounced(win, `Launch ends ${ymd(NEXT)}, which has no day to move; open it to edit.`);
       expect(read('Launch')).toBe(LAUNCH);

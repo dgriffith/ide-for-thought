@@ -30,7 +30,8 @@ export type PluginIntent =
   /** A board's moves (#2828, decision 2): the host moves, with its own undo. */
   | { kind: 'moveCard'; path: string; target: PluginMoveTarget }
   | { kind: 'undoMove' }
-  | { kind: 'moveColumn'; key: string; target: string; side: 'before' | 'after' };
+  | { kind: 'moveColumn'; key: string; target: string; side: 'before' | 'after' }
+  | { kind: 'reschedule'; path: string; days: number };
 
 /** What the host tells main to pass on to a session's plugin (#2827). */
 export type PluginHostEvent =

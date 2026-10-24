@@ -21,9 +21,9 @@
    * it.
    */
   import { tick } from 'svelte';
-  import type { TimelineEvent } from '../../../../shared/timeline/timeline-events';
-  import type { NoteHover } from '../note-hover/note-hover.svelte';
-  import { cardMoveKey } from '../drag-keys';
+  import type { TimelineEvent } from '../../../src/shared/timeline/timeline-events';
+  import type { NoteHover } from './hover.svelte';
+  import { cardMoveKey } from './drag-keys';
   import type { DayListMenu } from './reschedule';
 
   interface Props {

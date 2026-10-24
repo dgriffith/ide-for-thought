@@ -53,6 +53,12 @@ export interface ViewLayoutDef {
    * is off; it just isn't offered, and a view saved with it shows the table.
    */
   plugin?: string;
+  /**
+   * The layout moves notes (#2829): which ⌘Z they go back on — a board's
+   * card moves, or a calendar's reschedules, each its own undo. Absent: the
+   * layout moves nothing.
+   */
+  moves?: 'board' | 'calendar';
 }
 
 const always = (): boolean => true;
@@ -66,11 +72,11 @@ export const VIEW_LAYOUTS = [
   { id: 'map', label: 'Map', noteName: 'map', appliesTo: (ctx) => ctx.properties.some((p) => p.type === 'geo'), dated: false, grouped: false, specFields: ['mapStyle'] },
   // A board's columns are an enum's options (#2601).
   // Drawn by the built-in Kanban plugin (#2828), in a plugin frame.
-  { id: 'kanban', label: 'Kanban', noteName: 'board', appliesTo: (ctx) => canShowKanban(ctx.properties), dated: false, grouped: true, specFields: ['groupBy', 'columnOrder', 'showEmptyColumns'], plugin: 'kanban' },
+  { id: 'kanban', label: 'Kanban', noteName: 'board', appliesTo: (ctx) => canShowKanban(ctx.properties), dated: false, grouped: true, specFields: ['groupBy', 'columnOrder', 'showEmptyColumns'], plugin: 'kanban', moves: 'board' },
   // A date or datetime property, own or inherited (#2715).
   { id: 'timeline', label: 'Timeline', noteName: 'timeline', appliesTo: datedRule, dated: true, grouped: false, specFields: ['from', 'to', 'dateBy'], plugin: 'timeline' },
   // The same rule as Timeline (#2702).
-  { id: 'calendar', label: 'Calendar', noteName: 'calendar', appliesTo: datedRule, dated: true, grouped: false, specFields: ['month', 'dateBy'] },
+  { id: 'calendar', label: 'Calendar', noteName: 'calendar', appliesTo: datedRule, dated: true, grouped: false, specFields: ['month', 'dateBy'], plugin: 'calendar', moves: 'calendar' },
 ] as const satisfies readonly ViewLayoutDef[];
 
 /** A layout id — derived from the registry, so adding one is one entry. */

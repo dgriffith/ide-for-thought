@@ -38,6 +38,7 @@ import {
   PLUGIN_NOTE_MENU_MAX_PATHS,
   PLUGIN_MENU_MAX_LABEL,
   PLUGIN_PREVIEW_MAX_EXTRA,
+  PLUGIN_RESCHEDULE_MAX_DAYS,
   PLUGIN_PREVIEW_MAX_EXTRA_CHARS,
   type PluginErrorCode,
   type PluginEventName,
@@ -401,6 +402,15 @@ export function createPluginSession(opts: PluginSessionOptions): PluginSession {
         const side = params.side;
         if (side !== 'before' && side !== 'after') throw new Refusal('bad-request', '"side" is "before" or "after".');
         deps.intent({ kind: 'moveColumn', key: stringParam(params, 'key'), target: stringParam(params, 'target'), side });
+        return {};
+      }
+      case 'view.reschedule': {
+        const path = scoped(stringParam(params, 'path'));
+        const days = params.days;
+        if (typeof days !== 'number' || !Number.isInteger(days) || days === 0 || Math.abs(days) > PLUGIN_RESCHEDULE_MAX_DAYS) {
+          throw new Refusal('bad-request', `"days" is a whole number of days, not 0, at most ${PLUGIN_RESCHEDULE_MAX_DAYS} either way.`);
+        }
+        deps.intent({ kind: 'reschedule', path, days });
         return {};
       }
       case 'llm.propose':

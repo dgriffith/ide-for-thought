@@ -1,5 +1,5 @@
 {
-  "version": "1.6.0",
+  "version": "1.7.0",
   "errorCodes": [
     "bad-request",
     "busy",
@@ -19,7 +19,8 @@
     "PluginViewIcon": "{ glyph: string; color?: string; label: string }",
     "PluginViewInstance": "{ path: string; title: string; values: Record<string, string | null>; tags?: string[]; fields: PluginViewField[]; icon?: PluginViewIcon; }",
     "PluginViewProperty": "{ name: string; type: string; label?: string; options?: string[] }",
-    "PluginViewState": "{ layout: string; type: { id: string; label: string; icon?: string; color?: string }; /** The type's effective properties, in declared order. */ properties: PluginViewProperty[]; /** The view's visible property names; null = all. */ visible: string[] | null; /** The notes the view shows, filtered, in the view's sort order. */ instances: PluginViewInstance[]; sortColumn: string | null; sortDir: 'asc' | 'desc'; /** The layout's own spec fields (a board's `groupBy`, `columnOrder`, …). */ spec: Record<string, unknown>; /** The view's filters, already applied to `instances` (#2829): a timeline's Fit stays inside a date range one. */ filters: PluginViewFilter[]; /** An embed or export: nothing that writes the spec or a note. */ readOnly: boolean; /** Drawing for an export snapshot. */ exportMode: boolean; /** The notes selected in the view (#2828) — the host's selection, drawn by the plugin. */ selected: string[]; /** The view multi-selects (the panel); false in an embed or export. */ selectable: boolean; /** A note has a menu (`ui.showNoteMenu`), so it takes focus and the menu key. */ rowMenu: boolean; /** A grouped layout (a board, #2828): the grouping property, null when the type has none. */ groupProperty: string | null; /** …and its groups, in order — Minerva's, with the view's filters and column order applied. */ groups: PluginViewGroup[]; /** The notes can be moved between groups (`view.moveCard`) and the order changed (`view.moveColumn`). */ movable: boolean; /** There is a move to undo (`view.undoMove`). */ canUndoMove: boolean; /** The last move or undo that wrote something, so a moved card can keep focus. */ lastMove: { seq: number; paths: string[] } | null; }"
+    "PluginViewState": "{ layout: string; type: { id: string; label: string; icon?: string; color?: string }; /** The type's effective properties, in declared order. */ properties: PluginViewProperty[]; /** The view's visible property names; null = all. */ visible: string[] | null; /** The notes the view shows, filtered, in the view's sort order. */ instances: PluginViewInstance[]; sortColumn: string | null; sortDir: 'asc' | 'desc'; /** The layout's own spec fields (a board's `groupBy`, `columnOrder`, …). */ spec: Record<string, unknown>; /** The view's filters, already applied to `instances` (#2829): a timeline's Fit stays inside a date range one. */ filters: PluginViewFilter[]; /** The viewer's week (#2829), from their settings on this machine: what a calendar draws its rows by. */ week: PluginViewWeek; /** An embed or export: nothing that writes the spec or a note. */ readOnly: boolean; /** Drawing for an export snapshot. */ exportMode: boolean; /** The notes selected in the view (#2828) — the host's selection, drawn by the plugin. */ selected: string[]; /** The view multi-selects (the panel); false in an embed or export. */ selectable: boolean; /** A note has a menu (`ui.showNoteMenu`), so it takes focus and the menu key. */ rowMenu: boolean; /** A grouped layout (a board, #2828): the grouping property, null when the type has none. */ groupProperty: string | null; /** …and its groups, in order — Minerva's, with the view's filters and column order applied. */ groups: PluginViewGroup[]; /** The notes can be moved between groups (`view.moveCard`) and the order changed (`view.moveColumn`). */ movable: boolean; /** There is a move to undo (`view.undoMove`). */ canUndoMove: boolean; /** The last move or undo that wrote something, so a moved card can keep focus. */ lastMove: { seq: number; paths: string[] } | null; }",
+    "PluginViewWeek": "{ start: 1 | 2 | 3 | 4 | 5 | 6 | 7; numbers: boolean }"
   },
   "events": {
     "drop": {
@@ -597,6 +598,26 @@
           },
           {
             "name": "requestId",
+            "optional": false,
+            "type": "string"
+          }
+        ]
+      },
+      "result": {
+        "text": "Record<string, never>"
+      }
+    },
+    "view.reschedule": {
+      "capability": "notes:write-properties",
+      "params": {
+        "members": [
+          {
+            "name": "days",
+            "optional": false,
+            "type": "number"
+          },
+          {
+            "name": "path",
             "optional": false,
             "type": "string"
           }

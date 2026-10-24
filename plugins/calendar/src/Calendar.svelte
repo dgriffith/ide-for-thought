@@ -2,15 +2,17 @@
   /**
    * The Calendar layout of a type view (#2702, epic #2699): a month grid of the
    * notes of any type with a date property, placed by the view's *Date by*
-   * (`dateBy`; `date` by default). `TypeView` scopes and filters the
-   * instances; this draws them. The design is the Calendar story's
+   * (`dateBy`; `date` by default). Since #2829 it is the built-in Calendar
+   * plugin, in a plugin frame: Minerva scopes and filters the instances and
+   * sends them as the `view`; this draws them, writes back its page
+   * (`view.setState`) and asks Minerva to reschedule. The design is the Calendar story's
    * (`docs/vision/objects-expansion.md`, "Calendar", and the nine decisions
    * confirmed on #2699); the grid maths is `shared/objects/calendar-grid.ts`.
    *
    * - **The page** is `month` (`"2026-10"`), absent meaning this month.
-   *   Previous / Today / Next write it back through `onStateChange` (Today
+   *   Previous / Today / Next write it back through `view.setState` (Today
    *   writes null, the current month). A page shows 4–6 rows (`monthWeeks`),
-   *   from the per-machine week start (`settings-calendar.svelte.ts`: the
+   *   from the per-machine week start Minerva sends as `view.week` (the
    *   system region, or Monday / Sunday / Saturday), with leading and trailing
    *   days dimmed, and ISO week numbers when that setting is on.
    * - **Events** are read once per data revision (`calendar-model.ts`, through
@@ -37,9 +39,10 @@
    *   Up/Down a year, clamped (`addMonthsClamped`); Home/End the row's ends;
    *   Enter (or Space) the day's list. Today is `aria-current="date"` with a
    *   ring and a bold number, not colour alone.
-   * - **Hover preview** (#2713): the shared `NoteHoverPreview` on hover over an
-   *   event and on keyboard focus in the day list, with the dates as extra
-   *   lines and the type's card fields.
+   * - **Hover preview** (#2713): the app's own preview (`ui.previewNote`,
+   *   through `hover.svelte.ts`) on hover over an event and on keyboard focus
+   *   in the day list, with the dates as extra lines and the type's card
+   *   fields; its text comes back as a `preview` event to describe the item.
    * - **Read-only** (an embed, `readOnly`): paging still works — it changes
    *   what is shown, not the note — but nothing is written back.
    * - **Export** (`exportMode`, #2704): the page's month as a static grid
@@ -57,64 +60,58 @@
    *   from the day's list, Shift+F10 / ContextMenu → *Move to date…*, which
    *   puts the grid in "choose a day" mode (`CalendarMoveBar`: Enter or a
    *   click on a day moves it there, a typed date works too, Escape cancels).
-   *   The write is the `kanban-moves` store's `rescheduleEvent` (start and end
-   *   in one save, `date-shift.ts`'s rule); ⌘Z here undoes the calendar's
-   *   last move. An event whose start or end is only a month or year doesn't
-   *   move: a drag or the menu says why.
+   *   The write is Minerva's, asked for with `view.reschedule` (its
+   *   `rescheduleEvent`: start and end in one save, `date-shift.ts`'s rule,
+   *   and Local History says the Calendar did it); ⌘Z here (`view.undoMove`)
+   *   undoes the calendar's last move. An event whose start or end is only a
+   *   month or year doesn't move: a drag or the menu says why.
    */
   import { tick, untrack } from 'svelte';
-  import type { PropertyDef, TypeInfo, TypeInstanceRow } from '../../../shared/objects/type-def';
+  import type { MinervaPlugin, PluginViewState } from '/@minerva/plugin-api.js';
+  import type { PropertyDef } from '../../../src/shared/objects/type-def';
   import {
     addDays, addMonths, addMonthsClamped, coveredDays, formatMonthAnchor, layoutMonth, monthOf, monthWeeks, overflowRow,
     parseMonthAnchor, rowWeekNumber, weekEdge, type CalendarMonth, type PlacedSegment, type Weekday,
-  } from '../../../shared/objects/calendar-grid';
-  import { civilMs } from '../../../shared/objects/date-precision';
-  import NoteHoverPreview from './NoteHoverPreview.svelte';
-  import CalendarDayList from './calendar/CalendarDayList.svelte';
-  import CalendarBands from './calendar/CalendarBands.svelte';
-  import CalendarExportGrid from './calendar/CalendarExportGrid.svelte';
-  import { createNoteHover } from './note-hover/note-hover.svelte';
-  import { timelineProperties, type TimelineEvent } from '../../../shared/timeline/timeline-events';
-  import { buildCalendarModel, dayEvents, dayName, monthTitle, pageBands, pageItems, timeOf, weekdayNames, writtenAs, yearName } from './calendar/calendar-model';
-  import { getCalendarSettings } from '../stores/settings-calendar.svelte';
-  import { announce } from '../stores/announcer.svelte';
-  import { eventDrag } from './calendar/event-drag';
-  import CalendarMoveBar from './calendar/CalendarMoveBar.svelte';
-  import { createReschedule } from './calendar/reschedule-controller.svelte';
+  } from '../../../src/shared/objects/calendar-grid';
+  import { civilMs } from '../../../src/shared/objects/date-precision';
+  import CalendarDayList from './CalendarDayList.svelte';
+  import CalendarBands from './CalendarBands.svelte';
+  import CalendarExportGrid from './CalendarExportGrid.svelte';
+  import { createPluginHover } from './hover.svelte';
+  import { timelineProperties, type TimelineEvent } from '../../../src/shared/timeline/timeline-events';
+  import { buildCalendarModel, dayEvents, dayName, monthTitle, pageBands, pageItems, timeOf, weekdayNames, writtenAs, yearName } from '../../../src/shared/calendar/calendar-model';
+  import { eventDrag } from './event-drag';
+  import CalendarMoveBar from './CalendarMoveBar.svelte';
+  import { createReschedule } from './reschedule-controller.svelte';
 
   interface Props {
-    type: TypeInfo;
-    properties: PropertyDef[];
-    /** The view's instances, scoped and filtered. */
-    instances: TypeInstanceRow[];
-    /** The page (`"2026-10"`); null = this month. */
-    month: string | null;
-    /** The view's Date by (null = the default, `date-by.ts`). */
-    dateBy?: string | null;
-    display: (prop: PropertyDef, value: string | null) => string;
-    rowType: (inst: TypeInstanceRow) => TypeInfo | null;
-    onOpenNote: (path: string) => void;
-    onStateChange: (patch: { month: string | null }) => void;
-    /** An embed: pages, but writes nothing back. */
-    readOnly?: boolean;
-    /** Draw for an export (#2704; see the header). */
-    exportMode?: boolean;
+    minerva: MinervaPlugin;
+    view: PluginViewState;
     /** Formatting locale; the viewer's when absent. */
     locale?: string;
-    /** The week start and week numbers; the per-machine settings when absent. */
-    weekStart?: Weekday;
-    showWeekNumbers?: boolean;
   }
-  let {
-    type, properties, instances, month, dateBy = null, display, rowType, onOpenNote, onStateChange,
-    readOnly = false, exportMode = false, locale, weekStart, showWeekNumbers,
-  }: Props = $props();
+  let { minerva, view, locale }: Props = $props();
+
+  /** A call whose failure the user can't act on (the frame closing, say). */
+  const quietly = (p: Promise<unknown>) => { p.catch(() => {}); };
+  const announce = (text: string) => quietly(minerva.ui.announce({ text }));
+  // The type's properties as Minerva declares them: the date helpers read a
+  // property's name and type, which the view's carry.
+  const properties = $derived(view.properties as unknown as PropertyDef[]);
+  // The app's rows and the view's instances are both what the model reads (path, title, values).
+  const instances = $derived(view.instances as unknown as Parameters<typeof buildCalendarModel>[0]);
+  const str = (v: unknown): string | null => (typeof v === 'string' && v !== '' ? v : null);
+  const month = $derived(str(view.spec['month']));
+  const dateBy = $derived(str(view.spec['dateBy']));
+  const readOnly = $derived(view.readOnly);
+  const exportMode = $derived(view.exportMode);
+  const onOpenNote = (path: string) => quietly(minerva.view.click({ path }));
+  const onStateChange = (patch: { month: string | null }) => quietly(minerva.view.setState({ patch }));
 
   const uid = $props.id();
-  const settings = getCalendarSettings();
   const interactive = $derived(!readOnly && !exportMode);
-  const firstDay = $derived<Weekday>(weekStart ?? settings.weekStart);
-  const weekNumbers = $derived(showWeekNumbers ?? settings.showWeekNumbers);
+  const firstDay = $derived<Weekday>(view.week.start);
+  const weekNumbers = $derived(view.week.numbers);
 
   /** Line metrics, px: the day number, one event slot (an 18px chip and its gap), and the cell's padding. */
   const DAY_PX = 22;
@@ -257,11 +254,23 @@
   $effect(() => { void pageNumber; untrack(() => { if (listDay !== null) closeList(false); }); });
 
   // ── Hover preview ─────────────────────────────────────────────────────
-  const hover = createNoteHover();
-  const cardId = `${uid}-card`;
-  const cardKey = $derived(exportMode ? null : hover.current?.key ?? null);
-  const cardEvent = $derived(cardKey ? model.byKey.get(cardKey) ?? null : null);
-  const cardWritten = $derived(cardEvent ? writtenAs(cardEvent, cardEvent.inst.values[dates.dateProperty]) : null);
+  // The app's (`hover.svelte.ts`): the dates head it, so the Date by property
+  // (and Event's `end`) aren't repeated as fields.
+  function cardLines(key: string): string[] {
+    const ev = model.byKey.get(key) ?? model.undated.find((u) => u.key === key) ?? null;
+    if (!ev || !('dateText' in ev)) return [];
+    const written = writtenAs(ev, ev.inst.values[dates.dateProperty]);
+    return [`${ev.dateText}${ev.approx ? ' · approximate' : ''}`, ...(written ? [written] : []), ...(ev.endNote ? [`⚠ ${ev.endNote}`] : [])];
+  }
+  const hover = createPluginHover(minerva, {
+    enabled: () => !exportMode,
+    extra: (key) => cardLines(key),
+    omit: () => [dates.dateProperty, ...(dates.endProperty ? [dates.endProperty] : [])],
+  });
+  $effect(() => () => hover.dispose());
+  /** The preview's text, mirrored here: what an item's `aria-describedby` names. */
+  const cardId = 'cal-preview-description';
+  const cardKey = $derived(exportMode ? null : hover.description?.path ?? null);
   function hoverIn(ev: TimelineEvent, anchor: Element): void {
     if (!exportMode) hover.pointerEnter({ key: ev.key, target: ev.key, anchor, fallbackTitle: ev.title });
   }
@@ -283,6 +292,7 @@
 
   // ── Reschedule (#2703, `calendar/reschedule-controller.svelte.ts`) ───
   const move = createReschedule({
+    minerva,
     model: () => model, dates: () => dates, locale: () => locale, interactive: () => interactive,
     focusDay: (day) => void focusDay(day, 'other-month'), closeList: () => closeList(false),
   });
@@ -447,10 +457,18 @@
       <ul class="cal-undated-list">
         {#each model.undated as u (u.key)}
           <li>
-            <button type="button" class="cal-undated-row" data-note-path={u.key} data-undated-reason={u.reason} onclick={() => onOpenNote(u.key)}>
-              <span class="cal-undated-title">{u.title}</span>
-              <span class="cal-undated-reason">{u.reasonText}</span>
-            </button>
+            {#if exportMode}
+              <!-- An export is static: no button (the sanitizer keeps none); the note path becomes the link. -->
+              <div class="cal-undated-row" data-note-path={u.key}>
+                <span class="cal-undated-title">{u.title}</span>
+                <span class="cal-undated-reason">{u.reasonText}</span>
+              </div>
+            {:else}
+              <button type="button" class="cal-undated-row" data-note-path={u.key} data-undated-reason={u.reason} onclick={() => onOpenNote(u.key)}>
+                <span class="cal-undated-title">{u.title}</span>
+                <span class="cal-undated-reason">{u.reasonText}</span>
+              </button>
+            {/if}
           </li>
         {/each}
       </ul>
@@ -473,23 +491,10 @@
   {/if}
 
   {#if !exportMode}
-    <NoteHoverPreview
-      id={cardId}
-      {hover}
-      instance={cardEvent ? { type, properties, inst: cardEvent.inst, display, rowType: rowType(cardEvent.inst), omit: [dates.dateProperty, ...(dates.endProperty ? [dates.endProperty] : [])] } : null}
-      extra={cardEvent ? cardLines : undefined}
-    />
+    <!-- The app's preview is drawn outside this frame, where a description can't point; its text is mirrored here. -->
+    <p id={cardId} class="cal-description" hidden>{hover.description?.text ?? ''}</p>
   {/if}
 </div>
-
-{#snippet cardLines()}
-  {#if cardEvent}
-    <!-- The dates head the preview, so the Date by property (and Event's `end`) aren't repeated as fields. -->
-    <span class="cal-card-date">{cardEvent.dateText}{#if cardEvent.approx}<span class="cal-card-approx"> · approximate</span>{/if}</span>
-    {#if cardWritten}<span class="cal-card-written" data-written-as>{cardWritten}</span>{/if}
-    {#if cardEvent.endNote}<span class="cal-card-flag" data-end-issue>⚠ {cardEvent.endNote}</span>{/if}
-  {/if}
-{/snippet}
 
 <style>
   .cal { flex: 1; min-height: 0; display: flex; flex-direction: column; font-family: var(--font-sans); }
@@ -634,8 +639,6 @@
   }
   .cal-more:hover { background: color-mix(in oklch, var(--text) 10%, transparent); }
 
-  .cal-card-approx { font-style: italic; }
-  .cal-card-flag { color: var(--text); font-weight: 600; }
 
   .cal-undated { flex-shrink: 0; max-height: 25%; overflow-y: auto; border-top: 1px solid var(--border); padding: 6px 6px 8px; }
   .cal-undated-head { margin: 2px 10px 4px; font-size: 12px; font-weight: 600; color: var(--text); font-family: var(--font-sans); }

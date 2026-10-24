@@ -48,6 +48,7 @@
     onMoveCard?: (path: string, target: PluginMoveTarget) => void;
     onUndoMove?: () => void;
     onMoveColumn?: (key: string, target: string, side: 'before' | 'after') => void;
+    onReschedule?: (path: string, days: number) => void;
     /** The plugin's answer to an export request, unsanitized (#2828). */
     onExportHtml?: (requestId: string, html: string) => void;
     /** The properties strip of a note's hover preview, where the host knows its type (#2828). */
@@ -59,7 +60,7 @@
     onClearSelection?: () => void;
   }
 
-  let { pluginId, entry = 'index.html', scope, title, onConnected, onViewState, onNoteMenu, onMoveCard, onUndoMove, onMoveColumn, onExportHtml, hoverInstance, onViewClick, onSelectAll, onClearSelection }: Props = $props();
+  let { pluginId, entry = 'index.html', scope, title, onConnected, onViewState, onNoteMenu, onMoveCard, onUndoMove, onMoveColumn, onReschedule, onExportHtml, hoverInstance, onViewClick, onSelectAll, onClearSelection }: Props = $props();
 
   // Hover previews: the app's own, against an anchor over the plugin's box.
   const hover = createNoteHover();
@@ -137,6 +138,7 @@
         moveCard: (path, target) => onMoveCard?.(path, target),
         undoMove: () => onUndoMove?.(),
         moveColumn: (key, target, side) => onMoveColumn?.(key, target, side),
+        reschedule: (path, days) => onReschedule?.(path, days),
         previewNote: (path, rect, via, opts) => {
           anchorBox = rect;
           previewAsk = { path, extra: opts?.extra ?? [], omit: opts?.omit ?? [] };

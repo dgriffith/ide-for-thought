@@ -26,9 +26,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { closeMinerva, launchMinerva, projectRoot } from './helpers/launch';
 import { seedNotes } from './helpers/timeline';
-import {
-  addMonth, civilDay, dragEventToDay, openTypeCalendar, shownMonth, startMoveToDate, thisMonth, ymd,
-} from './helpers/calendar';
+import { addMonth, calendarOf, dragEventToDay, openTypeCalendar, shownMonth, startMoveToDate, thisMonth, ymd } from './helpers/calendar';
 
 const NOW = thisMonth();
 const NEXT = addMonth(NOW, 1);
@@ -68,18 +66,18 @@ test('the Calendar journey: Events as a month, paged, opened, rescheduled by poi
       await expect(c.eventFor('Standup').locator('.cal-time')).toHaveText(/9:30/);
       await expect(c.eventFor('Offsite').first()).toHaveClass(/cal-bar/);
       await expect(c.eventFor('Planning')).toHaveCount(1); // a Meeting is an Event
-      await expect(win.locator('[data-band="month"]')).toContainText('Harvest');
-      await expect(win.locator('.cal-undated')).toContainText('Someday');
+      await expect(calendarOf(win).frame.locator('[data-band="month"]')).toContainText('Harvest');
+      await expect(calendarOf(win).frame.locator('.cal-undated')).toContainText('Someday');
       await expect(c.eventFor('Quarterly retro')).toHaveCount(0);
       return c;
     });
 
     await test.step('page to next month and back', async () => {
-      await win.getByRole('button', { name: 'Next month' }).click();
+      await calendarOf(win).frame.getByRole('button', { name: 'Next month' }).click();
       await expect.poll(() => shownMonth(win)).toBe(ymd(NEXT));
       await expect(cal.day(NEXT.year, NEXT.month, 8).locator('[data-calendar-event]')).toHaveCount(1);
       await expect(cal.eventFor('Quarterly retro')).toHaveCount(1);
-      await win.getByRole('button', { name: 'Previous month' }).click();
+      await calendarOf(win).frame.getByRole('button', { name: 'Previous month' }).click();
       await expect.poll(() => shownMonth(win)).toBe(ymd(NOW));
       await expect(cal.eventFor('Kickoff')).toHaveCount(1);
     });
@@ -112,13 +110,13 @@ test('the Calendar journey: Events as a month, paged, opened, rescheduled by poi
 
     await test.step('keyboard: Standup to a week later through Move to date…, its time kept', async () => {
       await startMoveToDate(win, cal, NOW, 6, 'Standup.md');
-      await expect(win.locator('[data-calendar-move-bar]')).toContainText('Moving Standup');
+      await expect(calendarOf(win).frame.locator('[data-calendar-move-bar]')).toContainText('Moving Standup');
       await win.keyboard.press('ArrowDown');
       await expect(cal.day(NOW.year, NOW.month, 13)).toBeFocused();
       await win.keyboard.press('Enter');
       await expect.poll(() => read('events/Standup.md'), { timeout: 10_000 }).toBe(standup(13));
       await expect(cal.day(NOW.year, NOW.month, 13).locator('[data-calendar-event]')).toHaveCount(1, { timeout: 10_000 });
-      await expect(win.locator('[data-calendar-move-bar]')).toHaveCount(0);
+      await expect(calendarOf(win).frame.locator('[data-calendar-move-bar]')).toHaveCount(0);
       // The first move stays.
       expect(read('events/Offsite.md')).toBe(offsite(17, 19));
     });
@@ -156,11 +154,16 @@ test('the Calendar journey: Events as a month, paged, opened, rescheduled by poi
     // The moved events are on their new days in the exported month.
     const dayOf = await win.evaluate((doc) => {
       const cells = new DOMParser().parseFromString(doc, 'text/html').querySelectorAll<HTMLElement>('[role="cell"]');
-      const of = (title: string) => Array.from(cells).find((c) => Array.from(c.querySelectorAll('.calx-title')).some((t) => t.textContent === title))?.dataset['day'] ?? null;
+      // An export keeps no data-* but a note's (#2829's sanitizer): a cell is read by its day number, in the month.
+      const of = (title: string) => {
+        const cell = Array.from(cells).find((c) => Array.from(c.querySelectorAll('.calx-title')).some((t) => t.textContent === title));
+        // The number as shown: its cell's name (visually hidden) comes first.
+        return cell && !cell.classList.contains('calx-out') ? /(\d+)\s*$/.exec(cell.querySelector('.calx-num')?.textContent ?? '')?.[1] ?? null : null;
+      };
       return { standup: of('Standup'), kickoff: of('Kickoff') };
     }, html);
-    expect(Number(dayOf.standup), 'Standup is exported on its new day').toBe(civilDay(NOW.year, NOW.month, 13));
-    expect(Number(dayOf.kickoff), 'Kickoff stays on its day').toBe(civilDay(NOW.year, NOW.month, 5));
+    expect(dayOf.standup, 'Standup is exported on its new day').toBe('13');
+    expect(dayOf.kickoff, 'Kickoff stays on its day').toBe('5');
   } finally {
     await closeMinerva(app);
     for (const d of [userDataDir, projectDir, outDir]) fs.rmSync(d, { recursive: true, force: true });

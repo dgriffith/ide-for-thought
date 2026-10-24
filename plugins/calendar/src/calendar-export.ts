@@ -21,13 +21,13 @@
  * and its day list do: a bar always began no later than a single-day event
  * on the same day, and is longer.
  */
-import type { TimelineEvent } from '../../../../shared/timeline/timeline-events';
+import type { TimelineEvent } from '../../../src/shared/timeline/timeline-events';
 import {
   coveredDays, layoutMonth, monthWeeks, uncertainFrom,
   type CalendarMonth, type GridWeek, type PlacedSegment, type Weekday,
-} from '../../../../shared/objects/calendar-grid';
-import { DAY_MS } from '../../../../shared/time';
-import { pageItems } from './calendar-model';
+} from '../../../src/shared/objects/calendar-grid';
+import { DAY_MS } from '../../../src/shared/time';
+import { pageItems } from '../../../src/shared/calendar/calendar-model';
 
 export interface ExportRow {
   week: GridWeek;

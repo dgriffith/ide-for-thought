@@ -410,7 +410,7 @@ for (const theme of THEMES) {
       }, async ({ win }) => {
         const cal = await openTypeCalendar(win, 'Event');
         await expect(cal.eventFor('Kickoff')).toHaveCount(1, { timeout: 15_000 });
-        await expect(win.locator('.cal-more').first()).toBeVisible();
+        await expect(cal.frame.locator('.cal-more').first()).toBeVisible();
         await cal.tabStop.focus();
         await expectNoSerious(win, 'Calendar', theme);
         await cal.day(m.year, m.month, 14).focus();

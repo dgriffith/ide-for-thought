@@ -12,19 +12,16 @@
  * order, and a pointer lands on a cell by its centre.
  */
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
-import { render, fireEvent, cleanup, screen, waitFor } from '@testing-library/svelte';
+import { fireEvent, cleanup, screen, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 
-const h = vi.hoisted(() => ({ reschedule: vi.fn(), undo: vi.fn(), announce: vi.fn() }));
-vi.mock('../../../src/renderer/lib/stores/kanban-moves.svelte', () => ({
-  getKanbanMoveStore: () => ({ revision: 0, lastMove: null, rescheduleEvent: h.reschedule, undoLastMove: h.undo }),
-}));
-vi.mock('../../../src/renderer/lib/stores/announcer.svelte', () => ({ announce: h.announce }));
-vi.mock('../../../src/renderer/lib/stores/settings-calendar.svelte', () => ({
-  getCalendarSettings: () => ({ weekStart: 1, showWeekNumbers: false }),
-}));
 
-import TypeViewCalendar from '../../../src/renderer/lib/components/TypeViewCalendar.svelte';
+import { renderCalendar, type CalendarProps } from './fixtures';
+
+// What the plugin asks Minerva for (#2829): a reschedule by whole days, an
+// announcement, an undo. Minerva's half — the dates it writes, the days it
+// names, the history cause — is calendar-reschedule.test.ts.
+const h = { reschedule: vi.fn(), undo: vi.fn(), announce: vi.fn() };
 import { civilMs } from '../../../src/shared/objects/date-precision';
 import type { TypeInstanceRow } from '../../../src/shared/objects/type-def';
 
@@ -41,16 +38,14 @@ const EVENTS = [
   row('launch.md', 'Launch', '2026-10-20', '2026-11'),
 ];
 const day = (y: number, m: number, d: number) => civilMs(y, m - 1, d);
-const FIELDS = { start: 'date', end: 'end' };
 
-function setup(over: Record<string, unknown> = {}) {
-  const onOpenNote = vi.fn();
-  const onStateChange = vi.fn();
-  const utils = render(TypeViewCalendar, {
-    type: EVENT, properties: EVENT.properties, instances: EVENTS, month: '2026-10',
-    display: (_p: unknown, v: string | null) => v ?? '', rowType: () => EVENT,
-    onOpenNote, onStateChange, locale: 'en-GB', weekStart: 1, ...over,
-  });
+function setup(over: Partial<CalendarProps> = {}) {
+  const utils = renderCalendar({ type: EVENT, properties: EVENT.properties, instances: EVENTS, month: '2026-10', locale: 'en-GB', weekStart: 1, ...over });
+  const { onOpenNote, onStateChange } = utils;
+  const m = utils.api.minerva as unknown as { view: Record<string, unknown>; ui: Record<string, unknown> };
+  m.view['reschedule'] = vi.fn(async (p: { path: string; days: number }) => { h.reschedule(p); return {}; });
+  m.view['undoMove'] = vi.fn(async () => { h.undo(); return {}; });
+  m.ui['announce'] = vi.fn(async (p: { text: string }) => { h.announce(p.text); return {}; });
   const q = (sel: string) => utils.container.querySelector<HTMLElement>(sel);
   const cell = (ms: number) => q(`[role="gridcell"][data-day="${ms}"]`)!;
   const segs = (path: string) => [...utils.container.querySelectorAll<HTMLElement>(`[data-calendar-event][data-note-path="${path}"]`)];
@@ -76,8 +71,9 @@ beforeEach(() => {
     }
     return realRect.call(this);
   };
-  h.reschedule.mockResolvedValue({ ok: true, paths: [] });
-  h.undo.mockResolvedValue([]);
+  h.reschedule.mockReset();
+  h.undo.mockReset();
+  h.announce.mockReset();
 });
 afterEach(() => {
   HTMLElement.prototype.getBoundingClientRect = realRect;
@@ -110,10 +106,7 @@ describe('Calendar: pointer drag (#2703)', () => {
 
     await fireEvent.pointerUp(window, { pointerId: 1, ...at(day(2026, 10, 15)) });
     await fireEvent.click(second);
-    expect(h.reschedule).toHaveBeenCalledWith(
-      { path: 'trip.md', title: 'Trip' }, FIELDS, 2,
-      { to: expect.stringContaining('11 October 2026'), back: expect.stringContaining('9 October 2026') },
-    );
+    expect(h.reschedule).toHaveBeenCalledWith({ path: 'trip.md', days: 2 });
     expect(onOpenNote).not.toHaveBeenCalled(); // the click after a drag is swallowed
     expect(document.querySelector('[data-calendar-ghost]')).toBeNull();
     expect(cell(day(2026, 10, 15)).hasAttribute('data-drop-target')).toBe(false);
@@ -122,9 +115,9 @@ describe('Calendar: pointer drag (#2703)', () => {
   it('moves backwards across a week row, and onto the dimmed days of the next month', async () => {
     const { segs } = setup();
     await drag(segs('dentist.md')[0]!, at(day(2026, 10, 6)), at(day(2026, 9, 29)));
-    expect(h.reschedule).toHaveBeenLastCalledWith(expect.anything(), FIELDS, -7, expect.anything());
+    expect(h.reschedule).toHaveBeenLastCalledWith(expect.objectContaining({ days: -7 }));
     await drag(segs('dentist.md')[0]!, at(day(2026, 10, 6)), at(day(2026, 11, 1)));
-    expect(h.reschedule).toHaveBeenLastCalledWith(expect.anything(), FIELDS, 26, expect.anything());
+    expect(h.reschedule).toHaveBeenLastCalledWith(expect.objectContaining({ days: 26 }));
   });
 
   it('Escape cancels: nothing moves, the ghost and preview go', async () => {
@@ -230,10 +223,7 @@ describe('Calendar: Move to date… (#2703)', () => {
     await press('ArrowRight');
     await press('ArrowDown');
     await press('Enter');
-    expect(h.reschedule).toHaveBeenCalledWith(
-      { path: 'dentist.md', title: 'Dentist' }, FIELDS, 8,
-      { to: expect.stringContaining('14 October 2026'), back: expect.stringContaining('6 October 2026') },
-    );
+    expect(h.reschedule).toHaveBeenCalledWith({ path: 'dentist.md', days: 8 });
     expect(q('[data-calendar-move-bar]')).toBeNull();
     expect(document.activeElement).toBe(cell(day(2026, 10, 14)));
   });
@@ -249,7 +239,7 @@ describe('Calendar: Move to date… (#2703)', () => {
     await openMenu(cell(day(2026, 10, 6)));
     await fireEvent.click(screen.getByRole('menuitem', { name: 'Move to date…' }));
     await fireEvent.click(cell(day(2026, 10, 2)));
-    expect(h.reschedule).toHaveBeenCalledWith(expect.anything(), FIELDS, -4, expect.anything());
+    expect(h.reschedule).toHaveBeenCalledWith(expect.objectContaining({ days: -4 }));
   });
 
   it('or type a date: the page turns to it and the event moves there; a bad date is refused', async () => {
@@ -257,16 +247,30 @@ describe('Calendar: Move to date… (#2703)', () => {
     await openMenu(cell(day(2026, 10, 6)));
     await fireEvent.click(screen.getByRole('menuitem', { name: 'Move to date…' }));
     const input = screen.getByRole<HTMLInputElement>('textbox', { name: 'Date to move Dentist to' });
+    // Enter in the field, never a form submit: a plugin frame's sandbox has no allow-forms (#2829).
     await fireEvent.input(input, { target: { value: '2026-11' } });
-    await fireEvent.submit(input.form!);
+    await fireEvent.keyDown(input, { key: 'Enter' });
     expect(input.getAttribute('aria-invalid')).toBe('true');
     expect(h.announce).toHaveBeenLastCalledWith('“2026-11” isn’t a day: type a date like 2026-10-12.');
     expect(h.reschedule).not.toHaveBeenCalled();
 
     await fireEvent.input(input, { target: { value: '2026-11-03' } });
-    await fireEvent.submit(input.form!);
-    expect(h.reschedule).toHaveBeenCalledWith(expect.anything(), FIELDS, 28, { to: expect.stringContaining('3 November 2026'), back: expect.anything() });
+    const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+    input.dispatchEvent(enter);
+    expect(enter.defaultPrevented).toBe(true); // no implicit submission
+    expect(h.reschedule).toHaveBeenCalledWith(expect.objectContaining({ days: 28 }));
     expect(onStateChange).toHaveBeenLastCalledWith({ month: '2026-11' });
+  });
+
+  it('the Move button does what Enter does, without submitting a form', async () => {
+    const { cell } = setup();
+    await openMenu(cell(day(2026, 10, 6)));
+    await fireEvent.click(screen.getByRole('menuitem', { name: 'Move to date…' }));
+    const input = screen.getByRole<HTMLInputElement>('textbox', { name: 'Date to move Dentist to' });
+    await fireEvent.input(input, { target: { value: '2026-10-09' } });
+    expect(screen.getByRole('button', { name: 'Move' }).getAttribute('type')).toBe('button');
+    await fireEvent.click(screen.getByRole('button', { name: 'Move' }));
+    expect(h.reschedule).toHaveBeenCalledWith({ path: 'dentist.md', days: 3 });
   });
 
   it('Escape cancels: nothing moves and focus returns to the event\'s day', async () => {
@@ -311,7 +315,7 @@ describe('Calendar: ⌘Z (#2703)', () => {
     const { cell } = setup();
     cell(day(2026, 10, 6)).focus();
     await fireEvent.keyDown(cell(day(2026, 10, 6)), { key: 'z', metaKey: true });
-    expect(h.undo).toHaveBeenCalledWith('calendar');
+    expect(h.undo).toHaveBeenCalledOnce(); // the calendar's own surface: Minerva's to choose
     cleanup();
     h.undo.mockClear();
     const ro = setup({ readOnly: true });

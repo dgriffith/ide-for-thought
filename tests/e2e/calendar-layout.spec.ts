@@ -34,8 +34,9 @@ const NOTES: SeedNotes = {
 };
 
 /** The `data-day` of the focused cell, as a day of the month. */
+/** The day the grid's focus is on — inside the Calendar plugin's frame (#2829). */
 async function focusedDayOfMonth(win: Page): Promise<number> {
-  const ms = await win.evaluate(() => Number((document.activeElement as HTMLElement | null)?.dataset['day'] ?? NaN));
+  const ms = await calendarOf(win).frame.locator('body').evaluate(() => Number((document.activeElement as HTMLElement | null)?.dataset['day'] ?? NaN));
   return new Date(ms).getUTCDate();
 }
 
@@ -59,24 +60,24 @@ test('an Event calendar: grid, paging, keyboard, the day\'s list, open, and `mon
       const offsite = cal.eventFor('Offsite');
       expect(await offsite.count()).toBeGreaterThanOrEqual(1); // one segment per week row it crosses
       await expect(offsite.first()).toHaveClass(/cal-bar/);
-      await expect(win.locator('[data-band="month"]')).toContainText('Harvest');
-      await expect(win.locator('.cal-undated')).toContainText('Someday');
+      await expect(calendarOf(win).frame.locator('[data-band="month"]')).toContainText('Harvest');
+      await expect(calendarOf(win).frame.locator('.cal-undated')).toContainText('Someday');
       await expect(cal.day(NOW.year, NOW.month, BUSY_DAY).locator('.cal-more')).toHaveText(/^\+\d+ more$/);
       await expect(cal.tabStop).toHaveCount(1);
     });
 
     await test.step('page months with the toolbar', async () => {
-      await win.getByRole('button', { name: 'Next month' }).click();
+      await calendarOf(win).frame.getByRole('button', { name: 'Next month' }).click();
       await expect.poll(() => shownMonth(win)).toBe(ymd(NEXT));
-      await win.getByRole('button', { name: 'Previous month' }).click();
-      await win.getByRole('button', { name: 'Previous month' }).click();
+      await calendarOf(win).frame.getByRole('button', { name: 'Previous month' }).click();
+      await calendarOf(win).frame.getByRole('button', { name: 'Previous month' }).click();
       await expect.poll(() => shownMonth(win)).toBe(ymd(PREV));
-      await win.getByRole('button', { name: 'Today' }).click();
+      await calendarOf(win).frame.getByRole('button', { name: 'Today' }).click();
       await expect.poll(() => shownMonth(win)).toBe(ymd(NOW));
     });
 
     await test.step('navigate by keyboard: one tab stop, arrows, Page Down/Up, Home/End', async () => {
-      await win.getByRole('button', { name: 'Next month' }).focus();
+      await calendarOf(win).frame.getByRole('button', { name: 'Next month' }).focus();
       await win.keyboard.press('Tab');
       await expect(cal.tabStop).toBeFocused();
       // Walk to the busy day with the arrows (no page turn inside the month).
@@ -142,7 +143,7 @@ test('an Event calendar: grid, paging, keyboard, the day\'s list, open, and `mon
     await test.step('`month` round-trips: page, switch the layout away and back', async () => {
       await win.locator('.tab-switch[title="Type: event"]').click(); // the view's tab, not a note named like it (#2748)
       await expect(cal.grid).toBeVisible({ timeout: 10_000 });
-      await win.getByRole('button', { name: 'Next month' }).click();
+      await calendarOf(win).frame.getByRole('button', { name: 'Next month' }).click();
       await expect.poll(() => shownMonth(win)).toBe(ymd(NEXT));
       await win.getByRole('tab', { name: 'List' }).click();
       await expect(cal.grid).toHaveCount(0);

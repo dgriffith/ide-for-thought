@@ -12,8 +12,8 @@
    * calendar's column). Focus and hover show the shared hover preview. In an
    * export (#2704) they follow the grid on the page too, as links.
    */
-  import type { BandEntry } from './calendar-model';
-  import type { NoteHover } from '../note-hover/note-hover.svelte';
+  import type { BandEntry } from '../../../src/shared/calendar/calendar-model';
+  import type { NoteHover } from './hover.svelte';
 
   interface Band {
     id: 'year' | 'month';
@@ -44,22 +44,32 @@
         <ul class="cal-band-list">
           {#each band.entries as b (b.ev.key)}
             <li>
-              <button
-                type="button"
-                class="cal-chip"
-                data-note-path={b.ev.key}
-                aria-describedby={cardKey === b.ev.key ? cardId : undefined}
-                onclick={() => onOpenNote(b.ev.key)}
-                onfocus={(e) => { if (!exportMode) hover.focus(subject(b, e.currentTarget)); }}
-                onblur={() => hover.blur(b.ev.key)}
-                onpointerenter={(e) => { if (!exportMode) hover.pointerEnter(subject(b, e.currentTarget)); }}
-                onpointerleave={() => hover.pointerLeave(b.ev.key)}
-              >
-                <span class="cal-chip-title">{b.ev.title}</span>
-                <span class="cal-chip-date">{b.ev.dateText}</span>
-                {#if b.since}<span class="cal-chip-mark" data-since>{b.since}</span>{/if}
-                {#if b.until}<span class="cal-chip-mark" data-until>{b.until}</span>{/if}
-              </button>
+              {#if exportMode}
+                <!-- An export is static: no button (the sanitizer keeps none); the note path becomes the link. -->
+                <span class="cal-chip" data-note-path={b.ev.key}>
+                  <span class="cal-chip-title">{b.ev.title}</span>
+                  <span class="cal-chip-date">{b.ev.dateText}</span>
+                  {#if b.since}<span class="cal-chip-mark" data-since>{b.since}</span>{/if}
+                  {#if b.until}<span class="cal-chip-mark" data-until>{b.until}</span>{/if}
+                </span>
+              {:else}
+                <button
+                  type="button"
+                  class="cal-chip"
+                  data-note-path={b.ev.key}
+                  aria-describedby={cardKey === b.ev.key ? cardId : undefined}
+                  onclick={() => onOpenNote(b.ev.key)}
+                  onfocus={(e) => { if (!exportMode) hover.focus(subject(b, e.currentTarget)); }}
+                  onblur={() => hover.blur(b.ev.key)}
+                  onpointerenter={(e) => { if (!exportMode) hover.pointerEnter(subject(b, e.currentTarget)); }}
+                  onpointerleave={() => hover.pointerLeave(b.ev.key)}
+                >
+                  <span class="cal-chip-title">{b.ev.title}</span>
+                  <span class="cal-chip-date">{b.ev.dateText}</span>
+                  {#if b.since}<span class="cal-chip-mark" data-since>{b.since}</span>{/if}
+                  {#if b.until}<span class="cal-chip-mark" data-until>{b.until}</span>{/if}
+                </button>
+              {/if}
             </li>
           {/each}
         </ul>

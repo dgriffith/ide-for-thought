@@ -43,6 +43,8 @@
   import { createTypeViewSelection } from './type-view-selection.svelte';
   import TypeViewRowMenu from './TypeViewRowMenu.svelte';
   import { getKanbanMoveStore } from '../stores/kanban-moves.svelte';
+  import { getCalendarSettings } from '../stores/settings-calendar.svelte';
+  import { rescheduleInView } from './type-view/calendar-reschedule';
   import { moveTargets, sharedColumnValue, type MoveTarget } from '../../../shared/objects/kanban-move';
   import type { PropertyDef, TypeInfo, TypeInstanceRow } from '../../../shared/objects/type-def';
 
@@ -348,6 +350,14 @@
     const cards = paths.map((p) => ({ path: p, title: instances.find((i) => i.path === p)?.title ?? p }));
     if (groupProp && cards.length > 0) void moves.moveCards(cards, groupProp.name, target, moveCause ? { cause: moveCause } : {});
   }
+  // A calendar's moves are its own surface: ⌘Z there undoes the calendar's last move, never a board's.
+  const onCalendar = $derived(layoutDef(shown).moves === 'calendar');
+  const movesHere = $derived(onCalendar ? !chromeless && !exportMode : selectable);
+  const calendarSettings = getCalendarSettings();
+  function reschedule(path: string, days: number): void {
+    const inst = instances.find((i) => i.path === path);
+    if (inst) rescheduleInView(moves, inst, { properties: allColumns, dateBy: calendarSpec.dateBy, cause: moveCause }, days);
+  }
   function onMoveColumn(key: string, target: string, side: 'before' | 'after'): void {
     if (groupProp) onStateChange({ columnOrder: moveColumn(instances, groupProp, columnOrder, key, target, side) });
   }
@@ -399,8 +409,10 @@
     get group() { return groupProp; },
     get board() { return board; },
     get onMoveCard() { return selectable ? (p: string, t: MoveTarget) => moveTo([p], t) : undefined; },
-    get onUndoMove() { return selectable ? () => void moves.undoLastMove('board', moveCause ? { cause: moveCause } : {}) : undefined; },
-    get canUndoMove() { return moves.canUndo; },
+    get onUndoMove() { return movesHere ? () => void moves.undoLastMove(onCalendar ? 'calendar' : 'board', moveCause ? { cause: moveCause } : {}) : undefined; },
+    get canUndoMove() { return onCalendar ? moves.canUndoReschedule : moves.canUndo; },
+    get onReschedule() { return onCalendar && movesHere ? reschedule : undefined; },
+    get week() { return { start: calendarSettings.weekStart, numbers: calendarSettings.showWeekNumbers }; },
     get lastMove() { return moves.lastMove; },
     get onMoveColumn() { return chromeless ? undefined : onMoveColumn; },
     get from() { return timelineSpec.from; },
