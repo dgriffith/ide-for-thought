@@ -21,6 +21,15 @@
  * and recorded in history as `plugin:<id>@<version>`, findable and undoable
  * (#1157). Nothing here reaches the approval engine.
  *
+ * The other direction (#2830): main can **call** a plugin's logic — a handler
+ * it registered with `minerva.handle(name, fn)` in its worker. `session.call`
+ * sends `{ "call": n, "handler", "args" }`, and the plugin answers
+ * `{ "reply": n, "result" }` or `{ "reply": n, "error": "…" }`. The runtime's
+ * `handle()` announces each handler (`{ "handles": name }`); a call waits for
+ * its handler to be announced, so a module that registers late misses none.
+ * Deadlines are the caller's (`plugin-worker-host.ts`): this only matches
+ * replies to calls, and fails the calls still waiting when the session ends.
+ *
  * The broker owns no I/O: `BrokerDeps` is wired by `main/plugin-sessions.ts`,
  * so this file is tested over a fake port with fake deps.
  */
@@ -110,6 +119,12 @@ export interface PluginSession {
   addToScope(paths: readonly string[]): string[];
   /** Tell the plugin something (#2827): `{ event, data }` on the port. */
   emit<E extends PluginEventName>(event: E, data: PluginEvents[E]): void;
+  /**
+   * Run one of the plugin's handlers (#2830) with `args`, JSON-able. Resolves
+   * with what it returned; rejects with a `PluginCallError` when it threw, has
+   * no such handler, or the session ended first.
+   */
+  call(handler: string, args: unknown): Promise<unknown>;
   close(): void;
   readonly closed: boolean;
   onClose(fn: () => void): void;
@@ -118,6 +133,14 @@ export interface PluginSession {
 class Refusal extends Error {
   constructor(readonly code: PluginErrorCode, message: string) { super(message); }
 }
+
+/** A call to a plugin's handler that didn't return a result (#2830). The message names the plugin. */
+export class PluginCallError extends Error {
+  constructor(message: string) { super(message); this.name = 'PluginCallError'; }
+}
+
+/** A handler's name: what `minerva.handle(name, …)` registers. */
+export const PLUGIN_HANDLER_NAME = /^[A-Za-z][A-Za-z0-9_.-]{0,63}$/;
 
 /** JSON that survives DuckDB's BigInt columns. */
 function stringify(value: unknown): string {
@@ -215,6 +238,12 @@ export function createPluginSession(opts: PluginSessionOptions): PluginSession {
   let inFlight = 0;
   let closed = false;
   const closeListeners: Array<() => void> = [];
+  // Calls to the plugin's handlers (#2830), waiting for its reply.
+  let nextCall = 1;
+  const calls = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void }>();
+  // Handlers the plugin announced, and calls waiting for one to be.
+  const handlers = new Set<string>();
+  const awaitingHandler = new Map<string, Array<() => void>>();
 
   /** The paths a plugin may be given, normalized; the rest logged and dropped. */
   const admissible = (paths: readonly string[]): string[] => {
@@ -239,6 +268,8 @@ export function createPluginSession(opts: PluginSessionOptions): PluginSession {
   const close = () => {
     if (closed) return;
     closed = true;
+    for (const waiter of calls.values()) waiter.reject(new PluginCallError(`${identity.name}'s session ended before it answered.`));
+    calls.clear();
     port.close();
     for (const fn of closeListeners.splice(0)) fn();
   };
@@ -439,6 +470,25 @@ export function createPluginSession(opts: PluginSessionOptions): PluginSession {
       }
       if (msg === null || typeof msg !== 'object') throw new Refusal('bad-request', 'A message is an object.');
       const req = msg as Record<string, unknown>;
+      // A handler announced, or withdrawn (#2830).
+      if (typeof req.handles === 'string' && PLUGIN_HANDLER_NAME.test(req.handles)) {
+        handlers.add(req.handles);
+        for (const go of awaitingHandler.get(req.handles)?.splice(0) ?? []) go();
+        return;
+      }
+      if (typeof req.unhandles === 'string') {
+        handlers.delete(req.unhandles);
+        return;
+      }
+      // A reply to a call of ours (#2830), not a request.
+      if (typeof req.reply === 'number') {
+        const waiter = calls.get(req.reply);
+        if (!waiter) return;
+        calls.delete(req.reply);
+        if (req.error !== undefined) waiter.reject(new PluginCallError(`${identity.name}: ${(typeof req.error === 'string' ? req.error : JSON.stringify(req.error)).slice(0, 500)}`));
+        else waiter.resolve(req.result);
+        return;
+      }
       if (typeof req.id !== 'number' || !Number.isFinite(req.id)) throw new Refusal('bad-request', 'A message needs a numeric "id".');
       id = req.id;
       if (typeof req.method !== 'string' || !isPluginMethod(req.method)) {
@@ -499,6 +549,21 @@ export function createPluginSession(opts: PluginSessionOptions): PluginSession {
       return added;
     },
     emit,
+    call: (handler, args) => {
+      if (closed) return Promise.reject(new PluginCallError(`${identity.name}'s session has ended.`));
+      if (!PLUGIN_HANDLER_NAME.test(handler)) return Promise.reject(new PluginCallError(`"${handler}" isn't a handler name.`));
+      const n = nextCall++;
+      const text = stringify({ call: n, handler, args });
+      if (byteLength(text) > PLUGIN_MESSAGE_LIMIT_BYTES) {
+        return Promise.reject(new PluginCallError(`What ${identity.name} was to be given is over ${PLUGIN_MESSAGE_LIMIT_BYTES} bytes.`));
+      }
+      return new Promise((resolve, reject) => {
+        calls.set(n, { resolve, reject });
+        const send = () => { if (!closed && calls.has(n)) port.send(text); };
+        if (handlers.has(handler)) send();
+        else awaitingHandler.set(handler, [...(awaitingHandler.get(handler) ?? []), send]);
+      });
+    },
     close,
     get closed() { return closed; },
     onClose: (fn) => { if (closed) fn(); else closeListeners.push(fn); },

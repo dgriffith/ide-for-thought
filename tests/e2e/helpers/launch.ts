@@ -541,6 +541,53 @@ export async function servePluginFrame(app: ElectronApplication, id: string, roo
     ));
 }
 
+/** Serve `root` as plugin `id`, with `worker` as the logic module its worker host runs (#2830). */
+export async function servePluginWorker(app: ElectronApplication, id: string, root: string, worker: string, capabilities: string[] = []): Promise<void> {
+  return test.step('serve plugin worker (main-process hook)', () =>
+    withinBound(
+      'servePluginWorker (app.evaluate in the main process)',
+      SEED_BOUND_MS,
+      app.evaluate((_electron, a) => {
+        const g = globalThis as typeof globalThis & {
+          __minervaE2E?: { servePluginWorker(id: string, root: string, worker: string, capabilities: string[]): void };
+        };
+        if (!g.__minervaE2E) throw new Error('e2e hook missing — MINERVA_E2E not set?');
+        g.__minervaE2E.servePluginWorker(a.id, a.root, a.worker, a.capabilities);
+      }, { id, root, worker, capabilities }),
+      () => probeApp(app),
+    ));
+}
+
+/**
+ * Call a fixture plugin's handler through its worker host (#2830): what it
+ * returned, or `{ error }` with why it didn't. Bounded at `boundMs`, past the
+ * call's own deadline, so a host that never answers fails here, named.
+ */
+export async function invokePluginLogic(
+  app: ElectronApplication,
+  id: string,
+  handler: string,
+  args: unknown,
+  opts: { scope?: string[]; deadlineMs?: number; boundMs?: number } = {},
+): Promise<{ result?: unknown; error?: string }> {
+  return withinBound(
+    `invokePluginLogic ${id}.${handler} (app.evaluate in the main process)`,
+    opts.boundMs ?? SEED_BOUND_MS,
+    app.evaluate(async (_electron, a) => {
+      const g = globalThis as typeof globalThis & {
+        __minervaE2E?: { invokePluginLogic(id: string, handler: string, args: unknown, opts: unknown): Promise<unknown> };
+      };
+      if (!g.__minervaE2E) throw new Error('e2e hook missing — MINERVA_E2E not set?');
+      try {
+        return { result: await g.__minervaE2E.invokePluginLogic(a.id, a.handler, a.args, { scope: a.scope, deadlineMs: a.deadlineMs }) };
+      } catch (e) {
+        return { error: e instanceof Error ? e.message : String(e) };
+      }
+    }, { id, handler, args, scope: opts.scope, deadlineMs: opts.deadlineMs }),
+    () => probeApp(app),
+  );
+}
+
 const firstPaintWatchers = new WeakMap<ChildProcess, ReturnType<typeof watchFirstPaint>>();
 
 /**

@@ -12,6 +12,7 @@ import { pluginFrameCsp, pluginFrameRoot, resolvePluginFrame, type PluginFrameRo
 // The plugin API runtime, generated from shared/plugins/api.ts (#2826) and
 // inlined at build time.
 import PLUGIN_API_JS from '../../plugin-api/index.js?raw';
+import { WORKER_HOST_HTML, WORKER_HOST_JS } from './plugins/worker-host-page';
 
 /** Install the handler. `embedderOrigins` are who may frame a plugin: the app's origin (and the dev server's). */
 export function installPluginProtocol(embedderOrigins: readonly string[], rootFor: PluginFrameRootLookup = pluginFrameRoot): void {
@@ -24,6 +25,17 @@ export function installPluginProtocol(embedderOrigins: readonly string[], rootFo
         status: 200,
         headers: {
           'Content-Type': 'text/javascript; charset=utf-8',
+          'Content-Security-Policy': csp,
+          'X-Content-Type-Options': 'nosniff',
+        },
+      });
+    }
+    if ('workerHost' in found) {
+      // The worker host (#2830): Minerva's page and script, under the frame CSP.
+      return new Response(found.workerHost === 'page' ? WORKER_HOST_HTML : WORKER_HOST_JS, {
+        status: 200,
+        headers: {
+          'Content-Type': found.workerHost === 'page' ? 'text/html; charset=utf-8' : 'text/javascript; charset=utf-8',
           'Content-Security-Policy': csp,
           'X-Content-Type-Options': 'nosniff',
         },

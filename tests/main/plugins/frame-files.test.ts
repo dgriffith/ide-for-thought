@@ -7,6 +7,7 @@ import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from 'vites
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { WORKER_HOST_HTML, WORKER_HOST_JS } from '../../../src/main/plugins/worker-host-page';
 import type { PluginPackage, PluginScan } from '../../../src/shared/plugins/format';
 
 const h = vi.hoisted((): { scan: PluginScan; core: Record<string, string[] | null> } => ({ scan: { plugins: [], errors: [] }, core: {} }));
@@ -25,6 +26,8 @@ import {
   resolvePluginFrameFile,
   setCorePluginViewsDir,
   PLUGIN_API_PATH,
+  WORKER_HOST_PAGE_PATH,
+  WORKER_HOST_SCRIPT_PATH,
   _servePluginFrameForE2E,
 } from '../../../src/main/plugins/frame-files';
 
@@ -117,6 +120,13 @@ describe('pluginFrameRoot (#2824)', () => {
     expect(await pluginFrameRoot('absent')).toBeNull(); // disabled or not installed: not in the scan
   });
 
+  it("is the folder of a plugin with logic and no ui too: its worker host's origin (#2830)", async () => {
+    const worker = pkg('parser', ['notes:read']);
+    worker.manifest.code = { capabilities: ['notes:read'], worker: 'logic.js' };
+    h.scan = { plugins: [worker], errors: [] };
+    expect(await pluginFrameRoot('parser')).toBe('/plugins/parser');
+  });
+
   it('serves the e2e fixture it was told to', async () => {
     _servePluginFrameForE2E('e2e-fixture', '/fixtures/frame');
     expect(await pluginFrameRoot('e2e-fixture')).toBe('/fixtures/frame');
@@ -172,5 +182,25 @@ describe("a built-in plugin's view (#2828)", () => {
     h.core = { kanban: null, python: ['process'] };
     expect(await pluginFrameRoot('kanban')).toBeNull();
     expect(await pluginFrameRoot('python')).toBeNull();
+  });
+});
+
+describe("the worker host's page and script (#2830)", () => {
+  it("are Minerva's, served on a plugin's origin, and nowhere else", async () => {
+    expect(await resolvePluginFrame(`minerva-plugin://hostile/${WORKER_HOST_PAGE_PATH}`, rootFor)).toEqual({ workerHost: 'page' });
+    expect(await resolvePluginFrame(`minerva-plugin://hostile/${WORKER_HOST_SCRIPT_PATH}`, rootFor)).toEqual({ workerHost: 'script' });
+    expect(await resolvePluginFrame(`minerva-plugin://nobody/${WORKER_HOST_PAGE_PATH}`, rootFor)).toBeNull();
+  });
+
+  it("are reserved: a plugin's own file at either path is never served", async () => {
+    expect(await resolvePluginFrameFile(`minerva-plugin://hostile/${WORKER_HOST_PAGE_PATH}`, rootFor)).toBeNull();
+    expect(await resolvePluginFrameFile(`minerva-plugin://hostile/${WORKER_HOST_SCRIPT_PATH}`, rootFor)).toBeNull();
+  });
+
+  it('the page starts only a module on its own origin, with the port only from its own window', () => {
+    expect(WORKER_HOST_HTML).toContain('<script src="/@minerva/worker-host.js"></script>');
+    expect(WORKER_HOST_JS).toContain('if (e.source !== window || e.origin !== location.origin) return;');
+    expect(WORKER_HOST_JS).toContain('if (entry.origin !== location.origin) return;');
+    expect(WORKER_HOST_JS).toContain("new Worker(entry.href, { type: 'module' })");
   });
 });

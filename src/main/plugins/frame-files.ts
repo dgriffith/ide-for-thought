@@ -43,16 +43,18 @@ export function setCorePluginViewsDir(dir: string): void {
 export const pluginFrameRoot: PluginFrameRootLookup = async (id) => {
   const e2e = e2eRoots.get(id);
   if (e2e) return e2e;
-  if (corePlugin(id)) {
-    // Active, with a view: `codePluginIdentity` is null for a built-in plugin
-    // that is off, and its capabilities say whether it has a UI.
+  const core = corePlugin(id);
+  if (core) {
+    // Active, with a view or a worker (#2830): `codePluginIdentity` is null
+    // for a built-in plugin that is off, and its manifest says the rest.
     const identity = codePluginIdentity(id);
-    if (!coreViewsDir || !identity?.capabilities.includes('ui')) return null;
+    if (!coreViewsDir || !identity || !(identity.capabilities.includes('ui') || core.manifest.code?.worker)) return null;
     return path.join(coreViewsDir, id);
   }
   const scan = await getPluginScan();
   const plugin = scan.plugins.find((p) => p.manifest.id === id);
-  if (!plugin?.manifest.code?.capabilities.includes('ui')) return null;
+  const code = plugin?.manifest.code;
+  if (!code || !(code.capabilities.includes('ui') || code.worker)) return null;
   return plugin.root;
 };
 
@@ -89,11 +91,26 @@ export function parsePluginFrameRequest(requestUrl: string): { id: string; rel: 
  */
 export const PLUGIN_API_PATH = '@minerva/plugin-api.js';
 
-/** What a request is: the plugin API, a file in the folder, or nothing (a 404). */
-export async function resolvePluginFrame(requestUrl: string, rootFor: PluginFrameRootLookup): Promise<{ api: true } | { file: string } | null> {
+/**
+ * The worker host's page and script (#2830): Minerva's own, at reserved paths
+ * on the plugin's origin (`worker-host-page.ts`). A plugin's own file at either
+ * is never served.
+ */
+export const WORKER_HOST_PAGE_PATH = '@minerva/worker-host.html';
+export const WORKER_HOST_SCRIPT_PATH = '@minerva/worker-host.js';
+const RESERVED = new Set([PLUGIN_API_PATH, WORKER_HOST_PAGE_PATH, WORKER_HOST_SCRIPT_PATH]);
+
+/** What a request is: the plugin API, the worker host's page or script, a file in the folder, or nothing (a 404). */
+export async function resolvePluginFrame(
+  requestUrl: string,
+  rootFor: PluginFrameRootLookup,
+): Promise<{ api: true } | { workerHost: 'page' | 'script' } | { file: string } | null> {
   const req = parsePluginFrameRequest(requestUrl);
   if (!req) return null;
   if (req.rel === PLUGIN_API_PATH) return (await rootFor(req.id)) ? { api: true } : null;
+  if (req.rel === WORKER_HOST_PAGE_PATH || req.rel === WORKER_HOST_SCRIPT_PATH) {
+    return (await rootFor(req.id)) ? { workerHost: req.rel === WORKER_HOST_PAGE_PATH ? 'page' : 'script' } : null;
+  }
   const file = await resolvePluginFrameFile(requestUrl, rootFor);
   return file ? { file } : null;
 }
@@ -105,7 +122,7 @@ export async function resolvePluginFrame(requestUrl: string, rootFor: PluginFram
  */
 export async function resolvePluginFrameFile(requestUrl: string, rootFor: PluginFrameRootLookup): Promise<string | null> {
   const req = parsePluginFrameRequest(requestUrl);
-  if (!req || req.rel === PLUGIN_API_PATH) return null;
+  if (!req || RESERVED.has(req.rel)) return null;
   const root = await rootFor(req.id);
   if (!root) return null;
   let realRoot: string;

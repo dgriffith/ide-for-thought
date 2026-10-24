@@ -6,7 +6,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
-import { createPluginSession, type BrokerDeps, type BrokerPort, type PluginIdentity } from '../../../src/main/plugins/broker';
+import { createPluginSession, PluginCallError, type BrokerDeps, type BrokerPort, type PluginIdentity } from '../../../src/main/plugins/broker';
 import { PLUGIN_MAX_IN_FLIGHT, PLUGIN_MESSAGE_LIMIT_BYTES, PLUGIN_METHODS, PLUGIN_PREVIEW_MAX_EXTRA, PLUGIN_PREVIEW_MAX_EXTRA_CHARS, PLUGIN_QUERY_ROW_LIMIT } from '../../../src/shared/plugins/api';
 import type { RevisionSource } from '../../../src/shared/history';
 import type { PluginCapability } from '../../../src/shared/plugins/capabilities';
@@ -476,5 +476,55 @@ describe("the view's own selection (#2828, C1)", () => {
       { kind: 'clearSelection' },
     ]);
     expect((await s.call('view.click', { path: 'b.md' })).error?.code).toBe('scope');
+  });
+});
+
+describe("calling a plugin's handlers (#2830)", () => {
+  const calls = (s: ReturnType<typeof open>) => s.sent.filter((m) => typeof (m as { call?: unknown }).call === 'number') as Array<{ call: number; handler: string; args: unknown }>;
+
+  it('waits for the handler to be announced, then sends the call and resolves with the reply', async () => {
+    const s = open();
+    const result = s.session.call('parse', { bytes: 3 });
+    await Promise.resolve();
+    expect(calls(s)).toEqual([]); // not announced yet: nothing sent
+    s.deliver(JSON.stringify({ handles: 'parse' }));
+    await vi.waitFor(() => expect(calls(s)).toHaveLength(1));
+    const [c] = calls(s);
+    expect(c).toEqual({ call: c!.call, handler: 'parse', args: { bytes: 3 } });
+    s.deliver(JSON.stringify({ reply: c!.call, result: { title: 'T' } }));
+    await expect(result).resolves.toEqual({ title: 'T' });
+  });
+
+  it("a handler's error rejects its call, naming the plugin; a reply nobody waits for is ignored", async () => {
+    const s = open();
+    s.deliver(JSON.stringify({ handles: 'parse' }));
+    const result = s.session.call('parse', null);
+    await vi.waitFor(() => expect(calls(s)).toHaveLength(1));
+    s.deliver(JSON.stringify({ reply: 999, result: 'stray' }));
+    s.deliver(JSON.stringify({ reply: calls(s)[0]!.call, error: 'line 3 is not CSV' }));
+    await expect(result).rejects.toThrow(new PluginCallError('Board: line 3 is not CSV'));
+  });
+
+  it('a session that ends fails the calls still waiting, and refuses new ones', async () => {
+    const s = open();
+    const waiting = s.session.call('never', null);
+    s.session.close();
+    await expect(waiting).rejects.toThrow("Board's session ended before it answered.");
+    await expect(s.session.call('parse', null)).rejects.toThrow("Board's session has ended.");
+  });
+
+  it('refuses a handler name that is not one, and arguments over the size limit', async () => {
+    const s = open();
+    await expect(s.session.call('../x', null)).rejects.toThrow('"../x" isn\'t a handler name.');
+    await expect(s.session.call('parse', 'x'.repeat(PLUGIN_MESSAGE_LIMIT_BYTES))).rejects.toThrow(/over \d+ bytes/);
+  });
+
+  it('a handler withdrawn is waited for again', async () => {
+    const s = open();
+    s.deliver(JSON.stringify({ handles: 'parse' }));
+    s.deliver(JSON.stringify({ unhandles: 'parse' }));
+    void s.session.call('parse', null);
+    await Promise.resolve();
+    expect(calls(s)).toEqual([]);
   });
 });

@@ -75,7 +75,7 @@ type FedSession =
 
 const sessions = new Map<string, Entry>();
 
-function portFor(port: MessagePortMain): BrokerPort {
+export function portFor(port: MessagePortMain): BrokerPort {
   return {
     send: (text) => port.postMessage(text),
     onMessage: (fn) => { port.on('message', (e) => fn(e.data)); port.start(); },
@@ -84,7 +84,12 @@ function portFor(port: MessagePortMain): BrokerPort {
   };
 }
 
-function depsFor(win: BrowserWindow, sessionId: string, pluginId: string): BrokerDeps {
+/**
+ * The broker's real I/O. `win` is the window a frame's intents go to; a
+ * plugin's worker (#2830) has none, so its UI intents are dropped (logged)
+ * and a menu it asks for is never drawn.
+ */
+export function brokerDepsFor(win: BrowserWindow | null, sessionId: string, pluginId: string): BrokerDeps {
   return {
     readNote: (root, rel) => notebaseFs.readFile(root, rel),
     noteExists: (root, rel) => notebaseFs.fileExists(root, rel),
@@ -102,11 +107,12 @@ function depsFor(win: BrowserWindow, sessionId: string, pluginId: string): Broke
       return why ? REFUSAL_WORDS[why] : null;
     },
     intent: (intent) => {
+      if (!win) { logger('plugins').info(`plugin ${pluginId}: its worker asked for "${intent.kind}", which needs a view`); return; }
       if (!win.isDestroyed()) win.webContents.send(Channels.PLUGINS_INTENT, { sessionId, pluginId, intent });
     },
     copyText: (text) => { void clipboard.writeText(text); },
     showMenu: (items) => new Promise((resolve) => {
-      if (win.isDestroyed()) { resolve(null); return; }
+      if (!win || win.isDestroyed()) { resolve(null); return; }
       let chosen: string | null = null;
       const menu = Menu.buildFromTemplate(items.map((item) => ('separator' in item
         ? { type: 'separator' as const }
@@ -261,7 +267,7 @@ export function openPluginSession(win: BrowserWindow, pluginId: string, scope: r
     rootPath,
     scope: fed ? [] : scope,
     port: portFor(port1),
-    deps: depsFor(win, sessionId, pluginId),
+    deps: brokerDepsFor(win, sessionId, pluginId),
     stillValid: () => {
       const now = codePluginIdentity(pluginId);
       if (!now) return `${identity.name} has been turned off.`;

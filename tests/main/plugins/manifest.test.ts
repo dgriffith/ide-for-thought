@@ -224,3 +224,18 @@ describe('code.blocks: live blocks (#2641)', () => {
     ]);
   });
 });
+
+describe('code.worker: a plugin\'s logic (#2830)', () => {
+  const CORE = { ...CTX, core: true };
+  const code = (worker: unknown) => ({ ...GOOD, code: { capabilities: ['notes:read'], api: '^1.10.0', worker } });
+
+  it('names a .js module in the plugin folder', () => {
+    expect(validatePluginManifest(code('logic/main.js'), CORE)).toEqual({ ok: true, manifest: { ...GOOD, code: { capabilities: ['notes:read'], api: '^1.10.0', worker: 'logic/main.js' } } });
+  });
+
+  it('refuses a path outside the folder, in a dot-folder, or not a .js file', () => {
+    expect(problemsOf(code('../app/main.js'), CORE)).toEqual(['"code.worker" must be a path inside the plugin\'s folder, like "views/logic.js"; got "../app/main.js".']);
+    expect(problemsOf(code('.hidden/main.js'), CORE)).toEqual(['"code.worker" must be a path inside the plugin\'s folder, like "views/logic.js"; got ".hidden/main.js".']);
+    expect(problemsOf(code('logic.ts'), CORE)).toEqual(['"code.worker" must be a JavaScript module, a .js file; got "logic.ts".']);
+  });
+});

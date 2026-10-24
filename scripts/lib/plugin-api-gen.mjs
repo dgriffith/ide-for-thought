@@ -260,10 +260,15 @@ export class PluginApiError extends Error {
   }
 }
 
+/** In a plugin's worker (#2830): no window, no document, and the port comes from the host page that started it. */
+const IN_WORKER = typeof window === 'undefined';
+
 /**
- * Wait for Minerva to hand this frame its session, then answer with the API.
- * The port is taken only from the parent window, which the frame's CSP
- * (\`frame-ancestors\`) already limits to Minerva itself.
+ * Wait for Minerva to hand this frame (or worker) its session, then answer
+ * with the API. A frame takes the port only from its parent window, which the
+ * frame's CSP (\`frame-ancestors\`) already limits to Minerva itself; a
+ * worker, from the Minerva page that started it — a dedicated worker hears
+ * from nothing else.
  *
  * By default (#2827) the runtime also: sets the app's theme tokens on this
  * frame's \`:root\` as they arrive (\`theme: false\` to do it yourself); gives
@@ -273,18 +278,20 @@ export class PluginApiError extends Error {
  */
 export function connect(options = {}) {
   const timeoutMs = options.timeoutMs ?? 10000;
+  const target = IN_WORKER ? self : window;
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
-      window.removeEventListener('message', onMessage);
+      target.removeEventListener('message', onMessage);
       reject(new PluginApiError('unavailable', 'Minerva did not connect this frame in time.'));
     }, timeoutMs);
     function onMessage(e) {
-      if (e.source !== window.parent || !e.data || e.data.type !== PORT_MESSAGE || !e.ports[0]) return;
-      window.removeEventListener('message', onMessage);
+      if (!IN_WORKER && e.source !== window.parent) return;
+      if (!e.data || e.data.type !== PORT_MESSAGE || !e.ports[0]) return;
+      target.removeEventListener('message', onMessage);
       clearTimeout(timer);
       resolve(client(e.ports[0], String(e.data.apiVersion), options));
     }
-    window.addEventListener('message', onMessage);
+    target.addEventListener('message', onMessage);
   });
 }
 
@@ -292,9 +299,24 @@ function client(port, hostVersion, options) {
   let nextId = 1;
   const pending = new Map();
   const listeners = new Map();
+  const handlers = new Map();
+  // Minerva calling one of this plugin's handlers (#2830): run it, answer with what it returned or why not.
+  const answer = (n, handler, args) => {
+    const fn = handlers.get(handler);
+    const send = (body) => port.postMessage(JSON.stringify({ reply: n, ...body }));
+    if (!fn) { send({ error: 'it has no handler "' + handler + '"' }); return; }
+    Promise.resolve().then(() => fn(args)).then(
+      (result) => { try { send({ result: result === undefined ? null : result }); } catch (err) { send({ error: 'its answer could not be sent: ' + String(err) }); } },
+      (err) => send({ error: err instanceof Error ? err.message : String(err) }),
+    );
+  };
   port.onmessage = (m) => {
     let reply;
     try { reply = JSON.parse(m.data); } catch { return; }
+    if (typeof reply.call === 'number' && typeof reply.handler === 'string') {
+      answer(reply.call, reply.handler, reply.args);
+      return;
+    }
     if (typeof reply.event === 'string') {
       for (const fn of listeners.get(reply.event) ?? []) {
         try { fn(reply.data); } catch (err) { setTimeout(() => { throw err; }); }
@@ -329,21 +351,32 @@ function client(port, hostVersion, options) {
       listeners.get(event).add(fn);
       return () => { listeners.get(event)?.delete(fn); };
     },
+    handle(name, fn) {
+      handlers.set(name, fn);
+      // Tell Minerva it can be called: a call waits for this, so a plugin that
+      // awaits something before registering doesn't miss one.
+      port.postMessage(JSON.stringify({ handles: name }));
+      return () => {
+        if (handlers.get(name) !== fn) return;
+        handlers.delete(name);
+        port.postMessage(JSON.stringify({ unhandles: name }));
+      };
+    },
     close() {
-      window.removeEventListener('keydown', onKeydown);
+      if (!IN_WORKER) window.removeEventListener('keydown', onKeydown);
       port.close();
       for (const w of pending.values()) w.reject(new PluginApiError('unavailable', 'The session was closed.'));
       pending.clear();
     },
   };
-  if (options.theme !== false) {
+  if (!IN_WORKER && options.theme !== false) {
     api.on('theme', ({ mode, vars }) => {
       const root = document.documentElement;
       for (const [name, value] of Object.entries(vars)) root.style.setProperty(name, value);
       root.dataset.minervaTheme = mode;
     });
   }
-  if (options.keyboard !== false) window.addEventListener('keydown', onKeydown);
+  if (!IN_WORKER && options.keyboard !== false) window.addEventListener('keydown', onKeydown);
   for (const name of METHODS) {
     const parts = name.includes(':') ? ['extensions', name] : name.split('.');
     let at = api;
@@ -453,6 +486,12 @@ export interface MinervaPlugin {
   call<M extends PluginMethod>(method: M, params: PluginMethodParams[M]): Promise<PluginMethodResults[M]>;
   /** Listen for an event; answers a function that stops listening. */
   on<E extends keyof PluginEvents>(event: E, listener: (data: PluginEvents[E]) => void): () => void;
+  /**
+   * In a plugin's worker (#2830): answer Minerva's calls to \`name\` with what
+   * \`handler\` returns (or resolves to), JSON-able. A throw or rejection fails
+   * the call with its message. Answers a function that unregisters it.
+   */
+  handle(name: string, handler: (args: unknown) => unknown): () => void;
   /** End the session; calls still waiting reject with \`unavailable\`. */
   close(): void;
 ${render(tree, 2)}

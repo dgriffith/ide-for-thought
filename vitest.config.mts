@@ -680,6 +680,23 @@ export default defineConfig({
           statements: 83,
           branches: 72,
         },
+        // plugins-apply.ts ~96 L / 80 F / 88 S / 69 B (#2830, when it crossed
+        // 150 lines): applies a plugin change to every seam, window and host.
+        'src/main/plugins-apply.ts': {
+          lines: 87,
+          functions: 70,
+          statements: 79,
+          branches: 59,
+        },
+        // plugin-worker-host.ts ~79 L / 72 F / 80 S / 74 B (#2830). Where a
+        // plugin's logic runs: the deadline that stops a loop, the idle stop,
+        // the queue. The Electron view itself is the e2e's.
+        'src/main/plugin-worker-host.ts': {
+          lines: 71,
+          functions: 64,
+          statements: 72,
+          branches: 66,
+        },
         // path-containment.ts ~95 L / 100 F / 94 S / 93 B (#2398). The
         // thoughtbase containment guard (moved out of notebase/fs.ts so the
         // graph/search/embeddings walkers can share it) — a trust boundary,

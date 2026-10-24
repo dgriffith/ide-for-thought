@@ -1849,7 +1849,13 @@ origin.
   `view.setHeight`); it reaches its own note plus its declared query's notes,
   and an HTML export draws it through the same frame in the export window
   (the one `plugin` live-block kind). A name a built-in draws is refused —
-  see `docs/plugin-code.md` → *Live blocks*.
+  see `docs/plugin-code.md` → *Live blocks*. **Plugin logic (#2830)** runs in a worker
+  host (`plugin-worker-host.ts`): an unattached sandboxed `WebContentsView` on
+  the plugin's origin whose Minerva-owned page starts `code.worker` in a Web
+  Worker. Call it with `invokePluginLogic(id, handler, args, { rootPath,
+  scope })`; the plugin answers through `minerva.handle()`. Each call has a
+  deadline that destroys the host when missed, and a host stops after 60 s
+  idle (~90 MB each, measured). Its preload only forwards the port.
 
 ### Code Review Checklist for LLM/Graph PRs
 
