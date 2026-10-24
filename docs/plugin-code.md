@@ -583,7 +583,7 @@ can't undo it. The handler's scope is still the active note, so one with
   app is unaffected.
 - **Not yet.** An `mcpTool` command waits for a confirm card outside a
   conversation (a tool not marked read-only must ask, #2439). The native menu
-  bar and keybindings wait on *Shortcut conflicts* below.
+  bar and keybindings wait on *Shortcut conflicts* below. All three are #2879.
 - **List Tools is the worked example**, off by default: *Sort List in
   Selection* sorts the outermost items of the selected Markdown list, nested
   items and continuation lines moving with their parent
