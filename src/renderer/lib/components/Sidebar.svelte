@@ -17,10 +17,12 @@
   import { getProposalsStore } from '../stores/proposals.svelte';
   import { getNotebaseStore } from '../stores/notebase.svelte';
   import { getDialogStore } from '../stores/dialogs.svelte';
-  import { LEFT_PANELS, type LeftPanel, type LeftPanelHost, type LeftPanelId, type SidebarFileOps, type SidebarPanelOps } from './sidebar/panels';
+  import { LEFT_PANELS, pluginLeftPanels, type LeftPanel, type LeftPanelHost, type LeftPanelId, type SidebarFileOps, type SidebarPanelOps } from './sidebar/panels';
+  import { corePluginsStore } from '../stores/core-plugins.svelte';
+  import type { PluginPanelId } from './plugins/plugin-panels';
   import { tick } from 'svelte';
 
-  type PanelType = LeftPanelId;
+  type PanelType = LeftPanelId | PluginPanelId;
 
   /** Recursively count files (not folders) in the tree — drives the
    *  count chip in the Notes panel header. */
@@ -51,8 +53,13 @@
 
   let activePanel = $state<PanelType>('notes');
   const notesCount = $derived(countFiles(notebase.files));
-  const PANEL_DEFS: ReadonlyMap<PanelType, LeftPanel> = new Map(LEFT_PANELS.map((p) => [p.id, p] as const));
-  const activeDef = $derived(PANEL_DEFS.get(activePanel));
+  // The core panels, then those plugins' global views add (#2640) — which
+  // come and go as plugins are turned on and off.
+  const panels: ReadonlyArray<LeftPanel & { id: PanelType }> = $derived([...LEFT_PANELS, ...pluginLeftPanels(corePluginsStore.views('left-sidebar'))]);
+  const PANEL_DEFS: ReadonlyMap<PanelType, LeftPanel> = $derived(new Map(panels.map((p) => [p.id, p] as const)));
+  // A plugin panel whose plugin was turned off falls back to Notes.
+  const activeDef = $derived(PANEL_DEFS.get(activePanel) ?? PANEL_DEFS.get('notes'));
+  const shownPanel = $derived<PanelType>(PANEL_DEFS.has(activePanel) ? activePanel : 'notes');
 
   // Seed the note→type map once on mount so Notes-tree rows carry their type
   // icons from the first paint. A project restored at startup doesn't go
@@ -76,7 +83,7 @@
 
   /** Call `method` on panel `id` if it's the one mounted; otherwise nothing. */
   function callActive(id: PanelType, method: string, ...args: unknown[]): unknown {
-    if (activePanel !== id) return undefined;
+    if (shownPanel !== id) return undefined;
     const fn = panelInstance?.[method];
     return typeof fn === 'function' ? (fn as (...a: unknown[]) => unknown).apply(panelInstance, args) : undefined;
   }
@@ -192,8 +199,8 @@
   <div class="resize-handle" class:dragging onmousedown={startResize}></div>
 
   <div class="panel-tabs">
-    {#each LEFT_PANELS as p (p.id)}
-      {@const active = activePanel === p.id}
+    {#each panels as p (p.id)}
+      {@const active = shownPanel === p.id}
       {@const badge = p.badge?.(host)}
       {@const pending = badge?.count ?? 0}
       <button
@@ -221,7 +228,9 @@
 
   <div class="panel-content">
     {#if activeDef && (activeDef.available?.(host) ?? true)}
-      <activeDef.component bind:this={panelInstance} {...activeDef.props(host)} />
+      {#key shownPanel.startsWith('plugin:') ? shownPanel : ''}
+        <activeDef.component bind:this={panelInstance} {...activeDef.props(host)} />
+      {/key}
     {/if}
   </div>
 </aside>

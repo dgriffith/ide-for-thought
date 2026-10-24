@@ -15,6 +15,7 @@ import {
   aliasMapObject,
   aliasEntries,
   aliasesForNote as aliasesForNoteIndex,
+  indexedNotePaths,
   type AliasEntry,
 } from '../note-index';
 
@@ -69,6 +70,27 @@ export function noteUriFor(ctx: ProjectContext, relativePath: string): string | 
   const state = getState(ctx);
   if (!state) return null;
   return noteUri(state, relativePath).value;
+}
+
+/**
+ * Which of `iris` are notes, and their paths: the inverse of `noteUriFor`,
+ * over the notes indexed now. What a global view's query results are turned
+ * into a plugin session's scope with (#2640). A value that isn't a note's
+ * IRI is left out; so is everything when no graph is open.
+ */
+export function notePathsForIris(ctx: ProjectContext, iris: Iterable<string>): Map<string, string> {
+  const out = new Map<string, string>();
+  const state = getState(ctx);
+  if (!state) return out;
+  const wanted = new Set(iris);
+  if (wanted.size === 0) return out;
+  for (const rel of indexedNotePaths(ctx)) {
+    const iri = noteUri(state, rel).value;
+    // Two notes can share an IRI (`a.md` and `a.ttl`, the latent collision
+    // `noteUri` has): the first indexed keeps it, as the graph's triples do.
+    if (wanted.has(iri) && !out.has(iri)) out.set(iri, rel);
+  }
+  return out;
 }
 
 /**

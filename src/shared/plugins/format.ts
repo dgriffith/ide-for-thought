@@ -85,6 +85,38 @@ export interface PluginCode {
    * version. Required when the code uses the API (any capability but `process`).
    */
   api?: string;
+  /** Global views it draws (#2640): panels in a sidebar, each fed by a query it declares. */
+  views?: PluginView[];
+}
+
+/** Where a global view shows (#2640). Tabs follow in a second step. */
+export const PLUGIN_VIEW_PLACES = ['left-sidebar', 'right-sidebar'] as const;
+export type PluginViewPlace = (typeof PLUGIN_VIEW_PLACES)[number];
+
+/**
+ * A global view (#2640): a page of the plugin's, framed in a sidebar panel,
+ * and the read-only SPARQL query that feeds it. Minerva runs the query, not
+ * the plugin: the notes in its results are the view's scope, the way a type
+ * view's instances are a layout's, so the query a plugin is shown with at
+ * install is exactly what it can be given.
+ *
+ * ```json
+ * "views": [{ "id": "queue", "title": "Reading Queue", "place": "left-sidebar",
+ *             "entry": "index.html", "query": "queue.rq" }]
+ * ```
+ */
+export interface PluginView {
+  /** Lowercase letters and digits in dash-separated words, unique in the plugin. */
+  id: string;
+  /** The panel's title, and the frame's accessible name. */
+  title: string;
+  place: PluginViewPlace;
+  /** The page to frame, in the plugin's folder: an `.html` file. */
+  entry: string;
+  /** The query, in the plugin's folder: an `.rq` file. */
+  query: string;
+  /** One of Minerva's icon names; a generic one when it isn't. */
+  icon?: string;
 }
 
 /**
@@ -220,6 +252,8 @@ export interface PluginSummary {
   mcpServers?: number;
   /** What its code may do (#2823); absent when it has none. */
   capabilities?: PluginCapability[];
+  /** The global views it draws (#2640); absent when none. */
+  views?: PluginView[];
 }
 
 /**

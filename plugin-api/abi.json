@@ -1,5 +1,5 @@
 {
-  "version": "1.7.0",
+  "version": "1.8.0",
   "errorCodes": [
     "bad-request",
     "busy",
@@ -13,6 +13,7 @@
   "types": {
     "PluginMenuItem": "{ id: string; label: string; enabled?: boolean } | { separator: true }",
     "PluginMoveTarget": "{ value: string | null; label: string; kind: 'option' | 'off-list' | 'no-value' }",
+    "PluginQueryResults": "{ columns: string[]; rows: Record<string, string>[]; notes: Record<string, string>; truncated: boolean; error: string | null; }",
     "PluginViewField": "{ name: string; label: string; text: string; ref?: string }",
     "PluginViewFilter": "| { property: string; values: string[]; match?: 'any' | 'all' | 'none' } | { property: string; min: string | null; max: string | null }",
     "PluginViewGroup": "{ /** Its key in `columnOrder`: what `view.moveColumn` names. */ key: string; label: string; /** `option` — one of the property's options; `off-list` — a value it doesn't declare; `no-value` — empty. */ kind: 'option' | 'off-list' | 'no-value'; /** The value its notes hold; null for No value. */ value: string | null; /** Its notes, in the view's order. */ paths: string[]; }",
@@ -64,6 +65,9 @@
           "type": "string"
         }
       ]
+    },
+    "query": {
+      "text": "PluginQueryResults"
     },
     "theme": {
       "members": [

@@ -136,3 +136,41 @@ describe('code.api: the plugin API versions the code was written for (#2826)', (
     expect(problemsOf({ ...GOOD, code: { capabilities: ['ui'], api: '>=1.0.0 <2' } }, CORE)).toEqual([]);
   });
 });
+
+describe('code.views: global views (#2640)', () => {
+  const CORE = { ...CTX, core: true };
+  const VIEW = { id: 'queue', title: 'Reading Queue', place: 'left-sidebar', entry: 'index.html', query: 'queue.rq' };
+  const code = (views: unknown, capabilities = ['graph:query', 'ui']) => ({ ...GOOD, code: { capabilities, api: '^1.8.0', views } });
+
+  it('a view names its page, its query and its place', () => {
+    const r = validatePluginManifest(code([{ ...VIEW, icon: 'bookmark' }]), CORE);
+    expect(r).toEqual({ ok: true, manifest: { ...GOOD, code: { capabilities: ['graph:query', 'ui'], api: '^1.8.0', views: [{ ...VIEW, icon: 'bookmark' }] } } });
+  });
+
+  it('needs a frame and a query to read: the ui and graph:query capabilities', () => {
+    expect(problemsOf(code([VIEW], ['ui', 'notes:read']), CORE)).toEqual([
+      '"code.views" needs the "graph:query" capability: a view is a page fed by a query.',
+    ]);
+  });
+
+  it('refuses a page or query outside the folder, of the wrong kind, or in a dot-folder', () => {
+    expect(problemsOf(code([{ ...VIEW, entry: '../app/index.html', query: 'queries/q.sql' }]), CORE)).toEqual([
+      '"code.views[0].entry" must be a path inside the plugin\'s folder, like "views/index.html"; got "../app/index.html".',
+      '"code.views[0].query" must be a SPARQL query, an .rq file; got "queries/q.sql".',
+    ]);
+    expect(problemsOf(code([{ ...VIEW, entry: '/abs.html', query: '.hidden/q.rq' }]), CORE)).toEqual([
+      '"code.views[0].entry" must be a path inside the plugin\'s folder, like "views/index.html"; got "/abs.html".',
+      '"code.views[0].query" must be a path inside the plugin\'s folder, like "views/queue.rq"; got ".hidden/q.rq".',
+    ]);
+  });
+
+  it('refuses unknown fields, places, bad ids, duplicates, and an empty list', () => {
+    expect(problemsOf(code([{ ...VIEW, place: 'tab', html: 'x' }, { ...VIEW, id: 'Bad Id' }, VIEW, VIEW]), CORE)).toEqual([
+      'Unknown field "code.views[0].html".',
+      '"code.views[0].place" must be one of left-sidebar, right-sidebar; got "tab".',
+      '"code.views[1].id" must be lowercase letters and digits in dash-separated words, like "queue".',
+      '"code.views" has two views with the id "queue".',
+    ]);
+    expect(problemsOf(code([]), CORE)).toEqual(['"code.views" must be a non-empty list of views.']);
+  });
+});

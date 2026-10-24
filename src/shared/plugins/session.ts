@@ -42,7 +42,9 @@ export type PluginHostEvent =
   /** Ask the plugin to draw its view for an export (#2828). */
   | { kind: 'exportRequest'; requestId: string }
   /** What the app's hover preview of a note says, or null when it goes (#2828). */
-  | { kind: 'preview'; path: string; description: string | null };
+  | { kind: 'preview'; path: string; description: string | null }
+  /** Run a global view's declared query again and send its results (#2640). */
+  | { kind: 'refreshQuery' };
 
 export interface PluginIntentEvent {
   sessionId: string;

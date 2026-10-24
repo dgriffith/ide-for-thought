@@ -6,7 +6,7 @@
  * Each entry gives its component and `props(host)`, typed against the
  * component; `available` (some panels need a host callback to mount),
  * `count` (the header's number) and `badge` (the rail's cue) are optional.
- * A plugin's panel (a template-rendered global view, #2615) will register here.
+ * A plugin's global view (#2640) registers here through `pluginLeftPanels`.
  */
 import type { Component, ComponentProps } from 'svelte';
 import type { IconName } from '../icons/registry';
@@ -21,6 +21,9 @@ import TablesPanel from '../TablesPanel.svelte';
 import ObjectsPanel from '../ObjectsPanel.svelte';
 import BookmarksPanel from '../BookmarksPanel.svelte';
 import ProposalsPanel from '../ProposalsPanel.svelte';
+import PluginPanel from '../plugins/PluginPanel.svelte';
+import { pluginPanelIcon, pluginPanelId, pluginPanelProps, type PluginPanelId } from '../plugins/plugin-panels';
+import type { ActivePluginView } from '../../stores/core-plugins.svelte';
 
 export interface SidebarFileOps {
   onNewNote: (directory: string) => void;
@@ -124,3 +127,9 @@ export const LEFT_PANELS = [
 ];
 
 export type LeftPanelId = (typeof LEFT_PANELS)[number]['id'];
+
+/** The panels plugins' global views add after the core ones (#2640). */
+export function pluginLeftPanels(views: readonly ActivePluginView[]): Array<LeftPanel & { id: PluginPanelId }> {
+  return views.map((v) => panel({ id: pluginPanelId(v), label: v.view.title, icon: pluginPanelIcon(v.view.icon), component: PluginPanel,
+    props: () => pluginPanelProps(v) }));
+}

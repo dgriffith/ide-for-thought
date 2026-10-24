@@ -28,7 +28,7 @@ import type { PluginCapability } from './capabilities';
  * The API's semver version (#2826), its own and not the app's: the host sends
  * it with the port, and a plugin's `code.api` range must accept it.
  */
-export const PLUGIN_API_VERSION = '1.7.0';
+export const PLUGIN_API_VERSION = '1.8.0';
 
 export const PLUGIN_METHODS = {
   'notes.list': { capability: 'notes:read', describes: 'The notes this view or call was given.' },
@@ -155,6 +155,9 @@ export interface PluginMethodResults {
  * - `preview` (#2828): what Minerva's hover preview of a note says, while it
  *   shows (null when it goes) — for the note's accessible description in the
  *   frame, since `aria-describedby` can't reach the preview outside it.
+ * - `query` (#2640): a global view's declared query, as Minerva ran it — sent
+ *   on connect and whenever the graph changes. The notes its rows name are
+ *   the session's scope.
  */
 export interface PluginEvents {
   theme: { mode: string; vars: Record<string, string> };
@@ -162,7 +165,23 @@ export interface PluginEvents {
   view: PluginViewState;
   export: { requestId: string };
   preview: { path: string; description: string | null };
+  query: PluginQueryResults;
 }
+
+/**
+ * A global view's query, as Minerva ran it (#2640). `rows` are the SPARQL
+ * results, each variable's lexical value; `notes` maps every value in them
+ * that is a note's IRI to its path — what `ui.openNote` and `notes.read`
+ * take, since those notes are the view's scope. A query that failed has no
+ * rows and says why in `error`.
+ */
+export type PluginQueryResults = {
+  columns: string[];
+  rows: Record<string, string>[];
+  notes: Record<string, string>;
+  truncated: boolean;
+  error: string | null;
+};
 
 /** A type view, as a plugin drawing one of its layouts sees it (#2828). */
 export type PluginViewState = {

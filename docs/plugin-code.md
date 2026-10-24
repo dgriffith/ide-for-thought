@@ -407,6 +407,49 @@ Its TypeView-level tests run the plugin's real `App.svelte` in loopback
 sent each view, preview and export request the host sends, its calls routed
 to the host callbacks the broker's intents would reach.
 
+### Global views (#2640)
+
+A view that belongs to no type view: a panel in the left or right sidebar
+(tabs are the next step). A plugin declares it in `code.views`, each with a
+page in its folder and the **query that feeds it**:
+
+```json
+"code": {
+  "capabilities": ["graph:query", "notes:write-properties", "ui"],
+  "api": "^1.8.0",
+  "views": [{ "id": "queue", "title": "Reading Queue", "place": "left-sidebar",
+              "entry": "index.html", "query": "queue.rq", "icon": "bookmark" }]
+}
+```
+
+**Decision: Minerva runs the query, not the plugin.** A type view's scope is
+its instances, handed over by the host. A global view has no host-chosen notes,
+and letting *any* `graph.query` widen the scope would make `notes:read` mean
+"every note", since one `SELECT` names them all. So the scope is the notes the
+**declared** `.rq` names: main reads it from the plugin's folder (with the
+frame protocol's containment), runs it read-only, scopes the session to the
+note IRIs in its rows, and sends a `query` event (API 1.8.0) — the rows, plus
+`notes`, each note IRI's path. The query can be read at install, and is
+exactly what the view can be given. The plugin may still call `graph.query`
+for anything else it shows; that never widens the scope.
+
+- **The renderer never names the notes.** The panel host (`PluginPanel.svelte`)
+  opens the session by the view's id and asks for a re-run on connect and on
+  every graph change (`refreshQuery`); `setSessionScope` is refused for a view
+  session. A slower earlier run that lands after a later one is dropped.
+- **A view needs `ui` and `graph:query`**, which the validator checks. Writes
+  are the usual scoped ones: the Reading Queue's ✓ sets a book's `status` (an
+  article's `read`) to `read`, through `notes.setProperties`, on a note its
+  query gave it. The graph changes, the query runs again, the row goes.
+- **Panels are registry entries.** `pluginLeftPanels` / `pluginRightPanels`
+  build ordinary `LEFT_PANELS` / `RIGHT_PANELS` entries from the views of the
+  plugins that are on (`corePluginsStore.views(place)`); the right sidebar
+  shows its Plugins group only while one is. A panel whose plugin is turned
+  off falls back to Notes (or Outline).
+- **The Reading Queue is the worked example** (`plugins/reading-queue/`, off
+  by default): `public/queue.rq` is copied beside its page by the build, and
+  `tests/main/plugins/reading-queue-query.test.ts` runs it against a real graph.
+
 ### Other candidates
 
 The test is which features reach a privileged sink or hold a credential:
@@ -523,7 +566,7 @@ is an MCP server, as in 4.0.
 
 | Story | Proposed |
 |---|---|
-| #2640 views | Rewrite around the view API. Kanban, timeline and calendar are its first users. |
+| #2640 views | Rewritten around the view API. Sidebar panels are built (*Global views* above); tabs next. |
 | #2641 live blocks | Rewrite around the view API. **Open:** blocks also render in exports, which run in main; an export would render the block in a headless plugin host. |
 | #2642 inspections | Build as written (SPARQL). Code checks come later, through the worker host. |
 | #2643 commands | Rewrite: a command whose handler is in the plugin's worker, placed through the existing `COMMANDS` registry. |

@@ -1156,8 +1156,8 @@ export interface PluginsApi {
   reveal(id?: string): Promise<void>;
   /** Plugins changed (here or outside the app) and have been applied. */
   onChanged(cb: () => void): () => void;
-  /** Open a session for a plugin's frame and the notes its view was given (#2825). The port arrives as a window message; see `stores/plugin-sessions.svelte.ts`. */
-  openSession(pluginId: string, scope: string[]): Promise<{ sessionId: string }>;
+  /** Open a session for a plugin's frame and the notes its view was given (#2825) — or, for a global view, its id: main runs the view's query and scopes the session to its notes (#2640). The port arrives as a window message; see `stores/plugin-sessions.svelte.ts`. */
+  openSession(pluginId: string, scope: string[], view?: string): Promise<{ sessionId: string }>;
   /** Replace the notes a session was given. */
   setSessionScope(sessionId: string, scope: string[]): Promise<void>;
   closeSession(sessionId: string): Promise<void>;

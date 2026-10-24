@@ -46,6 +46,8 @@ export interface PluginFrameConnection {
   requestExport(requestId: string): Promise<void>;
   /** What the app's preview of a note says, or null when it goes (#2828). */
   sendPreview(path: string, description: string | null): Promise<void>;
+  /** A global view's (#2640): run its query again and send the plugin the results. */
+  refreshQuery(): Promise<void>;
   close(): Promise<void>;
 }
 
@@ -198,15 +200,20 @@ function portFor(sessionId: string): Promise<MessagePort> {
   });
 }
 
-/** Give `frame` (already showing plugin `pluginId`'s page) a session over the notes in `scope`. */
+/**
+ * Give `frame` (already showing plugin `pluginId`'s page) a session over the
+ * notes in `scope` — or, for a global view (#2640), over what the query of
+ * `view` names, which main decides.
+ */
 export async function connectPluginFrame(
   frame: HTMLIFrameElement,
   pluginId: string,
   scope: string[],
   host?: PluginFrameHost,
+  view?: string,
 ): Promise<PluginFrameConnection> {
   install();
-  const { sessionId } = await api.plugins.openSession(pluginId, scope);
+  const { sessionId } = await (view === undefined ? api.plugins.openSession(pluginId, scope) : api.plugins.openSession(pluginId, [], view));
   let port: MessagePort;
   try {
     port = await portFor(sessionId);
@@ -230,6 +237,7 @@ export async function connectPluginFrame(
     sendView: (state) => api.plugins.sendSessionEvent(sessionId, { kind: 'view', state }),
     requestExport: (requestId) => api.plugins.sendSessionEvent(sessionId, { kind: 'exportRequest', requestId }),
     sendPreview: (path, description) => api.plugins.sendSessionEvent(sessionId, { kind: 'preview', path, description }),
+    refreshQuery: () => api.plugins.sendSessionEvent(sessionId, { kind: 'refreshQuery' }),
     close: () => {
       hosts.delete(sessionId);
       return api.plugins.closeSession(sessionId);

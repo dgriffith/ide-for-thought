@@ -48,6 +48,7 @@ export async function pluginList(): Promise<PluginList> {
       source: { kind: 'core' },
       contributes: {},
       ...(m.code ? { capabilities: m.code.capabilities } : {}),
+      ...(m.code?.views ? { views: m.code.views } : {}),
     })),
     installed: inv.installed.map(({ plugin, record }): PluginSummary => {
       const contributes: PluginSummary['contributes'] = {};
@@ -245,10 +246,12 @@ export function registerPlugins(): void {
   });
 
   // Plugin sessions (#2825): the host (this window) opens one for a plugin
-  // frame and the notes its view was given; `plugin-sessions.ts` holds them.
-  handle(Channels.PLUGINS_OPEN_SESSION, (e, pluginId: string, scope: string[]) => {
+  // frame and the notes its view was given — or, for a global view (#2640),
+  // the view, whose query main runs; `plugin-sessions.ts` holds them.
+  handle(Channels.PLUGINS_OPEN_SESSION, (e, pluginId: string, scope: string[], view?: string) => {
     if (typeof pluginId !== 'string' || !PLUGIN_ID.test(pluginId)) throw new Error(`"${String(pluginId)}" isn't a plugin id.`);
-    return openPluginSession(winFromEvent(e), pluginId, stringList(scope));
+    if (view !== undefined && (typeof view !== 'string' || !PLUGIN_ID.test(view))) throw new Error(`"${String(view)}" isn't a view id.`);
+    return openPluginSession(winFromEvent(e), pluginId, stringList(scope), view);
   });
   handle(Channels.PLUGINS_SET_SESSION_SCOPE, (e, sessionId: string, scope: string[]) => {
     setPluginSessionScope(winFromEvent(e), String(sessionId), stringList(scope));
@@ -257,8 +260,8 @@ export function registerPlugins(): void {
     closePluginSession(winFromEvent(e), String(sessionId));
   });
   handle(Channels.PLUGINS_SESSION_EVENT, (e, sessionId: string, event: PluginHostEvent) => {
-    if (event === null || typeof event !== 'object' || !['theme', 'drop', 'view', 'exportRequest', 'preview'].includes(event.kind)) {
-      throw new Error('A plugin session event is a theme, a drop, a view, an export request or a preview.');
+    if (event === null || typeof event !== 'object' || !['theme', 'drop', 'view', 'exportRequest', 'preview', 'refreshQuery'].includes(event.kind)) {
+      throw new Error('A plugin session event is a theme, a drop, a view, an export request, a preview or a query refresh.');
     }
     sendPluginSessionEvent(winFromEvent(e), String(sessionId), event);
   });

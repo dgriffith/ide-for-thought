@@ -1,0 +1,18 @@
+# Reading Queue (#2640): the books and articles still to read, and those being
+# read first. Minerva runs this, not the plugin: the notes it names are the
+# only ones the panel can open, preview or mark as read.
+SELECT ?note ?title ?kind ?status ?author WHERE {
+  {
+    ?note rdf:type/rdfs:subClassOf* types:Book ; minerva:meta-status ?status .
+    FILTER(?status IN ("to-read", "reading"))
+    BIND("book" AS ?kind)
+  } UNION {
+    ?note rdf:type/rdfs:subClassOf* types:Article ; minerva:meta-read ?status .
+    FILTER(?status IN ("unread", "reading"))
+    BIND("article" AS ?kind)
+  }
+  ?note dc:title ?title .
+  OPTIONAL { ?note dc:creator ?author }
+  BIND(IF(?status = "reading", 0, 1) AS ?rank)
+}
+ORDER BY ?rank LCASE(STR(?title))
