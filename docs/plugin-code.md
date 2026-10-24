@@ -143,6 +143,36 @@ from the OS sandbox rather than from code we'd have to get right.
   stopped until it's next used. A loop in a plugin costs that plugin, never
   the app.
 
+**As built (#2830).** `main/plugin-worker-host.ts`:
+
+- **The host is an unattached `WebContentsView`**, not a window, so it never
+  counts as one (window accounting, "all windows closed"): `sandbox: true`, no
+  Node anywhere, the app's hardened preferences, on `minerva-plugin://<id>/`,
+  showing Minerva's own page at a reserved path (`/@minerva/worker-host.html`,
+  `plugins/worker-host-page.ts`). That page starts the plugin's `code.worker`
+  module in a Web Worker and hands it the session port. The worker has no
+  `require`, `process`, DOM or `window.api`, and `fetch` is refused by the
+  origin's CSP. Measured in the packaged app.
+- **One preload, two lines.** "No preload" can't hold: a page can only be
+  handed a `MessagePort` from main through `ipcRenderer`. So the host page
+  gets `preload/worker-host-preload.ts`, which forwards one port and exposes
+  nothing. Plugin code never runs in the page, only in the worker.
+- **Calls** go through the broker the other way: `session.call(handler,
+  args)` sends `{ call }`; the runtime's `minerva.handle(name, fn)` answers
+  `{ reply }`. A handler is announced when registered (`{ handles }`) and a
+  call waits for it, so a module that awaits before registering misses none
+  (API 1.10.0). The plugin calls the broker's methods as a frame does, scoped
+  to the notes the call was given. One call at a time per host, so the scope
+  is the call's own.
+- **Deadline:** 10 s by default. A miss destroys the host (its process ends,
+  the loop with it) and the call fails naming the plugin and the handler; the
+  next call, even one already queued, starts a fresh host.
+- **Cost, measured:** each host is its own renderer process, about **90 MB**
+  working set (96 MB in the packaged e2e, beside the app window's ~197 MB).
+  Two plugins can't share one: each is its own origin, so its own process.
+  So hosts start on first use and stop after **60 s idle**, and stop when
+  their plugin changes or their thoughtbase closes.
+
 ### Programs: declared, like an MCP server
 
 A plugin that needs a program of its own (a language kernel, a native tool)
@@ -643,9 +673,6 @@ is an MCP server, as in 4.0.
 
 ## Open questions
 
-- **Cost of a host per plugin.** A hidden sandboxed `WebContents` is tens of
-  MB. Start lazily, stop when idle, or share one host between a user's own
-  plugins?
 - **Plugins written on the spot.** Should a plugin the user's own agent just
   wrote go through the same install approval, or land as a proposal in the
   review queue? The second fits the Trust Principle better.

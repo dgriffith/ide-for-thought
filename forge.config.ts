@@ -260,6 +260,13 @@ const config: ForgeConfig = {
           target: 'preload',
         },
         {
+          // The plugin worker host's preload (#2830): forwards one port into
+          // Minerva's host page, exposes nothing. `worker-host-preload.cjs`.
+          entry: 'src/preload/worker-host-preload.ts',
+          config: 'vite.preload.config.mts',
+          target: 'preload',
+        },
+        {
           // Off-thread embedder (#834). Emitted as `embed-worker.cjs` beside
           // `main.cjs` so it shares the externalized node_modules; spawned by
           // embedder-service.ts via `new Worker(__dirname/embed-worker.cjs)`.

@@ -31,7 +31,7 @@ export const MAX_PLUGIN_ID = 64;
 
 const KNOWN_KEYS = new Set(['$schema', 'id', 'name', 'version', 'minerva', 'description', 'author', 'license', 'contributes', 'settings', 'mcpServers', 'code']);
 /** What a `code` section may hold (#2823). Entry points join it with the frame (#2824) and the worker host (#2830). */
-const CODE_KEYS = new Set(['capabilities', 'api', 'views', 'blocks']);
+const CODE_KEYS = new Set(['capabilities', 'api', 'views', 'blocks', 'worker']);
 const BLOCK_KEYS = new Set(['id', 'title', 'fence', 'directive', 'entry', 'query']);
 /** Most live blocks one plugin may draw (#2641). */
 export const MAX_PLUGIN_BLOCKS = 16;
@@ -191,9 +191,12 @@ function validateCode(raw: unknown, ctx: ManifestContext, problems: string[]): P
   }
   const views = raw.views === undefined ? undefined : validateViews(raw.views, out, problems);
   const blocks = raw.blocks === undefined ? undefined : validateBlocks(raw.blocks, out, problems);
+  // The logic module its worker host runs (#2830): a .js file in its folder, an ES module.
+  const worker = raw.worker === undefined ? undefined : pluginFilePath(raw.worker, 'code.worker', '.js', problems);
   const withViews = {
     ...(views !== undefined && views.length > 0 ? { views } : {}),
     ...(blocks !== undefined && blocks.length > 0 ? { blocks } : {}),
+    ...(worker !== undefined ? { worker } : {}),
   };
   // The plugin API's own version (#2826), not the app's.
   const api = raw.api;
@@ -225,11 +228,11 @@ function pluginFilePath(v: unknown, field: string, ext: string, problems: string
   }
   const segments = v.split('/');
   if (v.includes('\\') || v.includes('\0') || v.startsWith('/') || segments.some((s) => s === '' || s === '..' || s.startsWith('.'))) {
-    problems.push(`"${field}" must be a path inside the plugin's folder, like "views/${ext === '.rq' ? 'queue.rq' : 'index.html'}"; got ${JSON.stringify(v)}.`);
+    problems.push(`"${field}" must be a path inside the plugin's folder, like "views/${ext === '.rq' ? 'queue.rq' : ext === '.js' ? 'logic.js' : 'index.html'}"; got ${JSON.stringify(v)}.`);
     return undefined;
   }
   if (!v.toLowerCase().endsWith(ext)) {
-    problems.push(`"${field}" must be ${ext === '.rq' ? 'a SPARQL query, an .rq file' : 'a page, an .html file'}; got ${JSON.stringify(v)}.`);
+    problems.push(`"${field}" must be ${ext === '.rq' ? 'a SPARQL query, an .rq file' : ext === '.js' ? 'a JavaScript module, a .js file' : 'a page, an .html file'}; got ${JSON.stringify(v)}.`);
     return undefined;
   }
   return v;

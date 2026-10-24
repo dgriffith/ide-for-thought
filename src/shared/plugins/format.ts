@@ -91,6 +91,13 @@ export interface PluginCode {
   views?: PluginView[];
   /** Live blocks it draws (#2641): a fence or a directive in a note, in the preview and every export. */
   blocks?: PluginBlock[];
+  /**
+   * Its logic (#2830): a `.js` ES module in its folder, run in a Web Worker in
+   * a hidden, sandboxed host on the plugin's origin. It registers handlers
+   * with `minerva.handle(name, fn)`; Minerva calls them with data and a
+   * deadline, and does every file read and write itself.
+   */
+  worker?: string;
 }
 
 /**

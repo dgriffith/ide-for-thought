@@ -22,7 +22,8 @@ import { proposeWrite, type ProposedWrite } from './llm/approval';
 import { ingestHtmlString } from './sources/ingest';
 import { reindexSource } from './sources/source-meta-write';
 import { _servePluginFrameForE2E } from './plugins/frame-files';
-import { _registerCodePluginForE2E } from './plugins/code-plugins';
+import { _registerCodePluginForE2E, _registerCodePluginWorkerForE2E } from './plugins/code-plugins';
+import { invokePluginLogic } from './plugin-worker-host';
 import type { PluginCapability } from '../shared/plugins/capabilities';
 
 export interface E2EHooks {
@@ -40,6 +41,10 @@ export interface E2EHooks {
    *  No installed plugin can declare `ui` yet, so this is how the plugin-frame
    *  spec puts a hostile page in front of the real protocol and guards. */
   servePluginFrame(id: string, root: string, capabilities?: PluginCapability[]): void;
+  /** …with `worker`, a logic module in `root` its worker host runs (#2830). */
+  servePluginWorker(id: string, root: string, worker: string, capabilities?: PluginCapability[]): void;
+  /** Call a fixture plugin's handler in the focused window's thoughtbase (#2830). */
+  invokePluginLogic(id: string, handler: string, args: unknown, opts?: { scope?: string[]; deadlineMs?: number }): Promise<unknown>;
 }
 
 /** The distinctive triple the seeded proposal adds on approval. */
@@ -107,6 +112,15 @@ export function installE2EHooks(): void {
       _servePluginFrameForE2E(id, root);
       // …and treat it as enabled code with these capabilities, for the broker (#2825).
       _registerCodePluginForE2E({ id, name: 'Hostile fixture', version: '0.0.1', capabilities });
+    },
+    servePluginWorker(id, root, worker, capabilities = []) {
+      this.servePluginFrame(id, root, capabilities);
+      _registerCodePluginWorkerForE2E(id, worker);
+    },
+    async invokePluginLogic(id, handler, args, opts = {}) {
+      const rootPath = targetRootPath();
+      if (!rootPath) throw new Error('No thoughtbase open in the focused window.');
+      return invokePluginLogic(id, handler, args, { rootPath, ...(opts.scope ? { scope: opts.scope } : {}), ...(opts.deadlineMs ? { deadlineMs: opts.deadlineMs } : {}) });
     },
   };
   (globalThis as typeof globalThis & { __minervaE2E?: E2EHooks }).__minervaE2E = hooks;

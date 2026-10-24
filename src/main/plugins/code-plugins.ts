@@ -73,3 +73,21 @@ export function activePluginBlockSyntax(): PluginBlockSyntax[] {
   }
   return out;
 }
+
+/** The logic module plugin `id`'s worker host runs (#2830), while it is enabled code; null when it has none. */
+export function codePluginWorker(id: string): string | null {
+  if (!codePluginIdentity(id)) return null;
+  const e2e = e2eWorkers.get(id);
+  if (e2e) return e2e;
+  const core = corePlugin(id);
+  const manifest = core ? core.manifest : loadedPluginScan().plugins.find((p) => p.manifest.id === id)?.manifest;
+  return manifest?.code?.worker ?? null;
+}
+
+// The e2e harness's fixture plugins with logic (`e2e-hooks.ts`, MINERVA_E2E only).
+const e2eWorkers = new Map<string, string>();
+
+/** Treat `entry` as plugin `id`'s logic module — e2e only (`e2e-hooks.ts`). */
+export function _registerCodePluginWorkerForE2E(id: string, entry: string): void {
+  e2eWorkers.set(id, entry);
+}

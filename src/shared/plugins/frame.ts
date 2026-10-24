@@ -54,3 +54,7 @@ export const PLUGIN_FRAME_SANDBOX = 'allow-scripts allow-same-origin';
  * can't load, so a frame falls through the same list to the system fonts.
  */
 export const PLUGIN_THEME_TOKENS: readonly string[] = [...THEME_TOKENS, '--font-sans', '--font-display', '--font-mono'];
+
+/** The channel main posts a worker host its session port on (#2830), and the window message its preload forwards it as. */
+export const WORKER_HOST_PORT_CHANNEL = 'minerva.worker-host-port';
+export const WORKER_HOST_PORT_MESSAGE = 'minerva.worker-host-port';

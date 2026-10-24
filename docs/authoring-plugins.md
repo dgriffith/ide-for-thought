@@ -167,7 +167,7 @@ URL you typed yourself. The rules are `src/main/plugins/recommendations.ts`.
 | `contributes` | yes | Extension point → the files it adds there. At least one, unless the plugin ships an MCP server. |
 | `mcpServers` | no | MCP servers it ships; see [MCP servers](#mcp-servers). |
 | `settings` | no | What the user can set for it on this machine; see [Settings](#settings). |
-| `code` | no | What its code inside Minerva does, as `capabilities` from a closed list (#2823). **Only [built-in plugins](#built-in-plugins) may have one for now**; an installed plugin's code ships as an [MCP server](#mcp-servers). |
+| `code` | no | What its code inside Minerva does, as `capabilities` from a closed list (#2823), and optionally `worker`: a `.js` module in the folder that runs in a sandboxed Web Worker and answers Minerva's calls with `minerva.handle(name, fn)` (#2830). **Only [built-in plugins](#built-in-plugins) may have one for now**; an installed plugin's code ships as an [MCP server](#mcp-servers). |
 | `$schema` | no | Ignored; there for editors. |
 
 Any other field is refused, so a misspelt `contributes` can't silently

@@ -67,6 +67,13 @@ upgrade copies the old `file://` origin's entries across once
 - **A permission** is granted in `security.ts`'s default-session handler to
   `app://minerva` only, judged by the requesting frame's URL (#2824). Any
   other session denies it.
+- **A plugin's worker host** (#2830) is an unattached `WebContentsView` with
+  the hardened preferences, on the plugin's origin, showing only Minerva's
+  host page. It's the one page besides the renderer with a preload, and that
+  preload forwards one port and exposes nothing; plugin code runs only in the
+  Web Worker the page starts. It's in the default session, so it gets the
+  default guards and no permissions, and the sender guard refuses it like any
+  page that isn't the renderer.
 - **A plugin frame** is framed with `PLUGIN_FRAME_SANDBOX`
   (`src/shared/plugins/frame.ts`) and talks to the app only over the port the
   host hands it (#2825). Two things found building it (#2824), worth knowing
