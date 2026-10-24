@@ -34,6 +34,9 @@ const CORE_PLUGIN_ACTIVATIONS: Readonly<Record<string, CorePluginActivation>> = 
   kanban: () => () => {},
   timeline: () => () => {},
   calendar: () => () => {},
+  // The Reading Queue (#2640) is a global view: served the same way, its
+  // query run by `plugin-sessions.ts` when its panel connects.
+  'reading-queue': () => () => {},
 };
 
 /**

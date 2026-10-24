@@ -63,6 +63,7 @@ export {
   getAliasEntries,
   getAllFrontmatterKeys,
   noteUriFor,
+  notePathsForIris,
   excerptUriFor,
   headingsFor,
 } from './queries/notes';

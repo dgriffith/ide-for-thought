@@ -63,7 +63,7 @@ describe('PluginFrame (#2827)', () => {
     expect(frame.getAttribute('src')).toBe('minerva-plugin://kanban/index.html');
     expect(frame.getAttribute('sandbox')).toBe('allow-scripts allow-same-origin');
     expect(frame.getAttribute('title')).toBe('Kanban board');
-    expect(h.connect).toHaveBeenCalledWith(frame, 'kanban', ['a.md'], expect.objectContaining({ releaseFocus: expect.any(Function) }));
+    expect(h.connect).toHaveBeenCalledWith(frame, 'kanban', ['a.md'], expect.objectContaining({ releaseFocus: expect.any(Function) }), undefined);
   });
 
   it('sends the theme on connect, and again when it changes', async () => {

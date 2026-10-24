@@ -1,16 +1,22 @@
 <script lang="ts">
-  import { RIGHT_PANELS, RIGHT_PANEL_GROUPS, type RightPanel, type RightPanelGroupId, type RightPanelHost, type RightPanelId } from './right-sidebar/panels';
+  import { RIGHT_PANELS, RIGHT_PANEL_GROUPS, pluginRightPanels, type RightPanel, type RightPanelGroupId, type RightPanelHost, type RightPanelId } from './right-sidebar/panels';
   import Icon from './Icon.svelte';
   import type { InspectionFix } from '../../../shared/types';
+  import { corePluginsStore } from '../stores/core-plugins.svelte';
+  import type { PluginPanelId } from './plugins/plugin-panels';
 
-  // The panels are a registry (#2626): `right-sidebar/panels.ts`.
-  type PanelType = RightPanelId;
+  // The panels are a registry (#2626): `right-sidebar/panels.ts`, then those
+  // plugins' global views add (#2640), which come and go with their plugins.
+  type PanelType = RightPanelId | PluginPanelId;
   type PanelGroupId = RightPanelGroupId;
 
-  /** The groups, each with its panels in registry order. */
-  const GROUPS = RIGHT_PANEL_GROUPS.map((g) => ({ ...g, items: RIGHT_PANELS.filter((p) => p.group === g.id) }));
+  const panels: ReadonlyArray<RightPanel & { id: PanelType }> = $derived([...RIGHT_PANELS, ...pluginRightPanels(corePluginsStore.views('right-sidebar'))]);
+  /** The groups that have panels, each with its panels in registry order. */
+  const GROUPS = $derived(RIGHT_PANEL_GROUPS
+    .map((g) => ({ ...g, items: panels.filter((p) => p.group === g.id) }))
+    .filter((g) => g.items.length > 0));
   type GroupDef = (typeof GROUPS)[number];
-  const PANEL_DEFS: ReadonlyMap<PanelType, RightPanel> = new Map(RIGHT_PANELS.map((p) => [p.id, p] as const));
+  const PANEL_DEFS: ReadonlyMap<PanelType, RightPanel> = $derived(new Map(panels.map((p) => [p.id, p] as const)));
 
   interface Props {
     activeFilePath: string | null;
@@ -87,9 +93,11 @@
    *  the single way to switch the right sidebar's state. Clicking a
    *  group label sets `activePanel` to its first item, which flows back
    *  into `activeGroup` through this derivation. */
-  const activeGroup = $derived<PanelGroupId>(PANEL_DEFS.get(activePanel)?.group ?? 'note');
+  // A plugin panel whose plugin was turned off falls back to the Outline.
+  const shownPanel = $derived<PanelType>(PANEL_DEFS.has(activePanel) ? activePanel : 'outline');
+  const activeGroup = $derived<PanelGroupId>(PANEL_DEFS.get(shownPanel)?.group ?? 'note');
   const activeGroupDef = $derived(GROUPS.find((g) => g.id === activeGroup) ?? GROUPS[0]!);
-  const activePanelDef = $derived(PANEL_DEFS.get(activePanel));
+  const activePanelDef = $derived(PANEL_DEFS.get(shownPanel));
 
   function pickGroup(g: GroupDef) {
     if (g.id === activeGroup) return;
@@ -164,7 +172,7 @@
   <!-- Sub row: items of the active group -->
   <div class="sub-strip">
     {#each activeGroupDef.items as it (it.id)}
-      {@const active = activePanel === it.id}
+      {@const active = shownPanel === it.id}
       <button
         class="sub-tab"
         class:active
@@ -189,7 +197,9 @@
   <div class="panel-content">
     {#if activePanelDef}
       {#if activePanelDef.available?.(host) ?? true}
-        <activePanelDef.component bind:this={panelInstance} {...activePanelDef.props(host)} />
+        {#key shownPanel.startsWith('plugin:') ? shownPanel : ''}
+          <activePanelDef.component bind:this={panelInstance} {...activePanelDef.props(host)} />
+        {/key}
       {:else}
         <div class="panel-disabled">{activePanelDef.unavailableText ?? ''}</div>
       {/if}

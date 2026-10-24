@@ -6,7 +6,8 @@
  * Each entry gives its component and `props(host)`: what it takes from the
  * sidebar's own props (`RightPanelHost`). The helper types `props` against the
  * component, so a panel handed the wrong props doesn't compile. A plugin's
- * panel (a template-rendered global view, #2615) will register here.
+ * plugin's global view (#2640) registers here through `pluginRightPanels`, in
+ * the Plugins group.
  */
 import type { Component, ComponentProps } from 'svelte';
 import type { IconName } from '../icons/registry';
@@ -23,6 +24,9 @@ import BookmarksPanel from './BookmarksPanel.svelte';
 import InspectionsPanel from './InspectionsPanel.svelte';
 import TablesPanel from './TablesPanel.svelte';
 import CitationsPanel from './CitationsPanel.svelte';
+import PluginPanel from '../plugins/PluginPanel.svelte';
+import { pluginPanelIcon, pluginPanelId, pluginPanelProps, type PluginPanelId } from '../plugins/plugin-panels';
+import type { ActivePluginView } from '../../stores/core-plugins.svelte';
 
 /** What the sidebar hands its panels: the active note and the host's callbacks. */
 export interface RightPanelHost {
@@ -50,6 +54,8 @@ export const RIGHT_PANEL_GROUPS = [
   { id: 'note', label: 'Note' },
   { id: 'links', label: 'Links' },
   { id: 'activity', label: 'Activity' },
+  // Plugins' global views (#2640); shown only while one is on.
+  { id: 'plugins', label: 'Plugins' },
 ] as const;
 export type RightPanelGroupId = (typeof RIGHT_PANEL_GROUPS)[number]['id'];
 
@@ -116,3 +122,9 @@ export const RIGHT_PANELS = [
 ];
 
 export type RightPanelId = (typeof RIGHT_PANELS)[number]['id'];
+
+/** The panels plugins' global views add, in the Plugins group (#2640). */
+export function pluginRightPanels(views: readonly ActivePluginView[]): Array<RightPanel & { id: PluginPanelId }> {
+  return views.map((v) => panel({ id: pluginPanelId(v), label: v.view.title, icon: pluginPanelIcon(v.view.icon), group: 'plugins', component: PluginPanel,
+    props: () => pluginPanelProps(v) }));
+}

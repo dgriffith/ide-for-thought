@@ -490,7 +490,7 @@ export interface ChannelMap {
   'plugins:settings': (id: string) => PluginSettingsView;
   'plugins:setSettings': (id: string, patch: PluginSettingsPatch) => PluginSettingsView;
   'plugins:reveal': (id?: string) => void;
-  'plugins:openSession': (pluginId: string, scope: string[]) => { sessionId: string };
+  'plugins:openSession': (pluginId: string, scope: string[], view?: string) => { sessionId: string };
   'plugins:setSessionScope': (sessionId: string, scope: string[]) => void;
   'plugins:closeSession': (sessionId: string) => void;
   'plugins:sessionEvent': (sessionId: string, event: import('./plugins/session').PluginHostEvent) => void;

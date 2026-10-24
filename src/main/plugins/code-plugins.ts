@@ -11,6 +11,7 @@ import { isCorePluginActive } from '../core-plugins-active';
 import { corePlugin } from './core';
 import { loadedPluginScan } from './registry';
 import type { PluginIdentity } from './broker';
+import type { PluginView } from '../../shared/plugins/format';
 
 // The e2e harness's hostile fixture (`e2e-hooks.ts`, MINERVA_E2E only): no
 // installed plugin can declare code yet, so there is no other way to drive
@@ -34,4 +35,12 @@ export function codePluginIdentity(id: string): PluginIdentity | null {
   const manifest = loadedPluginScan().plugins.find((p) => p.manifest.id === id)?.manifest;
   if (!manifest?.code) return null;
   return { id, name: manifest.name, version: manifest.version, capabilities: manifest.code.capabilities };
+}
+
+/** The global views plugin `id` draws (#2640), while it is enabled code; [] otherwise. */
+export function codePluginViews(id: string): readonly PluginView[] {
+  if (!codePluginIdentity(id) || e2ePlugins.has(id)) return [];
+  const core = corePlugin(id);
+  const manifest = core ? core.manifest : loadedPluginScan().plugins.find((p) => p.manifest.id === id)?.manifest;
+  return manifest?.code?.views ?? [];
 }

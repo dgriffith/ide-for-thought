@@ -71,7 +71,7 @@ describe('PluginLayout (#2828)', () => {
   it("names the frame after the layout and type, and scopes it to the view's notes in its order", async () => {
     const { container } = await mounted();
     expect(container.querySelector('iframe')!.getAttribute('title')).toBe('Kanban of Task');
-    expect(h.connect).toHaveBeenCalledWith(expect.anything(), 'kanban', ['b.md', 'a.md'], expect.anything());
+    expect(h.connect).toHaveBeenCalledWith(expect.anything(), 'kanban', ['b.md', 'a.md'], expect.anything(), undefined);
   });
 
   it('sends the view as plain data', async () => {

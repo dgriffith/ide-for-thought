@@ -10,8 +10,16 @@
  */
 import { api } from '../ipc/client';
 import { logger } from '../../../shared/logger';
+import type { PluginView, PluginViewPlace } from '../../../shared/plugins/format';
 
-let core = $state<ReadonlyMap<string, { name: string; enabled: boolean }> | null>(null);
+/** A global view an enabled built-in plugin draws (#2640). */
+export interface ActivePluginView {
+  pluginId: string;
+  pluginName: string;
+  view: PluginView;
+}
+
+let core = $state<ReadonlyMap<string, { name: string; enabled: boolean; views: readonly PluginView[] }> | null>(null);
 let started = false;
 
 async function refresh(): Promise<void> {
@@ -20,7 +28,7 @@ async function refresh(): Promise<void> {
   if (!api.plugins) return;
   try {
     const list = await api.plugins.list();
-    core = new Map(list.core.map((p) => [p.id, { name: p.name, enabled: p.enabled }]));
+    core = new Map(list.core.map((p) => [p.id, { name: p.name, enabled: p.enabled, views: p.views ?? [] }]));
   } catch (e) {
     logger('plugins').warn('could not read which built-in plugins are on:', e);
   }
@@ -44,6 +52,18 @@ export const corePluginsStore = {
   isOn(id: string): boolean {
     start();
     return core === null ? true : core.get(id)?.enabled ?? false;
+  },
+  /**
+   * The global views the plugins that are on draw in `place` (#2640),
+   * in the order Settings lists the plugins. Reactive. Unlike `isOn`, none
+   * until the list has loaded: a panel can't be offered before it's known.
+   */
+  views(place: PluginViewPlace): ActivePluginView[] {
+    start();
+    if (core === null) return [];
+    return [...core].flatMap(([pluginId, p]) => (p.enabled
+      ? p.views.filter((v) => v.place === place).map((view) => ({ pluginId, pluginName: p.name, view }))
+      : []));
   },
   /** Its name, for "turn on X" — the id until the list has loaded. */
   name(id: string): string {

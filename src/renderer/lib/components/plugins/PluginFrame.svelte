@@ -34,8 +34,10 @@
     pluginId: string;
     /** The page in the plugin's folder to show. */
     entry?: string;
-    /** The notes this view is given. */
+    /** The notes this view is given. Ignored for a global view, whose query decides. */
     scope: string[];
+    /** A global view's id (#2640): main runs its query and scopes the session to it. */
+    view?: string;
     /** The frame's accessible name. */
     title: string;
     /** Connected: what a layout host (`PluginLayout`) builds on (#2828). */
@@ -60,7 +62,7 @@
     onClearSelection?: () => void;
   }
 
-  let { pluginId, entry = 'index.html', scope, title, onConnected, onViewState, onNoteMenu, onMoveCard, onUndoMove, onMoveColumn, onReschedule, onExportHtml, hoverInstance, onViewClick, onSelectAll, onClearSelection }: Props = $props();
+  let { pluginId, entry = 'index.html', scope, view, title, onConnected, onViewState, onNoteMenu, onMoveCard, onUndoMove, onMoveColumn, onReschedule, onExportHtml, hoverInstance, onViewClick, onSelectAll, onClearSelection }: Props = $props();
 
   // Hover previews: the app's own, against an anchor over the plugin's box.
   const hover = createNoteHover();
@@ -154,7 +156,7 @@
         viewClick: (path, mods) => onViewClick?.(path, mods),
         selectAll: () => onSelectAll?.(),
         clearSelection: () => onClearSelection?.(),
-      });
+      }, view);
       lastScope = JSON.stringify(scope);
       sendTheme();
       onConnected?.(connection);

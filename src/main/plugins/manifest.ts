@@ -11,7 +11,10 @@ import semver from 'semver';
 import { PLUGIN_API_VERSION } from '../../shared/plugins/api';
 import {
   PLUGIN_CONTRIBUTION_POINTS,
+  PLUGIN_VIEW_PLACES,
   type PluginCode,
+  type PluginView,
+  type PluginViewPlace,
   type PluginContributionPoint,
   type PluginManifest,
 } from '../../shared/plugins/format';
@@ -25,7 +28,10 @@ export const MAX_PLUGIN_ID = 64;
 
 const KNOWN_KEYS = new Set(['$schema', 'id', 'name', 'version', 'minerva', 'description', 'author', 'license', 'contributes', 'settings', 'mcpServers', 'code']);
 /** What a `code` section may hold (#2823). Entry points join it with the frame (#2824) and the worker host (#2830). */
-const CODE_KEYS = new Set(['capabilities', 'api']);
+const CODE_KEYS = new Set(['capabilities', 'api', 'views']);
+const VIEW_KEYS = new Set(['id', 'title', 'place', 'entry', 'query', 'icon']);
+/** Most global views one plugin may draw (#2640). */
+export const MAX_PLUGIN_VIEWS = 8;
 
 export type ManifestResult =
   | { ok: true; manifest: PluginManifest }
@@ -175,20 +181,98 @@ function validateCode(raw: unknown, ctx: ManifestContext, problems: string[]): P
       out.push(c);
     }
   }
+  const views = raw.views === undefined ? undefined : validateViews(raw.views, out, problems);
+  const withViews = views !== undefined && views.length > 0 ? { views } : {};
   // The plugin API's own version (#2826), not the app's.
   const api = raw.api;
   if (api === undefined) {
     if (out.some((c) => c !== 'process')) {
       problems.push(`"code.api" must say which plugin API versions the code was written for, like "^${PLUGIN_API_VERSION}".`);
     }
-    return { capabilities: out };
+    return { capabilities: out, ...withViews };
   }
   if (typeof api !== 'string' || semver.validRange(api) === null) {
     problems.push(`"code.api" must be a semver range like "^${PLUGIN_API_VERSION}"; got ${JSON.stringify(api)}.`);
-    return { capabilities: out };
+    return { capabilities: out, ...withViews };
   }
   if (!semver.satisfies(PLUGIN_API_VERSION, api)) {
     problems.push(`"code.api" asks for plugin API ${api}; this Minerva has ${PLUGIN_API_VERSION}.`);
   }
-  return { capabilities: out, api };
+  return { capabilities: out, api, ...withViews };
+}
+
+/**
+ * A file in the plugin's folder, as a view names it: relative, `/`-separated,
+ * no `..`, no dot-segment (the frame protocol wouldn't serve one), with the
+ * extension it must have.
+ */
+function pluginFilePath(v: unknown, field: string, ext: string, problems: string[]): string | undefined {
+  if (typeof v !== 'string' || v.length === 0 || v.length > 200) {
+    problems.push(`"${field}" must be a file in the plugin's folder.`);
+    return undefined;
+  }
+  const segments = v.split('/');
+  if (v.includes('\\') || v.includes('\0') || v.startsWith('/') || segments.some((s) => s === '' || s === '..' || s.startsWith('.'))) {
+    problems.push(`"${field}" must be a path inside the plugin's folder, like "views/${ext === '.rq' ? 'queue.rq' : 'index.html'}"; got ${JSON.stringify(v)}.`);
+    return undefined;
+  }
+  if (!v.toLowerCase().endsWith(ext)) {
+    problems.push(`"${field}" must be ${ext === '.rq' ? 'a SPARQL query, an .rq file' : 'a page, an .html file'}; got ${JSON.stringify(v)}.`);
+    return undefined;
+  }
+  return v;
+}
+
+/**
+ * `code.views` (#2640): global views. A view is a framed page fed by a query
+ * Minerva runs, so it needs `ui` (a frame) and `graph:query` (what its query
+ * reads).
+ */
+function validateViews(raw: unknown, capabilities: readonly PluginCapability[], problems: string[]): PluginView[] | undefined {
+  if (!Array.isArray(raw) || raw.length === 0) {
+    problems.push('"code.views" must be a non-empty list of views.');
+    return undefined;
+  }
+  if (raw.length > MAX_PLUGIN_VIEWS) problems.push(`"code.views" lists ${raw.length} views; at most ${MAX_PLUGIN_VIEWS}.`);
+  for (const cap of ['ui', 'graph:query'] as const) {
+    if (!capabilities.includes(cap)) problems.push(`"code.views" needs the "${cap}" capability: a view is a page fed by a query.`);
+  }
+  const out: PluginView[] = [];
+  raw.forEach((v: unknown, i) => {
+    const at = `code.views[${i}]`;
+    if (!isRecord(v)) {
+      problems.push(`"${at}" must be an object.`);
+      return;
+    }
+    for (const key of Object.keys(v)) {
+      if (!VIEW_KEYS.has(key)) problems.push(`Unknown field "${at}.${key}".`);
+    }
+    const before = problems.length;
+    const id = v.id;
+    if (typeof id !== 'string' || !PLUGIN_ID.test(id) || id.length > MAX_PLUGIN_ID) {
+      problems.push(`"${at}.id" must be lowercase letters and digits in dash-separated words, like "queue".`);
+    } else if (out.some((o) => o.id === id)) {
+      problems.push(`"code.views" has two views with the id "${id}".`);
+    }
+    const title = v.title;
+    if (typeof title !== 'string' || title.trim() === '' || title.length > 60) {
+      problems.push(`"${at}.title" must be a name of at most 60 characters.`);
+    }
+    const place = v.place;
+    if (typeof place !== 'string' || !(PLUGIN_VIEW_PLACES as readonly string[]).includes(place)) {
+      problems.push(`"${at}.place" must be one of ${PLUGIN_VIEW_PLACES.join(', ')}; got ${JSON.stringify(place)}.`);
+    }
+    const entry = pluginFilePath(v.entry, `${at}.entry`, '.html', problems);
+    const query = pluginFilePath(v.query, `${at}.query`, '.rq', problems);
+    const icon = v.icon;
+    if (icon !== undefined && (typeof icon !== 'string' || !/^[a-z][a-z0-9-]{0,39}$/.test(icon))) {
+      problems.push(`"${at}.icon" must be one of Minerva's icon names, like "bookmark".`);
+    }
+    if (problems.length > before) return;
+    out.push({
+      id: id as string, title: (title as string).trim(), place: place as PluginViewPlace, entry: entry!, query: query!,
+      ...(typeof icon === 'string' ? { icon } : {}),
+    });
+  });
+  return out;
 }

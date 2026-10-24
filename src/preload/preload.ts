@@ -610,7 +610,7 @@ const api = {
     setSettings: (id: string, patch: PluginSettingsPatch) => invoke(Channels.PLUGINS_SET_SETTINGS, id, patch),
     reveal: (id?: string) => invoke(Channels.PLUGINS_REVEAL, id),
     onChanged: (cb: () => void) => subscribe(Channels.PLUGINS_CHANGED, cb),
-    openSession: (pluginId: string, scope: string[]) => invoke(Channels.PLUGINS_OPEN_SESSION, pluginId, scope),
+    openSession: (pluginId: string, scope: string[], view?: string) => invoke(Channels.PLUGINS_OPEN_SESSION, pluginId, scope, view),
     setSessionScope: (sessionId: string, scope: string[]) => invoke(Channels.PLUGINS_SET_SESSION_SCOPE, sessionId, scope),
     closeSession: (sessionId: string) => invoke(Channels.PLUGINS_CLOSE_SESSION, sessionId),
     sendSessionEvent: (sessionId: string, event: PluginHostEvent) => invoke(Channels.PLUGINS_SESSION_EVENT, sessionId, event),

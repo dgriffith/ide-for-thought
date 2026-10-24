@@ -122,7 +122,8 @@ const overInstalled = async (...args: unknown[]) => {
 
 const LIST = {
   // The built-in plugins as shipped (#2820): Python, off on a new install
-  // (#2822), and Kanban (#2828), Timeline and Calendar (#2829), on.
+  // (#2822), Kanban (#2828), Timeline and Calendar (#2829), on, and the
+  // Reading Queue (#2640), off, listed with the global view it draws.
   core: [{
     id: 'python', name: 'Python', version: '1.0.0',
     description: 'Run Python code cells in notes, in an interpreter you choose: pandas, numpy, matplotlib and anything else you install.',
@@ -139,6 +140,11 @@ const LIST = {
     id: 'calendar', name: 'Calendar', version: '1.0.0',
     description: 'Show a type view as a month grid: each dated note on its day, dragged to another day to reschedule it.',
     enabled: true, source: { kind: 'core' }, contributes: {}, capabilities: ['notes:read', 'notes:write-properties', 'ui'],
+  }, {
+    id: 'reading-queue', name: 'Reading Queue', version: '1.0.0',
+    description: "A sidebar panel of the books and articles you're reading and those still to read, each marked read with one click.",
+    enabled: false, source: { kind: 'core' }, contributes: {}, capabilities: ['graph:query', 'notes:write-properties', 'ui'],
+    views: [{ id: 'queue', title: 'Reading Queue', place: 'left-sidebar', entry: 'index.html', query: 'queue.rq', icon: 'bookmark' }],
   }],
   installed: [{
     id: 'lab', name: 'Lab', version: '1.0.0', description: 'Lab tools', author: 'Ada', enabled: false,
@@ -400,7 +406,7 @@ describe('plugin sessions (#2825)', () => {
   it('opens, rescopes and closes a session for the calling window, passing only strings as scope', async () => {
     h.openSession.mockReturnValue({ sessionId: 's1' });
     expect(await call(Channels.PLUGINS_OPEN_SESSION, 'board', ['a.md', 7, null, 'b.md'])).toEqual({ sessionId: 's1' });
-    expect(h.openSession).toHaveBeenCalledWith({ id: 1 }, 'board', ['a.md', 'b.md']);
+    expect(h.openSession).toHaveBeenCalledWith({ id: 1 }, 'board', ['a.md', 'b.md'], undefined);
     await call(Channels.PLUGINS_SET_SESSION_SCOPE, 's1', 'not-a-list');
     expect(h.setSessionScope).toHaveBeenCalledWith({ id: 1 }, 's1', []);
     await call(Channels.PLUGINS_CLOSE_SESSION, 's1');
@@ -412,6 +418,15 @@ describe('plugin sessions (#2825)', () => {
     await expect(call(Channels.PLUGINS_OPEN_SESSION, '../evil', [])).rejects.toThrow("isn't a plugin id");
     expect(h.openSession).not.toHaveBeenCalled();
   });
+
+  it("opens a global view's session by the view's id, and refuses one that isn't an id (#2640)", async () => {
+    h.openSession.mockClear();
+    h.openSession.mockReturnValue({ sessionId: 'gv' });
+    expect(await call(Channels.PLUGINS_OPEN_SESSION, 'reading-queue', [], 'queue')).toEqual({ sessionId: 'gv' });
+    expect(h.openSession).toHaveBeenCalledWith({ id: 1 }, 'reading-queue', [], 'queue');
+    await expect(call(Channels.PLUGINS_OPEN_SESSION, 'reading-queue', [], '../q')).rejects.toThrow("isn't a view id");
+    expect(h.openSession).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('plugin session events (#2827)', () => {
@@ -419,11 +434,13 @@ describe('plugin session events (#2827)', () => {
     const drop = { kind: 'drop', paths: ['a.md'], x: 1, y: 2 };
     await call(Channels.PLUGINS_SESSION_EVENT, 's1', drop);
     expect(h.sessionEvent).toHaveBeenCalledWith({ id: 1 }, 's1', drop);
-    await expect(call(Channels.PLUGINS_SESSION_EVENT, 's1', { kind: 'approve' })).rejects.toThrow('a theme, a drop, a view, an export request or a preview');
-    await expect(call(Channels.PLUGINS_SESSION_EVENT, 's1', null)).rejects.toThrow('a theme, a drop, a view, an export request or a preview');
+    await expect(call(Channels.PLUGINS_SESSION_EVENT, 's1', { kind: 'approve' })).rejects.toThrow('a theme, a drop, a view, an export request, a preview or a query refresh');
+    await expect(call(Channels.PLUGINS_SESSION_EVENT, 's1', null)).rejects.toThrow('a theme, a drop, a view, an export request, a preview or a query refresh');
     await call(Channels.PLUGINS_SESSION_EVENT, 's1', { kind: 'exportRequest', requestId: 'r' });
     expect(h.sessionEvent).toHaveBeenLastCalledWith({ id: 1 }, 's1', { kind: 'exportRequest', requestId: 'r' });
     await call(Channels.PLUGINS_SESSION_EVENT, 's1', { kind: 'view', state: {} });
     expect(h.sessionEvent).toHaveBeenLastCalledWith({ id: 1 }, 's1', { kind: 'view', state: {} });
+    await call(Channels.PLUGINS_SESSION_EVENT, 's1', { kind: 'refreshQuery' });
+    expect(h.sessionEvent).toHaveBeenLastCalledWith({ id: 1 }, 's1', { kind: 'refreshQuery' });
   });
 });
