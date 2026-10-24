@@ -31,8 +31,15 @@
  *   message to quote or not.
  *
  * Bounded: a check that hasn't finished in `SHACL_CHECK_TIMEOUT_MS` is
- * reported as nothing and logged — the engine can't be cancelled, so its work
- * finishes unseen — and a check reports at most `SHACL_CHECK_MAX_FINDINGS`.
+ * reported as nothing and logged, and a check reports at most
+ * `SHACL_CHECK_MAX_FINDINGS`. The engine yields as it works, so a slow
+ * check doesn't freeze main's thread (measured: a 9-million-row join timed out
+ * on time, the event loop never lagging past ~330ms) — but it can't be
+ * cancelled, so its work goes on unseen. A sweep runs after every save, and
+ * would start another copy each time; so a check that times out is **stopped**:
+ * skipped until its file changes (#2874), and shown as stopped in Settings.
+ * Keyed on the file as read, which each source rebuilds when the file
+ * changes, so an edited shape runs again.
  */
 import N3 from 'n3';
 import type { Validator } from 'shacl-engine';
@@ -43,8 +50,14 @@ import { ensureN3Cache, getState } from '../state';
 import { queryGraphRows } from '../queries';
 import type { ShaclCheck, ShapesFile } from './shapes';
 
-/** How long one check may run before it reports nothing. */
+/** How long one check may run before it reports nothing, and is stopped. */
 export const SHACL_CHECK_TIMEOUT_MS = 10_000;
+let timeoutMs = SHACL_CHECK_TIMEOUT_MS;
+
+/** A shorter limit, for a test of a check that runs past it; `null` restores it. */
+export function _setShaclTimeoutForTests(ms: number | null): void {
+  timeoutMs = ms ?? SHACL_CHECK_TIMEOUT_MS;
+}
 /** The most findings one check reports. */
 export const SHACL_CHECK_MAX_FINDINGS = 200;
 
@@ -60,6 +73,14 @@ function loadEngine() {
   engine ??= Promise.all([import('shacl-engine'), import('shacl-engine/sparql.js')])
     .then(([core, sparql]) => ({ Validator: core.Validator, validations: sparql.validations, targetResolvers: sparql.targetResolvers }));
   return engine;
+}
+
+/** The checks that ran past their time limit, by the file they were read from. */
+const stopped = new WeakMap<ShapesFile, Set<string>>();
+
+/** Whether `type` in `file` was stopped for running past its time limit. */
+export function isStopped(file: ShapesFile, type: string): boolean {
+  return stopped.get(file)?.has(type) ?? false;
 }
 
 /** The validator's RDF/JS factory: N3's, plus the dataset constructor it builds its report with. */
@@ -78,8 +99,12 @@ export function readOnlyDataset(store: N3.Store): N3.Store {
   });
 }
 
-/** A term in a message, as a reader sees it: an IRI's label, a literal's text. */
-const NT_TERM = /<([^<>\s]+)>|"((?:[^"\\]|\\.)*)"(?:\^\^<[^<>\s]+>|@[A-Za-z0-9-]+)?/g;
+/**
+ * A term in a message, as a reader sees it: an IRI's label, a literal's text.
+ * Only an absolute IRI (it has a scheme) is one: a message is someone's text,
+ * and a `</tag>` in it is not an IRI to look up (#2874).
+ */
+const NT_TERM = /<([A-Za-z][A-Za-z0-9+.-]*:[^<>\s"{}|^`\\]*)>|"((?:[^"\\]|\\.)*)"(?:\^\^<[^<>\s]+>|@[A-Za-z0-9-]+)?/g;
 
 function readable(message: string, labels: ReadonlyMap<string, string>): string {
   return message.replace(NT_TERM, (_m, iri: string | undefined, lit: string | undefined) => (iri !== undefined
@@ -95,7 +120,7 @@ function irisIn(messages: readonly string[]): string[] {
 /** Labels and note paths for IRIs, in one query. */
 async function describe(ctx: ProjectContext, iris: readonly string[]): Promise<Map<string, { label: string; notePath?: string }>> {
   const out = new Map<string, { label: string; notePath?: string }>();
-  const safe = [...new Set(iris)].filter((i) => /^[^<>"{}|^`\\\s]+$/.test(i));
+  const safe = [...new Set(iris)].filter((i) => /^[A-Za-z][A-Za-z0-9+.-]*:[^<>"{}|^`\\\s]*$/.test(i));
   if (safe.length === 0) return out;
   const result = await queryGraphRows(ctx, `
     SELECT ?n ?label ?path WHERE {
@@ -118,17 +143,20 @@ interface ValidationResultLike {
   message?: Array<{ value: string }>;
 }
 
-/** Validate `dataset` against one check's shape, within the time limit. */
-async function validateOne(validator: Validator, check: ShaclCheck, dataset: N3.Store): Promise<ValidationResultLike[]> {
+/** Validate `dataset` against one check's shape, within the time limit; past it, the check is stopped. */
+async function validateOne(validator: Validator, file: ShapesFile, check: ShaclCheck, dataset: N3.Store): Promise<ValidationResultLike[]> {
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), SHACL_CHECK_TIMEOUT_MS); });
+  const timeout = new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), timeoutMs); });
   try {
     const report = await Promise.race([
       validator.validate({ dataset }, [{ terms: [factory.namedNode(check.shape)] }]),
       timeout,
     ]);
     if (report === null) {
-      logger('graph').warn(`inspection '${check.type}' took over ${SHACL_CHECK_TIMEOUT_MS}ms and reported nothing`);
+      logger('graph').warn(`inspection '${check.type}' took over ${timeoutMs}ms: stopped until its file changes`);
+      const set = stopped.get(file) ?? new Set<string>();
+      set.add(check.type);
+      stopped.set(file, set);
       return [];
     }
     return report.results;
@@ -150,14 +178,14 @@ export async function runShaclChecks(ctx: ProjectContext, files: readonly Shapes
 
   const found: Array<{ check: ShaclCheck; focus: string; raw: string | null }> = [];
   for (const file of files) {
-    const checks = file.checks.filter((c) => enabled(c.type));
+    const checks = file.checks.filter((c) => enabled(c.type) && !isStopped(file, c.type));
     if (checks.length === 0) continue;
     const { Validator, validations, targetResolvers } = await loadEngine();
     const shapes = new N3.Store([...file.quads, ...hierarchy]);
     const validator = new Validator(shapes, { factory, validations, targetResolvers });
     for (const check of checks) {
       try {
-        const results = (await validateOne(validator, check, dataset)).slice(0, SHACL_CHECK_MAX_FINDINGS);
+        const results = (await validateOne(validator, file, check, dataset)).slice(0, SHACL_CHECK_MAX_FINDINGS);
         for (const r of results) {
           if (!r.focusNode) continue;
           // The check's own sh:message is the finding's; without one, the
@@ -171,7 +199,13 @@ export async function runShaclChecks(ctx: ProjectContext, files: readonly Shapes
   }
   if (found.length === 0) return [];
 
-  const described = await describe(ctx, [...found.map((f) => f.focus), ...irisIn(found.flatMap((f) => (f.raw ? [f.raw] : [])))]);
+  // Labels are a nicety: a lookup that fails leaves a node its IRI's last segment, never loses the findings.
+  let described = new Map<string, { label: string; notePath?: string }>();
+  try {
+    described = await describe(ctx, [...found.map((f) => f.focus), ...irisIn(found.flatMap((f) => (f.raw ? [f.raw] : [])))]);
+  } catch (e) {
+    logger('graph').warn("couldn't look up the labels of the inspections' nodes:", e);
+  }
   const labels = new Map([...described].map(([iri, d]) => [iri, d.label]));
   // One finding per check and node: a node failing two constraints of one shape is one problem to look at.
   const seen = new Set<string>();

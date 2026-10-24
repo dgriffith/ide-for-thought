@@ -6,7 +6,8 @@ import { handle } from './typed-ipc';
 import * as graph from '../graph/index';
 import * as search from '../search/index';
 import { findOrphanedInlineAssets } from '../notebase/asset-references';
-import { pluginInspectionFiles, pluginInspections } from '../plugins/inspection-shapes';
+import { pluginInspectionChecks, pluginInspectionFiles } from '../plugins/inspection-shapes';
+import { thoughtbaseInspections, thoughtbaseShapes } from '../graph/shacl/thoughtbase-shapes';
 import { projectContext } from '../project-context-types';
 import * as tables from '../sources/tables';
 import type { QueryResult, TableInfo } from '../sources/tables';
@@ -20,7 +21,7 @@ import { getInspectionSettings, saveInspectionSettings } from '../config/inspect
 import { exportKnowledgeGraph } from '../maintenance-commands';
 import { isA, labelOf } from '../graph/argument-patterns';
 import { coerceDuckRowsForIpc } from '../compute/duck-values';
-import type { InspectionSettings } from '../../shared/inspections';
+import type { InspectionSettings, ThoughtbaseInspections } from '../../shared/inspections';
 
 export function registerGraph(): void {
   // Graph
@@ -107,14 +108,17 @@ export function registerGraph(): void {
   handle(Channels.INSPECTIONS_LIST, withRootPathOr([], (rootPath) =>
     healthChecks.getInspections(projectContext(rootPath))));
   handle(Channels.INSPECTIONS_RUN, withRootPathOr<[], Inspection[] | Promise<Inspection[]>>([], async (rootPath) =>
-    healthChecks.runAllChecks(projectContext(rootPath), await getInspectionSettings(), { findOrphanedAssets: findOrphanedInlineAssets, pluginShapes: pluginInspectionFiles })));
+    healthChecks.runAllChecks(projectContext(rootPath), await getInspectionSettings(), { findOrphanedAssets: findOrphanedInlineAssets, pluginShapes: pluginInspectionFiles, thoughtbaseShapes })));
 
   // Which checks run + the day thresholds (#1792). No rootPath: these are
   // per-machine preferences, readable with no thoughtbase open (the Settings
   // dialog is reachable from an empty window).
   handle(Channels.INSPECTIONS_GET_SETTINGS, () => getInspectionSettings());
   // The plugins' SHACL checks (#2642): per machine, like the settings, so no thoughtbase needed.
-  handle(Channels.INSPECTIONS_PLUGIN_CHECKS, () => pluginInspections().catalog);
+  handle(Channels.INSPECTIONS_PLUGIN_CHECKS, () => pluginInspectionChecks());
+  // The open thoughtbase's own (#2874): none, with nothing open.
+  handle(Channels.INSPECTIONS_THOUGHTBASE_CHECKS, withRootPathOr<[], ThoughtbaseInspections | Promise<ThoughtbaseInspections>>({ checks: [], problems: [] }, (rootPath) =>
+    thoughtbaseInspections(projectContext(rootPath))));
   handle(Channels.INSPECTIONS_SET_SETTINGS, async (_e, settings: InspectionSettings) => {
     await saveInspectionSettings(settings);
     // Hand back what actually landed — saving clamps the day values and drops

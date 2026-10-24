@@ -12,8 +12,8 @@
  * | label, description | `sh:name`, `sh:description` |
  * | severity | `sh:severity`: `sh:Info` → info, `sh:Warning` → warning, `sh:Violation` (the default) → concern |
  * | message | `sh:message` — `{$this}` is the focus node's label |
- * | type | `minerva:inspectionId` (stock shapes); `plugin:<id>/<shape name>` (a plugin's) |
- * | group | `minerva:inspectionGroup`: notes, links, sources, arguments; a plugin's defaults to plugins |
+ * | type | `minerva:inspectionId` (stock shapes); `plugin:<id>/<shape name>` (a plugin's); `thoughtbase:<shape name>` (a thoughtbase's own, #2874) |
+ * | group | `minerva:inspectionGroup`: notes, links, sources, arguments; a plugin's defaults to plugins, a thoughtbase's to thoughtbase |
  * | suggested action | `minerva:suggestedAction` |
  *
  * **Read-only by construction.** A shape's SPARQL (`sh:select`, `sh:ask`) runs
@@ -37,15 +37,15 @@ export const MAX_SHAPES_FILE_BYTES = 256 * 1024;
 export const MAX_CHECKS_PER_FILE = 32;
 
 const TARGETS = ['targetClass', 'targetNode', 'targetSubjectsOf', 'targetObjectsOf', 'target'].map((t) => SH + t);
-const GROUPS: readonly InspectionGroup[] = ['notes', 'links', 'sources', 'arguments', 'plugins'];
+const GROUPS: readonly InspectionGroup[] = ['notes', 'links', 'sources', 'arguments', 'plugins', 'thoughtbase'];
 const SEVERITIES: Readonly<Record<string, InspectionSeverity>> = {
   [`${SH}Info`]: 'info',
   [`${SH}Warning`]: 'warning',
   [`${SH}Violation`]: 'concern',
 };
 
-/** Where a shapes file came from: one of Minerva's own, or a plugin's. */
-export type ShapesOrigin = { kind: 'stock' } | { kind: 'plugin'; id: string; name: string };
+/** Where a shapes file came from: one of Minerva's own, a plugin's, or the thoughtbase's (#2874). */
+export type ShapesOrigin = { kind: 'stock' } | { kind: 'plugin'; id: string; name: string } | { kind: 'thoughtbase' };
 
 /** One inspection a shape declares. */
 export interface ShaclCheck {
@@ -111,13 +111,13 @@ export function parseShapesFile(turtle: string, origin: ShapesOrigin): ShapesFil
       type = id;
     } else {
       if (!/^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(name)) { problems.push(`the shape <${shape}> needs a name of letters, digits, _ and -, starting with a letter`); continue; }
-      type = `plugin:${origin.id}/${name}`;
+      type = origin.kind === 'plugin' ? `plugin:${origin.id}/${name}` : `thoughtbase:${name}`;
     }
     if (checks.some((c) => c.type === type)) { problems.push(`two shapes are the inspection "${type}"`); continue; }
     const severityIri = first(shape, `${SH}severity`) ?? `${SH}Violation`;
     const severity = SEVERITIES[severityIri];
     if (!severity) { problems.push(`${name}'s sh:severity is <${severityIri}>; use sh:Info, sh:Warning or sh:Violation`); continue; }
-    const groupRaw = first(shape, `${MINERVA}inspectionGroup`) ?? (origin.kind === 'plugin' ? 'plugins' : undefined);
+    const groupRaw = first(shape, `${MINERVA}inspectionGroup`) ?? (origin.kind === 'plugin' ? 'plugins' : origin.kind === 'thoughtbase' ? 'thoughtbase' : undefined);
     const group = GROUPS.find((g) => g === groupRaw);
     if (!group) { problems.push(`${name}'s minerva:inspectionGroup is ${JSON.stringify(groupRaw ?? null)}; use ${GROUPS.join(', ')}`); continue; }
     checks.push({

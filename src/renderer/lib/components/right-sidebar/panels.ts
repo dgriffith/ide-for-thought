@@ -41,7 +41,7 @@ export interface RightPanelHost {
   onNavigate: ((target: string) => void | Promise<void>) | undefined;
   onOpenAtOffset: ((relativePath: string, offset: number) => void | Promise<void>) | undefined;
   onScrollToLine: (line: number) => void;
-  onOpenConversation: ((message: string) => void) | undefined;
+  onOpenConversation: ((message: string, context?: string) => void) | undefined;
   onApplyInspectionFix: ((fix: InspectionFix) => void | Promise<void>) | undefined;
   onOpenQuery: (sql: string) => void;
   onOpenSource: (sourceId: string) => void;

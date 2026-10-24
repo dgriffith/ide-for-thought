@@ -118,10 +118,12 @@ export function createConversationOps(ctx: ConversationOpsCtx) {
     await handleOpenConversationFromTool({ toolId: 'research.decompose', context: toolCtx });
   }
 
-  async function openConversationWithMessage(message: string) {
+  /** `context`: delimited thoughtbase material the first turn carries, out of the user's own words (#2874). */
+  async function openConversationWithMessage(message: string, context?: string) {
     await conversationsStore.openConversationTab({
       notePath: editor.activeFilePath ?? undefined,
       initialMessage: message,
+      ...(context ? { skillContext: context } : {}),
     });
   }
 

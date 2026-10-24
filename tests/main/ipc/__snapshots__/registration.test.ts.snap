@@ -115,6 +115,7 @@ exports[`IPC registration contract (#997) > matches the known set of registered 
   "inspections:pluginChecks",
   "inspections:run",
   "inspections:setSettings",
+  "inspections:thoughtbaseChecks",
   "links:backlinks",
   "links:bundle",
   "links:citationsForNote",

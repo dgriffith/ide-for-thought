@@ -116,8 +116,12 @@ vi.mock('../../../src/main/graph/health-checks', () => ({
   runAllChecks: h.runAllChecks,
 }));
 vi.mock('../../../src/main/plugins/inspection-shapes', () => ({
-  pluginInspections: () => ({ files: [], catalog: [{ type: 'plugin:lab/Fine', plugin: { id: 'lab', name: 'Lab' } }], problems: [] }),
+  pluginInspectionChecks: () => [{ type: 'plugin:lab/Fine', plugin: { id: 'lab', name: 'Lab' } }],
   pluginInspectionFiles: () => [],
+}));
+vi.mock('../../../src/main/graph/shacl/thoughtbase-shapes', () => ({
+  thoughtbaseInspections: async (ctx: { rootPath: string }) => ({ checks: [{ type: 'thoughtbase:Tidy', root: ctx.rootPath }], problems: [] }),
+  thoughtbaseShapes: async () => ({ files: [], problems: [] }),
 }));
 vi.mock('../../../src/main/config/inspection-settings', () => ({
   getInspectionSettings: h.getInspectionSettings,
@@ -441,8 +445,11 @@ describe('register-graph — inspections', () => {
 
     await callAsync(Channels.INSPECTIONS_RUN);
 
-    const deps = h.runAllChecks.mock.calls[0]?.[2] as { findOrphanedAssets?: unknown };
+    const deps = h.runAllChecks.mock.calls[0]?.[2] as { findOrphanedAssets?: unknown; pluginShapes?: unknown; thoughtbaseShapes?: unknown };
     expect(typeof deps?.findOrphanedAssets).toBe('function');
+    // And the plugins' and the thoughtbase's SHACL checks (#2642, #2874): omitted, they'd silently not run.
+    expect(typeof deps?.pluginShapes).toBe('function');
+    expect(typeof deps?.thoughtbaseShapes).toBe('function');
   });
 
   it('INSPECTIONS_GET_SETTINGS works with no project — the prefs are per-machine', async () => {
@@ -456,6 +463,12 @@ describe('register-graph — inspections', () => {
   it("INSPECTIONS_PLUGIN_CHECKS lists the plugins' SHACL checks, with no project needed (#2642)", async () => {
     openProject = null;
     await expect(callAsync(Channels.INSPECTIONS_PLUGIN_CHECKS)).resolves.toEqual([{ type: 'plugin:lab/Fine', plugin: { id: 'lab', name: 'Lab' } }]);
+  });
+
+  it("INSPECTIONS_THOUGHTBASE_CHECKS lists the open thoughtbase's own SHACL checks; none with nothing open (#2874)", async () => {
+    await expect(callAsync(Channels.INSPECTIONS_THOUGHTBASE_CHECKS)).resolves.toEqual({ checks: [{ type: 'thoughtbase:Tidy', root: expect.any(String) }], problems: [] });
+    openProject = null;
+    await expect(callAsync(Channels.INSPECTIONS_THOUGHTBASE_CHECKS)).resolves.toEqual({ checks: [], problems: [] });
   });
 
   it('INSPECTIONS_SET_SETTINGS returns what actually landed, not what was asked for', async () => {

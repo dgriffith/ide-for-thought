@@ -79,6 +79,7 @@ const READ_ALLOWLIST = new Set<string>([
   // the write is denylisted and goes through the settings store.
   'inspectionSettings',
   'inspectionPluginChecks',
+  'inspectionThoughtbaseChecks',
   // Raises the OS emoji picker over the focused field; the emoji arrives as
   // ordinary typed input, so no in-app state changes behind the component.
   'showEmojiPanel',

@@ -33,7 +33,7 @@ Reach for the lowest rung that does the job — declarative before code.
 | [Object types](#object-types--object-types) | object-type | hot | stock, plugin, thoughtbase |
 | [Saved queries](#saved-queries--saved-queries) | query-view | hot | stock, user, plugin, thoughtbase |
 | [Note templates](#note-templates--note-templates) | query-view | hot | stock, plugin, thoughtbase |
-| [Inspections](#inspections--inspections) | plugin | hot | stock, plugin |
+| [Inspections](#inspections--inspections) | plugin | hot | stock, plugin, thoughtbase |
 | [Themes](#themes--themes) | plugin | hot | stock, plugin |
 | [MCP servers (Minerva as client)](#mcp-servers--mcp-servers-minerva-as-client) | mcp | hot | user, plugin |
 | [View layouts](#view-layouts--view-layouts) | source | rebuild | stock |
@@ -156,8 +156,8 @@ A health check over the graph whose findings show in the Inspections panel: a SH
 
 - **Rung:** plugin
 - **Picked up:** at once, or on its next read (`hot`)
-- **Contributions from:** stock, plugin
-- **Goes in:** a plugin's inspections/ (#2642)
+- **Contributions from:** stock, plugin, thoughtbase
+- **Goes in:** a plugin's inspections/ (#2642), or the thoughtbase's .minerva/shapes/ (#2874)
 - **Contract:** SHACL in Turtle: a sh:NodeShape with a target, sh:name, sh:description, sh:severity, sh:message, minerva:inspectionGroup and minerva:suggestedAction; any sh:select / sh:ask a SELECT / ASK, checked by [`src/main/graph/shacl/shapes.ts`](../src/main/graph/shacl/shapes.ts) (`parseShapesFile`)
 - **Registers in:** [`src/main/graph/inspection-checks.ts`](../src/main/graph/inspection-checks.ts) (`INSPECTION_CHECKS`)
 - **Docs:** [`docs/authoring-plugins.md`](authoring-plugins.md)

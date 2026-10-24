@@ -3,7 +3,7 @@ import type { PluginHostEvent, PluginIntentEvent, PluginSessionTarget } from '..
 import type { LiveBlockRequest, LiveBlockResult } from '../../../shared/live-blocks';
 import type { Conversation, ConversationCreateOptions, ContextBundle, ConversationMessage } from '../../../shared/conversation';
 import type { ToolExecutionRequest, ToolExecutionResult, ConversationToolPayload } from '../../../shared/tools/types';
-import type { Inspection, InspectionSettings, PluginInspectionDef } from '../../../shared/inspections';
+import type { Inspection, InspectionSettings, PluginInspectionDef, ThoughtbaseInspections } from '../../../shared/inspections';
 import type { ClipperState } from '../../../shared/clipper-pairing';
 import type { McpServerDescriptor, McpServerStatus } from '../../../shared/mcp-servers';
 import type { Proposal, ProposalApproveResult, ProposalRejectResult } from '../../../shared/proposals';
@@ -153,6 +153,8 @@ export interface GraphApi {
   inspectionSettings(): Promise<InspectionSettings>;
   /** The enabled plugins' SHACL checks (#2642), listed in Settings beside the built-ins. */
   inspectionPluginChecks(): Promise<PluginInspectionDef[]>;
+  /** The open thoughtbase's own SHACL checks, and the files it refused (#2874). */
+  inspectionThoughtbaseChecks(): Promise<ThoughtbaseInspections>;
   /** Resolves to the settings as SAVED — out-of-range days are clamped and
    *  unknown check ids dropped, so the panel re-renders from the truth. */
   setInspectionSettings(settings: InspectionSettings): Promise<InspectionSettings>;

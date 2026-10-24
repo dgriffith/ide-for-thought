@@ -82,7 +82,7 @@ const BUDGETS: Record<string, number> = { // +16: each day named from its conten
   // predicted this: the IPC-surface files are budgeted and grow one line per
   // channel by construction, so a bump here is the expected remedy, not a
   // smell.
-  'src/renderer/lib/ipc/client.ts': 1416, // +2: the plugins' inspection checks (#2642); +1: a save's history cause (#2828)
+  'src/renderer/lib/ipc/client.ts': 1418, // +2: the plugins' inspection checks (#2642); +2: the thoughtbase's (#2874); +1: a save's history cause (#2828)
   'src/renderer/lib/stores/conversations.svelte.ts': 1280, // +4: carry a skill's user-turn material through open + /clear (#2438); +39: mcp_call confirmation card state, beside ask_user's (#2439); +26: turn start/settle screen-reader announcements (#2374); +28: conversation titles — rename, the titleChanged subscription, keepKnownTitle for the post-send reload race; +2: typing during a reply (#1744) — /clear refuses mid-turn, a restored message keeps the draft; +11: turnStartedAt for the turn-status clock (set at the three turn starts, cleared at the three settles); +2: approve comments name the broadcast that really happens (#2541); +4: clear / dismiss a drafted extension's card with its turn and tab (#2652)
   'src/renderer/lib/components/Editor.svelte': 858, // +4: Record Audio / Transcribe Recording context-menu wiring (#2428)
   'src/renderer/lib/stores/editor.svelte.ts': 979, // +14: openPluginView, one tab per plugin global view, beside openNeighborhood (#2640); +1: DEFAULT_VIEW_LAYOUT from the view-layout registry (#2623); +1: type-view tabs carry a timeline range (#2607); +2: type-view tabs carry a kanban column order and Show empty columns (#2614); +1: type-view tabs carry a kanban groupBy (#2601); +1: type-view tabs carry a map style (#2665); +5: type-view tabs keyed by type + folder (#2531); +23: rescopeTypeView — widen a folder-scoped view, merging into an open one (#2532); +17: folder renames move scoped view tabs, beside applyRenameTransitions (#2535)
@@ -114,9 +114,9 @@ const BUDGETS: Record<string, number> = { // +16: each day named from its conten
   // +17 (#2491): the property card's "Also fills {{name}} in the note's body" line, its helper and style.
   'src/renderer/lib/components/conversations/DraftCards.svelte': 775,
   // +1 for #2256: the MENU_COMMAND_PALETTE channel / its MENU_COMMANDS entry.
-  'src/shared/ipc-contract.ts': 772, // +2: the plugins' inspection checks (#2642); +1: a save's history cause (#2828)
+  'src/shared/ipc-contract.ts': 774, // +2: the plugins' inspection checks (#2642); +2: the thoughtbase's (#2874); +1: a save's history cause (#2828)
   // +1 for #2256: the MENU_COMMAND_PALETTE channel / its MENU_COMMANDS entry.
-  'src/shared/channels.ts': 749, // +1: the plugins' inspection checks (#2642); +2: plugin session events (#2827)
+  'src/shared/channels.ts': 750, // +1: the plugins' inspection checks (#2642); +1: the thoughtbase's (#2874); +2: plugin session events (#2827)
   // +5 (#2494): both typed-note creation paths read the type's effective (inherited) template.
   'src/renderer/lib/app/note-ops.ts': 707, // +15: saveViewAsNote — "Save as note" writes a note with a live object-view embed (#2507)
   'src/renderer/lib/editor/formatting.ts': 668,
@@ -139,7 +139,7 @@ const BUDGETS: Record<string, number> = { // +16: each day named from its conten
   // ~250-line `<style>` block, not the logic.
   'src/renderer/lib/components/FindInNotesDialog.svelte': 633,
   // +1 for #2256: onCommandPalette passthrough.
-  'src/preload/preload.ts': 651, // +1: the plugins' inspection checks (#2642); +1: plugin session events (#2827)
+  'src/preload/preload.ts': 652, // +1: the plugins' inspection checks (#2642); +1: the thoughtbase's (#2874); +1: plugin session events (#2827)
   'src/main/ipc/register-conversation-drafts.ts': 579, // +2: approved drafts broadcast their moves + rewrites (#2541)
   // New entry in #2218, which took this file from 538 over the threshold.
   // The seam this check asks about was taken first: the deadline POLICY —

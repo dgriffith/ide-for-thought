@@ -60,6 +60,7 @@ Lives inside each thoughtbase root and travels **with** it. `.minerva/` carries 
 | `secrets.json` | **Encrypted per-publish-target credentials** — gitignored, never committed. |
 | `types/*.md` | User-authored object types (per-thoughtbase vocabulary). |
 | `ontology/*.ttl` | Imported vocabularies (Settings → Ontology, #2788): loaded beside the built-in ontology, never into `graph.ttl`. |
+| `shapes/*.ttl` | The thoughtbase's own SHACL shapes, run as inspections (#2874); listed with switches in Settings → Inspections. |
 | `collections.json` | Collections + smart collections. |
 | `conversations/` | Conversation transcripts. |
 | `excerpts/*.ttl` | Anchored source excerpts. |

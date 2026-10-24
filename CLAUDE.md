@@ -1345,6 +1345,14 @@ first use. Three things to keep:
   SELECT / ASK, and the validator gets `readOnlyDataset(store)`, which throws
   on any write. It has no HTTP actor, so `SERVICE` / `FROM <http…>` reach
   nothing; `tests/main/graph/shacl-run.test.ts` pins all three.
+- **A check that times out is stopped** (#2874): the engine can't be
+  cancelled and the sweep runs after every save, so `run.ts` records it
+  against the file as read and skips it until that file changes; Settings
+  says so. A thoughtbase's own shapes (`.minerva/shapes/*.ttl`,
+  `graph/shacl/thoughtbase-shapes.ts`) are read inside `graph/`, at most 16
+  files / 1 MB, and are someone else's text: an inspection opened as a
+  conversation carries its finding as `skillContext`, wrapped as
+  `kind="inspection"`, never in the user's own message.
 - **A plugin's checks reach `graph/` through `HealthCheckDeps.pluginShapes`**
   (`graph/` doesn't import `plugins/`). Their type is
   `plugin:<id>/<shape>`, kept in the disabled list by pattern

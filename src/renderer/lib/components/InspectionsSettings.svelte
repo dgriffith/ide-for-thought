@@ -26,6 +26,8 @@
     type InspectionGroup,
     type InspectionSettings,
     type PluginInspectionDef,
+    type ShapeInspectionDef,
+    type ThoughtbaseInspections,
   } from '../../../shared/inspections';
 
   const settingsStore = getSettingsStore();
@@ -34,11 +36,13 @@
   let loaded = $state(false);
   /** The enabled plugins' SHACL checks (#2642), listed with the built-ins. */
   let pluginChecks = $state<PluginInspectionDef[]>([]);
-  const offered = $derived<Array<InspectionDef | PluginInspectionDef>>([...visibleInspections(), ...pluginChecks]);
+  /** The open thoughtbase's own (#2874), and the shapes files it refused. */
+  let thoughtbase = $state<ThoughtbaseInspections>({ checks: [], problems: [] });
+  const offered = $derived<Array<InspectionDef | ShapeInspectionDef | PluginInspectionDef>>([...visibleInspections(), ...pluginChecks, ...thoughtbase.checks]);
 
   /** Catalog entries grouped for display, in catalog order. */
   const groups = $derived.by(() => {
-    const out = new Map<InspectionGroup, Array<InspectionDef | PluginInspectionDef>>();
+    const out = new Map<InspectionGroup, Array<InspectionDef | ShapeInspectionDef | PluginInspectionDef>>();
     for (const def of offered) {
       const list = out.get(def.group) ?? [];
       list.push(def);
@@ -64,6 +68,11 @@
       pluginChecks = await api.graph.inspectionPluginChecks();
     } catch (e) {
       logger('settings').warn("couldn't list the plugins' inspections:", e);
+    }
+    try {
+      thoughtbase = await api.graph.inspectionThoughtbaseChecks();
+    } catch (e) {
+      logger('settings').warn("couldn't list the thoughtbase's inspections:", e);
     }
   });
 
@@ -125,6 +134,9 @@
           {def.label}
         </label>
         <p class="hint">{def.description}{#if 'plugin' in def}{def.description ? ' ' : ''}From {def.plugin.name}.{/if}</p>
+        {#if 'stopped' in def && def.stopped}
+          <p class="hint">Stopped: it took longer than its time limit. It runs again when its file changes.</p>
+        {/if}
 
         {#if def.type === 'stale_note' && on}
           <div class="threshold">
@@ -151,6 +163,13 @@
       </div>
     {/each}
   {/each}
+
+  {#if thoughtbase.problems.length > 0}
+    <h3 class="settings-subsection">Shapes this thoughtbase couldn't load</h3>
+    {#each thoughtbase.problems as p (p.file + p.problem)}
+      <p class="hint"><code>.minerva/shapes/{p.file}</code>: {p.problem}</p>
+    {/each}
+  {/if}
 {/if}
 
 <style>

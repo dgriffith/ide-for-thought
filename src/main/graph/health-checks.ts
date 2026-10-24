@@ -107,13 +107,20 @@ export async function runAllChecks(
   const run: CheckRun = { ctx, settings, deps, on };
 
   try {
-    // Minerva's checks, then the plugins' shapes (#2642): a plugin whose
-    // shapes can't be read costs only them.
+    // Minerva's checks, then the plugins' shapes (#2642), then the
+    // thoughtbase's (#2874): shapes that can't be read cost only themselves.
     let pluginChecks: InspectionCheck[] = [];
     try {
       pluginChecks = (deps.pluginShapes?.() ?? []).map(({ id, file }) => ({ kind: 'shacl' as const, id, file }));
     } catch (e) {
       logger('graph').warn("couldn't read the plugins' inspection shapes:", e);
+    }
+    // …and the thoughtbase's own (#2874), from its .minerva/shapes/.
+    try {
+      const own = deps.thoughtbaseShapes ? await deps.thoughtbaseShapes(ctx) : { files: [] };
+      pluginChecks = [...pluginChecks, ...own.files.map(({ id, file }) => ({ kind: 'shacl' as const, id, file }))];
+    } catch (e) {
+      logger('graph').warn("couldn't read the thoughtbase's inspection shapes:", e);
     }
     const results = await Promise.all([...INSPECTION_CHECKS, ...pluginChecks].map((check) => {
       const emits = emitsOf(check);

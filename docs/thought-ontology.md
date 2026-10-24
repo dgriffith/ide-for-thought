@@ -553,6 +553,28 @@ thoughtbase through it.
 
 ---
 
+## Your own shapes
+
+A thoughtbase can carry its own inspections, as [SHACL](https://www.w3.org/TR/shacl/)
+shapes in `.minerva/shapes/*.ttl` (#2874): "every Book needs an author", "a
+claim marked established needs two grounds". They are the same shapes a plugin
+contributes (`docs/authoring-plugins.md` → *Inspections* has the format) and run
+in the same sweep; their findings show in the Inspections panel, and
+Settings → Inspections lists them under *From this thoughtbase*, each with a
+switch, along with any file it refused and why.
+
+They travel with the thoughtbase, so a shared one's shapes are someone else's:
+
+- **A shape only reads.** A `sh:select` that isn't a SELECT (or `sh:ask` that
+  isn't an ASK) refuses its file; the graph it validates refuses writes; a
+  `SERVICE` or `FROM <http://…>` reaches no network.
+- **Bounded, then stopped.** A check over its 10-second limit reports nothing
+  and is *stopped*: skipped until its file changes, since the engine can't be
+  cancelled and the sweep runs after every save. At most 16 files and 1 MB.
+- **Its words are data.** A finding's message is shown as text, and opening a
+  conversation about it carries it to the model delimited, as the
+  thoughtbase's material, not as your words.
+
 ## What is enforced, and what isn't
 
 **The ontology is executable, not decorative.**

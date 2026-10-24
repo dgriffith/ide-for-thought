@@ -18,6 +18,7 @@ const api = vi.hoisted(() => ({
     inspectionSettings: vi.fn(async () => ({ disabled: [] as string[], staleDays: 30, stubDays: 30 })),
     setInspectionSettings: vi.fn(async (s: unknown) => s),
     inspectionPluginChecks: vi.fn(async () => [] as unknown[]),
+    inspectionThoughtbaseChecks: vi.fn(async () => ({ checks: [] as unknown[], problems: [] as unknown[] })),
   },
 }));
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({ api }));
@@ -29,8 +30,26 @@ beforeEach(() => {
   api.graph.inspectionSettings.mockResolvedValue({ ...DEFAULT_INSPECTION_SETTINGS });
   api.graph.setInspectionSettings.mockImplementation(async (s: unknown) => s);
   api.graph.inspectionPluginChecks.mockResolvedValue([]);
+  api.graph.inspectionThoughtbaseChecks.mockResolvedValue({ checks: [], problems: [] });
 });
 afterEach(() => cleanup());
+
+describe("InspectionsSettings — the thoughtbase's own checks (#2874)", () => {
+  it('lists them under the thoughtbase, says when one was stopped, and names the files it refused', async () => {
+    api.graph.inspectionThoughtbaseChecks.mockResolvedValue({
+      checks: [
+        { type: 'thoughtbase:NeedsAuthor', label: 'Books without an author', description: 'Every book should say who wrote it.', group: 'thoughtbase', severity: 'warning' },
+        { type: 'thoughtbase:Slow', label: 'A slow one', description: '', group: 'thoughtbase', severity: 'info', stopped: true },
+      ],
+      problems: [{ file: 'writer.ttl', problem: 'a sh:select must be a SELECT query; a shape can only read the graph' }],
+    });
+    const view = render(InspectionsSettings);
+    expect(await view.findByLabelText('Books without an author')).toBeTruthy();
+    expect(view.getByText('From this thoughtbase')).toBeTruthy();
+    expect(view.getAllByText(/^Stopped: it took longer than its time limit/)).toHaveLength(1);
+    expect(view.getByText(/a sh:select must be a SELECT query/).textContent).toContain('.minerva/shapes/writer.ttl');
+  });
+});
 
 describe("InspectionsSettings — plugins' checks (#2642)", () => {
   silenceLogTags('settings');
