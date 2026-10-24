@@ -29,6 +29,8 @@ test('a plugin block in a note: drawn, sized, opening, writing, and kept across 
     await expect(win.getByRole('button', { name: 'Open Thoughtbase' })).toHaveCount(0, { timeout: 25_000 });
     const block = win.locator('.preview .plugin-block [data-plugin-block="reading-queue"]');
     const queue = block.locator('iframe[title="Reading queue"]').contentFrame();
+    // How far the block's height is from its list's: sized to fit is within a pixel or two.
+    const misfit = async () => Math.abs(((await block.boundingBox())?.height ?? 0) - await queue.locator('.queue').evaluate((el) => el.scrollHeight));
 
     await test.step('the note, editor and preview side by side: the block drawn from its query', async () => {
       await win.locator('[data-relative-path="Plans.md"]').first().click();
@@ -40,10 +42,11 @@ test('a plugin block in a note: drawn, sized, opening, writing, and kept across 
       await expect(queue.locator('li .title')).toHaveText(['Meditations', 'Walden'], { timeout: 15_000 });
     });
 
-    await test.step('sized to its list, not the default box', async () => {
-      await expect.poll(async () => (await block.boundingBox())?.height ?? 0, { timeout: 10_000 }).not.toBe(120);
-      const listHeight = await queue.locator('.queue').evaluate((el) => el.scrollHeight);
-      expect(Math.abs(((await block.boundingBox())!.height) - listHeight)).toBeLessThanOrEqual(2);
+    // Not "not the 120px default": the list's own height depends on the fonts
+    // the frame falls back to, and on a CI runner it can be 120 (#2641). The
+    // ✓ step below checks the block follows the list as it shrinks.
+    await test.step('sized to its list', async () => {
+      await expect.poll(misfit, { timeout: 10_000 }).toBeLessThanOrEqual(2);
     });
 
     await test.step('typing around it keeps the same frame, still drawn', async () => {
@@ -56,11 +59,14 @@ test('a plugin block in a note: drawn, sized, opening, writing, and kept across 
       expect(await queue.locator('body').evaluate(() => (window as unknown as { __mark?: number }).__mark ?? null)).toBe(7);
     });
 
-    await test.step('✓ marks a book read, and the block follows the graph', async () => {
+    await test.step('✓ marks a book read, and the block follows the graph — and shrinks to the shorter list', async () => {
+      const before = (await block.boundingBox())!.height;
       await queue.locator('li', { hasText: 'Walden' }).hover();
       await queue.getByRole('button', { name: 'Mark Walden read' }).click();
       await expect.poll(() => fs.readFileSync(path.join(dir, 'reading/Walden.md'), 'utf8'), { timeout: 10_000 }).toContain('status: read');
       await expect(queue.locator('li .title')).toHaveText(['Meditations'], { timeout: 15_000 });
+      await expect.poll(async () => (await block.boundingBox())?.height ?? before, { timeout: 10_000 }).toBeLessThan(before);
+      await expect.poll(misfit, { timeout: 10_000 }).toBeLessThanOrEqual(2);
     });
 
     await test.step('a row opens its note', async () => {
