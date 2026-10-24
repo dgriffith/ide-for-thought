@@ -1808,7 +1808,7 @@ origin.
   A plugin frame can't submit a `<form>` (no `allow-forms`) — act on Enter
   and click — and an export inliner must not copy a computed height or an
   `auto` margin, which are the frame's. **A global view (#2640)** is a sidebar panel
-  declared in `code.views` with its own `.rq`: main runs that query, never
+  or an editor tab (`plugin-view`), declared in `code.views` with its own `.rq`: main runs that query, never
   the plugin, and the notes it names are the session's whole scope (a
   `query` event, API 1.8.0; the renderer only asks for `refreshQuery`).
   `plugins/reading-queue/` is the worked example — see `docs/plugin-code.md`

@@ -10,6 +10,8 @@
   import QueryPanel from './lib/components/QueryPanel.svelte';
   import NeighborhoodGraph from './lib/components/NeighborhoodGraph.svelte';
   import TypeView from './lib/components/TypeView.svelte';
+  import PluginViewTab from './lib/components/plugins/PluginViewTab.svelte';
+  import { corePluginsStore } from './lib/stores/core-plugins.svelte';
   import RightSidebar from './lib/components/RightSidebar.svelte';
   import StatusBar from './lib/components/StatusBar.svelte';
   import BreadcrumbsBar from './lib/components/BreadcrumbsBar.svelte';
@@ -19,7 +21,7 @@
   import Preview from './lib/components/Preview.svelte';
   import HtmlPreview from './lib/components/HtmlPreview.svelte';
   import SourceDetail from './lib/components/SourceDetail.svelte';
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { getNotebaseStore } from './lib/stores/notebase.svelte';
   import { setPluginAppOps } from './lib/stores/plugin-sessions.svelte';
   import { getEditorStore, type TypeViewTab } from './lib/stores/editor.svelte';
@@ -52,7 +54,8 @@
   // startup graph (#691).
   import type { MenuEditorState, InspectionFix } from '../shared/types';
   import type { Command } from './lib/command-palette/types';
-  import { buildCommandRegistry } from './lib/command-palette/registry';
+  import { buildCommandRegistry, type PaletteView } from './lib/command-palette/registry';
+  import { pluginPanelId } from './lib/components/plugins/plugin-panels';
   import { getAllToolInfos } from './lib/tools/tool-registry';
   import { createCommandKeymap, type CommandKeymapCtx } from './lib/app/command-keymap';
   import { formatAccelerator } from './lib/command-palette/format-accelerator';
@@ -604,8 +607,20 @@
   const commands = $derived<Command[]>(
     // Skills too (#2766), read fresh on each open; the registry has the menu config applied.
     featureDialogs.commandPalette ? buildCommandRegistry(paletteState, (id) => commandActions[id](), getAllToolInfos(), (id) => { void handleToolInvoke(id); },
-      pluginThemesStore.themes.map((t) => ({ mode: t.mode, label: t.label, plugin: t.plugin.name })), handleSelectTheme) : [],
+      pluginThemesStore.themes.map((t) => ({ mode: t.mode, label: t.label, plugin: t.plugin.name })), handleSelectTheme,
+      corePluginsStore.allViews().map((v) => ({ pluginId: v.pluginId, pluginName: v.pluginName, viewId: v.view.id, title: v.view.title, place: v.view.place })),
+      (v) => { void handleOpenPluginView(v); }) : [],
   );
+
+  /** Open a plugin's global view (#2640): a tab view's tab, or a sidebar view's panel, showing that sidebar. */
+  async function handleOpenPluginView(v: PaletteView): Promise<void> {
+    if (v.place === 'tab') { editor.openPluginView(v.pluginId, v.viewId, v.title); return; }
+    const id = pluginPanelId(v.pluginId, v.viewId);
+    if (v.place === 'left-sidebar') { sidebarVisible = true; await tick(); sidebar?.showPanel(id); return; }
+    rightSidebarVisible = true;
+    await tick();
+    rightSidebar?.showPanel(id);
+  }
   /** When non-null, the merge-target picker is shown. Holds the source
    *  note path; the picker filters the source out of its candidates. */
 
@@ -1411,6 +1426,8 @@
                     {...(notebase.meta ? { onSaveView: () => handleSaveView(active) } : {})}
                   />
                 {/key}
+              {:else if active?.type === 'plugin-view'}
+                <PluginViewTab pluginId={active.pluginId} viewId={active.viewId} title={active.title} />
               {:else if active?.type === 'unsupported'}
                 <!-- No in-app renderer for this file type (#1130). A calm panel
                      (not an error, per the UI philosophy) with escape hatches to

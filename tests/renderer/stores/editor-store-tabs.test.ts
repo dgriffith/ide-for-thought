@@ -266,6 +266,19 @@ describe('neighborhood graph tabs (#847)', () => {
   });
 });
 
+describe('plugin global view tabs (#2640)', () => {
+  it('openPluginView opens a focused tab for the view, once', () => {
+    editor.openPluginView('reading-queue', 'queue', 'Reading Queue');
+    expect(editor.activeTab).toEqual({ type: 'plugin-view', pluginId: 'reading-queue', viewId: 'queue', title: 'Reading Queue' });
+    editor.openQuery('SELECT 1');
+    editor.openPluginView('reading-queue', 'queue', 'Reading Queue');
+    expect(editor.tabs).toHaveLength(2);
+    expect(editor.activeTab?.type).toBe('plugin-view');
+    editor.openPluginView('reading-queue', 'other', 'Other');
+    expect(editor.tabs).toHaveLength(3);
+  });
+});
+
 // ── PDF tabs ──────────────────────────────────────────────────────────────────
 
 describe('pdf tabs', () => {

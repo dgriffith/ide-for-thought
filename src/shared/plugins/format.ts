@@ -89,13 +89,17 @@ export interface PluginCode {
   views?: PluginView[];
 }
 
-/** Where a global view shows (#2640). Tabs follow in a second step. */
-export const PLUGIN_VIEW_PLACES = ['left-sidebar', 'right-sidebar'] as const;
+/**
+ * Where a global view shows (#2640): a panel in a sidebar, or a tab in the
+ * editor. A sidebar view can be opened in a tab too; `tab` is a view that
+ * has no panel, opened from the command palette.
+ */
+export const PLUGIN_VIEW_PLACES = ['left-sidebar', 'right-sidebar', 'tab'] as const;
 export type PluginViewPlace = (typeof PLUGIN_VIEW_PLACES)[number];
 
 /**
- * A global view (#2640): a page of the plugin's, framed in a sidebar panel,
- * and the read-only SPARQL query that feeds it. Minerva runs the query, not
+ * A global view (#2640): a page of the plugin's, framed in a sidebar panel or
+ * an editor tab, and the read-only SPARQL query that feeds it. Minerva runs the query, not
  * the plugin: the notes in its results are the view's scope, the way a type
  * view's instances are a layout's, so the query a plugin is shown with at
  * install is exactly what it can be given.

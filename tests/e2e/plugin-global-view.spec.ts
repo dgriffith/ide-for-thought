@@ -4,6 +4,7 @@
  * left rail; its page is framed and fed by the query it declares, which main
  * reads from the plugin's own folder and runs; a row opens its note; ✓ marks
  * a book read through the scoped write, and the re-run query takes it away.
+ * Then the same view in an editor tab, and that tab once the plugin is off.
  */
 import { test, expect } from './helpers/test';
 import fs from 'node:fs';
@@ -17,7 +18,7 @@ const NOTES: Record<string, string> = {
   'reading/Finished.md': '---\ntype: book\nstatus: read\n---\n# Finished\n',
 };
 
-test('the Reading Queue: a panel fed by its own query, opening and marking notes (#2640)', async () => {
+test('the Reading Queue: a panel and a tab fed by its own query, opening and marking notes (#2640)', async () => {
   const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-global-view-userdata-'));
   const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-global-view-project-'));
   fs.cpSync(path.join(projectRoot, 'tests', 'fixtures', 'sample-project'), projectDir, { recursive: true });
@@ -66,6 +67,28 @@ test('the Reading Queue: a panel fed by its own query, opening and marking notes
       await queue.getByRole('button', { name: 'Mark Meditations read' }).click();
       await expect.poll(() => fs.readFileSync(path.join(projectDir, 'reading/Meditations.md'), 'utf8'), { timeout: 10_000 }).toContain('status: read');
       await expect(queue.locator('li .title')).toHaveText(['Walden'], { timeout: 15_000 });
+    });
+
+    const tabQueue = win.locator('.plugin-view-tab iframe[title="Reading Queue"]').contentFrame();
+    await test.step('Open in tab: the same view in an editor tab, fed by the same query', async () => {
+      await win.getByRole('button', { name: 'Open Reading Queue in a tab' }).click();
+      await expect(win.locator('.tab.active')).toContainText('Reading Queue', { timeout: 10_000 });
+      await expect(tabQueue.locator('li .title')).toHaveText(['Walden'], { timeout: 15_000 });
+      await tabQueue.getByRole('button', { name: /Walden/ }).first().click();
+      await expect(win.locator('.tab.active')).toContainText('Walden', { timeout: 10_000 });
+    });
+
+    await test.step('turned off, the panel goes and the tab says which plugin to turn on', async () => {
+      const settings = win.getByRole('dialog', { name: 'Settings' });
+      await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]?.webContents.send('menu:command', 'app.settings'); });
+      await expect(settings).toBeVisible({ timeout: 5000 });
+      await settings.locator('nav.tabs button.tab', { has: win.locator('.tab-label', { hasText: /^Plugins$/ }) }).click();
+      await settings.getByRole('checkbox', { name: 'Turn off Reading Queue' }).click();
+      await expect(settings.getByRole('checkbox', { name: 'Turn on Reading Queue' })).not.toBeChecked();
+      await settings.getByRole('button', { name: 'Cancel' }).click();
+      await expect(tab).toHaveCount(0, { timeout: 10_000 });
+      await win.locator('.tab', { hasText: 'Reading Queue' }).click();
+      await expect(win.getByText('Reading Queue is turned off on this machine. Turn on Reading Queue in Settings → Plugins to see it.')).toBeVisible({ timeout: 10_000 });
     });
   } finally {
     await closeMinerva(app);

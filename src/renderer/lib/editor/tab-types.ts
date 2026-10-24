@@ -74,6 +74,18 @@ export interface GraphTab {
   depth: number;
 }
 
+/**
+ * A plugin's global view, opened as a tab (#2640): framed like its sidebar
+ * panel and fed by the same declared query. `title` is the view's, kept so a
+ * restored tab is named before the plugin list has loaded.
+ */
+export interface PluginViewTab {
+  type: 'plugin-view';
+  pluginId: string;
+  viewId: string;
+  title: string;
+}
+
 export interface UnsupportedTab {
   type: 'unsupported';
   relativePath: string;
@@ -124,7 +136,7 @@ export interface TypeViewTab extends TypeViewState {
   typeId: string;
 }
 
-export type Tab = NoteTab | QueryTab | SourceTab | PdfTab | GraphTab | TypeViewTab | UnsupportedTab;
+export type Tab = NoteTab | QueryTab | SourceTab | PdfTab | GraphTab | TypeViewTab | PluginViewTab | UnsupportedTab;
 
 /**
  * Source / preview view mode. `'editor-preview'` = source editor + rendered
@@ -153,3 +165,4 @@ export function isPdf(tab: Tab): tab is PdfTab { return tab.type === 'pdf'; }
 export function isGraph(tab: Tab): tab is GraphTab { return tab.type === 'graph'; }
 export function isTypeView(tab: Tab): tab is TypeViewTab { return tab.type === 'type-view'; }
 export function isUnsupported(tab: Tab): tab is UnsupportedTab { return tab.type === 'unsupported'; }
+export function isPluginView(tab: Tab): tab is PluginViewTab { return tab.type === 'plugin-view'; }

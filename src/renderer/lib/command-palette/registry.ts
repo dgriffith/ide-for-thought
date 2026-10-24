@@ -2,7 +2,7 @@
  * The command palette's list (#463; on the command registry since #2625).
  *
  * Every command in `shared/commands.ts` with a `palette` entry, in declared
- * order, then every skill (#2766): its title, category and shortcut come from the declaration, its
+ * order, then plugin themes and plugin views (#2787, #2640), then every skill (#2766): its title, category and shortcut come from the declaration, its
  * enablement from `PaletteState`, and running it calls `run(id)` — the same
  * action table (`app/command-keymap.ts`) the menu bar's `menu:command` runs,
  * so the two surfaces can't do different things for one command.
@@ -17,6 +17,7 @@ import { COMMANDS, type CommandId, type PaletteWhen } from '../../../shared/comm
 import type { ThemeMode } from '../theme';
 import { isSourceScoped, toolRequiresNote, toolRequiresSelection, type ThinkingToolInfo } from '../../../shared/tools/types';
 import { CATEGORIES } from '../../../shared/tools/registry';
+import type { PluginViewPlace } from '../../../shared/plugins/format';
 
 /** What the palette's enablement and the current-theme mark read. */
 export interface PaletteState {
@@ -82,6 +83,31 @@ function pluginThemeCommands(state: PaletteState, themes: readonly PaletteTheme[
   }));
 }
 
+/**
+ * One entry per plugins' global view (#2640): "Open <its title>", which opens
+ * a tab view's tab or shows a sidebar view's panel. A thoughtbase must be
+ * open — the view's query runs against it.
+ */
+function pluginViewCommands(state: PaletteState, views: readonly PaletteView[], openView: (view: PaletteView) => void): Command[] {
+  return views.map((v) => ({
+    id: `plugin-view:${v.pluginId}:${v.viewId}`,
+    title: `Open ${v.title}`,
+    category: `Plugins › ${v.pluginName}`,
+    keybinding: null,
+    enabled: state.hasProject(),
+    run: () => openView(v),
+  }));
+}
+
+/** A plugin's global view, as the palette lists it. */
+export interface PaletteView {
+  pluginId: string;
+  pluginName: string;
+  viewId: string;
+  title: string;
+  place: PluginViewPlace;
+}
+
 /** A plugin theme, as the palette lists it. */
 export interface PaletteTheme {
   mode: ThemeMode;
@@ -96,6 +122,8 @@ export function buildCommandRegistry(
   runSkill: (id: string) => void = () => {},
   themes: readonly PaletteTheme[] = [],
   selectTheme: (mode: ThemeMode) => void = () => {},
+  views: readonly PaletteView[] = [],
+  openView: (view: PaletteView) => void = () => {},
 ): Command[] {
   const currentThemeId = `view.theme.${state.currentTheme()}`;
   const out: Command[] = [];
@@ -110,5 +138,5 @@ export function buildCommandRegistry(
       run: () => run(def.id),
     });
   }
-  return [...out, ...pluginThemeCommands(state, themes, selectTheme), ...skillCommands(state, skills, runSkill)];
+  return [...out, ...pluginThemeCommands(state, themes, selectTheme), ...pluginViewCommands(state, views, openView), ...skillCommands(state, skills, runSkill)];
 }

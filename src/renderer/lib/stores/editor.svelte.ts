@@ -13,8 +13,8 @@ import {
 } from '../editor/layout-tree';
 import {
   type EditorGroup, type Tab, type ViewMode, type TypeViewState, type TypeViewTab,
-  type NoteTab, type QueryTab, type QueryLanguage, type SourceTab, type PdfTab, type GraphTab, type UnsupportedTab,
-  isNote, isQuery, isSource, isPdf, isGraph, isTypeView, isUnsupported,
+  type NoteTab, type QueryTab, type QueryLanguage, type SourceTab, type PdfTab, type GraphTab, type PluginViewTab, type UnsupportedTab,
+  isNote, isQuery, isSource, isPdf, isGraph, isTypeView, isPluginView, isUnsupported,
 } from '../editor/tab-types';
 import { buildSession, normalizeSession, resolveRestoredSession } from '../editor/tab-session';
 import { logger } from '../../../shared/logger';
@@ -27,7 +27,7 @@ import { DEFAULT_VIEW_LAYOUT } from '../../../shared/objects/view-layouts';
 // into it). Re-exported here so existing `from '../stores/editor.svelte'`
 // imports across the renderer are unaffected.
 export type {
-  NoteTab, QueryLanguage, QueryTab, SourceTab, PdfTab, GraphTab, UnsupportedTab,
+  NoteTab, QueryLanguage, QueryTab, SourceTab, PdfTab, GraphTab, PluginViewTab, UnsupportedTab,
   TypeViewLayout, TypeViewState, TypeViewTab, Tab, ViewMode, EditorGroup,
 } from '../editor/tab-types';
 
@@ -295,6 +295,19 @@ function buildEditorStore() {
     const grp = resolveGroup(opts?.groupId);
     activeGroupId = grp.id;
     const tab: GraphTab = { type: 'graph', relativePath, depth: opts?.depth ?? 1 };
+    grp.tabs.push(tab);
+    grp.activeIndex = grp.tabs.length - 1;
+    schedulePersistTabs();
+  }
+
+  /** Open (or refocus) a plugin's global view as a tab (#2640). One tab per
+   *  view; reopening refocuses rather than duplicating. */
+  function openPluginView(pluginId: string, viewId: string, title: string, opts?: { groupId?: string }) {
+    const found = locateTab((t) => isPluginView(t) && t.pluginId === pluginId && t.viewId === viewId);
+    if (found) { focusExistingTab(found); return; }
+    const grp = resolveGroup(opts?.groupId);
+    activeGroupId = grp.id;
+    const tab: PluginViewTab = { type: 'plugin-view', pluginId, viewId, title };
     grp.tabs.push(tab);
     grp.activeIndex = grp.tabs.length - 1;
     schedulePersistTabs();
@@ -930,6 +943,7 @@ function buildEditorStore() {
     openSource,
     openPdf,
     openNeighborhood,
+    openPluginView,
     setGraphDepth,
     openTypeView,
     setTypeViewState,
