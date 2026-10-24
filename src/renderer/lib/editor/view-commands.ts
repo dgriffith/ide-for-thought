@@ -107,6 +107,26 @@ export function getSelectedText(ops: ViewCommandOps): string {
 }
 
 /**
+ * Replace `from`–`to` with `text`, selecting the result, if the document
+ * there still reads `expected` — one change, undone in one step. What a
+ * plugin command's result does (#2643): it ran on that text, and the user
+ * may have typed since. Returns whether it applied.
+ */
+export function replaceRangeIfUnchanged(ops: ViewCommandOps, from: number, to: number, expected: string, text: string): boolean {
+  const view = ops.getView();
+  if (!view) return false;
+  const doc = view.state.doc;
+  if (from < 0 || to > doc.length || from > to || doc.sliceString(from, to) !== expected) return false;
+  view.dispatch({
+    changes: { from, to, insert: text },
+    selection: { anchor: from, head: from + text.length },
+    userEvent: 'input.plugin',
+  });
+  view.focus();
+  return true;
+}
+
+/**
  * Replace the current selection (or insert at the caret if there
  * is no selection) with `text`. If `caretWithin` is non-null, the
  * cursor lands at that offset inside the inserted text — used by

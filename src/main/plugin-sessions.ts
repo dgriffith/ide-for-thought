@@ -183,7 +183,7 @@ export async function sendPluginSessionEvent(win: BrowserWindow, sessionId: stri
 }
 
 /** A view's or block's declared query, read from the plugin's own folder with the frame protocol's containment. */
-async function readDeclaredQuery(pluginId: string, query: string): Promise<string> {
+export async function readDeclaredQuery(pluginId: string, query: string): Promise<string> {
   const file = await resolvePluginFrameFile(`${pluginFrameOrigin(pluginId)}/${query}`, pluginFrameRoot);
   if (!file) throw new Error(`The query ${query} isn't in the plugin.`);
   return fs.promises.readFile(file, 'utf8');

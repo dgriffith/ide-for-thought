@@ -1856,6 +1856,13 @@ origin.
   scope })`; the plugin answers through `minerva.handle()`. Each call has a
   deadline that destroys the host when missed, and a host stops after 60 s
   idle (~90 MB each, measured). Its preload only forwards the port.
+  **A plugin command (#2643)** is in `code.commands`: in the palette, and
+  the editor menu when `editorMenu`. It runs a `handler`, a `skill`, a
+  `query` or one of its `view`s, and main decides which (`plugin-commands.ts`).
+  A handler returns `{ replaceSelection?, announce? }` and the editor applies
+  it only to text that is still selected (`replaceRangeIfUnchanged`): the
+  plugin never writes under an open buffer. A new core plugin needs an
+  entry in `core-plugins.ts`'s activations, or it is never active.
 
 ### Code Review Checklist for LLM/Graph PRs
 

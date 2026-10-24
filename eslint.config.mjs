@@ -67,8 +67,9 @@ const DATAFLOW_MUTATION_METHODS =
   // its change event live in the remote-images store.
   'allowRemoteHost|setRemoteMode|resetRemotePolicy|onRemotePolicyChanged|' +
   // Plugin sessions (#2825): opening, rescoping and closing one, and its
-  // intent event, live in the plugin-sessions store.
-  'openSession|setSessionScope|closeSession|onIntent|sendSessionEvent';
+  // intent event, live in the plugin-sessions store. Running a plugin's
+  // command (#2643) runs its code and edits the note: `app/plugin-command-ops.ts`.
+  'openSession|setSessionScope|closeSession|onIntent|sendSessionEvent|runCommand';
 
 const DATAFLOW_MESSAGE =
   'Renderer data-flow rule (#1086): components must not call mutating/subscribing `api.*` methods directly. ' +

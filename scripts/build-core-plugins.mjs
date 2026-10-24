@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
- * Build every built-in plugin's view (#2828): each folder in `plugins/` with
- * an `index.html`, through `vite.core-plugins.config.mts`, into
+ * Build every built-in plugin's view (#2828) and logic (#2643): each folder in
+ * `plugins/` with an `index.html` or a `src/logic.ts`, through
+ * `vite.core-plugins.config.mts`, into
  * `.vite/core-plugins/<id>/`. `--watch` rebuilds on change (for `pnpm dev`).
  */
 import { execFileSync, spawn } from 'node:child_process';
@@ -12,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const watch = process.argv.includes('--watch');
 const ids = fs.readdirSync(path.join(ROOT, 'plugins'), { withFileTypes: true })
-  .filter((e) => e.isDirectory() && fs.existsSync(path.join(ROOT, 'plugins', e.name, 'index.html')))
+  .filter((e) => e.isDirectory() && ['index.html', 'src/logic.ts'].some((f) => fs.existsSync(path.join(ROOT, 'plugins', e.name, f))))
   .map((e) => e.name)
   .sort();
 

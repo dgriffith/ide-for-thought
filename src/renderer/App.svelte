@@ -39,6 +39,7 @@
   import { createNavView, type NavViewCtx } from './lib/app/nav-view';
   import { createRefactorOps, type RefactorOpsCtx } from './lib/app/refactor-ops.svelte';
   import { createTemplateOps, type TemplateOpsCtx } from './lib/app/template-ops';
+  import { createPluginCommandOps, type PluginCommandOpsCtx } from './lib/app/plugin-command-ops';
   import { createConversationOps, type ConversationOpsCtx } from './lib/app/conversation-ops';
   import { createProjectOps, type ProjectOpsCtx } from './lib/app/project-ops';
   import { registerAppIpc, type IpcWiringCtx } from './lib/app/ipc-wiring';
@@ -609,7 +610,9 @@
     featureDialogs.commandPalette ? buildCommandRegistry(paletteState, (id) => commandActions[id](), getAllToolInfos(), (id) => { void handleToolInvoke(id); },
       pluginThemesStore.themes.map((t) => ({ mode: t.mode, label: t.label, plugin: t.plugin.name })), handleSelectTheme,
       corePluginsStore.allViews().map((v) => ({ pluginId: v.pluginId, pluginName: v.pluginName, viewId: v.view.id, title: v.view.title, place: v.view.place })),
-      (v) => { void handleOpenPluginView(v); }) : [],
+      (v) => { void handleOpenPluginView(v); },
+      corePluginsStore.allCommands().map((c) => ({ pluginId: c.pluginId, pluginName: c.pluginName, commandId: c.command.id, title: c.command.title, when: c.command.when })),
+      (c) => { void runPluginCommand(c.pluginId, c.commandId); }) : [],
   );
 
   /** Open a plugin's global view (#2640): a tab view's tab, or a sidebar view's panel, showing that sidebar. */
@@ -829,6 +832,18 @@
     getToolPanelComponent: () => toolPanelComponent,
     openFileSelect: (p) => { void handleFileSelect(p); },
   } satisfies ConversationOpsCtx);
+
+  // Plugin commands (#2643): from the palette and the editor's menu.
+  const { runPluginCommand } = createPluginCommandOps({
+    getEditorComponent: () => editorComponent,
+    getActiveNotePath: () => (editor.activeTab?.type === 'note' ? editor.activeFilePath : null),
+    runSkill: (id) => { void handleToolInvoke(id); },
+    openQuery: (text) => editor.openQuery(text, 'sparql'),
+    openView: (pluginId, viewId) => {
+      const v = corePluginsStore.view(pluginId, viewId);
+      if (v) void handleOpenPluginView({ pluginId, pluginName: v.pluginName, viewId, title: v.view.title, place: v.view.place });
+    },
+  } satisfies PluginCommandOpsCtx);
 
   // Project / thoughtbase-lifecycle handler cluster (#1084): the new-thoughtbase
   // onboarding journey, the welcome-note seed, the thoughtbase-guide opener, and
@@ -1287,6 +1302,7 @@
                           }
                           menuOps={{
                             invokeTool: handleToolInvoke,
+                            runPluginCommand: (pluginId, commandId) => { void runPluginCommand(pluginId, commandId); },
                             openConversation: openConversation,
                             bookmark: () => bookmarkStore.add(note.fileName.replace(/\.(md|ttl|csv)$/, ''), note.relativePath),
                             bookmarkSection: () => { void handleBookmarkSection(); },

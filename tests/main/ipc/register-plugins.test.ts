@@ -36,6 +36,7 @@ const h = vi.hoisted(() => ({
   setSessionScope: vi.fn(),
   closeSession: vi.fn(),
   sessionEvent: vi.fn(),
+  runCommand: vi.fn(),
 }));
 
 vi.mock('electron', () => ({
@@ -46,7 +47,9 @@ vi.mock('electron', () => ({
 vi.mock('../../../src/main/ipc/helpers', () => ({
   winFromEvent: () => ({ id: 1 }),
   withRootPathOr: (_fallback: unknown, fn: (root: string, ...a: unknown[]) => unknown) => (_e: unknown, ...a: unknown[]) => fn('/tb', ...a),
+  withRootPath: (fn: (root: string, ...a: unknown[]) => unknown) => (_e: unknown, ...a: unknown[]) => fn('/tb', ...a),
 }));
+vi.mock('../../../src/main/plugin-commands', () => ({ runPluginCommand: h.runCommand }));
 vi.mock('../../../src/main/mcp-servers/registry', () => ({ reconcilePluginServers: h.reconcile }));
 vi.mock('../../../src/main/plugins/settings', () => ({
   readPluginSettings: h.readPluginSettings,
@@ -146,6 +149,11 @@ const LIST = {
     enabled: false, source: { kind: 'core' }, contributes: {}, capabilities: ['graph:query', 'notes:write-properties', 'ui'],
     views: [{ id: 'queue', title: 'Reading Queue', place: 'left-sidebar', entry: 'index.html', query: 'queue.rq', icon: 'bookmark' }],
     blocks: [{ id: 'queue', title: 'Reading queue', fence: 'reading-queue', entry: 'index.html', query: 'queue.rq' }],
+  }, {
+    id: 'list-tools', name: 'List Tools', version: '1.0.0',
+    description: "Sort the Markdown list in your selection, from the command palette or the editor's right-click menu. Nested items move with their parent.",
+    enabled: false, source: { kind: 'core' }, contributes: {}, capabilities: ['notes:read'],
+    commands: [{ id: 'sort-selection', title: 'Sort List in Selection', when: 'selection', editorMenu: true, run: { handler: 'sortSelection' } }],
   }],
   installed: [{
     id: 'lab', name: 'Lab', version: '1.0.0', description: 'Lab tools', author: 'Ada', enabled: false,
@@ -456,5 +464,22 @@ describe('plugin session events (#2827)', () => {
     expect(h.sessionEvent).toHaveBeenLastCalledWith({ id: 1 }, 's1', { kind: 'view', state: {} });
     await call(Channels.PLUGINS_SESSION_EVENT, 's1', { kind: 'refreshQuery' });
     expect(h.sessionEvent).toHaveBeenLastCalledWith({ id: 1 }, 's1', { kind: 'refreshQuery' });
+  });
+});
+
+describe('plugin commands (#2643)', () => {
+  it('runs a command in the thoughtbase, passing on only a string note and selection', async () => {
+    h.runCommand.mockResolvedValue({ kind: 'result', replaceSelection: 'x' });
+    expect(await call(Channels.PLUGINS_RUN_COMMAND, 'list-tools', 'sort-selection', { note: 'a.md', selection: '- b\n- a', extra: 1 }))
+      .toEqual({ kind: 'result', replaceSelection: 'x' });
+    expect(h.runCommand).toHaveBeenCalledWith('/tb', 'list-tools', 'sort-selection', { note: 'a.md', selection: '- b\n- a' });
+    await call(Channels.PLUGINS_RUN_COMMAND, 'list-tools', 'sort-selection', { note: 7, selection: null });
+    expect(h.runCommand).toHaveBeenLastCalledWith('/tb', 'list-tools', 'sort-selection', {});
+  });
+
+  it('refuses an id that is not a plugin id before running anything', async () => {
+    h.runCommand.mockClear();
+    await expect(call(Channels.PLUGINS_RUN_COMMAND, '../evil', 'x', {})).rejects.toThrow("isn't a plugin id");
+    expect(h.runCommand).not.toHaveBeenCalled();
   });
 });

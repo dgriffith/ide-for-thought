@@ -1,5 +1,6 @@
 import type { NoteFile, NotebaseMeta, TagInfo, TaggedNote, TaggedSource, SavedQuery, SearchResult, OutgoingLink, Backlink, TabSession, LayoutSession, BookmarkNode, SourceDetail, SearchInNotesOptions, SearchInNotesResult, ReplaceInNotesOptions, ReplaceInNotesResult, HeadingRenameCandidate, MenuEditorState } from '../../../shared/types';
 import type { PluginHostEvent, PluginIntentEvent, PluginSessionTarget } from '../../../shared/plugins/session';
+import type { PluginCommandAction, PluginCommandContext } from '../../../shared/plugins/format';
 import type { LiveBlockRequest, LiveBlockResult } from '../../../shared/live-blocks';
 import type { Conversation, ConversationCreateOptions, ContextBundle, ConversationMessage } from '../../../shared/conversation';
 import type { ToolExecutionRequest, ToolExecutionResult, ConversationToolPayload } from '../../../shared/tools/types';
@@ -1165,6 +1166,12 @@ export interface PluginsApi {
   /** Replace the notes a session was given. */
   setSessionScope(sessionId: string, scope: string[]): Promise<void>;
   closeSession(sessionId: string): Promise<void>;
+  /**
+   * Run a plugin's command (#2643) on the active note and its selection.
+   * Resolves with what to do next; rejects naming the plugin when it isn't
+   * on, the command can't run here, or its handler failed or ran too long.
+   */
+  runCommand(pluginId: string, commandId: string, ctx: PluginCommandContext): Promise<PluginCommandAction>;
   /** Pass on what the host saw — the theme, a drop of notes, which joins the session's scope (#2827). */
   sendSessionEvent(sessionId: string, event: PluginHostEvent): Promise<void>;
   /** A plugin asked this window to do something (`ui` capability). */

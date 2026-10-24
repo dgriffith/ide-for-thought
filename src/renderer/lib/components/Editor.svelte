@@ -49,6 +49,7 @@
     getSelectionRange as getSelectionRangeOp,
     getSelectedText as getSelectedTextOp,
     insertText as insertTextOp,
+    replaceRangeIfUnchanged as replaceRangeIfUnchangedOp,
     getClaimUriAtCursor as getClaimUriAtCursorOp,
     gotoOffset as gotoOffsetOp,
     restorePosition as restorePositionOp,
@@ -523,6 +524,11 @@
    */
   export function insertText(text: string, caretWithin: number | null = null): boolean {
     return insertTextOp(viewCommandOps, text, caretWithin);
+  }
+
+  /** Replace `from`–`to` with `text` if it still reads `expected` (a plugin command's result, #2643). */
+  export function replaceRangeIfUnchanged(from: number, to: number, expected: string, text: string): boolean {
+    return replaceRangeIfUnchangedOp(viewCommandOps, from, to, expected, text);
   }
 
   /**

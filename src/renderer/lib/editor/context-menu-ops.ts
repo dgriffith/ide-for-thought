@@ -51,6 +51,8 @@ export interface EditorMenuOps {
   addPropertyCurrentNote?: () => void;
   removePropertyCurrentNote?: () => void;
   invokeTool?: (toolId: string) => void;
+  /** Run a plugin's command (#2643) on this note and its selection. */
+  runPluginCommand?: (pluginId: string, commandId: string) => void;
 }
 
 /** One Tools-for-Thought submenu (Learning / Research / Analysis), built to

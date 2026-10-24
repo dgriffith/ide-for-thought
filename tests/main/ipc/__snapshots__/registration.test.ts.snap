@@ -181,6 +181,7 @@ exports[`IPC registration contract (#997) > matches the known set of registered 
   "plugins:recommendations",
   "plugins:remove",
   "plugins:reveal",
+  "plugins:runCommand",
   "plugins:sessionEvent",
   "plugins:setEnabled",
   "plugins:setSessionScope",
