@@ -10,7 +10,7 @@
  */
 import { api } from '../ipc/client';
 import { logger } from '../../../shared/logger';
-import type { PluginBlock, PluginView, PluginViewPlace } from '../../../shared/plugins/format';
+import type { PluginBlock, PluginCommand, PluginView, PluginViewPlace } from '../../../shared/plugins/format';
 import type { PluginBlockSyntax } from '../../../shared/live-blocks';
 
 /** A global view an enabled built-in plugin draws (#2640). */
@@ -20,7 +20,22 @@ export interface ActivePluginView {
   view: PluginView;
 }
 
-let core = $state<ReadonlyMap<string, { name: string; enabled: boolean; views: readonly PluginView[]; blocks: readonly PluginBlock[] }> | null>(null);
+/** A command an enabled built-in plugin adds (#2643). */
+export interface ActivePluginCommand {
+  pluginId: string;
+  pluginName: string;
+  command: PluginCommand;
+}
+
+interface CorePluginInfo {
+  name: string;
+  enabled: boolean;
+  views: readonly PluginView[];
+  blocks: readonly PluginBlock[];
+  commands: readonly PluginCommand[];
+}
+
+let core = $state<ReadonlyMap<string, CorePluginInfo> | null>(null);
 let started = false;
 
 async function refresh(): Promise<void> {
@@ -29,7 +44,7 @@ async function refresh(): Promise<void> {
   if (!api.plugins) return;
   try {
     const list = await api.plugins.list();
-    core = new Map(list.core.map((p) => [p.id, { name: p.name, enabled: p.enabled, views: p.views ?? [], blocks: p.blocks ?? [] }]));
+    core = new Map(list.core.map((p) => [p.id, { name: p.name, enabled: p.enabled, views: p.views ?? [], blocks: p.blocks ?? [], commands: p.commands ?? [] }]));
   } catch (e) {
     logger('plugins').warn('could not read which built-in plugins are on:', e);
   }
@@ -107,6 +122,12 @@ export const corePluginsStore = {
     start();
     const p = core?.get(pluginId);
     return p?.enabled ? p.blocks.find((b) => b.id === blockId) ?? null : null;
+  },
+  /** Every command of the plugins that are on (#2643), in Settings' order: the palette's and the editor menu's list. Reactive. */
+  allCommands(): ActivePluginCommand[] {
+    start();
+    if (core === null) return [];
+    return [...core].flatMap(([pluginId, p]) => (p.enabled ? p.commands.map((command) => ({ pluginId, pluginName: p.name, command })) : []));
   },
   /** Its name, for "turn on X" — the id until the list has loaded. */
   name(id: string): string {

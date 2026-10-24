@@ -37,6 +37,9 @@ const CORE_PLUGIN_ACTIVATIONS: Readonly<Record<string, CorePluginActivation>> = 
   // The Reading Queue (#2640) is a global view: served the same way, its
   // query run by `plugin-sessions.ts` when its panel connects.
   'reading-queue': () => () => {},
+  // List Tools (#2643): its command's handler runs in its worker host, which
+  // starts on the first run and stops when the plugin goes (`plugins-apply.ts`).
+  'list-tools': () => () => {},
 };
 
 /**
@@ -104,6 +107,11 @@ export function startCorePlugins(): void {
 }
 
 export { activeCorePlugins, isCorePluginActive } from './core-plugins-active';
+
+/** The core plugins that have an activation — every one must, or turning it on does nothing (#2643). */
+export function _coreActivationIdsForTests(): string[] {
+  return Object.keys(CORE_PLUGIN_ACTIVATIONS);
+}
 
 /**
  * Replace the activations; `null` puts the real ones back, after taking down

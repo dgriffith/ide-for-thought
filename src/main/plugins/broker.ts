@@ -63,6 +63,7 @@ import { readFrontmatterProperties, patchFrontmatterProperties } from '../../sha
 import type { RevisionSource } from '../../shared/history';
 import type { GraphQueryResult } from '../../shared/graph-query';
 import type { PluginIntent } from '../../shared/plugins/session';
+import { PLUGIN_HANDLER_NAME } from '../../shared/plugins/format';
 
 /** Who is calling: the plugin as installed now. */
 export interface PluginIdentity {
@@ -139,8 +140,7 @@ export class PluginCallError extends Error {
   constructor(message: string) { super(message); this.name = 'PluginCallError'; }
 }
 
-/** A handler's name: what `minerva.handle(name, …)` registers. */
-export const PLUGIN_HANDLER_NAME = /^[A-Za-z][A-Za-z0-9_.-]{0,63}$/;
+export { PLUGIN_HANDLER_NAME };
 
 /** JSON that survives DuckDB's BigInt columns. */
 function stringify(value: unknown): string {

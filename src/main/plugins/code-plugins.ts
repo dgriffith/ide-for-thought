@@ -11,7 +11,7 @@ import { isCorePluginActive } from '../core-plugins-active';
 import { corePlugin, corePlugins } from './core';
 import { loadedPluginScan } from './registry';
 import type { PluginIdentity } from './broker';
-import type { PluginBlock, PluginView } from '../../shared/plugins/format';
+import type { PluginBlock, PluginCommand, PluginView } from '../../shared/plugins/format';
 import type { PluginBlockSyntax } from '../../shared/live-blocks';
 
 // The e2e harness's hostile fixture (`e2e-hooks.ts`, MINERVA_E2E only): no
@@ -90,4 +90,12 @@ const e2eWorkers = new Map<string, string>();
 /** Treat `entry` as plugin `id`'s logic module — e2e only (`e2e-hooks.ts`). */
 export function _registerCodePluginWorkerForE2E(id: string, entry: string): void {
   e2eWorkers.set(id, entry);
+}
+
+/** The commands plugin `id` adds (#2643), while it is enabled code; [] otherwise. */
+export function codePluginCommands(id: string): readonly PluginCommand[] {
+  if (!codePluginIdentity(id) || e2ePlugins.has(id)) return [];
+  const core = corePlugin(id);
+  const manifest = core ? core.manifest : loadedPluginScan().plugins.find((p) => p.manifest.id === id)?.manifest;
+  return manifest?.code?.commands ?? [];
 }

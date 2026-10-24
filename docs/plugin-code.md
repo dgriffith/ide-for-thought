@@ -537,6 +537,60 @@ draws for an export.
   `export-parity-all-kinds` exports it beside every built-in kind, and
   `plugin-live-block.spec.ts` drives it in the preview.
 
+### Commands (#2643)
+
+A command a plugin adds is declared in `code.commands`. It lands in the
+command palette, under *Plugins › its name*, and in the editor's right-click
+menu (*Plugins*) when it says `editorMenu`:
+
+```json
+"commands": [{ "id": "sort-selection", "title": "Sort List in Selection",
+               "when": "selection", "editorMenu": true,
+               "run": { "handler": "sortSelection" } }]
+```
+
+`when` is `project` (the default), `note` or `selection`: what has to be
+there for it to run, and what the palette greys it out without. `run` is
+exactly one of:
+
+- **`handler`**: a function the plugin's logic module registered with
+  `minerva.handle()`, run in its worker host (above). The manifest needs
+  `code.worker`.
+- **`skill`**: a skill by id, as the palette runs it.
+- **`query`**: an `.rq` in the plugin's folder, opened in a query tab.
+- **`view`**: one of the plugin's own global views, opened.
+
+So a command runs nothing its manifest doesn't show.
+
+**Decision: a handler returns the change, and the editor makes it.** The
+handler is handed `{ command, note, selection }` (the active note's path and
+the selected text) and returns `{ replaceSelection?, announce? }`. Main
+checks that shape and nothing else gets through (`plugin-commands.ts`). The
+renderer replaces the text the command ran on, as one change ⌘Z undoes, and
+only if that text is still selected (`replaceRangeIfUnchanged`). A command
+that took a while can't overwrite what was typed meanwhile, and nothing races
+the unsaved editor buffer. **Why not `notes:write`**, as the issue sketched:
+a write to the file under an open, edited note fights the buffer, and ⌘Z
+can't undo it. The handler's scope is still the active note, so one with
+`notes:read` can read the whole note through the API.
+
+- **Main decides, the renderer asks.** The renderer sends only which
+  command and what it runs on (`plugins:runCommand`). Main checks the plugin
+  is on, the command exists, its `when` is met and the note is a path an
+  agent may name, then runs it or names the skill, query or view back.
+- **Failure.** A handler that throws, or misses its deadline, fails the
+  command with a message naming the plugin. The renderer shows it, and the
+  app is unaffected.
+- **Not yet.** An `mcpTool` command waits for a confirm card outside a
+  conversation (a tool not marked read-only must ask, #2439). The native menu
+  bar and keybindings wait on *Shortcut conflicts* below. All three are #2879.
+- **List Tools is the worked example**, off by default: *Sort List in
+  Selection* sorts the outermost items of the selected Markdown list, nested
+  items and continuation lines moving with their parent
+  (`plugins/list-tools/src/`). A plugin folder with `src/logic.ts` gets it
+  built to `logic.js`, beside any page. `plugin-command.spec.ts` drives it
+  from the palette and the editor menu.
+
 ### Other candidates
 
 The test is which features reach a privileged sink or hold a credential:
@@ -656,7 +710,7 @@ is an MCP server, as in 4.0.
 | #2640 views | Rewritten around the view API, and built: sidebar panels and tabs (*Global views* above). |
 | #2641 live blocks | Built: a fence or directive drawn by the plugin's frame, exported through the same frame in the export window (*Live blocks* above). |
 | #2642 inspections | Build as written (SPARQL). Code checks come later, through the worker host. |
-| #2643 commands | Rewrite: a command whose handler is in the plugin's worker, placed through the existing `COMMANDS` registry. |
+| #2643 commands | Built: a command in the palette and the editor menu that runs a handler in the plugin's worker, a skill, a query or a view (*Commands* above). |
 | #2647 ingestors | Rewrite: a parser in the worker, given the file's bytes. One that needs a native library stays MCP. |
 | #2648 exporters | Rewrite: a writer in the worker, given the rendered document. |
 

@@ -239,3 +239,50 @@ describe('code.worker: a plugin\'s logic (#2830)', () => {
     expect(problemsOf(code('logic.ts'), CORE)).toEqual(['"code.worker" must be a JavaScript module, a .js file; got "logic.ts".']);
   });
 });
+
+describe('code.commands (#2643)', () => {
+  const CORE = { ...CTX, core: true };
+  const VIEW = { id: 'queue', title: 'Queue', place: 'left-sidebar', entry: 'index.html', query: 'queue.rq' };
+  const code = (commands: unknown, extra: Record<string, unknown> = {}) => ({
+    ...GOOD, code: { capabilities: ['notes:read', 'ui', 'graph:query'], api: '^1.10.0', worker: 'logic.js', views: [VIEW], commands, ...extra },
+  });
+  const commandsOf = (raw: unknown) => {
+    const r = validatePluginManifest(raw, CORE);
+    if (!r.ok) throw new Error(r.problems.join('\n'));
+    return r.manifest.code?.commands;
+  };
+
+  it('takes each kind of run, and defaults when to "project"', () => {
+    expect(commandsOf(code([
+      { id: 'sort', title: ' Sort List ', when: 'selection', editorMenu: true, run: { handler: 'sortSelection' } },
+      { id: 'steel', title: 'Steelman', run: { skill: 'steelman' } },
+      { id: 'q', title: 'Open Query', when: 'note', run: { query: 'queries/open.rq' } },
+      { id: 'v', title: 'Show Queue', run: { view: 'queue' } },
+    ]))).toEqual([
+      { id: 'sort', title: 'Sort List', when: 'selection', editorMenu: true, run: { handler: 'sortSelection' } },
+      { id: 'steel', title: 'Steelman', when: 'project', run: { skill: 'steelman' } },
+      { id: 'q', title: 'Open Query', when: 'note', run: { query: 'queries/open.rq' } },
+      { id: 'v', title: 'Show Queue', when: 'project', run: { view: 'queue' } },
+    ]);
+  });
+
+  it('refuses a handler without code.worker, a view it does not declare, and a query outside its folder', () => {
+    expect(problemsOf(code([{ id: 'a', title: 'A', run: { handler: 'go' } }], { worker: undefined }), CORE))
+      .toEqual(['"code.commands[0].run.handler" needs "code.worker": a handler is a function in the plugin\'s logic module.']);
+    expect(problemsOf(code([{ id: 'a', title: 'A', run: { view: 'other' } }]), CORE))
+      .toEqual(['"code.commands[0].run.view" must be the id of one of the plugin\'s own views in "code.views"; got "other".']);
+    expect(problemsOf(code([{ id: 'a', title: 'A', run: { query: '../x.rq' } }]), CORE))
+      .toEqual(['"code.commands[0].run.query" must be a path inside the plugin\'s folder, like "views/queue.rq"; got "../x.rq".']);
+  });
+
+  it('refuses a run with no kind or two, an unknown when, a duplicate id, and an unknown field', () => {
+    expect(problemsOf(code([{ id: 'a', title: 'A', run: { handler: 'go', skill: 'x' } }]), CORE))
+      .toEqual(['"code.commands[0].run" must be an object with exactly one of "handler", "skill", "query", "view".']);
+    expect(problemsOf(code([{ id: 'a', title: 'A', when: 'always', run: { skill: 'x' } }]), CORE))
+      .toEqual(['"code.commands[0].when" must be one of project, note, selection; got "always".']);
+    expect(problemsOf(code([{ id: 'a', title: 'A', run: { skill: 'x' } }, { id: 'a', title: 'B', run: { skill: 'y' } }]), CORE))
+      .toEqual(['"code.commands" has two commands with the id "a".']);
+    expect(problemsOf(code([{ id: 'a', title: 'A', key: 'Mod-k', run: { skill: 'x' } }]), CORE))
+      .toEqual(['Unknown field "code.commands[0].key".']);
+  });
+});

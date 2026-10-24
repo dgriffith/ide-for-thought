@@ -10,6 +10,7 @@
   import Icon from './Icon.svelte';
   import { api } from '../ipc/client';
   import { voiceSettings } from '../voice/voice-settings.svelte';
+  import { corePluginsStore } from '../stores/core-plugins.svelte';
   import {
     insertTypedLinks, insertCallouts, insertCardCallout,
     insertSparqlQuery, insertSqlQuery, insertPythonScript, insertMermaidDiagram,
@@ -76,6 +77,9 @@
     onRecordAudio,
     recordingAction,
   }: Props = $props();
+
+  // Read from the store, as a component may (#1922): the commands that asked for this menu.
+  const pluginCommands = $derived(corePluginsStore.allCommands().filter((c) => c.command.editorMenu));
 </script>
 
 {#snippet toolButton(tool: ThinkingToolInfo)}
@@ -217,6 +221,23 @@
         </div>
       </div>
     {/each}
+  {/if}
+  {#if ops.runPluginCommand && pluginCommands.length > 0}
+    <!-- Plugin commands that asked for this menu (#2643), one submenu for them all. -->
+    <div class="separator"></div>
+    <div class="submenu-item" onmouseenter={onAdjustSubmenu}>
+      <span class="submenu-trigger">Plugins<Icon name="chevronRight" size={10} /></span>
+      <div class="submenu">
+        {#each pluginCommands as c (`${c.pluginId}:${c.command.id}`)}
+          {@const needsSelection = c.command.when === 'selection' && !menu.hasSelection}
+          <button
+            onclick={() => onMenuAction(() => ops.runPluginCommand?.(c.pluginId, c.command.id))}
+            disabled={needsSelection}
+            title={needsSelection ? 'Select text first' : c.pluginName}
+          >{c.command.title}</button>
+        {/each}
+      </div>
+    </div>
   {/if}
   {#if ops.addTagCurrentNote || ops.removeTagCurrentNote || ops.addPropertyCurrentNote || ops.removePropertyCurrentNote}
     <div class="separator"></div>

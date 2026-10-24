@@ -98,7 +98,81 @@ export interface PluginCode {
    * deadline, and does every file read and write itself.
    */
   worker?: string;
+  /** Commands it adds (#2643): in the command palette, and the editor's menu when they ask. */
+  commands?: PluginCommand[];
 }
+
+/** A handler's name: what `minerva.handle(name, …)` registers (#2830), and what a command runs. */
+export const PLUGIN_HANDLER_NAME = /^[A-Za-z][A-Za-z0-9_.-]{0,63}$/;
+
+/**
+ * When a plugin command can run (#2643): with a thoughtbase open, a note
+ * open in the active tab, or text selected in it.
+ */
+export const PLUGIN_COMMAND_WHEN = ['project', 'note', 'selection'] as const;
+export type PluginCommandWhen = (typeof PLUGIN_COMMAND_WHEN)[number];
+
+/**
+ * What a plugin command runs (#2643), exactly one of:
+ * - `handler`: a function its logic module registered with `minerva.handle`,
+ *   run in its worker host (#2830) with the command's context as data. It
+ *   returns what to do (`PluginCommandResult`); Minerva does it.
+ * - `skill`: a skill, by id, as the palette runs it.
+ * - `query`: a query in its folder (an `.rq` file), opened in a query tab.
+ * - `view`: one of its own global views (#2640), opened.
+ */
+export type PluginCommandRun =
+  | { handler: string }
+  | { skill: string }
+  | { query: string }
+  | { view: string };
+
+/**
+ * A command a plugin adds (#2643):
+ *
+ * ```json
+ * "commands": [{ "id": "sort-selection", "title": "Sort List in Selection",
+ *                "when": "selection", "editorMenu": true,
+ *                "run": { "handler": "sortSelection" } }]
+ * ```
+ */
+export interface PluginCommand {
+  /** Lowercase letters and digits in dash-separated words, unique in the plugin. */
+  id: string;
+  /** The palette's title and the menu item's label. */
+  title: string;
+  when: PluginCommandWhen;
+  /** Also in the editor's right-click menu, under Plugins. */
+  editorMenu?: true;
+  run: PluginCommandRun;
+}
+
+/**
+ * What a command's handler returns (#2643): data, which Minerva acts on.
+ * `replaceSelection` replaces the text the command ran on, as one change the
+ * editor can undo, and only if that text is still selected; `announce` is
+ * said to a screen reader and shown. Either may be left out.
+ */
+export interface PluginCommandResult {
+  replaceSelection?: string;
+  announce?: string;
+}
+
+/** What the renderer gives a command to run on (#2643): the active note, and the selected text in it. */
+export interface PluginCommandContext {
+  note?: string;
+  selection?: string;
+}
+
+/**
+ * What running a plugin command asks the renderer to do (#2643), decided in
+ * main: a handler's checked result, or what a declarative command names.
+ */
+export type PluginCommandAction =
+  | { kind: 'result'; replaceSelection?: string; announce?: string }
+  | { kind: 'skill'; skill: string }
+  | { kind: 'query'; text: string }
+  | { kind: 'view'; view: string };
 
 /**
  * A live block (#2641): a fence (```` ```recipe-card ````) or a directive
@@ -302,6 +376,8 @@ export interface PluginSummary {
   views?: PluginView[];
   /** The live blocks it draws (#2641); absent when none. */
   blocks?: PluginBlock[];
+  /** The commands it adds (#2643); absent when none. */
+  commands?: PluginCommand[];
 }
 
 /**

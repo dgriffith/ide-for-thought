@@ -220,6 +220,7 @@ exports[`preload behaviour: surface-wide invariants (#2367) > the full method â†
   "plugins.recommendations": "invoke plugins:recommendations",
   "plugins.remove": "invoke plugins:remove",
   "plugins.reveal": "invoke plugins:reveal",
+  "plugins.runCommand": "invoke plugins:runCommand",
   "plugins.sendSessionEvent": "invoke plugins:sessionEvent",
   "plugins.setEnabled": "invoke plugins:setEnabled",
   "plugins.setSessionScope": "invoke plugins:setSessionScope",

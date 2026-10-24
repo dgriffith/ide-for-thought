@@ -22,8 +22,8 @@ vi.mock('electron', () => ({
   },
 }));
 
-import { _setCoreActivationsForTests, activeCorePlugins, startCorePlugins, syncCorePlugins } from '../../src/main/core-plugins';
-import { _setCorePluginsForTests, readCorePluginStates, setCorePluginEnabled } from '../../src/main/plugins/core';
+import { _coreActivationIdsForTests, _setCoreActivationsForTests, activeCorePlugins, startCorePlugins, syncCorePlugins } from '../../src/main/core-plugins';
+import { _setCorePluginsForTests, corePlugins, readCorePluginStates, setCorePluginEnabled } from '../../src/main/plugins/core';
 import { _disablePluginsForTests, enablePlugins } from '../../src/main/plugins/registry';
 import { handle } from '../../src/main/ipc/typed-ipc';
 import { Channels } from '../../src/shared/channels';
@@ -139,5 +139,12 @@ describe('a plugin that used to be part of Minerva keeps going for people who us
     withHistory(true);
     startCorePlugins();
     expect(activeCorePlugins()).toEqual(['kanban']);
+  });
+});
+
+describe('the shipped core plugins (#2643)', () => {
+  it('each has an activation: one without is never active, so turning it on would do nothing', () => {
+    _setCorePluginsForTests(null);
+    expect(new Set(_coreActivationIdsForTests())).toEqual(new Set(corePlugins().map((p) => p.manifest.id)));
   });
 });

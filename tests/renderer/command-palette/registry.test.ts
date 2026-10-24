@@ -172,6 +172,27 @@ describe('buildCommandRegistry', () => {
     expect(cmds(false).find((c) => c.id === 'plugin-view:reading-queue:queue')!.enabled).toBe(false);
   });
 
+  it("lists each plugin command under its plugin, enabled when what it runs on is there, and runs it (#2643)", () => {
+    const ran: string[] = [];
+    const commands = [
+      { pluginId: 'list-tools', pluginName: 'List Tools', commandId: 'sort-selection', title: 'Sort List in Selection', when: 'selection' as const },
+      { pluginId: 'lab', pluginName: 'Lab', commandId: 'note', title: 'On a Note', when: 'note' as const },
+      { pluginId: 'lab', pluginName: 'Lab', commandId: 'any', title: 'Anywhere', when: 'project' as const },
+    ];
+    const enabledWith = (overrides: Partial<PaletteState>) => Object.fromEntries(
+      buildCommandRegistry(makeState(overrides), () => {}, [], () => {}, [], () => {}, [], () => {}, commands, (c) => ran.push(c.commandId))
+        .filter((c) => c.id.startsWith('plugin-command:')).map((c) => [c.title, c.enabled]));
+    expect(enabledWith({})).toEqual({ 'Sort List in Selection': true, 'On a Note': true, Anywhere: true });
+    expect(enabledWith({ hasSelection: () => false })).toEqual({ 'Sort List in Selection': false, 'On a Note': true, Anywhere: true });
+    expect(enabledWith({ hasActiveNoteTab: () => false })).toEqual({ 'Sort List in Selection': false, 'On a Note': false, Anywhere: true });
+    expect(enabledWith({ hasProject: () => false })).toEqual({ 'Sort List in Selection': false, 'On a Note': false, Anywhere: false });
+    const entry = buildCommandRegistry(makeState(), () => {}, [], () => {}, [], () => {}, [], () => {}, commands, (c) => ran.push(c.commandId))
+      .find((c) => c.id === 'plugin-command:list-tools:sort-selection')!;
+    expect(entry.category).toBe('Plugins › List Tools');
+    entry.run();
+    expect(ran).toEqual(['sort-selection']);
+  });
+
   it('lists each plugin theme after the commands, marks the current one, and picks it (#2787)', () => {
     const picked: string[] = [];
     const themes = [{ mode: 'plugin:solarized/solarized-dark' as const, label: 'Solarized Dark', plugin: 'Solarized' }];

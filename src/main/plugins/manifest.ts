@@ -12,6 +12,11 @@ import { PLUGIN_API_VERSION } from '../../shared/plugins/api';
 import {
   PLUGIN_CONTRIBUTION_POINTS,
   PLUGIN_VIEW_PLACES,
+  PLUGIN_COMMAND_WHEN,
+  PLUGIN_HANDLER_NAME,
+  type PluginCommand,
+  type PluginCommandRun,
+  type PluginCommandWhen,
   type PluginBlock,
   type PluginCode,
   type PluginView,
@@ -31,7 +36,13 @@ export const MAX_PLUGIN_ID = 64;
 
 const KNOWN_KEYS = new Set(['$schema', 'id', 'name', 'version', 'minerva', 'description', 'author', 'license', 'contributes', 'settings', 'mcpServers', 'code']);
 /** What a `code` section may hold (#2823). Entry points join it with the frame (#2824) and the worker host (#2830). */
-const CODE_KEYS = new Set(['capabilities', 'api', 'views', 'blocks', 'worker']);
+const CODE_KEYS = new Set(['capabilities', 'api', 'views', 'blocks', 'worker', 'commands']);
+const COMMAND_KEYS = new Set(['id', 'title', 'when', 'editorMenu', 'run']);
+const COMMAND_RUN_KINDS = ['handler', 'skill', 'query', 'view'] as const;
+/** Most commands one plugin may add (#2643). */
+export const MAX_PLUGIN_COMMANDS = 32;
+/** A skill's id, as a command names it: what the skills catalog keys on. */
+const SKILL_ID = /^[a-z0-9][a-z0-9._-]{0,99}$/;
 const BLOCK_KEYS = new Set(['id', 'title', 'fence', 'directive', 'entry', 'query']);
 /** Most live blocks one plugin may draw (#2641). */
 export const MAX_PLUGIN_BLOCKS = 16;
@@ -193,10 +204,13 @@ function validateCode(raw: unknown, ctx: ManifestContext, problems: string[]): P
   const blocks = raw.blocks === undefined ? undefined : validateBlocks(raw.blocks, out, problems);
   // The logic module its worker host runs (#2830): a .js file in its folder, an ES module.
   const worker = raw.worker === undefined ? undefined : pluginFilePath(raw.worker, 'code.worker', '.js', problems);
+  const commands = raw.commands === undefined ? undefined
+    : validateCommands(raw.commands, { worker: raw.worker !== undefined, views: views ?? [] }, problems);
   const withViews = {
     ...(views !== undefined && views.length > 0 ? { views } : {}),
     ...(blocks !== undefined && blocks.length > 0 ? { blocks } : {}),
     ...(worker !== undefined ? { worker } : {}),
+    ...(commands !== undefined && commands.length > 0 ? { commands } : {}),
   };
   // The plugin API's own version (#2826), not the app's.
   const api = raw.api;
@@ -290,6 +304,91 @@ function validateViews(raw: unknown, capabilities: readonly PluginCapability[], 
     });
   });
   return out;
+}
+
+/**
+ * `code.commands` (#2643): what a command runs is one of four things the
+ * plugin declares here, so a command can't run anything its manifest doesn't
+ * show: one of its own handlers (it needs `code.worker`), a skill, a query in
+ * its folder, or one of its own views.
+ */
+function validateCommands(raw: unknown, has: { worker: boolean; views: readonly PluginView[] }, problems: string[]): PluginCommand[] | undefined {
+  if (!Array.isArray(raw) || raw.length === 0) {
+    problems.push('"code.commands" must be a non-empty list of commands.');
+    return undefined;
+  }
+  if (raw.length > MAX_PLUGIN_COMMANDS) problems.push(`"code.commands" lists ${raw.length} commands; at most ${MAX_PLUGIN_COMMANDS}.`);
+  const out: PluginCommand[] = [];
+  raw.forEach((c: unknown, i) => {
+    const at = `code.commands[${i}]`;
+    if (!isRecord(c)) {
+      problems.push(`"${at}" must be an object.`);
+      return;
+    }
+    for (const key of Object.keys(c)) {
+      if (!COMMAND_KEYS.has(key)) problems.push(`Unknown field "${at}.${key}".`);
+    }
+    const before = problems.length;
+    const id = c.id;
+    if (typeof id !== 'string' || !PLUGIN_ID.test(id) || id.length > MAX_PLUGIN_ID) {
+      problems.push(`"${at}.id" must be lowercase letters and digits in dash-separated words, like "sort-selection".`);
+    } else if (out.some((o) => o.id === id)) {
+      problems.push(`"code.commands" has two commands with the id "${id}".`);
+    }
+    const title = c.title;
+    if (typeof title !== 'string' || title.trim() === '' || title.length > 60) {
+      problems.push(`"${at}.title" must be a name of at most 60 characters.`);
+    }
+    const when = c.when ?? 'project';
+    if (typeof when !== 'string' || !(PLUGIN_COMMAND_WHEN as readonly string[]).includes(when)) {
+      problems.push(`"${at}.when" must be one of ${PLUGIN_COMMAND_WHEN.join(', ')}; got ${JSON.stringify(c.when)}.`);
+    }
+    if (c.editorMenu !== undefined && c.editorMenu !== true) problems.push(`"${at}.editorMenu" may only be true.`);
+    const run = validateCommandRun(c.run, `${at}.run`, has, problems);
+    if (problems.length > before || !run) return;
+    out.push({
+      id: id as string, title: (title as string).trim(), when: when as PluginCommandWhen,
+      ...(c.editorMenu === true ? { editorMenu: true } : {}), run,
+    });
+  });
+  return out;
+}
+
+function validateCommandRun(raw: unknown, at: string, has: { worker: boolean; views: readonly PluginView[] }, problems: string[]): PluginCommandRun | undefined {
+  const kinds = isRecord(raw) ? Object.keys(raw) : [];
+  if (!isRecord(raw) || kinds.length !== 1 || !(COMMAND_RUN_KINDS as readonly string[]).includes(kinds[0]!)) {
+    problems.push(`"${at}" must be an object with exactly one of ${COMMAND_RUN_KINDS.map((k) => `"${k}"`).join(', ')}.`);
+    return undefined;
+  }
+  const v = raw[kinds[0]!];
+  switch (kinds[0] as (typeof COMMAND_RUN_KINDS)[number]) {
+    case 'handler':
+      if (typeof v !== 'string' || !PLUGIN_HANDLER_NAME.test(v)) {
+        problems.push(`"${at}.handler" must be the name a handler registers with minerva.handle(), like "sortSelection".`);
+        return undefined;
+      }
+      if (!has.worker) {
+        problems.push(`"${at}.handler" needs "code.worker": a handler is a function in the plugin's logic module.`);
+        return undefined;
+      }
+      return { handler: v };
+    case 'skill':
+      if (typeof v !== 'string' || !SKILL_ID.test(v)) {
+        problems.push(`"${at}.skill" must be a skill's id, like "steelman".`);
+        return undefined;
+      }
+      return { skill: v };
+    case 'query': {
+      const query = pluginFilePath(v, `${at}.query`, '.rq', problems);
+      return query === undefined ? undefined : { query };
+    }
+    case 'view':
+      if (typeof v !== 'string' || !has.views.some((view) => view.id === v)) {
+        problems.push(`"${at}.view" must be the id of one of the plugin's own views in "code.views"; got ${JSON.stringify(v)}.`);
+        return undefined;
+      }
+      return { view: v };
+  }
 }
 
 /**

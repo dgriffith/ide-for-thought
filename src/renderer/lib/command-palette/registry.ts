@@ -2,7 +2,7 @@
  * The command palette's list (#463; on the command registry since #2625).
  *
  * Every command in `shared/commands.ts` with a `palette` entry, in declared
- * order, then plugin themes and plugin views (#2787, #2640), then every skill (#2766): its title, category and shortcut come from the declaration, its
+ * order, then plugin themes, views and commands (#2787, #2640, #2643), then every skill (#2766): its title, category and shortcut come from the declaration, its
  * enablement from `PaletteState`, and running it calls `run(id)` — the same
  * action table (`app/command-keymap.ts`) the menu bar's `menu:command` runs,
  * so the two surfaces can't do different things for one command.
@@ -17,7 +17,7 @@ import { COMMANDS, type CommandId, type PaletteWhen } from '../../../shared/comm
 import type { ThemeMode } from '../theme';
 import { isSourceScoped, toolRequiresNote, toolRequiresSelection, type ThinkingToolInfo } from '../../../shared/tools/types';
 import { CATEGORIES } from '../../../shared/tools/registry';
-import type { PluginViewPlace } from '../../../shared/plugins/format';
+import type { PluginCommandWhen, PluginViewPlace } from '../../../shared/plugins/format';
 
 /** What the palette's enablement and the current-theme mark read. */
 export interface PaletteState {
@@ -99,6 +99,33 @@ function pluginViewCommands(state: PaletteState, views: readonly PaletteView[], 
   }));
 }
 
+/**
+ * One entry per plugin command (#2643), titled as the plugin titles it, under
+ * the plugin's name, enabled when what it runs on is there.
+ */
+function pluginCommandCommands(state: PaletteState, commands: readonly PaletteCommand[], runCommand: (c: PaletteCommand) => void): Command[] {
+  const ready = (when: PluginCommandWhen) => state.hasProject()
+    && (when === 'project' || state.hasActiveNoteTab())
+    && (when !== 'selection' || state.hasSelection());
+  return commands.map((c) => ({
+    id: `plugin-command:${c.pluginId}:${c.commandId}`,
+    title: c.title,
+    category: `Plugins › ${c.pluginName}`,
+    keybinding: null,
+    enabled: ready(c.when),
+    run: () => runCommand(c),
+  }));
+}
+
+/** A plugin's command, as the palette lists it. */
+export interface PaletteCommand {
+  pluginId: string;
+  pluginName: string;
+  commandId: string;
+  title: string;
+  when: PluginCommandWhen;
+}
+
 /** A plugin's global view, as the palette lists it. */
 export interface PaletteView {
   pluginId: string;
@@ -124,6 +151,8 @@ export function buildCommandRegistry(
   selectTheme: (mode: ThemeMode) => void = () => {},
   views: readonly PaletteView[] = [],
   openView: (view: PaletteView) => void = () => {},
+  pluginCommands: readonly PaletteCommand[] = [],
+  runPluginCommand: (c: PaletteCommand) => void = () => {},
 ): Command[] {
   const currentThemeId = `view.theme.${state.currentTheme()}`;
   const out: Command[] = [];
@@ -138,5 +167,5 @@ export function buildCommandRegistry(
       run: () => run(def.id),
     });
   }
-  return [...out, ...pluginThemeCommands(state, themes, selectTheme), ...pluginViewCommands(state, views, openView), ...skillCommands(state, skills, runSkill)];
+  return [...out, ...pluginThemeCommands(state, themes, selectTheme), ...pluginViewCommands(state, views, openView), ...pluginCommandCommands(state, pluginCommands, runPluginCommand), ...skillCommands(state, skills, runSkill)];
 }

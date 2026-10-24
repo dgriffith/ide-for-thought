@@ -31,7 +31,9 @@ import { changePlugins } from '../plugins-apply';
 import { closePluginSession, openPluginSession, sendPluginSessionEvent, setPluginSessionScope } from '../plugin-sessions';
 import { PLUGIN_BLOCK_MAX_SOURCE, type PluginHostEvent, type PluginSessionTarget } from '../../shared/plugins/session';
 import { handle } from './typed-ipc';
-import { winFromEvent, withRootPathOr } from './helpers';
+import { winFromEvent, withRootPath, withRootPathOr } from './helpers';
+import { runPluginCommand } from '../plugin-commands';
+import type { PluginCommandContext } from '../../shared/plugins/format';
 import { pluginRecommendations } from '../plugins/recommendations';
 import { corePlugin, corePluginEnabled, corePlugins, isCorePluginId, setCorePluginEnabled } from '../plugins/core';
 import { confirmNative } from '../native-confirm';
@@ -50,6 +52,7 @@ export async function pluginList(): Promise<PluginList> {
       ...(m.code ? { capabilities: m.code.capabilities } : {}),
       ...(m.code?.views ? { views: m.code.views } : {}),
       ...(m.code?.blocks ? { blocks: m.code.blocks } : {}),
+      ...(m.code?.commands ? { commands: m.code.commands } : {}),
     })),
     installed: inv.installed.map(({ plugin, record }): PluginSummary => {
       const contributes: PluginSummary['contributes'] = {};
@@ -256,6 +259,15 @@ export function registerPlugins(): void {
   handle(Channels.PLUGINS_SET_SESSION_SCOPE, (e, sessionId: string, scope: string[]) => {
     setPluginSessionScope(winFromEvent(e), String(sessionId), stringList(scope));
   });
+  // A plugin's command (#2643): what it runs on, from the renderer; what happens, decided in main.
+  handle(Channels.PLUGINS_RUN_COMMAND, withRootPath((rootPath, pluginId: string, commandId: string, ctx: PluginCommandContext) => {
+    if (typeof pluginId !== 'string' || !PLUGIN_ID.test(pluginId)) throw new Error(`"${String(pluginId)}" isn't a plugin id.`);
+    const c = (ctx !== null && typeof ctx === 'object' ? ctx : {}) as Record<string, unknown>;
+    return runPluginCommand(rootPath, pluginId, String(commandId), {
+      ...(typeof c.note === 'string' ? { note: c.note } : {}),
+      ...(typeof c.selection === 'string' ? { selection: c.selection } : {}),
+    });
+  }));
   handle(Channels.PLUGINS_CLOSE_SESSION, (e, sessionId: string) => {
     closePluginSession(winFromEvent(e), String(sessionId));
   });
