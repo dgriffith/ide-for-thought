@@ -13,7 +13,7 @@
     import type { TypeViewNoteActions } from './type-view/note-actions';
     import {hydrateArgumentMapBlocks, type ArgumentMapDeps} from '../markdown/argument-map-renderer';
     import {hydrateCardCallouts} from '../markdown/card-callout';
-    import {disposeCaches as disposeHydratedBlockCaches} from '../markdown/hydrated-block-cache';
+    import {disposeCaches as disposeHydratedBlockCaches, parkHydratedBlocks} from '../markdown/hydrated-block-cache';
     import {slugify} from '../../../shared/slug';
     import {createPreviewMarkdown} from '../preview/markdown-config';
     import { QUERY_PREFIXES } from '../preview/query-prefixes';
@@ -447,6 +447,13 @@
         };
     });
     let previewEl = $state<HTMLDivElement>();
+    // Before `{@html rendered}` swaps the content, move the live embeds out of
+    // its way, still in the document, so a plugin frame inside one isn't
+    // unloaded and left without a session (`hydrated-block-cache.ts`, wrinkle 5).
+    $effect.pre(() => {
+        void rendered;
+        if (previewEl) parkHydratedBlocks(previewEl);
+    });
     let activeCharts: ChartHandle[] = [];
     // Object-view (#2067) and argument-map (#907) embeds used to be torn down
     // here through plain arrays of handles, alongside `activeCharts`, because
