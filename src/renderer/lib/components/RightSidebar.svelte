@@ -3,7 +3,8 @@
   import Icon from './Icon.svelte';
   import type { InspectionFix } from '../../../shared/types';
   import { corePluginsStore } from '../stores/core-plugins.svelte';
-  import type { PluginPanelId } from './plugins/plugin-panels';
+  import { pluginPanelId, type PluginPanelId } from './plugins/plugin-panels';
+  import OpenViewInTab from './plugins/OpenViewInTab.svelte';
 
   // The panels are a registry (#2626): `right-sidebar/panels.ts`, then those
   // plugins' global views add (#2640), which come and go with their plugins.
@@ -95,6 +96,7 @@
    *  into `activeGroup` through this derivation. */
   // A plugin panel whose plugin was turned off falls back to the Outline.
   const shownPanel = $derived<PanelType>(PANEL_DEFS.has(activePanel) ? activePanel : 'outline');
+  const shownPluginView = $derived(corePluginsStore.views('right-sidebar').find((v) => pluginPanelId(v.pluginId, v.view.id) === shownPanel));
   const activeGroup = $derived<PanelGroupId>(PANEL_DEFS.get(shownPanel)?.group ?? 'note');
   const activeGroupDef = $derived(GROUPS.find((g) => g.id === activeGroup) ?? GROUPS[0]!);
   const activePanelDef = $derived(PANEL_DEFS.get(shownPanel));
@@ -191,6 +193,7 @@
   {#if activePanelDef}
     <div class="panel-header">
       <h2 class="panel-title">{activePanelDef.label}</h2>
+      {#if shownPluginView}<OpenViewInTab view={shownPluginView} />{/if}
     </div>
   {/if}
 

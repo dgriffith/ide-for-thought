@@ -130,6 +130,6 @@ export type LeftPanelId = (typeof LEFT_PANELS)[number]['id'];
 
 /** The panels plugins' global views add after the core ones (#2640). */
 export function pluginLeftPanels(views: readonly ActivePluginView[]): Array<LeftPanel & { id: PluginPanelId }> {
-  return views.map((v) => panel({ id: pluginPanelId(v), label: v.view.title, icon: pluginPanelIcon(v.view.icon), component: PluginPanel,
+  return views.map((v) => panel({ id: pluginPanelId(v.pluginId, v.view.id), label: v.view.title, icon: pluginPanelIcon(v.view.icon), component: PluginPanel,
     props: () => pluginPanelProps(v) }));
 }

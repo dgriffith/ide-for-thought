@@ -165,9 +165,9 @@ describe('code.views: global views (#2640)', () => {
   });
 
   it('refuses unknown fields, places, bad ids, duplicates, and an empty list', () => {
-    expect(problemsOf(code([{ ...VIEW, place: 'tab', html: 'x' }, { ...VIEW, id: 'Bad Id' }, VIEW, VIEW]), CORE)).toEqual([
+    expect(problemsOf(code([{ ...VIEW, place: 'window', html: 'x' }, { ...VIEW, id: 'Bad Id' }, VIEW, VIEW]), CORE)).toEqual([
       'Unknown field "code.views[0].html".',
-      '"code.views[0].place" must be one of left-sidebar, right-sidebar; got "tab".',
+      '"code.views[0].place" must be one of left-sidebar, right-sidebar, tab; got "window".',
       '"code.views[1].id" must be lowercase letters and digits in dash-separated words, like "queue".',
       '"code.views" has two views with the id "queue".',
     ]);

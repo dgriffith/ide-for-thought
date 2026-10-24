@@ -20,7 +20,7 @@ import type {
 import { type LayoutNode, leaf, collectGroupIds, isLayoutNode } from './layout-tree';
 import {
   type EditorGroup, type Tab, type ViewMode,
-  isNote, isQuery, isPdf, isGraph, isTypeView, isUnsupported,
+  isNote, isQuery, isPdf, isGraph, isTypeView, isPluginView, isUnsupported,
 } from './tab-types';
 import { extensionOf } from '../../../shared/file-capability';
 import { DEFAULT_VIEW_LAYOUT } from '../../../shared/objects/view-layouts';
@@ -44,6 +44,8 @@ export function toSavedTab(t: Tab): SavedTab {
     return { type: 'pdf', sourceId: t.sourceId, page: t.page };
   } else if (isGraph(t)) {
     return { type: 'graph', relativePath: t.relativePath, depth: t.depth };
+  } else if (isPluginView(t)) {
+    return { type: 'plugin-view', pluginId: t.pluginId, viewId: t.viewId, title: t.title };
   } else if (isTypeView(t)) {
     return {
       type: 'type-view', typeId: t.typeId, layout: t.layout, sortColumn: t.sortColumn, sortDir: t.sortDir, columns: t.columns,
@@ -128,6 +130,10 @@ export async function reconstructTab(saved: SavedTab, nextQueryId: () => string)
     return { type: 'pdf', sourceId: saved.sourceId, page: saved.page ?? 1 };
   } else if (saved.type === 'graph') {
     return { type: 'graph', relativePath: saved.relativePath, depth: saved.depth ?? 1 };
+  } else if (saved.type === 'plugin-view') {
+    // Read leniently: a session file is ours, but a hand-edit shouldn't crash the restore.
+    if (typeof saved.pluginId !== 'string' || typeof saved.viewId !== 'string') return null;
+    return { type: 'plugin-view', pluginId: saved.pluginId, viewId: saved.viewId, title: typeof saved.title === 'string' ? saved.title : saved.viewId };
   } else if (saved.type === 'type-view') {
     return {
       type: 'type-view',
@@ -163,6 +169,7 @@ export function savedTabIdentity(t: SavedTab): string | null {
   if (t.type === 'source') return `source:${t.sourceId}`;
   if (t.type === 'pdf') return `pdf:${t.sourceId}`;
   if (t.type === 'type-view') return `type-view:${t.typeId}:${t.folder ?? ''}`;
+  if (t.type === 'plugin-view') return `plugin-view:${t.pluginId}:${t.viewId}`;
   return null;
 }
 

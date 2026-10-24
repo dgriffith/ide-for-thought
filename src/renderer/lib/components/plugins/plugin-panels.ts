@@ -9,8 +9,8 @@ import type { ActivePluginView } from '../../stores/core-plugins.svelte';
 /** A plugin panel's id in its registry: never a core panel's, which have no `:`. */
 export type PluginPanelId = `plugin:${string}:${string}`;
 
-export function pluginPanelId({ pluginId, view }: ActivePluginView): PluginPanelId {
-  return `plugin:${pluginId}:${view.id}`;
+export function pluginPanelId(pluginId: string, viewId: string): PluginPanelId {
+  return `plugin:${pluginId}:${viewId}`;
 }
 
 /** The icon a view names, when it is one of Minerva's; a generic one otherwise. */

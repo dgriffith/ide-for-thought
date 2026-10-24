@@ -59,11 +59,25 @@ export const corePluginsStore = {
    * until the list has loaded: a panel can't be offered before it's known.
    */
   views(place: PluginViewPlace): ActivePluginView[] {
+    return corePluginsStore.allViews().filter((v) => v.view.place === place);
+  },
+  /**
+   * One global view, wherever it shows (#2640): what a plugin-view tab is
+   * drawn from. `undefined` until the list has loaded; null when the plugin
+   * is off or no longer has that view. Reactive.
+   */
+  view(pluginId: string, viewId: string): ActivePluginView | null | undefined {
+    start();
+    if (core === null) return undefined;
+    const p = core.get(pluginId);
+    const view = p?.enabled ? p.views.find((v) => v.id === viewId) : undefined;
+    return view ? { pluginId, pluginName: p!.name, view } : null;
+  },
+  /** Every global view of the plugins that are on, wherever it shows (#2640): the palette's list. */
+  allViews(): ActivePluginView[] {
     start();
     if (core === null) return [];
-    return [...core].flatMap(([pluginId, p]) => (p.enabled
-      ? p.views.filter((v) => v.place === place).map((view) => ({ pluginId, pluginName: p.name, view }))
-      : []));
+    return [...core].flatMap(([pluginId, p]) => (p.enabled ? p.views.map((view) => ({ pluginId, pluginName: p.name, view })) : []));
   },
   /** Its name, for "turn on X" — the id until the list has loaded. */
   name(id: string): string {

@@ -19,7 +19,8 @@
   import { getDialogStore } from '../stores/dialogs.svelte';
   import { LEFT_PANELS, pluginLeftPanels, type LeftPanel, type LeftPanelHost, type LeftPanelId, type SidebarFileOps, type SidebarPanelOps } from './sidebar/panels';
   import { corePluginsStore } from '../stores/core-plugins.svelte';
-  import type { PluginPanelId } from './plugins/plugin-panels';
+  import { pluginPanelId, type PluginPanelId } from './plugins/plugin-panels';
+  import OpenViewInTab from './plugins/OpenViewInTab.svelte';
   import { tick } from 'svelte';
 
   type PanelType = LeftPanelId | PluginPanelId;
@@ -60,6 +61,7 @@
   // A plugin panel whose plugin was turned off falls back to Notes.
   const activeDef = $derived(PANEL_DEFS.get(activePanel) ?? PANEL_DEFS.get('notes'));
   const shownPanel = $derived<PanelType>(PANEL_DEFS.has(activePanel) ? activePanel : 'notes');
+  const shownPluginView = $derived(corePluginsStore.views('left-sidebar').find((v) => pluginPanelId(v.pluginId, v.view.id) === shownPanel));
 
   // Seed the note→type map once on mount so Notes-tree rows carry their type
   // icons from the first paint. A project restored at startup doesn't go
@@ -223,6 +225,7 @@
         {@const count = activeDef.count(host)}
         <span class="panel-count" title={count.title}>{count.value}</span>
       {/if}
+      {#if shownPluginView}<OpenViewInTab view={shownPluginView} />{/if}
     </div>
   </div>
 

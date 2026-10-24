@@ -8,6 +8,8 @@
   import Icon from './Icon.svelte';
   import TypeIcon from './TypeIcon.svelte';
   import { objectTypesStore } from '../stores/object-types.svelte';
+  import { corePluginsStore } from '../stores/core-plugins.svelte';
+  import { pluginPanelIcon } from './plugins/plugin-panels';
 
   interface Props {
     tabs: Tab[];
@@ -131,6 +133,8 @@
               ? `PDF: ${sourceTabLabel(tab.sourceId)}`
               : tab.type === 'graph'
                 ? `Graph: ${tab.relativePath}`
+                : tab.type === 'plugin-view'
+                  ? tab.title
                 : tab.type === 'type-view'
                   ? `Type: ${tab.typeId}${tab.folder ? ` in ${tab.folder}` : ''}`
                   : tab.type === 'unsupported'
@@ -152,6 +156,8 @@
             <Icon name="graph" size={13} color="var(--text-faint)" />
           {:else if tab.type === 'type-view'}
             <Icon name="objects" size={13} color="var(--text-faint)" />
+          {:else if tab.type === 'plugin-view'}
+            <Icon name={pluginPanelIcon(corePluginsStore.view(tab.pluginId, tab.viewId)?.view.icon)} size={13} color="var(--text-faint)" />
           {:else if noteType}
             <TypeIcon type={noteType} size={13} />
           {:else}
@@ -163,6 +169,7 @@
           {:else if tab.type === 'query'}{tab.title}
           {:else if tab.type === 'pdf'}{sourceTabLabel(tab.sourceId)} (PDF)
           {:else if tab.type === 'graph'}{(tab.relativePath.split('/').pop() ?? tab.relativePath).replace(/\.md$/, '')} (Graph)
+          {:else if tab.type === 'plugin-view'}{tab.title}
           {:else if tab.type === 'type-view'}{tab.typeId.charAt(0).toUpperCase() + tab.typeId.slice(1)}{tab.folder ? ` · ${tab.folder}` : ''}
           {:else if tab.type === 'unsupported'}{tab.fileName}
           {:else}{sourceTabLabel(tab.sourceId)}{/if}

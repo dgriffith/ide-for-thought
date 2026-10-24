@@ -409,9 +409,9 @@ to the host callbacks the broker's intents would reach.
 
 ### Global views (#2640)
 
-A view that belongs to no type view: a panel in the left or right sidebar
-(tabs are the next step). A plugin declares it in `code.views`, each with a
-page in its folder and the **query that feeds it**:
+A view that belongs to no type view: a panel in the left or right sidebar, or
+an editor tab. A plugin declares it in `code.views`, each with a page in its
+folder and the **query that feeds it**:
 
 ```json
 "code": {
@@ -446,6 +446,12 @@ for anything else it shows; that never widens the scope.
   plugins that are on (`corePluginsStore.views(place)`); the right sidebar
   shows its Plugins group only while one is. A panel whose plugin is turned
   off falls back to Notes (or Outline).
+- **Tabs.** `place: "tab"` is a view with no panel; any view opens as a tab,
+  from the command palette (*Open <title>*, which for a sidebar view shows its
+  panel instead) or a panel's *Open in tab*. The tab is a `plugin-view` tab
+  (`pluginId`, `viewId`, `title`), one per view, saved with the session; its
+  frame is a session of its own, fed by the same query. Restored with its
+  plugin off, it says which plugin to turn on, as a type view's layout does.
 - **The Reading Queue is the worked example** (`plugins/reading-queue/`, off
   by default): `public/queue.rq` is copied beside its page by the build, and
   `tests/main/plugins/reading-queue-query.test.ts` runs it against a real graph.
@@ -566,7 +572,7 @@ is an MCP server, as in 4.0.
 
 | Story | Proposed |
 |---|---|
-| #2640 views | Rewritten around the view API. Sidebar panels are built (*Global views* above); tabs next. |
+| #2640 views | Rewritten around the view API, and built: sidebar panels and tabs (*Global views* above). |
 | #2641 live blocks | Rewrite around the view API. **Open:** blocks also render in exports, which run in main; an export would render the block in a headless plugin host. |
 | #2642 inspections | Build as written (SPARQL). Code checks come later, through the worker host. |
 | #2643 commands | Rewrite: a command whose handler is in the plugin's worker, placed through the existing `COMMANDS` registry. |

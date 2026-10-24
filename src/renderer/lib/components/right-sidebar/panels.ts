@@ -125,6 +125,6 @@ export type RightPanelId = (typeof RIGHT_PANELS)[number]['id'];
 
 /** The panels plugins' global views add, in the Plugins group (#2640). */
 export function pluginRightPanels(views: readonly ActivePluginView[]): Array<RightPanel & { id: PluginPanelId }> {
-  return views.map((v) => panel({ id: pluginPanelId(v), label: v.view.title, icon: pluginPanelIcon(v.view.icon), group: 'plugins', component: PluginPanel,
+  return views.map((v) => panel({ id: pluginPanelId(v.pluginId, v.view.id), label: v.view.title, icon: pluginPanelIcon(v.view.icon), group: 'plugins', component: PluginPanel,
     props: () => pluginPanelProps(v) }));
 }

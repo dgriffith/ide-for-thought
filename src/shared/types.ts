@@ -343,7 +343,16 @@ export interface SavedTypeViewTab {
   dateBy?: string;
 }
 
-export type SavedTab = SavedNoteTab | SavedQueryTab | SavedSourceTab | SavedPdfTab | SavedGraphTab | SavedTypeViewTab | SavedUnsupportedTab;
+/** A plugin's global view in a tab (#2640). Restored as written; a plugin
+ *  that's off by then shows a line saying so, not its view. */
+export interface SavedPluginViewTab {
+  type: 'plugin-view';
+  pluginId: string;
+  viewId: string;
+  title: string;
+}
+
+export type SavedTab = SavedNoteTab | SavedQueryTab | SavedSourceTab | SavedPdfTab | SavedGraphTab | SavedTypeViewTab | SavedPluginViewTab | SavedUnsupportedTab;
 
 /** Legacy flat session: one group's tabs + active index. Superseded by
  *  {@link LayoutSession} (#816); still read on load and migrated to a single

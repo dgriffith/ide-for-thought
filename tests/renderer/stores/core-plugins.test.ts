@@ -29,6 +29,13 @@ describe('corePluginsStore.views (#2640)', () => {
     expect(corePluginsStore.views('right-sidebar').map((v) => v.view.id)).toEqual(['side']);
   });
 
+  it('finds one view wherever it shows: undefined never after load, null when its plugin is off', async () => {
+    expect(corePluginsStore.view('a', 'queue')).toEqual({ pluginId: 'a', pluginName: 'A', view: VIEW });
+    expect(corePluginsStore.view('b', 'queue')).toBeNull();
+    expect(corePluginsStore.view('a', 'nope')).toBeNull();
+    expect(corePluginsStore.allViews().map((v) => `${v.pluginId}:${v.view.id}`)).toEqual(['a:queue', 'a:side']);
+  });
+
   it('follows a plugin turned off', async () => {
     h.list = async () => ({ core: [summary('a', false, [VIEW])], installed: [], errors: [], folder: '/p' });
     h.changed!();

@@ -362,3 +362,21 @@ describe('resolveRestoredSession', () => {
     expect(resolved!.activeGroupId).toBe('g1');
   });
 });
+
+describe('plugin global view tabs (#2640)', () => {
+  const tab: Tab = { type: 'plugin-view', pluginId: 'reading-queue', viewId: 'queue', title: 'Reading Queue' };
+
+  it('round-trip through the session, title and all', async () => {
+    const saved = toSavedTab(tab);
+    expect(saved).toEqual({ type: 'plugin-view', pluginId: 'reading-queue', viewId: 'queue', title: 'Reading Queue' });
+    expect(await reconstructTab(saved, () => 'q')).toEqual(tab);
+  });
+
+  it('are one per view across panes, and a hand-edited entry is dropped or named by its id', async () => {
+    const saved = toSavedTab(tab);
+    expect(savedTabIdentity(saved)).toBe('plugin-view:reading-queue:queue');
+    expect(await reconstructTab({ type: 'plugin-view', pluginId: 7, viewId: 'queue' } as unknown as SavedTab, () => 'q')).toBeNull();
+    expect(await reconstructTab({ type: 'plugin-view', pluginId: 'p', viewId: 'v' } as unknown as SavedTab, () => 'q'))
+      .toEqual({ type: 'plugin-view', pluginId: 'p', viewId: 'v', title: 'v' });
+  });
+});

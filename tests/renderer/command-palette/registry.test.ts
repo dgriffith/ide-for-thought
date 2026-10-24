@@ -161,6 +161,17 @@ describe('buildCommandRegistry', () => {
     });
   });
 
+  it("lists each plugin's global view as Open <title>, needing a thoughtbase, and opens it (#2640)", () => {
+    const opened: string[] = [];
+    const views = [{ pluginId: 'reading-queue', pluginName: 'Reading Queue', viewId: 'queue', title: 'Reading Queue', place: 'left-sidebar' as const }];
+    const cmds = (hasProject: boolean) => buildCommandRegistry(makeState({ hasProject: () => hasProject }), () => {}, [], () => {}, [], () => {}, views, (v) => opened.push(v.viewId));
+    const entry = cmds(true).find((c) => c.id === 'plugin-view:reading-queue:queue')!;
+    expect(entry).toMatchObject({ title: 'Open Reading Queue', category: 'Plugins › Reading Queue', enabled: true });
+    entry.run();
+    expect(opened).toEqual(['queue']);
+    expect(cmds(false).find((c) => c.id === 'plugin-view:reading-queue:queue')!.enabled).toBe(false);
+  });
+
   it('lists each plugin theme after the commands, marks the current one, and picks it (#2787)', () => {
     const picked: string[] = [];
     const themes = [{ mode: 'plugin:solarized/solarized-dark' as const, label: 'Solarized Dark', plugin: 'Solarized' }];
