@@ -22,6 +22,7 @@ import { loadConfigFile, asRecord, asFiniteNumber, asStringArray } from './confi
 import { writeJsonFileAtomic } from './json-file';
 import {
   visibleInspections,
+  PLUGIN_INSPECTION_TYPE,
   DEFAULT_INSPECTION_SETTINGS,
   type InspectionSettings,
 } from '../../shared/inspections';
@@ -43,10 +44,12 @@ function settingsPath(): string {
 }
 
 /** Keep only ids that name a real, user-visible check — a renamed check or a
- *  hand-edited file can't disable something the panel can't switch back on. */
+ *  hand-edited file can't disable something the panel can't switch back on.
+ *  A plugin's check (#2642) is kept by its shape, not looked up: one whose
+ *  plugin is off for now keeps its switch for when it's back. */
 function sanitizeDisabled(raw: unknown): string[] {
   const offerable = new Set(visibleInspections().map((i) => i.type));
-  return asStringArray(raw, []).filter((t) => offerable.has(t));
+  return asStringArray(raw, []).filter((t) => offerable.has(t) || PLUGIN_INSPECTION_TYPE.test(t));
 }
 
 export async function getInspectionSettings(): Promise<InspectionSettings> {

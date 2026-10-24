@@ -30,6 +30,7 @@ import { getInspectionSettings } from './config/inspection-settings';
 // imported by `graph/health-checks.ts` — `graph/` must not depend on
 // `notebase/` (#2238). Same shape as `loadSettings` just above.
 import { findOrphanedInlineAssets } from './notebase/asset-references';
+import { pluginInspectionFiles } from './plugins/inspection-shapes';
 import { logger } from '../shared/logger';
 
 interface ProjectRecord {
@@ -128,16 +129,16 @@ export async function acquireProject(rootPath: string, winId: number): Promise<P
       // silently reinstated it.
       void (async () => {
         const inspectionSettings = await getInspectionSettings();
-        await healthChecks.runAllChecks(ctx, inspectionSettings, { findOrphanedAssets: findOrphanedInlineAssets });
+        await healthChecks.runAllChecks(ctx, inspectionSettings, { findOrphanedAssets: findOrphanedInlineAssets, pluginShapes: pluginInspectionFiles });
       })();
       // Re-check a couple of seconds after any graph write (#1795) — saving a
       // note is when you want to hear that you just broke a link.
-      healthChecks.armAutoChecks(ctx, { loadSettings: getInspectionSettings, findOrphanedAssets: findOrphanedInlineAssets });
+      healthChecks.armAutoChecks(ctx, { loadSettings: getInspectionSettings, findOrphanedAssets: findOrphanedInlineAssets, pluginShapes: pluginInspectionFiles });
       // The timer stays, but only as a backstop for the checks that fire with
       // the CLOCK rather than with an edit: a note going stale, a stub ageing
       // past its threshold. Nothing writes to the graph when that happens, so
       // there's no change for the line above to react to.
-      healthChecks.startPeriodicChecks(ctx, { loadSettings: getInspectionSettings, findOrphanedAssets: findOrphanedInlineAssets });
+      healthChecks.startPeriodicChecks(ctx, { loadSettings: getInspectionSettings, findOrphanedAssets: findOrphanedInlineAssets, pluginShapes: pluginInspectionFiles });
       // Advertise this project to out-of-process CLI/MCP clients (#1524) so they
       // route proposals + semantic search through us instead of racing our
       // files. Best-effort; awaited so the advert exists the moment open resolves.

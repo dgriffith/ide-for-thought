@@ -179,7 +179,7 @@ describe('minerva plugin new (#2650)', () => {
     [['plugin'], /the subcommands are/],
     [['plugin', 'new'], /pass one plugin id/],
     [['plugin', 'new', 'a', 'b', '--mcp', 'node'], /pass one plugin id/],
-    [['plugin', 'new', 'a'], /--kind must be skill, type, query, template, csl, theme, mcp \(or pass --mcp node\|python\)/],
+    [['plugin', 'new', 'a'], /--kind must be skill, type, query, template, csl, theme, inspection, mcp \(or pass --mcp node\|python\)/],
     [['plugin', 'new', 'a', '--kind', 'widget'], /--kind must be skill, type/],
     [['plugin', 'new', 'a', '--mcp', 'ruby'], /--mcp must be node or python/],
     [['plugin', 'new', 'a', '--kind', 'mcp'], /--mcp must be node or python/],

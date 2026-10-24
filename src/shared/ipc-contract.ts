@@ -309,6 +309,8 @@ export interface ChannelMap {
   'inspections:list': () => Inspection[];
   'inspections:run': () => Inspection[];
   'inspections:getSettings': () => InspectionSettings;
+  /** The enabled plugins' SHACL checks (#2642), for Settings to list beside the built-ins. */
+  'inspections:pluginChecks': () => import('./inspections').PluginInspectionDef[];
   /** Persist + return the saved (sanitized) settings, so the caller renders what
    *  actually landed rather than what it asked for. */
   'inspections:setSettings': (settings: InspectionSettings) => InspectionSettings;

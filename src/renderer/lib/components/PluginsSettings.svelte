@@ -27,6 +27,7 @@
     'note-templates': ['template', 'templates'],
     'csl-styles': ['citation style', 'citation styles'],
     'themes': ['theme', 'themes'],
+    'inspections': ['inspection', 'inspections'],
   };
 
   function contributes(p: PluginSummary): string {

@@ -111,6 +111,7 @@ exports[`preload behaviour: surface-wide invariants (#2367) > the full method â†
   "graph.export": "invoke graph:export",
   "graph.frontmatterKeys": "invoke graph:frontmatterKeys",
   "graph.groundCheck": "invoke graph:groundCheck",
+  "graph.inspectionPluginChecks": "invoke inspections:pluginChecks",
   "graph.inspectionSettings": "invoke inspections:getSettings",
   "graph.inspections": "invoke inspections:list",
   "graph.onChanged": "on graph:changed",

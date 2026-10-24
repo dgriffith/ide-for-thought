@@ -22,19 +22,24 @@
     visibleInspections,
     INSPECTION_GROUP_LABELS,
     DEFAULT_INSPECTION_SETTINGS,
+    type InspectionDef,
     type InspectionGroup,
     type InspectionSettings,
+    type PluginInspectionDef,
   } from '../../../shared/inspections';
 
   const settingsStore = getSettingsStore();
 
   let settings = $state<InspectionSettings>({ ...DEFAULT_INSPECTION_SETTINGS });
   let loaded = $state(false);
+  /** The enabled plugins' SHACL checks (#2642), listed with the built-ins. */
+  let pluginChecks = $state<PluginInspectionDef[]>([]);
+  const offered = $derived<Array<InspectionDef | PluginInspectionDef>>([...visibleInspections(), ...pluginChecks]);
 
   /** Catalog entries grouped for display, in catalog order. */
   const groups = $derived.by(() => {
-    const out = new Map<InspectionGroup, ReturnType<typeof visibleInspections>>();
-    for (const def of visibleInspections()) {
+    const out = new Map<InspectionGroup, Array<InspectionDef | PluginInspectionDef>>();
+    for (const def of offered) {
       const list = out.get(def.group) ?? [];
       list.push(def);
       out.set(def.group, list);
@@ -43,7 +48,7 @@
   });
 
   const enabledCount = $derived(
-    visibleInspections().filter((d) => !settings.disabled.includes(d.type)).length,
+    offered.filter((d) => !settings.disabled.includes(d.type)).length,
   );
 
   onMount(async () => {
@@ -53,6 +58,12 @@
       logger('settings').error('failed to load inspection settings:', e);
     } finally {
       loaded = true;
+    }
+    // The plugins' checks are extra: the built-ins show whether or not these load.
+    try {
+      pluginChecks = await api.graph.inspectionPluginChecks();
+    } catch (e) {
+      logger('settings').warn("couldn't list the plugins' inspections:", e);
     }
   });
 
@@ -73,7 +84,7 @@
   function setAll(on: boolean): void {
     void save({
       ...settings,
-      disabled: on ? [] : visibleInspections().map((d) => d.type),
+      disabled: on ? [] : offered.map((d) => d.type),
     });
   }
 
@@ -95,8 +106,8 @@
   </p>
 
   <div class="bulk">
-    <span class="count">{enabledCount} of {visibleInspections().length} checks on</span>
-    <button type="button" onclick={() => setAll(true)} disabled={enabledCount === visibleInspections().length}>
+    <span class="count">{enabledCount} of {offered.length} checks on</span>
+    <button type="button" onclick={() => setAll(true)} disabled={enabledCount === offered.length}>
       Enable all
     </button>
     <button type="button" onclick={() => setAll(false)} disabled={enabledCount === 0}>
@@ -113,7 +124,7 @@
           <input type="checkbox" checked={on} onchange={(e) => toggle(def.type, e.currentTarget.checked)} />
           {def.label}
         </label>
-        <p class="hint">{def.description}</p>
+        <p class="hint">{def.description}{#if 'plugin' in def}{def.description ? ' ' : ''}From {def.plugin.name}.{/if}</p>
 
         {#if def.type === 'stale_note' && on}
           <div class="threshold">

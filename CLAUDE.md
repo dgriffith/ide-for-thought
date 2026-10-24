@@ -1327,6 +1327,30 @@ becomes a document that tells you something false with confidence.
   - Declared once as `STANDARD_PREFIXES` in `src/main/graph/state.ts` and injected by `injectSparqlPrefixes` (`graph/queries/sparql.ts`). Injection is skipped per-prefix when the query's prologue already declares that exact name (keyword in any case; prefix names are case-sensitive, so `PREFIX DC:` does not declare `dc`), so redeclaring one is safe rather than a duplicate-declaration error. Only the prologue counts: a comment or string that mentions `PREFIX skos:` used to suppress the injection, and because Comunica silently pre-binds a few common prefixes to its own namespaces (its `skos:` is the 2008 draft), the query still parsed and quietly matched nothing (#2388).
   - The list is not decoration: it is exactly what someone writing SPARQL in the Query panel may use without a `PREFIX` line, and what `schemaForCompletion` offers the editor. The `types:` namespace in particular is pre-bound — every user-defined note type (#2036) compiles into it. CLAUDE.md named only eight for long enough that the seven added since were undiscoverable from the docs (#2257); `tests/architecture/claude-md-accuracy.test.ts` now fails if the bullet above and `STANDARD_PREFIXES` diverge in either direction, which is also why that bullet carries the bare list and nothing else.
 
+#### Declarative inspections are SHACL shapes (#2642)
+
+Every inspection that isn't code is a SHACL shape: Minerva's own in
+`graph/shacl/stock-inspections.ttl`, a plugin's in its `inspections/*.ttl`.
+`graph/shacl/shapes.ts` reads a file into checks (a `sh:NodeShape` with a
+target each; `sh:severity`, `sh:message`, `sh:name`, plus
+`minerva:inspectionId` / `inspectionGroup` / `suggestedAction`), and
+`graph/shacl/run.ts` validates the N3 mirror with `shacl-engine`, loaded on
+first use. Three things to keep:
+
+- **The engine expands `rdfs:subClassOf` in the shapes graph only**, so
+  each run copies the data's subclass triples in. Without that,
+  `sh:targetClass thought:Claim` misses every typed claim note.
+- **A shape only reads.** The engine's Comunica build ships Update actors, so
+  every `sh:select` / `sh:ask` is parsed (Traqula) and refused unless it's a
+  SELECT / ASK, and the validator gets `readOnlyDataset(store)`, which throws
+  on any write. It has no HTTP actor, so `SERVICE` / `FROM <http…>` reach
+  nothing; `tests/main/graph/shacl-run.test.ts` pins all three.
+- **A plugin's checks reach `graph/` through `HealthCheckDeps.pluginShapes`**
+  (`graph/` doesn't import `plugins/`). Their type is
+  `plugin:<id>/<shape>`, kept in the disabled list by pattern
+  (`PLUGIN_INSPECTION_TYPE`). The production call sites pass
+  `pluginInspectionFiles`.
+
 #### Per-project state goes in a `createProjectStore` slot (#2240)
 
 Anything a subsystem holds per open thoughtbase — caches, results, timers,

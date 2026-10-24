@@ -20,6 +20,7 @@ import {
   DEFAULT_INSPECTION_SETTINGS,
 } from '../../src/shared/inspections';
 import { INSPECTION_CHECKS } from '../../src/main/graph/health-checks';
+import { emitsOf, idOf } from '../../src/main/graph/inspection-checks';
 
 /**
  * Every `type: '…'` the engine actually emits, across every module of it.
@@ -62,9 +63,7 @@ describe('inspection catalog', () => {
     // reporting the same finding.
     const claims = new Map<string, string[]>();
     for (const check of INSPECTION_CHECKS) {
-      const id = check.kind === 'sparql' ? check.type : check.id;
-      const emits = check.kind === 'sparql' ? [check.type] : check.emits;
-      for (const t of emits) claims.set(t, [...(claims.get(t) ?? []), id]);
+      for (const t of emitsOf(check)) claims.set(t, [...(claims.get(t) ?? []), idOf(check)]);
     }
     const wrong = INSPECTIONS
       .map((i) => i.type)
@@ -74,9 +73,14 @@ describe('inspection catalog', () => {
     expect([...claims.keys()].filter((t) => !INSPECTIONS.some((i) => i.type === t)), 'checks emitting uncatalogued types').toEqual([]);
   });
 
-  it('ports at least one built-in to the declarative SPARQL kind (#2627)', () => {
-    expect(INSPECTION_CHECKS.filter((c) => c.kind === 'sparql').map((c) => c.kind === 'sparql' && c.type))
-      .toEqual(expect.arrayContaining(['unsupported_claim', 'contradiction']));
+  it('the declarative built-ins are SHACL shapes that say what the catalog says (#2627, #2642)', () => {
+    const shaped = INSPECTION_CHECKS.flatMap((c) => (c.kind === 'shacl' ? c.file.checks : []));
+    expect(shaped.map((c) => c.type).sort()).toEqual(['contradiction', 'unsupported_claim']);
+    for (const s of shaped) {
+      const def = INSPECTIONS.find((i) => i.type === s.type)!;
+      expect({ label: s.label, description: s.description, group: s.group, severity: s.severity }, s.type)
+        .toEqual({ label: def.label, description: def.description, group: def.group, severity: def.severity });
+    }
   });
 
   it('withholds the argument-map checks and nothing else', () => {

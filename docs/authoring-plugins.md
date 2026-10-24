@@ -186,10 +186,11 @@ to the plugin folder, one contribution per entry:
 | `note-templates` | `templates/` | a `.md` template |
 | `csl-styles` | `csl/` | a `.csl` style or `.xml` locale |
 | `themes` | `themes/` | a `.json` colour theme ([themes](#themes)) |
+| `inspections` | `inspections/` | a `.ttl` file of SHACL shapes ([inspections](#inspections)) |
 
-Inspections, commands, live blocks and views open to plugins as their
-stories land (#2637). Until then, naming one in
-`contributes` refuses the plugin.
+Commands open to plugins as their story lands (#2643); views and live blocks
+are plugin code, built into Minerva for now (#2833). Until then, naming one
+in `contributes` refuses the plugin.
 
 ## Starting one
 
@@ -370,6 +371,57 @@ Settings → Appearance, the command palette and View → Theme.
 [`tests/fixtures/plugins/solarized/`](../tests/fixtures/plugins/solarized/)
 is a worked example: Solarized Dark and Light.
 
+## Inspections
+
+A plugin's `inspections/*.ttl` adds health checks (#2642), written as
+[SHACL](https://www.w3.org/TR/shacl/) shapes: the W3C standard for "the data
+should look like this". Each `sh:NodeShape` with a target is one check. Its
+findings show in the Inspections panel, and Settings → Inspections has a
+switch for it, marked with the plugin's name. Minerva's own declarative
+checks are shapes too (`src/main/graph/shacl/stock-inspections.ttl`).
+
+```turtle
+@prefix sh:      <http://www.w3.org/ns/shacl#> .
+@prefix types:   <https://minerva.dev/ontology/types#> .
+@prefix minerva: <https://minerva.dev/ontology#> .
+@prefix ex:      <https://example.org/my-plugin#> .
+
+ex:BooksNeedAnAuthor
+  a sh:NodeShape ;
+  sh:targetClass types:Book ;
+  sh:name "Books without an author" ;
+  sh:description "Every book should say who wrote it." ;
+  sh:severity sh:Warning ;
+  sh:message "\"{$this}\" has no author" ;
+  minerva:inspectionGroup "sources" ;
+  minerva:suggestedAction "Add its author" ;
+  sh:property [ sh:path <http://purl.org/dc/terms/creator> ; sh:minCount 1 ] .
+```
+
+| A finding's | Comes from |
+|---|---|
+| name and description in Settings | `sh:name`, `sh:description` (the shape's name, if there's no `sh:name`) |
+| severity | `sh:severity`: `sh:Info`, `sh:Warning`, or `sh:Violation`, which is the default and shows as a concern |
+| message | the check's own `sh:message`, where `{$this}` is the note's title; without one, the failing constraint's |
+| group in the panel | `minerva:inspectionGroup`: `notes`, `links`, `sources`, `arguments`, or `plugins`, the default |
+| suggested action | `minerva:suggestedAction`, with `{$this}` as in the message |
+
+- **Targets follow the type hierarchy.** `sh:targetClass thought:Claim` also
+  reaches notes typed `claim` (`types:Claim ⊑ thought:Claim`), and a subtype's
+  notes reach its parent's shapes.
+- **SHACL-SPARQL works** (`sh:sparql` with an `sh:select`, prefixes through
+  `sh:prefixes` / `sh:declare`). A `{?var}` in its `sh:message` shows a
+  literal in quotes and an IRI as its title.
+- **A shape only reads.** Every `sh:select` must be a SELECT and every
+  `sh:ask` an ASK, or the file is refused. The graph a shape sees refuses
+  writes, and a `SERVICE` or `FROM <http://…>` reaches no network.
+- **Bounded.** A check that runs over 10 seconds reports nothing, and a check
+  reports at most 200 findings.
+- A file that breaks a rule is refused on its own, naming the rule; the
+  plugin's other files still load. A file is at most 256 KB and 32 checks.
+- Each check's type is `plugin:<plugin id>/<shape name>`, so the shape's name
+  (the end of its IRI) must be letters, digits, `_` and `-`.
+
 ## Settings
 
 A plugin can declare settings (#2636), and Settings → Plugins shows a form
@@ -444,8 +496,8 @@ The rules are `src/main/plugins/manifest.ts` (the manifest) and
 
 ## A complete example
 
-`reading-list` adds a Book Note type, a query for the unread ones, and a skill
-that summarizes a book note. It lives in
+`reading-list` adds a Book Note type, a query for the unread ones, a skill
+that summarizes a book note, and an inspection for finished books with no date. It lives in
 [`tests/fixtures/plugins/reading-list/`](../tests/fixtures/plugins/reading-list/),
 and a test checks that the manifest below is that folder's `plugin.json`, that
 the folder is accepted, and that each file is one the matching seam parses.
@@ -456,6 +508,7 @@ reading-list/
   types/book-note.md
   queries/unread-books.rq
   skills/reading-summary.md
+  inspections/finished-books.ttl
 ```
 
 ```json
@@ -464,13 +517,14 @@ reading-list/
   "name": "Reading List",
   "version": "1.0.0",
   "minerva": ">=3.0.0",
-  "description": "A Book Note type for what you're reading, a query for the unread ones, and a skill that writes a reading summary.",
+  "description": "A Book Note type for what you're reading, a query for the unread ones, a skill that writes a reading summary, and a check for finished books with no date.",
   "author": "Ada Example",
   "license": "MIT",
   "contributes": {
     "object-types": ["types/book-note.md"],
     "saved-queries": ["queries/unread-books.rq"],
-    "skills": ["skills/reading-summary.md"]
+    "skills": ["skills/reading-summary.md"],
+    "inspections": ["inspections/finished-books.ttl"]
   },
   "settings": {
     "summaryLength": {
@@ -525,6 +579,33 @@ ORDER BY ?title
 `skills/reading-summary.md` is a skill like any in `~/.minerva/skills/`,
 except that it reads the plugin's `summaryLength` setting as
 `{{plugin.settings.summaryLength}}`; see the fixture for its body.
+
+`inspections/finished-books.ttl` is a SHACL shape (see *Inspections* above):
+every Book Note either isn't `finished`, or has a `finished` date. A note that
+fails it shows in the Inspections panel, worded by its `sh:message`, and
+Settings → Inspections has a switch for it, *From Reading List*:
+
+```turtle
+@prefix sh:      <http://www.w3.org/ns/shacl#> .
+@prefix types:   <https://minerva.dev/ontology/types#> .
+@prefix minerva: <https://minerva.dev/ontology#> .
+@prefix reading: <https://example.org/reading-list/shapes#> .
+
+# A Book Note marked finished, with no date it was finished on.
+reading:FinishedWithoutDate
+  a sh:NodeShape ;
+  sh:name "Finished books without a date" ;
+  sh:description "Book notes marked finished that don't say when." ;
+  sh:severity sh:Info ;
+  minerva:inspectionGroup "notes" ;
+  sh:targetClass types:BookNote ;
+  sh:message "\"{$this}\" is finished but has no finished date" ;
+  minerva:suggestedAction "Set its finished property to the day you finished it" ;
+  sh:or (
+    [ sh:not [ sh:path minerva:meta-status ; sh:hasValue "finished" ] ]
+    [ sh:path minerva:meta-finished ; sh:minCount 1 ]
+  ) .
+```
 
 ## Another example: a cookbook
 

@@ -39,6 +39,8 @@ import { readPluginPackage } from '../plugins/package';
 import { installPluginFromFolder, removePlugin } from '../plugins/lifecycle';
 import { disablePlugins, enablePlugins, pluginsEnabled, reloadPluginScan } from '../plugins/registry';
 import { pluginThemes } from '../plugins/themes';
+import { pluginInspections } from '../plugins/inspection-shapes';
+import { runShaclChecks } from '../graph/shacl/run';
 import { pluginServerDecls } from '../plugins/mcp-servers';
 import { pluginSettingsFile } from '../plugins/settings';
 import { loadSkillCatalog } from '../skills/loader';
@@ -142,6 +144,7 @@ async function checkContributions(r: Report, plugin: PluginPackage, tb: CheckTho
   const styles = await getMergedStyles(tb.root);
   const locales = await getMergedLocales(tb.root);
   const themes = pluginThemes();
+  const inspections = pluginInspections();
 
   for (const c of plugin.contributions) {
     const file = c.kind === 'folder' ? path.join(c.absolutePath, 'SKILL.md') : c.absolutePath;
@@ -185,6 +188,26 @@ async function checkContributions(r: Report, plugin: PluginPackage, tb: CheckTho
         const problem = themes.problems.find((p) => p.plugin === id && p.file === c.path);
         if (theme) r.add('contributions', subject, theme.warnings.length ? 'warn' : 'pass', theme.warnings.length ? `theme "${theme.label}": ${theme.warnings.join('; ')}` : `theme "${theme.label}"`);
         else r.add('contributions', subject, 'fail', problem?.problem ?? 'not in the themes');
+        break;
+      }
+      case 'inspections': {
+        // Loaded, then run against the thoughtbase it's checked with (#2642):
+        // a shape that throws on someone else's notes reports nothing, which
+        // the count says.
+        const loaded = inspections.files.find((f) => f.id === `plugin:${id}/${c.path}`);
+        const problems = inspections.problems.filter((p) => p.plugin === id && p.file === c.path).map((p) => p.problem);
+        if (!loaded) { r.add('contributions', subject, 'fail', problems.join('; ') || 'not in the inspections'); break; }
+        const ctx = projectContext(tb.root);
+        let findings: number;
+        try {
+          await initGraph(ctx);
+          await indexAllNotes(ctx);
+          findings = (await runShaclChecks(ctx, [loaded.file], () => true)).length;
+        } finally {
+          disposeProject(ctx);
+        }
+        const checks = loaded.file.checks.length;
+        r.add('contributions', subject, 'pass', `${checks} inspection${checks === 1 ? '' : 's'}; ${findings} finding${findings === 1 ? '' : 's'} in ${tb.name}`);
         break;
       }
       default:
@@ -323,6 +346,7 @@ async function checkUninstall(r: Report, manifest: PluginManifest, pluginsDir: s
     }
   }
   if (pluginThemes().themes.some((t) => t.plugin.id === id)) residue.push('a theme');
+  if (pluginInspections().catalog.some((c) => c.plugin.id === id)) residue.push('an inspection');
   if ((await pluginServerDecls()).some((d) => d.plugin.id === id)) residue.push('an MCP server');
   const exists = (p: string) => fs.access(p).then(() => true, () => false);
   if (await exists(path.join(pluginsDir, id))) residue.push('its folder');

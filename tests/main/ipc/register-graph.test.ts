@@ -115,6 +115,10 @@ vi.mock('../../../src/main/graph/health-checks', () => ({
   getInspections: h.getInspections,
   runAllChecks: h.runAllChecks,
 }));
+vi.mock('../../../src/main/plugins/inspection-shapes', () => ({
+  pluginInspections: () => ({ files: [], catalog: [{ type: 'plugin:lab/Fine', plugin: { id: 'lab', name: 'Lab' } }], problems: [] }),
+  pluginInspectionFiles: () => [],
+}));
 vi.mock('../../../src/main/config/inspection-settings', () => ({
   getInspectionSettings: h.getInspectionSettings,
   saveInspectionSettings: h.saveInspectionSettings,
@@ -447,6 +451,11 @@ describe('register-graph — inspections', () => {
     openProject = null;
     h.getInspectionSettings.mockResolvedValue({ enabled: [], staleDays: 90 });
     await expect(callAsync(Channels.INSPECTIONS_GET_SETTINGS)).resolves.toEqual({ enabled: [], staleDays: 90 });
+  });
+
+  it("INSPECTIONS_PLUGIN_CHECKS lists the plugins' SHACL checks, with no project needed (#2642)", async () => {
+    openProject = null;
+    await expect(callAsync(Channels.INSPECTIONS_PLUGIN_CHECKS)).resolves.toEqual([{ type: 'plugin:lab/Fine', plugin: { id: 'lab', name: 'Lab' } }]);
   });
 
   it('INSPECTIONS_SET_SETTINGS returns what actually landed, not what was asked for', async () => {

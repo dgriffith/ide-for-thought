@@ -48,36 +48,42 @@ const ctx = projectContext(ROOT);
  * skipped and this is the floor, not the ceiling.
  *
  * Counted from the source rather than guessed:
- *   unsupported claims 1 + evidence gaps 2 + contradictions 1   = 4  (always on)
+ *   evidence gaps                                                = 2  (always on)
  *   staleness phase one                                          = 1
  *   source facts (shared by all five source checks)              = 1
  *   citation counts (source_cited_unread)                        = 1
  *   broken links: notes + sources + excerpts + the link walk     = 4
  *                                                                 ---
- *                                                                  11
+ *                                                                   9
  *
  * It was 16 before the source scan was shared — and 17 on any thoughtbase with
- * a stale note in it, which is every thoughtbase older than a month.
+ * a stale note in it, which is every thoughtbase older than a month. And 11
+ * until unsupported claims and contradictions became SHACL shapes (#2642),
+ * which validate the N3 mirror directly rather than through a SPARQL
+ * round-trip; they ask one label query only when they found something, which
+ * an empty graph never does.
  */
-const FULL_SWEEP_QUERIES = 11;
+const FULL_SWEEP_QUERIES = 9;
+/** The checks that run however the source and note switches are set: evidence gaps. */
+const ALWAYS_ON = 2;
 
 beforeEach(() => { h.queryGraph.mockClear(); });
 
 describe('runAllChecks — round-trips per sweep (#2208)', () => {
-  it('issues eleven queries with every check on, not seventeen', async () => {
+  it('issues nine queries with every check on, not seventeen', async () => {
     await runAllChecks(ctx, DEFAULT_INSPECTION_SETTINGS);
     expect(h.queryGraph.mock.calls.length).toBe(FULL_SWEEP_QUERIES);
   });
 
   it('spends TWO queries on the five source checks, not six', async () => {
     // The consolidation, stated as the number it is about. Disable everything
-    // that isn't a source check and count what is left beyond the four
+    // that isn't a source check and count what is left beyond the
     // always-on argument-map queries.
     await runAllChecks(ctx, {
       ...DEFAULT_INSPECTION_SETTINGS,
       disabled: ['stale_note', 'unreferenced_image', 'broken_note_link', 'broken_anchor_link', 'broken_cite_quote'],
     });
-    expect(h.queryGraph.mock.calls.length).toBe(4 + 2);
+    expect(h.queryGraph.mock.calls.length).toBe(ALWAYS_ON + 2);
   });
 
   it('asks the source table nothing when all five source checks are off', async () => {
@@ -92,7 +98,7 @@ describe('runAllChecks — round-trips per sweep (#2208)', () => {
         'broken_note_link', 'broken_anchor_link', 'broken_cite_quote',
       ],
     });
-    expect(h.queryGraph.mock.calls.length).toBe(4);
+    expect(h.queryGraph.mock.calls.length).toBe(ALWAYS_ON);
   });
 
   it('drops to one source query when only the citation-count check is off', async () => {
@@ -106,7 +112,7 @@ describe('runAllChecks — round-trips per sweep (#2208)', () => {
         'broken_note_link', 'broken_anchor_link', 'broken_cite_quote',
       ],
     });
-    expect(h.queryGraph.mock.calls.length).toBe(4 + 1);
+    expect(h.queryGraph.mock.calls.length).toBe(ALWAYS_ON + 1);
   });
 
   it('costs one sweep, not one per write, across a burst of saves', async () => {

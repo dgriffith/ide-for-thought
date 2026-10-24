@@ -241,6 +241,20 @@ export const EXTENSION_POINTS = [
 
   // ── Plugins only ─────────────────────────────────────────────────────────
   {
+    id: 'inspections',
+    label: 'Inspections',
+    description: 'A health check over the graph whose findings show in the Inspections panel: a SHACL shape — its target, its constraints, sh:severity and sh:message. Read-only: a shape can\'t change the graph or reach the network.',
+    rung: 'plugin',
+    contract: { kind: 'parser', format: 'SHACL in Turtle: a sh:NodeShape with a target, sh:name, sh:description, sh:severity, sh:message, minerva:inspectionGroup and minerva:suggestedAction; any sh:select / sh:ask a SELECT / ASK', at: { file: 'src/main/graph/shacl/shapes.ts', symbol: 'parseShapesFile' } },
+    loadPath: 'hot',
+    sources: ['stock', 'plugin'],
+    location: 'a plugin\'s inspections/ (#2642)',
+    docs: 'docs/authoring-plugins.md',
+    example: 'tests/fixtures/plugins/reading-list/inspections/finished-books.ttl',
+    harness: 'tests/main/plugins/inspection-shapes.test.ts',
+    registries: [{ file: 'src/main/graph/inspection-checks.ts', symbol: 'INSPECTION_CHECKS' }],
+  },
+  {
     id: 'themes',
     label: 'Themes',
     description: 'A colour theme: colours over the dark or light theme, listed after Dark, Light, High Contrast and System in every theme picker. Tokens only — it recolours Minerva, it can\'t restyle it.',
@@ -312,12 +326,6 @@ export const EXTENSION_POINTS = [
     label: 'Settings sections',
     description: 'A section of the Settings dialog.',
     ...sourceSeam({ file: 'src/renderer/lib/components/settings/sections.ts', symbol: 'SETTINGS_SECTIONS' }, { story: 2626, harness: 'tests/architecture/panel-registries.test.ts' }),
-  },
-  {
-    id: 'inspections',
-    label: 'Inspections',
-    description: 'A health check over the graph whose findings show in the Inspections panel. A check can already be a SPARQL query plus a message template — the form a plugin will contribute.',
-    ...sourceSeam({ file: 'src/main/graph/inspection-checks.ts', symbol: 'INSPECTION_CHECKS' }, { story: 2627, harness: 'tests/shared/inspections-catalog.test.ts' }),
   },
   {
     id: 'llm-tools',

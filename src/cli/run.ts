@@ -103,7 +103,7 @@ Options:
   --all                 eval: run every case under tests/skills-eval/.
   --live                eval: make a real model call, capturing response.md +
                         drafts.json. Opt-in; needs a provider key in the env.
-  --kind <kind>         plugin new: skill, type, query, template, csl, theme or mcp.
+  --kind <kind>         plugin new: skill, type, query, template, csl, theme, inspection or mcp.
   --mcp <runtime>       plugin new: an MCP server, in node or python.
   --name <name>         plugin new: the name Settings shows (default: from the id).
   --dir <folder>        plugin new: where to make it (default: current directory).

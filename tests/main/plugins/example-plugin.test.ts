@@ -16,6 +16,8 @@ import { parseSkill } from '../../../src/main/skills/parse';
 import { parseType } from '../../../src/main/types/parse';
 import { indexAllNotes, queryGraphRows } from '../../../src/main/graph/index';
 import { useGraphProject } from '../../helpers/temp-project';
+import { parseShapesFile } from '../../../src/main/graph/shacl/shapes';
+import { runShaclChecks } from '../../../src/main/graph/shacl/run';
 
 const ROOT = path.resolve(__dirname, '..', '..', '..');
 const FIXTURE = path.join(ROOT, 'tests', 'fixtures', 'plugins', 'reading-list');
@@ -34,6 +36,7 @@ describe('the authoring-plugins example (#2632)', () => {
     expect(exampleBlocks('json')).toEqual([read('plugin.json')]);
     expect(exampleBlocks('markdown')).toEqual([read('types/book-note.md')]);
     expect(exampleBlocks('sparql')).toEqual([read('queries/unread-books.rq')]);
+    expect(exampleBlocks('turtle')).toEqual([read('inspections/finished-books.ttl')]);
   });
 
   it('is an accepted plugin', async () => {
@@ -41,7 +44,7 @@ describe('the authoring-plugins example (#2632)', () => {
     if (!r.ok) throw new Error(r.error.problems.join('\n'));
     expect(r.plugin.provenance).toBe('plugin:reading-list@1.0.0');
     expect(r.plugin.contributions.map((c) => c.path).sort()).toEqual([
-      'queries/unread-books.rq', 'skills/reading-summary.md', 'types/book-note.md',
+      'inspections/finished-books.ttl', 'queries/unread-books.rq', 'skills/reading-summary.md', 'types/book-note.md',
     ]);
   });
 
@@ -68,6 +71,28 @@ describe('the authoring-plugins example (#2632)', () => {
       await indexAllNotes(project.ctx);
       const rows = await queryGraphRows(project.ctx, read('queries/unread-books.rq'));
       expect(rows.results.map((r) => r.title)).toEqual(['Middlemarch']);
+    });
+  });
+
+  describe('its inspection (#2642)', () => {
+    const project = useGraphProject('minerva-plugin-example-shapes-');
+
+    it('flags a finished Book Note with no finished date, and nothing else', async () => {
+      const types = path.join(project.root, '.minerva', 'types');
+      fs.mkdirSync(types, { recursive: true });
+      fs.copyFileSync(path.join(FIXTURE, 'types', 'book-note.md'), path.join(types, 'book-note.md'));
+      const note = (title: string, extra: string) =>
+        fs.writeFileSync(path.join(project.root, `${title}.md`), `---\ntitle: ${title}\ntype: book-note\n${extra}---\n`);
+      note('Dune', 'status: finished\n');
+      note('Middlemarch', 'status: finished\nfinished: 2026-05-01\n');
+      note('Walden', 'status: reading\n');
+      await indexAllNotes(project.ctx);
+      const read2 = parseShapesFile(read('inspections/finished-books.ttl'), { kind: 'plugin', id: 'reading-list', name: 'Reading List' });
+      if (!read2.ok) throw new Error(read2.problems.join('\n'));
+      const found = await runShaclChecks(project.ctx, [read2.file], () => true);
+      expect(found.map((f) => [f.type, f.message, f.notePath])).toEqual([
+        ['plugin:reading-list/FinishedWithoutDate', '"Dune" is finished but has no finished date', 'Dune.md'],
+      ]);
     });
   });
 });

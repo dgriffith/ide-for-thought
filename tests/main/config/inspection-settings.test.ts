@@ -56,6 +56,11 @@ describe('getInspectionSettings', () => {
     expect((await getInspectionSettings()).disabled).toEqual(['stale_note']);
   });
 
+  it("keeps a plugin's check switched off, by its shape, whether or not the plugin is on now (#2642)", async () => {
+    write({ disabled: ['plugin:reading-list/FinishedWithoutDate', 'plugin:Bad Id/x', 'plugin:lab/'], staleDays: 30, stubDays: 30 });
+    expect((await getInspectionSettings()).disabled).toEqual(['plugin:reading-list/FinishedWithoutDate']);
+  });
+
   it('clamps thresholds a hand-edited file could otherwise make meaningless', async () => {
     write({ disabled: [], staleDays: 0, stubDays: 99999 });
     const s = await getInspectionSettings();

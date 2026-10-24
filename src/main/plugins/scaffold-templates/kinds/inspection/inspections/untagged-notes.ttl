@@ -1,0 +1,19 @@
+# An inspection, as a SHACL shape: every note should have at least one tag.
+# Each sh:NodeShape with a target is one check in the Inspections panel and
+# one switch in Settings → Inspections. The format is in Minerva's
+# docs/authoring-plugins.md (inspections).
+
+@prefix sh:      <http://www.w3.org/ns/shacl#> .
+@prefix minerva: <https://minerva.dev/ontology#> .
+@prefix check:   <https://example.org/__PLUGIN_ID__/shapes#> .
+
+check:UntaggedNotes
+  a sh:NodeShape ;
+  sh:targetClass minerva:Note ;
+  sh:name "Notes without tags" ;
+  sh:description "Notes with no tag, which no tag view or search by tag will find." ;
+  sh:severity sh:Info ;
+  minerva:inspectionGroup "notes" ;
+  sh:message "\"{$this}\" has no tags" ;
+  minerva:suggestedAction "Add a tag that says what it's about" ;
+  sh:property [ sh:path minerva:hasTag ; sh:minCount 1 ] .

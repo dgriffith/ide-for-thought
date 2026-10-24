@@ -65,10 +65,10 @@ describe('readPluginPackage (#2632)', () => {
   });
 
   it('a manifest problem names the plugin by id and version when it got that far', async () => {
-    const root = plugin('lab', { inspections: ['inspections/x.json'] });
+    const root = plugin('lab', { commands: ['commands/x.json'] });
     const r = await readPluginPackage(root, APP);
     expect(r.ok).toBe(false);
-    expect(!r.ok && r.error).toMatchObject({ folder: 'lab', label: 'lab@1.0.0', problems: [expect.stringContaining('"inspections"')] });
+    expect(!r.ok && r.error).toMatchObject({ folder: 'lab', label: 'lab@1.0.0', problems: [expect.stringContaining('"commands"')] });
   });
 
   it('refuses a contributed file over the size cap, a skill folder\'s SKILL.md included (#2655)', async () => {

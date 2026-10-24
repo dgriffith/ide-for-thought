@@ -57,7 +57,8 @@ export interface Inspection {
   notePath?: string;
 }
 
-export type InspectionGroup = 'notes' | 'links' | 'sources' | 'arguments';
+/** `plugins`: a plugin's SHACL check that names no group of its own (#2642). */
+export type InspectionGroup = 'notes' | 'links' | 'sources' | 'arguments' | 'plugins';
 
 export interface InspectionDef {
   /** Matches `Inspection.type` from the engine. */
@@ -74,11 +75,18 @@ export interface InspectionDef {
   hidden?: boolean;
 }
 
+/** A plugin's inspection type (#2642): `plugin:<plugin id>/<shape name>`. */
+export const PLUGIN_INSPECTION_TYPE = /^plugin:[a-z][a-z0-9]*(?:-[a-z0-9]+)*\/[A-Za-z][A-Za-z0-9_-]{0,63}$/;
+
+/** A plugin's inspection (#2642): a SHACL shape's catalog entry, and whose it is. */
+export type PluginInspectionDef = InspectionDef & { plugin: { id: string; name: string } };
+
 export const INSPECTION_GROUP_LABELS: Record<InspectionGroup, string> = {
   notes: 'Notes',
   links: 'Links',
   sources: 'Sources',
   arguments: 'Arguments',
+  plugins: 'From plugins',
 };
 
 export const INSPECTIONS = [

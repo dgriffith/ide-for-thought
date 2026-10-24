@@ -17,6 +17,7 @@
  * which it wanted anyway: four other copies of it existed) unblocked this.
  */
 import type { ProjectContext } from '../project-context-types';
+import type { ShapesFile } from './shacl/shapes';
 import { createProjectStore } from '../project-store';
 import type { Inspection, InspectionSettings } from '../../shared/inspections';
 import type { OrphanedAsset } from '../../shared/asset-paths';
@@ -40,6 +41,19 @@ import type { OrphanedAsset } from '../../shared/asset-paths';
  */
 export interface HealthCheckDeps {
   findOrphanedAssets?: (rootPath: string) => Promise<OrphanedAsset[]>;
+  /**
+   * The plugins' SHACL checks (#2642), read by the plugin layer (`graph/`
+   * doesn't import `plugins/`). Omitting it runs Minerva's own checks only,
+   * which is what tests and the CLI want.
+   */
+  pluginShapes?: () => readonly PluginShapesFile[];
+}
+
+/** One plugin's shapes file, read (#2642): its checks run with Minerva's. */
+export interface PluginShapesFile {
+  /** `plugin:<id>/<file>` — what a failure is logged against. */
+  id: string;
+  file: ShapesFile;
 }
 
 export interface AutoState {

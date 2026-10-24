@@ -9,6 +9,7 @@
   // that had already drifted — `severity: string` where the engine says
   // 'info' | 'warning' | 'concern'.
   import type { Inspection } from '../../../../shared/inspections';
+  import { logger } from '../../../../shared/logger';
 
   const review = getReviewStore();
   const inspectionsStore = getInspectionsStore();
@@ -49,7 +50,20 @@
     loading = false;
   }
 
-  onMount(() => { void refresh(); });
+  // A plugin's check (#2642) is grouped under its own label, not its type id.
+  let pluginLabels = $state<ReadonlyMap<string, string>>(new Map());
+  function typeLabel(type: string): string {
+    if (!type.startsWith('plugin:')) return type.replace(/_/g, ' ');
+    return pluginLabels.get(type) ?? type.replace(/^.*\//, '');
+  }
+
+  onMount(() => {
+    void refresh();
+    void api.graph.inspectionPluginChecks()
+      .then((checks) => { pluginLabels = new Map(checks.map((c) => [c.type, c.label])); })
+      // The shape's name stands in for a label; the failure is still logged.
+      .catch((e: unknown) => { logger('plugins').warn("couldn't read the plugins' inspection labels:", e); });
+  });
 
   $effect(() => { revision; void refresh(); });
 
@@ -156,7 +170,7 @@
     <div class="inspection-list">
       {#each byType() as [typeName, items]}
         <div class="severity-group">
-          <span class="group-label">{typeName.replace(/_/g, ' ')} ({items.length})</span>
+          <span class="group-label">{typeLabel(typeName)} ({items.length})</span>
           {#each items as insp}
             {@render row(insp)}
           {/each}

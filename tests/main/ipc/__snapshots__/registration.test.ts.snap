@@ -112,6 +112,7 @@ exports[`IPC registration contract (#997) > matches the known set of registered 
   "ingest:setSettings",
   "inspections:getSettings",
   "inspections:list",
+  "inspections:pluginChecks",
   "inspections:run",
   "inspections:setSettings",
   "links:backlinks",
