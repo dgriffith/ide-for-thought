@@ -9,6 +9,7 @@
   // that had already drifted — `severity: string` where the engine says
   // 'info' | 'warning' | 'concern'.
   import type { Inspection } from '../../../../shared/inspections';
+  import { logger } from '../../../../shared/logger';
 
   const review = getReviewStore();
   const inspectionsStore = getInspectionsStore();
@@ -60,7 +61,8 @@
     void refresh();
     void api.graph.inspectionPluginChecks()
       .then((checks) => { pluginLabels = new Map(checks.map((c) => [c.type, c.label])); })
-      .catch(() => { /* the shape's name stands in */ });
+      // The shape's name stands in for a label; the failure is still logged.
+      .catch((e: unknown) => { logger('plugins').warn("couldn't read the plugins' inspection labels:", e); });
   });
 
   $effect(() => { revision; void refresh(); });
