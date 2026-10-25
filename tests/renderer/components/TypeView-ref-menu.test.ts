@@ -15,7 +15,7 @@ const h = vi.hoisted(() => ({
 }));
 // The Kanban layout is drawn by its plugin (#2828): read what it is sent, act as it.
 vi.mock('../../../src/renderer/lib/stores/plugin-sessions.svelte', () => ({ connectPluginFrame: (...a: unknown[]) => h.plugin.connect(...a) }));
-vi.mock('../../../src/renderer/lib/stores/core-plugins.svelte', () => ({ corePluginsStore: { isOn: () => true, name: () => 'Kanban' } }));
+vi.mock('../../../src/renderer/lib/stores/code-plugins.svelte', () => ({ codePluginsStore: { isOn: () => true, name: () => 'Kanban' } }));
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({
   api: { types: { instances: h.instances, list: h.list, noteTypeMap: h.noteTypeMap }, export: { csv: vi.fn() }, app: { getSystemLocale: async () => 'en-GB' } },
 }));

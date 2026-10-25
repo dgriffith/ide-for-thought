@@ -4,7 +4,7 @@
  * from, so a plugin's panel is listed, titled and mounted like a core one.
  */
 import { ICONS, type IconName } from '../icons/registry';
-import type { ActivePluginView } from '../../stores/core-plugins.svelte';
+import type { ActivePluginView } from '../../stores/code-plugins.svelte';
 
 /** A plugin panel's id in its registry: never a core panel's, which have no `:`. */
 export type PluginPanelId = `plugin:${string}:${string}`;

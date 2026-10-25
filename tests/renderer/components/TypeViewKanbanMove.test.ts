@@ -24,7 +24,7 @@ vi.mock('../../../src/renderer/lib/stores/kanban-moves.svelte', () => ({
   getKanbanMoveStore: () => ({ revision: 0, lastMove: null, canUndo: true, moveCards: h.moveCards, undoLastMove: h.undoLastMove }),
 }));
 vi.mock('../../../src/renderer/lib/stores/plugin-sessions.svelte', () => ({ connectPluginFrame: (...a: unknown[]) => h.plugin.connect(...a) }));
-vi.mock('../../../src/renderer/lib/stores/core-plugins.svelte', () => ({ corePluginsStore: { isOn: () => true, name: () => 'Kanban' } }));
+vi.mock('../../../src/renderer/lib/stores/code-plugins.svelte', () => ({ codePluginsStore: { isOn: () => true, name: () => 'Kanban' } }));
 
 import TypeView from '../../../src/renderer/lib/components/TypeView.svelte';
 import { objectTypesStore } from '../../../src/renderer/lib/stores/object-types.svelte';

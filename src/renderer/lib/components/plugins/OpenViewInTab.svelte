@@ -5,7 +5,7 @@
    * by the same declared query.
    */
   import { getEditorStore } from '../../stores/editor.svelte';
-  import type { ActivePluginView } from '../../stores/core-plugins.svelte';
+  import type { ActivePluginView } from '../../stores/code-plugins.svelte';
 
   interface Props { view: ActivePluginView }
   let { view }: Props = $props();

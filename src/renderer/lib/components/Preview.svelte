@@ -11,7 +11,7 @@
     import {hydrateVegaBlocks, invalidateVegaTheme} from '../markdown/vega-renderer';
     import {hydrateObjectViewBlocks} from '../markdown/object-view-renderer';
     import {hydratePluginBlocks} from '../markdown/plugin-block-renderer';
-    import {corePluginsStore} from '../stores/core-plugins.svelte';
+    import {codePluginsStore} from '../stores/code-plugins.svelte';
     import type { TypeViewNoteActions } from './type-view/note-actions';
     import {hydrateArgumentMapBlocks, type ArgumentMapDeps} from '../markdown/argument-map-renderer';
     import {hydrateCardCallouts} from '../markdown/card-callout';
@@ -308,7 +308,7 @@
     let renderPathOverride: string | null = null;
 
     // Plugins' live blocks (#2641), resolved by name as a note renders.
-    const pluginBlockSyntax = $derived(corePluginsStore.blockSyntax());
+    const pluginBlockSyntax = $derived(codePluginsStore.blockSyntax());
     const md = createPreviewMarkdown({
         collapsedFences,
         runningFences,

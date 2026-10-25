@@ -13,8 +13,8 @@ const h = vi.hoisted(() => ({ on: false, instances: vi.fn(), list: vi.fn(), map:
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({
   api: { types: { instances: h.instances, list: h.list, noteTypeMap: h.map } },
 }));
-vi.mock('../../../src/renderer/lib/stores/core-plugins.svelte', () => ({
-  corePluginsStore: { isOn: () => h.on, name: () => 'Kanban' },
+vi.mock('../../../src/renderer/lib/stores/code-plugins.svelte', () => ({
+  codePluginsStore: { isOn: () => h.on, name: () => 'Kanban' },
 }));
 vi.mock('../../../src/shared/objects/view-layouts', async (importOriginal) => {
   const real = await importOriginal<typeof import('../../../src/shared/objects/view-layouts')>();

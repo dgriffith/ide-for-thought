@@ -13,7 +13,7 @@ const h = vi.hoisted(() => ({
 }));
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({ api: { plugins: { runCommand: h.runCommand } } }));
 vi.mock('../../../src/renderer/lib/stores/toasts.svelte', () => ({ getToastStore: () => ({ push: h.push }) }));
-vi.mock('../../../src/renderer/lib/stores/core-plugins.svelte', () => ({ corePluginsStore: { allCommands: () => h.commands } }));
+vi.mock('../../../src/renderer/lib/stores/code-plugins.svelte', () => ({ codePluginsStore: { allCommands: () => h.commands } }));
 
 import { createPluginCommandOps, type PluginCommandOpsCtx } from '../../../src/renderer/lib/app/plugin-command-ops';
 import { silenceLogTags } from '../../helpers/quiet-logs';

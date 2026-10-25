@@ -26,7 +26,7 @@ import TablesPanel from './TablesPanel.svelte';
 import CitationsPanel from './CitationsPanel.svelte';
 import PluginPanel from '../plugins/PluginPanel.svelte';
 import { pluginPanelIcon, pluginPanelId, pluginPanelProps, type PluginPanelId } from '../plugins/plugin-panels';
-import type { ActivePluginView } from '../../stores/core-plugins.svelte';
+import type { ActivePluginView } from '../../stores/code-plugins.svelte';
 
 /** What the sidebar hands its panels: the active note and the host's callbacks. */
 export interface RightPanelHost {
