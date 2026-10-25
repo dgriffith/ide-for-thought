@@ -37,6 +37,9 @@ const h = vi.hoisted(() => ({
   closeSession: vi.fn(),
   sessionEvent: vi.fn(),
   runCommand: vi.fn(),
+  approvePluginCode: vi.fn(),
+  /** Installed plugins beyond "lab", for the code-approval cases (#2833). */
+  extraInstalled: [] as unknown[],
 }));
 
 vi.mock('electron', () => ({
@@ -61,11 +64,12 @@ vi.mock('../../../src/main/secret-storage', () => ({
 vi.mock('../../../src/main/plugins/recommendations', () => ({
   pluginRecommendations: async (root: string) => [{ id: 'lab', types: [], status: 'missing', root }],
 }));
-vi.mock('../../../src/main/plugins/registry', () => ({
+vi.mock('../../../src/main/plugins/registry', async (importOriginal) => ({
+  codeApprovalOf: (await importOriginal<typeof import('../../../src/main/plugins/registry')>()).codeApprovalOf,
   activePluginsDir: () => '/home/u/.minerva/plugins',
   pluginsAppVersion: () => '4.0.0',
   getPluginInventory: async () => ({
-    installed: [{
+    installed: [...h.extraInstalled as never[], {
       plugin: {
         manifest: { id: 'lab', name: 'Lab', version: '1.0.0', minerva: '>=4', description: 'Lab tools', author: 'Ada', contributes: {}, settings: [{ key: 'token', title: 'Token', kind: 'secret' }] },
         root: '/home/u/.minerva/plugins/lab', provenance: 'plugin:lab@1.0.0',
@@ -87,6 +91,7 @@ vi.mock('../../../src/main/plugins/lifecycle', () => ({
   installPluginFromZip: h.installPluginFromZip,
   installPluginFromGit: h.installPluginFromGit,
   installPluginFromDraft: h.installPluginFromDraft,
+  approvePluginCode: h.approvePluginCode,
 }));
 vi.mock('../../../src/main/extensions/draft-apply', () => ({ saveSkillDraft: h.saveSkillDraft, saveDraftToFolder: h.saveDraftToFolder }));
 vi.mock('../../../src/main/skills/register', () => ({ reloadAndRegisterSkills: h.reloadSkills }));
@@ -212,7 +217,7 @@ describe('register-plugins (#2634)', () => {
     h.showOpenDialog.mockResolvedValue({ canceled: false, filePaths: ['/work/lab'] });
     h.installPluginFromFolder.mockResolvedValue({ manifest: { id: 'lab', name: 'Lab' } });
     expect(await call(Channels.PLUGINS_INSTALL_FOLDER)).toEqual({ id: 'lab', name: 'Lab' });
-    expect(h.installPluginFromFolder).toHaveBeenCalledWith('/home/u/.minerva/plugins', '/work/lab', '4.0.0', { replace: expect.any(Function) });
+    expect(h.installPluginFromFolder).toHaveBeenCalledWith('/home/u/.minerva/plugins', '/work/lab', '4.0.0', { replace: expect.any(Function), approveCode: expect.any(Function) });
     expect(h.changed).toEqual(['applied']);
   });
 
@@ -233,7 +238,7 @@ describe('register-plugins (#2634)', () => {
     h.installPluginFromZip.mockResolvedValue({ manifest: { id: 'lab', name: 'Lab' } });
     expect(await call(Channels.PLUGINS_INSTALL_ZIP)).toEqual({ id: 'lab', name: 'Lab' });
     expect(h.showOpenDialog).toHaveBeenCalledWith({ id: 1 }, expect.objectContaining({ properties: ['openFile'], filters: [{ name: 'Zip archive', extensions: ['zip'] }] }));
-    expect(h.installPluginFromZip).toHaveBeenCalledWith('/home/u/.minerva/plugins', '/dl/lab.zip', '4.0.0', { replace: expect.any(Function) });
+    expect(h.installPluginFromZip).toHaveBeenCalledWith('/home/u/.minerva/plugins', '/dl/lab.zip', '4.0.0', { replace: expect.any(Function), approveCode: expect.any(Function) });
     expect(h.changed).toEqual(['applied']);
   });
 
@@ -248,7 +253,7 @@ describe('register-plugins (#2634)', () => {
   it('install from a git URL: the typed URL goes to main\'s installer, applied; Replace? asked once', async () => {
     h.installPluginFromGit.mockResolvedValueOnce({ manifest: { id: 'lab', name: 'Lab' } });
     expect(await call(Channels.PLUGINS_INSTALL_GIT, 'https://github.com/ada/lab#v1.0.0')).toEqual({ id: 'lab', name: 'Lab' });
-    expect(h.installPluginFromGit).toHaveBeenCalledWith('/home/u/.minerva/plugins', 'https://github.com/ada/lab#v1.0.0', '4.0.0', { replace: expect.any(Function) });
+    expect(h.installPluginFromGit).toHaveBeenCalledWith('/home/u/.minerva/plugins', 'https://github.com/ada/lab#v1.0.0', '4.0.0', { replace: expect.any(Function), approveCode: expect.any(Function) });
     expect(h.changed).toEqual(['applied']);
 
     h.installPluginFromGit.mockImplementation(overInstalled);
@@ -500,5 +505,62 @@ describe('plugin commands (#2643)', () => {
     h.runCommand.mockClear();
     await expect(call(Channels.PLUGINS_RUN_COMMAND, '../evil', 'x', {})).rejects.toThrow("isn't a plugin id");
     expect(h.runCommand).not.toHaveBeenCalled();
+  });
+});
+
+describe('code from an installed plugin (#2833)', () => {
+  const BOARD = {
+    manifest: { id: 'board', name: 'Board', version: '2.0.0', minerva: '>=4', description: 'A board.', contributes: {}, code: { capabilities: ['notes:read', 'notes:write-properties'], api: '^1.0.0' } },
+    root: '/home/u/.minerva/plugins/board', provenance: 'plugin:board@2.0.0', contributions: [], codeHash: 'b'.repeat(64),
+  };
+  const installed = (record: Record<string, unknown>) => { h.extraInstalled = [{ plugin: BOARD, record: { enabled: true, source: { kind: 'manual' }, ...record } }]; };
+  beforeEach(() => { h.confirmNative.mockReset(); h.approvePluginCode.mockReset(); h.changed = []; });
+  afterEach(() => { h.extraInstalled = []; });
+
+  it('lists a plugin whose code waits for the user, with what it can do', async () => {
+    installed({});
+    const board = (await call<{ installed: Array<Record<string, unknown>> }>(Channels.PLUGINS_LIST)).installed.find((p) => p.id === 'board');
+    expect(board).toMatchObject({ capabilities: ['notes:read', 'notes:write-properties'], codeApproval: 'needed' });
+    installed({ codeApproved: { hash: 'a'.repeat(64), capabilities: ['notes:read'] } });
+    expect((await call<{ installed: Array<Record<string, unknown>> }>(Channels.PLUGINS_LIST)).installed.find((p) => p.id === 'board')?.codeApproval).toBe('changed');
+    installed({ codeApproved: { hash: 'b'.repeat(64), capabilities: ['notes:read', 'notes:write-properties'] } });
+    expect((await call<{ installed: Array<Record<string, unknown>> }>(Channels.PLUGINS_LIST)).installed.find((p) => p.id === 'board')).not.toHaveProperty('codeApproval');
+  });
+
+  it('allowing a changed one asks natively, showing what it can now do, and records it applied', async () => {
+    installed({ codeApproved: { hash: 'a'.repeat(64), capabilities: ['notes:read'] } });
+    h.confirmNative.mockResolvedValueOnce({ confirmed: true, checked: false });
+    await call(Channels.PLUGINS_APPROVE_CODE, 'board');
+    expect(h.confirmNative).toHaveBeenCalledWith({ id: 1 }, expect.objectContaining({
+      message: 'Board changed since you allowed it. Allow it again?',
+      detail: expect.stringContaining('Now it can also: change the properties of notes it was given.'),
+    }));
+    expect(h.approvePluginCode).toHaveBeenCalledWith('/home/u/.minerva/plugins', 'board', BOARD);
+    expect(h.changed).toEqual(['applied']);
+  });
+
+  it('declined, nothing is recorded; one already allowed, or with no code, isn\'t asked', async () => {
+    installed({});
+    h.confirmNative.mockResolvedValueOnce({ confirmed: false, checked: false });
+    await call(Channels.PLUGINS_APPROVE_CODE, 'board');
+    expect(h.approvePluginCode).not.toHaveBeenCalled();
+    installed({ codeApproved: { hash: 'b'.repeat(64), capabilities: [] } });
+    await call(Channels.PLUGINS_APPROVE_CODE, 'board');
+    await call(Channels.PLUGINS_APPROVE_CODE, 'lab');
+    expect(h.confirmNative).toHaveBeenCalledTimes(1);
+    await expect(call(Channels.PLUGINS_APPROVE_CODE, '../x')).rejects.toThrow("isn't a plugin id");
+  });
+
+  it('install asks natively before a plugin with code goes in', async () => {
+    h.showOpenDialog.mockResolvedValue({ canceled: false, filePaths: ['/work/board'] });
+    h.installPluginFromFolder.mockImplementation(async (...args: unknown[]) => {
+      const { approveCode } = args[3] as { approveCode: (p: unknown) => Promise<boolean> };
+      return (await approveCode(BOARD)) ? BOARD : null;
+    });
+    h.confirmNative.mockResolvedValueOnce({ confirmed: false, checked: false });
+    expect(await call(Channels.PLUGINS_INSTALL_FOLDER)).toBeNull();
+    expect(h.confirmNative).toHaveBeenCalledWith({ id: 1 }, expect.objectContaining({ message: 'Install Board? It runs code inside Minerva.', confirmLabel: 'Install' }));
+    h.confirmNative.mockResolvedValueOnce({ confirmed: true, checked: false });
+    expect(await call(Channels.PLUGINS_INSTALL_FOLDER)).toEqual({ id: 'board', name: 'Board' });
   });
 });

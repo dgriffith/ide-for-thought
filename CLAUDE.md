@@ -1644,7 +1644,10 @@ declared**: `tests/architecture/extension-points-declared.test.ts` fails
 otherwise (#2621).
 
 **Plugins (#2631)** are folders in `~/.minerva/plugins/<id>/`: a `plugin.json`
-plus files the existing seams already parse. Never code, and never inside a
+plus files the existing seams already parse, and since #2833 maybe a `code`
+section: approved natively at install and on any change, pinned to a hash of
+every file it ships (`plugins/code-hash.ts`, `codeApproved` in
+`plugins.json`; never `process`). Never inside a
 thoughtbase. The format is `shared/plugins/format.ts` (`PLUGIN_CONTRIBUTION_POINTS`
 says which points accept them, and fails closed) and `main/plugins/` checks
 it; [`docs/authoring-plugins.md`](docs/authoring-plugins.md) has a worked

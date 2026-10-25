@@ -191,8 +191,9 @@ to the plugin folder, one contribution per entry:
 Commands, views, live blocks, ingestors, exporters and code inspections are
 plugin code (`code.commands`, #2643; `code.views`; `code.blocks`;
 `code.ingestors`, #2647; `code.exporters`, #2648; `code.inspections`, #2831),
-built into Minerva for now (#2833). Until then, naming one
-in `contributes` refuses the plugin.
+declared in the manifest's `code` section, never in `contributes`. An installed
+plugin may have one since #2833: Minerva asks, natively, before its code runs
+(see `docs/plugin-code.md` → *Trust and approval*).
 
 ## Starting one
 

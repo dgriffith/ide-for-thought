@@ -5,7 +5,8 @@
  * off, removed or upgraded mid-session loses it at once.
  *
  * Built-in plugins count while they are active (#2820); installed ones while
- * they are in the enabled scan, which can't hold code until #2833.
+ * they are in the enabled scan, which holds one with code only while it is
+ * approved as the files it ships (#2833).
  */
 import { isCorePluginActive } from '../core-plugins-active';
 import { corePlugin, corePlugins } from './core';

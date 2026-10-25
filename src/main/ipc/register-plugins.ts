@@ -19,8 +19,9 @@ import { readPluginSettings, savePluginSettings } from '../plugins/settings';
 import { pluginThemes } from '../plugins/themes';
 import { reconcilePluginServers } from '../mcp-servers/registry';
 import { secretStorageStatus } from '../secret-storage';
-import { activePluginsDir, getPluginInventory, pluginsAppVersion } from '../plugins/registry';
-import { installPluginFromDraft, installPluginFromFolder, installPluginFromGit, installPluginFromZip, removePlugin, setPluginEnabled, type ReplacePolicy } from '../plugins/lifecycle';
+import { activePluginsDir, codeApprovalOf, getPluginInventory, pluginsAppVersion } from '../plugins/registry';
+import { approvePluginCode, installPluginFromDraft, installPluginFromFolder, installPluginFromGit, installPluginFromZip, removePlugin, setPluginEnabled, type InstallOptions } from '../plugins/lifecycle';
+import { codeApprovalQuestion } from '../plugins/code-approval';
 import type { ExtensionDraftAction, ExtensionDraftActionResult } from '../../shared/extensions/drafts';
 import { saveDraftToFolder, saveSkillDraft } from '../extensions/draft-apply';
 import { reloadAndRegisterSkills } from '../skills/register';
@@ -61,6 +62,8 @@ export async function pluginList(): Promise<PluginList> {
       const contributes: PluginSummary['contributes'] = {};
       for (const c of plugin.contributions) contributes[c.point] = (contributes[c.point] ?? 0) + 1;
       const m = plugin.manifest;
+      // Its code waits for the user's approval (#2833): never given, or given for other files.
+      const approval = codeApprovalOf(plugin, record);
       return {
         id: m.id, name: m.name, version: m.version, description: m.description,
         ...(m.author ? { author: m.author } : {}),
@@ -71,6 +74,8 @@ export async function pluginList(): Promise<PluginList> {
         contributes,
         ...(m.settings?.length ? { settings: m.settings.length } : {}),
         ...(m.mcpServers?.length ? { mcpServers: m.mcpServers.length } : {}),
+        ...(m.code ? { capabilities: m.code.capabilities } : {}),
+        ...(approval === 'needed' || approval === 'changed' ? { codeApproval: approval } : {}),
       };
     }),
     errors: inv.errors,
@@ -84,18 +89,23 @@ export async function pluginList(): Promise<PluginList> {
  */
 async function installAsking(
   win: BrowserWindow,
-  install: (replace: ReplacePolicy) => Promise<PluginPackage | null>,
+  install: (opts: InstallOptions) => Promise<PluginPackage | null>,
 ): Promise<{ id: string; name: string } | null> {
-  const installed = await changePlugins(() => install(async (id) => {
-    const { response } = await dialog.showMessageBox(win, {
-      type: 'question',
-      message: `A plugin "${id}" is already installed.`,
-      detail: 'Replace it with this one?',
-      buttons: ['Replace', 'Cancel'],
-      defaultId: 0,
-      cancelId: 1,
-    });
-    return response === 0;
+  const installed = await changePlugins(() => install({
+    replace: async (id) => {
+      const { response } = await dialog.showMessageBox(win, {
+        type: 'question',
+        message: `A plugin "${id}" is already installed.`,
+        detail: 'Replace it with this one?',
+        buttons: ['Replace', 'Cancel'],
+        defaultId: 0,
+        cancelId: 1,
+      });
+      return response === 0;
+    },
+    // A plugin with code is allowed by main's own dialog, as the files it
+    // ships (#2833), before it goes in.
+    approveCode: async (plugin) => (await confirmNative(win, codeApprovalQuestion(plugin.manifest))).confirmed,
   }));
   return installed ? { id: installed.manifest.id, name: installed.manifest.name } : null;
 }
@@ -129,11 +139,25 @@ const withStorage = (view: PluginSettingsView): PluginSettingsView =>
 export function registerPlugins(): void {
   handle(Channels.PLUGINS_LIST, () => pluginList());
 
+  // Allow an installed plugin's code as its files are now (#2833): asked with
+  // main's own dialog, showing what changed since it was last allowed.
+  handle(Channels.PLUGINS_APPROVE_CODE, async (e, id: string) => {
+    if (typeof id !== 'string' || !PLUGIN_ID.test(id)) throw new Error(`"${String(id)}" isn't a plugin id.`);
+    const found = (await getPluginInventory()).installed.find((i) => i.plugin.manifest.id === id);
+    if (!found) throw new Error(`No plugin "${id}" is installed.`);
+    const approval = codeApprovalOf(found.plugin, found.record);
+    if (approval !== 'needed' && approval !== 'changed') return pluginList();
+    const question = codeApprovalQuestion(found.plugin.manifest, found.record.codeApproved);
+    if (!(await confirmNative(winFromEvent(e), question)).confirmed) return pluginList();
+    await changePlugins(() => approvePluginCode(activePluginsDir(), id, found.plugin));
+    return pluginList();
+  });
+
   handle(Channels.PLUGINS_SET_ENABLED, async (e, id: string, enabled: boolean) => {
     const on = enabled === true;
     // A plugin whose code can run a program asks with main's own dialog
     // before it's turned on (#2821), built-in or not: the renderer can't draw
-    // or answer it. Only built-in plugins can declare code yet (#2833).
+    // or answer it. Only built-in plugins may declare `process` (#2833).
     const core = corePlugin(id);
     if (on && core && !(await mayRunPrograms(winFromEvent(e), core.manifest))) return pluginList();
     const set = core ? setCorePluginEnabled : setPluginEnabled;
@@ -156,7 +180,7 @@ export function registerPlugins(): void {
     });
     if (picked.canceled || picked.filePaths.length === 0) return null;
     const source = picked.filePaths[0]!;
-    return installAsking(win, (replace) => installPluginFromFolder(activePluginsDir(), source, pluginsAppVersion(), { replace }));
+    return installAsking(win, (opts) => installPluginFromFolder(activePluginsDir(), source, pluginsAppVersion(), opts));
   });
 
   handle(Channels.PLUGINS_INSTALL_ZIP, async (e) => {
@@ -169,14 +193,14 @@ export function registerPlugins(): void {
     });
     if (picked.canceled || picked.filePaths.length === 0) return null;
     const archive = picked.filePaths[0]!;
-    return installAsking(win, (replace) => installPluginFromZip(activePluginsDir(), archive, pluginsAppVersion(), { replace }));
+    return installAsking(win, (opts) => installPluginFromZip(activePluginsDir(), archive, pluginsAppVersion(), opts));
   });
 
   // The URL is typed by the user; main parses it (HTTPS only, no
   // credentials) and never sends a credential with the fetch.
   handle(Channels.PLUGINS_INSTALL_GIT, async (e, spec: string) => {
     if (typeof spec !== 'string') throw new Error('Give the plugin\'s git URL.');
-    return installAsking(winFromEvent(e), (replace) => installPluginFromGit(activePluginsDir(), spec, pluginsAppVersion(), { replace }));
+    return installAsking(winFromEvent(e), (opts) => installPluginFromGit(activePluginsDir(), spec, pluginsAppVersion(), opts));
   });
 
   // A drafted extension's card (#2652). Only the window shown the card may
@@ -197,7 +221,7 @@ export function registerPlugins(): void {
       }
       if (action === 'save') {
         // Installed like any plugin: checked whole, its MCP servers off.
-        const installed = await installAsking(win, (replace) => installPluginFromDraft(activePluginsDir(), draft.files, pluginsAppVersion(), { replace }));
+        const installed = await installAsking(win, (opts) => installPluginFromDraft(activePluginsDir(), draft.files, pluginsAppVersion(), opts));
         if (!installed) return { ok: false, cancelled: true };
         const where = path.join(activePluginsDir(), installed.id);
         pending.settle({ kind: 'saved', where });

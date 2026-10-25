@@ -172,6 +172,7 @@ exports[`IPC registration contract (#997) > matches the known set of registered 
   "ontology:list",
   "ontology:pickImport",
   "ontology:remove",
+  "plugins:approveCode",
   "plugins:closeSession",
   "plugins:installFolder",
   "plugins:installGit",

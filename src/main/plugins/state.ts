@@ -17,6 +17,7 @@ import {
   asBool,
   asRecord,
   asString,
+  asStringArray,
   loadConfigFile,
   loadConfigFileStrict,
   loadConfigFileStrictSync,
@@ -25,6 +26,7 @@ import {
 } from '../config/config-store';
 import { writeJsonFileAtomic, writeJsonFileAtomicSync } from '../config/json-file';
 import { withFileLock } from '../config/file-lock';
+import { isPluginCapability, type PluginCapability } from '../../shared/plugins/capabilities';
 
 /** Where a plugin came from, as recorded at install. */
 export type PluginSource =
@@ -52,6 +54,13 @@ export interface PluginRecord {
    * approved again.
    */
   mcpApproved?: Record<string, string>;
+  /**
+   * Its code, as the user approved it (#2833): the hash of every file it
+   * shipped then, and the capabilities it declared — what a changed plugin's
+   * new ones are shown against. Its code runs only while the hash still
+   * matches; any edit switches the plugin off until it's approved again.
+   */
+  codeApproved?: { hash: string; capabilities: PluginCapability[] };
 }
 
 export type PluginRecords = Record<string, PluginRecord>;
@@ -81,11 +90,17 @@ function decodeRecord(raw: unknown): PluginRecord {
   for (const [key, identity] of Object.entries(asRecord(r.mcpApproved))) {
     if (typeof identity === 'string' && identity) approved[key] = identity;
   }
+  const code = asRecord(r.codeApproved);
+  const hash = asString(code.hash, '');
+  const codeApproved = /^[0-9a-f]{64}$/.test(hash)
+    ? { hash, capabilities: asStringArray(code.capabilities).filter(isPluginCapability) }
+    : null;
   return {
     enabled: asBool(r.enabled, true),
     source: decodeSource(r.source),
     ...(installedAt ? { installedAt } : {}),
     ...(Object.keys(approved).length > 0 ? { mcpApproved: approved } : {}),
+    ...(codeApproved ? { codeApproved } : {}),
   };
 }
 

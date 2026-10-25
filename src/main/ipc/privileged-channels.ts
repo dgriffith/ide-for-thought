@@ -15,6 +15,7 @@ export const PRIVILEGED_CHANNELS: Readonly<Record<string, string>> = {
   [Channels.MCP_SERVERS_UPDATE]: 'changing a stdio server\'s command/args/env/cwd changes the program Minerva runs',
   [Channels.COMPUTE_SET_PYTHON_SETTINGS]: 'the interpreter path is the program every Python cell runs',
   [Channels.COMPUTE_PROBE_PYTHON]: 'probing runs `<path> --version`',
+  [Channels.PLUGINS_APPROVE_CODE]: 'allowing an installed plugin\'s code lets it run, sandboxed, inside Minerva (#2833)',
   [Channels.PLUGINS_SET_ENABLED]: 'turning on a plugin whose code declares `process` lets it run programs (#2821); a plugin\'s MCP servers start only once approved through MCP_SERVERS_SET_ENABLED (#2646)',
   [Channels.SHELL_OPEN_IN_DEFAULT]: 'opening an app, script or installer runs it (documents open unprompted)',
 };

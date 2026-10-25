@@ -20,6 +20,7 @@
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { pluginCodeHash, PluginTooBigError } from './code-hash';
 import { isContainedPath } from '../path-containment';
 import {
   PLUGIN_CONTRIBUTION_POINTS,
@@ -30,6 +31,7 @@ import {
   type PluginMcpServer,
   type PluginPackage,
   type PluginScan,
+  type PluginCode,
 } from '../../shared/plugins/format';
 import { validatePluginManifest } from './manifest';
 import { isCorePluginId } from './core';
@@ -125,12 +127,41 @@ export async function readPluginPackage(folderPath: string, appVersion: string):
     const problem = await checkMcpProgram(root, server);
     if (problem) problems.push(problem);
   }
+  // Every file its code names is in the folder (#2833): a page, its logic, a query.
+  if (manifest.code) {
+    for (const rel of codeFiles(manifest.code)) {
+      const abs = path.join(root, rel);
+      if (!isContainedPath(root, abs) || !(await isFile(abs))) problems.push(`"${rel}", which its code names, isn't a file in the plugin.`);
+    }
+  }
+  // Code is approved as the files it ships, all of them (#2833).
+  let codeHash: string | undefined;
+  if (manifest.code) {
+    try {
+      codeHash = await pluginCodeHash(root);
+    } catch (e) {
+      if (e instanceof PluginTooBigError) problems.push(`It can't be approved: ${e.message}.`);
+      else if (isFsError(e)) problems.push(`It can't be approved: a file couldn't be read (${e.code ?? 'error'}).`);
+      else throw e;
+    }
+  }
   if (problems.length > 0) return fail(problems, label);
 
   return {
     ok: true,
-    plugin: { manifest, root, contributions, provenance: `plugin:${manifest.id}@${manifest.version}` },
+    plugin: { manifest, root, contributions, provenance: `plugin:${manifest.id}@${manifest.version}`, ...(codeHash ? { codeHash } : {}) },
   };
+}
+
+/** The files a `code` section names: its logic, its pages, its queries — deduplicated. */
+function codeFiles(code: PluginCode): string[] {
+  return [...new Set([
+    ...(code.worker ? [code.worker] : []),
+    ...(code.views ?? []).flatMap((v) => [v.entry, v.query]),
+    ...(code.blocks ?? []).flatMap((b) => [b.entry, ...(b.query ? [b.query] : [])]),
+    ...(code.commands ?? []).flatMap((c) => ('query' in c.run ? [c.run.query] : [])),
+    ...(code.inspections ?? []).flatMap((i) => (i.query ? [i.query] : [])),
+  ])];
 }
 
 /**

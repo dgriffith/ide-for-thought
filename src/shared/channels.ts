@@ -256,6 +256,8 @@ export const Channels = {
   /** Installed plugins, enabled or not, and refused ones (#2634). */
   PLUGINS_LIST: 'plugins:list',
   PLUGINS_SET_ENABLED: 'plugins:setEnabled',
+  /** Allow an installed plugin's code as its files are now (#2833): asked natively in main. */
+  PLUGINS_APPROVE_CODE: 'plugins:approveCode',
   PLUGINS_REMOVE: 'plugins:remove',
   /** Native picker for a plugin folder, then install it (copied). */
   PLUGINS_INSTALL_FOLDER: 'plugins:installFolder',

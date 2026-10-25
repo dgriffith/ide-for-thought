@@ -209,6 +209,7 @@ exports[`preload behaviour: surface-wide invariants (#2367) > the full method â†
   "ontology.list": "invoke ontology:list",
   "ontology.pickImport": "invoke ontology:pickImport",
   "ontology.remove": "invoke ontology:remove",
+  "plugins.approveCode": "invoke plugins:approveCode",
   "plugins.closeSession": "invoke plugins:closeSession",
   "plugins.installFolder": "invoke plugins:installFolder",
   "plugins.installGit": "invoke plugins:installGit",

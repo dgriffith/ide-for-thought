@@ -69,7 +69,9 @@ const DATAFLOW_MUTATION_METHODS =
   // Plugin sessions (#2825): opening, rescoping and closing one, and its
   // intent event, live in the plugin-sessions store. Running a plugin's
   // command (#2643) runs its code and edits the note: `app/plugin-command-ops.ts`.
-  'openSession|setSessionScope|closeSession|onIntent|sendSessionEvent|runCommand';
+  'openSession|setSessionScope|closeSession|onIntent|sendSessionEvent|runCommand|' +
+  // Allowing an installed plugin's code (#2833): asked natively in main, owned by the plugins store.
+  'approveCode';
 
 const DATAFLOW_MESSAGE =
   'Renderer data-flow rule (#1086): components must not call mutating/subscribing `api.*` methods directly. ' +
