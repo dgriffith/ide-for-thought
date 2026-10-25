@@ -35,6 +35,7 @@
       .map(([point, n]) => `${n} ${NOUNS[point][n === 1 ? 0 : 1]}`);
     // Its servers are listed, and turned on, in Settings → MCP Servers (#2646).
     if (p.mcpServers) parts.push(`${p.mcpServers} MCP ${p.mcpServers === 1 ? 'server' : 'servers'}`);
+    if (p.capabilities) parts.push('code');
     return parts.join(' · ');
   }
 
@@ -96,7 +97,7 @@
   <span class="field-label" class:installed-label={plugins.list.core.length > 0}>Installed plugins</span>
   <p class="hint">
     A plugin adds skills, object types, saved queries, note templates or citation styles,
-    and lives in <code>~/.minerva/plugins/</code> on this machine. Turning one off or
+    or code that runs sandboxed inside Minerva, and lives in <code>~/.minerva/plugins/</code> on this machine. Turning one off or
     removing it takes effect at once.
   </p>
 
@@ -126,6 +127,14 @@
             </span>
           </div>
           <p class="plugin-desc">{p.description}{p.author ? ` — ${p.author}` : ''}</p>
+          {#if p.capabilities?.length}<p class="plugin-source">{describeCapabilities(p.capabilities)}</p>{/if}
+          {#if p.codeApproval}
+            <!-- Its code waits for the user (#2833): main asks, natively, with what changed. -->
+            <p class="approval">
+              {p.codeApproval === 'changed' ? 'Changed since you allowed it, so it\'s off until you allow it again.' : 'It runs code, so it\'s off until you allow it.'}
+              <button class="link-btn" disabled={plugins.busy} onclick={() => { void plugins.approveCode(p.id); }} aria-label={`Review and allow ${p.name}`}>Review and allow…</button>
+            </p>
+          {/if}
           <p class="plugin-source">{source(p)}</p>
           {#if settingsOpen === p.id}<PluginSettingsForm id={p.id} name={p.name} />{/if}
         </li>
@@ -193,6 +202,7 @@
   .plugin-actions { display: flex; gap: 10px; }
   .plugin-desc { margin: 2px 0 0 24px; color: var(--text-muted); font-size: 11px; line-height: 1.45; }
   .plugin-source { margin: 1px 0 0 24px; color: var(--text-muted); font-size: 11px; overflow-wrap: anywhere; }
+  .approval { margin: 3px 0 0 24px; color: var(--text); font-size: 11px; }
   .problems { margin: 4px 0 2px 0; padding-left: 18px; color: var(--text); font-size: 11px; line-height: 1.45; }
   .recs-label, .installed-label { display: block; margin-top: 8px; }
   .actions { display: flex; flex-wrap: wrap; gap: 8px; }

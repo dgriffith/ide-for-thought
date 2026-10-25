@@ -98,9 +98,11 @@ describe('the code section (#2823)', () => {
     expect(r).toEqual({ ok: true, manifest: { ...GOOD, code: { capabilities: ['process', 'notes:read'], api: '^1.0.0' } } });
   });
 
-  it('an installed plugin can\'t have one yet, and is pointed at MCP', () => {
-    expect(problemsOf({ ...GOOD, code: { capabilities: ['ui'] } })).toEqual([
-      '"code" is only for plugins built into Minerva for now. A plugin you install can\'t run code inside Minerva yet; ship the code as an MCP server instead ("mcpServers").',
+  it('an installed plugin may have one (#2833), all code with nothing else to contribute, but never `process`', () => {
+    const code = { capabilities: ['ui', 'notes:read'], api: '^1.0.0' };
+    expect(validatePluginManifest({ ...GOOD, contributes: {}, code }, CTX)).toEqual({ ok: true, manifest: { ...GOOD, contributes: {}, code } });
+    expect(problemsOf({ ...GOOD, code: { capabilities: ['ui', 'process'], api: '^1.0.0' } })).toEqual([
+      '"code.capabilities" names "process", which only plugins built into Minerva may declare. A program a plugin runs ships as an MCP server instead ("mcpServers").',
     ]);
   });
 

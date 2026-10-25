@@ -127,9 +127,10 @@ export function validatePluginManifest(raw: unknown, ctx: ManifestContext): Mani
 
   const contributes: Partial<Record<PluginContributionPoint, string[]>> = {};
   const rawContributes = raw.contributes;
-  // A plugin that only ships an MCP server (#2646) contributes no files.
+  // A plugin that only ships an MCP server (#2646) contributes no files…
   const shipsServers = isRecord(raw.mcpServers) && Object.keys(raw.mcpServers).length > 0;
-  const mayBeEmpty = shipsServers || ctx.core === true;
+  // …nor does one that is all code (#2833): its pages and logic are its contribution.
+  const mayBeEmpty = shipsServers || ctx.core === true || isRecord(raw.code);
   if (rawContributes === undefined) {
     if (!mayBeEmpty) problems.push('"contributes" is required.');
   } else if (!isRecord(rawContributes)) {
@@ -171,15 +172,12 @@ export function validatePluginManifest(raw: unknown, ctx: ManifestContext): Mani
 
 /**
  * `code` (#2823): the capabilities the plugin's code uses, from a closed list.
- * Only a plugin built into Minerva may have one until plugin code opens to
- * installed plugins (#2833); code an installed plugin needs ships as an MCP
- * server, out of process.
+ * An installed plugin may have one since #2833, approved by the user against
+ * a hash of everything it ships (`code-hash.ts`). Running a program
+ * (`process`) stays Minerva's own plugins': an installed plugin's program
+ * ships as an MCP server ("mcpServers"), approved server by server.
  */
 function validateCode(raw: unknown, ctx: ManifestContext, problems: string[]): PluginCode | undefined {
-  if (!ctx.core) {
-    problems.push('"code" is only for plugins built into Minerva for now. A plugin you install can\'t run code inside Minerva yet; ship the code as an MCP server instead ("mcpServers").');
-    return undefined;
-  }
   if (!isRecord(raw)) {
     problems.push('"code" must be an object.');
     return undefined;
@@ -198,6 +196,8 @@ function validateCode(raw: unknown, ctx: ManifestContext, problems: string[]): P
       problems.push(`"code.capabilities" names "${String(c)}", which isn't a capability; they are ${Object.keys(PLUGIN_CAPABILITIES).join(', ')}.`);
     } else if (out.includes(c)) {
       problems.push(`"code.capabilities" lists "${c}" twice.`);
+    } else if (c === 'process' && !ctx.core) {
+      problems.push('"code.capabilities" names "process", which only plugins built into Minerva may declare. A program a plugin runs ships as an MCP server instead ("mcpServers").');
     } else {
       out.push(c);
     }

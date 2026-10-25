@@ -477,6 +477,7 @@ export interface ChannelMap {
   // Plugins (#2634)
   'plugins:list': () => PluginList;
   'plugins:setEnabled': (id: string, enabled: boolean) => PluginList;
+  'plugins:approveCode': (id: string) => PluginList;
   'plugins:remove': (id: string) => PluginList;
   /** `null`: the picker, or the Replace? question, was cancelled. */
   'plugins:installFolder': () => { id: string; name: string } | null;

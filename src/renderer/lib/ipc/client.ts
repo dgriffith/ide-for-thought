@@ -1141,6 +1141,11 @@ export interface CslApi {
 export interface PluginsApi {
   list(): Promise<PluginList>;
   setEnabled(id: string, enabled: boolean): Promise<PluginList>;
+  /**
+   * Allow an installed plugin's code as its files are now (#2833). Main asks
+   * with its own dialog, showing what changed; the list either way.
+   */
+  approveCode(id: string): Promise<PluginList>;
   /** Deletes the plugin's folder (or only the link, if it is one). */
   remove(id: string): Promise<PluginList>;
   /** Native folder picker, then copy it in. `null` when the picker or the Replace? question is cancelled. */

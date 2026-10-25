@@ -83,7 +83,8 @@ export function startPluginsWatcher(dir: string): () => void {
 /**
  * Everything an apply depends on, as one string: each installed plugin's id,
  * version and whether it's on, its contributions with their files' size and
- * modification time (so an edit to a skill file counts), and the refused.
+ * modification time (so an edit to a skill file counts), its code's hash and
+ * approval (#2833), and the refused.
  */
 async function fingerprint(): Promise<string> {
   const inv = await getPluginInventory();
@@ -94,6 +95,9 @@ async function fingerprint(): Promise<string> {
     lines.push(`${plugin.manifest.id}@${plugin.manifest.version} ${record.enabled ? 'on' : 'off'}`);
     // Servers are declared in plugin.json itself, not in contributed files.
     if (plugin.manifest.mcpServers) lines.push(`  mcp ${JSON.stringify(plugin.manifest.mcpServers)}`);
+    // Its code (#2833): an edit to any file changes the hash, and an approval
+    // what it was approved as — either turns it on or off.
+    if (plugin.codeHash) lines.push(`  code ${plugin.codeHash} allowed ${record.codeApproved?.hash ?? 'never'}`);
     for (const c of plugin.contributions) {
       let stamp = 'missing';
       try {

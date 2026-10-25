@@ -27,7 +27,8 @@ import { PLUGIN_MANIFEST, type PluginPackage } from '../../shared/plugins/format
 import { PLUGIN_ID } from './manifest';
 import { writeDraftFiles } from './draft-files';
 import { readPluginPackage } from './package';
-import { updatePluginRecords, type PluginSource } from './state';
+import { updatePluginRecords, type PluginRecord, type PluginSource } from './state';
+import { pluginCodeHash } from './code-hash';
 import { removePluginSettings } from './settings';
 import { pluginRootIn, unpackPluginZip } from './zip';
 import { checkoutPluginTree, fetchPluginRepo, parseGitPluginSpec } from './git';
@@ -39,6 +40,19 @@ import { checkoutPluginTree, fetchPluginRepo, parseGitPluginSpec } from './git';
  * starting again, means a git install doesn't clone twice to replace.
  */
 export type ReplacePolicy = boolean | ((id: string) => Promise<boolean>);
+
+/**
+ * Asked before a plugin with code goes in (#2833): the plugin, checked and
+ * hashed; true to install it with its code approved. The app asks natively;
+ * `minerva plugin check` approves in its scratch folder. Without one, a
+ * plugin with code is refused.
+ */
+export type CodeApprover = (plugin: PluginPackage) => Promise<boolean>;
+
+export interface InstallOptions {
+  replace?: ReplacePolicy;
+  approveCode?: CodeApprover;
+}
 
 /** Thrown when installing over a plugin that's already there without `replace`. */
 export class PluginExistsError extends Error {
@@ -138,10 +152,19 @@ async function finishInstall(
   id: string,
   source: PluginSource,
   appVersion: string,
-): Promise<PluginPackage> {
+  approveCode?: CodeApprover,
+): Promise<PluginPackage | null> {
   const target = path.join(dir, id);
   const checked = await readPluginPackage(staged, appVersion);
   if (!checked.ok) throw new Error(`It can't be installed: ${checked.error.problems.join(' ')}`);
+  // Code goes in approved, as the files that were checked (#2833), or not at all.
+  let codeApproved: PluginRecord['codeApproved'];
+  const { codeHash, manifest } = checked.plugin;
+  if (codeHash) {
+    if (!approveCode) throw new Error('It runs code inside Minerva, which needs your approval: install it from Settings → Plugins.');
+    if (!(await approveCode(checked.plugin))) return null;
+    codeApproved = { hash: codeHash, capabilities: [...(manifest.code?.capabilities ?? [])] };
+  }
 
   const aside = path.join(staging, `.previous-${id}`);
   const replacing = await exists(target);
@@ -157,11 +180,27 @@ async function finishInstall(
     throw e;
   }
   await updatePluginRecords(dir, (records) => {
-    records[id] = { enabled: true, source, installedAt: new Date().toISOString() };
+    records[id] = { enabled: true, source, installedAt: new Date().toISOString(), ...(codeApproved ? { codeApproved } : {}) };
   });
   const installed = await readPluginPackage(target, appVersion);
   if (!installed.ok) throw new Error(installed.error.problems.join(' '));
   return installed.plugin;
+}
+
+/**
+ * Approve plugin `id`'s code as it is now (#2833): `hash` must be the one its
+ * files hash to, or the approval would be of something else — refused, so a
+ * plugin changed while the user was reading the question asks again.
+ */
+export async function approvePluginCode(dir: string, id: string, plugin: PluginPackage): Promise<void> {
+  assertInstalledId(dir, id);
+  if (!plugin.codeHash) throw new Error(`"${id}" runs no code, so there is nothing to approve.`);
+  const now = await pluginCodeHash(plugin.root);
+  if (now !== plugin.codeHash) throw new Error(`"${id}" changed while it was being approved; look at it again.`);
+  const capabilities = [...(plugin.manifest.code?.capabilities ?? [])];
+  await updatePluginRecords(dir, (records) => {
+    records[id] = { ...(records[id] ?? { enabled: true, source: { kind: 'manual' } }), codeApproved: { hash: now, capabilities } };
+  });
 }
 
 /** A hidden staging folder in `dir` (the reader skips it), removed after `fn`. */
@@ -185,7 +224,7 @@ export async function installPluginFromFolder(
   dir: string,
   source: string,
   appVersion: string,
-  opts: { replace?: ReplacePolicy } = {},
+  opts: InstallOptions = {},
 ): Promise<PluginPackage | null> {
   const src = await fs.realpath(source);
   if (!(await fs.stat(src)).isDirectory()) throw new Error('Choose the plugin\'s folder.');
@@ -200,7 +239,7 @@ export async function installPluginFromFolder(
   return withStaging(dir, async (staging) => {
     const staged = path.join(staging, id);
     await fs.cp(src, staged, { recursive: true, errorOnExist: true });
-    return finishInstall(dir, staging, staged, id, { kind: 'folder', path: src }, appVersion);
+    return finishInstall(dir, staging, staged, id, { kind: 'folder', path: src }, appVersion, opts.approveCode);
   });
 }
 
@@ -214,7 +253,7 @@ export async function installPluginFromDraft(
   dir: string,
   files: readonly { path: string; content: string }[],
   appVersion: string,
-  opts: { replace?: ReplacePolicy } = {},
+  opts: InstallOptions = {},
 ): Promise<PluginPackage | null> {
   return withStaging(dir, async (staging) => {
     const written = path.join(staging, 'draft');
@@ -223,7 +262,7 @@ export async function installPluginFromDraft(
     if (!(await mayInstall(dir, id, opts.replace))) return null;
     const staged = path.join(staging, id);
     await fs.rename(written, staged);
-    return finishInstall(dir, staging, staged, id, { kind: 'draft' }, appVersion);
+    return finishInstall(dir, staging, staged, id, { kind: 'draft' }, appVersion, opts.approveCode);
   });
 }
 
@@ -237,7 +276,7 @@ export async function installPluginFromZip(
   dir: string,
   zipPath: string,
   appVersion: string,
-  opts: { replace?: ReplacePolicy } = {},
+  opts: InstallOptions = {},
 ): Promise<PluginPackage | null> {
   return withStaging(dir, async (staging) => {
     const unpacked = path.join(staging, 'unpacked');
@@ -250,7 +289,7 @@ export async function installPluginFromZip(
     if (!(await mayInstall(dir, id, opts.replace))) return null;
     const staged = path.join(staging, id);
     await fs.rename(root, staged);
-    return finishInstall(dir, staging, staged, id, { kind: 'zip', name: path.basename(zipPath), sha256 }, appVersion);
+    return finishInstall(dir, staging, staged, id, { kind: 'zip', name: path.basename(zipPath), sha256 }, appVersion, opts.approveCode);
   });
 }
 
@@ -264,7 +303,7 @@ export async function installPluginFromGit(
   dir: string,
   spec: string,
   appVersion: string,
-  opts: { replace?: ReplacePolicy; fetch?: typeof fetchPluginRepo } = {},
+  opts: InstallOptions & { fetch?: typeof fetchPluginRepo } = {},
 ): Promise<PluginPackage | null> {
   const parsed = parseGitPluginSpec(spec);
   return withStaging(dir, async (staging) => {
@@ -278,6 +317,6 @@ export async function installPluginFromGit(
     const staged = path.join(staging, id);
     await fs.rename(root, staged);
     const source: PluginSource = { kind: 'git', url: parsed.url, ...(parsed.ref ? { ref: parsed.ref } : {}), commit };
-    return finishInstall(dir, staging, staged, id, source, appVersion);
+    return finishInstall(dir, staging, staged, id, source, appVersion, opts.approveCode);
   });
 }

@@ -388,7 +388,8 @@ export async function checkPlugin(folder: string, opts: PluginCheckOptions): Pro
   try {
     let installed: PluginPackage | null;
     try {
-      installed = await installPluginFromFolder(pluginsDir, absFolder, opts.appVersion);
+      // Its code is allowed in the scratch folder: nothing here is the user's (#2833).
+      installed = await installPluginFromFolder(pluginsDir, absFolder, opts.appVersion, { approveCode: () => Promise.resolve(true) });
     } catch (e) {
       r.add('package', 'install', 'fail', message(e));
       return finish(label);

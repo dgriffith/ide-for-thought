@@ -117,8 +117,22 @@ export function activePluginsDir(): string {
   return config?.dir ?? pluginsDir();
 }
 
+/**
+ * Whether a plugin's code is approved as it is now (#2833): a declarative
+ * plugin needs no approval; one with code, an approval of this very hash.
+ */
+export function codeApprovalOf(plugin: PluginPackage, record: PluginRecord): 'none-needed' | 'approved' | 'needed' | 'changed' {
+  if (!plugin.codeHash) return 'none-needed';
+  if (!record.codeApproved) return 'needed';
+  return record.codeApproved.hash === plugin.codeHash ? 'approved' : 'changed';
+}
+
 function enabledOnly(inv: PluginInventory): PluginScan {
-  return { plugins: inv.installed.filter((i) => i.record.enabled).map((i) => i.plugin), errors: inv.errors };
+  const loads = (i: PluginInventory['installed'][number]) => {
+    const approval = codeApprovalOf(i.plugin, i.record);
+    return i.record.enabled && (approval === 'none-needed' || approval === 'approved');
+  };
+  return { plugins: inv.installed.filter(loads).map((i) => i.plugin), errors: inv.errors };
 }
 
 async function scan(cfg: { appVersion: string; dir?: string }): Promise<PluginInventory> {

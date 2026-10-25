@@ -260,6 +260,34 @@ Code that loads must not weaken any of these for the app itself.
 - **Core plugins** need no install approval, because Minerva's signature
   vouches for them. Tier C still asks natively on enable.
 
+**As built (#2833).** An installed plugin may declare `code`; one with
+`process` is refused, since a third party's program ships as an MCP server.
+
+- **The hash is the whole folder** (`main/plugins/code-hash.ts`): every
+  file the frame protocol could serve, so not dot-files or `node_modules/`.
+  Each file goes in as its path, length and bytes, sorted. A skill edited in
+  place is a change too, so nothing is left out.
+- **It's asked natively, both times**, stricter than the decision above, so
+  a renderer can't click it through. At install, *Install Board? It runs
+  code inside Minerva*, with the capabilities in words, before the plugin
+  goes in; declined, nothing is installed. On a change, Settings → Plugins
+  says it's off until allowed again, and *Review and allow…* asks
+  (`PLUGINS_APPROVE_CODE`, a privileged channel), listing what it can now
+  do and no longer asks to.
+- **The record** is `codeApproved: { hash, capabilities }` in
+  `~/.minerva/plugins.json`. The scan loads a plugin with code only while
+  that hash is its files' hash (`codeApprovalOf`). A changed one is off
+  whole, still installed and still enabled, and its hosts and sessions stop
+  with the next apply. A plugin dropped in by hand has no record, so it
+  waits for approval.
+- **An approval is of what was asked about**: `approvePluginCode`
+  recomputes the hash and refuses if the files changed while the question
+  was open.
+- **The package checks the files its code names** (pages, logic, queries):
+  each must be a file in the folder.
+- `minerva plugin check` approves in its scratch folder; nothing there is
+  the user's.
+
 ## Per machine, never per thoughtbase
 
 **Decision:** unchanged from #2615. Code loads only from

@@ -603,6 +603,7 @@ const api = {
   plugins: {
     list: () => invoke(Channels.PLUGINS_LIST),
     setEnabled: (id: string, enabled: boolean) => invoke(Channels.PLUGINS_SET_ENABLED, id, enabled),
+    approveCode: (id: string) => invoke(Channels.PLUGINS_APPROVE_CODE, id),
     remove: (id: string) => invoke(Channels.PLUGINS_REMOVE, id),
     installFolder: () => invoke(Channels.PLUGINS_INSTALL_FOLDER),
     installZip: () => invoke(Channels.PLUGINS_INSTALL_ZIP),

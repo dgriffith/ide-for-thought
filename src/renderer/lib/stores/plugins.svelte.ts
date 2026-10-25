@@ -113,6 +113,7 @@ export function getPluginsStore() {
     get busy() { return busy; },
     refresh: () => run(refresh),
     setEnabled: (id: string, enabled: boolean) => run(async () => { list = await api.plugins.setEnabled(id, enabled); }),
+    approveCode: (id: string) => run(async () => { list = await api.plugins.approveCode(id); }),
     remove: (id: string) => run(async () => { list = await api.plugins.remove(id); }),
     /** Pick a folder and install it. Resolves with what was installed, or null. */
     installFolder: () => install(() => api.plugins.installFolder()),
