@@ -57,6 +57,8 @@ export interface HostView {
   post(entry: string, port: unknown): void;
   destroy(): void;
   readonly destroyed: boolean;
+  /** Whatever must stay alive for the host to: Electron's view. */
+  readonly view?: unknown;
 }
 
 /** Makes a host view and a channel: Electron's, or a test's. */
@@ -80,6 +82,10 @@ const electronFactory: HostFactory = {
     });
     const wc = view.webContents;
     return {
+      // Held for the host's life: an unattached view nothing references is
+      // garbage, and collecting it destroys its webContents — mid-load, that
+      // rejected `loadURL` with ERR_FAILED, about one first call in six.
+      view,
       load: (url) => wc.loadURL(url),
       post: (entry, port) => wc.postMessage(WORKER_HOST_PORT_CHANNEL, { entry }, [port as Electron.MessagePortMain]),
       destroy: () => { if (!wc.isDestroyed()) wc.close(); },
@@ -176,7 +182,9 @@ async function start(pluginId: string, rootPath: string, peers: Map<string, Host
   } catch (e) {
     session.close();
     view.destroy();
-    throw e instanceof PluginCallError ? e : new PluginCallError(`${identity.name}'s worker host didn't start.`);
+    if (e instanceof PluginCallError) throw e;
+    logger('plugins').warn(`plugin ${pluginId}: worker host page didn't load:`, e);
+    throw new PluginCallError(`${identity.name}'s worker host didn't start.`);
   }
   view.post(entry, remote);
   peers.set(pluginId, host);
