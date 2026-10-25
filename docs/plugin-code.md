@@ -843,10 +843,19 @@ worker's answer to Minerva's) never settled. The runtime now refuses an
 over-size call itself, and turns an over-size answer into an error; the
 broker answers one it does receive by the id it opens with.
 
-The capability check (`plugin check` running the plugin's code and failing
-on any call outside what it declares) moved to #2833. It needs Electron's
-CLI mode to host the code, and until third-party plugins can declare code
-there is nothing for it to check.
+**As built (#2833): the capability check.** `plugin check` has a `code`
+stage. It calls each handler a plugin declares (a command's, an ingestor's,
+an exporter's, an inspection's) with sample inputs, against each
+thoughtbase, in a real worker host, and fails on any call the broker refuses
+for a capability the plugin doesn't declare. The worker host tells it
+through `setPluginRefusalTap`. The CLI bundle has no Electron, so the stage
+lives in the app's bundle (`main/plugin-code-check.ts`). Run as the CLI
+(`--minerva-cli`), the app puts it on `PLUGIN_CODE_STAGE_GLOBAL` before the
+CLI runs, and `plugin check` calls it. Under plain Node nothing offers it,
+and the stage says *skip*. Views and live blocks need a window, so they're
+skipped too. `tests/e2e/cli-plugin-check-code.spec.ts` runs it from the
+packaged app: Note Stats passes, the corpus's `overreach` fails naming each
+refused call, and a fresh `--kind command` scaffold passes.
 
 ## Forks and the ABI
 

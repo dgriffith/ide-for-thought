@@ -55,7 +55,6 @@ import {
   type PluginEventName,
   type PluginEvents,
   type PluginMenuItem,
-  type PluginMoveTarget,
   type PluginMethod,
   type PluginResponse,
 } from '../../shared/plugins/api';
@@ -64,6 +63,9 @@ import type { RevisionSource } from '../../shared/history';
 import type { GraphQueryResult } from '../../shared/graph-query';
 import type { PluginIntent } from '../../shared/plugins/session';
 import { PLUGIN_HANDLER_NAME } from '../../shared/plugins/format';
+import {
+  asParams, menuItems, moveTargetParam, numberParam, recordParam, Refusal, stringParam, stringsParam, viaParam,
+} from './broker-params';
 
 /** Who is calling: the plugin as installed now. */
 export interface PluginIdentity {
@@ -121,6 +123,11 @@ export interface PluginSession {
    * plugin does. `null` lifts the cap.
    */
   limitCapabilities(capabilities: readonly PluginCapability[] | null): void;
+  /**
+   * Hear every call the session refuses (#2833): `plugin check` fails a
+   * plugin whose code calls outside what it declared. `null` stops.
+   */
+  onRefusal(listener: ((refusal: PluginRefusal) => void) | null): void;
   scope(): readonly string[];
   /** Add notes the user gave the view (a drop, #2827); refused paths are left out. */
   addToScope(paths: readonly string[]): string[];
@@ -137,8 +144,11 @@ export interface PluginSession {
   onClose(fn: () => void): void;
 }
 
-class Refusal extends Error {
-  constructor(readonly code: PluginErrorCode, message: string) { super(message); }
+/** A call the broker refused: the method, and why. */
+export interface PluginRefusal {
+  method: string | null;
+  code: PluginErrorCode;
+  message: string;
 }
 
 /** A call to a plugin's handler that didn't return a result (#2830). The message names the plugin. */
@@ -165,74 +175,6 @@ function normalizeRel(p: string): string {
   return path.posix.normalize(p.replace(/\\/g, '/')).replace(/^\.\//, '');
 }
 
-// ── params ──────────────────────────────────────────────────────────────────
-
-/** A context menu as asked for: items with an id and a label, or separators, within limits. */
-function menuItems(raw: unknown): PluginMenuItem[] {
-  if (!Array.isArray(raw) || raw.length === 0) throw new Refusal('bad-request', '"items" must be a non-empty list.');
-  if (raw.length > PLUGIN_MENU_MAX_ITEMS) throw new Refusal('bad-request', `A menu holds at most ${PLUGIN_MENU_MAX_ITEMS} items.`);
-  return raw.map((item: unknown, i) => {
-    if (item === null || typeof item !== 'object') throw new Refusal('bad-request', `items[${i}] must be an object.`);
-    const r = item as Record<string, unknown>;
-    if (r.separator === true) return { separator: true as const };
-    if (typeof r.id !== 'string' || r.id.length === 0) throw new Refusal('bad-request', `items[${i}].id must be a string.`);
-    if (typeof r.label !== 'string' || r.label.trim() === '') throw new Refusal('bad-request', `items[${i}].label must be a string.`);
-    if (r.label.length > PLUGIN_MENU_MAX_LABEL) throw new Refusal('bad-request', `items[${i}].label is over ${PLUGIN_MENU_MAX_LABEL} characters.`);
-    return { id: r.id, label: r.label, ...(r.enabled === false ? { enabled: false } : {}) };
-  });
-}
-
-function asParams(raw: unknown): Record<string, unknown> {
-  if (raw === undefined) return {};
-  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) throw new Refusal('bad-request', 'params must be an object.');
-  return raw as Record<string, unknown>;
-}
-
-function stringParam(params: Record<string, unknown>, key: string): string {
-  const v = params[key];
-  if (typeof v !== 'string') throw new Refusal('bad-request', `"${key}" must be a string.`);
-  return v;
-}
-
-function moveTargetParam(raw: unknown): PluginMoveTarget {
-  if (raw === null || typeof raw !== 'object') throw new Refusal('bad-request', '"target" must be a group: { value, label, kind }.');
-  const t = raw as Record<string, unknown>;
-  if (t.kind !== 'option' && t.kind !== 'off-list' && t.kind !== 'no-value') throw new Refusal('bad-request', '"target.kind" is "option", "off-list" or "no-value".');
-  if (typeof t.label !== 'string') throw new Refusal('bad-request', '"target.label" must be a string.');
-  if (t.kind === 'no-value' ? t.value !== null : typeof t.value !== 'string') throw new Refusal('bad-request', '"target.value" is the group\'s value, null only for No value.');
-  return { value: t.value as string | null, label: t.label.slice(0, PLUGIN_MENU_MAX_LABEL), kind: t.kind };
-}
-
-/** An optional list of strings: at most `max` of them, each cut to `chars`. Absent → []. */
-function stringsParam(params: Record<string, unknown>, key: string, max: number, chars: number): string[] {
-  const raw = params[key];
-  if (raw === undefined) return [];
-  if (!Array.isArray(raw)) throw new Refusal('bad-request', `"${key}" must be a list of strings.`);
-  if (raw.length > max) throw new Refusal('bad-request', `"${key}" has at most ${max} entries.`);
-  return raw.map((v, i) => {
-    if (typeof v !== 'string') throw new Refusal('bad-request', `${key}[${i}] must be a string.`);
-    return v.slice(0, chars);
-  });
-}
-
-function numberParam(params: Record<string, unknown>, key: string): number {
-  const v = params[key];
-  if (typeof v !== 'number' || !Number.isFinite(v)) throw new Refusal('bad-request', `"${key}" must be a number.`);
-  return v;
-}
-
-function viaParam(params: Record<string, unknown>): 'pointer' | 'focus' {
-  const v = params.via ?? 'pointer';
-  if (v !== 'pointer' && v !== 'focus') throw new Refusal('bad-request', '"via" is "pointer" or "focus".');
-  return v;
-}
-
-function recordParam(params: Record<string, unknown>, key: string): Record<string, unknown> {
-  const v = params[key];
-  if (v === null || typeof v !== 'object' || Array.isArray(v)) throw new Refusal('bad-request', `"${key}" must be an object.`);
-  return v as Record<string, unknown>;
-}
-
 // ── the session ─────────────────────────────────────────────────────────────
 
 export function createPluginSession(opts: PluginSessionOptions): PluginSession {
@@ -240,6 +182,7 @@ export function createPluginSession(opts: PluginSessionOptions): PluginSession {
   const provenance = `plugin:${identity.id}@${identity.version}`;
   const declared = new Set<PluginCapability>(identity.capabilities);
   let cap: Set<PluginCapability> | null = null;
+  let refusalListener: ((refusal: PluginRefusal) => void) | null = null;
   const log = logger('plugins');
   let scope = new Set<string>();
   let inFlight = 0;
@@ -541,6 +484,7 @@ export function createPluginSession(opts: PluginSessionOptions): PluginSession {
     } catch (e) {
       if (e instanceof Refusal) {
         if (e.code !== 'failed') log.warn(`plugin ${identity.id}: refused (${e.code}): ${e.message}`);
+        refusalListener?.({ method, code: e.code, message: e.message });
         reply({ id, error: { code: e.code, message: e.message } });
         return;
       }
@@ -567,6 +511,7 @@ export function createPluginSession(opts: PluginSessionOptions): PluginSession {
   return {
     setScope,
     limitCapabilities: (capabilities) => { cap = capabilities ? new Set(capabilities) : null; },
+    onRefusal: (listener) => { refusalListener = listener; },
     scope: () => [...scope].sort(),
     addToScope: (paths) => {
       const added = [...new Set(admissible(paths))];

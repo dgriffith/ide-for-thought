@@ -14,6 +14,11 @@ and the spec that drives it says what it attempts and what refuses it.
   network and a socket, a handler that throws, one registered late, and a
   loop that never returns.
 
+- `overreach/` — a plugin whose command writes a note and reaches the
+  clipboard with only `notes:read` declared (#2833):
+  `tests/e2e/cli-plugin-check-code.spec.ts` shows `minerva plugin check`
+  failing it, naming each refused call.
+
 The frame's `window.attempts` and the worker's `probe` are the code corpus
 (#2832): `PLUGIN_CODE_CORPUS` in `tests/helpers/hostile-plugins.ts` lists
 every attempt with the spec that shows it's contained, and

@@ -278,6 +278,7 @@ reports each part as `pass`, `warn`, `fail` or `skip`, by stage:
 | `contributions` | each file is in its registry (skills, types, saved queries, templates, CSL, themes) with this plugin as its source, or the registry's reason it isn't |
 | `thoughtbases` | against a tidy and a hostile fixture thoughtbase, and a copy of each `--thoughtbase`: every skill renders for every note with the note's text only in the user turn; every type indexes and types a note that uses it; every saved query runs, and an SQL one reading past the registered tables is a `warn` (#2442) |
 | `mcp` | with `--run-servers`, each server started and its tools listed, read-only or asking first. Without it, `skip`: starting one runs the plugin's code |
+| `code` | a plugin with `code` (#2833): each handler it declares (commands, ingestors, exporters, inspections) called with sample inputs against each thoughtbase, in a real sandboxed worker host. A call past the capabilities it declares is a `fail`; a refused scope, or a handler that fails on the sample inputs, a `warn`. Views and live blocks are drawn in a window, so they're a `skip`. This needs the app's runtime: `minerva` runs as the app, while plain Node (`pnpm cli`) reports the stage as `skip` |
 | `uninstall` | removing it leaves nothing in any registry, the graph, the MCP list, the plugins folder or its settings |
 
 It writes nothing in `~/.minerva/`, and a thoughtbase you name is only copied.

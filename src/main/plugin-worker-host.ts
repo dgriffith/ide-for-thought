@@ -35,7 +35,7 @@ import { randomUUID } from 'node:crypto';
 import { logger } from '../shared/logger';
 import type { PluginCapability } from '../shared/plugins/capabilities';
 import { pluginFrameOrigin, WORKER_HOST_PORT_CHANNEL } from '../shared/plugins/frame';
-import { createPluginSession, PluginCallError, type BrokerPort, type PluginSession } from './plugins/broker';
+import { createPluginSession, PluginCallError, type BrokerPort, type PluginRefusal, type PluginSession } from './plugins/broker';
 import { codePluginIdentity, codePluginWorker } from './plugins/code-plugins';
 import { brokerDepsFor, portFor } from './plugin-sessions';
 import { WORKER_HOST_PAGE_PATH } from './plugins/frame-files';
@@ -222,6 +222,17 @@ export interface PluginLogicCall {
   capabilities?: readonly PluginCapability[];
 }
 
+let refusalTap: ((refusal: PluginRefusal) => void) | null = null;
+
+/**
+ * Hear every call any handler makes that the broker refuses, until set back
+ * to null (#2833): `plugin check`'s code stage, which fails a plugin whose code
+ * calls outside what it declares. Nothing in the running app sets it.
+ */
+export function setPluginRefusalTap(tap: ((refusal: PluginRefusal) => void) | null): void {
+  refusalTap = tap;
+}
+
 /**
  * Run `handler` in plugin `pluginId`'s logic with `args` (JSON-able), and
  * answer with what it returned. Rejects with a `PluginCallError` naming the
@@ -238,6 +249,7 @@ export function invokePluginLogic(pluginId: string, handler: string, args: unkno
     const name = codePluginIdentity(pluginId)?.name ?? pluginId;
     host.session.setScope(call.scope ?? []);
     host.session.limitCapabilities(call.capabilities ?? null);
+    host.session.onRefusal(refusalTap);
     try {
       return await withTimeout(
         host.session.call(handler, args),

@@ -697,6 +697,15 @@ export default defineConfig({
           statements: 72,
           branches: 66,
         },
+        // plugin-code-check.ts ~100 L / 100 F / 99 S / 81 B (#2833). `plugin
+        // check`'s code stage: what fails a plugin (a call past what it
+        // declares) and what only warns. The real worker host is the e2e's.
+        'src/main/plugin-code-check.ts': {
+          lines: 90,
+          functions: 90,
+          statements: 89,
+          branches: 72,
+        },
         // plugin-inspections.ts ~100 L / 100 F / 96 S / 90 B (#2831). A
         // plugin's check written as code: the read-only cap, the answer turned
         // into findings, and a failure kept to one finding.

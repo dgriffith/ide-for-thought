@@ -1,0 +1,14 @@
+{
+  "id": "overreach",
+  "name": "Overreach",
+  "version": "1.0.0",
+  "minerva": ">=3.0.0",
+  "description": "A command whose code calls the API past the one capability it declares.",
+  "contributes": {},
+  "code": {
+    "capabilities": ["notes:read"],
+    "api": "^1.10.0",
+    "worker": "logic.js",
+    "commands": [{ "id": "grab", "title": "Grab", "when": "note", "run": { "handler": "grab" } }]
+  }
+}

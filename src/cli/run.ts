@@ -20,6 +20,7 @@
  * the note path, read echoes the path. Output is JSON on stdout so it pipes to
  * jq and can be handed straight to an agent.
  */
+import { PLUGIN_CODE_STAGE_GLOBAL, type PluginCodeStage } from '../shared/plugins/check';
 import path from 'node:path';
 import os from 'node:os';
 import fs from 'node:fs/promises';
@@ -91,8 +92,9 @@ Commands:
   plugin check <folder> Put a plugin through what Minerva does with it: the
                         manifest, an install, each contribution loaded and run
                         against fixture thoughtbases (a hostile one too), its
-                        MCP servers, and a removal that must leave nothing
-                        behind (#2654). Exit 1 if anything fails.
+                        MCP servers, its code run in a worker host (as the
+                        app's CLI only, #2833), and a removal that must leave
+                        nothing behind (#2654). Exit 1 if anything fails.
                         [--thoughtbase <path>]… [--run-servers]
 
 Options:
@@ -273,10 +275,14 @@ async function runPluginCommand(args: ParsedArgs, cwd: string, appVersion: strin
     // corrupt config, a link out of the root): expected, and the report says
     // what matters. The process ends with the check, so nothing is restored.
     for (const tag of ['config', 'graph', 'tables', 'plugins'] as const) setTagLevel(tag, 'silent');
+    // Run as the app (`--minerva-cli`), the app's runtime offers a worker
+    // host to run the plugin's code in (#2833); under plain Node it doesn't.
+    const codeStage = (globalThis as Record<string, unknown>)[PLUGIN_CODE_STAGE_GLOBAL];
     const report = await checkPlugin(path.resolve(cwd, expandHome(id)), {
       appVersion,
       thoughtbases: args.thoughtbases.map((t) => path.resolve(cwd, expandHome(t))),
       runServers: args.runServers,
+      ...(typeof codeStage === 'function' ? { codeStage: codeStage as PluginCodeStage } : {}),
     });
     return { stdout: json(report), stderr: '', code: report.ok ? 0 : 1 };
   }
