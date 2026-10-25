@@ -43,9 +43,12 @@ test("a plugin's logic runs in its sandboxed worker host, bounded by its deadlin
       expect(refused.error).toMatch(/not one of the notes this view was given/);
     });
 
-    await test.step('no require, process, DOM, window.api or network', async () => {
+    await test.step('no require, process, node:fs, DOM, window.api, fetch or socket', async () => {
       expect(await invokePluginLogic(app, 'logic-lab', 'probe', {})).toEqual({
-        result: { require: 'undefined', process: 'undefined', document: 'undefined', api: 'undefined', fetched: 'blocked: TypeError' },
+        result: {
+          require: 'undefined', process: 'undefined', document: 'undefined', api: 'undefined', fetched: 'blocked: TypeError',
+          importFs: expect.stringMatching(/^blocked: /), websocket: expect.stringMatching(/^blocked/),
+        },
       });
     });
 

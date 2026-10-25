@@ -85,10 +85,14 @@ describe('versionProblems (#2826)', () => {
 
 describe('checkApi (#2826)', () => {
   const api = (methods: Record<string, unknown>) => ({
-    version: '1.0.0', portMessage: 'm', errorCodes: [], typeText: {},
+    version: '1.0.0', portMessage: 'm', messageLimit: 1024, errorCodes: [], typeText: {},
     methods: Object.fromEntries(Object.keys(methods).map((m) => [m, { capability: 'ui', describes: '' }])),
     params: Object.fromEntries(Object.keys(methods).map((m) => [m, { members: [] }])),
     results: Object.fromEntries(Object.keys(methods).map((m) => [m, { members: [] }])),
+  });
+
+  it('needs the message limit as a number the runtime can enforce (#2832)', () => {
+    expect(checkApi({ ...api({ 'notes.read': 1 }), messageLimit: null })).toEqual(['PLUGIN_MESSAGE_LIMIT_BYTES must be a whole number of bytes, written with numbers, * and +.']);
   });
 
   it("names a core method <area>.<name> and a fork's extension <slug>:<name>", () => {

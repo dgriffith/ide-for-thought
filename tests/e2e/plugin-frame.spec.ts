@@ -68,6 +68,22 @@ async function recordOpenExternal(app: ElectronApplication): Promise<void> {
 const openedExternally = (app: ElectronApplication) =>
   app.evaluate(() => (globalThis as typeof globalThis & { __e2eOpened?: string[] }).__e2eOpened ?? []);
 
+/** Record (and cancel) every request bound off the machine (#2832): a beacon that got past the CSP would show here. */
+async function recordOutbound(app: ElectronApplication): Promise<void> {
+  await app.evaluate(({ session }) => {
+    const g = globalThis as typeof globalThis & { __e2eOutbound?: string[] };
+    g.__e2eOutbound = [];
+    session.defaultSession.webRequest.onBeforeRequest((details, cb) => {
+      const u = new URL(details.url);
+      const local = (u.protocol !== 'http:' && u.protocol !== 'https:' && u.protocol !== 'wss:' && u.protocol !== 'ws:') || ['localhost', '127.0.0.1'].includes(u.hostname);
+      if (!local) g.__e2eOutbound!.push(details.url);
+      cb({ cancel: !local });
+    });
+  });
+}
+const outboundRequests = (app: ElectronApplication) =>
+  app.evaluate(() => (globalThis as typeof globalThis & { __e2eOutbound?: string[] }).__e2eOutbound ?? []);
+
 /** Fetch through the real protocol handler, from main. */
 const fetchFromMain = (app: ElectronApplication, url: string) =>
   app.evaluate(async ({ net }, u) => {
@@ -131,6 +147,7 @@ for (const kind of ['bare', 'sandboxed'] as const) {
       await waitForWorkspace(win);
       await servePluginFrame(app, 'hostile', pluginDir);
       await recordOpenExternal(app);
+      await recordOutbound(app);
       const startUrl = win.url();
       const windowsBefore = app.windows().length;
       const { frame, locator } = await frameFixture(win, kind);
@@ -184,6 +201,35 @@ for (const kind of ['bare', 'sandboxed'] as const) {
       const after = win.frames().find((fr) => fr.url().startsWith(ORIGIN));
       expect(after?.url()).toBe(`${ORIGIN}/index.html?${kind}`);
       expect(await after!.title()).not.toBe('NAVIGATED');
+
+      // …and the rest of the corpus (#2832): Node by module, a socket, an
+      // image beacon, the app's document, IPC, and messages posing as the host.
+      await frame.waitForFunction(() => 'attempts' in window);
+      const tabs = win.locator('.tab-bar .tab');
+      const tabsBefore = await tabs.allTextContents();
+      const more = await frame.evaluate(async () => {
+        const a = (window as unknown as { attempts: Record<string, (...args: unknown[]) => unknown> }).attempts;
+        return {
+          importFs: await a.importFs!(),
+          websocket: await a.websocket!(),
+          beacon: await a.beacon!(),
+          parentDocument: a.parentDocument!(),
+          appApi: a.appApi!(),
+          forgeHostMessage: a.forgeHostMessage!('research/overview.md'),
+        };
+      });
+      expect(more).toEqual({
+        importFs: expect.stringMatching(/^blocked: /),
+        websocket: expect.stringMatching(/^blocked/),
+        beacon: expect.stringMatching(/^blocked/),
+        parentDocument: expect.stringMatching(/^blocked: /),
+        appApi: { ipcRenderer: 'undefined', electron: 'undefined', require: 'undefined', api: 'undefined' },
+        forgeHostMessage: 'posted',
+      });
+      await win.waitForTimeout(500);
+      // The forged intent opened nothing; nothing left for the network.
+      expect(await tabs.allTextContents()).toEqual(tabsBefore);
+      expect(await outboundRequests(app)).toEqual([]);
 
       expect(await openedExternally(app)).toEqual([]);
       // Still the app.

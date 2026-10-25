@@ -162,3 +162,45 @@ export const PLUGIN_CORPUS: PluginCorpusCase[] = [
   { id: 'deep-template', summary: 'A template nesting {{#if}} thousands deep', outcome: 'refused', builder: 'buildDeepTemplatePlugin', tests: [CORPUS_TEST] },
   { id: 'plaintext-secret', summary: 'A secret setting on a machine with no key store', outcome: 'contained', builder: 'buildSecretSettingPlugin', tests: [CORPUS_TEST] },
 ];
+
+/**
+ * Plugin CODE that misbehaves (#2832): what a frame (#2824) or a worker
+ * (#2830) tries, and the spec that shows it's contained. Unlike the cases
+ * above these aren't built per test — they are the hostile fixtures under
+ * `tests/fixtures/hostile-plugins/`, run in the real app. `attempt` names the
+ * try: `plugin-corpus-coverage.test.ts` checks it appears in each fixture
+ * that makes it and in each test that drives it, so a case can't outlive
+ * either.
+ */
+export interface PluginCodeCorpusCase {
+  id: string;
+  summary: string;
+  /** Repo-relative files that make the attempt. */
+  fixtures: string[];
+  /** The attempt's name, as the fixtures and the tests spell it. */
+  attempt: string;
+  tests: string[];
+}
+
+const FRAME = 'tests/fixtures/hostile-plugins/frame/app.js';
+const WORKER = 'tests/fixtures/hostile-plugins/worker/logic.js';
+const FRAME_SPEC = 'tests/e2e/plugin-frame.spec.ts';
+const SESSION_SPEC = 'tests/e2e/plugin-session.spec.ts';
+const WORKER_SPEC = 'tests/e2e/plugin-worker-host.spec.ts';
+
+export const PLUGIN_CODE_CORPUS: PluginCodeCorpusCase[] = [
+  { id: 'node-globals', summary: 'require and process, from a frame and a worker', fixtures: [WORKER, FRAME_SPEC], attempt: 'require', tests: [FRAME_SPEC, WORKER_SPEC] },
+  { id: 'node-modules', summary: "import('node:fs'), from a frame and a worker", fixtures: [FRAME, WORKER], attempt: 'importFs', tests: [FRAME_SPEC, WORKER_SPEC] },
+  { id: 'fetch', summary: 'fetch to the network, from a frame and a worker', fixtures: [WORKER, FRAME_SPEC], attempt: 'fetch', tests: [FRAME_SPEC, WORKER_SPEC] },
+  { id: 'websocket', summary: 'A WebSocket out, from a frame and a worker', fixtures: [FRAME, WORKER], attempt: 'websocket', tests: [FRAME_SPEC, WORKER_SPEC] },
+  { id: 'image-beacon', summary: 'An <img> beacon carrying a secret', fixtures: [FRAME], attempt: 'beacon', tests: [FRAME_SPEC] },
+  { id: 'top-window', summary: 'Navigating window.top to a page of its own', fixtures: [FRAME], attempt: 'top-nav', tests: [FRAME_SPEC] },
+  { id: 'parent-document', summary: "Reading the app's document through window.parent", fixtures: [FRAME], attempt: 'parentDocument', tests: [FRAME_SPEC] },
+  { id: 'app-ipc', summary: 'window.api, ipcRenderer or electron from a frame', fixtures: [FRAME], attempt: 'appApi', tests: [FRAME_SPEC] },
+  { id: 'forged-host', summary: "A postMessage to the app posing as the host: its session port and an intent", fixtures: [FRAME], attempt: 'forgeHostMessage', tests: [FRAME_SPEC] },
+  { id: 'out-of-scope', summary: "A read or a write to a note it wasn't given, and to .minerva/", fixtures: [SESSION_SPEC], attempt: 'OUT_OF_SCOPE', tests: [SESSION_SPEC] },
+  { id: 'forged-provenance', summary: 'A write claiming to be the user\'s in history', fixtures: [SESSION_SPEC], attempt: "provenance: 'user'", tests: [SESSION_SPEC] },
+  { id: 'over-limit', summary: 'A payload far over the message limit', fixtures: [SESSION_SPEC], attempt: 'too-large', tests: [SESSION_SPEC, 'tests/main/plugins/broker.test.ts'] },
+  { id: 'endless-loop', summary: 'A handler that never returns: stopped at its deadline, the app answering throughout', fixtures: [WORKER], attempt: 'spin', tests: [WORKER_SPEC] },
+  { id: 'hostile-note', summary: "A note's markup put into a view as HTML: it runs nothing, and script that got in has only that plugin's capabilities", fixtures: [FRAME], attempt: 'inject', tests: [SESSION_SPEC] },
+];

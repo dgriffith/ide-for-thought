@@ -9,6 +9,10 @@
 
 export const PLUGIN_API_VERSION = "1.10.0";
 const PORT_MESSAGE = "minerva.plugin-port";
+// The largest message either way, as the broker counts it (UTF-8 bytes). A
+// message over it can't be answered by its id, so it is refused here (#2832).
+const MESSAGE_LIMIT = 1048576;
+const tooLarge = (text) => new TextEncoder().encode(text).length > MESSAGE_LIMIT;
 const METHODS = [
   "graph.query",
   "llm.propose",
@@ -92,7 +96,10 @@ function client(port, hostVersion, options) {
   // Minerva calling one of this plugin's handlers (#2830): run it, answer with what it returned or why not.
   const answer = (n, handler, args) => {
     const fn = handlers.get(handler);
-    const send = (body) => port.postMessage(JSON.stringify({ reply: n, ...body }));
+    const send = (body) => {
+      const text = JSON.stringify({ reply: n, ...body });
+      port.postMessage(tooLarge(text) ? JSON.stringify({ reply: n, error: 'its answer is over ' + MESSAGE_LIMIT + ' bytes' }) : text);
+    };
     if (!fn) { send({ error: 'it has no handler "' + handler + '"' }); return; }
     Promise.resolve().then(() => fn(args)).then(
       (result) => { try { send({ result: result === undefined ? null : result }); } catch (err) { send({ error: 'its answer could not be sent: ' + String(err) }); } },
@@ -120,8 +127,10 @@ function client(port, hostVersion, options) {
   };
   const call = (method, params) => new Promise((resolve, reject) => {
     const id = nextId++;
+    const text = JSON.stringify({ id, method, params: params ?? {} });
+    if (tooLarge(text)) { reject(new PluginApiError('too-large', 'The call is over ' + MESSAGE_LIMIT + ' bytes. Send less.')); return; }
     pending.set(id, { resolve, reject });
-    port.postMessage(JSON.stringify({ id, method, params: params ?? {} }));
+    port.postMessage(text);
   });
   const quiet = (p) => { p.catch(() => {}); };
   const onKeydown = (e) => {

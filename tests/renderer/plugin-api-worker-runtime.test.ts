@@ -65,3 +65,18 @@ describe('the plugin API runtime, in a worker (#2830)', () => {
     minerva.close();
   });
 });
+
+describe('the message limit, in the runtime (#2832)', () => {
+  it('refuses a call over the limit itself, sending nothing, and answers an over-size result with why', async () => {
+    const { PLUGIN_MESSAGE_LIMIT_BYTES } = await import('../../src/shared/plugins/api');
+    const { minerva, host, fromPlugin, until } = await connected();
+    // The broker can't answer a message too big to read by its id: unrefused here, this call would never settle.
+    await expect(minerva.call('ui.copyText', { text: 'x'.repeat(PLUGIN_MESSAGE_LIMIT_BYTES) }))
+      .rejects.toMatchObject({ name: 'PluginApiError', code: 'too-large' });
+    minerva.handle('huge', () => 'y'.repeat(PLUGIN_MESSAGE_LIMIT_BYTES));
+    host.postMessage(JSON.stringify({ call: 9, handler: 'huge', args: null }));
+    await until(() => fromPlugin.some((m) => (m as { reply?: number }).reply === 9));
+    expect(fromPlugin.filter((m) => !('handles' in (m as object)))).toEqual([{ reply: 9, error: `its answer is over ${PLUGIN_MESSAGE_LIMIT_BYTES} bytes` }]);
+    minerva.close();
+  });
+});

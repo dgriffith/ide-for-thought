@@ -45,7 +45,7 @@ async function launch() {
   return { app, projectDir, pluginDir, cleanup };
 }
 
-async function connect(app: ElectronApplication, win: Page, pluginDir: string) {
+async function connect(app: ElectronApplication, win: Page, pluginDir: string, scope: readonly string[] = [IN_SCOPE]) {
   await expect(win.locator('[data-relative-path]').first()).toBeVisible({ timeout: 25_000 });
   await servePluginFrame(app, 'hostile', pluginDir, ['notes:read', 'graph:query', 'notes:write-properties']);
   await win.evaluate((origin) => {
@@ -83,7 +83,7 @@ async function connect(app: ElectronApplication, win: Page, pluginDir: string) {
     const frameEl = document.getElementById('e2e-plugin') as HTMLIFrameElement;
     frameEl.contentWindow!.postMessage({ type: 'minerva.plugin-port', apiVersion }, origin, [port]);
     return { foreign };
-  }, [ORIGIN, [IN_SCOPE], PLUGIN_API_VERSION] as const);
+  }, [ORIGIN, [...scope], PLUGIN_API_VERSION] as const);
   expect(relayed.foreign).toBe(0);
   expect(await frame.evaluate(async () => {
     const m = await (window as unknown as { minerva: Promise<{ apiVersion: string }> }).minerva;
@@ -135,6 +135,61 @@ test('a plugin frame reads and changes only what it was given, with only what it
     // A read-only query works; an unknown method is refused.
     expect((await call('graph.query', { sparql: 'SELECT ?s WHERE { ?s ?p ?o } LIMIT 1' })).result?.columns).toEqual(['s']);
     expect((await call('approve', { uri: 'x' })).error?.code).toBe('unknown-method');
+  } finally {
+    await closeMinerva(app);
+    cleanup();
+  }
+});
+
+test('what a plugin frame claims doesn\'t change what it is: provenance, size, and a hostile note\'s markup (#2832)', async () => {
+  const { app, projectDir, pluginDir, cleanup } = await launch();
+  const HOSTILE = 'notes/hostile.md';
+  fs.writeFileSync(path.join(projectDir, HOSTILE), [
+    '---', 'status: open', '---', '# Hostile',
+    '<img src="x" onerror="window.pwned = \'onerror\'">',
+    '<script>window.pwned = \'script\'</script>',
+    '<a href="javascript:window.pwned=\'link\'">x</a>', '',
+  ].join('\n'));
+  try {
+    const win = await app.firstWindow({ timeout: 20_000 });
+    await expect(win.locator('[data-relative-path="notes/hostile.md"]').first()).toBeVisible({ timeout: 25_000 });
+    const { frame, call } = await connect(app, win, pluginDir, [IN_SCOPE, HOSTILE]);
+
+    await test.step('a forged provenance is ignored: history names the plugin', async () => {
+      const set = await call('notes.setProperties', {
+        path: IN_SCOPE, properties: { status: 'forged' },
+        source: { origin: 'user' }, origin: 'user', cause: 'Saved by you', provenance: 'user',
+      });
+      expect(set.result).toEqual({ changed: ['status'] });
+      await expect.poll(async () => {
+        const revs = await win.evaluate((p) => (window as unknown as { api: { history: { list(p: string): Promise<Array<{ origin: string; cause?: string }>> } } }).api.history.list(p), IN_SCOPE);
+        return revs[0] ? { origin: revs[0].origin, cause: revs[0].cause } : null;
+      }, { timeout: 10_000 }).toEqual({ origin: 'plugin', cause: expect.stringContaining('plugin:hostile@') });
+    });
+
+    await test.step('a payload far over the limit is refused, and writes nothing', async () => {
+      const before = fs.readFileSync(path.join(projectDir, IN_SCOPE), 'utf8');
+      const big = await call('notes.setProperties', { path: IN_SCOPE, properties: { status: 'x'.repeat(3 * 1024 * 1024) } });
+      expect(big.error?.code).toBe('too-large');
+      expect(fs.readFileSync(path.join(projectDir, IN_SCOPE), 'utf8')).toBe(before);
+    });
+
+    await test.step('a hostile note put into the view as markup runs nothing', async () => {
+      const read = await call('notes.read', { path: HOSTILE });
+      const content = String(read.result?.content);
+      expect(await frame.evaluate((html) => (window as unknown as { attempts: { inject(h: string): boolean } }).attempts.inject(html), content)).toBe(true);
+      await frame.locator('#injected a').click();
+      await win.waitForTimeout(500);
+      expect(await frame.evaluate(() => (window as unknown as { pwned?: string }).pwned ?? null)).toBeNull();
+    });
+
+    await test.step('and script that got in anyway has only this plugin\'s capabilities, on only its notes', async () => {
+      // `call` is code running in the frame: what injected script would be.
+      expect((await call('notes.write', { path: HOSTILE, content: 'pwned' })).error?.code).toBe('capability');
+      expect((await call('notes.read', { path: OUT_OF_SCOPE })).error?.code).toBe('scope');
+      expect((await call('ui.openNote', { path: OUT_OF_SCOPE })).error?.code).toBe('capability');
+      expect(fs.readFileSync(path.join(projectDir, HOSTILE), 'utf8')).toContain('# Hostile');
+    });
   } finally {
     await closeMinerva(app);
     cleanup();
