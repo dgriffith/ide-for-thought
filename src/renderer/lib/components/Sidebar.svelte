@@ -18,7 +18,7 @@
   import { getNotebaseStore } from '../stores/notebase.svelte';
   import { getDialogStore } from '../stores/dialogs.svelte';
   import { LEFT_PANELS, pluginLeftPanels, type LeftPanel, type LeftPanelHost, type LeftPanelId, type SidebarFileOps, type SidebarPanelOps } from './sidebar/panels';
-  import { corePluginsStore } from '../stores/core-plugins.svelte';
+  import { codePluginsStore } from '../stores/code-plugins.svelte';
   import { pluginPanelId, type PluginPanelId } from './plugins/plugin-panels';
   import OpenViewInTab from './plugins/OpenViewInTab.svelte';
   import { tick } from 'svelte';
@@ -56,12 +56,12 @@
   const notesCount = $derived(countFiles(notebase.files));
   // The core panels, then those plugins' global views add (#2640) — which
   // come and go as plugins are turned on and off.
-  const panels: ReadonlyArray<LeftPanel & { id: PanelType }> = $derived([...LEFT_PANELS, ...pluginLeftPanels(corePluginsStore.views('left-sidebar'))]);
+  const panels: ReadonlyArray<LeftPanel & { id: PanelType }> = $derived([...LEFT_PANELS, ...pluginLeftPanels(codePluginsStore.views('left-sidebar'))]);
   const PANEL_DEFS: ReadonlyMap<PanelType, LeftPanel> = $derived(new Map(panels.map((p) => [p.id, p] as const)));
   // A plugin panel whose plugin was turned off falls back to Notes.
   const activeDef = $derived(PANEL_DEFS.get(activePanel) ?? PANEL_DEFS.get('notes'));
   const shownPanel = $derived<PanelType>(PANEL_DEFS.has(activePanel) ? activePanel : 'notes');
-  const shownPluginView = $derived(corePluginsStore.views('left-sidebar').find((v) => pluginPanelId(v.pluginId, v.view.id) === shownPanel));
+  const shownPluginView = $derived(codePluginsStore.views('left-sidebar').find((v) => pluginPanelId(v.pluginId, v.view.id) === shownPanel));
 
   // Seed the note→type map once on mount so Notes-tree rows carry their type
   // icons from the first paint. A project restored at startup doesn't go

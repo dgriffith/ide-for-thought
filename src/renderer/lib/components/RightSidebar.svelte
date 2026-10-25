@@ -2,7 +2,7 @@
   import { RIGHT_PANELS, RIGHT_PANEL_GROUPS, pluginRightPanels, type RightPanel, type RightPanelGroupId, type RightPanelHost, type RightPanelId } from './right-sidebar/panels';
   import Icon from './Icon.svelte';
   import type { InspectionFix } from '../../../shared/types';
-  import { corePluginsStore } from '../stores/core-plugins.svelte';
+  import { codePluginsStore } from '../stores/code-plugins.svelte';
   import { pluginPanelId, type PluginPanelId } from './plugins/plugin-panels';
   import OpenViewInTab from './plugins/OpenViewInTab.svelte';
 
@@ -11,7 +11,7 @@
   type PanelType = RightPanelId | PluginPanelId;
   type PanelGroupId = RightPanelGroupId;
 
-  const panels: ReadonlyArray<RightPanel & { id: PanelType }> = $derived([...RIGHT_PANELS, ...pluginRightPanels(corePluginsStore.views('right-sidebar'))]);
+  const panels: ReadonlyArray<RightPanel & { id: PanelType }> = $derived([...RIGHT_PANELS, ...pluginRightPanels(codePluginsStore.views('right-sidebar'))]);
   /** The groups that have panels, each with its panels in registry order. */
   const GROUPS = $derived(RIGHT_PANEL_GROUPS
     .map((g) => ({ ...g, items: panels.filter((p) => p.group === g.id) }))
@@ -96,7 +96,7 @@
    *  into `activeGroup` through this derivation. */
   // A plugin panel whose plugin was turned off falls back to the Outline.
   const shownPanel = $derived<PanelType>(PANEL_DEFS.has(activePanel) ? activePanel : 'outline');
-  const shownPluginView = $derived(corePluginsStore.views('right-sidebar').find((v) => pluginPanelId(v.pluginId, v.view.id) === shownPanel));
+  const shownPluginView = $derived(codePluginsStore.views('right-sidebar').find((v) => pluginPanelId(v.pluginId, v.view.id) === shownPanel));
   const activeGroup = $derived<PanelGroupId>(PANEL_DEFS.get(shownPanel)?.group ?? 'note');
   const activeGroupDef = $derived(GROUPS.find((g) => g.id === activeGroup) ?? GROUPS[0]!);
   const activePanelDef = $derived(PANEL_DEFS.get(shownPanel));

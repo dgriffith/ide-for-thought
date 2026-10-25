@@ -75,6 +75,13 @@ export async function pluginList(): Promise<PluginList> {
         ...(m.settings?.length ? { settings: m.settings.length } : {}),
         ...(m.mcpServers?.length ? { mcpServers: m.mcpServers.length } : {}),
         ...(m.code ? { capabilities: m.code.capabilities } : {}),
+        // What its code adds (#2833), as for a built-in plugin's.
+        ...(m.code?.views ? { views: m.code.views } : {}),
+        ...(m.code?.blocks ? { blocks: m.code.blocks } : {}),
+        ...(m.code?.commands ? { commands: m.code.commands } : {}),
+        ...(m.code?.ingestors ? { ingestors: m.code.ingestors } : {}),
+        ...(m.code?.exporters ? { exporters: m.code.exporters } : {}),
+        ...(m.code?.inspections ? { inspections: m.code.inspections } : {}),
         ...(approval === 'needed' || approval === 'changed' ? { codeApproval: approval } : {}),
       };
     }),

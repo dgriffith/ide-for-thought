@@ -10,7 +10,7 @@
   import Icon from './Icon.svelte';
   import { api } from '../ipc/client';
   import { voiceSettings } from '../voice/voice-settings.svelte';
-  import { corePluginsStore } from '../stores/core-plugins.svelte';
+  import { codePluginsStore } from '../stores/code-plugins.svelte';
   import {
     insertTypedLinks, insertCallouts, insertCardCallout,
     insertSparqlQuery, insertSqlQuery, insertPythonScript, insertMermaidDiagram,
@@ -79,7 +79,7 @@
   }: Props = $props();
 
   // Read from the store, as a component may (#1922): the commands that asked for this menu.
-  const pluginCommands = $derived(corePluginsStore.allCommands().filter((c) => c.command.editorMenu));
+  const pluginCommands = $derived(codePluginsStore.allCommands().filter((c) => c.command.editorMenu));
 </script>
 
 {#snippet toolButton(tool: ThinkingToolInfo)}

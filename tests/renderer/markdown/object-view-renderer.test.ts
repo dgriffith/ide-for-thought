@@ -18,7 +18,7 @@ const { instancesMock, listMock, noteTypeMapMock, plugin } = vi.hoisted(() => ({
 // A Kanban embed is the Kanban plugin's board (#2828): read what it's sent, act as it.
 // (A Timeline embed runs the Timeline plugin in loopback instead, #2829.)
 vi.mock('../../../src/renderer/lib/stores/plugin-sessions.svelte', () => ({ connectPluginFrame: (...a: unknown[]) => plugin.connect(...a) }));
-vi.mock('../../../src/renderer/lib/stores/core-plugins.svelte', () => ({ corePluginsStore: { isOn: () => true, name: () => 'Kanban' } }));
+vi.mock('../../../src/renderer/lib/stores/code-plugins.svelte', () => ({ codePluginsStore: { isOn: () => true, name: () => 'Kanban' } }));
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({
   api: { types: { instances: instancesMock, list: listMock, noteTypeMap: noteTypeMapMock }, app: { getSystemLocale: async () => 'en-GB' } },
 }));

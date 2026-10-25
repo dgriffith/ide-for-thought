@@ -40,7 +40,10 @@ describe('every worked-example plugin passes plugin check (#2654)', () => {
     const r = await checkPlugin(path.join(EXAMPLES, name), { appVersion: APP_VERSION, runServers: true, thoughtbases: [hostile.root], scratchParent: tmp });
     expect(failures(r)).toEqual([]);
     expect(r.ok).toBe(true);
-    for (const stage of ['package', 'contributions', 'uninstall'] as const) {
+    // A plugin that is all code (#2833) contributes no files to check.
+    const manifest = JSON.parse(fs.readFileSync(path.join(EXAMPLES, name, 'plugin.json'), 'utf-8')) as { contributes?: Record<string, unknown> };
+    const contributesFiles = Object.keys(manifest.contributes ?? {}).length > 0;
+    for (const stage of ['package', ...(contributesFiles ? ['contributions'] as const : []), 'uninstall'] as const) {
       expect(r.items.some((i) => i.stage === stage && i.status === 'pass'), stage).toBe(true);
     }
   }, 120_000);

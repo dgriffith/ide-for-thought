@@ -11,8 +11,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 const h = vi.hoisted(() => ({ on: true }));
 vi.mock('../../../src/renderer/lib/stores/plugin-sessions.svelte', () => ({ connectPluginFrame: vi.fn(() => new Promise(() => {})) }));
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({ api: { graph: { onChanged: () => () => {} } } }));
-vi.mock('../../../src/renderer/lib/stores/core-plugins.svelte', () => ({
-  corePluginsStore: { block: () => (h.on ? { id: 'queue', title: 'Reading queue', fence: 'reading-queue', entry: 'index.html' } : null) },
+vi.mock('../../../src/renderer/lib/stores/code-plugins.svelte', () => ({
+  codePluginsStore: { block: () => (h.on ? { id: 'queue', title: 'Reading queue', fence: 'reading-queue', entry: 'index.html' } : null) },
 }));
 
 import { hydratePluginBlocks } from '../../../src/renderer/lib/markdown/plugin-block-renderer';

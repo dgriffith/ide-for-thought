@@ -1,0 +1,6 @@
+# The Markdown notes: the ones the panel may read.
+SELECT ?note WHERE {
+  ?note a minerva:Note ;
+        minerva:relativePath ?path .
+  FILTER(STRENDS(LCASE(?path), ".md"))
+}

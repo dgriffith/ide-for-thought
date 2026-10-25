@@ -12,7 +12,7 @@
  */
 import { mount, tick, unmount } from 'svelte';
 import PluginBlock from '../components/plugins/PluginBlock.svelte';
-import { corePluginsStore } from '../stores/core-plugins.svelte';
+import { codePluginsStore } from '../stores/code-plugins.svelte';
 import { snapshotLiveBlock } from './live-block-snapshot';
 import { EXPORT_BLOCK_WIDTH_PX, OBJECT_VIEW_LOAD_TIMEOUT_MS } from './render-object-view';
 import type { LiveBlockRequest } from '../../../shared/live-blocks';
@@ -20,8 +20,8 @@ import type { LiveBlockRequest } from '../../../shared/live-blocks';
 export async function renderPluginBlockForExport(req: LiveBlockRequest): Promise<string> {
   if (!req.plugin) throw new Error('the block names no plugin');
   const { pluginId, blockId } = req.plugin;
-  const def = corePluginsStore.block(pluginId, blockId);
-  if (!def) throw new Error(`${corePluginsStore.name(pluginId)} is turned off on this machine`);
+  const def = codePluginsStore.block(pluginId, blockId);
+  if (!def) throw new Error(`${codePluginsStore.name(pluginId)} is turned off on this machine`);
 
   const host = document.createElement('div');
   host.setAttribute('aria-hidden', 'true');

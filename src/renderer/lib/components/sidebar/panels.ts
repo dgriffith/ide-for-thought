@@ -23,7 +23,7 @@ import BookmarksPanel from '../BookmarksPanel.svelte';
 import ProposalsPanel from '../ProposalsPanel.svelte';
 import PluginPanel from '../plugins/PluginPanel.svelte';
 import { pluginPanelIcon, pluginPanelId, pluginPanelProps, type PluginPanelId } from '../plugins/plugin-panels';
-import type { ActivePluginView } from '../../stores/core-plugins.svelte';
+import type { ActivePluginView } from '../../stores/code-plugins.svelte';
 
 export interface SidebarFileOps {
   onNewNote: (directory: string) => void;
