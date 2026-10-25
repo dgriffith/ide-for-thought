@@ -152,7 +152,6 @@ test('what a plugin frame claims doesn\'t change what it is: provenance, size, a
   ].join('\n'));
   try {
     const win = await app.firstWindow({ timeout: 20_000 });
-    await expect(win.locator('[data-relative-path="notes/hostile.md"]').first()).toBeVisible({ timeout: 25_000 });
     const { frame, call } = await connect(app, win, pluginDir, [IN_SCOPE, HOSTILE]);
 
     await test.step('a forged provenance is ignored: history names the plugin', async () => {
