@@ -348,12 +348,8 @@ export interface ChannelMap {
     id: string;
     label: string;
     acceptedKinds: Array<'single-note' | 'folder' | 'project' | 'tree' | 'source'>;
-    group: {
-      id: 'markdown' | 'html' | 'pdf' | 'site' | 'annotated' | 'anki' | 'bibtex' | 'pandoc';
-      label: string;
-      category: 'document' | 'publication' | 'citation';
-      order: number;
-    };
+    /** A built-in family, or a plugin exporter's own (#2648). */
+    group: import('./export-groups').ExportGroupMeta;
     variantLabel?: string | undefined;
     variantOrder: number;
   }>;

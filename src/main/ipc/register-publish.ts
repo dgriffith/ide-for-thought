@@ -36,7 +36,7 @@ export function registerPublish(): void {
       // Format-first menu metadata (#: export-menu-redesign): the group the
       // dialog buckets this exporter under, plus its variant label/order for
       // groups where >1 exporter is valid at the same scope (Markdown).
-      group: publish.EXPORT_GROUPS[e.group],
+      group: publish.exportGroupOf(e),
       variantLabel: e.variantLabel,
       variantOrder: e.variantOrder ?? 0,
     })),

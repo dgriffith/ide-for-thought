@@ -1,10 +1,12 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
   registerExporter,
   listExporters,
   listExportGroups,
   exportersFor,
   getExporter,
+  exportGroupOf,
+  setExtraExporters,
   _clearRegistry,
 } from '../../../src/main/publish/registry';
 import type { Exporter, ExportGroupId } from '../../../src/main/publish/types';
@@ -62,5 +64,38 @@ describe('publish registry (#246)', () => {
     it('returns nothing when no exporters are registered', () => {
       expect(listExportGroups()).toEqual([]);
     });
+  });
+});
+
+describe('exporters from outside the source (#2648)', () => {
+  beforeEach(() => _clearRegistry());
+  afterEach(() => setExtraExporters(null));
+
+  const plugin = (id: string): Exporter => ({
+    ...mkExporter(id),
+    group: `plugin:${id}`,
+    groupMeta: { id: `plugin:${id}`, label: 'EPUB', category: 'publication', order: 100 },
+  });
+
+  it('joins the list and the lookup after the built-ins, each in its own family, and goes when dropped', () => {
+    registerExporter(mkExporter('md', { group: 'markdown' }));
+    setExtraExporters(() => [plugin('epub/epub')]);
+    expect(listExporters().map((e) => e.id)).toEqual(['md', 'epub/epub']);
+    expect(getExporter('epub/epub')?.label).toBe('epub/epub');
+    expect(listExportGroups().map((g) => [g.group.id, g.group.label, g.exporterIds])).toEqual([
+      ['markdown', 'Markdown', ['md']],
+      ['plugin:epub/epub', 'EPUB', ['epub/epub']],
+    ]);
+    expect(exportGroupOf(plugin('epub/epub')).label).toBe('EPUB');
+    setExtraExporters(() => []);
+    expect(getExporter('epub/epub')).toBeNull();
+  });
+
+  it('never replaces a built-in with the same id', () => {
+    const builtIn = mkExporter('md');
+    registerExporter(builtIn);
+    setExtraExporters(() => [plugin('md')]);
+    expect(getExporter('md')).toBe(builtIn);
+    expect(listExporters()).toHaveLength(1);
   });
 });

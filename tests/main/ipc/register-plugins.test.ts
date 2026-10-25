@@ -159,6 +159,11 @@ const LIST = {
     description: 'Ingest subtitle and caption files (.srt, .vtt) as sources: the captions joined into timestamped paragraphs, with speakers named.',
     enabled: false, source: { kind: 'core' }, contributes: {}, capabilities: ['notes:read'],
     ingestors: [{ id: 'transcript', label: 'Transcript', accepts: { extensions: ['.srt', '.vtt'] }, parse: { handler: 'parseTranscript' } }],
+  }, {
+    id: 'epub', name: 'EPUB', version: '1.0.0',
+    description: 'Export notes as an EPUB e-book: one chapter per note, with a table of contents, for any e-reader.',
+    enabled: false, source: { kind: 'core' }, contributes: {}, capabilities: ['notes:read'],
+    exporters: [{ id: 'epub', label: 'EPUB', input: 'html', scopes: ['single-note', 'folder', 'project', 'tree'], write: { handler: 'writeEpub' } }],
   }],
   installed: [{
     id: 'lab', name: 'Lab', version: '1.0.0', description: 'Lab tools', author: 'Ada', enabled: false,

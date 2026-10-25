@@ -102,6 +102,8 @@ export interface PluginCode {
   commands?: PluginCommand[];
   /** File types it reads as Sources (#2647), each by one of its handlers. */
   ingestors?: PluginIngestor[];
+  /** Export formats it writes (#2648), each by one of its handlers. */
+  exporters?: PluginExporter[];
 }
 
 /** A handler's name: what `minerva.handle(name, …)` registers (#2830), and what a command runs. */
@@ -207,6 +209,66 @@ export interface PluginIngestInput {
   filename: string;
   /** The file's bytes, base64. */
   base64: string;
+}
+
+/** What a plugin exporter can be run on (#2648): the export dialog's scopes, less a source. */
+export const PLUGIN_EXPORT_SCOPES = ['single-note', 'folder', 'project', 'tree'] as const;
+export type PluginExportScope = (typeof PLUGIN_EXPORT_SCOPES)[number];
+
+/**
+ * An export format a plugin adds (#2648): its own item in the Export menu,
+ * written by a handler in the plugin's worker host (#2830).
+ *
+ * ```json
+ * "exporters": [{ "id": "epub", "label": "EPUB", "input": "html",
+ *                 "scopes": ["single-note", "folder", "project", "tree"],
+ *                 "write": { "handler": "writeEpub" } }]
+ * ```
+ *
+ * The handler is handed a `PluginExportPlan` and returns a
+ * `PluginExportResult`; Minerva checks the files and writes them into the
+ * folder the user chose.
+ */
+export interface PluginExporter {
+  /** Lowercase letters and digits in dash-separated words, unique in the plugin. */
+  id: string;
+  /** The format's name: the menu item, and "Export as <label>". */
+  label: string;
+  /** What each note is handed as: Minerva's rendered HTML, or its Markdown as written. */
+  input: 'html' | 'markdown';
+  /** What it can be run on, in the dialog's order. */
+  scopes: PluginExportScope[];
+  write: { handler: string };
+}
+
+/** One note, as an exporter's handler is handed it (#2648). */
+export interface PluginExportNote {
+  path: string;
+  title: string;
+  frontmatter: Record<string, unknown>;
+  /** The note's body as Minerva renders it for export, citations and all — with `input: "html"`. */
+  html?: string;
+  /** The note's body as written, without its frontmatter — with `input: "markdown"`. */
+  markdown?: string;
+}
+
+/** What an exporter's handler is handed (#2648): the notes to export, after Minerva's exclusion rules. */
+export interface PluginExportPlan {
+  exporter: string;
+  scope: PluginExportScope;
+  /** A name for the whole export: the note's or root note's title, the folder's or thoughtbase's name. */
+  title: string;
+  notes: PluginExportNote[];
+}
+
+/**
+ * What an exporter's handler returns (#2648): files, by a path inside the
+ * output folder, each `text` or `base64`. Minerva writes them; `summary` is
+ * said when it has.
+ */
+export interface PluginExportResult {
+  files: { path: string; text?: string; base64?: string }[];
+  summary?: string;
 }
 
 /** The Source classes a draft may name (`ontology-thought.ttl`). */
@@ -440,6 +502,8 @@ export interface PluginSummary {
   commands?: PluginCommand[];
   /** The file types it reads as Sources (#2647); absent when none. */
   ingestors?: PluginIngestor[];
+  /** The export formats it writes (#2648); absent when none. */
+  exporters?: PluginExporter[];
 }
 
 /**

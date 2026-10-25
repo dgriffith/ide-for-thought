@@ -321,3 +321,27 @@ describe('code.ingestors (#2647)', () => {
       .toEqual(['"code.ingestors[0].accepts" can only name "extensions" for now: reading a URL or an identifier needs the network, so it\'s an MCP server\'s job.']);
   });
 });
+
+describe('code.exporters (#2648)', () => {
+  const CORE = { ...CTX, core: true };
+  const EPUB = { id: 'epub', label: 'EPUB', input: 'html', scopes: ['single-note', 'project'], write: { handler: 'writeEpub' } };
+  const code = (exporters: unknown, extra: Record<string, unknown> = {}) => ({
+    ...GOOD, code: { capabilities: ['notes:read'], api: '^1.10.0', worker: 'logic.js', exporters, ...extra },
+  });
+
+  it('takes a format written by a handler, scopes in the dialog\'s order', () => {
+    const r = validatePluginManifest(code([{ ...EPUB, label: ' EPUB ', scopes: ['project', 'single-note'] }]), CORE);
+    expect(r.ok && r.manifest.code?.exporters).toEqual([EPUB]);
+  });
+
+  it('needs code.worker, a handler, an input and known scopes', () => {
+    expect(problemsOf({ ...GOOD, code: { capabilities: ['notes:read'], api: '^1.10.0', exporters: [EPUB] } }, CORE))
+      .toEqual(['"code.exporters[0].write.handler" needs "code.worker": a handler is a function in the plugin\'s logic module.']);
+    expect(problemsOf(code([{ ...EPUB, input: 'pdf', scopes: ['source'], write: { mcpTool: 'x/y' } }]), CORE)).toEqual([
+      '"code.exporters[0].input" must be "html" or "markdown"; got "pdf".',
+      '"code.exporters[0].scopes" must list what it exports, from single-note, folder, project, tree.',
+      '"code.exporters[0].write" must be { "handler": name }, the name a handler registers with minerva.handle().',
+    ]);
+    expect(problemsOf(code([EPUB, EPUB]), CORE)).toEqual(['"code.exporters" has two exporters with the id "epub".']);
+  });
+});

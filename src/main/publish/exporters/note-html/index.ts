@@ -42,7 +42,7 @@ export function renderFootnotesSection(renderer: CitationRenderer): string {
  * with `<sup>` markers; here we render the collected footnote bodies
  * as a `<section class="footnotes">` at the bottom of the note.
  */
-function appendCitationsTail(body: string, renderer: CitationRenderer): string {
+export function appendCitationsTail(body: string, renderer: CitationRenderer): string {
   if (renderer.isNoteStyle) {
     const footnotes = renderFootnotesSection(renderer);
     if (!footnotes) return body;

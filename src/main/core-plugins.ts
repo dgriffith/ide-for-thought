@@ -43,6 +43,9 @@ const CORE_PLUGIN_ACTIVATIONS: Readonly<Record<string, CorePluginActivation>> = 
   // Transcripts (#2647): its ingestor joins the registry while it's active
   // (`plugin-ingestors.ts`), and its parser runs in its worker host.
   transcripts: () => () => {},
+  // EPUB (#2648): its exporter joins the registry while it's active
+  // (`plugin-exporters.ts`), and its writer runs in its worker host.
+  epub: () => () => {},
 };
 
 /**
