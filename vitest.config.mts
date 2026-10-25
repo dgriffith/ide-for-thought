@@ -697,6 +697,15 @@ export default defineConfig({
           statements: 72,
           branches: 66,
         },
+        // plugin-inspections.ts ~100 L / 100 F / 96 S / 90 B (#2831). A
+        // plugin's check written as code: the read-only cap, the answer turned
+        // into findings, and a failure kept to one finding.
+        'src/main/plugin-inspections.ts': {
+          lines: 90,
+          functions: 90,
+          statements: 86,
+          branches: 80,
+        },
         // path-containment.ts ~95 L / 100 F / 94 S / 93 B (#2398). The
         // thoughtbase containment guard (moved out of notebase/fs.ts so the
         // graph/search/embeddings walkers can share it) — a trust boundary,

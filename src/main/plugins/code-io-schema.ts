@@ -1,6 +1,7 @@
 /**
- * A plugin's `code.ingestors` (#2647) and `code.exporters` (#2648) in
- * `plugin.json`: what its worker host's handlers read and write. Pure, and
+ * A plugin's `code.ingestors` (#2647), `code.exporters` (#2648) and
+ * `code.inspections` (#2831) in `plugin.json`: what its worker host's
+ * handlers read, write and check. Pure, and
  * fail closed like the rest of the manifest (`manifest.ts`): every problem
  * reported at once.
  */
@@ -10,7 +11,10 @@ import {
   type PluginExporter,
   type PluginExportScope,
   type PluginIngestor,
+  type PluginInspection,
 } from '../../shared/plugins/format';
+import type { PluginCapability } from '../../shared/plugins/capabilities';
+import { PLUGIN_INSPECTION_TYPE } from '../../shared/inspections';
 import { isBuiltinSourceFileExtension } from '../../shared/source-file-types';
 
 /** What the rest of the `code` section says, as these need it. */
@@ -19,6 +23,10 @@ export interface CodeHas {
   worker: boolean;
   /** Whether `id` is a plugin-style id (`manifest.ts`'s `PLUGIN_ID`). */
   isId: (id: string) => boolean;
+  /** What the code declares it does. */
+  capabilities: readonly PluginCapability[];
+  /** `v` as an `.rq` in the plugin's folder, or a problem pushed (`manifest.ts`'s `pluginFilePath`). */
+  queryPath: (v: unknown, field: string, problems: string[]) => string | undefined;
 }
 
 const INGESTOR_KEYS = new Set(['id', 'label', 'accepts', 'parse']);
@@ -30,6 +38,11 @@ const FILE_EXTENSION = /^\.[a-z0-9]{1,10}$/;
 const EXPORTER_KEYS = new Set(['id', 'label', 'input', 'scopes', 'write']);
 /** Most export formats one plugin may add (#2648). */
 export const MAX_PLUGIN_EXPORTERS = 8;
+
+const INSPECTION_KEYS = new Set(['id', 'label', 'description', 'severity', 'query', 'run']);
+/** Most code inspections one plugin may run (#2831). */
+export const MAX_PLUGIN_INSPECTIONS = 16;
+const SEVERITIES = ['info', 'warning', 'concern'] as const;
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
@@ -158,6 +171,66 @@ export function validateExporters(raw: unknown, has: CodeHas, problems: string[]
       id: id as string, label: (label as string).trim(), input: input as PluginExporter['input'],
       scopes: PLUGIN_EXPORT_SCOPES.filter((sc): sc is PluginExportScope => (scopes as unknown[]).includes(sc)),
       write: { handler: handler as string },
+    });
+  });
+  return out;
+}
+
+/**
+ * `code.inspections` (#2831): health checks run by one of the plugin's
+ * handlers, so each needs `code.worker`; one with a query needs
+ * `graph:query`, for what the query reads. The id becomes the type's last
+ * part (`plugin:<id>/<check>`), so it is spelled as a shape's name is.
+ */
+export function validateInspections(raw: unknown, has: CodeHas, problems: string[]): PluginInspection[] | undefined {
+  if (!Array.isArray(raw) || raw.length === 0) {
+    problems.push('"code.inspections" must be a non-empty list of inspections.');
+    return undefined;
+  }
+  if (raw.length > MAX_PLUGIN_INSPECTIONS) problems.push(`"code.inspections" lists ${raw.length} inspections; at most ${MAX_PLUGIN_INSPECTIONS}.`);
+  const out: PluginInspection[] = [];
+  raw.forEach((x: unknown, i) => {
+    const at = `code.inspections[${i}]`;
+    if (!isRecord(x)) {
+      problems.push(`"${at}" must be an object.`);
+      return;
+    }
+    for (const key of Object.keys(x)) {
+      if (!INSPECTION_KEYS.has(key)) problems.push(`Unknown field "${at}.${key}".`);
+    }
+    const before = problems.length;
+    const id = x.id;
+    if (typeof id !== 'string' || !PLUGIN_INSPECTION_TYPE.test(`plugin:a/${id}`)) {
+      problems.push(`"${at}.id" must be a letter, then letters, digits, "_" or "-" (at most 64), like "skipped-heading".`);
+    } else if (out.some((o) => o.id === id)) {
+      problems.push(`"code.inspections" has two inspections with the id "${id}".`);
+    }
+    const label = x.label;
+    if (typeof label !== 'string' || label.trim() === '' || label.length > 80) {
+      problems.push(`"${at}.label" must be a name of at most 80 characters.`);
+    }
+    const description = x.description;
+    if (typeof description !== 'string' || description.trim() === '' || description.length > 300) {
+      problems.push(`"${at}.description" must be one line of at most 300 characters: what it looks for and why.`);
+    }
+    const severity = x.severity;
+    if (!(SEVERITIES as readonly unknown[]).includes(severity)) problems.push(`"${at}.severity" must be one of ${SEVERITIES.join(', ')}; got ${JSON.stringify(severity)}.`);
+    const query = x.query === undefined ? undefined : has.queryPath(x.query, `${at}.query`, problems);
+    if (x.query !== undefined && !has.capabilities.includes('graph:query')) {
+      problems.push(`"${at}.query" needs the "graph:query" capability, for what its query reads.`);
+    }
+    const handler = isRecord(x.run) && Object.keys(x.run).length === 1 ? x.run.handler : undefined;
+    if (typeof handler !== 'string' || !PLUGIN_HANDLER_NAME.test(handler)) {
+      problems.push(`"${at}.run" must be { "handler": name }, the name a handler registers with minerva.handle().`);
+    } else if (!has.worker) {
+      problems.push(`"${at}.run.handler" needs "code.worker": a handler is a function in the plugin's logic module.`);
+    }
+    if (problems.length > before) return;
+    out.push({
+      id: id as string, label: (label as string).trim(), description: (description as string).trim(),
+      severity: severity as PluginInspection['severity'],
+      ...(query !== undefined ? { query } : {}),
+      run: { handler: handler as string },
     });
   });
   return out;

@@ -1354,10 +1354,13 @@ first use. Three things to keep:
   conversation carries its finding as `skillContext`, wrapped as
   `kind="inspection"`, never in the user's own message.
 - **A plugin's checks reach `graph/` through `HealthCheckDeps.pluginShapes`**
-  (`graph/` doesn't import `plugins/`). Their type is
-  `plugin:<id>/<shape>`, kept in the disabled list by pattern
+  (`graph/` doesn't import `plugins/`), and its checks written as code
+  (#2831) through `pluginCodeChecks`. Their type is
+  `plugin:<id>/<shape or check>`, kept in the disabled list by pattern
   (`PLUGIN_INSPECTION_TYPE`). The production call sites pass
-  `pluginInspectionFiles`.
+  `pluginInspectionFiles` and `pluginCodeChecks`. A code check runs in its
+  worker host capped at the read capabilities, and a failure or missed
+  deadline is one finding against the plugin (`plugin-inspections.ts`).
 
 #### Per-project state goes in a `createProjectStore` slot (#2240)
 

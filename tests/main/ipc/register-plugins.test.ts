@@ -164,6 +164,15 @@ const LIST = {
     description: 'Export notes as an EPUB e-book: one chapter per note, with a table of contents, for any e-reader.',
     enabled: false, source: { kind: 'core' }, contributes: {}, capabilities: ['notes:read'],
     exporters: [{ id: 'epub', label: 'EPUB', input: 'html', scopes: ['single-note', 'folder', 'project', 'tree'], write: { handler: 'writeEpub' } }],
+  }, {
+    id: 'outline-checks', name: 'Outline Checks', version: '1.0.0',
+    description: 'An inspection for notes whose headings skip a level, like an H1 straight to an H3, which leaves a gap in the outline.',
+    enabled: false, source: { kind: 'core' }, contributes: {}, capabilities: ['notes:read', 'graph:query'],
+    inspections: [{
+      id: 'skipped-heading', label: 'Skipped heading levels', severity: 'info',
+      description: 'Headings that jump a level, like an H1 straight to an H3, leaving a gap in the outline.',
+      query: 'notes.rq', run: { handler: 'skippedHeadings' },
+    }],
   }],
   installed: [{
     id: 'lab', name: 'Lab', version: '1.0.0', description: 'Lab tools', author: 'Ada', enabled: false,

@@ -136,6 +136,18 @@ describe('the capability (#2825)', () => {
     expect(s.writes).toEqual([]);
   });
 
+  it('a capability cap holds a call below what the plugin declared, and lifts (#2831)', async () => {
+    const s = open();
+    s.session.limitCapabilities(['notes:read', 'graph:query']);
+    expect((await s.call('notes.read', { path: 'a.md' })).result?.path).toBe('a.md');
+    const write = await s.call('notes.setProperties', { path: 'a.md', properties: { status: 'done' } });
+    expect(write.error).toEqual({ code: 'capability', message: 'notes.setProperties needs the "notes:write-properties" capability, which this call doesn\'t have: it only reads.' });
+    expect((await s.call('ui.copyText', { text: 'x' })).error?.code).toBe('capability');
+    expect(s.writes).toEqual([]);
+    s.session.limitCapabilities(null);
+    expect((await s.call('ui.copyText', { text: 'x' })).error).toBeUndefined();
+  });
+
   it('notes:write-properties does not grant writing the body', async () => {
     const s = open({ capabilities: ['notes:write-properties'] });
     expect((await s.call('notes.write', { path: 'a.md', content: 'pwned' })).error?.code).toBe('capability');

@@ -53,6 +53,18 @@ export interface HealthCheckDeps {
    * a sweep's tests run every check on one fake tick. Omitted, none.
    */
   thoughtbaseShapes?: (ctx: ProjectContext) => Promise<{ files: readonly PluginShapesFile[] }>;
+  /**
+   * The plugins' checks written as code (#2831), run in their worker hosts by
+   * the composition root (`plugin-inspections.ts`). Omitted, none.
+   */
+  pluginCodeChecks?: () => readonly PluginCodeCheck[];
+}
+
+/** One plugin code check (#2831): the one type it emits, and how to run it. */
+export interface PluginCodeCheck {
+  /** `plugin:<id>/<check>`: its type, and what a failure is logged against. */
+  type: `plugin:${string}`;
+  run: (ctx: ProjectContext) => Promise<Inspection[]>;
 }
 
 /** One plugin's shapes file, read (#2642): its checks run with Minerva's. */

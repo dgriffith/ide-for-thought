@@ -7,6 +7,7 @@ import * as graph from '../graph/index';
 import * as search from '../search/index';
 import { findOrphanedInlineAssets } from '../notebase/asset-references';
 import { pluginInspectionChecks, pluginInspectionFiles } from '../plugins/inspection-shapes';
+import { pluginCodeChecks, pluginCodeInspectionDefs } from '../plugin-code-checks';
 import { thoughtbaseInspections, thoughtbaseShapes } from '../graph/shacl/thoughtbase-shapes';
 import { projectContext } from '../project-context-types';
 import * as tables from '../sources/tables';
@@ -108,14 +109,15 @@ export function registerGraph(): void {
   handle(Channels.INSPECTIONS_LIST, withRootPathOr([], (rootPath) =>
     healthChecks.getInspections(projectContext(rootPath))));
   handle(Channels.INSPECTIONS_RUN, withRootPathOr<[], Inspection[] | Promise<Inspection[]>>([], async (rootPath) =>
-    healthChecks.runAllChecks(projectContext(rootPath), await getInspectionSettings(), { findOrphanedAssets: findOrphanedInlineAssets, pluginShapes: pluginInspectionFiles, thoughtbaseShapes })));
+    healthChecks.runAllChecks(projectContext(rootPath), await getInspectionSettings(), { findOrphanedAssets: findOrphanedInlineAssets, pluginShapes: pluginInspectionFiles, pluginCodeChecks, thoughtbaseShapes })));
 
   // Which checks run + the day thresholds (#1792). No rootPath: these are
   // per-machine preferences, readable with no thoughtbase open (the Settings
   // dialog is reachable from an empty window).
   handle(Channels.INSPECTIONS_GET_SETTINGS, () => getInspectionSettings());
-  // The plugins' SHACL checks (#2642): per machine, like the settings, so no thoughtbase needed.
-  handle(Channels.INSPECTIONS_PLUGIN_CHECKS, () => pluginInspectionChecks());
+  // The plugins' SHACL checks (#2642) and code checks (#2831): per machine,
+  // like the settings, so no thoughtbase needed.
+  handle(Channels.INSPECTIONS_PLUGIN_CHECKS, () => [...pluginInspectionChecks(), ...pluginCodeInspectionDefs()]);
   // The open thoughtbase's own (#2874): none, with nothing open.
   handle(Channels.INSPECTIONS_THOUGHTBASE_CHECKS, withRootPathOr<[], ThoughtbaseInspections | Promise<ThoughtbaseInspections>>({ checks: [], problems: [] }, (rootPath) =>
     thoughtbaseInspections(projectContext(rootPath))));

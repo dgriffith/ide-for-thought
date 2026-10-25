@@ -31,6 +31,7 @@ import { startPluginsWatcher } from './plugins-apply';
 import { startCorePlugins } from './core-plugins';
 import { installPluginIngestors } from './plugin-ingestors';
 import { installPluginExporters } from './plugin-exporters';
+import { installPluginInspections } from './plugin-inspections';
 import { initAutoUpdate, setUpdateStateListener } from './auto-update';
 import { installE2EHooks } from './e2e-hooks';
 import { logger } from '../shared/logger';
@@ -142,10 +143,11 @@ function startApp(): void {
     // Core plugins that are on (#2820), wired up synchronously so a handler a
     // window may call exists before the window does.
     startCorePlugins();
-    // Plugins' file types and export formats join their registries (#2647,
-    // #2648), read per use.
+    // Plugins' file types, export formats and code inspections join their
+    // registries (#2647, #2648, #2831), read per use.
     installPluginIngestors();
     installPluginExporters();
+    installPluginInspections();
     // An outside change to ~/.minerva/plugins/ applies without a restart (#2634).
     startPluginsWatcher(activePluginsDir());
     const skillsRegistered = registerSkillsAtStartup()

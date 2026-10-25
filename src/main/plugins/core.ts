@@ -188,6 +188,33 @@ const CORE_PLUGIN_DEFINITIONS: readonly CorePluginDefinition[] = [
     },
     defaultEnabled: false,
   },
+  {
+    // Outline Checks (#2831): the worked example of an inspection written as
+    // code, one a SHACL shape can't say because it reads each note's body.
+    // Every sweep runs its query (`notes.rq`, the Markdown notes) and hands
+    // the notes to `skippedHeadings` in its worker host
+    // (`plugins/outline-checks/src/logic.ts`), which reads them and returns
+    // findings. Off by default: it adds a check.
+    manifest: {
+      id: 'outline-checks',
+      name: 'Outline Checks',
+      version: '1.0.0',
+      minerva: '>=4.0.0',
+      description: 'An inspection for notes whose headings skip a level, like an H1 straight to an H3, which leaves a gap in the outline.',
+      contributes: {},
+      code: {
+        capabilities: ['notes:read', 'graph:query'],
+        api: '^1.10.0',
+        worker: 'logic.js',
+        inspections: [{
+          id: 'skipped-heading', label: 'Skipped heading levels', severity: 'info',
+          description: 'Headings that jump a level, like an H1 straight to an H3, leaving a gap in the outline.',
+          query: 'notes.rq', run: { handler: 'skippedHeadings' },
+        }],
+      },
+    },
+    defaultEnabled: false,
+  },
 ];
 
 let definitions: readonly CorePluginDefinition[] = CORE_PLUGIN_DEFINITIONS;

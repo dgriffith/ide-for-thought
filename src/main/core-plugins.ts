@@ -46,6 +46,9 @@ const CORE_PLUGIN_ACTIVATIONS: Readonly<Record<string, CorePluginActivation>> = 
   // EPUB (#2648): its exporter joins the registry while it's active
   // (`plugin-exporters.ts`), and its writer runs in its worker host.
   epub: () => () => {},
+  // Outline Checks (#2831): its inspection joins every sweep while it's
+  // active (`plugin-inspections.ts`), run in its worker host.
+  'outline-checks': () => () => {},
 };
 
 /**

@@ -673,6 +673,46 @@ touches the disk.
   it can't carry becomes its alt text. It zips with `jszip`, bundled into
   its `logic.js`.
 
+### Inspections from code (#2831)
+
+A health check a SHACL shape can't say (one that reads a note's body, say)
+is declared in `code.inspections` and run by a handler in the plugin's
+worker host, beside the built-in and SHACL checks in every sweep:
+
+```json
+"inspections": [{ "id": "skipped-heading", "label": "Skipped heading levels",
+                  "description": "Headings that jump a level, like an H1 straight to an H3.",
+                  "severity": "info", "query": "notes.rq",
+                  "run": { "handler": "skippedHeadings" } }]
+```
+
+Its type is `plugin:<id>/<check>`, the same shape as a plugin's SHACL check,
+so Settings → Inspections lists it under the plugin with a switch, and the
+disabled list keeps it by pattern.
+
+- **Minerva runs the query**, as for a global view: the handler is handed
+  `{ check, query }`, and the notes the rows name are what it may read.
+  A check with no query is handed nothing and can only use `graph:query`.
+- **It only reads.** The call is capped at `notes:read` and `graph:query`,
+  whatever else the plugin declares (`limitCapabilities` on the broker
+  session, from `invokePluginLogic`'s `capabilities`). A plugin that moves
+  cards on a board still can't write from its inspection.
+- **Findings** come back as `{ findings: [{ message, note?, node?, label?,
+  suggestedAction? }] }`, each naming a note path or a graph IRI, and main
+  turns them into `shared/inspections.ts`'s `Inspection` (`plugin-inspections.ts`).
+  At most 200 per sweep. No `fix`: a quick-fix would be a write.
+- **A check that misses its 10 s deadline, throws, or answers anything else
+  is one finding against the plugin**, saying so ("…didn't finish in 10 s, so
+  it was stopped"), and the other checks run as usual. Unlike a SHACL check
+  that runs too long (#2874), it isn't held back afterwards: its host is
+  stopped, so it never cost main's thread, and the next sweep tries again.
+- **Cost.** A sweep follows every save (debounced), so an active check keeps
+  its host warm while you edit (~90 MB); it stops after 60 s idle.
+- **Outline Checks is the worked example**, off by default
+  (`plugins/outline-checks/`): *Skipped heading levels* reads every Markdown
+  note its `notes.rq` names and reports a heading more than one level below
+  the one before it, ignoring code and frontmatter.
+
 ### Other candidates
 
 The test is which features reach a privileged sink or hold a credential:
@@ -791,7 +831,7 @@ is an MCP server, as in 4.0.
 |---|---|
 | #2640 views | Rewritten around the view API, and built: sidebar panels and tabs (*Global views* above). |
 | #2641 live blocks | Built: a fence or directive drawn by the plugin's frame, exported through the same frame in the export window (*Live blocks* above). |
-| #2642 inspections | Build as written (SPARQL). Code checks come later, through the worker host. |
+| #2642 inspections | Built as SHACL shapes. Code checks are #2831, through the worker host (*Inspections from code* above). |
 | #2643 commands | Built: a command in the palette and the editor menu that runs a handler in the plugin's worker, a skill, a query or a view (*Commands* above). |
 | #2647 ingestors | Built: a file type read by a handler in the plugin's worker, given the file's bytes (*Ingestors* above). An `mcpTool` parser, and URL or identifier ingestors, are #2880. |
 | #2648 exporters | Built: an Export menu family written by a handler in the plugin's worker, given each note rendered (*Exporters* above). An `mcpTool` writer is #2880. |

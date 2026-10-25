@@ -16,6 +16,7 @@
  * can't yet (#2833).
  */
 import type { PluginCapability } from './capabilities';
+import type { PluginQueryResults } from './api';
 
 /** The manifest's file name, at the plugin folder's root. */
 export const PLUGIN_MANIFEST = 'plugin.json';
@@ -104,6 +105,8 @@ export interface PluginCode {
   ingestors?: PluginIngestor[];
   /** Export formats it writes (#2648), each by one of its handlers. */
   exporters?: PluginExporter[];
+  /** Health checks it runs (#2831), each by one of its handlers, beside the SHACL ones. */
+  inspections?: PluginInspection[];
 }
 
 /** A handler's name: what `minerva.handle(name, …)` registers (#2830), and what a command runs. */
@@ -269,6 +272,59 @@ export interface PluginExportPlan {
 export interface PluginExportResult {
   files: { path: string; text?: string; base64?: string }[];
   summary?: string;
+}
+
+/**
+ * A health check a plugin runs as code (#2831): one a SHACL shape can't say.
+ * It sits in Settings → Inspections beside the built-in and SHACL checks, its
+ * type `plugin:<plugin id>/<check id>`, and runs with every sweep.
+ *
+ * ```json
+ * "inspections": [{ "id": "skipped-heading", "label": "Skipped heading levels",
+ *                   "description": "Headings that jump a level, like an H1 straight to an H3.",
+ *                   "severity": "info", "query": "notes.rq",
+ *                   "run": { "handler": "skippedHeadings" } }]
+ * ```
+ *
+ * Minerva runs its `query` (an `.rq` in its folder) and hands the handler the
+ * results as `PluginInspectionInput`; the notes they name are what it may
+ * read. The call has the read capabilities only — an inspection never writes,
+ * whatever else the plugin does. It returns `PluginInspectionResult`.
+ */
+export interface PluginInspection {
+  /** Its type's last part: a letter, then letters, digits, `_` or `-`. */
+  id: string;
+  label: string;
+  /** One line, in the user's terms: what it looks for and why. */
+  description: string;
+  severity: 'info' | 'warning' | 'concern';
+  query?: string;
+  run: { handler: string };
+}
+
+/** What an inspection's handler is handed (#2831). */
+export interface PluginInspectionInput {
+  check: string;
+  /** Its declared query, as Minerva ran it; null when it declares none. */
+  query: PluginQueryResults | null;
+}
+
+/**
+ * One finding from a plugin's inspection (#2831): about a `note` (its path)
+ * or a graph `node` (its IRI), at least one.
+ */
+export interface PluginInspectionFinding {
+  message: string;
+  note?: string;
+  node?: string;
+  /** What the panel calls it; the note's name or the IRI's last part when absent. */
+  label?: string;
+  suggestedAction?: string;
+}
+
+/** What an inspection's handler returns (#2831). */
+export interface PluginInspectionResult {
+  findings: PluginInspectionFinding[];
 }
 
 /** The Source classes a draft may name (`ontology-thought.ttl`). */
@@ -504,6 +560,8 @@ export interface PluginSummary {
   ingestors?: PluginIngestor[];
   /** The export formats it writes (#2648); absent when none. */
   exporters?: PluginExporter[];
+  /** The health checks it runs as code (#2831); absent when none. */
+  inspections?: PluginInspection[];
 }
 
 /**

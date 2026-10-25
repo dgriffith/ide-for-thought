@@ -33,6 +33,7 @@ import { MessageChannelMain, WebContentsView } from 'electron';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { logger } from '../shared/logger';
+import type { PluginCapability } from '../shared/plugins/capabilities';
 import { pluginFrameOrigin, WORKER_HOST_PORT_CHANNEL } from '../shared/plugins/frame';
 import { createPluginSession, PluginCallError, type BrokerPort, type PluginSession } from './plugins/broker';
 import { codePluginIdentity, codePluginWorker } from './plugins/code-plugins';
@@ -41,6 +42,11 @@ import { WORKER_HOST_PAGE_PATH } from './plugins/frame-files';
 import { HARDENED_WEB_PREFERENCES } from './security';
 import { createProjectStore } from './project-store';
 import { projectContext } from './project-context-types';
+
+/** A call that missed its deadline, so its host was stopped (#2831: an inspection reports it as a finding). */
+export class PluginDeadlineError extends PluginCallError {
+  constructor(message: string) { super(message); this.name = 'PluginDeadlineError'; }
+}
 
 /** How long a call may run before its host is stopped. */
 export const PLUGIN_LOGIC_DEADLINE_MS = 10_000;
@@ -212,6 +218,8 @@ export interface PluginLogicCall {
   scope?: readonly string[];
   /** Overrides `PLUGIN_LOGIC_DEADLINE_MS`. */
   deadlineMs?: number;
+  /** What the handler may do, below what the plugin declared (#2831); absent, everything it declared. */
+  capabilities?: readonly PluginCapability[];
 }
 
 /**
@@ -229,11 +237,12 @@ export function invokePluginLogic(pluginId: string, handler: string, args: unkno
     if (host.idle) { clearTimeout(host.idle); host.idle = null; }
     const name = codePluginIdentity(pluginId)?.name ?? pluginId;
     host.session.setScope(call.scope ?? []);
+    host.session.limitCapabilities(call.capabilities ?? null);
     try {
       return await withTimeout(
         host.session.call(handler, args),
         deadline,
-        () => new PluginCallError(`${name} didn't answer "${handler}" within ${deadline / 1000}s, so it was stopped.`),
+        () => new PluginDeadlineError(`${name} didn't answer "${handler}" within ${deadline / 1000}s, so it was stopped.`),
         () => stop(host, `"${handler}" ran past ${deadline}ms`),
       );
     } finally {

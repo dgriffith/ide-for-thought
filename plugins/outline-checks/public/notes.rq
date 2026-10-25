@@ -1,0 +1,7 @@
+# The Markdown notes, for the skipped-heading check (#2831): the notes its
+# rows name are the ones it may read.
+SELECT ?note WHERE {
+  ?note a minerva:Note ;
+        minerva:relativePath ?path .
+  FILTER(STRENDS(LCASE(?path), ".md"))
+}

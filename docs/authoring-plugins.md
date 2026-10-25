@@ -188,9 +188,10 @@ to the plugin folder, one contribution per entry:
 | `themes` | `themes/` | a `.json` colour theme ([themes](#themes)) |
 | `inspections` | `inspections/` | a `.ttl` file of SHACL shapes ([inspections](#inspections)) |
 
-Commands, views, live blocks, ingestors and exporters are plugin code
-(`code.commands`, #2643; `code.views`; `code.blocks`; `code.ingestors`,
-#2647; `code.exporters`, #2648), built into Minerva for now (#2833). Until then, naming one
+Commands, views, live blocks, ingestors, exporters and code inspections are
+plugin code (`code.commands`, #2643; `code.views`; `code.blocks`;
+`code.ingestors`, #2647; `code.exporters`, #2648; `code.inspections`, #2831),
+built into Minerva for now (#2833). Until then, naming one
 in `contributes` refuses the plugin.
 
 ## Starting one
