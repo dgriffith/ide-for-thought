@@ -83,7 +83,8 @@ Commands:
                         prompt/context changes (#1522).        [--all] [--live]
   plugin new <id>       Make a plugin folder <id>/ with one working
                         contribution of a kind (#2653): a skill, type, query,
-                        template, CSL style or theme; or with --mcp, a stdio
+                        template, CSL style, theme or inspection; a sidebar
+                        view or a command, as plugin code (#2833); or with --mcp, a stdio
                         MCP server (a read-only tool, one that asks first), a
                         skill that uses it and a test (#2650).
                         --kind <kind> | --mcp node|python  [--name <name>] [--dir <folder>]
@@ -103,7 +104,8 @@ Options:
   --all                 eval: run every case under tests/skills-eval/.
   --live                eval: make a real model call, capturing response.md +
                         drafts.json. Opt-in; needs a provider key in the env.
-  --kind <kind>         plugin new: skill, type, query, template, csl, theme, inspection or mcp.
+  --kind <kind>         plugin new: skill, type, query, template, csl, theme, inspection,
+                        view or command (plugin code, #2833), or mcp.
   --mcp <runtime>       plugin new: an MCP server, in node or python.
   --name <name>         plugin new: the name Settings shows (default: from the id).
   --dir <folder>        plugin new: where to make it (default: current directory).

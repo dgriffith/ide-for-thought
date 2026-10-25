@@ -198,8 +198,9 @@ plugin may have one since #2833: Minerva asks, natively, before its code runs
 ## Starting one
 
 `minerva plugin new <id> --kind <kind>` makes a plugin folder with one working
-contribution to start from (#2653): `skill`, `type`, `query`, `template`, `csl`
-or `theme`, or `--mcp node|python` for an MCP server. What it writes passes
+contribution to start from (#2653): `skill`, `type`, `query`, `template`, `csl`,
+`theme` or `inspection`; `view` or `command`, plugin code ([below](#plugin-code));
+or `--mcp node|python` for an MCP server. What it writes passes
 `minerva plugin check` as is. See [the CLI](cli.md#plugin-scaffold).
 
 ## Checking a plugin
@@ -466,6 +467,134 @@ settings) refuses the plugin, like any other manifest problem.
   your account can read, and the form says so. Secrets are for the plugin
   MCP servers to come (#2645), which will receive them as environment
   variables.
+
+## Plugin code
+
+A plugin can also carry code that runs **inside Minerva, sandboxed** (#2833):
+a page drawn in a frame, and logic run in a worker. It's declared in the
+manifest's `code` section, never in `contributes`, and it reaches Minerva
+only through the plugin API, with the capabilities it names. How it all
+works, and why, is [plugin code](plugin-code.md).
+
+| `code` field | What it is | In [plugin code](plugin-code.md) |
+|---|---|---|
+| `capabilities` | What the code may do, from the table below. Anything outside them is refused when called. | |
+| `api` | The plugin API versions it was written for: a semver range like `"^1.10.0"`. | *Forks and the ABI* |
+| `views` | Global views: a panel in a sidebar, or a tab, each a page fed by a query it declares. | *Global views* |
+| `blocks` | Live blocks: a fence or `:::directive` in a note, drawn by a page of its own. | *Live blocks* |
+| `worker` | Its logic: a `.js` module run in a Web Worker, which registers handlers. | *Logic* |
+| `commands` | Commands in the palette and the editor menu, run by a handler, a skill, a query or a view. | *Commands* |
+| `ingestors` | File types read as Sources, by a handler handed the file's bytes. | *Ingestors* |
+| `exporters` | Export formats written by a handler handed the rendered notes. | *Exporters* |
+| `inspections` | Health checks a SHACL shape can't say, run by a handler. | *Inspections from code* |
+
+| Capability | Lets it |
+|---|---|
+| `notes:read` | read the notes Minerva hands its views and commands, and only those |
+| `graph:query` | run read-only queries over the graph and tables |
+| `ui` | open notes, show menus and make announcements |
+| `notes:write-properties` | change the properties of notes it was given |
+| `notes:write` | create notes, and change the notes it was given |
+
+`llm:propose` is declared but not available yet (#2858), and `process`
+(running a program) is for Minerva's own plugins only: a plugin's program
+ships as an MCP server ([above](#mcp-servers)). Whatever it declares, its code
+can't reach the network, your files, other plugins or Minerva's own pages,
+and every note it writes is recorded in Local History as its own.
+
+- **The API** is a module Minerva serves to every plugin page and worker:
+  `import { connect } from '/@minerva/plugin-api.js'`. Its types are in
+  `plugin-api/index.d.ts` in Minerva's repository.
+- **Ship built files.** Minerva serves the plugin folder as it is: HTML,
+  JavaScript modules, CSS, images. A plugin with a build step ships its output.
+- **Minerva asks before it runs.** Installing a plugin with code asks, in a
+  system dialog, naming what it can do. Any change to its files afterwards
+  (an upgrade, an edit in place) turns it off until you allow it again from
+  Settings → Plugins, where *Review and allow…* shows what changed.
+- `minerva plugin new <id> --kind view` or `--kind command` makes one to
+  start from.
+
+### A plugin with code: Note Stats
+
+A sidebar panel of how many words each note has, and a command that counts
+the words in the selection. It's `tests/fixtures/plugins/note-stats/` in
+Minerva's repository, and its test holds this page to it. The manifest:
+
+```json
+{
+  "id": "note-stats",
+  "name": "Note Stats",
+  "version": "1.0.0",
+  "minerva": ">=3.0.0",
+  "description": "A sidebar panel of how many words each note has, and a command that counts the words in your selection.",
+  "author": "Minerva's tests",
+  "license": "MIT",
+  "contributes": {},
+  "code": {
+    "capabilities": ["notes:read", "graph:query", "ui"],
+    "api": "^1.10.0",
+    "worker": "logic.js",
+    "views": [{ "id": "lengths", "title": "Note Lengths", "place": "left-sidebar", "entry": "panel/index.html", "query": "panel/notes.rq" }],
+    "commands": [{ "id": "count-selection", "title": "Count Words in Selection", "when": "selection", "editorMenu": true, "run": { "handler": "countWords" } }]
+  }
+}
+```
+
+`panel/notes.rq` is the panel's query. Minerva runs it and sends the
+results to the page as a `query` event; the notes they name are what the page
+may read. The page, `panel/app.js`, reads each and lists them:
+
+```js
+// Note Stats' panel: Minerva runs notes.rq and hands it the notes; it reads
+// each, counts its words, and lists them longest first. A row opens its note.
+import { connect } from '/@minerva/plugin-api.js';
+import { countWords } from '../words.js';
+
+const minerva = await connect();
+const list = document.getElementById('lengths');
+
+minerva.on('query', async ({ notes }) => {
+  const paths = [...new Set(Object.values(notes))];
+  const rows = [];
+  for (const path of paths) {
+    const note = await minerva.notes.read({ path });
+    rows.push({ path, title: path.replace(/^.*\//, '').replace(/\.md$/, ''), words: countWords(note.content) });
+  }
+  rows.sort((a, b) => b.words - a.words || a.title.localeCompare(b.title));
+  list.replaceChildren(...rows.map((r) => {
+    const li = document.createElement('li');
+    const button = document.createElement('button');
+    const title = document.createElement('span');
+    title.textContent = r.title;
+    const n = document.createElement('span');
+    n.className = 'n';
+    n.textContent = `${r.words} ${r.words === 1 ? 'word' : 'words'}`;
+    button.append(title, n);
+    button.addEventListener('click', () => { void minerva.ui.openNote({ path: r.path }).catch(() => undefined); });
+    li.append(button);
+    return li;
+  }));
+});
+```
+
+The command's handler is in `logic.js`, which runs in the plugin's worker.
+It's handed the selected text and returns what to say:
+
+```js
+// Note Stats' logic, in its worker host: the command's handler. It is handed
+// the selected text and returns what to say; it changes nothing.
+import { connect } from '/@minerva/plugin-api.js';
+import { countWords } from './words.js';
+
+const minerva = await connect();
+
+minerva.handle('countWords', ({ selection }) => {
+  const n = countWords(selection ?? '');
+  return { announce: `${n} ${n === 1 ? 'word' : 'words'} selected.` };
+});
+```
+
+`words.js` (the counting both share) and `panel/index.html` are the rest.
 
 ## What makes a plugin refused
 

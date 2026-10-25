@@ -12,7 +12,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { checkPlugin } from '../../../src/main/plugin-check/check';
-import { SCAFFOLD_KIND_POINTS, writeScaffold } from '../../../src/main/plugins/scaffold';
+import { SCAFFOLD_CODE_KINDS, SCAFFOLD_KIND_POINTS, writeScaffold } from '../../../src/main/plugins/scaffold';
 import { ALL_HOSTILE_FEATURES, buildHostileThoughtbase, restoreHostilePermissions, type HostileManifest } from '../../helpers/hostile-thoughtbase';
 import { silenceLogTags } from '../../helpers/quiet-logs';
 
@@ -64,5 +64,13 @@ describe('every worked-example plugin passes plugin check (#2654)', () => {
     const r = await checkPlugin(folder, { appVersion: APP_VERSION, thoughtbases: [hostile.root], scratchParent: tmp });
     expect(failures(r)).toEqual([]);
     expect(r.items.filter((i) => i.stage === 'contributions').map((i) => i.status)).toEqual(['pass']);
+  }, 120_000);
+
+  it.each(Object.keys(SCAFFOLD_CODE_KINDS) as (keyof typeof SCAFFOLD_CODE_KINDS)[])('and so does a fresh %s scaffold, which is plugin code (#2833)', async (kind) => {
+    const { folder } = await writeScaffold(path.join(tmp, `code-${kind}`), { id: `code-${kind}`, kind });
+    const r = await checkPlugin(folder, { appVersion: APP_VERSION, thoughtbases: [hostile.root], scratchParent: tmp });
+    expect(failures(r)).toEqual([]);
+    expect(r.ok).toBe(true);
+    expect(r.items.some((i) => i.stage === 'uninstall' && i.status === 'pass')).toBe(true);
   }, 120_000);
 });

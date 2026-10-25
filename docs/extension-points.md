@@ -35,18 +35,18 @@ Reach for the lowest rung that does the job — declarative before code.
 | [Note templates](#note-templates--note-templates) | query-view | hot | stock, plugin, thoughtbase |
 | [Inspections](#inspections--inspections) | plugin | hot | stock, plugin, thoughtbase |
 | [Themes](#themes--themes) | plugin | hot | stock, plugin |
+| [Live blocks](#live-blocks--live-blocks) | plugin | hot | stock, plugin |
+| [Commands](#commands--commands) | plugin | hot | stock, plugin |
+| [Left sidebar panels](#left-sidebar-panels--left-sidebar-panels) | plugin | hot | stock, plugin |
+| [Right sidebar panels](#right-sidebar-panels--right-sidebar-panels) | plugin | hot | stock, plugin |
+| [Source ingestors](#ingestors--source-ingestors) | plugin | hot | stock, plugin |
+| [Exporters](#exporters--exporters) | plugin | hot | stock, plugin |
 | [MCP servers (Minerva as client)](#mcp-servers--mcp-servers-minerva-as-client) | mcp | hot | user, plugin |
 | [View layouts](#view-layouts--view-layouts) | source | rebuild | stock |
 | [Property types](#property-types--property-types) | source | rebuild | stock |
-| [Live blocks](#live-blocks--live-blocks) | source | rebuild | stock |
-| [Commands](#commands--commands) | source | rebuild | stock |
-| [Left sidebar panels](#left-sidebar-panels--left-sidebar-panels) | source | rebuild | stock |
-| [Right sidebar panels](#right-sidebar-panels--right-sidebar-panels) | source | rebuild | stock |
 | [Settings sections](#settings-sections--settings-sections) | source | rebuild | stock |
 | [LLM tools](#llm-tools--llm-tools) | source | rebuild | stock |
-| [Source ingestors](#ingestors--source-ingestors) | source | rebuild | stock |
 | [Compute languages](#compute-languages--compute-languages) | source | rebuild | stock |
-| [Exporters](#exporters--exporters) | source | rebuild | stock |
 | [Publish targets](#publish-targets--publish-targets) | source | rebuild | stock |
 | [MCP tools (Minerva as server)](#mcp-tools--mcp-tools-minerva-as-server) | source | rebuild | stock |
 
@@ -157,7 +157,7 @@ A health check over the graph whose findings show in the Inspections panel: a SH
 - **Rung:** plugin
 - **Picked up:** at once, or on its next read (`hot`)
 - **Contributions from:** stock, plugin, thoughtbase
-- **Goes in:** a plugin's inspections/ (#2642), or the thoughtbase's .minerva/shapes/ (#2874)
+- **Goes in:** a plugin's inspections/ (#2642), or the thoughtbase's .minerva/shapes/ (#2874); a check a shape can't say is a plugin's code.inspections, run by its worker (#2831)
 - **Contract:** SHACL in Turtle: a sh:NodeShape with a target, sh:name, sh:description, sh:severity, sh:message, minerva:inspectionGroup and minerva:suggestedAction; any sh:select / sh:ask a SELECT / ASK, checked by [`src/main/graph/shacl/shapes.ts`](../src/main/graph/shacl/shapes.ts) (`parseShapesFile`)
 - **Registers in:** [`src/main/graph/inspection-checks.ts`](../src/main/graph/inspection-checks.ts) (`INSPECTION_CHECKS`)
 - **Docs:** [`docs/authoring-plugins.md`](authoring-plugins.md)
@@ -177,6 +177,86 @@ A colour theme: colours over the dark or light theme, listed after Dark, Light, 
 - **Docs:** [`docs/authoring-plugins.md`](authoring-plugins.md)
 - **Example:** [`tests/fixtures/plugins/solarized/themes/solarized-dark.json`](../tests/fixtures/plugins/solarized/themes/solarized-dark.json)
 - **Test:** [`tests/main/plugins/themes.test.ts`](../tests/main/plugins/themes.test.ts)
+
+## `live-blocks` — Live blocks
+
+A block that renders from data — a query result, a chart, an embedded view — in the preview and in every export. A plugin's is a fence or :::directive drawn by a page of its own, in a sandboxed frame.
+
+- **Rung:** plugin
+- **Picked up:** at once, or on its next read (`hot`)
+- **Contributions from:** stock, plugin
+- **Goes in:** a plugin's plugin.json, code.blocks (#2641), approved with its code (#2833)
+- **Contract:** plugin.json code.blocks: { id, title, fence | directive, entry (a page), query? (an .rq) }, with the ui capability, checked by [`src/main/plugins/manifest.ts`](../src/main/plugins/manifest.ts) (`validateBlocks`)
+- **Registers in:** [`src/shared/live-blocks.ts`](../src/shared/live-blocks.ts) (`LIVE_BLOCKS`)
+- **Docs:** [`docs/plugin-code.md`](plugin-code.md)
+- **Test:** [`tests/architecture/export-live-block-parity.test.ts`](../tests/architecture/export-live-block-parity.test.ts)
+
+## `commands` — Commands
+
+An action placed by id in the menu bar, the palette, the window keymap or the editor keymap. A plugin's is in the palette and the editor menu, and runs a handler in its worker, a skill, a query or one of its views.
+
+- **Rung:** plugin
+- **Picked up:** at once, or on its next read (`hot`)
+- **Contributions from:** stock, plugin
+- **Goes in:** a plugin's plugin.json, code.commands (#2643), approved with its code (#2833)
+- **Contract:** plugin.json code.commands: { id, title, when, editorMenu?, run: { handler | skill | query | view } }, checked by [`src/main/plugins/manifest.ts`](../src/main/plugins/manifest.ts) (`validateCommands`)
+- **Registers in:** [`src/shared/commands.ts`](../src/shared/commands.ts) (`COMMANDS`)
+- **Docs:** [`docs/authoring-plugins.md`](authoring-plugins.md)
+- **Example:** [`tests/fixtures/plugins/note-stats/plugin.json`](../tests/fixtures/plugins/note-stats/plugin.json)
+- **Test:** [`tests/architecture/command-registry.test.ts`](../tests/architecture/command-registry.test.ts)
+
+## `left-sidebar-panels` — Left sidebar panels
+
+A panel in the left sidebar's rail: Notes, Sources, Tags, Tables, Objects…. A plugin's is a global view: a page fed by a query it declares, which Minerva runs.
+
+- **Rung:** plugin
+- **Picked up:** at once, or on its next read (`hot`)
+- **Contributions from:** stock, plugin
+- **Goes in:** a plugin's plugin.json, code.views (#2640), approved with its code (#2833)
+- **Contract:** plugin.json code.views: { id, title, place: "left-sidebar", entry (a page), query (an .rq), icon? }, with ui and graph:query, checked by [`src/main/plugins/manifest.ts`](../src/main/plugins/manifest.ts) (`validateViews`)
+- **Registers in:** [`src/renderer/lib/components/sidebar/panels.ts`](../src/renderer/lib/components/sidebar/panels.ts) (`LEFT_PANELS`)
+- **Docs:** [`docs/authoring-plugins.md`](authoring-plugins.md)
+- **Example:** [`tests/fixtures/plugins/note-stats/plugin.json`](../tests/fixtures/plugins/note-stats/plugin.json)
+- **Test:** [`tests/architecture/panel-registries.test.ts`](../tests/architecture/panel-registries.test.ts)
+
+## `right-sidebar-panels` — Right sidebar panels
+
+A panel about the active note: outline, properties, links, citations, inspections…. A plugin's is a global view: a page fed by a query it declares, which Minerva runs.
+
+- **Rung:** plugin
+- **Picked up:** at once, or on its next read (`hot`)
+- **Contributions from:** stock, plugin
+- **Goes in:** a plugin's plugin.json, code.views (#2640), approved with its code (#2833)
+- **Contract:** plugin.json code.views: { id, title, place: "right-sidebar", entry (a page), query (an .rq), icon? }, with ui and graph:query, checked by [`src/main/plugins/manifest.ts`](../src/main/plugins/manifest.ts) (`validateViews`)
+- **Registers in:** [`src/renderer/lib/components/right-sidebar/panels.ts`](../src/renderer/lib/components/right-sidebar/panels.ts) (`RIGHT_PANELS`)
+- **Docs:** [`docs/plugin-code.md`](plugin-code.md)
+- **Test:** [`tests/architecture/panel-registries.test.ts`](../tests/architecture/panel-registries.test.ts)
+
+## `ingestors` — Source ingestors
+
+A way a Source comes in: a file type, a bibliographic identifier, or a web page. A plugin's is a file type whose bytes its worker reads, returning a draft Minerva checks and writes.
+
+- **Rung:** plugin
+- **Picked up:** at once, or on its next read (`hot`)
+- **Contributions from:** stock, plugin
+- **Goes in:** a plugin's plugin.json, code.ingestors (#2647), approved with its code (#2833)
+- **Contract:** plugin.json code.ingestors: { id, label, accepts: { extensions }, parse: { handler } }; the handler returns { title, body, … }, checked by [`src/main/plugins/code-io-schema.ts`](../src/main/plugins/code-io-schema.ts) (`validateIngestors`)
+- **Registers in:** [`src/main/sources/ingestors.ts`](../src/main/sources/ingestors.ts) (`INGESTORS`)
+- **Docs:** [`docs/plugin-code.md`](plugin-code.md)
+- **Test:** [`tests/main/sources/ingestors.test.ts`](../tests/main/sources/ingestors.test.ts)
+
+## `exporters` — Exporters
+
+An export format — markdown, HTML, PDF, a static site, a bibliography…—offered under Export. A plugin's is a family of its own, written by its worker from the rendered notes; Minerva writes the files.
+
+- **Rung:** plugin
+- **Picked up:** at once, or on its next read (`hot`)
+- **Contributions from:** stock, plugin
+- **Goes in:** a plugin's plugin.json, code.exporters (#2648), approved with its code (#2833)
+- **Contract:** plugin.json code.exporters: { id, label, input: "html" | "markdown", scopes, write: { handler } }; the handler returns { files: [{ path, text | base64 }] }, checked by [`src/main/plugins/code-io-schema.ts`](../src/main/plugins/code-io-schema.ts) (`validateExporters`)
+- **Registers in:** [`src/main/publish/registry.ts`](../src/main/publish/registry.ts) (`registerExporter`)
+- **Docs:** [`docs/publishing.md`](publishing.md)
+- **Test:** [`tests/main/publish/registry.test.ts`](../tests/main/publish/registry.test.ts)
 
 ## `mcp-servers` — MCP servers (Minerva as client)
 
@@ -213,50 +293,6 @@ A kind of value an object type's property can hold: text, date, number, enum, li
 - **Docs:** [`docs/authoring-types.md`](authoring-types.md)
 - **Test:** [`tests/main/types/loader.test.ts`](../tests/main/types/loader.test.ts)
 
-## `live-blocks` — Live blocks
-
-A block that renders from data — a query result, a chart, an embedded view — in the preview and in every export.
-
-- **Rung:** source
-- **Picked up:** only in a rebuilt app (`rebuild`)
-- **Contributions from:** stock
-- **Contract:** none yet — built-ins register in [`src/shared/live-blocks.ts`](../src/shared/live-blocks.ts) (`LIVE_BLOCKS`); nothing outside the source can add one until plugins load (#2631)
-- **Made a registry by:** #2624
-- **Test:** [`tests/architecture/export-live-block-parity.test.ts`](../tests/architecture/export-live-block-parity.test.ts)
-
-## `commands` — Commands
-
-An action placed by id in the menu bar, the palette, the window keymap or the editor keymap.
-
-- **Rung:** source
-- **Picked up:** only in a rebuilt app (`rebuild`)
-- **Contributions from:** stock
-- **Contract:** none yet — built-ins register in [`src/shared/commands.ts`](../src/shared/commands.ts) (`COMMANDS`); nothing outside the source can add one until plugins load (#2631)
-- **Made a registry by:** #2625
-- **Test:** [`tests/architecture/command-registry.test.ts`](../tests/architecture/command-registry.test.ts)
-
-## `left-sidebar-panels` — Left sidebar panels
-
-A panel in the left sidebar's rail: Notes, Sources, Tags, Tables, Objects….
-
-- **Rung:** source
-- **Picked up:** only in a rebuilt app (`rebuild`)
-- **Contributions from:** stock
-- **Contract:** none yet — built-ins register in [`src/renderer/lib/components/sidebar/panels.ts`](../src/renderer/lib/components/sidebar/panels.ts) (`LEFT_PANELS`); nothing outside the source can add one until plugins load (#2631)
-- **Made a registry by:** #2626
-- **Test:** [`tests/architecture/panel-registries.test.ts`](../tests/architecture/panel-registries.test.ts)
-
-## `right-sidebar-panels` — Right sidebar panels
-
-A panel about the active note: outline, properties, links, citations, inspections….
-
-- **Rung:** source
-- **Picked up:** only in a rebuilt app (`rebuild`)
-- **Contributions from:** stock
-- **Contract:** none yet — built-ins register in [`src/renderer/lib/components/right-sidebar/panels.ts`](../src/renderer/lib/components/right-sidebar/panels.ts) (`RIGHT_PANELS`); nothing outside the source can add one until plugins load (#2631)
-- **Made a registry by:** #2626
-- **Test:** [`tests/architecture/panel-registries.test.ts`](../tests/architecture/panel-registries.test.ts)
-
 ## `settings-sections` — Settings sections
 
 A section of the Settings dialog.
@@ -279,17 +315,6 @@ A tool the conversation model can call, registered with its class (read / propos
 - **Made a registry by:** #2628
 - **Test:** [`tests/main/llm/prompt-injection/tool-surface.test.ts`](../tests/main/llm/prompt-injection/tool-surface.test.ts)
 
-## `ingestors` — Source ingestors
-
-A way a Source comes in: a file type, a bibliographic identifier, or a web page.
-
-- **Rung:** source
-- **Picked up:** only in a rebuilt app (`rebuild`)
-- **Contributions from:** stock
-- **Contract:** none yet — built-ins register in [`src/main/sources/ingestors.ts`](../src/main/sources/ingestors.ts) (`INGESTORS`); nothing outside the source can add one until plugins load (#2631)
-- **Made a registry by:** #2629
-- **Test:** [`tests/main/sources/ingestors.test.ts`](../tests/main/sources/ingestors.test.ts)
-
 ## `compute-languages` — Compute languages
 
 A language a runnable cell can be written in, and the executor that runs it.
@@ -301,18 +326,6 @@ A language a runnable cell can be written in, and the executor that runs it.
 - **Registers in:** [`src/main/compute/registry.ts`](../src/main/compute/registry.ts) (`registerExecutor`)
 - **Made a registry by:** #2630
 - **Test:** [`tests/shared/compute/fences.test.ts`](../tests/shared/compute/fences.test.ts)
-
-## `exporters` — Exporters
-
-An export format — markdown, HTML, PDF, a static site, a bibliography…—offered under Export.
-
-- **Rung:** source
-- **Picked up:** only in a rebuilt app (`rebuild`)
-- **Contributions from:** stock
-- **Contract:** none yet — built-ins register in [`src/main/publish/registry.ts`](../src/main/publish/registry.ts) (`registerExporter`); nothing outside the source can add one until plugins load (#2631)
-- **Made a registry by:** #2630
-- **Docs:** [`docs/publishing.md`](publishing.md)
-- **Test:** [`tests/main/publish/registry.test.ts`](../tests/main/publish/registry.test.ts)
 
 ## `publish-targets` — Publish targets
 

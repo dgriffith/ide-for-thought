@@ -4,7 +4,8 @@
  * passing `minerva plugin check` as written (CI holds that).
  *
  * A declarative kind (`skill`, `type`, `query`, `template`, `csl`, `theme`)
- * writes one file into its point's folder. `mcp` writes the smallest plugin
+ * writes one file into its point's folder. A code kind (`view`, `command`,
+ * #2833) writes a page or a logic module and a `code` section. `mcp` writes the smallest plugin
  * that uses every part of the MCP tier: a server with one read-only tool and
  * one that writes (so Minerva asks before each call), a setting passed in as
  * the server's environment, a skill scoped to the server's tools (#2649), and
@@ -15,7 +16,8 @@
  *
  * The templates are real files under `scaffold-templates/`, bundled at build
  * time like the stock skills, so the CLI needs nothing from disk: `kinds/<kind>/`
- * for a declarative kind, `common/` and `<runtime>/` for `mcp`.
+ * for a declarative kind, `code/<kind>/` for a code kind, `common/` and
+ * `<runtime>/` for `mcp`.
  * `__PLUGIN_ID__` and `__PLUGIN_NAME__` are replaced in every path and file,
  * the name escaped for a JSON or XML file; `plugin.json` is built here.
  */
@@ -24,6 +26,7 @@ import path from 'node:path';
 import { PLUGIN_MANIFEST, type PluginContributionPoint } from '../../shared/plugins/format';
 import semver from 'semver';
 import { validatePluginManifest } from './manifest';
+import { PLUGIN_API_VERSION } from '../../shared/plugins/api';
 import { writeDraftFiles } from './draft-files';
 
 export const SCAFFOLD_RUNTIMES = ['node', 'python'] as const;
@@ -40,7 +43,22 @@ export const SCAFFOLD_KIND_POINTS = {
   inspection: { point: 'inspections', what: 'an inspection, as a SHACL shape, for notes with no tags' },
 } as const satisfies Record<string, { point: PluginContributionPoint; what: string }>;
 
-export const SCAFFOLD_KINDS = [...Object.keys(SCAFFOLD_KIND_POINTS) as (keyof typeof SCAFFOLD_KIND_POINTS)[], 'mcp'] as const;
+/**
+ * The kinds that are plugin code (#2833): a page and its query, or logic run
+ * in the worker host. Each writes its files and a `code` section; nothing in
+ * `contributes`.
+ */
+export const SCAFFOLD_CODE_KINDS = {
+  view: { what: 'a sidebar panel listing the notes tagged #todo, which a click opens' },
+  command: { what: 'a command that title-cases the selected text, in the palette and the editor\'s menu' },
+} as const;
+type CodeKind = keyof typeof SCAFFOLD_CODE_KINDS;
+
+export const SCAFFOLD_KINDS = [
+  ...Object.keys(SCAFFOLD_KIND_POINTS) as (keyof typeof SCAFFOLD_KIND_POINTS)[],
+  ...Object.keys(SCAFFOLD_CODE_KINDS) as CodeKind[],
+  'mcp',
+] as const;
 export type ScaffoldKind = (typeof SCAFFOLD_KINDS)[number];
 
 /** The oldest Minerva that reads a plugin's `mcpServers`. */
@@ -132,6 +150,30 @@ export function scaffoldPluginFiles(opts: ScaffoldOptions): Map<string, string> 
     };
     take('common');
     take(opts.runtime!);
+  } else if (kind === 'view' || kind === 'command') {
+    take(`code/${kind}`);
+    const { what } = SCAFFOLD_CODE_KINDS[kind];
+    manifest = {
+      id: opts.id,
+      name,
+      version: '0.1.0',
+      minerva: SCAFFOLD_MINERVA_RANGE,
+      description: `${what.charAt(0).toUpperCase()}${what.slice(1)}, to start from.`,
+      contributes: {},
+      code: kind === 'view'
+        ? {
+          capabilities: ['notes:read', 'graph:query', 'ui'],
+          api: CODE_API_RANGE,
+          views: [{ id: 'notes', title: name, place: 'left-sidebar', entry: 'panel/index.html', query: 'panel/notes.rq' }],
+        }
+        : {
+          capabilities: ['notes:read'],
+          api: CODE_API_RANGE,
+          worker: 'logic.js',
+          commands: [{ id: 'title-case', title: 'Title Case Selection', when: 'selection', editorMenu: true, run: { handler: 'titleCase' } }],
+        },
+    };
+    files.set('README.md', codeReadme(kind, opts.id, name, [...files.keys()].sort()));
   } else {
     const { point, what } = SCAFFOLD_KIND_POINTS[kind];
     take(`kinds/${kind}`);
@@ -158,7 +200,32 @@ export function scaffoldPluginFiles(opts: ScaffoldOptions): Map<string, string> 
   return new Map([...files].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
 }
 
-const KIND_DOCS: Record<Exclude<ScaffoldKind, 'mcp'>, string> = {
+/** The plugin API a code scaffold is written for: this Minerva's, and later minors (#2826). */
+const CODE_API_RANGE = `^${PLUGIN_API_VERSION}`;
+
+function codeReadme(kind: CodeKind, id: string, name: string, files: string[]): string {
+  return `# ${name}
+
+A Minerva plugin made by \`minerva plugin new ${id} --kind ${kind}\`: ${SCAFFOLD_CODE_KINDS[kind].what}.
+It's plugin code, run sandboxed inside Minerva: it reaches only what its
+\`code.capabilities\` in \`plugin.json\` say, through the plugin API
+(\`/@minerva/plugin-api.js\`, which Minerva serves to every plugin).
+
+${files.map((f) => `- \`${f}\``).join('\n')}
+- \`plugin.json\` declares it: its capabilities, and its \`code\` section.
+
+The format, the API and what each capability allows are in Minerva's
+docs/authoring-plugins.md (plugin code).
+
+## Try it
+
+1. \`minerva plugin check .\` puts it through what Minerva does with it.
+2. Settings → Plugins → **Install from folder…**, and pick this folder.
+   Minerva asks before its code runs, and again whenever its files change.
+`;
+}
+
+const KIND_DOCS: Record<Exclude<ScaffoldKind, 'mcp' | CodeKind>, string> = {
   skill: 'docs/authoring-skills.md',
   type: 'docs/authoring-types.md',
   query: 'docs/authoring-plugins.md (saved queries)',
@@ -168,7 +235,7 @@ const KIND_DOCS: Record<Exclude<ScaffoldKind, 'mcp'>, string> = {
   inspection: 'docs/authoring-plugins.md (inspections)',
 };
 
-function kindReadme(kind: Exclude<ScaffoldKind, 'mcp'>, id: string, name: string, files: string[]): string {
+function kindReadme(kind: Exclude<ScaffoldKind, 'mcp' | CodeKind>, id: string, name: string, files: string[]): string {
   return `# ${name}
 
 A Minerva plugin made by \`minerva plugin new ${id} --kind ${kind}\`: ${SCAFFOLD_KIND_POINTS[kind].what}.
