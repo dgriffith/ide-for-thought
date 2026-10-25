@@ -8,7 +8,7 @@
   import Icon from './Icon.svelte';
   import TypeIcon from './TypeIcon.svelte';
   import { objectTypesStore } from '../stores/object-types.svelte';
-  import { corePluginsStore } from '../stores/core-plugins.svelte';
+  import { codePluginsStore } from '../stores/code-plugins.svelte';
   import { pluginPanelIcon } from './plugins/plugin-panels';
 
   interface Props {
@@ -157,7 +157,7 @@
           {:else if tab.type === 'type-view'}
             <Icon name="objects" size={13} color="var(--text-faint)" />
           {:else if tab.type === 'plugin-view'}
-            <Icon name={pluginPanelIcon(corePluginsStore.view(tab.pluginId, tab.viewId)?.view.icon)} size={13} color="var(--text-faint)" />
+            <Icon name={pluginPanelIcon(codePluginsStore.view(tab.pluginId, tab.viewId)?.view.icon)} size={13} color="var(--text-faint)" />
           {:else if noteType}
             <TypeIcon type={noteType} size={13} />
           {:else}

@@ -1,0 +1,17 @@
+{
+  "id": "note-stats",
+  "name": "Note Stats",
+  "version": "1.0.0",
+  "minerva": ">=3.0.0",
+  "description": "A sidebar panel of how many words each note has, and a command that counts the words in your selection.",
+  "author": "Minerva's tests",
+  "license": "MIT",
+  "contributes": {},
+  "code": {
+    "capabilities": ["notes:read", "graph:query", "ui"],
+    "api": "^1.10.0",
+    "worker": "logic.js",
+    "views": [{ "id": "lengths", "title": "Note Lengths", "place": "left-sidebar", "entry": "panel/index.html", "query": "panel/notes.rq" }],
+    "commands": [{ "id": "count-selection", "title": "Count Words in Selection", "when": "selection", "editorMenu": true, "run": { "handler": "countWords" } }]
+  }
+}

@@ -22,7 +22,7 @@ vi.mock('../../../src/renderer/lib/ipc/client', () => ({
 import PluginPanel from '../../../src/renderer/lib/components/plugins/PluginPanel.svelte';
 import { pluginLeftPanels } from '../../../src/renderer/lib/components/sidebar/panels';
 import { pluginRightPanels } from '../../../src/renderer/lib/components/right-sidebar/panels';
-import type { ActivePluginView } from '../../../src/renderer/lib/stores/core-plugins.svelte';
+import type { ActivePluginView } from '../../../src/renderer/lib/stores/code-plugins.svelte';
 
 beforeEach(() => {
   h.refreshQuery.mockClear();

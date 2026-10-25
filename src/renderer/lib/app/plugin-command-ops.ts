@@ -14,7 +14,7 @@
  */
 import { api } from '../ipc/client';
 import { getToastStore } from '../stores/toasts.svelte';
-import { corePluginsStore } from '../stores/core-plugins.svelte';
+import { codePluginsStore } from '../stores/code-plugins.svelte';
 import { logger } from '../../../shared/logger';
 
 interface EditorRef {
@@ -37,7 +37,7 @@ export function createPluginCommandOps(ctx: PluginCommandOpsCtx) {
   const toasts = getToastStore();
 
   async function runPluginCommand(pluginId: string, commandId: string): Promise<void> {
-    const found = corePluginsStore.allCommands().find((c) => c.pluginId === pluginId && c.command.id === commandId);
+    const found = codePluginsStore.allCommands().find((c) => c.pluginId === pluginId && c.command.id === commandId);
     const title = found?.command.title ?? commandId;
     const editor = ctx.getEditorComponent();
     const note = ctx.getActiveNotePath();

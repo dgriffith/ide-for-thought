@@ -11,7 +11,7 @@
  */
 import { mount, unmount } from 'svelte';
 import PluginBlock from '../components/plugins/PluginBlock.svelte';
-import { corePluginsStore } from '../stores/core-plugins.svelte';
+import { codePluginsStore } from '../stores/code-plugins.svelte';
 import { adoptWrapper, blockCacheFor, blockKey, createContentWrapper } from './hydrated-block-cache';
 import { PLUGIN_BLOCK_CLASS } from '../preview/plugin-blocks';
 
@@ -29,7 +29,7 @@ export function hydratePluginBlocks(root: HTMLElement): void {
     const source = el.textContent ?? '';
     const key = blockKey(counts, [pluginId, blockId, notePath, source].join('\u0000'));
     // Its plugin turned off since the note rendered: the text stays, as code.
-    const def = corePluginsStore.block(pluginId, blockId);
+    const def = codePluginsStore.block(pluginId, blockId);
     if (!def || !notePath) continue;
     el.removeAttribute('data-plugin-block-pending');
 

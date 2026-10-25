@@ -287,6 +287,17 @@ Code that loads must not weaken any of these for the app itself.
   each must be a file in the folder.
 - `minerva plugin check` approves in its scratch folder; nothing there is
   the user's.
+- **What its code adds reaches the app as a built-in's does.** Installed
+  plugins' views, blocks and commands are in their summaries, and the
+  renderer's `stores/code-plugins.svelte.ts` (`corePluginsStore` until
+  #2833) serves them beside the built-ins, after them, while they're enabled
+  and approved. Main already resolved installed plugins everywhere
+  (`plugins/code-plugins.ts`). The plugin watcher's fingerprint includes
+  the code hash, so an edit to a page or the logic applies at once.
+- **`tests/fixtures/plugins/note-stats/`** is a third-party plugin with code,
+  in plain JS: a panel fed by its own query, and a command run by its worker.
+  `plugin-third-party-code.spec.ts` installs it, allows it, uses both, edits
+  it in place, and allows it again.
 
 ## Per machine, never per thoughtbase
 
@@ -501,7 +512,7 @@ for anything else it shows; that never widens the scope.
   query gave it. The graph changes, the query runs again, the row goes.
 - **Panels are registry entries.** `pluginLeftPanels` / `pluginRightPanels`
   build ordinary `LEFT_PANELS` / `RIGHT_PANELS` entries from the views of the
-  plugins that are on (`corePluginsStore.views(place)`); the right sidebar
+  plugins that are on (`codePluginsStore.views(place)`); the right sidebar
   shows its Plugins group only while one is. A panel whose plugin is turned
   off falls back to Notes (or Outline).
 - **Tabs.** `place: "tab"` is a view with no panel; any view opens as a tab,
@@ -547,7 +558,7 @@ draws for an export.
 - **Names.** A fence or directive name a built-in already draws (`mermaid`,
   `:::argument`, `:::query-*`, a cell language like `python`) is refused by
   the manifest check. Between plugins, the first to claim a name keeps it, in
-  Settings' order — the same rule in the preview (`corePluginsStore.blockSyntax`)
+  Settings' order — the same rule in the preview (`codePluginsStore.blockSyntax`)
   and in an export (`activePluginBlockSyntax`).
 - **One registry entry.** `LIVE_BLOCKS` holds one `plugin` kind whose syntax is
   `{ plugin: true }`: which names it covers is per machine, so both sides

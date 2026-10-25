@@ -26,7 +26,7 @@ vi.mock('../../../src/renderer/lib/stores/kanban-moves.svelte', () => ({
 vi.mock('../../../src/renderer/lib/stores/settings-calendar.svelte', () => ({
   getCalendarSettings: () => ({ weekStart: 7, showWeekNumbers: true }),
 }));
-vi.mock('../../../src/renderer/lib/stores/core-plugins.svelte', () => ({ corePluginsStore: { isOn: () => true, name: () => 'Calendar' } }));
+vi.mock('../../../src/renderer/lib/stores/code-plugins.svelte', () => ({ codePluginsStore: { isOn: () => true, name: () => 'Calendar' } }));
 
 import TypeView from '../../../src/renderer/lib/components/TypeView.svelte';
 import { objectTypesStore } from '../../../src/renderer/lib/stores/object-types.svelte';

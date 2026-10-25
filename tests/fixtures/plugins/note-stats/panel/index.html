@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Note Lengths</title>
+  <style>
+    body { margin: 0; padding: 8px; font: 12px var(--font-ui, system-ui); color: var(--text); background: var(--bg); }
+    ul { list-style: none; margin: 0; padding: 0; }
+    button { all: unset; display: flex; justify-content: space-between; gap: 8px; width: 100%; padding: 3px 4px; cursor: pointer; border-radius: 3px; }
+    button:hover, button:focus-visible { background: var(--bg-button); }
+    .n { color: var(--text-muted); }
+  </style>
+</head>
+<body>
+  <ul id="lengths" aria-label="Words per note"></ul>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

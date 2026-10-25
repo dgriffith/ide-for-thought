@@ -5,13 +5,13 @@
    * restored from an earlier session), one line says which plugin to turn on.
    */
   import PluginPanel from './PluginPanel.svelte';
-  import { corePluginsStore } from '../../stores/core-plugins.svelte';
+  import { codePluginsStore } from '../../stores/code-plugins.svelte';
 
   interface Props { pluginId: string; viewId: string; title: string }
   let { pluginId, viewId, title }: Props = $props();
 
   // undefined while the plugin list loads: nothing yet, rather than a flash of "off".
-  const active = $derived(corePluginsStore.view(pluginId, viewId));
+  const active = $derived(codePluginsStore.view(pluginId, viewId));
 </script>
 
 {#if active}
@@ -22,7 +22,7 @@
   {/key}
 {:else if active === null}
   <div class="plugin-view-off">
-    <p>{title} is turned off on this machine. Turn on {corePluginsStore.name(pluginId)} in Settings → Plugins to see it.</p>
+    <p>{title} is turned off on this machine. Turn on {codePluginsStore.name(pluginId)} in Settings → Plugins to see it.</p>
   </div>
 {/if}
 
