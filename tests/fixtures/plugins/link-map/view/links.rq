@@ -1,0 +1,14 @@
+# Every Markdown note, and each note it links to by any kind of link (every
+# link predicate is a sub-property of minerva:linksTo). A note with no links
+# still has a row, with no ?target.
+SELECT ?note ?target WHERE {
+  ?note a minerva:Note ;
+        minerva:relativePath ?path .
+  FILTER(STRENDS(LCASE(?path), ".md"))
+  OPTIONAL {
+    ?p rdfs:subPropertyOf* minerva:linksTo .
+    ?note ?p ?target .
+    ?target a minerva:Note .
+    FILTER(?target != ?note)
+  }
+}
