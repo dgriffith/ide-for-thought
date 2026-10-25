@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>__PLUGIN_NAME__</title>
+  <style>
+    /* Minerva's theme arrives as CSS variables, set on :root as it changes. */
+    body { margin: 0; padding: 8px; font: 12px var(--font-ui, system-ui); color: var(--text); background: var(--bg); }
+    ul { list-style: none; margin: 0; padding: 0; }
+    button { all: unset; display: block; width: 100%; padding: 3px 4px; cursor: pointer; border-radius: 3px; }
+    button:hover, button:focus-visible { background: var(--bg-button); }
+    .empty { color: var(--text-muted); }
+  </style>
+</head>
+<body>
+  <ul id="notes" aria-label="__PLUGIN_NAME__"></ul>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

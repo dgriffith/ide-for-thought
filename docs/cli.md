@@ -236,6 +236,9 @@ usage and timing. Opt-in, and it needs a provider key in the environment.
 | `template` | `note-templates` | `templates/<id>-note.md` |
 | `csl` | `csl-styles` | `csl/<id>.csl`, an author-date style |
 | `theme` | `themes` | `themes/<id>-dark.json`, a dark theme |
+| `inspection` | `inspections` | `inspections/untagged-notes.ttl`, a SHACL shape for notes with no tags |
+| `view` | plugin code (#2833) | `panel/index.html`, `panel/app.js` and `panel/notes.rq`: a sidebar panel of the notes tagged #todo |
+| `command` | plugin code (#2833) | `logic.js`: *Title Case Selection*, in the palette and the editor menu, run in the worker host |
 | `mcp` | an MCP server | see below; takes `--mcp node\|python` |
 
 Every point a plugin can contribute to has a kind, and a new point fails

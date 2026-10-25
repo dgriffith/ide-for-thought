@@ -1,0 +1,7 @@
+# What the panel shows: the notes tagged #todo. Minerva runs this query and
+# hands the panel the results; the notes they name are the ones it may read.
+SELECT ?note WHERE {
+  ?note a minerva:Note ;
+        minerva:hasTag ?tag .
+  ?tag minerva:tagName "todo" .
+}
