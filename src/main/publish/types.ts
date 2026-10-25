@@ -164,8 +164,8 @@ export interface ExportOutput {
 }
 
 // The Export menu's format families — one shared list (#2630).
-import { EXPORT_GROUPS, type ExportGroupCategory, type ExportGroupId, type ExportGroupMeta } from '../../shared/export-groups';
-export { EXPORT_GROUPS, type ExportGroupCategory, type ExportGroupId, type ExportGroupMeta };
+import { EXPORT_GROUPS, type ExportGroupCategory, type ExportGroupId, type ExportGroupMeta, type PluginExportGroupId } from '../../shared/export-groups';
+export { EXPORT_GROUPS, type ExportGroupCategory, type ExportGroupId, type ExportGroupMeta, type PluginExportGroupId };
 
 export interface Exporter {
   /** Stable id — used by the menu registry and IPC. */
@@ -173,7 +173,9 @@ export interface Exporter {
   /** Human-readable label for the menu / palette. */
   label: string;
   /** Format family this exporter belongs to (#: export-menu-redesign). */
-  group: ExportGroupId;
+  group: ExportGroupId | PluginExportGroupId;
+  /** A plugin exporter's family (#2648), which `EXPORT_GROUPS` doesn't list. */
+  groupMeta?: ExportGroupMeta;
   /**
    * Distinguishes exporters that share a group AND a scope — e.g. Markdown's
    * verbatim (`markdown`) vs cleaned (`note-markdown`), both valid at

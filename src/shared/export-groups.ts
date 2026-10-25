@@ -26,8 +26,14 @@ export const EXPORT_GROUPS = {
 
 export type ExportGroupId = keyof typeof EXPORT_GROUPS;
 
+/**
+ * A plugin exporter's own family (#2648), `plugin:<plugin id>/<exporter id>`:
+ * each one is its own Export menu item, after the built-in families.
+ */
+export type PluginExportGroupId = `plugin:${string}`;
+
 export interface ExportGroupMeta {
-  id: ExportGroupId;
+  id: ExportGroupId | PluginExportGroupId;
   /** Menu item + dialog title ("Export as <label>"). */
   label: string;
   category: ExportGroupCategory;

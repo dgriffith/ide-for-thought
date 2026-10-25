@@ -54,6 +54,7 @@ export async function pluginList(): Promise<PluginList> {
       ...(m.code?.blocks ? { blocks: m.code.blocks } : {}),
       ...(m.code?.commands ? { commands: m.code.commands } : {}),
       ...(m.code?.ingestors ? { ingestors: m.code.ingestors } : {}),
+      ...(m.code?.exporters ? { exporters: m.code.exporters } : {}),
     })),
     installed: inv.installed.map(({ plugin, record }): PluginSummary => {
       const contributes: PluginSummary['contributes'] = {};

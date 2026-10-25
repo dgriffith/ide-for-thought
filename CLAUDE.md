@@ -1866,7 +1866,11 @@ origin.
   (`plugin-ingestors.ts`); the draft it returns is checked field by field
   and written by `sources/ingest-draft.ts`, `<` escaped, with
   `minerva:ingestedBy`. It can't take an extension Minerva reads
-  (`shared/source-file-types.ts`). A new core plugin needs an
+  (`shared/source-file-types.ts`). **A plugin exporter (#2648)** is in
+  `code.exporters`: its own Export menu family (`plugin:<id>/<exporter>`,
+  so `ExportGroupMeta.id` isn't only `EXPORT_GROUPS`'), handed each note
+  rendered (or as written) and returning files whose paths
+  `plugin-exporters.ts` checks; `runExport` writes them. A new core plugin needs an
   entry in `core-plugins.ts`'s activations, or it is never active.
 
 ### Code Review Checklist for LLM/Graph PRs

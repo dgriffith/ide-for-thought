@@ -633,6 +633,46 @@ written. `sources/ingest-draft.ts` writes the Source.
   a poor fit: it is a `.txt`, which Minerva reads, and one file holds many
   books.
 
+### Exporters (#2648)
+
+An export format a plugin writes is declared in `code.exporters`. Each is a
+family of its own in the Export menu (*EPUB…*), after Minerva's, with the
+same dialog, scopes and exclusion rules as every other exporter:
+
+```json
+"exporters": [{ "id": "epub", "label": "EPUB", "input": "html",
+                "scopes": ["single-note", "folder", "project", "tree"],
+                "write": { "handler": "writeEpub" } }]
+```
+
+**Data in, data out.** Main resolves the plan as for any exporter and hands
+the handler `{ exporter, scope, title, notes }`, each note `{ path, title,
+frontmatter }` plus its body: `html`, as Minerva renders it for export
+(citations, live blocks, the dialog's link policy), or `markdown`, as
+written. No notes are in scope, so what it's handed is all it can read. It
+returns `{ files: [{ path, text | base64 }], summary? }`, and main checks
+every path (relative, no `..`, no dot-segment, no two that differ only in
+case) and every body (`plugin-exporters.ts`). **Minerva writes the files**,
+through `runExport`, into the folder the user chose, so the plugin never
+touches the disk.
+
+- **Why its own family, not the issue's `group`.** A built-in family
+  (Markdown, HTML, PDF…) is one format at several scopes, and a plugin's
+  format is none of them. Joining one would make it a variant of HTML.
+- **Limits.** The plan and the answer each travel in one 1 MiB message, so
+  about 1 MB of rendered notes per export. Past that, the export is refused
+  before the plugin runs ("Export fewer notes"). At most 256 files, and 30 s.
+- **Images** stay as the HTML references them: a file the plugin can't read.
+  An embedded one (a chart, rendered as a `data:` image) arrives whole.
+- **Not yet.** An `mcpTool` writer is #2880.
+- **EPUB is the worked example**, off by default
+  (`plugins/epub/src/`): one chapter per note, a table of contents, and
+  `mimetype` first and stored, as readers need. The rendered HTML is rewritten
+  as XHTML (attributes quoted, void elements closed, named entities made
+  numeric), a link to another exported note goes to its chapter, and an image
+  it can't carry becomes its alt text. It zips with `jszip`, bundled into
+  its `logic.js`.
+
 ### Other candidates
 
 The test is which features reach a privileged sink or hold a credential:
@@ -754,7 +794,7 @@ is an MCP server, as in 4.0.
 | #2642 inspections | Build as written (SPARQL). Code checks come later, through the worker host. |
 | #2643 commands | Built: a command in the palette and the editor menu that runs a handler in the plugin's worker, a skill, a query or a view (*Commands* above). |
 | #2647 ingestors | Built: a file type read by a handler in the plugin's worker, given the file's bytes (*Ingestors* above). An `mcpTool` parser, and URL or identifier ingestors, are #2880. |
-| #2648 exporters | Rewrite: a writer in the worker, given the rendered document. |
+| #2648 exporters | Built: an Export menu family written by a handler in the plugin's worker, given each note rendered (*Exporters* above). An `mcpTool` writer is #2880. |
 
 ## Order
 

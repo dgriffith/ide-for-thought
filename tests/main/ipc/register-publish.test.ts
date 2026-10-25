@@ -90,8 +90,10 @@ vi.mock('../../../src/main/ipc/helpers', () => ({
 // stubbing it would make the group-metadata assertion tautological).
 vi.mock('../../../src/main/publish', async () => {
   const { EXPORT_GROUPS } = await import('../../../src/main/publish/types');
+  const { exportGroupOf } = await import('../../../src/main/publish/registry');
   return {
     EXPORT_GROUPS,
+    exportGroupOf,
     listExporters: h.listExporters,
     getExporter: h.getExporter,
     resolvePlan: h.resolvePlan,

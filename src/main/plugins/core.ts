@@ -166,6 +166,28 @@ const CORE_PLUGIN_DEFINITIONS: readonly CorePluginDefinition[] = [
     },
     defaultEnabled: false,
   },
+  {
+    // EPUB (#2648): the worked example of an exporter whose writer is the
+    // plugin's own code. Export as EPUB hands the notes Minerva rendered to
+    // `writeEpub` in its worker host (`plugins/epub/src/logic.ts`), which
+    // returns the book as bytes; Minerva writes it. No note is in its scope.
+    // Off by default: it adds an export format.
+    manifest: {
+      id: 'epub',
+      name: 'EPUB',
+      version: '1.0.0',
+      minerva: '>=4.0.0',
+      description: 'Export notes as an EPUB e-book: one chapter per note, with a table of contents, for any e-reader.',
+      contributes: {},
+      code: {
+        capabilities: ['notes:read'],
+        api: '^1.10.0',
+        worker: 'logic.js',
+        exporters: [{ id: 'epub', label: 'EPUB', input: 'html', scopes: ['single-note', 'folder', 'project', 'tree'], write: { handler: 'writeEpub' } }],
+      },
+    },
+    defaultEnabled: false,
+  },
 ];
 
 let definitions: readonly CorePluginDefinition[] = CORE_PLUGIN_DEFINITIONS;

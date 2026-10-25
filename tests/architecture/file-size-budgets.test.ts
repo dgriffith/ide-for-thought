@@ -114,7 +114,7 @@ const BUDGETS: Record<string, number> = { // +16: each day named from its conten
   // +17 (#2491): the property card's "Also fills {{name}} in the note's body" line, its helper and style.
   'src/renderer/lib/components/conversations/DraftCards.svelte': 775,
   // +1 for #2256: the MENU_COMMAND_PALETTE channel / its MENU_COMMANDS entry.
-  'src/shared/ipc-contract.ts': 775, // +2: the plugins' inspection checks (#2642); +2: the thoughtbase's (#2874); +1: a save's history cause (#2828); +1: plugins:runCommand (#2643)
+  'src/shared/ipc-contract.ts': 771, // +2: the plugins' inspection checks (#2642); +2: the thoughtbase's (#2874); +1: a save's history cause (#2828); +1: plugins:runCommand (#2643); −4: the export group's type imported, not re-declared (#2648)
   // +1 for #2256: the MENU_COMMAND_PALETTE channel / its MENU_COMMANDS entry.
   'src/shared/channels.ts': 752, // +1: the plugins' inspection checks (#2642); +1: the thoughtbase's (#2874); +2: plugin session events (#2827); +2: PLUGINS_RUN_COMMAND (#2643)
   // +5 (#2494): both typed-note creation paths read the type's effective (inherited) template.
