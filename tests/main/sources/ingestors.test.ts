@@ -4,7 +4,7 @@
  * then the web ingestor, then a DOI found in prose; anything else is refused
  * with a message built from what's registered.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const h = vi.hoisted(() => ({
   ingestIdentifier: vi.fn(),
@@ -19,7 +19,7 @@ vi.mock('../../../src/main/sources/ingest-file-types', () => ({
   ingestPdfFile: h.ingestPdfFile, ingestHtmlFile: h.ingestHtmlFile, ingestTextFile: h.ingestTextFile,
 }));
 
-import { INGESTORS, ingestSource, ingestibleFileExtensions } from '../../../src/main/sources/ingestors';
+import { INGESTORS, ingestSource, ingestibleFileExtensions, setExtraIngestors } from '../../../src/main/sources/ingestors';
 import { IDENTIFIER_KINDS } from '../../../src/main/sources/identifier-kinds';
 
 const made = { sourceId: 's', relativePath: '.minerva/sources/s/meta.ttl', duplicate: false, title: 'T' };
@@ -88,5 +88,29 @@ describe('ingestSource — text', () => {
     await expect(ingestSource('/root', { kind: 'text', text: '   ' })).rejects.toThrow('Empty input.');
     await expect(ingestSource('/root', { kind: 'text', text: 'just some words' }))
       .rejects.toThrow('Not a recognised URL, DOI, arXiv id, or PubMed id: just some words');
+  });
+});
+
+describe('ingestors from outside the source (#2647)', () => {
+  const ingest = vi.fn();
+  const SRT = { id: 'plugin:transcripts/transcript', label: 'Transcript', accepts: { extensions: ['.srt', '.vtt'] }, ingest };
+  beforeEach(() => ingest.mockResolvedValue({ ...made, route: 'file' }));
+  afterEach(() => setExtraIngestors(null));
+
+  it('joins the file dialog and the dispatch, and goes when its provider drops it', async () => {
+    setExtraIngestors(() => [SRT]);
+    expect(ingestibleFileExtensions()).toEqual(expect.arrayContaining(['srt', 'vtt', 'pdf']));
+    await ingestSource('/root', { kind: 'file', path: '/x/Talk.VTT' });
+    expect(ingest).toHaveBeenCalledWith('/root', '/x/Talk.VTT', {});
+    setExtraIngestors(() => []);
+    expect(ingestibleFileExtensions()).not.toContain('srt');
+    await expect(ingestSource('/root', { kind: 'file', path: '/x/a.srt' })).rejects.toThrow("Can't ingest *.srt");
+  });
+
+  it('never takes an extension a built-in reads', async () => {
+    setExtraIngestors(() => [{ ...SRT, accepts: { extensions: ['.pdf'] } }]);
+    await ingestSource('/root', { kind: 'file', path: '/x/a.pdf' });
+    expect(h.ingestPdfFile).toHaveBeenCalled();
+    expect(ingest).not.toHaveBeenCalled();
   });
 });

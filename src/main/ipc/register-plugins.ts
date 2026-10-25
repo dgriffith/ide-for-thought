@@ -53,6 +53,7 @@ export async function pluginList(): Promise<PluginList> {
       ...(m.code?.views ? { views: m.code.views } : {}),
       ...(m.code?.blocks ? { blocks: m.code.blocks } : {}),
       ...(m.code?.commands ? { commands: m.code.commands } : {}),
+      ...(m.code?.ingestors ? { ingestors: m.code.ingestors } : {}),
     })),
     installed: inv.installed.map(({ plugin, record }): PluginSummary => {
       const contributes: PluginSummary['contributes'] = {};

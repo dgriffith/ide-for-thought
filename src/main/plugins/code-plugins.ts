@@ -11,7 +11,7 @@ import { isCorePluginActive } from '../core-plugins-active';
 import { corePlugin, corePlugins } from './core';
 import { loadedPluginScan } from './registry';
 import type { PluginIdentity } from './broker';
-import type { PluginBlock, PluginCommand, PluginView } from '../../shared/plugins/format';
+import type { PluginBlock, PluginCommand, PluginIngestor, PluginView } from '../../shared/plugins/format';
 import type { PluginBlockSyntax } from '../../shared/live-blocks';
 
 // The e2e harness's hostile fixture (`e2e-hooks.ts`, MINERVA_E2E only): no
@@ -98,4 +98,32 @@ export function codePluginCommands(id: string): readonly PluginCommand[] {
   const core = corePlugin(id);
   const manifest = core ? core.manifest : loadedPluginScan().plugins.find((p) => p.manifest.id === id)?.manifest;
   return manifest?.code?.commands ?? [];
+}
+
+/** The ingestors plugin `id` adds (#2647), while it is enabled code; [] otherwise. */
+export function codePluginIngestors(id: string): readonly PluginIngestor[] {
+  if (!codePluginIdentity(id) || e2ePlugins.has(id)) return [];
+  const core = corePlugin(id);
+  const manifest = core ? core.manifest : loadedPluginScan().plugins.find((p) => p.manifest.id === id)?.manifest;
+  return manifest?.code?.ingestors ?? [];
+}
+
+/**
+ * Every ingestor the enabled plugins add (#2647), each with the extensions it
+ * gets: the first plugin to claim an extension keeps it, built-in plugins
+ * first, in Settings' order. One whose every extension went to another is left out.
+ */
+export function activePluginIngestors(): { pluginId: string; ingestor: PluginIngestor }[] {
+  const ids = [...corePlugins().map((p) => p.manifest.id), ...loadedPluginScan().plugins.map((p) => p.manifest.id)];
+  const out: { pluginId: string; ingestor: PluginIngestor }[] = [];
+  const taken = new Set<string>();
+  for (const pluginId of ids) {
+    for (const ingestor of codePluginIngestors(pluginId)) {
+      const extensions = ingestor.accepts.extensions.filter((e) => !taken.has(e));
+      if (extensions.length === 0) continue;
+      for (const e of extensions) taken.add(e);
+      out.push({ pluginId, ingestor: { ...ingestor, accepts: { extensions } } });
+    }
+  }
+  return out;
 }

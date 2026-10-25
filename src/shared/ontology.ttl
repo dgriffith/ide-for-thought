@@ -226,7 +226,12 @@ minerva:sourceId a owl:DatatypeProperty ;
 
 minerva:originalFilename a owl:DatatypeProperty ;
     rdfs:label "original filename" ;
-    rdfs:comment "Filename the source's PDF had when it was ingested, kept so the user can recognise it after the file is renamed to the source id." ;
+    rdfs:comment "Filename the source's file (a PDF, or a file a plugin's ingestor read) had when it was ingested, kept so the user can recognise it after the file is renamed to the source id." ;
+    rdfs:range xsd:string .
+
+minerva:ingestedBy a owl:DatatypeProperty ;
+    rdfs:label "ingested by" ;
+    rdfs:comment "The plugin whose ingestor read this source, as plugin:<id>@<version> (#2647). Absent when Minerva read it itself." ;
     rdfs:range xsd:string .
 
 minerva:readStatus a owl:DatatypeProperty ;

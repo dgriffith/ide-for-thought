@@ -11,14 +11,16 @@
  * `ingestSource`. The dedicated BibTeX and Zotero RDF imports produce many
  * Sources from one file and keep their own channels.
  *
- * Built-ins register here; an MCP-backed ingestor from a plugin will register
- * through the same list (#2615).
+ * Built-ins register here. A plugin's ingestors (#2647) join through
+ * `setExtraIngestors`, which the composition root wires (`sources/` doesn't
+ * import `plugins/`); a built-in keeps any extension it takes.
  */
 import path from 'node:path';
 import { ingestUrl, type IngestResult } from './ingest';
 import { ingestIdentifier, type IdentifierIngestResult } from './ingest-identifier';
 import { IDENTIFIER_KINDS, type IdentifierKind } from './identifier-kinds';
 import { ingestHtmlFile, ingestPdfFile, ingestTextFile } from './ingest-file-types';
+import { BUILTIN_SOURCE_FILE_EXTENSIONS as EXT } from '../../shared/source-file-types';
 
 export interface IngestOptions {
   fetchImpl?: typeof fetch;
@@ -59,10 +61,10 @@ export interface Ingestor {
 const asFile = (r: Promise<IngestResult>) => r.then((x) => ({ ...x, route: 'file' as const }));
 
 export const INGESTORS: readonly Ingestor[] = [
-  { id: 'pdf', label: 'PDF', accepts: { extensions: ['.pdf'] }, ingest: (root, p) => asFile(ingestPdfFile(root, p)) },
-  { id: 'html-file', label: 'HTML', accepts: { extensions: ['.html', '.htm'] }, ingest: (root, p) => asFile(ingestHtmlFile(root, p)) },
-  { id: 'text-file', label: 'text', accepts: { extensions: ['.txt', '.text'] }, ingest: (root, p) => asFile(ingestTextFile(root, p)) },
-  { id: 'markdown-file', label: 'Markdown', accepts: { extensions: ['.md', '.markdown'] }, ingest: (root, p) => asFile(ingestTextFile(root, p)) },
+  { id: 'pdf', label: 'PDF', accepts: { extensions: EXT.pdf }, ingest: (root, p) => asFile(ingestPdfFile(root, p)) },
+  { id: 'html-file', label: 'HTML', accepts: { extensions: EXT.html }, ingest: (root, p) => asFile(ingestHtmlFile(root, p)) },
+  { id: 'text-file', label: 'text', accepts: { extensions: EXT.text }, ingest: (root, p) => asFile(ingestTextFile(root, p)) },
+  { id: 'markdown-file', label: 'Markdown', accepts: { extensions: EXT.markdown }, ingest: (root, p) => asFile(ingestTextFile(root, p)) },
   // One per identifier kind, in detection order (DOI, arXiv, PubMed).
   ...IDENTIFIER_KINDS.map((k): Ingestor => ({
     id: k.kind,
@@ -74,7 +76,20 @@ export const INGESTORS: readonly Ingestor[] = [
   { id: 'web', label: 'URL', accepts: { url: true }, ingest: async (root, url, opts) => ({ ...(await ingestUrl(root, url, opts)), route: 'url' }) },
 ];
 
-const fileIngestors = () => INGESTORS.filter((i): i is Ingestor & { accepts: { extensions: readonly string[] } } => 'extensions' in i.accepts);
+let extraIngestors: () => readonly Ingestor[] = () => [];
+
+/** Ingestors from outside the source — plugins' (#2647) — asked for on every ingest, so a plugin turned off is gone at once. */
+export function setExtraIngestors(provider: (() => readonly Ingestor[]) | null): void {
+  extraIngestors = provider ?? (() => []);
+}
+
+function allIngestors(): readonly Ingestor[] {
+  const builtIn = new Set(INGESTORS.flatMap((i) => ('extensions' in i.accepts ? i.accepts.extensions : [])));
+  const extra = extraIngestors().filter((i) => !('extensions' in i.accepts) || i.accepts.extensions.every((e) => !builtIn.has(e)));
+  return [...INGESTORS, ...extra];
+}
+
+const fileIngestors = () => allIngestors().filter((i): i is Ingestor & { accepts: { extensions: readonly string[] } } => 'extensions' in i.accepts);
 const identifierIngestors = () => INGESTORS.filter((i): i is Ingestor & { accepts: { identifier: IdentifierKind } } => 'identifier' in i.accepts);
 const urlIngestor = () => INGESTORS.find((i) => 'url' in i.accepts);
 

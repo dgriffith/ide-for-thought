@@ -591,6 +591,48 @@ can't undo it. The handler's scope is still the active note, so one with
   built to `logic.js`, beside any page. `plugin-command.spec.ts` drives it
   from the palette and the editor menu.
 
+### Ingestors (#2647)
+
+A file type a plugin reads as a Source is declared in `code.ingestors`. The
+Ingest File dialog offers its extensions beside Minerva's own:
+
+```json
+"ingestors": [{ "id": "transcript", "label": "Transcript",
+                "accepts": { "extensions": [".srt", ".vtt"] },
+                "parse": { "handler": "parseTranscript" } }]
+```
+
+**Data in, data out.** Main reads the file and hands the handler
+`{ ingestor, filename, base64 }`: its name and bytes, no path, and no notes
+in scope. The handler returns a source draft, `{ title, body, type?,
+creators?, issued?, publisher?, abstract?, uri?, language? }`, and main
+checks it field by field (`plugin-ingestors.ts`). An unknown field, a field
+over its limit, a `uri` that isn't http(s), or a `type` that isn't one of
+the Source classes fails the ingest, naming the plugin, and nothing is
+written. `sources/ingest-draft.ts` writes the Source.
+
+- **The body is someone else's text.** Every `<` in it is escaped, so it
+  renders as text and never as HTML, as a clipped page's is (#2558). An LLM
+  reads it as thoughtbase content, like any source body (#2438).
+- **Provenance.** `meta.ttl` records `minerva:ingestedBy
+  "plugin:<id>@<version>"` and the file's original name.
+- **Limits.** A file of at most 640 KB, so its base64 fits in one 1 MiB
+  message to the worker; the reply is bounded by the same limit.
+- **Deduped before the plugin runs.** The Source's id is a hash of the file,
+  so a file ingested twice doesn't reach the plugin the second time.
+- **Minerva's own types stay Minerva's.** A plugin can't take an extension a
+  built-in ingestor or import reads (`shared/source-file-types.ts`), and
+  between plugins the first to claim one keeps it.
+- **Only files, for now.** `urlMatch` and `identifierPattern`, and an
+  `mcpTool` parser, need the network or a confirm outside a conversation:
+  #2880.
+- **Transcripts is the worked example**, off by default: `.srt` and `.vtt`
+  caption files become a transcript, cues joined into paragraphs, each
+  opening with the time it starts at, and a speaker named where they start
+  talking (`plugins/transcripts/src/`). The issue's Kindle clippings file was
+  a poor fit: it is a `.txt`, which Minerva reads, and one file holds many
+  books.
+
 ### Other candidates
 
 The test is which features reach a privileged sink or hold a credential:
@@ -711,7 +753,7 @@ is an MCP server, as in 4.0.
 | #2641 live blocks | Built: a fence or directive drawn by the plugin's frame, exported through the same frame in the export window (*Live blocks* above). |
 | #2642 inspections | Build as written (SPARQL). Code checks come later, through the worker host. |
 | #2643 commands | Built: a command in the palette and the editor menu that runs a handler in the plugin's worker, a skill, a query or a view (*Commands* above). |
-| #2647 ingestors | Rewrite: a parser in the worker, given the file's bytes. One that needs a native library stays MCP. |
+| #2647 ingestors | Built: a file type read by a handler in the plugin's worker, given the file's bytes (*Ingestors* above). An `mcpTool` parser, and URL or identifier ingestors, are #2880. |
 | #2648 exporters | Rewrite: a writer in the worker, given the rendered document. |
 
 ## Order
