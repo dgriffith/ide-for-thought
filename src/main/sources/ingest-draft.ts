@@ -45,7 +45,7 @@ export async function writeDraftSource(
   rootPath: string,
   slot: DraftSourceSlot,
   draft: PluginSourceDraft,
-  opts: { filename: string; ingestedBy: string },
+  opts: { filename?: string; ingestedBy: string },
 ): Promise<IngestResult> {
   const sourceDir = path.join(rootPath, '.minerva', 'sources', slot.sourceId);
   await fs.mkdir(sourceDir, { recursive: true });
@@ -55,7 +55,7 @@ export async function writeDraftSource(
   return { sourceId: slot.sourceId, relativePath: slot.relativePath, duplicate: false, title: draft.title, kind: 'text' };
 }
 
-export function buildDraftMetaTtl(draft: PluginSourceDraft, opts: { filename: string; ingestedBy: string }): string {
+export function buildDraftMetaTtl(draft: PluginSourceDraft, opts: { filename?: string; ingestedBy: string }): string {
   const lines = [
     `this: a thought:${draft.type ?? 'Document'} ;`,
     `    dc:title ${ttlString(draft.title)} ;`,
@@ -69,7 +69,7 @@ export function buildDraftMetaTtl(draft: PluginSourceDraft, opts: { filename: st
   if (draft.abstract) lines.push(`    dc:abstract ${ttlString(draft.abstract)} ;`);
   if (draft.uri) lines.push(`    bibo:uri ${ttlString(draft.uri)} ;`);
   if (draft.language) lines.push(`    dc:language ${ttlString(draft.language)} ;`);
-  lines.push(`    minerva:originalFilename ${ttlString(opts.filename)} ;`);
+  if (opts.filename) lines.push(`    minerva:originalFilename ${ttlString(opts.filename)} ;`);
   lines.push(`    minerva:ingestedBy ${ttlString(opts.ingestedBy)} ;`);
   lines.push(`    thought:accessedAt ${ttlString(new Date().toISOString())}^^xsd:dateTime .`);
   return lines.join('\n') + '\n';

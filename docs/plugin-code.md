@@ -662,9 +662,32 @@ written. `sources/ingest-draft.ts` writes the Source.
 - **Minerva's own types stay Minerva's.** A plugin can't take an extension a
   built-in ingestor or import reads (`shared/source-file-types.ts`), and
   between plugins the first to claim one keeps it.
-- **Only files, for now.** `urlMatch` and `identifierPattern`, and an
-  `mcpTool` parser, need the network or a confirm outside a conversation:
-  #2880.
+- **Or a tool on its own MCP server (#2880)**, for a parser that needs the
+  network or a library: `"parse": { "mcpTool": "<server>/<tool>" }`, the server
+  one of the plugin's `mcpServers` and approved like any (#2646). It's handed
+  the same input as JSON and answers a draft as JSON text, checked the same
+  way (`plugin-mcp-tools.ts`). Only a tool may read a site's pages or an
+  identifier:
+  - `"accepts": { "urlMatch": ["books.example", "*.books.example"] }` takes
+    a URL on those hosts ahead of Minerva's own web-page reader, but after an
+    identifier (a DOI URL is still a DOI). It's handed `{ ingestor, url }`,
+    and the Source's `uri` is the page unless the draft names one.
+  - `"accepts": { "identifierPrefixes": ["shelf:"] }` takes text typed with
+    one of them, in any case, handed as `{ ingestor, identifier }`. These are
+    prefixes, not the issue's patterns: a plugin's pattern would run in main
+    on whatever the user typed. `doi:`, `arxiv:`, `pmid:` and the like stay
+    Minerva's.
+  - **Asking first.** A tool not marked `readOnlyHint` asks before each call,
+    as `mcp_call` does (#2439). Outside a conversation there's no card, so
+    main asks with its own dialog, showing the exact arguments, and *Don't ask
+    again for this tool* writes the card's grant (`nativeMcpConfirmer`).
+  - **Book Shelf** (`tests/fixtures/plugins/book-shelf/`) is the worked
+    example. Its server stands in, offline, for a site with an API, reading
+    `books.example` pages and `shelf:` ids. `book-shelf.test.ts` runs it
+    through the real registry and gate, from a typed URL to a written Source.
+  - A plugin whose `code` runs nothing inside Minerva (only tools, no
+    worker, pages or blocks) declares no capabilities and needs no code
+    approval: its servers are approved one by one instead.
 - **Transcripts is the worked example**, off by default: `.srt` and `.vtt`
   caption files become a transcript, cues joined into paragraphs, each
   opening with the time it starts at, and a speaker named where they start
@@ -703,7 +726,10 @@ touches the disk.
   before the plugin runs ("Export fewer notes"). At most 256 files, and 30 s.
 - **Images** stay as the HTML references them: a file the plugin can't read.
   An embedded one (a chart, rendered as a `data:` image) arrives whole.
-- **Not yet.** An `mcpTool` writer is #2880.
+- **Or a tool on its own MCP server (#2880)**: `"write": { "mcpTool":
+  "<server>/<tool>" }`, handed the same plan as JSON and answering the same
+  `{ files, summary? }` as JSON text, checked the same way. A tool that isn't
+  read-only asks first, natively (*Ingestors* above).
 - **EPUB is the worked example**, off by default
   (`plugins/epub/src/`): one chapter per note, a table of contents, and
   `mimetype` first and stored, as readers need. The rendered HTML is rewritten
@@ -899,8 +925,8 @@ is an MCP server, as in 4.0.
 | #2641 live blocks | Built: a fence or directive drawn by the plugin's frame, exported through the same frame in the export window (*Live blocks* above). |
 | #2642 inspections | Built as SHACL shapes. Code checks are #2831, through the worker host (*Inspections from code* above). |
 | #2643 commands | Built: a command in the palette and the editor menu that runs a handler in the plugin's worker, a skill, a query or a view (*Commands* above). |
-| #2647 ingestors | Built: a file type read by a handler in the plugin's worker, given the file's bytes (*Ingestors* above). An `mcpTool` parser, and URL or identifier ingestors, are #2880. |
-| #2648 exporters | Built: an Export menu family written by a handler in the plugin's worker, given each note rendered (*Exporters* above). An `mcpTool` writer is #2880. |
+| #2647 ingestors | Built: a file type read by a handler in the plugin's worker, given the file's bytes, or by an `mcpTool`, which may also read a site's pages or prefixed identifiers (#2880; *Ingestors* above). |
+| #2648 exporters | Built: an Export menu family written by a handler in the plugin's worker, given each note rendered, or by an `mcpTool` (#2880; *Exporters* above). |
 
 ## Order
 

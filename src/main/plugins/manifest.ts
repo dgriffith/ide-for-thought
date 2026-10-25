@@ -153,7 +153,7 @@ export function validatePluginManifest(raw: unknown, ctx: ManifestContext): Mani
 
   const settings = raw.settings === undefined ? undefined : validatePluginSettings(raw.settings, problems);
   const mcpServers = raw.mcpServers === undefined ? undefined : validatePluginMcpServers(raw.mcpServers, settings ?? [], problems);
-  const code = raw.code === undefined ? undefined : validateCode(raw.code, ctx, problems);
+  const code = raw.code === undefined ? undefined : validateCode(raw.code, ctx, problems, raw);
 
   if (problems.length > 0) return { ok: false, problems };
   return {
@@ -177,7 +177,7 @@ export function validatePluginManifest(raw: unknown, ctx: ManifestContext): Mani
  * (`process`) stays Minerva's own plugins': an installed plugin's program
  * ships as an MCP server ("mcpServers"), approved server by server.
  */
-function validateCode(raw: unknown, ctx: ManifestContext, problems: string[]): PluginCode | undefined {
+function validateCode(raw: unknown, ctx: ManifestContext, problems: string[], rootRaw: Record<string, unknown>): PluginCode | undefined {
   if (!isRecord(raw)) {
     problems.push('"code" must be an object.');
     return undefined;
@@ -186,7 +186,8 @@ function validateCode(raw: unknown, ctx: ManifestContext, problems: string[]): P
     if (!CODE_KEYS.has(key)) problems.push(`Unknown field "code.${key}".`);
   }
   const caps = raw.capabilities;
-  if (!Array.isArray(caps) || caps.length === 0) {
+  // Code that runs nothing inside Minerva (only MCP tools, #2880) may ask for nothing.
+  if (!Array.isArray(caps) || (caps.length === 0 && runsInMinerva(raw))) {
     problems.push('"code.capabilities" must be a non-empty list of what the code does.');
     return undefined;
   }
@@ -208,7 +209,8 @@ function validateCode(raw: unknown, ctx: ManifestContext, problems: string[]): P
   const worker = raw.worker === undefined ? undefined : pluginFilePath(raw.worker, 'code.worker', '.js', problems);
   const commands = raw.commands === undefined ? undefined
     : validateCommands(raw.commands, { worker: raw.worker !== undefined, views: views ?? [] }, problems);
-  const io = { worker: raw.worker !== undefined, isId, capabilities: out, queryPath: (v: unknown, field: string, p: string[]) => pluginFilePath(v, field, '.rq', p) };
+  const servers = isRecord(rootRaw.mcpServers) ? Object.keys(rootRaw.mcpServers) : [];
+  const io = { worker: raw.worker !== undefined, isId, servers, capabilities: out, queryPath: (v: unknown, field: string, p: string[]) => pluginFilePath(v, field, '.rq', p) };
   const ingestors = raw.ingestors === undefined ? undefined : validateIngestors(raw.ingestors, io, problems);
   const exporters = raw.exporters === undefined ? undefined : validateExporters(raw.exporters, io, problems);
   const inspections = raw.inspections === undefined ? undefined : validateInspections(raw.inspections, io, problems);
@@ -237,6 +239,16 @@ function validateCode(raw: unknown, ctx: ManifestContext, problems: string[]): P
     problems.push(`"code.api" asks for plugin API ${api}; this Minerva has ${PLUGIN_API_VERSION}.`);
   }
   return { capabilities: out, api, ...withViews };
+}
+
+/**
+ * Whether a `code` section runs anything inside Minerva (#2880): a page or a
+ * logic module. One that only names its MCP servers' tools runs nothing here,
+ * so it asks for no capabilities and needs no code approval (its servers are
+ * approved one by one, #2646).
+ */
+export function runsInMinerva(code: Record<string, unknown> | PluginCode): boolean {
+  return code.worker !== undefined || code.views !== undefined || code.blocks !== undefined;
 }
 
 /**

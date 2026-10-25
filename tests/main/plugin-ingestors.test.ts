@@ -15,9 +15,11 @@ const h = vi.hoisted(() => ({
   identity: null as Record<string, unknown> | null,
   active: [] as { pluginId: string; ingestor: PluginIngestor }[],
   invoke: vi.fn(),
+  tool: vi.fn(),
 }));
 vi.mock('../../src/main/plugins/code-plugins', () => ({ codePluginIdentity: () => h.identity, activePluginIngestors: () => h.active }));
 vi.mock('../../src/main/plugin-worker-host', () => ({ invokePluginLogic: h.invoke }));
+vi.mock('../../src/main/plugin-mcp-tools', () => ({ callPluginTool: h.tool }));
 
 import { checkedDraft, ingestWithPlugin, pluginIngestors, PLUGIN_INGEST_MAX_FILE_BYTES } from '../../src/main/plugin-ingestors';
 
@@ -36,13 +38,14 @@ beforeEach(() => {
   h.identity = { id: 'transcripts', name: 'Transcripts', version: '1.2.0', capabilities: ['notes:read'] };
   h.active = [{ pluginId: 'transcripts', ingestor: SRT }];
   h.invoke.mockReset();
+  h.tool.mockReset();
 });
 
 describe('ingestWithPlugin (#2647)', () => {
   it('hands the handler the file as data with nothing in scope, and writes the draft as a Source', async () => {
     const p = file('Keynote.srt', '1\n00:00:01,000 --> 00:00:02,000\nHi\n');
     h.invoke.mockResolvedValue({ title: 'Keynote', body: '**[0:01]** Hi <img src=x onerror=alert(1)>', creators: ['Ada'], issued: '2024-05', language: 'en' });
-    const r = await ingestWithPlugin(tmp.root, 'transcripts', SRT, p);
+    const r = await ingestWithPlugin(tmp.root, 'transcripts', SRT, { file: p });
 
     expect(h.invoke).toHaveBeenCalledWith('transcripts', 'parseTranscript',
       { ingestor: 'transcript', filename: 'Keynote.srt', base64: fs.readFileSync(p).toString('base64') },
@@ -60,24 +63,24 @@ describe('ingestWithPlugin (#2647)', () => {
   it('answers a file it has already read without running the plugin', async () => {
     const p = file('a.srt', 'same bytes');
     h.invoke.mockResolvedValue({ title: 'First "one"', body: 'x' });
-    const first = await ingestWithPlugin(tmp.root, 'transcripts', SRT, p);
-    const again = await ingestWithPlugin(tmp.root, 'transcripts', SRT, file('b.srt', 'same bytes'));
+    const first = await ingestWithPlugin(tmp.root, 'transcripts', SRT, { file: p });
+    const again = await ingestWithPlugin(tmp.root, 'transcripts', SRT, { file: file('b.srt', 'same bytes') });
     expect(again).toEqual({ ...first, duplicate: true, title: 'First "one"' });
     expect(h.invoke).toHaveBeenCalledTimes(1);
   });
 
   it('refuses a file over the limit, and a plugin that is off, before running anything', async () => {
     const big = file('big.srt', Buffer.alloc(PLUGIN_INGEST_MAX_FILE_BYTES + 1));
-    await expect(ingestWithPlugin(tmp.root, 'transcripts', SRT, big)).rejects.toThrow('Transcripts reads files up to 640 KB; big.srt is 641 KB.');
+    await expect(ingestWithPlugin(tmp.root, 'transcripts', SRT, { file: big })).rejects.toThrow('Transcripts reads files up to 640 KB; big.srt is 641 KB.');
     h.identity = null;
-    await expect(ingestWithPlugin(tmp.root, 'transcripts', SRT, file('c.srt', 'x'))).rejects.toThrow('"transcripts" is not an enabled plugin with code.');
+    await expect(ingestWithPlugin(tmp.root, 'transcripts', SRT, { file: file('c.srt', 'x') })).rejects.toThrow('"transcripts" is not an enabled plugin with code.');
     expect(h.invoke).not.toHaveBeenCalled();
     expect(fs.existsSync(path.join(tmp.root, '.minerva'))).toBe(false);
   });
 
   it('writes nothing when the draft is bad', async () => {
     h.invoke.mockResolvedValue({ title: 'T', body: 'x', path: '../../etc' });
-    await expect(ingestWithPlugin(tmp.root, 'transcripts', SRT, file('d.srt', 'x')))
+    await expect(ingestWithPlugin(tmp.root, 'transcripts', SRT, { file: file('d.srt', 'x') }))
       .rejects.toThrow('Transcripts\'s Transcript ingestor returned something that isn\'t a source: unknown field "path".');
     expect(fs.existsSync(path.join(tmp.root, '.minerva'))).toBe(false);
   });
@@ -112,3 +115,33 @@ describe('pluginIngestors (#2647)', () => {
     await expect(ingestor!.ingest(tmp.root, file('e.srt', 'e'), {})).resolves.toMatchObject({ route: 'file', title: 'T' });
   });
 });
+
+describe('ingestors whose parser is an MCP tool (#2880)', () => {
+  const PAGE: PluginIngestor = { id: 'page', label: 'Book page', accepts: { urlMatch: ['books.example'] }, parse: { mcpTool: 'catalogue/read_book' } };
+  const ID: PluginIngestor = { id: 'shelf', label: 'Shelf id', accepts: { identifierPrefixes: ['shelf:'] }, parse: { mcpTool: 'catalogue/read_book' } };
+
+  it('hands its tool the URL, records the page as the Source\'s uri, and is a web Source', async () => {
+    h.tool.mockResolvedValue({ title: 'Dune', body: 'Spice.', type: 'Book' });
+    const r = await ingestWithPlugin(tmp.root, 'transcripts', PAGE, { url: 'https://books.example/books/1' });
+    expect(h.tool).toHaveBeenCalledWith('Transcripts', 'transcripts', 'catalogue/read_book', { ingestor: 'page', url: 'https://books.example/books/1' });
+    expect(h.invoke).not.toHaveBeenCalled();
+    expect(r).toMatchObject({ kind: 'web', title: 'Dune', duplicate: false });
+    const ttl = sourceFile(r.sourceId, 'meta.ttl');
+    expect(ttl).toContain('bibo:uri "https://books.example/books/1" ;');
+    expect(ttl).not.toContain('originalFilename');
+  });
+
+  it('an identifier is the same Source in any case, and its own uri wins', async () => {
+    h.tool.mockResolvedValue({ title: 'Dune', body: 'Spice.', uri: 'https://books.example/canonical/1' });
+    const first = await ingestWithPlugin(tmp.root, 'transcripts', ID, { identifier: 'shelf:1' });
+    expect(sourceFile(first.sourceId, 'meta.ttl')).toContain('bibo:uri "https://books.example/canonical/1" ;');
+    expect(await ingestWithPlugin(tmp.root, 'transcripts', ID, { identifier: 'SHELF:1' })).toMatchObject({ duplicate: true, sourceId: first.sourceId });
+    expect(h.tool).toHaveBeenCalledTimes(1);
+  });
+
+  it('registers a site and a prefix as the registry dispatches them', () => {
+    h.active = [{ pluginId: 'transcripts', ingestor: PAGE }, { pluginId: 'transcripts', ingestor: ID }];
+    expect(pluginIngestors().map((i) => i.accepts)).toEqual([{ urlHosts: ['books.example'] }, { identifierPrefixes: ['shelf:'] }]);
+  });
+});
+

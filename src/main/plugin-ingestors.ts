@@ -21,6 +21,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { invokePluginLogic } from './plugin-worker-host';
+import { callPluginTool } from './plugin-mcp-tools';
 import { activePluginIngestors, codePluginIdentity } from './plugins/code-plugins';
 import { PluginCallError } from './plugins/broker';
 import { setExtraIngestors, type Ingestor } from './sources/ingestors';
@@ -46,26 +47,41 @@ const DRAFT_KEYS = new Set(['title', 'body', 'type', 'creators', 'issued', 'publ
 const ISO_DATE = /^\d{4}(?:-\d{2}(?:-\d{2})?)?$/;
 const LANGUAGE_TAG = /^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$/;
 
-/** Read `absPath` as a Source with plugin `pluginId`'s `ingestor`. */
-export async function ingestWithPlugin(rootPath: string, pluginId: string, ingestor: PluginIngestor, absPath: string): Promise<IngestResult> {
+/** What a plugin's ingestor reads (#2647, #2880): a file, a web page, or an identifier. */
+export type PluginIngestSubject = { file: string } | { url: string } | { identifier: string };
+
+/** Read `subject` as a Source with plugin `pluginId`'s `ingestor`: its handler, or its MCP tool. */
+export async function ingestWithPlugin(rootPath: string, pluginId: string, ingestor: PluginIngestor, subject: PluginIngestSubject): Promise<IngestResult> {
   const identity = codePluginIdentity(pluginId);
   if (!identity) throw new PluginCallError(`"${pluginId}" is not an enabled plugin with code.`);
-  const filename = path.basename(absPath);
-  const { size } = await fs.stat(absPath);
-  if (size > PLUGIN_INGEST_MAX_FILE_BYTES) {
-    throw new PluginCallError(`${identity.name} reads files up to ${PLUGIN_INGEST_MAX_FILE_BYTES / 1024} KB; ${filename} is ${Math.ceil(size / 1024)} KB.`);
+  let input: PluginIngestInput;
+  let filename: string | undefined;
+  if ('file' in subject) {
+    filename = path.basename(subject.file);
+    const { size } = await fs.stat(subject.file);
+    if (size > PLUGIN_INGEST_MAX_FILE_BYTES) {
+      throw new PluginCallError(`${identity.name} reads files up to ${PLUGIN_INGEST_MAX_FILE_BYTES / 1024} KB; ${filename} is ${Math.ceil(size / 1024)} KB.`);
+    }
+    input = { ingestor: ingestor.id, filename, base64: (await fs.readFile(subject.file)).toString('base64') };
+  } else {
+    input = 'url' in subject ? { ingestor: ingestor.id, url: subject.url } : { ingestor: ingestor.id, identifier: subject.identifier };
   }
-  const base64 = (await fs.readFile(absPath)).toString('base64');
 
-  const slot = await draftSourceSlot(rootPath, `${pluginId}:${ingestor.id}:${base64}`);
+  // The same file, page or identifier read by the same ingestor is the same Source.
+  const seed = 'base64' in input ? input.base64 : 'url' in input ? input.url : input.identifier.toLowerCase();
+  const slot = await draftSourceSlot(rootPath, `${pluginId}:${ingestor.id}:${seed}`);
   if (slot.existingTitle !== null) {
-    return { sourceId: slot.sourceId, relativePath: slot.relativePath, duplicate: true, title: slot.existingTitle, kind: 'text' };
+    return { sourceId: slot.sourceId, relativePath: slot.relativePath, duplicate: true, title: slot.existingTitle, kind: 'url' in subject ? 'web' : 'text' };
   }
 
-  const input: PluginIngestInput = { ingestor: ingestor.id, filename, base64 };
-  const answer = await invokePluginLogic(pluginId, ingestor.parse.handler, input, { rootPath, scope: [] });
-  const draft = checkedDraft(identity.name, ingestor.label, answer);
-  return writeDraftSource(rootPath, slot, draft, { filename, ingestedBy: `plugin:${identity.id}@${identity.version}` });
+  const answer = 'handler' in ingestor.parse
+    ? await invokePluginLogic(pluginId, ingestor.parse.handler, input, { rootPath, scope: [] })
+    : await callPluginTool(identity.name, pluginId, ingestor.parse.mcpTool, input);
+  const checked = checkedDraft(identity.name, ingestor.label, answer);
+  // A page's Source says where it came from, unless the plugin knew better.
+  const draft = 'url' in subject && !checked.uri ? { ...checked, uri: subject.url } : checked;
+  const written = await writeDraftSource(rootPath, slot, draft, { ...(filename ? { filename } : {}), ingestedBy: `plugin:${identity.id}@${identity.version}` });
+  return 'url' in subject ? { ...written, kind: 'web' } : written;
 }
 
 /** A handler's answer as a Source draft; anything else is the plugin's error. */
@@ -120,12 +136,20 @@ export function checkedDraft(name: string, label: string, answer: unknown): Plug
 
 /** The enabled plugins' ingestors, as the registry runs them. */
 export function pluginIngestors(): Ingestor[] {
-  return activePluginIngestors().map(({ pluginId, ingestor }) => ({
-    id: `plugin:${pluginId}/${ingestor.id}`,
-    label: ingestor.label,
-    accepts: { extensions: ingestor.accepts.extensions },
-    ingest: async (rootPath, absPath) => ({ ...(await ingestWithPlugin(rootPath, pluginId, ingestor, absPath)), route: 'file' as const }),
-  }));
+  return activePluginIngestors().map(({ pluginId, ingestor }): Ingestor => {
+    const id = `plugin:${pluginId}/${ingestor.id}`;
+    const { accepts } = ingestor;
+    if ('extensions' in accepts) {
+      return { id, label: ingestor.label, accepts: { extensions: accepts.extensions },
+        ingest: async (rootPath, file) => ({ ...(await ingestWithPlugin(rootPath, pluginId, ingestor, { file })), route: 'file' as const }) };
+    }
+    if ('urlMatch' in accepts) {
+      return { id, label: ingestor.label, accepts: { urlHosts: accepts.urlMatch },
+        ingest: async (rootPath, url) => ({ ...(await ingestWithPlugin(rootPath, pluginId, ingestor, { url })), route: 'url' as const }) };
+    }
+    return { id, label: ingestor.label, accepts: { identifierPrefixes: accepts.identifierPrefixes },
+      ingest: async (rootPath, identifier) => ({ ...(await ingestWithPlugin(rootPath, pluginId, ingestor, { identifier })), route: 'url' as const }) };
+  });
 }
 
 /** Put the enabled plugins' ingestors in the registry. At startup. */

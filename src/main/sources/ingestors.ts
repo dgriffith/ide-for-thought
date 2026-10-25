@@ -47,7 +47,11 @@ export type IngestorAccepts =
   /** A bibliographic identifier of this kind (`identifier-kinds.ts`). */
   | { identifier: IdentifierKind }
   /** An http(s) URL. */
-  | { url: true };
+  | { url: true }
+  /** An http(s) URL on one of these hosts (`*.example.com` for subdomains too): a plugin's (#2880), ahead of the generic web ingestor. */
+  | { urlHosts: readonly string[] }
+  /** Text typed with one of these prefixes, in any case (`goodreads:…`): a plugin's (#2880). */
+  | { identifierPrefixes: readonly string[] };
 
 export interface Ingestor {
   id: string;
@@ -90,6 +94,17 @@ function allIngestors(): readonly Ingestor[] {
 }
 
 const fileIngestors = () => allIngestors().filter((i): i is Ingestor & { accepts: { extensions: readonly string[] } } => 'extensions' in i.accepts);
+/** Whether `host` is one `pattern` names: `example.com` exactly, `*.example.com` it and its subdomains. */
+export function hostMatches(pattern: string, host: string): boolean {
+  const h = host.toLowerCase().replace(/\.$/, '');
+  if (!pattern.startsWith('*.')) return h === pattern;
+  const base = pattern.slice(2);
+  return h === base || h.endsWith(`.${base}`);
+}
+
+const prefixIngestors = () => extraIngestors().filter((i): i is Ingestor & { accepts: { identifierPrefixes: readonly string[] } } => 'identifierPrefixes' in i.accepts);
+const hostIngestors = () => extraIngestors().filter((i): i is Ingestor & { accepts: { urlHosts: readonly string[] } } => 'urlHosts' in i.accepts);
+
 const identifierIngestors = () => INGESTORS.filter((i): i is Ingestor & { accepts: { identifier: IdentifierKind } } => 'identifier' in i.accepts);
 const urlIngestor = () => INGESTORS.find((i) => 'url' in i.accepts);
 
@@ -127,11 +142,22 @@ export async function ingestSource(rootPath: string, input: IngestInput, opts: I
     if (kind.normalize(text)) return ingestor.ingest(rootPath, text, opts);
   }
 
-  // 2. A URL — the web-page ingestor.
-  const web = urlIngestor();
-  if (web && /^https?:\/\//i.test(text)) return web.ingest(rootPath, text, opts);
+  // 2. Text with a plugin's prefix (#2880): `goodreads:123`.
+  const lower = text.toLowerCase();
+  const byPrefix = prefixIngestors().find((i) => i.accepts.identifierPrefixes.some((p) => lower.startsWith(p)));
+  if (byPrefix) return byPrefix.ingest(rootPath, text, opts);
 
-  // 3. Prose with an identifier in it ("see 10.1145/foo for context").
+  // 3. A URL: a plugin that reads its site (#2880), else the web-page ingestor.
+  const web = urlIngestor();
+  if (/^https?:\/\//i.test(text)) {
+    let host: string | null = null;
+    try { host = new URL(text).hostname; } catch { /* not a URL after all: the web ingestor says so */ }
+    const site = host ? hostIngestors().find((i) => i.accepts.urlHosts.some((p) => hostMatches(p, host))) : undefined;
+    if (site) return site.ingest(rootPath, text, opts);
+    if (web) return web.ingest(rootPath, text, opts);
+  }
+
+  // 4. Prose with an identifier in it ("see 10.1145/foo for context").
   for (const ingestor of identifierIngestors()) {
     const kind = IDENTIFIER_KINDS.find((k) => k.kind === ingestor.accepts.identifier)!;
     const found = 'findInText' in kind ? kind.findInText(text) : null;

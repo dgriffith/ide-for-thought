@@ -11,7 +11,10 @@ import {
   type PluginExporter,
   type PluginExportScope,
   type PluginIngestor,
+  type PluginIngestorAccepts,
   type PluginInspection,
+  PLUGIN_MCP_TOOL,
+  ingestorClaims,
 } from '../../shared/plugins/format';
 import type { PluginCapability } from '../../shared/plugins/capabilities';
 import { PLUGIN_INSPECTION_TYPE } from '../../shared/inspections';
@@ -23,6 +26,8 @@ export interface CodeHas {
   worker: boolean;
   /** Whether `id` is a plugin-style id (`manifest.ts`'s `PLUGIN_ID`). */
   isId: (id: string) => boolean;
+  /** Its `mcpServers`' keys, which an `mcpTool` names (#2880). */
+  servers: readonly string[];
   /** What the code declares it does. */
   capabilities: readonly PluginCapability[];
   /** `v` as an `.rq` in the plugin's folder, or a problem pushed (`manifest.ts`'s `pluginFilePath`). */
@@ -47,10 +52,11 @@ const SEVERITIES = ['info', 'warning', 'concern'] as const;
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
 /**
- * `code.ingestors` (#2647): file types read as Sources by one of the plugin's
- * handlers, so each needs `code.worker`. Only `extensions` for now: a URL or
- * an identifier means the network, which is an MCP server's (#2880). A type
- * Minerva reads itself can't be taken over.
+ * `code.ingestors` (#2647, #2880): what a plugin reads as a Source — file
+ * types, a site's pages (`urlMatch`), or identifiers typed with a prefix —
+ * by a handler in its worker or a tool on one of its own MCP servers. A URL
+ * or an identifier means the network, so only a tool reads one. A type or
+ * prefix Minerva reads itself can't be taken over.
  */
 export function validateIngestors(raw: unknown, has: CodeHas, problems: string[]): PluginIngestor[] | undefined {
   if (!Array.isArray(raw) || raw.length === 0) {
@@ -79,46 +85,85 @@ export function validateIngestors(raw: unknown, has: CodeHas, problems: string[]
     if (typeof label !== 'string' || label.trim() === '' || label.length > 40) {
       problems.push(`"${at}.label" must be a name of at most 40 characters, like "Transcript".`);
     }
-    const extensions = ingestorExtensions(g.accepts, `${at}.accepts`, out, problems);
-    const handler = isRecord(g.parse) && Object.keys(g.parse).length === 1 ? g.parse.handler : undefined;
-    if (typeof handler !== 'string' || !PLUGIN_HANDLER_NAME.test(handler)) {
-      problems.push(`"${at}.parse" must be { "handler": name }, the name a handler registers with minerva.handle().`);
-    } else if (!has.worker) {
-      problems.push(`"${at}.parse.handler" needs "code.worker": a handler is a function in the plugin's logic module.`);
+    const accepts = ingestorAccepts(g.accepts, `${at}.accepts`, out, problems);
+    const parse = handlerOrTool(g.parse, `${at}.parse`, has, problems);
+    if (accepts && parse && !('extensions' in accepts) && !('mcpTool' in parse)) {
+      problems.push(`"${at}.parse" must be an "mcpTool" for ${'urlMatch' in accepts ? 'a URL' : 'an identifier'}: reading one needs the network, which only an MCP server has.`);
     }
-    if (problems.length > before || !extensions) return;
-    out.push({ id: id as string, label: (label as string).trim(), accepts: { extensions }, parse: { handler: handler as string } });
+    if (problems.length > before || !accepts || !parse) return;
+    out.push({ id: id as string, label: (label as string).trim(), accepts, parse });
   });
   return out;
 }
 
-function ingestorExtensions(raw: unknown, at: string, earlier: readonly PluginIngestor[], problems: string[]): string[] | undefined {
+/**
+ * What runs a contribution (#2647, #2880): `{ handler }`, a function in the
+ * plugin's worker (it needs `code.worker`), or `{ mcpTool: "<key>/<tool>" }`,
+ * a tool on one of its own MCP servers.
+ */
+function handlerOrTool(raw: unknown, at: string, has: CodeHas, problems: string[]): { handler: string } | { mcpTool: string } | undefined {
   const keys = isRecord(raw) ? Object.keys(raw) : [];
-  if (!isRecord(raw) || keys.length !== 1 || keys[0] !== 'extensions') {
-    const network = keys.some((k) => k === 'urlMatch' || k === 'identifierPattern');
-    problems.push(network
-      ? `"${at}" can only name "extensions" for now: reading a URL or an identifier needs the network, so it's an MCP server's job.`
-      : `"${at}" must be { "extensions": [".ext", …] }.`);
+  if (!isRecord(raw) || keys.length !== 1 || (keys[0] !== 'handler' && keys[0] !== 'mcpTool')) {
+    problems.push(`"${at}" must be { "handler": name } (a function in its logic) or { "mcpTool": "<server>/<tool>" } (a tool on one of its MCP servers).`);
     return undefined;
   }
-  const list = raw.extensions;
-  if (!Array.isArray(list) || list.length === 0 || list.length > MAX_INGESTOR_EXTENSIONS) {
-    problems.push(`"${at}.extensions" must list 1 to ${MAX_INGESTOR_EXTENSIONS} file extensions, like ".srt".`);
-    return undefined;
-  }
-  const out: string[] = [];
-  for (const ext of list) {
-    if (typeof ext !== 'string' || !FILE_EXTENSION.test(ext)) {
-      problems.push(`"${at}.extensions" names ${JSON.stringify(ext)}; an extension is lowercase, with the dot, like ".srt".`);
-    } else if (isBuiltinSourceFileExtension(ext)) {
-      problems.push(`"${at}.extensions" names "${ext}", which Minerva reads itself.`);
-    } else if (out.includes(ext) || earlier.some((g) => g.accepts.extensions.includes(ext))) {
-      problems.push(`"code.ingestors" names "${ext}" twice.`);
-    } else {
-      out.push(ext);
+  if ('handler' in raw) {
+    const handler = raw.handler;
+    if (typeof handler !== 'string' || !PLUGIN_HANDLER_NAME.test(handler)) {
+      problems.push(`"${at}.handler" must be the name a handler registers with minerva.handle().`);
+      return undefined;
     }
+    if (!has.worker) {
+      problems.push(`"${at}.handler" needs "code.worker": a handler is a function in the plugin's logic module.`);
+      return undefined;
+    }
+    return { handler };
   }
-  return out.length === list.length ? out : undefined;
+  const tool = raw.mcpTool;
+  const m = typeof tool === 'string' ? PLUGIN_MCP_TOOL.exec(tool) : null;
+  if (!m) {
+    problems.push(`"${at}.mcpTool" must be "<server>/<tool>", a tool on one of its "mcpServers".`);
+    return undefined;
+  }
+  if (!has.servers.includes(m[1]!)) {
+    problems.push(`"${at}.mcpTool" names the server "${m[1]}", which isn't one of its "mcpServers"${has.servers.length ? ` (${has.servers.join(', ')})` : ''}.`);
+    return undefined;
+  }
+  return { mcpTool: tool as string };
+}
+
+/** Host patterns: `example.com`, or `*.example.com` for it and every subdomain. */
+const HOST_PATTERN = /^(\*\.)?[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/;
+/** An identifier's prefix, typed before it: `goodreads:`. */
+const IDENTIFIER_PREFIX = /^[a-z][a-z0-9-]{0,30}:$/;
+/** Prefixes Minerva reads, or that would read as a URL: no plugin's. */
+const RESERVED_PREFIXES = new Set(['doi:', 'arxiv:', 'pmid:', 'pubmed:', 'http:', 'https:', 'file:', 'mailto:']);
+
+function ingestorAccepts(raw: unknown, at: string, earlier: readonly PluginIngestor[], problems: string[]): PluginIngestorAccepts | undefined {
+  const keys = isRecord(raw) ? Object.keys(raw) : [];
+  const kind = keys[0];
+  if (!isRecord(raw) || keys.length !== 1 || (kind !== 'extensions' && kind !== 'urlMatch' && kind !== 'identifierPrefixes')) {
+    problems.push(`"${at}" must be exactly one of { "extensions": [".ext", …] }, { "urlMatch": ["example.com", …] } or { "identifierPrefixes": ["name:", …] }.`);
+    return undefined;
+  }
+  const list = raw[kind];
+  if (!Array.isArray(list) || list.length === 0 || list.length > MAX_INGESTOR_EXTENSIONS) {
+    problems.push(`"${at}.${kind}" must list 1 to ${MAX_INGESTOR_EXTENSIONS} of them.`);
+    return undefined;
+  }
+  const taken = new Set(earlier.flatMap((g) => ingestorClaims(g.accepts).values));
+  const out: string[] = [];
+  for (const v of list) {
+    const problem = typeof v !== 'string' ? 'isn\'t text'
+      : kind === 'extensions' ? (!FILE_EXTENSION.test(v) ? 'isn\'t an extension: lowercase, with the dot, like ".srt"' : isBuiltinSourceFileExtension(v) ? 'is one Minerva reads itself' : null)
+        : kind === 'urlMatch' ? (!HOST_PATTERN.test(v) ? 'isn\'t a host, like "example.com" or "*.example.com"' : null)
+          : (!IDENTIFIER_PREFIX.test(v) ? 'isn\'t a prefix: lowercase, ending in ":", like "goodreads:"' : RESERVED_PREFIXES.has(v) ? 'is one Minerva reads itself' : null);
+    if (problem) problems.push(`"${at}.${kind}" names ${JSON.stringify(v)}, which ${problem}.`);
+    else if (out.includes(v as string) || taken.has(v as string)) problems.push(`"code.ingestors" names "${v}" twice.`);
+    else out.push(v as string);
+  }
+  if (out.length !== list.length) return undefined;
+  return kind === 'extensions' ? { extensions: out } : kind === 'urlMatch' ? { urlMatch: out } : { identifierPrefixes: out };
 }
 
 /**
@@ -160,17 +205,12 @@ export function validateExporters(raw: unknown, has: CodeHas, problems: string[]
     if (!Array.isArray(scopes) || scopes.length === 0 || !scopes.every((sc) => known.includes(sc)) || new Set(scopes).size !== scopes.length) {
       problems.push(`"${at}.scopes" must list what it exports, from ${PLUGIN_EXPORT_SCOPES.join(', ')}.`);
     }
-    const handler = isRecord(x.write) && Object.keys(x.write).length === 1 ? x.write.handler : undefined;
-    if (typeof handler !== 'string' || !PLUGIN_HANDLER_NAME.test(handler)) {
-      problems.push(`"${at}.write" must be { "handler": name }, the name a handler registers with minerva.handle().`);
-    } else if (!has.worker) {
-      problems.push(`"${at}.write.handler" needs "code.worker": a handler is a function in the plugin's logic module.`);
-    }
+    const write = handlerOrTool(x.write, `${at}.write`, has, problems);
     if (problems.length > before) return;
     out.push({
       id: id as string, label: (label as string).trim(), input: input as PluginExporter['input'],
       scopes: PLUGIN_EXPORT_SCOPES.filter((sc): sc is PluginExportScope => (scopes as unknown[]).includes(sc)),
-      write: { handler: handler as string },
+      write: write!,
     });
   });
   return out;

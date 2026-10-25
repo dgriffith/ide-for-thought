@@ -706,6 +706,22 @@ export default defineConfig({
           statements: 89,
           branches: 72,
         },
+        // plugin-ingestors.ts ~100 L / 100 F / 100 S / 99 B, and
+        // plugin-exporters.ts ~100 L / 100 F / 94 S / 90 B (#2647, #2648,
+        // #2880): what a plugin's parser or writer (a handler, or its MCP tool)
+        // returns, checked before Minerva writes a Source or a file.
+        'src/main/plugin-ingestors.ts': {
+          lines: 90,
+          functions: 90,
+          statements: 90,
+          branches: 89,
+        },
+        'src/main/plugin-exporters.ts': {
+          lines: 90,
+          functions: 90,
+          statements: 85,
+          branches: 80,
+        },
         // plugin-inspections.ts ~100 L / 100 F / 96 S / 90 B (#2831). A
         // plugin's check written as code: the read-only cap, the answer turned
         // into findings, and a failure kept to one finding.

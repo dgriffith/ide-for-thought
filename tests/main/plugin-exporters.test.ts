@@ -15,9 +15,11 @@ const h = vi.hoisted(() => ({
   identity: null as Record<string, unknown> | null,
   active: [] as { pluginId: string; exporter: PluginExporter }[],
   invoke: vi.fn(),
+  tool: vi.fn(),
 }));
 vi.mock('../../src/main/plugins/code-plugins', () => ({ codePluginIdentity: () => h.identity, activePluginExporters: () => h.active, activePluginBlockSyntax: () => [] }));
 vi.mock('../../src/main/plugin-worker-host', () => ({ invokePluginLogic: h.invoke }));
+vi.mock('../../src/main/plugin-mcp-tools', () => ({ callPluginTool: h.tool }));
 
 import { buildPluginPlan, checkedExport, exportWithPlugin, installPluginExporters, pluginExporters, PLUGIN_EXPORT_DEADLINE_MS } from '../../src/main/plugin-exporters';
 import { setExtraExporters } from '../../src/main/publish/registry';
@@ -69,6 +71,14 @@ describe('exportWithPlugin (#2648)', () => {
     expect(h.invoke).toHaveBeenCalledWith('epub', 'writeEpub', expect.objectContaining({ exporter: 'epub', scope: 'folder' }),
       { rootPath: tmp.root, scope: [], deadlineMs: PLUGIN_EXPORT_DEADLINE_MS });
     expect(out).toEqual({ files: [{ path: 'Book.epub', contents: new Uint8Array(Buffer.from('PK')) }], summary: 'Exported Book.epub with EPUB.' });
+  });
+
+  it('or hands the plan to its MCP tool (#2880), checking what comes back the same way', async () => {
+    h.tool.mockResolvedValue({ files: [{ path: 'list.csv', text: 'a,b' }] });
+    const out = await exportWithPlugin('epub', { ...EPUB, write: { mcpTool: 'books/export' } }, planOf([note('a.md', 'A', 'A')]));
+    expect(h.tool).toHaveBeenCalledWith('EPUB', 'epub', 'books/export', expect.objectContaining({ exporter: 'epub', scope: 'folder' }));
+    expect(h.invoke).not.toHaveBeenCalled();
+    expect(out.files).toEqual([{ path: 'list.csv', contents: 'a,b' }]);
   });
 
   it('refuses before running anything: a plugin that is off, no notes, or more than one message of them', async () => {

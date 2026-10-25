@@ -6,7 +6,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { PLUGIN_API_VERSION } from '../../../src/shared/plugins/api';
-import { validatePluginManifest, PLUGIN_ID } from '../../../src/main/plugins/manifest';
+import { runsInMinerva, validatePluginManifest, PLUGIN_ID } from '../../../src/main/plugins/manifest';
 import { PLUGIN_CONTRIBUTION_POINTS } from '../../../src/shared/plugins/format';
 import { EXTENSION_POINTS } from '../../../src/shared/extensions/points';
 
@@ -112,7 +112,7 @@ describe('the code section (#2823)', () => {
       '"code.capabilities" names "network", which isn\'t a capability; they are notes:read, graph:query, ui, notes:write-properties, notes:write, llm:propose, process.',
       '"code.capabilities" lists "ui" twice.',
     ]);
-    expect(problemsOf({ ...GOOD, code: { capabilities: [] } }, CORE)).toEqual(['"code.capabilities" must be a non-empty list of what the code does.']);
+    expect(problemsOf({ ...GOOD, code: { capabilities: [], worker: 'logic.js' } }, CORE)).toEqual(['"code.capabilities" must be a non-empty list of what the code does.']);
     expect(problemsOf({ ...GOOD, code: 'yes' }, CORE)).toEqual(['"code" must be an object.']);
   });
 });
@@ -304,23 +304,61 @@ describe('code.ingestors (#2647)', () => {
   it('needs code.worker, a handler name and the extensions as written', () => {
     expect(problemsOf({ ...GOOD, code: { capabilities: ['notes:read'], api: '^1.10.0', ingestors: [SRT] } }, CORE))
       .toEqual(['"code.ingestors[0].parse.handler" needs "code.worker": a handler is a function in the plugin\'s logic module.']);
-    expect(problemsOf(code([{ ...SRT, parse: { mcpTool: 'x/y' } }]), CORE))
-      .toEqual(['"code.ingestors[0].parse" must be { "handler": name }, the name a handler registers with minerva.handle().']);
+    expect(problemsOf(code([{ ...SRT, parse: { script: 'x' } }]), CORE))
+      .toEqual(['"code.ingestors[0].parse" must be { "handler": name } (a function in its logic) or { "mcpTool": "<server>/<tool>" } (a tool on one of its MCP servers).']);
     expect(problemsOf(code([{ ...SRT, accepts: { extensions: ['SRT', '.a.b'] } }]), CORE)).toEqual([
-      '"code.ingestors[0].accepts.extensions" names "SRT"; an extension is lowercase, with the dot, like ".srt".',
-      '"code.ingestors[0].accepts.extensions" names ".a.b"; an extension is lowercase, with the dot, like ".srt".',
+      '"code.ingestors[0].accepts.extensions" names "SRT", which isn\'t an extension: lowercase, with the dot, like ".srt".',
+      '"code.ingestors[0].accepts.extensions" names ".a.b", which isn\'t an extension: lowercase, with the dot, like ".srt".',
     ]);
   });
 
-  it("refuses a type Minerva reads itself, one claimed twice, and a URL or identifier (that's MCP)", () => {
+  it("refuses a type Minerva reads itself, one claimed twice, and a URL or identifier read by a handler (that's MCP)", () => {
     expect(problemsOf(code([{ ...SRT, accepts: { extensions: ['.pdf', '.bib'] } }]), CORE)).toEqual([
-      '"code.ingestors[0].accepts.extensions" names ".pdf", which Minerva reads itself.',
-      '"code.ingestors[0].accepts.extensions" names ".bib", which Minerva reads itself.',
+      '"code.ingestors[0].accepts.extensions" names ".pdf", which is one Minerva reads itself.',
+      '"code.ingestors[0].accepts.extensions" names ".bib", which is one Minerva reads itself.',
     ]);
     expect(problemsOf(code([SRT, { ...SRT, id: 'other', accepts: { extensions: ['.vtt'] } }]), CORE))
       .toEqual(['"code.ingestors" names ".vtt" twice.']);
-    expect(problemsOf(code([{ ...SRT, accepts: { urlMatch: 'example.com' } }]), CORE))
-      .toEqual(['"code.ingestors[0].accepts" can only name "extensions" for now: reading a URL or an identifier needs the network, so it\'s an MCP server\'s job.']);
+    expect(problemsOf(code([{ ...SRT, accepts: { urlMatch: ['example.com'] } }]), CORE))
+      .toEqual(['"code.ingestors[0].parse" must be an "mcpTool" for a URL: reading one needs the network, which only an MCP server has.']);
+  });
+});
+
+describe('ingestors and exporters as MCP tools (#2880)', () => {
+  const SERVERS = { mcpServers: { catalogue: { command: 'node', args: ['server/index.js'] } } };
+  const page = { id: 'page', label: 'Page', accepts: { urlMatch: ['books.example', '*.books.example'] }, parse: { mcpTool: 'catalogue/read_book' } };
+  const withCode = (code: Record<string, unknown>, extra: Record<string, unknown> = SERVERS) => ({ ...GOOD, contributes: {}, ...extra, code });
+
+  it('takes a site or an identifier read by its own server\'s tool, with no capabilities, since nothing runs inside Minerva', () => {
+    const shelf = { id: 'shelf', label: 'Shelf id', accepts: { identifierPrefixes: ['shelf:'] }, parse: { mcpTool: 'catalogue/read_book' } };
+    const write = { id: 'csv', label: 'CSV', input: 'markdown', scopes: ['project'], write: { mcpTool: 'catalogue/export' } };
+    const r = validatePluginManifest(withCode({ capabilities: [], ingestors: [page, shelf], exporters: [write] }), CTX);
+    if (!r.ok) throw new Error(r.problems.join('\n'));
+    expect(r.manifest.code).toEqual({ capabilities: [], ingestors: [page, shelf], exporters: [write] });
+    expect(runsInMinerva(r.manifest.code!)).toBe(false);
+  });
+
+  it('a tool must be on one of its own servers', () => {
+    expect(problemsOf(withCode({ capabilities: [], ingestors: [{ ...page, parse: { mcpTool: 'elsewhere/read_book' } }] }), CTX))
+      .toEqual(['"code.ingestors[0].parse.mcpTool" names the server "elsewhere", which isn\'t one of its "mcpServers" (catalogue).']);
+    expect(problemsOf(withCode({ capabilities: [], ingestors: [{ ...page, parse: { mcpTool: 'read_book' } }] }), CTX))
+      .toEqual(['"code.ingestors[0].parse.mcpTool" must be "<server>/<tool>", a tool on one of its "mcpServers".']);
+  });
+
+  it('refuses a host or prefix that isn\'t one, a prefix Minerva reads, and one claimed twice', () => {
+    expect(problemsOf(withCode({ capabilities: [], ingestors: [
+      { ...page, accepts: { urlMatch: ['https://books.example', 'books'] } },
+      { ...page, id: 'ids', accepts: { identifierPrefixes: ['doi:', 'Shelf', 'shelf:'] } },
+    ] }), CTX)).toEqual([
+      '"code.ingestors[0].accepts.urlMatch" names "https://books.example", which isn\'t a host, like "example.com" or "*.example.com".',
+      '"code.ingestors[0].accepts.urlMatch" names "books", which isn\'t a host, like "example.com" or "*.example.com".',
+      '"code.ingestors[1].accepts.identifierPrefixes" names "doi:", which is one Minerva reads itself.',
+      '"code.ingestors[1].accepts.identifierPrefixes" names "Shelf", which isn\'t a prefix: lowercase, ending in ":", like "goodreads:".',
+    ]);
+    expect(problemsOf(withCode({ capabilities: [], ingestors: [
+      { ...page, id: 'ids', accepts: { identifierPrefixes: ['shelf:'] } },
+      { ...page, id: 'again', accepts: { identifierPrefixes: ['shelf:'] } },
+    ] }), CTX)).toEqual(['"code.ingestors" names "shelf:" twice.']);
   });
 });
 
@@ -342,7 +380,7 @@ describe('code.exporters (#2648)', () => {
     expect(problemsOf(code([{ ...EPUB, input: 'pdf', scopes: ['source'], write: { mcpTool: 'x/y' } }]), CORE)).toEqual([
       '"code.exporters[0].input" must be "html" or "markdown"; got "pdf".',
       '"code.exporters[0].scopes" must list what it exports, from single-note, folder, project, tree.',
-      '"code.exporters[0].write" must be { "handler": name }, the name a handler registers with minerva.handle().',
+      '"code.exporters[0].write.mcpTool" names the server "x", which isn\'t one of its "mcpServers".',
     ]);
     expect(problemsOf(code([EPUB, EPUB]), CORE)).toEqual(['"code.exporters" has two exporters with the id "epub".']);
   });
