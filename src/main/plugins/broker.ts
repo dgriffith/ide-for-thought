@@ -468,7 +468,21 @@ export function createPluginSession(opts: PluginSessionOptions): PluginSession {
     let method: PluginMethod | null = null;
     try {
       if (typeof data !== 'string') throw new Refusal('bad-request', 'Messages are JSON text.');
-      if (byteLength(data) > PLUGIN_MESSAGE_LIMIT_BYTES) throw new Refusal('too-large', `Messages are limited to ${PLUGIN_MESSAGE_LIMIT_BYTES} bytes.`);
+      if (byteLength(data) > PLUGIN_MESSAGE_LIMIT_BYTES) {
+        // Too big to parse, so answer it by the id (or the call) it opens
+        // with, as the runtime writes them (#2832): unanswered, the plugin's
+        // call — or ours — would wait forever. The runtime refuses its own
+        // first; this is for a client that doesn't.
+        const head = /^\{"(id|reply)":(\d{1,15})[,}]/.exec(data.slice(0, 32));
+        if (head?.[1] === 'reply') {
+          const waiter = calls.get(Number(head[2]));
+          calls.delete(Number(head[2]));
+          waiter?.reject(new PluginCallError(`${identity.name}: its answer is over ${PLUGIN_MESSAGE_LIMIT_BYTES} bytes.`));
+          return;
+        }
+        if (head) id = Number(head[2]);
+        throw new Refusal('too-large', `Messages are limited to ${PLUGIN_MESSAGE_LIMIT_BYTES} bytes.`);
+      }
       let msg: unknown;
       try {
         msg = JSON.parse(data);

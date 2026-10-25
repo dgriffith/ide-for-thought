@@ -30,6 +30,20 @@ function unwrap(node) {
   return node;
 }
 
+/** A constant written as numbers and `*` / `+` (`1024 * 1024`), or null. */
+function numberOf(node) {
+  node = unwrap(node);
+  if (ts.isNumericLiteral(node)) return Number(node.text);
+  if (ts.isBinaryExpression(node)) {
+    const a = numberOf(node.left);
+    const b = numberOf(node.right);
+    if (a === null || b === null) return null;
+    if (node.operatorToken.kind === ts.SyntaxKind.AsteriskToken) return a * b;
+    if (node.operatorToken.kind === ts.SyntaxKind.PlusToken) return a + b;
+  }
+  return null;
+}
+
 function propName(p, sf) {
   const n = p.name;
   if (ts.isStringLiteral(n) || ts.isIdentifier(n)) return n.text;
@@ -53,7 +67,7 @@ function shapeOf(typeNode, sf) {
 /** Read the API's surface out of `api.ts`'s source. */
 export function readApiSource(source, fileName = 'api.ts') {
   const sf = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true);
-  const out = { version: null, portMessage: null, methods: {}, params: {}, results: {}, events: {}, types: {}, errorCodes: [] };
+  const out = { version: null, portMessage: null, messageLimit: null, methods: {}, params: {}, results: {}, events: {}, types: {}, errorCodes: [] };
   const typeText = {};
   for (const st of sf.statements) {
     if (ts.isVariableStatement(st)) {
@@ -62,6 +76,7 @@ export function readApiSource(source, fileName = 'api.ts') {
         const init = unwrap(d.initializer);
         if (name === 'PLUGIN_API_VERSION' && init && ts.isStringLiteral(init)) out.version = init.text;
         if (name === 'PLUGIN_PORT_MESSAGE' && init && ts.isStringLiteral(init)) out.portMessage = init.text;
+        if (name === 'PLUGIN_MESSAGE_LIMIT_BYTES' && init) out.messageLimit = numberOf(init);
         if (name === 'PLUGIN_METHODS' && init && ts.isObjectLiteralExpression(init)) {
           for (const p of init.properties) {
             if (!ts.isPropertyAssignment(p)) continue;
@@ -98,6 +113,7 @@ export function readApiSource(source, fileName = 'api.ts') {
 /** Problems with the surface itself, before anything is generated. */
 export function checkApi(api) {
   const problems = [];
+  if (!Number.isInteger(api.messageLimit) || api.messageLimit <= 0) problems.push('PLUGIN_MESSAGE_LIMIT_BYTES must be a whole number of bytes, written with numbers, * and +.');
   if (!api.version || !/^\d+\.\d+\.\d+$/.test(api.version)) problems.push(`PLUGIN_API_VERSION must be a semver version; got ${JSON.stringify(api.version)}.`);
   if (!api.portMessage) problems.push('PLUGIN_PORT_MESSAGE is missing.');
   for (const name of Object.keys(api.methods)) {
@@ -249,6 +265,10 @@ export function generateJs(api) {
 
 export const PLUGIN_API_VERSION = ${JSON.stringify(api.version)};
 const PORT_MESSAGE = ${JSON.stringify(api.portMessage)};
+// The largest message either way, as the broker counts it (UTF-8 bytes). A
+// message over it can't be answered by its id, so it is refused here (#2832).
+const MESSAGE_LIMIT = ${api.messageLimit};
+const tooLarge = (text) => new TextEncoder().encode(text).length > MESSAGE_LIMIT;
 const METHODS = ${JSON.stringify(methods, null, 2).replace(/\n/g, '\n')};
 
 /** A call Minerva refused or couldn't complete; \`code\` says which. */
@@ -303,7 +323,10 @@ function client(port, hostVersion, options) {
   // Minerva calling one of this plugin's handlers (#2830): run it, answer with what it returned or why not.
   const answer = (n, handler, args) => {
     const fn = handlers.get(handler);
-    const send = (body) => port.postMessage(JSON.stringify({ reply: n, ...body }));
+    const send = (body) => {
+      const text = JSON.stringify({ reply: n, ...body });
+      port.postMessage(tooLarge(text) ? JSON.stringify({ reply: n, error: 'its answer is over ' + MESSAGE_LIMIT + ' bytes' }) : text);
+    };
     if (!fn) { send({ error: 'it has no handler "' + handler + '"' }); return; }
     Promise.resolve().then(() => fn(args)).then(
       (result) => { try { send({ result: result === undefined ? null : result }); } catch (err) { send({ error: 'its answer could not be sent: ' + String(err) }); } },
@@ -331,8 +354,10 @@ function client(port, hostVersion, options) {
   };
   const call = (method, params) => new Promise((resolve, reject) => {
     const id = nextId++;
+    const text = JSON.stringify({ id, method, params: params ?? {} });
+    if (tooLarge(text)) { reject(new PluginApiError('too-large', 'The call is over ' + MESSAGE_LIMIT + ' bytes. Send less.')); return; }
     pending.set(id, { resolve, reject });
-    port.postMessage(JSON.stringify({ id, method, params: params ?? {} }));
+    port.postMessage(text);
   });
   const quiet = (p) => { p.catch(() => {}); };
   const onKeydown = (e) => {

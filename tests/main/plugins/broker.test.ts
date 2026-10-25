@@ -108,10 +108,21 @@ describe('the message (#2825)', () => {
     const s = open({ notes: { 'a.md': 'x'.repeat(PLUGIN_MESSAGE_LIMIT_BYTES + 10) } });
     s.deliver(JSON.stringify({ id: 1, method: 'ui.copyText', params: { text: 'y'.repeat(PLUGIN_MESSAGE_LIMIT_BYTES) } }));
     await vi.waitFor(() => expect(s.sent).toHaveLength(1));
-    expect((s.sent[0] as { error: { code: string } }).error.code).toBe('too-large');
+    // Answered by the id it opens with, though it's too big to read (#2832).
+    expect(s.sent[0]).toMatchObject({ id: 1, error: { code: 'too-large' } });
     expect(s.copied).toEqual([]);
     const big = await s.call('notes.read', { path: 'a.md' });
     expect(big.error?.code).toBe('too-large');
+  });
+
+  it("rejects our call when the plugin's answer is over the limit, rather than waiting for it (#2832)", async () => {
+    const s = open();
+    s.deliver(JSON.stringify({ handles: 'huge' }));
+    const pending = s.session.call('huge', null);
+    await vi.waitFor(() => expect(s.sent.some((m) => (m as { call?: number }).call !== undefined)).toBe(true));
+    const n = (s.sent.find((m) => (m as { call?: number }).call !== undefined) as { call: number }).call;
+    s.deliver(`{"reply":${n},"result":"${'z'.repeat(PLUGIN_MESSAGE_LIMIT_BYTES)}"}`);
+    await expect(pending).rejects.toThrow(`Board: its answer is over ${PLUGIN_MESSAGE_LIMIT_BYTES} bytes.`);
   });
 });
 

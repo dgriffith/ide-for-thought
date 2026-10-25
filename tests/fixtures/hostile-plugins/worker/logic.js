@@ -20,12 +20,33 @@ minerva.handle('probe', async () => {
   } catch (e) {
     fetched = `blocked: ${e.name}`;
   }
+  let importFs;
+  try {
+    await import('node:fs');
+    importFs = 'LOADED';
+  } catch (e) {
+    importFs = `blocked: ${e.name}`;
+  }
+  // A socket out (#2832): the origin's CSP has no connect-src for one.
+  const websocket = await new Promise((resolve) => {
+    const timer = setTimeout(() => resolve('blocked: no answer'), 3000);
+    try {
+      const ws = new WebSocket('wss://example.com/leak');
+      ws.onopen = () => { clearTimeout(timer); resolve('OPEN'); };
+      ws.onerror = () => { clearTimeout(timer); resolve('blocked'); };
+    } catch (e) {
+      clearTimeout(timer);
+      resolve(`blocked: ${e.name}`);
+    }
+  });
   return {
     require: typeof globalThis.require,
     process: typeof globalThis.process,
     document: typeof globalThis.document,
     api: typeof globalThis.api,
     fetched,
+    importFs,
+    websocket,
   };
 });
 

@@ -792,6 +792,23 @@ code:
   far over the size limit; a loop that never returns (terminated, the app stays
   responsive); and a hostile note that gets script into a plugin view.
 
+**As built (#2832): the corpus.** The hostile fixtures in
+`tests/fixtures/hostile-plugins/` make each attempt above, run in the real
+app by the frame, session and worker-host specs, and `PLUGIN_CODE_CORPUS`
+(`tests/helpers/hostile-plugins.ts`) lists them, each with the spec that
+shows it contained. The coverage test fails on an attempt the frame offers
+that the table doesn't list, or a case whose fixture or spec stopped
+naming it. Writing it found one real hole: a message over the 1 MiB limit
+was refused before its id could be read, so the plugin's call (or a
+worker's answer to Minerva's) never settled. The runtime now refuses an
+over-size call itself, and turns an over-size answer into an error; the
+broker answers one it does receive by the id it opens with.
+
+The capability check (`plugin check` running the plugin's code and failing
+on any call outside what it declares) moved to #2833. It needs Electron's
+CLI mode to host the code, and until third-party plugins can declare code
+there is nothing for it to check.
+
 ## Forks and the ABI
 
 **Decision:** with code, the plugin API becomes an ABI with a semver version
