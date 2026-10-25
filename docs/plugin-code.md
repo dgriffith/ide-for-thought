@@ -718,8 +718,9 @@ disabled list keeps it by pattern.
 The test is which features reach a privileged sink or hold a credential:
 
 - **Local (stdio) MCP servers**: `MCP_SERVERS_ADD` and `MCP_SERVERS_UPDATE` are
-  two more privileged channels. HTTP servers carry less risk. Open question:
-  whether the MCP client is one plugin or two.
+  two more privileged channels. HTTP servers carry less risk. Decided: local
+  servers alone become a core plugin (*Local MCP servers as a core plugin*
+  below).
 - **Git publish** (a stored token), **dictation** (the microphone, a model
   fetched at runtime): smaller, and later.
 
@@ -864,12 +865,49 @@ is an MCP server, as in 4.0.
 5. **The worker host**, then commands, ingestors and exporters.
 6. **Open the API to third-party plugins.**
 
+## Plugins an agent writes (#2834)
+
+A plugin the user's own agent writes on the spot is LLM output, and LLM
+output is proposed, never applied (the Trust Principle).
+
+- **Decision: it lands as a proposal, then main asks.** The plugin goes into
+  the review queue like any LLM write, as a `plugin_install` proposal. The
+  review shows the manifest, its capabilities in words, and every file.
+  Approving it installs it. For a plugin with `code`, main's native allow
+  (*Trust and approval*) still follows, so there are two steps. **Why not
+  one:** a review-queue approval is the renderer's, and a compromised
+  renderer could approve agent-written code. The native dialog is the step it
+  can't answer. A declarative plugin (skills, types, queries) has no code
+  to allow, so the proposal is the whole approval.
+- **Decision: an edit to an installed plugin is a new proposal, diffed.** A
+  `plugin_update` proposal shows the change against the installed files.
+  Approving writes them, and the new hash asks natively, as any change does.
+  The agent never writes into `~/.minerva/plugins/` itself.
+- **`process` stays out of reach.** No installed plugin may declare it
+  (#2833), so an agent can't write one that runs a program. One that needs a
+  program ships an MCP server, approved server by server (#2646).
+- Until #2890 builds this, an agent's draft is installed from its
+  conversation card, through the same native allow as any install.
+
+## Local MCP servers as a core plugin (#2835)
+
+A stdio MCP server is a program Minerva runs, and `MCP_SERVERS_ADD` and
+`MCP_SERVERS_UPDATE` are privileged channels because of it.
+
+- **Decision: local servers become a core plugin, *Local MCP servers*,
+  declaring `process`.** Off means not wired up: no stdio server starts, and
+  the two channels don't exist (#2820). Turning it on asks natively (#2821).
+- **Decision: remote (HTTP) servers stay core.** They run nothing on the
+  machine, so making them switchable buys nothing, and splitting them keeps
+  the conversation's `mcp_call` working for remote tools when local is off.
+- **Default: off on a new install.** It's kept on, once, for anyone with a
+  stdio server configured, as Python was (#2822).
+- **A plugin that ships `mcpServers` (#2646) needs it**, since those are
+  stdio programs. While it's off, Settings says so and the servers don't start.
+- Built by #2891.
+
 ## Open questions
 
-- **Plugins written on the spot.** Should a plugin the user's own agent just
-  wrote go through the same install approval, or land as a proposal in the
-  review queue? The second fits the Trust Principle better.
-- **The MCP client as a core plugin**: one plugin, or local and remote apart?
 - **Shortcut conflicts** between plugins, and between a plugin and core.
 - **How core plugins build**: packaged into `app.asar` under their own
   origin, from source in this repo, with the same `plugin check` in CI.
