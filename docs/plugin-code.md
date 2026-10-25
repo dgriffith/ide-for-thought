@@ -910,7 +910,13 @@ is an MCP server, as in 4.0.
 3. **The view API and UI kit, against kanban.**
 4. **Timeline and calendar.**
 5. **The worker host**, then commands, ingestors and exporters.
-6. **Open the API to third-party plugins.**
+6. **Open the API to third-party plugins.** Done in #2833: approval pinned to
+   a hash, the seams, the docs and scaffolds, `plugin check` running code.
+   The parity test is **Link Map** (`tests/fixtures/plugins/link-map/`), a
+   graph of notes and their links that no core code draws. It's plain JS on
+   the published API alone, installed and allowed like any plugin, a panel
+   and a tab, opened by click and keyboard, and clean under the same a11y scan
+   as the app's own views (`plugin-parity-link-map.spec.ts`).
 
 ## Open questions
 

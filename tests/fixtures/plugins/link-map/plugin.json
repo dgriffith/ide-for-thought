@@ -1,0 +1,15 @@
+{
+  "id": "link-map",
+  "name": "Link Map",
+  "version": "1.0.0",
+  "minerva": ">=3.0.0",
+  "description": "A map of your notes and the links between them, drawn as a graph. Click or press Enter on a note to open it.",
+  "author": "Minerva's tests",
+  "license": "MIT",
+  "contributes": {},
+  "code": {
+    "capabilities": ["graph:query", "ui"],
+    "api": "^1.10.0",
+    "views": [{ "id": "map", "title": "Link Map", "place": "left-sidebar", "entry": "view/index.html", "query": "view/links.rq", "icon": "share-2" }]
+  }
+}

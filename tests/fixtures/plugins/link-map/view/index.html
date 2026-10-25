@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Link Map</title>
+  <style>
+    html, body { height: 100%; margin: 0; }
+    body { font: 11px var(--font-ui, system-ui); color: var(--text); background: var(--bg); display: flex; flex-direction: column; }
+    p { margin: 6px 8px; color: var(--text-muted); }
+    svg { flex: 1; width: 100%; min-height: 0; }
+    line { stroke: var(--border); stroke-width: 1; }
+    .node circle { fill: var(--accent); }
+    .node text { fill: var(--text); }
+    .node:focus { outline: none; }
+    .node:focus circle, .node:hover circle { stroke: var(--text); stroke-width: 2; }
+  </style>
+</head>
+<body>
+  <p id="summary" role="status"></p>
+  <svg id="map" role="group" aria-label="Notes and their links"></svg>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
