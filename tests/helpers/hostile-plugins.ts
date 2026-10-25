@@ -202,5 +202,6 @@ export const PLUGIN_CODE_CORPUS: PluginCodeCorpusCase[] = [
   { id: 'forged-provenance', summary: 'A write claiming to be the user\'s in history', fixtures: [SESSION_SPEC], attempt: "provenance: 'user'", tests: [SESSION_SPEC] },
   { id: 'over-limit', summary: 'A payload far over the message limit', fixtures: [SESSION_SPEC], attempt: 'too-large', tests: [SESSION_SPEC, 'tests/main/plugins/broker.test.ts'] },
   { id: 'endless-loop', summary: 'A handler that never returns: stopped at its deadline, the app answering throughout', fixtures: [WORKER], attempt: 'spin', tests: [WORKER_SPEC] },
+  { id: 'undeclared-call', summary: 'Code that calls the API past the capabilities it declares: refused, and plugin check fails it (#2833)', fixtures: ['tests/fixtures/hostile-plugins/overreach/logic.js'], attempt: 'notes.write', tests: ['tests/e2e/cli-plugin-check-code.spec.ts'] },
   { id: 'hostile-note', summary: "A note's markup put into a view as HTML: it runs nothing, and script that got in has only that plugin's capabilities", fixtures: [FRAME], attempt: 'inject', tests: [SESSION_SPEC] },
 ];

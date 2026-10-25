@@ -31,7 +31,7 @@
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import type { PluginCheckItem, PluginCheckReport, PluginCheckStage, PluginCheckStatus } from '../../shared/plugins/check';
+import type { PluginCheckItem, PluginCheckReport, PluginCheckStage, PluginCheckStatus, PluginCodeStage } from '../../shared/plugins/check';
 import type { PluginManifest, PluginPackage } from '../../shared/plugins/format';
 import { UNTRUSTED_TAG } from '../../shared/untrusted-content';
 import { pluginThemeMode } from '../../shared/theme';
@@ -64,6 +64,11 @@ export interface PluginCheckOptions {
   runServers?: boolean;
   /** Where the scratch folder goes (default: the system temp folder). */
   scratchParent?: string;
+  /**
+   * Run its code (#2833): the app's runtime, when `plugin check` runs as the
+   * app (`minerva`). Absent under plain Node, and the stage says so.
+   */
+  codeStage?: PluginCodeStage;
 }
 
 /** Notes rendered per skill per thoughtbase: enough to take each shape, bounded for a big thoughtbase. */
@@ -430,6 +435,20 @@ export async function checkPlugin(folder: string, opts: PluginCheckOptions): Pro
 
     // ── mcp ──
     await checkServers(r, installed, opts.runServers === true);
+
+    // ── code ──
+    if (manifest.code) {
+      if (!opts.codeStage) {
+        r.add('code', 'code', 'skip', 'its code runs only in the app: check it with `minerva plugin check`, the CLI Minerva installs');
+      } else {
+        try {
+          const items = await opts.codeStage({ appVersion: opts.appVersion, pluginsDir, pluginId: manifest.id, thoughtbases: tbs, scratch });
+          r.items.push(...items);
+        } catch (e) {
+          r.add('code', 'code', 'fail', `its code couldn't be run: ${message(e)}`);
+        }
+      }
+    }
 
     // ── uninstall ──
     await checkUninstall(r, manifest, pluginsDir, tbs, typed, noSkills);

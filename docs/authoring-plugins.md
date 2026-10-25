@@ -208,8 +208,9 @@ or `--mcp node|python` for an MCP server. What it writes passes
 `minerva plugin check <folder>` puts it through what Minerva does with it
 before anyone installs it (#2654): the manifest, an install, each contribution
 loaded and run against a tidy and a hostile thoughtbase, its MCP servers (with
-`--run-servers`, which runs them) and a removal that must leave nothing
-behind. Add `--thoughtbase <path>` to check against your own (a copy). See
+`--run-servers`, which runs them), its code (each handler called in a real
+worker host; a call past the capabilities it declares fails it, #2833) and a
+removal that must leave nothing behind. Add `--thoughtbase <path>` to check against your own (a copy). See
 [the CLI](cli.md#plugin-check) for the stages.
 
 ## What Minerva refuses, and what it contains

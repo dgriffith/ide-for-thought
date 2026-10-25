@@ -24,6 +24,8 @@
 import { app } from 'electron';
 import { createRequire } from 'node:module';
 import path from 'node:path';
+import { registerAppScheme } from './app-protocol';
+import { PLUGIN_CODE_STAGE_GLOBAL, type PluginCodeStage } from '../shared/plugins/check';
 
 export const CLI_MODE_FLAG = '--minerva-cli';
 
@@ -55,6 +57,12 @@ export function cliModeArgs(argv: readonly string[], env: NodeJS.ProcessEnv): st
 export function runCliMode(args: string[]): void {
   // A command-line tool: no dock icon, no app switcher entry.
   app.dock?.hide();
+  // `plugin check` runs a plugin's code in a worker host (#2833), which the
+  // Electron-free CLI bundle can't make: the app offers it here, loaded only
+  // if called. Its schemes have to be declared privileged before `ready`.
+  registerAppScheme();
+  (globalThis as Record<string, unknown>)[PLUGIN_CODE_STAGE_GLOBAL] = ((input) =>
+    import('./plugin-code-check').then((m) => m.checkPluginCode(input))) satisfies PluginCodeStage;
   const cli = bundledCliPath();
   // `cli.js` reads `process.argv.slice(2)`, as it did under RunAsNode.
   process.argv = [process.execPath, cli, ...args];
