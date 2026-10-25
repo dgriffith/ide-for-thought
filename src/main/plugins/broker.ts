@@ -115,6 +115,12 @@ export interface PluginSessionOptions {
 export interface PluginSession {
   /** Replace the notes this session was given. */
   setScope(paths: readonly string[]): void;
+  /**
+   * Cap what the session may do below what the plugin declared (#2831): an
+   * inspection's call gets the read capabilities only, whatever else the
+   * plugin does. `null` lifts the cap.
+   */
+  limitCapabilities(capabilities: readonly PluginCapability[] | null): void;
   scope(): readonly string[];
   /** Add notes the user gave the view (a drop, #2827); refused paths are left out. */
   addToScope(paths: readonly string[]): string[];
@@ -233,6 +239,7 @@ export function createPluginSession(opts: PluginSessionOptions): PluginSession {
   const { identity, rootPath, port, deps } = opts;
   const provenance = `plugin:${identity.id}@${identity.version}`;
   const declared = new Set<PluginCapability>(identity.capabilities);
+  let cap: Set<PluginCapability> | null = null;
   const log = logger('plugins');
   let scope = new Set<string>();
   let inFlight = 0;
@@ -507,6 +514,9 @@ export function createPluginSession(opts: PluginSessionOptions): PluginSession {
       if (!declared.has(capability)) {
         throw new Refusal('capability', `${method} needs the "${capability}" capability, which ${identity.name} doesn't declare.`);
       }
+      if (cap && !cap.has(capability)) {
+        throw new Refusal('capability', `${method} needs the "${capability}" capability, which this call doesn't have: it only reads.`);
+      }
       if (inFlight >= PLUGIN_MAX_IN_FLIGHT) throw new Refusal('busy', `${PLUGIN_MAX_IN_FLIGHT} calls are already running.`);
       inFlight += 1;
       try {
@@ -542,6 +552,7 @@ export function createPluginSession(opts: PluginSessionOptions): PluginSession {
 
   return {
     setScope,
+    limitCapabilities: (capabilities) => { cap = capabilities ? new Set(capabilities) : null; },
     scope: () => [...scope].sort(),
     addToScope: (paths) => {
       const added = [...new Set(admissible(paths))];

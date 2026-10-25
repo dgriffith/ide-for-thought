@@ -37,7 +37,9 @@ silenceLogTags('plugins');
 
 const LAB: PluginIdentity = { id: 'lab', name: 'Lab', version: '1.0.0', capabilities: ['notes:read'] };
 const NEVER = Symbol('never answers');
-type Behaviour = Record<string, (args: unknown) => unknown>;
+/** A handler, and how it calls the broker back, as a plugin's logic would. */
+type Ask = (method: string, params?: unknown) => Promise<{ result?: unknown; error?: { code: string; message: string } }>;
+type Behaviour = Record<string, (args: unknown, ask: Ask) => unknown>;
 
 /** Views and channels whose "plugin" announces its handlers and answers calls, as the runtime does. */
 function fake(behaviour: Behaviour) {
@@ -55,12 +57,20 @@ function fake(behaviour: Behaviour) {
     },
     channel() {
       let toBroker: (data: unknown) => void = () => {};
+      const asked = new Map<number, (reply: { result?: unknown; error?: { code: string; message: string } }) => void>();
+      let nextAsk = 1;
+      const ask: Ask = (method, params) => new Promise((resolve) => {
+        const id = nextAsk++;
+        asked.set(id, resolve);
+        toBroker(JSON.stringify({ id, method, params }));
+      });
       const local: BrokerPort = {
         send(text) {
-          const m = JSON.parse(text) as { call?: number; handler?: string; args?: unknown };
+          const m = JSON.parse(text) as { id?: number; call?: number; handler?: string; args?: unknown };
+          if (typeof m.id === 'number' && asked.has(m.id)) { asked.get(m.id)!(m as never); asked.delete(m.id); return; }
           if (typeof m.call !== 'number') return;
           const fn = behaviour[m.handler!];
-          Promise.resolve().then(() => fn!(m.args)).then(
+          Promise.resolve().then(() => fn!(m.args, ask)).then(
             (result) => { if (result !== NEVER) toBroker(JSON.stringify({ reply: m.call, result })); },
             (e: Error) => toBroker(JSON.stringify({ reply: m.call, error: e.message })),
           );
@@ -78,6 +88,7 @@ function fake(behaviour: Behaviour) {
 
 const BEHAVIOUR: Behaviour = {
   echo: (args) => ({ echoed: args }),
+  copy: async (_args, ask) => (await ask('ui.copyText', { text: 'x' })).error ?? 'copied',
   spin: () => new Promise(() => {}).then(() => NEVER),
   fails: () => { throw new Error('the parser choked'); },
 };
@@ -88,6 +99,15 @@ beforeEach(() => { h.identity = LAB; h.worker = 'logic.js'; });
 afterEach(() => _setWorkerHostFactoryForTests(null));
 
 describe('invokePluginLogic (#2830)', () => {
+  it('caps a call at the capabilities it is given, and only that call (#2831)', async () => {
+    h.identity = { ...LAB, capabilities: ['notes:read', 'ui'] };
+    const { factory } = fake(BEHAVIOUR);
+    _setWorkerHostFactoryForTests(factory);
+    await expect(invokePluginLogic('lab', 'copy', null, { rootPath: '/tb', capabilities: ['notes:read'] }))
+      .resolves.toMatchObject({ code: 'capability', message: expect.stringContaining('it only reads') });
+    await expect(invokePluginLogic('lab', 'copy', null, { rootPath: '/tb' })).resolves.toBe('copied');
+  });
+
   it("starts a host on the plugin's origin on the first call, and reuses it", async () => {
     const f = fake(BEHAVIOUR);
     _setWorkerHostFactoryForTests(f.factory);

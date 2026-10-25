@@ -119,6 +119,10 @@ vi.mock('../../../src/main/plugins/inspection-shapes', () => ({
   pluginInspectionChecks: () => [{ type: 'plugin:lab/Fine', plugin: { id: 'lab', name: 'Lab' } }],
   pluginInspectionFiles: () => [],
 }));
+vi.mock('../../../src/main/plugin-code-checks', () => ({
+  pluginCodeInspectionDefs: () => [{ type: 'plugin:outline/skip', plugin: { id: 'outline', name: 'Outline' } }],
+  pluginCodeChecks: () => [],
+}));
 vi.mock('../../../src/main/graph/shacl/thoughtbase-shapes', () => ({
   thoughtbaseInspections: async (ctx: { rootPath: string }) => ({ checks: [{ type: 'thoughtbase:Tidy', root: ctx.rootPath }], problems: [] }),
   thoughtbaseShapes: async () => ({ files: [], problems: [] }),
@@ -460,9 +464,12 @@ describe('register-graph — inspections', () => {
     await expect(callAsync(Channels.INSPECTIONS_GET_SETTINGS)).resolves.toEqual({ enabled: [], staleDays: 90 });
   });
 
-  it("INSPECTIONS_PLUGIN_CHECKS lists the plugins' SHACL checks, with no project needed (#2642)", async () => {
+  it("INSPECTIONS_PLUGIN_CHECKS lists the plugins' SHACL checks, then their code checks, with no project needed (#2642, #2831)", async () => {
     openProject = null;
-    await expect(callAsync(Channels.INSPECTIONS_PLUGIN_CHECKS)).resolves.toEqual([{ type: 'plugin:lab/Fine', plugin: { id: 'lab', name: 'Lab' } }]);
+    await expect(callAsync(Channels.INSPECTIONS_PLUGIN_CHECKS)).resolves.toEqual([
+      { type: 'plugin:lab/Fine', plugin: { id: 'lab', name: 'Lab' } },
+      { type: 'plugin:outline/skip', plugin: { id: 'outline', name: 'Outline' } },
+    ]);
   });
 
   it("INSPECTIONS_THOUGHTBASE_CHECKS lists the open thoughtbase's own SHACL checks; none with nothing open (#2874)", async () => {

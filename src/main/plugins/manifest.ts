@@ -29,7 +29,7 @@ import { validatePluginSettings } from './settings-schema';
 import { validatePluginMcpServers } from './mcp-schema';
 import { LIVE_DIRECTIVE_OPENERS, LIVE_FENCE_LANGS } from '../../shared/live-blocks';
 import { RUNNABLE_LANGUAGE_SET } from '../../shared/compute/fences';
-import { validateExporters, validateIngestors } from './code-io-schema';
+import { validateExporters, validateIngestors, validateInspections } from './code-io-schema';
 
 /** Lowercase letters and digits in dash-separated words: `reading-list`, `lab2`. */
 export const PLUGIN_ID = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
@@ -38,7 +38,7 @@ const isId = (id: string) => PLUGIN_ID.test(id) && id.length <= MAX_PLUGIN_ID;
 
 const KNOWN_KEYS = new Set(['$schema', 'id', 'name', 'version', 'minerva', 'description', 'author', 'license', 'contributes', 'settings', 'mcpServers', 'code']);
 /** What a `code` section may hold (#2823). Entry points join it with the frame (#2824) and the worker host (#2830). */
-const CODE_KEYS = new Set(['capabilities', 'api', 'views', 'blocks', 'worker', 'commands', 'ingestors', 'exporters']);
+const CODE_KEYS = new Set(['capabilities', 'api', 'views', 'blocks', 'worker', 'commands', 'ingestors', 'exporters', 'inspections']);
 const COMMAND_KEYS = new Set(['id', 'title', 'when', 'editorMenu', 'run']);
 const COMMAND_RUN_KINDS = ['handler', 'skill', 'query', 'view'] as const;
 /** Most commands one plugin may add (#2643). */
@@ -208,8 +208,10 @@ function validateCode(raw: unknown, ctx: ManifestContext, problems: string[]): P
   const worker = raw.worker === undefined ? undefined : pluginFilePath(raw.worker, 'code.worker', '.js', problems);
   const commands = raw.commands === undefined ? undefined
     : validateCommands(raw.commands, { worker: raw.worker !== undefined, views: views ?? [] }, problems);
-  const ingestors = raw.ingestors === undefined ? undefined : validateIngestors(raw.ingestors, { worker: raw.worker !== undefined, isId }, problems);
-  const exporters = raw.exporters === undefined ? undefined : validateExporters(raw.exporters, { worker: raw.worker !== undefined, isId }, problems);
+  const io = { worker: raw.worker !== undefined, isId, capabilities: out, queryPath: (v: unknown, field: string, p: string[]) => pluginFilePath(v, field, '.rq', p) };
+  const ingestors = raw.ingestors === undefined ? undefined : validateIngestors(raw.ingestors, io, problems);
+  const exporters = raw.exporters === undefined ? undefined : validateExporters(raw.exporters, io, problems);
+  const inspections = raw.inspections === undefined ? undefined : validateInspections(raw.inspections, io, problems);
   const withViews = {
     ...(views !== undefined && views.length > 0 ? { views } : {}),
     ...(blocks !== undefined && blocks.length > 0 ? { blocks } : {}),
@@ -217,6 +219,7 @@ function validateCode(raw: unknown, ctx: ManifestContext, problems: string[]): P
     ...(commands !== undefined && commands.length > 0 ? { commands } : {}),
     ...(ingestors !== undefined && ingestors.length > 0 ? { ingestors } : {}),
     ...(exporters !== undefined && exporters.length > 0 ? { exporters } : {}),
+    ...(inspections !== undefined && inspections.length > 0 ? { inspections } : {}),
   };
   // The plugin API's own version (#2826), not the app's.
   const api = raw.api;

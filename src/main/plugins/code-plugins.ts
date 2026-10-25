@@ -11,7 +11,7 @@ import { isCorePluginActive } from '../core-plugins-active';
 import { corePlugin, corePlugins } from './core';
 import { loadedPluginScan } from './registry';
 import type { PluginIdentity } from './broker';
-import type { PluginBlock, PluginCommand, PluginExporter, PluginIngestor, PluginView } from '../../shared/plugins/format';
+import type { PluginBlock, PluginCommand, PluginExporter, PluginIngestor, PluginInspection, PluginView } from '../../shared/plugins/format';
 import type { PluginBlockSyntax } from '../../shared/live-blocks';
 
 // The e2e harness's hostile fixture (`e2e-hooks.ts`, MINERVA_E2E only): no
@@ -140,4 +140,21 @@ export function codePluginExporters(id: string): readonly PluginExporter[] {
 export function activePluginExporters(): { pluginId: string; exporter: PluginExporter }[] {
   const ids = [...corePlugins().map((p) => p.manifest.id), ...loadedPluginScan().plugins.map((p) => p.manifest.id)];
   return ids.flatMap((pluginId) => codePluginExporters(pluginId).map((exporter) => ({ pluginId, exporter })));
+}
+
+/** The code inspections plugin `id` runs (#2831), while it is enabled code; [] otherwise. */
+export function codePluginInspections(id: string): readonly PluginInspection[] {
+  if (!codePluginIdentity(id) || e2ePlugins.has(id)) return [];
+  const core = corePlugin(id);
+  const manifest = core ? core.manifest : loadedPluginScan().plugins.find((p) => p.manifest.id === id)?.manifest;
+  return manifest?.code?.inspections ?? [];
+}
+
+/** Every code inspection the enabled plugins run (#2831), with whose it is, built-in plugins first. */
+export function activePluginInspections(): { pluginId: string; name: string; inspection: PluginInspection }[] {
+  const ids = [...corePlugins().map((p) => p.manifest.id), ...loadedPluginScan().plugins.map((p) => p.manifest.id)];
+  return ids.flatMap((pluginId) => {
+    const name = codePluginIdentity(pluginId)?.name ?? pluginId;
+    return codePluginInspections(pluginId).map((inspection) => ({ pluginId, name, inspection }));
+  });
 }

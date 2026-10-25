@@ -51,8 +51,8 @@ export interface CheckRun {
 interface CodeCheck {
   kind: 'code';
   id: string;
-  /** Every type it emits — a finding of any other type is dropped, and logged. */
-  emits: readonly InspectionType[];
+  /** Every type it emits — a finding of any other type is dropped, and logged. A plugin's (#2831) is its own. */
+  emits: readonly (InspectionType | `plugin:${string}`)[];
   run: (run: CheckRun) => Promise<Inspection[]>;
 }
 

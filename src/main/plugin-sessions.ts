@@ -190,10 +190,20 @@ export async function readDeclaredQuery(pluginId: string, query: string): Promis
 }
 
 /** Run a declared query: its rows, and the notes they name. A query that fails is the plugin's to show. */
-async function runDeclaredQuery(entry: Entry, query: string, fed: FedSession): Promise<PluginQueryResults> {
+function runDeclaredQuery(entry: Entry, query: string, fed: FedSession): Promise<PluginQueryResults> {
+  return runDeclaredPluginQuery(entry.pluginId, entry.rootPath, query, `${fed.kind} ${fed.def.id}`);
+}
+
+/**
+ * Run plugin `pluginId`'s declared query `query` (a view's, a block's, an
+ * inspection's, #2831) over `rootPath`'s graph: its rows, cut to
+ * `PLUGIN_QUERY_ROW_LIMIT`, and the notes they name. A query that fails comes
+ * back with `error` set, for the plugin to show; `what` names it in the log.
+ */
+export async function runDeclaredPluginQuery(pluginId: string, rootPath: string, query: string, what: string): Promise<PluginQueryResults> {
   try {
-    const sparql = await readDeclaredQuery(entry.pluginId, query);
-    const ctx = projectContext(entry.rootPath);
+    const sparql = await readDeclaredQuery(pluginId, query);
+    const ctx = projectContext(rootPath);
     const result = await queryGraph(ctx, sparql);
     if (!result.ok) return { columns: [], rows: [], notes: {}, truncated: false, error: result.error };
     const rows = result.results.slice(0, PLUGIN_QUERY_ROW_LIMIT).map((row) => {
@@ -206,8 +216,8 @@ async function runDeclaredQuery(entry: Entry, query: string, fed: FedSession): P
     const notes = notePathsForIris(ctx, rows.flatMap((r) => Object.values(r)));
     return { columns: result.columns, rows, notes: Object.fromEntries(notes), truncated: result.results.length > rows.length, error: null };
   } catch (e) {
-    logger('plugins').warn(`plugin ${entry.pluginId}: ${fed.kind} ${fed.def.id}'s query failed:`, e);
-    return { columns: [], rows: [], notes: {}, truncated: false, error: `The ${fed.kind}'s query couldn't run; the details are in Minerva's log.` };
+    logger('plugins').warn(`plugin ${pluginId}: ${what}'s query failed:`, e);
+    return { columns: [], rows: [], notes: {}, truncated: false, error: `The ${what.split(' ')[0]}'s query couldn't run; the details are in Minerva's log.` };
   }
 }
 

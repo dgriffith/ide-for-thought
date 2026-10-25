@@ -409,4 +409,19 @@ describe("a plugin's SHACL checks in the sweep (#2642)", () => {
     const found = await runAllChecks(project.ctx, undefined, { pluginShapes: () => { throw new Error('scan broke'); } });
     expect(Array.isArray(found)).toBe(true);
   });
+
+  it('runs a plugin check written as code beside the others, switchable, and one that fails costs only itself (#2831)', async () => {
+    const finding = { id: 'plugin:outline/skip-0', type: 'plugin:outline/skip', severity: 'info' as const, nodeUri: 'x:a', nodeLabel: 'a', message: 'Skips.' };
+    const seen: string[] = [];
+    const deps = { pluginCodeChecks: () => [
+      { type: 'plugin:outline/skip' as const, run: async (ctx: { rootPath: string }) => { seen.push(ctx.rootPath); return [finding]; } },
+      { type: 'plugin:outline/broken' as const, run: async () => { throw new Error('should be a finding, but if not'); } },
+    ] };
+    const on = await runAllChecks(project.ctx, undefined, deps);
+    expect(on.filter((i) => i.type.startsWith('plugin:'))).toEqual([finding]);
+    expect(seen).toEqual([project.ctx.rootPath]);
+    const off = await runAllChecks(project.ctx, { ...DEFAULT_INSPECTION_SETTINGS, disabled: ['plugin:outline/skip'] }, deps);
+    expect(off.filter((i) => i.type.startsWith('plugin:'))).toEqual([]);
+    expect(seen).toHaveLength(1);
+  });
 });

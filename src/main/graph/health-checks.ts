@@ -107,13 +107,22 @@ export async function runAllChecks(
   const run: CheckRun = { ctx, settings, deps, on };
 
   try {
-    // Minerva's checks, then the plugins' shapes (#2642), then the
-    // thoughtbase's (#2874): shapes that can't be read cost only themselves.
+    // Minerva's checks, then the plugins' shapes (#2642) and code (#2831),
+    // then the thoughtbase's shapes (#2874): one that can't be read or run
+    // costs only itself.
     let pluginChecks: InspectionCheck[] = [];
     try {
       pluginChecks = (deps.pluginShapes?.() ?? []).map(({ id, file }) => ({ kind: 'shacl' as const, id, file }));
     } catch (e) {
       logger('graph').warn("couldn't read the plugins' inspection shapes:", e);
+    }
+    // …the plugins' checks written as code (#2831), each in its worker host…
+    try {
+      pluginChecks = [...pluginChecks, ...(deps.pluginCodeChecks?.() ?? []).map((c): InspectionCheck => ({
+        kind: 'code', id: c.type, emits: [c.type], run: (r) => c.run(r.ctx),
+      }))];
+    } catch (e) {
+      logger('graph').warn("couldn't list the plugins' code inspections:", e);
     }
     // …and the thoughtbase's own (#2874), from its .minerva/shapes/.
     try {

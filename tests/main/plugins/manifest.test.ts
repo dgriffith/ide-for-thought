@@ -345,3 +345,29 @@ describe('code.exporters (#2648)', () => {
     expect(problemsOf(code([EPUB, EPUB]), CORE)).toEqual(['"code.exporters" has two exporters with the id "epub".']);
   });
 });
+
+describe('code.inspections (#2831)', () => {
+  const CORE = { ...CTX, core: true };
+  const CHECK = { id: 'skipped-heading', label: 'Skipped headings', description: 'Headings that jump a level.', severity: 'info', query: 'notes.rq', run: { handler: 'skippedHeadings' } };
+  const code = (inspections: unknown, extra: Record<string, unknown> = {}) => ({
+    ...GOOD, code: { capabilities: ['notes:read', 'graph:query'], api: '^1.10.0', worker: 'logic.js', inspections, ...extra },
+  });
+
+  it('takes a check run by a handler, with or without a query', () => {
+    const { query: _q, ...noQuery } = CHECK;
+    const r = validatePluginManifest(code([CHECK, { ...noQuery, id: 'other' }]), CORE);
+    expect(r.ok && r.manifest.code?.inspections).toEqual([CHECK, { ...noQuery, id: 'other' }]);
+  });
+
+  it('needs code.worker, graph:query for a query, a severity, and an id a type can end in', () => {
+    expect(problemsOf(code([CHECK], { worker: undefined }), CORE))
+      .toEqual(['"code.inspections[0].run.handler" needs "code.worker": a handler is a function in the plugin\'s logic module.']);
+    expect(problemsOf(code([CHECK], { capabilities: ['notes:read'] }), CORE))
+      .toEqual(['"code.inspections[0].query" needs the "graph:query" capability, for what its query reads.']);
+    expect(problemsOf(code([{ ...CHECK, id: '9lives', severity: 'fatal', query: 'notes.sql' }]), CORE)).toEqual([
+      '"code.inspections[0].id" must be a letter, then letters, digits, "_" or "-" (at most 64), like "skipped-heading".',
+      '"code.inspections[0].severity" must be one of info, warning, concern; got "fatal".',
+      '"code.inspections[0].query" must be a SPARQL query, an .rq file; got "notes.sql".',
+    ]);
+  });
+});
