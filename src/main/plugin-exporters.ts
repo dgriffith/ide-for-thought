@@ -19,6 +19,7 @@
  */
 import path from 'node:path';
 import { invokePluginLogic } from './plugin-worker-host';
+import { callPluginTool } from './plugin-mcp-tools';
 import { activePluginExporters, codePluginIdentity } from './plugins/code-plugins';
 import { PluginCallError } from './plugins/broker';
 import { setExtraExporters } from './publish/registry';
@@ -50,7 +51,10 @@ export async function exportWithPlugin(pluginId: string, exporter: PluginExporte
   if (size > PLUGIN_MESSAGE_LIMIT_BYTES - 1024) {
     throw new PluginCallError(`${identity.name} can be handed about 1 MB of notes at once; these are ${(size / 1024 / 1024).toFixed(1)} MB. Export fewer notes.`);
   }
-  const answer = await invokePluginLogic(pluginId, exporter.write.handler, input, { rootPath, scope: [], deadlineMs: PLUGIN_EXPORT_DEADLINE_MS });
+  // A handler in its worker, or a tool on its own MCP server (#2880), handed the same plan.
+  const answer = 'handler' in exporter.write
+    ? await invokePluginLogic(pluginId, exporter.write.handler, input, { rootPath, scope: [], deadlineMs: PLUGIN_EXPORT_DEADLINE_MS })
+    : await callPluginTool(identity.name, pluginId, exporter.write.mcpTool, { ...input });
   return checkedExport(identity.name, exporter.label, answer);
 }
 

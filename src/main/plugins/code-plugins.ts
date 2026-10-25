@@ -12,7 +12,7 @@ import { isCorePluginActive } from '../core-plugins-active';
 import { corePlugin, corePlugins } from './core';
 import { loadedPluginScan } from './registry';
 import type { PluginIdentity } from './broker';
-import type { PluginBlock, PluginCommand, PluginExporter, PluginIngestor, PluginInspection, PluginView } from '../../shared/plugins/format';
+import { ingestorClaims, withClaims, type PluginBlock, type PluginCommand, type PluginExporter, type PluginIngestor, type PluginInspection, type PluginView } from '../../shared/plugins/format';
 import type { PluginBlockSyntax } from '../../shared/live-blocks';
 
 // The e2e harness's hostile fixture (`e2e-hooks.ts`, MINERVA_E2E only): no
@@ -110,9 +110,10 @@ export function codePluginIngestors(id: string): readonly PluginIngestor[] {
 }
 
 /**
- * Every ingestor the enabled plugins add (#2647), each with the extensions it
- * gets: the first plugin to claim an extension keeps it, built-in plugins
- * first, in Settings' order. One whose every extension went to another is left out.
+ * Every ingestor the enabled plugins add (#2647, #2880), each with the
+ * extensions, hosts or prefixes it gets: the first plugin to claim one keeps
+ * it, built-in plugins first, in Settings' order. One whose every claim went
+ * to another is left out.
  */
 export function activePluginIngestors(): { pluginId: string; ingestor: PluginIngestor }[] {
   const ids = [...corePlugins().map((p) => p.manifest.id), ...loadedPluginScan().plugins.map((p) => p.manifest.id)];
@@ -120,10 +121,11 @@ export function activePluginIngestors(): { pluginId: string; ingestor: PluginIng
   const taken = new Set<string>();
   for (const pluginId of ids) {
     for (const ingestor of codePluginIngestors(pluginId)) {
-      const extensions = ingestor.accepts.extensions.filter((e) => !taken.has(e));
-      if (extensions.length === 0) continue;
-      for (const e of extensions) taken.add(e);
-      out.push({ pluginId, ingestor: { ...ingestor, accepts: { extensions } } });
+      const { kind, values } = ingestorClaims(ingestor.accepts);
+      const kept = values.filter((v) => !taken.has(`${kind} ${v}`));
+      if (kept.length === 0) continue;
+      for (const v of kept) taken.add(`${kind} ${v}`);
+      out.push({ pluginId, ingestor: { ...ingestor, accepts: withClaims(ingestor.accepts, kept) } });
     }
   }
   return out;

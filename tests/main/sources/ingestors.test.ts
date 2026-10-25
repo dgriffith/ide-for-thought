@@ -19,7 +19,7 @@ vi.mock('../../../src/main/sources/ingest-file-types', () => ({
   ingestPdfFile: h.ingestPdfFile, ingestHtmlFile: h.ingestHtmlFile, ingestTextFile: h.ingestTextFile,
 }));
 
-import { INGESTORS, ingestSource, ingestibleFileExtensions, setExtraIngestors } from '../../../src/main/sources/ingestors';
+import { INGESTORS, hostMatches, ingestSource, ingestibleFileExtensions, setExtraIngestors } from '../../../src/main/sources/ingestors';
 import { IDENTIFIER_KINDS } from '../../../src/main/sources/identifier-kinds';
 
 const made = { sourceId: 's', relativePath: '.minerva/sources/s/meta.ttl', duplicate: false, title: 'T' };
@@ -112,5 +112,44 @@ describe('ingestors from outside the source (#2647)', () => {
     await ingestSource('/root', { kind: 'file', path: '/x/a.pdf' });
     expect(h.ingestPdfFile).toHaveBeenCalled();
     expect(ingest).not.toHaveBeenCalled();
+  });
+});
+
+describe('a plugin\'s sites and identifiers (#2880)', () => {
+  const site = vi.fn();
+  const prefix = vi.fn();
+  beforeEach(() => {
+    site.mockReset().mockResolvedValue({ ...made, route: 'url' });
+    prefix.mockReset().mockResolvedValue({ ...made, route: 'url' });
+    setExtraIngestors(() => [
+      { id: 'plugin:shelf/page', label: 'Book page', accepts: { urlHosts: ['*.books.example'] }, ingest: site },
+      { id: 'plugin:shelf/id', label: 'Shelf id', accepts: { identifierPrefixes: ['shelf:'] }, ingest: prefix },
+    ]);
+  });
+  afterEach(() => setExtraIngestors(null));
+
+  it('a page on its host goes to the plugin, ahead of the web ingestor', async () => {
+    await ingestSource('/root', { kind: 'text', text: 'https://www.books.example/books/1' });
+    await ingestSource('/root', { kind: 'text', text: 'https://books.example/books/2' });
+    expect(site.mock.calls.map((c) => c[1])).toEqual(['https://www.books.example/books/1', 'https://books.example/books/2']);
+    expect(h.ingestUrl).not.toHaveBeenCalled();
+    await ingestSource('/root', { kind: 'text', text: 'https://notbooks.example/books/3' });
+    expect(h.ingestUrl).toHaveBeenCalledWith('/root', 'https://notbooks.example/books/3', {});
+  });
+
+  it('a prefix goes to the plugin in any case, and an identifier is still Minerva\'s first', async () => {
+    await ingestSource('/root', { kind: 'text', text: 'Shelf:9' });
+    expect(prefix).toHaveBeenCalledWith('/root', 'Shelf:9', {});
+    await ingestSource('/root', { kind: 'text', text: 'https://doi.org/10.1038/nature12373' });
+    expect(h.ingestIdentifier).toHaveBeenCalled();
+    expect(site).not.toHaveBeenCalled();
+  });
+
+  it('hostMatches: exact, or a wildcard for the domain and its subdomains, never a suffix of another name', () => {
+    expect(hostMatches('books.example', 'BOOKS.example.')).toBe(true);
+    expect(hostMatches('books.example', 'www.books.example')).toBe(false);
+    expect(hostMatches('*.books.example', 'a.b.books.example')).toBe(true);
+    expect(hostMatches('*.books.example', 'books.example')).toBe(true);
+    expect(hostMatches('*.books.example', 'evilbooks.example')).toBe(false);
   });
 });

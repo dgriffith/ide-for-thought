@@ -234,15 +234,16 @@ A panel about the active note: outline, properties, links, citations, inspection
 
 ## `ingestors` — Source ingestors
 
-A way a Source comes in: a file type, a bibliographic identifier, or a web page. A plugin's is a file type whose bytes its worker reads, returning a draft Minerva checks and writes.
+A way a Source comes in: a file type, a bibliographic identifier, or a web page. A plugin's is a file type, a site or an identifier prefix, read by its worker or its own MCP tool, returning a draft Minerva checks and writes.
 
 - **Rung:** plugin
 - **Picked up:** at once, or on its next read (`hot`)
 - **Contributions from:** stock, plugin
-- **Goes in:** a plugin's plugin.json, code.ingestors (#2647), approved with its code (#2833)
-- **Contract:** plugin.json code.ingestors: { id, label, accepts: { extensions }, parse: { handler } }; the handler returns { title, body, … }, checked by [`src/main/plugins/code-io-schema.ts`](../src/main/plugins/code-io-schema.ts) (`validateIngestors`)
+- **Goes in:** a plugin's plugin.json, code.ingestors (#2647, #2880), approved with its code (#2833) or its MCP server (#2646)
+- **Contract:** plugin.json code.ingestors: { id, label, accepts: { extensions | urlMatch | identifierPrefixes }, parse: { handler | mcpTool } }; it returns { title, body, … }, checked by [`src/main/plugins/code-io-schema.ts`](../src/main/plugins/code-io-schema.ts) (`validateIngestors`)
 - **Registers in:** [`src/main/sources/ingestors.ts`](../src/main/sources/ingestors.ts) (`INGESTORS`)
 - **Docs:** [`docs/plugin-code.md`](plugin-code.md)
+- **Example:** [`tests/fixtures/plugins/book-shelf/plugin.json`](../tests/fixtures/plugins/book-shelf/plugin.json)
 - **Test:** [`tests/main/sources/ingestors.test.ts`](../tests/main/sources/ingestors.test.ts)
 
 ## `exporters` — Exporters
@@ -253,7 +254,7 @@ An export format — markdown, HTML, PDF, a static site, a bibliography…—off
 - **Picked up:** at once, or on its next read (`hot`)
 - **Contributions from:** stock, plugin
 - **Goes in:** a plugin's plugin.json, code.exporters (#2648), approved with its code (#2833)
-- **Contract:** plugin.json code.exporters: { id, label, input: "html" | "markdown", scopes, write: { handler } }; the handler returns { files: [{ path, text | base64 }] }, checked by [`src/main/plugins/code-io-schema.ts`](../src/main/plugins/code-io-schema.ts) (`validateExporters`)
+- **Contract:** plugin.json code.exporters: { id, label, input: "html" | "markdown", scopes, write: { handler | mcpTool } }; it returns { files: [{ path, text | base64 }] }, checked by [`src/main/plugins/code-io-schema.ts`](../src/main/plugins/code-io-schema.ts) (`validateExporters`)
 - **Registers in:** [`src/main/publish/registry.ts`](../src/main/publish/registry.ts) (`registerExporter`)
 - **Docs:** [`docs/publishing.md`](publishing.md)
 - **Test:** [`tests/main/publish/registry.test.ts`](../tests/main/publish/registry.test.ts)

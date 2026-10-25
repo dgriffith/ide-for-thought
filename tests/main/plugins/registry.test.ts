@@ -41,7 +41,7 @@ describe('plugin registry (#2633)', () => {
     enablePlugins({ appVersion: '4.0.0', dir: FIXTURES });
     const a = getPluginInventory();
     expect(getPluginInventory()).toBe(a);
-    expect((await getPluginScan()).plugins.map((p) => p.manifest.id)).toEqual(['cookbook', 'reading-list', 'solarized', 'word-tools']);
+    expect((await getPluginScan()).plugins.map((p) => p.manifest.id)).toEqual(['book-shelf', 'cookbook', 'reading-list', 'solarized', 'word-tools']);
   });
 
   it('reload reads it again', async () => {

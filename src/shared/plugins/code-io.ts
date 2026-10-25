@@ -20,24 +20,66 @@ import type { PluginQueryResults } from './api';
  * `PluginSourceDraft`; Minerva checks the draft and writes the Source. An
  * extension Minerva reads itself (`shared/source-file-types.ts`) can't be
  * taken.
+ *
+ * Or the parser is a tool on one of the plugin's own MCP servers (#2880),
+ * `{ "mcpTool": "<server key>/<tool>" }`, handed the same input as JSON and
+ * answering a draft. Reading a web page or an identifier needs the network, so
+ * `urlMatch` and `identifierPrefixes` are for an `mcpTool` parser only.
  */
 export interface PluginIngestor {
   /** Lowercase letters and digits in dash-separated words, unique in the plugin. */
   id: string;
   /** What it reads, for the file dialog and messages ("Transcript"). */
   label: string;
-  accepts: { extensions: string[] };
-  parse: { handler: string };
+  accepts: PluginIngestorAccepts;
+  parse: { handler: string } | { mcpTool: string };
 }
 
-/** What an ingestor's handler is handed (#2647): the file, as data. */
-export interface PluginIngestInput {
-  ingestor: string;
-  /** The file's name, without its folder. */
-  filename: string;
-  /** The file's bytes, base64. */
-  base64: string;
+/** `"<server key>/<tool>"`: a tool on one of the plugin's own MCP servers (#2880). */
+export const PLUGIN_MCP_TOOL = /^([A-Za-z0-9][A-Za-z0-9_-]{0,63})\/([A-Za-z0-9][A-Za-z0-9_.-]{0,127})$/;
+
+/** What an ingestor takes (#2647, #2880): exactly one of these. */
+export type PluginIngestorAccepts =
+  /** Files with one of these extensions (lowercase, with the dot). */
+  | { extensions: string[] }
+  /**
+   * Web pages on these hosts: `example.com`, or `*.example.com` for it and
+   * every subdomain. A matching URL goes to it before Minerva's own web-page
+   * ingestor, though after an identifier (a DOI URL is still a DOI).
+   */
+  | { urlMatch: string[] }
+  /**
+   * Identifiers typed with one of these prefixes (`goodreads:`), in any
+   * case: prefixes rather than patterns, since a plugin's pattern would run
+   * in Minerva on what the user typed.
+   */
+  | { identifierPrefixes: string[] };
+
+/** What an ingestor claims: its extensions, hosts or prefixes, and which. */
+export function ingestorClaims(a: PluginIngestorAccepts): { kind: 'extensions' | 'urlMatch' | 'identifierPrefixes'; values: string[] } {
+  if ('extensions' in a) return { kind: 'extensions', values: a.extensions };
+  if ('urlMatch' in a) return { kind: 'urlMatch', values: a.urlMatch };
+  return { kind: 'identifierPrefixes', values: a.identifierPrefixes };
 }
+
+/** The same kind of claim as `a`, with `values`. */
+export function withClaims(a: PluginIngestorAccepts, values: string[]): PluginIngestorAccepts {
+  if ('extensions' in a) return { extensions: values };
+  if ('urlMatch' in a) return { urlMatch: values };
+  return { identifierPrefixes: values };
+}
+
+/** What an ingestor's handler or tool is handed (#2647, #2880): the file, the URL or the identifier, as data. */
+export type PluginIngestInput =
+  | {
+    ingestor: string;
+    /** The file's name, without its folder. */
+    filename: string;
+    /** The file's bytes, base64. */
+    base64: string;
+  }
+  | { ingestor: string; url: string }
+  | { ingestor: string; identifier: string };
 
 /** What a plugin exporter can be run on (#2648): the export dialog's scopes, less a source. */
 export const PLUGIN_EXPORT_SCOPES = ['single-note', 'folder', 'project', 'tree'] as const;
@@ -66,7 +108,8 @@ export interface PluginExporter {
   input: 'html' | 'markdown';
   /** What it can be run on, in the dialog's order. */
   scopes: PluginExportScope[];
-  write: { handler: string };
+  /** A handler in its worker, or a tool on one of its MCP servers (#2880), handed the same plan. */
+  write: { handler: string } | { mcpTool: string };
 }
 
 /** One note, as an exporter's handler is handed it (#2648). */

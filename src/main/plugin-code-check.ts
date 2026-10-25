@@ -69,18 +69,22 @@ function callsFor(pluginId: string, code: PluginCode, root: string, scratch: str
     });
   }
   for (const g of code.ingestors ?? []) {
+    // A file type read by a handler; a site or an identifier is its MCP server's (`--run-servers`).
+    if (!('extensions' in g.accepts) || !('handler' in g.parse)) continue;
+    const ext = g.accepts.extensions[0]!;
     calls.push({
       subject: `ingestor ${g.id}`,
       run: async () => {
-        const file = path.join(scratch, 'code-input', `sample${g.accepts.extensions[0]}`);
+        const file = path.join(scratch, 'code-input', `sample${ext}`);
         await fs.mkdir(path.dirname(file), { recursive: true });
         await fs.writeFile(file, 'A sample file for an ingestor to read.\n');
-        const made = await ingestWithPlugin(root, pluginId, g, file);
+        const made = await ingestWithPlugin(root, pluginId, g, { file });
         return `made a source, "${made.title}"`;
       },
     });
   }
   for (const x of code.exporters ?? []) {
+    if (!('handler' in x.write)) continue;
     calls.push({
       subject: `exporter ${x.id}`,
       run: async () => {

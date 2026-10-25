@@ -21,6 +21,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { pluginCodeHash, PluginTooBigError } from './code-hash';
+import { runsInMinerva } from './manifest';
 import { isContainedPath } from '../path-containment';
 import {
   PLUGIN_CONTRIBUTION_POINTS,
@@ -134,9 +135,11 @@ export async function readPluginPackage(folderPath: string, appVersion: string):
       if (!isContainedPath(root, abs) || !(await isFile(abs))) problems.push(`"${rel}", which its code names, isn't a file in the plugin.`);
     }
   }
-  // Code is approved as the files it ships, all of them (#2833).
+  // Code is approved as the files it ships, all of them (#2833) — when it runs
+  // inside Minerva. One that only names its MCP tools (#2880) has its servers
+  // approved instead.
   let codeHash: string | undefined;
-  if (manifest.code) {
+  if (manifest.code && runsInMinerva(manifest.code)) {
     try {
       codeHash = await pluginCodeHash(root);
     } catch (e) {

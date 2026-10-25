@@ -1872,7 +1872,10 @@ origin.
   (`plugin-ingestors.ts`); the draft it returns is checked field by field
   and written by `sources/ingest-draft.ts`, `<` escaped, with
   `minerva:ingestedBy`. It can't take an extension Minerva reads
-  (`shared/source-file-types.ts`). **A plugin exporter (#2648)** is in
+  (`shared/source-file-types.ts`). A parser or writer may instead be an
+  `mcpTool` on the plugin's own server (#2880, `plugin-mcp-tools.ts`), the
+  only way to read a site (`urlMatch`) or a prefixed identifier; a tool that
+  isn't read-only asks natively outside a conversation (`nativeMcpConfirmer`). **A plugin exporter (#2648)** is in
   `code.exporters`: its own Export menu family (`plugin:<id>/<exporter>`,
   so `ExportGroupMeta.id` isn't only `EXPORT_GROUPS`'), handed each note
   rendered (or as written) and returning files whose paths
