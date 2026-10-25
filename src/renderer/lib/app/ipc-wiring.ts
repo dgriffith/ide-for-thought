@@ -68,6 +68,8 @@ interface SidebarRef {
 export interface IpcWiringCtx {
   /** Run a registered command — what a `menu:command` item asks for (#2625). */
   runCommand: (id: CommandId) => void;
+  /** Run a plugin's command (#2879), as the palette does. */
+  runPluginCommand: (pluginId: string, commandId: string) => void;
   // Component refs (App-owned; resolve at callback time).
   getEditorComponent: () => EditorRef | undefined;
   getEditorComponents: () => Record<string, { restorePosition(offset: number, scrollTop?: number): void } | undefined>;
@@ -289,6 +291,8 @@ export function registerAppIpc(ctx: IpcWiringCtx): void {
   // Menu events from the main process. Every argument-free menu item is a
   // command (#2625), run from the same action table as the palette.
   api.menu.onCommand((id) => ctx.runCommand(id));
+  // A plugin's command, from the menu its plugin put it in (#2879).
+  api.menu.onPluginCommand(({ pluginId, commandId }) => ctx.runPluginCommand(pluginId, commandId));
   api.menu.onSetTheme((mode) => ctx.selectTheme(mode));
   // Native proposal-arrival notification clicked → surface the Proposals panel (#1541).
   api.proposals.onShowRequested(() => ctx.showProposals());

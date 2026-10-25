@@ -63,7 +63,7 @@
   import { toggleEditorDictation } from './lib/editor/dictation';
   import { getVoiceStore } from './lib/voice/voice.svelte';
   import { getAudioRecordingStore } from './lib/voice/audio-recording.svelte';
-  import { handleKeydown } from './lib/keymap/handle-keydown';
+  import { handleKeydown, handlePluginKeydown } from './lib/keymap/handle-keydown';
   import { setFrontmatterProperty } from '../shared/frontmatter-edit';
   import ToolPanel from './lib/components/ToolPanel.svelte';
   import ConversationsPanel from './lib/components/ConversationsPanel.svelte';
@@ -611,7 +611,7 @@
       pluginThemesStore.themes.map((t) => ({ mode: t.mode, label: t.label, plugin: t.plugin.name })), handleSelectTheme,
       codePluginsStore.allViews().map((v) => ({ pluginId: v.pluginId, pluginName: v.pluginName, viewId: v.view.id, title: v.view.title, place: v.view.place })),
       (v) => { void handleOpenPluginView(v); },
-      codePluginsStore.allCommands().map((c) => ({ pluginId: c.pluginId, pluginName: c.pluginName, commandId: c.command.id, title: c.command.title, when: c.command.when })),
+      codePluginsStore.keyedCommands().map((c) => ({ pluginId: c.pluginId, pluginName: c.pluginName, commandId: c.command.id, title: c.command.title, when: c.command.when, ...(c.key ? { key: c.key } : {}) })),
       (c) => { void runPluginCommand(c.pluginId, c.commandId); }) : [],
   );
 
@@ -948,6 +948,7 @@
     // ops handlers, component refs, and UI-chrome $state via ctx.
     registerAppIpc({
       runCommand: (id) => commandActions[id](),
+      runPluginCommand: (pluginId, commandId) => { void runPluginCommand(pluginId, commandId); },
       getEditorComponent: () => editorComponent,
       getEditorComponents: () => tabViews.editor,
       getPreviewComponent: () => previewComponent,
@@ -1076,7 +1077,11 @@
   };
 </script>
 
-<svelte:window onkeydown={(e) => handleKeydown(e, keymapDeps)} />
+<svelte:window onkeydown={(e) => {
+  handleKeydown(e, keymapDeps);
+  // A plugin command's key (#2879), after Minerva's.
+  handlePluginKeydown(e, codePluginsStore.commandKeys().keys, (p, c) => { void runPluginCommand(p, c); });
+}} />
 
 <div class="app">
   <TitleBar

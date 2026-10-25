@@ -4,7 +4,7 @@
  * command palette — greyed out with nothing selected — and the editor's
  * right-click menu. Run on a selection, its handler sorts the list in the
  * plugin's worker host and the editor makes the change, which ⌘Z undoes in
- * one step.
+ * one step; its own key, ⌘⌥⇧S, runs it too (#2879).
  */
 import { test, expect } from './helpers/test';
 import fs from 'node:fs';
@@ -69,6 +69,15 @@ test('List Tools: a plugin command in the palette and the editor menu, run by it
 
     await test.step('⌘Z undoes it in one step', async () => {
       await win.locator('.cm-content').click();
+      await win.keyboard.press('ControlOrMeta+KeyZ');
+      await expect(lines).toHaveText(ORIGINAL);
+    });
+
+    await test.step('on its own key, ⌘⌥⇧S (#2879)', async () => {
+      await win.locator('.cm-content').click();
+      await win.keyboard.press('ControlOrMeta+KeyA');
+      await win.keyboard.press('ControlOrMeta+Alt+Shift+KeyS');
+      await expect(lines).toHaveText(SORTED, { timeout: 15_000 });
       await win.keyboard.press('ControlOrMeta+KeyZ');
       await expect(lines).toHaveText(ORIGINAL);
     });

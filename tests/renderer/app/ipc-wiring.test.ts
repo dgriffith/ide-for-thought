@@ -17,7 +17,7 @@ const h = vi.hoisted(() => {
   // Every argument-free menu item arrives as `onCommand` with a command id
   // (#2625); its action table is tested in command-keymap.test.ts.
   const MENU_CHANNELS = [
-    'onCommand', 'onSetTheme', 'onOpenRecentProject', 'onOpenStockQuery', 'onExport', 'onProjectOpened',
+    'onCommand', 'onPluginCommand', 'onSetTheme', 'onOpenRecentProject', 'onOpenStockQuery', 'onExport', 'onProjectOpened',
   ];
 
   const captured: Record<string, (...a: unknown[]) => unknown> = {};
@@ -115,7 +115,7 @@ const rightSidebar = { refresh: vi.fn() };
 
 function makeCtx(): { ctx: IpcWiringCtx; spies: Record<string, ReturnType<typeof vi.fn>> } {
   const names = [
-    'runCommand', 'setExportDialogGroup', 'setEmbeddingProgress', 'refreshBacklinkCount',
+    'runCommand', 'runPluginCommand', 'setExportDialogGroup', 'setEmbeddingProgress', 'refreshBacklinkCount',
     'selectTheme', 'showProposals', 'openRecentThoughtbase', 'toolInvoke',
   ];
   const spies: Record<string, ReturnType<typeof vi.fn>> = {};
@@ -181,6 +181,11 @@ describe('menu events', () => {
   it('onCommand runs the command by id (#2625)', () => {
     fire('onCommand', 'file.newNote');
     expect(spies.runCommand).toHaveBeenCalledExactlyOnceWith('file.newNote');
+  });
+
+  it('onPluginCommand runs a plugin\'s command, as the palette does (#2879)', () => {
+    fire('onPluginCommand', { pluginId: 'shelf', commandId: 'find' });
+    expect(spies.runPluginCommand).toHaveBeenCalledExactlyOnceWith('shelf', 'find');
   });
 });
 

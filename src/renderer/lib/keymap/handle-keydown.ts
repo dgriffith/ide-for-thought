@@ -51,7 +51,10 @@ export function matchesAccelerator(e: KeyboardEvent, accelerator: string): boole
   if (mods.has('CmdOrCtrl') && !(e.metaKey || e.ctrlKey)) return false;
   if (mods.has('Shift') !== e.shiftKey) return false;
   if (mods.has('Alt') !== e.altKey) return false;
-  return e.key.toLowerCase() === key;
+  if (e.key.toLowerCase() === key) return true;
+  // With Alt held, macOS types a different character (⌥B is "∫"): match the
+  // key itself for a letter or a digit (#2879, where plugins may claim one).
+  return e.altKey && /^[a-z0-9]$/.test(key) && e.code === `${/\d/.test(key) ? 'Digit' : 'Key'}${key.toUpperCase()}`;
 }
 
 export function handleKeydown(e: KeyboardEvent, deps: KeymapDeps): void {
@@ -64,3 +67,21 @@ export function handleKeydown(e: KeyboardEvent, deps: KeymapDeps): void {
     return;
   }
 }
+
+/**
+ * A plugin command's key (#2879), once Minerva's own keys have had their
+ * chance: `keys` is `pluginId/commandId → key`, as `resolvePluginKeys`
+ * settled it. Whether it did.
+ */
+export function handlePluginKeydown(e: KeyboardEvent, keys: ReadonlyMap<string, string>, run: (pluginId: string, commandId: string) => void): boolean {
+  if (e.defaultPrevented) return false;
+  for (const [ref, key] of keys) {
+    if (!matchesAccelerator(e, key)) continue;
+    e.preventDefault();
+    const at = ref.indexOf('/');
+    run(ref.slice(0, at), ref.slice(at + 1));
+    return true;
+  }
+  return false;
+}
+

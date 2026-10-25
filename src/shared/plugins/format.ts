@@ -122,6 +122,10 @@ export const PLUGIN_HANDLER_NAME = /^[A-Za-z][A-Za-z0-9_.-]{0,63}$/;
 export const PLUGIN_COMMAND_WHEN = ['project', 'note', 'selection'] as const;
 export type PluginCommandWhen = (typeof PLUGIN_COMMAND_WHEN)[number];
 
+/** The menus of the menu bar a plugin command may be in (#2879). */
+export const PLUGIN_COMMAND_MENUS = ['file', 'edit', 'view', 'navigate', 'refactor', 'query', 'help'] as const;
+export type PluginCommandMenu = (typeof PLUGIN_COMMAND_MENUS)[number];
+
 /**
  * What a plugin command runs (#2643), exactly one of:
  * - `handler`: a function its logic module registered with `minerva.handle`,
@@ -135,7 +139,9 @@ export type PluginCommandRun =
   | { handler: string }
   | { skill: string }
   | { query: string }
-  | { view: string };
+  | { view: string }
+  /** A tool on one of its own MCP servers (#2879), handed `{ command, note, selection }`, answering a command's result. */
+  | { mcpTool: string };
 
 /**
  * A command a plugin adds (#2643):
@@ -154,6 +160,10 @@ export interface PluginCommand {
   when: PluginCommandWhen;
   /** Also in the editor's right-click menu, under Plugins. */
   editorMenu?: true;
+  /** Also in this menu of the menu bar (#2879), under a separator at its end. */
+  menu?: PluginCommandMenu;
+  /** Its keyboard shortcut (#2879): an accelerator with `CmdOrCtrl`, refused if Minerva uses it. */
+  key?: string;
   run: PluginCommandRun;
 }
 

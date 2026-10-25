@@ -193,13 +193,13 @@ A block that renders from data — a query result, a chart, an embedded view —
 
 ## `commands` — Commands
 
-An action placed by id in the menu bar, the palette, the window keymap or the editor keymap. A plugin's is in the palette and the editor menu, and runs a handler in its worker, a skill, a query or one of its views.
+An action placed by id in the menu bar, the palette, the window keymap or the editor keymap. A plugin's is in the palette, and the editor menu, a menu of the menu bar and on a key of its own if it asks; it runs a handler in its worker, a skill, a query, one of its views, or its MCP tool.
 
 - **Rung:** plugin
 - **Picked up:** at once, or on its next read (`hot`)
 - **Contributions from:** stock, plugin
 - **Goes in:** a plugin's plugin.json, code.commands (#2643), approved with its code (#2833)
-- **Contract:** plugin.json code.commands: { id, title, when, editorMenu?, run: { handler | skill | query | view } }, checked by [`src/main/plugins/manifest.ts`](../src/main/plugins/manifest.ts) (`validateCommands`)
+- **Contract:** plugin.json code.commands: { id, title, when, editorMenu?, menu?, key?, run: { handler | skill | query | view | mcpTool } }, checked by [`src/main/plugins/manifest.ts`](../src/main/plugins/manifest.ts) (`validateCommands`)
 - **Registers in:** [`src/shared/commands.ts`](../src/shared/commands.ts) (`COMMANDS`)
 - **Docs:** [`docs/authoring-plugins.md`](authoring-plugins.md)
 - **Example:** [`tests/fixtures/plugins/note-stats/plugin.json`](../tests/fixtures/plugins/note-stats/plugin.json)

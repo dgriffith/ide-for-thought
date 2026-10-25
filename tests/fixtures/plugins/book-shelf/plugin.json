@@ -3,7 +3,7 @@
   "name": "Book Shelf",
   "version": "1.0.0",
   "minerva": ">=3.0.0",
-  "description": "Reads books from the Book Shelf catalogue as sources, by their page's URL or as shelf:<id>, through its MCP server: how a plugin reads a site with an API.",
+  "description": "Reads books from the Book Shelf catalogue as sources, by their page's URL or as shelf:<id>, and finds the selected words there, through its MCP server: how a plugin reads a site with an API.",
   "license": "MIT",
   "contributes": {},
   "mcpServers": {
@@ -14,6 +14,9 @@
     "ingestors": [
       { "id": "book-page", "label": "Book Shelf page", "accepts": { "urlMatch": ["books.example", "*.books.example"] }, "parse": { "mcpTool": "catalogue/read_book" } },
       { "id": "book-id", "label": "Book Shelf id", "accepts": { "identifierPrefixes": ["shelf:"] }, "parse": { "mcpTool": "catalogue/read_book" } }
+    ],
+    "commands": [
+      { "id": "find-selection", "title": "Find Selection on the Book Shelf", "when": "selection", "menu": "edit", "key": "CmdOrCtrl+Alt+B", "run": { "mcpTool": "catalogue/find_book" } }
     ]
   }
 }

@@ -64,7 +64,7 @@ const THRESHOLD = 600;
  */
 const BUDGETS: Record<string, number> = { // +16: each day named from its content and each event by what it shows, described by its full date from the page's hidden list (WCAG 2.5.3, #2790); +4: `month` read by value and the page-turn effect keyed on the page number, so a graph refresh doesn't close the day list (#2742 follow-up); +6: #2704's export branch (`{#if exportMode}` → CalendarExportGrid) and its doc paragraph, merged with this; +40 past the 600 threshold (#2703): reschedule's wiring — the drag action, the choose-a-day mode on the grid's Enter/Escape/click, the move bar, the event menu's hooks, ⌘Z, and their styles. The logic lives beside it in calendar/ (event-drag.ts, reschedule-controller.svelte.ts, reschedule.ts, CalendarMoveBar.svelte); what's left is template and CSS that has to sit on the grid's own elements.
   // +1 for #2256: toggleCommandPalette on the ipc-wiring ctx.
-  'src/renderer/App.svelte': 1863, // +2: plugin app ops (open, reveal, run) (#2827); +17: plugin views in the palette and their tab, showing a sidebar's panel needs App's sidebar refs (#2640); +16: plugin command ops wiring (#2643)
+  'src/renderer/App.svelte': 1868, // +2: plugin app ops (open, reveal, run) (#2827); +17: plugin views in the palette and their tab, showing a sidebar's panel needs App's sidebar refs (#2640); +16: plugin command ops wiring (#2643); +5: plugin command keys and menu items (#2879)
   // +32 for #2210 §3b: the shared wiki-link index and the comment explaining
   // why one index is safe for all three resolvers. Net code is SHORTER (two
   // duplicated file-array builds removed); the growth is the reasoning, which
@@ -82,7 +82,7 @@ const BUDGETS: Record<string, number> = { // +16: each day named from its conten
   // predicted this: the IPC-surface files are budgeted and grow one line per
   // channel by construction, so a bump here is the expected remedy, not a
   // smell.
-  'src/renderer/lib/ipc/client.ts': 1430, // +2: the plugins' inspection checks (#2642); +2: the thoughtbase's (#2874); +1: a save's history cause (#2828); +7: plugins.runCommand (#2643); +5: plugins:approveCode (#2833)
+  'src/renderer/lib/ipc/client.ts': 1432, // +2: the plugins' inspection checks (#2642); +2: the thoughtbase's (#2874); +1: a save's history cause (#2828); +7: plugins.runCommand (#2643); +5: plugins:approveCode (#2833); +2: menu:pluginCommand (#2879)
   'src/renderer/lib/stores/conversations.svelte.ts': 1280, // +4: carry a skill's user-turn material through open + /clear (#2438); +39: mcp_call confirmation card state, beside ask_user's (#2439); +26: turn start/settle screen-reader announcements (#2374); +28: conversation titles — rename, the titleChanged subscription, keepKnownTitle for the post-send reload race; +2: typing during a reply (#1744) — /clear refuses mid-turn, a restored message keeps the draft; +11: turnStartedAt for the turn-status clock (set at the three turn starts, cleared at the three settles); +2: approve comments name the broadcast that really happens (#2541); +4: clear / dismiss a drafted extension's card with its turn and tab (#2652)
   'src/renderer/lib/components/Editor.svelte': 864, // +4: Record Audio / Transcribe Recording context-menu wiring (#2428); +6: replaceRangeIfUnchanged for a plugin command (#2643)
   'src/renderer/lib/stores/editor.svelte.ts': 979, // +14: openPluginView, one tab per plugin global view, beside openNeighborhood (#2640); +1: DEFAULT_VIEW_LAYOUT from the view-layout registry (#2623); +1: type-view tabs carry a timeline range (#2607); +2: type-view tabs carry a kanban column order and Show empty columns (#2614); +1: type-view tabs carry a kanban groupBy (#2601); +1: type-view tabs carry a map style (#2665); +5: type-view tabs keyed by type + folder (#2531); +23: rescopeTypeView — widen a folder-scoped view, merging into an open one (#2532); +17: folder renames move scoped view tabs, beside applyRenameTransitions (#2535)
@@ -91,7 +91,7 @@ const BUDGETS: Record<string, number> = { // +16: each day named from its conten
   // repo's dev-docs folder and how the parity test keeps it honest) and the
   // Command Palette item, whose comment explains that adding the item IS the
   // documentation fix — Keyboard Shortcuts derives from this template.
-  'src/main/menu.ts': 833, // +5: File → New Audio Recording (#2428); −174: menu commands moved onto the command registry (#2625); +8: a Saved Queries section per plugin (#2633); +6: plugin themes in View → Theme (#2787); +3: Python's kernel items only while the built-in Python plugin is on (#2822)
+  'src/main/menu.ts': 837, // +5: File → New Audio Recording (#2428); −174: menu commands moved onto the command registry (#2625); +8: a Saved Queries section per plugin (#2633); +6: plugin themes in View → Theme (#2787); +3: Python's kernel items only while the built-in Python plugin is on (#2822); +4: the menu bar's plugin commands (#2879)
   'src/renderer/lib/components/sidebar/NotesPanel.svelte': 635, // the Notes tree, extracted from Sidebar.svelte (982 → 360) when the left sidebar became a panel registry (#2626)
   'src/renderer/lib/app/refactor-ops.svelte.ts': 654, // −270: the tag and property actions moved to note-action-ops.svelte.ts (#2783), which the sidebar and every view share
   // Raised again in #2208: the staleness check became two queries (sort a
@@ -114,9 +114,9 @@ const BUDGETS: Record<string, number> = { // +16: each day named from its conten
   // +17 (#2491): the property card's "Also fills {{name}} in the note's body" line, its helper and style.
   'src/renderer/lib/components/conversations/DraftCards.svelte': 775,
   // +1 for #2256: the MENU_COMMAND_PALETTE channel / its MENU_COMMANDS entry.
-  'src/shared/ipc-contract.ts': 772, // +2: the plugins' inspection checks (#2642); +2: the thoughtbase's (#2874); +1: a save's history cause (#2828); +1: plugins:runCommand (#2643); −4: the export group's type imported, not re-declared (#2648); +1: plugins:approveCode (#2833)
+  'src/shared/ipc-contract.ts': 774, // +2: the plugins' inspection checks (#2642); +2: the thoughtbase's (#2874); +1: a save's history cause (#2828); +1: plugins:runCommand (#2643); −4: the export group's type imported, not re-declared (#2648); +1: plugins:approveCode (#2833); +2: menu:pluginCommand (#2879)
   // +1 for #2256: the MENU_COMMAND_PALETTE channel / its MENU_COMMANDS entry.
-  'src/shared/channels.ts': 754, // +1: the plugins' inspection checks (#2642); +1: the thoughtbase's (#2874); +2: plugin session events (#2827); +2: PLUGINS_RUN_COMMAND (#2643); +2: plugins:approveCode (#2833)
+  'src/shared/channels.ts': 756, // +1: the plugins' inspection checks (#2642); +1: the thoughtbase's (#2874); +2: plugin session events (#2827); +2: PLUGINS_RUN_COMMAND (#2643); +2: plugins:approveCode (#2833); +2: menu:pluginCommand (#2879)
   // +5 (#2494): both typed-note creation paths read the type's effective (inherited) template.
   'src/renderer/lib/app/note-ops.ts': 707, // +15: saveViewAsNote — "Save as note" writes a note with a live object-view embed (#2507)
   'src/renderer/lib/editor/formatting.ts': 668,
@@ -139,7 +139,7 @@ const BUDGETS: Record<string, number> = { // +16: each day named from its conten
   // ~250-line `<style>` block, not the logic.
   'src/renderer/lib/components/FindInNotesDialog.svelte': 633,
   // +1 for #2256: onCommandPalette passthrough.
-  'src/preload/preload.ts': 655, // +1: the plugins' inspection checks (#2642); +1: the thoughtbase's (#2874); +1: plugin session events (#2827); +2: plugins.runCommand (#2643); +1: plugins:approveCode (#2833)
+  'src/preload/preload.ts': 656, // +1: the plugins' inspection checks (#2642); +1: the thoughtbase's (#2874); +1: plugin session events (#2827); +2: plugins.runCommand (#2643); +1: plugins:approveCode (#2833); +1: menu:pluginCommand (#2879)
   'src/main/ipc/register-conversation-drafts.ts': 579, // +2: approved drafts broadcast their moves + rewrites (#2541)
   // New entry in #2218, which took this file from 538 over the threshold.
   // The seam this check asks about was taken first: the deadline POLICY —

@@ -204,6 +204,7 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
     "onExport",
     "onOpenRecentProject",
     "onOpenStockQuery",
+    "onPluginCommand",
     "onProjectOpened",
     "onSetTheme",
     "reportEditorState",

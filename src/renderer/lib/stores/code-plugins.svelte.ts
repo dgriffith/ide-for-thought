@@ -16,6 +16,7 @@
  */
 import { api } from '../ipc/client';
 import { logger } from '../../../shared/logger';
+import { resolvePluginKeys, type PluginKeyConflict } from '../../../shared/plugins/command-keys';
 import type { PluginBlock, PluginCommand, PluginSummary, PluginView, PluginViewPlace } from '../../../shared/plugins/format';
 import type { PluginBlockSyntax } from '../../../shared/live-blocks';
 
@@ -138,6 +139,23 @@ export const codePluginsStore = {
     start();
     if (known === null) return [];
     return [...known].flatMap(([pluginId, p]) => (p.enabled ? p.commands.map((command) => ({ pluginId, pluginName: p.name, command })) : []));
+  },
+  /**
+   * The keys plugin commands keep (#2879), by the rule main's menu uses
+   * (`resolvePluginKeys`): the first plugin to claim a key has it. Reactive.
+   */
+  commandKeys(): { keys: Map<string, string>; conflicts: PluginKeyConflict[] } {
+    return resolvePluginKeys(codePluginsStore.allCommands().map(({ pluginId, pluginName, command }) => ({
+      pluginId, pluginName, commandId: command.id, title: command.title, ...(command.key ? { key: command.key } : {}),
+    })));
+  },
+  /** Every command, with the key it kept (#2879): the palette's list. Reactive. */
+  keyedCommands(): (ActivePluginCommand & { key?: string })[] {
+    const { keys } = codePluginsStore.commandKeys();
+    return codePluginsStore.allCommands().map((c) => {
+      const key = keys.get(`${c.pluginId}/${c.command.id}`);
+      return key ? { ...c, key } : c;
+    });
   },
   /** Its name, for "turn on X" — the id until the list has loaded. */
   name(id: string): string {

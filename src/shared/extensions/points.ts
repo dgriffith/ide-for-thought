@@ -286,9 +286,9 @@ export const EXTENSION_POINTS = [
   {
     id: 'commands',
     label: 'Commands',
-    description: 'An action placed by id in the menu bar, the palette, the window keymap or the editor keymap. A plugin\'s is in the palette and the editor menu, and runs a handler in its worker, a skill, a query or one of its views.',
+    description: 'An action placed by id in the menu bar, the palette, the window keymap or the editor keymap. A plugin\'s is in the palette, and the editor menu, a menu of the menu bar and on a key of its own if it asks; it runs a handler in its worker, a skill, a query, one of its views, or its MCP tool.',
     rung: 'plugin',
-    contract: { kind: 'parser', format: 'plugin.json code.commands: { id, title, when, editorMenu?, run: { handler | skill | query | view } }', at: { file: 'src/main/plugins/manifest.ts', symbol: 'validateCommands' } },
+    contract: { kind: 'parser', format: 'plugin.json code.commands: { id, title, when, editorMenu?, menu?, key?, run: { handler | skill | query | view | mcpTool } }', at: { file: 'src/main/plugins/manifest.ts', symbol: 'validateCommands' } },
     loadPath: 'hot',
     sources: ['stock', 'plugin'],
     location: 'a plugin\'s plugin.json, code.commands (#2643), approved with its code (#2833)',
