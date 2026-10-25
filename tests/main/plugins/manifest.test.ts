@@ -286,3 +286,38 @@ describe('code.commands (#2643)', () => {
       .toEqual(['Unknown field "code.commands[0].key".']);
   });
 });
+
+describe('code.ingestors (#2647)', () => {
+  const CORE = { ...CTX, core: true };
+  const SRT = { id: 'transcript', label: 'Transcript', accepts: { extensions: ['.srt', '.vtt'] }, parse: { handler: 'parseTranscript' } };
+  const code = (ingestors: unknown, extra: Record<string, unknown> = {}) => ({
+    ...GOOD, code: { capabilities: ['notes:read'], api: '^1.10.0', worker: 'logic.js', ingestors, ...extra },
+  });
+
+  it('takes a file type read by a handler', () => {
+    const r = validatePluginManifest(code([{ ...SRT, label: ' Transcript ' }]), CORE);
+    expect(r.ok && r.manifest.code?.ingestors).toEqual([SRT]);
+  });
+
+  it('needs code.worker, a handler name and the extensions as written', () => {
+    expect(problemsOf({ ...GOOD, code: { capabilities: ['notes:read'], api: '^1.10.0', ingestors: [SRT] } }, CORE))
+      .toEqual(['"code.ingestors[0].parse.handler" needs "code.worker": a handler is a function in the plugin\'s logic module.']);
+    expect(problemsOf(code([{ ...SRT, parse: { mcpTool: 'x/y' } }]), CORE))
+      .toEqual(['"code.ingestors[0].parse" must be { "handler": name }, the name a handler registers with minerva.handle().']);
+    expect(problemsOf(code([{ ...SRT, accepts: { extensions: ['SRT', '.a.b'] } }]), CORE)).toEqual([
+      '"code.ingestors[0].accepts.extensions" names "SRT"; an extension is lowercase, with the dot, like ".srt".',
+      '"code.ingestors[0].accepts.extensions" names ".a.b"; an extension is lowercase, with the dot, like ".srt".',
+    ]);
+  });
+
+  it("refuses a type Minerva reads itself, one claimed twice, and a URL or identifier (that's MCP)", () => {
+    expect(problemsOf(code([{ ...SRT, accepts: { extensions: ['.pdf', '.bib'] } }]), CORE)).toEqual([
+      '"code.ingestors[0].accepts.extensions" names ".pdf", which Minerva reads itself.',
+      '"code.ingestors[0].accepts.extensions" names ".bib", which Minerva reads itself.',
+    ]);
+    expect(problemsOf(code([SRT, { ...SRT, id: 'other', accepts: { extensions: ['.vtt'] } }]), CORE))
+      .toEqual(['"code.ingestors" names ".vtt" twice.']);
+    expect(problemsOf(code([{ ...SRT, accepts: { urlMatch: 'example.com' } }]), CORE))
+      .toEqual(['"code.ingestors[0].accepts" can only name "extensions" for now: reading a URL or an identifier needs the network, so it\'s an MCP server\'s job.']);
+  });
+});

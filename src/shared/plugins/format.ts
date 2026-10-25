@@ -100,6 +100,8 @@ export interface PluginCode {
   worker?: string;
   /** Commands it adds (#2643): in the command palette, and the editor's menu when they ask. */
   commands?: PluginCommand[];
+  /** File types it reads as Sources (#2647), each by one of its handlers. */
+  ingestors?: PluginIngestor[];
 }
 
 /** A handler's name: what `minerva.handle(name, …)` registers (#2830), and what a command runs. */
@@ -173,6 +175,64 @@ export type PluginCommandAction =
   | { kind: 'skill'; skill: string }
   | { kind: 'query'; text: string }
   | { kind: 'view'; view: string };
+
+/**
+ * An ingestor a plugin adds (#2647): a file type the Ingest File dialog
+ * offers, read by a handler in the plugin's worker host (#2830).
+ *
+ * ```json
+ * "ingestors": [{ "id": "transcript", "label": "Transcript",
+ *                 "accepts": { "extensions": [".srt", ".vtt"] },
+ *                 "parse": { "handler": "parseTranscript" } }]
+ * ```
+ *
+ * The handler is handed `PluginIngestInput` and returns a
+ * `PluginSourceDraft`; Minerva checks the draft and writes the Source. An
+ * extension Minerva reads itself (`shared/source-file-types.ts`) can't be
+ * taken.
+ */
+export interface PluginIngestor {
+  /** Lowercase letters and digits in dash-separated words, unique in the plugin. */
+  id: string;
+  /** What it reads, for the file dialog and messages ("Transcript"). */
+  label: string;
+  accepts: { extensions: string[] };
+  parse: { handler: string };
+}
+
+/** What an ingestor's handler is handed (#2647): the file, as data. */
+export interface PluginIngestInput {
+  ingestor: string;
+  /** The file's name, without its folder. */
+  filename: string;
+  /** The file's bytes, base64. */
+  base64: string;
+}
+
+/** The Source classes a draft may name (`ontology-thought.ttl`). */
+export const PLUGIN_SOURCE_TYPES = ['Document', 'Article', 'Book', 'Report', 'WebPage'] as const;
+export type PluginSourceType = (typeof PLUGIN_SOURCE_TYPES)[number];
+
+/**
+ * What an ingestor's handler returns (#2647): a Source's metadata and body.
+ * The body is Markdown and someone else's text: Minerva escapes every `<`
+ * in it, so it renders as text, never as HTML (#2558).
+ */
+export interface PluginSourceDraft {
+  title: string;
+  body: string;
+  /** Default `Document`. */
+  type?: PluginSourceType;
+  creators?: string[];
+  /** An ISO date: `2024`, `2024-05` or `2024-05-17`. */
+  issued?: string;
+  publisher?: string;
+  abstract?: string;
+  /** An http(s) URL for the work. */
+  uri?: string;
+  /** A BCP 47 tag: `en`, `pt-BR`. */
+  language?: string;
+}
 
 /**
  * A live block (#2641): a fence (```` ```recipe-card ````) or a directive
@@ -378,6 +438,8 @@ export interface PluginSummary {
   blocks?: PluginBlock[];
   /** The commands it adds (#2643); absent when none. */
   commands?: PluginCommand[];
+  /** The file types it reads as Sources (#2647); absent when none. */
+  ingestors?: PluginIngestor[];
 }
 
 /**

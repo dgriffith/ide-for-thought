@@ -154,6 +154,11 @@ const LIST = {
     description: "Sort the Markdown list in your selection, from the command palette or the editor's right-click menu. Nested items move with their parent.",
     enabled: false, source: { kind: 'core' }, contributes: {}, capabilities: ['notes:read'],
     commands: [{ id: 'sort-selection', title: 'Sort List in Selection', when: 'selection', editorMenu: true, run: { handler: 'sortSelection' } }],
+  }, {
+    id: 'transcripts', name: 'Transcripts', version: '1.0.0',
+    description: 'Ingest subtitle and caption files (.srt, .vtt) as sources: the captions joined into timestamped paragraphs, with speakers named.',
+    enabled: false, source: { kind: 'core' }, contributes: {}, capabilities: ['notes:read'],
+    ingestors: [{ id: 'transcript', label: 'Transcript', accepts: { extensions: ['.srt', '.vtt'] }, parse: { handler: 'parseTranscript' } }],
   }],
   installed: [{
     id: 'lab', name: 'Lab', version: '1.0.0', description: 'Lab tools', author: 'Ada', enabled: false,

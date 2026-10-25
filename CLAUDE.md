@@ -1861,7 +1861,12 @@ origin.
   `query` or one of its `view`s, and main decides which (`plugin-commands.ts`).
   A handler returns `{ replaceSelection?, announce? }` and the editor applies
   it only to text that is still selected (`replaceRangeIfUnchanged`): the
-  plugin never writes under an open buffer. A new core plugin needs an
+  plugin never writes under an open buffer. **A plugin ingestor (#2647)**
+  is in `code.ingestors`: a file type whose bytes main hands a handler
+  (`plugin-ingestors.ts`); the draft it returns is checked field by field
+  and written by `sources/ingest-draft.ts`, `<` escaped, with
+  `minerva:ingestedBy`. It can't take an extension Minerva reads
+  (`shared/source-file-types.ts`). A new core plugin needs an
   entry in `core-plugins.ts`'s activations, or it is never active.
 
 ### Code Review Checklist for LLM/Graph PRs

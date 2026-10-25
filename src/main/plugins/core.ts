@@ -143,6 +143,29 @@ const CORE_PLUGIN_DEFINITIONS: readonly CorePluginDefinition[] = [
     },
     defaultEnabled: false,
   },
+  {
+    // Transcripts (#2647): the worked example of an ingestor whose parser is
+    // the plugin's own code. Ingest File offers .srt and .vtt; the file's
+    // bytes go to `parseTranscript` in its worker host
+    // (`plugins/transcripts/src/logic.ts`), which returns the transcript as a
+    // source draft, and Minerva writes the Source. No note is in its scope.
+    // Off by default: it adds a file type.
+    manifest: {
+      id: 'transcripts',
+      name: 'Transcripts',
+      version: '1.0.0',
+      minerva: '>=4.0.0',
+      description: 'Ingest subtitle and caption files (.srt, .vtt) as sources: the captions joined into timestamped paragraphs, with speakers named.',
+      contributes: {},
+      code: {
+        capabilities: ['notes:read'],
+        api: '^1.10.0',
+        worker: 'logic.js',
+        ingestors: [{ id: 'transcript', label: 'Transcript', accepts: { extensions: ['.srt', '.vtt'] }, parse: { handler: 'parseTranscript' } }],
+      },
+    },
+    defaultEnabled: false,
+  },
 ];
 
 let definitions: readonly CorePluginDefinition[] = CORE_PLUGIN_DEFINITIONS;

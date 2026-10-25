@@ -40,6 +40,9 @@ const CORE_PLUGIN_ACTIVATIONS: Readonly<Record<string, CorePluginActivation>> = 
   // List Tools (#2643): its command's handler runs in its worker host, which
   // starts on the first run and stops when the plugin goes (`plugins-apply.ts`).
   'list-tools': () => () => {},
+  // Transcripts (#2647): its ingestor joins the registry while it's active
+  // (`plugin-ingestors.ts`), and its parser runs in its worker host.
+  transcripts: () => () => {},
 };
 
 /**

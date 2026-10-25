@@ -16,6 +16,7 @@ import {
   PLUGIN_HANDLER_NAME,
   type PluginCommand,
   type PluginCommandRun,
+  type PluginIngestor,
   type PluginCommandWhen,
   type PluginBlock,
   type PluginCode,
@@ -29,6 +30,7 @@ import { validatePluginSettings } from './settings-schema';
 import { validatePluginMcpServers } from './mcp-schema';
 import { LIVE_DIRECTIVE_OPENERS, LIVE_FENCE_LANGS } from '../../shared/live-blocks';
 import { RUNNABLE_LANGUAGE_SET } from '../../shared/compute/fences';
+import { isBuiltinSourceFileExtension } from '../../shared/source-file-types';
 
 /** Lowercase letters and digits in dash-separated words: `reading-list`, `lab2`. */
 export const PLUGIN_ID = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
@@ -36,7 +38,13 @@ export const MAX_PLUGIN_ID = 64;
 
 const KNOWN_KEYS = new Set(['$schema', 'id', 'name', 'version', 'minerva', 'description', 'author', 'license', 'contributes', 'settings', 'mcpServers', 'code']);
 /** What a `code` section may hold (#2823). Entry points join it with the frame (#2824) and the worker host (#2830). */
-const CODE_KEYS = new Set(['capabilities', 'api', 'views', 'blocks', 'worker', 'commands']);
+const CODE_KEYS = new Set(['capabilities', 'api', 'views', 'blocks', 'worker', 'commands', 'ingestors']);
+const INGESTOR_KEYS = new Set(['id', 'label', 'accepts', 'parse']);
+/** Most ingestors one plugin may add, and extensions one may take (#2647). */
+export const MAX_PLUGIN_INGESTORS = 8;
+const MAX_INGESTOR_EXTENSIONS = 8;
+/** A file extension as an ingestor names it: lowercase, with the dot. */
+const FILE_EXTENSION = /^\.[a-z0-9]{1,10}$/;
 const COMMAND_KEYS = new Set(['id', 'title', 'when', 'editorMenu', 'run']);
 const COMMAND_RUN_KINDS = ['handler', 'skill', 'query', 'view'] as const;
 /** Most commands one plugin may add (#2643). */
@@ -206,11 +214,13 @@ function validateCode(raw: unknown, ctx: ManifestContext, problems: string[]): P
   const worker = raw.worker === undefined ? undefined : pluginFilePath(raw.worker, 'code.worker', '.js', problems);
   const commands = raw.commands === undefined ? undefined
     : validateCommands(raw.commands, { worker: raw.worker !== undefined, views: views ?? [] }, problems);
+  const ingestors = raw.ingestors === undefined ? undefined : validateIngestors(raw.ingestors, raw.worker !== undefined, problems);
   const withViews = {
     ...(views !== undefined && views.length > 0 ? { views } : {}),
     ...(blocks !== undefined && blocks.length > 0 ? { blocks } : {}),
     ...(worker !== undefined ? { worker } : {}),
     ...(commands !== undefined && commands.length > 0 ? { commands } : {}),
+    ...(ingestors !== undefined && ingestors.length > 0 ? { ingestors } : {}),
   };
   // The plugin API's own version (#2826), not the app's.
   const api = raw.api;
@@ -389,6 +399,81 @@ function validateCommandRun(raw: unknown, at: string, has: { worker: boolean; vi
       }
       return { view: v };
   }
+}
+
+/**
+ * `code.ingestors` (#2647): file types read as Sources by one of the plugin's
+ * handlers, so each needs `code.worker`. Only `extensions` for now: a URL or
+ * an identifier means the network, which is an MCP server's (#2880). A type
+ * Minerva reads itself can't be taken over.
+ */
+function validateIngestors(raw: unknown, hasWorker: boolean, problems: string[]): PluginIngestor[] | undefined {
+  if (!Array.isArray(raw) || raw.length === 0) {
+    problems.push('"code.ingestors" must be a non-empty list of ingestors.');
+    return undefined;
+  }
+  if (raw.length > MAX_PLUGIN_INGESTORS) problems.push(`"code.ingestors" lists ${raw.length} ingestors; at most ${MAX_PLUGIN_INGESTORS}.`);
+  const out: PluginIngestor[] = [];
+  raw.forEach((g: unknown, i) => {
+    const at = `code.ingestors[${i}]`;
+    if (!isRecord(g)) {
+      problems.push(`"${at}" must be an object.`);
+      return;
+    }
+    for (const key of Object.keys(g)) {
+      if (!INGESTOR_KEYS.has(key)) problems.push(`Unknown field "${at}.${key}".`);
+    }
+    const before = problems.length;
+    const id = g.id;
+    if (typeof id !== 'string' || !PLUGIN_ID.test(id) || id.length > MAX_PLUGIN_ID) {
+      problems.push(`"${at}.id" must be lowercase letters and digits in dash-separated words, like "transcript".`);
+    } else if (out.some((o) => o.id === id)) {
+      problems.push(`"code.ingestors" has two ingestors with the id "${id}".`);
+    }
+    const label = g.label;
+    if (typeof label !== 'string' || label.trim() === '' || label.length > 40) {
+      problems.push(`"${at}.label" must be a name of at most 40 characters, like "Transcript".`);
+    }
+    const extensions = ingestorExtensions(g.accepts, `${at}.accepts`, out, problems);
+    const handler = isRecord(g.parse) && Object.keys(g.parse).length === 1 ? g.parse.handler : undefined;
+    if (typeof handler !== 'string' || !PLUGIN_HANDLER_NAME.test(handler)) {
+      problems.push(`"${at}.parse" must be { "handler": name }, the name a handler registers with minerva.handle().`);
+    } else if (!hasWorker) {
+      problems.push(`"${at}.parse.handler" needs "code.worker": a handler is a function in the plugin's logic module.`);
+    }
+    if (problems.length > before || !extensions) return;
+    out.push({ id: id as string, label: (label as string).trim(), accepts: { extensions }, parse: { handler: handler as string } });
+  });
+  return out;
+}
+
+function ingestorExtensions(raw: unknown, at: string, earlier: readonly PluginIngestor[], problems: string[]): string[] | undefined {
+  const keys = isRecord(raw) ? Object.keys(raw) : [];
+  if (!isRecord(raw) || keys.length !== 1 || keys[0] !== 'extensions') {
+    const network = keys.some((k) => k === 'urlMatch' || k === 'identifierPattern');
+    problems.push(network
+      ? `"${at}" can only name "extensions" for now: reading a URL or an identifier needs the network, so it's an MCP server's job.`
+      : `"${at}" must be { "extensions": [".ext", …] }.`);
+    return undefined;
+  }
+  const list = raw.extensions;
+  if (!Array.isArray(list) || list.length === 0 || list.length > MAX_INGESTOR_EXTENSIONS) {
+    problems.push(`"${at}.extensions" must list 1 to ${MAX_INGESTOR_EXTENSIONS} file extensions, like ".srt".`);
+    return undefined;
+  }
+  const out: string[] = [];
+  for (const ext of list) {
+    if (typeof ext !== 'string' || !FILE_EXTENSION.test(ext)) {
+      problems.push(`"${at}.extensions" names ${JSON.stringify(ext)}; an extension is lowercase, with the dot, like ".srt".`);
+    } else if (isBuiltinSourceFileExtension(ext)) {
+      problems.push(`"${at}.extensions" names "${ext}", which Minerva reads itself.`);
+    } else if (out.includes(ext) || earlier.some((g) => g.accepts.extensions.includes(ext))) {
+      problems.push(`"code.ingestors" names "${ext}" twice.`);
+    } else {
+      out.push(ext);
+    }
+  }
+  return out.length === list.length ? out : undefined;
 }
 
 /**
