@@ -103,6 +103,19 @@ describe('nothing changed, nothing done (#2634)', () => {
     expect(h.send).toHaveBeenCalledTimes(1);
   });
 
+  it('an edit to a code file is a change, though no manifest or contribution moved (#2833)', async () => {
+    const before = fresh();
+    before.plugins[0]!.codeHash = 'a'.repeat(64);
+    const edited = { ...before, plugins: [{ ...before.plugins[0]!, codeHash: 'b'.repeat(64) }] };
+    h.scans.push(before, edited);
+    await applyPluginChange();
+    const done = h.order.length;
+    await applyPluginChange();
+    // The plugin goes off (its approval no longer matches), so every seam is told.
+    expect(h.order.slice(done)).toContain('catalog');
+    expect(h.send).toHaveBeenCalledTimes(2);
+  });
+
   it('changePlugins applies after the change; the watcher applies any later edit, however soon', async () => {
     startPluginsWatcher('/plugins');
     h.scans.push(fresh('types/a.md'));
