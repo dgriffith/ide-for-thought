@@ -721,3 +721,14 @@ describe('DraftCards — result lines', () => {
     expect(container.textContent).toContain('⚠ src-x');
   });
 });
+
+describe('DraftCards — a new note at the thoughtbase guide\'s path (#2837)', () => {
+  it('is marked, its content shown without a click; another note\'s is not', () => {
+    const { container } = renderStack(tab({ drafts: [noteDraft('g', 'thoughtbase.md'), noteDraft('n', 'notes/a.md')] }));
+    const [guide, other] = cards(container);
+    expect(guide!.querySelector('[data-testid="guide-marker"]')?.textContent).toMatch(/reads this in every conversation/);
+    expect(guide!.querySelector('.draft-preview')?.textContent).toBe('# thoughtbase.md body');
+    expect(other!.querySelector('[data-testid="guide-marker"]')).toBeNull();
+    expect(other!.querySelector('.draft-preview')).toBeNull();
+  });
+});

@@ -8,6 +8,8 @@
   import { describeProposalDecisionFailure } from '../../../shared/proposals';
   import { isBareKeyShortcut } from '../keymap/single-key-shortcut';
   import { pluginPayloadReview, pluginPayloadSummary, type PluginFilesPayload } from '../proposals/plugin-review';
+  import GuideMarker from './GuideMarker.svelte';
+  import { guideEffectOfPayload, guideEffectOfPayloads } from '../../../shared/thoughtbase-guide';
 
   const review = getReviewStore();
   const store = getProposalsStore();
@@ -320,11 +322,14 @@
 
         {#if selectedUri === p.uri}
           <div class="proposal-detail">
+            <GuideMarker effect={guideEffectOfPayloads(p.payloads ?? [])} />
             {#if (p.payloads?.length ?? 0) === 0}
               <div class="empty">No payloads on this proposal — nothing will land if you approve.</div>
             {:else}
               <ul class="payload-list">
                 {#each p.payloads as payload, i}
+                  <!-- What would be written to the thoughtbase guide starts open (#2837). -->
+                  {@const open = expandedPayloads.has(`${p.uri}::${i}`) !== (guideEffectOfPayload(payload) === 'writes')}
                   <li>
                     <button
                       class="payload-row"
@@ -332,9 +337,9 @@
                     >
                       <span class="payload-kind">{payload.kind}</span>
                       <span class="payload-summary">{payloadSummary(payload)}</span>
-                      <span class="payload-toggle">{expandedPayloads.has(`${p.uri}::${i}`) ? '▾' : '▸'}</span>
+                      <span class="payload-toggle">{open ? '▾' : '▸'}</span>
                     </button>
-                    {#if expandedPayloads.has(`${p.uri}::${i}`)}
+                    {#if open}
                       <pre class="payload-preview">{payloadPreview(payload)}</pre>
                     {/if}
                   </li>

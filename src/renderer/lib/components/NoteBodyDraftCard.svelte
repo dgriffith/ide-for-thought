@@ -17,6 +17,8 @@
   import DraftCard from './DraftCard.svelte';
   import Icon from './Icon.svelte';
   import { changedLines } from './refactor-diff';
+  import GuideMarker from './GuideMarker.svelte';
+  import { isThoughtbaseGuidePath } from '../../../shared/thoughtbase-guide';
 
   interface Props {
     draft: ConversationNoteBodyDraft;
@@ -35,10 +37,11 @@
   // svelte-ignore state_referenced_locally
   let selected = $state<Set<string>>(new Set(draft.items.map((i) => i.relativePath)));
   // A lone rewrite shows its diff immediately; a batch stays collapsed until
-  // asked for, so the card stays scannable.
+  // asked for, so the card stays scannable — except the thoughtbase guide's,
+  // which every conversation here reads, so its diff is always open (#2837).
   // svelte-ignore state_referenced_locally
   let expanded = $state<Set<string>>(
-    new Set(draft.items.length === 1 ? draft.items.map((i) => i.relativePath) : []),
+    new Set(draft.items.filter((i) => draft.items.length === 1 || isThoughtbaseGuidePath(i.relativePath)).map((i) => i.relativePath)),
   );
 
   interface Row {
@@ -135,6 +138,7 @@
           {/if}
         </div>
 
+        <GuideMarker effect={isThoughtbaseGuidePath(row.path) ? 'writes' : null} />
         {#if expanded.has(row.path)}
           {#if row.lines.length === 0}
             <div class="empty">No line-level changes.</div>

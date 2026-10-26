@@ -214,3 +214,14 @@ describe('RefactorDraftCard — callbacks', () => {
     expect(second.headline()).toBe('Move');
   });
 });
+
+describe('RefactorDraftCard — the thoughtbase guide (#2837)', () => {
+  const marker = (c: HTMLElement) => c.querySelector('[data-testid="guide-marker"]')?.textContent ?? null;
+  it('marks a rename into the guide\'s place, and one away from it', () => {
+    expect(marker(renderCard(draft({ fromPath: 'notes/plan.md', toPath: 'thoughtbase.md' })).container)).toMatch(/reads this in every conversation/);
+    cleanup();
+    expect(marker(renderCard(draft({ fromPath: 'thoughtbase.md', toPath: 'old-guide.md' })).container)).toMatch(/turns the guide off/);
+    cleanup();
+    expect(marker(renderCard(draft({ fromPath: 'notes/plan.md', toPath: 'notes/thoughtbase.md' })).container)).toBeNull();
+  });
+});

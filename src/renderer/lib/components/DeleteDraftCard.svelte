@@ -15,6 +15,8 @@
    */
   import type { ConversationDeleteDraft, DeleteDraftItem } from '../../../shared/conversation-refactor-drafts';
   import Icon from './Icon.svelte';
+  import GuideMarker from './GuideMarker.svelte';
+  import { isThoughtbaseGuidePath } from '../../../shared/thoughtbase-guide';
 
   interface Props {
     draft: ConversationDeleteDraft;
@@ -174,6 +176,7 @@
         </button>
       {/if}
     </div>
+    <GuideMarker effect={isThoughtbaseGuidePath(item.path) ? 'removes' : null} />
     {#if isExp && item.inbound.length > 0}
       <div class="inbound">
         {#each item.inbound as b (b.source)}

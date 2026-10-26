@@ -8,6 +8,8 @@
   import type { ConversationReorgDraft, ReorgDraftItem } from '../../../shared/conversation-refactor-drafts';
   import Icon from './Icon.svelte';
   import { refactorVerb, changedLines } from './refactor-diff';
+  import GuideMarker from './GuideMarker.svelte';
+  import { guideEffectOfMove } from '../../../shared/thoughtbase-guide';
 
   interface Props {
     draft: ConversationReorgDraft;
@@ -94,6 +96,7 @@
             </button>
           {/if}
         </div>
+        <GuideMarker effect={draft.isFolder ? null : guideEffectOfMove(item.fromPath, item.toPath)} />
         {#if isExp}
           <div class="diffs">
             {#each item.affectedNotes as note (note.path)}

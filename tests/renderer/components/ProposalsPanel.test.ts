@@ -303,3 +303,21 @@ describe('ProposalsPanel — screen-reader announcements (#2374)', () => {
     await waitFor(() => expect(clean(announcer.assertive)).toMatch(/^Not approved: .*already rejected/));
   });
 });
+
+describe('ProposalsPanel — the thoughtbase guide (#2837)', () => {
+  it('marks a filed rewrite of thoughtbase.md and shows what it writes without a click', async () => {
+    const { getByText, container } = await renderPanel([pendingProposal({
+      operationType: 'note_rewrite', note: 'Add a convention',
+      payloads: [{ kind: 'note-rewrite', path: 'thoughtbase.md', content: '# Guide\nAlways cite X.' }],
+    })]);
+    await fireEvent.click(getByText('Add a convention'));
+    expect(container.querySelector('[data-testid="guide-marker"]')?.textContent).toMatch(/reads this in every conversation/);
+    expect(container.querySelector('.payload-preview')?.textContent).toContain('Always cite X.');
+  });
+
+  it('marks nothing for an ordinary note', async () => {
+    const { getByText, container } = await renderPanel();
+    await fireEvent.click(getByText('Crystallize claim about photosynthesis'));
+    expect(container.querySelector('[data-testid="guide-marker"]')).toBeNull();
+  });
+});
