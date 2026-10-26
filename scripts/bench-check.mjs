@@ -22,6 +22,11 @@
  *     file (#1945).
  *   - An optional per-benchmark `budgetMs` adds a hard absolute ceiling for the
  *     few latencies we want a scale envelope on (e.g. graph query at 5k notes).
+ *   - A gated benchmark running more than `tolerance`x FASTER than its baseline
+ *     is a warning, never a failure (#2852): its gate now fires only past
+ *     tolerance² × today's number, so it checks nothing. The preview re-render
+ *     sat at 0.2x for weeks, where a 10x regression would have passed, until
+ *     someone read the table. Re-bless that entry.
  *
  * Usage:
  *   node scripts/bench-check.mjs --current <vitest-bench.json> [--baseline <f>]
@@ -156,6 +161,7 @@ const tolerance = explicitTolerance ?? fileTolerance;
 
 const regressions = [];
 const budgetBreaches = [];
+const farFaster = [];
 const missing = [];
 const added = [];
 const rows = [];
@@ -176,6 +182,7 @@ for (const [name, base] of baseline) {
   const overBudget = gated && base.budgetMs != null && cur.mean > base.budgetMs;
   if (regressed) regressions.push({ name, ratio, tolerance: benchTolerance });
   if (overBudget) budgetBreaches.push({ name, mean: cur.mean, budgetMs: base.budgetMs });
+  if (gated && ratio < 1 / benchTolerance) farFaster.push({ name, ratio, firesAt: (base.mean * benchTolerance) / cur.mean });
   rows.push({
     name,
     base: base.mean,
@@ -200,6 +207,14 @@ for (const r of rows.sort((a, b) => b.ratio - a.ratio)) {
 }
 
 if (added.length) console.log(`\n⚠ ${added.length} new benchmark(s) not in baseline (run \`pnpm bench:baseline\`):\n  - ${added.join('\n  - ')}`);
+if (farFaster.length) {
+  console.log(`\n⚠ ${farFaster.length} gated benchmark(s) far faster than baseline, so the gate barely checks them. Re-bless them (see _comment):`);
+  for (const f of farFaster) {
+    const msg = `${f.name}: ${f.ratio.toFixed(2)}× of baseline, so the gate fires only at ${f.firesAt.toFixed(1)}× today's number`;
+    console.log(`  - ${msg}`);
+    console.log(`::warning title=Bench baseline is stale (far faster than it)::${msg}`);
+  }
+}
 if (missing.length) console.log(`\n⚠ ${missing.length} baseline benchmark(s) missing from this run:\n  - ${missing.join('\n  - ')}`);
 
 if (regressions.length || budgetBreaches.length) {

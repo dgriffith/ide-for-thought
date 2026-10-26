@@ -30,12 +30,15 @@
  * document is never collected there), so the bench ran out of heap after a
  * dozen iterations. jsdom holds steady. Neither is Chromium — read these as a
  * trend against the committed baseline, not as the milliseconds a user sees.
- * The biggest distortion: measured on 2026-09-30, `applyCslMarkers` is ~750ms
- * of the full entry's ~1.16s, nearly all of it 440 `displayEl.innerHTML =
- * marker` writes that jsdom parses through parse5 one at a time. Chromium
- * doesn't pay that per write, so a jump in the full entry with the
- * render + sanitize entry flat points at the citation passes, and should be
- * confirmed in the real app before it's read as user-visible.
+ * The biggest distortion is jsdom's own speed at building DOM, and it has
+ * moved under us once: on jsdom 30.1.1 (measured 2026-09-30) `applyCslMarkers`
+ * was ~750ms of the full entry's ~1.16s locally, nearly all of it 440
+ * `displayEl.innerHTML = marker` writes. jsdom 30.1.2 fixed a large-DOM-tree
+ * slowdown introduced in 30.1.0 (#2778 took it), and the full entry fell ~5x
+ * with no change of ours (#2852): locally ~380ms now, ~175ms of it render +
+ * sanitize. So a jump in the full entry with the render + sanitize entry flat
+ * points at the citation passes OR at a jsdom bump; check the lockfile, and
+ * confirm in the real app before reading it as user-visible.
  */
 import { describe, test } from 'vitest';
 import { assertFixtureReaches } from '../../helpers/bench-fixture';
@@ -126,9 +129,10 @@ async function rerender(): Promise<void> {
 const label = `${note.lines}-line note with ${note.citeCount} citations`;
 
 // Capped samples, the way full-index.bench.ts caps indexAllNotes. On the
-// macos-latest runner the full re-render takes ~3.5s a sample (~1.2s locally),
-// and the default 64-sample floor put the test at the bench config's 300s
-// `testTimeout`: the first CI bless took 13 minutes and the second timed out.
+// macos-latest runner the full re-render took ~3.5s a sample on jsdom 30.1.1
+// (~0.5s since 30.1.2), and the default 64-sample floor put the test at the
+// bench config's 300s `testTimeout`: the first CI bless took 13 minutes and
+// the second timed out.
 // Locally the relative margin of error is ~1.5% at 64 samples, so 10 loses
 // little precision. The cap goes to `.run()`: in vitest 5 the options argument
 // of `bench(name, options, fn)` is per-function hooks, and sampling options

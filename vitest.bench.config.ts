@@ -1,11 +1,19 @@
 import { defineConfig } from 'vitest/config';
+import { svelte } from '@sveltejs/vite-plugin-svelte';
 
 /**
  * Standalone config for `pnpm bench` (vitest benchmark mode, #1004).
  *
  * Kept apart from vitest.config.mts so the `*.bench.ts` files never run in the
- * gating `pnpm test` / coverage passes (those include only `*.test.ts`), and so
- * a bench run skips the svelte plugin the main config loads for component tests.
+ * gating `pnpm test` / coverage passes (those include only `*.test.ts`).
+ *
+ * It loads the svelte plugin (#2852), though no bench mounts a component: the
+ * renderer benches import real renderer modules, and those reach rune stores
+ * (`*.svelte.ts`). Without it, `build-extensions.ts` importing
+ * `compute-languages.svelte.ts` (#2856) failed the editor bench with
+ * "$state is not defined", and with it every bench run on main. Not
+ * `svelteTesting()`: nothing here renders, so its browser resolve condition
+ * and cleanup hook have nothing to do.
  *
  * Non-gating: run manually (`pnpm bench`) or from the scheduled `Bench` workflow
  * — never on PR CI (benchmarks are noisy on shared runners). The point is to
@@ -15,6 +23,7 @@ import { defineConfig } from 'vitest/config';
  * pick their DOM per file with an `@vitest-environment` docblock.
  */
 export default defineConfig({
+  plugins: [svelte({ hot: false })],
   test: {
     // Vitest 5 (#1009): `bench()` now runs inside a wrapping `test()`, so the
     // test-level timeout applies to it too — including the per-scale seeding
