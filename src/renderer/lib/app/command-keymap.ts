@@ -170,7 +170,6 @@ export function createCommandKeymap(ctx: CommandKeymapCtx): {
     'file.print': () => window.print(),
     'file.saveAsTemplate': ctx.saveAsTemplate,
     'edit.insertTemplate': ctx.insertTemplate,
-    'edit.dictate': () => { void toggleEditorDictation(ctx.getEditorComponent()?.getView() ?? null); },
     'file.newAudioRecording': () => { void recordings.toggle(focusedView); },
     'edit.transcribeRecording': () => { void recordings.transcribeAtCursor(focusedView); },
     'edit.summarizeRecording': () => { recordings.summarizeAtCursor(focusedView, ctx.invokeTool); },
@@ -255,6 +254,10 @@ export function createCommandKeymap(ctx: CommandKeymapCtx): {
     'learning.openConversation': ctx.openConversation,
     // ── Editor commands, run on the focused pane's editor ──
     ...editorActions,
+    // After the spread, so it wins over the editor's own (#2758): from the
+    // palette there may be no focused editor, and dictation still has to stop
+    // a recording it started, so this passes null rather than doing nothing.
+    'edit.dictate': () => { void toggleEditorDictation(ctx.getEditorComponent()?.getView() ?? null); },
   };
 
   const keymapDeps: KeymapDeps = {

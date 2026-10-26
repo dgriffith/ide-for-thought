@@ -73,7 +73,7 @@ Edit
 View
   Command Palette [CmdOrCtrl+K] → send menu:command ["view.commandPalette"]
   ---
-  Toggle Left Sidebar [CmdOrCtrl+B] → send menu:command ["view.toggleSidebar"]
+  Toggle Left Sidebar [CmdOrCtrl+Alt+B] → send menu:command ["view.toggleSidebar"]
   Toggle Right Sidebar [CmdOrCtrl+Shift+B] → send menu:command ["view.toggleRightSidebar"]
   Toggle Conversations [CmdOrCtrl+Shift+K] → send menu:command ["view.toggleConversations"]
   Cycle Preview Mode [CmdOrCtrl+Shift+P] → send menu:command ["view.togglePreview"]
@@ -82,7 +82,7 @@ View
   Split Editor Down [CmdOrCtrl+Shift+\\] → send menu:command ["view.splitDown"]
   Focus Next Group [CmdOrCtrl+Alt+Right] → send menu:command ["view.focusNextGroup"]
   Focus Previous Group [CmdOrCtrl+Alt+Left] → send menu:command ["view.focusPrevGroup"]
-  Close Group [CmdOrCtrl+Shift+W] → send menu:command ["view.closeGroup"]
+  Close Group [CmdOrCtrl+Alt+W] → send menu:command ["view.closeGroup"]
   ---
   Theme
     Dark radio checked → send menu:setTheme ["dark"]
@@ -268,7 +268,7 @@ Edit
 View
   Command Palette [CmdOrCtrl+K] disabled → send menu:command ["view.commandPalette"]
   ---
-  Toggle Left Sidebar [CmdOrCtrl+B] disabled → send menu:command ["view.toggleSidebar"]
+  Toggle Left Sidebar [CmdOrCtrl+Alt+B] disabled → send menu:command ["view.toggleSidebar"]
   Toggle Right Sidebar [CmdOrCtrl+Shift+B] disabled → send menu:command ["view.toggleRightSidebar"]
   Toggle Conversations [CmdOrCtrl+Shift+K] disabled → send menu:command ["view.toggleConversations"]
   Cycle Preview Mode [CmdOrCtrl+Shift+P] disabled → send menu:command ["view.togglePreview"]
@@ -277,7 +277,7 @@ View
   Split Editor Down [CmdOrCtrl+Shift+\\] disabled → send menu:command ["view.splitDown"]
   Focus Next Group [CmdOrCtrl+Alt+Right] disabled → send menu:command ["view.focusNextGroup"]
   Focus Previous Group [CmdOrCtrl+Alt+Left] disabled → send menu:command ["view.focusPrevGroup"]
-  Close Group [CmdOrCtrl+Shift+W] disabled → send menu:command ["view.closeGroup"]
+  Close Group [CmdOrCtrl+Alt+W] disabled → send menu:command ["view.closeGroup"]
   ---
   Theme
     Dark radio checked → send menu:setTheme ["dark"]

@@ -6,8 +6,9 @@
  * - **A command names a menu** (`menu`), one of `PLUGIN_COMMAND_MENUS`, and
  *   goes under a separator at its end.
  * - **A command may declare a key** (`key`, an Electron accelerator with
- *   `CmdOrCtrl`): a key Minerva uses (its commands', and the menu roles'
- *   undo, copy, zoom…) is refused in the manifest. Between plugins, the first
+ *   `CmdOrCtrl`): a key Minerva uses (its commands', the editor's — Bold,
+ *   Italic, Insert Link… — and the menu roles' undo, copy, zoom…) is refused
+ *   in the manifest. Between plugins, the first
  *   to claim a key keeps it, built-in plugins first, in Settings' order; a
  *   later one runs from the palette and its menu, with no key, and Settings
  *   says which plugin has it.
@@ -47,10 +48,19 @@ const ROLE_KEYS = [
 
 let minerva: Set<string> | null = null;
 
-/** Every key Minerva itself uses: its commands' and its menu roles'. */
+/** A CodeMirror key (`Mod-Shift-v`) as an accelerator (`CmdOrCtrl+Shift+v`). */
+const editorKeyAsAccelerator = (key: string) => key.split('-').map((t) => (t === 'Mod' ? 'CmdOrCtrl' : t)).join('+');
+
+/**
+ * Every key Minerva itself uses: its commands', its editor's and its menu
+ * roles'. The editor's count since #2758: they were left out, so a plugin
+ * could take ⌘I or ⌘E from Italic and Code.
+ */
 export function minervaKeys(): ReadonlySet<string> {
+  const asKey = (accelerator: string) => normalizeAccelerator(accelerator) ?? accelerator;
   minerva ??= new Set([
-    ...COMMANDS.flatMap((c) => ('key' in c && c.key ? [normalizeAccelerator(c.key) ?? c.key] : [])),
+    ...COMMANDS.flatMap((c) => ('key' in c && c.key ? [asKey(c.key)] : [])),
+    ...COMMANDS.flatMap((c) => ('editor' in c && 'key' in c.editor && c.editor.key ? [asKey(editorKeyAsAccelerator(c.editor.key))] : [])),
     ...ROLE_KEYS,
   ]);
   return minerva;

@@ -45,7 +45,7 @@ vi.mock('../../src/main/publish', () => ({
 }));
 
 vi.mock('../../src/main/plugins/command-menu', () => ({
-  pluginMenuCommands: () => new Map([['edit', [{ pluginId: 'shelf', commandId: 'find', title: 'Find on the Shelf', when: 'selection', key: 'CmdOrCtrl+Alt+B' }]]]),
+  pluginMenuCommands: () => new Map([['edit', [{ pluginId: 'shelf', commandId: 'find', title: 'Find on the Shelf', when: 'selection', key: 'CmdOrCtrl+Alt+J' }]]]),
 }));
 
 import { rebuildMenu } from '../../src/main/menu';
@@ -56,7 +56,7 @@ describe('plugin commands in the menu bar (#2879)', () => {
     const items = edit.submenu as Electron.MenuItemConstructorOptions[];
     const last = items.at(-1)!;
     expect(items.at(-2)).toEqual({ type: 'separator' });
-    expect(last).toMatchObject({ label: 'Find on the Shelf', accelerator: 'CmdOrCtrl+Alt+B', enabled: false });
+    expect(last).toMatchObject({ label: 'Find on the Shelf', accelerator: 'CmdOrCtrl+Alt+J', enabled: false });
     expect(typeof last.click).toBe('function');
     expect(rebuildMenu().find((m) => m.label === 'View')!.submenu).not.toContainEqual(expect.objectContaining({ label: 'Find on the Shelf' }));
   });

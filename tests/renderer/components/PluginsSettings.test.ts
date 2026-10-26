@@ -156,7 +156,7 @@ describe('PluginsSettings (#2634)', () => {
   });
 
   it('says when a plugin command\'s key is another plugin\'s (#2879)', async () => {
-    h.keyConflicts = [{ pluginId: 'lab', commandId: 'find', title: 'Find', key: 'CmdOrCtrl+Alt+B', takenBy: 'Book Shelf' }];
+    h.keyConflicts = [{ pluginId: 'lab', commandId: 'find', title: 'Find', key: 'CmdOrCtrl+Alt+J', takenBy: 'Book Shelf' }];
     const { findByText } = render(PluginsSettings);
     expect(await findByText(/"Find" has no shortcut: .* is Book Shelf's\./)).toBeTruthy();
     h.keyConflicts = [];

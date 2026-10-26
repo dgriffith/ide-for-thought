@@ -268,9 +268,8 @@ The types hold most of this. The test holds the rest: no argument-free
 `send()` in `menu.ts`; every command with a `menu` shape placed somewhere;
 every keymap row's command declaring a key; and **no two commands sharing a
 key**. It compares menu, window and editor keys in one namespace, so
-`Mod-k` and `CmdOrCtrl+K` count as the same key. Five clashes predate the
-registry, and the test lists them as `KNOWN_KEY_CLASHES` (#2758); that list
-may only shrink.
+`Mod-k` and `CmdOrCtrl+K` count as the same key. Five clashes predated the
+registry; #2758 cleared them, so `KNOWN_KEY_CLASHES` is empty and stays so.
 
 **When it fires:**
 - a bare `send()` → declare the command and place it with `command(id)`;

@@ -19,8 +19,8 @@
  *   places is a declaration that has quietly stopped being true.
  * - **No two commands share a key.** Menu accelerators, the window keymap and
  *   the editor's CodeMirror keys are compared in one namespace (`Mod-k` is
- *   `CmdOrCtrl+K`). The pre-existing clashes are #2758; that list may only
- *   shrink.
+ *   `CmdOrCtrl+K`). Five clashes predated the registry; #2758 cleared them,
+ *   and the list stays empty.
  */
 import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
@@ -58,13 +58,8 @@ describe('commands come from the registry (#2625)', () => {
 
   it('no two commands share a key, beyond the known clashes (#2758)', () => {
     // Pre-existing; #2758 decides who keeps each key. May only shrink.
-    const KNOWN_KEY_CLASHES = [
-      'mod+shift+w: file.closeProject, view.closeGroup',
-      'mod+shift+v: edit.dictate, editor.dictate',
-      'b+mod: view.toggleSidebar, editor.toggleBold',
-      'i+mod+shift: research.ingestUrl, learning.openConversation',
-      'k+mod: view.commandPalette, editor.insertLink',
-    ];
+    // Cleared by #2758; a new clash fails here.
+    const KNOWN_KEY_CLASHES: string[] = [];
     const ALIASES: Record<string, string> = { CmdOrCtrl: 'mod', Mod: 'mod' };
     const norm = (key: string, sep: string) =>
       key.split(sep).map((t) => ALIASES[t] ?? t.toLowerCase()).sort().join('+');
@@ -73,7 +68,8 @@ describe('commands come from the registry (#2625)', () => {
       const keys: string[] = [];
       if ('key' in c) keys.push(norm(c.key, '+'));
       if ('editor' in c && 'key' in c.editor) keys.push(norm(c.editor.key, '-'));
-      for (const k of keys) byKey.set(k, [...(byKey.get(k) ?? []), c.id]);
+      // A command's menu key and its editor key may be the same key (Dictate).
+      for (const k of new Set(keys)) byKey.set(k, [...(byKey.get(k) ?? []), c.id]);
     }
     const clashes = [...byKey].filter(([, ids]) => ids.length > 1).map(([k, ids]) => `${k}: ${ids.join(', ')}`);
     expect(clashes.sort()).toEqual([...KNOWN_KEY_CLASHES].sort());

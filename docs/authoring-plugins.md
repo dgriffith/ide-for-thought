@@ -551,7 +551,7 @@ Minerva's repository, and its test holds this page to it. The manifest:
     "api": "^1.11.0",
     "worker": "logic.js",
     "views": [{ "id": "lengths", "title": "Note Lengths", "place": "left-sidebar", "entry": "panel/index.html", "query": "panel/notes.rq" }],
-    "commands": [{ "id": "count-selection", "title": "Count Words in Selection", "when": "selection", "editorMenu": true, "menu": "edit", "key": "CmdOrCtrl+Alt+W", "run": { "handler": "countWords" } }]
+    "commands": [{ "id": "count-selection", "title": "Count Words in Selection", "when": "selection", "editorMenu": true, "menu": "edit", "key": "CmdOrCtrl+Alt+N", "run": { "handler": "countWords" } }]
   }
 }
 ```

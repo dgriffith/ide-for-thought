@@ -34,7 +34,7 @@ edit.findInNotes | Find in Notes… | Edit | ⌘ ⇧ F | enabled
 edit.replaceInNotes | Replace in Notes… | Edit | ⌘ ⇧ H | enabled
 edit.gotoLine | Go to Line… | Edit | ⌘ G | enabled
 edit.sortLines | Sort Lines | Edit | - | enabled
-view.toggleSidebar | Toggle Left Sidebar | View | ⌘ B | enabled
+view.toggleSidebar | Toggle Left Sidebar | View | ⌘ ⌥ B | enabled
 view.toggleRightSidebar | Toggle Right Sidebar | View | ⌘ ⇧ B | enabled
 view.togglePreview | Toggle Preview Mode | View | ⌘ ⇧ P | enabled
 view.toggleConversations | Toggle Conversations | View | ⌘ ⇧ K | enabled
@@ -94,7 +94,7 @@ edit.findInNotes | Find in Notes… | Edit | ⌘ ⇧ F | disabled
 edit.replaceInNotes | Replace in Notes… | Edit | ⌘ ⇧ H | disabled
 edit.gotoLine | Go to Line… | Edit | ⌘ G | disabled
 edit.sortLines | Sort Lines | Edit | - | disabled
-view.toggleSidebar | Toggle Left Sidebar | View | ⌘ B | enabled
+view.toggleSidebar | Toggle Left Sidebar | View | ⌘ ⌥ B | enabled
 view.toggleRightSidebar | Toggle Right Sidebar | View | ⌘ ⇧ B | enabled
 view.togglePreview | Toggle Preview Mode | View | ⌘ ⇧ P | disabled
 view.toggleConversations | Toggle Conversations | View | ⌘ ⇧ K | enabled
