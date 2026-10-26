@@ -18,7 +18,9 @@ export type OperationType =
   | 'note_delete'
   | 'note_rewrite'
   | 'source_properties'
-  | 'type_definition';
+  | 'type_definition'
+  | 'plugin_install'
+  | 'plugin_update';
 
 /**
  * One side-effect a proposal applies to the thoughtbase. The approval
@@ -147,6 +149,27 @@ export type ProposalPayload =
        *  NOTEBASE_REWRITTEN broadcast that reloads an open editor. */
       path: string;
       content: string;
+    }
+  | {
+      kind: 'plugin-install';
+      /** A plugin the assistant drafted (#2890), installed from these files
+       *  on approval by the composition root's applier
+       *  (`llm/plugin-proposals.ts`), behind main's native allow for code.
+       *  Every path was checked when the draft was made and is checked again
+       *  as it's written. */
+      id: string;
+      name: string;
+      files: { path: string; content: string }[];
+    }
+  | {
+      kind: 'plugin-update';
+      /** A change to an installed plugin (#2890): its new files, and the
+       *  installed ones as they were when proposed (`before`), which the
+       *  review diffs against and apply checks are still there. */
+      id: string;
+      name: string;
+      files: { path: string; content: string }[];
+      before: { path: string; content: string }[];
     }
   | {
       kind: 'type-def';

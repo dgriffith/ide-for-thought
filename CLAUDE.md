@@ -1643,6 +1643,10 @@ its registry. **A new registry or `.minerva/` contribution folder must be
 declared**: `tests/architecture/extension-points-declared.test.ts` fails
 otherwise (#2621).
 
+**A plugin the assistant drafts (#2890)** is a `plugin_install` proposal, an
+edit to an installed one `plugin_update` (diffed against the files it was
+proposed against), never installed from a card; approving goes through the
+`plugin-proposal-slot.ts` applier, then main's native allow for code.
 **Plugins (#2631)** are folders in `~/.minerva/plugins/<id>/`: a `plugin.json`
 plus files the existing seams already parse, and since #2833 maybe a `code`
 section: approved natively at install and on any change, pinned to a hash of

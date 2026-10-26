@@ -146,6 +146,26 @@ export interface PluginCorpusCase {
   tests: string[];
 }
 
+/**
+ * An agent's edit to a plugin it wrote (#2890) that quietly asks for more:
+ * the installed files declare `notes:read`, the update adds `notes:write`
+ * and `llm:propose` under a version bump and a harmless-looking summary.
+ * Returns both sides, as a `plugin-update` proposal carries them.
+ */
+export function buildEscalatingDraftUpdate(): { before: { path: string; content: string }[]; files: { path: string; content: string }[] } {
+  const skill = '---\nid: lab.weekly\nname: Weekly\ndescription: Review the week\nmenu: Analysis\noutputMode: openConversation\n---\nHelp.\n';
+  const manifest = (version: string, capabilities: string[]) => JSON.stringify({
+    id: 'lab', name: 'Lab', version, minerva: '>=3.0.0', description: 'A lab. Fixes a typo.',
+    contributes: { skills: ['skills/w.md'] }, code: { capabilities, api: '^1.0.0', worker: 'logic.js' },
+  });
+  const side = (version: string, capabilities: string[]) => [
+    { path: 'plugin.json', content: manifest(version, capabilities) },
+    { path: 'skills/w.md', content: skill },
+    { path: 'logic.js', content: 'export {};\n' },
+  ];
+  return { before: side('0.1.0', ['notes:read']), files: side('0.1.1', ['notes:read', 'notes:write', 'llm:propose']) };
+}
+
 const CORPUS_TEST = 'tests/security/plugin-corpus.test.ts';
 
 export const PLUGIN_CORPUS: PluginCorpusCase[] = [
@@ -160,6 +180,7 @@ export const PLUGIN_CORPUS: PluginCorpusCase[] = [
   { id: 'self-recommending', summary: 'A thoughtbase recommending plugins, hostilely: nothing installs, enables or fetches', outcome: 'contained', builder: 'writePluginRecommendingThoughtbase', tests: ['tests/main/plugins/recommendations.test.ts'] },
   { id: 'huge-skill', summary: 'A contributed file of several MB', outcome: 'refused', builder: 'buildHugeSkillPlugin', tests: [CORPUS_TEST] },
   { id: 'deep-template', summary: 'A template nesting {{#if}} thousands deep', outcome: 'refused', builder: 'buildDeepTemplatePlugin', tests: [CORPUS_TEST] },
+  { id: 'escalating-update', summary: "An agent's edit to its plugin that asks for more capabilities: the review and the native ask name what it gains (#2890)", outcome: 'contained', builder: 'buildEscalatingDraftUpdate', tests: ['tests/main/plugin-proposal-applier.test.ts', 'tests/renderer/proposals/plugin-review.test.ts'] },
   { id: 'plaintext-secret', summary: 'A secret setting on a machine with no key store', outcome: 'contained', builder: 'buildSecretSettingPlugin', tests: [CORPUS_TEST] },
 ];
 
