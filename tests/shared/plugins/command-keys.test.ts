@@ -25,16 +25,22 @@ describe('minervaKeys (#2879)', () => {
     for (const k of ['CmdOrCtrl+N', 'CmdOrCtrl+S', 'CmdOrCtrl+Shift+W', 'CmdOrCtrl+B', 'CmdOrCtrl+C', 'CmdOrCtrl+Z', 'CmdOrCtrl+Q']) {
       expect(minervaKeys().has(k), k).toBe(true);
     }
-    expect(minervaKeys().has('CmdOrCtrl+Alt+B')).toBe(false);
+    expect(minervaKeys().has('CmdOrCtrl+Alt+J')).toBe(false);
+  });
+
+  it('holds the editor\'s keys too, so a plugin can\'t take Italic\'s ⌘I (#2758)', () => {
+    for (const k of ['CmdOrCtrl+I', 'CmdOrCtrl+E', 'CmdOrCtrl+L', 'CmdOrCtrl+Shift+V', 'CmdOrCtrl+Alt+B']) {
+      expect(minervaKeys().has(k), k).toBe(true);
+    }
   });
 });
 
 describe('resolvePluginKeys (#2879)', () => {
   const cmd = (pluginId: string, commandId: string, key?: string) => ({ pluginId, pluginName: pluginId.toUpperCase(), commandId, title: commandId, ...(key ? { key } : {}) });
   it('the first plugin to claim a key keeps it; a later one is a conflict naming who has it', () => {
-    const r = resolvePluginKeys([cmd('a', 'one', 'CmdOrCtrl+Alt+B'), cmd('b', 'two', 'Alt+CmdOrCtrl+b'), cmd('b', 'three', 'CmdOrCtrl+Alt+K'), cmd('c', 'none')]);
-    expect([...r.keys]).toEqual([['a/one', 'CmdOrCtrl+Alt+B'], ['b/three', 'CmdOrCtrl+Alt+K']]);
-    expect(r.conflicts).toEqual([{ pluginId: 'b', commandId: 'two', title: 'two', key: 'CmdOrCtrl+Alt+B', takenBy: 'A' }]);
+    const r = resolvePluginKeys([cmd('a', 'one', 'CmdOrCtrl+Alt+J'), cmd('b', 'two', 'Alt+CmdOrCtrl+j'), cmd('b', 'three', 'CmdOrCtrl+Alt+K'), cmd('c', 'none')]);
+    expect([...r.keys]).toEqual([['a/one', 'CmdOrCtrl+Alt+J'], ['b/three', 'CmdOrCtrl+Alt+K']]);
+    expect(r.conflicts).toEqual([{ pluginId: 'b', commandId: 'two', title: 'two', key: 'CmdOrCtrl+Alt+J', takenBy: 'A' }]);
   });
   it('never hands out a key Minerva uses, whatever a plugin says', () => {
     expect(resolvePluginKeys([cmd('a', 'save', 'CmdOrCtrl+S')]).keys.size).toBe(0);

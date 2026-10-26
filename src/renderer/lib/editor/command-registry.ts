@@ -63,7 +63,7 @@ export const EDITOR_COMMANDS: Record<EditorCommandId, Command> = {
   'editor.toggleBulletList': toggleBulletList,
   'editor.toggleNumberedList': toggleNumberedList,
   'editor.toggleTaskList': toggleTaskList,
-  'editor.dictate': dictate,
+  'edit.dictate': dictate,
   'editor.recordAudio': recordAudio,
   'editor.transcribeRecording': transcribeRecording,
   'editor.insertLink': insertLink,
@@ -88,10 +88,18 @@ export interface KeyBindingOverride {
 
 const STORAGE_KEY = 'keybindingOverrides';
 
+/**
+ * Commands that were renamed, so a user's override saved under the old id
+ * still applies. `editor.dictate` folded into `edit.dictate` (#2758).
+ */
+const RENAMED_COMMANDS: Readonly<Record<string, string>> = { 'editor.dictate': 'edit.dictate' };
+
 export function getOverrides(): KeyBindingOverride[] {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) return JSON.parse(stored) as KeyBindingOverride[];
+    if (stored) {
+      return (JSON.parse(stored) as KeyBindingOverride[]).map((o) => ({ ...o, command: RENAMED_COMMANDS[o.command] ?? o.command }));
+    }
   } catch { /* ignore */ }
   return [];
 }

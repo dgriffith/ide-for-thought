@@ -81,6 +81,13 @@ describe('editor command registry', () => {
     expect(keys).not.toContain('Ctrl-m');
   });
 
+  it('keeps a user\'s Dictate key saved under the old editor.dictate id (#2758)', () => {
+    saveOverrides([{ key: 'Ctrl-Alt-8', command: 'editor.dictate' }]);
+    const keys = resolveKeyBindings().map((b) => b.key);
+    expect(keys).toContain('Ctrl-Alt-8');
+    expect(keys).not.toContain('Mod-Shift-v');
+  });
+
   it('drops a command whose default key is empty until it is bound', () => {
     const unbound = COMMAND_REGISTRY.find((e) => !e.defaultKey);
     expect(unbound, 'expected at least one intentionally unbound command').toBeDefined();

@@ -45,7 +45,6 @@ describe('handleKeydown — dispatch', () => {
     ['p', {}, 'nav.quickOpen'],
     ['g', {}, 'edit.gotoLine'],
     ['q', { shift: true }, 'query.new'],
-    ['i', { shift: true }, 'learning.openConversation'],
   ];
 
   for (const [key, mods, command] of cases) {
@@ -57,6 +56,17 @@ describe('handleKeydown — dispatch', () => {
       expect(e.preventDefault).toHaveBeenCalled();
     });
   }
+
+  it('⌘⌥C → learning.openConversation, though macOS types "ç"; ⌘⇧I is left to the menu\'s Ingest URL (#2758)', () => {
+    const deps = makeDeps();
+    const e = { ...press('ç', { alt: true }), code: 'KeyC' } as unknown as KeyboardEvent;
+    handleKeydown(e, deps);
+    expect(deps.run).toHaveBeenCalledExactlyOnceWith('learning.openConversation');
+    const ingest = press('i', { shift: true });
+    handleKeydown(ingest, deps);
+    expect(deps.run).toHaveBeenCalledTimes(1);
+    expect(ingest.preventDefault).not.toHaveBeenCalled();
+  });
 
   it('works with Ctrl as the modifier too', () => {
     const deps = makeDeps();
@@ -107,7 +117,7 @@ describe('handleKeydown — state guards', () => {
 });
 
 describe('plugin command keys (#2879)', () => {
-  const keyed = new Map([['shelf/find', 'CmdOrCtrl+Alt+B'], ['lab/sort', 'CmdOrCtrl+Shift+L']]);
+  const keyed = new Map([['shelf/find', 'CmdOrCtrl+Alt+J'], ['lab/sort', 'CmdOrCtrl+Shift+L']]);
 
   it('runs the plugin command a key belongs to, and claims the key', () => {
     const run = vi.fn();

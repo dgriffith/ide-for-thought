@@ -670,7 +670,7 @@ can't undo it. The handler's scope is still the active note, so one with
   or stand in for them. It's gated like a core command (off with no
   thoughtbase, or no note or selection when it needs one), and a click runs it
   as the palette does (`menu:pluginCommand`, `menu/plugin-commands.ts`).
-- **On the keyboard (#2879)**: `"key": "CmdOrCtrl+Alt+B"`, an accelerator
+- **On the keyboard (#2879)**: `"key": "CmdOrCtrl+Alt+J"`, an accelerator
   with `CmdOrCtrl`, so it never takes typing. **Decision: a key Minerva uses
   is refused in the manifest**: its commands' keys and the menu roles' (undo,
   copy, zoom, quit…). **Between plugins the first to claim a key keeps it**,
@@ -681,7 +681,7 @@ can't undo it. The handler's scope is still the active note, so one with
   a feature of its own, for core and plugins alike. With ⌥ held, a letter key
   matches by the key pressed, since macOS types `∫` for ⌥B.
 - **Book Shelf** (`tests/fixtures/plugins/book-shelf/`) shows all three: *Find
-  Selection on the Book Shelf*, in the Edit menu, on ⌘⌥B, run by its
+  Selection on the Book Shelf*, in the Edit menu, on ⌘⌥J, run by its
   server's read-only `find_book`.
 - **List Tools is the worked example**, off by default: *Sort List in
   Selection* sorts the outermost items of the selected Markdown list, nested

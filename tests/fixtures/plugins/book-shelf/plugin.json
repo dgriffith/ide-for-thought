@@ -16,7 +16,7 @@
       { "id": "book-id", "label": "Book Shelf id", "accepts": { "identifierPrefixes": ["shelf:"] }, "parse": { "mcpTool": "catalogue/read_book" } }
     ],
     "commands": [
-      { "id": "find-selection", "title": "Find Selection on the Book Shelf", "when": "selection", "menu": "edit", "key": "CmdOrCtrl+Alt+B", "run": { "mcpTool": "catalogue/find_book" } }
+      { "id": "find-selection", "title": "Find Selection on the Book Shelf", "when": "selection", "menu": "edit", "key": "CmdOrCtrl+Alt+J", "run": { "mcpTool": "catalogue/find_book" } }
     ]
   }
 }

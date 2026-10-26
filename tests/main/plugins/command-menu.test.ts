@@ -16,14 +16,14 @@ const cmd = (id: string, extra: Partial<PluginCommand> = {}): PluginCommand => (
 describe('pluginMenuCommands (#2879)', () => {
   it('groups placed commands by menu, keeping the first plugin\'s key', () => {
     h.commands = [
-      { pluginId: 'a', pluginName: 'A', command: cmd('one', { menu: 'edit', key: 'CmdOrCtrl+Alt+B', when: 'selection' }) },
+      { pluginId: 'a', pluginName: 'A', command: cmd('one', { menu: 'edit', key: 'CmdOrCtrl+Alt+J', when: 'selection' }) },
       { pluginId: 'a', pluginName: 'A', command: cmd('unplaced', { key: 'CmdOrCtrl+Alt+U' }) },
-      { pluginId: 'b', pluginName: 'B', command: cmd('two', { menu: 'edit', key: 'CmdOrCtrl+Alt+B' }) },
+      { pluginId: 'b', pluginName: 'B', command: cmd('two', { menu: 'edit', key: 'CmdOrCtrl+Alt+J' }) },
       { pluginId: 'b', pluginName: 'B', command: cmd('three', { menu: 'help' }) },
     ];
     expect(Object.fromEntries(pluginMenuCommands())).toEqual({
       edit: [
-        { pluginId: 'a', commandId: 'one', title: 'one', when: 'selection', key: 'CmdOrCtrl+Alt+B' },
+        { pluginId: 'a', commandId: 'one', title: 'one', when: 'selection', key: 'CmdOrCtrl+Alt+J' },
         { pluginId: 'b', commandId: 'two', title: 'two', when: 'project' },
       ],
       help: [{ pluginId: 'b', commandId: 'three', title: 'three', when: 'project' }],

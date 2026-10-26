@@ -89,7 +89,9 @@ export const COMMANDS = [
   { id: 'file.print', title: 'Print…', category: 'File', palette: { when: 'note' }, menu: { gate: NOTE } },
   { id: 'file.saveAsTemplate', title: 'Save as Template…', category: 'File', palette: { when: 'noteTab' }, menu: { gate: NOTE } },
   { id: 'edit.insertTemplate', title: 'Insert Template…', category: 'Edit', palette: { when: 'noteTab' }, menu: { gate: NOTE } },
-  { id: 'edit.dictate', title: 'Dictate (Voice to Text)', category: 'Edit', key: 'CmdOrCtrl+Shift+V', palette: { when: 'noteTab' } },
+  // One command for the palette and the editor's key (#2758): it used to be
+  // two, `edit.dictate` and `editor.dictate`, on the same ⌘⇧V.
+  { id: 'edit.dictate', title: 'Dictate (Voice to Text)', category: 'Edit', key: 'CmdOrCtrl+Shift+V', palette: { when: 'noteTab' }, editor: { key: 'Mod-Shift-v' } },
   { id: 'file.newAudioRecording', title: 'New Audio Recording (Start / Stop)', category: 'File', palette: { when: 'project' },
     menu: { label: 'New Audio Recording', toolTip: 'Record from the microphone into a file in the thoughtbase, embedded in the open note. Choose it again to stop.' } },
   { id: 'edit.transcribeRecording', title: 'Transcribe Audio Recording', category: 'Edit', palette: { when: 'noteTab' } },
@@ -102,7 +104,8 @@ export const COMMANDS = [
   { id: 'edit.gotoLine', title: 'Go to Line…', category: 'Edit', key: 'CmdOrCtrl+G', palette: { when: 'note' }, menu: { label: 'Go to Line', gate: NOTE } },
   { id: 'edit.sortLines', title: 'Sort Lines', category: 'Edit', palette: { when: 'note' }, menu: { gate: NOTE } },
   // ── View ──
-  { id: 'view.toggleSidebar', fromPluginViews: true, title: 'Toggle Left Sidebar', category: 'View', key: 'CmdOrCtrl+B', palette: { when: 'always' }, menu: {} },
+  // ⌘B is Bold's (#2758); ⌘⇧B stays the right sidebar's.
+  { id: 'view.toggleSidebar', fromPluginViews: true, title: 'Toggle Left Sidebar', category: 'View', key: 'CmdOrCtrl+Alt+B', palette: { when: 'always' }, menu: {} },
   { id: 'view.toggleRightSidebar', fromPluginViews: true, title: 'Toggle Right Sidebar', category: 'View', key: 'CmdOrCtrl+Shift+B', palette: { when: 'always' }, menu: {} },
   { id: 'view.togglePreview', title: 'Toggle Preview Mode', category: 'View', key: 'CmdOrCtrl+Shift+P', palette: { when: 'note' }, menu: { label: 'Cycle Preview Mode', gate: NOTE } },
   { id: 'view.toggleConversations', fromPluginViews: true, title: 'Toggle Conversations', category: 'View', key: 'CmdOrCtrl+Shift+K', palette: { when: 'always' }, menu: {} },
@@ -163,13 +166,15 @@ export const COMMANDS = [
   { id: 'view.splitDown', title: 'Split Editor Down', category: 'View', key: 'CmdOrCtrl+Shift+\\', menu: {} },
   { id: 'view.focusNextGroup', fromPluginViews: true, title: 'Focus Next Group', category: 'View', key: 'CmdOrCtrl+Alt+Right', menu: { gate: { editor: true } } },
   { id: 'view.focusPrevGroup', fromPluginViews: true, title: 'Focus Previous Group', category: 'View', key: 'CmdOrCtrl+Alt+Left', menu: { gate: { editor: true } } },
-  { id: 'view.closeGroup', title: 'Close Group', category: 'View', key: 'CmdOrCtrl+Shift+W', menu: { gate: { editor: true } } },
+  // ⌘⇧W is Close Thoughtbase's, the close-window convention (#2758).
+  { id: 'view.closeGroup', title: 'Close Group', category: 'View', key: 'CmdOrCtrl+Alt+W', menu: { gate: { editor: true } } },
   { id: 'view.cycleTheme', title: 'Cycle Theme', category: 'View', key: 'CmdOrCtrl+Shift+T', menu: { gate: false } },
   { id: 'export.publish', title: 'Publish to Web…', category: 'Export', menu: {} },
 
   // ── Window keymap only (`renderer/lib/keymap/handle-keydown.ts`) ──
   { id: 'view.closeTab', fromPluginViews: true, title: 'Close Tab', category: 'View', key: 'CmdOrCtrl+W' },
-  { id: 'learning.openConversation', title: 'Open Conversation', category: 'Learning', key: 'CmdOrCtrl+Shift+I' },
+  // ⌘⇧I is Ingest URL's, beside ⌘⇧D Ingest Identifier (#2758).
+  { id: 'learning.openConversation', title: 'Open Conversation', category: 'Learning', key: 'CmdOrCtrl+Alt+C' },
 
   // ── Editor (CodeMirror) commands ──
   // Text
@@ -203,12 +208,13 @@ export const COMMANDS = [
   { id: 'editor.toggleBulletList', title: 'Bulleted List', category: 'Editor', editor: {} },
   { id: 'editor.toggleNumberedList', title: 'Numbered List', category: 'Editor', editor: {} },
   { id: 'editor.toggleTaskList', title: 'Task List', category: 'Editor', editor: {} },
-  // Voice
-  { id: 'editor.dictate', title: 'Dictate (Voice to Text)', category: 'Editor', editor: { key: 'Mod-Shift-v' } },
+  // Voice (Dictate is `edit.dictate`, above)
   { id: 'editor.recordAudio', title: 'Record Audio', category: 'Editor', editor: {} },
   { id: 'editor.transcribeRecording', title: 'Transcribe Recording', category: 'Editor', editor: {} },
   // Insert
-  { id: 'editor.insertLink', title: 'Insert Link', category: 'Editor', editor: { key: 'Mod-k' } },
+  // ⌘K is the command palette's (#463, #2758). Not Mod-Alt-k: Option
+  // composes a glyph on macOS, so an Alt-letter editor key never fires.
+  { id: 'editor.insertLink', title: 'Insert Link', category: 'Editor', editor: { key: 'Mod-l' } },
   { id: 'editor.insertWikiLink', title: 'Insert Wiki Link', category: 'Editor', editor: {} },
   { id: 'editor.insertImage', title: 'Insert Image', category: 'Editor', editor: {} },
   { id: 'editor.insertTable', title: 'Insert Table', category: 'Editor', editor: {} },
