@@ -53,12 +53,55 @@ interface LiveEntry {
 
 const live = new Map<string, LiveEntry>();
 
+/**
+ * Whether servers that run a program may (#2891): only while the built-in
+ * Local MCP servers plugin is on, which sets this from its activation
+ * (`registerLocalMcpServers`). Remote servers run nothing here and are
+ * always allowed.
+ */
+let localServersOn = false;
+
+export const LOCAL_SERVERS_OFF =
+  'This server runs a program on your machine, and Local MCP servers is off. Turn it on in Settings → Plugins.';
+
+/**
+ * Let local (stdio) servers run, or stop them all (#2891). Turning it on
+ * starts the enabled ones, best-effort; off disconnects every one running.
+ */
+export async function setLocalMcpServersOn(on: boolean): Promise<void> {
+  localServersOn = on;
+  if (on) {
+    const configs = (await allServers()).filter((s) => s.enabled && s.descriptor.kind === 'stdio');
+    await Promise.allSettled(configs.map((cfg) => connectOne(cfg, { interactive: false })));
+    return;
+  }
+  const configs = new Map((await allServers()).map((s) => [s.id, s]));
+  for (const id of [...live.keys()]) {
+    if (configs.get(id)?.descriptor.kind !== 'http') await disconnectOne(id);
+  }
+}
+
+/** Turn local servers on or off without starting or stopping any. Tests that run a stdio server, as tests that run Python turn it on. */
+export function _setLocalMcpServersOnForTests(on: boolean): void {
+  localServersOn = on;
+}
+
+/** Whether Local MCP servers is on (#2891). */
+export function localMcpServersOn(): boolean {
+  return localServersOn;
+}
+
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
 async function connectOne(cfg: StoredMcpServerConfig, opts: { interactive: boolean }): Promise<void> {
   const startedAs = serverIdentity(cfg.descriptor);
+  // Off means it isn't started at all (#2891), and the row says why.
+  if (cfg.descriptor.kind === 'stdio' && !localServersOn) {
+    live.set(cfg.id, { startedAs, client: null, status: 'error', error: LOCAL_SERVERS_OFF, tools: [] });
+    return;
+  }
   live.set(cfg.id, { startedAs, client: null, status: 'connecting', tools: [] });
   try {
     const client = cfg.descriptor.kind === 'stdio'
@@ -133,6 +176,10 @@ async function disconnectOne(id: string): Promise<void> {
 export async function listServerStatuses(): Promise<McpServerStatus[]> {
   const configs = await allServers();
   return configs.map((cfg) => {
+    // A local server while Local MCP servers is off says so, on or not (#2891).
+    if (cfg.descriptor.kind === 'stdio' && !localServersOn) {
+      return { ...cfg, status: 'error' as const, error: LOCAL_SERVERS_OFF, tools: [] };
+    }
     const entry = live.get(cfg.id);
     return {
       ...cfg,
@@ -303,6 +350,9 @@ export async function callServerTool(
   if (!match) {
     const known = configs.map((c) => c.name).join(', ') || '(none configured)';
     throw new Error(`No MCP server named "${serverName}". Known servers: ${known}`);
+  }
+  if (match.descriptor.kind === 'stdio' && !localServersOn) {
+    throw new Error(`MCP server "${serverName}" runs a program on this machine, and Local MCP servers is off.`);
   }
   const entry = live.get(match.id);
   if (!entry || entry.status !== 'connected' || !entry.client) {

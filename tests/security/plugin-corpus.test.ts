@@ -33,6 +33,10 @@ import { compileSkill } from '../../src/main/skills/compile';
 import { initTablesDb, runNoteQuery, disposeProject as disposeTables } from '../../src/main/sources/tables';
 import { projectContext } from '../../src/main/project-context-types';
 import { callServerTool, connectServer, listServerStatuses, reconcilePluginServers, setServerEnabled } from '../../src/main/mcp-servers/registry';
+import { _setLocalMcpServersOnForTests } from '../../src/main/mcp-servers/registry';
+
+// These run stdio servers, which need Local MCP servers on (#2891).
+_setLocalMcpServersOnForTests(true);
 import { configureMcpToolPermissionsPath } from '../../src/main/mcp-servers/tool-permissions';
 import { shutdownAllMcpClients } from '../../src/main/mcp-client';
 import { UNTRUSTED_TAG } from '../../src/shared/untrusted-content';

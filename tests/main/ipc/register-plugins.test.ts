@@ -138,6 +138,10 @@ const LIST = {
     description: 'Run Python code cells in notes, in an interpreter you choose: pandas, numpy, matplotlib and anything else you install.',
     enabled: false, source: { kind: 'core' }, contributes: {}, capabilities: ['process'],
   }, {
+    id: 'local-mcp-servers', name: 'Local MCP servers', version: '1.0.0',
+    description: 'Run MCP servers as programs on your machine (stdio): ones you add in Settings → MCP Servers, and the servers plugins ship. Remote (HTTP) servers work without it.',
+    enabled: false, source: { kind: 'core' }, contributes: {}, capabilities: ['process'],
+  }, {
     id: 'kanban', name: 'Kanban', version: '1.0.0',
     description: 'Show a type view as a board: a column per option of a choice property, cards you drag between them.',
     enabled: true, source: { kind: 'core' }, contributes: {}, capabilities: ['notes:read', 'notes:write-properties', 'ui'],

@@ -11,8 +11,11 @@ import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, fireEvent, cleanup, waitFor } from '@testing-library/svelte';
 import type { McpServerStatus } from '../../../src/shared/mcp-servers';
 
-const { listMock, addMock, updateMock, removeMock, setEnabledMock, connectMock, keyStorageMock } = vi.hoisted(() => ({
+const { listMock, addMock, updateMock, removeMock, setEnabledMock, connectMock, keyStorageMock, addRemoteMock, updateRemoteMock, pluginsListMock } = vi.hoisted(() => ({
   keyStorageMock: vi.fn(),
+  addRemoteMock: vi.fn(),
+  updateRemoteMock: vi.fn(),
+  pluginsListMock: vi.fn(),
   listMock: vi.fn(),
   addMock: vi.fn(),
   updateMock: vi.fn(),
@@ -30,7 +33,10 @@ vi.mock('../../../src/renderer/lib/ipc/client', () => ({
       remove: removeMock,
       setEnabled: setEnabledMock,
       connect: connectMock,
+      addRemote: addRemoteMock,
+      updateRemote: updateRemoteMock,
     },
+    plugins: { list: pluginsListMock },
     tools: { getKeyStorage: keyStorageMock },
   },
 }));
@@ -49,11 +55,15 @@ function server(over: Partial<McpServerStatus> & Pick<McpServerStatus, 'id' | 'n
 
 afterEach(() => {
   cleanup();
-  [listMock, addMock, updateMock, removeMock, setEnabledMock, connectMock, keyStorageMock].forEach((m) => m.mockReset());
+  [listMock, addMock, updateMock, removeMock, setEnabledMock, connectMock, keyStorageMock, addRemoteMock, updateRemoteMock, pluginsListMock].forEach((m) => m.mockReset());
 });
+
+/** Local MCP servers (#2891), on unless a test turns it off. */
+const localOn = (on: boolean) => pluginsListMock.mockResolvedValue({ core: [{ id: 'local-mcp-servers', enabled: on }], installed: [], errors: [], folder: '/p' });
 
 beforeEach(() => {
   keyStorageMock.mockResolvedValue({ available: true, encrypted: false, reason: 'os-keystore' });
+  localOn(true);
 });
 
 describe('plain-text secrets note (#2569)', () => {
@@ -115,7 +125,7 @@ describe('McpServersSettings (#2031)', () => {
 
   it('adding a remote server submits an http descriptor', async () => {
     listMock.mockResolvedValue([]);
-    addMock.mockResolvedValue([server({ id: 'new', name: 'Remote' })]);
+    addRemoteMock.mockResolvedValue([server({ id: 'new', name: 'Remote' })]);
     const { findByText, getByText, getByPlaceholderText, getByLabelText } = render(McpServersSettings, {});
     await findByText('MCP Servers');
 
@@ -125,7 +135,21 @@ describe('McpServersSettings (#2031)', () => {
     await fireEvent.input(getByPlaceholderText('https://example.com/mcp'), { target: { value: 'https://x.example.com/mcp' } });
     await fireEvent.click(getByText('Add'));
 
-    await waitFor(() => expect(addMock).toHaveBeenCalledWith('Remote', { kind: 'http', url: 'https://x.example.com/mcp' }));
+    await waitFor(() => expect(addRemoteMock).toHaveBeenCalledWith('Remote', { kind: 'http', url: 'https://x.example.com/mcp' }));
+    expect(addMock).not.toHaveBeenCalled();
+  });
+
+  it('with Local MCP servers off, offers remote servers only and says why (#2891)', async () => {
+    localOn(false);
+    listMock.mockResolvedValue([server({ id: 's1', name: 'Local one' }), server({ id: 'h1', name: 'Remote one', descriptor: { kind: 'http', url: 'https://x.example.com/mcp' } })]);
+    const { findByTestId, getByText, queryByLabelText, getAllByText } = render(McpServersSettings, {});
+    expect((await findByTestId('mcp-local-off-note')).textContent).toMatch(/Local MCP servers plugin, which is off/);
+    const [editLocal, editRemote] = getAllByText('Edit') as HTMLButtonElement[];
+    expect(editLocal!.disabled).toBe(true);
+    expect(editRemote!.disabled).toBe(false);
+    await fireEvent.click(getByText('Add server…'));
+    expect(queryByLabelText('Local command (stdio)')).toBeNull();
+    expect((queryByLabelText('Remote URL') as HTMLInputElement).checked).toBe(true);
   });
 
   it('shows a validation error and does not submit when the command/url is blank', async () => {

@@ -142,6 +142,19 @@ describe('PluginsSettings (#2634)', () => {
     expect(h.typesRefresh).toHaveBeenCalled();
   });
 
+  it('says a plugin\'s MCP servers wait on Local MCP servers while it\'s off (#2891)', async () => {
+    const local = { id: 'local-mcp-servers', name: 'Local MCP servers', version: '1.0.0', description: 'd', enabled: false, source: { kind: 'core' as const }, contributes: {}, capabilities: ['process' as const] };
+    const words = { ...LIST.installed[0]!, id: 'words', name: 'Words', mcpServers: 1 };
+    h.list.mockResolvedValue({ ...LIST, core: [local], installed: [words] });
+    const { findByText, unmount } = render(PluginsSettings);
+    expect(await findByText("Its MCP server needs Local MCP servers, which is off, so it doesn't start.")).toBeTruthy();
+    unmount();
+    h.list.mockResolvedValue({ ...LIST, core: [{ ...local, enabled: true }], installed: [words] });
+    const again = render(PluginsSettings);
+    await again.findByText('Words');
+    expect(again.queryByText(/needs Local MCP servers/)).toBeNull();
+  });
+
   it('says when a plugin command\'s key is another plugin\'s (#2879)', async () => {
     h.keyConflicts = [{ pluginId: 'lab', commandId: 'find', title: 'Find', key: 'CmdOrCtrl+Alt+B', takenBy: 'Book Shelf' }];
     const { findByText } = render(PluginsSettings);

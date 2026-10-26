@@ -31,6 +31,10 @@ vi.mock('../../../src/main/sources/ingest', async (orig) => ({
 }));
 
 import { reconcilePluginServers, setServerEnabled } from '../../../src/main/mcp-servers/registry';
+import { _setLocalMcpServersOnForTests } from '../../../src/main/mcp-servers/registry';
+
+// These run stdio servers, which need Local MCP servers on (#2891).
+_setLocalMcpServersOnForTests(true);
 import { configureMcpToolPermissionsPath } from '../../../src/main/mcp-servers/tool-permissions';
 import { shutdownAllMcpClients } from '../../../src/main/mcp-client';
 import { installPluginIngestors } from '../../../src/main/plugin-ingestors';

@@ -35,6 +35,10 @@ vi.mock('../../../src/main/mcp-servers/config-store', () => ({
 }));
 
 import { callServerTool, listServerStatuses, reconcilePluginServers, setServerEnabled } from '../../../src/main/mcp-servers/registry';
+import { _setLocalMcpServersOnForTests } from '../../../src/main/mcp-servers/registry';
+
+// These run stdio servers, which need Local MCP servers on (#2891).
+_setLocalMcpServersOnForTests(true);
 import { configureMcpToolPermissionsPath } from '../../../src/main/mcp-servers/tool-permissions';
 import { loadSkillCatalog } from '../../../src/main/skills/loader';
 import { compileSkill } from '../../../src/main/skills/compile';

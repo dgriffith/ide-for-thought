@@ -53,6 +53,21 @@ const CORE_PLUGIN_DEFINITIONS: readonly CorePluginDefinition[] = [
     defaultEnabled: false,
   },
   {
+    // Local MCP servers (#2891): stdio servers are programs Minerva runs, so
+    // adding, changing and running one is this plugin's, off on a new
+    // install. Remote (HTTP) servers run nothing here and stay Minerva's own.
+    manifest: {
+      id: 'local-mcp-servers',
+      name: 'Local MCP servers',
+      version: '1.0.0',
+      minerva: '>=4.0.0',
+      description: 'Run MCP servers as programs on your machine (stdio): ones you add in Settings → MCP Servers, and the servers plugins ship. Remote (HTTP) servers work without it.',
+      contributes: {},
+      code: { capabilities: ['process'] },
+    },
+    defaultEnabled: false,
+  },
+  {
     // The Kanban layout (#2828): the first view drawn by plugin code, in a
     // plugin frame (`plugins/kanban/`), on the plugin API like any plugin.
     // On by default: it was part of Minerva before, and it is safe — it reads

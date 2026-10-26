@@ -42,6 +42,10 @@ import {
   setServerEnabled,
   updateServer,
 } from '../../../src/main/mcp-servers/registry';
+import { _setLocalMcpServersOnForTests } from '../../../src/main/mcp-servers/registry';
+
+// These run stdio servers, which need Local MCP servers on (#2891).
+_setLocalMcpServersOnForTests(true);
 import { allowTool, configureMcpToolPermissionsPath, isToolAllowed } from '../../../src/main/mcp-servers/tool-permissions';
 import { getPluginScan } from '../../../src/main/plugins/registry';
 import { loadSkillCatalog } from '../../../src/main/skills/loader';

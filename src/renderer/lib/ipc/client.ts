@@ -685,6 +685,9 @@ export interface McpServersApi {
   list(): Promise<McpServerStatus[]>;
   add(name: string, descriptor: McpServerDescriptor): Promise<McpServerStatus[]>;
   update(id: string, patch: { name?: string; descriptor?: McpServerDescriptor }): Promise<McpServerStatus[]>;
+  /** A remote (HTTP) server's add / edit (#2891); `add` and `update` exist only while Local MCP servers is on. */
+  addRemote(name: string, descriptor: McpServerDescriptor): Promise<McpServerStatus[]>;
+  updateRemote(id: string, patch: { name?: string; descriptor?: McpServerDescriptor }): Promise<McpServerStatus[]>;
   remove(id: string): Promise<McpServerStatus[]>;
   /** Persists the flag, then attempts a best-effort NON-interactive connect
    *  (enabling) or disconnects (disabling) — never opens a browser. */

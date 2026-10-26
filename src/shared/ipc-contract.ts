@@ -219,6 +219,8 @@ export interface ChannelMap {
   'mcpServers:list': () => McpServerStatus[];
   'mcpServers:add': (name: string, descriptor: McpServerDescriptor) => McpServerStatus[];
   'mcpServers:update': (id: string, patch: { name?: string; descriptor?: McpServerDescriptor }) => McpServerStatus[];
+  'mcpServers:addRemote': (name: string, descriptor: McpServerDescriptor) => McpServerStatus[];
+  'mcpServers:updateRemote': (id: string, patch: { name?: string; descriptor?: McpServerDescriptor }) => McpServerStatus[];
   'mcpServers:remove': (id: string) => McpServerStatus[];
   'mcpServers:setEnabled': (id: string, enabled: boolean) => McpServerStatus[];
   'mcpServers:connect': (id: string) => McpServerStatus[];

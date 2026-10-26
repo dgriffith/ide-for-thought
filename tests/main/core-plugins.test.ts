@@ -22,7 +22,7 @@ vi.mock('electron', () => ({
   },
 }));
 
-import { _coreActivationIdsForTests, _setCoreActivationsForTests, activeCorePlugins, startCorePlugins, syncCorePlugins } from '../../src/main/core-plugins';
+import { _coreActivationIdsForTests, _setCoreActivationsForTests, activeCorePlugins, localMcpServersWereUsed, startCorePlugins, syncCorePlugins } from '../../src/main/core-plugins';
 import { _setCorePluginsForTests, corePlugins, readCorePluginStates, setCorePluginEnabled } from '../../src/main/plugins/core';
 import { _disablePluginsForTests, enablePlugins } from '../../src/main/plugins/registry';
 import { handle } from '../../src/main/ipc/typed-ipc';
@@ -146,5 +146,27 @@ describe('the shipped core plugins (#2643)', () => {
   it('each has an activation: one without is never active, so turning it on would do nothing', () => {
     _setCorePluginsForTests(null);
     expect(new Set(_coreActivationIdsForTests())).toEqual(new Set(corePlugins().map((p) => p.manifest.id)));
+  });
+});
+
+describe('Local MCP servers stays on for a machine that used them (#2891)', () => {
+  const write = (file: string, data: unknown) => { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, JSON.stringify(data)); };
+  it('a configured local server, or an approved plugin server, counts; a remote server or nothing does not', () => {
+    const mcp = path.join(root, 'mcp-servers.json');
+    expect(localMcpServersWereUsed(mcp, pluginsDir)).toBe(false);
+    write(mcp, { servers: [{ id: 'h', name: 'Remote', enabled: true, descriptor: { kind: 'http', url: 'https://mcp.example' } }] });
+    expect(localMcpServersWereUsed(mcp, pluginsDir)).toBe(false);
+    write(mcp, { servers: [{ id: 's', name: 'Local', enabled: false, descriptor: { kind: 'stdio', command: 'node' } }] });
+    expect(localMcpServersWereUsed(mcp, pluginsDir)).toBe(true);
+    fs.rmSync(mcp);
+    write(path.join(root, 'plugins.json'), { plugins: { words: { enabled: true, source: { kind: 'manual' }, mcpApproved: { words: 'id' } } } });
+    expect(localMcpServersWereUsed(mcp, pluginsDir)).toBe(true);
+  });
+
+  it('is a core plugin with an activation, off on a new install', () => {
+    _setCorePluginsForTests(null);
+    expect(corePlugins().find((p) => p.manifest.id === 'local-mcp-servers')).toMatchObject({ defaultEnabled: false, manifest: { code: { capabilities: ['process'] } } });
+    _setCoreActivationsForTests(null);
+    expect(_coreActivationIdsForTests()).toContain('local-mcp-servers');
   });
 });

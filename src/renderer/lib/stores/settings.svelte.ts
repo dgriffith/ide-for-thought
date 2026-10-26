@@ -22,9 +22,12 @@ export function getSettingsStore() {
     regenerateClipperSecret: () => api.clipper.regenerateSecret(),
 
     // ── MCP servers (#2031) ────────────────────────────────────────────────
-    addMcpServer: (name: string, descriptor: McpServerDescriptor) => api.mcpServers.add(name, descriptor),
+    // A local (stdio) server goes through the channels Local MCP servers wires
+    // up (#2891), which exist only while it's on; a remote one through its own.
+    addMcpServer: (name: string, descriptor: McpServerDescriptor) =>
+      (descriptor.kind === 'stdio' ? api.mcpServers.add(name, descriptor) : api.mcpServers.addRemote(name, descriptor)),
     updateMcpServer: (id: string, patch: { name?: string; descriptor?: McpServerDescriptor }) =>
-      api.mcpServers.update(id, patch),
+      (patch.descriptor?.kind === 'stdio' ? api.mcpServers.update(id, patch) : api.mcpServers.updateRemote(id, patch)),
     removeMcpServer: (id: string) => api.mcpServers.remove(id),
     setMcpServerEnabled: (id: string, enabled: boolean) => api.mcpServers.setEnabled(id, enabled),
     /** May open a browser for OAuth (#2030) — only call in direct response
