@@ -169,9 +169,12 @@
   //
   // A move can also be followed by more redraws (the view refetching its
   // notes) that replace the card's element, and a move picked from the app's
-  // menu lands while the frame isn't focused at all. So the moved card is
-  // HELD: each redraw puts focus back on it if focus has fallen off the board,
-  // until the user puts focus somewhere else themselves.
+  // menu lands while the frame isn't focused at all. So the card the user is
+  // on is HELD: a redraw puts focus back on it if focus has fallen off the
+  // board, but only while the frame has the page's focus (#2902). Focus the
+  // user took to the app ends the hold; a redraw used to pull it back into the
+  // board, a second after a drag, while they typed somewhere else. A move that
+  // lands while the frame is unfocused holds its card for when focus returns.
   let refocusedSeq = -1;
   let heldPath: string | null = null;
   const fellOff = () => {
@@ -188,24 +191,29 @@
         const active = document.activeElement;
         if (fellOff() || !!(active && el?.contains(active))) {
           heldPath = focusedPath;
-          void focusCard(focusedPath);
+          if (document.hasFocus()) void focusCard(focusedPath);
         }
         return;
       }
-      if (heldPath && fellOff()) void focusCard(heldPath);
+      if (heldPath && fellOff() && document.hasFocus()) void focusCard(heldPath);
     });
   });
   // The frame getting focus back (the app's menu closing) lands on <body> if
-  // the held card was redrawn meanwhile.
+  // the held card was redrawn meanwhile. Losing it to the app ends the hold.
   $effect(() => {
     const regain = () => { if (heldPath && fellOff()) void focusCard(heldPath); };
+    const leave = () => { heldPath = null; };
     window.addEventListener('focus', regain);
-    return () => window.removeEventListener('focus', regain);
+    window.addEventListener('blur', leave);
+    return () => {
+      window.removeEventListener('focus', regain);
+      window.removeEventListener('blur', leave);
+    };
   });
-  /** Focus the user moved themselves ends the hold. */
-  function releaseHold(e: FocusEvent): void {
+  /** Focus moved inside the board holds the card it lands on, or nothing. */
+  function trackHold(e: FocusEvent): void {
     const card = (e.target as HTMLElement | null)?.closest<HTMLElement>('[data-kanban-card]');
-    if (heldPath && card?.dataset['notePath'] !== heldPath) heldPath = null;
+    heldPath = card?.dataset['notePath'] ?? null;
   }
 
   function onKeydown(e: KeyboardEvent): void {
@@ -256,7 +264,7 @@
     class:kb-export={exportMode}
     bind:this={el}
     onkeydown={onKeydown}
-    onfocusin={releaseHold}
+    onfocusin={trackHold}
     onpointerdown={() => { heldPath = null; }}
     data-group-by={view.groupProperty}
     use:cardDrag={{ enabled: view.movable, onDrop: (p, t) => quietly(minerva.view.moveCard({ path: p, target: t })) }}

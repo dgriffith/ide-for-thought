@@ -3,7 +3,8 @@
  * from *active* to *done* with the pointer and the file says `status: done`;
  * then move another the same way with the keyboard only (Shift+F10 → Move to
  * → done), with focus staying on the moved card; then ⌘Z on the board puts
- * it back. Every other byte of each note is untouched.
+ * it back. Every other byte of each note is untouched. In between, focus
+ * taken to the app isn't pulled back by a redraw (#2902).
  */
 import { test, expect } from './helpers/test';
 import fs from 'node:fs';
@@ -48,6 +49,18 @@ test('a Project card moves between columns by pointer drag and by keyboard, and 
       // A drop is not a click: the note did not open in a tab.
       await expect(win.locator('.tab', { hasText: 'Garden Shed' })).toHaveCount(0);
       await expectAnnounced(win, 'Moved Garden Shed to done.');
+    });
+
+    await test.step('focus taken to the app stays there when the board redraws (#2902)', async () => {
+      // A redraw used to pull focus back onto the card just dragged: on a slow
+      // runner the move's own refetch landed between the next step's focus
+      // and its Tab. Forced here with an outside edit to another card's note.
+      const lastTab = win.getByRole('tablist', { name: 'View' }).getByRole('tab').last();
+      await focusLastLayoutTab(win);
+      await expect(lastTab).toBeFocused();
+      fs.writeFileSync(fileOf('Tax Return'), noteText('Tax Return', 'done').replace('owner: Ann', 'owner: Bea'));
+      await expect(cardFor('Tax Return')).toContainText('Bea', { timeout: 10_000 });
+      await expect(lastTab).toBeFocused();
     });
 
     await test.step('keyboard only: Shift+F10 → Move to → done, focus stays on the card', async () => {
