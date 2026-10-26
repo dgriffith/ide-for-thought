@@ -253,7 +253,7 @@ describe('moving cards (#2603)', () => {
     expect(card('a.md').closest('.kb-column')!.getAttribute('data-column-value')).toBe('done');
   });
 
-  it('holds it there through later redraws that drop focus, until the user moves focus themselves', async () => {
+  it('holds the card the user is on through later redraws that drop focus; tabbing on moves the hold', async () => {
     const { card, update } = mount();
     card('a.md').focus();
     const moved = [row('a.md', 'Alpha', { status: 'done' }), ...FILED.slice(1)];
@@ -263,12 +263,56 @@ describe('moving cards (#2603)', () => {
     (document.activeElement as HTMLElement).blur();
     await update(viewOf([...moved], { lastMove: { seq: 1, paths: ['a.md'] } }));
     await vi.waitFor(() => expect(document.activeElement).toBe(card('a.md')));
-    // The user tabs to another card: the hold ends, and a redraw leaves focus alone.
+    // The user tabs to another card: that's the one held now (#2902).
     card('b.md').focus();
     (document.activeElement as HTMLElement).blur();
     await update(viewOf([...moved], { lastMove: { seq: 1, paths: ['a.md'] } }));
-    await new Promise((r) => setTimeout(r, 20));
-    expect(document.activeElement).toBe(document.body);
+    await vi.waitFor(() => expect(document.activeElement).toBe(card('b.md')));
+  });
+
+  describe('focus the user took to the app (#2902)', () => {
+    let frameFocused = true;
+    beforeEach(() => {
+      frameFocused = true;
+      vi.spyOn(document, 'hasFocus').mockImplementation(() => frameFocused);
+    });
+    afterEach(() => vi.restoreAllMocks());
+    /** Focus leaves the frame for the app: its window blurs, and nothing in it is focused. */
+    const leaveForTheApp = () => {
+      frameFocused = false;
+      (document.activeElement as HTMLElement).blur();
+      window.dispatchEvent(new Event('blur'));
+    };
+
+    it('is never pulled back into the board by a redraw after a move', async () => {
+      const { card, update } = mount();
+      card('a.md').focus();
+      const moved = [row('a.md', 'Alpha', { status: 'done' }), ...FILED.slice(1)];
+      await update(viewOf(moved, { lastMove: { seq: 1, paths: ['a.md'] } }));
+      await vi.waitFor(() => expect(document.activeElement).toBe(card('a.md')));
+      leaveForTheApp();
+      await update(viewOf([...moved], { lastMove: { seq: 1, paths: ['a.md'] } }));
+      await new Promise((r) => setTimeout(r, 20));
+      expect(document.activeElement).toBe(document.body);
+      // Nor when the frame gets focus back later: the hold ended when focus left.
+      frameFocused = true;
+      window.dispatchEvent(new Event('focus'));
+      await new Promise((r) => setTimeout(r, 20));
+      expect(document.activeElement).toBe(document.body);
+    });
+
+    it('a move that lands while the frame is unfocused (picked from the app\'s menu) focuses its card when focus comes back', async () => {
+      const { card, update } = mount();
+      card('a.md').focus();
+      leaveForTheApp();
+      await update(viewOf([row('a.md', 'Alpha', { status: 'done' }), ...FILED.slice(1)], { lastMove: { seq: 1, paths: ['a.md'] } }));
+      await new Promise((r) => setTimeout(r, 20));
+      expect(document.activeElement).toBe(document.body);
+      frameFocused = true;
+      window.dispatchEvent(new Event('focus'));
+      await vi.waitFor(() => expect(document.activeElement).toBe(card('a.md')));
+      expect(card('a.md').closest('.kb-column')!.getAttribute('data-column-value')).toBe('done');
+    });
   });
 });
 
