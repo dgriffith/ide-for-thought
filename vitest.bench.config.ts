@@ -35,6 +35,9 @@ export default defineConfig({
     // exactly 60000ms, while an explicit finite value passed) — so this is a
     // real, generous number instead of "unlimited".
     testTimeout: 300_000,
+    // EXPERIMENT (#2851): a fixed young generation, so the collector's sizing
+    // doesn't depend on the runner's memory.
+    execArgv: ['--max-semi-space-size=64'],
     benchmark: {
       include: ['tests/**/*.bench.ts'],
     },
