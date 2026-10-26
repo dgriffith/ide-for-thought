@@ -175,3 +175,13 @@ describe('the question (#2833)', () => {
       .toContain('It asks for the same capabilities as before; its files changed.');
   });
 });
+
+describe('the assistant allow in the record (#2858)', () => {
+  it('keeps llmAllowed, the version allowed, and drops one that isn\'t a string', async () => {
+    const file = path.join(path.dirname(dir), 'plugins.json');
+    fs.writeFileSync(file, JSON.stringify({ plugins: { a: { enabled: true, source: { kind: 'manual' }, llmAllowed: '1.2.0' }, b: { enabled: true, source: { kind: 'manual' }, llmAllowed: 7 } } }));
+    const records = await loadPluginRecords(dir);
+    expect(records.a?.llmAllowed).toBe('1.2.0');
+    expect(records.b).not.toHaveProperty('llmAllowed');
+  });
+});

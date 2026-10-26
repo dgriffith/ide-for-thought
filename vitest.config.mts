@@ -722,6 +722,14 @@ export default defineConfig({
           statements: 85,
           branches: 80,
         },
+        // plugin-llm-propose.ts ~100 L / 100 F / 100 S / 97 B (#2858): a
+        // plugin's model request, what it may file and when it's refused.
+        'src/main/plugin-llm-propose.ts': {
+          lines: 92,
+          functions: 92,
+          statements: 92,
+          branches: 88,
+        },
         // plugin-inspections.ts ~100 L / 100 F / 96 S / 90 B (#2831). A
         // plugin's check written as code: the read-only cap, the answer turned
         // into findings, and a failure kept to one finding.

@@ -203,5 +203,6 @@ export const PLUGIN_CODE_CORPUS: PluginCodeCorpusCase[] = [
   { id: 'over-limit', summary: 'A payload far over the message limit', fixtures: [SESSION_SPEC], attempt: 'too-large', tests: [SESSION_SPEC, 'tests/main/plugins/broker.test.ts'] },
   { id: 'endless-loop', summary: 'A handler that never returns: stopped at its deadline, the app answering throughout', fixtures: [WORKER], attempt: 'spin', tests: [WORKER_SPEC] },
   { id: 'undeclared-call', summary: 'Code that calls the API past the capabilities it declares: refused, and plugin check fails it (#2833)', fixtures: ['tests/fixtures/hostile-plugins/overreach/logic.js'], attempt: 'notes.write', tests: ['tests/e2e/cli-plugin-check-code.spec.ts'] },
+  { id: 'llm-overreach', summary: 'A model request about notes it wasn\'t given or .minerva/, and approving its own proposal (#2858)', fixtures: [WORKER], attempt: 'llmOverreach', tests: [WORKER_SPEC] },
   { id: 'hostile-note', summary: "A note's markup put into a view as HTML: it runs nothing, and script that got in has only that plugin's capabilities", fixtures: [FRAME], attempt: 'inject', tests: [SESSION_SPEC] },
 ];

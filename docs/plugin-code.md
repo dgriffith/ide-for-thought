@@ -206,13 +206,52 @@ The broker (#2825) is `main/plugins/broker.ts`, its method table
 `shared/plugins/api.ts`. Each method names one capability; a call is refused
 unless the plugin declared it, then unless every note it names is in the
 session's scope, before anything runs. Messages are JSON text, 1 MiB each
-way, 16 calls in flight. `llm:propose` is declared but refused until #2858.
+way, 16 calls in flight.
 
 ### Writes
 
 The Trust Principle is about **LLM-originated** writes, and they stay
 proposals whoever triggers them: a plugin with `llm:propose` files a proposal
 that the user reviews like any other.
+
+### Asking the assistant (#2858)
+
+`minerva.llm.propose({ prompt, notes })`, with `llm:propose`
+(`main/plugin-llm-propose.ts`, its I/O in `plugin-llm-deps.ts`):
+
+- **Decision: the model is the user's conversation default.** The plugin
+  never names one, so the user's provider and key choice always holds.
+- **Decision: one completion, no tools.** The notes the call names, at most
+  20 and every one in the session's scope, are read by the broker and
+  handed to the model. Nothing an injected note says can start a loop or a
+  read.
+- **Untrusted input in the user turn.** `system` is Minerva's fixed
+  instructions and answer format, alone. The plugin's prompt is wrapped as
+  `kind="plugin-request"` (its author's text) and each note as
+  `kind="note"`, delimited and neutralized (#2438).
+- **Decision: what it may file.** A rewrite of a note it passed, a property
+  change on one (rendered as a rewrite, shown as a diff), or a new note at a
+  path an agent may write (`agentPathRefusal`: never `.minerva/` or a
+  dot-folder) that doesn't exist yet. Each change is its own pending
+  proposal, at most 20. Anything else in the answer is left out, and the
+  plugin is told which and why.
+- **Provenance names both.** `proposedBy` is
+  `plugin:<id>@<version>+llm:<model>`; the review queue shows *tidy (plugin,
+  claude-opus-5)* with the agent tag, and each proposal's note ends with the
+  tokens the request used.
+- **Decision: asked first, natively.** The first request from each plugin
+  version asks in main's own dialog, since it spends the user's key. The
+  answer is kept in `plugins.json` (`llmAllowed`), so an upgrade asks again.
+  A "no" isn't kept: the next request asks again. A built-in plugin, with no
+  record, is allowed for the run.
+- **Bounded.** One request at a time per plugin, and at most 10 in 10
+  minutes, failed ones counted.
+- **Needs somewhere to review.** With no window open on the thoughtbase (the
+  CLI, `plugin check`, a closing app) it's refused before anything runs.
+- **It can't act on what it filed.** The result says what was filed, never
+  a proposal's uri or fate, and nothing in the API approves, rejects or
+  expires. The hostile worker's `llmOverreach` tries all of it
+  (`plugin-worker-host.spec.ts`).
 
 A **user's gesture in a plugin view** (dragging a card to another column) is
 the user's write, and making it a proposal would be wrong. But plugin code can

@@ -228,7 +228,7 @@ export function describeProposalCause(input: {
   if (builtIn) return builtIn;
 
   const proposer = describeProposer(input.proposedBy);
-  if (proposer.kind === 'external' || proposer.kind === 'cli') return proposer.label;
+  if (proposer.kind === 'external' || proposer.kind === 'cli' || proposer.kind === 'plugin') return proposer.label;
   if (proposer.kind === 'internal') {
     return input.proposedBy.startsWith('llm:conversation:') ? 'Conversation' : proposer.label;
   }

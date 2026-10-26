@@ -42,6 +42,16 @@ describe('compareAbi (#2826)', () => {
     expect(compareAbi(base(), next).breaking).toHaveLength(1);
   });
 
+  it('a method that answered nothing (`never`, refused) may be given real shapes as an addition (#2858)', () => {
+    const prev = base();
+    prev.methods['llm.propose'] = { capability: 'llm:propose', params: { text: 'Record<string, unknown>' }, result: { text: 'never' } };
+    const next = base();
+    next.methods['llm.propose'] = { capability: 'llm:propose', params: { members: [field('prompt', 'string')] }, result: { members: [field('summary', 'string')] } };
+    expect(compareAbi(prev, next)).toEqual({ breaking: [], additions: ['llm.propose now answers (it was refused before)'] });
+    next.methods['llm.propose'].capability = 'ui';
+    expect(compareAbi(prev, next).breaking).toEqual(['llm.propose now needs "ui", not "llm:propose"']);
+  });
+
   it('an optional param made required is breaking', () => {
     const prev = base();
     const next = base();

@@ -1,5 +1,5 @@
 {
-  "version": "1.10.0",
+  "version": "1.11.0",
   "errorCodes": [
     "bad-request",
     "busy",
@@ -126,10 +126,47 @@
     "llm.propose": {
       "capability": "llm:propose",
       "params": {
-        "text": "Record<string, unknown>"
+        "members": [
+          {
+            "name": "notes",
+            "optional": true,
+            "type": "string[]"
+          },
+          {
+            "name": "prompt",
+            "optional": false,
+            "type": "string"
+          }
+        ]
       },
       "result": {
-        "text": "never"
+        "members": [
+          {
+            "name": "leftOut",
+            "optional": false,
+            "type": "{ change: number; reason: string }[]"
+          },
+          {
+            "name": "model",
+            "optional": false,
+            "type": "string"
+          },
+          {
+            "name": "proposals",
+            "optional": false,
+            "type": "{ kind: 'rewrite' | 'create' | 'setProperties'; path: string }[]"
+          },
+          {
+            "name": "summary",
+            "optional": false,
+            "type": "string"
+          },
+          {
+            "name": "usage",
+            "optional": false,
+            "type": "{ inputTokens: number; outputTokens: number }"
+          }
+        ]
       }
     },
     "notes.create": {

@@ -41,7 +41,7 @@ describe('the plugin-code example (#2833)', () => {
   it("the doc's capability table is what a third-party plugin may declare, in the app's own words", () => {
     const rows = [...SECTION.matchAll(/^\| `([a-z:-]+)` \| (.+?) \|$/gm)].filter(([, cap]) => cap! in PLUGIN_CAPABILITIES);
     const listed = rows.map(([, cap]) => cap as PluginCapability);
-    const mayDeclare = (Object.keys(PLUGIN_CAPABILITIES) as PluginCapability[]).filter((c) => c !== 'llm:propose' && validatePluginManifest({
+    const mayDeclare = (Object.keys(PLUGIN_CAPABILITIES) as PluginCapability[]).filter((c) => validatePluginManifest({
       id: 'x', name: 'x', version: '1.0.0', minerva: '>=1.0.0', description: 'x', contributes: {}, code: { capabilities: [c], api: `^${PLUGIN_API_VERSION}` },
     }, { folder: 'x', appVersion: APP_VERSION }).ok);
     expect(listed).toEqual(mayDeclare);

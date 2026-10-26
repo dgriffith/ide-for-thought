@@ -28,7 +28,7 @@ import type { PluginCapability } from './capabilities';
  * The API's semver version (#2826), its own and not the app's: the host sends
  * it with the port, and a plugin's `code.api` range must accept it.
  */
-export const PLUGIN_API_VERSION = '1.10.0';
+export const PLUGIN_API_VERSION = '1.11.0';
 
 export const PLUGIN_METHODS = {
   'notes.list': { capability: 'notes:read', describes: 'The notes this view or call was given.' },
@@ -58,7 +58,7 @@ export const PLUGIN_METHODS = {
   'view.moveColumn': { capability: 'ui', describes: "Move one of the view's groups before or after another; the order stays with the view." },
   'view.reschedule': { capability: 'notes:write-properties', describes: "Move a dated note by whole days: Minerva shifts its start and end, with undo (a calendar's drag)." },
   'view.setHeight': { capability: 'ui', describes: "Say how tall a live block's frame should be, in CSS pixels; Minerva sizes it, within limits." },
-  'llm.propose': { capability: 'llm:propose', describes: 'Ask the assistant for changes. Not available yet (#2858).' },
+  'llm.propose': { capability: 'llm:propose', describes: "Ask the assistant for changes to notes it was given, or new notes: each one is filed as a proposal the user reviews. Uses the user's model, asked first." },
 } as const satisfies Record<string, { capability: PluginCapability; describes: string }>;
 
 export type PluginMethod = keyof typeof PLUGIN_METHODS;
@@ -104,7 +104,12 @@ export interface PluginMethodParams {
   'view.reschedule': { path: string; days: number };
   /** `height`: CSS pixels, from PLUGIN_BLOCK_MIN_HEIGHT to PLUGIN_BLOCK_MAX_HEIGHT; outside it is clamped. */
   'view.setHeight': { height: number };
-  'llm.propose': Record<string, unknown>;
+  /**
+   * `prompt`: what to ask, at most PLUGIN_LLM_MAX_PROMPT_CHARS. `notes`: notes
+   * it was given, at most PLUGIN_LLM_MAX_NOTES, which the model reads and may
+   * propose rewriting or setting properties on (#2858).
+   */
+  'llm.propose': { prompt: string; notes?: string[] };
 }
 
 /** One row of a plugin's context menu: an item it can be answered with, or a separator. */
@@ -139,7 +144,17 @@ export interface PluginMethodResults {
   'view.moveColumn': Record<string, never>;
   'view.reschedule': Record<string, never>;
   'view.setHeight': Record<string, never>;
-  'llm.propose': never;
+  /**
+   * What was filed: one proposal per change, which the user reviews. `leftOut`
+   * names each change the answer asked for that Minerva didn't file, and why.
+   */
+  'llm.propose': {
+    summary: string;
+    proposals: { kind: 'rewrite' | 'create' | 'setProperties'; path: string }[];
+    leftOut: { change: number; reason: string }[];
+    model: string;
+    usage: { inputTokens: number; outputTokens: number };
+  };
 }
 
 /**
@@ -312,6 +327,10 @@ export const PLUGIN_NOTE_MENU_MAX_PATHS = 500;
 /** A live block's frame height (`view.setHeight`), in CSS pixels. */
 export const PLUGIN_BLOCK_MIN_HEIGHT = 24;
 export const PLUGIN_BLOCK_MAX_HEIGHT = 4000;
+
+/** `llm.propose` (#2858): the most its prompt may be, in characters, and the most notes it may pass. */
+export const PLUGIN_LLM_MAX_PROMPT_CHARS = 8000;
+export const PLUGIN_LLM_MAX_NOTES = 20;
 
 /** How far one `view.reschedule` may move a note, in days either way (about 270 years). */
 export const PLUGIN_RESCHEDULE_MAX_DAYS = 100_000;

@@ -61,7 +61,9 @@ export type UntrustedKind =
   /** A vocabulary the thoughtbase imported (#2788), in `describe_graph_schema`. */
   | 'ontology'
   /** An inspection's finding, opened as a conversation (#2874): a shape's message is its author's text. */
-  | 'inspection';
+  | 'inspection'
+  /** What a plugin asked the model for (#2858): its author's text, not the user's. */
+  | 'plugin-request';
 
 /** Kinds whose value is prose/markup, rendered on their own lines inside the
  *  tag; the rest are short scalars rendered inline. */
@@ -74,6 +76,7 @@ const BLOCK_KINDS: ReadonlySet<UntrustedKind> = new Set<UntrustedKind>([
   'conversation-excerpt',
   'ontology',
   'inspection',
+  'plugin-request',
 ]);
 
 // A `<` or a fullwidth / small-form lookalike: the candidates for neutralizing.
