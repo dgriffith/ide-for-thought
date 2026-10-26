@@ -134,6 +134,31 @@ describe('bench-check.mjs', () => {
     });
   });
 
+  it('warns, without failing, when a gated benchmark runs far faster than its baseline (#2852)', () => {
+    withTempDir((d) => {
+      // 0.2x under tolerance 4: the gate fires only at 2000ms, 20x today's
+      // number, which is what the preview re-render's stale baseline did.
+      const baseline = writeTemp(d, 'baseline.json', {
+        tolerance: 2,
+        benchmarks: [
+          { name: 'stale op', mean: 500, hz: 2, budgetMs: null, tolerance: 4 },
+          { name: 'steady op', mean: 100, hz: 10, budgetMs: null },
+          { name: 'ungated op', mean: 100, hz: 10, budgetMs: null, gate: false, issue: 1, reason: 'x' },
+        ],
+      });
+      const current = writeTemp(d, 'current.json', currentJson([
+        { name: 'stale op', mean: 100 },
+        { name: 'steady op', mean: 60 },
+        { name: 'ungated op', mean: 10 },
+      ]));
+      const { status, stdout } = run(['--current', current, '--baseline', baseline]);
+      expect(status).toBe(0);
+      expect(stdout).toContain('1 gated benchmark(s) far faster than baseline');
+      expect(stdout).toContain('::warning title=Bench baseline is stale (far faster than it)::stale op: 0.20× of baseline, so the gate fires only at 20.0× today\'s number');
+      expect(stdout).not.toMatch(/::warning.*(steady|ungated) op/);
+    });
+  });
+
   it('--update preserves hand-set budgetMs/tolerance/gate while refreshing mean/hz', () => {
     withTempDir((d) => {
       const baselinePath = writeTemp(d, 'baseline.json', {

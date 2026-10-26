@@ -22,15 +22,20 @@
 import { describe, test } from 'vitest';
 import { assertFixtureReaches } from '../../helpers/bench-fixture';
 import { buildLargeNote } from '../helpers/large-note';
+import { RUNNABLE_LANGUAGES } from '../../../src/shared/compute/fences';
 
 const note = buildLargeNote(200, 2);
 
 // `ipc/client.ts` reads `window.api` at module evaluation, and
 // `build-extensions` imports it — so the stub goes in before the dynamic
 // imports. Typing reaches none of these; they exist so the extensions build.
+// The editor asks which compute languages can run (#2822): every one, as it
+// was when the baseline was blessed, so a fence's ▶ is drawn the same way.
 (window as unknown as { api: unknown }).api = {
   shell: { openExternal: async () => {} },
   notebase: { readFile: async () => '' },
+  compute: { languages: async () => [...RUNNABLE_LANGUAGES] },
+  plugins: { onChanged: () => () => {} },
 };
 
 const { EditorView } = await import('@codemirror/view');
