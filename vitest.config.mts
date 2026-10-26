@@ -722,6 +722,16 @@ export default defineConfig({
           statements: 85,
           branches: 80,
         },
+        // core-plugins.ts ~82 L / 61 F / 84 S / 85 B (#2891, past 150 lines
+        // with Local MCP servers): which core plugins are wired up, and the
+        // one-time keep-on checks. The uncovered functions are the view-only
+        // plugins' no-op activations and the real keep-on predicates.
+        'src/main/core-plugins.ts': {
+          lines: 74,
+          functions: 52,
+          statements: 76,
+          branches: 76,
+        },
         // plugin-llm-propose.ts ~100 L / 100 F / 100 S / 97 B (#2858): a
         // plugin's model request, what it may file and when it's refused.
         'src/main/plugin-llm-propose.ts': {

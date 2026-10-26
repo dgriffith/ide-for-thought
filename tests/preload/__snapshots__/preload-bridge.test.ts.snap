@@ -192,12 +192,14 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
   ],
   "mcpServers": [
     "add",
+    "addRemote",
     "connect",
     "list",
     "remove",
     "resetAllowedTools",
     "setEnabled",
     "update",
+    "updateRemote",
   ],
   "menu": [
     "onCommand",

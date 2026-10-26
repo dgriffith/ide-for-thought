@@ -295,6 +295,10 @@ It runs out of process, and only once the user turns it on.
   needs (`PATH`, `HOME`, locale) plus `env`. An `env` value can name the
   plugin's [settings](#settings) as `${settings.<key>}`, secrets included:
   this is where a secret goes, and the only place.
+- **It needs Local MCP servers.** A plugin's server is a program, so it runs
+  only while the built-in Local MCP servers plugin is on (off on a new
+  install, #2891); while it's off, Settings → Plugins and Settings → MCP
+  Servers say so.
 - **Nothing runs until the user says so.** The server is listed in
   Settings → MCP Servers as `<plugin id>.<key>`, switched off. Switching it
   on shows main's own dialog, which the app's window can't draw or answer,

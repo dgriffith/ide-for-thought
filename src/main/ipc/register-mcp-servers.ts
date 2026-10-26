@@ -13,9 +13,11 @@ import {
   connectServer,
   listServerStatuses,
   removeServer,
+  setLocalMcpServersOn,
   setServerEnabled,
   updateServer,
 } from '../mcp-servers/registry';
+import { logger } from '../../shared/logger';
 import { configureMcpToolPermissionsPath, resetAllowedTools, serverIdentity } from '../mcp-servers/tool-permissions';
 import { getStoredServers } from '../mcp-servers/config-store';
 import { confirmNative } from '../native-confirm';
@@ -30,24 +32,18 @@ export function registerMcpServers(): void {
 
   handle(Channels.MCP_SERVERS_LIST, () => listServerStatuses());
 
-  // A stdio server is a program Minerva will run (#2568): adding one, or
-  // changing what one runs, is confirmed by main's own dialog showing the exact
-  // command — the renderer can't draw or answer it. Declined → nothing saved.
-  handle(Channels.MCP_SERVERS_ADD, async (e, name, descriptor) => {
-    if (descriptor.kind === 'stdio' && !(await confirmStdioServer(winFromEvent(e), name, descriptor))) {
-      return listServerStatuses();
-    }
+  // Remote servers run nothing on this machine, so they're Minerva's own
+  // (#2891): these two refuse anything that would run a program, which is
+  // Local MCP servers' business (`registerLocalMcpServers`).
+  handle(Channels.MCP_SERVERS_ADD_REMOTE, async (_e, name, descriptor) => {
+    if (descriptor?.kind !== 'http') throw new Error('Only a remote (HTTP) server can be added here; a local one needs Local MCP servers.');
     return addServer(name, descriptor);
   });
 
-  handle(Channels.MCP_SERVERS_UPDATE, async (e, id, patch) => {
-    const next = patch.descriptor;
-    if (next?.kind === 'stdio') {
-      const before = (await getStoredServers()).find((s) => s.id === id);
-      const changed = !before || serverIdentity(before.descriptor) !== serverIdentity(next);
-      if (changed && !(await confirmStdioServer(winFromEvent(e), patch.name ?? before?.name ?? 'MCP server', next))) {
-        return listServerStatuses();
-      }
+  handle(Channels.MCP_SERVERS_UPDATE_REMOTE, async (_e, id, patch) => {
+    const before = (await getStoredServers()).find((s) => s.id === id);
+    if (before?.descriptor.kind === 'stdio' || (patch.descriptor && patch.descriptor.kind !== 'http')) {
+      throw new Error('A local server can only be changed while Local MCP servers is on.');
     }
     return updateServer(id, patch);
   });
@@ -73,6 +69,43 @@ export function registerMcpServers(): void {
   // Settings → MCP "Reset allowed MCP tools" (#2439): forget every
   // "Don't ask again" grant, so every non-read-only tool asks again.
   handle(Channels.MCP_SERVERS_RESET_ALLOWED_TOOLS, () => resetAllowedTools());
+}
+
+/**
+ * The built-in Local MCP servers plugin's activation (#2891, from
+ * `core-plugins.ts`): the two privileged channels that can add or change a
+ * program Minerva runs, and leave for local servers to run. Off means none of
+ * it exists: the channels have no handler, and no local server starts.
+ */
+export function registerLocalMcpServers(): () => void {
+  // A stdio server is a program Minerva will run (#2568): adding one, or
+  // changing what one runs, is confirmed by main's own dialog showing the exact
+  // command — the renderer can't draw or answer it. Declined → nothing saved.
+  const offAdd = handle(Channels.MCP_SERVERS_ADD, async (e, name, descriptor) => {
+    if (descriptor.kind === 'stdio' && !(await confirmStdioServer(winFromEvent(e), name, descriptor))) {
+      return listServerStatuses();
+    }
+    return addServer(name, descriptor);
+  });
+
+  const offUpdate = handle(Channels.MCP_SERVERS_UPDATE, async (e, id, patch) => {
+    const next = patch.descriptor;
+    if (next?.kind === 'stdio') {
+      const before = (await getStoredServers()).find((s) => s.id === id);
+      const changed = !before || serverIdentity(before.descriptor) !== serverIdentity(next);
+      if (changed && !(await confirmStdioServer(winFromEvent(e), patch.name ?? before?.name ?? 'MCP server', next))) {
+        return listServerStatuses();
+      }
+    }
+    return updateServer(id, patch);
+  });
+
+  void setLocalMcpServersOn(true).catch((err: unknown) => { logger('mcp-servers').warn('starting local servers failed:', err); });
+  return () => {
+    offAdd();
+    offUpdate();
+    void setLocalMcpServersOn(false).catch((err: unknown) => { logger('mcp-servers').warn('stopping local servers failed:', err); });
+  };
 }
 
 /** Shell-ish quoting for display only. */

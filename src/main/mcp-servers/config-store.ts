@@ -38,7 +38,7 @@
 import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { asBool, asRecord, asString, asStringArray, loadConfigFile, loadConfigFileStrict, requireRecord } from '../config/config-store';
+import { asBool, asRecord, asString, asStringArray, loadConfigFile, loadConfigFileStrict, loadConfigFileSync, requireRecord } from '../config/config-store';
 import { withFileLock } from '../config/file-lock';
 import { writeJsonFileAtomic, SECRET_FILE_MODE } from '../config/json-file';
 import { decryptSecret, encryptSecret, isEncrypted, secretEncryptionAvailable } from '../secret-storage';
@@ -127,6 +127,16 @@ export async function getStoredServers(file: string = mcpServersConfigPath()): P
   const stored = await loadConfigFile(() => file, decodeStored, []);
   if (hasPlaintextEnv(stored)) scheduleEnvUpgrade(file);
   return stored.map(toUsable);
+}
+
+/**
+ * Whether any stored server runs a program (#2891): the one-time check that
+ * keeps Local MCP servers on for someone who already uses one. Synchronous,
+ * since it runs at startup before any window, and it reads values as stored,
+ * so it never touches the keychain.
+ */
+export function hasStoredStdioServerSync(file: string = mcpServersConfigPath()): boolean {
+  return loadConfigFileSync(() => file, decodeStored, []).some((s) => s.descriptor.kind === 'stdio');
 }
 
 /**

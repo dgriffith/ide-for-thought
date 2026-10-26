@@ -103,6 +103,10 @@ import { completeWithTools, type ExecutedToolCall, type StreamCallbacks } from '
 import { buildConversationSystemPrompt } from '../../../../src/main/llm/conversation-prompt';
 import { listProposals } from '../../../../src/main/llm/proposal-persistence';
 import { connectServer } from '../../../../src/main/mcp-servers/registry';
+import { _setLocalMcpServersOnForTests } from '../../../../src/main/mcp-servers/registry';
+
+// These run stdio servers, which need Local MCP servers on (#2891).
+_setLocalMcpServersOnForTests(true);
 import * as graph from '../../../../src/main/graph/index';
 import { findUnreviewedLLMWrites } from '../../../../src/main/graph/integrity';
 import { TRUST_GUARD_MARKER } from '../../../../src/main/graph/write-guard';

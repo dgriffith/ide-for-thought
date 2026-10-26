@@ -12,7 +12,7 @@ const dialogMock = vi.hoisted(() => ({ showMessageBox: vi.fn() }));
 const storedMock = vi.hoisted(() => ({ getStoredServers: vi.fn() }));
 
 vi.mock('electron', () => ({
-  ipcMain: { handle: (channel: string, fn: Handler) => { handlers.set(channel, fn); } },
+  ipcMain: { handle: (channel: string, fn: Handler) => { handlers.set(channel, fn); }, removeHandler: (channel: string) => { handlers.delete(channel); } },
   app: { getPath: () => '/fake-user-data' },
   dialog: dialogMock,
 }));
@@ -26,6 +26,7 @@ const registryMock = vi.hoisted(() => ({
   removeServer: vi.fn(),
   setServerEnabled: vi.fn(),
   connectServer: vi.fn(),
+  setLocalMcpServersOn: vi.fn(async () => {}),
 }));
 vi.mock('../../../src/main/mcp-servers/registry', () => registryMock);
 
@@ -36,10 +37,14 @@ const permissionsMock = vi.hoisted(() => ({
 }));
 vi.mock('../../../src/main/mcp-servers/tool-permissions', () => permissionsMock);
 
-import { registerMcpServers } from '../../../src/main/ipc/register-mcp-servers';
+import { registerLocalMcpServers, registerMcpServers } from '../../../src/main/ipc/register-mcp-servers';
 import { Channels } from '../../../src/shared/channels';
 
 registerMcpServers();
+// Off means not wired up (#2891): the channels that run a program aren't
+// there until the Local MCP servers plugin is on.
+const localChannelsBeforeActivation = [Channels.MCP_SERVERS_ADD, Channels.MCP_SERVERS_UPDATE].filter((c) => handlers.has(c));
+const stopLocal = registerLocalMcpServers();
 // Captured before beforeEach's clearAllMocks wipes the call record.
 const configuredPermissionsPath = permissionsMock.configureMcpToolPermissionsPath.mock.calls[0]?.[0];
 
@@ -183,3 +188,35 @@ describe('stdio servers need main\'s native confirm (#2568)', () => {
     });
   });
 });
+
+describe('Local MCP servers, a built-in plugin (#2891)', () => {
+  it('adding or changing a local server has no channel until it is on, and none after it goes off', () => {
+    expect(localChannelsBeforeActivation).toEqual([]);
+    expect(handlers.has(Channels.MCP_SERVERS_ADD)).toBe(true);
+    stopLocal();
+    expect(handlers.has(Channels.MCP_SERVERS_ADD)).toBe(false);
+    expect(handlers.has(Channels.MCP_SERVERS_UPDATE)).toBe(false);
+    expect(registryMock.setLocalMcpServersOn).toHaveBeenCalledWith(false);
+    const again = registerLocalMcpServers();
+    expect(registryMock.setLocalMcpServersOn).toHaveBeenLastCalledWith(true);
+    expect(handlers.has(Channels.MCP_SERVERS_ADD)).toBe(true);
+    void again;
+  });
+
+  it('a remote server is added and changed through core channels, which refuse anything that runs a program', async () => {
+    registryMock.addServer.mockResolvedValue(['the-list']);
+    registryMock.updateServer.mockResolvedValue(['the-list']);
+    const add = handlers.get(Channels.MCP_SERVERS_ADD_REMOTE)!;
+    const update = handlers.get(Channels.MCP_SERVERS_UPDATE_REMOTE)!;
+    await expect(add({}, 'Remote', { kind: 'http', url: 'https://mcp.example' })).resolves.toEqual(['the-list']);
+    await expect(add({}, 'Local', { kind: 'stdio', command: 'node' })).rejects.toThrow('Only a remote (HTTP) server');
+    await expect(update({}, 'r1', { name: 'Renamed', descriptor: { kind: 'http', url: 'https://mcp.example' } })).resolves.toEqual(['the-list']);
+    await expect(update({}, 'r1', { descriptor: { kind: 'stdio', command: 'node' } })).rejects.toThrow('only be changed while Local MCP servers is on');
+    storedMock.getStoredServers.mockResolvedValue([{ id: 's1', name: 'Local', enabled: true, descriptor: { kind: 'stdio', command: 'node' } }]);
+    await expect(update({}, 's1', { name: 'Renamed' })).rejects.toThrow('only be changed while Local MCP servers is on');
+    expect(registryMock.addServer).toHaveBeenCalledTimes(1);
+    expect(registryMock.updateServer).toHaveBeenCalledTimes(1);
+    expect(dialogMock.showMessageBox).not.toHaveBeenCalled();
+  });
+});
+

@@ -22,6 +22,8 @@
   }
 
   const plugins = getPluginsStore();
+  /** Whether plugins' MCP servers can run (#2891): they're programs, so only while Local MCP servers is on. */
+  const localServersOn = $derived(plugins.list.core.some((c) => c.id === 'local-mcp-servers' && c.enabled));
   const dialogs = getDialogStore();
 
   onMount(() => { void plugins.refresh(); });
@@ -146,6 +148,10 @@
             </p>
           {/if}
           {#each conflictsOf(p.id) as line (line)}<p class="plugin-source">{line}</p>{/each}
+          {#if p.mcpServers && !localServersOn}
+            <!-- Its servers are programs (#2891): they wait on the built-in plugin. -->
+            <p class="plugin-source">Its MCP {p.mcpServers === 1 ? 'server needs' : 'servers need'} Local MCP servers, which is off, so {p.mcpServers === 1 ? 'it doesn\'t' : 'they don\'t'} start.</p>
+          {/if}
           <p class="plugin-source">{source(p)}</p>
           {#if settingsOpen === p.id}<PluginSettingsForm id={p.id} name={p.name} />{/if}
         </li>

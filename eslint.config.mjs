@@ -56,6 +56,8 @@ const DATAFLOW_MUTATION_METHODS =
   // `update` (edit a server's name/descriptor) and `connect` (may open a
   // browser for OAuth, #2030) are this domain's own additions.
   'update|connect|' +
+  // Remote (HTTP) servers' own add/edit (#2891), core while Local MCP servers is off.
+  'addRemote|updateRemote|' +
   // mcp_call confirmation (#2439): answering the card authorizes a call, and
   // resetting forgets every "Don't ask again" grant; the card's event lives in
   // the conversations store.

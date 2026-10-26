@@ -63,6 +63,10 @@ import {
   setServerEnabled,
   updateServer,
 } from '../../../src/main/mcp-servers/registry';
+import { _setLocalMcpServersOnForTests, listServerStatuses, localMcpServersOn, LOCAL_SERVERS_OFF, setLocalMcpServersOn } from '../../../src/main/mcp-servers/registry';
+
+// These run stdio servers, which need Local MCP servers on (#2891).
+_setLocalMcpServersOnForTests(true);
 
 const stdioDescriptor: McpServerDescriptor = { kind: 'stdio', command: 'npx' };
 const httpDescriptor: McpServerDescriptor = { kind: 'http', url: 'https://mcp.example.com/mcp' };
@@ -306,5 +310,52 @@ describe('callServerTool', () => {
     await addServer('S', stdioDescriptor);
     await addServer('S', stdioDescriptor);
     await expect(callServerTool('S', 'do_thing', {}, null)).rejects.toThrow(/Multiple MCP servers are named "S"/);
+  });
+});
+
+describe('Local MCP servers off (#2891)', () => {
+  const off = async (fn: () => Promise<void>) => {
+    _setLocalMcpServersOnForTests(false);
+    try { await fn(); } finally { _setLocalMcpServersOnForTests(true); }
+  };
+  const httpClient = () => ({ listTools: vi.fn(async () => [{ name: 'search', inputSchema: { type: 'object' }, annotations: { readOnlyHint: true } }]), close: vi.fn(async () => undefined), callTool: vi.fn(async () => ({ content: [], isError: false })) });
+
+  it('starts no local server, says why on its row, and refuses a call to it; a remote one is unaffected', async () => {
+    await off(async () => {
+      configStoreState.servers = [
+        { id: 's1', name: 'Local', enabled: true, descriptor: stdioDescriptor },
+        { id: 'h1', name: 'Remote', enabled: true, descriptor: httpDescriptor },
+      ];
+      mcpClientMocks.connectMcpServerWithOAuth.mockResolvedValue(httpClient());
+      await connectAllEnabledServers();
+      expect(mcpClientMocks.connectMcpServer).not.toHaveBeenCalled();
+      const list = await listServerStatuses();
+      expect(list.find((s) => s.id === 's1')).toMatchObject({ status: 'error', error: LOCAL_SERVERS_OFF });
+      expect(list.find((s) => s.id === 'h1')).toMatchObject({ status: 'connected' });
+      await expect(callServerTool('Local', 'x', {}, null)).rejects.toThrow('runs a program on this machine, and Local MCP servers is off');
+      await expect(callServerTool('Remote', 'search', {}, null)).resolves.toMatchObject({ kind: 'called' });
+    });
+  });
+
+  it('turning it on starts the enabled local servers; off again stops them and leaves remote ones running', async () => {
+    const remote = httpClient();
+    await off(async () => {
+      configStoreState.servers = [
+        { id: 's1', name: 'Local', enabled: true, descriptor: stdioDescriptor },
+        { id: 's2', name: 'Idle', enabled: false, descriptor: { kind: 'stdio', command: 'node' } },
+        { id: 'h1', name: 'Remote', enabled: true, descriptor: httpDescriptor },
+      ];
+      mcpClientMocks.connectMcpServer.mockResolvedValue(mockClient);
+      mcpClientMocks.connectMcpServerWithOAuth.mockResolvedValue(remote);
+      await connectAllEnabledServers();
+      await setLocalMcpServersOn(true);
+      expect(localMcpServersOn()).toBe(true);
+      expect(mcpClientMocks.connectMcpServer).toHaveBeenCalledTimes(1);
+      expect((await listServerStatuses()).find((s) => s.id === 's1')).toMatchObject({ status: 'connected' });
+      await setLocalMcpServersOn(false);
+      expect(mockClient.close).toHaveBeenCalledTimes(1);
+      expect(remote.close).not.toHaveBeenCalled();
+      expect((await listServerStatuses()).find((s) => s.id === 'h1')).toMatchObject({ status: 'connected' });
+    });
   });
 });

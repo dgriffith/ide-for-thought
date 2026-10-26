@@ -1052,7 +1052,16 @@ A stdio MCP server is a program Minerva runs, and `MCP_SERVERS_ADD` and
   stdio server configured, as Python was (#2822).
 - **A plugin that ships `mcpServers` (#2646) needs it**, since those are
   stdio programs. While it's off, Settings says so and the servers don't start.
-- Built by #2891.
+- **Built (#2891).** The activation is `registerLocalMcpServers`
+  (`ipc/register-mcp-servers.ts`): the two channels, and
+  `setLocalMcpServersOn` in the registry, which starts the enabled local
+  servers and, off, stops them. While off, `connectOne` starts no stdio
+  server (its row says why), `callServerTool` refuses one, and remote
+  servers are added and edited through their own core channels
+  (`MCP_SERVERS_ADD_REMOTE` / `UPDATE_REMOTE`, which refuse anything that
+  runs a program). Kept on for a machine with a local server configured or
+  a plugin server approved (`localMcpServersWereUsed`). A test that runs a
+  stdio server turns it on (`_setLocalMcpServersOnForTests(true)`).
 
 ## Open questions
 

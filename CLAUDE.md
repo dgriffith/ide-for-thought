@@ -1683,6 +1683,13 @@ fence as plain code with one line, Recompute all skips it (the renderer reads
 (`core-plugins-active.ts`). A machine with Python settings or any recorded
 compute consent keeps it on, once (`KEEP_ON_IF_USED`). A test that runs Python
 turns it on (`registerPythonExecutor()` / `registerPythonCompute()`).
+**Local MCP servers is the second (#2891)**, off on a new install:
+`registerLocalMcpServers` (`ipc/register-mcp-servers.ts`) is its activation —
+`MCP_SERVERS_ADD` / `UPDATE` (privileged) and `setLocalMcpServersOn` — so off,
+no stdio server starts (plugins' included) and `mcp_call` can't reach one.
+Remote servers stay core, added through `MCP_SERVERS_ADD_REMOTE` /
+`UPDATE_REMOTE`, which refuse stdio. A test that runs a stdio server calls
+`_setLocalMcpServersOnForTests(true)`.
 
 ### Tools for Thought (Skills)
 

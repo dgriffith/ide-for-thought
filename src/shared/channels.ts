@@ -396,6 +396,9 @@ export const Channels = {
   MCP_SERVERS_LIST: 'mcpServers:list',
   MCP_SERVERS_ADD: 'mcpServers:add',
   MCP_SERVERS_UPDATE: 'mcpServers:update',
+  /** Add / edit a remote (HTTP) server (#2891): core, whether or not Local MCP servers is on. */
+  MCP_SERVERS_ADD_REMOTE: 'mcpServers:addRemote',
+  MCP_SERVERS_UPDATE_REMOTE: 'mcpServers:updateRemote',
   MCP_SERVERS_REMOVE: 'mcpServers:remove',
   MCP_SERVERS_SET_ENABLED: 'mcpServers:setEnabled',
   MCP_SERVERS_CONNECT: 'mcpServers:connect',

@@ -32,6 +32,8 @@ const EXEMPT: Record<string, string> = {
   [Channels.CONVERSATION_RUN_COMPUTE_DRAFT]: 'same consent guard as COMPUTE_RUN_CELL',
   [Channels.MCP_SERVERS_CONNECT]: 'connects a stored server — every stdio command got into the store through a confirmed ADD/UPDATE (or the user\'s own ~/.minerva file); a plugin\'s server only once approved through SET_ENABLED\'s confirm (#2646)',
   [Channels.MCP_SERVERS_SET_ENABLED]: 'enabling connects a stored server — same as MCP_SERVERS_CONNECT; a plugin\'s server, which never went through ADD, is confirmed natively here before it is approved (#2646)',
+  [Channels.MCP_SERVERS_ADD_REMOTE]: 'adds only a remote (HTTP) server, which runs nothing on this machine; a stdio descriptor is refused, since that is MCP_SERVERS_ADD (#2891)',
+  [Channels.MCP_SERVERS_UPDATE_REMOTE]: 'changes only a remote (HTTP) server; one stored or patched as stdio is refused, since that is MCP_SERVERS_UPDATE (#2891)',
   [Channels.PLUGINS_REMOVE]: 'removing a plugin only stops its MCP servers (#2646)',
   [Channels.PLUGINS_INSTALL_FOLDER]: 'an install writes a fresh plugin record with no approvals, so its MCP servers stay off until approved (#2646)',
   [Channels.PLUGINS_INSTALL_ZIP]: 'same as PLUGINS_INSTALL_FOLDER',

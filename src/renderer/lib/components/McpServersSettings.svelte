@@ -67,7 +67,7 @@
   }
 
   function resetForm(): void {
-    formKind = 'stdio';
+    formKind = localOn ? 'stdio' : 'http';
     formName = '';
     formCommand = '';
     formArgs = '';
@@ -207,8 +207,19 @@
   // #2569: say plainly when environment values and sign-in tokens can't be
   // encrypted here (a read, so a component may call it).
   let plaintextSecrets = $state(false);
+  /**
+   * Whether the built-in Local MCP servers plugin is on (#2891): without it a
+   * local (stdio) server can't be added, changed or run, so only remote ones
+   * are offered. Read once per opening of this tab.
+   */
+  let localOn = $state(true);
+
   onMount(() => {
     void loadServers();
+    api.plugins.list().then(
+      (list) => { localOn = list.core.some((p) => p.id === 'local-mcp-servers' && p.enabled); },
+      () => {},
+    );
     api.tools.getKeyStorage().then((s) => { plaintextSecrets = !s.available; }, () => {});
   });
 </script>
@@ -220,6 +231,13 @@
     a local command (stdio) or a remote URL, which may require authorizing
     in your browser. Enabling a server keeps it connected across restarts.
   </p>
+  {#if !localOn}
+    <p class="hint" data-testid="mcp-local-off-note">
+      Local servers, which run a program on your machine, need the built-in
+      Local MCP servers plugin, which is off. Turn it on in Settings → Plugins
+      to add one, or to run those you and your plugins have.
+    </p>
+  {/if}
   {#if plaintextSecrets}
     <p class="hint" data-testid="mcp-plaintext-note">
       This machine has no system secure store, so environment values and
@@ -246,10 +264,12 @@
       <input type="text" bind:value={formName} placeholder="My server" />
     </label>
     <div class="mcp-kind-row">
-      <label>
-        <input type="radio" name="mcp-kind" value="stdio" bind:group={formKind} />
-        Local command (stdio)
-      </label>
+      {#if localOn}
+        <label>
+          <input type="radio" name="mcp-kind" value="stdio" bind:group={formKind} />
+          Local command (stdio)
+        </label>
+      {/if}
       <label>
         <input type="radio" name="mcp-kind" value="http" bind:group={formKind} />
         Remote URL
@@ -309,7 +329,8 @@
                 <button class="link-btn" onclick={() => { void connectRow(s.id); }} disabled={busy}>Connect</button>
               {/if}
               {#if !s.plugin}
-                <button class="link-btn" onclick={() => openEditForm(s)} disabled={busy}>Edit</button>
+                <button class="link-btn" onclick={() => openEditForm(s)} disabled={busy || (!localOn && s.descriptor.kind === 'stdio')}
+                  title={!localOn && s.descriptor.kind === 'stdio' ? 'Local servers can be changed while Local MCP servers is on' : undefined}>Edit</button>
                 <button class="link-btn" onclick={() => { void removeServerRow(s.id); }} disabled={busy}>Remove</button>
               {/if}
             </div>

@@ -22,6 +22,9 @@ import { registerPythonCompute } from './ipc/register-compute';
 import { pythonSettingsSaved } from './compute/python-settings';
 import { anyComputeConsentRecorded } from './compute/consent';
 import { markCorePluginActive } from './core-plugins-active';
+import { registerLocalMcpServers } from './ipc/register-mcp-servers';
+import { hasStoredStdioServerSync } from './mcp-servers/config-store';
+import { loadPluginRecordsSync } from './plugins/state';
 
 /** Wire a core plugin up; the result takes it down again. */
 export type CorePluginActivation = () => () => void;
@@ -29,6 +32,9 @@ export type CorePluginActivation = () => () => void;
 /** What each core plugin does when it's on, by id. */
 const CORE_PLUGIN_ACTIVATIONS: Readonly<Record<string, CorePluginActivation>> = {
   python: registerPythonCompute,
+  // Local MCP servers (#2891): the channels that add or change a program
+  // Minerva runs, and leave for local servers to start.
+  'local-mcp-servers': registerLocalMcpServers,
   // Kanban (#2828), Timeline and Calendar (#2829) wire up nothing in main: a view is served from its built
   // folder while it is active, which is what activating it marks.
   kanban: () => () => {},
@@ -58,7 +64,18 @@ const CORE_PLUGIN_ACTIVATIONS: Readonly<Record<string, CorePluginActivation>> = 
  */
 const KEEP_ON_IF_USED: Readonly<Record<string, () => boolean>> = {
   python: () => pythonSettingsSaved() || anyComputeConsentRecorded(),
+  'local-mcp-servers': () => localMcpServersWereUsed(),
 };
+
+/**
+ * Whether this machine already runs local MCP servers (#2891): one is
+ * configured in `mcp-servers.json`, or a plugin's server has been approved.
+ * Synchronous, before any window, and it never touches the keychain.
+ */
+export function localMcpServersWereUsed(mcpServersFile?: string, pluginsDir: string = activePluginsDir()): boolean {
+  return hasStoredStdioServerSync(mcpServersFile)
+    || Object.values(loadPluginRecordsSync(pluginsDir)).some((r) => Object.keys(r.mcpApproved ?? {}).length > 0);
+}
 
 let activations: Readonly<Record<string, CorePluginActivation>> = CORE_PLUGIN_ACTIVATIONS;
 let keepOnIfUsed: Readonly<Record<string, () => boolean>> = KEEP_ON_IF_USED;
