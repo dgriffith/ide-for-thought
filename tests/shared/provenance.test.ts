@@ -34,6 +34,11 @@ describe('describeProposer', () => {
     }
   });
 
+  it('names a plugin\'s model request by the plugin and the model, as from outside Minerva\'s own AI (#2858)', () => {
+    expect(describeProposer('plugin:tidy@1.2.0+llm:claude-opus-5')).toMatchObject({ kind: 'plugin', agent: 'tidy', label: 'tidy (plugin, claude-opus-5)', external: true });
+    expect(describeProposer('plugin:tidy')).toMatchObject({ kind: 'plugin', label: 'tidy (plugin)' });
+  });
+
   it('shows an unrecognised stamp as-is, not flagged external', () => {
     expect(describeProposer('e2e')).toMatchObject({ kind: 'unknown', label: 'e2e', external: false });
   });

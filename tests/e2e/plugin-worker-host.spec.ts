@@ -3,6 +3,7 @@
  * logic module runs in a Web Worker in a hidden, sandboxed host on its own
  * origin. Data goes in and out; it reads only the notes a call gives it; it
  * has no `require`, no `process`, no DOM, no `window.api` and no network; a
+ * model request can't reach past its scope or approve what it filed; a
  * handler that throws fails its call with the message; one registered late
  * still answers; and one that loops forever is stopped at its deadline —
  * the app answering throughout — and the next call starts a fresh host.
@@ -30,7 +31,7 @@ test("a plugin's logic runs in its sandboxed worker host, bounded by its deadlin
     await expect(win.getByRole('button', { name: 'Open Thoughtbase' })).toHaveCount(0, { timeout: 25_000 });
     // The thoughtbase open, not just the welcome screen gone.
     await expect(win.locator('[data-relative-path="given.md"]').first()).toBeVisible({ timeout: 15_000 });
-    await servePluginWorker(app, 'logic-lab', pluginDir, 'logic.js', ['notes:read']);
+    await servePluginWorker(app, 'logic-lab', pluginDir, 'logic.js', ['notes:read', 'llm:propose']);
 
     await test.step('data in, data out — the first call starts the host', async () => {
       expect(await invokePluginLogic(app, 'logic-lab', 'echo', { n: 1, s: 'x' })).toEqual({ result: { echoed: { n: 1, s: 'x' } } });
@@ -49,6 +50,12 @@ test("a plugin's logic runs in its sandboxed worker host, bounded by its deadlin
           require: 'undefined', process: 'undefined', document: 'undefined', api: 'undefined', fetched: 'blocked: TypeError',
           importFs: expect.stringMatching(/^blocked: /), websocket: expect.stringMatching(/^blocked/),
         },
+      });
+    });
+
+    await test.step('llmOverreach: a model request about a note it wasn\'t given, or .minerva/, is refused, and it can\'t approve anything (#2858)', async () => {
+      expect(await invokePluginLogic(app, 'logic-lab', 'llmOverreach', {}, { scope: ['given.md'] })).toEqual({
+        result: { withheld: 'scope', minervaData: 'scope', approve: 'unknown-method', approvalEngine: 'unknown-method' },
       });
     });
 

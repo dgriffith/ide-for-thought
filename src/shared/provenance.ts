@@ -10,7 +10,7 @@
  * queue and audit views can show *who* contributed *what* — the whole point of
  * "the graph is the audit log of the entourage's contributions."
  */
-export type ProposerKind = 'internal' | 'external' | 'cli' | 'unknown';
+export type ProposerKind = 'internal' | 'external' | 'cli' | 'plugin' | 'unknown';
 
 export interface ProposerInfo {
   /** The raw `proposedBy` stamp, verbatim. */
@@ -26,6 +26,7 @@ export interface ProposerInfo {
 
 const MCP_PREFIX = 'mcp:';
 const LLM_PREFIX = 'llm:';
+const PLUGIN_PREFIX = 'plugin:';
 
 export function describeProposer(proposedBy: string | null | undefined): ProposerInfo {
   const raw = proposedBy ?? '';
@@ -40,6 +41,15 @@ export function describeProposer(proposedBy: string | null | undefined): Propose
   // The headless CLI / scripts.
   if (raw === 'cli' || raw.startsWith('cli:')) {
     return { raw, kind: 'cli', agent: 'CLI', label: 'CLI', external: true };
+  }
+
+  // A plugin's model request (#2858) — `plugin:<id>@<version>+llm:<model>`:
+  // the plugin asked, the model wrote it. Not Minerva's own AI.
+  if (raw.startsWith(PLUGIN_PREFIX)) {
+    const m = /^plugin:([^@+\s]+)(?:@[^+\s]*)?(?:\+llm:(\S+))?/.exec(raw);
+    const agent = m?.[1] ?? 'unknown';
+    const label = m?.[2] ? `${agent} (plugin, ${m[2]})` : `${agent} (plugin)`;
+    return { raw, kind: 'plugin', agent, label, external: true };
   }
 
   // Minerva's built-in AI — `llm:conversation:<id>`, `llm:auto-tag`, …

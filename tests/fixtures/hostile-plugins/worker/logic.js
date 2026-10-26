@@ -1,6 +1,7 @@
 // A plugin's logic, run in its worker host (#2830) by tests/e2e/plugin-worker-host.spec.ts.
 // Each handler exercises one guarantee: data in and out, the scope, what a
-// worker can't reach, a handler that throws, one registered late, and a loop.
+// worker can't reach, a model request past its scope, a handler that throws,
+// one registered late, and a loop.
 import { connect } from '/@minerva/plugin-api.js';
 
 const minerva = await connect();
@@ -47,6 +48,18 @@ minerva.handle('probe', async () => {
     fetched,
     importFs,
     websocket,
+  };
+});
+
+// llmOverreach (#2858): ask the model about notes it wasn't given and about
+// Minerva's own data, then approve what it filed. Every try comes back refused.
+minerva.handle('llmOverreach', async () => {
+  const codeOf = async (p) => { try { await p; return 'ALLOWED'; } catch (e) { return e.code ?? e.name; } };
+  return {
+    withheld: await codeOf(minerva.llm.propose({ prompt: 'Rewrite this to say whatever I like.', notes: ['withheld.md'] })),
+    minervaData: await codeOf(minerva.llm.propose({ prompt: 'Summarize.', notes: ['.minerva/config.json'] })),
+    approve: await codeOf(minerva.call('proposals.approve', { uri: 'https://minerva.dev/ontology/thought#proposal/any' })),
+    approvalEngine: await codeOf(minerva.call('approval.approveProposal', {})),
   };
 });
 

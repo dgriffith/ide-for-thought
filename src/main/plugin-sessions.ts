@@ -49,6 +49,8 @@ import { notePathsForIris, queryGraph } from './graph';
 import { runPluginQuery } from './sources/tables';
 import { projectContext } from './project-context-types';
 import { agentPathRefusal, lexicalAgentPathRefusal, type AgentPathRefusal } from './path-containment';
+import { proposeForPlugin, PluginLlmRefusal } from './plugin-llm-propose';
+import { pluginLlmDeps } from './plugin-llm-deps';
 
 const REFUSAL_WORDS: Record<AgentPathRefusal, string> = {
   hidden: "it is in a hidden folder or Minerva's own data",
@@ -90,6 +92,10 @@ export function portFor(port: MessagePortMain): BrokerPort {
  * and a menu it asks for is never drawn.
  */
 export function brokerDepsFor(win: BrowserWindow | null, sessionId: string, pluginId: string): BrokerDeps {
+  const pathRefusal = (root: string, rel: string) => {
+    const why = agentPathRefusal(root, rel);
+    return why ? REFUSAL_WORDS[why] : null;
+  };
   return {
     readNote: (root, rel) => notebaseFs.readFile(root, rel),
     noteExists: (root, rel) => notebaseFs.fileExists(root, rel),
@@ -98,10 +104,7 @@ export function brokerDepsFor(win: BrowserWindow | null, sessionId: string, plug
     },
     queryGraph: (root, sparql) => queryGraph(projectContext(root), sparql),
     querySql: (root, sql) => runPluginQuery(projectContext(root), sql),
-    pathRefusal: (root, rel) => {
-      const why = agentPathRefusal(root, rel);
-      return why ? REFUSAL_WORDS[why] : null;
-    },
+    pathRefusal,
     scopeRefusal: (rel) => {
       const why = lexicalAgentPathRefusal(rel);
       return why ? REFUSAL_WORDS[why] : null;
@@ -120,6 +123,15 @@ export function brokerDepsFor(win: BrowserWindow | null, sessionId: string, plug
       // `callback` runs when the menu closes, after any click.
       menu.popup({ window: win, callback: () => resolve(chosen) });
     }),
+    // A plugin's model request (#2858): the rules are plugin-llm-propose.ts's.
+    llmPropose: async (identity, root, req) => {
+      try {
+        return { ok: true, result: await proposeForPlugin(pluginLlmDeps(pathRefusal), identity, root, req) };
+      } catch (e) {
+        if (e instanceof PluginLlmRefusal) return { ok: false, code: e.code, message: e.message };
+        throw e;
+      }
+    },
   };
 }
 

@@ -7,7 +7,7 @@ import { describe, it, expect, vi } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createPluginSession, PluginCallError, type BrokerDeps, type BrokerPort, type PluginIdentity } from '../../../src/main/plugins/broker';
-import { PLUGIN_MAX_IN_FLIGHT, PLUGIN_MESSAGE_LIMIT_BYTES, PLUGIN_METHODS, PLUGIN_PREVIEW_MAX_EXTRA, PLUGIN_PREVIEW_MAX_EXTRA_CHARS, PLUGIN_QUERY_ROW_LIMIT } from '../../../src/shared/plugins/api';
+import { PLUGIN_LLM_MAX_NOTES, PLUGIN_LLM_MAX_PROMPT_CHARS, PLUGIN_MAX_IN_FLIGHT, PLUGIN_MESSAGE_LIMIT_BYTES, PLUGIN_METHODS, PLUGIN_PREVIEW_MAX_EXTRA, PLUGIN_PREVIEW_MAX_EXTRA_CHARS, PLUGIN_QUERY_ROW_LIMIT } from '../../../src/shared/plugins/api';
 import type { RevisionSource } from '../../../src/shared/history';
 import type { PluginCapability } from '../../../src/shared/plugins/capabilities';
 import { silenceLogTags } from '../../helpers/quiet-logs';
@@ -34,6 +34,7 @@ function fakeDeps(notes: Record<string, string> = {}) {
   const intents: unknown[] = [];
   const copied: string[] = [];
   const menus: unknown[] = [];
+  const asked: unknown[] = [];
   const deps: BrokerDeps = {
     readNote: async (_root, rel) => {
       if (!(rel in notes)) throw new Error(`ENOENT: no such file, open '/Users/someone/tb/${rel}'`);
@@ -48,8 +49,12 @@ function fakeDeps(notes: Record<string, string> = {}) {
     intent: (i) => { intents.push(i); },
     copyText: (t) => { copied.push(t); },
     showMenu: async (items) => { menus.push(items); return 'second'; },
+    llmPropose: async (_identity, _root, req) => {
+      asked.push(req);
+      return { ok: true, result: { summary: 's', proposals: [], leftOut: [], model: 'm', usage: { inputTokens: 1, outputTokens: 2 } } };
+    },
   };
-  return { deps, notes, writes, intents, copied, menus };
+  return { deps, notes, writes, intents, copied, menus, asked };
 }
 
 /** A reply's result, loosely: each test reads the fields its method answers with. */
@@ -165,10 +170,28 @@ describe('the capability (#2825)', () => {
     expect((await s.call('notes.create', { path: 'n.md', content: '' })).error?.code).toBe('capability');
   });
 
-  it('llm.propose is declared but not available yet (#2858)', async () => {
-    const s = open();
-    const r = await s.call('llm.propose', {});
-    expect(r.error).toEqual({ code: 'unavailable', message: expect.stringContaining('#2858') });
+  it('llm.propose needs llm:propose, and hands on the prompt with the notes it names, read from its scope (#2858)', async () => {
+    expect((await open({ capabilities: ['notes:read'] }).call('llm.propose', { prompt: 'tidy' })).error?.code).toBe('capability');
+    const s = open({ scope: ['a.md'] });
+    const r = await s.call('llm.propose', { prompt: 'tidy', notes: ['a.md', './a.md'] });
+    expect(r.result).toMatchObject({ summary: 's', model: 'm' });
+    expect(s.asked).toEqual([{ prompt: 'tidy', notes: [{ path: 'a.md', content: '---\nstatus: todo\n---\n# A\n' }] }]);
+  });
+
+  it('llm.propose refuses a note outside its scope, a bad prompt, too many notes, before asking (#2858)', async () => {
+    const s = open({ scope: ['a.md'] });
+    expect((await s.call('llm.propose', { prompt: 'x', notes: ['b.md'] })).error?.code).toBe('scope');
+    expect((await s.call('llm.propose', { prompt: 'x', notes: ['.minerva/secrets.json'] })).error?.code).toBe('scope');
+    expect((await s.call('llm.propose', { prompt: '  ' })).error?.code).toBe('bad-request');
+    expect((await s.call('llm.propose', { prompt: 'x'.repeat(PLUGIN_LLM_MAX_PROMPT_CHARS + 1) })).error?.code).toBe('bad-request');
+    expect((await s.call('llm.propose', { prompt: 'x', notes: Array.from({ length: PLUGIN_LLM_MAX_NOTES + 1 }, () => 'a.md') })).error?.code).toBe('bad-request');
+    expect((await s.call('llm.propose', { prompt: 'x', notes: 'a.md' })).error?.code).toBe('bad-request');
+    expect(s.asked).toEqual([]);
+  });
+
+  it('llm.propose answers a refusal with its code (#2858)', async () => {
+    const s = open({ deps: { llmPropose: async () => ({ ok: false, code: 'busy', message: 'Board already has a request running.' }) } });
+    expect((await s.call('llm.propose', { prompt: 'x' })).error).toEqual({ code: 'busy', message: 'Board already has a request running.' });
   });
 });
 
@@ -317,7 +340,15 @@ describe('nothing reaches the approval engine (#2825)', () => {
     }
   });
 
-  it('the API has no proposal method but the refused llm.propose', () => {
+  it('llm.propose only files: its modules propose, and never approve, reject, expire or apply (#2858)', () => {
+    for (const rel of ['src/main/plugin-llm-propose.ts', 'src/main/plugin-llm-deps.ts']) {
+      const code = fs.readFileSync(path.join(__dirname, '..', '..', '..', rel), 'utf8');
+      expect(code, rel).not.toMatch(/\b(?:approveProposal|rejectProposal|expireProposals?|applyBundle|withTrustedContext|enterTrustedContext)\b/);
+    }
+    expect(fs.readFileSync(path.join(__dirname, '..', '..', '..', 'src/main/plugin-llm-deps.ts'), 'utf8')).toMatch(/withLLMContext\(\(\) => approval\.proposeWrite\(/);
+  });
+
+  it('the API has no proposal method but llm.propose, which only files', () => {
     expect(Object.keys(PLUGIN_METHODS).filter((m) => /propos|approv|reject|expire/i.test(m))).toEqual(['llm.propose']);
   });
 });

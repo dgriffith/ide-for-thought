@@ -51,6 +51,9 @@ import {
   PLUGIN_PREVIEW_MAX_EXTRA_CHARS,
   PLUGIN_BLOCK_MAX_HEIGHT,
   PLUGIN_BLOCK_MIN_HEIGHT,
+  PLUGIN_LLM_MAX_NOTES,
+  PLUGIN_LLM_MAX_PROMPT_CHARS,
+  type PluginMethodResults,
   type PluginErrorCode,
   type PluginEventName,
   type PluginEvents,
@@ -102,6 +105,16 @@ export interface BrokerDeps {
   copyText(text: string): void;
   /** Draw a native context menu at the pointer; the chosen item's id, or null. */
   showMenu(items: PluginMenuItem[]): Promise<string | null>;
+  /**
+   * Ask the model for changes and file them as proposals (#2858,
+   * `plugin-llm-propose.ts`). A refusal (no window, not allowed, over the
+   * limit) is an answer, not a throw.
+   */
+  llmPropose(
+    identity: PluginIdentity,
+    rootPath: string,
+    req: { prompt: string; notes: { path: string; content: string }[] },
+  ): Promise<{ ok: true; result: PluginMethodResults['llm.propose'] } | { ok: false; code: PluginErrorCode; message: string }>;
 }
 
 export interface PluginSessionOptions {
@@ -401,8 +414,24 @@ export function createPluginSession(opts: PluginSessionOptions): PluginSession {
         deps.intent({ kind: 'setHeight', height: Math.min(PLUGIN_BLOCK_MAX_HEIGHT, Math.max(PLUGIN_BLOCK_MIN_HEIGHT, height)) });
         return {};
       }
-      case 'llm.propose':
-        throw new Refusal('unavailable', 'llm.propose is not available yet (#2858).');
+      case 'llm.propose': {
+        // The notes are read here, from the scope, so the model only ever
+        // sees notes the session was given; what it may change is those.
+        const prompt = stringParam(params, 'prompt');
+        if (!prompt.trim() || prompt.length > PLUGIN_LLM_MAX_PROMPT_CHARS) {
+          throw new Refusal('bad-request', `"prompt" is the request, 1 to ${PLUGIN_LLM_MAX_PROMPT_CHARS} characters.`);
+        }
+        const raw = params.notes ?? [];
+        if (!Array.isArray(raw) || raw.length > PLUGIN_LLM_MAX_NOTES) throw new Refusal('bad-request', `"notes" is a list of at most ${PLUGIN_LLM_MAX_NOTES} paths.`);
+        const paths = [...new Set(raw.map((p, i) => {
+          if (typeof p !== 'string') throw new Refusal('bad-request', `notes[${i}] must be a string.`);
+          return scoped(p);
+        }))];
+        const notes = await Promise.all(paths.map(async (rel) => ({ path: rel, content: await readScoped(rel) })));
+        const answer = await deps.llmPropose(identity, rootPath, { prompt, notes });
+        if (!answer.ok) throw new Refusal(answer.code, answer.message);
+        return answer.result;
+      }
     }
   };
 

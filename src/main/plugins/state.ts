@@ -61,6 +61,11 @@ export interface PluginRecord {
    * matches; any edit switches the plugin off until it's approved again.
    */
   codeApproved?: { hash: string; capabilities: PluginCapability[] };
+  /**
+   * The version the user let ask the assistant (#2858, `llm.propose`): asked
+   * natively on its first request, and again after an upgrade.
+   */
+  llmAllowed?: string;
 }
 
 export type PluginRecords = Record<string, PluginRecord>;
@@ -95,12 +100,14 @@ function decodeRecord(raw: unknown): PluginRecord {
   const codeApproved = /^[0-9a-f]{64}$/.test(hash)
     ? { hash, capabilities: asStringArray(code.capabilities).filter(isPluginCapability) }
     : null;
+  const llmAllowed = asString(r.llmAllowed, '');
   return {
     enabled: asBool(r.enabled, true),
     source: decodeSource(r.source),
     ...(installedAt ? { installedAt } : {}),
     ...(Object.keys(approved).length > 0 ? { mcpApproved: approved } : {}),
     ...(codeApproved ? { codeApproved } : {}),
+    ...(llmAllowed ? { llmAllowed } : {}),
   };
 }
 

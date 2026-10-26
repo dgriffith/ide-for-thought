@@ -1796,7 +1796,12 @@ origin.
   scope (the notes the host gave the session, never `.minerva/`) before
   anything runs, and every write is history origin `plugin`. A new method
   goes in the table, never as a side channel; none reaches the approval
-  engine (`broker.test.ts` pins it), and `llm.propose` waits on #2858.
+  engine (`broker.test.ts` pins it). `llm.propose` (#2858,
+  `plugin-llm-propose.ts`) is one completion on the user's default model,
+  no tools, the prompt and notes delimited in the user turn; each change is
+  a pending proposal stamped `plugin:<id>@<version>+llm:<model>`, scoped to
+  the notes it passed or a new agent-writable path; asked natively once per
+  version (`llmAllowed`), rate-limited, refused with no window.
   **The table is an ABI (#2826):** `plugin-api/` (the runtime Minerva serves
   at `/@minerva/plugin-api.js` in every plugin frame, its `.d.ts`, and
   `abi.json`) is generated from it — after changing `api.ts`, run

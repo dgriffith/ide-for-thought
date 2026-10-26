@@ -148,6 +148,10 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
  * Breaking: a method or error code removed; a capability changed; a param
  * removed, retyped, made required, or a required one added; a result field
  * removed or retyped; any change to a shape that isn't a type literal.
+ *
+ * A method whose result was `never` had never answered anything (declared
+ * but refused, like `llm.propose` before #2858), so no plugin can depend on
+ * its shapes: giving it real ones is an addition.
  */
 export function compareAbi(prev, next) {
   const breaking = [];
@@ -158,6 +162,10 @@ export function compareAbi(prev, next) {
     const now = next.methods[name];
     if (!now) { breaking.push(`${name} removed`); continue; }
     if (was.capability !== now.capability) breaking.push(`${name} now needs "${now.capability}", not "${was.capability}"`);
+    if (was.result?.text === 'never') {
+      if (!same(was, now)) additions.push(`${name} now answers (it was refused before)`);
+      continue;
+    }
     compareShape(`${name} params`, was.params, now.params, 'params', breaking, additions);
     compareShape(`${name} result`, was.result, now.result, 'result', breaking, additions);
   }

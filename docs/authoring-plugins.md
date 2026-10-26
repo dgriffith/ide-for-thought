@@ -480,7 +480,7 @@ works, and why, is [plugin code](plugin-code.md).
 | `code` field | What it is | In [plugin code](plugin-code.md) |
 |---|---|---|
 | `capabilities` | What the code may do, from the table below. Anything outside them is refused when called. | |
-| `api` | The plugin API versions it was written for: a semver range like `"^1.10.0"`. | *Forks and the ABI* |
+| `api` | The plugin API versions it was written for: a semver range like `"^1.11.0"`. | *Forks and the ABI* |
 | `views` | Global views: a panel in a sidebar, or a tab, each a page fed by a query it declares. | *Global views* |
 | `blocks` | Live blocks: a fence or `:::directive` in a note, drawn by a page of its own. | *Live blocks* |
 | `worker` | Its logic: a `.js` module run in a Web Worker, which registers handlers. | *Logic* |
@@ -496,13 +496,23 @@ works, and why, is [plugin code](plugin-code.md).
 | `ui` | open notes, show menus and make announcements |
 | `notes:write-properties` | change the properties of notes it was given |
 | `notes:write` | create notes, and change the notes it was given |
+| `llm:propose` | ask the assistant for changes, which you review as proposals |
 
-`llm:propose` is declared but not available yet (#2858), and `process`
+`process`
 (running a program) is for Minerva's own plugins only: a plugin's program
 ships as an MCP server ([above](#mcp-servers)). Whatever it declares, its code
 can't reach the network, your files, other plugins or Minerva's own pages,
 and every note it writes is recorded in Local History as its own.
 
+- **Asking the assistant** (`llm:propose`):
+  `minerva.llm.propose({ prompt, notes })` sends your prompt and the notes
+  you name (ones you were given, at most 20) to the user's own model. Each
+  change it suggests is filed as a proposal for the user to review: a
+  rewrite or property change on one of those notes, or a new note. You get
+  back what was filed and what was left out, and why. The first request
+  from each version of your plugin asks the user's permission, since it
+  uses their API key, and a plugin gets at most 10 requests in 10 minutes,
+  one at a time. You never see whether a proposal was approved.
 - **The API** is a module Minerva serves to every plugin page and worker:
   `import { connect } from '/@minerva/plugin-api.js'`. Its types are in
   `plugin-api/index.d.ts` in Minerva's repository.
@@ -533,7 +543,7 @@ Minerva's repository, and its test holds this page to it. The manifest:
   "contributes": {},
   "code": {
     "capabilities": ["notes:read", "graph:query", "ui"],
-    "api": "^1.10.0",
+    "api": "^1.11.0",
     "worker": "logic.js",
     "views": [{ "id": "lengths", "title": "Note Lengths", "place": "left-sidebar", "entry": "panel/index.html", "query": "panel/notes.rq" }],
     "commands": [{ "id": "count-selection", "title": "Count Words in Selection", "when": "selection", "editorMenu": true, "menu": "edit", "key": "CmdOrCtrl+Alt+W", "run": { "handler": "countWords" } }]
