@@ -1,10 +1,9 @@
 /**
  * @vitest-environment happy-dom
  *
- * The drafted-extension card (#2652): every file shown in full, the right
- * first button for the kind (a skill is saved, a plugin installed), the MCP
- * note when a plugin ships a server, a failed save's reason, and buttons
- * that wait while a save is under way.
+ * The drafted-skill card (#2652): every file shown in full, Save to my
+ * skills, a failed save's reason, and buttons that wait while a save is
+ * under way. A drafted plugin is a proposal instead (#2890).
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, fireEvent, cleanup } from '@testing-library/svelte';
@@ -38,14 +37,10 @@ describe('ExtensionDraftCard (#2652)', () => {
     expect(getByLabelText('Contents of weekly.md').textContent).toBe('---\nid: my.weekly\n---\nHelp me <review> CANARY');
   });
 
-  it('a skill is saved to your skills; a plugin is installed, saying its servers stay off', () => {
+  it('a skill is saved to your skills, and nothing on it installs anything', () => {
     const skill = mount();
     expect(skill.getByRole('button', { name: 'Save to my skills' })).toBeTruthy();
-    expect(skill.queryByText(/MCP server/)).toBeNull();
-    cleanup();
-    const plugin = mount({ kind: 'plugin', id: 'lab', name: 'Lab', mcpServers: ['words'] });
-    expect(plugin.getByRole('button', { name: 'Install' })).toBeTruthy();
-    expect(plugin.getByText(/It ships an MCP server \(words\)\. Installing runs nothing/)).toBeTruthy();
+    expect(skill.queryByRole('button', { name: 'Install' })).toBeNull();
   });
 
   it.each([

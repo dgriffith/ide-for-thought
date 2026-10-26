@@ -7,6 +7,7 @@
   import { logger } from '../../../shared/logger';
   import { describeProposalDecisionFailure } from '../../../shared/proposals';
   import { isBareKeyShortcut } from '../keymap/single-key-shortcut';
+  import { pluginPayloadReview, pluginPayloadSummary, type PluginFilesPayload } from '../proposals/plugin-review';
 
   const review = getReviewStore();
   const store = getProposalsStore();
@@ -27,7 +28,7 @@
     externalClass?: string;
     template?: string;
   };
-  type Payload = NotePayload | TriplesPayload | TypeDefPayload | { kind: string; [k: string]: unknown };
+  type Payload = NotePayload | TriplesPayload | TypeDefPayload | PluginFilesPayload | { kind: string; [k: string]: unknown };
 
   interface Proposal {
     uri: string;
@@ -169,6 +170,7 @@
         .join(', ');
     }
     if (p.kind === 'type-def') return typeDefSummary(p as TypeDefPayload);
+    if (p.kind === 'plugin-install' || p.kind === 'plugin-update') return pluginPayloadSummary(p as PluginFilesPayload);
     return p.kind;
   }
 
@@ -210,6 +212,8 @@
         for (const [t, n] of c) types.set(t, (types.get(t) ?? 0) + n);
       } else if (pl.kind === 'type-def') {
         typeDefs.push(typeDefSummary(pl as TypeDefPayload));
+      } else if (pl.kind === 'plugin-install' || pl.kind === 'plugin-update') {
+        typeDefs.push(`${pl.kind === 'plugin-install' ? 'the' : 'changes to the'} ${(pl as PluginFilesPayload).name} plugin`);
       }
     }
     const parts: string[] = [];
@@ -224,6 +228,7 @@
     if (p.kind === 'note') return (p as NotePayload).content;
     if (p.kind === 'graph-triples') return (p as TriplesPayload).turtle;
     if (p.kind === 'type-def') return typeDefPreview(p as TypeDefPayload);
+    if (p.kind === 'plugin-install' || p.kind === 'plugin-update') return pluginPayloadReview(p as PluginFilesPayload);
     return JSON.stringify(p, null, 2);
   }
 

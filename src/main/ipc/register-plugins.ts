@@ -9,8 +9,9 @@
  * install takes the URL the user typed.
  *
  * It also answers a drafted extension's card (#2652): the user saves a skill
- * the assistant drafted, installs a drafted plugin, or saves either to a
- * folder. Main writes the copy it kept when the tool ran.
+ * the assistant drafted, or saves it to a folder. Main writes the copy it
+ * kept when the tool ran. A drafted plugin is a proposal instead (#2890), and
+ * this is where approving one is wired: `pluginProposalApplierForApp`.
  */
 import { dialog, shell, type BrowserWindow } from 'electron';
 import { Channels } from '../../shared/channels';
@@ -20,7 +21,7 @@ import { pluginThemes } from '../plugins/themes';
 import { reconcilePluginServers } from '../mcp-servers/registry';
 import { secretStorageStatus } from '../secret-storage';
 import { activePluginsDir, codeApprovalOf, getPluginInventory, pluginsAppVersion } from '../plugins/registry';
-import { approvePluginCode, installPluginFromDraft, installPluginFromFolder, installPluginFromGit, installPluginFromZip, removePlugin, setPluginEnabled, type InstallOptions } from '../plugins/lifecycle';
+import { approvePluginCode, installPluginFromFolder, installPluginFromGit, installPluginFromZip, removePlugin, setPluginEnabled, type InstallOptions } from '../plugins/lifecycle';
 import { codeApprovalQuestion } from '../plugins/code-approval';
 import type { ExtensionDraftAction, ExtensionDraftActionResult } from '../../shared/extensions/drafts';
 import { saveDraftToFolder, saveSkillDraft } from '../extensions/draft-apply';
@@ -38,6 +39,8 @@ import type { PluginCommandContext } from '../../shared/plugins/format';
 import { pluginRecommendations } from '../plugins/recommendations';
 import { corePlugin, corePluginEnabled, corePlugins, isCorePluginId, setCorePluginEnabled } from '../plugins/core';
 import { confirmNative } from '../native-confirm';
+import { setPluginProposalApplier } from '../llm/plugin-proposals';
+import { pluginProposalApplierForApp } from '../plugin-proposal-applier';
 import { describeCapabilities } from '../../shared/plugins/capabilities';
 import { loadPluginRecords } from '../plugins/state';
 import path from 'node:path';
@@ -144,6 +147,9 @@ const withStorage = (view: PluginSettingsView): PluginSettingsView =>
   view.fields.some((f) => f.kind === 'secret') ? { ...view, secretsEncrypted: secretStorageStatus().encrypted } : view;
 
 export function registerPlugins(): void {
+  // Approving an agent-written plugin's proposal installs it (#2890).
+  setPluginProposalApplier(pluginProposalApplierForApp());
+
   handle(Channels.PLUGINS_LIST, () => pluginList());
 
   // Allow an installed plugin's code as its files are now (#2833): asked with
@@ -227,12 +233,8 @@ export function registerPlugins(): void {
         return { ok: true, action, where };
       }
       if (action === 'save') {
-        // Installed like any plugin: checked whole, its MCP servers off.
-        const installed = await installAsking(win, (opts) => installPluginFromDraft(activePluginsDir(), draft.files, pluginsAppVersion(), opts));
-        if (!installed) return { ok: false, cancelled: true };
-        const where = path.join(activePluginsDir(), installed.id);
-        pending.settle({ kind: 'saved', where });
-        return { ok: true, action, where };
+        // A drafted plugin is a proposal, never installed from a card (#2890).
+        return { ok: false, error: 'A drafted plugin is installed from its proposal, in the Proposals panel.' };
       }
       if (action === 'save-folder') {
         const picked = await dialog.showOpenDialog(win, {

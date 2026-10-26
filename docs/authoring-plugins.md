@@ -6,7 +6,8 @@ add to a machine and remove again. It is the **plugin** rung of the ladder in
 [`extension-points.md`](extension-points.md): reach for it once a single skill,
 type or query isn't enough, and for an MCP server only when something has to
 *run*. [Extending Minerva](extending-minerva.md) walks the whole ladder, and
-the **Extend Minerva** skill drafts a plugin for you to install (#2652).
+the **Extend Minerva** skill drafts a plugin and files it as a proposal for
+you to review (#2652, #2890).
 
 > **Status (#2631).** Minerva reads and checks the plugin format (#2632), and
 > loads everything a plugin can contribute today (#2633): skills, object

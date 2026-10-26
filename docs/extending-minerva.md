@@ -47,18 +47,23 @@ It writes nothing itself:
 - **An object type** for this thoughtbase is filed as a proposal, which you
   approve in the Proposals panel.
 - **A saved query** it gives you to save from the Query panel.
-- **A skill or a plugin** is shown as a card in the conversation, with every
-  file in full. **Save to my skills** (a skill) or **Install** (a plugin)
-  does what Settings → Skills → Import or Settings → Plugins → Install from
-  folder… would, with the same checks. **Save to folder…** writes it
-  wherever you pick, to edit or share. **Not now** does nothing.
+- **A skill** is shown as a card in the conversation, with every file in
+  full. **Save to my skills** does what Settings → Skills → Import would,
+  with the same checks. **Save to folder…** writes it wherever you pick, to
+  edit or share. **Not now** does nothing.
+- **A plugin** is filed as a proposal in the Proposals panel (#2890). The
+  review shows its manifest, what it can do in words, any MCP server it
+  ships, and every file. Approving it installs it; a plugin with code then
+  asks you natively to allow that code, and a "no" installs nothing. A
+  change to a plugin that's installed is a proposal too, shown as a diff
+  against the installed files, leading with anything it can now do that it
+  couldn't.
 
-The draft is checked before you see it, with the same parser and manifest
-checker Settings uses, so a card you're shown can be saved. Installing a
-plugin runs nothing: an MCP server it ships stays off until you switch it on
-in Settings → MCP Servers, which shows you the exact command and asks first.
-Main writes the copy of the draft it checked, never anything sent back from
-the window.
+Each draft is checked before you see it, with the same parser and manifest
+checker Settings uses. Installing a plugin runs nothing: an MCP server it
+ships stays off until you switch it on in Settings → MCP Servers, which shows
+you the exact command and asks first. Main writes the copy of the draft it
+checked, never anything sent back from the window.
 
 ## By hand, or with a coding agent
 

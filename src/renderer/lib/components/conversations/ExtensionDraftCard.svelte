@@ -1,17 +1,16 @@
 <script lang="ts">
   /**
-   * A drafted skill or plugin (#2652), shown in the conversation while the
-   * turn waits. Every file is shown in full, as main checked it, so what the
-   * user saves is what they read. Nothing is written until they choose:
+   * A drafted skill (#2652), shown in the conversation while the turn
+   * waits. Every file is shown in full, as main checked it, so what the user
+   * saves is what they read. Nothing is written until they choose:
    *
-   * - **Save to my skills** / **Install**: a skill into `~/.minerva/skills/`;
-   *   a plugin installed as Settings → Plugins installs one, with any MCP
-   *   server it ships left off;
+   * - **Save to my skills**: into `~/.minerva/skills/`;
    * - **Save to folder…**: written into a folder they pick;
    * - **Not now**: nothing.
    *
    * Main does the writing, from its own copy of the draft. Like the MCP
-   * confirm card, it doesn't take focus when it appears; it's announced.
+   * confirm card, it doesn't take focus when it appears; it's announced. A
+   * drafted plugin never comes here: it's a proposal (#2890).
    */
   import type { ExtensionDraftAction, ExtensionDraftOffer } from '../../../../shared/extensions/drafts';
 
@@ -26,20 +25,13 @@
 
   const uid = $props.id();
   const headingId = `extension-draft-${uid}-heading`;
-  let isPlugin = $derived(offer.kind === 'plugin');
 </script>
 
 <section class="extension-draft" role="group" aria-labelledby={headingId} aria-busy={busy} data-testid="extension-draft-card">
   <div class="extension-draft-heading" id={headingId}>
-    Drafted {isPlugin ? 'plugin' : 'skill'}: <strong>{offer.name}</strong> <code>{offer.id}</code>
+    Drafted skill: <strong>{offer.name}</strong> <code>{offer.id}</code>
   </div>
   <p class="extension-draft-summary">{offer.summary}</p>
-  {#if offer.mcpServers && offer.mcpServers.length > 0}
-    <p class="extension-draft-note">
-      It ships {offer.mcpServers.length === 1 ? 'an MCP server' : 'MCP servers'} ({offer.mcpServers.join(', ')}).
-      Installing runs nothing: each stays off until you switch it on in Settings → MCP Servers, which asks first.
-    </p>
-  {/if}
   <ul class="extension-draft-files" aria-label="Files">
     {#each offer.files as file (file.path)}
       <li>
@@ -57,7 +49,7 @@
   {/if}
   <div class="extension-draft-actions">
     <button type="button" class="extension-draft-primary" disabled={busy} onclick={() => onAct('save')}>
-      {isPlugin ? 'Install' : 'Save to my skills'}
+      Save to my skills
     </button>
     <button type="button" disabled={busy} onclick={() => onAct('save-folder')}>Save to folder…</button>
     <button type="button" disabled={busy} onclick={() => onAct('dismiss')}>Not now</button>
@@ -80,7 +72,7 @@
   .extension-draft-heading { font-size: 13px; font-weight: 600; }
   .extension-draft-heading code { font-family: var(--font-mono, monospace); font-weight: normal; color: var(--text-muted); }
   .extension-draft p { margin: 0; }
-  .extension-draft-note, .extension-draft-problem { color: var(--text-muted); }
+  .extension-draft-problem { color: var(--text-muted); }
   .extension-draft-files { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
   .extension-draft-files summary { cursor: pointer; }
   .extension-draft-files code { font-family: var(--font-mono, monospace); }

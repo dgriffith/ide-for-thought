@@ -1026,8 +1026,16 @@ output is proposed, never applied (the Trust Principle).
 - **`process` stays out of reach.** No installed plugin may declare it
   (#2833), so an agent can't write one that runs a program. One that needs a
   program ships an MCP server, approved server by server (#2646).
-- Until #2890 builds this, an agent's draft is installed from its
-  conversation card, through the same native allow as any install.
+- **Built (#2890).** `offer_extension_draft` files a drafted plugin through
+  `llm/plugin-proposals.ts` (one pending proposal per plugin); the
+  `plugin-install` / `plugin-update` payloads apply through a slot
+  (`plugin-proposal-slot.ts`) that `register-plugins.ts` fills with
+  `plugin-proposal-applier.ts`, so `llm/` never imports the installer. An
+  update carries the installed files as they were (`before`) and writes
+  only while they still are. An installed folder a draft couldn't have made
+  (binary files, links, past the draft limits) can't be edited by one. The
+  card is for skills only now. The review is
+  `renderer/lib/proposals/plugin-review.ts`.
 
 ## Local MCP servers as a core plugin (#2835)
 

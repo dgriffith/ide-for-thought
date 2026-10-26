@@ -116,6 +116,7 @@ import { registerPlugins } from '../../../src/main/ipc/register-plugins';
 import { _setCorePluginsForTests } from '../../../src/main/plugins/core';
 import { Channels } from '../../../src/shared/channels';
 import type { ReplacePolicy } from '../../../src/main/plugins/lifecycle';
+import { pluginProposalApplier } from '../../../src/main/llm/plugin-proposal-slot';
 import { pendingExtensionDrafts } from '../../../src/main/ipc/extension-draft-offers';
 import type { ExtensionDraftOutcome } from '../../../src/shared/extensions/drafts';
 
@@ -394,25 +395,20 @@ describe('a drafted extension\'s card (#2652)', () => {
     expect(settled).toEqual([{ kind: 'saved', where: '/home/u/.minerva/skills/weekly.md' }]);
   });
 
-  it('installs a plugin app-wide, asking natively before replacing one', async () => {
+  it('never installs a drafted plugin from its card: that is its proposal\'s, and approving it is wired here (#2890)', async () => {
     offer(PLUGIN);
-    h.installPluginFromDraft.mockImplementation(overInstalled);
-    h.showMessageBox.mockResolvedValue({ response: 0 });
-    expect(await call(Channels.CONVERSATION_EXTENSION_DRAFT_ACTION, 'o1', 'save')).toEqual({ ok: true, action: 'save', where: '/home/u/.minerva/plugins/lab' });
-    expect(h.installPluginFromDraft).toHaveBeenCalledWith('/home/u/.minerva/plugins', PLUGIN.files, '4.0.0', expect.anything());
-    expect(h.changed).toEqual(['applied']);
-    expect(settled).toEqual([{ kind: 'saved', where: '/home/u/.minerva/plugins/lab' }]);
+    expect(await call(Channels.CONVERSATION_EXTENSION_DRAFT_ACTION, 'o1', 'save')).toEqual({ ok: false, error: 'A drafted plugin is installed from its proposal, in the Proposals panel.' });
+    expect(h.installPluginFromDraft).not.toHaveBeenCalled();
+    expect(settled).toEqual([]);
+    expect(() => pluginProposalApplier()).not.toThrow();
   });
 
-  it('a declined replace, a cancelled picker or a failed save keeps the card waiting', async () => {
-    offer(PLUGIN);
-    h.installPluginFromDraft.mockImplementation(overInstalled);
-    h.showMessageBox.mockResolvedValue({ response: 1 });
-    expect(await call(Channels.CONVERSATION_EXTENSION_DRAFT_ACTION, 'o1', 'save')).toEqual({ ok: false, cancelled: true });
+  it('a cancelled picker or a failed save keeps the card waiting', async () => {
+    offer(SKILL);
     h.showOpenDialog.mockResolvedValue({ canceled: true, filePaths: [] });
     expect(await call(Channels.CONVERSATION_EXTENSION_DRAFT_ACTION, 'o1', 'save-folder')).toEqual({ ok: false, cancelled: true });
-    h.installPluginFromDraft.mockRejectedValue(new Error('It can\'t be installed: nope'));
-    expect(await call(Channels.CONVERSATION_EXTENSION_DRAFT_ACTION, 'o1', 'save')).toEqual({ ok: false, error: 'It can\'t be installed: nope' });
+    h.saveSkillDraft.mockRejectedValue(new Error('An id "my.weekly" is taken.'));
+    expect(await call(Channels.CONVERSATION_EXTENSION_DRAFT_ACTION, 'o1', 'save')).toEqual({ ok: false, error: 'An id "my.weekly" is taken.' });
     expect(settled).toEqual([]);
     expect(pendingExtensionDrafts.has('o1')).toBe(true);
   });

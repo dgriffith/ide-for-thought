@@ -39,7 +39,6 @@ describe('offer_extension_draft (#2652)', () => {
   });
 
   it.each([
-    [{ kind: 'saved', where: '/p/lab' }, 'plugin', /installed the plugin \(\/p\/lab\).*off until they switch it on/],
     [{ kind: 'saved-folder', where: '/work/lab' }, 'skill', /saved the draft to \/work\/lab\. Nothing is installed/],
     [{ kind: 'dismissed' }, 'skill', /dismissed the draft/],
     [{ kind: 'cancelled' }, 'skill', /turn ended before the user chose/],

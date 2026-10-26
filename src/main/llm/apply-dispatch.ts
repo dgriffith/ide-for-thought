@@ -21,6 +21,7 @@ import type { ProjectContext } from '../project-context-types';
 import { assertAgentPath, assertBareId } from '../path-containment';
 import type { AppliedRecord, PayloadOf, ProposalPayload } from './proposal-types';
 import { applyTurtle } from './proposal-persistence';
+import { pluginProposalApplier } from './plugin-proposal-slot';
 import { logger } from '../../shared/logger';
 
 /**
@@ -433,6 +434,27 @@ register({
       }
     }
   },
+});
+
+// Plugins an agent wrote (#2890). Installing is the composition root's
+// (`plugin-proposals.ts`); a plugin with code asks natively inside `install`
+// / `update`, and a "no" rejects, so nothing is applied.
+register({
+  kind: 'plugin-install',
+  apply: async (_ctx, p): Promise<{ id: string }> => {
+    await pluginProposalApplier().install(p.id, p.files);
+    return { id: p.id };
+  },
+  rollback: async (_ctx, data) => { await pluginProposalApplier().remove(data.id); },
+});
+
+register({
+  kind: 'plugin-update',
+  apply: async (_ctx, p): Promise<{ id: string; before: { path: string; content: string }[]; files: { path: string; content: string }[] }> => {
+    await pluginProposalApplier().update(p.id, p.files, p.before);
+    return { id: p.id, before: p.before, files: p.files };
+  },
+  rollback: async (_ctx, data) => { await pluginProposalApplier().update(data.id, data.before, data.files); },
 });
 
 register({
