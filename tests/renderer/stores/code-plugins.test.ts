@@ -70,3 +70,20 @@ describe('installed plugins with code (#2833)', () => {
     expect(codePluginsStore.isOn('plain')).toBe(false);
   });
 });
+
+describe('plugin command keys (#2879)', () => {
+  const withCommands = (id: string, commands: unknown[]) => ({ ...summary(id, true), commands });
+  it('resolves which command keeps a key, built-in plugins first, and lists the others', async () => {
+    const key = (id: string, k: string) => ({ id, title: id, when: 'project', key: k, run: { handler: id } });
+    h.list = async () => ({
+      core: [withCommands('a', [key('one', 'CmdOrCtrl+Alt+B')])],
+      installed: [{ ...withCommands('mine', [key('two', 'CmdOrCtrl+Alt+B'), key('three', 'CmdOrCtrl+Alt+K')]), source: { kind: 'folder' as const, path: '/w' }, capabilities: ['ui'] }],
+      errors: [], folder: '/p',
+    } as never);
+    h.changed!();
+    await vi.waitFor(() => expect(codePluginsStore.commandKeys().keys.size).toBe(2));
+    expect(codePluginsStore.keyedCommands().map((c) => [c.command.id, c.key])).toEqual([['one', 'CmdOrCtrl+Alt+B'], ['two', undefined], ['three', 'CmdOrCtrl+Alt+K']]);
+    expect(codePluginsStore.commandKeys().conflicts).toEqual([{ pluginId: 'mine', commandId: 'two', title: 'two', key: 'CmdOrCtrl+Alt+B', takenBy: 'A' }]);
+  });
+});
+

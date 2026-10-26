@@ -111,7 +111,7 @@ function pluginCommandCommands(state: PaletteState, commands: readonly PaletteCo
     id: `plugin-command:${c.pluginId}:${c.commandId}`,
     title: c.title,
     category: `Plugins › ${c.pluginName}`,
-    keybinding: null,
+    keybinding: c.key ? formatAccelerator(c.key) : null,
     enabled: ready(c.when),
     run: () => runCommand(c),
   }));
@@ -124,6 +124,8 @@ export interface PaletteCommand {
   commandId: string;
   title: string;
   when: PluginCommandWhen;
+  /** The key it kept (#2879), if any. */
+  key?: string;
 }
 
 /** A plugin's global view, as the palette lists it. */

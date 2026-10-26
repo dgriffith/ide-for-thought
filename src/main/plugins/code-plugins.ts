@@ -161,3 +161,12 @@ export function activePluginInspections(): { pluginId: string; name: string; ins
     return codePluginInspections(pluginId).map((inspection) => ({ pluginId, name, inspection }));
   });
 }
+
+/** Every command the enabled plugins add (#2643), with whose it is, built-in plugins first, in Settings' order. */
+export function activePluginCommands(): { pluginId: string; pluginName: string; command: PluginCommand }[] {
+  const ids = [...corePlugins().map((p) => p.manifest.id), ...loadedPluginScan().plugins.map((p) => p.manifest.id)];
+  return ids.flatMap((pluginId) => {
+    const pluginName = codePluginIdentity(pluginId)?.name ?? pluginId;
+    return codePluginCommands(pluginId).map((command) => ({ pluginId, pluginName, command }));
+  });
+}

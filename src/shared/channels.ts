@@ -214,6 +214,8 @@ export const Channels = {
   MENU_SET_THEME: 'menu:setTheme',
   /** Every other menu item: run a command from `shared/commands.ts` by id (#2625). */
   MENU_COMMAND: 'menu:command',
+  /** A plugin's command, placed in a menu by its plugin (#2879): run it as the palette does. */
+  MENU_PLUGIN_COMMAND: 'menu:pluginCommand',
   // Renderer → main: report the current theme so the menu's radio reflects it.
   MENU_REPORT_THEME: 'menu:reportTheme',
   // Preload → main, synchronous, once per page load: the renderer's

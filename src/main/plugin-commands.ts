@@ -5,16 +5,18 @@
  * between is decided here, from the manifest:
  *
  * - a **handler** runs in the plugin's worker host (#2830) with the context
- *   as data and the active note as its whole scope. Its answer is checked
- *   (`replaceSelection`, `announce`, nothing else) before the renderer sees
- *   it; the renderer applies the replacement as one undoable change, and only
- *   to the text that was selected when the command ran;
+ *   as data and the active note as its whole scope; an **mcpTool** (#2879)
+ *   runs on the plugin's own MCP server, handed the same, asking first.
+ *   Either answer is checked (`replaceSelection`, `announce`, nothing else)
+ *   before the renderer sees it; the renderer applies the replacement as one
+ *   undoable change, and only to the text that was selected when it ran;
  * - a **skill**, **query** or **view** is named back to the renderer, which
  *   runs it the way the palette always has. A query's text is read here, from
  *   the plugin's own folder.
  */
 import { lexicalAgentPathRefusal } from './path-containment';
 import { invokePluginLogic } from './plugin-worker-host';
+import { callPluginTool } from './plugin-mcp-tools';
 import { readDeclaredQuery } from './plugin-sessions';
 import { codePluginCommands, codePluginIdentity } from './plugins/code-plugins';
 import { PluginCallError } from './plugins/broker';
@@ -52,7 +54,12 @@ export async function runPluginCommand(rootPath: string, pluginId: string, comma
   if ('query' in run) return { kind: 'query', text: await readDeclaredQuery(pluginId, run.query) };
 
   const args: PluginCommandArgs = { command: def.id, note, selection };
-  const answer = await invokePluginLogic(pluginId, run.handler, args, { rootPath, scope: note ? [note] : [] });
+  // A handler in its worker, its note as its scope; or a tool on its own MCP
+  // server (#2879), handed the same, which asks natively first unless it's
+  // read-only. A tool can't read the note: it gets the path and the selection.
+  const answer = 'handler' in run
+    ? await invokePluginLogic(pluginId, run.handler, args, { rootPath, scope: note ? [note] : [] })
+    : await callPluginTool(identity.name, pluginId, run.mcpTool, { ...args });
   return checkedResult(identity.name, def.title, answer);
 }
 

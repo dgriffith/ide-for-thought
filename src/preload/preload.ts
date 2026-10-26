@@ -640,6 +640,7 @@ const api = {
     onOpenRecentProject: (cb: (path: string) => void) => subscribe(Channels.MENU_OPEN_RECENT_PROJECT, cb),
     /** A menu item ran a registered command (#2625). */
     onCommand: (cb: (id: CommandId) => void) => subscribe(Channels.MENU_COMMAND, cb),
+    onPluginCommand: (cb: (ref: { pluginId: string; commandId: string }) => void) => subscribe(Channels.MENU_PLUGIN_COMMAND, cb),
     onExport: (cb: (exporterId: string) => void) => subscribe(Channels.MENU_EXPORT, cb),
     onProjectOpened: (cb: (meta: { rootPath: string; name: string }) => void) =>
       subscribe(Channels.PROJECT_OPENED, cb),

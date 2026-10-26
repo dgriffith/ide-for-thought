@@ -13,10 +13,12 @@ const h = vi.hoisted(() => ({
   commands: [] as PluginCommand[],
   invoke: vi.fn(),
   readQuery: vi.fn(),
+  tool: vi.fn(),
 }));
 vi.mock('../../src/main/plugins/code-plugins', () => ({ codePluginIdentity: () => h.identity, codePluginCommands: () => h.commands }));
 vi.mock('../../src/main/plugin-worker-host', () => ({ invokePluginLogic: h.invoke }));
 vi.mock('../../src/main/plugin-sessions', () => ({ readDeclaredQuery: h.readQuery }));
+vi.mock('../../src/main/plugin-mcp-tools', () => ({ callPluginTool: h.tool }));
 
 import { runPluginCommand } from '../../src/main/plugin-commands';
 
@@ -27,6 +29,7 @@ beforeEach(() => {
   h.commands = [SORT];
   h.invoke.mockReset();
   h.readQuery.mockReset();
+  h.tool.mockReset();
 });
 
 describe('runPluginCommand (#2643)', () => {
@@ -71,3 +74,16 @@ describe('runPluginCommand (#2643)', () => {
     expect(h.invoke).not.toHaveBeenCalled();
   });
 });
+
+describe('a command run by its plugin\'s MCP tool (#2879)', () => {
+  it('hands the tool the context, never the note\'s text, and checks its answer as a handler\'s', async () => {
+    h.commands = [{ id: 'find', title: 'Find', when: 'selection', run: { mcpTool: 'shelf/find_book' } }];
+    h.tool.mockResolvedValue({ announce: 'On the shelf.' });
+    await expect(runPluginCommand('/tb', 'lab', 'find', { note: 'n.md', selection: 'dune' })).resolves.toEqual({ kind: 'result', announce: 'On the shelf.' });
+    expect(h.tool).toHaveBeenCalledWith('Lab', 'lab', 'shelf/find_book', { command: 'find', note: 'n.md', selection: 'dune' });
+    expect(h.invoke).not.toHaveBeenCalled();
+    h.tool.mockResolvedValue({ write: 'x' });
+    await expect(runPluginCommand('/tb', 'lab', 'find', { note: 'n.md', selection: 'dune' })).rejects.toThrow('isn\'t a command\'s result');
+  });
+});
+

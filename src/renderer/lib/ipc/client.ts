@@ -1021,6 +1021,8 @@ export interface MenuApi {
   onProjectOpened(cb: (meta: { rootPath: string; name: string }) => void): () => void;
   /** A menu item ran a registered command (#2625). */
   onCommand(cb: (id: CommandId) => void): () => void;
+  /** A menu item ran a plugin's command (#2879). */
+  onPluginCommand(cb: (ref: { pluginId: string; commandId: string }) => void): () => void;
   onExport(cb: (exporterId: string) => void): () => void;
 }
 

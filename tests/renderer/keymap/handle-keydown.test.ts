@@ -6,7 +6,7 @@
  * (command-keymap.test.ts).
  */
 import { describe, it, expect, vi } from 'vitest';
-import { handleKeydown, type KeymapDeps } from '../../../src/renderer/lib/keymap/handle-keydown';
+import { handleKeydown, handlePluginKeydown, matchesAccelerator, type KeymapDeps } from '../../../src/renderer/lib/keymap/handle-keydown';
 
 function makeDeps(overrides: Partial<KeymapDeps> = {}): KeymapDeps & { run: ReturnType<typeof vi.fn> } {
   return {
@@ -105,3 +105,30 @@ describe('handleKeydown — state guards', () => {
     });
   }
 });
+
+describe('plugin command keys (#2879)', () => {
+  const keyed = new Map([['shelf/find', 'CmdOrCtrl+Alt+B'], ['lab/sort', 'CmdOrCtrl+Shift+L']]);
+
+  it('runs the plugin command a key belongs to, and claims the key', () => {
+    const run = vi.fn();
+    const e = press('L', { shift: true });
+    expect(handlePluginKeydown(e, keyed, run)).toBe(true);
+    expect(run).toHaveBeenCalledWith('lab', 'sort');
+    expect(e.preventDefault).toHaveBeenCalled();
+  });
+
+  it('leaves alone a key Minerva already took, and one no plugin has', () => {
+    const run = vi.fn();
+    const taken = { ...press('L', { shift: true }), defaultPrevented: true } as unknown as KeyboardEvent;
+    expect(handlePluginKeydown(taken, keyed, run)).toBe(false);
+    expect(handlePluginKeydown(press('j'), keyed, run)).toBe(false);
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it('matches ⌥ and a letter by the key pressed, though macOS types "∫" for ⌥B', () => {
+    const optB = { ...press('∫', { alt: true }), code: 'KeyB' } as unknown as KeyboardEvent;
+    expect(matchesAccelerator(optB, 'CmdOrCtrl+Alt+B')).toBe(true);
+    expect(matchesAccelerator({ ...press('∫'), code: 'KeyB' }, 'CmdOrCtrl+B')).toBe(false);
+  });
+});
+

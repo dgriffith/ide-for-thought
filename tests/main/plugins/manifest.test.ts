@@ -279,13 +279,13 @@ describe('code.commands (#2643)', () => {
 
   it('refuses a run with no kind or two, an unknown when, a duplicate id, and an unknown field', () => {
     expect(problemsOf(code([{ id: 'a', title: 'A', run: { handler: 'go', skill: 'x' } }]), CORE))
-      .toEqual(['"code.commands[0].run" must be an object with exactly one of "handler", "skill", "query", "view".']);
+      .toEqual(['"code.commands[0].run" must be an object with exactly one of "handler", "skill", "query", "view", "mcpTool".']);
     expect(problemsOf(code([{ id: 'a', title: 'A', when: 'always', run: { skill: 'x' } }]), CORE))
       .toEqual(['"code.commands[0].when" must be one of project, note, selection; got "always".']);
     expect(problemsOf(code([{ id: 'a', title: 'A', run: { skill: 'x' } }, { id: 'a', title: 'B', run: { skill: 'y' } }]), CORE))
       .toEqual(['"code.commands" has two commands with the id "a".']);
-    expect(problemsOf(code([{ id: 'a', title: 'A', key: 'Mod-k', run: { skill: 'x' } }]), CORE))
-      .toEqual(['Unknown field "code.commands[0].key".']);
+    expect(problemsOf(code([{ id: 'a', title: 'A', shortcut: 'Mod-k', run: { skill: 'x' } }]), CORE))
+      .toEqual(['Unknown field "code.commands[0].shortcut".']);
   });
 });
 
@@ -408,6 +408,41 @@ describe('code.inspections (#2831)', () => {
       '"code.inspections[0].id" must be a letter, then letters, digits, "_" or "-" (at most 64), like "skipped-heading".',
       '"code.inspections[0].severity" must be one of info, warning, concern; got "fatal".',
       '"code.inspections[0].query" must be a SPARQL query, an .rq file; got "notes.sql".',
+    ]);
+  });
+});
+
+describe('commands in the menu bar, on the keyboard, and as MCP tools (#2879)', () => {
+  const CORE = { ...CTX, core: true };
+  const base = { id: 'find', title: 'Find', when: 'selection', run: { handler: 'find' } };
+  const code = (commands: unknown) => ({ ...GOOD, mcpServers: { shelf: { command: 'node', args: ['s.js'] } }, code: { capabilities: ['notes:read'], api: '^1.10.0', worker: 'logic.js', commands } });
+  const commandsOf = (raw: unknown) => {
+    const r = validatePluginManifest(raw, CORE);
+    if (!r.ok) throw new Error(r.problems.join('\n'));
+    return r.manifest.code?.commands;
+  };
+
+  it('takes a menu and a key, spelled one way, and a tool on its own server', () => {
+    expect(commandsOf(code([{ ...base, menu: 'edit', key: 'Shift+CmdOrCtrl+alt+f' }, { ...base, id: 'tool', run: { mcpTool: 'shelf/find_book' } }]))).toEqual([
+      { ...base, menu: 'edit', key: 'CmdOrCtrl+Alt+Shift+F' },
+      { ...base, id: 'tool', run: { mcpTool: 'shelf/find_book' } },
+    ]);
+  });
+
+  it('refuses a menu that isn\'t one, a key Minerva uses or a malformed one, two commands on one key, and someone else\'s server', () => {
+    expect(problemsOf(code([
+      { ...base, menu: 'window' },
+      { ...base, id: 'b', key: 'CmdOrCtrl+S' },
+      { ...base, id: 'c', key: 'Alt+F' },
+      { ...base, id: 'd', key: 'CmdOrCtrl+Alt+F' },
+      { ...base, id: 'e', key: 'CmdOrCtrl+Alt+F' },
+      { ...base, id: 'f', run: { mcpTool: 'elsewhere/x' } },
+    ]), CORE)).toEqual([
+      '"code.commands[0].menu" must be one of file, edit, view, navigate, refactor, query, help; got "window".',
+      '"code.commands[1].key" is CmdOrCtrl+S, which Minerva uses itself.',
+      '"code.commands[2].key" must be a shortcut with CmdOrCtrl, like "CmdOrCtrl+Alt+L"; got "Alt+F".',
+      '"code.commands" gives CmdOrCtrl+Alt+F to two commands.',
+      '"code.commands[5].run.mcpTool" names the server "elsewhere", which isn\'t one of its "mcpServers".',
     ]);
   });
 });

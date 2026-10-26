@@ -6,7 +6,8 @@
  * registry and gate, and `ingestSource` as the Ingest URL dialog calls it.
  * A page on its host and a `shelf:` id both become a Source written by
  * Minerva; an identifier still goes to Minerva first; a plain web page is
- * still Minerva's; and with its server off, the ingest fails naming it.
+ * still Minerva's; its command runs on the server too (#2879); and with its
+ * server off, the ingest fails naming it.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'node:fs';
@@ -34,6 +35,7 @@ import { configureMcpToolPermissionsPath } from '../../../src/main/mcp-servers/t
 import { shutdownAllMcpClients } from '../../../src/main/mcp-client';
 import { installPluginIngestors } from '../../../src/main/plugin-ingestors';
 import { ingestSource, setExtraIngestors } from '../../../src/main/sources/ingestors';
+import { runPluginCommand } from '../../../src/main/plugin-commands';
 
 silenceLogTags('plugins', 'secrets', 'mcp-confirm', 'mcp-servers');
 
@@ -91,6 +93,14 @@ describe('Book Shelf: a site read through its plugin\'s MCP server (#2880)', () 
     await ingestSource(root, { kind: 'text', text: 'https://example.org/books/42' });
     expect(web.ingestUrl).toHaveBeenCalledWith(root, 'https://example.org/books/42', {});
     await expect(ingestSource(root, { kind: 'text', text: 'shelf:7' })).rejects.toThrow("Book Shelf's read_book failed: No book 7 on the shelf.");
+  });
+
+  it('its command runs on its server, handed the selection, and answers what to say (#2879)', async () => {
+    await setServerEnabled('plugin:book-shelf/catalogue', true);
+    fs.writeFileSync(path.join(root, 'a.md'), '# A\n');
+    expect(await runPluginCommand(root, 'book-shelf', 'find-selection', { note: 'a.md', selection: 'hitchhiker' }))
+      .toEqual({ kind: 'result', announce: 'On the shelf: The Hitchhiker’s Guide to the Galaxy (shelf:42).' });
+    await expect(runPluginCommand(root, 'book-shelf', 'find-selection', { note: 'a.md' })).rejects.toThrow('needs text selected');
   });
 
   it('with its server off, the ingest fails, saying so', async () => {

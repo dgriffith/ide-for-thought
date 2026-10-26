@@ -11,6 +11,15 @@
   import PluginSettingsForm from './PluginSettingsForm.svelte';
   import type { PluginContributionPoint, PluginSummary } from '../../../shared/plugins/format';
   import { describeCapabilities } from '../../../shared/plugins/capabilities';
+  import { codePluginsStore } from '../stores/code-plugins.svelte';
+  import { formatAccelerator } from '../command-palette/format-accelerator';
+
+  /** A plugin command's shortcut another plugin already has (#2879), in words. */
+  const keyConflicts = $derived(codePluginsStore.commandKeys().conflicts);
+  function conflictsOf(id: string): string[] {
+    return keyConflicts.filter((c) => c.pluginId === id)
+      .map((c) => `"${c.title}" has no shortcut: ${formatAccelerator(c.key)} is ${c.takenBy}'s.`);
+  }
 
   const plugins = getPluginsStore();
   const dialogs = getDialogStore();
@@ -89,6 +98,7 @@
           </div>
           <p class="plugin-desc">{p.description}</p>
           {#if p.capabilities?.length}<p class="plugin-source">{describeCapabilities(p.capabilities)}</p>{/if}
+          {#each conflictsOf(p.id) as line (line)}<p class="plugin-source">{line}</p>{/each}
         </li>
       {/each}
     </ul>
@@ -135,6 +145,7 @@
               <button class="link-btn" disabled={plugins.busy} onclick={() => { void plugins.approveCode(p.id); }} aria-label={`Review and allow ${p.name}`}>Review and allow…</button>
             </p>
           {/if}
+          {#each conflictsOf(p.id) as line (line)}<p class="plugin-source">{line}</p>{/each}
           <p class="plugin-source">{source(p)}</p>
           {#if settingsOpen === p.id}<PluginSettingsForm id={p.id} name={p.name} />{/if}
         </li>

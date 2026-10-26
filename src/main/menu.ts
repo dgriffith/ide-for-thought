@@ -1,3 +1,4 @@
+import { withPluginCommands } from './menu/plugin-commands';
 import { Menu, shell, dialog, BrowserWindow } from 'electron';
 import path from 'node:path';
 import { formatAccelerator, collectAcceleratorsByMenu } from './menu/accelerators';
@@ -158,6 +159,9 @@ export function rebuildMenu(): Electron.MenuItemConstructorOptions[] {
     ...buildWindowMenu(isMac),
     buildHelpMenu(isMac),
   ];
+
+  // Plugin commands, each at the end of the menu it names (#2879).
+  withPluginCommands(template, gate, (ref) => send(Channels.MENU_PLUGIN_COMMAND, ref));
 
   lastTemplate = template;
   const menu = Menu.buildFromTemplate(template);

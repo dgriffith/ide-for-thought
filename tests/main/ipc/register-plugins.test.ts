@@ -156,9 +156,9 @@ const LIST = {
     blocks: [{ id: 'queue', title: 'Reading queue', fence: 'reading-queue', entry: 'index.html', query: 'queue.rq' }],
   }, {
     id: 'list-tools', name: 'List Tools', version: '1.0.0',
-    description: "Sort the Markdown list in your selection, from the command palette or the editor's right-click menu. Nested items move with their parent.",
+    description: "Sort the Markdown list in your selection, from the command palette, the Edit menu, the editor's right-click menu or ⌘⌥⇧S. Nested items move with their parent.",
     enabled: false, source: { kind: 'core' }, contributes: {}, capabilities: ['notes:read'],
-    commands: [{ id: 'sort-selection', title: 'Sort List in Selection', when: 'selection', editorMenu: true, run: { handler: 'sortSelection' } }],
+    commands: [{ id: 'sort-selection', title: 'Sort List in Selection', when: 'selection', editorMenu: true, menu: 'edit', key: 'CmdOrCtrl+Alt+Shift+S', run: { handler: 'sortSelection' } }],
   }, {
     id: 'transcripts', name: 'Transcripts', version: '1.0.0',
     description: 'Ingest subtitle and caption files (.srt, .vtt) as sources: the captions joined into timestamped paragraphs, with speakers named.',

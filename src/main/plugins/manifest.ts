@@ -14,6 +14,9 @@ import {
   PLUGIN_VIEW_PLACES,
   PLUGIN_COMMAND_WHEN,
   PLUGIN_HANDLER_NAME,
+  PLUGIN_MCP_TOOL,
+  PLUGIN_COMMAND_MENUS,
+  type PluginCommandMenu,
   type PluginCommand,
   type PluginCommandRun,
   type PluginCommandWhen,
@@ -30,6 +33,7 @@ import { validatePluginMcpServers } from './mcp-schema';
 import { LIVE_DIRECTIVE_OPENERS, LIVE_FENCE_LANGS } from '../../shared/live-blocks';
 import { RUNNABLE_LANGUAGE_SET } from '../../shared/compute/fences';
 import { validateExporters, validateIngestors, validateInspections } from './code-io-schema';
+import { minervaKeys, normalizeAccelerator } from '../../shared/plugins/command-keys';
 
 /** Lowercase letters and digits in dash-separated words: `reading-list`, `lab2`. */
 export const PLUGIN_ID = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
@@ -39,8 +43,8 @@ const isId = (id: string) => PLUGIN_ID.test(id) && id.length <= MAX_PLUGIN_ID;
 const KNOWN_KEYS = new Set(['$schema', 'id', 'name', 'version', 'minerva', 'description', 'author', 'license', 'contributes', 'settings', 'mcpServers', 'code']);
 /** What a `code` section may hold (#2823). Entry points join it with the frame (#2824) and the worker host (#2830). */
 const CODE_KEYS = new Set(['capabilities', 'api', 'views', 'blocks', 'worker', 'commands', 'ingestors', 'exporters', 'inspections']);
-const COMMAND_KEYS = new Set(['id', 'title', 'when', 'editorMenu', 'run']);
-const COMMAND_RUN_KINDS = ['handler', 'skill', 'query', 'view'] as const;
+const COMMAND_KEYS = new Set(['id', 'title', 'when', 'editorMenu', 'menu', 'key', 'run']);
+const COMMAND_RUN_KINDS = ['handler', 'skill', 'query', 'view', 'mcpTool'] as const;
 /** Most commands one plugin may add (#2643). */
 export const MAX_PLUGIN_COMMANDS = 32;
 /** A skill's id, as a command names it: what the skills catalog keys on. */
@@ -208,7 +212,7 @@ function validateCode(raw: unknown, ctx: ManifestContext, problems: string[], ro
   // The logic module its worker host runs (#2830): a .js file in its folder, an ES module.
   const worker = raw.worker === undefined ? undefined : pluginFilePath(raw.worker, 'code.worker', '.js', problems);
   const commands = raw.commands === undefined ? undefined
-    : validateCommands(raw.commands, { worker: raw.worker !== undefined, views: views ?? [] }, problems);
+    : validateCommands(raw.commands, { worker: raw.worker !== undefined, views: views ?? [], servers: isRecord(rootRaw.mcpServers) ? Object.keys(rootRaw.mcpServers) : [] }, problems);
   const servers = isRecord(rootRaw.mcpServers) ? Object.keys(rootRaw.mcpServers) : [];
   const io = { worker: raw.worker !== undefined, isId, servers, capabilities: out, queryPath: (v: unknown, field: string, p: string[]) => pluginFilePath(v, field, '.rq', p) };
   const ingestors = raw.ingestors === undefined ? undefined : validateIngestors(raw.ingestors, io, problems);
@@ -333,7 +337,7 @@ function validateViews(raw: unknown, capabilities: readonly PluginCapability[], 
  * show: one of its own handlers (it needs `code.worker`), a skill, a query in
  * its folder, or one of its own views.
  */
-function validateCommands(raw: unknown, has: { worker: boolean; views: readonly PluginView[] }, problems: string[]): PluginCommand[] | undefined {
+function validateCommands(raw: unknown, has: CommandHas, problems: string[]): PluginCommand[] | undefined {
   if (!Array.isArray(raw) || raw.length === 0) {
     problems.push('"code.commands" must be a non-empty list of commands.');
     return undefined;
@@ -365,17 +369,41 @@ function validateCommands(raw: unknown, has: { worker: boolean; views: readonly 
       problems.push(`"${at}.when" must be one of ${PLUGIN_COMMAND_WHEN.join(', ')}; got ${JSON.stringify(c.when)}.`);
     }
     if (c.editorMenu !== undefined && c.editorMenu !== true) problems.push(`"${at}.editorMenu" may only be true.`);
+    // The menu bar and the keyboard (#2879).
+    const menu = c.menu;
+    if (menu !== undefined && !(PLUGIN_COMMAND_MENUS as readonly unknown[]).includes(menu)) {
+      problems.push(`"${at}.menu" must be one of ${PLUGIN_COMMAND_MENUS.join(', ')}; got ${JSON.stringify(menu)}.`);
+    }
+    let key: string | undefined;
+    if (c.key !== undefined) {
+      const normal = typeof c.key === 'string' ? normalizeAccelerator(c.key) : null;
+      if (!normal) problems.push(`"${at}.key" must be a shortcut with CmdOrCtrl, like "CmdOrCtrl+Alt+L"; got ${JSON.stringify(c.key)}.`);
+      else if (minervaKeys().has(normal)) problems.push(`"${at}.key" is ${normal}, which Minerva uses itself.`);
+      else if (out.some((o) => o.key === normal)) problems.push(`"code.commands" gives ${normal} to two commands.`);
+      else key = normal;
+    }
     const run = validateCommandRun(c.run, `${at}.run`, has, problems);
     if (problems.length > before || !run) return;
     out.push({
       id: id as string, title: (title as string).trim(), when: when as PluginCommandWhen,
-      ...(c.editorMenu === true ? { editorMenu: true } : {}), run,
+      ...(c.editorMenu === true ? { editorMenu: true } : {}),
+      ...(menu !== undefined ? { menu: menu as PluginCommandMenu } : {}),
+      ...(key !== undefined ? { key } : {}),
+      run,
     });
   });
   return out;
 }
 
-function validateCommandRun(raw: unknown, at: string, has: { worker: boolean; views: readonly PluginView[] }, problems: string[]): PluginCommandRun | undefined {
+/** What the rest of the manifest says, as a command needs it. */
+interface CommandHas {
+  worker: boolean;
+  views: readonly PluginView[];
+  /** Its `mcpServers`' keys, which an `mcpTool` names (#2879). */
+  servers: readonly string[];
+}
+
+function validateCommandRun(raw: unknown, at: string, has: CommandHas, problems: string[]): PluginCommandRun | undefined {
   const kinds = isRecord(raw) ? Object.keys(raw) : [];
   if (!isRecord(raw) || kinds.length !== 1 || !(COMMAND_RUN_KINDS as readonly string[]).includes(kinds[0]!)) {
     problems.push(`"${at}" must be an object with exactly one of ${COMMAND_RUN_KINDS.map((k) => `"${k}"`).join(', ')}.`);
@@ -409,6 +437,18 @@ function validateCommandRun(raw: unknown, at: string, has: { worker: boolean; vi
         return undefined;
       }
       return { view: v };
+    case 'mcpTool': {
+      const m = typeof v === 'string' ? PLUGIN_MCP_TOOL.exec(v) : null;
+      if (!m) {
+        problems.push(`"${at}.mcpTool" must be "<server>/<tool>", a tool on one of its "mcpServers".`);
+        return undefined;
+      }
+      if (!has.servers.includes(m[1]!)) {
+        problems.push(`"${at}.mcpTool" names the server "${m[1]}", which isn't one of its "mcpServers".`);
+        return undefined;
+      }
+      return { mcpTool: v as string };
+    }
   }
 }
 

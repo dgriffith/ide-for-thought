@@ -620,9 +620,30 @@ can't undo it. The handler's scope is still the active note, so one with
 - **Failure.** A handler that throws, or misses its deadline, fails the
   command with a message naming the plugin. The renderer shows it, and the
   app is unaffected.
-- **Not yet.** An `mcpTool` command waits for a confirm card outside a
-  conversation (a tool not marked read-only must ask, #2439). The native menu
-  bar and keybindings wait on *Shortcut conflicts* below. All three are #2879.
+- **A tool on its own MCP server (#2879)**: `"run": { "mcpTool":
+  "<server>/<tool>" }`. It's handed `{ command, note, selection }`, the note
+  as a path, since a tool can't read notes, and answers the same result as
+  JSON, checked the same way. A tool that isn't read-only asks first, in
+  main's own dialog (*Ingestors*).
+- **In the menu bar (#2879)**: `"menu": "edit"` (one of `file`, `edit`,
+  `view`, `navigate`, `refactor`, `query`, `help`) puts it at the end of that
+  menu, under a separator after Minerva's own items, so a plugin can't crowd
+  or stand in for them. It's gated like a core command (off with no
+  thoughtbase, or no note or selection when it needs one), and a click runs it
+  as the palette does (`menu:pluginCommand`, `menu/plugin-commands.ts`).
+- **On the keyboard (#2879)**: `"key": "CmdOrCtrl+Alt+B"`, an accelerator
+  with `CmdOrCtrl`, so it never takes typing. **Decision: a key Minerva uses
+  is refused in the manifest**: its commands' keys and the menu roles' (undo,
+  copy, zoom, quit…). **Between plugins the first to claim a key keeps it**,
+  built-in plugins first, in Settings' order. A later one still runs from the
+  palette and its menu, and Settings → Plugins says whose key it is. One rule,
+  `shared/plugins/command-keys.ts`'s `resolvePluginKeys`, serves main's menu
+  accelerators and the renderer's window keymap. There's no rebinding: that's
+  a feature of its own, for core and plugins alike. With ⌥ held, a letter key
+  matches by the key pressed, since macOS types `∫` for ⌥B.
+- **Book Shelf** (`tests/fixtures/plugins/book-shelf/`) shows all three: *Find
+  Selection on the Book Shelf*, in the Edit menu, on ⌘⌥B, run by its
+  server's read-only `find_book`.
 - **List Tools is the worked example**, off by default: *Sort List in
   Selection* sorts the outermost items of the selected Markdown list, nested
   items and continuation lines moving with their parent
@@ -988,6 +1009,5 @@ A stdio MCP server is a program Minerva runs, and `MCP_SERVERS_ADD` and
 
 ## Open questions
 
-- **Shortcut conflicts** between plugins, and between a plugin and core.
 - **How core plugins build**: packaged into `app.asar` under their own
   origin, from source in this repo, with the same `plugin check` in CI.

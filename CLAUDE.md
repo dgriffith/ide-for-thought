@@ -1867,7 +1867,10 @@ origin.
   `query` or one of its `view`s, and main decides which (`plugin-commands.ts`).
   A handler returns `{ replaceSelection?, announce? }` and the editor applies
   it only to text that is still selected (`replaceRangeIfUnchanged`): the
-  plugin never writes under an open buffer. **A plugin ingestor (#2647)**
+  plugin never writes under an open buffer. A command may also be an
+  `mcpTool`, name a `menu` (placed at its end by `menu/plugin-commands.ts`)
+  and a `key`; a key Minerva uses is refused, and between plugins the first
+  claim wins (`shared/plugins/command-keys.ts`, used by menu and keymap) (#2879). **A plugin ingestor (#2647)**
   is in `code.ingestors`: a file type whose bytes main hands a handler
   (`plugin-ingestors.ts`); the draft it returns is checked field by field
   and written by `sources/ingest-draft.ts`, `<` escaped, with

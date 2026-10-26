@@ -126,19 +126,20 @@ const CORE_PLUGIN_DEFINITIONS: readonly CorePluginDefinition[] = [
     // the plugin's own code. "Sort List in Selection" runs `sortSelection` in
     // its worker host (`plugins/list-tools/src/logic.ts`), which is handed the
     // selected text and returns it sorted; the editor makes the change. It
-    // reads and writes no note. Off by default: it adds a command.
+    // reads and writes no note. It's in the Edit menu, on ⌘⌥⇧S (#2879). Off
+    // by default: it adds a command.
     manifest: {
       id: 'list-tools',
       name: 'List Tools',
       version: '1.0.0',
       minerva: '>=4.0.0',
-      description: 'Sort the Markdown list in your selection, from the command palette or the editor\'s right-click menu. Nested items move with their parent.',
+      description: 'Sort the Markdown list in your selection, from the command palette, the Edit menu, the editor\'s right-click menu or ⌘⌥⇧S. Nested items move with their parent.',
       contributes: {},
       code: {
         capabilities: ['notes:read'],
         api: '^1.10.0',
         worker: 'logic.js',
-        commands: [{ id: 'sort-selection', title: 'Sort List in Selection', when: 'selection', editorMenu: true, run: { handler: 'sortSelection' } }],
+        commands: [{ id: 'sort-selection', title: 'Sort List in Selection', when: 'selection', editorMenu: true, menu: 'edit', key: 'CmdOrCtrl+Alt+Shift+S', run: { handler: 'sortSelection' } }],
       },
     },
     defaultEnabled: false,

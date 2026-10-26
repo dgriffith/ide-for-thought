@@ -736,6 +736,8 @@ export interface EventMap {
   'menu:setTheme': (mode: ThemeMode) => void;
   /** Run a registered command (#2625) — what every other menu item sends. */
   'menu:command': (id: CommandId) => void;
+  /** Run a plugin's command (#2879), from the menu its plugin put it in. */
+  'menu:pluginCommand': (ref: { pluginId: string; commandId: string }) => void;
   // Renderer → main reports the menu's radio and gating read.
   'menu:reportTheme': (mode: ThemeMode) => void;
   'menu:reportEditorState': (state: MenuEditorState) => void;
