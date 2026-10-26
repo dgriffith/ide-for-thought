@@ -10,6 +10,8 @@
   import DraftCard from './DraftCard.svelte';
   import Icon from './Icon.svelte';
   import { refactorVerb, changedLines } from './refactor-diff';
+  import GuideMarker from './GuideMarker.svelte';
+  import { guideEffectOfMove } from '../../../shared/thoughtbase-guide';
 
   interface Props {
     draft: ConversationRefactorDraft;
@@ -39,6 +41,8 @@
   {onDiscard}
 >
   <div class="refactor-body">
+    <!-- Moving or renaming a note into the guide's place, or the guide away (#2837). -->
+    <GuideMarker effect={draft.isFolder ? null : guideEffectOfMove(draft.fromPath, draft.toPath)} />
     {#if draft.isFolder}
       <div class="blast">
         <strong>{movedNotes.length}</strong> note{movedNotes.length === 1 ? '' : 's'} move{movedNotes.length === 1 ? 's' : ''} with the folder{#if otherNotes.length > 0}; <strong>{otherNotes.length}</strong> other note{otherNotes.length === 1 ? '' : 's'} will have links rewritten{/if}.

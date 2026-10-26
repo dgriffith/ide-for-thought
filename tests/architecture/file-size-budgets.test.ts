@@ -109,10 +109,10 @@ const BUDGETS: Record<string, number> = { // +16: each day named from its conten
   // type-only imports. Below 826 now, so the two raises are more than repaid.
   'src/main/graph/inspection-checks.ts': 614, // −10: unsupported claims and contradictions became SHACL shapes, parsed on first use (#2642); the checks + their registry, split out of health-checks.ts (836 → 234) when checks became a registry (#2627)
   'src/renderer/lib/components/ExportDialog.svelte': 721, // +9: the PDF style profile picker, remembered per thoughtbase; its field is PdfProfileField.svelte (#2429)
-  'src/renderer/lib/components/ProposalsPanel.svelte': 633, // +12: announce approve/reject outcomes (#2374); +2: bare-key guard (#2377); +5: a plugin proposal's review, from proposals/plugin-review.ts (#2890)
+  'src/renderer/lib/components/ProposalsPanel.svelte': 638, // +12: announce approve/reject outcomes (#2374); +2: bare-key guard (#2377); +5: a plugin proposal's review, from proposals/plugin-review.ts (#2890); +5: the thoughtbase-guide marker, open by default (#2837)
   'src/renderer/lib/components/QueryPanel.svelte': 766, // +7: CM content a11y attrs + AA placeholder (#2375)
   // +17 (#2491): the property card's "Also fills {{name}} in the note's body" line, its helper and style.
-  'src/renderer/lib/components/conversations/DraftCards.svelte': 775,
+  'src/renderer/lib/components/conversations/DraftCards.svelte': 781, // +6: the thoughtbase-guide marker, open by default (#2837)
   // +1 for #2256: the MENU_COMMAND_PALETTE channel / its MENU_COMMANDS entry.
   'src/shared/ipc-contract.ts': 776, // +2: the plugins' inspection checks (#2642); +2: the thoughtbase's (#2874); +1: a save's history cause (#2828); +1: plugins:runCommand (#2643); −4: the export group's type imported, not re-declared (#2648); +1: plugins:approveCode (#2833); +2: menu:pluginCommand (#2879); +2: mcpServers:addRemote / updateRemote (#2891)
   // +1 for #2256: the MENU_COMMAND_PALETTE channel / its MENU_COMMANDS entry.

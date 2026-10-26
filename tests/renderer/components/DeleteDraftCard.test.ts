@@ -353,3 +353,10 @@ describe('DeleteDraftCard — two cards side by side', () => {
     expect(second.onDiscard).not.toHaveBeenCalled();
   });
 });
+
+describe('DeleteDraftCard — the thoughtbase guide (#2837)', () => {
+  it('says deleting thoughtbase.md turns the guide off, and nothing for another note', () => {
+    const { container } = renderCard(draft({ items: [item('thoughtbase.md'), item('notes/thoughtbase.md')] }));
+    expect(Array.from(container.querySelectorAll('[data-testid="guide-marker"]')).map((m) => m.textContent)).toEqual(['Thoughtbase guide: this turns the guide off, so the assistant stops reading it in conversations here.']);
+  });
+});

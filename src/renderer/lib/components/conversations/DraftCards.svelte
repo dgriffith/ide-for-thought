@@ -5,6 +5,8 @@
   import ReorgDraftCard from '../ReorgDraftCard.svelte';
   import DeleteDraftCard from '../DeleteDraftCard.svelte';
   import NoteBodyDraftCard from '../NoteBodyDraftCard.svelte';
+  import GuideMarker from '../GuideMarker.svelte';
+  import { isThoughtbaseGuidePath } from '../../../../shared/thoughtbase-guide';
   import { getConversationsStore, type TabRuntime } from '../../stores/conversations.svelte';
   import { getEditorStore } from '../../stores/editor.svelte';
   import {
@@ -247,12 +249,16 @@
     <ul class="draft-paths">
       {#each draft.payloads as p}
         {@const key = draft.draftId + ':' + p.relativePath}
+        <!-- The thoughtbase guide's content starts open, and toggles closed (#2837). -->
+        {@const guide = isThoughtbaseGuidePath(p.relativePath)}
+        {@const open = expandedDraftIds.has(key) !== guide}
         <li>
           <button type="button" class="draft-path-btn" onclick={() => toggleDraftPath(key)}>
             <span class="draft-path">{p.relativePath}</span>
-            <span class="draft-toggle">{expandedDraftIds.has(key) ? '▾' : '▸'}</span>
+            <span class="draft-toggle">{open ? '▾' : '▸'}</span>
           </button>
-          {#if expandedDraftIds.has(key)}
+          <GuideMarker effect={guide ? 'writes' : null} />
+          {#if open}
             <pre class="draft-preview">{p.content}</pre>
           {/if}
         </li>

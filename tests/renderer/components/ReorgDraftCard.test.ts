@@ -228,3 +228,10 @@ describe('ReorgDraftCard — selection and callbacks', () => {
     expect(first.onApprove).not.toHaveBeenCalled();
   });
 });
+
+describe('ReorgDraftCard — the thoughtbase guide (#2837)', () => {
+  it('marks the one item that moves a note into the guide\'s place', () => {
+    const { container } = renderCard(draft({ items: [item('a.md', 'notes/a.md'), item('notes/rules.md', 'THOUGHTBASE.md')] }));
+    expect(Array.from(container.querySelectorAll('[data-testid="guide-marker"]')).map((m) => m.textContent)).toEqual(['Thoughtbase guide: the assistant reads this in every conversation here.']);
+  });
+});

@@ -240,3 +240,16 @@ describe('NoteBodyDraftCard — two cards side by side', () => {
     expect(first.onApprove).not.toHaveBeenCalled();
   });
 });
+
+describe('NoteBodyDraftCard — the thoughtbase guide (#2837)', () => {
+  const marker = (c: HTMLElement) => Array.from(c.querySelectorAll('[data-testid="guide-marker"]')).map((m) => m.textContent);
+  it('marks a rewrite of thoughtbase.md, any case, and opens its diff even in a batch', () => {
+    const { container } = renderCard(draft({ items: [item('a.md', 'x', 'y'), item('Thoughtbase.md', '# Guide', '# Guide\nAlways cite X.')] }));
+    expect(marker(container)).toEqual(['Thoughtbase guide: the assistant reads this in every conversation here.']);
+    expect(Array.from(container.querySelectorAll('.line.added')).map((l) => l.textContent)).toContain('Always cite X.');
+  });
+  it('does not mark notes/thoughtbase.md or thoughtbase.md.bak', () => {
+    const { container } = renderCard(draft({ items: [item('notes/thoughtbase.md', 'x', 'y'), item('thoughtbase.md.bak', 'x', 'y')] }));
+    expect(marker(container)).toEqual([]);
+  });
+});
