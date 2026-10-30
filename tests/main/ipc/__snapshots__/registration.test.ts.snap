@@ -5,6 +5,8 @@ exports[`IPC registration contract (#997) > matches the known set of registered 
   "app:getInfo",
   "app:getShortcuts",
   "app:getSystemLocale",
+  "app:startSystemAudio",
+  "app:stopSystemAudio",
   "app:supportsSystemAudio",
   "bibliography:generate",
   "bibliography:getStyle",

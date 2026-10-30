@@ -63,14 +63,26 @@ export async function decodeAudioFile(bytes: ArrayBuffer): Promise<Float32Array>
   }
 }
 
+/**
+ * The sound the computer plays, as main's Core Audio tap delivers it (#2731):
+ * `api.app.startSystemAudio` / `stopSystemAudio` / `onSystemAudio`, handed in
+ * by the caller so this module stays free of IPC.
+ */
+export interface SystemAudioTap {
+  /** Resolves with the PCM format once the tap is running. */
+  start(): Promise<{ sampleRate: number; channels: number }>;
+  stop(): unknown;
+  /** Interleaved float32 PCM, whole frames. Returns an unsubscribe. */
+  onChunk(cb: (chunk: Uint8Array) => void): () => void;
+}
+
 export interface RecordingOptions {
   /**
    * Also record the sound the computer plays — the other side of a call
-   * (#2731). Mixed with the mic into one track. Needs the main process's
-   * display-media handler and, on macOS, 14.2+ with the System Audio
-   * Recording permission.
+   * (#2731). Mixed with the mic into one track. Needs macOS 14.2+ and the
+   * System Audio Recording permission, asked for the tap's helper.
    */
-  systemAudio?: boolean;
+  systemAudio?: SystemAudioTap;
 }
 
 /**
@@ -91,7 +103,7 @@ export async function startRecording(opts: RecordingOptions = {}): Promise<Recor
 
   let mix: SystemAudioMix;
   try {
-    mix = await mixWithSystemAudio(mic);
+    mix = await mixWithSystemAudio(mic, opts.systemAudio);
   } catch (err) {
     stopTracks(mic);
     throw err;
@@ -112,57 +124,65 @@ interface SystemAudioMix {
   release: () => void;
 }
 
-/**
- * Ask main for system audio (`getDisplayMedia`, answered with loopback audio
- * by `installDisplayMediaHandler`) and mix it with `mic`. The video track is
- * required to get the audio at all — 4×4 at 1 fps, since a 0×0 request comes
- * back silent on Electron 40+ — and is stopped at once.
- *
- * A missing macOS permission or Info.plist string doesn't fail: it yields a
- * stream of exact zeros. So the system track is watched, and `heardSound`
- * reports whether anything ever came through.
- */
-async function mixWithSystemAudio(mic: MediaStream): Promise<SystemAudioMix> {
-  if (!navigator.mediaDevices.getDisplayMedia) {
-    throw new Error('System audio capture is unavailable in this renderer');
-  }
-  const display = await navigator.mediaDevices.getDisplayMedia({
-    audio: true,
-    video: { width: 4, height: 4, frameRate: 1 },
-  });
-  for (const track of display.getVideoTracks()) track.stop();
-  const systemTracks = display.getAudioTracks();
-  if (systemTracks.length === 0) {
-    stopTracks(display);
-    throw new Error('No system audio was offered. Meeting recordings need macOS 14.2 or later.');
-  }
+/** Seconds of audio queued ahead of the clock, to ride out IPC jitter. */
+const SYSTEM_AUDIO_LEAD_S = 0.1;
 
+/**
+ * Start the system-audio tap (main's Core Audio helper, `system-audio-tap.ts`)
+ * and mix what it plays with `mic`. The tap's PCM arrives in chunks, each
+ * scheduled to play into the mix right after the last, so the recorder sees
+ * one continuous track.
+ *
+ * A missing macOS permission doesn't fail: the tap runs and delivers exact
+ * zeros. So the chunks are watched, and `heardSound` reports whether anything
+ * ever came through.
+ */
+async function mixWithSystemAudio(mic: MediaStream, tap: SystemAudioTap): Promise<SystemAudioMix> {
   const ctx = new AudioContext();
   const destination = ctx.createMediaStreamDestination();
   ctx.createMediaStreamSource(mic).connect(destination);
-  const system = ctx.createMediaStreamSource(new MediaStream(systemTracks));
-  system.connect(destination);
 
-  const analyser = ctx.createAnalyser();
-  analyser.fftSize = 2048;
-  system.connect(analyser);
-  const buf = new Float32Array(analyser.fftSize);
+  let format: { sampleRate: number; channels: number } | null = null;
   let heard = false;
-  const probe = setInterval(() => {
-    analyser.getFloatTimeDomainData(buf);
-    if (buf.some((x) => Math.abs(x) > 1e-4)) {
-      heard = true;
-      clearInterval(probe);
+  let next = 0;
+  // Subscribed before starting so the first chunk isn't missed.
+  const unsubscribe = tap.onChunk((chunk) => {
+    if (!format) return;
+    // Copied: the chunk's offset needn't be a multiple of 4.
+    const samples = new Float32Array(chunk.slice().buffer);
+    const { channels, sampleRate } = format;
+    const frames = Math.floor(samples.length / channels);
+    if (frames === 0) return;
+    if (!heard) heard = samples.some((x) => Math.abs(x) > 1e-4);
+    const buffer = ctx.createBuffer(channels, frames, sampleRate);
+    for (let c = 0; c < channels; c++) {
+      const plane = buffer.getChannelData(c);
+      for (let i = 0; i < frames; i++) plane[i] = samples[i * channels + c]!;
     }
-  }, 250);
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(destination);
+    // Fallen behind (a stall, or the first chunk): restart just ahead of now.
+    next = Math.max(next, ctx.currentTime + SYSTEM_AUDIO_LEAD_S);
+    source.start(next);
+    next += buffer.duration;
+  });
+
+  try {
+    format = await tap.start();
+  } catch (err) {
+    unsubscribe();
+    void ctx.close();
+    throw err;
+  }
 
   return {
     stream: destination.stream,
     heardSound: () => heard,
     release: () => {
-      clearInterval(probe);
+      unsubscribe();
+      void tap.stop();
       stopTracks(mic);
-      stopTracks(display);
       void ctx.close();
     },
   };
@@ -221,10 +241,11 @@ function recordStream(
 export function micErrorMessage(e: unknown): string {
   const name = e instanceof DOMException ? e.name : '';
   if (name === 'NotAllowedError') return 'Microphone access was denied.';
-  // getDisplayMedia rejects with AbortError when main declines the request.
-  if (name === 'AbortError') return 'System audio capture was declined.';
   if (name === 'NotFoundError') return 'No microphone was found.';
-  return e instanceof Error ? e.message : 'Could not start recording.';
+  // A failure in main (the system-audio tap, #2731) arrives wrapped by IPC.
+  return e instanceof Error
+    ? e.message.replace(/^Error invoking remote method '[^']+': (?:\w*Error: )?/, '')
+    : 'Could not start recording.';
 }
 
 /** Seconds of audio a sample buffer represents, for UI/empty-clip checks. */

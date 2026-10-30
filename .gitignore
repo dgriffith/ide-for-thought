@@ -82,3 +82,6 @@ resources/models/**/*.onnx
 # predev/prebuild hooks — the source of truth is the docs pages, not this
 # file, so unlike resources/models/ there's nothing here worth committing.
 resources/help-docs/
+
+# The meeting-recording helper (#2731), compiled from native/audio-tap/ by forge.
+resources/bin/

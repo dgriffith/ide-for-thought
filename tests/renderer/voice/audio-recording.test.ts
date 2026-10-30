@@ -9,7 +9,12 @@ const h = vi.hoisted(() => {
   const files = new Map<string, string>();
   const binaries = new Map<string, Uint8Array>();
   const api = {
-    app: { supportsSystemAudio: vi.fn(async () => true) },
+    app: {
+      supportsSystemAudio: vi.fn(async () => true),
+      startSystemAudio: vi.fn(async () => ({ sampleRate: 48000, channels: 2 })),
+      stopSystemAudio: vi.fn(async () => undefined),
+      onSystemAudio: vi.fn(() => () => {}),
+    },
     notebase: {
       fileExists: vi.fn(async (p: string) => files.has(p) || binaries.has(p)),
       readFile: vi.fn(async (p: string) => {
@@ -313,11 +318,27 @@ describe('summarizing a recording (#2729)', () => {
 });
 
 describe('meeting recordings: mic + system audio (#2731)', () => {
-  it('asks the recorder for system audio and labels the recording a meeting', async () => {
+  it('hands the recorder main\'s system-audio tap and labels the recording a meeting', async () => {
     openNote('a.md');
     await rec.start(() => null, { systemAudio: true });
-    expect(h.recorder.startRecording).toHaveBeenCalledWith({ systemAudio: true });
+    const [opts] = h.recorder.startRecording.mock.calls[0] as unknown as [{ systemAudio: {
+      start(): Promise<unknown>; stop(): unknown; onChunk(cb: (c: Uint8Array) => void): () => void;
+    } }];
+    await opts.systemAudio.start();
+    opts.systemAudio.stop();
+    const cb = () => {};
+    opts.systemAudio.onChunk(cb);
+    expect(h.api.app.startSystemAudio).toHaveBeenCalledOnce();
+    expect(h.api.app.stopSystemAudio).toHaveBeenCalledOnce();
+    expect(h.api.app.onSystemAudio).toHaveBeenCalledWith(cb);
     expect(rec.meeting).toBe(true);
+    rec.cancel();
+  });
+
+  it('a plain recording asks for no system audio', async () => {
+    openNote('a.md');
+    await rec.start(() => null);
+    expect(h.recorder.startRecording).toHaveBeenCalledWith({});
     rec.cancel();
   });
 

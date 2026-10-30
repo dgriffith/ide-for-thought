@@ -7,7 +7,6 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildCsp, isOwnOrigin, isRendererEntry, externalNavTarget, startedInPluginFrame, subframeNavigationAllowed,
-  supportsSystemAudioCapture,
 } from '../../src/main/security-helpers';
 
 describe('buildCsp (#339)', () => {
@@ -232,21 +231,5 @@ describe('startedInPluginFrame (#2824)', () => {
     for (const v of ['app://minerva', 'https://example.com', 'null', '', null, undefined]) {
       expect(startedInPluginFrame(v), String(v)).toBe(false);
     }
-  });
-});
-
-describe('supportsSystemAudioCapture (#2731)', () => {
-  it('needs macOS 14.2 (Darwin 23.2) or later', () => {
-    expect(supportsSystemAudioCapture('darwin', '23.2.0')).toBe(true);  // 14.2
-    expect(supportsSystemAudioCapture('darwin', '24.6.0')).toBe(true);  // 15.x
-    expect(supportsSystemAudioCapture('darwin', '25.0.0')).toBe(true);  // 26
-    expect(supportsSystemAudioCapture('darwin', '23.1.0')).toBe(false); // 14.1
-    expect(supportsSystemAudioCapture('darwin', '22.6.0')).toBe(false); // 13.x
-    expect(supportsSystemAudioCapture('darwin', 'garbage')).toBe(false);
-  });
-
-  it('is on for Windows (native loopback) and off for Linux', () => {
-    expect(supportsSystemAudioCapture('win32', '10.0.26100')).toBe(true);
-    expect(supportsSystemAudioCapture('linux', '6.8.0')).toBe(false);
   });
 });

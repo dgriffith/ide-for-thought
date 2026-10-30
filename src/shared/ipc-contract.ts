@@ -342,6 +342,8 @@ export interface ChannelMap {
   'app:getShortcuts': () => Array<{ menu: string; items: Array<{ label: string; keys: string }> }>;
   'app:getSystemLocale': () => string;
   'app:supportsSystemAudio': () => boolean;
+  'app:startSystemAudio': () => { sampleRate: number; channels: number };
+  'app:stopSystemAudio': () => void;
 
   // External-file drag-drop import + bulk ingest (#259, #2087)
   'files:dropImport': (targetFolder: string, entries: DropImportEntry[]) => DropImportResult;
@@ -728,6 +730,8 @@ export interface EventMap {
   'conversation:stream': (chunk: string) => void;
   'conversation:askUser': (req: AskUserRequest) => void;
   'conversation:titleChanged': (change: { conversationId: string; title: string }) => void;
+  /** Interleaved float32 PCM from the system-audio tap, whole frames (#2731). */
+  'app:systemAudio': (chunk: Uint8Array) => void;
   'publish:renderLiveBlocks': (request: { requestId: string; blocks: LiveBlockRequest[] }) => void;
   'conversation:mcpConfirm': (req: McpConfirmRequest) => void;
   'conversation:extensionDraft': (offer: ExtensionDraftOffer) => void;

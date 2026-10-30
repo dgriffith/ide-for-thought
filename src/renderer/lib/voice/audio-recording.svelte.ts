@@ -21,7 +21,7 @@ import type { EditorView } from '@codemirror/view';
 import { api } from '../ipc/client';
 import { getNotebaseStore } from '../stores/notebase.svelte';
 import { getEditorStore } from '../stores/editor.svelte';
-import { startRecording, decodeAudioFile, micErrorMessage, type RecordingSession } from './recorder';
+import { startRecording, decodeAudioFile, micErrorMessage, type RecordingSession, type SystemAudioTap } from './recorder';
 import { getVoiceStore, sharedTranscriber } from './voice.svelte';
 import { TARGET_SAMPLE_RATE } from './pcm';
 import { planSegments } from './segments';
@@ -73,6 +73,13 @@ function stopTicker(): void {
   ticker = null;
 }
 
+/** Main's system-audio tap (#2731), as the recorder takes it. */
+const systemAudioTap: SystemAudioTap = {
+  start: () => api.app.startSystemAudio(),
+  stop: () => api.app.stopSystemAudio(),
+  onChunk: (cb) => api.app.onSystemAudio(cb),
+};
+
 /** Start recording from the default microphone — with `systemAudio`, a
  *  meeting recording that also captures what the computer plays (#2731). */
 async function start(viewGetter: ViewGetter, opts: { systemAudio?: boolean } = {}): Promise<void> {
@@ -93,7 +100,7 @@ async function start(viewGetter: ViewGetter, opts: { systemAudio?: boolean } = {
   status = 'starting';
   let started: RecordingSession;
   try {
-    started = await startRecording({ systemAudio: meeting });
+    started = await startRecording(meeting ? { systemAudio: systemAudioTap } : {});
   } catch (e) {
     logger('voice').error('recording start failed:', e);
     error = micErrorMessage(e);
@@ -153,7 +160,7 @@ async function stop(): Promise<void> {
     // where the call should be. Say so rather than let it pass as a success.
     if (s.heardSystemAudio() === false) {
       error = 'The recording was saved, but no system audio came through. If a call was playing, '
-        + 'allow Minerva under System Settings › Privacy & Security › Screen & System Audio Recording.';
+        + 'allow Minerva under System Settings › Privacy & Security › Screen & System Audio Recording › System Audio Recording Only.';
     }
   } catch (e) {
     logger('voice').error('stopping recording failed:', e);

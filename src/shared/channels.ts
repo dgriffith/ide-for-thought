@@ -741,6 +741,10 @@ export const Channels = {
   APP_GET_SYSTEM_LOCALE: 'app:getSystemLocale',
   /** Whether this OS can record system audio — meeting recordings (#2731). */
   APP_SUPPORTS_SYSTEM_AUDIO: 'app:supportsSystemAudio',
+  /** Start / stop the system-audio tap; its PCM arrives on APP_SYSTEM_AUDIO (#2731). */
+  APP_START_SYSTEM_AUDIO: 'app:startSystemAudio',
+  APP_STOP_SYSTEM_AUDIO: 'app:stopSystemAudio',
+  APP_SYSTEM_AUDIO: 'app:systemAudio',
   EXPORT_CSV: 'export:csv',
   SHELL_REVEAL_FILE: 'shell:revealFile',
   SHELL_OPEN_IN_DEFAULT: 'shell:openInDefault',

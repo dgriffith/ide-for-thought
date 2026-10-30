@@ -273,6 +273,9 @@ const api = {
     getShortcuts: () => invoke(Channels.APP_GET_SHORTCUTS),
     getSystemLocale: () => invoke(Channels.APP_GET_SYSTEM_LOCALE),
     supportsSystemAudio: () => invoke(Channels.APP_SUPPORTS_SYSTEM_AUDIO),
+    startSystemAudio: () => invoke(Channels.APP_START_SYSTEM_AUDIO),
+    stopSystemAudio: () => invoke(Channels.APP_STOP_SYSTEM_AUDIO),
+    onSystemAudio: (cb: EventMap['app:systemAudio']) => subscribe(Channels.APP_SYSTEM_AUDIO, cb),
   },
   images: {
     // Cached-or-fetched bytes+mime for an external image URL (offline cache, #...).

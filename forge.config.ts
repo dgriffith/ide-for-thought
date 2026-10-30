@@ -13,6 +13,7 @@ import { execFileSync } from 'node:child_process';
 import { makeCopyFilter, isTypesOnlyPackage } from './scripts/lib/package-prune.mjs';
 import { forgeFuseSettings } from './scripts/lib/electron-fuses.mjs';
 import { resolveSigningPolicy, forgeSigningConfig, adhocResignArgs } from './scripts/lib/signing-policy.mjs';
+import { buildAudioTap } from './scripts/lib/audio-tap-build.mjs';
 
 // @electron-forge/plugin-vite bundles the main process and ships NO node_modules
 // in the package. That's fine for everything Rollup can bundle — but a few deps
@@ -195,8 +196,10 @@ const config: ForgeConfig = {
     icon: path.resolve(process.cwd(), 'assets', 'Minerva'),
     // macOS shows these strings in its permission prompts. Without the mic
     // one, the hardened-runtime app is denied the mic outright (dictation,
-    // recordings). Without the audio-capture one, a meeting recording's
-    // system audio (#2731) comes back as a silent stream with no error.
+    // recordings). The audio-capture one is the "System Audio Recording
+    // Only" prompt for the meeting-recording helper (#2731), which macOS
+    // charges to Minerva as the process that started it; without it the tap
+    // records silence.
     extendInfo: {
       NSMicrophoneUsageDescription:
         'Minerva uses the microphone for voice dictation and audio recordings. Audio stays on your computer and is transcribed locally.',
@@ -287,6 +290,13 @@ const config: ForgeConfig = {
     }),
   ],
   hooks: {
+    // The meeting-recording helper (#2731): compiled from Swift into
+    // `resources/bin/`, which `extraResource` ships. Before `pnpm dev` and
+    // every package, for the arch being built; a no-op when it's current.
+    generateAssets: (_forgeConfig, platform, arch) => {
+      buildAudioTap({ root: process.cwd(), platform, arch });
+      return Promise.resolve();
+    },
     // An unsigned build is re-signed ad-hoc so the signature it carries is a
     // valid one; otherwise macOS privacy grants never apply to it (see
     // `adhocResignArgs`). Before the makers run, so the ZIP and DMG carry it.
