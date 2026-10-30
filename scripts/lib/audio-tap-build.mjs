@@ -26,8 +26,10 @@ export const AUDIO_TAP_SOURCE = path.join('native', 'audio-tap', 'main.swift');
 export const AUDIO_TAP_BINARY = path.join('resources', 'bin', 'minerva-audio-tap');
 /** The first macOS with Core Audio process taps. */
 export const AUDIO_TAP_MIN_MACOS = '14.2';
-/** What the binary was built from (`audioTapStamp`). */
-export const AUDIO_TAP_STAMP = path.join('.vite', 'audio-tap.stamp');
+/** What the binary was built from (`audioTapStamp`). Not under `.vite/`:
+ *  the Vite plugin empties that right after `generateAssets`, so a stamp there
+ *  never survived to skip a build. */
+export const AUDIO_TAP_STAMP = path.join('node_modules', '.cache', 'minerva', 'audio-tap.stamp');
 
 /** The `swiftc` target triples for a forge arch (two for `universal`), or
  *  null for one we don't build. */
