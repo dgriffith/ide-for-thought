@@ -148,3 +148,33 @@ export function forgeSigningConfig(decision, { entitlements }) {
     osxNotarize: decision.action === 'sign-and-notarize' ? { ...decision.notarize } : undefined,
   };
 }
+
+/**
+ * The `codesign` runs that give an UNSIGNED macOS build a valid ad-hoc
+ * signature, or null when the policy signs for real (or off macOS).
+ *
+ * Electron ships ad-hoc signed, and packaging then edits Info.plist (name,
+ * bundle id, the asar integrity hash), so an unsigned `.app` came out with a
+ * signature `codesign --verify` rejects ("invalid Info.plist") under Electron's
+ * own identifier, `com.github.Electron`. macOS ties privacy grants to the
+ * code's identity, so on that build a permission switched on in System
+ * Settings never applied: found hardware-testing meeting recordings (#2731),
+ * where enabling Screen & System Audio Recording and relaunching still
+ * recorded nothing. Re-signing ad-hoc fixed it.
+ *
+ * Ad-hoc is not a release identity: no Developer ID, no keychain, nothing
+ * notarized, and Gatekeeper still warns on another machine. It only makes the
+ * signature the build carries a true one. `--deep` signs the nested helpers
+ * and frameworks; the bundle's identifier comes from its Info.plist.
+ *
+ * @param {import('./signing-policy.d.mts').SigningDecision} decision
+ * @param {{ platform: string; appPath: string }} target
+ * @returns {{ sign: string[]; verify: string[] } | null}
+ */
+export function adhocResignArgs(decision, { platform, appPath }) {
+  if (decision.action !== 'skip' || platform !== 'darwin') return null;
+  return {
+    sign: ['--force', '--deep', '--sign', '-', appPath],
+    verify: ['--verify', '--deep', '--strict', appPath],
+  };
+}

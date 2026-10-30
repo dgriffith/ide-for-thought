@@ -12,7 +12,7 @@ import { execFileSync } from 'node:child_process';
 // fails only in a packaged build, which is the slowest feedback loop here.
 import { makeCopyFilter, isTypesOnlyPackage } from './scripts/lib/package-prune.mjs';
 import { forgeFuseSettings } from './scripts/lib/electron-fuses.mjs';
-import { resolveSigningPolicy, forgeSigningConfig } from './scripts/lib/signing-policy.mjs';
+import { resolveSigningPolicy, forgeSigningConfig, adhocResignArgs } from './scripts/lib/signing-policy.mjs';
 
 // @electron-forge/plugin-vite bundles the main process and ships NO node_modules
 // in the package. That's fine for everything Rollup can bundle — but a few deps
@@ -284,6 +284,20 @@ const config: ForgeConfig = {
     }),
   ],
   hooks: {
+    // An unsigned build is re-signed ad-hoc so the signature it carries is a
+    // valid one; otherwise macOS privacy grants never apply to it (see
+    // `adhocResignArgs`). Before the makers run, so the ZIP and DMG carry it.
+    // A release build signs for real in the packager and this does nothing.
+    postPackage: async (_forgeConfig, { platform, outputPaths }) => {
+      for (const out of outputPaths) {
+        for (const name of fs.readdirSync(out).filter((n) => n.endsWith('.app'))) {
+          const run = adhocResignArgs(signingDecision, { platform, appPath: path.join(out, name) });
+          if (!run) continue;
+          execFileSync('codesign', run.sign, { stdio: 'inherit' });
+          execFileSync('codesign', run.verify, { stdio: 'inherit' });
+        }
+      }
+    },
     // Forge signs + notarizes + staples the .app during the package step, but the
     // DMG maker wraps that app WITHOUT stapling the .dmg itself. An un-stapled DMG
     // still works online (Gatekeeper checks notarization on mount) but fails to

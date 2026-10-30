@@ -11,6 +11,7 @@ import { describe, it, expect } from 'vitest';
 import {
   resolveSigningPolicy,
   forgeSigningConfig,
+  adhocResignArgs,
   RELEASE_FLAG,
   NOTARIZE_VARS,
   IDENTITY_VAR,
@@ -165,5 +166,30 @@ describe('forgeSigningConfig', () => {
     expect(() => forgeSigningConfig(darwin({ [RELEASE_FLAG]: '1' }), { entitlements })).toThrow(
       /MINERVA_RELEASE is set but no signing credentials/,
     );
+  });
+});
+
+describe('adhocResignArgs (#2731)', () => {
+  const appPath = '/fake/out/Minerva-darwin-arm64/Minerva.app';
+
+  it('an unsigned macOS build is re-signed ad-hoc, then verified strictly', () => {
+    for (const env of [{}, { ...CREDS }]) {
+      expect(adhocResignArgs(darwin(env), { platform: 'darwin', appPath })).toEqual({
+        sign: ['--force', '--deep', '--sign', '-', appPath],
+        verify: ['--verify', '--deep', '--strict', appPath],
+      });
+    }
+  });
+
+  it('a release build is left to the packager\'s real signature', () => {
+    for (const env of [{ ...CREDS, [RELEASE_FLAG]: '1' }, { [IDENTITY_VAR]: IDENTITY, [RELEASE_FLAG]: '1' }]) {
+      expect(adhocResignArgs(darwin(env), { platform: 'darwin', appPath })).toBeNull();
+    }
+  });
+
+  it('never signs with an identity, and does nothing off macOS', () => {
+    const run = adhocResignArgs(darwin({ ...CREDS, [IDENTITY_VAR]: IDENTITY }), { platform: 'darwin', appPath });
+    expect(run?.sign.join(' ')).not.toContain(IDENTITY);
+    expect(adhocResignArgs(resolveSigningPolicy({ platform: 'linux', env: {} }), { platform: 'linux', appPath })).toBeNull();
   });
 });
