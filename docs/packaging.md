@@ -95,6 +95,13 @@ pnpm build -- --arch=universal
 
 This produces a universal binary at the cost of ~2× the .app size.
 
+The meeting-recording helper (#2731, `native/audio-tap/main.swift`) is
+compiled by forge's `generateAssets` hook for the arch being built, two slices
+joined with `lipo` for `universal`, into `resources/bin/` (gitignored). That
+needs the Xcode command-line tools, which every macOS runner and any Mac with
+`git` already has. The hook skips the compile while the source and arch are
+unchanged (`scripts/lib/audio-tap-build.mjs`).
+
 Releases ship arm64 only (#962). An **x64** build is exercised anyway, as an
 early warning: `ci.yml`'s `x64-smoke` job packages natively on a
 `macos-15-intel` runner on every push to `main` (and on PRs labelled
@@ -186,6 +193,10 @@ self-contained demo machine.
   signing posture* below). Users expose it on PATH with **Help → Install 'minerva' Command in
   PATH…** (`src/main/cli-install.ts`), which writes a shim to
   `~/.local/bin/minerva`. macOS/Linux; Windows is a follow-up.
+- `native/audio-tap/main.swift` — the meeting recorder's system-audio helper
+  (#2731): a Core Audio process tap, PCM on stdout. Built into
+  `resources/bin/minerva-audio-tap` (see *Architecture* above) and run by
+  `src/main/system-audio-tap.ts`.
 - `resources/python/` — bundled Python kernel + `minerva` helper
   library. Staged into `Minerva.app/Contents/Resources/python/` by the
   `extraResource` config.

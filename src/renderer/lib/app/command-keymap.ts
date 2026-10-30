@@ -172,6 +172,7 @@ export function createCommandKeymap(ctx: CommandKeymapCtx): {
     'edit.insertTemplate': ctx.insertTemplate,
     'file.newAudioRecording': () => { void recordings.toggle(focusedView); },
     'edit.transcribeRecording': () => { void recordings.transcribeAtCursor(focusedView); },
+    'file.newMeetingRecording': () => { void recordings.toggle(focusedView, { systemAudio: true }); },
     'edit.summarizeRecording': () => { recordings.summarizeAtCursor(focusedView, ctx.invokeTool); },
     'file.clearRecent': () => { void api.notebase.clearRecent(); },
     'file.thoughtbaseProperties': ctx.openThoughtbaseProperties,

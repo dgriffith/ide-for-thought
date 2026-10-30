@@ -95,6 +95,8 @@ export const COMMANDS = [
   { id: 'file.newAudioRecording', title: 'New Audio Recording (Start / Stop)', category: 'File', palette: { when: 'project' },
     menu: { label: 'New Audio Recording', toolTip: 'Record from the microphone into a file in the thoughtbase, embedded in the open note. Choose it again to stop.' } },
   { id: 'edit.transcribeRecording', title: 'Transcribe Audio Recording', category: 'Edit', palette: { when: 'noteTab' } },
+  // The mic plus the sound the Mac plays, mixed: both sides of a call (#2731).
+  { id: 'file.newMeetingRecording', title: 'New Meeting Recording (Mic + System Audio, Start / Stop)', category: 'File', palette: { when: 'project' } },
   { id: 'edit.summarizeRecording', title: 'Summarize Audio Recording…', category: 'Edit', palette: { when: 'noteTab' } },
   // ── Edit / search ──
   { id: 'edit.find', title: 'Find', category: 'Edit', key: 'CmdOrCtrl+F', palette: { when: 'note' }, menu: { gate: NOTE } },
@@ -210,6 +212,7 @@ export const COMMANDS = [
   { id: 'editor.toggleTaskList', title: 'Task List', category: 'Editor', editor: {} },
   // Voice (Dictate is `edit.dictate`, above)
   { id: 'editor.recordAudio', title: 'Record Audio', category: 'Editor', editor: {} },
+  { id: 'editor.recordMeeting', title: 'Record Meeting (Mic + System Audio)', category: 'Editor', editor: {} },
   { id: 'editor.transcribeRecording', title: 'Transcribe Recording', category: 'Editor', editor: {} },
   // Insert
   // ⌘K is the command palette's (#463, #2758). Not Mod-Alt-k: Option

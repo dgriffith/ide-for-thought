@@ -1,7 +1,10 @@
+import os from 'node:os';
 import { ipcMain, app, BrowserWindow } from 'electron';
 import { Channels } from '../../shared/channels';
 import { handle } from './typed-ipc';
 import { isTrustedIpcSender } from './sender-guard';
+import { createSystemAudioTaps, supportsSystemAudioCapture } from '../system-audio-tap';
+import { broadcast } from './broadcast';
 import { getMenuShortcuts, setMenuThemeMode, setMenuEditorState } from '../menu';
 import type { ThemeMode } from '../../shared/theme';
 import type { MenuEditorState } from '../../shared/types';
@@ -39,6 +42,22 @@ export function registerApp(): void {
   // The OS locale with its region, for the Calendar's Automatic week start
   // (#2702): the renderer's `navigator.language` is the language alone.
   handle(Channels.APP_GET_SYSTEM_LOCALE, () => app.getSystemLocale());
+
+  // Meeting recordings (#2731): system audio, through the bundled Core Audio
+  // tap helper (`system-audio-tap.ts`), on macOS 14.2+. Its PCM goes only to
+  // the window that started it, and stops when that window goes.
+  handle(Channels.APP_SUPPORTS_SYSTEM_AUDIO, () => supportsSystemAudioCapture(process.platform, os.release()));
+  const taps = createSystemAudioTaps();
+  handle(Channels.APP_START_SYSTEM_AUDIO, (e) => {
+    const win = BrowserWindow.fromWebContents(e.sender);
+    if (!win) throw new Error('No window to record system audio for.');
+    const owner = e.sender.id;
+    e.sender.once('destroyed', () => taps.stop(owner));
+    return taps.start(owner, (chunk) => {
+      if (!win.isDestroyed()) broadcast(win, Channels.APP_SYSTEM_AUDIO, chunk);
+    });
+  });
+  handle(Channels.APP_STOP_SYSTEM_AUDIO, (e) => { taps.stop(e.sender.id); });
 
   // The renderer owns the theme (localStorage); it reports changes so the
   // native View → Theme submenu can show the active radio (#1139).

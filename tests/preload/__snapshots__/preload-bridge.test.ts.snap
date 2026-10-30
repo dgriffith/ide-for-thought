@@ -6,6 +6,10 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
     "getInfo",
     "getShortcuts",
     "getSystemLocale",
+    "onSystemAudio",
+    "startSystemAudio",
+    "stopSystemAudio",
+    "supportsSystemAudio",
   ],
   "bibliography": [
     "generate",

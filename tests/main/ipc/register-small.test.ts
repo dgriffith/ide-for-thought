@@ -41,6 +41,8 @@ const { handlers, listeners, h } = vi.hoisted(() => ({
     // menu (app)
     getMenuShortcuts: vi.fn(), setMenuThemeMode: vi.fn(), setMenuEditorState: vi.fn(),
     fromWebContents: vi.fn(),
+    // system-audio tap (#2731)
+    tapStart: vi.fn(), tapStop: vi.fn(),
   },
 }));
 
@@ -96,6 +98,10 @@ vi.mock('../../../src/main/clipper/clipper-config', () => ({
 }));
 vi.mock('../../../src/main/clipper/lifecycle', () => ({ getClipperInfo: h.getClipperInfo }));
 vi.mock('../../../src/main/window-manager', () => ({ applyClipperConfigChange: h.applyClipperConfigChange }));
+vi.mock('../../../src/main/system-audio-tap', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../src/main/system-audio-tap')>()),
+  createSystemAudioTaps: () => ({ start: h.tapStart, stop: h.tapStop }),
+}));
 vi.mock('../../../src/main/menu', () => ({
   getMenuShortcuts: h.getMenuShortcuts,
   setMenuThemeMode: h.setMenuThemeMode,
@@ -331,6 +337,50 @@ describe('register-app (#1840)', () => {
 
   it('answers the OS locale with its region, for the Calendar week start (#2702)', () => {
     expect(call(Channels.APP_GET_SYSTEM_LOCALE)).toBe('en-DE');
+  });
+
+  it('answers whether this OS can record system audio, for meeting recordings (#2731)', () => {
+    // The rule itself is system-audio-tap's supportsSystemAudioCapture; here,
+    // only that the channel answers it for the running platform.
+    expect(typeof call(Channels.APP_SUPPORTS_SYSTEM_AUDIO)).toBe('boolean');
+  });
+
+  describe('the system-audio tap (#2731)', () => {
+    function sender(id: number) {
+      const once = new Map<string, () => void>();
+      return { id, once: (ev: string, fn: () => void) => { once.set(ev, fn); }, fire: (ev: string) => once.get(ev)?.() };
+    }
+
+    it('starts a tap for the asking window and sends its PCM only there', async () => {
+      const sent: unknown[][] = [];
+      const win = { isDestroyed: () => false, webContents: { send: (...a: unknown[]) => sent.push(a) } };
+      h.fromWebContents.mockReturnValue(win);
+      h.tapStart.mockResolvedValue({ sampleRate: 48000, channels: 2 });
+      const s = sender(3);
+      await expect(handlers.get(Channels.APP_START_SYSTEM_AUDIO)!({ sender: s })).resolves.toEqual({ sampleRate: 48000, channels: 2 });
+      const [owner, send] = h.tapStart.mock.calls[0] as [number, (c: Uint8Array) => void];
+      expect(owner).toBe(3);
+      const chunk = new Uint8Array(8);
+      send(chunk);
+      expect(sent).toEqual([[Channels.APP_SYSTEM_AUDIO, chunk]]);
+    });
+
+    it('stops on request, and when the window goes', async () => {
+      h.fromWebContents.mockReturnValue({ isDestroyed: () => false, webContents: { send: () => {} } });
+      h.tapStart.mockResolvedValue({ sampleRate: 48000, channels: 2 });
+      const s = sender(4);
+      await handlers.get(Channels.APP_START_SYSTEM_AUDIO)!({ sender: s });
+      s.fire('destroyed');
+      expect(h.tapStop).toHaveBeenCalledWith(4);
+      h.tapStop.mockClear();
+      await handlers.get(Channels.APP_STOP_SYSTEM_AUDIO)!({ sender: sender(5) });
+      expect(h.tapStop).toHaveBeenCalledWith(5);
+    });
+
+    it('refuses a sender with no window', () => {
+      h.fromWebContents.mockReturnValue(null);
+      expect(() => handlers.get(Channels.APP_START_SYSTEM_AUDIO)!({ sender: sender(6) })).toThrow(/No window/);
+    });
   });
 
   it('records the theme the renderer reports, for the native View menu', () => {

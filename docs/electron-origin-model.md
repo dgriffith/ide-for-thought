@@ -67,6 +67,14 @@ upgrade copies the old `file://` origin's entries across once
 - **A permission** is granted in `security.ts`'s default-session handler to
   `app://minerva` only, judged by the requesting frame's URL (#2824). Any
   other session denies it.
+- **System audio for a meeting recording** (#2731) is not a web permission.
+  `getDisplayMedia` is deliberately unhandled: Electron's loopback route needs
+  a screen source, which shows macOS's full screen-recording prompt. Main
+  runs a bundled helper (`native/audio-tap/`, `system-audio-tap.ts`) instead,
+  on a renderer request (`app:startSystemAudio`, which the sender guard
+  covers), and sends its PCM only to the window that asked. macOS charges the
+  helper's "System Audio Recording Only" permission to Minerva, using
+  `NSAudioCaptureUsageDescription`; without the grant it records silence.
 - **A plugin's worker host** (#2830) is an unattached `WebContentsView` with
   the hardened preferences, on the plugin's origin, showing only Minerva's
   host page. It's the one page besides the renderer with a preload, and that

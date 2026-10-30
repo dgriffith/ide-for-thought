@@ -24,6 +24,12 @@ const recordAudio: Command = (view) => {
   return true;
 };
 
+/** Start / stop a meeting recording: the mic plus system audio (#2731). */
+const recordMeeting: Command = (view) => {
+  void getAudioRecordingStore().toggle(() => view, { systemAudio: true });
+  return true;
+};
+
 /** Transcribe the audio recording embedded on the cursor's line (#2428). */
 const transcribeRecording: Command = (view) => {
   void getAudioRecordingStore().transcribeAtCursor(() => view);
@@ -65,6 +71,7 @@ export const EDITOR_COMMANDS: Record<EditorCommandId, Command> = {
   'editor.toggleTaskList': toggleTaskList,
   'edit.dictate': dictate,
   'editor.recordAudio': recordAudio,
+  'editor.recordMeeting': recordMeeting,
   'editor.transcribeRecording': transcribeRecording,
   'editor.insertLink': insertLink,
   'editor.insertWikiLink': insertWikiLink,

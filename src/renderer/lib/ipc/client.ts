@@ -640,6 +640,14 @@ export interface AppApi {
   getShortcuts(): Promise<ShortcutGroup[]>;
   /** The OS locale WITH its region (`en-DE`; `navigator.language` has none) — the Calendar's Automatic week start (#2702). */
   getSystemLocale(): Promise<string>;
+  /** Whether this OS can record system audio for a meeting recording (#2731). */
+  supportsSystemAudio(): Promise<boolean>;
+  /** Start recording system audio (the Core Audio tap helper); resolves with
+   *  its format once it's running. Rejects if it can't start (#2731). */
+  startSystemAudio(): Promise<{ sampleRate: number; channels: number }>;
+  stopSystemAudio(): Promise<void>;
+  /** The tap's PCM: interleaved float32, whole frames. Returns an unsubscribe. */
+  onSystemAudio(cb: (chunk: Uint8Array) => void): () => void;
 }
 
 export interface ImagesApi {
