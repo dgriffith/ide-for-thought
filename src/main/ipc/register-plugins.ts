@@ -48,10 +48,11 @@ import path from 'node:path';
 export async function pluginList(): Promise<PluginList> {
   const [inv, records] = await Promise.all([getPluginInventory(), loadPluginRecords(activePluginsDir())]);
   return {
-    core: corePlugins().map(({ manifest: m, defaultEnabled }): PluginSummary => ({
+    core: corePlugins().map(({ manifest: m, ...def }): PluginSummary => ({
       id: m.id, name: m.name, version: m.version, description: m.description,
-      enabled: corePluginEnabled(records, { manifest: m, defaultEnabled }),
+      enabled: corePluginEnabled(records, { manifest: m, ...def }),
       source: { kind: 'core' },
+      ...(def.sample ? { sample: true } : {}),
       contributes: {},
       ...(m.code ? { capabilities: m.code.capabilities } : {}),
       ...(m.code?.views ? { views: m.code.views } : {}),
