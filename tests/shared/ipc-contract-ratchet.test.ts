@@ -69,6 +69,8 @@ const EVENT_CHANNELS = new Set<string>([
   Channels.STORAGE_LEGACY_ORIGIN_ENTRIES,
   Channels.NOTEBASE_FILE_CHANGED,
   Channels.PLUGINS_CHANGED,
+  // main → renderer: the system-audio tap's PCM, to the window that started it (#2731).
+  Channels.APP_SYSTEM_AUDIO,
   // main → renderer, carrying a MessagePort that the preload posts into the page (#2825).
   Channels.PLUGINS_SESSION_PORT,
   // main → renderer: a plugin's ui intent (#2825).
