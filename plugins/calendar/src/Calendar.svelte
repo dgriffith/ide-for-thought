@@ -91,6 +91,9 @@
     locale?: string;
   }
   let { minerva, view, locale }: Props = $props();
+  // The connection is made once, before mount (`main.ts`), and never replaced,
+  // so the hover and reschedule controllers rightly take it once.
+  const connection = untrack(() => minerva);
 
   /** A call whose failure the user can't act on (the frame closing, say). */
   const quietly = (p: Promise<unknown>) => { p.catch(() => {}); };
@@ -262,7 +265,7 @@
     const written = writtenAs(ev, ev.inst.values[dates.dateProperty]);
     return [`${ev.dateText}${ev.approx ? ' · approximate' : ''}`, ...(written ? [written] : []), ...(ev.endNote ? [`⚠ ${ev.endNote}`] : [])];
   }
-  const hover = createPluginHover(minerva, {
+  const hover = createPluginHover(connection, {
     enabled: () => !exportMode,
     extra: (key) => cardLines(key),
     omit: () => [dates.dateProperty, ...(dates.endProperty ? [dates.endProperty] : [])],
@@ -292,7 +295,7 @@
 
   // ── Reschedule (#2703, `calendar/reschedule-controller.svelte.ts`) ───
   const move = createReschedule({
-    minerva,
+    minerva: connection,
     model: () => model, dates: () => dates, locale: () => locale, interactive: () => interactive,
     focusDay: (day) => void focusDay(day, 'other-month'), closeList: () => closeList(false),
   });
