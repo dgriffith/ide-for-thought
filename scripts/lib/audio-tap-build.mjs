@@ -26,6 +26,8 @@ export const AUDIO_TAP_SOURCE = path.join('native', 'audio-tap', 'main.swift');
 export const AUDIO_TAP_BINARY = path.join('resources', 'bin', 'minerva-audio-tap');
 /** The first macOS with Core Audio process taps. */
 export const AUDIO_TAP_MIN_MACOS = '14.2';
+/** What the binary was built from (`audioTapStamp`). */
+export const AUDIO_TAP_STAMP = path.join('.vite', 'audio-tap.stamp');
 
 /** The `swiftc` target triples for a forge arch (two for `universal`), or
  *  null for one we don't build. */
@@ -62,7 +64,9 @@ export function buildAudioTap({ root, platform, arch, run = execFileSync, log = 
   const target = targets.join('+');
   const source = path.join(root, AUDIO_TAP_SOURCE);
   const out = path.join(root, AUDIO_TAP_BINARY);
-  const stampFile = `${out}.stamp`;
+  // Beside the build output, not in `resources/`, which ships whole.
+  const stampFile = path.join(root, AUDIO_TAP_STAMP);
+  fs.mkdirSync(path.dirname(stampFile), { recursive: true });
   const stamp = audioTapStamp(fs.readFileSync(source), target);
   if (fs.existsSync(out) && fs.existsSync(stampFile) && fs.readFileSync(stampFile, 'utf8') === stamp) {
     return 'current';

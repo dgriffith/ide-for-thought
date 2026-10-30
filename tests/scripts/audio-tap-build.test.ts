@@ -11,7 +11,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
-  AUDIO_TAP_BINARY, AUDIO_TAP_SOURCE, audioTapSwiftcArgs, audioTapTargets, buildAudioTap,
+  AUDIO_TAP_BINARY, AUDIO_TAP_SOURCE, AUDIO_TAP_STAMP, audioTapSwiftcArgs, audioTapTargets, buildAudioTap,
 } from '../../scripts/lib/audio-tap-build.mjs';
 
 let root: string;
@@ -44,6 +44,8 @@ describe('audio-tap build (#2731)', () => {
     expect(build()).toBe('built');
     expect(run).toHaveBeenCalledWith('xcrun', expect.arrayContaining(['-target', 'arm64-apple-macos14.2']), { stdio: 'inherit' });
     expect(fs.existsSync(path.join(root, AUDIO_TAP_BINARY))).toBe(true);
+    // Nothing but the binary in resources/bin, which ships whole.
+    expect(fs.readdirSync(path.join(root, path.dirname(AUDIO_TAP_BINARY)))).toEqual(['minerva-audio-tap']);
     expect(build()).toBe('current');
     expect(run).toHaveBeenCalledOnce();
   });
@@ -77,6 +79,6 @@ describe('audio-tap build (#2731)', () => {
   it('a failed compile throws and records nothing', () => {
     run.mockImplementationOnce(() => { throw new Error('swiftc: error'); });
     expect(() => build()).toThrow(/swiftc: error/);
-    expect(fs.existsSync(path.join(root, `${AUDIO_TAP_BINARY}.stamp`))).toBe(false);
+    expect(fs.existsSync(path.join(root, AUDIO_TAP_STAMP))).toBe(false);
   });
 });

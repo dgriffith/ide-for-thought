@@ -3,6 +3,7 @@
 export const AUDIO_TAP_SOURCE: string;
 export const AUDIO_TAP_BINARY: string;
 export const AUDIO_TAP_MIN_MACOS: string;
+export const AUDIO_TAP_STAMP: string;
 
 export function audioTapTargets(arch: string): string[] | null;
 export function audioTapStamp(source: string | Buffer, target: string): string;
