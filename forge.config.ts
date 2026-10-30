@@ -288,7 +288,7 @@ const config: ForgeConfig = {
     // valid one; otherwise macOS privacy grants never apply to it (see
     // `adhocResignArgs`). Before the makers run, so the ZIP and DMG carry it.
     // A release build signs for real in the packager and this does nothing.
-    postPackage: async (_forgeConfig, { platform, outputPaths }) => {
+    postPackage: (_forgeConfig, { platform, outputPaths }) => {
       for (const out of outputPaths) {
         for (const name of fs.readdirSync(out).filter((n) => n.endsWith('.app'))) {
           const run = adhocResignArgs(signingDecision, { platform, appPath: path.join(out, name) });
@@ -297,6 +297,7 @@ const config: ForgeConfig = {
           execFileSync('codesign', run.verify, { stdio: 'inherit' });
         }
       }
+      return Promise.resolve();
     },
     // Forge signs + notarizes + staples the .app during the package step, but the
     // DMG maker wraps that app WITHOUT stapling the .dmg itself. An un-stapled DMG
