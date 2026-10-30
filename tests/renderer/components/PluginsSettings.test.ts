@@ -180,9 +180,26 @@ describe('PluginsSettings (#2634)', () => {
     expect(h.setEnabled).toHaveBeenCalledWith('python', true);
   });
 
+  it('lists the sample plugins apart from the parts of Minerva', async () => {
+    const core = { version: '1.0.0', description: 'd', enabled: false, source: { kind: 'core' as const }, contributes: {} };
+    const python = { ...core, id: 'python', name: 'Python cells' };
+    const epub = { ...core, id: 'epub', name: 'EPUB', sample: true as const };
+    h.list.mockResolvedValue({ ...LIST, core: [python, epub] });
+    const { findByRole, getByRole } = render(PluginsSettings);
+    const builtIn = await findByRole('list', { name: 'Built-in plugins' });
+    const samples = getByRole('list', { name: 'Sample plugins' });
+    expect(builtIn.textContent).toContain('Python cells');
+    expect(builtIn.textContent).not.toContain('EPUB');
+    expect(samples.textContent).toContain('EPUB');
+    expect(samples.textContent).not.toContain('Python cells');
+    await fireEvent.click(getByRole('checkbox', { name: 'Turn on EPUB' }));
+    expect(h.setEnabled).toHaveBeenCalledWith('epub', true);
+  });
+
   it('shows no built-in section while there are none', async () => {
     const { findByText, queryByRole } = render(PluginsSettings);
     await findByText('Lab Tools');
     expect(queryByRole('list', { name: 'Built-in plugins' })).toBeNull();
+    expect(queryByRole('list', { name: 'Sample plugins' })).toBeNull();
   });
 });
