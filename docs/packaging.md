@@ -38,7 +38,14 @@ your keychain plus `APPLE_API_KEY` / `APPLE_API_KEY_ID` / `APPLE_API_ISSUER` —
 it fails rather than build unsigned without them. `pnpm build`, `pnpm package`
 and `pnpm build:e2e` are always unsigned, even with those vars exported (see
 [`releasing.md`](./releasing.md#signing-is-opt-in-minerva_release)). An unsigned
-build's first launch will throw:
+build is re-signed **ad-hoc** after packaging (a `postPackage` hook, policy in
+`scripts/lib/signing-policy.mjs`'s `adhocResignArgs`). That isn't a release
+identity: it only makes the build's signature valid, which macOS needs before
+a privacy grant (microphone, Screen & System Audio Recording) applies to it.
+Without it, switching Minerva on in System Settings did nothing (#2731). To
+test a permission prompt, launch the `.app` from Finder, not a terminal: an app
+started from a terminal has its permissions charged to the terminal. It
+still isn't notarized, so its first launch on another Mac will throw:
 
 > "Minerva" cannot be opened because the developer cannot be verified.
 

@@ -36,3 +36,8 @@ export function forgeSigningConfig(
   osxSign: { optionsForFile: () => { entitlements: string }; identity?: string } | undefined;
   osxNotarize: NotarizeCreds | undefined;
 };
+
+export function adhocResignArgs(
+  decision: SigningDecision,
+  target: { platform: string; appPath: string },
+): { sign: string[]; verify: string[] } | null;

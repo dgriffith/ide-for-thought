@@ -784,6 +784,12 @@ maintainer's Developer ID.
   `tests/architecture/release-signing-flag.test.ts` pins who sets the flag —
   only `build:release`, only on `release.yml`'s `HAS_SIGNING`-gated step, never
   in `ci.yml`/`bench.yml`.
+- **An unsigned build is re-signed ad-hoc** (`adhocResignArgs`, a
+  `postPackage` hook): no identity, no keychain, nothing notarized. It only
+  makes the signature valid, because packaging edits Info.plist after
+  Electron's own ad-hoc signature and macOS won't apply a privacy grant to code
+  whose signature fails `codesign --verify` (#2731). Test a permission prompt
+  from Finder, not a terminal, which takes the grant itself.
 - **Agents: never run `pnpm build:release`, and never set `MINERVA_RELEASE`
   alongside real credentials.** Use `pnpm build:e2e` / `pnpm package`.
 
