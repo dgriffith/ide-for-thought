@@ -184,6 +184,10 @@ const LIST = {
       description: 'Headings that jump a level, like an H1 straight to an H3, leaving a gap in the outline.',
       query: 'notes.rq', run: { handler: 'skippedHeadings' },
     }],
+  }, {
+    id: 'steel-theme', name: 'Steel', version: '1.0.0',
+    description: 'A light colour theme: white pages, light grey chrome and steel-blue accents. Turn it on, then pick **Steel** in Settings → Appearance.',
+    enabled: false, source: { kind: 'core' }, sample: true, contributes: { themes: 1 },
   }],
   installed: [{
     id: 'lab', name: 'Lab', version: '1.0.0', description: 'Lab tools', author: 'Ada', enabled: false,

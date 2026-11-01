@@ -15,6 +15,8 @@ import { _disablePluginsForTests, enablePlugins, reloadPluginScan } from '../../
 import { setPluginEnabled } from '../../../src/main/plugins/lifecycle';
 import { writePlugin } from '../../helpers/plugins';
 import { silenceLogTags } from '../../helpers/quiet-logs';
+import { markCorePluginActive } from '../../../src/main/core-plugins-active';
+import { corePlugins } from '../../../src/main/plugins/core';
 
 silenceLogTags('plugins');
 
@@ -136,5 +138,31 @@ describe('pluginThemes (#2787)', () => {
     enablePlugins({ appVersion: '4.0.0', dir });
     await reloadPluginScan();
     expect(pluginThemes().problems[0]!.problem).toMatch(/a theme may be at most 65536/);
+  });
+});
+
+describe('built-in plugins\' themes: the Steel sample', () => {
+  afterEach(() => markCorePluginActive('steel-theme', false));
+
+  it('is offered only while Steel is active, read from its bundled themes/steel.json', () => {
+    expect(pluginThemes().themes.map((t) => t.mode)).not.toContain('plugin:steel-theme/steel');
+    markCorePluginActive('steel-theme', true);
+    const steel = pluginThemes().themes.find((t) => t.mode === 'plugin:steel-theme/steel');
+    expect(steel).toMatchObject({ label: 'Steel', base: 'light', plugin: { id: 'steel-theme', name: 'Steel' } });
+    expect(steel!.tokens['--bg']).toBe('#ffffff');
+    expect(steel!.tokens['--accent']).toBe('#36648b');
+    markCorePluginActive('steel-theme', false);
+    expect(pluginThemes().themes.map((t) => t.mode)).not.toContain('plugin:steel-theme/steel');
+  });
+
+  it('every built-in plugin\'s theme file is one an installed plugin could ship, with no contrast warning', () => {
+    const repo = path.resolve(__dirname, '..', '..', '..');
+    const files = corePlugins().flatMap(({ manifest }) => (manifest.contributes.themes ?? []).map((f) => ({ id: manifest.id, f })));
+    expect(files.length).toBeGreaterThan(0);
+    for (const { id, f } of files) {
+      const raw: unknown = JSON.parse(fs.readFileSync(path.join(repo, 'plugins', id, f), 'utf-8'));
+      const r = parseThemeFile(raw, { plugin: id, theme: path.basename(f, '.json') });
+      expect(r, `${id}/${f}`).toMatchObject({ ok: true, theme: { warnings: [] } });
+    }
   });
 });

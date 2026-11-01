@@ -55,6 +55,8 @@ const CORE_PLUGIN_ACTIVATIONS: Readonly<Record<string, CorePluginActivation>> = 
   // Outline Checks (#2831): its inspection joins every sweep while it's
   // active (`plugin-inspections.ts`), run in its worker host.
   'outline-checks': () => () => {},
+  // Steel (sample): its theme is offered while it's active (`plugins/themes.ts`).
+  'steel-theme': () => () => {},
 };
 
 /**

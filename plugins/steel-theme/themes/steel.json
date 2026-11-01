@@ -1,0 +1,23 @@
+{
+  "label": "Steel",
+  "base": "light",
+  "tokens": {
+    "--bg": "#ffffff",
+    "--bg-inset": "#ffffff",
+    "--bg-elev": "#f1f2f4",
+    "--bg-elev-2": "#e3e6ea",
+    "--bg-button-hover": "#d3d8de",
+    "--bg-appbar": "var(--bg-elev)",
+    "--appbar-inset": "#ffffff",
+    "--bg-code": "#f3f5f7",
+    "--text": "#1d2228",
+    "--text-muted": "#4f5761",
+    "--text-faint": "#5f6771",
+    "--border": "#d7dbe0",
+    "--border-strong": "#b4bbc4",
+    "--accent": "#36648b",
+    "--accent-dim": "#8fb0cc",
+    "--accent-ink": "#ffffff",
+    "--scrim-bg": "rgba(29, 34, 40, 0.32)"
+  }
+}

@@ -101,7 +101,7 @@ switch. They can't be removed, and installing doesn't apply to them: the
 app's signature vouches for them, so there is nothing to approve.
 
 The ones that are worked examples of a plugin seam rather than parts of
-Minerva (Reading Queue, List Tools, Transcripts, EPUB, Outline Checks) are
+Minerva (Reading Queue, List Tools, Transcripts, EPUB, Outline Checks, Steel) are
 marked `sample: true` in `main/plugins/core.ts`, and Settings lists them
 apart, under **Samples**. Otherwise they're built-in plugins like the rest.
 
@@ -353,6 +353,12 @@ that drives the server over stdio (`npm test` or `python3 -m unittest`). See
 A plugin's `themes/<id>.json` adds a colour theme (#2787). It's listed after
 Dark, Light, High Contrast and System in every theme picker: the status bar,
 Settings → Appearance, the command palette and View → Theme.
+
+The **Steel** sample is a whole one to start from:
+[`plugins/steel-theme/themes/steel.json`](../plugins/steel-theme/themes/steel.json),
+a light theme with white pages, light grey chrome and steel-blue accents, and
+no contrast warnings. (A built-in plugin's theme is bundled into the app; the
+file is exactly what yours ships in its own `themes/` folder.)
 
 ```json
 {
