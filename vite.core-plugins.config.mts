@@ -3,8 +3,14 @@
  * --config vite.core-plugins.config.mts`, run per plugin by
  * `scripts/build-core-plugins.mjs`. Its own build, not a Forge renderer entry:
  * a renderer entry is served from the Vite dev server under `pnpm dev`, which
- * a plugin frame's `script-src 'self'` can't load. The output is served from
- * `.vite/core-plugins/<id>/` on the plugin's own origin, in dev and packaged.
+ * a plugin frame's `script-src 'self'` can't load. The output, in
+ * `node_modules/.cache/minerva/core-plugins/<id>/`, is served on the plugin's
+ * own origin: from there under `pnpm dev`, and from `.vite/core-plugins/<id>/`
+ * inside app.asar once packaging has copied it in.
+ *
+ * Not `.vite/`: `pnpm dev` builds these before `electron-forge start`, and the
+ * Forge Vite plugin deletes all of `.vite/` as it starts, after every hook a
+ * config can run, so dev was left serving 404s.
  *
  * - `base: './'`: every asset is relative, so it resolves on
  *   `minerva-plugin://<id>/`, never the app's origin.
@@ -24,7 +30,7 @@ if (!id || !/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(id)) {
   throw new Error('vite.core-plugins.config.mts: set CORE_PLUGIN to a built-in plugin id');
 }
 const root = path.resolve(import.meta.dirname, 'plugins', id);
-const outDir = process.env.CORE_PLUGIN_OUT ?? path.resolve(import.meta.dirname, '.vite', 'core-plugins', id);
+const outDir = process.env.CORE_PLUGIN_OUT ?? path.resolve(import.meta.dirname, 'node_modules', '.cache', 'minerva', 'core-plugins', id);
 const input: Record<string, string> = {};
 if (fs.existsSync(path.join(root, 'index.html'))) input.index = path.join(root, 'index.html');
 if (fs.existsSync(path.join(root, 'src', 'logic.ts'))) input.logic = path.join(root, 'src', 'logic.ts');

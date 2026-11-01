@@ -3,7 +3,7 @@
  * Build every built-in plugin's view (#2828) and logic (#2643): each folder in
  * `plugins/` with an `index.html` or a `src/logic.ts`, through
  * `vite.core-plugins.config.mts`, into
- * `.vite/core-plugins/<id>/`. `--watch` rebuilds on change (for `pnpm dev`).
+ * `node_modules/.cache/minerva/core-plugins/<id>/`. `--watch` rebuilds on change (for `pnpm dev`).
  */
 import { execFileSync, spawn } from 'node:child_process';
 import fs from 'node:fs';

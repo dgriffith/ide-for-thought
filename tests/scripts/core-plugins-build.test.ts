@@ -37,3 +37,17 @@ describe('the built-in plugin view build (#2828)', () => {
     })).toThrow();
   }, 60_000);
 });
+
+describe('where the views are built (pnpm dev)', () => {
+  // `pnpm dev` builds the views, then `electron-forge start`, whose Vite plugin
+  // deletes all of `.vite/` after every hook a config can run. Built there,
+  // every built-in view was a "Not found" under `pnpm dev`.
+  const DEV_DIR = "'node_modules', '.cache', 'minerva', 'core-plugins'";
+  const read = (rel: string) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
+
+  it('builds outside .vite/, where main reads them in dev and packaging copies them from', () => {
+    expect(read('vite.core-plugins.config.mts')).toContain(`path.resolve(import.meta.dirname, ${DEV_DIR}, id)`);
+    expect(read('src/main/main.ts')).toContain(`path.join(app.getAppPath(), ${DEV_DIR})`);
+    expect(read('forge.config.ts')).toContain(`path.join(process.cwd(), ${DEV_DIR})`);
+  });
+});

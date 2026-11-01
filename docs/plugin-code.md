@@ -415,8 +415,9 @@ What a layout needs that the kit didn't have (part B):
 **Built-in plugin views (#2828, C1).** A built-in plugin's view is source in
 `plugins/<id>/` — outside `src/`, with its own Vite build
 (`vite.core-plugins.config.mts`, `pnpm core-plugins:build`) into
-`.vite/core-plugins/<id>/`, copied into app.asar by `afterPrune` beside the
-CLI — and served at `minerva-plugin://<id>/` while the plugin is on. Not a
+`node_modules/.cache/minerva/core-plugins/<id>/`, served from there under
+`pnpm dev` and copied into app.asar's `.vite/core-plugins/` by `afterPrune`
+beside the CLI — and served at `minerva-plugin://<id>/` while the plugin is on. Not a
 Forge renderer entry: under `pnpm dev` that would come from the Vite dev
 server, which the frame's `script-src 'self'` can't load. The plugin API is
 external, the copy Minerva serves. `plugin-source-boundary.test.ts` holds the
@@ -444,7 +445,7 @@ first view *nobody* wrote as core, which is the real parity test.
 
 **Kanban is done (#2828).** The board lives in `plugins/kanban/` — its own
 source root, built by `vite.core-plugins.config.mts` into
-`.vite/core-plugins/kanban/` and served on `minerva-plugin://kanban/` — and
+`node_modules/.cache/minerva/core-plugins/kanban/` and served on `minerva-plugin://kanban/` — and
 `view-layouts.ts`'s kanban entry names `plugin: 'kanban'`, so turned off it
 falls back to the table. Two things it settled for the next two:
 
