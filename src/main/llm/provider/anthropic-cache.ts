@@ -56,25 +56,33 @@ function lastCacheableIndex(content: readonly Anthropic.ContentBlockParam[]): nu
 }
 
 /**
- * A copy of `message` with `cache_control` on its last cacheable block, or null
- * when it has none to mark (an empty message, or one that is all thinking).
- * String content is promoted to a single text block so it can carry the marker.
+ * `content` with `cache_control` on its last cacheable block, or null when it
+ * has none to mark (empty, or all thinking). String content is promoted to a
+ * single text block so it can carry the marker. Generic over the block type,
+ * so a system message's text-only content stays text-only (SDK 1.x).
  */
-function markMessage(message: Anthropic.MessageParam): Anthropic.MessageParam | null {
-  const { content } = message;
-
+function markContent<B extends Anthropic.ContentBlockParam>(
+  content: string | readonly B[],
+): B[] | Anthropic.TextBlockParam[] | null {
   if (typeof content === 'string') {
-    if (content === '') return null;
-    return { ...message, content: [{ type: 'text', text: content, cache_control: EPHEMERAL }] };
+    return content === '' ? null : [{ type: 'text', text: content, cache_control: EPHEMERAL }];
   }
-
-  if (content.length === 0) return null;
   const at = lastCacheableIndex(content);
   if (at === -1) return null;
+  const next = [...content];
+  next[at] = { ...content[at]!, cache_control: EPHEMERAL };
+  return next;
+}
 
-  const next: Anthropic.ContentBlockParam[] = [...content];
-  next[at] = { ...next[at], cache_control: EPHEMERAL } as Anthropic.ContentBlockParam;
-  return { ...message, content: next };
+/** A copy of `message` with its content marked (`markContent`), or null. */
+function markMessage(message: Anthropic.MessageParam): Anthropic.MessageParam | null {
+  // Two branches, one body: each narrows `message` so its content keeps its role's type.
+  if (message.role === 'system') {
+    const content = markContent(message.content);
+    return content && { ...message, content };
+  }
+  const content = markContent(message.content);
+  return content && { ...message, content };
 }
 
 /**
