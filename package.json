@@ -52,6 +52,7 @@
     "docs:screenshots": "playwright test --config playwright.docs-screenshots.config.ts",
     "check:docs": "node scripts/build-docs.mjs --check",
     "check:ruleset": "node scripts/check-branch-ruleset.mjs",
+    "sample:events": "node scripts/make-events-thoughtbase.mjs",
     "predev": "node scripts/prep.mjs",
     "prebuild": "node scripts/prep.mjs",
     "prebuild:release": "node scripts/prep.mjs",
