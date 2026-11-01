@@ -115,6 +115,7 @@ describe('PluginRecommendations (#2635)', () => {
     cleanup();
     const { findByRole, getByText } = render(PluginsSettings);
     expect(await findByRole('list', { name: 'Recommended by this thoughtbase' })).toBeTruthy();
+    await fireEvent.click(await findByRole('button', { name: /^paper/ }));
     expect(getByText('Get it from https://example.org/how-to-get-paper')).toBeTruthy();
     const install = getByText('Install', { selector: 'button' }) as HTMLButtonElement;
     await waitFor(() => expect(install.disabled).toBe(false));

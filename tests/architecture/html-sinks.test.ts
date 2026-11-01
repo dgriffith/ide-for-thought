@@ -37,6 +37,9 @@ const REVIEWED_SINKS: Record<string, Record<string, string>> = {
     'sanitizeNoteHtml(entry)': 'CSL bibliography entry, DOMPurify',
     'sanitizeNoteHtml(tooltipHtml)': 'hover tooltip, DOMPurify',
   },
+  'lib/components/PluginsSettings.svelte': {
+    'renderPluginDescription(text)': "a plugin's description, markdown-it with html: false and images off, then sanitizeNoteHtml (DOMPurify)",
+  },
   'lib/components/ComputeDraftCard.svelte': {
     'sanitizeComputeOutputHtml(output.data)': 'compute SVG output, DOMPurify',
     'sanitizeComputeOutputHtml(output.html)': 'compute _repr_html_ output, DOMPurify',

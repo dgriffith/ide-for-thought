@@ -52,7 +52,8 @@ test('a third-party plugin with code: allowed at install, its panel and command 
       await settings.getByRole('button', { name: 'Install from folder…' }).click();
       await expect.poll(asked, { timeout: 10_000 }).toEqual(['Install Note Stats? It runs code inside Minerva.']);
       await expect(settings.getByRole('checkbox', { name: 'Turn off Note Stats' })).toBeChecked({ timeout: 10_000 });
-      await expect(settings.getByRole('list', { name: 'Installed plugins' }).getByText('It can read the notes Minerva hands its views and commands')).toBeVisible();
+      await settings.getByRole('list', { name: 'Installed plugins' }).getByRole('button', { name: /^Note Stats/ }).click();
+      await expect(settings.getByRole('region', { name: 'About Note Stats' }).getByText('It can read the notes Minerva hands its views and commands')).toBeVisible();
       await settings.getByRole('button', { name: 'Cancel' }).click();
     });
 
@@ -82,7 +83,9 @@ test('a third-party plugin with code: allowed at install, its panel and command 
       fs.appendFileSync(path.join(installedDir, 'words.js'), '\n// edited after it was allowed\n');
       await expect(tab).toHaveCount(0, { timeout: 15_000 });
       await openPlugins();
-      await expect(settings.getByText('Changed since you allowed it')).toBeVisible({ timeout: 10_000 });
+      await expect(settings.getByText('Needs allowing')).toBeVisible({ timeout: 10_000 });
+      await settings.getByRole('button', { name: /^Note Stats/ }).click();
+      await expect(settings.getByText('Changed since you allowed it')).toBeVisible();
       await settings.getByRole('button', { name: 'Review and allow Note Stats' }).click();
       await expect.poll(async () => (await asked()).at(-1), { timeout: 10_000 }).toBe('Note Stats changed since you allowed it. Allow it again?');
       await expect(settings.getByText('Changed since you allowed it')).toHaveCount(0, { timeout: 10_000 });

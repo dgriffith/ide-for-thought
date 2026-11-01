@@ -4,6 +4,8 @@
  * Settings → Plugins (#2634), with its store: the list with what each
  * contributes, the refused ones, the toggle, Remove behind a confirm, install,
  * and — on `plugins:changed` — the skill registry and type list refreshed.
+ * The lists show names only; the rest is in the detail pane, for the plugin
+ * picked.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent, cleanup, waitFor } from '@testing-library/svelte';
@@ -13,7 +15,7 @@ const h = vi.hoisted(() => ({
   list: vi.fn(), setEnabled: vi.fn(), remove: vi.fn(), installFolder: vi.fn(), installZip: vi.fn(), installGit: vi.fn(), reveal: vi.fn(),
   changed: null as null | (() => void),
   skillsList: vi.fn(), registerSkillInfos: vi.fn(), typesRefresh: vi.fn(), showConfirm: vi.fn(), showPrompt: vi.fn(),
-  keyConflicts: [] as unknown[],
+  keyConflicts: [] as unknown[], openExternal: vi.fn(),
 }));
 
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({
@@ -23,6 +25,7 @@ vi.mock('../../../src/renderer/lib/ipc/client', () => ({
       onChanged: (cb: () => void) => { h.changed = cb; return () => undefined; },
     },
     skills: { list: h.skillsList },
+    shell: { openExternal: h.openExternal },
   },
 }));
 vi.mock('../../../src/renderer/lib/tools/tool-registry', () => ({ registerSkillInfos: h.registerSkillInfos }));
@@ -31,6 +34,12 @@ vi.mock('../../../src/renderer/lib/stores/dialogs.svelte', () => ({ getDialogSto
 vi.mock('../../../src/renderer/lib/stores/code-plugins.svelte', () => ({ codePluginsStore: { commandKeys: () => ({ keys: new Map(), conflicts: h.keyConflicts }) } }));
 
 import PluginsSettings from '../../../src/renderer/lib/components/PluginsSettings.svelte';
+
+/** Pick a plugin by name; resolves to the detail pane. */
+async function pick(findByRole: (role: string, opts: { name: RegExp | string }) => Promise<HTMLElement>, name: string): Promise<HTMLElement> {
+  await fireEvent.click(await findByRole('button', { name: new RegExp(`^${name}`) }));
+  return findByRole('region', { name: `About ${name}` });
+}
 
 const LIST: PluginList = {
   core: [],
@@ -53,14 +62,48 @@ beforeEach(() => {
 afterEach(() => cleanup());
 
 describe('PluginsSettings (#2634)', () => {
-  it('lists each plugin with what it contributes, and the refused with why', async () => {
-    const { findByText, getByText } = render(PluginsSettings);
-    await findByText('Lab Tools');
-    expect(getByText('1.2.0')).toBeTruthy();
-    expect(getByText('2 skills · 1 type')).toBeTruthy();
-    expect(getByText('For the lab — Ada')).toBeTruthy();
-    expect(getByText('It has no plugin.json.')).toBeTruthy();
-    expect(getByText('From /work/lab')).toBeTruthy();
+  it('lists each plugin by name and author only, and shows the rest for the one picked', async () => {
+    const { findByRole, getByRole, queryByText } = render(PluginsSettings);
+    const installed = await findByRole('list', { name: 'Installed plugins' });
+    await waitFor(() => expect(installed.textContent).toContain('Lab Tools'));
+    expect(installed.textContent).toContain('Ada');
+    expect(installed.textContent).toContain('Not loaded');
+    expect(queryByText('For the lab')).toBeNull();
+    expect(getByRole('region', { name: 'About the selected plugin' }).textContent).toContain('Select a plugin');
+
+    const lab = await pick(findByRole, 'Lab Tools');
+    expect(getByRole('button', { name: /^Lab Tools/ }).getAttribute('aria-pressed')).toBe('true');
+    expect(lab.textContent).toContain('1.2.0');
+    expect(lab.textContent).toContain('By Ada');
+    expect(lab.textContent).toContain('For the lab');
+    expect(lab.textContent).toContain('Adds 2 skills · 1 type');
+    expect(lab.textContent).toContain('From /work/lab');
+
+    const broken = await pick(findByRole, 'broken');
+    expect(broken.textContent).toContain('It has no plugin.json.');
+    expect(broken.textContent).not.toContain('For the lab');
+  });
+
+  it('renders a description as Markdown, escaping raw HTML, and opens its links in the browser', async () => {
+    h.list.mockResolvedValue({
+      ...LIST,
+      installed: [{ ...LIST.installed[0]!, description: 'For the **lab**. <b>raw</b> See [the docs](https://example.org/lab).' }],
+    });
+    const { findByRole } = render(PluginsSettings);
+    const about = await pick(findByRole, 'Lab Tools');
+    expect(about.querySelector('strong')!.textContent).toBe('lab');
+    expect(about.querySelector('b')).toBeNull();
+    expect(about.textContent).toContain('<b>raw</b>');
+    const link = about.querySelector('a')!;
+    await fireEvent.click(link);
+    expect(h.openExternal).toHaveBeenCalledWith('https://example.org/lab');
+  });
+
+  it('puts the install buttons above the lists', async () => {
+    const { findByRole, getByText } = render(PluginsSettings);
+    const list = await findByRole('list', { name: 'Installed plugins' });
+    const install = getByText('Install from folder…');
+    expect(install.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('says where each plugin came from: a zip, a git URL at its commit, or by hand', async () => {
@@ -73,10 +116,10 @@ describe('PluginsSettings (#2634)', () => {
         { ...base, id: 'c', name: 'C', source: { kind: 'manual' } },
       ],
     });
-    const { findByText } = render(PluginsSettings);
-    await findByText('From a.zip');
-    await findByText('From https://github.com/ada/b #v2.0.0 at 7fd1a60');
-    await findByText('Put in the plugins folder by hand');
+    const { findByRole } = render(PluginsSettings);
+    expect((await pick(findByRole, 'A')).textContent).toContain('From a.zip');
+    expect((await pick(findByRole, 'B')).textContent).toContain('From https://github.com/ada/b #v2.0.0 at 7fd1a60');
+    expect((await pick(findByRole, 'C')).textContent).toContain('Put in the plugins folder by hand');
   });
 
   it('the toggle turns a plugin off', async () => {
@@ -89,6 +132,7 @@ describe('PluginsSettings (#2634)', () => {
   it('Remove asks first, saying the folder it came from is kept', async () => {
     h.showConfirm.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
     const { findByRole, queryByText } = render(PluginsSettings);
+    await pick(findByRole, 'Lab Tools');
     const btn = await findByRole('button', { name: 'Remove Lab Tools' });
     await fireEvent.click(btn);
     await waitFor(() => expect(h.showConfirm).toHaveBeenCalledTimes(1));
@@ -146,18 +190,20 @@ describe('PluginsSettings (#2634)', () => {
     const local = { id: 'local-mcp-servers', name: 'Local MCP servers', version: '1.0.0', description: 'd', enabled: false, source: { kind: 'core' as const }, contributes: {}, capabilities: ['process' as const] };
     const words = { ...LIST.installed[0]!, id: 'words', name: 'Words', mcpServers: 1 };
     h.list.mockResolvedValue({ ...LIST, core: [local], installed: [words] });
-    const { findByText, unmount } = render(PluginsSettings);
+    const { findByRole, findByText, unmount } = render(PluginsSettings);
+    await pick(findByRole, 'Words');
     expect(await findByText("Its MCP server needs Local MCP servers, which is off, so it doesn't start.")).toBeTruthy();
     unmount();
     h.list.mockResolvedValue({ ...LIST, core: [{ ...local, enabled: true }], installed: [words] });
     const again = render(PluginsSettings);
-    await again.findByText('Words');
+    await pick(again.findByRole, 'Words');
     expect(again.queryByText(/needs Local MCP servers/)).toBeNull();
   });
 
   it('says when a plugin command\'s key is another plugin\'s (#2879)', async () => {
     h.keyConflicts = [{ pluginId: 'lab', commandId: 'find', title: 'Find', key: 'CmdOrCtrl+Alt+J', takenBy: 'Book Shelf' }];
-    const { findByText } = render(PluginsSettings);
+    const { findByRole, findByText } = render(PluginsSettings);
+    await pick(findByRole, 'Lab Tools');
     expect(await findByText(/"Find" has no shortcut: .* is Book Shelf's\./)).toBeTruthy();
     h.keyConflicts = [];
   });
@@ -171,10 +217,13 @@ describe('PluginsSettings (#2634)', () => {
     h.setEnabled.mockResolvedValue({ ...LIST, core: [{ ...python, enabled: true }] });
     const { findByRole, getByRole, queryByRole } = render(PluginsSettings);
     const builtIn = await findByRole('list', { name: 'Built-in plugins' });
-    expect(builtIn.textContent).toContain('Python cells');
-    expect(builtIn.textContent).toContain('Run Python in a note.');
-    expect(builtIn.textContent).toContain('It can run a program on this machine.');
+    await waitFor(() => expect(builtIn.textContent).toContain('Python cells'));
+    expect(builtIn.textContent).not.toContain('Run Python in a note.');
+    const about = await pick(findByRole, 'Python cells');
+    expect(about.textContent).toContain('Run Python in a note.');
+    expect(about.textContent).toContain('It can run a program on this machine.');
     expect(queryByRole('button', { name: 'Remove Python cells' })).toBeNull();
+    expect(queryByRole('button', { name: 'Show folder' })).toBeNull();
     expect(getByRole('list', { name: 'Installed plugins' }).textContent).not.toContain('Python cells');
     await fireEvent.click(getByRole('checkbox', { name: 'Turn on Python cells' }));
     expect(h.setEnabled).toHaveBeenCalledWith('python', true);

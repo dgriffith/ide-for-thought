@@ -7,7 +7,8 @@ description: The Plugins tab in Settings — install a plugin from a folder, a z
     <p class="lede">The Plugins tab in <b>Settings</b> is where you add things to Minerva in one bundle: a plugin can bring skills, object types, saved queries, note templates and citation styles together. Plugins live on this computer, in <code>~/.minerva/plugins/</code>, and every change here takes effect straight away, in every open window. You never need to restart.</p>
 
     <h2 id="built-in">Built-in plugins</h2>
-    <p>Some parts of Minerva itself are built-in plugins, listed under <b>Built in</b> at the top of this tab. Each has a switch, and that's all: they can't be removed, and there's nothing to install. Turned off, a built-in plugin isn't hidden; it isn't running at all.</p>
+    <p>The buttons for installing a plugin are at the top of this tab. Below them, each plugin is listed by name with its switch, and installed ones with their author. Click a name to see the rest in the panel beside the list: what the plugin does, what it adds, what its code may do, and where it came from.</p>
+    <p>Some parts of Minerva itself are built-in plugins, listed under <b>Built in</b>. Each has a switch, and that's all: they can't be removed, and there's nothing to install. Turned off, a built-in plugin isn't hidden; it isn't running at all.</p>
     <p><b>Kanban</b> is one. It draws a type's notes as a <a href="left-sidebar-objects.html#kanban">Kanban board</a>, and it starts turned on. Turned off, a board shows as the view's table instead, with a line saying why; nothing about the view is lost, and turning Kanban back on brings the board back as it was.</p>
     <p><b>Timeline</b> is one. It draws a type's notes on a <a href="left-sidebar-objects.html#timeline">timeline</a>, and it starts turned on. Turned off, a timeline shows as the view's table instead, the same way.</p>
     <p><b>Calendar</b> is one. It draws a type's notes on a <a href="left-sidebar-objects.html#calendar">month calendar</a>, and it starts turned on. Turned off, a calendar shows as the view's table instead.</p>
@@ -48,15 +49,15 @@ description: The Plugins tab in Settings — install a plugin from a folder, a z
       </div>
       <div class="row">
         <div class="k">See what it adds</div>
-        <div class="v">Each plugin is listed with its version and what it contributes, such as <i>2 skills · 1 type</i>. A plugin folder that can't be used is listed as <b>Not loaded</b>, with the reasons beneath it.</div>
+        <div class="v">Click a plugin's name. The panel beside the list shows its description, its version and what it contributes, such as <i>2 skills · 1 type</i>. A plugin folder that can't be used is listed as <b>Not loaded</b>; click it for the reasons. A plugin whose code you haven't allowed yet is marked <b>Needs allowing</b>, and its panel has <b>Review and allow…</b>.</div>
       </div>
       <div class="row">
         <div class="k">Plugin settings</div>
-        <div class="v">A plugin that has options shows a <b>Settings</b> button. Its form saves on this computer only, never in a thoughtbase, and a change applies the next time you use the plugin's skills. A secret, such as an API token, is never shown again once saved; the field says whether one is set, and <b>Clear</b> removes it. If this computer has no system secure store, the form says the secret is saved as plain text in a file only your account can read.</div>
+        <div class="v">A plugin that has options shows a <b>Settings</b> button in its panel. Its form saves on this computer only, never in a thoughtbase, and a change applies the next time you use the plugin's skills. A secret, such as an API token, is never shown again once saved; the field says whether one is set, and <b>Clear</b> removes it. If this computer has no system secure store, the form says the secret is saved as plain text in a file only your account can read.</div>
       </div>
       <div class="row">
         <div class="k">Remove a plugin</div>
-        <div class="v"><b>Remove</b> deletes the plugin from the plugins folder, after asking. Everything it added goes with it, including what it put in the knowledge graph.</div>
+        <div class="v"><b>Remove</b>, in the plugin's panel, deletes the plugin from the plugins folder, after asking. Everything it added goes with it, including what it put in the knowledge graph.</div>
       </div>
       <div class="row">
         <div class="k">Show the folder</div>

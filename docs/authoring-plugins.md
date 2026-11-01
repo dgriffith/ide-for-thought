@@ -167,7 +167,7 @@ URL you typed yourself. The rules are `src/main/plugins/recommendations.ts`.
 | `name` | yes | What people see, at most 80 characters. |
 | `version` | yes | A semver version: `1.0.0`, `2.1.0-beta.1`. |
 | `minerva` | yes | The Minerva versions it works with, as a semver range: `>=3.0.0`, `^4.1.0`. A plugin outside its range is refused, and says which version it needs. |
-| `description` | yes | One or two sentences, at most 500 characters. |
+| `description` | yes | One or two sentences, at most 500 characters. Settings → Plugins shows it as Markdown (no raw HTML or images; links open in the browser). |
 | `author` | no | Who wrote it. |
 | `license` | no | An SPDX identifier (`MIT`, `Apache-2.0`). |
 | `contributes` | yes | Extension point → the files it adds there. At least one, unless the plugin ships an MCP server. |
