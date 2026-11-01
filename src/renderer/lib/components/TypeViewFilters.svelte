@@ -70,13 +70,30 @@
   // Close on a press outside. `pointerdown`, not `click`: choosing a property
   // swaps the popover's contents, so by `click` time the pressed button is
   // detached and would read as outside.
+  //
+  // A press inside a frame (a Timeline, Calendar or Kanban view is drawn in a
+  // plugin frame) never reaches this window; it shows up only as the window
+  // losing focus to that frame. Switching to another app blurs the window
+  // too, but leaves no frame focused, so that keeps the popover open.
   $effect(() => {
     if (!open) return;
     const onDown = (e: PointerEvent) => {
       if (rootEl && !rootEl.contains(e.target as Node)) open = false;
     };
+    let pending: ReturnType<typeof setTimeout> | undefined;
+    const onBlur = () => {
+      // The frame is the active element once the focus move has settled.
+      pending = setTimeout(() => {
+        if (document.activeElement instanceof HTMLIFrameElement) open = false;
+      });
+    };
     window.addEventListener('pointerdown', onDown, true);
-    return () => window.removeEventListener('pointerdown', onDown, true);
+    window.addEventListener('blur', onBlur);
+    return () => {
+      window.removeEventListener('pointerdown', onDown, true);
+      window.removeEventListener('blur', onBlur);
+      clearTimeout(pending);
+    };
   });
 
   const editingProp = $derived(filterable.find((p) => p.name === editing) ?? null);
