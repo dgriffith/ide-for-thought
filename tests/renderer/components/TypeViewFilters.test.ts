@@ -1,5 +1,5 @@
 /**
- * @vitest-environment happy-dom
+ * @vitest-environment jsdom
  *
  * The view panel's filter controls (#2533): pick values present in the view
  * (with counts), or a min/max for numbers and dates; chips show and remove
@@ -92,6 +92,31 @@ describe('TypeViewFilters — dismissal', () => {
     expect(screen.getByRole('checkbox', { name: /Prague/ })).toBeTruthy();
     await fireEvent.pointerDown(document.body);
     expect(screen.queryByRole('dialog')).toBeNull();
+  });
+});
+
+describe('closing on a press in a frame', () => {
+  // A Timeline, Calendar or Kanban view is a plugin frame: a press there
+  // never reaches the app's window, which only sees itself lose focus.
+  const settle = () => new Promise((r) => setTimeout(r, 0));
+
+  it('closes when focus moves into a frame', async () => {
+    mount();
+    const frame = document.body.appendChild(document.createElement('iframe'));
+    await fireEvent.click(screen.getByRole('button', { name: 'Filter ▾' }));
+    frame.focus();
+    window.dispatchEvent(new Event('blur'));
+    await settle();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    frame.remove();
+  });
+
+  it('stays open when the window loses focus to another app', async () => {
+    mount();
+    await fireEvent.click(screen.getByRole('button', { name: 'Filter ▾' }));
+    window.dispatchEvent(new Event('blur'));
+    await settle();
+    expect(screen.getByRole('dialog', { name: 'Filter by property' })).toBeTruthy();
   });
 });
 
