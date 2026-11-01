@@ -132,7 +132,8 @@ const overInstalled = async (...args: unknown[]) => {
 const LIST = {
   // The built-in plugins as shipped (#2820): Python, off on a new install
   // (#2822), Kanban (#2828), Timeline and Calendar (#2829), on, and the
-  // Reading Queue (#2640), off, listed with the global view it draws.
+  // Reading Queue (#2640), off, listed with the global view it draws. It and
+  // the four after it are samples, which Settings lists apart.
   core: [{
     id: 'python', name: 'Python', version: '1.0.0',
     description: 'Run Python code cells in notes, in an interpreter you choose: pandas, numpy, matplotlib and anything else you install.',
@@ -156,28 +157,28 @@ const LIST = {
   }, {
     id: 'reading-queue', name: 'Reading Queue', version: '1.0.0',
     description: "A sidebar panel of the books and articles you're reading and those still to read, each marked read with one click — and a reading-queue block to put the same list in a note.",
-    enabled: false, source: { kind: 'core' }, contributes: {}, capabilities: ['graph:query', 'notes:write-properties', 'ui'],
+    enabled: false, source: { kind: 'core' }, sample: true, contributes: {}, capabilities: ['graph:query', 'notes:write-properties', 'ui'],
     views: [{ id: 'queue', title: 'Reading Queue', place: 'left-sidebar', entry: 'index.html', query: 'queue.rq', icon: 'bookmark' }],
     blocks: [{ id: 'queue', title: 'Reading queue', fence: 'reading-queue', entry: 'index.html', query: 'queue.rq' }],
   }, {
     id: 'list-tools', name: 'List Tools', version: '1.0.0',
     description: "Sort the Markdown list in your selection, from the command palette, the Edit menu, the editor's right-click menu or ⌘⌥⇧S. Nested items move with their parent.",
-    enabled: false, source: { kind: 'core' }, contributes: {}, capabilities: ['notes:read'],
+    enabled: false, source: { kind: 'core' }, sample: true, contributes: {}, capabilities: ['notes:read'],
     commands: [{ id: 'sort-selection', title: 'Sort List in Selection', when: 'selection', editorMenu: true, menu: 'edit', key: 'CmdOrCtrl+Alt+Shift+S', run: { handler: 'sortSelection' } }],
   }, {
     id: 'transcripts', name: 'Transcripts', version: '1.0.0',
     description: 'Ingest subtitle and caption files (.srt, .vtt) as sources: the captions joined into timestamped paragraphs, with speakers named.',
-    enabled: false, source: { kind: 'core' }, contributes: {}, capabilities: ['notes:read'],
+    enabled: false, source: { kind: 'core' }, sample: true, contributes: {}, capabilities: ['notes:read'],
     ingestors: [{ id: 'transcript', label: 'Transcript', accepts: { extensions: ['.srt', '.vtt'] }, parse: { handler: 'parseTranscript' } }],
   }, {
     id: 'epub', name: 'EPUB', version: '1.0.0',
     description: 'Export notes as an EPUB e-book: one chapter per note, with a table of contents, for any e-reader.',
-    enabled: false, source: { kind: 'core' }, contributes: {}, capabilities: ['notes:read'],
+    enabled: false, source: { kind: 'core' }, sample: true, contributes: {}, capabilities: ['notes:read'],
     exporters: [{ id: 'epub', label: 'EPUB', input: 'html', scopes: ['single-note', 'folder', 'project', 'tree'], write: { handler: 'writeEpub' } }],
   }, {
     id: 'outline-checks', name: 'Outline Checks', version: '1.0.0',
     description: 'An inspection for notes whose headings skip a level, like an H1 straight to an H3, which leaves a gap in the outline.',
-    enabled: false, source: { kind: 'core' }, contributes: {}, capabilities: ['notes:read', 'graph:query'],
+    enabled: false, source: { kind: 'core' }, sample: true, contributes: {}, capabilities: ['notes:read', 'graph:query'],
     inspections: [{
       id: 'skipped-heading', label: 'Skipped heading levels', severity: 'info',
       description: 'Headings that jump a level, like an H1 straight to an H3, leaving a gap in the outline.',

@@ -28,11 +28,17 @@ export interface CorePluginDefinition {
   manifest: Record<string, unknown>;
   /** On or off on a machine that has never switched it. */
   defaultEnabled: boolean;
+  /**
+   * A worked example of one plugin seam, shipped to show what a plugin can
+   * do rather than as a part of Minerva. Settings lists these apart.
+   */
+  sample?: boolean;
 }
 
 export interface CorePlugin {
   manifest: PluginManifest;
   defaultEnabled: boolean;
+  sample: boolean;
 }
 
 /** The core plugins, in the order Settings lists them. */
@@ -135,6 +141,7 @@ const CORE_PLUGIN_DEFINITIONS: readonly CorePluginDefinition[] = [
       },
     },
     defaultEnabled: false,
+    sample: true,
   },
   {
     // List Tools (#2643): the worked example of a command whose handler is
@@ -158,6 +165,7 @@ const CORE_PLUGIN_DEFINITIONS: readonly CorePluginDefinition[] = [
       },
     },
     defaultEnabled: false,
+    sample: true,
   },
   {
     // Transcripts (#2647): the worked example of an ingestor whose parser is
@@ -181,6 +189,7 @@ const CORE_PLUGIN_DEFINITIONS: readonly CorePluginDefinition[] = [
       },
     },
     defaultEnabled: false,
+    sample: true,
   },
   {
     // EPUB (#2648): the worked example of an exporter whose writer is the
@@ -203,6 +212,7 @@ const CORE_PLUGIN_DEFINITIONS: readonly CorePluginDefinition[] = [
       },
     },
     defaultEnabled: false,
+    sample: true,
   },
   {
     // Outline Checks (#2831): the worked example of an inspection written as
@@ -230,6 +240,7 @@ const CORE_PLUGIN_DEFINITIONS: readonly CorePluginDefinition[] = [
       },
     },
     defaultEnabled: false,
+    sample: true,
   },
 ];
 
@@ -245,7 +256,7 @@ export function corePlugins(): readonly CorePlugin[] {
     const id = typeof def.manifest.id === 'string' ? def.manifest.id : '';
     const checked = validatePluginManifest(def.manifest, { folder: id, appVersion: '0.0.0', core: true });
     if (!checked.ok) throw new Error(`Core plugin "${id}" has an invalid manifest: ${checked.problems.join(' ')}`);
-    return { manifest: checked.manifest, defaultEnabled: def.defaultEnabled };
+    return { manifest: checked.manifest, defaultEnabled: def.defaultEnabled, sample: def.sample ?? false };
   });
   return validated;
 }

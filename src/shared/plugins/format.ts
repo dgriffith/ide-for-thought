@@ -416,6 +416,8 @@ export interface PluginSummary {
    * allowed; `changed`, allowed for files it no longer has. It's off until then.
    */
   codeApproval?: 'needed' | 'changed';
+  /** A built-in plugin shipped as a worked example of a plugin seam, not as a part of Minerva; absent otherwise. */
+  sample?: true;
 }
 
 /**

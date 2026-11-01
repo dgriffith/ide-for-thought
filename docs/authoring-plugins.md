@@ -100,6 +100,11 @@ Some of Minerva itself is packaged as plugins that ship inside the app
 switch. They can't be removed, and installing doesn't apply to them: the
 app's signature vouches for them, so there is nothing to approve.
 
+The ones that are worked examples of a plugin seam rather than parts of
+Minerva (Reading Queue, List Tools, Transcripts, EPUB, Outline Checks) are
+marked `sample: true` in `main/plugins/core.ts`, and Settings lists them
+apart, under **Samples**. Otherwise they're built-in plugins like the rest.
+
 - **Off means not running.** A built-in plugin that's off registers nothing:
   no handlers the window could call, no registry entries, no processes.
 - **Per machine.** Whether one is on is recorded in `~/.minerva/plugins.json`,

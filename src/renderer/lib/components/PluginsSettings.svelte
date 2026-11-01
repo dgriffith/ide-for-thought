@@ -22,6 +22,10 @@
   }
 
   const plugins = getPluginsStore();
+  // Built-in plugins split two ways: parts of Minerva, and the samples
+  // shipped as worked examples of a plugin seam.
+  const builtIn = $derived(plugins.list.core.filter((p) => !p.sample));
+  const samples = $derived(plugins.list.core.filter((p) => p.sample));
   /** Whether plugins' MCP servers can run (#2891): they're programs, so only while Local MCP servers is on. */
   const localServersOn = $derived(plugins.list.core.some((c) => c.id === 'local-mcp-servers' && c.enabled));
   const dialogs = getDialogStore();
@@ -78,35 +82,48 @@
   }
 </script>
 
+{#snippet coreList(list: PluginSummary[], label: string)}
+  <ul class="plugin-list" aria-label={label}>
+    {#each list as p (p.id)}
+      <li class:off={!p.enabled}>
+        <div class="plugin-row">
+          <input
+            type="checkbox"
+            checked={p.enabled}
+            disabled={plugins.busy}
+            aria-label={`${p.enabled ? 'Turn off' : 'Turn on'} ${p.name}`}
+            onchange={(e) => { void plugins.setEnabled(p.id, e.currentTarget.checked); }}
+          />
+          <span class="plugin-name">{p.name}</span>
+        </div>
+        <p class="plugin-desc">{p.description}</p>
+        {#if p.capabilities?.length}<p class="plugin-source">{describeCapabilities(p.capabilities)}</p>{/if}
+        {#each conflictsOf(p.id) as line (line)}<p class="plugin-source">{line}</p>{/each}
+      </li>
+    {/each}
+  </ul>
+{/snippet}
+
 <div class="field">
-  {#if plugins.list.core.length > 0}
+  {#if builtIn.length > 0}
     <span class="field-label">Built in</span>
     <p class="hint">
       Parts of Minerva you can turn off on this machine. Turned off, a built-in plugin
       isn't hidden: it isn't running at all.
     </p>
-    <ul class="plugin-list" aria-label="Built-in plugins">
-      {#each plugins.list.core as p (p.id)}
-        <li class:off={!p.enabled}>
-          <div class="plugin-row">
-            <input
-              type="checkbox"
-              checked={p.enabled}
-              disabled={plugins.busy}
-              aria-label={`${p.enabled ? 'Turn off' : 'Turn on'} ${p.name}`}
-              onchange={(e) => { void plugins.setEnabled(p.id, e.currentTarget.checked); }}
-            />
-            <span class="plugin-name">{p.name}</span>
-          </div>
-          <p class="plugin-desc">{p.description}</p>
-          {#if p.capabilities?.length}<p class="plugin-source">{describeCapabilities(p.capabilities)}</p>{/if}
-          {#each conflictsOf(p.id) as line (line)}<p class="plugin-source">{line}</p>{/each}
-        </li>
-      {/each}
-    </ul>
+    {@render coreList(builtIn, 'Built-in plugins')}
   {/if}
 
-  <span class="field-label" class:installed-label={plugins.list.core.length > 0}>Installed plugins</span>
+  {#if samples.length > 0}
+    <span class="field-label" class:section-label={builtIn.length > 0}>Samples</span>
+    <p class="hint">
+      Small plugins that ship with Minerva to show what a plugin can do: a sidebar panel,
+      a command, a file type, an export format, an inspection. They start turned off.
+    </p>
+    {@render coreList(samples, 'Sample plugins')}
+  {/if}
+
+  <span class="field-label" class:section-label={plugins.list.core.length > 0}>Installed plugins</span>
   <p class="hint">
     A plugin adds skills, object types, saved queries, note templates or citation styles,
     or code that runs sandboxed inside Minerva, and lives in <code>~/.minerva/plugins/</code> on this machine. Turning one off or
@@ -221,7 +238,7 @@
   .plugin-source { margin: 1px 0 0 24px; color: var(--text-muted); font-size: 11px; overflow-wrap: anywhere; }
   .approval { margin: 3px 0 0 24px; color: var(--text); font-size: 11px; }
   .problems { margin: 4px 0 2px 0; padding-left: 18px; color: var(--text); font-size: 11px; line-height: 1.45; }
-  .recs-label, .installed-label { display: block; margin-top: 8px; }
+  .recs-label, .section-label { display: block; margin-top: 8px; }
   .actions { display: flex; flex-wrap: wrap; gap: 8px; }
   .action-btn { padding: 4px 12px; border: 1px solid var(--border); border-radius: 3px; background: var(--bg-button); color: var(--text); font-size: 12px; cursor: pointer; }
   .action-btn:hover:not(:disabled) { background: var(--bg-button-hover); }
