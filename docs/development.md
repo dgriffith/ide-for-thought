@@ -82,6 +82,7 @@ than later ones.
 | `pnpm package` | Build an unpackaged app for local testing |
 | `pnpm build` | Build a distributable (DMG + ZIP), **unsigned** — even with Apple creds in your shell |
 | `pnpm build:release` | Build a **signed + notarized** distributable (sets `MINERVA_RELEASE=1`; fails if the creds are missing). See [`releasing.md`](releasing.md#signing-is-opt-in-minerva_release) |
+| `pnpm sample:events <folder>` | Write a sample thoughtbase of Events, dated around today, for testing the Timeline and Calendar layouts by hand; open its `Start Here` note |
 | `pnpm worktrees:prune` | List agent worktrees under `.claude/worktrees/` whose work has landed (dry run); add `-- --apply` to remove them |
 
 Agent worktrees each carry their own `node_modules`, so they pile up fast.
