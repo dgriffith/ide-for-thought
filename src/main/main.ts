@@ -97,9 +97,12 @@ function startApp(): void {
     // Plugin frames (#2824), embeddable by the renderer's origin only.
     const dev = devServerOrigin();
     installPluginProtocol([APP_ORIGIN, ...(dev ? [new URL(dev).origin] : [])]);
-    // Built-in plugins' views (#2828): built by `pnpm core-plugins:build`, and
-    // inside app.asar when packaged — app.getAppPath() is the asar either way.
-    setCorePluginViewsDir(path.join(app.getAppPath(), '.vite', 'core-plugins'));
+    // Built-in plugins' views (#2828): built by `pnpm core-plugins:build` into
+    // node_modules/.cache (the Forge Vite plugin deletes `.vite/` under
+    // `pnpm dev`), and copied into app.asar's `.vite/` when packaged.
+    setCorePluginViewsDir(app.isPackaged
+      ? path.join(app.getAppPath(), '.vite', 'core-plugins')
+      : path.join(app.getAppPath(), 'node_modules', '.cache', 'minerva', 'core-plugins'));
     registerLegacyStorageMigration();
     boot('csp installed');
     registerIpcHandlers();

@@ -1842,8 +1842,9 @@ origin.
   plugin HTML through `sanitizePluginExportHtml` — no URL survives it, since
   the markup is mounted in the app's renderer while it's snapshotted. **A
   built-in plugin's view lives in `plugins/<id>/`** with its own Vite build
-  (`pnpm core-plugins:build` → `.vite/core-plugins/<id>/`, packaged by
-  `afterPrune`), and may import only its folder, `/@minerva/plugin-api.js`,
+  (`pnpm core-plugins:build` → `node_modules/.cache/minerva/core-plugins/<id>/`,
+  not `.vite/`, which Forge deletes on `pnpm dev`; packaged into
+  `.vite/core-plugins/` by `afterPrune`), and may import only its folder, `/@minerva/plugin-api.js`,
   `src/shared/` and npm packages (`plugin-source-boundary.test.ts`). The plugin
   API generator compares object support types member by member, by direction:
   a field added to what a plugin reads is an addition, a required field added

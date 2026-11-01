@@ -7,8 +7,9 @@
  * Only a plugin that is enabled AND declares the `ui` capability has a frame
  * root; every other id is a 404. An installed plugin's is its own folder,
  * while its code is approved as the files it ships (#2833). A built-in plugin's view is built from `plugins/<id>/`
- * into `.vite/core-plugins/<id>/` (#2828) — inside app.asar when packaged —
- * and served from there while the plugin is active.
+ * into `node_modules/.cache/minerva/core-plugins/<id>/` (#2828), copied to
+ * `.vite/core-plugins/<id>/` inside app.asar when packaged, and served from
+ * there while the plugin is active.
  */
 import fs from 'node:fs';
 import path from 'node:path';
