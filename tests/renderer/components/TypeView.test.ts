@@ -688,6 +688,15 @@ describe('TypeView — datetime values', () => {
       'Title,Date\nNext year,12026\nTalk,2026-10-05T14:30:00\nStandup,2026-10-05T09:00:00\nIdes,-0043-03-15\nSomeday,',
     );
   });
+
+  it('offers Export CSV on a table only', async () => {
+    for (const layout of ['list', 'gallery', 'timeline', 'calendar'] as const) {
+      const { unmount } = render(TypeView, props({ typeId: 'event', layout }));
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Copy as markdown' })).toBeTruthy());
+      expect(screen.queryByRole('button', { name: 'Export CSV' }), layout).toBeNull();
+      unmount();
+    }
+  });
 });
 
 describe('row menu: tags and properties (#2773)', () => {

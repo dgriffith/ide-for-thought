@@ -47,10 +47,11 @@ async function sharedPreview(win: Page): Promise<Shown> {
   const tip = win.locator('.note-hover-preview');
   await expect(tip).toBeVisible({ timeout: 5_000 });
   await expect(tip).toHaveAttribute('role', 'tooltip');
-  await expect(tip.locator('.nhp-snippet:not(.nhp-loading)')).toHaveCount(1, { timeout: 5_000 });
+  await expect(tip).toHaveAttribute('data-status', 'ready', { timeout: 5_000 });
+  const snippet = tip.locator('.nhp-snippet');
   return {
     title: (await tip.locator('.nhp-title-text').textContent()) ?? '',
-    snippet: (await tip.locator('.nhp-snippet').textContent()) ?? '',
+    snippet: (await snippet.count()) ? ((await snippet.textContent()) ?? '') : '', // an empty note has none
   };
 }
 

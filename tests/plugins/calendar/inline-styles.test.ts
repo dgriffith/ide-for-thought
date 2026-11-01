@@ -21,6 +21,13 @@ function exported(html: string): Document {
 const styleOf = (doc: Document, sel: string) => doc.querySelector<HTMLElement>(sel)!.style;
 
 describe('inlineStyles (calendar export)', () => {
+  it("keeps screen-reader text hidden: a day's full name isn't drawn beside its number", () => {
+    const doc = exported('<div class="calx"><span class="calx-num"><span class="visually-hidden">Sunday, 1 November 2026, no events</span><span aria-hidden="true">1</span></span></div>');
+    const hidden = styleOf(doc, '.visually-hidden');
+    expect([hidden.position, hidden.width, hidden.height, hidden.overflow]).toEqual(['absolute', '1px', '1px', 'hidden']);
+    expect(hidden.getPropertyValue('clip-path')).toBe('inset(50%)');
+  });
+
   const GRID = `<div class="calx calx-wk-on" style="height: 300px">
     <div class="calx-row calx-week" style="height: 120px; --bar-slots: 1">
       <div class="calx-day"><span class="calx-num">6</span>
