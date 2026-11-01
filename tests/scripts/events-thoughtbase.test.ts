@@ -68,16 +68,22 @@ describe('the Events sample thoughtbase', () => {
     expect(files['events/Lisbon Offsite.md']).toContain('end: "2026-11-16"');
   });
 
-  it('every saved view is a timeline or calendar spec, with filters that survive parsing', () => {
+  it('every saved view is a layout spec, with filters that survive parsing', () => {
     const specOf = (content: string) => JSON.parse(/```object-view\n([\s\S]*?)\n```/.exec(content)![1]!) as Record<string, unknown>;
     const views = Object.entries(files).filter(([p]) => p.startsWith('Views/')).map(([, c]) => specOf(c));
-    expect(views).toHaveLength(6);
+    expect(views).toHaveLength(8);
     for (const spec of views) {
-      expect(spec.typeId).toBe('event');
-      expect(isViewLayout(spec.layout) && ['timeline', 'calendar'].includes(spec.layout)).toBe(true);
+      expect(isViewLayout(spec.layout)).toBe(true);
+      expect(spec.typeId).toBe(spec.layout === 'kanban' ? 'project' : 'event');
       if (spec.filters) expect(parseViewFilters(spec.filters)).toEqual(spec.filters);
     }
     expect(specOf(files['Views/Calendar - Next Month.md']).month).toBe('2026-12');
+  });
+
+  it('fills a Project board: every status, an off-list value and an empty one', () => {
+    const statuses = Object.entries(files).filter(([p]) => p.startsWith('projects/'))
+      .map(([, c]) => { const v = parseFrontmatter(c).status; return typeof v === 'string' ? v : ''; });
+    expect(statuses.sort()).toEqual(['', 'abandoned', 'active', 'active', 'blocked', 'done', 'done', 'paused']);
   });
 
   it('handles a last-of-month today without spilling the crowded day into next month', () => {

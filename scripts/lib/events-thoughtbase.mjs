@@ -7,7 +7,9 @@
  * the busy one: a crowded day, timed events, bars across a week and a month
  * boundary, month- and year-only dates, a time with a UTC offset, an ignored
  * end, an unreadable date and an undated note. `history/` spans 753 BC to
- * 2017 for zooming the timeline, and `Views/` holds saved views of each kind.
+ * 2017 for zooming the timeline, `projects/` fills a Kanban board (Project's
+ * `status` is a choice field; Event has none, so it gets no board), and
+ * `Views/` holds saved views of each kind.
  * `Start Here.md` says what to look for in each.
  */
 
@@ -103,6 +105,25 @@ export function eventsThoughtbase(today) {
   ];
   for (const [title, fields, body] of hist) ev(`history/${title}.md`, fields, title, body);
 
+  // Projects, for the Kanban board: every status, one typed by hand that
+  // isn't a choice (its own column), and one with none (No value). Their
+  // `started` dates also give Project a timeline and calendar.
+  const projects = [
+    ['Website Redesign', 'active', addDays(first, -20), '[[Ada Park]]'],
+    ['Mobile App', 'active', addDays(t, -14), '[[Ben Okafor]]'],
+    ['Data Migration', 'paused', addDays(first, -45), '[[Chen Wei]]'],
+    ['Onboarding Revamp', 'done', addDays(first, -90), '[[Ben Okafor]]'],
+    ['Quarterly Report', 'done', addDays(first, -30), '[[Chen Wei]]'],
+    ['Blockchain Pilot', 'abandoned', addDays(first, -120), '[[Ada Park]]'],
+    ['Vendor Integration', 'blocked', addDays(t, -5), '[[Ada Park]]'],
+    ['Office Move', undefined, addDays(t, 3), undefined],
+  ];
+  for (const [title, status, started, owner] of projects) {
+    files[`projects/${title}.md`] = note({ type: 'project', status, started: ymd(started), owner }, title,
+      status === 'blocked' ? '"blocked" isn\'t one of Project\'s choices: it gets a column of its own after them.'
+        : status === undefined ? 'No status: in the No value column, at the end.' : '');
+  }
+
   // Saved views.
   const views = [
     ['Calendar - This Month', { typeId: 'event', layout: 'calendar' }, 'No month saved: always opens on the current one.'],
@@ -110,6 +131,8 @@ export function eventsThoughtbase(today) {
     ['Calendar - Meetings Only', { typeId: 'event', layout: 'calendar', filters: [{ property: 'type', values: ['meeting'] }] }, 'A subtype filter: just Team Standup and Design Review.'],
     ['Timeline - Everything', { typeId: 'event', layout: 'timeline' }, 'Fitted to every dated event, 753 BC to now.'],
     ['Timeline - Rome', { typeId: 'event', layout: 'timeline', from: '-0099', to: '0014', folder: 'history' }, 'A saved range, 100 BC to AD 14.'],
+    ['Project Board', { typeId: 'project', layout: 'kanban' }, 'Grouped by status: active, paused, done, abandoned, then blocked and No value.'],
+    ['Project Board - Done First', { typeId: 'project', layout: 'kanban', groupBy: 'status', columnOrder: ['done', 'active'], showEmptyColumns: false }, 'A saved column order: done and active first, the rest after.'],
     ['Timeline - Around Now', { typeId: 'event', layout: 'timeline', filters: [{ property: 'date', min: ym(prevLast), max: ym(next) }] }, 'A date range filter: Fit stays inside last month to next.'],
   ];
   for (const [title, spec, body] of views) files[`Views/${title}.md`] = `# ${title}\n\n${body}\n\n${view(spec)}\n`;
@@ -143,10 +166,22 @@ the notes in \`Views/\` for saved views. Each event's note says what it's for.
 - Printing Press is hatched (year only). Big Bang is in the Undated tray, out of range.
 - List swaps the drawing for a list with the same order and "(approximate)" marks.
 
+## Kanban
+
+Kanban is offered only for a type with a choice (enum) field, so Events get
+none. Open **Objects → Project** and switch to Kanban, or the \`Project Board\`
+notes in \`Views/\`.
+
+- Columns: active (2), paused (1), done (2), abandoned (1), then **blocked**
+  (Vendor Integration, a value typed by hand) and **No value** (Office Move).
+- Drag a card to another column and its \`status\` line changes; ⌘Z takes it back.
+- Shift+F10 → Move to ▸ by keyboard; ⌘-click several cards to move them together.
+- Drag a column header, or its ⋯ menu, to reorder; toggle Show empty columns.
+
 ## Settings worth flipping
 
 - Settings → Appearance → Week starts on, and Show week numbers.
-- Settings → Plugins → turn Timeline or Calendar off: the layout goes, saved views show a table.
+- Settings → Plugins → turn Kanban, Timeline or Calendar off: the layout goes, saved views show a table.
 `;
 
   return files;
