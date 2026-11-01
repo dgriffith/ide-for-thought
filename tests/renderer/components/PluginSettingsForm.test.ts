@@ -117,10 +117,12 @@ describe('PluginSettingsForm (#2636)', () => {
       folder: '/p',
     };
     h.list.mockResolvedValue(LIST);
-    const { findAllByRole, findByRole } = render(PluginsSettings);
-    const buttons = await findAllByRole('button', { name: 'Settings' });
-    expect(buttons).toHaveLength(1);
-    await fireEvent.click(buttons[0]!);
+    const { findByRole, queryByRole } = render(PluginsSettings);
+    await fireEvent.click(await findByRole('button', { name: /^Plain/ }));
+    await findByRole('region', { name: 'About Plain' });
+    expect(queryByRole('button', { name: 'Settings' })).toBeNull();
+    await fireEvent.click(await findByRole('button', { name: /^Lab/ }));
+    await fireEvent.click(await findByRole('button', { name: 'Settings' }));
     expect(await findByRole('form', { name: 'Lab settings' })).toBeTruthy();
   });
 });
