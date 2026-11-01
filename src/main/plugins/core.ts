@@ -242,6 +242,23 @@ const CORE_PLUGIN_DEFINITIONS: readonly CorePluginDefinition[] = [
     defaultEnabled: false,
     sample: true,
   },
+  {
+    // Steel (sample): the worked example of a theme, and the one sample with
+    // no code. Its `themes/steel.json` is the file an installed plugin ships,
+    // bundled into the app (`plugins/themes.ts` reads it from
+    // `plugins/steel-theme/`) and offered in the theme pickers while the
+    // plugin is on. Off by default: it adds a theme.
+    manifest: {
+      id: 'steel-theme',
+      name: 'Steel',
+      version: '1.0.0',
+      minerva: '>=4.0.0',
+      description: 'A light colour theme: white pages, light grey chrome and steel-blue accents. Turn it on, then pick **Steel** in Settings → Appearance.',
+      contributes: { themes: ['themes/steel.json'] },
+    },
+    defaultEnabled: false,
+    sample: true,
+  },
 ];
 
 let definitions: readonly CorePluginDefinition[] = CORE_PLUGIN_DEFINITIONS;

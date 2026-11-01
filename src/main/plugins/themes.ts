@@ -18,6 +18,10 @@
  *
  * Read synchronously and memoized on the plugin scan's version, because the
  * native menu lists themes and is rebuilt on a hot path (#2221).
+ *
+ * A built-in plugin's themes (the Steel sample) are the same files, in
+ * `plugins/<id>/themes/`, bundled at build time instead of read from disk,
+ * and offered while that plugin is active.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -26,6 +30,14 @@ import { pluginThemeMode } from '../../shared/theme';
 import { THEME_CONTRAST_PAIRS, THEME_TOKEN_ALIASES, THEME_TOKENS } from '../../shared/theme-tokens';
 import { logger } from '../../shared/logger';
 import { contributionsTo, loadedPluginScan, pluginScanVersion } from './registry';
+import { corePlugins } from './core';
+import { activeCorePlugins } from '../core-plugins-active';
+
+/** Built-in plugins' theme files, by `<id>/themes/<file>.json`. */
+const CORE_THEME_FILES: Record<string, unknown> = Object.fromEntries(
+  Object.entries(import.meta.glob('../../../plugins/*/themes/*.json', { eager: true, import: 'default' }))
+    .map(([file, raw]) => [file.replace(/^(?:\.\.\/)+plugins\//, ''), raw]),
+);
 
 const MAX_FILE_BYTES = 64 * 1024;
 const MAX_VALUE = 120;
@@ -140,13 +152,25 @@ export function contrastWarnings(tokens: Record<string, string>): string[] {
 
 // ── Loading ────────────────────────────────────────────────────────────────
 
-let memo: { version: number; list: PluginThemeList } | null = null;
+let memo: { key: string; list: PluginThemeList } | null = null;
 
-/** The enabled plugins' themes, from the last finished plugin scan. */
+/** The enabled plugins' themes: the active built-in ones', then the last finished scan's. */
 export function pluginThemes(): PluginThemeList {
-  const version = pluginScanVersion();
-  if (memo?.version === version) return memo.list;
+  const active = new Set(activeCorePlugins());
+  const key = `${pluginScanVersion()} ${[...active].sort().join(',')}`;
+  if (memo?.key === key) return memo.list;
   const list: PluginThemeList = { themes: [], problems: [] };
+  for (const { manifest } of corePlugins()) {
+    if (!active.has(manifest.id)) continue;
+    for (const file of manifest.contributes.themes ?? []) {
+      const theme = path.basename(file, path.extname(file));
+      // A built-in theme that doesn't parse is a bug in this build: the test
+      // over every bundled theme fails, and here it's skipped, never shown.
+      const r = parseThemeFile(CORE_THEME_FILES[`${manifest.id}/${file}`], { plugin: manifest.id, theme });
+      if (!r.ok) { logger('plugins').error(`${manifest.id}: built-in theme ${file} skipped: ${r.problems.join('; ')}`); continue; }
+      list.themes.push({ ...r.theme, plugin: { id: manifest.id, name: manifest.name, version: manifest.version } });
+    }
+  }
   for (const { plugin, contribution } of contributionsTo(loadedPluginScan(), 'themes')) {
     const id = plugin.manifest.id;
     const theme = path.basename(contribution.path, path.extname(contribution.path));
@@ -167,6 +191,6 @@ export function pluginThemes(): PluginThemeList {
     if (!r.ok) { refuse(r.problems.join('; ')); continue; }
     list.themes.push({ ...r.theme, plugin: { id, name: plugin.manifest.name, version: plugin.manifest.version } });
   }
-  memo = { version, list };
+  memo = { key, list };
   return list;
 }

@@ -53,7 +53,7 @@ export async function pluginList(): Promise<PluginList> {
       enabled: corePluginEnabled(records, { manifest: m, ...def }),
       source: { kind: 'core' },
       ...(def.sample ? { sample: true } : {}),
-      contributes: {},
+      contributes: Object.fromEntries(Object.entries(m.contributes).map(([point, files]) => [point, files.length])),
       ...(m.code ? { capabilities: m.code.capabilities } : {}),
       ...(m.code?.views ? { views: m.code.views } : {}),
       ...(m.code?.blocks ? { blocks: m.code.blocks } : {}),
