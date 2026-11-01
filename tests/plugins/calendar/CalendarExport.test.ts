@@ -178,6 +178,8 @@ describe('around the grid', () => {
     expect(year.textContent).toContain('The year');
     expect(month.textContent).toContain('Octfest');
     expect(undated.textContent).toContain('Someday');
+    expect(undated.querySelector('.cal-undated-toggle')).toBeNull(); // a page can't hide it
+    expect(undated.querySelector<HTMLElement>('.cal-undated-list')!.hidden).toBe(false);
   });
 
   it('the bands are laid out after the grid on the page too, not lifted above it', () => {

@@ -32,7 +32,9 @@
    * - **Bands and tray** (decision 3): month-only starts in a month band and
    *   year-only starts in a year band, on every page their range meets, each
    *   marked "since …"/"until …" where it runs past the page; shown above the
-   *   grid but after it in tab order. Undated notes are in the Undated tray.
+   *   grid but after it in tab order. Undated notes are in the Undated tray,
+   *   whose heading hides and shows its list (the count stays) for the life
+   *   of the frame, as the Timeline's; an export always lists it.
    * - **Keyboard**, the WAI-ARIA date grid: `role="grid"` with one tab stop
    *   (a roving tabindex on the focused day). ←/→ a day, ↑/↓ a week, turning
    *   the page past the grid's edge; Page Up/Down a month and Shift+Page
@@ -189,6 +191,7 @@
 
   // ── Focus: one tab stop ───────────────────────────────────────────────
   let focusedDay = $state<number | null>(null);
+  let undatedOpen = $state(true);
   const tabDay = $derived.by<number>(() => {
     if (focusedDay !== null && focusedDay >= gridStart && focusedDay < gridEnd) return focusedDay;
     const { start, end } = { start: civilMs(page.year, page.month - 1, 1), end: civilMs(page.year, page.month, 1) };
@@ -455,9 +458,23 @@
   </div>
 
   {#if model.undated.length > 0}
-    <section class="cal-undated" aria-labelledby="{uid}-undated">
-      <h3 id="{uid}-undated" class="cal-undated-head">Undated <span class="cal-undated-count">{model.undated.length}</span></h3>
-      <ul class="cal-undated-list">
+    <section class="cal-undated" class:cal-undated-closed={!undatedOpen && !exportMode} aria-labelledby="{uid}-undated">
+      {#if exportMode}
+        <h3 id="{uid}-undated" class="cal-undated-head">Undated <span class="cal-undated-count">{model.undated.length}</span></h3>
+      {:else}
+        <h3 class="cal-undated-head">
+          <button
+            type="button"
+            id="{uid}-undated"
+            class="cal-undated-toggle"
+            aria-expanded={undatedOpen}
+            aria-controls="{uid}-undated-list"
+            title={undatedOpen ? 'Hide the undated notes' : 'Show the undated notes'}
+            onclick={() => (undatedOpen = !undatedOpen)}
+          ><span class="cal-undated-chevron" aria-hidden="true">{undatedOpen ? '▾' : '▸'}</span> Undated <span class="cal-undated-count">{model.undated.length}</span></button>
+        </h3>
+      {/if}
+      <ul id="{uid}-undated-list" class="cal-undated-list" hidden={!undatedOpen && !exportMode}>
         {#each model.undated as u (u.key)}
           <li>
             {#if exportMode}
@@ -645,6 +662,15 @@
 
   .cal-undated { flex-shrink: 0; max-height: 25%; overflow-y: auto; border-top: 1px solid var(--border); padding: 6px 6px 8px; }
   .cal-undated-head { margin: 2px 10px 4px; font-size: 12px; font-weight: 600; color: var(--text); font-family: var(--font-sans); }
+  .cal-undated-closed { padding-bottom: 2px; }
+  .cal-undated-toggle {
+    display: inline-flex; align-items: baseline; gap: 4px;
+    padding: 1px 4px; margin-left: -4px; border: none; border-radius: 4px;
+    background: none; color: inherit; font: inherit; cursor: pointer;
+  }
+  .cal-undated-toggle:hover { background: color-mix(in oklch, var(--text) 5%, transparent); }
+  .cal-undated-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .cal-undated-chevron { width: 0.8em; color: var(--text-muted); }
   .cal-undated-count { font-family: var(--font-mono); font-weight: 400; color: var(--text-muted); }
   .cal-undated-list { list-style: none; margin: 0; padding: 0; }
   .cal-undated-row {

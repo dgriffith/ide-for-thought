@@ -4,7 +4,7 @@
  * The Calendar layout (#2702): the month grid's rows and week start, single-
  * and multi-day placement with continuation, a datetime's local time, an end
  * coarser than the start hatched, the month and year bands with since/until,
- * the Undated tray, "+N more" and the day's list, every keyboard binding on a
+ * the Undated tray (and hiding it), "+N more" and the day's list, every keyboard binding on a
  * single roving tab stop, ISO week numbers, paging written back through
  * `onStateChange`, the hover preview, and the read-only embed.
  *
@@ -338,6 +338,19 @@ describe('bands and the Undated tray', () => {
     expect(tray.querySelector('[data-note-path="bad.md"]')!.textContent).toContain("Couldn't read the date '2026-02-30'");
     await fireEvent.click(tray.querySelector('[data-note-path="someday.md"]')!);
     expect(onOpenNote).toHaveBeenCalledWith('someday.md');
+  });
+
+  it('its heading hides and shows the list, and the count stays', async () => {
+    const { container } = setup();
+    const toggle = container.querySelector<HTMLButtonElement>('.cal-undated-toggle')!;
+    const list = () => container.querySelector<HTMLElement>('.cal-undated-list')!;
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    await fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(list().hidden).toBe(true);
+    expect(toggle.textContent).toMatch(/Undated\s*2/);
+    await fireEvent.click(toggle);
+    expect(list().hidden).toBe(false);
   });
 });
 
