@@ -19,6 +19,10 @@
    * **Show empty columns** (#2614) sits beside it on every board (default on,
    * since an empty column is still a drop target).
    *
+   * The host's own buttons (Copy as markdown, Save as note) come in as
+   * `children` and sit after the pickers, before the layout tabs, so a board
+   * reads Show empty columns → Copy as markdown → Save as note.
+   *
    * The **Date by** picker is the same control with the same rule, over
    * `date-by.ts`'s choices: the type's date and datetime properties (less
    * Event's `end` beside `date`), shown only when there is more than one. The
@@ -31,6 +35,7 @@
   import { dateByChoices, resolveDateBy } from '../../../shared/objects/date-by';
   import type { PropertyDef } from '../../../shared/objects/type-def';
   import { layoutDef, type ViewLayout } from '../../../shared/objects/view-layouts';
+  import type { Snippet } from 'svelte';
 
   type Layout = ViewLayout;
 
@@ -47,8 +52,10 @@
     /** The view's Show empty columns (#2614). */
     showEmptyColumns: boolean;
     onStateChange: (patch: { layout?: Layout; groupBy?: string | null; columnOrder?: string[]; showEmptyColumns?: boolean; dateBy?: string | null }) => void;
+    /** The host's buttons, drawn after the pickers and before the layout tabs. */
+    children?: Snippet;
   }
-  let { layout, layouts, properties, groupBy, dateBy = null, showEmptyColumns, onStateChange }: Props = $props();
+  let { layout, layouts, properties, groupBy, dateBy = null, showEmptyColumns, onStateChange, children }: Props = $props();
 
   const LAYOUTS = $derived(layouts.map((id) => ({ id, label: layoutDef(id).label })));
   const groupChoices = $derived(enumProperties(properties));
@@ -84,6 +91,7 @@
     Show empty columns
   </label>
 {/if}
+{@render children?.()}
 <div class="tv-switch" role="tablist" aria-label="View">
   {#each LAYOUTS as l (l.id)}
     <button

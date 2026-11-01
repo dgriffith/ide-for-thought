@@ -90,6 +90,14 @@ describe('Show empty columns (#2614)', () => {
     expect(b.state().spec).toMatchObject({ showEmptyColumns: false });
   });
 
+  it('the board toolbar reads Show empty columns, Copy as markdown, Save as note, with no Export CSV', async () => {
+    const { container } = render(TypeView, props({ onSaveView: vi.fn() }));
+    await openBoard(container, plugin);
+    const actions = container.querySelector('.tv-actions')!;
+    const names = [...actions.querySelectorAll('label, button:not([role="tab"])')].map((el) => el.textContent.trim());
+    expect(names).toEqual(['Show empty columns', 'Copy as markdown', 'Save as note']);
+  });
+
   it('is only on a board', async () => {
     render(TypeView, props({ layout: 'table' }));
     await screen.findByText('Alpha');
