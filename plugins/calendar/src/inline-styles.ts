@@ -37,9 +37,15 @@ const PROPERTIES = [
 /** The parts whose height is fixed by design, not by the frame: a bar's line, a day number, the legend swatch. */
 const FIXED_HEIGHT: Record<string, string> = { 'calx-bar': '18px', 'calx-num': '18px', 'calx-swatch': '10px' };
 
+/** Screen-reader text (`.visually-hidden` in base.css): the sizes that hide it aren't in `PROPERTIES`. */
+const VISUALLY_HIDDEN: Record<string, string> = {
+  position: 'absolute', width: '1px', height: '1px', padding: '0', margin: '-1px', overflow: 'hidden', 'clip-path': 'inset(50%)', 'white-space': 'nowrap', border: '0',
+};
+
 /** The rules that scale with the page (see the header), for one element of the grid. */
 function responsive(el: Element): Record<string, string> {
   const c = el.classList;
+  if (c.contains('visually-hidden')) return VISUALLY_HIDDEN;
   const fixed = Object.entries(FIXED_HEIGHT).find(([cls]) => c.contains(cls));
   if (fixed && !c.contains('calx-bar')) return { height: fixed[1] };
   const own = (name: string, of: Element = el) => (of as HTMLElement).style?.getPropertyValue(name).trim() ?? '';

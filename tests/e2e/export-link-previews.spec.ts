@@ -74,10 +74,11 @@ test('a published page previews its links as the app does, on hover and on keybo
         const tip = win.locator('.note-hover-preview');
         // A lone synthetic hover sometimes doesn't take (#2719, #2755).
         await hoverUntil(win, link, tip);
-        await expect(tip.locator('.nhp-snippet:not(.nhp-loading)')).toHaveCount(1, { timeout: 5_000 });
+        await expect(tip).toHaveAttribute('data-status', 'ready', { timeout: 5_000 });
+        const snippet = tip.locator('.nhp-snippet');
         expected.set(t, {
           title: (await tip.locator('.nhp-title-text').textContent()) ?? '',
-          snippet: (await tip.locator('.nhp-snippet').textContent()) ?? '',
+          snippet: (await snippet.count()) ? ((await snippet.textContent()) ?? '') : '', // an empty note has none
         });
         await win.mouse.move(2, 2);
         await expect(tip).toHaveCount(0, { timeout: 5_000 });

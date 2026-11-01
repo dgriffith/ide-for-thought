@@ -92,10 +92,14 @@ export function linkPreview(deps: LinkPreviewDeps): Extension {
           const titleEl = document.createElement('div');
           titleEl.className = 'title';
           titleEl.textContent = preview.title;
-          const body = document.createElement('div');
-          body.className = 'body';
-          body.textContent = preview.snippet || '(empty note)';
-          dom.append(titleEl, body);
+          dom.append(titleEl);
+          // An empty note shows just its title.
+          if (preview.snippet) {
+            const body = document.createElement('div');
+            body.className = 'body';
+            body.textContent = preview.snippet;
+            dom.append(body);
+          }
         }).catch(() => {
           showMissing(dom, target);
         });

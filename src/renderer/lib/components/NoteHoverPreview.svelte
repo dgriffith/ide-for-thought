@@ -161,6 +161,7 @@
       role="tooltip"
       data-export-omit
       data-note-hover-for={subject.key}
+      data-status={status}
       style:left="{pos?.left ?? 0}px"
       style:top="{pos?.top ?? 0}px"
       onpointerenter={() => hover.previewEnter()}
@@ -174,8 +175,8 @@
           <span class="nhp-title-text">{title}</span>
         </div>
         {#if extra}<div class="nhp-extra">{@render extra()}</div>{/if}
-        {#if status === 'ready' && preview}
-          <div class="nhp-snippet">{preview.snippet || '(empty note)'}</div>
+        {#if status === 'ready' && preview?.snippet}
+          <div class="nhp-snippet">{preview.snippet}</div>
         {:else if status === 'loading'}
           <div class="nhp-snippet nhp-loading">…</div>
         {/if}
